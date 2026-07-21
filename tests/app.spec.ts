@@ -140,3 +140,60 @@ test('conserva texto multilínea y mueve con controles sin arrastre accidental',
   await page.reload();
   await expect(page.locator('.note-text')).toContainText('Primera línea\nSegunda línea');
 });
+
+test('reordena libremente, persiste y registra historial solo al cambiar de sección', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.evaluate(() => {
+    const at = '2026-01-01T00:00:00.000Z';
+    localStorage.setItem('escritorio-personal-v1', JSON.stringify({ version: 1, notes: [
+      { id: 'a', text: 'Nota A', color: '#ffe783', status: 'todo', history: [{ status: 'todo', at }] },
+      { id: 'b', text: 'Nota B', color: '#f7b7c3', status: 'todo', history: [{ status: 'todo', at }] },
+      { id: 'c', text: 'Nota C', color: '#bde7c6', status: 'todo', history: [{ status: 'todo', at }] },
+      { id: 'd', text: 'Nota D', color: '#bcdcf6', status: 'doing', history: [{ status: 'doing', at }] },
+    ], folders: [], expenses: [] }));
+  });
+  await page.reload();
+  const texts = (column: number) => page.locator('.column').nth(column).locator('.note-text').allTextContents();
+  const dragTo = async (sourceId: string, targetId: string, columnIndex: number, position: 'before' | 'after' = 'before') => {
+    const column = page.locator('.column').nth(columnIndex);
+    await column.evaluate((targetColumn, { sourceId, targetId, position }) => {
+      const source = document.querySelector<HTMLElement>(`.note[data-note-id="${sourceId}"]`)!;
+      const target = document.querySelector<HTMLElement>(`.note[data-note-id="${targetId}"]`)!;
+      const rect = target.getBoundingClientRect();
+      const clientX = position === 'before' ? rect.left + 2 : rect.right - 2;
+      const clientY = position === 'before' ? rect.top + 2 : rect.bottom - 2;
+      const transfer = new DataTransfer();
+      source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+      targetColumn.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientX, clientY, dataTransfer: transfer }));
+      targetColumn.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, clientX, clientY, dataTransfer: transfer }));
+      source.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: transfer }));
+    }, { sourceId, targetId, position });
+  };
+
+  await dragTo('a', 'c', 0, 'after');
+  await expect.poll(() => texts(0)).toEqual(['Nota B', 'Nota C', 'Nota A']);
+  await dragTo('c', 'b', 0);
+  await expect.poll(() => texts(0)).toEqual(['Nota C', 'Nota B', 'Nota A']);
+  await dragTo('b', 'c', 0);
+  await dragTo('a', 'c', 0);
+  await expect.poll(() => texts(0)).toEqual(['Nota B', 'Nota A', 'Nota C']);
+  let stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1')!));
+  expect(stored.notes.find((note: { id: string }) => note.id === 'b').history).toHaveLength(1);
+  await page.reload();
+  await expect.poll(() => texts(0)).toEqual(['Nota B', 'Nota A', 'Nota C']);
+
+  await dragTo('c', 'd', 1);
+  await expect.poll(() => texts(1)).toEqual(['Nota C', 'Nota D']);
+  stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1')!));
+  const moved = stored.notes.find((note: { id: string }) => note.id === 'c');
+  expect(moved.status).toBe('doing');
+  expect(moved.history).toHaveLength(2);
+
+  await page.locator('.note[data-note-id="d"]').getByRole('button', { name: 'Mover una posición antes' }).focus();
+  await page.keyboard.press('Enter');
+  await expect.poll(() => texts(1)).toEqual(['Nota D', 'Nota C']);
+  await expect(page.locator('.note[data-note-id="d"]').getByRole('button', { name: 'Mover una posición antes' })).toBeDisabled();
+  await expect(page.locator('[aria-live="polite"]')).toContainText('Nota D: orden actualizado');
+  stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1')!));
+  expect(stored.notes.find((note: { id: string }) => note.id === 'd').history).toHaveLength(1);
+});
