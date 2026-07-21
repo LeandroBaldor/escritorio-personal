@@ -1,0 +1,2 @@
+import{HashRouter,Routes,Route}from'react-router-dom';import{DataProvider}from'./DataContext';import{Layout}from'./Layout';import{Board}from'../features/board/Board';import{Journal}from'../features/journal/Journal';import{Expenses}from'../features/expenses/Expenses';
+export default function App(){return <DataProvider><HashRouter><Routes><Route element={<Layout/>}><Route index element={<Board/>}/><Route path="diario" element={<Journal/>}/><Route path="gastos" element={<Expenses/>}/></Route></Routes></HashRouter></DataProvider>}

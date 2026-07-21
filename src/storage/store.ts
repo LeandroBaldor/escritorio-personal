@@ -1,0 +1,6 @@
+import {Data,EMPTY,isData} from './model';
+const KEY='escritorio-personal-v1', BAD='escritorio-personal-corrupto';
+export function load():{data:Data;warning?:string}{let raw:string|null;try{raw=localStorage.getItem(KEY)}catch{return{data:structuredClone(EMPTY),warning:'El navegador bloqueó el almacenamiento local. Los cambios podrían no conservarse.'}}if(!raw)return{data:structuredClone(EMPTY)};try{const parsed:unknown=JSON.parse(raw);if(!isData(parsed))throw Error();return{data:parsed}}catch{try{localStorage.setItem(BAD,raw)}catch{return{data:structuredClone(EMPTY),warning:'Los datos locales están dañados y no se pudo guardar una copia de diagnóstico.'}}return{data:structuredClone(EMPTY),warning:'Encontramos datos dañados. Guardamos una copia para diagnóstico y comenzamos de forma segura.'}}}
+export function save(data:Data){try{localStorage.setItem(KEY,JSON.stringify(data));return undefined}catch{return'No pudimos guardar los cambios en este dispositivo. Revisá el espacio o los permisos del navegador.'}}
+export function serialize(data:Data){return JSON.stringify(data,null,2)}
+export function parseBackup(raw:string){const value:unknown=JSON.parse(raw);if(!isData(value))throw new Error('La copia no pertenece a una versión compatible.');return value}

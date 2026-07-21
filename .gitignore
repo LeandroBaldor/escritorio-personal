@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.agents/
+_bmad/
+_bmad-output/
+playwright-report/
+test-results/
+*.log
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
