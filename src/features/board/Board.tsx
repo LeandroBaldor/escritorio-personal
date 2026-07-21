@@ -8,6 +8,13 @@ const columns: { status: Status; label: string }[] = [
   { status: 'doing', label: 'En progreso' },
   { status: 'done', label: 'Terminado' },
 ];
+const colorNames: Record<string, string> = {
+  '#ffe783': 'Amarillo',
+  '#f7b7c3': 'Rosa',
+  '#bde7c6': 'Verde',
+  '#bcdcf6': 'Celeste',
+  '#e3c5f4': 'Lila',
+};
 
 function Card({ note, update, move, remove }: { note: Note; update: (patch: Partial<Note>) => void; move: (status: Status) => void; remove: () => void }) {
   const [draft, setDraft] = useState(note.text);
@@ -74,13 +81,13 @@ export function Board() {
         <div><p className="eyebrow">Tu mesa de hoy</p><h1>Notas del escritorio</h1></div>
         <form onSubmit={add} className="new-note">
           <label>Nueva nota<input value={text} onChange={event => setText(event.target.value)} placeholder="¿Qué necesitás recordar?" /></label>
-          <label>Color<select value={color} onChange={event => setColor(event.target.value)}>{COLORS.map(option => <option key={option} value={option}>{option}</option>)}</select></label>
+          <fieldset className="color-picker"><legend>Color</legend>{COLORS.map(option => <button key={option} type="button" className={color === option ? 'chosen' : ''} style={{ backgroundColor: option }} aria-label={colorNames[option]} title={colorNames[option]} aria-pressed={color === option} onClick={() => setColor(option)}><span aria-hidden="true">✓</span></button>)}</fieldset>
           <button>Agregar nota</button>
         </form>
       </div>
       <div className="desk-objects" aria-label="Objetos del escritorio">
-        <Link className="notebook" to="/diario"><span>Mi diario</span><small>Abrir libreta</small></Link>
-        <Link className="calc-object" to="/gastos"><span aria-hidden="true">7 8 9<br />4 5 6<br />1 2 3</span><strong>Gastos</strong></Link>
+        <Link className="notebook" to="/diario" aria-label="Mi diario"><span className="notebook-binding" aria-hidden="true" /><span>Mi diario</span><small>Abrir libreta</small></Link>
+        <Link className="calc-object" to="/gastos" aria-label="Gastos"><span aria-hidden="true">7 8 9<br />4 5 6<br />1 2 3</span><strong>Gastos</strong></Link>
       </div>
       <div className="board">
         {columns.map(column => (
