@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { COLORS, id, Note, Status } from '../../storage/model';
 import { useData } from '../../app/DataContext';
@@ -16,23 +16,26 @@ const colorNames: Record<string, string> = {
   '#e3c5f4': 'Lila',
 };
 
-function Card({ note, update, move, remove }: { note: Note; update: (patch: Partial<Note>) => void; move: (status: Status) => void; remove: () => void }) {
-  const [draft, setDraft] = useState(note.text);
+function Card({ note, move, remove }: { note: Note; move: (status: Status) => void; remove: () => void }) {
+  const dragBlocked = useRef(false);
   const history = (note.history ?? []).filter(
     entry => columns.some(column => column.status === entry?.status) && !Number.isNaN(Date.parse(entry?.at)),
   );
   const columnIndex = columns.findIndex(column => column.status === note.status);
   const previous = columns[columnIndex - 1];
   const next = columns[columnIndex + 1];
-  const commit = () => {
-    const value = draft.trim();
-    if (value) update({ text: value });
-    else setDraft(note.text);
-  };
-
   return (
-    <article className="note" style={{ background: note.color }} draggable onDragStart={event => event.dataTransfer.setData('note', note.id)}>
-      <textarea aria-label="Texto de nota" value={draft} onChange={event => setDraft(event.target.value)} onBlur={commit} />
+    <article className="note" style={{ background: note.color }} draggable onPointerDownCapture={event => {
+      dragBlocked.current = Boolean((event.target as HTMLElement).closest('button, summary, details, a, input, textarea, select'));
+    }} onDragEnd={() => { dragBlocked.current = false; }} onDragStart={event => {
+      if (dragBlocked.current) {
+        event.preventDefault();
+        dragBlocked.current = false;
+        return;
+      }
+      event.dataTransfer.setData('note', note.id);
+    }}>
+      <div className="note-text">{note.text}</div>
       <small>{history.at(-1) ? `Desde ${new Date(history.at(-1)!.at).toLocaleString()}` : 'Sin fecha disponible'}</small>
       <details>
         <summary>Historial</summary>
@@ -100,7 +103,6 @@ export function Board() {
               <Card
                 key={note.id}
                 note={note}
-                update={patch => update(note.id, patch)}
                 move={status => move(note, status)}
                 remove={() => confirm('¿Borrar esta nota?') && setData(current => ({ ...current, notes: current.notes.filter(item => item.id !== note.id) }))}
               />

@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test';
 
 test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await page.goto('/escritorio-personal/');
-  await expect(page.getByRole('navigation').getByRole('link')).toHaveText(['Notas']);
+  await expect(page.getByRole('navigation')).toHaveCount(0);
+  await expect(page.locator('header')).not.toContainText('Notas');
   await expect(page.locator('header').getByRole('link', { name: 'Mi diario' })).toHaveCount(0);
   await expect(page.locator('header').getByRole('link', { name: 'Gastos' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Mi diario', exact: true })).toBeVisible();
@@ -13,16 +14,32 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Rosa' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText(/^#/)).toHaveCount(0);
   await page.getByRole('button', { name: 'Agregar nota' }).click();
+  await expect(page.getByText('Pagar luz', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Texto de nota')).toHaveCount(0);
+  await expect(page.locator('.note textarea, .note input')).toHaveCount(0);
+  const fold = await page.locator('.note').evaluate(element => {
+    const style = getComputedStyle(element, '::after');
+    return { top: style.top, right: style.right, pointerEvents: style.pointerEvents, borderBottomWidth: style.borderBottomWidth };
+  });
+  expect(fold).toEqual({ top: '0px', right: '0px', pointerEvents: 'none', borderBottomWidth: '20px' });
   await expect(page.locator('.palette')).toHaveCount(0);
   await expect(page.getByText('Mover a', { exact: true })).toHaveCount(0);
   const noteWidth = await page.locator('.note').evaluate(element => element.getBoundingClientRect().width);
   const columnWidth = await page.locator('.column').first().evaluate(element => element.getBoundingClientRect().width);
-  expect(noteWidth).toBeLessThanOrEqual(columnWidth * .55);
-  await page.getByRole('button', { name: 'Mover a En progreso' }).click();
+  if ((page.viewportSize()?.width ?? 0) <= 480) {
+    expect(noteWidth).toBeGreaterThan(columnWidth * .9);
+  } else {
+    expect(noteWidth).toBeLessThanOrEqual(columnWidth * .55);
+  }
+  await page.locator('.note-text').evaluate((source, target) => {
+    const transfer = new DataTransfer();
+    source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }));
+    target.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: transfer }));
+  }, await page.locator('.column').nth(1).elementHandle());
   await page.getByText('Historial').click();
   await expect(page.getByText('En progreso:', { exact: false })).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel('Texto de nota')).toHaveValue('Pagar luz');
+  await expect(page.getByText('Pagar luz', { exact: true })).toBeVisible();
   await expect(page.locator('.note')).toHaveCSS('background-color', 'rgb(247, 183, 195)');
   await page.getByRole('link', { name: 'Mi diario', exact: true }).click();
   page.once('dialog', dialog => dialog.accept('Semana'));
@@ -93,9 +110,33 @@ test('rechaza backup inválido y restaura uno válido con confirmación', async 
     await dialog.accept();
   });
   await page.locator('input[type=file]').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{}') });
-  const backup = { version: 1, notes: [{ id: 'n', text: 'Restaurada', color: '#ffe783', status: 'todo', history: [{ status: 'todo', at: '2026-01-01T00:00:00.000Z' }] }], folders: [], expenses: [] };
+  const backup = { version: 1, notes: [{ id: 'n', text: 'Restaurada\nSegunda línea', color: '#ffe783', status: 'todo', history: [{ status: 'todo', at: '2026-01-01T00:00:00.000Z' }] }], folders: [], expenses: [] };
   await page.locator('input[type=file]').setInputFiles({ name: 'ok.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) });
   await expect(page.getByRole('dialog', { name: '¿Restaurar esta copia?' })).toBeVisible();
   await page.getByRole('button', { name: 'Confirmar restauración' }).click();
-  await expect(page.getByLabel('Texto de nota')).toHaveValue('Restaurada');
+  await expect(page.locator('.note-text')).toHaveText('Restaurada\nSegunda línea');
+  await expect(page.locator('.note textarea, .note input')).toHaveCount(0);
+});
+
+test('conserva texto multilínea y mueve con controles sin arrastre accidental', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Primera línea\nSegunda línea');
+  await page.getByRole('button', { name: 'Agregar nota' }).click();
+  const note = page.locator('.note');
+  await expect(note.locator('.note-text')).toHaveCSS('white-space', 'pre-wrap');
+  await expect(note.locator('.note-text')).toContainText('Primera línea\nSegunda línea');
+  await note.getByText('Historial').click();
+  await expect(note.locator('details')).toHaveAttribute('open', '');
+  await expect(page.locator('.column').first().locator('.note')).toHaveCount(1);
+  const blockedDrag = await note.evaluate(element => {
+    element.querySelector('summary')!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    const drag = new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() });
+    return !element.dispatchEvent(drag);
+  });
+  expect(blockedDrag).toBe(true);
+  await note.getByRole('button', { name: 'Mover a En progreso' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.column').nth(1).locator('.note')).toHaveCount(1);
+  await page.reload();
+  await expect(page.locator('.note-text')).toContainText('Primera línea\nSegunda línea');
 });
