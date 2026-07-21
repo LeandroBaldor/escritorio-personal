@@ -118,7 +118,7 @@ test('rechaza backup inválido y restaura uno válido con confirmación', async 
   await expect(page.locator('.note textarea, .note input')).toHaveCount(0);
 });
 
-test('conserva texto multilínea y mueve con controles sin arrastre accidental', async ({ page }) => {
+test('conserva texto multilínea y permite mover solo arrastrando la tarjeta', async ({ page }) => {
   await page.goto('/escritorio-personal/');
   await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Primera línea\nSegunda línea');
   await page.getByRole('button', { name: 'Agregar nota' }).click();
@@ -134,9 +134,9 @@ test('conserva texto multilínea y mueve con controles sin arrastre accidental',
     return !element.dispatchEvent(drag);
   });
   expect(blockedDrag).toBe(true);
-  await note.getByRole('button', { name: 'Mover a En progreso' }).focus();
-  await page.keyboard.press('Enter');
-  await expect(page.locator('.column').nth(1).locator('.note')).toHaveCount(1);
+  await expect(note).toHaveAttribute('draggable', 'true');
+  await expect(note.locator('.note-actions, .note-order-actions')).toHaveCount(0);
+  await expect(note.getByRole('button')).toHaveCount(1);
   await page.reload();
   await expect(page.locator('.note-text')).toContainText('Primera línea\nSegunda línea');
 });
@@ -189,11 +189,8 @@ test('reordena libremente, persiste y registra historial solo al cambiar de secc
   expect(moved.status).toBe('doing');
   expect(moved.history).toHaveLength(2);
 
-  await page.locator('.note[data-note-id="d"]').getByRole('button', { name: 'Mover una posición antes' }).focus();
-  await page.keyboard.press('Enter');
-  await expect.poll(() => texts(1)).toEqual(['Nota D', 'Nota C']);
-  await expect(page.locator('.note[data-note-id="d"]').getByRole('button', { name: 'Mover una posición antes' })).toBeDisabled();
-  await expect(page.locator('[aria-live="polite"]')).toContainText('Nota D: orden actualizado');
+  await expect(page.locator('.note-actions, .note-order-actions')).toHaveCount(0);
+  await expect(page.locator('.note[data-note-id="d"]')).toHaveAttribute('draggable', 'true');
   stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!));
   expect(stored.notes.find((note: { id: string }) => note.id === 'd').history).toHaveLength(1);
 });

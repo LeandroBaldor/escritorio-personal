@@ -44,11 +44,18 @@ export function Layout() {
     <header>
       <Link className="brand" to="/">Escritorio Personal</Link>
       <div className="backup">
-        <button onClick={download}>Exportar</button>
-        <button ref={importButton} onClick={() => input.current?.click()}>Importar</button>
-        <input ref={input} hidden type="file" accept="application/json" onChange={pick} />
-        <span className="sync-status" role="status">{syncState === 'saving' ? 'Guardando…' : syncState === 'synced' ? 'Sincronizado' : syncState === 'conflict' ? 'Conflicto' : syncState === 'error' ? 'Sin conexión' : 'Cargando…'}</span>
-        <span className="identity" title={user?.email}>{user?.email}</span>
+        <div className="backup-actions">
+          <button onClick={download}>Exportar</button>
+          <button ref={importButton} onClick={() => input.current?.click()}>Importar</button>
+          <input ref={input} hidden type="file" accept="application/json" onChange={pick} />
+        </div>
+        <div className="account-summary">
+          <span className={`sync-status sync-status--${syncState}`} role="status">
+            <span className="sync-dot" aria-hidden="true" />
+            {syncState === 'saving' ? 'Guardando…' : syncState === 'synced' ? 'Sincronizado' : syncState === 'conflict' ? 'Conflicto' : syncState === 'error' ? 'Sin conexión' : 'Cargando…'}
+          </span>
+          <span className="identity">{user?.email}</span>
+        </div>
         <button onClick={() => void signOut()}>Salir</button>
       </div>
     </header>

@@ -72,26 +72,26 @@ function insertionIndex(column: HTMLElement, draggedId: string, x: number, y: nu
   return cards.length;
 }
 
-function Card({ note, move, remove, reorder, position, total, dragging, dropSide, onDragStart, onDragEnd }: {
+function Card({ note, remove, dragging, dropSide, onDragStart, onDragEnd, onTouchPointerDown, onTouchPointerMove, onTouchPointerUp }: {
   note: Note;
-  move: (status: Status) => void;
   remove: () => void;
-  reorder: (delta: -1 | 1) => void;
-  position: number;
-  total: number;
   dragging: boolean;
   dropSide?: 'before' | 'after';
   onDragStart: (event: DragEvent<HTMLElement>) => void;
   onDragEnd: () => void;
+  onTouchPointerDown: (event: React.PointerEvent<HTMLElement>) => void;
+  onTouchPointerMove: (event: React.PointerEvent<HTMLElement>) => void;
+  onTouchPointerUp: (event: React.PointerEvent<HTMLElement>) => void;
 }) {
   const dragBlocked = useRef(false);
   const history = validHistory(note);
-  const columnIndex = columns.findIndex(column => column.status === note.status);
-  const previous = columns[columnIndex - 1];
-  const next = columns[columnIndex + 1];
   return (
-    <article data-note-id={note.id} className={`note${dragging ? ' note--dragging' : ''}${dropSide ? ` note--drop-${dropSide}` : ''}`} style={{ background: note.color }} draggable
+    <article data-note-id={note.id} className={`note${dragging ? ' note--dragging' : ''}${dropSide ? ` note--drop-${dropSide}` : ''}`} style={{ background: note.color }} draggable aria-label={`${note.text}. Arrastrá la tarjeta para moverla.`}
       onPointerDownCapture={event => { dragBlocked.current = Boolean((event.target as HTMLElement).closest('button, summary, details, a, input, textarea, select')); }}
+      onPointerDown={event => { if (!dragBlocked.current) onTouchPointerDown(event); }}
+      onPointerMove={onTouchPointerMove}
+      onPointerUp={onTouchPointerUp}
+      onPointerCancel={onTouchPointerUp}
       onDragEnd={() => { dragBlocked.current = false; onDragEnd(); }}
       onDragStart={event => {
         if (dragBlocked.current || (event.target as HTMLElement).closest('button, summary, details, a, input, textarea, select')) {
@@ -102,14 +102,6 @@ function Card({ note, move, remove, reorder, position, total, dragging, dropSide
       <div className="note-text">{note.text}</div>
       <small>{history.at(-1) ? `Desde ${new Date(history.at(-1)!.at).toLocaleString()}` : 'Sin fecha disponible'}</small>
       <details><summary>Historial</summary>{history.map((entry, index) => <div key={`${entry.at}-${index}`}>{columns.find(column => column.status === entry.status)?.label}: {new Date(entry.at).toLocaleString()}</div>)}</details>
-      <div className="note-order-actions" role="group" aria-label={`Cambiar orden: posición ${position} de ${total}`}>
-        <button type="button" aria-label="Mover una posición antes" title="Mover una posición antes" disabled={position === 1} onClick={() => reorder(-1)}>⇤</button>
-        <button type="button" aria-label="Mover una posición después" title="Mover una posición después" disabled={position === total} onClick={() => reorder(1)}>⇥</button>
-      </div>
-      <div className="note-actions" role="group" aria-label="Mover nota">
-        {previous && <button type="button" aria-label={`Mover a ${previous.label}`} title={`Mover a ${previous.label}`} onClick={() => move(previous.status)}>←</button>}
-        {next && <button type="button" aria-label={`Mover a ${next.label}`} title={`Mover a ${next.label}`} onClick={() => move(next.status)}>→</button>}
-      </div>
       <button className="delete" onClick={remove}>Borrar</button>
     </article>
   );
@@ -122,11 +114,14 @@ export function Board() {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [announcement, setAnnouncement] = useState('');
+  const pointerDrag = useRef<{ id: string; pointerId: number; startX: number; startY: number; active: boolean } | null>(null);
   const clearDrag = () => { setDraggedId(null); setDropTarget(null); };
   const place = (noteId: string, status: Status, requestedIndex: number | ((notes: Note[]) => number)) => {
     const source = data.notes.find(note => note.id === noteId);
     if (!source) return;
     const at = new Date().toISOString();
+    const initialIndex = typeof requestedIndex === 'function' ? requestedIndex(data.notes) : requestedIndex;
+    if (reorderNotes(data.notes, noteId, status, initialIndex, at) === data.notes) return;
     setData(current => {
       const index = typeof requestedIndex === 'function' ? requestedIndex(current.notes) : requestedIndex;
       const nextNotes = reorderNotes(current.notes, noteId, status, index, at);
@@ -134,17 +129,6 @@ export function Board() {
       return { ...current, notes: nextNotes };
     });
     setAnnouncement(`${source.text}: orden actualizado en ${columns.find(column => column.status === status)?.label}`);
-  };
-  const move = (note: Note, status: Status) => {
-    if (note.status === status) return;
-    place(note.id, status, notes => notes.filter(item => item.status === status && item.id !== note.id).length);
-  };
-  const reorder = (note: Note, delta: -1 | 1) => {
-    place(note.id, note.status, notes => {
-      const siblings = notes.filter(item => item.status === note.status);
-      const current = siblings.findIndex(item => item.id === note.id);
-      return Math.max(0, Math.min(current + delta, siblings.length - 1));
-    });
   };
   const add = (event: FormEvent) => {
     event.preventDefault(); if (!text.trim()) return;
@@ -160,6 +144,35 @@ export function Board() {
     const index = insertionIndex(event.currentTarget, noteId, event.clientX, event.clientY);
     setDropTarget(current => current?.status === status && current.index === index ? current : { status, index });
   };
+  const pointerTarget = (event: React.PointerEvent<HTMLElement>) => {
+    const column = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('.column');
+    const status = column?.dataset.status as Status | undefined;
+    if (!column || !status || !columns.some(item => item.status === status)) return null;
+    return { status, index: insertionIndex(column, pointerDrag.current?.id ?? '', event.clientX, event.clientY) };
+  };
+  const startTouchDrag = (event: React.PointerEvent<HTMLElement>, noteId: string) => {
+    if (event.pointerType === 'mouse') return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pointerDrag.current = { id: noteId, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, active: false };
+  };
+  const moveTouchDrag = (event: React.PointerEvent<HTMLElement>) => {
+    const drag = pointerDrag.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 8) return;
+    drag.active = true;
+    event.preventDefault();
+    setDraggedId(drag.id);
+    const target = pointerTarget(event);
+    setDropTarget(current => target && current?.status === target.status && current.index === target.index ? current : target);
+  };
+  const endTouchDrag = (event: React.PointerEvent<HTMLElement>) => {
+    const drag = pointerDrag.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const target = drag.active ? pointerTarget(event) : null;
+    pointerDrag.current = null;
+    if (target) place(drag.id, target.status, target.index);
+    clearDrag();
+  };
   return (
     <section>
       <div className="section-title">
@@ -174,6 +187,7 @@ export function Board() {
         <Link className="notebook" to="/diario" aria-label="Mi diario"><span className="notebook-binding" aria-hidden="true" /><span>Mi diario</span><small>Abrir libreta</small></Link>
         <Link className="calc-object" to="/gastos" aria-label="Gastos"><span aria-hidden="true">7 8 9<br />4 5 6<br />1 2 3</span><strong>Gastos</strong></Link>
       </div>
+      <p className="drag-hint">Arrastrá cualquier nota para cambiarla de lugar o de sección.</p>
       <div className="board" onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTarget(null); }}>
         {columns.map(column => {
           const notes = data.notes.filter(note => note.status === column.status);
@@ -190,13 +204,13 @@ export function Board() {
             <h2>{column.label}<span>{notes.length}</span></h2>
             {(() => {
               const visibleWithoutDragged = notes.filter(item => item.id !== draggedId);
-              return notes.map((note, noteIndex) => {
+              return notes.map(note => {
               const targetCard = dropTarget?.status === column.status && dropTarget.index < visibleWithoutDragged.length ? visibleWithoutDragged[dropTarget.index].id : null;
               const isLastTarget = dropTarget?.status === column.status && dropTarget.index === visibleWithoutDragged.length && note.id === visibleWithoutDragged.at(-1)?.id;
-              return <Card key={note.id} note={note} move={status => move(note, status)} reorder={delta => reorder(note, delta)}
-                position={noteIndex + 1} total={notes.length}
+              return <Card key={note.id} note={note}
                 dragging={draggedId === note.id} dropSide={targetCard === note.id ? 'before' : isLastTarget ? 'after' : undefined}
                 onDragStart={event => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData(NOTE_MIME, note.id); setDraggedId(note.id); }}
+                onTouchPointerDown={event => startTouchDrag(event, note.id)} onTouchPointerMove={moveTouchDrag} onTouchPointerUp={endTouchDrag}
                 onDragEnd={clearDrag} remove={() => confirm('¿Borrar esta nota?') && setData(current => ({ ...current, notes: current.notes.filter(item => item.id !== note.id) }))} />;
               });
             })()}
