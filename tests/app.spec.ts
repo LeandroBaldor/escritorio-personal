@@ -64,7 +64,7 @@ test('renombra y borra carpetas de forma segura', async ({ page }) => {
   }
   await page.getByRole('button', { name: 'Segunda', exact: true }).click();
   await page.getByLabel('Página del diario').fill('Texto que debe conservarse');
-  const before = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1')!).folders.find((folder: { name: string }) => folder.name === 'Segunda'));
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!).folders.find((folder: { name: string }) => folder.name === 'Segunda'));
 
   page.once('dialog', dialog => dialog.accept('   '));
   await page.getByRole('button', { name: 'Editar nombre' }).click();
@@ -75,7 +75,7 @@ test('renombra y borra carpetas de forma segura', async ({ page }) => {
   await page.reload();
   await page.getByRole('button', { name: 'Semana', exact: true }).click();
   await expect(page.getByLabel('Página del diario')).toHaveValue('Texto que debe conservarse');
-  const after = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1')!).folders.find((folder: { name: string }) => folder.name === 'Semana'));
+  const after = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!).folders.find((folder: { name: string }) => folder.name === 'Semana'));
   expect(after.id).toBe(before.id);
   expect(after.pages[0].id).toBe(before.pages[0].id);
 
@@ -145,7 +145,7 @@ test('reordena libremente, persiste y registra historial solo al cambiar de secc
   await page.goto('/escritorio-personal/');
   await page.evaluate(() => {
     const at = '2026-01-01T00:00:00.000Z';
-    localStorage.setItem('escritorio-personal-v1', JSON.stringify({ version: 1, notes: [
+    localStorage.setItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001', JSON.stringify({ version: 1, notes: [
       { id: 'a', text: 'Nota A', color: '#ffe783', status: 'todo', history: [{ status: 'todo', at }] },
       { id: 'b', text: 'Nota B', color: '#f7b7c3', status: 'todo', history: [{ status: 'todo', at }] },
       { id: 'c', text: 'Nota C', color: '#bde7c6', status: 'todo', history: [{ status: 'todo', at }] },
@@ -177,14 +177,14 @@ test('reordena libremente, persiste y registra historial solo al cambiar de secc
   await dragTo('b', 'c', 0);
   await dragTo('a', 'c', 0);
   await expect.poll(() => texts(0)).toEqual(['Nota B', 'Nota A', 'Nota C']);
-  let stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1')!));
+  let stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!));
   expect(stored.notes.find((note: { id: string }) => note.id === 'b').history).toHaveLength(1);
   await page.reload();
   await expect.poll(() => texts(0)).toEqual(['Nota B', 'Nota A', 'Nota C']);
 
   await dragTo('c', 'd', 1);
   await expect.poll(() => texts(1)).toEqual(['Nota C', 'Nota D']);
-  stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1')!));
+  stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!));
   const moved = stored.notes.find((note: { id: string }) => note.id === 'c');
   expect(moved.status).toBe('doing');
   expect(moved.history).toHaveLength(2);
@@ -194,6 +194,6 @@ test('reordena libremente, persiste y registra historial solo al cambiar de secc
   await expect.poll(() => texts(1)).toEqual(['Nota D', 'Nota C']);
   await expect(page.locator('.note[data-note-id="d"]').getByRole('button', { name: 'Mover una posición antes' })).toBeDisabled();
   await expect(page.locator('[aria-live="polite"]')).toContainText('Nota D: orden actualizado');
-  stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1')!));
+  stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!));
   expect(stored.notes.find((note: { id: string }) => note.id === 'd').history).toHaveLength(1);
 });

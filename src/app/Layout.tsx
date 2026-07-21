@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { parseBackup, serialize } from '../storage/store';
 import { useData } from './DataContext';
+import { useAuth } from './AuthContext';
 
 export function Layout() {
-  const { data, setData, warning } = useData();
+  const { data, setData, warning, syncState, retry, loadRemote } = useData();
+  const { user, signOut, error: authError } = useAuth();
   const input = useRef<HTMLInputElement>(null);
   const importButton = useRef<HTMLButtonElement>(null);
   const confirmButton = useRef<HTMLButtonElement>(null);
@@ -45,9 +47,12 @@ export function Layout() {
         <button onClick={download}>Exportar</button>
         <button ref={importButton} onClick={() => input.current?.click()}>Importar</button>
         <input ref={input} hidden type="file" accept="application/json" onChange={pick} />
+        <span className="sync-status" role="status">{syncState === 'saving' ? 'Guardando…' : syncState === 'synced' ? 'Sincronizado' : syncState === 'conflict' ? 'Conflicto' : syncState === 'error' ? 'Sin conexión' : 'Cargando…'}</span>
+        <span className="identity" title={user?.email}>{user?.email}</span>
+        <button onClick={() => void signOut()}>Salir</button>
       </div>
     </header>
-    {warning && <p role="alert" className="warning">{warning}</p>}
+    {(warning || authError) && <p role="alert" className="warning">{warning ?? authError} {syncState === 'error' && <button onClick={retry}>Reintentar</button>} {syncState === 'conflict' && <button onClick={loadRemote}>Cargar versión remota</button>}</p>}
     <main><Outlet /></main>
     {pending && <div className="modal" role="dialog" aria-modal="true" aria-labelledby="restore-title"><div>
       <h2 id="restore-title">¿Restaurar esta copia?</h2>
