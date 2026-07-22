@@ -61,12 +61,29 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await expect(deleteJournal).toHaveCSS('outline-color', 'rgb(244, 189, 88)');
   await page.getByRole('link', { name: 'Escritorio Personal' }).click();
   await page.getByRole('link', { name: 'Gastos', exact: true }).click();
+  const today = await page.evaluate(() => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; });
+  await expect(page.getByLabel('Fecha del gasto')).toHaveValue(today);
+  const formLabels = page.locator('.calculator form label');
+  await expect(formLabels.nth(0)).toContainText('Gasto');
+  await expect(formLabels.nth(1)).toContainText('Fecha');
+  await expect(formLabels.nth(2)).toContainText('Monto');
   await page.getByPlaceholder('Ej. Electricidad').fill('Electricidad');
   await page.getByPlaceholder('0,00').fill('12,34');
   await page.getByRole('button', { name: 'Agregar' }).click();
+  await expect(page.locator('.expense-row .money-input')).toContainText('$');
+  await expect(page.getByLabel('Monto en pesos', { exact: true })).toHaveValue('12,34');
   await expect(page.locator('.total strong')).toContainText('12,34');
+  await expect(page.locator('.total strong')).toContainText('$');
+  await expect(page.getByLabel('Fecha', { exact: true })).toHaveValue(today);
+  await page.getByLabel('Fecha', { exact: true }).fill('2026-07-21');
+  await page.getByLabel('Fecha', { exact: true }).blur();
+  await page.getByLabel('Monto en pesos', { exact: true }).fill('15.5');
+  await page.getByLabel('Monto en pesos', { exact: true }).blur();
+  await expect(page.getByLabel('Monto en pesos', { exact: true })).toHaveValue('15,50');
   await page.reload();
   await expect(page.getByLabel('Concepto')).toHaveValue('Electricidad');
+  await expect(page.getByLabel('Fecha', { exact: true })).toHaveValue('2026-07-21');
+  await expect(page.getByLabel('Monto en pesos', { exact: true })).toHaveValue('15,50');
 });
 
 test('renombra y borra carpetas de forma segura', async ({ page }) => {
