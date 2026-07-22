@@ -24,13 +24,28 @@ export const parseExpenseDate = (display: string) => {
 
 function DateInput({ id, value, onChange, onBlur, onEnter, onCalendarSelect, label }: { id: string; value: string; onChange: (value: string) => void; onBlur?: () => void; onEnter?: () => void; onCalendarSelect?: (value: string) => void; label: string }) {
   const isoValue = parseExpenseDate(value) ?? '';
+  const pickerRef = useRef<HTMLInputElement>(null);
   const leaveControl = (event: FocusEvent<HTMLSpanElement>) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onBlur?.();
   };
+  const openPicker = () => {
+    const picker = pickerRef.current;
+    if (!picker) return;
+    try {
+      if (typeof picker.showPicker === 'function') {
+        picker.showPicker();
+        return;
+      }
+    } catch {
+      // Some browsers expose showPicker but restrict it; use their native click path.
+    }
+    picker.focus();
+    picker.click();
+  };
   return <span className="date-input" onBlur={leaveControl}>
     <input id={id} aria-label={label} type="text" inputMode="text" maxLength={10} placeholder="dd/mm/yyyy" value={value} onChange={e => onChange(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') onEnter?.(); }} />
-    <span className="date-picker-icon" aria-hidden="true">&#128197;</span>
-    <input className="native-date-picker" aria-label={`Abrir calendario de ${label.toLowerCase()}`} type="date" value={isoValue} onChange={e => { const display = formatExpenseDate(e.target.value); onChange(display); onCalendarSelect?.(display); }} />
+    <button className="date-picker-icon" type="button" aria-label={`Abrir calendario de ${label.toLowerCase()}`} onClick={openPicker}>&#128197;</button>
+    <input ref={pickerRef} className="native-date-picker" aria-label={`Selector de ${label.toLowerCase()}`} tabIndex={-1} type="date" value={isoValue} onChange={e => { const display = formatExpenseDate(e.target.value); onChange(display); onCalendarSelect?.(display); }} />
   </span>;
 }
 

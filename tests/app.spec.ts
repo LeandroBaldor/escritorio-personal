@@ -65,13 +65,34 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await expect(page.getByLabel('Fecha del gasto', { exact: true })).toHaveValue(today);
   const addCalendar = page.getByLabel('Abrir calendario de fecha del gasto');
   await expect(addCalendar).toBeVisible();
-  await addCalendar.focus();
+  await page.evaluate(() => {
+    (window as typeof window & { calendarOpenCount?: number }).calendarOpenCount = 0;
+    HTMLInputElement.prototype.showPicker = function () {
+      (window as typeof window & { calendarOpenCount?: number }).calendarOpenCount! += 1;
+    };
+  });
+  const calendarBox = await addCalendar.boundingBox();
+  expect(calendarBox).not.toBeNull();
+  await page.mouse.click(calendarBox!.x + calendarBox!.width / 2, calendarBox!.y + calendarBox!.height / 2);
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { calendarOpenCount?: number }).calendarOpenCount)).toBe(1);
+  await page.evaluate(() => {
+    const state = window as typeof window & { calendarFallbackCount?: number };
+    state.calendarFallbackCount = 0;
+    HTMLInputElement.prototype.showPicker = () => { throw new DOMException('Picker unavailable'); };
+    document.querySelector<HTMLInputElement>('input[aria-label="Selector de fecha del gasto"]')!.addEventListener('click', () => { state.calendarFallbackCount! += 1; });
+  });
+  await addCalendar.click();
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { calendarFallbackCount?: number }).calendarFallbackCount)).toBe(1);
+  await page.getByLabel('Fecha del gasto', { exact: true }).focus();
+  await page.keyboard.press('Tab');
   await expect(addCalendar).toBeFocused();
-  await expect(page.locator('.date-input').first()).toHaveCSS('outline-style', 'solid');
+  await expect(addCalendar).toHaveCSS('outline-style', 'solid');
   await expect(addCalendar).toHaveCSS('width', '44px');
   await expect(addCalendar).toHaveCSS('height', '44px');
-  await expect(page.locator('.date-picker-icon').first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await addCalendar.fill('2026-07-23');
+  await expect(addCalendar).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await page.keyboard.press('Tab');
+  await expect(page.getByLabel('Monto del gasto en pesos')).toBeFocused();
+  await page.getByLabel('Selector de fecha del gasto').fill('2026-07-23');
   await expect(page.getByLabel('Fecha del gasto', { exact: true })).toHaveValue('23/07/2026');
   const formLabels = page.locator('.calculator form label');
   await expect(formLabels.nth(0)).toContainText('Gasto');
@@ -98,7 +119,7 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await expect(page.getByLabel('Fecha', { exact: true })).toHaveValue('31/02/2026');
   storedExpense = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!).expenses.find((expense: { concept: string }) => expense.concept === 'Electricidad'));
   expect(storedExpense.date).toBe('2026-07-23');
-  await rowCalendar.fill('2026-07-21');
+  await page.getByLabel('Selector de fecha', { exact: true }).fill('2026-07-21');
   await expect(page.getByLabel('Fecha', { exact: true })).toHaveValue('21/07/2026');
   storedExpense = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!).expenses.find((expense: { concept: string }) => expense.concept === 'Electricidad'));
   expect(storedExpense.date).toBe('2026-07-21');
