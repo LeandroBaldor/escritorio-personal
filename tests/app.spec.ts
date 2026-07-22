@@ -43,8 +43,22 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await expect(page.locator('.note')).toHaveCSS('background-color', 'rgb(247, 183, 195)');
   await page.getByRole('link', { name: 'Mi diario', exact: true }).click();
   page.once('dialog', dialog => dialog.accept('Semana'));
-  await page.getByRole('button', { name: 'Nueva carpeta' }).click();
-  await page.getByLabel('Página del diario').fill('Algo importante');
+  await page.getByRole('button', { name: 'Nuevo diario' }).click();
+  const journalPage = page.getByLabel('Página del diario');
+  await journalPage.fill('Algo importante');
+  await expect(journalPage).toBeFocused();
+  await expect(journalPage).toHaveCSS('outline-style', 'none');
+  await expect(journalPage).toHaveCSS('caret-color', 'rgb(106, 56, 42)');
+  await expect(journalPage).toHaveCSS('line-height', '32px');
+  const journalFont = await journalPage.evaluate(element => getComputedStyle(element).fontFamily);
+  expect(journalFont).toContain('Segoe Print');
+  expect(journalFont).toContain('cursive');
+  await journalPage.press('Shift+Tab');
+  const deleteJournal = page.getByRole('button', { name: 'Borrar diario' });
+  await expect(deleteJournal).toBeFocused();
+  await expect(deleteJournal).toHaveCSS('outline-style', 'solid');
+  await expect(deleteJournal).toHaveCSS('outline-width', '3px');
+  await expect(deleteJournal).toHaveCSS('outline-color', 'rgb(244, 189, 88)');
   await page.getByRole('link', { name: 'Escritorio Personal' }).click();
   await page.getByRole('link', { name: 'Gastos', exact: true }).click();
   await page.getByPlaceholder('Ej. Electricidad').fill('Electricidad');
@@ -60,7 +74,7 @@ test('renombra y borra carpetas de forma segura', async ({ page }) => {
   await page.getByRole('link', { name: 'Mi diario', exact: true }).click();
   for (const name of ['Primera', 'Segunda', 'Tercera']) {
     page.once('dialog', dialog => dialog.accept(name));
-    await page.getByRole('button', { name: 'Nueva carpeta' }).click();
+    await page.getByRole('button', { name: 'Nuevo diario' }).click();
   }
   await page.getByRole('button', { name: 'Segunda', exact: true }).click();
   await page.getByLabel('Página del diario').fill('Texto que debe conservarse');
@@ -80,14 +94,14 @@ test('renombra y borra carpetas de forma segura', async ({ page }) => {
   expect(after.pages[0].id).toBe(before.pages[0].id);
 
   page.once('dialog', dialog => dialog.dismiss());
-  await page.getByRole('button', { name: 'Borrar carpeta' }).click();
+  await page.getByRole('button', { name: 'Borrar diario' }).click();
   await expect(page.getByRole('button', { name: 'Semana', exact: true })).toBeVisible();
   page.once('dialog', dialog => dialog.accept());
-  await page.getByRole('button', { name: 'Borrar carpeta' }).click();
+  await page.getByRole('button', { name: 'Borrar diario' }).click();
   await expect(page.getByText('Tercera · Hoja')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Primera', exact: true })).toBeVisible();
   page.once('dialog', dialog => dialog.accept());
-  await page.getByRole('button', { name: 'Borrar carpeta' }).click();
+  await page.getByRole('button', { name: 'Borrar diario' }).click();
   await expect(page.getByText('Primera · Hoja')).toBeVisible();
 });
 
@@ -97,7 +111,7 @@ test('al borrar la última carpeta muestra el diario vacío', async ({ page }) =
   page.once('dialog', dialog => dialog.accept('Única'));
   await page.getByRole('button', { name: 'Crear mi primera carpeta' }).click();
   page.once('dialog', dialog => dialog.accept());
-  await page.getByRole('button', { name: 'Borrar carpeta' }).click();
+  await page.getByRole('button', { name: 'Borrar diario' }).click();
   await expect(page.getByRole('heading', { name: 'Tu diario está listo' })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Tu diario está listo' })).toBeVisible();
