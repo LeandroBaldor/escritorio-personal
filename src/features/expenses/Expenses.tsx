@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FocusEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import { useData } from '../../app/DataContext';
 import { id, isExpenseDate, parseCents, total, type Expense } from '../../storage/model';
 
@@ -22,8 +22,16 @@ export const parseExpenseDate = (display: string) => {
   return isExpenseDate(iso) ? iso : null;
 };
 
-function DateInput({ value, onChange, onBlur, onEnter, label }: { value: string; onChange: (value: string) => void; onBlur?: () => void; onEnter?: () => void; label: string }) {
-  return <input aria-label={label} type="text" inputMode="text" maxLength={10} placeholder="dd/mm/yyyy" value={value} onChange={e => onChange(e.target.value)} onBlur={onBlur} onKeyDown={e => { if (e.key === 'Enter') onEnter?.(); }} />;
+function DateInput({ id, value, onChange, onBlur, onEnter, onCalendarSelect, label }: { id: string; value: string; onChange: (value: string) => void; onBlur?: () => void; onEnter?: () => void; onCalendarSelect?: (value: string) => void; label: string }) {
+  const isoValue = parseExpenseDate(value) ?? '';
+  const leaveControl = (event: FocusEvent<HTMLSpanElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onBlur?.();
+  };
+  return <span className="date-input" onBlur={leaveControl}>
+    <input id={id} aria-label={label} type="text" inputMode="text" maxLength={10} placeholder="dd/mm/yyyy" value={value} onChange={e => onChange(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') onEnter?.(); }} />
+    <span className="date-picker-icon" aria-hidden="true">&#128197;</span>
+    <input className="native-date-picker" aria-label={`Abrir calendario de ${label.toLowerCase()}`} type="date" value={isoValue} onChange={e => { const display = formatExpenseDate(e.target.value); onChange(display); onCalendarSelect?.(display); }} />
+  </span>;
 }
 
 function MoneyInput({ value, onChange, onBlur, label, placeholder }: { value: string; onChange: (value: string) => void; onBlur?: () => void; label: string; placeholder?: string }) {
@@ -35,11 +43,12 @@ function ExpenseRow({ expense, onChange, onDelete }: { expense: Expense; onChang
   const [date, setDate] = useState(expense.date ? formatExpenseDate(expense.date) : '');
   const [amount, setAmount] = useState(editableMoney(expense.cents));
   const [error, setError] = useState('');
-  useEffect(() => { setConcept(expense.concept); setDate(expense.date ? formatExpenseDate(expense.date) : ''); setAmount(editableMoney(expense.cents)); }, [expense]);
-  const commit = () => {
+  const keepDrafts = useRef(false);
+  useEffect(() => { if (keepDrafts.current) { keepDrafts.current = false; return; } setConcept(expense.concept); setDate(expense.date ? formatExpenseDate(expense.date) : ''); setAmount(editableMoney(expense.cents)); }, [expense]);
+  const commit = (candidateDate = date) => {
     const cents = parseCents(amount);
-    const isoDate = date === '' ? null : parseExpenseDate(date);
-    if (!concept.trim() || cents === null || (date !== '' && isoDate === null)) {
+    const isoDate = candidateDate === '' ? null : parseExpenseDate(candidateDate);
+    if (!concept.trim() || cents === null || (candidateDate !== '' && isoDate === null)) {
       setError('Concepto, fecha o monto inválido.');
       return;
     }
@@ -51,10 +60,16 @@ function ExpenseRow({ expense, onChange, onDelete }: { expense: Expense; onChang
     setAmount(editableMoney(cents));
     setError('');
   };
+  const selectCalendarDate = (display: string) => {
+    const isoDate = parseExpenseDate(display);
+    if (!isoDate) return;
+    keepDrafts.current = true;
+    onChange({ ...expense, date: isoDate });
+  };
   return <div className="expense-row">
-    <input aria-label="Concepto" value={concept} onChange={e => setConcept(e.target.value)} onBlur={commit} />
-    <DateInput label="Fecha" value={date} onChange={setDate} onBlur={commit} onEnter={commit} />
-    <MoneyInput label="Monto en pesos" value={amount} onChange={setAmount} onBlur={commit} />
+    <input aria-label="Concepto" value={concept} onChange={e => setConcept(e.target.value)} onBlur={() => commit()} />
+    <DateInput id={`expense-date-${expense.id}`} label="Fecha" value={date} onChange={setDate} onBlur={() => commit()} onEnter={() => commit()} onCalendarSelect={selectCalendarDate} />
+    <MoneyInput label="Monto en pesos" value={amount} onChange={setAmount} onBlur={() => commit()} />
     <button aria-label="Borrar gasto" onClick={onDelete}>×</button>
     {error && <small role="alert">{error}</small>}
   </div>;
@@ -85,7 +100,7 @@ export function Expenses() {
   };
   return <section><div className="section-title"><div><p className="eyebrow">Control cotidiano</p><h1>Mis gastos</h1></div><div className="total"><small>Total</small><strong>{sumError ? '—' : money(sum)}</strong>{sumError && <small role="alert">{sumError}</small>}</div></div><div className="calculator"><form onSubmit={add}>
     <label>Gasto<input value={concept} onChange={e => setConcept(e.target.value)} placeholder="Ej. Electricidad" /></label>
-    <label>Fecha<DateInput label="Fecha del gasto" value={date} onChange={setDate} /></label>
+    <div className="expense-field"><label htmlFor="new-expense-date">Fecha</label><DateInput id="new-expense-date" label="Fecha del gasto" value={date} onChange={setDate} /></div>
     <label>Monto<MoneyInput label="Monto del gasto en pesos" value={amount} onChange={setAmount} placeholder="0,00" /></label>
     <button>Agregar</button>
     {error && <p role="alert">{error}</p>}
