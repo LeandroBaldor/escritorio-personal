@@ -67,8 +67,10 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await expect(addCalendar).toBeVisible();
   await addCalendar.focus();
   await expect(addCalendar).toBeFocused();
+  await expect(page.locator('.date-input').first()).toHaveCSS('outline-style', 'solid');
   await expect(addCalendar).toHaveCSS('width', '44px');
   await expect(addCalendar).toHaveCSS('height', '44px');
+  await expect(page.locator('.date-picker-icon').first()).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await addCalendar.fill('2026-07-23');
   await expect(page.getByLabel('Fecha del gasto', { exact: true })).toHaveValue('23/07/2026');
   const formLabels = page.locator('.calculator form label');
