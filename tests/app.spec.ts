@@ -61,7 +61,7 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await expect(deleteJournal).toHaveCSS('outline-color', 'rgb(244, 189, 88)');
   await page.getByRole('link', { name: 'Escritorio Personal' }).click();
   await page.getByRole('link', { name: 'Gastos', exact: true }).click();
-  const today = await page.evaluate(() => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; });
+  const today = await page.evaluate(() => { const now = new Date(); return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`; });
   await expect(page.getByLabel('Fecha del gasto')).toHaveValue(today);
   const formLabels = page.locator('.calculator form label');
   await expect(formLabels.nth(0)).toContainText('Gasto');
@@ -75,15 +75,35 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await expect(page.locator('.total strong')).toContainText('12,34');
   await expect(page.locator('.total strong')).toContainText('$');
   await expect(page.getByLabel('Fecha', { exact: true })).toHaveValue(today);
-  await page.getByLabel('Fecha', { exact: true }).fill('2026-07-21');
+  await page.getByLabel('Fecha', { exact: true }).fill('31/02/2026');
   await page.getByLabel('Fecha', { exact: true }).blur();
+  await expect(page.getByLabel('Fecha', { exact: true })).toHaveValue('31/02/2026');
+  await expect(page.getByText('Concepto, fecha o monto inválido.', { exact: true })).toBeVisible();
+  let storedExpense = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!).expenses.find((expense: { concept: string }) => expense.concept === 'Electricidad'));
+  expect(storedExpense.date).toBe(today.split('/').reverse().join('-'));
+  await page.getByLabel('Fecha', { exact: true }).fill('21/07/2026');
+  await page.getByLabel('Fecha', { exact: true }).press('Enter');
   await page.getByLabel('Monto en pesos', { exact: true }).fill('15.5');
   await page.getByLabel('Monto en pesos', { exact: true }).blur();
   await expect(page.getByLabel('Monto en pesos', { exact: true })).toHaveValue('15,50');
   await page.reload();
   await expect(page.getByLabel('Concepto')).toHaveValue('Electricidad');
-  await expect(page.getByLabel('Fecha', { exact: true })).toHaveValue('2026-07-21');
+  await expect(page.getByLabel('Fecha', { exact: true })).toHaveValue('21/07/2026');
+  storedExpense = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!).expenses.find((expense: { concept: string }) => expense.concept === 'Electricidad'));
+  expect(storedExpense.date).toBe('2026-07-21');
   await expect(page.getByLabel('Monto en pesos', { exact: true })).toHaveValue('15,50');
+});
+
+test('mantiene vacía la fecha de un gasto legacy al editar otro campo', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.evaluate(() => localStorage.setItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001', JSON.stringify({ version: 1, notes: [], folders: [], expenses: [{ id: 'legacy', concept: 'Gasto anterior', cents: 1234 }] })));
+  await page.reload();
+  await page.getByRole('link', { name: 'Gastos', exact: true }).click();
+  await expect(page.getByLabel('Fecha', { exact: true })).toHaveValue('');
+  await page.getByLabel('Concepto').fill('Gasto actualizado');
+  await page.getByLabel('Concepto').blur();
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!).expenses[0]);
+  expect(stored).toEqual({ id: 'legacy', concept: 'Gasto actualizado', cents: 1234 });
 });
 
 test('renombra y borra carpetas de forma segura', async ({ page }) => {

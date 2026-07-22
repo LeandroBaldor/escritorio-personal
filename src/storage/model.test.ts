@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { EMPTY, isData, isExpenseDate, parseCents, total } from './model';
 import { load, parseBackup, save, serialize } from './store';
-import { editableMoney, money } from '../features/expenses/Expenses';
+import { editableMoney, formatExpenseDate, money, parseExpenseDate } from '../features/expenses/Expenses';
 
 describe('datos exactos y backup', () => {
   beforeEach(() => localStorage.clear());
@@ -15,6 +15,15 @@ describe('datos exactos y backup', () => {
   });
   it.each(['2024-02-29', '2026-07-22'])('acepta una fecha calendario real: %s', value => expect(isExpenseDate(value)).toBe(true));
   it.each(['0000-01-01', '2023-02-29', '2026-04-31', '2026-13-01', '2026-01-00', '22/07/2026', ''])('rechaza una fecha inexistente o no ISO: %s', value => expect(isExpenseDate(value)).toBe(false));
+  it.each([
+    ['2026-07-21', '21/07/2026'],
+    ['2000-02-29', '29/02/2000'],
+  ])('convierte fecha ISO a formato visible: %s', (iso, display) => {
+    expect(formatExpenseDate(iso)).toBe(display);
+    expect(parseExpenseDate(display)).toBe(iso);
+  });
+  it.each(['31/02/2026', '29/02/1900', '7/07/2026', '07/7/2026', '2026-07-07', '07-07-2026', '', '00/01/2026', '01/13/2026', '21/07/20260', ' 21/07/2026', 'aa/bb/cccc'])('rechaza fecha visible invalida: %s', value => expect(parseExpenseDate(value)).toBeNull());
+  it('no presenta como fecha un ISO invalido', () => expect(formatExpenseDate('2026-02-30')).toBe(''));
   it.each([['1900-02-29',false],['2000-02-29',true]] as const)('valida correctamente años seculares: %s', (value, valid) => expect(isExpenseDate(value)).toBe(valid));
   it('formatea centavos grandes sin perder precisión', () => {
     expect(editableMoney(9007199254740990)).toBe('90071992547409,90');
