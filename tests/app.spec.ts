@@ -96,8 +96,9 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await expect(page.getByLabel('Fecha del gasto', { exact: true })).toHaveValue('23/07/2026');
   const formLabels = page.locator('.calculator form label');
   await expect(formLabels.nth(0)).toContainText('Gasto');
-  await expect(formLabels.nth(1)).toContainText('Fecha');
-  await expect(formLabels.nth(2)).toContainText('Monto');
+  await expect(formLabels.nth(1)).toContainText('Categoría');
+  await expect(formLabels.nth(2)).toContainText('Fecha');
+  await expect(formLabels.nth(3)).toContainText('Monto');
   await page.getByPlaceholder('Ej. Electricidad').fill('Electricidad');
   await page.getByPlaceholder('0,00').fill('12,34');
   await page.getByRole('button', { name: 'Agregar' }).click();

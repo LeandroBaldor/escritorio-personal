@@ -1,6 +1,6 @@
 import { FocusEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import { useData } from '../../app/DataContext';
-import { id, isExpenseDate, parseCents, total, type Expense } from '../../storage/model';
+import { EXPENSE_CATEGORIES, id, isExpenseDate, parseCents, total, totalsByCategory, type Expense, type ExpenseCategory } from '../../storage/model';
 
 const integerMoney = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
 const moneyParts = (c: number) => ({ whole: Math.trunc(c / 100), fraction: c % 100 });
@@ -55,11 +55,12 @@ function MoneyInput({ value, onChange, onBlur, label, placeholder }: { value: st
 
 function ExpenseRow({ expense, onChange, onDelete }: { expense: Expense; onChange: (e: Expense) => void; onDelete: () => void }) {
   const [concept, setConcept] = useState(expense.concept);
+  const [category, setCategory] = useState<ExpenseCategory>(expense.category ?? 'Otros');
   const [date, setDate] = useState(expense.date ? formatExpenseDate(expense.date) : '');
   const [amount, setAmount] = useState(editableMoney(expense.cents));
   const [error, setError] = useState('');
   const keepDrafts = useRef(false);
-  useEffect(() => { if (keepDrafts.current) { keepDrafts.current = false; return; } setConcept(expense.concept); setDate(expense.date ? formatExpenseDate(expense.date) : ''); setAmount(editableMoney(expense.cents)); }, [expense]);
+  useEffect(() => { if (keepDrafts.current) { keepDrafts.current = false; return; } setConcept(expense.concept); setCategory(expense.category ?? 'Otros'); setDate(expense.date ? formatExpenseDate(expense.date) : ''); setAmount(editableMoney(expense.cents)); }, [expense]);
   const commit = (candidateDate = date) => {
     const cents = parseCents(amount);
     const isoDate = candidateDate === '' ? null : parseExpenseDate(candidateDate);
@@ -81,8 +82,16 @@ function ExpenseRow({ expense, onChange, onDelete }: { expense: Expense; onChang
     keepDrafts.current = true;
     onChange({ ...expense, date: isoDate });
   };
+  const changeCategory = (value: ExpenseCategory) => {
+    setCategory(value);
+    keepDrafts.current = true;
+    onChange({ ...expense, category: value });
+  };
   return <div className="expense-row">
     <input aria-label="Concepto" value={concept} onChange={e => setConcept(e.target.value)} onBlur={() => commit()} />
+    <select aria-label="Categoría" value={category} onChange={e => changeCategory(e.target.value as ExpenseCategory)}>
+      {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+    </select>
     <DateInput id={`expense-date-${expense.id}`} label="Fecha" value={date} onChange={setDate} onBlur={() => commit()} onEnter={() => commit()} onCalendarSelect={selectCalendarDate} />
     <MoneyInput label="Monto en pesos" value={amount} onChange={setAmount} onBlur={() => commit()} />
     <button aria-label="Borrar gasto" onClick={onDelete}>×</button>
@@ -93,12 +102,14 @@ function ExpenseRow({ expense, onChange, onDelete }: { expense: Expense; onChang
 export function Expenses() {
   const { data, setData } = useData();
   const [concept, setConcept] = useState('');
+  const [category, setCategory] = useState<ExpenseCategory>('Otros');
   const [date, setDate] = useState(() => formatExpenseDate(localToday()));
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
   let sumError = '';
   let sum = 0;
-  try { sum = total(data.expenses); } catch (e) { sumError = e instanceof Error ? e.message : 'Total inválido'; }
+  let categoryTotals: Record<ExpenseCategory, number> = Object.fromEntries(EXPENSE_CATEGORIES.map(c => [c, 0])) as Record<ExpenseCategory, number>;
+  try { sum = total(data.expenses); categoryTotals = totalsByCategory(data.expenses); } catch (e) { sumError = e instanceof Error ? e.message : 'Total inválido'; }
   const add = (e: FormEvent) => {
     e.preventDefault();
     const cents = parseCents(amount);
@@ -107,17 +118,24 @@ export function Expenses() {
       setError('Ingresá un concepto, una fecha y un monto válido no negativo.');
       return;
     }
-    setData(d => ({ ...d, expenses: [...d.expenses, { id: id(), concept: concept.trim(), date: isoDate, cents }] }));
+    setData(d => ({ ...d, expenses: [...d.expenses, { id: id(), concept: concept.trim(), date: isoDate, cents, category }] }));
     setConcept('');
     setDate(formatExpenseDate(localToday()));
     setAmount('');
     setError('');
   };
-  return <section><div className="section-title"><div><p className="eyebrow">Control cotidiano</p><h1>Mis gastos</h1></div><div className="total"><small>Total</small><strong>{sumError ? '—' : money(sum)}</strong>{sumError && <small role="alert">{sumError}</small>}</div></div><div className="calculator"><form onSubmit={add}>
+  return <section><div className="section-title"><div><p className="eyebrow">Control cotidiano</p><h1>Mis gastos</h1></div><div className="total"><small>Total</small><strong>{sumError ? '—' : money(sum)}</strong>{sumError && <small role="alert">{sumError}</small>}</div></div><div className="expenses-layout"><div className="calculator"><form onSubmit={add}>
     <label>Gasto<input value={concept} onChange={e => setConcept(e.target.value)} placeholder="Ej. Electricidad" /></label>
+    <label>Categoría<select aria-label="Categoría del gasto" value={category} onChange={e => setCategory(e.target.value as ExpenseCategory)}>
+      {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+    </select></label>
     <div className="expense-field"><label htmlFor="new-expense-date">Fecha</label><DateInput id="new-expense-date" label="Fecha del gasto" value={date} onChange={setDate} /></div>
     <label>Monto<MoneyInput label="Monto del gasto en pesos" value={amount} onChange={setAmount} placeholder="0,00" /></label>
     <button>Agregar</button>
     {error && <p role="alert">{error}</p>}
-  </form><div className="expense-list">{data.expenses.map(e => <ExpenseRow key={e.id} expense={e} onChange={next => setData(d => ({ ...d, expenses: d.expenses.map(v => v.id === e.id ? next : v) }))} onDelete={() => setData(d => ({ ...d, expenses: d.expenses.filter(v => v.id !== e.id) }))} />)}</div></div></section>;
+  </form><div className="expense-list">{data.expenses.map(e => <ExpenseRow key={e.id} expense={e} onChange={next => setData(d => ({ ...d, expenses: d.expenses.map(v => v.id === e.id ? next : v) }))} onDelete={() => setData(d => ({ ...d, expenses: d.expenses.filter(v => v.id !== e.id) }))} />)}</div></div><aside className="expense-summary">
+    <h2>Subtotales</h2>
+    <ul>{EXPENSE_CATEGORIES.map(c => <li key={c}><span>{c}</span><strong>{sumError ? '—' : money(categoryTotals[c])}</strong></li>)}</ul>
+    <div className="expense-summary-total"><span>Total</span><strong>{sumError ? '—' : money(sum)}</strong></div>
+  </aside></div></section>;
 }
