@@ -73,7 +73,7 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   });
   const calendarBox = await addCalendar.boundingBox();
   expect(calendarBox).not.toBeNull();
-  await page.mouse.click(calendarBox!.x + calendarBox!.width / 2, calendarBox!.y + calendarBox!.height / 2);
+  await addCalendar.click();
   await expect.poll(() => page.evaluate(() => (window as typeof window & { calendarOpenCount?: number }).calendarOpenCount)).toBe(1);
   await page.evaluate(() => {
     const state = window as typeof window & { calendarFallbackCount?: number };
