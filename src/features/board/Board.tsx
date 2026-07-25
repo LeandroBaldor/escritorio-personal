@@ -183,6 +183,14 @@ export function Board() {
           <button>Agregar nota</button>
         </form>
       </div>
+      <div className="desk-arrow" aria-hidden="true">
+        <span>Tu diario y tus gastos</span>
+        <svg width="130" height="60" viewBox="0 0 130 60" fill="none">
+          <path d="M6 8 C 45 2, 60 46, 100 40" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+          <path d="M100 40 L86 32" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+          <path d="M100 40 L92 52" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+        </svg>
+      </div>
       <div className="desk-objects" aria-label="Objetos del escritorio">
         <Link className="notebook" to="/diario" aria-label="Mi diario"><span className="notebook-binding" aria-hidden="true" /><span>Mi diario</span><small>Abrir libreta</small></Link>
         <Link className="calc-object" to="/gastos" aria-label="Gastos"><span aria-hidden="true">7 8 9<br />4 5 6<br />1 2 3</span><strong>Gastos</strong></Link>
