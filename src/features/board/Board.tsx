@@ -184,7 +184,7 @@ export function Board() {
         </form>
       </div>
       <div className="desk-objects" aria-label="Objetos del escritorio">
-        <svg className="desk-arrow" aria-hidden="true" width="70" height="40" viewBox="0 0 100 50" fill="none">
+        <svg className="desk-arrow" aria-hidden="true" width="100" height="57" viewBox="0 0 100 50" fill="none">
           <path d="M4 32 C 24 40, 46 14, 76 21" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
           <path d="M76 21 L61 13" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
           <path d="M76 21 L69 35" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
