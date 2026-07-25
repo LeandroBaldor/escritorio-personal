@@ -3,9 +3,11 @@ import type { Session, User } from '@supabase/supabase-js';
 import { configurationError, supabase } from '../lib/supabase';
 
 type AuthContextValue = {
-  session: Session | null; user: User | null; loading: boolean; error?: string; notice?: string;
+  session: Session | null; user: User | null; loading: boolean; error?: string; notice?: string; recovery: boolean;
   signIn(email: string, password: string): Promise<void>;
   signUp(email: string, password: string): Promise<void>;
+  resetPassword(email: string): Promise<void>;
+  updatePassword(password: string): Promise<void>;
   signOut(): Promise<void>;
 };
 const Context = createContext<AuthContextValue | null>(null);
@@ -20,6 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(!e2eEnabled && !configurationError);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const [recovery, setRecovery] = useState(false);
   useEffect(() => {
     if (e2eEnabled || !supabase) return;
     let active = true;
@@ -29,8 +32,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(issue?.message);
       setLoading(false);
     }).catch(issue => { if (active) { setError(messageOf(issue)); setLoading(false); } });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
-      if (active) { setSession(next); setLoading(false); }
+    const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
+      if (!active) return;
+      if (event === 'PASSWORD_RECOVERY') setRecovery(true);
+      setSession(next); setLoading(false);
     });
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, []);
@@ -49,6 +54,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       else if (!data.session) setNotice('Revisá tu correo para confirmar la cuenta antes de iniciar sesión.');
     } catch (issue) { setError(messageOf(issue)); }
   };
+  const resetPassword = async (email: string) => {
+    setError(undefined); setNotice(undefined);
+    if (!supabase) { setError(configurationError); return; }
+    try {
+      const { error: issue } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}${import.meta.env.BASE_URL}` });
+      if (issue) setError(issue.message);
+      else setNotice('Revisá tu correo para elegir una nueva contraseña.');
+    } catch (issue) { setError(messageOf(issue)); }
+  };
+  const updatePassword = async (password: string) => {
+    setError(undefined); setNotice(undefined);
+    if (!supabase) { setError(configurationError); return; }
+    try {
+      const { error: issue } = await supabase.auth.updateUser({ password });
+      if (issue) setError(issue.message);
+      else { setRecovery(false); setNotice('Contraseña actualizada.'); }
+    } catch (issue) { setError(messageOf(issue)); }
+  };
   const signOut = async () => {
     setError(undefined); setNotice(undefined);
     const saved = await new Promise<boolean>(resolve => {
@@ -61,6 +84,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try { const { error: issue } = await supabase.auth.signOut(); if (issue) setError(issue.message); else setSession(null); }
     catch (issue) { setError(messageOf(issue)); }
   };
-  return <Context.Provider value={{ session, user: session?.user ?? null, loading, error: error ?? configurationError, notice, signIn, signUp, signOut }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ session, user: session?.user ?? null, loading, error: error ?? configurationError, notice, recovery, signIn, signUp, resetPassword, updatePassword, signOut }}>{children}</Context.Provider>;
 }
 export function useAuth() { const value = useContext(Context); if (!value) throw Error('AuthProvider faltante'); return value; }
