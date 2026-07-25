@@ -184,10 +184,10 @@ export function Board() {
         </form>
       </div>
       <div className="desk-objects" aria-label="Objetos del escritorio">
-        <svg className="desk-arrow" aria-hidden="true" width="96" height="46" viewBox="0 0 220 100">
-          <path d="M6 50 L26 45" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-          <path d="M4 66 L24 71" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-          <path d="M10 58 L20 52 L28 60 L38 52 L48 58 L60 51 C 85 44, 115 40, 140 39 L152 14 L198 52 L154 82 L142 60 C 116 63, 88 62, 60 66 L48 70 L36 64 L26 70 L16 62 Z" fill="currentColor" />
+        <svg className="desk-arrow" aria-hidden="true" width="76" height="66" viewBox="0 0 300 260" fill="none">
+          <path d="M55 95 C 35 130, 45 150, 70 145 C 140 130, 210 150, 255 195" stroke="currentColor" strokeWidth="26" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M255 195 L228 163" stroke="currentColor" strokeWidth="26" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M255 195 C 272 217, 266 236, 244 247" stroke="currentColor" strokeWidth="26" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <Link className="notebook" to="/diario" aria-label="Mi diario"><span className="notebook-binding" aria-hidden="true" /><span>Mi diario</span><small>Abrir libreta</small></Link>
         <Link className="calc-object" to="/gastos" aria-label="Gastos"><span aria-hidden="true">7 8 9<br />4 5 6<br />1 2 3</span><strong>Gastos</strong></Link>
