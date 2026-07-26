@@ -21,33 +21,24 @@ export function Journal(){
  const[page,setPage]=useState(0);
  const folder=data.folders.find(f=>f.id===selected);
  const editableRef=useRef<HTMLDivElement>(null);
+ const[activeFormats,setActiveFormats]=useState({bold:false,strike:false});
  useEffect(()=>{if(!data.folders.some(f=>f.id===selected)){setSelected(data.folders[0]?.id??'');setPage(0)}},[data.folders,selected]);
  useEffect(()=>{if(folder)setPage(p=>Math.min(p,Math.max(0,folder.pages.length-1)))},[folder]);
  useEffect(()=>{if(editableRef.current)editableRef.current.innerHTML=folder?.pages[page]?.text??''},[folder?.id,page]);
+ const updateActiveFormats=()=>{
+  const editable=editableRef.current;
+  const selection=window.getSelection();
+  if(!editable||!selection||selection.rangeCount===0||!editable.contains(selection.getRangeAt(0).commonAncestorContainer)){setActiveFormats({bold:false,strike:false});return}
+  setActiveFormats({bold:document.queryCommandState('bold'),strike:document.queryCommandState('strikeThrough')});
+ };
+ useEffect(()=>{document.addEventListener('selectionchange',updateActiveFormats);return()=>document.removeEventListener('selectionchange',updateActiveFormats)},[]);
  const addFolder=()=>{const name=prompt('Nombre de la carpeta')?.trim();if(!name)return;const fid=id();setData(d=>({...d,folders:[...d.folders,{id:fid,name,pages:pagesFor('')}]}));setSelected(fid);setPage(0)};
  const renameFolder=()=>{if(!folder)return;const name=prompt('Nuevo nombre de la carpeta',folder.name)?.trim();if(!name)return;setData(d=>({...d,folders:d.folders.map(f=>f.id===folder.id?{...f,name}:f)}))};
  const deleteFolder=()=>{if(!folder||!confirm(`¿Borrar la carpeta “${folder.name}” y todas sus hojas?`))return;const index=data.folders.findIndex(f=>f.id===folder.id);const next=data.folders[index+1]??data.folders[index-1];setSelected(next?.id??'');setPage(0);setData(d=>({...d,folders:d.folders.filter(f=>f.id!==folder.id)}))};
  const write=(value:string)=>{if(!folder)return;const chunks=splitPageHtml(value);setData(d=>({...d,folders:d.folders.map(f=>{if(f.id!==folder.id)return f;const current=f.pages[page]??{id:id(),text:'',createdAt:new Date().toISOString()};const replacement=chunks.map((p,i)=>i===0?{...current,text:p.text}:{id:id(),text:p.text,createdAt:new Date().toISOString()});return{...f,pages:[...f.pages.slice(0,page),...replacement,...f.pages.slice(page+1)]}})}));if(chunks.length>1)setPage(page+chunks.length-1)};
  const syncFromEditable=()=>{if(editableRef.current)write(editableRef.current.innerHTML)};
- const applyBold=()=>{editableRef.current?.focus();document.execCommand('bold');syncFromEditable()};
- const applyOverline=()=>{
-  const editable=editableRef.current;
-  const selection=window.getSelection();
-  if(!editable||!selection||selection.rangeCount===0||selection.isCollapsed)return;
-  const range=selection.getRangeAt(0);
-  if(!editable.contains(range.commonAncestorContainer))return;
-  const ancestor=(range.commonAncestorContainer.nodeType===Node.TEXT_NODE?range.commonAncestorContainer.parentElement:range.commonAncestorContainer as Element);
-  const existing=ancestor?.closest('span.overline');
-  if(existing&&editable.contains(existing)&&existing.textContent===selection.toString()){
-   const parent=existing.parentNode;
-   if(parent){while(existing.firstChild)parent.insertBefore(existing.firstChild,existing);parent.removeChild(existing)}
-  }else{
-   const span=document.createElement('span');span.className='overline';
-   try{range.surroundContents(span)}
-   catch{const fragment=range.extractContents();span.appendChild(fragment);range.insertNode(span)}
-  }
-  syncFromEditable()
- };
+ const applyBold=()=>{editableRef.current?.focus();document.execCommand('bold');syncFromEditable();updateActiveFormats()};
+ const applyStrike=()=>{editableRef.current?.focus();document.execCommand('strikeThrough');syncFromEditable();updateActiveFormats()};
  const insertAtCaret=(node:Node,lastChild:Node)=>{
   const selection=window.getSelection();
   if(!selection||selection.rangeCount===0)return;
@@ -72,5 +63,5 @@ export function Journal(){
   insertAtCaret(fragment,last);
   syncFromEditable();
  };
- return <section><div className="section-title"><div><p className="eyebrow">Recuerdos y pensamientos</p><h1>Mi diario</h1></div><button onClick={addFolder}>Nuevo diario</button></div><div className="journal-layout"><aside><h2>Carpetas</h2>{data.folders.map(f=><button className={selected===f.id?'active':''} onClick={()=>{setSelected(f.id);setPage(0)}} key={f.id}>{f.name}</button>)}</aside>{folder?<div className="journal-content"><div className="folder-actions" aria-label="Acciones de carpeta"><button onClick={renameFolder}>Editar nombre</button><button className="delete" onClick={deleteFolder}>Borrar diario</button></div><div className="book"><div className="book-ribbon" aria-hidden="true"/><div className="paper"><div className="page-meta">{folder.name} · Hoja {page+1} de {folder.pages.length}</div><div className="journal-toolbar" role="toolbar" aria-label="Formato de texto"><button type="button" aria-label="Negrita" onMouseDown={e=>e.preventDefault()} onClick={applyBold}><strong>N</strong></button><button type="button" aria-label="Línea arriba" onMouseDown={e=>e.preventDefault()} onClick={applyOverline}><span className="overline">L</span></button></div><div ref={editableRef} className="page-editor" contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label="Página del diario" data-placeholder="Escribí aquí lo que quieras recordar…" onInput={syncFromEditable} onKeyDown={onKeyDown} onPaste={onPaste}/><small>{plainTextLength(folder.pages[page]?.text??'')} / {PAGE_LIMIT}</small></div><div className="page-buttons"><button disabled={page===0} onClick={()=>setPage(p=>p-1)}>← Hoja anterior</button><span aria-hidden="true">— {page+1} —</span><button disabled={page>=folder.pages.length-1} onClick={()=>setPage(p=>p+1)}>Hoja siguiente →</button></div></div></div>:<div className="empty"><h2>Tu diario está listo</h2><p>Creá una carpeta para comenzar a escribir.</p><button onClick={addFolder}>Crear mi primera carpeta</button></div>}</div></section>
+ return <section><div className="section-title"><div><p className="eyebrow">Recuerdos y pensamientos</p><h1>Mi diario</h1></div><button onClick={addFolder}>Nuevo diario</button></div><div className="journal-layout"><aside><h2>Carpetas</h2>{data.folders.map(f=><button className={selected===f.id?'active':''} onClick={()=>{setSelected(f.id);setPage(0)}} key={f.id}>{f.name}</button>)}</aside>{folder?<div className="journal-content"><div className="folder-actions" aria-label="Acciones de carpeta"><button onClick={renameFolder}>Editar nombre</button><button className="delete" onClick={deleteFolder}>Borrar diario</button></div><div className="book"><div className="book-ribbon" aria-hidden="true"/><div className="paper"><div className="page-meta">{folder.name} · Hoja {page+1} de {folder.pages.length}</div><div className="journal-toolbar" role="toolbar" aria-label="Formato de texto"><button type="button" aria-label="Negrita" aria-pressed={activeFormats.bold} onMouseDown={e=>e.preventDefault()} onClick={applyBold}><strong>N</strong></button><button type="button" aria-label="Tachado" aria-pressed={activeFormats.strike} onMouseDown={e=>e.preventDefault()} onClick={applyStrike}><span style={{textDecoration:'line-through'}}>T</span></button></div><div ref={editableRef} className="page-editor" contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label="Página del diario" data-placeholder="Escribí aquí lo que quieras recordar…" onInput={syncFromEditable} onKeyDown={onKeyDown} onPaste={onPaste}/><small>{plainTextLength(folder.pages[page]?.text??'')} / {PAGE_LIMIT}</small></div><div className="page-buttons"><button disabled={page===0} onClick={()=>setPage(p=>p-1)}>← Hoja anterior</button><span aria-hidden="true">— {page+1} —</span><button disabled={page>=folder.pages.length-1} onClick={()=>setPage(p=>p+1)}>Hoja siguiente →</button></div></div></div>:<div className="empty"><h2>Tu diario está listo</h2><p>Creá una carpeta para comenzar a escribir.</p><button onClick={addFolder}>Crear mi primera carpeta</button></div>}</div></section>
 }
