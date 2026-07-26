@@ -54,11 +54,11 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   expect(journalFont).toContain('Segoe Print');
   expect(journalFont).toContain('cursive');
   await journalPage.press('Shift+Tab');
-  const deleteJournal = page.getByRole('button', { name: 'Borrar diario' });
-  await expect(deleteJournal).toBeFocused();
-  await expect(deleteJournal).toHaveCSS('outline-style', 'solid');
-  await expect(deleteJournal).toHaveCSS('outline-width', '3px');
-  await expect(deleteJournal).toHaveCSS('outline-color', 'rgb(244, 189, 88)');
+  const overlineButton = page.getByRole('button', { name: 'Línea arriba' });
+  await expect(overlineButton).toBeFocused();
+  await expect(overlineButton).toHaveCSS('outline-style', 'solid');
+  await expect(overlineButton).toHaveCSS('outline-width', '3px');
+  await expect(overlineButton).toHaveCSS('outline-color', 'rgb(244, 189, 88)');
   await page.getByRole('link', { name: 'Escritorio Personal' }).click();
   await page.getByRole('link', { name: 'Gastos', exact: true }).click();
   const today = await page.evaluate(() => { const now = new Date(); return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`; });
@@ -167,7 +167,7 @@ test('renombra y borra carpetas de forma segura', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Semana', exact: true })).toBeVisible();
   await page.reload();
   await page.getByRole('button', { name: 'Semana', exact: true }).click();
-  await expect(page.getByLabel('Página del diario')).toHaveValue('Texto que debe conservarse');
+  await expect(page.getByLabel('Página del diario')).toHaveText('Texto que debe conservarse');
   const after = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!).folders.find((folder: { name: string }) => folder.name === 'Semana'));
   expect(after.id).toBe(before.id);
   expect(after.pages[0].id).toBe(before.pages[0].id);
