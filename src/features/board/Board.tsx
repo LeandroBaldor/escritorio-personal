@@ -4,6 +4,13 @@ import { COLORS, id, Note, Status } from '../../storage/model';
 import { useData } from '../../app/DataContext';
 
 const NOTE_MIME = 'application/x-escritorio-note';
+const formatHistoryDate = (iso: string) => {
+  const date = new Date(iso);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const time = date.toLocaleTimeString();
+  return `${day}/${month}/${date.getFullYear()}, ${time}`;
+};
 const columns: { status: Status; label: string }[] = [
   { status: 'todo', label: 'No iniciado' },
   { status: 'doing', label: 'En progreso' },
@@ -100,8 +107,8 @@ function Card({ note, remove, dragging, dropSide, onDragStart, onDragEnd, onTouc
         onDragStart(event);
       }}>
       <div className="note-text">{note.text}</div>
-      <small>{history.at(-1) ? `Desde ${new Date(history.at(-1)!.at).toLocaleString()}` : 'Sin fecha disponible'}</small>
-      <details><summary>Historial</summary>{history.map((entry, index) => <div key={`${entry.at}-${index}`}>{columns.find(column => column.status === entry.status)?.label}: {new Date(entry.at).toLocaleString()}</div>)}</details>
+      <small>{history.at(-1) ? `Desde ${formatHistoryDate(history.at(-1)!.at)}` : 'Sin fecha disponible'}</small>
+      <details><summary>Historial</summary>{history.map((entry, index) => <div key={`${entry.at}-${index}`}>{columns.find(column => column.status === entry.status)?.label}: {formatHistoryDate(entry.at)}</div>)}</details>
       <button className="delete" onClick={remove}>Borrar</button>
     </article>
   );
