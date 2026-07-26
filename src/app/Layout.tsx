@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { parseBackup, serialize } from '../storage/store';
 import { useData } from './DataContext';
 import { useAuth } from './AuthContext';
@@ -7,6 +7,8 @@ import { useAuth } from './AuthContext';
 export function Layout() {
   const { data, setData, warning, syncState, retry, loadRemote } = useData();
   const { user, signOut, error: authError } = useAuth();
+  const location = useLocation();
+  const showBack = location.pathname === '/diario' || location.pathname === '/gastos';
   const input = useRef<HTMLInputElement>(null);
   const importButton = useRef<HTMLButtonElement>(null);
   const confirmButton = useRef<HTMLButtonElement>(null);
@@ -43,6 +45,7 @@ export function Layout() {
   return <>
     <header>
       <Link className="brand" to="/">Escritorio Personal</Link>
+      {showBack && <Link className="back-link" to="/">← Volver</Link>}
       <div className="backup">
         <div className="backup-actions">
           <button onClick={download}>Exportar</button>
