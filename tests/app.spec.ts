@@ -234,6 +234,42 @@ test('conserva texto multilínea y permite mover solo arrastrando la tarjeta', a
   await expect(page.locator('.note-text')).toContainText('Primera línea\nSegunda línea');
 });
 
+test('guarda una nota en el disquete conservando el historial y permite restaurarla o borrarla', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await expect(page.getByRole('link', { name: 'Notas guardadas', exact: false })).toBeVisible();
+  await page.evaluate(() => {
+    const at = '2026-01-01T00:00:00.000Z';
+    localStorage.setItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001', JSON.stringify({ version: 1, notes: [
+      { id: 'a', text: 'Nota A', color: '#ffe783', status: 'doing', history: [{ status: 'todo', at }, { status: 'doing', at }] },
+    ], folders: [], expenses: [] }));
+  });
+  await page.reload();
+  await page.locator('.note-text').evaluate((source, target) => {
+    const transfer = new DataTransfer();
+    source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+  }, await page.locator('.floppy').elementHandle());
+  await expect(page.locator('.note')).toHaveCount(0);
+  let stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!));
+  expect(stored.notes[0].archivedAt).toBeTruthy();
+  expect(stored.notes[0].history).toHaveLength(2);
+
+  await page.getByRole('link', { name: 'Notas guardadas', exact: false }).click();
+  await expect(page.getByText('Nota A', { exact: true })).toBeVisible();
+  await page.getByText('Historial').click();
+  await expect(page.getByText('En progreso:', { exact: false })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Restaurar' }).click();
+  await expect(page.getByRole('heading', { name: 'Todavía no guardaste ninguna nota' })).toBeVisible();
+  stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!));
+  expect(stored.notes[0].archivedAt).toBeUndefined();
+  expect(stored.notes[0].status).toBe('doing');
+
+  await page.getByRole('link', { name: 'Escritorio Personal' }).click();
+  await expect(page.locator('.note-text')).toHaveText('Nota A');
+});
+
 test('reordena libremente, persiste y registra historial solo al cambiar de sección', async ({ page }) => {
   await page.goto('/escritorio-personal/');
   await page.evaluate(() => {

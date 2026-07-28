@@ -8,7 +8,7 @@ export function Layout() {
   const { data, setData, warning, syncState, retry, loadRemote } = useData();
   const { user, signOut, error: authError } = useAuth();
   const location = useLocation();
-  const showBack = location.pathname === '/diario' || location.pathname === '/gastos';
+  const showBack = location.pathname === '/diario' || location.pathname === '/gastos' || location.pathname === '/guardadas';
   const input = useRef<HTMLInputElement>(null);
   const importButton = useRef<HTMLButtonElement>(null);
   const confirmButton = useRef<HTMLButtonElement>(null);

@@ -39,6 +39,12 @@ describe('datos exactos y backup', () => {
     expect(isData({ ...EMPTY, expenses: [{ id: 'e', concept: 'Luz', cents: 1234, date: '2026-07-22' }] })).toBe(true);
     expect(isData({ ...EMPTY, expenses: [{ id: 'e', concept: 'Luz', cents: 1234, date: '2026-02-30' }] })).toBe(false);
   });
+  it('mantiene compatibles las notas sin archivar y valida la fecha de guardado', () => {
+    const base = { id: 'n', text: 'x', color: '#ffe783', status: 'todo' as const, history: [{ status: 'todo' as const, at: '2026-07-22T00:00:00.000Z' }] };
+    expect(isData({ ...EMPTY, notes: [base] })).toBe(true);
+    expect(isData({ ...EMPTY, notes: [{ ...base, archivedAt: '2026-07-22T00:00:00.000Z' }] })).toBe(true);
+    expect(isData({ ...EMPTY, notes: [{ ...base, archivedAt: 'no-es-fecha' }] })).toBe(false);
+  });
   it('hace round trip', () => expect(parseBackup(serialize(EMPTY))).toEqual(EMPTY));
   it('persiste', () => { save(EMPTY); expect(load().data).toEqual(EMPTY); });
   it.each([{ ...EMPTY, notes: [{ id: '', text: 'x', color: '#ffe783', status: 'todo', history: [] }] }, { ...EMPTY, folders: [{ id: 'f', name: 'n', pages: [] }] }, { ...EMPTY, expenses: [{ id: 'e', concept: '', cents: -1 }] }])('rechaza estructuras internas inválidas', bad => expect(() => parseBackup(JSON.stringify(bad))).toThrow());

@@ -4,14 +4,14 @@ import { COLORS, id, Note, Status } from '../../storage/model';
 import { useData } from '../../app/DataContext';
 
 const NOTE_MIME = 'application/x-escritorio-note';
-const formatHistoryDate = (iso: string) => {
+export const formatHistoryDate = (iso: string) => {
   const date = new Date(iso);
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const time = date.toLocaleTimeString();
   return `${day}/${month}/${date.getFullYear()}, ${time}`;
 };
-const columns: { status: Status; label: string }[] = [
+export const columns: { status: Status; label: string }[] = [
   { status: 'todo', label: 'No iniciado' },
   { status: 'doing', label: 'En progreso' },
   { status: 'done', label: 'Terminado' },
@@ -21,7 +21,7 @@ const colorNames: Record<string, string> = {
 };
 type DropTarget = { status: Status; index: number };
 
-function validHistory(note: Note) {
+export function validHistory(note: Note) {
   return (note.history ?? []).filter(
     entry => columns.some(column => column.status === entry?.status) && !Number.isNaN(Date.parse(entry?.at)),
   );
@@ -120,9 +120,17 @@ export function Board() {
   const [color, setColor] = useState(COLORS[0]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const [archiveHover, setArchiveHover] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   const pointerDrag = useRef<{ id: string; pointerId: number; startX: number; startY: number; active: boolean } | null>(null);
-  const clearDrag = () => { setDraggedId(null); setDropTarget(null); };
+  const clearDrag = () => { setDraggedId(null); setDropTarget(null); setArchiveHover(false); };
+  const archive = (noteId: string) => {
+    const source = data.notes.find(note => note.id === noteId);
+    if (!source || source.archivedAt) return;
+    const at = new Date().toISOString();
+    setData(current => ({ ...current, notes: current.notes.map(note => note.id === noteId ? { ...note, archivedAt: at } : note) }));
+    setAnnouncement(`${source.text}: guardada en el disquete`);
+  };
   const place = (noteId: string, status: Status, requestedIndex: number | ((notes: Note[]) => number)) => {
     const source = data.notes.find(note => note.id === noteId);
     if (!source) return;
@@ -151,6 +159,8 @@ export function Board() {
     const index = insertionIndex(event.currentTarget, noteId, event.clientX, event.clientY);
     setDropTarget(current => current?.status === status && current.index === index ? current : { status, index });
   };
+  const pointerOverFloppy = (event: React.PointerEvent<HTMLElement>) =>
+    Boolean(document.elementFromPoint(event.clientX, event.clientY)?.closest('.floppy'));
   const pointerTarget = (event: React.PointerEvent<HTMLElement>) => {
     const column = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('.column');
     const status = column?.dataset.status as Status | undefined;
@@ -169,15 +179,19 @@ export function Board() {
     drag.active = true;
     event.preventDefault();
     setDraggedId(drag.id);
+    if (pointerOverFloppy(event)) { setDropTarget(null); setArchiveHover(true); return; }
+    setArchiveHover(false);
     const target = pointerTarget(event);
     setDropTarget(current => target && current?.status === target.status && current.index === target.index ? current : target);
   };
   const endTouchDrag = (event: React.PointerEvent<HTMLElement>) => {
     const drag = pointerDrag.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    const target = drag.active ? pointerTarget(event) : null;
+    const overFloppy = drag.active && pointerOverFloppy(event);
+    const target = drag.active && !overFloppy ? pointerTarget(event) : null;
     pointerDrag.current = null;
-    if (target) place(drag.id, target.status, target.index);
+    if (overFloppy) archive(drag.id);
+    else if (target) place(drag.id, target.status, target.index);
     clearDrag();
   };
   return (
@@ -191,13 +205,31 @@ export function Board() {
         </form>
       </div>
       <div className="desk-objects" aria-label="Objetos del escritorio">
+        <Link className={`floppy${archiveHover ? ' floppy--drag-over' : ''}`} to="/guardadas" aria-label="Notas guardadas. Arrastrá una nota aquí para guardarla."
+          onDragOver={event => {
+            const noteId = draggedId || dragId(event);
+            if (!noteId || !data.notes.some(note => note.id === noteId)) return;
+            event.preventDefault(); event.dataTransfer.dropEffect = 'move';
+            setArchiveHover(true);
+          }}
+          onDragLeave={() => setArchiveHover(false)}
+          onDrop={event => {
+            event.preventDefault();
+            const noteId = draggedId || dragId(event);
+            if (noteId && data.notes.some(note => note.id === noteId)) archive(noteId);
+            clearDrag();
+          }}>
+          <span className="floppy-shutter" aria-hidden="true" />
+          <span>Guardadas</span>
+          <small>Soltá una nota</small>
+        </Link>
         <Link className="notebook" to="/diario" aria-label="Mi diario"><span className="notebook-binding" aria-hidden="true" /><span>Mi diario</span><small>Abrir libreta</small></Link>
         <Link className="calc-object" to="/gastos" aria-label="Gastos"><span aria-hidden="true">7 8 9<br />4 5 6<br />1 2 3</span><strong>Gastos</strong></Link>
       </div>
       <p className="drag-hint">Arrastrá cualquier nota para cambiarla de lugar o de sección.</p>
       <div className="board" onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTarget(null); }}>
         {columns.map(column => {
-          const notes = data.notes.filter(note => note.status === column.status);
+          const notes = data.notes.filter(note => note.status === column.status && !note.archivedAt);
           return <section className={`column${dropTarget?.status === column.status ? ' column--drag-over' : ''}`} data-status={column.status} key={column.status}
             onDragOver={event => updateTarget(event, column.status)} onDrop={event => {
               event.preventDefault();
