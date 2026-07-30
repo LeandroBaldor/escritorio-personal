@@ -54,11 +54,11 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   expect(journalFont).toContain('Segoe Print');
   expect(journalFont).toContain('cursive');
   await journalPage.press('Shift+Tab');
-  const strikeButton = page.getByRole('button', { name: 'Tachado' });
-  await expect(strikeButton).toBeFocused();
-  await expect(strikeButton).toHaveCSS('outline-style', 'solid');
-  await expect(strikeButton).toHaveCSS('outline-width', '3px');
-  await expect(strikeButton).toHaveCSS('outline-color', 'rgb(244, 189, 88)');
+  const greenButton = page.getByRole('button', { name: 'Verde' });
+  await expect(greenButton).toBeFocused();
+  await expect(greenButton).toHaveCSS('outline-style', 'solid');
+  await expect(greenButton).toHaveCSS('outline-width', '3px');
+  await expect(greenButton).toHaveCSS('outline-color', 'rgb(244, 189, 88)');
   await page.getByRole('link', { name: 'Escritorio Personal' }).click();
   await page.getByRole('link', { name: 'Gastos', exact: true }).click();
   const today = await page.evaluate(() => { const now = new Date(); return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`; });
