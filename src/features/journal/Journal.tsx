@@ -1,5 +1,8 @@
 import{ClipboardEvent,KeyboardEvent,useEffect,useRef,useState}from'react';import{useData}from'../../app/DataContext';import{id,PAGE_LIMIT,Page,plainTextLength}from'../../storage/model';
 const pagesFor=(text:string):Page[]=>{const now=new Date().toISOString();const chunks=text.match(new RegExp(`[\\s\\S]{1,${PAGE_LIMIT}}`,'g'))??[''];return chunks.map(text=>({id:id(),text,createdAt:now}))};
+const JOURNAL_GREEN='#1a7431';
+const INK='#34271f';
+const hexToRgb=(hex:string)=>{const n=parseInt(hex.slice(1),16);return `rgb(${(n>>16)&255}, ${(n>>8)&255}, ${n&255})`};
 const splitPageHtml=(html:string):{text:string}[]=>{
  const container=document.createElement('div');container.innerHTML=html;
  const chunks:{text:string}[]=[];
@@ -21,15 +24,15 @@ export function Journal(){
  const[page,setPage]=useState(0);
  const folder=data.folders.find(f=>f.id===selected);
  const editableRef=useRef<HTMLDivElement>(null);
- const[activeFormats,setActiveFormats]=useState({bold:false,strike:false});
+ const[activeFormats,setActiveFormats]=useState({bold:false,strike:false,green:false});
  useEffect(()=>{if(!data.folders.some(f=>f.id===selected)){setSelected(data.folders[0]?.id??'');setPage(0)}},[data.folders,selected]);
  useEffect(()=>{if(folder)setPage(p=>Math.min(p,Math.max(0,folder.pages.length-1)))},[folder]);
  useEffect(()=>{if(editableRef.current)editableRef.current.innerHTML=folder?.pages[page]?.text??''},[folder?.id,page]);
  const updateActiveFormats=()=>{
   const editable=editableRef.current;
   const selection=window.getSelection();
-  if(!editable||!selection||selection.rangeCount===0||!editable.contains(selection.getRangeAt(0).commonAncestorContainer)){setActiveFormats({bold:false,strike:false});return}
-  setActiveFormats({bold:document.queryCommandState('bold'),strike:document.queryCommandState('strikeThrough')});
+  if(!editable||!selection||selection.rangeCount===0||!editable.contains(selection.getRangeAt(0).commonAncestorContainer)){setActiveFormats({bold:false,strike:false,green:false});return}
+  setActiveFormats({bold:document.queryCommandState('bold'),strike:document.queryCommandState('strikeThrough'),green:document.queryCommandValue('foreColor')===hexToRgb(JOURNAL_GREEN)});
  };
  useEffect(()=>{document.addEventListener('selectionchange',updateActiveFormats);return()=>document.removeEventListener('selectionchange',updateActiveFormats)},[]);
  const addFolder=()=>{const name=prompt('Nombre de la carpeta')?.trim();if(!name)return;const fid=id();setData(d=>({...d,folders:[...d.folders,{id:fid,name,pages:pagesFor('')}]}));setSelected(fid);setPage(0)};
@@ -39,6 +42,7 @@ export function Journal(){
  const syncFromEditable=()=>{if(editableRef.current)write(editableRef.current.innerHTML)};
  const applyBold=()=>{editableRef.current?.focus();document.execCommand('bold');syncFromEditable();updateActiveFormats()};
  const applyStrike=()=>{editableRef.current?.focus();document.execCommand('strikeThrough');syncFromEditable();updateActiveFormats()};
+ const applyGreen=()=>{editableRef.current?.focus();const isGreen=document.queryCommandValue('foreColor')===hexToRgb(JOURNAL_GREEN);document.execCommand('foreColor',false,isGreen?INK:JOURNAL_GREEN);syncFromEditable();updateActiveFormats()};
  const insertAtCaret=(node:Node,lastChild:Node)=>{
   const selection=window.getSelection();
   if(!selection||selection.rangeCount===0)return;
@@ -63,5 +67,5 @@ export function Journal(){
   insertAtCaret(fragment,last);
   syncFromEditable();
  };
- return <section><div className="section-title"><div><p className="eyebrow">Recuerdos y pensamientos</p><h1>Mi diario</h1></div><button onClick={addFolder}>Nuevo diario</button></div><div className="journal-layout"><aside><h2>Carpetas</h2>{data.folders.map(f=><button className={selected===f.id?'active':''} onClick={()=>{setSelected(f.id);setPage(0)}} key={f.id}>{f.name}</button>)}</aside>{folder?<div className="journal-content"><div className="folder-actions" aria-label="Acciones de carpeta"><button onClick={renameFolder}>Editar nombre</button><button className="delete" onClick={deleteFolder}>Borrar diario</button></div><div className="book"><div className="book-ribbon" aria-hidden="true"/><div className="paper"><div className="page-meta">{folder.name} · Hoja {page+1} de {folder.pages.length}</div><div className="journal-toolbar" role="toolbar" aria-label="Formato de texto"><button type="button" aria-label="Negrita" aria-pressed={activeFormats.bold} onMouseDown={e=>e.preventDefault()} onClick={applyBold}><strong>N</strong></button><button type="button" aria-label="Tachado" aria-pressed={activeFormats.strike} onMouseDown={e=>e.preventDefault()} onClick={applyStrike}><span style={{textDecoration:'line-through'}}>T</span></button></div><div ref={editableRef} className="page-editor" contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label="Página del diario" data-placeholder="Escribí aquí lo que quieras recordar…" onInput={syncFromEditable} onKeyDown={onKeyDown} onPaste={onPaste}/><small>{plainTextLength(folder.pages[page]?.text??'')} / {PAGE_LIMIT}</small></div><div className="page-buttons"><button disabled={page===0} onClick={()=>setPage(p=>p-1)}>← Hoja anterior</button><span aria-hidden="true">— {page+1} —</span><button disabled={page>=folder.pages.length-1} onClick={()=>setPage(p=>p+1)}>Hoja siguiente →</button></div></div></div>:<div className="empty"><h2>Tu diario está listo</h2><p>Creá una carpeta para comenzar a escribir.</p><button onClick={addFolder}>Crear mi primera carpeta</button></div>}</div></section>
+ return <section><div className="section-title"><div><p className="eyebrow">Recuerdos y pensamientos</p><h1>Mi diario</h1></div><button onClick={addFolder}>Nuevo diario</button></div><div className="journal-layout"><aside><h2>Carpetas</h2>{data.folders.map(f=><button className={selected===f.id?'active':''} onClick={()=>{setSelected(f.id);setPage(0)}} key={f.id}>{f.name}</button>)}</aside>{folder?<div className="journal-content"><div className="folder-actions" aria-label="Acciones de carpeta"><button onClick={renameFolder}>Editar nombre</button><button className="delete" onClick={deleteFolder}>Borrar diario</button></div><div className="book"><div className="book-ribbon" aria-hidden="true"/><div className="paper"><div className="page-meta">{folder.name} · Hoja {page+1} de {folder.pages.length}</div><div className="journal-toolbar" role="toolbar" aria-label="Formato de texto"><button type="button" aria-label="Negrita" aria-pressed={activeFormats.bold} onMouseDown={e=>e.preventDefault()} onClick={applyBold}><strong>N</strong></button><button type="button" aria-label="Tachado" aria-pressed={activeFormats.strike} onMouseDown={e=>e.preventDefault()} onClick={applyStrike}><span style={{textDecoration:'line-through'}}>T</span></button><button type="button" aria-label="Verde" aria-pressed={activeFormats.green} onMouseDown={e=>e.preventDefault()} onClick={applyGreen}><span style={{color:JOURNAL_GREEN,fontWeight:700}}>V</span></button></div><div ref={editableRef} className="page-editor" contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label="Página del diario" data-placeholder="Escribí aquí lo que quieras recordar…" onInput={syncFromEditable} onKeyDown={onKeyDown} onPaste={onPaste}/><small>{plainTextLength(folder.pages[page]?.text??'')} / {PAGE_LIMIT}</small></div><div className="page-buttons"><button disabled={page===0} onClick={()=>setPage(p=>p-1)}>← Hoja anterior</button><span aria-hidden="true">— {page+1} —</span><button disabled={page>=folder.pages.length-1} onClick={()=>setPage(p=>p+1)}>Hoja siguiente →</button></div></div></div>:<div className="empty"><h2>Tu diario está listo</h2><p>Creá una carpeta para comenzar a escribir.</p><button onClick={addFolder}>Crear mi primera carpeta</button></div>}</div></section>
 }
