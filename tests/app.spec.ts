@@ -99,6 +99,7 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await expect(formLabels.nth(1)).toContainText('Categoría');
   await expect(formLabels.nth(2)).toContainText('Fecha');
   await expect(formLabels.nth(3)).toContainText('Monto');
+  await expect(formLabels.nth(4)).toContainText('Pagado');
   await page.getByPlaceholder('Ej. Electricidad').fill('Electricidad');
   await page.getByPlaceholder('0,00').fill('12,34');
   await page.getByRole('button', { name: 'Agregar' }).click();
@@ -127,12 +128,18 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await page.getByLabel('Monto en pesos', { exact: true }).fill('15.5');
   await page.getByLabel('Monto en pesos', { exact: true }).blur();
   await expect(page.getByLabel('Monto en pesos', { exact: true })).toHaveValue('15,50');
+  await expect(page.getByLabel('Estado de pago', { exact: true })).toHaveValue('unpaid');
+  await page.getByLabel('Estado de pago', { exact: true }).selectOption('paid');
+  await expect(page.locator('.paid-select.paid')).toHaveCSS('background-color', 'rgb(189, 231, 198)');
+  storedExpense = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!).expenses.find((expense: { concept: string }) => expense.concept === 'Electricidad'));
+  expect(storedExpense.paid).toBe(true);
   await page.reload();
   await expect(page.getByLabel('Concepto')).toHaveValue('Electricidad');
   await expect(page.getByLabel('Fecha', { exact: true })).toHaveValue('21/07/2026');
   storedExpense = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!).expenses.find((expense: { concept: string }) => expense.concept === 'Electricidad'));
   expect(storedExpense.date).toBe('2026-07-21');
   await expect(page.getByLabel('Monto en pesos', { exact: true })).toHaveValue('15,50');
+  await expect(page.getByLabel('Estado de pago', { exact: true })).toHaveValue('paid');
 });
 
 test('mantiene vacía la fecha de un gasto legacy al editar otro campo', async ({ page }) => {

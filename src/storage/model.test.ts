@@ -39,6 +39,11 @@ describe('datos exactos y backup', () => {
     expect(isData({ ...EMPTY, expenses: [{ id: 'e', concept: 'Luz', cents: 1234, date: '2026-07-22' }] })).toBe(true);
     expect(isData({ ...EMPTY, expenses: [{ id: 'e', concept: 'Luz', cents: 1234, date: '2026-02-30' }] })).toBe(false);
   });
+  it('mantiene compatibles los gastos sin estado de pago y valida el tipo cuando está presente', () => {
+    expect(isData({ ...EMPTY, expenses: [{ id: 'e', concept: 'Luz', cents: 1234 }] })).toBe(true);
+    expect(isData({ ...EMPTY, expenses: [{ id: 'e', concept: 'Luz', cents: 1234, paid: true }] })).toBe(true);
+    expect(isData({ ...EMPTY, expenses: [{ id: 'e', concept: 'Luz', cents: 1234, paid: 'sí' }] })).toBe(false);
+  });
   it('mantiene compatibles las notas sin archivar y valida la fecha de guardado', () => {
     const base = { id: 'n', text: 'x', color: '#ffe783', status: 'todo' as const, history: [{ status: 'todo' as const, at: '2026-07-22T00:00:00.000Z' }] };
     expect(isData({ ...EMPTY, notes: [base] })).toBe(true);
