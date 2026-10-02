@@ -81,6 +81,9 @@ header{justify-content:space-between}.back-link{font-size:.9rem;color:#ead8c8;te
 .month-save{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:end;gap:.7rem;padding-top:.7rem;border-top:1px dashed #9c8a68}
 .month-save label{flex:0 1 16rem}
 .month-save [role=status]{align-self:center;color:#1d5a2c;font-weight:700}
+/* "Cargar mes" usa el mismo azul que el desplegable de carpetas de cada gasto. */
+.calculator .month-save input{background:#1f6fe0;color:#fff;border:2px solid #0d47b0;border-radius:4px;font-weight:600}
+.calculator .month-save input::placeholder{color:#d6e6ff;font-weight:400}
 .back-to-expenses{align-self:center;color:#fff4df;text-decoration:none;font-weight:700;background:#3f281c;padding:.45rem .8rem;border-radius:6px;text-shadow:none}
 .month-folders{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:1rem}
 .month-folder{width:200px;display:flex;flex-direction:column;gap:.4rem}
