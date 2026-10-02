@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { appendToMonth, cleanMonthName, EMPTY, moveToMonth, parseMonthKey, syncMonthEntry, isData, isExpenseDate, parseCents, sameMonthName, total } from './model';
+import { appendToMonth, cleanMonthName, EMPTY, moveToMonth, parseMonthKey, sortMonths, syncMonthEntry, isData, isExpenseDate, parseCents, sameMonthName, total } from './model';
 import { load, parseBackup, save, serialize } from './store';
 import { editableMoney, formatExpenseDate, money, parseExpenseDate } from '../features/expenses/Expenses';
 
@@ -92,6 +92,10 @@ describe('datos exactos y backup', () => {
     expect(syncMonthEntry(months, { id: 'otro', concept: 'x', cents: 1 })).toBe(months);
   });
   it('rechaza un mes de gasto con formato inválido', () => expect(isData({ ...EMPTY, expenses: [{ id: 'e', concept: 'Luz', cents: 1, month: 'agosto' }] })).toBe(false));
+  it('ordena las carpetas mm/aaaa por fecha y deja las demás al final', () => {
+    const folder = (name: string) => ({ id: name, name, expenses: [] });
+    expect(sortMonths([folder('Viaje'), folder('01/2027'), folder('12/2026')]).map(m => m.name)).toEqual(['12/2026', '01/2027', 'Viaje']);
+  });
   it('hace round trip', () => expect(parseBackup(serialize(EMPTY))).toEqual(EMPTY));
   it('persiste', () => { save(EMPTY); expect(load().data).toEqual(EMPTY); });
   it.each([{ ...EMPTY, notes: [{ id: '', text: 'x', color: '#ffe783', status: 'todo', history: [] }] }, { ...EMPTY, folders: [{ id: 'f', name: 'n', pages: [] }] }, { ...EMPTY, expenses: [{ id: 'e', concept: '', cents: -1 }] }])('rechaza estructuras internas inválidas', bad => expect(() => parseBackup(JSON.stringify(bad))).toThrow());

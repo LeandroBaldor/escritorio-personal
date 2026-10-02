@@ -1,7 +1,7 @@
 import { FocusEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useData } from '../../app/DataContext';
-import { appendToMonth, cleanMonthName, EXPENSE_CATEGORIES, id, isExpenseDate, moveToMonth, parseCents, parseMonthKey, sameMonthName, syncMonthEntry, total, totalsByCategory, type Expense, type ExpenseCategory } from '../../storage/model';
+import { appendToMonth, EXPENSE_CATEGORIES, id, isExpenseDate, moveToMonth, parseCents, parseMonthKey, sameMonthName, sortMonths, syncMonthEntry, type ExpenseMonth, total, totalsByCategory, type Expense, type ExpenseCategory } from '../../storage/model';
 
 const integerMoney = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
 const moneyParts = (c: number) => ({ whole: Math.trunc(c / 100), fraction: c % 100 });
@@ -23,7 +23,7 @@ export const parseExpenseDate = (display: string) => {
   return isExpenseDate(iso) ? iso : null;
 };
 
-function DateInput({ id, value, onChange, onBlur, onEnter, onCalendarSelect, label }: { id: string; value: string; onChange: (value: string) => void; onBlur?: () => void; onEnter?: () => void; onCalendarSelect?: (value: string) => void; label: string }) {
+export function DateInput({ id, value, onChange, onBlur, onEnter, onCalendarSelect, label }: { id: string; value: string; onChange: (value: string) => void; onBlur?: () => void; onEnter?: () => void; onCalendarSelect?: (value: string) => void; label: string }) {
   const isoValue = parseExpenseDate(value) ?? '';
   const pickerRef = useRef<HTMLInputElement>(null);
   const leaveControl = (event: FocusEvent<HTMLSpanElement>) => {
@@ -50,20 +50,20 @@ function DateInput({ id, value, onChange, onBlur, onEnter, onCalendarSelect, lab
   </span>;
 }
 
-function MoneyInput({ value, onChange, onBlur, label, placeholder }: { value: string; onChange: (value: string) => void; onBlur?: () => void; label: string; placeholder?: string }) {
+export function MoneyInput({ value, onChange, onBlur, label, placeholder }: { value: string; onChange: (value: string) => void; onBlur?: () => void; label: string; placeholder?: string }) {
   return <span className="money-input"><span aria-hidden="true">$</span><input aria-label={label} inputMode="decimal" value={value} onChange={e => onChange(e.target.value)} onBlur={onBlur} placeholder={placeholder} /></span>;
 }
 
-function ExpenseRow({ expense, onChange, onDelete, onSaveMonth }: { expense: Expense; onChange: (e: Expense) => void; onDelete: () => void; onSaveMonth: (key: string) => void }) {
+function ExpenseRow({ expense, months, onChange, onDelete, onSaveToFolder }: { expense: Expense; months: ExpenseMonth[]; onChange: (e: Expense) => void; onDelete: () => void; onSaveToFolder: (folderId: string) => void }) {
   const [concept, setConcept] = useState(expense.concept);
   const [category, setCategory] = useState<ExpenseCategory>(expense.category ?? 'Otros');
   const [date, setDate] = useState(expense.date ? formatExpenseDate(expense.date) : '');
   const [amount, setAmount] = useState(editableMoney(expense.cents));
   const [paid, setPaid] = useState(expense.paid ?? false);
-  const [monthDraft, setMonthDraft] = useState(expense.month ?? '');
+  const [folderId, setFolderId] = useState('');
   const [error, setError] = useState('');
   const keepDrafts = useRef(false);
-  useEffect(() => { setMonthDraft(expense.month ?? ''); }, [expense.month]);
+  const folder = months.find(m => m.id === folderId);
   useEffect(() => { if (keepDrafts.current) { keepDrafts.current = false; return; } setConcept(expense.concept); setCategory(expense.category ?? 'Otros'); setDate(expense.date ? formatExpenseDate(expense.date) : ''); setAmount(editableMoney(expense.cents)); setPaid(expense.paid ?? false); }, [expense]);
   const commit = (candidateDate = date) => {
     const cents = parseCents(amount);
@@ -96,14 +96,11 @@ function ExpenseRow({ expense, onChange, onDelete, onSaveMonth }: { expense: Exp
     keepDrafts.current = true;
     onChange({ ...expense, paid: value });
   };
-  const saveMonth = () => {
-    const key = parseMonthKey(monthDraft);
-    if (!key) { setError('Escribí el mes como mm/aaaa, por ejemplo 08/2026.'); return; }
-    setMonthDraft(key);
+  const saveToFolder = () => {
+    if (!folder) { setError(months.length === 0 ? 'Primero cargá un mes abajo del formulario.' : 'Elegí la carpeta del mes.'); return; }
     setError('');
-    onSaveMonth(key);
+    onSaveToFolder(folder.id);
   };
-  const savedHere = Boolean(expense.month) && monthDraft === expense.month;
   return <div className="expense-row">
     <input aria-label="Concepto" value={concept} onChange={e => setConcept(e.target.value)} onBlur={() => commit()} />
     <select aria-label="Categoría" value={category} onChange={e => changeCategory(e.target.value as ExpenseCategory)}>
@@ -116,9 +113,11 @@ function ExpenseRow({ expense, onChange, onDelete, onSaveMonth }: { expense: Exp
       <option value="paid">Pagado</option>
     </select>
     <span className="expense-month">
-      <input aria-label="Mes de la carpeta" inputMode="numeric" maxLength={7} placeholder="mm/aaaa" value={monthDraft} onChange={e => setMonthDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveMonth(); }} />
-      <button type="button" onClick={saveMonth}>Guardar</button>
-      {savedHere && <span className="expense-month-saved" role="img" aria-label={`Guardado en ${expense.month}`} title={`Guardado en ${expense.month}`}>✓</span>}
+      <select aria-label="Carpeta del mes" value={folder ? folderId : ''} onChange={e => { setFolderId(e.target.value); setError(''); }} disabled={months.length === 0}>
+        <option value="">{months.length === 0 ? 'Sin carpetas' : 'Elegí el mes'}</option>
+        {months.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+      </select>
+      <button type="button" onClick={saveToFolder}>Guardar</button>
     </span>
     <button aria-label="Borrar gasto" onClick={onDelete}>×</button>
     {error && <small role="alert">{error}</small>}
@@ -135,7 +134,7 @@ export function Expenses() {
   const [error, setError] = useState('');
   const [month, setMonth] = useState('');
   const [monthNotice, setMonthNotice] = useState('');
-  const months = data.expenseMonths ?? [];
+  const months = sortMonths(data.expenseMonths ?? []);
   let sumError = '';
   let sum = 0;
   let categoryTotals: Record<ExpenseCategory, number> = Object.fromEntries(EXPENSE_CATEGORIES.map(c => [c, 0])) as Record<ExpenseCategory, number>;
@@ -163,38 +162,29 @@ export function Expenses() {
     setData(d => ({ ...d, expenses: [...d.expenses, expense] }));
     resetForm();
   };
-  // Guardar en un mes: crea la carpeta si no existe y, si el formulario tiene un gasto, lo anota en su hoja.
-  const saveToMonth = () => {
-    const name = cleanMonthName(month);
+  // Cargar mes: crea la carpeta mm/aaaa en el disquete para después elegirla en cada gasto.
+  const createMonth = () => {
     setMonthNotice('');
-    if (!name) { setError('Escribí un mes, por ejemplo “Agosto 2026”.'); return; }
-    const formEmpty = !concept.trim() && !amount.trim();
-    const expense = formEmpty ? null : readForm();
-    if (!formEmpty && !expense) return;
-    setData(d => ({ ...d, expenseMonths: appendToMonth(d.expenseMonths ?? [], name, expense ? [expense] : []) }));
-    const folderName = months.find(m => sameMonthName(m.name, name))?.name ?? name;
-    if (expense) resetForm(); else setError('');
-    setMonthNotice(expense ? `Gasto guardado en “${folderName}”.` : `Carpeta “${folderName}” lista.`);
-  };
-  // Guardar un gasto de la lista en su carpeta mm/aaaa; la carpeta se crea si todavía no existe.
-  const saveRowToMonth = (expenseId: string, key: string) => setData(d => {
-    const current = d.expenses.find(v => v.id === expenseId);
-    if (!current) return d;
-    const next = { ...current, month: key };
-    return { ...d, expenses: d.expenses.map(v => v.id === expenseId ? next : v), expenseMonths: moveToMonth(d.expenseMonths ?? [], key, next) };
-  });
-  // Cerrar el mes: pasa toda la lista actual a la carpeta y deja la lista vacía para empezar el siguiente.
-  const closeMonth = () => {
-    const name = cleanMonthName(month);
-    setMonthNotice('');
-    if (!name) { setError('Escribí el mes que querés cerrar, por ejemplo “Agosto 2026”.'); return; }
-    if (data.expenses.length === 0) { setError('No hay gastos en la lista para pasar al mes.'); return; }
-    const folderName = months.find(m => sameMonthName(m.name, name))?.name ?? name;
-    const count = data.expenses.length;
-    if (!confirm(`¿Pasar ${count} ${count === 1 ? 'gasto' : 'gastos'} de la lista a “${folderName}”? La lista quedará vacía.`)) return;
-    setData(d => ({ ...d, expenses: [], expenseMonths: d.expenses.reduce((list, e) => moveToMonth(list, name, e), d.expenseMonths ?? []) }));
+    const key = parseMonthKey(month);
+    if (!key) { setError('Escribí el mes como mm/aaaa, por ejemplo 08/2026.'); return; }
     setError('');
-    setMonthNotice(`Mes cerrado: ${count} ${count === 1 ? 'gasto pasó' : 'gastos pasaron'} a “${folderName}”.`);
+    setMonth('');
+    if (months.some(m => sameMonthName(m.name, key))) { setMonthNotice(`La carpeta ${key} ya existe.`); return; }
+    setData(d => ({ ...d, expenseMonths: appendToMonth(d.expenseMonths ?? [], key, []) }));
+    setMonthNotice(`Carpeta ${key} creada en el disquete.`);
+  };
+  // Guardar un gasto en la carpeta elegida: pasa al disquete y sale de la lista de Mis gastos.
+  const saveRowToFolder = (expenseId: string, folderId: string) => {
+    const target = months.find(m => m.id === folderId);
+    const current = data.expenses.find(v => v.id === expenseId);
+    if (!target || !current) return;
+    setData(d => {
+      const expense = d.expenses.find(v => v.id === expenseId);
+      const folder = d.expenseMonths?.find(m => m.id === folderId);
+      if (!expense || !folder) return d;
+      return { ...d, expenses: d.expenses.filter(v => v.id !== expenseId), expenseMonths: moveToMonth(d.expenseMonths ?? [], folder.name, expense) };
+    });
+    setMonthNotice(`“${current.concept}” se guardó en ${target.name}.`);
   };
   return <section><div className="section-title"><div className="title-with-floppy"><div><p className="eyebrow">Control cotidiano</p><h1>Mis gastos</h1></div><Link className="floppy floppy--small" to="/gastos/meses" aria-label="Meses guardados" title="Meses guardados"><span className="floppy-shutter" aria-hidden="true" /><span>Meses</span></Link></div><div className="total"><small>Total</small><strong>{sumError ? '—' : money(sum)}</strong>{sumError && <small role="alert">{sumError}</small>}</div></div><div className="expenses-layout"><div className="calculator"><form onSubmit={add}>
     <label>Gasto<input value={concept} onChange={e => setConcept(e.target.value)} placeholder="Ej. Electricidad" /></label>
@@ -209,14 +199,12 @@ export function Expenses() {
     </select></label>
     <button>Agregar</button>
     <div className="month-save">
-      <label>Mes<input value={month} onChange={e => { setMonth(e.target.value); setMonthNotice(''); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveToMonth(); } }} placeholder="Ej. Agosto 2026" list="expense-month-names" /></label>
-      <datalist id="expense-month-names">{months.map(m => <option key={m.id} value={m.name} />)}</datalist>
-      <button type="button" onClick={saveToMonth}>Guardar</button>
-      <button type="button" className="close-month" onClick={closeMonth}>Cerrar mes</button>
+      <label>Cargar mes<input value={month} inputMode="numeric" maxLength={7} onChange={e => { setMonth(e.target.value); setMonthNotice(''); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); createMonth(); } }} placeholder="mm/aaaa" /></label>
+      <button type="button" onClick={createMonth}>Crear carpeta</button>
       {monthNotice && <span role="status">{monthNotice}</span>}
     </div>
     {error && <p role="alert">{error}</p>}
-  </form><div className="expense-list">{data.expenses.map(e => <ExpenseRow key={e.id} expense={e} onChange={next => setData(d => ({ ...d, expenses: d.expenses.map(v => v.id === e.id ? next : v), expenseMonths: syncMonthEntry(d.expenseMonths, next) }))} onSaveMonth={key => saveRowToMonth(e.id, key)} onDelete={() => setData(d => ({ ...d, expenses: d.expenses.filter(v => v.id !== e.id) }))} />)}</div></div><aside className="expense-summary">
+  </form><div className="expense-list">{data.expenses.map(e => <ExpenseRow key={e.id} expense={e} onChange={next => setData(d => ({ ...d, expenses: d.expenses.map(v => v.id === e.id ? next : v), expenseMonths: syncMonthEntry(d.expenseMonths, next) }))} months={months} onSaveToFolder={folderId => saveRowToFolder(e.id, folderId)} onDelete={() => setData(d => ({ ...d, expenses: d.expenses.filter(v => v.id !== e.id) }))} />)}</div></div><aside className="expense-summary">
     <h2>Subtotales</h2>
     <ul>{EXPENSE_CATEGORIES.map(c => <li key={c}><span>{c}</span><strong>{sumError ? '—' : money(categoryTotals[c])}</strong></li>)}</ul>
     <div className="expense-summary-total"><span>Total</span><strong>{sumError ? '—' : money(sum)}</strong></div>

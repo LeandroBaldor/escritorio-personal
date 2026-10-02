@@ -101,8 +101,6 @@ header{justify-content:space-between}.back-link{font-size:.9rem;color:#ead8c8;te
 .ledger-text{flex:1;overflow-wrap:anywhere}
 .ledger-paid{color:#1d6a33;font-weight:700}
 .ledger-unpaid{color:#8e3c33;font-weight:700}
-.ledger .ledger-remove{flex:none;margin-top:calc((var(--line) - 1.6rem) / 2);width:1.6rem;height:1.6rem;padding:0;line-height:1;background:transparent;color:#8e3c33;font-size:1.2rem;opacity:.6}
-.ledger .ledger-remove:hover,.ledger .ledger-remove:focus-visible{opacity:1;background:#8e3c3322}
 .ledger-empty{margin:0;color:#9c8064}
 .ledger-total{display:flex;justify-content:space-between;gap:1rem;margin:0;padding-top:var(--line);font-weight:700}
 @media(max-width:600px){.title-with-floppy{justify-content:space-between}.ledger{padding-left:2.4rem;font-size:.9rem;background:linear-gradient(90deg,transparent 0 1.8rem,#d99c94 1.8rem 1.9rem,transparent 1.9rem),repeating-linear-gradient(to bottom,#fff8df 0,#fff8df calc(var(--line) - 1px),#aabfca calc(var(--line) - 1px),#aabfca var(--line))}.ledger li::before{left:-2.2rem;width:1.6rem}.month-folder{width:100%}}
@@ -114,14 +112,27 @@ header{justify-content:space-between}.back-link{font-size:.9rem;color:#ead8c8;te
 .ledger-categories ul{list-style:none;margin:0;padding:0;max-width:26rem}
 .ledger-categories li{display:flex;justify-content:space-between;gap:1rem}
 .ledger-categories li::before{content:none}
-.month-save .close-month{background:#856047}
 
-/* Celda mm/aaaa en cada gasto: guarda el gasto en su carpeta del disquete. */
+/* Desplegable de carpetas en cada gasto: guarda el gasto en su carpeta del disquete. */
 /* La calculadora no es lo bastante ancha para una séptima columna: la celda del mes va justo debajo de su gasto. */
 .expense-row .expense-month{grid-column:1/-1;order:1;margin-bottom:.35rem}.expense-row small{order:2}
 .expense-month{display:flex;align-items:stretch;gap:.35rem;min-width:0}
-.expense-month input{width:7.2rem;min-width:0;text-align:center}
+.expense-month select{width:9.5rem;min-width:0}
 .expense-month button{padding:.7rem .75rem;background:#856047}
-.expense-month-saved{align-self:center;width:1rem;color:#bde7c6;font-weight:900;font-size:1.15rem}
-@media(max-width:480px){.expense-month input{flex:1;width:auto}}
+@media(max-width:480px){.expense-month select{flex:1;width:auto}}
 @media(max-width:480px){.expense-row .expense-month{grid-column:1}}
+
+/* Renglones de la hoja con Editar y Borrar; al editar, el renglón se abre como un formulario. */
+.ledger-actions{flex:none;display:flex;gap:.3rem;align-items:center;height:var(--line)}
+.ledger-actions button{padding:.15rem .55rem;font:600 .78rem Nunito,sans-serif;line-height:1.4;background:#d9c9a8;color:#332317}
+.ledger-actions .ledger-delete{background:#8e3c33;color:#fff}
+.ledger li.ledger-editing{display:block;padding:.4rem 0;background:#fff8dfee}
+.ledger-edit{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.45rem;align-items:center;font-family:Nunito,sans-serif;line-height:1.4}
+.ledger-edit>input,.ledger-edit>select{padding:.5rem;border:1px solid #b69a73;border-radius:4px;min-width:0}
+.ledger-edit .money-input,.ledger-edit .date-input{border:1px solid #b69a73}
+.ledger-edit-actions{display:flex;gap:.4rem;grid-column:1/-1}
+.ledger-edit-actions button{padding:.45rem .8rem}
+.ledger-edit .ledger-cancel{background:#d9c9a8;color:#332317}
+.ledger-edit small{grid-column:1/-1;color:#8e3c33}
+.ledger-edit .money-input input{padding:.5rem .5rem .5rem .25rem}
+@media(max-width:600px){.ledger li{flex-wrap:wrap}.ledger-text{flex-basis:100%}.ledger-actions{margin-left:auto}}
