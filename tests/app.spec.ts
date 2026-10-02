@@ -550,13 +550,15 @@ test('ordena las tarjetas de guardadas arrastrándolas', async ({ page }) => {
   await expect(texts).toHaveText(['Alfa']);
 });
 
-test('los accesos graffiti de Mi diario llevan al escritorio y a gastos', async ({ page }) => {
+test('los accesos de Mi diario llevan al escritorio y a gastos', async ({ page }) => {
   await page.goto('/escritorio-personal/');
   await page.getByRole('link', { name: 'Mi diario', exact: true }).click();
   const desk = page.getByRole('link', { name: 'Ir a Mi Escritorio' });
   const expenses = page.getByRole('link', { name: 'Ir a Gastos' });
-  await expect(desk).toHaveCSS('color', 'rgb(46, 240, 127)');
-  await expect(expenses).toHaveCSS('color', 'rgb(181, 108, 255)');
+  await expect(desk).toHaveCSS('color', 'rgb(20, 13, 9)');
+  await expect(expenses).toHaveCSS('color', 'rgb(20, 13, 9)');
+  await expect(desk).toHaveCSS('font-family', /^Kalam/);
+  expect(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('700 40px Kalam'); })).toBe(true);
   await desk.click();
   await expect(page.getByRole('heading', { name: 'Notas del escritorio' })).toBeVisible();
   await page.getByRole('link', { name: 'Mi diario', exact: true }).click();

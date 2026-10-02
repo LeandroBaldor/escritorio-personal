@@ -232,11 +232,11 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .saved-note-shift button{padding:.3rem .5rem;font-size:.8rem;background:#1f6fe0;color:#fff;border:2px solid #0d47b0}
 .saved-note-shift button:disabled{opacity:.35;cursor:not-allowed}
 
-/* Permanent Marker (Apache 2.0), incluida en la app para no depender de un servicio externo. */
-@font-face{font-family:"Permanent Marker";font-style:normal;font-weight:400;font-display:swap;src:url("../assets/fonts/permanent-marker-latin.woff2") format("woff2")}
-/* Accesos tipo graffiti en Mi diario: Permanent Marker con contorno oscuro para que resalte sobre la madera. */
-.graffiti-links{display:flex;flex-direction:column;align-items:flex-start;gap:.15rem;margin-top:.9rem}
-.graffiti{display:inline-block;font:400 clamp(1.9rem,3.6vw,3.4rem)/1.15 "Permanent Marker","Marker Felt","Comic Sans MS",cursive;text-decoration:none;letter-spacing:.02em;text-shadow:2px 2px 0 #1b1410,-1px -1px 0 #1b1410,1px -1px 0 #1b1410,-1px 1px 0 #1b1410,4px 5px 0 #0007;transition:transform .15s ease}
-.graffiti--green{color:#2ef07f;transform:rotate(-3deg)}
-.graffiti--violet{color:#b56cff;transform:rotate(2deg);margin-left:1.2rem}
-.graffiti:hover,.graffiti:focus-visible{transform:rotate(0) scale(1.06)}
+/* Kalam (SIL OFL 1.1), letra manuscrita incluida en la app para que se vea igual en todos los dispositivos. */
+@font-face{font-family:"Kalam";font-style:normal;font-weight:700;font-display:swap;src:url("../assets/fonts/kalam-bold-latin.woff2") format("woff2")}
+/* Accesos de Mi diario: en negro y con letra manuscrita, uno abajo del otro a la derecha del título. */
+.journal-links{display:flex;flex:none;flex-direction:column;align-items:flex-start;gap:.2rem;align-self:center}
+.journal-links a{color:#140d09;text-decoration:none;font:700 clamp(1.7rem,3vw,2.6rem)/1.15 Kalam,"Segoe Print","Bradley Hand",cursive;text-shadow:0 1px 0 #ffffff40}
+.journal-links a:hover,.journal-links a:focus-visible{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
+@media(min-width:801px){.journal-links{margin:0 auto}}
+@media(max-width:800px){.journal-links{align-self:flex-start}}
