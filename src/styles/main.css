@@ -234,11 +234,11 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 
 /* Kalam (SIL OFL 1.1), letra manuscrita incluida en la app para que se vea igual en todos los dispositivos. */
 @font-face{font-family:"Kalam";font-style:normal;font-weight:700;font-display:swap;src:url("../assets/fonts/kalam-bold-latin.woff2") format("woff2")}
-/* Accesos de Mi diario: en blanco y con letra manuscrita, uno abajo del otro a la derecha del título. */
-.journal-links{display:flex;flex:none;flex-direction:column;align-items:flex-start;gap:.2rem;align-self:center}
-.journal-links a{color:#fff;text-decoration:none;font:700 clamp(1.25rem,1.9vw,1.75rem)/1.2 Kalam,"Segoe Print","Bradley Hand",cursive;text-shadow:0 2px 3px #30170d}
-.journal-links a:hover,.journal-links a:focus-visible{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
-@media(min-width:801px){.journal-links{margin:0 auto}}
-@media(max-width:800px){.journal-links{align-self:flex-start}}
+/* Accesos entre secciones (Mi diario y Mis gastos): en blanco y con letra manuscrita, uno abajo del otro a la derecha del título. */
+.section-links{display:flex;flex:none;flex-direction:column;align-items:flex-start;gap:.2rem;align-self:center}
+.section-links a{color:#fff;text-decoration:none;font:700 clamp(1.25rem,1.9vw,1.75rem)/1.2 Kalam,"Segoe Print","Bradley Hand",cursive;text-shadow:0 2px 3px #30170d}
+.section-links a:hover,.section-links a:focus-visible{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
+@media(min-width:801px){.section-links{margin:0 auto}}
+@media(max-width:800px){.section-links{align-self:flex-start}}
 /* Recuadro marrón claro semitransparente con puntas redondeadas que agrupa los dos accesos. */
-.journal-links{padding:.6rem 1.3rem;background:#d8b48c59;border:1px solid #f3dcc04d;border-radius:14px;box-shadow:0 4px 12px #2d130c40;backdrop-filter:blur(2px)}
+.section-links{padding:.6rem 1.3rem;background:#d8b48c59;border:1px solid #f3dcc04d;border-radius:14px;box-shadow:0 4px 12px #2d130c40;backdrop-filter:blur(2px)}
