@@ -549,3 +549,17 @@ test('ordena las tarjetas de guardadas arrastrándolas', async ({ page }) => {
   await page.getByRole('button', { name: 'Carpeta Turnos, 1 notas' }).click();
   await expect(texts).toHaveText(['Alfa']);
 });
+
+test('los accesos graffiti de Mi diario llevan al escritorio y a gastos', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.getByRole('link', { name: 'Mi diario', exact: true }).click();
+  const desk = page.getByRole('link', { name: 'Ir a Mi Escritorio' });
+  const expenses = page.getByRole('link', { name: 'Ir a Gastos' });
+  await expect(desk).toHaveCSS('color', 'rgb(46, 240, 127)');
+  await expect(expenses).toHaveCSS('color', 'rgb(181, 108, 255)');
+  await desk.click();
+  await expect(page.getByRole('heading', { name: 'Notas del escritorio' })).toBeVisible();
+  await page.getByRole('link', { name: 'Mi diario', exact: true }).click();
+  await page.getByRole('link', { name: 'Ir a Gastos' }).click();
+  await expect(page.getByRole('heading', { name: 'Mis gastos' })).toBeVisible();
+});
