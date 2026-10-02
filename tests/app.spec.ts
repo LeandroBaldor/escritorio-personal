@@ -555,8 +555,8 @@ test('los accesos de Mi diario llevan al escritorio y a gastos', async ({ page }
   await page.getByRole('link', { name: 'Mi diario', exact: true }).click();
   const desk = page.getByRole('link', { name: 'Ir a Mi Escritorio' });
   const expenses = page.getByRole('link', { name: 'Ir a Gastos' });
-  await expect(desk).toHaveCSS('color', 'rgb(20, 13, 9)');
-  await expect(expenses).toHaveCSS('color', 'rgb(20, 13, 9)');
+  await expect(desk).toHaveCSS('color', 'rgb(58, 31, 16)');
+  await expect(expenses).toHaveCSS('color', 'rgb(58, 31, 16)');
   await expect(desk).toHaveCSS('font-family', /^Kalam/);
   expect(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('700 40px Kalam'); })).toBe(true);
   await desk.click();
