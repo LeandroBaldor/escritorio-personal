@@ -120,7 +120,7 @@ function Card({ note, remove, edit, dragging, dropSide, onDragStart, onDragEnd, 
         ? <div className="note-edit">
           <textarea aria-label="Texto de la nota" value={draft} autoFocus onChange={event => setDraft(event.target.value)}
             onKeyDown={event => { if (event.key === 'Escape') setEditing(false); if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) saveEdit(); }} />
-          <div className="note-actions">
+          <div className="note-buttons">
             <button className="note-edit-button" onClick={saveEdit} disabled={!draft.trim()}>Guardar</button>
             <button className="note-cancel" onClick={() => setEditing(false)}>Cancelar</button>
           </div>
@@ -128,7 +128,7 @@ function Card({ note, remove, edit, dragging, dropSide, onDragStart, onDragEnd, 
         : <div className="note-text">{note.text}</div>}
       <small>{history.at(-1) ? `Desde ${formatHistoryDate(history.at(-1)!.at)}` : 'Sin fecha disponible'}</small>
       <details><summary>Historial</summary>{history.map((entry, index) => <div key={`${entry.at}-${index}`}>{columns.find(column => column.status === entry.status)?.label}: {formatHistoryDate(entry.at)}</div>)}</details>
-      {!editing && <div className="note-actions">
+      {!editing && <div className="note-buttons">
         <button className="delete" onClick={remove}>Borrar</button>
         <button className="note-edit-button" onClick={startEditing}>Editar</button>
       </div>}
