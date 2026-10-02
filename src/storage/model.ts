@@ -29,3 +29,5 @@ export function parseMonthKey(value:string){const match=value.trim().match(/^(\d
 // Un gasto de la lista vive en una sola carpeta: guardarlo en otro mes lo saca de la anterior.
 export function moveToMonth(months:ExpenseMonth[],key:string,expense:Expense):ExpenseMonth[]{const entry:Expense={...expense,month:key};if(!isMonthKey(key))delete entry.month;const rest=months.map(m=>m.expenses.some(e=>e.id===expense.id)?{...m,expenses:m.expenses.filter(e=>e.id!==expense.id)}:m);const target=rest.find(m=>sameMonthName(m.name,key));return target?rest.map(m=>m.id===target.id?{...m,expenses:[...m.expenses,entry]}:m):[...rest,{id:id(),name:key,expenses:[entry]}]}
 export function syncMonthEntry(months:ExpenseMonth[]|undefined,expense:Expense){if(!months?.some(m=>m.expenses.some(e=>e.id===expense.id)))return months;return months.map(m=>({...m,expenses:m.expenses.map(e=>e.id===expense.id?{...expense,month:e.month}:e)}))}
+const monthOrder=(name:string)=>isMonthKey(name)?Number(name.slice(3))*100+Number(name.slice(0,2)):Number.MAX_SAFE_INTEGER;
+export const sortMonths=(months:ExpenseMonth[])=>[...months].sort((a,b)=>monthOrder(a.name)-monthOrder(b.name));
