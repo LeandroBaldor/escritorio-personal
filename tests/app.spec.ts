@@ -334,3 +334,62 @@ test('reordena libremente, persiste y registra historial solo al cambiar de secc
   stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!));
   expect(stored.notes.find((note: { id: string }) => note.id === 'd').history).toHaveLength(1);
 });
+
+test('guarda gastos en carpetas de meses dentro del disquete', async ({ page }) => {
+  page.on('dialog', dialog => dialog.type() === 'prompt' ? dialog.accept('Agosto 2026 casa') : dialog.accept());
+  await page.goto('/escritorio-personal/');
+  await page.getByRole('link', { name: 'Gastos', exact: true }).click();
+  await page.getByLabel('Mes', { exact: true }).fill('Agosto 2026');
+  await page.getByPlaceholder('Ej. Electricidad').fill('Electricidad');
+  await page.getByLabel('Categoría del gasto').selectOption('Casa');
+  await page.getByLabel('Fecha del gasto', { exact: true }).fill('02/08/2026');
+  await page.getByPlaceholder('0,00').fill('1500');
+  await page.getByLabel('Estado de pago del gasto').selectOption('paid');
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(page.getByText('Gasto guardado en “Agosto 2026”.')).toBeVisible();
+  await expect(page.getByPlaceholder('Ej. Electricidad')).toHaveValue('');
+  await page.getByLabel('Mes', { exact: true }).fill('agosto 2026');
+  await page.getByPlaceholder('Ej. Electricidad').fill('Farmacia');
+  await page.getByPlaceholder('0,00').fill('200,50');
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await page.getByRole('link', { name: 'Meses guardados' }).click();
+  await page.getByRole('button', { name: 'Abrir Agosto 2026' }).click();
+  const lines = page.locator('.ledger ol li');
+  await expect(lines).toHaveCount(2);
+  await expect(lines.nth(0)).toContainText('Electricidad / Casa / 02/08/2026 / $\u00a01.500,00 / Pagado');
+  await expect(lines.nth(1)).toContainText('Farmacia / Casa /');
+  await expect(lines.nth(1)).toContainText('$\u00a0200,50 / No pagado');
+  await expect(page.locator('.ledger-total')).toContainText('$\u00a01.700,50');
+  await expect(page.locator('.ledger-categories')).toContainText('Casa');
+  await expect(page.locator('.ledger-categories')).toContainText('$\u00a01.700,50');
+  await lines.nth(1).getByRole('button', { name: 'No pagado' }).click();
+  await expect(lines.nth(1)).toContainText('$\u00a0200,50 / Pagado');
+  await page.getByRole('button', { name: 'Editar nombre' }).click();
+  await expect(page.locator('.ledger h2')).toHaveText('Agosto 2026 casa');
+  await page.reload();
+  await page.getByRole('button', { name: 'Abrir Agosto 2026 casa' }).click();
+  await expect(page.locator('.ledger ol li')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Borrar carpeta' }).click();
+  await expect(page.getByText('Todavía no hay meses guardados')).toBeVisible();
+});
+
+test('cierra el mes pasando la lista de gastos a la carpeta', async ({ page }) => {
+  page.on('dialog', dialog => dialog.accept());
+  await page.goto('/escritorio-personal/');
+  await page.getByRole('link', { name: 'Gastos', exact: true }).click();
+  for (const [concept, amount] of [['Alquiler', '300000'], ['Internet', '25000']]) {
+    await page.getByPlaceholder('Ej. Electricidad').fill(concept);
+    await page.getByPlaceholder('0,00').fill(amount);
+    await page.getByRole('button', { name: 'Agregar' }).click();
+  }
+  await expect(page.locator('.expense-row')).toHaveCount(2);
+  await page.getByLabel('Mes', { exact: true }).fill('Julio 2026');
+  await page.getByRole('button', { name: 'Cerrar mes' }).click();
+  await expect(page.getByText('Mes cerrado: 2 gastos pasaron a “Julio 2026”.')).toBeVisible();
+  await expect(page.locator('.expense-row')).toHaveCount(0);
+  await expect(page.locator('.total strong')).toContainText('0,00');
+  await page.getByRole('link', { name: 'Meses guardados' }).click();
+  await page.getByRole('button', { name: 'Abrir Julio 2026' }).click();
+  await expect(page.locator('.ledger ol li')).toHaveCount(2);
+  await expect(page.locator('.ledger-total')).toContainText('$\u00a0325.000,00');
+});
