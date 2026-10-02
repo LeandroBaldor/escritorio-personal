@@ -241,7 +241,7 @@ test('conserva texto multilínea y permite mover solo arrastrando la tarjeta', a
   expect(blockedDrag).toBe(true);
   await expect(note).toHaveAttribute('draggable', 'true');
   await expect(note.locator('.note-actions, .note-order-actions')).toHaveCount(0);
-  await expect(note.getByRole('button')).toHaveCount(1);
+  await expect(note.getByRole('button')).toHaveText(['Borrar', 'Editar']);
   await page.reload();
   await expect(page.locator('.note-text')).toContainText('Primera línea\nSegunda línea');
 });
@@ -406,4 +406,23 @@ test('carga meses, guarda gastos en su carpeta y los saca de la lista', async ({
   await expect(page.locator('.ledger h2')).toHaveText('09/2026');
   await page.getByRole('button', { name: 'Borrar carpeta' }).click();
   await expect(page.locator('.month-folder-open strong')).toHaveText(['07/2026']);
+});
+
+test('edita el texto de una nota desde su tarjeta', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Pagar luz');
+  await page.getByRole('button', { name: 'Agregar nota' }).click();
+  const note = page.locator('.note').first();
+  await note.getByRole('button', { name: 'Editar' }).click();
+  await note.getByLabel('Texto de la nota').fill('   ');
+  await expect(note.getByRole('button', { name: 'Guardar' })).toBeDisabled();
+  await note.getByLabel('Texto de la nota').fill('Pagar gas');
+  await note.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(page.locator('.note-text')).toHaveText('Pagar luz');
+  await note.getByRole('button', { name: 'Editar' }).click();
+  await page.getByLabel('Texto de la nota').fill('Pagar luz y gas');
+  await page.getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.locator('.note-text')).toHaveText('Pagar luz y gas');
+  await page.reload();
+  await expect(page.locator('.note-text')).toHaveText('Pagar luz y gas');
 });
