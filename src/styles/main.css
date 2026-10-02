@@ -101,8 +101,17 @@ header{justify-content:space-between}.back-link{font-size:.9rem;color:#ead8c8;te
 .ledger-text{flex:1;overflow-wrap:anywhere}
 .ledger-paid{color:#1d6a33;font-weight:700}
 .ledger-unpaid{color:#8e3c33;font-weight:700}
-.ledger li button{flex:none;margin-top:calc((var(--line) - 1.6rem) / 2);width:1.6rem;height:1.6rem;padding:0;line-height:1;background:transparent;color:#8e3c33;font-size:1.2rem;opacity:.6}
-.ledger li button:hover,.ledger li button:focus-visible{opacity:1;background:#8e3c3322}
+.ledger .ledger-remove{flex:none;margin-top:calc((var(--line) - 1.6rem) / 2);width:1.6rem;height:1.6rem;padding:0;line-height:1;background:transparent;color:#8e3c33;font-size:1.2rem;opacity:.6}
+.ledger .ledger-remove:hover,.ledger .ledger-remove:focus-visible{opacity:1;background:#8e3c3322}
 .ledger-empty{margin:0;color:#9c8064}
 .ledger-total{display:flex;justify-content:space-between;gap:1rem;margin:0;padding-top:var(--line);font-weight:700}
 @media(max-width:600px){.title-with-floppy{justify-content:space-between}.ledger{padding-left:2.4rem;font-size:.9rem;background:linear-gradient(90deg,transparent 0 1.8rem,#d99c94 1.8rem 1.9rem,transparent 1.9rem),repeating-linear-gradient(to bottom,#fff8df 0,#fff8df calc(var(--line) - 1px),#aabfca calc(var(--line) - 1px),#aabfca var(--line))}.ledger li::before{left:-2.2rem;width:1.6rem}.month-folder{width:100%}}
+.ledger .ledger-status{display:inline;padding:0 .25rem;margin:0;background:transparent;font:inherit;font-weight:700;line-height:inherit;border-radius:4px;text-decoration:underline dotted;text-underline-offset:3px}
+.ledger .ledger-status.ledger-paid{color:#1d6a33}.ledger .ledger-status.ledger-unpaid{color:#8e3c33}
+.ledger .ledger-status:hover{background:#0000000f}
+.ledger-categories{padding-top:var(--line)}
+.ledger-categories h3{margin:0;font:700 1.35rem/var(--line) Caveat,cursive;color:#74503c}
+.ledger-categories ul{list-style:none;margin:0;padding:0;max-width:26rem}
+.ledger-categories li{display:flex;justify-content:space-between;gap:1rem}
+.ledger-categories li::before{content:none}
+.month-save .close-month{background:#856047}

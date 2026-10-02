@@ -1,7 +1,7 @@
 import { FocusEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useData } from '../../app/DataContext';
-import { EXPENSE_CATEGORIES, id, isExpenseDate, parseCents, sameMonthName, total, totalsByCategory, type Expense, type ExpenseCategory } from '../../storage/model';
+import { appendToMonth, cleanMonthName, EXPENSE_CATEGORIES, id, isExpenseDate, parseCents, sameMonthName, total, totalsByCategory, type Expense, type ExpenseCategory } from '../../storage/model';
 
 const integerMoney = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
 const moneyParts = (c: number) => ({ whole: Math.trunc(c / 100), fraction: c % 100 });
@@ -150,21 +150,29 @@ export function Expenses() {
   };
   // Guardar en un mes: crea la carpeta si no existe y, si el formulario tiene un gasto, lo anota en su hoja.
   const saveToMonth = () => {
-    const name = month.trim().replace(/\s+/g, ' ');
+    const name = cleanMonthName(month);
     setMonthNotice('');
     if (!name) { setError('Escribí un mes, por ejemplo “Agosto 2026”.'); return; }
     const formEmpty = !concept.trim() && !amount.trim();
     const expense = formEmpty ? null : readForm();
     if (!formEmpty && !expense) return;
-    setData(d => {
-      const current = d.expenseMonths ?? [];
-      const existing = current.find(m => sameMonthName(m.name, name));
-      const entries = expense ? [expense] : [];
-      return { ...d, expenseMonths: existing ? current.map(m => m.id === existing.id ? { ...m, expenses: [...m.expenses, ...entries] } : m) : [...current, { id: id(), name, expenses: entries }] };
-    });
+    setData(d => ({ ...d, expenseMonths: appendToMonth(d.expenseMonths ?? [], name, expense ? [expense] : []) }));
     const folderName = months.find(m => sameMonthName(m.name, name))?.name ?? name;
     if (expense) resetForm(); else setError('');
     setMonthNotice(expense ? `Gasto guardado en “${folderName}”.` : `Carpeta “${folderName}” lista.`);
+  };
+  // Cerrar el mes: pasa toda la lista actual a la carpeta y deja la lista vacía para empezar el siguiente.
+  const closeMonth = () => {
+    const name = cleanMonthName(month);
+    setMonthNotice('');
+    if (!name) { setError('Escribí el mes que querés cerrar, por ejemplo “Agosto 2026”.'); return; }
+    if (data.expenses.length === 0) { setError('No hay gastos en la lista para pasar al mes.'); return; }
+    const folderName = months.find(m => sameMonthName(m.name, name))?.name ?? name;
+    const count = data.expenses.length;
+    if (!confirm(`¿Pasar ${count} ${count === 1 ? 'gasto' : 'gastos'} de la lista a “${folderName}”? La lista quedará vacía.`)) return;
+    setData(d => ({ ...d, expenses: [], expenseMonths: appendToMonth(d.expenseMonths ?? [], name, d.expenses) }));
+    setError('');
+    setMonthNotice(`Mes cerrado: ${count} ${count === 1 ? 'gasto pasó' : 'gastos pasaron'} a “${folderName}”.`);
   };
   return <section><div className="section-title"><div className="title-with-floppy"><div><p className="eyebrow">Control cotidiano</p><h1>Mis gastos</h1></div><Link className="floppy floppy--small" to="/gastos/meses" aria-label="Meses guardados" title="Meses guardados"><span className="floppy-shutter" aria-hidden="true" /><span>Meses</span></Link></div><div className="total"><small>Total</small><strong>{sumError ? '—' : money(sum)}</strong>{sumError && <small role="alert">{sumError}</small>}</div></div><div className="expenses-layout"><div className="calculator"><form onSubmit={add}>
     <label>Gasto<input value={concept} onChange={e => setConcept(e.target.value)} placeholder="Ej. Electricidad" /></label>
@@ -182,6 +190,7 @@ export function Expenses() {
       <label>Mes<input value={month} onChange={e => { setMonth(e.target.value); setMonthNotice(''); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveToMonth(); } }} placeholder="Ej. Agosto 2026" list="expense-month-names" /></label>
       <datalist id="expense-month-names">{months.map(m => <option key={m.id} value={m.name} />)}</datalist>
       <button type="button" onClick={saveToMonth}>Guardar</button>
+      <button type="button" className="close-month" onClick={closeMonth}>Cerrar mes</button>
       {monthNotice && <span role="status">{monthNotice}</span>}
     </div>
     {error && <p role="alert">{error}</p>}

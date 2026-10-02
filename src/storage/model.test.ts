@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { EMPTY, isData, isExpenseDate, parseCents, sameMonthName, total } from './model';
+import { appendToMonth, EMPTY, isData, isExpenseDate, parseCents, sameMonthName, total } from './model';
 import { load, parseBackup, save, serialize } from './store';
 import { editableMoney, formatExpenseDate, money, parseExpenseDate } from '../features/expenses/Expenses';
 
@@ -60,6 +60,14 @@ describe('datos exactos y backup', () => {
   it('compara nombres de mes sin importar mayúsculas ni espacios', () => {
     expect(sameMonthName(' agosto 2026', 'Agosto 2026')).toBe(true);
     expect(sameMonthName('Agosto 2026', 'Septiembre 2026')).toBe(false);
+  });
+  it('agrega gastos a la carpeta existente o crea una nueva', () => {
+    const luz = { id: 'e', concept: 'Luz', cents: 100 };
+    const created = appendToMonth([], '  Agosto   2026 ', [luz]);
+    expect(created).toEqual([{ id: created[0].id, name: 'Agosto 2026', expenses: [luz] }]);
+    const appended = appendToMonth(created, 'agosto 2026', [{ ...luz, id: 'f' }]);
+    expect(appended).toHaveLength(1);
+    expect(appended[0].expenses.map(e => e.id)).toEqual(['e', 'f']);
   });
   it('hace round trip', () => expect(parseBackup(serialize(EMPTY))).toEqual(EMPTY));
   it('persiste', () => { save(EMPTY); expect(load().data).toEqual(EMPTY); });

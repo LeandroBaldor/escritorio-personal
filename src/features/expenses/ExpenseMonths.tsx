@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useData } from '../../app/DataContext';
-import { sameMonthName, total, type ExpenseMonth } from '../../storage/model';
+import { cleanMonthName, EXPENSE_CATEGORIES, sameMonthName, total, totalsByCategory, type ExpenseMonth } from '../../storage/model';
 import { formatExpenseDate, money } from './Expenses';
 
 const monthTotal = (month: ExpenseMonth) => { try { return money(total(month.expenses)); } catch { return '—'; } };
+const monthCategories = (month: ExpenseMonth) => { try { const sums = totalsByCategory(month.expenses); return EXPENSE_CATEGORIES.filter(c => sums[c] > 0).map(c => ({ category: c, cents: sums[c] })); } catch { return []; } };
 
 export function ExpenseMonths() {
   const { data, setData } = useData();
@@ -15,7 +16,8 @@ export function ExpenseMonths() {
   const update = (change: (months: ExpenseMonth[]) => ExpenseMonth[]) =>
     setData(d => ({ ...d, expenseMonths: change(d.expenseMonths ?? []) }));
   const rename = (target: ExpenseMonth) => {
-    const name = prompt('Nuevo nombre de la carpeta', target.name)?.trim().replace(/\s+/g, ' ');
+    const answer = prompt('Nuevo nombre de la carpeta', target.name);
+    const name = cleanMonthName(answer ?? '');
     if (!name || name === target.name) return;
     if (months.some(m => m.id !== target.id && sameMonthName(m.name, name))) { alert(`Ya existe una carpeta llamada “${name}”.`); return; }
     update(list => list.map(m => m.id === target.id ? { ...m, name } : m));
@@ -25,6 +27,8 @@ export function ExpenseMonths() {
     if (selected === target.id) setSelected(null);
     update(list => list.filter(m => m.id !== target.id));
   };
+  const togglePaid = (target: ExpenseMonth, expenseId: string) =>
+    update(list => list.map(m => m.id === target.id ? { ...m, expenses: m.expenses.map(e => e.id === expenseId ? { ...e, paid: !e.paid } : e) } : m));
   const removeLine = (target: ExpenseMonth, expenseId: string, concept: string) => {
     if (!confirm(`¿Borrar “${concept}” de ${target.name}?`)) return;
     update(list => list.map(m => m.id === target.id ? { ...m, expenses: m.expenses.filter(e => e.id !== expenseId) } : m));
@@ -53,10 +57,14 @@ export function ExpenseMonths() {
                     ? <p className="ledger-empty">Hoja en blanco. Guardá un gasto en “{month.name}” desde Mis gastos.</p>
                     : <ol>
                       {month.expenses.map(e => <li key={e.id}>
-                        <span className="ledger-text">{e.concept} / {e.category ?? 'Otros'} / {e.date ? formatExpenseDate(e.date) : 'sin fecha'} / {money(e.cents)} / <span className={e.paid ? 'ledger-paid' : 'ledger-unpaid'}>{e.paid ? 'Pagado' : 'No pagado'}</span></span>
-                        <button aria-label={`Borrar ${e.concept} de la hoja`} onClick={() => removeLine(month, e.id, e.concept)}>×</button>
+                        <span className="ledger-text">{e.concept} / {e.category ?? 'Otros'} / {e.date ? formatExpenseDate(e.date) : 'sin fecha'} / {money(e.cents)} / <button type="button" className={e.paid ? 'ledger-status ledger-paid' : 'ledger-status ledger-unpaid'} aria-pressed={e.paid ?? false} title="Tocá para cambiar el estado de pago" onClick={() => togglePaid(month, e.id)}>{e.paid ? 'Pagado' : 'No pagado'}</button></span>
+                        <button className="ledger-remove" aria-label={`Borrar ${e.concept} de la hoja`} onClick={() => removeLine(month, e.id, e.concept)}>×</button>
                       </li>)}
                     </ol>}
+                  {monthCategories(month).length > 0 && <div className="ledger-categories">
+                    <h3>Por categoría</h3>
+                    <ul>{monthCategories(month).map(({ category, cents }) => <li key={category}><span>{category}</span><strong>{money(cents)}</strong></li>)}</ul>
+                  </div>}
                   <p className="ledger-total"><span>Total del mes</span><strong>{monthTotal(month)}</strong></p>
                 </div>
               </div>
