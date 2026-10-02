@@ -426,3 +426,46 @@ test('edita el texto de una nota desde su tarjeta', async ({ page }) => {
   await page.reload();
   await expect(page.locator('.note-text')).toHaveText('Pagar luz y gas');
 });
+
+test('organiza las notas guardadas en carpetas arrastrándolas', async ({ page }) => {
+  page.on('dialog', dialog => dialog.type() === 'prompt' ? dialog.accept('Turnos médicos') : dialog.accept());
+  await page.goto('/escritorio-personal/');
+  await page.evaluate(() => {
+    const at = '2026-01-01T00:00:00.000Z';
+    const note = (id: string, text: string) => ({ id, text, color: '#bcdcf6', status: 'todo', history: [{ status: 'todo', at }], archivedAt: at });
+    localStorage.setItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001', JSON.stringify({ version: 1, notes: [
+      note('a', 'Turno Alteman miércoles 10 hs'), note('b', 'Resultados de sangre'),
+    ], folders: [], expenses: [] }));
+  });
+  await page.reload();
+  await page.getByRole('link', { name: 'Notas guardadas', exact: false }).click();
+  await expect(page.getByText('Turno Alteman miércoles 10 hs', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Mover “Resultados de sangre” a una carpeta')).toHaveCount(0);
+  await page.getByLabel('Nombre de la nueva carpeta').fill('Turnos');
+  await page.getByRole('button', { name: 'Crear carpeta' }).click();
+  await expect(page.getByRole('button', { name: 'Carpeta Turnos, 0 notas' })).toBeVisible();
+  const card = page.locator('.saved-note').filter({ hasText: 'Turno Alteman' });
+  await card.evaluate((source, target) => {
+    const transfer = new DataTransfer();
+    source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    source.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: transfer }));
+  }, await page.getByRole('button', { name: 'Carpeta Turnos, 0 notas' }).elementHandle());
+  await expect(page.locator('.saved-note')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Carpeta Turnos, 1 notas' })).toBeVisible();
+  await page.getByLabel('Mover “Resultados de sangre” a una carpeta').selectOption({ label: 'Turnos' });
+  await expect(page.getByText('No hay notas sin carpeta.')).toBeVisible();
+  await page.getByRole('button', { name: 'Carpeta Turnos, 2 notas' }).click();
+  await expect(page.locator('.saved-note')).toHaveCount(2);
+  await page.reload();
+  await page.getByRole('button', { name: 'Carpeta Turnos, 2 notas' }).click();
+  await page.getByRole('button', { name: 'Editar nombre' }).click();
+  await expect(page.getByRole('heading', { name: '📁 Turnos médicos' })).toBeVisible();
+  await page.getByRole('button', { name: 'Borrar carpeta' }).click();
+  await expect(page.getByRole('button', { name: /^Carpeta / })).toHaveCount(0);
+  await expect(page.locator('.saved-note')).toHaveCount(2);
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!));
+  expect(stored.noteFolders).toEqual([]);
+  expect(stored.notes.every((note: { savedFolder?: string }) => note.savedFolder === undefined)).toBe(true);
+});

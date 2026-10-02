@@ -96,6 +96,12 @@ describe('datos exactos y backup', () => {
     const folder = (name: string) => ({ id: name, name, expenses: [] });
     expect(sortMonths([folder('Viaje'), folder('01/2027'), folder('12/2026')]).map(m => m.name)).toEqual(['12/2026', '01/2027', 'Viaje']);
   });
+  it('valida las carpetas de notas guardadas y la carpeta de cada nota', () => {
+    const note = { id: 'n', text: 'x', color: '#ffe783', status: 'todo' as const, history: [{ status: 'todo' as const, at: '2026-07-22T00:00:00.000Z' }], archivedAt: '2026-07-22T00:00:00.000Z' };
+    expect(isData({ ...EMPTY, notes: [{ ...note, savedFolder: 'f' }], noteFolders: [{ id: 'f', name: 'Turnos' }] })).toBe(true);
+    expect(isData({ ...EMPTY, noteFolders: [{ id: 'f', name: '' }] })).toBe(false);
+    expect(isData({ ...EMPTY, notes: [{ ...note, savedFolder: 3 }] })).toBe(false);
+  });
   it('hace round trip', () => expect(parseBackup(serialize(EMPTY))).toEqual(EMPTY));
   it('persiste', () => { save(EMPTY); expect(load().data).toEqual(EMPTY); });
   it.each([{ ...EMPTY, notes: [{ id: '', text: 'x', color: '#ffe783', status: 'todo', history: [] }] }, { ...EMPTY, folders: [{ id: 'f', name: 'n', pages: [] }] }, { ...EMPTY, expenses: [{ id: 'e', concept: '', cents: -1 }] }])('rechaza estructuras internas inválidas', bad => expect(() => parseBackup(JSON.stringify(bad))).toThrow());
