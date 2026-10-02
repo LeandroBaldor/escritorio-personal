@@ -565,3 +565,17 @@ test('los accesos de Mi diario llevan al escritorio y a gastos', async ({ page }
   await page.getByRole('link', { name: 'Ir a Gastos' }).click();
   await expect(page.getByRole('heading', { name: 'Mis gastos' })).toBeVisible();
 });
+
+test('los accesos de Mis gastos llevan al escritorio y al diario', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.getByRole('link', { name: 'Gastos', exact: true }).click();
+  const links = page.getByRole('navigation', { name: 'Ir a otras secciones' });
+  await expect(links.getByRole('link')).toHaveText(['Ir a Mi Escritorio', 'Ir a Mi Diario']);
+  await expect(links.getByRole('link', { name: 'Ir a Mi Diario' })).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await expect(links.getByRole('link', { name: 'Ir a Mi Diario' })).toHaveCSS('font-family', /^Kalam/);
+  await links.getByRole('link', { name: 'Ir a Mi Diario' }).click();
+  await expect(page.getByRole('heading', { name: 'Mi diario', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Ir a Gastos' }).click();
+  await page.getByRole('link', { name: 'Ir a Mi Escritorio' }).click();
+  await expect(page.getByRole('heading', { name: 'Notas del escritorio' })).toBeVisible();
+});
