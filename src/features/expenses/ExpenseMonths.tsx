@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useData } from '../../app/DataContext';
-import { cleanMonthName, EXPENSE_CATEGORIES, sameMonthName, total, totalsByCategory, type ExpenseMonth } from '../../storage/model';
+import { cleanMonthName, EXPENSE_CATEGORIES, isMonthKey, sameMonthName, total, totalsByCategory, type ExpenseMonth } from '../../storage/model';
 import { formatExpenseDate, money } from './Expenses';
 
+const monthOrder = (name: string) => isMonthKey(name) ? Number(name.slice(3)) * 100 + Number(name.slice(0, 2)) : Number.MAX_SAFE_INTEGER;
+const byMonth = (a: ExpenseMonth, b: ExpenseMonth) => monthOrder(a.name) - monthOrder(b.name);
 const monthTotal = (month: ExpenseMonth) => { try { return money(total(month.expenses)); } catch { return '—'; } };
 const monthCategories = (month: ExpenseMonth) => { try { const sums = totalsByCategory(month.expenses); return EXPENSE_CATEGORIES.filter(c => sums[c] > 0).map(c => ({ category: c, cents: sums[c] })); } catch { return []; } };
 
 export function ExpenseMonths() {
   const { data, setData } = useData();
-  const months = data.expenseMonths ?? [];
+  const months = [...(data.expenseMonths ?? [])].sort(byMonth);
   const [selected, setSelected] = useState<string | null>(null);
   const month = months.find(m => m.id === selected);
 
@@ -27,8 +29,13 @@ export function ExpenseMonths() {
     if (selected === target.id) setSelected(null);
     update(list => list.filter(m => m.id !== target.id));
   };
-  const togglePaid = (target: ExpenseMonth, expenseId: string) =>
-    update(list => list.map(m => m.id === target.id ? { ...m, expenses: m.expenses.map(e => e.id === expenseId ? { ...e, paid: !e.paid } : e) } : m));
+  // El estado de pago se mantiene igual en la hoja y en la lista de Mis gastos.
+  const togglePaid = (target: ExpenseMonth, expenseId: string) => setData(d => {
+    const entry = d.expenseMonths?.find(m => m.id === target.id)?.expenses.find(e => e.id === expenseId);
+    if (!entry) return d;
+    const paid = !entry.paid;
+    return { ...d, expenses: d.expenses.map(e => e.id === expenseId ? { ...e, paid } : e), expenseMonths: (d.expenseMonths ?? []).map(m => m.id === target.id ? { ...m, expenses: m.expenses.map(e => e.id === expenseId ? { ...e, paid } : e) } : m) };
+  });
   const removeLine = (target: ExpenseMonth, expenseId: string, concept: string) => {
     if (!confirm(`¿Borrar “${concept}” de ${target.name}?`)) return;
     update(list => list.map(m => m.id === target.id ? { ...m, expenses: m.expenses.filter(e => e.id !== expenseId) } : m));
@@ -69,7 +76,7 @@ export function ExpenseMonths() {
                 </div>
               </div>
               : months.length === 0
-                ? <div className="empty"><h2>Todavía no hay meses guardados</h2><p>En Mis gastos escribí un mes, por ejemplo “Agosto 2026”, y tocá Guardar.</p></div>
+                ? <div className="empty"><h2>Todavía no hay meses guardados</h2><p>En Mis gastos escribí un mes en un gasto, por ejemplo 08/2026, y tocá Guardar.</p></div>
                 : <ul className="month-folders">
                   {months.map(m => <li key={m.id} className="month-folder">
                     <button className="month-folder-open" onClick={() => setSelected(m.id)} aria-label={`Abrir ${m.name}`}>
