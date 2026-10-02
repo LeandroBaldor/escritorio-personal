@@ -70,3 +70,39 @@ header{justify-content:space-between}.back-link{font-size:.9rem;color:#ead8c8;te
 .saved-note-actions{display:flex;gap:.5rem;margin-top:.5rem}
 .saved-note-actions .delete{background:#8e3c33}
 @media(max-width:600px){.floppy-page-body{padding:1.2rem 1.2rem 1.4rem;width:min(94vw,70vh);aspect-ratio:1}}
+
+/* Meses de gastos: disquete junto al título, carpetas por mes y hoja rayada tipo cuaderno. */
+.title-with-floppy{display:flex;align-items:center;gap:1.1rem}
+.floppy--small{width:76px;height:70px;padding:.5rem .45rem .45rem;clip-path:polygon(11px 0,100% 0,100% 100%,0 100%,0 11px);text-shadow:none;text-decoration:none;flex:none}
+.floppy--small .floppy-shutter{top:8px;left:6px;right:6px;height:18px}
+.floppy--small .floppy-shutter::after{height:6px}
+.floppy--small span:not(.floppy-shutter){font-size:.95rem;margin-top:0}
+.floppy--small:hover{transform:rotate(-3deg) scale(1.06)}
+.month-save{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:end;gap:.7rem;padding-top:.7rem;border-top:1px dashed #9c8a68}
+.month-save label{flex:0 1 16rem}
+.month-save [role=status]{align-self:center;color:#1d5a2c;font-weight:700}
+.back-to-expenses{align-self:center;color:#fff4df;text-decoration:none;font-weight:700;background:#3f281c;padding:.45rem .8rem;border-radius:6px;text-shadow:none}
+.month-folders{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:1rem}
+.month-folder{width:200px;display:flex;flex-direction:column;gap:.4rem}
+.month-folder-open{display:flex;flex-direction:column;align-items:flex-start;gap:.15rem;padding:.9rem;background:#e9c97a;color:#332317;border-radius:4px 10px 8px 8px;box-shadow:2px 5px 9px #4d321e40;text-align:left}
+.month-folder-open:hover{background:#f0d68f}
+.month-folder-icon{font-size:2rem;line-height:1}
+.month-folder-open strong{font:700 1.5rem/1.1 Caveat,cursive;overflow-wrap:anywhere}
+.month-folder-open small{color:#5b4632}
+.month-folder-actions{display:flex;gap:.4rem}
+.month-folder-actions button{flex:1;padding:.4rem .5rem;font-size:.85rem}
+.month-folder-actions .delete,.month-sheet-actions .delete{margin:0;background:#8e3c33}
+.month-sheet-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.9rem}
+.ledger{--line:2.25rem;position:relative;padding:0 1rem 0 3.4rem;background:linear-gradient(90deg,transparent 0 2.6rem,#d99c94 2.6rem 2.7rem,transparent 2.7rem),repeating-linear-gradient(to bottom,#fff8df 0,#fff8df calc(var(--line) - 1px),#aabfca calc(var(--line) - 1px),#aabfca var(--line));line-height:var(--line);border-radius:3px;box-shadow:0 2px 5px #0003;font-family:"Segoe Print","Bradley Hand","Comic Sans MS",Caveat,cursive;color:#34271f}
+.ledger h2{margin:0;height:var(--line);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:700 1.6rem/var(--line) Caveat,cursive;color:#74503c}
+.ledger ol{margin:0;padding:0;list-style:none;counter-reset:line}
+.ledger li{display:flex;align-items:flex-start;gap:.5rem;min-height:var(--line);counter-increment:line;position:relative}
+.ledger li::before{content:counter(line);position:absolute;left:-2.9rem;width:2.1rem;text-align:right;color:#b4887a;font-size:.8rem}
+.ledger-text{flex:1;overflow-wrap:anywhere}
+.ledger-paid{color:#1d6a33;font-weight:700}
+.ledger-unpaid{color:#8e3c33;font-weight:700}
+.ledger li button{flex:none;margin-top:calc((var(--line) - 1.6rem) / 2);width:1.6rem;height:1.6rem;padding:0;line-height:1;background:transparent;color:#8e3c33;font-size:1.2rem;opacity:.6}
+.ledger li button:hover,.ledger li button:focus-visible{opacity:1;background:#8e3c3322}
+.ledger-empty{margin:0;color:#9c8064}
+.ledger-total{display:flex;justify-content:space-between;gap:1rem;margin:0;padding-top:var(--line);font-weight:700}
+@media(max-width:600px){.title-with-floppy{justify-content:space-between}.ledger{padding-left:2.4rem;font-size:.9rem;background:linear-gradient(90deg,transparent 0 1.8rem,#d99c94 1.8rem 1.9rem,transparent 1.9rem),repeating-linear-gradient(to bottom,#fff8df 0,#fff8df calc(var(--line) - 1px),#aabfca calc(var(--line) - 1px),#aabfca var(--line))}.ledger li::before{left:-2.2rem;width:1.6rem}.month-folder{width:100%}}

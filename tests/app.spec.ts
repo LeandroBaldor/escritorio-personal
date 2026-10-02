@@ -334,3 +334,37 @@ test('reordena libremente, persiste y registra historial solo al cambiar de secc
   stored = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!));
   expect(stored.notes.find((note: { id: string }) => note.id === 'd').history).toHaveLength(1);
 });
+
+test('guarda gastos en carpetas de meses dentro del disquete', async ({ page }) => {
+  page.on('dialog', dialog => dialog.type() === 'prompt' ? dialog.accept('Agosto 2026 casa') : dialog.accept());
+  await page.goto('/escritorio-personal/');
+  await page.getByRole('link', { name: 'Gastos', exact: true }).click();
+  await page.getByLabel('Mes', { exact: true }).fill('Agosto 2026');
+  await page.getByPlaceholder('Ej. Electricidad').fill('Electricidad');
+  await page.getByLabel('Categoría del gasto').selectOption('Casa');
+  await page.getByLabel('Fecha del gasto', { exact: true }).fill('02/08/2026');
+  await page.getByPlaceholder('0,00').fill('1500');
+  await page.getByLabel('Estado de pago del gasto').selectOption('paid');
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(page.getByText('Gasto guardado en “Agosto 2026”.')).toBeVisible();
+  await expect(page.getByPlaceholder('Ej. Electricidad')).toHaveValue('');
+  await page.getByLabel('Mes', { exact: true }).fill('agosto 2026');
+  await page.getByPlaceholder('Ej. Electricidad').fill('Farmacia');
+  await page.getByPlaceholder('0,00').fill('200,50');
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await page.getByRole('link', { name: 'Meses guardados' }).click();
+  await page.getByRole('button', { name: 'Abrir Agosto 2026' }).click();
+  const lines = page.locator('.ledger li');
+  await expect(lines).toHaveCount(2);
+  await expect(lines.nth(0)).toContainText('Electricidad / Casa / 02/08/2026 / $ 1.500,00 / Pagado');
+  await expect(lines.nth(1)).toContainText('Farmacia / Casa /');
+  await expect(lines.nth(1)).toContainText('$ 200,50 / No pagado');
+  await expect(page.locator('.ledger-total')).toContainText('$ 1.700,50');
+  await page.getByRole('button', { name: 'Editar nombre' }).click();
+  await expect(page.locator('.ledger h2')).toHaveText('Agosto 2026 casa');
+  await page.reload();
+  await page.getByRole('button', { name: 'Abrir Agosto 2026 casa' }).click();
+  await expect(page.locator('.ledger li')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Borrar carpeta' }).click();
+  await expect(page.getByText('Todavía no hay meses guardados')).toBeVisible();
+});
