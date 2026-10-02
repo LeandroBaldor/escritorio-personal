@@ -393,3 +393,47 @@ test('cierra el mes pasando la lista de gastos a la carpeta', async ({ page }) =
   await expect(page.locator('.ledger ol li')).toHaveCount(2);
   await expect(page.locator('.ledger-total')).toContainText('$\u00a0325.000,00');
 });
+
+test('guarda cada gasto de la lista en su carpeta mm/aaaa', async ({ page }) => {
+  page.on('dialog', dialog => dialog.accept());
+  await page.goto('/escritorio-personal/');
+  await page.getByRole('link', { name: 'Gastos', exact: true }).click();
+  for (const [concept, amount] of [['Luz', '1000'], ['Gas', '2000'], ['Agua', '500']]) {
+    await page.getByPlaceholder('Ej. Electricidad').fill(concept);
+    await page.getByPlaceholder('0,00').fill(amount);
+    await page.getByRole('button', { name: 'Agregar' }).click();
+  }
+  const rows = page.locator('.expense-row');
+  await rows.nth(0).getByLabel('Mes de la carpeta').fill('8/2026');
+  await rows.nth(0).getByRole('button', { name: 'Guardar' }).click();
+  await expect(rows.nth(0).getByLabel('Mes de la carpeta')).toHaveValue('08/2026');
+  await expect(rows.nth(0).getByLabel('Guardado en 08/2026')).toBeVisible();
+  await rows.nth(1).getByLabel('Mes de la carpeta').fill('08/2026');
+  await rows.nth(1).getByLabel('Mes de la carpeta').press('Enter');
+  await rows.nth(2).getByLabel('Mes de la carpeta').fill('13/2026');
+  await rows.nth(2).getByRole('button', { name: 'Guardar' }).click();
+  await expect(rows.nth(2).getByRole('alert')).toContainText('mm/aaaa');
+  await rows.nth(2).getByLabel('Mes de la carpeta').fill('09/2026');
+  await rows.nth(2).getByRole('button', { name: 'Guardar' }).click();
+  await rows.nth(0).getByLabel('Monto en pesos', { exact: true }).fill('1500');
+  await rows.nth(0).getByLabel('Monto en pesos', { exact: true }).blur();
+  await page.getByRole('link', { name: 'Meses guardados' }).click();
+  await expect(page.locator('.month-folder-open strong')).toHaveText(['08/2026', '09/2026']);
+  await page.getByRole('button', { name: 'Abrir 08/2026' }).click();
+  const lines = page.locator('.ledger ol li');
+  await expect(lines).toHaveCount(2);
+  await expect(lines.nth(0)).toContainText('Luz / Otros /');
+  await expect(lines.nth(0)).toContainText('$\u00a01.500,00');
+  await expect(lines.nth(1)).toContainText('Gas / Otros /');
+  await page.getByRole('link', { name: '← Mis gastos' }).click();
+  await rows.nth(1).getByLabel('Mes de la carpeta').fill('09/2026');
+  await rows.nth(1).getByRole('button', { name: 'Guardar' }).click();
+  await page.reload();
+  await expect(rows.nth(1).getByLabel('Mes de la carpeta')).toHaveValue('09/2026');
+  await page.getByRole('link', { name: 'Meses guardados' }).click();
+  await page.getByRole('button', { name: 'Abrir 09/2026' }).click();
+  await expect(lines).toHaveCount(2);
+  await page.getByRole('button', { name: '‹ Carpetas' }).click();
+  await page.getByRole('button', { name: 'Borrar 08/2026' }).click();
+  await expect(page.locator('.month-folder-open strong')).toHaveText(['09/2026']);
+});

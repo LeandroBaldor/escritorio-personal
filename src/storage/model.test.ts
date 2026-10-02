@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { appendToMonth, EMPTY, isData, isExpenseDate, parseCents, sameMonthName, total } from './model';
+import { appendToMonth, cleanMonthName, EMPTY, moveToMonth, parseMonthKey, syncMonthEntry, isData, isExpenseDate, parseCents, sameMonthName, total } from './model';
 import { load, parseBackup, save, serialize } from './store';
 import { editableMoney, formatExpenseDate, money, parseExpenseDate } from '../features/expenses/Expenses';
 
@@ -69,6 +69,29 @@ describe('datos exactos y backup', () => {
     expect(appended).toHaveLength(1);
     expect(appended[0].expenses.map(e => e.id)).toEqual(['e', 'f']);
   });
+  it.each([['08/2026', '08/2026'], ['8/2026', '08/2026'], [' 12-2025 ', '12/2025']])('normaliza el mes %s', (input, key) => expect(parseMonthKey(input)).toBe(key));
+  it.each(['13/2026', '00/2026', '08/26', 'agosto', '', '08/0000'])('rechaza el mes inválido %s', value => expect(parseMonthKey(value)).toBeNull());
+  it('usa mm/aaaa como nombre de carpeta cuando el mes es válido', () => {
+    expect(cleanMonthName('8/2026')).toBe('08/2026');
+    expect(cleanMonthName('  Agosto   2026 ')).toBe('Agosto 2026');
+  });
+  it('mueve el gasto de carpeta y mantiene una sola copia', () => {
+    const luz = { id: 'e', concept: 'Luz', cents: 100 };
+    const agosto = moveToMonth([], '08/2026', luz);
+    expect(agosto).toEqual([{ id: agosto[0].id, name: '08/2026', expenses: [{ ...luz, month: '08/2026' }] }]);
+    expect(moveToMonth(agosto, '08/2026', { ...luz, cents: 200 })[0].expenses).toEqual([{ ...luz, cents: 200, month: '08/2026' }]);
+    const moved = moveToMonth(agosto, '09/2026', luz);
+    expect(moved.map(m => [m.name, m.expenses.length])).toEqual([['08/2026', 0], ['09/2026', 1]]);
+    expect(isData({ ...EMPTY, expenses: [{ ...luz, month: '09/2026' }], expenseMonths: moved })).toBe(true);
+    expect(moveToMonth([], 'Agosto 2026', { ...luz, month: '08/2026' })[0].expenses[0]).toEqual(luz);
+  });
+  it('actualiza en la carpeta los cambios del gasto guardado', () => {
+    const luz = { id: 'e', concept: 'Luz', cents: 100, month: '08/2026' };
+    const months = [{ id: 'm', name: '08/2026', expenses: [luz] }];
+    expect(syncMonthEntry(months, { ...luz, cents: 300 })![0].expenses[0].cents).toBe(300);
+    expect(syncMonthEntry(months, { id: 'otro', concept: 'x', cents: 1 })).toBe(months);
+  });
+  it('rechaza un mes de gasto con formato inválido', () => expect(isData({ ...EMPTY, expenses: [{ id: 'e', concept: 'Luz', cents: 1, month: 'agosto' }] })).toBe(false));
   it('hace round trip', () => expect(parseBackup(serialize(EMPTY))).toEqual(EMPTY));
   it('persiste', () => { save(EMPTY); expect(load().data).toEqual(EMPTY); });
   it.each([{ ...EMPTY, notes: [{ id: '', text: 'x', color: '#ffe783', status: 'todo', history: [] }] }, { ...EMPTY, folders: [{ id: 'f', name: 'n', pages: [] }] }, { ...EMPTY, expenses: [{ id: 'e', concept: '', cents: -1 }] }])('rechaza estructuras internas inválidas', bad => expect(() => parseBackup(JSON.stringify(bad))).toThrow());

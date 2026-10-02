@@ -115,3 +115,13 @@ header{justify-content:space-between}.back-link{font-size:.9rem;color:#ead8c8;te
 .ledger-categories li{display:flex;justify-content:space-between;gap:1rem}
 .ledger-categories li::before{content:none}
 .month-save .close-month{background:#856047}
+
+/* Celda mm/aaaa en cada gasto: guarda el gasto en su carpeta del disquete. */
+/* La calculadora no es lo bastante ancha para una séptima columna: la celda del mes va justo debajo de su gasto. */
+.expense-row .expense-month{grid-column:1/-1;order:1;margin-bottom:.35rem}.expense-row small{order:2}
+.expense-month{display:flex;align-items:stretch;gap:.35rem;min-width:0}
+.expense-month input{width:7.2rem;min-width:0;text-align:center}
+.expense-month button{padding:.7rem .75rem;background:#856047}
+.expense-month-saved{align-self:center;width:1rem;color:#bde7c6;font-weight:900;font-size:1.15rem}
+@media(max-width:480px){.expense-month input{flex:1;width:auto}}
+@media(max-width:480px){.expense-row .expense-month{grid-column:1}}
