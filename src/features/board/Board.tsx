@@ -79,9 +79,10 @@ function insertionIndex(column: HTMLElement, draggedId: string, x: number, y: nu
   return cards.length;
 }
 
-function Card({ note, remove, dragging, dropSide, onDragStart, onDragEnd, onTouchPointerDown, onTouchPointerMove, onTouchPointerUp }: {
+function Card({ note, remove, edit, dragging, dropSide, onDragStart, onDragEnd, onTouchPointerDown, onTouchPointerMove, onTouchPointerUp }: {
   note: Note;
   remove: () => void;
+  edit: (text: string) => void;
   dragging: boolean;
   dropSide?: 'before' | 'after';
   onDragStart: (event: DragEvent<HTMLElement>) => void;
@@ -92,6 +93,15 @@ function Card({ note, remove, dragging, dropSide, onDragStart, onDragEnd, onTouc
 }) {
   const dragBlocked = useRef(false);
   const history = validHistory(note);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const startEditing = () => { setDraft(note.text); setEditing(true); };
+  const saveEdit = () => {
+    const next = draft.trim();
+    if (!next) return;
+    if (next !== note.text) edit(next);
+    setEditing(false);
+  };
   return (
     <article data-note-id={note.id} className={`note${dragging ? ' note--dragging' : ''}${dropSide ? ` note--drop-${dropSide}` : ''}`} style={{ background: note.color }} draggable aria-label={`${note.text}. Arrastrá la tarjeta para moverla.`}
       onPointerDownCapture={event => { dragBlocked.current = Boolean((event.target as HTMLElement).closest('button, summary, details, a, input, textarea, select')); }}
@@ -106,10 +116,22 @@ function Card({ note, remove, dragging, dropSide, onDragStart, onDragEnd, onTouc
         }
         onDragStart(event);
       }}>
-      <div className="note-text">{note.text}</div>
+      {editing
+        ? <div className="note-edit">
+          <textarea aria-label="Texto de la nota" value={draft} autoFocus onChange={event => setDraft(event.target.value)}
+            onKeyDown={event => { if (event.key === 'Escape') setEditing(false); if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) saveEdit(); }} />
+          <div className="note-actions">
+            <button className="note-edit-button" onClick={saveEdit} disabled={!draft.trim()}>Guardar</button>
+            <button className="note-cancel" onClick={() => setEditing(false)}>Cancelar</button>
+          </div>
+        </div>
+        : <div className="note-text">{note.text}</div>}
       <small>{history.at(-1) ? `Desde ${formatHistoryDate(history.at(-1)!.at)}` : 'Sin fecha disponible'}</small>
       <details><summary>Historial</summary>{history.map((entry, index) => <div key={`${entry.at}-${index}`}>{columns.find(column => column.status === entry.status)?.label}: {formatHistoryDate(entry.at)}</div>)}</details>
-      <button className="delete" onClick={remove}>Borrar</button>
+      {!editing && <div className="note-actions">
+        <button className="delete" onClick={remove}>Borrar</button>
+        <button className="note-edit-button" onClick={startEditing}>Editar</button>
+      </div>}
     </article>
   );
 }
@@ -250,7 +272,8 @@ export function Board() {
                 dragging={draggedId === note.id} dropSide={targetCard === note.id ? 'before' : isLastTarget ? 'after' : undefined}
                 onDragStart={event => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData(NOTE_MIME, note.id); setDraggedId(note.id); }}
                 onTouchPointerDown={event => startTouchDrag(event, note.id)} onTouchPointerMove={moveTouchDrag} onTouchPointerUp={endTouchDrag}
-                onDragEnd={clearDrag} remove={() => confirm('¿Borrar esta nota?') && setData(current => ({ ...current, notes: current.notes.filter(item => item.id !== note.id) }))} />;
+                onDragEnd={clearDrag} remove={() => confirm('¿Borrar esta nota?') && setData(current => ({ ...current, notes: current.notes.filter(item => item.id !== note.id) }))}
+                edit={text => setData(current => ({ ...current, notes: current.notes.map(item => item.id === note.id ? { ...item, text } : item) }))} />;
               });
             })()}
             {dropTarget?.status === column.status && notes.filter(note => note.id !== draggedId).length === 0 && <div className="drop-indicator" aria-hidden="true" />}
