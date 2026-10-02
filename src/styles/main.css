@@ -240,3 +240,5 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .journal-links a:hover,.journal-links a:focus-visible{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
 @media(min-width:801px){.journal-links{margin:0 auto}}
 @media(max-width:800px){.journal-links{align-self:flex-start}}
+/* Recuadro marrón claro semitransparente con puntas redondeadas que agrupa los dos accesos. */
+.journal-links{padding:.6rem 1.3rem;background:#d8b48c59;border:1px solid #f3dcc04d;border-radius:14px;box-shadow:0 4px 12px #2d130c40;backdrop-filter:blur(2px)}
