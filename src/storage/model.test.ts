@@ -101,6 +101,8 @@ describe('datos exactos y backup', () => {
     expect(isData({ ...EMPTY, notes: [{ ...note, savedFolder: 'f' }], noteFolders: [{ id: 'f', name: 'Turnos' }] })).toBe(true);
     expect(isData({ ...EMPTY, noteFolders: [{ id: 'f', name: '' }] })).toBe(false);
     expect(isData({ ...EMPTY, notes: [{ ...note, savedFolder: 3 }] })).toBe(false);
+    expect(isData({ ...EMPTY, notes: [{ ...note, savedOrder: 2 }] })).toBe(true);
+    expect(isData({ ...EMPTY, notes: [{ ...note, savedOrder: 'primero' }] })).toBe(false);
   });
   it('hace round trip', () => expect(parseBackup(serialize(EMPTY))).toEqual(EMPTY));
   it('persiste', () => { save(EMPTY); expect(load().data).toEqual(EMPTY); });

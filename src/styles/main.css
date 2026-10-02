@@ -225,3 +225,9 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .saved-folder-shift{padding:.45rem .7rem;background:#1f6fe0;color:#fff;border:2px solid #0d47b0}
 .saved-folder-shift:disabled{opacity:.4;cursor:not-allowed}
 .saved-notes-top{scroll-margin-top:7rem}
+/* Ordenar tarjetas de Guardadas: una barra azul al costado marca dónde va a quedar la nota. */
+.saved-note--insert-before{box-shadow:-7px 0 0 -1px #1f6fe0,2px 6px 10px #4d321e40}
+.saved-note--insert-after{box-shadow:7px 0 0 -1px #1f6fe0,2px 6px 10px #4d321e40}
+.saved-note-shift{display:flex;gap:.25rem;margin-left:auto}
+.saved-note-shift button{padding:.3rem .5rem;font-size:.8rem;background:#1f6fe0;color:#fff;border:2px solid #0d47b0}
+.saved-note-shift button:disabled{opacity:.35;cursor:not-allowed}

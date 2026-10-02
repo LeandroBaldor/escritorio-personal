@@ -6,6 +6,14 @@ import { columns, formatHistoryDate, validHistory } from './Board';
 const SAVED_NOTE_MIME = 'application/x-escritorio-saved-note';
 const FOLDER_MIME = 'application/x-escritorio-note-folder';
 const LOOSE = '';
+// Las notas ordenadas a mano usan savedOrder; las recién guardadas (sin orden) aparecen primero, de la más nueva a la más vieja.
+const bySavedOrder = (a: Note, b: Note) => {
+  if (a.savedOrder === undefined && b.savedOrder === undefined) return (b.archivedAt as string).localeCompare(a.archivedAt as string);
+  if (a.savedOrder === undefined) return -1;
+  if (b.savedOrder === undefined) return 1;
+  return a.savedOrder - b.savedOrder;
+};
+const withoutOrder = (note: Note) => { const next = { ...note }; delete next.savedOrder; return next; };
 
 export function SavedNotes() {
   const { data, setData } = useData();
@@ -16,12 +24,13 @@ export function SavedNotes() {
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [draggedFolder, setDraggedFolder] = useState<string | null>(null);
   const [folderDrop, setFolderDrop] = useState<{ id: string; side: 'before' | 'after' } | null>(null);
+  const [noteDrop, setNoteDrop] = useState<{ id: string; side: 'before' | 'after' } | null>(null);
   const notesTop = useRef<HTMLDivElement>(null);
   const folder = folders.find(f => f.id === view);
   const currentView = folder ? folder.id : LOOSE;
   const saved = data.notes
     .filter(note => note.archivedAt)
-    .sort((a, b) => (b.archivedAt as string).localeCompare(a.archivedAt as string));
+    .sort(bySavedOrder);
   // Una nota cuya carpeta ya no existe se muestra como suelta.
   const folderOf = (note: Note) => note.savedFolder && folders.some(f => f.id === note.savedFolder) ? note.savedFolder : LOOSE;
   const visible = saved.filter(note => folderOf(note) === currentView);
@@ -29,17 +38,33 @@ export function SavedNotes() {
 
   const updateNote = (noteId: string, change: (note: Note) => Note) =>
     setData(current => ({ ...current, notes: current.notes.map(note => note.id === noteId ? change(note) : note) }));
+  // Al cambiar de carpeta la nota pierde su lugar y aparece primera en la carpeta nueva.
   const moveTo = (noteId: string, folderId: string) => updateNote(noteId, note => {
-    const next = { ...note };
+    const next = withoutOrder(note);
     if (folderId) next.savedFolder = folderId;
     else delete next.savedFolder;
     return next;
   });
   const restore = (noteId: string) => updateNote(noteId, note => {
-    const next = { ...note, archivedAt: undefined };
+    const next = { ...withoutOrder(note), archivedAt: undefined };
     delete next.savedFolder;
     return next;
   });
+  // Reordena las tarjetas de la vista actual y guarda el orden resultante.
+  const placeNote = (noteId: string, targetId: string, side: 'before' | 'after') => {
+    if (noteId === targetId) return;
+    const ids = visible.map(note => note.id).filter(id => id !== noteId);
+    const target = ids.indexOf(targetId);
+    if (target < 0 || !visible.some(note => note.id === noteId)) return;
+    ids.splice(side === 'before' ? target : target + 1, 0, noteId);
+    const order = new Map(ids.map((id, index) => [id, index]));
+    setData(current => ({ ...current, notes: current.notes.map(note => order.has(note.id) ? { ...note, savedOrder: order.get(note.id) } : note) }));
+  };
+  const shiftNote = (noteId: string, step: -1 | 1) => {
+    const index = visible.findIndex(note => note.id === noteId);
+    const neighbor = visible[index + step];
+    if (neighbor) placeNote(noteId, neighbor.id, step < 0 ? 'before' : 'after');
+  };
   const remove = (noteId: string, text: string) => {
     if (!confirm(`¿Borrar definitivamente “${text}”?`)) return;
     setData(current => ({ ...current, notes: current.notes.filter(note => note.id !== noteId) }));
@@ -180,13 +205,27 @@ export function SavedNotes() {
                   {visible.map(note => {
                     const history = validHistory(note);
                     return (
-                      <li key={note.id} className={`saved-note${draggedId === note.id ? ' saved-note--dragging' : ''}`} style={{ background: note.color }} draggable
-                        aria-label={`${note.text}. Arrastrá la nota hasta una carpeta.`}
+                      <li key={note.id} className={`saved-note${draggedId === note.id ? ' saved-note--dragging' : ''}${noteDrop?.id === note.id ? ` saved-note--insert-${noteDrop.side}` : ''}`} style={{ background: note.color }} draggable
+                        aria-label={`${note.text}. Arrastrá la nota para ordenarla o hasta una carpeta.`}
+                        onDragOver={event => {
+                          if (draggingFolder(event) || (!draggedId && !event.dataTransfer.types.includes(SAVED_NOTE_MIME))) return;
+                          if (draggedId === note.id) { setNoteDrop(null); return; }
+                          event.preventDefault(); event.dataTransfer.dropEffect = 'move';
+                          setNoteDrop({ id: note.id, side: sideOf(event) });
+                        }}
+                        onDragLeave={() => setNoteDrop(target => target?.id === note.id ? null : target)}
+                        onDrop={event => {
+                          if (draggingFolder(event)) return;
+                          event.preventDefault();
+                          const noteId = draggedNote(event);
+                          if (noteId) placeNote(noteId, note.id, sideOf(event));
+                          setDraggedId(null); setNoteDrop(null);
+                        }}
                         onDragStart={event => {
                           if ((event.target as HTMLElement).closest('button, select, summary, details')) { event.preventDefault(); return; }
                           event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData(SAVED_NOTE_MIME, note.id); setDraggedId(note.id);
                         }}
-                        onDragEnd={() => { setDraggedId(null); setDropTarget(null); }}>
+                        onDragEnd={() => { setDraggedId(null); setDropTarget(null); setNoteDrop(null); }}>
                         <div className="note-text">{note.text}</div>
                         <small>Guardada el {formatHistoryDate(note.archivedAt as string)}</small>
                         <details><summary>Historial</summary>
@@ -199,6 +238,10 @@ export function SavedNotes() {
                         <div className="saved-note-actions">
                           <button onClick={() => restore(note.id)}>Restaurar</button>
                           <button className="delete" onClick={() => remove(note.id, note.text)}>Borrar</button>
+                          <span className="saved-note-shift">
+                            <button type="button" onClick={() => shiftNote(note.id, -1)} disabled={visible[0].id === note.id} aria-label={`Mover “${note.text}” antes`}>◀</button>
+                            <button type="button" onClick={() => shiftNote(note.id, 1)} disabled={visible.at(-1)!.id === note.id} aria-label={`Mover “${note.text}” después`}>▶</button>
+                          </span>
                         </div>
                       </li>
                     );
