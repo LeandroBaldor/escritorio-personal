@@ -1,9 +1,10 @@
-import { type DragEvent, type FormEvent, useState } from 'react';
+import { type DragEvent, type FormEvent, type KeyboardEvent, useRef, useState } from 'react';
 import { useData } from '../../app/DataContext';
 import { id, type Note } from '../../storage/model';
 import { columns, formatHistoryDate, validHistory } from './Board';
 
 const SAVED_NOTE_MIME = 'application/x-escritorio-saved-note';
+const FOLDER_MIME = 'application/x-escritorio-note-folder';
 const LOOSE = '';
 
 export function SavedNotes() {
@@ -13,6 +14,9 @@ export function SavedNotes() {
   const [newFolder, setNewFolder] = useState('');
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [draggedFolder, setDraggedFolder] = useState<string | null>(null);
+  const [folderDrop, setFolderDrop] = useState<{ id: string; side: 'before' | 'after' } | null>(null);
+  const notesTop = useRef<HTMLDivElement>(null);
   const folder = folders.find(f => f.id === view);
   const currentView = folder ? folder.id : LOOSE;
   const saved = data.notes
@@ -73,22 +77,64 @@ export function SavedNotes() {
     }));
   };
 
+  // Doble clic (o Enter) abre la carpeta y lleva la vista hasta sus notas.
+  const openFolder = (folderId: string) => {
+    setView(folderId);
+    requestAnimationFrame(() => notesTop.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+  const openWithKeyboard = (event: KeyboardEvent<HTMLElement>, folderId: string) => {
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openFolder(folderId); }
+  };
+  // Las carpetas se reordenan arrastrándolas; "Sin carpeta" queda siempre primera.
+  const placeFolder = (folderId: string, targetId: string, side: 'before' | 'after') => setData(current => {
+    const list = [...(current.noteFolders ?? [])];
+    const from = list.findIndex(f => f.id === folderId);
+    if (from < 0 || folderId === targetId) return current;
+    const [moved] = list.splice(from, 1);
+    const target = list.findIndex(f => f.id === targetId);
+    if (target < 0) return current;
+    list.splice(side === 'before' ? target : target + 1, 0, moved);
+    return { ...current, noteFolders: list };
+  });
+  const shiftFolder = (folderId: string, step: -1 | 1) => {
+    const index = folders.findIndex(f => f.id === folderId);
+    const neighbor = folders[index + step];
+    if (neighbor) placeFolder(folderId, neighbor.id, step < 0 ? 'before' : 'after');
+  };
+  const draggingFolder = (event: DragEvent<HTMLElement>) => Boolean(draggedFolder) || event.dataTransfer.types.includes(FOLDER_MIME);
   const draggedNote = (event: DragEvent<HTMLElement>) => draggedId || event.dataTransfer.getData(SAVED_NOTE_MIME);
+  const sideOf = (event: DragEvent<HTMLElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    return event.clientX < box.left + box.width / 2 ? 'before' as const : 'after' as const;
+  };
+  const clearFolderDrag = () => { setDraggedFolder(null); setFolderDrop(null); };
   const dropZone = (folderId: string) => ({
     onDragOver: (event: DragEvent<HTMLElement>) => {
+      if (draggingFolder(event)) {
+        if (!folderId || folderId === draggedFolder) { setFolderDrop(null); return; }
+        event.preventDefault(); event.dataTransfer.dropEffect = 'move';
+        setFolderDrop({ id: folderId, side: sideOf(event) });
+        return;
+      }
       if (!draggedId && !event.dataTransfer.types.includes(SAVED_NOTE_MIME)) return;
       event.preventDefault(); event.dataTransfer.dropEffect = 'move';
       setDropTarget(folderId);
     },
-    onDragLeave: () => setDropTarget(target => target === folderId ? null : target),
+    onDragLeave: () => { setDropTarget(target => target === folderId ? null : target); setFolderDrop(target => target?.id === folderId ? null : target); },
     onDrop: (event: DragEvent<HTMLElement>) => {
       event.preventDefault();
+      if (draggingFolder(event)) {
+        const moving = draggedFolder || event.dataTransfer.getData(FOLDER_MIME);
+        if (moving && folderId && moving !== folderId) placeFolder(moving, folderId, sideOf(event));
+        clearFolderDrag();
+        return;
+      }
       const noteId = draggedNote(event);
       if (noteId && saved.some(note => note.id === noteId)) moveTo(noteId, folderId);
       setDraggedId(null); setDropTarget(null);
     },
   });
-  const tileClass = (folderId: string) => `saved-folder${currentView === folderId ? ' active' : ''}${dropTarget === folderId ? ' saved-folder--drop' : ''}`;
+  const tileClass = (folderId: string) => `saved-folder${currentView === folderId ? ' active' : ''}${dropTarget === folderId ? ' saved-folder--drop' : ''}${draggedFolder === folderId ? ' saved-folder--dragging' : ''}${folderDrop?.id === folderId ? ` saved-folder--insert-${folderDrop.side}` : ''}`;
 
   return (
     <section>
@@ -100,21 +146,29 @@ export function SavedNotes() {
           <div className="floppy-page-shutter" aria-hidden="true"><span /></div>
           <div className="floppy-page-label">
             <div className="saved-folders" aria-label="Carpetas de notas guardadas">
-              <button type="button" className={tileClass(LOOSE)} onClick={() => setView(LOOSE)} aria-label={`Sin carpeta, ${countIn(LOOSE)} notas`} {...dropZone(LOOSE)}>
+              <div role="button" tabIndex={0} className={tileClass(LOOSE)} onClick={() => setView(LOOSE)} onDoubleClick={() => openFolder(LOOSE)} onKeyDown={event => openWithKeyboard(event, LOOSE)} aria-label={`Sin carpeta, ${countIn(LOOSE)} notas`} {...dropZone(LOOSE)}>
                 <span aria-hidden="true">🗂️</span><strong>Sin carpeta</strong><small>{countIn(LOOSE)}</small>
-              </button>
+              </div>
               {folders.map(f => (
-                <button type="button" key={f.id} className={tileClass(f.id)} onClick={() => setView(f.id)} aria-label={`Carpeta ${f.name}, ${countIn(f.id)} notas`} {...dropZone(f.id)}>
+                <div role="button" tabIndex={0} key={f.id} className={tileClass(f.id)} draggable title="Doble clic para abrir. Arrastrala para cambiarla de lugar."
+                  onClick={() => setView(f.id)} onDoubleClick={() => openFolder(f.id)} onKeyDown={event => openWithKeyboard(event, f.id)}
+                  aria-label={`Carpeta ${f.name}, ${countIn(f.id)} notas`}
+                  onDragStart={event => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData(FOLDER_MIME, f.id); setDraggedFolder(f.id); }}
+                  onDragEnd={clearFolderDrag}
+                  {...dropZone(f.id)}>
                   <span aria-hidden="true">📁</span><strong>{f.name}</strong><small>{countIn(f.id)}</small>
-                </button>
+                </div>
               ))}
               <form className="saved-folder-new" onSubmit={createFolder}>
                 <input aria-label="Nombre de la nueva carpeta" placeholder="Nueva carpeta" value={newFolder} onChange={event => setNewFolder(event.target.value)} />
                 <button disabled={!newFolder.trim()}>Crear carpeta</button>
               </form>
             </div>
+            <div ref={notesTop} className="saved-notes-top" />
             {folder && <div className="saved-folder-header">
               <h2>📁 {folder.name}</h2>
+              <button type="button" className="saved-folder-shift" onClick={() => shiftFolder(folder.id, -1)} disabled={folders[0]?.id === folder.id} aria-label="Mover carpeta a la izquierda">◀</button>
+              <button type="button" className="saved-folder-shift" onClick={() => shiftFolder(folder.id, 1)} disabled={folders.at(-1)?.id === folder.id} aria-label="Mover carpeta a la derecha">▶</button>
               <button type="button" onClick={renameFolder}>Editar nombre</button>
               <button type="button" className="delete" onClick={deleteFolder}>Borrar carpeta</button>
             </div>}
