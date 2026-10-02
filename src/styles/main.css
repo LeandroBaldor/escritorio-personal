@@ -136,3 +136,34 @@ header{justify-content:space-between}.back-link{font-size:.9rem;color:#ead8c8;te
 .ledger-edit small{grid-column:1/-1;color:#8e3c33}
 .ledger-edit .money-input input{padding:.5rem .5rem .5rem .25rem}
 @media(max-width:600px){.ledger li{flex-wrap:wrap}.ledger-text{flex-basis:100%}.ledger-actions{margin-left:auto}}
+
+/* Tamaño general: la letra base crece con el ancho de la pantalla y las secciones usan todo el espacio disponible.
+   En celulares la base queda en 16px, igual que antes. */
+html{font-size:clamp(16px,.55vw + 10.5px,22px)}
+main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
+.section-title{margin-bottom:1.6rem}
+.calculator{max-width:none}
+.expenses-layout{grid-template-columns:minmax(0,1fr) minmax(280px,20rem)}
+.expense-summary li{font-size:1rem}
+@media(min-width:801px){.journal-layout{grid-template-columns:minmax(220px,16rem) minmax(0,1fr)}}
+.book,.folder-actions{max-width:1400px}
+.paper{min-height:max(580px,72vh)}
+.paper{--journal-line-height:2rem}.paper .page-editor{min-height:max(470px,58vh);font-size:1.25rem}
+.floppy-page-body{width:100%;max-width:1900px;aspect-ratio:auto;min-height:max(520px,75vh)}
+.month-folder{width:15rem}
+.note small,.note details{font-size:.8rem}
+.note-text,.note textarea{font-size:1.2rem}
+@media(min-width:900px){.desk-objects{zoom:1.3}.floppy--small{zoom:1.25}}
+@media(max-width:600px){.floppy-page-body{width:100%;aspect-ratio:auto;min-height:70vh}}
+@media(min-width:1101px){.calculator form,.expense-row{grid-template-columns:minmax(8rem,1.4fr) minmax(8.5rem,1fr) minmax(8.5rem,1fr) minmax(7rem,1fr) minmax(7rem,1fr) minmax(6rem,auto)}}
+/* Con la letra más grande, los subtotales pasan debajo de la calculadora hasta que la pantalla tiene lugar para ambos. */
+@media(max-width:1459px){.expenses-layout{grid-template-columns:minmax(0,1fr)}}
+/* Los objetos del escritorio tienen medidas fijas: su texto se mide sobre 16px y todo el objeto se agranda junto con zoom. */
+.desk-objects,.floppy--small{font-size:16px}
+.notebook{padding:1em;padding-left:2.1em}.notebook span:not(.notebook-binding){font-size:1.7em}
+.calc-object{padding:.65em}.calc-object span{padding:.3em;margin-bottom:.4em}.calc-object strong{font-size:.8em}
+.floppy{padding:1em .7em .6em}.floppy span:not(.floppy-shutter){font-size:1.05em;padding:.1em .4em;margin-top:.35em}.floppy small{font-size:.65em;padding:.05em .35em;margin-top:.3em}
+.floppy--small{padding:.5em .45em .45em}.floppy--small span:not(.floppy-shutter){font-size:.95em;margin-top:0}
+.date-input>input[type=text]{padding-right:48px}
+.color-picker{min-width:max-content;white-space:nowrap}.new-note button{white-space:nowrap}
+@media(max-width:800px){.color-picker{min-width:0;white-space:normal}}
