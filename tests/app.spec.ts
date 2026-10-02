@@ -49,7 +49,8 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await expect(journalPage).toBeFocused();
   await expect(journalPage).toHaveCSS('outline-style', 'none');
   await expect(journalPage).toHaveCSS('caret-color', 'rgb(106, 56, 42)');
-  await expect(journalPage).toHaveCSS('line-height', '32px');
+  const rootFontSize = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
+  await expect(journalPage).toHaveCSS('line-height', `${rootFontSize * 2}px`);
   const journalFont = await journalPage.evaluate(element => getComputedStyle(element).fontFamily);
   expect(journalFont).toContain('Segoe Print');
   expect(journalFont).toContain('cursive');
