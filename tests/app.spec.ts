@@ -511,3 +511,41 @@ test('abre carpetas de guardadas con doble clic y las reordena arrastrándolas',
   await page.getByRole('button', { name: 'Sin carpeta, 1 notas' }).dblclick();
   await expect(page.locator('.saved-note')).toHaveText([/Nota suelta/]);
 });
+
+test('ordena las tarjetas de guardadas arrastrándolas', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.evaluate(() => {
+    const note = (id: string, text: string, at: string) => ({ id, text, color: '#bcdcf6', status: 'todo', history: [{ status: 'todo', at }], archivedAt: at });
+    localStorage.setItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001', JSON.stringify({ version: 1, notes: [
+      note('a', 'Alfa', '2026-01-03T00:00:00.000Z'), note('b', 'Beta', '2026-01-02T00:00:00.000Z'), note('c', 'Gamma', '2026-01-01T00:00:00.000Z'),
+    ], folders: [], expenses: [], noteFolders: [{ id: 'f', name: 'Turnos' }] }));
+  });
+  await page.reload();
+  await page.getByRole('link', { name: 'Notas guardadas', exact: false }).click();
+  const texts = page.locator('.saved-note .note-text');
+  await expect(texts).toHaveText(['Alfa', 'Beta', 'Gamma']);
+  const drop = async (from: string, to: string, side: 'left' | 'right') => {
+    const box = (await page.locator('.saved-note').filter({ hasText: to }).boundingBox())!;
+    await page.locator('.saved-note').filter({ hasText: from }).evaluate((source, args) => {
+      const transfer = new DataTransfer();
+      const target = [...document.querySelectorAll('.saved-note')].find(element => element.querySelector('.note-text')!.textContent === args.to)!;
+      source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+      target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer, clientX: args.x, clientY: args.y }));
+      target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer, clientX: args.x, clientY: args.y }));
+      source.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: transfer }));
+    }, { to, x: side === 'left' ? box.x + 4 : box.x + box.width - 4, y: box.y + box.height / 2 });
+  };
+  await drop('Gamma', 'Alfa', 'left');
+  await expect(texts).toHaveText(['Gamma', 'Alfa', 'Beta']);
+  await drop('Gamma', 'Beta', 'right');
+  await expect(texts).toHaveText(['Alfa', 'Beta', 'Gamma']);
+  await page.getByRole('button', { name: 'Mover “Beta” antes' }).click();
+  await expect(texts).toHaveText(['Beta', 'Alfa', 'Gamma']);
+  await expect(page.getByRole('button', { name: 'Mover “Beta” antes' })).toBeDisabled();
+  await page.reload();
+  await expect(texts).toHaveText(['Beta', 'Alfa', 'Gamma']);
+  await page.getByLabel('Mover “Alfa” a una carpeta').selectOption({ label: 'Turnos' });
+  await expect(texts).toHaveText(['Beta', 'Gamma']);
+  await page.getByRole('button', { name: 'Carpeta Turnos, 1 notas' }).click();
+  await expect(texts).toHaveText(['Alfa']);
+});
