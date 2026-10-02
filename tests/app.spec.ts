@@ -555,10 +555,10 @@ test('los accesos de Mi diario llevan al escritorio y a gastos', async ({ page }
   await page.getByRole('link', { name: 'Mi diario', exact: true }).click();
   const desk = page.getByRole('link', { name: 'Ir a Mi Escritorio' });
   const expenses = page.getByRole('link', { name: 'Ir a Gastos' });
-  await expect(desk).toHaveCSS('color', 'rgb(255, 255, 255)');
-  await expect(expenses).toHaveCSS('color', 'rgb(255, 255, 255)');
-  const titleFont = await page.getByRole('heading', { name: 'Mi diario', exact: true }).evaluate(element => getComputedStyle(element).fontFamily);
-  await expect(desk).toHaveCSS('font-family', titleFont);
+  await expect(desk).toHaveCSS('color', 'rgb(20, 13, 9)');
+  await expect(expenses).toHaveCSS('color', 'rgb(20, 13, 9)');
+  await expect(desk).toHaveCSS('font-family', /^Kalam/);
+  expect(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('700 40px Kalam'); })).toBe(true);
   await desk.click();
   await expect(page.getByRole('heading', { name: 'Notas del escritorio' })).toBeVisible();
   await page.getByRole('link', { name: 'Mi diario', exact: true }).click();

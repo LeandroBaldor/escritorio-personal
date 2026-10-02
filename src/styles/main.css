@@ -232,9 +232,11 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .saved-note-shift button{padding:.3rem .5rem;font-size:.8rem;background:#1f6fe0;color:#fff;border:2px solid #0d47b0}
 .saved-note-shift button:disabled{opacity:.35;cursor:not-allowed}
 
-/* Accesos de Mi diario: misma letra que el título, en blanco, uno abajo del otro a la derecha del título. */
+/* Kalam (SIL OFL 1.1), letra manuscrita incluida en la app para que se vea igual en todos los dispositivos. */
+@font-face{font-family:"Kalam";font-style:normal;font-weight:700;font-display:swap;src:url("../assets/fonts/kalam-bold-latin.woff2") format("woff2")}
+/* Accesos de Mi diario: en negro y con letra manuscrita, uno abajo del otro a la derecha del título. */
 .journal-links{display:flex;flex:none;flex-direction:column;align-items:flex-start;gap:.2rem;align-self:center}
-.journal-links a{color:#fff;text-decoration:none;font:700 clamp(1.8rem,3.4vw,2.9rem)/1.05 Caveat,cursive;text-shadow:0 2px 3px #30170d}
+.journal-links a{color:#140d09;text-decoration:none;font:700 clamp(1.7rem,3vw,2.6rem)/1.15 Kalam,"Segoe Print","Bradley Hand",cursive;text-shadow:0 1px 0 #ffffff40}
 .journal-links a:hover,.journal-links a:focus-visible{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
 @media(min-width:801px){.journal-links{margin:0 auto}}
 @media(max-width:800px){.journal-links{align-self:flex-start}}
