@@ -469,3 +469,45 @@ test('organiza las notas guardadas en carpetas arrastrándolas', async ({ page }
   expect(stored.noteFolders).toEqual([]);
   expect(stored.notes.every((note: { savedFolder?: string }) => note.savedFolder === undefined)).toBe(true);
 });
+
+test('abre carpetas de guardadas con doble clic y las reordena arrastrándolas', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.evaluate(() => {
+    const at = '2026-01-01T00:00:00.000Z';
+    localStorage.setItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001', JSON.stringify({ version: 1, notes: [
+      { id: 'a', text: 'Turno dentista', color: '#bcdcf6', status: 'todo', history: [{ status: 'todo', at }], archivedAt: at, savedFolder: 'b' },
+      { id: 'n', text: 'Nota suelta', color: '#ffe783', status: 'todo', history: [{ status: 'todo', at }], archivedAt: at },
+    ], folders: [], expenses: [], noteFolders: [{ id: 'a', name: 'Recetas' }, { id: 'b', name: 'Turnos' }, { id: 'c', name: 'Estudios' }] }));
+  });
+  await page.reload();
+  await page.getByRole('link', { name: 'Notas guardadas', exact: false }).click();
+  const names = page.locator('.saved-folder strong');
+  await expect(names).toHaveText(['Sin carpeta', 'Recetas', 'Turnos', 'Estudios']);
+  await page.getByRole('button', { name: 'Carpeta Turnos, 1 notas' }).dblclick();
+  await expect(page.getByRole('heading', { name: '📁 Turnos' })).toBeVisible();
+  await expect(page.locator('.saved-note')).toHaveText([/Turno dentista/]);
+  const drag = async (from: string, to: string, side: 'left' | 'right') => {
+    const source = page.getByRole('button', { name: new RegExp(`^Carpeta ${from},`) });
+    const target = page.getByRole('button', { name: new RegExp(`^Carpeta ${to},`) });
+    const box = (await target.boundingBox())!;
+    await source.evaluate((element, args) => {
+      const transfer = new DataTransfer();
+      const targetElement = document.querySelector(`[aria-label^="Carpeta ${args.to},"]`)!;
+      element.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+      targetElement.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer, clientX: args.x, clientY: args.y }));
+      targetElement.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer, clientX: args.x, clientY: args.y }));
+      element.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: transfer }));
+    }, { to, x: side === 'left' ? box.x + 4 : box.x + box.width - 4, y: box.y + box.height / 2 });
+  };
+  await drag('Estudios', 'Recetas', 'left');
+  await expect(names).toHaveText(['Sin carpeta', 'Estudios', 'Recetas', 'Turnos']);
+  await drag('Estudios', 'Turnos', 'right');
+  await expect(names).toHaveText(['Sin carpeta', 'Recetas', 'Turnos', 'Estudios']);
+  await page.getByRole('button', { name: 'Mover carpeta a la izquierda' }).click();
+  await expect(names).toHaveText(['Sin carpeta', 'Turnos', 'Recetas', 'Estudios']);
+  await expect(page.locator('.saved-note')).toHaveText([/Turno dentista/]);
+  await page.reload();
+  await expect(names).toHaveText(['Sin carpeta', 'Turnos', 'Recetas', 'Estudios']);
+  await page.getByRole('button', { name: 'Sin carpeta, 1 notas' }).dblclick();
+  await expect(page.locator('.saved-note')).toHaveText([/Nota suelta/]);
+});

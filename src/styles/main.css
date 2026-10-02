@@ -215,3 +215,13 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .saved-empty{color:#5b4632;font-style:italic}
 @media(max-width:600px){.saved-note{width:100%}.saved-folder-new{margin-left:0;width:100%}.saved-folder-new input{flex:1}}
 @media(max-width:600px){.saved-folder{flex:1 1 calc(50% - .35rem);min-width:0;max-width:none}}
+/* Reordenar carpetas arrastrándolas: una barra azul marca dónde va a quedar. */
+.saved-folder{position:relative;cursor:pointer;user-select:none}
+.saved-folder[draggable]{cursor:grab}
+.saved-folder:focus-visible{outline:3px solid #f4bd58;outline-offset:2px}
+.saved-folder--dragging{opacity:.45}
+.saved-folder--insert-before::before,.saved-folder--insert-after::after{content:"";position:absolute;top:-.2rem;bottom:-.2rem;width:5px;border-radius:3px;background:#1f6fe0;box-shadow:0 0 0 2px #fff8}
+.saved-folder--insert-before::before{left:-.5rem}.saved-folder--insert-after::after{right:-.5rem}
+.saved-folder-shift{padding:.45rem .7rem;background:#1f6fe0;color:#fff;border:2px solid #0d47b0}
+.saved-folder-shift:disabled{opacity:.4;cursor:not-allowed}
+.saved-notes-top{scroll-margin-top:7rem}
