@@ -27,9 +27,9 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   const noteWidth = await page.locator('.note').evaluate(element => element.getBoundingClientRect().width);
   const columnWidth = await page.locator('.column').first().evaluate(element => element.getBoundingClientRect().width);
   if ((page.viewportSize()?.width ?? 0) <= 480) {
-    expect(noteWidth).toBeGreaterThan(columnWidth * .9);
-  } else {
     expect(noteWidth).toBeLessThanOrEqual(columnWidth * .55);
+  } else {
+    expect(noteWidth).toBeLessThanOrEqual(columnWidth * .35);
   }
   await page.locator('.note-text').evaluate((source, target) => {
     const transfer = new DataTransfer();
@@ -359,18 +359,32 @@ test('carga meses, guarda gastos en su carpeta y los saca de la lista', async ({
     await page.getByRole('button', { name: 'Agregar' }).click();
   }
   const rows = page.locator('.expense-row');
-  await expect(rows.nth(0).getByLabel('Carpeta del mes').locator('option')).toHaveText(['Elegí el mes', '07/2026', '08/2026']);
+  await expect(rows.nth(0).getByLabel('Carpeta del mes')).toHaveText(/Elegí el mes/);
+  await rows.nth(0).getByLabel('Carpeta del mes').click();
+  await expect(rows.nth(0).getByRole('listbox').getByRole('option')).toHaveText(['07/2026', '08/2026']);
+  const button = await rows.nth(0).getByLabel('Carpeta del mes').boundingBox();
+  const list = await rows.nth(0).getByRole('listbox').boundingBox();
+  expect(list!.y).toBeGreaterThan(button!.y + button!.height - 1);
+  await rows.nth(0).getByLabel('Carpeta del mes').press('Escape');
+  await expect(rows.nth(0).getByRole('listbox')).toHaveCount(0);
   await rows.nth(0).getByRole('button', { name: 'Guardar' }).click();
   await expect(rows.nth(0).getByRole('alert')).toContainText('Elegí la carpeta');
-  await rows.nth(0).getByLabel('Carpeta del mes').selectOption({ label: '08/2026' });
+  await rows.nth(0).getByLabel('Carpeta del mes').click();
+  await rows.nth(0).getByRole('listbox').getByRole('option', { name: '08/2026' }).click();
   await rows.nth(0).getByRole('button', { name: 'Guardar' }).click();
   await expect(page.getByText('“Luz” se guardó en 08/2026.')).toBeVisible();
   await expect(rows).toHaveCount(2);
   await expect(page.getByLabel('Concepto').first()).toHaveValue('Farmacia');
-  await rows.nth(0).getByLabel('Carpeta del mes').selectOption({ label: '08/2026' });
+  await rows.nth(0).getByLabel('Carpeta del mes').click();
+  await rows.nth(0).getByRole('listbox').getByRole('option', { name: '08/2026' }).click();
   await rows.nth(0).getByRole('button', { name: 'Guardar' }).click();
   await expect(rows).toHaveCount(1);
   await expect(page.locator('.total strong')).toContainText('900,00');
+  await page.getByLabel('Mes de los subtotales').selectOption({ label: '08/2026' });
+  await expect(page.locator('.expense-summary-total strong')).toContainText('1.700,50');
+  await expect(page.locator('.summary-month-list li')).toHaveCount(2);
+  await page.getByLabel('Mes de los subtotales').selectOption({ label: 'Gastos actuales' });
+  await expect(page.locator('.expense-summary-total strong')).toContainText('900,00');
   await page.getByRole('link', { name: 'Meses guardados' }).click();
   await expect(page.locator('.month-folder-open strong')).toHaveText(['07/2026', '08/2026']);
   await page.getByRole('button', { name: 'Abrir 08/2026' }).click();

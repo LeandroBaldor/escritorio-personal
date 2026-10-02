@@ -1,4 +1,4 @@
-import { FocusEvent, FormEvent, useEffect, useRef, useState } from 'react';
+import { FocusEvent, FormEvent, KeyboardEvent, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useData } from '../../app/DataContext';
 import { appendToMonth, EXPENSE_CATEGORIES, id, isExpenseDate, moveToMonth, parseCents, parseMonthKey, sameMonthName, sortMonths, syncMonthEntry, type ExpenseMonth, total, totalsByCategory, type Expense, type ExpenseCategory } from '../../storage/model';
@@ -52,6 +52,48 @@ export function DateInput({ id, value, onChange, onBlur, onEnter, onCalendarSele
 
 export function MoneyInput({ value, onChange, onBlur, label, placeholder }: { value: string; onChange: (value: string) => void; onBlur?: () => void; label: string; placeholder?: string }) {
   return <span className="money-input"><span aria-hidden="true">$</span><input aria-label={label} inputMode="decimal" value={value} onChange={e => onChange(e.target.value)} onBlur={onBlur} placeholder={placeholder} /></span>;
+}
+
+// Menú propio en lugar de <select>: el nativo abre hacia arriba cerca del borde de la pantalla, éste siempre abre hacia abajo.
+function MonthPicker({ months, value, onChange }: { months: ExpenseMonth[]; value: string; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const rootRef = useRef<HTMLSpanElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const listId = useId();
+  const selected = months.find(m => m.id === value);
+  const disabled = months.length === 0;
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: PointerEvent) => { if (!rootRef.current?.contains(event.target as Node)) setOpen(false); };
+    document.addEventListener('pointerdown', close);
+    listRef.current?.scrollIntoView({ block: 'nearest' });
+    return () => document.removeEventListener('pointerdown', close);
+  }, [open]);
+  const show = () => { setActive(Math.max(0, months.findIndex(m => m.id === value))); setOpen(true); };
+  const choose = (id: string) => { onChange(id); setOpen(false); };
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (disabled) return;
+    if (event.key === 'Escape') { setOpen(false); return; }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!open) { show(); return; }
+      setActive(i => Math.min(months.length - 1, Math.max(0, i + (event.key === 'ArrowDown' ? 1 : -1))));
+    } else if ((event.key === 'Enter' || event.key === ' ') && open) {
+      event.preventDefault();
+      choose(months[active].id);
+    }
+  };
+  return <span className="month-picker" ref={rootRef} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false); }}>
+    <button type="button" className="month-picker-button" aria-label="Carpeta del mes" aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? listId : undefined} aria-activedescendant={open ? `${listId}-${active}` : undefined}
+      disabled={disabled} onClick={() => (open ? setOpen(false) : show())} onKeyDown={onKeyDown}>
+      <span>{selected ? selected.name : disabled ? 'Sin carpetas' : 'Elegí el mes'}</span><span aria-hidden="true" className="month-picker-arrow">▾</span>
+    </button>
+    {open && <ul className="month-picker-list" role="listbox" id={listId} ref={listRef} aria-label="Carpetas de meses">
+      {months.map((m, i) => <li key={m.id} id={`${listId}-${i}`} role="option" aria-selected={m.id === value} className={i === active ? 'active' : undefined}
+        onPointerDown={event => event.preventDefault()} onPointerEnter={() => setActive(i)} onClick={() => choose(m.id)}>{m.name}</li>)}
+    </ul>}
+  </span>;
 }
 
 function ExpenseRow({ expense, months, onChange, onDelete, onSaveToFolder }: { expense: Expense; months: ExpenseMonth[]; onChange: (e: Expense) => void; onDelete: () => void; onSaveToFolder: (folderId: string) => void }) {
@@ -113,10 +155,7 @@ function ExpenseRow({ expense, months, onChange, onDelete, onSaveToFolder }: { e
       <option value="paid">Pagado</option>
     </select>
     <span className="expense-month">
-      <select aria-label="Carpeta del mes" value={folder ? folderId : ''} onChange={e => { setFolderId(e.target.value); setError(''); }} disabled={months.length === 0}>
-        <option value="">{months.length === 0 ? 'Sin carpetas' : 'Elegí el mes'}</option>
-        {months.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-      </select>
+      <MonthPicker months={months} value={folder ? folderId : ''} onChange={value => { setFolderId(value); setError(''); }} />
       <button type="button" onClick={saveToFolder}>Guardar</button>
     </span>
     <button aria-label="Borrar gasto" onClick={onDelete}>×</button>
@@ -135,10 +174,15 @@ export function Expenses() {
   const [month, setMonth] = useState('');
   const [monthNotice, setMonthNotice] = useState('');
   const months = sortMonths(data.expenseMonths ?? []);
-  let sumError = '';
-  let sum = 0;
-  let categoryTotals: Record<ExpenseCategory, number> = Object.fromEntries(EXPENSE_CATEGORIES.map(c => [c, 0])) as Record<ExpenseCategory, number>;
-  try { sum = total(data.expenses); categoryTotals = totalsByCategory(data.expenses); } catch (e) { sumError = e instanceof Error ? e.message : 'Total inválido'; }
+  const [summaryMonthId, setSummaryMonthId] = useState('');
+  const summaryMonth = months.find(m => m.id === summaryMonthId);
+  const summaryExpenses = summaryMonth ? summaryMonth.expenses : data.expenses;
+  const totals = (expenses: Expense[]) => {
+    try { return { sum: total(expenses), byCategory: totalsByCategory(expenses), error: '' }; }
+    catch (e) { return { sum: 0, byCategory: Object.fromEntries(EXPENSE_CATEGORIES.map(c => [c, 0])) as Record<ExpenseCategory, number>, error: e instanceof Error ? e.message : 'Total inválido' }; }
+  };
+  const { sum, error: sumError } = totals(data.expenses);
+  const summary = totals(summaryExpenses);
   const readForm = (): Expense | null => {
     const cents = parseCents(amount);
     const isoDate = parseExpenseDate(date);
@@ -206,7 +250,15 @@ export function Expenses() {
     {error && <p role="alert">{error}</p>}
   </form><div className="expense-list">{data.expenses.map(e => <ExpenseRow key={e.id} expense={e} onChange={next => setData(d => ({ ...d, expenses: d.expenses.map(v => v.id === e.id ? next : v), expenseMonths: syncMonthEntry(d.expenseMonths, next) }))} months={months} onSaveToFolder={folderId => saveRowToFolder(e.id, folderId)} onDelete={() => setData(d => ({ ...d, expenses: d.expenses.filter(v => v.id !== e.id) }))} />)}</div></div><aside className="expense-summary">
     <h2>Subtotales</h2>
-    <ul>{EXPENSE_CATEGORIES.map(c => <li key={c}><span>{c}</span><strong>{sumError ? '—' : money(categoryTotals[c])}</strong></li>)}</ul>
-    <div className="expense-summary-total"><span>Total</span><strong>{sumError ? '—' : money(sum)}</strong></div>
+    <label className="summary-month">Ver mes<select aria-label="Mes de los subtotales" value={summaryMonth ? summaryMonthId : ''} onChange={e => setSummaryMonthId(e.target.value)}>
+      <option value="">Gastos actuales</option>
+      {months.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+    </select></label>
+    <ul>{EXPENSE_CATEGORIES.map(c => <li key={c}><span>{c}</span><strong>{summary.error ? '—' : money(summary.byCategory[c])}</strong></li>)}</ul>
+    <div className="expense-summary-total"><span>Total</span><strong>{summary.error ? '—' : money(summary.sum)}</strong></div>
+    {summary.error && <small role="alert">{summary.error}</small>}
+    {summaryMonth && <div className="summary-month-list"><h3>Gastos de {summaryMonth.name}</h3>
+      {summaryMonth.expenses.length === 0 ? <p>Esta carpeta todavía no tiene gastos.</p> : <ul>{summaryMonth.expenses.map(e => <li key={e.id}><span>{e.concept}{e.date ? <small>{formatExpenseDate(e.date)} · {e.paid ? 'Pagado' : 'No pagado'}</small> : <small>{e.paid ? 'Pagado' : 'No pagado'}</small>}</span><strong>{money(e.cents)}</strong></li>)}</ul>}
+    </div>}
   </aside></div></section>;
 }
