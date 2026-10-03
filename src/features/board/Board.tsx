@@ -2,7 +2,7 @@ import { DragEvent, FormEvent, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { COLORS, id, Note, Status } from '../../storage/model';
 import { useData } from '../../app/DataContext';
-import memeCafe from '../../assets/images/meme-cafe.webp';
+import memeCafe from '../../assets/images/meme-cafe.png';
 
 const NOTE_MIME = 'application/x-escritorio-note';
 // Solo la fecha (dd/mm/aaaa), para las tarjetas del escritorio.
@@ -228,31 +228,33 @@ export function Board() {
           <button>Agregar nota</button>
         </form>
       </div>
-      <div className="desk-objects" aria-label="Objetos del escritorio">
-        <Link className={`floppy${archiveHover ? ' floppy--drag-over' : ''}`} to="/guardadas" aria-label="Notas guardadas. Arrastrá una nota aquí para guardarla."
-          onDragOver={event => {
-            const noteId = draggedId || dragId(event);
-            if (!noteId || !data.notes.some(note => note.id === noteId)) return;
-            event.preventDefault(); event.dataTransfer.dropEffect = 'move';
-            setArchiveHover(true);
-          }}
-          onDragLeave={() => setArchiveHover(false)}
-          onDrop={event => {
-            event.preventDefault();
-            const noteId = draggedId || dragId(event);
-            if (noteId && data.notes.some(note => note.id === noteId)) archive(noteId);
-            clearDrag();
-          }}>
-          <span className="floppy-shutter" aria-hidden="true" />
-          <span>Guardadas</span>
-          <small>Soltá una nota</small>
-        </Link>
-        <Link className="notebook" to="/diario" aria-label="Mi diario"><span className="notebook-binding" aria-hidden="true" /><span>Mi diario</span><small>Abrir libreta</small></Link>
-        <Link className="calc-object" to="/gastos" aria-label="Gastos"><span aria-hidden="true">7 8 9<br />4 5 6<br />1 2 3</span><strong>Gastos</strong></Link>
+      <div className="desk-row">
+        <img className="desk-art" src={memeCafe} alt="" width={324} height={340} draggable={false} />
+        <div className="desk-objects" aria-label="Objetos del escritorio">
+          <Link className={`floppy${archiveHover ? ' floppy--drag-over' : ''}`} to="/guardadas" aria-label="Notas guardadas. Arrastrá una nota aquí para guardarla."
+            onDragOver={event => {
+              const noteId = draggedId || dragId(event);
+              if (!noteId || !data.notes.some(note => note.id === noteId)) return;
+              event.preventDefault(); event.dataTransfer.dropEffect = 'move';
+              setArchiveHover(true);
+            }}
+            onDragLeave={() => setArchiveHover(false)}
+            onDrop={event => {
+              event.preventDefault();
+              const noteId = draggedId || dragId(event);
+              if (noteId && data.notes.some(note => note.id === noteId)) archive(noteId);
+              clearDrag();
+            }}>
+            <span className="floppy-shutter" aria-hidden="true" />
+            <span>Guardadas</span>
+            <small>Soltá una nota</small>
+          </Link>
+          <Link className="notebook" to="/diario" aria-label="Mi diario"><span className="notebook-binding" aria-hidden="true" /><span>Mi diario</span><small>Abrir libreta</small></Link>
+          <Link className="calc-object" to="/gastos" aria-label="Gastos"><span aria-hidden="true">7 8 9<br />4 5 6<br />1 2 3</span><strong>Gastos</strong></Link>
+        </div>
       </div>
       <p className="drag-hint">Arrastrá cualquier nota para cambiarla de lugar o de sección.</p>
       <div className="board" onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTarget(null); }}>
-        <img className="board-art" src={memeCafe} alt="Dibujo de un personaje pensativo tomando un café" width={520} height={433} draggable={false} />
         {columns.map(column => {
           const notes = data.notes.filter(note => note.status === column.status && !note.archivedAt);
           return <section className={`column${dropTarget?.status === column.status ? ' column--drag-over' : ''}`} data-status={column.status} key={column.status}

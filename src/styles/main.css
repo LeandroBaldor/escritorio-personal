@@ -306,7 +306,7 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 @media (max-resolution:.66dppx){.paper{--journal-rule:2px}}
 .emoji-group{display:grid;grid-template-columns:repeat(auto-fill,2.4rem);gap:.2rem;margin-bottom:.35rem}
 .emoji-group-name{grid-column:1/-1;position:sticky;top:-.4rem;z-index:1;padding:.2rem .1rem;background:#fff8df;color:#74503c;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
-/* Imagen del escritorio: va dentro del proyecto, así se publica junto con la página y se ve en cualquier compu. */
-.board-art{grid-column:2;grid-row:1;justify-self:center;align-self:end;width:min(100%,15rem);height:auto;padding:.4rem;background:#fff;border-radius:6px;box-shadow:3px 6px 12px #2d130c66;transform:rotate(-1.5deg)}
-.board>.column{grid-row:2}
-@media(max-width:800px){.board>.column,.board-art{grid-row:auto;grid-column:1}.board>.column[data-status=todo]{order:1}.board-art{order:2}.board>.column[data-status=doing]{order:3}.board>.column[data-status=done]{order:4}}
+/* Imagen del escritorio: ocupa el hueco que queda arriba de "En progreso", al lado de los objetos, sin mover el tablero. */
+.desk-row{position:relative}
+.desk-art{display:none}
+@media(min-width:1100px){.desk-art{display:block;position:absolute;top:0;left:calc((100% + 1rem)/3);width:min(calc((100% - 2rem)/3),calc(100% - (100% + 1rem)/3 - 560px));height:100%;object-fit:contain;object-position:center bottom;pointer-events:none;user-select:none}}
