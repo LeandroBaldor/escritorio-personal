@@ -293,7 +293,7 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .paper .page-editor :is(div,p){margin:0;padding:0}
 .emoji-picker{display:inline-flex}
 .emoji-picker>button{font-size:1rem}
-.emoji-grid{position:absolute;z-index:6;top:calc(100% + .35rem);left:0;max-width:100%;display:grid;grid-template-columns:repeat(auto-fill,2.4rem);width:15.8rem;gap:.2rem;padding:.4rem;background:#fff8df;border:1px solid #b69a73;border-radius:8px;box-shadow:0 8px 18px #2d130c55}
+.emoji-grid{position:absolute;z-index:6;top:calc(100% + .35rem);left:0;max-width:100%;display:block;width:18.6rem;max-height:17rem;overflow-y:auto;overscroll-behavior:contain;padding:.4rem;background:#fff8df;border:1px solid #b69a73;border-radius:8px;box-shadow:0 8px 18px #2d130c55}
 .journal-toolbar .emoji-grid button{width:2.4rem;height:2.4rem;padding:0;background:transparent;font-size:1.35rem;line-height:1}
 .journal-toolbar .emoji-grid button:hover,.journal-toolbar .emoji-grid button:focus-visible{background:#ead8b8}
 
@@ -304,3 +304,5 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 @media (max-resolution:.99dppx){.paper{--journal-rule:1.25px}}
 @media (max-resolution:.79dppx){.paper{--journal-rule:1.5px}}
 @media (max-resolution:.66dppx){.paper{--journal-rule:2px}}
+.emoji-group{display:grid;grid-template-columns:repeat(auto-fill,2.4rem);gap:.2rem;margin-bottom:.35rem}
+.emoji-group-name{grid-column:1/-1;position:sticky;top:-.4rem;z-index:1;padding:.2rem .1rem;background:#fff8df;color:#74503c;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
