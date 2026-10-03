@@ -46,11 +46,13 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await expect(journalPage).toHaveCSS('outline-style', 'none');
   await expect(journalPage).toHaveCSS('caret-color', 'rgb(106, 56, 42)');
   const rootFontSize = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
-  await expect(journalPage).toHaveCSS('line-height', `${rootFontSize * 2}px`);
+  await expect(journalPage).toHaveCSS('line-height', `${Math.round(rootFontSize * 2)}px`);
   const journalFont = await journalPage.evaluate(element => getComputedStyle(element).fontFamily);
   expect(journalFont).toContain('Segoe Print');
   expect(journalFont).toContain('cursive');
   await journalPage.press('Shift+Tab');
+  await expect(page.getByRole('button', { name: 'Emoticones' })).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
   const greenButton = page.getByRole('button', { name: 'Verde' });
   await expect(greenButton).toBeFocused();
   await expect(greenButton).toHaveCSS('outline-style', 'solid');
@@ -582,4 +584,25 @@ test('los accesos de Mis gastos llevan al escritorio y al diario', async ({ page
   await page.getByRole('navigation', { name: 'Ir a otras secciones' }).getByRole('link', { name: 'Gastos' }).click();
   await page.getByRole('navigation', { name: 'Ir a otras secciones' }).getByRole('link', { name: 'Mi Escritorio' }).click();
   await expect(page.getByRole('heading', { name: 'Notas del escritorio' })).toBeVisible();
+});
+
+test('el diario inserta emoticones y mantiene los renglones parejos', async ({ page }) => {
+  page.on('dialog', dialog => dialog.accept('Emociones'));
+  await page.goto('/escritorio-personal/');
+  await page.getByRole('link', { name: 'Mi diario', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear mi primera carpeta' }).click();
+  const editor = page.getByRole('textbox', { name: 'Página del diario' });
+  await editor.evaluate(el => { el.innerHTML = '<b>Lunes 20/07</b><br>Me sigo levantando con <s>mucha</s> <font color="#1a7431">angustia</font> 😰<br><br><b>Miércoles</b> 🎵<br>Hoy'; });
+  await editor.click();
+  await page.getByRole('button', { name: 'Emoticones' }).click();
+  await page.getByRole('button', { name: '😊' }).click();
+  await expect(page.getByRole('group', { name: 'Elegí un emoticón' })).toHaveCount(0);
+  await expect(editor).toContainText('😊');
+  const lines = await editor.evaluate(el => {
+    const lineHeight = parseFloat(getComputedStyle(el).lineHeight);
+    const top = el.getBoundingClientRect().top;
+    return { lineHeight, offsets: [...el.querySelectorAll('br')].map(br => { const range = document.createRange(); range.selectNode(br); return (range.getBoundingClientRect().top - top) / lineHeight; }) };
+  });
+  expect(Number.isInteger(lines.lineHeight)).toBe(true);
+  for (const offset of lines.offsets) expect(Math.abs((offset % 1) - (lines.offsets[0] % 1))).toBeLessThan(0.03);
 });

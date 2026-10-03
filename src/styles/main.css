@@ -288,3 +288,15 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 @media(min-width:801px){.section-title:has(>.section-objects){display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.section-title:has(>.section-objects)>button,.section-title:has(>.section-objects)>.total{justify-self:end;align-self:end}.section-objects{justify-self:center}}
 @media(max-width:800px){.section-objects{align-self:flex-start}}
 .section-objects .notebook{width:120px;height:100px;padding:.8rem .8rem .8rem 1.9rem}.section-objects .notebook span:not(.notebook-binding){font-size:1.5rem;line-height:1}
+/* Renglones del diario: negrita, tachado, color y emoticones no agrandan la línea, así el texto queda siempre sobre su renglón. */
+.paper .page-editor :is(b,strong,i,em,u,s,strike,del,font,span,a){line-height:1}
+.paper .page-editor :is(div,p){margin:0;padding:0}
+.emoji-picker{display:inline-flex}
+.emoji-picker>button{font-size:1rem}
+.emoji-grid{position:absolute;z-index:6;top:calc(100% + .35rem);left:0;max-width:100%;display:grid;grid-template-columns:repeat(auto-fill,2.4rem);width:15.8rem;gap:.2rem;padding:.4rem;background:#fff8df;border:1px solid #b69a73;border-radius:8px;box-shadow:0 8px 18px #2d130c55}
+.journal-toolbar .emoji-grid button{width:2.4rem;height:2.4rem;padding:0;background:transparent;font-size:1.35rem;line-height:1}
+.journal-toolbar .emoji-grid button:hover,.journal-toolbar .emoji-grid button:focus-visible{background:#ead8b8}
+
+/* Alto de renglón en píxeles enteros: con medios píxeles algunos renglones se veían más claros o directamente no se veían. */
+.paper{--journal-line-height:32px}
+@supports (width:round(nearest,2rem,1px)){.paper{--journal-line-height:round(nearest,2rem,1px)}}
