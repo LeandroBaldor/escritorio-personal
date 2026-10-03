@@ -26,11 +26,7 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await expect(page.getByText('Mover a', { exact: true })).toHaveCount(0);
   const noteWidth = await page.locator('.note').evaluate(element => element.getBoundingClientRect().width);
   const columnWidth = await page.locator('.column').first().evaluate(element => element.getBoundingClientRect().width);
-  if ((page.viewportSize()?.width ?? 0) <= 480) {
-    expect(noteWidth).toBeLessThanOrEqual(columnWidth * .55);
-  } else {
-    expect(noteWidth).toBeLessThanOrEqual(columnWidth * .35);
-  }
+  expect(noteWidth).toBeLessThanOrEqual(columnWidth * .35);
   await page.locator('.note-text').evaluate((source, target) => {
     const transfer = new DataTransfer();
     source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }));
