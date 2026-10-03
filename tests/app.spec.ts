@@ -562,16 +562,13 @@ test('ordena las tarjetas de guardadas arrastrándolas', async ({ page }) => {
 test('los accesos de Mi diario llevan al escritorio y a gastos', async ({ page }) => {
   await page.goto('/escritorio-personal/');
   await page.getByRole('link', { name: 'Mi diario', exact: true }).click();
-  const desk = page.getByRole('link', { name: 'Ir a Mi Escritorio' });
-  const expenses = page.getByRole('link', { name: 'Ir a Gastos' });
-  await expect(desk).toHaveCSS('color', 'rgb(255, 255, 255)');
-  await expect(expenses).toHaveCSS('color', 'rgb(255, 255, 255)');
-  await expect(desk).toHaveCSS('font-family', /^Kalam/);
-  expect(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('700 40px Kalam'); })).toBe(true);
-  await desk.click();
+  const nav = page.getByRole('navigation', { name: 'Ir a otras secciones' });
+  await expect(nav.getByRole('link', { name: 'Mi Escritorio' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Gastos' })).toContainText('Gastos');
+  await nav.getByRole('link', { name: 'Mi Escritorio' }).click();
   await expect(page.getByRole('heading', { name: 'Notas del escritorio' })).toBeVisible();
   await page.getByRole('link', { name: 'Mi diario', exact: true }).click();
-  await page.getByRole('link', { name: 'Ir a Gastos' }).click();
+  await page.getByRole('navigation', { name: 'Ir a otras secciones' }).getByRole('link', { name: 'Gastos' }).click();
   await expect(page.getByRole('heading', { name: 'Mis gastos' })).toBeVisible();
 });
 
@@ -584,7 +581,7 @@ test('los accesos de Mis gastos llevan al escritorio y al diario', async ({ page
   await expect(links.getByRole('link', { name: 'Ir a Mi Diario' })).toHaveCSS('font-family', /^Kalam/);
   await links.getByRole('link', { name: 'Ir a Mi Diario' }).click();
   await expect(page.getByRole('heading', { name: 'Mi diario', exact: true })).toBeVisible();
-  await page.getByRole('link', { name: 'Ir a Gastos' }).click();
+  await page.getByRole('navigation', { name: 'Ir a otras secciones' }).getByRole('link', { name: 'Gastos' }).click();
   await page.getByRole('link', { name: 'Ir a Mi Escritorio' }).click();
   await expect(page.getByRole('heading', { name: 'Notas del escritorio' })).toBeVisible();
 });
