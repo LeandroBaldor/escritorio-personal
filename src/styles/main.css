@@ -285,5 +285,5 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .desk-object svg{display:block;width:100%;height:auto}
 .desk-object strong{font-size:.8rem}
 .journal-objects a:hover,.journal-objects a:focus-visible{transform:rotate(0) translateY(-2px)}
-@media(min-width:801px){.journal-objects{margin:0 auto}}
+@media(min-width:801px){.section-title:has(>.journal-objects){display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.section-title:has(>.journal-objects)>button{justify-self:end;align-self:end}.journal-objects{justify-self:center}}
 @media(max-width:800px){.journal-objects{align-self:flex-start}}
