@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
 // Accesos a otras secciones dibujados como objetos del escritorio.
-export function SectionObjects({ children }: { children: ReactNode }) {
-  return <nav className="section-objects" aria-label="Ir a otras secciones">{children}</nav>;
+export function SectionObjects({ children, large = false }: { children: ReactNode; large?: boolean }) {
+  return <nav className={large ? 'section-objects section-objects--large' : 'section-objects'} aria-label="Ir a otras secciones">{children}</nav>;
 }
 
 export function DeskLink() {
