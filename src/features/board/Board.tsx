@@ -4,13 +4,14 @@ import { COLORS, id, Note, Status } from '../../storage/model';
 import { useData } from '../../app/DataContext';
 
 const NOTE_MIME = 'application/x-escritorio-note';
-export const formatHistoryDate = (iso: string) => {
+// Solo la fecha (dd/mm/aaaa), para las tarjetas del escritorio.
+export const formatHistoryDay = (iso: string) => {
   const date = new Date(iso);
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
-  const time = date.toLocaleTimeString();
-  return `${day}/${month}/${date.getFullYear()}, ${time}`;
+  return `${day}/${month}/${date.getFullYear()}`;
 };
+export const formatHistoryDate = (iso: string) => `${formatHistoryDay(iso)}, ${new Date(iso).toLocaleTimeString()}`;
 export const columns: { status: Status; label: string }[] = [
   { status: 'todo', label: 'No iniciado' },
   { status: 'doing', label: 'En progreso' },
@@ -126,8 +127,8 @@ function Card({ note, remove, edit, dragging, dropSide, onDragStart, onDragEnd, 
           </div>
         </div>
         : <div className="note-text">{note.text}</div>}
-      <small>{history.at(-1) ? `Desde ${formatHistoryDate(history.at(-1)!.at)}` : 'Sin fecha disponible'}</small>
-      <details><summary>Historial</summary>{history.map((entry, index) => <div key={`${entry.at}-${index}`}>{columns.find(column => column.status === entry.status)?.label}: {formatHistoryDate(entry.at)}</div>)}</details>
+      <small>{history.at(-1) ? `Desde ${formatHistoryDay(history.at(-1)!.at)}` : 'Sin fecha disponible'}</small>
+      <details><summary>Historial</summary>{history.map((entry, index) => <div key={`${entry.at}-${index}`}>{columns.find(column => column.status === entry.status)?.label}: {formatHistoryDay(entry.at)}</div>)}</details>
       {!editing && <div className="note-buttons">
         <button className="delete" onClick={remove}>Borrar</button>
         <button className="note-edit-button" onClick={startEditing}>Editar</button>
