@@ -1,6 +1,7 @@
 import { FocusEvent, FormEvent, KeyboardEvent, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useData } from '../../app/DataContext';
+import { DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { appendToMonth, EXPENSE_CATEGORIES, id, isExpenseDate, moveToMonth, parseCents, parseMonthKey, sameMonthName, sortMonths, syncMonthEntry, type ExpenseMonth, total, totalsByCategory, type Expense, type ExpenseCategory } from '../../storage/model';
 
 const integerMoney = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
@@ -230,7 +231,7 @@ export function Expenses() {
     });
     setMonthNotice(`“${current.concept}” se guardó en ${target.name}.`);
   };
-  return <section><div className="section-title"><div className="title-with-floppy"><div><p className="eyebrow">Control cotidiano</p><h1>Mis gastos</h1></div><Link className="floppy floppy--small" to="/gastos/meses" aria-label="Meses guardados" title="Meses guardados"><span className="floppy-shutter" aria-hidden="true" /><span>Meses</span></Link></div><nav className="section-links" aria-label="Ir a otras secciones"><Link to="/">Ir a Mi Escritorio</Link><Link to="/diario">Ir a Mi Diario</Link></nav><div className="total"><small>Total</small><strong>{sumError ? '—' : money(sum)}</strong>{sumError && <small role="alert">{sumError}</small>}</div></div><div className="expenses-layout"><div className="calculator"><form onSubmit={add}>
+  return <section><div className="section-title"><div className="title-with-floppy"><div><p className="eyebrow">Control cotidiano</p><h1>Mis gastos</h1></div><Link className="floppy floppy--small" to="/gastos/meses" aria-label="Meses guardados" title="Meses guardados"><span className="floppy-shutter" aria-hidden="true" /><span>Meses</span></Link></div><SectionObjects><DeskLink /><NotebookLink /></SectionObjects><div className="total"><small>Total</small><strong>{sumError ? '—' : money(sum)}</strong>{sumError && <small role="alert">{sumError}</small>}</div></div><div className="expenses-layout"><div className="calculator"><form onSubmit={add}>
     <label>Gasto<input value={concept} onChange={e => setConcept(e.target.value)} placeholder="Ej. Electricidad" /></label>
     <label>Categoría<select aria-label="Categoría del gasto" value={category} onChange={e => setCategory(e.target.value as ExpenseCategory)}>
       {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
