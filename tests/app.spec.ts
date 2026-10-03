@@ -39,7 +39,7 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await expect(page.locator('.note')).toHaveCSS('background-color', 'rgb(247, 183, 195)');
   await page.getByRole('link', { name: 'Mi diario', exact: true }).click();
   page.once('dialog', dialog => dialog.accept('Semana'));
-  await page.getByRole('button', { name: 'Nuevo diario' }).click();
+  await page.getByRole('button', { name: 'Crear mi primera carpeta' }).click();
   const journalPage = page.getByLabel('Página del diario');
   await journalPage.fill('Algo importante');
   await expect(journalPage).toBeFocused();
@@ -161,10 +161,11 @@ test('mantiene vacía la fecha de un gasto legacy al editar otro campo', async (
 test('renombra y borra carpetas de forma segura', async ({ page }) => {
   await page.goto('/escritorio-personal/');
   await page.getByRole('link', { name: 'Mi diario', exact: true }).click();
-  for (const name of ['Primera', 'Segunda', 'Tercera']) {
+  for (const [index, name] of ['Primera', 'Segunda', 'Tercera'].entries()) {
     page.once('dialog', dialog => dialog.accept(name));
-    await page.getByRole('button', { name: 'Nuevo diario' }).click();
+    await page.getByRole('button', { name: index === 0 ? 'Crear mi primera carpeta' : 'Nuevo diario' }).click();
   }
+  await expect(page.getByLabel('Acciones de carpeta').getByRole('button')).toHaveText(['Editar nombre', 'Borrar diario', 'Nuevo diario']);
   await page.getByRole('button', { name: 'Segunda', exact: true }).click();
   await page.getByLabel('Página del diario').fill('Texto que debe conservarse');
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001')!).folders.find((folder: { name: string }) => folder.name === 'Segunda'));
