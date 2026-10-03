@@ -306,7 +306,8 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 @media (max-resolution:.66dppx){.paper{--journal-rule:2px}}
 .emoji-group{display:grid;grid-template-columns:repeat(auto-fill,2.4rem);gap:.2rem;margin-bottom:.35rem}
 .emoji-group-name{grid-column:1/-1;position:sticky;top:-.4rem;z-index:1;padding:.2rem .1rem;background:#fff8df;color:#74503c;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
-/* Imagen del escritorio: ocupa el hueco que queda arriba de "En progreso", al lado de los objetos, sin mover el tablero. */
-.desk-row{position:relative}
+/* Imagen del escritorio: apoyada sobre el rectángulo de "No iniciado", en el espacio libre entre el título y el tablero (no lo mueve). */
+.desk-row{position:relative;display:flow-root}
 .desk-art{display:none}
-@media(min-width:1100px){.desk-art{display:block;position:absolute;top:0;left:calc((100% + 1rem)/3);width:min(calc((100% - 2rem)/3),calc(100% - (100% + 1rem)/3 - 560px));height:100%;object-fit:contain;object-position:center bottom;pointer-events:none;user-select:none}}
+@media(min-width:801px){.desk-art{display:block;position:absolute;bottom:0;left:0;width:calc((100% - 2rem)/3);height:calc(100% + .5rem);object-fit:contain;object-position:center bottom;pointer-events:none;user-select:none}}
+@media(min-width:801px) and (max-width:900px){.desk-art{object-position:left bottom}}
