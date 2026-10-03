@@ -2,6 +2,7 @@ import { DragEvent, FormEvent, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { COLORS, id, Note, Status } from '../../storage/model';
 import { useData } from '../../app/DataContext';
+import memeCafe from '../../assets/images/meme-cafe.webp';
 
 const NOTE_MIME = 'application/x-escritorio-note';
 // Solo la fecha (dd/mm/aaaa), para las tarjetas del escritorio.
@@ -251,6 +252,7 @@ export function Board() {
       </div>
       <p className="drag-hint">Arrastrá cualquier nota para cambiarla de lugar o de sección.</p>
       <div className="board" onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTarget(null); }}>
+        <img className="board-art" src={memeCafe} alt="Dibujo de un personaje pensativo tomando un café" width={520} height={433} draggable={false} />
         {columns.map(column => {
           const notes = data.notes.filter(note => note.status === column.status && !note.archivedAt);
           return <section className={`column${dropTarget?.status === column.status ? ' column--drag-over' : ''}`} data-status={column.status} key={column.status}
