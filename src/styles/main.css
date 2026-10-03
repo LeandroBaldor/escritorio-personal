@@ -332,3 +332,5 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 @container (max-width:6rem){.calc-art img{display:none}}
 }
 @media(min-width:1460px){.section-title:has(>.calc-art){grid-template-columns:auto minmax(0,1fr) auto minmax(280px,20rem)}}
+/* Mi diario: los íconos de Escritorio y Gastos van arriba de los botones de la carpeta, alineados a la derecha. */
+.journal-objects{display:flex;justify-content:flex-end;max-width:1400px;margin:0 auto .75rem}.journal-objects .section-objects{flex:0 0 auto}
