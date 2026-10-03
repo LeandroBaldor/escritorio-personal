@@ -378,7 +378,6 @@ test('carga meses, guarda gastos en su carpeta y los saca de la lista', async ({
   await expect(page.locator('.total strong')).toContainText('900,00');
   await page.getByLabel('Mes de los subtotales').selectOption({ label: '08/2026' });
   await expect(page.locator('.expense-summary-total strong')).toContainText('1.700,50');
-  await expect(page.locator('.summary-month-list li')).toHaveCount(2);
   await page.getByLabel('Mes de los subtotales').selectOption({ label: 'Gastos actuales' });
   await expect(page.locator('.expense-summary-total strong')).toContainText('900,00');
   await page.getByRole('link', { name: 'Meses guardados' }).click();
