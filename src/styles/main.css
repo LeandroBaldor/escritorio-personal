@@ -277,13 +277,14 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .note .note-buttons{flex-wrap:wrap;gap:.25rem}.note .note-buttons button{padding:.25rem .45rem;font-size:.75rem}
 .drop-indicator{flex-basis:calc((100% - 1.1rem)/3)}
 @media(max-width:480px){.column{gap:.4rem;padding:.6rem}.note,.drop-indicator{flex-basis:calc((100% - .8rem)/3)}.note{padding:.35rem}.note-text,.note textarea{font-size:.95rem;padding-right:.6rem}.note small,.note details{font-size:.62rem}.note .note-buttons button{padding:.2rem .35rem;font-size:.68rem}}
-/* Mi diario: accesos como objetos del escritorio (un escritorio y la calculadora de gastos). */
-.journal-objects{display:flex;align-items:end;gap:1.1rem;font-size:16px;align-self:center;text-shadow:none}
-.journal-objects a{text-decoration:none;box-shadow:5px 8px 14px #2c120b77}
-.journal-objects .calc-object{width:90px}
+/* Mi diario y Mis gastos: accesos como objetos del escritorio (un escritorio y la calculadora de gastos). */
+.section-objects{display:flex;align-items:end;gap:1.1rem;font-size:16px;align-self:center;text-shadow:none}
+.section-objects a{text-decoration:none;box-shadow:5px 8px 14px #2c120b77}
+.section-objects .calc-object{width:90px}
 .desk-object{display:flex;flex-direction:column;align-items:center;gap:.2rem;width:120px;padding:.45rem .5rem .4rem;background:#f4e1bf;border-radius:8px;color:#332317;transform:rotate(-2deg)}
 .desk-object svg{display:block;width:100%;height:auto}
 .desk-object strong{font-size:.8rem}
-.journal-objects a:hover,.journal-objects a:focus-visible{transform:rotate(0) translateY(-2px)}
-@media(min-width:801px){.section-title:has(>.journal-objects){display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.section-title:has(>.journal-objects)>button{justify-self:end;align-self:end}.journal-objects{justify-self:center}}
-@media(max-width:800px){.journal-objects{align-self:flex-start}}
+.section-objects a:hover,.section-objects a:focus-visible{transform:rotate(0) translateY(-2px)}
+@media(min-width:801px){.section-title:has(>.section-objects){display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.section-title:has(>.section-objects)>button,.section-title:has(>.section-objects)>.total{justify-self:end;align-self:end}.section-objects{justify-self:center}}
+@media(max-width:800px){.section-objects{align-self:flex-start}}
+.section-objects .notebook{width:120px;height:100px;padding:.8rem .8rem .8rem 1.9rem}.section-objects .notebook span:not(.notebook-binding){font-size:1.5rem;line-height:1}
