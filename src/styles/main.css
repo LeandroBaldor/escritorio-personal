@@ -317,3 +317,4 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 /* Imagen apoyada arriba del cuaderno, en el espacio libre entre el título y la tapa. */
 .book-art{display:none}
 @media(min-width:1160px){.book-art{display:block;position:absolute;z-index:3;bottom:100%;left:4rem;height:9rem;width:auto;pointer-events:none;user-select:none}}
+@media(min-width:1280px){.book-art{left:5rem;height:11rem}}
