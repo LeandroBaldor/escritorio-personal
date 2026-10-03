@@ -257,8 +257,5 @@ export function Expenses() {
     <ul>{EXPENSE_CATEGORIES.map(c => <li key={c}><span>{c}</span><strong>{summary.error ? '—' : money(summary.byCategory[c])}</strong></li>)}</ul>
     <div className="expense-summary-total"><span>Total</span><strong>{summary.error ? '—' : money(summary.sum)}</strong></div>
     {summary.error && <small role="alert">{summary.error}</small>}
-    {summaryMonth && <div className="summary-month-list"><h3>Gastos de {summaryMonth.name}</h3>
-      {summaryMonth.expenses.length === 0 ? <p>Esta carpeta todavía no tiene gastos.</p> : <ul>{summaryMonth.expenses.map(e => <li key={e.id}><span>{e.concept}{e.date ? <small>{formatExpenseDate(e.date)} · {e.paid ? 'Pagado' : 'No pagado'}</small> : <small>{e.paid ? 'Pagado' : 'No pagado'}</small>}</span><strong>{money(e.cents)}</strong></li>)}</ul>}
-    </div>}
   </aside></div></section>;
 }

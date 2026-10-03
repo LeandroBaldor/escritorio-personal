@@ -270,11 +270,6 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .summary-month{display:grid;gap:.25rem;margin-bottom:.9rem;font-size:.85rem;font-weight:700}
 .summary-month select{padding:.55rem 2rem .55rem .6rem;border:1px solid #b69a73;border-radius:6px;background:#fffaf0;font-weight:400}
 .expense-summary>small[role=alert]{display:block;color:#8b1717}
-.summary-month-list{margin-top:1rem;padding-top:.7rem;border-top:1px dashed #b69a73}
-.summary-month-list h3{margin:0 0 .5rem;font:700 1.4rem Caveat,cursive}
-.summary-month-list p{margin:0;font-size:.9rem}
-.summary-month-list li span{display:grid;min-width:0;overflow-wrap:anywhere}
-.summary-month-list li small{color:#74503c;font-size:.78rem}
 /* Notas del escritorio más chicas: tres por fila en cada columna. */
 .note{flex:0 1 calc((100% - 1.1rem)/3);padding:.45rem}
 .note-text,.note textarea{font-size:1.05rem}
