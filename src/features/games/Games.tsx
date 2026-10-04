@@ -1,9 +1,8 @@
 import { Link } from 'react-router-dom';
 import { CalculatorLink, CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { readRecord } from './BlockRunner';
-import { HeroHead } from './HeroHead';
-import { heroOf } from './heroes';
-import { readSolitaireRecord, SUIT_COLORS } from './HeroSolitaire';
+import { cardImage } from './pixelCards';
+import { readSolitaireRecord } from './PixelSolitaire';
 import type { Suit } from './solitaire';
 
 // Dibujo chiquito del juego para la tarjeta: piezas cayendo y el personaje abajo.
@@ -24,20 +23,14 @@ function BlockRunnerArt() {
   </svg>;
 }
 
-// Dibujo de la tarjeta del solitario: fondo de cómic y cuatro cartas en abanico, una de cada palo.
+// Dibujo de la tarjeta del solitario: mesa verde pixelada y cuatro cartas 8 bits en abanico.
 function SolitaireArt() {
-  const card = (x: number, angle: number, rank: string, suit: Suit, who: number) =>
-    <g transform={`rotate(${angle} ${x + 16} 96)`}>
-      <rect x={x} y="24" width="32" height="46" rx="3" fill="#fff" stroke={SUIT_COLORS[suit]} strokeWidth="1.5" />
-      <text x={x + 3.5} y="33" fontSize="8" fontWeight="900" fill={SUIT_COLORS[suit]} fontFamily="Nunito, sans-serif">{rank}</text>
-      <svg x={x + 5} y="35" width="22" height="22" viewBox="0 0 48 48"><HeroHead look={heroOf(suit, who).look} /></svg>
-      <rect x={x + 3} y="60" width="26" height="6" rx="1.5" fill={SUIT_COLORS[suit]} />
-    </g>;
-  return <svg viewBox="0 0 160 100" aria-hidden="true">
-    <defs><pattern id="puntos" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="1.1" fill="#ffffff14" /></pattern></defs>
-    <rect width="160" height="100" fill="#172554" /><rect width="160" height="100" fill="url(#puntos)" />
-    <path d="M80 50L0 0h40zM80 50L160 0v40zM80 50L160 100h-40zM80 50L0 100V60z" fill="#ffffff0a" />
-    {card(30, -18, 'A', 'corazon', 1)}{card(52, -6, 'A', 'diamante', 1)}{card(76, 6, 'K', 'pica', 13)}{card(98, 18, 'A', 'trebol', 1)}
+  const card = (x: number, angle: number, suit: Suit, rank: number) =>
+    <image key={`${suit}${rank}`} href={cardImage(suit, rank)} x={x} y="20" width="36" height="49" transform={`rotate(${angle} ${x + 18} 100)`} style={{ imageRendering: 'pixelated' }} />;
+  return <svg viewBox="0 0 160 100" aria-hidden="true" shapeRendering="crispEdges">
+    <defs><pattern id="pasto" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="#166534" /><rect width="2" height="2" fill="#15803d" /><rect x="2" y="2" width="2" height="2" fill="#15803d" /></pattern></defs>
+    <rect width="160" height="100" fill="url(#pasto)" />
+    {card(24, -16, 'pica', 1)}{card(50, -5, 'corazon', 13)}{card(76, 6, 'diamante', 12)}{card(100, 17, 'trebol', 11)}
   </svg>;
 }
 
@@ -62,11 +55,11 @@ export function Games() {
         </Link>
       </li>
       <li>
-        <Link className="game-card game-card--heroes" to="/juegos/solitario">
+        <Link className="game-card game-card--pix" to="/juegos/solitario">
           <SolitaireArt />
           <span className="game-card-text">
-            <strong>Solitario de Superhéroes</strong>
-            <span>El solitario de siempre con héroes y villanos de Marvel y DC: cada carta es un personaje.</span>
+            <strong>Solitario 8 bits</strong>
+            <span>El solitario de siempre con cartas pixeladas, como en las consolas viejas.</span>
             {solitaire && <small>Récord: {Math.floor(solitaire.seconds / 60)}:{String(solitaire.seconds % 60).padStart(2, '0')}</small>}
           </span>
           <span className="game-card-play" aria-hidden="true">Jugar ▶</span>

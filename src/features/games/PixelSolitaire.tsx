@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { HeroHead } from './HeroHead';
-import { heroOf } from './heroes';
-import { bestTarget, canFinish, canMove, cardName, deal, draw, finishStep, isWon, move, picked, RANK_NAMES, SUITS, type Card, type From, type Solitaire, type Suit, type To } from './solitaire';
+import { BACK_IMAGE, CARD_H, CARD_W, cardImage, SUIT_PIXELS, suitColor } from './pixelCards';
+import { bestTarget, canFinish, canMove, cardName, deal, draw, finishStep, isWon, move, picked, SUITS, type Card, type From, type Solitaire, type To } from './solitaire';
 
 const RECORD_KEY = 'escritorio-personal-juegos:solitario-record';
 export const readSolitaireRecord = (): { seconds: number; moves: number } | null => {
@@ -11,38 +10,23 @@ export const readSolitaireRecord = (): { seconds: number; moves: number } | null
 const saveRecord = (value: { seconds: number; moves: number }) => { try { localStorage.setItem(RECORD_KEY, JSON.stringify(value)); } catch { /* sin almacenamiento */ } };
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
-// Símbolos de los palos (corazón, diamante, pica y trébol), cada uno con su color.
-export const SUIT_COLORS: Record<Suit, string> = { corazon: '#dc2626', diamante: '#7c3aed', pica: '#2563eb', trebol: '#16a34a' };
-export const TEAMS: Record<Suit, string> = { corazon: 'Héroe Marvel', diamante: 'Villano Marvel', pica: 'Héroe DC', trebol: 'Villano DC' };
-const SUIT_PATHS: Record<Suit, ReactNode> = {
-  corazon: <path d="M12 21s-8.5-5.3-8.5-11.2A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8.5 2.8C20.5 15.7 12 21 12 21z" />,
-  diamante: <path d="M12 2.5l7.5 9.5-7.5 9.5L4.5 12z" />,
-  pica: <path d="M12 2.5s8 6 8 11a4 4 0 0 1-6.6 3l1.3 4.5H9.3l1.3-4.5A4 4 0 0 1 4 13.5c0-5 8-11 8-11z" />,
-  trebol: <g><circle cx="12" cy="7.3" r="4" /><circle cx="7.2" cy="13.3" r="4" /><circle cx="16.8" cy="13.3" r="4" /><path d="M11 13h2l1.6 8.5H9.4z" /></g>,
-};
-export function SuitIcon({ suit, x, y, size }: { suit: Suit; x?: number; y?: number; size?: number }) {
-  return <svg viewBox="0 0 24 24" aria-hidden="true" x={x} y={y} width={size} height={size} fill={SUIT_COLORS[suit]}>{SUIT_PATHS[suit]}</svg>;
+// Un palo pixelado suelto (para el festejo y el menú).
+export function PixelSuit({ suit }: { suit: (typeof SUITS)[number] }) {
+  return <svg viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">{SUIT_PIXELS[suit].flatMap((row, y) => [...row].map((ch, x) => ch === 'X' ? <rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" fill={suitColor(suit)} /> : null))}</svg>;
 }
 
+// Las cartas son imágenes pixeladas armadas en pixelCards.
 function CardFace({ card }: { card: Card }) {
-  const hero = heroOf(card.suit, card.rank);
-  const index = <><b>{RANK_NAMES[card.rank]}</b><SuitIcon suit={card.suit} /></>;
-  return <span className={`sol-face sol-face--${card.suit}`} style={{ '--suit': SUIT_COLORS[card.suit] } as React.CSSProperties}>
-    <span className="sol-corner">{index}</span>
-    <span className="sol-center"><HeroHead look={hero.look} /></span>
-    <span className="sol-name">{hero.name}</span>
-  </span>;
+  return <span className="sol-face" style={{ backgroundImage: `url("${cardImage(card.suit, card.rank)}")` }} />;
 }
-
-// Dorso estilo cómic: puntitos, un estallido amarillo y un rayo.
 function CardBack() {
-  return <span className="sol-back" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 1l2.6 5.2 5.6-1.6-2 5.4 5 3-5.6 1.4.8 5.8-4.4-3.6L12 22l-2-5.4-4.4 3.6.8-5.8L.8 13l5-3-2-5.4 5.6 1.6z" fill="#facc15" stroke="#b45309" strokeWidth=".6" /><path d="M13.5 5L8.5 13h3l-1.5 6 5-8.5h-3z" fill="#dc2626" /></svg></span>;
+  return <span className="sol-back" style={{ backgroundImage: `url("${BACK_IMAGE}")` }} aria-hidden="true" />;
 }
 
 type Drag = { from: From; ids: string[]; x: number; y: number; dx: number; dy: number; moving: boolean; pointer: number };
 type Layout = { cw: number; ch: number; gap: number; tableauHeight: number };
 
-export function HeroSolitaire() {
+export function PixelSolitaire() {
   const [game, setGame] = useState<Solitaire>(() => deal());
   const [history, setHistory] = useState<Solitaire[]>([]);
   const [seconds, setSeconds] = useState(0);
@@ -63,8 +47,8 @@ export function HeroSolitaire() {
       if (!board) return;
       const width = board.clientWidth, height = board.clientHeight;
       const gap = Math.max(4, Math.min(14, width / 70));
-      const cw = Math.floor(Math.min(120, (width - gap * 6) / 7, (height - gap * 3) / (1.4 * 2 + 1.2)));
-      const ch = Math.round(cw * 1.4);
+      const cw = Math.floor(Math.min(120, (width - gap * 6) / 7, (height - gap * 3) / (CARD_H / CARD_W * 2 + 1.2)));
+      const ch = Math.round(cw * CARD_H / CARD_W);
       setLayout({ cw, ch, gap, tableauHeight: Math.max(ch, height - ch - gap * 2) });
     };
     fit();
@@ -166,10 +150,10 @@ export function HeroSolitaire() {
     ...[0, 1, 2, 3, 4, 5, 6].filter(pile => canMove(game, drag.from, { kind: 'tableau', pile })).map(p => `t${p}`),
   ]) : new Set<string>();
 
-  return <section className="runner sol" aria-label="Solitario de Superhéroes">
+  return <section className="runner sol pix" aria-label="Solitario 8 bits">
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
-      <h1>Solitario de Superhéroes</h1>
+      <h1>Solitario 8 bits</h1>
       <div className="runner-scores">
         <span>Tiempo <strong>{clock(seconds)}</strong></span>
         <span>Movimientos <strong data-testid="solitaire-moves">{game.moves}</strong></span>
@@ -179,7 +163,7 @@ export function HeroSolitaire() {
       <button type="button" onClick={restart}>Nueva partida</button>
     </div>
     <div ref={boardRef} onPointerMove={onMove} onPointerUp={endDrag} onPointerCancel={() => setDrag(null)}
-      className={`sol-board${cw < 76 ? ' sol-board--small' : ''}`} style={{ '--cw': `${cw}px`, '--ch': `${ch}px`, '--gap': `${gap}px` } as React.CSSProperties}>
+      className="sol-board" style={{ '--cw': `${cw}px`, '--ch': `${ch}px`, '--gap': `${gap}px` } as React.CSSProperties}>
       <div className="sol-top">
         <button type="button" className={`sol-slot sol-stock${game.stock.length ? '' : ' sol-slot--empty'}`} onClick={() => !finishing && commit(draw(game))}
           aria-label={game.stock.length ? `Mazo: ${game.stock.length} cartas, dar vuelta una` : 'Volver a armar el mazo'}>
@@ -216,10 +200,10 @@ export function HeroSolitaire() {
       {canFinish(game) && !finishing && <button type="button" className="sol-finish" onClick={() => setFinishing(true)}>Terminar solo ▶</button>}
       {won && <div className="runner-overlay" role="dialog" aria-labelledby="sol-won">
         <div className="sol-confetti" aria-hidden="true">
-          {Array.from({ length: 28 }, (_, i) => <span key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${(i % 7) * 0.25}s`, animationDuration: `${2.4 + (i % 5) * 0.4}s` }}><SuitIcon suit={SUITS[i % 4]} /></span>)}
+          {Array.from({ length: 28 }, (_, i) => <span key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${(i % 7) * 0.25}s`, animationDuration: `${2.4 + (i % 5) * 0.4}s` }}><PixelSuit suit={SUITS[i % 4]} /></span>)}
         </div>
         <div>
-          <h2 id="sol-won">¡Misión cumplida! Ganaste</h2>
+          <h2 id="sol-won">¡GANASTE!</h2>
           <p>Lo terminaste en <strong>{clock(seconds)}</strong> con <strong>{game.moves}</strong> movimientos.{newRecord && ' ¡Nuevo récord!'}</p>
           <button type="button" onClick={restart} autoFocus>Jugar de nuevo</button>
         </div>
