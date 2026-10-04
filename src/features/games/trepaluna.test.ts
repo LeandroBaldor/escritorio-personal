@@ -1,35 +1,60 @@
 import { describe, expect, it } from 'vitest';
-import { buildCourse, CLOUD_JUMP, gravityAt, JUMP, moonOf, newTrepa, step, takeEvents, TRAMP, ZONES, type Input, type Trepa } from './trepaluna';
+import { ballPos, buildCourse, FALL_LOSE, fireActive, fireRect, gravityAt, JUMP, jumpPeak, meters, moonOf, newTrepa, step, takeEvents, TRAMP, ZONES, type Input, type Plat, type Trepa } from './trepaluna';
 
 const idle: Input = { left: false, right: false, jump: false, down: false };
 const run = (g: Trepa, seconds: number, input: Partial<Input> = {}) => {
   for (let t = 0; t < seconds; t += 1 / 60) step(g, { ...idle, ...input }, 1 / 60);
 };
-const peak = (v: number, y: number) => (v * v) / (2 * gravityAt(y));
+// Deja solo el piso y las plataformas que se pasan, para probar una cosa por vez.
+const only = (g: Trepa, ...plats: Partial<Plat>[]) => {
+  const ground = g.plats[0];
+  g.plats = [ground, ...plats.map((p, i) => ({ ...ground, id: 900 + i, kind: 'solid' as const, skin: 'beam' as const, baseX: p.x ?? 0, baseY: p.y ?? 0, ...p }))];
+  g.climbs = []; g.fires = []; g.balls = []; g.birds = [];
+  return g.plats.slice(1);
+};
 
 describe('Trepaluna: recorrido', () => {
-  it('siempre es el mismo y llega hasta la Luna pasando por las nubes y el espacio', () => {
-    const a = buildCourse(), b = buildCourse();
-    expect(a.plats.map(p => [p.kind, p.x, p.y])).toEqual(b.plats.map(p => [p.kind, p.x, p.y]));
-    const moon = a.plats[a.plats.length - 1];
+  const course = buildCourse();
+
+  it('siempre es el mismo y va de la calle a la Luna a 3.000 m', () => {
+    const again = buildCourse();
+    expect(again.plats.map(p => [p.skin, p.x, p.y])).toEqual(course.plats.map(p => [p.skin, p.x, p.y]));
+    const moon = moonOf(course);
     expect(moon.kind).toBe('moon');
-    expect(moon.y).toBeGreaterThan(ZONES.moon - 8);
-    const flags = a.plats.filter(p => p.kind === 'flag');
-    expect(flags).toHaveLength(2);
-    flags.forEach((f, i) => expect(Math.abs(f.y - [ZONES.clouds, ZONES.space][i])).toBeLessThan(2.5));
-    for (const kind of ['beam', 'bridge', 'tramp', 'moving', 'crumble', 'cloud', 'asteroid']) expect(a.plats.some(p => p.kind === kind), kind).toBe(true);
-    expect(a.ropes.length).toBeGreaterThan(3);
+    expect(meters(moon.y)).toBeGreaterThan(2950);
+    expect(meters(moon.y)).toBeLessThan(3150);
   });
 
-  it('cada estructura se alcanza desde la anterior (saltando, con trampolín o con la soga)', () => {
-    const { plats, ropes } = buildCourse();
-    for (let i = 1; i < plats.length; i++) {
-      const from = plats[i - 1], to = plats[i];
-      const dy = to.y - from.y;
-      expect(dy, `${from.kind}→${to.kind} a ${from.y.toFixed(1)} m`).toBeGreaterThan(0);
-      if (ropes.some(r => Math.abs(r.y1 - from.y - 0.2) < 1e-9 && Math.abs(r.y2 - to.y - 0.3) < 1e-9)) continue;
-      const v = from.kind === 'tramp' ? TRAMP : from.kind === 'cloud' ? CLOUD_JUMP : JUMP;
-      expect(dy, `${from.kind}→${to.kind} a ${from.y.toFixed(1)} m`).toBeLessThan(peak(v, from.y) - 0.15);
+  it('tiene muchas estructuras distintas en cada etapa', () => {
+    const skins = new Set(course.plats.map(p => p.skin));
+    for (const s of ['terrace', 'balcony', 'step', 'beam', 'tile', 'spring', 'bricks', 'basket', 'zeppelin', 'asteroid', 'ufo', 'rocket']) expect(skins.has(s as Plat['skin']), s).toBe(true);
+    expect(new Set(course.climbs.map(c => c.skin))).toEqual(new Set(['ladder', 'rope', 'truss']));
+    expect(course.fires.filter(f => f.dir === 'up').length).toBeGreaterThanOrEqual(3);
+    expect(course.fires.filter(f => f.dir !== 'up').length).toBeGreaterThan(3);
+    expect(course.balls.length).toBeGreaterThan(0);
+    expect(course.birds.length).toBeGreaterThan(0);
+    expect(course.facades.length).toBeGreaterThan(0);
+    // En la ciudad hay edificios enfrentados; arriba de los 1.000 m ya no.
+    expect(course.facades.every(f => f.y2 < ZONES.sky)).toBe(true);
+    expect(course.plats.filter(p => p.y > ZONES.sky + 3).some(p => ['terrace', 'balcony'].includes(p.skin))).toBe(false);
+  });
+
+  it('cada estructura se alcanza desde la anterior: saltando, con trampolín, trepando o caminando', () => {
+    const reached = new Set(course.links.map(l => l.to));
+    for (const p of course.plats.slice(1)) expect(reached.has(p.id), `plataforma ${p.id} (${p.skin})`).toBe(true);
+    for (const l of course.links) {
+      const where = `${l.mode} ${l.from}→${l.to} a ${meters(l.fromY)} m`;
+      expect(l.dy, where).toBeGreaterThan(0);
+      if (l.mode === 'jump') { expect(l.dy, where).toBeLessThan(jumpPeak(JUMP, l.fromY) - 0.15); expect(l.edge, where).toBeLessThanOrEqual(3); }
+      if (l.mode === 'tramp') { expect(l.dy, where).toBeLessThan(jumpPeak(TRAMP, l.fromY) - 0.4); expect(l.edge, where).toBeLessThanOrEqual(2.5); }
+      if (l.mode === 'walk') { expect(l.dy, where).toBeLessThanOrEqual(0.6); expect(l.edge, where).toBeLessThan(0.05); }
+    }
+  });
+
+  it('los caños de fuego se apagan un rato largo para poder pasar', () => {
+    for (const f of course.fires) {
+      expect(f.on).toBeLessThan(0.5);
+      expect(f.period * (1 - f.on)).toBeGreaterThan(1);
     }
   });
 });
@@ -37,72 +62,145 @@ describe('Trepaluna: recorrido', () => {
 describe('Trepaluna: movimiento', () => {
   it('salta, atraviesa una plataforma desde abajo y cae parado arriba', () => {
     const g = newTrepa();
-    g.plats.splice(1, g.plats.length - 2); g.ropes = [];
-    g.plats.push({ ...g.plats[0], id: 500, kind: 'beam', x: 6, y: 2, w: 4, baseX: 6 });
+    only(g, { x: 6, y: 2, w: 4 });
     g.player.x = 8;
     run(g, 0.05, { jump: true });
     run(g, 1.2);
-    expect(g.player.ground?.id).toBe(500);
+    expect(g.player.ground?.id).toBe(900);
     expect(g.player.y).toBe(2);
     expect(takeEvents(g).some(e => e.type === 'jump')).toBe(true);
   });
 
+  it('los escalones bajitos de la escalera en zigzag se suben caminando', () => {
+    const g = newTrepa();
+    only(g, { x: 8.5, y: 0.45, w: 0.85, skin: 'step' }, { x: 9.2, y: 0.9, w: 0.85, skin: 'step' }, { x: 9.9, y: 1.35, w: 1.8, skin: 'step' });
+    g.player.x = 7.5;
+    run(g, 0.55, { right: true });
+    expect(g.player.ground?.id).toBe(902);
+    expect(g.player.y).toBeCloseTo(1.35);
+  });
+
   it('el trampolín lo tira mucho más alto', () => {
     const g = newTrepa();
-    const tramp = g.plats.find(p => p.kind === 'tramp')!;
-    Object.assign(g.player, { x: tramp.x + tramp.w / 2, y: tramp.y + 1, ground: null, vy: 0 });
+    const [tramp] = only(g, { x: 7, y: 2, w: 2, kind: 'tramp', skin: 'spring' });
+    Object.assign(g.player, { x: 8, y: 3, ground: null, vy: 0 });
     let top = 0;
     for (let i = 0; i < 90; i++) { step(g, idle, 1 / 60); top = Math.max(top, g.player.y); }
     expect(top - tramp.y).toBeGreaterThan(6);
   });
 
-  it('se agarra de la soga, la trepa manteniendo saltar y se suelta con un costado', () => {
+  it('se agarra de la escalera, la trepa manteniendo saltar y se suelta con un costado', () => {
     const g = newTrepa();
-    const rope = g.ropes[0];
-    Object.assign(g.player, { x: rope.x, y: rope.y1 + 1, ground: null, vy: 0 });
+    only(g);
+    g.climbs = [{ id: 1, x: 8, y1: 0.1, y2: 9, skin: 'ladder' }];
+    Object.assign(g.player, { x: 8, y: 1, ground: null, vy: 0 });
     step(g, { ...idle, jump: true }, 1 / 60);
-    expect(g.player.rope).toBe(rope);
-    const y0 = g.player.y;
+    expect(g.player.climb).not.toBeNull();
     run(g, 0.5, { jump: true });
-    expect(g.player.y).toBeGreaterThan(y0 + 1.5);
+    expect(g.player.y).toBeGreaterThan(2.5);
     step(g, { ...idle, right: true }, 1 / 60);
-    expect(g.player.rope).toBeNull();
+    expect(g.player.climb).toBeNull();
     expect(g.player.vx).toBeGreaterThan(0);
   });
 
-  it('la plataforma que se desarma desaparece un rato y vuelve', () => {
+  it('las baldosas que se mueven lo llevan y el montacargas lo sube', () => {
     const g = newTrepa();
-    const c = g.plats.find(p => p.kind === 'crumble')!;
-    Object.assign(g.player, { x: c.x + c.w / 2, y: c.y + 0.3, ground: null, vy: 0 });
+    const [tile, lift] = only(g, { x: 6, y: 2, w: 2.5, kind: 'moving', skin: 'tile', amp: 3, speed: 1 }, { x: 1, y: 6, w: 2.6, kind: 'elevator', skin: 'lift', amp: 2, speed: 1, baseY: 6 });
+    Object.assign(g.player, { x: 7.2, y: 2, ground: tile });
+    const x0 = g.player.x;
+    run(g, 0.6);
+    expect(g.player.ground).toBe(tile);
+    expect(Math.abs(g.player.x - x0)).toBeGreaterThan(0.5);
+    Object.assign(g.player, { x: lift.x + 1.3, y: lift.y, ground: lift });
+    const ys: number[] = [];
+    for (let i = 0; i < 200; i++) { step(g, idle, 1 / 60); ys.push(g.player.y); }
+    expect(g.player.ground).toBe(lift);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(2);
+  });
+
+  it('la cinta transportadora lo arrastra', () => {
+    const g = newTrepa();
+    const [belt] = only(g, { x: 4, y: 2, w: 6, kind: 'conveyor', skin: 'conveyor', belt: 3 });
+    Object.assign(g.player, { x: 6, y: 2, ground: belt });
+    run(g, 0.5);
+    expect(g.player.x).toBeGreaterThan(7);
+  });
+
+  it('los ladrillos se desarman un rato y vuelven', () => {
+    const g = newTrepa();
+    const [c] = only(g, { x: 6, y: 2, w: 3, kind: 'crumble', skin: 'bricks' });
+    Object.assign(g.player, { x: 7.5, y: 2.3, ground: null, vy: 0 });
     run(g, 0.2);
     expect(g.player.ground).toBe(c);
     run(g, 1);
     expect(c.gone).toBeGreaterThan(0);
-    expect(g.player.ground).not.toBe(c);
-    run(g, 3.5);
+    run(g, 3.6);
     expect(c.gone).toBe(0);
   });
 
-  it('en el espacio la gravedad es menor', () => {
+  it('en el espacio la gravedad es menor y se salta más alto', () => {
     expect(gravityAt(ZONES.space + 1)).toBeLessThan(gravityAt(10));
+    expect(jumpPeak(JUMP, ZONES.space + 1)).toBeGreaterThan(jumpPeak(JUMP, 10) + 1.5);
+  });
+});
+
+describe('Trepaluna: peligros, perder y ganar', () => {
+  it('el fuego quema: pierde, cae por toda la estructura hasta la calle y termina en GAME OVER', () => {
+    const g = newTrepa();
+    only(g, { x: 5, y: 40, w: 6 });
+    g.fires = [{ id: 1, x: 8, y: 40, dir: 'up', len: 3, period: 2, on: 0.5, phase: 0 }];
+    g.bestGround = 40;
+    Object.assign(g.player, { x: 8, y: 40, ground: g.plats[1] });
+    step(g, idle, 1 / 60);
+    expect(g.dying?.reason).toBe('burn');
+    run(g, 0.5, { jump: true, right: true }); // ya no se puede hacer nada
+    expect(g.player.ground).toBeNull();
+    run(g, 6);
+    expect(g.over).toBe(true);
+    expect(g.player.y).toBe(0);
+    expect(takeEvents(g).map(e => e.type)).toEqual(expect.arrayContaining(['lose', 'gameover']));
   });
 
-  it('la bandera guarda el lugar: si cae muy abajo vuelve a ella', () => {
+  it('cuando el fuego está apagado se puede pasar', () => {
     const g = newTrepa();
-    const flag = g.plats.find(p => p.kind === 'flag')!;
-    Object.assign(g.player, { x: flag.x + flag.w / 2, y: flag.y + 0.5, ground: null, vy: 0 });
-    run(g, 0.3);
-    expect(g.checkpoint).toBe(flag);
-    Object.assign(g.player, { x: 0.4, y: flag.y - 20, ground: null, vy: -5 });
+    only(g, { x: 5, y: 40, w: 6 });
+    const f = { id: 1, x: 8, y: 40, dir: 'up' as const, len: 3, period: 2, on: 0.4, phase: 1.2 };
+    g.fires = [f];
+    expect(fireActive(f, 0)).toBe(false);
+    Object.assign(g.player, { x: 8, y: 40, ground: g.plats[1] });
     step(g, idle, 1 / 60);
-    expect(g.player.y).toBe(flag.y);
-    expect(takeEvents(g).map(e => e.type)).toEqual(expect.arrayContaining(['checkpoint', 'respawn']));
+    expect(g.dying).toBeNull();
+    expect(fireRect(f).y2).toBeGreaterThan(42);
+  });
+
+  it('caer más de 100 m desde lo más alto que pisó es perder', () => {
+    const g = newTrepa();
+    only(g, { x: 0.3, y: 60, w: 3 });
+    g.bestGround = 60;
+    Object.assign(g.player, { x: 8, y: 60, ground: null, vy: 0 });
+    run(g, 2);
+    expect(g.dying?.reason).toBe('fall');
+    expect(60 - FALL_LOSE).toBeGreaterThan(0);
+  });
+
+  it('la bola de demolición lo empuja (no lo mata)', () => {
+    const g = newTrepa();
+    only(g, { x: 2, y: 10, w: 12 });
+    const ball = { id: 1, px: 8, py: 15, len: 4.2, amp: 0, speed: 1, phase: 0 };
+    g.balls = [ball];
+    const c = ballPos(ball, 0);
+    Object.assign(g.player, { x: c.x - 0.5, y: 10, ground: g.plats[1] });
+    step(g, idle, 1 / 60);
+    expect(g.player.stun).toBeGreaterThan(0);
+    expect(g.player.vx).toBeLessThan(0);
+    expect(g.dying).toBeNull();
   });
 
   it('al llegar a la Luna gana y el tiempo se frena', () => {
     const g = newTrepa();
     const moon = moonOf(g);
     Object.assign(g.player, { x: moon.x + moon.w / 2, y: moon.y + 0.4, ground: null, vy: 0 });
+    g.bestGround = moon.y - 2;
     run(g, 0.5);
     expect(g.won).toBe(true);
     const t = g.time;

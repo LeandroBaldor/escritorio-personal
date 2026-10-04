@@ -1,174 +1,367 @@
-// Lógica de "Trepaluna": un personaje trepa estructuras locas hasta la Luna. Todo se mide en metros
-// y la altura crece hacia arriba (y = 0 es el suelo). El recorrido siempre es el mismo (se arma con
-// una semilla fija) para poder mejorar el tiempo. Tres etapas: ciudad, nubes y espacio (con menos
-// gravedad). Todas las plataformas se atraviesan desde abajo y se cae parado arriba.
+// Lógica de "Trepaluna": como un juego de plataformas clásico, pero para arriba. El personaje trepa
+// desde la calle hasta la Luna. Internamente todo se mide en "unidades" (el personaje mide una) y en
+// pantalla se muestran metros (1 unidad = 10 m). La altura crece hacia arriba (y = 0 es la calle).
+//
+// - Ciudad (0 a 1.000 m): edificios a los costados, terrazas, balcones enfrentados, vigas de obra,
+//   escaleras en zigzag, escaleras de mano, caños que tiran fuego, baldosas que van y vienen,
+//   montacargas, cintas transportadoras, bolas de demolición, ladrillos que se desarman y trampolines.
+// - Cielo (1.000 a 1.700 m): ya no hay edificios; globos aerostáticos, dirigibles, andamios flotantes,
+//   sogas y pájaros que te empujan.
+// - Nubes (1.700 a 2.100 m): se pasa a través de las nubes (no se puede pisar una nube).
+// - Espacio (desde 2.100 m): menos gravedad, satélites, asteroides, ovnis, estaciones y meteoritos.
+// - La Luna, con su banderín, es el último salto.
+//
+// Si te quemás con el fuego o te caés demasiado, perdés: el personaje cae por toda la estructura
+// hasta la calle y aparece GAME OVER. Todas las plataformas se atraviesan desde abajo.
 
 export const WORLD_W = 16;
-export const ZONES = { clouds: 90, space: 170, moon: 250 };
-export type Kind = 'ground' | 'beam' | 'bridge' | 'tramp' | 'moving' | 'crumble' | 'cloud' | 'asteroid' | 'flag' | 'moon';
-export interface Plat { id: number; kind: Kind; x: number; y: number; w: number; baseX: number; amp: number; speed: number; phase: number; dx: number; crumble: number; gone: number }
-export interface Rope { id: number; x: number; y1: number; y2: number }
-export interface Player { x: number; y: number; vx: number; vy: number; facing: 1 | -1; ground: Plat | null; rope: Rope | null; ropeCooldown: number; coyote: number }
+export const M_PER_UNIT = 10;
+export const ZONES = { sky: 100, clouds: 170, space: 210, moon: 300 };
+export type Zone = 'city' | 'sky' | 'clouds' | 'space';
+export type Kind = 'ground' | 'solid' | 'tramp' | 'moving' | 'elevator' | 'crumble' | 'conveyor' | 'moon';
+export type Skin =
+  | 'ground' | 'beam' | 'scaffold' | 'terrace' | 'tank' | 'billboard' | 'balcony' | 'step' | 'tile' | 'crane' | 'lift'
+  | 'bricks' | 'conveyor' | 'spring' | 'basket' | 'zeppelin' | 'cloudBricks' | 'asteroid' | 'station' | 'satellite'
+  | 'ufo' | 'rocket' | 'moon';
+export interface Plat {
+  id: number; kind: Kind; skin: Skin; x: number; y: number; w: number; baseX: number; baseY: number;
+  amp: number; speed: number; phase: number; dx: number; dy: number; crumble: number; gone: number; belt: number; hue: number;
+}
+export interface Climb { id: number; x: number; y1: number; y2: number; skin: 'ladder' | 'rope' | 'truss' }
+export interface Fire { id: number; x: number; y: number; dir: 'up' | 'left' | 'right'; len: number; period: number; on: number; phase: number }
+export interface Ball { id: number; px: number; py: number; len: number; amp: number; speed: number; phase: number }
+export interface Bird { id: number; y: number; x0: number; x1: number; speed: number; phase: number; skin: 'bird' | 'plane' | 'meteor' }
+export interface Facade { id: number; side: -1 | 1; y1: number; y2: number; w: number; hue: number }
+export interface Link { from: number; to: number; mode: 'jump' | 'tramp' | 'climb' | 'walk'; dy: number; edge: number; fromY: number }
+export interface Player {
+  x: number; y: number; vx: number; vy: number; facing: 1 | -1; ground: Plat | null; climb: Climb | null;
+  climbCooldown: number; coyote: number; stun: number; spin: number;
+}
 export interface Input { left: boolean; right: boolean; jump: boolean; down: boolean }
-export type TrepaEvent = { type: 'jump' } | { type: 'tramp' } | { type: 'checkpoint'; height: number } | { type: 'respawn' } | { type: 'crumble' } | { type: 'zone'; zone: Zone } | { type: 'win' };
-export type Zone = 'city' | 'clouds' | 'space';
-export interface Trepa { plats: Plat[]; ropes: Rope[]; player: Player; time: number; checkpoint: Plat; best: number; won: boolean; zone: Zone; prevJump: boolean; events: TrepaEvent[] }
+export type LoseReason = 'burn' | 'fall';
+export type TrepaEvent =
+  | { type: 'jump' } | { type: 'tramp' } | { type: 'crumble' } | { type: 'knock' } | { type: 'zone'; zone: Zone }
+  | { type: 'lose'; reason: LoseReason } | { type: 'gameover' } | { type: 'win' };
+export interface Course { plats: Plat[]; climbs: Climb[]; fires: Fire[]; balls: Ball[]; birds: Bird[]; facades: Facade[]; links: Link[] }
+export interface Trepa extends Course {
+  player: Player; time: number; best: number; bestGround: number; won: boolean;
+  dying: { t: number; reason: LoseReason } | null; over: boolean; zone: Zone; prevJump: boolean; events: TrepaEvent[];
+}
 
 export const PLAYER_W = 0.6, PLAYER_H = 1.05;
 const RUN = 6;
 export const JUMP = 12.5;
 export const TRAMP = 21;
-export const CLOUD_JUMP = 15;
-const CLIMB = 3.6;
-const FALL_LIMIT = 14; // si caés más de esto debajo de la última bandera, volvés a ella
+const CLIMB = 4;
+export const FALL_LOSE = 10; // caer más de 100 m por debajo de lo más alto que pisaste es perder
+const BALL_R = 0.75, BIRD_R = 0.5;
 
-export const zoneOf = (y: number): Zone => y < ZONES.clouds ? 'city' : y < ZONES.space ? 'clouds' : 'space';
-export const gravityAt = (y: number) => y < ZONES.space ? 28 : 16; // en el espacio todo flota más
+export const zoneOf = (y: number): Zone => y < ZONES.sky ? 'city' : y < ZONES.clouds ? 'sky' : y < ZONES.space ? 'clouds' : 'space';
+export const gravityAt = (y: number) => y < ZONES.space ? 28 : 17;
+export const meters = (y: number) => Math.max(0, Math.floor(y * M_PER_UNIT));
+export const jumpPeak = (v: number, y: number) => (v * v) / (2 * gravityAt(y));
+export const center = (p: Plat) => p.x + p.w / 2;
 
-const KINDS: Record<Zone, [Kind | 'rope', number][]> = {
-  city: [['beam', 4], ['bridge', 2], ['tramp', 1.2], ['rope', 1.3], ['moving', 1], ['crumble', 0.7]],
-  clouds: [['cloud', 3], ['beam', 1.2], ['tramp', 1.4], ['rope', 1.2], ['moving', 1.3], ['crumble', 1]],
-  space: [['asteroid', 3], ['moving', 1.4], ['tramp', 1.4], ['crumble', 1], ['rope', 0.8], ['beam', 0.8]],
+// Lo que se mueve depende solo del tiempo, así el dibujo usa las mismas cuentas.
+export const fireActive = (f: Fire, t: number) => ((t + f.phase) % f.period) < f.period * f.on;
+export const fireWarning = (f: Fire, t: number) => ((t + f.phase) % f.period) / f.period > 0.82;
+export function fireRect(f: Fire) {
+  if (f.dir === 'up') return { x1: f.x - 0.35, x2: f.x + 0.35, y1: f.y + 0.5, y2: f.y + 0.5 + f.len };
+  return f.dir === 'right' ? { x1: f.x + 0.4, x2: f.x + 0.4 + f.len, y1: f.y - 0.3, y2: f.y + 0.3 } : { x1: f.x - 0.4 - f.len, x2: f.x - 0.4, y1: f.y - 0.3, y2: f.y + 0.3 };
+}
+export function ballPos(b: Ball, t: number) {
+  const a = b.amp * Math.sin(t * b.speed + b.phase);
+  return { x: b.px + Math.sin(a) * b.len, y: b.py - Math.cos(a) * b.len, angle: a };
+}
+export function birdPos(b: Bird, t: number) {
+  const span = b.x1 - b.x0, k = ((t * b.speed / span + b.phase) % 2 + 2) % 2;
+  return { x: b.x0 + (k < 1 ? k : 2 - k) * span, y: b.y + Math.sin(t * 3 + b.phase * 5) * 0.3, dir: k < 1 ? 1 : -1 };
+}
+
+// ---------- Recorrido ----------
+type Seg = 'beams' | 'terrace' | 'ladder' | 'fireLadder' | 'zigzag' | 'balconies' | 'firePipe' | 'tiles' | 'elevator'
+  | 'tramp' | 'crumble' | 'conveyor' | 'wreck' | 'crane' | 'birds' | 'zeppelin';
+const SEGMENTS: Record<Zone, [Seg, number][]> = {
+  city: [['beams', 2], ['terrace', 1.4], ['ladder', 1.2], ['fireLadder', 1], ['zigzag', 1.3], ['balconies', 1.3], ['firePipe', 1.5],
+    ['tiles', 1.2], ['elevator', 1], ['tramp', 1], ['crumble', 1], ['conveyor', 0.9], ['wreck', 1], ['crane', 0.9]],
+  sky: [['beams', 1.6], ['ladder', 1.2], ['firePipe', 1.1], ['tiles', 1.2], ['elevator', 1.4], ['tramp', 1], ['crumble', 1], ['birds', 1.4], ['zeppelin', 1.3], ['zigzag', 0.8], ['fireLadder', 0.8]],
+  clouds: [['beams', 1.4], ['ladder', 1.2], ['firePipe', 1], ['tiles', 1.2], ['elevator', 1.3], ['tramp', 1], ['crumble', 1], ['birds', 1.3], ['zeppelin', 1.1], ['fireLadder', 0.8]],
+  space: [['beams', 1.6], ['ladder', 1.2], ['fireLadder', 1], ['firePipe', 1.5], ['tiles', 1.4], ['elevator', 1.2], ['tramp', 1.2], ['crumble', 1], ['birds', 1.2], ['zigzag', 0.7]],
 };
+const SIGNATURE: Record<Zone, Seg[]> = { city: ['terrace', 'firePipe', 'zigzag', 'balconies'], sky: ['birds', 'zeppelin', 'elevator'], clouds: ['tiles', 'elevator'], space: ['birds', 'tramp', 'tiles', 'elevator'] };
+const BEAM_SKINS: Record<Zone, Skin[]> = { city: ['beam', 'scaffold', 'billboard'], sky: ['scaffold', 'beam'], clouds: ['scaffold', 'cloudBricks'], space: ['asteroid', 'station'] };
+const TILE_SKIN: Record<Zone, Skin> = { city: 'tile', sky: 'tile', clouds: 'tile', space: 'ufo' };
+const LIFT_SKIN: Record<Zone, Skin> = { city: 'lift', sky: 'basket', clouds: 'basket', space: 'ufo' };
+const MOVER_SKIN: Record<Zone, Skin> = { city: 'crane', sky: 'zeppelin', clouds: 'zeppelin', space: 'satellite' };
+const CLIMB_SKIN: Record<Zone, Climb['skin']> = { city: 'ladder', sky: 'rope', clouds: 'rope', space: 'truss' };
 
-// Arma el recorrido: cada estructura queda a una altura y distancia que se puede alcanzar desde la
-// anterior (saltando, con el trampolín o trepando la soga).
-export function buildCourse(seed = 20261004) {
+export function buildCourse(seed = 20261004): Course {
   let s = seed;
   const rand = () => (s = (s * 16807) % 2147483647) / 2147483647;
   const between = (a: number, b: number) => a + rand() * (b - a);
-  const plats: Plat[] = [];
-  const ropes: Rope[] = [];
+  const pick = <T,>(list: T[]) => list[Math.floor(rand() * list.length)];
+  const course: Course = { plats: [], climbs: [], fires: [], balls: [], birds: [], facades: [], links: [] };
+  const { plats, climbs, fires, balls, birds, facades, links } = course;
   let id = 1;
-  let last = 'ground' as Kind;
-  const plat = (kind: Kind, cx: number, y: number, w: number, extra: Partial<Plat> = {}) => {
-    last = kind;
+  const add = (kind: Kind, skin: Skin, cx: number, y: number, w: number, extra: Partial<Plat> = {}) => {
     const x = Math.max(0.3, Math.min(WORLD_W - w - 0.3, cx - w / 2));
-    const p: Plat = { id: id++, kind, x, y, w, baseX: x, amp: 0, speed: 0, phase: 0, dx: 0, crumble: 0, gone: 0, ...extra };
+    const p: Plat = { id: id++, kind, skin, x, y, w, baseX: x, baseY: y, amp: 0, speed: 0, phase: 0, dx: 0, dy: 0, crumble: 0, gone: 0, belt: 0, hue: Math.floor(rand() * 360), ...extra };
     plats.push(p);
     return p;
   };
-  plat('ground', WORLD_W / 2, 0, WORLD_W - 0.6);
-  let y = 0, cx = WORLD_W / 2;
-  const flags = [ZONES.clouds, ZONES.space];
-  while (y < ZONES.moon - 7) {
-    // Bandera de control al empezar las nubes y el espacio.
-    if (flags.length && y >= flags[0] - 2.3) {
-      y = Math.max(y + 2.2, flags.shift()!);
-      cx = WORLD_W / 2;
-      plat('flag', cx, y, 6);
-      continue;
+  const edgeGap = (a: Plat, b: Plat) => Math.max(0, Math.abs(center(a) - center(b)) - (a.w + b.w) / 2);
+  const link = (a: Plat, b: Plat, mode: Link['mode'], fromY = a.y, toY = b.y) => links.push({ from: a.id, to: b.id, mode, dy: toY - fromY, edge: edgeGap(a, b), fromY });
+
+  let top = add('ground', 'ground', WORLD_W / 2, 0, WORLD_W - 0.6);
+  const zone = () => zoneOf(top.y);
+  const diff = () => Math.min(1, top.y / ZONES.moon);
+  const reach = () => zone() === 'space' ? 3.9 : 2.3;
+  const gapY = () => reach() * between(0.68, 0.78 + 0.18 * diff());
+  const width = (big: number, small: number) => Math.max(small, big - (big - small) * diff());
+  // Próxima x: cerca de la anterior, sin que el hueco entre los bordes pase de 2,3.
+  const nearX = (w: number, want?: number, spread = 4) => {
+    const c = center(top), lim = (top.w + w) / 2 + 2.3;
+    const x = want ?? c + between(-spread, spread);
+    return Math.max(w / 2 + 0.4, Math.min(WORLD_W - w / 2 - 0.4, Math.max(c - lim, Math.min(c + lim, x))));
+  };
+  const jumpTo = (kind: Kind, skin: Skin, w: number, extra: Partial<Plat> = {}, dy = gapY(), want?: number) => {
+    const p = add(kind, skin, nearX(w, want), top.y + dy, w, extra);
+    link(top, p, 'jump');
+    top = p;
+    return p;
+  };
+  const beamSkin = () => pick(BEAM_SKINS[zone()]);
+
+  function climbUp(withFire: boolean) {
+    const base = jumpTo('solid', zone() === 'city' ? pick(['terrace', 'beam', 'scaffold'] as Skin[]) : beamSkin(), 3.4);
+    const side = rand() < 0.5 ? -1 : 1;
+    const x = center(base) + side * (base.w / 2 - 0.6);
+    const h = between(6, 9), topY = base.y + h;
+    climbs.push({ id: id++, x, y1: base.y + 0.1, y2: topY + 0.3, skin: CLIMB_SKIN[zone()] });
+    if (withFire) { // caños a los costados que cruzan la escalera con fuego: hay que esperar el momento
+      for (let fy = base.y + 2.2, k = 0; fy < topY - 1.2; fy += 2.4, k++) {
+        const s = k % 2 ? 1 : -1;
+        fires.push({ id: id++, x: x + s * 2.4, y: fy, dir: s > 0 ? 'left' : 'right', len: 3.8, period: between(2, 2.6), on: 0.42, phase: rand() * 3 });
+      }
     }
-    const zone = zoneOf(y);
-    const diff = y / ZONES.moon;
-    const space = zone === 'space';
-    const reach = space ? 3.8 : zone === 'clouds' ? 2.45 : 2.4;
-    const table = KINDS[zone];
-    let pick = rand() * table.reduce((a, [, wgt]) => a + wgt, 0), kind: Kind | 'rope' = table[0][0];
-    for (const [k, wgt] of table) { if ((pick -= wgt) <= 0) { kind = k; break; } }
-    // Cerca de una bandera no hay sogas ni trampolines, así la bandera queda en su altura.
-    if ((kind === 'rope' || kind === 'tramp') && flags.length && y + 12 > flags[0]) kind = table[0][0];
-    const gap = reach * between(0.72, 0.8 + 0.18 * diff);
-    const nextX = (w: number, spread = 4) => Math.max(w / 2 + 0.4, Math.min(WORLD_W - w / 2 - 0.4, cx + between(-spread, spread)));
-    const width = (big: number, small: number) => Math.max(small, big - (big - small) * diff);
-    if (kind === 'rope') {
-      // Viga con una soga que sube; arriba de la soga, otra viga.
-      const w = width(3.4, 2.4);
-      cx = nextX(w); y += gap;
-      plat('beam', cx, y, w);
-      const top = y + between(6, 8);
-      ropes.push({ id: id++, x: cx, y1: y + 0.2, y2: top + 0.3 });
-      y = top; cx = Math.max(1.8, Math.min(WORLD_W - 1.8, cx + (rand() < 0.5 ? -1.8 : 1.8)));
-      plat('beam', cx, y, width(3.2, 2.2));
-    } else if (kind === 'tramp') {
-      cx = nextX(2); y += gap;
-      plat('tramp', cx, y, 2);
-      y += space ? between(9, 11) : between(6, 7); // el trampolín te tira mucho más alto
-      const w = width(4, 2.6);
-      cx = nextX(w, 2.5);
-      plat(space ? 'asteroid' : zone === 'clouds' ? 'cloud' : 'beam', cx, y, w);
-    } else if (kind === 'moving' || kind === 'asteroid') {
-      const w = kind === 'asteroid' ? width(3, 2.2) : width(3.4, 2.4);
-      cx = nextX(w, 3); y += gap;
-      plat(kind, cx, y, w, { amp: between(2, 3.5), speed: between(0.7, 1.3) + diff * 0.5, phase: rand() * 6.28 });
-    } else {
-      const w = kind === 'bridge' ? width(8, 6) : kind === 'cloud' ? width(4.2, 3) : width(4.5, 2.2);
-      const extra = kind === 'cloud' && last === 'cloud' ? 0.6 : 0; // desde una nube se salta más alto
-      cx = nextX(w); y += gap + extra;
-      plat(kind, cx, y, w);
-    }
+    const w = 3;
+    const t = add('solid', beamSkin(), x + side * (w / 2 - 0.7), topY, w);
+    link(base, t, 'climb'); top = t;
   }
-  // La Luna: el último salto.
-  plat('moon', WORLD_W / 2, y + (zoneOf(y) === 'space' ? 3.4 : 2.3), 4);
-  return { plats, ropes };
+
+  const segments: Record<Seg, () => void> = {
+    beams: () => { for (let i = 0, n = 3 + Math.floor(rand() * 3); i < n; i++) jumpTo('solid', beamSkin(), width(3.6, 2.2)); },
+    terrace: () => {
+      const t = jumpTo('solid', 'terrace', between(5.5, 7));
+      if (rand() < 0.7) { // un tanque de agua arriba de la terraza sirve de escalón
+        const tank = add('solid', 'tank', t.x + (rand() < 0.5 ? 1.2 : t.w - 1.2), t.y + 1.7, 1.8);
+        link(t, tank, 'jump'); top = tank;
+      }
+    },
+    ladder: () => climbUp(false),
+    fireLadder: () => climbUp(true),
+    zigzag: () => {
+      // Escalera en zigzag: se sube caminando (cada escalón es bajito) y en los descansos se da la vuelta.
+      const rise = 0.45, run = 0.72;
+      let d: 1 | -1 = center(top) < WORLD_W / 2 ? 1 : -1;
+      let from = top;
+      for (let flight = 0, flights = 2 + Math.floor(rand() * 2); flight < flights; flight++) {
+        const edge = d > 0 ? from.x + from.w : from.x;
+        const room = d > 0 ? WORLD_W - 0.5 - edge : edge - 0.5;
+        const n = Math.max(3, Math.min(7, Math.floor((room - 1.8) / run)));
+        let y = from.y;
+        for (let i = 0; i < n; i++) {
+          y += rise;
+          const left = d > 0 ? edge + i * run - 0.05 : edge - (i + 1) * run + 0.05;
+          const step = add('solid', 'step', left + 0.425, y, 0.85);
+          link(from, step, 'walk'); from = step;
+        }
+        const landX = d > 0 ? edge + n * run + 0.85 : edge - n * run - 0.85;
+        const landing = add('solid', 'step', landX, y + rise, 1.8);
+        link(from, landing, 'walk'); from = landing;
+        d = d > 0 ? -1 : 1;
+      }
+      top = from;
+    },
+    balconies: () => {
+      // Dos edificios enfrentados: se trepa saltando de balcón en balcón, de un lado al otro.
+      const beam = jumpTo('solid', 'beam', 3, {}, gapY(), WORLD_W / 2);
+      let side: -1 | 1 = center(beam) <= 10.5 ? -1 : 1;
+      const n = 4 + Math.floor(rand() * 3), y0 = beam.y;
+      for (let i = 0; i < n; i++) {
+        const b = add('solid', 'balcony', side < 0 ? 3.6 + 1.5 : 12.4 - 1.5, top.y + between(1.8, 2.1), 3);
+        link(top, b, 'jump'); top = b; side = side < 0 ? 1 : -1;
+      }
+      const hue = Math.floor(rand() * 360);
+      const y2 = Math.min(top.y + 3.5, ZONES.sky - 1);
+      facades.push({ id: id++, side: -1, y1: y0 - 3, y2, w: 3.6, hue }, { id: id++, side: 1, y1: y0 - 3, y2, w: 3.6, hue: (hue + 40) % 360 });
+    },
+    firePipe: () => {
+      // Plataforma ancha con un caño en el medio que tira fuego para arriba: hay que cruzarlo cuando se apaga.
+      const prev = top;
+      const p = jumpTo('solid', zone() === 'space' ? 'station' : zone() === 'city' ? pick(['terrace', 'beam'] as Skin[]) : pick(['scaffold', 'cloudBricks'] as Skin[]), 6.2);
+      fires.push({ id: id++, x: center(p), y: p.y, dir: 'up', len: 3.4, period: between(2.2, 2.8), on: 0.42, phase: rand() * 3 });
+      const sideNext = center(p) >= center(prev) ? 1 : -1;
+      const next = add('solid', beamSkin(), sideNext > 0 ? p.x + p.w - 0.6 : p.x + 0.6, p.y + gapY(), width(3, 2.2));
+      link(p, next, 'jump'); top = next;
+    },
+    tiles: () => {
+      for (let i = 0, n = 2 + Math.floor(rand() * 2); i < n; i++) {
+        jumpTo('moving', TILE_SKIN[zone()], width(2.8, 2.2), { amp: between(2, 3.5), speed: between(0.8, 1.3) + diff() * 0.6, phase: rand() * 6.28 });
+      }
+    },
+    elevator: () => {
+      const amp = between(1.8, 2.6), low = top.y + between(0.9, 1.4);
+      const e = add('elevator', LIFT_SKIN[zone()], nearX(2.6), low + amp, 2.6, { amp, speed: between(0.7, 1.1), phase: rand() * 6.28 });
+      link(top, e, 'jump', top.y, low);
+      const high = low + 2 * amp;
+      const next = add('solid', beamSkin(), center(e) + (rand() < 0.5 ? -1 : 1) * between(2.4, 3.2), high + gapY() * 0.8, width(3, 2.2));
+      link(e, next, 'jump', high, next.y); top = next;
+    },
+    tramp: () => {
+      const t = jumpTo('tramp', zone() === 'space' ? 'rocket' : 'spring', 2);
+      const next = add('solid', beamSkin(), nearX(3.4, undefined, 2.5), t.y + (zone() === 'space' ? between(9, 11) : between(6, 7)), 3.4);
+      link(t, next, 'tramp'); top = next;
+    },
+    crumble: () => { for (let i = 0, n = 2 + Math.floor(rand() * 2); i < n; i++) jumpTo('crumble', 'bricks', width(3, 2.4)); },
+    conveyor: () => {
+      const c = jumpTo('conveyor', 'conveyor', 5.5, { belt: rand() < 0.5 ? -3 : 3 });
+      const next = add('solid', beamSkin(), c.belt > 0 ? c.x + 0.8 : c.x + c.w - 0.8, c.y + gapY(), 2.6); // hay que caminar contra la cinta
+      link(c, next, 'jump'); top = next;
+    },
+    wreck: () => {
+      const a = top, b = jumpTo('solid', 'beam', width(3.4, 2.6));
+      balls.push({ id: id++, px: (center(a) + center(b)) / 2, py: b.y + 4.6, len: 4.2, amp: 0.85, speed: between(1.4, 1.9), phase: rand() * 6.28 });
+      jumpTo('solid', beamSkin(), width(3.2, 2.4));
+    },
+    crane: () => { jumpTo('moving', MOVER_SKIN[zone()], 3, { amp: between(2.5, 4), speed: between(0.5, 0.8), phase: rand() * 6.28 }); jumpTo('solid', beamSkin(), 3); },
+    zeppelin: () => { jumpTo('moving', MOVER_SKIN[zone()], 4.4, { amp: between(2, 3.5), speed: between(0.4, 0.7), phase: rand() * 6.28 }); jumpTo('solid', beamSkin(), 3); },
+    birds: () => {
+      // Pájaros (o meteoritos en el espacio) que cruzan entre las plataformas y te empujan.
+      for (let i = 0; i < 3; i++) {
+        const p = jumpTo('solid', beamSkin(), width(3.4, 2.4));
+        if (i < 2) birds.push({ id: id++, y: p.y + between(1, 1.6), x0: 0.8, x1: WORLD_W - 0.8, speed: between(2.5, 4), phase: rand() * 2, skin: zone() === 'space' ? 'meteor' : rand() < 0.3 ? 'plane' : 'bird' });
+      }
+    },
+  };
+
+  // Cada etapa reparte sus estructuras como un mazo mezclado: así aparecen todas y no se repiten seguidas.
+  const decks: Partial<Record<Zone, Seg[]>> = {};
+  let last: Seg | null = null;
+  while (top.y < ZONES.moon - 6) {
+    const z = zone();
+    if (!decks[z]?.length) {
+      const deck = SEGMENTS[z].flatMap(([k, wgt]) => wgt >= 1.5 ? [k, k] : [k]);
+      for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+      // Las estructuras típicas de cada etapa salen primero (se reparten desde el final del mazo).
+      for (const k of SIGNATURE[z]) { const i = deck.lastIndexOf(k); if (i >= 0) deck.push(...deck.splice(i, 1)); }
+      if (deck[deck.length - 1] === last) deck.unshift(deck.pop()!);
+      decks[z] = deck;
+    }
+    let seg = decks[z]!.pop()!;
+    // Los edificios (balcones y terrazas) terminan antes de los 1.000 m.
+    if ((seg === 'balconies' || seg === 'terrace') && top.y > ZONES.sky - 16) seg = 'beams';
+    segments[seg]();
+    last = seg;
+  }
+  const moon = add('moon', 'moon', nearX(4, WORLD_W / 2), top.y + gapY(), 4);
+  link(top, moon, 'jump');
+  return course;
 }
 
 export function newTrepa(seed?: number): Trepa {
-  const { plats, ropes } = buildCourse(seed);
+  const course = buildCourse(seed);
   return {
-    plats, ropes, time: 0, checkpoint: plats[0], best: 0, won: false, zone: 'city', prevJump: false, events: [],
-    player: { x: WORLD_W / 2, y: 0, vx: 0, vy: 0, facing: 1, ground: plats[0], rope: null, ropeCooldown: 0, coyote: 0 },
+    ...course, time: 0, best: 0, bestGround: 0, won: false, dying: null, over: false, zone: 'city', prevJump: false, events: [],
+    player: { x: WORLD_W / 2, y: 0, vx: 0, vy: 0, facing: 1, ground: course.plats[0], climb: null, climbCooldown: 0, coyote: 0, stun: 0, spin: 0 },
   };
 }
 
-export const moonOf = (g: Trepa) => g.plats[g.plats.length - 1];
+export const moonOf = (g: Course) => g.plats[g.plats.length - 1];
+const overlapsX = (p: Player, plat: Plat) => p.x + PLAYER_W / 2 > plat.x && p.x - PLAYER_W / 2 < plat.x + plat.w;
+const hitsBox = (p: Player, x1: number, x2: number, y1: number, y2: number) => p.x + PLAYER_W / 2 > x1 && p.x - PLAYER_W / 2 < x2 && p.y + PLAYER_H > y1 && p.y < y2;
+const hitsCircle = (p: Player, cx: number, cy: number, r: number) => {
+  const nx = Math.max(p.x - PLAYER_W / 2, Math.min(p.x + PLAYER_W / 2, cx)), ny = Math.max(p.y, Math.min(p.y + PLAYER_H, cy));
+  return Math.hypot(nx - cx, ny - cy) < r;
+};
 
-function respawn(g: Trepa) {
-  const c = g.checkpoint;
-  Object.assign(g.player, { x: c.x + c.w / 2, y: c.y, vx: 0, vy: 0, ground: c, rope: null, ropeCooldown: 0.3 });
-  g.events.push({ type: 'respawn' });
+function lose(g: Trepa, reason: LoseReason) {
+  const p = g.player;
+  g.dying = { t: 0, reason };
+  p.ground = null; p.climb = null;
+  p.vy = reason === 'burn' ? 9 : Math.min(p.vy, 0); p.vx = -p.facing * 1.5;
+  g.events.push({ type: 'lose', reason });
 }
 
-const overlapsX = (p: Player, plat: Plat) => p.x + PLAYER_W / 2 > plat.x && p.x - PLAYER_W / 2 < plat.x + plat.w;
-
 export function step(g: Trepa, input: Input, dt: number) {
-  if (dt <= 0 || g.won) return;
+  if (dt <= 0 || g.won || g.over) return;
   dt = Math.min(dt, 0.05);
-  g.time += dt;
   const p = g.player;
+
+  // Perdiste: cae por toda la estructura (sin poder agarrarse) hasta la calle.
+  if (g.dying) {
+    g.dying.t += dt;
+    p.vy = Math.max(-70, p.vy - 50 * dt);
+    p.y += p.vy * dt; p.x = Math.max(0.3, Math.min(WORLD_W - 0.3, p.x + p.vx * dt));
+    p.spin += dt * 9;
+    if (p.y <= 0) { p.y = 0; g.over = true; g.events.push({ type: 'gameover' }); }
+    return;
+  }
+
+  g.time += dt;
+  const t = g.time;
   const jumpPressed = input.jump && !g.prevJump;
   g.prevJump = input.jump;
 
-  // Plataformas que se mueven y las que se desarman.
   for (const pl of g.plats) {
-    if (pl.amp) { const x = pl.baseX + Math.sin(g.time * pl.speed + pl.phase) * pl.amp; pl.dx = Math.max(0.3, Math.min(WORLD_W - pl.w - 0.3, x)) - pl.x; pl.x += pl.dx; }
+    if (pl.kind === 'moving') { const x = pl.baseX + Math.sin(t * pl.speed + pl.phase) * pl.amp; const nx = Math.max(0.3, Math.min(WORLD_W - pl.w - 0.3, x)); pl.dx = nx - pl.x; pl.x = nx; }
+    if (pl.kind === 'elevator') { const y = pl.baseY + Math.sin(t * pl.speed + pl.phase) * pl.amp; pl.dy = y - pl.y; pl.y = y; }
     if (pl.gone > 0) { pl.gone -= dt; if (pl.gone <= 0) { pl.gone = 0; pl.crumble = 0; } }
-    else if (pl.crumble > 0) { pl.crumble += dt; if (pl.crumble > 0.7) { pl.gone = 3; if (p.ground === pl) p.ground = null; } }
+    else if (pl.crumble > 0) { pl.crumble += dt; if (pl.crumble > 0.6) { pl.gone = 3.2; if (p.ground === pl) p.ground = null; } }
   }
 
   const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-  if (dir) p.facing = dir > 0 ? 1 : -1;
-  p.ropeCooldown = Math.max(0, p.ropeCooldown - dt);
+  if (dir && p.stun <= 0) p.facing = dir > 0 ? 1 : -1;
+  p.climbCooldown = Math.max(0, p.climbCooldown - dt);
+  p.stun = Math.max(0, p.stun - dt);
 
-  // En la soga: mantener "saltar" sube, "abajo" baja; con izquierda o derecha se suelta de un salto.
-  if (p.rope) {
-    const r = p.rope;
-    if (dir) { p.vx = dir * 5; p.vy = 9; p.rope = null; p.ropeCooldown = 0.4; g.events.push({ type: 'jump' }); }
+  if (p.climb) {
+    const c = p.climb;
+    if (dir) { p.vx = dir * 5; p.vy = 8; p.climb = null; p.climbCooldown = 0.4; g.events.push({ type: 'jump' }); }
     else {
       p.y += (input.jump ? CLIMB : input.down ? -CLIMB : 0) * dt;
-      if (p.y >= r.y2 && input.jump) { p.y = r.y2; p.vy = 10; p.vx = 0; p.rope = null; p.ropeCooldown = 0.5; }
-      else if (p.y <= r.y1 - 0.1 && input.down) { p.rope = null; p.ropeCooldown = 0.5; }
-      else { p.y = Math.max(r.y1 - 0.1, Math.min(r.y2, p.y)); finish(g); return; }
+      if (p.y >= c.y2 && input.jump) { p.y = c.y2; p.vy = 10; p.vx = 0; p.climb = null; p.climbCooldown = 0.5; }
+      else if (p.y <= c.y1 - 0.1 && input.down) { p.climb = null; p.climbCooldown = 0.5; }
+      else { p.y = Math.max(c.y1 - 0.1, Math.min(c.y2, p.y)); hazards(g, t); finish(g); return; }
     }
   }
 
-  // Caminar (sobre una plataforma que se mueve, te lleva).
-  p.vx = dir * RUN;
-  if (p.ground?.amp) p.x += p.ground.dx;
+  // Caminar (o volar empujado). Lo que se mueve te lleva; la cinta te arrastra.
+  if (p.stun > 0) p.vx *= Math.pow(0.2, dt); else p.vx = dir * RUN;
+  if (p.ground) {
+    if (p.ground.kind === 'moving') p.x += p.ground.dx;
+    if (p.ground.kind === 'conveyor') p.x += p.ground.belt * dt;
+  }
   p.x = Math.max(PLAYER_W / 2, Math.min(WORLD_W - PLAYER_W / 2, p.x + p.vx * dt));
+  if (p.ground) p.y = p.ground.y;
 
-  if (p.ground && (!overlapsX(p, p.ground) || p.ground.gone > 0)) { p.ground = null; p.coyote = 0.1; }
+  // Escalones bajitos: se suben caminando.
+  if (p.ground && dir) {
+    const stepUp = g.plats.find(pl => !pl.gone && pl !== p.ground && pl.y > p.y + 0.01 && pl.y <= p.y + 0.6 && overlapsX(p, pl));
+    if (stepUp) landOn(g, stepUp);
+  }
+
+  if (p.ground && (!overlapsX(p, p.ground) || p.ground.gone > 0)) { p.ground = null; p.coyote = 0.1; p.vy = 0; }
   p.coyote = Math.max(0, p.coyote - dt);
-  if (jumpPressed && (p.ground || p.coyote > 0)) {
-    p.vy = p.ground?.kind === 'cloud' ? CLOUD_JUMP : JUMP;
-    p.ground = null; p.coyote = 0;
+  if (jumpPressed && (p.ground || p.coyote > 0) && p.stun <= 0) {
+    p.vy = JUMP; p.ground = null; p.coyote = 0;
     g.events.push({ type: 'jump' });
   }
 
-  // Agarrarse de una soga (en el aire, manteniendo saltar).
-  if (!p.ground && input.jump && !p.ropeCooldown) {
-    const r = g.ropes.find(r => Math.abs(p.x - r.x) < 0.5 && p.y + PLAYER_H * 0.6 > r.y1 && p.y < r.y2);
-    if (r) { p.rope = r; p.x = r.x; p.vx = 0; p.vy = 0; finish(g); return; }
+  // Agarrarse de una escalera o soga (en el aire, manteniendo saltar).
+  if (!p.ground && input.jump && !p.climbCooldown && p.stun <= 0) {
+    const c = g.climbs.find(c => Math.abs(p.x - c.x) < 0.5 && p.y + PLAYER_H * 0.6 > c.y1 && p.y < c.y2);
+    if (c) { p.climb = c; p.x = c.x; p.vx = 0; p.vy = 0; hazards(g, t); finish(g); return; }
   }
 
   if (!p.ground) {
@@ -176,30 +369,50 @@ export function step(g: Trepa, input: Input, dt: number) {
     p.vy = Math.max(-26, p.vy - gravityAt(p.y) * dt);
     p.y += p.vy * dt;
     if (p.vy <= 0) {
-      const land = g.plats.find(pl => !pl.gone && overlapsX(p, pl) && prev >= pl.y - 0.02 && p.y <= pl.y);
+      const land = g.plats.find(pl => !pl.gone && overlapsX(p, pl) && prev >= pl.y - pl.dy - 0.02 && p.y <= pl.y);
       if (land) landOn(g, land);
     }
     if (p.y < 0) { p.y = 0; p.vy = 0; p.ground = g.plats[0]; }
   }
+  hazards(g, t);
   finish(g);
+}
+
+function hazards(g: Trepa, t: number) {
+  const p = g.player;
+  if (g.dying) return;
+  for (const f of g.fires) {
+    if (!fireActive(f, t)) continue;
+    const r = fireRect(f);
+    if (hitsBox(p, r.x1, r.x2, r.y1, r.y2)) { lose(g, 'burn'); return; }
+  }
+  if (p.stun > 0) return;
+  const knock = (fromX: number) => {
+    p.vx = (p.x >= fromX ? 1 : -1) * 9; p.vy = 6; p.ground = null; p.climb = null; p.stun = 0.55; p.climbCooldown = 0.6;
+    g.events.push({ type: 'knock' });
+  };
+  for (const b of g.balls) { const c = ballPos(b, t); if (hitsCircle(p, c.x, c.y, BALL_R)) { knock(c.x); return; } }
+  for (const b of g.birds) { const c = birdPos(b, t); if (hitsCircle(p, c.x, c.y, BIRD_R)) { knock(c.x); return; } }
 }
 
 function landOn(g: Trepa, pl: Plat) {
   const p = g.player;
   p.y = pl.y;
   if (pl.kind === 'tramp') { p.vy = TRAMP; p.ground = null; g.events.push({ type: 'tramp' }); return; }
-  p.vy = 0; p.ground = pl;
+  p.vy = 0; p.ground = pl; p.stun = 0;
+  g.bestGround = Math.max(g.bestGround, pl.y);
   if (pl.kind === 'crumble' && !pl.crumble) { pl.crumble = 0.001; g.events.push({ type: 'crumble' }); }
-  if ((pl.kind === 'flag') && pl.y > g.checkpoint.y) { g.checkpoint = pl; g.events.push({ type: 'checkpoint', height: Math.round(pl.y) }); }
   if (pl.kind === 'moon') { g.won = true; g.events.push({ type: 'win' }); }
 }
 
 function finish(g: Trepa) {
   const p = g.player;
+  if (g.dying) return;
   g.best = Math.max(g.best, p.y);
   const zone = zoneOf(p.y);
-  if (zone !== g.zone && zone !== 'city' && (zone === 'space' || g.zone === 'city')) { g.zone = zone; g.events.push({ type: 'zone', zone }); }
-  if (p.y < g.checkpoint.y - FALL_LIMIT) respawn(g);
+  const order: Zone[] = ['city', 'sky', 'clouds', 'space'];
+  if (order.indexOf(zone) > order.indexOf(g.zone)) { g.zone = zone; g.events.push({ type: 'zone', zone }); }
+  if (!p.ground && !p.climb && p.y < g.bestGround - FALL_LOSE) lose(g, 'fall');
 }
 
 export const takeEvents = (g: Trepa) => g.events.splice(0);

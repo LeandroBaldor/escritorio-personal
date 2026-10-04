@@ -831,7 +831,7 @@ test('Trepaluna: se abre desde Juegos, corre el tiempo, muestra la altura y se p
   await page.getByRole('link', { name: /Trepaluna/ }).click();
   await expect(page.getByRole('heading', { name: 'Trepaluna', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
-  await expect(page.getByTestId('trepa-height')).toHaveText('0 m');
+  await expect(page.getByTestId('trepa-meters')).toHaveText('0');
   await expect(page.getByTestId('trepa-time')).not.toHaveText('0:00.0');
   await page.keyboard.press('p');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
