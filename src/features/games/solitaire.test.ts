@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { HEROES } from './heroes';
 import { bestTarget, canFinish, canMove, cardName, deal, draw, finishStep, fitsFoundation, fitsTableau, isWon, move, SUITS, type Card, type Solitaire } from './solitaire';
 
 const card = (suit: Card['suit'], rank: number, up = true): Card => ({ id: `${suit}-${rank}`, suit, rank, up });
 const empty = (): Solitaire => ({ stock: [], waste: [], foundations: [[], [], [], []], tableau: [[], [], [], [], [], [], []], moves: 0 });
 
-describe('Solitario de Superhéroes', () => {
+describe('Solitario 8 bits', () => {
   it('reparte 28 cartas en 7 columnas con la de arriba boca arriba y deja 24 en el mazo', () => {
     let seed = 9; const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     const game = deal(rand);
@@ -19,7 +18,7 @@ describe('Solitario de Superhéroes', () => {
     expect(ids.size).toBe(52);
   });
 
-  it('en las columnas se baja de a uno alternando Marvel y DC, y en una vacía solo entra un Rey', () => {
+  it('en las columnas se baja de a uno alternando rojo y negro, y en una vacía solo entra un Rey', () => {
     expect(fitsTableau(card('corazon', 6), [card('pica', 7)])).toBe(true);
     expect(fitsTableau(card('diamante', 6), [card('corazon', 7)])).toBe(false);
     expect(fitsTableau(card('trebol', 5), [card('diamante', 7)])).toBe(false);
@@ -37,7 +36,7 @@ describe('Solitario de Superhéroes', () => {
     const game = empty();
     game.tableau[0] = [card('corazon', 2, false), card('pica', 9), card('diamante', 8)];
     game.tableau[1] = [card('trebol', 10)];
-    expect(canMove(game, { kind: 'tableau', pile: 0, index: 1 }, { kind: 'tableau', pile: 1 })).toBe(false); // 9 de DC sobre 10 de DC
+    expect(canMove(game, { kind: 'tableau', pile: 0, index: 1 }, { kind: 'tableau', pile: 1 })).toBe(false); // 9 negro sobre 10 negro
     game.tableau[1] = [card('diamante', 10)];
     const next = move(game, { kind: 'tableau', pile: 0, index: 1 }, { kind: 'tableau', pile: 1 })!;
     expect(next.tableau[1].map(c => c.rank)).toEqual([10, 9, 8]);
@@ -81,11 +80,10 @@ describe('Solitario de Superhéroes', () => {
   });
 });
 
-describe('personajes', () => {
-  it('hay 13 personajes distintos por palo (52 en total) y cada carta lleva el nombre', () => {
-    for (const suit of SUITS) expect(HEROES[suit]).toHaveLength(13);
-    expect(new Set(SUITS.flatMap(suit => HEROES[suit].map(h => h.name))).size).toBe(52);
-    expect(cardName(card('corazon', 1))).toBe('Spider-Man, As de corazones');
-    expect(cardName(card('trebol', 13))).toBe('Darkseid, K de tréboles');
+describe('nombres de las cartas', () => {
+  it('cada carta se nombra con su número y su palo', () => {
+    expect(cardName(card('corazon', 1))).toBe('As de corazones');
+    expect(cardName(card('trebol', 13))).toBe('K de tréboles');
+    expect(SUITS).toHaveLength(4);
   });
 });

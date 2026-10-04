@@ -575,50 +575,44 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .runner-pad .runner-jump{flex:1.4;background:#22c55e;color:#062b13;font-weight:900;font-size:1.2rem}
 .runner-pad button:active{filter:brightness(1.25)}
 @media(pointer:coarse),(max-width:800px){.runner-pad{display:flex}.runner-keys{display:none}}
-/* Solitario de Superhéroes: mesa de cómic con puntitos, cartas con la cabeza y el nombre del personaje,
-   un color por palo (corazón rojo, diamante violeta, pica azul, trébol verde). */
-.game-card--heroes{background:#1e1b4b;border-color:#13113a}
-.game-card--heroes .game-card-text span{color:#c7d2fe}
-.sol{background:radial-gradient(#ffffff10 1px,transparent 1.5px) 0 0/10px 10px,radial-gradient(ellipse at 50% -10%,#1d4ed8 0,#172554 45%,#0b1026 100%)}
-.sol .runner-back{color:#93c5fd}
-.sol .runner-scores{color:#c7d2fe}
-.sol .runner-bar button{background:#dc2626}
+/* Solitario 8 bits: mesa verde pixelada, letra de consola y cartas dibujadas píxel por píxel. */
+.game-card--pix{background:#14361f;border-color:#0b2414}
+.game-card--pix .game-card-text span{color:#bbf7d0}
+.game-card--pix>svg{image-rendering:pixelated}
+.sol{background:#166534;background-image:conic-gradient(#15803d 25%,transparent 0 50%,#15803d 0 75%,transparent 0);background-size:16px 16px;font-family:"Courier New",ui-monospace,monospace}
+.sol .runner-bar h1{font-family:"Courier New",ui-monospace,monospace;font-weight:900;text-transform:uppercase;letter-spacing:.08em;text-shadow:3px 3px 0 #052e16}
+.sol .runner-back{color:#fde047;font-weight:900}
+.sol .runner-scores{color:#dcfce7;font-weight:700}
+.sol .runner-bar button{background:#fde047;color:#052e16;border-radius:0;font-weight:900;box-shadow:3px 3px 0 #052e16}
+.sol .runner-bar button:active{translate:2px 2px;box-shadow:1px 1px 0 #052e16}
 .sol .runner-bar button:disabled{opacity:.45;cursor:default}
 .sol-board{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:var(--gap);width:100%;max-width:1100px;margin:0 auto;touch-action:none;user-select:none;-webkit-user-select:none}
 .sol-top{display:flex;gap:var(--gap)}
 .sol-spacer{flex:1}
-.sol-slot{position:relative;flex:none;width:var(--cw);height:var(--ch);padding:0;border-radius:calc(var(--cw)*.08);background:#ffffff0d;border:2px dashed #93c5fd40;color:#93c5fd80}
+.sol-slot{position:relative;flex:none;width:var(--cw);height:var(--ch);padding:0;border-radius:0;background:#052e1640;border:3px dashed #bbf7d055;color:#bbf7d088}
 .sol-waste{border-color:transparent;background:none;width:calc(var(--cw)*1.44)}
-.sol-slot-mark{position:absolute;inset:0;display:grid;place-items:center;font:900 calc(var(--cw)*.42) Nunito,system-ui,sans-serif;color:#93c5fd40}
+.sol-slot-mark{position:absolute;inset:0;display:grid;place-items:center;font:900 calc(var(--cw)*.42) "Courier New",ui-monospace,monospace;color:#bbf7d055}
 .sol-slot--king{position:absolute;top:0;left:0}
-.sol-slot--target{outline:3px solid #facc15;outline-offset:2px;border-radius:calc(var(--cw)*.08)}
+.sol-slot--target{outline:3px solid #fde047;outline-offset:2px}
 .sol-stock{cursor:pointer}
 .sol-stock .sol-card{position:absolute;inset:0}
-.sol-count{position:absolute;right:-6px;bottom:-6px;z-index:2;min-width:1.6em;padding:0 .35em;border-radius:999px;background:#facc15;color:#1e1b4b;font-weight:900;font-size:calc(var(--cw)*.16 + 4px)}
+.sol-count{position:absolute;right:-6px;bottom:-6px;z-index:2;min-width:1.6em;padding:0 .3em;background:#fde047;color:#052e16;font-weight:900;font-size:calc(var(--cw)*.16 + 4px);box-shadow:2px 2px 0 #052e16}
 .sol-redo{font-size:calc(var(--cw)*.5);line-height:var(--ch)}
 .sol-tableau{display:grid;grid-template-columns:repeat(7,var(--cw));justify-content:space-between;gap:var(--gap)}
 .sol-column{position:relative;width:var(--cw)}
-.sol-card{position:absolute;top:0;left:0;width:var(--cw);height:var(--ch);padding:0;border:0;border-radius:calc(var(--cw)*.08);background:none;box-shadow:0 1px 2px #0008,0 3px 8px #0005;transition:top .12s,left .12s;touch-action:none}
-.sol-card:focus-visible{outline:3px solid #facc15;outline-offset:1px}
-.sol-card--lifted{box-shadow:0 12px 26px #000a;cursor:grabbing}
-.sol-card--shake{animation:sol-shake .35s}
+.sol-card{position:absolute;top:0;left:0;width:var(--cw);height:var(--ch);padding:0;border:0;border-radius:0;background:none;filter:drop-shadow(2px 2px 0 #052e16aa);transition:top .12s,left .12s;touch-action:none}
+.sol-card:focus-visible{outline:3px solid #fde047;outline-offset:1px}
+.sol-card--lifted{filter:drop-shadow(6px 8px 0 #052e1699);cursor:grabbing}
+.sol-card--shake{animation:sol-shake .3s steps(3)}
 @keyframes sol-shake{25%{translate:-5px 0}50%{translate:5px 0}75%{translate:-3px 0}}
-.sol-face{position:absolute;inset:0;display:block;overflow:hidden;border-radius:inherit;background:linear-gradient(#fff 0 62%,color-mix(in srgb,var(--suit) 12%,#fff) 100%);color:var(--suit);border:calc(var(--cw)*.025 + 1px) solid var(--suit)}
-.sol-corner{position:absolute;top:calc(var(--cw)*.05);left:calc(var(--cw)*.05);z-index:1;display:flex;flex-direction:column;align-items:center;width:calc(var(--cw)*.24);line-height:1}
-.sol-corner b{font:900 calc(var(--cw)*.21) Nunito,system-ui,sans-serif;letter-spacing:-.04em}
-.sol-corner svg{width:calc(var(--cw)*.19);height:calc(var(--cw)*.19)}
-.sol-center{position:absolute;left:14%;right:6%;top:14%;bottom:24%;display:grid;place-items:center}
-.sol-center svg{width:100%;height:100%}
-.sol-name{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;min-height:22%;padding:1px 3%;background:var(--suit);color:#fff;font:900 max(7px,calc(var(--cw)*.105))/1.05 Nunito,system-ui,sans-serif;text-align:center;letter-spacing:-.01em;overflow-wrap:anywhere}
-.sol-back{position:absolute;inset:0;display:grid;place-items:center;border-radius:inherit;border:calc(var(--cw)*.05) solid #facc15;background:radial-gradient(#ffffff2e 1px,transparent 1.6px) 0 0/6px 6px,linear-gradient(135deg,#1d4ed8,#dc2626)}
-.sol-back svg{width:62%;height:auto;filter:drop-shadow(0 2px 2px #0007)}
-.sol-finish{position:absolute;left:50%;bottom:4%;z-index:150;transform:translateX(-50%);padding:.7rem 1.4rem;background:#facc15;color:#1e1b4b;font-weight:900;border-radius:999px;box-shadow:0 6px 18px #0008}
-.sol .runner-overlay>div{background:#1e1b4b;border-color:#dc2626}
-.sol .runner-overlay p{color:#c7d2fe}
+.sol-face,.sol-back{position:absolute;inset:0;display:block;background-size:100% 100%;background-repeat:no-repeat;image-rendering:pixelated}
+.sol-finish{position:absolute;left:50%;bottom:4%;z-index:150;transform:translateX(-50%);padding:.7rem 1.4rem;background:#fde047;color:#052e16;font-weight:900;border-radius:0;box-shadow:4px 4px 0 #052e16}
+.sol .runner-overlay>div{background:#052e16;border:4px solid #fde047;border-radius:0;box-shadow:6px 6px 0 #000}
+.sol .runner-overlay h2{font-family:"Courier New",ui-monospace,monospace;font-weight:900;letter-spacing:.1em;color:#fde047}
+.sol .runner-overlay p{color:#dcfce7}
+.sol .runner-overlay button{border-radius:0;box-shadow:4px 4px 0 #000}
 .sol-confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none}
 .sol-confetti span{position:absolute;top:-10%;width:28px;height:28px;animation:sol-fall linear infinite}
 .sol-confetti svg{width:100%;height:100%}
-@keyframes sol-fall{to{transform:translateY(120vh) rotate(540deg)}}
-.sol-board--small .sol-center{top:22%;left:8%;right:8%}
-.sol-board--small .sol-corner b{font-size:calc(var(--cw)*.25)}
+@keyframes sol-fall{to{transform:translateY(120vh) rotate(360deg)}}
 @media(max-width:800px){.sol .runner-bar{gap:.4rem .7rem}.sol .runner-bar button{padding:.35rem .6rem;font-size:.85rem}}
