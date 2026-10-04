@@ -586,7 +586,7 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .sol .runner-bar button{background:#fde047;color:#052e16;border-radius:0;font-weight:900;box-shadow:3px 3px 0 #052e16}
 .sol .runner-bar button:active{translate:2px 2px;box-shadow:1px 1px 0 #052e16}
 .sol .runner-bar button:disabled{opacity:.45;cursor:default}
-.sol-board{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:var(--gap);width:100%;max-width:1100px;margin:0 auto;touch-action:none;user-select:none;-webkit-user-select:none}
+.sol-board{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:var(--gap);width:100%;max-width:1500px;margin:0 auto;touch-action:none;user-select:none;-webkit-user-select:none}
 .sol-top{display:flex;gap:var(--gap)}
 .sol-spacer{flex:1}
 .sol-slot{position:relative;flex:none;width:var(--cw);height:var(--ch);padding:0;border-radius:0;background:#052e1640;border:3px dashed #bbf7d055;color:#bbf7d088}
@@ -615,4 +615,4 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .sol-confetti span{position:absolute;top:-10%;width:28px;height:28px;animation:sol-fall linear infinite}
 .sol-confetti svg{width:100%;height:100%}
 @keyframes sol-fall{to{transform:translateY(120vh) rotate(360deg)}}
-@media(max-width:800px){.sol .runner-bar{gap:.4rem .7rem}.sol .runner-bar button{padding:.35rem .6rem;font-size:.85rem}}
+@media(max-width:800px){.sol.runner{padding-left:4px;padding-right:4px}.sol .runner-bar{gap:.4rem .7rem;padding:0 .4rem}.sol .runner-bar button{padding:.35rem .6rem;font-size:.85rem}}

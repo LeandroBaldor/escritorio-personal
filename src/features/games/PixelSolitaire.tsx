@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BACK_IMAGE, CARD_H, CARD_W, cardImage, SUIT_PIXELS, suitColor } from './pixelCards';
+import { BACK_IMAGE, CARD_H, CARD_W, cardImage, SUIT_PIXELS, SUIT_SIZE, suitColor } from './pixelCards';
 import { bestTarget, canFinish, canMove, cardName, deal, draw, finishStep, isWon, move, picked, SUITS, type Card, type From, type Solitaire, type To } from './solitaire';
 
 const RECORD_KEY = 'escritorio-personal-juegos:solitario-record';
@@ -12,7 +12,7 @@ const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds
 
 // Un palo pixelado suelto (para el festejo y el menú).
 export function PixelSuit({ suit }: { suit: (typeof SUITS)[number] }) {
-  return <svg viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden="true">{SUIT_PIXELS[suit].flatMap((row, y) => [...row].map((ch, x) => ch === 'X' ? <rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" fill={suitColor(suit)} /> : null))}</svg>;
+  return <svg viewBox={`0 0 ${SUIT_SIZE} ${SUIT_SIZE}`} shapeRendering="crispEdges" aria-hidden="true">{SUIT_PIXELS[suit].flatMap((row, y) => [...row].map((ch, x) => ch === 'X' ? <rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" fill={suitColor(suit)} /> : null))}</svg>;
 }
 
 // Las cartas son imágenes pixeladas armadas en pixelCards.
@@ -46,8 +46,9 @@ export function PixelSolitaire() {
       const board = boardRef.current;
       if (!board) return;
       const width = board.clientWidth, height = board.clientHeight;
-      const gap = Math.max(4, Math.min(14, width / 70));
-      const cw = Math.floor(Math.min(120, (width - gap * 6) / 7, (height - gap * 3) / (CARD_H / CARD_W * 2 + 1.2)));
+      // Cartas lo más grandes posible: 7 columnas a lo ancho y, a lo alto, la fila de arriba más una columna.
+      const gap = Math.max(3, Math.min(14, width / 80));
+      const cw = Math.floor(Math.min(180, (width - gap * 6) / 7, (height - gap * 3) / (CARD_H / CARD_W * 2 + 0.5)));
       const ch = Math.round(cw * CARD_H / CARD_W);
       setLayout({ cw, ch, gap, tableauHeight: Math.max(ch, height - ch - gap * 2) });
     };
@@ -183,7 +184,7 @@ export function PixelSolitaire() {
         {game.tableau.map((pile, t) => {
           // Si una columna es muy larga, se aprietan las cartas para que entre en la pantalla.
           const downs = pile.filter(c => !c.up).length, ups = pile.length - downs;
-          const want = { down: ch * 0.13, up: ch * 0.27 };
+          const want = { down: ch * 0.12, up: ch * 0.25 };
           const needed = downs * want.down + Math.max(0, ups - 1) * want.up;
           const k = needed > tableauHeight - ch ? (tableauHeight - ch) / needed : 1;
           let y = 0;
