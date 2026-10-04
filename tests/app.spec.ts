@@ -650,6 +650,13 @@ test('al agregar una nota con una posible fecha el escritorio pregunta en el mom
   await page.goto('/escritorio-personal/');
   await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Comprar pan');
   await page.getByRole('button', { name: 'Agregar nota' }).click();
+  const addDate = page.getByRole('form', { name: 'Agregar fecha a Comprar pan' });
+  await expect(addDate).toContainText('¿Le agregás una fecha?');
+  await expect(addDate.getByRole('button', { name: 'Agregar' })).toBeDisabled();
+  await addDate.getByRole('button', { name: 'Rechazar' }).click();
+  await expect(page.locator('.date-ask')).toHaveCount(0);
+  await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Turno Altamar 13/10');
+  await page.getByRole('button', { name: 'Agregar nota' }).click();
   await expect(page.locator('.date-ask')).toHaveCount(0);
   await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Turno pediatra 25.12');
   await page.getByRole('button', { name: 'Agregar nota' }).click();
@@ -678,4 +685,19 @@ test('el calendario agrega tareas con día y categoría, y deja cambiar la categ
   await expect(chip).toHaveClass(/cal-cat--personal/);
   await page.reload();
   await expect(page.locator('.cal-chip', { hasText: 'Reunión con el cliente' })).toHaveClass(/cal-cat--personal/);
+});
+
+test('a una nota nueva sin fecha se le puede agregar día y hora para el calendario', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Llamar al plomero');
+  await page.getByRole('button', { name: 'Agregar nota' }).click();
+  const addDate = page.getByRole('form', { name: 'Agregar fecha a Llamar al plomero' });
+  const today = new Date();
+  const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  await addDate.getByLabel('Agregar fecha').fill(iso);
+  await addDate.getByLabel('Hora').fill('18:30');
+  await addDate.getByRole('button', { name: 'Agregar' }).click();
+  await expect(page.locator('.date-ask')).toHaveCount(0);
+  await page.getByRole('link', { name: 'Calendario' }).click();
+  await expect(page.locator('.cal-chip', { hasText: 'Llamar al plomero' })).toHaveText('18:30 Llamar al plomero');
 });

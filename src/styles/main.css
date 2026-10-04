@@ -500,3 +500,36 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-card .cal-secondary{background:#fff;color:#1f2937;box-shadow:inset 0 0 0 1px #cbd5e1}
 .cal-card .cal-secondary:hover{background:#f1f5f9}
 .cal-card .cal-item-category select{background:#fff;border-color:#cbd5e1}
+/* Calendario en computadora: título y hoja más arriba, accesos apenas más chicos y cartel más bajo, para ver el mes entero sin bajar. */
+@media(min-width:1001px){
+.cal-page{margin-top:-1.6rem}
+.cal-page .section-title{margin-bottom:.6rem}
+.cal-page .section-objects--large{zoom:1.12}
+.cal-page .cal-band{padding:.65rem 1.2rem .55rem}
+.cal-page .cal-band h2 span{font-size:clamp(1.9rem,3.2vw,2.5rem)}
+.cal-page .cal-band h2 small{font-size:clamp(1rem,1.8vw,1.3rem)}
+.cal-page .cal-band-clock{width:96px;height:96px}
+.cal-page .cal-arrow{width:42px;height:42px;font-size:1.7rem}
+.cal-page .cal-toolbar{padding:.5rem 1.2rem 0}
+.cal-page .cal-today{padding:.3rem .8rem}
+.cal-page .cal-grid{padding:.3rem 1.2rem 1rem}
+.cal-page .cal-weekday{padding:.25rem 0}
+.cal-grid--compact .cal-day{min-height:0;overflow:hidden;gap:.15rem;padding:.2rem .3rem}
+.cal-grid--compact .cal-day-number{width:1.7rem;height:1.7rem;font-size:1rem}
+.cal-grid--compact .cal-day{position:relative}
+.cal-grid--compact .cal-chip{display:block;white-space:nowrap;text-overflow:ellipsis;font-size:.82rem}
+.cal-grid--compact .cal-more{position:absolute;top:.35rem;right:.4rem;padding:.05rem .4rem;background:#eef2f7;border-radius:999px;font-size:.72rem;color:#334155}
+}
+/* Mi diario en computadora: la libreta (con los accesos, los botones y la imagen) sube al espacio libre junto al título, y los accesos quedan más separados de los botones. */
+.journal-objects{margin-bottom:1.5rem}
+@media(min-width:801px){.journal-content{margin-top:-6.5rem}}
+/* Escritorio: nota nueva sin fecha, se ofrece "Agregar fecha" y "Hora" con Agregar o Rechazar. */
+.date-add{align-items:end}
+.date-add p{flex:1 0 100%;margin:0;overflow-wrap:anywhere}
+.date-add p span{margin-left:.3rem;color:#6b5a48}
+.date-add label{display:grid;gap:.2rem;font-size:.85rem;font-weight:700}
+.date-add input{padding:.45rem .5rem;border:1px solid #b69a73;border-radius:6px;background:#fffaf0;font-weight:400}
+.date-add-actions{display:flex;gap:.5rem;margin-left:auto}
+.date-add-actions button{padding:.5rem .9rem}
+.date-add-actions button:disabled{opacity:.55;cursor:not-allowed}
+.date-add-reject{background:#8e3c33}

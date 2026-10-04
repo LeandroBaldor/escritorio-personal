@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useData } from '../../app/DataContext';
 import { DeskLink, NotebookLink, CalculatorLink, SectionObjects } from '../../app/SectionObjects';
@@ -11,6 +11,8 @@ const MONTH_NAMES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'jul
 const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const WEEK_HEADER = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
 const MAX_CHIPS = 3;
+// Alto de cada semana en computadora: se ajusta a la pantalla para que el mes entero se vea sin bajar.
+const MIN_ROW = 50, MAX_ROW = 130;
 
 // Cada categoría tiene su color (clase cal-cat--…).
 export const categoryClass = (category: EventCategory) => `cal-cat--${category.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()}`;
@@ -148,9 +150,27 @@ export function Calendar() {
   const removeEvent = (event: CalendarEvent) => { if (confirm(`¿Borrar "${event.text}"?`)) setData(d => ({ ...d, events: (d.events ?? []).filter(e => e.id !== event.id) })); };
 
   const days = monthGrid(view.year, view.month);
+  const weeks = days.length / 7;
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [rowHeight, setRowHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const fit = () => {
+      const grid = gridRef.current;
+      if (!grid || window.innerWidth <= 1000) { setRowHeight(null); return; }
+      const header = grid.querySelector<HTMLElement>('.cal-weekday');
+      const top = grid.getBoundingClientRect().top + window.scrollY + (header?.offsetHeight ?? 0);
+      const height = Math.floor((window.innerHeight - top - 28) / weeks);
+      setRowHeight(Math.max(MIN_ROW, Math.min(MAX_ROW, height)));
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, [weeks]);
+  // Con filas ajustadas cada cosa ocupa una línea (unos 30px con el espacio) debajo del número del día.
+  const chipLimit = rowHeight === null ? MAX_CHIPS : Math.max(1, Math.min(MAX_CHIPS, Math.floor((rowHeight - 36) / 30)));
   const selectedItems = itemsOf(selected);
 
-  return <section>
+  return <section className="cal-page">
     <div className="section-title">
       <div><p className="eyebrow">Lo que se viene</p><h1>Calendario</h1></div>
       <SectionObjects large><DeskLink /><NotebookLink /><CalculatorLink /></SectionObjects>
@@ -172,7 +192,7 @@ export function Calendar() {
           </ul>
           <button type="button" className="cal-today" onClick={() => goTo(todayIso)}>Hoy</button>
         </div>
-        <div className="cal-grid">
+        <div ref={gridRef} className={`cal-grid${rowHeight !== null ? ' cal-grid--compact' : ''}`} style={rowHeight ? { gridTemplateRows: `auto repeat(${weeks}, ${rowHeight}px)` } : undefined}>
           {WEEK_HEADER.map((name, index) => <div key={name} className={`cal-weekday${index >= 5 ? ' cal-weekday--weekend' : ''}`} aria-hidden="true">{name}</div>)}
           {days.map(day => {
             const iso = isoOf(day);
@@ -184,8 +204,8 @@ export function Calendar() {
               aria-label={`${longDate(iso)}${items.length ? `, ${items.length} ${items.length === 1 ? 'cosa' : 'cosas'}` : ''}`} aria-pressed={iso === selected}>
               <span className="cal-day-number">{day.getDate()}</span>
               <span className="cal-chips" aria-hidden="true">
-                {items.slice(0, MAX_CHIPS).map(item => <span key={item.key} className={`cal-chip ${categoryClass(item.category)}${item.done ? ' cal-chip--done' : ''}`}>{item.time && <><b>{item.time}</b> </>}{item.text}</span>)}
-                {items.length > MAX_CHIPS && <span className="cal-more">+{items.length - MAX_CHIPS} más</span>}
+                {items.slice(0, chipLimit).map(item => <span key={item.key} className={`cal-chip ${categoryClass(item.category)}${item.done ? ' cal-chip--done' : ''}`}>{item.time && <><b>{item.time}</b> </>}{item.text}</span>)}
+                {items.length > chipLimit && <span className="cal-more">+{items.length - chipLimit}{chipLimit > 1 ? ' más' : ''}</span>}
               </span>
             </button>;
           })}

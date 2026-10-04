@@ -141,6 +141,21 @@ function Card({ note, remove, edit, dragging, dropSide, onDragStart, onDragEnd, 
   );
 }
 
+// Ofrece agregarle día y hora a una nota nueva que no tiene fecha, para que aparezca en el calendario.
+function AddDate({ note, time, onAdd, onReject }: { note: Note; time: string | null; onAdd: (calendar: NoteCalendar) => void; onReject: () => void }) {
+  const [day, setDay] = useState('');
+  const [hour, setHour] = useState(time ?? '');
+  return <form className="date-ask date-add" aria-label={`Agregar fecha a ${note.text}`} onSubmit={event => { event.preventDefault(); if (day) onAdd(hour ? { date: day, time: hour } : { date: day }); }}>
+    <p><strong>¿Le agregás una fecha?</strong> <span>“{note.text}”</span></p>
+    <label>Agregar fecha<input type="date" value={day} onChange={event => setDay(event.target.value)} /></label>
+    <label>Hora<input type="time" value={hour} onChange={event => setHour(event.target.value)} /></label>
+    <div className="date-add-actions">
+      <button disabled={!day}>Agregar</button>
+      <button type="button" className="date-add-reject" onClick={onReject}>Rechazar</button>
+    </div>
+  </form>;
+}
+
 export function Board() {
   const { data, setData } = useData();
   const [text, setText] = useState('');
@@ -149,7 +164,7 @@ export function Board() {
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [archiveHover, setArchiveHover] = useState(false);
   const [announcement, setAnnouncement] = useState('');
-  const [dateAsk, setDateAsk] = useState<{ note: Note; date: string | null; time: string | null } | null>(null);
+  const [dateAsk, setDateAsk] = useState<{ note: Note; date: string | null; time: string | null; doubt: boolean } | null>(null);
   const pointerDrag = useRef<{ id: string; pointerId: number; startX: number; startY: number; active: boolean } | null>(null);
   const clearDrag = () => { setDraggedId(null); setDropTarget(null); setArchiveHover(false); };
   const archive = (noteId: string) => {
@@ -179,9 +194,11 @@ export function Board() {
     const note: Note = { id: id(), text: text.trim(), color, status: 'todo', history: [{ status: 'todo', at: now.toISOString() }] };
     setData(current => ({ ...current, notes: [...current.notes, note] }));
     setText('');
-    // Si la nota parece tener una fecha que no se entiende ("Turno 20.10"), se pregunta en el momento.
-    const doubt = parseEvent(note.text, now).date ? null : dateDoubt(note.text, now);
-    setDateAsk(doubt ? { note, date: doubt.date, time: doubt.time } : null);
+    // Si la nota parece tener una fecha que no se entiende ("Turno 20.10") se pregunta si lo es;
+    // si no tiene ninguna fecha, se ofrece agregarle una para que aparezca en el calendario.
+    const found = parseEvent(note.text, now);
+    const doubt = found.date ? null : dateDoubt(note.text, now);
+    setDateAsk(found.date ? null : { note, date: doubt?.date ?? null, time: doubt?.time ?? found.time, doubt: Boolean(doubt) });
   };
   const answerDate = (note: Note, calendar: NoteCalendar | null) => {
     setData(current => ({ ...current, notes: current.notes.map(item => item.id === note.id ? { ...item, calendar } : item) }));
@@ -241,10 +258,11 @@ export function Board() {
           <button>Agregar nota</button>
         </form>
       </div>
-      {dateAsk && <div className="date-ask" role="region" aria-label="¿Esto es una fecha?">
+      {dateAsk?.doubt && <div className="date-ask" role="region" aria-label="¿Esto es una fecha?">
         <strong>¿Esto es una fecha?</strong>
         <DateQuestion key={dateAsk.note.id} text={dateAsk.note.text} date={dateAsk.date} time={dateAsk.time} onSave={calendar => answerDate(dateAsk.note, calendar)} />
       </div>}
+      {dateAsk && !dateAsk.doubt && <AddDate key={dateAsk.note.id} note={dateAsk.note} time={dateAsk.time} onAdd={calendar => answerDate(dateAsk.note, calendar)} onReject={() => setDateAsk(null)} />}
       <div className="desk-row">
         <img className="desk-art" src={memeCafe} alt="" width={324} height={340} draggable={false} />
         <div className="desk-objects" aria-label="Objetos del escritorio">
