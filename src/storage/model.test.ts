@@ -10,6 +10,11 @@ describe('datos exactos y backup', () => {
     expect(parseCents('12,34')).toBe(1234);
     expect(parseCents('12.34')).toBe(1234);
     expect(parseCents('-1')).toBeNull();
+    expect(parseCents('311.020,03')).toBe(31102003);
+    expect(parseCents('1.234')).toBe(123400);
+    expect(parseCents('1.234.567')).toBe(123456700);
+    expect(parseCents('12.3456')).toBeNull();
+    expect(parseCents('1.23.456')).toBeNull();
     expect(parseCents('999999999999999999')).toBeNull();
     expect(() => total([{ id: '1', concept: 'a', cents: Number.MAX_SAFE_INTEGER }, { id: '2', concept: 'b', cents: 1 }])).toThrow();
   });
@@ -26,7 +31,8 @@ describe('datos exactos y backup', () => {
   it('no presenta como fecha un ISO invalido', () => expect(formatExpenseDate('2026-02-30')).toBe(''));
   it.each([['1900-02-29',false],['2000-02-29',true]] as const)('valida correctamente años seculares: %s', (value, valid) => expect(isExpenseDate(value)).toBe(valid));
   it('formatea centavos grandes sin perder precisión', () => {
-    expect(editableMoney(9007199254740990)).toBe('90071992547409,90');
+    expect(editableMoney(9007199254740990)).toBe('90.071.992.547.409,90');
+    expect(editableMoney(31102003)).toBe('311.020,03');
     expect(money(9007199254740990)).toBe('$\u00a090.071.992.547.409,90');
     expect(parseCents(editableMoney(9007199254740990))).toBe(9007199254740990);
   });

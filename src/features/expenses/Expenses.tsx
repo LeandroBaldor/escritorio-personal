@@ -9,7 +9,7 @@ import { appendToMonth, EXPENSE_CATEGORIES, id, isExpenseDate, moveToMonth, pars
 const integerMoney = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
 const moneyParts = (c: number) => ({ whole: Math.trunc(c / 100), fraction: c % 100 });
 export const money = (c: number) => { const { whole, fraction } = moneyParts(c); return `$\u00a0${integerMoney.format(whole)},${String(fraction).padStart(2, '0')}`; };
-export const editableMoney = (c: number) => { const { whole, fraction } = moneyParts(c); return `${whole},${String(fraction).padStart(2, '0')}`; };
+export const editableMoney = (c: number) => { const { whole, fraction } = moneyParts(c); return `${integerMoney.format(whole)},${String(fraction).padStart(2, '0')}`; };
 const localToday = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -54,7 +54,7 @@ export function DateInput({ id, value, onChange, onBlur, onEnter, onCalendarSele
 }
 
 export function MoneyInput({ value, onChange, onBlur, label, placeholder }: { value: string; onChange: (value: string) => void; onBlur?: () => void; label: string; placeholder?: string }) {
-  return <span className="money-input"><span aria-hidden="true">$</span><input aria-label={label} inputMode="decimal" value={value} onChange={e => onChange(e.target.value)} onBlur={onBlur} placeholder={placeholder} /></span>;
+  return <span className="money-input"><span aria-hidden="true">$</span><input aria-label={label} inputMode="decimal" value={value} onChange={e => onChange(e.target.value)} onBlur={() => { const cents = parseCents(value); if (cents !== null) onChange(editableMoney(cents)); onBlur?.(); }} placeholder={placeholder} /></span>;
 }
 
 // Menú propio en lugar de <select>: el nativo abre hacia arriba cerca del borde de la pantalla, éste siempre abre hacia abajo.
