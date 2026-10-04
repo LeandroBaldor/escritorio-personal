@@ -16,7 +16,7 @@ export const categoryClass = (category: EventCategory) => `cal-cat--${category.n
 const longDate = (iso: string) => { const date = dateOf(iso); return `${DAY_NAMES[date.getDay()]} ${date.getDate()} de ${MONTH_NAMES[date.getMonth()]}`; };
 const shortDate = (iso: string) => { const date = dateOf(iso); return `${DAY_NAMES[date.getDay()]} ${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`; };
 
-type Item = { key: string; text: string; time?: string; category: EventCategory; event?: CalendarEvent; paid?: boolean; fromExpenses?: boolean };
+type Item = { key: string; text: string; time?: string; category: EventCategory; event?: CalendarEvent; done?: boolean; source?: 'expense' | 'note' };
 
 // Semanas de lunes a domingo que cubren el mes entero (con los días del mes anterior y siguiente para completar).
 function monthGrid(year: number, month: number) {
@@ -74,7 +74,14 @@ export function Calendar() {
   const byDay = new Map<string, Item[]>();
   const push = (date: string, item: Item) => byDay.set(date, [...(byDay.get(date) ?? []), item]);
   for (const event of data.events ?? []) push(event.date, { key: event.id, text: event.text, time: event.time, category: event.category, event });
-  for (const expense of data.expenses) if (expense.date) push(expense.date, { key: `gasto-${expense.id}`, text: `${expense.concept} · ${money(expense.cents)}`, category: 'Pagos', paid: expense.paid ?? false, fromExpenses: true });
+  for (const expense of data.expenses) if (expense.date) push(expense.date, { key: `gasto-${expense.id}`, text: `${expense.concept} · ${money(expense.cents)}`, category: 'Pagos', done: expense.paid ?? false, source: 'expense' });
+  // Las notas del escritorio con una fecha en el texto también aparecen; "13/10" sin año se toma desde el día en que se creó la nota.
+  for (const note of data.notes) {
+    if (note.archivedAt) continue;
+    const created = note.history[0] ? new Date(note.history[0].at) : today;
+    const found = parseEvent(note.text, Number.isNaN(created.getTime()) ? today : created);
+    if (found.date) push(found.date, { key: `nota-${note.id}`, text: found.text, time: found.time ?? undefined, category: guessCategory(note.text), done: note.status === 'done', source: 'note' });
+  }
   const itemsOf = (iso: string) => (byDay.get(iso) ?? []).sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
 
   const goTo = (iso: string) => { const date = dateOf(iso); setView({ year: date.getFullYear(), month: date.getMonth() }); setSelected(iso); };
@@ -141,7 +148,7 @@ export function Calendar() {
               aria-label={`${longDate(iso)}${items.length ? `, ${items.length} ${items.length === 1 ? 'cosa' : 'cosas'}` : ''}`} aria-pressed={iso === selected}>
               <span className="cal-day-number">{day.getDate()}</span>
               <span className="cal-chips" aria-hidden="true">
-                {items.slice(0, MAX_CHIPS).map(item => <span key={item.key} className={`cal-chip ${categoryClass(item.category)}${item.paid ? ' cal-chip--done' : ''}`}>{item.time && <b>{item.time}</b>}{item.text}</span>)}
+                {items.slice(0, MAX_CHIPS).map(item => <span key={item.key} className={`cal-chip ${categoryClass(item.category)}${item.done ? ' cal-chip--done' : ''}`}>{item.time && <b>{item.time}</b>}{item.text}</span>)}
                 {items.length > MAX_CHIPS && <span className="cal-more">+{items.length - MAX_CHIPS} más</span>}
               </span>
             </button>;
@@ -160,15 +167,15 @@ export function Calendar() {
                 : <>
                   <div className="cal-item-text">
                     {item.time && <b>{item.time}</b>}
-                    <span className={item.paid ? 'cal-done' : undefined}>{item.text}</span>
-                    <small>{item.fromExpenses ? (item.paid ? 'Mis gastos · Pagado' : 'Mis gastos · No pagado') : item.category}</small>
+                    <span className={item.done ? 'cal-done' : undefined}>{item.text}</span>
+                    <small>{item.source === 'expense' ? `Mis gastos · ${item.done ? 'Pagado' : 'No pagado'}` : item.source === 'note' ? `Nota del escritorio · ${item.category}` : item.category}</small>
                   </div>
                   {item.event
                     ? <div className="cal-item-actions">
                       <button type="button" className="cal-secondary" onClick={() => setEditingId(item.event!.id)}>Editar</button>
                       <button type="button" className="delete" onClick={() => removeEvent(item.event!)}>Borrar</button>
                     </div>
-                    : <Link className="cal-item-link" to="/gastos">Ver gasto</Link>}
+                    : <Link className="cal-item-link" to={item.source === 'expense' ? '/gastos' : '/'}>{item.source === 'expense' ? 'Ver gasto' : 'Ver nota'}</Link>}
                 </>}
             </li>)}
           </ul>}

@@ -21,12 +21,18 @@ describe('parseEvent', () => {
     ['Feria el sábado', 'Feria', '2026-10-10', null],
     ['Asado el domingo', 'Asado', '2026-10-11', null],
     ['Vence tarjeta 2/10', 'Vence tarjeta', '2027-10-02', null],
+    ['Turno dentista lunes 13/10 a las 15', 'Turno dentista', '2026-10-13', '15:00'],
+    ['Turno Altamar el martes 13 de octubre 9:30hs', 'Turno Altamar', '2026-10-13', '09:30'],
   ])('%s', (input, text, date, time) => {
     expect(parseEvent(input, today)).toEqual({ text, date, time });
   });
 
   it('deja el texto entero y sin fecha cuando no encuentra una', () => {
     expect(parseEvent('Llamar al plomero', today)).toEqual({ text: 'Llamar al plomero', date: null, time: null });
+  });
+
+  it('toma el año desde el día de referencia (por ejemplo, cuando se creó la nota)', () => {
+    expect(parseEvent('Turno 2/10', new Date(2026, 8, 20)).date).toBe('2026-10-02');
   });
 
   it('no toma como fecha un día que no existe', () => {
