@@ -608,22 +608,17 @@ test('el diario inserta emoticones y mantiene los renglones parejos', async ({ p
   for (const offset of lines.offsets) expect(Math.abs((offset % 1) - (lines.offsets[0] % 1))).toBeLessThan(0.03);
 });
 
-test('el calendario anota con la fecha escrita en el texto y cambia de mes con las flechas', async ({ page }) => {
+test('el calendario muestra las notas con fecha y cambia de mes con las flechas', async ({ page }) => {
   await page.goto('/escritorio-personal/');
   await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Turno dentista hoy 9:15');
   await page.getByRole('button', { name: 'Agregar nota' }).click();
   await page.getByRole('link', { name: 'Calendario' }).click();
-  await expect(page.locator('.cal-chip.cal-cat--salud', { hasText: 'Turno dentista' })).toHaveText('09:15 Turno dentista');
   await expect(page.getByRole('heading', { name: 'Calendario', exact: true })).toBeVisible();
+  await expect(page.getByPlaceholder('Ej. Turno Altamar 13/10 10:30')).toHaveCount(0);
+  await expect(page.locator('.cal-chip.cal-cat--salud', { hasText: 'Turno dentista' })).toHaveText('09:15 Turno dentista');
+  await expect(page.locator('.cal-day-panel')).toContainText('Turno dentista');
   const month = page.locator('.cal-band h2');
   const current = await month.textContent();
-  await page.getByPlaceholder('Ej. Turno Altamar 13/10 10:30').fill('Turno Altamar mañana 10:30');
-  await expect(page.locator('.cal-preview')).toContainText('10:30 · Turno Altamar');
-  await page.getByRole('button', { name: 'Agregar', exact: true }).click();
-  await expect(page.locator('.cal-chip.cal-cat--salud', { hasText: 'Turno Altamar' })).toHaveText('10:30 Turno Altamar');
-  await expect(page.locator('.cal-day-panel')).toContainText('Turno Altamar');
-  await page.reload();
-  await page.getByRole('button', { name: 'Hoy' }).click();
   await page.getByRole('button', { name: 'Mes siguiente' }).click();
   await expect(month).not.toHaveText(current!);
   await page.getByRole('button', { name: 'Mes anterior' }).click();
@@ -632,18 +627,21 @@ test('el calendario anota con la fecha escrita en el texto y cambia de mes con l
   await expect(page.getByRole('heading', { name: 'Notas del escritorio' })).toBeVisible();
 });
 
-test('el calendario pregunta si una nota tiene fecha cuando no la entiende', async ({ page }) => {
+test('el calendario lista las posibles fechas para aprobarlas con la flecha o descartarlas con la X', async ({ page }) => {
   await page.goto('/escritorio-personal/');
-  await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Turno pediatra 25.12');
-  await page.getByRole('button', { name: 'Agregar nota' }).click();
+  for (const text of ['Turno pediatra 25.12', 'Comprar regalo el 15']) {
+    await page.getByPlaceholder('¿Qué necesitás recordar?').fill(text);
+    await page.getByRole('button', { name: 'Agregar nota' }).click();
+  }
   await page.getByRole('link', { name: 'Calendario' }).click();
-  const question = page.locator('.cal-doubts .cal-note-date');
-  await expect(question).toContainText('¿Esto es una fecha?');
-  await expect(question).toContainText('25/12');
-  await question.getByRole('button', { name: 'Sí', exact: true }).click();
-  await expect(question).toHaveCount(0);
+  const doubts = page.locator('.cal-doubt');
+  await expect(doubts).toHaveCount(2);
+  await expect(page.getByLabel('Día de Turno pediatra 25.12')).toHaveValue(/-12-25$/);
+  await page.getByRole('button', { name: 'Sí, Turno pediatra 25.12 es una fecha' }).click();
+  await page.getByRole('button', { name: 'Comprar regalo el 15 no es una fecha' }).click();
+  await expect(doubts).toHaveCount(0);
   await expect(page.locator('.cal-band h2')).toContainText('diciembre');
   await expect(page.locator('.cal-chip', { hasText: 'Turno pediatra' })).toHaveText('Turno pediatra');
   await page.reload();
-  await expect(page.locator('.cal-doubts .cal-note-date')).toHaveCount(0);
+  await expect(page.locator('.cal-doubt')).toHaveCount(0);
 });
