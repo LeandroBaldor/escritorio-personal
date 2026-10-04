@@ -392,7 +392,8 @@ background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' wid
 radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-band>*{position:relative;z-index:1}
 .cal-band-clock{position:absolute!important;z-index:0!important;left:50%;top:50%;width:150px;height:150px;transform:translate(-50%,-50%);color:#fff;opacity:.22;pointer-events:none}
-.cal-band h2{display:grid;justify-items:center;margin:0;line-height:1}
+/* Mes y año en una sola línea (OCTUBRE 2026) para que la banda sea más baja y el mes entre sin bajar. */
+.cal-band h2{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;column-gap:.45em;margin:0;line-height:1;text-align:center}
 .cal-band h2 span{font:900 clamp(2rem,4.4vw,3.1rem)/1 Nunito,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#fff;text-shadow:0 2px 6px #0b1d4a88}
 .cal-band h2 small{font-weight:900;font-size:clamp(1.2rem,2.6vw,1.8rem);color:#fff}
 .cal-arrow{width:48px;height:48px;padding:0;border-radius:50%;background:#fff3;color:#fff;font-size:2rem;line-height:1;font-weight:700}
@@ -491,7 +492,7 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-page{margin-top:-1.6rem}
 .cal-page .section-title{margin-bottom:.6rem}
 .cal-page .section-objects--large{zoom:1.12}
-.cal-page .cal-band{padding:.65rem 1.2rem .55rem}
+.cal-page .cal-band{padding:.45rem 1.2rem .4rem}
 .cal-page .cal-band h2 span{font-size:clamp(1.9rem,3.2vw,2.5rem)}
 .cal-page .cal-band h2 small{font-size:clamp(1rem,1.8vw,1.3rem)}
 .cal-page .cal-band-clock{width:96px;height:96px}
