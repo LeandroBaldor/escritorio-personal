@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BREAK_POINTS, hitsGrid, newGame, PLAYER_H, score, spawnPiece, step, type Piece } from './blockRunner';
+import { BREAK_POINTS, explode, hitsGrid, newGame, PLAYER_H, score, spawnPiece, step, type Piece } from './blockRunner';
 
 const idle = { left: false, right: false, jump: false };
 const run = (game: ReturnType<typeof newGame>, seconds: number, input = idle) => {
@@ -151,5 +151,63 @@ describe('bombas', () => {
     game.time = 10;
     for (let i = 0; i < 40 && !game.bombs.length; i++) { game.spawnIn = 0; step(game, idle, 0.01, () => (i * 0.13) % 1); game.pieces = []; }
     expect(game.bombs.length).toBeGreaterThan(0);
+  });
+});
+
+describe('roce de costado', () => {
+  it('una pieza que cae justo al lado lo empuja en vez de aplastarlo', () => {
+    const game = newGame(10, 8);
+    game.spawnIn = 99;
+    game.player.x = 2.45; // apenas encimado con la columna 3
+    game.pieces.push({ id: 1, x: 3, y: -2, cells: [[0, 0], [0, 1]], width: 1, height: 2, color: '#f00', speed: 6 });
+    run(game, 3);
+    expect(game.over).toBeNull();
+    expect(game.player.x + 0.6).toBeLessThanOrEqual(3 + 1e-6);
+    expect(game.grid[7][3]).toBe('#f00');
+  });
+
+  it('si le cae de arriba, lo aplasta', () => {
+    const game = newGame(10, 8);
+    game.spawnIn = 99;
+    game.player.x = 2.6;
+    game.pieces.push({ id: 1, x: 2, y: -2, cells: [[0, 0], [1, 0]], width: 2, height: 1, color: '#f00', speed: 6 });
+    run(game, 3);
+    expect(game.over).toBe('crushed');
+  });
+});
+
+describe('gravedad', () => {
+  it('después de una explosión, lo que queda flotando cae', () => {
+    const game = newGame(10, 8);
+    game.spawnIn = 99;
+    game.player.x = 8.2;
+    game.grid[7][2] = '#00f'; game.grid[6][2] = '#00f'; game.grid[5][2] = '#0f0'; game.grid[4][2] = '#ff0';
+    explode(game, 3, 7, () => 0.5);
+    expect(game.grid[7][2]).toBe('#0f0');
+    expect(game.grid[6][2]).toBe('#ff0');
+    expect(game.grid[5][2]).toBeNull();
+  });
+
+  it('los bloques que caen se frenan encima del personaje', () => {
+    const game = newGame(10, 8);
+    game.player.x = 2.2; game.player.y = 8 - PLAYER_H;
+    game.grid[3][2] = '#0f0';
+    explode(game, 6, 7, () => 0.5); // lejos: no lo toca
+    game.grid[2][2] = '#ff0';
+    explode(game, 2, 0, () => 0.5); // rompe arriba (fila 0 y 1) y hace caer la columna 2
+    expect(game.over).toBeNull();
+    expect(game.grid.slice(7).flat()[2]).toBeNull(); // no cayó nada donde está el personaje
+  });
+});
+
+describe('duración de la ronda', () => {
+  it('sin que lo pisen, la pila tarda entre 2 y 3 minutos en llegar arriba', () => {
+    for (const [cols, rows] of [[26, 12], [14, 14], [10, 16]]) {
+      let seed = 4242; const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      const game = newGame(cols, rows);
+      while (game.time < 400) { step(game, idle, 1 / 30, rand); if (game.over === 'full') break; game.over = null; game.player.y = -5; }
+      expect(game.time).toBeGreaterThan(110);
+      expect(game.time).toBeLessThan(185);
+    }
   });
 });
