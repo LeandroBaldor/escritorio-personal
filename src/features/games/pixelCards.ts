@@ -10,11 +10,12 @@ const isRedSuit = (suit: Suit) => suit === 'corazon' || suit === 'diamante';
 export const suitColor = (suit: Suit) => isRedSuit(suit) ? RED : BLACK;
 
 export const SUIT_PIXELS: Record<Suit, Bitmap> = {
-  corazon: ['.XX.XX.', 'XXXXXXX', 'XXXXXXX', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'],
-  diamante: ['...X...', '..XXX..', '.XXXXX.', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'],
-  pica: ['...X...', '..XXX..', '.XXXXX.', 'XXXXXXX', 'XXXXXXX', '.X.X.X.', '..XXX..'],
-  trebol: ['..XXX..', '..XXX..', 'XXXXXXX', 'XXXXXXX', 'XX.X.XX', '...X...', '..XXX..'],
+  corazon: ['.XX...XX.', 'XXXX.XXXX', 'XXXXXXXXX', 'XXXXXXXXX', 'XXXXXXXXX', '.XXXXXXX.', '..XXXXX..', '...XXX...', '....X....'],
+  diamante: ['....X....', '...XXX...', '..XXXXX..', '.XXXXXXX.', 'XXXXXXXXX', '.XXXXXXX.', '..XXXXX..', '...XXX...', '....X....'],
+  pica: ['....X....', '...XXX...', '..XXXXX..', '.XXXXXXX.', 'XXXXXXXXX', 'XXXXXXXXX', '.XX.X.XX.', '....X....', '..XXXXX..'],
+  trebol: ['...XXX...', '..XXXXX..', '...XXX...', '.XX.X.XX.', 'XXXXXXXXX', 'XXXXXXXXX', '.XX.X.XX.', '....X....', '..XXXXX..'],
 };
+export const SUIT_SIZE = 9;
 
 // Letra pixelada de 5×7 (el 10 ocupa 7 de ancho).
 const GLYPHS: Record<string, Bitmap> = {
@@ -86,7 +87,8 @@ const PIPS: Record<number, [number, number][]> = {
   10: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2], [0, 4], [2, 4], [1, 5], [0, 6], [2, 6]],
 };
 
-export const CARD_W = 49, CARD_H = 67;
+// Carta de 61×83 píxeles: índice grande en las esquinas (letra al doble), palos de 9×9 y figuras grandes.
+export const CARD_W = 61, CARD_H = 83;
 const svg = (body: string, w = CARD_W, h = CARD_H) =>
   `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">${body}</svg>`)}`;
 
@@ -104,15 +106,15 @@ export function cardImage(suit: Suit, rank: number) {
   const ink = suitColor(suit);
   const color = { X: ink };
   const label = LABELS[rank];
-  const corner = pixels(GLYPHS[label], color, 3, 3) + pixels(SUIT_PIXELS[suit], color, 2, 12);
+  const corner = pixels(GLYPHS[label], color, 3, 3, 2) + pixels(SUIT_PIXELS[suit], color, 3, 19);
   let body = frame('#fffdf5', '#1d1d24') + corner + `<g transform="rotate(180 ${CARD_W / 2} ${CARD_H / 2})">${corner}</g>`;
-  if (rank === 1) body += pixels(SUIT_PIXELS[suit], color, 14, 23, 3);
+  if (rank === 1) body += pixels(SUIT_PIXELS[suit], color, 17, 28, 3);
   else if (rank <= 10) {
-    for (const [col, row] of PIPS[rank]) body += pixels(SUIT_PIXELS[suit], color, [13, 21, 29][col], 12 + row * 6, 1, row > 3);
+    for (const [col, row] of PIPS[rank]) body += pixels(SUIT_PIXELS[suit], color, [18, 26, 34][col], 13 + row * 8, 1, row > 3);
   } else {
     const palette = { Y: '#f4b400', R: RED, O: '#1d1d24', S: '#f5c9a0', B: '#8a4b14', H: rank === 12 ? '#f4b400' : '#6b3a10', W: '#ffffff', C: isRedSuit(suit) ? RED : '#2b3a8f' };
-    body += `<rect x="9" y="13" width="31" height="41" fill="${ink}"/><rect x="10" y="14" width="29" height="39" fill="#fdf2c4"/>`;
-    body += `<g transform="translate(10.5 15.5) scale(2)">${pixels(FACES[rank], palette, 0, 0)}</g>`;
+    body += `<rect x="13" y="18" width="35" height="47" fill="#fdf2c4"/>`;
+    body += `<g transform="translate(13 19) scale(2.5)">${pixels(FACES[rank], palette, 0, 0)}</g>`;
   }
   const url = svg(body);
   cache.set(key, url);
@@ -123,6 +125,6 @@ export function cardImage(suit: Suit, rank: number) {
 export const BACK_IMAGE = (() => {
   let body = frame('#1e40af', '#0b1a4a') + `<rect x="3" y="3" width="${CARD_W - 6}" height="${CARD_H - 6}" fill="#ffffff"/><rect x="4" y="4" width="${CARD_W - 8}" height="${CARD_H - 8}" fill="#2563eb"/>`;
   for (let y = 5; y < CARD_H - 6; y += 4) for (let x = 5 + ((y - 5) / 4 % 2) * 2; x < CARD_W - 6; x += 4) body += `<rect x="${x}" y="${y}" width="2" height="2" fill="#60a5fa"/>`;
-  body += `<rect x="16" y="25" width="17" height="17" fill="#1e40af"/>` + pixels(SUIT_PIXELS.corazon, { X: '#facc15' }, 17, 26, 2) ;
+  body += `<rect x="19" y="30" width="23" height="23" fill="#1e40af"/>` + pixels(SUIT_PIXELS.corazon, { X: '#facc15' }, 21.5, 32.5, 2);
   return svg(body);
 })();
