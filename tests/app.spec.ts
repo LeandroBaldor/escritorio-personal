@@ -777,9 +777,11 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
   await expect(page.getByRole('navigation', { name: 'Ir a otras secciones' }).getByRole('link')).toHaveText(['Escritorio', 'Mi diario', /Gastos$/, /Calendario$/]);
   await page.getByRole('link', { name: /Cuidado, bloques/ }).click();
   await page.getByRole('button', { name: 'Jugar' }).click();
-  await expect(page.getByTestId('runner-points')).not.toHaveText('0');
+  // Se pausa enseguida (antes de que una pieza pueda aplastar al personaje) y después sigue sumando puntos.
   await page.keyboard.press('p');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
+  await page.getByRole('button', { name: 'Seguir' }).first().click();
+  await expect(page.getByTestId('runner-points')).not.toHaveText('0');
   await page.getByRole('link', { name: '‹ Juegos' }).click();
   await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
 });

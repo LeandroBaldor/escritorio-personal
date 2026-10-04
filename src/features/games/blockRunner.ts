@@ -100,7 +100,7 @@ function lock(game: Game, piece: Piece, y: number) {
 }
 
 export function step(game: Game, input: Input, dt: number, rand: () => number = Math.random) {
-  if (game.over) return;
+  if (game.over || dt <= 0) return;
   game.time += dt;
 
   game.spawnIn -= dt;
