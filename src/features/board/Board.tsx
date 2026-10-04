@@ -1,6 +1,6 @@
 import { DragEvent, FormEvent, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarLink } from '../../app/SectionObjects';
+import { CalendarLink, GamesLink } from '../../app/SectionObjects';
 import { COLORS, id, Note, NoteCalendar, Status } from '../../storage/model';
 import { DateQuestion } from '../calendar/DateQuestion';
 import { calendarFrom, TimeInput } from '../calendar/DateTimeFields';
@@ -292,6 +292,7 @@ export function Board() {
           <Link className="notebook" to="/diario" aria-label="Mi diario"><span className="notebook-binding" aria-hidden="true" /><span>Mi diario</span><small>Abrir libreta</small></Link>
           <Link className="calc-object" to="/gastos" aria-label="Gastos"><span aria-hidden="true">7 8 9<br />4 5 6<br />1 2 3</span><strong>Gastos</strong></Link>
           <CalendarLink />
+          <GamesLink />
         </div>
         <p className="drag-hint">Arrastrá cualquier nota para cambiarla de lugar o de sección.</p>
       </div>
