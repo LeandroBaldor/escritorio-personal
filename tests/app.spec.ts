@@ -745,3 +745,23 @@ test('en el panel del día se editan categoría, fecha y hora de una nota y se g
   await page.reload();
   await expect(page.locator('.cal-chip', { hasText: 'Turno dentista' })).toHaveText('09:45 Turno dentista');
 });
+
+test('los gastos se editan en el panel del día con el mismo formato que las notas', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.getByRole('link', { name: 'Gastos', exact: true }).click();
+  await page.getByPlaceholder('Ej. Electricidad').fill('Claro');
+  await page.getByLabel('Monto del gasto en pesos').fill('18636,07');
+  await page.getByRole('button', { name: 'Agregar' }).click();
+  await page.getByRole('navigation', { name: 'Ir a otras secciones' }).getByRole('link', { name: 'Calendario' }).click();
+  const editor = page.getByRole('form', { name: /^Editar Claro/ });
+  await expect(editor.getByLabel('Categoría')).toHaveValue('Pagos');
+  await expect(page.getByRole('link', { name: 'Ver gasto' })).toHaveCount(0);
+  await editor.getByLabel(/^Hora de Claro/).fill('09:00');
+  await editor.getByLabel('Categoría').selectOption('Trabajo');
+  await editor.getByRole('button', { name: 'Guardar' }).click();
+  const chip = page.locator('.cal-chip', { hasText: 'Claro' });
+  await expect(chip).toHaveText(/^09:00 Claro/);
+  await expect(chip).toHaveClass(/cal-cat--trabajo/);
+  await page.reload();
+  await expect(page.locator('.cal-chip', { hasText: 'Claro' })).toHaveClass(/cal-cat--trabajo/);
+});

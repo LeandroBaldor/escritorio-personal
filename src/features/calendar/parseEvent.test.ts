@@ -73,6 +73,10 @@ describe('eventos guardados', () => {
     expect(isData({ ...EMPTY, notes: [{ ...note, calendar: { date: '13/10' } }] })).toBe(false);
     expect(isData({ ...EMPTY, notes: [{ ...note, calendarCategory: 'Trabajo' }] })).toBe(true);
     expect(isData({ ...EMPTY, notes: [{ ...note, calendarCategory: 'Fiesta' }] })).toBe(false);
+    const gasto = { id: 'g', concept: 'Claro', cents: 1863607, date: '2026-10-22' };
+    expect(isData({ ...EMPTY, expenses: [{ ...gasto, time: '09:00', calendarCategory: 'Trabajo' }] })).toBe(true);
+    expect(isData({ ...EMPTY, expenses: [{ ...gasto, time: '9' }] })).toBe(false);
+    expect(isData({ ...EMPTY, expenses: [{ ...gasto, calendarCategory: 'Fiesta' }] })).toBe(false);
   });
 });
 
