@@ -1,6 +1,6 @@
 import { type DragEvent, type FormEvent, type KeyboardEvent, useRef, useState } from 'react';
 import { useData } from '../../app/DataContext';
-import { DeskLink, SectionObjects } from '../../app/SectionObjects';
+import { CalendarLink, DeskLink, SectionObjects } from '../../app/SectionObjects';
 import { id, type Note } from '../../storage/model';
 import { columns, formatHistoryDate, validHistory } from './Board';
 
@@ -166,7 +166,7 @@ export function SavedNotes() {
     <section>
       <div className="section-title">
         <div><p className="eyebrow">Notas de vuelta a casa</p><h1>Disquete</h1></div>
-        <SectionObjects large><DeskLink /></SectionObjects>
+        <SectionObjects large><DeskLink /><CalendarLink /></SectionObjects>
       </div>
       <div className="floppy-page">
         <div className="floppy-page-body">

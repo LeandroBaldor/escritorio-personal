@@ -357,3 +357,106 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .expense-row input::placeholder{color:#cdeed6}
 .expense-row select option{background:#fff;color:#332317}
 .expense-row select:not(.paid-select){appearance:none;padding-right:2.2rem;background:#15803d url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E") no-repeat right .8rem center}
+/* Calendario: almanaque de mesa como acceso desde las secciones (muestra el día de hoy). */
+.calendar-object{position:relative;display:flex;flex-direction:column;align-items:center;width:100px;padding:0 0 .35em;background:#fff;border-radius:8px;color:#1f2937!important;text-decoration:none;transform:rotate(-2deg);overflow:visible}
+.calendar-object::before{content:"";position:absolute;inset:0 0 auto;height:1.55em;background:#e5534b;border-radius:8px 8px 0 0}
+.calendar-object-rings{position:absolute;top:-.45em;left:0;right:0;display:flex;justify-content:space-around;padding:0 1.4em}
+.calendar-object-rings i{width:.4em;height:.95em;background:#4b4f58;border-radius:.2em}
+.calendar-object-month{position:relative;margin-top:.25em;font-weight:900;font-size:.95em;letter-spacing:.08em;color:#1f2937}
+.calendar-object-day{font-weight:900;font-size:2.3em;line-height:1.05;color:#1f2937}
+.calendar-object strong{font-size:.75em;color:#4b4f58}
+.desk-objects .calendar-object{box-shadow:5px 8px 14px #2c120b77}
+.section-objects .calendar-object{width:92px}
+.calendar-object:hover,.calendar-object:focus-visible{transform:rotate(0) translateY(-2px)}
+
+/* Calendario: formulario para anotar con la fecha escrita en el texto. */
+.cal-new{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:end;gap:.7rem;margin-bottom:1.2rem;padding:1rem;background:#f4e1bf;border-radius:12px;box-shadow:0 5px 15px #2d130c66}
+.cal-new label{display:grid;gap:.2rem;font-size:.85rem;font-weight:700}
+.cal-new input,.cal-new select{padding:.65rem .7rem;border:1px solid #b69a73;border-radius:6px;background:#fffaf0;font-weight:400}
+.cal-new button{padding:.7rem 1.1rem}
+.cal-new button:disabled{opacity:.55;cursor:not-allowed}
+.cal-preview{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;margin:0;padding:.5rem .75rem;background:#fffaf0;border-radius:6px}
+.cal-preview small{color:#7a5a3f}
+
+/* Colores por tipo (los gastos de Mis gastos usan el verde de Pagos). */
+.cal-cat--salud{--cat:#2563eb;--cat-text:#fff;--cat-soft:#dbe7fd}
+.cal-cat--pagos{--cat:#15803d;--cat-text:#fff;--cat-soft:#d6f0de}
+.cal-cat--trabajo{--cat:#eab308;--cat-text:#3a2a00;--cat-soft:#fdf2c4}
+.cal-cat--personal{--cat:#8b5cf6;--cat-text:#fff;--cat-soft:#ebe2fd}
+.cal-cat--cumpleanos{--cat:#ec4899;--cat-text:#fff;--cat-soft:#fcdeec}
+.cal-cat--otros{--cat:#6b7280;--cat-text:#fff;--cat-soft:#e5e7eb}
+.cal-dot{display:inline-block;width:.8rem;height:.8rem;border-radius:50%;background:var(--cat);flex:none}
+
+/* La hoja del calendario: franja roja con anillos, como un almanaque de pared. */
+.cal-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,330px);gap:1.4rem;align-items:start}
+.cal-sheet{position:relative;margin-top:1.1rem;background:#fff;border-radius:18px;box-shadow:10px 15px 30px #24100888;color:#1f2937}
+.cal-sheet::after{content:"";position:absolute;right:0;bottom:0;width:46px;height:46px;background:linear-gradient(135deg,#fff 0 48%,#d9d9d9 50%,#efefef 75%);border-radius:0 0 18px 0;box-shadow:-3px -3px 6px #0000001a}
+.cal-rings{position:absolute;top:-1.1rem;left:0;right:0;display:flex;justify-content:space-between;padding:0 18%;pointer-events:none}
+.cal-rings span{width:12px;height:2.4rem;background:linear-gradient(90deg,#34373e,#6b6f78 50%,#34373e);border-radius:6px;box-shadow:0 2px 3px #0005}
+.cal-band{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.4rem 1.2rem .9rem;background:#e5534b;border-radius:18px 18px 0 0}
+.cal-band h2{display:grid;justify-items:center;margin:0;line-height:1}
+.cal-band h2 span{font:900 clamp(2rem,5vw,3.4rem)/1 Nunito,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#1f2937}
+.cal-band h2 small{font-weight:900;font-size:clamp(1.2rem,2.6vw,1.8rem);color:#1f2937}
+.cal-arrow{width:48px;height:48px;padding:0;border-radius:50%;background:#fff3;color:#1f2937;font-size:2rem;line-height:1;font-weight:700}
+.cal-arrow:hover{background:#fff6}
+.cal-toolbar{display:flex;align-items:center;justify-content:space-between;gap:.8rem;padding:.75rem 1.2rem 0}
+.cal-legend{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin:0;padding:0;list-style:none;font-size:.85rem}
+.cal-legend li{display:flex;align-items:center;gap:.3rem}
+.cal-today{padding:.4rem .9rem;background:#cfe8f3;color:#1f2937;font-weight:700}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));padding:.6rem 1.2rem 1.6rem}
+.cal-weekday{padding:.4rem 0;text-align:center;font-weight:900;font-size:.9rem;letter-spacing:.04em;color:#1f2937;border-bottom:2px solid #e5e7eb}
+.cal-weekday--weekend{color:#e5534b}
+.cal-day{display:flex;flex-direction:column;align-items:stretch;gap:.25rem;min-height:112px;padding:.35rem;background:transparent;color:#1f2937;border:0;border-right:1px solid #ececec;border-bottom:1px solid #ececec;border-radius:0;text-align:left;font-weight:400;min-width:0}
+.cal-day:nth-child(7n){border-right:0}
+.cal-day:hover{background:#f7f4ee}
+.cal-day--selected{background:#fff6dc;box-shadow:inset 0 0 0 2px #f4bd58}
+.cal-day--selected:hover{background:#fff1c8}
+.cal-day-number{display:grid;place-items:center;width:2rem;height:2rem;font-weight:900;font-size:1.15rem;border-radius:50%}
+.cal-day--weekend .cal-day-number{color:#e5534b}
+.cal-day--outside{opacity:.38}
+.cal-day--today .cal-day-number{background:#cfe8f3;color:#1f2937;box-shadow:0 0 0 3px #a9d3e6}
+.cal-chips{display:grid;gap:.2rem;min-width:0}
+.cal-chip{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;padding:.12rem .35rem;background:var(--cat);color:var(--cat-text);border-radius:4px;font-size:.74rem;font-weight:700;line-height:1.25;overflow:hidden;overflow-wrap:anywhere}
+.cal-chip b{margin-right:.25rem;font-weight:900}
+.cal-chip--done{opacity:.55;text-decoration:line-through}
+.cal-more{font-size:.72rem;font-weight:700;color:#6b7280}
+
+/* Panel del día elegido. */
+.cal-day-panel{position:sticky;top:6rem;margin-top:1.1rem;padding:1.1rem;background:#f4e1bf;border-radius:14px;box-shadow:0 8px 20px #2d140c55}
+.cal-day-panel h2{margin:0 0 .8rem;font:700 2rem/1 Caveat,cursive}.cal-day-panel h2::first-letter{text-transform:uppercase}
+.cal-empty{margin:0;color:#6b5a48}
+.cal-items{display:grid;gap:.6rem;margin:0;padding:0;list-style:none}
+.cal-item{display:grid;gap:.5rem;padding:.6rem .7rem;background:var(--cat-soft);border-left:6px solid var(--cat);border-radius:8px}
+.cal-item-text{display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem .4rem;overflow-wrap:anywhere}
+.cal-item-text b{font-weight:900}
+.cal-item-text small{width:100%;font-size:.78rem;color:#5b4a3a}
+.cal-done{text-decoration:line-through;opacity:.7}
+.cal-item-actions{display:flex;gap:.4rem}
+.cal-item-actions button{padding:.35rem .7rem;font-size:.85rem;margin:0}
+.cal-item-link{justify-self:start;font-size:.85rem;font-weight:700;color:#15803d}
+.cal-secondary{background:#866047}
+.cal-edit{display:grid;gap:.45rem}
+.cal-edit input,.cal-edit select{min-width:0;padding:.45rem .5rem;border:1px solid #b69a73;border-radius:6px;background:#fffaf0}
+.cal-edit-row{display:flex;flex-wrap:wrap;gap:.4rem}
+.cal-edit-row>*{flex:1 1 auto}
+.cal-hint{margin:1rem 0 0;font-size:.85rem;color:#6b5a48}
+
+@media(max-width:1000px){.cal-layout{grid-template-columns:1fr}.cal-day-panel{position:static}}
+@media(max-width:700px){
+.cal-new{grid-template-columns:1fr}
+.cal-band{padding:1.2rem .6rem .7rem}
+.cal-arrow{width:40px;height:40px}
+.cal-toolbar{flex-direction:column;align-items:stretch;padding:.6rem .6rem 0}
+.cal-legend{font-size:.78rem}
+.cal-grid{padding:.4rem .4rem 1.4rem}
+.cal-weekday{font-size:.72rem}
+.cal-day{min-height:64px;padding:.2rem;align-items:center}
+.cal-day-number{width:1.7rem;height:1.7rem;font-size:.95rem}
+.cal-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:.15rem}
+.cal-chip{display:block;width:.55rem;height:.55rem;padding:0;border-radius:50%;font-size:0}
+.cal-more{font-size:.6rem}
+}
+/* En celular los accesos de arriba no se agrandan y bajan de línea si no entran (ahora son hasta cuatro con el calendario). */
+@media(max-width:800px){.section-objects--large{zoom:1}.section-objects{flex-wrap:wrap;gap:.8rem;max-width:100%}}
+/* Mis gastos: con el calendario son tres accesos; un poco más chicos para que la imagen del medio siga entrando. */
+@media(min-width:801px){.section-title:has(>.calc-art)>.section-objects--large{zoom:1.05;gap:.8rem}}
