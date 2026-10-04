@@ -81,3 +81,28 @@ export function guessCategory(text: string): EventCategory {
   const words = plain(text);
   return KEYWORDS.find(([, pattern]) => pattern.test(words))?.[0] ?? 'Personal';
 }
+
+const removePart = (text: string, part: string) => { const index = text.indexOf(part); return (index < 0 ? '' : cutWithWeekday(text, index, part.length)) || text; };
+const dayOnlyText = (text: string) => { const match = /\b(?:el|d[ií]a)\s+(\d{1,2})\b/i.exec(text); return (match ? cut(text, match.index, match[0].length) : '') || text; };
+
+// Cuando parseEvent no encuentra una fecha pero el texto parece tener una ("13.10", "el 13", "31/02"),
+// devuelve una sugerencia para preguntar "¿Esto es una fecha?". La fecha sugerida puede ser null.
+export function dateDoubt(input: string, today: Date): { date: string | null; time: string | null; text: string } | null {
+  const parsed = parseEvent(input, today);
+  if (parsed.date) return null;
+  const dotted = /\b(\d{1,2})\.(\d{1,2})(?:\.(\d{4}|\d{2}))?\b/.exec(input);
+  if (dotted && (dotted[1].length === 2 || dotted[2].length === 2)) {
+    const date = calendarDate(Number(dotted[1]), Number(dotted[2]), dotted[3] ? Number(dotted[3]) : null, today);
+    if (date) return { date: isoOf(date), time: parsed.time, text: removePart(parsed.text, dotted[0]) };
+  }
+  const dayOnly = /\b(?:el|d[ií]a)\s+(\d{1,2})\b(?!\s*(?:hs?|:|de\s+\d))/i.exec(input);
+  if (dayOnly && Number(dayOnly[1]) >= 1 && Number(dayOnly[1]) <= 31) {
+    const day = Number(dayOnly[1]);
+    for (let offset = 0; offset < 3; offset += 1) {
+      const date = new Date(today.getFullYear(), today.getMonth() + offset, day);
+      if (date.getDate() === day && date >= addDays(today, 0)) return { date: isoOf(date), time: parsed.time, text: dayOnlyText(parsed.text) };
+    }
+  }
+  if (/\b\d{1,2}\s*[/-]\s*\d{1,2}\b/.test(input)) return { date: null, time: parsed.time, text: parsed.text };
+  return null;
+}

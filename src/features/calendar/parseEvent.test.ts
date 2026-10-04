@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY, isData } from '../../storage/model';
-import { guessCategory, parseEvent } from './parseEvent';
+import { dateDoubt, guessCategory, parseEvent } from './parseEvent';
 
 // Domingo 4 de octubre de 2026.
 const today = new Date(2026, 9, 4, 15, 30);
@@ -59,5 +59,25 @@ describe('eventos guardados', () => {
     expect(isData({ ...EMPTY, events: [{ ...event, date: '2026-02-30' }] })).toBe(false);
     expect(isData({ ...EMPTY, events: [{ ...event, time: '25:00' }] })).toBe(false);
     expect(isData({ ...EMPTY, events: [{ ...event, category: 'Fiesta' }] })).toBe(false);
+    const note = { id: 'n', text: 'Turno 13.10', color: '#ffe783', status: 'todo', history: [{ status: 'todo', at: '2026-10-01T10:00:00.000Z' }] };
+    expect(isData({ ...EMPTY, notes: [{ ...note, calendar: { date: '2026-10-13', time: '10:30' } }] })).toBe(true);
+    expect(isData({ ...EMPTY, notes: [{ ...note, calendar: null }] })).toBe(true);
+    expect(isData({ ...EMPTY, notes: [{ ...note, calendar: { date: '13/10' } }] })).toBe(false);
   });
+});
+
+describe('dateDoubt', () => {
+  it.each([
+    ['Turno 13.10', '2026-10-13'],
+    ['Turno el 20 a las 10hs', '2026-10-20'],
+    ['Pagar el 2', '2026-11-02'],
+    ['Algo 31/02', null],
+  ])('pregunta por %s', (text, date) => expect(dateDoubt(text, today)?.date ?? null).toBe(date));
+
+  it('saca la fecha dudosa del texto', () => {
+    expect(dateDoubt('Turno dermatólogo 20.10', today)?.text).toBe('Turno dermatólogo');
+    expect(dateDoubt('Pagar seguro el 28', today)?.text).toBe('Pagar seguro');
+  });
+
+  it.each(['Turno Altamar 13/10', 'Comprar pintura', 'Llevar 2.5 kilos'])('no pregunta por %s', text => expect(dateDoubt(text, today)).toBeNull());
 });
