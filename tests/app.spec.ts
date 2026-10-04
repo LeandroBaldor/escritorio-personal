@@ -788,7 +788,7 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
 
 test('el Solitario 8 bits se abre desde Juegos, da vuelta cartas y deshace', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(3);
+  await expect(page.locator('.games-list > li')).toHaveCount(4);
   await page.getByRole('link', { name: /Solitario 8 bits/ }).click();
   await expect(page.getByRole('heading', { name: 'Solitario 8 bits' })).toBeVisible();
   await expect(page.locator('.sol-column .sol-card')).toHaveCount(28);
@@ -805,7 +805,7 @@ test('el Solitario 8 bits se abre desde Juegos, da vuelta cartas y deshace', asy
 
 test('Tiki-Taka: se elige el país y el DT, arranca el partido y el rival sigue jugando', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(3);
+  await expect(page.locator('.games-list > li')).toHaveCount(4);
   await page.getByRole('link', { name: /Tiki-Taka/ }).click();
   await page.getByLabel('Nombre del DT').fill('El Bambino');
   await page.getByRole('button', { name: 'Brasil' }).click();
@@ -822,4 +822,22 @@ test('Tiki-Taka: se elige el país y el DT, arranca el partido y el rival sigue 
   await page.getByRole('link', { name: /Tiki-Taka/ }).click();
   await expect(page.getByLabel('Nombre del DT')).toHaveValue('El Bambino');
   await expect(page.getByText('País: Brasil')).toBeVisible();
+});
+
+test('Trepaluna: se abre desde Juegos, corre el tiempo, muestra la altura y se pausa', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/juegos');
+  await expect(page.locator('.games-list > li')).toHaveCount(4);
+  await page.getByRole('link', { name: /Trepaluna/ }).click();
+  await expect(page.getByRole('heading', { name: 'Trepaluna', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: 'Jugar' }).click();
+  await expect(page.getByTestId('trepa-height')).toHaveText('0 m');
+  await expect(page.getByTestId('trepa-time')).not.toHaveText('0:00.0');
+  await page.keyboard.press('p');
+  await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
+  const paused = await page.getByTestId('trepa-time').textContent();
+  await page.waitForTimeout(400);
+  await expect(page.getByTestId('trepa-time')).toHaveText(paused ?? '');
+  await page.getByRole('button', { name: 'Seguir' }).first().click();
+  await page.getByRole('link', { name: '‹ Juegos' }).click();
+  await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
 });

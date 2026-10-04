@@ -705,3 +705,40 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .runner-trap{position:absolute;top:10%;left:50%;transform:translateX(-50%);padding:.6rem 1.2rem;background:#7f1d1df0;border:3px solid #fca5a5;border-radius:12px;color:#fff;font-weight:900;font-size:clamp(1.1rem,3vw,1.6rem);white-space:nowrap;pointer-events:none;animation:runner-blink .5s steps(2) infinite alternate;box-shadow:0 8px 24px #000a}
 .runner-trap strong{font-size:1.3em;color:#fde047;margin-left:.2rem}
 @keyframes runner-blink{to{background:#b91c1cf0}}
+
+/* Trepaluna */
+.trepa-main{flex:1;min-height:0;display:flex;gap:.5rem}
+.trepa .runner-jump{white-space:nowrap}
+.trepa .runner-stage{flex:1;min-width:0}
+.trepa .runner-stage canvas{border-radius:8px}
+.trepa-time{flex:0 0 clamp(78px,11vw,150px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3rem;background:#1d1a44;border:3px solid #4c3d99;border-radius:12px;padding:.4rem}
+.trepa-time span{color:#c4b5fd;font-weight:800;text-transform:uppercase;font-size:.8rem;letter-spacing:.08em}
+.trepa-time strong{font:900 clamp(1.15rem,2.6vw,2.2rem)/1 Nunito,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#fde047}
+.trepa-height{display:flex;align-items:center;gap:1rem;padding:.45rem .9rem 1.35rem;background:#1d1a44;border:3px solid #4c3d99;border-radius:12px}
+.trepa-height-label{display:flex;align-items:baseline;gap:.45rem;min-width:9.5rem}
+.trepa-height-label span{color:#c4b5fd;font-weight:800;text-transform:uppercase;font-size:.8rem;letter-spacing:.08em}
+.trepa-height-label strong{font:900 1.5rem/1 Nunito,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.trepa-height-label em{font-style:normal;color:#93c5fd;font-size:.85rem;font-weight:700}
+.trepa-track{position:relative;flex:1;height:14px;border-radius:7px;background:linear-gradient(90deg,#86c5f0 0 36%,#3563c9 36% 68%,#0b1026 68%);box-shadow:inset 0 0 0 2px #ffffff22}
+.trepa-fill,.trepa-best{position:absolute;left:0;top:0;bottom:0;border-radius:7px}
+.trepa-best{background:#ffffff33}
+.trepa-fill{background:linear-gradient(90deg,#22c55e,#facc15);transition:width .15s linear}
+.trepa-mark{position:absolute;top:calc(100% + 3px);transform:translateX(-50%);font-size:.72rem;font-weight:700;color:#ddd6fe;white-space:nowrap}
+.trepa-mark::before{content:"";position:absolute;left:50%;top:-17px;width:2px;height:14px;background:#fff8}
+.trepa-moon{transform:translateX(-100%)}
+.trepa-moon::before{left:auto;right:0}
+.trepa-toast{position:absolute;top:8%;left:50%;transform:translateX(-50%);max-width:90%;padding:.55rem 1.1rem;background:#1d1a44e6;border:3px solid #a78bfa;border-radius:12px;font-weight:900;font-size:clamp(.95rem,2.4vw,1.3rem);text-align:center;pointer-events:none;animation:trepa-pop .25s ease-out;box-shadow:0 8px 24px #0008}
+@keyframes trepa-pop{from{transform:translate(-50%,-10px);opacity:0}}
+@media(max-width:800px){
+  .trepa.runner{padding:.4rem .4rem .5rem;gap:.35rem}
+  .trepa-main{position:relative}
+  .trepa-time{position:absolute;top:6px;right:6px;z-index:2;flex:none;padding:.3rem .6rem;gap:.1rem;background:#1d1a44d9;border-width:2px}
+  .trepa-time span{font-size:.6rem}
+  .trepa-time strong{font-size:1.25rem}
+  .trepa-toast{top:64px}
+  .trepa-height{gap:.6rem;padding:.35rem .6rem 1.25rem}
+  .trepa-height-label{flex-direction:column;gap:.1rem;min-width:4.6rem}
+  .trepa-height-label strong{font-size:1.15rem}
+  .trepa-mark{font-size:.62rem}
+  .trepa .runner-pad button{min-height:56px}
+}
