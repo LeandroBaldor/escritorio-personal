@@ -51,23 +51,28 @@ function TikiTakaArt() {
   </svg>;
 }
 
-// Dibujo de la tarjeta de Trepaluna: cielo que pasa de día al espacio, estructuras y la Luna arriba.
+// Dibujo de la tarjeta de Trepaluna: edificios a los costados, balcones, escalera, caño de fuego y la Luna con su banderín.
 function TrepalunaArt() {
   return <svg viewBox="0 0 160 100" aria-hidden="true">
-    <defs><linearGradient id="trepa-cielo" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stopColor="#9fd4fb" /><stop offset=".55" stopColor="#3563c9" /><stop offset="1" stopColor="#070a1f" /></linearGradient></defs>
+    <defs><linearGradient id="trepa-cielo" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stopColor="#a8d8ff" /><stop offset=".5" stopColor="#4b8fe0" /><stop offset="1" stopColor="#0b1026" /></linearGradient></defs>
     <rect width="160" height="100" fill="url(#trepa-cielo)" />
-    {[[18, 14], [44, 8], [96, 18], [140, 10], [70, 22], [122, 26]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="1" fill="#fff" />)}
-    <circle cx="128" cy="16" r="11" fill="#e7e5d8" /><circle cx="124" cy="13" r="2.4" fill="#c9c6b4" /><circle cx="132" cy="20" r="1.8" fill="#c9c6b4" />
-    <g fill="#fff" opacity=".9"><ellipse cx="34" cy="50" rx="16" ry="5" /><ellipse cx="30" cy="46" rx="7" ry="5" /><ellipse cx="38" cy="45" rx="8" ry="6" /></g>
-    <rect x="0" y="94" width="160" height="6" fill="#4ade80" />
-    <rect x="18" y="80" width="30" height="4" fill="#ea580c" />
-    <path d="M66 70q16 5 32 0" stroke="#b7792f" strokeWidth="3" fill="none" />
-    <rect x="104" y="58" width="14" height="3" fill="#2563eb" /><path d="M106 61l-2 5M116 61l2 5" stroke="#334155" strokeWidth="1.5" />
-    <path d="M86 28v26" stroke="#a16207" strokeWidth="1.6" />
-    <g transform="translate(78 54)">
+    {[[60, 8], [84, 14], [100, 6], [48, 18], [118, 22]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r=".9" fill="#fff" />)}
+    <circle cx="80" cy="-6" r="20" fill="#e7e5d8" /><circle cx="73" cy="4" r="3" fill="#c9c6b4" /><path d="M86 14V3" stroke="#e2e8f0" strokeWidth="1.2" /><path d="M86.6 3l8 2.5-8 2.5z" fill="#ef4444" />
+    <rect x="0" y="22" width="30" height="78" fill="#b4532a" /><rect x="130" y="34" width="30" height="66" fill="#6d8fb5" />
+    {[30, 44, 58, 72, 86].map(y => <g key={y}><rect x="5" y={y} width="7" height="8" fill="#fde68a" /><rect x="17" y={y} width="7" height="8" fill="#1e3a5f" /></g>)}
+    {[42, 56, 70, 84].map(y => <g key={y}><rect x="136" y={y} width="7" height="8" fill="#1e3a5f" /><rect x="148" y={y} width="7" height="8" fill="#fde68a" /></g>)}
+    <rect x="30" y="66" width="18" height="3" fill="#a8693a" /><path d="M30 61h18M33 61v5M38 61v5M43 61v5M48 61v5" stroke="#111827" strokeWidth=".9" />
+    <rect x="112" y="50" width="18" height="3" fill="#a8693a" /><path d="M112 45h18M115 45v5M120 45v5M125 45v5M130 45v5" stroke="#111827" strokeWidth=".9" />
+    <path d="M64 92V40M72 92V40" stroke="#dc2626" strokeWidth="1.5" />{[44, 50, 56, 62, 68, 74, 80, 86].map(y => <path key={y} d={`M64 ${y}h8`} stroke="#fca5a5" strokeWidth="1.2" />)}
+    <rect x="58" y="38" width="24" height="3" fill="#ea580c" />
+    <rect x="88" y="78" width="26" height="3" fill="#ea580c" /><rect x="98" y="73" width="6" height="5" fill="#4b5563" /><path d="M101 73c-4-6 3-9 0-17 5 6 4 11 0 17z" fill="#f97316" /><path d="M101 73c-2-4 2-6 0-10 3 4 2 7 0 10z" fill="#fde047" />
+    <rect x="88" y="58" width="14" height="5" fill="#f59e0b" /><text x="95" y="62.3" fontSize="4.5" fontWeight="900" textAnchor="middle" fill="#92400e">?</text>
+    <rect x="0" y="94" width="160" height="6" fill="#3f4249" />
+    <g transform="translate(64 26)">
       <path d="M2 10 0 16M6 10 8 16" stroke="#f8fafc" strokeWidth="1.8" strokeLinecap="round" />
       <rect x="0" y="4" width="8" height="7" rx="1.5" fill="#ef4444" />
       <circle cx="4" cy="2" r="3.2" fill="#fcd9b6" /><path d="M0.6 1.4a3.4 3.4 0 0 1 6.8 0z" fill="#2563eb" />
+      <path d="M1 5-1.5 1M7 5l2.5-4" stroke="#fcd9b6" strokeWidth="1.4" strokeLinecap="round" />
     </g>
   </svg>;
 }
@@ -124,8 +129,8 @@ export function Games() {
           <TrepalunaArt />
           <span className="game-card-text">
             <strong>Trepaluna</strong>
-            <span>Saltá por vigas, puentes, trampolines y sogas, pasá las nubes y el espacio, y llegá a la Luna lo más rápido que puedas.</span>
-            {trepa > 0 && <small>Récord: {formatTime(trepa)}</small>}
+            <span>Como un juego de plataformas, pero para arriba: terrazas, balcones, escaleras, sogas y caños de fuego hasta clavar el banderín en la Luna.</span>
+            {trepa.height > 0 && <small>Récord: {trepa.time !== null ? `Luna en ${formatTime(trepa.time)}` : `${trepa.height.toLocaleString('es-AR')} metros`}</small>}
           </span>
           <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
         </Link>
