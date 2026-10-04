@@ -37,8 +37,8 @@ function BandClock() {
 }
 
 
-// Editar una nota o tarea del día: categoría, fecha (dd/mm/aaaa) y hora, uno debajo del otro, y Guardar.
-function ItemEditor({ item, date, onSave, onDelete }: { item: Item; date: string; onSave: (category: EventCategory, calendar: NoteCalendar) => void; onDelete?: () => void }) {
+// Editar una nota, tarea o gasto del día (se abre con el botón Editar): categoría, fecha (dd/mm/aaaa) y hora, uno debajo del otro, y Guardar.
+function ItemEditor({ item, date, onSave, onCancel, onDelete }: { item: Item; date: string; onSave: (category: EventCategory, calendar: NoteCalendar) => void; onCancel: () => void; onDelete?: () => void }) {
   const fieldId = useId();
   const [category, setCategory] = useState(item.category);
   const [day, setDay] = useState(formatExpenseDate(date));
@@ -52,6 +52,7 @@ function ItemEditor({ item, date, onSave, onDelete }: { item: Item; date: string
     <label>Hora<TimeInput label={`Hora de ${item.text}`} value={hour} onChange={setHour} /></label>
     <div className="cal-item-actions">
       <button disabled={!calendar}>Guardar</button>
+      <button type="button" className="cal-cancel" onClick={onCancel}>Cancelar</button>
       {onDelete && <button type="button" className="delete" onClick={onDelete}>Borrar</button>}
     </div>
   </form>;
@@ -74,6 +75,7 @@ export function Calendar() {
   const todayIso = isoOf(today);
   const [view, setView] = useState({ year: today.getFullYear(), month: today.getMonth() });
   const [selected, setSelected] = useState(todayIso);
+  const [editing, setEditing] = useState<string | null>(null);
   const [newText, setNewText] = useState('');
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('');
@@ -120,6 +122,7 @@ export function Calendar() {
       if (calendar.time) next.time = calendar.time; else delete next.time;
       return { ...d, expenses: d.expenses.map(e => e.id === next.id ? next : e), expenseMonths: syncMonthEntry(d.expenseMonths, next) };
     });
+    setEditing(null);
     goTo(calendar.date);
     setAnnouncement(`${item.text}: guardado el ${longDate(calendar.date)}`);
   };
@@ -216,9 +219,11 @@ export function Calendar() {
               <div className="cal-item-text">
                 {item.time && <b>{item.time}</b>}
                 <span className={item.done ? 'cal-done' : undefined}>{item.text}</span>
-                <small>{item.source === 'expense' ? `Mis gastos · ${item.done ? 'Pagado' : 'No pagado'}` : item.note ? (item.note.archivedAt ? 'Nota guardada' : 'Nota del escritorio') : 'Tarea del calendario'}</small>
+                <small>{item.source === 'expense' ? `Mis gastos · ${item.done ? 'Pagado' : 'No pagado'}` : item.note ? (item.note.archivedAt ? 'Nota guardada' : 'Nota del escritorio') : 'Tarea del calendario'} · {item.category}</small>
               </div>
-              <ItemEditor key={`${item.key}-${selected}`} item={item} date={selected} onSave={(category, calendar) => saveItem(item, category, calendar)} onDelete={item.event ? () => removeEvent(item.event!) : undefined} />
+              {editing === `${item.key}-${selected}`
+                ? <ItemEditor key={`${item.key}-${selected}`} item={item} date={selected} onSave={(category, calendar) => saveItem(item, category, calendar)} onCancel={() => setEditing(null)} onDelete={item.event ? () => removeEvent(item.event!) : undefined} />
+                : <div className="cal-item-actions"><button type="button" className="cal-edit-button" onClick={() => setEditing(`${item.key}-${selected}`)} aria-label={`Editar ${item.text}`}>Editar</button></div>}
             </li>)}
           </ul>}
           </div>

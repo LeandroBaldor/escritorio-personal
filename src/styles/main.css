@@ -534,3 +534,8 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .date-add .time-input{width:6.5rem}
 .cal-doubt .date-input{grid-area:day;min-width:0}
 .cal-item-form .date-picker-icon,.cal-add .date-picker-icon,.cal-doubt .date-picker-icon,.date-add .date-picker-icon{width:2.4rem;height:100%;font-size:1.05rem}
+/* Calendario: cada cosa del día muestra sus datos y "Editar"; los campos aparecen recién al tocarlo. */
+.cal-item-actions .cal-edit-button{padding:.4rem .9rem;margin:0}
+.cal-cancel{background:#fff;color:#1f2937;box-shadow:inset 0 0 0 1px #cbd5e1}
+.cal-cancel:hover{background:#f1f5f9}
+.cal-item-form .cal-item-actions button{margin:0}

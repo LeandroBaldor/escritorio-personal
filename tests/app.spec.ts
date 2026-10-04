@@ -681,6 +681,8 @@ test('el calendario agrega tareas con día y categoría, y deja cambiar la categ
   const chip = page.locator('.cal-chip', { hasText: 'Reunión con el cliente' });
   await expect(chip).toHaveText('15:00 Reunión con el cliente');
   await expect(chip).toHaveClass(/cal-cat--trabajo/);
+  await expect(page.getByRole('form', { name: 'Editar Reunión con el cliente' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Editar Reunión con el cliente' }).click();
   const editor = page.getByRole('form', { name: 'Editar Reunión con el cliente' });
   await editor.getByLabel('Categoría').selectOption('Personal');
   await expect(chip).toHaveClass(/cal-cat--trabajo/);
@@ -730,6 +732,7 @@ test('en el panel del día se editan categoría, fecha y hora de una nota y se g
   await page.getByRole('button', { name: 'Agregar nota' }).click();
   await page.getByRole('link', { name: 'Calendario' }).click();
   await expect(page.getByRole('link', { name: 'Ver nota' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Editar Turno dentista' }).click();
   const editor = page.getByRole('form', { name: 'Editar Turno dentista' });
   await expect(editor.getByLabel('Fecha de Turno dentista', { exact: true })).toHaveValue(/^\d{2}\/\d{2}\/\d{4}$/);
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -753,6 +756,7 @@ test('los gastos se editan en el panel del día con el mismo formato que las not
   await page.getByLabel('Monto del gasto en pesos').fill('18636,07');
   await page.getByRole('button', { name: 'Agregar' }).click();
   await page.getByRole('navigation', { name: 'Ir a otras secciones' }).getByRole('link', { name: 'Calendario' }).click();
+  await page.getByRole('button', { name: /^Editar Claro/ }).click();
   const editor = page.getByRole('form', { name: /^Editar Claro/ });
   await expect(editor.getByLabel('Categoría')).toHaveValue('Pagos');
   await expect(page.getByRole('link', { name: 'Ver gasto' })).toHaveCount(0);
