@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { drawRunner } from './runnerCharacter';
 import {
   ballPos, birdPos, fireActive, fireWarning, meters, moonOf, newTrepa, PLAYER_H, PLAYER_W, step, takeEvents, WORLD_W, ZONES,
   type Ball, type Bird, type Climb, type Facade, type Fire, type Input, type LoseReason, type Plat, type Trepa, type Zone,
@@ -505,55 +506,14 @@ function drawBird(ctx: CanvasRenderingContext2D, b: Bird, v: View) {
 
 // ---------- Personaje ----------
 function drawPlayer(ctx: CanvasRenderingContext2D, g: Trepa, v: View) {
-  const p = g.player, f = p.facing, s = v.s;
+  // El mismo personaje que en ¡Cuidado, bloques!; al perder, cae girando (y chamuscado si se quemó).
+  const p = g.player, s = v.s;
   const pw = PLAYER_W * s, ph = PLAYER_H * s;
   const px = X(v, p.x) - pw / 2, py = Y(v, p.y) - ph;
   const burnt = g.dying?.reason === 'burn';
   ctx.save();
   if (g.dying) { ctx.translate(px + pw / 2, py + ph / 2); ctx.rotate(p.spin); ctx.translate(-(px + pw / 2), -(py + ph / 2)); }
-  const onGround = !!p.ground, climbing = !!p.climb;
-  const swing = (p.vx !== 0 && onGround) || climbing ? Math.sin(v.t * (climbing ? 12 : 22)) : 0;
-  const skin = burnt ? '#57534e' : '#fcd9b6';
-  ctx.lineCap = 'round';
-  const arm = (side: 1 | -1, phase: number) => {
-    const sx = px + pw / 2 + side * pw * 0.4, sy = py + ph * 0.44;
-    let hx = sx + side * pw * 0.2 + phase * pw * 0.18, hy = onGround ? sy + ph * 0.24 : sy - ph * 0.16;
-    if (climbing) { hx = px + pw / 2 + side * pw * 0.12; hy = py + ph * (0.02 + 0.08 * phase * side); }
-    if (g.dying) { hx = sx + side * pw * 0.5; hy = sy - ph * 0.35; }
-    ctx.strokeStyle = skin; ctx.lineWidth = Math.max(2, pw * 0.13);
-    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
-    ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(hx, hy, Math.max(1.5, pw * 0.09), 0, Math.PI * 2); ctx.fill();
-  };
-  arm(-f as 1 | -1, -swing);
-  const footL = px + pw * 0.38 + swing * pw * 0.22, footR = px + pw * 0.62 - swing * pw * 0.22;
-  const leg = (color: string, width: number) => {
-    ctx.strokeStyle = color; ctx.lineWidth = width;
-    ctx.beginPath();
-    ctx.moveTo(px + pw * 0.38, py + ph * 0.7); ctx.lineTo(footL, py + ph * 0.96);
-    ctx.moveTo(px + pw * 0.62, py + ph * 0.7); ctx.lineTo(footR, py + ph * 0.96);
-    ctx.stroke();
-  };
-  leg('#94a3b8', Math.max(3, pw * 0.22));
-  leg(burnt ? '#44403c' : '#f8fafc', Math.max(2, pw * 0.16));
-  ctx.fillStyle = burnt ? '#44403c' : '#f8fafc'; ctx.fillRect(px + pw * 0.27, py + ph * 0.66, pw * 0.46, ph * 0.08);
-  ctx.fillStyle = '#1f2937';
-  for (const fx of [footL, footR]) { ctx.beginPath(); ctx.ellipse(fx + f * pw * 0.04, py + ph * 0.97, pw * 0.11, pw * 0.06, 0, 0, Math.PI * 2); ctx.fill(); }
-  ctx.fillStyle = burnt ? '#292524' : '#ef4444';
-  ctx.beginPath(); ctx.roundRect(px + pw * 0.22, py + ph * 0.38, pw * 0.56, ph * 0.38, pw * 0.12); ctx.fill();
-  const hx = px + pw / 2, hy = py + ph * 0.22, r = pw * 0.3;
-  ctx.fillStyle = skin;
-  ctx.beginPath(); ctx.arc(hx + f * r * 0.95, hy + r * 0.15, r * 0.26, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(hx, hy, r, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#3b2412'; ctx.beginPath(); ctx.ellipse(hx - f * r * 0.55, hy + r * 0.05, r * 0.48, r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = burnt ? '#44403c' : '#f2b48c'; ctx.beginPath(); ctx.arc(hx - f * r * 0.12, hy + r * 0.12, r * 0.26, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = burnt ? '#fff' : '#111'; ctx.beginPath(); ctx.arc(hx + f * r * 0.5, hy - r * 0.05, Math.max(1.2, r * 0.15), 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = burnt ? '#1c1917' : '#2563eb';
-  ctx.beginPath(); ctx.arc(hx, hy - r * 0.2, r * 1.04, Math.PI, Math.PI * 2); ctx.fill();
-  ctx.fillRect(hx - r * 1.04, hy - r * 0.32, r * 2.08, r * 0.14);
-  ctx.fillStyle = burnt ? '#1c1917' : '#1d4ed8';
-  ctx.beginPath(); ctx.roundRect(f > 0 ? hx + r * 0.3 : hx - r * 1.55, hy - r * 0.32, r * 1.25, r * 0.22, r * 0.1); ctx.fill();
-  ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(hx, hy - r * 1.22, r * 0.14, 0, Math.PI * 2); ctx.fill();
-  arm(f, swing);
+  drawRunner(ctx, { x: px, y: py, w: pw, h: ph, facing: p.facing, time: v.t, running: p.vx !== 0 && !!p.ground, airborne: !p.ground && !p.climb, climbing: !!p.climb, falling: !!g.dying, burnt });
   ctx.restore();
   if (burnt) { // humito
     for (let i = 0; i < 3; i++) { ctx.fillStyle = `rgba(120,113,108,${0.5 - i * 0.12})`; ctx.beginPath(); ctx.arc(px + pw / 2 + Math.sin(v.t * 6 + i) * pw * 0.4, py - i * pw * 0.6, pw * (0.25 + i * 0.1), 0, Math.PI * 2); ctx.fill(); }

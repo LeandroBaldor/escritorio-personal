@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { drawRunner } from './runnerCharacter';
 import { level, newGame, WIN_LEVEL, TRAP_SECONDS, PLAYER_H, PLAYER_W, score, step, type Game, type GameOver, type Input } from './blockRunner';
 
 const RECORD_KEY = 'escritorio-personal-juegos:bloques-record';
@@ -74,65 +75,9 @@ function draw(ctx: CanvasRenderingContext2D, game: Game, cell: number) {
     ctx.beginPath(); ctx.arc(cx + br * 0.5, cy - br * 1.75, cell * 0.05 * (1 + flicker), 0, Math.PI * 2); ctx.fill();
   }
 
-  // Personaje de perfil: brazos separados del cuerpo, piernas que se mueven al correr,
-  // y nariz, ojo y oreja para que se vea hacia qué lado mira.
-  const p = game.player, f = p.facing;
-  const px = p.x * cell, py = p.y * cell, pw = PLAYER_W * cell, ph = PLAYER_H * cell;
-  const running = p.vx !== 0 && p.onGround;
-  const swing = running ? Math.sin(game.time * 22) : 0;
-  const skin = '#fcd9b6';
-  ctx.lineCap = 'round';
-  const arm = (side: 1 | -1, phase: number) => {
-    const sx = px + pw / 2 + side * pw * 0.4, sy = py + ph * 0.44;
-    const hx = sx + side * pw * 0.2 + phase * pw * 0.18;
-    const hy = p.onGround ? sy + ph * 0.24 : sy - ph * 0.16; // en el aire levanta los brazos
-    ctx.strokeStyle = skin;
-    ctx.lineWidth = Math.max(2, pw * 0.13);
-    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
-    ctx.fillStyle = skin;
-    ctx.beginPath(); ctx.arc(hx, hy, Math.max(1.5, pw * 0.09), 0, Math.PI * 2); ctx.fill();
-  };
-  arm(-f as 1 | -1, -swing); // el brazo de atrás va detrás del cuerpo
-  // Pantalón blanco (con borde suave para que se vea sobre los bloques claros) y zapatillas oscuras.
-  const footL = px + pw * 0.38 + swing * pw * 0.22, footR = px + pw * 0.62 - swing * pw * 0.22;
-  const leg = (color: string, width: number) => {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width;
-    ctx.beginPath();
-    ctx.moveTo(px + pw * 0.38, py + ph * 0.7); ctx.lineTo(footL, py + ph * 0.96);
-    ctx.moveTo(px + pw * 0.62, py + ph * 0.7); ctx.lineTo(footR, py + ph * 0.96);
-    ctx.stroke();
-  };
-  leg('#94a3b8', Math.max(3, pw * 0.22));
-  leg('#f8fafc', Math.max(2, pw * 0.16));
-  ctx.fillStyle = '#f8fafc';
-  ctx.fillRect(px + pw * 0.27, py + ph * 0.66, pw * 0.46, ph * 0.08);
-  ctx.fillStyle = '#1f2937';
-  for (const fx of [footL, footR]) { ctx.beginPath(); ctx.ellipse(fx + f * pw * 0.04, py + ph * 0.97, pw * 0.11, pw * 0.06, 0, 0, Math.PI * 2); ctx.fill(); }
-  ctx.fillStyle = '#ef4444';
-  ctx.beginPath(); ctx.roundRect(px + pw * 0.22, py + ph * 0.38, pw * 0.56, ph * 0.38, pw * 0.12); ctx.fill();
-  const hx = px + pw / 2, hy = py + ph * 0.22, r = pw * 0.3;
-  ctx.fillStyle = skin;
-  ctx.beginPath(); ctx.arc(hx + f * r * 0.95, hy + r * 0.15, r * 0.26, 0, Math.PI * 2); ctx.fill(); // nariz
-  ctx.beginPath(); ctx.arc(hx, hy, r, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#3b2412'; // pelo que asoma atrás de la gorra
-  ctx.beginPath(); ctx.ellipse(hx - f * r * 0.55, hy + r * 0.05, r * 0.48, r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#f2b48c'; // oreja
-  ctx.beginPath(); ctx.arc(hx - f * r * 0.12, hy + r * 0.12, r * 0.26, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#c98a66';
-  ctx.lineWidth = Math.max(0.8, r * 0.08);
-  ctx.beginPath(); ctx.arc(hx - f * r * 0.12, hy + r * 0.12, r * 0.13, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = '#111'; // ojo
-  ctx.beginPath(); ctx.arc(hx + f * r * 0.5, hy - r * 0.05, Math.max(1.2, r * 0.15), 0, Math.PI * 2); ctx.fill();
-  // Gorra azul con visera hacia donde mira.
-  ctx.fillStyle = '#2563eb';
-  ctx.beginPath(); ctx.arc(hx, hy - r * 0.2, r * 1.04, Math.PI, Math.PI * 2); ctx.fill();
-  ctx.fillRect(hx - r * 1.04, hy - r * 0.32, r * 2.08, r * 0.14);
-  ctx.fillStyle = '#1d4ed8';
-  ctx.beginPath(); ctx.roundRect(f > 0 ? hx + r * 0.3 : hx - r * 1.55, hy - r * 0.32, r * 1.25, r * 0.22, r * 0.1); ctx.fill();
-  ctx.fillStyle = '#facc15';
-  ctx.beginPath(); ctx.arc(hx, hy - r * 1.22, r * 0.14, 0, Math.PI * 2); ctx.fill();
-  arm(f, swing); // el brazo de adelante va delante del cuerpo
+  // El personaje (el mismo que en Trepaluna).
+  const p = game.player;
+  drawRunner(ctx, { x: p.x * cell, y: p.y * cell, w: PLAYER_W * cell, h: PLAYER_H * cell, facing: p.facing, time: game.time, running: p.vx !== 0 && p.onGround, airborne: !p.onGround });
 
   // Explosiones: un fogonazo que crece y se apaga, y chispas de los bloques que se rompen.
   for (const b of game.blasts) {
