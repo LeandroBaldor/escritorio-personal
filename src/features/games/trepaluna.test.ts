@@ -29,9 +29,15 @@ describe('Trepaluna: recorrido', () => {
     const skins = new Set(course.plats.map(p => p.skin));
     for (const s of ['terrace', 'balcony', 'step', 'beam', 'tile', 'spring', 'bricks', 'basket', 'zeppelin', 'asteroid', 'ufo', 'rocket']) expect(skins.has(s as Plat['skin']), s).toBe(true);
     expect(new Set(course.climbs.map(c => c.skin))).toEqual(new Set(['ladder', 'rope', 'truss']));
-    expect(course.fires.filter(f => f.dir === 'up').length).toBeGreaterThanOrEqual(3);
+    expect(course.fires.filter(f => f.dir === 'up').length).toBeGreaterThanOrEqual(2);
     expect(course.fires.filter(f => f.dir !== 'up').length).toBeGreaterThan(3);
     expect(course.balls.length).toBeGreaterThan(0);
+    // Desde la mitad del recorrido (1.500 m) todo se vuelve tecnológico.
+    for (const s of ['neon', 'hologram', 'glass', 'techTile']) expect(skins.has(s as Plat['skin']), s).toBe(true);
+    for (const list of [course.lasers, course.fans, course.magnets, course.gears, course.portals]) expect(list.length).toBeGreaterThan(0);
+    expect(course.lasers.some(l => l.style === 'zap')).toBe(true);
+    expect([...course.lasers.map(l => l.y), ...course.fans.map(f => f.y1), ...course.magnets.map(m => m.y1), ...course.gears.map(g => g.y), ...course.portals.map(o => o.y1)].every(y => y >= ZONES.tech)).toBe(true);
+    expect(course.plats.filter(p => p.y < ZONES.tech).some(p => ['neon', 'hologram', 'glass', 'techTile', 'piston'].includes(p.skin))).toBe(false);
     expect(course.birds.length).toBeGreaterThan(0);
     expect(course.facades.length).toBeGreaterThan(0);
     // En la ciudad hay edificios enfrentados; arriba de los 1.000 m ya no.
@@ -213,5 +219,71 @@ describe('Trepaluna: peligros, perder y ganar', () => {
     step(g, idle, -0.01); step(g, idle, 0);
     expect(g.time).toBe(0);
     expect(g.player.y).toBe(0);
+  });
+});
+
+describe('Trepaluna: zona tecnológica', () => {
+  it('el láser prendido electrocuta y apagado se puede pasar', () => {
+    const g = newTrepa();
+    only(g, { x: 2, y: 160, w: 12 });
+    g.bestGround = 160;
+    const laser = { id: 1, y: 160.5, x1: 0, x2: 16, period: 2, on: 0.5, phase: 1.5, style: 'laser' as const };
+    g.lasers = [laser];
+    Object.assign(g.player, { x: 8, y: 160, ground: g.plats[1] });
+    step(g, idle, 1 / 60); // apagado
+    expect(g.dying).toBeNull();
+    laser.phase = 0;
+    step(g, idle, 1 / 60);
+    expect(g.dying?.reason).toBe('zap');
+  });
+
+  it('el imán lo levanta hasta la plataforma de arriba', () => {
+    const g = newTrepa();
+    const [, top] = only(g, { x: 6, y: 160, w: 4 }, { x: 6.5, y: 168, w: 3 });
+    g.magnets = [{ id: 1, x: 8, y1: 160.05, y2: 168.6 }];
+    g.bestGround = 160;
+    Object.assign(g.player, { x: 8, y: 160, ground: g.plats[1] });
+    run(g, 2.5);
+    expect(g.player.ground).toBe(top);
+  });
+
+  it('el teletransportador lo lleva al portal de arriba', () => {
+    const g = newTrepa();
+    const [a, b] = only(g, { x: 6, y: 160, w: 4 }, { x: 2, y: 170, w: 4 });
+    g.portals = [{ id: 1, x1: 8, y1: a.y, x2: 4, y2: b.y, hue: 200 }];
+    g.bestGround = 160;
+    Object.assign(g.player, { x: 7, y: 160, ground: a });
+    run(g, 0.4, { right: true });
+    expect(g.player.y).toBe(170);
+    expect(g.player.ground).toBe(b);
+    expect(takeEvents(g).some(e => e.type === 'teleport')).toBe(true);
+  });
+
+  it('las plataformas holográficas desaparecen y vuelven', () => {
+    const g = newTrepa();
+    const [h] = only(g, { x: 6, y: 2, w: 3, kind: 'blink', skin: 'hologram', speed: 2, phase: 0 });
+    Object.assign(g.player, { x: 7.5, y: 2, ground: h });
+    run(g, 0.5);
+    expect(g.player.ground).toBe(h);
+    run(g, 1);
+    expect(h.gone).toBe(1);
+    expect(g.player.ground).not.toBe(h);
+    run(g, 0.8);
+    expect(h.gone).toBe(0);
+  });
+
+  it('el ventilador empuja de costado y el engranaje lo empuja', () => {
+    const g = newTrepa();
+    const [p] = only(g, { x: 1, y: 160, w: 14 });
+    g.fans = [{ id: 1, side: -1, y1: 159, y2: 163, force: 4 }];
+    g.bestGround = 160;
+    Object.assign(g.player, { x: 5, y: 160, ground: p });
+    run(g, 0.5);
+    expect(g.player.x).toBeGreaterThan(6.5);
+    g.fans = [];
+    g.gears = [{ id: 1, x: g.player.x + 1, y: 160.5, r: 1.2, speed: 2 }];
+    step(g, idle, 1 / 60);
+    expect(g.player.stun).toBeGreaterThan(0);
+    expect(g.dying).toBeNull();
   });
 });
