@@ -81,3 +81,20 @@ describe('tiempo del cuadro', () => {
     expect(game.player.y).toBe(12 - PLAYER_H);
   });
 });
+
+describe('pila hasta el techo', () => {
+  it('si una pieza queda por encima de la pantalla, el juego sigue y caen más piezas', () => {
+    const game = newGame(4, 4);
+    for (let r = 0; r < 4; r++) game.grid[r] = ['#fff', '#fff', null, null];
+    game.player.x = 2.2;
+    game.spawnIn = 99;
+    game.pieces.push({ id: 1, x: 0, y: -1.05, cells: [[0, 0], [1, 0]], width: 2, height: 1, color: '#f00', speed: 5 });
+    step(game, idle, 0.05);
+    expect(game.pieces).toHaveLength(0);
+    expect(game.over).toBeNull();
+    game.spawnIn = 0;
+    step(game, idle, 0.05, () => 0.1);
+    expect(game.nextId).toBe(2); // apareció otra pieza (aunque esta también quede arriba de todo)
+    expect(game.over).toBeNull();
+  });
+});
