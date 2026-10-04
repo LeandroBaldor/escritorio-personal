@@ -610,14 +610,17 @@ test('el diario inserta emoticones y mantiene los renglones parejos', async ({ p
 
 test('el calendario anota con la fecha escrita en el texto y cambia de mes con las flechas', async ({ page }) => {
   await page.goto('/escritorio-personal/');
+  await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Turno dentista hoy 9:15');
+  await page.getByRole('button', { name: 'Agregar nota' }).click();
   await page.getByRole('link', { name: 'Calendario' }).click();
+  await expect(page.locator('.cal-chip.cal-cat--salud', { hasText: 'Turno dentista' })).toHaveText('09:15Turno dentista');
   await expect(page.getByRole('heading', { name: 'Calendario', exact: true })).toBeVisible();
   const month = page.locator('.cal-band h2');
   const current = await month.textContent();
   await page.getByPlaceholder('Ej. Turno Altamar 13/10 10:30').fill('Turno Altamar mañana 10:30');
   await expect(page.locator('.cal-preview')).toContainText('10:30 · Turno Altamar');
   await page.getByRole('button', { name: 'Agregar', exact: true }).click();
-  await expect(page.locator('.cal-chip.cal-cat--salud')).toHaveText('10:30Turno Altamar');
+  await expect(page.locator('.cal-chip.cal-cat--salud', { hasText: 'Turno Altamar' })).toHaveText('10:30Turno Altamar');
   await expect(page.locator('.cal-day-panel')).toContainText('Turno Altamar');
   await page.reload();
   await page.getByRole('button', { name: 'Hoy' }).click();

@@ -27,13 +27,19 @@ function cut(text: string, index: number, length: number) {
   return `${before} ${after}`.replace(/\s+/g, ' ').replace(/^[\s,.:;-]+|[\s,:;-]+$/g, '').trim();
 }
 
+// Igual que cut, pero si la fecha viene después del día de la semana ("lunes 13/10") también lo saca.
+function cutWithWeekday(text: string, index: number, length: number) {
+  const before = new RegExp(`(?:\\b(?:el|este)\\s+)?\\b(?:${WEEKDAYS.join('|')})\\s*,?\\s*$`, 'i').exec(plain(text.slice(0, index)));
+  return before ? cut(text, before.index, index - before.index + length) : cut(text, index, length);
+}
+
 // Reconoce la fecha y la hora dentro de un texto como "Turno Altamar 13/10 10:30".
 export function parseEvent(input: string, today: Date): ParsedEvent {
   let text = input.trim();
   let date: Date | null = null;
   let time: string | null = null;
 
-  const timeMatch = /\b(?:a\s+las\s+)?([01]?\d|2[0-3]):([0-5]\d)\s*(?:hs?\b|h\b)?/i.exec(text) ?? /\b(?:a\s+las\s+)?([01]?\d|2[0-3])\s*(?:hs|h)\b/i.exec(text);
+  const timeMatch = /\b(?:a\s+las\s+)?([01]?\d|2[0-3]):([0-5]\d)\s*(?:hs?\b|h\b)?/i.exec(text) ?? /\b(?:a\s+las\s+)?([01]?\d|2[0-3])\s*(?:hs|h)\b/i.exec(text) ?? /\ba\s+las\s+([01]?\d|2[0-3])\b(?![/-]\d)/i.exec(text);
   if (timeMatch) {
     time = `${pad(Number(timeMatch[1]))}:${timeMatch[2] ?? '00'}`;
     text = cut(text, timeMatch.index, timeMatch[0].length);
@@ -46,10 +52,10 @@ export function parseEvent(input: string, today: Date): ParsedEvent {
 
   if (numeric) {
     date = calendarDate(Number(numeric[1]), Number(numeric[2]), numeric[3] ? Number(numeric[3]) : null, today);
-    if (date) text = cut(text, numeric.index, numeric[0].length);
+    if (date) text = cutWithWeekday(text, numeric.index, numeric[0].length);
   } else if (written) {
     date = calendarDate(Number(written[1]), MONTHS.indexOf(written[2].toLowerCase()) + 1, written[3] ? Number(written[3]) : null, today);
-    if (date) text = cut(text, written.index, written[0].length);
+    if (date) text = cutWithWeekday(text, written.index, written[0].length);
   } else if (relative) {
     const word = relative[1].toLowerCase();
     date = addDays(today, word === 'hoy' ? 0 : word === 'manana' ? 1 : 2);
