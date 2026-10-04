@@ -738,7 +738,7 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 .trepa-stat strong{font:900 clamp(1.2rem,2.2vw,2rem)/1 Nunito,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#fde047}
 .trepa-stat+.trepa-stat strong{color:#86efac}
 .trepa-meter{position:relative;flex:1;min-height:120px;display:flex;gap:.45rem;padding:.4rem 0 .2rem}
-.trepa-meter-track{position:relative;width:14px;border-radius:7px;background:linear-gradient(0deg,#8fb3d6 0 33%,#7cc4f5 33% 57%,#e2e8f0 57% 70%,#0b1026 70%);box-shadow:inset 0 0 0 2px #ffffff22}
+.trepa-meter-track{position:relative;width:14px;border-radius:7px;background:linear-gradient(0deg,#8fb3d6 0 33%,#7cc4f5 33% 42%,#e2e8f0 42% 50%,#6d28d9 50% 77%,#0b1026 77%);box-shadow:inset 0 0 0 2px #ffffff22}
 .trepa-meter-best,.trepa-meter-fill{position:absolute;left:0;right:0;bottom:0;border-radius:7px}
 .trepa-meter-best{background:#ffffff44}
 .trepa-meter-fill{background:linear-gradient(0deg,#22c55e,#facc15);transition:height .15s linear}

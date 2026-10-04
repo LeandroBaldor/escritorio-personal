@@ -2,8 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Link } from 'react-router-dom';
 import { drawRunner } from './runnerCharacter';
 import {
-  ballPos, birdPos, fireActive, fireWarning, meters, moonOf, newTrepa, PLAYER_H, PLAYER_W, step, takeEvents, WORLD_W, ZONES,
-  type Ball, type Bird, type Climb, type Facade, type Fire, type Input, type LoseReason, type Plat, type Trepa, type Zone,
+  ballPos, birdPos, blinkOn, fireActive, fireWarning, laserActive, laserHalf, laserWarning, meters, moonOf, newTrepa, PLAYER_H, PLAYER_W, step, takeEvents, WORLD_W, ZONES,
+  type Ball, type Bird, type Climb, type Facade, type Fan, type Fire, type Gear, type Laser, type Magnet, type Portal, type Input, type LoseReason, type Plat, type Trepa, type Zone,
 } from './trepaluna';
 
 // ---------- Récord ----------
@@ -64,7 +64,7 @@ const hsl = (h: number, s: number, l: number, a = 1) => `hsla(${h},${s}%,${l}%,$
 const hash = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
 // ---------- Fondo ----------
-const SKY: [number, [number, number, number]][] = [[0, [168, 216, 255]], [90, [110, 190, 250]], [170, [70, 150, 235]], [205, [30, 50, 120]], [235, [8, 10, 32]], [400, [3, 4, 14]]];
+const SKY: [number, [number, number, number]][] = [[0, [168, 216, 255]], [90, [110, 190, 250]], [128, [80, 160, 240]], [152, [40, 36, 110]], [200, [22, 16, 62]], [240, [8, 8, 30]], [400, [3, 4, 14]]];
 function skyAt(y: number) {
   let i = 0;
   while (i < SKY.length - 2 && y > SKY[i + 1][0]) i++;
@@ -90,7 +90,7 @@ function drawBackground(ctx: CanvasRenderingContext2D, v: View) {
   ctx.fillStyle = bg; ctx.fillRect(0, 0, v.w, v.h);
 
   // Estrellas y planetas en el espacio.
-  const stars = Math.max(0, Math.min(1, (mid - 195) / 35));
+  const stars = Math.max(0, Math.min(1, (mid - 145) / 40));
   if (stars > 0) {
     for (let i = 0; i < 160; i++) {
       const sx = hash(i) * v.w, sy = ((hash(i + 500) * v.h * 2 + v.cam * v.s * 0.1) % (v.h * 2)) - v.h * 0.5;
@@ -99,7 +99,7 @@ function drawBackground(ctx: CanvasRenderingContext2D, v: View) {
       ctx.fillStyle = i % 9 ? '#fff' : '#fde68a';
       const size = 1 + hash(i + 900) * 1.8; ctx.fillRect(sx, sy, size, size);
     }
-    ctx.globalAlpha = stars;
+    ctx.globalAlpha = Math.max(0, Math.min(1, (mid - 225) / 25)); // los planetas, recién en el espacio
     const py = v.h * 0.3 + (v.cam - 250) * v.s * 0.08;
     // Planeta con anillos y un planeta rojo chiquito.
     const pr = Math.min(v.w, v.h) * 0.09, px = v.w * 0.8;
@@ -110,8 +110,33 @@ function drawBackground(ctx: CanvasRenderingContext2D, v: View) {
     ctx.globalAlpha = 1;
   }
 
+  // Zona tecnológica: torres de fondo con anillos de neón y una grilla que brilla.
+  const tech = Math.max(0, Math.min(1, (mid - 140) / 15)) * Math.max(0, Math.min(1, (245 - mid) / 15));
+  if (tech > 0) {
+    ctx.globalAlpha = tech * 0.9;
+    const base = Y(v, ZONES.tech) * 0.4 + v.h * 0.6 + (v.cam - ZONES.tech) * v.s * 0.25;
+    for (let i = 0; i < 9; i++) {
+      const tx = hash(i + 50) * v.w, tw = 30 + hash(i + 60) * 50, th = v.h * (0.5 + hash(i + 70) * 0.9);
+      const ty = base - th;
+      ctx.fillStyle = '#1b1747'; ctx.fillRect(tx, ty, tw, th + v.h);
+      ctx.fillStyle = '#2a2470'; ctx.fillRect(tx + tw * 0.15, ty, tw * 0.2, th + v.h);
+      const hue = [190, 290, 320][i % 3];
+      for (let k = 0; k < 3; k++) {
+        const ry = ty + th * (0.15 + k * 0.3);
+        ctx.strokeStyle = hsl(hue, 100, 60, 0.85); ctx.lineWidth = 3; ctx.shadowColor = hsl(hue, 100, 60); ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.ellipse(tx + tw / 2, ry, tw * 0.9, tw * 0.22, 0, 0, Math.PI * 2); ctx.stroke(); ctx.shadowBlur = 0;
+      }
+      ctx.fillStyle = hsl(hue, 100, 70, 0.8);
+      for (let wy = ty + 10; wy < Math.min(v.h, ty + th + v.h); wy += 16) if (hash(i * 31 + wy) > 0.6) ctx.fillRect(tx + tw * 0.55, wy, tw * 0.25, 4);
+    }
+    ctx.strokeStyle = '#7c3aed33'; ctx.lineWidth = 1;
+    const step = Math.max(24, v.s * 1.6), off = (v.cam * v.s * 0.5) % step;
+    for (let gy = v.h - off; gy > v.h * 0.55; gy -= step) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(v.w, gy); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  }
+
   // El sol, a partir de que se terminan los edificios.
-  const sun = Math.max(0, Math.min(1, (mid - 85) / 20)) * Math.max(0, Math.min(1, (215 - mid) / 25));
+  const sun = Math.max(0, Math.min(1, (mid - 85) / 20)) * Math.max(0, Math.min(1, (150 - mid) / 20));
   if (sun > 0) {
     const sx = v.w * 0.82, sy = v.h * 0.2, r = Math.min(v.w, v.h) * 0.08;
     ctx.globalAlpha = sun;
@@ -137,7 +162,7 @@ function drawBackground(ctx: CanvasRenderingContext2D, v: View) {
 
   // Nubes de fondo en el cielo.
   for (let i = 0; i < 40; i++) {
-    const wy = 95 + hash(i + 200) * 120;
+    const wy = 95 + hash(i + 200) * (ZONES.tech - 95);
     const sy = Y(v, wy) * 0.8 + v.h * 0.1;
     if (sy < -80 || sy > v.h + 80) continue;
     const sx = ((hash(i + 300) * (v.w + 240) + v.t * (5 + hash(i) * 10)) % (v.w + 240)) - 120;
@@ -405,6 +430,49 @@ function drawPlat(ctx: CanvasRenderingContext2D, pl: Plat, v: View, g: Trepa) {
       ctx.fillStyle = '#4ade801a'; ctx.beginPath(); ctx.moveTo(x + w * 0.35, y + s * 0.5); ctx.lineTo(x + w * 0.65, y + s * 0.5); ctx.lineTo(x + w * 0.8, y + s * 2); ctx.lineTo(x + w * 0.2, y + s * 2); ctx.fill();
       return;
     }
+    case 'neon': { // plataforma de metal oscuro con borde de neón
+      const hue = [190, 290, 320, 160][pl.id % 4];
+      fillTex(ctx, 'metal', x, y, w, h, v, '#0f172acc');
+      ctx.shadowColor = hsl(hue, 100, 60); ctx.shadowBlur = 10;
+      ctx.fillStyle = hsl(hue, 100, 62); ctx.fillRect(x, y, w, s * 0.08); ctx.fillRect(x, y + h - s * 0.06, w, s * 0.06);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = hsl(hue, 100, 70); for (let k = x + s * 0.4; k < x + w - s * 0.2; k += s * 0.9) ctx.fillRect(k, y + h * 0.45, s * 0.25, s * 0.06);
+      return;
+    }
+    case 'hologram': { // plataforma holográfica que desaparece (titila antes de apagarse)
+      const on = blinkOn(pl, v.t), k = ((v.t + pl.phase) % pl.speed) / pl.speed;
+      const flicker = on && k > 0.45 ? (Math.sin(v.t * 40) > 0 ? 0.35 : 0.9) : 0.85;
+      ctx.globalAlpha = on ? flicker : 0.18;
+      ctx.fillStyle = '#22d3ee55'; ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = '#67e8f9'; ctx.lineWidth = 2; ctx.shadowColor = '#22d3ee'; ctx.shadowBlur = on ? 12 : 0; ctx.strokeRect(x, y, w, h); ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#a5f3fc88'; ctx.lineWidth = 1; for (let k2 = y + 3; k2 < y + h; k2 += 4) { ctx.beginPath(); ctx.moveTo(x, k2); ctx.lineTo(x + w, k2); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+      return;
+    }
+    case 'techTile': { // bloque móvil con flechas
+      ctx.fillStyle = '#334155'; ctx.beginPath(); ctx.roundRect(x, y, w, s * 0.6, s * 0.1); ctx.fill();
+      ctx.fillStyle = '#facc15'; ctx.fillRect(x, y, w, s * 0.1);
+      ctx.fillStyle = '#22d3ee'; ctx.shadowColor = '#22d3ee'; ctx.shadowBlur = 8;
+      ctx.font = `900 ${Math.round(s * 0.42)}px Nunito, system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(pl.dx >= 0 ? '›››' : '‹‹‹', x + w / 2, y + s * 0.36); ctx.shadowBlur = 0;
+      return;
+    }
+    case 'piston': { // pistón que sube y baja con flechas
+      ctx.fillStyle = '#64748b'; ctx.fillRect(x + w * 0.4, y + s * 0.5, w * 0.2, v.h);
+      ctx.fillStyle = '#94a3b8'; ctx.fillRect(x + w * 0.43, y + s * 0.5, w * 0.06, v.h);
+      ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.roundRect(x, y, w, s * 0.55, s * 0.1); ctx.fill();
+      ctx.fillStyle = pl.dy >= 0 ? '#22c55e' : '#ef4444'; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 8;
+      ctx.font = `900 ${Math.round(s * 0.45)}px Nunito, system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(pl.dy >= 0 ? '▲' : '▼', x + w / 2, y + s * 0.3); ctx.shadowBlur = 0;
+      return;
+    }
+    case 'glass': { // cristal que se rompe
+      ctx.fillStyle = '#bae6fd99'; ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 1.5; ctx.strokeRect(x, y, w, h);
+      ctx.beginPath(); ctx.moveTo(x + w * 0.2, y); ctx.lineTo(x + w * 0.35, y + h); ctx.moveTo(x + w * 0.6, y); ctx.lineTo(x + w * 0.5, y + h * 0.6); ctx.lineTo(x + w * 0.75, y + h); ctx.stroke();
+      ctx.fillStyle = '#ffffffaa'; ctx.fillRect(x + 3, y + 2, w * 0.25, 2);
+      return;
+    }
     case 'moon': {
       const r = s * 5, cx = x + w / 2, cy = y + r - s * 0.05;
       const glow = ctx.createRadialGradient(cx, cy, r * 0.9, cx, cy, r * 1.4);
@@ -490,6 +558,16 @@ function drawBird(ctx: CanvasRenderingContext2D, b: Bird, v: View) {
     ctx.fillStyle = '#78716c'; ctx.beginPath(); ctx.arc(x, y, s * 0.45, 0, Math.PI * 2); ctx.fill();
     return;
   }
+  if (b.skin === 'drone') { // dron con hélices y ojo rojo
+    ctx.fillStyle = '#475569'; ctx.beginPath(); ctx.roundRect(x - s * 0.45, y - s * 0.2, s * 0.9, s * 0.4, s * 0.15); ctx.fill();
+    ctx.fillStyle = '#ef4444'; ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(x + p.dir * s * 0.18, y, s * 0.12, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+    for (const side of [-1, 1]) {
+      ctx.fillStyle = '#334155'; ctx.fillRect(x + side * s * 0.45 - 1.5, y - s * 0.4, 3, s * 0.2);
+      const a = Math.abs(Math.sin(v.t * 30 + side));
+      ctx.fillStyle = '#cbd5e1'; ctx.fillRect(x + side * s * 0.45 - s * 0.35 * a, y - s * 0.42, s * 0.7 * a, s * 0.06);
+    }
+    return;
+  }
   if (b.skin === 'plane') {
     ctx.save(); ctx.translate(x, y); ctx.scale(p.dir, 1);
     ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.8, s * 0.22, 0, 0, Math.PI * 2); ctx.fill();
@@ -502,6 +580,112 @@ function drawBird(ctx: CanvasRenderingContext2D, b: Bird, v: View) {
   ctx.strokeStyle = '#1f2937'; ctx.lineWidth = Math.max(2, s * 0.09); ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(x - s * 0.5, y - flap); ctx.quadraticCurveTo(x - s * 0.2, y - s * 0.1, x, y); ctx.quadraticCurveTo(x + s * 0.2, y - s * 0.1, x + s * 0.5, y - flap); ctx.stroke();
   ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.moveTo(x + p.dir * s * 0.12, y); ctx.lineTo(x + p.dir * s * 0.3, y + s * 0.05); ctx.lineTo(x + p.dir * s * 0.12, y + s * 0.1); ctx.fill();
+}
+
+// ---------- Zona tecnológica ----------
+function drawLaser(ctx: CanvasRenderingContext2D, l: Laser, v: View) {
+  const s = v.s, y = Y(v, l.y), x1 = X(v, l.x1), x2 = X(v, l.x2);
+  if (y < -s * 2 || y > v.h + s * 2) return;
+  const active = laserActive(l, v.t), warn = !active && laserWarning(l, v.t);
+  const color = l.style === 'zap' ? '#60a5fa' : '#f43f5e';
+  if (active) {
+    ctx.shadowColor = color; ctx.shadowBlur = 16;
+    if (l.style === 'laser') {
+      ctx.fillStyle = color; ctx.fillRect(x1, y - laserHalf(l) * s, x2 - x1, laserHalf(l) * 2 * s);
+      ctx.fillStyle = '#fff1f2'; ctx.fillRect(x1, y - s * 0.04, x2 - x1, s * 0.08);
+    } else { // rayo que zigzaguea
+      for (const [c, wdt] of [[color, Math.max(3, s * 0.14)], ['#eff6ff', Math.max(1.5, s * 0.05)]] as const) {
+        ctx.strokeStyle = c; ctx.lineWidth = wdt; ctx.beginPath(); ctx.moveTo(x1, y);
+        const n = 8;
+        for (let i = 1; i < n; i++) ctx.lineTo(x1 + (x2 - x1) * i / n, y + (hash(i + Math.floor(v.t * 20) * 7) - 0.5) * s * 0.55);
+        ctx.lineTo(x2, y); ctx.stroke();
+      }
+    }
+    ctx.shadowBlur = 0;
+  } else if (warn) {
+    ctx.strokeStyle = l.style === 'zap' ? '#60a5fa66' : '#f43f5e66'; ctx.lineWidth = 1; ctx.setLineDash([s * 0.3, s * 0.3]);
+    ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // emisores / postes
+  for (const [ex, d] of [[x1, 1], [x2, -1]] as const) {
+    if (l.style === 'zap') {
+      ctx.fillStyle = '#334155'; ctx.fillRect(ex - s * 0.15, y - s * 0.45, s * 0.3, s * 0.9);
+      ctx.fillStyle = '#facc15'; ctx.fillRect(ex - s * 0.2, y - s * 0.5, s * 0.4, s * 0.15); ctx.fillRect(ex - s * 0.2, y + s * 0.35, s * 0.4, s * 0.15);
+    } else {
+      ctx.fillStyle = '#1f2937'; ctx.beginPath(); ctx.roundRect(d > 0 ? ex - s * 0.15 : ex - s * 0.35, y - s * 0.3, s * 0.5, s * 0.6, s * 0.1); ctx.fill();
+      ctx.fillStyle = active ? '#fda4af' : '#7f1d1d'; ctx.beginPath(); ctx.arc(ex + d * s * 0.1, y, s * 0.13, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+function drawFan(ctx: CanvasRenderingContext2D, f: Fan, v: View) {
+  const s = v.s, y1 = Y(v, f.y2), y2 = Y(v, f.y1);
+  if (y2 < 0 || y1 > v.h) return;
+  const edge = f.side < 0 ? X(v, 0) : X(v, WORLD_W), dir = -f.side;
+  // rachas de viento
+  ctx.strokeStyle = '#bfdbfe88'; ctx.lineWidth = Math.max(1.5, s * 0.05); ctx.lineCap = 'round';
+  for (let i = 0; i < 14; i++) {
+    const yy = y1 + hash(i + f.id) * (y2 - y1), len = s * (1 + hash(i + 3) * 1.5);
+    const sx = edge + dir * (((v.t * s * 8 + hash(i) * WORLD_W * s) % (WORLD_W * s)));
+    ctx.beginPath(); ctx.moveTo(sx, yy); ctx.quadraticCurveTo(sx + dir * len * 0.5, yy - s * 0.15, sx + dir * len, yy); ctx.stroke();
+  }
+  // ventiladores en el costado
+  for (let yy = y1 + s; yy < y2; yy += s * 2.4) {
+    const cx = edge + dir * s * 0.1;
+    ctx.fillStyle = '#334155'; ctx.beginPath(); ctx.roundRect(cx - s * 0.55, yy - s * 0.9, s * 1.1, s * 1.8, s * 0.2); ctx.fill();
+    ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(cx, yy, s * 0.75, 0, Math.PI * 2); ctx.fill();
+    ctx.save(); ctx.translate(cx, yy); ctx.rotate(v.t * 18);
+    ctx.fillStyle = '#93c5fd'; for (let k = 0; k < 4; k++) { ctx.rotate(Math.PI / 2); ctx.beginPath(); ctx.ellipse(s * 0.35, 0, s * 0.33, s * 0.12, 0.4, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+  }
+}
+
+function drawMagnet(ctx: CanvasRenderingContext2D, m: Magnet, v: View) {
+  const s = v.s, x = X(v, m.x), y1 = Y(v, m.y1), y2 = Y(v, m.y2);
+  if (y1 < 0 || y2 > v.h + s * 3) return;
+  const grad = ctx.createLinearGradient(0, y2, 0, y1);
+  grad.addColorStop(0, '#a78bfa66'); grad.addColorStop(1, '#a78bfa10');
+  ctx.fillStyle = grad; ctx.fillRect(x - s * 0.7, y2, s * 1.4, y1 - y2);
+  ctx.strokeStyle = '#c4b5fd'; ctx.lineWidth = 1.5;
+  for (let i = 0; i < 6; i++) { const k = ((v.t * 0.8 + i / 6) % 1), yy = y1 - (y1 - y2) * k; ctx.globalAlpha = 1 - k; ctx.beginPath(); ctx.ellipse(x, yy, s * 0.6, s * 0.12, 0, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  // imán en U arriba de todo
+  const my = y2 - s * 1.3;
+  ctx.lineWidth = s * 0.35; ctx.lineCap = 'butt';
+  ctx.strokeStyle = '#dc2626'; ctx.beginPath(); ctx.arc(x, my, s * 0.55, Math.PI, 0); ctx.stroke();
+  ctx.fillStyle = '#e5e7eb'; ctx.fillRect(x - s * 0.73, my, s * 0.36, s * 0.45); ctx.fillRect(x + s * 0.37, my, s * 0.36, s * 0.45);
+  ctx.lineCap = 'round';
+}
+
+function drawGear(ctx: CanvasRenderingContext2D, gr: Gear, v: View) {
+  const s = v.s, x = X(v, gr.x), y = Y(v, gr.y), r = gr.r * s;
+  if (y < -r * 2 || y > v.h + r * 2) return;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(v.t * gr.speed);
+  ctx.fillStyle = '#dc2626';
+  ctx.beginPath();
+  for (let i = 0; i < 24; i++) { const a = i * Math.PI / 12, rr = i % 2 ? r : r * 0.8; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#7f1d1d'; ctx.beginPath(); ctx.arc(0, 0, r * 0.6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#9ca3af'; ctx.beginPath(); ctx.arc(0, 0, r * 0.35, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1f2937'; ctx.beginPath(); ctx.arc(0, 0, r * 0.14, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawPortal(ctx: CanvasRenderingContext2D, o: Portal, v: View) {
+  const s = v.s;
+  for (const [px, py, color] of [[o.x1, o.y1, hsl(o.hue, 100, 60)], [o.x2, o.y2, hsl(o.hue + 70, 100, 65)]] as const) {
+    const x = X(v, px), y = Y(v, py) - s * 0.75;
+    if (y < -s * 2 || y > v.h + s * 2) continue;
+    ctx.shadowColor = color; ctx.shadowBlur = 18;
+    ctx.strokeStyle = color; ctx.lineWidth = Math.max(3, s * 0.14);
+    ctx.beginPath(); ctx.ellipse(x, y, s * 0.5, s * 0.75, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.shadowBlur = 0;
+    const inner = ctx.createRadialGradient(x, y, 0, x, y, s * 0.7);
+    inner.addColorStop(0, '#ffffffcc'); inner.addColorStop(1, hsl(o.hue, 100, 50, 0.15));
+    ctx.fillStyle = inner; ctx.beginPath(); ctx.ellipse(x, y, s * 0.45, s * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#ffffff99'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(x, y, s * 0.3 * Math.abs(Math.sin(v.t * 3)), s * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+  }
 }
 
 // ---------- Personaje ----------
@@ -539,10 +723,15 @@ function draw(ctx: CanvasRenderingContext2D, g: Trepa, v: View) {
   for (const f of g.fires) drawFire(ctx, f, v);
   for (const b of g.balls) drawBall(ctx, b, v);
   for (const b of g.birds) drawBird(ctx, b, v);
+  for (const m of g.magnets) drawMagnet(ctx, m, v);
+  for (const gr of g.gears) drawGear(ctx, gr, v);
+  for (const o of g.portals) drawPortal(ctx, o, v);
+  for (const f of g.fans) drawFan(ctx, f, v);
+  for (const l of g.lasers) drawLaser(ctx, l, v);
   drawPlayer(ctx, g, v);
   // Capa de nubes: se pasa a través (no se pueden pisar).
   for (let i = 0; i < 26; i++) {
-    const wy = ZONES.clouds + 2 + hash(i + 700) * (ZONES.space - ZONES.clouds - 2);
+    const wy = ZONES.clouds + 2 + hash(i + 700) * (ZONES.tech - ZONES.clouds - 2);
     const y = Y(v, wy);
     if (y < -150 || y > v.h + 150) continue;
     const x = X(v, -4 + ((hash(i + 800) * 26 + v.t * (0.25 + hash(i) * 0.4)) % 26));
@@ -556,9 +745,10 @@ const ZONE_MESSAGES: Record<Zone, string> = {
   city: '',
   sky: '¡Pasaste los 1.000 m! Se terminaron los edificios ☀️',
   clouds: 'Entrás en las nubes: no se pueden pisar ☁️',
+  tech: '¡Mitad del camino! Zona tecnológica: cuidado con los láseres ⚡',
   space: '¡Espacio exterior! Acá saltás más alto 🚀',
 };
-const LOSE_TEXT: Record<LoseReason, string> = { burn: '¡Te quemaste!', fall: '¡Te caíste!' };
+const LOSE_TEXT: Record<LoseReason, string> = { burn: '¡Te quemaste!', zap: '¡Te electrocutaste!', fall: '¡Te caíste!' };
 
 // En pantallas angostas se ven unos 11 m de ancho y la cámara sigue al personaje de costado (llegando
 // a ver un poco de los edificios); en las anchas se ve todo. Siempre se ven al menos 13 de alto.
@@ -714,7 +904,7 @@ export function Trepaluna() {
   });
 
   const pct = (m: number) => `${Math.max(0, Math.min(100, (m / MOON_M) * 100))}%`;
-  const marks: [number, string][] = [[ZONES.sky * 10, 'Fin de los edificios'], [ZONES.clouds * 10, 'Nubes'], [ZONES.space * 10, 'Espacio'], [MOON_M, 'Luna']];
+  const marks: [number, string][] = [[ZONES.sky * 10, 'Fin de los edificios'], [ZONES.clouds * 10, 'Nubes'], [ZONES.tech * 10, 'Zona tecnológica'], [ZONES.space * 10, 'Espacio'], [MOON_M, 'Luna']];
 
   return <section className="runner trepa" aria-label="Trepaluna">
     <div className="runner-bar">
@@ -731,7 +921,7 @@ export function Trepaluna() {
           <div>
             {status === 'ready' && <>
               <h2 id="trepa-message">Trepaluna</h2>
-              <p>Como un juego de plataformas, pero para arriba: trepá terrazas, balcones, vigas, escaleras y sogas, usá trampolines y montacargas, esquivá caños de fuego, bolas de demolición y pájaros. Pasá las nubes y el espacio hasta clavar el banderín en la Luna. Si te quemás o te caés muy abajo… ¡GAME OVER!</p>
+              <p>Como un juego de plataformas, pero para arriba: trepá terrazas, balcones, vigas, escaleras y sogas, usá trampolines y montacargas, esquivá caños de fuego, bolas de demolición y pájaros. Pasá las nubes, la zona tecnológica (láseres, imanes, portales y engranajes) y el espacio hasta clavar el banderín en la Luna. Si te quemás o te caés muy abajo… ¡GAME OVER!</p>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> o <kbd>Espacio</kbd> saltar (en escaleras, mantené para trepar) · <kbd>↓</kbd> bajar · <kbd>P</kbd> pausa</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}
