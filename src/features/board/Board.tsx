@@ -280,7 +280,7 @@ export function Board() {
                 onDragStart={event => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData(NOTE_MIME, note.id); setDraggedId(note.id); }}
                 onTouchPointerDown={event => startTouchDrag(event, note.id)} onTouchPointerMove={moveTouchDrag} onTouchPointerUp={endTouchDrag}
                 onDragEnd={clearDrag} remove={() => confirm('¿Borrar esta nota?') && setData(current => ({ ...current, notes: current.notes.filter(item => item.id !== note.id) }))}
-                edit={text => setData(current => ({ ...current, notes: current.notes.map(item => item.id === note.id ? { ...item, text } : item) }))} />;
+                edit={text => setData(current => ({ ...current, notes: current.notes.map(item => item.id === note.id ? { ...item, text, calendar: undefined } : item) }))} />;
               });
             })()}
             {dropTarget?.status === column.status && notes.filter(note => note.id !== draggedId).length === 0 && <div className="drop-indicator" aria-hidden="true" />}
