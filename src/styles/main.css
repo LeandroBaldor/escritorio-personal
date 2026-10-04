@@ -394,8 +394,7 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-band-clock{position:absolute!important;z-index:0!important;left:50%;top:50%;width:150px;height:150px;transform:translate(-50%,-50%);color:#fff;opacity:.22;pointer-events:none}
 /* Mes y año en una sola línea (OCTUBRE 2026) para que la banda sea más baja y el mes entre sin bajar. */
 .cal-band h2{display:flex;flex-wrap:nowrap;white-space:nowrap;min-width:0;align-items:baseline;justify-content:center;column-gap:.45em;margin:0;line-height:1;text-align:center}
-.cal-band h2 span{font:900 clamp(2rem,4.4vw,3.1rem)/1 Nunito,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#fff;text-shadow:0 2px 6px #0b1d4a88}
-.cal-band h2 small{font-weight:900;font-size:clamp(1.2rem,2.6vw,1.8rem);color:#fff}
+.cal-band h2 span,.cal-band h2 small{font:900 clamp(2rem,4.4vw,3.1rem)/1 Nunito,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#fff;text-shadow:0 2px 6px #0b1d4a88}
 .cal-arrow{width:48px;height:48px;padding:0;border-radius:50%;background:#fff3;color:#fff;font-size:2rem;line-height:1;font-weight:700}
 .cal-arrow:hover{background:#fff6}
 .cal-toolbar{display:flex;align-items:center;justify-content:space-between;gap:.8rem;padding:.75rem 1.2rem 0}
@@ -438,8 +437,7 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 @media(max-width:700px){
 .cal-band{padding:.7rem .6rem .6rem;gap:.4rem}
 .cal-arrow{width:40px;height:40px;flex:none}
-.cal-band h2 span{font-size:clamp(1rem,5.6vw,2rem);letter-spacing:.03em}
-.cal-band h2 small{font-size:clamp(.85rem,3.8vw,1.2rem)}
+.cal-band h2 span,.cal-band h2 small{font-size:clamp(1rem,4.6vw,2rem);letter-spacing:.03em}
 .cal-toolbar{flex-direction:column;align-items:stretch;padding:.6rem .6rem 0}
 .cal-legend{font-size:.78rem}
 .cal-grid{padding:.4rem .4rem 1.4rem}
@@ -495,8 +493,7 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-page .section-title{margin-bottom:.6rem}
 .cal-page .section-objects--large{zoom:1.12}
 .cal-page .cal-band{padding:.45rem 1.2rem .4rem}
-.cal-page .cal-band h2 span{font-size:clamp(1.9rem,3.2vw,2.5rem)}
-.cal-page .cal-band h2 small{font-size:clamp(1rem,1.8vw,1.3rem)}
+.cal-page .cal-band h2 span,.cal-page .cal-band h2 small{font-size:clamp(1.9rem,3.2vw,2.5rem)}
 .cal-page .cal-band-clock{width:96px;height:96px}
 .cal-page .cal-arrow{width:42px;height:42px;font-size:1.7rem}
 .cal-page .cal-toolbar{padding:.5rem 1.2rem 0}
