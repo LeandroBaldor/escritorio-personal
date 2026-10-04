@@ -616,26 +616,32 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .sol-confetti svg{width:100%;height:100%}
 @keyframes sol-fall{to{transform:translateY(120vh) rotate(360deg)}}
 @media(max-width:800px){.sol.runner{padding-left:4px;padding-right:4px}.sol .runner-bar{gap:.4rem .7rem;padding:0 .4rem}.sol .runner-bar button{padding:.35rem .6rem;font-size:.85rem}}
-/* Tiki-Taka: estadio de noche, cancha rayada, tablero de resultado y botones grandes para el celular. */
+/* Tiki-Taka: estadio de noche, cancha rayada, marcador de TV siempre visible y botones grandes para el celular. */
 .game-card--tt{background:#0f2a1a;border-color:#081a0f}
 .game-card--tt .game-card-text span{color:#bbf7d0}
 .tt{background:radial-gradient(ellipse at 50% 0,#14532d 0,#052e16 55%,#02140a 100%);overflow:auto}
+.tt.runner{gap:.35rem;padding:.4rem .6rem .5rem}
+.tt .runner-bar h1{flex:0 1 auto}
 .tt .runner-back{color:#86efac}
-.tt-score{display:flex;align-items:center;gap:.6rem;margin-left:auto;padding:.3rem .8rem;background:#0b1220;border:2px solid #334155;border-radius:10px;font-weight:800;font-size:.95rem;color:#e2e8f0}
-.tt-score strong{font:900 1.35rem/1 "Courier New",ui-monospace,monospace;color:#fde047;padding:0 .3rem;letter-spacing:.05em;white-space:nowrap}
-.tt-team{display:flex;align-items:center;gap:.35rem;max-width:12rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tt-team i{flex:none;width:.8rem;height:.8rem;border-radius:3px;border:1px solid #fff8}
-.tt-minute{padding:.1rem .45rem;background:#16a34a;color:#fff;border-radius:6px;font-variant-numeric:tabular-nums}
-.tt-setup{width:min(760px,100%);margin:.5rem auto 1.5rem;padding:1.2rem 1.4rem;background:#0b1f14;border:2px solid #166534;border-radius:16px;box-shadow:0 12px 30px #0008}
+.tt-board{display:grid;justify-items:center;gap:.15rem;margin:0 auto;padding:.3rem .9rem .35rem;background:#0b1220;border:2px solid #334155;border-radius:12px;box-shadow:0 4px 14px #0008;color:#e2e8f0}
+.tt-board-row{display:flex;align-items:center;gap:.7rem;font-weight:800}
+.tt-board strong{font:900 1.5rem/1 "Courier New",ui-monospace,monospace;color:#fde047;letter-spacing:.06em;white-space:nowrap}
+.tt-board-time{padding:.05rem .6rem;background:#16a34a;color:#fff;border-radius:6px;font-weight:900;font-size:.85rem;font-variant-numeric:tabular-nums}
+.tt-team{display:flex;align-items:center;gap:.4rem;max-width:13rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tt-team i{flex:none;width:.9rem;height:.9rem;border-radius:3px;border:2px solid}
+.tt-team--rival{flex-direction:row-reverse}
+.tt-team--rival b{overflow:hidden;text-overflow:ellipsis;font-weight:inherit}
+.tt-setup{width:min(820px,100%);margin:.3rem auto 1.5rem;padding:1.1rem 1.3rem;background:#0b1f14;border:2px solid #166534;border-radius:16px;box-shadow:0 12px 30px #0008}
 .tt-setup h2{margin:0 0 .8rem;font-size:1.6rem}
 .tt-fields{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
 .tt-fields label{display:grid;gap:.25rem;font-weight:700;color:#bbf7d0}
 .tt-fields input{padding:.65rem .75rem;border:2px solid #166534;border-radius:10px;background:#052e16;color:#fff;font-weight:700}
 .tt-setup fieldset{margin:1rem 0 0;padding:0;border:0}
 .tt-setup legend{margin-bottom:.45rem;font-weight:700;color:#bbf7d0}
-.tt-shirts{display:flex;flex-wrap:wrap;gap:.5rem}
-.tt-shirts button{width:44px;height:44px;padding:0;border-radius:10px;border:3px solid #052e16;box-shadow:0 0 0 2px #ffffff44}
-.tt-shirts button[aria-pressed="true"]{box-shadow:0 0 0 3px #fde047;transform:scale(1.08)}
+.tt-kits{display:grid;grid-template-columns:repeat(9,1fr);gap:.4rem}
+.tt-kits button{display:grid;justify-items:center;gap:.1rem;padding:.3rem .15rem;background:#052e16;border:2px solid #166534;border-radius:10px;color:#dcfce7;font-size:.66rem;font-weight:800;line-height:1.1}
+.tt-kits button svg{width:100%;max-width:44px;height:auto}
+.tt-kits button[aria-pressed="true"]{border-color:#fde047;background:#14532d}
 .tt-formations{display:grid;grid-template-columns:repeat(5,1fr);gap:.5rem}
 .tt-formations button{display:grid;gap:.3rem;padding:.4rem;background:#052e16;border:2px solid #166534;border-radius:10px;color:#fff;font-weight:900}
 .tt-formations button[aria-pressed="true"]{border-color:#fde047;background:#14532d}
@@ -647,38 +653,42 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .tt-record{margin:.7rem 0 0;text-align:center;color:#bbf7d0;font-size:.9rem}
 .tt-stage{position:relative;flex:1;min-height:0;touch-action:none}
 .tt-stage canvas{display:block;cursor:pointer}
-.tt-bottom{display:flex;align-items:center;gap:.8rem}
-.tt-line{flex:1;margin:0;padding:.55rem .8rem;background:#0b1220cc;border-radius:10px;font-weight:700;min-height:2.6rem;display:flex;align-items:center}
-.tt-shoot{display:grid;justify-items:center;min-width:8rem;padding:.6rem 1.2rem;background:#ef4444;color:#fff;font-size:1.2rem;font-weight:900;border-radius:12px;box-shadow:0 4px 0 #991b1b}
+.tt-bottom{display:flex;align-items:center;gap:.6rem}
+.tt-line{flex:1;margin:0;padding:.45rem .8rem;background:#0b1220cc;border-radius:10px;font-weight:700;min-height:2.4rem;display:flex;align-items:center}
+.tt-shoot{display:grid;justify-items:center;min-width:7.5rem;padding:.5rem 1.1rem;background:#ef4444;color:#fff;font-size:1.15rem;font-weight:900;border-radius:12px;box-shadow:0 4px 0 #991b1b}
 .tt-shoot small{font-size:.75rem;opacity:.9}
 .tt-shoot:disabled{background:#475569;box-shadow:0 4px 0 #1e293b;opacity:.6;cursor:default}
 .tt-shoot:not(:disabled){animation:tt-pulse .8s infinite alternate}
 @keyframes tt-pulse{to{transform:scale(1.06)}}
-.tt-help{margin:0;text-align:center;font-size:.8rem;color:#86efac}
 .tt-goal{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;pointer-events:none;animation:tt-pop .5s ease-out}
 .tt-goal span{font:900 clamp(3rem,12vw,7rem)/1 Nunito,system-ui,sans-serif;color:#fde047;text-shadow:0 6px 0 #92400e,0 0 30px #000}
 .tt-goal small{font-size:clamp(1.2rem,4vw,2rem);font-weight:900;text-shadow:0 2px 8px #000}
 @keyframes tt-pop{from{transform:scale(.3);opacity:0}}
-.tt-counter{position:absolute;inset:0;display:grid;place-items:center;padding:1rem;background:#020617a6}
-.tt-counter>div{width:min(460px,100%);padding:1.2rem;background:#0b1220;border:3px solid #ef4444;border-radius:16px;text-align:center}
-.tt-counter h2{margin:0 0 .4rem;font-size:1.5rem}
-.tt-counter p{margin:.3rem 0 .7rem;color:#cbd5e1}
-.tt-timer{height:10px;margin-bottom:.8rem;background:#1e293b;border-radius:999px;overflow:hidden}
+/* Atajada: abajo de la cancha, para ver la pelota venir. */
+.tt-save{position:absolute;left:50%;bottom:.6rem;transform:translateX(-50%);width:min(440px,calc(100% - 1rem));padding:.7rem .9rem;background:#0b1220ee;border:3px solid #ef4444;border-radius:14px;text-align:center;box-shadow:0 8px 24px #000a}
+.tt-save h2{margin:0 0 .4rem;font-size:1.25rem}
+.tt-save p{margin:0;color:#cbd5e1}
+.tt-timer{height:8px;margin-bottom:.55rem;background:#1e293b;border-radius:999px;overflow:hidden}
 .tt-timer span{display:block;height:100%;background:#ef4444;transform-origin:left;animation:tt-time linear forwards}
 @keyframes tt-time{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+/* En pantallas verticales tu arco queda abajo: la atajada va arriba para no taparlo. */
+@media(max-aspect-ratio:1/1){.tt-save{top:.6rem;bottom:auto}}
 .tt-sides{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
-.tt-sides button{padding:.9rem .3rem;background:#16a34a;font-weight:900;font-size:1rem;border-radius:10px;box-shadow:0 4px 0 #14532d}
+.tt-sides button{padding:.75rem .3rem;background:#16a34a;font-weight:900;font-size:1rem;border-radius:10px;box-shadow:0 4px 0 #14532d}
 .tt .runner-overlay>div{background:#0b1f14;border-color:#16a34a}
 .tt-final{font:900 1.5rem "Courier New",ui-monospace,monospace;color:#fde047!important}
 .tt-end-actions{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap}
 .tt-end-actions button+button{background:#334155;color:#fff}
 @media(max-width:800px){
-  .tt-score{width:100%;justify-content:center;margin:0;font-size:.8rem;gap:.4rem}
+  .tt.runner{padding:.3rem .3rem .4rem}
+  .tt .runner-bar{gap:.3rem .6rem}
+  .tt-board{width:100%;padding:.25rem .5rem}
+  .tt-board-row{gap:.4rem;font-size:.78rem}
+  .tt-board strong{font-size:1.25rem}
   .tt-team{max-width:7.5rem}
   .tt-fields{grid-template-columns:1fr}
+  .tt-kits{grid-template-columns:repeat(6,1fr)}
   .tt-formations{grid-template-columns:repeat(3,1fr)}
-  .tt-bottom{gap:.5rem}
-  .tt-line{font-size:.85rem}
-  .tt-shoot{min-width:6.5rem;padding:.6rem .8rem}
-  .tt-help{display:none}
+  .tt-line{font-size:.82rem}
+  .tt-shoot{min-width:6rem;padding:.5rem .7rem}
 }
