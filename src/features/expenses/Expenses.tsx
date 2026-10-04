@@ -1,7 +1,7 @@
 import { FocusEvent, FormEvent, KeyboardEvent, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useData } from '../../app/DataContext';
-import { CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
+import { CalendarLink, DeskLink, GamesLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { FloatingCalculator } from './FloatingCalculator';
 import memeMatematica from '../../assets/images/meme-matematica.png';
 import { appendToMonth, EXPENSE_CATEGORIES, id, isExpenseDate, moveToMonth, parseCents, parseMonthKey, sameMonthName, sortMonths, syncMonthEntry, type ExpenseMonth, total, totalsByCategory, type Expense, type ExpenseCategory } from '../../storage/model';
@@ -233,7 +233,7 @@ export function Expenses() {
     });
     setMonthNotice(`“${current.concept}” se guardó en ${target.name}.`);
   };
-  return <section><div className="section-title"><div className="title-with-floppy"><div><p className="eyebrow">Control cotidiano</p><h1>Mis gastos</h1></div><Link className="floppy floppy--small" to="/gastos/meses" aria-label="Meses guardados" title="Meses guardados"><span className="floppy-shutter" aria-hidden="true" /><span>Meses</span></Link></div><div className="calc-art" aria-hidden="true"><img src={memeMatematica} alt="" width={415} height={480} draggable={false} /></div><SectionObjects large><DeskLink /><NotebookLink /><CalendarLink /></SectionObjects><div className="total"><small>Total</small><strong>{sumError ? '—' : money(sum)}</strong>{sumError && <small role="alert">{sumError}</small>}</div></div><div className="expenses-layout"><div className="calculator"><form onSubmit={add}>
+  return <section><div className="section-title"><div className="title-with-floppy"><div><p className="eyebrow">Control cotidiano</p><h1>Mis gastos</h1></div><Link className="floppy floppy--small" to="/gastos/meses" aria-label="Meses guardados" title="Meses guardados"><span className="floppy-shutter" aria-hidden="true" /><span>Meses</span></Link></div><div className="calc-art" aria-hidden="true"><img src={memeMatematica} alt="" width={415} height={480} draggable={false} /></div><SectionObjects large><DeskLink /><NotebookLink /><CalendarLink /><GamesLink /></SectionObjects><div className="total"><small>Total</small><strong>{sumError ? '—' : money(sum)}</strong>{sumError && <small role="alert">{sumError}</small>}</div></div><div className="expenses-layout"><div className="calculator"><form onSubmit={add}>
     <label>Gasto<input value={concept} onChange={e => setConcept(e.target.value)} placeholder="Ej. Electricidad" /></label>
     <label>Categoría<select aria-label="Categoría del gasto" value={category} onChange={e => setCategory(e.target.value as ExpenseCategory)}>
       {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}

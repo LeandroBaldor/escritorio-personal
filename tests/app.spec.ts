@@ -579,7 +579,7 @@ test('los accesos de Mis gastos llevan al escritorio y al diario', async ({ page
   await page.goto('/escritorio-personal/');
   await page.getByRole('link', { name: 'Gastos', exact: true }).click();
   const links = page.getByRole('navigation', { name: 'Ir a otras secciones' });
-  await expect(links.getByRole('link')).toHaveText(['Escritorio', 'Mi diario', /Calendario$/]);
+  await expect(links.getByRole('link')).toHaveText(['Escritorio', 'Mi diario', /Calendario$/, 'Juegos']);
   await links.getByRole('link', { name: 'Mi diario' }).click();
   await expect(page.getByRole('heading', { name: 'Mi diario', exact: true })).toBeVisible();
   await page.getByRole('navigation', { name: 'Ir a otras secciones' }).getByRole('link', { name: 'Gastos' }).click();
@@ -768,4 +768,18 @@ test('los gastos se editan en el panel del día con el mismo formato que las not
   await expect(chip).toHaveClass(/cal-cat--trabajo/);
   await page.reload();
   await expect(page.locator('.cal-chip', { hasText: 'Claro' })).toHaveClass(/cal-cat--trabajo/);
+});
+
+test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.getByRole('link', { name: 'Juegos' }).click();
+  await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Ir a otras secciones' }).getByRole('link')).toHaveText(['Escritorio', 'Mi diario', /Gastos$/, /Calendario$/]);
+  await page.getByRole('link', { name: /Cuidado, bloques/ }).click();
+  await page.getByRole('button', { name: 'Jugar' }).click();
+  await expect(page.getByTestId('runner-points')).not.toHaveText('0');
+  await page.keyboard.press('p');
+  await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
+  await page.getByRole('link', { name: '‹ Juegos' }).click();
+  await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
 });

@@ -30,3 +30,8 @@ export function CalendarLink() {
 export function NotebookLink() {
   return <Link className="notebook" to="/diario" aria-label="Mi diario" title="Mi diario"><span className="notebook-binding" aria-hidden="true" /><span>Mi diario</span></Link>;
 }
+
+// Joystick de videojuego: lleva a la sección de juegos.
+export function GamesLink() {
+  return <Link className="games-object" to="/juegos" aria-label="Juegos" title="Juegos"><svg viewBox="0 0 120 76" aria-hidden="true"><path d="M30 10h60c16 0 26 12 28 30l2 18c1 10-5 16-12 16-6 0-10-4-14-10l-6-8H32l-6 8c-4 6-8 10-14 10C5 74-1 68 0 58l2-18C4 22 14 10 30 10z" fill="#e5e7eb"/><path d="M30 10h60c16 0 26 12 28 30l1 6C114 30 104 22 90 22H30C16 22 6 30 1 46l1-6C4 22 14 10 30 10z" fill="#fff"/><rect x="21" y="34" width="24" height="8" rx="2" fill="#334155"/><rect x="29" y="26" width="8" height="24" rx="2" fill="#334155"/><circle cx="84" cy="32" r="5" fill="#ef4444"/><circle cx="96" cy="40" r="5" fill="#3b82f6"/><circle cx="72" cy="40" r="5" fill="#22c55e"/><circle cx="84" cy="48" r="5" fill="#facc15"/><rect x="52" y="30" width="7" height="3" rx="1.5" fill="#94a3b8"/><rect x="61" y="30" width="7" height="3" rx="1.5" fill="#94a3b8"/></svg><strong>Juegos</strong></Link>;
+}

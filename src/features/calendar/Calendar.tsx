@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { useData } from '../../app/DataContext';
-import { DeskLink, NotebookLink, CalculatorLink, SectionObjects } from '../../app/SectionObjects';
+import { DeskLink, NotebookLink, CalculatorLink, GamesLink, SectionObjects } from '../../app/SectionObjects';
 import { EVENT_CATEGORIES, id, syncMonthEntry, type CalendarEvent, type Expense, type EventCategory, type Note, type NoteCalendar } from '../../storage/model';
 import { DateInput, formatExpenseDate, money } from '../expenses/Expenses';
 import { calendarFrom, TimeInput } from './DateTimeFields';
@@ -165,7 +165,7 @@ export function Calendar() {
   return <section className="cal-page">
     <div className="section-title">
       <div><p className="eyebrow">Lo que se viene</p><h1>Calendario</h1></div>
-      <SectionObjects large><DeskLink /><NotebookLink /><CalculatorLink /></SectionObjects>
+      <SectionObjects large><DeskLink /><NotebookLink /><CalculatorLink /><GamesLink /></SectionObjects>
     </div>
 
 

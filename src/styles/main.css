@@ -539,3 +539,39 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-cancel{background:#fff;color:#1f2937;box-shadow:inset 0 0 0 1px #cbd5e1}
 .cal-cancel:hover{background:#f1f5f9}
 .cal-item-form .cal-item-actions button{margin:0}
+/* Juegos: joystick en los accesos, tarjetas de juegos y "¡Cuidado, bloques!" casi en pantalla completa. */
+.games-object{display:flex;flex-direction:column;align-items:center;gap:.2rem;width:110px;padding:.55rem .55rem .4rem;background:#3b2f6b;border-radius:10px;color:#fff!important;text-decoration:none;transform:rotate(2deg)}
+.games-object svg{display:block;width:100%;height:auto;filter:drop-shadow(0 2px 2px #0006)}
+.games-object strong{font-size:.8rem}
+.desk-objects .games-object{box-shadow:5px 8px 14px #2c120b77}
+.section-objects .games-object{width:100px}
+.games-object:hover,.games-object:focus-visible{transform:rotate(0) translateY(-2px)}
+.games-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:1.2rem}
+.game-card{display:flex;flex-direction:column;height:100%;background:#2b2452;border:6px solid #1c1738;border-radius:14px;color:#fff;text-decoration:none;overflow:hidden;box-shadow:8px 12px 24px #25100888;transition:transform .15s}
+.game-card:hover,.game-card:focus-visible{transform:translateY(-3px)}
+.game-card svg{display:block;width:100%;height:auto}
+.game-card-text{display:grid;gap:.3rem;padding:1rem 1.1rem .4rem}
+.game-card-text strong{font-size:1.35rem}
+.game-card-text span{color:#ddd6fe}
+.game-card-text small{color:#facc15;font-weight:700}
+.game-card-play{align-self:flex-end;margin:.4rem 1rem 1rem;padding:.45rem 1rem;background:#22c55e;color:#062b13;border-radius:999px;font-weight:900}
+.runner{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;gap:.5rem;padding:.6rem clamp(.5rem,2vw,1.2rem) .8rem;background:#0f0c26;color:#fff}
+.runner-bar{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+.runner-bar h1{flex:1;margin:0;font:900 clamp(1.1rem,2.6vw,1.6rem)/1.1 Nunito,system-ui,sans-serif;letter-spacing:.02em}
+.runner-back{color:#c4b5fd;text-decoration:none;font-weight:700;padding:.35rem .2rem}
+.runner-scores{display:flex;gap:1rem;font-size:.9rem;color:#c4b5fd}
+.runner-scores strong{color:#fff;font-size:1.15rem;margin-left:.25rem;font-variant-numeric:tabular-nums}
+.runner-bar button{background:#4c3d99;padding:.4rem .9rem}
+.runner-stage{position:relative;flex:1;min-height:0;display:grid;place-items:center;touch-action:none}
+.runner-stage canvas{display:block;border-radius:6px;box-shadow:0 0 0 3px #4c3d99,0 10px 30px #0008}
+.runner-overlay{position:absolute;inset:0;display:grid;place-items:center;padding:1rem;background:#0f0c26b3}
+.runner-overlay>div{max-width:460px;padding:1.4rem 1.6rem;background:#2b2452;border:3px solid #4c3d99;border-radius:14px;text-align:center}
+.runner-overlay h2{margin:0 0 .6rem;font-size:1.7rem}
+.runner-overlay p{margin:0 0 .9rem;color:#ddd6fe}
+.runner-overlay button{padding:.7rem 1.6rem;background:#22c55e;color:#062b13;font-weight:900;font-size:1.1rem}
+.runner-keys kbd{display:inline-block;min-width:1.6em;padding:.05em .4em;border:1px solid #8b7fd1;border-bottom-width:3px;border-radius:5px;background:#1d1a44;font:700 .85em Nunito,system-ui,sans-serif}
+.runner-pad{display:none;gap:.6rem;user-select:none;-webkit-user-select:none}
+.runner-pad button{flex:1;min-height:64px;font-size:1.6rem;background:#4c3d99;touch-action:none}
+.runner-pad .runner-jump{flex:1.4;background:#22c55e;color:#062b13;font-weight:900;font-size:1.2rem}
+.runner-pad button:active{filter:brightness(1.25)}
+@media(pointer:coarse),(max-width:800px){.runner-pad{display:flex}.runner-keys{display:none}}
