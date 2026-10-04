@@ -45,19 +45,22 @@ export type TrepaEvent =
 export interface Course { plats: Plat[]; climbs: Climb[]; fires: Fire[]; balls: Ball[]; birds: Bird[]; facades: Facade[]; links: Link[] }
 export interface Trepa extends Course {
   player: Player; time: number; best: number; bestGround: number; won: boolean;
-  dying: { t: number; reason: LoseReason } | null; over: boolean; zone: Zone; prevJump: boolean; events: TrepaEvent[];
+  dying: { t: number; reason: LoseReason } | null; over: boolean; zone: Zone; events: TrepaEvent[];
 }
 
-export const PLAYER_W = 0.6, PLAYER_H = 1.05;
+// Mismo tamaño y movimiento que el personaje de ¡Cuidado, bloques!: corre a 6, salta con 12,5, gravedad
+// 30 (menos en el espacio), cae como máximo a 18 y, manteniendo saltar, vuelve a saltar apenas toca el piso.
+export const PLAYER_W = 0.6, PLAYER_H = 0.85;
 const RUN = 6;
 export const JUMP = 12.5;
-export const TRAMP = 21;
+export const TRAMP = 22;
 const CLIMB = 4;
 export const FALL_LOSE = 10; // caer más de 100 m por debajo de lo más alto que pisaste es perder
 const BALL_R = 0.75, BIRD_R = 0.5;
+const MAX_FALL = 18;
 
 export const zoneOf = (y: number): Zone => y < ZONES.sky ? 'city' : y < ZONES.clouds ? 'sky' : y < ZONES.space ? 'clouds' : 'space';
-export const gravityAt = (y: number) => y < ZONES.space ? 28 : 17;
+export const gravityAt = (y: number) => y < ZONES.space ? 30 : 17;
 export const meters = (y: number) => Math.max(0, Math.floor(y * M_PER_UNIT));
 export const jumpPeak = (v: number, y: number) => (v * v) / (2 * gravityAt(y));
 export const center = (p: Plat) => p.x + p.w / 2;
@@ -272,7 +275,7 @@ export function buildCourse(seed = 20261004): Course {
 export function newTrepa(seed?: number): Trepa {
   const course = buildCourse(seed);
   return {
-    ...course, time: 0, best: 0, bestGround: 0, won: false, dying: null, over: false, zone: 'city', prevJump: false, events: [],
+    ...course, time: 0, best: 0, bestGround: 0, won: false, dying: null, over: false, zone: 'city', events: [],
     player: { x: WORLD_W / 2, y: 0, vx: 0, vy: 0, facing: 1, ground: course.plats[0], climb: null, climbCooldown: 0, coyote: 0, stun: 0, spin: 0 },
   };
 }
@@ -310,8 +313,6 @@ export function step(g: Trepa, input: Input, dt: number) {
 
   g.time += dt;
   const t = g.time;
-  const jumpPressed = input.jump && !g.prevJump;
-  g.prevJump = input.jump;
 
   for (const pl of g.plats) {
     if (pl.kind === 'moving') { const x = pl.baseX + Math.sin(t * pl.speed + pl.phase) * pl.amp; const nx = Math.max(0.3, Math.min(WORLD_W - pl.w - 0.3, x)); pl.dx = nx - pl.x; pl.x = nx; }
@@ -353,7 +354,7 @@ export function step(g: Trepa, input: Input, dt: number) {
 
   if (p.ground && (!overlapsX(p, p.ground) || p.ground.gone > 0)) { p.ground = null; p.coyote = 0.1; p.vy = 0; }
   p.coyote = Math.max(0, p.coyote - dt);
-  if (jumpPressed && (p.ground || p.coyote > 0) && p.stun <= 0) {
+  if (input.jump && (p.ground || p.coyote > 0) && p.stun <= 0) {
     p.vy = JUMP; p.ground = null; p.coyote = 0;
     g.events.push({ type: 'jump' });
   }
@@ -366,7 +367,7 @@ export function step(g: Trepa, input: Input, dt: number) {
 
   if (!p.ground) {
     const prev = p.y;
-    p.vy = Math.max(-26, p.vy - gravityAt(p.y) * dt);
+    p.vy = Math.max(-MAX_FALL, p.vy - gravityAt(p.y) * dt);
     p.y += p.vy * dt;
     if (p.vy <= 0) {
       const land = g.plats.find(pl => !pl.gone && overlapsX(p, pl) && prev >= pl.y - pl.dy - 0.02 && p.y <= pl.y);
