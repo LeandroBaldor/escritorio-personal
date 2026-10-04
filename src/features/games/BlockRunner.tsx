@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { newGame, PLAYER_H, PLAYER_W, score, step, type Game, type GameOver, type Input } from './blockRunner';
+import { level, newGame, PLAYER_H, PLAYER_W, score, step, type Game, type GameOver, type Input } from './blockRunner';
 
 const RECORD_KEY = 'escritorio-personal-juegos:bloques-record';
 export const readRecord = () => { try { return Number(localStorage.getItem(RECORD_KEY)) || 0; } catch { return 0; } };
@@ -93,12 +93,22 @@ function draw(ctx: CanvasRenderingContext2D, game: Game, cell: number) {
     ctx.beginPath(); ctx.arc(hx, hy, Math.max(1.5, pw * 0.09), 0, Math.PI * 2); ctx.fill();
   };
   arm(-f as 1 | -1, -swing); // el brazo de atrás va detrás del cuerpo
-  ctx.strokeStyle = '#1e293b';
-  ctx.lineWidth = Math.max(2, pw * 0.16);
-  ctx.beginPath();
-  ctx.moveTo(px + pw * 0.38, py + ph * 0.72); ctx.lineTo(px + pw * 0.38 + swing * pw * 0.22, py + ph);
-  ctx.moveTo(px + pw * 0.62, py + ph * 0.72); ctx.lineTo(px + pw * 0.62 - swing * pw * 0.22, py + ph);
-  ctx.stroke();
+  // Pantalón blanco (con borde suave para que se vea sobre los bloques claros) y zapatillas oscuras.
+  const footL = px + pw * 0.38 + swing * pw * 0.22, footR = px + pw * 0.62 - swing * pw * 0.22;
+  const leg = (color: string, width: number) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(px + pw * 0.38, py + ph * 0.7); ctx.lineTo(footL, py + ph * 0.96);
+    ctx.moveTo(px + pw * 0.62, py + ph * 0.7); ctx.lineTo(footR, py + ph * 0.96);
+    ctx.stroke();
+  };
+  leg('#94a3b8', Math.max(3, pw * 0.22));
+  leg('#f8fafc', Math.max(2, pw * 0.16));
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(px + pw * 0.27, py + ph * 0.66, pw * 0.46, ph * 0.08);
+  ctx.fillStyle = '#1f2937';
+  for (const fx of [footL, footR]) { ctx.beginPath(); ctx.ellipse(fx + f * pw * 0.04, py + ph * 0.97, pw * 0.11, pw * 0.06, 0, 0, Math.PI * 2); ctx.fill(); }
   ctx.fillStyle = '#ef4444';
   ctx.beginPath(); ctx.roundRect(px + pw * 0.22, py + ph * 0.38, pw * 0.56, ph * 0.38, pw * 0.12); ctx.fill();
   const hx = px + pw / 2, hy = py + ph * 0.22, r = pw * 0.3;
@@ -155,6 +165,7 @@ export function BlockRunner() {
   const input = useRef<Input>({ left: false, right: false, jump: false });
   const [status, setStatus] = useState<Status>('ready');
   const [points, setPoints] = useState(0);
+  const [stage, setStage] = useState({ level: 1, seconds: 0 });
   const [record, setRecord] = useState(readRecord);
   const [overReason, setOverReason] = useState<GameOver>('crushed');
   const [newRecord, setNewRecord] = useState(false);
@@ -184,6 +195,7 @@ export function BlockRunner() {
     gameRef.current = newGame(cols, rows);
     input.current = { left: false, right: false, jump: false };
     setPoints(0);
+    setStage({ level: 1, seconds: 0 });
     setNewRecord(false);
     setStatus('playing');
     paint();
@@ -214,6 +226,8 @@ export function BlockRunner() {
       paint();
       const current = score(game);
       setPoints(prev => prev === current ? prev : current);
+      const shown = { level: level(game), seconds: Math.floor(game.time) };
+      setStage(prev => prev.seconds === shown.seconds ? prev : shown);
       if (game.over) afterOver += dt;
       // Al perder, la explosión se sigue viendo un momento antes del cartel.
       if (game.over && afterOver > 0.8) {
@@ -268,6 +282,8 @@ export function BlockRunner() {
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>¡Cuidado, bloques!</h1>
       <div className="runner-scores">
+        <span>Nivel <strong>{stage.level}</strong></span>
+        <span>Tiempo <strong>{Math.floor(stage.seconds / 60)}:{String(stage.seconds % 60).padStart(2, '0')}</strong></span>
         <span>Puntos <strong data-testid="runner-points">{points}</strong></span>
         <span>Récord <strong>{record}</strong></span>
       </div>
