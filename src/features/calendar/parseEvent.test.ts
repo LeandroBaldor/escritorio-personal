@@ -17,14 +17,21 @@ describe('parseEvent', () => {
     ['Llamar a mamá mañana', 'Llamar a mamá', '2026-10-05', null],
     ['Comprar regalo pasado mañana', 'Comprar regalo', '2026-10-06', null],
     ['Hoy cena con amigos 21:30', 'cena con amigos', '2026-10-04', '21:30'],
-    ['Gimnasio el lunes', 'Gimnasio', '2026-10-05', null],
-    ['Feria el sábado', 'Feria', '2026-10-10', null],
-    ['Asado el domingo', 'Asado', '2026-10-11', null],
-    ['Vence tarjeta 2/10', 'Vence tarjeta', '2027-10-02', null],
+    ['Gimnasio lunes 13/10', 'Gimnasio', '2026-10-13', null],
+        ['Vence tarjeta 2/10', 'Vence tarjeta', '2027-10-02', null],
     ['Turno dentista lunes 13/10 a las 15', 'Turno dentista', '2026-10-13', '15:00'],
     ['Turno Altamar el martes 13 de octubre 9:30hs', 'Turno Altamar', '2026-10-13', '09:30'],
   ])('%s', (input, text, date, time) => {
     expect(parseEvent(input, today)).toEqual({ text, date, time });
+  });
+
+  it.each([
+    ['Lunes Telecentro', 'Telecentro', '2026-10-05'],
+    ['Gimnasio el lunes', 'Gimnasio', '2026-10-05'],
+    ['Feria el sábado', 'Feria', '2026-10-10'],
+    ['Asado el domingo', 'Asado', '2026-10-11'],
+  ])('marca como adivinada la fecha que sale de un día de la semana: %s', (input, text, date) => {
+    expect(parseEvent(input, today)).toEqual({ text, date, time: null, guessed: true });
   });
 
   it('deja el texto entero y sin fecha cuando no encuentra una', () => {
@@ -46,6 +53,7 @@ describe('guessCategory', () => {
     ['Dentista', 'Salud'],
     ['Pagar luz', 'Pagos'],
     ['Vence tarjeta', 'Pagos'],
+    ['Lunes Telecentro', 'Pagos'],
     ['Reunión con el cliente', 'Trabajo'],
     ['Cumple de Juan', 'Cumpleaños'],
     ['Cena con amigos', 'Personal'],
