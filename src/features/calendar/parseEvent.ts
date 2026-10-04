@@ -1,6 +1,7 @@
 import type { EventCategory } from '../../storage/model';
 
-export type ParsedEvent = { text: string; date: string | null; time: string | null };
+// guessed: la fecha salió solo de un día de la semana ("lunes"), que puede ser este o el que viene.
+export type ParsedEvent = { text: string; date: string | null; time: string | null; guessed?: true };
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const WEEKDAYS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
@@ -38,6 +39,7 @@ export function parseEvent(input: string, today: Date): ParsedEvent {
   let text = input.trim();
   let date: Date | null = null;
   let time: string | null = null;
+  let guessed = false;
 
   const timeMatch = /\b(?:a\s+las\s+)?([01]?\d|2[0-3]):([0-5]\d)\s*(?:hs?\b|h\b)?/i.exec(text) ?? /\b(?:a\s+las\s+)?([01]?\d|2[0-3])\s*(?:hs|h)\b/i.exec(text) ?? /\ba\s+las\s+([01]?\d|2[0-3])\b(?![/-]\d)/i.exec(text);
   if (timeMatch) {
@@ -63,15 +65,18 @@ export function parseEvent(input: string, today: Date): ParsedEvent {
   } else if (weekday) {
     const target = WEEKDAYS.indexOf(weekday[1].toLowerCase());
     date = addDays(today, ((target - today.getDay() + 7) % 7) || 7);
+    guessed = true;
     text = cut(text, weekday.index, weekday[0].length);
   }
 
-  return { text: text || input.trim(), date: date ? isoOf(date) : null, time };
+  const result: ParsedEvent = { text: text || input.trim(), date: date ? isoOf(date) : null, time };
+  if (guessed && date) result.guessed = true;
+  return result;
 }
 
 const KEYWORDS: [EventCategory, RegExp][] = [
   ['Salud', /\b(turno|medic|doctor|dr\.?|dra\.?|dentista|odontolog|analisis|estudio|vacuna|clinica|hospital|kinesio|psicolog|oculista|farmacia|altamar)/],
-  ['Pagos', /\b(pagar|pago|vence|vencimiento|cuota|tarjeta|factura|impuesto|alquiler|expensas|abl|luz|gas|agua|internet|claro|movistar|seguro|monotributo)/],
+  ['Pagos', /\b(pagar|pago|vence|vencimiento|cuota|tarjeta|factura|impuesto|alquiler|expensas|abl|luz|gas|agua|internet|claro|movistar|telecentro|fibertel|seguro|monotributo)/],
   ['Trabajo', /\b(trabajo|reunion|oficina|cliente|entrega|jefe|laburo|meet|zoom|presentacion|informe)/],
   ['Cumpleaños', /\b(cumple|cumpleanos|aniversario)/],
 ];

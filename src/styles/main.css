@@ -311,6 +311,8 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .desk-art{display:none}
 @media(min-width:801px){.desk-art{display:block;position:absolute;bottom:0;left:0;width:calc((100% - 2rem)/3);height:calc(100% + .5rem);object-fit:contain;object-position:center bottom;pointer-events:none;user-select:none}}
 @media(min-width:801px) and (max-width:900px){.desk-art{object-position:left bottom}}
+/* El meme del escritorio va a la izquierda, debajo del título "Notas del escritorio". */
+@media(min-width:801px){.desk-art{object-position:left bottom;left:.5rem}}
 /* Mi diario: íconos más grandes y a la derecha del encabezado. */
 .section-objects--large{zoom:1.3}
 @media(min-width:801px){.section-title:has(>.section-objects--large){grid-template-columns:minmax(0,1fr) auto;column-gap:1.4rem}.section-title>.section-objects--large{justify-self:end}}

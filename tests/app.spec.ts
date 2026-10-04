@@ -701,3 +701,21 @@ test('a una nota nueva sin fecha se le puede agregar día y hora para el calenda
   await page.getByRole('link', { name: 'Calendario' }).click();
   await expect(page.locator('.cal-chip', { hasText: 'Llamar al plomero' })).toHaveText('18:30 Llamar al plomero');
 });
+
+test('una nota con solo un día de la semana pide confirmar la fecha', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Lunes Telecentro');
+  await page.getByRole('button', { name: 'Agregar nota' }).click();
+  const confirm = page.getByRole('form', { name: 'Agregar fecha a Lunes Telecentro' });
+  await expect(confirm).toContainText('¿Confirmás la fecha?');
+  await expect(confirm.getByLabel('Agregar fecha')).toHaveValue(/^\d{4}-\d{2}-\d{2}$/);
+  await expect(confirm.getByRole('button', { name: 'Agregar' })).toBeEnabled();
+  await confirm.getByRole('button', { name: 'Rechazar' }).click();
+  await expect(page.locator('.date-ask')).toHaveCount(0);
+  await page.getByRole('link', { name: 'Calendario' }).click();
+  await expect(page.locator('.cal-doubt')).toHaveCount(0);
+  for (let step = 0; step < 2; step += 1) {
+    await expect(page.locator('.cal-chip', { hasText: 'Telecentro' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Mes siguiente' }).click();
+  }
+});

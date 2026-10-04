@@ -141,12 +141,12 @@ function Card({ note, remove, edit, dragging, dropSide, onDragStart, onDragEnd, 
   );
 }
 
-// Ofrece agregarle día y hora a una nota nueva que no tiene fecha, para que aparezca en el calendario.
-function AddDate({ note, time, onAdd, onReject }: { note: Note; time: string | null; onAdd: (calendar: NoteCalendar) => void; onReject: () => void }) {
-  const [day, setDay] = useState('');
+// Ofrece agregarle día y hora a una nota nueva que no tiene fecha (o confirmar la que salió de un día de la semana) para el calendario.
+function AddDate({ note, date, time, onAdd, onReject }: { note: Note; date: string | null; time: string | null; onAdd: (calendar: NoteCalendar) => void; onReject: () => void }) {
+  const [day, setDay] = useState(date ?? '');
   const [hour, setHour] = useState(time ?? '');
   return <form className="date-ask date-add" aria-label={`Agregar fecha a ${note.text}`} onSubmit={event => { event.preventDefault(); if (day) onAdd(hour ? { date: day, time: hour } : { date: day }); }}>
-    <p><strong>¿Le agregás una fecha?</strong> <span>“{note.text}”</span></p>
+    <p><strong>{date ? '¿Confirmás la fecha?' : '¿Le agregás una fecha?'}</strong> <span>“{note.text}”</span></p>
     <label>Agregar fecha<input type="date" value={day} onChange={event => setDay(event.target.value)} /></label>
     <label>Hora<input type="time" value={hour} onChange={event => setHour(event.target.value)} /></label>
     <div className="date-add-actions">
@@ -164,7 +164,7 @@ export function Board() {
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [archiveHover, setArchiveHover] = useState(false);
   const [announcement, setAnnouncement] = useState('');
-  const [dateAsk, setDateAsk] = useState<{ note: Note; date: string | null; time: string | null; doubt: boolean } | null>(null);
+  const [dateAsk, setDateAsk] = useState<{ note: Note; date: string | null; time: string | null; doubt: boolean; guessed: boolean } | null>(null);
   const pointerDrag = useRef<{ id: string; pointerId: number; startX: number; startY: number; active: boolean } | null>(null);
   const clearDrag = () => { setDraggedId(null); setDropTarget(null); setArchiveHover(false); };
   const archive = (noteId: string) => {
@@ -195,10 +195,11 @@ export function Board() {
     setData(current => ({ ...current, notes: [...current.notes, note] }));
     setText('');
     // Si la nota parece tener una fecha que no se entiende ("Turno 20.10") se pregunta si lo es;
+    // si la fecha sale solo de un día de la semana ("Lunes Telecentro") se pide confirmarla;
     // si no tiene ninguna fecha, se ofrece agregarle una para que aparezca en el calendario.
     const found = parseEvent(note.text, now);
     const doubt = found.date ? null : dateDoubt(note.text, now);
-    setDateAsk(found.date ? null : { note, date: doubt?.date ?? null, time: doubt?.time ?? found.time, doubt: Boolean(doubt) });
+    setDateAsk(found.date && !found.guessed ? null : { note, date: found.date ?? doubt?.date ?? null, time: doubt?.time ?? found.time, doubt: Boolean(doubt), guessed: Boolean(found.guessed) });
   };
   const answerDate = (note: Note, calendar: NoteCalendar | null) => {
     setData(current => ({ ...current, notes: current.notes.map(item => item.id === note.id ? { ...item, calendar } : item) }));
@@ -262,7 +263,7 @@ export function Board() {
         <strong>¿Esto es una fecha?</strong>
         <DateQuestion key={dateAsk.note.id} text={dateAsk.note.text} date={dateAsk.date} time={dateAsk.time} onSave={calendar => answerDate(dateAsk.note, calendar)} />
       </div>}
-      {dateAsk && !dateAsk.doubt && <AddDate key={dateAsk.note.id} note={dateAsk.note} time={dateAsk.time} onAdd={calendar => answerDate(dateAsk.note, calendar)} onReject={() => setDateAsk(null)} />}
+      {dateAsk && !dateAsk.doubt && <AddDate key={dateAsk.note.id} note={dateAsk.note} date={dateAsk.date} time={dateAsk.time} onAdd={calendar => answerDate(dateAsk.note, calendar)} onReject={() => dateAsk.guessed ? answerDate(dateAsk.note, null) : setDateAsk(null)} />}
       <div className="desk-row">
         <img className="desk-art" src={memeCafe} alt="" width={324} height={340} draggable={false} />
         <div className="desk-objects" aria-label="Objetos del escritorio">
