@@ -9,11 +9,11 @@ export interface Bomb { id: number; x: number; y: number; speed: number }
 export interface Player { x: number; y: number; vx: number; vy: number; onGround: boolean; facing: 1 | -1 }
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number }
 export interface Blast { x: number; y: number; t: number; max: number; size: number }
-export type GameOver = 'crushed' | 'bomb' | 'full';
+export type GameOver = 'crushed' | 'bomb' | 'full' | 'trapped';
 export interface Game {
   cols: number; rows: number; grid: Cell[][]; pieces: Piece[]; bombs: Bomb[]; player: Player;
   particles: Particle[]; blasts: Blast[];
-  time: number; spawnIn: number; lines: number; lineScore: number; broken: number; over: GameOver | null; nextId: number;
+  time: number; spawnIn: number; lines: number; lineScore: number; broken: number; over: GameOver | null; nextId: number; trapped: number;
 }
 export interface Input { left: boolean; right: boolean; jump: boolean }
 
@@ -51,7 +51,7 @@ export function newGame(cols: number, rows: number): Game {
     grid: Array.from({ length: rows }, () => Array<Cell>(cols).fill(null)),
     pieces: [], bombs: [], particles: [], blasts: [],
     player: { x: (cols - PLAYER_W) / 2, y: rows - PLAYER_H, vx: 0, vy: 0, onGround: true, facing: 1 },
-    time: 0, spawnIn: 1, lines: 0, lineScore: 0, broken: 0, over: null, nextId: 1,
+    time: 0, spawnIn: 1, lines: 0, lineScore: 0, broken: 0, over: null, nextId: 1, trapped: 0,
   };
 }
 
@@ -300,4 +300,31 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
     p.x = p.x + PLAYER_W / 2 < bx + 0.5 ? bx - PLAYER_W : bx + 1;
     if (hitsGrid(game, p.x, p.y, PLAYER_W, PLAYER_H)) { game.over = 'crushed'; return; }
   }
+
+  // Encerrado: si los bloques lo dejan en un hueco sin salida hacia arriba, tiene 10 segundos para
+  // salir (una bomba o una pieza de su color pueden abrirle camino). Si no, queda atrapado.
+  game.trapped = isEnclosed(game) ? game.trapped + dt : 0;
+  if (game.trapped >= TRAP_SECONDS) game.over = 'trapped';
+}
+
+export const TRAP_SECONDS = 10;
+
+// ¿El hueco donde está el personaje está cerrado? Recorre las celdas vacías conectadas (arriba,
+// abajo y a los costados) y se fija si alguna llega a la fila de arriba de todo.
+export function isEnclosed(game: Game) {
+  const p = game.player;
+  const sc = Math.floor(p.x + PLAYER_W / 2), sr = Math.floor(p.y + PLAYER_H / 2);
+  if (sr <= 0) return false;
+  const seen = new Set<number>([sr * game.cols + sc]);
+  const queue = [[sr, sc]];
+  while (queue.length) {
+    const [r, c] = queue.pop()!;
+    if (r === 0) return false;
+    for (const [nr, nc] of [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]]) {
+      if (nr < 0 || nr >= game.rows || nc < 0 || nc >= game.cols || game.grid[nr][nc]) continue;
+      const key = nr * game.cols + nc;
+      if (!seen.has(key)) { seen.add(key); queue.push([nr, nc]); }
+    }
+  }
+  return true;
 }

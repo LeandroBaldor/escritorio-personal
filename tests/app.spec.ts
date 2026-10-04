@@ -803,23 +803,23 @@ test('el Solitario 8 bits se abre desde Juegos, da vuelta cartas y deshace', asy
   await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
 });
 
-test('Tiki-Taka: se arma el equipo con camiseta de un país, arranca el partido y el rival sigue jugando', async ({ page }) => {
+test('Tiki-Taka: se elige el país y el DT, arranca el partido y el rival sigue jugando', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
   await expect(page.locator('.games-list > li')).toHaveCount(3);
   await page.getByRole('link', { name: /Tiki-Taka/ }).click();
-  await page.getByLabel('Nombre del equipo').fill('Atlético Prueba');
   await page.getByLabel('Nombre del DT').fill('El Bambino');
   await page.getByRole('button', { name: 'Brasil' }).click();
-  await expect(page.getByText('Camiseta: Brasil')).toBeVisible();
+  await expect(page.getByText('País: Brasil')).toBeVisible();
   await page.getByRole('button', { name: /5-3-2/ }).click();
   await page.getByRole('button', { name: /A la cancha/ }).click();
-  await expect(page.locator('.tt-board')).toContainText('Atlético Prueba');
+  await expect(page.locator('.tt-board')).toContainText('Brasil');
+  await expect(page.locator('.tt-coach').first()).toContainText('El Bambino');
   await expect(page.getByTestId('tt-score')).toHaveText('0 - 0');
   await expect(page.locator('.tt-board-time')).toHaveText(/1T · \d+'/);
   // Sin pasar la pelota, el rival la roba y sigue jugando: el relator lo cuenta.
-  await expect(page.locator('.tt-line')).toHaveText(/robaron|Presión de|cortó|recuper|Patea|ATAJ|Gol de/, { timeout: 12000 });
+  await expect(page.locator('.tt-line')).toHaveText(/robaron|Presión de|cortó|recuper|gambeteó|amague|Patea|ATAJ|Gol de/, { timeout: 12000 });
   await page.getByRole('link', { name: '‹ Juegos' }).click();
   await page.getByRole('link', { name: /Tiki-Taka/ }).click();
   await expect(page.getByLabel('Nombre del DT')).toHaveValue('El Bambino');
-  await expect(page.getByText('Camiseta: Brasil')).toBeVisible();
+  await expect(page.getByText('País: Brasil')).toBeVisible();
 });
