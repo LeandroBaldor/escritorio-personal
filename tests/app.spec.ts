@@ -795,6 +795,7 @@ test('el Solitario 8 bits se abre desde Juegos, da vuelta cartas y deshace', asy
   await expect(page.getByRole('button', { name: 'Mazo: 24 cartas, dar vuelta una' })).toBeVisible();
   await page.getByRole('button', { name: /Mazo/ }).click();
   await expect(page.getByTestId('solitaire-moves')).toHaveText('1');
+  await expect(page.getByTestId('solitaire-points')).toHaveText(/^\d+$/);
   await expect(page.locator('.sol-waste .sol-card')).toHaveCount(1);
   await page.getByRole('button', { name: 'Deshacer' }).click();
   await expect(page.getByTestId('solitaire-moves')).toHaveText('0');
@@ -811,7 +812,7 @@ test('Tiki-Taka: se elige el país y el DT, arranca el partido y el rival sigue 
   await page.getByRole('button', { name: 'Brasil' }).click();
   await expect(page.getByText('País: Brasil')).toBeVisible();
   await page.getByRole('button', { name: /5-3-2/ }).click();
-  await page.getByRole('button', { name: /A la cancha/ }).click();
+  await page.getByRole('button', { name: /Amistoso/ }).click();
   await expect(page.locator('.tt-board')).toContainText('Brasil');
   await expect(page.locator('.tt-coach').first()).toContainText('El Bambino');
   await expect(page.getByTestId('tt-score')).toHaveText('0 - 0');
@@ -840,4 +841,11 @@ test('Trepaluna: se abre desde Juegos, corre el tiempo, muestra la altura y se p
   await page.getByRole('button', { name: 'Seguir' }).first().click();
   await page.getByRole('link', { name: '‹ Juegos' }).click();
   await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
+});
+
+test('Tiki-Taka: el Mundial arranca en octavos de final', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/juegos/futbol');
+  await page.getByRole('button', { name: /Jugar el Mundial/ }).click();
+  await expect(page.locator('.tt-board-time')).toContainText('Octavos de final');
+  await expect(page.getByTestId('tt-score')).toHaveText('0 - 0');
 });

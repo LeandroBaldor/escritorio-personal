@@ -87,7 +87,7 @@ export function Games() {
           <BlockRunnerArt />
           <span className="game-card-text">
             <strong>¡Cuidado, bloques!</strong>
-            <span>Caen piezas de tetris y bombas desde arriba: corré y saltá para que no te aplasten.</span>
+            <span>Caen piezas de Tetris y bombas: corré y saltá para que no te aplasten. Llegá al nivel 10 para ganar.</span>
             {record > 0 && <small>Récord: {record} puntos</small>}
           </span>
           <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
@@ -98,8 +98,8 @@ export function Games() {
           <SolitaireArt />
           <span className="game-card-text">
             <strong>Solitario 8 bits</strong>
-            <span>El solitario de siempre con cartas pixeladas, como en las consolas viejas.</span>
-            {solitaire && <small>Récord: {Math.floor(solitaire.seconds / 60)}:{String(solitaire.seconds % 60).padStart(2, '0')}</small>}
+            <span>Jugá al solitario en 8 bits: ¡mientras más rápido lo completes, más puntos tenés!</span>
+            {solitaire && <small>Récord: {solitaire.score !== undefined ? `${solitaire.score} puntos` : `${Math.floor(solitaire.seconds / 60)}:${String(solitaire.seconds % 60).padStart(2, '0')}`}</small>}
           </span>
           <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
         </Link>
@@ -109,8 +109,8 @@ export function Games() {
           <TikiTakaArt />
           <span className="game-card-text">
             <strong>Tiki-Taka</strong>
-            <span>Armá tu equipo, elegí la formación y tocá, tocá y tocá hasta el gol. Si te la roban, ¡a atajar el contraataque!</span>
-            {tiki.played > 0 && <small>Campaña: {tiki.won}G {tiki.drawn}E {tiki.lost}P</small>}
+            <span>Elegí tu equipo, formación y tu nombre de DT. Seleccioná al jugador al que le querés dar el pase y después, ¡tocá y tocá hasta llegar al área del rival!</span>
+            {tiki.played > 0 && <small>Campaña: {tiki.won}G {tiki.drawn}E {tiki.lost}P{tiki.cups ? ` · 🏆 ${tiki.cups}` : ''}</small>}
           </span>
           <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
         </Link>

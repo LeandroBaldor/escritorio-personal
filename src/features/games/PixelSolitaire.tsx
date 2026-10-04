@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BACK_IMAGE, CARD_H, CARD_W, cardImage, SUIT_PIXELS, SUIT_SIZE, suitColor } from './pixelCards';
-import { bestTarget, canFinish, canMove, cardName, deal, draw, finishStep, isWon, move, picked, SUITS, type Card, type From, type Solitaire, type To } from './solitaire';
+import { bestTarget, canFinish, canMove, cardName, deal, draw, finalScore, finishStep, isWon, liveScore, move, picked, SUITS, timeBonus, type Card, type From, type Solitaire, type To } from './solitaire';
 
 const RECORD_KEY = 'escritorio-personal-juegos:solitario-record';
-export const readSolitaireRecord = (): { seconds: number; moves: number } | null => {
+export interface SolitaireRecord { seconds: number; moves: number; score?: number }
+export const readSolitaireRecord = (): SolitaireRecord | null => {
   try { const value = JSON.parse(localStorage.getItem(RECORD_KEY) ?? 'null'); return value && typeof value.seconds === 'number' ? value : null; } catch { return null; }
 };
-const saveRecord = (value: { seconds: number; moves: number }) => { try { localStorage.setItem(RECORD_KEY, JSON.stringify(value)); } catch { /* sin almacenamiento */ } };
+const saveRecord = (value: SolitaireRecord) => { try { localStorage.setItem(RECORD_KEY, JSON.stringify(value)); } catch { /* sin almacenamiento */ } };
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
 // Un palo pixelado suelto (para el festejo y el menú).
@@ -36,6 +37,7 @@ export function PixelSolitaire() {
   const [finishing, setFinishing] = useState(false);
   const [record, setRecord] = useState(readSolitaireRecord);
   const [newRecord, setNewRecord] = useState(false);
+  const [pop, setPop] = useState<{ text: string; good: boolean; id: number } | null>(null);
   const [layout, setLayout] = useState<Layout>({ cw: 80, ch: 112, gap: 8, tableauHeight: 400 });
   const boardRef = useRef<HTMLDivElement>(null);
   const won = isWon(game);
@@ -70,8 +72,18 @@ export function PixelSolitaire() {
     return () => { document.body.style.overflow = previous; };
   }, []);
 
+  useEffect(() => {
+    if (!pop) return;
+    const id = setTimeout(() => setPop(null), 1200);
+    return () => clearTimeout(id);
+  }, [pop]);
+
   const commit = useCallback((next: Solitaire | null) => {
     if (!next) return false;
+    // Cartelito con los puntos de la jugada (y festejo si se completó un palo).
+    const delta = next.score - game.score;
+    const suitDone = next.foundations.filter(p => p.length === 13).length > game.foundations.filter(p => p.length === 13).length;
+    if (delta) setPop({ text: suitDone ? `¡Palo completo! +${delta}` : `${delta > 0 ? '+' : ''}${delta}`, good: delta > 0, id: Date.now() });
     setHistory(h => [...h.slice(-199), game]);
     setGame(next);
     setStarted(true);
@@ -81,7 +93,8 @@ export function PixelSolitaire() {
   useEffect(() => {
     if (!won || !started) return;
     const best = readSolitaireRecord();
-    if (!best || seconds < best.seconds) { const value = { seconds, moves: game.moves }; saveRecord(value); setRecord(value); setNewRecord(true); }
+    const score = finalScore(game, seconds);
+    if (!best || best.score === undefined || score > best.score) { const value = { seconds, moves: game.moves, score }; saveRecord(value); setRecord(value); setNewRecord(true); }
   }, [won]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // "Terminar solo": sube una carta por vez a las bases.
@@ -156,9 +169,10 @@ export function PixelSolitaire() {
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>Solitario 8 bits</h1>
       <div className="runner-scores">
-        <span>Tiempo <strong>{clock(seconds)}</strong></span>
+        <span className="sol-box">Tiempo <strong>{clock(seconds)}</strong></span>
+        <span className="sol-box sol-box--points">Puntos <strong data-testid="solitaire-points">{won ? finalScore(game, seconds) : liveScore(game, seconds)}</strong></span>
         <span>Movimientos <strong data-testid="solitaire-moves">{game.moves}</strong></span>
-        {record && <span>Récord <strong>{clock(record.seconds)}</strong></span>}
+        {record && <span>Récord <strong>{record.score !== undefined ? `${record.score} pts` : clock(record.seconds)}</strong></span>}
       </div>
       <button type="button" onClick={undo} disabled={!history.length || finishing}>Deshacer</button>
       <button type="button" onClick={restart}>Nueva partida</button>
@@ -198,6 +212,7 @@ export function PixelSolitaire() {
           </div>;
         })}
       </div>
+      {pop && <div key={pop.id} className={`sol-pop${pop.good ? '' : ' sol-pop--bad'}`} aria-live="polite">{pop.text}</div>}
       {canFinish(game) && !finishing && <button type="button" className="sol-finish" onClick={() => setFinishing(true)}>Terminar solo ▶</button>}
       {won && <div className="runner-overlay" role="dialog" aria-labelledby="sol-won">
         <div className="sol-confetti" aria-hidden="true">
@@ -205,7 +220,8 @@ export function PixelSolitaire() {
         </div>
         <div>
           <h2 id="sol-won">¡GANASTE!</h2>
-          <p>Lo terminaste en <strong>{clock(seconds)}</strong> con <strong>{game.moves}</strong> movimientos.{newRecord && ' ¡Nuevo récord!'}</p>
+          <p>Lo terminaste en <strong>{clock(seconds)}</strong> con <strong>{game.moves}</strong> movimientos.</p>
+          <p className="sol-total">Jugadas <strong>{liveScore(game, seconds)}</strong> + Premio por velocidad <strong>{timeBonus(seconds)}</strong> = <strong>{finalScore(game, seconds)} puntos</strong>{newRecord && ' ¡Nuevo récord!'}</p>
           <button type="button" onClick={restart} autoFocus>Jugar de nuevo</button>
         </div>
       </div>}

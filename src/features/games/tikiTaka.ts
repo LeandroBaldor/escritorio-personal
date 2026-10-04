@@ -1,5 +1,5 @@
 // Lógica de "Tiki-Taka": un partido de pases. Tu equipo ataca hacia la derecha.
-// - Con la pelota: tocás a un compañero para pasarle; los rivales presionan al que la tiene y cortan
+// - Con la pelota: el que la tiene avanza solo hacia el arco rival; tocás a un compañero para pasarle; los rivales presionan al que la tiene y cortan
 //   los pases que pasan cerca. Cerca del arco podés patear.
 // - Sin la pelota: el rival sigue jugando (toca y avanza hacia tu arco). Tocás a uno de los tuyos para
 //   mandarlo a marcar; si llega, la recupera. Si el rival patea, atajás eligiendo un lado.
@@ -31,7 +31,7 @@ export interface Match {
 
 export const HALF_SECONDS = 150;
 const PASS_SPEED = 40, RIVAL_PASS_SPEED = 30;
-export const TUNE = { rivalRun: 5.4, shootFrom: 20, autoSpeed: 5, defenderTackle: 0.35 };
+export const TUNE = { carry: 3, rivalRun: 5.4, shootFrom: 20, autoSpeed: 5, defenderTackle: 0.35 };
 const RIVAL_RUN = TUNE.rivalRun;
 const CUT_RADIUS = 1.7, RIVAL_CUT_RADIUS = 1.8, STEAL_RADIUS = 1.6, TACKLE_RADIUS = 1.7;
 export const SHOOT_FROM = 72;
@@ -277,6 +277,10 @@ function stepAttack(m: Match, dt: number, rand: () => number, target: { x: numbe
 
   if (m.phase === 'play' && m.holder !== null) {
     const h = m.mine[m.holder];
+    // Conduce hacia el arco rival y esquiva al que tiene adelante.
+    const blocker = m.rivals.filter(r => r.x > h.x && r.x < h.x + 7 && Math.abs(r.y - h.y) < 4).sort((a, b) => a.x - b.x)[0];
+    const ty = blocker ? clampY(h.y + (h.y >= blocker.y ? 7 : -7)) : h.y + (GOAL_MID - h.y) * 0.3;
+    if (h.x < 92) approach(h, 92, ty, TUNE.carry, dt);
     moveBall(m, h.x, h.y);
     m.control = Math.max(0, m.control - dt);
     if (m.control === 0 && dist(m.rivals[presser].x, m.rivals[presser].y, h.x, h.y) < STEAL_RADIUS) giveTo(m, 'rival', presser, 'steal');

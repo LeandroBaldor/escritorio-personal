@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { level, newGame, TRAP_SECONDS, PLAYER_H, PLAYER_W, score, step, type Game, type GameOver, type Input } from './blockRunner';
+import { level, newGame, WIN_LEVEL, TRAP_SECONDS, PLAYER_H, PLAYER_W, score, step, type Game, type GameOver, type Input } from './blockRunner';
 
 const RECORD_KEY = 'escritorio-personal-juegos:bloques-record';
 export const readRecord = () => { try { return Number(localStorage.getItem(RECORD_KEY)) || 0; } catch { return 0; } };
@@ -156,7 +156,7 @@ function draw(ctx: CanvasRenderingContext2D, game: Game, cell: number) {
   ctx.globalAlpha = 1;
 }
 
-const OVER_TEXT: Record<GameOver, string> = { crushed: '¡Te aplastaron!', bomb: '¡Te alcanzó una bomba!', full: '¡Los bloques llegaron arriba!', trapped: '¡Quedaste atrapado!' };
+const OVER_TEXT: Record<GameOver, string> = { crushed: '¡Te aplastaron!', bomb: '¡Te alcanzó una bomba!', full: '¡Los bloques llegaron arriba!', trapped: '¡Quedaste atrapado!', won: '¡Ganaste! 🏆' };
 
 export function BlockRunner() {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -233,7 +233,7 @@ export function BlockRunner() {
       setStage(prev => prev.seconds === shown.seconds ? prev : shown);
       if (game.over) afterOver += dt;
       // Al perder, la explosión se sigue viendo un momento antes del cartel.
-      if (game.over && afterOver > 0.8) {
+      if (game.over && (afterOver > 0.8 || game.over === 'won')) {
         setOverReason(game.over);
         if (current > readRecord()) { saveRecord(current); setRecord(current); setNewRecord(true); }
         setStatus('over');
@@ -285,7 +285,7 @@ export function BlockRunner() {
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>¡Cuidado, bloques!</h1>
       <div className="runner-scores">
-        <span>Nivel <strong>{stage.level}</strong></span>
+        <span>Nivel <strong>{stage.level}/{WIN_LEVEL}</strong></span>
         <span>Tiempo <strong>{Math.floor(stage.seconds / 60)}:{String(stage.seconds % 60).padStart(2, '0')}</strong></span>
         <span>Puntos <strong data-testid="runner-points">{points}</strong></span>
         <span>Récord <strong>{record}</strong></span>
@@ -299,7 +299,7 @@ export function BlockRunner() {
         <div>
           {status === 'ready' && <>
             <h2 id="runner-message">¡Cuidado, bloques!</h2>
-            <p>Caen piezas de tetris y bombas desde arriba. Corré y saltá para que no te aplasten. Cada pieza rompe los bloques de su mismo color que encuentra abajo; las demás se apilan y te sirven de escalones. Las bombas explotan al llegar: alejate. Si quedás encerrado tenés 10 segundos para salir. Si los bloques llegan arriba, se termina.</p>
+            <p>Caen piezas de tetris y bombas desde arriba. Corré y saltá para que no te aplasten. Cada pieza rompe los bloques de su mismo color que encuentra abajo; las demás se apilan y te sirven de escalones. Las bombas explotan al llegar: alejate. Si quedás encerrado tenés 10 segundos para salir. Si los bloques llegan arriba, se termina. Llegá al nivel 10 para ganar.</p>
             <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> correr · <kbd>↑</kbd> o <kbd>Espacio</kbd> saltar · <kbd>P</kbd> pausa</p>
             <button type="button" onClick={start} autoFocus>Jugar</button>
           </>}
@@ -309,7 +309,7 @@ export function BlockRunner() {
           </>}
           {status === 'over' && <>
             <h2 id="runner-message">{OVER_TEXT[overReason]}</h2>
-            <p>Hiciste <strong>{points}</strong> puntos.{newRecord && ' ¡Nuevo récord!'}</p>
+            <p>{overReason === 'won' && 'Llegaste al nivel 10. '}Hiciste <strong>{points}</strong> puntos.{newRecord && ' ¡Nuevo récord!'}</p>
             <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
           </>}
         </div>

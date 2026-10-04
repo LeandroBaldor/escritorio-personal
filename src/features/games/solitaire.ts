@@ -9,7 +9,7 @@ export const RANK_NAMES = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10'
 export const isRed = (suit: Suit) => suit === 'corazon' || suit === 'diamante';
 
 export interface Card { id: string; suit: Suit; rank: number; up: boolean }
-export interface Solitaire { stock: Card[]; waste: Card[]; foundations: Card[][]; tableau: Card[][]; moves: number }
+export interface Solitaire { stock: Card[]; waste: Card[]; foundations: Card[][]; tableau: Card[][]; moves: number; score: number }
 export type From = { kind: 'waste' } | { kind: 'foundation'; pile: number } | { kind: 'tableau'; pile: number; index: number };
 export type To = { kind: 'foundation'; pile: number } | { kind: 'tableau'; pile: number };
 
@@ -19,7 +19,7 @@ export function deal(rand: () => number = Math.random): Solitaire {
   const deck: Card[] = SUITS.flatMap(suit => Array.from({ length: 13 }, (_, i) => ({ id: `${suit}-${i + 1}`, suit, rank: i + 1, up: false })));
   for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
   const tableau = Array.from({ length: 7 }, (_, col) => deck.splice(0, col + 1).map((card, i) => ({ ...card, up: i === col })));
-  return { stock: deck, waste: [], foundations: [[], [], [], []], tableau, moves: 0 };
+  return { stock: deck, waste: [], foundations: [[], [], [], []], tableau, moves: 0, score: 0 };
 }
 
 const top = <T,>(list: T[]) => list[list.length - 1];
@@ -51,9 +51,18 @@ export function canMove(state: Solitaire, from: From, to: To) {
 }
 
 const clone = (state: Solitaire): Solitaire => ({
-  stock: [...state.stock], waste: [...state.waste], moves: state.moves,
+  stock: [...state.stock], waste: [...state.waste], moves: state.moves, score: state.score,
   foundations: state.foundations.map(p => [...p]), tableau: state.tableau.map(p => [...p]),
 });
+
+// Puntaje: subir cartas a las bases, destapar cartas y completar palos suma; bajar de las bases y
+// volver a armar el mazo resta. El reloj también resta (2 puntos cada 10 segundos) y, al ganar, cuanto
+// más rápido lo terminaste, más grande es el premio.
+export const POINTS = { foundation: 10, fromWaste: 5, reveal: 5, suit: 100, backFromFoundation: -15, recycle: -20 };
+export const timePenalty = (seconds: number) => Math.floor(seconds / 10) * 2;
+export const timeBonus = (seconds: number) => Math.max(0, Math.round(1500 - seconds * 3));
+export const liveScore = (state: Solitaire, seconds: number) => Math.max(0, state.score - timePenalty(seconds));
+export const finalScore = (state: Solitaire, seconds: number) => liveScore(state, seconds) + timeBonus(seconds);
 
 export function move(state: Solitaire, from: From, to: To): Solitaire | null {
   if (!canMove(state, from, to)) return null;
@@ -65,10 +74,16 @@ export function move(state: Solitaire, from: From, to: To): Solitaire | null {
   else {
     cards = next.tableau[from.pile].splice(-count);
     const left = next.tableau[from.pile];
-    if (left.length && !top(left).up) left[left.length - 1] = { ...top(left), up: true }; // se da vuelta la de abajo
+    if (left.length && !top(left).up) { left[left.length - 1] = { ...top(left), up: true }; next.score += POINTS.reveal; } // se da vuelta la de abajo
   }
-  if (to.kind === 'foundation') next.foundations[to.pile].push(...cards);
-  else next.tableau[to.pile].push(...cards);
+  if (to.kind === 'foundation') {
+    next.foundations[to.pile].push(...cards);
+    next.score += POINTS.foundation + (next.foundations[to.pile].length === 13 ? POINTS.suit : 0);
+  } else {
+    next.tableau[to.pile].push(...cards);
+    if (from.kind === 'waste') next.score += POINTS.fromWaste;
+    if (from.kind === 'foundation') next.score += POINTS.backFromFoundation;
+  }
   next.moves++;
   return next;
 }
@@ -78,7 +93,7 @@ export function draw(state: Solitaire): Solitaire | null {
   if (!state.stock.length && !state.waste.length) return null;
   const next = clone(state);
   if (next.stock.length) next.waste.push({ ...next.stock.pop()!, up: true });
-  else { next.stock = next.waste.reverse().map(card => ({ ...card, up: false })); next.waste = []; }
+  else { next.stock = next.waste.reverse().map(card => ({ ...card, up: false })); next.waste = []; next.score += POINTS.recycle; }
   next.moves++;
   return next;
 }
