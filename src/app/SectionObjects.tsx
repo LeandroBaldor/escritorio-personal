@@ -14,6 +14,19 @@ export function CalculatorLink() {
   return <Link className="calc-object" to="/gastos" aria-label="Gastos" title="Gastos"><span aria-hidden="true">7 8 9<br />4 5 6<br />1 2 3</span><strong>Gastos</strong></Link>;
 }
 
+const SHORT_MONTHS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+
+// Almanaque de mesa que siempre muestra el día de hoy.
+export function CalendarLink() {
+  const today = new Date();
+  return <Link className="calendar-object" to="/calendario" aria-label="Calendario" title="Calendario">
+    <span className="calendar-object-rings" aria-hidden="true"><i /><i /></span>
+    <span className="calendar-object-month" aria-hidden="true">{SHORT_MONTHS[today.getMonth()]}</span>
+    <span className="calendar-object-day" aria-hidden="true">{today.getDate()}</span>
+    <strong>Calendario</strong>
+  </Link>;
+}
+
 export function NotebookLink() {
   return <Link className="notebook" to="/diario" aria-label="Mi diario" title="Mi diario"><span className="notebook-binding" aria-hidden="true" /><span>Mi diario</span></Link>;
 }

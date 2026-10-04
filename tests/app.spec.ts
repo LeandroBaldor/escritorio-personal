@@ -579,7 +579,7 @@ test('los accesos de Mis gastos llevan al escritorio y al diario', async ({ page
   await page.goto('/escritorio-personal/');
   await page.getByRole('link', { name: 'Gastos', exact: true }).click();
   const links = page.getByRole('navigation', { name: 'Ir a otras secciones' });
-  await expect(links.getByRole('link')).toHaveText(['Escritorio', 'Mi diario']);
+  await expect(links.getByRole('link')).toHaveText(['Escritorio', 'Mi diario', /Calendario$/]);
   await links.getByRole('link', { name: 'Mi diario' }).click();
   await expect(page.getByRole('heading', { name: 'Mi diario', exact: true })).toBeVisible();
   await page.getByRole('navigation', { name: 'Ir a otras secciones' }).getByRole('link', { name: 'Gastos' }).click();
@@ -606,4 +606,25 @@ test('el diario inserta emoticones y mantiene los renglones parejos', async ({ p
   });
   expect(Number.isInteger(lines.lineHeight)).toBe(true);
   for (const offset of lines.offsets) expect(Math.abs((offset % 1) - (lines.offsets[0] % 1))).toBeLessThan(0.03);
+});
+
+test('el calendario anota con la fecha escrita en el texto y cambia de mes con las flechas', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.getByRole('link', { name: 'Calendario' }).click();
+  await expect(page.getByRole('heading', { name: 'Calendario', exact: true })).toBeVisible();
+  const month = page.locator('.cal-band h2');
+  const current = await month.textContent();
+  await page.getByPlaceholder('Ej. Turno Altamar 13/10 10:30').fill('Turno Altamar mañana 10:30');
+  await expect(page.locator('.cal-preview')).toContainText('10:30 · Turno Altamar');
+  await page.getByRole('button', { name: 'Agregar', exact: true }).click();
+  await expect(page.locator('.cal-chip.cal-cat--salud')).toHaveText('10:30Turno Altamar');
+  await expect(page.locator('.cal-day-panel')).toContainText('Turno Altamar');
+  await page.reload();
+  await page.getByRole('button', { name: 'Hoy' }).click();
+  await page.getByRole('button', { name: 'Mes siguiente' }).click();
+  await expect(month).not.toHaveText(current!);
+  await page.getByRole('button', { name: 'Mes anterior' }).click();
+  await expect(month).toHaveText(current!);
+  await page.getByRole('navigation', { name: 'Ir a otras secciones' }).getByRole('link', { name: 'Mi Escritorio' }).click();
+  await expect(page.getByRole('heading', { name: 'Notas del escritorio' })).toBeVisible();
 });
