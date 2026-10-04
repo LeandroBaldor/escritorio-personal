@@ -1,7 +1,9 @@
 import { DragEvent, FormEvent, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarLink } from '../../app/SectionObjects';
-import { COLORS, id, Note, Status } from '../../storage/model';
+import { COLORS, id, Note, NoteCalendar, Status } from '../../storage/model';
+import { DateQuestion } from '../calendar/DateQuestion';
+import { dateDoubt, parseEvent } from '../calendar/parseEvent';
 import { useData } from '../../app/DataContext';
 import memeCafe from '../../assets/images/meme-cafe.png';
 
@@ -147,6 +149,7 @@ export function Board() {
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [archiveHover, setArchiveHover] = useState(false);
   const [announcement, setAnnouncement] = useState('');
+  const [dateAsk, setDateAsk] = useState<{ note: Note; date: string | null; time: string | null } | null>(null);
   const pointerDrag = useRef<{ id: string; pointerId: number; startX: number; startY: number; active: boolean } | null>(null);
   const clearDrag = () => { setDraggedId(null); setDropTarget(null); setArchiveHover(false); };
   const archive = (noteId: string) => {
@@ -172,9 +175,18 @@ export function Board() {
   };
   const add = (event: FormEvent) => {
     event.preventDefault(); if (!text.trim()) return;
-    const at = new Date().toISOString();
-    setData(current => ({ ...current, notes: [...current.notes, { id: id(), text: text.trim(), color, status: 'todo', history: [{ status: 'todo', at }] }] }));
+    const now = new Date();
+    const note: Note = { id: id(), text: text.trim(), color, status: 'todo', history: [{ status: 'todo', at: now.toISOString() }] };
+    setData(current => ({ ...current, notes: [...current.notes, note] }));
     setText('');
+    // Si la nota parece tener una fecha que no se entiende ("Turno 20.10"), se pregunta en el momento.
+    const doubt = parseEvent(note.text, now).date ? null : dateDoubt(note.text, now);
+    setDateAsk(doubt ? { note, date: doubt.date, time: doubt.time } : null);
+  };
+  const answerDate = (note: Note, calendar: NoteCalendar | null) => {
+    setData(current => ({ ...current, notes: current.notes.map(item => item.id === note.id ? { ...item, calendar } : item) }));
+    setDateAsk(null);
+    setAnnouncement(calendar ? `${note.text}: anotado en el calendario` : `${note.text}: sin fecha`);
   };
   const dragId = (event: DragEvent) => event.dataTransfer.getData(NOTE_MIME);
   const updateTarget = (event: DragEvent<HTMLElement>, status: Status) => {
@@ -229,6 +241,10 @@ export function Board() {
           <button>Agregar nota</button>
         </form>
       </div>
+      {dateAsk && <div className="date-ask" role="region" aria-label="¿Esto es una fecha?">
+        <strong>¿Esto es una fecha?</strong>
+        <DateQuestion key={dateAsk.note.id} text={dateAsk.note.text} date={dateAsk.date} time={dateAsk.time} onSave={calendar => answerDate(dateAsk.note, calendar)} />
+      </div>}
       <div className="desk-row">
         <img className="desk-art" src={memeCafe} alt="" width={324} height={340} draggable={false} />
         <div className="desk-objects" aria-label="Objetos del escritorio">
