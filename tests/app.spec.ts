@@ -788,7 +788,7 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
 
 test('el Solitario 8 bits se abre desde Juegos, da vuelta cartas y deshace', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(2);
+  await expect(page.locator('.games-list > li')).toHaveCount(3);
   await page.getByRole('link', { name: /Solitario 8 bits/ }).click();
   await expect(page.getByRole('heading', { name: 'Solitario 8 bits' })).toBeVisible();
   await expect(page.locator('.sol-column .sol-card')).toHaveCount(28);
@@ -801,4 +801,25 @@ test('el Solitario 8 bits se abre desde Juegos, da vuelta cartas y deshace', asy
   await expect(page.locator('.sol-waste .sol-card')).toHaveCount(0);
   await page.getByRole('link', { name: '‹ Juegos' }).click();
   await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
+});
+
+test('Tiki-Taka: se arma el equipo, arranca el partido y se ataja un contraataque', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/juegos');
+  await expect(page.locator('.games-list > li')).toHaveCount(3);
+  await page.getByRole('link', { name: /Tiki-Taka/ }).click();
+  await page.getByLabel('Nombre del equipo').fill('Atlético Prueba');
+  await page.getByLabel('Nombre del DT').fill('El Bambino');
+  await page.getByRole('button', { name: 'Verde' }).click();
+  await page.getByRole('button', { name: /5-3-2/ }).click();
+  await page.getByRole('button', { name: /A la cancha/ }).click();
+  await expect(page.locator('.tt-score')).toContainText('Atlético Prueba');
+  await expect(page.getByTestId('tt-score')).toHaveText('0 - 0');
+  // Sin pasar la pelota, el rival la roba y contraataca (o la corta la defensa).
+  await expect(page.locator('.tt-counter')).toBeVisible({ timeout: 10000 });
+  const izquierda = page.getByRole('button', { name: /Izquierda/ });
+  if (await izquierda.isVisible()) await izquierda.click();
+  await expect(page.locator('.tt-counter h2')).toHaveText(/ATAJASTE|Gol de|La cortó/);
+  await page.getByRole('link', { name: '‹ Juegos' }).click();
+  await page.getByRole('link', { name: /Tiki-Taka/ }).click();
+  await expect(page.getByLabel('Nombre del DT')).toHaveValue('El Bambino');
 });
