@@ -129,7 +129,7 @@ export function Games() {
           <TrepalunaArt />
           <span className="game-card-text">
             <strong>Trepaluna</strong>
-            <span>Como un juego de plataformas, pero para arriba: terrazas, balcones, escaleras, sogas y caños de fuego hasta clavar el banderín en la Luna.</span>
+            <span>Escalá edificios, escaleras, sogas y muchos desafíos más por un solo objetivo: ¡llegar a la Luna!</span>
             {trepa.height > 0 && <small>Récord: {trepa.time !== null ? `Luna en ${formatTime(trepa.time)}` : `${trepa.height.toLocaleString('es-AR')} metros`}</small>}
           </span>
           <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
