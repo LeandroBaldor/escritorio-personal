@@ -334,3 +334,21 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 @media(min-width:1460px){.section-title:has(>.calc-art){grid-template-columns:auto minmax(0,1fr) auto minmax(280px,20rem)}}
 /* Mi diario: los íconos de Escritorio y Gastos van arriba de los botones de la carpeta, alineados a la derecha. */
 .journal-objects{display:flex;justify-content:flex-end;max-width:1400px;margin:0 auto .75rem}.journal-objects .section-objects{flex:0 0 auto}
+/* Mis gastos: ícono de calculadora abajo de Subtotales y la calculadora flotante que se arrastra por la pantalla. */
+.pocket-calc-toggle{display:flex;align-items:center;gap:.6rem;margin-top:1rem;padding:.5rem .8rem;background:#fffaf0;color:#332317;border:1px solid #b69a73;font-weight:700}
+.pocket-calc-toggle svg{width:34px;height:45px;flex:none}
+.pocket-calc-toggle:hover,.pocket-calc-toggle[aria-expanded=true]{background:#f4e1bf}
+.pocket-calc{position:fixed;z-index:30;width:260px;padding:0 .8rem .9rem;background:#f2efe6;border:3px solid #7d6a55;border-radius:18px;box-shadow:8px 14px 28px #1a0d0799;color:#332317;outline:none}
+.pocket-calc:focus-visible{outline:3px solid #f4bd58;outline-offset:2px}
+.pocket-calc-bar{display:flex;align-items:center;justify-content:space-between;margin:0 -.8rem .6rem;padding:.35rem .4rem .35rem .9rem;border-bottom:1px solid #d4c7b3;cursor:grab;touch-action:none;user-select:none;font-weight:700;font-size:.9rem}
+.pocket-calc-bar:active{cursor:grabbing}
+.pocket-calc-close{width:36px;height:36px;padding:0;background:transparent;color:#332317;font-size:1.5rem;line-height:1}
+.pocket-calc-close:hover{background:#e4dccd}
+.pocket-calc-screen{display:grid;justify-items:end;padding:.4rem .7rem;margin-bottom:.8rem;background:#9fc3a0;border-radius:6px;box-shadow:inset 0 2px 6px #2f4a3066;font-variant-numeric:tabular-nums;overflow:hidden}
+.pocket-calc-screen small{min-height:1.2em;font-size:.85rem;color:#2f4a30}
+.pocket-calc-screen output{font-size:1.9rem;font-weight:700;line-height:1.2;max-width:100%;overflow-wrap:anywhere;text-align:right}
+.pocket-calc-keys{display:grid;grid-template-columns:repeat(4,1fr);gap:.45rem}
+.pocket-calc-key{min-height:44px;padding:0;background:#b8ab98;color:#2b2118;font-size:1.2rem;font-weight:700;box-shadow:0 3px #8f826f}
+.pocket-calc-key:active{transform:translateY(2px);box-shadow:0 1px #8f826f}
+.pocket-calc-key--op,.pocket-calc-key--equals{background:#1f6fe0;color:#fff;box-shadow:0 3px #0d47b0}
+.pocket-calc-key--clear{background:#e07a3f;color:#fff;box-shadow:0 3px #a9531f}
