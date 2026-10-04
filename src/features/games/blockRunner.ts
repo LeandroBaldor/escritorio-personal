@@ -9,11 +9,11 @@ export interface Bomb { id: number; x: number; y: number; speed: number }
 export interface Player { x: number; y: number; vx: number; vy: number; onGround: boolean; facing: 1 | -1 }
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number }
 export interface Blast { x: number; y: number; t: number; max: number; size: number }
-export type GameOver = 'crushed' | 'bomb' | 'full' | 'trapped';
+export type GameOver = 'crushed' | 'bomb' | 'full' | 'trapped' | 'won';
 export interface Game {
   cols: number; rows: number; grid: Cell[][]; pieces: Piece[]; bombs: Bomb[]; player: Player;
   particles: Particle[]; blasts: Blast[];
-  time: number; spawnIn: number; lines: number; lineScore: number; broken: number; over: GameOver | null; nextId: number; trapped: number;
+  time: number; spawnIn: number; lines: number; lineScore: number; broken: number; over: GameOver | null; nextId: number; trapped: number; winLevel: number;
 }
 export interface Input { left: boolean; right: boolean; jump: boolean }
 
@@ -51,7 +51,7 @@ export function newGame(cols: number, rows: number): Game {
     grid: Array.from({ length: rows }, () => Array<Cell>(cols).fill(null)),
     pieces: [], bombs: [], particles: [], blasts: [],
     player: { x: (cols - PLAYER_W) / 2, y: rows - PLAYER_H, vx: 0, vy: 0, onGround: true, facing: 1 },
-    time: 0, spawnIn: 1, lines: 0, lineScore: 0, broken: 0, over: null, nextId: 1, trapped: 0,
+    time: 0, spawnIn: 1, lines: 0, lineScore: 0, broken: 0, over: null, nextId: 1, trapped: 0, winLevel: WIN_LEVEL,
   };
 }
 
@@ -137,10 +137,12 @@ function freeColumns(game: Game, width: number) {
   return free;
 }
 
-// Dificultad: sube de a poco (el nivel que se muestra cambia cada 30 segundos). Las piezas caen más
+// Dificultad: sube de a poco (el nivel que se muestra cambia cada 15 segundos y al llegar al nivel 10,
+// a los 2:15, se gana: antes de que la pila llegue arriba si lográs sobrevivir). Las piezas caen más
 // rápido, aparecen más seguido y casi la mitad de lo que cae son bombas. La cantidad de piezas depende del tamaño del tablero, así en la compu y en el celular la
 // pila tarda parecido en llegar arriba (una ronda dura unos 2 a 3 minutos).
-export const LEVEL_SECONDS = 30;
+export const LEVEL_SECONDS = 15;
+export const WIN_LEVEL = 10;
 export const level = (game: Game) => 1 + Math.floor(game.time / LEVEL_SECONDS);
 const SPAWN_BASE = 1.1;
 const spawnInterval = (game: Game, rand: () => number) =>
@@ -218,6 +220,7 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   updateEffects(game, dt); // las explosiones se siguen viendo un momento después de perder
   if (game.over) return;
   game.time += dt;
+  if (level(game) >= game.winLevel) { game.over = 'won'; return; }
 
   game.spawnIn -= dt;
   if (game.spawnIn <= 0) {

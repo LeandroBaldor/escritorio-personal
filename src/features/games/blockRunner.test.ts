@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BREAK_POINTS, explode, hitsGrid, isEnclosed, newGame, PLAYER_H, score, spawnPiece, step, type Piece } from './blockRunner';
+import { BREAK_POINTS, level, WIN_LEVEL, explode, hitsGrid, isEnclosed, newGame, PLAYER_H, score, spawnPiece, step, type Piece } from './blockRunner';
 
 const idle = { left: false, right: false, jump: false };
 const run = (game: ReturnType<typeof newGame>, seconds: number, input = idle) => {
@@ -205,6 +205,7 @@ describe('duración de la ronda', () => {
     for (const [cols, rows] of [[26, 12], [14, 14], [10, 16]]) {
       let seed = 4242; const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
       const game = newGame(cols, rows);
+      game.winLevel = Infinity; // acá se mide solo cuánto tarda en llenarse
       while (game.time < 400) { step(game, idle, 1 / 30, rand); if (game.over === 'full') break; game.over = null; game.player.y = -5; }
       expect(game.time).toBeGreaterThan(110);
       expect(game.time).toBeLessThan(185);
@@ -239,5 +240,18 @@ describe('encerrado', () => {
     run(game, 0.1);
     expect(game.trapped).toBe(0);
     expect(isEnclosed(game)).toBe(false);
+  });
+});
+
+describe('ganar', () => {
+  it('al llegar al nivel 10 gana la partida', () => {
+    const game = newGame(10, 12);
+    game.spawnIn = 99;
+    game.time = (WIN_LEVEL - 1) * 15 - 0.02;
+    step(game, idle, 0.01);
+    expect(game.over).toBeNull();
+    step(game, idle, 0.05);
+    expect(level(game)).toBe(WIN_LEVEL);
+    expect(game.over).toBe('won');
   });
 });

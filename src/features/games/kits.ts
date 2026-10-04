@@ -35,6 +35,18 @@ export function rivalKit(mine: Kit, rand: () => number = Math.random) {
   return options[Math.floor(rand() * options.length)] ?? KITS.find(k => k.id !== mine.id)!;
 }
 
+// Varios rivales distintos (para el Mundial), todos con camisetas que se distingan de la tuya.
+export function rivalKits(mine: Kit, count: number, rand: () => number = Math.random) {
+  const out: Kit[] = [];
+  for (let i = 0; i < count; i++) {
+    const free = KITS.filter(k => k.id !== mine.id && !out.includes(k));
+    const clear = free.filter(k => distance(k.base, mine.base) > 170);
+    const options = clear.length ? clear : free;
+    out.push(options[Math.floor(rand() * options.length)]);
+  }
+  return out;
+}
+
 // Pinta la tela de la camiseta dentro de un recorte ya hecho, centrado en 0,0: w es de adelante hacia
 // atrás y h de hombro a hombro. Las rayas verticales de la camiseta se ven, desde arriba, como
 // franjas que van de adelante hacia atrás.

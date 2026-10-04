@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { bestTarget, canFinish, canMove, cardName, deal, draw, finishStep, fitsFoundation, fitsTableau, isWon, move, SUITS, type Card, type Solitaire } from './solitaire';
+import { bestTarget, canFinish, canMove, cardName, deal, draw, finishStep, fitsFoundation, fitsTableau, finalScore, isWon, liveScore, move, POINTS, SUITS, timeBonus, type Card, type Solitaire } from './solitaire';
 
 const card = (suit: Card['suit'], rank: number, up = true): Card => ({ id: `${suit}-${rank}`, suit, rank, up });
-const empty = (): Solitaire => ({ stock: [], waste: [], foundations: [[], [], [], []], tableau: [[], [], [], [], [], [], []], moves: 0 });
+const empty = (): Solitaire => ({ stock: [], waste: [], foundations: [[], [], [], []], tableau: [[], [], [], [], [], [], []], moves: 0, score: 0 });
 
 describe('Solitario 8 bits', () => {
   it('reparte 28 cartas en 7 columnas con la de arriba boca arriba y deja 24 en el mazo', () => {
@@ -85,5 +85,29 @@ describe('nombres de las cartas', () => {
     expect(cardName(card('corazon', 1))).toBe('As de corazones');
     expect(cardName(card('trebol', 13))).toBe('K de tréboles');
     expect(SUITS).toHaveLength(4);
+  });
+});
+
+describe('puntaje', () => {
+  const c = (suit: Card['suit'], rank: number, up = true): Card => ({ id: `${suit}-${rank}`, suit, rank, up });
+  it('suma al subir a las bases, al destapar y al completar un palo; resta al bajar y al rearmar el mazo', () => {
+    const s = empty();
+    s.foundations[0] = Array.from({ length: 12 }, (_, i) => c('pica', i + 1));
+    s.tableau[0] = [c('corazon', 5, false), c('pica', 13)];
+    const a = move(s, { kind: 'tableau', pile: 0, index: 1 }, { kind: 'foundation', pile: 0 })!;
+    expect(a.score).toBe(POINTS.foundation + POINTS.suit + POINTS.reveal);
+    const b = move(a, { kind: 'foundation', pile: 0 }, { kind: 'tableau', pile: 1 })!;
+    expect(b.score).toBe(a.score + POINTS.backFromFoundation);
+    const w = { ...empty(), waste: [c('trebol', 2)], score: 50 };
+    expect(draw(w)!.score).toBe(50 + POINTS.recycle);
+  });
+
+  it('el reloj resta y al ganar rápido el premio es más grande', () => {
+    const s = { ...empty(), score: 300 };
+    expect(liveScore(s, 0)).toBe(300);
+    expect(liveScore(s, 60)).toBe(288);
+    expect(liveScore({ ...s, score: 5 }, 600)).toBe(0);
+    expect(finalScore(s, 120)).toBeGreaterThan(finalScore(s, 400));
+    expect(timeBonus(10000)).toBe(0);
   });
 });

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { KITS, kitById, paintKit, rivalKit, type Kit } from './kits';
+import { KITS, kitById, paintKit, rivalKit, rivalKits, type Kit } from './kits';
+import { cupOutcome, FINAL, ROUNDS, type CupOutcome } from './worldCup';
 import { canShoot, chase, dive, FORMATIONS, GOAL, minute, newMatch, pass, passRisk, PITCH, shoot, shotChance, startSecondHalf, step, takeEvents, type FormationId, type Match, type MatchEvent, type Side } from './tikiTaka';
 
 // ---------- Equipo guardado y récord ----------
 export interface TeamSetup { coach: string; country: string; formation: FormationId }
 const SETUP_KEY = 'escritorio-personal-juegos:tikitaka-equipo';
 const RECORD_KEY = 'escritorio-personal-juegos:tikitaka-record';
-export interface TikiRecord { played: number; won: number; drawn: number; lost: number; goals: number }
+export interface TikiRecord { played: number; won: number; drawn: number; lost: number; goals: number; cups?: number }
 const DEFAULT_SETUP: TeamSetup = { coach: 'El Profe', country: 'arg', formation: '4-3-3' };
 const read = <T,>(key: string, fallback: T): T => { try { const v = JSON.parse(localStorage.getItem(key) ?? 'null'); return v ?? fallback; } catch { return fallback; } };
 const write = (key: string, value: unknown) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* sin almacenamiento */ } };
@@ -28,8 +29,8 @@ const PHRASES: Record<MatchEvent['type'], string[]> = {
   dribble: ['¡Lo gambeteó! Insistí con la marca', '¡Qué amague de {rival}! Sigue con la pelota'],
   rivalShot: ['¡Patea {rival}! ¡Elegí dónde tirarte!'],
   keeperSave: ['¡ATAJADÓN del arquero de {team}!', '¡Voló el arquero! Se salvó {team}'],
-  rivalGoal: ['Gol de {rival}… {coach} patea un botellón', 'Lo adivinó mal el arquero: gol de {rival}', '¡Gol de {rival}! {rivalCoach} lo grita en el banco'],
-  goal: ['¡GOOOOL DE {team}!', '¡Golazo! {coach} corre por toda la línea de cal'],
+  rivalGoal: ['¡GOOOOL DE {rival}!!!'],
+  goal: ['¡GOOOOL DE {team}!!!'],
   saved: ['¡Atajó el arquero de {rival}! Ahora atacan ellos', 'Tapada del arquero rival. {rivalCoach} aplaude. ¡A defender!'],
   miss: ['¡Afuera! Pasó cerquita. Sale {rival} desde el fondo'],
   kickoff: ['Mueve el partido. Con la pelota: tocá a un compañero. Sin la pelota: tocá a uno tuyo para marcar'],
@@ -175,6 +176,22 @@ function draw(ctx: CanvasRenderingContext2D, m: Match, v: View, mine: Kit, rival
   drawBall(ctx, v, m.ball.x + ahead, m.ball.y, m.spin, shot);
 }
 
+// Copa dorada para el campeón del mundo.
+export function Trophy() {
+  return <svg className="tt-trophy" viewBox="0 0 64 80" aria-hidden="true">
+    <defs><linearGradient id="tt-oro" x1="0" x2="1"><stop offset="0" stopColor="#b45309" /><stop offset=".35" stopColor="#fde047" /><stop offset=".6" stopColor="#facc15" /><stop offset="1" stopColor="#a16207" /></linearGradient></defs>
+    <path d="M14 8h36v10c0 14-8 24-18 24S14 32 14 18z" fill="url(#tt-oro)" stroke="#78350f" strokeWidth="2" />
+    <path d="M14 12H5c0 10 5 16 12 17M50 12h9c0 10-5 16-12 17" fill="none" stroke="url(#tt-oro)" strokeWidth="4" strokeLinecap="round" />
+    <path d="M28 42h8l2 14h-12z" fill="url(#tt-oro)" stroke="#78350f" strokeWidth="2" />
+    <rect x="16" y="56" width="32" height="8" rx="2" fill="url(#tt-oro)" stroke="#78350f" strokeWidth="2" />
+    <rect x="12" y="64" width="40" height="10" rx="2" fill="#166534" stroke="#052e16" strokeWidth="2" />
+    <path d="M22 14c0 8 2 14 6 18" stroke="#fffbe6" strokeWidth="3" strokeLinecap="round" fill="none" opacity=".8" />
+    <path d="M32 18l2 4 4 .5-3 3 .8 4-3.8-2-3.8 2 .8-4-3-3 4-.5z" fill="#fff7cc" />
+  </svg>;
+}
+type Banner = { text: string; trophy?: boolean; seconds: number; id: number };
+interface Cup { round: number; rivals: Kit[]; coaches: string[] }
+
 // ---------- Pantalla ----------
 type Screen = 'setup' | 'match';
 const SIDE_LABELS: Record<Side, string> = { izq: '⬅ Izquierda', medio: '⬆ Medio', der: 'Derecha ➡' };
@@ -217,7 +234,16 @@ export function TikiTaka() {
   useEffect(() => { if (rivalShirt.id === myKit.id || rivalShirt.base === myKit.base) setRivalShirt(rivalKit(myKit)); }, [myKit, rivalShirt]);
   const [hud, setHud] = useState({ minute: 0, half: 1, mine: 0, rival: 0, phase: 'play' as Match['phase'], possession: 'mine' as Match['possession'], canShoot: false, chance: 0, save: null as Match['save'], passes: 0, shots: 0, recovered: 0 });
   const [line, setLine] = useState('');
-  const [celebrate, setCelebrate] = useState(false);
+  const [banner, setBanner] = useState<Banner | null>(null);
+  const [cup, setCup] = useState<Cup | null>(null);
+  const [outcome, setOutcome] = useState<CupOutcome | null>(null);
+  const cupRef = useRef(cup);
+  useEffect(() => { cupRef.current = cup; }, [cup]);
+  useEffect(() => {
+    if (!banner) return;
+    const id = setTimeout(() => setBanner(b => b === banner ? null : b), banner.seconds * 1000);
+    return () => clearTimeout(id);
+  }, [banner]);
   const [record, setRecord] = useState(readTikiRecord);
   const matchRef = useRef<Match | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -237,7 +263,8 @@ export function TikiTaka() {
     write(SETUP_KEY, setup);
     matchRef.current = newMatch(setup.formation);
     setLine(say('kickoff', names));
-    setCelebrate(false);
+    setBanner(null);
+    setOutcome(null);
     setScreen('match');
   };
 
@@ -288,11 +315,15 @@ export function TikiTaka() {
       for (const event of takeEvents(m)) {
         if (event.type === 'pass' && Math.random() > 0.35) continue; // el relator no comenta cada pase
         setLine(say(event.type, names));
-        if (event.type === 'goal') { setCelebrate(true); setTimeout(() => setCelebrate(false), 2000); }
+        if (event.type === 'goal') setBanner({ text: `¡GOOOOL DE ${names.team.toUpperCase()}!!!`, seconds: 2.2, id: now });
+        if (event.type === 'rivalGoal') setBanner({ text: `¡GOOOOL DE ${names.rival.toUpperCase()}!!!`, seconds: 1.8, id: now });
         if (event.type === 'end') {
           const r = readTikiRecord();
-          const next = { played: r.played + 1, won: r.won + (m.goals.mine > m.goals.rival ? 1 : 0), drawn: r.drawn + (m.goals.mine === m.goals.rival ? 1 : 0), lost: r.lost + (m.goals.mine < m.goals.rival ? 1 : 0), goals: r.goals + m.goals.mine };
+          // En el Mundial, si termina empatado se define por penales.
+          const c = cupRef.current, result = c ? cupOutcome(c.round, m.goals.mine, m.goals.rival) : null;
+          const next = { ...r, played: r.played + 1, won: r.won + (m.goals.mine > m.goals.rival ? 1 : 0), drawn: r.drawn + (m.goals.mine === m.goals.rival ? 1 : 0), lost: r.lost + (m.goals.mine < m.goals.rival ? 1 : 0), goals: r.goals + m.goals.mine, cups: (r.cups ?? 0) + (result?.champion ? 1 : 0) };
           write(RECORD_KEY, next); setRecord(next);
+          if (result) { setOutcome(result); if (result.shout) setBanner({ text: result.shout, trophy: result.champion, seconds: 3.5, id: now }); }
         }
       }
       setHud(prev => {
@@ -336,8 +367,18 @@ export function TikiTaka() {
     if (m.possession === 'mine') pass(m, best); else chase(m, best);
   };
 
+  // Mundial: cuatro rivales distintos, de octavos a la final.
+  const playCup = (next: Cup) => { setCup(next); setRivalShirt(next.rivals[next.round]); setRivalCoach(next.coaches[next.round]); setTimeout(() => start(), 0); };
+  const startCup = () => {
+    const rivals = rivalKits(myKit, ROUNDS.length);
+    const coaches = [...RIVAL_COACHES].sort(() => Math.random() - 0.5).slice(0, ROUNDS.length);
+    write(SETUP_KEY, setup);
+    playCup({ round: 0, rivals, coaches });
+  };
+  const friendly = (e?: React.FormEvent) => { setCup(null); start(e); };
   const rematch = () => { setRivalShirt(rivalKit(myKit)); setRivalCoach(pick(RIVAL_COACHES.filter(c => c !== rivalCoach))); setTimeout(() => start(), 0); };
   const result = hud.mine > hud.rival ? 'won' : hud.mine < hud.rival ? 'lost' : 'drawn';
+  const roundName = cup ? ROUNDS[cup.round] : null;
   const s = hud.save;
 
   return <section className="runner tt" aria-label="Tiki-Taka">
@@ -352,13 +393,13 @@ export function TikiTaka() {
             <strong data-testid="tt-score">{hud.mine} - {hud.rival}</strong>
             <span className="tt-team tt-team--rival"><i style={{ background: rivalShirt.base, borderColor: rivalShirt.trim }} /><b>{rival}</b></span>
           </div>
-          <div className="tt-board-time">{hud.half === 1 ? '1T' : '2T'} · {hud.minute}'</div>
+          <div className="tt-board-time">{roundName && `${roundName} · `}{hud.half === 1 ? '1T' : '2T'} · {hud.minute}'</div>
         </div>
         <div className="tt-coach tt-coach--rival"><small>DT</small><strong>{rivalCoach}</strong></div>
       </div>}
     </div>
 
-    {screen === 'setup' && <form className="tt-setup" onSubmit={start}>
+    {screen === 'setup' && <form className="tt-setup" onSubmit={friendly}>
       <h2>Armá tu equipo</h2>
       <div className="tt-fields">
         <label>Nombre del DT<input value={setup.coach} maxLength={24} onChange={e => setSetup({ ...setup, coach: e.target.value })} /></label>
@@ -373,15 +414,19 @@ export function TikiTaka() {
       </fieldset>
       <p className="tt-tip">Con más defensores te cuesta menos defender; con más volantes y delanteros, tenés más opciones de pase cerca del arco.</p>
       <p className="tt-rival"><span className="tt-rival-kit"><KitPreview kit={rivalShirt} /></span><span>Hoy {myKit.name} juega contra <strong>{rival}</strong>, dirigido por {rivalCoach}</span></p>
-      <button type="submit" className="tt-go">¡A la cancha! ⚽</button>
-      {record.played > 0 && <p className="tt-record">Tu campaña: {record.won} ganados, {record.drawn} empatados, {record.lost} perdidos · {record.goals} goles</p>}
+      <div className="tt-go-row">
+        <button type="submit" className="tt-go">Amistoso ⚽</button>
+        <button type="button" className="tt-go tt-go--cup" onClick={startCup}>🏆 Jugar el Mundial</button>
+      </div>
+      <p className="tt-tip">En el Mundial arrancás en octavos de final: si ganás, pasás de ronda hasta la final. Si empatás, se define por penales.</p>
+      {record.played > 0 && <p className="tt-record">Tu campaña: {record.won} ganados, {record.drawn} empatados, {record.lost} perdidos · {record.goals} goles{record.cups ? ` · 🏆 ${record.cups} ${record.cups === 1 ? 'Mundial' : 'Mundiales'}` : ''}</p>}
     </form>}
 
     {screen === 'match' && <>
       <div className="tt-stage" ref={stageRef}>
         <canvas ref={canvasRef} onPointerDown={onPointerDown} role="img" aria-label="Cancha" />
-        {celebrate && <div className="tt-goal" aria-hidden="true"><span>¡GOOOL!</span><small>{names.team}</small></div>}
-        {hud.phase === 'save' && s && <div className="tt-save" role="dialog" aria-labelledby="tt-save-title">
+        {banner && <div key={banner.id} className="tt-goal" role="status"><span className="tt-shout">{banner.text}</span>{banner.trophy && <Trophy />}</div>}
+        {hud.phase === 'save' && s && !(s.result === 'goal' && banner) && <div className="tt-save" role="dialog" aria-labelledby="tt-save-title">
           <h2 id="tt-save-title">{s.result === 'saved' ? '¡ATAJASTE!' : s.result === 'goal' ? `Gol de ${rival}` : `¡Patea ${rival}!`}</h2>
           {!s.result && <>
             <div className="tt-timer"><span key={s.window} style={{ animationDuration: `${s.window}s` }} /></div>
@@ -397,12 +442,27 @@ export function TikiTaka() {
             <button type="button" onClick={secondHalf} autoFocus>Segundo tiempo ▶</button>
           </div>
         </div>}
-        {hud.phase === 'end' && <div className="runner-overlay" role="dialog" aria-labelledby="tt-end">
+        {hud.phase === 'end' && !cup && <div className="runner-overlay" role="dialog" aria-labelledby="tt-end">
           <div>
             <h2 id="tt-end">{result === 'won' ? `¡Ganó ${names.team}!` : result === 'lost' ? `Ganó ${rival}` : '¡Empate!'}</h2>
             <p className="tt-final">{names.team} {hud.mine} - {hud.rival} {rival}</p>
             <p>{result === 'won' ? `${names.coach} sale en andas.` : result === 'lost' ? `${names.coach} ya piensa en la revancha.` : `${names.coach} dice que el punto sirve.`} {hud.passes} pases, {hud.shots} tiros y {hud.recovered} recuperaciones.</p>
             <div className="tt-end-actions"><button type="button" onClick={rematch} autoFocus>Revancha</button><button type="button" onClick={() => setScreen('setup')}>Cambiar equipo</button></div>
+          </div>
+        </div>}
+        {hud.phase === 'end' && cup && outcome && !banner && <div className="runner-overlay" role="dialog" aria-labelledby="tt-end">
+          <div className="tt-cup-end">
+            <p className="tt-round">Mundial · {ROUNDS[cup.round]}</p>
+            <h2 id="tt-end" className={outcome.shout ? 'tt-shout' : undefined}>{outcome.shout ?? `Quedaste afuera en ${ROUNDS[cup.round].toLowerCase()}`}{outcome.champion && <Trophy />}</h2>
+            <p className="tt-final">{names.team} {hud.mine} - {hud.rival} {rival}</p>
+            {outcome.penalties && <p className="tt-penalties">Por penales: {outcome.penalties[0]} - {outcome.penalties[1]}</p>}
+            {outcome.won && cup.round < FINAL && <p>Próximo partido: <strong>{ROUNDS[cup.round + 1]}</strong> contra <strong>{cup.rivals[cup.round + 1].name}</strong>.</p>}
+            <div className="tt-end-actions">
+              {outcome.won && cup.round < FINAL
+                ? <button type="button" onClick={() => playCup({ ...cup, round: cup.round + 1 })} autoFocus>Jugar {ROUNDS[cup.round + 1].toLowerCase()} ▶</button>
+                : <button type="button" onClick={startCup} autoFocus>Jugar otro Mundial</button>}
+              <button type="button" onClick={() => setScreen('setup')}>Cambiar equipo</button>
+            </div>
           </div>
         </div>}
       </div>
