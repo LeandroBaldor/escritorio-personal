@@ -192,8 +192,14 @@ export function Calendar() {
         </div>
       </div>
 
-      <aside className="cal-day-panel" aria-label="Día elegido">
-        <h2>{longDate(selected)}</h2>
+      <aside className="cal-day-panel" aria-label="Panel del calendario">
+        <section className="cal-card cal-card--day" aria-labelledby="cal-day-title">
+          <header className="cal-card-head">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2.5" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
+            <h2 id="cal-day-title">{longDate(selected)}</h2>
+            {selectedItems.length > 0 && <span className="cal-card-count" aria-label={`${selectedItems.length} ${selectedItems.length === 1 ? 'cosa' : 'cosas'}`}>{selectedItems.length}</span>}
+          </header>
+          <div className="cal-card-body">
         {selectedItems.length === 0
           ? <p className="cal-empty">No hay nada anotado para este día.</p>
           : <ul className="cal-items">
@@ -225,8 +231,14 @@ export function Calendar() {
                 </>}
             </li>)}
           </ul>}
-        <form className="cal-add" onSubmit={addTask} aria-labelledby="cal-add-title">
-          <h3 id="cal-add-title">Agregar tarea</h3>
+          </div>
+        </section>
+        <form className="cal-card cal-card--add" onSubmit={addTask} aria-labelledby="cal-add-title">
+          <header className="cal-card-head">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></svg>
+            <h3 id="cal-add-title">Agregar tarea</h3>
+          </header>
+          <div className="cal-card-body cal-add">
           <label>Qué es<input value={newText} onChange={e => setNewText(e.target.value)} placeholder="Ej. Turno Altamar" /></label>
           <div className="cal-add-row">
             <label>Día<input type="date" value={taskDate} onChange={e => setNewDate(e.target.value)} /></label>
@@ -236,11 +248,18 @@ export function Calendar() {
             {EVENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select></label>
           <button disabled={!newText.trim() || !taskDate}>Agregar</button>
+          </div>
         </form>
-        {doubts.length > 0 && <section className="cal-doubts" aria-labelledby="cal-doubts-title">
-          <h3 id="cal-doubts-title">¿Son fechas?</h3>
-          <p>Estas notas parecen tener una fecha que no entendí. Con la flecha van al calendario; con la X dejo de preguntar.</p>
-          <ul>{doubts.map(doubt => <li key={doubt.note.id}><DateQuestion text={doubt.note.text} date={doubt.date} time={doubt.time} onSave={calendar => setNoteCalendar(doubt.note, calendar)} /></li>)}</ul>
+        {doubts.length > 0 && <section className="cal-card cal-card--doubts" aria-labelledby="cal-doubts-title">
+          <header className="cal-card-head">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.7M12 17h.01" /></svg>
+            <h3 id="cal-doubts-title">¿Son fechas?</h3>
+            <span className="cal-card-count">{doubts.length}</span>
+          </header>
+          <div className="cal-card-body cal-doubts">
+            <p>Estas notas parecen tener una fecha que no entendí. Con la flecha van al calendario; con la X dejo de preguntar.</p>
+            <ul>{doubts.map(doubt => <li key={doubt.note.id}><DateQuestion text={doubt.note.text} date={doubt.date} time={doubt.time} onSave={calendar => setNoteCalendar(doubt.note, calendar)} /></li>)}</ul>
+          </div>
         </section>}
       </aside>
     </div>
