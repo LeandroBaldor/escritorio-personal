@@ -431,11 +431,6 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-item-actions{display:flex;gap:.4rem}
 .cal-item-actions button{padding:.35rem .7rem;font-size:.85rem;margin:0}
 .cal-item-link{justify-self:start;font-size:.85rem;font-weight:700;color:#15803d}
-.cal-secondary{background:#866047}
-.cal-edit{display:grid;gap:.45rem}
-.cal-edit input,.cal-edit select{min-width:0;padding:.45rem .5rem;border:1px solid #b69a73;border-radius:6px;background:#fffaf0}
-.cal-edit-row{display:flex;flex-wrap:wrap;gap:.4rem}
-.cal-edit-row>*{flex:1 1 auto}
 .cal-hint{margin:1rem 0 0;font-size:.85rem;color:#6b5a48}
 
 @media(max-width:1000px){.cal-layout{grid-template-columns:1fr}.cal-day-panel{position:static}}
@@ -461,16 +456,10 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-doubts ul{display:grid;gap:.4rem;margin:0;padding:0;list-style:none}
 .cal-doubt{display:grid;grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"text text text" "day ok no";align-items:center;gap:.35rem;padding:.5rem .6rem;background:#fff5cf;border-left:5px solid #e0b23c;border-radius:8px}
 .cal-doubt-text{grid-area:text;font-weight:700;overflow-wrap:anywhere}
-.cal-doubt input{grid-area:day;min-width:0;padding:.3rem .4rem;border:1px solid #b69a73;border-radius:6px;background:#fffaf0}
 .cal-doubt button{width:40px;height:36px;padding:0;font-size:1.25rem;font-weight:900;line-height:1}
 .cal-doubt-ok{grid-area:ok;background:#15803d}
 .cal-doubt-ok:disabled{opacity:.45;cursor:not-allowed}
 .cal-doubt-no{grid-area:no;background:#8e3c33}
-.cal-note-date{display:grid;gap:.45rem;padding:.7rem .8rem;background:#fff5cf;border:2px dashed #e0b23c;border-radius:10px}
-.cal-note-date button{padding:.4rem .8rem;font-size:.9rem;margin:0}
-.cal-note-date input{min-width:0;padding:.4rem .5rem;border:1px solid #b69a73;border-radius:6px;background:#fffaf0}
-.cal-item .cal-note-date{padding:.5rem;border-width:1px}
-.cal-item-actions .cal-item-link{align-self:center;margin-right:.3rem}
 @media(max-width:700px){.cal-band-clock{width:110px;height:110px}}
 /* Calendario: tarjeta "Agregar tarea" (qué es, día, hora y categoría) y categoría editable de cada cosa del día. */
 .cal-add{display:grid;gap:.55rem}
@@ -478,8 +467,6 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-add input,.cal-add select{min-width:0;padding:.5rem .6rem;border:1px solid #cdbfa8;border-radius:8px;background:#fff;font-weight:400}
 .cal-add-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:.5rem}
 .cal-add button:disabled{opacity:.55;cursor:not-allowed}
-.cal-item-category{display:flex;align-items:center;gap:.4rem;font-size:.8rem;font-weight:700;color:#5b4a3a}
-.cal-item-category select{padding:.25rem .4rem;border:1px solid #b69a73;border-radius:6px;background:#fffaf0;font-size:.85rem;font-weight:400}
 
 /* Escritorio: al agregar una nota con una posible fecha se pregunta en el momento. */
 .date-ask{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem 1rem;max-width:640px;margin:-.4rem 0 1.2rem auto;padding:.7rem .9rem;background:#fff5cf;border:2px dashed #e0b23c;border-radius:12px;box-shadow:0 6px 16px #2d130c55}
@@ -499,9 +486,6 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-card-body{padding:.9rem 1rem 1rem}
 .cal-card--add button[type=submit],.cal-card--add .cal-add>button{background:var(--card-dark)}
 @media(max-width:1000px){.cal-day-panel{max-height:none;overflow:visible;padding:0}}
-.cal-card .cal-secondary{background:#fff;color:#1f2937;box-shadow:inset 0 0 0 1px #cbd5e1}
-.cal-card .cal-secondary:hover{background:#f1f5f9}
-.cal-card .cal-item-category select{background:#fff;border-color:#cbd5e1}
 /* Calendario en computadora: título y hoja más arriba, accesos apenas más chicos y cartel más bajo, para ver el mes entero sin bajar. */
 @media(min-width:1001px){
 .cal-page{margin-top:-1.6rem}
@@ -535,3 +519,18 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .date-add-actions button{padding:.5rem .9rem}
 .date-add-actions button:disabled{opacity:.55;cursor:not-allowed}
 .date-add-reject{background:#8e3c33}
+/* Calendario: editar categoría, fecha (dd/mm/aaaa) y hora de cada cosa del día, uno debajo del otro. */
+.cal-item-form{display:grid;gap:.45rem}
+.cal-item-form label,.cal-item-field>label{display:grid;gap:.2rem;font-size:.8rem;font-weight:700;color:#5b4a3a}
+.cal-item-field{display:grid;gap:.2rem}
+.cal-item-form select,.cal-item-form .time-input{min-width:0;padding:.45rem .55rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font-weight:400;font-size:.95rem}
+.cal-item-form .date-input,.cal-add .date-input,.cal-doubt .date-input,.date-add .date-input{border:1px solid #cbd5e1;border-radius:8px;background:#fff}
+.cal-item-form .date-input>input[type=text],.cal-add .date-input>input[type=text],.cal-doubt .date-input>input[type=text],.date-add .date-input>input[type=text]{padding:.45rem 2.6rem .45rem .55rem;background:transparent;border:0;font-size:.95rem}
+.cal-item-form .cal-item-actions{margin-top:.15rem}
+.cal-add-field{display:grid;gap:.2rem;font-size:.85rem;font-weight:700;min-width:0}
+.cal-add .time-input,.date-add .time-input{min-width:0;padding:.5rem .6rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font-weight:400}
+.date-add-field{display:grid;gap:.2rem;font-size:.85rem;font-weight:700}
+.date-add .date-input{min-width:11rem}
+.date-add .time-input{width:6.5rem}
+.cal-doubt .date-input{grid-area:day;min-width:0}
+.cal-item-form .date-picker-icon,.cal-add .date-picker-icon,.cal-doubt .date-picker-icon,.date-add .date-picker-icon{width:2.4rem;height:100%;font-size:1.05rem}

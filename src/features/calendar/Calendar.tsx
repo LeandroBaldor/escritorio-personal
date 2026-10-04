@@ -1,9 +1,10 @@
-import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { FormEvent, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useData } from '../../app/DataContext';
 import { DeskLink, NotebookLink, CalculatorLink, SectionObjects } from '../../app/SectionObjects';
 import { EVENT_CATEGORIES, id, type CalendarEvent, type EventCategory, type Note, type NoteCalendar } from '../../storage/model';
-import { money } from '../expenses/Expenses';
+import { DateInput, formatExpenseDate, money } from '../expenses/Expenses';
+import { calendarFrom, TimeInput } from './DateTimeFields';
 import { DateQuestion } from './DateQuestion';
 import { dateDoubt, dateOf, guessCategory, isoOf, parseEvent } from './parseEvent';
 
@@ -36,20 +37,25 @@ function BandClock() {
   </svg>;
 }
 
-// Cambiar a mano la fecha de una nota que ya está en el calendario.
-function NoteDateForm({ note, date, time, onSave, onCancel }: { note: Note; date: string; time: string | null; onSave: (calendar: NoteCalendar) => void; onCancel: () => void }) {
-  const [day, setDay] = useState(date);
-  const [hour, setHour] = useState(time ?? '');
-  return <div className="cal-note-date">
-    <div className="cal-edit-row">
-      <input aria-label={`Día de ${note.text}`} type="date" value={day} onChange={e => setDay(e.target.value)} />
-      <input aria-label={`Hora de ${note.text}`} type="time" value={hour} onChange={e => setHour(e.target.value)} />
+
+// Editar una nota o tarea del día: categoría, fecha (dd/mm/aaaa) y hora, uno debajo del otro, y Guardar.
+function ItemEditor({ item, date, onSave, onDelete }: { item: Item; date: string; onSave: (category: EventCategory, calendar: NoteCalendar) => void; onDelete?: () => void }) {
+  const fieldId = useId();
+  const [category, setCategory] = useState(item.category);
+  const [day, setDay] = useState(formatExpenseDate(date));
+  const [hour, setHour] = useState(item.time ?? '');
+  const calendar = calendarFrom(day, hour);
+  return <form className="cal-item-form" aria-label={`Editar ${item.text}`} onSubmit={event => { event.preventDefault(); if (calendar) onSave(category, calendar); }}>
+    <label>Categoría<select value={category} onChange={event => setCategory(event.target.value as EventCategory)}>
+      {EVENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+    </select></label>
+    <div className="cal-item-field"><label htmlFor={fieldId}>Fecha</label><DateInput id={fieldId} label={`Fecha de ${item.text}`} value={day} onChange={setDay} /></div>
+    <label>Hora<TimeInput label={`Hora de ${item.text}`} value={hour} onChange={setHour} /></label>
+    <div className="cal-item-actions">
+      <button disabled={!calendar}>Guardar</button>
+      {onDelete && <button type="button" className="delete" onClick={onDelete}>Borrar</button>}
     </div>
-    <div className="cal-edit-row">
-      <button type="button" disabled={!day} onClick={() => onSave(hour ? { date: day, time: hour } : { date: day })}>Guardar fecha</button>
-      <button type="button" className="cal-secondary" onClick={onCancel}>Cancelar</button>
-    </div>
-  </div>;
+  </form>;
 }
 
 // Semanas de lunes a domingo que cubren el mes entero (con los días del mes anterior y siguiente para completar).
@@ -62,33 +68,6 @@ function monthGrid(year: number, month: number) {
   return days;
 }
 
-function EventEditor({ event, onSave, onCancel }: { event: CalendarEvent; onSave: (event: CalendarEvent) => void; onCancel: () => void }) {
-  const [text, setText] = useState(event.text);
-  const [date, setDate] = useState(event.date);
-  const [time, setTime] = useState(event.time ?? '');
-  const [category, setCategory] = useState(event.category);
-  const save = (submit: FormEvent) => {
-    submit.preventDefault();
-    if (!text.trim() || !date) return;
-    const next: CalendarEvent = { ...event, text: text.trim(), date, category };
-    if (time) next.time = time; else delete next.time;
-    onSave(next);
-  };
-  return <form className="cal-edit" onSubmit={save} aria-label={`Editar ${event.text}`}>
-    <input aria-label="Qué pasa" value={text} onChange={e => setText(e.target.value)} />
-    <div className="cal-edit-row">
-      <input aria-label="Día" type="date" value={date} onChange={e => setDate(e.target.value)} />
-      <input aria-label="Hora" type="time" value={time} onChange={e => setTime(e.target.value)} />
-      <select aria-label="Tipo" value={category} onChange={e => setCategory(e.target.value as EventCategory)}>
-        {EVENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-      </select>
-    </div>
-    <div className="cal-edit-row">
-      <button disabled={!text.trim() || !date}>Guardar</button>
-      <button type="button" className="cal-secondary" onClick={onCancel}>Cancelar</button>
-    </div>
-  </form>;
-}
 
 export function Calendar() {
   const { data, setData } = useData();
@@ -96,8 +75,6 @@ export function Calendar() {
   const todayIso = isoOf(today);
   const [view, setView] = useState({ year: today.getFullYear(), month: today.getMonth() });
   const [selected, setSelected] = useState(todayIso);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [movingNoteId, setMovingNoteId] = useState<string | null>(null);
   const [newText, setNewText] = useState('');
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('');
@@ -124,28 +101,34 @@ export function Calendar() {
 
   const goTo = (iso: string) => { const date = dateOf(iso); setView({ year: date.getFullYear(), month: date.getMonth() }); setSelected(iso); };
   const shiftMonth = (delta: number) => setView(({ year, month }) => { const date = new Date(year, month + delta, 1); return { year: date.getFullYear(), month: date.getMonth() }; });
-  const saveEvent = (event: CalendarEvent) => { setData(d => ({ ...d, events: (d.events ?? []).map(e => e.id === event.id ? event : e) })); setEditingId(null); goTo(event.date); };
   const setNoteCalendar = (note: Note, calendar: NoteCalendar | null) => {
     setData(d => ({ ...d, notes: d.notes.map(n => n.id === note.id ? { ...n, calendar } : n) }));
-    setMovingNoteId(null);
     if (calendar) { goTo(calendar.date); setAnnouncement(`${note.text}: anotado el ${longDate(calendar.date)}`); }
   };
-  // Categoría elegida a mano desde el panel del día (las tareas guardan la suya; las notas, en calendarCategory).
-  const changeCategory = (item: Item, category: EventCategory) => {
-    if (item.event) setData(d => ({ ...d, events: (d.events ?? []).map(e => e.id === item.event!.id ? { ...e, category } : e) }));
-    else if (item.note) setData(d => ({ ...d, notes: d.notes.map(n => n.id === item.note!.id ? { ...n, calendarCategory: category } : n) }));
+  // Guardar lo editado en el panel del día: las tareas cambian su categoría, día y hora; las notas lo guardan en calendar y calendarCategory.
+  const saveItem = (item: Item, category: EventCategory, calendar: NoteCalendar) => {
+    if (item.event) setData(d => ({ ...d, events: (d.events ?? []).map(e => {
+      if (e.id !== item.event!.id) return e;
+      const next: CalendarEvent = { ...e, category, date: calendar.date };
+      if (calendar.time) next.time = calendar.time; else delete next.time;
+      return next;
+    }) }));
+    else if (item.note) setData(d => ({ ...d, notes: d.notes.map(n => n.id === item.note!.id ? { ...n, calendar, calendarCategory: category } : n) }));
+    goTo(calendar.date);
+    setAnnouncement(`${item.text}: guardado el ${longDate(calendar.date)}`);
   };
-  const taskDate = newDate || selected;
+  const taskDay = newDate || formatExpenseDate(selected);
+  const taskCalendar = calendarFrom(taskDay, newTime);
   const taskCategory = newCategory || guessCategory(newText);
   const addTask = (submit: FormEvent) => {
     submit.preventDefault();
-    if (!newText.trim() || !taskDate) return;
-    const event: CalendarEvent = { id: id(), text: newText.trim(), date: taskDate, category: taskCategory };
-    if (newTime) event.time = newTime;
+    if (!newText.trim() || !taskCalendar) return;
+    const event: CalendarEvent = { id: id(), text: newText.trim(), date: taskCalendar.date, category: taskCategory };
+    if (taskCalendar.time) event.time = taskCalendar.time;
     setData(d => ({ ...d, events: [...(d.events ?? []), event] }));
     setNewText(''); setNewDate(''); setNewTime(''); setNewCategory('');
-    goTo(taskDate);
-    setAnnouncement(`${event.text}: anotado el ${longDate(taskDate)}`);
+    goTo(event.date);
+    setAnnouncement(`${event.text}: anotado el ${longDate(event.date)}`);
   };
   const removeEvent = (event: CalendarEvent) => { if (confirm(`¿Borrar "${event.text}"?`)) setData(d => ({ ...d, events: (d.events ?? []).filter(e => e.id !== event.id) })); };
 
@@ -224,31 +207,14 @@ export function Calendar() {
           ? <p className="cal-empty">No hay nada anotado para este día.</p>
           : <ul className="cal-items">
             {selectedItems.map(item => <li key={item.key} className={`cal-item ${categoryClass(item.category)}`}>
-              {item.event && editingId === item.event.id
-                ? <EventEditor event={item.event} onSave={saveEvent} onCancel={() => setEditingId(null)} />
-                : <>
-                  <div className="cal-item-text">
-                    {item.time && <b>{item.time}</b>}
-                    <span className={item.done ? 'cal-done' : undefined}>{item.text}</span>
-                    <small>{item.source === 'expense' ? `Mis gastos · ${item.done ? 'Pagado' : 'No pagado'}` : item.note ? (item.note.archivedAt ? 'Nota guardada' : 'Nota del escritorio') : 'Tarea del calendario'}</small>
-                  </div>
-                  {item.source !== 'expense' && <label className="cal-item-category">Categoría
-                    <select value={item.category} onChange={e => changeCategory(item, e.target.value as EventCategory)}>
-                      {EVENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </label>}
-                  {item.event
-                    ? <div className="cal-item-actions">
-                      <button type="button" className="cal-secondary" onClick={() => setEditingId(item.event!.id)}>Editar</button>
-                      <button type="button" className="delete" onClick={() => removeEvent(item.event!)}>Borrar</button>
-                    </div>
-                    : item.note && movingNoteId === item.note.id
-                      ? <NoteDateForm note={item.note} date={selected} time={item.time ?? null} onSave={calendar => setNoteCalendar(item.note!, calendar)} onCancel={() => setMovingNoteId(null)} />
-                      : <div className="cal-item-actions">
-                        <Link className="cal-item-link" to={item.source === 'expense' ? '/gastos' : item.note?.archivedAt ? '/guardadas' : '/'}>{item.source === 'expense' ? 'Ver gasto' : 'Ver nota'}</Link>
-                        {item.note && <button type="button" className="cal-secondary" onClick={() => setMovingNoteId(item.note!.id)}>Cambiar fecha</button>}
-                      </div>}
-                </>}
+              <div className="cal-item-text">
+                {item.time && <b>{item.time}</b>}
+                <span className={item.done ? 'cal-done' : undefined}>{item.text}</span>
+                <small>{item.source === 'expense' ? `Mis gastos · ${item.done ? 'Pagado' : 'No pagado'}` : item.note ? (item.note.archivedAt ? 'Nota guardada' : 'Nota del escritorio') : 'Tarea del calendario'}</small>
+              </div>
+              {item.source === 'expense'
+                ? <Link className="cal-item-link" to="/gastos">Ver gasto</Link>
+                : <ItemEditor key={`${item.key}-${selected}`} item={item} date={selected} onSave={(category, calendar) => saveItem(item, category, calendar)} onDelete={item.event ? () => removeEvent(item.event!) : undefined} />}
             </li>)}
           </ul>}
           </div>
@@ -261,13 +227,13 @@ export function Calendar() {
           <div className="cal-card-body cal-add">
           <label>Qué es<input value={newText} onChange={e => setNewText(e.target.value)} placeholder="Ej. Turno Altamar" /></label>
           <div className="cal-add-row">
-            <label>Día<input type="date" value={taskDate} onChange={e => setNewDate(e.target.value)} /></label>
-            <label>Hora<input type="time" value={newTime} onChange={e => setNewTime(e.target.value)} /></label>
+            <div className="cal-add-field"><label htmlFor="cal-add-day">Día</label><DateInput id="cal-add-day" label="Día" value={taskDay} onChange={setNewDate} /></div>
+            <label>Hora<TimeInput label="Hora" value={newTime} onChange={setNewTime} /></label>
           </div>
           <label>Categoría<select value={taskCategory} onChange={e => setNewCategory(e.target.value as EventCategory)}>
             {EVENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select></label>
-          <button disabled={!newText.trim() || !taskDate}>Agregar</button>
+          <button disabled={!newText.trim() || !taskCalendar}>Agregar</button>
           </div>
         </form>
         {doubts.length > 0 && <section className="cal-card cal-card--doubts" aria-labelledby="cal-doubts-title">
