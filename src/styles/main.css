@@ -765,12 +765,11 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 
 /* Calendario: imagen apoyada arriba del mes, en el espacio libre sobre la hoja. */
 /* El borde recto de abajo de la imagen coincide con el borde de abajo del encabezado del mes. Va pegada a
-   la derecha del título (que queda a la izquierda, donde arriba no hay íconos) y el título se achica solo
-   para que siempre entre. */
+   la derecha del título, los dos juntos en el medio, y el título se achica solo para que siempre entre. */
 .cal-page .cal-band-wrap{--art:10.5rem;--pad:1.2rem;--padb:.6rem;--arrow:42px;--gap:1rem;container-type:inline-size}
 .cal-page .cal-band{overflow:visible;justify-content:flex-start;gap:var(--gap);padding-left:var(--pad);padding-right:var(--pad);padding-bottom:var(--padb)}
 .cal-page .cal-band-clock{height:calc(100% - 6px);width:auto;aspect-ratio:1}
-.cal-page .cal-band h2{flex:0 1 auto}
+.cal-page .cal-band h2{flex:0 1 auto;margin-left:auto} /* mes y meme juntos, en el medio del encabezado */
 .cal-page .cal-band h2 span,.cal-page .cal-band h2 small{font-size:min(2.5rem,calc((100cqi - var(--art) - 2 * var(--arrow) - 2 * var(--pad) - 4 * var(--gap)) / (var(--len) * .8)))}
 .cal-page .cal-band-wrap .cal-arrow{width:var(--arrow);height:var(--arrow);flex:none}
 .cal-page .cal-band-wrap .cal-arrow:last-child{margin-left:auto}
