@@ -549,7 +549,7 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .games-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:1.2rem}
 .game-card{display:flex;flex-direction:column;height:100%;background:#2b2452;border:6px solid #1c1738;border-radius:14px;color:#fff;text-decoration:none;overflow:hidden;box-shadow:8px 12px 24px #25100888;transition:transform .15s}
 .game-card:hover,.game-card:focus-visible{transform:translateY(-3px)}
-.game-card svg{display:block;width:100%;height:auto}
+.game-card>svg{display:block;width:100%;height:auto}
 .game-card-text{display:grid;gap:.3rem;padding:1rem 1.1rem .4rem}
 .game-card-text strong{font-size:1.35rem}
 .game-card-text span{color:#ddd6fe}
@@ -575,3 +575,61 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .runner-pad .runner-jump{flex:1.4;background:#22c55e;color:#062b13;font-weight:900;font-size:1.2rem}
 .runner-pad button:active{filter:brightness(1.25)}
 @media(pointer:coarse),(max-width:800px){.runner-pad{display:flex}.runner-keys{display:none}}
+/* Solitario de cine: sala oscura con telón, cartas con borde de película y palos de cine. */
+.game-card--cine{background:#3b1010;border-color:#250808}
+.game-card--cine .game-card-text span{color:#fecaca}
+.cine{background:radial-gradient(ellipse at 50% -10%,#7f1d1d 0,#2a0b0b 45%,#120606 100%)}
+.cine .runner-back{color:#fca5a5}
+.cine .runner-scores{color:#fecaca}
+.cine .runner-bar button{background:#991b1b}
+.cine .runner-bar button:disabled{opacity:.45;cursor:default}
+.cine-board{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:var(--gap);width:100%;max-width:1100px;margin:0 auto;touch-action:none;user-select:none;-webkit-user-select:none}
+.cine-top{display:flex;gap:var(--gap)}
+.cine-spacer{flex:1}
+.cine-slot{position:relative;flex:none;width:var(--cw);height:var(--ch);padding:0;border-radius:calc(var(--cw)*.08);background:#ffffff0d;border:2px dashed #fca5a533;color:#fca5a580}
+.cine-waste{border-color:transparent;background:none;width:calc(var(--cw)*1.44)}
+.cine-slot-mark{position:absolute;inset:0;display:grid;place-items:center;font:900 calc(var(--cw)*.42) Nunito,system-ui,sans-serif;color:#fca5a540}
+.cine-slot--king{position:absolute;top:0;left:0}
+.cine-slot--target{outline:3px solid #facc15;outline-offset:2px;border-radius:calc(var(--cw)*.08)}
+.cine-stock{cursor:pointer}
+.cine-stock .cine-card{position:absolute;inset:0}
+.cine-count{position:absolute;right:-6px;bottom:-6px;z-index:2;min-width:1.6em;padding:0 .35em;border-radius:999px;background:#facc15;color:#3b1010;font-weight:900;font-size:calc(var(--cw)*.16 + 4px)}
+.cine-redo{font-size:calc(var(--cw)*.5);line-height:var(--ch)}
+.cine-tableau{display:grid;grid-template-columns:repeat(7,var(--cw));justify-content:space-between;gap:var(--gap)}
+.cine-column{position:relative;width:var(--cw)}
+.cine-card{position:absolute;top:0;left:0;width:var(--cw);height:var(--ch);padding:0;border:0;border-radius:calc(var(--cw)*.08);background:none;box-shadow:0 1px 2px #0008,0 3px 8px #0005;transition:top .12s,left .12s;touch-action:none}
+.cine-card:focus-visible{outline:3px solid #facc15;outline-offset:1px}
+.cine-card--lifted{box-shadow:0 12px 26px #000a;cursor:grabbing}
+.cine-card--shake{animation:cine-shake .35s}
+@keyframes cine-shake{25%{translate:-5px 0}50%{translate:5px 0}75%{translate:-3px 0}}
+.cine-face{position:absolute;inset:0;display:block;overflow:hidden;border-radius:inherit;background:#fffaf0;color:#111827;
+  border:1px solid #d6c7a1;
+  /* perforaciones de rollo de película arriba y abajo */
+  background-image:repeating-linear-gradient(90deg,#111827 0 calc(var(--cw)*.07),transparent calc(var(--cw)*.07) calc(var(--cw)*.14)),repeating-linear-gradient(90deg,#111827 0 calc(var(--cw)*.07),transparent calc(var(--cw)*.07) calc(var(--cw)*.14));
+  background-size:100% calc(var(--cw)*.045);background-repeat:no-repeat;background-position:0 0,0 100%}
+.cine-face--red{color:#b91c1c}
+.cine-corner{position:absolute;top:calc(var(--cw)*.07);left:calc(var(--cw)*.06);display:flex;flex-direction:column;align-items:center;width:calc(var(--cw)*.26);line-height:1}
+.cine-corner b{font:900 calc(var(--cw)*.22) Nunito,system-ui,sans-serif;letter-spacing:-.04em}
+.cine-corner svg{width:calc(var(--cw)*.2);height:calc(var(--cw)*.2)}
+.cine-corner--end{top:auto;left:auto;bottom:calc(var(--cw)*.07);right:calc(var(--cw)*.06);transform:rotate(180deg)}
+.cine-center{position:absolute;inset:22% 18% 18%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2%}
+.cine-center>svg{width:100%;height:auto;max-height:78%}
+.cine-center>span{display:grid;place-items:center;width:78%}
+.cine-center>span svg{width:100%;height:auto}
+.cine-center small{font:800 calc(var(--cw)*.11) Nunito,system-ui,sans-serif;white-space:nowrap}
+.cine-ace{padding:8%;border-radius:50%;background:radial-gradient(#fef3c7,#fde68a);box-shadow:0 0 0 2px #d4a017}
+.cine-back{position:absolute;inset:0;display:grid;place-items:center;border-radius:inherit;border:calc(var(--cw)*.05) solid #facc15;background:repeating-linear-gradient(90deg,#7f1d1d 0 calc(var(--cw)*.08),#991b1b calc(var(--cw)*.08) calc(var(--cw)*.16))}
+.cine-back svg{width:52%;height:auto;filter:drop-shadow(0 2px 2px #0007)}
+.cine-finish{position:absolute;left:50%;bottom:4%;z-index:150;transform:translateX(-50%);padding:.7rem 1.4rem;background:#facc15;color:#3b1010;font-weight:900;border-radius:999px;box-shadow:0 6px 18px #0008}
+.cine .runner-overlay>div{background:#3b1010;border-color:#b91c1c}
+.cine .runner-overlay p{color:#fecaca}
+.cine-confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.cine-confetti span{position:absolute;top:-10%;width:28px;height:28px;animation:cine-fall linear infinite}
+.cine-confetti svg{width:100%;height:100%}
+@keyframes cine-fall{to{transform:translateY(120vh) rotate(540deg)}}
+@media(max-width:800px){.cine .runner-bar{gap:.4rem .7rem}.cine .runner-bar button{padding:.35rem .6rem;font-size:.85rem}}
+.cine-center{inset:24% 14% 20%}
+.cine-center small{font-size:calc(var(--cw)*.095);letter-spacing:-.02em}
+.cine-board--small .cine-center small{display:none}
+.cine-board--small .cine-corner--end{display:none}
+.cine-board--small .cine-center{inset:30% 12% 10%}
