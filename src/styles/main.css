@@ -369,14 +369,6 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .section-objects .calendar-object{width:92px}
 .calendar-object:hover,.calendar-object:focus-visible{transform:rotate(0) translateY(-2px)}
 
-/* Calendario: formulario para anotar con la fecha escrita en el texto. */
-.cal-new{display:grid;gap:.6rem;margin-bottom:1.1rem;padding:.9rem;background:#fbefd9;border-radius:10px;box-shadow:inset 0 0 0 1px #e2c99f}
-.cal-new label{display:grid;gap:.2rem;font-size:.85rem;font-weight:700}
-.cal-new input,.cal-new select{padding:.65rem .7rem;border:1px solid #b69a73;border-radius:6px;background:#fffaf0;font-weight:400}
-.cal-new button{padding:.7rem 1.1rem}
-.cal-new button:disabled{opacity:.55;cursor:not-allowed}
-.cal-preview{margin:0;padding:.5rem .75rem;background:#fffaf0;border-radius:6px;overflow-wrap:break-word}.cal-preview small{display:block}
-.cal-preview small{color:#7a5a3f}
 
 /* Colores por tipo (los gastos de Mis gastos usan el verde de Pagos). */
 .cal-cat--salud{--cat:#2563eb;--cat-text:#fff;--cat-soft:#dbe7fd}
@@ -395,13 +387,13 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .cal-rings span{width:12px;height:2.4rem;background:linear-gradient(90deg,#34373e,#6b6f78 50%,#34373e);border-radius:6px;box-shadow:0 2px 3px #0005}
 .cal-band{position:relative;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.2rem 1.2rem .8rem;border-radius:18px 18px 0 0;overflow:hidden;
 background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='84' height='84' viewBox='0 0 84 84'%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.2' stroke-width='1.6' stroke-linecap='round'%3E%3Ccircle cx='20' cy='20' r='11'/%3E%3Cpath d='M20 20V12M20 20l5 3'/%3E%3Cpath d='M56 50h14M56 74h14M58 50c0 8 10 8 10 12s-10 4-10 12M68 50c0 8-10 8-10 12s10 4 10 12'/%3E%3Ccircle cx='66' cy='18' r='6'/%3E%3Cpath d='M66 18v-4M66 18h3'/%3E%3Ccircle cx='22' cy='64' r='2'/%3E%3C/g%3E%3C/svg%3E") 0 0/84px 84px,
-radial-gradient(circle at 50% 120%,#f7a35b 0,#ec6a4f 45%,#d9443c 100%)}
+radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-band>*{position:relative;z-index:1}
 .cal-band-clock{position:absolute!important;z-index:0!important;left:50%;top:50%;width:150px;height:150px;transform:translate(-50%,-50%);color:#fff;opacity:.22;pointer-events:none}
 .cal-band h2{display:grid;justify-items:center;margin:0;line-height:1}
-.cal-band h2 span{font:900 clamp(2rem,4.4vw,3.1rem)/1 Nunito,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#1f2937;text-shadow:0 2px 0 #ffffff55}
-.cal-band h2 small{font-weight:900;font-size:clamp(1.2rem,2.6vw,1.8rem);color:#1f2937}
-.cal-arrow{width:48px;height:48px;padding:0;border-radius:50%;background:#fff3;color:#1f2937;font-size:2rem;line-height:1;font-weight:700}
+.cal-band h2 span{font:900 clamp(2rem,4.4vw,3.1rem)/1 Nunito,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#fff;text-shadow:0 2px 6px #0b1d4a88}
+.cal-band h2 small{font-weight:900;font-size:clamp(1.2rem,2.6vw,1.8rem);color:#fff}
+.cal-arrow{width:48px;height:48px;padding:0;border-radius:50%;background:#fff3;color:#fff;font-size:2rem;line-height:1;font-weight:700}
 .cal-arrow:hover{background:#fff6}
 .cal-toolbar{display:flex;align-items:center;justify-content:space-between;gap:.8rem;padding:.75rem 1.2rem 0}
 .cal-legend{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin:0;padding:0;list-style:none;font-size:.85rem}
@@ -447,7 +439,6 @@ radial-gradient(circle at 50% 120%,#f7a35b 0,#ec6a4f 45%,#d9443c 100%)}
 
 @media(max-width:1000px){.cal-layout{grid-template-columns:1fr}.cal-day-panel{position:static}}
 @media(max-width:700px){
-.cal-new{grid-template-columns:1fr}
 .cal-band{padding:1.2rem .6rem .7rem}
 .cal-arrow{width:40px;height:40px}
 .cal-toolbar{flex-direction:column;align-items:stretch;padding:.6rem .6rem 0}
@@ -464,11 +455,19 @@ radial-gradient(circle at 50% 120%,#f7a35b 0,#ec6a4f 45%,#d9443c 100%)}
 @media(max-width:800px){.section-objects--large{zoom:1}.section-objects{flex-wrap:wrap;gap:.8rem;max-width:100%}}
 /* Mis gastos: con el calendario son tres accesos; un poco más chicos para que la imagen del medio siga entrando. */
 @media(min-width:801px){.section-title:has(>.calc-art)>.section-objects--large{zoom:1.05;gap:.8rem}}
-/* Calendario: preguntas "¿Esto es una fecha?" y cambio de fecha de una nota, en el panel de la derecha. */
-.cal-day-panel>h2{margin-top:.2rem}
-.cal-doubts{display:grid;gap:.6rem;margin-bottom:1.1rem}
+/* Calendario: lista "¿Son fechas?" (flecha para ponerla en el calendario, X para dejar de preguntar) y cambio de fecha de una nota. */
+.cal-doubts{margin-top:1.3rem;padding-top:1rem;border-top:2px dashed #d4b98d}
+.cal-doubts h3{margin:0 0 .2rem;font:700 1.7rem/1 Caveat,cursive}
+.cal-doubts>p{margin:0 0 .6rem;font-size:.85rem;color:#6b5a48}
+.cal-doubts ul{display:grid;gap:.4rem;margin:0;padding:0;list-style:none}
+.cal-doubt{display:grid;grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"text text text" "day ok no";align-items:center;gap:.35rem;padding:.5rem .6rem;background:#fff5cf;border-left:5px solid #e0b23c;border-radius:8px}
+.cal-doubt-text{grid-area:text;font-weight:700;overflow-wrap:anywhere}
+.cal-doubt input{grid-area:day;min-width:0;padding:.3rem .4rem;border:1px solid #b69a73;border-radius:6px;background:#fffaf0}
+.cal-doubt button{width:40px;height:36px;padding:0;font-size:1.25rem;font-weight:900;line-height:1}
+.cal-doubt-ok{grid-area:ok;background:#15803d}
+.cal-doubt-ok:disabled{opacity:.45;cursor:not-allowed}
+.cal-doubt-no{grid-area:no;background:#8e3c33}
 .cal-note-date{display:grid;gap:.45rem;padding:.7rem .8rem;background:#fff5cf;border:2px dashed #e0b23c;border-radius:10px}
-.cal-note-date p{margin:0;overflow-wrap:anywhere}
 .cal-note-date button{padding:.4rem .8rem;font-size:.9rem;margin:0}
 .cal-note-date input{min-width:0;padding:.4rem .5rem;border:1px solid #b69a73;border-radius:6px;background:#fffaf0}
 .cal-item .cal-note-date{padding:.5rem;border-width:1px}
