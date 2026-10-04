@@ -4,6 +4,7 @@ import { readRecord } from './BlockRunner';
 import { cardImage } from './pixelCards';
 import { readSolitaireRecord } from './PixelSolitaire';
 import { readTikiRecord } from './TikiTaka';
+import { formatTime, readTrepaRecord } from './Trepaluna';
 import type { Suit } from './solitaire';
 
 // Dibujo chiquito del juego para la tarjeta: piezas cayendo y el personaje abajo.
@@ -49,10 +50,32 @@ function TikiTakaArt() {
   </svg>;
 }
 
+// Dibujo de la tarjeta de Trepaluna: cielo que pasa de día al espacio, estructuras y la Luna arriba.
+function TrepalunaArt() {
+  return <svg viewBox="0 0 160 100" aria-hidden="true">
+    <defs><linearGradient id="trepa-cielo" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stopColor="#9fd4fb" /><stop offset=".55" stopColor="#3563c9" /><stop offset="1" stopColor="#070a1f" /></linearGradient></defs>
+    <rect width="160" height="100" fill="url(#trepa-cielo)" />
+    {[[18, 14], [44, 8], [96, 18], [140, 10], [70, 22], [122, 26]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="1" fill="#fff" />)}
+    <circle cx="128" cy="16" r="11" fill="#e7e5d8" /><circle cx="124" cy="13" r="2.4" fill="#c9c6b4" /><circle cx="132" cy="20" r="1.8" fill="#c9c6b4" />
+    <g fill="#fff" opacity=".9"><ellipse cx="34" cy="50" rx="16" ry="5" /><ellipse cx="30" cy="46" rx="7" ry="5" /><ellipse cx="38" cy="45" rx="8" ry="6" /></g>
+    <rect x="0" y="94" width="160" height="6" fill="#4ade80" />
+    <rect x="18" y="80" width="30" height="4" fill="#ea580c" />
+    <path d="M66 70q16 5 32 0" stroke="#b7792f" strokeWidth="3" fill="none" />
+    <rect x="104" y="58" width="14" height="3" fill="#2563eb" /><path d="M106 61l-2 5M116 61l2 5" stroke="#334155" strokeWidth="1.5" />
+    <path d="M86 28v26" stroke="#a16207" strokeWidth="1.6" />
+    <g transform="translate(78 54)">
+      <path d="M2 10 0 16M6 10 8 16" stroke="#f8fafc" strokeWidth="1.8" strokeLinecap="round" />
+      <rect x="0" y="4" width="8" height="7" rx="1.5" fill="#ef4444" />
+      <circle cx="4" cy="2" r="3.2" fill="#fcd9b6" /><path d="M0.6 1.4a3.4 3.4 0 0 1 6.8 0z" fill="#2563eb" />
+    </g>
+  </svg>;
+}
+
 export function Games() {
   const record = readRecord();
   const solitaire = readSolitaireRecord();
   const tiki = readTikiRecord();
+  const trepa = readTrepaRecord();
   return <section>
     <div className="section-title">
       <div><p className="eyebrow">Para cortar un rato</p><h1>Juegos</h1></div>
@@ -88,6 +111,17 @@ export function Games() {
             <strong>Tiki-Taka</strong>
             <span>Armá tu equipo, elegí la formación y tocá, tocá y tocá hasta el gol. Si te la roban, ¡a atajar el contraataque!</span>
             {tiki.played > 0 && <small>Campaña: {tiki.won}G {tiki.drawn}E {tiki.lost}P</small>}
+          </span>
+          <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+        </Link>
+      </li>
+      <li>
+        <Link className="game-card game-card--trepa" to="/juegos/trepaluna">
+          <TrepalunaArt />
+          <span className="game-card-text">
+            <strong>Trepaluna</strong>
+            <span>Saltá por vigas, puentes, trampolines y sogas, pasá las nubes y el espacio, y llegá a la Luna lo más rápido que puedas.</span>
+            {trepa > 0 && <small>Récord: {formatTime(trepa)}</small>}
           </span>
           <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
         </Link>
