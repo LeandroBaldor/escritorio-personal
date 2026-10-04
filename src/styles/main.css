@@ -418,8 +418,7 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-more{font-size:.72rem;font-weight:700;color:#6b7280}
 
 /* Panel del día elegido. */
-.cal-day-panel{position:sticky;top:6rem;max-height:calc(100vh - 7rem);overflow-y:auto;margin-top:1.1rem;padding:1.1rem;background:#f4e1bf;border-radius:14px;box-shadow:0 8px 20px #2d140c55}
-.cal-day-panel h2{margin:0 0 .8rem;font:700 2rem/1 Caveat,cursive}.cal-day-panel h2::first-letter{text-transform:uppercase}
+.cal-day-panel{position:sticky;top:6rem;display:grid;gap:1rem;align-content:start;max-height:calc(100vh - 7rem);overflow-y:auto;margin-top:1.1rem;padding:0 .4rem .6rem 0}
 .cal-empty{margin:0;color:#6b5a48}
 .cal-items{display:grid;gap:.6rem;margin:0;padding:0;list-style:none}
 .cal-item{display:grid;gap:.5rem;padding:.6rem .7rem;background:var(--cat-soft);border-left:6px solid var(--cat);border-radius:8px}
@@ -456,8 +455,6 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 /* Mis gastos: con el calendario son tres accesos; un poco más chicos para que la imagen del medio siga entrando. */
 @media(min-width:801px){.section-title:has(>.calc-art)>.section-objects--large{zoom:1.05;gap:.8rem}}
 /* Calendario: lista "¿Son fechas?" (flecha para ponerla en el calendario, X para dejar de preguntar) y cambio de fecha de una nota. */
-.cal-doubts{margin-top:1.3rem;padding-top:1rem;border-top:2px dashed #d4b98d}
-.cal-doubts h3{margin:0 0 .2rem;font:700 1.7rem/1 Caveat,cursive}
 .cal-doubts>p{margin:0 0 .6rem;font-size:.85rem;color:#6b5a48}
 .cal-doubts ul{display:grid;gap:.4rem;margin:0;padding:0;list-style:none}
 .cal-doubt{display:grid;grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"text text text" "day ok no";align-items:center;gap:.35rem;padding:.5rem .6rem;background:#fff5cf;border-left:5px solid #e0b23c;border-radius:8px}
@@ -474,10 +471,9 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-item-actions .cal-item-link{align-self:center;margin-right:.3rem}
 @media(max-width:700px){.cal-band-clock{width:110px;height:110px}}
 /* Calendario: tarjeta "Agregar tarea" (qué es, día, hora y categoría) y categoría editable de cada cosa del día. */
-.cal-add{display:grid;gap:.55rem;margin-top:1.3rem;padding:.9rem;background:#fbefd9;border-radius:10px;box-shadow:inset 0 0 0 1px #e2c99f}
-.cal-add h3{margin:0;font:700 1.7rem/1 Caveat,cursive}
+.cal-add{display:grid;gap:.55rem}
 .cal-add label{display:grid;gap:.2rem;font-size:.85rem;font-weight:700;min-width:0}
-.cal-add input,.cal-add select{min-width:0;padding:.5rem .6rem;border:1px solid #b69a73;border-radius:6px;background:#fffaf0;font-weight:400}
+.cal-add input,.cal-add select{min-width:0;padding:.5rem .6rem;border:1px solid #cdbfa8;border-radius:8px;background:#fff;font-weight:400}
 .cal-add-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:.5rem}
 .cal-add button:disabled{opacity:.55;cursor:not-allowed}
 .cal-item-category{display:flex;align-items:center;gap:.4rem;font-size:.8rem;font-weight:700;color:#5b4a3a}
@@ -487,3 +483,20 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .date-ask{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem 1rem;max-width:640px;margin:-.4rem 0 1.2rem auto;padding:.7rem .9rem;background:#fff5cf;border:2px dashed #e0b23c;border-radius:12px;box-shadow:0 6px 16px #2d130c55}
 .date-ask>strong{font-size:1.05rem}
 .date-ask .cal-doubt{flex:1;min-width:260px;background:transparent;border-left:0;padding:0}
+/* Calendario: el panel de la derecha en tres recuadros separados, cada uno con su color (día en azul, agregar en verde, dudas en ámbar). */
+.cal-card{--card:#2563eb;--card-dark:#1e40af;--card-soft:#fffdf8;overflow:hidden;background:var(--card-soft);border-radius:14px;box-shadow:0 10px 24px #24100866;color:#2b2118}
+.cal-card--day{--card:#2563eb;--card-dark:#1e3a8a}
+.cal-card--add{--card:#16a34a;--card-dark:#15803d}
+.cal-card--doubts{--card:#f59e0b;--card-dark:#b45309;--card-soft:#fffbeb}
+.cal-card-head{display:flex;align-items:center;gap:.6rem;padding:.75rem 1rem;background:linear-gradient(135deg,var(--card),var(--card-dark));color:#fff}
+.cal-card-head svg{flex:none;width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.cal-card-head h2,.cal-card-head h3{flex:1;margin:0;font:800 1.1rem/1.2 Nunito,system-ui,sans-serif;letter-spacing:.01em}
+.cal-card-head h2{font-size:1.25rem}
+.cal-card-head h2::first-letter{text-transform:uppercase}
+.cal-card-count{min-width:1.7rem;padding:.1rem .5rem;border-radius:999px;background:#ffffff38;font-weight:800;text-align:center}
+.cal-card-body{padding:.9rem 1rem 1rem}
+.cal-card--add button[type=submit],.cal-card--add .cal-add>button{background:var(--card-dark)}
+@media(max-width:1000px){.cal-day-panel{max-height:none;overflow:visible;padding:0}}
+.cal-card .cal-secondary{background:#fff;color:#1f2937;box-shadow:inset 0 0 0 1px #cbd5e1}
+.cal-card .cal-secondary:hover{background:#f1f5f9}
+.cal-card .cal-item-category select{background:#fff;border-color:#cbd5e1}
