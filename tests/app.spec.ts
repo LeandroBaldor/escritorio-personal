@@ -645,3 +645,37 @@ test('el calendario lista las posibles fechas para aprobarlas con la flecha o de
   await page.reload();
   await expect(page.locator('.cal-doubt')).toHaveCount(0);
 });
+
+test('al agregar una nota con una posible fecha el escritorio pregunta en el momento', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Comprar pan');
+  await page.getByRole('button', { name: 'Agregar nota' }).click();
+  await expect(page.locator('.date-ask')).toHaveCount(0);
+  await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Turno pediatra 25.12');
+  await page.getByRole('button', { name: 'Agregar nota' }).click();
+  await expect(page.locator('.date-ask')).toContainText('¿Esto es una fecha?');
+  await page.getByRole('button', { name: 'Sí, Turno pediatra 25.12 es una fecha' }).click();
+  await expect(page.locator('.date-ask')).toHaveCount(0);
+  await page.getByRole('link', { name: 'Calendario' }).click();
+  await expect(page.locator('.cal-doubt')).toHaveCount(0);
+  for (let step = 0; step < 12 && !(await page.locator('.cal-band h2').textContent())?.includes('diciembre'); step += 1) await page.getByRole('button', { name: 'Mes siguiente' }).click();
+  await expect(page.locator('.cal-band h2')).toContainText('diciembre');
+  await expect(page.locator('.cal-chip', { hasText: 'Turno pediatra' })).toHaveCount(1);
+});
+
+test('el calendario agrega tareas con día y categoría, y deja cambiar la categoría', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.getByRole('link', { name: 'Calendario' }).click();
+  const form = page.getByRole('form', { name: 'Agregar tarea' });
+  await form.getByPlaceholder('Ej. Turno Altamar').fill('Reunión con el cliente');
+  await form.locator('input[type=time]').fill('15:00');
+  await expect(form.locator('select')).toHaveValue('Trabajo');
+  await form.getByRole('button', { name: 'Agregar' }).click();
+  const chip = page.locator('.cal-chip', { hasText: 'Reunión con el cliente' });
+  await expect(chip).toHaveText('15:00 Reunión con el cliente');
+  await expect(chip).toHaveClass(/cal-cat--trabajo/);
+  await page.locator('.cal-item', { hasText: 'Reunión con el cliente' }).locator('select').selectOption('Personal');
+  await expect(chip).toHaveClass(/cal-cat--personal/);
+  await page.reload();
+  await expect(page.locator('.cal-chip', { hasText: 'Reunión con el cliente' })).toHaveClass(/cal-cat--personal/);
+});

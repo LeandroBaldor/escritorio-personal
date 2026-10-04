@@ -63,6 +63,8 @@ describe('eventos guardados', () => {
     expect(isData({ ...EMPTY, notes: [{ ...note, calendar: { date: '2026-10-13', time: '10:30' } }] })).toBe(true);
     expect(isData({ ...EMPTY, notes: [{ ...note, calendar: null }] })).toBe(true);
     expect(isData({ ...EMPTY, notes: [{ ...note, calendar: { date: '13/10' } }] })).toBe(false);
+    expect(isData({ ...EMPTY, notes: [{ ...note, calendarCategory: 'Trabajo' }] })).toBe(true);
+    expect(isData({ ...EMPTY, notes: [{ ...note, calendarCategory: 'Fiesta' }] })).toBe(false);
   });
 });
 

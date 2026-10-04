@@ -2,8 +2,9 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useData } from '../../app/DataContext';
 import { DeskLink, NotebookLink, CalculatorLink, SectionObjects } from '../../app/SectionObjects';
-import { EVENT_CATEGORIES, type CalendarEvent, type EventCategory, type Note, type NoteCalendar } from '../../storage/model';
+import { EVENT_CATEGORIES, id, type CalendarEvent, type EventCategory, type Note, type NoteCalendar } from '../../storage/model';
 import { money } from '../expenses/Expenses';
+import { DateQuestion } from './DateQuestion';
 import { dateDoubt, dateOf, guessCategory, isoOf, parseEvent } from './parseEvent';
 
 const MONTH_NAMES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -47,17 +48,6 @@ function NoteDateForm({ note, date, time, onSave, onCancel }: { note: Note; date
       <button type="button" className="cal-secondary" onClick={onCancel}>Cancelar</button>
     </div>
   </div>;
-}
-
-// Una nota con una posible fecha: la flecha la pone en el calendario (con el día que se puede cambiar), la X deja de preguntar.
-function DoubtRow({ doubt, onSave }: { doubt: Doubt; onSave: (calendar: NoteCalendar | null) => void }) {
-  const [day, setDay] = useState(doubt.date ?? '');
-  return <li className="cal-doubt">
-    <span className="cal-doubt-text">{doubt.note.text}</span>
-    <input aria-label={`Día de ${doubt.note.text}`} type="date" value={day} onChange={e => setDay(e.target.value)} />
-    <button type="button" className="cal-doubt-ok" disabled={!day} onClick={() => onSave(doubt.time ? { date: day, time: doubt.time } : { date: day })} aria-label={`Sí, ${doubt.note.text} es una fecha`} title="Sí, poner en el calendario">→</button>
-    <button type="button" className="cal-doubt-no" onClick={() => onSave(null)} aria-label={`${doubt.note.text} no es una fecha`} title="No es una fecha">✕</button>
-  </li>;
 }
 
 // Semanas de lunes a domingo que cubren el mes entero (con los días del mes anterior y siguiente para completar).
@@ -106,6 +96,10 @@ export function Calendar() {
   const [selected, setSelected] = useState(todayIso);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [movingNoteId, setMovingNoteId] = useState<string | null>(null);
+  const [newText, setNewText] = useState('');
+  const [newDate, setNewDate] = useState('');
+  const [newTime, setNewTime] = useState('');
+  const [newCategory, setNewCategory] = useState<EventCategory | ''>('');
   const [announcement, setAnnouncement] = useState('');
 
   const byDay = new Map<string, Item[]>();
@@ -121,7 +115,7 @@ export function Calendar() {
     const doubt = found.date ? null : dateDoubt(note.text, noteDay(note, today));
     const date = note.calendar?.date ?? found.date;
     const time = note.calendar ? note.calendar.time : found.time ?? undefined;
-    if (date) push(date, { key: `nota-${note.id}`, text: doubt?.text ?? found.text, time, category: guessCategory(note.text), done: note.status === 'done', source: 'note', note });
+    if (date) push(date, { key: `nota-${note.id}`, text: doubt?.text ?? found.text, time, category: note.calendarCategory ?? guessCategory(note.text), done: note.status === 'done', source: 'note', note });
     else if (doubt) doubts.push({ note, date: doubt.date, time: doubt.time });
   }
   const itemsOf = (iso: string) => (byDay.get(iso) ?? []).sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
@@ -133,6 +127,23 @@ export function Calendar() {
     setData(d => ({ ...d, notes: d.notes.map(n => n.id === note.id ? { ...n, calendar } : n) }));
     setMovingNoteId(null);
     if (calendar) { goTo(calendar.date); setAnnouncement(`${note.text}: anotado el ${longDate(calendar.date)}`); }
+  };
+  // Categoría elegida a mano desde el panel del día (las tareas guardan la suya; las notas, en calendarCategory).
+  const changeCategory = (item: Item, category: EventCategory) => {
+    if (item.event) setData(d => ({ ...d, events: (d.events ?? []).map(e => e.id === item.event!.id ? { ...e, category } : e) }));
+    else if (item.note) setData(d => ({ ...d, notes: d.notes.map(n => n.id === item.note!.id ? { ...n, calendarCategory: category } : n) }));
+  };
+  const taskDate = newDate || selected;
+  const taskCategory = newCategory || guessCategory(newText);
+  const addTask = (submit: FormEvent) => {
+    submit.preventDefault();
+    if (!newText.trim() || !taskDate) return;
+    const event: CalendarEvent = { id: id(), text: newText.trim(), date: taskDate, category: taskCategory };
+    if (newTime) event.time = newTime;
+    setData(d => ({ ...d, events: [...(d.events ?? []), event] }));
+    setNewText(''); setNewDate(''); setNewTime(''); setNewCategory('');
+    goTo(taskDate);
+    setAnnouncement(`${event.text}: anotado el ${longDate(taskDate)}`);
   };
   const removeEvent = (event: CalendarEvent) => { if (confirm(`¿Borrar "${event.text}"?`)) setData(d => ({ ...d, events: (d.events ?? []).filter(e => e.id !== event.id) })); };
 
@@ -193,8 +204,13 @@ export function Calendar() {
                   <div className="cal-item-text">
                     {item.time && <b>{item.time}</b>}
                     <span className={item.done ? 'cal-done' : undefined}>{item.text}</span>
-                    <small>{item.source === 'expense' ? `Mis gastos · ${item.done ? 'Pagado' : 'No pagado'}` : item.note ? `${item.note.archivedAt ? 'Nota guardada' : 'Nota del escritorio'} · ${item.category}` : item.category}</small>
+                    <small>{item.source === 'expense' ? `Mis gastos · ${item.done ? 'Pagado' : 'No pagado'}` : item.note ? (item.note.archivedAt ? 'Nota guardada' : 'Nota del escritorio') : 'Tarea del calendario'}</small>
                   </div>
+                  {item.source !== 'expense' && <label className="cal-item-category">Categoría
+                    <select value={item.category} onChange={e => changeCategory(item, e.target.value as EventCategory)}>
+                      {EVENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </label>}
                   {item.event
                     ? <div className="cal-item-actions">
                       <button type="button" className="cal-secondary" onClick={() => setEditingId(item.event!.id)}>Editar</button>
@@ -209,10 +225,22 @@ export function Calendar() {
                 </>}
             </li>)}
           </ul>}
+        <form className="cal-add" onSubmit={addTask} aria-labelledby="cal-add-title">
+          <h3 id="cal-add-title">Agregar tarea</h3>
+          <label>Qué es<input value={newText} onChange={e => setNewText(e.target.value)} placeholder="Ej. Turno Altamar" /></label>
+          <div className="cal-add-row">
+            <label>Día<input type="date" value={taskDate} onChange={e => setNewDate(e.target.value)} /></label>
+            <label>Hora<input type="time" value={newTime} onChange={e => setNewTime(e.target.value)} /></label>
+          </div>
+          <label>Categoría<select value={taskCategory} onChange={e => setNewCategory(e.target.value as EventCategory)}>
+            {EVENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select></label>
+          <button disabled={!newText.trim() || !taskDate}>Agregar</button>
+        </form>
         {doubts.length > 0 && <section className="cal-doubts" aria-labelledby="cal-doubts-title">
           <h3 id="cal-doubts-title">¿Son fechas?</h3>
           <p>Estas notas parecen tener una fecha que no entendí. Con la flecha van al calendario; con la X dejo de preguntar.</p>
-          <ul>{doubts.map(doubt => <DoubtRow key={doubt.note.id} doubt={doubt} onSave={calendar => setNoteCalendar(doubt.note, calendar)} />)}</ul>
+          <ul>{doubts.map(doubt => <li key={doubt.note.id}><DateQuestion text={doubt.note.text} date={doubt.date} time={doubt.time} onSave={calendar => setNoteCalendar(doubt.note, calendar)} /></li>)}</ul>
         </section>}
       </aside>
     </div>
