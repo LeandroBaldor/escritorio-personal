@@ -2,6 +2,7 @@ import { FocusEvent, FormEvent, KeyboardEvent, useEffect, useId, useRef, useStat
 import { Link } from 'react-router-dom';
 import { useData } from '../../app/DataContext';
 import { DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
+import { FloatingCalculator } from './FloatingCalculator';
 import memeMatematica from '../../assets/images/meme-matematica.png';
 import { appendToMonth, EXPENSE_CATEGORIES, id, isExpenseDate, moveToMonth, parseCents, parseMonthKey, sameMonthName, sortMonths, syncMonthEntry, type ExpenseMonth, total, totalsByCategory, type Expense, type ExpenseCategory } from '../../storage/model';
 
@@ -259,5 +260,6 @@ export function Expenses() {
     <ul>{EXPENSE_CATEGORIES.map(c => <li key={c}><span>{c}</span><strong>{summary.error ? '—' : money(summary.byCategory[c])}</strong></li>)}</ul>
     <div className="expense-summary-total"><span>Total</span><strong>{summary.error ? '—' : money(summary.sum)}</strong></div>
     {summary.error && <small role="alert">{summary.error}</small>}
+    <FloatingCalculator />
   </aside></div></section>;
 }
