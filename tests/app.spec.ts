@@ -785,3 +785,20 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
   await page.getByRole('link', { name: '‹ Juegos' }).click();
   await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
 });
+
+test('el Solitario de cine se abre desde Juegos, da vuelta cartas y deshace', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/juegos');
+  await expect(page.locator('.games-list > li')).toHaveCount(2);
+  await page.getByRole('link', { name: /Solitario de cine/ }).click();
+  await expect(page.getByRole('heading', { name: 'Solitario de cine' })).toBeVisible();
+  await expect(page.locator('.cine-column .cine-card')).toHaveCount(28);
+  await expect(page.getByRole('button', { name: 'Mazo: 24 cartas, dar vuelta una' })).toBeVisible();
+  await page.getByRole('button', { name: /Mazo/ }).click();
+  await expect(page.getByTestId('solitaire-moves')).toHaveText('1');
+  await expect(page.locator('.cine-waste .cine-card')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Deshacer' }).click();
+  await expect(page.getByTestId('solitaire-moves')).toHaveText('0');
+  await expect(page.locator('.cine-waste .cine-card')).toHaveCount(0);
+  await page.getByRole('link', { name: '‹ Juegos' }).click();
+  await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
+});
