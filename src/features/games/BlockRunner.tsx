@@ -51,6 +51,29 @@ function draw(ctx: CanvasRenderingContext2D, game: Game, cell: number) {
   game.grid.forEach((row, r) => row.forEach((color, c) => { if (color) drawBlock(ctx, c * cell, r * cell, cell, color); }));
   for (const piece of game.pieces) for (const [cx, cy] of piece.cells) drawBlock(ctx, (piece.x + cx) * cell, (piece.y + cy) * cell, cell, piece.color);
 
+  // Bombas: franja roja de aviso, cuerpo negro con brillo y mecha con chispa.
+  for (const bomb of game.bombs) {
+    ctx.fillStyle = '#ef444426';
+    ctx.fillRect(bomb.x * cell, Math.max(0, bomb.y * cell), cell, h);
+    const cx = (bomb.x + 0.5) * cell, cy = (bomb.y + 0.55) * cell, br = cell * 0.36;
+    if (bomb.y < 0) {
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath(); ctx.moveTo(cx - cell * 0.3, 2); ctx.lineTo(cx + cell * 0.3, 2); ctx.lineTo(cx, cell * 0.4); ctx.closePath(); ctx.fill();
+    }
+    ctx.strokeStyle = '#a16207';
+    ctx.lineWidth = Math.max(1.5, cell * 0.07);
+    ctx.beginPath(); ctx.moveTo(cx + br * 0.4, cy - br * 0.8); ctx.quadraticCurveTo(cx + br * 0.9, cy - br * 1.5, cx + br * 0.5, cy - br * 1.7); ctx.stroke();
+    ctx.fillStyle = '#111827';
+    ctx.beginPath(); ctx.arc(cx, cy, br, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffffff55';
+    ctx.beginPath(); ctx.arc(cx - br * 0.35, cy - br * 0.35, br * 0.28, 0, Math.PI * 2); ctx.fill();
+    const flicker = 0.6 + 0.4 * Math.sin(game.time * 40 + bomb.id);
+    ctx.fillStyle = '#fde047';
+    ctx.beginPath(); ctx.arc(cx + br * 0.5, cy - br * 1.75, cell * 0.09 * (1 + flicker), 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f97316';
+    ctx.beginPath(); ctx.arc(cx + br * 0.5, cy - br * 1.75, cell * 0.05 * (1 + flicker), 0, Math.PI * 2); ctx.fill();
+  }
+
   // Personaje de perfil: brazos separados del cuerpo, piernas que se mueven al correr,
   // y nariz, ojo y oreja para que se vea hacia qué lado mira.
   const p = game.player, f = p.facing;
@@ -82,9 +105,8 @@ function draw(ctx: CanvasRenderingContext2D, game: Game, cell: number) {
   ctx.fillStyle = skin;
   ctx.beginPath(); ctx.arc(hx + f * r * 0.95, hy + r * 0.15, r * 0.26, 0, Math.PI * 2); ctx.fill(); // nariz
   ctx.beginPath(); ctx.arc(hx, hy, r, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#3b2412'; // pelo: arriba y más largo atrás
-  ctx.beginPath(); ctx.arc(hx, hy - r * 0.05, r * 1.02, Math.PI, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(hx - f * r * 0.55, hy, r * 0.48, r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#3b2412'; // pelo que asoma atrás de la gorra
+  ctx.beginPath(); ctx.ellipse(hx - f * r * 0.55, hy + r * 0.05, r * 0.48, r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#f2b48c'; // oreja
   ctx.beginPath(); ctx.arc(hx - f * r * 0.12, hy + r * 0.12, r * 0.26, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = '#c98a66';
@@ -92,10 +114,39 @@ function draw(ctx: CanvasRenderingContext2D, game: Game, cell: number) {
   ctx.beginPath(); ctx.arc(hx - f * r * 0.12, hy + r * 0.12, r * 0.13, 0, Math.PI * 2); ctx.stroke();
   ctx.fillStyle = '#111'; // ojo
   ctx.beginPath(); ctx.arc(hx + f * r * 0.5, hy - r * 0.05, Math.max(1.2, r * 0.15), 0, Math.PI * 2); ctx.fill();
+  // Gorra azul con visera hacia donde mira.
+  ctx.fillStyle = '#2563eb';
+  ctx.beginPath(); ctx.arc(hx, hy - r * 0.2, r * 1.04, Math.PI, Math.PI * 2); ctx.fill();
+  ctx.fillRect(hx - r * 1.04, hy - r * 0.32, r * 2.08, r * 0.14);
+  ctx.fillStyle = '#1d4ed8';
+  ctx.beginPath(); ctx.roundRect(f > 0 ? hx + r * 0.3 : hx - r * 1.55, hy - r * 0.32, r * 1.25, r * 0.22, r * 0.1); ctx.fill();
+  ctx.fillStyle = '#facc15';
+  ctx.beginPath(); ctx.arc(hx, hy - r * 1.22, r * 0.14, 0, Math.PI * 2); ctx.fill();
   arm(f, swing); // el brazo de adelante va delante del cuerpo
+
+  // Explosiones: un fogonazo que crece y se apaga, y chispas de los bloques que se rompen.
+  for (const b of game.blasts) {
+    const k = b.t / b.max, radius = (0.8 + k * 1.6) * b.size * cell;
+    const glow = ctx.createRadialGradient(b.x * cell, b.y * cell, 0, b.x * cell, b.y * cell, radius);
+    glow.addColorStop(0, `rgba(255,255,220,${0.95 * (1 - k)})`);
+    glow.addColorStop(0.45, `rgba(251,146,60,${0.8 * (1 - k)})`);
+    glow.addColorStop(1, 'rgba(239,68,68,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(b.x * cell, b.y * cell, radius, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = `rgba(253,224,71,${1 - k})`;
+    ctx.lineWidth = Math.max(1.5, cell * 0.08);
+    ctx.beginPath(); ctx.arc(b.x * cell, b.y * cell, radius * 0.9, 0, Math.PI * 2); ctx.stroke();
+  }
+  for (const s of game.particles) {
+    ctx.globalAlpha = Math.max(0, s.life / s.max);
+    ctx.fillStyle = s.color;
+    const size = s.size * cell;
+    ctx.fillRect(s.x * cell - size / 2, s.y * cell - size / 2, size, size);
+  }
+  ctx.globalAlpha = 1;
 }
 
-const OVER_TEXT: Record<GameOver, string> = { crushed: '¡Te aplastaron!' };
+const OVER_TEXT: Record<GameOver, string> = { crushed: '¡Te aplastaron!', bomb: '¡Te alcanzó una bomba!', full: '¡Los bloques llegaron arriba!' };
 
 export function BlockRunner() {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -152,17 +203,20 @@ export function BlockRunner() {
 
   useEffect(() => {
     if (status !== 'playing') return;
-    let frame = 0, last = performance.now();
+    let frame = 0, last = performance.now(), afterOver = 0;
     const tick = (now: number) => {
       const game = gameRef.current;
       if (!game) return;
       // El primer cuadro puede traer una hora anterior a "last": nunca avanzar con tiempo negativo.
-      step(game, input.current, Math.max(0, Math.min(0.05, (now - last) / 1000)));
+      const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
+      step(game, input.current, dt);
       last = now;
       paint();
       const current = score(game);
       setPoints(prev => prev === current ? prev : current);
-      if (game.over) {
+      if (game.over) afterOver += dt;
+      // Al perder, la explosión se sigue viendo un momento antes del cartel.
+      if (game.over && afterOver > 0.8) {
         setOverReason(game.over);
         if (current > readRecord()) { saveRecord(current); setRecord(current); setNewRecord(true); }
         setStatus('over');
@@ -225,7 +279,7 @@ export function BlockRunner() {
         <div>
           {status === 'ready' && <>
             <h2 id="runner-message">¡Cuidado, bloques!</h2>
-            <p>Caen piezas de tetris desde arriba. Corré y saltá para que no te aplasten. Las piezas se van apilando y te sirven de escalones; si se completa una fila, desaparece y sumás puntos.</p>
+            <p>Caen piezas de tetris y bombas desde arriba. Corré y saltá para que no te aplasten. Cada pieza rompe los bloques de su mismo color que encuentra abajo; las demás se apilan y te sirven de escalones. Las bombas explotan al llegar: alejate. Si los bloques llegan arriba, se termina.</p>
             <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> correr · <kbd>↑</kbd> o <kbd>Espacio</kbd> saltar · <kbd>P</kbd> pausa</p>
             <button type="button" onClick={start} autoFocus>Jugar</button>
           </>}

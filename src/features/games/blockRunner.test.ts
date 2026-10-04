@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hitsGrid, newGame, PLAYER_H, score, spawnPiece, step, type Piece } from './blockRunner';
+import { BREAK_POINTS, hitsGrid, newGame, PLAYER_H, score, spawnPiece, step, type Piece } from './blockRunner';
 
 const idle = { left: false, right: false, jump: false };
 const run = (game: ReturnType<typeof newGame>, seconds: number, input = idle) => {
@@ -83,18 +83,73 @@ describe('tiempo del cuadro', () => {
 });
 
 describe('pila hasta el techo', () => {
-  it('si una pieza queda por encima de la pantalla, el juego sigue y caen más piezas', () => {
+  it('termina la partida cuando los bloques llegan arriba', () => {
     const game = newGame(4, 4);
     for (let r = 0; r < 4; r++) game.grid[r] = ['#fff', '#fff', null, null];
     game.player.x = 2.2;
     game.spawnIn = 99;
     game.pieces.push({ id: 1, x: 0, y: -1.05, cells: [[0, 0], [1, 0]], width: 2, height: 1, color: '#f00', speed: 5 });
     step(game, idle, 0.05);
-    expect(game.pieces).toHaveLength(0);
+    expect(game.over).toBe('full');
+  });
+});
+
+describe('romper bloques del mismo color', () => {
+  it('una pieza atraviesa y rompe los bloques de su color, y suma puntos', () => {
+    const game = newGame(6, 8);
+    game.spawnIn = 99;
+    game.player.x = 4.2;
+    game.grid[7][0] = '#f00'; game.grid[6][0] = '#f00'; game.grid[7][1] = '#00f';
+    game.pieces.push({ id: 1, x: 0, y: -1, cells: [[0, 0]], width: 1, height: 1, color: '#f00', speed: 5 });
+    run(game, 3);
+    expect(game.broken).toBe(2);
+    expect(game.grid[7][0]).toBe('#f00'); // la pieza quedó apoyada en el piso
+    expect(game.grid[6][0]).toBeNull();
+    expect(game.grid[7][1]).toBe('#00f');
+    expect(game.particles.length + game.broken).toBeGreaterThan(0);
+    expect(score(game)).toBeGreaterThanOrEqual(2 * BREAK_POINTS);
+  });
+
+  it('un bloque de otro color la frena', () => {
+    const game = newGame(6, 8);
+    game.spawnIn = 99;
+    game.player.x = 4.2;
+    game.grid[7][0] = '#00f';
+    game.pieces.push({ id: 1, x: 0, y: -1, cells: [[0, 0]], width: 1, height: 1, color: '#f00', speed: 5 });
+    run(game, 3);
+    expect(game.broken).toBe(0);
+    expect(game.grid[6][0]).toBe('#f00');
+    expect(game.grid[7][0]).toBe('#00f');
+  });
+});
+
+describe('bombas', () => {
+  it('explota al llegar, rompe los bloques de alrededor y no afecta si el personaje está lejos', () => {
+    const game = newGame(10, 8);
+    game.spawnIn = 99;
+    game.player.x = 8.2;
+    game.grid[7][2] = '#00f'; game.grid[7][3] = '#f00'; game.grid[7][4] = '#0f0'; game.grid[7][6] = '#fff';
+    game.bombs.push({ id: 1, x: 3, y: -1, speed: 6 });
+    run(game, 2.5);
+    expect(game.bombs).toHaveLength(0);
+    expect(game.grid[7].slice(2, 5)).toEqual([null, null, null]);
+    expect(game.grid[7][6]).toBe('#fff');
     expect(game.over).toBeNull();
-    game.spawnIn = 0;
-    step(game, idle, 0.05, () => 0.1);
-    expect(game.nextId).toBe(2); // apareció otra pieza (aunque esta también quede arriba de todo)
-    expect(game.over).toBeNull();
+  });
+
+  it('si el personaje está donde explota, pierde', () => {
+    const game = newGame(10, 8);
+    game.spawnIn = 99;
+    game.player.x = 4.3;
+    game.bombs.push({ id: 1, x: 5, y: -1, speed: 6 });
+    run(game, 2.5);
+    expect(game.over).toBe('bomb');
+  });
+
+  it('las bombas también salen solas después de los primeros segundos', () => {
+    const game = newGame(10, 8);
+    game.time = 10;
+    for (let i = 0; i < 40 && !game.bombs.length; i++) { game.spawnIn = 0; step(game, idle, 0.01, () => (i * 0.13) % 1); game.pieces = []; }
+    expect(game.bombs.length).toBeGreaterThan(0);
   });
 });
