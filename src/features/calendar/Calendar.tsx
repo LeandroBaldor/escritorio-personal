@@ -172,13 +172,16 @@ export function Calendar() {
 
     <div className="cal-layout">
       <div className="cal-sheet">
-        <img className="cal-art" src={memeTrueStory} alt="" width={241} height={240} draggable={false} />
         <div className="cal-rings" aria-hidden="true"><span /><span /></div>
-        <div className="cal-band">
-          <button type="button" className="cal-arrow" onClick={() => shiftMonth(-1)} aria-label="Mes anterior">‹</button>
-          <BandClock />
-          <h2 aria-live="polite"><span>{MONTH_NAMES[view.month]}</span><small>{view.year}</small></h2>
-          <button type="button" className="cal-arrow" onClick={() => shiftMonth(1)} aria-label="Mes siguiente">›</button>
+        {/* El meme apoya su borde de abajo justo en el borde de abajo del encabezado del mes. */}
+        <div className="cal-band-wrap">
+          <div className="cal-band">
+            <button type="button" className="cal-arrow" onClick={() => shiftMonth(-1)} aria-label="Mes anterior">‹</button>
+            <BandClock />
+            <h2 aria-live="polite" style={{ '--len': MONTH_NAMES[view.month].length + 5 } as React.CSSProperties}><span>{MONTH_NAMES[view.month]}</span><small>{view.year}</small></h2>
+            <span className="cal-art-room" aria-hidden="true"><img className="cal-art" src={memeTrueStory} alt="" width={241} height={240} draggable={false} /></span>
+            <button type="button" className="cal-arrow" onClick={() => shiftMonth(1)} aria-label="Mes siguiente">›</button>
+          </div>
         </div>
         <div className="cal-toolbar">
           <ul className="cal-legend" aria-label="Colores">
