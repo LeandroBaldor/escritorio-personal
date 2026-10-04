@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BREAK_POINTS, explode, hitsGrid, newGame, PLAYER_H, score, spawnPiece, step, type Piece } from './blockRunner';
+import { BREAK_POINTS, explode, hitsGrid, isEnclosed, newGame, PLAYER_H, score, spawnPiece, step, type Piece } from './blockRunner';
 
 const idle = { left: false, right: false, jump: false };
 const run = (game: ReturnType<typeof newGame>, seconds: number, input = idle) => {
@@ -209,5 +209,35 @@ describe('duración de la ronda', () => {
       expect(game.time).toBeGreaterThan(110);
       expect(game.time).toBeLessThan(185);
     }
+  });
+});
+
+describe('encerrado', () => {
+  it('si queda en un hueco cerrado tiene 10 segundos para salir; si no, queda atrapado', () => {
+    const game = newGame(6, 6);
+    game.spawnIn = 99;
+    game.player.x = 2.2; game.player.y = 6 - PLAYER_H;
+    // Caja cerrada alrededor del personaje (columnas 1 y 3, techo en la fila 3).
+    for (let r = 3; r < 6; r++) { game.grid[r][1] = '#fff'; game.grid[r][3] = '#fff'; }
+    game.grid[3][2] = '#fff';
+    expect(isEnclosed(game)).toBe(true);
+    run(game, 5);
+    expect(game.over).toBeNull();
+    expect(game.trapped).toBeGreaterThan(4);
+    run(game, 5.5);
+    expect(game.over).toBe('trapped');
+  });
+
+  it('si se abre el hueco, la cuenta se reinicia', () => {
+    const game = newGame(6, 6);
+    game.spawnIn = 99;
+    game.player.x = 2.2; game.player.y = 6 - PLAYER_H;
+    for (let r = 3; r < 6; r++) { game.grid[r][1] = '#fff'; game.grid[r][3] = '#fff'; }
+    game.grid[3][2] = '#fff';
+    run(game, 3);
+    game.grid[3][2] = null; // se rompe el techo
+    run(game, 0.1);
+    expect(game.trapped).toBe(0);
+    expect(isEnclosed(game)).toBe(false);
   });
 });

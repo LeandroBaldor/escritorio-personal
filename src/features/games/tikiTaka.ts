@@ -7,7 +7,7 @@
 // Dos tiempos de 2,5 minutos. Todo se mide en metros de una cancha de 105×68.
 
 export const PITCH = { w: 105, h: 68 };
-export const GOAL = { top: 29.5, bottom: 38.5, depth: 2.8 };
+export const GOAL = { top: 27.5, bottom: 40.5, depth: 4.5 }; // arco grande, para que se vea bien la red
 export type FormationId = '4-4-2' | '4-3-3' | '3-5-2' | '5-3-2' | '4-2-3-1';
 export const FORMATIONS: Record<FormationId, number[]> = {
   '4-4-2': [4, 4, 2], '4-3-3': [4, 3, 3], '3-5-2': [3, 5, 2], '5-3-2': [5, 3, 2], '4-2-3-1': [4, 2, 3, 1],

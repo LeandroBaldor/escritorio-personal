@@ -4,22 +4,22 @@ import { KITS, kitById, paintKit, rivalKit, type Kit } from './kits';
 import { canShoot, chase, dive, FORMATIONS, GOAL, minute, newMatch, pass, passRisk, PITCH, shoot, shotChance, startSecondHalf, step, takeEvents, type FormationId, type Match, type MatchEvent, type Side } from './tikiTaka';
 
 // ---------- Equipo guardado y récord ----------
-export interface TeamSetup { team: string; coach: string; country: string; formation: FormationId }
+export interface TeamSetup { coach: string; country: string; formation: FormationId }
 const SETUP_KEY = 'escritorio-personal-juegos:tikitaka-equipo';
 const RECORD_KEY = 'escritorio-personal-juegos:tikitaka-record';
 export interface TikiRecord { played: number; won: number; drawn: number; lost: number; goals: number }
-const DEFAULT_SETUP: TeamSetup = { team: 'Los Pibes FC', coach: 'El Profe', country: 'arg', formation: '4-3-3' };
+const DEFAULT_SETUP: TeamSetup = { coach: 'El Profe', country: 'arg', formation: '4-3-3' };
 const read = <T,>(key: string, fallback: T): T => { try { const v = JSON.parse(localStorage.getItem(key) ?? 'null'); return v ?? fallback; } catch { return fallback; } };
 const write = (key: string, value: unknown) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* sin almacenamiento */ } };
 export const readTikiRecord = (): TikiRecord => read(RECORD_KEY, { played: 0, won: 0, drawn: 0, lost: 0, goals: 0 });
 
-const RIVALS = ['Sportivo Empanada', 'Atlético Mate Cocido', 'Deportivo Siesta', 'Real Choripán', 'Juventud Medialuna', 'Unión Fernet', 'Defensores del Asado', 'Racing de la Esquina', 'Huracán del Barrio', 'Estrella del Potrero'];
+const RIVAL_COACHES = ['El Flaco', 'El Turco', 'El Loco', 'El Ruso', 'El Tano', 'Profe Gómez', 'El Mago', 'El Pelado', 'Don Héctor', 'La Fiera'];
 const pick = <T,>(list: T[]) => list[Math.floor(Math.random() * list.length)];
 const SKINS = ['#f1c27d', '#e0ac69', '#c68642', '#8d5524', '#ffdbac', '#d9a273'];
 const HAIR = ['#2b1b10', '#4a2c17', '#111111', '#7a4a24', '#d6b25e', '#1f1f1f'];
 
 // ---------- Relator ----------
-type Names = { team: string; coach: string; rival: string };
+type Names = { team: string; coach: string; rival: string; rivalCoach: string };
 const PHRASES: Record<MatchEvent['type'], string[]> = {
   pass: ['Toca {team}, toca y toca…', '¡Qué pase! {coach} aplaude desde el banco', 'Tiki-taka puro de {team}', 'La pelota va de pie en pie'],
   intercept: ['¡La cortó {rival}! Tocá a uno de los tuyos para mandarlo a marcar', 'Pase al rival… {coach} grita: ¡a marcar!'],
@@ -28,15 +28,15 @@ const PHRASES: Record<MatchEvent['type'], string[]> = {
   dribble: ['¡Lo gambeteó! Insistí con la marca', '¡Qué amague de {rival}! Sigue con la pelota'],
   rivalShot: ['¡Patea {rival}! ¡Elegí dónde tirarte!'],
   keeperSave: ['¡ATAJADÓN del arquero de {team}!', '¡Voló el arquero! Se salvó {team}'],
-  rivalGoal: ['Gol de {rival}… {coach} patea un botellón', 'Lo adivinó mal el arquero: gol de {rival}'],
+  rivalGoal: ['Gol de {rival}… {coach} patea un botellón', 'Lo adivinó mal el arquero: gol de {rival}', '¡Gol de {rival}! {rivalCoach} lo grita en el banco'],
   goal: ['¡GOOOOL DE {team}!', '¡Golazo! {coach} corre por toda la línea de cal'],
-  saved: ['¡Atajó el arquero de {rival}! Ahora atacan ellos', 'Tapada del arquero rival. ¡A defender!'],
+  saved: ['¡Atajó el arquero de {rival}! Ahora atacan ellos', 'Tapada del arquero rival. {rivalCoach} aplaude. ¡A defender!'],
   miss: ['¡Afuera! Pasó cerquita. Sale {rival} desde el fondo'],
   kickoff: ['Mueve el partido. Con la pelota: tocá a un compañero. Sin la pelota: tocá a uno tuyo para marcar'],
   half: ['¡Final del primer tiempo!'],
   end: ['¡Terminó el partido!'],
 };
-const say = (type: MatchEvent['type'], names: Names) => pick(PHRASES[type]).replace('{team}', names.team).replace('{coach}', names.coach).replace('{rival}', names.rival);
+const say = (type: MatchEvent['type'], names: Names) => pick(PHRASES[type]).replace('{team}', names.team).replace('{coach}', names.coach).replace('{rival}', names.rival).replace('{rivalCoach}', names.rivalCoach);
 
 // ---------- Dibujo ----------
 type View = { vertical: boolean; s: number; ox: number; oy: number };
@@ -66,9 +66,9 @@ function drawGoal(ctx: CanvasRenderingContext2D, v: View, right: boolean) {
   const pts = [[lineX, GOAL.top], [backX, GOAL.top + 0.6], [backX, GOAL.bottom - 0.6], [lineX, GOAL.bottom]].map(([x, y]) => toScreen(v, x, y));
   ctx.save();
   ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath();
-  ctx.fillStyle = '#0b3d1c'; ctx.fill();
+  ctx.fillStyle = '#123821'; ctx.fill();
   ctx.clip();
-  ctx.strokeStyle = '#ffffff70'; ctx.lineWidth = 1;
+  ctx.strokeStyle = '#ffffffb3'; ctx.lineWidth = Math.max(1, v.s * 0.07);
   for (let y = GOAL.top; y <= GOAL.bottom; y += 0.55) { ctx.beginPath(); ctx.moveTo(...toScreen(v, lineX, y)); ctx.lineTo(...toScreen(v, backX, y)); ctx.stroke(); }
   for (let d = 0; d <= GOAL.depth; d += 0.55) { const x = right ? lineX + d : lineX - d; ctx.beginPath(); ctx.moveTo(...toScreen(v, x, GOAL.top)); ctx.lineTo(...toScreen(v, x, GOAL.bottom)); ctx.stroke(); }
   ctx.restore();
@@ -209,9 +209,12 @@ export function KitPreview({ kit }: { kit: Kit }) {
 export function TikiTaka() {
   const [setup, setSetup] = useState<TeamSetup>(() => { const saved = read<Partial<TeamSetup>>(SETUP_KEY, {}); return { ...DEFAULT_SETUP, ...saved, country: saved.country && KITS.some(k => k.id === saved.country) ? saved.country : DEFAULT_SETUP.country }; });
   const [screen, setScreen] = useState<Screen>('setup');
-  const [rival, setRival] = useState(() => pick(RIVALS));
   const myKit = kitById(setup.country);
   const [rivalShirt, setRivalShirt] = useState(() => rivalKit(myKit));
+  const [rivalCoach, setRivalCoach] = useState(() => pick(RIVAL_COACHES));
+  const rival = rivalShirt.name;
+  // Si elegís el mismo país (o uno muy parecido) que el rival, el rival cambia.
+  useEffect(() => { if (rivalShirt.id === myKit.id || rivalShirt.base === myKit.base) setRivalShirt(rivalKit(myKit)); }, [myKit, rivalShirt]);
   const [hud, setHud] = useState({ minute: 0, half: 1, mine: 0, rival: 0, phase: 'play' as Match['phase'], possession: 'mine' as Match['possession'], canShoot: false, chance: 0, save: null as Match['save'], passes: 0, shots: 0, recovered: 0 });
   const [line, setLine] = useState('');
   const [celebrate, setCelebrate] = useState(false);
@@ -220,7 +223,8 @@ export function TikiTaka() {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<View>({ vertical: false, s: 1, ox: 0, oy: 0 });
-  const names: Names = { team: setup.team.trim() || DEFAULT_SETUP.team, coach: setup.coach.trim() || DEFAULT_SETUP.coach, rival };
+  const cameraRef = useRef(PITCH.h / 2);
+  const names: Names = { team: myKit.name, coach: setup.coach.trim() || DEFAULT_SETUP.coach, rival, rivalCoach };
 
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -231,7 +235,6 @@ export function TikiTaka() {
   const start = (e?: React.FormEvent) => {
     e?.preventDefault();
     write(SETUP_KEY, setup);
-    if (rivalShirt.id === myKit.id || rivalShirt.base === myKit.base) setRivalShirt(rivalKit(myKit));
     matchRef.current = newMatch(setup.formation);
     setLine(say('kickoff', names));
     setCelebrate(false);
@@ -243,10 +246,19 @@ export function TikiTaka() {
     if (!stage || !canvas || !m) return;
     const w = stage.clientWidth, h = stage.clientHeight, dpr = window.devicePixelRatio || 1;
     const vertical = w < h * 0.95;
-    const margin = GOAL.depth + 1;
-    const fieldW = vertical ? PITCH.h + 2 : PITCH.w + margin * 2, fieldH = vertical ? PITCH.w + margin * 2 : PITCH.h + 2;
-    const s = Math.min(w / fieldW, h / fieldH);
-    const v: View = { vertical, s, ox: (w - (vertical ? PITCH.h : PITCH.w) * s) / 2, oy: (h - (vertical ? PITCH.w : PITCH.h) * s) / 2 };
+    // La cancha ocupa todo el largo disponible (de arco a arco). Si a lo ancho no entra entera,
+    // la cámara acompaña a la pelota.
+    const margin = GOAL.depth + 0.8;
+    const long = PITCH.w + margin * 2, short = PITCH.h + 2;
+    const s = Math.min(vertical ? h / long : w / long, (vertical ? w : h) / (short * 0.72));
+    const shortPx = vertical ? w : h, pitchShort = PITCH.h * s;
+    let offShort = (shortPx - pitchShort) / 2;
+    if (pitchShort + 2 * s > shortPx) {
+      cameraRef.current += (m.ball.y - cameraRef.current) * 0.08;
+      offShort = Math.min(s, Math.max(shortPx - (PITCH.h + 1) * s, shortPx / 2 - cameraRef.current * s));
+    }
+    const offLong = ((vertical ? h : w) - PITCH.w * s) / 2;
+    const v: View = { vertical, s, ox: vertical ? offShort : offLong, oy: vertical ? offLong : offShort };
     viewRef.current = v;
     if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); canvas.style.width = `${w}px`; canvas.style.height = `${h}px`; }
     const ctx = canvas.getContext('2d');
@@ -324,7 +336,7 @@ export function TikiTaka() {
     if (m.possession === 'mine') pass(m, best); else chase(m, best);
   };
 
-  const rematch = () => { setRival(pick(RIVALS.filter(r => r !== rival))); setRivalShirt(rivalKit(myKit)); setTimeout(() => start(), 0); };
+  const rematch = () => { setRivalShirt(rivalKit(myKit)); setRivalCoach(pick(RIVAL_COACHES.filter(c => c !== rivalCoach))); setTimeout(() => start(), 0); };
   const result = hud.mine > hud.rival ? 'won' : hud.mine < hud.rival ? 'lost' : 'drawn';
   const s = hud.save;
 
@@ -332,23 +344,26 @@ export function TikiTaka() {
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>Tiki-Taka</h1>
-      {screen === 'match' && <div className="tt-board" aria-live="polite">
-        <div className="tt-board-row">
-          <span className="tt-team"><i style={{ background: myKit.base, borderColor: myKit.trim }} />{names.team}</span>
-          <strong data-testid="tt-score">{hud.mine} - {hud.rival}</strong>
-          <span className="tt-team tt-team--rival"><i style={{ background: rivalShirt.base, borderColor: rivalShirt.trim }} /><b>{rival}</b></span>
+      {screen === 'match' && <div className="tt-head">
+        <div className="tt-coach"><small>DT</small><strong>{names.coach}</strong></div>
+        <div className="tt-board" aria-live="polite">
+          <div className="tt-board-row">
+            <span className="tt-team"><i style={{ background: myKit.base, borderColor: myKit.trim }} />{names.team}</span>
+            <strong data-testid="tt-score">{hud.mine} - {hud.rival}</strong>
+            <span className="tt-team tt-team--rival"><i style={{ background: rivalShirt.base, borderColor: rivalShirt.trim }} /><b>{rival}</b></span>
+          </div>
+          <div className="tt-board-time">{hud.half === 1 ? '1T' : '2T'} · {hud.minute}'</div>
         </div>
-        <div className="tt-board-time">{hud.half === 1 ? '1T' : '2T'} · {hud.minute}'</div>
+        <div className="tt-coach tt-coach--rival"><small>DT</small><strong>{rivalCoach}</strong></div>
       </div>}
     </div>
 
     {screen === 'setup' && <form className="tt-setup" onSubmit={start}>
       <h2>Armá tu equipo</h2>
       <div className="tt-fields">
-        <label>Nombre del equipo<input value={setup.team} maxLength={24} onChange={e => setSetup({ ...setup, team: e.target.value })} /></label>
         <label>Nombre del DT<input value={setup.coach} maxLength={24} onChange={e => setSetup({ ...setup, coach: e.target.value })} /></label>
       </div>
-      <fieldset className="tt-kits"><legend>Camiseta: {myKit.name}</legend>
+      <fieldset className="tt-kits"><legend>País: {myKit.name}</legend>
         {KITS.map(k => <button key={k.id} type="button" aria-label={k.name} title={k.name} aria-pressed={setup.country === k.id} onClick={() => setSetup({ ...setup, country: k.id })}><KitPreview kit={k} /><span>{k.name}</span></button>)}
       </fieldset>
       <fieldset className="tt-formations"><legend>Formación</legend>
@@ -357,7 +372,7 @@ export function TikiTaka() {
         </button>)}
       </fieldset>
       <p className="tt-tip">Con más defensores te cuesta menos defender; con más volantes y delanteros, tenés más opciones de pase cerca del arco.</p>
-      <p className="tt-rival">Hoy juegan contra <strong>{rival}</strong></p>
+      <p className="tt-rival"><span className="tt-rival-kit"><KitPreview kit={rivalShirt} /></span><span>Hoy {myKit.name} juega contra <strong>{rival}</strong>, dirigido por {rivalCoach}</span></p>
       <button type="submit" className="tt-go">¡A la cancha! ⚽</button>
       {record.played > 0 && <p className="tt-record">Tu campaña: {record.won} ganados, {record.drawn} empatados, {record.lost} perdidos · {record.goals} goles</p>}
     </form>}

@@ -576,8 +576,6 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .runner-pad button:active{filter:brightness(1.25)}
 @media(pointer:coarse),(max-width:800px){.runner-pad{display:flex}.runner-keys{display:none}}
 /* Solitario 8 bits: mesa verde pixelada, letra de consola y cartas dibujadas píxel por píxel. */
-.game-card--pix{background:#14361f;border-color:#0b2414}
-.game-card--pix .game-card-text span{color:#bbf7d0}
 .game-card--pix>svg{image-rendering:pixelated}
 .sol{background:#166534;background-image:conic-gradient(#15803d 25%,transparent 0 50%,#15803d 0 75%,transparent 0);background-size:16px 16px;font-family:"Courier New",ui-monospace,monospace}
 .sol .runner-bar h1{font-family:"Courier New",ui-monospace,monospace;font-weight:900;text-transform:uppercase;letter-spacing:.08em;text-shadow:3px 3px 0 #052e16}
@@ -617,18 +615,23 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 @keyframes sol-fall{to{transform:translateY(120vh) rotate(360deg)}}
 @media(max-width:800px){.sol.runner{padding-left:4px;padding-right:4px}.sol .runner-bar{gap:.4rem .7rem;padding:0 .4rem}.sol .runner-bar button{padding:.35rem .6rem;font-size:.85rem}}
 /* Tiki-Taka: estadio de noche, cancha rayada, marcador de TV siempre visible y botones grandes para el celular. */
-.game-card--tt{background:#0f2a1a;border-color:#081a0f}
-.game-card--tt .game-card-text span{color:#bbf7d0}
 .tt{background:radial-gradient(ellipse at 50% 0,#14532d 0,#052e16 55%,#02140a 100%);overflow:auto}
 .tt.runner{gap:.35rem;padding:.4rem .6rem .5rem}
 .tt .runner-bar h1{flex:0 1 auto}
 .tt .runner-back{color:#86efac}
-.tt-board{display:grid;justify-items:center;gap:.15rem;margin:0 auto;padding:.3rem .9rem .35rem;background:#0b1220;border:2px solid #334155;border-radius:12px;box-shadow:0 4px 14px #0008;color:#e2e8f0}
-.tt-board-row{display:flex;align-items:center;gap:.7rem;font-weight:800}
-.tt-board strong{font:900 1.5rem/1 "Courier New",ui-monospace,monospace;color:#fde047;letter-spacing:.06em;white-space:nowrap}
-.tt-board-time{padding:.05rem .6rem;background:#16a34a;color:#fff;border-radius:6px;font-weight:900;font-size:.85rem;font-variant-numeric:tabular-nums}
-.tt-team{display:flex;align-items:center;gap:.4rem;max-width:13rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tt-team i{flex:none;width:.9rem;height:.9rem;border-radius:3px;border:2px solid}
+.tt-head{flex:1;display:flex;align-items:center;justify-content:center;gap:.9rem;min-width:0}
+.tt-coach{display:grid;justify-items:end;line-height:1.1;color:#bbf7d0;min-width:0}
+.tt-coach small{font-size:.7rem;font-weight:900;letter-spacing:.12em;color:#86efac}
+.tt-coach strong{font-size:1.05rem;color:#fff;max-width:11rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tt-coach--rival{justify-items:start}
+.tt-board{display:grid;justify-items:center;gap:.2rem;padding:.35rem 1.2rem .4rem;background:#0b1220;border:2px solid #334155;border-radius:14px;box-shadow:0 4px 14px #0008;color:#e2e8f0}
+.tt-board-row{display:flex;align-items:center;gap:1rem;font-weight:900;font-size:1.2rem}
+.tt-board strong{font:900 2.2rem/1 "Courier New",ui-monospace,monospace;color:#fde047;letter-spacing:.06em;white-space:nowrap}
+.tt-board-time{padding:.05rem .7rem;background:#16a34a;color:#fff;border-radius:6px;font-weight:900;font-size:.95rem;font-variant-numeric:tabular-nums}
+.tt-team{display:flex;align-items:center;gap:.45rem;max-width:14rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tt-team i{flex:none;width:1.05rem;height:1.05rem;border-radius:3px;border:2px solid}
+.tt-rival{display:flex;align-items:center;gap:.6rem}
+.tt-rival-kit svg{width:40px;height:40px;display:block}
 .tt-team--rival{flex-direction:row-reverse}
 .tt-team--rival b{overflow:hidden;text-overflow:ellipsis;font-weight:inherit}
 .tt-setup{width:min(820px,100%);margin:.3rem auto 1.5rem;padding:1.1rem 1.3rem;background:#0b1f14;border:2px solid #166534;border-radius:16px;box-shadow:0 12px 30px #0008}
@@ -682,13 +685,23 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 @media(max-width:800px){
   .tt.runner{padding:.3rem .3rem .4rem}
   .tt .runner-bar{gap:.3rem .6rem}
-  .tt-board{width:100%;padding:.25rem .5rem}
-  .tt-board-row{gap:.4rem;font-size:.78rem}
-  .tt-board strong{font-size:1.25rem}
-  .tt-team{max-width:7.5rem}
+  .tt-head{flex:1 1 100%;width:100%;display:grid;grid-template-columns:1fr 1fr;grid-template-areas:'board board' 'left right';gap:.2rem .5rem}
+  .tt-head .tt-board{grid-area:board;justify-self:center}
+  .tt-coach{grid-area:left;display:flex;align-items:baseline;gap:.3rem;justify-content:flex-start;padding-left:.4rem}
+  .tt-coach--rival{grid-area:right;justify-content:flex-end;padding:0 .4rem 0 0}
+  .tt-coach small{font-size:.6rem}
+  .tt-coach strong{font-size:.8rem;max-width:9rem}
+  .tt-board{padding:.25rem .5rem}
+  .tt-board-row{gap:.4rem;font-size:.8rem}
+  .tt-board strong{font-size:1.45rem}
+  .tt-team{max-width:6.8rem}
   .tt-fields{grid-template-columns:1fr}
   .tt-kits{grid-template-columns:repeat(6,1fr)}
   .tt-formations{grid-template-columns:repeat(3,1fr)}
   .tt-line{font-size:.82rem}
   .tt-shoot{min-width:6rem;padding:.5rem .7rem}
 }
+/* Aviso de encerrado en ¡Cuidado, bloques!: cuenta regresiva arriba de la cancha. */
+.runner-trap{position:absolute;top:10%;left:50%;transform:translateX(-50%);padding:.6rem 1.2rem;background:#7f1d1df0;border:3px solid #fca5a5;border-radius:12px;color:#fff;font-weight:900;font-size:clamp(1.1rem,3vw,1.6rem);white-space:nowrap;pointer-events:none;animation:runner-blink .5s steps(2) infinite alternate;box-shadow:0 8px 24px #000a}
+.runner-trap strong{font-size:1.3em;color:#fde047;margin-left:.2rem}
+@keyframes runner-blink{to{background:#b91c1cf0}}
