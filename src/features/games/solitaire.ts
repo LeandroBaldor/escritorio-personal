@@ -1,19 +1,22 @@
-// Lógica del "Solitario de cine" (Klondike, de a una carta). Los palos son de cine:
-// Palomitas y Estrellas son rojos; Claquetas y Rollos son oscuros. En las columnas se apila
-// bajando de a uno y alternando color; arriba (en las bases) se junta cada palo del As al Rey.
+// Lógica del "Solitario de Superhéroes" (Klondike, de a una carta). Corazones son héroes de
+// Marvel, diamantes villanos de Marvel, picas héroes de DC y tréboles villanos de DC. En las
+// columnas se apila bajando de a uno y alternando Marvel y DC (como rojo y negro en el solitario
+// de siempre); arriba (en las bases) se junta cada palo del As al Rey.
 
-export type Suit = 'palomitas' | 'estrella' | 'claqueta' | 'rollo';
-export const SUITS: Suit[] = ['palomitas', 'estrella', 'claqueta', 'rollo'];
-export const SUIT_NAMES: Record<Suit, string> = { palomitas: 'Palomitas', estrella: 'Estrellas', claqueta: 'Claquetas', rollo: 'Rollos' };
+import { heroOf } from './heroes';
+
+export type Suit = 'corazon' | 'diamante' | 'pica' | 'trebol';
+export const SUITS: Suit[] = ['corazon', 'diamante', 'pica', 'trebol'];
+export const SUIT_NAMES: Record<Suit, string> = { corazon: 'corazones', diamante: 'diamantes', pica: 'picas', trebol: 'tréboles' };
 export const RANK_NAMES = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-export const isRed = (suit: Suit) => suit === 'palomitas' || suit === 'estrella';
+export const isMarvel = (suit: Suit) => suit === 'corazon' || suit === 'diamante';
 
 export interface Card { id: string; suit: Suit; rank: number; up: boolean }
 export interface Solitaire { stock: Card[]; waste: Card[]; foundations: Card[][]; tableau: Card[][]; moves: number }
 export type From = { kind: 'waste' } | { kind: 'foundation'; pile: number } | { kind: 'tableau'; pile: number; index: number };
 export type To = { kind: 'foundation'; pile: number } | { kind: 'tableau'; pile: number };
 
-export const cardName = (card: Card) => `${({ 1: 'As', 11: 'J', 12: 'Q', 13: 'K' } as Record<number, string>)[card.rank] ?? card.rank} de ${SUIT_NAMES[card.suit]}`;
+export const cardName = (card: Card) => `${heroOf(card.suit, card.rank).name}, ${({ 1: 'As', 11: 'J', 12: 'Q', 13: 'K' } as Record<number, string>)[card.rank] ?? card.rank} de ${SUIT_NAMES[card.suit]}`;
 
 export function deal(rand: () => number = Math.random): Solitaire {
   const deck: Card[] = SUITS.flatMap(suit => Array.from({ length: 13 }, (_, i) => ({ id: `${suit}-${i + 1}`, suit, rank: i + 1, up: false })));
@@ -30,7 +33,7 @@ export const fitsFoundation = (card: Card, pile: Card[]) =>
 export const fitsTableau = (card: Card, pile: Card[]) => {
   const under = top(pile);
   if (!under) return card.rank === 13;
-  return under.up && isRed(under.suit) !== isRed(card.suit) && under.rank === card.rank + 1;
+  return under.up && isMarvel(under.suit) !== isMarvel(card.suit) && under.rank === card.rank + 1;
 };
 
 // Las cartas que se levantan desde un lugar (en una columna, la carta y todas las de encima).

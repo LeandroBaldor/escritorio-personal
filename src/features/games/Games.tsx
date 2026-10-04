@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
 import { CalculatorLink, CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { readRecord } from './BlockRunner';
-import { readSolitaireRecord, SuitIcon } from './CinemaSolitaire';
+import { HeroHead } from './HeroHead';
+import { heroOf } from './heroes';
+import { readSolitaireRecord, SUIT_COLORS } from './HeroSolitaire';
+import type { Suit } from './solitaire';
 
 // Dibujo chiquito del juego para la tarjeta: piezas cayendo y el personaje abajo.
 function BlockRunnerArt() {
@@ -21,22 +24,20 @@ function BlockRunnerArt() {
   </svg>;
 }
 
-// Dibujo de la tarjeta del solitario: telón rojo, cartas en abanico y un balde de palomitas.
+// Dibujo de la tarjeta del solitario: fondo de cómic y cuatro cartas en abanico, una de cada palo.
 function SolitaireArt() {
-  const card = (x: number, angle: number, rank: string, suit: 'estrella' | 'claqueta' | 'rollo', red: boolean) =>
-    <g transform={`rotate(${angle} ${x + 16} 92)`}>
-      <rect x={x} y="30" width="32" height="46" rx="3" fill="#fffaf0" stroke="#d6c7a1" />
-      <text x={x + 4} y="41" fontSize="9" fontWeight="900" fill={red ? '#dc2626' : '#111827'} fontFamily="Nunito, sans-serif">{rank}</text>
-      <SuitIcon suit={suit} x={x + 7} y={47} size={18} />
+  const card = (x: number, angle: number, rank: string, suit: Suit, who: number) =>
+    <g transform={`rotate(${angle} ${x + 16} 96)`}>
+      <rect x={x} y="24" width="32" height="46" rx="3" fill="#fff" stroke={SUIT_COLORS[suit]} strokeWidth="1.5" />
+      <text x={x + 3.5} y="33" fontSize="8" fontWeight="900" fill={SUIT_COLORS[suit]} fontFamily="Nunito, sans-serif">{rank}</text>
+      <svg x={x + 5} y="35" width="22" height="22" viewBox="0 0 48 48"><HeroHead look={heroOf(suit, who).look} /></svg>
+      <rect x={x + 3} y="60" width="26" height="6" rx="1.5" fill={SUIT_COLORS[suit]} />
     </g>;
   return <svg viewBox="0 0 160 100" aria-hidden="true">
-    <defs><linearGradient id="telon" x1="0" x2="1"><stop offset="0" stopColor="#7f1d1d" /><stop offset=".5" stopColor="#b91c1c" /><stop offset="1" stopColor="#7f1d1d" /></linearGradient></defs>
-    <rect width="160" height="100" fill="#1c0a0a" />
-    <path d="M0 0h40c-6 30-4 70 6 100H0z" fill="url(#telon)" /><path d="M160 0h-40c6 30 4 70-6 100h46z" fill="url(#telon)" />
-    <rect width="160" height="10" fill="#991b1b" /><path d="M0 10h160" stroke="#facc15" strokeWidth="1.5" />
-    <ellipse cx="80" cy="96" rx="58" ry="7" fill="#facc1522" />
-    {card(48, -16, 'K', 'claqueta', false)}{card(64, 0, 'A', 'estrella', true)}{card(80, 16, '7', 'rollo', false)}
-    <SuitIcon suit="palomitas" x={112} y={60} size={32} />
+    <defs><pattern id="puntos" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="1.1" fill="#ffffff14" /></pattern></defs>
+    <rect width="160" height="100" fill="#172554" /><rect width="160" height="100" fill="url(#puntos)" />
+    <path d="M80 50L0 0h40zM80 50L160 0v40zM80 50L160 100h-40zM80 50L0 100V60z" fill="#ffffff0a" />
+    {card(30, -18, 'A', 'corazon', 1)}{card(52, -6, 'A', 'diamante', 1)}{card(76, 6, 'K', 'pica', 13)}{card(98, 18, 'A', 'trebol', 1)}
   </svg>;
 }
 
@@ -61,11 +62,11 @@ export function Games() {
         </Link>
       </li>
       <li>
-        <Link className="game-card game-card--cine" to="/juegos/solitario">
+        <Link className="game-card game-card--heroes" to="/juegos/solitario">
           <SolitaireArt />
           <span className="game-card-text">
-            <strong>Solitario de cine</strong>
-            <span>El solitario de siempre con cartas de cine: palomitas, estrellas, claquetas y rollos de película.</span>
+            <strong>Solitario de Superhéroes</strong>
+            <span>El solitario de siempre con héroes y villanos de Marvel y DC: cada carta es un personaje.</span>
             {solitaire && <small>Récord: {Math.floor(solitaire.seconds / 60)}:{String(solitaire.seconds % 60).padStart(2, '0')}</small>}
           </span>
           <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
