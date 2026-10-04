@@ -33,7 +33,7 @@ export function Games() {
           <BlockRunnerArt />
           <span className="game-card-text">
             <strong>¡Cuidado, bloques!</strong>
-            <span>Caen piezas de tetris desde arriba: corré y saltá para que no te aplasten.</span>
+            <span>Caen piezas de tetris y bombas desde arriba: corré y saltá para que no te aplasten.</span>
             {record > 0 && <small>Récord: {record} puntos</small>}
           </span>
           <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
