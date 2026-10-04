@@ -1,8 +1,7 @@
 import { FormEvent, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useData } from '../../app/DataContext';
 import { DeskLink, NotebookLink, CalculatorLink, SectionObjects } from '../../app/SectionObjects';
-import { EVENT_CATEGORIES, id, type CalendarEvent, type EventCategory, type Note, type NoteCalendar } from '../../storage/model';
+import { EVENT_CATEGORIES, id, syncMonthEntry, type CalendarEvent, type Expense, type EventCategory, type Note, type NoteCalendar } from '../../storage/model';
 import { DateInput, formatExpenseDate, money } from '../expenses/Expenses';
 import { calendarFrom, TimeInput } from './DateTimeFields';
 import { DateQuestion } from './DateQuestion';
@@ -19,7 +18,7 @@ const MIN_ROW = 50, MAX_ROW = 130;
 export const categoryClass = (category: EventCategory) => `cal-cat--${category.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()}`;
 const longDate = (iso: string) => { const date = dateOf(iso); return `${DAY_NAMES[date.getDay()]} ${date.getDate()} de ${MONTH_NAMES[date.getMonth()]}`; };
 
-type Item = { key: string; text: string; time?: string; category: EventCategory; event?: CalendarEvent; note?: Note; done?: boolean; source?: 'expense' | 'note' };
+type Item = { key: string; text: string; time?: string; category: EventCategory; event?: CalendarEvent; note?: Note; expense?: Expense; done?: boolean; source?: 'expense' | 'note' };
 type Doubt = { note: Note; date: string | null; time: string | null };
 const noteDay = (note: Note, today: Date) => { const created = note.history[0] ? new Date(note.history[0].at) : today; return Number.isNaN(created.getTime()) ? today : created; };
 
@@ -84,7 +83,7 @@ export function Calendar() {
   const byDay = new Map<string, Item[]>();
   const push = (date: string, item: Item) => byDay.set(date, [...(byDay.get(date) ?? []), item]);
   for (const event of data.events ?? []) push(event.date, { key: event.id, text: event.text, time: event.time, category: event.category, event });
-  for (const expense of data.expenses) if (expense.date) push(expense.date, { key: `gasto-${expense.id}`, text: `${expense.concept} · ${money(expense.cents)}`, category: 'Pagos', done: expense.paid ?? false, source: 'expense' });
+  for (const expense of data.expenses) if (expense.date) push(expense.date, { key: `gasto-${expense.id}`, text: `${expense.concept} · ${money(expense.cents)}`, time: expense.time, category: expense.calendarCategory ?? 'Pagos', done: expense.paid ?? false, source: 'expense', expense });
   // Las notas del escritorio y de Guardadas con una fecha en el texto también aparecen; "13/10" sin año se toma desde el día en que se creó la nota.
   // Si la fecha se confirmó a mano (note.calendar) se usa esa; si el texto parece tener una fecha que no se entiende, se pregunta.
   const doubts: Doubt[] = [];
@@ -114,6 +113,13 @@ export function Calendar() {
       return next;
     }) }));
     else if (item.note) setData(d => ({ ...d, notes: d.notes.map(n => n.id === item.note!.id ? { ...n, calendar, calendarCategory: category } : n) }));
+    else if (item.expense) setData(d => {
+      const current = d.expenses.find(e => e.id === item.expense!.id);
+      if (!current) return d;
+      const next: Expense = { ...current, date: calendar.date, calendarCategory: category };
+      if (calendar.time) next.time = calendar.time; else delete next.time;
+      return { ...d, expenses: d.expenses.map(e => e.id === next.id ? next : e), expenseMonths: syncMonthEntry(d.expenseMonths, next) };
+    });
     goTo(calendar.date);
     setAnnouncement(`${item.text}: guardado el ${longDate(calendar.date)}`);
   };
@@ -212,9 +218,7 @@ export function Calendar() {
                 <span className={item.done ? 'cal-done' : undefined}>{item.text}</span>
                 <small>{item.source === 'expense' ? `Mis gastos · ${item.done ? 'Pagado' : 'No pagado'}` : item.note ? (item.note.archivedAt ? 'Nota guardada' : 'Nota del escritorio') : 'Tarea del calendario'}</small>
               </div>
-              {item.source === 'expense'
-                ? <Link className="cal-item-link" to="/gastos">Ver gasto</Link>
-                : <ItemEditor key={`${item.key}-${selected}`} item={item} date={selected} onSave={(category, calendar) => saveItem(item, category, calendar)} onDelete={item.event ? () => removeEvent(item.event!) : undefined} />}
+              <ItemEditor key={`${item.key}-${selected}`} item={item} date={selected} onSave={(category, calendar) => saveItem(item, category, calendar)} onDelete={item.event ? () => removeEvent(item.event!) : undefined} />
             </li>)}
           </ul>}
           </div>
