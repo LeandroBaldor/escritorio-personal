@@ -636,7 +636,7 @@ test('el calendario lista las posibles fechas para aprobarlas con la flecha o de
   await page.getByRole('link', { name: 'Calendario' }).click();
   const doubts = page.locator('.cal-doubt');
   await expect(doubts).toHaveCount(2);
-  await expect(page.getByLabel('Día de Turno pediatra 25.12')).toHaveValue(/-12-25$/);
+  await expect(page.getByLabel('Día de Turno pediatra 25.12', { exact: true })).toHaveValue(/^25\/12\/\d{4}$/);
   await page.getByRole('button', { name: 'Sí, Turno pediatra 25.12 es una fecha' }).click();
   await page.getByRole('button', { name: 'Comprar regalo el 15 no es una fecha' }).click();
   await expect(doubts).toHaveCount(0);
@@ -652,7 +652,7 @@ test('al agregar una nota con una posible fecha el escritorio pregunta en el mom
   await page.getByRole('button', { name: 'Agregar nota' }).click();
   const addDate = page.getByRole('form', { name: 'Agregar fecha a Comprar pan' });
   await expect(addDate).toContainText('¿Le agregás una fecha?');
-  await expect(addDate.getByRole('button', { name: 'Agregar' })).toBeDisabled();
+  await expect(addDate.getByRole('button', { name: 'Agregar', exact: true })).toBeDisabled();
   await addDate.getByRole('button', { name: 'Rechazar' }).click();
   await expect(page.locator('.date-ask')).toHaveCount(0);
   await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Turno Altamar 13/10');
@@ -675,13 +675,16 @@ test('el calendario agrega tareas con día y categoría, y deja cambiar la categ
   await page.getByRole('link', { name: 'Calendario' }).click();
   const form = page.getByRole('form', { name: 'Agregar tarea' });
   await form.getByPlaceholder('Ej. Turno Altamar').fill('Reunión con el cliente');
-  await form.locator('input[type=time]').fill('15:00');
+  await form.getByLabel('Hora', { exact: true }).fill('15:00');
   await expect(form.locator('select')).toHaveValue('Trabajo');
   await form.getByRole('button', { name: 'Agregar' }).click();
   const chip = page.locator('.cal-chip', { hasText: 'Reunión con el cliente' });
   await expect(chip).toHaveText('15:00 Reunión con el cliente');
   await expect(chip).toHaveClass(/cal-cat--trabajo/);
-  await page.locator('.cal-item', { hasText: 'Reunión con el cliente' }).locator('select').selectOption('Personal');
+  const editor = page.getByRole('form', { name: 'Editar Reunión con el cliente' });
+  await editor.getByLabel('Categoría').selectOption('Personal');
+  await expect(chip).toHaveClass(/cal-cat--trabajo/);
+  await editor.getByRole('button', { name: 'Guardar' }).click();
   await expect(chip).toHaveClass(/cal-cat--personal/);
   await page.reload();
   await expect(page.locator('.cal-chip', { hasText: 'Reunión con el cliente' })).toHaveClass(/cal-cat--personal/);
@@ -693,10 +696,11 @@ test('a una nota nueva sin fecha se le puede agregar día y hora para el calenda
   await page.getByRole('button', { name: 'Agregar nota' }).click();
   const addDate = page.getByRole('form', { name: 'Agregar fecha a Llamar al plomero' });
   const today = new Date();
-  const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  await addDate.getByLabel('Agregar fecha').fill(iso);
-  await addDate.getByLabel('Hora').fill('18:30');
-  await addDate.getByRole('button', { name: 'Agregar' }).click();
+  const day = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+  await expect(addDate.getByLabel('Agregar fecha', { exact: true })).toHaveAttribute('placeholder', 'dd/mm/yyyy');
+  await addDate.getByLabel('Agregar fecha', { exact: true }).fill(day);
+  await addDate.getByLabel('Hora', { exact: true }).fill('1830');
+  await addDate.getByRole('button', { name: 'Agregar', exact: true }).click();
   await expect(page.locator('.date-ask')).toHaveCount(0);
   await page.getByRole('link', { name: 'Calendario' }).click();
   await expect(page.locator('.cal-chip', { hasText: 'Llamar al plomero' })).toHaveText('18:30 Llamar al plomero');
@@ -708,8 +712,8 @@ test('una nota con solo un día de la semana pide confirmar la fecha', async ({ 
   await page.getByRole('button', { name: 'Agregar nota' }).click();
   const confirm = page.getByRole('form', { name: 'Agregar fecha a Lunes Telecentro' });
   await expect(confirm).toContainText('¿Confirmás la fecha?');
-  await expect(confirm.getByLabel('Agregar fecha')).toHaveValue(/^\d{4}-\d{2}-\d{2}$/);
-  await expect(confirm.getByRole('button', { name: 'Agregar' })).toBeEnabled();
+  await expect(confirm.getByLabel('Agregar fecha', { exact: true })).toHaveValue(/^\d{2}\/\d{2}\/\d{4}$/);
+  await expect(confirm.getByRole('button', { name: 'Agregar', exact: true })).toBeEnabled();
   await confirm.getByRole('button', { name: 'Rechazar' }).click();
   await expect(page.locator('.date-ask')).toHaveCount(0);
   await page.getByRole('link', { name: 'Calendario' }).click();
@@ -718,4 +722,26 @@ test('una nota con solo un día de la semana pide confirmar la fecha', async ({ 
     await expect(page.locator('.cal-chip', { hasText: 'Telecentro' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Mes siguiente' }).click();
   }
+});
+
+test('en el panel del día se editan categoría, fecha y hora de una nota y se guardan', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Turno dentista hoy');
+  await page.getByRole('button', { name: 'Agregar nota' }).click();
+  await page.getByRole('link', { name: 'Calendario' }).click();
+  await expect(page.getByRole('link', { name: 'Ver nota' })).toHaveCount(0);
+  const editor = page.getByRole('form', { name: 'Editar Turno dentista' });
+  await expect(editor.getByLabel('Fecha de Turno dentista', { exact: true })).toHaveValue(/^\d{2}\/\d{2}\/\d{4}$/);
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  const day = `${String(tomorrow.getDate()).padStart(2, '0')}/${String(tomorrow.getMonth() + 1).padStart(2, '0')}/${tomorrow.getFullYear()}`;
+  await editor.getByLabel('Categoría').selectOption('Trabajo');
+  await editor.getByLabel('Fecha de Turno dentista', { exact: true }).fill(day);
+  await editor.getByLabel('Hora de Turno dentista', { exact: true }).fill('9:45');
+  await editor.getByRole('button', { name: 'Guardar' }).click();
+  const chip = page.locator('.cal-chip', { hasText: 'Turno dentista' });
+  await expect(chip).toHaveText('09:45 Turno dentista');
+  await expect(chip).toHaveClass(/cal-cat--trabajo/);
+  await expect(page.locator('#cal-day-title')).toContainText(String(tomorrow.getDate()));
+  await page.reload();
+  await expect(page.locator('.cal-chip', { hasText: 'Turno dentista' })).toHaveText('09:45 Turno dentista');
 });

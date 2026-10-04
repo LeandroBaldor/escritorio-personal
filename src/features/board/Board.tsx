@@ -1,8 +1,10 @@
-import { DragEvent, FormEvent, useRef, useState } from 'react';
+import { DragEvent, FormEvent, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarLink } from '../../app/SectionObjects';
 import { COLORS, id, Note, NoteCalendar, Status } from '../../storage/model';
 import { DateQuestion } from '../calendar/DateQuestion';
+import { calendarFrom, TimeInput } from '../calendar/DateTimeFields';
+import { DateInput, formatExpenseDate } from '../expenses/Expenses';
 import { dateDoubt, parseEvent } from '../calendar/parseEvent';
 import { useData } from '../../app/DataContext';
 import memeCafe from '../../assets/images/meme-cafe.png';
@@ -143,14 +145,16 @@ function Card({ note, remove, edit, dragging, dropSide, onDragStart, onDragEnd, 
 
 // Ofrece agregarle día y hora a una nota nueva que no tiene fecha (o confirmar la que salió de un día de la semana) para el calendario.
 function AddDate({ note, date, time, onAdd, onReject }: { note: Note; date: string | null; time: string | null; onAdd: (calendar: NoteCalendar) => void; onReject: () => void }) {
-  const [day, setDay] = useState(date ?? '');
+  const fieldId = useId();
+  const [day, setDay] = useState(date ? formatExpenseDate(date) : '');
   const [hour, setHour] = useState(time ?? '');
-  return <form className="date-ask date-add" aria-label={`Agregar fecha a ${note.text}`} onSubmit={event => { event.preventDefault(); if (day) onAdd(hour ? { date: day, time: hour } : { date: day }); }}>
+  const calendar = calendarFrom(day, hour);
+  return <form className="date-ask date-add" aria-label={`Agregar fecha a ${note.text}`} onSubmit={event => { event.preventDefault(); if (calendar) onAdd(calendar); }}>
     <p><strong>{date ? '¿Confirmás la fecha?' : '¿Le agregás una fecha?'}</strong> <span>“{note.text}”</span></p>
-    <label>Agregar fecha<input type="date" value={day} onChange={event => setDay(event.target.value)} /></label>
-    <label>Hora<input type="time" value={hour} onChange={event => setHour(event.target.value)} /></label>
+    <div className="date-add-field"><label htmlFor={fieldId}>Agregar fecha</label><DateInput id={fieldId} label="Agregar fecha" value={day} onChange={setDay} /></div>
+    <label className="date-add-field">Hora<TimeInput label="Hora" value={hour} onChange={setHour} /></label>
     <div className="date-add-actions">
-      <button disabled={!day}>Agregar</button>
+      <button disabled={!calendar}>Agregar</button>
       <button type="button" className="date-add-reject" onClick={onReject}>Rechazar</button>
     </div>
   </form>;
