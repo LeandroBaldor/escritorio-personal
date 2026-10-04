@@ -762,3 +762,11 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
   .trepa-mark{font-size:.62rem}
   .trepa .runner-pad button{min-height:56px}
 }
+
+/* Calendario: imagen apoyada arriba del mes, en el espacio libre sobre la hoja. */
+.cal-art{position:absolute;z-index:3;bottom:calc(100% - .6rem);left:50%;transform:translateX(-50%);height:7.5rem;width:auto;pointer-events:none;user-select:none;filter:drop-shadow(0 3px 4px #0006)}
+@media(max-width:800px){.cal-art{left:auto;right:.6rem;transform:none;height:5rem}}
+/* Juegos: imagen justo a la derecha del título. */
+.games-heading{display:flex;align-items:flex-end;gap:1rem}
+.games-art{height:7.5rem;width:auto;margin-bottom:-.4rem;pointer-events:none;user-select:none;filter:drop-shadow(0 3px 4px #0006)}
+@media(max-width:800px){.games-heading{justify-content:space-between}.games-art{height:4.8rem}}
