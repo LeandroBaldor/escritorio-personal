@@ -6,6 +6,7 @@ import { DateInput, formatExpenseDate, money } from '../expenses/Expenses';
 import { calendarFrom, TimeInput } from './DateTimeFields';
 import { DateQuestion } from './DateQuestion';
 import { dateDoubt, dateOf, guessCategory, isoOf, parseEvent } from './parseEvent';
+import memeTrueStory from '../../assets/images/meme-true-story.png';
 
 const MONTH_NAMES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -171,6 +172,7 @@ export function Calendar() {
 
     <div className="cal-layout">
       <div className="cal-sheet">
+        <img className="cal-art" src={memeTrueStory} alt="" width={241} height={240} draggable={false} />
         <div className="cal-rings" aria-hidden="true"><span /><span /></div>
         <div className="cal-band">
           <button type="button" className="cal-arrow" onClick={() => shiftMonth(-1)} aria-label="Mes anterior">‹</button>
