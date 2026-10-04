@@ -70,3 +70,14 @@ describe('¡Cuidado, bloques!', () => {
     expect(hitsGrid(game, 0.5, 0.5, 0.6, 0.8)).toBe(false);
   });
 });
+
+describe('tiempo del cuadro', () => {
+  it('un cuadro con tiempo cero o negativo no mueve nada ni termina la partida', () => {
+    const game = newGame(10, 12);
+    step(game, idle, -0.004);
+    step(game, idle, 0);
+    expect(game.over).toBeNull();
+    expect(game.time).toBe(0);
+    expect(game.player.y).toBe(12 - PLAYER_H);
+  });
+});

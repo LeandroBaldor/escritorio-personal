@@ -133,7 +133,8 @@ export function BlockRunner() {
     const tick = (now: number) => {
       const game = gameRef.current;
       if (!game) return;
-      step(game, input.current, Math.min(0.05, (now - last) / 1000));
+      // El primer cuadro puede traer una hora anterior a "last": nunca avanzar con tiempo negativo.
+      step(game, input.current, Math.max(0, Math.min(0.05, (now - last) / 1000)));
       last = now;
       paint();
       const current = score(game);
