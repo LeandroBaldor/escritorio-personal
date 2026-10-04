@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { bestTarget, canFinish, canMove, cardName, deal, draw, finishStep, isRed, isWon, move, picked, RANK_NAMES, type Card, type From, type Solitaire, type Suit, type To } from './solitaire';
+import { HeroHead } from './HeroHead';
+import { heroOf } from './heroes';
+import { bestTarget, canFinish, canMove, cardName, deal, draw, finishStep, isWon, move, picked, RANK_NAMES, SUITS, type Card, type From, type Solitaire, type Suit, type To } from './solitaire';
 
 const RECORD_KEY = 'escritorio-personal-juegos:solitario-record';
 export const readSolitaireRecord = (): { seconds: number; moves: number } | null => {
@@ -9,72 +11,38 @@ export const readSolitaireRecord = (): { seconds: number; moves: number } | null
 const saveRecord = (value: { seconds: number; moves: number }) => { try { localStorage.setItem(RECORD_KEY, JSON.stringify(value)); } catch { /* sin almacenamiento */ } };
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
-// Dibujos de los palos: balde de palomitas, estrella, claqueta y rollo de película.
+// Símbolos de los palos (corazón, diamante, pica y trébol), cada uno con su color.
+export const SUIT_COLORS: Record<Suit, string> = { corazon: '#dc2626', diamante: '#7c3aed', pica: '#2563eb', trebol: '#16a34a' };
+export const TEAMS: Record<Suit, string> = { corazon: 'Héroe Marvel', diamante: 'Villano Marvel', pica: 'Héroe DC', trebol: 'Villano DC' };
+const SUIT_PATHS: Record<Suit, ReactNode> = {
+  corazon: <path d="M12 21s-8.5-5.3-8.5-11.2A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8.5 2.8C20.5 15.7 12 21 12 21z" />,
+  diamante: <path d="M12 2.5l7.5 9.5-7.5 9.5L4.5 12z" />,
+  pica: <path d="M12 2.5s8 6 8 11a4 4 0 0 1-6.6 3l1.3 4.5H9.3l1.3-4.5A4 4 0 0 1 4 13.5c0-5 8-11 8-11z" />,
+  trebol: <g><circle cx="12" cy="7.3" r="4" /><circle cx="7.2" cy="13.3" r="4" /><circle cx="16.8" cy="13.3" r="4" /><path d="M11 13h2l1.6 8.5H9.4z" /></g>,
+};
 export function SuitIcon({ suit, x, y, size }: { suit: Suit; x?: number; y?: number; size?: number }) {
-  const box = { viewBox: '0 0 24 24', 'aria-hidden': true, x, y, width: size, height: size } as const;
-  if (suit === 'palomitas') return <svg {...box}>
-    <circle cx="8" cy="7" r="3.2" fill="#fde68a" /><circle cx="12" cy="5.5" r="3.4" fill="#fef3c7" /><circle cx="16" cy="7" r="3.2" fill="#fde68a" /><circle cx="10" cy="8.5" r="2.6" fill="#fef9c3" /><circle cx="14.2" cy="8.6" r="2.6" fill="#fef9c3" />
-    <path d="M4.5 9h15l-2 13h-11z" fill="#fff" stroke="#b91c1c" strokeWidth=".8" />
-    <path d="M7.4 9h2.4l.5 13H8.4zM12 9h2.4l-.3 13h-2z" fill="#dc2626" /><path d="M16.6 9h2.4l-1.9 12.8-1.6.2z" fill="#dc2626" />
-  </svg>;
-  if (suit === 'estrella') return <svg {...box}>
-    <path d="M12 1.8l3 6.4 7 .8-5.2 4.8 1.4 6.9L12 17.2l-6.2 3.5 1.4-6.9L2 9l7-.8z" fill="#dc2626" stroke="#7f1d1d" strokeWidth=".7" strokeLinejoin="round" />
-    <path d="M12 5.2l1.8 3.9 4.2.5" fill="none" stroke="#fca5a5" strokeWidth="1" strokeLinecap="round" />
-  </svg>;
-  if (suit === 'claqueta') return <svg {...box}>
-    <rect x="3" y="10" width="18" height="11" rx="1.5" fill="#111827" />
-    <path d="M3 10h18" stroke="#fff" strokeWidth=".6" /><rect x="5.5" y="13" width="13" height="1.4" rx=".7" fill="#e5e7eb" /><rect x="5.5" y="16.4" width="8" height="1.4" rx=".7" fill="#9ca3af" />
-    <g transform="rotate(-16 3 8.5)"><rect x="3" y="5.6" width="18" height="3.6" rx=".8" fill="#111827" /><path d="M5.5 5.6l2.4 3.6M10 5.6l2.4 3.6M14.5 5.6l2.4 3.6" stroke="#fff" strokeWidth="1.5" /></g>
-  </svg>;
-  return <svg {...box}>
-    <circle cx="12" cy="12" r="10" fill="#111827" />
-    <circle cx="12" cy="12" r="2" fill="#9ca3af" />
-    {[0, 72, 144, 216, 288].map(angle => <circle key={angle} cx={12 + 5.6 * Math.sin(angle * Math.PI / 180)} cy={12 - 5.6 * Math.cos(angle * Math.PI / 180)} r="2.3" fill="#f3f4f6" />)}
-    <path d="M21.5 15c1.5 3 0 6-3 6.5" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
-  </svg>;
-}
-
-// Figuras: J Camarógrafo, Q Protagonista, K Director.
-const ROLES: Record<number, string> = { 11: 'Camarógrafo', 12: 'Protagonista', 13: 'Director' };
-function RoleIcon({ rank, red }: { rank: number; red: boolean }) {
-  const ink = red ? '#b91c1c' : '#111827';
-  if (rank === 13) return <svg viewBox="0 0 48 48" aria-hidden="true">
-    <circle cx="20" cy="15" r="7" fill="#fcd9b6" /><path d="M13 13c0-6 14-6 14 0z" fill="#3b2412" /><rect x="12" y="10" width="16" height="3" rx="1.5" fill={ink} />
-    <path d="M8 44c0-10 5-16 12-16s12 6 12 16z" fill={ink} />
-    <path d="M30 22l12-6v16l-12-6z" fill="#facc15" stroke="#a16207" strokeWidth="1" /><rect x="26" y="22" width="5" height="4" rx="1" fill="#a16207" />
-  </svg>;
-  if (rank === 12) return <svg viewBox="0 0 48 48" aria-hidden="true">
-    <path d="M24 4c-9 0-12 7-12 13 0 5 2 9 3 11h18c1-2 3-6 3-11 0-6-3-13-12-13z" fill="#facc15" />
-    <circle cx="24" cy="17" r="7.5" fill="#fcd9b6" />
-    <rect x="16.5" y="14.5" width="6.5" height="4" rx="2" fill="#111827" /><rect x="25" y="14.5" width="6.5" height="4" rx="2" fill="#111827" /><path d="M23 16h2" stroke="#111827" strokeWidth="1.2" />
-    <path d="M21.5 21.5q2.5 1.6 5 0" stroke={ink} strokeWidth="1.4" fill="none" strokeLinecap="round" />
-    <path d="M10 46c0-11 6-17 14-17s14 6 14 17z" fill={ink} />
-    <path d="M24 31l1.6 3.3 3.6.4-2.7 2.5.7 3.6L24 39l-3.2 1.8.7-3.6-2.7-2.5 3.6-.4z" fill="#fde047" />
-  </svg>;
-  return <svg viewBox="0 0 48 48" aria-hidden="true">
-    <circle cx="13" cy="12" r="6" fill={ink} /><circle cx="27" cy="12" r="6" fill={ink} /><circle cx="13" cy="12" r="2.2" fill="#e5e7eb" /><circle cx="27" cy="12" r="2.2" fill="#e5e7eb" />
-    <rect x="6" y="19" width="28" height="15" rx="3" fill={ink} /><path d="M34 23l9-4v15l-9-4z" fill="#6b7280" />
-    <circle cx="14" cy="26.5" r="3" fill="#facc15" /><path d="M14 34l-6 12M20 34v12M26 34l6 12" stroke="#78716c" strokeWidth="2.2" strokeLinecap="round" />
-  </svg>;
+  return <svg viewBox="0 0 24 24" aria-hidden="true" x={x} y={y} width={size} height={size} fill={SUIT_COLORS[suit]}>{SUIT_PATHS[suit]}</svg>;
 }
 
 function CardFace({ card }: { card: Card }) {
-  const red = isRed(card.suit);
+  const hero = heroOf(card.suit, card.rank);
   const index = <><b>{RANK_NAMES[card.rank]}</b><SuitIcon suit={card.suit} /></>;
-  return <span className={`cine-face${red ? ' cine-face--red' : ''}`}>
-    <span className="cine-corner">{index}</span>
-    <span className="cine-center">
-      {card.rank >= 11 ? <><RoleIcon rank={card.rank} red={red} /><small>{ROLES[card.rank]}</small></>
-        : <span className={card.rank === 1 ? 'cine-ace' : undefined}><SuitIcon suit={card.suit} /></span>}
-    </span>
-    <span className="cine-corner cine-corner--end">{index}</span>
+  return <span className={`sol-face sol-face--${card.suit}`} style={{ '--suit': SUIT_COLORS[card.suit] } as React.CSSProperties}>
+    <span className="sol-corner">{index}</span>
+    <span className="sol-center"><HeroHead look={hero.look} /></span>
+    <span className="sol-name">{hero.name}</span>
   </span>;
+}
+
+// Dorso estilo cómic: puntitos, un estallido amarillo y un rayo.
+function CardBack() {
+  return <span className="sol-back" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 1l2.6 5.2 5.6-1.6-2 5.4 5 3-5.6 1.4.8 5.8-4.4-3.6L12 22l-2-5.4-4.4 3.6.8-5.8L.8 13l5-3-2-5.4 5.6 1.6z" fill="#facc15" stroke="#b45309" strokeWidth=".6" /><path d="M13.5 5L8.5 13h3l-1.5 6 5-8.5h-3z" fill="#dc2626" /></svg></span>;
 }
 
 type Drag = { from: From; ids: string[]; x: number; y: number; dx: number; dy: number; moving: boolean; pointer: number };
 type Layout = { cw: number; ch: number; gap: number; tableauHeight: number };
 
-export function CinemaSolitaire() {
+export function HeroSolitaire() {
   const [game, setGame] = useState<Solitaire>(() => deal());
   const [history, setHistory] = useState<Solitaire[]>([]);
   const [seconds, setSeconds] = useState(0);
@@ -183,13 +151,13 @@ export function CinemaSolitaire() {
     return <button
       key={card.id}
       type="button"
-      className={`cine-card${card.up ? '' : ' cine-card--back'}${shake === card.id ? ' cine-card--shake' : ''}${drag?.moving && drag.ids.includes(card.id) ? ' cine-card--lifted' : ''}`}
+      className={`sol-card${card.up ? '' : ' sol-card--back'}${shake === card.id ? ' sol-card--shake' : ''}${drag?.moving && drag.ids.includes(card.id) ? ' sol-card--lifted' : ''}`}
       style={{ ...style, ...dragStyle(card) }}
       aria-label={card.up ? cardName(card) : 'Carta boca abajo'}
       tabIndex={movable ? 0 : -1}
       onPointerDown={movable ? event => startDrag(event, from) : undefined}
       onClick={movable ? event => { if (event.detail === 0) tap(from, card.id); } : undefined} // con teclado (Enter o Espacio)
-    >{card.up ? <CardFace card={card} /> : <span className="cine-back" aria-hidden="true"><SuitIcon suit="rollo" /></span>}</button>;
+    >{card.up ? <CardFace card={card} /> : <CardBack />}</button>;
   };
 
   const { cw, ch, gap, tableauHeight } = layout;
@@ -198,10 +166,10 @@ export function CinemaSolitaire() {
     ...[0, 1, 2, 3, 4, 5, 6].filter(pile => canMove(game, drag.from, { kind: 'tableau', pile })).map(p => `t${p}`),
   ]) : new Set<string>();
 
-  return <section className="runner cine" aria-label="Solitario de cine">
+  return <section className="runner sol" aria-label="Solitario de Superhéroes">
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
-      <h1>Solitario de cine</h1>
+      <h1>Solitario de Superhéroes</h1>
       <div className="runner-scores">
         <span>Tiempo <strong>{clock(seconds)}</strong></span>
         <span>Movimientos <strong data-testid="solitaire-moves">{game.moves}</strong></span>
@@ -211,23 +179,23 @@ export function CinemaSolitaire() {
       <button type="button" onClick={restart}>Nueva partida</button>
     </div>
     <div ref={boardRef} onPointerMove={onMove} onPointerUp={endDrag} onPointerCancel={() => setDrag(null)}
-      className={`cine-board${cw < 76 ? ' cine-board--small' : ''}`} style={{ '--cw': `${cw}px`, '--ch': `${ch}px`, '--gap': `${gap}px` } as React.CSSProperties}>
-      <div className="cine-top">
-        <button type="button" className={`cine-slot cine-stock${game.stock.length ? '' : ' cine-slot--empty'}`} onClick={() => !finishing && commit(draw(game))}
+      className={`sol-board${cw < 76 ? ' sol-board--small' : ''}`} style={{ '--cw': `${cw}px`, '--ch': `${ch}px`, '--gap': `${gap}px` } as React.CSSProperties}>
+      <div className="sol-top">
+        <button type="button" className={`sol-slot sol-stock${game.stock.length ? '' : ' sol-slot--empty'}`} onClick={() => !finishing && commit(draw(game))}
           aria-label={game.stock.length ? `Mazo: ${game.stock.length} cartas, dar vuelta una` : 'Volver a armar el mazo'}>
-          {game.stock.length ? <span className="cine-card cine-card--back" aria-hidden="true"><span className="cine-back"><SuitIcon suit="rollo" /></span></span> : <span className="cine-redo" aria-hidden="true">↻</span>}
-          {game.stock.length > 0 && <small className="cine-count" aria-hidden="true">{game.stock.length}</small>}
+          {game.stock.length ? <span className="sol-card sol-card--back" aria-hidden="true"><CardBack /></span> : <span className="sol-redo" aria-hidden="true">↻</span>}
+          {game.stock.length > 0 && <small className="sol-count" aria-hidden="true">{game.stock.length}</small>}
         </button>
-        <div className="cine-slot cine-waste" aria-label="Cartas dadas vuelta">
+        <div className="sol-slot sol-waste" aria-label="Cartas dadas vuelta">
           {game.waste.slice(-3).map((card, i, shown) => renderCard(card, i === shown.length - 1 ? { kind: 'waste' } : null, { left: i * cw * 0.22, zIndex: i }))}
         </div>
-        <span className="cine-spacer" />
-        {game.foundations.map((pile, f) => <div key={f} data-drop={`f${f}`} className={`cine-slot cine-foundation${dropTargets.has(`f${f}`) ? ' cine-slot--target' : ''}`} aria-label={`Base ${f + 1}${pile.length ? `: ${cardName(pile[pile.length - 1])}` : ', vacía'}`}>
-          {!pile.length && <span className="cine-slot-mark" aria-hidden="true">A</span>}
+        <span className="sol-spacer" />
+        {game.foundations.map((pile, f) => <div key={f} data-drop={`f${f}`} className={`sol-slot sol-foundation${dropTargets.has(`f${f}`) ? ' sol-slot--target' : ''}`} aria-label={`Base ${f + 1}${pile.length ? `: ${cardName(pile[pile.length - 1])}` : ', vacía'}`}>
+          {!pile.length && <span className="sol-slot-mark" aria-hidden="true">A</span>}
           {pile.slice(-2).map((card, i, shown) => renderCard(card, i === shown.length - 1 ? { kind: 'foundation', pile: f } : null, { zIndex: i }))}
         </div>)}
       </div>
-      <div className="cine-tableau">
+      <div className="sol-tableau">
         {game.tableau.map((pile, t) => {
           // Si una columna es muy larga, se aprietan las cartas para que entre en la pantalla.
           const downs = pile.filter(c => !c.up).length, ups = pile.length - downs;
@@ -235,8 +203,8 @@ export function CinemaSolitaire() {
           const needed = downs * want.down + Math.max(0, ups - 1) * want.up;
           const k = needed > tableauHeight - ch ? (tableauHeight - ch) / needed : 1;
           let y = 0;
-          return <div key={t} data-drop={`t${t}`} className={`cine-column${dropTargets.has(`t${t}`) ? ' cine-slot--target' : ''}`} style={{ height: tableauHeight }} aria-label={`Columna ${t + 1}`}>
-            {!pile.length && <span className="cine-slot cine-slot-mark cine-slot--king" aria-hidden="true">K</span>}
+          return <div key={t} data-drop={`t${t}`} className={`sol-column${dropTargets.has(`t${t}`) ? ' sol-slot--target' : ''}`} style={{ height: tableauHeight }} aria-label={`Columna ${t + 1}`}>
+            {!pile.length && <span className="sol-slot sol-slot-mark sol-slot--king" aria-hidden="true">K</span>}
             {pile.map((card, i) => {
               const top = y;
               y += (card.up ? want.up : want.down) * k;
@@ -245,13 +213,13 @@ export function CinemaSolitaire() {
           </div>;
         })}
       </div>
-      {canFinish(game) && !finishing && <button type="button" className="cine-finish" onClick={() => setFinishing(true)}>Terminar solo ▶</button>}
-      {won && <div className="runner-overlay" role="dialog" aria-labelledby="cine-won">
-        <div className="cine-confetti" aria-hidden="true">
-          {Array.from({ length: 28 }, (_, i) => <span key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${(i % 7) * 0.25}s`, animationDuration: `${2.4 + (i % 5) * 0.4}s` }}><SuitIcon suit={(['palomitas', 'estrella', 'claqueta', 'rollo'] as Suit[])[i % 4]} /></span>)}
+      {canFinish(game) && !finishing && <button type="button" className="sol-finish" onClick={() => setFinishing(true)}>Terminar solo ▶</button>}
+      {won && <div className="runner-overlay" role="dialog" aria-labelledby="sol-won">
+        <div className="sol-confetti" aria-hidden="true">
+          {Array.from({ length: 28 }, (_, i) => <span key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${(i % 7) * 0.25}s`, animationDuration: `${2.4 + (i % 5) * 0.4}s` }}><SuitIcon suit={SUITS[i % 4]} /></span>)}
         </div>
         <div>
-          <h2 id="cine-won">¡Fin de la película! Ganaste</h2>
+          <h2 id="sol-won">¡Misión cumplida! Ganaste</h2>
           <p>Lo terminaste en <strong>{clock(seconds)}</strong> con <strong>{game.moves}</strong> movimientos.{newRecord && ' ¡Nuevo récord!'}</p>
           <button type="button" onClick={restart} autoFocus>Jugar de nuevo</button>
         </div>
