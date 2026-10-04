@@ -5,7 +5,7 @@
 export type Cell = string | null;
 export interface Piece { id: number; x: number; y: number; cells: [number, number][]; width: number; height: number; color: string; speed: number }
 export interface Player { x: number; y: number; vx: number; vy: number; onGround: boolean; facing: 1 | -1 }
-export type GameOver = 'crushed' | 'full';
+export type GameOver = 'crushed';
 export interface Game {
   cols: number; rows: number; grid: Cell[][]; pieces: Piece[]; player: Player;
   time: number; spawnIn: number; lines: number; lineScore: number; over: GameOver | null; nextId: number;
@@ -93,7 +93,7 @@ function clearRows(game: Game) {
 function lock(game: Game, piece: Piece, y: number) {
   for (const [cx, cy] of piece.cells) {
     const r = y + cy;
-    if (r < 0) { game.over = 'full'; continue; }
+    if (r < 0) continue; // lo que queda por encima de la pantalla se pierde y siguen cayendo piezas
     game.grid[r][piece.x + cx] = piece.color;
   }
   clearRows(game);
@@ -133,7 +133,8 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   p.vy = Math.min(MAX_FALL, p.vy + GRAVITY * dt);
   p.y += p.vy * dt;
   p.onGround = false;
-  if (p.y < 0) { p.y = 0; p.vy = Math.max(0, p.vy); }
+  // Puede asomarse por arriba si la pila llega al techo.
+  if (p.y < -1) { p.y = -1; p.vy = Math.max(0, p.vy); }
   if (hitsGrid(game, p.x, p.y, PLAYER_W, PLAYER_H)) {
     if (p.vy > 0) { p.y = Math.floor(p.y + PLAYER_H - EPS) - PLAYER_H; p.onGround = true; }
     else p.y = Math.floor(p.y) + 1;

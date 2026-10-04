@@ -51,28 +51,51 @@ function draw(ctx: CanvasRenderingContext2D, game: Game, cell: number) {
   game.grid.forEach((row, r) => row.forEach((color, c) => { if (color) drawBlock(ctx, c * cell, r * cell, cell, color); }));
   for (const piece of game.pieces) for (const [cx, cy] of piece.cells) drawBlock(ctx, (piece.x + cx) * cell, (piece.y + cy) * cell, cell, piece.color);
 
-  // Personaje: cabeza, cuerpo con remera roja y piernas que se mueven al correr.
-  const p = game.player;
+  // Personaje de perfil: brazos separados del cuerpo, piernas que se mueven al correr,
+  // y nariz, ojo y oreja para que se vea hacia qué lado mira.
+  const p = game.player, f = p.facing;
   const px = p.x * cell, py = p.y * cell, pw = PLAYER_W * cell, ph = PLAYER_H * cell;
-  const legSwing = p.vx && p.onGround ? Math.sin(game.time * 22) * pw * 0.22 : 0;
+  const running = p.vx !== 0 && p.onGround;
+  const swing = running ? Math.sin(game.time * 22) : 0;
+  const skin = '#fcd9b6';
+  ctx.lineCap = 'round';
+  const arm = (side: 1 | -1, phase: number) => {
+    const sx = px + pw / 2 + side * pw * 0.4, sy = py + ph * 0.44;
+    const hx = sx + side * pw * 0.2 + phase * pw * 0.18;
+    const hy = p.onGround ? sy + ph * 0.24 : sy - ph * 0.16; // en el aire levanta los brazos
+    ctx.strokeStyle = skin;
+    ctx.lineWidth = Math.max(2, pw * 0.13);
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
+    ctx.fillStyle = skin;
+    ctx.beginPath(); ctx.arc(hx, hy, Math.max(1.5, pw * 0.09), 0, Math.PI * 2); ctx.fill();
+  };
+  arm(-f as 1 | -1, -swing); // el brazo de atrás va detrás del cuerpo
   ctx.strokeStyle = '#1e293b';
   ctx.lineWidth = Math.max(2, pw * 0.16);
-  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(px + pw * 0.38, py + ph * 0.72); ctx.lineTo(px + pw * 0.38 + legSwing, py + ph);
-  ctx.moveTo(px + pw * 0.62, py + ph * 0.72); ctx.lineTo(px + pw * 0.62 - legSwing, py + ph);
+  ctx.moveTo(px + pw * 0.38, py + ph * 0.72); ctx.lineTo(px + pw * 0.38 + swing * pw * 0.22, py + ph);
+  ctx.moveTo(px + pw * 0.62, py + ph * 0.72); ctx.lineTo(px + pw * 0.62 - swing * pw * 0.22, py + ph);
   ctx.stroke();
   ctx.fillStyle = '#ef4444';
-  ctx.beginPath(); ctx.roundRect(px + pw * 0.18, py + ph * 0.38, pw * 0.64, ph * 0.38, pw * 0.12); ctx.fill();
-  ctx.fillStyle = '#fcd9b6';
-  ctx.beginPath(); ctx.arc(px + pw / 2, py + ph * 0.22, pw * 0.3, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#3b2412';
-  ctx.beginPath(); ctx.arc(px + pw / 2, py + ph * 0.17, pw * 0.3, Math.PI, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#111';
-  ctx.beginPath(); ctx.arc(px + pw / 2 + p.facing * pw * 0.13, py + ph * 0.24, Math.max(1.2, pw * 0.05), 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(px + pw * 0.22, py + ph * 0.38, pw * 0.56, ph * 0.38, pw * 0.12); ctx.fill();
+  const hx = px + pw / 2, hy = py + ph * 0.22, r = pw * 0.3;
+  ctx.fillStyle = skin;
+  ctx.beginPath(); ctx.arc(hx + f * r * 0.95, hy + r * 0.15, r * 0.26, 0, Math.PI * 2); ctx.fill(); // nariz
+  ctx.beginPath(); ctx.arc(hx, hy, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#3b2412'; // pelo: arriba y más largo atrás
+  ctx.beginPath(); ctx.arc(hx, hy - r * 0.05, r * 1.02, Math.PI, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(hx - f * r * 0.55, hy, r * 0.48, r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#f2b48c'; // oreja
+  ctx.beginPath(); ctx.arc(hx - f * r * 0.12, hy + r * 0.12, r * 0.26, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#c98a66';
+  ctx.lineWidth = Math.max(0.8, r * 0.08);
+  ctx.beginPath(); ctx.arc(hx - f * r * 0.12, hy + r * 0.12, r * 0.13, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#111'; // ojo
+  ctx.beginPath(); ctx.arc(hx + f * r * 0.5, hy - r * 0.05, Math.max(1.2, r * 0.15), 0, Math.PI * 2); ctx.fill();
+  arm(f, swing); // el brazo de adelante va delante del cuerpo
 }
 
-const OVER_TEXT: Record<GameOver, string> = { crushed: '¡Te aplastaron!', full: '¡Se llenó la pantalla!' };
+const OVER_TEXT: Record<GameOver, string> = { crushed: '¡Te aplastaron!' };
 
 export function BlockRunner() {
   const stageRef = useRef<HTMLDivElement>(null);
