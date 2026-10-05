@@ -5,6 +5,7 @@ import { cardImage } from './futureCards';
 import { readSolitaireRecord } from './PixelSolitaire';
 import { readTikiRecord } from './TikiTaka';
 import { formatTime, readTrepaRecord } from './Trepaluna';
+import { readSnakeRecord } from './ReverseSnake';
 import type { Suit } from './solitaire';
 import memeChallenge from '../../assets/images/meme-challenge.png';
 
@@ -80,11 +81,32 @@ function TrepalunaArt() {
   </svg>;
 }
 
+// Dibujo de la tarjeta de Serpiente al Revés: jardín a cuadros, la serpiente violeta persiguiendo y la manzana escapando.
+function ReverseSnakeArt() {
+  return <svg viewBox="0 0 160 100" aria-hidden="true">
+    {Array.from({ length: 80 }, (_, i) => <rect key={i} x={(i % 10) * 16} y={Math.floor(i / 10) * 12.5} width="16" height="12.5" fill={(i % 10 + Math.floor(i / 10)) % 2 ? '#4ade80' : '#22c55e'} />)}
+    <path d="M20 88H56V62H88V38H112" fill="none" stroke="#00000030" strokeWidth="13" strokeLinecap="round" strokeLinejoin="round" transform="translate(2 2)" />
+    <path d="M20 88H56V62H88V38H112" fill="none" stroke="#7c3aed" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M20 88H56V62H88V38H112" fill="none" stroke="#a78bfa" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+    {[[30, 88], [56, 75], [72, 62], [88, 50]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="2.2" fill="#fde047" />)}
+    <circle cx="114" cy="38" r="9" fill="#7c3aed" /><circle cx="116" cy="34" r="3" fill="#fff" /><circle cx="116" cy="42" r="3" fill="#fff" /><circle cx="117.5" cy="34" r="1.4" fill="#111" /><circle cx="117.5" cy="42" r="1.4" fill="#111" />
+    <path d="M123 38h6l3-2M129 38l3 2" stroke="#e11d48" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+    <g transform="translate(140 30)">
+      <path d="M-4 9-5 14M4 9 5 14" stroke="#7c2d12" strokeWidth="1.8" strokeLinecap="round" />
+      <ellipse cx="-3" cy="2" rx="6.5" ry="8" fill="#ef4444" /><ellipse cx="3" cy="2" rx="6.5" ry="8" fill="#ef4444" />
+      <path d="M0-6Q1-9 2-11" stroke="#78350f" strokeWidth="1.6" fill="none" /><ellipse cx="4.5" cy="-9" rx="4" ry="1.8" fill="#16a34a" transform="rotate(-25 4.5 -9)" />
+      <circle cx="-2.5" cy="0" r="2.2" fill="#fff" /><circle cx="3" cy="0" r="2.2" fill="#fff" /><circle cx="-2" cy="0.3" r="1" fill="#111" /><circle cx="3.5" cy="0.3" r="1" fill="#111" /><ellipse cx="0.5" cy="5" rx="1.6" ry="1.4" fill="#450a0a" />
+    </g>
+    <ellipse cx="130" cy="78" rx="3" ry="4.4" fill="#facc15" transform="rotate(17 130 78)" /><ellipse cx="22" cy="20" rx="3" ry="4.4" fill="#facc15" transform="rotate(17 22 20)" />
+  </svg>;
+}
+
 export function Games() {
   const record = readRecord();
   const solitaire = readSolitaireRecord();
   const tiki = readTikiRecord();
   const trepa = readTrepaRecord();
+  const snake = readSnakeRecord();
   return <section>
     <div className="section-title games-title">
       <div className="games-heading"><p className="eyebrow">Para cortar un rato</p><h1>Juegos</h1></div>
@@ -132,6 +154,17 @@ export function Games() {
             <strong>Trepaluna</strong>
             <span>Escalá edificios, escaleras, sogas y muchos desafíos más por un solo objetivo: ¡llegar a la Luna!</span>
             {trepa.height > 0 && <small>Récord: {trepa.time !== null ? `Luna en ${formatTime(trepa.time)}` : `${trepa.height.toLocaleString('es-AR')} metros`}</small>}
+          </span>
+          <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+        </Link>
+      </li>
+      <li>
+        <Link className="game-card game-card--snk" to="/juegos/serpiente">
+          <ReverseSnakeArt />
+          <span className="game-card-text">
+            <strong>Serpiente al Revés</strong>
+            <span>El viborita de siempre, pero vos sos la manzana: escapá de la serpiente que te persigue y cada vez es más larga.</span>
+            {snake > 0 && <small>Récord: {snake} puntos</small>}
           </span>
           <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
         </Link>
