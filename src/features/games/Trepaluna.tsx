@@ -196,8 +196,13 @@ function drawSideBuildings(ctx: CanvasRenderingContext2D, v: View) {
       if (wy > v.h) break;
       for (let c = 0; c < cols; c++) {
         const wx = sx + v.s * (0.4 + c * 1.1), k = hash(x1 * 131 + roof * 17 + r * 7.3 + c * 3.1);
-        ctx.fillStyle = k > 0.62 ? '#fde68a' : '#1e3a5f'; ctx.fillRect(wx, wy, ww, wh);
-        if (k < 0.25) { // persiana cerrada
+        if (x1 >= WORLD_W) { // los de la derecha: torres de vidrio azul con reflejos
+          ctx.fillStyle = k > 0.8 ? '#fde68a' : k > 0.4 ? '#60a5fa' : '#1d4ed8'; ctx.fillRect(wx - 2, wy, ww + 4, wh);
+          ctx.fillStyle = '#ffffff44'; ctx.beginPath(); ctx.moveTo(wx - 2, wy); ctx.lineTo(wx + ww * 0.5, wy); ctx.lineTo(wx - 2, wy + wh * 0.7); ctx.fill();
+          continue;
+        }
+        ctx.fillStyle = k > 0.78 ? '#fde68a' : '#1e3a5f'; ctx.fillRect(wx, wy, ww, wh);
+        if (k < 0.3) { // persiana cerrada
           ctx.fillStyle = hsl(hue, 15, 62); ctx.fillRect(wx, wy, ww, wh);
           ctx.fillStyle = hsl(hue, 15, 45); for (let l = 1; l < 5; l++) ctx.fillRect(wx, wy + wh * l / 5, ww, Math.max(1, wh * 0.06));
         }
@@ -214,21 +219,68 @@ function drawSideBuildings(ctx: CanvasRenderingContext2D, v: View) {
 
 // Edificios enfrentados donde se trepa de balcón en balcón.
 function drawFacade(ctx: CanvasRenderingContext2D, f: Facade, v: View) {
+  // Los dos edificios enfrentados son distintos: a la izquierda uno antiguo de ladrillo con ventanas en
+  // arco y persianas; a la derecha uno moderno de vidrio y hormigón. Cada ventana es siempre igual
+  // (depende de su piso), y solo algunas tienen la luz prendida.
   const x1 = f.side < 0 ? -3 : WORLD_W - f.w, x2 = f.side < 0 ? f.w : WORLD_W + 3;
-  const sx = X(v, x1), sw = (x2 - x1) * v.s, sy = Y(v, f.y2), sh = (f.y2 - f.y1) * v.s;
+  const s = v.s, sx = X(v, x1), sw = (x2 - x1) * s, sy = Y(v, f.y2), sh = (f.y2 - f.y1) * s;
   if (sy > v.h || sy + sh < 0) return;
-  ctx.fillStyle = hsl(f.hue, 35, 55); ctx.fillRect(sx, sy, sw, sh);
-  fillTex(ctx, 'brick', sx, sy, sw, sh, v, hsl(f.hue, 50, 50, 0.45));
   const inner = f.side < 0 ? X(v, f.w) : X(v, WORLD_W - f.w);
-  ctx.fillStyle = '#00000033'; ctx.fillRect(f.side < 0 ? inner - v.s * 0.25 : inner, sy, v.s * 0.25, sh);
-  // ventanas y puertas balconeras
-  for (let y = f.y1 + 1; y < f.y2 - 1.5; y += 2) {
-    const wy = Y(v, y + 1.6), wx = f.side < 0 ? X(v, 0.6) : X(v, WORLD_W - 2.2);
-    ctx.fillStyle = '#334155'; ctx.fillRect(wx, wy, v.s * 1.6, v.s * 1.4);
-    ctx.fillStyle = hash(y * 3 + f.side) > 0.5 ? '#fde68a' : '#7dd3fc'; ctx.fillRect(wx + 3, wy + 3, v.s * 1.6 - 6, v.s * 1.4 - 6);
-    ctx.fillStyle = hsl(f.hue, 40, 30); ctx.fillRect(wx - 4, wy - 5, v.s * 1.6 + 8, 5);
+  const state = (floor: number, col: number) => hash(f.id * 7.13 + floor * 3.71 + col * 1.37 + 0.5); // < .14 luz, < .45 persiana o cortina
+  if (f.side < 0) {
+    ctx.fillStyle = '#9a4a2c'; ctx.fillRect(sx, sy, sw, sh);
+    fillTex(ctx, 'brick', sx, sy, sw, sh, v, '#7c2d1255');
+    for (let floor = 0, y = f.y1 + 1; y < f.y2 - 1.5; y += 2, floor++) {
+      for (let col = 0; col < 2; col++) {
+        const wx = X(v, -2.2 + col * 2.6), wy = Y(v, y + 1.7), ww = s * 1.2, wh = s * 1.5, k = state(floor, col);
+        if (wx + ww < sx || wx > inner) continue;
+        ctx.fillStyle = '#e7d3b5'; ctx.beginPath(); ctx.roundRect(wx - 4, wy - 4, ww + 8, wh + 6, [ww / 2 + 4, ww / 2 + 4, 2, 2]); ctx.fill();
+        ctx.fillStyle = k < 0.14 ? '#fde68a' : '#2b3a55';
+        ctx.beginPath(); ctx.roundRect(wx, wy, ww, wh, [ww / 2, ww / 2, 0, 0]); ctx.fill();
+        if (k >= 0.14 && k < 0.45) { // persiana verde cerrada
+          ctx.fillStyle = '#3f6212'; ctx.fillRect(wx, wy + ww * 0.35, ww, wh - ww * 0.35);
+          ctx.fillStyle = '#365314'; for (let l = 1; l < 6; l++) ctx.fillRect(wx, wy + ww * 0.35 + (wh - ww * 0.35) * l / 6, ww, 1.5);
+        } else { ctx.strokeStyle = '#e7d3b5'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(wx + ww / 2, wy); ctx.lineTo(wx + ww / 2, wy + wh); ctx.stroke(); }
+        ctx.fillStyle = '#b45309'; ctx.fillRect(wx - 3, wy + wh, ww + 6, s * 0.16); // macetero
+        ctx.fillStyle = '#16a34a'; ctx.fillRect(wx, wy + wh - s * 0.12, ww, s * 0.12);
+      }
+      ctx.fillStyle = '#7c2d12'; ctx.fillRect(sx, Y(v, y - 0.05), sw, s * 0.12); // cornisa de cada piso
+    }
+    ctx.fillStyle = '#5b1e0b'; ctx.fillRect(sx, sy - s * 0.35, sw, s * 0.4);
+  } else {
+    ctx.fillStyle = '#94a3b8'; ctx.fillRect(sx, sy, sw, sh);
+    fillTex(ctx, 'concrete', sx, sy, sw, sh, v, '#47556933');
+    for (let floor = 0, y = f.y1 + 1; y < f.y2 - 1.5; y += 2, floor++) {
+      const by = Y(v, y + 1.75), bh = s * 1.45;
+      ctx.fillStyle = '#334155'; ctx.fillRect(inner + s * 0.3, by, sw, bh); // franja de vidrio de todo el piso
+      for (let col = 0; col < 4; col++) {
+        const px = inner + s * (0.4 + col * 1.15), k = state(floor, col);
+        const glass = ctx.createLinearGradient(px, by, px + s, by + bh);
+        glass.addColorStop(0, k < 0.14 ? '#fef3c7' : '#7dd3fc'); glass.addColorStop(1, k < 0.14 ? '#fbbf24' : '#1e40af');
+        ctx.fillStyle = glass; ctx.fillRect(px, by + 3, s * 1.05, bh - 6);
+        if (k >= 0.14 && k < 0.45) { ctx.fillStyle = '#e2e8f0cc'; ctx.fillRect(px, by + 3, s * 1.05, (bh - 6) * 0.6); } // cortina
+        ctx.fillStyle = '#ffffff55'; ctx.beginPath(); ctx.moveTo(px, by + 3); ctx.lineTo(px + s * 0.35, by + 3); ctx.lineTo(px, by + bh * 0.6); ctx.fill(); // reflejo
+      }
+      ctx.fillStyle = '#e2e8f0'; ctx.fillRect(inner, Y(v, y - 0.05), sw, s * 0.14);
+    }
+    ctx.fillStyle = '#475569'; ctx.fillRect(sx, sy - s * 0.3, sw, s * 0.35);
   }
-  ctx.fillStyle = hsl(f.hue, 30, 30); ctx.fillRect(sx, sy - v.s * 0.3, sw, v.s * 0.35);
+  ctx.fillStyle = '#00000040'; ctx.fillRect(f.side < 0 ? inner - s * 0.25 : inner, sy, s * 0.25, sh);
+}
+
+// Cartel de la calle al empezar: "SUBIR" con una flecha para arriba.
+function drawUpSign(ctx: CanvasRenderingContext2D, v: View) {
+  const s = v.s, x = X(v, 3), y = Y(v, 0);
+  if (y < -s * 4 || y > v.h + s) return;
+  ctx.fillStyle = '#6b7280'; ctx.fillRect(x - s * 0.06, y - s * 2.4, s * 0.12, s * 2.4);
+  ctx.fillStyle = '#1d4ed8'; ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, s * 0.07);
+  ctx.beginPath(); ctx.roundRect(x - s * 0.75, y - s * 3.5, s * 1.5, s * 1.25, s * 0.15); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); // flecha para arriba
+  ctx.moveTo(x, y - s * 3.38); ctx.lineTo(x + s * 0.32, y - s * 3.0); ctx.lineTo(x + s * 0.12, y - s * 3.0); ctx.lineTo(x + s * 0.12, y - s * 2.78);
+  ctx.lineTo(x - s * 0.12, y - s * 2.78); ctx.lineTo(x - s * 0.12, y - s * 3.0); ctx.lineTo(x - s * 0.32, y - s * 3.0); ctx.closePath(); ctx.fill();
+  ctx.font = `900 ${Math.round(s * 0.34)}px Nunito, system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('SUBIR', x, y - s * 2.5);
 }
 
 // ---------- Escaleras y sogas ----------
@@ -718,6 +770,7 @@ function draw(ctx: CanvasRenderingContext2D, g: Trepa, v: View) {
   drawBackground(ctx, v);
   drawSideBuildings(ctx, v);
   for (const f of g.facades) drawFacade(ctx, f, v);
+  drawUpSign(ctx, v);
   const s = v.s;
   // Regla de metros al costado.
   ctx.font = `800 ${Math.max(10, Math.round(s * 0.3))}px Nunito, system-ui`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
