@@ -24,9 +24,11 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   expect(fold).toEqual({ top: '0px', right: '0px', pointerEvents: 'none', borderBottomWidth: '20px' });
   await expect(page.locator('.palette')).toHaveCount(0);
   await expect(page.getByText('Mover a', { exact: true })).toHaveCount(0);
-  const noteWidth = await page.locator('.note').evaluate(element => element.getBoundingClientRect().width);
+  const noteBox = (await page.locator('.note').boundingBox())!;
   const columnWidth = await page.locator('.column').first().evaluate(element => element.getBoundingClientRect().width);
-  expect(noteWidth).toBeLessThanOrEqual(columnWidth * .35);
+  // Notas cuadradas: dos por fila (tres si la columna es ancha).
+  expect(noteBox.width).toBeLessThanOrEqual(columnWidth * .52);
+  expect(Math.abs(noteBox.width - noteBox.height)).toBeLessThanOrEqual(1);
   await page.locator('.note-text').evaluate((source, target) => {
     const transfer = new DataTransfer();
     source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }));
@@ -850,13 +852,16 @@ test('Tiki-Taka: el Mundial arranca en octavos de final', async ({ page }) => {
   await expect(page.getByTestId('tt-score')).toHaveText('0 - 0');
 });
 
-test('Serpiente al Revés: se abre desde Juegos, corre el tiempo y se pausa', async ({ page }) => {
+test('¡Huye de la serpiente!: se abre desde Juegos, suma puntos con las bolitas y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
   await expect(page.locator('.games-list > li')).toHaveCount(5);
-  await page.getByRole('link', { name: /Serpiente al Revés/ }).click();
-  await expect(page.getByRole('heading', { name: 'Serpiente al Revés', level: 1 })).toBeVisible();
+  await page.getByRole('link', { name: /Huye de la serpiente/ }).click();
+  await expect(page.getByRole('heading', { name: '¡Huye de la serpiente!', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
+  await expect(page.getByTestId('snake-points')).toHaveText('0');
+  await page.keyboard.down('ArrowUp');
   await expect(page.getByTestId('snake-points')).not.toHaveText('0');
+  await page.keyboard.up('ArrowUp');
   await page.keyboard.press('p');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
   await page.getByRole('button', { name: 'Seguir' }).first().click();

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { level, newGame, score, step, takeEvents, type Dir, type Game } from './reverseSnake';
+import { level, newGame, POP_LIFE, PELLET_POINTS, score, step, takeEvents, type Dir, type Game } from './reverseSnake';
 
 const RECORD_KEY = 'escritorio-personal-juegos:serpiente-record';
 export const readSnakeRecord = () => { try { return Number(localStorage.getItem(RECORD_KEY)) || 0; } catch { return 0; } };
@@ -30,15 +30,27 @@ function drawGarden(ctx: CanvasRenderingContext2D, g: Game, c: number) {
   }
 }
 
-// Bolitas blancas del piso (como las del Pac-Man), con un brillo suave.
+// Bolitas blancas del piso (como las del Pac-Man), grandes y con un brillo suave.
 function drawPellets(ctx: CanvasRenderingContext2D, g: Game, c: number) {
   ctx.fillStyle = '#ffffff';
-  ctx.shadowColor = '#ffffffaa'; ctx.shadowBlur = c * 0.2;
+  ctx.shadowColor = '#ffffffaa'; ctx.shadowBlur = c * 0.25;
   for (const k of g.pellets) {
     const x = k % g.cols, y = Math.floor(k / g.cols);
-    ctx.beginPath(); ctx.arc((x + 0.5) * c, (y + 0.5) * c, Math.max(2, c * 0.1), 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc((x + 0.5) * c, (y + 0.5) * c, Math.max(4, c * 0.18), 0, Math.PI * 2); ctx.fill();
   }
   ctx.shadowBlur = 0;
+}
+
+// "+10" amarillo que sube y se desvanece donde la manzana agarró una bolita.
+function drawPops(ctx: CanvasRenderingContext2D, g: Game, c: number) {
+  ctx.font = `900 ${Math.round(c * 0.42)}px Nunito, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = Math.max(2, c * 0.08); ctx.strokeStyle = '#14532d'; ctx.fillStyle = '#fde047';
+  for (const p of g.pops) {
+    const k = p.life / POP_LIFE, x = (p.x + 0.5) * c, y = (p.y - 0.1) * c - (1 - k) * c * 0.6;
+    ctx.globalAlpha = Math.min(1, k * 1.5);
+    ctx.strokeText(`+${PELLET_POINTS}`, x, y); ctx.fillText(`+${PELLET_POINTS}`, x, y);
+  }
+  ctx.globalAlpha = 1;
 }
 
 // Manzana verde (la comida de la serpiente): brillante, con cabito y hoja.
@@ -182,6 +194,7 @@ function draw(ctx: CanvasRenderingContext2D, g: Game, c: number) {
   for (const p of g.powers) drawPower(ctx, p.x, p.y, p.kind, c, t, p.life);
   drawSnake(ctx, g, c, t);
   drawApple(ctx, g, c, t);
+  drawPops(ctx, g, c);
 }
 
 const KEYS: Record<string, Dir> = { ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down', ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right' };
@@ -316,10 +329,10 @@ export function ReverseSnake() {
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
   });
 
-  return <section className="runner snk" aria-label="Serpiente al Revés">
+  return <section className="runner snk" aria-label="¡Huye de la serpiente!">
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
-      <h1>Serpiente al Revés</h1>
+      <h1>¡Huye de la serpiente!</h1>
       {(status === 'playing' || status === 'paused') && <button type="button" onClick={() => setStatus(s => s === 'playing' ? 'paused' : 'playing')}>{status === 'playing' ? 'Pausa' : 'Seguir'}</button>}
     </div>
     <div className="snk-main">
@@ -329,8 +342,8 @@ export function ReverseSnake() {
       {status !== 'playing' && <div className="runner-overlay" role="dialog" aria-labelledby="snk-message">
         <div>
           {status === 'ready' && <>
-            <h2 id="snk-message">Serpiente al Revés 🍎</h2>
-            <p>El viborita de siempre, pero esta vez sos la manzana. Juntá las bolitas blancas del piso para sumar puntos mientras la serpiente te persigue cada vez más rápido. Si se come las manzanas verdes que aparecen, crece. Su cuerpo es una pared: si la hacés enredarse, se marea y ganás puntos. Usá la tijera para cortarle la cola y el reloj para congelarla.</p>
+            <h2 id="snk-message">¡Huye de la serpiente! 🍎</h2>
+            <p>El viborita de siempre, pero esta vez sos la manzana. Cada bolita blanca que agarrás suma 10 puntos, mientras la serpiente te persigue cada vez más rápido. Si se come las manzanas verdes que aparecen, crece. Su cuerpo es una pared: si la hacés enredarse, se marea y ganás puntos. Usá la tijera para cortarle la cola y el reloj para congelarla.</p>
             <p className="runner-keys"><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> moverse · <kbd>P</kbd> pausa</p>
             <button type="button" onClick={start} autoFocus>Jugar</button>
           </>}
