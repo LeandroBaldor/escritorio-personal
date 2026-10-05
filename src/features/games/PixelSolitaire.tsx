@@ -24,15 +24,50 @@ function CardBack() {
   return <span className="sol-back" style={{ backgroundImage: `url("${BACK_IMAGE}")` }} aria-hidden="true" />;
 }
 
-// Destello de electricidad verde (rayos y un fogonazo) arriba de la carta que acaba de caer.
+// Destello de electricidad verde arriba de la carta que acaba de caer: rayos quebrados con
+// ramificaciones que se vuelven a dibujar cada pocos milisegundos (por eso titilan), con un brillo
+// blanco en el centro y un resplandor verde alrededor.
+type Bolt = { d: string; width: number };
+function boltPath(x1: number, y1: number, x2: number, y2: number, rough: number): [number, number][] {
+  let pts: [number, number][] = [[x1, y1], [x2, y2]];
+  for (let depth = 0, amp = rough; depth < 5; depth++, amp *= 0.55) {
+    const next: [number, number][] = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[i + 1];
+      const len = Math.hypot(bx - ax, by - ay) || 1;
+      const off = (Math.random() - 0.5) * amp;
+      next.push([ax, ay], [(ax + bx) / 2 + (-(by - ay) / len) * off, (ay + by) / 2 + ((bx - ax) / len) * off]);
+    }
+    next.push(pts[pts.length - 1]);
+    pts = next;
+  }
+  return pts;
+}
+const toD = (pts: [number, number][]) => 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L');
+function makeBolts(): Bolt[] {
+  const out: Bolt[] = [];
+  for (let i = 0, n = 2 + Math.floor(Math.random() * 2); i < n; i++) {
+    const main = boltPath(5 + Math.random() * 50, -6, 5 + Math.random() * 50, 88, 34);
+    out.push({ d: toD(main), width: 1 });
+    for (let b = 0; b < 2; b++) { // ramas que salen del rayo principal
+      const [sx, sy] = main[4 + Math.floor(Math.random() * (main.length - 8))];
+      out.push({ d: toD(boltPath(sx, sy, sx + (Math.random() - 0.5) * 50, sy + 10 + Math.random() * 25, 14)), width: 0.55 });
+    }
+  }
+  return out;
+}
 function Zap({ top }: { top: number }) {
+  const [frame, setFrame] = useState(() => ({ bolts: makeBolts(), on: true }));
+  useEffect(() => {
+    const id = setInterval(() => setFrame({ bolts: makeBolts(), on: Math.random() > 0.22 }), 55);
+    return () => clearInterval(id);
+  }, []);
   return <span className="sol-zap" style={{ top }} aria-hidden="true">
-    <svg viewBox="0 0 60 82" preserveAspectRatio="none">
-      <path d="M8 4 22 30 14 32 30 60 24 61 40 80" />
-      <path d="M54 2 40 24 48 27 34 50 41 52 26 78" />
-      <path d="M30 0 33 18 26 22 35 40" />
-      <path d="M2 44 16 40 12 48 24 46" />
-      <path d="M58 40 46 44 50 50 38 52" />
+    <svg viewBox="0 0 60 82" preserveAspectRatio="none" style={{ opacity: frame.on ? 1 : 0.15 }}>
+      {frame.bolts.map((b, i) => <g key={i}>
+        <path className="sol-bolt-glow" d={b.d} style={{ strokeWidth: 5 * b.width }} />
+        <path className="sol-bolt-core" d={b.d} style={{ strokeWidth: 1.5 * b.width }} />
+      </g>)}
     </svg>
   </span>;
 }
@@ -88,7 +123,7 @@ export function PixelSolitaire() {
 
   useEffect(() => {
     if (!zap) return;
-    const id = setTimeout(() => setZap(null), 650);
+    const id = setTimeout(() => setZap(null), 800);
     return () => clearTimeout(id);
   }, [zap]);
 
@@ -228,7 +263,7 @@ export function PixelSolitaire() {
           // La columna se carga de verde neón a medida que se apilan cartas boca arriba.
           const lastTop = downs * want.down * k + Math.max(0, ups - 1) * want.up * k;
           return <div key={t} data-drop={`t${t}`} className={`sol-column${dropTargets.has(`t${t}`) ? ' sol-slot--target' : ''}`} style={{ height: tableauHeight }} aria-label={`Columna ${t + 1}`}>
-            {ups > 0 && <span className="sol-charge" aria-hidden="true" style={{ height: pile.length ? lastTop + ch + 10 : 0, '--charge': Math.min(1, ups / 13) } as React.CSSProperties} />}
+            {ups > 0 && <span className="sol-charge" aria-hidden="true" style={{ height: pile.length ? lastTop + ch + 10 : 0, '--charge': Math.min(1, ups / 10) } as React.CSSProperties} />}
             {zap?.pile === `t${t}` && <Zap key={zap.id} top={Math.max(0, lastTop)} />}
             {!pile.length && <span className="sol-slot sol-slot-mark sol-slot--king" aria-hidden="true">K</span>}
             {pile.map((card, i) => {

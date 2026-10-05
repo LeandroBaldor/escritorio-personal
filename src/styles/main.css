@@ -607,18 +607,25 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .sol-redo{font-size:calc(var(--cw)*.5);line-height:var(--ch)}
 .sol-tableau{display:grid;grid-template-columns:repeat(7,var(--cw));justify-content:space-between;gap:var(--gap)}
 .sol-column{position:relative;width:var(--cw)}
-/* Carga de neón verde detrás de las cartas: más fuerte cuantas más cartas hay apiladas. */
-.sol-charge{position:absolute;left:-5px;right:-5px;top:-5px;border-radius:12px;pointer-events:none;background:linear-gradient(180deg,rgb(57 255 136/calc(var(--charge)*.18)),rgb(57 255 136/calc(var(--charge)*.5)));box-shadow:0 0 calc(6px + var(--charge)*34px) rgb(57 255 136/calc(.15 + var(--charge)*.75)),inset 0 0 calc(var(--charge)*18px) rgb(57 255 136/calc(var(--charge)*.8));border:1px solid rgb(57 255 136/calc(.2 + var(--charge)*.8));transition:height .15s,box-shadow .4s,background .4s}
-.sol-charged{border-style:solid;border-color:rgb(57 255 136/calc(.3 + var(--charge)*.7));background:rgb(57 255 136/calc(var(--charge)*.35));box-shadow:0 0 calc(6px + var(--charge)*34px) rgb(57 255 136/calc(.2 + var(--charge)*.8))}
-/* Destello de electricidad verde cuando una carta cae en su lugar. */
-.sol-zap{position:absolute;left:-8%;width:116%;height:var(--ch);z-index:120;pointer-events:none;animation:sol-zap .65s ease-out forwards}
-.sol-zap::before{content:"";position:absolute;inset:-12%;border-radius:50%;background:radial-gradient(circle,#d9ffe9 0,#39ff88aa 30%,#39ff8800 70%);animation:sol-flash .4s ease-out forwards}
-.sol-zap svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.sol-zap path{fill:none;stroke:#b6ffd3;stroke-width:2.2;stroke-linejoin:round;filter:drop-shadow(0 0 3px #39ff88) drop-shadow(0 0 7px #39ff88);stroke-dasharray:120;stroke-dashoffset:120;animation:sol-bolt .35s ease-out forwards}
-.sol-zap path:nth-child(2){animation-delay:.06s}.sol-zap path:nth-child(3){animation-delay:.12s}.sol-zap path:nth-child(4){animation-delay:.04s}.sol-zap path:nth-child(5){animation-delay:.1s}
-@keyframes sol-bolt{to{stroke-dashoffset:0}}
-@keyframes sol-flash{0%{opacity:0;transform:scale(.4)}25%{opacity:1}100%{opacity:0;transform:scale(1.2)}}
-@keyframes sol-zap{0%,70%{opacity:1}100%{opacity:0}}
+/* Carga de neón verde tipo radiación detrás de cada columna y cada base: con pocas cartas apenas se
+   nota y, a medida que se suman, se vuelve mucho más luminosa y late cada vez más rápido. */
+.sol-charge{--glow:calc(var(--charge)*var(--charge));position:absolute;left:-6px;right:-6px;top:-6px;border-radius:12px;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 55%,rgb(80 255 120/calc(.12 + var(--glow)*.85)),rgb(40 230 90/calc(.08 + var(--glow)*.6)) 60%,rgb(20 200 70/calc(.04 + var(--glow)*.35)));
+  border:1px solid rgb(110 255 140/calc(.3 + var(--charge)*.7));
+  box-shadow:0 0 calc(8px + var(--glow)*70px) calc(var(--glow)*14px) rgb(60 255 110/calc(.25 + var(--charge)*.75)),inset 0 0 calc(4px + var(--glow)*26px) rgb(170 255 120/calc(.15 + var(--glow)*.7));
+  animation:sol-rad calc(2.6s - var(--charge)*1.8s) ease-in-out infinite;transition:height .15s,box-shadow .4s,background .4s}
+.sol-charge::after{content:"";position:absolute;inset:0;border-radius:inherit;background:repeating-linear-gradient(180deg,rgb(170 255 140/calc(var(--glow)*.2)) 0 2px,transparent 2px 7px);mix-blend-mode:screen;animation:sol-scan 1.8s linear infinite}
+@keyframes sol-rad{50%{filter:brightness(calc(1.15 + var(--charge)*.6)) saturate(1.2)}}
+@keyframes sol-scan{to{background-position:0 28px}}
+.sol-charged{--glow:calc(var(--charge)*var(--charge));border-style:solid;border-color:rgb(150 255 190/calc(.3 + var(--charge)*.7));background:radial-gradient(ellipse,rgb(80 255 120/calc(.1 + var(--glow)*.8)),rgb(30 220 80/calc(var(--glow)*.4)));box-shadow:0 0 calc(8px + var(--glow)*70px) calc(var(--glow)*14px) rgb(60 255 110/calc(.25 + var(--charge)*.75));animation:sol-rad calc(2.6s - var(--charge)*1.8s) ease-in-out infinite}
+/* Destello de electricidad verde cuando una carta cae en su lugar (los rayos se redibujan y titilan). */
+.sol-zap{position:absolute;left:-10%;width:120%;height:var(--ch);z-index:120;pointer-events:none;animation:sol-zap .75s ease-out forwards}
+.sol-zap::before{content:"";position:absolute;inset:-18%;border-radius:50%;background:radial-gradient(circle,#f0fff4 0,#7dffb0cc 22%,#39ff8855 45%,#39ff8800 70%);animation:sol-flash .75s steps(1) forwards}
+.sol-zap svg{position:absolute;inset:-6% 0;width:100%;height:112%;overflow:visible;transition:opacity .03s}
+.sol-bolt-glow{fill:none;stroke:#39ff88;stroke-linecap:round;stroke-linejoin:round;opacity:.55;filter:blur(1.5px)}
+.sol-bolt-core{fill:none;stroke:#f2fff7;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 2px #7dffb0)}
+@keyframes sol-flash{0%{opacity:1}12%{opacity:.25}20%{opacity:.95}34%{opacity:.4}46%{opacity:.85}62%{opacity:.2}74%{opacity:.6}100%{opacity:0}}
+@keyframes sol-zap{0%,80%{opacity:1}100%{opacity:0}}
 .sol-card{position:absolute;top:0;left:0;width:var(--cw);height:var(--ch);padding:0;border:0;border-radius:calc(var(--cw)*.08);background:none;filter:drop-shadow(0 3px 5px #000a);transition:top .12s,left .12s;touch-action:none}
 .sol-card:focus-visible{outline:2px solid var(--green);outline-offset:2px}
 .sol-card--lifted{filter:drop-shadow(0 0 10px #22d3eeaa) drop-shadow(0 10px 12px #000c);cursor:grabbing}
