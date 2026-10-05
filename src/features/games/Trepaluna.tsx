@@ -127,7 +127,7 @@ function drawBackground(ctx: CanvasRenderingContext2D, v: View) {
         ctx.beginPath(); ctx.ellipse(tx + tw / 2, ry, tw * 0.9, tw * 0.22, 0, 0, Math.PI * 2); ctx.stroke(); ctx.shadowBlur = 0;
       }
       ctx.fillStyle = hsl(hue, 100, 70, 0.8);
-      for (let wy = ty + 10; wy < Math.min(v.h, ty + th + v.h); wy += 16) if (hash(i * 31 + wy) > 0.6) ctx.fillRect(tx + tw * 0.55, wy, tw * 0.25, 4);
+      for (let wy = ty + 10, r = 0; wy < Math.min(v.h, ty + th + v.h); wy += 16, r++) if (hash(i * 31 + r * 7) > 0.6) ctx.fillRect(tx + tw * 0.55, wy, tw * 0.25, 4);
     }
     ctx.strokeStyle = '#7c3aed33'; ctx.lineWidth = 1;
     const step = Math.max(24, v.s * 1.6), off = (v.cam * v.s * 0.5) % step;
@@ -185,12 +185,22 @@ function drawSideBuildings(ctx: CanvasRenderingContext2D, v: View) {
     if (sy > v.h || sy + sh < 0 || sx > v.w || sx + sw < 0) continue;
     ctx.fillStyle = hsl(hue, 25, 42); ctx.fillRect(sx, sy, sw, sh);
     fillTex(ctx, x1 < 0 && x2 > 0 ? 'brick' : 'concrete', sx, sy, sw, sh, v, hsl(hue, 45, 35, 0.35));
-    // ventanas (algunas prendidas)
-    const ww = v.s * 0.55, wh = v.s * 0.75;
-    for (let wy = Math.max(sy + v.s * 0.5, -wh - (sy % (v.s * 1.4))); wy < Math.min(sy + sh - v.s * 0.4, v.h); wy += v.s * 1.4) {
-      for (let wx = sx + v.s * 0.4; wx < sx + sw - ww; wx += v.s * 1.1) {
-        const lit = hash(Math.round(wx * 7 + (wy - Y(v, 0)) * 3)) > 0.55;
-        ctx.fillStyle = lit ? '#fde68a' : '#1e3a5f'; ctx.fillRect(wx, wy, ww, wh);
+    // Ventanas fijas en el edificio (cada una siempre igual): algunas con luz, otras apagadas y otras
+    // con la persiana cerrada.
+    const ww = v.s * 0.55, wh = v.s * 0.75, cols = Math.max(1, Math.floor(((x2 - x1) - 0.4) / 1.1));
+    const firstRow = Math.max(0, Math.floor((roof - (v.cam + v.h / v.s) - 0.5) / 1.4));
+    for (let r = firstRow; ; r++) {
+      const wyWorld = roof - 0.5 - r * 1.4; // borde de arriba de la ventana, en unidades
+      if (wyWorld - 0.75 < floor + 0.4) break;
+      const wy = Y(v, wyWorld);
+      if (wy > v.h) break;
+      for (let c = 0; c < cols; c++) {
+        const wx = sx + v.s * (0.4 + c * 1.1), k = hash(x1 * 131 + roof * 17 + r * 7.3 + c * 3.1);
+        ctx.fillStyle = k > 0.62 ? '#fde68a' : '#1e3a5f'; ctx.fillRect(wx, wy, ww, wh);
+        if (k < 0.25) { // persiana cerrada
+          ctx.fillStyle = hsl(hue, 15, 62); ctx.fillRect(wx, wy, ww, wh);
+          ctx.fillStyle = hsl(hue, 15, 45); for (let l = 1; l < 5; l++) ctx.fillRect(wx, wy + wh * l / 5, ww, Math.max(1, wh * 0.06));
+        }
         ctx.fillStyle = '#ffffff33'; ctx.fillRect(wx, wy, ww, wh * 0.2);
       }
     }
