@@ -1,8 +1,10 @@
 // Lógica de "Serpiente al Revés": el viborita de siempre, pero vos sos la manzana. La serpiente te
-// persigue por el jardín buscando el camino más corto; cada pocos segundos crece y va más rápido, así
-// que cada vez queda menos lugar para escapar. Su propio cuerpo es una pared: si la hacés enredarse
+// persigue por el jardín buscando el camino más corto y cada vez va más rápido. El piso está lleno de
+// bolitas blancas: cada una que agarrás suma puntos (si limpiás todo el jardín, se vuelve a llenar y
+// ganás un premio). Cada tanto aparecen manzanas verdes: si la serpiente se come una, crece; por eso a
+// veces deja de perseguirte para ir a buscarlas. Su propio cuerpo es una pared: si la hacés enredarse
 // (que no tenga por dónde seguir), se marea, te da puntos extra y vuelve a empezar cortita.
-// Por el camino hay semillas doradas (puntos), tijeras (le cortan la cola) y relojes (la congelan).
+// También aparecen tijeras (le cortan la cola) y relojes (la congelan).
 
 export type Dir = 'up' | 'down' | 'left' | 'right';
 export interface Cell { x: number; y: number }
@@ -10,25 +12,27 @@ export type PowerKind = 'scissors' | 'clock';
 export interface Power extends Cell { kind: PowerKind; life: number }
 export interface Snake { body: Cell[]; dir: Dir; stepIn: number; grow: number; freeze: number; dizzy: number }
 export interface Apple extends Cell { moveIn: number; facing: 1 | -1; hop: number }
-export type SnakeEvent = { type: 'seed' } | { type: 'power'; kind: PowerKind } | { type: 'tangled' } | { type: 'grow' } | { type: 'caught' };
+export type SnakeEvent =
+  | { type: 'pellet' } | { type: 'cleared' } | { type: 'power'; kind: PowerKind } | { type: 'tangled' } | { type: 'ate' } | { type: 'caught' };
 export interface Game {
-  cols: number; rows: number; apple: Apple; snake: Snake; seeds: Cell[]; powers: Power[];
-  time: number; bonus: number; tangles: number; nextGrow: number; nextPower: number; over: boolean; events: SnakeEvent[];
+  cols: number; rows: number; apple: Apple; snake: Snake; pellets: Set<number>; greens: Cell[]; powers: Power[];
+  time: number; bonus: number; tangles: number; nextGreen: number; nextPower: number; over: boolean; events: SnakeEvent[];
 }
 export interface Input { dir: Dir | null }
 
 export const APPLE_STEP = 0.12; // segundos por casillero de la manzana
-export const GROW_EVERY = 6;
-export const SEED_POINTS = 50, TANGLE_POINTS = 300;
-const START_LEN = 4, SEEDS = 3, POWER_LIFE = 9;
+export const PELLET_POINTS = 10, CLEAR_POINTS = 200, TANGLE_POINTS = 300;
+export const GREEN_GROW = 2; // casilleros que crece por cada manzana verde
+export const GREEN_EVERY = 4, MAX_GREENS = 3;
+const START_LEN = 4, POWER_LIFE = 9;
 export const DIRS: Record<Dir, Cell> = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
 const ORDER: Dir[] = ['up', 'right', 'down', 'left'];
 
 export const snakeInterval = (time: number) => Math.max(0.13, 0.34 - time * 0.0022);
 export const level = (g: Game) => 1 + Math.floor(g.time / 20);
-export const score = (g: Game) => Math.floor(g.time * 10) + g.bonus;
+export const score = (g: Game) => Math.floor(g.time * 5) + g.bonus;
 const same = (a: Cell, b: Cell) => a.x === b.x && a.y === b.y;
-const key = (c: Cell, cols: number) => c.y * cols + c.x;
+export const cellKey = (c: Cell, cols: number) => c.y * cols + c.x;
 const inside = (g: Game, c: Cell) => c.x >= 0 && c.y >= 0 && c.x < g.cols && c.y < g.rows;
 export const onSnake = (g: Game, c: Cell) => g.snake.body.some(b => same(b, c));
 
@@ -40,64 +44,82 @@ function freshSnake(g: Pick<Game, 'cols' | 'rows' | 'apple'>): Snake {
   return { body, dir: left ? 'right' : 'left', stepIn: 1.2, grow: 0, freeze: 0, dizzy: 0 };
 }
 
-export function newGame(cols: number, rows: number, rand: () => number = Math.random): Game {
+// Bolitas blancas en todos los casilleros libres.
+function fillPellets(g: Game) {
+  g.pellets.clear();
+  for (let y = 0; y < g.rows; y++) for (let x = 0; x < g.cols; x++) {
+    const c = { x, y };
+    if (!same(c, g.apple) && !onSnake(g, c)) g.pellets.add(cellKey(c, g.cols));
+  }
+}
+
+export function newGame(cols: number, rows: number): Game {
   const apple: Apple = { x: Math.floor(cols / 2), y: Math.floor(rows / 2), moveIn: 0, facing: 1, hop: 0 };
-  const g: Game = { cols, rows, apple, snake: freshSnake({ cols, rows, apple }), seeds: [], powers: [], time: 0, bonus: 0, tangles: 0, nextGrow: GROW_EVERY, nextPower: 12, over: false, events: [] };
-  for (let i = 0; i < SEEDS; i++) placeSeed(g, rand);
+  const g: Game = {
+    cols, rows, apple, snake: freshSnake({ cols, rows, apple }), pellets: new Set(), greens: [], powers: [],
+    time: 0, bonus: 0, tangles: 0, nextGreen: 3, nextPower: 12, over: false, events: [],
+  };
+  fillPellets(g);
   return g;
 }
 
 function freeCell(g: Game, rand: () => number): Cell | null {
   for (let tries = 0; tries < 200; tries++) {
     const c = { x: Math.floor(rand() * g.cols), y: Math.floor(rand() * g.rows) };
-    if (onSnake(g, c) || same(c, g.apple) || g.seeds.some(s => same(s, c)) || g.powers.some(p => same(p, c))) continue;
-    // Nada pegado a la cabeza, así no aparece algo justo donde está por pasar.
+    if (onSnake(g, c) || same(c, g.apple) || g.greens.some(s => same(s, c)) || g.powers.some(p => same(p, c))) continue;
+    // Nada pegado a la cabeza ni a la manzana, así no aparece algo justo donde están por pasar.
     if (Math.abs(c.x - g.snake.body[0].x) + Math.abs(c.y - g.snake.body[0].y) < 3) continue;
+    if (Math.abs(c.x - g.apple.x) + Math.abs(c.y - g.apple.y) < 2) continue;
     return c;
   }
   return null;
 }
-function placeSeed(g: Game, rand: () => number) { const c = freeCell(g, rand); if (c) g.seeds.push(c); }
 
-// Camino más corto de la cabeza a la manzana (sin pasar por su cuerpo; la cola se corre, así que no cuenta).
-export function chaseStep(g: Game): Dir | null {
+// Distancias desde la cabeza (sin pasar por su cuerpo; la cola se corre, así que no cuenta) y la
+// primera dirección de cada camino.
+function explore(g: Game) {
   const { body } = g.snake, head = body[0];
-  const blocked = new Set(body.slice(0, g.snake.grow > 0 ? body.length : body.length - 1).map(c => key(c, g.cols)));
-  const target = key(g.apple, g.cols);
-  const first = new Map<number, Dir>();
+  const blocked = new Set(body.slice(0, g.snake.grow > 0 ? body.length : body.length - 1).map(c => cellKey(c, g.cols)));
+  const info = new Map<number, { d: number; first: Dir }>();
   const queue: Cell[] = [];
   for (const d of ORDER) {
-    const n = { x: head.x + DIRS[d].x, y: head.y + DIRS[d].y };
-    const k = key(n, g.cols);
-    if (!inside(g, n) || blocked.has(k) || first.has(k)) continue;
-    if (k === target) return d;
-    first.set(k, d); queue.push(n);
+    const n = { x: head.x + DIRS[d].x, y: head.y + DIRS[d].y }, k = cellKey(n, g.cols);
+    if (!inside(g, n) || blocked.has(k) || info.has(k)) continue;
+    info.set(k, { d: 1, first: d }); queue.push(n);
   }
   for (let i = 0; i < queue.length; i++) {
-    const c = queue[i], d0 = first.get(key(c, g.cols))!;
+    const c = queue[i], ci = info.get(cellKey(c, g.cols))!;
     for (const d of ORDER) {
-      const n = { x: c.x + DIRS[d].x, y: c.y + DIRS[d].y };
-      const k = key(n, g.cols);
-      if (!inside(g, n) || blocked.has(k) || first.has(k)) continue;
-      if (k === target) return d0;
-      first.set(k, d0); queue.push(n);
+      const n = { x: c.x + DIRS[d].x, y: c.y + DIRS[d].y }, k = cellKey(n, g.cols);
+      if (!inside(g, n) || blocked.has(k) || info.has(k)) continue;
+      info.set(k, { d: ci.d + 1, first: ci.first }); queue.push(n);
     }
   }
-  return null;
+  return info;
 }
 
-// Si no llega a la manzana, va hacia donde tenga más lugar libre.
+// Hacia dónde va: persigue a la manzana, salvo que tenga una manzana verde bastante más cerca.
+export function chaseStep(g: Game): Dir | null {
+  const info = explore(g);
+  const toApple = info.get(cellKey(g.apple, g.cols));
+  let best: { d: number; first: Dir } | undefined;
+  for (const gr of g.greens) { const i = info.get(cellKey(gr, g.cols)); if (i && (!best || i.d < best.d)) best = i; }
+  if (best && (!toApple || best.d * 1.6 < toApple.d)) return best.first;
+  return toApple?.first ?? null;
+}
+
+// Si no llega a nada, va hacia donde tenga más lugar libre.
 function roomiestStep(g: Game): Dir | null {
   const { body } = g.snake, head = body[0];
-  const blocked = new Set(body.slice(0, body.length - 1).map(c => key(c, g.cols)));
+  const blocked = new Set(body.slice(0, body.length - 1).map(c => cellKey(c, g.cols)));
   let best: Dir | null = null, bestRoom = -1;
   for (const d of ORDER) {
     const n = { x: head.x + DIRS[d].x, y: head.y + DIRS[d].y };
-    if (!inside(g, n) || blocked.has(key(n, g.cols))) continue;
-    const seen = new Set([key(n, g.cols)]), queue = [n];
+    if (!inside(g, n) || blocked.has(cellKey(n, g.cols))) continue;
+    const seen = new Set([cellKey(n, g.cols)]), queue = [n];
     for (let i = 0; i < queue.length && seen.size < 400; i++) {
       for (const dd of ORDER) {
-        const m = { x: queue[i].x + DIRS[dd].x, y: queue[i].y + DIRS[dd].y }, k = key(m, g.cols);
+        const m = { x: queue[i].x + DIRS[dd].x, y: queue[i].y + DIRS[dd].y }, k = cellKey(m, g.cols);
         if (inside(g, m) && !blocked.has(k) && !seen.has(k)) { seen.add(k); queue.push(m); }
       }
     }
@@ -120,7 +142,8 @@ function moveSnake(g: Game) {
   s.dir = dir;
   s.body.unshift(next);
   if (s.grow > 0) s.grow--; else s.body.pop();
-  g.seeds = g.seeds.filter(c => !same(c, next)); // se come las semillas que pisa
+  const green = g.greens.findIndex(c => same(c, next));
+  if (green >= 0) { g.greens.splice(green, 1); s.grow += GREEN_GROW; g.events.push({ type: 'ate' }); }
   if (same(next, g.apple)) { g.over = true; g.events.push({ type: 'caught' }); }
 }
 
@@ -143,14 +166,16 @@ export function step(g: Game, input: Input, dt: number, rand: () => number = Mat
     }
   }
 
-  // Lo que hay en el piso.
-  const seed = g.seeds.findIndex(c => same(c, a));
-  if (seed >= 0) { g.seeds.splice(seed, 1); g.bonus += SEED_POINTS; g.events.push({ type: 'seed' }); }
-  while (g.seeds.length < SEEDS) { const before = g.seeds.length; placeSeed(g, rand); if (g.seeds.length === before) break; }
+  // Bolitas blancas: puntos. Si no queda ninguna, se vuelve a llenar el jardín.
+  const k = cellKey(a, g.cols);
+  if (g.pellets.delete(k)) {
+    g.bonus += PELLET_POINTS; g.events.push({ type: 'pellet' });
+    if (g.pellets.size === 0) { g.bonus += CLEAR_POINTS; fillPellets(g); g.events.push({ type: 'cleared' }); }
+  }
   for (const p of g.powers) p.life -= dt;
   const power = g.powers.find(p => same(p, a));
   if (power) {
-    if (power.kind === 'scissors') s.body.splice(Math.max(START_LEN, Math.ceil(s.body.length / 2)));
+    if (power.kind === 'scissors') { s.body.splice(Math.max(START_LEN, Math.ceil(s.body.length / 2))); s.grow = 0; }
     else s.freeze = 3.5;
     g.events.push({ type: 'power', kind: power.kind });
   }
@@ -161,9 +186,14 @@ export function step(g: Game, input: Input, dt: number, rand: () => number = Mat
     const c = freeCell(g, rand);
     if (c) g.powers.push({ ...c, kind: rand() < 0.5 ? 'scissors' : 'clock', life: POWER_LIFE });
   }
+  // Manzanas verdes: aparecen cada tanto; la serpiente crece si se come una.
+  g.nextGreen -= dt;
+  if (g.nextGreen <= 0) {
+    g.nextGreen = GREEN_EVERY * (0.75 + rand() * 0.5);
+    if (g.greens.length < MAX_GREENS) { const c = freeCell(g, rand); if (c) g.greens.push(c); }
+  }
 
-  // La serpiente crece cada tanto y se mueve cada vez más rápido.
-  if (g.time >= g.nextGrow) { g.nextGrow += GROW_EVERY; s.grow += 1; g.events.push({ type: 'grow' }); }
+  // La serpiente se mueve cada vez más rápido.
   if (s.dizzy > 0) { s.dizzy -= dt; return; }
   if (s.freeze > 0) { s.freeze -= dt; return; }
   s.stepIn -= dt;

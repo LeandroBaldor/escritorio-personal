@@ -86,10 +86,11 @@ function ReverseSnakeArt() {
   return <svg viewBox="0 0 160 100" aria-hidden="true">
     {Array.from({ length: 80 }, (_, i) => <rect key={i} x={(i % 10) * 16} y={Math.floor(i / 10) * 12.5} width="16" height="12.5" fill={(i % 10 + Math.floor(i / 10)) % 2 ? '#4ade80' : '#22c55e'} />)}
     <path d="M20 88H56V62H88V38H112" fill="none" stroke="#00000030" strokeWidth="13" strokeLinecap="round" strokeLinejoin="round" transform="translate(2 2)" />
-    <path d="M20 88H56V62H88V38H112" fill="none" stroke="#7c3aed" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M20 88H56V62H88V38H112" fill="none" stroke="#a78bfa" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-    {[[30, 88], [56, 75], [72, 62], [88, 50]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="2.2" fill="#fde047" />)}
-    <circle cx="114" cy="38" r="9" fill="#7c3aed" /><circle cx="116" cy="34" r="3" fill="#fff" /><circle cx="116" cy="42" r="3" fill="#fff" /><circle cx="117.5" cy="34" r="1.4" fill="#111" /><circle cx="117.5" cy="42" r="1.4" fill="#111" />
+    <path d="M20 88H56V62H88V38H112" fill="none" stroke="#15803d" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M20 88H56V62H88V38H112" fill="none" stroke="#bef264" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+    {[[30, 88], [56, 75], [72, 62], [88, 50]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="2" fill="#14532d" opacity=".6" />)}
+    {[[8, 6], [40, 6], [72, 18], [104, 6], [136, 66], [104, 82], [136, 92], [8, 44], [24, 56], [40, 30], [120, 18], [152, 56]].map(([x, y], i) => <circle key={`p${i}`} cx={x} cy={y} r="1.8" fill="#fff" />)}
+    <ellipse cx="115" cy="38" rx="10" ry="8" fill="#16a34a" stroke="#14532d" strokeWidth="1.5" /><circle cx="117" cy="34" r="2.6" fill="#fde047" /><circle cx="117" cy="42" r="2.6" fill="#fde047" /><ellipse cx="117.6" cy="34" rx=".7" ry="1.9" fill="#111" /><ellipse cx="117.6" cy="42" rx=".7" ry="1.9" fill="#111" />
     <path d="M123 38h6l3-2M129 38l3 2" stroke="#e11d48" strokeWidth="1.5" fill="none" strokeLinecap="round" />
     <g transform="translate(140 30)">
       <path d="M-4 9-5 14M4 9 5 14" stroke="#7c2d12" strokeWidth="1.8" strokeLinecap="round" />
@@ -97,7 +98,7 @@ function ReverseSnakeArt() {
       <path d="M0-6Q1-9 2-11" stroke="#78350f" strokeWidth="1.6" fill="none" /><ellipse cx="4.5" cy="-9" rx="4" ry="1.8" fill="#16a34a" transform="rotate(-25 4.5 -9)" />
       <circle cx="-2.5" cy="0" r="2.2" fill="#fff" /><circle cx="3" cy="0" r="2.2" fill="#fff" /><circle cx="-2" cy="0.3" r="1" fill="#111" /><circle cx="3.5" cy="0.3" r="1" fill="#111" /><ellipse cx="0.5" cy="5" rx="1.6" ry="1.4" fill="#450a0a" />
     </g>
-    <ellipse cx="130" cy="78" rx="3" ry="4.4" fill="#facc15" transform="rotate(17 130 78)" /><ellipse cx="22" cy="20" rx="3" ry="4.4" fill="#facc15" transform="rotate(17 22 20)" />
+    <g transform="translate(124 76)"><ellipse cx="-2.2" cy="0" rx="4.4" ry="5.4" fill="#84cc16" /><ellipse cx="2.2" cy="0" rx="4.4" ry="5.4" fill="#84cc16" /><path d="M0-4.5 1-8" stroke="#78350f" strokeWidth="1.2" /><ellipse cx="3" cy="-7" rx="2.6" ry="1.2" fill="#15803d" /></g>
   </svg>;
 }
 
@@ -163,7 +164,7 @@ export function Games() {
           <ReverseSnakeArt />
           <span className="game-card-text">
             <strong>Serpiente al Revés</strong>
-            <span>El viborita de siempre, pero vos sos la manzana: escapá de la serpiente que te persigue y cada vez es más larga.</span>
+            <span>El viborita de siempre, pero vos sos la manzana: juntá las bolitas blancas y escapá de la serpiente, que crece cada vez que se come una manzana verde.</span>
             {snake > 0 && <small>Récord: {snake} puntos</small>}
           </span>
           <span className="game-card-play" aria-hidden="true">Jugar ▶</span>

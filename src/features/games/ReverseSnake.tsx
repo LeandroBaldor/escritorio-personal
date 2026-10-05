@@ -30,12 +30,29 @@ function drawGarden(ctx: CanvasRenderingContext2D, g: Game, c: number) {
   }
 }
 
-function drawSeed(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, t: number) {
-  const cx = (x + 0.5) * c, cy = (y + 0.5) * c + Math.sin(t * 4 + x) * c * 0.04;
-  ctx.fillStyle = '#00000022'; ctx.beginPath(); ctx.ellipse(cx, (y + 0.78) * c, c * 0.18, c * 0.06, 0, 0, Math.PI * 2); ctx.fill();
-  const grad = ctx.createRadialGradient(cx - c * 0.06, cy - c * 0.08, c * 0.02, cx, cy, c * 0.22);
-  grad.addColorStop(0, '#fff7c2'); grad.addColorStop(0.5, '#facc15'); grad.addColorStop(1, '#b45309');
-  ctx.fillStyle = grad; ctx.beginPath(); ctx.ellipse(cx, cy, c * 0.15, c * 0.22, 0.3, 0, Math.PI * 2); ctx.fill();
+// Bolitas blancas del piso (como las del Pac-Man), con un brillo suave.
+function drawPellets(ctx: CanvasRenderingContext2D, g: Game, c: number) {
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = '#ffffffaa'; ctx.shadowBlur = c * 0.2;
+  for (const k of g.pellets) {
+    const x = k % g.cols, y = Math.floor(k / g.cols);
+    ctx.beginPath(); ctx.arc((x + 0.5) * c, (y + 0.5) * c, Math.max(2, c * 0.1), 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+}
+
+// Manzana verde (la comida de la serpiente): brillante, con cabito y hoja.
+function drawGreenApple(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, t: number) {
+  const cx = (x + 0.5) * c, cy = (y + 0.53) * c + Math.sin(t * 3 + x) * c * 0.03, r = c * 0.3;
+  ctx.fillStyle = '#00000030'; ctx.beginPath(); ctx.ellipse(cx, (y + 0.86) * c, r * 0.8, r * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+  const grad = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.1, cx, cy, r * 1.2);
+  grad.addColorStop(0, '#ecfccb'); grad.addColorStop(0.45, '#84cc16'); grad.addColorStop(1, '#3f6212');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.ellipse(cx - r * 0.3, cy, r * 0.7, r * 0.88, 0, 0, Math.PI * 2); ctx.ellipse(cx + r * 0.3, cy, r * 0.7, r * 0.88, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#78350f'; ctx.lineWidth = Math.max(1.5, c * 0.05);
+  ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.7); ctx.lineTo(cx + r * 0.1, cy - r * 1.15); ctx.stroke();
+  ctx.fillStyle = '#15803d'; ctx.beginPath(); ctx.ellipse(cx + r * 0.42, cy - r * 1.05, r * 0.36, r * 0.15, -0.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ffffff88'; ctx.beginPath(); ctx.ellipse(cx - r * 0.45, cy - r * 0.38, r * 0.13, r * 0.22, -0.5, 0, Math.PI * 2); ctx.fill();
 }
 
 function drawPower(ctx: CanvasRenderingContext2D, x: number, y: number, kind: 'scissors' | 'clock', c: number, t: number, life: number) {
@@ -47,40 +64,72 @@ function drawPower(ctx: CanvasRenderingContext2D, x: number, y: number, kind: 's
   ctx.fillText(kind === 'clock' ? '⏱️' : '✂️', cx, cy + c * 0.03);
 }
 
+// Serpiente verde realista: el cuerpo se afina hacia la cola, con escamas, una línea oscura en el lomo,
+// panza más clara y cabeza ovalada con ojos de pupila finita (o espirales si está mareada).
 function drawSnake(ctx: CanvasRenderingContext2D, g: Game, c: number, t: number) {
   const { body, dir } = g.snake;
   const dizzy = g.snake.dizzy > 0, frozen = g.snake.freeze > 0;
-  const base = frozen ? '#7dd3fc' : '#7c3aed', light = frozen ? '#e0f2fe' : '#a78bfa', belly = frozen ? '#bae6fd' : '#fde047';
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const n = body.length;
   const pts = body.map(b => [(b.x + 0.5) * c, (b.y + 0.5) * c] as const);
-  // sombra, cuerpo, rayas y brillo
-  for (const [color, w, dx] of [['#00000033', 0.78, 0.06], [base, 0.74, 0], [light, 0.3, 0]] as const) {
-    ctx.strokeStyle = color; ctx.lineWidth = c * w;
-    ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x + dx * c, y + dx * c) : ctx.moveTo(x + dx * c, y + dx * c)); ctx.stroke();
+  const width = (i: number) => c * (0.78 - 0.42 * (i / Math.max(1, n - 1))); // más fina hacia la cola
+  const colors = frozen ? { dark: '#0e7490', mid: '#38bdf8', light: '#bae6fd', belly: '#e0f2fe' } : { dark: '#14532d', mid: '#16a34a', light: '#4ade80', belly: '#bef264' };
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const stroke = (color: string, scale: number, dx = 0) => {
+    ctx.strokeStyle = color;
+    for (let i = n - 1; i > 0; i--) {
+      ctx.lineWidth = width(i) * scale;
+      ctx.beginPath(); ctx.moveTo(pts[i][0] + dx, pts[i][1] + dx); ctx.lineTo(pts[i - 1][0] + dx, pts[i - 1][1] + dx); ctx.stroke();
+    }
+  };
+  stroke('#00000033', 1.05, c * 0.07); // sombra
+  stroke(colors.dark, 1);                // borde
+  stroke(colors.mid, 0.82);              // cuerpo
+  stroke(colors.belly, 0.32);            // panza clara en el medio
+  // escamas: rombos alternados a lo largo del cuerpo
+  for (let i = 1; i < n; i++) {
+    const [x0, y0] = pts[i], [x1, y1] = pts[i - 1];
+    const w = width(i);
+    for (const k of [0.25, 0.75]) {
+      const x = x0 + (x1 - x0) * k, y = y0 + (y1 - y0) * k;
+      ctx.fillStyle = (i + (k > 0.5 ? 1 : 0)) % 2 ? colors.dark : colors.light;
+      ctx.globalAlpha = 0.55;
+      ctx.beginPath(); ctx.moveTo(x, y - w * 0.18); ctx.lineTo(x + w * 0.14, y); ctx.lineTo(x, y + w * 0.18); ctx.lineTo(x - w * 0.14, y); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
   }
-  ctx.fillStyle = belly;
-  for (let i = 1; i < pts.length; i += 2) { ctx.beginPath(); ctx.arc(pts[i][0], pts[i][1], c * 0.12, 0, Math.PI * 2); ctx.fill(); }
-  // cabeza
+  // cabeza ovalada, un poco más ancha que el cuello, apuntando hacia donde va
   const [hx, hy] = pts[0], d = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[dir];
-  ctx.fillStyle = base; ctx.beginPath(); ctx.ellipse(hx, hy, c * 0.5, c * 0.5, 0, 0, Math.PI * 2); ctx.fill();
-  // lengua que sale y entra
+  const ang = Math.atan2(d[1], d[0]);
+  ctx.save(); ctx.translate(hx, hy); ctx.rotate(ang);
+  ctx.fillStyle = '#00000033'; ctx.beginPath(); ctx.ellipse(c * 0.07, c * 0.07, c * 0.55, c * 0.45, 0, 0, Math.PI * 2); ctx.fill();
+  const hg = ctx.createRadialGradient(c * 0.1, -c * 0.1, c * 0.05, 0, 0, c * 0.6);
+  hg.addColorStop(0, colors.light); hg.addColorStop(0.6, colors.mid); hg.addColorStop(1, colors.dark);
+  ctx.fillStyle = hg; ctx.beginPath(); ctx.ellipse(c * 0.05, 0, c * 0.55, c * 0.44, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = colors.dark; ctx.lineWidth = Math.max(1, c * 0.04); ctx.stroke();
+  // fosas nasales y manchas de la cabeza
+  ctx.fillStyle = colors.dark;
+  for (const side of [-1, 1]) { ctx.beginPath(); ctx.arc(c * 0.48, side * c * 0.1, c * 0.03, 0, Math.PI * 2); ctx.fill(); }
+  ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.ellipse(-c * 0.15, 0, c * 0.14, c * 0.08, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+  // lengua bífida que sale y entra
   if (!dizzy && Math.sin(t * 9) > 0) {
-    const tx = hx + d[0] * c * 0.5, ty = hy + d[1] * c * 0.5, len = c * 0.35;
-    ctx.strokeStyle = '#e11d48'; ctx.lineWidth = Math.max(1.5, c * 0.06);
-    ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx + d[0] * len, ty + d[1] * len);
-    ctx.lineTo(tx + d[0] * len * 1.3 - d[1] * len * 0.25, ty + d[1] * len * 1.3 + d[0] * len * 0.25);
-    ctx.moveTo(tx + d[0] * len, ty + d[1] * len); ctx.lineTo(tx + d[0] * len * 1.3 + d[1] * len * 0.25, ty + d[1] * len * 1.3 - d[0] * len * 0.25); ctx.stroke();
+    ctx.strokeStyle = '#dc2626'; ctx.lineWidth = Math.max(1.5, c * 0.05);
+    ctx.beginPath(); ctx.moveTo(c * 0.55, 0); ctx.lineTo(c * 0.85, 0); ctx.lineTo(c * 1, -c * 0.1); ctx.moveTo(c * 0.85, 0); ctx.lineTo(c * 1, c * 0.1); ctx.stroke();
   }
-  // ojos que miran a la manzana (o espirales si está mareada)
+  ctx.restore();
+  // ojos: amarillos con pupila vertical finita que mira a la manzana
   const ax = (g.apple.x + 0.5) * c - hx, ay = (g.apple.y + 0.5) * c - hy, al = Math.hypot(ax, ay) || 1;
   for (const side of [-1, 1]) {
-    const ex = hx + d[0] * c * 0.12 + -d[1] * side * c * 0.22, ey = hy + d[1] * c * 0.12 + d[0] * side * c * 0.22;
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex, ey, c * 0.15, 0, Math.PI * 2); ctx.fill();
+    const ex = hx + d[0] * c * 0.18 + -d[1] * side * c * 0.24, ey = hy + d[1] * c * 0.18 + d[0] * side * c * 0.24;
+    ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.arc(ex, ey, c * 0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#14532d'; ctx.lineWidth = 1; ctx.stroke();
     if (dizzy) {
       ctx.strokeStyle = '#111'; ctx.lineWidth = 1.2; ctx.beginPath();
-      for (let k = 0; k < 14; k++) { const a = k * 0.8 + t * 10, r = c * 0.012 * k * 0.9; const px = ex + Math.cos(a) * r, py = ey + Math.sin(a) * r; if (k) ctx.lineTo(px, py); else ctx.moveTo(px, py); }
+      for (let k = 0; k < 12; k++) { const a = k * 0.8 + t * 10, r = c * 0.01 * k; const px = ex + Math.cos(a) * r, py = ey + Math.sin(a) * r; if (k) ctx.lineTo(px, py); else ctx.moveTo(px, py); }
       ctx.stroke();
-    } else { ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(ex + ax / al * c * 0.06, ey + ay / al * c * 0.06, c * 0.07, 0, Math.PI * 2); ctx.fill(); }
+    } else {
+      ctx.fillStyle = '#111';
+      ctx.beginPath(); ctx.ellipse(ex + ax / al * c * 0.04, ey + ay / al * c * 0.04, c * 0.03, c * 0.09, Math.atan2(ay, ax) + Math.PI / 2, 0, Math.PI * 2); ctx.fill();
+    }
   }
   if (dizzy) { // estrellitas girando
     ctx.font = `${Math.round(c * 0.35)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -128,7 +177,8 @@ function drawApple(ctx: CanvasRenderingContext2D, g: Game, c: number, t: number)
 function draw(ctx: CanvasRenderingContext2D, g: Game, c: number) {
   const t = g.time;
   drawGarden(ctx, g, c);
-  for (const s of g.seeds) drawSeed(ctx, s.x, s.y, c, t);
+  drawPellets(ctx, g, c);
+  for (const gr of g.greens) drawGreenApple(ctx, gr.x, gr.y, c, t);
   for (const p of g.powers) drawPower(ctx, p.x, p.y, p.kind, c, t, p.life);
   drawSnake(ctx, g, c, t);
   drawApple(ctx, g, c, t);
@@ -205,6 +255,8 @@ export function ReverseSnake() {
       step(g, { dir: held.current[held.current.length - 1] ?? null }, dt);
       for (const e of takeEvents(g)) {
         if (e.type === 'tangled') setToast({ text: '¡La serpiente se enredó! +300', id: now });
+        if (e.type === 'cleared') setToast({ text: '¡Limpiaste el jardín! +200', id: now });
+        if (e.type === 'ate') setToast({ text: '🍏 La serpiente se comió una manzana verde y creció', id: now });
         if (e.type === 'power') setToast({ text: e.kind === 'scissors' ? '✂️ ¡Tijeretazo! Le cortaste la cola' : '⏱️ ¡Serpiente congelada!', id: now });
       }
       paint();
@@ -268,14 +320,9 @@ export function ReverseSnake() {
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>Serpiente al Revés</h1>
-      <div className="runner-scores">
-        <span>Tiempo <strong>{clock(hud.seconds)}</strong></span>
-        <span>Largo <strong data-testid="snake-length">{hud.length}</strong></span>
-        <span>Puntos <strong data-testid="snake-points">{hud.points}</strong></span>
-        <span>Récord <strong>{record}</strong></span>
-      </div>
       {(status === 'playing' || status === 'paused') && <button type="button" onClick={() => setStatus(s => s === 'playing' ? 'paused' : 'playing')}>{status === 'playing' ? 'Pausa' : 'Seguir'}</button>}
     </div>
+    <div className="snk-main">
     <div className="runner-stage" ref={stageRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endSwipe} onPointerCancel={endSwipe}>
       <canvas ref={canvasRef} role="img" aria-label="Jardín" />
       {status === 'playing' && toast && <div key={toast.id} className="snk-toast" role="status">{toast.text}</div>}
@@ -283,7 +330,7 @@ export function ReverseSnake() {
         <div>
           {status === 'ready' && <>
             <h2 id="snk-message">Serpiente al Revés 🍎</h2>
-            <p>El viborita de siempre, pero esta vez sos la manzana. La serpiente te persigue y cada pocos segundos crece y va más rápido. Su cuerpo es una pared: si la hacés enredarse, se marea y ganás puntos. Juntá semillas doradas, usá la tijera para cortarle la cola y el reloj para congelarla.</p>
+            <p>El viborita de siempre, pero esta vez sos la manzana. Juntá las bolitas blancas del piso para sumar puntos mientras la serpiente te persigue cada vez más rápido. Si se come las manzanas verdes que aparecen, crece. Su cuerpo es una pared: si la hacés enredarse, se marea y ganás puntos. Usá la tijera para cortarle la cola y el reloj para congelarla.</p>
             <p className="runner-keys"><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> moverse · <kbd>P</kbd> pausa</p>
             <button type="button" onClick={start} autoFocus>Jugar</button>
           </>}
@@ -298,6 +345,13 @@ export function ReverseSnake() {
           </>}
         </div>
       </div>}
+    </div>
+    <aside className="snk-side" aria-label="Tiempo, puntos, récord y largo">
+      <div className="snk-stat"><span>Tiempo</span><strong>{clock(hud.seconds)}</strong></div>
+      <div className="snk-stat snk-stat--points"><span>Puntos</span><strong data-testid="snake-points">{hud.points}</strong></div>
+      <div className="snk-stat"><span>Récord</span><strong>{record}</strong></div>
+      <div className="snk-stat snk-stat--len"><span>Largo de la serpiente</span><strong data-testid="snake-length">{hud.length}</strong></div>
+    </aside>
     </div>
     <div className="runner-pad snk-pad" aria-label="Controles">
       <button type="button" aria-label="Izquierda" {...hold('left')}>◀</button>

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { APPLE_STEP, chaseStep, GROW_EVERY, newGame, score, SEED_POINTS, snakeInterval, step, takeEvents, TANGLE_POINTS, type Dir, type Game } from './reverseSnake';
+import { APPLE_STEP, cellKey, chaseStep, CLEAR_POINTS, GREEN_GROW, newGame, PELLET_POINTS, score, snakeInterval, step, takeEvents, TANGLE_POINTS, type Dir, type Game } from './reverseSnake';
 
 const run = (g: Game, seconds: number, dir: Dir | null = null) => { for (let t = 0; t < seconds; t += 1 / 60) step(g, { dir }, 1 / 60, () => 0.5); };
-const still = (g: Game) => { g.seeds = []; g.powers = []; g.nextPower = 999; };
+const still = (g: Game) => { g.greens = []; g.powers = []; g.nextPower = 999; g.nextGreen = 999; g.pellets.clear(); };
 
 describe('Serpiente al Revés', () => {
   it('la manzana se mueve un casillero por vez y no sale del jardín', () => {
@@ -36,14 +36,34 @@ describe('Serpiente al Revés', () => {
     expect(g.over).toBe(false);
   });
 
-  it('come semillas (puntos) y las vuelve a sembrar', () => {
-    const g = newGame(12, 10); still(g);
-    g.snake.freeze = 99;
-    g.seeds = [{ x: g.apple.x + 1, y: g.apple.y }];
+  it('el piso está lleno de bolitas blancas: cada una suma puntos y, si limpiás todo, se vuelve a llenar', () => {
+    const g = newGame(12, 10);
+    g.snake.freeze = 99; g.nextGreen = 999; g.nextPower = 999;
+    expect(g.pellets.size).toBe(12 * 10 - 1 - g.snake.body.length);
+    const total = g.pellets.size;
     step(g, { dir: 'right' }, 1 / 60);
-    expect(g.bonus).toBe(SEED_POINTS);
-    expect(g.seeds.length).toBe(3);
-    expect(score(g)).toBeGreaterThanOrEqual(SEED_POINTS);
+    expect(g.bonus).toBe(PELLET_POINTS);
+    expect(g.pellets.size).toBe(total - 1);
+    expect(score(g)).toBeGreaterThanOrEqual(PELLET_POINTS);
+    // Queda una sola bolita, al lado de la manzana.
+    g.pellets = new Set([cellKey({ x: g.apple.x + 1, y: g.apple.y }, g.cols)]);
+    run(g, APPLE_STEP + 0.02, 'right');
+    expect(g.bonus).toBe(PELLET_POINTS * 2 + CLEAR_POINTS);
+    expect(g.pellets.size).toBeGreaterThan(50);
+    expect(takeEvents(g).some(e => e.type === 'cleared')).toBe(true);
+  });
+
+  it('la serpiente crece al comerse una manzana verde y va a buscarlas si las tiene más cerca', () => {
+    const g = newGame(20, 12); still(g);
+    g.apple.x = 18; g.apple.y = 10;
+    g.snake.body = [{ x: 5, y: 2 }, { x: 4, y: 2 }, { x: 3, y: 2 }, { x: 2, y: 2 }];
+    g.greens = [{ x: 5, y: 5 }];
+    expect(chaseStep(g)).toBe('down');
+    g.snake.stepIn = 0;
+    run(g, 1.2);
+    expect(g.greens.length).toBe(0);
+    expect(g.snake.body.length + g.snake.grow).toBe(4 + GREEN_GROW);
+    expect(takeEvents(g).some(e => e.type === 'ate')).toBe(true);
   });
 
   it('la tijera le corta la cola y el reloj la congela', () => {
@@ -73,12 +93,14 @@ describe('Serpiente al Revés', () => {
     expect(takeEvents(g).some(e => e.type === 'tangled')).toBe(true);
   });
 
-  it('crece cada pocos segundos y se mueve cada vez más rápido', () => {
+  it('aparecen manzanas verdes cada tanto y la serpiente se mueve cada vez más rápido', () => {
     expect(snakeInterval(60)).toBeLessThan(snakeInterval(0));
     const g = newGame(30, 20); still(g);
+    g.nextGreen = 0.1;
     g.snake.freeze = 999;
-    run(g, GROW_EVERY + 0.1);
-    expect(g.snake.grow).toBe(1);
+    let r = 0.1;
+    for (let t = 0; t < 0.5; t += 1 / 60) step(g, { dir: null }, 1 / 60, () => (r = (r * 7.3 + 0.17) % 1));
+    expect(g.greens.length).toBe(1);
   });
 
   it('un cuadro con tiempo cero o negativo no mueve nada', () => {
@@ -92,7 +114,7 @@ describe('Serpiente al Revés', () => {
     const times: number[] = [];
     for (let seed = 1; seed <= 6; seed++) {
       let s = seed * 7919; const rand = () => (s = (s * 16807) % 2147483647) / 2147483647;
-      const g = newGame(24, 15, rand);
+      const g = newGame(24, 15);
       while (!g.over && g.time < 400) {
         const head = g.snake.body[0];
         let best: Dir | null = null, bestScore = -Infinity;
