@@ -64,7 +64,7 @@ const hsl = (h: number, s: number, l: number, a = 1) => `hsla(${h},${s}%,${l}%,$
 const hash = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
 // ---------- Fondo ----------
-const SKY: [number, [number, number, number]][] = [[0, [168, 216, 255]], [90, [110, 190, 250]], [128, [80, 160, 240]], [152, [40, 36, 110]], [200, [22, 16, 62]], [240, [8, 8, 30]], [400, [3, 4, 14]]];
+const SKY: [number, [number, number, number]][] = [[0, [168, 216, 255]], [90, [110, 190, 250]], [250, [80, 160, 240]], [305, [40, 36, 110]], [400, [22, 16, 62]], [470, [8, 8, 30]], [800, [3, 4, 14]]];
 function skyAt(y: number) {
   let i = 0;
   while (i < SKY.length - 2 && y > SKY[i + 1][0]) i++;
@@ -90,7 +90,7 @@ function drawBackground(ctx: CanvasRenderingContext2D, v: View) {
   ctx.fillStyle = bg; ctx.fillRect(0, 0, v.w, v.h);
 
   // Estrellas y planetas en el espacio.
-  const stars = Math.max(0, Math.min(1, (mid - 145) / 40));
+  const stars = Math.max(0, Math.min(1, (mid - ZONES.tech + 5) / 40));
   if (stars > 0) {
     for (let i = 0; i < 160; i++) {
       const sx = hash(i) * v.w, sy = ((hash(i + 500) * v.h * 2 + v.cam * v.s * 0.1) % (v.h * 2)) - v.h * 0.5;
@@ -99,8 +99,8 @@ function drawBackground(ctx: CanvasRenderingContext2D, v: View) {
       ctx.fillStyle = i % 9 ? '#fff' : '#fde68a';
       const size = 1 + hash(i + 900) * 1.8; ctx.fillRect(sx, sy, size, size);
     }
-    ctx.globalAlpha = Math.max(0, Math.min(1, (mid - 225) / 25)); // los planetas, recién en el espacio
-    const py = v.h * 0.3 + (v.cam - 250) * v.s * 0.08;
+    ctx.globalAlpha = Math.max(0, Math.min(1, (mid - ZONES.space + 5) / 25)); // los planetas, recién en el espacio
+    const py = v.h * 0.3 + (v.cam - ZONES.space - 40) * v.s * 0.08;
     // Planeta con anillos y un planeta rojo chiquito.
     const pr = Math.min(v.w, v.h) * 0.09, px = v.w * 0.8;
     ctx.fillStyle = '#e9b872'; ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill();
@@ -111,10 +111,10 @@ function drawBackground(ctx: CanvasRenderingContext2D, v: View) {
   }
 
   // Zona tecnológica: torres de fondo con anillos de neón y una grilla que brilla.
-  const tech = Math.max(0, Math.min(1, (mid - 140) / 15)) * Math.max(0, Math.min(1, (245 - mid) / 15));
+  const tech = Math.max(0, Math.min(1, (mid - ZONES.tech + 10) / 15)) * Math.max(0, Math.min(1, (ZONES.space + 15 - mid) / 15));
   if (tech > 0) {
     ctx.globalAlpha = tech * 0.9;
-    const base = Y(v, ZONES.tech) * 0.4 + v.h * 0.6 + (v.cam - ZONES.tech) * v.s * 0.25;
+    const base = v.h + 20; // las torres acompañan durante toda la zona (se mueven la grilla y las luces)
     for (let i = 0; i < 9; i++) {
       const tx = hash(i + 50) * v.w, tw = 30 + hash(i + 60) * 50, th = v.h * (0.5 + hash(i + 70) * 0.9);
       const ty = base - th;
@@ -127,7 +127,7 @@ function drawBackground(ctx: CanvasRenderingContext2D, v: View) {
         ctx.beginPath(); ctx.ellipse(tx + tw / 2, ry, tw * 0.9, tw * 0.22, 0, 0, Math.PI * 2); ctx.stroke(); ctx.shadowBlur = 0;
       }
       ctx.fillStyle = hsl(hue, 100, 70, 0.8);
-      for (let wy = ty + 10; wy < Math.min(v.h, ty + th + v.h); wy += 16) if (hash(i * 31 + wy) > 0.6) ctx.fillRect(tx + tw * 0.55, wy, tw * 0.25, 4);
+      for (let wy = ty + 10, r = 0; wy < Math.min(v.h, ty + th + v.h); wy += 16, r++) if (hash(i * 31 + r * 7) > 0.6) ctx.fillRect(tx + tw * 0.55, wy, tw * 0.25, 4);
     }
     ctx.strokeStyle = '#7c3aed33'; ctx.lineWidth = 1;
     const step = Math.max(24, v.s * 1.6), off = (v.cam * v.s * 0.5) % step;
@@ -136,7 +136,7 @@ function drawBackground(ctx: CanvasRenderingContext2D, v: View) {
   }
 
   // El sol, a partir de que se terminan los edificios.
-  const sun = Math.max(0, Math.min(1, (mid - 85) / 20)) * Math.max(0, Math.min(1, (150 - mid) / 20));
+  const sun = Math.max(0, Math.min(1, (mid - 85) / 20)) * Math.max(0, Math.min(1, (ZONES.tech - mid) / 20));
   if (sun > 0) {
     const sx = v.w * 0.82, sy = v.h * 0.2, r = Math.min(v.w, v.h) * 0.08;
     ctx.globalAlpha = sun;
@@ -185,12 +185,22 @@ function drawSideBuildings(ctx: CanvasRenderingContext2D, v: View) {
     if (sy > v.h || sy + sh < 0 || sx > v.w || sx + sw < 0) continue;
     ctx.fillStyle = hsl(hue, 25, 42); ctx.fillRect(sx, sy, sw, sh);
     fillTex(ctx, x1 < 0 && x2 > 0 ? 'brick' : 'concrete', sx, sy, sw, sh, v, hsl(hue, 45, 35, 0.35));
-    // ventanas (algunas prendidas)
-    const ww = v.s * 0.55, wh = v.s * 0.75;
-    for (let wy = Math.max(sy + v.s * 0.5, -wh - (sy % (v.s * 1.4))); wy < Math.min(sy + sh - v.s * 0.4, v.h); wy += v.s * 1.4) {
-      for (let wx = sx + v.s * 0.4; wx < sx + sw - ww; wx += v.s * 1.1) {
-        const lit = hash(Math.round(wx * 7 + (wy - Y(v, 0)) * 3)) > 0.55;
-        ctx.fillStyle = lit ? '#fde68a' : '#1e3a5f'; ctx.fillRect(wx, wy, ww, wh);
+    // Ventanas fijas en el edificio (cada una siempre igual): algunas con luz, otras apagadas y otras
+    // con la persiana cerrada.
+    const ww = v.s * 0.55, wh = v.s * 0.75, cols = Math.max(1, Math.floor(((x2 - x1) - 0.4) / 1.1));
+    const firstRow = Math.max(0, Math.floor((roof - (v.cam + v.h / v.s) - 0.5) / 1.4));
+    for (let r = firstRow; ; r++) {
+      const wyWorld = roof - 0.5 - r * 1.4; // borde de arriba de la ventana, en unidades
+      if (wyWorld - 0.75 < floor + 0.4) break;
+      const wy = Y(v, wyWorld);
+      if (wy > v.h) break;
+      for (let c = 0; c < cols; c++) {
+        const wx = sx + v.s * (0.4 + c * 1.1), k = hash(x1 * 131 + roof * 17 + r * 7.3 + c * 3.1);
+        ctx.fillStyle = k > 0.62 ? '#fde68a' : '#1e3a5f'; ctx.fillRect(wx, wy, ww, wh);
+        if (k < 0.25) { // persiana cerrada
+          ctx.fillStyle = hsl(hue, 15, 62); ctx.fillRect(wx, wy, ww, wh);
+          ctx.fillStyle = hsl(hue, 15, 45); for (let l = 1; l < 5; l++) ctx.fillRect(wx, wy + wh * l / 5, ww, Math.max(1, wh * 0.06));
+        }
         ctx.fillStyle = '#ffffff33'; ctx.fillRect(wx, wy, ww, wh * 0.2);
       }
     }

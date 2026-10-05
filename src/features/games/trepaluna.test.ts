@@ -16,13 +16,14 @@ const only = (g: Trepa, ...plats: Partial<Plat>[]) => {
 describe('Trepaluna: recorrido', () => {
   const course = buildCourse();
 
-  it('siempre es el mismo y va de la calle a la Luna a 3.000 m', () => {
+  it('siempre es el mismo y va de la calle a la Luna a 6.000 m', () => {
     const again = buildCourse();
     expect(again.plats.map(p => [p.skin, p.x, p.y])).toEqual(course.plats.map(p => [p.skin, p.x, p.y]));
     const moon = moonOf(course);
     expect(moon.kind).toBe('moon');
-    expect(meters(moon.y)).toBeGreaterThan(2950);
-    expect(meters(moon.y)).toBeLessThan(3150);
+    expect(meters(moon.y)).toBeGreaterThan(5950);
+    expect(meters(moon.y)).toBeLessThan(6150);
+    expect(ZONES.tech).toBe(ZONES.moon / 2); // lo tecnológico arranca en la mitad
   });
 
   it('tiene muchas estructuras distintas en cada etapa', () => {
@@ -32,7 +33,7 @@ describe('Trepaluna: recorrido', () => {
     expect(course.fires.filter(f => f.dir === 'up').length).toBeGreaterThanOrEqual(2);
     expect(course.fires.filter(f => f.dir !== 'up').length).toBeGreaterThan(3);
     expect(course.balls.length).toBeGreaterThan(0);
-    // Desde la mitad del recorrido (1.500 m) todo se vuelve tecnológico.
+    // Desde la mitad del recorrido (3.000 m) todo se vuelve tecnológico.
     for (const s of ['neon', 'hologram', 'glass', 'techTile']) expect(skins.has(s as Plat['skin']), s).toBe(true);
     for (const list of [course.lasers, course.fans, course.magnets, course.gears, course.portals]) expect(list.length).toBeGreaterThan(0);
     expect(course.lasers.some(l => l.style === 'zap')).toBe(true);
