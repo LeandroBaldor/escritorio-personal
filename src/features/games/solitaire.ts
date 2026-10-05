@@ -1,4 +1,4 @@
-// Lógica del "Solitario 8 bits" (Klondike, de a una carta). En las columnas se apila bajando de
+// Lógica del "Solitario 3.000" (Klondike, de a una carta). En las columnas se apila bajando de
 // a uno y alternando rojo (corazones y diamantes) y negro (picas y tréboles); arriba (en las
 // bases) se junta cada palo del As al Rey.
 

@@ -4,7 +4,7 @@ import { bestTarget, canFinish, canMove, cardName, deal, draw, finishStep, fitsF
 const card = (suit: Card['suit'], rank: number, up = true): Card => ({ id: `${suit}-${rank}`, suit, rank, up });
 const empty = (): Solitaire => ({ stock: [], waste: [], foundations: [[], [], [], []], tableau: [[], [], [], [], [], [], []], moves: 0, score: 0 });
 
-describe('Solitario 8 bits', () => {
+describe('Solitario 3.000', () => {
   it('reparte 28 cartas en 7 columnas con la de arriba boca arriba y deja 24 en el mazo', () => {
     let seed = 9; const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     const game = deal(rand);

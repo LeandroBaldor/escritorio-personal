@@ -786,11 +786,11 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
   await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
 });
 
-test('el Solitario 8 bits se abre desde Juegos, da vuelta cartas y deshace', async ({ page }) => {
+test('el Solitario 3.000 se abre desde Juegos, da vuelta cartas y deshace', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
   await expect(page.locator('.games-list > li')).toHaveCount(4);
-  await page.getByRole('link', { name: /Solitario 8 bits/ }).click();
-  await expect(page.getByRole('heading', { name: 'Solitario 8 bits' })).toBeVisible();
+  await page.getByRole('link', { name: /Solitario 3\.000/ }).click();
+  await expect(page.getByRole('heading', { name: 'Solitario 3.000' })).toBeVisible();
   await expect(page.locator('.sol-column .sol-card')).toHaveCount(28);
   await expect(page.getByRole('button', { name: 'Mazo: 24 cartas, dar vuelta una' })).toBeVisible();
   await page.getByRole('button', { name: /Mazo/ }).click();
