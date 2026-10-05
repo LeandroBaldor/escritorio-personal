@@ -277,6 +277,17 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .note .note-buttons{flex-wrap:wrap;gap:.25rem}.note .note-buttons button{padding:.25rem .45rem;font-size:.75rem}
 .drop-indicator{flex-basis:calc((100% - 1.1rem)/3)}
 @media(max-width:480px){.column{gap:.4rem;padding:.6rem}.note,.drop-indicator{flex-basis:calc((100% - .8rem)/3)}.note{padding:.35rem}.note-text,.note textarea{font-size:.95rem;padding-right:.6rem}.note small,.note details{font-size:.62rem}.note .note-buttons button{padding:.2rem .35rem;font-size:.68rem}}
+/* Notas cuadradas: el texto largo se desplaza adentro; se agrandan solo al abrir el historial.
+   Cuántas entran por fila depende del ancho de la columna: dos, o tres si la columna es ancha. */
+.note{aspect-ratio:1;display:flex;flex-direction:column;min-height:0}
+.note-text,.note-edit{flex:1 1 auto;min-height:0;overflow-y:auto}
+.note-edit{display:flex;flex-direction:column}.note-edit textarea{flex:1;min-height:0;resize:none}
+.note small,.note details,.note-buttons{flex:none}
+.note:has(details[open]){aspect-ratio:auto}
+.column{container-type:inline-size}
+.column .note,.column .drop-indicator{flex-basis:calc((100% - .55rem)/2)}
+@container(min-width:560px){.column .note,.column .drop-indicator{flex-basis:calc((100% - 1.1rem)/3)}}
+@media(max-width:480px){.column .note,.column .drop-indicator{flex-basis:calc((100% - .4rem)/2)}.note-text,.note textarea{font-size:1.05rem}.note small,.note details{font-size:.7rem}}
 /* Mi diario y Mis gastos: accesos como objetos del escritorio (un escritorio y la calculadora de gastos). */
 .section-objects{display:flex;align-items:end;gap:1.1rem;font-size:16px;align-self:center;text-shadow:none}
 .section-objects a{text-decoration:none;box-shadow:5px 8px 14px #2c120b77}
@@ -818,7 +829,7 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
   .games-art img{object-position:right center}
 }
 
-/* Serpiente al Revés */
+/* ¡Huye de la serpiente! */
 .snk{background:radial-gradient(ellipse at 50% 0,#166534 0,#052e16 70%)}
 .snk .runner-back{color:#86efac}
 /* Tiempo, puntos, récord y largo a la derecha del jardín. */

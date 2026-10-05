@@ -81,7 +81,7 @@ function TrepalunaArt() {
   </svg>;
 }
 
-// Dibujo de la tarjeta de Serpiente al Revés: jardín a cuadros, la serpiente violeta persiguiendo y la manzana escapando.
+// Dibujo de la tarjeta de ¡Huye de la serpiente!: jardín a cuadros, la serpiente violeta persiguiendo y la manzana escapando.
 function ReverseSnakeArt() {
   return <svg viewBox="0 0 160 100" aria-hidden="true">
     {Array.from({ length: 80 }, (_, i) => <rect key={i} x={(i % 10) * 16} y={Math.floor(i / 10) * 12.5} width="16" height="12.5" fill={(i % 10 + Math.floor(i / 10)) % 2 ? '#4ade80' : '#22c55e'} />)}
@@ -89,7 +89,7 @@ function ReverseSnakeArt() {
     <path d="M20 88H56V62H88V38H112" fill="none" stroke="#15803d" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" />
     <path d="M20 88H56V62H88V38H112" fill="none" stroke="#bef264" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
     {[[30, 88], [56, 75], [72, 62], [88, 50]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="2" fill="#14532d" opacity=".6" />)}
-    {[[8, 6], [40, 6], [72, 18], [104, 6], [136, 66], [104, 82], [136, 92], [8, 44], [24, 56], [40, 30], [120, 18], [152, 56]].map(([x, y], i) => <circle key={`p${i}`} cx={x} cy={y} r="1.8" fill="#fff" />)}
+    {[[8, 6], [40, 6], [72, 18], [104, 6], [136, 66], [104, 82], [136, 92], [8, 44], [24, 56], [40, 30], [120, 18], [152, 56]].map(([x, y], i) => <circle key={`p${i}`} cx={x} cy={y} r="3" fill="#fff" />)}
     <ellipse cx="115" cy="38" rx="10" ry="8" fill="#16a34a" stroke="#14532d" strokeWidth="1.5" /><circle cx="117" cy="34" r="2.6" fill="#fde047" /><circle cx="117" cy="42" r="2.6" fill="#fde047" /><ellipse cx="117.6" cy="34" rx=".7" ry="1.9" fill="#111" /><ellipse cx="117.6" cy="42" rx=".7" ry="1.9" fill="#111" />
     <path d="M123 38h6l3-2M129 38l3 2" stroke="#e11d48" strokeWidth="1.5" fill="none" strokeLinecap="round" />
     <g transform="translate(140 30)">
@@ -163,8 +163,8 @@ export function Games() {
         <Link className="game-card game-card--snk" to="/juegos/serpiente">
           <ReverseSnakeArt />
           <span className="game-card-text">
-            <strong>Serpiente al Revés</strong>
-            <span>El viborita de siempre, pero vos sos la manzana: juntá las bolitas blancas y escapá de la serpiente, que crece cada vez que se come una manzana verde.</span>
+            <strong>¡Huye de la serpiente!</strong>
+            <span>El viborita de siempre, pero vos sos la manzana: sumá puntos agarrando las bolitas blancas y escapá de la serpiente, que crece cada vez que se come una manzana verde.</span>
             {snake > 0 && <small>Récord: {snake} puntos</small>}
           </span>
           <span className="game-card-play" aria-hidden="true">Jugar ▶</span>

@@ -4,7 +4,7 @@ import { APPLE_STEP, cellKey, chaseStep, CLEAR_POINTS, GREEN_GROW, newGame, PELL
 const run = (g: Game, seconds: number, dir: Dir | null = null) => { for (let t = 0; t < seconds; t += 1 / 60) step(g, { dir }, 1 / 60, () => 0.5); };
 const still = (g: Game) => { g.greens = []; g.powers = []; g.nextPower = 999; g.nextGreen = 999; g.pellets.clear(); };
 
-describe('Serpiente al Revés', () => {
+describe('¡Huye de la serpiente!', () => {
   it('la manzana se mueve un casillero por vez y no sale del jardín', () => {
     const g = newGame(12, 10); still(g);
     const x0 = g.apple.x;
@@ -44,7 +44,8 @@ describe('Serpiente al Revés', () => {
     step(g, { dir: 'right' }, 1 / 60);
     expect(g.bonus).toBe(PELLET_POINTS);
     expect(g.pellets.size).toBe(total - 1);
-    expect(score(g)).toBeGreaterThanOrEqual(PELLET_POINTS);
+    expect(score(g)).toBe(PELLET_POINTS);
+    expect(g.pops).toHaveLength(1);
     // Queda una sola bolita, al lado de la manzana.
     g.pellets = new Set([cellKey({ x: g.apple.x + 1, y: g.apple.y }, g.cols)]);
     run(g, APPLE_STEP + 0.02, 'right');
