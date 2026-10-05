@@ -817,3 +817,15 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
   .games-art{position:absolute;top:1.5rem;right:0;width:45%;height:3rem} /* al lado de "Juegos", debajo de "Para cortar un rato" */
   .games-art img{object-position:right center}
 }
+
+/* Serpiente al Revés */
+.snk{background:radial-gradient(ellipse at 50% 0,#166534 0,#052e16 70%)}
+.snk .runner-back{color:#86efac}
+.snk .runner-scores strong{color:#fde047}
+.snk .runner-bar button{background:#15803d}
+.snk .runner-stage canvas{border-radius:10px;box-shadow:0 0 0 4px #14532d,0 0 0 7px #a16207,0 12px 30px #000a}
+.snk .runner-overlay>div{background:#14532d;border-color:#a16207}
+.snk .runner-overlay h2{color:#fde047}
+.snk-pad button{background:#15803d}
+.snk-toast{position:absolute;top:8%;left:50%;transform:translateX(-50%);max-width:90%;padding:.55rem 1.1rem;background:#14532de6;border:3px solid #fde047;border-radius:12px;color:#fff;font-weight:900;font-size:clamp(.95rem,2.4vw,1.3rem);text-align:center;white-space:nowrap;pointer-events:none;animation:trepa-pop .25s ease-out;box-shadow:0 8px 24px #0008}
+@media(max-width:800px){.snk .runner-scores{gap:.6rem;font-size:.78rem}.snk .runner-scores strong{font-size:.95rem}}

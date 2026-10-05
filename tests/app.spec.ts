@@ -788,7 +788,7 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
 
 test('el Solitario 3.000 se abre desde Juegos, da vuelta cartas y deshace', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(4);
+  await expect(page.locator('.games-list > li')).toHaveCount(5);
   await page.getByRole('link', { name: /Solitario 3\.000/ }).click();
   await expect(page.getByRole('heading', { name: 'Solitario 3.000' })).toBeVisible();
   await expect(page.locator('.sol-column .sol-card')).toHaveCount(28);
@@ -806,7 +806,7 @@ test('el Solitario 3.000 se abre desde Juegos, da vuelta cartas y deshace', asyn
 
 test('Tiki-Taka: se elige el país y el DT, arranca el partido y el rival sigue jugando', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(4);
+  await expect(page.locator('.games-list > li')).toHaveCount(5);
   await page.getByRole('link', { name: /Tiki-Taka/ }).click();
   await page.getByLabel('Nombre del DT').fill('El Bambino');
   await page.getByRole('button', { name: 'Brasil' }).click();
@@ -827,7 +827,7 @@ test('Tiki-Taka: se elige el país y el DT, arranca el partido y el rival sigue 
 
 test('Trepaluna: se abre desde Juegos, corre el tiempo, muestra la altura y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(4);
+  await expect(page.locator('.games-list > li')).toHaveCount(5);
   await page.getByRole('link', { name: /Trepaluna/ }).click();
   await expect(page.getByRole('heading', { name: 'Trepaluna', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
@@ -848,4 +848,18 @@ test('Tiki-Taka: el Mundial arranca en octavos de final', async ({ page }) => {
   await page.getByRole('button', { name: /Jugar el Mundial/ }).click();
   await expect(page.locator('.tt-board-time')).toContainText('Octavos de final');
   await expect(page.getByTestId('tt-score')).toHaveText('0 - 0');
+});
+
+test('Serpiente al Revés: se abre desde Juegos, corre el tiempo y se pausa', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/juegos');
+  await expect(page.locator('.games-list > li')).toHaveCount(5);
+  await page.getByRole('link', { name: /Serpiente al Revés/ }).click();
+  await expect(page.getByRole('heading', { name: 'Serpiente al Revés', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: 'Jugar' }).click();
+  await expect(page.getByTestId('snake-points')).not.toHaveText('0');
+  await page.keyboard.press('p');
+  await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
+  await page.getByRole('button', { name: 'Seguir' }).first().click();
+  await page.getByRole('link', { name: '‹ Juegos' }).click();
+  await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
 });
