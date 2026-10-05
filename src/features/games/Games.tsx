@@ -86,11 +86,9 @@ export function Games() {
   const tiki = readTikiRecord();
   const trepa = readTrepaRecord();
   return <section>
-    <div className="section-title">
-      <div className="games-heading">
-        <div><p className="eyebrow">Para cortar un rato</p><h1>Juegos</h1></div>
-        <img className="games-art" src={memeChallenge} alt="" width={350} height={274} draggable={false} />
-      </div>
+    <div className="section-title games-title">
+      <div className="games-heading"><p className="eyebrow">Para cortar un rato</p><h1>Juegos</h1></div>
+      <div className="games-art" aria-hidden="true"><img src={memeChallenge} alt="" width={350} height={274} draggable={false} /></div>
       <SectionObjects large><DeskLink /><NotebookLink /><CalculatorLink /><CalendarLink /></SectionObjects>
     </div>
     <ul className="games-list">
