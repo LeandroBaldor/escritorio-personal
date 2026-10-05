@@ -821,11 +821,25 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 /* Serpiente al Revés */
 .snk{background:radial-gradient(ellipse at 50% 0,#166534 0,#052e16 70%)}
 .snk .runner-back{color:#86efac}
-.snk .runner-scores strong{color:#fde047}
+/* Tiempo, puntos, récord y largo a la derecha del jardín. */
+.snk-main{flex:1;min-height:0;display:flex;gap:.6rem}
+.snk .runner-stage{flex:1;min-width:0}
+.snk-side{flex:0 0 clamp(130px,13vw,180px);display:flex;flex-direction:column;justify-content:center;gap:.6rem;padding:.6rem;background:#052e16cc;border:3px solid #a16207;border-radius:12px}
+.snk-stat{display:flex;flex-direction:column;align-items:center;gap:.15rem;padding:.45rem .3rem;background:#14532d;border-radius:8px;text-align:center}
+.snk-stat span{color:#bbf7d0;font-weight:800;text-transform:uppercase;font-size:.7rem;letter-spacing:.08em;line-height:1.15}
+.snk-stat strong{font:900 clamp(1.3rem,2.2vw,2rem)/1 Nunito,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#fff}
+.snk-stat--points strong{color:#fde047}
+.snk-stat--len strong{color:#86efac}
 .snk .runner-bar button{background:#15803d}
 .snk .runner-stage canvas{border-radius:10px;box-shadow:0 0 0 4px #14532d,0 0 0 7px #a16207,0 12px 30px #000a}
 .snk .runner-overlay>div{background:#14532d;border-color:#a16207}
 .snk .runner-overlay h2{color:#fde047}
 .snk-pad button{background:#15803d}
 .snk-toast{position:absolute;top:8%;left:50%;transform:translateX(-50%);max-width:90%;padding:.55rem 1.1rem;background:#14532de6;border:3px solid #fde047;border-radius:12px;color:#fff;font-weight:900;font-size:clamp(.95rem,2.4vw,1.3rem);text-align:center;white-space:nowrap;pointer-events:none;animation:trepa-pop .25s ease-out;box-shadow:0 8px 24px #0008}
-@media(max-width:800px){.snk .runner-scores{gap:.6rem;font-size:.78rem}.snk .runner-scores strong{font-size:.95rem}}
+@media(max-width:800px){
+  .snk-main{flex-direction:column;gap:.4rem}
+  .snk-side{flex:none;order:-1;flex-direction:row;padding:.3rem;gap:.3rem}
+  .snk-stat{flex:1;padding:.25rem .2rem}
+  .snk-stat span{font-size:.55rem}
+  .snk-stat strong{font-size:1.05rem}
+}
