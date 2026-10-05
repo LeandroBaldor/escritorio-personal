@@ -441,6 +441,27 @@ test('edita el texto de una nota desde su tarjeta', async ({ page }) => {
   await expect(page.locator('.note-text')).toHaveText('Pagar luz y gas');
 });
 
+test('las notas son cuadradas y un texto largo achica la letra para entrar', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  const add = async (text: string) => {
+    await page.getByPlaceholder('¿Qué necesitás recordar?').fill(text);
+    await page.getByRole('button', { name: 'Agregar nota' }).click();
+    const reject = page.getByRole('button', { name: 'Rechazar' });
+    if (await reject.count()) await reject.click();
+  };
+  await add('Pagar luz');
+  await add('Llamar al dentista para pedir turno, pasar por la farmacia a buscar los remedios, comprar pilas para el control remoto y regar todas las plantas del balcón antes de salir');
+  const [short, long] = [page.locator('.note-text').first(), page.locator('.note-text').nth(1)];
+  const size = (text: typeof short) => text.evaluate(element => parseFloat(getComputedStyle(element).fontSize));
+  expect(await size(long)).toBeLessThan(await size(short));
+  expect(await long.evaluate(element => element.scrollHeight <= element.clientHeight + 1)).toBe(true);
+  await page.locator('.note summary').first().click();
+  for (const note of await page.locator('.note').all()) {
+    const box = (await note.boundingBox())!;
+    expect(Math.abs(box.width - box.height)).toBeLessThanOrEqual(1);
+  }
+});
+
 test('organiza las notas guardadas en carpetas arrastrándolas', async ({ page }) => {
   page.on('dialog', dialog => dialog.type() === 'prompt' ? dialog.accept('Turnos médicos') : dialog.accept());
   await page.goto('/escritorio-personal/');

@@ -1,4 +1,4 @@
-import { DragEvent, FormEvent, useId, useRef, useState } from 'react';
+import { DragEvent, FormEvent, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarLink, GamesLink } from '../../app/SectionObjects';
 import { COLORS, id, Note, NoteCalendar, Status } from '../../storage/model';
@@ -27,6 +27,30 @@ const colorNames: Record<string, string> = {
   '#ffe783': 'Amarillo', '#f7b7c3': 'Rosa', '#bde7c6': 'Verde', '#bcdcf6': 'Celeste', '#e3c5f4': 'Lila',
 };
 type DropTarget = { status: Status; index: number };
+// Tamaño de letra de las notas (en px): arranca en el más grande y se achica hasta que el texto entra en el cuadrado.
+const NOTE_FONT_MAX = 14, NOTE_FONT_MIN = 8;
+
+function useFitText(text: string, active: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!active || !element) return;
+    const fit = () => {
+      let size = NOTE_FONT_MAX;
+      element.style.fontSize = `${size}px`;
+      while (size > NOTE_FONT_MIN && element.scrollHeight > element.clientHeight + 1) {
+        size -= 0.5;
+        element.style.fontSize = `${size}px`;
+      }
+    };
+    fit();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(fit);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [text, active]);
+  return ref;
+}
 
 export function validHistory(note: Note) {
   return (note.history ?? []).filter(
@@ -102,6 +126,7 @@ function Card({ note, remove, edit, dragging, dropSide, onDragStart, onDragEnd, 
   const history = validHistory(note);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  const textRef = useFitText(note.text, !editing);
   const startEditing = () => { setDraft(note.text); setEditing(true); };
   const saveEdit = () => {
     const next = draft.trim();
@@ -132,9 +157,9 @@ function Card({ note, remove, edit, dragging, dropSide, onDragStart, onDragEnd, 
             <button className="note-cancel" onClick={() => setEditing(false)}>Cancelar</button>
           </div>
         </div>
-        : <div className="note-text">{note.text}</div>}
+        : <div className="note-text" ref={textRef}>{note.text}</div>}
       <small>{history.at(-1) ? `Desde ${formatHistoryDay(history.at(-1)!.at)}` : 'Sin fecha disponible'}</small>
-      <details><summary>Historial</summary>{history.map((entry, index) => <div key={`${entry.at}-${index}`}>{columns.find(column => column.status === entry.status)?.label}: {formatHistoryDay(entry.at)}</div>)}</details>
+      <details><summary>Historial</summary><div className="note-history">{history.map((entry, index) => <div key={`${entry.at}-${index}`}>{columns.find(column => column.status === entry.status)?.label}: {formatHistoryDay(entry.at)}</div>)}</div></details>
       {!editing && <div className="note-buttons">
         <button className="delete" onClick={remove}>Borrar</button>
         <button className="note-edit-button" onClick={startEditing}>Editar</button>
