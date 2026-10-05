@@ -5,13 +5,13 @@
 // - Ciudad (0 a 1.000 m): edificios a los costados, terrazas, balcones enfrentados, vigas de obra,
 //   escaleras en zigzag, escaleras de mano, caños que tiran fuego, baldosas que van y vienen,
 //   montacargas, cintas transportadoras, bolas de demolición, ladrillos que se desarman y trampolines.
-// - Cielo (1.000 a 1.250 m): ya no hay edificios; globos aerostáticos, dirigibles, andamios flotantes,
+// - Cielo (1.000 a 2.200 m): ya no hay edificios; globos aerostáticos, dirigibles, andamios flotantes,
 //   sogas y pájaros que te empujan.
-// - Nubes (1.250 a 1.500 m): se pasa a través de las nubes (no se puede pisar una nube).
-// - Zona tecnológica (1.500 a 2.300 m, desde la mitad del recorrido): láseres y rayos eléctricos que se
+// - Nubes (2.200 a 3.000 m): se pasa a través de las nubes (no se puede pisar una nube).
+// - Zona tecnológica (3.000 a 4.600 m, desde la mitad del recorrido): láseres y rayos eléctricos que se
 //   prenden y apagan, ventiladores que empujan, imanes que te levantan, engranajes que giran,
 //   teletransportadores, plataformas que desaparecen, pistones y drones.
-// - Espacio (desde 2.300 m): menos gravedad, satélites, asteroides, ovnis, estaciones, meteoritos y drones.
+// - Espacio (desde 4.600 m hasta la Luna, a 6.000 m): menos gravedad, satélites, asteroides, ovnis, estaciones, meteoritos y drones.
 // - La Luna, con su banderín, es el último salto.
 //
 // Si te quemás con el fuego o te caés demasiado, perdés: el personaje cae por toda la estructura
@@ -19,7 +19,7 @@
 
 export const WORLD_W = 16;
 export const M_PER_UNIT = 10;
-export const ZONES = { sky: 100, clouds: 125, tech: 150, space: 230, moon: 300 };
+export const ZONES = { sky: 100, clouds: 220, tech: 300, space: 460, moon: 600 }; // la Luna, a 6.000 m
 export type Zone = 'city' | 'sky' | 'clouds' | 'tech' | 'space';
 export type Kind = 'ground' | 'solid' | 'tramp' | 'moving' | 'elevator' | 'crumble' | 'conveyor' | 'blink' | 'moon';
 export type Skin =
@@ -346,7 +346,7 @@ export function buildCourse(seed = 20261004): Course {
     let seg = decks[z]!.pop()!;
     // Los edificios (balcones y terrazas) terminan antes de los 1.000 m.
     if ((seg === 'balconies' || seg === 'terrace') && top.y > ZONES.sky - 16) seg = 'beams';
-    // Lo tecnológico arranca recién en la mitad del recorrido (1.500 m).
+    // Lo tecnológico arranca recién en la mitad del recorrido (3.000 m).
     if (TECH_SEGS.includes(seg) && top.y < ZONES.tech) seg = 'beams';
     segments[seg]();
     last = seg;
