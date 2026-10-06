@@ -548,6 +548,8 @@ test('¡El piso es de lava!: se abre desde Juegos, corre el tiempo, la lava avis
   await expect(page.getByTestId('lava-meters')).toHaveText('0 m');
   await expect(page.getByTestId('lava-time')).not.toHaveText('0:00.0');
   await expect(page.getByTestId('lava-distance')).not.toHaveText('0 m');
+  await expect(page.getByTestId('lava-heli')).toHaveText(/^(¡Ya!|en) \d+ s$/);
+  await expect(page.locator('.runner-pad button[aria-label="Subir"]')).toHaveCount(1);
   await page.keyboard.press('p');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
   const paused = await page.getByTestId('lava-time').textContent();

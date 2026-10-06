@@ -943,6 +943,7 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 .lava-side .trepa-stat{background:#160605}
 .lava-side .trepa-stat span{color:#fdba74}
 .lava-stat strong{color:#f97316!important}
+.lava-heli strong{color:#86efac!important}
 .lava-meter-track{background:linear-gradient(0deg,#57534e,#a8a29e)!important}
 .lava-meter-lava{position:absolute;left:0;right:0;bottom:0;border-radius:7px;background:linear-gradient(0deg,#7f1d1d,#f97316 85%,#fde047);box-shadow:0 0 8px #f97316;transition:height .2s linear}
 .lava-toast{background:#431407e6!important;border-color:#fb923c!important}
