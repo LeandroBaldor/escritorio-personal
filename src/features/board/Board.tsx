@@ -7,7 +7,7 @@ import { calendarFrom, TimeInput } from '../calendar/DateTimeFields';
 import { DateInput, formatExpenseDate } from '../expenses/Expenses';
 import { dateDoubt, parseEvent } from '../calendar/parseEvent';
 import { useData } from '../../app/DataContext';
-import memeCafe from '../../assets/images/meme-cafe.png';
+import memeConspiracion from '../../assets/images/meme-conspiracion.jpg';
 
 const NOTE_MIME = 'application/x-escritorio-note';
 // Solo la fecha (dd/mm/aaaa), para las tarjetas del escritorio.
@@ -294,7 +294,7 @@ export function Board() {
       </div>}
       {dateAsk && !dateAsk.doubt && <AddDate key={dateAsk.note.id} note={dateAsk.note} date={dateAsk.date} time={dateAsk.time} onAdd={calendar => answerDate(dateAsk.note, calendar)} onReject={() => dateAsk.guessed ? answerDate(dateAsk.note, null) : setDateAsk(null)} />}
       <div className="desk-row">
-        <img className="desk-art" src={memeCafe} alt="" width={324} height={340} draggable={false} />
+        <img className="desk-art" src={memeConspiracion} alt="" width={1000} height={500} draggable={false} />
         <div className="desk-objects" aria-label="Objetos del escritorio">
           <Link className={`floppy${archiveHover ? ' floppy--drag-over' : ''}`} to="/guardadas" aria-label="Notas guardadas. Arrastrá una nota aquí para guardarla."
             onDragOver={event => {
