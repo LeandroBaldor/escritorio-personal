@@ -6,7 +6,7 @@ import { DateInput, formatExpenseDate, money } from '../expenses/Expenses';
 import { calendarFrom, TimeInput } from './DateTimeFields';
 import { DateQuestion } from './DateQuestion';
 import { dateDoubt, dateOf, guessCategory, isoOf, parseEvent } from './parseEvent';
-import memeTrueStory from '../../assets/images/meme-true-story.png';
+import memeInterstellar from '../../assets/images/meme-interstellar.jpg';
 
 const MONTH_NAMES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -173,13 +173,13 @@ export function Calendar() {
     <div className="cal-layout">
       <div className="cal-sheet">
         <div className="cal-rings" aria-hidden="true"><span /><span /></div>
-        {/* El meme apoya su borde de abajo justo en el borde de abajo del encabezado del mes. */}
+        {/* El meme va centrado arriba del mes, apoyado sobre el borde de arriba del calendario. */}
+        <img className="cal-art" src={memeInterstellar} alt="" width={917} height={497} draggable={false} />
         <div className="cal-band-wrap">
           <div className="cal-band">
             <button type="button" className="cal-arrow" onClick={() => shiftMonth(-1)} aria-label="Mes anterior">‹</button>
             <BandClock />
             <h2 aria-live="polite" style={{ '--len': MONTH_NAMES[view.month].length + 5 } as React.CSSProperties}><span>{MONTH_NAMES[view.month]}</span><small>{view.year}</small></h2>
-            <span className="cal-art-room" aria-hidden="true"><img className="cal-art" src={memeTrueStory} alt="" width={241} height={240} draggable={false} /></span>
             <button type="button" className="cal-arrow" onClick={() => shiftMonth(1)} aria-label="Mes siguiente">›</button>
           </div>
         </div>
