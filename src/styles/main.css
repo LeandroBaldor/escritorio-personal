@@ -859,3 +859,6 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
   .snk-stat span{font-size:.55rem}
   .snk-stat strong{font-size:1.05rem}
 }
+/* Objetos del escritorio en el celular: no se aplastan; si no entran en una fila, pasan a la siguiente. */
+@media(max-width:800px){.desk-objects{flex-wrap:wrap;justify-content:center;align-items:center;gap:1rem 1.1rem}.desk-objects>*{flex-shrink:0}}
+@media(max-width:480px){.desk-objects{zoom:.85}}

@@ -441,7 +441,7 @@ test('edita el texto de una nota desde su tarjeta', async ({ page }) => {
   await expect(page.locator('.note-text')).toHaveText('Pagar luz y gas');
 });
 
-test('el meme del escritorio va arriba de No iniciado con sus mismos bordes', async ({ page }) => {
+test('el meme del escritorio va arriba de No iniciado con sus mismos bordes y nada se sale de la pantalla', async ({ page }) => {
   await page.goto('/escritorio-personal/');
   const meme = (await page.locator('.desk-art').boundingBox())!;
   const column = (await page.locator('.column').first().boundingBox())!;
@@ -449,6 +449,8 @@ test('el meme del escritorio va arriba de No iniciado con sus mismos bordes', as
   expect(Math.abs(meme.width - column.width)).toBeLessThanOrEqual(1);
   expect(meme.y + meme.height).toBeLessThanOrEqual(column.y);
   expect(column.y - (meme.y + meme.height)).toBeLessThan(40);
+  // Los objetos del escritorio entran en la pantalla sin desplazamiento lateral.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 test('las notas son cuadradas y un texto largo achica la letra para entrar', async ({ page }) => {
