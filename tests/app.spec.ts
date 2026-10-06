@@ -507,6 +507,16 @@ test('el calendario tiene el mes centrado, días cuadrados y el meme apoyado sob
   } else expect(meme.y).toBeGreaterThanOrEqual(title.y + title.height);
 });
 
+test('Juegos: en pantallas anchas el meme queda centrado arriba de Tiki-Taka, en el medio de la pantalla', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await page.goto('/escritorio-personal/#/juegos');
+  const meme = (await page.locator('.games-art img').boundingBox())!;
+  const tiki = (await page.locator('.games-list > li').filter({ hasText: 'Tiki-Taka' }).boundingBox())!;
+  expect(Math.abs(meme.x + meme.width / 2 - (tiki.x + tiki.width / 2))).toBeLessThanOrEqual(1);
+  expect(Math.abs(meme.x + meme.width / 2 - 960)).toBeLessThanOrEqual(1);
+  expect(meme.y + meme.height).toBeLessThanOrEqual(tiki.y);
+});
+
 test('las notas son cuadradas y un texto largo achica la letra para entrar', async ({ page }) => {
   await page.goto('/escritorio-personal/');
   const add = async (text: string) => {

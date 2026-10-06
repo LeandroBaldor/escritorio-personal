@@ -856,6 +856,15 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
   .games-art img{position:static;transform:none;max-height:100%}
 }
 
+/* Con los cinco juegos en una fila (pantallas anchas), Tiki-Taka queda en el medio: el meme va centrado en la
+   pantalla, justo arriba de esa tarjeta (sin pasarse sobre el título ni los íconos). */
+@media(min-width:1896px){
+  .games-heading{grid-column:1;grid-row:1}
+  .games-title>.section-objects{grid-column:3;grid-row:1}
+  .games-art{grid-column:1/-1;grid-row:1}
+  .games-art img{max-width:40%}
+}
+
 /* ¡Huye de la serpiente! */
 .snk{background:radial-gradient(ellipse at 50% 0,#166534 0,#052e16 70%)}
 .snk .runner-back{color:#86efac}
