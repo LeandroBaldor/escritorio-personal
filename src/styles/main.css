@@ -836,12 +836,25 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 @media(min-width:801px){
   .cal-page .section-title{display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:1rem;align-items:end}
   .cal-art-room{align-self:stretch}
+  /* El mes y el año van a la izquierda (debajo de "Calendario") y el meme baja hasta el borde de abajo del
+     encabezado azul del mes, así queda más grande. El encabezado azul tiene un alto fijo para saber dónde termina. */
+  .cal-page{--band-h:3.4rem}
+  .cal-page .cal-band{height:var(--band-h);padding-top:0;padding-bottom:0;align-items:center}
+  .cal-page .cal-band h2{margin:0}
+  .cal-page .cal-band-wrap .cal-arrow:last-child{margin-left:auto}
+  .cal-page .cal-band h2 span,.cal-page .cal-band h2 small{font-size:min(2.5rem,calc((40cqi - var(--arrow) - var(--pad) - var(--gap)) / (var(--len) * .8)))}
+  .cal-art{bottom:calc(-1 * (var(--title-gap) + 1.1rem + var(--band-h)));max-height:calc(100% + var(--title-gap) + 1.1rem + var(--band-h));border-radius:10px}
 }
 @media(min-width:1001px){.cal-page .cal-band-wrap{--padb:.4rem}}
 @media(max-width:800px){
   .cal-page .cal-band-wrap{--pad:.6rem;--gap:.4rem}
   .cal-art-room{order:3;display:flex;justify-content:center;align-items:flex-end;height:9rem;margin-bottom:calc(-1 * (var(--title-gap) + 1.1rem))}
   .cal-art{position:relative;left:auto;bottom:auto;transform:none;max-height:100%}
+}
+/* Calendario en pantallas medianas: no hay lugar para el meme en el encabezado; los íconos pasan a otra línea si no entran. */
+@media(min-width:801px) and (max-width:1150px){
+  .cal-art-room{display:none}
+  .cal-page .section-title>.section-objects{grid-column:2/-1;flex-wrap:wrap;justify-content:flex-end}
 }
 /* Días cuadrados (en la compu el alto de cada fila lo pone Calendar.tsx). */
 .cal-day{aspect-ratio:1;min-height:0;overflow:hidden}

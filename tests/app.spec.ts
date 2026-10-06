@@ -490,21 +490,28 @@ test('Juegos: las tarjetas van justo debajo del encabezado y el meme ocupa el lu
   }
 });
 
-test('el calendario tiene el mes centrado, días cuadrados y el meme apoyado sobre su borde', async ({ page }) => {
+test('el calendario tiene el mes a la izquierda, días cuadrados y el meme llega hasta el borde de abajo del mes', async ({ page }) => {
   await page.goto('/escritorio-personal/#/calendario');
-  const meme = (await page.locator('.cal-art').boundingBox())!;
   const sheet = (await page.locator('.cal-sheet').boundingBox())!;
+  const band = (await page.locator('.cal-band').boundingBox())!;
   const month = (await page.locator('.cal-band h2').boundingBox())!;
   const title = (await page.locator('.cal-page .section-title h1').boundingBox())!;
   const day = (await page.locator('.cal-day').nth(10).boundingBox())!;
-  expect(Math.abs(month.x + month.width / 2 - (sheet.x + sheet.width / 2))).toBeLessThanOrEqual(1);
-  expect(Math.abs(meme.y + meme.height - sheet.y)).toBeLessThanOrEqual(1);
   expect(Math.abs(day.width - day.height)).toBeLessThanOrEqual(1.5);
+  const meme = page.locator('.cal-art');
   if (page.viewportSize()!.width > 800) {
+    const art = (await meme.boundingBox())!;
     const icons = (await page.locator('.cal-page .section-title .section-objects').boundingBox())!;
-    expect(meme.x).toBeGreaterThanOrEqual(title.x + title.width);
-    expect(meme.x + meme.width).toBeLessThanOrEqual(icons.x);
-  } else expect(meme.y).toBeGreaterThanOrEqual(title.y + title.height);
+    expect(month.x - sheet.x).toBeLessThan(sheet.width * .15);
+    expect(month.x + month.width).toBeLessThanOrEqual(art.x);
+    expect(Math.abs(art.y + art.height - (band.y + band.height))).toBeLessThanOrEqual(1);
+    expect(art.x).toBeGreaterThanOrEqual(title.x + title.width);
+    expect(art.x + art.width).toBeLessThanOrEqual(icons.x);
+  } else {
+    const art = (await meme.boundingBox())!;
+    expect(Math.abs(art.y + art.height - sheet.y)).toBeLessThanOrEqual(1);
+    expect(art.y).toBeGreaterThanOrEqual(title.y + title.height);
+  }
 });
 
 test('Juegos: en pantallas anchas el meme queda centrado arriba de Tiki-Taka, en el medio de la pantalla', async ({ page }) => {
