@@ -12,11 +12,10 @@ export type PowerKind = 'scissors' | 'clock';
 export interface Power extends Cell { kind: PowerKind; life: number }
 export interface Snake { body: Cell[]; dir: Dir; stepIn: number; grow: number; freeze: number; dizzy: number }
 export interface Apple extends Cell { moveIn: number; facing: 1 | -1; hop: number }
-export interface Pop extends Cell { life: number } // cartelito "+10" donde se agarró una bolita
 export type SnakeEvent =
   | { type: 'pellet' } | { type: 'cleared' } | { type: 'power'; kind: PowerKind } | { type: 'tangled' } | { type: 'ate' } | { type: 'caught' };
 export interface Game {
-  cols: number; rows: number; apple: Apple; snake: Snake; pellets: Set<number>; greens: Cell[]; powers: Power[]; pops: Pop[];
+  cols: number; rows: number; apple: Apple; snake: Snake; pellets: Set<number>; greens: Cell[]; powers: Power[];
   time: number; bonus: number; tangles: number; nextGreen: number; nextPower: number; over: boolean; events: SnakeEvent[];
 }
 export interface Input { dir: Dir | null }
@@ -26,7 +25,6 @@ export const PELLET_POINTS = 10, CLEAR_POINTS = 200, TANGLE_POINTS = 300;
 export const GREEN_GROW = 2; // casilleros que crece por cada manzana verde
 export const GREEN_EVERY = 4, MAX_GREENS = 3;
 const START_LEN = 4, POWER_LIFE = 9;
-export const POP_LIFE = 0.6;
 export const DIRS: Record<Dir, Cell> = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
 const ORDER: Dir[] = ['up', 'right', 'down', 'left'];
 
@@ -59,7 +57,7 @@ function fillPellets(g: Game) {
 export function newGame(cols: number, rows: number): Game {
   const apple: Apple = { x: Math.floor(cols / 2), y: Math.floor(rows / 2), moveIn: 0, facing: 1, hop: 0 };
   const g: Game = {
-    cols, rows, apple, snake: freshSnake({ cols, rows, apple }), pellets: new Set(), greens: [], powers: [], pops: [],
+    cols, rows, apple, snake: freshSnake({ cols, rows, apple }), pellets: new Set(), greens: [], powers: [],
     time: 0, bonus: 0, tangles: 0, nextGreen: 3, nextPower: 12, over: false, events: [],
   };
   fillPellets(g);
@@ -156,8 +154,6 @@ export function step(g: Game, input: Input, dt: number, rand: () => number = Mat
   g.time += dt;
   const a = g.apple, s = g.snake;
   a.hop = Math.max(0, a.hop - dt);
-  for (const p of g.pops) p.life -= dt;
-  g.pops = g.pops.filter(p => p.life > 0);
 
   // La manzana: un casillero por vez mientras se mantiene una dirección. El cuerpo de la serpiente es pared.
   a.moveIn = Math.max(0, a.moveIn - dt);
@@ -174,7 +170,7 @@ export function step(g: Game, input: Input, dt: number, rand: () => number = Mat
   // Bolitas blancas: puntos. Si no queda ninguna, se vuelve a llenar el jardín.
   const k = cellKey(a, g.cols);
   if (g.pellets.delete(k)) {
-    g.bonus += PELLET_POINTS; g.pops.push({ x: a.x, y: a.y, life: POP_LIFE }); g.events.push({ type: 'pellet' });
+    g.bonus += PELLET_POINTS; g.events.push({ type: 'pellet' });
     if (g.pellets.size === 0) { g.bonus += CLEAR_POINTS; fillPellets(g); g.events.push({ type: 'cleared' }); }
   }
   for (const p of g.powers) p.life -= dt;

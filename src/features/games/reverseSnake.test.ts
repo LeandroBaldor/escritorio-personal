@@ -45,7 +45,6 @@ describe('¡Huye de la serpiente!', () => {
     expect(g.bonus).toBe(PELLET_POINTS);
     expect(g.pellets.size).toBe(total - 1);
     expect(score(g)).toBe(PELLET_POINTS);
-    expect(g.pops).toHaveLength(1);
     // Queda una sola bolita, al lado de la manzana.
     g.pellets = new Set([cellKey({ x: g.apple.x + 1, y: g.apple.y }, g.cols)]);
     run(g, APPLE_STEP + 0.02, 'right');
