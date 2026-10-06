@@ -6,6 +6,7 @@ import { readSolitaireRecord } from './PixelSolitaire';
 import { readTikiRecord } from './TikiTaka';
 import { formatTime, readTrepaRecord } from './Trepaluna';
 import { readSnakeRecord } from './ReverseSnake';
+import { formatLavaTime, readLavaRecord } from './LavaFloor';
 import type { Suit } from './solitaire';
 import memeJigsaw from '../../assets/images/meme-jigsaw.jpg';
 
@@ -102,12 +103,53 @@ function ReverseSnakeArt() {
   </svg>;
 }
 
+// Dibujo de la tarjeta de ¡El piso es de lava!: edificios cortados con habitaciones, la lava subiendo,
+// el personaje saltando entre dos edificios y el helicóptero arriba de la torre.
+function LavaArt() {
+  const rooms = (x: number, w: number, floors: number, fh: number, hue: number) => Array.from({ length: floors }, (_, k) => {
+    const y = 100 - (k + 1) * fh;
+    return <g key={k}>
+      <rect x={x} y={y} width={w} height={fh} fill={`hsl(${(hue + k * 40) % 360} 35% 72%)`} />
+      <rect x={x} y={y + fh - 1.5} width={w} height="1.5" fill="#9ca3af" />
+      {k % 2 ? <rect x={x + w * 0.2} y={y + fh * 0.25} width={w * 0.22} height={fh * 0.35} fill="#7c2d12" stroke="#6b4423" strokeWidth=".8" /> : <rect x={x + w * 0.55} y={y + fh * 0.55} width={w * 0.32} height={fh * 0.3} rx="1.5" fill={`hsl(${(hue + 180) % 360} 45% 45%)`} />}
+    </g>;
+  });
+  return <svg viewBox="0 0 160 100" aria-hidden="true">
+    <defs>
+      <linearGradient id="lava-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1c1020" /><stop offset=".6" stopColor="#4a1d1a" /><stop offset="1" stopColor="#b4461c" /></linearGradient>
+      <linearGradient id="lava-hot" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fde047" /><stop offset=".15" stopColor="#f97316" /><stop offset="1" stopColor="#7f1d1d" /></linearGradient>
+    </defs>
+    <rect width="160" height="100" fill="url(#lava-sky)" />
+    {rooms(6, 34, 4, 15, 20)}
+    {rooms(48, 30, 3, 17, 200)}
+    {rooms(88, 42, 6, 14, 120)}
+    <rect x="130" y="16" width="3" height="84" fill="#57534e" />
+    <path d="M60 52 l-6 -10 M64 50 l4 -9" stroke="#1c1917" strokeWidth=".8" fill="none" />
+    <g>
+      <path d="M100 56 q3 -9 6 0 q3 -7 6 0z" fill="#f97316" /><path d="M103 56 q2 -5 4 0z" fill="#fde047" />
+    </g>
+    <g transform="translate(104 6)">
+      <ellipse cx="10" cy="6" rx="10" ry="5" fill="#dc2626" /><ellipse cx="5" cy="5" rx="4" ry="3" fill="#bae6fd" />
+      <path d="M17 5 h12 v3 h-12z" fill="#b91c1c" /><rect x="-4" y="0" width="28" height="1.5" fill="#1f2937" />
+      <path d="M2 11 h14 M5 9 v2 M13 9 v2" stroke="#1f2937" strokeWidth="1.2" />
+    </g>
+    <g transform="translate(40 30)">
+      <rect x="-2" y="2" width="5" height="5" rx="1" fill="#1d4ed8" /><rect x="-2" y="4" width="5" height="1.6" fill="#facc15" />
+      <circle cx=".5" cy="0" r="2" fill="#fcd9b6" /><path d="M-1.5 -.6 a2 2 0 0 1 4 0z" fill="#2563eb" />
+      <path d="M-1 7 l-2 3 M2 7 l2 3" stroke="#f8fafc" strokeWidth="1.3" />
+    </g>
+    <path d="M0 84 Q20 79 40 84 T80 84 T120 84 T160 84 V100 H0z" fill="url(#lava-hot)" />
+    {[[18, 80], [70, 81], [125, 80]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="1.6" fill="#fde047" />)}
+  </svg>;
+}
+
 export function Games() {
   const record = readRecord();
   const solitaire = readSolitaireRecord();
   const tiki = readTikiRecord();
   const trepa = readTrepaRecord();
   const snake = readSnakeRecord();
+  const lava = readLavaRecord();
   return <section>
     <div className="section-title games-title">
       <div className="games-heading"><p className="eyebrow">Para cortar un rato</p><h1>Juegos</h1></div>
@@ -177,6 +219,19 @@ export function Games() {
           </span>
           <span className="game-card-foot">
             {snake > 0 && <small><b>Récord</b>{snake} puntos</small>}
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
+        </Link>
+      </li>
+      <li>
+        <Link className="game-card game-card--lava" to="/juegos/lava">
+          <LavaArt />
+          <span className="game-card-text">
+            <strong>¡El piso es de lava!</strong>
+            <span>¡La lava sube y no para! Subí lo más rápido que puedas para sobrevivir: saltá de edificio en edificio, esquivá el fuego y los cortocircuitos y tomá buenas decisiones para llegar al helicóptero antes de que la lava te alcance.</span>
+          </span>
+          <span className="game-card-foot">
+            {lava.height > 0 && <small><b>Récord</b>{lava.time !== null ? `🚁 en ${formatLavaTime(lava.time)}` : `${lava.height} metros`}</small>}
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
           </span>
         </Link>
