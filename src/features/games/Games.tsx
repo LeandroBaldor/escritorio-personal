@@ -7,7 +7,7 @@ import { readTikiRecord } from './TikiTaka';
 import { formatTime, readTrepaRecord } from './Trepaluna';
 import { readSnakeRecord } from './ReverseSnake';
 import type { Suit } from './solitaire';
-import memeChallenge from '../../assets/images/meme-challenge.png';
+import memeJigsaw from '../../assets/images/meme-jigsaw.jpg';
 
 // Dibujo chiquito del juego para la tarjeta: piezas cayendo y el personaje abajo.
 function BlockRunnerArt() {
@@ -111,7 +111,7 @@ export function Games() {
   return <section>
     <div className="section-title games-title">
       <div className="games-heading"><p className="eyebrow">Para cortar un rato</p><h1>Juegos</h1></div>
-      <div className="games-art" aria-hidden="true"><img src={memeChallenge} alt="" width={350} height={274} draggable={false} /></div>
+      <div className="games-art" aria-hidden="true"><img src={memeJigsaw} alt="" width={800} height={444} draggable={false} /></div>
       <SectionObjects large><DeskLink /><NotebookLink /><CalculatorLink /><CalendarLink /></SectionObjects>
     </div>
     <ul className="games-list">
