@@ -16,7 +16,7 @@ export type CalendarEvent={id:string,text:string,date:string,time?:string,catego
 export type Data={version:1,notes:Note[],folders:Folder[],expenses:Expense[],expenseMonths?:ExpenseMonth[],noteFolders?:NoteFolder[],events?:CalendarEvent[]};
 export const EMPTY:Data={version:1,notes:[],folders:[],expenses:[]};
 export const COLORS=['#ffe783','#f7b7c3','#bde7c6','#bcdcf6','#e3c5f4'];
-export const PAGE_LIMIT=1200;
+export const PAGE_LIMIT=3000;
 export const plainTextLength=(html:string)=>html.replace(/<[^>]*>/g,'').length;
 export const id=()=>crypto.randomUUID();
 const str=(v:unknown)=>typeof v==='string'&&v.trim().length>0;
