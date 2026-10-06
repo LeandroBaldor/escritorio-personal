@@ -475,18 +475,16 @@ test('el meme de gastos se apoya sobre el borde de arriba del rectángulo', asyn
   expect(meme.width).toBeGreaterThan(meme.height * 2);
 });
 
-test('el meme de Juegos va bien en el medio del encabezado sin tapar los íconos', async ({ page }) => {
+test('el meme de Juegos va bien en el medio de la pantalla, grande y sin tapar los íconos', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
   const meme = (await page.locator('.games-art img').boundingBox())!;
-  const slot = (await page.locator('.games-art').boundingBox())!;
+  const header = (await page.locator('.games-title').boundingBox())!;
   const cards = (await page.locator('.games-list').boundingBox())!;
-  expect(Math.abs(meme.x + meme.width / 2 - (slot.x + slot.width / 2))).toBeLessThanOrEqual(1);
-  expect(meme.width).toBeGreaterThan(100);
+  const icons = (await page.locator('.games-title > .section-objects').boundingBox())!;
+  expect(Math.abs(meme.x + meme.width / 2 - (header.x + header.width / 2))).toBeLessThanOrEqual(1);
+  expect(meme.width).toBeGreaterThan(Math.min(300, header.width * .8));
   expect(meme.y + meme.height).toBeLessThanOrEqual(cards.y);
-  if (page.viewportSize()!.width > 800) {
-    const icons = (await page.locator('.games-title > .section-objects').boundingBox())!;
-    expect(meme.x + meme.width).toBeLessThanOrEqual(icons.x);
-  }
+  if (page.viewportSize()!.width > 800) expect(meme.y).toBeGreaterThanOrEqual(icons.y + icons.height);
 });
 
 test('el calendario tiene el mes centrado y el meme apoyado arriba, sobre su borde', async ({ page }) => {
