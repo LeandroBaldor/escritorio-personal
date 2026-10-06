@@ -184,7 +184,6 @@ export function Expenses() {
     try { return { sum: total(expenses), byCategory: totalsByCategory(expenses), error: '' }; }
     catch (e) { return { sum: 0, byCategory: Object.fromEntries(EXPENSE_CATEGORIES.map(c => [c, 0])) as Record<ExpenseCategory, number>, error: e instanceof Error ? e.message : 'Total inválido' }; }
   };
-  const { sum, error: sumError } = totals(data.expenses);
   const summary = totals(summaryExpenses);
   const readForm = (): Expense | null => {
     const cents = parseCents(amount);
@@ -233,7 +232,7 @@ export function Expenses() {
     });
     setMonthNotice(`“${current.concept}” se guardó en ${target.name}.`);
   };
-  return <section><div className="section-title"><div className="title-with-floppy"><div><p className="eyebrow">Control cotidiano</p><h1>Mis gastos</h1></div><Link className="floppy floppy--small" to="/gastos/meses" aria-label="Meses guardados" title="Meses guardados"><span className="floppy-shutter" aria-hidden="true" /><span>Meses</span></Link></div><div className="calc-art" aria-hidden="true"><img src={memeCalculos} alt="" width={800} height={337} draggable={false} /></div><SectionObjects large><DeskLink /><NotebookLink /><CalendarLink /><GamesLink /></SectionObjects><div className="total"><small>Total</small><strong>{sumError ? '—' : money(sum)}</strong>{sumError && <small role="alert">{sumError}</small>}</div></div><div className="expenses-layout"><div className="calculator"><form onSubmit={add}>
+  return <section><div className="section-title"><div className="title-with-floppy"><div><p className="eyebrow">Control cotidiano</p><h1>Mis gastos</h1></div><Link className="floppy floppy--small" to="/gastos/meses" aria-label="Meses guardados" title="Meses guardados"><span className="floppy-shutter" aria-hidden="true" /><span>Meses</span></Link></div><div className="calc-art" aria-hidden="true"><img src={memeCalculos} alt="" width={800} height={337} draggable={false} /></div><SectionObjects large><DeskLink /><NotebookLink /><CalendarLink /><GamesLink /></SectionObjects></div><div className="expenses-layout"><div className="calculator"><form onSubmit={add}>
     <label>Gasto<input value={concept} onChange={e => setConcept(e.target.value)} placeholder="Ej. Electricidad" /></label>
     <label>Categoría<select aria-label="Categoría del gasto" value={category} onChange={e => setCategory(e.target.value as ExpenseCategory)}>
       {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}

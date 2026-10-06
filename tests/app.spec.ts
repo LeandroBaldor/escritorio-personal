@@ -106,8 +106,8 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await page.getByRole('button', { name: 'Agregar' }).click();
   await expect(page.locator('.expense-row .money-input')).toContainText('$');
   await expect(page.getByLabel('Monto en pesos', { exact: true })).toHaveValue('12,34');
-  await expect(page.locator('.total strong')).toContainText('12,34');
-  await expect(page.locator('.total strong')).toContainText('$');
+  await expect(page.locator('.expense-summary-total strong')).toContainText('12,34');
+  await expect(page.locator('.expense-summary-total strong')).toContainText('$');
   await expect(page.getByLabel('Fecha', { exact: true })).toHaveValue('23/07/2026');
   const rowCalendar = page.getByLabel('Abrir calendario de fecha', { exact: true });
   await expect(rowCalendar).toBeVisible();
@@ -380,7 +380,7 @@ test('carga meses, guarda gastos en su carpeta y los saca de la lista', async ({
   await rows.nth(0).getByRole('listbox').getByRole('option', { name: '08/2026' }).click();
   await rows.nth(0).getByRole('button', { name: 'Guardar' }).click();
   await expect(rows).toHaveCount(1);
-  await expect(page.locator('.total strong')).toContainText('900,00');
+  await expect(page.locator('.expense-summary-total strong')).toContainText('900,00');
   await page.getByLabel('Mes de los subtotales').selectOption({ label: '08/2026' });
   await expect(page.locator('.expense-summary-total strong')).toContainText('1.700,50');
   await page.getByLabel('Mes de los subtotales').selectOption({ label: 'Gastos actuales' });
@@ -515,6 +515,21 @@ test('Juegos: en pantallas anchas el meme queda centrado arriba de Tiki-Taka, en
   expect(Math.abs(meme.x + meme.width / 2 - (tiki.x + tiki.width / 2))).toBeLessThanOrEqual(1);
   expect(Math.abs(meme.x + meme.width / 2 - 960)).toBeLessThanOrEqual(1);
   expect(meme.y + meme.height).toBeLessThanOrEqual(tiki.y);
+});
+
+test('Mis gastos: sin recuadro de Total arriba, disquete al lado del título y meme en la fila de los íconos', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await page.goto('/escritorio-personal/#/gastos');
+  await expect(page.locator('.section-title .total')).toHaveCount(0);
+  const title = (await page.locator('.section-title h1').boundingBox())!;
+  const floppy = (await page.locator('.floppy--small').boundingBox())!;
+  const meme = (await page.locator('.calc-art img').boundingBox())!;
+  const icons = (await page.locator('.section-title > .section-objects').boundingBox())!;
+  expect(floppy.x).toBeGreaterThanOrEqual(title.x + title.width);
+  expect(floppy.y).toBeLessThan(title.y + title.height);
+  expect(Math.abs(meme.x + meme.width / 2 - 960)).toBeLessThanOrEqual(1);
+  expect(meme.x).toBeGreaterThanOrEqual(floppy.x + floppy.width);
+  expect(meme.x + meme.width).toBeLessThanOrEqual(icons.x);
 });
 
 test('las notas son cuadradas y un texto largo achica la letra para entrar', async ({ page }) => {
