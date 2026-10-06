@@ -44,7 +44,7 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await page.getByRole('button', { name: 'Crear mi primera carpeta' }).click();
   const journalPage = page.getByLabel('Página del diario');
   await journalPage.fill('Algo importante');
-  await expect(page.getByText('15 de 3.000 caracteres (máximo por hoja)')).toBeVisible();
+  await expect(page.getByText('15 / 3.000', { exact: true })).toBeVisible();
   await expect(journalPage).toBeFocused();
   await expect(journalPage).toHaveCSS('outline-style', 'none');
   await expect(journalPage).toHaveCSS('caret-color', 'rgb(106, 56, 42)');
