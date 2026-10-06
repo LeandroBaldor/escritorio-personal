@@ -453,6 +453,19 @@ test('el meme del escritorio va arriba de No iniciado con sus mismos bordes y na
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test('el meme del diario está sentado en el borde de arriba del libro', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.goto('/escritorio-personal/#/diario');
+  page.once('dialog', dialog => dialog.accept('Psicologa'));
+  await page.getByRole('button', { name: 'Crear mi primera carpeta' }).click();
+  const art = (await page.locator('.book-art').boundingBox())!;
+  const book = (await page.locator('.book').boundingBox())!;
+  const desk = (await page.getByRole('link', { name: 'Mi Escritorio' }).boundingBox())!;
+  // El asiento (69% de la altura) queda sobre el borde y las piernas cuelgan sobre el libro.
+  expect(Math.abs(art.y + art.height * .69 - book.y)).toBeLessThanOrEqual(2);
+  expect(art.x + art.width).toBeLessThan(desk.x);
+});
+
 test('las notas son cuadradas y un texto largo achica la letra para entrar', async ({ page }) => {
   await page.goto('/escritorio-personal/');
   const add = async (text: string) => {

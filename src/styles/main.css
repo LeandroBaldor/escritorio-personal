@@ -333,9 +333,12 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .section-objects--large{zoom:1.3}
 @media(min-width:801px){.section-title:has(>.section-objects--large){grid-template-columns:minmax(0,1fr) auto;column-gap:1.4rem}.section-title>.section-objects--large{justify-self:end}}
 /* Imagen apoyada arriba del cuaderno, en el espacio libre entre el título y la tapa. */
+/* Meme del diario: sentado en el borde de arriba del libro, con las piernas colgando sobre la hoja.
+   El asiento está al 69% de la altura de la imagen, así que se sube ese tanto por encima del borde.
+   Va a la derecha de donde estaba el meme anterior, pero se corre a la izquierda si no hay lugar antes de los íconos. */
 .book-art{display:none}
-@media(min-width:1160px){.book-art{display:block;position:absolute;z-index:3;bottom:100%;left:4rem;height:9rem;width:auto;pointer-events:none;user-select:none}}
-@media(min-width:1280px){.book-art{left:5rem;height:11rem}}
+@media(min-width:1160px){.book-art{display:block;position:absolute;z-index:5;top:calc(var(--sit-height) * -.69);left:max(2rem,min(20rem,calc(100% - 44rem)));--sit-height:10rem;height:var(--sit-height);width:auto;pointer-events:none;user-select:none;filter:drop-shadow(4px 6px 5px #2d140c66)}}
+@media(min-width:1280px){.book-art{left:max(2rem,min(22rem,calc(100% - 46rem)));--sit-height:12rem}}
 /* Mis gastos: la calculadora arranca arriba de su columna (antes "margin:auto" la centraba en vertical junto a Subtotales). */
 .expenses-layout>.calculator{margin:0}
 /* Libreta de "Mi diario": un poco más ancha y con letra más chica, así la palabra entra entera con cualquier fuente. */
