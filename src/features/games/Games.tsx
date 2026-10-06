@@ -111,7 +111,7 @@ export function Games() {
   return <section>
     <div className="section-title games-title">
       <div className="games-heading"><p className="eyebrow">Para cortar un rato</p><h1>Juegos</h1></div>
-      <div className="games-art" aria-hidden="true"><img src={memeJigsaw} alt="" width={800} height={444} draggable={false} /></div>
+      <div className="games-art" aria-hidden="true"><img src={memeJigsaw} alt="" width={1200} height={666} draggable={false} /></div>
       <SectionObjects large><DeskLink /><NotebookLink /><CalculatorLink /><CalendarLink /></SectionObjects>
     </div>
     <ul className="games-list">
