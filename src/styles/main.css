@@ -884,6 +884,3 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 /* Objetos del escritorio en el celular: no se aplastan; si no entran en una fila, pasan a la siguiente. */
 @media(max-width:800px){.desk-objects{flex-wrap:wrap;justify-content:center;align-items:center;gap:1rem 1.1rem}.desk-objects>*{flex-shrink:0}}
 @media(max-width:480px){.desk-objects{zoom:.85}}
-/* Calendario a la mitad de su ancho anterior (los días siguen cuadrados, así que también mide la mitad de alto);
-   el panel del día va al lado. */
-@media(min-width:1001px){.cal-page .cal-layout{grid-template-columns:minmax(0,calc((100% - 330px - 1.4rem) / 2)) minmax(260px,330px)}}
