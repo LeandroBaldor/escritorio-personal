@@ -1,10 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { appendToMonth, cleanMonthName, EMPTY, moveToMonth, parseMonthKey, sortMonths, syncMonthEntry, isData, isExpenseDate, parseCents, sameMonthName, total } from './model';
+import { appendToMonth, cleanMonthName, EMPTY, moveToMonth, PAGE_LIMIT, parseMonthKey, sortMonths, syncMonthEntry, isData, isExpenseDate, parseCents, sameMonthName, total } from './model';
 import { load, parseBackup, save, serialize } from './store';
 import { editableMoney, formatExpenseDate, money, parseExpenseDate } from '../features/expenses/Expenses';
 
 describe('datos exactos y backup', () => {
   beforeEach(() => localStorage.clear());
+  it('cada hoja del diario admite hasta 3.000 caracteres', () => {
+    const page = (text: string) => ({ ...EMPTY, folders: [{ id: 'f', name: 'Diario', pages: [{ id: 'p', text, createdAt: new Date().toISOString() }] }] });
+    expect(PAGE_LIMIT).toBe(3000);
+    expect(isData(page('a'.repeat(3000)))).toBe(true);
+    expect(isData(page('a'.repeat(3001)))).toBe(false);
+  });
   it('suma en centavos', () => expect(total([{ id: '1', concept: 'a', cents: 10 }, { id: '2', concept: 'b', cents: 20 }])).toBe(30));
   it('valida montos y overflow', () => {
     expect(parseCents('12,34')).toBe(1234);
