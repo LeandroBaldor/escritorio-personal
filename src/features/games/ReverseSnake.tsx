@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { level, newGame, POP_LIFE, PELLET_POINTS, score, step, takeEvents, type Dir, type Game } from './reverseSnake';
+import { level, newGame, score, step, takeEvents, type Dir, type Game } from './reverseSnake';
 
 const RECORD_KEY = 'escritorio-personal-juegos:serpiente-record';
 export const readSnakeRecord = () => { try { return Number(localStorage.getItem(RECORD_KEY)) || 0; } catch { return 0; } };
@@ -41,17 +41,6 @@ function drawPellets(ctx: CanvasRenderingContext2D, g: Game, c: number) {
   ctx.shadowBlur = 0;
 }
 
-// "+10" amarillo que sube y se desvanece donde la manzana agarró una bolita.
-function drawPops(ctx: CanvasRenderingContext2D, g: Game, c: number) {
-  ctx.font = `900 ${Math.round(c * 0.42)}px Nunito, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.lineWidth = Math.max(2, c * 0.08); ctx.strokeStyle = '#14532d'; ctx.fillStyle = '#fde047';
-  for (const p of g.pops) {
-    const k = p.life / POP_LIFE, x = (p.x + 0.5) * c, y = (p.y - 0.1) * c - (1 - k) * c * 0.6;
-    ctx.globalAlpha = Math.min(1, k * 1.5);
-    ctx.strokeText(`+${PELLET_POINTS}`, x, y); ctx.fillText(`+${PELLET_POINTS}`, x, y);
-  }
-  ctx.globalAlpha = 1;
-}
 
 // Manzana verde (la comida de la serpiente): brillante, con cabito y hoja.
 function drawGreenApple(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, t: number) {
@@ -194,7 +183,6 @@ function draw(ctx: CanvasRenderingContext2D, g: Game, c: number) {
   for (const p of g.powers) drawPower(ctx, p.x, p.y, p.kind, c, t, p.life);
   drawSnake(ctx, g, c, t);
   drawApple(ctx, g, c, t);
-  drawPops(ctx, g, c);
 }
 
 const KEYS: Record<string, Dir> = { ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down', ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right' };
