@@ -349,18 +349,23 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 /* Mis gastos: íconos grandes donde termina el rectángulo de gastos e imagen en el medio, apoyada sobre su borde. */
 .calc-art{display:none}
 @media(min-width:801px){
-.section-title:has(>.calc-art){display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;column-gap:1rem;align-items:end}
-.section-title:has(>.calc-art)>.section-objects{justify-self:end;align-self:end}
-.calc-art{display:block;position:relative;align-self:stretch;container-type:inline-size;min-height:8rem}
-/* Foto apaisada: lo más grande que entra en el hueco (sin deformarse), centrada, con su borde de abajo apoyado
-   justo sobre el borde de arriba del rectángulo (1.6rem más abajo). */
-.calc-art img{position:absolute;z-index:2;left:50%;bottom:-1.6rem;transform:translateX(-50%);width:auto;height:auto;max-width:calc(100% + 1rem);max-height:calc(100% + 1.6rem);border-radius:10px;box-shadow:0 6px 14px #2d140c88;pointer-events:none;user-select:none}
-@container (max-width:6rem){.calc-art img{display:none}}
+.section-title:has(>.calc-art){display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:1rem;align-items:start}
+.section-title:has(>.calc-art)>.title-with-floppy{grid-column:1;grid-row:1}
+.section-title:has(>.calc-art)>.section-objects{grid-column:3;grid-row:1;justify-self:end;align-self:end}
+/* El meme va en la misma fila que los íconos, lo más grande que entra en esa fila, con su borde de abajo apoyado
+   justo sobre el borde de arriba del rectángulo (1.6rem más abajo). Si no hay lugar para centrarlo en la pantalla,
+   va centrado en el lugar libre entre el disquete y los íconos (y se oculta si ese lugar es muy chico). */
+.calc-art{display:block;grid-column:2;grid-row:1;position:relative;align-self:stretch;container-type:inline-size;pointer-events:none;user-select:none}
+.calc-art img{position:absolute;z-index:2;left:50%;bottom:-1.6rem;transform:translateX(-50%);width:auto;height:auto;max-width:100%;max-height:calc(100% + 1.6rem);border-radius:10px;box-shadow:0 6px 14px #2d140c88}
+@container (max-width:7rem){.calc-art img{display:none}}
 }
-/* Mis gastos: el disquete de Meses va arriba del título, así el meme tiene más lugar. */
-.title-with-floppy{flex-direction:column-reverse;align-items:flex-start;gap:.6rem}
-@media(max-width:600px){.title-with-floppy{justify-content:flex-start}}
-@media(min-width:1460px){.section-title:has(>.calc-art){grid-template-columns:auto minmax(0,1fr) auto minmax(280px,20rem)}}
+/* Mis gastos en pantallas anchas: el meme queda bien en el medio de la pantalla. */
+@media(min-width:1860px){.calc-art{grid-column:1/-1}.calc-art img{max-width:30%}}
+/* Mis gastos en pantallas medianas: no hay lugar para el meme; los íconos pasan a otra línea si no entran. */
+@media(min-width:801px) and (max-width:1150px){
+  .calc-art{display:none}
+  .section-title:has(>.calc-art)>.section-objects{grid-column:2/-1;flex-wrap:wrap;justify-content:flex-end}
+}
 /* Mi diario: los íconos de Escritorio y Gastos van arriba de los botones de la carpeta, alineados a la derecha. */
 .journal-objects{display:flex;justify-content:flex-end;max-width:1400px;margin:0 auto .75rem}.journal-objects .section-objects{flex:0 0 auto}
 /* Mis gastos: ícono de calculadora abajo de Subtotales y la calculadora flotante que se arrastra por la pantalla. */
@@ -478,7 +483,6 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 /* En celular los accesos de arriba no se agrandan y bajan de línea si no entran (ahora son hasta cuatro con el calendario). */
 @media(max-width:800px){.section-objects--large{zoom:1}.section-objects{flex-wrap:wrap;gap:.8rem;max-width:100%}}
 /* Mis gastos: con el calendario son tres accesos; un poco más chicos para que la imagen del medio siga entrando. */
-@media(min-width:801px){.section-title:has(>.calc-art)>.section-objects--large{zoom:1.05;gap:.8rem}}
 /* Calendario: lista "¿Son fechas?" (flecha para ponerla en el calendario, X para dejar de preguntar) y cambio de fecha de una nota. */
 .cal-doubts>p{margin:0 0 .6rem;font-size:.85rem;color:#6b5a48}
 .cal-doubts ul{display:grid;gap:.4rem;margin:0;padding:0;list-style:none}
