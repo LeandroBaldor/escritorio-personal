@@ -475,29 +475,36 @@ test('el meme de gastos se apoya sobre el borde de arriba del rectángulo', asyn
   expect(meme.width).toBeGreaterThan(meme.height * 2);
 });
 
-test('el meme de Juegos va bien en el medio de la pantalla, grande y sin tapar los íconos', async ({ page }) => {
+test('Juegos: las tarjetas van justo debajo del encabezado y el meme ocupa el lugar libre sin tapar nada', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
   const meme = (await page.locator('.games-art img').boundingBox())!;
-  const header = (await page.locator('.games-title').boundingBox())!;
   const cards = (await page.locator('.games-list').boundingBox())!;
   const icons = (await page.locator('.games-title > .section-objects').boundingBox())!;
-  expect(Math.abs(meme.x + meme.width / 2 - (header.x + header.width / 2))).toBeLessThanOrEqual(1);
-  expect(meme.width).toBeGreaterThan(Math.min(300, header.width * .8));
+  const title = (await page.locator('.games-title h1').boundingBox())!;
+  expect(meme.width).toBeGreaterThan(80);
   expect(meme.y + meme.height).toBeLessThanOrEqual(cards.y);
-  if (page.viewportSize()!.width > 800) expect(meme.y).toBeGreaterThanOrEqual(icons.y + icons.height);
+  if (page.viewportSize()!.width > 800) {
+    expect(meme.x).toBeGreaterThanOrEqual(title.x + title.width);
+    expect(meme.x + meme.width).toBeLessThanOrEqual(icons.x);
+    expect(cards.y - (icons.y + icons.height)).toBeLessThan(60);
+  }
 });
 
-test('el calendario tiene el mes centrado y el meme apoyado arriba, sobre su borde', async ({ page }) => {
+test('el calendario tiene el mes centrado, días cuadrados y el meme apoyado sobre su borde', async ({ page }) => {
   await page.goto('/escritorio-personal/#/calendario');
   const meme = (await page.locator('.cal-art').boundingBox())!;
   const sheet = (await page.locator('.cal-sheet').boundingBox())!;
   const month = (await page.locator('.cal-band h2').boundingBox())!;
-  const title = (await page.locator('.section-title').boundingBox())!;
-  const center = sheet.x + sheet.width / 2;
-  expect(Math.abs(month.x + month.width / 2 - center)).toBeLessThanOrEqual(1);
-  expect(Math.abs(meme.x + meme.width / 2 - center)).toBeLessThanOrEqual(1);
+  const title = (await page.locator('.cal-page .section-title h1').boundingBox())!;
+  const day = (await page.locator('.cal-day').nth(10).boundingBox())!;
+  expect(Math.abs(month.x + month.width / 2 - (sheet.x + sheet.width / 2))).toBeLessThanOrEqual(1);
   expect(Math.abs(meme.y + meme.height - sheet.y)).toBeLessThanOrEqual(1);
-  expect(meme.y).toBeGreaterThanOrEqual(title.y + title.height);
+  expect(Math.abs(day.width - day.height)).toBeLessThanOrEqual(1.5);
+  if (page.viewportSize()!.width > 800) {
+    const icons = (await page.locator('.cal-page .section-title .section-objects').boundingBox())!;
+    expect(meme.x).toBeGreaterThanOrEqual(title.x + title.width);
+    expect(meme.x + meme.width).toBeLessThanOrEqual(icons.x);
+  } else expect(meme.y).toBeGreaterThanOrEqual(title.y + title.height);
 });
 
 test('las notas son cuadradas y un texto largo achica la letra para entrar', async ({ page }) => {

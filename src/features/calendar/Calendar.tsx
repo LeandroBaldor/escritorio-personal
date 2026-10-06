@@ -12,8 +12,7 @@ const MONTH_NAMES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'jul
 const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const WEEK_HEADER = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
 const MAX_CHIPS = 3;
-// Alto de cada semana en computadora: se ajusta a la pantalla para que el mes entero se vea sin bajar.
-const MIN_ROW = 50, MAX_ROW = 130;
+
 
 // Cada categoría tiene su color (clase cal-cat--…).
 export const categoryClass = (category: EventCategory) => `cal-cat--${category.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()}`;
@@ -146,14 +145,13 @@ export function Calendar() {
   const weeks = days.length / 7;
   const gridRef = useRef<HTMLDivElement>(null);
   const [rowHeight, setRowHeight] = useState<number | null>(null);
+  // Días cuadrados: en la compu cada fila mide lo mismo que el ancho de un día (así se sabe cuántas cosas entran).
   useLayoutEffect(() => {
     const fit = () => {
       const grid = gridRef.current;
-      if (!grid || window.innerWidth <= 1000) { setRowHeight(null); return; }
-      const header = grid.querySelector<HTMLElement>('.cal-weekday');
-      const top = grid.getBoundingClientRect().top + window.scrollY + (header?.offsetHeight ?? 0);
-      const height = Math.floor((window.innerHeight - top - 28) / weeks);
-      setRowHeight(Math.max(MIN_ROW, Math.min(MAX_ROW, height)));
+      const day = grid?.querySelector<HTMLElement>('.cal-day');
+      if (!grid || !day || window.innerWidth <= 1000) { setRowHeight(null); return; }
+      setRowHeight(Math.round(day.getBoundingClientRect().width));
     };
     fit();
     window.addEventListener('resize', fit);
@@ -166,6 +164,8 @@ export function Calendar() {
   return <section className="cal-page">
     <div className="section-title">
       <div><p className="eyebrow">Lo que se viene</p><h1>Calendario</h1></div>
+      {/* El meme ocupa el lugar libre del encabezado y se apoya sobre el borde de arriba del calendario. */}
+      <div className="cal-art-room" aria-hidden="true"><img className="cal-art" src={memeInterstellar} alt="" width={917} height={497} draggable={false} /></div>
       <SectionObjects large><DeskLink /><NotebookLink /><CalculatorLink /><GamesLink /></SectionObjects>
     </div>
 
@@ -173,8 +173,6 @@ export function Calendar() {
     <div className="cal-layout">
       <div className="cal-sheet">
         <div className="cal-rings" aria-hidden="true"><span /><span /></div>
-        {/* El meme va centrado arriba del mes, apoyado sobre el borde de arriba del calendario. */}
-        <img className="cal-art" src={memeInterstellar} alt="" width={917} height={497} draggable={false} />
         <div className="cal-band-wrap">
           <div className="cal-band">
             <button type="button" className="cal-arrow" onClick={() => shiftMonth(-1)} aria-label="Mes anterior">‹</button>
