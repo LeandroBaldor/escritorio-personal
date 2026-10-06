@@ -489,6 +489,19 @@ test('el meme de Juegos va bien en el medio del encabezado sin tapar los íconos
   }
 });
 
+test('el calendario tiene el mes centrado y el meme apoyado arriba, sobre su borde', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/calendario');
+  const meme = (await page.locator('.cal-art').boundingBox())!;
+  const sheet = (await page.locator('.cal-sheet').boundingBox())!;
+  const month = (await page.locator('.cal-band h2').boundingBox())!;
+  const title = (await page.locator('.section-title').boundingBox())!;
+  const center = sheet.x + sheet.width / 2;
+  expect(Math.abs(month.x + month.width / 2 - center)).toBeLessThanOrEqual(1);
+  expect(Math.abs(meme.x + meme.width / 2 - center)).toBeLessThanOrEqual(1);
+  expect(Math.abs(meme.y + meme.height - sheet.y)).toBeLessThanOrEqual(1);
+  expect(meme.y).toBeGreaterThanOrEqual(title.y + title.height);
+});
+
 test('las notas son cuadradas y un texto largo achica la letra para entrar', async ({ page }) => {
   await page.goto('/escritorio-personal/');
   const add = async (text: string) => {
