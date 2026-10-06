@@ -466,6 +466,15 @@ test('el meme del diario está sentado en el borde de arriba del libro', async (
   expect(art.x + art.width).toBeLessThan(desk.x);
 });
 
+test('el meme de gastos se apoya sobre el borde de arriba del rectángulo', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await page.goto('/escritorio-personal/#/gastos');
+  const meme = (await page.locator('.calc-art img').boundingBox())!;
+  const calculator = (await page.locator('.calculator').boundingBox())!;
+  expect(Math.abs(calculator.y - (meme.y + meme.height))).toBeLessThanOrEqual(1);
+  expect(meme.width).toBeGreaterThan(meme.height * 2);
+});
+
 test('las notas son cuadradas y un texto largo achica la letra para entrar', async ({ page }) => {
   await page.goto('/escritorio-personal/');
   const add = async (text: string) => {

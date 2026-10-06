@@ -343,13 +343,14 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .expenses-layout>.calculator{margin:0}
 /* Libreta de "Mi diario": un poco más ancha y con letra más chica, así la palabra entra entera con cualquier fuente. */
 .section-objects .notebook{width:135px}.section-objects .notebook span:not(.notebook-binding){font-size:1.3rem}
-/* Mis gastos: íconos grandes donde termina el rectángulo de gastos e imagen en el medio, con la línea del cuerpo apoyada sobre su borde (3px adentro). */
+/* Mis gastos: íconos grandes donde termina el rectángulo de gastos e imagen en el medio, apoyada sobre su borde. */
 .calc-art{display:none}
 @media(min-width:801px){
 .section-title:has(>.calc-art){display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;column-gap:1rem;align-items:end}
 .section-title:has(>.calc-art)>.section-objects{justify-self:end;align-self:end}
 .calc-art{display:block;position:relative;align-self:stretch;container-type:inline-size;min-height:8rem}
-.calc-art img{position:absolute;z-index:2;left:-.5rem;right:-.5rem;top:-1.5rem;width:calc(100% + 1rem);height:calc(100% + 3.1rem + 3px);object-fit:contain;object-position:center bottom;pointer-events:none;user-select:none}
+/* Foto apaisada: ocupa el ancho del hueco y su borde de abajo se apoya justo sobre el borde de arriba del rectángulo (1.6rem más abajo). */
+.calc-art img{position:absolute;z-index:2;left:-.5rem;bottom:-1.6rem;width:calc(100% + 1rem);height:auto;max-height:calc(100% + 3rem);aspect-ratio:800/337;object-fit:cover;border-radius:10px;box-shadow:0 6px 14px #2d140c88;pointer-events:none;user-select:none}
 @container (max-width:6rem){.calc-art img{display:none}}
 }
 @media(min-width:1460px){.section-title:has(>.calc-art){grid-template-columns:auto minmax(0,1fr) auto minmax(280px,20rem)}}
