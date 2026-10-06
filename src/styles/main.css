@@ -860,15 +860,15 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
   .cal-art-room{display:none}
   .cal-page .section-title>.section-objects{grid-column:2/-1;flex-wrap:wrap;justify-content:flex-end}
 }
-/* Líneas de los días punteadas, un poco más gruesas y azul oscuro (algo transparentes para que no se vean tan sólidas); fines de semana en verde; nombre completo de los días
+/* Líneas de los días punteadas, un poco más gruesas y gris claro; fines de semana en verde; nombre completo de los días
    (abreviado en el celular). */
 /* Puntos dibujados a mano (así se elige su tamaño y su separación): 3px cada uno, cada 9px. */
-.cal-day{position:relative;border-right:0;border-bottom:0;--dot:#1e3a8ab3}
+.cal-day{position:relative;border-right:0;border-bottom:0;--dot:#c4c8ce}
 .cal-day::after{content:"";position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(circle,var(--dot) 1.5px,transparent 1.8px) right top/3px 9px repeat-y,
              radial-gradient(circle,var(--dot) 1.5px,transparent 1.8px) left bottom/9px 3px repeat-x}
 .cal-day:nth-child(7n)::after{background:radial-gradient(circle,var(--dot) 1.5px,transparent 1.8px) left bottom/9px 3px repeat-x}
-.cal-weekday{border-bottom:2px solid #1e3a8a;text-transform:uppercase;font-size:min(.9rem,1vw);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-weekday{border-bottom:2px solid #c4c8ce;text-transform:uppercase;font-size:min(.9rem,1vw);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cal-weekday--weekend,.cal-day--weekend .cal-day-number{color:#15803d}
 .cal-weekday-short{display:none}
 /* Los días de otros meses se ven más claros, pero sus líneas quedan iguales que las demás. */
