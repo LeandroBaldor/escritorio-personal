@@ -10,7 +10,8 @@ import memeInterstellar from '../../assets/images/meme-interstellar.jpg';
 
 const MONTH_NAMES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-const WEEK_HEADER = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
+// Nombre completo de cada día; en el celular (columnas angostas) se muestra la abreviatura.
+const WEEK_HEADER = [['Lunes', 'Lun'], ['Martes', 'Mar'], ['Miércoles', 'Mié'], ['Jueves', 'Jue'], ['Viernes', 'Vie'], ['Sábado', 'Sáb'], ['Domingo', 'Dom']];
 const MAX_CHIPS = 3;
 
 
@@ -188,7 +189,7 @@ export function Calendar() {
           <button type="button" className="cal-today" onClick={() => goTo(todayIso)}>Hoy</button>
         </div>
         <div ref={gridRef} className={`cal-grid${rowHeight !== null ? ' cal-grid--compact' : ''}`} style={rowHeight ? { gridTemplateRows: `auto repeat(${weeks}, ${rowHeight}px)` } : undefined}>
-          {WEEK_HEADER.map((name, index) => <div key={name} className={`cal-weekday${index >= 5 ? ' cal-weekday--weekend' : ''}`} aria-hidden="true">{name}</div>)}
+          {WEEK_HEADER.map(([name, short], index) => <div key={name} className={`cal-weekday${index >= 5 ? ' cal-weekday--weekend' : ''}`} aria-hidden="true"><span className="cal-weekday-full">{name}</span><span className="cal-weekday-short">{short}</span></div>)}
           {days.map(day => {
             const iso = isoOf(day);
             const items = itemsOf(iso);

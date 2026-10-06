@@ -856,6 +856,15 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
   .cal-art-room{display:none}
   .cal-page .section-title>.section-objects{grid-column:2/-1;flex-wrap:wrap;justify-content:flex-end}
 }
+/* Líneas de los días punteadas, un poco más gruesas y azul oscuro (algo transparentes para que no se vean tan sólidas); fines de semana en verde; nombre completo de los días
+   (abreviado en el celular). */
+.cal-day{border-right:2px dotted #1e3a8ab3;border-bottom:2px dotted #1e3a8ab3}
+.cal-weekday{border-bottom:2px solid #1e3a8a;text-transform:uppercase;font-size:min(.9rem,1vw);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-weekday--weekend,.cal-day--weekend .cal-day-number{color:#15803d}
+.cal-weekday-short{display:none}
+/* Los días de otros meses se ven más claros, pero sus líneas quedan iguales que las demás. */
+.cal-day--outside{opacity:1}.cal-day--outside>*{opacity:.38}
+@media(max-width:700px){.cal-weekday-full{display:none}.cal-weekday-short{display:inline}}
 /* Días cuadrados (en la compu el alto de cada fila lo pone Calendar.tsx). */
 .cal-day{aspect-ratio:1;min-height:0;overflow:hidden}
 /* Juegos: las tarjetas van justo debajo del encabezado y la imagen ocupa el lugar libre entre el título y los
