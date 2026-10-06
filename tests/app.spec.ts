@@ -475,6 +475,20 @@ test('el meme de gastos se apoya sobre el borde de arriba del rectángulo', asyn
   expect(meme.width).toBeGreaterThan(meme.height * 2);
 });
 
+test('el meme de Juegos va bien en el medio del encabezado sin tapar los íconos', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/juegos');
+  const meme = (await page.locator('.games-art img').boundingBox())!;
+  const slot = (await page.locator('.games-art').boundingBox())!;
+  const cards = (await page.locator('.games-list').boundingBox())!;
+  expect(Math.abs(meme.x + meme.width / 2 - (slot.x + slot.width / 2))).toBeLessThanOrEqual(1);
+  expect(meme.width).toBeGreaterThan(100);
+  expect(meme.y + meme.height).toBeLessThanOrEqual(cards.y);
+  if (page.viewportSize()!.width > 800) {
+    const icons = (await page.locator('.games-title > .section-objects').boundingBox())!;
+    expect(meme.x + meme.width).toBeLessThanOrEqual(icons.x);
+  }
+});
+
 test('las notas son cuadradas y un texto largo achica la letra para entrar', async ({ page }) => {
   await page.goto('/escritorio-personal/');
   const add = async (text: string) => {
