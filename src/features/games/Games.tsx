@@ -121,9 +121,12 @@ export function Games() {
           <span className="game-card-text">
             <strong>¡Cuidado, bloques!</strong>
             <span>Caen piezas de Tetris y bombas: corré y saltá para que no te aplasten. Llegá al nivel 10 para ganar.</span>
-            {record > 0 && <small>Récord: {record} puntos</small>}
           </span>
-          <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          {/* El récord va siempre en el mismo lugar: abajo, a la izquierda de Jugar. */}
+          <span className="game-card-foot">
+            {record > 0 && <small><b>Récord</b>{record} puntos</small>}
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
         </Link>
       </li>
       <li>
@@ -132,9 +135,11 @@ export function Games() {
           <span className="game-card-text">
             <strong>Solitario 3.000</strong>
             <span>Jugá al solitario del futuro: ¡mientras más rápido lo completes, más puntos tenés!</span>
-            {solitaire && <small>Récord: {solitaire.score !== undefined ? `${solitaire.score} puntos` : `${Math.floor(solitaire.seconds / 60)}:${String(solitaire.seconds % 60).padStart(2, '0')}`}</small>}
           </span>
-          <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          <span className="game-card-foot">
+            {solitaire && <small><b>Récord</b>{solitaire.score !== undefined ? `${solitaire.score} puntos` : `${Math.floor(solitaire.seconds / 60)}:${String(solitaire.seconds % 60).padStart(2, '0')}`}</small>}
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
         </Link>
       </li>
       <li>
@@ -143,9 +148,11 @@ export function Games() {
           <span className="game-card-text">
             <strong>Tiki-Taka</strong>
             <span>Elegí tu equipo, formación y tu nombre de DT. Seleccioná al jugador al que le querés dar el pase y después, ¡tocá y tocá hasta llegar al área del rival!</span>
-            {tiki.played > 0 && <small>Campaña: {tiki.won}G {tiki.drawn}E {tiki.lost}P{tiki.cups ? ` · 🏆 ${tiki.cups}` : ''}</small>}
           </span>
-          <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          <span className="game-card-foot">
+            {tiki.played > 0 && <small><b>Campaña</b>{tiki.won}G {tiki.drawn}E {tiki.lost}P{tiki.cups ? ` · 🏆 ${tiki.cups}` : ''}</small>}
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
         </Link>
       </li>
       <li>
@@ -154,9 +161,11 @@ export function Games() {
           <span className="game-card-text">
             <strong>Trepaluna</strong>
             <span>Escalá edificios, escaleras, sogas y muchos desafíos más por un solo objetivo: ¡llegar a la Luna!</span>
-            {trepa.height > 0 && <small>Récord: {trepa.time !== null ? `Luna en ${formatTime(trepa.time)}` : `${trepa.height.toLocaleString('es-AR')} metros`}</small>}
           </span>
-          <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          <span className="game-card-foot">
+            {trepa.height > 0 && <small><b>Récord</b>{trepa.time !== null ? `Luna en ${formatTime(trepa.time)}` : `${trepa.height.toLocaleString('es-AR')} metros`}</small>}
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
         </Link>
       </li>
       <li>
@@ -165,9 +174,11 @@ export function Games() {
           <span className="game-card-text">
             <strong>¡Huye de la serpiente!</strong>
             <span>El viborita de siempre, pero vos sos la manzana: sumá puntos agarrando las bolitas blancas y escapá de la serpiente, que crece cada vez que se come una manzana verde.</span>
-            {snake > 0 && <small>Récord: {snake} puntos</small>}
           </span>
-          <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          <span className="game-card-foot">
+            {snake > 0 && <small><b>Récord</b>{snake} puntos</small>}
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
         </Link>
       </li>
     </ul>
