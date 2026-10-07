@@ -7,7 +7,6 @@ import { readTikiRecord } from './TikiTaka';
 import { formatTime, readTrepaRecord } from './Trepaluna';
 import { readSnakeRecord } from './ReverseSnake';
 import { formatLavaTime, readLavaRecord } from './LavaFloor';
-import { formatTsunamiTime, readTsunamiRecord } from './Tsunami';
 import type { Suit } from './solitaire';
 import memeJigsaw from '../../assets/images/meme-jigsaw.jpg';
 
@@ -144,38 +143,6 @@ function LavaArt() {
   </svg>;
 }
 
-// Dibujo de la tarjeta de ¡Se viene el tsunami!: la ola gigante a la izquierda, el pueblo con un auto y una
-// palmera, el personaje corriendo y el cerro con la bandera de zona segura a la derecha.
-function TsunamiArt() {
-  return <svg viewBox="0 0 160 100" aria-hidden="true">
-    <defs>
-      <linearGradient id="tsu-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#111827" /><stop offset=".55" stopColor="#334155" /><stop offset="1" stopColor="#94a3b8" /></linearGradient>
-      <linearGradient id="tsu-wave" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#0b2545" /><stop offset=".7" stopColor="#13507a" /><stop offset="1" stopColor="#1f8a9e" /></linearGradient>
-    </defs>
-    <rect width="160" height="100" fill="url(#tsu-sky)" />
-    <path d="M118 100 Q140 40 160 52 V100z" fill="#365314" />
-    <path d="M126 70 h6 v-4 h6 v-4 h6 v-4 h6" stroke="#a8a29e" strokeWidth="2" fill="none" />
-    <path d="M150 54 v-16" stroke="#e5e7eb" strokeWidth="1.2" /><path d="M150 38 l8 3 -8 3z" fill="#16a34a" />
-    {[[62, 40, 22, 40, 20], [86, 52, 16, 28, 200], [100, 46, 14, 34, 110]].map(([x, y, w, h, hue], i) => <g key={i}>
-      <rect x={x} y={y} width={w} height={h} fill={`hsl(${hue} 35% 62%)`} />
-      <path d={`M${x - 2} ${y} L${x + w / 2} ${y - 7} L${x + w + 2} ${y}z`} fill={`hsl(${hue} 30% 35%)`} />
-      <rect x={x + 3} y={y + 5} width="4" height="5" fill="#1e3a5f" /><rect x={x + w - 7} y={y + 5} width="4" height="5" fill="#fde68a" />
-    </g>)}
-    <rect x="0" y="80" width="160" height="20" fill="#374151" /><rect x="0" y="80" width="160" height="2" fill="#9ca3af" />
-    <path d="M56 80 q2 -20 -4 -30" stroke="#78350f" strokeWidth="2.4" fill="none" />
-    <g fill="#15803d"><ellipse cx="46" cy="50" rx="8" ry="2.4" transform="rotate(20 46 50)" /><ellipse cx="58" cy="49" rx="8" ry="2.4" transform="rotate(-25 58 49)" /><ellipse cx="52" cy="47" rx="7" ry="2.2" /></g>
-    <g transform="translate(90 70)"><rect x="0" y="3" width="22" height="6" rx="2" fill="#dc2626" /><path d="M4 3 l3 -5 h9 l3 5z" fill="#dc2626" /><path d="M7 2.5 l2 -3.5 h3 v3.5z M13.5 2.5 v-3.5 h2 l2 3.5z" fill="#bae6fd" /><circle cx="5" cy="9.5" r="2.5" fill="#111827" /><circle cx="17" cy="9.5" r="2.5" fill="#111827" /></g>
-    <g transform="translate(76 66)">
-      <rect x="-2" y="2" width="5" height="5" rx="1" fill="#1d4ed8" /><rect x="-2" y="4" width="5" height="1.6" fill="#facc15" />
-      <circle cx=".5" cy="0" r="2" fill="#fcd9b6" /><path d="M-1.5 -.6 a2 2 0 0 1 4 0z" fill="#2563eb" />
-      <path d="M-1 7 l-3 4 M2 7 l3 3" stroke="#f8fafc" strokeWidth="1.3" />
-    </g>
-    <path d="M0 100 V20 Q30 8 44 22 Q52 32 42 34 Q36 30 40 40 Q34 60 44 100z" fill="url(#tsu-wave)" />
-    <path d="M0 20 Q30 8 44 22" stroke="#f0f9ff" strokeWidth="3" fill="none" strokeLinecap="round" />
-    {[[38, 30], [44, 26], [47, 32], [40, 96], [46, 92]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="2" fill="#f0f9ff" />)}
-  </svg>;
-}
-
 export function Games() {
   const record = readRecord();
   const solitaire = readSolitaireRecord();
@@ -183,7 +150,6 @@ export function Games() {
   const trepa = readTrepaRecord();
   const snake = readSnakeRecord();
   const lava = readLavaRecord();
-  const tsunami = readTsunamiRecord();
   return <section>
     <div className="section-title games-title">
       <div className="games-heading"><p className="eyebrow">Para cortar un rato</p><h1>Juegos</h1></div>
@@ -266,19 +232,6 @@ export function Games() {
           </span>
           <span className="game-card-foot">
             {lava.height > 0 && <small><b>Récord</b>{lava.time !== null ? `🚁 en ${formatLavaTime(lava.time)}` : `${lava.height} metros`}</small>}
-            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
-          </span>
-        </Link>
-      </li>
-      <li>
-        <Link className="game-card game-card--tsu" to="/juegos/tsunami">
-          <TsunamiArt />
-          <span className="game-card-text">
-            <strong>¡Se viene el tsunami!</strong>
-            <span>Una ola gigante avanza desde el mar: corré por la costa saltando autos, quioscos, canales y perros, aprovechá las motos y las tablas de surf ¡y llegá al cerro antes de que la ola te alcance!</span>
-          </span>
-          <span className="game-card-foot">
-            {tsunami.meters > 0 && <small><b>Récord</b>{tsunami.time !== null ? `⛰️ en ${formatTsunamiTime(tsunami.time)}` : `${tsunami.meters} metros`}</small>}
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
           </span>
         </Link>

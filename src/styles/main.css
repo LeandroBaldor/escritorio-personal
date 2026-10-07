@@ -947,28 +947,6 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 .lava-meter-track{background:linear-gradient(0deg,#57534e,#a8a29e)!important}
 .lava-meter-lava{position:absolute;left:0;right:0;bottom:0;border-radius:7px;background:linear-gradient(0deg,#7f1d1d,#f97316 85%,#fde047);box-shadow:0 0 8px #f97316;transition:height .2s linear}
 .lava-toast{background:#431407e6!important;border-color:#fb923c!important}
-/* ¡Se viene el tsunami! (usa la pantalla de Trepaluna con colores de mar de tormenta) */
-.tsu.runner{background:radial-gradient(ellipse at 50% 100%,#0e4a6e 0,#06121f 70%)}
-.tsu .runner-back,.tsu .runner-scores{color:#7dd3fc}
-.tsu .runner-bar button,.tsu .runner-pad button{background:#0e5a80}
-.tsu .runner-pad .runner-jump{background:#22c55e}
-.tsu .runner-stage canvas{box-shadow:0 0 0 3px #0e5a80,0 10px 30px #000a}
-.tsu .runner-overlay{background:#06121fb3}
-.tsu .runner-overlay>div{background:#0b2f4a;border-color:#38bdf8}
-.tsu .runner-overlay p{color:#bae6fd}
-.tsu-title{color:#7dd3fc;text-shadow:0 3px 0 #0c4a6e}
-.tsu-side{background:#0a2236!important;border-color:#0e5a80!important}
-.tsu-side .trepa-stat{background:#06121f}
-.tsu-side .trepa-stat span{color:#7dd3fc}
-.tsu-wave strong{color:#38bdf8!important}
-.tsu-ride strong{color:#fde047!important;font-size:clamp(1rem,1.6vw,1.4rem)!important}
-.tsu-meter-track{background:linear-gradient(0deg,#e7c98a 0 10%,#9ca3af 10% 92%,#4d7c0f 92%)!important}
-.tsu-meter-wave{position:absolute;left:0;right:0;bottom:0;border-radius:7px;background:linear-gradient(0deg,#0b2545,#1f8a9e 85%,#f0f9ff);box-shadow:0 0 8px #38bdf8;transition:height .2s linear}
-.tsu-toast{background:#0b2f4ae6!important;border-color:#38bdf8!important}
-/* En pantallas bajitas (celular acostado) no entra el medidor debajo de los datos: se oculta. */
-@media(max-height:620px){.tsu-side .trepa-meter{display:none}}
-.game-card--tsu{background:#0b2f4a;border-color:#06121f}
-.game-card--tsu .game-card-text span{color:#bae6fd}
 /* ===== Diseño adaptable: celulares y tablets en horizontal y ventanas medianas (801–1279px apaisado). =====
    Todo lo de acá abajo solo se aplica en pantallas de menos de 1280px: en la notebook el diseño queda igual. */
 @media(pointer:coarse) and (min-width:801px) and (max-width:1279px) and (orientation:landscape){
