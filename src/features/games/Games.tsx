@@ -276,7 +276,7 @@ export function Games() {
           <SharkArt />
           <span className="game-card-text">
             <strong>Ciudad Tiburón</strong>
-            <span>La ciudad se inundó y el agua está llena de tiburones. Sos bombero: saltá por techos, balcones, cables y autos tapados por el agua y rescatá 30 perritos, gatos y personas antes de que se termine el tiempo… ¡y antes de que salten los tiburones!</span>
+            <span>La ciudad se inundó y el agua está llena de tiburones. Sos bombero: saltá por techos, balcones, cables y autos tapados por el agua y rescatá 20 perritos, gatos y personas antes de que se termine el tiempo… ¡y antes de que salten los tiburones!</span>
           </span>
           <span className="game-card-foot">
             {shark.saved > 0 && <small><b>Récord</b>{shark.time !== null ? `🏆 en ${formatSharkTime(shark.time)}` : `${shark.saved} rescatados`}</small>}
