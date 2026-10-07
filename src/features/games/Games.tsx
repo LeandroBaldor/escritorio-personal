@@ -7,6 +7,7 @@ import { readTikiRecord } from './TikiTaka';
 import { formatTime, readTrepaRecord } from './Trepaluna';
 import { readSnakeRecord } from './ReverseSnake';
 import { formatLavaTime, readLavaRecord } from './LavaFloor';
+import { formatSharkTime, readSharkRecord } from './SharkCity';
 import type { Suit } from './solitaire';
 import memeJigsaw from '../../assets/images/meme-jigsaw.jpg';
 
@@ -143,6 +144,39 @@ function LavaArt() {
   </svg>;
 }
 
+// Dibujo de la tarjeta de Ciudad Tiburón: la calle inundada entre edificios bajo la tormenta, un rayo,
+// aletas de tiburón, un perrito en una goma y el bombero en una escalera de incendio.
+function SharkArt() {
+  return <svg viewBox="0 0 160 100" aria-hidden="true">
+    <defs>
+      <linearGradient id="tib-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#070b16" /><stop offset="1" stopColor="#2c3b50" /></linearGradient>
+      <linearGradient id="tib-water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1e5866" /><stop offset="1" stopColor="#061820" /></linearGradient>
+    </defs>
+    <rect width="160" height="100" fill="url(#tib-sky)" />
+    {[[0, 30, 8], [10, 18, 6], [20, 40, 7], [118, 22, 9], [130, 36, 7], [142, 14, 10], [60, 46, 8], [86, 40, 7]].map(([x, y, w], i) => <rect key={i} x={x} y={y} width={w} height={100 - y} fill="#141d2c" />)}
+    <path d="M70 0 l-5 14 l6 -2 l-7 18" stroke="#e0e7ff" strokeWidth="1.6" fill="none" />
+    <rect x="4" y="24" width="38" height="76" fill="#3f4a5c" />
+    {[0, 1, 2, 3, 4].map(r => [0, 1, 2].map(c => <rect key={`${r}-${c}`} x={8 + c * 11} y={30 + r * 11} width="6" height="7" fill={(r + c) % 3 ? '#1e3a5f' : '#fcd34d'} />))}
+    <g stroke="#475569" strokeWidth="1"><path d="M42 50 h9 M42 66 h9 M47 50 v32" /><path d="M45 54 h4 M45 58 h4 M45 62 h4 M45 70 h4 M45 74 h4 M45 78 h4" /></g>
+    <rect x="112" y="40" width="44" height="60" fill="#b45309" />
+    <path d="M104 62 l8 -4 v6z" fill="#dc2626" /><path d="M104 62 h8 v2 h-8z" fill="#fef2f2" />
+    <rect x="114" y="52" width="40" height="6" fill="#7c2d12" /><text x="134" y="56.8" fontSize="4.6" fontWeight="900" fill="#fef3c7" textAnchor="middle">FARMACIA</text>
+    <path d="M42 46 Q77 50 112 46" stroke="#0f172a" strokeWidth="1" fill="none" /><rect x="76" y="46" width="1.6" height="40" fill="#3f3f46" />
+    <rect x="58" y="76" width="16" height="6" rx="2" fill="#2563eb" /><rect x="61" y="77" width="4" height="3" fill="#93c5fd" /><rect x="67" y="77" width="4" height="3" fill="#93c5fd" />
+    <path d="M0 84 Q20 81 40 84 T80 84 T120 84 T160 84 V100 H0z" fill="url(#tib-water)" />
+    <path d="M0 84 Q20 81 40 84 T80 84 T120 84 T160 84" stroke="#bae6fd" strokeWidth=".7" fill="none" />
+    <path d="M30 84 l6 -9 l3 9z M94 85 l5 -7 l4 7z M126 85 l3 -5 l2 5z" fill="#64748b" />
+    <path d="M22 84 h-8 M88 85 h-8" stroke="#e2e8f0" strokeWidth=".7" />
+    <g transform="translate(84 83)"><ellipse cx="0" cy="1" rx="5" ry="1.8" fill="#ea580c" /><ellipse cx="0" cy="-2" rx="2.6" ry="1.6" fill="#92400e" /><circle cx="2.6" cy="-4" r="1.5" fill="#92400e" /><circle cx="3.2" cy="-4.2" r=".35" fill="#111" /></g>
+    <g transform="translate(47 41)">
+      <rect x="-2.5" y="2" width="5" height="5.5" rx="1" fill="#1f2937" /><rect x="-2.5" y="5" width="5" height="1" fill="#d9f99d" />
+      <circle cx=".5" cy="0" r="2" fill="#fcd9b6" /><path d="M-2.2 -.6 a2.6 2.6 0 0 1 5.2 0z" fill="#dc2626" /><path d="M-3 -.5 h6.5" stroke="#dc2626" strokeWidth=".9" />
+      <path d="M-1 7.5 l-1 2.5 M2 7.5 l1 2.5" stroke="#1f2937" strokeWidth="1.3" />
+    </g>
+    {[[20, 10], [50, 20], [100, 8], [140, 30], [10, 60], [120, 70]].map(([x, y], i) => <path key={i} d={`M${x} ${y} l2 5`} stroke="#cbd5e1" strokeWidth=".5" opacity=".7" />)}
+  </svg>;
+}
+
 export function Games() {
   const record = readRecord();
   const solitaire = readSolitaireRecord();
@@ -150,6 +184,7 @@ export function Games() {
   const trepa = readTrepaRecord();
   const snake = readSnakeRecord();
   const lava = readLavaRecord();
+  const shark = readSharkRecord();
   return <section>
     <div className="section-title games-title">
       <div className="games-heading"><p className="eyebrow">Para cortar un rato</p><h1>Juegos</h1></div>
@@ -232,6 +267,19 @@ export function Games() {
           </span>
           <span className="game-card-foot">
             {lava.height > 0 && <small><b>Récord</b>{lava.time !== null ? `🚁 en ${formatLavaTime(lava.time)}` : `${lava.height} metros`}</small>}
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
+        </Link>
+      </li>
+      <li>
+        <Link className="game-card game-card--tib" to="/juegos/tiburon">
+          <SharkArt />
+          <span className="game-card-text">
+            <strong>Ciudad Tiburón</strong>
+            <span>La ciudad se inundó y el agua está llena de tiburones. Sos bombero: saltá por techos, balcones, cables y autos tapados por el agua y rescatá 30 perritos, gatos y personas antes de que se termine el tiempo… ¡y antes de que salten los tiburones!</span>
+          </span>
+          <span className="game-card-foot">
+            {shark.saved > 0 && <small><b>Récord</b>{shark.time !== null ? `🏆 en ${formatSharkTime(shark.time)}` : `${shark.saved} rescatados`}</small>}
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
           </span>
         </Link>

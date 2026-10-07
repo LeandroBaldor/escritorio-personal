@@ -561,6 +561,26 @@ test('¡El piso es de lava!: se abre desde Juegos, corre el tiempo, la lava avis
   await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
 });
 
+test('Ciudad Tiburón: se abre desde Juegos, corre el tiempo para atrás, cuenta rescatados y tiburones y se pausa', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/juegos');
+  await expect(page.getByText('La ciudad se inundó y el agua está llena de tiburones', { exact: false })).toBeVisible();
+  await page.getByRole('link', { name: /Ciudad Tiburón/ }).click();
+  await expect(page.getByRole('heading', { name: 'Ciudad Tiburón', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: 'Jugar' }).click();
+  await expect(page.getByTestId('tib-time')).toHaveText(/^4:5\d$/);
+  await expect(page.getByTestId('tib-saved')).toHaveText('0 / 30');
+  await expect(page.getByTestId('tib-sharks')).toHaveText(/^\d+ 🦈$/);
+  await expect(page.locator('.runner-pad button[aria-label="Saltar"]')).toHaveCount(1);
+  await page.keyboard.press('p');
+  await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
+  const paused = await page.getByTestId('tib-time').textContent();
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId('tib-time')).toHaveText(paused ?? '');
+  await page.getByRole('button', { name: 'Seguir' }).first().click();
+  await page.getByRole('link', { name: '‹ Juegos' }).click();
+  await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
+});
+
 test('las notas son cuadradas y un texto largo achica la letra para entrar', async ({ page }) => {
   await page.goto('/escritorio-personal/');
   const add = async (text: string) => {
@@ -931,7 +951,7 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
 
 test('el Solitario 3.000 se abre desde Juegos, da vuelta cartas y deshace', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(6);
+  await expect(page.locator('.games-list > li')).toHaveCount(7);
   await page.getByRole('link', { name: /Solitario 3\.000/ }).click();
   await expect(page.getByRole('heading', { name: 'Solitario 3.000' })).toBeVisible();
   await expect(page.locator('.sol-column .sol-card')).toHaveCount(28);
@@ -949,7 +969,7 @@ test('el Solitario 3.000 se abre desde Juegos, da vuelta cartas y deshace', asyn
 
 test('Tiki-Taka: se elige el país y el DT, arranca el partido y el rival sigue jugando', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(6);
+  await expect(page.locator('.games-list > li')).toHaveCount(7);
   await page.getByRole('link', { name: /Tiki-Taka/ }).click();
   await page.getByLabel('Nombre del DT').fill('El Bambino');
   await page.getByRole('button', { name: 'Brasil' }).click();
@@ -970,7 +990,7 @@ test('Tiki-Taka: se elige el país y el DT, arranca el partido y el rival sigue 
 
 test('Trepaluna: se abre desde Juegos, corre el tiempo, muestra la altura y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(6);
+  await expect(page.locator('.games-list > li')).toHaveCount(7);
   await page.getByRole('link', { name: /Trepaluna/ }).click();
   await expect(page.getByRole('heading', { name: 'Trepaluna', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
@@ -995,7 +1015,7 @@ test('Tiki-Taka: el Mundial arranca en octavos de final', async ({ page }) => {
 
 test('¡Huye de la serpiente!: se abre desde Juegos, suma puntos con las bolitas y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(6);
+  await expect(page.locator('.games-list > li')).toHaveCount(7);
   await page.getByRole('link', { name: /Huye de la serpiente/ }).click();
   await expect(page.getByRole('heading', { name: '¡Huye de la serpiente!', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();

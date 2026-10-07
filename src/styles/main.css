@@ -947,6 +947,32 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 .lava-meter-track{background:linear-gradient(0deg,#57534e,#a8a29e)!important}
 .lava-meter-lava{position:absolute;left:0;right:0;bottom:0;border-radius:7px;background:linear-gradient(0deg,#7f1d1d,#f97316 85%,#fde047);box-shadow:0 0 8px #f97316;transition:height .2s linear}
 .lava-toast{background:#431407e6!important;border-color:#fb923c!important}
+/* Ciudad Tiburón (usa la pantalla de Trepaluna con colores de tormenta y de bomberos) */
+.tib.runner{background:radial-gradient(ellipse at 50% 100%,#123a4a 0,#070b16 70%)}
+.tib .runner-back,.tib .runner-scores{color:#fca5a5}
+.tib .runner-bar button,.tib .runner-pad button{background:#991b1b}
+.tib .runner-pad .runner-jump{background:#22c55e}
+.tib .runner-stage canvas{box-shadow:0 0 0 3px #991b1b,0 10px 30px #000a}
+.tib .runner-overlay{background:#070b16b3}
+.tib .runner-overlay>div{background:#1b2638;border-color:#ef4444}
+.tib .runner-overlay p{color:#e2e8f0}
+.tib-title{color:#fca5a5;text-shadow:0 3px 0 #7f1d1d}
+.tib-side{background:#111a2a!important;border-color:#991b1b!important}
+.tib-side .trepa-stat{background:#070b16}
+.tib-side .trepa-stat span{color:#fca5a5}
+.tib-time strong{color:#fde047!important}
+.tib-hurry strong{color:#f87171!important;animation:tib-pulse .6s ease-in-out infinite alternate}
+@keyframes tib-pulse{to{transform:scale(1.12)}}
+.tib-saved strong{color:#86efac!important}
+.tib-kinds{font-size:.72rem;font-weight:800;color:#cbd5e1;white-space:nowrap}
+.tib-sharks strong{color:#7dd3fc!important}
+.tib-meter-track{background:linear-gradient(0deg,#1e3a4a,#334155)!important}
+.tib-meter-fill{background:linear-gradient(0deg,#16a34a,#86efac)!important}
+.tib-toast{background:#1b2638e6!important;border-color:#ef4444!important}
+@media(max-height:620px){.tib-side .trepa-meter{display:none}}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.tib-kinds{display:none}}
+.game-card--tib{background:#111a2a;border-color:#070b16}
+.game-card--tib .game-card-text span{color:#cbd5e1}
 /* ===== Diseño adaptable: celulares y tablets en horizontal y ventanas medianas (801–1279px apaisado). =====
    Todo lo de acá abajo solo se aplica en pantallas de menos de 1280px: en la notebook el diseño queda igual. */
 @media(pointer:coarse) and (min-width:801px) and (max-width:1279px) and (orientation:landscape){
