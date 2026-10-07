@@ -147,11 +147,12 @@ export function Calendar() {
   const gridRef = useRef<HTMLDivElement>(null);
   const [rowHeight, setRowHeight] = useState<number | null>(null);
   // Días cuadrados: en la compu cada fila mide lo mismo que el ancho de un día (así se sabe cuántas cosas entran).
+  // En pantallas táctiles (celulares y tablets) las filas crecen lo necesario para que cada tarea se lea entera.
   useLayoutEffect(() => {
     const fit = () => {
       const grid = gridRef.current;
       const day = grid?.querySelector<HTMLElement>('.cal-day');
-      if (!grid || !day || window.innerWidth <= 1000) { setRowHeight(null); return; }
+      if (!grid || !day || window.innerWidth <= 1000 || window.matchMedia?.('(pointer:coarse)').matches) { setRowHeight(null); return; }
       setRowHeight(Math.round(day.getBoundingClientRect().width));
     };
     fit();

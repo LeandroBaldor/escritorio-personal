@@ -1009,3 +1009,34 @@ test('¡Huye de la serpiente!: se abre desde Juegos, suma puntos con las bolitas
   await page.getByRole('link', { name: '‹ Juegos' }).click();
   await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
 });
+
+// Diseño adaptable: en celulares y tablets (en vertical y en horizontal) ninguna sección se sale de la pantalla
+// y los memes se ven enteros, sin deformarse.
+test('en celulares y tablets las secciones entran en la pantalla y se ven todos los memes', async ({ browser }) => {
+  test.slow();
+  const devices = [[390, 844], [844, 390], [768, 1024], [1024, 768], [1180, 820]] as const;
+  const pages: [string, string | null][] = [['', 'meme-conspiracion'], ['diario', 'meme-keanu'], ['gastos', 'meme-calculos'], ['calendario', 'meme-interstellar'], ['juegos', 'meme-jigsaw'], ['guardadas', null]];
+  for (const [width, height] of devices) {
+    const context = await browser.newContext({ viewport: { width, height }, hasTouch: true, isMobile: width < 1100 });
+    const page = await context.newPage();
+    await page.goto('/escritorio-personal/#/diario');
+    page.once('dialog', dialog => dialog.accept('Mi diario'));
+    await page.getByRole('button', { name: 'Crear mi primera carpeta' }).click();
+    for (const [path, meme] of pages) {
+      await page.goto(`/escritorio-personal/#/${path}`);
+      await expect(page.locator('main section').first()).toBeVisible();
+      const where = `${width}x${height} /${path}`;
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${where}: sin scroll horizontal`).toBe(true);
+      if (!meme) continue;
+      const image = page.locator(`img[src*="${meme}"]`);
+      await expect(image, `${where}: se ve el meme`).toBeVisible();
+      await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0), `${where}: el meme cargó`).toBe(true);
+      const box = (await image.boundingBox())!;
+      const natural = await image.evaluate((img: HTMLImageElement) => img.naturalWidth / img.naturalHeight);
+      expect(Math.max(box.width, box.height), `${where}: el meme tiene buen tamaño`).toBeGreaterThan(110);
+      expect(Math.abs(box.width / box.height / natural - 1), `${where}: el meme no se deforma`).toBeLessThan(0.04);
+      expect(box.x >= -1 && box.x + box.width <= width + 1, `${where}: el meme entra en la pantalla`).toBe(true);
+    }
+    await context.close();
+  }
+});

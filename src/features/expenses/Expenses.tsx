@@ -1,6 +1,7 @@
 import { FocusEvent, FormEvent, KeyboardEvent, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useData } from '../../app/DataContext';
+import { useFitInput } from '../../app/useFitInput';
 import { CalendarLink, DeskLink, GamesLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { FloatingCalculator } from './FloatingCalculator';
 import memeCalculos from '../../assets/images/meme-calculos.jpg';
@@ -54,7 +55,8 @@ export function DateInput({ id, value, onChange, onBlur, onEnter, onCalendarSele
 }
 
 export function MoneyInput({ value, onChange, onBlur, label, placeholder }: { value: string; onChange: (value: string) => void; onBlur?: () => void; label: string; placeholder?: string }) {
-  return <span className="money-input"><span aria-hidden="true">$</span><input aria-label={label} inputMode="decimal" value={value} onChange={e => onChange(e.target.value)} onBlur={() => { const cents = parseCents(value); if (cents !== null) onChange(editableMoney(cents)); onBlur?.(); }} placeholder={placeholder} /></span>;
+  const fitRef = useFitInput(value);
+  return <span className="money-input"><span aria-hidden="true">$</span><input ref={fitRef} aria-label={label} inputMode="decimal" value={value} onChange={e => onChange(e.target.value)} onBlur={() => { const cents = parseCents(value); if (cents !== null) onChange(editableMoney(cents)); onBlur?.(); }} placeholder={placeholder} /></span>;
 }
 
 // Menú propio en lugar de <select>: el nativo abre hacia arriba cerca del borde de la pantalla, éste siempre abre hacia abajo.
@@ -101,6 +103,7 @@ function MonthPicker({ months, value, onChange }: { months: ExpenseMonth[]; valu
 
 function ExpenseRow({ expense, months, onChange, onDelete, onSaveToFolder }: { expense: Expense; months: ExpenseMonth[]; onChange: (e: Expense) => void; onDelete: () => void; onSaveToFolder: (folderId: string) => void }) {
   const [concept, setConcept] = useState(expense.concept);
+  const conceptRef = useFitInput(concept);
   const [category, setCategory] = useState<ExpenseCategory>(expense.category ?? 'Otros');
   const [date, setDate] = useState(expense.date ? formatExpenseDate(expense.date) : '');
   const [amount, setAmount] = useState(editableMoney(expense.cents));
@@ -147,7 +150,7 @@ function ExpenseRow({ expense, months, onChange, onDelete, onSaveToFolder }: { e
     onSaveToFolder(folder.id);
   };
   return <div className="expense-row">
-    <input aria-label="Concepto" value={concept} onChange={e => setConcept(e.target.value)} onBlur={() => commit()} />
+    <input ref={conceptRef} aria-label="Concepto" value={concept} onChange={e => setConcept(e.target.value)} onBlur={() => commit()} />
     <select aria-label="Categoría" value={category} onChange={e => changeCategory(e.target.value as ExpenseCategory)}>
       {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
     </select>

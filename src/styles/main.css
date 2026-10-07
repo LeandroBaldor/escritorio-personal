@@ -1,12 +1,12 @@
 :root{font-family:Nunito,system-ui,sans-serif;color:#332317;background:#6e4028;line-height:1.5;font-synthesis:none}*{box-sizing:border-box}body{margin:0;min-width:320px;min-height:100vh;background:radial-gradient(circle at 30% 20%,#a96e47aa,transparent 35%),repeating-linear-gradient(93deg,#75452d 0,#8c5738 4px,#70422a 8px,#985f3c 14px);background-attachment:fixed}button,input,select,textarea{font:inherit}button,a{touch-action:manipulation}button{cursor:pointer;border:0;border-radius:8px;padding:.6rem .85rem;background:#603c29;color:#fff}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid #f4bd58;outline-offset:2px}header{position:sticky;z-index:10;top:0;display:flex;align-items:center;gap:1rem;padding:.75rem clamp(1rem,4vw,3rem);background:#2e1c14e8;color:#fff;box-shadow:0 4px 15px #1a0d0788}.brand{font:700 1.7rem Caveat,cursive;color:#ffe0a5;text-decoration:none}nav{display:flex;gap:.35rem;flex:1}nav a{color:#ead8c8;padding:.45rem .7rem;text-decoration:none;border-radius:6px}nav a.active{background:#91603f;color:#fff}.backup{display:flex;gap:.4rem}.backup button{background:#856047}main{padding:clamp(1rem,4vw,3rem);max-width:1500px;margin:auto}.warning{margin:1rem;padding:1rem;background:#ffe2a2;border-radius:8px}.section-title{display:flex;justify-content:space-between;align-items:end;gap:1rem;margin-bottom:1.4rem;color:#fff;text-shadow:0 2px 3px #30170d}.section-title h1{font:700 clamp(2.4rem,7vw,4.7rem)/.9 Caveat,cursive;margin:0}.eyebrow{text-transform:uppercase;letter-spacing:.16em;font-weight:700;margin:0}.new-note{display:flex;align-items:end;gap:.6rem;background:#f4e1bf;padding:.8rem;border-radius:10px;box-shadow:0 5px 15px #2d130c66;text-shadow:none;color:#332317}.new-note label{font-size:.8rem}.new-note input,.new-note select{display:block;padding:.5rem;border:1px solid #b69a73;border-radius:6px}.board{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}.column{min-height:60vh;padding:1rem;border-radius:12px;background:#efe2ccbd;box-shadow:inset 0 0 30px #7b573333,0 8px 20px #2d140c55}.column h2{font:700 2rem Caveat,cursive;margin:.2rem}.column h2 span{float:right;background:#76513b;color:#fff;border-radius:50%;font:1rem Nunito;padding:.2rem .55rem}.note{padding:1rem;margin:1rem 0;box-shadow:2px 6px 10px #4d321e55;transform:rotate(-.3deg);border-radius:2px}.note textarea{width:100%;min-height:90px;border:0;resize:vertical;background:transparent;font:600 1.35rem Caveat,cursive}.palette{display:flex;gap:.35rem}.palette button{width:22px;height:22px;padding:0;border:1px solid #665}.palette .chosen{outline:2px solid #332317}.note label{display:block;margin-top:.6rem;font-size:.8rem}.note small{display:block;margin-top:.5rem}.delete{margin-top:.5rem;background:#8e3c33}.journal-layout{display:grid;grid-template-columns:220px 1fr;gap:1rem}.journal-layout aside{background:#dac29c;padding:1rem;border-radius:10px}.journal-layout aside button{width:100%;margin:.3rem 0;text-align:left;background:#866047}.journal-layout aside button.active{background:#3d291d}.book{max-width:900px;margin:auto;width:100%;padding:2rem;background:#4f281f;border:10px solid #3e211a;border-radius:14px;box-shadow:10px 15px 30px #24100888}.paper{min-height:580px;padding:2.5rem;background:repeating-linear-gradient(#fbf1d8 0,#fbf1d8 31px,#b9c9d0 32px);box-shadow:inset 25px 0 30px #9f805733}.paper .page-editor{width:100%;min-height:470px;border:0;background:transparent;resize:none;font:1.2rem/32px Georgia,serif}.page-meta{font:1.5rem Caveat;color:#74503c}.page-buttons{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.6rem;margin-top:1rem}.empty{background:#f4e5c8;padding:3rem;text-align:center}.calculator{max-width:1060px;margin:auto;background:#36322f;padding:1.5rem;border-radius:18px;box-shadow:8px 12px 24px #25100888}.calculator form{display:grid;grid-template-columns:2fr 1fr auto;gap:.7rem;background:#d9d3c3;padding:1rem;border-radius:8px}.calculator label input{display:block;width:100%;padding:.7rem}.calculator form p{grid-column:1/-1;color:#8b1717}.total{background:#d8e0c1;color:#1d3020;text-shadow:none;padding:.6rem 1.2rem;border-radius:6px;text-align:right}.total strong{display:block;font-size:1.8rem}.expense-list{margin-top:1rem;padding:0 1rem}.expense-row{display:grid;grid-template-columns:2fr 1fr auto;gap:.7rem;margin:.5rem 0}.expense-row input,.expense-row select{padding:.7rem;background:#15803d;border:0;border-radius:4px}.modal{position:fixed;inset:0;z-index:20;background:#0009;display:grid;place-items:center;padding:1rem}.modal>div{max-width:520px;background:#fff4d9;padding:2rem;border-radius:12px}.modal button{margin-right:.5rem}
 .backup{margin-left:auto}.note{position:relative;cursor:grab}.note:active{cursor:grabbing}.note::after{content:"";position:absolute;pointer-events:none;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 0 20px 20px;border-color:transparent transparent #0002 transparent;filter:drop-shadow(-1px 1px 1px #4d321e44)}.note-text{min-height:45px;padding-right:1.5rem;white-space:pre-wrap;overflow-wrap:anywhere;font:600 1.05rem Caveat,cursive}.note button,.note summary{cursor:pointer}
-@media(max-width:800px){header{flex-wrap:wrap}.brand{flex:1}.backup{order:3;width:100%}.board{grid-template-columns:1fr}.column{min-height:250px}.section-title{align-items:stretch;flex-direction:column}.new-note{align-items:stretch;flex-direction:column}.journal-layout{grid-template-columns:1fr}.journal-layout aside{display:flex;overflow-x:auto;gap:.5rem}.journal-layout aside h2{display:none}.journal-layout aside button{width:auto;white-space:nowrap}.book{padding:.6rem}.paper{padding:1.2rem;min-height:500px}}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){header{flex-wrap:wrap}.brand{flex:1}.backup{order:3;width:100%}.board{grid-template-columns:1fr}.column{min-height:250px}.section-title{align-items:stretch;flex-direction:column}.new-note{align-items:stretch;flex-direction:column}.journal-layout{grid-template-columns:1fr}.journal-layout aside{display:flex;overflow-x:auto;gap:.5rem}.journal-layout aside h2{display:none}.journal-layout aside button{width:auto;white-space:nowrap}.book{padding:.6rem}.paper{padding:1.2rem;min-height:500px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 .note{width:50%;min-width:180px;max-width:240px;padding:.55rem;margin:.55rem 0;box-shadow:2px 4px 7px #4d321e55}.note textarea{min-height:45px;font-size:1.05rem}.note small{margin-top:.3rem;font-size:.72rem}.note details{font-size:.78rem}.note .delete{margin-top:.35rem;padding:.4rem .65rem}
 .column{display:flex;flex-wrap:wrap;align-content:flex-start;gap:.55rem}.column h2{width:100%}.note{flex:0 1 calc(50% - .275rem);width:auto;min-width:0;max-width:none;margin:0}
 @media(max-width:480px){.note{flex-basis:100%}}
-.desk-objects{display:flex;justify-content:flex-end;align-items:end;gap:1.2rem;margin:-.5rem 0 1.2rem}.desk-objects a{text-decoration:none;color:#2f2118;box-shadow:5px 8px 14px #2c120b77}.notebook{width:145px;height:105px;padding:1rem;background:#91584a;border-left:13px solid #472d25;border-radius:5px;color:#fff!important;display:flex;flex-direction:column;justify-content:center;transform:rotate(-2deg)}.notebook span{font:700 1.7rem Caveat,cursive}.calc-object{width:100px;padding:.65rem;background:#333;border:5px solid #292929;border-radius:8px;color:#fff!important;text-align:center;transform:rotate(2deg)}.calc-object span{display:block;background:#cdd8ba;color:#243020;line-height:1.2;padding:.3rem;margin-bottom:.4rem;font-family:monospace}.calc-object strong{font-size:.8rem}@media(max-width:800px){.desk-objects{justify-content:center;margin:.2rem 0 1rem}.notebook{width:130px}.calc-object{width:90px}}
-.color-picker{border:0;margin:0;padding:0;min-width:240px}.color-picker legend{font-size:.8rem}.color-picker button{width:44px;height:44px;padding:0;margin-right:.25rem;border:1px solid #745d45;border-radius:50%;color:#332317}.color-picker button span{opacity:0;font-weight:900}.color-picker button.chosen{box-shadow:inset 0 0 0 3px #fff,0 0 0 3px #332317}.color-picker button.chosen span{opacity:1}.notebook{position:relative;overflow:hidden;background:linear-gradient(105deg,#774337,#a96c5b 55%,#854d42);border-left:0;padding-left:2.1rem;box-shadow:inset 7px 0 #36221d,inset 11px 0 #c89b6d,5px 8px 14px #2c120b77!important}.notebook::after{content:"";position:absolute;inset:8px 8px 8px 19px;border:1px solid #d9ab7b88;border-radius:3px}.notebook-binding{position:absolute;z-index:1;left:5px;top:10px;bottom:10px;width:8px;background:repeating-linear-gradient(#251713 0 5px,#d4aa79 5px 9px);border-radius:4px}.notebook span:not(.notebook-binding),.notebook small{position:relative;z-index:1}.journal-content{min-width:0}.folder-actions{display:flex;justify-content:flex-end;gap:.5rem;margin:0 auto .75rem;max-width:900px}.folder-actions .delete{margin:0}.journal-layout aside button{min-height:44px}@media(max-width:800px){.color-picker{min-width:0}.folder-actions{justify-content:stretch}.folder-actions button{flex:1}.journal-content{width:100%}}
+.desk-objects{display:flex;justify-content:flex-end;align-items:end;gap:1.2rem;margin:-.5rem 0 1.2rem}.desk-objects a{text-decoration:none;color:#2f2118;box-shadow:5px 8px 14px #2c120b77}.notebook{width:145px;height:105px;padding:1rem;background:#91584a;border-left:13px solid #472d25;border-radius:5px;color:#fff!important;display:flex;flex-direction:column;justify-content:center;transform:rotate(-2deg)}.notebook span{font:700 1.7rem Caveat,cursive}.calc-object{width:100px;padding:.65rem;background:#333;border:5px solid #292929;border-radius:8px;color:#fff!important;text-align:center;transform:rotate(2deg)}.calc-object span{display:block;background:#cdd8ba;color:#243020;line-height:1.2;padding:.3rem;margin-bottom:.4rem;font-family:monospace}.calc-object strong{font-size:.8rem}@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.desk-objects{justify-content:center;margin:.2rem 0 1rem}.notebook{width:130px}.calc-object{width:90px}}
+.color-picker{border:0;margin:0;padding:0;min-width:240px}.color-picker legend{font-size:.8rem}.color-picker button{width:44px;height:44px;padding:0;margin-right:.25rem;border:1px solid #745d45;border-radius:50%;color:#332317}.color-picker button span{opacity:0;font-weight:900}.color-picker button.chosen{box-shadow:inset 0 0 0 3px #fff,0 0 0 3px #332317}.color-picker button.chosen span{opacity:1}.notebook{position:relative;overflow:hidden;background:linear-gradient(105deg,#774337,#a96c5b 55%,#854d42);border-left:0;padding-left:2.1rem;box-shadow:inset 7px 0 #36221d,inset 11px 0 #c89b6d,5px 8px 14px #2c120b77!important}.notebook::after{content:"";position:absolute;inset:8px 8px 8px 19px;border:1px solid #d9ab7b88;border-radius:3px}.notebook-binding{position:absolute;z-index:1;left:5px;top:10px;bottom:10px;width:8px;background:repeating-linear-gradient(#251713 0 5px,#d4aa79 5px 9px);border-radius:4px}.notebook span:not(.notebook-binding),.notebook small{position:relative;z-index:1}.journal-content{min-width:0}.folder-actions{display:flex;justify-content:flex-end;gap:.5rem;margin:0 auto .75rem;max-width:900px}.folder-actions .delete{margin:0}.journal-layout aside button{min-height:44px}@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.color-picker{min-width:0}.folder-actions{justify-content:stretch}.folder-actions button{flex:1}.journal-content{width:100%}}
 .note--dragging{opacity:.42;cursor:grabbing}.column--drag-over{box-shadow:inset 0 0 0 3px #9a633d,inset 0 0 30px #7b573333,0 8px 20px #2d140c55}.note--drop-before::before,.note--drop-after::before,.drop-indicator{content:"";position:absolute;z-index:3;left:0;right:0;height:4px;border-radius:4px;background:#603c29;box-shadow:0 0 0 2px #fff8;pointer-events:none}.note--drop-before::before{top:-.45rem}.note--drop-after::before{bottom:-.45rem}.drop-indicator{position:relative;flex:0 1 calc(50% - .275rem);min-width:0;height:4px;align-self:center}.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:480px){.drop-indicator{flex-basis:100%}}
 .auth-screen,.loading{min-height:100vh;display:grid;place-items:center;padding:1rem}.auth-card{width:min(420px,100%);display:grid;gap:1rem;background:#f4e1bf;padding:2rem;border-radius:14px;box-shadow:0 10px 30px #1a0d0788}.auth-card h1{margin:0;font:700 2.8rem Caveat,cursive}.auth-card label{display:grid;gap:.3rem}.auth-card input{padding:.7rem;border:1px solid #b69a73;border-radius:6px}.auth-card .secondary{background:#856047}.auth-card .link-button{background:none;color:#603c29;text-decoration:underline;padding:.2rem;justify-self:center}.auth-error{color:#8b1717}.loading{color:#fff;font-size:1.3rem}.sync-status{white-space:nowrap;font-size:.85rem}.identity{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:760px){header{align-items:flex-start;flex-wrap:wrap}.backup{width:100%;flex-wrap:wrap}.identity{max-width:130px}.sync-status{margin-left:auto}}
 
@@ -40,7 +40,7 @@ header{justify-content:space-between}.backup{align-items:center;justify-content:
 .expense-summary ul{list-style:none;margin:0;padding:0;display:grid;gap:.5rem}
 .expense-summary li{display:flex;justify-content:space-between;gap:.5rem;font-size:.92rem}
 .expense-summary-total{display:flex;justify-content:space-between;gap:.5rem;margin-top:.9rem;padding-top:.7rem;border-top:1px solid #b69a73;font-size:1.1rem;font-weight:700}
-@media(max-width:800px){.expenses-layout{grid-template-columns:1fr}}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.expenses-layout{grid-template-columns:1fr}}
 
 /* El disquete: ícono de archivo en el escritorio y la página que lista lo guardado. */
 .floppy{position:relative;width:118px;height:105px;padding:1rem .7rem .6rem;background:linear-gradient(160deg,#3a3f4d,#181b22 60%,#101319);border-radius:4px 4px 8px 8px;color:#e8e8ee!important;display:flex;flex-direction:column;justify-content:flex-end;transform:rotate(-3deg);clip-path:polygon(16px 0,100% 0,100% 100%,0 100%,0 16px);transition:transform .15s ease,box-shadow .15s ease}
@@ -49,7 +49,7 @@ header{justify-content:space-between}.backup{align-items:center;justify-content:
 .floppy span:not(.floppy-shutter){position:relative;z-index:1;align-self:flex-start;white-space:nowrap;font:700 1.05rem Caveat,cursive;background:#f4e9d0;color:#332317!important;padding:.1rem .4rem;border-radius:2px;margin-top:.35rem}
 .floppy small{position:relative;z-index:1;align-self:flex-start;white-space:nowrap;background:#f4e9d0cc;color:#5b4632!important;font-size:.65rem;padding:.05rem .35rem;border-radius:2px;margin-top:.3rem}
 .floppy--drag-over{transform:rotate(-3deg) scale(1.06);box-shadow:0 0 0 3px #f4bd58,5px 8px 14px #2c120b77}
-@media(max-width:800px){.floppy{width:100px;height:96px}}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.floppy{width:100px;height:96px}}
 .floppy-page{max-width:none;margin:0;display:flex;justify-content:center}
 .floppy-page-body{position:relative;width:min(96%,1400px);aspect-ratio:2/1;display:flex;flex-direction:column;padding:2rem 2rem 2.2rem;background:linear-gradient(160deg,#3a3f4d,#181b22 60%,#101319);border-radius:8px 8px 18px 18px;box-shadow:10px 15px 30px #24100888;clip-path:polygon(52px 0,100% 0,100% 100%,0 100%,0 52px)}
 .floppy-page-shutter{flex:none;position:relative;height:clamp(56px,9%,90px);margin-bottom:1.3rem;background:linear-gradient(160deg,#d4d7e0,#8f93a1 55%,#d4d7e0);border-radius:3px;box-shadow:inset 0 1px 2px #fff8,inset 0 -3px 5px #0004;display:flex;align-items:center;justify-content:center}
@@ -149,7 +149,7 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .calculator{max-width:none}
 .expenses-layout{grid-template-columns:minmax(0,1fr) minmax(280px,20rem)}
 .expense-summary li{font-size:1rem}
-@media(min-width:801px){.journal-layout{grid-template-columns:minmax(220px,16rem) minmax(0,1fr)}}
+@media(min-width:801px) and (orientation:landscape),(min-width:1101px){.journal-layout{grid-template-columns:minmax(220px,16rem) minmax(0,1fr)}}
 .book,.folder-actions{max-width:1400px}
 .paper{min-height:max(580px,72vh)}
 .paper{--journal-line-height:2rem}.paper .page-editor{min-height:max(470px,58vh);font-size:1.25rem}
@@ -171,7 +171,7 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .floppy--small{padding:.5em .45em .45em}.floppy--small span:not(.floppy-shutter){font-size:.95em;margin-top:0}
 .date-input>input[type=text]{padding-right:48px}
 .color-picker{min-width:max-content;white-space:nowrap}.new-note button{white-space:nowrap}
-@media(max-width:800px){.color-picker{min-width:0;white-space:normal}}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.color-picker{min-width:0;white-space:normal}}
 
 /* Botón Editar de las notas: mismo azul que los controles de meses en Mis gastos. */
 .note-buttons{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.35rem}
@@ -234,8 +234,8 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .section-links{display:flex;flex:none;flex-direction:column;align-items:flex-start;gap:.05rem;align-self:center}
 .section-links a{color:#fff;text-decoration:none;font:700 clamp(1rem,1.35vw,1.3rem)/1.25 Kalam,"Segoe Print","Bradley Hand",cursive;text-shadow:0 2px 3px #30170d}
 .section-links a:hover,.section-links a:focus-visible{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
-@media(min-width:801px){.section-links{margin:0 auto}}
-@media(max-width:800px){.section-links{align-self:flex-start}}
+@media(min-width:801px) and (orientation:landscape),(min-width:1101px){.section-links{margin:0 auto}}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.section-links{align-self:flex-start}}
 /* Recuadro marrón claro semitransparente con puntas redondeadas que agrupa los dos accesos. */
 .section-links{padding:.35rem .9rem;background:#d8b48c59;border:1px solid #f3dcc04d;border-radius:12px;box-shadow:0 3px 10px #2d130c40;backdrop-filter:blur(2px)}
 /* Los desplegables de categoría y pago necesitan su ancho mínimo para que "Gastos personales" o "No pagado" no queden cortados. */
@@ -301,8 +301,8 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .desk-object svg{display:block;width:100%;height:auto}
 .desk-object strong{font-size:.8rem}
 .section-objects a:hover,.section-objects a:focus-visible{transform:rotate(0) translateY(-2px)}
-@media(min-width:801px){.section-title:has(>.section-objects){display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.section-title:has(>.section-objects)>button,.section-title:has(>.section-objects)>.total{justify-self:end;align-self:end}.section-objects{justify-self:center}}
-@media(max-width:800px){.section-objects{align-self:flex-start}}
+@media(min-width:801px) and (orientation:landscape),(min-width:1101px){.section-title:has(>.section-objects){display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.section-title:has(>.section-objects)>button,.section-title:has(>.section-objects)>.total{justify-self:end;align-self:end}.section-objects{justify-self:center}}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.section-objects{align-self:flex-start}}
 .section-objects .notebook{width:120px;height:100px;padding:.8rem .8rem .8rem 1.9rem}.section-objects .notebook span:not(.notebook-binding){font-size:1.5rem;line-height:1}
 /* Renglones del diario: negrita, tachado, color y emoticones no agrandan la línea, así el texto queda siempre sobre su renglón. */
 .paper .page-editor :is(b,strong,i,em,u,s,strike,del,font,span,a){line-height:1}
@@ -328,10 +328,10 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .desk-art{grid-column:1;grid-row:1/span 2;display:block;width:100%;height:auto;aspect-ratio:2/1;object-fit:cover;border-radius:12px;box-shadow:0 8px 20px #2d140c55;pointer-events:none;user-select:none}
 .desk-row .desk-objects,.desk-row .drag-hint{grid-column:2/-1}
 .desk-row .drag-hint{margin-bottom:0}
-@media(max-width:800px){.desk-row{grid-template-columns:minmax(0,1fr)}.desk-row .desk-objects,.desk-row .drag-hint{grid-column:1}.desk-art{grid-row:3;margin-top:.75rem}}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.desk-row{grid-template-columns:minmax(0,1fr)}.desk-row .desk-objects,.desk-row .drag-hint{grid-column:1}.desk-art{grid-row:3;margin-top:.75rem}}
 /* Mi diario: íconos más grandes y a la derecha del encabezado. */
 .section-objects--large{zoom:1.3}
-@media(min-width:801px){.section-title:has(>.section-objects--large){grid-template-columns:minmax(0,1fr) auto;column-gap:1.4rem}.section-title>.section-objects--large{justify-self:end}}
+@media(min-width:801px) and (orientation:landscape),(min-width:1101px){.section-title:has(>.section-objects--large){grid-template-columns:minmax(0,1fr) auto;column-gap:1.4rem}.section-title>.section-objects--large{justify-self:end}}
 /* Imagen apoyada arriba del cuaderno, en el espacio libre entre el título y la tapa. */
 /* Meme del diario: sentado en el borde de arriba del libro, con las piernas colgando sobre la hoja.
    El asiento está al 69% de la altura de la imagen, así que se sube ese tanto por encima del borde.
@@ -348,7 +348,7 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .section-objects .notebook{width:135px}.section-objects .notebook span:not(.notebook-binding){font-size:1.3rem}
 /* Mis gastos: íconos grandes donde termina el rectángulo de gastos e imagen en el medio, apoyada sobre su borde. */
 .calc-art{display:none}
-@media(min-width:801px){
+@media(min-width:801px) and (orientation:landscape),(min-width:1101px){
 .section-title:has(>.calc-art){display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:1rem;align-items:start}
 .section-title:has(>.calc-art)>.title-with-floppy{grid-column:1;grid-row:1}
 .section-title:has(>.calc-art)>.section-objects{grid-column:3;grid-row:1;justify-self:end;align-self:end}
@@ -362,7 +362,7 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 /* Mis gastos en pantallas anchas: el meme queda bien en el medio de la pantalla. */
 @media(min-width:1860px){.calc-art{grid-column:1/-1}.calc-art img{max-width:30%}}
 /* Mis gastos en pantallas medianas: no hay lugar para el meme; los íconos pasan a otra línea si no entran. */
-@media(min-width:801px) and (max-width:1150px){
+@media(min-width:801px) and (max-width:1150px) and (orientation:landscape),(min-width:1101px) and (max-width:1150px){
   .calc-art{display:none}
   .section-title:has(>.calc-art)>.section-objects{grid-column:2/-1;flex-wrap:wrap;justify-content:flex-end}
 }
@@ -481,7 +481,7 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-more{font-size:.6rem}
 }
 /* En celular los accesos de arriba no se agrandan y bajan de línea si no entran (ahora son hasta cuatro con el calendario). */
-@media(max-width:800px){.section-objects--large{zoom:1}.section-objects{flex-wrap:wrap;gap:.8rem;max-width:100%}}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.section-objects--large{zoom:1}.section-objects{flex-wrap:wrap;gap:.8rem;max-width:100%}}
 /* Mis gastos: con el calendario son tres accesos; un poco más chicos para que la imagen del medio siga entrando. */
 /* Calendario: lista "¿Son fechas?" (flecha para ponerla en el calendario, X para dejar de preguntar) y cambio de fecha de una nota. */
 .cal-doubts>p{margin:0 0 .6rem;font-size:.85rem;color:#6b5a48}
@@ -539,7 +539,7 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 }
 /* Mi diario en computadora: la libreta (con los accesos, los botones y la imagen) sube al espacio libre junto al título, y los accesos quedan más separados de los botones. */
 .journal-objects{margin-bottom:1.5rem}
-@media(min-width:801px){.journal-content{margin-top:-6.5rem}}
+@media(min-width:801px) and (orientation:landscape),(min-width:1101px){.journal-content{margin-top:-6.5rem}}
 /* Escritorio: nota nueva sin fecha, se ofrece "Agregar fecha" y "Hora" con Agregar o Rechazar. */
 .date-add{align-items:end}
 .date-add p{flex:1 0 100%;margin:0;overflow-wrap:anywhere}
@@ -609,7 +609,7 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .runner-pad button{flex:1;min-height:64px;font-size:1.6rem;background:#4c3d99;touch-action:none}
 .runner-pad .runner-jump{flex:1.4;background:#22c55e;color:#062b13;font-weight:900;font-size:1.2rem}
 .runner-pad button:active{filter:brightness(1.25)}
-@media(pointer:coarse),(max-width:800px){.runner-pad{display:flex}.runner-keys{display:none}}
+@media(pointer:coarse),(max-width:800px),(orientation:portrait) and (max-width:1100px){.runner-pad{display:flex}.runner-keys{display:none}}
 /* Solitario 3.000: mesa futurista oscura con grilla de neón, cartas de vidrio y destellos eléctricos. */
 .sol{--neon:#22d3ee;--green:#39ff88;background:#050816;background-image:radial-gradient(ellipse at 50% 120%,#0e3a5c88,transparent 60%),linear-gradient(#22d3ee14 1px,transparent 1px),linear-gradient(90deg,#22d3ee14 1px,transparent 1px);background-size:100% 100%,32px 32px,32px 32px;font-family:ui-monospace,"Courier New",monospace}
 .sol .runner-bar h1{font-family:ui-monospace,"Courier New",monospace;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:#e0faff;text-shadow:0 0 8px var(--neon),0 0 18px #22d3ee88}
@@ -621,7 +621,7 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .sol .sol-box--points strong{color:var(--green);text-shadow:0 0 8px var(--green);min-width:3ch;text-align:right}
 .sol-pop{position:absolute;left:50%;top:38%;z-index:160;transform:translateX(-50%);padding:.4rem 1rem;background:#04130bdd;border:2px solid var(--green);border-radius:10px;box-shadow:0 0 18px #39ff8888;color:var(--green);font:900 clamp(1.3rem,4vw,2.2rem) ui-monospace,"Courier New",monospace;letter-spacing:.06em;text-shadow:0 0 10px var(--green);white-space:nowrap;pointer-events:none;animation:sol-pop 1.2s ease-out forwards}
 .sol-pop--bad{border-color:#ff3d81;color:#ff3d81;text-shadow:0 0 10px #ff3d81;box-shadow:0 0 18px #ff3d8188}
-@media(max-width:800px){.sol .sol-box{padding:.1rem .45rem;font-size:.65rem}.sol .sol-box strong{font-size:1.05rem}}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.sol .sol-box{padding:.1rem .45rem;font-size:.65rem}.sol .sol-box strong{font-size:1.05rem}}
 @keyframes sol-pop{0%{opacity:0;transform:translate(-50%,10px) scale(.8)}15%{opacity:1;transform:translate(-50%,0) scale(1.08)}70%{opacity:1;transform:translate(-50%,-14px) scale(1)}100%{opacity:0;transform:translate(-50%,-30px)}}
 .sol-total{font-family:ui-monospace,"Courier New",monospace;font-weight:700}
 .sol .runner-bar button{background:#0b1430;color:#e0faff;border:2px solid var(--neon);border-radius:8px;font-weight:900;box-shadow:0 0 10px #22d3ee55}
@@ -677,7 +677,7 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .sol-confetti span{position:absolute;top:-10%;width:28px;height:28px;animation:sol-fall linear infinite}
 .sol-confetti svg{width:100%;height:100%}
 @keyframes sol-fall{to{transform:translateY(120vh) rotate(360deg)}}
-@media(max-width:800px){.sol.runner{padding-left:4px;padding-right:4px}.sol .runner-bar{gap:.4rem .7rem;padding:0 .4rem}.sol .runner-bar button{padding:.35rem .6rem;font-size:.85rem}}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.sol.runner{padding-left:4px;padding-right:4px}.sol .runner-bar{gap:.4rem .7rem;padding:0 .4rem}.sol .runner-bar button{padding:.35rem .6rem;font-size:.85rem}}
 /* Tiki-Taka: estadio de noche, cancha rayada, marcador de TV siempre visible y botones grandes para el celular. */
 .tt{background:radial-gradient(ellipse at 50% 0,#14532d 0,#052e16 55%,#02140a 100%);overflow:auto}
 .tt.runner{gap:.35rem;padding:.4rem .6rem .5rem}
@@ -758,7 +758,7 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 .tt-final{font:900 1.5rem "Courier New",ui-monospace,monospace;color:#fde047!important}
 .tt-end-actions{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap}
 .tt-end-actions button+button{background:#334155;color:#fff}
-@media(max-width:800px){
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){
   .tt.runner{padding:.3rem .3rem .4rem}
   .tt .runner-bar{gap:.3rem .6rem}
   .tt-head{flex:1 1 100%;width:100%;display:grid;grid-template-columns:1fr 1fr;grid-template-areas:'board board' 'left right';gap:.2rem .5rem}
@@ -808,7 +808,7 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 @keyframes trepa-record{0%{transform:translate(-50%,-50%) rotate(-4deg) scale(.2);opacity:0}12%{transform:translate(-50%,-50%) rotate(-4deg) scale(1.15);opacity:1}20%{transform:translate(-50%,-50%) rotate(-4deg) scale(1)}85%{opacity:1}100%{opacity:0;transform:translate(-50%,-70%) rotate(-4deg)}}
 .trepa-gameover{font:900 clamp(2.4rem,7vw,4rem)/1 "Courier New",ui-monospace,monospace!important;color:#ef4444;letter-spacing:.08em;text-shadow:4px 4px 0 #450a0a}
 .trepa-win{font:900 clamp(1.6rem,4.5vw,2.4rem)/1.1 Nunito,system-ui,sans-serif!important;color:#fde047;text-shadow:0 4px 0 #92400e}
-@media(max-width:800px){
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){
   .trepa.runner{padding:.4rem .4rem .5rem;gap:.35rem}
   .trepa-main{position:relative}
   .trepa-side{position:absolute;top:6px;right:6px;z-index:2;flex:none;flex-direction:row;gap:.3rem;padding:.25rem;background:#1d1a44d9;border-width:2px}
@@ -837,7 +837,7 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 .cal-page .section-title{margin-bottom:var(--title-gap)}
 .cal-art-room{position:relative;pointer-events:none;user-select:none}
 .cal-art{position:absolute;z-index:3;left:50%;bottom:calc(-1 * (var(--title-gap) + 1.1rem));transform:translateX(-50%);width:auto;height:auto;max-width:100%;max-height:calc(100% + var(--title-gap) + 1.1rem);border-radius:10px 10px 0 0;box-shadow:0 -4px 14px #24100866}
-@media(min-width:801px){
+@media(min-width:801px) and (orientation:landscape),(min-width:1101px){
   .cal-page .section-title{display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:1rem;align-items:end}
   .cal-art-room{align-self:stretch}
   /* El mes y el año van a la izquierda (debajo de "Calendario") y el meme baja hasta el borde de abajo del
@@ -850,13 +850,13 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
   .cal-art{bottom:calc(-1 * (var(--title-gap) + 1.1rem + var(--band-h)));max-height:calc(100% + var(--title-gap) + 1.1rem + var(--band-h));border-radius:10px}
 }
 @media(min-width:1001px){.cal-page .cal-band-wrap{--padb:.4rem}}
-@media(max-width:800px){
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){
   .cal-page .cal-band-wrap{--pad:.6rem;--gap:.4rem}
   .cal-art-room{order:3;display:flex;justify-content:center;align-items:flex-end;height:9rem;margin-bottom:calc(-1 * (var(--title-gap) + 1.1rem))}
   .cal-art{position:relative;left:auto;bottom:auto;transform:none;max-height:100%}
 }
 /* Calendario en pantallas medianas: no hay lugar para el meme en el encabezado; los íconos pasan a otra línea si no entran. */
-@media(min-width:801px) and (max-width:1150px){
+@media(min-width:801px) and (max-width:1150px) and (orientation:landscape),(min-width:1101px) and (max-width:1150px){
   .cal-art-room{display:none}
   .cal-page .section-title>.section-objects{grid-column:2/-1;flex-wrap:wrap;justify-content:flex-end}
 }
@@ -882,11 +882,11 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 .games-heading{align-self:start}
 .games-art{position:relative;pointer-events:none;user-select:none}
 .games-art img{position:absolute;left:50%;bottom:calc(-1 * var(--title-gap) + .5rem);transform:translateX(-50%);width:auto;height:auto;max-width:100%;max-height:calc(100% + var(--title-gap) - .5rem);border-radius:12px;box-shadow:0 8px 22px #000b}
-@media(min-width:801px){
+@media(min-width:801px) and (orientation:landscape),(min-width:1101px){
   .section-title.games-title{display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:1rem;align-items:end}
   .games-art{align-self:stretch}
 }
-@media(max-width:800px){
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){
   .games-art{display:flex;justify-content:center;height:10rem;margin:.25rem 0 .25rem}
   .games-art img{position:static;transform:none;max-height:100%}
 }
@@ -918,7 +918,7 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 .snk .runner-overlay h2{color:#fde047}
 .snk-pad button{background:#15803d}
 .snk-toast{position:absolute;top:8%;left:50%;transform:translateX(-50%);max-width:90%;padding:.55rem 1.1rem;background:#14532de6;border:3px solid #fde047;border-radius:12px;color:#fff;font-weight:900;font-size:clamp(.95rem,2.4vw,1.3rem);text-align:center;white-space:nowrap;pointer-events:none;animation:trepa-pop .25s ease-out;box-shadow:0 8px 24px #0008}
-@media(max-width:800px){
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){
   .snk-main{flex-direction:column;gap:.4rem}
   .snk-side{flex:none;order:-1;flex-direction:row;padding:.3rem;gap:.3rem}
   .snk-stat{flex:1;padding:.25rem .2rem}
@@ -926,7 +926,7 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
   .snk-stat strong{font-size:1.05rem}
 }
 /* Objetos del escritorio en el celular: no se aplastan; si no entran en una fila, pasan a la siguiente. */
-@media(max-width:800px){.desk-objects{flex-wrap:wrap;justify-content:center;align-items:center;gap:1rem 1.1rem}.desk-objects>*{flex-shrink:0}}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.desk-objects{flex-wrap:wrap;justify-content:center;align-items:center;gap:1rem 1.1rem}.desk-objects>*{flex-shrink:0}}
 @media(max-width:480px){.desk-objects{zoom:.85}}
 /* ¡El piso es de lava! (usa la pantalla de Trepaluna con colores de fuego) */
 .lava.runner{background:radial-gradient(ellipse at 50% 100%,#7f1d1d 0,#1c0a0a 70%)}
@@ -947,3 +947,136 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 .lava-meter-track{background:linear-gradient(0deg,#57534e,#a8a29e)!important}
 .lava-meter-lava{position:absolute;left:0;right:0;bottom:0;border-radius:7px;background:linear-gradient(0deg,#7f1d1d,#f97316 85%,#fde047);box-shadow:0 0 8px #f97316;transition:height .2s linear}
 .lava-toast{background:#431407e6!important;border-color:#fb923c!important}
+/* ===== Diseño adaptable: celulares y tablets en horizontal y ventanas medianas (801–1279px apaisado). =====
+   Todo lo de acá abajo solo se aplica en pantallas de menos de 1280px: en la notebook el diseño queda igual. */
+@media(pointer:coarse) and (min-width:801px) and (max-width:1279px) and (orientation:landscape){
+  /* Escritorio: si el formulario de nueva nota no entra al lado del título, pasa abajo con todo el ancho. */
+  .section-title:has(>.new-note){flex-wrap:wrap}
+  .section-title>.new-note{flex:0 1 auto;margin-left:auto}
+  .section-title>.new-note input{min-width:0}
+  /* Los objetos del escritorio van en una fila con todo el ancho (nunca se aplastan) y el meme queda
+     abajo, arriba de "No iniciado", al lado del aviso de arrastrar. */
+  .desk-row .desk-objects{grid-column:1/-1;grid-row:1;justify-content:center;margin:0 0 1rem}
+  .desk-row .desk-art{grid-row:2}
+  .desk-row .drag-hint{grid-row:2;grid-column:2/-1}
+  .desk-objects>*{flex-shrink:0}
+}
+@media(pointer:coarse) and (min-width:801px) and (max-width:999px) and (orientation:landscape){.desk-objects{zoom:1.05}}
+@media(pointer:coarse) and (min-width:801px) and (max-width:1100px) and (orientation:landscape){
+  /* Columnas angostas: una nota por fila, así la letra no queda diminuta. */
+  @container(max-width:330px){.column .note,.column .drop-indicator{flex-basis:100%}}
+}
+/* Celulares: los accesos a otras secciones nunca quedan uno solo en una fila: si son 4 van en una grilla de 2×2
+   centrada; si son 3, en una fila. */
+@media(max-width:600px){
+  .section-objects{align-self:center;justify-content:center}
+  .section-objects:has(>:nth-child(4)){display:grid;grid-template-columns:repeat(2,max-content);justify-content:center;justify-items:center;align-items:center;gap:1rem 1.8rem}
+  .section-objects:not(:has(>:nth-child(4))){flex-wrap:nowrap}
+  .journal-objects{justify-content:center}
+}
+@media(max-width:374px){.section-objects:not(:has(>:nth-child(4))){zoom:.9}}
+/* Mi diario en pantallas más chicas: el meme también se sienta en el borde de arriba del libro (a la izquierda,
+   más chico) y se le deja lugar arriba para que no tape los botones; la hoja empieza debajo de sus piernas. */
+@media(max-width:800px),(orientation:portrait) and (max-width:1159px),(pointer:coarse) and (max-width:1159px){
+  .book{--sit-height:clamp(8rem,24vw,12rem);margin-top:calc(var(--sit-height) * .69)}
+  .book-art{display:block;position:absolute;z-index:5;top:calc(var(--sit-height) * -.69);left:clamp(1rem,6vw,3rem);height:var(--sit-height);width:auto;pointer-events:none;user-select:none;filter:drop-shadow(4px 6px 5px #2d140c66)}
+  .book .paper{padding-top:calc(var(--sit-height) * .31 + 1.2rem)}
+}
+/* Mi diario en celulares y tablets en horizontal: la libreta no sube junto al título (no hay lugar) y los
+   íconos quedan de tamaño normal, a la derecha arriba de los botones. */
+@media(pointer:coarse) and (min-width:801px) and (max-width:1100px) and (orientation:landscape){
+  .journal-content{margin-top:0}
+  .journal-objects .section-objects--large{zoom:1}
+}
+/* Mis gastos: donde el meme no entra en la fila del título, va en su propia fila, centrado y entero,
+   apoyado sobre el rectángulo de gastos. */
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){
+  .calc-art{display:block;width:100%;pointer-events:none;user-select:none}
+  .calc-art img{display:block;width:100%;max-width:34rem;height:auto;margin:0 auto -.4rem;border-radius:10px;box-shadow:0 6px 14px #2d140c88}
+}
+@media(pointer:coarse) and (min-width:801px) and (max-width:1859px) and (orientation:landscape){
+  .section-title:has(>.calc-art)>.section-objects{grid-column:2/-1}
+  .calc-art{display:block;grid-column:1/-1;grid-row:2;align-self:auto;container-type:normal}
+  .calc-art img{display:block;position:static;transform:none;width:auto;max-width:100%;height:min(15rem,45vh);margin:0 auto -1.6rem}
+}
+@media(pointer:coarse) and (min-width:1101px) and (max-width:1279px) and (orientation:landscape){.section-title:has(>.calc-art)>.section-objects{zoom:1.1}}
+/* Mis gastos fuera de la notebook: entre 848 y 1088px de ancho las 6 columnas quedan apretadas (cortan el texto),
+   así que se usan dos columnas; el concepto siempre ocupa toda la fila. */
+@media(max-width:800px),(orientation:portrait) and (max-width:1279px),(pointer:coarse) and (max-width:1279px){
+  @container (min-width:30rem){.expense-row>input:first-child{grid-column:1/-1}}
+  @container (min-width:53rem) and (max-width:68rem){
+    .calculator form,.expense-row{grid-template-columns:minmax(0,1fr) minmax(12rem,1fr)}
+    .calculator form>label:first-child,.calculator form>button,.expense-row>button{grid-column:1/-1}
+  }
+}
+@media(max-width:480px){.expense-row>input:first-child{padding-left:.55rem;padding-right:.55rem}}
+/* Tablets táctiles grandes en horizontal: también dos columnas (más cómodas para tocar y sin texto cortado). */
+@media(pointer:coarse) and (min-width:1280px){
+  @container (min-width:30rem){.expense-row>input:first-child{grid-column:1/-1}}
+  @container (min-width:53rem) and (max-width:80rem){
+    .calculator form,.expense-row{grid-template-columns:minmax(0,1fr) minmax(12rem,1fr)}
+    .calculator form>label:first-child,.calculator form>button,.expense-row>button{grid-column:1/-1}
+  }
+}
+/* Barra de arriba en el celular: compacta (dos líneas) para que no ocupe media pantalla al quedar fija.
+   Arriba el nombre y Salir; abajo Exportar, Importar y el estado de sincronización con la cuenta. */
+@media(max-width:600px){
+  header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.45rem .6rem;padding:.55rem .8rem}
+  header .brand{grid-column:1;grid-row:1;font-size:1.45rem;line-height:1.1}
+  header .backup{display:contents}
+  header .backup>button{grid-column:2;grid-row:1;justify-self:end;width:auto;min-width:0;padding:.4rem .9rem;font-size:.9rem}
+  header .backup-actions{grid-column:1;grid-row:2;display:flex;gap:.4rem}
+  header .backup-actions button{flex:0 1 auto;padding:.4rem .75rem;font-size:.9rem}
+  header .account-summary{grid-column:2;grid-row:2;justify-self:end;text-align:right;padding:0;border:0;min-width:0;max-width:11rem}
+  header .sync-status{justify-content:flex-end;font-size:.75rem}
+  header .identity{display:block;font-size:.72rem;line-height:1.2;overflow-wrap:anywhere;-webkit-line-clamp:unset}
+}
+/* Celulares en horizontal (pantalla muy baja): la barra no queda fija arriba, así no tapa el contenido. */
+@media(pointer:coarse) and (max-height:520px) and (max-width:1279px) and (orientation:landscape){header{position:static}}
+/* Calendario fuera de la notebook (pantallas de menos de 1280px o táctiles), con lugar para texto (más de 700px):
+   cada tarea se lee entera (la celda crece si hace falta) y los días de la semana tienen un tamaño legible. */
+@media(min-width:701px) and (max-width:800px),(min-width:701px) and (orientation:portrait),(min-width:701px) and (pointer:coarse){
+  .cal-day{min-height:auto;overflow:visible}
+  .cal-chip{display:block;-webkit-line-clamp:none;white-space:normal;overflow:visible;overflow-wrap:break-word;hyphens:auto;font-size:clamp(.7rem,1.05vw,.86rem);line-height:1.2}
+  .cal-weekday{font-size:clamp(.66rem,1vw,.85rem);text-overflow:clip}
+}
+@media(min-width:701px) and (max-width:800px),(pointer:coarse) and (min-width:701px) and (max-width:999px),(orientation:portrait) and (min-width:701px) and (max-width:999px){.cal-weekday-full{display:none}.cal-weekday-short{display:inline}}
+/* Calendario en horizontal mediano: el meme va en su propia fila, centrado, apoyado sobre el encabezado azul,
+   y los íconos quedan en una sola fila. */
+@media(pointer:coarse) and (min-width:801px) and (max-width:1150px) and (orientation:landscape){
+  .cal-art-room{display:flex;grid-column:1/-1;grid-row:2;justify-content:center;align-items:flex-end;height:9rem;margin-bottom:calc(-1 * (var(--title-gap) + 1.1rem))}
+  .cal-art{position:relative;left:auto;bottom:auto;transform:none;max-height:100%;border-radius:10px 10px 0 0}
+  .cal-page .section-title>.section-objects{flex-wrap:nowrap}
+  .cal-page .section-objects--large{zoom:1}
+}
+@media(pointer:coarse) and (min-width:1001px) and (max-width:1150px){.cal-layout{grid-template-columns:1fr}.cal-day-panel{position:static;max-height:none}}
+/* Juegos en horizontal mediano: el meme va en su propia fila, centrado y entero, llegando hasta las tarjetas;
+   los íconos quedan en una sola fila al lado del título. */
+@media(pointer:coarse) and (min-width:801px) and (max-width:1279px) and (orientation:landscape){
+  .games-title>.section-objects{grid-column:2/-1;grid-row:1;justify-self:end;flex-wrap:nowrap}
+  .games-art{display:flex;justify-content:center;grid-column:1/-1;grid-row:2;height:11rem;margin-top:.6rem}
+  .games-art img{position:static;transform:none;max-height:100%;max-width:100%}
+}
+@media(pointer:coarse) and (min-width:801px) and (max-width:1100px) and (orientation:landscape){.games-title>.section-objects--large{zoom:1}}
+/* Juegos en pantallas bajas (celular en horizontal): el cartel de inicio siempre entra entero (si hace falta,
+   se desplaza adentro) y los controles táctiles son más bajos para dejarle lugar al juego. */
+.runner-overlay>div{max-height:100%;overflow-y:auto}
+@media(pointer:coarse) and (max-height:520px) and (max-width:1279px){
+  .runner{padding-top:.35rem;padding-bottom:.4rem;gap:.35rem}
+  .runner-overlay{padding:.4rem}
+  .runner-overlay>div{max-width:min(560px,100%);padding:.7rem 1rem}
+  .runner-overlay h2{font-size:1.25rem;margin-bottom:.3rem}
+  .runner-overlay p{font-size:.85rem;line-height:1.35;margin-bottom:.5rem}
+  .runner-overlay button{padding:.45rem 1.3rem;font-size:1rem}
+  .runner-pad button{min-height:44px;font-size:1.25rem}
+  .trepa .runner-pad button{min-height:44px}
+  .runner-pad .runner-jump{font-size:1.05rem}
+}
+/* Trepaluna: en pantallas bajas el medidor no tiene lugar para todas las etiquetas sin pisarse: se ve solo la barra. */
+@media(pointer:coarse) and (max-height:620px),(max-width:800px) and (max-height:620px){.trepa-meter-marks span:not(:first-child):not(:last-child){display:none}}
+/* Tiki-Taka: los países se acomodan solos según el ancho (nunca se salen de la pantalla) y los nombres largos
+   entran en dos líneas. */
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){
+  .tt-kits{grid-template-columns:repeat(auto-fill,minmax(4rem,1fr))}
+  .tt-kits button{min-width:0;font-size:min(.66rem,2.75vw);overflow-wrap:normal}
+}
