@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BLOCKS, buildCity, FLOAT_Y, GOAL, newShark, PLAYER_TARGET, REACH, rescueX, SHARKS, sharksAt, step, takeEvents, TIME_LIMIT, WATER_Y, windAt, WIND_FROM,
+  BLOCKS, buildCity, FLOAT_Y, GOAL, newShark, PLAYER_TARGET, REACH, rescueX, SHARKS, sharksAt, step, takeEvents, TIME_LIMIT, WATER_Y, windAt, WIND_CALM, WIND_TURN, sharkMouth,
   type Input, type Lane, type Plat, type SharkGame,
 } from './shark';
 
 const idle: Input = { left: false, right: false, jump: false, down: false, up: false };
 const run = (g: SharkGame, seconds: number, input: Partial<Input> = {}) => { for (let t = 0; t < seconds && !g.over && !g.won; t += 1 / 60) step(g, { ...idle, ...input }, 1 / 60); };
 // Una partida tranquila: sin tiburones ni rescatados, para probar el movimiento.
-const calm = () => { const g = newShark(1); g.sharks = []; g.rescues = []; g.plats = g.plats.filter(p => p.kind !== 'float'); g.time = 1; return g; };
+const calm = () => { const g = newShark(1); g.sharks = []; g.rescues = []; g.plats = g.plats.filter(p => p.kind !== 'float'); g.time = 1; g.windPower = 0; return g; };
 const stand = (g: SharkGame, pl: Plat, x = pl.x + pl.w / 2) => Object.assign(g.player, { x, y: pl.y, vx: 0, vy: 0, ground: pl, swimming: false, climb: null, zip: null });
 
 describe('Ciudad Tiburón: la ciudad', () => {
@@ -80,7 +80,7 @@ describe('Ciudad Tiburón: el juego', () => {
     for (const l of g.lanes) expect(g.sharks.filter(s => s.lane === l.id).length).toBeLessThanOrEqual(2);
   });
 
-  it('se rescata tocando al que flota y con 30 se gana', () => {
+  it('se rescata tocando al que flota y con 20 se gana', () => {
     const g = calm();
     const lane = g.lanes[3];
     g.rand = () => 0.5;
@@ -130,7 +130,7 @@ describe('Ciudad Tiburón: el juego', () => {
     for (let i = 0; i < 600 && !g.dying; i++) { step(g, idle, 1 / 60); if (g.sharks[0].state === 'warn') warned = true; }
     expect(warned).toBe(true);
     expect(g.dying?.reason).toBe('shark');
-    run(g, 2);
+    run(g, 3);
     expect(g.over).toBe(true);
   });
 
@@ -224,17 +224,60 @@ describe('Ciudad Tiburón: el juego', () => {
     expect(Math.abs(g.player.x - z.x2)).toBeLessThan(0.6);
   });
 
-  it('las ráfagas de viento te empujan', () => {
-    expect(windAt(WIND_FROM - 1)).toBe(0);
-    expect(windAt(WIND_FROM + 1)).not.toBe(0);
+  it('el viento sopla para la derecha, se calma, sopla para la izquierda… y te empuja para los dos lados', () => {
+    expect(windAt(WIND_CALM / 2)).toBe(0);
+    expect(windAt(WIND_TURN / 2 + 1)).toBeGreaterThan(0.4);
+    expect(windAt(WIND_TURN * 1.5 + 1)).toBeLessThan(-0.4);
+    expect(windAt(WIND_TURN * 2.5 + 1)).toBeGreaterThan(0.4);
+    for (const [at, sign] of [[WIND_TURN / 2, 1], [WIND_TURN * 1.5, -1]] as const) {
+      const g = calm();
+      const roof = g.plats.find(p => p.kind === 'roof' && p.w > 6)!;
+      stand(g, roof);
+      g.time = at; g.windPower = 1;
+      const x0 = g.player.x;
+      run(g, 1);
+      expect((g.player.x - x0) * sign).toBeGreaterThan(0.9);
+      expect(takeEvents(g).some(e => e.type === 'wind' && e.dir === sign)).toBe(true);
+    }
+  });
+
+  it('el agua pasa por delante de los edificios: nadando se cruza de una calle a la otra', () => {
     const g = calm();
-    const roof = g.plats.find(p => p.kind === 'roof' && p.w > 6)!;
-    stand(g, roof);
-    g.time = WIND_FROM + 0.1;
-    const x0 = g.player.x;
+    const b = g.blocks[5];
+    Object.assign(g.player, { x: b.x1 - 1, y: WATER_Y, swimming: true, ground: null });
+    for (let i = 0; i < 60 * ((b.x2 - b.x1 + 2) / 2.2 + 2); i++) { g.sharks = []; step(g, { ...idle, right: true }, 1 / 60); }
+    expect(g.dying).toBeNull();
+    expect(g.player.x).toBeGreaterThan(b.x2 + 0.5);
+  });
+
+  it('los tiburones nadan por delante de los edificios, fuera de su calle', () => {
+    const g = newShark(5);
+    Object.assign(g.player, { y: 40 }); g.player.ground = null;
+    let inFront = false;
+    for (let i = 0; i < 60 * 60 && !inFront; i++) {
+      g.player.y = 40; g.player.vy = 0; step(g, idle, 1 / 60);
+      inFront = g.sharks.some(s => g.blocks.some(b => s.x > b.x1 + 0.5 && s.x < b.x2 - 0.5));
+    }
+    expect(inFront).toBe(true);
+  });
+
+  it('cuando te alcanza, el tiburón salta del agua, te tiene en la boca y se hunde con vos', () => {
+    const { g, lane } = withShark('gris');
+    let x = lane.x1 + 1.6;
+    while (g.plats.some(p => p.y < 1 && p.x < x + 0.5 && p.x + p.w > x - 0.5)) x += 0.1;
+    Object.assign(g.player, { x, y: WATER_Y, swimming: true, ground: null });
+    for (let i = 0; i < 600 && !g.dying; i++) step(g, idle, 1 / 60);
+    const s = g.sharks[0];
+    expect(s.state).toBe('bite');
+    run(g, 0.3);
+    expect(s.y).toBeGreaterThan(0); // salió del agua
+    run(g, 0.3);
+    const m = sharkMouth(s);
+    expect(Math.abs(m.x - g.player.x)).toBeLessThan(0.05);
+    run(g, 1.5);
+    expect(s.y).toBeLessThan(WATER_Y);
     run(g, 1);
-    expect(Math.abs(g.player.x - x0)).toBeGreaterThan(1);
-    expect(takeEvents(g).some(e => e.type === 'wind')).toBe(true);
+    expect(g.over).toBe(true);
   });
 
   it('si se termina el tiempo, perdés', () => {
