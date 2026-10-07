@@ -1,0 +1,937 @@
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  FLOAT_Y, GOAL, HANG, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
+  type Block, type Climb, type Debris, type Decor, type Input, type LoseReason, type Plat, type Rescue, type RescueKind, type Shark, type SharkGame, type SharkType, type Zip,
+} from './shark';
+
+const RECORD_KEY = 'escritorio-personal-juegos:tiburon-record';
+export interface SharkRecord { saved: number; time: number | null } // más rescatados y mejor tiempo para rescatar a los 30
+export const readSharkRecord = (): SharkRecord => {
+  try { const v = JSON.parse(localStorage.getItem(RECORD_KEY) ?? 'null') as SharkRecord | null; return v && typeof v.saved === 'number' ? v : { saved: 0, time: null }; } catch { return { saved: 0, time: null }; }
+};
+const saveRecord = (value: SharkRecord) => { try { localStorage.setItem(RECORD_KEY, JSON.stringify(value)); } catch { /* sin almacenamiento */ } };
+export const formatSharkTime = (seconds: number) => { const s = Math.max(0, Math.ceil(seconds)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+
+type Status = 'ready' | 'playing' | 'paused' | 'over' | 'won';
+interface View { w: number; h: number; s: number; cx: number; cy: number; t: number; dpr: number }
+const X = (v: View, x: number) => (x - v.cx) * v.s;
+const Y = (v: View, y: number) => v.h - (y - v.cy) * v.s;
+const hsl = (h: number, s: number, l: number, a = 1) => `hsla(${h},${s}%,${l}%,${a})`;
+const hash = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+const visible = (v: View, x1: number, x2: number, y1: number, y2: number) => X(v, x2) > -60 && X(v, x1) < v.w + 60 && Y(v, y1) > -60 && Y(v, y2) < v.h + 60;
+const font = (weight: number, px: number) => `${weight} ${Math.max(7, Math.round(px))}px Nunito, system-ui`;
+const rect = (ctx: CanvasRenderingContext2D, v: View, x: number, y1: number, w: number, y2: number) => ctx.fillRect(X(v, x), Y(v, y2), w * v.s, (y2 - y1) * v.s);
+
+// Relámpagos: en cada tramo de 7 segundos cae uno (a veces dos seguidos) en un lugar del cielo.
+function lightning(t: number) {
+  let best = { a: 0, x: 0.5, k: 0 };
+  for (const k of [Math.floor(t / 7), Math.floor(t / 7) - 1]) {
+    for (const extra of [0, 0.35]) {
+      if (extra && hash(k + 300) < 0.5) continue;
+      const at = k * 7 + 1.5 + hash(k + 100) * 4 + extra, d = t - at;
+      if (d < 0 || d > 0.7) continue;
+      const a = Math.exp(-d * 6) * (d < 0.06 || (d > 0.12 && d < 0.2) ? 1 : 0.45);
+      if (a > best.a) best = { a, x: 0.1 + hash(k + 200) * 0.8, k };
+    }
+  }
+  return best;
+}
+
+// ---------- Fondo: cielo de tormenta, nubes, rayos y muchos edificios lejos ----------
+function drawSky(ctx: CanvasRenderingContext2D, v: View, flash: ReturnType<typeof lightning>) {
+  const g = ctx.createLinearGradient(0, 0, 0, v.h);
+  g.addColorStop(0, '#070b16'); g.addColorStop(0.55, '#1b2638'); g.addColorStop(1, '#2c3b50');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, v.w, v.h);
+  if (flash.a > 0.05) {
+    ctx.fillStyle = `rgba(200,215,255,${flash.a * 0.45})`; ctx.fillRect(0, 0, v.w, v.h);
+    // El rayo, en zigzag hasta los edificios.
+    if (flash.a > 0.3) {
+      ctx.strokeStyle = `rgba(240,245,255,${flash.a})`; ctx.lineWidth = 2.5; ctx.shadowColor = '#c7d2fe'; ctx.shadowBlur = 18;
+      ctx.beginPath();
+      let x = flash.x * v.w, y = 0;
+      ctx.moveTo(x, y);
+      for (let i = 1; i <= 9; i++) { x += (hash(flash.k * 13 + i) - 0.5) * v.w * 0.07; y = (i / 9) * v.h * 0.55; ctx.lineTo(x, y); if (i === 4) { ctx.moveTo(x, y); ctx.lineTo(x + v.w * 0.05, y + v.h * 0.12); ctx.moveTo(x, y); } }
+      ctx.stroke(); ctx.shadowBlur = 0;
+    }
+  }
+  // Nubes oscuras que corren con el viento.
+  for (let i = 0; i < 12; i++) {
+    const span = v.w + 500, speed = 6 + hash(i + 3) * 10;
+    const x = ((hash(i) * span + v.t * speed - v.cx * v.s * 0.04) % span + span) % span - 250;
+    const y = v.h * (0.02 + hash(i + 9) * 0.22), r = v.h * (0.07 + hash(i + 4) * 0.06);
+    ctx.fillStyle = flash.a > 0.1 ? `rgba(70,80,110,${0.55 + flash.a * 0.3})` : 'rgba(12,18,32,0.7)';
+    for (let j = 0; j < 4; j++) { ctx.beginPath(); ctx.ellipse(x + (j - 1.5) * r * 0.9, y + Math.sin(j * 2 + i) * r * 0.2, r, r * 0.55, 0, 0, Math.PI * 2); ctx.fill(); }
+  }
+}
+
+const SKY_LAYERS = [
+  { par: 0.15, unit: 0.45, n: 46, base: '#1a2436', lit: 0.12, span: 220, hmax: 34 },
+  { par: 0.35, unit: 0.65, n: 40, base: '#141d2c', lit: 0.2, span: 200, hmax: 26 },
+];
+function drawSkyline(ctx: CanvasRenderingContext2D, v: View, flash: number) {
+  SKY_LAYERS.forEach((L, li) => {
+    const s = v.s * L.unit, base = v.h + v.cy * v.s * L.par - v.s * 0.4 * (1 - L.par);
+    const off = v.cx * v.s * L.par;
+    for (let rep = -1; rep < Math.ceil(v.w / (L.span * s)) + 1; rep++) {
+      for (let i = 0; i < L.n; i++) {
+        const bx = (hash(i * 7 + li * 100) * L.span), bw = 3 + hash(i * 3 + li) * 6, bh = 6 + hash(i * 11 + li * 50) * L.hmax;
+        const sx = ((bx * s - off) % (L.span * s) + L.span * s) % (L.span * s) + rep * L.span * s;
+        if (sx > v.w + 20 || sx + bw * s < -20) continue;
+        const top = base - bh * s;
+        ctx.fillStyle = flash > 0.1 ? `rgba(${60 + flash * 80},${70 + flash * 80},${100 + flash * 80},1)` : L.base;
+        ctx.fillRect(sx, top, bw * s, base - top);
+        if (hash(i + li * 9) < 0.3) { ctx.fillRect(sx + bw * s * 0.45, top - 3 * s, Math.max(1, s * 0.15), 3 * s); if (Math.floor(v.t * 1.5 + i) % 2) { ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(sx + bw * s * 0.45, top - 3 * s, Math.max(1.2, s * 0.18), 0, Math.PI * 2); ctx.fill(); } }
+        // Ventanas prendidas (algunas parpadean, se cortó la luz en muchas).
+        const cols = Math.floor(bw / 1.1), rows = Math.floor(bh / 1.4);
+        for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+          const hsh = hash(i * 131 + r * 17 + c * 5 + li * 999);
+          if (hsh > L.lit) continue;
+          if (hsh < 0.02 && Math.floor(v.t * 3 + i) % 3 === 0) continue;
+          ctx.fillStyle = hsh < L.lit * 0.5 ? 'rgba(253,224,140,0.75)' : 'rgba(186,230,253,0.45)';
+          ctx.fillRect(sx + (c * 1.1 + 0.35) * s, top + (r * 1.4 + 0.5) * s, 0.5 * s, 0.6 * s);
+        }
+      }
+    }
+    // Agua lejana al pie de los edificios.
+    ctx.fillStyle = li ? '#0d2231' : '#11283a';
+    ctx.fillRect(0, base, v.w, v.h - base);
+  });
+}
+
+// ---------- Las manzanas: edificios, casas y locales ----------
+function windows(ctx: CanvasRenderingContext2D, v: View, b: Block, y1: number, y2: number, seed: number, t: number) {
+  const w = b.x2 - b.x1, n = Math.max(1, Math.floor((w - 0.6) / 1.5)), gap = (w - n * 0.9) / (n + 1);
+  for (let i = 0; i < n; i++) {
+    const wx = b.x1 + gap + i * (0.9 + gap), h = hash(seed + i * 7);
+    const lit = h < 0.45, wy1 = y1 + 0.55, wy2 = Math.min(y2 - 0.35, wy1 + 1.25);
+    ctx.fillStyle = '#0f172a'; rect(ctx, v, wx - 0.07, wy1 - 0.07, 1.04, wy2 + 0.07);
+    ctx.fillStyle = lit ? (h < 0.1 && Math.floor(t * 2 + i) % 5 === 0 ? '#a16207' : '#fcd34d') : '#1e3a5f';
+    rect(ctx, v, wx, wy1, 0.9, wy2);
+    // Gente asomada pidiendo ayuda o saludando.
+    if (h > 0.45 && h < 0.53) {
+      const px = X(v, wx + 0.45), py = Y(v, wy1 + 0.35), s = v.s;
+      ctx.fillStyle = '#0b1220'; ctx.beginPath(); ctx.arc(px, py - s * 0.35, s * 0.17, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(px - s * 0.18, py - s * 0.18, s * 0.36, s * 0.3);
+      ctx.strokeStyle = '#0b1220'; ctx.lineWidth = Math.max(1.5, s * 0.08);
+      const wave = Math.sin(t * 8 + i) * 0.25;
+      ctx.beginPath(); ctx.moveTo(px + s * 0.15, py - s * 0.15); ctx.lineTo(px + s * (0.3 + wave * 0.3), py - s * 0.6); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; rect(ctx, v, wx + 0.42, wy1, 0.06, wy2); rect(ctx, v, wx, (wy1 + wy2) / 2 - 0.03, 0.9, (wy1 + wy2) / 2 + 0.03);
+  }
+}
+
+function drawBlock(ctx: CanvasRenderingContext2D, b: Block, v: View) {
+  if (!visible(v, b.x1, b.x2, -1, b.top + 3)) return;
+  const s = v.s, w = b.x2 - b.x1;
+  if (b.kind === 'building') {
+    const base = hsl(b.hue, 12 + b.tone * 18, 26 + b.tone * 14);
+    ctx.fillStyle = base; rect(ctx, v, b.x1, -3, w, b.top);
+    // Franja de cada piso y ventanas.
+    for (let k = 0; k < b.floors; k++) {
+      const y1 = k * b.fh - 1.2;
+      ctx.fillStyle = 'rgba(0,0,0,0.18)'; rect(ctx, v, b.x1, y1 - 0.1, w, y1 + 0.08);
+      windows(ctx, v, b, y1, y1 + b.fh, b.id * 1000 + k * 37, v.t);
+    }
+    // Cornisa, chorreaduras de lluvia y la marca de hasta dónde llegó el agua.
+    ctx.fillStyle = hsl(b.hue, 10, 20 + b.tone * 10); rect(ctx, v, b.x1 - 0.12, b.top - 0.3, w + 0.24, b.top);
+    ctx.fillStyle = 'rgba(15,23,42,0.18)';
+    for (let i = 0; i < 6; i++) rect(ctx, v, b.x1 + hash(b.id * 9 + i) * w, b.top - 0.3 - hash(i + b.id) * 6, 0.08, b.top - 0.3);
+    ctx.fillStyle = 'rgba(56,72,60,0.45)'; rect(ctx, v, b.x1, -0.2, w, 0.55);
+    // Antena en la terraza.
+    ctx.strokeStyle = '#475569'; ctx.lineWidth = Math.max(1, s * 0.06);
+    const ax = X(v, b.x1 + w * 0.7);
+    ctx.beginPath(); ctx.moveTo(ax, Y(v, b.top)); ctx.lineTo(ax, Y(v, b.top + 2.2)); ctx.moveTo(ax - s * 0.4, Y(v, b.top + 1.7)); ctx.lineTo(ax + s * 0.4, Y(v, b.top + 1.7)); ctx.moveTo(ax - s * 0.25, Y(v, b.top + 2)); ctx.lineTo(ax + s * 0.25, Y(v, b.top + 2)); ctx.stroke();
+  } else if (b.kind === 'house') {
+    ctx.fillStyle = hsl(b.hue, 38, 52); rect(ctx, v, b.x1, -3, w, b.top);
+    ctx.fillStyle = 'rgba(0,0,0,0.1)'; for (let y = -2; y < b.top; y += 0.5) rect(ctx, v, b.x1, y, w, y + 0.04);
+    for (const [y1, y2] of [[0.2, 1.7], [3, 4.4]]) {
+      for (const fx of [0.22, 0.62]) {
+        const wx = b.x1 + w * fx;
+        ctx.fillStyle = '#1e293b'; rect(ctx, v, wx, y1, w * 0.18, y2);
+        ctx.fillStyle = hash(b.id + y1 + fx) < 0.5 ? '#fcd34d' : '#334155'; rect(ctx, v, wx + 0.08, y1 + 0.08, w * 0.18 - 0.16, y2 - 0.08);
+        ctx.fillStyle = hsl((b.hue + 160) % 360, 45, 35); rect(ctx, v, wx - 0.3, y1, 0.28, y2); rect(ctx, v, wx + w * 0.18 + 0.02, y1, 0.28, y2); // postigos
+      }
+    }
+    // Baranda de la terraza y una soga con ropa colgada que se mueve con el viento.
+    ctx.fillStyle = '#e5e7eb'; rect(ctx, v, b.x1, b.top, w, b.top + 0.12); rect(ctx, v, b.x1, b.top + 0.75, w, b.top + 0.85);
+    for (let x = b.x1 + 0.1; x < b.x2; x += 0.5) rect(ctx, v, x, b.top, 0.06, b.top + 0.8);
+    const c1 = X(v, b.x1 + 0.4), c2 = X(v, b.x2 - 0.4), cy = Y(v, b.top + 1.6);
+    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(c1, cy); ctx.quadraticCurveTo((c1 + c2) / 2, cy + s * 0.2, c2, cy); ctx.stroke();
+    for (let i = 0; i < 4; i++) {
+      const fx = c1 + (c2 - c1) * (0.2 + i * 0.2), sway = Math.sin(v.t * 6 + i) * s * 0.12;
+      ctx.fillStyle = hsl((b.hue + i * 70) % 360, 60, 55);
+      ctx.beginPath(); ctx.moveTo(fx - s * 0.2, cy + s * 0.12); ctx.lineTo(fx + s * 0.2, cy + s * 0.12); ctx.lineTo(fx + s * 0.2 + sway, cy + s * 0.6); ctx.lineTo(fx - s * 0.2 + sway, cy + s * 0.6); ctx.fill();
+    }
+  } else {
+    ctx.fillStyle = hsl(b.hue, 30, 42); rect(ctx, v, b.x1, -3, w, b.top);
+    // Vidriera con cosas adentro y el cartel del frente.
+    ctx.fillStyle = '#0f172a'; rect(ctx, v, b.x1 + 0.35, -1, w - 0.7, 2.1);
+    ctx.fillStyle = '#164e63'; rect(ctx, v, b.x1 + 0.45, -1, w - 0.9, 2);
+    for (let i = 0; i < 6; i++) { ctx.fillStyle = hsl((b.hue + i * 50) % 360, 50, 55); rect(ctx, v, b.x1 + 0.6 + i * (w - 1.2) / 6, 0.6, (w - 1.2) / 8, 0.9 + hash(i + b.id) * 0.5); }
+    ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.beginPath(); ctx.moveTo(X(v, b.x1 + 0.8), Y(v, 2)); ctx.lineTo(X(v, b.x1 + 1.3), Y(v, 2)); ctx.lineTo(X(v, b.x1 + 0.6), Y(v, 0)); ctx.lineTo(X(v, b.x1 + 0.45), Y(v, 0)); ctx.fill();
+    ctx.fillStyle = hsl(b.hue, 70, 30); rect(ctx, v, b.x1 + 0.2, 2.35, w - 0.4, 3.15);
+    ctx.fillStyle = '#fef3c7'; ctx.font = font(900, s * 0.55); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(b.label, X(v, (b.x1 + b.x2) / 2), Y(v, 2.75), (w - 0.6) * s);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; rect(ctx, v, b.x1, b.top - 0.15, w, b.top);
+  }
+}
+
+// ---------- Lo que sirve para moverse ----------
+function drawPlat(ctx: CanvasRenderingContext2D, p: Plat, g: SharkGame, v: View) {
+  if (!visible(v, p.x - 1, p.x + p.w + 1, p.y - 2, p.y + 2)) return;
+  const s = v.s, x = X(v, p.x), y = Y(v, p.y), w = p.w * s, t = v.t;
+  ctx.lineCap = 'round';
+  switch (p.kind) {
+    case 'roof': ctx.fillStyle = '#475569'; ctx.fillRect(x, y, w, s * 0.14); break;
+    case 'landing': {
+      ctx.fillStyle = '#1f2937'; ctx.fillRect(x, y, w, s * 0.12);
+      ctx.strokeStyle = '#334155'; ctx.lineWidth = Math.max(1, s * 0.05);
+      ctx.beginPath(); ctx.moveTo(x, y - s * 0.75); ctx.lineTo(x + w, y - s * 0.75);
+      for (let i = 0; i <= 5; i++) { ctx.moveTo(x + (w * i) / 5, y); ctx.lineTo(x + (w * i) / 5, y - s * 0.75); }
+      ctx.stroke(); break;
+    }
+    case 'balcony': {
+      ctx.fillStyle = '#9ca3af'; ctx.fillRect(x, y, w, s * 0.16);
+      ctx.strokeStyle = hsl(p.hue, 30, 25); ctx.lineWidth = Math.max(1, s * 0.05);
+      ctx.beginPath(); ctx.moveTo(x, y - s * 0.7); ctx.lineTo(x + w, y - s * 0.7);
+      for (let i = 0; i <= 6; i++) { ctx.moveTo(x + (w * i) / 6, y); ctx.lineTo(x + (w * i) / 6, y - s * 0.7); }
+      ctx.stroke();
+      // Una planta en maceta que se sacude.
+      if (hash(p.id) < 0.4) { ctx.fillStyle = '#9a3412'; ctx.fillRect(x + w * 0.6, y - s * 0.3, s * 0.25, s * 0.3); ctx.fillStyle = '#15803d'; ctx.beginPath(); ctx.ellipse(x + w * 0.6 + s * 0.12 + Math.sin(t * 5 + p.id) * s * 0.05, y - s * 0.42, s * 0.2, s * 0.16, 0, 0, Math.PI * 2); ctx.fill(); }
+      break;
+    }
+    case 'ac': {
+      ctx.fillStyle = '#d1d5db'; ctx.fillRect(x, y, w, s * 0.5);
+      ctx.strokeStyle = '#6b7280'; ctx.lineWidth = Math.max(1, s * 0.03);
+      ctx.beginPath(); ctx.arc(x + w * 0.62, y + s * 0.25, s * 0.17, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + w * 0.62, y + s * 0.25); ctx.lineTo(x + w * 0.62 + Math.cos(t * 9) * s * 0.15, y + s * 0.25 + Math.sin(t * 9) * s * 0.15); ctx.stroke();
+      for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(x + w * 0.1, y + s * (0.1 + i * 0.1)); ctx.lineTo(x + w * 0.38, y + s * (0.1 + i * 0.1)); ctx.stroke(); }
+      const drip = (t * 1.5 + hash(p.id)) % 1; ctx.fillStyle = '#93c5fd'; ctx.fillRect(x + w * 0.2, y + s * (0.5 + drip * 0.8), s * 0.05, s * 0.1);
+      break;
+    }
+    case 'stoop': ctx.fillStyle = '#a8a29e'; ctx.fillRect(x, y, w, s * 0.5); ctx.fillStyle = '#78716c'; ctx.fillRect(x, y, w, s * 0.06); ctx.fillRect(x + w * 0.1, y + s * 0.25, w * 0.8, s * 0.04); break;
+    case 'sill': {
+      ctx.fillStyle = hsl(p.hue, 35, 30); ctx.fillRect(x, y, w, s * 0.14);
+      ctx.fillStyle = '#b45309'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w * 0.85, y - s * 0.12); ctx.lineTo(x + w * 0.15, y - s * 0.12); ctx.fill();
+      break;
+    }
+    case 'awning': {
+      const wall = g.blocks.find(b => Math.abs(b.x1 - (p.x + p.w)) < 0.05 || Math.abs(b.x2 - p.x) < 0.05);
+      const atLeft = wall ? Math.abs(wall.x2 - p.x) < 0.05 : true;
+      const hx = atLeft ? x : x + w, ox = atLeft ? x + w : x;
+      const n = 5;
+      for (let i = 0; i < n; i++) {
+        const a = hx + ((ox - hx) * i) / n, b2 = hx + ((ox - hx) * (i + 1)) / n;
+        ctx.fillStyle = i % 2 ? '#fef2f2' : hsl(p.hue, 70, 45);
+        ctx.beginPath(); ctx.moveTo(a, y - s * 0.4 * (1 - i / n)); ctx.lineTo(b2, y - s * 0.4 * (1 - (i + 1) / n)); ctx.lineTo(b2, y + s * 0.1); ctx.lineTo(a, y + s * 0.1); ctx.fill();
+      }
+      ctx.fillStyle = hsl(p.hue, 70, 38);
+      for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(x + (w * (i + 0.5)) / 5, y + s * 0.1, w / 10, 0, Math.PI); ctx.fill(); }
+      break;
+    }
+    case 'tank': {
+      ctx.strokeStyle = '#334155'; ctx.lineWidth = Math.max(1, s * 0.07);
+      ctx.beginPath(); ctx.moveTo(x + w * 0.15, y + s * 0.9); ctx.lineTo(x + w * 0.15, y + s * 1.3); ctx.moveTo(x + w * 0.85, y + s * 0.9); ctx.lineTo(x + w * 0.85, y + s * 1.3); ctx.stroke();
+      ctx.fillStyle = '#111827'; ctx.beginPath(); ctx.roundRect(x, y, w, s * 0.9, s * 0.2); ctx.fill();
+      ctx.fillStyle = '#374151'; ctx.fillRect(x, y + s * 0.3, w, s * 0.06); ctx.fillRect(x, y + s * 0.6, w, s * 0.06);
+      break;
+    }
+    case 'sign': {
+      const b = g.blocks.find(k => k.kind === 'shop' && p.x > k.x1 && p.x < k.x2);
+      ctx.strokeStyle = '#334155'; ctx.lineWidth = Math.max(1, s * 0.08);
+      ctx.beginPath(); ctx.moveTo(x + w * 0.2, y); ctx.lineTo(x + w * 0.2, Y(v, p.y - 1.5)); ctx.moveTo(x + w * 0.8, y); ctx.lineTo(x + w * 0.8, Y(v, p.y - 1.5)); ctx.stroke();
+      ctx.fillStyle = '#f8fafc'; ctx.fillRect(x, y, w, s * 0.85);
+      ctx.fillStyle = hsl(p.hue, 70, 40); ctx.fillRect(x + s * 0.06, y + s * 0.06, w - s * 0.12, s * 0.73);
+      const on = Math.floor(t * 2 + p.id) % 7 !== 0; // el cartel luminoso chisporrotea
+      ctx.fillStyle = on ? '#fef9c3' : '#a3a3a3'; ctx.font = font(900, s * 0.42); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(b?.label ?? '24 HS', x + w / 2, y + s * 0.43, w - s * 0.2);
+      break;
+    }
+    case 'cable': {
+      // El cable se mece con el viento; el poste del medio lo sostiene.
+      const wind = windAt(t), sway = Math.sin(t * 3 + p.id) * s * 0.05 + wind * s * 0.08;
+      ctx.strokeStyle = '#0f172a'; ctx.lineWidth = Math.max(1.5, s * 0.07);
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + w * 0.25, y + s * 0.1 + sway, x + w / 2, y); ctx.quadraticCurveTo(x + w * 0.75, y + s * 0.1 + sway, x + w, y); ctx.stroke();
+      ctx.strokeStyle = 'rgba(15,23,42,0.6)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, y - s * 0.5); ctx.quadraticCurveTo(x + w * 0.25, y - s * 0.38 + sway, x + w / 2, y - s * 0.5); ctx.quadraticCurveTo(x + w * 0.75, y - s * 0.38 + sway, x + w, y - s * 0.5); ctx.stroke();
+      break;
+    }
+    case 'car': case 'van': case 'bus': drawVehicle(ctx, p, v); break;
+    case 'kiosk': {
+      ctx.fillStyle = hsl(p.hue, 55, 45); ctx.fillRect(x + s * 0.1, y, w - s * 0.2, s * 1.8);
+      ctx.fillStyle = '#e0f2fe'; ctx.fillRect(x + s * 0.25, y + s * 0.35, w - s * 0.5, s * 0.6);
+      ctx.fillStyle = '#f97316'; ctx.fillRect(x + s * 0.3, y + s * 0.7, s * 0.25, s * 0.25); ctx.fillStyle = '#22c55e'; ctx.fillRect(x + s * 0.6, y + s * 0.65, s * 0.2, s * 0.3);
+      ctx.fillStyle = '#1f2937'; ctx.fillRect(x, y - s * 0.05, w, s * 0.18);
+      ctx.fillStyle = '#fef3c7'; ctx.font = font(900, s * 0.24); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('KIOSCO', x + w / 2, y + s * 0.22, w);
+      break;
+    }
+    case 'stop': {
+      ctx.strokeStyle = '#64748b'; ctx.lineWidth = Math.max(1.5, s * 0.08);
+      ctx.beginPath(); ctx.moveTo(x + s * 0.15, y); ctx.lineTo(x + s * 0.15, Y(v, -0.5)); ctx.moveTo(x + w - s * 0.15, y); ctx.lineTo(x + w - s * 0.15, Y(v, -0.5)); ctx.stroke();
+      ctx.fillStyle = 'rgba(186,230,253,0.35)'; ctx.fillRect(x + s * 0.2, y + s * 0.15, w - s * 0.4, s * 1.4);
+      ctx.fillStyle = '#e2e8f0'; ctx.fillRect(x - s * 0.1, y, w + s * 0.2, s * 0.15);
+      ctx.fillStyle = '#facc15'; ctx.fillRect(x + w * 0.35, y + s * 0.3, w * 0.3, s * 0.45);
+      ctx.fillStyle = '#1e3a8a'; ctx.font = font(900, s * 0.3); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('152', x + w / 2, y + s * 0.53, w * 0.3);
+      break;
+    }
+    case 'tree': {
+      const cx = x + w / 2, sway = Math.sin(t * 2.5 + p.id) * s * 0.12 + windAt(t) * s * 0.2;
+      ctx.fillStyle = '#5b3a1e'; ctx.fillRect(cx - s * 0.17, y + s * 0.3, s * 0.34, Y(v, -1) - y);
+      for (const [dx, dy, r, l] of [[-0.55, 0.25, 0.75, 24], [0.55, 0.25, 0.75, 22], [0, 0, 0.85, 28], [0, 0.45, 0.6, 18]]) {
+        ctx.fillStyle = hsl(130, 45, l); ctx.beginPath(); ctx.ellipse(cx + dx * s + sway, y + dy * s, r * s, r * s * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    }
+    case 'debris': drawDebris(ctx, g.debris.find(d => d.plat === p)!, v); break;
+    default: break;
+  }
+}
+
+function drawVehicle(ctx: CanvasRenderingContext2D, p: Plat, v: View) {
+  const s = v.s, x = X(v, p.x), y = Y(v, p.y), w = p.w * s;
+  const body = hsl(p.hue, 60, 42), dark = hsl(p.hue, 55, 28);
+  if (p.kind === 'car') {
+    ctx.fillStyle = body; ctx.beginPath(); ctx.roundRect(x - s * 0.4, y + s * 0.45, w + s * 0.8, s * 0.6, s * 0.15); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(x, y, w, s * 0.55, [s * 0.25, s * 0.25, 0, 0]); ctx.fill();
+    ctx.fillStyle = '#93c5fd'; ctx.fillRect(x + w * 0.1, y + s * 0.12, w * 0.36, s * 0.32); ctx.fillRect(x + w * 0.54, y + s * 0.12, w * 0.36, s * 0.32);
+    ctx.fillStyle = dark; ctx.fillRect(x + w * 0.2, y - s * 0.06, w * 0.6, s * 0.06); // barras del techo
+    // Un perrito que espera arriba del auto (decorado).
+    if (hash(p.id) < 0.15) { ctx.fillStyle = '#92400e'; ctx.beginPath(); ctx.ellipse(x + w * 0.5, y - s * 0.2, s * 0.25, s * 0.15, 0, 0, Math.PI * 2); ctx.fill(); }
+  } else if (p.kind === 'van') {
+    ctx.fillStyle = '#f1f5f9'; ctx.beginPath(); ctx.roundRect(x, y, w, s * 1.3, s * 0.12); ctx.fill();
+    ctx.fillStyle = body; ctx.fillRect(x, y + s * 0.65, w, s * 0.15);
+    ctx.fillStyle = '#93c5fd'; ctx.fillRect(x + w * 0.75, y + s * 0.15, w * 0.2, s * 0.4); ctx.fillRect(x + w * 0.08, y + s * 0.15, w * 0.25, s * 0.35);
+  } else {
+    ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.roundRect(x, y, w, s * 1.6, s * 0.18); ctx.fill();
+    ctx.fillStyle = '#1e3a8a'; ctx.fillRect(x, y + s * 0.9, w, s * 0.14);
+    ctx.fillStyle = '#bae6fd'; for (let i = 0; i < 6; i++) ctx.fillRect(x + w * (0.05 + i * 0.155), y + s * 0.18, w * 0.12, s * 0.5);
+    ctx.fillStyle = '#111827'; ctx.fillRect(x + w * 0.88, y + s * 0.02, w * 0.1, s * 0.12);
+    ctx.fillStyle = '#fde047'; ctx.font = font(900, s * 0.12); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('152', x + w * 0.93, y + s * 0.08);
+  }
+}
+
+function drawDebris(ctx: CanvasRenderingContext2D, d: Debris, v: View) {
+  const p = d.plat, s = v.s, bob = Math.sin(v.t * 2.2 + p.id) * s * 0.04, tilt = Math.sin(v.t * 1.7 + p.id) * 0.05;
+  const x = X(v, p.x), y = Y(v, p.y) + bob, w = p.w * s;
+  ctx.save(); ctx.translate(x + w / 2, y); ctx.rotate(tilt); ctx.translate(-w / 2, 0);
+  switch (d.kind) {
+    case 'plank': ctx.fillStyle = '#a16207'; ctx.fillRect(0, 0, w, s * 0.2); ctx.fillStyle = '#713f12'; ctx.fillRect(w * 0.2, s * 0.08, w * 0.3, s * 0.03); ctx.fillRect(w * 0.6, s * 0.12, w * 0.25, s * 0.03); break;
+    case 'door': ctx.fillStyle = hsl(p.hue, 30, 55); ctx.fillRect(0, 0, w, s * 0.18); ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(w * 0.85, s * 0.09, s * 0.05, 0, Math.PI * 2); ctx.fill(); break;
+    case 'mattress': ctx.fillStyle = '#e0e7ff'; ctx.beginPath(); ctx.roundRect(0, 0, w, s * 0.3, s * 0.1); ctx.fill(); ctx.fillStyle = '#6366f1'; for (let i = 1; i < 6; i++) ctx.fillRect((w * i) / 6, 0, s * 0.04, s * 0.3); break;
+    case 'pallet': ctx.fillStyle = '#ca8a04'; for (let i = 0; i < 5; i++) ctx.fillRect((w * i) / 5, 0, w / 7, s * 0.12); ctx.fillRect(0, s * 0.12, w, s * 0.1); break;
+    case 'fridge': ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.roundRect(0, 0, w, s * 0.9, s * 0.1); ctx.fill(); ctx.fillStyle = '#94a3b8'; ctx.fillRect(w * 0.75, s * 0.15, s * 0.06, s * 0.3); ctx.fillRect(0, s * 0.5, w, s * 0.03); break;
+  }
+  ctx.restore();
+}
+
+function drawClimb(ctx: CanvasRenderingContext2D, c: Climb, v: View) {
+  if (!visible(v, c.x - 1, c.x + 1, c.y1, c.y2)) return;
+  const s = v.s, x = X(v, c.x), y1 = Y(v, c.y1), y2 = Y(v, c.y2);
+  ctx.lineCap = 'round';
+  if (c.skin === 'ladder') {
+    ctx.strokeStyle = '#475569'; ctx.lineWidth = Math.max(1.5, s * 0.06);
+    ctx.beginPath(); ctx.moveTo(x - s * 0.25, y1); ctx.lineTo(x - s * 0.25, y2); ctx.moveTo(x + s * 0.25, y1); ctx.lineTo(x + s * 0.25, y2);
+    for (let y = c.y1 + 0.2; y < c.y2; y += 0.35) { ctx.moveTo(x - s * 0.25, Y(v, y)); ctx.lineTo(x + s * 0.25, Y(v, y)); }
+    ctx.stroke();
+  } else if (c.skin === 'rope') {
+    const sway = Math.sin(v.t * 2 + c.id) * s * 0.08 + windAt(v.t) * s * 0.15;
+    ctx.strokeStyle = '#a16207'; ctx.lineWidth = Math.max(2, s * 0.09);
+    ctx.beginPath(); ctx.moveTo(x, y2); ctx.quadraticCurveTo(x + sway, (y1 + y2) / 2, x + sway * 0.5, y1); ctx.stroke();
+    ctx.strokeStyle = '#713f12'; ctx.lineWidth = 1;
+    for (let y = c.y1 + 0.4; y < c.y2; y += 0.6) { const k = (Y(v, y) - y2) / (y1 - y2); ctx.beginPath(); ctx.moveTo(x - s * 0.06 + sway * k, Y(v, y)); ctx.lineTo(x + s * 0.06 + sway * k, Y(v, y) - s * 0.1); ctx.stroke(); }
+    ctx.fillStyle = '#334155'; ctx.fillRect(x - s * 0.5, y2 - s * 0.08, s * 0.6, s * 0.12);
+  } else if (c.skin === 'pipe') {
+    ctx.strokeStyle = '#64748b'; ctx.lineWidth = Math.max(2, s * 0.16);
+    ctx.beginPath(); ctx.moveTo(x, y1); ctx.lineTo(x, y2); ctx.stroke();
+    ctx.fillStyle = '#334155'; for (let y = c.y1 + 0.5; y < c.y2; y += 1.3) ctx.fillRect(x - s * 0.15, Y(v, y), s * 0.3, s * 0.08);
+  } else {
+    ctx.strokeStyle = '#3f3f46'; ctx.lineWidth = Math.max(2.5, s * 0.18);
+    ctx.beginPath(); ctx.moveTo(x, y1); ctx.lineTo(x, y2 - s * 0.9); ctx.stroke();
+    ctx.lineWidth = Math.max(1.5, s * 0.1); ctx.beginPath(); ctx.moveTo(x - s * 0.5, y2 - s * 0.7); ctx.lineTo(x + s * 0.5, y2 - s * 0.7); ctx.stroke();
+    ctx.fillStyle = '#86efac'; for (const dx of [-0.4, 0.4]) { ctx.beginPath(); ctx.arc(x + dx * s, y2 - s * 0.78, s * 0.07, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = '#52525b'; for (let y = c.y1 + 0.6; y < c.y2 - 0.3; y += 0.7) ctx.fillRect(x - s * 0.18, Y(v, y), s * 0.36, s * 0.05); // grampas para trepar
+  }
+}
+
+function drawZip(ctx: CanvasRenderingContext2D, z: Zip, g: SharkGame, v: View) {
+  if (!visible(v, Math.min(z.x1, z.x2), Math.max(z.x1, z.x2), z.y2 - 1, z.y1 + 1)) return;
+  const s = v.s;
+  ctx.strokeStyle = '#d4d4d8'; ctx.lineWidth = Math.max(1.5, s * 0.05);
+  ctx.beginPath(); ctx.moveTo(X(v, z.x1), Y(v, z.y1)); ctx.lineTo(X(v, z.x2), Y(v, z.y2)); ctx.stroke();
+  ctx.fillStyle = '#ef4444';
+  for (const [x, y] of [[z.x1, z.y1], [z.x2, z.y2]]) { ctx.fillRect(X(v, x) - s * 0.08, Y(v, y), s * 0.16, (y - (y === z.y1 ? z.y1 - 1.3 : z.y2 - 1.3)) * s); }
+  if (g.player.zip !== z) {
+    const tx = z.x1 + (z.x2 - z.x1) * 0.04, ty = z.y1 + (z.y2 - z.y1) * 0.04;
+    ctx.fillStyle = '#facc15'; ctx.fillRect(X(v, tx) - s * 0.15, Y(v, ty), s * 0.3, s * 0.2);
+    ctx.strokeStyle = '#facc15'; ctx.beginPath(); ctx.moveTo(X(v, tx), Y(v, ty) + s * 0.2); ctx.lineTo(X(v, tx), Y(v, ty) + s * 0.6); ctx.stroke();
+  }
+}
+
+function drawDecor(ctx: CanvasRenderingContext2D, d: Decor, v: View) {
+  if (!visible(v, d.x - 1, d.x + 1, -1, 4)) return;
+  const s = v.s, x = X(v, d.x), t = v.t;
+  ctx.lineCap = 'round';
+  if (d.kind === 'light') {
+    ctx.strokeStyle = '#27272a'; ctx.lineWidth = Math.max(2, s * 0.1); ctx.beginPath(); ctx.moveTo(x, Y(v, -1)); ctx.lineTo(x, Y(v, 2.6)); ctx.stroke();
+    ctx.fillStyle = '#18181b'; ctx.fillRect(x - s * 0.2, Y(v, 3.6), s * 0.4, s * 1);
+    const on = Math.floor(t * 1.5) % 2 === 0;
+    ctx.fillStyle = on ? '#facc15' : '#713f12'; ctx.beginPath(); ctx.arc(x, Y(v, 3.1), s * 0.12, 0, Math.PI * 2); ctx.fill(); // intermitente amarilla
+    ctx.fillStyle = '#450a0a'; ctx.beginPath(); ctx.arc(x, Y(v, 3.4), s * 0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#052e16'; ctx.beginPath(); ctx.arc(x, Y(v, 2.8), s * 0.12, 0, Math.PI * 2); ctx.fill();
+  } else if (d.kind === 'pare') {
+    ctx.strokeStyle = '#71717a'; ctx.lineWidth = Math.max(1.5, s * 0.07); ctx.beginPath(); ctx.moveTo(x, Y(v, -1)); ctx.lineTo(x, Y(v, 1.6)); ctx.stroke();
+    ctx.fillStyle = '#dc2626'; ctx.beginPath();
+    for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + (i * Math.PI) / 4; ctx.lineTo(x + Math.cos(a) * s * 0.4, Y(v, 1.95) + Math.sin(a) * s * 0.4); }
+    ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = font(900, s * 0.22); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('PARE', x, Y(v, 1.95));
+  } else if (d.kind === 'subte') {
+    ctx.strokeStyle = '#71717a'; ctx.lineWidth = Math.max(1.5, s * 0.07); ctx.beginPath(); ctx.moveTo(x, Y(v, -1)); ctx.lineTo(x, Y(v, 1.2)); ctx.stroke();
+    ctx.fillStyle = '#1d4ed8'; ctx.fillRect(x - s * 0.55, Y(v, 1.8), s * 1.1, s * 0.6);
+    ctx.fillStyle = '#fff'; ctx.font = font(900, s * 0.28); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('SUBTE', x, Y(v, 1.5), s);
+  } else {
+    ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.roundRect(x - s * 0.25, Y(v, 0.35), s * 0.5, s * 1, [s * 0.25, s * 0.25, 0, 0]); ctx.fill();
+    ctx.fillStyle = '#7f1d1d'; ctx.fillRect(x - s * 0.15, Y(v, 0.15), s * 0.3, s * 0.05);
+  }
+}
+
+// ---------- Los que hay que rescatar ----------
+const SKINS = ['#fcd9b6', '#e0ac69', '#8d5524', '#f1c27d'];
+function drawCritter(ctx: CanvasRenderingContext2D, kind: RescueKind, look: number, cx: number, base: number, s: number, t: number, wave = 1) {
+  ctx.lineCap = 'round';
+  if (kind === 'perro') {
+    const fur = ['#92400e', '#d6d3d1', '#1c1917', '#ca8a04'][Math.floor(look * 4)];
+    ctx.fillStyle = fur;
+    ctx.beginPath(); ctx.ellipse(cx, base - s * 0.22, s * 0.3, s * 0.17, 0, 0, Math.PI * 2); ctx.fill(); // cuerpo
+    ctx.beginPath(); ctx.arc(cx + s * 0.3, base - s * 0.45, s * 0.16, 0, Math.PI * 2); ctx.fill(); // cabeza
+    ctx.beginPath(); ctx.ellipse(cx + s * 0.44, base - s * 0.41, s * 0.09, s * 0.06, 0, 0, Math.PI * 2); ctx.fill(); // hocico
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(cx + s * 0.52, base - s * 0.42, s * 0.035, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(cx + s * 0.33, base - s * 0.5, s * 0.03, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = look > 0.5 ? '#451a03' : '#78350f'; ctx.beginPath(); ctx.ellipse(cx + s * 0.22, base - s * 0.48, s * 0.06, s * 0.13, 0.4 + Math.sin(t * 6) * 0.2, 0, Math.PI * 2); ctx.fill(); // oreja
+    ctx.strokeStyle = fur; ctx.lineWidth = Math.max(1.5, s * 0.06);
+    const wag = Math.sin(t * 14) * s * 0.12;
+    ctx.beginPath(); ctx.moveTo(cx - s * 0.28, base - s * 0.28); ctx.lineTo(cx - s * 0.45, base - s * 0.45 + wag); ctx.stroke(); // cola que se mueve
+    ctx.beginPath(); ctx.moveTo(cx - s * 0.15, base - s * 0.1); ctx.lineTo(cx - s * 0.15, base); ctx.moveTo(cx + s * 0.15, base - s * 0.1); ctx.lineTo(cx + s * 0.15, base); ctx.stroke();
+  } else if (kind === 'gato') {
+    const fur = ['#f97316', '#6b7280', '#e5e7eb', '#1f2937'][Math.floor(look * 4)];
+    ctx.fillStyle = fur;
+    ctx.beginPath(); ctx.ellipse(cx, base - s * 0.2, s * 0.2, s * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + s * 0.05, base - s * 0.48, s * 0.15, 0, Math.PI * 2); ctx.fill();
+    for (const d of [-1, 1]) { ctx.beginPath(); ctx.moveTo(cx + s * (0.05 + d * 0.13), base - s * 0.55); ctx.lineTo(cx + s * (0.05 + d * 0.1), base - s * 0.72); ctx.lineTo(cx + s * (0.05 + d * 0.02), base - s * 0.6); ctx.fill(); }
+    ctx.fillStyle = '#a3e635'; for (const d of [-1, 1]) { ctx.beginPath(); ctx.arc(cx + s * (0.05 + d * 0.06), base - s * 0.5, s * 0.03, 0, Math.PI * 2); ctx.fill(); }
+    ctx.strokeStyle = fur; ctx.lineWidth = Math.max(1.5, s * 0.05);
+    ctx.beginPath(); ctx.moveTo(cx - s * 0.18, base - s * 0.15); ctx.quadraticCurveTo(cx - s * 0.45, base - s * 0.2, cx - s * 0.35 + Math.sin(t * 4) * s * 0.06, base - s * 0.55); ctx.stroke(); // cola parada (asustado)
+  } else {
+    const skin = SKINS[Math.floor(look * 4)], shirt = hsl(Math.floor(look * 997) % 360, 65, 50);
+    ctx.fillStyle = shirt; ctx.beginPath(); ctx.roundRect(cx - s * 0.17, base - s * 0.55, s * 0.34, s * 0.45, s * 0.08); ctx.fill();
+    ctx.fillStyle = '#1e3a8a'; ctx.fillRect(cx - s * 0.16, base - s * 0.12, s * 0.32, s * 0.12);
+    ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(cx, base - s * 0.7, s * 0.15, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = ['#3b2412', '#111', '#a16207', '#7c2d12'][Math.floor(look * 7) % 4]; ctx.beginPath(); ctx.arc(cx, base - s * 0.75, s * 0.15, Math.PI, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(cx + s * 0.06, base - s * 0.7, s * 0.025, 0, Math.PI * 2); ctx.fill();
+    // Mueve los brazos pidiendo ayuda.
+    ctx.strokeStyle = skin; ctx.lineWidth = Math.max(1.5, s * 0.07);
+    const a = Math.sin(t * 9) * 0.35 * wave;
+    ctx.beginPath(); ctx.moveTo(cx - s * 0.15, base - s * 0.5); ctx.lineTo(cx - s * (0.35 + a * 0.3), base - s * 0.95); ctx.moveTo(cx + s * 0.15, base - s * 0.5); ctx.lineTo(cx + s * (0.35 - a * 0.3), base - s * 0.95); ctx.stroke();
+  }
+}
+
+function drawFloat(ctx: CanvasRenderingContext2D, r: Rescue, cx: number, base: number, s: number) {
+  const w = r.plat.w * s, x = cx - w / 2;
+  switch (r.float) {
+    case 'goma': ctx.fillStyle = '#ea580c'; ctx.beginPath(); ctx.ellipse(cx, base + s * 0.05, w / 2, s * 0.16, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff'; for (const d of [-0.3, 0.3]) ctx.fillRect(cx + d * w - s * 0.06, base - s * 0.08, s * 0.12, s * 0.26); break;
+    case 'cajon': ctx.fillStyle = '#b45309'; ctx.fillRect(x, base, w, s * 0.35); ctx.strokeStyle = '#78350f'; ctx.lineWidth = 1; ctx.strokeRect(x, base, w, s * 0.35); ctx.beginPath(); ctx.moveTo(x, base); ctx.lineTo(x + w, base + s * 0.35); ctx.stroke(); break;
+    case 'puerta': ctx.fillStyle = hsl(r.plat.hue, 35, 50); ctx.fillRect(x, base, w, s * 0.16); ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(x + w * 0.85, base + s * 0.08, s * 0.04, 0, Math.PI * 2); ctx.fill(); break;
+    case 'colchon': ctx.fillStyle = '#fbcfe8'; ctx.beginPath(); ctx.roundRect(x, base, w, s * 0.26, s * 0.1); ctx.fill(); ctx.fillStyle = '#db2777'; for (let i = 1; i < 6; i++) ctx.fillRect(x + (w * i) / 6, base, s * 0.035, s * 0.26); break;
+    case 'balsa': ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.roundRect(x, base - s * 0.05, w, s * 0.3, s * 0.14); ctx.fill(); ctx.fillStyle = '#ca8a04'; ctx.fillRect(x + s * 0.1, base + s * 0.08, w - s * 0.2, s * 0.05); break;
+  }
+}
+
+function drawRescue(ctx: CanvasRenderingContext2D, r: Rescue, g: SharkGame, v: View) {
+  const s = v.s, t = v.t;
+  if (r.state === 'drift') {
+    const cx = X(v, rescueX(r)), base = Y(v, FLOAT_Y) + Math.sin(t * 2.4 + r.id) * s * 0.05;
+    if (cx < -60 || cx > v.w + 60) return;
+    drawFloat(ctx, r, cx, base, s);
+    drawCritter(ctx, r.kind, r.look, cx, base, s * 0.95, t + r.id);
+    // Si un tiburón lo está buscando, se asusta (signo de exclamación).
+    if (g.sharks.some(k => k.target === r.id && (k.state === 'approach' || k.state === 'warn'))) {
+      ctx.fillStyle = '#ef4444'; ctx.font = font(900, s * 0.5); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('!', cx, base - s * 0.9);
+    }
+    return;
+  }
+  const age = g.time - r.at;
+  if (r.state === 'saved' && age < 1) {
+    // Salta a los brazos del bombero y sube un "+1".
+    const k = Math.min(1, age / 0.5), px = r.fromX + (g.player.x - r.fromX) * k, py = r.fromY + (g.player.y + 0.6 - r.fromY) * k + Math.sin(k * Math.PI) * 1.2;
+    if (age < 0.5) drawCritter(ctx, r.kind, r.look, X(v, px), Y(v, py), s * 0.95 * (1 - k * 0.4), t, 0);
+    ctx.globalAlpha = Math.max(0, 1 - age);
+    ctx.fillStyle = '#4ade80'; ctx.font = font(900, s * 0.7); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText(r.kind === 'perro' ? '+1 🐶' : r.kind === 'gato' ? '+1 🐱' : '+1 🙋', X(v, g.player.x), Y(v, g.player.y + 1.4 + age * 1.5));
+    ctx.globalAlpha = 1;
+  } else if (r.state === 'taken' && age < 1.4) {
+    // Se lo lleva el tiburón: se hunde con burbujas.
+    const cx = X(v, r.fromX), base = Y(v, FLOAT_Y - Math.min(1.2, age * 1.2));
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, v.w, Y(v, 0)); ctx.clip();
+    drawCritter(ctx, r.kind, r.look, cx, base, s * 0.95, t, 0);
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(cx + (hash(i + r.id) - 0.5) * s, Y(v, (age * 2 + hash(i)) % 1 * 0.6), s * 0.06, 0, Math.PI * 2); ctx.fill(); }
+  }
+}
+
+// ---------- Tiburones ----------
+const SHARK_COLOR: Record<SharkType, [string, string]> = {
+  gris: ['#64748b', '#e2e8f0'], martillo: ['#57534e', '#d6d3d1'], tigre: ['#7c6f4f', '#e7e5e4'], bebe: ['#94a3b8', '#f1f5f9'], blanco: ['#6b7280', '#f8fafc'], mako: ['#1e3a8a', '#e0e7ff'],
+};
+function drawSharkBody(ctx: CanvasRenderingContext2D, k: Shark, cx: number, cy: number, s: number, angle: number, dir: 1 | -1, open: number) {
+  const spec = SHARKS[k.type], z = spec.size * s * 1.35, [back, belly] = SHARK_COLOR[k.type];
+  const L = z * (k.type === 'mako' ? 1.7 : 1.5), H = z * (k.type === 'mako' ? 0.42 : 0.5);
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle); ctx.scale(dir, 1);
+  // Cola.
+  ctx.fillStyle = back;
+  ctx.beginPath(); ctx.moveTo(-L * 0.42, 0); ctx.lineTo(-L * 0.62, -H * 0.75); ctx.lineTo(-L * 0.55, 0); ctx.lineTo(-L * 0.62, H * 0.55); ctx.closePath(); ctx.fill();
+  // Cuerpo: lomo oscuro y panza clara.
+  ctx.beginPath(); ctx.moveTo(L * 0.5, 0); ctx.quadraticCurveTo(L * 0.3, -H * 0.62, -L * 0.1, -H * 0.5); ctx.quadraticCurveTo(-L * 0.38, -H * 0.3, -L * 0.45, 0); ctx.quadraticCurveTo(-L * 0.3, H * 0.4, L * 0.1, H * 0.45); ctx.quadraticCurveTo(L * 0.4, H * 0.35, L * 0.5, 0); ctx.fill();
+  ctx.fillStyle = belly;
+  ctx.beginPath(); ctx.moveTo(L * 0.46, H * 0.08); ctx.quadraticCurveTo(L * 0.3, H * 0.4, -L * 0.05, H * 0.42); ctx.quadraticCurveTo(-L * 0.3, H * 0.32, -L * 0.42, H * 0.05); ctx.quadraticCurveTo(0, H * 0.18, L * 0.46, H * 0.08); ctx.fill();
+  if (k.type === 'tigre') { ctx.fillStyle = 'rgba(40,30,20,0.55)'; for (let i = 0; i < 5; i++) ctx.fillRect(-L * 0.3 + i * L * 0.13, -H * 0.45, L * 0.04, H * 0.4); }
+  // Aleta de arriba y aleta del costado.
+  ctx.fillStyle = back;
+  ctx.beginPath(); ctx.moveTo(L * 0.05, -H * 0.5); ctx.lineTo(-L * 0.08, -H * 1.25); ctx.lineTo(-L * 0.18, -H * 0.45); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(L * 0.1, H * 0.25); ctx.lineTo(-L * 0.05, H * 0.8); ctx.lineTo(-L * 0.02, H * 0.3); ctx.fill();
+  // Cabeza de martillo.
+  if (k.type === 'martillo') { ctx.fillStyle = back; ctx.beginPath(); ctx.roundRect(L * 0.38, -H * 0.55, L * 0.12, H * 1.1, H * 0.1); ctx.fill(); }
+  // Branquias, ojo y boca (abierta con dientes cuando salta).
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = Math.max(1, z * 0.03);
+  for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(L * (0.2 - i * 0.04), -H * 0.2); ctx.lineTo(L * (0.18 - i * 0.04), H * 0.15); ctx.stroke(); }
+  ctx.fillStyle = '#0b0b0b'; ctx.beginPath(); ctx.arc(L * 0.36, -H * 0.18, Math.max(1.5, z * 0.06), 0, Math.PI * 2); ctx.fill();
+  if (open > 0) {
+    ctx.fillStyle = '#7f1d1d';
+    ctx.beginPath(); ctx.moveTo(L * 0.5, -H * 0.02); ctx.lineTo(L * 0.22, H * 0.08); ctx.lineTo(L * 0.48, H * (0.08 + open * 0.4)); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < 4; i++) {
+      const tx = L * (0.27 + i * 0.055);
+      ctx.beginPath(); ctx.moveTo(tx, H * 0.06); ctx.lineTo(tx + L * 0.025, H * 0.16); ctx.lineTo(tx + L * 0.05, H * 0.06); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(tx, H * (0.08 + open * 0.33)); ctx.lineTo(tx + L * 0.025, H * (open * 0.2)); ctx.lineTo(tx + L * 0.05, H * (0.08 + open * 0.33)); ctx.fill();
+    }
+  } else { ctx.strokeStyle = '#1f2937'; ctx.beginPath(); ctx.moveTo(L * 0.44, H * 0.12); ctx.quadraticCurveTo(L * 0.34, H * 0.2, L * 0.24, H * 0.12); ctx.stroke(); }
+  ctx.restore();
+}
+
+// Lo que se ve debajo del agua (la sombra del tiburón) y arriba del agua (la aleta y la estela).
+function drawSharkUnder(ctx: CanvasRenderingContext2D, k: Shark, v: View) {
+  if (k.state === 'jump' || k.state === 'bite' || !visible(v, k.x - 3, k.x + 3, -2, 1)) return;
+  ctx.save(); ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.rect(0, Y(v, 0) + v.s * 0.05, v.w, v.h); ctx.clip();
+  drawSharkBody(ctx, k, X(v, k.x), Y(v, -0.7), v.s, Math.sin(v.t * 3 + k.id) * 0.04, k.dir, 0);
+  ctx.restore();
+}
+function drawFin(ctx: CanvasRenderingContext2D, k: Shark, v: View) {
+  if (k.state === 'jump' || k.state === 'bite' || !visible(v, k.x - 3, k.x + 3, -1, 2)) return;
+  const spec = SHARKS[k.type], s = v.s, z = spec.size, t = v.t;
+  const warn = k.state === 'warn' ? 1 - Math.max(0, k.t) / spec.warn : 0;
+  const fast = k.state === 'chase' || k.state === 'approach';
+  const fx = X(v, k.x - k.dir * 0.12 * z), wy = Y(v, 0);
+  const fh = s * z * (k.type === 'martillo' ? 0.85 : k.type === 'blanco' ? 0.95 : k.type === 'mako' ? 0.62 : 0.7) * (1 - warn * 0.75);
+  // Estela en V detrás de la aleta.
+  ctx.strokeStyle = 'rgba(226,232,240,0.7)'; ctx.lineWidth = Math.max(1, s * 0.04);
+  const len = s * (fast ? 1.6 : 0.9) * z;
+  if (!warn) { ctx.beginPath(); ctx.moveTo(fx + k.dir * s * 0.2, wy); ctx.lineTo(fx - k.dir * len, wy - s * 0.12); ctx.moveTo(fx + k.dir * s * 0.2, wy + s * 0.03); ctx.lineTo(fx - k.dir * len, wy + s * 0.15); ctx.stroke(); }
+  const [back] = SHARK_COLOR[k.type];
+  ctx.fillStyle = back;
+  ctx.beginPath();
+  ctx.moveTo(fx + k.dir * s * 0.28 * z, wy);
+  if (k.type === 'mako') ctx.lineTo(fx - k.dir * s * 0.05 * z, wy - fh);
+  else ctx.quadraticCurveTo(fx + k.dir * s * 0.1 * z, wy - fh * 0.7, fx - k.dir * s * 0.12 * z, wy - fh);
+  ctx.quadraticCurveTo(fx - k.dir * s * 0.12 * z, wy - fh * 0.4, fx - k.dir * s * 0.3 * z, wy);
+  ctx.fill();
+  if (k.type === 'blanco') { ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(fx - s * 0.05, wy - fh * 0.6); ctx.lineTo(fx + s * 0.05, wy - fh * 0.4); ctx.stroke(); } // cicatriz
+  if (k.type === 'tigre') { ctx.fillStyle = 'rgba(40,30,20,0.6)'; ctx.fillRect(fx - s * 0.05, wy - fh * 0.7, s * 0.04, fh * 0.5); }
+  ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.fillRect(fx - s * 0.32 * z, wy - s * 0.03, s * 0.64 * z, s * 0.06);
+  // El aviso: se frena, se hunde y salen burbujas.
+  if (warn) {
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2 + t * 3, r = s * z * (0.35 + warn * 0.5 + ((t * 2 + i * 0.3) % 1) * 0.2);
+      ctx.strokeStyle = `rgba(255,255,255,${0.9 - warn * 0.3})`; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(X(v, k.x) + Math.cos(a) * r, wy - Math.abs(Math.sin(a)) * s * 0.15 - ((t * 3 + i) % 1) * s * 0.3, s * 0.06, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+}
+function drawSharkJump(ctx: CanvasRenderingContext2D, k: Shark, g: SharkGame, v: View) {
+  if ((k.state !== 'jump' && k.state !== 'bite') || !visible(v, k.x - 3, k.x + 3, -2, 5)) return;
+  const s = v.s, dir: 1 | -1 = k.state === 'jump' ? (k.vx > 0.05 ? 1 : k.vx < -0.05 ? -1 : k.dir) : k.dir;
+  const angle = k.state === 'jump' ? -Math.atan2(k.vy, 4) * dir * 0.9 : 0.6 * dir;
+  drawSharkBody(ctx, k, X(v, k.x), Y(v, k.y), s, angle, dir, k.state === 'bite' ? 0.4 : Math.min(1, 0.4 + k.vy / 10));
+  // Salpicadura al salir y al entrar.
+  if (Math.abs(k.y) < 0.9 || k.state === 'bite') {
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    for (let i = 0; i < 10; i++) {
+      const a = Math.PI + (i / 9) * Math.PI, r = s * (0.5 + hash(i + k.id) * 0.8);
+      ctx.beginPath(); ctx.arc(X(v, k.x) + Math.cos(a) * r, Y(v, 0) + Math.sin(a) * r * 0.7, s * (0.06 + hash(i) * 0.08), 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  void g;
+}
+
+// ---------- El agua ----------
+const waveY = (x: number, t: number) => Math.sin(x * 1.3 + t * 2) * 0.07 + Math.sin(x * 3.1 - t * 3) * 0.035;
+function drawWater(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, flash: number) {
+  const s = v.s, t = v.t;
+  const x0 = v.cx - 1, x1 = v.cx + v.w / s + 1;
+  ctx.beginPath();
+  ctx.moveTo(X(v, x0), v.h);
+  for (let x = x0; x <= x1; x += 0.25) ctx.lineTo(X(v, x), Y(v, waveY(x, t)));
+  ctx.lineTo(X(v, x1), v.h); ctx.closePath();
+  const grad = ctx.createLinearGradient(0, Y(v, 0), 0, Y(v, -6));
+  grad.addColorStop(0, `rgba(${30 + flash * 60},${88 + flash * 60},${96 + flash * 60},0.78)`); grad.addColorStop(1, 'rgba(6,24,32,0.96)');
+  ctx.fillStyle = grad; ctx.fill();
+  // Línea de la superficie y reflejos.
+  ctx.strokeStyle = 'rgba(186,230,253,0.55)'; ctx.lineWidth = Math.max(1, s * 0.04);
+  ctx.beginPath(); for (let x = x0; x <= x1; x += 0.25) { const fn = x === x0 ? 'moveTo' : 'lineTo'; ctx[fn](X(v, x), Y(v, waveY(x, t))); } ctx.stroke();
+  // La corriente: rayitas que se mueven.
+  ctx.strokeStyle = 'rgba(203,213,225,0.25)'; ctx.lineWidth = 1;
+  for (let i = 0; i < 40; i++) {
+    const span = x1 - x0 + 4, xx = x0 + ((hash(i) * span + t * (0.8 + hash(i + 7) * 0.6)) % span), yy = -0.15 - hash(i + 3) * 1.2;
+    ctx.beginPath(); ctx.moveTo(X(v, xx), Y(v, yy)); ctx.lineTo(X(v, xx + 0.6), Y(v, yy)); ctx.stroke();
+  }
+  // Gotas de lluvia que pican el agua.
+  ctx.strokeStyle = 'rgba(226,232,240,0.45)';
+  for (let i = 0; i < 30; i++) {
+    const life = (t * 1.6 + hash(i + 40)) % 1, xx = x0 + hash(i * 3 + Math.floor(t * 1.6 + hash(i + 40))) * (x1 - x0);
+    ctx.beginPath(); ctx.ellipse(X(v, xx), Y(v, waveY(xx, t)), s * 0.25 * life, s * 0.06 * life, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  // Espuma alrededor de lo que asoma.
+  ctx.fillStyle = 'rgba(241,245,249,0.6)';
+  for (const p of g.plats) {
+    if (p.y > 2.5 || p.kind === 'roof' || p.kind === 'cable' || !visible(v, p.x, p.x + p.w, -1, 1)) continue;
+    if (!['car', 'van', 'bus', 'kiosk', 'stop', 'stoop', 'debris', 'float'].includes(p.kind)) continue;
+    for (const ex of [p.x, p.x + p.w]) { ctx.beginPath(); ctx.ellipse(X(v, ex), Y(v, waveY(ex, t)), s * (0.2 + Math.sin(t * 5 + ex) * 0.05), s * 0.06, 0, 0, Math.PI * 2); ctx.fill(); }
+  }
+  for (const b of g.blocks) for (const ex of [b.x1, b.x2]) { if (!visible(v, ex - 1, ex + 1, -1, 1)) continue; ctx.beginPath(); ctx.ellipse(X(v, ex), Y(v, waveY(ex, t)), s * 0.3, s * 0.07, 0, 0, Math.PI * 2); ctx.fill(); }
+}
+
+// ---------- El bombero ----------
+function drawFirefighter(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
+  const p = g.player, s = v.s, t = v.t;
+  const pw = PLAYER_W * s, ph = PLAYER_H * s;
+  const px = X(v, p.x) - pw / 2, py = Y(v, p.y) - ph;
+  const f = p.facing, climbing = !!p.climb || !!p.zip, airborne = !p.ground && !climbing && !p.swimming, falling = !!g.dying;
+  const running = p.vx !== 0 && !!p.ground;
+  const swing = running || climbing || p.swimming ? Math.sin(t * (climbing ? 12 : p.swimming ? 8 : 22)) : 0;
+  if (p.zip) { ctx.fillStyle = '#facc15'; ctx.fillRect(X(v, p.x) - s * 0.15, Y(v, p.y + HANG + 0.05), s * 0.3, s * 0.2); }
+  const COAT = '#1f2937', STRIPE = '#d9f99d', SKIN = '#fcd9b6';
+  ctx.lineCap = 'round';
+  const arm = (side: 1 | -1, phase: number) => {
+    const sx = px + pw / 2 + side * pw * 0.32, sy = py + ph * 0.44;
+    let hx = sx + side * pw * 0.2 + phase * pw * 0.18, hy = airborne ? sy - ph * 0.18 : sy + ph * 0.24;
+    if (climbing) { hx = px + pw / 2 + side * pw * 0.12; hy = py + ph * (0.0 + 0.08 * phase * side); }
+    if (p.swimming) { hx = sx + side * pw * 0.45 + phase * pw * 0.2; hy = sy - ph * 0.05 + phase * ph * 0.08; }
+    if (falling) { hx = sx + side * pw * 0.5; hy = sy - ph * 0.35; }
+    ctx.strokeStyle = COAT; ctx.lineWidth = Math.max(2.5, pw * 0.2);
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
+    ctx.strokeStyle = STRIPE; ctx.lineWidth = Math.max(1, pw * 0.06);
+    ctx.beginPath(); ctx.moveTo(sx + (hx - sx) * 0.55 - pw * 0.08, sy + (hy - sy) * 0.55); ctx.lineTo(sx + (hx - sx) * 0.55 + pw * 0.08, sy + (hy - sy) * 0.55); ctx.stroke();
+    ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(hx, hy, Math.max(1.8, pw * 0.11), 0, Math.PI * 2); ctx.fill(); // guante
+  };
+  arm(-f as 1 | -1, -swing);
+  // Piernas con botas negras.
+  const footL = px + pw * 0.38 + swing * pw * 0.22, footR = px + pw * 0.62 - swing * pw * 0.22;
+  ctx.strokeStyle = COAT; ctx.lineWidth = Math.max(3, pw * 0.22);
+  ctx.beginPath(); ctx.moveTo(px + pw * 0.38, py + ph * 0.7); ctx.lineTo(footL, py + ph * 0.94); ctx.moveTo(px + pw * 0.62, py + ph * 0.7); ctx.lineTo(footR, py + ph * 0.94); ctx.stroke();
+  ctx.strokeStyle = STRIPE; ctx.lineWidth = Math.max(1, pw * 0.06);
+  ctx.beginPath(); for (const fx of [footL, footR]) { ctx.moveTo(fx - pw * 0.1, py + ph * 0.84); ctx.lineTo(fx + pw * 0.1, py + ph * 0.84); } ctx.stroke();
+  ctx.fillStyle = '#0a0a0a';
+  for (const fx of [footL, footR]) { ctx.beginPath(); ctx.roundRect(fx - pw * 0.12 + f * pw * 0.03, py + ph * 0.88, pw * 0.26, ph * 0.1, pw * 0.04); ctx.fill(); }
+  // Saco de bombero con franjas reflectivas.
+  const tx = px + pw * 0.18, ty = py + ph * 0.36, tw = pw * 0.64, th = ph * 0.42;
+  ctx.fillStyle = COAT; ctx.beginPath(); ctx.roundRect(tx, ty, tw, th, pw * 0.12); ctx.fill();
+  ctx.fillStyle = STRIPE; ctx.fillRect(tx, ty + th * 0.55, tw, th * 0.12); ctx.fillRect(tx, ty + th * 0.85, tw, th * 0.1);
+  ctx.fillStyle = '#9ca3af'; ctx.fillRect(tx, ty + th * 0.6, tw, th * 0.03);
+  // Cara y casco rojo con escudo.
+  const hx = px + pw / 2, hy = py + ph * 0.22, r = pw * 0.3;
+  ctx.fillStyle = SKIN;
+  ctx.beginPath(); ctx.arc(hx + f * r * 0.95, hy + r * 0.2, r * 0.25, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(hx, hy + r * 0.05, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#5b3a1e'; ctx.beginPath(); ctx.ellipse(hx + f * r * 0.15, hy + r * 0.55, r * 0.45, r * 0.15, 0, 0, Math.PI * 2); ctx.fill(); // bigote
+  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(hx + f * r * 0.5, hy - r * 0.05, Math.max(1.2, r * 0.15), 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#dc2626';
+  ctx.beginPath(); ctx.arc(hx, hy - r * 0.25, r * 1.08, Math.PI, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(hx - f * r * 0.35, hy - r * 0.22, r * 1.45, r * 0.22, 0, 0, Math.PI * 2); ctx.fill(); // ala larga atrás
+  ctx.fillStyle = '#991b1b'; ctx.fillRect(hx - r * 0.08, hy - r * 1.3, r * 0.16, r * 1.05); // cresta
+  ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(hx + f * r * 0.65, hy - r * 0.95); ctx.lineTo(hx + f * r * 1.05, hy - r * 0.75); ctx.lineTo(hx + f * r * 0.95, hy - r * 0.3); ctx.lineTo(hx + f * r * 0.6, hy - r * 0.35); ctx.fill(); // escudo
+  arm(f, swing);
+  if (p.swimming) {
+    // Debajo del agua se ve más oscuro.
+    ctx.fillStyle = 'rgba(14,58,76,0.65)'; ctx.fillRect(px - pw, Y(v, 0), pw * 3, Y(v, p.y) - Y(v, 0) + s * 0.1);
+  }
+}
+
+function drawRain(ctx: CanvasRenderingContext2D, v: View) {
+  const wind = windAt(v.t), slant = 0.35 + wind * 0.5;
+  ctx.strokeStyle = 'rgba(203,213,225,0.35)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i < 140; i++) {
+    const sp = 0.9 + hash(i + 3) * 0.5, life = (v.t * sp * 1.4 + hash(i)) % 1;
+    const x = ((hash(i + 7) * (v.w + 200) + life * v.h * slant) % (v.w + 200)) - 100, y = life * (v.h + 40) - 20, len = v.s * (0.45 + hash(i + 1) * 0.3);
+    ctx.moveTo(x, y); ctx.lineTo(x + len * slant, y + len);
+  }
+  ctx.stroke();
+  // Ráfagas: líneas de viento y hojas o papeles volando.
+  if (wind) {
+    ctx.strokeStyle = 'rgba(241,245,249,0.35)'; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 12; i++) {
+      const k = (v.t * 1.4 + hash(i + 50)) % 1, x = wind > 0 ? k * (v.w + 200) - 100 : v.w + 100 - k * (v.w + 200), y = hash(i + 60) * v.h * 0.8;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.bezierCurveTo(x - wind * 40, y - 6, x - wind * 80, y + 6, x - wind * 120, y); ctx.stroke();
+      if (i < 5) { ctx.fillStyle = i % 2 ? '#fef3c7' : '#65a30d'; ctx.save(); ctx.translate(x + wind * 20, y + Math.sin(v.t * 8 + i) * 10); ctx.rotate(v.t * 6 + i); ctx.fillRect(-v.s * 0.15, -v.s * 0.1, v.s * 0.3, v.s * 0.2); ctx.restore(); }
+    }
+  }
+}
+
+function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
+  const flash = lightning(v.t);
+  drawSky(ctx, v, flash);
+  drawSkyline(ctx, v, flash.a);
+  for (const b of g.blocks) drawBlock(ctx, b, v);
+  for (const d of g.decor) drawDecor(ctx, d, v);
+  for (const c of g.climbs) drawClimb(ctx, c, v);
+  for (const p of g.plats) if (p.kind !== 'debris' && p.kind !== 'float') drawPlat(ctx, p, g, v);
+  for (const z of g.zips) drawZip(ctx, z, g, v);
+  drawWater(ctx, g, v, flash.a);
+  for (const k of g.sharks) drawSharkUnder(ctx, k, v);
+  for (const d of g.debris) if (visible(v, d.plat.x - 1, d.plat.x + d.plat.w + 1, -1, 2)) drawDebris(ctx, d, v);
+  for (const r of g.rescues) drawRescue(ctx, r, g, v);
+  for (const k of g.sharks) drawFin(ctx, k, v);
+  if (!(g.dying?.reason === 'shark' && g.dying.t > 0.4)) drawFirefighter(ctx, g, v);
+  for (const k of g.sharks) drawSharkJump(ctx, k, g, v);
+  drawRain(ctx, v);
+  if (flash.a > 0.05) { ctx.fillStyle = `rgba(220,230,255,${flash.a * 0.25})`; ctx.fillRect(0, 0, v.w, v.h); }
+  // Borde rojo si un tiburón te está por saltar o si queda poco tiempo.
+  const danger = g.sharks.some(k => k.target === PLAYER_TARGET && (k.state === 'warn' || k.state === 'chase'));
+  const hurry = timeLeft(g) < 30;
+  if (!g.dying && (danger || hurry)) {
+    const a = (danger ? 0.55 : 0.3) * (0.6 + 0.4 * Math.sin(v.t * 10));
+    const vg = ctx.createRadialGradient(v.w / 2, v.h / 2, Math.min(v.w, v.h) * 0.3, v.w / 2, v.h / 2, Math.max(v.w, v.h) * 0.7);
+    vg.addColorStop(0, 'rgba(220,38,38,0)'); vg.addColorStop(1, `rgba(220,38,38,${a})`);
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, v.w, v.h);
+  }
+}
+
+const LOSE_TEXT: Record<LoseReason, string> = { shark: '¡Te comió un tiburón!', time: '¡Se terminó el tiempo!' };
+const KIND_TEXT: Record<RescueKind, string> = { perro: 'un perrito 🐶', gato: 'un gato 🐱', persona: 'una persona 🙋' };
+const NO_INPUT: Input = { left: false, right: false, jump: false, down: false, up: false };
+
+// Se ven unas 13 unidades de alto (el agua y unos cuantos pisos) y, en pantallas paradas, unas 9,5 de ancho.
+function scaleFor(w: number, h: number) { return Math.min(h / 13, w / (h > w ? 9.5 : 18)); }
+
+export function SharkCity() {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const gameRef = useRef<SharkGame>(newShark());
+  const cam = useRef({ x: 0, y: 0 });
+  const input = useRef<Input>({ ...NO_INPUT });
+  const zipToldRef = useRef(false);
+  const [status, setStatus] = useState<Status>('ready');
+  const [hud, setHud] = useState({ left: TIME_LIMIT, saved: 0, sharks: 5, perro: 0, gato: 0, persona: 0 });
+  const [record, setRecord] = useState(readSharkRecord);
+  const [result, setResult] = useState({ saved: 0, time: 0, reason: 'shark' as LoseReason, newRecord: false });
+  const [toast, setToast] = useState<{ text: string; id: number; big?: boolean } | null>(null);
+  const statusRef = useRef(status);
+  useEffect(() => { statusRef.current = status; }, [status]);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 2200);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  const view = useCallback((): View | null => {
+    const stage = stageRef.current, g = gameRef.current;
+    if (!stage) return null;
+    const w = stage.clientWidth, h = stage.clientHeight;
+    if (!w || !h) return null;
+    return { w, h, s: scaleFor(w, h), cx: cam.current.x, cy: cam.current.y, t: g.time + (g.dying?.t ?? 0), dpr: Math.min(2, window.devicePixelRatio || 1) };
+  }, []);
+
+  const paint = useCallback(() => {
+    const canvas = canvasRef.current, v = view();
+    if (!canvas || !v) return;
+    if (canvas.width !== Math.round(v.w * v.dpr) || canvas.height !== Math.round(v.h * v.dpr)) {
+      canvas.width = Math.round(v.w * v.dpr); canvas.height = Math.round(v.h * v.dpr);
+      canvas.style.width = `${v.w}px`; canvas.style.height = `${v.h}px`;
+    }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(v.dpr, 0, 0, v.dpr, 0, 0);
+    draw(ctx, gameRef.current, v);
+  }, [view]);
+
+  // La cámara sigue al bombero, con el agua siempre a la vista abajo.
+  const follow = useCallback((dt: number) => {
+    const stage = stageRef.current, g = gameRef.current;
+    if (!stage) return;
+    const s = scaleFor(stage.clientWidth, stage.clientHeight);
+    const vw = stage.clientWidth / s, vh = stage.clientHeight / s;
+    const tx = Math.max(-1, Math.min(g.width - vw + 1, g.player.x - vw / 2));
+    const ty = Math.max(-2.6, g.player.y - vh * 0.5); // el bombero a media altura: abajo siempre se ve el agua
+    const k = dt < 0 ? 1 : Math.min(1, dt * 5);
+    cam.current.x += (tx - cam.current.x) * k;
+    cam.current.y += (ty - cam.current.y) * k;
+  }, []);
+
+  const start = useCallback(() => {
+    gameRef.current = newShark();
+    follow(-1);
+    input.current = { ...NO_INPUT };
+    zipToldRef.current = false;
+    setHud({ left: TIME_LIMIT, saved: 0, sharks: gameRef.current.sharks.length, perro: 0, gato: 0, persona: 0 });
+    setToast({ text: `¡Rescatá ${GOAL} antes de que se termine el tiempo! 🚒`, id: Date.now() });
+    setStatus('playing');
+    paint();
+  }, [paint, follow]);
+
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    follow(-1);
+    paint();
+    const observer = new ResizeObserver(() => { follow(-1); paint(); });
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [paint, follow]);
+
+  useEffect(() => {
+    if (status !== 'playing') return;
+    let frame = 0, last = performance.now();
+    const tick = (now: number) => {
+      const g = gameRef.current;
+      const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
+      last = now;
+      step(g, input.current, dt);
+      for (const e of takeEvents(g)) {
+        if (e.type === 'saved') setToast({ text: e.count === GOAL - 5 ? '¡Te faltan 5!' : `¡Rescataste a ${KIND_TEXT[e.kind]}! (${e.count}/${GOAL})`, id: now, big: e.count === GOAL - 5 });
+        if (e.type === 'taken') setToast({ text: `¡Un tiburón se llevó a ${KIND_TEXT[e.kind]}! 😱`, id: now });
+        if (e.type === 'newType') setToast({ text: `¡Cuidado: ${e.shark === 'bebe' ? 'llegaron los' : 'llegó el'} ${SHARKS[e.shark].name}! 🦈`, id: now });
+        if (e.type === 'more') setToast({ text: `¡Ya hay ${e.count} tiburones! 🦈`, id: now });
+        if (e.type === 'wind') setToast({ text: e.dir > 0 ? '¡Ráfaga de viento! 💨 →' : '← 💨 ¡Ráfaga de viento!', id: now });
+        if (e.type === 'hurry') setToast({ text: e.left === 60 ? '¡Queda 1 minuto!' : '¡Quedan 30 segundos!', id: now, big: true });
+        if (e.type === 'zip' && !zipToldRef.current) { zipToldRef.current = true; setToast({ text: '¡Tirolesa! Con ↓ te soltás 🪢', id: now }); }
+        if (e.type === 'lose') setToast({ text: LOSE_TEXT[e.reason], id: now });
+      }
+      follow(dt);
+      paint();
+      const kinds = { perro: 0, gato: 0, persona: 0 };
+      for (const k of g.savedKinds) kinds[k]++;
+      const shown = { left: Math.ceil(timeLeft(g)), saved: g.saved, sharks: g.sharks.length, ...kinds };
+      setHud(p => p.left === shown.left && p.saved === shown.saved && p.sharks === shown.sharks ? p : shown); // los tipos cambian solo cuando cambia saved
+      if (g.over || g.won) {
+        const rec = readSharkRecord();
+        const next: SharkRecord = { saved: Math.max(rec.saved, g.saved), time: g.won ? Math.min(rec.time ?? Infinity, g.time) : rec.time };
+        const isNew = g.saved > rec.saved || (g.won && (rec.time === null || g.time < rec.time));
+        saveRecord(next); setRecord(next);
+        setResult({ saved: g.saved, time: g.time, reason: g.dying?.reason ?? 'shark', newRecord: isNew && (rec.saved > 0 || g.won) });
+        setToast(null);
+        setStatus(g.won ? 'won' : 'over');
+        return;
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    const hide = () => { if (document.hidden && !gameRef.current.dying) setStatus('paused'); };
+    document.addEventListener('visibilitychange', hide);
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); };
+  }, [status, paint, follow]);
+
+  useEffect(() => {
+    // ↑ (o W) trepa escaleras, sogas, caños, postes y tirolesas y, si no hay ninguna cerca, salta; Espacio solo salta.
+    const keys: Record<string, (keyof Input)[]> = {
+      ArrowLeft: ['left'], a: ['left'], A: ['left'], ArrowRight: ['right'], d: ['right'], D: ['right'],
+      ArrowUp: ['up', 'jump'], w: ['up', 'jump'], W: ['up', 'jump'], ' ': ['jump'], ArrowDown: ['down'], s: ['down'], S: ['down'],
+    };
+    const down = (event: KeyboardEvent) => {
+      if ((event.key === 'p' || event.key === 'P' || event.key === 'Escape') && (statusRef.current === 'playing' || statusRef.current === 'paused')) {
+        setStatus(s => s === 'playing' ? 'paused' : 'playing');
+        return;
+      }
+      const list = keys[event.key];
+      if (!list || statusRef.current !== 'playing') return;
+      event.preventDefault();
+      for (const k of list) input.current[k] = true;
+    };
+    const up = (event: KeyboardEvent) => { for (const k of keys[event.key] ?? []) input.current[k] = false; };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
+  }, []);
+
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, []);
+
+  const hold = (key: keyof Input) => ({
+    onPointerDown: (event: React.PointerEvent) => { event.preventDefault(); input.current[key] = true; },
+    onPointerUp: () => { input.current[key] = false; },
+    onPointerLeave: () => { input.current[key] = false; },
+    onPointerCancel: () => { input.current[key] = false; },
+    onContextMenu: (event: React.MouseEvent) => event.preventDefault(),
+  });
+
+  const pct = (n: number) => `${Math.max(0, Math.min(100, (n / GOAL) * 100))}%`;
+
+  return <section className="runner trepa tib" aria-label="Ciudad Tiburón">
+    <div className="runner-bar">
+      <Link className="runner-back" to="/juegos">‹ Juegos</Link>
+      <h1>Ciudad Tiburón</h1>
+      <div className="runner-scores"><span>Récord <strong>{record.time !== null ? `🏆 ${formatSharkTime(record.time)}` : `${record.saved} 🛟`}</strong></span></div>
+      {(status === 'playing' || status === 'paused') && <button type="button" onClick={() => setStatus(s => s === 'playing' ? 'paused' : 'playing')}>{status === 'playing' ? 'Pausa' : 'Seguir'}</button>}
+    </div>
+    <div className="trepa-main">
+      <div className="runner-stage" ref={stageRef}>
+        <canvas ref={canvasRef} role="img" aria-label="Ciudad inundada con tiburones" />
+        {status === 'playing' && toast && <div key={toast.id} className={toast.big ? 'trepa-record' : 'trepa-toast tib-toast'} role="status">{toast.text}</div>}
+        {status !== 'playing' && <div className="runner-overlay" role="dialog" aria-labelledby="tib-message">
+          <div>
+            {status === 'ready' && <>
+              <h2 id="tib-message" className="tib-title">Ciudad Tiburón 🦈</h2>
+              <p>La ciudad se inundó, hay tormenta y el agua está llena de tiburones. Sos bombero: rescatá a <strong>{GOAL}</strong> perritos, gatos y personas que flotan en el agua en menos de <strong>5 minutos</strong>. Para agarrarlos tenés que bajar cerca del agua: mirá las aletas, porque cuando un tiburón se frena y salen burbujas, ¡salta! Moverte por techos, balcones, escaleras, cables, toldos, autos tapados por el agua y todo lo que arrastra la corriente. Si caés al agua, salí rápido. Con el tiempo llegan más tiburones.</p>
+              <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> trepar escaleras, sogas, caños, postes y tirolesas (o saltar) · <kbd>↓</kbd> bajar · <kbd>Espacio</kbd> saltar · <kbd>P</kbd> pausa</p>
+              <button type="button" onClick={start} autoFocus>Jugar</button>
+            </>}
+            {status === 'paused' && <>
+              <h2 id="tib-message">Pausa</h2>
+              <button type="button" onClick={() => setStatus('playing')} autoFocus>Seguir</button>
+            </>}
+            {status === 'over' && <>
+              <h2 id="tib-message" className="trepa-gameover">GAME OVER</h2>
+              <p>{LOSE_TEXT[result.reason]} Rescataste a <strong>{result.saved}</strong> de {GOAL}.{result.newRecord && ' ¡Nuevo récord!'}</p>
+              <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
+            </>}
+            {status === 'won' && <>
+              <h2 id="tib-message" className="trepa-win">¡Rescataste a los {GOAL}! 🚒</h2>
+              <p>Lo lograste en <strong>{formatSharkTime(result.time)}</strong>, esquivando a todos los tiburones.{result.newRecord && ' ¡Rompiste el récord!'}</p>
+              <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
+            </>}
+          </div>
+        </div>}
+      </div>
+      <aside className="trepa-side tib-side" aria-label="Tiempo, rescatados y tiburones">
+        <div className={`trepa-stat tib-time${hud.left <= 30 ? ' tib-hurry' : ''}`}><span>Tiempo</span><strong data-testid="tib-time">{formatSharkTime(hud.left)}</strong></div>
+        <div className="trepa-stat tib-saved"><span>Rescatados</span><strong data-testid="tib-saved">{hud.saved} / {GOAL}</strong><small className="tib-kinds">🐶 {hud.perro} · 🐱 {hud.gato} · 🙋 {hud.persona}</small></div>
+        <div className="trepa-stat tib-sharks"><span>Tiburones</span><strong data-testid="tib-sharks">{hud.sharks} 🦈</strong></div>
+        <div className="trepa-meter" aria-hidden="true">
+          <div className="trepa-meter-track tib-meter-track">
+            <div className="trepa-meter-fill tib-meter-fill" style={{ height: pct(hud.saved) }} />
+            {record.saved > 0 && record.saved < GOAL && <span className="trepa-meter-record" style={{ bottom: pct(record.saved) }} title="Récord" />}
+          </div>
+          <div className="trepa-meter-marks">
+            <span style={{ bottom: '100%' }}>🏆 {GOAL}<small>rescatados</small></span>
+          </div>
+        </div>
+      </aside>
+    </div>
+    <div className="runner-pad" aria-label="Controles">
+      <button type="button" aria-label="Izquierda" {...hold('left')}>◀</button>
+      <button type="button" aria-label="Derecha" {...hold('right')}>▶</button>
+      <button type="button" aria-label="Subir" {...hold('up')}>▲</button>
+      <button type="button" aria-label="Bajar" {...hold('down')}>▼</button>
+      <button type="button" className="runner-jump" aria-label="Saltar" {...hold('jump')}>Saltar</button>
+    </div>
+  </section>;
+}

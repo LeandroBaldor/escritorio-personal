@@ -561,21 +561,21 @@ test('¡El piso es de lava!: se abre desde Juegos, corre el tiempo, la lava avis
   await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
 });
 
-test('¡Se viene el tsunami!: se abre desde Juegos, corre el tiempo, avisa dónde están la ola y el cerro y se pausa', async ({ page }) => {
+test('Ciudad Tiburón: se abre desde Juegos, corre el tiempo para atrás, cuenta rescatados y tiburones y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.getByText('Una ola gigante avanza desde el mar', { exact: false })).toBeVisible();
-  await page.getByRole('link', { name: /Se viene el tsunami/ }).click();
-  await expect(page.getByRole('heading', { name: '¡Se viene el tsunami!', level: 1 })).toBeVisible();
+  await expect(page.getByText('La ciudad se inundó y el agua está llena de tiburones', { exact: false })).toBeVisible();
+  await page.getByRole('link', { name: /Ciudad Tiburón/ }).click();
+  await expect(page.getByRole('heading', { name: 'Ciudad Tiburón', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
-  await expect(page.getByTestId('tsu-time')).not.toHaveText('0:00.0');
-  await expect(page.getByTestId('tsu-goal')).toHaveText(/^\d+ m$/);
-  await expect(page.getByTestId('tsu-wave')).toHaveText(/^\d+ m$/);
+  await expect(page.getByTestId('tib-time')).toHaveText(/^4:5\d$/);
+  await expect(page.getByTestId('tib-saved')).toHaveText('0 / 30');
+  await expect(page.getByTestId('tib-sharks')).toHaveText(/^\d+ 🦈$/);
   await expect(page.locator('.runner-pad button[aria-label="Saltar"]')).toHaveCount(1);
   await page.keyboard.press('p');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
-  const paused = await page.getByTestId('tsu-time').textContent();
-  await page.waitForTimeout(400);
-  await expect(page.getByTestId('tsu-time')).toHaveText(paused ?? '');
+  const paused = await page.getByTestId('tib-time').textContent();
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId('tib-time')).toHaveText(paused ?? '');
   await page.getByRole('button', { name: 'Seguir' }).first().click();
   await page.getByRole('link', { name: '‹ Juegos' }).click();
   await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
