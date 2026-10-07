@@ -986,7 +986,7 @@ function bolts(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t
 // ---------- Gente ----------
 const mix = (a: number[], b: number[], k: number) => `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',')})`;
 const SKINS = [[252, 217, 182], [224, 172, 105], [141, 85, 36], [241, 194, 125]];
-const CHAR = [28, 25, 23];
+const CHAR = [6, 5, 5]; // carbonizada: negro total
 function hslRgb(h: number, s: number, l: number) {
   s /= 100; l /= 100;
   const k = (n: number) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
@@ -1011,12 +1011,17 @@ function drawBody(ctx: CanvasRenderingContext2D, person: Person, h: number, dir:
     ctx.restore();
   }
 }
-function drawPerson(ctx: CanvasRenderingContext2D, person: Person, v: View) {
+// Cuánto se ve una persona carbonizada antes de hundirse del todo en la lava.
+const CHARRED_SHOW = 9;
+function drawPerson(ctx: CanvasRenderingContext2D, person: Person, v: View, lava = -Infinity) {
   const { x, dir } = personX(person, v.t);
-  if (!visible(v, x - 2, x + 2, person.y, person.y + 3)) return;
-  const state = personState(person, v.t), s = v.s;
-  const px = X(v, x), base = Y(v, person.y), h = s * (person.look < 0.2 ? 0.6 : 0.82), w = h * 0.4;
   const age = person.burnAt === null ? 0 : v.t - person.burnAt;
+  // Mientras arde y después, queda parada sobre la lava (que la va tapando de a poco), así se ve bien.
+  const sink = Math.max(0, age - BURN_T - 2.6) * 0.14;
+  const y = person.burnAt === null ? person.y : Math.max(person.y, lava + 0.02 - sink);
+  if (!visible(v, x - 2, x + 2, y, y + 3)) return;
+  const state = personState(person, v.t), s = v.s;
+  const px = X(v, x), base = Y(v, y), h = s * (person.look < 0.2 ? 0.6 : 0.82), w = h * 0.4;
   if (state === 'calm') {
     ctx.save(); ctx.translate(px, base);
     drawBody(ctx, person, h, dir, Math.sin(v.t * 9 + person.id) * 0.5, 0, 0, v.t);
@@ -1050,13 +1055,16 @@ function drawPerson(ctx: CanvasRenderingContext2D, person: Person, v: View) {
     }
     return;
   }
-  // Carbonizada: se desploma, quedan brasas que titilan y humo que sube.
-  const after = age - BURN_T, fall = Math.min(1, after / 0.45);
-  ctx.save(); ctx.translate(px, base); ctx.rotate(dir * fall * fall * Math.PI * 0.5);
-  drawBody(ctx, person, h, dir, 0, 0.3 * (1 - fall), 1, v.t);
-  for (let i = 0; i < 6; i++) { const pulse = 0.5 + 0.5 * Math.sin(v.t * (3 + hash(i)) + i * 2); ctx.fillStyle = `rgba(255,${90 + Math.floor(pulse * 80)},20,${0.35 + 0.6 * pulse * Math.max(0, 1 - after / 12)})`; ctx.beginPath(); ctx.arc((hash(i + person.id) - 0.5) * w * 0.8, -h * (0.1 + hash(i * 3 + person.id) * 0.8), w * 0.08, 0, Math.PI * 2); ctx.fill(); }
+  // Carbonizada: una silueta totalmente negra que queda parada con los brazos arriba, se desploma y se hunde
+  // despacio en la lava, echando humo.
+  const after = age - BURN_T, fall = Math.min(1, Math.max(0, after - 1.6) / 0.5);
+  ctx.save();
+  if (Number.isFinite(lava)) { const top = Y(v, lava); ctx.beginPath(); ctx.rect(px - h * 2, top - h * 3, h * 4, h * 3); ctx.clip(); } // lo que se hundió no se ve
+  ctx.translate(px, base); ctx.rotate(dir * fall * fall * Math.PI * 0.5);
+  ctx.shadowColor = 'rgba(255,120,40,0.7)'; ctx.shadowBlur = h * 0.25; // contorno rojizo para que se recorte sobre la lava
+  drawBody(ctx, person, h, dir, 0, 0.8 * (1 - fall), 1, 0);
   ctx.restore();
-  const smokeA = Math.max(0, 1 - after / 10);
+  const smokeA = Math.max(0, 1 - after / CHARRED_SHOW);
   for (let i = 0; i < 3; i++) { const k = (after * 0.4 + i / 3) % 1; ctx.fillStyle = `rgba(110,105,100,${0.45 * (1 - k) * smokeA})`; ctx.beginPath(); ctx.arc(px + dir * h * 0.4 + Math.sin(after + i) * w, base - h * 0.3 - k * s * 1.4, w * (0.3 + k), 0, Math.PI * 2); ctx.fill(); }
 }
 
@@ -1162,13 +1170,11 @@ function draw(ctx: CanvasRenderingContext2D, g: LavaGame, v: View) {
   for (const h of g.helis) drawHeli(ctx, h, v, g.time);
   drawPlayer(ctx, g, v);
   drawLava(ctx, g, v);
-  // La gente que alcanzó la lava se ve arder y quedar carbonizada (hasta que la lava la tapa del todo).
+  // La gente que alcanzó la lava se ve arder y quedar carbonizada (negra), parada sobre la lava hasta que se hunde.
   for (const person of g.people) {
-    if (person.burnAt === null || g.lava > person.y + 2.4) continue;
-    ctx.globalAlpha = Math.max(0, Math.min(1, (person.y + 2.4 - g.lava) / 1.2));
-    drawPerson(ctx, person, v);
+    if (person.burnAt === null || v.t - person.burnAt > BURN_T + CHARRED_SHOW) continue;
+    drawPerson(ctx, person, v, g.lava);
   }
-  ctx.globalAlpha = 1;
   drawEmbers(ctx, v);
   // Si la lava está muy cerca, el borde de la pantalla se pone rojo.
   const near = g.player.y - g.lava;
