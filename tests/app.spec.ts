@@ -581,6 +581,27 @@ test('Ciudad Tiburón: se abre desde Juegos, corre el tiempo para atrás, cuenta
   await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
 });
 
+test('¡Al cesto!: se abre desde Juegos, se tira arrastrando el mouse, corre el tiempo y se pausa', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/juegos');
+  await page.getByRole('link', { name: /Al cesto/ }).click();
+  await expect(page.getByRole('heading', { name: '¡Al cesto!', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: 'Jugar' }).click();
+  await expect(page.getByTestId('bol-points')).toHaveText('0');
+  await expect(page.getByTestId('bol-fan')).toHaveText('Apagado');
+  const stage = (await page.locator('.runner-stage').boundingBox())!;
+  const cx = stage.x + stage.width / 2, cy = stage.y + stage.height / 2;
+  await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(cx - 80, cy + 60, { steps: 4 }); await page.mouse.up();
+  await expect(page.getByTestId('bol-time')).not.toHaveText('60');
+  await page.keyboard.press('p');
+  await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
+  const paused = await page.getByTestId('bol-time').textContent();
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId('bol-time')).toHaveText(paused ?? '');
+  await page.getByRole('button', { name: 'Seguir' }).first().click();
+  await page.getByRole('link', { name: '‹ Juegos' }).click();
+  await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
+});
+
 test('las notas son cuadradas y un texto largo achica la letra para entrar', async ({ page }) => {
   await page.goto('/escritorio-personal/');
   const add = async (text: string) => {
@@ -951,7 +972,7 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
 
 test('el Solitario 3.000 se abre desde Juegos, da vuelta cartas y deshace', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(7);
+  await expect(page.locator('.games-list > li')).toHaveCount(8);
   await page.getByRole('link', { name: /Solitario 3\.000/ }).click();
   await expect(page.getByRole('heading', { name: 'Solitario 3.000' })).toBeVisible();
   await expect(page.locator('.sol-column .sol-card')).toHaveCount(28);
@@ -969,7 +990,7 @@ test('el Solitario 3.000 se abre desde Juegos, da vuelta cartas y deshace', asyn
 
 test('Tiki-Taka: se elige el país y el DT, arranca el partido y el rival sigue jugando', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(7);
+  await expect(page.locator('.games-list > li')).toHaveCount(8);
   await page.getByRole('link', { name: /Tiki-Taka/ }).click();
   await page.getByLabel('Nombre del DT').fill('El Bambino');
   await page.getByRole('button', { name: 'Brasil' }).click();
@@ -990,7 +1011,7 @@ test('Tiki-Taka: se elige el país y el DT, arranca el partido y el rival sigue 
 
 test('Trepaluna: se abre desde Juegos, corre el tiempo, muestra la altura y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(7);
+  await expect(page.locator('.games-list > li')).toHaveCount(8);
   await page.getByRole('link', { name: /Trepaluna/ }).click();
   await expect(page.getByRole('heading', { name: 'Trepaluna', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
@@ -1015,7 +1036,7 @@ test('Tiki-Taka: el Mundial arranca en octavos de final', async ({ page }) => {
 
 test('¡Huye de la serpiente!: se abre desde Juegos, suma puntos con las bolitas y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(7);
+  await expect(page.locator('.games-list > li')).toHaveCount(8);
   await page.getByRole('link', { name: /Huye de la serpiente/ }).click();
   await expect(page.getByRole('heading', { name: '¡Huye de la serpiente!', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
