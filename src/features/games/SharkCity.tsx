@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  CHOMP, FLOAT_Y, GOAL, HANG, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, sharkLen, sharkPose, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
-  type Block, type Climb, type Debris, type Decor, type Input, type LoseReason, type Plat, type Rescue, type RescueKind, type Shark, type SharkGame, type SharkType, type Zip,
+  CHOMP, FLOAT_Y, GOAL, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, sharkLen, sharkPose, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
+  type Block, type Climb, type Decor, type Input, type LoseReason, type Plat, type Rescue, type RescueKind, type Shark, type SharkGame, type SharkType, type Zip,
 } from './shark';
 import { drawSharkSprite, loadSharkSprites, type SpriteOptions } from './sharkSprites';
+import { font, hash, hsl, rect, surfaceClip, visible, waveY, X, Y, type View } from './sharkView';
+import { drawBuilding, drawDebrisArt, drawFx, drawInterior, drawLamp, drawTreeDecor, drawVehicle } from './sharkArt';
 
 const RECORD_KEY = 'escritorio-personal-juegos:tiburon-record';
 export interface SharkRecord { saved: number; time: number | null } // más rescatados y mejor tiempo para rescatar a todos
@@ -15,14 +17,6 @@ const saveRecord = (value: SharkRecord) => { try { localStorage.setItem(RECORD_K
 export const formatSharkTime = (seconds: number) => { const s = Math.max(0, Math.ceil(seconds)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
 type Status = 'ready' | 'playing' | 'paused' | 'over' | 'won';
-interface View { w: number; h: number; s: number; cx: number; cy: number; t: number; dpr: number }
-const X = (v: View, x: number) => (x - v.cx) * v.s;
-const Y = (v: View, y: number) => v.h - (y - v.cy) * v.s;
-const hsl = (h: number, s: number, l: number, a = 1) => `hsla(${h},${s}%,${l}%,${a})`;
-const hash = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
-const visible = (v: View, x1: number, x2: number, y1: number, y2: number) => X(v, x2) > -60 && X(v, x1) < v.w + 60 && Y(v, y1) > -60 && Y(v, y2) < v.h + 60;
-const font = (weight: number, px: number) => `${weight} ${Math.max(7, Math.round(px))}px Nunito, system-ui`;
-const rect = (ctx: CanvasRenderingContext2D, v: View, x: number, y1: number, w: number, y2: number) => ctx.fillRect(X(v, x), Y(v, y2), w * v.s, (y2 - y1) * v.s);
 
 // Relámpagos: en cada tramo de 5 segundos cae uno (a veces dos seguidos) en un lugar del cielo.
 function lightning(t: number) {
@@ -144,48 +138,12 @@ function drawSkyline(ctx: CanvasRenderingContext2D, v: View, flash: number) {
 }
 
 // ---------- Las manzanas: edificios, casas y locales ----------
-function windows(ctx: CanvasRenderingContext2D, v: View, b: Block, y1: number, y2: number, seed: number, t: number) {
-  const w = b.x2 - b.x1, n = Math.max(1, Math.floor((w - 0.6) / 1.5)), gap = (w - n * 0.9) / (n + 1);
-  for (let i = 0; i < n; i++) {
-    const wx = b.x1 + gap + i * (0.9 + gap), h = hash(seed + i * 7);
-    const lit = h < 0.45, wy1 = y1 + 0.55, wy2 = Math.min(y2 - 0.35, wy1 + 1.25);
-    ctx.fillStyle = '#0f172a'; rect(ctx, v, wx - 0.07, wy1 - 0.07, 1.04, wy2 + 0.07);
-    ctx.fillStyle = lit ? (h < 0.1 && Math.floor(t * 2 + i) % 5 === 0 ? '#a16207' : '#fcd34d') : '#1e3a5f';
-    rect(ctx, v, wx, wy1, 0.9, wy2);
-    // Gente asomada pidiendo ayuda o saludando.
-    if (h > 0.45 && h < 0.53) {
-      const px = X(v, wx + 0.45), py = Y(v, wy1 + 0.35), s = v.s;
-      ctx.fillStyle = '#0b1220'; ctx.beginPath(); ctx.arc(px, py - s * 0.35, s * 0.17, 0, Math.PI * 2); ctx.fill();
-      ctx.fillRect(px - s * 0.18, py - s * 0.18, s * 0.36, s * 0.3);
-      ctx.strokeStyle = '#0b1220'; ctx.lineWidth = Math.max(1.5, s * 0.08);
-      const wave = Math.sin(t * 8 + i) * 0.25;
-      ctx.beginPath(); ctx.moveTo(px + s * 0.15, py - s * 0.15); ctx.lineTo(px + s * (0.3 + wave * 0.3), py - s * 0.6); ctx.stroke();
-    }
-    ctx.fillStyle = 'rgba(255,255,255,0.12)'; rect(ctx, v, wx + 0.42, wy1, 0.06, wy2); rect(ctx, v, wx, (wy1 + wy2) / 2 - 0.03, 0.9, (wy1 + wy2) / 2 + 0.03);
-  }
-}
-
-function drawBlock(ctx: CanvasRenderingContext2D, b: Block, v: View) {
+function drawBlock(ctx: CanvasRenderingContext2D, g: SharkGame, b: Block, v: View, flash: number) {
   if (!visible(v, b.x1, b.x2, -1, b.top + 3)) return;
   const s = v.s, w = b.x2 - b.x1;
   if (b.kind === 'building') {
-    const base = hsl(b.hue, 12 + b.tone * 18, 26 + b.tone * 14);
-    ctx.fillStyle = base; rect(ctx, v, b.x1, -3, w, b.top);
-    // Franja de cada piso y ventanas.
-    for (let k = 0; k < b.floors; k++) {
-      const y1 = k * b.fh - 1.2;
-      ctx.fillStyle = 'rgba(0,0,0,0.18)'; rect(ctx, v, b.x1, y1 - 0.1, w, y1 + 0.08);
-      windows(ctx, v, b, y1, y1 + b.fh, b.id * 1000 + k * 37, v.t);
-    }
-    // Cornisa, chorreaduras de lluvia y la marca de hasta dónde llegó el agua.
-    ctx.fillStyle = hsl(b.hue, 10, 20 + b.tone * 10); rect(ctx, v, b.x1 - 0.12, b.top - 0.3, w + 0.24, b.top);
-    ctx.fillStyle = 'rgba(15,23,42,0.18)';
-    for (let i = 0; i < 6; i++) rect(ctx, v, b.x1 + hash(b.id * 9 + i) * w, b.top - 0.3 - hash(i + b.id) * 6, 0.08, b.top - 0.3);
-    ctx.fillStyle = 'rgba(56,72,60,0.45)'; rect(ctx, v, b.x1, -0.2, w, 0.55);
-    // Antena en la terraza.
-    ctx.strokeStyle = '#475569'; ctx.lineWidth = Math.max(1, s * 0.06);
-    const ax = X(v, b.x1 + w * 0.7);
-    ctx.beginPath(); ctx.moveTo(ax, Y(v, b.top)); ctx.lineTo(ax, Y(v, b.top + 2.2)); ctx.moveTo(ax - s * 0.4, Y(v, b.top + 1.7)); ctx.lineTo(ax + s * 0.4, Y(v, b.top + 1.7)); ctx.moveTo(ax - s * 0.25, Y(v, b.top + 2)); ctx.lineTo(ax + s * 0.25, Y(v, b.top + 2)); ctx.stroke();
+    drawBuilding(ctx, g, b, v, flash);
+    if (g.player.inside === b.id) drawInterior(ctx, g, b, v);
   } else if (b.kind === 'house') {
     ctx.fillStyle = hsl(b.hue, 38, 52); rect(ctx, v, b.x1, -3, w, b.top);
     ctx.fillStyle = 'rgba(0,0,0,0.1)'; for (let y = -2; y < b.top; y += 0.5) rect(ctx, v, b.x1, y, w, y + 0.04);
@@ -292,15 +250,7 @@ function drawPlat(ctx: CanvasRenderingContext2D, p: Plat, g: SharkGame, v: View)
       ctx.fillText(b?.label ?? '24 HS', x + w / 2, y + s * 0.43, w - s * 0.2);
       break;
     }
-    case 'cable': {
-      // El cable se mece con el viento; el poste del medio lo sostiene.
-      const wind = windAt(t), sway = Math.sin(t * 3 + p.id) * s * 0.05 + wind * s * 0.08;
-      ctx.strokeStyle = '#0f172a'; ctx.lineWidth = Math.max(1.5, s * 0.07);
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + w * 0.25, y + s * 0.1 + sway, x + w / 2, y); ctx.quadraticCurveTo(x + w * 0.75, y + s * 0.1 + sway, x + w, y); ctx.stroke();
-      ctx.strokeStyle = 'rgba(15,23,42,0.6)'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x, y - s * 0.5); ctx.quadraticCurveTo(x + w * 0.25, y - s * 0.38 + sway, x + w / 2, y - s * 0.5); ctx.quadraticCurveTo(x + w * 0.75, y - s * 0.38 + sway, x + w, y - s * 0.5); ctx.stroke();
-      break;
-    }
+    case 'lamp': drawLamp(ctx, p, v); break;
     case 'car': case 'van': case 'bus': drawVehicle(ctx, p, v); break;
     case 'kiosk': {
       ctx.fillStyle = hsl(p.hue, 55, 45); ctx.fillRect(x + s * 0.1, y, w - s * 0.2, s * 1.8);
@@ -327,50 +277,13 @@ function drawPlat(ctx: CanvasRenderingContext2D, p: Plat, g: SharkGame, v: View)
       }
       break;
     }
-    case 'debris': drawDebris(ctx, g.debris.find(d => d.plat === p)!, v); break;
+    case 'debris': drawDebrisArt(ctx, g.debris.find(d => d.plat === p)!, v); break;
     default: break;
   }
 }
 
-function drawVehicle(ctx: CanvasRenderingContext2D, p: Plat, v: View) {
-  const s = v.s, x = X(v, p.x), y = Y(v, p.y), w = p.w * s;
-  const body = hsl(p.hue, 60, 42), dark = hsl(p.hue, 55, 28);
-  if (p.kind === 'car') {
-    ctx.fillStyle = body; ctx.beginPath(); ctx.roundRect(x - s * 0.4, y + s * 0.45, w + s * 0.8, s * 0.6, s * 0.15); ctx.fill();
-    ctx.beginPath(); ctx.roundRect(x, y, w, s * 0.55, [s * 0.25, s * 0.25, 0, 0]); ctx.fill();
-    ctx.fillStyle = '#93c5fd'; ctx.fillRect(x + w * 0.1, y + s * 0.12, w * 0.36, s * 0.32); ctx.fillRect(x + w * 0.54, y + s * 0.12, w * 0.36, s * 0.32);
-    ctx.fillStyle = dark; ctx.fillRect(x + w * 0.2, y - s * 0.06, w * 0.6, s * 0.06); // barras del techo
-    // Un perrito que espera arriba del auto (decorado).
-    if (hash(p.id) < 0.15) { ctx.fillStyle = '#92400e'; ctx.beginPath(); ctx.ellipse(x + w * 0.5, y - s * 0.2, s * 0.25, s * 0.15, 0, 0, Math.PI * 2); ctx.fill(); }
-  } else if (p.kind === 'van') {
-    ctx.fillStyle = '#f1f5f9'; ctx.beginPath(); ctx.roundRect(x, y, w, s * 1.3, s * 0.12); ctx.fill();
-    ctx.fillStyle = body; ctx.fillRect(x, y + s * 0.65, w, s * 0.15);
-    ctx.fillStyle = '#93c5fd'; ctx.fillRect(x + w * 0.75, y + s * 0.15, w * 0.2, s * 0.4); ctx.fillRect(x + w * 0.08, y + s * 0.15, w * 0.25, s * 0.35);
-  } else {
-    ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.roundRect(x, y, w, s * 1.6, s * 0.18); ctx.fill();
-    ctx.fillStyle = '#1e3a8a'; ctx.fillRect(x, y + s * 0.9, w, s * 0.14);
-    ctx.fillStyle = '#bae6fd'; for (let i = 0; i < 6; i++) ctx.fillRect(x + w * (0.05 + i * 0.155), y + s * 0.18, w * 0.12, s * 0.5);
-    ctx.fillStyle = '#111827'; ctx.fillRect(x + w * 0.88, y + s * 0.02, w * 0.1, s * 0.12);
-    ctx.fillStyle = '#fde047'; ctx.font = font(900, s * 0.12); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('152', x + w * 0.93, y + s * 0.08);
-  }
-}
-
-function drawDebris(ctx: CanvasRenderingContext2D, d: Debris, v: View) {
-  const p = d.plat, s = v.s, bob = Math.sin(v.t * 2.2 + p.id) * s * 0.04, tilt = Math.sin(v.t * 1.7 + p.id) * 0.05;
-  const x = X(v, p.x), y = Y(v, p.y) + bob, w = p.w * s;
-  ctx.save(); ctx.translate(x + w / 2, y); ctx.rotate(tilt); ctx.translate(-w / 2, 0);
-  switch (d.kind) {
-    case 'plank': ctx.fillStyle = '#a16207'; ctx.fillRect(0, 0, w, s * 0.2); ctx.fillStyle = '#713f12'; ctx.fillRect(w * 0.2, s * 0.08, w * 0.3, s * 0.03); ctx.fillRect(w * 0.6, s * 0.12, w * 0.25, s * 0.03); break;
-    case 'door': ctx.fillStyle = hsl(p.hue, 30, 55); ctx.fillRect(0, 0, w, s * 0.18); ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(w * 0.85, s * 0.09, s * 0.05, 0, Math.PI * 2); ctx.fill(); break;
-    case 'mattress': ctx.fillStyle = '#e0e7ff'; ctx.beginPath(); ctx.roundRect(0, 0, w, s * 0.3, s * 0.1); ctx.fill(); ctx.fillStyle = '#6366f1'; for (let i = 1; i < 6; i++) ctx.fillRect((w * i) / 6, 0, s * 0.04, s * 0.3); break;
-    case 'pallet': ctx.fillStyle = '#ca8a04'; for (let i = 0; i < 5; i++) ctx.fillRect((w * i) / 5, 0, w / 7, s * 0.12); ctx.fillRect(0, s * 0.12, w, s * 0.1); break;
-    case 'fridge': ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.roundRect(0, 0, w, s * 0.9, s * 0.1); ctx.fill(); ctx.fillStyle = '#94a3b8'; ctx.fillRect(w * 0.75, s * 0.15, s * 0.06, s * 0.3); ctx.fillRect(0, s * 0.5, w, s * 0.03); break;
-  }
-  ctx.restore();
-}
-
 function drawClimb(ctx: CanvasRenderingContext2D, c: Climb, v: View) {
-  if (!visible(v, c.x - 1, c.x + 1, c.y1, c.y2)) return;
+  if (c.skin === 'stairs' || !visible(v, c.x - 1, c.x + 1, c.y1, c.y2)) return; // la escalera de adentro va con el departamento
   const s = v.s, x = X(v, c.x), y1 = Y(v, c.y1), y2 = Y(v, c.y2);
   ctx.lineCap = 'round';
   if (c.skin === 'ladder') {
@@ -390,10 +303,9 @@ function drawClimb(ctx: CanvasRenderingContext2D, c: Climb, v: View) {
     ctx.beginPath(); ctx.moveTo(x, y1); ctx.lineTo(x, y2); ctx.stroke();
     ctx.fillStyle = '#334155'; for (let y = c.y1 + 0.5; y < c.y2; y += 1.3) ctx.fillRect(x - s * 0.15, Y(v, y), s * 0.3, s * 0.08);
   } else {
+    // El poste del farol (el farol, arriba, es donde te parás).
     ctx.strokeStyle = '#3f3f46'; ctx.lineWidth = Math.max(2.5, s * 0.18);
-    ctx.beginPath(); ctx.moveTo(x, y1); ctx.lineTo(x, y2 - s * 0.9); ctx.stroke();
-    ctx.lineWidth = Math.max(1.5, s * 0.1); ctx.beginPath(); ctx.moveTo(x - s * 0.5, y2 - s * 0.7); ctx.lineTo(x + s * 0.5, y2 - s * 0.7); ctx.stroke();
-    ctx.fillStyle = '#86efac'; for (const dx of [-0.4, 0.4]) { ctx.beginPath(); ctx.arc(x + dx * s, y2 - s * 0.78, s * 0.07, 0, Math.PI * 2); ctx.fill(); }
+    ctx.beginPath(); ctx.moveTo(x, y1); ctx.lineTo(x, y2); ctx.stroke();
     ctx.fillStyle = '#52525b'; for (let y = c.y1 + 0.6; y < c.y2 - 0.3; y += 0.7) ctx.fillRect(x - s * 0.18, Y(v, y), s * 0.36, s * 0.05); // grampas para trepar
   }
 }
@@ -413,6 +325,7 @@ function drawZip(ctx: CanvasRenderingContext2D, z: Zip, g: SharkGame, v: View) {
 }
 
 function drawDecor(ctx: CanvasRenderingContext2D, d: Decor, v: View) {
+  if (d.kind === 'tree' || d.kind === 'palm') { drawTreeDecor(ctx, d, v); return; }
   if (!visible(v, d.x - 1, d.x + 1, -1, 4)) return;
   const s = v.s, x = X(v, d.x), t = v.t;
   ctx.lineCap = 'round';
@@ -527,13 +440,6 @@ function drawRescue(ctx: CanvasRenderingContext2D, r: Rescue, g: SharkGame, v: V
 const FIN_X: Record<SharkType, number> = { blanco: 0, ballena: -0.1, martillo: -0.06 };
 const drawShark = (ctx: CanvasRenderingContext2D, k: Shark, x: number, y: number, s: number, angle: number, dir: 1 | -1, opts?: SpriteOptions) =>
   drawSharkSprite(ctx, k.type, x, y, sharkLen(k) * s, angle, dir, opts);
-// Recorta arriba o abajo de la superficie del agua (con sus olas) entre x1 y x2 (en la pantalla).
-function surfaceClip(ctx: CanvasRenderingContext2D, v: View, x1: number, x2: number, above: boolean) {
-  const edge = above ? -v.h : v.h * 2;
-  ctx.beginPath(); ctx.moveTo(x1, edge); ctx.lineTo(x2, edge);
-  for (let px = x2; px >= x1; px -= 6) ctx.lineTo(px, Y(v, waveY(v.cx + px / v.s, v.t)));
-  ctx.closePath(); ctx.clip();
-}
 
 // Dibuja el tiburón cortado por la superficie: arriba del agua se ve entero y abajo, apagado.
 function drawSharkCut(ctx: CanvasRenderingContext2D, k: Shark, v: View, under: number) {
@@ -596,23 +502,22 @@ function drawFin(ctx: CanvasRenderingContext2D, k: Shark, v: View) {
     }
   }
 }
-function splash(ctx: CanvasRenderingContext2D, v: View, x: number, size: number, seed: number) {
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  for (let i = 0; i < 16; i++) {
-    const a = Math.PI + (i / 15) * Math.PI, r = v.s * size * (0.3 + hash(i + seed) * 0.7);
-    ctx.beginPath(); ctx.arc(X(v, x) + Math.cos(a) * r, Y(v, 0) + Math.sin(a) * r * 0.8, v.s * (0.06 + hash(i) * 0.1), 0, Math.PI * 2); ctx.fill();
+// Espuma revuelta donde el cuerpo corta la superficie (las salpicaduras grandes son efectos, ver sharkArt.ts).
+function churn(ctx: CanvasRenderingContext2D, v: View, x: number, size: number, seed: number) {
+  for (let i = 0; i < 14; i++) {
+    const q = (v.t * 2.5 + hash(i + seed)) % 1, a = Math.PI + hash(i * 3 + seed) * Math.PI, r = v.s * size * (0.2 + q * 0.6);
+    ctx.fillStyle = `rgba(255,255,255,${0.8 * (1 - q)})`;
+    ctx.beginPath(); ctx.arc(X(v, x) + Math.cos(a) * r, Y(v, 0) + Math.sin(a) * r * 0.5, v.s * (0.05 + hash(i) * 0.08), 0, Math.PI * 2); ctx.fill();
   }
 }
 function drawSharkJump(ctx: CanvasRenderingContext2D, k: Shark, v: View) {
   const L = sharkLen(k);
   if ((k.state !== 'jump' && k.state !== 'bite') || !visible(v, k.x - L, k.x + L, -3, 6)) return;
   drawSharkCut(ctx, k, v, 0.45);
-  // Salpicadura al salir y al entrar.
-  if (Math.abs(k.y) < 0.25 * L + 0.3) splash(ctx, v, k.x, L * 0.45, k.id);
+  if (Math.abs(k.y) < 0.25 * L + 0.3) churn(ctx, v, k.x, L * 0.35, k.id);
 }
 
 // ---------- El agua ----------
-const waveY = (x: number, t: number) => Math.sin(x * 1.3 + t * 2) * 0.07 + Math.sin(x * 3.1 - t * 3) * 0.035;
 function drawWater(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, flash: number) {
   const s = v.s, t = v.t;
   const x0 = v.cx - 1, x1 = v.cx + v.w / s + 1;
@@ -641,7 +546,7 @@ function drawWater(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, flash: 
   // Espuma alrededor de lo que asoma.
   ctx.fillStyle = 'rgba(241,245,249,0.6)';
   for (const p of g.plats) {
-    if (p.y > 2.5 || p.kind === 'roof' || p.kind === 'cable' || !visible(v, p.x, p.x + p.w, -1, 1)) continue;
+    if (p.y > 2.5 || p.kind === 'roof' || p.kind === 'lamp' || !visible(v, p.x, p.x + p.w, -1, 1)) continue;
     if (!['car', 'van', 'bus', 'kiosk', 'stop', 'stoop', 'debris', 'float'].includes(p.kind)) continue;
     for (const ex of [p.x, p.x + p.w]) { ctx.beginPath(); ctx.ellipse(X(v, ex), Y(v, waveY(ex, t)), s * (0.2 + Math.sin(t * 5 + ex) * 0.05), s * 0.06, 0, 0, Math.PI * 2); ctx.fill(); }
   }
@@ -658,13 +563,24 @@ function drawFirefighter(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, s
   const f = p.facing, climbing = !!p.climb || !!p.zip, airborne = !p.ground && !climbing && !p.swimming, falling = !!g.dying;
   const running = p.vx !== 0 && !!p.ground;
   const swing = running || climbing || p.swimming ? Math.sin(t * (climbing ? 12 : p.swimming ? 8 : 22)) : 0;
-  if (p.zip) { ctx.fillStyle = '#facc15'; ctx.fillRect(X(v, p.x) - s * 0.15, Y(v, p.y + HANG + 0.05), s * 0.3, s * 0.2); }
   const COAT = '#1f2937', STRIPE = '#d9f99d', SKIN = '#fcd9b6';
+  // Colgado de la tirolesa: la roldana corre por el cable, con las correas hasta la barra que agarra.
+  const barY = Y(v, p.y + PLAYER_H + 0.12);
+  if (p.zip) {
+    const z = p.zip, cableY = Y(v, z.y1 + ((z.y2 - z.y1) * (p.x - z.x1)) / (z.x2 - z.x1)), cx = X(v, p.x);
+    ctx.strokeStyle = '#a16207'; ctx.lineWidth = Math.max(1.5, s * 0.05);
+    ctx.beginPath(); ctx.moveTo(cx - s * 0.08, cableY + s * 0.12); ctx.lineTo(cx - s * 0.2, barY); ctx.moveTo(cx + s * 0.08, cableY + s * 0.12); ctx.lineTo(cx + s * 0.2, barY); ctx.stroke();
+    ctx.strokeStyle = '#111827'; ctx.lineWidth = Math.max(2, s * 0.07); ctx.beginPath(); ctx.moveTo(cx - s * 0.28, barY); ctx.lineTo(cx + s * 0.28, barY); ctx.stroke();
+    ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.roundRect(cx - s * 0.2, cableY + s * 0.02, s * 0.4, s * 0.14, s * 0.04); ctx.fill();
+    ctx.fillStyle = '#374151'; for (const dx of [-0.11, 0.11]) { ctx.beginPath(); ctx.arc(cx + dx * s, cableY, s * 0.07, 0, Math.PI * 2); ctx.fill(); }
+    if (p.zipT > 0.3) { ctx.fillStyle = '#fde047'; for (let i = 0; i < 4; i++) { const q = (t * 7 + i * 0.25) % 1; ctx.beginPath(); ctx.arc(cx - f * s * (0.15 + q * 0.5), cableY + s * q * 0.3, s * 0.025, 0, Math.PI * 2); ctx.fill(); } } // chispas
+  }
   ctx.lineCap = 'round';
   const arm = (side: 1 | -1, phase: number) => {
     const sx = px + pw / 2 + side * pw * 0.32, sy = py + ph * 0.44;
     let hx = sx + side * pw * 0.2 + phase * pw * 0.18, hy = airborne ? sy - ph * 0.18 : sy + ph * 0.24;
     if (climbing) { hx = px + pw / 2 + side * pw * 0.12; hy = py + ph * (0.0 + 0.08 * phase * side); }
+    if (p.zip) { hx = px + pw / 2 + side * pw * 0.28; hy = barY; }
     if (p.swimming) { hx = sx + side * pw * 0.45 + phase * pw * 0.2; hy = sy - ph * 0.05 + phase * ph * 0.08; }
     if (falling) { hx = sx + side * pw * 0.5; hy = sy - ph * 0.35; }
     ctx.strokeStyle = COAT; ctx.lineWidth = Math.max(2.5, pw * 0.2);
@@ -675,7 +591,9 @@ function drawFirefighter(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, s
   };
   arm(-f as 1 | -1, -swing);
   // Piernas con botas negras.
-  const footL = px + pw * 0.38 + swing * pw * 0.22, footR = px + pw * 0.62 - swing * pw * 0.22;
+  const dangle = p.zip ? -f * pw * 0.25 * Math.min(1, p.zipT * 2) + Math.sin(t * 5) * pw * 0.06 : 0; // las piernas cuelgan para atrás
+  const legSwing = p.zip ? 0 : swing;
+  const footL = px + pw * 0.38 + legSwing * pw * 0.22 + dangle, footR = px + pw * 0.62 - legSwing * pw * 0.22 + dangle;
   ctx.strokeStyle = COAT; ctx.lineWidth = Math.max(3, pw * 0.22);
   ctx.beginPath(); ctx.moveTo(px + pw * 0.38, py + ph * 0.7); ctx.lineTo(footL, py + ph * 0.94); ctx.moveTo(px + pw * 0.62, py + ph * 0.7); ctx.lineTo(footR, py + ph * 0.94); ctx.stroke();
   ctx.strokeStyle = STRIPE; ctx.lineWidth = Math.max(1, pw * 0.06);
@@ -709,11 +627,15 @@ function drawFirefighter(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, s
   ctx.fillRect(hx - r * 1.02, hy - r * 0.3, r * 2.04, r * 0.09); // la banda de abajo
   ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(hx + f * r * 0.35, hy - r * 0.95); ctx.lineTo(hx + f * r * 0.85, hy - r * 0.8); ctx.lineTo(hx + f * r * 0.8, hy - r * 0.35); ctx.lineTo(hx + f * r * 0.3, hy - r * 0.38); ctx.fill(); // escudo, adelante
   arm(f, swing);
-  if (p.swimming) {
-    // Debajo del agua se ve más oscuro.
-    ctx.fillStyle = 'rgba(14,58,76,0.65)'; ctx.fillRect(px - pw, Y(v, 0), pw * 3, Y(v, p.y) - Y(v, 0) + s * 0.1);
-  }
   ctx.restore();
+}
+
+// Nadando, lo que está debajo del agua se ve apagado (sin ningún recuadro).
+function drawPlayer(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, shrink = 1) {
+  if (!g.player.swimming) { drawFirefighter(ctx, g, v, shrink); return; }
+  const x = X(v, g.player.x), half = v.s * 1.4;
+  ctx.save(); surfaceClip(ctx, v, x - half, x + half, true); drawFirefighter(ctx, g, v, shrink); ctx.restore();
+  ctx.save(); surfaceClip(ctx, v, x - half, x + half, false); ctx.globalAlpha = 0.35; drawFirefighter(ctx, g, v, shrink); ctx.restore();
 }
 
 function drawRain(ctx: CanvasRenderingContext2D, v: View) {
@@ -742,22 +664,24 @@ function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
   drawSky(ctx, v, flash);
   drawSkyline(ctx, v, flash.a);
   drawBolt(ctx, v, flash);
-  for (const b of g.blocks) drawBlock(ctx, b, v);
+  for (const b of g.blocks) drawBlock(ctx, g, b, v, flash.a);
   for (const d of g.decor) drawDecor(ctx, d, v);
   for (const c of g.climbs) drawClimb(ctx, c, v);
   for (const p of g.plats) if (p.kind !== 'debris' && p.kind !== 'float') drawPlat(ctx, p, g, v);
   for (const z of g.zips) drawZip(ctx, z, g, v);
   drawWater(ctx, g, v, flash.a);
+  drawFx(ctx, g, v, 'water');
   for (const k of g.sharks) drawSharkUnder(ctx, k, v);
-  for (const d of g.debris) if (visible(v, d.plat.x - 1, d.plat.x + d.plat.w + 1, -1, 2)) drawDebris(ctx, d, v);
+  for (const d of g.debris) if (visible(v, d.plat.x - 1, d.plat.x + d.plat.w + 1, -2, 2)) drawDebrisArt(ctx, d, v);
   for (const r of g.rescues) drawRescue(ctx, r, g, v);
   for (const k of g.sharks) drawFin(ctx, k, v);
   // Cuando lo alcanza un tiburón, el bombero queda dentro de la boca abierta, se achica y desaparece: se lo
   // tragó entero.
   const eaten = g.dying?.reason === 'shark' ? g.dying : null;
-  if (!eaten) drawFirefighter(ctx, g, v);
+  if (!eaten) drawPlayer(ctx, g, v);
   else if (eaten.t < CHOMP) drawFirefighter(ctx, g, v, 1 - (eaten.t / CHOMP) * 0.4);
   for (const k of g.sharks) drawSharkJump(ctx, k, v);
+  drawFx(ctx, g, v, 'air');
   if (eaten && eaten.t < CHOMP) {
     // Vuelve a dibujar al bombero adentro de la boca y la mandíbula de abajo por encima: queda entre los dientes.
     const k = g.sharks.find(s => s.id === eaten.shark);
@@ -795,6 +719,7 @@ export function SharkCity() {
   const cam = useRef({ x: 0, y: 0 });
   const input = useRef<Input>({ ...NO_INPUT });
   const zipToldRef = useRef(false);
+  const enterToldRef = useRef(false);
   const [status, setStatus] = useState<Status>('ready');
   const [hud, setHud] = useState({ left: TIME_LIMIT, saved: 0, sharks: 5, perro: 0, gato: 0, persona: 0 });
   const [record, setRecord] = useState(readSharkRecord);
@@ -847,6 +772,7 @@ export function SharkCity() {
     follow(-1);
     input.current = { ...NO_INPUT };
     zipToldRef.current = false;
+    enterToldRef.current = false;
     setHud({ left: TIME_LIMIT, saved: 0, sharks: gameRef.current.sharks.length, perro: 0, gato: 0, persona: 0 });
     setToast({ text: `¡Rescatá ${GOAL} antes de que se termine el tiempo! 🚒`, id: Date.now() });
     setStatus('playing');
@@ -878,6 +804,7 @@ export function SharkCity() {
         if (e.type === 'more') setToast({ text: `¡Ya hay ${e.count} tiburones! 🦈`, id: now });
         if (e.type === 'wind') setToast({ text: e.dir > 0 ? '¡Ráfaga de viento! 💨 →' : '← 💨 ¡Ráfaga de viento!', id: now });
         if (e.type === 'hurry') setToast({ text: e.left === 60 ? '¡Queda 1 minuto!' : '¡Quedan 30 segundos!', id: now, big: true });
+        if (e.type === 'enter' && !enterToldRef.current) { enterToldRef.current = true; setToast({ text: '¡Entraste a un departamento! Acá los tiburones no te ven 🏠 (por la escalera llegás a la terraza)', id: now }); }
         if (e.type === 'zip' && !zipToldRef.current) { zipToldRef.current = true; setToast({ text: '¡Tirolesa! Con ↓ te soltás 🪢', id: now }); }
         if (e.type === 'lose') setToast({ text: LOSE_TEXT[e.reason], id: now });
       }
@@ -958,7 +885,7 @@ export function SharkCity() {
           <div>
             {status === 'ready' && <>
               <h2 id="tib-message" className="tib-title">Ciudad Tiburón 🦈</h2>
-              <p>La ciudad se inundó, hay tormenta y el agua está llena de tiburones. Sos bombero: rescatá a <strong>{GOAL}</strong> perritos, gatos y personas que flotan en el agua en menos de <strong>5 minutos</strong>. Para agarrarlos tenés que bajar cerca del agua: mirá las aletas, porque cuando un tiburón se frena y salen burbujas, ¡salta! Moverte por techos, balcones, escaleras, cables, toldos, autos tapados por el agua y todo lo que arrastra la corriente. El agua pasa por delante de los edificios y los tiburones nadan por toda la ciudad: si caés al agua, salí rápido. El viento sopla para un lado y para el otro y te empuja. Con el tiempo llegan más tiburones.</p>
+              <p>La ciudad se inundó, hay tormenta y el agua está llena de tiburones. Sos bombero: rescatá a <strong>{GOAL}</strong> perritos, gatos y personas que flotan en el agua en menos de <strong>5 minutos</strong>. Para agarrarlos tenés que bajar cerca del agua: mirá las aletas, porque cuando un tiburón se frena y salen burbujas, ¡salta! Moverte por techos, balcones, escaleras, cables, toldos, autos tapados por el agua y todo lo que arrastra la corriente. El agua pasa por delante de los edificios y los tiburones nadan por toda la ciudad: si caés al agua, salí rápido. Por las puertas de los balcones y de las escaleras de incendio podés entrar a los departamentos: adentro los tiburones no te ven. Lo que flota se lo lleva el viento y al rato se hunde. El viento sopla para un lado y para el otro y te empuja. Con el tiempo llegan más tiburones.</p>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> trepar escaleras, sogas, caños, postes y tirolesas (o saltar) · <kbd>↓</kbd> bajar · <kbd>Espacio</kbd> saltar · <kbd>P</kbd> pausa</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}
