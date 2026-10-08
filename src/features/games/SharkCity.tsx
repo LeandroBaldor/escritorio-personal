@@ -4,6 +4,7 @@ import {
   CHOMP, FLOAT_Y, GOAL, HANG, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, sharkLen, sharkPose, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
   type Block, type Climb, type Debris, type Decor, type Input, type LoseReason, type Plat, type Rescue, type RescueKind, type Shark, type SharkGame, type SharkType, type Zip,
 } from './shark';
+import { drawSharkSprite, loadSharkSprites } from './sharkSprites';
 
 const RECORD_KEY = 'escritorio-personal-juegos:tiburon-record';
 export interface SharkRecord { saved: number; time: number | null } // más rescatados y mejor tiempo para rescatar a todos
@@ -521,147 +522,23 @@ function drawRescue(ctx: CanvasRenderingContext2D, r: Rescue, g: SharkGame, v: V
 }
 
 // ---------- Tiburones ----------
-// Colores (como los de la referencia): lomo, panza, aletas y el brillo de arriba.
-const SHARK_COLOR: Record<SharkType, [string, string, string, string]> = {
-  gris: ['#3f6c74', '#e9efe9', '#2c4f56', '#7fb0b4'], martillo: ['#9a5a7c', '#f1e4ea', '#74405c', '#cf94b3'],
-  tigre: ['#c0763a', '#f6e7d2', '#8f5224', '#eeb27a'], bebe: ['#5f9aa8', '#f2f8f9', '#45798a', '#a3d2db'],
-  blanco: ['#566b80', '#fbfbfb', '#3c4d60', '#9fb3c8'], mako: ['#2f56a8', '#eef2ff', '#1f3c80', '#7aa0e6'],
+// Los tiburones son imágenes (ver sharkSprites.ts); la aleta que asoma del agua se dibuja con sus colores
+// (adelante y el borde de atrás).
+const FIN_COLOR: Record<SharkType, [string, string]> = {
+  blanco: ['#2d3f63', '#1b2742'], ballena: ['#2f4a78', '#1d2f50'], martillo: ['#8a6440', '#5e4127'], gris: ['#7b8a92', '#56636a'],
+  mako: ['#2f62d0', '#1d3f8f'], bebe: ['#6aaabb', '#477f8e'], tigre: ['#a8683a', '#6f4220'],
 };
-const UPPER_TEETH = 17, LOWER_TEETH = 15;
-const HINGE: [number, number] = [0.2, 0.095], UPPER_TIP: [number, number] = [0.48, 0.05], LOWER_TIP: [number, number] = [0.455, 0.08];
-
-// Dientes en fila entre dos puntos (en unidades del largo del tiburón); `down` = 1 apuntan para abajo, -1 para
-// arriba. Son triangulares y de largos distintos, más grandes en el medio de la boca.
-function teethRow(ctx: CanvasRenderingContext2D, L: number, from: [number, number], to: [number, number], n: number, down: 1 | -1, size: number, color: string) {
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const k = (i + 0.5) / n, x = (from[0] + (to[0] - from[0]) * k) * L, y = (from[1] + (to[1] - from[1]) * k) * L;
-    const half = (0.0075 + Math.sin(k * Math.PI) * 0.003) * L, len = (0.02 + 0.018 * Math.sin(k * Math.PI) + hash(i * 7 + n) * 0.008) * L * size;
-    ctx.moveTo(x - half, y); ctx.lineTo(x - half * 0.25, y + down * len); ctx.lineTo(x + half, y);
-  }
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(120,113,108,0.5)'; ctx.lineWidth = Math.max(0.5, L * 0.002); ctx.stroke();
-}
-
-// Un tiburón de costado, pintado con volumen: cuerpo robusto y cabeza grande, lomo oscuro con brillo arriba y
-// panza clara, contorno, cola en medialuna, aletas con el borde más oscuro, branquias, ojo amarillo con la ceja
-// fruncida y la boca siempre entreabierta, llena de dientes (bien abierta con `open` = 1). Se dibuja con el
-// centro en (cx, cy), inclinado `angle` y mirando a `dir`. Con `teethOnly` dibuja solo los dientes (para
-// ponerlos por encima de lo que tiene en la boca).
-function drawSharkBody(ctx: CanvasRenderingContext2D, k: Shark, cx: number, cy: number, s: number, angle: number, dir: 1 | -1, open: number, teethOnly = false) {
-  const L = sharkLen(k) * s, [back, belly, finC, shine] = SHARK_COLOR[k.type];
-  const P = (x: number, y: number) => [x * L, y * L] as const;
-  const gape = Math.max(0.35, open); // nunca cierra del todo: siempre muestra los dientes
-  ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle); ctx.scale(dir, k.type === 'mako' ? 0.82 : 1);
-  const jaw = gape * 1.05, cj = Math.cos(jaw), sj = Math.sin(jaw), size = 0.85 + gape * 0.5;
-  const teeth = () => {
-    teethRow(ctx, L, [HINGE[0] + 0.03, HINGE[1] - 0.012], [UPPER_TIP[0] - 0.02, UPPER_TIP[1] - 0.006], UPPER_TEETH - 3, 1, size * 0.7, '#d6d0c4'); // la fila de atrás
-    teethRow(ctx, L, [HINGE[0] + 0.02, HINGE[1] - 0.004], UPPER_TIP, UPPER_TEETH, 1, size, '#fffdf7');
-    ctx.save(); ctx.translate(HINGE[0] * L, HINGE[1] * L); ctx.rotate(jaw); ctx.translate(-HINGE[0] * L, -HINGE[1] * L);
-    teethRow(ctx, L, [HINGE[0] + 0.03, HINGE[1] + 0.008], [LOWER_TIP[0] - 0.02, LOWER_TIP[1] + 0.004], LOWER_TEETH - 3, -1, size * 0.65, '#d6d0c4');
-    teethRow(ctx, L, [HINGE[0] + 0.02, HINGE[1]], LOWER_TIP, LOWER_TEETH, -1, size * 0.9, '#fffdf7');
-    ctx.restore();
-  };
-  if (teethOnly) { teeth(); ctx.restore(); return; }
-  const path = (pts: (readonly number[])[]) => { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i += 3) ctx.bezierCurveTo(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], pts[i + 2][0], pts[i + 2][1]); ctx.closePath(); };
-  const outline = 'rgba(10,15,25,0.55)', lw = Math.max(1, L * 0.007);
-  const fin = (pts: (readonly number[])[], gx1: number, gx2: number) => {
-    const gr = ctx.createLinearGradient(gx1 * L, 0, gx2 * L, 0);
-    gr.addColorStop(0, back); gr.addColorStop(1, finC);
-    ctx.fillStyle = gr; path(pts); ctx.fill();
-    ctx.strokeStyle = outline; ctx.lineWidth = lw; ctx.stroke();
-  };
-  // Cola en medialuna (el lóbulo de arriba más largo) y las aletitas de abajo, detrás del cuerpo.
-  fin([P(-0.41, -0.03), P(-0.48, -0.08), P(-0.57, -0.18), P(-0.67, -0.31), P(-0.63, -0.17), P(-0.58, -0.07), P(-0.54, 0), P(-0.57, 0.06), P(-0.6, 0.12), P(-0.63, 0.18), P(-0.54, 0.12), P(-0.47, 0.05), P(-0.41, 0.03)], -0.4, -0.65);
-  fin([P(-0.17, 0.125), P(-0.2, 0.16), P(-0.24, 0.19), P(-0.28, 0.2), P(-0.27, 0.15), P(-0.26, 0.12), P(-0.24, 0.1)], -0.17, -0.28);
-  fin([P(-0.31, 0.07), P(-0.33, 0.1), P(-0.36, 0.12), P(-0.39, 0.12), P(-0.38, 0.09), P(-0.37, 0.06), P(-0.36, 0.045)], -0.31, -0.39);
-  // Aleta de arriba, alta y curva hacia atrás, y la segunda aletita.
-  fin([P(0.1, -0.17), P(0.05, -0.23), P(-0.01, -0.31), P(-0.1, -0.39), P(-0.075, -0.28), P(-0.08, -0.2), P(-0.13, -0.155)], 0.1, -0.1);
-  fin([P(-0.29, -0.1), P(-0.31, -0.12), P(-0.33, -0.14), P(-0.36, -0.15), P(-0.35, -0.11), P(-0.355, -0.085), P(-0.37, -0.07)], -0.29, -0.36);
-  // El cuerpo (sin la mandíbula de abajo, que se dibuja aparte para poder abrirla).
-  const body = () => path([
-    P(0.5, 0.02), P(0.515, -0.05), P(0.46, -0.14), P(0.32, -0.17), P(0.2, -0.195), P(0.05, -0.2), P(-0.06, -0.19),
-    P(-0.22, -0.17), P(-0.35, -0.075), P(-0.43, -0.03), P(-0.445, -0.01), P(-0.445, 0.01), P(-0.43, 0.03),
-    P(-0.32, 0.075), P(-0.18, 0.14), P(-0.02, 0.155), P(0.08, 0.165), P(0.15, 0.155), P(...HINGE),
-    P(0.3, 0.08), P(0.4, 0.065), P(...UPPER_TIP), P(0.5, 0.045), P(0.505, 0.03), P(0.5, 0.02),
-  ]);
-  const shade = ctx.createLinearGradient(0, -0.19 * L, 0, 0.08 * L);
-  shade.addColorStop(0, finC); shade.addColorStop(0.35, back); shade.addColorStop(1, back);
-  ctx.fillStyle = shade; body(); ctx.fill();
-  ctx.save(); body(); ctx.clip();
-  // Brillo sobre el lomo (la luz viene de arriba) y la panza clara con el borde ondulado.
-  const hl = ctx.createLinearGradient(0, -0.16 * L, 0, -0.02 * L);
-  hl.addColorStop(0, 'rgba(255,255,255,0)'); hl.addColorStop(0.5, shine); hl.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.globalAlpha = 0.55; ctx.fillStyle = hl; ctx.beginPath(); ctx.ellipse(0.02 * L, -0.08 * L, 0.42 * L, 0.06 * L, -0.04, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
-  ctx.fillStyle = belly; ctx.beginPath(); ctx.moveTo(0.52 * L, 0.035 * L);
-  for (let i = 0; i <= 16; i++) { const u = i / 16, x = 0.5 - u * 0.97; ctx.lineTo(x * L, (0.05 - Math.sin(u * Math.PI) * 0.03 + (i % 2 ? 0.014 : -0.004)) * L); }
-  ctx.lineTo(-0.5 * L, 0.25 * L); ctx.lineTo(0.52 * L, 0.25 * L); ctx.fill();
-  const under = ctx.createLinearGradient(0, 0.06 * L, 0, 0.16 * L);
-  under.addColorStop(0, 'rgba(0,0,0,0)'); under.addColorStop(1, 'rgba(30,40,55,0.35)');
-  ctx.fillStyle = under; ctx.fillRect(-0.5 * L, 0.06 * L, L, 0.12 * L);
-  if (k.type === 'tigre') {
-    ctx.fillStyle = 'rgba(70,35,10,0.6)';
-    for (let i = 0; i < 10; i++) { const x = 0.28 - i * 0.07; ctx.beginPath(); ctx.moveTo(x * L, -0.2 * L); ctx.quadraticCurveTo((x - 0.03) * L, -0.08 * L, (x - 0.01) * L, (0.02 - (i % 3) * 0.02) * L); ctx.lineTo((x + 0.015) * L, (0.0 - (i % 3) * 0.02) * L); ctx.quadraticCurveTo((x - 0.005) * L, -0.09 * L, (x + 0.03) * L, -0.2 * L); ctx.fill(); }
-  }
-  if (k.type === 'blanco' || k.type === 'gris') {
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = Math.max(1, L * 0.005);
-    for (const [x, y] of [[0.02, -0.12], [0.1, -0.1], [-0.12, -0.11]]) { ctx.beginPath(); ctx.moveTo(x * L, y * L); ctx.lineTo((x + 0.05) * L, (y + 0.035) * L); ctx.stroke(); } // cicatrices
-  }
-  // Los músculos del costado.
-  ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = Math.max(1, L * 0.006);
-  for (const x of [-0.05, -0.15, -0.25]) { ctx.beginPath(); ctx.moveTo(x * L, -0.1 * L); ctx.quadraticCurveTo((x - 0.04) * L, 0, x * L, 0.08 * L); ctx.stroke(); }
-  ctx.restore();
-  ctx.strokeStyle = outline; ctx.lineWidth = lw; body(); ctx.stroke();
-  // Aleta del costado, grande.
-  fin([P(0.12, 0.11), P(0.06, 0.17), P(-0.02, 0.25), P(-0.1, 0.32), P(-0.06, 0.22), P(-0.03, 0.16), P(-0.01, 0.125)], 0.12, -0.1);
-  // Cabeza de martillo: la punta ancha que sobresale arriba y abajo, con el ojo en la punta.
-  if (k.type === 'martillo') {
-    const hg = ctx.createLinearGradient(0, -0.2 * L, 0, 0.05 * L);
-    hg.addColorStop(0, finC); hg.addColorStop(0.5, back); hg.addColorStop(1, belly);
-    ctx.fillStyle = hg; ctx.beginPath(); ctx.ellipse(0.455 * L, -0.07 * L, 0.05 * L, 0.13 * L, 0.12, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = outline; ctx.lineWidth = lw; ctx.stroke();
-  }
-  // Cinco branquias.
-  ctx.strokeStyle = 'rgba(15,23,42,0.5)'; ctx.lineWidth = Math.max(1, L * 0.007);
-  for (let i = 0; i < 5; i++) { const x = (0.16 - i * 0.026) * L; ctx.beginPath(); ctx.moveTo(x, -0.08 * L); ctx.quadraticCurveTo(x - 0.015 * L, 0, x, 0.07 * L); ctx.stroke(); }
-  // Ojo amarillo con la pupila negra y la ceja fruncida.
-  const ex = (k.type === 'martillo' ? 0.44 : 0.36) * L, ey = (k.type === 'martillo' ? -0.16 : -0.07) * L, er = Math.max(2, L * 0.025);
-  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(ex, ey, er * 1.25, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#f2c94c'; ctx.beginPath(); ctx.arc(ex, ey, er, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#050505'; ctx.beginPath(); ctx.ellipse(ex + er * 0.15, ey, er * 0.35, er * 0.85, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(ex + er * 0.45, ey - er * 0.45, Math.max(0.6, er * 0.22), 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = finC; ctx.beginPath(); ctx.moveTo(ex - er * 2.4, ey - er * 1.9); ctx.lineTo(ex + er * 1.8, ey - er * 0.6); ctx.lineTo(ex + er * 1.6, ey - er * 1.5); ctx.closePath(); ctx.fill(); // ceja
-  ctx.strokeStyle = outline; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(0.46 * L, 0.0); ctx.lineTo(0.485 * L, 0.006 * L); ctx.stroke(); // nariz
-  // La boca: adentro rojo oscuro con encías y lengua, y la mandíbula de abajo que se abre desde la bisagra.
-  const rot = ([x, y]: [number, number]): [number, number] => { const dx = x - HINGE[0], dy = y - HINGE[1]; return [HINGE[0] + dx * cj - dy * sj, HINGE[1] + dx * sj + dy * cj]; };
-  const lowTip = rot(LOWER_TIP);
-  const inside = ctx.createLinearGradient(HINGE[0] * L, 0, UPPER_TIP[0] * L, 0);
-  inside.addColorStop(0, '#1a0303'); inside.addColorStop(1, '#5c0d0d');
-  ctx.fillStyle = inside;
-  ctx.beginPath(); ctx.moveTo(...P(...HINGE)); ctx.lineTo(...P(...UPPER_TIP)); ctx.lineTo(...P(...lowTip)); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#9f1d2d';
-  ctx.beginPath(); ctx.moveTo(...P(HINGE[0] + 0.04, HINGE[1] + 0.01)); ctx.quadraticCurveTo(...P((HINGE[0] + lowTip[0]) / 2, (HINGE[1] + lowTip[1]) / 2 - 0.02), ...P(lowTip[0] - 0.03, lowTip[1] - 0.01)); ctx.lineTo(...P(...lowTip)); ctx.closePath(); ctx.fill(); // lengua
-  ctx.strokeStyle = '#c0264b'; ctx.lineWidth = Math.max(1.5, L * 0.014);
-  ctx.beginPath(); ctx.moveTo(...P(HINGE[0] + 0.02, HINGE[1] - 0.004)); ctx.lineTo(...P(...UPPER_TIP)); ctx.stroke(); // encía de arriba
-  ctx.save(); ctx.translate(HINGE[0] * L, HINGE[1] * L); ctx.rotate(jaw); ctx.translate(-HINGE[0] * L, -HINGE[1] * L);
-  ctx.beginPath(); ctx.moveTo(...P(HINGE[0] + 0.02, HINGE[1])); ctx.lineTo(...P(...LOWER_TIP)); ctx.stroke(); // encía de abajo
-  ctx.fillStyle = belly;
-  path([P(...HINGE), P(0.3, 0.095), P(0.4, 0.085), P(...LOWER_TIP), P(0.465, 0.1), P(0.42, 0.13), P(0.34, 0.145), P(0.27, 0.155), P(0.21, 0.16), P(0.17, 0.14)]); ctx.fill();
-  ctx.strokeStyle = outline; ctx.lineWidth = lw; ctx.stroke();
-  ctx.restore();
-  teeth();
-  ctx.restore();
-}
+const drawShark = (ctx: CanvasRenderingContext2D, k: Shark, x: number, y: number, s: number, angle: number, dir: 1 | -1, jawOnly = false) =>
+  drawSharkSprite(ctx, k.type, x, y, sharkLen(k) * s, angle, dir, jawOnly);
 
 // Dibuja el tiburón cortado por la superficie: arriba del agua se ve entero y abajo, apagado.
-function drawSharkCut(ctx: CanvasRenderingContext2D, k: Shark, v: View, open: number, under: number) {
+function drawSharkCut(ctx: CanvasRenderingContext2D, k: Shark, v: View, under: number) {
   const { dir, a } = sharkPose(k), angle = -a * dir, x = X(v, k.x), y = Y(v, k.y), surface = Y(v, 0);
   ctx.save(); ctx.beginPath(); ctx.rect(-50, -50, v.w + 100, surface + 50); ctx.clip();
-  drawSharkBody(ctx, k, x, y, v.s, angle, dir, open);
+  drawShark(ctx, k, x, y, v.s, angle, dir);
   ctx.restore();
   ctx.save(); ctx.globalAlpha = under; ctx.beginPath(); ctx.rect(-50, surface, v.w + 100, v.h); ctx.clip();
-  drawSharkBody(ctx, k, x, y, v.s, angle, dir, open);
+  drawShark(ctx, k, x, y, v.s, angle, dir);
   ctx.restore();
 }
 
@@ -671,7 +548,7 @@ function drawSharkUnder(ctx: CanvasRenderingContext2D, k: Shark, v: View) {
   if (k.state === 'jump' || k.state === 'bite' || !visible(v, k.x - L, k.x + L, -2, 1)) return;
   ctx.save(); ctx.globalAlpha = 0.42; ctx.beginPath(); ctx.rect(0, Y(v, 0) + v.s * 0.05, v.w, v.h); ctx.clip();
   const warn = k.state === 'warn' ? Math.max(0, Math.min(1, 1 - k.t / SHARKS[k.type].warn)) : 0;
-  drawSharkBody(ctx, k, X(v, k.x), Y(v, k.y), v.s, Math.sin(v.t * 3 + k.id) * 0.04 - warn * 0.35 * k.dir, k.dir, warn * 0.6);
+  drawShark(ctx, k, X(v, k.x), Y(v, k.y), v.s, Math.sin(v.t * 3 + k.id) * 0.04 - warn * 0.35 * k.dir, k.dir);
   ctx.restore();
 }
 function drawFin(ctx: CanvasRenderingContext2D, k: Shark, v: View) {
@@ -687,9 +564,9 @@ function drawFin(ctx: CanvasRenderingContext2D, k: Shark, v: View) {
   const len = s * (fast ? 0.9 : 0.5) * L;
   if (!warn) { ctx.beginPath(); ctx.moveTo(fx + d * fw * 0.6, wy); ctx.lineTo(fx - d * len, wy - s * 0.15); ctx.moveTo(fx + d * fw * 0.6, wy + s * 0.03); ctx.lineTo(fx - d * len, wy + s * 0.18); ctx.stroke(); }
   // La aleta: el borde de adelante curvo y el de atrás hundido, como las de verdad.
-  const [, , finC] = SHARK_COLOR[k.type];
+  const [front, edge] = FIN_COLOR[k.type];
   const grad = ctx.createLinearGradient(fx + d * fw * 0.5, 0, fx - d * fw * 0.5, 0);
-  grad.addColorStop(0, SHARK_COLOR[k.type][0]); grad.addColorStop(1, finC);
+  grad.addColorStop(0, front); grad.addColorStop(1, edge);
   ctx.fillStyle = grad;
   ctx.beginPath();
   ctx.moveTo(fx + d * fw * 0.5, wy);
@@ -698,6 +575,7 @@ function drawFin(ctx: CanvasRenderingContext2D, k: Shark, v: View) {
   ctx.closePath(); ctx.fill();
   if (k.type === 'blanco') { ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(fx - s * 0.05, wy - fh * 0.6); ctx.lineTo(fx + s * 0.06, wy - fh * 0.42); ctx.stroke(); } // cicatriz
   if (k.type === 'tigre') { ctx.fillStyle = 'rgba(40,30,20,0.55)'; for (const o of [-0.15, 0.1]) ctx.fillRect(fx + o * fw, wy - fh * 0.6, s * 0.05, fh * 0.45); }
+  if (k.type === 'ballena') { ctx.fillStyle = 'rgba(241,245,249,0.85)'; for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.arc(fx + (hash(i + k.id) - 0.5) * fw * 0.7, wy - fh * (0.15 + hash(i * 3) * 0.6), Math.max(1, s * 0.035), 0, Math.PI * 2); ctx.fill(); } } // las manchas
   ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.ellipse(fx, wy, fw * 0.75, s * 0.05, 0, 0, Math.PI * 2); ctx.fill();
   // El aviso: se frena, se hunde y salen burbujas.
   if (warn) {
@@ -715,15 +593,10 @@ function splash(ctx: CanvasRenderingContext2D, v: View, x: number, size: number,
     ctx.beginPath(); ctx.arc(X(v, x) + Math.cos(a) * r, Y(v, 0) + Math.sin(a) * r * 0.8, v.s * (0.06 + hash(i) * 0.1), 0, Math.PI * 2); ctx.fill();
   }
 }
-// Cuánto abre la boca: saltando la abre de a poco; cuando te alcanza, la abre toda y la cierra de golpe.
-function sharkOpen(k: Shark, g: SharkGame) {
-  if (k.state === 'bite') { const d = g.dying?.shark === k.id ? g.dying.t : 9; return d < CHOMP * 0.75 ? 1 : d < CHOMP ? 1 - (d - CHOMP * 0.75) / (CHOMP * 0.25) : 0; }
-  return Math.min(1, 0.3 + Math.max(0, k.vy) / 9);
-}
-function drawSharkJump(ctx: CanvasRenderingContext2D, k: Shark, g: SharkGame, v: View) {
+function drawSharkJump(ctx: CanvasRenderingContext2D, k: Shark, v: View) {
   const L = sharkLen(k);
   if ((k.state !== 'jump' && k.state !== 'bite') || !visible(v, k.x - L, k.x + L, -3, 6)) return;
-  drawSharkCut(ctx, k, v, sharkOpen(k, g), 0.45);
+  drawSharkCut(ctx, k, v, 0.45);
   // Salpicadura al salir y al entrar.
   if (Math.abs(k.y) < 0.25 * L + 0.3) splash(ctx, v, k.x, L * 0.45, k.id);
 }
@@ -869,19 +742,19 @@ function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
   for (const d of g.debris) if (visible(v, d.plat.x - 1, d.plat.x + d.plat.w + 1, -1, 2)) drawDebris(ctx, d, v);
   for (const r of g.rescues) drawRescue(ctx, r, g, v);
   for (const k of g.sharks) drawFin(ctx, k, v);
-  // Cuando lo alcanza un tiburón, el bombero queda dentro de la boca abierta (el tiburón se dibuja encima),
-  // se achica mientras las mandíbulas se cierran y desaparece: se lo tragó entero.
+  // Cuando lo alcanza un tiburón, el bombero queda dentro de la boca abierta, se achica y desaparece: se lo
+  // tragó entero.
   const eaten = g.dying?.reason === 'shark' ? g.dying : null;
   if (!eaten) drawFirefighter(ctx, g, v);
   else if (eaten.t < CHOMP) drawFirefighter(ctx, g, v, 1 - (eaten.t / CHOMP) * 0.4);
-  for (const k of g.sharks) drawSharkJump(ctx, k, g, v);
+  for (const k of g.sharks) drawSharkJump(ctx, k, v);
   if (eaten && eaten.t < CHOMP) {
-    // Vuelve a dibujar al bombero adentro de la boca y los dientes por encima: queda entre las mandíbulas.
+    // Vuelve a dibujar al bombero adentro de la boca y la mandíbula de abajo por encima: queda entre los dientes.
     const k = g.sharks.find(s => s.id === eaten.shark);
     if (k) {
       drawFirefighter(ctx, g, v, 1 - (eaten.t / CHOMP) * 0.4);
       const { dir, a } = sharkPose(k);
-      drawSharkBody(ctx, k, X(v, k.x), Y(v, k.y), v.s, -a * dir, dir, sharkOpen(k, g), true);
+      drawShark(ctx, k, X(v, k.x), Y(v, k.y), v.s, -a * dir, dir, true);
     }
   }
   drawRain(ctx, v);
@@ -908,6 +781,7 @@ export function SharkCity() {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<SharkGame>(newShark());
+  useEffect(() => { loadSharkSprites(); }, []);
   const cam = useRef({ x: 0, y: 0 });
   const input = useRef<Input>({ ...NO_INPUT });
   const zipToldRef = useRef(false);
