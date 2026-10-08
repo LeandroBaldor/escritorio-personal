@@ -8,6 +8,8 @@ export const hash = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 437
 export const visible = (v: View, x1: number, x2: number, y1: number, y2: number) => X(v, x2) > -60 && X(v, x1) < v.w + 60 && Y(v, y1) > -60 && Y(v, y2) < v.h + 60;
 export const font = (weight: number, px: number) => `${weight} ${Math.max(7, Math.round(px))}px Nunito, system-ui`;
 export const rect = (ctx: CanvasRenderingContext2D, v: View, x: number, y1: number, w: number, y2: number) => ctx.fillRect(X(v, x), Y(v, y2), w * v.s, (y2 - y1) * v.s);
+// Lo que cambia en cada cuadro y comparten los dibujos: cuánto sopla el súper viento (de -1 a 1).
+export const scene = { gale: 0 };
 // Las olas de la superficie del agua (la superficie está en y = 0).
 export const waveY = (x: number, t: number) => Math.sin(x * 1.3 + t * 2) * 0.07 + Math.sin(x * 3.1 - t * 3) * 0.035;
 // Recorta arriba o abajo de la superficie del agua (con sus olas) entre x1 y x2 (en la pantalla).

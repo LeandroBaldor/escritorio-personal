@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import sharkCover from './assets/tiburon-portada.webp';
 import { CalculatorLink, CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { readRecord } from './BlockRunner';
 import { cardImage } from './futureCards';
@@ -144,62 +145,11 @@ function LavaArt() {
   </svg>;
 }
 
-// Dibujo de la tarjeta de Ciudad Tiburón: la calle inundada entre edificios bajo la tormenta, un rayo, y un
-// tiburón que salta del agua con la boca abierta y el bombero entre los dientes; aletas y un perrito en una goma.
-const TIB_BODY = 'M22 .9C22.7-2.2 20.2-6.2 14.1-7.5C8.8-8.6 2.2-8.8-2.6-8.4C-9.7-7.5-15.4-3.3-18.9-1.3L-19.6 0L-18.9 1.3C-14.1 3.3-7.9 6.2-.9 6.8C4.4 7.3 6.6 6.8 8.8 4.2L21.1 2.2C22 2 22.2 1.5 22 .9Z';
-const TIB_UPPER_TEETH = 'M8.9 4.1L9.4 5.7L10.1 4.1M10.3 3.9L10.8 5.8L11.5 3.9M11.6 3.6L12.1 5.8L12.8 3.6M13.0 3.4L13.5 5.8L14.2 3.4M14.4 3.2L14.9 5.6L15.6 3.2M15.7 3.0L16.2 5.3L16.9 3.0M17.1 2.8L17.6 4.9L18.3 2.8M18.5 2.5L19.0 4.4L19.7 2.5M19.8 2.3L20.3 3.9L21.0 2.3';
-const TIB_LOWER_TEETH = 'M8.9 4.3L10.4 3.9L9.6 5.3M9.9 5.5L11.6 4.9L10.6 6.5M10.8 6.8L12.8 6.0L11.6 7.7M11.8 8.0L13.9 7.1L12.5 8.9M12.7 9.2L14.8 8.3L13.5 10.1M13.7 10.4L15.7 9.6L14.4 11.3M14.6 11.6L16.4 10.9L15.4 12.5M15.6 12.8L17.1 12.4L16.3 13.7';
+// Portada de Ciudad Tiburón: una imagen del juego, con el tiburón blanco saltando del agua con el bombero
+// entre los dientes.
 function SharkArt() {
   return <svg viewBox="0 0 160 100" aria-hidden="true">
-    <defs>
-      <linearGradient id="tib-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#070b16" /><stop offset="1" stopColor="#2c3b50" /></linearGradient>
-      <linearGradient id="tib-water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1e5866" /><stop offset="1" stopColor="#061820" /></linearGradient>
-      <linearGradient id="tib-skin" x1="0" y1="-9" x2="0" y2="7" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#2c4f56" /><stop offset=".35" stopColor="#3f6c74" /><stop offset=".55" stopColor="#7fb0b4" /><stop offset=".7" stopColor="#3f6c74" /></linearGradient>
-      <clipPath id="tib-clip"><path d={TIB_BODY} /></clipPath>
-    </defs>
-    <rect width="160" height="100" fill="url(#tib-sky)" />
-    {[[0, 30, 8], [10, 18, 6], [20, 40, 7], [118, 22, 9], [130, 36, 7], [142, 14, 10], [60, 46, 8], [86, 40, 7]].map(([x, y, w], i) => <rect key={i} x={x} y={y} width={w} height={100 - y} fill="#141d2c" />)}
-    <path d="M70 0 l-5 14 l6 -2 l-7 18 M66 12 l-6 9" stroke="#e0e7ff" strokeWidth="1.6" fill="none" />
-    <rect x="4" y="24" width="38" height="76" fill="#3f4a5c" />
-    {[0, 1, 2, 3, 4].map(r => [0, 1, 2].map(c => <rect key={`${r}-${c}`} x={8 + c * 11} y={30 + r * 11} width="6" height="7" fill={(r + c) % 3 ? '#1e3a5f' : '#fcd34d'} />))}
-    <g stroke="#475569" strokeWidth="1"><path d="M42 50 h9 M42 66 h9 M47 50 v32" /><path d="M45 54 h4 M45 58 h4 M45 62 h4 M45 70 h4 M45 74 h4 M45 78 h4" /></g>
-    <rect x="112" y="40" width="44" height="60" fill="#b45309" />
-    <path d="M104 62 l8 -4 v6z" fill="#dc2626" /><path d="M104 62 h8 v2 h-8z" fill="#fef2f2" />
-    <rect x="114" y="52" width="40" height="6" fill="#7c2d12" /><text x="134" y="56.8" fontSize="4.6" fontWeight="900" fill="#fef3c7" textAnchor="middle">FARMACIA</text>
-    <path d="M42 46 Q77 50 112 46" stroke="#0f172a" strokeWidth="1" fill="none" />
-    {/* El tiburón saltando: cola, aletas, cuerpo con panza clara, boca abierta y ojo. */}
-    <g transform="translate(80 63) rotate(-50)" stroke="#0f172a" strokeWidth=".35" strokeLinejoin="round">
-      <path d="M-18.5-1 C-21-4-23-8-25.5-12 C-24.5-7-24-3-23.2 0 C-24.3 2.5-25.5 5-27 7.5 C-23.5 5-21 3-18.5 1Z" fill="#2c4f56" />
-      <path d="M4-8 C2-11-1-14.5-4.6-17.2 C-3.6-13-3.8-10-5.8-7.2Z" fill="#2c4f56" />
-      <path d={TIB_BODY} fill="url(#tib-skin)" />
-      <g clipPath="url(#tib-clip)" stroke="none"><path d="M23 1.5 L18 2.4 L15 1.4 L11 2.6 L7 1.6 L3 2.8 L-1 1.8 L-5 2.8 L-9 1.6 L-13 2.4 L-20 .6 V10 H23Z" fill="#e9efe9" /></g>
-      <path d="M5 5 C3 8 0 11.5-3.5 14.5 C-2 10.5-.5 8 .8 5.6Z" fill="#2c4f56" />
-      <path d="M7-4.5 Q6.2 0 7 3.6 M5.6-4.6 Q4.8 0 5.6 3.8 M4.2-4.7 Q3.4 0 4.2 4" fill="none" strokeWidth=".4" />
-      <path d="M8.8 4.2 L21.1 2.2 L16.4 13.9Z" fill="#3b0707" />
-      <path d="M8.8 4.2 L16.4 13.9 L14.6 15.2 C11.5 13 9.5 9 8.8 4.2Z" fill="#e9efe9" />
-      <circle cx="15.6" cy="-3" r="1.4" fill="#111" stroke="none" /><circle cx="15.6" cy="-3" r="1.05" fill="#f2c94c" stroke="none" /><ellipse cx="15.8" cy="-3" rx=".35" ry=".85" fill="#050505" stroke="none" />
-      <path d="M12.5-5.6 L17.6-3.6 L17.3-4.9Z" fill="#2c4f56" stroke="none" />
-      <path d={TIB_UPPER_TEETH} fill="#fffdf7" stroke="#78716c" strokeWidth=".15" />
-    </g>
-    {/* El bombero entre los dientes, pataleando (los de arriba quedan atrás y los de abajo adelante). */}
-    <g transform="translate(95 54) rotate(22) scale(.9)">
-      <path d="M-1 3 l-2 4 M1.5 3 l2.5 3.5" stroke="#1f2937" strokeWidth="1.5" strokeLinecap="round" />
-      <rect x="-2.5" y="-3" width="5" height="6.5" rx="1" fill="#1f2937" /><rect x="-2.5" y="0.6" width="5" height="1" fill="#d9f99d" />
-      <path d="M-2.2 -2 l-3 -3.5 M2.2 -2 l2.8 -3.8" stroke="#1f2937" strokeWidth="1.3" strokeLinecap="round" />
-      <circle cx="-5.3" cy="-5.6" r=".9" fill="#facc15" /><circle cx="5.1" cy="-6" r=".9" fill="#facc15" />
-      <circle cx=".3" cy="-5.2" r="2" fill="#fcd9b6" /><circle cx="1.4" cy="-5.1" r=".35" fill="#111" />
-      <path d="M-1.9 -5.9 a2.3 2.3 0 0 1 4.4 -.3z" fill="#dc2626" /><path d="M-1.6 -6 h5.2" stroke="#dc2626" strokeWidth=".9" strokeLinecap="round" />
-    </g>
-    <g transform="translate(80 63) rotate(-50)"><path d={TIB_LOWER_TEETH} fill="#fffdf7" stroke="#78716c" strokeWidth=".15" /></g>
-    <path d="M0 84 Q20 81 40 84 T80 84 T120 84 T160 84 V100 H0z" fill="url(#tib-water)" />
-    <path d="M0 84 Q20 81 40 84 T80 84 T120 84 T160 84" stroke="#bae6fd" strokeWidth=".7" fill="none" />
-    {/* La salpicadura del salto. */}
-    {[[56, 80, 1.6], [60, 76, 1.2], [64, 73, 1.4], [70, 75, 1.1], [74, 79, 1.5], [52, 83, 1.2], [78, 83, 1.3], [66, 78, 1], [58, 70, 0.8], [72, 70, 0.9]].map(([x, y, r], i) => <circle key={`s${i}`} cx={x} cy={y} r={r} fill="#f1f5f9" opacity=".9" />)}
-    <ellipse cx="66" cy="84" rx="14" ry="1.6" fill="#f1f5f9" opacity=".8" />
-    <path d="M30 84 l6 -9 l3 9z M126 85 l3 -5 l2 5z" fill="#64748b" />
-    <path d="M22 84 h-8" stroke="#e2e8f0" strokeWidth=".7" />
-    <g transform="translate(144 84)"><ellipse cx="0" cy="1" rx="5" ry="1.8" fill="#ea580c" /><ellipse cx="0" cy="-2" rx="2.6" ry="1.6" fill="#92400e" /><circle cx="2.6" cy="-4" r="1.5" fill="#92400e" /><circle cx="3.2" cy="-4.2" r=".35" fill="#111" /></g>
-    {[[20, 10], [50, 20], [100, 8], [140, 30], [10, 60], [120, 70]].map(([x, y], i) => <path key={i} d={`M${x} ${y} l2 5`} stroke="#cbd5e1" strokeWidth=".5" opacity=".7" />)}
+    <image href={sharkCover} x="0" y="0" width="160" height="100" preserveAspectRatio="xMidYMid slice" />
   </svg>;
 }
 
@@ -302,7 +252,7 @@ export function Games() {
           <SharkArt />
           <span className="game-card-text">
             <strong>Ciudad Tiburón</strong>
-            <span>La ciudad se inundó y el agua está llena de tiburones. Sos bombero: saltá por techos, balcones, cables y autos tapados por el agua y rescatá 20 perritos, gatos y personas antes de que se termine el tiempo… ¡y antes de que salten los tiburones!</span>
+            <span>La ciudad se inundó y el agua está llena de tiburones. Sos bombero: saltá por techos, balcones, faroles y autos, metete en los departamentos y rescatá 20 perritos, gatos y personas antes de que se termine el tiempo… ¡y antes de que salten los tiburones o te revolee el súper viento!</span>
           </span>
           <span className="game-card-foot">
             {shark.saved > 0 && <small><b>Récord</b>{shark.time !== null ? `🏆 en ${formatSharkTime(shark.time)}` : `${shark.saved} rescatados`}</small>}
