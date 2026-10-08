@@ -1106,3 +1106,31 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
   .tt-kits{grid-template-columns:repeat(auto-fill,minmax(4rem,1fr))}
   .tt-kits button{min-width:0;font-size:min(.66rem,2.75vw);overflow-wrap:normal}
 }
+
+/* ¡Al cesto!: básquet con bollos de papel en la oficina. */
+.bol{background:radial-gradient(ellipse at 50% 0,#475569 0,#0f172a 70%)}
+.bol .runner-back{color:#fde68a}
+.bol-main{flex:1;min-height:0;display:flex;gap:.6rem}
+.bol .runner-stage{flex:1;min-width:0;cursor:crosshair}
+.bol .runner-stage canvas{border-radius:10px;box-shadow:0 0 0 4px #7c5a3a,0 12px 30px #000a}
+.bol-side{flex:0 0 clamp(130px,13vw,180px);display:flex;flex-direction:column;justify-content:center;gap:.6rem;padding:.6rem;background:#1e293bcc;border:3px solid #7c5a3a;border-radius:12px}
+.bol-stat{display:flex;flex-direction:column;align-items:center;gap:.15rem;padding:.45rem .3rem;background:#334155;border-radius:8px;text-align:center}
+.bol-stat span{color:#e2e8f0;font-weight:800;text-transform:uppercase;font-size:.7rem;letter-spacing:.08em;line-height:1.15}
+.bol-stat strong{font:900 clamp(1.3rem,2.2vw,2rem)/1 Nunito,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#fff}
+.bol-stat--points strong{color:#4ade80}
+.bol-stat--fan strong{font-size:clamp(.9rem,1.4vw,1.2rem)}
+.bol-hurry strong{color:#f87171;animation:trepa-pop .5s ease-out infinite alternate}
+.bol .runner-bar button{background:#7c5a3a}
+.bol .runner-overlay>div{background:#334155;border-color:#7c5a3a}
+.bol .runner-overlay h2{color:#fde68a}
+.bol-toast{position:absolute;top:8%;left:50%;transform:translateX(-50%);max-width:90%;padding:.55rem 1.1rem;background:#1e293be6;border:3px solid #fde68a;border-radius:12px;color:#fff;font-weight:900;font-size:clamp(.95rem,2.4vw,1.3rem);text-align:center;white-space:nowrap;pointer-events:none;animation:trepa-pop .25s ease-out;box-shadow:0 8px 24px #0008}
+.game-card--bol{background:#3f3324;border-color:#2a2117}
+.game-card--bol .game-card-text span{color:#e7dcc4}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){
+  .bol-main{flex-direction:column;gap:.4rem}
+  .bol-side{flex:none;order:-1;flex-direction:row;padding:.3rem;gap:.3rem}
+  .bol-stat{flex:1;padding:.25rem .2rem}
+  .bol-stat span{font-size:.55rem}
+  .bol-stat strong{font-size:1.05rem}
+  .bol-toast{white-space:normal}
+}
