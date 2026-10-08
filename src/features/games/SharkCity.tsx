@@ -521,102 +521,134 @@ function drawRescue(ctx: CanvasRenderingContext2D, r: Rescue, g: SharkGame, v: V
 }
 
 // ---------- Tiburones ----------
-// Colores: lomo, panza y aletas (más oscuras).
-const SHARK_COLOR: Record<SharkType, [string, string, string]> = {
-  gris: ['#5b6b7c', '#eef2f6', '#465463'], martillo: ['#6b6459', '#e7e2d9', '#524c43'], tigre: ['#7d7051', '#ece6d8', '#5f553d'],
-  bebe: ['#8496aa', '#f4f7fa', '#6c7d90'], blanco: ['#5f6670', '#fbfbfb', '#4a5059'], mako: ['#2b4a8f', '#eef2ff', '#1f3870'],
+// Colores (como los de la referencia): lomo, panza, aletas y el brillo de arriba.
+const SHARK_COLOR: Record<SharkType, [string, string, string, string]> = {
+  gris: ['#3f6c74', '#e9efe9', '#2c4f56', '#7fb0b4'], martillo: ['#9a5a7c', '#f1e4ea', '#74405c', '#cf94b3'],
+  tigre: ['#c0763a', '#f6e7d2', '#8f5224', '#eeb27a'], bebe: ['#5f9aa8', '#f2f8f9', '#45798a', '#a3d2db'],
+  blanco: ['#566b80', '#fbfbfb', '#3c4d60', '#9fb3c8'], mako: ['#2f56a8', '#eef2ff', '#1f3c80', '#7aa0e6'],
 };
-const UPPER_TEETH = 13, LOWER_TEETH = 12;
-const HINGE: [number, number] = [0.27, 0.072], UPPER_TIP: [number, number] = [0.475, 0.05], LOWER_TIP: [number, number] = [0.46, 0.07];
+const UPPER_TEETH = 17, LOWER_TEETH = 15;
+const HINGE: [number, number] = [0.2, 0.095], UPPER_TIP: [number, number] = [0.48, 0.05], LOWER_TIP: [number, number] = [0.455, 0.08];
 
-// Dientes en fila entre dos puntos (en unidades del largo del tiburón); `down` = 1 apuntan para abajo, -1 para arriba.
+// Dientes en fila entre dos puntos (en unidades del largo del tiburón); `down` = 1 apuntan para abajo, -1 para
+// arriba. Son triangulares y de largos distintos, más grandes en el medio de la boca.
 function teethRow(ctx: CanvasRenderingContext2D, L: number, from: [number, number], to: [number, number], n: number, down: 1 | -1, size: number, color: string) {
   ctx.fillStyle = color;
   ctx.beginPath();
   for (let i = 0; i < n; i++) {
     const k = (i + 0.5) / n, x = (from[0] + (to[0] - from[0]) * k) * L, y = (from[1] + (to[1] - from[1]) * k) * L;
-    const half = (0.0085 + k * 0.002) * L, len = (0.022 + 0.012 * Math.sin(k * Math.PI)) * L * size;
-    ctx.moveTo(x - half, y); ctx.lineTo(x - half * 0.15, y + down * len); ctx.lineTo(x + half, y); // triangular, un poco para atrás
+    const half = (0.0075 + Math.sin(k * Math.PI) * 0.003) * L, len = (0.02 + 0.018 * Math.sin(k * Math.PI) + hash(i * 7 + n) * 0.008) * L * size;
+    ctx.moveTo(x - half, y); ctx.lineTo(x - half * 0.25, y + down * len); ctx.lineTo(x + half, y);
   }
   ctx.fill();
+  ctx.strokeStyle = 'rgba(120,113,108,0.5)'; ctx.lineWidth = Math.max(0.5, L * 0.002); ctx.stroke();
 }
 
-// Un tiburón de costado: cuerpo en forma de torpedo, lomo oscuro y panza clara, cola en medialuna, aleta de
-// arriba, aletas de los costados, cinco branquias, ojo negro y la boca llena de dientes (abierta, `open` = 1).
-// Se dibuja con el centro en (cx, cy), inclinado `angle` y mirando a `dir`.
-// Con `teethOnly` dibuja solo los dientes (para ponerlos por encima de lo que tiene en la boca).
+// Un tiburón de costado, pintado con volumen: cuerpo robusto y cabeza grande, lomo oscuro con brillo arriba y
+// panza clara, contorno, cola en medialuna, aletas con el borde más oscuro, branquias, ojo amarillo con la ceja
+// fruncida y la boca siempre entreabierta, llena de dientes (bien abierta con `open` = 1). Se dibuja con el
+// centro en (cx, cy), inclinado `angle` y mirando a `dir`. Con `teethOnly` dibuja solo los dientes (para
+// ponerlos por encima de lo que tiene en la boca).
 function drawSharkBody(ctx: CanvasRenderingContext2D, k: Shark, cx: number, cy: number, s: number, angle: number, dir: 1 | -1, open: number, teethOnly = false) {
-  const L = sharkLen(k) * s, [back, belly, finC] = SHARK_COLOR[k.type];
+  const L = sharkLen(k) * s, [back, belly, finC, shine] = SHARK_COLOR[k.type];
   const P = (x: number, y: number) => [x * L, y * L] as const;
-  ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle); ctx.scale(dir, k.type === 'mako' ? 0.85 : 1);
-  const jaw = open * 1.1, cj = Math.cos(jaw), sj = Math.sin(jaw), size = 0.75 + open * 0.6;
+  const gape = Math.max(0.35, open); // nunca cierra del todo: siempre muestra los dientes
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle); ctx.scale(dir, k.type === 'mako' ? 0.82 : 1);
+  const jaw = gape * 1.05, cj = Math.cos(jaw), sj = Math.sin(jaw), size = 0.85 + gape * 0.5;
   const teeth = () => {
-    teethRow(ctx, L, [HINGE[0] + 0.01, HINGE[1] - 0.006], [UPPER_TIP[0] - 0.012, UPPER_TIP[1] - 0.004], UPPER_TEETH, 1, size * 0.75, '#d6d3d1'); // la fila de atrás
-    teethRow(ctx, L, HINGE, UPPER_TIP, UPPER_TEETH, 1, size, '#fafaf9');
+    teethRow(ctx, L, [HINGE[0] + 0.03, HINGE[1] - 0.012], [UPPER_TIP[0] - 0.02, UPPER_TIP[1] - 0.006], UPPER_TEETH - 3, 1, size * 0.7, '#d6d0c4'); // la fila de atrás
+    teethRow(ctx, L, [HINGE[0] + 0.02, HINGE[1] - 0.004], UPPER_TIP, UPPER_TEETH, 1, size, '#fffdf7');
     ctx.save(); ctx.translate(HINGE[0] * L, HINGE[1] * L); ctx.rotate(jaw); ctx.translate(-HINGE[0] * L, -HINGE[1] * L);
-    teethRow(ctx, L, [HINGE[0] + 0.012, HINGE[1] + 0.004], [LOWER_TIP[0] - 0.015, LOWER_TIP[1] + 0.002], LOWER_TEETH, -1, size * 0.7, '#d6d3d1');
-    teethRow(ctx, L, HINGE, LOWER_TIP, LOWER_TEETH, -1, size * 0.9, '#fafaf9');
+    teethRow(ctx, L, [HINGE[0] + 0.03, HINGE[1] + 0.008], [LOWER_TIP[0] - 0.02, LOWER_TIP[1] + 0.004], LOWER_TEETH - 3, -1, size * 0.65, '#d6d0c4');
+    teethRow(ctx, L, [HINGE[0] + 0.02, HINGE[1]], LOWER_TIP, LOWER_TEETH, -1, size * 0.9, '#fffdf7');
     ctx.restore();
   };
   if (teethOnly) { teeth(); ctx.restore(); return; }
   const path = (pts: (readonly number[])[]) => { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i += 3) ctx.bezierCurveTo(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], pts[i + 2][0], pts[i + 2][1]); ctx.closePath(); };
-  // Cola en medialuna (el lóbulo de arriba más largo) y aletas de abajo.
-  ctx.fillStyle = finC;
-  path([P(-0.4, -0.022), P(-0.47, -0.06), P(-0.55, -0.15), P(-0.63, -0.25), P(-0.6, -0.14), P(-0.55, -0.06), P(-0.52, 0), P(-0.55, 0.05), P(-0.58, 0.1), P(-0.6, 0.14), P(-0.52, 0.09), P(-0.46, 0.04), P(-0.4, 0.022)]); ctx.fill();
-  path([P(-0.18, 0.095), P(-0.21, 0.12), P(-0.24, 0.15), P(-0.27, 0.16), P(-0.26, 0.12), P(-0.25, 0.1), P(-0.24, 0.08)]); ctx.fill();
-  path([P(-0.31, 0.055), P(-0.33, 0.08), P(-0.36, 0.1), P(-0.38, 0.1), P(-0.37, 0.07), P(-0.36, 0.05), P(-0.35, 0.035)]); ctx.fill();
-  // Aleta de arriba (curva hacia atrás) y la segunda aletita.
-  path([P(0.07, -0.125), P(0.03, -0.17), P(-0.02, -0.24), P(-0.09, -0.3), P(-0.07, -0.22), P(-0.09, -0.16), P(-0.14, -0.115)]); ctx.fill();
-  path([P(-0.29, -0.075), P(-0.31, -0.09), P(-0.33, -0.11), P(-0.35, -0.12), P(-0.345, -0.09), P(-0.35, -0.07), P(-0.36, -0.06)]); ctx.fill();
+  const outline = 'rgba(10,15,25,0.55)', lw = Math.max(1, L * 0.007);
+  const fin = (pts: (readonly number[])[], gx1: number, gx2: number) => {
+    const gr = ctx.createLinearGradient(gx1 * L, 0, gx2 * L, 0);
+    gr.addColorStop(0, back); gr.addColorStop(1, finC);
+    ctx.fillStyle = gr; path(pts); ctx.fill();
+    ctx.strokeStyle = outline; ctx.lineWidth = lw; ctx.stroke();
+  };
+  // Cola en medialuna (el lóbulo de arriba más largo) y las aletitas de abajo, detrás del cuerpo.
+  fin([P(-0.41, -0.03), P(-0.48, -0.08), P(-0.57, -0.18), P(-0.67, -0.31), P(-0.63, -0.17), P(-0.58, -0.07), P(-0.54, 0), P(-0.57, 0.06), P(-0.6, 0.12), P(-0.63, 0.18), P(-0.54, 0.12), P(-0.47, 0.05), P(-0.41, 0.03)], -0.4, -0.65);
+  fin([P(-0.17, 0.125), P(-0.2, 0.16), P(-0.24, 0.19), P(-0.28, 0.2), P(-0.27, 0.15), P(-0.26, 0.12), P(-0.24, 0.1)], -0.17, -0.28);
+  fin([P(-0.31, 0.07), P(-0.33, 0.1), P(-0.36, 0.12), P(-0.39, 0.12), P(-0.38, 0.09), P(-0.37, 0.06), P(-0.36, 0.045)], -0.31, -0.39);
+  // Aleta de arriba, alta y curva hacia atrás, y la segunda aletita.
+  fin([P(0.1, -0.17), P(0.05, -0.23), P(-0.01, -0.31), P(-0.1, -0.39), P(-0.075, -0.28), P(-0.08, -0.2), P(-0.13, -0.155)], 0.1, -0.1);
+  fin([P(-0.29, -0.1), P(-0.31, -0.12), P(-0.33, -0.14), P(-0.36, -0.15), P(-0.35, -0.11), P(-0.355, -0.085), P(-0.37, -0.07)], -0.29, -0.36);
   // El cuerpo (sin la mandíbula de abajo, que se dibuja aparte para poder abrirla).
   const body = () => path([
-    P(0.5, 0.025), P(0.49, -0.04), P(0.43, -0.105), P(0.3, -0.122), P(0.17, -0.135), P(0.04, -0.14), P(-0.06, -0.132),
-    P(-0.2, -0.12), P(-0.34, -0.06), P(-0.42, -0.022), P(-0.425, -0.005), P(-0.425, 0.005), P(-0.42, 0.022),
-    P(-0.32, 0.055), P(-0.18, 0.105), P(-0.04, 0.115), P(0.08, 0.12), P(0.2, 0.105), P(HINGE[0], HINGE[1]),
-    P(0.34, 0.068), P(0.42, 0.056), P(UPPER_TIP[0], UPPER_TIP[1]), P(0.495, 0.045), P(0.5, 0.035), P(0.5, 0.025),
+    P(0.5, 0.02), P(0.515, -0.05), P(0.46, -0.14), P(0.32, -0.17), P(0.2, -0.195), P(0.05, -0.2), P(-0.06, -0.19),
+    P(-0.22, -0.17), P(-0.35, -0.075), P(-0.43, -0.03), P(-0.445, -0.01), P(-0.445, 0.01), P(-0.43, 0.03),
+    P(-0.32, 0.075), P(-0.18, 0.14), P(-0.02, 0.155), P(0.08, 0.165), P(0.15, 0.155), P(...HINGE),
+    P(0.3, 0.08), P(0.4, 0.065), P(...UPPER_TIP), P(0.5, 0.045), P(0.505, 0.03), P(0.5, 0.02),
   ]);
-  const shade = ctx.createLinearGradient(0, -0.14 * L, 0, 0.06 * L);
-  shade.addColorStop(0, finC); shade.addColorStop(0.55, back); shade.addColorStop(1, back);
+  const shade = ctx.createLinearGradient(0, -0.19 * L, 0, 0.08 * L);
+  shade.addColorStop(0, finC); shade.addColorStop(0.35, back); shade.addColorStop(1, back);
   ctx.fillStyle = shade; body(); ctx.fill();
-  // La panza clara, con el borde en zigzag como los tiburones de verdad.
   ctx.save(); body(); ctx.clip();
-  ctx.fillStyle = belly; ctx.beginPath(); ctx.moveTo(0.52 * L, 0.03 * L);
-  for (let i = 0; i <= 14; i++) { const x = 0.5 - (i / 14) * 0.95; ctx.lineTo(x * L, (0.035 - Math.sin((i / 14) * Math.PI) * 0.02 + (i % 2 ? 0.012 : -0.004)) * L); }
-  ctx.lineTo(-0.5 * L, 0.2 * L); ctx.lineTo(0.52 * L, 0.2 * L); ctx.fill();
-  if (k.type === 'tigre') { ctx.fillStyle = 'rgba(45,35,20,0.5)'; for (let i = 0; i < 9; i++) { const x = 0.22 - i * 0.07; ctx.beginPath(); ctx.ellipse(x * L, -0.08 * L, 0.012 * L, 0.05 * L, 0.2, 0, Math.PI * 2); ctx.fill(); } }
-  if (k.type === 'blanco') { ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = Math.max(1, L * 0.006); ctx.beginPath(); ctx.moveTo(0.05 * L, -0.1 * L); ctx.lineTo(0.12 * L, -0.06 * L); ctx.moveTo(0.08 * L, -0.11 * L); ctx.lineTo(0.14 * L, -0.08 * L); ctx.stroke(); } // cicatrices
+  // Brillo sobre el lomo (la luz viene de arriba) y la panza clara con el borde ondulado.
+  const hl = ctx.createLinearGradient(0, -0.16 * L, 0, -0.02 * L);
+  hl.addColorStop(0, 'rgba(255,255,255,0)'); hl.addColorStop(0.5, shine); hl.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.globalAlpha = 0.55; ctx.fillStyle = hl; ctx.beginPath(); ctx.ellipse(0.02 * L, -0.08 * L, 0.42 * L, 0.06 * L, -0.04, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+  ctx.fillStyle = belly; ctx.beginPath(); ctx.moveTo(0.52 * L, 0.035 * L);
+  for (let i = 0; i <= 16; i++) { const u = i / 16, x = 0.5 - u * 0.97; ctx.lineTo(x * L, (0.05 - Math.sin(u * Math.PI) * 0.03 + (i % 2 ? 0.014 : -0.004)) * L); }
+  ctx.lineTo(-0.5 * L, 0.25 * L); ctx.lineTo(0.52 * L, 0.25 * L); ctx.fill();
+  const under = ctx.createLinearGradient(0, 0.06 * L, 0, 0.16 * L);
+  under.addColorStop(0, 'rgba(0,0,0,0)'); under.addColorStop(1, 'rgba(30,40,55,0.35)');
+  ctx.fillStyle = under; ctx.fillRect(-0.5 * L, 0.06 * L, L, 0.12 * L);
+  if (k.type === 'tigre') {
+    ctx.fillStyle = 'rgba(70,35,10,0.6)';
+    for (let i = 0; i < 10; i++) { const x = 0.28 - i * 0.07; ctx.beginPath(); ctx.moveTo(x * L, -0.2 * L); ctx.quadraticCurveTo((x - 0.03) * L, -0.08 * L, (x - 0.01) * L, (0.02 - (i % 3) * 0.02) * L); ctx.lineTo((x + 0.015) * L, (0.0 - (i % 3) * 0.02) * L); ctx.quadraticCurveTo((x - 0.005) * L, -0.09 * L, (x + 0.03) * L, -0.2 * L); ctx.fill(); }
+  }
+  if (k.type === 'blanco' || k.type === 'gris') {
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = Math.max(1, L * 0.005);
+    for (const [x, y] of [[0.02, -0.12], [0.1, -0.1], [-0.12, -0.11]]) { ctx.beginPath(); ctx.moveTo(x * L, y * L); ctx.lineTo((x + 0.05) * L, (y + 0.035) * L); ctx.stroke(); } // cicatrices
+  }
+  // Los músculos del costado.
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = Math.max(1, L * 0.006);
+  for (const x of [-0.05, -0.15, -0.25]) { ctx.beginPath(); ctx.moveTo(x * L, -0.1 * L); ctx.quadraticCurveTo((x - 0.04) * L, 0, x * L, 0.08 * L); ctx.stroke(); }
   ctx.restore();
-  // Aleta del costado.
-  ctx.fillStyle = finC;
-  path([P(0.17, 0.075), P(0.11, 0.13), P(0.04, 0.2), P(-0.03, 0.26), P(0.02, 0.17), P(0.05, 0.13), P(0.07, 0.095)]); ctx.fill();
+  ctx.strokeStyle = outline; ctx.lineWidth = lw; body(); ctx.stroke();
+  // Aleta del costado, grande.
+  fin([P(0.12, 0.11), P(0.06, 0.17), P(-0.02, 0.25), P(-0.1, 0.32), P(-0.06, 0.22), P(-0.03, 0.16), P(-0.01, 0.125)], 0.12, -0.1);
   // Cabeza de martillo: la punta ancha que sobresale arriba y abajo, con el ojo en la punta.
-  if (k.type === 'martillo') { ctx.fillStyle = back; ctx.beginPath(); ctx.roundRect(0.4 * L, -0.15 * L, 0.09 * L, 0.2 * L, 0.03 * L); ctx.fill(); }
+  if (k.type === 'martillo') {
+    const hg = ctx.createLinearGradient(0, -0.2 * L, 0, 0.05 * L);
+    hg.addColorStop(0, finC); hg.addColorStop(0.5, back); hg.addColorStop(1, belly);
+    ctx.fillStyle = hg; ctx.beginPath(); ctx.ellipse(0.455 * L, -0.07 * L, 0.05 * L, 0.13 * L, 0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = outline; ctx.lineWidth = lw; ctx.stroke();
+  }
   // Cinco branquias.
-  ctx.strokeStyle = 'rgba(15,23,42,0.45)'; ctx.lineWidth = Math.max(1, L * 0.006);
-  for (let i = 0; i < 5; i++) { const x = (0.25 - i * 0.022) * L; ctx.beginPath(); ctx.moveTo(x, -0.06 * L); ctx.quadraticCurveTo(x - 0.012 * L, 0, x, 0.06 * L); ctx.stroke(); }
-  // Ojo negro y frío, con la ceja marcada, y la nariz.
-  const ex = (k.type === 'martillo' ? 0.44 : 0.37) * L, ey = (k.type === 'martillo' ? -0.12 : -0.04) * L;
-  ctx.fillStyle = '#050505'; ctx.beginPath(); ctx.arc(ex, ey, Math.max(1.6, L * 0.016), 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.beginPath(); ctx.arc(ex + L * 0.005, ey - L * 0.005, Math.max(0.6, L * 0.004), 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(10,10,10,0.55)'; ctx.lineWidth = Math.max(1, L * 0.007);
-  ctx.beginPath(); ctx.moveTo(ex - L * 0.035, ey - L * 0.028); ctx.quadraticCurveTo(ex, ey - L * 0.03, ex + L * 0.028, ey - L * 0.01); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0.455 * L, 0.012 * L); ctx.lineTo(0.47 * L, 0.016 * L); ctx.stroke();
-  // La boca: adentro rojo oscuro con encías, dos filas de dientes arriba y abajo, y una mandíbula que se abre.
+  ctx.strokeStyle = 'rgba(15,23,42,0.5)'; ctx.lineWidth = Math.max(1, L * 0.007);
+  for (let i = 0; i < 5; i++) { const x = (0.16 - i * 0.026) * L; ctx.beginPath(); ctx.moveTo(x, -0.08 * L); ctx.quadraticCurveTo(x - 0.015 * L, 0, x, 0.07 * L); ctx.stroke(); }
+  // Ojo amarillo con la pupila negra y la ceja fruncida.
+  const ex = (k.type === 'martillo' ? 0.44 : 0.36) * L, ey = (k.type === 'martillo' ? -0.16 : -0.07) * L, er = Math.max(2, L * 0.025);
+  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(ex, ey, er * 1.25, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#f2c94c'; ctx.beginPath(); ctx.arc(ex, ey, er, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#050505'; ctx.beginPath(); ctx.ellipse(ex + er * 0.15, ey, er * 0.35, er * 0.85, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(ex + er * 0.45, ey - er * 0.45, Math.max(0.6, er * 0.22), 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = finC; ctx.beginPath(); ctx.moveTo(ex - er * 2.4, ey - er * 1.9); ctx.lineTo(ex + er * 1.8, ey - er * 0.6); ctx.lineTo(ex + er * 1.6, ey - er * 1.5); ctx.closePath(); ctx.fill(); // ceja
+  ctx.strokeStyle = outline; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(0.46 * L, 0.0); ctx.lineTo(0.485 * L, 0.006 * L); ctx.stroke(); // nariz
+  // La boca: adentro rojo oscuro con encías y lengua, y la mandíbula de abajo que se abre desde la bisagra.
   const rot = ([x, y]: [number, number]): [number, number] => { const dx = x - HINGE[0], dy = y - HINGE[1]; return [HINGE[0] + dx * cj - dy * sj, HINGE[1] + dx * sj + dy * cj]; };
   const lowTip = rot(LOWER_TIP);
-  if (open > 0.02) {
-    ctx.fillStyle = '#3b0707';
-    ctx.beginPath(); ctx.moveTo(...P(...HINGE)); ctx.lineTo(...P(...UPPER_TIP)); ctx.lineTo(...P(...lowTip)); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#7f1d1d';
-    ctx.beginPath(); ctx.moveTo(...P(HINGE[0] + 0.02, HINGE[1] + 0.01)); ctx.lineTo(...P(lowTip[0] - 0.05 * cj, lowTip[1] - 0.02)); ctx.lineTo(...P(...lowTip)); ctx.closePath(); ctx.fill(); // lengua
-    ctx.strokeStyle = '#be123c'; ctx.lineWidth = Math.max(1, L * 0.01);
-    ctx.beginPath(); ctx.moveTo(...P(...HINGE)); ctx.lineTo(...P(...UPPER_TIP)); ctx.stroke();
-  }
-  // Mandíbula de abajo (gira desde la bisagra).
+  const inside = ctx.createLinearGradient(HINGE[0] * L, 0, UPPER_TIP[0] * L, 0);
+  inside.addColorStop(0, '#1a0303'); inside.addColorStop(1, '#5c0d0d');
+  ctx.fillStyle = inside;
+  ctx.beginPath(); ctx.moveTo(...P(...HINGE)); ctx.lineTo(...P(...UPPER_TIP)); ctx.lineTo(...P(...lowTip)); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#9f1d2d';
+  ctx.beginPath(); ctx.moveTo(...P(HINGE[0] + 0.04, HINGE[1] + 0.01)); ctx.quadraticCurveTo(...P((HINGE[0] + lowTip[0]) / 2, (HINGE[1] + lowTip[1]) / 2 - 0.02), ...P(lowTip[0] - 0.03, lowTip[1] - 0.01)); ctx.lineTo(...P(...lowTip)); ctx.closePath(); ctx.fill(); // lengua
+  ctx.strokeStyle = '#c0264b'; ctx.lineWidth = Math.max(1.5, L * 0.014);
+  ctx.beginPath(); ctx.moveTo(...P(HINGE[0] + 0.02, HINGE[1] - 0.004)); ctx.lineTo(...P(...UPPER_TIP)); ctx.stroke(); // encía de arriba
   ctx.save(); ctx.translate(HINGE[0] * L, HINGE[1] * L); ctx.rotate(jaw); ctx.translate(-HINGE[0] * L, -HINGE[1] * L);
-  if (open > 0.02) { ctx.strokeStyle = '#be123c'; ctx.lineWidth = Math.max(1, L * 0.01); ctx.beginPath(); ctx.moveTo(...P(...HINGE)); ctx.lineTo(...P(...LOWER_TIP)); ctx.stroke(); }
+  ctx.beginPath(); ctx.moveTo(...P(HINGE[0] + 0.02, HINGE[1])); ctx.lineTo(...P(...LOWER_TIP)); ctx.stroke(); // encía de abajo
   ctx.fillStyle = belly;
-  path([P(...HINGE), P(0.33, 0.07), P(0.4, 0.068), P(...LOWER_TIP), P(0.455, 0.085), P(0.42, 0.105), P(0.36, 0.108), P(0.31, 0.11), P(0.27, 0.1), P(0.26, 0.085)]); ctx.fill();
+  path([P(...HINGE), P(0.3, 0.095), P(0.4, 0.085), P(...LOWER_TIP), P(0.465, 0.1), P(0.42, 0.13), P(0.34, 0.145), P(0.27, 0.155), P(0.21, 0.16), P(0.17, 0.14)]); ctx.fill();
+  ctx.strokeStyle = outline; ctx.lineWidth = lw; ctx.stroke();
   ctx.restore();
   teeth();
   ctx.restore();
