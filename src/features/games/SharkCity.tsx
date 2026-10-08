@@ -4,7 +4,7 @@ import {
   CHOMP, FLOAT_Y, GOAL, HANG, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, sharkLen, sharkPose, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
   type Block, type Climb, type Debris, type Decor, type Input, type LoseReason, type Plat, type Rescue, type RescueKind, type Shark, type SharkGame, type SharkType, type Zip,
 } from './shark';
-import { drawSharkSprite, loadSharkSprites } from './sharkSprites';
+import { drawSharkSprite, loadSharkSprites, type SpriteOptions } from './sharkSprites';
 
 const RECORD_KEY = 'escritorio-personal-juegos:tiburon-record';
 export interface SharkRecord { saved: number; time: number | null } // más rescatados y mejor tiempo para rescatar a todos
@@ -522,14 +522,18 @@ function drawRescue(ctx: CanvasRenderingContext2D, r: Rescue, g: SharkGame, v: V
 }
 
 // ---------- Tiburones ----------
-// Los tiburones son imágenes (ver sharkSprites.ts); la aleta que asoma del agua se dibuja con sus colores
-// (adelante y el borde de atrás).
-const FIN_COLOR: Record<SharkType, [string, string]> = {
-  blanco: ['#2d3f63', '#1b2742'], ballena: ['#2f4a78', '#1d2f50'], martillo: ['#8a6440', '#5e4127'], gris: ['#7b8a92', '#56636a'],
-  mako: ['#2f62d0', '#1d3f8f'], bebe: ['#6aaabb', '#477f8e'], tigre: ['#a8683a', '#6f4220'],
-};
-const drawShark = (ctx: CanvasRenderingContext2D, k: Shark, x: number, y: number, s: number, angle: number, dir: 1 | -1, jawOnly = false) =>
-  drawSharkSprite(ctx, k.type, x, y, sharkLen(k) * s, angle, dir, jawOnly);
+// Los tiburones son las imágenes de referencia (ver sharkSprites.ts). Dónde está la aleta de arriba, desde el
+// centro y en largos del tiburón (para la espuma y la estela donde corta el agua).
+const FIN_X: Record<SharkType, number> = { blanco: 0, ballena: -0.1, martillo: -0.06 };
+const drawShark = (ctx: CanvasRenderingContext2D, k: Shark, x: number, y: number, s: number, angle: number, dir: 1 | -1, opts?: SpriteOptions) =>
+  drawSharkSprite(ctx, k.type, x, y, sharkLen(k) * s, angle, dir, opts);
+// Recorta arriba o abajo de la superficie del agua (con sus olas) entre x1 y x2 (en la pantalla).
+function surfaceClip(ctx: CanvasRenderingContext2D, v: View, x1: number, x2: number, above: boolean) {
+  const edge = above ? -v.h : v.h * 2;
+  ctx.beginPath(); ctx.moveTo(x1, edge); ctx.lineTo(x2, edge);
+  for (let px = x2; px >= x1; px -= 6) ctx.lineTo(px, Y(v, waveY(v.cx + px / v.s, v.t)));
+  ctx.closePath(); ctx.clip();
+}
 
 // Dibuja el tiburón cortado por la superficie: arriba del agua se ve entero y abajo, apagado.
 function drawSharkCut(ctx: CanvasRenderingContext2D, k: Shark, v: View, under: number) {
@@ -542,46 +546,52 @@ function drawSharkCut(ctx: CanvasRenderingContext2D, k: Shark, v: View, under: n
   ctx.restore();
 }
 
-// Lo que se ve debajo del agua (la sombra del tiburón) y arriba del agua (la aleta y la estela).
+// Cómo va nadando: el cuerpo ondula (más rápido cuando persigue), sube y baja despacio y, antes de saltar,
+// se hunde con la trompa para arriba.
+function swimPose(k: Shark, v: View) {
+  const spec = SHARKS[k.type], L = sharkLen(k), t = v.t;
+  const warn = k.state === 'warn' ? Math.max(0, Math.min(1, 1 - k.t / spec.warn)) : 0;
+  const fast = k.state === 'chase' || k.state === 'approach';
+  const slow = k.type === 'ballena' ? 0.55 : 1;
+  const y = k.y + Math.sin(t * 1.3 + k.id) * 0.035 * L * (1 - warn) - warn * 0.25 * L;
+  const angle = (Math.sin(t * 1.3 + k.id + 1.2) * 0.03 - warn * 0.32) * k.dir;
+  return { x: X(v, k.x), y: Y(v, y), angle, warn, fast, opts: { wave: t * (fast ? 10 : 5.5) * slow + k.id, amp: fast ? 0.045 : 0.03 } };
+}
+const swimming = (k: Shark) => k.state !== 'jump' && k.state !== 'bite';
+
+// Lo que está debajo del agua: el cuerpo, apagado por el agua.
 function drawSharkUnder(ctx: CanvasRenderingContext2D, k: Shark, v: View) {
   const L = sharkLen(k);
-  if (k.state === 'jump' || k.state === 'bite' || !visible(v, k.x - L, k.x + L, -2, 1)) return;
-  ctx.save(); ctx.globalAlpha = 0.42; ctx.beginPath(); ctx.rect(0, Y(v, 0) + v.s * 0.05, v.w, v.h); ctx.clip();
-  const warn = k.state === 'warn' ? Math.max(0, Math.min(1, 1 - k.t / SHARKS[k.type].warn)) : 0;
-  drawShark(ctx, k, X(v, k.x), Y(v, k.y), v.s, Math.sin(v.t * 3 + k.id) * 0.04 - warn * 0.35 * k.dir, k.dir);
+  if (!swimming(k) || !visible(v, k.x - L, k.x + L, -3, 1)) return;
+  const p = swimPose(k, v), half = L * v.s * 0.6;
+  ctx.save(); surfaceClip(ctx, v, p.x - half, p.x + half, false);
+  ctx.globalAlpha = 0.5; drawShark(ctx, k, p.x, p.y, v.s, p.angle, k.dir, p.opts);
   ctx.restore();
 }
+// Lo que asoma: la aleta de arriba (la de la imagen), con espuma donde corta el agua y la estela detrás.
 function drawFin(ctx: CanvasRenderingContext2D, k: Shark, v: View) {
   const L = sharkLen(k);
-  if (k.state === 'jump' || k.state === 'bite' || !visible(v, k.x - L, k.x + L, -1, 2)) return;
-  const spec = SHARKS[k.type], s = v.s, t = v.t, d = k.dir;
-  const warn = k.state === 'warn' ? 1 - Math.max(0, k.t) / spec.warn : 0;
-  const fast = k.state === 'chase' || k.state === 'approach';
-  const fx = X(v, k.x - d * 0.02 * L), wy = Y(v, waveY(k.x, t));
-  const fh = s * L * (k.type === 'mako' ? 0.24 : 0.3) * (1 - warn * 0.75), fw = s * L * 0.2;
+  if (!swimming(k) || !visible(v, k.x - L, k.x + L, -1, 3)) return;
+  const p = swimPose(k, v), s = v.s, t = v.t, d = k.dir, half = L * s * 0.6;
+  const fx = p.x + d * FIN_X[k.type] * L * s, wy = Y(v, waveY(k.x, t)), fw = 0.18 * L * s;
   // Estela en V detrás de la aleta.
-  ctx.strokeStyle = 'rgba(226,232,240,0.7)'; ctx.lineWidth = Math.max(1, s * 0.05);
-  const len = s * (fast ? 0.9 : 0.5) * L;
-  if (!warn) { ctx.beginPath(); ctx.moveTo(fx + d * fw * 0.6, wy); ctx.lineTo(fx - d * len, wy - s * 0.15); ctx.moveTo(fx + d * fw * 0.6, wy + s * 0.03); ctx.lineTo(fx - d * len, wy + s * 0.18); ctx.stroke(); }
-  // La aleta: el borde de adelante curvo y el de atrás hundido, como las de verdad.
-  const [front, edge] = FIN_COLOR[k.type];
-  const grad = ctx.createLinearGradient(fx + d * fw * 0.5, 0, fx - d * fw * 0.5, 0);
-  grad.addColorStop(0, front); grad.addColorStop(1, edge);
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.moveTo(fx + d * fw * 0.5, wy);
-  ctx.bezierCurveTo(fx + d * fw * 0.35, wy - fh * 0.5, fx + d * fw * 0.05, wy - fh * 0.9, fx - d * fw * 0.45, wy - fh);
-  ctx.quadraticCurveTo(fx - d * fw * 0.2, wy - fh * 0.45, fx - d * fw * 0.5, wy);
-  ctx.closePath(); ctx.fill();
-  if (k.type === 'blanco') { ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(fx - s * 0.05, wy - fh * 0.6); ctx.lineTo(fx + s * 0.06, wy - fh * 0.42); ctx.stroke(); } // cicatriz
-  if (k.type === 'tigre') { ctx.fillStyle = 'rgba(40,30,20,0.55)'; for (const o of [-0.15, 0.1]) ctx.fillRect(fx + o * fw, wy - fh * 0.6, s * 0.05, fh * 0.45); }
-  if (k.type === 'ballena') { ctx.fillStyle = 'rgba(241,245,249,0.85)'; for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.arc(fx + (hash(i + k.id) - 0.5) * fw * 0.7, wy - fh * (0.15 + hash(i * 3) * 0.6), Math.max(1, s * 0.035), 0, Math.PI * 2); ctx.fill(); } } // las manchas
-  ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.ellipse(fx, wy, fw * 0.75, s * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+  if (!p.warn) {
+    const len = s * L * (p.fast ? 0.9 : 0.5);
+    ctx.strokeStyle = 'rgba(226,232,240,0.6)'; ctx.lineWidth = Math.max(1, s * 0.05);
+    ctx.beginPath(); ctx.moveTo(fx + d * fw * 0.5, wy); ctx.lineTo(fx - d * len, wy - s * 0.14); ctx.moveTo(fx + d * fw * 0.5, wy + s * 0.03); ctx.lineTo(fx - d * len, wy + s * 0.17); ctx.stroke();
+  }
+  ctx.save(); surfaceClip(ctx, v, p.x - half, p.x + half, true);
+  drawShark(ctx, k, p.x, p.y, s, p.angle, d, p.opts);
+  ctx.restore();
+  // La espuma alrededor de la aleta (salta más cuando va rápido).
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.beginPath(); ctx.ellipse(fx, wy, fw * (0.7 + Math.sin(t * 9 + k.id) * 0.08), s * 0.06, 0, 0, Math.PI * 2); ctx.fill();
+  if (p.fast) for (let i = 0; i < 5; i++) { const q = (t * 3 + i / 5) % 1; ctx.beginPath(); ctx.arc(fx + d * fw * (0.5 - q * 0.6), wy - s * 0.25 * Math.sin(q * Math.PI), s * 0.04, 0, Math.PI * 2); ctx.fill(); }
   // El aviso: se frena, se hunde y salen burbujas.
-  if (warn) {
+  if (p.warn) {
     for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2 + t * 3, r = s * L * (0.15 + warn * 0.25 + ((t * 2 + i * 0.3) % 1) * 0.1);
-      ctx.strokeStyle = `rgba(255,255,255,${0.9 - warn * 0.3})`; ctx.lineWidth = 1.5;
+      const a = (i / 12) * Math.PI * 2 + t * 3, r = s * L * (0.12 + p.warn * 0.2 + ((t * 2 + i * 0.3) % 1) * 0.08);
+      ctx.strokeStyle = `rgba(255,255,255,${0.9 - p.warn * 0.3})`; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(X(v, k.x) + Math.cos(a) * r, wy - Math.abs(Math.sin(a)) * s * 0.15 - ((t * 3 + i) % 1) * s * 0.3, s * 0.07, 0, Math.PI * 2); ctx.stroke();
     }
   }
@@ -754,7 +764,7 @@ function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
     if (k) {
       drawFirefighter(ctx, g, v, 1 - (eaten.t / CHOMP) * 0.4);
       const { dir, a } = sharkPose(k);
-      drawShark(ctx, k, X(v, k.x), Y(v, k.y), v.s, -a * dir, dir, true);
+      drawShark(ctx, k, X(v, k.x), Y(v, k.y), v.s, -a * dir, dir, { jawOnly: true });
     }
   }
   drawRain(ctx, v);
@@ -864,7 +874,7 @@ export function SharkCity() {
       for (const e of takeEvents(g)) {
         if (e.type === 'saved') setToast({ text: e.count === GOAL - 5 ? '¡Te faltan 5!' : `¡Rescataste a ${KIND_TEXT[e.kind]}! (${e.count}/${GOAL})`, id: now, big: e.count === GOAL - 5 });
         if (e.type === 'taken') setToast({ text: `¡Un tiburón se llevó a ${KIND_TEXT[e.kind]}! 😱`, id: now });
-        if (e.type === 'newType') setToast({ text: `¡Cuidado: ${e.shark === 'bebe' ? 'llegaron los' : 'llegó el'} ${SHARKS[e.shark].name}! 🦈`, id: now });
+        if (e.type === 'newType') setToast({ text: `¡Cuidado: llegó el ${SHARKS[e.shark].name}! 🦈`, id: now });
         if (e.type === 'more') setToast({ text: `¡Ya hay ${e.count} tiburones! 🦈`, id: now });
         if (e.type === 'wind') setToast({ text: e.dir > 0 ? '¡Ráfaga de viento! 💨 →' : '← 💨 ¡Ráfaga de viento!', id: now });
         if (e.type === 'hurry') setToast({ text: e.left === 60 ? '¡Queda 1 minuto!' : '¡Quedan 30 segundos!', id: now, big: true });

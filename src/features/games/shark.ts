@@ -35,7 +35,10 @@ export const WIND_TURN = 7, WIND_CALM = 1.5; // cada 7 s cambia de lado; al camb
 const SHARK_G = 24; // la gravedad del salto del tiburón (un poco más lento que el personaje, para verlo)
 const SHARK_REST = 2.4; // después de saltar descansa
 export const SHARK_LEN = 2.8; // lo que mide de largo un tiburón de tamaño 1
-export const SHARK_DEPTH = -0.9; // a esta altura nada (el centro del cuerpo) y desde acá salta
+// La imagen del tiburón mide de alto casi la mitad de su largo (con las aletas). Nada con la aleta de arriba
+// asomando del agua: el centro del cuerpo queda a esta altura (y desde acá salta).
+export const SPRITE_H = 0.48, FIN_OUT = 0.13;
+export const swimY = (s: Shark) => -(SPRITE_H / 2 - FIN_OUT) * sharkLen(s);
 export const SIGHT = 9; // hasta dónde ve un tiburón al bombero cerca del agua
 const ROAM = 16; // cuánto se aleja nadando de la calle donde apareció
 export const CHOMP = 0.45; // lo que tarda en cerrar la boca cuando te alcanza
@@ -43,22 +46,18 @@ const DIE_T = 2.4;
 export const ACTIVE_RESCUES = 8; // los que hay flotando a la vez
 export const GRAB_X = 0.95, GRAB_Y = 1.35; // hasta dónde llega el bombero estirándose
 
-export type SharkType = 'gris' | 'martillo' | 'tigre' | 'bebe' | 'blanco' | 'mako' | 'ballena';
-// `mouth`: dónde está la boca, medida desde el centro en largos del tiburón (para adelante y para abajo).
+// Tres especies, como en las imágenes: el blanco (rápido y salta muy alto), el martillo y el ballena (enorme y
+// lento, salta bajito). `mouth`: dónde está la boca, desde el centro en largos del tiburón (adelante y abajo).
+export type SharkType = 'blanco' | 'martillo' | 'ballena';
 export interface SharkSpec { name: string; speed: number; chase: number; reach: number; warn: number; size: number; mouth: [number, number] }
-const JAWS: [number, number] = [0.39, 0.065];
 export const SHARKS: Record<SharkType, SharkSpec> = {
-  gris: { name: 'tiburón gris', speed: 2.4, chase: 3.6, reach: 2.0, warn: 0.75, size: 1, mouth: JAWS },
-  martillo: { name: 'tiburón martillo', speed: 1.7, chase: 2.7, reach: 2.9, warn: 0.85, size: 1.05, mouth: [0.31, 0.085] },
-  tigre: { name: 'tiburón tigre', speed: 3.2, chase: 4.6, reach: 2.2, warn: 0.6, size: 1.1, mouth: JAWS },
-  bebe: { name: 'tiburones bebé', speed: 4, chase: 5, reach: 1.2, warn: 0.5, size: 0.55, mouth: JAWS },
-  blanco: { name: 'tiburón blanco', speed: 1.5, chase: 2.4, reach: 3.4, warn: 1, size: 1.6, mouth: JAWS },
-  mako: { name: 'tiburón mako', speed: 4.5, chase: 6, reach: 2.5, warn: 0.5, size: 0.95, mouth: JAWS },
-  ballena: { name: 'tiburón ballena', speed: 1.2, chase: 2.1, reach: 2.6, warn: 1.1, size: 1.9, mouth: [0.375, 0.055] },
+  blanco: { name: 'tiburón blanco', speed: 2.6, chase: 3.8, reach: 3.0, warn: 0.75, size: 1.3, mouth: [0.39, 0.065] },
+  martillo: { name: 'tiburón martillo', speed: 2, chase: 3, reach: 2.6, warn: 0.85, size: 1.1, mouth: [0.31, 0.085] },
+  ballena: { name: 'tiburón ballena', speed: 1.2, chase: 2.1, reach: 1.8, warn: 1.1, size: 1.9, mouth: [0.375, 0.055] },
 };
 // Cuántos tiburones hay según el tiempo (empieza con 5 y llega uno nuevo cada 20 segundos).
 export const sharksAt = (t: number) => Math.min(20, 5 + Math.floor(t / 20));
-export const TIGRE_AT = 45, MAKO_AT = 100, BALLENA_AT = 150;
+export const BALLENA_AT = 60;
 
 export type BlockKind = 'building' | 'house' | 'shop';
 export interface Block { id: number; kind: BlockKind; x1: number; x2: number; top: number; floors: number; fh: number; hue: number; tone: number; label: string; escape: -1 | 1 }
@@ -229,8 +228,7 @@ export function buildCity(seed = 20261007): City {
 }
 
 const TYPES_AT = (t: number): SharkType[] => [
-  'gris', 'gris', 'gris', 'martillo', 'martillo', 'bebe', 'bebe', 'blanco',
-  ...(t >= TIGRE_AT ? ['tigre', 'tigre'] as const : []), ...(t >= MAKO_AT ? ['mako', 'mako'] as const : []), ...(t >= BALLENA_AT ? ['ballena'] as const : []),
+  'blanco', 'blanco', 'blanco', 'martillo', 'martillo', ...(t >= BALLENA_AT ? ['ballena'] as const : []),
 ];
 
 export function newShark(seed?: number): SharkGame {
@@ -241,7 +239,7 @@ export function newShark(seed?: number): SharkGame {
     rand, nextId: 10000, seen: new Set(), hurried: 0, gust: 0, windPower: 1,
     player: { x: city.startX, y: city.startY, vx: 0, vy: 0, facing: 1, ground: city.plats.find(p => p.kind === 'roof' && p.y === city.startY && p.x < city.startX && p.x + p.w > city.startX) ?? null, climb: null, zip: null, swimming: false, climbCooldown: 0, coyote: 0 },
   };
-  for (const type of ['gris', 'gris', 'martillo', 'bebe', 'blanco'] as const) addShark(g, type);
+  for (const type of ['blanco', 'blanco', 'martillo', 'martillo', 'blanco'] as const) addShark(g, type);
   for (let i = 0; i < ACTIVE_RESCUES; i++) addRescue(g);
   return g;
 }
@@ -258,7 +256,7 @@ function addShark(g: SharkGame, type: SharkType) {
   const lane = pick(g.rand, pool.filter(l => g.sharks.filter(s => s.lane === l.id).length === fewest));
   g.sharks.push({
     id: g.nextId++, type, lane: lane.id, x: lane.x1 + 1 + g.rand() * (lane.x2 - lane.x1 - 2), dir: g.rand() < 0.5 ? -1 : 1,
-    state: 'patrol', t: 0, y: SHARK_DEPTH, vy: 0, vx: 0, target: 0, hunger: 6 + g.rand() * 10, rest: 0, turn: 2 + g.rand() * 3, born: g.time,
+    state: 'patrol', t: 0, y: -(SPRITE_H / 2 - FIN_OUT) * SHARK_LEN * SHARKS[type].size, vy: 0, vx: 0, target: 0, hunger: 6 + g.rand() * 10, rest: 0, turn: 2 + g.rand() * 3, born: g.time,
   });
   if (!g.seen.has(type)) { g.seen.add(type); if (g.time > 0) g.events.push({ type: 'newType', shark: type }); }
 }
@@ -325,7 +323,7 @@ export function step(g: SharkGame, input: Input, dt: number) {
       // El tiburón sigue su salto: primero acerca la boca al bombero, la cierra y se lo traga entero; después
       // cae al agua y se hunde.
       const wasUp = s.y > 0;
-      if (s.y > SHARK_DEPTH - 0.6 || s.vy > 0) { s.vy -= SHARK_G * dt; s.y += s.vy * dt; s.x += s.vx * dt; }
+      if (s.y > swimY(s) - 0.6 || s.vy > 0) { s.vy -= SHARK_G * dt; s.y += s.vy * dt; s.x += s.vx * dt; }
       else { s.vy = 0; s.vx = 0; }
       // Mientras cierra la boca el bombero queda metido entre las mandíbulas; después va adentro.
       const m = sharkMouth(s), k = g.dying.t < CHOMP ? Math.min(1, dt * 16) : 1;
@@ -357,7 +355,7 @@ export function step(g: SharkGame, input: Input, dt: number) {
   // Llegan más tiburones con el tiempo; los rescatados (o los que se llevaron) se reponen.
   const want = sharksAt(t);
   if (g.sharks.length < want) {
-    const fresh = t >= BALLENA_AT && !g.seen.has('ballena') ? 'ballena' : t >= MAKO_AT && !g.seen.has('mako') ? 'mako' : t >= TIGRE_AT && !g.seen.has('tigre') ? 'tigre' : null;
+    const fresh = t >= BALLENA_AT && !g.seen.has('ballena') ? 'ballena' : null;
     addShark(g, fresh ?? pick(g.rand, TYPES_AT(t)));
     if (g.sharks.length % 3 === 0) g.events.push({ type: 'more', count: g.sharks.length });
   }
@@ -511,7 +509,7 @@ function sharks(g: SharkGame, dt: number) {
         if (r.state !== 'drift') continue;
         if (Math.abs(rescueX(r) - s.x) < 0.3 * L && box.y2 > FLOAT_Y) { r.state = 'taken'; r.at = g.time; r.fromX = rescueX(r); r.fromY = FLOAT_Y; removePlat(g, r.plat); g.events.push({ type: 'taken', kind: r.kind }); }
       }
-      if (s.y <= SHARK_DEPTH && s.vy < 0) { s.y = SHARK_DEPTH; s.vy = 0; s.state = 'patrol'; s.rest = SHARK_REST; s.target = 0; g.events.push({ type: 'splash' }); }
+      if (s.y <= swimY(s) && s.vy < 0) { s.y = swimY(s); s.vy = 0; s.state = 'patrol'; s.rest = SHARK_REST; s.target = 0; g.events.push({ type: 'splash' }); }
       continue;
     }
     const prey = s.target === PLAYER_TARGET ? null : g.rescues.find(r => r.id === s.target && r.state === 'drift');
@@ -520,7 +518,7 @@ function sharks(g: SharkGame, dt: number) {
       if (s.t <= 0) {
         const tx = s.target === PLAYER_TARGET ? p.x : prey ? rescueX(prey) : s.x;
         const apex = spec.reach - 0.1 * L;
-        s.state = 'jump'; s.y = SHARK_DEPTH; s.vy = Math.sqrt(2 * SHARK_G * (apex - SHARK_DEPTH)); s.vx = Math.max(-1.5, Math.min(1.5, (tx - s.x) * 1.2));
+        s.state = 'jump'; s.y = swimY(s); s.vy = Math.sqrt(2 * SHARK_G * (apex - s.y)); s.vx = Math.max(-1.5, Math.min(1.5, (tx - s.x) * 1.2));
         g.events.push({ type: 'sharkJump' });
       }
       continue;
@@ -529,7 +527,7 @@ function sharks(g: SharkGame, dt: number) {
       // Si te caés al agua, va derecho a buscarte.
       s.state = 'chase';
       const d = toward(p.x, spec.chase);
-      if (d < 0.35 + 0.4 * spec.size) { s.y = SHARK_DEPTH; s.vy = 0; lose(g, 'shark', s.id); return; }
+      if (d < 0.35 + 0.4 * spec.size) { s.y = swimY(s); s.vy = 0; lose(g, 'shark', s.id); return; }
       continue;
     }
     s.rest = Math.max(0, s.rest - dt);
@@ -552,12 +550,11 @@ function sharks(g: SharkGame, dt: number) {
         continue;
       }
     }
-    // Patrulla de un lado a otro, pasando por delante de los edificios; a veces se da vuelta (el tigre de golpe
-    // y muy seguido).
+    // Patrulla de un lado a otro, pasando por delante de los edificios; a veces se da vuelta.
     s.x += s.dir * spec.speed * dt;
     if (s.x < ra) { s.x = Math.max(s.x, a); s.dir = 1; } else if (s.x > rb) { s.x = Math.min(s.x, b); s.dir = -1; }
     s.turn -= dt;
-    if (s.turn <= 0) { s.dir = -s.dir as 1 | -1; s.turn = s.type === 'tigre' ? 1.2 + g.rand() * 2.5 : 4 + g.rand() * 6; }
+    if (s.turn <= 0) { s.dir = -s.dir as 1 | -1; s.turn = 4 + g.rand() * 6; }
   }
 }
 

@@ -67,7 +67,7 @@ describe('Ciudad Tiburón: el juego', () => {
     expect(new Set(g.rescues.map(r => r.kind)).size).toBeGreaterThan(1);
   });
 
-  it('con el tiempo llegan más tiburones y de tipos nuevos (tigre, mako y ballena)', () => {
+  it('con el tiempo llegan más tiburones y aparece el tiburón ballena', () => {
     expect(sharksAt(0)).toBe(5);
     expect(sharksAt(TIME_LIMIT - 1)).toBeGreaterThan(15);
     const g = newShark(4);
@@ -75,7 +75,7 @@ describe('Ciudad Tiburón: el juego', () => {
     const types = new Set<string>();
     for (let t = 0; t < 200; t += 1 / 30) { g.player.y = 40; g.player.vy = 0; step(g, idle, 1 / 30); for (const s of g.sharks) types.add(s.type); }
     expect(g.sharks.length).toBe(sharksAt(g.time));
-    expect(types.has('tigre') && types.has('mako') && types.has('ballena')).toBe(true);
+    expect(types).toEqual(new Set(['blanco', 'martillo', 'ballena']));
     expect(takeEvents(g).some(e => e.type === 'newType')).toBe(true);
     for (const l of g.lanes) expect(g.sharks.filter(s => s.lane === l.id).length).toBeLessThanOrEqual(2);
   });
@@ -120,7 +120,7 @@ describe('Ciudad Tiburón: el juego', () => {
   };
 
   it('si estás cerca del agua el tiburón viene, avisa con burbujas, salta y te come', () => {
-    const { g, lane } = withShark('gris');
+    const { g, lane } = withShark('blanco');
     const stoop = g.plats.find(p => p.kind === 'stoop' && p.x >= lane.x1 - 0.01 && p.x < lane.x1 + 1)!;
     stand(g, stoop);
     run(g, 0.2);
@@ -135,7 +135,7 @@ describe('Ciudad Tiburón: el juego', () => {
   });
 
   it('si te movés cuando avisa, el salto no te alcanza; y más arriba de lo que salta, no te ve', () => {
-    const { g, lane } = withShark('gris');
+    const { g, lane } = withShark('blanco');
     const stoop = g.plats.find(p => p.kind === 'stoop' && p.x >= lane.x1 - 0.01 && p.x < lane.x1 + 1)!;
     stand(g, stoop);
     for (let i = 0; i < 600 && g.sharks[0].state !== 'warn'; i++) step(g, idle, 1 / 60);
@@ -147,14 +147,14 @@ describe('Ciudad Tiburón: el juego', () => {
     expect(g.sharks[0].state).toBe('patrol');
   });
 
-  it('cada tiburón salta distinto: el bebé salta bajito y el blanco muy alto', () => {
-    expect(SHARKS.bebe.reach).toBeLessThan(SHARKS.gris.reach);
+  it('cada tiburón salta distinto: el ballena salta bajito y el blanco muy alto', () => {
+    expect(SHARKS.ballena.reach).toBeLessThan(SHARKS.martillo.reach);
     expect(SHARKS.blanco.reach).toBeGreaterThan(SHARKS.martillo.reach);
-    expect(SHARKS.mako.speed).toBeGreaterThan(SHARKS.blanco.speed * 2);
-    // Parado en un kiosco (1,15): el bebé no llega, el blanco sí.
-    for (const [type, dies] of [['bebe', false], ['blanco', true]] as const) {
+    expect(SHARKS.blanco.speed).toBeGreaterThan(SHARKS.ballena.speed * 2);
+    // Parado en algo a 2,2 de altura: el ballena no llega, el blanco sí.
+    for (const [type, dies] of [['ballena', false], ['blanco', true]] as const) {
       const { g, lane } = withShark(type);
-      const k = { id: 5000, kind: 'kiosk' as const, x: lane.pole + 1, y: 1.15, w: 1.6, dx: 0, hue: 0 };
+      const k = { id: 5000, kind: 'kiosk' as const, x: lane.pole + 1, y: 2.2, w: 1.6, dx: 0, hue: 0 };
       g.plats.push(k);
       stand(g, k);
       run(g, 8);
@@ -163,7 +163,7 @@ describe('Ciudad Tiburón: el juego', () => {
   });
 
   it('si te caés al agua nadás despacio y el tiburón va derecho a buscarte', () => {
-    const { g, lane } = withShark('gris');
+    const { g, lane } = withShark('blanco');
     // Un lugar de la calle sin nada abajo.
     let x = lane.x1 + 1.6;
     while (g.plats.some(p => p.y < 1 && p.x < x + 0.5 && p.x + p.w > x - 0.5)) x += 0.1;
@@ -186,7 +186,7 @@ describe('Ciudad Tiburón: el juego', () => {
   });
 
   it('los tiburones también se llevan a los que flotan (y después aparecen otros)', () => {
-    const { g, lane } = withShark('gris');
+    const { g, lane } = withShark('blanco');
     Object.assign(g.player, { y: 40 }); g.player.ground = null;
     g.sharks[0].hunger = 0;
     const plat = { id: 999, kind: 'float' as const, x: lane.pole, y: FLOAT_Y, w: 0.9, dx: 0, hue: 0 };
@@ -262,7 +262,7 @@ describe('Ciudad Tiburón: el juego', () => {
   });
 
   it('cuando te alcanza, el tiburón salta del agua, te tiene en la boca y se hunde con vos', () => {
-    const { g, lane } = withShark('gris');
+    const { g, lane } = withShark('blanco');
     let x = lane.x1 + 1.6;
     while (g.plats.some(p => p.y < 1 && p.x < x + 0.5 && p.x + p.w > x - 0.5)) x += 0.1;
     Object.assign(g.player, { x, y: WATER_Y, swimming: true, ground: null });
