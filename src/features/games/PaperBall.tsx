@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  BOSS_H, canThrow, launch, newPaper, ORIGIN, preview, QUARTER, quarterLeft, step, takeEvents, throwBall, TOP, W,
+  canThrow, launch, newPaper, ORIGIN, preview, QUARTER, quarterLeft, step, takeEvents, throwBall, TOP, W,
   type Ball, type PaperGame,
 } from './paperBall';
 import {
-  drawArms, drawBackground, drawBin, drawBoss, drawClock, drawDeskExtras, drawFan, drawFingers, drawLegs, drawPaper, drawVignette,
+  drawArms, drawBackground, drawBin, drawClock, drawDeskExtras, drawFan, drawFingers, drawLegs, drawPaper, drawVignette,
   drawWindow, drawWorker, loadOffice, VIEW_H, WORKER_X, X, Y, type Mood, type View,
 } from './paperArt';
 
@@ -63,9 +63,8 @@ function draw(ctx: CanvasRenderingContext2D, g: PaperGame, v: View, aim: Aim | n
   drawDeskExtras(ctx, v);
   drawBalls(ctx, v, g.balls.filter(k => k.state === 'in'));
   drawBin(ctx, v, g.bin);
-  if (g.boss) drawBoss(ctx, v, g.boss, g.time);
   const hand = drawArms(ctx, v, handOf(g, aim));
-  if (canThrow(g)) { drawPaper(ctx, v, hand.x, hand.y + 0.1, 0.3, 0); drawFingers(ctx, v, hand); }
+  if (canThrow(g)) { const ball = { x: hand.x + 0.02, y: hand.y + 0.13 }; drawPaper(ctx, v, ball.x, ball.y, 0.3, 0); drawFingers(ctx, v, hand, ball); }
   drawBalls(ctx, v, g.balls.filter(k => k.state !== 'in'));
   drawVignette(ctx, v);
   if (aim) drawAim(ctx, v, aim);
@@ -155,8 +154,6 @@ export function PaperBall() {
           faceRef.current = { mood: 'happy', at: g.time };
         }
         if (e.type === 'miss') faceRef.current = { mood: 'sad', at: g.time };
-        if (e.type === 'boss') { popsRef.current.push({ text: e.points ? `-${e.points} ¡Al jefe no!` : '¡Al jefe no!', x: g.boss?.x ?? 8, y: BOSS_H + 0.6, at: g.time, color: '#f87171' }); faceRef.current = { mood: 'sad', at: g.time }; setToast({ text: '¡Le pegaste al jefe! 😠', id: now }); }
-        if (e.type === 'bossIn') setToast({ text: '¡Cuidado, viene el jefe! 👔', id: now });
         if (e.type === 'quarter') setToast({ text: e.quarter === 3 ? '¡Último cuarto! El cesto se aleja… y tiene rueditas 🛞' : `¡Fin del ${e.quarter}° cuarto! El cesto se aleja 🏀`, id: now });
       }
       popsRef.current = popsRef.current.filter(p => g.time - p.at < 1.4);
@@ -228,7 +225,7 @@ export function PaperBall() {
           <div>
             {status === 'ready' && <>
               <h2 id="bol-message">¡Al cesto! 🗑️</h2>
-              <p>Es viernes a la tarde y en la oficina no hay nada que hacer: embocá bollos de papel en el cesto. Hacé <strong>clic</strong>, tirá para atrás como una gomera y <strong>soltá</strong>. Ojo con el <strong>ventilador</strong>, que desvía los bollos. El partido dura <strong>3 minutos</strong> en <strong>4 cuartos</strong>, como en el básquet, y en cada cuarto el cesto se va más lejos. Suman más los tiros de lejos, los limpios y las rachas. Y cuidado con el jefe…</p>
+              <p>Es viernes a la tarde y en la oficina no hay nada que hacer: embocá bollos de papel en el cesto. Hacé <strong>clic</strong>, tirá para atrás como una gomera y <strong>soltá</strong>. Ojo con el <strong>ventilador</strong>, que desvía los bollos. El partido dura <strong>3 minutos</strong> en <strong>4 cuartos</strong>, como en el básquet, y en cada cuarto el cesto se va más lejos. Suman más los tiros de lejos, los limpios y las rachas.</p>
               <p className="runner-keys">Solo con el mouse · <kbd>P</kbd> pausa</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}
