@@ -2,22 +2,27 @@
 //
 // - Hacés clic, tirás para atrás (como una gomera) y soltás: el bollo sale para el lado contrario, más
 //   fuerte cuanto más tiraste.
-// - El ventilador sopla para un lado y desvía los bollos. Cambia de lado y de fuerza cada vez que embocás.
-// - El cesto cambia de lugar cada vez que embocás: en el piso, arriba de un mueble o en un estante. Con los
-//   puntos se va más lejos y más alto, después se mueve (está en una silla con rueditas) y aparece el jefe
-//   caminando por la oficina: si le pegás, perdés puntos.
-// - Tenés 60 segundos; cada bollo embocado suma 2 segundos. Puntos: 1 por bollo, +1 si es de lejos, +1 si
-//   entra limpio (sin tocar el borde) y +1 cada 3 seguidos.
+// - El partido dura 3 minutos, en 4 cuartos de 45 segundos como en el básquet. En cada cuarto el cesto se
+//   va más lejos; en el último, además, se mueve (está en rueditas).
+// - El ventilador sopla para un lado y desvía los bollos. Cambia de lado y de fuerza cada vez que embocás,
+//   y sopla más fuerte en cada cuarto.
+// - Desde el 3er cuarto, cada tanto el jefe cruza la oficina: si le pegás, perdés puntos.
+// - Puntos: 1 por bollo, +1 si es de lejos, +1 si entra limpio (sin tocar el borde) y +1 cada 3 seguidos.
 //
-// Todo se mide en unidades: la oficina mide 16 × 9 y el piso está en y = 0.
+// Todo se mide en unidades (85 píxeles del dibujo de la oficina): la oficina mide 16 de ancho, el piso
+// está en y = 0 y el techo en y = TOP.
 
-export const W = 16, H = 9, G = 14, BALL_R = 0.17;
-export const ORIGIN = { x: 2.3, y: 3.2 }; // de donde sale el bollo (la mano)
+export const W = 16, TOP = 650 / 85, BOTTOM = TOP - 762 / 85, G = 14, BALL_R = 0.17;
+export const ORIGIN = { x: 3.95, y: 3.75 }; // de donde sale el bollo (la mano levantada)
 export const PULL = 4.5, MAX_SPEED = 17; // velocidad por unidad que tirás para atrás, y el máximo
-export const TIME = 60, BONUS_TIME = 2, FAR = 9;
+export const TIME = 180, QUARTERS = 4, QUARTER = TIME / QUARTERS, FAR = 8;
 export const RELOAD = 0.45; // lo que tarda en estar listo el próximo bollo
+export const BREAK = 2.5; // el descanso entre cuartos (el reloj no corre y el cesto se va más lejos)
 const RIM_R = 0.06, BOUNCE = 0.5, FLOOR_BOUNCE = 0.35;
 const SUBSTEPS = 4;
+// Entre qué x puede estar el cesto en cada cuarto (cada vez más lejos).
+export const SPOTS: [number, number][] = [[8.7, 10], [10, 11.4], [11.4, 12.8], [12.9, 14.4]];
+export const BIN_W = 1.12, BIN_H = 1.35;
 
 export interface Bin { x: number; y: number; w: number; h: number; vx: number; min: number; max: number } // x: centro; y: la base
 export interface Fan { dir: -1 | 1; power: number } // power de 0 (apagado) a 3
@@ -26,12 +31,12 @@ export interface Ball { id: number; x: number; y: number; vx: number; vy: number
 export type PaperEvent =
   | { type: 'throw' } | { type: 'rim' } | { type: 'bounce' }
   | { type: 'score'; points: number; swish: boolean; far: boolean; streak: number; x: number; y: number } | { type: 'miss' }
-  | { type: 'boss'; points: number } | { type: 'bossIn' } | { type: 'level'; level: number } | { type: 'gameover' };
+  | { type: 'boss'; points: number } | { type: 'bossIn' } | { type: 'quarter'; quarter: number } | { type: 'gameover' };
 
 export interface PaperGame {
   time: number; left: number; score: number; streak: number; bestStreak: number; made: number; shots: number;
-  level: number; bin: Bin; fan: Fan; boss: Boss | null; balls: Ball[]; ready: number; over: boolean;
-  events: PaperEvent[]; rand: () => number; nextId: number; nextBoss: number;
+  quarter: number; pause: number; bin: Bin; nextBin: Bin | null; fan: Fan; boss: Boss | null; balls: Ball[]; ready: number; over: boolean;
+  events: PaperEvent[]; rand: () => number; nextId: number; nextBoss: number; thrown: number;
 }
 
 function rng(seed: number) {
@@ -39,34 +44,33 @@ function rng(seed: number) {
   return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
-export const levelFor = (score: number) => Math.min(8, Math.floor(score / 5));
-// Los muebles donde puede estar el cesto (la altura de arriba): el piso, un mueble bajo y un estante.
-export const STANDS = [0, 1.6, 3.4];
+// El cuarto que se está jugando según el tiempo que queda (0 a 3).
+export const quarterOf = (left: number) => Math.min(QUARTERS - 1, Math.floor((TIME - left) / QUARTER));
+// Lo que le queda al cuarto.
+export const quarterLeft = (g: PaperGame) => Math.max(0, g.left - (QUARTERS - 1 - g.quarter) * QUARTER);
 
-// El cesto en un lugar nuevo, según el nivel (y no muy cerca del lugar anterior).
-function placeBin(g: PaperGame) {
-  const lv = g.level, r = g.rand;
-  const near = 6.5, far = Math.min(14.6, 10 + lv * 0.7);
+// El cesto en un lugar nuevo dentro de la zona del cuarto (y no muy cerca del lugar anterior).
+function spotFor(g: PaperGame, quarter: number, from: number): Bin {
+  const [near, far] = SPOTS[quarter], r = g.rand;
   let x = near + r() * (far - near);
-  if (Math.abs(x - g.bin.x) < 1.2) x = x > (near + far) / 2 ? x - 1.5 : x + 1.5;
-  const stand = lv < 1 ? 0 : lv < 3 ? (r() < 0.5 ? 0 : 1) : Math.floor(r() * 3);
-  const moving = lv >= 4 && stand === 0 && r() < 0.7;
-  const w = lv >= 6 ? 1 : 1.15, h = 1.15;
-  g.bin = { x, y: STANDS[stand], w, h, vx: moving ? (r() < 0.5 ? -1 : 1) * (0.8 + lv * 0.25) : 0, min: Math.max(6, x - 2), max: Math.min(15.2, x + 2) };
+  if (Math.abs(x - from) < 0.5) x = x > (near + far) / 2 ? Math.max(near, x - 0.8) : Math.min(far, x + 0.8);
+  const moving = quarter === QUARTERS - 1;
+  return { x, y: 0, w: BIN_W, h: BIN_H, vx: moving ? (r() < 0.5 ? -1 : 1) * (0.7 + r() * 0.5) : 0, min: near - 0.3, max: Math.min(14.7, far + 0.3) };
 }
 function changeFan(g: PaperGame) {
-  const max = Math.min(3, 1 + Math.floor(g.level / 2));
-  g.fan = { dir: g.rand() < 0.5 ? -1 : 1, power: g.level === 0 ? (g.rand() < 0.5 ? 0 : 1) : 1 + Math.floor(g.rand() * max) };
+  const max = g.quarter + 1; // 1° cuarto: hasta 1; 4° cuarto: hasta 3 (y nunca apagado)
+  const power = g.quarter === 0 ? (g.rand() < 0.5 ? 0 : 1) : Math.min(3, 1 + Math.floor(g.rand() * Math.min(3, max)));
+  g.fan = { dir: g.rand() < 0.5 ? -1 : 1, power };
 }
 export const windOf = (f: Fan) => f.dir * f.power * 2.4; // aceleración de costado (unidades por segundo²)
 
 export function newPaper(seed?: number): PaperGame {
   const g: PaperGame = {
-    time: 0, left: TIME, score: 0, streak: 0, bestStreak: 0, made: 0, shots: 0, level: 0,
-    bin: { x: 9, y: 0, w: 1.15, h: 1.15, vx: 0, min: 6, max: 14 }, fan: { dir: 1, power: 0 }, boss: null, balls: [], ready: 0,
-    over: false, events: [], rand: rng(seed ?? Math.floor(Math.random() * 2 ** 31)), nextId: 1, nextBoss: 25,
+    time: 0, left: TIME, score: 0, streak: 0, bestStreak: 0, made: 0, shots: 0, quarter: 0, pause: 0,
+    bin: { x: 9, y: 0, w: BIN_W, h: BIN_H, vx: 0, min: 8, max: 10 }, nextBin: null, fan: { dir: 1, power: 0 }, boss: null, balls: [], ready: 0,
+    over: false, events: [], rand: rng(seed ?? Math.floor(Math.random() * 2 ** 31)), nextId: 1, nextBoss: 0, thrown: -9,
   };
-  placeBin(g); changeFan(g); g.fan.power = 0; // el primero, sin viento
+  g.bin = spotFor(g, 0, 0); g.fan.power = 0; // el primero, sin viento
   return g;
 }
 
@@ -77,12 +81,12 @@ export function launch(sx: number, sy: number, x: number, y: number) {
   if (sp > MAX_SPEED) { vx *= MAX_SPEED / sp; vy *= MAX_SPEED / sp; }
   return { vx, vy, power: Math.min(1, sp / MAX_SPEED) };
 }
-export const canThrow = (g: PaperGame) => !g.over && g.time >= g.ready;
+export const canThrow = (g: PaperGame) => !g.over && g.pause <= 0 && g.time >= g.ready;
 
 export function throwBall(g: PaperGame, vx: number, vy: number) {
   if (!canThrow(g) || Math.hypot(vx, vy) < 2) return false;
   g.balls.push({ id: g.nextId++, x: ORIGIN.x, y: ORIGIN.y, vx, vy, state: 'fly', t: 0, touched: false, done: 0 });
-  g.shots++; g.ready = g.time + RELOAD;
+  g.shots++; g.ready = g.time + RELOAD; g.thrown = g.time;
   g.events.push({ type: 'throw' });
   return true;
 }
@@ -94,10 +98,9 @@ export function preview(vx: number, vy: number, steps = 12, dt = 0.045) {
   return pts;
 }
 
-// Lo que hay para rebotar: el escritorio de uno, el mueble o el estante del cesto, el piso, paredes y techo.
-export const DESK = { x1: 0, x2: 3.4, y: 2.2 };
-export function standOf(b: Bin) { return b.y > 0 ? { x1: b.x - 1, x2: b.x + 1, y: b.y } : null; }
-export const BOSS_W = 0.7, BOSS_H = 2.6;
+// Lo que hay para rebotar: el escritorio (con la pila de hojas), el piso, paredes y techo.
+export const DESK = { x1: 0.45, x2: 8, y: 1.88 };
+export const BOSS_W = 1.1, BOSS_H = 4.6;
 
 function collideBall(g: PaperGame, k: Ball, prevX: number, prevY: number) {
   const b = g.bin, half = b.w / 2, top = b.y + b.h;
@@ -121,12 +124,10 @@ function collideBall(g: PaperGame, k: Ball, prevX: number, prevY: number) {
   }
   // ¿Entró? Cruzó la boca del cesto bajando, entre los bordes.
   if (k.state === 'fly' && prevY >= top && k.y < top && k.vy < 0 && Math.abs(k.x - b.x) < half - RIM_R) k.state = 'in';
-  // Muebles: el escritorio, el mueble o estante del cesto, y el jefe.
-  const surfaces = [DESK, standOf(b)].filter(Boolean) as { x1: number; x2: number; y: number }[];
-  for (const s of surfaces) {
-    if (k.x > s.x1 && k.x < s.x2 && prevY - BALL_R >= s.y - 0.01 && k.y - BALL_R < s.y && k.vy < 0) {
-      k.y = s.y + BALL_R; k.vy = -k.vy * FLOOR_BOUNCE; k.vx *= 0.7; if (Math.abs(k.vy) > 1.5) g.events.push({ type: 'bounce' });
-    }
+  // El escritorio.
+  if (k.x > DESK.x1 && k.x < DESK.x2 && prevY - BALL_R >= DESK.y - 0.01 && k.y - BALL_R < DESK.y && k.vy < 0) {
+    k.y = DESK.y + BALL_R; k.vy = -k.vy * FLOOR_BOUNCE; k.vx *= 0.7; if (Math.abs(k.vy) > 1.5) g.events.push({ type: 'bounce' });
+    if (k.state === 'fly' && Math.abs(k.vy) < 0.8) k.state = 'out'; // se quedó en el escritorio
   }
   if (g.boss && k.state === 'fly') {
     const p = g.boss;
@@ -140,37 +141,56 @@ function collideBall(g: PaperGame, k: Ball, prevX: number, prevY: number) {
   if (k.y < BALL_R) { k.y = BALL_R; k.vy = -k.vy * FLOOR_BOUNCE; k.vx *= 0.6; if (k.state === 'fly' && Math.abs(k.vy) < 0.8) k.state = 'out'; }
   if (k.x < BALL_R) { k.x = BALL_R; k.vx = -k.vx * BOUNCE; }
   if (k.x > W - BALL_R) { k.x = W - BALL_R; k.vx = -k.vx * BOUNCE; }
-  if (k.y > H - BALL_R) { k.y = H - BALL_R; k.vy = -k.vy * BOUNCE; }
+  if (k.y > TOP - BALL_R) { k.y = TOP - BALL_R; k.vy = -k.vy * BOUNCE; }
 }
 
 function scored(g: PaperGame, k: Ball) {
   const far = g.bin.x - ORIGIN.x > FAR, swish = !k.touched;
   g.streak++; g.bestStreak = Math.max(g.bestStreak, g.streak); g.made++;
   const points = 1 + (far ? 1 : 0) + (swish ? 1 : 0) + Math.floor(g.streak / 3);
-  g.score += points; g.left += BONUS_TIME;
+  g.score += points;
   g.events.push({ type: 'score', points, swish, far, streak: g.streak, x: g.bin.x, y: g.bin.y + g.bin.h });
-  const lv = levelFor(g.score);
-  if (lv > g.level) { g.level = lv; g.events.push({ type: 'level', level: lv }); }
-  placeBin(g); changeFan(g);
+  if (!g.nextBin) g.bin = spotFor(g, g.quarter, g.bin.x);
+  changeFan(g);
 }
 
 export function step(g: PaperGame, dt: number) {
   if (g.over || dt <= 0) return;
   dt = Math.min(dt, 0.05);
-  g.time += dt; g.left -= dt;
-  if (g.left <= 0) { g.left = 0; g.over = true; g.events.push({ type: 'gameover' }); return; }
-  // El cesto en la silla con rueditas va y viene.
+  g.time += dt;
+  if (g.pause > 0) {
+    // Descanso entre cuartos: el reloj no corre y el cesto se va arrastrando hasta su lugar nuevo.
+    g.pause -= dt;
+    const n = g.nextBin;
+    if (n) {
+      const d = n.x - g.bin.x;
+      g.bin.x += Math.sign(d) * Math.min(Math.abs(d), 3 * dt);
+      if (g.pause <= 0) { g.bin = n; g.nextBin = null; }
+    }
+  } else {
+    g.left -= dt;
+    if (g.left <= 0) { g.left = 0; g.over = true; g.events.push({ type: 'gameover' }); return; }
+    const q = quarterOf(g.left);
+    if (q > g.quarter) {
+      g.quarter = q; g.pause = BREAK; g.streak = 0;
+      g.nextBin = spotFor(g, q, g.bin.x); g.bin.vx = 0;
+      changeFan(g);
+      if (q >= 2) g.nextBoss = g.time + BREAK + 4 + g.rand() * 6;
+      g.events.push({ type: 'quarter', quarter: q });
+    }
+  }
+  // En el último cuarto el cesto va y viene en rueditas.
   const b = g.bin;
   if (b.vx) { b.x += b.vx * dt; if (b.x < b.min) { b.x = b.min; b.vx = Math.abs(b.vx); } else if (b.x > b.max) { b.x = b.max; b.vx = -Math.abs(b.vx); } }
-  // El jefe cruza la oficina cada tanto (desde el nivel 3).
-  if (!g.boss && g.level >= 3 && g.time >= g.nextBoss) {
+  // El jefe cruza la oficina cada tanto (desde el 3er cuarto).
+  if (!g.boss && g.quarter >= 2 && g.pause <= 0 && g.time >= g.nextBoss) {
     const dir = g.rand() < 0.5 ? -1 : 1;
-    g.boss = { x: dir > 0 ? 4 : W + 0.5, dir, speed: 1.4 + g.rand() * 0.8, hit: 0 };
+    g.boss = { x: dir > 0 ? 8.3 : W + 0.8, dir, speed: 1.6 + g.rand() * 0.8, hit: 0 };
     g.events.push({ type: 'bossIn' });
   }
   if (g.boss) {
     g.boss.x += g.boss.dir * g.boss.speed * dt;
-    if (g.boss.x > W + 1 || g.boss.x < 3.5) { g.boss = null; g.nextBoss = g.time + 8 + g.rand() * 10; }
+    if (g.boss.x > W + 1 || g.boss.x < 8.2) { g.boss = null; g.nextBoss = g.time + 8 + g.rand() * 10; }
   }
   const ax = windOf(g.fan), h = dt / SUBSTEPS;
   for (const k of g.balls) {

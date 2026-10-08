@@ -581,17 +581,18 @@ test('Ciudad Tiburón: se abre desde Juegos, corre el tiempo para atrás, cuenta
   await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
 });
 
-test('¡Al cesto!: se abre desde Juegos, se tira arrastrando el mouse, corre el tiempo y se pausa', async ({ page }) => {
+test('¡Al cesto!: se abre desde Juegos, se juega por cuartos, se tira arrastrando el mouse, corre el tiempo y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
   await page.getByRole('link', { name: /Al cesto/ }).click();
   await expect(page.getByRole('heading', { name: '¡Al cesto!', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
   await expect(page.getByTestId('bol-points')).toHaveText('0');
   await expect(page.getByTestId('bol-fan')).toHaveText('Apagado');
+  await expect(page.getByTestId('bol-quarter')).toHaveText('1° de 4');
   const stage = (await page.locator('.runner-stage').boundingBox())!;
   const cx = stage.x + stage.width / 2, cy = stage.y + stage.height / 2;
   await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(cx - 80, cy + 60, { steps: 4 }); await page.mouse.up();
-  await expect(page.getByTestId('bol-time')).not.toHaveText('60');
+  await expect(page.getByTestId('bol-time')).not.toHaveText('0:45');
   await page.keyboard.press('p');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
   const paused = await page.getByTestId('bol-time').textContent();
