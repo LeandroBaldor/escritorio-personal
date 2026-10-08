@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  CHOMP, FLOAT_Y, GOAL, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, sharkLen, sharkPose, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
+  CHOMP, FLOAT_Y, galeAt, GOAL, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, sharkLen, sharkPose, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
   type Block, type Climb, type Decor, type Input, type LoseReason, type Plat, type Rescue, type RescueKind, type Shark, type SharkGame, type SharkType, type Zip,
 } from './shark';
 import { drawSharkSprite, loadSharkSprites, type SpriteOptions } from './sharkSprites';
-import { font, hash, hsl, rect, surfaceClip, visible, waveY, X, Y, type View } from './sharkView';
-import { drawBuilding, drawDebrisArt, drawFx, drawInterior, drawLamp, drawTreeDecor, drawVehicle } from './sharkArt';
+import { font, hash, hsl, scene, surfaceClip, visible, waveY, X, Y, type View } from './sharkView';
+import { drawBuilding, drawDebrisArt, drawFx, drawHouse, drawInterior, drawLamp, drawShop, drawTreeDecor, drawVehicle } from './sharkArt';
 
 const RECORD_KEY = 'escritorio-personal-juegos:tiburon-record';
 export interface SharkRecord { saved: number; time: number | null } // más rescatados y mejor tiempo para rescatar a todos
@@ -140,43 +140,11 @@ function drawSkyline(ctx: CanvasRenderingContext2D, v: View, flash: number) {
 // ---------- Las manzanas: edificios, casas y locales ----------
 function drawBlock(ctx: CanvasRenderingContext2D, g: SharkGame, b: Block, v: View, flash: number) {
   if (!visible(v, b.x1, b.x2, -1, b.top + 3)) return;
-  const s = v.s, w = b.x2 - b.x1;
   if (b.kind === 'building') {
     drawBuilding(ctx, g, b, v, flash);
     if (g.player.inside === b.id) drawInterior(ctx, g, b, v);
-  } else if (b.kind === 'house') {
-    ctx.fillStyle = hsl(b.hue, 38, 52); rect(ctx, v, b.x1, -3, w, b.top);
-    ctx.fillStyle = 'rgba(0,0,0,0.1)'; for (let y = -2; y < b.top; y += 0.5) rect(ctx, v, b.x1, y, w, y + 0.04);
-    for (const [y1, y2] of [[0.2, 1.7], [3, 4.4]]) {
-      for (const fx of [0.22, 0.62]) {
-        const wx = b.x1 + w * fx;
-        ctx.fillStyle = '#1e293b'; rect(ctx, v, wx, y1, w * 0.18, y2);
-        ctx.fillStyle = hash(b.id + y1 + fx) < 0.5 ? '#fcd34d' : '#334155'; rect(ctx, v, wx + 0.08, y1 + 0.08, w * 0.18 - 0.16, y2 - 0.08);
-        ctx.fillStyle = hsl((b.hue + 160) % 360, 45, 35); rect(ctx, v, wx - 0.3, y1, 0.28, y2); rect(ctx, v, wx + w * 0.18 + 0.02, y1, 0.28, y2); // postigos
-      }
-    }
-    // Baranda de la terraza y una soga con ropa colgada que se mueve con el viento.
-    ctx.fillStyle = '#e5e7eb'; rect(ctx, v, b.x1, b.top, w, b.top + 0.12); rect(ctx, v, b.x1, b.top + 0.75, w, b.top + 0.85);
-    for (let x = b.x1 + 0.1; x < b.x2; x += 0.5) rect(ctx, v, x, b.top, 0.06, b.top + 0.8);
-    const c1 = X(v, b.x1 + 0.4), c2 = X(v, b.x2 - 0.4), cy = Y(v, b.top + 1.6);
-    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(c1, cy); ctx.quadraticCurveTo((c1 + c2) / 2, cy + s * 0.2, c2, cy); ctx.stroke();
-    for (let i = 0; i < 4; i++) {
-      const fx = c1 + (c2 - c1) * (0.2 + i * 0.2), sway = Math.sin(v.t * 6 + i) * s * 0.12;
-      ctx.fillStyle = hsl((b.hue + i * 70) % 360, 60, 55);
-      ctx.beginPath(); ctx.moveTo(fx - s * 0.2, cy + s * 0.12); ctx.lineTo(fx + s * 0.2, cy + s * 0.12); ctx.lineTo(fx + s * 0.2 + sway, cy + s * 0.6); ctx.lineTo(fx - s * 0.2 + sway, cy + s * 0.6); ctx.fill();
-    }
-  } else {
-    ctx.fillStyle = hsl(b.hue, 30, 42); rect(ctx, v, b.x1, -3, w, b.top);
-    // Vidriera con cosas adentro y el cartel del frente.
-    ctx.fillStyle = '#0f172a'; rect(ctx, v, b.x1 + 0.35, -1, w - 0.7, 2.1);
-    ctx.fillStyle = '#164e63'; rect(ctx, v, b.x1 + 0.45, -1, w - 0.9, 2);
-    for (let i = 0; i < 6; i++) { ctx.fillStyle = hsl((b.hue + i * 50) % 360, 50, 55); rect(ctx, v, b.x1 + 0.6 + i * (w - 1.2) / 6, 0.6, (w - 1.2) / 8, 0.9 + hash(i + b.id) * 0.5); }
-    ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.beginPath(); ctx.moveTo(X(v, b.x1 + 0.8), Y(v, 2)); ctx.lineTo(X(v, b.x1 + 1.3), Y(v, 2)); ctx.lineTo(X(v, b.x1 + 0.6), Y(v, 0)); ctx.lineTo(X(v, b.x1 + 0.45), Y(v, 0)); ctx.fill();
-    ctx.fillStyle = hsl(b.hue, 70, 30); rect(ctx, v, b.x1 + 0.2, 2.35, w - 0.4, 3.15);
-    ctx.fillStyle = '#fef3c7'; ctx.font = font(900, s * 0.55); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(b.label, X(v, (b.x1 + b.x2) / 2), Y(v, 2.75), (w - 0.6) * s);
-    ctx.fillStyle = 'rgba(0,0,0,0.25)'; rect(ctx, v, b.x1, b.top - 0.15, w, b.top);
-  }
+  } else if (b.kind === 'house') drawHouse(ctx, b, v);
+  else drawShop(ctx, b, v);
 }
 
 // ---------- Lo que sirve para moverse ----------
@@ -558,6 +526,7 @@ function drawFirefighter(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, s
   const p = g.player, s = v.s, t = v.t;
   ctx.save();
   if (shrink !== 1) { const cx = X(v, p.x), cy = Y(v, p.y + PLAYER_H / 2); ctx.translate(cx, cy); ctx.scale(shrink, shrink); ctx.translate(-cx, -cy); }
+  if (Math.abs(p.fling) > 3 && !p.ground && !p.swimming) { const cx = X(v, p.x), cy = Y(v, p.y + PLAYER_H / 2); ctx.translate(cx, cy); ctx.rotate(t * 13 * Math.sign(p.fling)); ctx.translate(-cx, -cy); } // da vueltas por el aire
   const pw = PLAYER_W * s, ph = PLAYER_H * s;
   const px = X(v, p.x) - pw / 2, py = Y(v, p.y) - ph;
   const f = p.facing, climbing = !!p.climb || !!p.zip, airborne = !p.ground && !climbing && !p.swimming, falling = !!g.dying;
@@ -638,8 +607,45 @@ function drawPlayer(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, shrink
   ctx.save(); surfaceClip(ctx, v, x - half, x + half, false); ctx.globalAlpha = 0.35; drawFirefighter(ctx, g, v, shrink); ctx.restore();
 }
 
+// El súper viento: antes de que llegue, empiezan a volar hojas y papeles desde un costado; cuando sopla,
+// cruzan la pantalla rachas larguísimas y vuela de todo (diarios, hojas, una tapa de tacho, un paraguas, una
+// silla de plástico, un cartel).
+function drawGale(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
+  const t = g.time, { warnAt, start, end, dir } = g.gale, s = v.s;
+  const warn = t >= warnAt && t < start ? (t - warnAt) / (start - warnAt) : 0, gale = Math.abs(scene.gale);
+  if (!warn && !gale) return;
+  const power = gale || warn * 0.35;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < Math.round(60 * power); i++) {
+    const k = (t * (2.2 + hash(i) * 2) + hash(i + 9)) % 1, len = v.w * (0.15 + hash(i * 3) * 0.35);
+    const x = dir > 0 ? k * (v.w + len * 2) - len : v.w + len - k * (v.w + len * 2), y = hash(i + 40) * v.h;
+    ctx.strokeStyle = `rgba(241,245,249,${0.15 + hash(i * 7) * 0.3})`; ctx.lineWidth = 1 + hash(i * 5) * 2.5;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.bezierCurveTo(x - dir * len * 0.3, y - 8, x - dir * len * 0.6, y + 8, x - dir * len, y); ctx.stroke();
+  }
+  const junk = ['paper', 'leaf', 'lid', 'umbrella', 'chair', 'sign', 'paper', 'leaf', 'paper', 'leaf'] as const;
+  for (let i = 0; i < Math.round(junk.length * (gale ? 1.6 : warn)); i++) {
+    const kind = junk[i % junk.length], k = (t * (0.9 + hash(i * 3) * 0.8) + hash(i)) % 1;
+    const x = dir > 0 ? k * (v.w + 200) - 100 : v.w + 100 - k * (v.w + 200), y = v.h * (0.1 + hash(i + 70) * 0.7) + Math.sin(t * 5 + i) * 30;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(t * (6 + hash(i) * 8) * dir + i);
+    switch (kind) {
+      case 'paper': ctx.fillStyle = '#f8fafc'; ctx.fillRect(-s * 0.2, -s * 0.15, s * 0.4, s * 0.3); ctx.fillStyle = '#94a3b8'; ctx.fillRect(-s * 0.15, -s * 0.08, s * 0.3, s * 0.03); break;
+      case 'leaf': ctx.fillStyle = i % 2 ? '#65a30d' : '#ca8a04'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.18, s * 0.08, 0, 0, Math.PI * 2); ctx.fill(); break;
+      case 'lid': ctx.fillStyle = '#6b7280'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.4, s * 0.12, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#374151'; ctx.fillRect(-s * 0.08, -s * 0.18, s * 0.16, s * 0.08); break;
+      case 'umbrella': ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.arc(0, 0, s * 0.5, Math.PI, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, s * 0.6); ctx.arc(s * 0.1, s * 0.6, s * 0.1, Math.PI, 0, true); ctx.stroke(); break;
+      case 'chair': ctx.fillStyle = '#f8fafc'; ctx.fillRect(-s * 0.3, 0, s * 0.6, s * 0.08); ctx.fillRect(-s * 0.3, -s * 0.5, s * 0.08, s * 0.5); ctx.fillRect(-s * 0.3, 0, s * 0.06, s * 0.4); ctx.fillRect(s * 0.24, 0, s * 0.06, s * 0.4); break;
+      default: ctx.fillStyle = '#facc15'; ctx.fillRect(-s * 0.35, -s * 0.25, s * 0.7, s * 0.5); ctx.fillStyle = '#1f2937'; ctx.font = font(900, s * 0.18); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('PARE', 0, 0);
+    }
+    ctx.restore();
+  }
+  // Una sombra de tormenta que viene del costado.
+  const edge = ctx.createLinearGradient(dir > 0 ? 0 : v.w, 0, dir > 0 ? v.w * 0.6 : v.w * 0.4, 0);
+  edge.addColorStop(0, `rgba(15,23,42,${0.5 * power})`); edge.addColorStop(1, 'rgba(15,23,42,0)');
+  ctx.fillStyle = edge; ctx.fillRect(0, 0, v.w, v.h);
+  void end;
+}
+
 function drawRain(ctx: CanvasRenderingContext2D, v: View) {
-  const wind = windAt(v.t), slant = 0.35 + wind * 0.8;
+  const wind = windAt(v.t) + scene.gale * 3, slant = 0.35 + wind * 0.8;
   ctx.strokeStyle = 'rgba(203,213,225,0.35)'; ctx.lineWidth = 1;
   ctx.beginPath();
   for (let i = 0; i < 140; i++) {
@@ -661,6 +667,9 @@ function drawRain(ctx: CanvasRenderingContext2D, v: View) {
 
 function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
   const flash = lightning(v.t);
+  scene.gale = g.dying ? 0 : galeAt(g);
+  ctx.save();
+  if (scene.gale) ctx.translate((Math.random() - 0.5) * 9 * Math.abs(scene.gale), (Math.random() - 0.5) * 6 * Math.abs(scene.gale)); // tiembla todo
   drawSky(ctx, v, flash);
   drawSkyline(ctx, v, flash.a);
   drawBolt(ctx, v, flash);
@@ -692,6 +701,8 @@ function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
     }
   }
   drawRain(ctx, v);
+  drawGale(ctx, g, v);
+  ctx.restore();
   if (flash.a > 0.05) { ctx.fillStyle = `rgba(220,230,255,${flash.a * 0.25})`; ctx.fillRect(0, 0, v.w, v.h); }
   // Borde rojo si un tiburón te está por saltar o si queda poco tiempo.
   const danger = g.sharks.some(k => k.target === PLAYER_TARGET && (k.state === 'warn' || k.state === 'chase'));
@@ -804,6 +815,8 @@ export function SharkCity() {
         if (e.type === 'more') setToast({ text: `¡Ya hay ${e.count} tiburones! 🦈`, id: now });
         if (e.type === 'wind') setToast({ text: e.dir > 0 ? '¡Ráfaga de viento! 💨 →' : '← 💨 ¡Ráfaga de viento!', id: now });
         if (e.type === 'hurry') setToast({ text: e.left === 60 ? '¡Queda 1 minuto!' : '¡Quedan 30 segundos!', id: now, big: true });
+        if (e.type === 'galeWarn') setToast({ text: `⚠️ ¡Se viene un SÚPER VIENTO ${e.dir > 0 ? '→' : '←'}! ¡Metete en un edificio!`, id: now, big: true });
+        if (e.type === 'gale') setToast({ text: e.dir > 0 ? '🌪️ ¡SÚPER VIENTO! →→→' : '←←← ¡SÚPER VIENTO! 🌪️', id: now, big: true });
         if (e.type === 'enter' && !enterToldRef.current) { enterToldRef.current = true; setToast({ text: '¡Entraste a un departamento! Acá los tiburones no te ven 🏠 (por la escalera llegás a la terraza)', id: now }); }
         if (e.type === 'zip' && !zipToldRef.current) { zipToldRef.current = true; setToast({ text: '¡Tirolesa! Con ↓ te soltás 🪢', id: now }); }
         if (e.type === 'lose') setToast({ text: LOSE_TEXT[e.reason], id: now });
@@ -885,7 +898,7 @@ export function SharkCity() {
           <div>
             {status === 'ready' && <>
               <h2 id="tib-message" className="tib-title">Ciudad Tiburón 🦈</h2>
-              <p>La ciudad se inundó, hay tormenta y el agua está llena de tiburones. Sos bombero: rescatá a <strong>{GOAL}</strong> perritos, gatos y personas que flotan en el agua en menos de <strong>5 minutos</strong>. Para agarrarlos tenés que bajar cerca del agua: mirá las aletas, porque cuando un tiburón se frena y salen burbujas, ¡salta! Moverte por techos, balcones, escaleras, cables, toldos, autos tapados por el agua y todo lo que arrastra la corriente. El agua pasa por delante de los edificios y los tiburones nadan por toda la ciudad: si caés al agua, salí rápido. Por las puertas de los balcones y de las escaleras de incendio podés entrar a los departamentos: adentro los tiburones no te ven. Lo que flota se lo lleva el viento y al rato se hunde. El viento sopla para un lado y para el otro y te empuja. Con el tiempo llegan más tiburones.</p>
+              <p>La ciudad se inundó, hay tormenta y el agua está llena de tiburones. Sos bombero: rescatá a <strong>{GOAL}</strong> perritos, gatos y personas que flotan en el agua en menos de <strong>5 minutos</strong>. Para agarrarlos tenés que bajar cerca del agua: mirá las aletas, porque cuando un tiburón se frena y salen burbujas, ¡salta! Moverte por techos, balcones, escaleras, cables, toldos, autos tapados por el agua y todo lo que arrastra la corriente. El agua pasa por delante de los edificios y los tiburones nadan por toda la ciudad: si caés al agua, salí rápido. Por las puertas de los balcones y de las escaleras de incendio podés entrar a los departamentos: adentro los tiburones no te ven. Lo que flota se lo lleva el viento y al rato se hunde. El viento sopla para un lado y para el otro y te empuja, y de la nada viene un súper viento que te revolea lejísimos: metete en un edificio. Con el tiempo llegan más tiburones.</p>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> trepar escaleras, sogas, caños, postes y tirolesas (o saltar) · <kbd>↓</kbd> bajar · <kbd>Espacio</kbd> saltar · <kbd>P</kbd> pausa</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}

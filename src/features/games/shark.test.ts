@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BLOCKS, buildCity, FLOAT_Y, GOAL, newShark, PLAYER_TARGET, REACH, rescueX, SHARKS, sharksAt, step, takeEvents, TIME_LIMIT, WATER_Y, windAt, WIND_CALM, WIND_TURN, sharkMouth,
+  BLOCKS, buildCity, FLOAT_Y, GOAL, newShark, PLAYER_TARGET, REACH, rescueX, SHARKS, sharksAt, step, takeEvents, TIME_LIMIT, WATER_Y, windAt, WIND_CALM, WIND_TURN, sharkMouth, GALE_TIME,
   type Input, type Lane, type Plat, type SharkGame,
 } from './shark';
 
@@ -379,6 +379,47 @@ describe('Ciudad Tiburón: el juego', () => {
     run(g, 0.05);
     expect(g.player.y).toBeGreaterThan(y0);
     expect(g.player.y).toBeLessThan(z.y1 - 1.05);
+  });
+
+  it('de la nada sopla un súper viento (avisa antes) que revolea al bombero muy lejos', () => {
+    const g = calm();
+    g.windPower = 1;
+    const roof = g.plats.find(p => p.kind === 'roof' && p.w > 7)!;
+    stand(g, roof);
+    const x0 = g.player.x;
+    g.gale = { warnAt: g.time + 0.1, start: g.time + 0.3, end: g.time + 0.3 + GALE_TIME, dir: 1, told: 0 };
+    runAlone(g, 0.2);
+    expect(takeEvents(g).some(e => e.type === 'galeWarn')).toBe(true);
+    runAlone(g, 1.6);
+    expect(takeEvents(g).some(e => e.type === 'gale' && e.dir === 1)).toBe(true);
+    expect(g.player.x - x0).toBeGreaterThan(10);
+    // Después se programa otro.
+    runAlone(g, 2);
+    expect(g.gale.start).toBeGreaterThan(g.time + 20);
+  });
+
+  it('adentro de un departamento el súper viento no te hace nada', () => {
+    const g = calm();
+    g.windPower = 1;
+    const b = g.blocks.find(b => b.kind === 'building' && b.id > 0)!;
+    const floor = g.plats.find(p => p.kind === 'floor' && p.room === b.id)!;
+    stand(g, floor, (b.x1 + b.x2) / 2 + 1);
+    g.player.inside = b.id;
+    const x0 = g.player.x;
+    g.gale = { warnAt: g.time, start: g.time, end: g.time + GALE_TIME, dir: 1, told: 1 };
+    runAlone(g, 1);
+    expect(Math.abs(g.player.x - x0)).toBeLessThan(0.01);
+  });
+
+  it('los tiburones van enseguida por los perros, gatos y personas que flotan cerca', () => {
+    const { g, lane } = withShark('blanco');
+    g.sharks[0].hunger = 1;
+    Object.assign(g.player, { y: 40 }); g.player.ground = null;
+    const plat = { id: 999, kind: 'float' as const, x: lane.pole, y: FLOAT_Y, w: 0.9, dx: 0, hue: 0 };
+    g.plats.push(plat);
+    g.rescues.push({ id: 1, kind: 'persona', float: 'goma', look: 0, state: 'drift', at: 0, fromX: 0, fromY: 0, plat, lane: lane.id, speed: 0, dir: 1, min: lane.pole, max: lane.pole });
+    for (let i = 0; i < 60 * 6 && !g.rescues.some(r => r.id === 1 && r.state === 'taken'); i++) { g.player.y = 40; g.player.vy = 0; step(g, idle, 1 / 60); }
+    expect(g.rescues.some(r => r.id === 1 && r.state === 'taken')).toBe(true);
   });
 
   it('el que flota se mueve con la corriente sin salirse de su calle', () => {

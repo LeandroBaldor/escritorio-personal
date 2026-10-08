@@ -35,7 +35,7 @@ export const WIND_TURN = 7, WIND_CALM = 1.5; // cada 7 s cambia de lado; al camb
 export const WIND_DRIFT = 0.7; // lo que el viento empuja a las cosas que flotan
 const SHARK_G = 24; // la gravedad del salto del tiburón (un poco más lento que el personaje, para verlo)
 const SHARK_REST = 2.4; // después de saltar descansa
-export const SHARK_LEN = 2.8; // lo que mide de largo un tiburón de tamaño 1
+export const SHARK_LEN = 3.5; // lo que mide de largo un tiburón de tamaño 1
 // La imagen del tiburón mide de alto casi la mitad de su largo (con las aletas). Nada con la aleta de arriba
 // asomando del agua: el centro del cuerpo queda a esta altura (y desde acá salta).
 export const SPRITE_H = 0.48, FIN_OUT = 0.13;
@@ -73,11 +73,14 @@ export interface Plat { id: number; kind: PlatKind; x: number; y: number; w: num
 export interface Climb { id: number; x: number; y1: number; y2: number; skin: 'ladder' | 'rope' | 'pipe' | 'pole' | 'stairs'; room?: number }
 export interface Zip { id: number; x1: number; y1: number; x2: number; y2: number } // (x1, y1) es la punta alta
 export interface Wall { x: number; y2: number }
-export type DebrisKind = 'plank' | 'door' | 'mattress' | 'pallet' | 'fridge' | 'barrel' | 'log' | 'sofa' | 'crate' | 'boat';
+export type DebrisKind = 'plank' | 'door' | 'mattress' | 'pallet' | 'fridge' | 'barrel' | 'log' | 'sofa' | 'crate' | 'boat' | 'car';
 export interface Mover { plat: Plat; lane: number; speed: number; dir: 1 | -1; min: number; max: number }
 // `life`: lo que falta para que se empiece a hundir; `sinking`: se está hundiendo (después vuelve a aparecer).
 export interface Debris extends Mover { kind: DebrisKind; life: number; sinking: boolean }
 export type Decor = { kind: 'light' | 'pare' | 'subte' | 'buzon' | 'tree' | 'palm'; x: number; lane: number };
+// El súper viento: de la nada, cada tanto (avisa un poco antes), sopla tan fuerte que revolea al bombero.
+export interface Gale { warnAt: number; start: number; end: number; dir: 1 | -1; told: number }
+export const GALE_WARN = 1.8, GALE_TIME = 1.6, GALE_FLING = 17;
 // Efectos para dibujar: salpicaduras (cuando salta o cae un tiburón, o caés al agua) y sangre.
 export interface Fx { kind: 'splash' | 'blood'; x: number; y: number; at: number; size: number }
 
@@ -92,7 +95,7 @@ export interface Shark {
 export const PLAYER_TARGET = -1;
 
 // `inside`: el edificio donde estás adentro (en un departamento). `zipT` y `zipFrom`: para colgarse de a poco.
-export interface Player { x: number; y: number; vx: number; vy: number; facing: 1 | -1; ground: Plat | null; climb: Climb | null; zip: Zip | null; swimming: boolean; climbCooldown: number; coyote: number; inside: number | null; zipT: number; zipFrom: number }
+export interface Player { x: number; y: number; vx: number; vy: number; facing: 1 | -1; ground: Plat | null; climb: Climb | null; zip: Zip | null; swimming: boolean; climbCooldown: number; coyote: number; inside: number | null; zipT: number; zipFrom: number; fling: number }
 export interface Input { left: boolean; right: boolean; jump: boolean; down: boolean; up: boolean }
 export type LoseReason = 'shark' | 'time';
 export type SharkEvent =
@@ -100,6 +103,7 @@ export type SharkEvent =
   | { type: 'saved'; kind: RescueKind; count: number } | { type: 'taken'; kind: RescueKind }
   | { type: 'sharkJump' } | { type: 'more'; count: number } | { type: 'newType'; shark: SharkType }
   | { type: 'wind'; dir: 1 | -1 } | { type: 'hurry'; left: number } | { type: 'enter' }
+  | { type: 'galeWarn'; dir: 1 | -1 } | { type: 'gale'; dir: 1 | -1 }
   | { type: 'lose'; reason: LoseReason } | { type: 'gameover' } | { type: 'win' };
 
 export interface City { width: number; blocks: Block[]; lanes: Lane[]; plats: Plat[]; climbs: Climb[]; zips: Zip[]; walls: Wall[]; debris: Debris[]; decor: Decor[]; startX: number; startY: number }
@@ -107,6 +111,7 @@ export interface SharkGame extends City {
   time: number; saved: number; savedKinds: RescueKind[]; rescues: Rescue[]; sharks: Shark[]; player: Player;
   dying: { t: number; reason: LoseReason; shark: number } | null; over: boolean; won: boolean; events: SharkEvent[];
   rand: () => number; nextId: number; seen: Set<SharkType>; hurried: number; gust: number; windPower: number; fx: Fx[];
+  gale: Gale;
 }
 
 function rng(seed: number) {
@@ -133,6 +138,7 @@ const OBJECTS: { kind: PlatKind; w: number; y: number }[] = [
 const DEBRIS: { kind: DebrisKind; w: number }[] = [
   { kind: 'plank', w: 1.7 }, { kind: 'door', w: 1.3 }, { kind: 'mattress', w: 1.8 }, { kind: 'pallet', w: 1.3 }, { kind: 'fridge', w: 1 },
   { kind: 'barrel', w: 0.8 }, { kind: 'log', w: 2.2 }, { kind: 'sofa', w: 1.9 }, { kind: 'crate', w: 1 }, { kind: 'boat', w: 2.1 },
+  { kind: 'car', w: 2.3 }, { kind: 'car', w: 2.3 }, // autos que arrastra el agua
 ];
 const STYLES: BuildingStyle[] = ['concrete', 'brick', 'glass', 'classic', 'deco'];
 export const DEBRIS_LIFE = 22; // flota un rato (de 22 a 52 segundos) y después se hunde
@@ -261,11 +267,12 @@ export function newShark(seed?: number): SharkGame {
   const rand = rng(seed ?? Math.floor(Math.random() * 2 ** 31));
   const g: SharkGame = {
     ...city, time: 0, saved: 0, savedKinds: [], rescues: [], sharks: [], dying: null, over: false, won: false, events: [],
-    rand, nextId: 10000, seen: new Set(), hurried: 0, gust: 0, windPower: 1, fx: [],
-    player: { x: city.startX, y: city.startY, vx: 0, vy: 0, facing: 1, ground: city.plats.find(p => p.kind === 'roof' && p.y === city.startY && p.x < city.startX && p.x + p.w > city.startX) ?? null, climb: null, zip: null, swimming: false, climbCooldown: 0, coyote: 0, inside: null, zipT: 0, zipFrom: 0 },
+    rand, nextId: 10000, seen: new Set(), hurried: 0, gust: 0, windPower: 1, fx: [], gale: { warnAt: 0, start: 0, end: 0, dir: 1, told: 0 },
+    player: { x: city.startX, y: city.startY, vx: 0, vy: 0, facing: 1, ground: city.plats.find(p => p.kind === 'roof' && p.y === city.startY && p.x < city.startX && p.x + p.w > city.startX) ?? null, climb: null, zip: null, swimming: false, climbCooldown: 0, coyote: 0, inside: null, zipT: 0, zipFrom: 0, fling: 0 },
   };
   for (const type of ['blanco', 'blanco', 'martillo', 'martillo', 'blanco', 'martillo', 'blanco'] as const) addShark(g, type);
   for (let i = 0; i < ACTIVE_RESCUES; i++) addRescue(g);
+  scheduleGale(g, 22 + rand() * 18);
   return g;
 }
 
@@ -281,7 +288,7 @@ function addShark(g: SharkGame, type: SharkType) {
   const lane = pick(g.rand, pool.filter(l => g.sharks.filter(s => s.lane === l.id).length === fewest));
   g.sharks.push({
     id: g.nextId++, type, lane: lane.id, x: lane.x1 + 1 + g.rand() * (lane.x2 - lane.x1 - 2), dir: g.rand() < 0.5 ? -1 : 1,
-    state: 'patrol', t: 0, y: -(SPRITE_H / 2 - FIN_OUT) * SHARK_LEN * SHARKS[type].size, vy: 0, vx: 0, target: 0, hunger: 6 + g.rand() * 10, rest: 0, turn: 2 + g.rand() * 3, born: g.time,
+    state: 'patrol', t: 0, y: -(SPRITE_H / 2 - FIN_OUT) * SHARK_LEN * SHARKS[type].size, vy: 0, vx: 0, target: 0, hunger: 1 + g.rand() * 3, rest: 0, turn: 2 + g.rand() * 3, born: g.time,
   });
   if (!g.seen.has(type)) { g.seen.add(type); if (g.time > 0) g.events.push({ type: 'newType', shark: type }); }
 }
@@ -351,6 +358,16 @@ function grabClimb(p: Player, c: Climb) { p.climb = c; p.x = c.x; p.vx = 0; p.vy
 export const ZIP_GRAB = 0.22;
 function grabZip(g: SharkGame, p: Player, z: Zip) { p.zip = z; p.zipT = 0; p.zipFrom = p.y; p.vx = 0; p.vy = 0; p.ground = null; p.climb = null; g.events.push({ type: 'zip' }); }
 
+function scheduleGale(g: SharkGame, at: number) {
+  g.gale = { warnAt: at - GALE_WARN, start: at, end: at + GALE_TIME, dir: g.rand() < 0.5 ? -1 : 1, told: 0 };
+}
+// Cuánto sopla el súper viento ahora (de -1 a 1; 0 si no sopla).
+export function galeAt(g: SharkGame, t = g.time) {
+  const { start, end, dir } = g.gale;
+  if (t < start || t > end) return 0;
+  return dir * Math.min(1, (t - start) / 0.2, (end - t) / 0.3) * g.windPower;
+}
+
 const addFx = (g: SharkGame, kind: Fx['kind'], x: number, size: number, y = 0) => { g.fx.push({ kind, x, y, at: g.time + (g.dying?.t ?? 0), size }); };
 
 function lose(g: SharkGame, reason: LoseReason, shark = -1) {
@@ -385,8 +402,8 @@ export function step(g: SharkGame, input: Input, dt: number) {
       // Mientras cierra la boca el bombero queda metido entre las mandíbulas; después va adentro.
       const m = sharkMouth(s), k = g.dying.t < CHOMP ? Math.min(1, dt * 16) : 1;
       p.x += (m.x - p.x) * k; p.y += (m.y - PLAYER_H * 0.5 - p.y) * k; p.swimming = false;
-      if (before < CHOMP && g.dying.t >= CHOMP) addFx(g, 'blood', m.x, 1.6, m.y); // cierra la boca
-      if (wasUp && s.y <= 0) { g.events.push({ type: 'splash' }); addFx(g, 'splash', s.x, sharkLen(s) * 0.5); addFx(g, 'blood', s.x, 2.2); }
+      if (before < CHOMP && g.dying.t >= CHOMP) { addFx(g, 'blood', m.x, 3, m.y); addFx(g, 'blood', m.x, 2.4, Math.max(0, m.y - 0.6)); } // cierra la boca
+      if (wasUp && s.y <= 0) { g.events.push({ type: 'splash' }); addFx(g, 'splash', s.x, sharkLen(s) * 0.5); addFx(g, 'blood', s.x, 3.5); }
     }
     if (g.dying.t > DIE_T) { g.over = true; g.events.push({ type: 'gameover' }); }
     return;
@@ -399,7 +416,7 @@ export function step(g: SharkGame, input: Input, dt: number) {
   else if (left <= 30 && g.hurried === 60) { g.hurried = 30; g.events.push({ type: 'hurry', left: 30 }); }
 
   // La corriente y el viento mueven las cosas que flotan (y lo que tienen arriba).
-  const drift = windAt(t) * g.windPower * WIND_DRIFT;
+  const drift = (windAt(t) * g.windPower + galeAt(g, t) * 4) * WIND_DRIFT;
   const movers: Mover[] = [...g.debris, ...g.rescues.filter(r => r.state === 'drift')];
   for (const m of movers) {
     let nx = m.plat.x + (m.dir * m.speed + drift) * dt;
@@ -416,7 +433,11 @@ export function step(g: SharkGame, input: Input, dt: number) {
       d.plat.x = d.min + g.rand() * (d.max - d.min);
     }
   }
-  g.fx = g.fx.filter(f => t - f.at < 6);
+  g.fx = g.fx.filter(f => t - f.at < 10);
+  // El súper viento: avisa, sopla y se programa el próximo.
+  if (g.gale.told === 0 && t >= g.gale.warnAt) { g.gale.told = 1; g.events.push({ type: 'galeWarn', dir: g.gale.dir }); }
+  if (g.gale.told === 1 && t >= g.gale.start) { g.gale.told = 2; g.events.push({ type: 'gale', dir: g.gale.dir }); }
+  if (t > g.gale.end + 1) scheduleGale(g, t + 30 + g.rand() * 30);
 
   movePlayer(g, input, dt, t);
   rescue(g);
@@ -444,6 +465,14 @@ function movePlayer(g: SharkGame, input: Input, dt: number, t: number) {
   if (dir) p.facing = dir > 0 ? 1 : -1;
   p.climbCooldown = Math.max(0, p.climbCooldown - dt);
   const wind = p.inside === null ? windAt(t) * g.windPower : 0; // adentro no hay viento
+  // El súper viento te arranca de donde estés (escalera, tirolesa, techo) y te revolea por el aire.
+  const gale = p.inside === null ? galeAt(g, t) : 0;
+  if (gale && !p.swimming) {
+    if (p.climb || p.zip || p.ground) { p.climb = null; p.zip = null; p.ground = null; p.vy = Math.max(p.vy, 8); p.climbCooldown = 0.6; }
+    p.fling = gale * GALE_FLING;
+  } else if (gale) p.fling = gale * GALE_FLING * 0.25;
+  p.fling *= Math.exp(-(p.ground || p.swimming ? 7 : 0.5) * dt);
+  if (Math.abs(p.fling) < 0.05) p.fling = 0;
 
   // Colgado de la tirolesa: baja solo hasta la otra punta (con ↓ te soltás antes).
   if (p.zip) {
@@ -476,7 +505,7 @@ function movePlayer(g: SharkGame, input: Input, dt: number, t: number) {
   // Nadando: despacio, se sale saltando o agarrándose de una escalera, soga o poste.
   if (p.swimming) {
     p.vx = dir * SWIM;
-    p.x = moveX(g, p, p.x + (p.vx + wind * WIND * 0.5) * dt);
+    p.x = moveX(g, p, p.x + (p.vx + wind * WIND * 0.5 + p.fling) * dt);
     p.y = WATER_Y;
     if (input.up && !p.climbCooldown) {
       const c = g.climbs.find(c => canUse(g, p, c) && Math.abs(p.x - c.x) < 0.5 && c.y1 <= p.y + 0.3 && c.y2 > p.y + 0.6);
@@ -488,7 +517,7 @@ function movePlayer(g: SharkGame, input: Input, dt: number, t: number) {
 
   p.vx = dir * RUN;
   const ride = p.ground?.dx ?? 0;
-  p.x = moveX(g, p, p.x + (p.vx + wind * (p.ground ? WIND : WIND_AIR)) * dt + ride);
+  p.x = moveX(g, p, p.x + (p.vx + wind * (p.ground ? WIND : WIND_AIR) + p.fling) * dt + ride);
   if (p.ground) p.y = p.ground.y;
   if (p.ground && p.ground.y < WATER_Y + 0.15) { p.ground = null; p.y = WATER_Y; p.vy = 0; p.swimming = true; g.events.push({ type: 'splash' }); addFx(g, 'splash', p.x, 0.7); } // se hundió lo que tenías abajo
   if (p.ground && !overlapsX(p, p.ground)) { p.ground = null; p.coyote = 0.1; p.vy = 0; }
@@ -584,7 +613,7 @@ function sharks(g: SharkGame, dt: number) {
       if (!g.dying && p.inside === null && p.x + PLAYER_W / 2 > box.x1 && p.x - PLAYER_W / 2 < box.x2 && p.y < box.y2 && p.y + PLAYER_H > box.y1) { s.state = 'bite'; lose(g, 'shark', s.id); return; }
       for (const r of g.rescues) {
         if (r.state !== 'drift') continue;
-        if (Math.abs(rescueX(r) - s.x) < 0.3 * L && box.y2 > FLOAT_Y) { r.state = 'taken'; r.at = g.time; r.fromX = rescueX(r); r.fromY = FLOAT_Y; removePlat(g, r.plat); g.events.push({ type: 'taken', kind: r.kind }); addFx(g, 'blood', r.fromX, r.kind === 'persona' ? 1.7 : 1.2, FLOAT_Y + 0.3); }
+        if (Math.abs(rescueX(r) - s.x) < 0.3 * L && box.y2 > FLOAT_Y) { r.state = 'taken'; r.at = g.time; r.fromX = rescueX(r); r.fromY = FLOAT_Y; removePlat(g, r.plat); g.events.push({ type: 'taken', kind: r.kind }); addFx(g, 'blood', r.fromX, r.kind === 'persona' ? 2.6 : 2, FLOAT_Y + 0.3); }
       }
       if (s.y <= swimY(s) && s.vy < 0) { s.y = swimY(s); s.vy = 0; s.state = 'patrol'; s.rest = SHARK_REST; s.target = 0; g.events.push({ type: 'splash' }); addFx(g, 'splash', s.x, L * 0.5); }
       continue;
@@ -613,7 +642,9 @@ function sharks(g: SharkGame, dt: number) {
     if (s.state === 'patrol' && !s.rest) {
       if (exposed(g, s, spec.reach)) { s.state = 'approach'; s.target = PLAYER_TARGET; }
       else if (s.hunger <= 0) {
-        const r = g.rescues.find(r => r.state === 'drift' && Math.abs(rescueX(r) - s.x) < SIGHT + 2);
+        // Van por los que flotan cerca (el más cercano): no pasan de largo.
+        const near = g.rescues.filter(r => r.state === 'drift' && Math.abs(rescueX(r) - s.x) < SIGHT + 2 && !g.sharks.some(o => o !== s && o.target === r.id));
+        const r = near.sort((a, b) => Math.abs(rescueX(a) - s.x) - Math.abs(rescueX(b) - s.x))[0];
         if (r) { s.state = 'approach'; s.target = r.id; }
       }
     }
@@ -623,7 +654,7 @@ function sharks(g: SharkGame, dt: number) {
       if (chasingPlayer ? !exposed(g, s, spec.reach) : !food) { s.state = 'patrol'; s.target = 0; }
       else {
         const d = toward(food ? rescueX(food) : p.x, chasingPlayer ? spec.chase : spec.chase * 0.7);
-        if (d < 0.35) { s.state = 'warn'; s.t = spec.warn; if (!chasingPlayer) s.hunger = 10 + g.rand() * 12; }
+        if (d < 0.35) { s.state = 'warn'; s.t = spec.warn; if (!chasingPlayer) s.hunger = 1 + g.rand() * 2; }
         continue;
       }
     }
