@@ -147,7 +147,8 @@ function LavaArt() {
   </svg>;
 }
 
-// Portada de ¡Al cesto!: la oficina de Skynet con el T-800 sentado, con un humano en miniatura en la mano.
+// Portada de ¡Al cesto!: una imagen del juego, con el T-800 tirando un humano en miniatura al tacho, el
+// ventilador soplando y uno que cayó afuera.
 function PaperArt() {
   return <svg viewBox="0 0 160 100" aria-hidden="true">
     <image href={terminatorCover} x="0" y="0" width="160" height="100" preserveAspectRatio="xMidYMid slice" />
