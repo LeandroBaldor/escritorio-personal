@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  launch, newPaper, ORIGIN, preview, QUARTER, quarterLeft, spotOf, STEPS, step, stepValue, takeEvents, throwBall, TOP, W,
+  inFlight, launch, newPaper, ORIGIN, preview, QUARTER, quarterLeft, spotOf, STEPS, step, stepValue, takeEvents, throwBall, TOP, W,
   type PaperGame,
 } from './paperBall';
 import {
@@ -36,20 +36,6 @@ function drawAim(ctx: CanvasRenderingContext2D, v: View, aim: Aim) {
   ctx.strokeStyle = `hsl(${120 - power * 120},90%,52%)`; ctx.lineWidth = s * 0.08; ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI * 0.75, Math.PI * (0.75 + 1.5 * power)); ctx.stroke();
 }
 
-// La mira del T-800 sobre el tacho: dice cuánto vale el tiro.
-function drawTarget(ctx: CanvasRenderingContext2D, v: View, g: PaperGame) {
-  const b = g.bin, s = v.s, x = X(v, b.x), y = Y(v, b.y + b.h + 0.75 + Math.sin(g.time * 4) * 0.05);
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,40,40,0.85)'; ctx.lineWidth = Math.max(1, s * 0.02);
-  ctx.beginPath(); ctx.moveTo(x, y + s * 0.22); ctx.lineTo(x, Y(v, b.y + b.h + 0.18)); ctx.stroke();
-  ctx.font = `800 ${Math.round(s * 0.24)}px "Courier New", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const text = `TIRO ${g.step + 1}/${STEPS} · ${stepValue(g.step)} PTS`, w = ctx.measureText(text).width + s * 0.3;
-  ctx.fillStyle = 'rgba(10,0,0,0.75)'; ctx.fillRect(x - w / 2, y - s * 0.2, w, s * 0.4);
-  ctx.strokeRect(x - w / 2, y - s * 0.2, w, s * 0.4);
-  ctx.fillStyle = '#ff4d4d'; ctx.fillText(text, x, y + 1);
-  ctx.restore();
-}
-
 function draw(ctx: CanvasRenderingContext2D, g: PaperGame, v: View, aim: Aim | null, pops: Pop[], gore: Gore) {
   ctx.save();
   if (gore.shake > 0) ctx.translate((Math.random() - 0.5) * gore.shake * v.s * 0.2, (Math.random() - 0.5) * gore.shake * v.s * 0.2);
@@ -64,13 +50,12 @@ function draw(ctx: CanvasRenderingContext2D, g: PaperGame, v: View, aim: Aim | n
   drawBinFront(ctx, v, g.bin);
   for (const k of g.balls) if (k.state === 'out' && k.done) drawBall(ctx, v, k, g.time);
   const throwing = g.time - g.thrown < THROW_POSE;
-  if (!throwing && !g.over) drawHeld(ctx, v, g.nextId, g.time); // atrás del puño, así queda agarrado
+  if (!throwing && !inFlight(g) && !g.over) drawHeld(ctx, v, g.nextId, g.time); // atrás del puño, así queda agarrado
   drawRobot(ctx, v, throwing);
   drawEyes(ctx, v, throwing, (Math.sin(g.time * 3) + 1) / 2);
   for (const k of g.balls) if (k.state === 'fly' || (k.state === 'out' && !k.done)) drawBall(ctx, v, k, g.time);
   drawDrops(ctx, v, gore.drops);
   drawVignette(ctx, v);
-  if (g.pause <= 0 && !g.over) drawTarget(ctx, v, g);
   if (aim) drawAim(ctx, v, aim);
   // Los cartelitos de puntos que suben.
   for (const p of pops) {
@@ -154,7 +139,7 @@ export function PaperBall() {
       last = now;
       step(g, dt);
       for (const e of takeEvents(g)) {
-        if (e.type === 'score') popsRef.current.push({ text: `+${e.points}`, x: e.x, y: e.y + 0.5, at: g.time, color: '#4ade80' });
+        if (e.type === 'score') popsRef.current.push({ text: `${e.points} PTS`, x: e.x, y: e.y + 0.6, at: g.time, color: '#ff4d4d' });
         if (e.type === 'splat') {
           burst(gore.drops, e.x, e.y, e.vx, e.vy, e.surface, e.hard, Math.random);
           const r = 0.35 + e.hard * 0.45;
@@ -163,8 +148,7 @@ export function PaperBall() {
           popsRef.current.push({ text: '¡Splat!', x: e.x, y: Math.max(0.6, e.y) + 0.4, at: g.time, color: '#ef4444' });
         }
         if (e.type === 'round') {
-          popsRef.current.push({ text: `¡Ronda! +${e.bonus} por velocidad`, x: g.bin.x, y: 3.2, at: g.time, color: '#fde047' });
-          setToast({ text: `¡Ronda ${e.round} completa en ${Math.round(e.seconds)} s! +${e.bonus} puntos por velocidad ⚡`, id: now });
+          setToast({ text: `¡Ciclo ${e.round} completo en ${Math.round(e.seconds)} s! Embocaste ${e.made} de 9: +${e.bonus} por velocidad ⚡`, id: now });
         }
         if (e.type === 'fan') setToast({ text: e.dir > 0 ? 'Se prende el ventilador: sopla para la derecha →' : 'El ventilador se pasa a la derecha: sopla para la izquierda ←', id: now });
         if (e.type === 'quarter') setToast({ text: `¡Fin del ${e.quarter}° cuarto! Arranca el ${e.quarter + 1}°: el ventilador sopla más fuerte 💨`, id: now });
@@ -242,8 +226,8 @@ export function PaperBall() {
             {status === 'ready' && <>
               <h2 id="bol-message">¡Al cesto! 🤖</h2>
               <p>Sos el <strong>T-800</strong> en la oficina de Skynet y los humanos en miniatura van al tacho. Hacé <strong>clic</strong>, tirá para atrás como una gomera y <strong>soltá</strong>.</p>
-              <p>Cada ronda son <strong>9 tiros</strong>: el tacho aparece cerca, a media distancia y lejos; después lo mismo con el <strong>ventilador</strong> soplando para la derecha, y después soplando para la izquierda. Hay que embocar para pasar al siguiente: el 1° vale <strong>1 punto</strong>, el 2° <strong>2</strong>… y el 9° <strong>9</strong>. Si terminás la ronda rápido, sumás <strong>puntos por velocidad</strong>.</p>
-              <p>Son <strong>4 cuartos de 2 minutos</strong>, como en el básquet.</p>
+              <p>No hay límite de tiros, solo el tiempo. Cada tiro es una posición y se pasa a la siguiente, cada vez más difícil: el tacho <strong>cerca</strong>, a <strong>media distancia</strong> y <strong>lejos</strong>; después lo mismo con el <strong>ventilador</strong> soplando para la derecha, y después soplando para la izquierda. Al terminar las 9 vuelve a empezar el ciclo.</p>
+              <p>Embocar en la 1ª posición vale <strong>1 punto</strong>, en la 2ª <strong>2</strong>… y en la 9ª <strong>9</strong>. Si hacés el ciclo rápido sumás <strong>puntos por velocidad</strong>. Son <strong>4 cuartos de 2 minutos</strong>, como en el básquet.</p>
               <p className="runner-keys">Solo con el mouse · <kbd>P</kbd> pausa</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}
@@ -253,19 +237,19 @@ export function PaperBall() {
             </>}
             {status === 'over' && <>
               <h2 id="bol-message">¡Final del partido! ⏰</h2>
-              <p>Hiciste <strong>{result.score}</strong> puntos: embocaste {result.made} de {result.shots} humanos, completaste {result.rounds} {result.rounds === 1 ? 'ronda' : 'rondas'} y sumaste {result.bonus} por velocidad.{result.newRecord && ' ¡Nuevo récord!'}</p>
+              <p>Hiciste <strong>{result.score}</strong> puntos: embocaste {result.made} de {result.shots} humanos, completaste {result.rounds} {result.rounds === 1 ? 'ciclo' : 'ciclos'} y sumaste {result.bonus} por velocidad.{result.newRecord && ' ¡Nuevo récord!'}</p>
               <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
             </>}
           </div>
         </div>}
       </div>
       <aside className="bol-side" aria-label="Cuarto, tiempo, puntos, tiro, ventilador y récord">
-        <div className="bol-stat"><span>Cuarto</span><strong data-testid="bol-quarter">{hud.quarter + 1}° de 4</strong></div>
+        <div className="bol-stat"><span>Cuarto</span><strong data-testid="bol-quarter">{hud.quarter + 1}/4°</strong></div>
         <div className={`bol-stat${hud.left <= 10 && !hud.pause ? ' bol-hurry' : ''}`}><span>{hud.pause ? 'Descanso' : 'Tiempo'}</span><strong data-testid="bol-time">{clock(hud.left)}</strong></div>
         <div className="bol-stat bol-stat--points"><span>Puntos</span><strong data-testid="bol-points">{hud.score}</strong></div>
-        <div className="bol-stat bol-stat--small"><span>Tiro {hud.step + 1} de {STEPS}</span><strong data-testid="bol-step">Vale {stepValue(hud.step)} · {DISTANCE[spotOf(hud.step)]}</strong></div>
+        <div className="bol-stat bol-stat--small"><span>Posición {hud.step + 1} de {STEPS}</span><strong data-testid="bol-step">Vale {stepValue(hud.step)} · {DISTANCE[spotOf(hud.step)]}</strong></div>
         <div className="bol-stat bol-stat--small"><span>Ventilador</span><strong data-testid="bol-fan">{fanText}</strong></div>
-        <div className="bol-stat bol-stat--small"><span>Rondas · Récord</span><strong>{hud.round} · {record}</strong></div>
+        <div className="bol-stat bol-stat--small"><span>Ciclos · Récord</span><strong>{hud.round} · {record}</strong></div>
       </aside>
     </div>
   </section>;

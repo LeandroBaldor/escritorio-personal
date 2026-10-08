@@ -56,7 +56,7 @@ describe('¡Al cesto!', () => {
     expect(g.step).toBe(2);
   });
 
-  it('si cae afuera hay sangre, no suma y se repite el mismo tiro', () => {
+  it('si cae afuera hay sangre, no suma y se pasa igual a la posición siguiente', () => {
     const g = newPaper(3);
     throwBall(g, 2.5, 1);
     run(g, 3);
@@ -64,7 +64,26 @@ describe('¡Al cesto!', () => {
     expect(events.some(e => e.type === 'splat' && e.surface === 'floor')).toBe(true);
     expect(events.some(e => e.type === 'miss')).toBe(true);
     expect(g.score).toBe(0);
-    expect(g.step).toBe(0);
+    expect(g.step).toBe(1);
+    expect(g.shots).toBe(1);
+  });
+
+  it('no hay límite de tiros: después de la 9ª posición vuelve a empezar el ciclo', () => {
+    const g = newPaper(10);
+    for (let i = 0; i < STEPS * 2 + 3; i++) { run(g, 0.7); expect(throwBall(g, 2.5, 1)).toBe(true); run(g, 2); }
+    expect(g.shots).toBe(STEPS * 2 + 3);
+    expect(g.round).toBe(2);
+    expect(g.step).toBe(3);
+    expect(g.score).toBe(0); // sin embocar no hay puntos por velocidad
+  });
+
+  it('un humano por vez: hasta que no cae no se puede tirar el siguiente', () => {
+    const g = newPaper(11);
+    expect(throwBall(g, 8, 9)).toBe(true);
+    run(g, 0.7);
+    expect(canThrow(g)).toBe(false);
+    run(g, 3);
+    expect(canThrow(g)).toBe(true);
   });
 
   it('contra la pared también salpica', () => {
@@ -95,7 +114,7 @@ describe('¡Al cesto!', () => {
     expect(windy.balls[0].x).toBeLessThan(calm.balls[0].x - 0.3);
   });
 
-  it('al completar los 9 tiros suma 45 más los puntos por velocidad y empieza otra ronda', () => {
+  it('al completar el ciclo embocando los 9 suma 45 más los puntos por velocidad y vuelve a empezar', () => {
     const g = newPaper(7);
     for (let i = 0; i < STEPS; i++) sink(g);
     const round = takeEvents(g).find(e => e.type === 'round');
@@ -111,10 +130,10 @@ describe('¡Al cesto!', () => {
 
   it('hay que esperar un ratito entre tiro y tiro', () => {
     const g = newPaper(8);
-    expect(throwBall(g, 8, 6)).toBe(true);
+    expect(throwBall(g, 2.5, 1)).toBe(true);
     expect(canThrow(g)).toBe(false);
-    expect(throwBall(g, 8, 6)).toBe(false);
-    run(g, 0.7);
+    expect(throwBall(g, 2.5, 1)).toBe(false);
+    run(g, 1);
     expect(canThrow(g)).toBe(true);
   });
 
