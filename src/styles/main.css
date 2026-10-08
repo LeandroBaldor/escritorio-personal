@@ -1106,22 +1106,24 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 }
 
 /* ¡Al cesto!: básquet con bollos de papel en la oficina. */
-.bol{background:radial-gradient(ellipse at 50% 0,#475569 0,#0f172a 70%)}
-.bol .runner-back{color:#fde68a}
+.bol{background:radial-gradient(ellipse at 50% 0,#3b0a0e 0,#09070c 70%)}
+.bol .runner-back{color:#ff6b6b}
+.bol h1{color:#fff;text-shadow:0 0 10px #ff2a2a}
 .bol-main{flex:1;min-height:0;display:flex;gap:.6rem}
 .bol .runner-stage{flex:1;min-width:0;cursor:crosshair}
-.bol .runner-stage canvas{border-radius:10px;box-shadow:0 0 0 4px #7c5a3a,0 12px 30px #000a}
-.bol-side{flex:0 0 clamp(130px,13vw,180px);display:flex;flex-direction:column;justify-content:center;gap:.6rem;padding:.6rem;background:#1e293bcc;border:3px solid #7c5a3a;border-radius:12px}
-.bol-stat{display:flex;flex-direction:column;align-items:center;gap:.15rem;padding:.45rem .3rem;background:#334155;border-radius:8px;text-align:center}
-.bol-stat span{color:#e2e8f0;font-weight:800;text-transform:uppercase;font-size:.7rem;letter-spacing:.08em;line-height:1.15}
-.bol-stat strong{font:900 clamp(1.3rem,2.2vw,2rem)/1 Nunito,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#fff}
-.bol-stat--points strong{color:#4ade80}
-.bol-stat--fan strong{font-size:clamp(.9rem,1.4vw,1.2rem)}
-.bol-hurry strong{color:#f87171;animation:trepa-pop .5s ease-out infinite alternate}
-.bol .runner-bar button{background:#7c5a3a}
-.bol .runner-overlay>div{background:#334155;border-color:#7c5a3a}
-.bol .runner-overlay h2{color:#fde68a}
-.bol-toast{position:absolute;top:8%;left:50%;transform:translateX(-50%);max-width:90%;padding:.55rem 1.1rem;background:#1e293be6;border:3px solid #fde68a;border-radius:12px;color:#fff;font-weight:900;font-size:clamp(.95rem,2.4vw,1.3rem);text-align:center;white-space:nowrap;pointer-events:none;animation:trepa-pop .25s ease-out;box-shadow:0 8px 24px #0008}
+.bol .runner-stage canvas{border-radius:6px;box-shadow:0 0 0 2px #ff2a2a,0 0 24px #ff2a2a66,0 12px 30px #000a}
+.bol-side{flex:0 0 clamp(130px,13vw,190px);display:flex;flex-direction:column;justify-content:center;gap:.55rem;padding:.6rem;background:#0b0a10e6;border:2px solid #ff2a2a;border-radius:8px;box-shadow:0 0 18px #ff2a2a55,inset 0 0 18px #ff2a2a22}
+.bol-stat{display:flex;flex-direction:column;align-items:center;gap:.15rem;padding:.45rem .3rem;background:#16131c;border:1px solid #ff2a2a55;border-radius:6px;text-align:center}
+.bol-stat span{color:#ff8a8a;font:800 .7rem/1.15 "Courier New",monospace;text-transform:uppercase;letter-spacing:.1em}
+.bol-stat strong{font:900 clamp(1.3rem,2.2vw,2rem)/1 "Courier New",monospace;font-variant-numeric:tabular-nums;color:#fff;text-shadow:0 0 8px #ff2a2a}
+.bol-stat--points strong{color:#ff4d4d}
+.bol-stat--small strong{font-size:clamp(.8rem,1.2vw,1.05rem)}
+.bol-hurry strong{color:#ff2a2a;animation:trepa-pop .5s ease-out infinite alternate}
+.bol .runner-bar button{background:#b91c1c}
+.bol .runner-overlay>div{background:#0f0c14f2;border-color:#ff2a2a;color:#f1f5f9}
+.bol .runner-overlay h2{color:#ff4d4d}
+.bol .runner-overlay button{background:#b91c1c;color:#fff}
+.bol-toast{position:absolute;top:8%;left:50%;transform:translateX(-50%);max-width:90%;padding:.55rem 1.1rem;background:#0b0a10e6;border:2px solid #ff2a2a;border-radius:8px;color:#fff;font-weight:900;font-size:clamp(.95rem,2.4vw,1.3rem);text-align:center;white-space:nowrap;pointer-events:none;animation:trepa-pop .25s ease-out;box-shadow:0 0 18px #ff2a2a66}
 @media(max-width:800px),(orientation:portrait) and (max-width:1100px){
   .bol-main{flex-direction:column;gap:.4rem}
   .bol-side{flex:none;order:-1;flex-direction:row;padding:.3rem;gap:.3rem}

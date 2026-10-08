@@ -592,7 +592,7 @@ test('¡Al cesto!: se abre desde Juegos, se juega por cuartos, se tira arrastran
   const stage = (await page.locator('.runner-stage').boundingBox())!;
   const cx = stage.x + stage.width / 2, cy = stage.y + stage.height / 2;
   await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(cx - 80, cy + 60, { steps: 4 }); await page.mouse.up();
-  await expect(page.getByTestId('bol-time')).not.toHaveText('0:45');
+  await expect(page.getByTestId('bol-time')).not.toHaveText('2:00');
   await page.keyboard.press('p');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
   const paused = await page.getByTestId('bol-time').textContent();

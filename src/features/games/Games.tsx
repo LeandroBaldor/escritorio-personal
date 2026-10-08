@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import sharkCover from './assets/tiburon-portada.webp';
+import terminatorCover from './assets/terminator-portada.webp';
 import { CalculatorLink, CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { readRecord } from './BlockRunner';
 import { cardImage } from './futureCards';
@@ -146,27 +147,11 @@ function LavaArt() {
   </svg>;
 }
 
-// Dibujo de la tarjeta de ¡Al cesto!: la oficina con el cesto de alambre, un bollo volando en arco, el
-// ventilador soplando y la mano que lo tiró.
+// Portada de ¡Al cesto!: una imagen del juego, con el T-800 tirando un humano en miniatura al tacho, el
+// ventilador soplando y uno que cayó afuera.
 function PaperArt() {
   return <svg viewBox="0 0 160 100" aria-hidden="true">
-    <rect width="160" height="100" fill="#e2d3b4" />
-    {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150].map(x => <rect key={x} x={x} y="0" width="1" height="86" fill="#c9b48f" opacity=".5" />)}
-    <rect x="58" y="10" width="40" height="30" fill="#94a3b8" /><rect x="60" y="12" width="36" height="26" fill="#7dd3fc" />
-    {[0, 1, 2, 3, 4, 5].map(i => <rect key={i} x={61 + i * 6} y={38 - (i % 3) * 5 - 6} width="5" height={(i % 3) * 5 + 6} fill="#64748b" />)}
-    <rect x="60" y="12" width="36" height="9" fill="#f1f5f9" opacity=".85" />
-    <circle cx="122" cy="20" r="8" fill="#f8fafc" stroke="#1f2937" strokeWidth="1.5" /><path d="M122 20 l4 -3 M122 20 v-6" stroke="#1f2937" strokeWidth="1.2" />
-    <rect x="0" y="86" width="160" height="14" fill="#475569" /><rect x="0" y="84" width="160" height="3" fill="#7c5a3a" />
-    <rect x="0" y="62" width="34" height="4" fill="#8b5a2b" /><rect x="3" y="66" width="3" height="20" fill="#6b4423" /><rect x="28" y="66" width="3" height="20" fill="#6b4423" />
-    <rect x="3" y="47" width="14" height="15" fill="#111827" /><rect x="5" y="49" width="10" height="11" fill="#a7f3d0" />
-    <path d="M30 58 Q 70 0 120 56" fill="none" stroke="#fff" strokeWidth="1.4" strokeDasharray="2 3" />
-    <g transform="translate(92 22) rotate(25)"><polygon points="0,-4 3.5,-2.5 4,1.5 1,4 -3,3 -4,-1" fill="#f8fafc" stroke="#94a3b8" strokeWidth=".7" /><path d="M-2 -1 L1 1 L2.5 -2" stroke="#94a3b8" strokeWidth=".6" fill="none" /></g>
-    <path d="M112 58 L132 58 L129 86 L115 86 Z" fill="#64748b" opacity=".45" />
-    <path d="M112 58 L132 58 L129 86 L115 86 Z M115 58 L117 86 M119 58 L120 86 M123 58 L123 86 M127 58 L126 86 M113 66 L131 66 M114 74 L130 74 M114.5 80 L129.5 80" fill="none" stroke="#334155" strokeWidth=".8" />
-    <ellipse cx="122" cy="58" rx="10" ry="2.2" fill="none" stroke="#1f2937" strokeWidth="1.4" />
-    <g transform="translate(46 70)"><rect x="-1" y="0" width="2" height="16" fill="#374151" /><ellipse cx="0" cy="16" rx="6" ry="1.5" fill="#374151" /><ellipse cx="0" cy="-2" rx="2.5" ry="7" fill="none" stroke="#6b7280" strokeWidth="1.2" /><path d="M2 -6 q6 2 10 0 M2 -2 q7 1 12 -1 M2 2 q6 2 10 1" stroke="#ef4444" strokeWidth="1" fill="none" /></g>
-    {[[60, 50], [75, 62], [90, 45], [100, 70]].map(([x, y], i) => <path key={i} d={`M${x} ${y} h10`} stroke="#fff" strokeWidth="1" opacity=".6" />)}
-    <path d="M18 64 Q24 58 30 58" stroke="#2563eb" strokeWidth="5" strokeLinecap="round" fill="none" /><circle cx="30" cy="58" r="2.6" fill="#fcd9b6" />
+    <image href={terminatorCover} x="0" y="0" width="160" height="100" preserveAspectRatio="xMidYMid slice" />
   </svg>;
 }
 
@@ -278,7 +263,7 @@ export function Games() {
           <PaperArt />
           <span className="game-card-text">
             <strong>¡Al cesto!</strong>
-            <span>Básquet con bollos de papel en la oficina, solo con el mouse: hacé clic, tirá para atrás y soltá. Son 4 cuartos y en cada uno el cesto se va más lejos. Ojo con el ventilador, que desvía los bollos.</span>
+            <span>Un T-800 en la oficina de Skynet tira humanos en miniatura al tacho, solo con el mouse: cerca, a media distancia y lejos, y después con el ventilador soplando. 4 cuartos de 2 minutos.</span>
           </span>
           <span className="game-card-foot">
             {paper > 0 && <small><b>Récord</b>{paper} puntos</small>}

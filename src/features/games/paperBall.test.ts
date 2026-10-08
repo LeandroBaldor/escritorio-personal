@@ -1,20 +1,37 @@
 import { describe, expect, it } from 'vitest';
-import { aimAt, BREAK, FLOOR, canThrow, launch, MAX_SPEED, newPaper, ORIGIN, preview, QUARTER, quarterLeft, SPOTS, step, takeEvents, throwBall, TIME, windOf, type PaperGame } from './paperBall';
+import {
+  aimAt, BREAK, canThrow, fanDirOf, launch, MAX_SPEED, newPaper, ORIGIN, preview, QUARTER, quarterLeft, SPEED_PAR, SPOTS, spotOf, STEPS, step,
+  stepValue, takeEvents, throwBall, TIME, W, WIND, windOf, type PaperGame,
+} from './paperBall';
 
 const run = (g: PaperGame, seconds: number) => { for (let t = 0; t < seconds && !g.over; t += 1 / 60) step(g, 1 / 60); };
+// Emboca el tiro que toca (esperando que el tacho llegue a su lugar y que el T-800 agarre otro humano).
+const sink = (g: PaperGame) => {
+  run(g, 1);
+  const { vx, vy } = aimAt(g);
+  expect(throwBall(g, vx, vy)).toBe(true);
+  run(g, 1.5);
+};
 
 describe('¡Al cesto!', () => {
-  it('arranca con 3 minutos en 4 cuartos, sin viento y con el cesto en el piso de adelante, en la zona del 1er cuarto', () => {
+  it('arranca con 4 cuartos de 2 minutos, el tacho cerca y sin viento', () => {
     const g = newPaper(1);
+    expect(TIME).toBe(480);
+    expect(QUARTER).toBe(120);
     expect(g.left).toBe(TIME);
-    expect(TIME).toBe(180);
-    expect(QUARTER).toBe(45);
-    expect(g.quarter).toBe(0);
-    expect(quarterLeft(g)).toBe(45);
-    expect(g.fan.power).toBe(0);
-    expect(g.bin.y).toBe(FLOOR);
-    expect(g.bin.x).toBeGreaterThanOrEqual(SPOTS[0][0]);
-    expect(g.bin.x).toBeLessThanOrEqual(SPOTS[0][1]);
+    expect(quarterLeft(g)).toBe(120);
+    expect(g.step).toBe(0);
+    expect(g.fan.dir).toBe(0);
+    expect(Math.abs(g.bin.x - SPOTS[0])).toBeLessThanOrEqual(0.3);
+  });
+
+  it('la ronda: cerca, media y lejos; después con viento a la derecha y después a la izquierda', () => {
+    expect(STEPS).toBe(9);
+    expect([0, 1, 2, 3, 4, 5, 6, 7, 8].map(spotOf)).toEqual([0, 1, 2, 0, 1, 2, 0, 1, 2]);
+    expect([0, 1, 2, 3, 4, 5, 6, 7, 8].map(fanDirOf)).toEqual([0, 0, 0, 1, 1, 1, -1, -1, -1]);
+    expect([0, 1, 2, 3, 4, 5, 6, 7, 8].map(stepValue)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(SPOTS[0]).toBeLessThan(SPOTS[1]);
+    expect(SPOTS[1]).toBeLessThan(SPOTS[2]);
   });
 
   it('tirar para atrás lanza para adelante, más fuerte cuanto más tirás (con un máximo)', () => {
@@ -23,87 +40,97 @@ describe('¡Al cesto!', () => {
     expect(b.vx).toBeGreaterThan(a.vx);
     expect(Math.hypot(c.vx, c.vy)).toBeCloseTo(MAX_SPEED, 5);
     expect(c.power).toBe(1);
-    const pts = preview(a.vx, a.vy);
-    expect(pts[0][0]).toBeGreaterThan(ORIGIN.x);
+    expect(preview(a.vx, a.vy)[0][0]).toBeGreaterThan(ORIGIN.x);
   });
 
-  it('un buen tiro entra: suma puntos (limpio vale más) y el cesto cambia de lugar dentro del cuarto', () => {
+  it('embocar suma lo que vale el tiro y pasa al siguiente: el tacho se va más lejos', () => {
     const g = newPaper(2);
-    const before = g.bin.x;
-    const { vx, vy } = aimAt(g);
-    expect(throwBall(g, vx, vy)).toBe(true);
-    run(g, 1.5);
-    const score = takeEvents(g).find(e => e.type === 'score');
-    expect(score).toBeTruthy();
-    expect(g.score).toBeGreaterThanOrEqual(2); // 1 + limpio
-    expect(score && score.type === 'score' && score.swish).toBe(true);
-    expect(g.bin.x).not.toBe(before);
-    expect(g.bin.x).toBeGreaterThanOrEqual(SPOTS[0][0]);
-    expect(g.bin.x).toBeLessThanOrEqual(SPOTS[0][1]);
+    sink(g);
+    expect(takeEvents(g).some(e => e.type === 'score' && e.points === 1)).toBe(true);
+    expect(g.score).toBe(1);
+    expect(g.step).toBe(1);
+    run(g, 1);
+    expect(Math.abs(g.bin.x - SPOTS[1])).toBeLessThanOrEqual(0.3);
+    sink(g);
+    expect(g.score).toBe(3); // 1 + 2
+    expect(g.step).toBe(2);
   });
 
-  it('un tiro flojo cae: no suma y corta la racha', () => {
+  it('si cae afuera hay sangre, no suma y se repite el mismo tiro', () => {
     const g = newPaper(3);
-    g.streak = 4;
     throwBall(g, 2.5, 1);
     run(g, 3);
+    const events = takeEvents(g);
+    expect(events.some(e => e.type === 'splat' && e.surface === 'floor')).toBe(true);
+    expect(events.some(e => e.type === 'miss')).toBe(true);
     expect(g.score).toBe(0);
-    expect(g.streak).toBe(0);
-    expect(takeEvents(g).some(e => e.type === 'miss')).toBe(true);
+    expect(g.step).toBe(0);
   });
 
-  it('el ventilador desvía el bollo', () => {
-    const calm = newPaper(4), windy = newPaper(4);
-    windy.fan = { dir: -1, power: 3 };
-    expect(windOf(windy.fan)).toBeLessThan(0);
+  it('contra la pared también salpica', () => {
+    const g = newPaper(4);
+    throwBall(g, MAX_SPEED, 2);
+    run(g, 3);
+    expect(takeEvents(g).some(e => e.type === 'splat' && e.surface === 'wall' && e.x > W - 1)).toBe(true);
+  });
+
+  it('a partir del 4° tiro se prende el ventilador a la izquierda (sopla para la derecha) y en el 7° se pasa a la derecha', () => {
+    const g = newPaper(5);
+    for (let i = 0; i < 3; i++) sink(g);
+    expect(g.step).toBe(3);
+    expect(g.fan.dir).toBe(1);
+    expect(windOf(g.fan)).toBeGreaterThan(0);
+    expect(takeEvents(g).some(e => e.type === 'fan' && e.dir === 1)).toBe(true);
+    for (let i = 0; i < 3; i++) sink(g);
+    expect(g.step).toBe(6);
+    expect(g.fan.dir).toBe(-1);
+    expect(windOf(g.fan)).toBeLessThan(0);
+  });
+
+  it('el viento desvía al humano', () => {
+    const calm = newPaper(6), windy = newPaper(6);
+    windy.fan = { dir: -1, power: WIND[3] };
     throwBall(calm, 8, 6); throwBall(windy, 8, 6);
     run(calm, 0.5); run(windy, 0.5);
-    expect(windy.balls[0].x).toBeLessThan(calm.balls[0].x - 0.5);
+    expect(windy.balls[0].x).toBeLessThan(calm.balls[0].x - 0.3);
+  });
+
+  it('al completar los 9 tiros suma 45 más los puntos por velocidad y empieza otra ronda', () => {
+    const g = newPaper(7);
+    for (let i = 0; i < STEPS; i++) sink(g);
+    const round = takeEvents(g).find(e => e.type === 'round');
+    expect(round && round.type === 'round').toBe(true);
+    if (round?.type !== 'round') return;
+    expect(round.bonus).toBe(Math.max(0, Math.round(SPEED_PAR - round.seconds)));
+    expect(round.bonus).toBeGreaterThan(0);
+    expect(g.score).toBe(45 + round.bonus);
+    expect(g.step).toBe(0);
+    expect(g.round).toBe(1);
+    expect(g.fan.dir).toBe(0);
   });
 
   it('hay que esperar un ratito entre tiro y tiro', () => {
-    const g = newPaper(5);
+    const g = newPaper(8);
     expect(throwBall(g, 8, 6)).toBe(true);
     expect(canThrow(g)).toBe(false);
     expect(throwBall(g, 8, 6)).toBe(false);
-    run(g, 0.5);
+    run(g, 0.7);
     expect(canThrow(g)).toBe(true);
   });
 
-  it('en cada cuarto hay un descanso y el cesto se va más lejos (en el último, además, se mueve)', () => {
-    const g = newPaper(6);
-    const xs = [g.bin.x];
-    for (let q = 1; q < 4; q++) {
-      run(g, quarterLeft(g) + 0.05);
-      expect(g.quarter).toBe(q);
-      expect(takeEvents(g).some(e => e.type === 'quarter' && e.quarter === q)).toBe(true);
-      // En el descanso el reloj no corre y no se puede tirar.
-      const left = g.left;
-      expect(canThrow(g)).toBe(false);
-      run(g, BREAK - 0.1);
-      expect(g.left).toBeCloseTo(left, 5);
-      run(g, 0.2);
-      expect(canThrow(g)).toBe(true);
-      expect(g.bin.x).toBeGreaterThanOrEqual(SPOTS[q][0] - 0.31);
-      xs.push(g.bin.x);
-    }
-    for (let i = 1; i < xs.length; i++) expect(xs[i]).toBeGreaterThan(xs[i - 1]);
-    expect(g.bin.vx).not.toBe(0);
-  });
-
-  it('el cesto está en primer plano, en el piso de adelante', () => {
-    const g = newPaper(7);
-    expect(g.bin.y).toBe(FLOOR);
-    expect(FLOOR).toBeLessThan(0);
-    // Un bollo que no entra cae al piso de adelante.
-    throwBall(g, 12, 1);
-    run(g, 1.2);
-    expect(g.balls[0].y).toBeLessThan(0);
-  });
-
-  it('se termina el partido a los 3 minutos (más los descansos)', () => {
-    const g = newPaper(8);
-    run(g, TIME + BREAK * 3 + 1);
+  it('entre cuartos hay un descanso y el viento sopla más fuerte; a los 8 minutos se termina', () => {
+    const g = newPaper(9);
+    run(g, QUARTER + 0.05);
+    expect(g.quarter).toBe(1);
+    expect(takeEvents(g).some(e => e.type === 'quarter' && e.quarter === 1)).toBe(true);
+    const left = g.left;
+    expect(canThrow(g)).toBe(false);
+    run(g, BREAK - 0.1);
+    expect(g.left).toBeCloseTo(left, 5);
+    run(g, 0.2);
+    expect(canThrow(g)).toBe(true);
+    expect(WIND[1]).toBeGreaterThan(WIND[0]);
+    run(g, TIME + BREAK * 3);
     expect(g.over).toBe(true);
     expect(takeEvents(g).some(e => e.type === 'gameover')).toBe(true);
   });
