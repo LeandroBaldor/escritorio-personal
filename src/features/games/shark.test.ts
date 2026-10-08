@@ -67,7 +67,7 @@ describe('Ciudad Tiburón: el juego', () => {
     expect(new Set(g.rescues.map(r => r.kind)).size).toBeGreaterThan(1);
   });
 
-  it('con el tiempo llegan más tiburones y de tipos nuevos (tigre y mako)', () => {
+  it('con el tiempo llegan más tiburones y de tipos nuevos (tigre, mako y ballena)', () => {
     expect(sharksAt(0)).toBe(5);
     expect(sharksAt(TIME_LIMIT - 1)).toBeGreaterThan(15);
     const g = newShark(4);
@@ -75,7 +75,7 @@ describe('Ciudad Tiburón: el juego', () => {
     const types = new Set<string>();
     for (let t = 0; t < 200; t += 1 / 30) { g.player.y = 40; g.player.vy = 0; step(g, idle, 1 / 30); for (const s of g.sharks) types.add(s.type); }
     expect(g.sharks.length).toBe(sharksAt(g.time));
-    expect(types.has('tigre') && types.has('mako')).toBe(true);
+    expect(types.has('tigre') && types.has('mako') && types.has('ballena')).toBe(true);
     expect(takeEvents(g).some(e => e.type === 'newType')).toBe(true);
     for (const l of g.lanes) expect(g.sharks.filter(s => s.lane === l.id).length).toBeLessThanOrEqual(2);
   });

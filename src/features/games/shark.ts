@@ -43,19 +43,22 @@ const DIE_T = 2.4;
 export const ACTIVE_RESCUES = 8; // los que hay flotando a la vez
 export const GRAB_X = 0.95, GRAB_Y = 1.35; // hasta dónde llega el bombero estirándose
 
-export type SharkType = 'gris' | 'martillo' | 'tigre' | 'bebe' | 'blanco' | 'mako';
-export interface SharkSpec { name: string; speed: number; chase: number; reach: number; warn: number; size: number }
+export type SharkType = 'gris' | 'martillo' | 'tigre' | 'bebe' | 'blanco' | 'mako' | 'ballena';
+// `mouth`: dónde está la boca, medida desde el centro en largos del tiburón (para adelante y para abajo).
+export interface SharkSpec { name: string; speed: number; chase: number; reach: number; warn: number; size: number; mouth: [number, number] }
+const JAWS: [number, number] = [0.39, 0.065];
 export const SHARKS: Record<SharkType, SharkSpec> = {
-  gris: { name: 'tiburón gris', speed: 2.4, chase: 3.6, reach: 2.0, warn: 0.75, size: 1 },
-  martillo: { name: 'tiburón martillo', speed: 1.7, chase: 2.7, reach: 2.9, warn: 0.85, size: 1.05 },
-  tigre: { name: 'tiburón tigre', speed: 3.2, chase: 4.6, reach: 2.2, warn: 0.6, size: 1.1 },
-  bebe: { name: 'tiburones bebé', speed: 4, chase: 5, reach: 1.2, warn: 0.5, size: 0.55 },
-  blanco: { name: 'tiburón blanco', speed: 1.5, chase: 2.4, reach: 3.4, warn: 1, size: 1.6 },
-  mako: { name: 'tiburón mako', speed: 4.5, chase: 6, reach: 2.5, warn: 0.5, size: 0.95 },
+  gris: { name: 'tiburón gris', speed: 2.4, chase: 3.6, reach: 2.0, warn: 0.75, size: 1, mouth: JAWS },
+  martillo: { name: 'tiburón martillo', speed: 1.7, chase: 2.7, reach: 2.9, warn: 0.85, size: 1.05, mouth: [0.31, 0.085] },
+  tigre: { name: 'tiburón tigre', speed: 3.2, chase: 4.6, reach: 2.2, warn: 0.6, size: 1.1, mouth: JAWS },
+  bebe: { name: 'tiburones bebé', speed: 4, chase: 5, reach: 1.2, warn: 0.5, size: 0.55, mouth: JAWS },
+  blanco: { name: 'tiburón blanco', speed: 1.5, chase: 2.4, reach: 3.4, warn: 1, size: 1.6, mouth: JAWS },
+  mako: { name: 'tiburón mako', speed: 4.5, chase: 6, reach: 2.5, warn: 0.5, size: 0.95, mouth: JAWS },
+  ballena: { name: 'tiburón ballena', speed: 1.2, chase: 2.1, reach: 2.6, warn: 1.1, size: 1.9, mouth: [0.375, 0.055] },
 };
 // Cuántos tiburones hay según el tiempo (empieza con 5 y llega uno nuevo cada 20 segundos).
 export const sharksAt = (t: number) => Math.min(20, 5 + Math.floor(t / 20));
-export const TIGRE_AT = 45, MAKO_AT = 100;
+export const TIGRE_AT = 45, MAKO_AT = 100, BALLENA_AT = 150;
 
 export type BlockKind = 'building' | 'house' | 'shop';
 export interface Block { id: number; kind: BlockKind; x1: number; x2: number; top: number; floors: number; fh: number; hue: number; tone: number; label: string; escape: -1 | 1 }
@@ -227,7 +230,7 @@ export function buildCity(seed = 20261007): City {
 
 const TYPES_AT = (t: number): SharkType[] => [
   'gris', 'gris', 'gris', 'martillo', 'martillo', 'bebe', 'bebe', 'blanco',
-  ...(t >= TIGRE_AT ? ['tigre', 'tigre'] as const : []), ...(t >= MAKO_AT ? ['mako', 'mako'] as const : []),
+  ...(t >= TIGRE_AT ? ['tigre', 'tigre'] as const : []), ...(t >= MAKO_AT ? ['mako', 'mako'] as const : []), ...(t >= BALLENA_AT ? ['ballena'] as const : []),
 ];
 
 export function newShark(seed?: number): SharkGame {
@@ -354,7 +357,7 @@ export function step(g: SharkGame, input: Input, dt: number) {
   // Llegan más tiburones con el tiempo; los rescatados (o los que se llevaron) se reponen.
   const want = sharksAt(t);
   if (g.sharks.length < want) {
-    const fresh = t >= MAKO_AT && !g.seen.has('mako') ? 'mako' : t >= TIGRE_AT && !g.seen.has('tigre') ? 'tigre' : null;
+    const fresh = t >= BALLENA_AT && !g.seen.has('ballena') ? 'ballena' : t >= MAKO_AT && !g.seen.has('mako') ? 'mako' : t >= TIGRE_AT && !g.seen.has('tigre') ? 'tigre' : null;
     addShark(g, fresh ?? pick(g.rand, TYPES_AT(t)));
     if (g.sharks.length % 3 === 0) g.events.push({ type: 'more', count: g.sharks.length });
   }
@@ -482,7 +485,7 @@ export function sharkPose(s: Shark) {
 }
 // Dónde está la boca (en el medio de las mandíbulas).
 export function sharkMouth(s: Shark) {
-  const L = sharkLen(s), { dir, a } = sharkPose(s), along = 0.4 * L, down = 0.07 * L;
+  const L = sharkLen(s), { dir, a } = sharkPose(s), [along, down] = SHARKS[s.type].mouth.map(f => f * L);
   return { x: s.x + dir * (Math.cos(a) * along + Math.sin(a) * down), y: s.y + Math.sin(a) * along - Math.cos(a) * down };
 }
 // ¿El bombero está al alcance de este tiburón? (cerca y bajito, o nadando)
