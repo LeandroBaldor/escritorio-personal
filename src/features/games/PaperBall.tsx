@@ -5,7 +5,7 @@ import {
   type PaperGame,
 } from './paperBall';
 import {
-  burst, drawBall, drawBackground, drawBinBack, drawBinFront, drawClock, drawDrops, drawEyes, drawFan, drawLoad, drawRobot, drawStains,
+  burst, drawBall, drawBackground, drawBinBack, drawBinFront, drawClock, drawDrops, drawEyes, drawFan, drawHeld, drawLoad, drawRobot, drawStains,
   drawVignette, drawWindow, loadOffice, stepDrops, VIEW_H, X, Y, type Drop, type Stain, type View,
 } from './paperArt';
 
@@ -64,6 +64,7 @@ function draw(ctx: CanvasRenderingContext2D, g: PaperGame, v: View, aim: Aim | n
   drawBinFront(ctx, v, g.bin);
   for (const k of g.balls) if (k.state === 'out' && k.done) drawBall(ctx, v, k, g.time);
   const throwing = g.time - g.thrown < THROW_POSE;
+  if (!throwing && !g.over) drawHeld(ctx, v, g.nextId, g.time); // atrás del puño, así queda agarrado
   drawRobot(ctx, v, throwing);
   drawEyes(ctx, v, throwing, (Math.sin(g.time * 3) + 1) / 2);
   for (const k of g.balls) if (k.state === 'fly' || (k.state === 'out' && !k.done)) drawBall(ctx, v, k, g.time);
