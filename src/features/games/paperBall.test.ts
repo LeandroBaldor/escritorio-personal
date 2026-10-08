@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { aimAt, BREAK, canThrow, launch, MAX_SPEED, newPaper, ORIGIN, preview, QUARTER, quarterLeft, SPOTS, step, takeEvents, throwBall, TIME, windOf, type PaperGame } from './paperBall';
+import { aimAt, BREAK, FLOOR, canThrow, launch, MAX_SPEED, newPaper, ORIGIN, preview, QUARTER, quarterLeft, SPOTS, step, takeEvents, throwBall, TIME, windOf, type PaperGame } from './paperBall';
 
 const run = (g: PaperGame, seconds: number) => { for (let t = 0; t < seconds && !g.over; t += 1 / 60) step(g, 1 / 60); };
 
 describe('¡Al cesto!', () => {
-  it('arranca con 3 minutos en 4 cuartos, sin viento y con el cesto en el piso, en la zona del 1er cuarto', () => {
+  it('arranca con 3 minutos en 4 cuartos, sin viento y con el cesto en el piso de adelante, en la zona del 1er cuarto', () => {
     const g = newPaper(1);
     expect(g.left).toBe(TIME);
     expect(TIME).toBe(180);
@@ -12,7 +12,7 @@ describe('¡Al cesto!', () => {
     expect(g.quarter).toBe(0);
     expect(quarterLeft(g)).toBe(45);
     expect(g.fan.power).toBe(0);
-    expect(g.bin.y).toBe(0);
+    expect(g.bin.y).toBe(FLOOR);
     expect(g.bin.x).toBeGreaterThanOrEqual(SPOTS[0][0]);
     expect(g.bin.x).toBeLessThanOrEqual(SPOTS[0][1]);
   });
@@ -91,19 +91,14 @@ describe('¡Al cesto!', () => {
     expect(g.bin.vx).not.toBe(0);
   });
 
-  it('desde el 3er cuarto aparece el jefe (pegarle resta)', () => {
+  it('el cesto está en primer plano, en el piso de adelante', () => {
     const g = newPaper(7);
-    run(g, QUARTER * 2 + BREAK * 2 + 0.5);
-    expect(g.quarter).toBe(2);
-    g.score = 5;
-    g.nextBoss = g.time; run(g, 0.05);
-    expect(g.boss).not.toBeNull();
-    const boss = g.boss!;
-    boss.speed = 0; boss.x = ORIGIN.x + 5;
-    g.fan.power = 0; g.ready = 0; throwBall(g, 12, 0);
-    run(g, 0.6);
-    expect(takeEvents(g).some(e => e.type === 'boss')).toBe(true);
-    expect(g.score).toBeLessThan(5);
+    expect(g.bin.y).toBe(FLOOR);
+    expect(FLOOR).toBeLessThan(0);
+    // Un bollo que no entra cae al piso de adelante.
+    throwBall(g, 12, 1);
+    run(g, 1.2);
+    expect(g.balls[0].y).toBeLessThan(0);
   });
 
   it('se termina el partido a los 3 minutos (más los descansos)', () => {

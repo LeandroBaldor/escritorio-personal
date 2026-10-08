@@ -278,7 +278,7 @@ export function Games() {
           <PaperArt />
           <span className="game-card-text">
             <strong>¡Al cesto!</strong>
-            <span>Básquet con bollos de papel en la oficina, solo con el mouse: hacé clic, tirá para atrás y soltá. Son 4 cuartos y en cada uno el cesto se va más lejos. Ojo con el ventilador, que desvía los bollos… ¡y con el jefe!</span>
+            <span>Básquet con bollos de papel en la oficina, solo con el mouse: hacé clic, tirá para atrás y soltá. Son 4 cuartos y en cada uno el cesto se va más lejos. Ojo con el ventilador, que desvía los bollos.</span>
           </span>
           <span className="game-card-foot">
             {paper > 0 && <small><b>Récord</b>{paper} puntos</small>}

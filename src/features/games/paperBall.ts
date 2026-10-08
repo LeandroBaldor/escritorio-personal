@@ -4,16 +4,17 @@
 //   fuerte cuanto más tiraste.
 // - El partido dura 3 minutos, en 4 cuartos de 45 segundos como en el básquet. En cada cuarto el cesto se
 //   va más lejos; en el último, además, se mueve (está en rueditas).
-// - El ventilador sopla para un lado y desvía los bollos. Cambia de lado y de fuerza cada vez que embocás,
-//   y sopla más fuerte en cada cuarto.
-// - Desde el 3er cuarto, cada tanto el jefe cruza la oficina: si le pegás, perdés puntos.
+// - El ventilador sopla para un lado y desvía los bollos: a veces está a la izquierda (sopla para la derecha)
+//   y a veces a la derecha (sopla para la izquierda). Cambia de lado y de fuerza cada vez que embocás, y
+//   sopla más fuerte en cada cuarto.
 // - Puntos: 1 por bollo, +1 si es de lejos, +1 si entra limpio (sin tocar el borde) y +1 cada 3 seguidos.
 //
-// Todo se mide en unidades (85 píxeles del dibujo de la oficina): la oficina mide 16 de ancho, el piso
-// está en y = 0 y el techo en y = TOP.
+// Todo se mide en unidades (85 píxeles del dibujo de la oficina): la oficina mide 16 de ancho, la pared
+// llega al piso en y = 0 y el techo está en y = TOP. El cesto está en primer plano, más cerca: apoyado en
+// el piso de adelante (y = FLOOR).
 
-export const W = 16, TOP = 650 / 85, BOTTOM = TOP - 762 / 85, G = 14, BALL_R = 0.17;
-export const ORIGIN = { x: 3.95, y: 3.75 }; // de donde sale el bollo (la mano levantada)
+export const W = 16, TOP = 650 / 85, BOTTOM = TOP - 762 / 85, FLOOR = -0.8, G = 14, BALL_R = 0.17;
+export const ORIGIN = { x: 4.15, y: 3.85 }; // de donde sale el bollo (la mano levantada)
 export const PULL = 4.5, MAX_SPEED = 17; // velocidad por unidad que tirás para atrás, y el máximo
 export const TIME = 180, QUARTERS = 4, QUARTER = TIME / QUARTERS, FAR = 8;
 export const RELOAD = 0.45; // lo que tarda en estar listo el próximo bollo
@@ -22,21 +23,20 @@ const RIM_R = 0.06, BOUNCE = 0.5, FLOOR_BOUNCE = 0.35;
 const SUBSTEPS = 4;
 // Entre qué x puede estar el cesto en cada cuarto (cada vez más lejos).
 export const SPOTS: [number, number][] = [[8.7, 10], [10, 11.4], [11.4, 12.8], [12.9, 14.4]];
-export const BIN_W = 1.12, BIN_H = 1.35;
+export const BIN_SCALE = 1.3, BIN_W = 1.12 * BIN_SCALE, BIN_H = 1.35 * BIN_SCALE;
 
 export interface Bin { x: number; y: number; w: number; h: number; vx: number; min: number; max: number } // x: centro; y: la base
 export interface Fan { dir: -1 | 1; power: number } // power de 0 (apagado) a 3
-export interface Boss { x: number; dir: -1 | 1; speed: number; hit: number }
 export interface Ball { id: number; x: number; y: number; vx: number; vy: number; state: 'fly' | 'in' | 'out'; t: number; touched: boolean; done: number }
 export type PaperEvent =
   | { type: 'throw' } | { type: 'rim' } | { type: 'bounce' }
   | { type: 'score'; points: number; swish: boolean; far: boolean; streak: number; x: number; y: number } | { type: 'miss' }
-  | { type: 'boss'; points: number } | { type: 'bossIn' } | { type: 'quarter'; quarter: number } | { type: 'gameover' };
+  | { type: 'quarter'; quarter: number } | { type: 'gameover' };
 
 export interface PaperGame {
   time: number; left: number; score: number; streak: number; bestStreak: number; made: number; shots: number;
-  quarter: number; pause: number; bin: Bin; nextBin: Bin | null; fan: Fan; boss: Boss | null; balls: Ball[]; ready: number; over: boolean;
-  events: PaperEvent[]; rand: () => number; nextId: number; nextBoss: number; thrown: number;
+  quarter: number; pause: number; bin: Bin; nextBin: Bin | null; fan: Fan; balls: Ball[]; ready: number; over: boolean;
+  events: PaperEvent[]; rand: () => number; nextId: number; thrown: number;
 }
 
 function rng(seed: number) {
@@ -55,7 +55,7 @@ function spotFor(g: PaperGame, quarter: number, from: number): Bin {
   let x = near + r() * (far - near);
   if (Math.abs(x - from) < 0.5) x = x > (near + far) / 2 ? Math.max(near, x - 0.8) : Math.min(far, x + 0.8);
   const moving = quarter === QUARTERS - 1;
-  return { x, y: 0, w: BIN_W, h: BIN_H, vx: moving ? (r() < 0.5 ? -1 : 1) * (0.7 + r() * 0.5) : 0, min: near - 0.3, max: Math.min(14.7, far + 0.3) };
+  return { x, y: FLOOR, w: BIN_W, h: BIN_H, vx: moving ? (r() < 0.5 ? -1 : 1) * (0.7 + r() * 0.5) : 0, min: near - 0.3, max: Math.min(14.7, far + 0.3) };
 }
 function changeFan(g: PaperGame) {
   const max = g.quarter + 1; // 1° cuarto: hasta 1; 4° cuarto: hasta 3 (y nunca apagado)
@@ -67,8 +67,8 @@ export const windOf = (f: Fan) => f.dir * f.power * 2.4; // aceleración de cost
 export function newPaper(seed?: number): PaperGame {
   const g: PaperGame = {
     time: 0, left: TIME, score: 0, streak: 0, bestStreak: 0, made: 0, shots: 0, quarter: 0, pause: 0,
-    bin: { x: 9, y: 0, w: BIN_W, h: BIN_H, vx: 0, min: 8, max: 10 }, nextBin: null, fan: { dir: 1, power: 0 }, boss: null, balls: [], ready: 0,
-    over: false, events: [], rand: rng(seed ?? Math.floor(Math.random() * 2 ** 31)), nextId: 1, nextBoss: 0, thrown: -9,
+    bin: { x: 9, y: FLOOR, w: BIN_W, h: BIN_H, vx: 0, min: 8, max: 10 }, nextBin: null, fan: { dir: 1, power: 0 }, balls: [], ready: 0,
+    over: false, events: [], rand: rng(seed ?? Math.floor(Math.random() * 2 ** 31)), nextId: 1, thrown: -9,
   };
   g.bin = spotFor(g, 0, 0); g.fan.power = 0; // el primero, sin viento
   return g;
@@ -98,9 +98,8 @@ export function preview(vx: number, vy: number, steps = 12, dt = 0.045) {
   return pts;
 }
 
-// Lo que hay para rebotar: el escritorio (con la pila de hojas), el piso, paredes y techo.
+// Lo que hay para rebotar: el escritorio, el piso de adelante, paredes y techo.
 export const DESK = { x1: 0.45, x2: 8, y: 1.88 };
-export const BOSS_W = 1.1, BOSS_H = 4.6;
 
 function collideBall(g: PaperGame, k: Ball, prevX: number, prevY: number) {
   const b = g.bin, half = b.w / 2, top = b.y + b.h;
@@ -129,16 +128,8 @@ function collideBall(g: PaperGame, k: Ball, prevX: number, prevY: number) {
     k.y = DESK.y + BALL_R; k.vy = -k.vy * FLOOR_BOUNCE; k.vx *= 0.7; if (Math.abs(k.vy) > 1.5) g.events.push({ type: 'bounce' });
     if (k.state === 'fly' && Math.abs(k.vy) < 0.8) k.state = 'out'; // se quedó en el escritorio
   }
-  if (g.boss && k.state === 'fly') {
-    const p = g.boss;
-    if (Math.abs(k.x - p.x) < BOSS_W / 2 + BALL_R && k.y < BOSS_H) {
-      k.vx = -k.vx * 0.4 + p.dir * 1.5; k.vy = Math.max(2, Math.abs(k.vy) * 0.3); k.x = p.x + Math.sign(k.x - p.x || 1) * (BOSS_W / 2 + BALL_R);
-      if (!k.touched || p.hit < g.time) { p.hit = g.time + 1.2; const lost = Math.min(2, g.score); g.score -= lost; g.streak = 0; g.events.push({ type: 'boss', points: lost }); }
-      k.touched = true;
-    }
-  }
   // Piso, paredes y techo.
-  if (k.y < BALL_R) { k.y = BALL_R; k.vy = -k.vy * FLOOR_BOUNCE; k.vx *= 0.6; if (k.state === 'fly' && Math.abs(k.vy) < 0.8) k.state = 'out'; }
+  if (k.y < FLOOR + BALL_R) { k.y = FLOOR + BALL_R; k.vy = -k.vy * FLOOR_BOUNCE; k.vx *= 0.6; if (k.state === 'fly' && Math.abs(k.vy) < 0.8) k.state = 'out'; }
   if (k.x < BALL_R) { k.x = BALL_R; k.vx = -k.vx * BOUNCE; }
   if (k.x > W - BALL_R) { k.x = W - BALL_R; k.vx = -k.vx * BOUNCE; }
   if (k.y > TOP - BALL_R) { k.y = TOP - BALL_R; k.vy = -k.vy * BOUNCE; }
@@ -175,23 +166,12 @@ export function step(g: PaperGame, dt: number) {
       g.quarter = q; g.pause = BREAK; g.streak = 0;
       g.nextBin = spotFor(g, q, g.bin.x); g.bin.vx = 0;
       changeFan(g);
-      if (q >= 2) g.nextBoss = g.time + BREAK + 4 + g.rand() * 6;
       g.events.push({ type: 'quarter', quarter: q });
     }
   }
   // En el último cuarto el cesto va y viene en rueditas.
   const b = g.bin;
   if (b.vx) { b.x += b.vx * dt; if (b.x < b.min) { b.x = b.min; b.vx = Math.abs(b.vx); } else if (b.x > b.max) { b.x = b.max; b.vx = -Math.abs(b.vx); } }
-  // El jefe cruza la oficina cada tanto (desde el 3er cuarto).
-  if (!g.boss && g.quarter >= 2 && g.pause <= 0 && g.time >= g.nextBoss) {
-    const dir = g.rand() < 0.5 ? -1 : 1;
-    g.boss = { x: dir > 0 ? 8.3 : W + 0.8, dir, speed: 1.6 + g.rand() * 0.8, hit: 0 };
-    g.events.push({ type: 'bossIn' });
-  }
-  if (g.boss) {
-    g.boss.x += g.boss.dir * g.boss.speed * dt;
-    if (g.boss.x > W + 1 || g.boss.x < 8.2) { g.boss = null; g.nextBoss = g.time + 8 + g.rand() * 10; }
-  }
   const ax = windOf(g.fan), h = dt / SUBSTEPS;
   for (const k of g.balls) {
     k.t += dt;
