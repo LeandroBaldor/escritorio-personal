@@ -1,7 +1,10 @@
 // Los dibujos de "¡Al cesto!": la oficina de Skynet es una ilustración, y encima se dibujan las cosas que se
 // mueven: los autos voladores que pasan por la ventana, el reloj con la hora de verdad, el ventilador, el
-// tacho de alambre, el T-800 (quieto con el humano en la mano o tirando), los humanos y la sangre.
-import humanUrl from './assets/humano.webp';
+// tacho de alambre, el T-800 (quieto con el próximo humano en la mano o tirando), los humanos y la sangre.
+import human1Url from './assets/humano-1.webp';
+import human2Url from './assets/humano-2.webp';
+import human3Url from './assets/humano-3.webp';
+import human4Url from './assets/humano-4.webp';
 import readyUrl from './assets/t800-listo.webp';
 import throwUrl from './assets/t800-tira.webp';
 import bgUrl from './assets/terminator-oficina.webp';
@@ -16,16 +19,22 @@ const hash = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453
 const INK = '#07060a', NEON = '#ff2a2a';
 
 // ---------- Las imágenes ----------
-const images: { bg?: HTMLImageElement; ready?: HTMLImageElement; throw?: HTMLImageElement; human?: HTMLImageElement } = {};
+const images: { bg?: HTMLImageElement; ready?: HTMLImageElement; throw?: HTMLImageElement } = {};
+const humans: HTMLImageElement[] = []; // el pibe de remera verde, el oficinista, la chica de vestido amarillo y la ejecutiva
 let started = false;
 export function loadOffice(onLoad: () => void) {
   if (started || typeof Image === 'undefined') return;
   started = true;
-  for (const [key, url] of [['bg', bgUrl], ['ready', readyUrl], ['throw', throwUrl], ['human', humanUrl]] as const) {
+  for (const [key, url] of [['bg', bgUrl], ['ready', readyUrl], ['throw', throwUrl]] as const) {
     const img = new Image();
     img.onload = () => { images[key] = img; onLoad(); };
     img.src = url;
   }
+  [human1Url, human2Url, human3Url, human4Url].forEach((url, i) => {
+    const img = new Image();
+    img.onload = () => { humans[i] = img; onLoad(); };
+    img.src = url;
+  });
 }
 
 // ---------- La oficina ----------
@@ -59,22 +68,21 @@ export function drawWindow(ctx: CanvasRenderingContext2D, v: View) {
   ctx.restore();
 }
 
-// El reloj de neón de la pared, con la hora de verdad.
+// El reloj de la pared, ahora digital: la hora de verdad en hh:mm:ss con números rojos de neón (detrás, los
+// segmentos apagados, como en un display de verdad).
 export function drawClock(ctx: CanvasRenderingContext2D, v: View, now: Date) {
-  const s = v.s, cx = X(v, ix(1399)), cy = Y(v, iy(179)), r = s * 0.47;
+  const s = v.s, cx = X(v, ix(1399)), cy = Y(v, iy(179)), r = s * 0.72;
   ctx.save();
-  ctx.fillStyle = '#050407'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); // tapa las agujas pintadas
-  const sec = now.getSeconds() + now.getMilliseconds() / 1000, min = now.getMinutes() + sec / 60, hour = (now.getHours() % 12) + min / 60;
-  ctx.shadowColor = NEON; ctx.shadowBlur = s * 0.12; ctx.lineCap = 'round';
-  const hand = (turns: number, len: number, width: number, color: string, tail = 0.12) => {
-    const a = turns * Math.PI * 2;
-    ctx.strokeStyle = color; ctx.lineWidth = width;
-    ctx.beginPath(); ctx.moveTo(cx - Math.sin(a) * r * tail, cy + Math.cos(a) * r * tail); ctx.lineTo(cx + Math.sin(a) * r * len, cy - Math.cos(a) * r * len); ctx.stroke();
-  };
-  hand(hour / 12, 0.62, Math.max(2, s * 0.05), '#ff2a2a');
-  hand(min / 60, 0.92, Math.max(1.5, s * 0.035), '#ff4040');
-  hand(sec / 60, 0.95, Math.max(1, s * 0.012), '#fecaca', 0.2);
-  ctx.fillStyle = '#ff2a2a'; ctx.beginPath(); ctx.arc(cx, cy, s * 0.03, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#050407'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); // tapa la cara con agujas
+  const two = (n: number) => String(n).padStart(2, '0');
+  const text = `${two(now.getHours())}:${two(now.getMinutes())}:${two(now.getSeconds())}`;
+  ctx.font = `700 ${s * 0.3}px "Courier New", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const fit = Math.min(1, (s * 1.22) / ctx.measureText('88:88:88').width);
+  ctx.font = `700 ${s * 0.3 * fit}px "Courier New", monospace`;
+  ctx.fillStyle = 'rgba(255,42,42,0.12)'; ctx.fillText('88:88:88', cx, cy);
+  ctx.shadowColor = NEON; ctx.shadowBlur = s * 0.12; ctx.fillStyle = '#ff3b3b'; ctx.fillText(text, cx, cy);
+  ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,120,120,0.7)'; ctx.font = `700 ${s * 0.09}px "Courier New", monospace`;
+  ctx.fillText('SKYNET', cx, cy - s * 0.3); ctx.fillText(now.getSeconds() % 2 ? '● REC' : 'REC', cx, cy + s * 0.3);
   ctx.restore();
 }
 
@@ -195,35 +203,42 @@ export function drawBinFront(ctx: CanvasRenderingContext2D, v: View, b: Bin) {
 }
 
 // ---------- Los humanos ----------
-// Un humano en miniatura (de traje, pataleando). `angle` en radianes; `flat` lo aplasta contra el piso.
-export function drawHuman(ctx: CanvasRenderingContext2D, v: View, x: number, y: number, angle: number, flip = false, flat = 0) {
-  const img = images.human, s = v.s, h = 0.74 * s, w = h * (104 / 161);
+// Se van alternando las 4 personas: cada humano usa la de su número.
+export const HUMANS = 4;
+export const kindOf = (id: number) => ((id % HUMANS) + HUMANS) % HUMANS;
+// Un humano en miniatura cayendo. `angle` en radianes; `flat` lo aplasta contra el piso.
+export function drawHuman(ctx: CanvasRenderingContext2D, v: View, kind: number, x: number, y: number, angle: number, flip = false, flat = 0) {
+  const img = humans[kindOf(kind)], s = v.s, size = 0.9 * s;
   ctx.save(); ctx.translate(X(v, x), Y(v, y)); ctx.rotate(angle);
   ctx.scale((flip ? -1 : 1) * (1 + flat * 0.3), 1 - flat * 0.55);
-  if (img) ctx.drawImage(img, -w / 2, -h / 2, w, h);
-  else { ctx.fillStyle = '#1e3a8a'; ctx.fillRect(-w / 4, -h / 2, w / 2, h); }
+  if (img) { const k = size / Math.max(img.naturalWidth, img.naturalHeight), w = img.naturalWidth * k, h = img.naturalHeight * k; ctx.drawImage(img, -w / 2, -h / 2, w, h); }
+  else { ctx.fillStyle = '#1e3a8a'; ctx.fillRect(-size / 4, -size / 4, size / 2, size / 2); }
   ctx.restore();
+}
+
+// El próximo humano, agarrado en el puño del T-800 (pataleando un poco).
+export function drawHeld(ctx: CanvasRenderingContext2D, v: View, kind: number, t: number) {
+  drawHuman(ctx, v, kind, 3.3, 4.9, -0.35 + Math.sin(t * 9) * 0.06, true);
 }
 
 // Los humanos que ya entraron, amontonados en el tacho (asoman cabezas y brazos).
 export function drawLoad(ctx: CanvasRenderingContext2D, v: View, b: Bin) {
   const n = Math.min(7, b.load);
   for (let i = 0; i < n; i++) {
-    const dx = (hash(i + 40) - 0.5) * b.w * 0.6, dy = 0.4 + Math.min(i, 4) * 0.16 + hash(i + 50) * 0.1;
-    drawHuman(ctx, v, b.x + dx, b.y + dy, (hash(i + 60) - 0.5) * 2.4, hash(i) > 0.5);
+    const dx = (hash(i + 40) - 0.5) * b.w * 0.5, dy = 0.4 + Math.min(i, 4) * 0.16 + hash(i + 50) * 0.1;
+    drawHuman(ctx, v, i + 1, b.x + dx, b.y + dy, (hash(i + 60) - 0.5) * 2.4, hash(i) > 0.5);
   }
 }
 
 export function drawBall(ctx: CanvasRenderingContext2D, v: View, k: Ball, now: number) {
   if (k.state === 'out' && k.done) {
     // Hecho puré en el piso.
-    const fade = Math.max(0, Math.min(1, 4 - (now - k.done)));
-    ctx.globalAlpha = fade;
-    drawHuman(ctx, v, k.x, BALL_R * 0.4, Math.PI / 2 * (k.id % 2 ? 1 : -1), false, 0.6);
+    ctx.globalAlpha = Math.max(0, Math.min(1, 4 - (now - k.done)));
+    drawHuman(ctx, v, k.id, k.x, BALL_R * 0.4, 0.15 * (k.id % 2 ? 1 : -1), k.id % 2 === 0, 0.6);
     ctx.globalAlpha = 1;
     return;
   }
-  drawHuman(ctx, v, k.x, k.y, k.angle, k.vx < 0);
+  drawHuman(ctx, v, k.id, k.x, k.y, k.angle, k.vx < 0);
 }
 
 // ---------- La sangre ----------
