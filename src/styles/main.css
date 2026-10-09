@@ -1105,7 +1105,7 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
   .tt-kits button{min-width:0;font-size:min(.66rem,2.75vw);overflow-wrap:normal}
 }
 
-/* ¡Al cesto!: básquet con bollos de papel en la oficina. */
+/* SkynetBall: el T-800 tira humanos en miniatura al tacho en la oficina de Skynet. */
 .bol{background:radial-gradient(ellipse at 50% 0,#3b0a0e 0,#09070c 70%)}
 .bol .runner-back{color:#ff6b6b}
 .bol h1{color:#fff;text-shadow:0 0 10px #ff2a2a}

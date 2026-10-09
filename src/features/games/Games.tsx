@@ -147,7 +147,7 @@ function LavaArt() {
   </svg>;
 }
 
-// Portada de ¡Al cesto!: una imagen del juego, con el T-800 tirando un humano en miniatura al tacho, el
+// Portada de SkynetBall: una imagen del juego, con el T-800 tirando un humano en miniatura al tacho, el
 // ventilador soplando y uno que cayó afuera.
 function PaperArt() {
   return <svg viewBox="0 0 160 100" aria-hidden="true">
@@ -262,7 +262,7 @@ export function Games() {
         <Link className="game-card game-card--bol" to="/juegos/cesto">
           <PaperArt />
           <span className="game-card-text">
-            <strong>¡Al cesto!</strong>
+            <strong>SkynetBall</strong>
             <span>Un T-800 en la oficina de Skynet tira humanos en miniatura al tacho, solo con el mouse: cerca, a media distancia y lejos, y después con el ventilador soplando. 4 cuartos de 2 minutos.</span>
           </span>
           <span className="game-card-foot">

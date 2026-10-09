@@ -13,7 +13,7 @@ const sink = (g: PaperGame) => {
   run(g, 1.5);
 };
 
-describe('¡Al cesto!', () => {
+describe('SkynetBall', () => {
   it('arranca con 4 cuartos de 2 minutos, el tacho cerca y sin viento', () => {
     const g = newPaper(1);
     expect(TIME).toBe(480);

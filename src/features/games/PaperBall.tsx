@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  inFlight, launch, newPaper, ORIGIN, QUARTER, quarterLeft, spotOf, STEPS, step, stepValue, takeEvents, throwBall, TOP, W,
+  inFlight, launch, newPaper, ORIGIN, preview, QUARTER, quarterLeft, spotOf, STEPS, step, stepValue, takeEvents, throwBall, TOP, W,
   type PaperGame,
 } from './paperBall';
 import {
@@ -22,11 +22,15 @@ interface Gore { drops: Drop[]; stains: Stain[]; shake: number }
 const clock = (sec: number) => { const n = Math.ceil(sec); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
 const DISTANCE = ['cerca', 'media distancia', 'lejos'];
 const THROW_POSE = 0.4; // lo que dura la pose de tiro
+const AIM_DOTS = 4; // los circulitos de la dirección (antes eran 14)
 
-// La puntería: solo la línea de lo que tirás para atrás y la fuerza, en un arco alrededor de la mano (sin la
-// trayectoria, que la tenés que calcular vos).
+// La puntería: la línea de lo que tirás para atrás, la fuerza en un arco alrededor de la mano y apenas unos
+// circulitos con la dirección de salida (el resto de la trayectoria la tenés que calcular vos).
 function drawAim(ctx: CanvasRenderingContext2D, v: View, aim: Aim) {
-  const { power } = launch(aim.sx, aim.sy, aim.x, aim.y), s = v.s;
+  const { vx, vy, power } = launch(aim.sx, aim.sy, aim.x, aim.y), s = v.s;
+  ctx.fillStyle = 'rgba(255,80,80,0.95)'; ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.lineWidth = 1;
+  preview(vx, vy, AIM_DOTS, 0.07).forEach(([x, y], i) => { ctx.globalAlpha = 1 - i / (AIM_DOTS + 1); ctx.beginPath(); ctx.arc(X(v, x), Y(v, y), s * 0.07, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
+  ctx.globalAlpha = 1;
   ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.setLineDash([8, 6]); ctx.lineWidth = Math.max(2, s * 0.03);
   ctx.beginPath(); ctx.moveTo(X(v, aim.sx), Y(v, aim.sy)); ctx.lineTo(X(v, aim.x), Y(v, aim.y)); ctx.stroke(); ctx.setLineDash([]);
   const cx = X(v, ORIGIN.x), cy = Y(v, ORIGIN.y), r = s * 0.6;
@@ -232,10 +236,10 @@ export function PaperBall() {
   };
 
   const fanText = hud.dir > 0 ? '→ Sopla' : hud.dir < 0 ? '← Sopla' : 'Apagado';
-  return <section className="runner bol" aria-label="¡Al cesto!">
+  return <section className="runner bol" aria-label="SkynetBall">
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
-      <h1>¡Al cesto!</h1>
+      <h1>SkynetBall</h1>
       {(status === 'playing' || status === 'paused') && <button type="button" onClick={() => setStatus(s => s === 'playing' ? 'paused' : 'playing')}>{status === 'playing' ? 'Pausa' : 'Seguir'}</button>}
     </div>
     <div className="bol-main">
@@ -245,7 +249,7 @@ export function PaperBall() {
         {status !== 'playing' && <div className="runner-overlay" role="dialog" aria-labelledby="bol-message">
           <div>
             {status === 'ready' && <>
-              <h2 id="bol-message">¡Al cesto! 🤖</h2>
+              <h2 id="bol-message">SkynetBall 🤖</h2>
               <p>Sos el <strong>T-800</strong> en la oficina de Skynet y los humanos en miniatura van al tacho. Hacé <strong>clic</strong>, tirá para atrás como una gomera y <strong>soltá</strong>.</p>
               <p>No hay límite de tiros, solo el tiempo. Cada tiro es una posición y se pasa a la siguiente, cada vez más difícil: el tacho <strong>cerca</strong>, a <strong>media distancia</strong> y <strong>lejos</strong>; después lo mismo con el <strong>ventilador</strong> soplando para la derecha, y después soplando para la izquierda. Al terminar las 9 vuelve a empezar el ciclo.</p>
               <p>Embocar en la 1ª posición vale <strong>1 punto</strong>, en la 2ª <strong>2</strong>… y en la 9ª <strong>9</strong>. Si hacés el ciclo rápido sumás <strong>puntos por velocidad</strong>. Son <strong>4 cuartos de 2 minutos</strong>, como en el básquet.</p>
