@@ -2,12 +2,12 @@ import { expect, test } from '@playwright/test';
 
 test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await page.goto('/escritorio-personal/');
-  await expect(page.getByRole('navigation')).toHaveCount(0);
+  await expect(page.locator('header').getByRole('navigation')).toHaveCount(0);
   await expect(page.locator('header')).not.toContainText('Notas');
   await expect(page.locator('header').getByRole('link', { name: 'Mi diario' })).toHaveCount(0);
   await expect(page.locator('header').getByRole('link', { name: 'Gastos' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Mi diario', exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Gastos', exact: true })).toBeVisible();
+  await expect(page.locator('main').getByRole('link', { name: 'Gastos', exact: true })).toBeVisible();
   await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Pagar luz');
   await page.getByRole('button', { name: 'Rosa' }).focus();
   await page.keyboard.press('Space');
@@ -62,7 +62,7 @@ test('persiste notas, movimiento, diario y gastos', async ({ page }) => {
   await expect(greenButton).toHaveCSS('outline-width', '3px');
   await expect(greenButton).toHaveCSS('outline-color', 'rgb(244, 189, 88)');
   await page.getByRole('link', { name: 'Escritorio Personal' }).click();
-  await page.getByRole('link', { name: 'Gastos', exact: true }).click();
+  await page.locator('main').getByRole('link', { name: 'Gastos', exact: true }).click();
   const today = await page.evaluate(() => { const now = new Date(); return `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`; });
   await expect(page.getByLabel('Fecha del gasto', { exact: true })).toHaveValue(today);
   const addCalendar = page.getByLabel('Abrir calendario de fecha del gasto');
@@ -152,7 +152,7 @@ test('mantiene vacía la fecha de un gasto legacy al editar otro campo', async (
   await page.goto('/escritorio-personal/');
   await page.evaluate(() => localStorage.setItem('escritorio-personal-v1:00000000-0000-4000-8000-000000000001', JSON.stringify({ version: 1, notes: [], folders: [], expenses: [{ id: 'legacy', concept: 'Gasto anterior', cents: 1234 }] })));
   await page.reload();
-  await page.getByRole('link', { name: 'Gastos', exact: true }).click();
+  await page.locator('main').getByRole('link', { name: 'Gastos', exact: true }).click();
   await expect(page.getByLabel('Fecha', { exact: true })).toHaveValue('');
   await expect(page.getByLabel('Abrir calendario de fecha', { exact: true })).toBeVisible();
   await page.getByLabel('Concepto').fill('Gasto actualizado');
@@ -341,7 +341,7 @@ test('reordena libremente, persiste y registra historial solo al cambiar de secc
 test('carga meses, guarda gastos en su carpeta y los saca de la lista', async ({ page }) => {
   page.on('dialog', dialog => dialog.type() === 'prompt' ? dialog.accept('09/2026') : dialog.accept());
   await page.goto('/escritorio-personal/');
-  await page.getByRole('link', { name: 'Gastos', exact: true }).click();
+  await page.locator('main').getByRole('link', { name: 'Gastos', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Cerrar mes' })).toHaveCount(0);
   await page.getByLabel('Cargar mes').fill('13/2026');
   await page.getByRole('button', { name: 'Crear carpeta' }).click();
@@ -772,7 +772,7 @@ test('los accesos de Mi diario llevan al escritorio y a gastos', async ({ page }
 
 test('los accesos de Mis gastos llevan al escritorio y al diario', async ({ page }) => {
   await page.goto('/escritorio-personal/');
-  await page.getByRole('link', { name: 'Gastos', exact: true }).click();
+  await page.locator('main').getByRole('link', { name: 'Gastos', exact: true }).click();
   const links = page.getByRole('navigation', { name: 'Ir a otras secciones' });
   await expect(links.getByRole('link')).toHaveText(['Escritorio', 'Mi diario', /Calendario$/, 'Juegos']);
   await links.getByRole('link', { name: 'Mi diario' }).click();
@@ -807,7 +807,7 @@ test('el calendario muestra las notas con fecha y cambia de mes con las flechas'
   await page.goto('/escritorio-personal/');
   await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Turno dentista hoy 9:15');
   await page.getByRole('button', { name: 'Agregar nota' }).click();
-  await page.getByRole('link', { name: 'Calendario' }).click();
+  await page.locator('main').getByRole('link', { name: 'Calendario' }).click();
   await expect(page.getByRole('heading', { name: 'Calendario', exact: true })).toBeVisible();
   await expect(page.getByPlaceholder('Ej. Turno Altamar 13/10 10:30')).toHaveCount(0);
   await expect(page.locator('.cal-chip.cal-cat--salud', { hasText: 'Turno dentista' })).toHaveText('09:15 Turno dentista');
@@ -828,7 +828,7 @@ test('el calendario lista las posibles fechas para aprobarlas con la flecha o de
     await page.getByPlaceholder('¿Qué necesitás recordar?').fill(text);
     await page.getByRole('button', { name: 'Agregar nota' }).click();
   }
-  await page.getByRole('link', { name: 'Calendario' }).click();
+  await page.locator('main').getByRole('link', { name: 'Calendario' }).click();
   const doubts = page.locator('.cal-doubt');
   await expect(doubts).toHaveCount(2);
   await expect(page.getByLabel('Día de Turno pediatra 25.12', { exact: true })).toHaveValue(/^25\/12\/\d{4}$/);
@@ -858,7 +858,7 @@ test('al agregar una nota con una posible fecha el escritorio pregunta en el mom
   await expect(page.locator('.date-ask')).toContainText('¿Esto es una fecha?');
   await page.getByRole('button', { name: 'Sí, Turno pediatra 25.12 es una fecha' }).click();
   await expect(page.locator('.date-ask')).toHaveCount(0);
-  await page.getByRole('link', { name: 'Calendario' }).click();
+  await page.locator('main').getByRole('link', { name: 'Calendario' }).click();
   await expect(page.locator('.cal-doubt')).toHaveCount(0);
   for (let step = 0; step < 12 && !(await page.locator('.cal-band h2').textContent())?.includes('diciembre'); step += 1) await page.getByRole('button', { name: 'Mes siguiente' }).click();
   await expect(page.locator('.cal-band h2')).toContainText('diciembre');
@@ -867,7 +867,7 @@ test('al agregar una nota con una posible fecha el escritorio pregunta en el mom
 
 test('el calendario agrega tareas con día y categoría, y deja cambiar la categoría', async ({ page }) => {
   await page.goto('/escritorio-personal/');
-  await page.getByRole('link', { name: 'Calendario' }).click();
+  await page.locator('main').getByRole('link', { name: 'Calendario' }).click();
   const form = page.getByRole('form', { name: 'Agregar tarea' });
   await form.getByPlaceholder('Ej. Turno Altamar').fill('Reunión con el cliente');
   await form.getByLabel('Hora', { exact: true }).fill('15:00');
@@ -899,7 +899,7 @@ test('a una nota nueva sin fecha se le puede agregar día y hora para el calenda
   await addDate.getByLabel('Hora', { exact: true }).fill('1830');
   await addDate.getByRole('button', { name: 'Agregar', exact: true }).click();
   await expect(page.locator('.date-ask')).toHaveCount(0);
-  await page.getByRole('link', { name: 'Calendario' }).click();
+  await page.locator('main').getByRole('link', { name: 'Calendario' }).click();
   await expect(page.locator('.cal-chip', { hasText: 'Llamar al plomero' })).toHaveText('18:30 Llamar al plomero');
 });
 
@@ -913,7 +913,7 @@ test('una nota con solo un día de la semana pide confirmar la fecha', async ({ 
   await expect(confirm.getByRole('button', { name: 'Agregar', exact: true })).toBeEnabled();
   await confirm.getByRole('button', { name: 'Rechazar' }).click();
   await expect(page.locator('.date-ask')).toHaveCount(0);
-  await page.getByRole('link', { name: 'Calendario' }).click();
+  await page.locator('main').getByRole('link', { name: 'Calendario' }).click();
   await expect(page.locator('.cal-doubt')).toHaveCount(0);
   for (let step = 0; step < 2; step += 1) {
     await expect(page.locator('.cal-chip', { hasText: 'Telecentro' })).toHaveCount(0);
@@ -925,7 +925,7 @@ test('en el panel del día se editan categoría, fecha y hora de una nota y se g
   await page.goto('/escritorio-personal/');
   await page.getByPlaceholder('¿Qué necesitás recordar?').fill('Turno dentista hoy');
   await page.getByRole('button', { name: 'Agregar nota' }).click();
-  await page.getByRole('link', { name: 'Calendario' }).click();
+  await page.locator('main').getByRole('link', { name: 'Calendario' }).click();
   await expect(page.getByRole('link', { name: 'Ver nota' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Editar Turno dentista' }).click();
   const editor = page.getByRole('form', { name: 'Editar Turno dentista' });
@@ -946,7 +946,7 @@ test('en el panel del día se editan categoría, fecha y hora de una nota y se g
 
 test('los gastos se editan en el panel del día con el mismo formato que las notas', async ({ page }) => {
   await page.goto('/escritorio-personal/');
-  await page.getByRole('link', { name: 'Gastos', exact: true }).click();
+  await page.locator('main').getByRole('link', { name: 'Gastos', exact: true }).click();
   await page.getByPlaceholder('Ej. Electricidad').fill('Claro');
   await page.getByLabel('Monto del gasto en pesos').fill('18636,07');
   await page.getByRole('button', { name: 'Agregar' }).click();
@@ -967,7 +967,7 @@ test('los gastos se editan en el panel del día con el mismo formato que las not
 
 test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async ({ page }) => {
   await page.goto('/escritorio-personal/');
-  await page.getByRole('link', { name: 'Juegos' }).click();
+  await page.locator('main').getByRole('link', { name: 'Juegos' }).click();
   await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Ir a otras secciones' }).getByRole('link')).toHaveText(['Escritorio', 'Mi diario', /Gastos$/, /Calendario$/]);
   await page.getByRole('link', { name: /Cuidado, bloques/ }).click();
