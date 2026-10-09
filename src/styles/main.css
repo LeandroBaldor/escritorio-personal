@@ -1139,7 +1139,7 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 .hud-clock::before{content:"";position:absolute;inset:4px;clip-path:inherit;border:1px solid #3ff5f055;pointer-events:none}
 .hud-clock::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,#ffffff0a 0 1px,transparent 1px 3px);pointer-events:none}
 .hud-clock-colon{position:relative;display:inline-block;width:.42em;height:.72em;vertical-align:-.16em;margin:0 .02em;color:transparent;text-shadow:none}
-.hud-clock-colon::before,.hud-clock-colon::after{content:"";position:absolute;left:50%;width:.15em;height:.15em;transform:translateX(-50%);background:var(--hud);box-shadow:0 0 6px #3ff5f0cc,0 0 12px #3ff5f066}
+.hud-clock-colon::before,.hud-clock-colon::after{content:"";position:absolute;left:50%;width:.15em;height:.15em;transform:translateX(-50%);background:#2aa7a4;box-shadow:none}
 .hud-clock-colon::before{top:.12em}.hud-clock-colon::after{bottom:.12em}
 .hud-clock-sec{color:var(--hud2);font-size:.62em;text-shadow:0 0 6px #2ef2a8aa}
 .hud-clock-bars{position:absolute;left:18%;right:18%;height:3px;background:repeating-linear-gradient(115deg,var(--hud) 0 5px,transparent 5px 9px);opacity:.75}
