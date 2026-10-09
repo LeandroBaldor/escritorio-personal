@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  inFlight, launch, newPaper, ORIGIN, preview, QUARTER, quarterLeft, spotOf, STEPS, step, stepValue, takeEvents, throwBall, TOP, W,
+  inFlight, launch, newPaper, ORIGIN, QUARTER, quarterLeft, spotOf, STEPS, step, stepValue, takeEvents, throwBall, TOP, W,
   type PaperGame,
 } from './paperBall';
 import {
@@ -16,19 +16,18 @@ const saveRecord = (value: number) => { try { localStorage.setItem(RECORD_KEY, S
 type Status = 'ready' | 'playing' | 'paused' | 'over';
 interface Aim { sx: number; sy: number; x: number; y: number }
 interface Pop { text: string; x: number; y: number; at: number; color: string }
+interface Banner { quarter: number; at: number }
+const BANNER_TIME = 2.6; // lo que dura el cartel del cuarto
 interface Gore { drops: Drop[]; stains: Stain[]; shake: number }
 const clock = (sec: number) => { const n = Math.ceil(sec); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
 const DISTANCE = ['cerca', 'media distancia', 'lejos'];
 const THROW_POSE = 0.4; // lo que dura la pose de tiro
 
-// La puntería: los puntitos de por dónde va a ir (sin contar el ventilador) y la fuerza, en un arco alrededor
-// de la mano.
+// La puntería: solo la línea de lo que tirás para atrás y la fuerza, en un arco alrededor de la mano (sin la
+// trayectoria, que la tenés que calcular vos).
 function drawAim(ctx: CanvasRenderingContext2D, v: View, aim: Aim) {
-  const { vx, vy, power } = launch(aim.sx, aim.sy, aim.x, aim.y), s = v.s;
-  ctx.fillStyle = 'rgba(255,80,80,0.95)'; ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.lineWidth = 1;
-  preview(vx, vy, 14).forEach(([x, y], i) => { ctx.globalAlpha = 1 - i / 15; ctx.beginPath(); ctx.arc(X(v, x), Y(v, y), s * 0.06, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
-  ctx.globalAlpha = 1;
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.setLineDash([6, 6]); ctx.lineWidth = 2;
+  const { power } = launch(aim.sx, aim.sy, aim.x, aim.y), s = v.s;
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.setLineDash([8, 6]); ctx.lineWidth = Math.max(2, s * 0.03);
   ctx.beginPath(); ctx.moveTo(X(v, aim.sx), Y(v, aim.sy)); ctx.lineTo(X(v, aim.x), Y(v, aim.y)); ctx.stroke(); ctx.setLineDash([]);
   const cx = X(v, ORIGIN.x), cy = Y(v, ORIGIN.y), r = s * 0.6;
   ctx.lineCap = 'round';
@@ -36,7 +35,27 @@ function drawAim(ctx: CanvasRenderingContext2D, v: View, aim: Aim) {
   ctx.strokeStyle = `hsl(${120 - power * 120},90%,52%)`; ctx.lineWidth = s * 0.08; ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI * 0.75, Math.PI * (0.75 + 1.5 * power)); ctx.stroke();
 }
 
-function draw(ctx: CanvasRenderingContext2D, g: PaperGame, v: View, aim: Aim | null, pops: Pop[], gore: Gore) {
+// El cartel grande del cuarto que arranca, en el medio de la pantalla: entra agrandándose y se va apagando.
+const QUARTER_NAMES = ['First quarter', '2nd quarter', '3rd quarter', '4th quarter'];
+function drawBanner(ctx: CanvasRenderingContext2D, v: View, banner: Banner, now: number) {
+  const a = now - banner.at;
+  if (a < 0 || a > BANNER_TIME) return;
+  const s = v.s, grow = Math.min(1, a / 0.25), alpha = Math.min(1, (BANNER_TIME - a) / 0.5);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, Y(v, TOP / 2 + 1.1), v.w, 2.2 * s);
+  ctx.translate(v.w / 2, Y(v, TOP / 2)); ctx.scale(0.6 + 0.4 * grow, 0.6 + 0.4 * grow);
+  const text = QUARTER_NAMES[banner.quarter].toUpperCase();
+  ctx.font = `900 ${Math.round(s * 1.25)}px Impact, "Arial Black", Nunito, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const fit = Math.min(1, (v.w * 0.9) / ctx.measureText(text).width);
+  ctx.scale(fit, fit);
+  ctx.lineJoin = 'round'; ctx.strokeStyle = '#000'; ctx.lineWidth = s * 0.22; ctx.strokeText(text, 0, 0);
+  ctx.shadowColor = '#ff0000'; ctx.shadowBlur = s * 0.5; ctx.fillStyle = '#e10600'; ctx.fillText(text, 0, 0);
+  ctx.shadowBlur = 0; ctx.strokeStyle = '#ff6b6b'; ctx.lineWidth = Math.max(1, s * 0.025); ctx.strokeText(text, 0, 0);
+  ctx.restore();
+}
+
+function draw(ctx: CanvasRenderingContext2D, g: PaperGame, v: View, aim: Aim | null, pops: Pop[], gore: Gore, banner: Banner) {
   ctx.save();
   if (gore.shake > 0) ctx.translate((Math.random() - 0.5) * gore.shake * v.s * 0.2, (Math.random() - 0.5) * gore.shake * v.s * 0.2);
   drawBackground(ctx, v);
@@ -57,6 +76,7 @@ function draw(ctx: CanvasRenderingContext2D, g: PaperGame, v: View, aim: Aim | n
   drawDrops(ctx, v, gore.drops);
   drawVignette(ctx, v);
   if (aim) drawAim(ctx, v, aim);
+  drawBanner(ctx, v, banner, g.time);
   // Los cartelitos de puntos que suben.
   for (const p of pops) {
     const a = g.time - p.at;
@@ -75,6 +95,7 @@ export function PaperBall() {
   const gameRef = useRef<PaperGame>(newPaper());
   const aimRef = useRef<Aim | null>(null);
   const popsRef = useRef<Pop[]>([]);
+  const bannerRef = useRef<Banner>({ quarter: 0, at: -99 });
   const goreRef = useRef<Gore>({ drops: [], stains: [], shake: 0 });
   const [status, setStatus] = useState<Status>('ready');
   const [hud, setHud] = useState({ left: QUARTER, quarter: 0, pause: false, score: 0, step: 0, round: 0, dir: 0 });
@@ -104,7 +125,7 @@ export function PaperBall() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    draw(ctx, gameRef.current, v, aimRef.current, popsRef.current, goreRef.current);
+    draw(ctx, gameRef.current, v, aimRef.current, popsRef.current, goreRef.current, bannerRef.current);
   }, [view]);
 
   useLayoutEffect(() => {
@@ -125,7 +146,7 @@ export function PaperBall() {
   }, [status, paint]);
 
   const start = useCallback(() => {
-    gameRef.current = newPaper(); aimRef.current = null; popsRef.current = []; goreRef.current = { drops: [], stains: [], shake: 0 };
+    gameRef.current = newPaper(); aimRef.current = null; popsRef.current = []; goreRef.current = { drops: [], stains: [], shake: 0 }; bannerRef.current = { quarter: 0, at: 0 };
     setHud({ left: QUARTER, quarter: 0, pause: false, score: 0, step: 0, round: 0, dir: 0 });
     setToast({ text: 'Hacé clic, tirá para atrás y soltá 🗑️', id: Date.now() });
     setStatus('playing');
@@ -151,7 +172,7 @@ export function PaperBall() {
           setToast({ text: `¡Ciclo ${e.round} completo en ${Math.round(e.seconds)} s! Embocaste ${e.made} de 9: +${e.bonus} por velocidad ⚡`, id: now });
         }
         if (e.type === 'fan') setToast({ text: e.dir > 0 ? 'Se prende el ventilador: sopla para la derecha →' : 'El ventilador se pasa a la derecha: sopla para la izquierda ←', id: now });
-        if (e.type === 'quarter') setToast({ text: `¡Fin del ${e.quarter}° cuarto! Arranca el ${e.quarter + 1}°: el ventilador sopla más fuerte 💨`, id: now });
+        if (e.type === 'quarter') bannerRef.current = { quarter: e.quarter, at: g.time };
       }
       gore.drops = stepDrops(gore.drops, gore.stains, dt, g.time);
       gore.stains = gore.stains.filter(st => g.time - st.at < 25).slice(-400);
