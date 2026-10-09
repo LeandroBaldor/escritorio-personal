@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react';
 const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-// La fecha de hoy al lado del reloj: una píldora de neón rosa, violeta y azul con un almanaque, el día de la
-// semana, el número grande en violeta y el mes con el año. Se actualiza sola al pasar la medianoche.
+// La fecha de hoy al lado del reloj: una tira de papel cuadriculado, rota en los bordes y pegada con cinta, con
+// la fecha escrita a mano, el número del día encerrado en un círculo rojo y el mes subrayado. Se actualiza sola
+// al pasar la medianoche.
 export function HeaderDate() {
   const [today, setToday] = useState(() => new Date());
   useEffect(() => {
@@ -17,12 +18,7 @@ export function HeaderDate() {
     return () => clearTimeout(timer);
   }, []);
   const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  return <time className="neon-date" dateTime={iso}>
-    <svg className="neon-date-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
-      <path d="M3.5 9.5h17M8 3v4M16 3v4" />
-      {[7.5, 10.5, 13.5, 16.5].map(x => [12.6, 16].map(y => <rect key={`${x}-${y}`} className="neon-date-dot" x={x - 0.9} y={y - 0.9} width="1.8" height="1.8" rx=".3" />))}
-    </svg>
-    <span className="neon-date-text">{DAYS[today.getDay()]} <b className="neon-date-day">{today.getDate()}</b> de {MONTHS[today.getMonth()]} {today.getFullYear()}</span>
+  return <time className="paper-date" dateTime={iso}>
+    <span className="paper-date-text">{DAYS[today.getDay()]} <span className="paper-date-day">{today.getDate()}<svg className="paper-date-circle" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true"><path d="M58 6C30 2 6 12 5 30s24 27 48 26 43-9 42-27S70 3 44 7" /></svg></span> de <span className="paper-date-month">{MONTHS[today.getMonth()]}<svg className="paper-date-line" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true"><path d="M2 6c20-3 45-4 70-3s20 1 26 2" /></svg></span> {today.getFullYear()}</span>
   </time>;
 }
