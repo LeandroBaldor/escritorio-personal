@@ -1,4 +1,4 @@
-// Los dibujos de "¡Al cesto!": la oficina de Skynet es una ilustración, y encima se dibujan las cosas que se
+// Los dibujos de "SkynetBall": la oficina de Skynet es una ilustración, y encima se dibujan las cosas que se
 // mueven: los autos voladores que pasan por la ventana, el reloj con la hora de verdad, el ventilador, el
 // tacho de alambre, el T-800 (quieto con el próximo humano en la mano o tirando), los humanos y la sangre.
 import human1Url from './assets/humano-1.webp';

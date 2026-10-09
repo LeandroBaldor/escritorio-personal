@@ -1,4 +1,4 @@
-// Lógica de "¡Al cesto!": el T-800 sentado en su oficina de Skynet tira humanos en miniatura al tacho de
+// Lógica de "SkynetBall": el T-800 sentado en su oficina de Skynet tira humanos en miniatura al tacho de
 // basura, solo con el mouse.
 //
 // - Hacés clic, tirás para atrás (como una gomera) y soltás: el humano sale para el lado contrario, más
