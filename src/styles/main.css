@@ -481,7 +481,7 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-more{font-size:.6rem}
 }
 /* En celular los accesos de arriba no se agrandan y bajan de línea si no entran (ahora son hasta cuatro con el calendario). */
-@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.section-objects--large{zoom:1}.section-objects{flex-wrap:wrap;gap:.8rem;max-width:100%}}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.section-objects--large{zoom:0.75}.section-objects{flex-wrap:wrap;gap:.8rem;max-width:100%}}
 @media(min-width:1200px) and (orientation:landscape),(min-width:1400px){.section-objects--large{zoom:1}}@media(min-width:1600px) and (orientation:landscape),(min-width:1800px){.section-objects--large{zoom:1.15}}
 @media(min-width:1900px){.section-objects--large{zoom:1.3}}
 /* Mis gastos: con el calendario son tres accesos; un poco más chicos para que la imagen del medio siga entrando. */
@@ -854,7 +854,7 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 @media(min-width:1001px){.cal-page .cal-band-wrap{--padb:.4rem}}
 @media(max-width:800px),(orientation:portrait) and (max-width:1100px){
   .cal-page .cal-band-wrap{--pad:.6rem;--gap:.4rem}
-  .cal-art-room{order:3;display:flex;justify-content:center;align-items:flex-end;height:9rem;margin-bottom:calc(-1 * (var(--title-gap) + 1.1rem))}
+  .cal-art-room{order:3;display:flex;justify-content:center;align-items:flex-end;height:11.25rem;margin-bottom:calc(-1 * (var(--title-gap) + 1.1rem))}
   .cal-art{position:relative;left:auto;bottom:auto;transform:none;max-height:100%}
 }
 /* Calendario en pantallas medianas: no hay lugar para el meme en el encabezado; los íconos pasan a otra línea si no entran. */
@@ -890,7 +890,7 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
   .games-art{align-self:stretch}
 }
 @media(max-width:800px),(orientation:portrait) and (max-width:1100px){
-  .games-art{display:flex;justify-content:center;height:10rem;margin:.25rem 0 .25rem}
+  .games-art{display:flex;justify-content:center;height:12.5rem;margin:.25rem 0 .25rem}
   .games-art img{position:static;transform:none;max-height:100%}
 }
 
@@ -1019,12 +1019,12 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
    apoyado sobre el rectángulo de gastos. */
 @media(max-width:800px),(orientation:portrait) and (max-width:1100px){
   .calc-art{display:block;width:100%;pointer-events:none;user-select:none}
-  .calc-art img{display:block;width:100%;max-width:34rem;height:auto;margin:0 auto -.4rem;border-radius:10px;box-shadow:0 6px 14px #2d140c88}
+  .calc-art img{display:block;width:100%;max-width:43rem;height:auto;margin:0 auto -.4rem;border-radius:10px;box-shadow:0 6px 14px #2d140c88}
 }
 @media(pointer:coarse) and (min-width:801px) and (max-width:1859px) and (orientation:landscape){
   .section-title:has(>.calc-art)>.section-objects{grid-column:2/-1}
   .calc-art{display:block;grid-column:1/-1;grid-row:2;align-self:auto;container-type:normal}
-  .calc-art img{display:block;position:static;transform:none;width:auto;max-width:100%;height:min(15rem,45vh);margin:0 auto -1.6rem}
+  .calc-art img{display:block;position:static;transform:none;width:auto;max-width:100%;height:min(18.75rem,56vh);margin:0 auto -1.6rem}
 }
 @media(pointer:coarse) and (min-width:1101px) and (max-width:1279px) and (orientation:landscape){.section-title:has(>.calc-art)>.section-objects{zoom:1.1}}
 /* Mis gastos fuera de la notebook: entre 848 y 1088px de ancho las 6 columnas quedan apretadas (cortan el texto),
@@ -1071,20 +1071,20 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 /* Calendario en horizontal mediano: el meme va en su propia fila, centrado, apoyado sobre el encabezado azul,
    y los íconos quedan en una sola fila. */
 @media(pointer:coarse) and (min-width:801px) and (max-width:1150px) and (orientation:landscape){
-  .cal-art-room{display:flex;grid-column:1/-1;grid-row:2;justify-content:center;align-items:flex-end;height:9rem;margin-bottom:calc(-1 * (var(--title-gap) + 1.1rem))}
+  .cal-art-room{display:flex;grid-column:1/-1;grid-row:2;justify-content:center;align-items:flex-end;height:11.25rem;margin-bottom:calc(-1 * (var(--title-gap) + 1.1rem))}
   .cal-art{position:relative;left:auto;bottom:auto;transform:none;max-height:100%;border-radius:10px 10px 0 0}
   .cal-page .section-title>.section-objects{flex-wrap:nowrap}
-  .cal-page .section-objects--large{zoom:1}
+  .cal-page .section-objects--large{zoom:0.75}
 }
 @media(pointer:coarse) and (min-width:1001px) and (max-width:1150px){.cal-layout{grid-template-columns:1fr}.cal-day-panel{position:static;max-height:none}}
 /* Juegos en horizontal mediano: el meme va en su propia fila, centrado y entero, llegando hasta las tarjetas;
    los íconos quedan en una sola fila al lado del título. */
 @media(pointer:coarse) and (min-width:801px) and (max-width:1279px) and (orientation:landscape){
   .games-title>.section-objects{grid-column:2/-1;grid-row:1;justify-self:end;flex-wrap:nowrap}
-  .games-art{display:flex;justify-content:center;grid-column:1/-1;grid-row:2;height:11rem;margin-top:.6rem}
+  .games-art{display:flex;justify-content:center;grid-column:1/-1;grid-row:2;height:13.75rem;margin-top:.6rem}
   .games-art img{position:static;transform:none;max-height:100%;max-width:100%}
 }
-@media(pointer:coarse) and (min-width:801px) and (max-width:1100px) and (orientation:landscape){.games-title>.section-objects--large{zoom:1}}
+@media(pointer:coarse) and (min-width:801px) and (max-width:1100px) and (orientation:landscape){.games-title>.section-objects--large{zoom:0.75}}
 /* Juegos en pantallas bajas (celular en horizontal): el cartel de inicio siempre entra entero (si hace falta,
    se desplaza adentro) y los controles táctiles son más bajos para dejarle lugar al juego. */
 .runner-overlay>div{max-height:100%;overflow-y:auto}
