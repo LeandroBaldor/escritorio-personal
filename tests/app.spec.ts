@@ -505,10 +505,19 @@ test('el calendario tiene el mes a la izquierda, días cuadrados y el meme llega
     const art = (await meme.boundingBox())!;
     const icons = (await page.locator('.cal-page .section-title .section-objects').boundingBox())!;
     expect(month.x - sheet.x).toBeLessThan(sheet.width * .15);
-    expect(month.x + month.width).toBeLessThanOrEqual(art.x);
-    expect(Math.abs(art.y + art.height - (band.y + band.height))).toBeLessThanOrEqual(1);
-    expect(art.x).toBeGreaterThanOrEqual(title.x + title.width);
-    expect(art.x + art.width).toBeLessThanOrEqual(icons.x);
+    const w = page.viewportSize()!.width;
+    if (w < 1500) {
+      // Notebook (1200-1499px): meme beside title in header, small
+      expect(art.x).toBeGreaterThanOrEqual(title.x + title.width);
+      expect(art.x + art.width).toBeLessThanOrEqual(icons.x);
+      expect(art.y + art.height).toBeLessThanOrEqual(band.y + 2);
+    } else {
+      // Full desktop (1500px+): meme at bottom of band, between month and icons
+      expect(month.x + month.width).toBeLessThanOrEqual(art.x);
+      expect(Math.abs(art.y + art.height - (band.y + band.height))).toBeLessThanOrEqual(1);
+      expect(art.x).toBeGreaterThanOrEqual(title.x + title.width);
+      expect(art.x + art.width).toBeLessThanOrEqual(icons.x);
+    }
   } else {
     const art = (await meme.boundingBox())!;
     expect(Math.abs(art.y + art.height - sheet.y)).toBeLessThanOrEqual(1);
