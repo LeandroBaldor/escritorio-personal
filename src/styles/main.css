@@ -1140,6 +1140,7 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 .hud-clock::before{content:"";position:absolute;inset:3px;clip-path:inherit;border:1px solid #1d4ed8aa;pointer-events:none}
 .hud-clock::after{content:"";position:absolute;inset:0;background:linear-gradient(#1e3a8a22 1px,transparent 1px) 0 0/100% 8px,linear-gradient(90deg,#1e3a8a22 1px,transparent 1px) 0 0/12px 100%;pointer-events:none}
 .hud-clock-main{position:relative;z-index:1;text-shadow:none}
+.hud-clock-digit{display:inline-block;width:.6em;text-align:center}
 .hud-clock-colon{position:relative;display:inline-block;width:.42em;height:.72em;vertical-align:-.16em;margin:0 .02em;color:transparent;text-shadow:none}
 .hud-clock-colon::before,.hud-clock-colon::after{content:"";position:absolute;left:50%;width:.15em;height:.15em;transform:translateX(-50%);background:var(--hud)}
 .hud-clock-colon::before{top:.12em}.hud-clock-colon::after{bottom:.12em}

@@ -1093,3 +1093,16 @@ test('el encabezado muestra un reloj digital con la hora al lado de Escritorio P
   const brand = (await page.locator('header .brand').boundingBox())!, box = (await clock.boundingBox())!;
   expect(box.x).toBeGreaterThan(brand.x + brand.width - 1);
 });
+
+test('el reloj del encabezado no cambia de tamaño cuando cambian los números', async ({ page }) => {
+  const sizes: { width: number; height: number }[] = [];
+  for (const time of ['2026-01-01T11:11:11', '2026-01-01T00:00:00', '2026-01-01T18:48:58', '2026-01-01T21:47:07']) {
+    await page.clock.setFixedTime(new Date(time));
+    await page.goto('/escritorio-personal/');
+    // Con una letra donde el "1" es más angosto que el "8" (como pasa en algunas compus).
+    await page.addStyleTag({ content: '.hud-clock{font-family:Inter,sans-serif!important;font-variant-numeric:proportional-nums!important}' });
+    const box = (await page.locator('header .hud-clock').boundingBox())!;
+    sizes.push({ width: Math.round(box.width * 10) / 10, height: Math.round(box.height * 10) / 10 });
+  }
+  for (const size of sizes) expect(size).toEqual(sizes[0]);
+});
