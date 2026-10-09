@@ -1192,3 +1192,6 @@ body:has(.games-page)::after{inset:0;background:repeating-linear-gradient(0deg,#
 .games-title .eyebrow{color:#38bdf8}
 .games-byline{color:#a855f7}
 .games-art{text-shadow:none}
+/* En Juegos el encabezado se ve igual que en las otras secciones: el mismo marrón sobre la madera (sin que se vean
+   los hexágonos del fondo gamer a través). */
+body:has(.games-page) header{background:linear-gradient(#2e1c14e8,#2e1c14e8),radial-gradient(circle at 30% 20%,#a96e47aa,transparent 35%),repeating-linear-gradient(93deg,#75452d 0,#8c5738 4px,#70422a 8px,#985f3c 14px);background-attachment:scroll,fixed,fixed}
