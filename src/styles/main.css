@@ -1132,3 +1132,11 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
   .bol-stat strong{font-size:1.05rem}
   .bol-toast{white-space:normal}
 }
+/* Mis gastos: el disquete de Meses va abajo del título, más chico, como una etiqueta apoyada debajo. */
+.title-with-floppy{flex-direction:column;align-items:flex-start;gap:.55rem}
+.title-with-floppy .floppy--small{zoom:1;margin-left:.3rem;transform:rotate(-4deg)}
+.title-with-floppy .floppy--small:hover{transform:rotate(-1deg) scale(1.06)}
+@media(min-width:900px){.title-with-floppy .floppy--small{zoom:1.15}}
+@media(max-width:600px){.title-with-floppy{justify-content:flex-start}}
+/* Con el disquete abajo la fila es más alta: el meme se achica un poco para no tapar los íconos. */
+@media(min-width:1860px){.calc-art img{max-width:23%}}
