@@ -481,14 +481,28 @@ test('Juegos: las tarjetas van justo debajo del encabezado y el meme ocupa el lu
   const meme = (await page.locator('.games-art img').boundingBox())!;
   const cards = (await page.locator('.games-list').boundingBox())!;
   const icons = (await page.locator('.games-title > .section-objects').boundingBox())!;
-  const title = (await page.locator('.games-title h1').boundingBox())!;
+  // El encabezado es el recuadro negro con el título, la bajada y la firma.
+  const title = (await page.locator('.games-heading').boundingBox())!;
   expect(meme.width).toBeGreaterThan(80);
   expect(meme.y + meme.height).toBeLessThanOrEqual(cards.y);
   if (page.viewportSize()!.width > 800) {
-    expect(meme.x).toBeGreaterThanOrEqual(title.x + title.width);
-    expect(meme.x + meme.width).toBeLessThanOrEqual(icons.x);
-    expect(cards.y - (icons.y + icons.height)).toBeLessThan(60);
+    // En el escritorio el meme, el calendario y el reloj van en una fila propia, abajo del título y de los íconos.
+    expect(meme.y).toBeGreaterThanOrEqual(Math.max(title.y + title.height, icons.y + icons.height) - 1);
+    expect(cards.y - (meme.y + meme.height)).toBeLessThan(60);
   }
+  // El reloj va a la derecha, del mismo tamaño que el meme, y el calendario entre los dos, con el mismo alto.
+  const clock = (await page.locator('.games-clock').boundingBox())!;
+  const calendar = (await page.locator('.games-calendar').boundingBox())!;
+  expect(Math.abs(clock.width - meme.width)).toBeLessThanOrEqual(2);
+  expect(Math.abs(clock.height - meme.height)).toBeLessThanOrEqual(2);
+  expect(Math.abs(calendar.height - meme.height)).toBeLessThanOrEqual(2);
+  expect(calendar.x).toBeGreaterThanOrEqual(meme.x + meme.width);
+  expect(clock.x).toBeGreaterThanOrEqual(calendar.x + calendar.width);
+  expect(clock.y + clock.height).toBeLessThanOrEqual(cards.y);
+  expect(calendar.y + calendar.height).toBeLessThanOrEqual(cards.y);
+  // En el escritorio el reloj no tapa los íconos de las otras secciones.
+  if (page.viewportSize()!.width > 800) expect(clock.y).toBeGreaterThanOrEqual(icons.y + icons.height - 1);
+  await expect(page.locator('.games-clock')).toHaveAttribute('aria-label', /^Son las \d\d:\d\d$/);
 });
 
 test('el calendario tiene el mes a la izquierda, días cuadrados y el meme llega hasta el borde de abajo del mes', async ({ page }) => {
@@ -523,6 +537,10 @@ test('Juegos: en pantallas anchas el meme queda centrado arriba de Tiki-Taka, en
   expect(Math.abs(meme.x + meme.width / 2 - (tiki.x + tiki.width / 2))).toBeLessThanOrEqual(1);
   expect(Math.abs(meme.x + meme.width / 2 - 960)).toBeLessThanOrEqual(1);
   expect(meme.y + meme.height).toBeLessThanOrEqual(tiki.y);
+  const calendar = (await page.locator('.games-calendar').boundingBox())!;
+  const clock = (await page.locator('.games-clock').boundingBox())!;
+  expect(calendar.x).toBeGreaterThanOrEqual(meme.x + meme.width);
+  expect(clock.x).toBeGreaterThanOrEqual(calendar.x + calendar.width);
 });
 
 test('Mis gastos: sin recuadro de Total arriba, disquete al lado del título y meme en la fila de los íconos', async ({ page }) => {
@@ -558,7 +576,7 @@ test('¡El piso es de lava!: se abre desde Juegos, corre el tiempo, la lava avis
   await expect(page.getByTestId('lava-time')).toHaveText(paused ?? '');
   await page.getByRole('button', { name: 'Seguir' }).first().click();
   await page.getByRole('link', { name: '‹ Juegos' }).click();
-  await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
 });
 
 test('Ciudad Tiburón: se abre desde Juegos, corre el tiempo para atrás, cuenta rescatados y tiburones y se pausa', async ({ page }) => {
@@ -578,7 +596,7 @@ test('Ciudad Tiburón: se abre desde Juegos, corre el tiempo para atrás, cuenta
   await expect(page.getByTestId('tib-time')).toHaveText(paused ?? '');
   await page.getByRole('button', { name: 'Seguir' }).first().click();
   await page.getByRole('link', { name: '‹ Juegos' }).click();
-  await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
 });
 
 test('SkynetBall: se abre desde Juegos, se juega por cuartos, se tira arrastrando el mouse, corre el tiempo y se pausa', async ({ page }) => {
@@ -600,7 +618,7 @@ test('SkynetBall: se abre desde Juegos, se juega por cuartos, se tira arrastrand
   await expect(page.getByTestId('bol-time')).toHaveText(paused ?? '');
   await page.getByRole('button', { name: 'Seguir' }).first().click();
   await page.getByRole('link', { name: '‹ Juegos' }).click();
-  await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
 });
 
 test('las notas son cuadradas y un texto largo achica la letra para entrar', async ({ page }) => {
@@ -958,7 +976,7 @@ test('los gastos se editan en el panel del día con el mismo formato que las not
 test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async ({ page }) => {
   await page.goto('/escritorio-personal/');
   await page.getByRole('link', { name: 'Juegos' }).click();
-  await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Ir a otras secciones' }).getByRole('link')).toHaveText(['Escritorio', 'Mi diario', /Gastos$/, /Calendario$/]);
   await page.getByRole('link', { name: /Cuidado, bloques/ }).click();
   await page.getByRole('button', { name: 'Jugar' }).click();
@@ -968,7 +986,7 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
   await page.getByRole('button', { name: 'Seguir' }).first().click();
   await expect(page.getByTestId('runner-points')).not.toHaveText('0');
   await page.getByRole('link', { name: '‹ Juegos' }).click();
-  await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
 });
 
 test('el Solitario 3.000 se abre desde Juegos, da vuelta cartas y deshace', async ({ page }) => {
@@ -986,7 +1004,7 @@ test('el Solitario 3.000 se abre desde Juegos, da vuelta cartas y deshace', asyn
   await expect(page.getByTestId('solitaire-moves')).toHaveText('0');
   await expect(page.locator('.sol-waste .sol-card')).toHaveCount(0);
   await page.getByRole('link', { name: '‹ Juegos' }).click();
-  await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
 });
 
 test('Tiki-Taka: se elige el país y el DT, arranca el partido y el rival sigue jugando', async ({ page }) => {
@@ -1025,7 +1043,7 @@ test('Trepaluna: se abre desde Juegos, corre el tiempo, muestra la altura y se p
   await expect(page.getByTestId('trepa-time')).toHaveText(paused ?? '');
   await page.getByRole('button', { name: 'Seguir' }).first().click();
   await page.getByRole('link', { name: '‹ Juegos' }).click();
-  await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
 });
 
 test('Tiki-Taka: el Mundial arranca en octavos de final', async ({ page }) => {
@@ -1049,7 +1067,7 @@ test('¡Huye de la serpiente!: se abre desde Juegos, suma puntos con las bolitas
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
   await page.getByRole('button', { name: 'Seguir' }).first().click();
   await page.getByRole('link', { name: '‹ Juegos' }).click();
-  await expect(page.getByRole('heading', { name: 'Juegos', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
 });
 
 // Diseño adaptable: en celulares y tablets (en vertical y en horizontal) ninguna sección se sale de la pantalla

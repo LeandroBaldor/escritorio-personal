@@ -880,15 +880,38 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
    íconos, lo más grande que entra, centrada y llegando hasta un poquito antes de las tarjetas. */
 .games-title{--title-gap:1.4rem;margin-bottom:var(--title-gap)}
 .games-heading{align-self:start}
+.games-byline{margin:.35rem 0 0;font-size:.9rem;font-weight:700;letter-spacing:.08em}
 .games-art{position:relative;pointer-events:none;user-select:none}
 .games-art img{position:absolute;left:50%;bottom:calc(-1 * var(--title-gap) + .5rem);transform:translateX(-50%);width:auto;height:auto;max-width:100%;max-height:calc(100% + var(--title-gap) - .5rem);border-radius:12px;box-shadow:0 8px 22px #000b}
 @media(min-width:801px) and (orientation:landscape),(min-width:1101px){
   .section-title.games-title{display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:1rem;align-items:end}
   .games-art{align-self:stretch}
 }
+/* Reloj a la derecha, calendario al lado y el meme en el lugar que queda: los tres con el mismo alto. El meme y el
+   reloj miden 1200 × 666 y el calendario 840 × 666, así que juntos son 3240 de ancho por 666 de alto. */
+.games-clock,.games-calendar{filter:drop-shadow(0 8px 22px #000b)}
+.games-clock svg,.games-calendar svg{display:block;width:100%;height:100%}
+.games-clock-time{font:800 220px system-ui,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums}
+/* Calendario entre el meme y el reloj: mismo alto, más angosto (840 × 666). */
+.games-calendar{aspect-ratio:840/666;text-shadow:none}
+.games-calendar text{text-rendering:geometricPrecision}
+.games-calendar-weekday{font:700 120px Georgia,"Times New Roman",serif}
+.games-calendar-day{font:900 290px Impact,"Arial Black","Roboto Condensed",system-ui,sans-serif}
+.games-calendar-month{font:900 92px Impact,"Arial Narrow","Roboto Condensed",system-ui,sans-serif}
+.games-calendar-year{font:900 112px Impact,"Arial Narrow","Roboto Condensed",system-ui,sans-serif}
+@media(min-width:801px) and (orientation:landscape),(min-width:1101px){
+  .games-art{container-type:size;--art-h:min(calc(100cqh + var(--title-gap) - .5rem),calc((100cqw - 2rem) * 666 / 3240));--clock-w:calc(var(--art-h) * 1200 / 666);--cal-w:calc(var(--art-h) * 840 / 666)}
+  .games-art img{left:calc((100% - var(--clock-w) - var(--cal-w) - 2rem) / 2);width:var(--clock-w)}
+  .games-clock,.games-calendar{position:absolute;bottom:calc(-1 * var(--title-gap) + .5rem)}
+  .games-clock{right:0;width:var(--clock-w);aspect-ratio:1200/666}
+  .games-calendar{right:calc(var(--clock-w) + 1rem);width:var(--cal-w)}
+}
 @media(max-width:800px),(orientation:portrait) and (max-width:1100px){
-  .games-art{display:flex;justify-content:center;height:10rem;margin:.25rem 0 .25rem}
+  .games-art{display:flex;justify-content:center;align-items:flex-end;gap:.8rem;height:auto;margin:.25rem 0 .25rem}
   .games-art img{position:static;transform:none;max-height:100%}
+  .games-art{gap:.5rem}
+  .games-art img,.games-clock{width:min(calc(10rem * 1200 / 666),calc((100% - 1rem) * 1200 / 3240));height:auto;aspect-ratio:1200/666}
+  .games-calendar{width:min(calc(10rem * 840 / 666),calc((100% - 1rem) * 840 / 3240))}
 }
 
 /* Con los cinco juegos en una fila (pantallas anchas), Tiki-Taka queda en el medio: el meme va centrado en la
@@ -897,7 +920,10 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
   .games-heading{grid-column:1;grid-row:1}
   .games-title>.section-objects{grid-column:3;grid-row:1}
   .games-art{grid-column:1/-1;grid-row:1}
-  .games-art img{max-width:40%}
+  /* El calendario va en el medio entre el meme (centrado) y el reloj (a la derecha). */
+  .games-art{--art-h:min(calc(100cqh + var(--title-gap) - .5rem),calc(40cqw * 666 / 1200))}
+  .games-art img{left:50%;max-width:40%}
+  .games-calendar{right:auto;left:calc(75% - var(--clock-w) / 4 - var(--cal-w) / 2)}
 }
 
 /* ¡Huye de la serpiente! */
@@ -1080,6 +1106,9 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
   .games-title>.section-objects{grid-column:2/-1;grid-row:1;justify-self:end;flex-wrap:nowrap}
   .games-art{display:flex;justify-content:center;grid-column:1/-1;grid-row:2;height:11rem;margin-top:.6rem}
   .games-art img{position:static;transform:none;max-height:100%;max-width:100%}
+  .games-art{container-type:normal;align-items:flex-end;gap:.8rem;height:auto}
+  .games-art img,.games-clock,.games-calendar{position:static;width:min(calc(11rem * 1200 / 666),calc((100% - 1.6rem) * 1200 / 3240));height:auto;aspect-ratio:1200/666}
+  .games-art .games-calendar{width:min(calc(11rem * 840 / 666),calc((100% - 1.6rem) * 840 / 3240));aspect-ratio:840/666}
 }
 @media(pointer:coarse) and (min-width:801px) and (max-width:1100px) and (orientation:landscape){.games-title>.section-objects--large{zoom:1}}
 /* Juegos en pantallas bajas (celular en horizontal): el cartel de inicio siempre entra entero (si hace falta,
@@ -1172,3 +1201,40 @@ header .brand--logo{display:block;flex:none;line-height:0}
 header .brand--logo img{display:block;height:58px;width:auto;clip-path:polygon(2.4% 0,97.6% 0,100% 10%,100% 90%,97.6% 100%,2.4% 100%,0 90%,0 10%);filter:drop-shadow(0 0 6px #22c55e66)}
 @media(max-width:1100px){header .brand--logo img{height:48px}}
 @media(max-width:600px){header .brand--logo img{height:40px}}
+
+/* Juegos (igual que en MiniJuegos): fondo gamer con panal de hexágonos neón en verdes, brillos verdes, piso de
+   grilla neón en perspectiva (estilo synthwave) y líneas de pantalla vieja por encima. En el escritorio va solo en
+   la sección Juegos; fijos detrás de todo y no se pueden tocar. */
+body:has(.games-page){background:url(../assets/images/fondo-hexagonos.svg) 0 0/336px 290.98px,radial-gradient(ellipse 55% 50% at 88% 12%,#16a34a55,transparent 70%),radial-gradient(ellipse 50% 45% at 5% 60%,#22c55e33,transparent 70%),linear-gradient(160deg,#010a04 0,#03160a 50%,#062312 100%);background-attachment:fixed}
+body:has(.games-page)::before,body:has(.games-page)::after{content:"";position:fixed;pointer-events:none;z-index:0}
+body:has(.games-page)>#root{position:relative;z-index:1}
+body:has(.games-page)::before{left:-50%;right:-50%;bottom:0;height:100vh;transform:perspective(600px) rotateX(58deg);transform-origin:50% 100%;
+  background:linear-gradient(#16a34a 2px,transparent 2px) 0 0/100% 48px,linear-gradient(90deg,#4ade80 2px,transparent 2px) 50% 0/64px 100%;
+  opacity:.6;-webkit-mask-image:linear-gradient(to top,#000 25%,transparent 95%);mask-image:linear-gradient(to top,#000 25%,transparent 95%)}
+body:has(.games-page)::after{inset:0;background:repeating-linear-gradient(0deg,#ffffff07 0 1px,transparent 1px 3px)}
+/* El título con brillo neón para que combine con el fondo. */
+.games-title{text-shadow:0 2px 3px #000}
+/* Título, bajada y firma adentro de un recuadro negro: la bajada en celeste, "MiniJuegos" en blanco y la firma en violeta. */
+.games-heading{background:#000;border:2px solid #39ff1455;border-radius:14px;padding:.7rem 1.1rem .8rem;box-shadow:0 0 18px #39ff1426,0 8px 22px #000b}
+.games-title h1{color:#fff;text-shadow:0 0 12px #ffffff55}
+.games-title .eyebrow{color:#38bdf8}
+.games-byline{color:#a855f7}
+.games-art{text-shadow:none}
+/* En el escritorio, Juegos tiene además los íconos de las otras secciones arriba a la derecha: el meme, el calendario
+   y el reloj no entran en la misma fila, así que van en una fila propia, centrados y del mismo alto, entre el título
+   y las tarjetas. */
+@media(min-width:801px) and (orientation:landscape),(min-width:1101px){
+  .games-title:has(>.section-objects){grid-template-columns:auto minmax(0,1fr) auto;row-gap:.9rem}
+  .games-title:has(>.section-objects)>.games-heading{grid-column:1;grid-row:1}
+  .games-title:has(>.section-objects)>.section-objects{grid-column:3;grid-row:1}
+  .games-title:has(>.section-objects)>.games-art{grid-column:1/-1;grid-row:2;container-type:normal;display:flex;justify-content:center;align-items:flex-end;gap:1rem;height:auto;align-self:auto;--art-h:clamp(8rem,min(13vw,calc((100vw - 9rem) * 666 / 3240)),14rem)}
+  .games-title:has(>.section-objects)>.games-art img,.games-title:has(>.section-objects)>.games-art .games-clock,.games-title:has(>.section-objects)>.games-art .games-calendar{position:static;transform:none;left:auto;right:auto;bottom:auto;max-width:none;max-height:none;height:var(--art-h);width:auto}
+  .games-title:has(>.section-objects)>.games-art img,.games-title:has(>.section-objects)>.games-art .games-clock{aspect-ratio:1200/666}
+  .games-title:has(>.section-objects)>.games-art .games-calendar{aspect-ratio:840/666}
+}
+/* Con los cinco juegos en una fila, el meme queda centrado en la pantalla (arriba de Tiki-Taka), con el calendario y
+   el reloj a su derecha: a la izquierda va un espacio vacío del mismo ancho que esos dos. */
+@media(min-width:1896px){
+  .games-title:has(>.section-objects)>.games-art{--art-h:9.5rem;--cal-w:calc(var(--art-h) * 840 / 666);--clock-w:calc(var(--art-h) * 1200 / 666);display:grid;grid-template-columns:calc(var(--cal-w) + var(--clock-w) + 1rem) auto auto auto;justify-content:center;column-gap:1rem}
+  .games-title:has(>.section-objects)>.games-art img{grid-column:2}
+}
