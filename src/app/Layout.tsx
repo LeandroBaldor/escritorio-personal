@@ -5,6 +5,7 @@ import { useData } from './DataContext';
 import { useAuth } from './AuthContext';
 import { HeaderClock } from './HeaderClock';
 import { HeaderDate } from './HeaderDate';
+import logo from '../assets/images/logo-escritorio.webp';
 
 export function Layout() {
   const { data, setData, warning, syncState, retry, loadRemote } = useData();
@@ -44,7 +45,7 @@ export function Layout() {
 
   return <>
     <header>
-      <div className="brand-row"><Link className="brand" to="/">Escritorio Personal</Link><HeaderClock /><HeaderDate /></div>
+      <div className="brand-row"><Link className="brand brand--logo" to="/"><img src={logo} alt="Escritorio Personal" width={640} height={145} draggable={false} /></Link><HeaderClock /><HeaderDate /></div>
       <div className="backup">
         <div className="backup-actions">
           <button onClick={download}>Exportar</button>

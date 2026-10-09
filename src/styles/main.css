@@ -1167,3 +1167,8 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
    baja abajo (sin tapar los botones de la derecha). */
 header .brand-row{flex:1 1 0;min-width:0;flex-wrap:wrap;row-gap:.45rem}
 header .brand{white-space:nowrap}
+/* El logo de "Escritorio Personal": cartel de neón verde (con las esquinas cortadas como el marco). */
+header .brand--logo{display:block;flex:none;line-height:0}
+header .brand--logo img{display:block;height:58px;width:auto;clip-path:polygon(2.4% 0,97.6% 0,100% 10%,100% 90%,97.6% 100%,2.4% 100%,0 90%,0 10%);filter:drop-shadow(0 0 6px #22c55e66)}
+@media(max-width:1100px){header .brand--logo img{height:48px}}
+@media(max-width:600px){header .brand--logo img{height:40px}}
