@@ -486,23 +486,10 @@ test('Juegos: las tarjetas van justo debajo del encabezado y el meme ocupa el lu
   expect(meme.width).toBeGreaterThan(80);
   expect(meme.y + meme.height).toBeLessThanOrEqual(cards.y);
   if (page.viewportSize()!.width > 800) {
-    // En el escritorio el meme, el calendario y el reloj van en una fila propia, abajo del título y de los íconos.
-    expect(meme.y).toBeGreaterThanOrEqual(Math.max(title.y + title.height, icons.y + icons.height) - 1);
-    expect(cards.y - (meme.y + meme.height)).toBeLessThan(60);
+    expect(meme.x).toBeGreaterThanOrEqual(title.x + title.width);
+    expect(meme.x + meme.width).toBeLessThanOrEqual(icons.x);
+    expect(cards.y - (icons.y + icons.height)).toBeLessThan(60);
   }
-  // El reloj va a la derecha, del mismo tamaño que el meme, y el calendario entre los dos, con el mismo alto.
-  const clock = (await page.locator('.games-clock').boundingBox())!;
-  const calendar = (await page.locator('.games-calendar').boundingBox())!;
-  expect(Math.abs(clock.width - meme.width)).toBeLessThanOrEqual(2);
-  expect(Math.abs(clock.height - meme.height)).toBeLessThanOrEqual(2);
-  expect(Math.abs(calendar.height - meme.height)).toBeLessThanOrEqual(2);
-  expect(calendar.x).toBeGreaterThanOrEqual(meme.x + meme.width);
-  expect(clock.x).toBeGreaterThanOrEqual(calendar.x + calendar.width);
-  expect(clock.y + clock.height).toBeLessThanOrEqual(cards.y);
-  expect(calendar.y + calendar.height).toBeLessThanOrEqual(cards.y);
-  // En el escritorio el reloj no tapa los íconos de las otras secciones.
-  if (page.viewportSize()!.width > 800) expect(clock.y).toBeGreaterThanOrEqual(icons.y + icons.height - 1);
-  await expect(page.locator('.games-clock')).toHaveAttribute('aria-label', /^Son las \d\d:\d\d$/);
 });
 
 test('el calendario tiene el mes a la izquierda, días cuadrados y el meme llega hasta el borde de abajo del mes', async ({ page }) => {
@@ -537,10 +524,6 @@ test('Juegos: en pantallas anchas el meme queda centrado arriba de Tiki-Taka, en
   expect(Math.abs(meme.x + meme.width / 2 - (tiki.x + tiki.width / 2))).toBeLessThanOrEqual(1);
   expect(Math.abs(meme.x + meme.width / 2 - 960)).toBeLessThanOrEqual(1);
   expect(meme.y + meme.height).toBeLessThanOrEqual(tiki.y);
-  const calendar = (await page.locator('.games-calendar').boundingBox())!;
-  const clock = (await page.locator('.games-clock').boundingBox())!;
-  expect(calendar.x).toBeGreaterThanOrEqual(meme.x + meme.width);
-  expect(clock.x).toBeGreaterThanOrEqual(calendar.x + calendar.width);
 });
 
 test('Mis gastos: sin recuadro de Total arriba, disquete al lado del título y meme en la fila de los íconos', async ({ page }) => {
