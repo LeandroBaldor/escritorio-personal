@@ -3,6 +3,7 @@ import { Link, Outlet } from 'react-router-dom';
 import { parseBackup, serialize } from '../storage/store';
 import { useData } from './DataContext';
 import { useAuth } from './AuthContext';
+import { HeaderClock } from './HeaderClock';
 
 export function Layout() {
   const { data, setData, warning, syncState, retry, loadRemote } = useData();
@@ -42,7 +43,7 @@ export function Layout() {
 
   return <>
     <header>
-      <Link className="brand" to="/">Escritorio Personal</Link>
+      <div className="brand-row"><Link className="brand" to="/">Escritorio Personal</Link><HeaderClock /></div>
       <div className="backup">
         <div className="backup-actions">
           <button onClick={download}>Exportar</button>

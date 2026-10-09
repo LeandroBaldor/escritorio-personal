@@ -1082,3 +1082,14 @@ test('en celulares y tablets las secciones entran en la pantalla y se ven todos 
     await context.close();
   }
 });
+
+test('el encabezado muestra un reloj digital con la hora al lado de Escritorio Personal', async ({ page }) => {
+  await page.goto('/escritorio-personal/');
+  const clock = page.locator('header .hud-clock');
+  await expect(clock).toBeVisible();
+  await expect(clock).toHaveAttribute('datetime', /^\d{2}:\d{2}:\d{2}$/);
+  const first = await clock.getAttribute('datetime');
+  await expect(clock).not.toHaveAttribute('datetime', first ?? '', { timeout: 2500 });
+  const brand = (await page.locator('header .brand').boundingBox())!, box = (await clock.boundingBox())!;
+  expect(box.x).toBeGreaterThan(brand.x + brand.width - 1);
+});
