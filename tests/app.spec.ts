@@ -1112,7 +1112,7 @@ test('el encabezado muestra la fecha de hoy a la derecha del reloj', async ({ pa
   await page.clock.setFixedTime(new Date('2026-08-22T14:28:37'));
   await page.setViewportSize({ width: 1920, height: 1000 });
   await page.goto('/escritorio-personal/');
-  const date = page.locator('header .neon-date');
+  const date = page.locator('header .paper-date');
   await expect(date).toHaveText('Sábado 22 de Agosto 2026');
   await expect(date).toHaveAttribute('datetime', '2026-08-22');
   const clock = (await page.locator('header .hud-clock').boundingBox())!, box = (await date.boundingBox())!;
