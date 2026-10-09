@@ -1194,3 +1194,24 @@ body:has(.games-page)::after{inset:0;background:repeating-linear-gradient(0deg,#
 .games-title .eyebrow{color:#38bdf8}
 .games-byline{color:#a855f7}
 .games-art{text-shadow:none}
+
+/* ── Mobile navigation bar ──────────────────────────────────────────────── */
+.mobile-nav{display:none}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){
+  .mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;height:3.75rem;background:#0a0a0a;border-top:1px solid #1c1c1c;z-index:200;padding-bottom:env(safe-area-inset-bottom,0px)}
+  .mobile-nav a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.15rem;padding:.45rem .1rem .35rem;color:#424242;text-decoration:none;font-size:.55rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;position:relative;-webkit-tap-highlight-color:transparent;transition:color .2s}
+  .mobile-nav a svg{width:1.3rem;height:1.3rem;flex-shrink:0}
+  .mobile-nav a.active{color:#d4d4d4}
+  .mobile-nav a[data-section=board].active{color:#60a5fa}
+  .mobile-nav a[data-section=journal].active{color:#fbbf24}
+  .mobile-nav a[data-section=expenses].active{color:#4ade80}
+  .mobile-nav a[data-section=calendar].active{color:#c084fc}
+  .mobile-nav a[data-section=games].active{color:#39ff14}
+  .mobile-nav a.active::before{content:'';position:absolute;top:0;left:12%;right:12%;height:2px;background:currentColor;border-radius:0 0 2px 2px}
+  main{padding-bottom:4.5rem}
+}
+/* Calendar: dot-only on small portrait screens */
+@media(max-width:500px),(orientation:portrait) and (max-width:500px){
+  .cal-chip{display:inline-block;width:.42rem;height:.42rem;border-radius:50%;font-size:0;padding:0;margin:.05rem;line-height:0;overflow:hidden}
+  .cal-day{min-height:2rem}
+}
