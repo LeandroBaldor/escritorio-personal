@@ -13,8 +13,6 @@ import { readPaperRecord } from './PaperBall';
 import { formatSharkTime, readSharkRecord } from './SharkCity';
 import type { Suit } from './solitaire';
 import memeJigsaw from '../../assets/images/meme-jigsaw.jpg';
-import { GamesCalendar } from './GamesCalendar';
-import { GamesClock } from './GamesClock';
 
 // Dibujo chiquito del juego para la tarjeta: piezas cayendo y el personaje abajo.
 function BlockRunnerArt() {
@@ -177,7 +175,7 @@ export function Games() {
   return <section className="games-page">
     <div className="section-title games-title">
       <div className="games-heading"><p className="eyebrow">Para cortar un rato</p><h1>MiniJuegos</h1><p className="games-byline">By YEYO</p></div>
-      <div className="games-art" aria-hidden="true"><img src={memeJigsaw} alt="" width={1200} height={666} draggable={false} /><GamesCalendar /><GamesClock /></div>
+      <div className="games-art" aria-hidden="true"><img src={memeJigsaw} alt="" width={1200} height={666} draggable={false} /></div>
       <SectionObjects large><DeskLink /><NotebookLink /><CalculatorLink /><CalendarLink /></SectionObjects>
     </div>
     <ul className="games-list">
