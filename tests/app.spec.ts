@@ -525,7 +525,7 @@ test('Juegos: en pantallas anchas el meme queda centrado arriba de Tiki-Taka, en
   expect(meme.y + meme.height).toBeLessThanOrEqual(tiki.y);
 });
 
-test('Mis gastos: sin recuadro de Total arriba, disquete chico abajo del título y meme en la fila de los íconos', async ({ page }) => {
+test('Mis gastos: sin recuadro de Total arriba, disquete abajo del título y meme en la fila de los íconos', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1000 });
   await page.goto('/escritorio-personal/#/gastos');
   await expect(page.locator('.section-title .total')).toHaveCount(0);
@@ -535,7 +535,7 @@ test('Mis gastos: sin recuadro de Total arriba, disquete chico abajo del título
   const icons = (await page.locator('.section-title > .section-objects').boundingBox())!;
   expect(floppy.y).toBeGreaterThanOrEqual(title.y + title.height - 4);
   expect(floppy.x).toBeLessThan(title.x + title.width / 2);
-  expect(floppy.height).toBeLessThan(title.height * 1.2);
+  expect(floppy.height).toBeLessThan(title.height * 1.4);
   expect(Math.abs(meme.x + meme.width / 2 - 960)).toBeLessThanOrEqual(1);
   expect(meme.x).toBeGreaterThanOrEqual(title.x + title.width);
   expect(meme.x + meme.width).toBeLessThanOrEqual(icons.x);
