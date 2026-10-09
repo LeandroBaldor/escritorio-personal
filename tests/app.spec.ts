@@ -1091,7 +1091,8 @@ test('el encabezado muestra un reloj digital con la hora al lado de Escritorio P
   const first = await clock.getAttribute('datetime');
   await expect(clock).not.toHaveAttribute('datetime', first ?? '', { timeout: 2500 });
   const brand = (await page.locator('header .brand').boundingBox())!, box = (await clock.boundingBox())!;
-  expect(box.x).toBeGreaterThan(brand.x + brand.width - 1);
+  // Al lado del nombre; en pantallas angostas puede bajar justo abajo.
+  expect(box.x > brand.x + brand.width - 1 || box.y >= brand.y + brand.height - 1).toBe(true);
 });
 
 test('el reloj del encabezado no cambia de tamaño cuando cambian los números', async ({ page }) => {
@@ -1105,4 +1106,17 @@ test('el reloj del encabezado no cambia de tamaño cuando cambian los números',
     sizes.push({ width: Math.round(box.width * 10) / 10, height: Math.round(box.height * 10) / 10 });
   }
   for (const size of sizes) expect(size).toEqual(sizes[0]);
+});
+
+test('el encabezado muestra la fecha de hoy a la derecha del reloj', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-08-22T14:28:37'));
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await page.goto('/escritorio-personal/');
+  const date = page.locator('header .neon-date');
+  await expect(date).toHaveText('Sábado 22 de Agosto 2026');
+  await expect(date).toHaveAttribute('datetime', '2026-08-22');
+  const clock = (await page.locator('header .hud-clock').boundingBox())!, box = (await date.boundingBox())!;
+  expect(box.x).toBeGreaterThan(clock.x + clock.width);
+  const exportar = (await page.getByRole('button', { name: 'Exportar' }).boundingBox())!;
+  expect(box.x + box.width).toBeLessThan(exportar.x);
 });

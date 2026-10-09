@@ -4,6 +4,7 @@ import { parseBackup, serialize } from '../storage/store';
 import { useData } from './DataContext';
 import { useAuth } from './AuthContext';
 import { HeaderClock } from './HeaderClock';
+import { HeaderDate } from './HeaderDate';
 
 export function Layout() {
   const { data, setData, warning, syncState, retry, loadRemote } = useData();
@@ -43,7 +44,7 @@ export function Layout() {
 
   return <>
     <header>
-      <div className="brand-row"><Link className="brand" to="/">Escritorio Personal</Link><HeaderClock /></div>
+      <div className="brand-row"><Link className="brand" to="/">Escritorio Personal</Link><HeaderClock /><HeaderDate /></div>
       <div className="backup">
         <div className="backup-actions">
           <button onClick={download}>Exportar</button>

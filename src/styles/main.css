@@ -1150,3 +1150,17 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 .hud-clock-bars--bottom{bottom:3px;left:8%;right:8%;background:repeating-linear-gradient(115deg,#22d3ee 0 6px,transparent 6px 10px) 0 0/40% 100% no-repeat,repeating-linear-gradient(115deg,#38bdf8 0 4px,transparent 4px 9px) 100% 0/26% 100% no-repeat,linear-gradient(90deg,#3b82f6,#c084fc) 100% 100%/14% 1px no-repeat}
 @media(max-width:600px){.hud-clock{font-size:1.1rem;padding:.32rem .6rem .28rem}.hud-clock-bars{height:3px}.brand-row{gap:.5rem}}
 @media(max-width:900px){.brand-row{flex:1 1 auto}}
+/* La fecha, a la derecha del reloj: píldora oscura con borde de neón que pasa de rosa a violeta y azul, un
+   almanaque rosa, el día grande en violeta degradado y el resto en blanco. */
+.neon-date{position:relative;display:inline-flex;align-items:center;gap:.75rem;padding:.38rem 1.25rem .38rem .95rem;border:2px solid transparent;border-radius:999px;background:radial-gradient(120% 140% at 50% 50%,#120a2b 0,#06040f 70%) padding-box,linear-gradient(90deg,#ff3df2 0%,#b14dff 40%,#5b6bff 75%,#38bdf8 100%) border-box;box-shadow:-6px 0 16px -4px #ff3df288,6px 0 16px -4px #38bdf888,0 0 12px #8b5cf655;color:#fff;font:600 1.2rem/1 Inter,Nunito,system-ui,sans-serif;white-space:nowrap;user-select:none}
+.neon-date::before{content:"";position:absolute;inset:3px;border-radius:inherit;border:1px solid #ffffff14;pointer-events:none}
+.neon-date-icon{width:1.45em;height:1.45em;flex:none;fill:none;stroke:#ff7af5;stroke-width:1.6;stroke-linecap:round;filter:drop-shadow(0 0 3px #ff3df2aa)}
+.neon-date-icon .neon-date-dot{fill:#ff7af5;stroke:none}
+.neon-date-text{display:inline-flex;align-items:center;gap:.35em;letter-spacing:.01em}
+.neon-date-day{font:800 1.75em/1 Inter,Nunito,system-ui,sans-serif;background:linear-gradient(180deg,#e9a6ff 0%,#b14dff 55%,#8a2be2 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 4px #b14dff88);margin:-.15em 0}
+@media(max-width:1100px){.neon-date{font-size:1rem;gap:.55rem;padding:.32rem 1rem .32rem .75rem}}
+@media(max-width:760px){.brand-row{flex-wrap:wrap;row-gap:.45rem}.neon-date{font-size:.85rem;padding:.26rem .85rem .26rem .6rem;gap:.45rem}}
+/* Nombre, reloj y fecha comparten el lugar de la izquierda del encabezado: si no entran en una línea, la fecha
+   baja abajo (sin tapar los botones de la derecha). */
+header .brand-row{flex:1 1 0;min-width:0;flex-wrap:wrap;row-gap:.45rem}
+header .brand{white-space:nowrap}
