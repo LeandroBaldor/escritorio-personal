@@ -279,7 +279,7 @@ export function Board() {
     clearDrag();
   };
   return (
-    <section>
+    <section className="board-page">
       <div className="section-title">
         <div><p className="eyebrow">Tu mesa de hoy</p><h1>Notas del escritorio</h1></div>
         <form onSubmit={add} className="new-note">
