@@ -1254,18 +1254,21 @@ header{background:#0d1b3ee8;box-shadow:0 4px 15px #060f2288}
 /* ── Global: hide date red circle ────────────────────────────── */
 .paper-date-circle{display:none}
 
-/* ── Desktop/landscape all widths (pointer:fine ≥801px) ─────────── */
-@media(min-width:801px) and (pointer:fine){
+/* ── Desktop ≥1100px: consistent layout + proportional sizes ─────── */
+@media(min-width:1100px){
   header{justify-content:space-between;flex-wrap:nowrap;padding:.5rem clamp(.75rem,3vw,2.5rem);gap:.75rem}
   header .brand-row{flex:1 1 auto;min-width:0;align-items:stretch}
   header .backup{flex:0 0 auto;align-items:center}
-  .brand{font-size:clamp(1.6rem,2.1vw,2.4rem);display:flex;align-items:center}
-  .hud-clock{font-size:clamp(1.55rem,2.1vw,2.2rem);padding:clamp(.38rem,.48vw,.5rem) clamp(.75rem,.95vw,1rem)}
-  .paper-date{font-size:clamp(1.3rem,1.75vw,1.85rem);padding:clamp(.36rem,.44vw,.46rem) clamp(1.2rem,1.8vw,1.9rem)}
-  .note-text,.note textarea{font-size:clamp(1rem,1.15vw,1.3rem)}
+  .brand{font-size:clamp(1.7rem,2.3vw,2.6rem);display:flex;align-items:center}
+  .hud-clock{font-size:clamp(1.6rem,2.2vw,2.4rem);padding:clamp(.38rem,.48vw,.5rem) clamp(.75rem,.95vw,1rem)}
+  .paper-date{font-size:clamp(1.2rem,1.6vw,1.8rem);padding:clamp(.34rem,.4vw,.44rem) clamp(1.1rem,1.6vw,1.7rem)}
+  .note-text,.note textarea{font-size:clamp(1.05rem,1.2vw,1.4rem)}
 }
 
-/* ── Large screens ≥1500px (1920x1080@125% and above): bigger note text ─ */
-@media(min-width:1500px) and (pointer:fine){
-  .note-text,.note textarea{font-size:1.5rem}
+/* ── Large screens ≥1500px (1920x1080@125% and above) ────────── */
+@media(min-width:1500px){
+  .brand{font-size:2.5rem}
+  .hud-clock{font-size:2.3rem;padding:.44rem .95rem}
+  .paper-date{font-size:1.75rem;padding:.42rem 1.65rem}
+  .note-text,.note textarea{font-size:1.7rem}
 }
