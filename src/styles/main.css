@@ -1319,3 +1319,15 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
   /* Si no queda lugar al lado del reloj (pantalla angosta o mail largo), la fecha se oculta en vez de pisar los botones. */
   @container(max-width:600px){.paper-date{display:none}}
 }
+
+/* ── Recuadros de los títulos de sección: brillo neón suave y un destello que recorre el contorno ── */
+@property --glint-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
+@keyframes neon-glint{to{--glint-angle:360deg}}
+.board-page .section-title>div:first-child{--neon:#93c5fd}
+.journal-page .section-title>div:first-child{--neon:#c084fc}
+.expenses-page .section-title>div:first-child{--neon:#f87171}
+.cal-page .section-title>div:first-child{--neon:#facc15}
+.games-heading{--neon:#39ff14}
+:is(.board-page,.journal-page,.expenses-page,.cal-page) .section-title>div:first-child,.games-heading{position:relative;box-shadow:0 0 6px color-mix(in srgb,var(--neon) 55%,transparent),inset 0 0 6px color-mix(in srgb,var(--neon) 35%,transparent),0 8px 22px #000b}
+:is(.board-page,.journal-page,.expenses-page,.cal-page) .section-title>div:first-child::after,.games-heading::after{content:"";position:absolute;inset:-4px;padding:4px;border-radius:14px;background:conic-gradient(from var(--glint-angle),transparent 0 82%,color-mix(in srgb,var(--neon) 50%,#fff) 89%,#fff 90.5%,transparent 96%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);filter:drop-shadow(0 0 3px var(--neon));pointer-events:none;animation:neon-glint 7s linear infinite}
+@media(prefers-reduced-motion:reduce){:is(.board-page,.journal-page,.expenses-page,.cal-page) .section-title>div:first-child::after,.games-heading::after{display:none}}
