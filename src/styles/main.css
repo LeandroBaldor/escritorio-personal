@@ -1292,3 +1292,13 @@ body:has(.expenses-page)::after{inset:0;background:repeating-linear-gradient(0de
 .expenses-page .section-title>div:first-child{background:#000;border:2px solid #ef444455;border-radius:14px;padding:.7rem 1.1rem .8rem;box-shadow:0 0 18px #ef444426,0 8px 22px #000b}
 .expenses-page .section-title h1{color:#fff;text-shadow:0 0 12px #ffffff55}
 .expenses-page .section-title .eyebrow{color:#f87171}
+
+/* ── Calendar page: yellow hexagonal background ──────────────── */
+body:has(.cal-page){background:url(../assets/images/fondo-hexagonos-amarillo.svg) 0 0/336px 290.98px,radial-gradient(ellipse 55% 50% at 88% 12%,#eab30855,transparent 70%),radial-gradient(ellipse 50% 45% at 5% 60%,#facc1533,transparent 70%),linear-gradient(160deg,#0d0900 0,#1c1400 50%,#2d2000 100%);background-attachment:fixed}
+body:has(.cal-page)::before,body:has(.cal-page)::after{content:"";position:fixed;pointer-events:none;z-index:0}
+body:has(.cal-page)>#root{position:relative;z-index:1}
+body:has(.cal-page)::before{left:-50%;right:-50%;bottom:0;height:100vh;transform:perspective(600px) rotateX(58deg);transform-origin:50% 100%;background:linear-gradient(#eab308 2px,transparent 2px) 0 0/100% 48px,linear-gradient(90deg,#facc15 2px,transparent 2px) 50% 0/64px 100%;opacity:.6;-webkit-mask-image:linear-gradient(to top,#000 25%,transparent 95%);mask-image:linear-gradient(to top,#000 25%,transparent 95%)}
+body:has(.cal-page)::after{inset:0;background:repeating-linear-gradient(0deg,#ffffff07 0 1px,transparent 1px 3px)}
+.cal-page .section-title>div:first-child{background:#000;border:2px solid #eab30855;border-radius:14px;padding:.7rem 1.1rem .8rem;box-shadow:0 0 18px #eab30826,0 8px 22px #000b}
+.cal-page .section-title h1{color:#fff;text-shadow:0 0 12px #ffffff55}
+.cal-page .section-title .eyebrow{color:#facc15}
