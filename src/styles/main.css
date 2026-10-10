@@ -1220,3 +1220,19 @@ body:has(.games-page)::after{inset:0;background:repeating-linear-gradient(0deg,#
 @media(pointer:coarse){
   .note{touch-action:pan-y}
 }
+
+/* ── 1. Header: blue transparency (replaces brown) ───────────────────── */
+header{background:#0d1b3ee8;box-shadow:0 4px 15px #060f2288}
+
+/* ── 2. Backup buttons (Exportar/Importar/Salir): dark violet ─────── */
+.backup button{background:#4c1d95}
+.backup button:hover{background:#5b21b6}
+
+/* ── 3-5. Mobile: brand/clock/date bigger + no red circle + bigger note text */
+@media(pointer:coarse),(max-width:600px){
+  .brand{font-size:1.7rem}
+  .hud-clock{font-size:1.25rem;padding:.38rem .65rem .34rem}
+  .paper-date{font-size:1.1rem;padding:.36rem 1.25rem .32rem}
+  .paper-date-circle{display:none}
+  .note-text,.note textarea{font-size:1.2rem}
+}
