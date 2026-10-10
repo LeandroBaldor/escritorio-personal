@@ -28,7 +28,7 @@ const colorNames: Record<string, string> = {
 };
 type DropTarget = { status: Status; index: number };
 // Tamaño de letra de las notas (en px): arranca en el más grande y se achica hasta que el texto entra en el cuadrado.
-const NOTE_FONT_MAX = 17, NOTE_FONT_MIN = 9;
+const NOTE_FONT_MAX = 26, NOTE_FONT_MIN = 10;
 
 function useFitText(text: string, active: boolean) {
   const ref = useRef<HTMLDivElement>(null);
