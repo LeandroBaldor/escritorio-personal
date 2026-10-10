@@ -1306,3 +1306,15 @@ body:has(.cal-page)::after{inset:0;background:repeating-linear-gradient(0deg,#ff
 
 /* Prevent horizontal scroll from ::before perspective grid on themed pages */
 html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:hidden}
+
+/* ── Desktop ≥1100px: logo y reloj con la altura completa del encabezado, todo en una fila ── */
+@media(min-width:1100px){
+  header{--header-row:clamp(50px,3.6vw,72px)}
+  header .brand-row{display:flex;flex-wrap:nowrap;align-items:center;gap:.75rem;height:var(--header-row);container-type:inline-size}
+  header .brand--logo{align-self:stretch}
+  header .brand--logo img{height:var(--header-row)}
+  .hud-clock{flex:none;align-self:stretch;flex-wrap:wrap;white-space:nowrap;align-content:center;height:var(--header-row);font-size:calc(var(--header-row)*.5);padding:0 calc(var(--header-row)*.22)}
+  .paper-date{flex:0 1 auto;min-width:0;font-size:calc(var(--header-row)*.34);padding:calc(var(--header-row)*.09) calc(var(--header-row)*.34)}
+  /* Si no queda lugar al lado del reloj (pantalla angosta o mail largo), la fecha se oculta en vez de pisar los botones. */
+  @container(max-width:600px){.paper-date{display:none}}
+}
