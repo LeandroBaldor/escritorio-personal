@@ -1264,3 +1264,8 @@ header{background:#0d1b3ee8;box-shadow:0 4px 15px #060f2288}
   .paper-date{font-size:clamp(1.3rem,1.75vw,1.85rem);padding:clamp(.36rem,.44vw,.46rem) clamp(1.2rem,1.8vw,1.9rem)}
   .note-text,.note textarea{font-size:clamp(1rem,1.15vw,1.3rem)}
 }
+
+/* ── Large screens ≥1500px (1920x1080@125% and above): bigger note text ─ */
+@media(min-width:1500px) and (pointer:fine){
+  .note-text,.note textarea{font-size:1.5rem}
+}
