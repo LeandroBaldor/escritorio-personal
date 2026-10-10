@@ -1250,21 +1250,3 @@ header{background:#0d1b3ee8;box-shadow:0 4px 15px #060f2288}
   .hud-clock{font-size:1.45rem;padding:.4rem .7rem .36rem}
   .paper-date{font-size:1.2rem;padding:.38rem 1.35rem .34rem}
 }
-
-/* ── Red circle removed globally (all resolutions) ──────────────── */
-.paper-date-circle{display:none}
-
-/* ── Desktop ≥1500px (1920x1080@125%) ──────────────────────────── */
-@media(min-width:1500px){
-  header{flex-direction:column-reverse;gap:.15rem;padding:.35rem clamp(1rem,4vw,3rem) .5rem;align-items:stretch}
-  header .brand-row{gap:.75rem}
-  header .backup{justify-content:flex-end;gap:.6rem}
-  .brand{font-size:2.2rem}
-  .hud-clock{font-size:1.55rem;padding:.45rem .85rem .4rem}
-  .paper-date{font-size:1.35rem;padding:.42rem 1.6rem .38rem}
-  .new-note{padding:1.1rem 1.3rem;gap:.8rem}
-  .new-note label{font-size:.9rem}
-  .new-note input,.new-note select{padding:.6rem .7rem;font-size:.95rem}
-  .new-note button{padding:.55rem 1rem;font-size:.9rem}
-  .note-text,.note textarea{font-size:1.3rem}
-}
