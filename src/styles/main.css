@@ -1272,3 +1272,13 @@ header{background:#0d1b3ee8;box-shadow:0 4px 15px #060f2288}
   .paper-date{font-size:1.75rem;padding:.42rem 1.65rem}
   .note-text,.note textarea{font-size:1.7rem}
 }
+
+/* ── Journal page: violet hexagonal background ───────────────── */
+body:has(.journal-page){background:url(../assets/images/fondo-hexagonos.svg) 0 0/336px 290.98px,radial-gradient(ellipse 55% 50% at 88% 12%,#7c3aed55,transparent 70%),radial-gradient(ellipse 50% 45% at 5% 60%,#a855f733,transparent 70%),linear-gradient(160deg,#08010f 0,#130229 50%,#1e0440 100%);background-attachment:fixed}
+body:has(.journal-page)::before,body:has(.journal-page)::after{content:"";position:fixed;pointer-events:none;z-index:0}
+body:has(.journal-page)>#root{position:relative;z-index:1}
+body:has(.journal-page)::before{left:-50%;right:-50%;bottom:0;height:100vh;transform:perspective(600px) rotateX(58deg);transform-origin:50% 100%;background:linear-gradient(#7c3aed 2px,transparent 2px) 0 0/100% 48px,linear-gradient(90deg,#c084fc 2px,transparent 2px) 50% 0/64px 100%;opacity:.6;-webkit-mask-image:linear-gradient(to top,#000 25%,transparent 95%);mask-image:linear-gradient(to top,#000 25%,transparent 95%)}
+body:has(.journal-page)::after{inset:0;background:repeating-linear-gradient(0deg,#ffffff07 0 1px,transparent 1px 3px)}
+.journal-page .section-title>div:first-child{background:#000;border:2px solid #a855f755;border-radius:14px;padding:.7rem 1.1rem .8rem;box-shadow:0 0 18px #a855f726,0 8px 22px #000b}
+.journal-page .section-title h1{color:#fff;text-shadow:0 0 12px #ffffff55}
+.journal-page .section-title .eyebrow{color:#c084fc}
