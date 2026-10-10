@@ -1268,9 +1268,10 @@ header{background:#0d1b3ee8;box-shadow:0 4px 15px #060f2288}
 /* ── Large screens ≥1500px (1920x1080@125% and above) ────────── */
 @media(min-width:1500px){
   header{align-items:stretch}
-  .brand{font-size:2.5rem;align-self:stretch;box-sizing:border-box;display:flex;align-items:center}
-  .hud-clock{font-size:2.3rem;padding:.44rem .95rem;align-self:center}
-  .paper-date{font-size:1.75rem;padding:.42rem 1.65rem}
+  header .brand-row{display:grid;grid-template-areas:"brand clock" "brand date";grid-template-columns:auto 1fr;grid-template-rows:1fr auto;align-items:center}
+  .brand{grid-area:brand;align-self:stretch;display:flex;align-items:center;font-size:2.5rem}
+  .hud-clock{grid-area:clock;font-size:2.3rem;padding:.44rem .95rem}
+  .paper-date{grid-area:date;font-size:1.75rem;padding:.42rem 1.65rem}
   .note-text,.note textarea{font-size:1.7rem}
 }
 
