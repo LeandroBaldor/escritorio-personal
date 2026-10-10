@@ -1302,3 +1302,6 @@ body:has(.cal-page)::after{inset:0;background:repeating-linear-gradient(0deg,#ff
 .cal-page .section-title>div:first-child{background:#000;border:2px solid #eab30855;border-radius:14px;padding:.7rem 1.1rem .8rem;box-shadow:0 0 18px #eab30826,0 8px 22px #000b}
 .cal-page .section-title h1{color:#fff;text-shadow:0 0 12px #ffffff55}
 .cal-page .section-title .eyebrow{color:#facc15}
+
+/* Prevent horizontal scroll from ::before perspective grid on themed pages */
+html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:hidden}
