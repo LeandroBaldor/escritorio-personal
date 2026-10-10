@@ -1236,3 +1236,17 @@ header{background:#0d1b3ee8;box-shadow:0 4px 15px #060f2288}
   .paper-date-circle{display:none}
   .note-text,.note textarea{font-size:1.2rem}
 }
+
+/* ── Mobile header reorder: backup top, brand+clock+date bottom ──────── */
+@media(pointer:coarse),(max-width:600px){
+  header{display:flex;flex-direction:column-reverse;gap:.2rem;padding:.4rem .75rem .45rem;align-items:stretch}
+  header .brand-row{display:flex;align-items:center;gap:.5rem;padding:.1rem 0}
+  header .backup{display:flex;align-items:center;gap:.4rem;flex-wrap:nowrap}
+  header .backup-actions{display:flex;gap:.3rem;flex:1}
+  header .backup-actions button{flex:0 1 auto;padding:.3rem .65rem;font-size:.8rem}
+  header .backup>button{grid-column:unset;grid-row:unset;justify-self:unset;padding:.3rem .65rem;font-size:.8rem}
+  header .account-summary{flex-shrink:1;min-width:0;border:0;padding:0;max-width:7.5rem;text-align:right;justify-self:unset;grid-column:unset;grid-row:unset}
+  .brand{font-size:2rem}
+  .hud-clock{font-size:1.45rem;padding:.4rem .7rem .36rem}
+  .paper-date{font-size:1.2rem;padding:.38rem 1.35rem .34rem}
+}
