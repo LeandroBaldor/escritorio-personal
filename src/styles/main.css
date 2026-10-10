@@ -1215,3 +1215,8 @@ body:has(.games-page)::after{inset:0;background:repeating-linear-gradient(0deg,#
   .cal-chip{display:inline-block;width:.42rem;height:.42rem;border-radius:50%;font-size:0;padding:0;margin:.05rem;line-height:0;overflow:hidden}
   .cal-day{min-height:2rem}
 }
+
+/* Board notes: allow vertical scroll on touch devices */
+@media(pointer:coarse){
+  .note{touch-action:pan-y}
+}
