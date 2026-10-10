@@ -252,7 +252,7 @@ export function Board() {
     return { status, index: insertionIndex(column, pointerDrag.current?.id ?? '', event.clientX, event.clientY) };
   };
   const startTouchDrag = (event: React.PointerEvent<HTMLElement>, noteId: string) => {
-    if (event.pointerType === 'mouse') return;
+    if (event.pointerType === 'mouse' || event.pointerType === 'touch') return;
     event.currentTarget.setPointerCapture(event.pointerId);
     pointerDrag.current = { id: noteId, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, active: false };
   };
