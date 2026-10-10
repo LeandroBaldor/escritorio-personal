@@ -1267,7 +1267,9 @@ header{background:#0d1b3ee8;box-shadow:0 4px 15px #060f2288}
 
 /* ── Large screens ≥1500px (1920x1080@125% and above) ────────── */
 @media(min-width:1500px){
-  .brand{font-size:2.5rem}
+  header{align-items:stretch}
+  header .brand-row{align-items:stretch}
+  .brand{font-size:2.5rem;height:100%;box-sizing:border-box;display:flex;align-items:center}
   .hud-clock{font-size:2.3rem;padding:.44rem .95rem}
   .paper-date{font-size:1.75rem;padding:.42rem 1.65rem}
   .note-text,.note textarea{font-size:1.7rem}
