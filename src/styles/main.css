@@ -1185,11 +1185,11 @@ body:has(.games-page)>#root{position:relative;z-index:1}
 body:has(.games-page)::before{left:-50%;right:-50%;bottom:0;height:100vh;transform:perspective(600px) rotateX(58deg);transform-origin:50% 100%;
   background:linear-gradient(#16a34a 2px,transparent 2px) 0 0/100% 48px,linear-gradient(90deg,#4ade80 2px,transparent 2px) 50% 0/64px 100%;
   opacity:.6;-webkit-mask-image:linear-gradient(to top,#000 25%,transparent 95%);mask-image:linear-gradient(to top,#000 25%,transparent 95%)}
-body:has(.games-page)::after{inset:0;background:repeating-linear-gradient(0deg,#ffffff07 0 1px,transparent 1px 3px)}body:has(.board-page){background:url(../assets/images/fondo-hexagonos-azul.svg) 0 0/336px 290.98px,radial-gradient(ellipse 55% 50% at 88% 12%,#1d4ed855,transparent 70%),radial-gradient(ellipse 50% 45% at 5% 60%,#3b82f633,transparent 70%),linear-gradient(160deg,#010408 0,#020c1a 50%,#051228 100%);background-attachment:fixed}body:has(.board-page)::before,body:has(.board-page)::after{content:"";position:fixed;pointer-events:none;z-index:0}body:has(.board-page)>#root{position:relative;z-index:1}body:has(.board-page)::before{left:-50%;right:-50%;bottom:0;height:100vh;transform:perspective(600px) rotateX(58deg);transform-origin:50% 100%;background:linear-gradient(#1d4ed8 2px,transparent 2px) 0 0/100% 48px,linear-gradient(90deg,#60a5fa 2px,transparent 2px) 50% 0/64px 100%;opacity:.6;-webkit-mask-image:linear-gradient(to top,#000 25%,transparent 95%);mask-image:linear-gradient(to top,#000 25%,transparent 95%)}body:has(.board-page)::after{inset:0;background:repeating-linear-gradient(0deg,#ffffff07 0 1px,transparent 1px 3px)}.board-page .section-title>div:first-child{background:#000;border:2px solid #60a5fa55;border-radius:14px;padding:.7rem 1.1rem .8rem;box-shadow:0 0 18px #60a5fa26,0 8px 22px #000b}.board-page .section-title h1{color:#fff;text-shadow:0 0 12px #ffffff55}.board-page .section-title .eyebrow{color:#93c5fd}
+body:has(.games-page)::after{inset:0;background:repeating-linear-gradient(0deg,#ffffff07 0 1px,transparent 1px 3px)}body:has(.board-page){background:url(../assets/images/fondo-hexagonos-azul.svg) 0 0/336px 290.98px,radial-gradient(ellipse 55% 50% at 88% 12%,#1d4ed855,transparent 70%),radial-gradient(ellipse 50% 45% at 5% 60%,#3b82f633,transparent 70%),linear-gradient(160deg,#010408 0,#020c1a 50%,#051228 100%);background-attachment:fixed}body:has(.board-page)::before,body:has(.board-page)::after{content:"";position:fixed;pointer-events:none;z-index:0}body:has(.board-page)>#root{position:relative;z-index:1}body:has(.board-page)::before{left:-50%;right:-50%;bottom:0;height:100vh;transform:perspective(600px) rotateX(58deg);transform-origin:50% 100%;background:linear-gradient(#1d4ed8 2px,transparent 2px) 0 0/100% 48px,linear-gradient(90deg,#60a5fa 2px,transparent 2px) 50% 0/64px 100%;opacity:.6;-webkit-mask-image:linear-gradient(to top,#000 25%,transparent 95%);mask-image:linear-gradient(to top,#000 25%,transparent 95%)}body:has(.board-page)::after{inset:0;background:repeating-linear-gradient(0deg,#ffffff07 0 1px,transparent 1px 3px)}.board-page .section-title>div:first-child{background:#000;border:4px solid #60a5fa55;border-radius:14px;padding:calc(.7rem - 2px) calc(1.1rem - 2px) calc(.8rem - 2px);box-shadow:0 0 18px #60a5fa26,0 8px 22px #000b}.board-page .section-title h1{color:#fff;text-shadow:0 0 12px #ffffff55}.board-page .section-title .eyebrow{color:#93c5fd}
 /* El título con brillo neón para que combine con el fondo. */
 .games-title{text-shadow:0 2px 3px #000}
 /* Título, bajada y firma adentro de un recuadro negro: la bajada en celeste, "MiniJuegos" en blanco y la firma en violeta. */
-.games-heading{background:#000;border:2px solid #39ff1455;border-radius:14px;padding:.7rem 1.1rem .8rem;box-shadow:0 0 18px #39ff1426,0 8px 22px #000b}
+.games-heading{background:#000;border:4px solid #39ff1455;border-radius:14px;padding:calc(.7rem - 2px) calc(1.1rem - 2px) calc(.8rem - 2px);box-shadow:0 0 18px #39ff1426,0 8px 22px #000b}
 .games-title h1{color:#fff;text-shadow:0 0 12px #ffffff55}
 .games-title .eyebrow{color:#38bdf8}
 .games-byline{color:#a855f7}
@@ -1280,7 +1280,7 @@ body:has(.journal-page)::before,body:has(.journal-page)::after{content:"";positi
 body:has(.journal-page)>#root{position:relative;z-index:1}
 body:has(.journal-page)::before{inset:0 0 0 0;bottom:0;height:100vh;transform:perspective(600px) rotateX(58deg);transform-origin:50% 100%;background:linear-gradient(#7c3aed 2px,transparent 2px) 0 0/100% 48px,linear-gradient(90deg,#c084fc 2px,transparent 2px) 50% 0/64px 100%;opacity:.6;-webkit-mask-image:linear-gradient(to top,#000 25%,transparent 95%);mask-image:linear-gradient(to top,#000 25%,transparent 95%)}
 body:has(.journal-page)::after{inset:0;background:repeating-linear-gradient(0deg,#ffffff07 0 1px,transparent 1px 3px)}
-.journal-page .section-title>div:first-child{background:#000;border:2px solid #a855f755;border-radius:14px;padding:.7rem 1.1rem .8rem;box-shadow:0 0 18px #a855f726,0 8px 22px #000b}
+.journal-page .section-title>div:first-child{background:#000;border:4px solid #a855f755;border-radius:14px;padding:calc(.7rem - 2px) calc(1.1rem - 2px) calc(.8rem - 2px);box-shadow:0 0 18px #a855f726,0 8px 22px #000b}
 .journal-page .section-title h1{color:#fff;text-shadow:0 0 12px #ffffff55}
 .journal-page .section-title .eyebrow{color:#c084fc}
 
@@ -1290,7 +1290,7 @@ body:has(.expenses-page)::before,body:has(.expenses-page)::after{content:"";posi
 body:has(.expenses-page)>#root{position:relative;z-index:1}
 body:has(.expenses-page)::before{inset:0 0 0 0;bottom:0;height:100vh;transform:perspective(600px) rotateX(58deg);transform-origin:50% 100%;background:linear-gradient(#dc2626 2px,transparent 2px) 0 0/100% 48px,linear-gradient(90deg,#f87171 2px,transparent 2px) 50% 0/64px 100%;opacity:.6;-webkit-mask-image:linear-gradient(to top,#000 25%,transparent 95%);mask-image:linear-gradient(to top,#000 25%,transparent 95%)}
 body:has(.expenses-page)::after{inset:0;background:repeating-linear-gradient(0deg,#ffffff07 0 1px,transparent 1px 3px)}
-.expenses-page .section-title>div:first-child{background:#000;border:2px solid #ef444455;border-radius:14px;padding:.7rem 1.1rem .8rem;box-shadow:0 0 18px #ef444426,0 8px 22px #000b}
+.expenses-page .section-title>div:first-child{background:#000;border:4px solid #ef444455;border-radius:14px;padding:calc(.7rem - 2px) calc(1.1rem - 2px) calc(.8rem - 2px);box-shadow:0 0 18px #ef444426,0 8px 22px #000b}
 .expenses-page .section-title h1{color:#fff;text-shadow:0 0 12px #ffffff55}
 .expenses-page .section-title .eyebrow{color:#f87171}
 
@@ -1300,7 +1300,7 @@ body:has(.cal-page)::before,body:has(.cal-page)::after{content:"";position:fixed
 body:has(.cal-page)>#root{position:relative;z-index:1}
 body:has(.cal-page)::before{inset:0 0 0 0;bottom:0;height:100vh;transform:perspective(600px) rotateX(58deg);transform-origin:50% 100%;background:linear-gradient(#eab308 2px,transparent 2px) 0 0/100% 48px,linear-gradient(90deg,#facc15 2px,transparent 2px) 50% 0/64px 100%;opacity:.6;-webkit-mask-image:linear-gradient(to top,#000 25%,transparent 95%);mask-image:linear-gradient(to top,#000 25%,transparent 95%)}
 body:has(.cal-page)::after{inset:0;background:repeating-linear-gradient(0deg,#ffffff07 0 1px,transparent 1px 3px)}
-.cal-page .section-title>div:first-child{background:#000;border:2px solid #eab30855;border-radius:14px;padding:.7rem 1.1rem .8rem;box-shadow:0 0 18px #eab30826,0 8px 22px #000b}
+.cal-page .section-title>div:first-child{background:#000;border:4px solid #eab30855;border-radius:14px;padding:calc(.7rem - 2px) calc(1.1rem - 2px) calc(.8rem - 2px);box-shadow:0 0 18px #eab30826,0 8px 22px #000b}
 .cal-page .section-title h1{color:#fff;text-shadow:0 0 12px #ffffff55}
 .cal-page .section-title .eyebrow{color:#facc15}
 
