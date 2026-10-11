@@ -8,6 +8,7 @@ import {
   burst, drawBall, drawBackground, drawBinBack, drawBinFront, drawClock, drawDrops, drawEyes, drawFan, drawHeld, drawLoad, drawRobot, drawStains,
   drawVignette, drawWindow, loadOffice, stepDrops, VIEW_H, X, Y, type Drop, type Stain, type View,
 } from './paperArt';
+import { playGameOver, unlockSounds } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:cesto-t800-record';
 export const readPaperRecord = () => { try { return Number(localStorage.getItem(RECORD_KEY)) || 0; } catch { return 0; } };
@@ -150,6 +151,7 @@ export function PaperBall() {
   }, [status, paint]);
 
   const start = useCallback(() => {
+    unlockSounds();
     gameRef.current = newPaper(); aimRef.current = null; popsRef.current = []; goreRef.current = { drops: [], stains: [], shake: 0 }; bannerRef.current = { quarter: 0, at: 0 };
     setHud({ left: QUARTER, quarter: 0, pause: false, score: 0, step: 0, round: 0, dir: 0 });
     setToast({ text: 'Hacé clic, tirá para atrás y soltá 🗑️', id: Date.now() });
@@ -191,7 +193,7 @@ export function PaperBall() {
         const prev = readPaperRecord(), isNew = g.score > prev;
         if (isNew) { saveRecord(g.score); setRecord(g.score); }
         setResult({ score: g.score, made: g.made, shots: g.shots, rounds: g.round, bonus: g.speedBonus, newRecord: isNew && prev > 0 });
-        aimRef.current = null; setToast(null); setStatus('over');
+        aimRef.current = null; setToast(null); setStatus('over'); playGameOver();
         return;
       }
       frame = requestAnimationFrame(tick);

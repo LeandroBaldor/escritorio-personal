@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { level, newGame, score, step, takeEvents, type Dir, type Game } from './reverseSnake';
+import { playGameOver, unlockSounds } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:serpiente-record';
 export const readSnakeRecord = () => { try { return Number(localStorage.getItem(RECORD_KEY)) || 0; } catch { return 0; } };
@@ -222,6 +223,7 @@ export function ReverseSnake() {
   }, []);
 
   const start = useCallback(() => {
+    unlockSounds();
     const stage = stageRef.current;
     if (!stage) return;
     const { cols, rows } = gridFor(stage.clientWidth, stage.clientHeight);
@@ -265,7 +267,7 @@ export function ReverseSnake() {
       setHud(p => p.points === shown.points && p.length === shown.length && p.seconds === shown.seconds ? p : shown);
       if (g.over) {
         if (shown.points > readSnakeRecord()) { saveRecord(shown.points); setRecord(shown.points); setNewRecord(true); }
-        setStatus('over');
+        setStatus('over'); playGameOver();
         return;
       }
       frame = requestAnimationFrame(tick);

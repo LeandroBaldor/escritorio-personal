@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { KITS, kitById, paintKit, rivalKit, rivalKits, type Kit } from './kits';
 import { cupOutcome, FINAL, ROUNDS, type CupOutcome } from './worldCup';
 import { canShoot, chase, dive, FORMATIONS, GOAL, minute, newMatch, pass, passRisk, PITCH, shoot, shotChance, startSecondHalf, step, takeEvents, type FormationId, type Match, type MatchEvent, type Side } from './tikiTaka';
+import { playGameOver, unlockSounds } from './sounds';
 
 // ---------- Equipo guardado y récord ----------
 export interface TeamSetup { coach: string; country: string; formation: FormationId }
@@ -259,6 +260,7 @@ export function TikiTaka() {
   }, []);
 
   const start = (e?: React.FormEvent) => {
+    unlockSounds();
     e?.preventDefault();
     write(SETUP_KEY, setup);
     matchRef.current = newMatch(setup.formation);
@@ -324,6 +326,7 @@ export function TikiTaka() {
           const next = { ...r, played: r.played + 1, won: r.won + (m.goals.mine > m.goals.rival ? 1 : 0), drawn: r.drawn + (m.goals.mine === m.goals.rival ? 1 : 0), lost: r.lost + (m.goals.mine < m.goals.rival ? 1 : 0), goals: r.goals + m.goals.mine, cups: (r.cups ?? 0) + (result?.champion ? 1 : 0) };
           write(RECORD_KEY, next); setRecord(next);
           if (result) { setOutcome(result); if (result.shout) setBanner({ text: result.shout, trophy: result.champion, seconds: 3.5, id: now }); }
+          if (result ? !result.won : m.goals.mine < m.goals.rival) playGameOver(); // perdiste el partido o quedaste afuera del Mundial
         }
       }
       setHud(prev => {
@@ -370,6 +373,7 @@ export function TikiTaka() {
   // Mundial: cuatro rivales distintos, de octavos a la final.
   const playCup = (next: Cup) => { setCup(next); setRivalShirt(next.rivals[next.round]); setRivalCoach(next.coaches[next.round]); setTimeout(() => start(), 0); };
   const startCup = () => {
+    unlockSounds();
     const rivals = rivalKits(myKit, ROUNDS.length);
     const coaches = [...RIVAL_COACHES].sort(() => Math.random() - 0.5).slice(0, ROUNDS.length);
     write(SETUP_KEY, setup);

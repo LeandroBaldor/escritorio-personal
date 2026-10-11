@@ -15,7 +15,6 @@ export function unlockSounds() {
     ctx ??= new Ctor();
     if (ctx.state === 'suspended') void ctx.resume();
     master ??= limiter(ctx);
-    ambient ??= buildAmbient(ctx);
   } catch { /* sin audio: el juego sigue en silencio */ }
 }
 
@@ -163,7 +162,8 @@ function buildAmbient(c: AudioContext) {
 
 // levels: cuánto se escucha cada objeto (0 a 1); null apaga todo el ambiente (pausa, fin de partida).
 export function setAmbient(levels: Record<AmbientChannel, number> | null) {
-  if (!ctx || !ambient) return;
+  if (!ctx || (!ambient && !levels)) return;
+  ambient ??= buildAmbient(ctx); // se arma recién cuando un juego lo usa (Trepaluna)
   const t = ctx.currentTime;
   for (const name of AMBIENT_CHANNELS) {
     const { gain, max } = ambient[name];
@@ -267,10 +267,11 @@ function scream(c: AudioContext, start: number) {
   voice.start(start); voice.stop(start + 0.85);
 }
 // GAME OVER: la musiquita triste de los videojuegos viejos (cuatro notas que bajan y la última tiembla).
-export function playGameOver() {
+// thud: un golpe antes de la música (en Trepaluna, el personaje contra la calle).
+export function playGameOver(thud = false) {
   const c = running(); if (!c) return;
   const t = c.currentTime;
-  burst(c, 'lowpass', 300, t, 0.25, 0.8); // el golpe contra la calle
+  if (thud) burst(c, 'lowpass', 300, t, 0.25, 0.8);
   const notes: [number, number, number][] = [[392, 0.25, 0.22], [370, 0.5, 0.22], [349, 0.75, 0.22], [330, 1.0, 0.9]];
   for (const [f, at, length] of notes) {
     const o = osc(c, 'square', f), gain = c.createGain(), s = t + at;

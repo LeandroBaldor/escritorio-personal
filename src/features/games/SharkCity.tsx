@@ -7,6 +7,7 @@ import {
 import { drawSharkSprite, loadSharkSprites, type SpriteOptions } from './sharkSprites';
 import { font, hash, hsl, scene, surfaceClip, visible, waveY, X, Y, type View } from './sharkView';
 import { drawBuilding, drawDebrisArt, drawFx, drawHouse, drawInterior, drawLamp, drawShop, drawTreeDecor, drawVehicle } from './sharkArt';
+import { playGameOver, unlockSounds } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:tiburon-record';
 export interface SharkRecord { saved: number; time: number | null } // más rescatados y mejor tiempo para rescatar a todos
@@ -779,6 +780,7 @@ export function SharkCity() {
   }, []);
 
   const start = useCallback(() => {
+    unlockSounds();
     gameRef.current = newShark();
     follow(-1);
     input.current = { ...NO_INPUT };
@@ -834,6 +836,7 @@ export function SharkCity() {
         saveRecord(next); setRecord(next);
         setResult({ saved: g.saved, time: g.time, reason: g.dying?.reason ?? 'shark', newRecord: isNew && (rec.saved > 0 || g.won) });
         setToast(null);
+        if (!g.won) playGameOver();
         setStatus(g.won ? 'won' : 'over');
         return;
       }

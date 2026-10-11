@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Link } from 'react-router-dom';
 import { drawRunner } from './runnerCharacter';
 import { level, newGame, WIN_LEVEL, TRAP_SECONDS, PLAYER_H, PLAYER_W, score, step, type Game, type GameOver, type Input } from './blockRunner';
+import { playGameOver, unlockSounds } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:bloques-record';
 export const readRecord = () => { try { return Number(localStorage.getItem(RECORD_KEY)) || 0; } catch { return 0; } };
@@ -135,6 +136,7 @@ export function BlockRunner() {
   }, []);
 
   const start = useCallback(() => {
+    unlockSounds();
     const stage = stageRef.current;
     if (!stage) return;
     const { cols, rows } = gridFor(stage.clientWidth, stage.clientHeight);
@@ -180,6 +182,7 @@ export function BlockRunner() {
       // Al perder, la explosión se sigue viendo un momento antes del cartel.
       if (game.over && (afterOver > 0.8 || game.over === 'won')) {
         setOverReason(game.over);
+        if (game.over !== 'won') playGameOver();
         if (current > readRecord()) { saveRecord(current); setRecord(current); setNewRecord(true); }
         setStatus('over');
         return;

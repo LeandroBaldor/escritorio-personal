@@ -5,6 +5,7 @@ import {
   BURN_T, elevatorAt, floorY, heliState, LAVA_DELAY, meters, newLava, nextLanding, PLAYER_H, PLAYER_W, personState, personX, sparkActive, sparkWarning, step, takeEvents, towerOf, WALL,
   type Building, type Climb, type Escape, type Fallen, type Fire, type Heli, type Input, type LavaGame, type LoseReason, type Person, type Plat, type Spark, type Zip,
 } from './lava';
+import { playGameOver, unlockSounds } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:lava-record';
 export interface LavaRecord { height: number; time: number | null } // metros más altos y mejor tiempo hasta el helicóptero
@@ -1257,6 +1258,7 @@ export function LavaFloor() {
   }, []);
 
   const start = useCallback(() => {
+    unlockSounds();
     gameRef.current = newLava(); // cada partida arranca en otro lugar de la cuadra
     follow(-1);
     input.current = { ...NO_INPUT };
@@ -1310,6 +1312,7 @@ export function LavaFloor() {
         saveRecord(next); setRecord(next);
         setResult({ m: height, time: g.time, reason: g.dying?.reason ?? 'lava', newRecord: isNew && (rec.height > 0 || g.won) });
         setToast(null);
+        if (!g.won) playGameOver();
         setStatus(g.won ? 'won' : 'over');
         return;
       }

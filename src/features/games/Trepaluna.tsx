@@ -1099,7 +1099,7 @@ export function Trepaluna() {
         if (e.type === 'teleport') playTeleport();
         if (e.type === 'lose') playLose(e.reason);
         if (e.type === 'win') playWin();
-        if (e.type === 'gameover') playGameOver();
+        if (e.type === 'gameover') playGameOver(true);
         if (e.type === 'zone' && ZONE_MESSAGES[e.zone]) setToast({ text: ZONE_MESSAGES[e.zone], id: now });
         if (e.type === 'lose') setToast({ text: LOSE_TEXT[e.reason], id: now });
       }
