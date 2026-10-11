@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { drawRunner } from './runnerCharacter';
+import { playJump, unlockSounds } from './sounds';
 import {
   ballPos, birdPos, blinkOn, fireActive, fireWarning, laserActive, laserHalf, laserWarning, meters, moonOf, newTrepa, PLAYER_H, PLAYER_W, step, takeEvents, WORLD_W, ZONES,
   type Ball, type Bird, type Climb, type Facade, type Fan, type Fire, type Gear, type Laser, type Magnet, type Portal, type Input, type LoseReason, type Plat, type Trepa, type Zone,
@@ -874,6 +875,7 @@ export function Trepaluna() {
   }, []);
 
   const start = useCallback(() => {
+    unlockSounds();
     gameRef.current = newTrepa();
     camRef.current = 0;
     follow(-1);
@@ -905,6 +907,7 @@ export function Trepaluna() {
       last = now;
       step(g, input.current, dt);
       for (const e of takeEvents(g)) {
+        if (e.type === 'jump') playJump();
         if (e.type === 'zone' && ZONE_MESSAGES[e.zone]) setToast({ text: ZONE_MESSAGES[e.zone], id: now });
         if (e.type === 'lose') setToast({ text: LOSE_TEXT[e.reason], id: now });
       }
