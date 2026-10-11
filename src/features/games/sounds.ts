@@ -387,7 +387,7 @@ function grit(c: AudioContext, amount: number) {
   return shaper;
 }
 export function playRobotThrow() {
-  if (playSample(t800Url, 0.6)) return; // el sonido grabado del T-800
+  if (playSample(t800Url, 0.35)) return; // el sonido grabado del T-800
   const c = running(); if (!c) return;
   const t = c.currentTime, turn = 0.2;
   // Servo: dos osciladores apenas desafinados, con un vibrato rápido y eléctrico, sucios y resonantes.
