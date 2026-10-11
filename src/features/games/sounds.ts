@@ -198,18 +198,26 @@ export function playJump() {
   const c = running(); if (!c) return;
   tone(c, 'square', 330, 760, c.currentTime, 0.14, 0.35);
 }
-// Trampolín: un resorte que estira, más largo y con vibración.
+// Trampolín: como una cama elástica. Primero el "thump" grave de la lona y después el "boooing" del
+// resorte, que sube de tono y vibra cada vez menos hasta apagarse.
 export function playTramp() {
   const c = running(); if (!c) return;
-  const t = c.currentTime, o = osc(c, 'triangle', 160), gain = c.createGain();
-  o.frequency.setValueAtTime(160, t);
-  o.frequency.exponentialRampToValueAtTime(900, t + 0.35);
-  wobble(c, o.frequency, 22, 40);
-  gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(0.6, t + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
-  o.connect(gain).connect(out(c));
-  o.start(t); o.stop(t + 0.5);
+  const t = c.currentTime;
+  tone(c, 'sine', 120, 50, t, 0.18, 0.8); // la lona
+  for (const [type, mult, volume] of [['triangle', 1, 0.6], ['sine', 2, 0.15]] as const) {
+    const o = osc(c, type, 170 * mult), gain = c.createGain(), lfo = osc(c, 'sine', 11), depth = c.createGain();
+    o.frequency.setValueAtTime(170 * mult, t + 0.03);
+    o.frequency.exponentialRampToValueAtTime(430 * mult, t + 0.15);
+    o.frequency.exponentialRampToValueAtTime(360 * mult, t + 0.8);
+    depth.gain.setValueAtTime(90 * mult, t + 0.05); // la vibración del resorte, que se va calmando
+    depth.gain.exponentialRampToValueAtTime(1, t + 0.8);
+    lfo.connect(depth).connect(o.frequency);
+    gain.gain.setValueAtTime(0.0001, t + 0.03);
+    gain.gain.exponentialRampToValueAtTime(volume, t + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.85);
+    o.connect(gain).connect(out(c));
+    o.start(t + 0.03); lfo.start(t + 0.03); o.stop(t + 0.9); lfo.stop(t + 0.9);
+  }
 }
 // Ladrillos o vidrio que se desarman.
 export function playCrumble() {
