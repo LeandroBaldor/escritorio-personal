@@ -6,6 +6,7 @@ type WithWebkit = typeof globalThis & { webkitAudioContext?: typeof AudioContext
 let ctx: AudioContext | null = null;
 let noise: AudioBuffer | null = null;
 let ambient: Record<AmbientChannel, { gain: GainNode; max: number }> | null = null;
+let master: AudioNode | null = null;
 
 export function unlockSounds() {
   try {
@@ -13,10 +14,19 @@ export function unlockSounds() {
     if (!Ctor) return;
     ctx ??= new Ctor();
     if (ctx.state === 'suspended') void ctx.resume();
+    master ??= limiter(ctx);
     ambient ??= buildAmbient(ctx);
   } catch { /* sin audio: el juego sigue en silencio */ }
 }
 
+// Todo pasa por un limitador, así varios sonidos juntos no saturan.
+function limiter(c: AudioContext) {
+  const comp = c.createDynamicsCompressor();
+  comp.threshold.value = -10; comp.knee.value = 6; comp.ratio.value = 12; comp.attack.value = 0.003; comp.release.value = 0.2;
+  comp.connect(c.destination);
+  return comp;
+}
+const out = (c: AudioContext) => master ?? c.destination;
 const running = () => ctx && ctx.state === 'running' ? ctx : null;
 
 function noiseBuffer(c: AudioContext) {
@@ -42,13 +52,13 @@ function buildAmbient(c: AudioContext) {
   const channel = (max: number, make: (out: GainNode) => void) => {
     const gain = c.createGain();
     gain.gain.value = 0;
-    gain.connect(c.destination);
+    gain.connect(out(c));
     make(gain);
     return { gain, max };
   };
   return {
     // Fuego: un rugido grave con chisporroteo.
-    fire: channel(0.45, out => {
+    fire: channel(0.85, out => {
       const roar = noiseSource(c), body = filter(c, 'lowpass', 700);
       roar.connect(body).connect(out); roar.start();
       const crackle = noiseSource(c), hi = filter(c, 'bandpass', 2600, 3), level = c.createGain();
@@ -56,42 +66,42 @@ function buildAmbient(c: AudioContext) {
       crackle.connect(hi).connect(level).connect(out); crackle.start();
     }),
     // Pisos que van y vienen, montacargas y engranajes: un motor grave que vibra.
-    motor: channel(0.16, out => {
+    motor: channel(0.4, out => {
       const engine = osc(c, 'sawtooth', 58), low = filter(c, 'lowpass', 320), level = c.createGain();
       level.gain.value = 0.7; wobble(c, level.gain, 7, 0.3);
       engine.connect(low).connect(level).connect(out); engine.start();
     }),
     // Cinta transportadora: un traqueteo rápido.
-    conveyor: channel(0.2, out => {
+    conveyor: channel(0.45, out => {
       const rattle = noiseSource(c), band = filter(c, 'bandpass', 1100, 4), level = c.createGain();
       level.gain.value = 0.5; wobble(c, level.gain, 14, 0.5, 'square');
       rattle.connect(band).connect(level).connect(out); rattle.start();
     }),
     // Bola de demolición: el "fsss" del aire al pasar.
-    swing: channel(0.4, out => {
+    swing: channel(0.75, out => {
       const air = noiseSource(c), band = filter(c, 'bandpass', 450, 1.2);
       air.connect(band).connect(out); air.start();
     }),
     // Pájaros, aviones, drones y meteoritos: un zumbido de alas o motor.
-    flyer: channel(0.07, out => {
+    flyer: channel(0.2, out => {
       const buzz = osc(c, 'sawtooth', 190), low = filter(c, 'lowpass', 1300);
       wobble(c, buzz.frequency, 24, 18);
       buzz.connect(low).connect(out); buzz.start();
     }),
     // Láseres y rayos: zumbido eléctrico.
-    electric: channel(0.08, out => {
+    electric: channel(0.22, out => {
       const zap = osc(c, 'square', 120), band = filter(c, 'bandpass', 1800, 2), level = c.createGain();
       level.gain.value = 0.75; wobble(c, level.gain, 31, 0.25, 'square');
       zap.connect(band).connect(level).connect(out); zap.start();
     }),
     // Ventiladores: viento.
-    wind: channel(0.35, out => {
+    wind: channel(0.65, out => {
       const air = noiseSource(c), low = filter(c, 'lowpass', 480), level = c.createGain();
       level.gain.value = 0.8; wobble(c, level.gain, 0.7, 0.2);
       air.connect(low).connect(level).connect(out); air.start();
     }),
     // Imanes y teletransportadores: un zumbido grave y parejo.
-    hum: channel(0.12, out => {
+    hum: channel(0.3, out => {
       for (const f of [110, 221]) { const tone = osc(c, 'sine', f); tone.connect(out); tone.start(); }
     }),
   };
@@ -116,7 +126,7 @@ function tone(c: AudioContext, type: OscillatorType, from: number, to: number, s
   gain.gain.setValueAtTime(0.0001, start);
   gain.gain.exponentialRampToValueAtTime(volume, start + 0.01);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + length);
-  o.connect(gain).connect(c.destination);
+  o.connect(gain).connect(out(c));
   o.start(start);
   o.stop(start + length + 0.02);
 }
@@ -124,7 +134,7 @@ function burst(c: AudioContext, type: BiquadFilterType, frequency: number, start
   const s = noiseSource(c, false), f = filter(c, type, frequency), gain = c.createGain();
   gain.gain.setValueAtTime(volume, start);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + length);
-  s.connect(f).connect(gain).connect(c.destination);
+  s.connect(f).connect(gain).connect(out(c));
   s.start(start);
   s.stop(start + length + 0.02);
 }
@@ -132,7 +142,7 @@ function burst(c: AudioContext, type: BiquadFilterType, frequency: number, start
 // Salto: un "boing" corto que sube de tono.
 export function playJump() {
   const c = running(); if (!c) return;
-  tone(c, 'square', 330, 760, c.currentTime, 0.14, 0.25);
+  tone(c, 'square', 330, 760, c.currentTime, 0.14, 0.35);
 }
 // Trampolín: un resorte que estira, más largo y con vibración.
 export function playTramp() {
@@ -142,42 +152,42 @@ export function playTramp() {
   o.frequency.exponentialRampToValueAtTime(900, t + 0.35);
   wobble(c, o.frequency, 22, 40);
   gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(0.35, t + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.6, t + 0.01);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
-  o.connect(gain).connect(c.destination);
+  o.connect(gain).connect(out(c));
   o.start(t); o.stop(t + 0.5);
 }
 // Ladrillos o vidrio que se desarman.
 export function playCrumble() {
   const c = running(); if (!c) return;
   const t = c.currentTime;
-  for (let i = 0; i < 4; i++) burst(c, 'bandpass', 900 + i * 500, t + i * 0.06, 0.12, 0.35);
+  for (let i = 0; i < 4; i++) burst(c, 'bandpass', 900 + i * 500, t + i * 0.06, 0.12, 0.7);
 }
 // Te chocó un pájaro, un dron o la bola: un golpe seco.
 export function playKnock() {
   const c = running(); if (!c) return;
   const t = c.currentTime;
-  tone(c, 'sine', 180, 60, t, 0.18, 0.5);
-  burst(c, 'lowpass', 1200, t, 0.08, 0.4);
+  tone(c, 'sine', 180, 60, t, 0.18, 0.8);
+  burst(c, 'lowpass', 1200, t, 0.08, 0.7);
 }
 // Teletransportador: un barrido de ciencia ficción.
 export function playTeleport() {
   const c = running(); if (!c) return;
   const t = c.currentTime;
-  tone(c, 'sine', 300, 1800, t, 0.3, 0.25);
-  tone(c, 'triangle', 1800, 300, t + 0.12, 0.3, 0.15);
+  tone(c, 'sine', 300, 1800, t, 0.3, 0.5);
+  tone(c, 'triangle', 1800, 300, t + 0.12, 0.3, 0.3);
 }
 // Perder: quemado (llamarada), electrocutado (chispazo) o caída (silbido que baja).
 export function playLose(reason: 'burn' | 'zap' | 'fall') {
   const c = running(); if (!c) return;
   const t = c.currentTime;
-  if (reason === 'burn') burst(c, 'lowpass', 900, t, 0.7, 0.6);
-  else if (reason === 'zap') { tone(c, 'sawtooth', 1400, 90, t, 0.35, 0.3); burst(c, 'highpass', 3000, t, 0.25, 0.3); }
-  tone(c, 'square', 660, 90, t + 0.1, 0.9, 0.18);
+  if (reason === 'burn') burst(c, 'lowpass', 900, t, 0.7, 0.9);
+  else if (reason === 'zap') { tone(c, 'sawtooth', 1400, 90, t, 0.35, 0.5); burst(c, 'highpass', 3000, t, 0.25, 0.5); }
+  tone(c, 'square', 660, 90, t + 0.1, 0.9, 0.3);
 }
 // Llegar a la Luna: un acorde que sube.
 export function playWin() {
   const c = running(); if (!c) return;
   const t = c.currentTime;
-  [523, 659, 784, 1047].forEach((f, i) => tone(c, 'square', f, f, t + i * 0.13, 0.35, 0.18));
+  [523, 659, 784, 1047].forEach((f, i) => tone(c, 'square', f, f, t + i * 0.13, 0.35, 0.3));
 }

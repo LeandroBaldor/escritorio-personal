@@ -7,7 +7,7 @@ export const AMBIENT_CHANNELS: AmbientChannel[] = ['fire', 'motor', 'conveyor', 
 // Se escucha hasta unas 7 unidades (más o menos media pantalla) y sube de volumen al acercarse.
 export const HEAR_RADIUS = 7;
 
-const near = (d: number) => { const k = Math.max(0, 1 - d / HEAR_RADIUS); return k * k; };
+const near = (d: number) => Math.max(0, 1 - d / HEAR_RADIUS);
 const boxDist = (x: number, y: number, x1: number, x2: number, y1: number, y2: number) =>
   Math.hypot(Math.max(x1 - x, 0, x - x2), Math.max(y1 - y, 0, y - y2));
 
