@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { drawRunner } from './runnerCharacter';
-import { playJump, unlockSounds } from './sounds';
+import { playCrumble, playJump, playKnock, playLose, playTeleport, playTramp, playWin, setAmbient, unlockSounds } from './sounds';
+import { ambientLevels } from './trepaSound';
 import {
   ballPos, birdPos, blinkOn, fireActive, fireWarning, laserActive, laserHalf, laserWarning, meters, moonOf, newTrepa, PLAYER_H, PLAYER_W, step, takeEvents, WORLD_W, ZONES,
   type Ball, type Bird, type Climb, type Facade, type Fan, type Fire, type Gear, type Laser, type Magnet, type Portal, type Input, type LoseReason, type Plat, type Trepa, type Zone,
@@ -908,9 +909,17 @@ export function Trepaluna() {
       step(g, input.current, dt);
       for (const e of takeEvents(g)) {
         if (e.type === 'jump') playJump();
+        if (e.type === 'tramp') playTramp();
+        if (e.type === 'crumble') playCrumble();
+        if (e.type === 'knock') playKnock();
+        if (e.type === 'teleport') playTeleport();
+        if (e.type === 'lose') playLose(e.reason);
+        if (e.type === 'win') playWin();
         if (e.type === 'zone' && ZONE_MESSAGES[e.zone]) setToast({ text: ZONE_MESSAGES[e.zone], id: now });
         if (e.type === 'lose') setToast({ text: LOSE_TEXT[e.reason], id: now });
       }
+      // Sonidos de los objetos cercanos (fuego, motores, viento…); se apagan al perder.
+      setAmbient(g.dying ? null : ambientLevels(g));
       follow(dt);
       paint();
       const m = meters(g.player.y), best = meters(g.best);
@@ -934,7 +943,7 @@ export function Trepaluna() {
     frame = requestAnimationFrame(tick);
     const hide = () => { if (document.hidden && !gameRef.current.dying) setStatus('paused'); };
     document.addEventListener('visibilitychange', hide);
-    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); };
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); setAmbient(null); };
   }, [status, paint, follow]);
 
   useEffect(() => {
