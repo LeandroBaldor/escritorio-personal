@@ -314,17 +314,29 @@ export function playScore() {
   tone(c, 'sine', 3520, 4186, t + 0.26, 0.35, 0.18);
 }
 
-// La persona cae: un solo golpe seco contra el piso y apenas un chapoteo húmedo, cortito y bajo.
+// La persona cae: corto. Un golpe seco contra el piso y una salpicadura leve de sangre.
 // hard (0 a 1): qué tan fuerte cayó.
 export function playSplat(hard: number) {
   const c = running(); if (!c) return;
-  const t = c.currentTime, k = 0.55 + hard * 0.45;
-  tone(c, 'sine', 100, 45, t, 0.24, 0.95 * k); // el golpe
-  burst(c, 'lowpass', 380, t, 0.12, 0.75 * k);
-  const wet = noiseSource(c, false), band = filter(c, 'bandpass', 1300, 1.2), gain = c.createGain(); // salpicadura, muy suave
-  band.frequency.setValueAtTime(1300, t + 0.02); band.frequency.exponentialRampToValueAtTime(600, t + 0.2);
-  gain.gain.setValueAtTime(0.0001, t + 0.01); gain.gain.exponentialRampToValueAtTime(0.16 * k, t + 0.03); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
-  wet.connect(band).connect(gain).connect(out(c)); wet.start(t + 0.01); wet.stop(t + 0.25);
+  const t = c.currentTime, k = 0.6 + hard * 0.4;
+  tone(c, 'sine', 105, 50, t, 0.15, 2 * k); // el golpe
+  burst(c, 'lowpass', 420, t, 0.07, 1.6 * k);
+  const wet = noiseSource(c, false), band = filter(c, 'bandpass', 1500, 1.3), gain = c.createGain(); // salpicadura leve
+  band.frequency.setValueAtTime(1500, t + 0.02); band.frequency.exponentialRampToValueAtTime(700, t + 0.13);
+  gain.gain.setValueAtTime(0.0001, t + 0.015); gain.gain.exponentialRampToValueAtTime(0.3 * k, t + 0.03); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+  wet.connect(band).connect(gain).connect(out(c)); wet.start(t + 0.015); wet.stop(t + 0.16);
+}
+
+// La persona pega en el borde del tacho de metal: un "clonk" seco y el metal del tacho que vibra un instante.
+let lastBinHit = -1;
+export function playBinHit() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  if (t - lastBinHit < 0.15) return; // si queda rodando sobre el borde, no repite el golpe
+  lastBinHit = t;
+  tone(c, 'sine', 210, 90, t, 0.12, 0.7);
+  burst(c, 'bandpass', 1400, t, 0.05, 0.6);
+  for (const [f, vol, length] of [[520, 0.35, 0.45], [1240, 0.2, 0.35], [2110, 0.12, 0.25], [3370, 0.06, 0.15]]) tone(c, 'sine', f, f * 0.97, t + 0.003, length, vol);
 }
 
 // Silbato de árbitro al empezar cada cuarto: un pitido agudo con el trino de la bolita.
@@ -342,18 +354,20 @@ export function playWhistle() {
   });
 }
 
-// Brazo robótico al tirar: sutil. El zumbido suave de un servomotor mientras el codo gira, unos pocos clics
-// bajitos del engranaje y un "tac" corto al soltar.
+// Brazo robótico al tirar: suena a máquina, pero sutil. Un motor grave que acelera un poco, el zumbido
+// mecánico de los engranajes y un "tunk" suave cuando el brazo se frena al soltar.
 export function playRobotThrow() {
   const c = running(); if (!c) return;
-  const t = c.currentTime, turn = 0.22;
-  const servo = osc(c, 'triangle', 260), low = filter(c, 'lowpass', 1200), gain = c.createGain();
-  servo.frequency.setValueAtTime(260, t); servo.frequency.exponentialRampToValueAtTime(480, t + turn);
-  gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.07, t + 0.04); gain.gain.setValueAtTime(0.07, t + turn - 0.03); gain.gain.exponentialRampToValueAtTime(0.0001, t + turn + 0.03);
-  servo.connect(low).connect(gain).connect(out(c)); servo.start(t); servo.stop(t + turn + 0.05);
-  for (let i = 0; i < 5; i++) burst(c, 'bandpass', 2600, t + 0.03 + i * 0.04, 0.012, 0.12); // clics del engranaje
-  burst(c, 'bandpass', 1800, t + turn, 0.03, 0.22); // tac
-  tone(c, 'sine', 220, 120, t + turn, 0.05, 0.12);
+  const t = c.currentTime, turn = 0.24;
+  const env = (g: GainNode, peak: number) => { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.04); g.gain.setValueAtTime(peak, t + turn - 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t + turn + 0.03); };
+  const motor = osc(c, 'sawtooth', 85), low = filter(c, 'lowpass', 650), mg = c.createGain(); // motor
+  motor.frequency.setValueAtTime(85, t); motor.frequency.exponentialRampToValueAtTime(140, t + turn);
+  env(mg, 0.14); motor.connect(low).connect(mg).connect(out(c)); motor.start(t); motor.stop(t + turn + 0.05);
+  const gears = noiseSource(c, false), band = filter(c, 'bandpass', 1600, 5), gg = c.createGain(), teeth = c.createGain(); // engranajes
+  teeth.gain.value = 0.5; wobble(c, teeth.gain, 38, 0.5, 'square');
+  env(gg, 0.15); gears.connect(band).connect(teeth).connect(gg).connect(out(c)); gears.start(t); gears.stop(t + turn + 0.05);
+  tone(c, 'sine', 170, 80, t + turn, 0.09, 0.3); // tunk
+  burst(c, 'lowpass', 900, t + turn, 0.04, 0.22);
 }
 
 // Ventilador de la oficina: motor y aspas; level 0 lo apaga.

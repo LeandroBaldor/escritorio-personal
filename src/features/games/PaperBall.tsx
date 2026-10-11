@@ -8,7 +8,7 @@ import {
   burst, drawBall, drawBackground, drawBinBack, drawBinFront, drawClock, drawDrops, drawEyes, drawFan, drawHeld, drawLoad, drawRobot, drawStains,
   drawVignette, drawWindow, loadOffice, stepDrops, VIEW_H, X, Y, type Drop, type Stain, type View,
 } from './paperArt';
-import { playGameOver, playRobotThrow, playScore, playSplat, playWhistle, setFanSound, unlockSounds } from './sounds';
+import { playBinHit, playGameOver, playRobotThrow, playScore, playSplat, playWhistle, setFanSound, unlockSounds } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:cesto-t800-record';
 export const readPaperRecord = () => { try { return Number(localStorage.getItem(RECORD_KEY)) || 0; } catch { return 0; } };
@@ -168,6 +168,7 @@ export function PaperBall() {
       step(g, dt);
       for (const e of takeEvents(g)) {
         if (e.type === 'throw') playRobotThrow();
+        if (e.type === 'rim') playBinHit(); // pegó en el borde del tacho
         if (e.type === 'score') playScore();
         if (e.type === 'score') popsRef.current.push({ text: `${e.points} PTS`, x: e.x, y: e.y + 0.6, at: g.time, color: '#ff4d4d' });
         if (e.type === 'splat') {
