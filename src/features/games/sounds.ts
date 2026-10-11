@@ -82,11 +82,35 @@ function buildAmbient(c: AudioContext) {
       const air = noiseSource(c), band = filter(c, 'bandpass', 450, 1.2);
       air.connect(band).connect(out); air.start();
     }),
-    // Pájaros, aviones, drones y meteoritos: un zumbido de alas o motor.
-    flyer: channel(0.2, out => {
-      const buzz = osc(c, 'sawtooth', 190), low = filter(c, 'lowpass', 1300);
-      wobble(c, buzz.frequency, 24, 18);
+    // Pájaros: piídos cortos que van y vienen.
+    bird: channel(0.22, out => {
+      const tweet = osc(c, 'sine', 3000), gate = c.createGain(), pattern = c.createGain();
+      wobble(c, tweet.frequency, 9, 900, 'sawtooth');
+      gate.gain.value = 0.5; wobble(c, gate.gain, 2.6, 0.5, 'square');
+      pattern.gain.value = 0.5; wobble(c, pattern.gain, 0.55, 0.5, 'square');
+      tweet.connect(gate).connect(pattern).connect(out); tweet.start();
+    }),
+    // Aviones: el rugido grave del motor al pasar.
+    plane: channel(0.6, out => {
+      const jet = noiseSource(c), body = filter(c, 'lowpass', 650);
+      jet.connect(body).connect(out); jet.start();
+      const engine = osc(c, 'sawtooth', 74), low = filter(c, 'lowpass', 380), level = c.createGain();
+      level.gain.value = 0.5; wobble(c, level.gain, 3, 0.15);
+      engine.connect(low).connect(level).connect(out); engine.start();
+    }),
+    // Drones: zumbido agudo de hélices.
+    drone: channel(0.2, out => {
+      const buzz = osc(c, 'sawtooth', 260), low = filter(c, 'lowpass', 1600);
+      wobble(c, buzz.frequency, 24, 22);
       buzz.connect(low).connect(out); buzz.start();
+    }),
+    // Meteoritos: un estruendo grave que chisporrotea.
+    meteor: channel(0.6, out => {
+      const rumble = noiseSource(c), low = filter(c, 'lowpass', 220);
+      rumble.connect(low).connect(out); rumble.start();
+      const crackle = noiseSource(c), band = filter(c, 'bandpass', 1500, 2), level = c.createGain();
+      level.gain.value = 0.2; wobble(c, level.gain, 17, 0.2, 'square');
+      crackle.connect(band).connect(level).connect(out); crackle.start();
     }),
     // Láseres y rayos: zumbido eléctrico.
     electric: channel(0.22, out => {
@@ -103,6 +127,36 @@ function buildAmbient(c: AudioContext) {
     // Imanes y teletransportadores: un zumbido grave y parejo.
     hum: channel(0.3, out => {
       for (const f of [110, 221]) { const tone = osc(c, 'sine', f); tone.connect(out); tone.start(); }
+    }),
+    // Globo aerostático: el "fwoosh" del quemador de gas (fuerte cuando sube).
+    balloon: channel(0.7, out => {
+      const gas = noiseSource(c), band = filter(c, 'bandpass', 360, 0.8), level = c.createGain();
+      level.gain.value = 0.8; wobble(c, level.gain, 13, 0.2);
+      gas.connect(band).connect(level).connect(out); gas.start();
+    }),
+    // Dirigible: el golpeteo grave de la hélice.
+    propeller: channel(0.5, out => {
+      const engine = osc(c, 'sawtooth', 46), low = filter(c, 'lowpass', 260), chop = c.createGain();
+      chop.gain.value = 0.5; wobble(c, chop.gain, 16, 0.5);
+      engine.connect(low).connect(chop).connect(out); engine.start();
+    }),
+    // Baldosas voladoras: el zumbido de sus helicitas.
+    hover: channel(0.16, out => {
+      const whir = osc(c, 'sawtooth', 330), low = filter(c, 'lowpass', 1500), level = c.createGain();
+      wobble(c, whir.frequency, 1.5, 15);
+      level.gain.value = 0.6; wobble(c, level.gain, 38, 0.4);
+      whir.connect(low).connect(level).connect(out); whir.start();
+    }),
+    // Pistones y bloques tecnológicos: aire comprimido y un zumbido hidráulico.
+    hydraulic: channel(0.35, out => {
+      const hiss = noiseSource(c), hi = filter(c, 'highpass', 2200), level = c.createGain();
+      level.gain.value = 0.5; wobble(c, level.gain, 1.1, 0.4);
+      hiss.connect(hi).connect(level).connect(out); hiss.start();
+      const pump = osc(c, 'sine', 90); pump.connect(out); pump.start();
+    }),
+    // Ovnis y satélites: el clásico sonido ondulante de ciencia ficción.
+    ufo: channel(0.14, out => {
+      for (const [f, rate, depth] of [[520, 7, 120], [780, 5, 60]]) { const tone = osc(c, 'sine', f); wobble(c, tone.frequency, rate, depth); tone.connect(out); tone.start(); }
     }),
   };
 }
@@ -177,13 +231,49 @@ export function playTeleport() {
   tone(c, 'sine', 300, 1800, t, 0.3, 0.5);
   tone(c, 'triangle', 1800, 300, t + 0.12, 0.3, 0.3);
 }
-// Perder: quemado (llamarada), electrocutado (chispazo) o caída (silbido que baja).
+// Perder: quemado (llamarada) o electrocutado (chispazo), y en todos los casos un grito corto mientras cae.
 export function playLose(reason: 'burn' | 'zap' | 'fall') {
   const c = running(); if (!c) return;
   const t = c.currentTime;
   if (reason === 'burn') burst(c, 'lowpass', 900, t, 0.7, 0.9);
   else if (reason === 'zap') { tone(c, 'sawtooth', 1400, 90, t, 0.35, 0.5); burst(c, 'highpass', 3000, t, 0.25, 0.5); }
-  tone(c, 'square', 660, 90, t + 0.1, 0.9, 0.3);
+  scream(c, t + (reason === 'fall' ? 0 : 0.12));
+}
+// Un "¡aaah!" corto: una voz sintética (cuerdas vocales + resonancias de la boca) que baja de tono.
+function scream(c: AudioContext, start: number) {
+  const voice = osc(c, 'sawtooth', 620), gain = c.createGain();
+  voice.frequency.setValueAtTime(620, start);
+  voice.frequency.exponentialRampToValueAtTime(700, start + 0.12);
+  voice.frequency.exponentialRampToValueAtTime(300, start + 0.75);
+  wobble(c, voice.frequency, 7, 18);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(0.9, start + 0.04);
+  gain.gain.setValueAtTime(0.9, start + 0.5);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.8);
+  voice.connect(gain);
+  for (const [f, q, level] of [[800, 6, 1], [1200, 7, 0.7], [2600, 8, 0.25]]) {
+    const formant = filter(c, 'bandpass', f, q), amount = c.createGain();
+    amount.gain.value = level;
+    gain.connect(formant).connect(amount).connect(out(c));
+  }
+  voice.start(start); voice.stop(start + 0.85);
+}
+// GAME OVER: la musiquita triste de los videojuegos viejos (cuatro notas que bajan y la última tiembla).
+export function playGameOver() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  burst(c, 'lowpass', 300, t, 0.25, 0.8); // el golpe contra la calle
+  const notes: [number, number, number][] = [[392, 0.25, 0.22], [370, 0.5, 0.22], [349, 0.75, 0.22], [330, 1.0, 0.9]];
+  for (const [f, at, length] of notes) {
+    const o = osc(c, 'square', f), gain = c.createGain(), s = t + at;
+    if (length > 0.5) wobble(c, o.frequency, 6, 8);
+    gain.gain.setValueAtTime(0.0001, s);
+    gain.gain.exponentialRampToValueAtTime(0.28, s + 0.01);
+    gain.gain.setValueAtTime(0.28, s + length * 0.7);
+    gain.gain.exponentialRampToValueAtTime(0.0001, s + length);
+    o.connect(gain).connect(out(c));
+    o.start(s); o.stop(s + length + 0.02);
+  }
 }
 // Llegar a la Luna: un acorde que sube.
 export function playWin() {

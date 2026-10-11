@@ -30,15 +30,41 @@ describe('Trepaluna: sonidos de los objetos', () => {
     expect(ambientLevels(g).fire).toBe(0);
   });
 
-  it('los pisos que se mueven y los montacargas suenan a motor; los fijos no suenan', () => {
+  it('cada objeto que se mueve suena según lo que es; los fijos no suenan', () => {
     const g = empty();
     const plat = { id: 2, kind: 'moving' as const, skin: 'tile' as const, x: 9, y: 50, w: 2, baseX: 9, baseY: 50, amp: 2, speed: 1, phase: 0, dx: 0, dy: 0, crumble: 0, gone: 0, belt: 0, hue: 0 };
-    g.plats = [plat];
-    expect(ambientLevels(g).motor).toBeGreaterThan(0.5);
-    g.plats = [{ ...plat, kind: 'elevator' }];
-    expect(ambientLevels(g).motor).toBeGreaterThan(0.5);
-    g.plats = [{ ...plat, kind: 'solid' }];
-    expect(ambientLevels(g).motor).toBe(0);
+    const heard = (p: Partial<typeof plat>) => { g.plats = [{ ...plat, ...p } as typeof plat]; const l = ambientLevels(g); return Object.entries(l).filter(([, v]) => v > 0.5).map(([k]) => k); };
+    expect(heard({})).toEqual(['hover']);
+    expect(heard({ kind: 'elevator', skin: 'lift' } as never)).toEqual(['motor']);
+    expect(heard({ skin: 'zeppelin' } as never)).toEqual(['propeller']);
+    expect(heard({ kind: 'elevator', skin: 'piston' } as never)).toEqual(['hydraulic']);
+    expect(heard({ kind: 'elevator', skin: 'ufo' } as never)).toEqual(['ufo']);
+    g.plats = [{ ...plat, kind: 'solid' } as never];
+    expect(Object.values(ambientLevels(g)).every(v => v === 0)).toBe(true);
+  });
+
+  it('el globo aerostático ruge con el quemador cuando sube y apenas suena cuando baja', () => {
+    const g = empty();
+    const balloon = { id: 3, kind: 'elevator' as const, skin: 'basket' as const, x: 9, y: 50, w: 2, baseX: 9, baseY: 50, amp: 2, speed: 1, phase: 0, dx: 0, dy: 0.02, crumble: 0, gone: 0, belt: 0, hue: 0 };
+    g.plats = [balloon];
+    const up = ambientLevels(g).balloon;
+    g.plats = [{ ...balloon, dy: -0.02 }];
+    const down = ambientLevels(g).balloon;
+    expect(up).toBeGreaterThan(0.5);
+    expect(down).toBeGreaterThan(0);
+    expect(down).toBeLessThan(up / 2);
+  });
+
+  it('los pájaros pían y los aviones rugen (y se escuchan desde más lejos)', () => {
+    const g = empty();
+    const bird = { id: 4, y: 50.4, x0: 11, x1: 11.001, speed: 0, phase: 0, skin: 'bird' as const };
+    g.birds = [bird];
+    expect(ambientLevels(g).bird).toBeGreaterThan(0.4);
+    expect(ambientLevels(g).plane).toBe(0);
+    g.birds = [{ ...bird, x0: 14.5, x1: 14.501, skin: 'plane' }];
+    const plane = ambientLevels(g).plane;
+    g.birds = [{ ...bird, x0: 14.5, x1: 14.501 }];
+    expect(plane).toBeGreaterThan(ambientLevels(g).bird);
   });
 
   it('lo que está más lejos que media pantalla no se escucha', () => {
