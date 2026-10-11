@@ -13,7 +13,7 @@ export function unlockSounds() {
     const Ctor = globalThis.AudioContext ?? (globalThis as WithWebkit).webkitAudioContext;
     if (!Ctor) return;
     ctx ??= new Ctor();
-    if (ctx.state === 'suspended') void ctx.resume();
+    if (ctx.state !== 'running') void ctx.resume(); // también si Safari lo dejó "interrumpido"
     master ??= limiter(ctx);
   } catch { /* sin audio: el juego sigue en silencio */ }
 }
@@ -26,7 +26,14 @@ function limiter(c: AudioContext) {
   return comp;
 }
 const out = (c: AudioContext) => master ?? c.destination;
-const running = () => ctx && ctx.state === 'running' ? ctx : null;
+// Si el navegador pausó el audio (por ejemplo, al cambiar de pestaña o bloquear la pantalla), lo reactiva;
+// ese sonido se pierde, pero los siguientes ya suenan.
+const running = () => {
+  if (!ctx) return null;
+  if (ctx.state === 'running') return ctx;
+  void ctx.resume().catch(() => { /* el navegador no lo dejó: se reintenta con el próximo sonido */ });
+  return null;
+};
 
 function noiseBuffer(c: AudioContext) {
   if (noise) return noise;
@@ -294,8 +301,9 @@ export function playWin() {
 // ---------- SkynetBall ----------
 // Si el audio todavía se está activando (recién se tocó "Jugar"), espera un instante y suena igual.
 function whenRunning(play: (c: AudioContext) => void) {
-  const c = running(); if (c) { play(c); return; }
-  if (ctx && ctx.state === 'suspended') void ctx.resume().then(() => { if (ctx) play(ctx); });
+  if (!ctx) return;
+  if (ctx.state === 'running') { play(ctx); return; }
+  void ctx.resume().then(() => { if (ctx?.state === 'running') play(ctx); }).catch(() => { /* sin audio */ });
 }
 
 // Enceste: un "¡tiling!" agudo y brillante, cuatro notas que suben con un destello al final.
