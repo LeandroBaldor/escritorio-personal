@@ -314,30 +314,17 @@ export function playScore() {
   tone(c, 'sine', 3520, 4186, t + 0.26, 0.35, 0.18);
 }
 
-// La persona cae: el golpe pesado del cuerpo (con un rebote de brazos y piernas), el chapoteo húmedo de la
-// sangre y gotas que salpican alrededor. hard (0 a 1): qué tan fuerte cayó.
+// La persona cae: un solo golpe seco contra el piso y apenas un chapoteo húmedo, cortito y bajo.
+// hard (0 a 1): qué tan fuerte cayó.
 export function playSplat(hard: number) {
   const c = running(); if (!c) return;
   const t = c.currentTime, k = 0.55 + hard * 0.45;
-  for (const [at, f, vol] of [[0, 95, 1], [0.09, 120, 0.45], [0.16, 150, 0.25]]) { // cuerpo, después brazos y piernas
-    tone(c, 'sine', f, f * 0.45, t + at, 0.26, vol * k);
-    burst(c, 'lowpass', 320, t + at, 0.14, vol * 0.8 * k);
-  }
-  burst(c, 'bandpass', 850, t + 0.005, 0.11, 0.9 * k); // el "plaf" húmedo del impacto
-  // Chapoteo: un ruido húmedo que se va apagando y bajando (la sangre que se desparrama).
-  const wet = noiseSource(c, false), band = filter(c, 'bandpass', 2200, 1.4), low = filter(c, 'lowpass', 2600), gain = c.createGain();
-  band.frequency.setValueAtTime(2200, t + 0.02); band.frequency.exponentialRampToValueAtTime(420, t + 0.5);
-  gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.75 * k, t + 0.03);
-  gain.gain.exponentialRampToValueAtTime(0.25 * k, t + 0.15); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
-  wet.connect(band).connect(low).connect(gain).connect(out(c)); wet.start(t); wet.stop(t + 0.65);
-  // Gotas que salpican: cada una con el "plip" de un líquido (el tono sube rapidísimo), cada vez más espaciadas.
-  for (let i = 0; i < 14; i++) {
-    const at = t + 0.05 + (i / 14) ** 1.6 * 0.75, f = 450 + Math.random() * 700, o = osc(c, 'sine', f), g = c.createGain();
-    o.frequency.setValueAtTime(f, at); o.frequency.exponentialRampToValueAtTime(f * 2.4, at + 0.025);
-    const vol = (0.22 - i * 0.012) * k;
-    g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(Math.max(0.02, vol), at + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.05);
-    o.connect(g).connect(out(c)); o.start(at); o.stop(at + 0.06);
-  }
+  tone(c, 'sine', 100, 45, t, 0.24, 0.95 * k); // el golpe
+  burst(c, 'lowpass', 380, t, 0.12, 0.75 * k);
+  const wet = noiseSource(c, false), band = filter(c, 'bandpass', 1300, 1.2), gain = c.createGain(); // salpicadura, muy suave
+  band.frequency.setValueAtTime(1300, t + 0.02); band.frequency.exponentialRampToValueAtTime(600, t + 0.2);
+  gain.gain.setValueAtTime(0.0001, t + 0.01); gain.gain.exponentialRampToValueAtTime(0.16 * k, t + 0.03); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+  wet.connect(band).connect(gain).connect(out(c)); wet.start(t + 0.01); wet.stop(t + 0.25);
 }
 
 // Silbato de árbitro al empezar cada cuarto: un pitido agudo con el trino de la bolita.
@@ -355,26 +342,18 @@ export function playWhistle() {
   });
 }
 
-// Brazo robótico al tirar: el codo gira como un engranaje. Un motor que zumba y acelera, el "tric-tric-tric"
-// metálico de los dientes (cada vez más rápido) y un "clonc" con resonancia de metal cuando se traba al soltar.
+// Brazo robótico al tirar: sutil. El zumbido suave de un servomotor mientras el codo gira, unos pocos clics
+// bajitos del engranaje y un "tac" corto al soltar.
 export function playRobotThrow() {
   const c = running(); if (!c) return;
-  const t = c.currentTime, turn = 0.3;
-  const motor = osc(c, 'sawtooth', 140), low = filter(c, 'lowpass', 900), gain = c.createGain(); // motor
-  motor.frequency.setValueAtTime(140, t); motor.frequency.exponentialRampToValueAtTime(420, t + turn);
-  gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.16, t + 0.04); gain.gain.setValueAtTime(0.16, t + turn - 0.04); gain.gain.exponentialRampToValueAtTime(0.0001, t + turn + 0.03);
-  motor.connect(low).connect(gain).connect(out(c)); motor.start(t); motor.stop(t + turn + 0.05);
-  for (let i = 0, at = 0; at < turn; i++) { // los dientes del engranaje: clics metálicos que se aceleran
-    const when = t + at;
-    burst(c, 'bandpass', 3200 + (i % 3) * 400, when, 0.018, 0.42);
-    tone(c, 'square', 2400 - (i % 2) * 300, 1900, when, 0.025, 0.06);
-    at += Math.max(0.018, 0.05 - i * 0.004);
-  }
-  const lock = t + turn; // el "clonc" final: golpe grave y metal que vibra unos instantes
-  tone(c, 'sine', 180, 70, lock, 0.12, 0.55);
-  burst(c, 'highpass', 1800, lock, 0.04, 0.55);
-  for (const [f, vol, length] of [[1870, 0.14, 0.35], [2790, 0.09, 0.28], [4120, 0.05, 0.2]]) tone(c, 'sine', f, f * 0.985, lock, length, vol);
-  burst(c, 'highpass', 5000, lock + 0.02, 0.18, 0.06); // descarga de aire
+  const t = c.currentTime, turn = 0.22;
+  const servo = osc(c, 'triangle', 260), low = filter(c, 'lowpass', 1200), gain = c.createGain();
+  servo.frequency.setValueAtTime(260, t); servo.frequency.exponentialRampToValueAtTime(480, t + turn);
+  gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.07, t + 0.04); gain.gain.setValueAtTime(0.07, t + turn - 0.03); gain.gain.exponentialRampToValueAtTime(0.0001, t + turn + 0.03);
+  servo.connect(low).connect(gain).connect(out(c)); servo.start(t); servo.stop(t + turn + 0.05);
+  for (let i = 0; i < 5; i++) burst(c, 'bandpass', 2600, t + 0.03 + i * 0.04, 0.012, 0.12); // clics del engranaje
+  burst(c, 'bandpass', 1800, t + turn, 0.03, 0.22); // tac
+  tone(c, 'sine', 220, 120, t + turn, 0.05, 0.12);
 }
 
 // Ventilador de la oficina: motor y aspas; level 0 lo apaga.
