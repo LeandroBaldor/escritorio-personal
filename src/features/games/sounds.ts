@@ -1,6 +1,8 @@
 // Efectos de sonido de los juegos, generados con Web Audio (sin archivos de audio).
 // El contexto se crea recién con un clic o una tecla: los navegadores no dejan sonar nada antes.
 import { AMBIENT_CHANNELS, type AmbientChannel } from './trepaSound';
+import personaCaeUrl from './assets/sonidos/persona-cae.mp3';
+import t800Url from './assets/sonidos/t800.mp3';
 
 type WithWebkit = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 let ctx: AudioContext | null = null;
@@ -299,6 +301,26 @@ export function playWin() {
 }
 
 // ---------- SkynetBall ----------
+// Sonidos grabados (archivos .mp3): se cargan una sola vez y se reproducen por el mismo limitador que el resto.
+const samples = new Map<string, AudioBuffer | 'loading'>();
+function loadSample(url: string) {
+  if (!ctx || samples.has(url)) return;
+  samples.set(url, 'loading');
+  const c = ctx;
+  fetch(url).then(r => r.arrayBuffer()).then(data => c.decodeAudioData(data)).then(buffer => { samples.set(url, buffer); })
+    .catch(() => { samples.delete(url); }); // si falla, se reintenta la próxima vez y mientras suena el sintetizado
+}
+export function preloadSkynetSounds() { loadSample(t800Url); loadSample(personaCaeUrl); }
+// Devuelve false si el archivo todavía no está listo (entonces suena el sonido sintetizado de respaldo).
+function playSample(url: string, volume: number) {
+  const c = running(), buffer = samples.get(url);
+  if (!c || !(buffer instanceof AudioBuffer)) { loadSample(url); return false; }
+  const source = c.createBufferSource(), gain = c.createGain();
+  source.buffer = buffer; gain.gain.value = volume;
+  source.connect(gain).connect(out(c)); source.start();
+  return true;
+}
+
 // Si el audio todavía se está activando (recién se tocó "Jugar"), espera un instante y suena igual.
 function whenRunning(play: (c: AudioContext) => void) {
   if (!ctx) return;
@@ -317,10 +339,11 @@ export function playScore() {
 // La persona cae: corto. Un golpe seco contra el piso y una salpicadura leve de sangre.
 // hard (0 a 1): qué tan fuerte cayó.
 export function playSplat(hard: number) {
+  if (playSample(personaCaeUrl, 0.75 + hard * 0.25)) return; // el sonido grabado de la caída
   const c = running(); if (!c) return;
   const t = c.currentTime, k = 0.6 + hard * 0.4;
-  tone(c, 'sine', 105, 50, t, 0.15, 2 * k); // el golpe
-  burst(c, 'lowpass', 420, t, 0.07, 1.6 * k);
+  tone(c, 'sine', 105, 50, t, 0.15, 3.4 * k); // el golpe
+  burst(c, 'lowpass', 420, t, 0.07, 2.8 * k);
   const wet = noiseSource(c, false), band = filter(c, 'bandpass', 1500, 1.3), gain = c.createGain(); // salpicadura leve
   band.frequency.setValueAtTime(1500, t + 0.02); band.frequency.exponentialRampToValueAtTime(700, t + 0.13);
   gain.gain.setValueAtTime(0.0001, t + 0.015); gain.gain.exponentialRampToValueAtTime(0.3 * k, t + 0.03); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
@@ -354,20 +377,41 @@ export function playWhistle() {
   });
 }
 
-// Brazo robótico al tirar: suena a máquina, pero sutil. Un motor grave que acelera un poco, el zumbido
-// mecánico de los engranajes y un "tunk" suave cuando el brazo se frena al soltar.
+// Brazo robótico al tirar, como el T-800 de Terminator: el servomotor agudo y eléctrico que sube de tono
+// (con un zumbido metálico y algo de suciedad), un motor grave debajo y un "ker-chunk" pesado de metal con
+// un soplido de hidráulica cuando el brazo se frena al soltar.
+function grit(c: AudioContext, amount: number) {
+  const shaper = c.createWaveShaper(), curve = new Float32Array(256);
+  for (let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(x * amount) / Math.tanh(amount); }
+  shaper.curve = curve;
+  return shaper;
+}
 export function playRobotThrow() {
+  if (playSample(t800Url, 1)) return; // el sonido grabado del T-800
   const c = running(); if (!c) return;
-  const t = c.currentTime, turn = 0.24;
-  const env = (g: GainNode, peak: number) => { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.04); g.gain.setValueAtTime(peak, t + turn - 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t + turn + 0.03); };
-  const motor = osc(c, 'sawtooth', 85), low = filter(c, 'lowpass', 650), mg = c.createGain(); // motor
-  motor.frequency.setValueAtTime(85, t); motor.frequency.exponentialRampToValueAtTime(140, t + turn);
-  env(mg, 0.14); motor.connect(low).connect(mg).connect(out(c)); motor.start(t); motor.stop(t + turn + 0.05);
-  const gears = noiseSource(c, false), band = filter(c, 'bandpass', 1600, 5), gg = c.createGain(), teeth = c.createGain(); // engranajes
-  teeth.gain.value = 0.5; wobble(c, teeth.gain, 38, 0.5, 'square');
-  env(gg, 0.15); gears.connect(band).connect(teeth).connect(gg).connect(out(c)); gears.start(t); gears.stop(t + turn + 0.05);
-  tone(c, 'sine', 170, 80, t + turn, 0.09, 0.3); // tunk
-  burst(c, 'lowpass', 900, t + turn, 0.04, 0.22);
+  const t = c.currentTime, turn = 0.2;
+  // Servo: dos osciladores apenas desafinados, con un vibrato rápido y eléctrico, sucios y resonantes.
+  const band = filter(c, 'bandpass', 1500, 3), dirt = grit(c, 3), sg = c.createGain();
+  for (const [type, detune] of [['sawtooth', 0], ['square', 14]] as const) {
+    const o = osc(c, type, 820); o.detune.value = detune;
+    o.frequency.setValueAtTime(820, t); o.frequency.exponentialRampToValueAtTime(1650, t + turn * 0.8); o.frequency.exponentialRampToValueAtTime(1450, t + turn);
+    wobble(c, o.frequency, 72, 35);
+    o.connect(dirt); o.start(t); o.stop(t + turn + 0.04);
+  }
+  sg.gain.setValueAtTime(0.0001, t); sg.gain.exponentialRampToValueAtTime(0.42, t + 0.015); sg.gain.setValueAtTime(0.42, t + turn - 0.03); sg.gain.exponentialRampToValueAtTime(0.0001, t + turn + 0.02);
+  dirt.connect(band).connect(sg).connect(out(c));
+  // Motor grave debajo.
+  const motor = osc(c, 'sawtooth', 62), low = filter(c, 'lowpass', 420), mg = c.createGain();
+  motor.frequency.setValueAtTime(62, t); motor.frequency.exponentialRampToValueAtTime(96, t + turn);
+  mg.gain.setValueAtTime(0.0001, t); mg.gain.exponentialRampToValueAtTime(0.4, t + 0.03); mg.gain.exponentialRampToValueAtTime(0.0001, t + turn + 0.03);
+  motor.connect(low).connect(mg).connect(out(c)); motor.start(t); motor.stop(t + turn + 0.05);
+  // Ker-chunk: golpe grave, chasquido metálico y metal que vibra un instante.
+  const lock = t + turn;
+  tone(c, 'sine', 140, 55, lock, 0.16, 1.1);
+  burst(c, 'bandpass', 2400, lock, 0.035, 0.9);
+  burst(c, 'lowpass', 700, lock + 0.035, 0.06, 0.7);
+  for (const [f, vol, length] of [[960, 0.22, 0.22], [1730, 0.14, 0.18], [2890, 0.08, 0.12]]) tone(c, 'sine', f, f * 0.98, lock, length, vol);
+  burst(c, 'highpass', 4500, lock + 0.05, 0.16, 0.18); // hidráulica
 }
 
 // Ventilador de la oficina: motor y aspas; level 0 lo apaga.
