@@ -5,9 +5,10 @@ import { editableMoney, formatExpenseDate, money, parseExpenseDate } from '../fe
 
 describe('datos exactos y backup', () => {
   beforeEach(() => localStorage.clear());
-  it('cada hoja del diario admite hasta 3.000 caracteres', () => {
+  it('cada hoja del diario admite hasta 2.000 caracteres, y se siguen aceptando hojas viejas de hasta 3.000', () => {
     const page = (text: string) => ({ ...EMPTY, folders: [{ id: 'f', name: 'Diario', pages: [{ id: 'p', text, createdAt: new Date().toISOString() }] }] });
-    expect(PAGE_LIMIT).toBe(3000);
+    expect(PAGE_LIMIT).toBe(2000);
+    expect(isData(page('a'.repeat(2000)))).toBe(true);
     expect(isData(page('a'.repeat(3000)))).toBe(true);
     expect(isData(page('a'.repeat(3001)))).toBe(false);
   });
