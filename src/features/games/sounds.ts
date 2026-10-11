@@ -290,3 +290,77 @@ export function playWin() {
   const t = c.currentTime;
   [523, 659, 784, 1047].forEach((f, i) => tone(c, 'square', f, f, t + i * 0.13, 0.35, 0.3));
 }
+
+// ---------- SkynetBall ----------
+// Si el audio todavía se está activando (recién se tocó "Jugar"), espera un instante y suena igual.
+function whenRunning(play: (c: AudioContext) => void) {
+  const c = running(); if (c) { play(c); return; }
+  if (ctx && ctx.state === 'suspended') void ctx.resume().then(() => { if (ctx) play(ctx); });
+}
+
+// Enceste: un "¡tiling!" agudo y brillante, cuatro notas que suben con un destello al final.
+export function playScore() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  [1319, 1760, 2217, 2637].forEach((f, i) => { tone(c, 'triangle', f, f, t + i * 0.06, 0.22, 0.32); tone(c, 'sine', f * 2, f * 2, t + i * 0.06, 0.12, 0.08); });
+  tone(c, 'sine', 3520, 4186, t + 0.26, 0.35, 0.18);
+}
+
+// La persona cae: el golpe seco contra el piso y un chapoteo líquido, con gotitas que salpican.
+// hard (0 a 1): qué tan fuerte cayó.
+export function playSplat(hard: number) {
+  const c = running(); if (!c) return;
+  const t = c.currentTime, k = 0.5 + hard * 0.5;
+  tone(c, 'sine', 140, 40, t, 0.22, 0.9 * k); // el golpe
+  burst(c, 'lowpass', 600, t, 0.12, 0.7 * k);
+  const wet = noiseSource(c, false), band = filter(c, 'bandpass', 1400, 3), gain = c.createGain(); // el chapoteo
+  band.frequency.setValueAtTime(1400, t + 0.02); band.frequency.exponentialRampToValueAtTime(260, t + 0.35);
+  gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.9 * k, t + 0.03); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+  wobble(c, gain.gain, 26, 0.35 * k, 'square'); // borboteo
+  wet.connect(band).connect(gain).connect(out(c)); wet.start(t); wet.stop(t + 0.45);
+  for (let i = 0; i < 5; i++) { const f = 700 + Math.random() * 900, at = t + 0.08 + Math.random() * 0.35; tone(c, 'sine', f, f * 0.55, at, 0.06, 0.18 * k); } // gotitas
+}
+
+// Silbato de árbitro al empezar cada cuarto: un pitido agudo con el trino de la bolita.
+export function playWhistle() {
+  whenRunning(c => {
+    const t = c.currentTime;
+    for (const [at, length] of [[0, 0.18], [0.24, 0.55]]) {
+      const o = osc(c, 'sine', 2900), gain = c.createGain(), s = t + at;
+      wobble(c, o.frequency, 32, 220, 'square'); // la bolita adentro del silbato
+      gain.gain.setValueAtTime(0.0001, s); gain.gain.exponentialRampToValueAtTime(0.32, s + 0.02);
+      gain.gain.setValueAtTime(0.32, s + length * 0.8); gain.gain.exponentialRampToValueAtTime(0.0001, s + length);
+      o.connect(gain).connect(out(c)); o.start(s); o.stop(s + length + 0.02);
+      burst(c, 'highpass', 4000, s, length * 0.9, 0.05); // el soplido
+    }
+  });
+}
+
+// Brazo robótico al tirar: el zumbido de un servomotor que acelera y un "clac" mecánico al soltar.
+export function playRobotThrow() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  const servo = osc(c, 'sawtooth', 220), band = filter(c, 'bandpass', 900, 2), gain = c.createGain();
+  servo.frequency.setValueAtTime(220, t); servo.frequency.exponentialRampToValueAtTime(780, t + 0.22);
+  wobble(c, servo.frequency, 45, 25, 'square'); // engranajes
+  gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.35, t + 0.03); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+  servo.connect(band).connect(gain).connect(out(c)); servo.start(t); servo.stop(t + 0.28);
+  burst(c, 'highpass', 2500, t + 0.22, 0.05, 0.5); // clac
+  tone(c, 'square', 160, 90, t + 0.22, 0.06, 0.15);
+  burst(c, 'highpass', 5000, t + 0.24, 0.2, 0.08); // descarga de aire
+}
+
+// Ventilador de la oficina: motor y aspas; level 0 lo apaga.
+let fan: GainNode | null = null;
+export function setFanSound(level: number) {
+  if (!ctx || (!fan && level <= 0)) return;
+  if (!fan) {
+    fan = ctx.createGain(); fan.gain.value = 0; fan.connect(out(ctx));
+    const motor = osc(ctx, 'sawtooth', 100), low = filter(ctx, 'lowpass', 380), chop = ctx.createGain();
+    chop.gain.value = 0.55; wobble(ctx, chop.gain, 22, 0.3); // las aspas
+    motor.connect(low).connect(chop).connect(fan); motor.start();
+    const air = noiseSource(ctx), airLow = filter(ctx, 'bandpass', 700, 0.7), airLevel = ctx.createGain();
+    airLevel.gain.value = 0.9; air.connect(airLow).connect(airLevel).connect(fan); air.start();
+  }
+  fan.gain.setTargetAtTime(Math.max(0, level) * 0.3, ctx.currentTime, 0.15);
+}
