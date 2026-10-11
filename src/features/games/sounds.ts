@@ -12,7 +12,7 @@ export function unlockSounds() {
   } catch { /* sin audio: el juego sigue en silencio */ }
 }
 
-// Salto: un "boing" corto que sube de tono, a volumen bajo.
+// Salto: un "boing" corto que sube de tono.
 export function playJump() {
   if (!ctx || ctx.state !== 'running') return;
   const t = ctx.currentTime, osc = ctx.createOscillator(), gain = ctx.createGain();
@@ -20,7 +20,7 @@ export function playJump() {
   osc.frequency.setValueAtTime(330, t);
   osc.frequency.exponentialRampToValueAtTime(760, t + 0.11);
   gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(0.06, t + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.25, t + 0.01);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
   osc.connect(gain).connect(ctx.destination);
   osc.start(t);
