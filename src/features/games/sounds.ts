@@ -9,6 +9,7 @@ import t800Url from './assets/sonidos/t800.mp3';
 import lluviaUrl from './assets/sonidos/lluvia.mp3';
 import tiburonAtacaUrl from './assets/sonidos/tiburon-ataca.mp3';
 import victoriaUrl from './assets/sonidos/victoria.mp3';
+import cartaUrl from './assets/sonidos/carta.mp3';
 import trueno1Url from './assets/sonidos/trueno-1.mp3';
 import trueno2Url from './assets/sonidos/trueno-2.mp3';
 import trueno3Url from './assets/sonidos/trueno-3.mp3';
@@ -752,8 +753,9 @@ export function playShuffle() {
   const t = c.currentTime;
   for (let i = 0; i < 7; i++) burst(c, 'bandpass', 2500 + Math.random() * 1500, t + i * 0.035, 0.05, 0.25);
 }
-// Una carta sobre otra: un chispazo eléctrico corto (zumbido que baja y chasquidos).
+// Una carta sobre otra: la grabación de la carta; mientras carga, un chispazo eléctrico corto.
 export function playCardZap() {
+  if (playSample(cartaUrl, 0.9)) return;
   const c = running(); if (!c) return;
   const t = c.currentTime;
   tone(c, 'sawtooth', 900, 140, t, 0.16, 0.14);
@@ -771,5 +773,5 @@ export function playBell() {
   burst(c, 'highpass', 5000, t, 0.02, 0.15); // el golpe del badajo
 }
 // Ganar: la grabación de la victoria.
-export function preloadSolitaireSounds() { loadSample(victoriaUrl); }
+export function preloadSolitaireSounds() { loadSample(victoriaUrl); loadSample(cartaUrl); }
 export function playVictory() { if (!playSample(victoriaUrl, 0.85)) playWin(); }
