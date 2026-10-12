@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  CHOMP, FLOAT_Y, galeAt, mouthOpen, GOAL, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, sharkLen, sharkPose, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
+  CHOMP, flyerMouthOpen, FLOAT_Y, galeAt, mouthOpen, GOAL, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, sharkLen, sharkPose, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
   type Block, type Climb, type Decor, type Input, type LoseReason, type Plat, type Rescue, type RescueKind, type Shark, type SharkGame, type SharkType, type Zip,
 } from './shark';
 import { drawSharkSprite, loadSharkSprites, type SpriteOptions } from './sharkSprites';
@@ -391,7 +391,7 @@ function swimPose(k: Shark, v: View) {
   const slow = k.type === 'ballena' ? 0.55 : 1;
   const y = k.y + Math.sin(t * 1.3 + k.id) * 0.035 * L * (1 - warn) - warn * 0.25 * L;
   const angle = (Math.sin(t * 1.3 + k.id + 1.2) * 0.03 - warn * 0.32) * k.dir;
-  return { x: X(v, k.x), y: Y(v, y), angle, warn, fast, opts: { wave: t * (fast ? 10 : 5.5) * slow + k.id, amp: fast ? 0.045 : 0.03 } };
+  return { x: X(v, k.x), y: Y(v, y), angle, warn, fast, opts: { wave: t * (fast ? 10 : 5.5) * slow + k.id, amp: fast ? 0.045 : 0.03, closed: true } }; // nadando, con la boca cerrada
 }
 const swimming = (k: Shark) => k.state !== 'jump' && k.state !== 'bite';
 
@@ -661,7 +661,7 @@ function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
   if (!eaten) drawPlayer(ctx, g, v);
   else if (eaten.t < CHOMP) drawFirefighter(ctx, g, v, 1 - (eaten.t / CHOMP) * 0.4);
   for (const k of g.sharks) drawSharkJump(ctx, k, v, g);
-  for (const f of g.flyers) drawFlyer(ctx, f, v, flash.a);
+  for (const f of g.flyers) drawFlyer(ctx, f, v, flash.a, !flyerMouthOpen(f, g));
   drawFx(ctx, g, v, 'air');
   if (eaten && eaten.t < CHOMP) {
     // Vuelve a dibujar al bombero adentro de la boca y la mandíbula de abajo por encima: queda entre los dientes.

@@ -609,13 +609,18 @@ export function sharkPose(s: Shark) {
   const dir: 1 | -1 = out ? (s.vx > 0.05 ? 1 : s.vx < -0.05 ? -1 : s.dir) : s.dir;
   return { dir, a: out ? Math.atan2(s.vy, 4) * 0.9 : 0 };
 }
-// La boca en el salto: sale del agua con la boca cerrada, la abre cuando llega arriba (cerca de lo que va a
-// morder) y la cierra de golpe cuando agarra a alguien. Nadando la tiene abierta.
-export const OPEN_VY = 7;
+// La boca: nadando la tienen cerrada. Cuando saltan del agua para atacar la abren y, al agarrar a alguien, la
+// cierran de golpe (se lo comen); si no agarraron a nadie, la cierran al caer de vuelta al agua.
+export const CLOSE_VY = -3;
 export function mouthOpen(s: Shark, g: SharkGame) {
   if (s.state === 'bite') return !(g.dying && g.dying.shark === s.id && g.dying.t >= CHOMP);
-  if (s.state === 'jump') return !s.ate && s.vy < OPEN_VY;
-  return true;
+  if (s.state === 'jump') return !s.ate && s.vy > CLOSE_VY;
+  return false;
+}
+// Los tiburones voladores abren la boca cuando se tiran en picada y la cierran al agarrar al bombero.
+export function flyerMouthOpen(f: Flyer, g: SharkGame) {
+  if (f.state === 'carry') return !(g.dying && g.dying.shark === f.id && g.dying.t >= CHOMP);
+  return f.state === 'dive';
 }
 // Dónde está la boca (en el medio de las mandíbulas).
 export function sharkMouth(s: Shark) {

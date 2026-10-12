@@ -477,17 +477,15 @@ describe('Ciudad Tiburón: tiburones voladores', () => {
   });
 });
 
-describe('Ciudad Tiburón: la boca del tiburón al saltar', () => {
-  it('sale del agua con la boca cerrada, la abre arriba y la cierra cuando agarra a alguien', () => {
+describe('Ciudad Tiburón: la boca del tiburón', () => {
+  it('nadando la tiene cerrada; salta con la boca abierta y la cierra al agarrar a alguien o al volver al agua', () => {
     const g = newShark(5), s = g.sharks[0];
+    expect(mouthOpen(s, g)).toBe(false); // nadando: cerrada
     Object.assign(s, { state: 'jump', vy: 14, y: 0 });
-    expect(mouthOpen(s, g)).toBe(false); // subiendo rápido: cerrada
-    s.vy = 2;
-    expect(mouthOpen(s, g)).toBe(true); // arriba: abierta
-    s.ate = true;
-    expect(mouthOpen(s, g)).toBe(false); // ya agarró a alguien: cerrada
-    s.state = 'patrol';
-    expect(mouthOpen(s, g)).toBe(true); // nadando, como siempre
+    expect(mouthOpen(s, g)).toBe(true); // salta a atacar: abierta
+    s.vy = -6;
+    expect(mouthOpen(s, g)).toBe(false); // cae de vuelta al agua sin agarrar a nadie: cerrada
+    s.vy = 2; s.ate = true;
+    expect(mouthOpen(s, g)).toBe(false); // agarró a alguien: se lo come
   });
 });
-

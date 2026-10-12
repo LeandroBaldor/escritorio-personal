@@ -174,7 +174,7 @@ function paintSkyline(ctx: CanvasRenderingContext2D, v: View, flash: number, dpr
 // ---------- Tiburones voladores ----------
 // Colgados de un arnés con un motor y la hélice de helicóptero arriba. En picada se inclinan hacia donde van;
 // cuando apuntan al bombero tiemblan, la luz roja titila rápido y aparece un "!" arriba.
-export function drawFlyer(ctx: CanvasRenderingContext2D, f: Flyer, v: View, flash: number) {
+export function drawFlyer(ctx: CanvasRenderingContext2D, f: Flyer, v: View, flash: number, closed = true) {
   const L = flyerLen(f);
   if (!visible(v, f.x - L, f.x + L, f.y - L, f.y + L)) return;
   const len = L * v.s, dir = f.dir, warn = f.state === 'warn', sp = Math.hypot(f.vx, f.vy);
@@ -186,7 +186,7 @@ export function drawFlyer(ctx: CanvasRenderingContext2D, f: Flyer, v: View, flas
   const bodyTop = -len * 0.11, hubY = bodyTop - len * 0.2, R = len * 0.55;
   ctx.strokeStyle = '#1f2937'; ctx.lineWidth = Math.max(1.5, len * 0.025);
   ctx.beginPath(); ctx.moveTo(-len * 0.12, bodyTop + len * 0.02); ctx.lineTo(0, hubY + len * 0.06); ctx.lineTo(len * 0.12, bodyTop + len * 0.02); ctx.stroke(); // soportes
-  if (!drawSharkSprite(ctx, f.type, 0, 0, len, 0, dir, { wave: v.t * (warn ? 12 : 6) + f.id, amp: 0.035 })) { ctx.restore(); return; }
+  if (!drawSharkSprite(ctx, f.type, 0, 0, len, 0, dir, { wave: v.t * (warn ? 12 : 6) + f.id, amp: 0.035, closed })) { ctx.restore(); return; }
   // Arnés: dos correas que abrazan el cuerpo, con hebillas.
   ctx.strokeStyle = 'rgba(17,24,39,0.9)'; ctx.lineWidth = Math.max(2, len * 0.035);
   for (const u of [-0.14, 0.12]) { ctx.beginPath(); ctx.moveTo(u * len, bodyTop + len * 0.01); ctx.quadraticCurveTo(u * len + dir * len * 0.03, 0, u * len, len * 0.1); ctx.stroke(); }
