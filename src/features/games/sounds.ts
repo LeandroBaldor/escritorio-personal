@@ -428,3 +428,35 @@ export function setFanSound(level: number) {
   }
   fan.gain.setTargetAtTime(Math.max(0, level) * 0.17, ctx.currentTime, 0.15);
 }
+
+// ---------- ¡Cuidado, bloques! ----------
+// Paso: un golpecito suave de zapatilla (alterna un poco el tono, como pie izquierdo y derecho).
+let stepSide = 0;
+export function playFootstep() {
+  const c = running(); if (!c) return;
+  stepSide = 1 - stepSide;
+  const t = c.currentTime, f = stepSide ? 150 : 175;
+  tone(c, 'sine', f, f * 0.6, t, 0.07, 0.35);
+  burst(c, 'bandpass', 900, t, 0.035, 0.18);
+}
+// Una pieza de tetris se apoya: el "tok" seco de un bloque duro que cae. Si completó filas, una escalera de
+// notas que sube (más larga cuantas más filas).
+export function playBlockLand(lines: number) {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  tone(c, 'sine', 190, 75, t, 0.12, 0.6);
+  burst(c, 'bandpass', 1200, t, 0.04, 0.45);
+  tone(c, 'square', 420, 300, t, 0.03, 0.06);
+  if (lines > 0) [523, 659, 784, 1047, 1319, 1568].slice(0, 2 + lines).forEach((f, i) => tone(c, 'square', f, f, t + 0.06 + i * 0.07, 0.14, 0.16));
+}
+// Explosión de una bomba: un estallido grave que retumba, con un golpe de aire y escombros que chisporrotean.
+export function playExplosion() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  tone(c, 'sine', 90, 28, t, 0.6, 1.2); // retumbo
+  const blast = noiseSource(c, false), low = filter(c, 'lowpass', 2400), gain = c.createGain();
+  low.frequency.setValueAtTime(2400, t); low.frequency.exponentialRampToValueAtTime(120, t + 0.8);
+  gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(1.1, t + 0.01); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+  blast.connect(low).connect(gain).connect(out(c)); blast.start(t); blast.stop(t + 0.95);
+  for (let i = 0; i < 6; i++) burst(c, 'highpass', 2500, t + 0.1 + Math.random() * 0.4, 0.03, 0.15); // escombros
+}

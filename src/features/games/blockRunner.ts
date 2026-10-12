@@ -10,10 +10,13 @@ export interface Player { x: number; y: number; vx: number; vy: number; onGround
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number }
 export interface Blast { x: number; y: number; t: number; max: number; size: number }
 export type GameOver = 'crushed' | 'bomb' | 'full' | 'trapped' | 'won';
+// Lo que pasó en el último paso, para los sonidos: saltó, se apoyó una pieza (y cuántas filas completó) o explotó una bomba.
+export type BlockEvent = { type: 'jump' } | { type: 'land'; lines: number } | { type: 'boom' };
 export interface Game {
   cols: number; rows: number; grid: Cell[][]; pieces: Piece[]; bombs: Bomb[]; player: Player;
   particles: Particle[]; blasts: Blast[];
   time: number; spawnIn: number; lines: number; lineScore: number; broken: number; over: GameOver | null; nextId: number; trapped: number; winLevel: number;
+  events?: BlockEvent[];
 }
 export interface Input { left: boolean; right: boolean; jump: boolean }
 
@@ -44,6 +47,9 @@ const rotate = (cells: [number, number][], turns: number) => {
   const minY = Math.min(...out.map(([, y]) => y));
   return out.map(([x, y]) => [x - minX, y - minY] as [number, number]);
 };
+
+const emit = (game: Game, event: BlockEvent) => { (game.events ??= []).push(event); };
+export function takeEvents(game: Game) { const events = game.events ?? []; game.events = []; return events; }
 
 export function newGame(cols: number, rows: number): Game {
   return {
@@ -186,6 +192,7 @@ export function explode(game: Game, x: number, y: number, rand: () => number) {
   }
   collapse(game, [x - 1, x, x + 1]);
   game.blasts.push({ x: x + 0.5, y: y + 0.5, t: 0, max: 0.7, size: 1 });
+  emit(game, { type: 'boom' });
   burst(game, x + 0.5, y + 0.5, BLAST_COLORS, 40, 10, rand);
   if (!game.over && overlapsPlayer(game.player, x - 1, y - 1, 3, 3, 0.12)) game.over = 'bomb';
 }
@@ -193,10 +200,11 @@ export function explode(game: Game, x: number, y: number, rand: () => number) {
 function clearRows(game: Game) {
   const kept = game.grid.filter(row => row.some(cell => !cell));
   const cleared = game.rows - kept.length;
-  if (!cleared) return;
+  if (!cleared) return 0;
   game.grid = [...Array.from({ length: cleared }, () => Array<Cell>(game.cols).fill(null)), ...kept];
   game.lines += cleared;
   game.lineScore += [0, 100, 300, 600, 1000][Math.min(cleared, 4)];
+  return cleared;
 }
 
 function lock(game: Game, piece: Piece, y: number) {
@@ -205,7 +213,7 @@ function lock(game: Game, piece: Piece, y: number) {
     if (r < 0) { game.over = 'full'; continue; } // los bloques llegaron arriba
     game.grid[r][piece.x + cx] = piece.color;
   }
-  clearRows(game);
+  emit(game, { type: 'land', lines: clearRows(game) });
 }
 
 function updateEffects(game: Game, dt: number) {
@@ -267,7 +275,7 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   const p = game.player;
   p.vx = ((input.right ? 1 : 0) - (input.left ? 1 : 0)) * RUN;
   if (p.vx) p.facing = p.vx > 0 ? 1 : -1;
-  if (input.jump && p.onGround) { p.vy = -JUMP; p.onGround = false; }
+  if (input.jump && p.onGround) { p.vy = -JUMP; p.onGround = false; emit(game, { type: 'jump' }); }
 
   const oldX = p.x;
   p.x += p.vx * dt;
