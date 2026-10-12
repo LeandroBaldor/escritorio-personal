@@ -1130,3 +1130,16 @@ test('el encabezado muestra la fecha de hoy a la derecha del reloj', async ({ pa
   const exportar = (await page.getByRole('button', { name: 'Exportar' }).boundingBox())!;
   expect(box.x + box.width).toBeLessThan(exportar.x);
 });
+
+test('el encabezado queda fijo arriba al bajar en Mi diario, Mis gastos y el calendario', async ({ page }) => {
+  for (const route of ['diario', 'gastos', 'calendario']) {
+    await page.goto('/escritorio-personal/#/' + route);
+    await page.locator('header').first().waitFor();
+    // Alto extra adentro de main para que siempre haya lugar para bajar.
+    await page.evaluate(() => { const main = document.querySelector('main')!; main.style.paddingBottom = '150vh'; });
+    await page.mouse.wheel(0, 400);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    expect(await page.locator('header').first().evaluate(element => element.getBoundingClientRect().top)).toBe(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  }
+});
