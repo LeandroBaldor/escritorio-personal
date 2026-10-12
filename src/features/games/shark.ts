@@ -100,7 +100,7 @@ export interface Input { left: boolean; right: boolean; jump: boolean; down: boo
 export type LoseReason = 'shark' | 'time';
 export type SharkEvent =
   | { type: 'jump' } | { type: 'splash' } | { type: 'bounce' } | { type: 'zip' }
-  | { type: 'saved'; kind: RescueKind; count: number } | { type: 'taken'; kind: RescueKind }
+  | { type: 'saved'; kind: RescueKind; count: number } | { type: 'taken'; kind: RescueKind; x: number }
   | { type: 'sharkJump' } | { type: 'more'; count: number } | { type: 'newType'; shark: SharkType }
   | { type: 'wind'; dir: 1 | -1 } | { type: 'hurry'; left: number } | { type: 'enter' }
   | { type: 'galeWarn'; dir: 1 | -1 } | { type: 'gale'; dir: 1 | -1 }
@@ -613,7 +613,7 @@ function sharks(g: SharkGame, dt: number) {
       if (!g.dying && p.inside === null && p.x + PLAYER_W / 2 > box.x1 && p.x - PLAYER_W / 2 < box.x2 && p.y < box.y2 && p.y + PLAYER_H > box.y1) { s.state = 'bite'; lose(g, 'shark', s.id); return; }
       for (const r of g.rescues) {
         if (r.state !== 'drift') continue;
-        if (Math.abs(rescueX(r) - s.x) < 0.3 * L && box.y2 > FLOAT_Y) { r.state = 'taken'; r.at = g.time; r.fromX = rescueX(r); r.fromY = FLOAT_Y; removePlat(g, r.plat); g.events.push({ type: 'taken', kind: r.kind }); addFx(g, 'blood', r.fromX, r.kind === 'persona' ? 2.6 : 2, FLOAT_Y + 0.3); }
+        if (Math.abs(rescueX(r) - s.x) < 0.3 * L && box.y2 > FLOAT_Y) { r.state = 'taken'; r.at = g.time; r.fromX = rescueX(r); r.fromY = FLOAT_Y; removePlat(g, r.plat); g.events.push({ type: 'taken', kind: r.kind, x: r.fromX }); addFx(g, 'blood', r.fromX, r.kind === 'persona' ? 2.6 : 2, FLOAT_Y + 0.3); }
       }
       if (s.y <= swimY(s) && s.vy < 0) { s.y = swimY(s); s.vy = 0; s.state = 'patrol'; s.rest = SHARK_REST; s.target = 0; g.events.push({ type: 'splash' }); addFx(g, 'splash', s.x, L * 0.5); }
       continue;

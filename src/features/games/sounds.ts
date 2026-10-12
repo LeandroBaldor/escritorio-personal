@@ -2,6 +2,7 @@
 // El contexto se crea recién con un clic o una tecla: los navegadores no dejan sonar nada antes.
 import { AMBIENT_CHANNELS, type AmbientChannel } from './trepaSound';
 import { LAVA_CHANNELS, type LavaChannel } from './lavaSound';
+import { STORM_CHANNELS, type StormChannel } from './sharkSound';
 import bombaUrl from './assets/sonidos/bomba.mp3';
 import personaCaeUrl from './assets/sonidos/persona-cae.mp3';
 import t800Url from './assets/sonidos/t800.mp3';
@@ -571,4 +572,113 @@ export function playPersonBurn(volume: number, pitch: number) {
   const t = c.currentTime;
   scream(c, t, pitch, 0.9 * volume);
   sizzle(c, t + 0.05, volume * 0.8);
+}
+
+// ---------- Ciudad Tiburón ----------
+let storm: Record<StormChannel, Channel> | null = null;
+function buildStorm(c: AudioContext): Record<StormChannel, Channel> {
+  const channel = (max: number, make: (out: GainNode) => void) => ambientChannel(c, max, make);
+  return {
+    // Lluvia: el siseo parejo del aguacero y gotas gruesas que golpean cerca.
+    rain: channel(0.5, out => {
+      const shower = noiseSource(c), hi = filter(c, 'highpass', 500), low = filter(c, 'lowpass', 7000), level = c.createGain();
+      level.gain.value = 0.8; wobble(c, level.gain, 0.23, 0.1);
+      shower.connect(hi).connect(low).connect(level).connect(out); shower.start();
+      const drops = noiseSource(c), band = filter(c, 'bandpass', 3200, 2), patter = c.createGain();
+      patter.gain.value = 0.3; wobble(c, patter.gain, 13, 0.2, 'square'); wobble(c, patter.gain, 7.7, 0.15, 'square');
+      drops.connect(band).connect(patter).connect(out); drops.start();
+    }),
+    // Viento: un soplido grave que sube y baja, con un silbido entre los edificios.
+    wind: channel(0.75, out => {
+      const air = noiseSource(c), band = filter(c, 'bandpass', 480, 0.8), level = c.createGain();
+      wobble(c, band.frequency, 0.17, 220);
+      level.gain.value = 0.75; wobble(c, level.gain, 0.31, 0.25);
+      air.connect(band).connect(level).connect(out); air.start();
+      const whistle = noiseSource(c), tube = filter(c, 'bandpass', 1150, 9), soft = c.createGain();
+      wobble(c, tube.frequency, 0.12, 260);
+      soft.gain.value = 0.35; wobble(c, soft.gain, 0.21, 0.3);
+      whistle.connect(tube).connect(soft).connect(out); whistle.start();
+    }),
+    // Agua en las calles: la corriente que corre, el chapoteo contra las paredes y algún gorgoteo.
+    water: channel(0.45, out => {
+      const flow = noiseSource(c), low = filter(c, 'lowpass', 850), level = c.createGain();
+      level.gain.value = 0.75; wobble(c, level.gain, 1.3, 0.15);
+      flow.connect(low).connect(level).connect(out); flow.start();
+      const lap = noiseSource(c), band = filter(c, 'bandpass', 380, 1.5), slosh = c.createGain();
+      slosh.gain.value = 0.4; wobble(c, slosh.gain, 0.55, 0.4);
+      lap.connect(band).connect(slosh).connect(out); lap.start();
+      const gurgle = osc(c, 'sine', 320), gate = c.createGain(), pattern = c.createGain();
+      wobble(c, gurgle.frequency, 6, 140, 'sawtooth');
+      gate.gain.value = 0.06; wobble(c, gate.gain, 6, 0.06, 'square');
+      pattern.gain.value = 0.5; wobble(c, pattern.gain, 0.4, 0.5, 'square');
+      gurgle.connect(gate).connect(pattern).connect(out); gurgle.start();
+    }),
+  };
+}
+export function setStormAmbient(levels: Record<StormChannel, number> | null) {
+  if (!ctx || (!storm && !levels)) return;
+  storm ??= buildStorm(ctx);
+  const t = ctx.currentTime;
+  for (const name of STORM_CHANNELS) {
+    const { gain, max } = storm[name];
+    gain.gain.setTargetAtTime(levels ? levels[name] * max : 0, t, levels ? 0.15 : 0.03);
+  }
+}
+// Trueno: el chasquido del rayo y después un retumbo largo que rueda (más tarde y más grave si cayó lejos).
+export function playThunder(near: number) {
+  const c = running(); if (!c) return;
+  const t = c.currentTime + (1 - near) * 0.5;
+  if (near > 0.4) { burst(c, 'highpass', 1800, t, 0.12, 0.6 * near); burst(c, 'lowpass', 3000, t, 0.25, 0.7 * near); }
+  for (let i = 0; i < 4; i++) {
+    const start = t + 0.05 + i * (0.25 + Math.random() * 0.35), length = 1.6 + Math.random() * 1.4;
+    const rumble = noiseSource(c, false), low = filter(c, 'lowpass', 130 + near * 120 + Math.random() * 60), gain = c.createGain();
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime((0.9 - i * 0.15) * (0.5 + near * 0.5), start + 0.08 + Math.random() * 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + length);
+    rumble.connect(low).connect(gain).connect(out(c)); rumble.start(start); rumble.stop(start + length + 0.05);
+  }
+}
+// Pasos mojados: el golpe del pie y el chapoteo del agua en el piso.
+let wetSide = 0;
+export function playWetStep() {
+  const c = running(); if (!c) return;
+  wetSide = 1 - wetSide;
+  const t = c.currentTime, f = wetSide ? 140 : 165;
+  tone(c, 'sine', f, f * 0.6, t, 0.07, 0.3);
+  burst(c, 'bandpass', 2200 + Math.random() * 800, t + 0.01, 0.07, 0.22);
+}
+// Algo cae al agua (el bombero o un tiburón que vuelve a zambullirse).
+export function playSplash(size: number) {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  tone(c, 'sine', 220, 70, t, 0.18, 0.4 * size);
+  burst(c, 'lowpass', 1800, t, 0.45 * size + 0.15, 0.6 * size);
+  for (let i = 0; i < 4; i++) burst(c, 'bandpass', 1500 + Math.random() * 1500, t + 0.08 + Math.random() * 0.3, 0.04, 0.2 * size);
+}
+// Rescate: una campanita alegre que sube.
+export function playRescue() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  [784, 988, 1175, 1568].forEach((f, i) => { tone(c, 'triangle', f, f, t + i * 0.08, 0.3, 0.32); tone(c, 'sine', f * 2, f * 2, t + i * 0.08, 0.2, 0.06); });
+}
+// El tiburón salta del agua: el "fuush" del agua que se abre y la ola que salpica.
+export function playSharkLeap() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  const rush = noiseSource(c, false), band = filter(c, 'bandpass', 300, 1.2), gain = c.createGain();
+  band.frequency.setValueAtTime(300, t); band.frequency.exponentialRampToValueAtTime(1600, t + 0.35);
+  gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.9, t + 0.05); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+  rush.connect(band).connect(gain).connect(out(c)); rush.start(t); rush.stop(t + 0.65);
+  tone(c, 'sine', 160, 50, t, 0.3, 0.6);
+  for (let i = 0; i < 6; i++) burst(c, 'bandpass', 1800 + Math.random() * 2000, t + 0.1 + Math.random() * 0.45, 0.04, 0.25);
+}
+// El tiburón muerde: el golpe de la mandíbula y el chapoteo. who: el bombero o alguien que flotaba (las
+// personas gritan; los perros y los gatos no). volume: según lo lejos que pase.
+export function playSharkBite(who: 'player' | 'persona' | 'animal', volume = 1, pitch = 1) {
+  const c = running(); if (!c || volume <= 0.03) return;
+  const t = c.currentTime;
+  tone(c, 'sine', 120, 45, t, 0.2, 0.8 * volume);
+  burst(c, 'bandpass', 900, t, 0.09, 0.6 * volume);
+  burst(c, 'lowpass', 1500, t + 0.05, 0.4, 0.45 * volume);
+  if (who !== 'animal') scream(c, t + 0.02, who === 'player' ? 0.8 : pitch, 0.9 * volume);
 }

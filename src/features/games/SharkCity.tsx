@@ -6,8 +6,10 @@ import {
 } from './shark';
 import { drawSharkSprite, loadSharkSprites, type SpriteOptions } from './sharkSprites';
 import { font, hash, hsl, scene, surfaceClip, visible, waveY, X, Y, type View } from './sharkView';
+import { drawClouds, drawFlyingSharks, drawSkyline } from './sharkSkyline';
 import { drawBuilding, drawDebrisArt, drawFx, drawHouse, drawInterior, drawLamp, drawShop, drawTreeDecor, drawVehicle } from './sharkArt';
-import { playGameOver, unlockSounds } from './sounds';
+import { stormLevels } from './sharkSound';
+import { playGameOver, playJump, playRescue, playSharkBite, playSharkLeap, playSplash, playThunder, playWetStep, setStormAmbient, unlockSounds } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:tiburon-record';
 export interface SharkRecord { saved: number; time: number | null } // más rescatados y mejor tiempo para rescatar a todos
@@ -94,48 +96,7 @@ function drawSky(ctx: CanvasRenderingContext2D, v: View, flash: ReturnType<typeo
   if (flash.a > 0.05) {
     ctx.fillStyle = `rgba(200,215,255,${flash.a * 0.45})`; ctx.fillRect(0, 0, v.w, v.h);
   }
-  // Nubes oscuras que corren con el viento.
-  for (let i = 0; i < 12; i++) {
-    const span = v.w + 500, speed = 6 + hash(i + 3) * 10;
-    const x = ((hash(i) * span + v.t * speed - v.cx * v.s * 0.04) % span + span) % span - 250;
-    const y = v.h * (0.02 + hash(i + 9) * 0.22), r = v.h * (0.07 + hash(i + 4) * 0.06);
-    ctx.fillStyle = flash.a > 0.1 ? `rgba(70,80,110,${0.55 + flash.a * 0.3})` : 'rgba(12,18,32,0.7)';
-    for (let j = 0; j < 4; j++) { ctx.beginPath(); ctx.ellipse(x + (j - 1.5) * r * 0.9, y + Math.sin(j * 2 + i) * r * 0.2, r, r * 0.55, 0, 0, Math.PI * 2); ctx.fill(); }
-  }
-}
-
-const SKY_LAYERS = [
-  { par: 0.15, unit: 0.45, n: 46, base: '#1a2436', lit: 0.12, span: 220, hmax: 34 },
-  { par: 0.35, unit: 0.65, n: 40, base: '#141d2c', lit: 0.2, span: 200, hmax: 26 },
-];
-function drawSkyline(ctx: CanvasRenderingContext2D, v: View, flash: number) {
-  SKY_LAYERS.forEach((L, li) => {
-    const s = v.s * L.unit, base = v.h + v.cy * v.s * L.par - v.s * 0.4 * (1 - L.par);
-    const off = v.cx * v.s * L.par;
-    for (let rep = -1; rep < Math.ceil(v.w / (L.span * s)) + 1; rep++) {
-      for (let i = 0; i < L.n; i++) {
-        const bx = (hash(i * 7 + li * 100) * L.span), bw = 3 + hash(i * 3 + li) * 6, bh = 6 + hash(i * 11 + li * 50) * L.hmax;
-        const sx = ((bx * s - off) % (L.span * s) + L.span * s) % (L.span * s) + rep * L.span * s;
-        if (sx > v.w + 20 || sx + bw * s < -20) continue;
-        const top = base - bh * s;
-        ctx.fillStyle = flash > 0.1 ? `rgba(${60 + flash * 80},${70 + flash * 80},${100 + flash * 80},1)` : L.base;
-        ctx.fillRect(sx, top, bw * s, base - top);
-        if (hash(i + li * 9) < 0.3) { ctx.fillRect(sx + bw * s * 0.45, top - 3 * s, Math.max(1, s * 0.15), 3 * s); if (Math.floor(v.t * 1.5 + i) % 2) { ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(sx + bw * s * 0.45, top - 3 * s, Math.max(1.2, s * 0.18), 0, Math.PI * 2); ctx.fill(); } }
-        // Ventanas prendidas (algunas parpadean, se cortó la luz en muchas).
-        const cols = Math.floor(bw / 1.1), rows = Math.floor(bh / 1.4);
-        for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-          const hsh = hash(i * 131 + r * 17 + c * 5 + li * 999);
-          if (hsh > L.lit) continue;
-          if (hsh < 0.02 && Math.floor(v.t * 3 + i) % 3 === 0) continue;
-          ctx.fillStyle = hsh < L.lit * 0.5 ? 'rgba(253,224,140,0.75)' : 'rgba(186,230,253,0.45)';
-          ctx.fillRect(sx + (c * 1.1 + 0.35) * s, top + (r * 1.4 + 0.5) * s, 0.5 * s, 0.6 * s);
-        }
-      }
-    }
-    // Agua lejana al pie de los edificios.
-    ctx.fillStyle = li ? '#0d2231' : '#11283a';
-    ctx.fillRect(0, base, v.w, v.h - base);
-  });
+  drawClouds(ctx, v, flash.a); // nubes oscuras que corren con el viento
 }
 
 // ---------- Las manzanas: edificios, casas y locales ----------
@@ -500,6 +461,15 @@ function drawWater(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, flash: 
   // Línea de la superficie y reflejos.
   ctx.strokeStyle = 'rgba(186,230,253,0.55)'; ctx.lineWidth = Math.max(1, s * 0.04);
   ctx.beginPath(); for (let x = x0; x <= x1; x += 0.25) { const fn = x === x0 ? 'moveTo' : 'lineTo'; ctx[fn](X(v, x), Y(v, waveY(x, t))); } ctx.stroke();
+  // Reflejo de los faroles en el agua: una columna de luz que tiembla con las olas.
+  for (const p of g.plats) {
+    if (p.kind !== 'lamp' || !visible(v, p.x - 1, p.x + p.w + 1, -4, 1) || Math.floor(t * 4 + p.id) % 13 === 0) continue;
+    const cx = X(v, p.x + p.w / 2);
+    for (let k = 0; k < 9; k++) {
+      const yy = Y(v, 0) + s * (0.15 + k * 0.32), wob = Math.sin(t * 5 + k * 1.7 + p.id) * s * 0.12, ww = s * (0.5 - k * 0.04);
+      ctx.fillStyle = `rgba(254,243,199,${0.32 - k * 0.032})`; ctx.fillRect(cx - ww / 2 + wob, yy, ww, s * 0.07);
+    }
+  }
   // La corriente: rayitas que se mueven.
   ctx.strokeStyle = 'rgba(203,213,225,0.25)'; ctx.lineWidth = 1;
   for (let i = 0; i < 40; i++) {
@@ -674,6 +644,7 @@ function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
   drawSky(ctx, v, flash);
   drawSkyline(ctx, v, flash.a);
   drawBolt(ctx, v, flash);
+  drawFlyingSharks(ctx, v, flash.a);
   for (const b of g.blocks) drawBlock(ctx, g, b, v, flash.a);
   for (const d of g.decor) drawDecor(ctx, d, v);
   for (const c of g.climbs) drawClimb(ctx, c, v);
@@ -804,13 +775,30 @@ export function SharkCity() {
 
   useEffect(() => {
     if (status !== 'playing') return;
-    let frame = 0, last = performance.now();
+    let frame = 0, last = performance.now(), walked = 0, flashWas = 0;
     const tick = (now: number) => {
       const g = gameRef.current;
       const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
       last = now;
+      const x0 = g.player.x;
       step(g, input.current, dt);
+      // Sonidos: lluvia, viento y agua de fondo, pasos mojados y el trueno de cada relámpago.
+      setStormAmbient(stormLevels(g));
+      const p = g.player;
+      if (p.ground && !p.swimming && !g.dying) { walked += Math.abs(p.x - x0); if (walked > 1.5) { walked = 0; playWetStep(); } } else walked = 1;
+      const flash = lightning(g.time + (g.dying?.t ?? 0));
+      if (flash.a > 0.6 && flashWas <= 0.6) playThunder(0.35 + hash(flash.k + 500) * 0.65);
+      flashWas = flash.a;
       for (const e of takeEvents(g)) {
+        if (e.type === 'jump') playJump();
+        if (e.type === 'splash') playSplash(0.6);
+        if (e.type === 'saved') playRescue();
+        if (e.type === 'sharkJump') playSharkLeap();
+        if (e.type === 'lose' && e.reason === 'shark') playSharkBite('player');
+        if (e.type === 'taken') { // solo las personas gritan (los perros y los gatos no); más bajo si pasa lejos
+          const near = Math.max(0, 1 - Math.abs(e.x - p.x) / 16);
+          playSharkBite(e.kind === 'persona' ? 'persona' : 'animal', near, 0.9 + hash(e.x) * 0.5);
+        }
         if (e.type === 'saved') setToast({ text: e.count === GOAL - 5 ? '¡Te faltan 5!' : `¡Rescataste a ${KIND_TEXT[e.kind]}! (${e.count}/${GOAL})`, id: now, big: e.count === GOAL - 5 });
         if (e.type === 'taken') setToast({ text: `¡Un tiburón se llevó a ${KIND_TEXT[e.kind]}! 😱`, id: now });
         if (e.type === 'newType') setToast({ text: `¡Cuidado: llegó el ${SHARKS[e.shark].name}! 🦈`, id: now });
@@ -836,6 +824,7 @@ export function SharkCity() {
         saveRecord(next); setRecord(next);
         setResult({ saved: g.saved, time: g.time, reason: g.dying?.reason ?? 'shark', newRecord: isNew && (rec.saved > 0 || g.won) });
         setToast(null);
+        setStormAmbient(null);
         if (!g.won) playGameOver();
         setStatus(g.won ? 'won' : 'over');
         return;
@@ -845,7 +834,7 @@ export function SharkCity() {
     frame = requestAnimationFrame(tick);
     const hide = () => { if (document.hidden && !gameRef.current.dying) setStatus('paused'); };
     document.addEventListener('visibilitychange', hide);
-    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); };
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); setStormAmbient(null); };
   }, [status, paint, follow]);
 
   useEffect(() => {
