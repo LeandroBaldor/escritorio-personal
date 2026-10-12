@@ -587,6 +587,8 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .game-card-text strong{font-size:1.35rem}
 .game-card-text span{color:#ddd6fe}
 .game-card-text small{color:#facc15;font-weight:700}
+.game-card-text .game-card-win{margin-top:.2rem;padding:.5rem .65rem;border-left:3px solid #facc15;border-radius:6px;background:rgba(250,204,21,.08);color:#fef3c7;font-size:.92rem;line-height:1.35}
+.game-card-win b{display:block;color:#facc15;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
 .game-card-play{align-self:flex-end;margin:.4rem 1rem 1rem;padding:.45rem 1rem;background:#22c55e;color:#062b13;border-radius:999px;font-weight:900}
 .game-card-foot{display:flex;align-items:center;justify-content:flex-end;gap:.6rem;margin:.4rem 1rem 1rem}
 .game-card-foot small{display:grid;min-width:0;color:#facc15;font-weight:800;font-size:.85rem;line-height:1.2;text-align:right;white-space:nowrap}
