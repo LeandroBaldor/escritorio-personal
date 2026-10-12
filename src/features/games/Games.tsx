@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { playStart } from './sounds';
 import blocksCover from './assets/portada-bloques.webp';
 import soccerCover from './assets/portada-futbol.webp';
 import lavaCover from './assets/portada-lava.webp';
@@ -42,7 +43,7 @@ export function Games() {
     </div>
     <ul className="games-list">
       <li>
-        <Link className="game-card" to="/juegos/bloques">
+        <Link onClick={playStart} className="game-card" to="/juegos/bloques">
           <Cover src={blocksCover} />
           <span className="game-card-text">
             <strong>¡Cuidado, bloques!</strong>
@@ -57,7 +58,7 @@ export function Games() {
         </Link>
       </li>
       <li>
-        <Link className="game-card game-card--fut" to="/juegos/solitario">
+        <Link onClick={playStart} className="game-card game-card--fut" to="/juegos/solitario">
           <Cover src={solitaireCover} />
           <span className="game-card-text">
             <strong>Solitario 3.000</strong>
@@ -71,7 +72,7 @@ export function Games() {
         </Link>
       </li>
       <li>
-        <Link className="game-card game-card--tt" to="/juegos/futbol">
+        <Link onClick={playStart} className="game-card game-card--tt" to="/juegos/futbol">
           <Cover src={soccerCover} />
           <span className="game-card-text">
             <strong>Tiki-Taka</strong>
@@ -85,7 +86,7 @@ export function Games() {
         </Link>
       </li>
       <li>
-        <Link className="game-card game-card--trepa" to="/juegos/trepaluna">
+        <Link onClick={playStart} className="game-card game-card--trepa" to="/juegos/trepaluna">
           <Cover src={trepaCover} />
           <span className="game-card-text">
             <strong>Trepaluna</strong>
@@ -99,7 +100,7 @@ export function Games() {
         </Link>
       </li>
       <li>
-        <Link className="game-card game-card--snk" to="/juegos/serpiente">
+        <Link onClick={playStart} className="game-card game-card--snk" to="/juegos/serpiente">
           <Cover src={snakeCover} />
           <span className="game-card-text">
             <strong>¡Huye de la serpiente!</strong>
@@ -113,7 +114,7 @@ export function Games() {
         </Link>
       </li>
       <li>
-        <Link className="game-card game-card--lava" to="/juegos/lava">
+        <Link onClick={playStart} className="game-card game-card--lava" to="/juegos/lava">
           <Cover src={lavaCover} />
           <span className="game-card-text">
             <strong>¡El piso es de lava!</strong>
@@ -127,7 +128,7 @@ export function Games() {
         </Link>
       </li>
       <li>
-        <Link className="game-card game-card--bol" to="/juegos/cesto">
+        <Link onClick={playStart} className="game-card game-card--bol" to="/juegos/cesto">
           <Cover src={terminatorCover} />
           <span className="game-card-text">
             <strong>SkynetBall</strong>
@@ -141,7 +142,7 @@ export function Games() {
         </Link>
       </li>
       <li>
-        <Link className="game-card game-card--tib" to="/juegos/tiburon">
+        <Link onClick={playStart} className="game-card game-card--tib" to="/juegos/tiburon">
           <Cover src={sharkCover} />
           <span className="game-card-text">
             <strong>Ciudad Tiburón</strong>
