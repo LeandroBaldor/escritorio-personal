@@ -1,6 +1,7 @@
 // Efectos de sonido de los juegos, generados con Web Audio (sin archivos de audio).
 // El contexto se crea recién con un clic o una tecla: los navegadores no dejan sonar nada antes.
 import { AMBIENT_CHANNELS, type AmbientChannel } from './trepaSound';
+import { LAVA_CHANNELS, type LavaChannel } from './lavaSound';
 import bombaUrl from './assets/sonidos/bomba.mp3';
 import personaCaeUrl from './assets/sonidos/persona-cae.mp3';
 import t800Url from './assets/sonidos/t800.mp3';
@@ -57,14 +58,16 @@ function wobble(c: AudioContext, param: AudioParam, rate: number, depth: number,
 }
 
 // Sonidos de ambiente: suenan siempre, en silencio, y se suben según lo cerca que esté cada objeto.
+type Channel = { gain: GainNode; max: number };
+function ambientChannel(c: AudioContext, max: number, make: (out: GainNode) => void): Channel {
+  const gain = c.createGain();
+  gain.gain.value = 0;
+  gain.connect(out(c));
+  make(gain);
+  return { gain, max };
+}
 function buildAmbient(c: AudioContext) {
-  const channel = (max: number, make: (out: GainNode) => void) => {
-    const gain = c.createGain();
-    gain.gain.value = 0;
-    gain.connect(out(c));
-    make(gain);
-    return { gain, max };
-  };
+  const channel = (max: number, make: (out: GainNode) => void) => ambientChannel(c, max, make);
   return {
     // Fuego: un rugido grave con chisporroteo.
     fire: channel(0.85, out => {
@@ -258,15 +261,16 @@ export function playLose(reason: 'burn' | 'zap' | 'fall') {
   scream(c, t + (reason === 'fall' ? 0 : 0.12));
 }
 // Un "¡aaah!" corto: una voz sintética (cuerdas vocales + resonancias de la boca) que baja de tono.
-function scream(c: AudioContext, start: number) {
-  const voice = osc(c, 'sawtooth', 620), gain = c.createGain();
-  voice.frequency.setValueAtTime(620, start);
-  voice.frequency.exponentialRampToValueAtTime(700, start + 0.12);
-  voice.frequency.exponentialRampToValueAtTime(300, start + 0.75);
-  wobble(c, voice.frequency, 7, 18);
+// pitch: más agudo o más grave (cada persona grita distinto); volume: según lo lejos que esté.
+function scream(c: AudioContext, start: number, pitch = 1, volume = 0.9) {
+  const voice = osc(c, 'sawtooth', 620 * pitch), gain = c.createGain();
+  voice.frequency.setValueAtTime(620 * pitch, start);
+  voice.frequency.exponentialRampToValueAtTime(700 * pitch, start + 0.12);
+  voice.frequency.exponentialRampToValueAtTime(300 * pitch, start + 0.75);
+  wobble(c, voice.frequency, 7, 18 * pitch);
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(0.9, start + 0.04);
-  gain.gain.setValueAtTime(0.9, start + 0.5);
+  gain.gain.exponentialRampToValueAtTime(volume, start + 0.04);
+  gain.gain.setValueAtTime(volume, start + 0.5);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.8);
   voice.connect(gain);
   for (const [f, q, level] of [[800, 6, 1], [1200, 7, 0.7], [2600, 8, 0.25]]) {
@@ -462,4 +466,109 @@ export function playExplosion() {
   gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(1.1, t + 0.01); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
   blast.connect(low).connect(gain).connect(out(c)); blast.start(t); blast.stop(t + 0.95);
   for (let i = 0; i < 6; i++) burst(c, 'highpass', 2500, t + 0.1 + Math.random() * 0.4, 0.03, 0.15); // escombros
+}
+
+// ---------- ¡El piso es de lava! ----------
+let lavaAmbient: Record<LavaChannel, Channel> | null = null;
+function buildLavaAmbient(c: AudioContext): Record<LavaChannel, Channel> {
+  const channel = (max: number, make: (out: GainNode) => void) => ambientChannel(c, max, make);
+  return {
+    // Lava: un retumbo grave y espeso, burbujas que revientan ("blup") y un chirrido de piedra que se quema.
+    lava: channel(0.7, out => {
+      const rumble = noiseSource(c), low = filter(c, 'lowpass', 150), level = c.createGain();
+      level.gain.value = 0.9; wobble(c, level.gain, 0.4, 0.25);
+      rumble.connect(low).connect(level).connect(out); rumble.start();
+      for (const [f, rate, gateRate, depth] of [[170, 3.1, 2.3, 160], [230, 4.3, 1.7, 220]]) {
+        const bubble = osc(c, 'sine', f), gate = c.createGain(), pattern = c.createGain();
+        wobble(c, bubble.frequency, rate, depth, 'sawtooth'); // cada burbuja sube de tono al reventar
+        gate.gain.value = 0.25; wobble(c, gate.gain, rate, 0.25, 'square');
+        pattern.gain.value = 0.5; wobble(c, pattern.gain, gateRate * 0.31, 0.5, 'square');
+        bubble.connect(gate).connect(pattern).connect(out); bubble.start();
+      }
+      const sizzle = noiseSource(c), hi = filter(c, 'highpass', 4500), hiss = c.createGain();
+      hiss.gain.value = 0.06; wobble(c, hiss.gain, 0.9, 0.04);
+      sizzle.connect(hi).connect(hiss).connect(out); sizzle.start();
+    }),
+    // Departamentos incendiados: el rugido de las llamas y la madera que cruje y chisporrotea.
+    fire: channel(0.8, out => {
+      const roar = noiseSource(c), body = filter(c, 'lowpass', 600), level = c.createGain();
+      level.gain.value = 0.85; wobble(c, level.gain, 2.3, 0.15);
+      roar.connect(body).connect(level).connect(out); roar.start();
+      const crackle = noiseSource(c), hi = filter(c, 'bandpass', 2800, 3), pops = c.createGain();
+      pops.gain.value = 0.22; wobble(c, pops.gain, 11, 0.22, 'square'); wobble(c, pops.gain, 3.7, 0.12, 'square');
+      crackle.connect(hi).connect(pops).connect(out); crackle.start();
+    }),
+    // Cortocircuitos: el zumbido de la corriente y chispazos que restallan.
+    electric: channel(0.4, out => {
+      const hum = osc(c, 'sawtooth', 100), band = filter(c, 'bandpass', 900, 2), level = c.createGain();
+      level.gain.value = 0.6; wobble(c, level.gain, 50, 0.3, 'square');
+      hum.connect(band).connect(level).connect(out); hum.start();
+      const arc = noiseSource(c), hi = filter(c, 'highpass', 3200), snap = c.createGain();
+      snap.gain.value = 0.45; wobble(c, snap.gain, 17, 0.45, 'square'); wobble(c, snap.gain, 6.3, 0.3, 'square');
+      arc.connect(hi).connect(snap).connect(out); arc.start();
+    }),
+    // Helicóptero: el "chop-chop" de las palas, la turbina que silba y el motor.
+    heli: channel(0.75, out => {
+      const air = noiseSource(c), low = filter(c, 'lowpass', 700), chop = c.createGain();
+      chop.gain.value = 0.5; wobble(c, chop.gain, 12, 0.5);
+      air.connect(low).connect(chop).connect(out); air.start();
+      const thump = osc(c, 'sine', 55), beat = c.createGain();
+      beat.gain.value = 0.35; wobble(c, beat.gain, 12, 0.35);
+      thump.connect(beat).connect(out); thump.start();
+      const turbine = osc(c, 'sine', 2100), whine = c.createGain();
+      whine.gain.value = 0.025; wobble(c, turbine.frequency, 0.3, 25);
+      turbine.connect(whine).connect(out); turbine.start();
+    }),
+    // Ascensor: el motor eléctrico que zumba y el cable que roza en las poleas.
+    elevator: channel(0.32, out => {
+      const motor = osc(c, 'sawtooth', 82), low = filter(c, 'lowpass', 280), level = c.createGain();
+      level.gain.value = 0.7; wobble(c, level.gain, 5, 0.12);
+      motor.connect(low).connect(level).connect(out); motor.start();
+      const cable = noiseSource(c), band = filter(c, 'bandpass', 650, 3), rub = c.createGain();
+      rub.gain.value = 0.35;
+      cable.connect(band).connect(rub).connect(out); cable.start();
+    }),
+  };
+}
+// levels: cuánto se escucha cada cosa (0 a 1); null apaga todo (pausa, fin de partida).
+export function setLavaAmbient(levels: Record<LavaChannel, number> | null) {
+  if (!ctx || (!lavaAmbient && !levels)) return;
+  lavaAmbient ??= buildLavaAmbient(ctx);
+  const t = ctx.currentTime;
+  for (const name of LAVA_CHANNELS) {
+    const { gain, max } = lavaAmbient[name];
+    gain.gain.setTargetAtTime(levels ? levels[name] * max : 0, t, levels ? 0.1 : 0.03);
+  }
+}
+// El ascensor llega a un piso: el "ding" de dos notas.
+export function playElevatorDing(volume: number) {
+  const c = running(); if (!c || volume <= 0.02) return;
+  const t = c.currentTime;
+  tone(c, 'sine', 1319, 1319, t, 0.9, 0.3 * volume);
+  tone(c, 'sine', 1047, 1047, t + 0.28, 1.1, 0.3 * volume);
+}
+// Algo que se quema: un siseo fuerte que se apaga, chasquidos y el "fuuum" de la llamarada.
+function sizzle(c: AudioContext, start: number, volume: number) {
+  const hiss = noiseSource(c, false), hi = filter(c, 'highpass', 2600), gain = c.createGain();
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(0.55 * volume, start + 0.03);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 1.5);
+  hiss.connect(hi).connect(gain).connect(out(c)); hiss.start(start); hiss.stop(start + 1.55);
+  burst(c, 'lowpass', 700, start, 0.6, 0.6 * volume);
+  for (let i = 0; i < 7; i++) burst(c, 'bandpass', 2500 + Math.random() * 2000, start + 0.05 + Math.random() * 1.1, 0.025, 0.4 * volume);
+}
+// El personaje cae en la lava: un grito, el "plop" espeso al hundirse y cómo se quema.
+export function playLavaFall() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  scream(c, t);
+  tone(c, 'sine', 140, 40, t + 0.15, 0.35, 0.7);
+  sizzle(c, t + 0.15, 1);
+}
+// Una persona del juego alcanzada por la lava: grita (cada una con su voz) y se quema.
+export function playPersonBurn(volume: number, pitch: number) {
+  const c = running(); if (!c || volume <= 0.03) return;
+  const t = c.currentTime;
+  scream(c, t, pitch, 0.9 * volume);
+  sizzle(c, t + 0.05, volume * 0.8);
 }

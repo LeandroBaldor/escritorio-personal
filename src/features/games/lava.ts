@@ -75,7 +75,7 @@ export interface Player { x: number; y: number; vx: number; vy: number; facing: 
 export interface Input { left: boolean; right: boolean; jump: boolean; down: boolean; up: boolean }
 export type LoseReason = 'lava' | 'fire' | 'zap';
 export type LavaEvent =
-  | { type: 'jump' } | { type: 'crumble' } | { type: 'burn' } | { type: 'faster'; level: number } | { type: 'heli' } | { type: 'heliLand' }
+  | { type: 'jump' } | { type: 'crumble' } | { type: 'burn'; id: number } | { type: 'faster'; level: number } | { type: 'heli' } | { type: 'heliLand' }
   | { type: 'bounce' } | { type: 'zip' }
   | { type: 'lose'; reason: LoseReason } | { type: 'gameover' } | { type: 'win' };
 export interface City {
@@ -647,7 +647,7 @@ export function step(g: LavaGame, input: Input, dt: number) {
   if (level > g.speedLevel) { g.speedLevel = level; if (level >= 2) g.events.push({ type: 'faster', level }); }
 
   // La gente que alcanza la lava se prende fuego.
-  for (const person of g.people) if (person.burnAt === null && g.lava >= person.y + 0.15) { person.burnAt = t; g.events.push({ type: 'burn' }); }
+  for (const person of g.people) if (person.burnAt === null && g.lava >= person.y + 0.15) { person.burnAt = t; g.events.push({ type: 'burn', id: person.id }); }
   // Ascensores y tablones que se caen.
   for (const pl of g.plats) {
     if (pl.elev) { const y = elevatorY(pl.elev, t); pl.dy = y - pl.y; pl.y = y; continue; }

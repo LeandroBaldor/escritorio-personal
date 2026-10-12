@@ -5,7 +5,8 @@ import {
   BURN_T, elevatorAt, floorY, heliState, LAVA_DELAY, meters, newLava, nextLanding, PLAYER_H, PLAYER_W, personState, personX, sparkActive, sparkWarning, step, takeEvents, towerOf, WALL,
   type Building, type Climb, type Escape, type Fallen, type Fire, type Heli, type Input, type LavaGame, type LoseReason, type Person, type Plat, type Spark, type Zip,
 } from './lava';
-import { playGameOver, unlockSounds } from './sounds';
+import { lavaLevels } from './lavaSound';
+import { playCrumble, playElevatorDing, playFootstep, playGameOver, playJump, playLavaFall, playLose, playPersonBurn, playTramp, playWin, setLavaAmbient, unlockSounds } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:lava-record';
 export interface LavaRecord { height: number; time: number | null } // metros más altos y mejor tiempo hasta el helicóptero
@@ -92,54 +93,166 @@ const parquet = (hue: number): Painter => (c, w, h) => {
 };
 
 // ---------- Fondo: cielo de humo y una ciudad que se incendia a lo lejos ----------
+// Cada edificio lejano tiene su estilo (torre vidriada, edificio de departamentos con balcones o bloque
+// viejo), su remate (escalonado, tanque de agua, antena o aguja) y ventanas: la mayoría apagadas, algunas
+// con luz y cortinas, otras rotas. Lo que no se mueve se dibuja una sola vez en una imagen.
+interface Far { n: number; x: number; w: number; h: number; style: 0 | 1 | 2; setback: boolean; roof: 0 | 1 | 2 | 3; onFire: boolean; fireFrom: number }
+const FAR_LAYERS = [
+  { k: 0.11, D: 10, col: [16, 22, 24], windows: false },
+  { k: 0.18, D: 9, col: [18, 26, 19], windows: true },
+  { k: 0.3, D: 8, col: [12, 24, 14], windows: true },
+  { k: 0.45, D: 7.5, col: [10, 22, 10], windows: true },
+];
+const FLOOR_H = 3; // alto de cada piso de los edificios lejanos
+function farSpec(i: number, li: number, D: number): Far {
+  const n = i * 7 + li * 1000, h = 20 + hash(n + 1) * (70 + li * 25);
+  return {
+    n, x: i * D + hash(n + 2) * D * 0.3, w: D * (0.55 + hash(n) * 0.4), h,
+    style: Math.floor(hash(n + 6) * 3) as Far['style'], setback: hash(n + 7) < 0.35, roof: Math.floor(hash(n + 8) * 4) as Far['roof'],
+    onFire: li > 0 && hash(n + 3) < 0.4, fireFrom: Math.floor(Math.floor(h / FLOOR_H) * (0.3 + hash(n + 4) * 0.5)),
+  };
+}
+// Grilla de ventanas (en unidades, desde la esquina de abajo a la izquierda del edificio).
+function farGrid(f: Far) {
+  const cell = f.style === 0 ? 1.1 : f.style === 1 ? 1.6 : 1.3;
+  const cols = Math.max(2, Math.floor(f.w / cell)), cw = f.w / cols;
+  const ww = cw * (f.style === 0 ? 0.78 : f.style === 1 ? 0.5 : 0.42), wh = FLOOR_H * (f.style === 0 ? 0.72 : f.style === 1 ? 0.45 : 0.4);
+  const body = f.setback ? f.h * 0.82 : f.h, sx1 = f.w * 0.16, sx2 = f.w * 0.84;
+  return { rows: Math.floor(f.h / FLOOR_H), cols, cw, ww, wh, body, sx1, sx2 };
+}
+const inBody = (f: Far, g: ReturnType<typeof farGrid>, r: number, c: number) => {
+  const y = r * FLOOR_H + 1, cx = (c + 0.5) * g.cw;
+  return y + g.wh < f.h - 0.4 && (y + g.wh < g.body || (cx > g.sx1 + g.ww && cx < g.sx2 - g.ww));
+};
+const ROOF_H = 9; // lugar arriba del edificio para el remate
+function paintFar(c: CanvasRenderingContext2D, f: Far, sc: number, col: number[], windows: boolean) {
+  const H = (f.h + ROOF_H) * sc, U = (u: number) => u * sc, Yb = (u: number) => H - u * sc;
+  const g = farGrid(f);
+  const base = (l: number) => hsl(col[0], col[1], l);
+  // Cuerpo: más claro abajo (lo ilumina la lava) y una cara lateral más oscura que le da volumen.
+  const body = c.createLinearGradient(0, Yb(f.h), 0, H);
+  body.addColorStop(0, base(col[2] - 3)); body.addColorStop(1, hsl(col[0] + 4, col[1] + 12, col[2] + 7));
+  c.fillStyle = body;
+  c.fillRect(0, Yb(g.body), U(f.w), U(g.body));
+  if (f.setback) c.fillRect(U(g.sx1), Yb(f.h), U(g.sx2 - g.sx1), U(f.h - g.body) + 1);
+  c.fillStyle = 'rgba(0,0,0,0.28)'; c.fillRect(0, Yb(g.body), U(f.w * 0.1), U(g.body));
+  if (f.setback) { c.fillRect(U(g.sx1), Yb(f.h), U(f.w * 0.06), U(f.h - g.body)); c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(0, Yb(g.body), U(f.w), U(0.35)); }
+  c.fillStyle = 'rgba(255,140,60,0.16)'; c.fillRect(U(f.w) - Math.max(1, U(0.12)), Yb(g.body), Math.max(1, U(0.12)), U(g.body)); // borde iluminado por el fuego
+  // Cornisa arriba.
+  c.fillStyle = base(col[2] + 6); c.fillRect(-1, Yb(g.body) - 1, U(f.w) + 2, Math.max(1, U(0.3)));
+  if (windows) {
+    // Losas entre pisos y, en las torres vidriadas, parantes verticales.
+    c.fillStyle = 'rgba(0,0,0,0.18)';
+    for (let r = 1; r < g.rows; r++) c.fillRect(f.setback && r * FLOOR_H > g.body ? U(g.sx1) : 0, Yb(r * FLOOR_H), U(f.setback && r * FLOOR_H > g.body ? g.sx2 - g.sx1 : f.w), Math.max(1, U(0.12)));
+    for (let r = 0; r < g.rows; r++) for (let k = 0; k < g.cols; k++) {
+      if (!inBody(f, g, r, k)) continue;
+      const m = f.n * 31 + r * 13 + k, x = (k + 0.5) * g.cw - g.ww / 2, y = r * FLOOR_H + 1;
+      const px = U(x), py = Yb(y + g.wh), pw = Math.max(1, U(g.ww)), ph = Math.max(1, U(g.wh));
+      const lit = hash(m) < (f.style === 0 ? 0.2 : 0.26), broken = !lit && hash(m + 0.5) < 0.12;
+      if (lit) {
+        const warm = hash(m + 0.3);
+        c.fillStyle = warm < 0.6 ? 'rgba(253,200,110,0.62)' : warm < 0.85 ? 'rgba(255,225,160,0.55)' : 'rgba(186,220,255,0.45)';
+        c.fillRect(px, py, pw, ph);
+        if (f.style !== 0 && ph > 3) { c.fillStyle = 'rgba(120,40,30,0.45)'; c.fillRect(px, py, pw * (0.25 + hash(m + 0.7) * 0.3), ph); } // cortina
+      } else {
+        c.fillStyle = broken ? 'rgba(0,0,0,0.75)' : f.style === 0 ? 'rgba(60,70,90,0.55)' : 'rgba(25,20,24,0.7)';
+        c.fillRect(px, py, pw, ph);
+        if (!broken && ph > 3) { c.fillStyle = 'rgba(255,150,80,0.12)'; c.fillRect(px, py + ph * 0.55, pw, ph * 0.45); } // reflejo naranja
+      }
+      if (pw > 4) { c.fillStyle = 'rgba(200,190,180,0.18)'; c.fillRect(px, py + ph - 1, pw, 1); } // marco de abajo
+      // Balcones con baranda en los edificios de departamentos.
+      if (f.style === 1 && k % 2 === 0 && pw > 3) {
+        c.fillStyle = 'rgba(10,6,6,0.55)'; c.fillRect(px - pw * 0.25, Yb(y - 0.05), pw * 1.5, Math.max(1, U(0.12)));
+        c.strokeStyle = 'rgba(10,6,6,0.45)'; c.lineWidth = 1; c.strokeRect(px - pw * 0.25, Yb(y + 0.55), pw * 1.5, U(0.6));
+      }
+      if (f.style === 2 && hash(m + 0.9) < 0.12 && pw > 3) { c.fillStyle = 'rgba(70,70,70,0.8)'; c.fillRect(px + pw * 0.1, py + ph, pw * 0.8, Math.max(2, ph * 0.35)); } // aire acondicionado
+    }
+    if (f.style === 0) { c.fillStyle = 'rgba(0,0,0,0.25)'; for (let k = 1; k < g.cols; k++) c.fillRect(U(k * g.cw) - 0.5, Yb(g.body), 1, U(g.body)); }
+  }
+  // Remate de la terraza.
+  const top = Yb(f.h), mid = U(f.w * 0.5);
+  c.fillStyle = base(col[2] - 2); c.strokeStyle = base(col[2] - 2); c.lineWidth = Math.max(1, U(0.15));
+  if (f.roof === 1) { // tanque de agua sobre patas
+    const tx = U(f.w * 0.25), tw = U(Math.min(2.4, f.w * 0.3));
+    c.fillRect(tx, top - U(3.2), tw, U(2)); c.beginPath(); c.moveTo(tx - 1, top - U(3.2)); c.lineTo(tx + tw / 2, top - U(4)); c.lineTo(tx + tw + 1, top - U(3.2)); c.fill();
+    c.beginPath(); c.moveTo(tx + tw * 0.15, top); c.lineTo(tx + tw * 0.15, top - U(1.2)); c.moveTo(tx + tw * 0.85, top); c.lineTo(tx + tw * 0.85, top - U(1.2)); c.stroke();
+    c.fillRect(U(f.w * 0.62), top - U(0.9), U(1.2), U(0.9)); // sala de máquinas
+  } else if (f.roof === 2) { // antena con riendas
+    c.beginPath(); c.moveTo(mid, top); c.lineTo(mid, top - U(7)); c.moveTo(mid - U(1.2), top); c.lineTo(mid, top - U(4)); c.lineTo(mid + U(1.2), top); c.stroke();
+    c.fillRect(mid - U(0.6), top - U(4.5), U(1.2), U(0.25)); c.fillRect(mid - U(0.4), top - U(5.8), U(0.8), U(0.2));
+  } else if (f.roof === 3) { // aguja
+    c.beginPath(); c.moveTo(mid - U(f.w * 0.18), top); c.lineTo(mid, top - U(8)); c.lineTo(mid + U(f.w * 0.18), top); c.fill();
+  } else { // equipos de aire y chimeneas
+    for (let j = 0; j < 3; j++) c.fillRect(U(f.w * (0.15 + j * 0.27)), top - U(0.6 + hash(f.n + j) * 0.8), U(1), U(0.6 + hash(f.n + j) * 0.8));
+  }
+}
+const farCache = new Map<string, HTMLCanvasElement | null>();
+function farImage(f: Far, li: number, sc: number) {
+  const key = `${li}:${f.n}:${sc.toFixed(2)}`;
+  if (farCache.has(key)) return farCache.get(key)!;
+  const L = FAR_LAYERS[li], w = f.w * sc, h = (f.h + ROOF_H) * sc;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.ceil(w * BG_SCALE)); canvas.height = Math.max(1, Math.ceil(h * BG_SCALE));
+  const c = canvas.getContext('2d');
+  if (c) {
+    c.scale(BG_SCALE, BG_SCALE); paintFar(c, f, sc, L.col, L.windows);
+    // Bruma: cuanto más lejos, más tapado por el humo rojizo (va pintado en la imagen, así no cuesta nada).
+    const fog = (FAR_LAYERS.length - 1 - li) * 0.13;
+    if (fog > 0) { c.globalCompositeOperation = 'source-atop'; c.fillStyle = `rgba(110,40,28,${fog})`; c.fillRect(0, 0, w, h); }
+  }
+  if (farCache.size > 160) farCache.delete(farCache.keys().next().value!);
+  farCache.set(key, c ? canvas : null);
+  return c ? canvas : null;
+}
+
 function drawBackground(ctx: CanvasRenderingContext2D, v: View) {
   const sky = ctx.createLinearGradient(0, 0, 0, v.h);
   sky.addColorStop(0, '#140b17'); sky.addColorStop(0.5, '#3f1714'); sky.addColorStop(1, '#a43d17');
   ctx.fillStyle = sky; ctx.fillRect(0, 0, v.w, v.h);
-  // Tres capas de edificios lejanos (más lejos = más chicos y más lentos), algunos prendidos fuego.
-  const layers = [{ k: 0.18, D: 9, col: [20, 30, 18] }, { k: 0.3, D: 8, col: [12, 25, 13] }, { k: 0.45, D: 7.5, col: [8, 22, 9] }];
-  layers.forEach(({ k, D, col }, li) => {
+  // Capas de edificios lejanos (más lejos = más chicos, más lentos y más tapados por el humo), algunos prendidos fuego.
+  FAR_LAYERS.forEach(({ k, D, windows }, li) => {
     const sc = v.s * k, base = v.h + v.cy * sc;
     const i1 = Math.floor((v.cx - 30) / D), i2 = Math.ceil((v.cx + v.w / sc + 10) / D);
     for (let i = i1; i <= i2; i++) {
-      const n = i * 7 + li * 1000;
-      const bw = D * (0.55 + hash(n) * 0.4), bh = 20 + hash(n + 1) * (70 + li * 25), bx = i * D + hash(n + 2) * D * 0.3;
-      const x = (bx - v.cx) * sc, w = bw * sc, top = base - bh * sc;
-      if (x > v.w || x + w < 0 || top > v.h) continue;
-      ctx.fillStyle = hsl(col[0], col[1], col[2]); ctx.fillRect(x, top, w, v.h - top);
-      const onFire = hash(n + 3) < 0.4;
-      // Ventanas: algunas prendidas, las de los pisos incendiados titilan de naranja.
-      const rows = Math.floor(bh / 3), cols = Math.max(2, Math.floor(bw / 1.6)), fireFrom = Math.floor(rows * (0.3 + hash(n + 4) * 0.5));
-      for (let r = 0; r < rows; r++) {
-        const wy = base - (r * 3 + 1.2) * sc;
+      const f = farSpec(i, li, D);
+      const x = (f.x - v.cx) * sc, w = f.w * sc, top = base - f.h * sc;
+      if (x > v.w || x + w < 0 || top - ROOF_H * sc > v.h) continue;
+      const img = farImage(f, li, sc);
+      if (img) ctx.drawImage(img, x, top - ROOF_H * sc, w, (f.h + ROOF_H) * sc);
+      if (base < v.h) { ctx.fillStyle = hsl(FAR_LAYERS[li].col[0], FAR_LAYERS[li].col[1], FAR_LAYERS[li].col[2]); ctx.fillRect(x, base, w, v.h - base); }
+      // Luz roja que titila arriba de las antenas y las agujas (para los aviones).
+      if ((f.roof === 2 || f.roof === 3) && Math.floor(v.t * 1.2 + f.n) % 2) {
+        ctx.fillStyle = 'rgba(255,60,50,0.95)'; ctx.beginPath(); ctx.arc(x + w / 2, top - (f.roof === 2 ? 7 : 8) * sc, Math.max(1.5, sc * 0.3), 0, Math.PI * 2); ctx.fill();
+      }
+      if (!windows || !f.onFire) continue;
+      // Pisos incendiados: las ventanas titilan de naranja, con llamas arriba y una columna de humo.
+      const g = farGrid(f);
+      for (let r = f.fireFrom; r < Math.min(g.rows, f.fireFrom + 4); r++) {
+        const wy = base - (r * FLOOR_H + 1 + g.wh) * sc;
         if (wy < -10 || wy > v.h) continue;
-        const burning = onFire && r >= fireFrom && r < fireFrom + 4;
-        for (let c = 0; c < cols; c++) {
-          const m = n * 31 + r * 13 + c;
-          if (!burning && hash(m) > 0.22) continue;
-          ctx.fillStyle = burning ? `rgba(255,${110 + Math.floor(70 * Math.abs(Math.sin(v.t * 6 + m)))},30,${0.65 + 0.35 * Math.sin(v.t * 9 + m)})` : 'rgba(250,204,120,0.35)';
-          ctx.fillRect(x + ((c + 0.3) * w) / cols, wy - 1.1 * sc, (0.45 * w) / cols, 1.1 * sc);
+        for (let c = 0; c < g.cols; c++) {
+          if (!inBody(f, g, r, c)) continue;
+          const m = f.n * 31 + r * 13 + c;
+          ctx.fillStyle = `rgba(255,${110 + Math.floor(70 * Math.abs(Math.sin(v.t * 6 + m)))},30,${0.65 + 0.35 * Math.sin(v.t * 9 + m)})`;
+          ctx.fillRect(x + ((c + 0.5) * g.cw - g.ww / 2) * sc, wy, g.ww * sc, g.wh * sc);
         }
       }
-      if (onFire) {
-        // Llamas arriba y una columna de humo.
-        const fy = base - (fireFrom * 3 + 6) * sc;
-        const glow = ctx.createRadialGradient(x + w / 2, fy, 0, x + w / 2, fy, w * 1.2);
-        glow.addColorStop(0, 'rgba(255,140,40,0.35)'); glow.addColorStop(1, 'rgba(255,140,40,0)');
-        ctx.fillStyle = glow; ctx.fillRect(x - w, fy - w * 1.2, w * 3, w * 2.4);
-        const fTop = hash(n + 5) < 0.5 ? top : fy;
-        for (let j = 0; j < 5; j++) {
-          const fx = x + ((j + 0.5) * w) / 5, fl = sc * (2 + 2.5 * Math.abs(Math.sin(v.t * 5 + j + n)));
-          ctx.fillStyle = j % 2 ? 'rgba(251,146,60,0.9)' : 'rgba(253,224,71,0.85)';
-          ctx.beginPath(); ctx.moveTo(fx - w / 9, fTop); ctx.quadraticCurveTo(fx, fTop - fl * 1.4, fx + w / 9, fTop); ctx.fill();
-        }
-        for (let j = 0; j < 5; j++) {
-          const life = (v.t * 0.05 + hash(n + j * 9)) % 1, r = w * (0.4 + life * 1.4);
-          const sx = x + w / 2 + Math.sin(life * 4 + n) * w * 0.6 + life * w * 1.5, sy = fTop - life * sc * 45;
-          const smoke = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
-          smoke.addColorStop(0, `rgba(30,24,24,${0.45 * (1 - life)})`); smoke.addColorStop(1, 'rgba(30,24,24,0)');
-          ctx.fillStyle = smoke; ctx.fillRect(sx - r, sy - r, r * 2, r * 2);
-        }
+      const fy = base - (f.fireFrom * FLOOR_H + 6) * sc;
+      const glow = ctx.createRadialGradient(x + w / 2, fy, 0, x + w / 2, fy, w * 1.2);
+      glow.addColorStop(0, 'rgba(255,140,40,0.35)'); glow.addColorStop(1, 'rgba(255,140,40,0)');
+      ctx.fillStyle = glow; ctx.fillRect(x - w, fy - w * 1.2, w * 3, w * 2.4);
+      const fTop = hash(f.n + 5) < 0.5 ? top : fy;
+      for (let j = 0; j < 5; j++) {
+        const fx = x + ((j + 0.5) * w) / 5, fl = sc * (2 + 2.5 * Math.abs(Math.sin(v.t * 5 + j + f.n)));
+        ctx.fillStyle = j % 2 ? 'rgba(251,146,60,0.9)' : 'rgba(253,224,71,0.85)';
+        ctx.beginPath(); ctx.moveTo(fx - w / 9, fTop); ctx.quadraticCurveTo(fx, fTop - fl * 1.4, fx + w / 9, fTop); ctx.fill();
+      }
+      for (let j = 0; j < 5; j++) {
+        const life = (v.t * 0.05 + hash(f.n + j * 9)) % 1, r = w * (0.4 + life * 1.4);
+        const sx = x + w / 2 + Math.sin(life * 4 + f.n) * w * 0.6 + life * w * 1.5, sy = fTop - life * sc * 45;
+        const smoke = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+        smoke.addColorStop(0, `rgba(30,24,24,${0.45 * (1 - life)})`); smoke.addColorStop(1, 'rgba(30,24,24,0)');
+        ctx.fillStyle = smoke; ctx.fillRect(sx - r, sy - r, r * 2, r * 2);
       }
     }
   });
@@ -522,6 +635,26 @@ function drawFloorStatic(ctx: CanvasRenderingContext2D, g: LavaGame, b: Building
       fillTex(ctx, v, brick, facade(b), w.x - WALL / 2, w.y1, WALL, w.y2 - w.y1);
       ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(X(v, w.x + WALL / 2) - 2, Y(v, w.y2), 2, (w.y2 - w.y1) * s);
     }
+    // Afuera: cornisa en cada losa, caño de desagüe y algún aire acondicionado colgado de la pared.
+    ctx.fillStyle = hsl(b.hue, 8, 62); ctx.fillRect(X(v, b.x - 0.14), Y(v, y0 + 0.06), (b.w + 0.28) * s, s * 0.1);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(X(v, b.x - 0.14), Y(v, y0 - 0.04), (b.w + 0.28) * s, s * 0.04);
+    for (const [side, set] of [[-1, b.doors.left], [1, b.doors.right]] as const) {
+      if (set.has(k) || (side > 0 && b.tower)) continue;
+      const out = side < 0 ? b.x - 0.16 : b.x + b.w + 0.04, seed = b.id * 53 + k * 5 + side;
+      if (side < 0 || hash(seed) < 0.5) { // caño
+        ctx.fillStyle = '#57534e'; ctx.fillRect(X(v, out + 0.02), Y(v, y1), s * 0.09, (y1 - y0) * s);
+        ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(X(v, out + 0.03), Y(v, y1), s * 0.02, (y1 - y0) * s);
+        ctx.fillStyle = '#44403c'; ctx.fillRect(X(v, out), Y(v, y0 + 1.5), s * 0.13, s * 0.06);
+      }
+      if (k > 0 && hash(seed + 9) < 0.3) { // aire acondicionado con su ventilador y la mancha que deja el goteo
+        const ax = side < 0 ? b.x - 0.6 : b.x + b.w + 0.02, ay = y0 + 1.7;
+        ctx.fillStyle = 'rgba(60,50,40,0.25)'; ctx.fillRect(X(v, ax + 0.2), Y(v, ay - 0.05), s * 0.08, s * 1.1);
+        ctx.fillStyle = '#d6d3d1'; ctx.fillRect(X(v, ax), Y(v, ay + 0.42), s * 0.58, s * 0.42);
+        ctx.fillStyle = '#a8a29e'; ctx.fillRect(X(v, ax), Y(v, ay + 0.05), s * 0.58, s * 0.05);
+        ctx.strokeStyle = '#78716c'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(X(v, ax + 0.3), Y(v, ay + 0.21), s * 0.14, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(X(v, ax + 0.16), Y(v, ay + 0.21)); ctx.lineTo(X(v, ax + 0.44), Y(v, ay + 0.21)); ctx.moveTo(X(v, ax + 0.3), Y(v, ay + 0.07)); ctx.lineTo(X(v, ax + 0.3), Y(v, ay + 0.35)); ctx.stroke();
+      }
+    }
     if (k > 0) for (const [side, set] of [[-1, b.doors.left], [1, b.doors.right]] as const) if (set.has(k)) drawDoor(ctx, b, k, side, v); // la planta baja da a la calle
     for (const p of g.plats) {
       if (!mine(p) || !isSlab(p)) continue;
@@ -625,14 +758,55 @@ function drawBuilding(ctx: CanvasRenderingContext2D, b: Building, g: LavaGame, v
     for (let i = 0; i < 5; i++) { const cx = X(v, b.x + 0.5 + i * 0.7); ctx.beginPath(); ctx.moveTo(cx, ry); ctx.lineTo(cx + s * 0.15, ry - s * 0.6); ctx.stroke(); }
   } else if (b.tower) {
     for (let i = 0; i < 2; i++) { const bx = X(v, b.x + 0.4 + i * (b.w - 0.8)); ctx.fillStyle = Math.floor(v.t * 2 + i) % 2 ? '#ef4444' : '#7f1d1d'; ctx.beginPath(); ctx.arc(bx, ry - s * 0.5, s * 0.12, 0, Math.PI * 2); ctx.fill(); }
-  } else if (b.roofDecor && hash(b.id + 3) < 0.55) {
-    const tx = X(v, b.x + 1 + hash(b.id) * (b.w - 3));
-    ctx.fillStyle = '#57534e'; ctx.fillRect(tx, ry - s * 0.5, s * 0.12, s * 0.5); ctx.fillRect(tx + s * 1.2, ry - s * 0.5, s * 0.12, s * 0.5);
-    ctx.fillStyle = '#78716c'; ctx.beginPath(); ctx.roundRect(tx - s * 0.1, ry - s * 1.6, s * 1.5, s * 1.15, s * 0.2); ctx.fill();
-  } else if (b.roofDecor) {
-    const ax = X(v, b.x + b.w * 0.7);
-    ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ax, ry); ctx.lineTo(ax, ry - s * 1.8); ctx.moveTo(ax - s * 0.4, ry - s * 1.3); ctx.lineTo(ax + s * 0.4, ry - s * 1.3); ctx.stroke();
-    ctx.fillStyle = Math.floor(v.t * 1.5) % 2 ? '#ef4444' : '#450a0a'; ctx.beginPath(); ctx.arc(ax, ry - s * 1.85, s * 0.08, 0, Math.PI * 2); ctx.fill();
+  } else if (b.roofDecor) drawRoofStuff(ctx, b, v, ry);
+}
+
+// Cosas de la terraza: equipos de aire, caños de ventilación y un tanque de agua o una antena con parabólica.
+function drawRoofStuff(ctx: CanvasRenderingContext2D, b: Building, v: View, ry: number) {
+  const s = v.s, left = b.x + 0.7, room = b.w - 4; // a la derecha quedan las camas elásticas y las tirolesas
+  // Baranda de caño.
+  ctx.strokeStyle = '#78716c'; ctx.lineWidth = Math.max(1.5, s * 0.04);
+  ctx.beginPath(); ctx.moveTo(X(v, b.x - 0.1), ry - s * 0.75); ctx.lineTo(X(v, b.x + 1.6), ry - s * 0.75);
+  for (const px of [b.x - 0.08, b.x + 0.75, b.x + 1.58]) { ctx.moveTo(X(v, px), ry); ctx.lineTo(X(v, px), ry - s * 0.75); }
+  ctx.stroke();
+  // Equipos de aire acondicionado.
+  for (let i = 0; i < 2; i++) {
+    const ax = X(v, left + room * (0.15 + i * 0.4 + hash(b.id * 3 + i) * 0.1)), aw = s * 0.9, ah = s * 0.6;
+    ctx.fillStyle = '#a8a29e'; ctx.fillRect(ax, ry - ah, aw, ah);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(ax + aw * 0.75, ry - ah, aw * 0.25, ah);
+    ctx.fillStyle = '#57534e'; ctx.beginPath(); ctx.arc(ax + aw * 0.38, ry - ah / 2, ah * 0.32, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#a8a29e'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ax + aw * 0.38 - ah * 0.3, ry - ah / 2); ctx.lineTo(ax + aw * 0.38 + ah * 0.3, ry - ah / 2); ctx.stroke();
+  }
+  // Caños de ventilación con sombrerito.
+  for (let i = 0; i < 2; i++) {
+    const px = X(v, left + room * (0.05 + hash(b.id * 7 + i) * 0.9)), ph = s * (0.5 + hash(b.id + i * 11) * 0.4);
+    ctx.fillStyle = '#6b7280'; ctx.fillRect(px, ry - ph, s * 0.14, ph);
+    ctx.fillStyle = '#4b5563'; ctx.fillRect(px - s * 0.06, ry - ph - s * 0.06, s * 0.26, s * 0.08);
+  }
+  if (hash(b.id + 3) < 0.55) {
+    // Tanque de agua de madera con zunchos, techito cónico y patas de hierro.
+    const tx = X(v, left + room * (0.3 + hash(b.id) * 0.4)), tw = s * 1.4, legs = s * 0.6, th = s * 1.15;
+    ctx.strokeStyle = '#44403c'; ctx.lineWidth = Math.max(2, s * 0.06);
+    ctx.beginPath(); ctx.moveTo(tx + tw * 0.1, ry); ctx.lineTo(tx + tw * 0.15, ry - legs); ctx.moveTo(tx + tw * 0.9, ry); ctx.lineTo(tx + tw * 0.85, ry - legs);
+    ctx.moveTo(tx + tw * 0.1, ry); ctx.lineTo(tx + tw * 0.85, ry - legs); ctx.moveTo(tx + tw * 0.9, ry); ctx.lineTo(tx + tw * 0.15, ry - legs); ctx.stroke();
+    const wood = ctx.createLinearGradient(tx, 0, tx + tw, 0);
+    wood.addColorStop(0, '#5b3a1e'); wood.addColorStop(0.4, '#8b5a2b'); wood.addColorStop(1, '#4a2f17');
+    ctx.fillStyle = wood; ctx.fillRect(tx, ry - legs - th, tw, th);
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1;
+    for (let i = 1; i < 6; i++) { ctx.beginPath(); ctx.moveTo(tx + (i * tw) / 6, ry - legs - th); ctx.lineTo(tx + (i * tw) / 6, ry - legs); ctx.stroke(); }
+    ctx.fillStyle = '#1f2937'; for (const k of [0.2, 0.55, 0.85]) ctx.fillRect(tx - 1, ry - legs - th * k - 1, tw + 2, 2.5);
+    ctx.fillStyle = '#44403c'; ctx.beginPath(); ctx.moveTo(tx - s * 0.08, ry - legs - th); ctx.lineTo(tx + tw / 2, ry - legs - th - s * 0.45); ctx.lineTo(tx + tw + s * 0.08, ry - legs - th); ctx.fill();
+  } else {
+    // Antena con riendas, luz roja y una parabólica.
+    const ax = X(v, left + room * 0.75);
+    ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(ax, ry); ctx.lineTo(ax, ry - s * 2.2); ctx.moveTo(ax - s * 0.4, ry - s * 1.5); ctx.lineTo(ax + s * 0.4, ry - s * 1.5); ctx.moveTo(ax - s * 0.25, ry - s * 1.9); ctx.lineTo(ax + s * 0.25, ry - s * 1.9); ctx.stroke();
+    ctx.strokeStyle = 'rgba(156,163,175,0.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ax - s * 0.9, ry); ctx.lineTo(ax, ry - s * 1.6); ctx.lineTo(ax + s * 0.9, ry); ctx.stroke();
+    ctx.fillStyle = Math.floor(v.t * 1.5) % 2 ? '#ef4444' : '#450a0a'; ctx.beginPath(); ctx.arc(ax, ry - s * 2.25, s * 0.08, 0, Math.PI * 2); ctx.fill();
+    const dx = X(v, left + room * 0.25);
+    ctx.fillStyle = '#6b7280'; ctx.fillRect(dx, ry - s * 0.45, s * 0.08, s * 0.45);
+    ctx.fillStyle = '#e5e7eb'; ctx.beginPath(); ctx.ellipse(dx + s * 0.1, ry - s * 0.7, s * 0.18, s * 0.38, -0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#6b7280'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(dx + s * 0.1, ry - s * 0.7); ctx.lineTo(dx + s * 0.4, ry - s * 0.9); ctx.stroke();
   }
 }
 
@@ -1089,28 +1263,87 @@ function drawHeli(ctx: CanvasRenderingContext2D, h: Heli, v: View, t: number) {
     const k = 1 - (st.y - h.y) / 4;
     for (let i = 0; i < 6; i++) { const life = (t * 1.5 + i / 6) % 1, side = i % 2 ? 1 : -1; ctx.fillStyle = `rgba(200,190,180,${0.35 * k * (1 - life)})`; ctx.beginPath(); ctx.arc(X(v, st.x + h.w / 2) + side * life * w * 0.9, Y(v, h.y) - s * 0.2, s * (0.2 + life * 0.5), 0, Math.PI * 2); ctx.fill(); }
   }
-  // cola
-  ctx.fillStyle = '#b91c1c'; ctx.beginPath(); ctx.moveTo(x + w * 0.65, y + hh * 0.35); ctx.lineTo(x + w * 1.35, y + hh * 0.3); ctx.lineTo(x + w * 1.35, y + hh * 0.48); ctx.lineTo(x + w * 0.65, y + hh * 0.62); ctx.fill();
-  ctx.save(); ctx.translate(x + w * 1.35, y + hh * 0.35); ctx.rotate(t * 30); ctx.fillStyle = '#e5e7eb'; ctx.fillRect(-s * 0.4, -s * 0.05, s * 0.8, s * 0.1); ctx.restore();
-  // cuerpo
-  ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.ellipse(x + w * 0.4, y + hh * 0.5, w * 0.42, hh * 0.45, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#bae6fd'; ctx.beginPath(); ctx.ellipse(x + w * 0.2, y + hh * 0.4, w * 0.18, hh * 0.25, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.font = font(900, hh * 0.3); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('RESCATE', x + w * 0.5, y + hh * 0.62);
-  if (st.phase === 'landed') { // puerta abierta y un rescatista que hace señas
-    ctx.fillStyle = '#1f2937'; ctx.fillRect(x + w * 0.42, y + hh * 0.2, w * 0.2, hh * 0.55);
-    ctx.fillStyle = '#f97316'; ctx.fillRect(x + w * 0.47, y + hh * 0.38, w * 0.1, hh * 0.3);
-    ctx.fillStyle = '#fcd9b6'; ctx.beginPath(); ctx.arc(x + w * 0.52, y + hh * 0.3, w * 0.045, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#f97316'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + w * 0.55, y + hh * 0.42); ctx.lineTo(x + w * (0.66 + Math.sin(t * 10) * 0.04), y + hh * 0.12); ctx.stroke();
+  const flying = st.phase !== 'landed';
+  // Sombra en el piso y, en el aire, el reflector que alumbra para abajo.
+  if (st.y - h.y < 6) { const k = 1 - (st.y - h.y) / 6; ctx.fillStyle = `rgba(0,0,0,${0.35 * k})`; ctx.beginPath(); ctx.ellipse(X(v, st.x + h.w * 0.45), Y(v, h.y) - s * 0.03, w * 0.55 * (0.6 + k * 0.4), s * 0.12, 0, 0, Math.PI * 2); ctx.fill(); }
+  if (flying) {
+    const lx = x + w * 0.22, ly = y + hh * 0.86, reach = (st.y - h.y + 1.5) * s;
+    const beam = ctx.createLinearGradient(0, ly, 0, ly + reach);
+    beam.addColorStop(0, 'rgba(255,248,220,0.32)'); beam.addColorStop(1, 'rgba(255,248,220,0)');
+    ctx.fillStyle = beam; ctx.beginPath(); ctx.moveTo(lx - s * 0.08, ly); ctx.lineTo(lx + s * 0.08, ly); ctx.lineTo(lx + s * 1.2, ly + reach); ctx.lineTo(lx - s * 1.4, ly + reach); ctx.fill();
   }
-  // patines
-  ctx.strokeStyle = '#1f2937'; ctx.lineWidth = Math.max(2, s * 0.08);
-  ctx.beginPath(); ctx.moveTo(x + w * 0.1, y + hh); ctx.lineTo(x + w * 0.75, y + hh); ctx.moveTo(x + w * 0.25, y + hh * 0.85); ctx.lineTo(x + w * 0.25, y + hh); ctx.moveTo(x + w * 0.6, y + hh * 0.85); ctx.lineTo(x + w * 0.6, y + hh); ctx.stroke();
-  // rotor
-  ctx.fillStyle = '#1f2937'; ctx.fillRect(x + w * 0.38, y - hh * 0.12, s * 0.12, hh * 0.15);
-  const spin = Math.cos(t * 25);
-  ctx.fillStyle = 'rgba(31,41,55,0.8)'; ctx.fillRect(x + w * 0.44 - w * 0.75 * Math.abs(spin), y - hh * 0.15, w * 1.5 * Math.abs(spin), s * 0.08);
-  ctx.fillStyle = 'rgba(31,41,55,0.25)'; ctx.fillRect(x + w * 0.44 - w * 0.75, y - hh * 0.15, w * 1.5, s * 0.08);
-  ctx.fillStyle = Math.floor(t * 3) % 2 ? '#f87171' : '#7f1d1d'; ctx.beginPath(); ctx.arc(x + w * 0.05, y + hh * 0.55, s * 0.07, 0, Math.PI * 2); ctx.fill();
+  const red = ctx.createLinearGradient(0, y, 0, y + hh * 0.85);
+  red.addColorStop(0, '#f87171'); red.addColorStop(0.35, '#dc2626'); red.addColorStop(1, '#7f1d1d');
+  // Cola: botalón que se angosta, deriva, estabilizador y rotor de cola.
+  ctx.fillStyle = red;
+  ctx.beginPath(); ctx.moveTo(x + w * 0.62, y + hh * 0.3); ctx.lineTo(x + w * 1.3, y + hh * 0.36); ctx.lineTo(x + w * 1.3, y + hh * 0.46); ctx.lineTo(x + w * 0.62, y + hh * 0.66); ctx.fill();
+  ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.moveTo(x + w * 0.64, y + hh * 0.46); ctx.lineTo(x + w * 1.3, y + hh * 0.41); ctx.lineTo(x + w * 1.3, y + hh * 0.43); ctx.lineTo(x + w * 0.64, y + hh * 0.52); ctx.fill();
+  ctx.fillStyle = '#b91c1c';
+  ctx.beginPath(); ctx.moveTo(x + w * 1.2, y + hh * 0.38); ctx.lineTo(x + w * 1.29, y + hh * 0.0); ctx.lineTo(x + w * 1.36, y + hh * 0.02); ctx.lineTo(x + w * 1.34, y + hh * 0.46); ctx.fill();
+  ctx.fillRect(x + w * 1.08, y + hh * 0.44, w * 0.14, hh * 0.06);
+  const trx = x + w * 1.31, try_ = y + hh * 0.2, trr = s * 0.42;
+  ctx.fillStyle = 'rgba(30,41,59,0.16)'; ctx.beginPath(); ctx.arc(trx, try_, trr, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(30,41,59,0.75)'; ctx.lineWidth = Math.max(1.5, s * 0.06);
+  for (const a of [t * 40, t * 40 + Math.PI / 2]) { ctx.beginPath(); ctx.moveTo(trx - Math.cos(a) * trr, try_ - Math.sin(a) * trr); ctx.lineTo(trx + Math.cos(a) * trr, try_ + Math.sin(a) * trr); ctx.stroke(); }
+  // Fuselaje con trompa redondeada, panza y franja blanca de rescate.
+  ctx.fillStyle = red;
+  ctx.beginPath();
+  ctx.moveTo(x + w * 0.04, y + hh * 0.6);
+  ctx.bezierCurveTo(x + w * 0.04, y + hh * 0.25, x + w * 0.14, y + hh * 0.12, x + w * 0.3, y + hh * 0.12);
+  ctx.lineTo(x + w * 0.6, y + hh * 0.12);
+  ctx.quadraticCurveTo(x + w * 0.72, y + hh * 0.18, x + w * 0.72, y + hh * 0.48);
+  ctx.quadraticCurveTo(x + w * 0.7, y + hh * 0.8, x + w * 0.56, y + hh * 0.82);
+  ctx.lineTo(x + w * 0.18, y + hh * 0.82);
+  ctx.quadraticCurveTo(x + w * 0.05, y + hh * 0.8, x + w * 0.04, y + hh * 0.6);
+  ctx.fill();
+  ctx.save(); ctx.clip();
+  ctx.fillStyle = '#f8fafc'; ctx.fillRect(x, y + hh * 0.56, w * 0.8, hh * 0.1);
+  ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fillRect(x, y + hh * 0.14, w * 0.8, hh * 0.06); // brillo de arriba
+  ctx.restore();
+  ctx.fillStyle = '#fff'; ctx.font = font(900, hh * 0.13); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('RESCATE', x + w * 0.22, y + hh * 0.73);
+  // Cabina vidriada (con el piloto) y su marco.
+  const glass = ctx.createLinearGradient(x, y + hh * 0.15, x + w * 0.3, y + hh * 0.55);
+  glass.addColorStop(0, '#bae6fd'); glass.addColorStop(0.6, '#38bdf8'); glass.addColorStop(1, '#0c4a6e');
+  ctx.fillStyle = glass;
+  ctx.beginPath(); ctx.moveTo(x + w * 0.07, y + hh * 0.54); ctx.bezierCurveTo(x + w * 0.07, y + hh * 0.3, x + w * 0.14, y + hh * 0.17, x + w * 0.24, y + hh * 0.17); ctx.lineTo(x + w * 0.33, y + hh * 0.17); ctx.lineTo(x + w * 0.33, y + hh * 0.54); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(15,23,42,0.7)'; ctx.beginPath(); ctx.arc(x + w * 0.24, y + hh * 0.33, hh * 0.09, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(x + w * 0.205, y + hh * 0.4, w * 0.07, hh * 0.14);
+  ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.moveTo(x + w * 0.1, y + hh * 0.5); ctx.lineTo(x + w * 0.17, y + hh * 0.2); ctx.lineTo(x + w * 0.2, y + hh * 0.2); ctx.lineTo(x + w * 0.13, y + hh * 0.5); ctx.fill();
+  ctx.strokeStyle = '#1f2937'; ctx.lineWidth = Math.max(1.2, s * 0.035);
+  ctx.beginPath(); ctx.moveTo(x + w * 0.2, y + hh * 0.17); ctx.lineTo(x + w * 0.17, y + hh * 0.54); ctx.moveTo(x + w * 0.33, y + hh * 0.17); ctx.lineTo(x + w * 0.33, y + hh * 0.54); ctx.stroke();
+  // Puerta corrediza con ventanita (abierta cuando está aterrizado).
+  if (st.phase === 'landed') { // puerta abierta y un rescatista que hace señas
+    ctx.fillStyle = '#111827'; ctx.fillRect(x + w * 0.38, y + hh * 0.2, w * 0.22, hh * 0.58);
+    ctx.fillStyle = '#7f1d1d'; ctx.fillRect(x + w * 0.6, y + hh * 0.2, w * 0.08, hh * 0.58);
+    ctx.fillStyle = '#f97316'; ctx.fillRect(x + w * 0.45, y + hh * 0.4, w * 0.1, hh * 0.32);
+    ctx.fillStyle = '#facc15'; ctx.fillRect(x + w * 0.45, y + hh * 0.5, w * 0.1, hh * 0.04);
+    ctx.fillStyle = '#fcd9b6'; ctx.beginPath(); ctx.arc(x + w * 0.5, y + hh * 0.32, w * 0.045, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.arc(x + w * 0.5, y + hh * 0.29, w * 0.047, Math.PI, 0); ctx.fill();
+    ctx.strokeStyle = '#f97316'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + w * 0.54, y + hh * 0.44); ctx.lineTo(x + w * (0.64 + Math.sin(t * 10) * 0.04), y + hh * 0.14); ctx.stroke();
+  } else {
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1.5; ctx.strokeRect(x + w * 0.38, y + hh * 0.2, w * 0.22, hh * 0.58);
+    ctx.fillStyle = '#7dd3fc'; ctx.fillRect(x + w * 0.42, y + hh * 0.26, w * 0.14, hh * 0.18);
+  }
+  // Patines con sus soportes y la punta curvada.
+  ctx.strokeStyle = '#1f2937'; ctx.lineWidth = Math.max(2, s * 0.07); ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x + w * 0.12, y + hh); ctx.lineTo(x + w * 0.74, y + hh); ctx.quadraticCurveTo(x + w * 0.8, y + hh, x + w * 0.82, y + hh * 0.92);
+  ctx.moveTo(x + w * 0.24, y + hh * 0.8); ctx.lineTo(x + w * 0.21, y + hh); ctx.moveTo(x + w * 0.58, y + hh * 0.8); ctx.lineTo(x + w * 0.62, y + hh);
+  ctx.stroke(); ctx.lineCap = 'butt';
+  // Turbina arriba (con la salida de gases), mástil y rotor principal girando.
+  const cowl = ctx.createLinearGradient(0, y - hh * 0.04, 0, y + hh * 0.14);
+  cowl.addColorStop(0, '#9ca3af'); cowl.addColorStop(1, '#4b5563');
+  ctx.fillStyle = cowl; ctx.beginPath(); ctx.roundRect(x + w * 0.28, y - hh * 0.04, w * 0.34, hh * 0.18, hh * 0.08); ctx.fill();
+  ctx.fillStyle = '#1f2937'; ctx.beginPath(); ctx.ellipse(x + w * 0.62, y + hh * 0.05, w * 0.025, hh * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(x + w * (0.33 + i * 0.05), y); ctx.lineTo(x + w * (0.33 + i * 0.05), y + hh * 0.1); ctx.stroke(); }
+  const hx = x + w * 0.44, hy = y - hh * 0.16, R = w * 0.82;
+  ctx.fillStyle = '#374151'; ctx.fillRect(hx - s * 0.05, hy, s * 0.1, hh * 0.13);
+  ctx.fillStyle = 'rgba(31,41,55,0.16)'; ctx.beginPath(); ctx.ellipse(hx, hy, R, s * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(31,41,55,0.85)';
+  for (let i = 0; i < 4; i++) { const reach = Math.cos(t * 26 + (i * Math.PI) / 2) * R; ctx.fillRect(Math.min(hx, hx + reach), hy - s * 0.035, Math.abs(reach), s * 0.07); }
+  ctx.fillStyle = '#111827'; ctx.beginPath(); ctx.arc(hx, hy, s * 0.08, 0, Math.PI * 2); ctx.fill();
+  // Luces: baliza roja arriba, verde en la cola y un destello blanco.
+  ctx.fillStyle = Math.floor(t * 3) % 2 ? '#f87171' : '#7f1d1d'; ctx.beginPath(); ctx.arc(x + w * 0.45, y - hh * 0.05, s * 0.06, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#4ade80'; ctx.beginPath(); ctx.arc(x + w * 1.34, y + hh * 0.06, s * 0.05, 0, Math.PI * 2); ctx.fill();
+  if (Math.floor(t * 6) % 6 === 0) { const sx = x + w * 1.29, sy = y + hh * 0.42, glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, s * 0.4); glow.addColorStop(0, 'rgba(255,255,255,0.95)'); glow.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = glow; ctx.fillRect(sx - s * 0.4, sy - s * 0.4, s * 0.8, s * 0.8); }
   if (st.phase === 'landed') {
     const pulse = 0.5 + 0.5 * Math.sin(t * 8);
     ctx.font = font(900, s * 0.5); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1282,14 +1515,39 @@ export function LavaFloor() {
 
   useEffect(() => {
     if (status !== 'playing') return;
-    let frame = 0, last = performance.now();
+    let frame = 0, last = performance.now(), walked = 0, lastScream = -1;
+    let doors = gameRef.current.elevators.map(e => elevatorAt(e, gameRef.current.time).open);
     const tick = (now: number) => {
       const g = gameRef.current;
       const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
       last = now;
+      const x0 = g.player.x;
       step(g, input.current, dt);
+      // Sonidos: pasos mientras camina apoyado, el "ding" de los ascensores cercanos y el ambiente.
+      const p = g.player;
+      if (p.ground && !g.dying) { walked += Math.abs(p.x - x0); if (walked > 1.5) { walked = 0; playFootstep(); } } else walked = 1;
+      const open = g.elevators.map(e => elevatorAt(e, g.time).open);
+      g.elevators.forEach((e, i) => {
+        if (!open[i] || doors[i]) return;
+        const d = Math.hypot(p.x - (e.x + e.w / 2), p.y - elevatorAt(e, g.time).y);
+        playElevatorDing(Math.max(0, 1 - d / 7));
+      });
+      doors = open;
+      setLavaAmbient(lavaLevels(g));
       if (!startedRef.current && g.time >= LAVA_DELAY) { startedRef.current = true; setToast({ text: '¡La lava empezó a subir! ¡Corré para arriba! 🔥', id: now }); }
       for (const e of takeEvents(g)) {
+        if (e.type === 'jump') playJump();
+        if (e.type === 'bounce') playTramp();
+        if (e.type === 'crumble') playCrumble();
+        if (e.type === 'win') playWin();
+        if (e.type === 'lose') { if (e.reason === 'lava') playLavaFall(); else playLose(e.reason === 'fire' ? 'burn' : 'zap'); }
+        if (e.type === 'burn' && g.time - lastScream > 0.3) { // la gente que alcanza la lava (solo la que está cerca)
+          const person = g.people.find(q => q.id === e.id);
+          if (person) {
+            const d = Math.hypot(p.x - personX(person, g.time).x, p.y - person.y);
+            if (d < 14) { lastScream = g.time; playPersonBurn(1 - d / 14, 0.8 + person.look * 0.6); }
+          }
+        }
         if (e.type === 'faster') setToast({ text: e.level >= 4 ? '¡La lava sube a toda velocidad! 🌋' : '¡La lava sube cada vez más rápido! 🔥', id: now });
         if (e.type === 'heli') setToast({ text: '¡Ahí están los helicópteros! Subite cuando aterricen 🚁', id: now });
         if (e.type === 'heliLand') setToast({ text: '¡Aterrizó un helicóptero! Tenés 5 segundos 🚁', id: now, big: true });
@@ -1312,6 +1570,7 @@ export function LavaFloor() {
         saveRecord(next); setRecord(next);
         setResult({ m: height, time: g.time, reason: g.dying?.reason ?? 'lava', newRecord: isNew && (rec.height > 0 || g.won) });
         setToast(null);
+        setLavaAmbient(null);
         if (!g.won) playGameOver();
         setStatus(g.won ? 'won' : 'over');
         return;
@@ -1321,7 +1580,7 @@ export function LavaFloor() {
     frame = requestAnimationFrame(tick);
     const hide = () => { if (document.hidden && !gameRef.current.dying) setStatus('paused'); };
     document.addEventListener('visibilitychange', hide);
-    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); };
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); setLavaAmbient(null); };
   }, [status, paint, follow]);
 
   useEffect(() => {
