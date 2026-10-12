@@ -630,7 +630,7 @@ function buildStorm(c: AudioContext): Record<StormChannel, Channel> {
     // Lluvia: el siseo parejo del aguacero y gotas gruesas que golpean cerca.
     // Lluvia: la grabación (un tramo de 14 s que se repite sin que se note el corte); mientras carga, un
     // aguacero sintetizado.
-    rain: channel(0.5, out => {
+    rain: channel(0.33, out => {
       const synth = c.createGain(); synth.connect(out);
       const shower = noiseSource(c), hi = filter(c, 'highpass', 500), low = filter(c, 'lowpass', 7000), level = c.createGain();
       level.gain.value = 0.8; wobble(c, level.gain, 0.23, 0.1);
@@ -646,7 +646,7 @@ function buildStorm(c: AudioContext): Record<StormChannel, Channel> {
       });
     }),
     // Viento: un soplido grave que sube y baja, con un silbido entre los edificios.
-    wind: channel(0.75, out => {
+    wind: channel(0.5, out => {
       const air = noiseSource(c), band = filter(c, 'bandpass', 480, 0.8), level = c.createGain();
       wobble(c, band.frequency, 0.17, 220);
       level.gain.value = 0.75; wobble(c, level.gain, 0.31, 0.25);
@@ -672,7 +672,7 @@ function buildStorm(c: AudioContext): Record<StormChannel, Channel> {
     }),
     // Hélice de los tiburones voladores: la grabación del helicóptero (mientras carga, el "chop-chop" de las
     // palas y el zumbido del motorcito).
-    rotor: channel(0.55, out => recorded(c, helicopteroUrl, 1.2, out, out => {
+    rotor: channel(0.95, out => recorded(c, helicopteroUrl, 1.3, out, out => {
       const air = noiseSource(c), low = filter(c, 'lowpass', 900), chop = c.createGain();
       chop.gain.value = 0.5; wobble(c, chop.gain, 16, 0.5);
       air.connect(low).connect(chop).connect(out); air.start();
@@ -702,7 +702,7 @@ function whenLoaded(url: string, ready: (buffer: AudioBuffer) => void) {
 }
 export function playThunder(near: number) {
   // La grabación (uno de los tres truenos, al azar): más tarde y más bajo si el rayo cayó lejos.
-  if (playSample(TRUENOS[Math.floor(Math.random() * TRUENOS.length)], 0.45 + near * 0.55, (1 - near) * 0.5)) return;
+  if (playSample(TRUENOS[Math.floor(Math.random() * TRUENOS.length)], 0.3 + near * 0.37, (1 - near) * 0.5)) return;
   const c = running(); if (!c) return;
   const t = c.currentTime + (1 - near) * 0.5;
   if (near > 0.4) { burst(c, 'highpass', 1800, t, 0.12, 0.6 * near); burst(c, 'lowpass', 3000, t, 0.25, 0.7 * near); }
