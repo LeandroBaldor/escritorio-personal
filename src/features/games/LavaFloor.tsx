@@ -6,7 +6,7 @@ import {
   type Building, type Climb, type Escape, type Fallen, type Fire, type Heli, type Input, type LavaGame, type LoseReason, type Person, type Plat, type Spark, type Zip,
 } from './lava';
 import { lavaLevels } from './lavaSound';
-import { playCrumble, playElevatorDing, playFootstep, playGameOver, playJump, playLavaFall, playLose, playPersonBurn, playStart, playTramp, playWinFanfare, setLavaAmbient } from './sounds';
+import { playCrumble, playElevatorDing, playFootstep, playGameOver, playJump, playLavaFall, playLose, playPersonBurn, playStart, playTramp, playWinFanfare, preloadLavaSounds, setLavaAmbient } from './sounds';
 import { EndBanner } from './EndBanner';
 
 const RECORD_KEY = 'escritorio-personal-juegos:lava-record';
@@ -1493,6 +1493,7 @@ export function LavaFloor() {
 
   const start = useCallback(() => {
     playStart();
+    preloadLavaSounds();
     gameRef.current = newLava(); // cada partida arranca en otro lugar de la cuadra
     follow(-1);
     input.current = { ...NO_INPUT };
