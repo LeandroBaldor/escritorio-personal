@@ -101,7 +101,7 @@ export const PLAYER_TARGET = -1;
 // del bombero; cuando lo ven se frenan, avisan (luz roja y la hélice que acelera) y se tiran en picada. Si lo
 // agarran se lo llevan volando. Adentro de un edificio no te ven.
 export interface Flyer { id: number; type: SharkType; x: number; y: number; dir: 1 | -1; state: 'cruise' | 'warn' | 'dive' | 'climb' | 'carry'; t: number; vx: number; vy: number; cool: number; dist: number }
-export const FLYER_LEN = 2.4, FLY_SPEED = 3.2, FLY_DIVE = 10, FLY_WARN = 1.3, FLY_SIGHT = 7;
+export const FLYER_LEN = 3.6, FLY_SPEED = 3.2, FLY_DIVE = 10, FLY_WARN = 1.3, FLY_SIGHT = 7;
 export const FLYER_SIZE: Record<SharkType, number> = { blanco: 1, martillo: 0.95, ballena: 1.3 };
 export const flyerLen = (f: Flyer) => FLYER_LEN * FLYER_SIZE[f.type];
 export const flyersAt = (t: number) => t < 25 ? 0 : t < 80 ? 1 : t < 150 ? 2 : 3;
