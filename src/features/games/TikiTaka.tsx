@@ -307,16 +307,17 @@ export function TikiTaka() {
   // Bucle del partido.
   useEffect(() => {
     if (screen !== 'match') return;
-    let frame = 0, last = performance.now(), hidden = false;
+    let frame = 0, last = performance.now(), hidden = false, lastFlight: Match['flight'] = null;
     const tick = (now: number) => {
       const m = matchRef.current;
       if (!m) return;
       const dt = hidden ? 0 : Math.max(0, Math.min(0.05, (now - last) / 1000));
       last = now;
-      const flight = m.flight;
       step(m, dt);
-      // Sonidos: cada patada (pase o tiro, de los tuyos o del rival), la hinchada de fondo y el silbato.
-      if (m.flight && m.flight !== flight) playKick(m.flight.team === 'mine' ? 1 : 0.8);
+      // Sonidos: cada patada (pase o tiro, de los tuyos o del rival), la hinchada de fondo y el silbato. Los
+      // pases y tiros tuyos arrancan con un clic entre un cuadro y otro: por eso se compara con el cuadro anterior.
+      if (m.flight && m.flight !== lastFlight) playKick(m.flight.team === 'mine' ? 1 : 0.8);
+      lastFlight = m.flight;
       setCrowd(m.phase === 'end' ? 0.35 : m.phase === 'half' ? 0.5 : 1);
       for (const event of takeEvents(m)) {
         if (event.type === 'kickoff') playRefWhistle('kickoff');

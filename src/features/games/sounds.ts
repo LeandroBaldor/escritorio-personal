@@ -829,8 +829,8 @@ export function setCrowd(level: number) {
       loop.connect(gain); loop.start(0, 0.03);
     });
   }
-  if (level * 0.3 === crowdLevel) return; // solo cuando cambia (así no pisa el festejo de un gol)
-  crowdLevel = level * 0.3;
+  if (level * 0.22 === crowdLevel) return; // solo cuando cambia (así no pisa el festejo de un gol)
+  crowdLevel = level * 0.22;
   crowd.gain.cancelScheduledValues(ctx.currentTime);
   crowd.gain.setTargetAtTime(crowdLevel, ctx.currentTime, 0.4);
 }
