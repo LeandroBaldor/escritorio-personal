@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { KITS, kitById, paintKit, rivalKit, rivalKits, type Kit } from './kits';
 import { cupOutcome, FINAL, ROUNDS, type CupOutcome } from './worldCup';
 import { canShoot, chase, dive, FORMATIONS, GOAL, minute, newMatch, pass, passRisk, PITCH, shoot, shotChance, startSecondHalf, step, takeEvents, type FormationId, type Match, type MatchEvent, type Side } from './tikiTaka';
-import { playGameOver, unlockSounds } from './sounds';
+import { playGameOver, playGoal, playKick, playRefWhistle, preloadSoccerSounds, setCrowd, unlockSounds } from './sounds';
 
 // ---------- Equipo guardado y récord ----------
 export interface TeamSetup { coach: string; country: string; formation: FormationId }
@@ -260,7 +260,7 @@ export function TikiTaka() {
   }, []);
 
   const start = (e?: React.FormEvent) => {
-    unlockSounds();
+    unlockSounds(); preloadSoccerSounds();
     e?.preventDefault();
     write(SETUP_KEY, setup);
     matchRef.current = newMatch(setup.formation);
@@ -313,8 +313,17 @@ export function TikiTaka() {
       if (!m) return;
       const dt = hidden ? 0 : Math.max(0, Math.min(0.05, (now - last) / 1000));
       last = now;
+      const flight = m.flight;
       step(m, dt);
+      // Sonidos: cada patada (pase o tiro, de los tuyos o del rival), la hinchada de fondo y el silbato.
+      if (m.flight && m.flight !== flight) playKick(m.flight.team === 'mine' ? 1 : 0.8);
+      setCrowd(m.phase === 'end' ? 0.35 : m.phase === 'half' ? 0.5 : 1);
       for (const event of takeEvents(m)) {
+        if (event.type === 'kickoff') playRefWhistle('kickoff');
+        if (event.type === 'half') playRefWhistle('half');
+        if (event.type === 'end') playRefWhistle('end');
+        if (event.type === 'goal' || event.type === 'rivalGoal') playGoal();
+        if (event.type === 'rivalShot') playKick(0.9);
         if (event.type === 'pass' && Math.random() > 0.35) continue; // el relator no comenta cada pase
         setLine(say(event.type, names));
         if (event.type === 'goal') setBanner({ text: `¡GOOOOL DE ${names.team.toUpperCase()}!!!`, seconds: 2.2, id: now });
@@ -339,7 +348,7 @@ export function TikiTaka() {
     frame = requestAnimationFrame(tick);
     const hide = () => { hidden = document.hidden; };
     document.addEventListener('visibilitychange', hide);
-    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); };
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); setCrowd(0); };
   }, [screen, paint]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tryShoot = () => { const m = matchRef.current; if (m) shoot(m); };
@@ -373,7 +382,7 @@ export function TikiTaka() {
   // Mundial: cuatro rivales distintos, de octavos a la final.
   const playCup = (next: Cup) => { setCup(next); setRivalShirt(next.rivals[next.round]); setRivalCoach(next.coaches[next.round]); setTimeout(() => start(), 0); };
   const startCup = () => {
-    unlockSounds();
+    unlockSounds(); preloadSoccerSounds();
     const rivals = rivalKits(myKit, ROUNDS.length);
     const coaches = [...RIVAL_COACHES].sort(() => Math.random() - 0.5).slice(0, ROUNDS.length);
     write(SETUP_KEY, setup);

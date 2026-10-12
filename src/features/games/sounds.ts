@@ -10,6 +10,9 @@ import lluviaUrl from './assets/sonidos/lluvia.mp3';
 import tiburonAtacaUrl from './assets/sonidos/tiburon-ataca.mp3';
 import victoriaUrl from './assets/sonidos/victoria.mp3';
 import cartaUrl from './assets/sonidos/carta.mp3';
+import golUrl from './assets/sonidos/gol.mp3';
+import hinchadaUrl from './assets/sonidos/hinchada.mp3';
+import patadaUrl from './assets/sonidos/patada.mp3';
 import trueno1Url from './assets/sonidos/trueno-1.mp3';
 import trueno2Url from './assets/sonidos/trueno-2.mp3';
 import trueno3Url from './assets/sonidos/trueno-3.mp3';
@@ -376,10 +379,10 @@ export function playBinHit() {
 }
 
 // Silbato de árbitro al empezar cada cuarto: un pitido agudo con el trino de la bolita.
-export function playWhistle() {
+export function playWhistle(pattern: [number, number][] = [[0, 0.18], [0.24, 0.55]]) {
   whenRunning(c => {
     const t = c.currentTime;
-    for (const [at, length] of [[0, 0.18], [0.24, 0.55]]) {
+    for (const [at, length] of pattern) {
       const o = osc(c, 'sine', 2900), gain = c.createGain(), s = t + at;
       wobble(c, o.frequency, 32, 220, 'square'); // la bolita adentro del silbato
       gain.gain.setValueAtTime(0.0001, s); gain.gain.exponentialRampToValueAtTime(0.32, s + 0.02);
@@ -793,4 +796,41 @@ export function playSnakeEat() {
   for (let i = 0; i < 4; i++) burst(c, 'bandpass', 2200 + Math.random() * 1800, t + i * 0.045, 0.05, 0.45);
   burst(c, 'lowpass', 900, t, 0.08, 0.5);
   tone(c, 'sine', 260, 90, t + 0.22, 0.18, 0.5);
+}
+
+// ---------- Tiki-Taka ----------
+export function preloadSoccerSounds() { for (const url of [golUrl, hinchadaUrl, patadaUrl]) loadSample(url); }
+// Una patada a la pelota (pase, tiro o pase del rival): la grabación; mientras carga, un golpe sintetizado.
+export function playKick(volume = 1) {
+  if (playSample(patadaUrl, 0.75 * volume)) return;
+  const c = running(); if (!c) return;
+  tone(c, 'sine', 170, 70, c.currentTime, 0.1, 0.6 * volume);
+}
+// ¡Gol!: la grabación del festejo (y la hinchada se levanta un rato).
+export function playGoal() {
+  playSample(golUrl, 0.9);
+  if (crowd && ctx) { const t = ctx.currentTime; crowd.gain.cancelScheduledValues(t); crowd.gain.setTargetAtTime(0.55, t, 0.2); crowd.gain.setTargetAtTime(crowdLevel, t + 4, 1); }
+}
+// El silbato del árbitro: un pitazo largo para sacar del medio, dos al terminar el primer tiempo y tres
+// (el último bien largo) al final del partido.
+export function playRefWhistle(kind: 'kickoff' | 'half' | 'end') {
+  playWhistle(kind === 'kickoff' ? [[0, 0.6]] : kind === 'half' ? [[0, 0.35], [0.45, 0.9]] : [[0, 0.3], [0.4, 0.3], [0.8, 1.2]]);
+}
+// La hinchada de fondo: la grabación en bucle; level 0 la apaga.
+let crowd: GainNode | null = null, crowdLevel = 0;
+export function setCrowd(level: number) {
+  if (!ctx) return;
+  if (!crowd) {
+    const c = ctx, gain = c.createGain();
+    gain.gain.value = 0; gain.connect(out(c)); crowd = gain;
+    whenLoaded(hinchadaUrl, buffer => {
+      const loop = c.createBufferSource(); loop.buffer = buffer; loop.loop = true;
+      loop.loopStart = 0.03; loop.loopEnd = buffer.duration - 0.03; // sin el silencito que el mp3 deja en las puntas
+      loop.connect(gain); loop.start(0, 0.03);
+    });
+  }
+  if (level * 0.3 === crowdLevel) return; // solo cuando cambia (así no pisa el festejo de un gol)
+  crowdLevel = level * 0.3;
+  crowd.gain.cancelScheduledValues(ctx.currentTime);
+  crowd.gain.setTargetAtTime(crowdLevel, ctx.currentTime, 0.4);
 }
