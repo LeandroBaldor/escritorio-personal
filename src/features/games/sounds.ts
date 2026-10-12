@@ -22,6 +22,7 @@ import trueno3Url from './assets/sonidos/trueno-3.mp3';
 import lavaUrl from './assets/sonidos/lava.mp3';
 import helicopteroUrl from './assets/sonidos/helicoptero.mp3';
 import electricidadUrl from './assets/sonidos/electricidad.mp3';
+import fuegoUrl from './assets/sonidos/fuego.mp3';
 
 type WithWebkit = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 let ctx: AudioContext | null = null;
@@ -504,7 +505,7 @@ export function playExplosion() {
 
 // ---------- ¡El piso es de lava! ----------
 let lavaAmbient: Record<LavaChannel, Channel> | null = null;
-export function preloadLavaSounds() { for (const url of [lavaUrl, helicopteroUrl, electricidadUrl]) loadSample(url); }
+export function preloadLavaSounds() { for (const url of [lavaUrl, helicopteroUrl, electricidadUrl, fuegoUrl]) loadSample(url); }
 // Un sonido de ambiente grabado que se repite sin corte (el mp3 deja un silencito en las puntas, se saltea).
 // Mientras carga suena el sintetizado (`synth`) y, apenas está, se pasa a la grabación.
 function recorded(c: AudioContext, url: string, volume: number, out: GainNode, synth: (out: GainNode) => void) {
@@ -538,15 +539,16 @@ function buildLavaAmbient(c: AudioContext): Record<LavaChannel, Channel> {
       hiss.gain.value = 0.06; wobble(c, hiss.gain, 0.9, 0.04);
       sizzle.connect(hi).connect(hiss).connect(out); sizzle.start();
     })),
-    // Departamentos incendiados: el rugido de las llamas y la madera que cruje y chisporrotea.
-    fire: channel(0.8, out => {
+    // Departamentos incendiados: la grabación del fuego (mientras carga, el rugido de las llamas y la madera
+    // que cruje y chisporrotea).
+    fire: channel(0.8, out => recorded(c, fuegoUrl, 1.3, out, out => {
       const roar = noiseSource(c), body = filter(c, 'lowpass', 600), level = c.createGain();
       level.gain.value = 0.85; wobble(c, level.gain, 2.3, 0.15);
       roar.connect(body).connect(level).connect(out); roar.start();
       const crackle = noiseSource(c), hi = filter(c, 'bandpass', 2800, 3), pops = c.createGain();
       pops.gain.value = 0.22; wobble(c, pops.gain, 11, 0.22, 'square'); wobble(c, pops.gain, 3.7, 0.12, 'square');
       crackle.connect(hi).connect(pops).connect(out); crackle.start();
-    }),
+    })),
     // Cortocircuitos: la grabación de la electricidad (mientras carga, un zumbido y chispazos que restallan).
     electric: channel(0.4, out => recorded(c, electricidadUrl, 1.6, out, out => {
       const hum = osc(c, 'sawtooth', 100), band = filter(c, 'bandpass', 900, 2), level = c.createGain();
