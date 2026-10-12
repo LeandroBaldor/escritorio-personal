@@ -815,6 +815,11 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 @keyframes trepa-record{0%{transform:translate(-50%,-50%) rotate(-4deg) scale(.2);opacity:0}12%{transform:translate(-50%,-50%) rotate(-4deg) scale(1.15);opacity:1}20%{transform:translate(-50%,-50%) rotate(-4deg) scale(1)}85%{opacity:1}100%{opacity:0;transform:translate(-50%,-70%) rotate(-4deg)}}
 .trepa-gameover{font:900 clamp(2.4rem,7vw,4rem)/1 "Courier New",ui-monospace,monospace!important;color:#ef4444;letter-spacing:.08em;text-shadow:4px 4px 0 #450a0a}
 .trepa-win{font:900 clamp(1.6rem,4.5vw,2.4rem)/1.1 Nunito,system-ui,sans-serif!important;color:#fde047;text-shadow:0 4px 0 #92400e}
+.end-banner{margin:0 0 .5rem!important;font:900 clamp(1.8rem,6vw,3.2rem)/1.1 "Courier New",ui-monospace,monospace!important;letter-spacing:.04em;white-space:nowrap;text-align:center;animation:end-banner .7s cubic-bezier(.2,1.6,.4,1) both}
+.end-banner--over{color:#ef4444!important;text-shadow:4px 4px 0 #450a0a,0 0 22px #ef444488}
+.end-banner--win{color:#fde047!important;text-shadow:4px 4px 0 #92400e,0 0 26px #facc15aa;animation:end-banner .7s cubic-bezier(.2,1.6,.4,1) both,end-banner-glow 1.2s ease-in-out .7s infinite alternate}
+@keyframes end-banner{from{transform:scale(.2) rotate(-6deg);opacity:0}}
+@keyframes end-banner-glow{to{text-shadow:4px 4px 0 #92400e,0 0 40px #fde047}}
 @media(max-width:800px),(orientation:portrait) and (max-width:1100px){
   .trepa.runner{padding:.4rem .4rem .5rem;gap:.35rem}
   .trepa-main{position:relative}

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Link } from 'react-router-dom';
 import { drawRunner } from './runnerCharacter';
 import { level, LEVEL_SECONDS, newGame, WIN_LEVEL, TRAP_SECONDS, PLAYER_H, PLAYER_W, score, step, takeEvents, type Game, type GameOver, type Input } from './blockRunner';
-import { playBlockLand, playExplosion, playFootstep, playGameOver, playJump, preloadBlockSounds, unlockSounds } from './sounds';
+import { playBlockLand, playExplosion, playFootstep, playGameOver, playJump, playStart, playWinFanfare, preloadBlockSounds } from './sounds';
+import { EndBanner } from './EndBanner';
 
 const RECORD_KEY = 'escritorio-personal-juegos:bloques-record';
 export const readRecord = () => { try { return Number(localStorage.getItem(RECORD_KEY)) || 0; } catch { return 0; } };
@@ -102,7 +103,7 @@ function draw(ctx: CanvasRenderingContext2D, game: Game, cell: number) {
   ctx.globalAlpha = 1;
 }
 
-const OVER_TEXT: Record<GameOver, string> = { crushed: '¡Te aplastaron!', bomb: '¡Te alcanzó una bomba!', full: '¡Los bloques llegaron arriba!', trapped: '¡Quedaste atrapado!', won: '¡Ganaste! 🏆' };
+const OVER_TEXT: Record<GameOver, string> = { crushed: '¡Te aplastaron!', bomb: '¡Te alcanzó una bomba!', full: '¡Los bloques llegaron arriba!', trapped: '¡Quedaste atrapado!', won: '¡Llegaste al nivel 10! 🏆' };
 
 export function BlockRunner() {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -136,7 +137,7 @@ export function BlockRunner() {
   }, []);
 
   const start = useCallback(() => {
-    unlockSounds();
+    playStart();
     preloadBlockSounds();
     const stage = stageRef.current;
     if (!stage) return;
@@ -191,7 +192,7 @@ export function BlockRunner() {
       // Al perder, la explosión se sigue viendo un momento antes del cartel.
       if (game.over && (afterOver > 0.8 || game.over === 'won')) {
         setOverReason(game.over);
-        if (game.over !== 'won') playGameOver();
+        if (game.over === 'won') playWinFanfare(); else playGameOver();
         if (current > readRecord()) { saveRecord(current); setRecord(current); setNewRecord(true); }
         setStatus('over');
         return;
@@ -268,8 +269,9 @@ export function BlockRunner() {
             <button type="button" onClick={() => setStatus('playing')} autoFocus>Seguir</button>
           </>}
           {status === 'over' && <>
-            <h2 id="runner-message">{OVER_TEXT[overReason]}</h2>
-            <p>{overReason === 'won' && 'Llegaste al nivel 10. '}Hiciste <strong>{points}</strong> puntos.{newRecord && ' ¡Nuevo récord!'}</p>
+            <EndBanner win={overReason === 'won'} id="runner-message" />
+            <p className="end-reason">{OVER_TEXT[overReason]}</p>
+            <p>Hiciste <strong>{points}</strong> puntos.{newRecord && ' ¡Nuevo récord!'}</p>
             <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
           </>}
         </div>

@@ -8,7 +8,8 @@ import {
   burst, drawBall, drawBackground, drawBinBack, drawBinFront, drawClock, drawDrops, drawEyes, drawFan, drawHeld, drawLoad, drawRobot, drawStains,
   drawVignette, drawWindow, loadOffice, stepDrops, VIEW_H, X, Y, type Drop, type Stain, type View,
 } from './paperArt';
-import { playBinHit, playGameOver, playRobotThrow, playScore, playSplat, playWhistle, preloadSkynetSounds, setFanSound, unlockSounds } from './sounds';
+import { playBinHit, playGameOver, playRobotThrow, playScore, playSplat, playStart, playWhistle, preloadSkynetSounds, setFanSound } from './sounds';
+import { EndBanner } from './EndBanner';
 
 const RECORD_KEY = 'escritorio-personal-juegos:cesto-t800-record';
 export const readPaperRecord = () => { try { return Number(localStorage.getItem(RECORD_KEY)) || 0; } catch { return 0; } };
@@ -151,7 +152,7 @@ export function PaperBall() {
   }, [status, paint]);
 
   const start = useCallback(() => {
-    unlockSounds();
+    playStart();
     preloadSkynetSounds();
     gameRef.current = newPaper(); aimRef.current = null; popsRef.current = []; goreRef.current = { drops: [], stains: [], shake: 0 }; bannerRef.current = { quarter: 0, at: 0 };
     setHud({ left: QUARTER, quarter: 0, pause: false, score: 0, step: 0, round: 0, dir: 0 });
@@ -270,7 +271,8 @@ export function PaperBall() {
               <button type="button" onClick={() => setStatus('playing')} autoFocus>Seguir</button>
             </>}
             {status === 'over' && <>
-              <h2 id="bol-message">¡Final del partido! ⏰</h2>
+              <EndBanner win={false} id="bol-message" />
+              <p className="end-reason">¡Final del partido! ⏰</p>
               <p>Hiciste <strong>{result.score}</strong> puntos: embocaste {result.made} de {result.shots} humanos, completaste {result.rounds} {result.rounds === 1 ? 'ciclo' : 'ciclos'} y sumaste {result.bonus} por velocidad.{result.newRecord && ' ¡Nuevo récord!'}</p>
               <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
             </>}

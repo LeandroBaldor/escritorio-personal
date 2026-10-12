@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { drawRunner } from './runnerCharacter';
-import { playCrumble, playGameOver, playJump, playKnock, playLose, playTeleport, playTramp, playWin, setAmbient, unlockSounds } from './sounds';
+import { playCrumble, playGameOver, playJump, playKnock, playLose, playStart, playTeleport, playTramp, playWinFanfare, setAmbient } from './sounds';
+import { EndBanner } from './EndBanner';
 import { ambientLevels } from './trepaSound';
 import {
   ballPos, birdPos, blinkOn, fireActive, fireWarning, laserActive, laserHalf, laserWarning, meters, moonOf, newTrepa, PLAYER_H, PLAYER_W, step, takeEvents, WORLD_W, ZONES,
@@ -1368,7 +1369,7 @@ export function Trepaluna() {
   }, []);
 
   const start = useCallback(() => {
-    unlockSounds();
+    playStart();
     gameRef.current = newTrepa();
     camRef.current = 0;
     follow(-1);
@@ -1406,7 +1407,7 @@ export function Trepaluna() {
         if (e.type === 'knock') playKnock();
         if (e.type === 'teleport') playTeleport();
         if (e.type === 'lose') playLose(e.reason);
-        if (e.type === 'win') playWin();
+        if (e.type === 'win') playWinFanfare();
         if (e.type === 'gameover') playGameOver(true);
         if (e.type === 'zone' && ZONE_MESSAGES[e.zone]) setToast({ text: ZONE_MESSAGES[e.zone], id: now });
         if (e.type === 'lose') setToast({ text: LOSE_TEXT[e.reason], id: now });
@@ -1498,12 +1499,13 @@ export function Trepaluna() {
               <button type="button" onClick={() => setStatus('playing')} autoFocus>Seguir</button>
             </>}
             {status === 'over' && <>
-              <h2 id="trepa-message" className="trepa-gameover">GAME OVER</h2>
+              <EndBanner win={false} id="trepa-message" />
               <p>{LOSE_TEXT[result.reason]} Llegaste a <strong>{fmtM(result.m)} m</strong> en {formatTime(result.time)}.{result.newRecord && ' ¡Nuevo récord!'}</p>
               <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
             </>}
             {status === 'won' && <>
-              <h2 id="trepa-message" className="trepa-win">¡Felicitaciones: misión cumplida!!!</h2>
+              <EndBanner win id="trepa-message" />
+              <p className="end-reason">¡Felicitaciones: misión cumplida!!!</p>
               <p>Clavaste el banderín en la Luna en <strong>{formatTime(result.time)}</strong>.{result.newRecord && ' ¡Rompiste el récord!'}</p>
               <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
             </>}

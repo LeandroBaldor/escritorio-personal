@@ -9,7 +9,8 @@ import { font, hash, hsl, scene, surfaceClip, visible, waveY, X, Y, type View } 
 import { drawClouds, drawFlyer, drawSkyline } from './sharkSkyline';
 import { drawBuilding, drawDebrisArt, drawFx, drawHouse, drawInterior, drawLamp, drawShop, drawTreeDecor, drawVehicle } from './sharkArt';
 import { stormLevels } from './sharkSound';
-import { preloadSharkSounds, playFlyerDive, playFlyerWarn, playGameOver, playJump, playRescue, playSharkBite, playSharkLeap, playSplash, playThunder, playWetStep, setStormAmbient, unlockSounds } from './sounds';
+import { playFlyerDive, playFlyerWarn, playGameOver, playJump, playRescue, playSharkBite, playSharkLeap, playSplash, playStart, playThunder, playWetStep, playWinFanfare, preloadSharkSounds, setStormAmbient } from './sounds';
+import { EndBanner } from './EndBanner';
 
 const RECORD_KEY = 'escritorio-personal-juegos:tiburon-record';
 export interface SharkRecord { saved: number; time: number | null } // más rescatados y mejor tiempo para rescatar a todos
@@ -751,7 +752,7 @@ export function SharkCity() {
   }, []);
 
   const start = useCallback(() => {
-    unlockSounds();
+    playStart();
     preloadSharkSounds();
     gameRef.current = newShark();
     follow(-1);
@@ -829,7 +830,7 @@ export function SharkCity() {
         setResult({ saved: g.saved, time: g.time, reason: g.dying?.reason ?? 'shark', newRecord: isNew && (rec.saved > 0 || g.won) });
         setToast(null);
         setStormAmbient(null);
-        if (!g.won) playGameOver();
+        if (g.won) playWinFanfare(); else playGameOver();
         setStatus(g.won ? 'won' : 'over');
         return;
       }
@@ -903,12 +904,13 @@ export function SharkCity() {
               <button type="button" onClick={() => setStatus('playing')} autoFocus>Seguir</button>
             </>}
             {status === 'over' && <>
-              <h2 id="tib-message" className="trepa-gameover">GAME OVER</h2>
+              <EndBanner win={false} id="tib-message" />
               <p>{LOSE_TEXT[result.reason]} Rescataste a <strong>{result.saved}</strong> de {GOAL}.{result.newRecord && ' ¡Nuevo récord!'}</p>
               <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
             </>}
             {status === 'won' && <>
-              <h2 id="tib-message" className="trepa-win">¡Rescataste a los {GOAL}! 🚒</h2>
+              <EndBanner win id="tib-message" />
+              <p className="end-reason">¡Rescataste a los {GOAL}! 🚒</p>
               <p>Lo lograste en <strong>{formatSharkTime(result.time)}</strong>, esquivando a todos los tiburones.{result.newRecord && ' ¡Rompiste el récord!'}</p>
               <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
             </>}

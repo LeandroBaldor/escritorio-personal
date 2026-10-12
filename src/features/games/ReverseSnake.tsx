@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { level, newGame, score, step, takeEvents, type Dir, type Game } from './reverseSnake';
-import { playAppleStep, playGameOver, playSnakeEat, unlockSounds } from './sounds';
+import { playAppleStep, playGameOver, playSnakeEat, playStart } from './sounds';
+import { EndBanner } from './EndBanner';
 
 const RECORD_KEY = 'escritorio-personal-juegos:serpiente-record';
 export const readSnakeRecord = () => { try { return Number(localStorage.getItem(RECORD_KEY)) || 0; } catch { return 0; } };
@@ -223,7 +224,7 @@ export function ReverseSnake() {
   }, []);
 
   const start = useCallback(() => {
-    unlockSounds();
+    playStart();
     const stage = stageRef.current;
     if (!stage) return;
     const { cols, rows } = gridFor(stage.clientWidth, stage.clientHeight);
@@ -346,7 +347,8 @@ export function ReverseSnake() {
             <button type="button" onClick={() => setStatus('playing')} autoFocus>Seguir</button>
           </>}
           {status === 'over' && <>
-            <h2 id="snk-message">¡Te comieron! 🐍</h2>
+            <EndBanner win={false} id="snk-message" />
+            <p className="end-reason">¡Te comieron! 🐍</p>
             <p>Aguantaste <strong>{clock(hud.seconds)}</strong> e hiciste <strong>{hud.points}</strong> puntos. La serpiente llegó a medir {hud.length}.{newRecord && ' ¡Nuevo récord!'}</p>
             <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
           </>}

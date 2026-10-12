@@ -6,7 +6,8 @@ import {
   type Building, type Climb, type Escape, type Fallen, type Fire, type Heli, type Input, type LavaGame, type LoseReason, type Person, type Plat, type Spark, type Zip,
 } from './lava';
 import { lavaLevels } from './lavaSound';
-import { playCrumble, playElevatorDing, playFootstep, playGameOver, playJump, playLavaFall, playLose, playPersonBurn, playTramp, playWin, setLavaAmbient, unlockSounds } from './sounds';
+import { playCrumble, playElevatorDing, playFootstep, playGameOver, playJump, playLavaFall, playLose, playPersonBurn, playStart, playTramp, playWinFanfare, setLavaAmbient } from './sounds';
+import { EndBanner } from './EndBanner';
 
 const RECORD_KEY = 'escritorio-personal-juegos:lava-record';
 export interface LavaRecord { height: number; time: number | null } // metros más altos y mejor tiempo hasta el helicóptero
@@ -1491,7 +1492,7 @@ export function LavaFloor() {
   }, []);
 
   const start = useCallback(() => {
-    unlockSounds();
+    playStart();
     gameRef.current = newLava(); // cada partida arranca en otro lugar de la cuadra
     follow(-1);
     input.current = { ...NO_INPUT };
@@ -1539,7 +1540,7 @@ export function LavaFloor() {
         if (e.type === 'jump') playJump();
         if (e.type === 'bounce') playTramp();
         if (e.type === 'crumble') playCrumble();
-        if (e.type === 'win') playWin();
+        if (e.type === 'win') playWinFanfare();
         if (e.type === 'lose') { if (e.reason === 'lava') playLavaFall(); else playLose(e.reason === 'fire' ? 'burn' : 'zap'); }
         if (e.type === 'burn' && g.time - lastScream > 0.3) { // la gente que alcanza la lava (solo la que está cerca)
           const person = g.people.find(q => q.id === e.id);
@@ -1646,12 +1647,13 @@ export function LavaFloor() {
               <button type="button" onClick={() => setStatus('playing')} autoFocus>Seguir</button>
             </>}
             {status === 'over' && <>
-              <h2 id="lava-message" className="trepa-gameover">GAME OVER</h2>
+              <EndBanner win={false} id="lava-message" />
               <p>{LOSE_TEXT[result.reason]} Llegaste a <strong>{result.m} m</strong> en {formatLavaTime(result.time)}.{result.newRecord && ' ¡Nuevo récord!'}</p>
               <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
             </>}
             {status === 'won' && <>
-              <h2 id="lava-message" className="trepa-win">¡Te salvaste! 🚁</h2>
+              <EndBanner win id="lava-message" />
+              <p className="end-reason">¡Te salvaste! 🚁</p>
               <p>Te subiste al helicóptero en <strong>{formatLavaTime(result.time)}</strong>, justo antes que la lava.{result.newRecord && ' ¡Rompiste el récord!'}</p>
               <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
             </>}

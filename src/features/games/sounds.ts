@@ -10,6 +10,9 @@ import lluviaUrl from './assets/sonidos/lluvia.mp3';
 import tiburonAtacaUrl from './assets/sonidos/tiburon-ataca.mp3';
 import victoriaUrl from './assets/sonidos/victoria.mp3';
 import cartaUrl from './assets/sonidos/carta.mp3';
+import gameOverUrl from './assets/sonidos/game-over.mp3';
+import ganasteUrl from './assets/sonidos/ganaste.mp3';
+import jugarUrl from './assets/sonidos/jugar.mp3';
 import golUrl from './assets/sonidos/gol.mp3';
 import hinchadaUrl from './assets/sonidos/hinchada.mp3';
 import patadaUrl from './assets/sonidos/patada.mp3';
@@ -293,10 +296,16 @@ function scream(c: AudioContext, start: number, pitch = 1, volume = 0.9) {
 }
 // GAME OVER: la musiquita triste de los videojuegos viejos (cuatro notas que bajan y la última tiembla).
 // thud: un golpe antes de la música (en Trepaluna, el personaje contra la calle).
+// thud: un golpe antes (en Trepaluna, el personaje contra la calle). Suena la grabación de GAME OVER; mientras
+// carga, la musiquita sintetizada.
 export function playGameOver(thud = false) {
-  const c = running(); if (!c) return;
+  whenRunning(c => {
+    if (thud) burst(c, 'lowpass', 300, c.currentTime, 0.25, 0.8);
+    if (!playSample(gameOverUrl, 0.9, thud ? 0.2 : 0)) gameOverTune(c);
+  });
+}
+function gameOverTune(c: AudioContext) {
   const t = c.currentTime;
-  if (thud) burst(c, 'lowpass', 300, t, 0.25, 0.8);
   const notes: [number, number, number][] = [[392, 0.25, 0.22], [370, 0.5, 0.22], [349, 0.75, 0.22], [330, 1.0, 0.9]];
   for (const [f, at, length] of notes) {
     const o = osc(c, 'square', f), gain = c.createGain(), s = t + at;
@@ -319,10 +328,21 @@ export function playWin() {
 // ---------- SkynetBall ----------
 // Sonidos grabados (archivos .mp3): se cargan una sola vez y se reproducen por el mismo limitador que el resto.
 const samples = new Map<string, AudioBuffer | 'loading'>();
+// Para decodificar los archivos antes del primer clic (cuando todavía no hay audio) alcanza con un contexto
+// "fuera de línea", que no hace ruido: así el sonido de "Jugar" ya está listo cuando lo tocás.
+let offline: BaseAudioContext | null = null;
+function decoder(): BaseAudioContext | null {
+  if (ctx) return ctx;
+  if (offline) return offline;
+  const Offline = globalThis.OfflineAudioContext as typeof OfflineAudioContext | undefined;
+  if (!Offline) return null;
+  try { offline = new Offline(1, 1, 44100); } catch { return null; }
+  return offline;
+}
 function loadSample(url: string) {
-  if (!ctx || samples.has(url)) return;
+  const c = decoder();
+  if (!c || samples.has(url)) return;
   samples.set(url, 'loading');
-  const c = ctx;
   fetch(url).then(r => r.arrayBuffer()).then(data => c.decodeAudioData(data)).then(buffer => { samples.set(url, buffer); })
     .catch(() => { samples.delete(url); }); // si falla, se reintenta la próxima vez y mientras suena el sintetizado
 }
@@ -836,3 +856,17 @@ export function setCrowd(level: number) {
   crowd.gain.cancelScheduledValues(ctx.currentTime);
   crowd.gain.setTargetAtTime(crowdLevel, ctx.currentTime, 0.4);
 }
+
+// ---------- Para todos los juegos ----------
+// Al tocar "Jugar" (o "Jugar de nuevo"): activa el audio y suena la grabación de "Jugar".
+export function playStart() {
+  unlockSounds();
+  whenRunning(() => { playSample(jugarUrl, 0.8); });
+}
+// Al ganar: la grabación de la victoria (mientras carga, un acorde que sube).
+export function playWinFanfare() {
+  whenRunning(() => { if (!playSample(ganasteUrl, 0.9)) playWin(); });
+}
+// Se cargan apenas se abre un juego, así suenan desde el primer clic.
+export function preloadUiSounds() { for (const url of [jugarUrl, ganasteUrl, gameOverUrl]) loadSample(url); }
+if (typeof window !== 'undefined' && typeof fetch === 'function') preloadUiSounds();
