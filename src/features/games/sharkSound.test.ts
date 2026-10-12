@@ -25,4 +25,18 @@ describe('Ciudad Tiburón: sonidos de la tormenta', () => {
     g.player.swimming = true;
     expect(stormLevels(g).water).toBe(1);
   });
+
+  it('la hélice de un tiburón volador se escucha desde lejos y más fuerte cuanto más cerca (al máximo cuando se tira)', () => {
+    const g = newShark(1), p = g.player;
+    expect(stormLevels(g).rotor).toBe(0); // todavía no hay voladores
+    const f = { id: 1, type: 'blanco' as const, x: p.x + 18, y: p.y + 4.3, dir: -1 as const, state: 'cruise' as const, t: 0, vx: 0, vy: 0, cool: 0, dist: 0 };
+    g.flyers = [f];
+    const far = stormLevels(g).rotor;
+    expect(far).toBeGreaterThan(0.2);
+    f.x = p.x + 2;
+    const near = stormLevels(g).rotor;
+    expect(near).toBeGreaterThan(far);
+    Object.assign(f, { state: 'dive' });
+    expect(stormLevels(g).rotor).toBeGreaterThan(near);
+  });
 });
