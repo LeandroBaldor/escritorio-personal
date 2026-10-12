@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BLOCKS, buildCity, flyersAt, FLOAT_Y, GOAL, newShark, PLAYER_TARGET, REACH, rescueX, SHARKS, sharksAt, step, takeEvents, TIME_LIMIT, WATER_Y, windAt, WIND_CALM, WIND_TURN, sharkMouth, GALE_TIME,
+  BLOCKS, buildCity, flyersAt, FLOAT_Y, GOAL, newShark, PLAYER_TARGET, REACH, rescueX, SHARKS, sharksAt, step, takeEvents, TIME_LIMIT, WATER_Y, windAt, WIND_CALM, WIND_TURN, sharkMouth, GALE_TIME, mouthOpen,
   type Input, type Lane, type Plat, type SharkGame,
 } from './shark';
 
@@ -474,6 +474,20 @@ describe('Ciudad Tiburón: tiburones voladores', () => {
     for (let i = 0; i < 60 * 4; i++) { g.player.inside = g.blocks.find(b => b.kind === 'building')!.id; step(g, idle, 1 / 60); }
     expect(f.state).toBe('cruise');
     expect(g.dying).toBeNull();
+  });
+});
+
+describe('Ciudad Tiburón: la boca del tiburón al saltar', () => {
+  it('sale del agua con la boca cerrada, la abre arriba y la cierra cuando agarra a alguien', () => {
+    const g = newShark(5), s = g.sharks[0];
+    Object.assign(s, { state: 'jump', vy: 14, y: 0 });
+    expect(mouthOpen(s, g)).toBe(false); // subiendo rápido: cerrada
+    s.vy = 2;
+    expect(mouthOpen(s, g)).toBe(true); // arriba: abierta
+    s.ate = true;
+    expect(mouthOpen(s, g)).toBe(false); // ya agarró a alguien: cerrada
+    s.state = 'patrol';
+    expect(mouthOpen(s, g)).toBe(true); // nadando, como siempre
   });
 });
 

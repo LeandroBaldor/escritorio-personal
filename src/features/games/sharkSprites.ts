@@ -1,11 +1,17 @@
 // Las imágenes de los tiburones de "Ciudad Tiburón": el tiburón blanco, el tiburón ballena y el martillo, tal
 // cual las referencias, recortados sobre fondo transparente y mirando a la derecha con la boca abierta.
+import ballenaCerradaUrl from './assets/tiburon-ballena-cerrada.webp';
 import ballenaUrl from './assets/tiburon-ballena.webp';
+import blancoCerradaUrl from './assets/tiburon-blanco-cerrada.webp';
 import blancoUrl from './assets/tiburon-blanco.webp';
+import martilloCerradaUrl from './assets/tiburon-martillo-cerrada.webp';
 import martilloUrl from './assets/tiburon-martillo.webp';
 import type { SharkType } from './shark';
 
 const URLS: Record<SharkType, string> = { blanco: blancoUrl, ballena: ballenaUrl, martillo: martilloUrl };
+// Los mismos tiburones con la boca cerrada: del mismo tamaño y en el mismo lugar (la cola y la aleta de arriba
+// coinciden), así al cambiar de imagen parece que cierra la boca.
+const CLOSED_URLS: Record<SharkType, string> = { blanco: blancoCerradaUrl, ballena: ballenaCerradaUrl, martillo: martilloCerradaUrl };
 // La mandíbula de abajo (en fracciones de la imagen): se vuelve a dibujar encima del bombero para que quede
 // entre los dientes.
 const JAW: Record<SharkType, [number, number][]> = {
@@ -16,6 +22,7 @@ const JAW: Record<SharkType, [number, number][]> = {
 const STRIPS = 28; // para que ondule al nadar, la imagen se dibuja en tiras
 
 const sprites = new Map<SharkType, HTMLImageElement>();
+const closedSprites = new Map<SharkType, HTMLImageElement>();
 let scratch: HTMLCanvasElement | null = null;
 let started = false;
 
@@ -24,14 +31,17 @@ export function loadSharkSprites() {
   if (started || typeof Image === 'undefined') return;
   started = true;
   for (const type of Object.keys(URLS) as SharkType[]) {
-    const img = new Image();
-    img.onload = () => sprites.set(type, img);
-    img.src = URLS[type];
+    for (const [urls, into] of [[URLS, sprites], [CLOSED_URLS, closedSprites]] as const) {
+      const img = new Image();
+      img.onload = () => into.set(type, img);
+      img.src = urls[type];
+    }
   }
 }
 
 export interface SpriteOptions {
   jawOnly?: boolean; // solo la mandíbula de abajo
+  closed?: boolean; // con la boca cerrada (si esa imagen todavía no cargó, se usa la de boca abierta)
   wave?: number; // la fase de la ondulación al nadar (sin esto queda derecho)
   amp?: number; // cuánto ondula (en fracciones del alto de la imagen)
 }
@@ -40,7 +50,7 @@ export interface SpriteOptions {
 // Nadando, el cuerpo hace una onda que va de la cabeza a la cola: la cola se mueve mucho y la cabeza casi nada.
 // Devuelve false si la imagen todavía no cargó.
 export function drawSharkSprite(ctx: CanvasRenderingContext2D, type: SharkType, cx: number, cy: number, len: number, angle: number, dir: 1 | -1, opts: SpriteOptions = {}) {
-  const img = sprites.get(type);
+  const img = (opts.closed && !opts.jawOnly ? closedSprites.get(type) : undefined) ?? sprites.get(type);
   if (!img) return false;
   const w = len, h = (len * img.naturalHeight) / img.naturalWidth;
   ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle); ctx.scale(dir, 1);

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  CHOMP, FLOAT_Y, galeAt, GOAL, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, sharkLen, sharkPose, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
+  CHOMP, FLOAT_Y, galeAt, mouthOpen, GOAL, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, sharkLen, sharkPose, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
   type Block, type Climb, type Decor, type Input, type LoseReason, type Plat, type Rescue, type RescueKind, type Shark, type SharkGame, type SharkType, type Zip,
 } from './shark';
 import { drawSharkSprite, loadSharkSprites, type SpriteOptions } from './sharkSprites';
@@ -372,13 +372,13 @@ const drawShark = (ctx: CanvasRenderingContext2D, k: Shark, x: number, y: number
   drawSharkSprite(ctx, k.type, x, y, sharkLen(k) * s, angle, dir, opts);
 
 // Dibuja el tiburón cortado por la superficie: arriba del agua se ve entero y abajo, apagado.
-function drawSharkCut(ctx: CanvasRenderingContext2D, k: Shark, v: View, under: number) {
+function drawSharkCut(ctx: CanvasRenderingContext2D, k: Shark, v: View, under: number, closed = false) {
   const { dir, a } = sharkPose(k), angle = -a * dir, x = X(v, k.x), y = Y(v, k.y), surface = Y(v, 0);
   ctx.save(); ctx.beginPath(); ctx.rect(-50, -50, v.w + 100, surface + 50); ctx.clip();
-  drawShark(ctx, k, x, y, v.s, angle, dir);
+  drawShark(ctx, k, x, y, v.s, angle, dir, { closed });
   ctx.restore();
   ctx.save(); ctx.globalAlpha = under; ctx.beginPath(); ctx.rect(-50, surface, v.w + 100, v.h); ctx.clip();
-  drawShark(ctx, k, x, y, v.s, angle, dir);
+  drawShark(ctx, k, x, y, v.s, angle, dir, { closed });
   ctx.restore();
 }
 
@@ -440,10 +440,10 @@ function churn(ctx: CanvasRenderingContext2D, v: View, x: number, size: number, 
     ctx.beginPath(); ctx.arc(X(v, x) + Math.cos(a) * r, Y(v, 0) + Math.sin(a) * r * 0.5, v.s * (0.05 + hash(i) * 0.08), 0, Math.PI * 2); ctx.fill();
   }
 }
-function drawSharkJump(ctx: CanvasRenderingContext2D, k: Shark, v: View) {
+function drawSharkJump(ctx: CanvasRenderingContext2D, k: Shark, v: View, g: SharkGame) {
   const L = sharkLen(k);
   if ((k.state !== 'jump' && k.state !== 'bite') || !visible(v, k.x - L, k.x + L, -3, 6)) return;
-  drawSharkCut(ctx, k, v, 0.45);
+  drawSharkCut(ctx, k, v, 0.45, !mouthOpen(k, g));
   if (Math.abs(k.y) < 0.25 * L + 0.3) churn(ctx, v, k.x, L * 0.35, k.id);
 }
 
@@ -660,7 +660,7 @@ function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
   const eaten = g.dying?.reason === 'shark' || g.dying?.reason === 'flyer' ? g.dying : null;
   if (!eaten) drawPlayer(ctx, g, v);
   else if (eaten.t < CHOMP) drawFirefighter(ctx, g, v, 1 - (eaten.t / CHOMP) * 0.4);
-  for (const k of g.sharks) drawSharkJump(ctx, k, v);
+  for (const k of g.sharks) drawSharkJump(ctx, k, v, g);
   for (const f of g.flyers) drawFlyer(ctx, f, v, flash.a);
   drawFx(ctx, g, v, 'air');
   if (eaten && eaten.t < CHOMP) {
@@ -893,7 +893,7 @@ export function SharkCity() {
           <div>
             {status === 'ready' && <>
               <h2 id="tib-message" className="tib-title">Ciudad Tiburón 🦈</h2>
-              <p>La ciudad se inundó, hay tormenta y el agua está llena de tiburones. Sos bombero: rescatá a <strong>{GOAL}</strong> perritos, gatos y personas que flotan en el agua en menos de <strong>5 minutos</strong>. Para agarrarlos tenés que bajar cerca del agua: mirá las aletas, porque cuando un tiburón se frena y salen burbujas, ¡salta! Moverte por techos, balcones, escaleras, cables, toldos, autos tapados por el agua y todo lo que arrastra la corriente. El agua pasa por delante de los edificios y los tiburones nadan por toda la ciudad: si caés al agua, salí rápido. Por las puertas de los balcones y de las escaleras de incendio podés entrar a los departamentos: adentro los tiburones no te ven. Lo que flota se lo lleva el viento y al rato se hunde. El viento sopla para un lado y para el otro y te empuja, y de la nada viene un súper viento que te revolea lejísimos: metete en un edificio. Con el tiempo llegan más tiburones, y también tiburones voladores con hélice: cuando uno se frena arriba tuyo y aparece un <strong>!</strong>, movete rápido o metete en un edificio, porque se tira en picada.</p>
+              <p>La ciudad se inundó, hay tormenta y el agua está llena de tiburones. Sos bombero: rescatá a <strong>{GOAL}</strong> perritos, gatos y personas que flotan en el agua en menos de <strong>10 minutos</strong>. Para agarrarlos tenés que bajar cerca del agua: mirá las aletas, porque cuando un tiburón se frena y salen burbujas, ¡salta! Moverte por techos, balcones, escaleras, cables, toldos, autos tapados por el agua y todo lo que arrastra la corriente. El agua pasa por delante de los edificios y los tiburones nadan por toda la ciudad: si caés al agua, salí rápido. Por las puertas de los balcones y de las escaleras de incendio podés entrar a los departamentos: adentro los tiburones no te ven. Lo que flota se lo lleva el viento y al rato se hunde. El viento sopla para un lado y para el otro y te empuja, y de la nada viene un súper viento que te revolea lejísimos: metete en un edificio. Con el tiempo llegan más tiburones, y también tiburones voladores con hélice: cuando uno se frena arriba tuyo y aparece un <strong>!</strong>, movete rápido o metete en un edificio, porque se tira en picada.</p>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> trepar escaleras, sogas, caños, postes y tirolesas (o saltar) · <kbd>↓</kbd> bajar · <kbd>Espacio</kbd> saltar · <kbd>P</kbd> pausa</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}

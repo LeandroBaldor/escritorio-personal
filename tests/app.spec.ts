@@ -577,7 +577,7 @@ test('Ciudad Tiburón: se abre desde Juegos, corre el tiempo para atrás, cuenta
   await page.getByRole('link', { name: /Ciudad Tiburón/ }).click();
   await expect(page.getByRole('heading', { name: 'Ciudad Tiburón', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
-  await expect(page.getByTestId('tib-time')).toHaveText(/^4:5\d$/);
+  await expect(page.getByTestId('tib-time')).toHaveText(/^9:5\d$/);
   await expect(page.getByTestId('tib-saved')).toHaveText('0 / 20');
   await expect(page.getByTestId('tib-sharks')).toHaveText(/^\d+ 🦈$/);
   await expect(page.locator('.runner-pad button[aria-label="Saltar"]')).toHaveCount(1);

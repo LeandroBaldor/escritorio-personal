@@ -29,7 +29,7 @@ export const BOUNCE = 16; // el toldo te tira para arriba (unas 4,3 unidades)
 export const ZIP_SPEED = 7, HANG = 1.05;
 export const WATER_Y = -0.45; // nadando, los pies quedan a esta altura
 export const FLOAT_Y = 0.15; // arriba de las cosas que flotan
-export const TIME_LIMIT = 300, GOAL = 20;
+export const TIME_LIMIT = 600, GOAL = 20;
 export const WIND = 1.6, WIND_AIR = 2.8; // lo que te empuja el viento fuerte, parado y en el aire (unidades por segundo)
 export const WIND_TURN = 7, WIND_CALM = 1.5; // cada 7 s cambia de lado; al cambiar hay un rato de calma
 export const WIND_DRIFT = 0.7; // lo que el viento empuja a las cosas que flotan
@@ -91,6 +91,7 @@ export interface Shark {
   id: number; type: SharkType; lane: number; x: number; dir: 1 | -1;
   state: 'patrol' | 'approach' | 'warn' | 'jump' | 'chase' | 'bite';
   t: number; y: number; vy: number; vx: number; target: number; hunger: number; rest: number; turn: number; born: number;
+  ate?: boolean; // en este salto ya agarró a alguien (cierra la boca)
 }
 export const PLAYER_TARGET = -1;
 // Tiburones voladores: cuelgan de un arnés con un motor y una hélice de helicóptero. Patrullan el cielo arriba
@@ -608,6 +609,14 @@ export function sharkPose(s: Shark) {
   const dir: 1 | -1 = out ? (s.vx > 0.05 ? 1 : s.vx < -0.05 ? -1 : s.dir) : s.dir;
   return { dir, a: out ? Math.atan2(s.vy, 4) * 0.9 : 0 };
 }
+// La boca en el salto: sale del agua con la boca cerrada, la abre cuando llega arriba (cerca de lo que va a
+// morder) y la cierra de golpe cuando agarra a alguien. Nadando la tiene abierta.
+export const OPEN_VY = 7;
+export function mouthOpen(s: Shark, g: SharkGame) {
+  if (s.state === 'bite') return !(g.dying && g.dying.shark === s.id && g.dying.t >= CHOMP);
+  if (s.state === 'jump') return !s.ate && s.vy < OPEN_VY;
+  return true;
+}
 // Dónde está la boca (en el medio de las mandíbulas).
 export function sharkMouth(s: Shark) {
   const L = sharkLen(s), { dir, a } = sharkPose(s), [along, down] = SHARKS[s.type].mouth.map(f => f * L);
@@ -634,9 +643,9 @@ function sharks(g: SharkGame, dt: number) {
       if (!g.dying && p.inside === null && p.x + PLAYER_W / 2 > box.x1 && p.x - PLAYER_W / 2 < box.x2 && p.y < box.y2 && p.y + PLAYER_H > box.y1) { s.state = 'bite'; lose(g, 'shark', s.id); return; }
       for (const r of g.rescues) {
         if (r.state !== 'drift') continue;
-        if (Math.abs(rescueX(r) - s.x) < 0.3 * L && box.y2 > FLOAT_Y) { r.state = 'taken'; r.at = g.time; r.fromX = rescueX(r); r.fromY = FLOAT_Y; removePlat(g, r.plat); g.events.push({ type: 'taken', kind: r.kind, x: r.fromX }); addFx(g, 'blood', r.fromX, r.kind === 'persona' ? 2.6 : 2, FLOAT_Y + 0.3); }
+        if (Math.abs(rescueX(r) - s.x) < 0.3 * L && box.y2 > FLOAT_Y) { r.state = 'taken'; r.at = g.time; r.fromX = rescueX(r); r.fromY = FLOAT_Y; removePlat(g, r.plat); s.ate = true; g.events.push({ type: 'taken', kind: r.kind, x: r.fromX }); addFx(g, 'blood', r.fromX, r.kind === 'persona' ? 2.6 : 2, FLOAT_Y + 0.3); }
       }
-      if (s.y <= swimY(s) && s.vy < 0) { s.y = swimY(s); s.vy = 0; s.state = 'patrol'; s.rest = SHARK_REST; s.target = 0; g.events.push({ type: 'splash' }); addFx(g, 'splash', s.x, L * 0.5); }
+      if (s.y <= swimY(s) && s.vy < 0) { s.y = swimY(s); s.vy = 0; s.ate = false; s.state = 'patrol'; s.rest = SHARK_REST; s.target = 0; g.events.push({ type: 'splash' }); addFx(g, 'splash', s.x, L * 0.5); }
       continue;
     }
     const prey = s.target === PLAYER_TARGET ? null : g.rescues.find(r => r.id === s.target && r.state === 'drift');
