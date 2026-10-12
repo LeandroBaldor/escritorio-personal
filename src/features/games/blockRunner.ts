@@ -143,20 +143,23 @@ function freeColumns(game: Game, width: number) {
   return free;
 }
 
-// Dificultad: sube de a poco (el nivel que se muestra cambia cada 15 segundos y al llegar al nivel 10,
-// a los 2:15, se gana: antes de que la pila llegue arriba si lográs sobrevivir). Las piezas caen más
-// rápido, aparecen más seguido y casi la mitad de lo que cae son bombas. La cantidad de piezas depende del tamaño del tablero, así en la compu y en el celular la
-// pila tarda parecido en llegar arriba (una ronda dura unos 2 a 3 minutos).
-export const LEVEL_SECONDS = 15;
+// Dificultad: sube de a poco. Cada nivel dura 1 minuto y al llegar al nivel 10, a los 9 minutos, se gana.
+// Las piezas caen más rápido, aparecen más seguido y casi la mitad de lo que cae son bombas. Todo sube
+// al ritmo de los niveles ("pace" va de 0 a 135 entre el nivel 1 y el 10). La cantidad de piezas depende
+// del tamaño del tablero, así en la compu y en el celular la pila tarda parecido en llegar arriba.
+export const LEVEL_SECONDS = 60;
 export const WIN_LEVEL = 10;
 export const level = (game: Game) => 1 + Math.floor(game.time / LEVEL_SECONDS);
+const pace = (game: Game) => game.time * 15 / LEVEL_SECONDS;
 const SPAWN_BASE = 1.1;
 const spawnInterval = (game: Game, rand: () => number) =>
-  SPAWN_BASE * (196 / (game.cols * game.rows)) * rush(game.time) * (0.75 + rand() * 0.5);
-// Va apurando de a poco y, pasados los 2 minutos y medio, mucho más: así la ronda termina antes de los 3 minutos.
+  SPAWN_BASE * (196 / (game.cols * game.rows)) * rush(pace(game)) * (0.75 + rand() * 0.5);
+// Va apurando de a poco y, si se sigue de largo después del nivel 10, mucho más.
 const rush = (t: number) => t < 150 ? 1 - t / 330 : 0.545 * Math.max(0.25, 1 - (t - 150) / 40);
-const bombChance = (game: Game) => game.time < 3 ? 0 : game.time > 150 ? 0.1 : Math.min(0.55, 0.4 + game.time * 0.0012);
-const fallSpeed = (game: Game, rand: () => number) => Math.min(8, 2.6 + game.time * 0.03) * (0.85 + rand() * 0.3);
+// Como la ronda es larga, cuando la pila se acerca arriba caen más bombas para que no termine antes de tiempo.
+const crowd = (game: Game) => game.grid.slice(0, 4).reduce((n, row) => n + row.filter(Boolean).length, 0) / game.cols;
+const bombChance = (game: Game) => game.time < 3 ? 0 : pace(game) > 150 ? 0.1 : Math.min(0.85, 0.4 + pace(game) * 0.0012 + crowd(game) * 0.6);
+const fallSpeed = (game: Game, rand: () => number) => Math.min(8, 2.6 + pace(game) * 0.03) * (0.85 + rand() * 0.3);
 
 export function spawnPiece(game: Game, rand: () => number) {
   const shape = SHAPES[Math.floor(rand() * SHAPES.length)];

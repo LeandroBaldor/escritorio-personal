@@ -783,6 +783,9 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 .runner-trap{position:absolute;top:10%;left:50%;transform:translateX(-50%);padding:.6rem 1.2rem;background:#7f1d1df0;border:3px solid #fca5a5;border-radius:12px;color:#fff;font-weight:900;font-size:clamp(1.1rem,3vw,1.6rem);white-space:nowrap;pointer-events:none;animation:runner-blink .5s steps(2) infinite alternate;box-shadow:0 8px 24px #000a}
 .runner-trap strong{font-size:1.3em;color:#fde047;margin-left:.2rem}
 @keyframes runner-blink{to{background:#b91c1cf0}}
+.runner-level{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:.8rem 2.2rem;background:#1e1b4bf0;border:4px solid #fde047;border-radius:18px;color:#fff;font:900 clamp(2rem,7vw,4rem)/1 Nunito,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;pointer-events:none;box-shadow:0 0 32px #fde04788,0 10px 30px #000b;animation:runner-level 3s ease-out forwards}
+.runner-level strong{color:#fde047;margin-left:.3em}
+@keyframes runner-level{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}20%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
 
 /* Trepaluna */
 .trepa-main{flex:1;min-height:0;display:flex;gap:.5rem}

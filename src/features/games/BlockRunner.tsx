@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { drawRunner } from './runnerCharacter';
-import { level, newGame, WIN_LEVEL, TRAP_SECONDS, PLAYER_H, PLAYER_W, score, step, takeEvents, type Game, type GameOver, type Input } from './blockRunner';
+import { level, LEVEL_SECONDS, newGame, WIN_LEVEL, TRAP_SECONDS, PLAYER_H, PLAYER_W, score, step, takeEvents, type Game, type GameOver, type Input } from './blockRunner';
 import { playBlockLand, playExplosion, playFootstep, playGameOver, playJump, preloadBlockSounds, unlockSounds } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:bloques-record';
@@ -251,12 +251,15 @@ export function BlockRunner() {
     </div>
     <div className="runner-stage" ref={stageRef}>
       <canvas ref={canvasRef} role="img" aria-label="Tablero del juego" />
+      {/* Al pasar de nivel aparece un cartel en el medio de la pantalla durante unos segundos. */}
+      {status === 'playing' && stage.level > 1 && stage.seconds - (stage.level - 1) * LEVEL_SECONDS < 3 &&
+        <div key={stage.level} className="runner-level" role="status">Nivel <strong>{stage.level}</strong></div>}
       {status === 'playing' && trap > 0 && <div className="runner-trap" role="alert">¡Encerrado! Salí en <strong>{trap}</strong></div>}
       {status !== 'playing' && <div className="runner-overlay" role="dialog" aria-labelledby="runner-message">
         <div>
           {status === 'ready' && <>
             <h2 id="runner-message">¡Cuidado, bloques!</h2>
-            <p>Caen piezas de tetris y bombas desde arriba. Corré y saltá para que no te aplasten. Cada pieza rompe los bloques de su mismo color que encuentra abajo; las demás se apilan y te sirven de escalones. Las bombas explotan al llegar: alejate. Si quedás encerrado tenés 10 segundos para salir. Si los bloques llegan arriba, se termina. Llegá al nivel 10 para ganar.</p>
+            <p>Caen piezas de tetris y bombas desde arriba. Corré y saltá para que no te aplasten. Cada pieza rompe los bloques de su mismo color que encuentra abajo; las demás se apilan y te sirven de escalones. Las bombas explotan al llegar: alejate. Si quedás encerrado tenés 10 segundos para salir. Si los bloques llegan arriba, se termina. Cada nivel dura 1 minuto: llegá al nivel 10 para ganar.</p>
             <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> correr · <kbd>↑</kbd> o <kbd>Espacio</kbd> saltar · <kbd>P</kbd> pausa</p>
             <button type="button" onClick={start} autoFocus>Jugar</button>
           </>}
