@@ -802,7 +802,7 @@ export function playSnakeEat() {
 export function preloadSoccerSounds() { for (const url of [golUrl, hinchadaUrl, patadaUrl]) loadSample(url); }
 // Una patada a la pelota (pase, tiro o pase del rival): la grabación; mientras carga, un golpe sintetizado.
 export function playKick(volume = 1) {
-  if (playSample(patadaUrl, 0.75 * volume)) return;
+  if (playSample(patadaUrl, 1.8 * volume)) return;
   const c = running(); if (!c) return;
   tone(c, 'sine', 170, 70, c.currentTime, 0.1, 0.6 * volume);
 }
