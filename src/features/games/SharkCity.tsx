@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  CHOMP, flyerMouthOpen, FLOAT_Y, galeAt, mouthOpen, GOAL, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, sharkLen, sharkPose, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
+  CHOMP, flyerMouthOpen, sharkMouth, FLOAT_Y, galeAt, mouthOpen, GOAL, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, sharkLen, sharkPose, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
   type Block, type Climb, type Decor, type Input, type LoseReason, type Plat, type Rescue, type RescueKind, type Shark, type SharkGame, type SharkType, type Zip,
 } from './shark';
 import { drawSharkSprite, loadSharkSprites, type SpriteOptions } from './sharkSprites';
@@ -106,8 +106,10 @@ function drawBlock(ctx: CanvasRenderingContext2D, g: SharkGame, b: Block, v: Vie
   if (b.kind === 'building') {
     drawBuilding(ctx, g, b, v, flash);
     if (g.player.inside === b.id) drawInterior(ctx, g, b, v);
-  } else if (b.kind === 'house') drawHouse(ctx, b, v);
-  else drawShop(ctx, b, v);
+  } else if (b.kind === 'house') {
+    drawHouse(ctx, b, v);
+    if (g.player.inside === b.id) drawInterior(ctx, g, b, v);
+  } else drawShop(ctx, b, v);
 }
 
 // ---------- Lo que sirve para moverse ----------
@@ -355,11 +357,8 @@ function drawRescue(ctx: CanvasRenderingContext2D, r: Rescue, g: SharkGame, v: V
     ctx.fillText(r.kind === 'perro' ? '+1 🐶' : r.kind === 'gato' ? '+1 🐱' : '+1 🙋', X(v, g.player.x), Y(v, g.player.y + 1.4 + age * 1.5));
     ctx.globalAlpha = 1;
   } else if (r.state === 'taken' && age < 1.4) {
-    // Se lo lleva el tiburón: se hunde con burbujas.
-    const cx = X(v, r.fromX), base = Y(v, FLOAT_Y - Math.min(1.2, age * 1.2));
-    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, v.w, Y(v, 0)); ctx.clip();
-    drawCritter(ctx, r.kind, r.look, cx, base, s * 0.95, t, 0);
-    ctx.restore();
+    // Se lo comió el tiburón (se ve entre los dientes, ver drawSharkJump): quedan burbujas donde flotaba.
+    const cx = X(v, r.fromX);
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(cx + (hash(i + r.id) - 0.5) * s, Y(v, (age * 2 + hash(i)) % 1 * 0.6), s * 0.06, 0, Math.PI * 2); ctx.fill(); }
   }
@@ -392,7 +391,7 @@ function swimPose(k: Shark, v: View) {
   const slow = k.type === 'ballena' ? 0.55 : 1;
   const y = k.y + Math.sin(t * 1.3 + k.id) * 0.035 * L * (1 - warn) - warn * 0.25 * L;
   const angle = (Math.sin(t * 1.3 + k.id + 1.2) * 0.03 - warn * 0.32) * k.dir;
-  return { x: X(v, k.x), y: Y(v, y), angle, warn, fast, opts: { wave: t * (fast ? 10 : 5.5) * slow + k.id, amp: fast ? 0.045 : 0.03, closed: true } }; // nadando, con la boca cerrada
+  return { x: X(v, k.x), y: Y(v, y), angle, warn, fast, opts: { wave: t * (fast ? 10 : 5.5) * slow + k.id, amp: fast ? 0.045 : 0.03, closed: k.state !== 'warn' } }; // nadando, con la boca cerrada (en posición para saltar, ya la abre)
 }
 const swimming = (k: Shark) => k.state !== 'jump' && k.state !== 'bite';
 
@@ -444,7 +443,14 @@ function churn(ctx: CanvasRenderingContext2D, v: View, x: number, size: number, 
 function drawSharkJump(ctx: CanvasRenderingContext2D, k: Shark, v: View, g: SharkGame) {
   const L = sharkLen(k);
   if ((k.state !== 'jump' && k.state !== 'bite') || !visible(v, k.x - L, k.x + L, -3, 6)) return;
-  drawSharkCut(ctx, k, v, 0.45, !mouthOpen(k, g));
+  const open = mouthOpen(k, g);
+  drawSharkCut(ctx, k, v, 0.45, !open);
+  if (open && k.prey) {
+    // Agarró a uno que flotaba: queda entre los dientes (la mandíbula de abajo por encima) hasta que cierra la boca.
+    const m = sharkMouth(k), { dir, a } = sharkPose(k);
+    drawCritter(ctx, k.prey.kind, k.prey.look, X(v, m.x), Y(v, m.y - 0.25), v.s * 1.05, v.t, 0);
+    drawShark(ctx, k, X(v, k.x), Y(v, k.y), v.s, -a * dir, dir, { jawOnly: true });
+  }
   if (Math.abs(k.y) < 0.25 * L + 0.3) churn(ctx, v, k.x, L * 0.35, k.id);
 }
 
@@ -807,9 +813,9 @@ export function SharkCity() {
         if (e.type === 'more') setToast({ text: `¡Ya hay ${e.count} tiburones! 🦈`, id: now });
         if (e.type === 'wind') setToast({ text: e.dir > 0 ? '¡Ráfaga de viento! 💨 →' : '← 💨 ¡Ráfaga de viento!', id: now });
         if (e.type === 'hurry') setToast({ text: e.left === 60 ? '¡Queda 1 minuto!' : '¡Quedan 30 segundos!', id: now, big: true });
-        if (e.type === 'galeWarn') setToast({ text: `⚠️ ¡Se viene un SÚPER VIENTO ${e.dir > 0 ? '→' : '←'}! ¡Metete en un edificio!`, id: now, big: true });
+        if (e.type === 'galeWarn') setToast({ text: `⚠️ ¡Se viene un SÚPER VIENTO ${e.dir > 0 ? '→' : '←'}! ¡Metete en un edificio o en una casa!`, id: now, big: true });
         if (e.type === 'gale') setToast({ text: e.dir > 0 ? '🌪️ ¡SÚPER VIENTO! →→→' : '←←← ¡SÚPER VIENTO! 🌪️', id: now, big: true });
-        if (e.type === 'enter' && !enterToldRef.current) { enterToldRef.current = true; setToast({ text: '¡Entraste a un departamento! Acá los tiburones no te ven 🏠 (por la escalera llegás a la terraza)', id: now }); }
+        if (e.type === 'enter' && !enterToldRef.current) { enterToldRef.current = true; setToast({ text: `¡Entraste a ${g.player.inside !== null && g.blocks[g.player.inside].kind === 'house' ? 'una casa' : 'un departamento'}! Acá los tiburones no te ven 🏠 (por la escalera llegás a la terraza)`, id: now }); }
         if (e.type === 'flyerNew') setToast({ text: '¡Llegó un tiburón volador! 🚁🦈 Adentro de los edificios no te ve', id: now, big: g.flyers.length === 1 });
         if (e.type === 'flyerWarn') { setToast({ text: '⚠️ ¡Un tiburón volador te vio! ¡Movete!', id: now }); playFlyerWarn(); }
         if (e.type === 'flyerDive') playFlyerDive();
@@ -895,7 +901,7 @@ export function SharkCity() {
           <div>
             {status === 'ready' && <>
               <h2 id="tib-message" className="tib-title">Ciudad Tiburón 🦈</h2>
-              <p>La ciudad se inundó, hay tormenta y el agua está llena de tiburones. Sos bombero: rescatá a <strong>{GOAL}</strong> perritos, gatos y personas que flotan en el agua en menos de <strong>10 minutos</strong>. Para agarrarlos tenés que bajar cerca del agua: mirá las aletas, porque cuando un tiburón se frena y salen burbujas, ¡salta! Moverte por techos, balcones, escaleras, cables, toldos, autos tapados por el agua y todo lo que arrastra la corriente. El agua pasa por delante de los edificios y los tiburones nadan por toda la ciudad: si caés al agua, salí rápido. Por las puertas de los balcones y de las escaleras de incendio podés entrar a los departamentos: adentro los tiburones no te ven. Lo que flota se lo lleva el viento y al rato se hunde. El viento sopla para un lado y para el otro y te empuja, y de la nada viene un súper viento que te revolea lejísimos: metete en un edificio. Con el tiempo llegan más tiburones, y también tiburones voladores con hélice: cuando uno se frena arriba tuyo y aparece un <strong>!</strong>, movete rápido o metete en un edificio, porque se tira en picada.</p>
+              <p>La ciudad se inundó, hay tormenta y el agua está llena de tiburones. Sos bombero: rescatá a <strong>{GOAL}</strong> perritos, gatos y personas que flotan en el agua en menos de <strong>10 minutos</strong>. Para agarrarlos tenés que bajar cerca del agua: mirá las aletas, porque cuando un tiburón se frena y salen burbujas, ¡salta! Moverte por techos, balcones, escaleras, cables, toldos, autos tapados por el agua y todo lo que arrastra la corriente. El agua pasa por delante de los edificios y los tiburones nadan por toda la ciudad: si caés al agua, salí rápido. Por las puertas de los balcones y de las escaleras de incendio podés entrar a los departamentos, y por los balconcitos de los costados de las casas, a las casas: adentro los tiburones no te ven. Lo que flota se lo lleva el viento y al rato se hunde. El viento sopla para un lado y para el otro y te empuja, y de la nada viene un súper viento que te revolea lejísimos: metete en un edificio. Con el tiempo llegan más tiburones, y también tiburones voladores con hélice: cuando uno se frena arriba tuyo y aparece un <strong>!</strong>, movete rápido o metete en un edificio, porque se tira en picada.</p>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> trepar escaleras, sogas, caños, postes y tirolesas (o saltar) · <kbd>↓</kbd> bajar · <kbd>Espacio</kbd> saltar · <kbd>P</kbd> pausa</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}

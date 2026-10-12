@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BLOCKS, buildCity, flyersAt, FLOAT_Y, GOAL, newShark, PLAYER_TARGET, REACH, rescueX, SHARKS, sharksAt, step, takeEvents, TIME_LIMIT, WATER_Y, windAt, WIND_CALM, WIND_TURN, sharkMouth, GALE_TIME, mouthOpen,
+  BLOCKS, buildCity, flyersAt, FLOAT_Y, GOAL, newShark, PLAYER_TARGET, REACH, rescueX, SHARKS, sharksAt, step, takeEvents, TIME_LIMIT, WATER_Y, windAt, WIND_CALM, WIND_TURN, sharkMouth, GALE_TIME, mouthOpen, EAT_SHUT, swimY, flyerMouthOpen,
   type Input, type Lane, type Plat, type SharkGame,
 } from './shark';
 
@@ -280,7 +280,7 @@ describe('Ciudad Tiburón: el juego', () => {
     expect(s.state).toBe('bite');
     run(g, 0.3);
     expect(s.y).toBeGreaterThan(0); // salió del agua
-    run(g, 0.3);
+    run(g, 0.6); // ya cerró la boca (CHOMP): lo tiene entre los dientes
     const m = sharkMouth(s);
     expect(Math.abs(m.x - g.player.x)).toBeLessThan(0.05);
     run(g, 1.5);
@@ -323,6 +323,19 @@ describe('Ciudad Tiburón: el juego', () => {
     expect(g.player.inside).toBeNull();
     expect(g.player.ground?.kind).toBe('roof');
     expect(g.player.y).toBeCloseTo(b.top, 1);
+  });
+
+  it('también se puede entrar a las casas por el balconcito del costado y ahí no te ven los tiburones', () => {
+    const g = calm();
+    const b = g.blocks.find(b => b.kind === 'house' && b.id > 0)!;
+    const balcony = g.plats.find(p => p.kind === 'balcony' && Math.abs(p.x + p.w - b.x1) < 0.05)!;
+    stand(g, balcony);
+    runAlone(g, 0.8, { right: true });
+    expect(g.player.inside).toBe(b.id);
+    expect(g.player.ground?.kind).toBe('floor');
+    g.sharks = [{ id: 77, type: 'blanco', lane: 0, x: g.player.x + 2, dir: -1, state: 'patrol', t: 0, y: -0.5, vy: 0, vx: 0, target: 0, hunger: 99, rest: 0, turn: 9, born: 0 }];
+    run(g, 0.3);
+    expect(g.sharks[0].state).toBe('patrol');
   });
 
   it('desde afuera las paredes no se atraviesan si no hay puerta', () => {
@@ -420,6 +433,11 @@ describe('Ciudad Tiburón: el juego', () => {
     g.rescues.push({ id: 1, kind: 'persona', float: 'goma', look: 0, state: 'drift', at: 0, fromX: 0, fromY: 0, plat, lane: lane.id, speed: 0, dir: 1, min: lane.pole, max: lane.pole });
     for (let i = 0; i < 60 * 6 && !g.rescues.some(r => r.id === 1 && r.state === 'taken'); i++) { g.player.y = 40; g.player.vy = 0; step(g, idle, 1 / 60); }
     expect(g.rescues.some(r => r.id === 1 && r.state === 'taken')).toBe(true);
+    const s = g.sharks[0];
+    expect(s.prey?.kind).toBe('persona'); // la tiene entre los dientes…
+    expect(mouthOpen(s, g)).toBe(true); // …con la boca abierta
+    for (let i = 0; i < 60; i++) { g.player.y = 40; g.player.vy = 0; step(g, idle, 1 / 60); }
+    expect(mouthOpen(s, g)).toBe(false); // y después cierra la boca: se la comió
   });
 
   it('el que flota se mueve con la corriente sin salirse de su calle', () => {
@@ -468,6 +486,14 @@ describe('Ciudad Tiburón: tiburones voladores', () => {
     expect(g.player.y).toBeGreaterThan(y0); // se lo lleva para arriba
   });
 
+  it('abre la boca cuando te apunta y en la picada', () => {
+    const g = newShark(3), f = flyerOver(g);
+    expect(flyerMouthOpen(f, g)).toBe(false);
+    step(g, idle, 1 / 60);
+    expect(f.state).toBe('warn');
+    expect(flyerMouthOpen(f, g)).toBe(true);
+  });
+
   it('adentro de un edificio no te ve', () => {
     const g = newShark(3), f = flyerOver(g);
     g.player.inside = g.blocks.find(b => b.kind === 'building')!.id;
@@ -481,11 +507,17 @@ describe('Ciudad Tiburón: la boca del tiburón', () => {
   it('nadando la tiene cerrada; salta con la boca abierta y la cierra al agarrar a alguien o al volver al agua', () => {
     const g = newShark(5), s = g.sharks[0];
     expect(mouthOpen(s, g)).toBe(false); // nadando: cerrada
+    s.state = 'warn';
+    expect(mouthOpen(s, g)).toBe(true); // en posición para saltar: ya la abre abajo del agua
     Object.assign(s, { state: 'jump', vy: 14, y: 0 });
     expect(mouthOpen(s, g)).toBe(true); // salta a atacar: abierta
     s.vy = -6;
-    expect(mouthOpen(s, g)).toBe(false); // cae de vuelta al agua sin agarrar a nadie: cerrada
-    s.vy = 2; s.ate = true;
-    expect(mouthOpen(s, g)).toBe(false); // agarró a alguien: se lo come
+    expect(mouthOpen(s, g)).toBe(true); // bajando todavía la tiene abierta
+    s.y = swimY(s);
+    expect(mouthOpen(s, g)).toBe(false); // se mete de vuelta al agua sin agarrar a nadie: cerrada
+    Object.assign(s, { y: 1, vy: 2, ate: true, ateAt: g.time });
+    expect(mouthOpen(s, g)).toBe(true); // agarró a alguien: un ratito con la boca abierta…
+    g.time += EAT_SHUT + 0.01;
+    expect(mouthOpen(s, g)).toBe(false); // …y después la cierra: se lo come
   });
 });
