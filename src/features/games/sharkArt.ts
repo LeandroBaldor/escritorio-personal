@@ -1,6 +1,6 @@
 // Dibujos de "Ciudad Tiburón": los edificios (de distintos estilos, con puertas y departamentos por dentro),
 // los autos, las cosas que flotan, los árboles, los faroles y los efectos (salpicaduras y sangre).
-import { doorAt, FLOAT_Y, type Block, type Debris, type Decor, type Plat, type SharkGame } from './shark';
+import { doorAt, enterable, FLOAT_Y, type Block, type Debris, type Decor, type Plat, type SharkGame } from './shark';
 import { windAt as baseWind } from './shark';
 // El viento de siempre más el súper viento (que dobla los árboles y hace volar la ropa).
 const windAt = (t: number) => baseWind(t) + scene.gale * 3;
@@ -18,7 +18,7 @@ export function doorsOf(g: SharkGame, b: Block) {
   let list = byGame.get(b.id);
   if (!list) {
     list = [];
-    if (b.kind === 'building') for (let k = 1; k < b.floors; k++) for (const side of [-1, 1] as const) if (doorAt(g, b, side, yk(b, k))) list.push({ side, y: yk(b, k) });
+    if (enterable(b)) for (let k = 1; k < b.floors; k++) for (const side of [-1, 1] as const) if (doorAt(g, b, side, yk(b, k))) list.push({ side, y: yk(b, k) });
     byGame.set(b.id, list);
   }
   return list;
@@ -197,6 +197,14 @@ export function drawHouse(ctx: CanvasRenderingContext2D, b: Block, v: View) {
   ctx.fillStyle = '#3f2a14'; rect(ctx, v, dx - 0.08, -0.5, 0.86, 1.95);
   ctx.fillStyle = '#7c4a1e'; rect(ctx, v, dx, -0.5, 0.7, 1.87);
   ctx.fillStyle = 'rgba(0,0,0,0.25)'; rect(ctx, v, dx + 0.1, 0.9, 0.5, 1.7); rect(ctx, v, dx + 0.1, 0, 0.5, 0.75);
+  // Las puertas de los balconcitos de los costados (por ahí se entra a la casa).
+  for (const d of [b.x1 + 0.08, b.x2 - 0.68]) {
+    const y1 = yk(b, 1);
+    ctx.fillStyle = '#3f2a14'; rect(ctx, v, d - 0.05, y1, 0.7, y1 + 1.75);
+    ctx.fillStyle = hsl((b.hue + 160) % 360, 40, 32); rect(ctx, v, d, y1, 0.6, y1 + 1.7);
+    ctx.fillStyle = 'rgba(186,230,253,0.55)'; rect(ctx, v, d + 0.1, y1 + 0.95, 0.4, y1 + 1.55);
+    ctx.fillStyle = '#fbbf24'; rect(ctx, v, d + 0.45, y1 + 0.75, 0.08, y1 + 0.85); // picaporte
+  }
   weather(ctx, v, b.x1, b.x2, b.top, b.id * 17);
   // Baranda de la terraza, plantas y una soga con ropa colgada.
   ctx.fillStyle = '#e5e7eb'; rect(ctx, v, b.x1, b.top, w, b.top + 0.12); rect(ctx, v, b.x1, b.top + 0.75, w, b.top + 0.85);
@@ -275,9 +283,11 @@ export function drawInterior(ctx: CanvasRenderingContext2D, g: SharkGame, b: Blo
     // Muebles a los dos lados de la escalera.
     const spots = [b.x1 + 0.6 + (doors.some(d => d.side < 0 && Math.abs(d.y - y1) < 0.05) ? 1.2 : 0), sx + 0.9];
     spots.forEach((x0, j) => furniture(ctx, v, Math.floor(hash(seed * 7 + j) * 7), x0, y1, Math.min(2.2, (j ? b.x2 - 0.4 - (doors.some(d => d.side > 0 && Math.abs(d.y - y1) < 0.05) ? 1.2 : 0) : sx - 0.8) - x0), hue));
-    // Un cuadro en la pared.
-    ctx.fillStyle = '#3f2a14'; rect(ctx, v, sx - 2, y1 + 1.4, 0.8, y1 + 2);
-    ctx.fillStyle = hsl((hue + 150) % 360, 50, 55); rect(ctx, v, sx - 1.93, y1 + 1.47, 0.66, y1 + 1.93);
+    // Un cuadro en la pared (si entra sin tapar las puertas).
+    if (w > 6.6) {
+      ctx.fillStyle = '#3f2a14'; rect(ctx, v, sx - 2, y1 + 1.4, 0.8, y1 + 2);
+      ctx.fillStyle = hsl((hue + 150) % 360, 50, 55); rect(ctx, v, sx - 1.93, y1 + 1.47, 0.66, y1 + 1.93);
+    }
     // Las puertas, vistas de adentro.
     for (const d of doors) if (Math.abs(d.y - y1) < 0.05) { const dx = d.side < 0 ? b.x1 + 0.2 : b.x2 - 1.1; ctx.fillStyle = '#5b3a1e'; rect(ctx, v, dx, y1, 0.9, y1 + 1.98); ctx.fillStyle = 'rgba(186,230,253,0.5)'; rect(ctx, v, dx + 0.15, y1 + 1.15, 0.6, y1 + 1.8); }
   }

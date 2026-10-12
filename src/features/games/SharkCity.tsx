@@ -106,8 +106,10 @@ function drawBlock(ctx: CanvasRenderingContext2D, g: SharkGame, b: Block, v: Vie
   if (b.kind === 'building') {
     drawBuilding(ctx, g, b, v, flash);
     if (g.player.inside === b.id) drawInterior(ctx, g, b, v);
-  } else if (b.kind === 'house') drawHouse(ctx, b, v);
-  else drawShop(ctx, b, v);
+  } else if (b.kind === 'house') {
+    drawHouse(ctx, b, v);
+    if (g.player.inside === b.id) drawInterior(ctx, g, b, v);
+  } else drawShop(ctx, b, v);
 }
 
 // ---------- Lo que sirve para moverse ----------
@@ -392,7 +394,7 @@ function swimPose(k: Shark, v: View) {
   const slow = k.type === 'ballena' ? 0.55 : 1;
   const y = k.y + Math.sin(t * 1.3 + k.id) * 0.035 * L * (1 - warn) - warn * 0.25 * L;
   const angle = (Math.sin(t * 1.3 + k.id + 1.2) * 0.03 - warn * 0.32) * k.dir;
-  return { x: X(v, k.x), y: Y(v, y), angle, warn, fast, opts: { wave: t * (fast ? 10 : 5.5) * slow + k.id, amp: fast ? 0.045 : 0.03, closed: true } }; // nadando, con la boca cerrada
+  return { x: X(v, k.x), y: Y(v, y), angle, warn, fast, opts: { wave: t * (fast ? 10 : 5.5) * slow + k.id, amp: fast ? 0.045 : 0.03, closed: k.state !== 'warn' } }; // nadando, con la boca cerrada (en posición para saltar, ya la abre)
 }
 const swimming = (k: Shark) => k.state !== 'jump' && k.state !== 'bite';
 
@@ -807,9 +809,9 @@ export function SharkCity() {
         if (e.type === 'more') setToast({ text: `¡Ya hay ${e.count} tiburones! 🦈`, id: now });
         if (e.type === 'wind') setToast({ text: e.dir > 0 ? '¡Ráfaga de viento! 💨 →' : '← 💨 ¡Ráfaga de viento!', id: now });
         if (e.type === 'hurry') setToast({ text: e.left === 60 ? '¡Queda 1 minuto!' : '¡Quedan 30 segundos!', id: now, big: true });
-        if (e.type === 'galeWarn') setToast({ text: `⚠️ ¡Se viene un SÚPER VIENTO ${e.dir > 0 ? '→' : '←'}! ¡Metete en un edificio!`, id: now, big: true });
+        if (e.type === 'galeWarn') setToast({ text: `⚠️ ¡Se viene un SÚPER VIENTO ${e.dir > 0 ? '→' : '←'}! ¡Metete en un edificio o en una casa!`, id: now, big: true });
         if (e.type === 'gale') setToast({ text: e.dir > 0 ? '🌪️ ¡SÚPER VIENTO! →→→' : '←←← ¡SÚPER VIENTO! 🌪️', id: now, big: true });
-        if (e.type === 'enter' && !enterToldRef.current) { enterToldRef.current = true; setToast({ text: '¡Entraste a un departamento! Acá los tiburones no te ven 🏠 (por la escalera llegás a la terraza)', id: now }); }
+        if (e.type === 'enter' && !enterToldRef.current) { enterToldRef.current = true; setToast({ text: `¡Entraste a ${g.player.inside !== null && g.blocks[g.player.inside].kind === 'house' ? 'una casa' : 'un departamento'}! Acá los tiburones no te ven 🏠 (por la escalera llegás a la terraza)`, id: now }); }
         if (e.type === 'flyerNew') setToast({ text: '¡Llegó un tiburón volador! 🚁🦈 Adentro de los edificios no te ve', id: now, big: g.flyers.length === 1 });
         if (e.type === 'flyerWarn') { setToast({ text: '⚠️ ¡Un tiburón volador te vio! ¡Movete!', id: now }); playFlyerWarn(); }
         if (e.type === 'flyerDive') playFlyerDive();
@@ -895,7 +897,7 @@ export function SharkCity() {
           <div>
             {status === 'ready' && <>
               <h2 id="tib-message" className="tib-title">Ciudad Tiburón 🦈</h2>
-              <p>La ciudad se inundó, hay tormenta y el agua está llena de tiburones. Sos bombero: rescatá a <strong>{GOAL}</strong> perritos, gatos y personas que flotan en el agua en menos de <strong>10 minutos</strong>. Para agarrarlos tenés que bajar cerca del agua: mirá las aletas, porque cuando un tiburón se frena y salen burbujas, ¡salta! Moverte por techos, balcones, escaleras, cables, toldos, autos tapados por el agua y todo lo que arrastra la corriente. El agua pasa por delante de los edificios y los tiburones nadan por toda la ciudad: si caés al agua, salí rápido. Por las puertas de los balcones y de las escaleras de incendio podés entrar a los departamentos: adentro los tiburones no te ven. Lo que flota se lo lleva el viento y al rato se hunde. El viento sopla para un lado y para el otro y te empuja, y de la nada viene un súper viento que te revolea lejísimos: metete en un edificio. Con el tiempo llegan más tiburones, y también tiburones voladores con hélice: cuando uno se frena arriba tuyo y aparece un <strong>!</strong>, movete rápido o metete en un edificio, porque se tira en picada.</p>
+              <p>La ciudad se inundó, hay tormenta y el agua está llena de tiburones. Sos bombero: rescatá a <strong>{GOAL}</strong> perritos, gatos y personas que flotan en el agua en menos de <strong>10 minutos</strong>. Para agarrarlos tenés que bajar cerca del agua: mirá las aletas, porque cuando un tiburón se frena y salen burbujas, ¡salta! Moverte por techos, balcones, escaleras, cables, toldos, autos tapados por el agua y todo lo que arrastra la corriente. El agua pasa por delante de los edificios y los tiburones nadan por toda la ciudad: si caés al agua, salí rápido. Por las puertas de los balcones y de las escaleras de incendio podés entrar a los departamentos, y por los balconcitos de los costados de las casas, a las casas: adentro los tiburones no te ven. Lo que flota se lo lleva el viento y al rato se hunde. El viento sopla para un lado y para el otro y te empuja, y de la nada viene un súper viento que te revolea lejísimos: metete en un edificio. Con el tiempo llegan más tiburones, y también tiburones voladores con hélice: cuando uno se frena arriba tuyo y aparece un <strong>!</strong>, movete rápido o metete en un edificio, porque se tira en picada.</p>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> trepar escaleras, sogas, caños, postes y tirolesas (o saltar) · <kbd>↓</kbd> bajar · <kbd>Espacio</kbd> saltar · <kbd>P</kbd> pausa</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}
