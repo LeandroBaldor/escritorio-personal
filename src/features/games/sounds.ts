@@ -802,9 +802,11 @@ export function playSnakeEat() {
 export function preloadSoccerSounds() { for (const url of [golUrl, hinchadaUrl, patadaUrl]) loadSample(url); }
 // Una patada a la pelota (pase, tiro o pase del rival): la grabación; mientras carga, un golpe sintetizado.
 export function playKick(volume = 1) {
-  if (playSample(patadaUrl, 1.8 * volume)) return;
   const c = running(); if (!c) return;
-  tone(c, 'sine', 170, 70, c.currentTime, 0.1, 0.6 * volume);
+  // La hinchada baja un instante para que la pelota se escuche bien.
+  if (crowd) { const t = c.currentTime; crowd.gain.cancelScheduledValues(t); crowd.gain.setTargetAtTime(crowdLevel * 0.35, t, 0.01); crowd.gain.setTargetAtTime(crowdLevel, t + 0.25, 0.15); }
+  tone(c, 'sine', 150, 60, c.currentTime, 0.12, 0.7 * volume); // el golpe grave del pie contra la pelota
+  if (!playSample(patadaUrl, 2.5 * volume)) burst(c, 'bandpass', 1500, c.currentTime, 0.06, 0.6 * volume);
 }
 // ¡Gol!: la grabación del festejo (y la hinchada se levanta un rato).
 export function playGoal() {
