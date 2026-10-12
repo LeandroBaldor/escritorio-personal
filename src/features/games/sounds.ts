@@ -672,7 +672,7 @@ function buildStorm(c: AudioContext): Record<StormChannel, Channel> {
     }),
     // Hélice de los tiburones voladores: la grabación del helicóptero (mientras carga, el "chop-chop" de las
     // palas y el zumbido del motorcito).
-    rotor: channel(0.95, out => recorded(c, helicopteroUrl, 1.3, out, out => {
+    rotor: channel(1.4, out => recorded(c, helicopteroUrl, 1.3, out, out => {
       const air = noiseSource(c), low = filter(c, 'lowpass', 900), chop = c.createGain();
       chop.gain.value = 0.5; wobble(c, chop.gain, 16, 0.5);
       air.connect(low).connect(chop).connect(out); air.start();
