@@ -23,6 +23,7 @@ import lavaUrl from './assets/sonidos/lava.mp3';
 import helicopteroUrl from './assets/sonidos/helicoptero.mp3';
 import electricidadUrl from './assets/sonidos/electricidad.mp3';
 import fuegoUrl from './assets/sonidos/fuego.mp3';
+import personaQuemaUrl from './assets/sonidos/persona-quema.mp3';
 
 type WithWebkit = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 let ctx: AudioContext | null = null;
@@ -505,7 +506,7 @@ export function playExplosion() {
 
 // ---------- ¡El piso es de lava! ----------
 let lavaAmbient: Record<LavaChannel, Channel> | null = null;
-export function preloadLavaSounds() { for (const url of [lavaUrl, helicopteroUrl, electricidadUrl, fuegoUrl]) loadSample(url); }
+export function preloadLavaSounds() { for (const url of [lavaUrl, helicopteroUrl, electricidadUrl, fuegoUrl, personaQuemaUrl]) loadSample(url); }
 // Un sonido de ambiente grabado que se repite sin corte (el mp3 deja un silencito en las puntas, se saltea).
 // Mientras carga suena el sintetizado (`synth`) y, apenas está, se pasa a la grabación.
 function recorded(c: AudioContext, url: string, volume: number, out: GainNode, synth: (out: GainNode) => void) {
@@ -616,12 +617,17 @@ export function playLavaFall() {
   tone(c, 'sine', 140, 40, t + 0.15, 0.35, 0.7);
   sizzle(c, t + 0.15, 1);
 }
-// Una persona del juego alcanzada por la lava: grita (cada una con su voz) y se quema.
+// Una persona del juego alcanzada por la lava: grita (cada una con su voz) y se quema (la grabación, un poco
+// más grave o más aguda según la persona; si todavía no cargó, el siseo sintetizado).
 export function playPersonBurn(volume: number, pitch: number) {
   const c = running(); if (!c || volume <= 0.03) return;
   const t = c.currentTime;
   scream(c, t, pitch, 0.9 * volume);
-  sizzle(c, t + 0.05, volume * 0.8);
+  const buffer = samples.get(personaQuemaUrl);
+  if (!(buffer instanceof AudioBuffer)) { loadSample(personaQuemaUrl); sizzle(c, t + 0.05, volume * 0.8); return; }
+  const source = c.createBufferSource(), gain = c.createGain();
+  source.buffer = buffer; source.playbackRate.value = 0.9 + (pitch - 0.8) * 0.35; gain.gain.value = 1.1 * volume;
+  source.connect(gain).connect(out(c)); source.start(t + 0.05);
 }
 
 // ---------- Ciudad Tiburón ----------
