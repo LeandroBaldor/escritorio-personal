@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Link } from 'react-router-dom';
 import { drawRunner } from './runnerCharacter';
 import { level, newGame, WIN_LEVEL, TRAP_SECONDS, PLAYER_H, PLAYER_W, score, step, takeEvents, type Game, type GameOver, type Input } from './blockRunner';
-import { playBlockLand, playExplosion, playFootstep, playGameOver, playJump, unlockSounds } from './sounds';
+import { playBlockLand, playExplosion, playFootstep, playGameOver, playJump, preloadBlockSounds, unlockSounds } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:bloques-record';
 export const readRecord = () => { try { return Number(localStorage.getItem(RECORD_KEY)) || 0; } catch { return 0; } };
@@ -137,6 +137,7 @@ export function BlockRunner() {
 
   const start = useCallback(() => {
     unlockSounds();
+    preloadBlockSounds();
     const stage = stageRef.current;
     if (!stage) return;
     const { cols, rows } = gridFor(stage.clientWidth, stage.clientHeight);

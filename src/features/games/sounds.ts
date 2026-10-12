@@ -1,6 +1,7 @@
 // Efectos de sonido de los juegos, generados con Web Audio (sin archivos de audio).
 // El contexto se crea recién con un clic o una tecla: los navegadores no dejan sonar nada antes.
 import { AMBIENT_CHANNELS, type AmbientChannel } from './trepaSound';
+import bombaUrl from './assets/sonidos/bomba.mp3';
 import personaCaeUrl from './assets/sonidos/persona-cae.mp3';
 import t800Url from './assets/sonidos/t800.mp3';
 
@@ -449,8 +450,10 @@ export function playBlockLand(lines: number) {
   tone(c, 'square', 420, 300, t, 0.03, 0.06);
   if (lines > 0) [523, 659, 784, 1047, 1319, 1568].slice(0, 2 + lines).forEach((f, i) => tone(c, 'square', f, f, t + 0.06 + i * 0.07, 0.14, 0.16));
 }
-// Explosión de una bomba: un estallido grave que retumba, con un golpe de aire y escombros que chisporrotean.
+export function preloadBlockSounds() { loadSample(bombaUrl); }
+// Explosión de una bomba: el sonido grabado; si todavía no cargó, un estallido sintetizado que retumba.
 export function playExplosion() {
+  if (playSample(bombaUrl, 0.9)) return;
   const c = running(); if (!c) return;
   const t = c.currentTime;
   tone(c, 'sine', 90, 28, t, 0.6, 1.2); // retumbo
