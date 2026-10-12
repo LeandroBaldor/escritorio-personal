@@ -19,6 +19,9 @@ import patadaUrl from './assets/sonidos/patada.mp3';
 import trueno1Url from './assets/sonidos/trueno-1.mp3';
 import trueno2Url from './assets/sonidos/trueno-2.mp3';
 import trueno3Url from './assets/sonidos/trueno-3.mp3';
+import lavaUrl from './assets/sonidos/lava.mp3';
+import helicopteroUrl from './assets/sonidos/helicoptero.mp3';
+import electricidadUrl from './assets/sonidos/electricidad.mp3';
 
 type WithWebkit = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 let ctx: AudioContext | null = null;
@@ -501,11 +504,26 @@ export function playExplosion() {
 
 // ---------- ¡El piso es de lava! ----------
 let lavaAmbient: Record<LavaChannel, Channel> | null = null;
+export function preloadLavaSounds() { for (const url of [lavaUrl, helicopteroUrl, electricidadUrl]) loadSample(url); }
+// Un sonido de ambiente grabado que se repite sin corte (el mp3 deja un silencito en las puntas, se saltea).
+// Mientras carga suena el sintetizado (`synth`) y, apenas está, se pasa a la grabación.
+function recorded(c: AudioContext, url: string, volume: number, out: GainNode, synth: (out: GainNode) => void) {
+  const fallback = c.createGain(); fallback.connect(out);
+  synth(fallback);
+  whenLoaded(url, buffer => {
+    const loop = c.createBufferSource(), level = c.createGain();
+    loop.buffer = buffer; loop.loop = true; loop.loopStart = 0.03; loop.loopEnd = buffer.duration - 0.03;
+    level.gain.value = volume;
+    loop.connect(level).connect(out); loop.start(0, 0.03);
+    fallback.gain.setTargetAtTime(0, c.currentTime, 0.3);
+  });
+}
 function buildLavaAmbient(c: AudioContext): Record<LavaChannel, Channel> {
   const channel = (max: number, make: (out: GainNode) => void) => ambientChannel(c, max, make);
   return {
-    // Lava: un retumbo grave y espeso, burbujas que revientan ("blup") y un chirrido de piedra que se quema.
-    lava: channel(0.7, out => {
+    // Lava: la grabación del burbujeo (mientras carga, un retumbo grave y espeso, burbujas que revientan
+    // ("blup") y un chirrido de piedra que se quema).
+    lava: channel(0.7, out => recorded(c, lavaUrl, 1.2, out, out => {
       const rumble = noiseSource(c), low = filter(c, 'lowpass', 150), level = c.createGain();
       level.gain.value = 0.9; wobble(c, level.gain, 0.4, 0.25);
       rumble.connect(low).connect(level).connect(out); rumble.start();
@@ -519,7 +537,7 @@ function buildLavaAmbient(c: AudioContext): Record<LavaChannel, Channel> {
       const sizzle = noiseSource(c), hi = filter(c, 'highpass', 4500), hiss = c.createGain();
       hiss.gain.value = 0.06; wobble(c, hiss.gain, 0.9, 0.04);
       sizzle.connect(hi).connect(hiss).connect(out); sizzle.start();
-    }),
+    })),
     // Departamentos incendiados: el rugido de las llamas y la madera que cruje y chisporrotea.
     fire: channel(0.8, out => {
       const roar = noiseSource(c), body = filter(c, 'lowpass', 600), level = c.createGain();
@@ -529,17 +547,17 @@ function buildLavaAmbient(c: AudioContext): Record<LavaChannel, Channel> {
       pops.gain.value = 0.22; wobble(c, pops.gain, 11, 0.22, 'square'); wobble(c, pops.gain, 3.7, 0.12, 'square');
       crackle.connect(hi).connect(pops).connect(out); crackle.start();
     }),
-    // Cortocircuitos: el zumbido de la corriente y chispazos que restallan.
-    electric: channel(0.4, out => {
+    // Cortocircuitos: la grabación de la electricidad (mientras carga, un zumbido y chispazos que restallan).
+    electric: channel(0.4, out => recorded(c, electricidadUrl, 1.6, out, out => {
       const hum = osc(c, 'sawtooth', 100), band = filter(c, 'bandpass', 900, 2), level = c.createGain();
       level.gain.value = 0.6; wobble(c, level.gain, 50, 0.3, 'square');
       hum.connect(band).connect(level).connect(out); hum.start();
       const arc = noiseSource(c), hi = filter(c, 'highpass', 3200), snap = c.createGain();
       snap.gain.value = 0.45; wobble(c, snap.gain, 17, 0.45, 'square'); wobble(c, snap.gain, 6.3, 0.3, 'square');
       arc.connect(hi).connect(snap).connect(out); arc.start();
-    }),
-    // Helicóptero: el "chop-chop" de las palas, la turbina que silba y el motor.
-    heli: channel(0.75, out => {
+    })),
+    // Helicóptero: la grabación (mientras carga, el "chop-chop" de las palas, la turbina que silba y el motor).
+    heli: channel(0.75, out => recorded(c, helicopteroUrl, 1.2, out, out => {
       const air = noiseSource(c), low = filter(c, 'lowpass', 700), chop = c.createGain();
       chop.gain.value = 0.5; wobble(c, chop.gain, 12, 0.5);
       air.connect(low).connect(chop).connect(out); air.start();
@@ -549,7 +567,7 @@ function buildLavaAmbient(c: AudioContext): Record<LavaChannel, Channel> {
       const turbine = osc(c, 'sine', 2100), whine = c.createGain();
       whine.gain.value = 0.025; wobble(c, turbine.frequency, 0.3, 25);
       turbine.connect(whine).connect(out); turbine.start();
-    }),
+    })),
     // Ascensor: el motor eléctrico que zumba y el cable que roza en las poleas.
     elevator: channel(0.32, out => {
       const motor = osc(c, 'sawtooth', 82), low = filter(c, 'lowpass', 280), level = c.createGain();
