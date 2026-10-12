@@ -613,6 +613,15 @@ function buildStorm(c: AudioContext): Record<StormChannel, Channel> {
       pattern.gain.value = 0.5; wobble(c, pattern.gain, 0.4, 0.5, 'square');
       gurgle.connect(gate).connect(pattern).connect(out); gurgle.start();
     }),
+    // Hélice de los tiburones voladores: el "chop-chop" de las palas y el zumbido del motorcito.
+    rotor: channel(0.55, out => {
+      const air = noiseSource(c), low = filter(c, 'lowpass', 900), chop = c.createGain();
+      chop.gain.value = 0.5; wobble(c, chop.gain, 16, 0.5);
+      air.connect(low).connect(chop).connect(out); air.start();
+      const motor = osc(c, 'sawtooth', 190), band = filter(c, 'lowpass', 1200), hum = c.createGain();
+      hum.gain.value = 0.18; wobble(c, motor.frequency, 16, 12);
+      motor.connect(band).connect(hum).connect(out); motor.start();
+    }),
   };
 }
 export function setStormAmbient(levels: Record<StormChannel, number> | null) {
@@ -681,4 +690,20 @@ export function playSharkBite(who: 'player' | 'persona' | 'animal', volume = 1, 
   burst(c, 'bandpass', 900, t, 0.09, 0.6 * volume);
   burst(c, 'lowpass', 1500, t + 0.05, 0.4, 0.45 * volume);
   if (who !== 'animal') scream(c, t + 0.02, who === 'player' ? 0.8 : pitch, 0.9 * volume);
+}
+// Un tiburón volador te vio: tres pitidos de alarma del aparato.
+export function playFlyerWarn() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  for (let i = 0; i < 3; i++) tone(c, 'square', 1250, 1250, t + i * 0.16, 0.1, 0.22);
+}
+// Se tira en picada: un silbido que baja de tono y el viento que corta.
+export function playFlyerDive() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  tone(c, 'sine', 1400, 380, t, 0.7, 0.3);
+  const rush = noiseSource(c, false), band = filter(c, 'bandpass', 1500, 1), gain = c.createGain();
+  band.frequency.setValueAtTime(1500, t); band.frequency.exponentialRampToValueAtTime(400, t + 0.6);
+  gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.6, t + 0.1); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+  rush.connect(band).connect(gain).connect(out(c)); rush.start(t); rush.stop(t + 0.75);
 }

@@ -6,10 +6,10 @@ import {
 } from './shark';
 import { drawSharkSprite, loadSharkSprites, type SpriteOptions } from './sharkSprites';
 import { font, hash, hsl, scene, surfaceClip, visible, waveY, X, Y, type View } from './sharkView';
-import { drawClouds, drawFlyingSharks, drawSkyline } from './sharkSkyline';
+import { drawClouds, drawFlyer, drawSkyline } from './sharkSkyline';
 import { drawBuilding, drawDebrisArt, drawFx, drawHouse, drawInterior, drawLamp, drawShop, drawTreeDecor, drawVehicle } from './sharkArt';
 import { stormLevels } from './sharkSound';
-import { playGameOver, playJump, playRescue, playSharkBite, playSharkLeap, playSplash, playThunder, playWetStep, setStormAmbient, unlockSounds } from './sounds';
+import { playFlyerDive, playFlyerWarn, playGameOver, playJump, playRescue, playSharkBite, playSharkLeap, playSplash, playThunder, playWetStep, setStormAmbient, unlockSounds } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:tiburon-record';
 export interface SharkRecord { saved: number; time: number | null } // más rescatados y mejor tiempo para rescatar a todos
@@ -644,7 +644,6 @@ function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
   drawSky(ctx, v, flash);
   drawSkyline(ctx, v, flash.a);
   drawBolt(ctx, v, flash);
-  drawFlyingSharks(ctx, v, flash.a);
   for (const b of g.blocks) drawBlock(ctx, g, b, v, flash.a);
   for (const d of g.decor) drawDecor(ctx, d, v);
   for (const c of g.climbs) drawClimb(ctx, c, v);
@@ -658,10 +657,11 @@ function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
   for (const k of g.sharks) drawFin(ctx, k, v);
   // Cuando lo alcanza un tiburón, el bombero queda dentro de la boca abierta, se achica y desaparece: se lo
   // tragó entero.
-  const eaten = g.dying?.reason === 'shark' ? g.dying : null;
+  const eaten = g.dying?.reason === 'shark' || g.dying?.reason === 'flyer' ? g.dying : null;
   if (!eaten) drawPlayer(ctx, g, v);
   else if (eaten.t < CHOMP) drawFirefighter(ctx, g, v, 1 - (eaten.t / CHOMP) * 0.4);
   for (const k of g.sharks) drawSharkJump(ctx, k, v);
+  for (const f of g.flyers) drawFlyer(ctx, f, v, flash.a);
   drawFx(ctx, g, v, 'air');
   if (eaten && eaten.t < CHOMP) {
     // Vuelve a dibujar al bombero adentro de la boca y la mandíbula de abajo por encima: queda entre los dientes.
@@ -677,7 +677,7 @@ function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
   ctx.restore();
   if (flash.a > 0.05) { ctx.fillStyle = `rgba(220,230,255,${flash.a * 0.25})`; ctx.fillRect(0, 0, v.w, v.h); }
   // Borde rojo si un tiburón te está por saltar o si queda poco tiempo.
-  const danger = g.sharks.some(k => k.target === PLAYER_TARGET && (k.state === 'warn' || k.state === 'chase'));
+  const danger = g.sharks.some(k => k.target === PLAYER_TARGET && (k.state === 'warn' || k.state === 'chase')) || g.flyers.some(f => f.state === 'warn' || f.state === 'dive');
   const hurry = timeLeft(g) < 30;
   if (!g.dying && (danger || hurry)) {
     const a = (danger ? 0.55 : 0.3) * (0.6 + 0.4 * Math.sin(v.t * 10));
@@ -687,7 +687,7 @@ function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
   }
 }
 
-const LOSE_TEXT: Record<LoseReason, string> = { shark: '¡Te comió un tiburón!', time: '¡Se terminó el tiempo!' };
+const LOSE_TEXT: Record<LoseReason, string> = { shark: '¡Te comió un tiburón!', flyer: '¡Te atrapó un tiburón volador!', time: '¡Se terminó el tiempo!' };
 const KIND_TEXT: Record<RescueKind, string> = { perro: 'un perrito 🐶', gato: 'un gato 🐱', persona: 'una persona 🙋' };
 const NO_INPUT: Input = { left: false, right: false, jump: false, down: false, up: false };
 
@@ -794,7 +794,7 @@ export function SharkCity() {
         if (e.type === 'splash') playSplash(0.6);
         if (e.type === 'saved') playRescue();
         if (e.type === 'sharkJump') playSharkLeap();
-        if (e.type === 'lose' && e.reason === 'shark') playSharkBite('player');
+        if (e.type === 'lose' && e.reason !== 'time') playSharkBite('player');
         if (e.type === 'taken') { // solo las personas gritan (los perros y los gatos no); más bajo si pasa lejos
           const near = Math.max(0, 1 - Math.abs(e.x - p.x) / 16);
           playSharkBite(e.kind === 'persona' ? 'persona' : 'animal', near, 0.9 + hash(e.x) * 0.5);
@@ -808,6 +808,9 @@ export function SharkCity() {
         if (e.type === 'galeWarn') setToast({ text: `⚠️ ¡Se viene un SÚPER VIENTO ${e.dir > 0 ? '→' : '←'}! ¡Metete en un edificio!`, id: now, big: true });
         if (e.type === 'gale') setToast({ text: e.dir > 0 ? '🌪️ ¡SÚPER VIENTO! →→→' : '←←← ¡SÚPER VIENTO! 🌪️', id: now, big: true });
         if (e.type === 'enter' && !enterToldRef.current) { enterToldRef.current = true; setToast({ text: '¡Entraste a un departamento! Acá los tiburones no te ven 🏠 (por la escalera llegás a la terraza)', id: now }); }
+        if (e.type === 'flyerNew') setToast({ text: '¡Llegó un tiburón volador! 🚁🦈 Adentro de los edificios no te ve', id: now, big: g.flyers.length === 1 });
+        if (e.type === 'flyerWarn') { setToast({ text: '⚠️ ¡Un tiburón volador te vio! ¡Movete!', id: now }); playFlyerWarn(); }
+        if (e.type === 'flyerDive') playFlyerDive();
         if (e.type === 'zip' && !zipToldRef.current) { zipToldRef.current = true; setToast({ text: '¡Tirolesa! Con ↓ te soltás 🪢', id: now }); }
         if (e.type === 'lose') setToast({ text: LOSE_TEXT[e.reason], id: now });
       }
@@ -890,7 +893,7 @@ export function SharkCity() {
           <div>
             {status === 'ready' && <>
               <h2 id="tib-message" className="tib-title">Ciudad Tiburón 🦈</h2>
-              <p>La ciudad se inundó, hay tormenta y el agua está llena de tiburones. Sos bombero: rescatá a <strong>{GOAL}</strong> perritos, gatos y personas que flotan en el agua en menos de <strong>5 minutos</strong>. Para agarrarlos tenés que bajar cerca del agua: mirá las aletas, porque cuando un tiburón se frena y salen burbujas, ¡salta! Moverte por techos, balcones, escaleras, cables, toldos, autos tapados por el agua y todo lo que arrastra la corriente. El agua pasa por delante de los edificios y los tiburones nadan por toda la ciudad: si caés al agua, salí rápido. Por las puertas de los balcones y de las escaleras de incendio podés entrar a los departamentos: adentro los tiburones no te ven. Lo que flota se lo lleva el viento y al rato se hunde. El viento sopla para un lado y para el otro y te empuja, y de la nada viene un súper viento que te revolea lejísimos: metete en un edificio. Con el tiempo llegan más tiburones.</p>
+              <p>La ciudad se inundó, hay tormenta y el agua está llena de tiburones. Sos bombero: rescatá a <strong>{GOAL}</strong> perritos, gatos y personas que flotan en el agua en menos de <strong>5 minutos</strong>. Para agarrarlos tenés que bajar cerca del agua: mirá las aletas, porque cuando un tiburón se frena y salen burbujas, ¡salta! Moverte por techos, balcones, escaleras, cables, toldos, autos tapados por el agua y todo lo que arrastra la corriente. El agua pasa por delante de los edificios y los tiburones nadan por toda la ciudad: si caés al agua, salí rápido. Por las puertas de los balcones y de las escaleras de incendio podés entrar a los departamentos: adentro los tiburones no te ven. Lo que flota se lo lleva el viento y al rato se hunde. El viento sopla para un lado y para el otro y te empuja, y de la nada viene un súper viento que te revolea lejísimos: metete en un edificio. Con el tiempo llegan más tiburones, y también tiburones voladores con hélice: cuando uno se frena arriba tuyo y aparece un <strong>!</strong>, movete rápido o metete en un edificio, porque se tira en picada.</p>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> trepar escaleras, sogas, caños, postes y tirolesas (o saltar) · <kbd>↓</kbd> bajar · <kbd>Espacio</kbd> saltar · <kbd>P</kbd> pausa</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}

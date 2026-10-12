@@ -4,9 +4,9 @@
 // Cada edificio lejano tiene su estilo (torre vidriada, departamentos con balcones o bloque viejo), su
 // remate (tanque de agua, antena, aguja o equipos) y ventanas: muchas apagadas (se cortó la luz), algunas con
 // luz y cortinas. Lo que no se mueve se dibuja una sola vez en una imagen; los relámpagos lo iluminan.
-import type { SharkType } from './shark';
+import { flyerLen, type Flyer } from './shark';
 import { drawSharkSprite } from './sharkSprites';
-import { hash, hsl, type View } from './sharkView';
+import { font, hash, hsl, visible, X, Y, type View } from './sharkView';
 
 // ---------- Nubes ----------
 // Una nube hecha de bollos con luz arriba y sombra abajo, dibujada una vez por tamaño (normal e iluminada
@@ -172,40 +172,41 @@ function paintSkyline(ctx: CanvasRenderingContext2D, v: View, flash: number, dpr
 }
 
 // ---------- Tiburones voladores ----------
-// Vuelan lejos, por el cielo, colgados de un arnés con un motor y la hélice de helicóptero arriba.
-const FLYERS: { type: SharkType; len: number; speed: number; y: number }[] = [
-  { type: 'blanco', len: 2.4, speed: 2.6, y: 0.2 },
-  { type: 'martillo', len: 2.2, speed: 3.4, y: 0.33 },
-  { type: 'ballena', len: 3.2, speed: 1.8, y: 0.12 },
-];
-export function drawFlyingSharks(ctx: CanvasRenderingContext2D, v: View, flash: number) {
-  const k = 0.95; // un poco lejos: se mueven menos con la cámara
-  FLYERS.forEach((f, i) => {
-    const dir: 1 | -1 = i % 2 ? -1 : 1, len = f.len * v.s * k, S = v.w + len * 4;
-    const sx = (((hash(i + 70) * S + v.t * f.speed * v.s * k * dir - v.cx * v.s * k * 0.6) % S) + S) % S - len * 2;
-    const sy = v.h * f.y + Math.sin(v.t * 1.4 + i * 2) * v.s * 0.3, tilt = Math.sin(v.t * 1.4 + i * 2 + 1) * 0.08 * dir;
-    ctx.save();
-    ctx.globalAlpha = 0.9;
-    // Hélice arriba: mástil, motor con una franja amarilla y luz roja, y las palas girando.
-    const hubX = sx + dir * len * 0.04, bodyTop = sy - len * 0.11, hubY = bodyTop - len * 0.2, R = len * 0.55;
-    ctx.strokeStyle = '#1f2937'; ctx.lineWidth = Math.max(1.5, len * 0.025);
-    ctx.beginPath(); ctx.moveTo(hubX - len * 0.12, bodyTop + len * 0.02); ctx.lineTo(hubX, hubY + len * 0.06); ctx.lineTo(hubX + len * 0.12, bodyTop + len * 0.02); ctx.stroke(); // soportes
-    if (!drawSharkSprite(ctx, f.type, sx, sy, len, tilt, dir, { wave: v.t * 6 + i, amp: 0.035 })) { ctx.restore(); return; }
-    // Arnés: dos correas que abrazan el cuerpo.
-    ctx.strokeStyle = 'rgba(17,24,39,0.9)'; ctx.lineWidth = Math.max(2, len * 0.035);
-    for (const u of [-0.14, 0.12]) { ctx.beginPath(); ctx.moveTo(sx + u * len, bodyTop + len * 0.01); ctx.quadraticCurveTo(sx + u * len + dir * len * 0.03, sy, sx + u * len, sy + len * 0.1); ctx.stroke(); }
-    ctx.fillStyle = '#facc15'; for (const u of [-0.14, 0.12]) ctx.fillRect(sx + u * len - len * 0.015, bodyTop - len * 0.005, len * 0.03, len * 0.03); // hebillas
-    const mw = len * 0.24, mh = len * 0.11;
-    const metal = ctx.createLinearGradient(0, hubY + len * 0.02, 0, hubY + len * 0.02 + mh);
-    metal.addColorStop(0, '#9ca3af'); metal.addColorStop(1, '#374151');
-    ctx.fillStyle = metal; ctx.beginPath(); ctx.roundRect(hubX - mw / 2, hubY + len * 0.03, mw, mh, mh * 0.3); ctx.fill();
-    ctx.fillStyle = '#facc15'; ctx.fillRect(hubX - mw / 2, hubY + len * 0.03 + mh * 0.55, mw, mh * 0.18);
-    ctx.fillStyle = Math.floor(v.t * 3 + i) % 2 ? '#ef4444' : '#450a0a'; ctx.beginPath(); ctx.arc(hubX - dir * mw * 0.42, hubY + len * 0.05, Math.max(1.5, len * 0.018), 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#111827'; ctx.fillRect(hubX - len * 0.012, hubY - len * 0.005, len * 0.024, len * 0.04);
-    ctx.fillStyle = 'rgba(203,213,225,0.22)'; ctx.beginPath(); ctx.ellipse(hubX, hubY, R, len * 0.03, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(17,24,39,0.85)';
-    for (let b = 0; b < 3; b++) { const reach = Math.cos(v.t * 28 + i + (b * Math.PI * 2) / 3) * R; ctx.fillRect(Math.min(hubX, hubX + reach), hubY - len * 0.014, Math.abs(reach), len * 0.028); }
-    if (flash > 0.1) { ctx.globalAlpha = flash * 0.35; ctx.fillStyle = '#c7d2fe'; ctx.beginPath(); ctx.ellipse(sx, sy, len * 0.5, len * 0.15, tilt, 0, Math.PI * 2); ctx.fill(); }
-    ctx.restore();
-  });
+// Colgados de un arnés con un motor y la hélice de helicóptero arriba. En picada se inclinan hacia donde van;
+// cuando apuntan al bombero tiemblan, la luz roja titila rápido y aparece un "!" arriba.
+export function drawFlyer(ctx: CanvasRenderingContext2D, f: Flyer, v: View, flash: number) {
+  const L = flyerLen(f);
+  if (!visible(v, f.x - L, f.x + L, f.y - L, f.y + L)) return;
+  const len = L * v.s, dir = f.dir, warn = f.state === 'warn', sp = Math.hypot(f.vx, f.vy);
+  let a = Math.sin(v.t * 1.4 + f.id) * 0.06 * dir;
+  if ((f.state === 'dive' || f.state === 'carry') && sp > 0.1) a = Math.atan2((-f.vy / sp) * dir, (f.vx / sp) * dir);
+  const shake = warn ? Math.sin(v.t * 60) * v.s * 0.04 : 0;
+  ctx.save();
+  ctx.translate(X(v, f.x) + shake, Y(v, f.y)); ctx.rotate(a);
+  const bodyTop = -len * 0.11, hubY = bodyTop - len * 0.2, R = len * 0.55;
+  ctx.strokeStyle = '#1f2937'; ctx.lineWidth = Math.max(1.5, len * 0.025);
+  ctx.beginPath(); ctx.moveTo(-len * 0.12, bodyTop + len * 0.02); ctx.lineTo(0, hubY + len * 0.06); ctx.lineTo(len * 0.12, bodyTop + len * 0.02); ctx.stroke(); // soportes
+  if (!drawSharkSprite(ctx, f.type, 0, 0, len, 0, dir, { wave: v.t * (warn ? 12 : 6) + f.id, amp: 0.035 })) { ctx.restore(); return; }
+  // Arnés: dos correas que abrazan el cuerpo, con hebillas.
+  ctx.strokeStyle = 'rgba(17,24,39,0.9)'; ctx.lineWidth = Math.max(2, len * 0.035);
+  for (const u of [-0.14, 0.12]) { ctx.beginPath(); ctx.moveTo(u * len, bodyTop + len * 0.01); ctx.quadraticCurveTo(u * len + dir * len * 0.03, 0, u * len, len * 0.1); ctx.stroke(); }
+  ctx.fillStyle = '#facc15'; for (const u of [-0.14, 0.12]) ctx.fillRect(u * len - len * 0.015, bodyTop - len * 0.005, len * 0.03, len * 0.03);
+  // Motor con franja amarilla y luz roja (rápida cuando apunta), mástil y hélice.
+  const mw = len * 0.24, mh = len * 0.11;
+  const metal = ctx.createLinearGradient(0, hubY + len * 0.03, 0, hubY + len * 0.03 + mh);
+  metal.addColorStop(0, '#9ca3af'); metal.addColorStop(1, '#374151');
+  ctx.fillStyle = metal; ctx.beginPath(); ctx.roundRect(-mw / 2, hubY + len * 0.03, mw, mh, mh * 0.3); ctx.fill();
+  ctx.fillStyle = '#facc15'; ctx.fillRect(-mw / 2, hubY + len * 0.03 + mh * 0.55, mw, mh * 0.18);
+  ctx.fillStyle = Math.floor(v.t * (warn ? 12 : 3) + f.id) % 2 ? '#ef4444' : '#450a0a'; ctx.beginPath(); ctx.arc(-dir * mw * 0.42, hubY + len * 0.05, Math.max(1.5, len * 0.02), 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#111827'; ctx.fillRect(-len * 0.012, hubY - len * 0.005, len * 0.024, len * 0.04);
+  ctx.fillStyle = 'rgba(203,213,225,0.22)'; ctx.beginPath(); ctx.ellipse(0, hubY, R, len * 0.03, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(17,24,39,0.85)';
+  for (let b = 0; b < 3; b++) { const reach = Math.cos(v.t * (warn ? 45 : 28) + f.id + (b * Math.PI * 2) / 3) * R; ctx.fillRect(Math.min(0, reach), hubY - len * 0.014, Math.abs(reach), len * 0.028); }
+  if (flash > 0.1) { ctx.globalAlpha = flash * 0.35; ctx.fillStyle = '#c7d2fe'; ctx.beginPath(); ctx.ellipse(0, 0, len * 0.5, len * 0.15, 0, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+  if (warn) { // aviso: "!" rojo que late arriba
+    const pulse = 1 + Math.sin(v.t * 16) * 0.15, x = X(v, f.x), y = Y(v, f.y) - len * 0.6;
+    ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.arc(x, y, v.s * 0.32 * pulse, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = font(900, v.s * 0.45 * pulse); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('!', x, y + v.s * 0.02);
+  }
 }
