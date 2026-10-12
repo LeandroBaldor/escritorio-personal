@@ -94,6 +94,7 @@ export interface Shark {
   t: number; y: number; vy: number; vx: number; target: number; hunger: number; rest: number; turn: number; born: number;
   ate?: boolean; // en este salto ya agarró a alguien (al rato cierra la boca)
   ateAt?: number; // cuándo lo agarró
+  prey?: { kind: RescueKind; look: number }; // a quién agarró (queda entre los dientes hasta que cierra la boca)
 }
 export const PLAYER_TARGET = -1;
 // Tiburones voladores: cuelgan de un arnés con un motor y una hélice de helicóptero. Patrullan el cielo arriba
@@ -621,10 +622,10 @@ export function mouthOpen(s: Shark, g: SharkGame) {
   if (s.state === 'jump') return s.ate ? g.time - (s.ateAt ?? g.time) < EAT_SHUT : s.y > swimY(s) + 0.1 * sharkLen(s) || s.vy > 0;
   return s.state === 'warn';
 }
-// Los tiburones voladores abren la boca cuando se tiran en picada y la cierran al agarrar al bombero.
+// Los tiburones voladores abren la boca cuando te apuntan y se tiran en picada, y la cierran al agarrar al bombero.
 export function flyerMouthOpen(f: Flyer, g: SharkGame) {
   if (f.state === 'carry') return !(g.dying && g.dying.shark === f.id && g.dying.t >= CHOMP);
-  return f.state === 'dive';
+  return f.state === 'warn' || f.state === 'dive';
 }
 // Dónde está la boca (en el medio de las mandíbulas).
 export function sharkMouth(s: Shark) {
@@ -652,9 +653,9 @@ function sharks(g: SharkGame, dt: number) {
       if (!g.dying && p.inside === null && p.x + PLAYER_W / 2 > box.x1 && p.x - PLAYER_W / 2 < box.x2 && p.y < box.y2 && p.y + PLAYER_H > box.y1) { s.state = 'bite'; lose(g, 'shark', s.id); return; }
       for (const r of g.rescues) {
         if (r.state !== 'drift') continue;
-        if (Math.abs(rescueX(r) - s.x) < 0.3 * L && box.y2 > FLOAT_Y) { r.state = 'taken'; r.at = g.time; r.fromX = rescueX(r); r.fromY = FLOAT_Y; removePlat(g, r.plat); s.ate = true; s.ateAt = g.time; g.events.push({ type: 'taken', kind: r.kind, x: r.fromX }); addFx(g, 'blood', r.fromX, r.kind === 'persona' ? 2.6 : 2, FLOAT_Y + 0.3); }
+        if (Math.abs(rescueX(r) - s.x) < 0.3 * L && box.y2 > FLOAT_Y) { r.state = 'taken'; r.at = g.time; r.fromX = rescueX(r); r.fromY = FLOAT_Y; removePlat(g, r.plat); s.ate = true; s.ateAt = g.time; s.prey = { kind: r.kind, look: r.look }; g.events.push({ type: 'taken', kind: r.kind, x: r.fromX }); addFx(g, 'blood', r.fromX, r.kind === 'persona' ? 2.6 : 2, FLOAT_Y + 0.3); }
       }
-      if (s.y <= swimY(s) && s.vy < 0) { s.y = swimY(s); s.vy = 0; s.ate = false; s.state = 'patrol'; s.rest = SHARK_REST; s.target = 0; g.events.push({ type: 'splash' }); addFx(g, 'splash', s.x, L * 0.5); }
+      if (s.y <= swimY(s) && s.vy < 0) { s.y = swimY(s); s.vy = 0; s.ate = false; s.prey = undefined; s.state = 'patrol'; s.rest = SHARK_REST; s.target = 0; g.events.push({ type: 'splash' }); addFx(g, 'splash', s.x, L * 0.5); }
       continue;
     }
     const prey = s.target === PLAYER_TARGET ? null : g.rescues.find(r => r.id === s.target && r.state === 'drift');

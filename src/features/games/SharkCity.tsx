@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  CHOMP, flyerMouthOpen, FLOAT_Y, galeAt, mouthOpen, GOAL, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, sharkLen, sharkPose, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
+  CHOMP, flyerMouthOpen, sharkMouth, FLOAT_Y, galeAt, mouthOpen, GOAL, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, sharkLen, sharkPose, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
   type Block, type Climb, type Decor, type Input, type LoseReason, type Plat, type Rescue, type RescueKind, type Shark, type SharkGame, type SharkType, type Zip,
 } from './shark';
 import { drawSharkSprite, loadSharkSprites, type SpriteOptions } from './sharkSprites';
@@ -357,11 +357,8 @@ function drawRescue(ctx: CanvasRenderingContext2D, r: Rescue, g: SharkGame, v: V
     ctx.fillText(r.kind === 'perro' ? '+1 🐶' : r.kind === 'gato' ? '+1 🐱' : '+1 🙋', X(v, g.player.x), Y(v, g.player.y + 1.4 + age * 1.5));
     ctx.globalAlpha = 1;
   } else if (r.state === 'taken' && age < 1.4) {
-    // Se lo lleva el tiburón: se hunde con burbujas.
-    const cx = X(v, r.fromX), base = Y(v, FLOAT_Y - Math.min(1.2, age * 1.2));
-    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, v.w, Y(v, 0)); ctx.clip();
-    drawCritter(ctx, r.kind, r.look, cx, base, s * 0.95, t, 0);
-    ctx.restore();
+    // Se lo comió el tiburón (se ve entre los dientes, ver drawSharkJump): quedan burbujas donde flotaba.
+    const cx = X(v, r.fromX);
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(cx + (hash(i + r.id) - 0.5) * s, Y(v, (age * 2 + hash(i)) % 1 * 0.6), s * 0.06, 0, Math.PI * 2); ctx.fill(); }
   }
@@ -446,7 +443,14 @@ function churn(ctx: CanvasRenderingContext2D, v: View, x: number, size: number, 
 function drawSharkJump(ctx: CanvasRenderingContext2D, k: Shark, v: View, g: SharkGame) {
   const L = sharkLen(k);
   if ((k.state !== 'jump' && k.state !== 'bite') || !visible(v, k.x - L, k.x + L, -3, 6)) return;
-  drawSharkCut(ctx, k, v, 0.45, !mouthOpen(k, g));
+  const open = mouthOpen(k, g);
+  drawSharkCut(ctx, k, v, 0.45, !open);
+  if (open && k.prey) {
+    // Agarró a uno que flotaba: queda entre los dientes (la mandíbula de abajo por encima) hasta que cierra la boca.
+    const m = sharkMouth(k), { dir, a } = sharkPose(k);
+    drawCritter(ctx, k.prey.kind, k.prey.look, X(v, m.x), Y(v, m.y - 0.25), v.s * 1.05, v.t, 0);
+    drawShark(ctx, k, X(v, k.x), Y(v, k.y), v.s, -a * dir, dir, { jawOnly: true });
+  }
   if (Math.abs(k.y) < 0.25 * L + 0.3) churn(ctx, v, k.x, L * 0.35, k.id);
 }
 

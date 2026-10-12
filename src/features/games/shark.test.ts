@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BLOCKS, buildCity, flyersAt, FLOAT_Y, GOAL, newShark, PLAYER_TARGET, REACH, rescueX, SHARKS, sharksAt, step, takeEvents, TIME_LIMIT, WATER_Y, windAt, WIND_CALM, WIND_TURN, sharkMouth, GALE_TIME, mouthOpen, EAT_SHUT, swimY,
+  BLOCKS, buildCity, flyersAt, FLOAT_Y, GOAL, newShark, PLAYER_TARGET, REACH, rescueX, SHARKS, sharksAt, step, takeEvents, TIME_LIMIT, WATER_Y, windAt, WIND_CALM, WIND_TURN, sharkMouth, GALE_TIME, mouthOpen, EAT_SHUT, swimY, flyerMouthOpen,
   type Input, type Lane, type Plat, type SharkGame,
 } from './shark';
 
@@ -433,6 +433,11 @@ describe('Ciudad Tiburón: el juego', () => {
     g.rescues.push({ id: 1, kind: 'persona', float: 'goma', look: 0, state: 'drift', at: 0, fromX: 0, fromY: 0, plat, lane: lane.id, speed: 0, dir: 1, min: lane.pole, max: lane.pole });
     for (let i = 0; i < 60 * 6 && !g.rescues.some(r => r.id === 1 && r.state === 'taken'); i++) { g.player.y = 40; g.player.vy = 0; step(g, idle, 1 / 60); }
     expect(g.rescues.some(r => r.id === 1 && r.state === 'taken')).toBe(true);
+    const s = g.sharks[0];
+    expect(s.prey?.kind).toBe('persona'); // la tiene entre los dientes…
+    expect(mouthOpen(s, g)).toBe(true); // …con la boca abierta
+    for (let i = 0; i < 60; i++) { g.player.y = 40; g.player.vy = 0; step(g, idle, 1 / 60); }
+    expect(mouthOpen(s, g)).toBe(false); // y después cierra la boca: se la comió
   });
 
   it('el que flota se mueve con la corriente sin salirse de su calle', () => {
@@ -479,6 +484,14 @@ describe('Ciudad Tiburón: tiburones voladores', () => {
     const y0 = g.player.y;
     for (let i = 0; i < 60; i++) step(g, idle, 1 / 60);
     expect(g.player.y).toBeGreaterThan(y0); // se lo lleva para arriba
+  });
+
+  it('abre la boca cuando te apunta y en la picada', () => {
+    const g = newShark(3), f = flyerOver(g);
+    expect(flyerMouthOpen(f, g)).toBe(false);
+    step(g, idle, 1 / 60);
+    expect(f.state).toBe('warn');
+    expect(flyerMouthOpen(f, g)).toBe(true);
   });
 
   it('adentro de un edificio no te ve', () => {
