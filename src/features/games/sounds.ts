@@ -8,6 +8,7 @@ import personaCaeUrl from './assets/sonidos/persona-cae.mp3';
 import t800Url from './assets/sonidos/t800.mp3';
 import lluviaUrl from './assets/sonidos/lluvia.mp3';
 import tiburonAtacaUrl from './assets/sonidos/tiburon-ataca.mp3';
+import victoriaUrl from './assets/sonidos/victoria.mp3';
 import trueno1Url from './assets/sonidos/trueno-1.mp3';
 import trueno2Url from './assets/sonidos/trueno-2.mp3';
 import trueno3Url from './assets/sonidos/trueno-3.mp3';
@@ -733,3 +734,42 @@ export function playFlyerDive() {
   gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.6, t + 0.1); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
   rush.connect(band).connect(gain).connect(out(c)); rush.start(t); rush.stop(t + 0.75);
 }
+
+// ---------- Solitario 3.000 ----------
+// Dar vuelta una carta del mazo: el roce del cartón al deslizarse y el golpecito al caer.
+export function playCardFlip() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  const swish = noiseSource(c, false), band = filter(c, 'bandpass', 2600, 1.2), gain = c.createGain();
+  band.frequency.setValueAtTime(1800, t); band.frequency.exponentialRampToValueAtTime(4200, t + 0.08);
+  gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.35, t + 0.015); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+  swish.connect(band).connect(gain).connect(out(c)); swish.start(t); swish.stop(t + 0.13);
+  burst(c, 'lowpass', 1200, t + 0.09, 0.04, 0.4);
+}
+// Volver a armar el mazo: varias cartas que se juntan rápido.
+export function playShuffle() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  for (let i = 0; i < 7; i++) burst(c, 'bandpass', 2500 + Math.random() * 1500, t + i * 0.035, 0.05, 0.25);
+}
+// Una carta sobre otra: un chispazo eléctrico corto (zumbido que baja y chasquidos).
+export function playCardZap() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  tone(c, 'sawtooth', 900, 140, t, 0.16, 0.14);
+  const arc = noiseSource(c, false), hi = filter(c, 'highpass', 3000), gain = c.createGain();
+  gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.3, t + 0.005); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+  wobble(c, gain.gain, 45, 0.2, 'square');
+  arc.connect(hi).connect(gain).connect(out(c)); arc.start(t); arc.stop(t + 0.2);
+  burst(c, 'lowpass', 900, t, 0.05, 0.35); // el golpe de la carta
+}
+// Un as en las bases: una campana (un tono con sus armónicos que se apaga despacio).
+export function playBell() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  for (const [mult, volume, length] of [[1, 0.35, 1.8], [2.76, 0.16, 1.2], [5.4, 0.08, 0.7], [8.93, 0.04, 0.4]]) tone(c, 'sine', 880 * mult, 880 * mult, t, length, volume);
+  burst(c, 'highpass', 5000, t, 0.02, 0.15); // el golpe del badajo
+}
+// Ganar: la grabación de la victoria.
+export function preloadSolitaireSounds() { loadSample(victoriaUrl); }
+export function playVictory() { if (!playSample(victoriaUrl, 0.85)) playWin(); }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BACK_IMAGE, CARD_H, CARD_W, cardImage, SUIT_PATHS, suitColor } from './futureCards';
+import { playBell, playCardFlip, playCardZap, playShuffle, playVictory, preloadSolitaireSounds, unlockSounds } from './sounds';
 import { bestTarget, canFinish, canMove, cardName, deal, draw, finalScore, finishStep, isWon, liveScore, move, picked, SUITS, timeBonus, type Card, type From, type Solitaire, type To } from './solitaire';
 
 const RECORD_KEY = 'escritorio-personal-juegos:solitario-record';
@@ -135,6 +136,10 @@ export function PixelSolitaire() {
 
   const commit = useCallback((next: Solitaire | null, to?: To) => {
     if (!next) return false;
+    unlockSounds(); preloadSolitaireSounds();
+    // Sonidos: un as que llega a las bases suena como una campana; una carta sobre otra, un chispazo.
+    if (to?.kind === 'foundation' && next.foundations[to.pile].length === 1) playBell();
+    else if (to) playCardZap();
     // Destello eléctrico verde donde cayó la carta.
     if (to) setZap({ pile: `${to.kind === 'foundation' ? 'f' : 't'}${to.pile}`, id: Date.now() });
     // Cartelito con los puntos de la jugada (y festejo si se completó un palo).
@@ -151,6 +156,7 @@ export function PixelSolitaire() {
     if (!won || !started) return;
     const best = readSolitaireRecord();
     const score = finalScore(game, seconds);
+    playVictory();
     if (!best || best.score === undefined || score > best.score) { const value = { seconds, moves: game.moves, score }; saveRecord(value); setRecord(value); setNewRecord(true); }
   }, [won]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -237,7 +243,7 @@ export function PixelSolitaire() {
     <div ref={boardRef} onPointerMove={onMove} onPointerUp={endDrag} onPointerCancel={() => setDrag(null)}
       className="sol-board" style={{ '--cw': `${cw}px`, '--ch': `${ch}px`, '--gap': `${gap}px` } as React.CSSProperties}>
       <div className="sol-top">
-        <button type="button" className={`sol-slot sol-stock${game.stock.length ? '' : ' sol-slot--empty'}`} onClick={() => !finishing && commit(draw(game))}
+        <button type="button" className={`sol-slot sol-stock${game.stock.length ? '' : ' sol-slot--empty'}`} onClick={() => { if (finishing) return; unlockSounds(); preloadSolitaireSounds(); if (game.stock.length) playCardFlip(); else if (game.waste.length) playShuffle(); commit(draw(game)); }}
           aria-label={game.stock.length ? `Mazo: ${game.stock.length} cartas, dar vuelta una` : 'Volver a armar el mazo'}>
           {game.stock.length ? <span className="sol-card sol-card--back" aria-hidden="true"><CardBack /></span> : <span className="sol-redo" aria-hidden="true">↻</span>}
           {game.stock.length > 0 && <small className="sol-count" aria-hidden="true">{game.stock.length}</small>}
