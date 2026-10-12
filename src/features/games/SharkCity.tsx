@@ -9,7 +9,7 @@ import { font, hash, hsl, scene, surfaceClip, visible, waveY, X, Y, type View } 
 import { drawClouds, drawFlyer, drawSkyline } from './sharkSkyline';
 import { drawBuilding, drawDebrisArt, drawFx, drawHouse, drawInterior, drawLamp, drawShop, drawTreeDecor, drawVehicle } from './sharkArt';
 import { stormLevels } from './sharkSound';
-import { playFlyerDive, playFlyerWarn, playGameOver, playJump, playRescue, playSharkBite, playSharkLeap, playSplash, playThunder, playWetStep, setStormAmbient, unlockSounds } from './sounds';
+import { preloadSharkSounds, playFlyerDive, playFlyerWarn, playGameOver, playJump, playRescue, playSharkBite, playSharkLeap, playSplash, playThunder, playWetStep, setStormAmbient, unlockSounds } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:tiburon-record';
 export interface SharkRecord { saved: number; time: number | null } // más rescatados y mejor tiempo para rescatar a todos
@@ -752,6 +752,7 @@ export function SharkCity() {
 
   const start = useCallback(() => {
     unlockSounds();
+    preloadSharkSounds();
     gameRef.current = newShark();
     follow(-1);
     input.current = { ...NO_INPUT };

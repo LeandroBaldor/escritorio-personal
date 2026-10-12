@@ -6,6 +6,11 @@ import { STORM_CHANNELS, type StormChannel } from './sharkSound';
 import bombaUrl from './assets/sonidos/bomba.mp3';
 import personaCaeUrl from './assets/sonidos/persona-cae.mp3';
 import t800Url from './assets/sonidos/t800.mp3';
+import lluviaUrl from './assets/sonidos/lluvia.mp3';
+import tiburonAtacaUrl from './assets/sonidos/tiburon-ataca.mp3';
+import trueno1Url from './assets/sonidos/trueno-1.mp3';
+import trueno2Url from './assets/sonidos/trueno-2.mp3';
+import trueno3Url from './assets/sonidos/trueno-3.mp3';
 
 type WithWebkit = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 let ctx: AudioContext | null = null;
@@ -318,12 +323,12 @@ function loadSample(url: string) {
 }
 export function preloadSkynetSounds() { loadSample(t800Url); loadSample(personaCaeUrl); }
 // Devuelve false si el archivo todavía no está listo (entonces suena el sonido sintetizado de respaldo).
-function playSample(url: string, volume: number) {
+function playSample(url: string, volume: number, delay = 0) {
   const c = running(), buffer = samples.get(url);
   if (!c || !(buffer instanceof AudioBuffer)) { loadSample(url); return false; }
   const source = c.createBufferSource(), gain = c.createGain();
   source.buffer = buffer; gain.gain.value = volume;
-  source.connect(gain).connect(out(c)); source.start();
+  source.connect(gain).connect(out(c)); source.start(c.currentTime + delay);
   return true;
 }
 
@@ -580,13 +585,22 @@ function buildStorm(c: AudioContext): Record<StormChannel, Channel> {
   const channel = (max: number, make: (out: GainNode) => void) => ambientChannel(c, max, make);
   return {
     // Lluvia: el siseo parejo del aguacero y gotas gruesas que golpean cerca.
+    // Lluvia: la grabación (un tramo de 14 s que se repite sin que se note el corte); mientras carga, un
+    // aguacero sintetizado.
     rain: channel(0.5, out => {
+      const synth = c.createGain(); synth.connect(out);
       const shower = noiseSource(c), hi = filter(c, 'highpass', 500), low = filter(c, 'lowpass', 7000), level = c.createGain();
       level.gain.value = 0.8; wobble(c, level.gain, 0.23, 0.1);
-      shower.connect(hi).connect(low).connect(level).connect(out); shower.start();
+      shower.connect(hi).connect(low).connect(level).connect(synth); shower.start();
       const drops = noiseSource(c), band = filter(c, 'bandpass', 3200, 2), patter = c.createGain();
       patter.gain.value = 0.3; wobble(c, patter.gain, 13, 0.2, 'square'); wobble(c, patter.gain, 7.7, 0.15, 'square');
-      drops.connect(band).connect(patter).connect(out); drops.start();
+      drops.connect(band).connect(patter).connect(synth); drops.start();
+      whenLoaded(lluviaUrl, buffer => {
+        const loop = c.createBufferSource(), level = c.createGain();
+        loop.buffer = buffer; loop.loop = true; level.gain.value = 1.3;
+        loop.connect(level).connect(out); loop.start();
+        synth.gain.setTargetAtTime(0, c.currentTime, 0.3);
+      });
     }),
     // Viento: un soplido grave que sube y baja, con un silbido entre los edificios.
     wind: channel(0.75, out => {
@@ -634,7 +648,17 @@ export function setStormAmbient(levels: Record<StormChannel, number> | null) {
   }
 }
 // Trueno: el chasquido del rayo y después un retumbo largo que rueda (más tarde y más grave si cayó lejos).
+const TRUENOS = [trueno1Url, trueno2Url, trueno3Url];
+export function preloadSharkSounds() { for (const url of [lluviaUrl, tiburonAtacaUrl, ...TRUENOS]) loadSample(url); }
+// Espera a que cargue una grabación y la entrega (si ya cargó, enseguida).
+function whenLoaded(url: string, ready: (buffer: AudioBuffer) => void) {
+  loadSample(url);
+  const check = () => { const b = samples.get(url); if (b instanceof AudioBuffer) ready(b); else if (b) setTimeout(check, 250); };
+  check();
+}
 export function playThunder(near: number) {
+  // La grabación (uno de los tres truenos, al azar): más tarde y más bajo si el rayo cayó lejos.
+  if (playSample(TRUENOS[Math.floor(Math.random() * TRUENOS.length)], 0.45 + near * 0.55, (1 - near) * 0.5)) return;
   const c = running(); if (!c) return;
   const t = c.currentTime + (1 - near) * 0.5;
   if (near > 0.4) { burst(c, 'highpass', 1800, t, 0.12, 0.6 * near); burst(c, 'lowpass', 3000, t, 0.25, 0.7 * near); }
@@ -686,9 +710,11 @@ export function playSharkLeap() {
 export function playSharkBite(who: 'player' | 'persona' | 'animal', volume = 1, pitch = 1) {
   const c = running(); if (!c || volume <= 0.03) return;
   const t = c.currentTime;
-  tone(c, 'sine', 120, 45, t, 0.2, 0.8 * volume);
-  burst(c, 'bandpass', 900, t, 0.09, 0.6 * volume);
-  burst(c, 'lowpass', 1500, t + 0.05, 0.4, 0.45 * volume);
+  if (!playSample(tiburonAtacaUrl, 0.9 * volume)) { // la grabación del ataque; mientras carga, uno sintetizado
+    tone(c, 'sine', 120, 45, t, 0.2, 0.8 * volume);
+    burst(c, 'bandpass', 900, t, 0.09, 0.6 * volume);
+    burst(c, 'lowpass', 1500, t + 0.05, 0.4, 0.45 * volume);
+  }
   if (who !== 'animal') scream(c, t + 0.02, who === 'player' ? 0.8 : pitch, 0.9 * volume);
 }
 // Un tiburón volador te vio: tres pitidos de alarma del aparato.
