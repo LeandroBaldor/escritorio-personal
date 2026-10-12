@@ -10,6 +10,7 @@ import lluviaUrl from './assets/sonidos/lluvia.mp3';
 import tiburonAtacaUrl from './assets/sonidos/tiburon-ataca.mp3';
 import victoriaUrl from './assets/sonidos/victoria.mp3';
 import cartaUrl from './assets/sonidos/carta.mp3';
+import serpienteUrl from './assets/sonidos/serpiente.wav';
 import trueno1Url from './assets/sonidos/trueno-1.mp3';
 import trueno2Url from './assets/sonidos/trueno-2.mp3';
 import trueno3Url from './assets/sonidos/trueno-3.mp3';
@@ -775,3 +776,33 @@ export function playBell() {
 // Ganar: la grabación de la victoria.
 export function preloadSolitaireSounds() { loadSample(victoriaUrl); loadSample(cartaUrl); }
 export function playVictory() { if (!playSample(victoriaUrl, 0.85)) playWin(); }
+
+// ---------- ¡Huye de la serpiente! ----------
+// Los pasitos de la manzana: un golpecito suave y agudo, alternando un pie y el otro.
+let appleSide = 0;
+export function playAppleStep() {
+  const c = running(); if (!c) return;
+  appleSide = 1 - appleSide;
+  const t = c.currentTime, f = appleSide ? 520 : 600;
+  tone(c, 'sine', f, f * 0.55, t, 0.05, 0.16);
+  burst(c, 'bandpass', 2400, t, 0.025, 0.08);
+}
+// La serpiente arrastrándose: la grabación en bucle (sin cortes); se sube mientras se mueve.
+let slither: GainNode | null = null;
+export function setSlither(level: number) {
+  if (!ctx) return;
+  if (!slither) {
+    const c = ctx, gain = c.createGain();
+    gain.gain.value = 0; gain.connect(out(c)); slither = gain;
+    whenLoaded(serpienteUrl, buffer => { const loop = c.createBufferSource(); loop.buffer = buffer; loop.loop = true; loop.connect(gain); loop.start(); });
+  }
+  slither.gain.setTargetAtTime(level * 0.35, ctx.currentTime, level ? 0.12 : 0.05);
+}
+// La serpiente se come una manzana: el mordiscón crocante y el "glup" al tragar.
+export function playSnakeEat() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  for (let i = 0; i < 4; i++) burst(c, 'bandpass', 2200 + Math.random() * 1800, t + i * 0.045, 0.05, 0.45);
+  burst(c, 'lowpass', 900, t, 0.08, 0.5);
+  tone(c, 'sine', 260, 90, t + 0.22, 0.18, 0.5);
+}

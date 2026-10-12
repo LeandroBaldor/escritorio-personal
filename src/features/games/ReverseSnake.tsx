@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { level, newGame, score, step, takeEvents, type Dir, type Game } from './reverseSnake';
-import { playGameOver, unlockSounds } from './sounds';
+import { playAppleStep, playGameOver, playSnakeEat, setSlither, unlockSounds } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:serpiente-record';
 export const readSnakeRecord = () => { try { return Number(localStorage.getItem(RECORD_KEY)) || 0; } catch { return 0; } };
@@ -255,8 +255,13 @@ export function ReverseSnake() {
       if (!g) return;
       const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
       last = now;
+      const ax = g.apple.x, ay = g.apple.y;
       step(g, { dir: held.current[held.current.length - 1] ?? null }, dt);
+      // Sonidos: los pasitos de la manzana y la serpiente que se arrastra (callada mientras está congelada).
+      if (g.apple.x !== ax || g.apple.y !== ay) playAppleStep();
+      setSlither(g.over || g.snake.freeze > 0 ? 0 : 1);
       for (const e of takeEvents(g)) {
+        if (e.type === 'ate' || e.type === 'caught') playSnakeEat();
         if (e.type === 'tangled') setToast({ text: '¡La serpiente se enredó! +300', id: now });
         if (e.type === 'cleared') setToast({ text: '¡Limpiaste el jardín! +200', id: now });
         if (e.type === 'ate') setToast({ text: '🍏 La serpiente se comió una manzana verde y creció', id: now });
@@ -275,7 +280,7 @@ export function ReverseSnake() {
     frame = requestAnimationFrame(tick);
     const hide = () => { if (document.hidden) setStatus('paused'); };
     document.addEventListener('visibilitychange', hide);
-    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); };
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); setSlither(0); };
   }, [status, paint]);
 
   const press = (dir: Dir) => { held.current = [...held.current.filter(d => d !== dir), dir]; };
