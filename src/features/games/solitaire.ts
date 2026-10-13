@@ -55,14 +55,15 @@ const clone = (state: Solitaire): Solitaire => ({
   foundations: state.foundations.map(p => [...p]), tableau: state.tableau.map(p => [...p]),
 });
 
-// Puntaje: subir cartas a las bases, destapar cartas y completar palos suma; bajar de las bases y
-// volver a armar el mazo resta. El reloj también resta (2 puntos cada 10 segundos) y, al ganar, cuanto
-// más rápido lo terminaste, más grande es el premio.
-export const POINTS = { foundation: 10, fromWaste: 5, reveal: 5, suit: 100, backFromFoundation: -15, recycle: -20 };
+// Puntaje: subir cartas a las bases, destapar cartas y completar palos suma; bajar de las bases, volver a
+// armar el mazo y deshacer una jugada resta. El reloj también resta (2 puntos cada 10 segundos), así que el
+// puntaje puede quedar en negativo. Al ganar, cuanto más rápido lo terminaste, más grande es el premio.
+export const POINTS = { foundation: 10, fromWaste: 5, reveal: 5, suit: 100, backFromFoundation: -15, recycle: -30, undo: -10 };
 export const timePenalty = (seconds: number) => Math.floor(seconds / 10) * 2;
 export const timeBonus = (seconds: number) => Math.max(0, Math.round(1500 - seconds * 3));
-export const liveScore = (state: Solitaire, seconds: number) => Math.max(0, state.score - timePenalty(seconds));
-export const finalScore = (state: Solitaire, seconds: number) => liveScore(state, seconds) + timeBonus(seconds);
+// `penalties`: lo que ya se descontó por deshacer jugadas (no vuelve con el deshacer).
+export const liveScore = (state: Solitaire, seconds: number, penalties = 0) => state.score - timePenalty(seconds) + penalties;
+export const finalScore = (state: Solitaire, seconds: number, penalties = 0) => liveScore(state, seconds, penalties) + timeBonus(seconds);
 
 export function move(state: Solitaire, from: From, to: To): Solitaire | null {
   if (!canMove(state, from, to)) return null;

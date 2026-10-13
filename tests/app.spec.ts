@@ -990,10 +990,11 @@ test('el Solitario 3.000 se abre desde Juegos, da vuelta cartas y deshace', asyn
   await expect(page.getByRole('button', { name: 'Mazo: 24 cartas, dar vuelta una' })).toBeVisible();
   await page.getByRole('button', { name: /Mazo/ }).click();
   await expect(page.getByTestId('solitaire-moves')).toHaveText('1');
-  await expect(page.getByTestId('solitaire-points')).toHaveText(/^\d+$/);
+  await expect(page.getByTestId('solitaire-points')).toHaveText(/^-?\d+$/);
   await expect(page.locator('.sol-waste .sol-card')).toHaveCount(1);
   await page.getByRole('button', { name: 'Deshacer' }).click();
   await expect(page.getByTestId('solitaire-moves')).toHaveText('0');
+  await expect(page.getByTestId('solitaire-points')).toHaveText(/^-\d+$/); // deshacer descuenta puntos
   await expect(page.locator('.sol-waste .sol-card')).toHaveCount(0);
   await page.getByRole('link', { name: '‹ Juegos' }).click();
   await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
