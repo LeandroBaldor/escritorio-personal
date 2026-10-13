@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { drawRunner } from './runnerCharacter';
+import { drawRunner, type RunnerHat, type RunnerLook } from './runnerCharacter';
 import {
-  BURN_T, elevatorAt, floorY, heliState, LAVA_DELAY, meters, newLava, nextLanding, PLAYER_H, PLAYER_W, personState, personX, sparkActive, sparkWarning, step, takeEvents, towerOf, WALL,
-  type Building, type Climb, type Escape, type Fallen, type Fire, type Heli, type Input, type LavaGame, type LoseReason, type Person, type Plat, type Spark, type Zip,
+  BURN_T, elevatorAt, floorY, heliState, LAVA_DELAY, zipY, meters, newLava, nextLanding, PLAYER_H, PLAYER_W, personState, personX, sparkActive, sparkWarning, step, takeEvents, towerOf, WALL,
+  type Building, type Climb, type Crane, type Elevator, type Escape, type Fallen, type Fire, type Heli, type Input, type LavaGame, type LoseReason, type Person, type Plat, type Spark, type Spiral, type Wire, type Zip,
 } from './lava';
 import { lavaLevels } from './lavaSound';
 import { playCrumble, playElevatorDing, playFootstep, playGameOver, playJump, playLavaFall, playLose, playPersonBurn, playStart, playTramp, playWinFanfare, preloadLavaSounds, setLavaAmbient } from './sounds';
@@ -87,6 +87,18 @@ const bricks = (base: number, sat: number, light: number, mortar: string): Paint
     c.fillStyle = 'rgba(0,0,0,0.12)'; c.fillRect(x + 1, r * bh + bh - 3, bw - 2, 2);
   }
   speckle(c, w, h, 50, 21, 'rgba(0,0,0,0.12)', 'rgba(255,255,255,0.08)');
+};
+// Mármol pulido con vetas (pisos y columnas de las torres de lujo).
+const marble = (base: string, vein: string): Painter => (c, w, h) => {
+  c.fillStyle = base; c.fillRect(0, 0, w, h);
+  speckle(c, w, h, 90, 17, 'rgba(0,0,0,0.035)', 'rgba(255,255,255,0.12)');
+  c.strokeStyle = vein; c.lineWidth = 1;
+  for (let i = 0; i < 4; i++) {
+    let x = hash(i * 3 + 1) * w, y = 0;
+    c.beginPath(); c.moveTo(x, y);
+    while (y < h) { x += (hash(x * 0.37 + y + i) - 0.5) * w * 0.22; y += h * 0.1; c.lineTo(x, y); }
+    c.stroke();
+  }
 };
 const concrete = (light: number): Painter => (c, w, h) => { c.fillStyle = hsl(30, 4, light); c.fillRect(0, 0, w, h); speckle(c, w, h, 220, 31, 'rgba(0,0,0,0.12)', 'rgba(255,255,255,0.1)'); c.fillStyle = 'rgba(0,0,0,0.08)'; c.fillRect(0, h - 2, w, 1); c.beginPath(); c.arc(w * 0.3, h * 0.4, 2, 0, Math.PI * 2); c.fill(); };
 const parquet = (hue: number): Painter => (c, w, h) => {
@@ -538,13 +550,67 @@ function drawRoom(ctx: CanvasRenderingContext2D, g: LavaGame, b: Building, k: nu
   }
 }
 
+// Departamento de lujo: ventanal de piso a techo (afuera arde la ciudad), parantes de aluminio, cielorraso
+// con luces embutidas, piso de mármol y plantas o lámparas de pie delante del vidrio.
+function drawLuxRoom(ctx: CanvasRenderingContext2D, g: LavaGame, b: Building, k: number, a: number, c: number, r: number, v: View) {
+  const s = v.s, y0 = floorY(b, k), y1 = floorY(b, k + 1), fh = y1 - y0, seed = b.id * 1000 + k * 10 + r;
+  const top = Y(v, y1), base = Y(v, y0), left = X(v, a), w = (c - a) * s;
+  const sky = ctx.createLinearGradient(0, top, 0, base);
+  sky.addColorStop(0, '#1c0b12'); sky.addColorStop(0.55, '#7c2d12'); sky.addColorStop(1, '#fb923c');
+  ctx.fillStyle = sky; ctx.fillRect(left, top, w, base - top);
+  // La ciudad de afuera: edificios lejanos con ventanas prendidas (y alguno que se quema).
+  for (let x = a; x < c; x += 0.45) {
+    const hh = fh * (0.2 + hash(seed + x * 7.3) * 0.65), bx = X(v, x), bw = 0.42 * s;
+    ctx.fillStyle = hash(x * 3 + seed) < 0.5 ? '#160b0d' : '#21100f'; ctx.fillRect(bx, base - hh * s, bw, hh * s);
+    for (let yy = 0.25; yy < hh - 0.2; yy += 0.32) for (const xx of [0.08, 0.26]) {
+      const lit = hash(seed + x * 11 + yy * 5 + xx * 3);
+      if (lit < 0.35) { ctx.fillStyle = lit < 0.06 ? '#fb923c' : 'rgba(253,224,171,0.75)'; ctx.fillRect(bx + xx * s, base - (hh - yy) * s, 0.08 * s, 0.11 * s); }
+    }
+  }
+  // Reflejos del vidrio y parantes de aluminio.
+  ctx.fillStyle = 'rgba(186,230,253,0.13)';
+  for (let x = a + 0.3; x < c; x += 2.6) { ctx.beginPath(); ctx.moveTo(X(v, x), base); ctx.lineTo(X(v, x + 1.1), top); ctx.lineTo(X(v, x + 1.6), top); ctx.lineTo(X(v, x + 0.5), base); ctx.fill(); }
+  ctx.fillStyle = 'rgba(56,189,248,0.07)'; ctx.fillRect(left, top, w, base - top);
+  const mull = ctx.createLinearGradient(0, 0, s * 0.12, 0); mull.addColorStop(0, '#94a3b8'); mull.addColorStop(1, '#475569');
+  for (let x = a + 1.3; x < c - 0.2; x += 1.3) { ctx.fillStyle = '#cbd5e1'; ctx.fillRect(X(v, x) - s * 0.05, top, s * 0.1, base - top); ctx.fillStyle = 'rgba(15,23,42,0.35)'; ctx.fillRect(X(v, x) + s * 0.05, top, s * 0.03, base - top); }
+  ctx.fillStyle = '#e2e8f0'; ctx.fillRect(left, base - s * 0.95, w, s * 0.05); // travesaño (baranda de vidrio)
+  // Cielorraso con luces embutidas.
+  ctx.fillStyle = '#f8fafc'; ctx.fillRect(left, top, w, s * 0.22);
+  for (let x = a + 0.7; x < c - 0.3; x += 1.4) {
+    const lx = X(v, x), cone = ctx.createLinearGradient(0, top + s * 0.22, 0, top + s * 1.6);
+    cone.addColorStop(0, 'rgba(255,247,214,0.35)'); cone.addColorStop(1, 'rgba(255,247,214,0)');
+    ctx.fillStyle = cone; ctx.beginPath(); ctx.moveTo(lx - s * 0.08, top + s * 0.22); ctx.lineTo(lx + s * 0.08, top + s * 0.22); ctx.lineTo(lx + s * 0.5, top + s * 1.6); ctx.lineTo(lx - s * 0.5, top + s * 1.6); ctx.fill();
+    ctx.fillStyle = '#fef9c3'; ctx.fillRect(lx - s * 0.1, top + s * 0.19, s * 0.2, s * 0.04);
+  }
+  // Adornos delante del vidrio.
+  const list = ['plant', 'floorlamp', 'plant', 'plant'], n = Math.max(1, Math.floor((c - a - 1) / 2.6));
+  for (let i = 0; i < n; i++) {
+    const cx = a + 0.6 + (i + 0.5) * (c - a - 1.2) / n + (hash(seed + i) - 0.5) * 0.5;
+    drawDecorItem(ctx, list[Math.floor(hash(seed + i * 13) * list.length)], X(v, cx), base, top, s, v.t, seed + i);
+  }
+  // Piso de mármol.
+  fillTex(ctx, v, texture(ctx, v, 'marble-floor', 1, 0.5, marble('#e7e5e4', 'rgba(120,113,108,0.35)')), '#e7e5e4', a, y0, c - a, 0.08);
+  const fire = g.fires.find(f => Math.abs(f.y - y0) < 0.01 && f.x2 > a && f.x1 < c);
+  if (fire) { // el vidrio ennegrecido arriba del fuego
+    const fx = X(v, (fire.x1 + fire.x2) / 2), burnt = ctx.createRadialGradient(fx, Y(v, y0 + 1.5), 0, fx, Y(v, y0 + 1.5), s * 2);
+    burnt.addColorStop(0, 'rgba(15,8,6,0.8)'); burnt.addColorStop(1, 'rgba(15,8,6,0)');
+    ctx.fillStyle = burnt; ctx.fillRect(Math.max(left, fx - s * 2), Y(v, y0 + 3.5), Math.min(left + w, fx + s * 2) - Math.max(left, fx - s * 2), s * 4);
+  }
+}
+
 // Lo que se mueve en cada habitación: la lámpara del techo (algunas titilan) y el resplandor del fuego.
 function drawRoomLive(ctx: CanvasRenderingContext2D, g: LavaGame, b: Building, k: number, a: number, c: number, r: number, v: View) {
   const s = v.s, y0 = floorY(b, k), y1 = floorY(b, k + 1), seed = b.id * 1000 + k * 10 + r, top = Y(v, y1);
   const lx = X(v, (a + c) / 2 + (hash(seed + 7) - 0.5));
-  ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(lx, top); ctx.lineTo(lx, top + s * 0.4); ctx.stroke();
   const flick = 0.75 + 0.25 * Math.sin(v.t * (hash(seed + 8) < 0.3 ? 23 : 0.7) + seed);
-  ctx.fillStyle = `rgba(251,191,36,${flick})`; ctx.beginPath(); ctx.moveTo(lx - s * 0.25, top + s * 0.62); ctx.lineTo(lx + s * 0.25, top + s * 0.62); ctx.lineTo(lx + s * 0.12, top + s * 0.4); ctx.lineTo(lx - s * 0.12, top + s * 0.4); ctx.fill();
+  if (b.luxury) { // lámpara colgante lineal
+    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(lx - s * 0.5, top + s * 0.22); ctx.lineTo(lx - s * 0.5, top + s * 0.75); ctx.moveTo(lx + s * 0.5, top + s * 0.22); ctx.lineTo(lx + s * 0.5, top + s * 0.75); ctx.stroke();
+    ctx.fillStyle = '#1f2937'; ctx.fillRect(lx - s * 0.65, top + s * 0.72, s * 1.3, s * 0.08);
+    ctx.fillStyle = `rgba(254,243,199,${flick})`; ctx.fillRect(lx - s * 0.6, top + s * 0.8, s * 1.2, s * 0.03);
+  } else {
+    ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(lx, top); ctx.lineTo(lx, top + s * 0.4); ctx.stroke();
+    ctx.fillStyle = `rgba(251,191,36,${flick})`; ctx.beginPath(); ctx.moveTo(lx - s * 0.25, top + s * 0.62); ctx.lineTo(lx + s * 0.25, top + s * 0.62); ctx.lineTo(lx + s * 0.12, top + s * 0.4); ctx.lineTo(lx - s * 0.12, top + s * 0.4); ctx.fill();
+  }
   const fire = g.fires.find(f => Math.abs(f.y - y0) < 0.01 && f.x2 > a && f.x1 < c);
   if (fire) {
     const fx = X(v, (fire.x1 + fire.x2) / 2), fy = Y(v, y0 + 0.8), rr = s * 3.2, left = Math.max(X(v, a), fx - rr), right = Math.min(X(v, c), fx + rr);
@@ -621,31 +687,55 @@ function drawFloorStatic(ctx: CanvasRenderingContext2D, g: LavaGame, b: Building
     for (const p of g.plats) if (mine(p) && isSlab(p)) fillTex(ctx, v, texture(ctx, v, 'slab', 1, 1, concrete(48)), '#78716c', p.x, p.y - 0.24, p.w, 0.24);
   } else {
     const rooms = roomsOf(b, k);
-    rooms.forEach(([a, c], r) => drawRoom(ctx, g, b, k, a, c, r, v));
-    if (rooms.length > 1) { // pared y marco de la puerta entre las dos habitaciones
+    rooms.forEach(([a, c], r) => (b.luxury ? drawLuxRoom : drawRoom)(ctx, g, b, k, a, c, r, v));
+    if (rooms.length > 1 && b.luxury) { // tabique de vidrio esmerilado
+      const split = rooms[0][1];
+      ctx.fillStyle = 'rgba(226,232,240,0.35)'; ctx.fillRect(X(v, split) - s * 0.06, Y(v, y1), s * 0.12, (y1 - y0) * s);
+      ctx.fillStyle = '#94a3b8'; ctx.fillRect(X(v, split) - s * 0.08, Y(v, y1), s * 0.03, (y1 - y0) * s); ctx.fillRect(X(v, split) + s * 0.05, Y(v, y1), s * 0.03, (y1 - y0) * s);
+    } else if (rooms.length > 1) { // pared y marco de la puerta entre las dos habitaciones
       const split = rooms[0][1];
       ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(X(v, split) - s * 0.1, Y(v, y1), s * 0.2, (y1 - y0 - 2.15) * s);
       ctx.fillStyle = '#7c5a3c'; ctx.fillRect(X(v, split) - s * 0.08, Y(v, y0 + 2.15), s * 0.16, 2.15 * s);
       ctx.fillRect(X(v, split) - s * 0.5, Y(v, y0 + 2.15), s, s * 0.1);
     }
-    drawCracks(ctx, b, k, v);
-    // Paredes de afuera (ladrillo) y puertas a los costados.
+    if (!b.luxury) drawCracks(ctx, b, k, v);
+    // Paredes de afuera (ladrillo; en las torres de lujo, muro cortina de vidrio) y puertas a los costados.
     const brick = brickOf(ctx, v, b);
     for (const w of g.walls) {
       if (Math.abs(w.y1 - y0) > 1e-6 || (Math.abs(w.x - (b.x + WALL / 2)) > 1e-6 && Math.abs(w.x - (b.x + b.w - WALL / 2)) > 1e-6)) continue;
-      fillTex(ctx, v, brick, facade(b), w.x - WALL / 2, w.y1, WALL, w.y2 - w.y1);
-      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(X(v, w.x + WALL / 2) - 2, Y(v, w.y2), 2, (w.y2 - w.y1) * s);
+      if (b.luxury) {
+        const gx = X(v, w.x - WALL / 2), gw = WALL * s, gy = Y(v, w.y2), gh = (w.y2 - w.y1) * s;
+        const glass = ctx.createLinearGradient(gx, gy, gx + gw, gy + gh);
+        glass.addColorStop(0, '#1e3a5f'); glass.addColorStop(0.45, '#60a5fa'); glass.addColorStop(0.55, '#1e40af'); glass.addColorStop(1, '#0f172a');
+        ctx.fillStyle = glass; ctx.fillRect(gx, gy, gw, gh);
+        ctx.fillStyle = '#cbd5e1'; ctx.fillRect(gx, gy, gw, s * 0.06); ctx.fillRect(gx, gy + gh * 0.5, gw, s * 0.04); ctx.fillRect(gx + gw / 2 - 1, gy, 2, gh);
+      } else {
+        fillTex(ctx, v, brick, facade(b), w.x - WALL / 2, w.y1, WALL, w.y2 - w.y1);
+        ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(X(v, w.x + WALL / 2) - 2, Y(v, w.y2), 2, (w.y2 - w.y1) * s);
+      }
     }
     // Afuera: cornisa en cada losa, caño de desagüe y algún aire acondicionado colgado de la pared.
-    ctx.fillStyle = hsl(b.hue, 8, 62); ctx.fillRect(X(v, b.x - 0.14), Y(v, y0 + 0.06), (b.w + 0.28) * s, s * 0.1);
+    ctx.fillStyle = b.luxury ? '#e2e8f0' : hsl(b.hue, 8, 62); ctx.fillRect(X(v, b.x - 0.14), Y(v, y0 + 0.06), (b.w + 0.28) * s, s * 0.1);
     ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(X(v, b.x - 0.14), Y(v, y0 - 0.04), (b.w + 0.28) * s, s * 0.04);
-    for (const [side, set] of [[-1, b.doors.left], [1, b.doors.right]] as const) {
+    for (const [side, set] of b.luxury ? [] : [[-1, b.doors.left], [1, b.doors.right]] as const) {
       if (set.has(k) || (side > 0 && b.tower)) continue;
       const out = side < 0 ? b.x - 0.16 : b.x + b.w + 0.04, seed = b.id * 53 + k * 5 + side;
       if (side < 0 || hash(seed) < 0.5) { // caño
         ctx.fillStyle = '#57534e'; ctx.fillRect(X(v, out + 0.02), Y(v, y1), s * 0.09, (y1 - y0) * s);
         ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(X(v, out + 0.03), Y(v, y1), s * 0.02, (y1 - y0) * s);
         ctx.fillStyle = '#44403c'; ctx.fillRect(X(v, out), Y(v, y0 + 1.5), s * 0.13, s * 0.06);
+      }
+      if (k > 0 && k % 3 === 1 && hash(seed + 21) < 0.35 && !set.has(k + 1)) { // cartel luminoso vertical
+        const sx = side < 0 ? b.x - 0.66 : b.x + b.w + 0.14, words = ['HOTEL', 'CAFÉ', 'BAR', 'CINE', 'PIZZA', '24HS', 'TANGO', 'CLUB'];
+        const word = words[Math.floor(hash(seed + 22) * words.length)], neon = hsl(Math.floor(hash(seed + 23) * 360), 90, 60);
+        const sy1 = y0 + 0.45, sy2 = Math.min(y1 - 0.05, y0 + 0.45 + word.length * 0.5);
+        ctx.fillStyle = '#44403c'; ctx.fillRect(X(v, side < 0 ? sx + 0.5 : sx - 0.14), Y(v, sy2 - 0.3), s * 0.14, s * 0.06); ctx.fillRect(X(v, side < 0 ? sx + 0.5 : sx - 0.14), Y(v, sy1 + 0.3), s * 0.14, s * 0.06);
+        ctx.fillStyle = '#111827'; ctx.beginPath(); ctx.roundRect(X(v, sx), Y(v, sy2), s * 0.52, (sy2 - sy1) * s, s * 0.06); ctx.fill();
+        ctx.shadowColor = neon; ctx.shadowBlur = s * 0.3; ctx.strokeStyle = neon; ctx.lineWidth = Math.max(1.5, s * 0.035);
+        ctx.beginPath(); ctx.roundRect(X(v, sx + 0.05), Y(v, sy2 - 0.05), s * 0.42, (sy2 - sy1 - 0.1) * s, s * 0.05); ctx.stroke();
+        ctx.fillStyle = neon; ctx.font = font(900, s * 0.36); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        [...word].forEach((ch, i) => ctx.fillText(ch, X(v, sx + 0.26), Y(v, sy2 - 0.36 - i * ((sy2 - sy1 - 0.3) / word.length))));
+        ctx.shadowBlur = 0;
       }
       if (k > 0 && hash(seed + 9) < 0.3) { // aire acondicionado con su ventilador y la mancha que deja el goteo
         const ax = side < 0 ? b.x - 0.6 : b.x + b.w + 0.02, ay = y0 + 1.7;
@@ -659,6 +749,11 @@ function drawFloorStatic(ctx: CanvasRenderingContext2D, g: LavaGame, b: Building
     if (k > 0) for (const [side, set] of [[-1, b.doors.left], [1, b.doors.right]] as const) if (set.has(k)) drawDoor(ctx, b, k, side, v); // la planta baja da a la calle
     for (const p of g.plats) {
       if (!mine(p) || !isSlab(p)) continue;
+      if (b.luxury) { // losa de piedra oscura con una línea de luz en el borde
+        fillTex(ctx, v, texture(ctx, v, 'marble-dark', 1, 1, marble('#334155', 'rgba(203,213,225,0.25)')), '#334155', p.x, p.y - 0.24, p.w, 0.24);
+        ctx.fillStyle = 'rgba(186,230,253,0.55)'; ctx.fillRect(X(v, p.x), Y(v, p.y - 0.2), p.w * s, s * 0.025);
+        continue;
+      }
       fillTex(ctx, v, texture(ctx, v, 'slab', 1, 1, concrete(48)), '#9ca3af', p.x, p.y - 0.24, p.w, 0.24);
       ctx.fillStyle = p.kind === 'roof' ? hsl(b.hue, 10, 35, 0.8) : 'rgba(0,0,0,0.12)'; ctx.fillRect(X(v, p.x), Y(v, p.y), p.w * s, s * (p.kind === 'roof' ? 0.08 : 0.04));
       ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(X(v, p.x), Y(v, p.y) + s * 0.2, p.w * s, s * 0.04);
@@ -677,8 +772,11 @@ function drawFloorStatic(ctx: CanvasRenderingContext2D, g: LavaGame, b: Building
       for (let i = 0; i < 4; i++) { const cx = h.x1 + (h.x2 - h.x1) * hash(h.x1 * 10 + i); ctx.fillRect(X(v, cx), Y(v, y0) - s * 0.12, s * 0.18, s * 0.12); }
     }
   }
-  // Muebles y escalones de este piso.
-  for (const p of g.plats) if (p.b === b.id && p.floor === k && (p.kind === 'furniture' || p.kind === 'step')) drawPlat(ctx, p, g, v);
+  // Escaleras caracol, muebles y escalones de este piso.
+  const spirals = g.spirals.filter(sp => sp.b === b.id && Math.abs(sp.y0 - y0) < 0.01);
+  for (const sp of spirals) drawSpiral(ctx, sp, g, v);
+  const inSpiral = (p: Plat) => spirals.some(sp => p.y > sp.y0 && p.y < sp.y1 && p.x >= sp.x1 - 0.01 && p.x + p.w <= sp.x2 + 0.01);
+  for (const p of g.plats) if (p.b === b.id && p.floor === k && (p.kind === 'furniture' || p.kind === 'step') && !inSpiral(p)) drawPlat(ctx, p, g, v);
 }
 
 // Cada piso se dibuja una sola vez en una imagen aparte y después se copia (es mucho más rápido). Se
@@ -714,24 +812,6 @@ function drawConstructionLive(ctx: CanvasRenderingContext2D, b: Building, v: Vie
   ctx.fillRect(X(v, b.x - 0.05), Y(v, b.top), s * 0.25, (b.top - netFrom) * s); ctx.fillRect(X(v, b.x + b.w - 0.2), Y(v, b.top), s * 0.25, (b.top - netFrom) * s);
   ctx.strokeStyle = '#7c2d12'; ctx.lineWidth = 2;
   for (let x = b.x + 0.2; x < b.x + b.w; x += (b.w - 0.35) / Math.round(b.w / 3.2)) for (let j = 0; j < 3; j++) { ctx.beginPath(); ctx.moveTo(X(v, x + j * 0.1), Y(v, b.top)); ctx.lineTo(X(v, x + j * 0.1 + (j - 1) * 0.05), Y(v, b.top + 0.8 + j * 0.15)); ctx.stroke(); }
-  // Grúa torre con la carga que se balancea.
-  const mx = b.x + b.w * 0.7, mt = b.top + 9;
-  if (!visible(v, mx - 11, mx + 5, b.top, mt + 1)) return;
-  ctx.strokeStyle = '#eab308'; ctx.lineWidth = Math.max(2, s * 0.06);
-  ctx.beginPath();
-  ctx.moveTo(X(v, mx - 0.3), Y(v, b.top)); ctx.lineTo(X(v, mx - 0.3), Y(v, mt)); ctx.moveTo(X(v, mx + 0.3), Y(v, b.top)); ctx.lineTo(X(v, mx + 0.3), Y(v, mt));
-  for (let y = b.top; y < mt; y += 0.6) { ctx.moveTo(X(v, mx - 0.3), Y(v, y)); ctx.lineTo(X(v, mx + 0.3), Y(v, y + 0.6)); }
-  ctx.moveTo(X(v, mx - 10), Y(v, mt)); ctx.lineTo(X(v, mx + 4), Y(v, mt)); ctx.moveTo(X(v, mx - 10), Y(v, mt + 0.5)); ctx.lineTo(X(v, mx + 4), Y(v, mt + 0.5));
-  for (let x = mx - 10; x < mx + 4; x += 0.6) { ctx.moveTo(X(v, x), Y(v, mt)); ctx.lineTo(X(v, x + 0.3), Y(v, mt + 0.5)); }
-  ctx.moveTo(X(v, mx), Y(v, mt + 2)); ctx.lineTo(X(v, mx - 9), Y(v, mt + 0.5)); ctx.moveTo(X(v, mx), Y(v, mt + 2)); ctx.lineTo(X(v, mx + 3.5), Y(v, mt + 0.5));
-  ctx.stroke();
-  ctx.fillStyle = '#57534e'; ctx.fillRect(X(v, mx + 2.6), Y(v, mt), s * 1.2, s * 0.9); // contrapeso
-  ctx.fillStyle = '#eab308'; ctx.fillRect(X(v, mx + 0.35), Y(v, mt - 0.2), s * 0.8, s * 0.7); // cabina
-  ctx.fillStyle = '#bae6fd'; ctx.fillRect(X(v, mx + 0.45), Y(v, mt - 0.3), s * 0.5, s * 0.35);
-  const hookX = mx - 6 + Math.sin(v.t * 0.7 + b.id) * 0.35, hookY = mt - 4.5;
-  ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(v, mx - 6), Y(v, mt)); ctx.lineTo(X(v, hookX), Y(v, hookY)); ctx.stroke();
-  ctx.fillStyle = '#9a3412'; ctx.fillRect(X(v, hookX - 0.5), Y(v, hookY), s, s * 0.5);
-  ctx.fillStyle = Math.floor(v.t * 1.5) % 2 ? '#ef4444' : '#450a0a'; ctx.beginPath(); ctx.arc(X(v, mx - 10), Y(v, mt + 0.6), s * 0.08, 0, Math.PI * 2); ctx.fill();
 }
 
 function drawBuilding(ctx: CanvasRenderingContext2D, b: Building, g: LavaGame, v: View) {
@@ -758,8 +838,58 @@ function drawBuilding(ctx: CanvasRenderingContext2D, b: Building, g: LavaGame, v
     ctx.strokeStyle = '#7c2d12'; ctx.lineWidth = 2;
     for (let i = 0; i < 5; i++) { const cx = X(v, b.x + 0.5 + i * 0.7); ctx.beginPath(); ctx.moveTo(cx, ry); ctx.lineTo(cx + s * 0.15, ry - s * 0.6); ctx.stroke(); }
   } else if (b.tower) {
+    drawSpire(ctx, b, v, ry);
     for (let i = 0; i < 2; i++) { const bx = X(v, b.x + 0.4 + i * (b.w - 0.8)); ctx.fillStyle = Math.floor(v.t * 2 + i) % 2 ? '#ef4444' : '#7f1d1d'; ctx.beginPath(); ctx.arc(bx, ry - s * 0.5, s * 0.12, 0, Math.PI * 2); ctx.fill(); }
-  } else if (b.roofDecor) drawRoofStuff(ctx, b, v, ry);
+  } else if (b.luxury) drawLuxRoof(ctx, b, v, ry);
+  else if (b.roofDecor) drawRoofStuff(ctx, b, v, ry);
+  if (b.luxury) { // corona de luz en el borde de la terraza
+    const glow = ctx.createLinearGradient(0, ry - s * 0.3, 0, ry);
+    glow.addColorStop(0, 'rgba(125,211,252,0)'); glow.addColorStop(1, `rgba(125,211,252,${0.35 + 0.1 * Math.sin(v.t * 2 + b.id)})`);
+    ctx.fillStyle = glow; ctx.fillRect(X(v, b.x - 0.15), ry - s * 0.3, (b.w + 0.3) * s, s * 0.3);
+  }
+}
+
+// Terraza de una torre de lujo: baranda de vidrio, pileta con reposeras y sombrilla, y plantas en macetones.
+function drawLuxRoof(ctx: CanvasRenderingContext2D, b: Building, v: View, ry: number) {
+  const s = v.s;
+  for (const [x1, x2] of [[b.x - 0.1, b.x + 1.6], [b.x + b.w - 1.6, b.x + b.w + 0.1]]) { // baranda de vidrio en las puntas
+    ctx.fillStyle = 'rgba(186,230,253,0.25)'; ctx.fillRect(X(v, x1), ry - s * 0.9, (x2 - x1) * s, s * 0.9);
+    ctx.fillStyle = '#cbd5e1'; ctx.fillRect(X(v, x1), ry - s * 0.92, (x2 - x1) * s, s * 0.06);
+  }
+  if (!b.roofDecor) return;
+  // Pileta (borde de piedra, agua celeste con reflejos que se mueven).
+  const px = b.x + b.w * 0.3, pw = Math.min(4.2, b.w * 0.36), ph = 0.65;
+  fillTex(ctx, v, texture(ctx, v, 'marble-floor', 1, 0.5, marble('#e7e5e4', 'rgba(120,113,108,0.35)')), '#e7e5e4', px - 0.15, b.top, pw + 0.3, ph + 0.08);
+  const water = ctx.createLinearGradient(0, Y(v, b.top + ph), 0, Y(v, b.top + 0.1));
+  water.addColorStop(0, '#67e8f9'); water.addColorStop(1, '#0e7490');
+  ctx.fillStyle = water; ctx.fillRect(X(v, px), Y(v, b.top + ph), pw * s, (ph - 0.1) * s);
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.2;
+  for (let i = 0; i < 4; i++) { const wx = px + ((v.t * 0.25 + i / 4) % 1) * pw; ctx.beginPath(); ctx.moveTo(X(v, wx), Y(v, b.top + ph - 0.05)); ctx.quadraticCurveTo(X(v, wx + 0.2), Y(v, b.top + ph - 0.12), X(v, Math.min(px + pw, wx + 0.4)), Y(v, b.top + ph - 0.05)); ctx.stroke(); }
+  // Reposeras con toalla y sombrilla.
+  for (let i = 0; i < 2; i++) {
+    const lx = X(v, px + pw + 0.5 + i * 1.1), ly = ry;
+    ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = Math.max(1.5, s * 0.04); ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + s * 0.1, ly - s * 0.25); ctx.lineTo(lx + s * 0.8, ly - s * 0.25); ctx.lineTo(lx + s * 0.95, ly - s * 0.6); ctx.moveTo(lx + s * 0.8, ly - s * 0.25); ctx.lineTo(lx + s * 0.75, ly); ctx.stroke();
+    ctx.strokeStyle = ['#f472b6', '#38bdf8'][i]; ctx.lineWidth = Math.max(2, s * 0.06); ctx.beginPath(); ctx.moveTo(lx + s * 0.15, ly - s * 0.29); ctx.lineTo(lx + s * 0.78, ly - s * 0.29); ctx.stroke();
+  }
+  const ux = X(v, px + pw + 1.6);
+  ctx.strokeStyle = '#78716c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ux, ry); ctx.lineTo(ux, ry - s * 1.6); ctx.stroke();
+  ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.moveTo(ux - s * 0.85, ry - s * 1.45); ctx.quadraticCurveTo(ux, ry - s * 2.05, ux + s * 0.85, ry - s * 1.45); ctx.fill();
+  ctx.fillStyle = '#fef2f2'; ctx.beginPath(); ctx.moveTo(ux - s * 0.3, ry - s * 1.62); ctx.quadraticCurveTo(ux, ry - s * 1.98, ux + s * 0.3, ry - s * 1.62); ctx.fill();
+  // Macetones con plantas.
+  for (const fx of [b.x + 1.9, px - 0.9]) {
+    ctx.fillStyle = '#334155'; ctx.fillRect(X(v, fx), ry - s * 0.5, s * 0.6, s * 0.5);
+    ctx.fillStyle = '#15803d'; for (let j = 0; j < 4; j++) { ctx.beginPath(); ctx.ellipse(X(v, fx + 0.3) + (j - 1.5) * s * 0.12, ry - s * (0.75 + (j % 2) * 0.2), s * 0.12, s * 0.35, (j - 1.5) * 0.4, 0, Math.PI * 2); ctx.fill(); }
+  }
+}
+
+// Antena de la torre más alta: mástil con riendas y balizas rojas que titilan.
+function drawSpire(ctx: CanvasRenderingContext2D, b: Building, v: View, ry: number) {
+  const s = v.s, cx = X(v, b.x + b.w / 2), h = s * 7;
+  ctx.fillStyle = '#334155'; ctx.fillRect(cx - s * 0.6, ry - s * 0.8, s * 1.2, s * 0.8);
+  const metal = ctx.createLinearGradient(cx - s * 0.12, 0, cx + s * 0.12, 0); metal.addColorStop(0, '#64748b'); metal.addColorStop(0.5, '#e2e8f0'); metal.addColorStop(1, '#475569');
+  ctx.fillStyle = metal; ctx.beginPath(); ctx.moveTo(cx - s * 0.16, ry - s * 0.8); ctx.lineTo(cx - s * 0.04, ry - h); ctx.lineTo(cx + s * 0.04, ry - h); ctx.lineTo(cx + s * 0.16, ry - s * 0.8); ctx.fill();
+  ctx.strokeStyle = 'rgba(148,163,184,0.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx - s * 1.8, ry); ctx.lineTo(cx, ry - h * 0.55); ctx.lineTo(cx + s * 1.8, ry); ctx.stroke();
+  for (const k of [0.45, 0.75, 1]) { const on = Math.floor(v.t * 1.2 + k * 3) % 2; ctx.fillStyle = on ? '#ef4444' : '#450a0a'; ctx.beginPath(); ctx.arc(cx, ry - h * k, s * 0.1, 0, Math.PI * 2); ctx.fill(); }
 }
 
 // Cosas de la terraza: equipos de aire, caños de ventilación y un tanque de agua o una antena con parabólica.
@@ -809,6 +939,157 @@ function drawRoofStuff(ctx: CanvasRenderingContext2D, b: Building, v: View, ry: 
     ctx.fillStyle = '#e5e7eb'; ctx.beginPath(); ctx.ellipse(dx + s * 0.1, ry - s * 0.7, s * 0.18, s * 0.38, -0.5, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#6b7280'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(dx + s * 0.1, ry - s * 0.7); ctx.lineTo(dx + s * 0.4, ry - s * 0.9); ctx.stroke();
   }
+}
+
+// Escalera caracol: columna de mármol, escalones de piedra con su ménsula de hierro y la baranda que gira.
+function drawSpiral(ctx: CanvasRenderingContext2D, sp: Spiral, g: LavaGame, v: View) {
+  const s = v.s, cx = (sp.x1 + sp.x2) / 2;
+  const steps = g.plats.filter(p => p.kind === 'step' && p.b === sp.b && p.y > sp.y0 && p.y < sp.y1 && p.x >= sp.x1 - 0.01 && p.x + p.w <= sp.x2 + 0.01).sort((p, q) => p.y - q.y);
+  fillTex(ctx, v, texture(ctx, v, 'marble-col', 0.5, 1, marble('#f1f5f9', 'rgba(100,116,139,0.35)')), '#e7e5e4', cx - 0.13, sp.y0, 0.26, sp.y1 - sp.y0 + 0.05);
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(X(v, cx + 0.06), Y(v, sp.y1), s * 0.07, (sp.y1 - sp.y0) * s);
+  const rail: [number, number][] = [];
+  for (const p of steps) {
+    const x = X(v, p.x), y = Y(v, p.y), w = p.w * s, outer = p.x + p.w / 2 < cx ? p.x : p.x + p.w;
+    ctx.strokeStyle = '#334155'; ctx.lineWidth = Math.max(1.5, s * 0.04); // ménsula hasta la columna
+    ctx.beginPath(); ctx.moveTo(X(v, p.x + p.w / 2), y + s * 0.1); ctx.lineTo(X(v, cx), y + s * 0.38); ctx.stroke();
+    const tread = ctx.createLinearGradient(0, y - s * 0.06, 0, y + s * 0.14);
+    tread.addColorStop(0, '#f5f5f4'); tread.addColorStop(1, '#a8a29e');
+    ctx.fillStyle = tread; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w - s * 0.06, y + s * 0.14); ctx.lineTo(x + s * 0.06, y + s * 0.14); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(x + s * 0.06, y + s * 0.14, w - s * 0.12, s * 0.04);
+    rail.push([X(v, outer), Y(v, p.y + 0.95)]);
+    ctx.strokeStyle = '#475569'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X(v, outer), y); ctx.lineTo(X(v, outer), Y(v, p.y + 0.95)); ctx.stroke(); // barrote
+  }
+  if (rail.length > 1) {
+    ctx.strokeStyle = '#78350f'; ctx.lineWidth = Math.max(2, s * 0.06); ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(rail[0][0], rail[0][1]);
+    for (let i = 1; i < rail.length; i++) { const [px, py] = rail[i - 1], [qx, qy] = rail[i]; ctx.quadraticCurveTo((px + qx) / 2, Math.min(py, qy) - s * 0.08, qx, qy); }
+    ctx.stroke(); ctx.lineJoin = 'miter';
+  }
+}
+
+// Grúa torre: mástil reticulado, cabina, pluma con pasarela (se camina por arriba), contrapluma con los
+// contrapesos, torre de arriba con los tensores, carro con la cadena del gancho y balizas.
+function drawCrane(ctx: CanvasRenderingContext2D, c: Crane, g: LavaGame, v: View) {
+  if (!visible(v, c.jx1 - 1, c.jx2 + 1, c.hookY - 2, c.jy + 4)) return;
+  const s = v.s, yel = '#eab308', dark = '#a16207', lw = Math.max(1.5, s * 0.045);
+  const lattice = (x1: number, y1: number, x2: number, y2: number, w: number, vertical: boolean) => {
+    ctx.strokeStyle = yel; ctx.lineWidth = lw * 1.6; ctx.beginPath();
+    if (vertical) { ctx.moveTo(X(v, x1 - w), Y(v, y1)); ctx.lineTo(X(v, x1 - w), Y(v, y2)); ctx.moveTo(X(v, x1 + w), Y(v, y1)); ctx.lineTo(X(v, x1 + w), Y(v, y2)); }
+    else { ctx.moveTo(X(v, x1), Y(v, y1)); ctx.lineTo(X(v, x2), Y(v, y1)); ctx.moveTo(X(v, x1), Y(v, y1 + w)); ctx.lineTo(X(v, x2), Y(v, y2 + w)); }
+    ctx.stroke();
+    ctx.strokeStyle = dark; ctx.lineWidth = lw; ctx.beginPath();
+    if (vertical) for (let y = y1, i = 0; y < y2; y += w * 2, i++) { ctx.moveTo(X(v, x1 + (i % 2 ? w : -w)), Y(v, y)); ctx.lineTo(X(v, x1 + (i % 2 ? -w : w)), Y(v, Math.min(y2, y + w * 2))); }
+    else for (let x = x1, i = 0; x < x2; x += 0.6, i++) { const k = (x - x1) / (x2 - x1), k2 = (Math.min(x2, x + 0.6) - x1) / (x2 - x1); ctx.moveTo(X(v, x), Y(v, y1 + (i % 2 ? w : 0) + (y2 - y1) * k)); ctx.lineTo(X(v, Math.min(x2, x + 0.6)), Y(v, y1 + (i % 2 ? 0 : w) + (y2 - y1) * k2)); }
+    ctx.stroke();
+  };
+  lattice(c.mx, c.base, c.mx, c.jy, 0.45, true); // mástil
+  // Torre de arriba y tensores hasta las puntas.
+  const apex = c.jy + 3.2;
+  ctx.strokeStyle = yel; ctx.lineWidth = lw * 1.6; ctx.beginPath();
+  ctx.moveTo(X(v, c.mx - 0.45), Y(v, c.jy + 0.7)); ctx.lineTo(X(v, c.mx), Y(v, apex)); ctx.lineTo(X(v, c.mx + 0.45), Y(v, c.jy + 0.7)); ctx.stroke();
+  ctx.strokeStyle = '#78716c'; ctx.lineWidth = Math.max(1, s * 0.025); ctx.beginPath();
+  ctx.moveTo(X(v, c.mx), Y(v, apex)); ctx.lineTo(X(v, c.jx2 - 0.4), Y(v, c.jy + 0.7)); ctx.moveTo(X(v, c.mx), Y(v, apex)); ctx.lineTo(X(v, c.jx1 + 0.2), Y(v, c.jy + 0.7)); ctx.stroke();
+  // Pluma (por arriba se camina) y contrapluma.
+  lattice(c.jx1, c.jy + 0.05, c.jx2, c.jy + 0.05, 0.7, false);
+  ctx.fillStyle = '#44403c'; ctx.fillRect(X(v, c.jx1), Y(v, c.jy) - s * 0.06, (c.jx2 - c.jx1) * s, s * 0.12); // pasarela de rejilla
+  ctx.strokeStyle = 'rgba(250,204,21,0.9)'; ctx.lineWidth = 1; ctx.beginPath(); // baranda baja
+  ctx.moveTo(X(v, c.jx1), Y(v, c.jy + 0.75)); ctx.lineTo(X(v, c.jx2), Y(v, c.jy + 0.75)); ctx.stroke();
+  for (let i = 0; i < 3; i++) { // contrapesos de hormigón
+    const bx = c.jx1 + 0.1 + i * 0.42;
+    fillTex(ctx, v, texture(ctx, v, 'concrete', 1, 1, concrete(58)), '#a8a29e', bx, c.jy - 1.2, 0.38, 1.15);
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.strokeRect(X(v, bx), Y(v, c.jy - 0.05), 0.38 * s, 1.15 * s);
+  }
+  // Cabina del grúista colgada debajo de la pluma.
+  ctx.fillStyle = yel; ctx.beginPath(); ctx.roundRect(X(v, c.mx + 0.5), Y(v, c.jy - 0.1), s * 1.1, s * 1.05, s * 0.1); ctx.fill();
+  ctx.fillStyle = '#7dd3fc'; ctx.fillRect(X(v, c.mx + 0.62), Y(v, c.jy - 0.25), s * 0.86, s * 0.45);
+  ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillRect(X(v, c.mx + 0.66), Y(v, c.jy - 0.25), s * 0.15, s * 0.45);
+  // Carro del gancho.
+  ctx.fillStyle = '#374151'; ctx.fillRect(X(v, c.hookX - 0.3), Y(v, c.jy), s * 0.6, s * 0.18);
+  // Cartel en la chapa de la pluma y balizas.
+  ctx.fillStyle = '#1f2937'; ctx.fillRect(X(v, c.mx + 1.9), Y(v, c.jy + 0.62), s * 2.1, s * 0.5);
+  ctx.fillStyle = '#fde047'; ctx.font = font(900, s * 0.28); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('GRÚA ▶', X(v, c.mx + 2.95), Y(v, c.jy + 0.37));
+  const blink = Math.floor(v.t * 1.5 + c.id) % 2;
+  for (const [x, y] of [[c.jx2, c.jy + 0.8], [c.mx, apex + 0.15], [c.jx1, c.jy + 0.8]]) {
+    ctx.fillStyle = blink ? '#ef4444' : '#450a0a'; ctx.beginPath(); ctx.arc(X(v, x), Y(v, y), s * 0.09, 0, Math.PI * 2); ctx.fill();
+    if (blink) { const gl = ctx.createRadialGradient(X(v, x), Y(v, y), 0, X(v, x), Y(v, y), s * 0.6); gl.addColorStop(0, 'rgba(239,68,68,0.5)'); gl.addColorStop(1, 'rgba(239,68,68,0)'); ctx.fillStyle = gl; ctx.fillRect(X(v, x) - s * 0.6, Y(v, y) - s * 0.6, s * 1.2, s * 1.2); }
+  }
+  // Cartel abajo del mástil.
+  ctx.fillStyle = '#fde047'; ctx.font = font(900, s * 0.24); ctx.fillText('▲ TREPÁ', X(v, c.mx), Y(v, c.base + 1.4));
+}
+
+// Cable tendido entre dos edificios: chapas en las paredes, aisladores y una comba (con el personaje colgado,
+// el cable baja hasta sus manos).
+function drawWire(ctx: CanvasRenderingContext2D, w: Wire, g: LavaGame, v: View) {
+  if (!visible(v, w.x1 - 1, w.x2 + 1, Math.min(w.y1, w.y2) - 2, Math.max(w.y1, w.y2) + 1)) return;
+  const s = v.s, p = g.player, held = p.wire === w;
+  const ax = X(v, w.x1), ay = Y(v, w.y1), bx = X(v, w.x2), by = Y(v, w.y2);
+  const sag = s * (0.18 + 0.04 * Math.sin(v.t * 1.3 + w.id));
+  ctx.lineCap = 'round';
+  for (const [color, width] of [['#0f172a', Math.max(2, s * 0.06)], ['rgba(148,163,184,0.7)', Math.max(0.8, s * 0.018)]] as const) {
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(ax, ay);
+    if (held) { const hx = X(v, p.x), hy = Y(v, zipY(w, p.x)) + s * 0.08; ctx.lineTo(hx, hy); ctx.lineTo(bx, by); }
+    else ctx.quadraticCurveTo((ax + bx) / 2, (ay + by) / 2 + sag * 2, bx, by);
+    ctx.stroke();
+  }
+  ctx.lineCap = 'butt';
+  for (const [x, y] of [[ax, ay], [bx, by]]) { // chapa y aislador
+    ctx.fillStyle = '#57534e'; ctx.fillRect(x - s * 0.1, y - s * 0.18, s * 0.2, s * 0.36);
+    ctx.fillStyle = '#d1fae5'; ctx.beginPath(); ctx.ellipse(x, y, s * 0.07, s * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  if (!held) { // cartelito
+    const tx = ax + (bx - ax) * 0.5, ty = (ay + by) / 2 + sag * 1.5;
+    ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.roundRect(tx - s * 0.32, ty + s * 0.05, s * 0.64, s * 0.26, s * 0.05); ctx.fill();
+    ctx.fillStyle = '#111827'; ctx.font = font(900, s * 0.17); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('↑ CABLE', tx, ty + s * 0.18);
+  }
+}
+
+// Góndola de limpiavidrios: pescante en la terraza, dos cables, la canasta con baranda, el motor y un balde.
+function drawGondola(ctx: CanvasRenderingContext2D, e: Elevator, g: LavaGame, v: View) {
+  const b = g.buildings[e.b], st = elevatorAt(e, g.time), s = v.s;
+  if (!visible(v, e.x - 1, e.x + e.w + 1, e.y1 - 1, b.top + 3)) return;
+  const out = e.x > b.x ? 1 : -1, cx = e.x + e.w / 2, y = st.y;
+  // Pescante en la terraza.
+  ctx.strokeStyle = '#64748b'; ctx.lineWidth = Math.max(2, s * 0.08);
+  const root = out > 0 ? b.x + b.w - 0.6 : b.x + 0.6;
+  ctx.beginPath(); ctx.moveTo(X(v, root), Y(v, b.top)); ctx.lineTo(X(v, root), Y(v, b.top + 1.4)); ctx.lineTo(X(v, cx + out * 0.2), Y(v, b.top + 1.4)); ctx.stroke();
+  ctx.strokeStyle = '#1f2937'; ctx.lineWidth = Math.max(1, s * 0.025);
+  for (const dx of [-0.65, 0.65]) { ctx.beginPath(); ctx.moveTo(X(v, cx + dx * 0.3), Y(v, b.top + 1.35)); ctx.lineTo(X(v, cx + dx), Y(v, y + 1.25)); ctx.stroke(); }
+  // Canasta.
+  const x = X(v, e.x), w = e.w * s, base = Y(v, y);
+  ctx.fillStyle = '#475569'; ctx.fillRect(x, base, w, s * 0.16);
+  ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = Math.max(1.5, s * 0.04); ctx.beginPath();
+  ctx.moveTo(x, base - s * 1.15); ctx.lineTo(x + w, base - s * 1.15); ctx.moveTo(x, base - s * 0.6); ctx.lineTo(x + w, base - s * 0.6);
+  for (let i = 0; i <= 4; i++) { ctx.moveTo(x + (w * i) / 4, base); ctx.lineTo(x + (w * i) / 4, base - s * 1.15); }
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(203,213,225,0.18)'; ctx.fillRect(x, base - s * 1.15, w, s * 1.15);
+  ctx.fillStyle = '#f97316'; ctx.fillRect(x + w * 0.05, base - s * 1.32, w * 0.9, s * 0.17); // motor de cada lado y franja
+  ctx.fillStyle = '#111827'; ctx.font = font(900, s * 0.13); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('GÓNDOLA', x + w / 2, base - s * 1.23);
+  ctx.fillStyle = '#2563eb'; ctx.fillRect(x + w * 0.7, base - s * 0.42, s * 0.28, s * 0.32); // balde
+  ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + w * 0.2, base - s * 0.2); ctx.lineTo(x + w * 0.2, base - s * 0.95); ctx.moveTo(x + w * 0.12, base - s * 0.95); ctx.lineTo(x + w * 0.28, base - s * 0.95); ctx.stroke(); // secador
+  if (st.open) { ctx.fillStyle = '#22c55e'; ctx.font = font(900, s * 0.2); ctx.fillText('¡SUBÍ!', x + w / 2, base - s * 1.6); }
+}
+
+// Montacargas de obra: dos rieles con cremallera y una jaula de malla amarilla (la reja se abre en cada piso).
+function drawHoist(ctx: CanvasRenderingContext2D, e: Elevator, g: LavaGame, v: View) {
+  if (!visible(v, e.x - 1, e.x + e.w + 1, e.y1, e.y2 + 3)) return;
+  const st = elevatorAt(e, g.time), s = v.s, x = X(v, e.x), w = e.w * s, top = Y(v, e.y2 + 2.6), bottom = Y(v, e.y1);
+  ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = Math.max(2, s * 0.07);
+  ctx.beginPath(); ctx.moveTo(x + s * 0.1, top); ctx.lineTo(x + s * 0.1, bottom); ctx.moveTo(x + w - s * 0.1, top); ctx.lineTo(x + w - s * 0.1, bottom); ctx.stroke();
+  ctx.strokeStyle = '#4b5563'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let y = top; y < bottom; y += s * 0.15) { ctx.moveTo(x + s * 0.04, y); ctx.lineTo(x + s * 0.16, y); } ctx.stroke(); // cremallera
+  const base = Y(v, st.y), ch = s * 2.1;
+  ctx.fillStyle = 'rgba(250,204,21,0.15)'; ctx.fillRect(x + 2, base - ch, w - 4, ch);
+  ctx.strokeStyle = '#eab308'; ctx.lineWidth = Math.max(2, s * 0.06); ctx.strokeRect(x + 2, base - ch, w - 4, ch);
+  ctx.strokeStyle = 'rgba(234,179,8,0.55)'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let i = 1; i < 8; i++) { ctx.moveTo(x + 2 + ((w - 4) * i) / 8, base - ch); ctx.lineTo(x + 2 + ((w - 4) * i) / 8, base - (st.open ? ch * 0.15 : 0)); }
+  for (let j = 1; j < 6; j++) { ctx.moveTo(x + 2, base - (ch * j) / 6); ctx.lineTo(x + w - 2, base - (ch * j) / 6); }
+  ctx.stroke();
+  ctx.fillStyle = '#44403c'; ctx.fillRect(x, base, w, s * 0.15);
+  ctx.fillStyle = '#eab308'; ctx.fillRect(x, base - ch - s * 0.25, w, s * 0.25);
+  ctx.fillStyle = '#111827'; ctx.font = font(900, s * 0.16); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('MONTACARGAS', x + w / 2, base - ch - s * 0.12);
+  if (st.open) { ctx.fillStyle = '#22c55e'; ctx.font = font(900, s * 0.2); ctx.fillText('¡ENTRÁ!', x + w / 2, base - ch - s * 0.5); }
 }
 
 // La parte de arriba de un edificio que se cayó y quedó apoyada en el de al lado (se camina por encima).
@@ -985,6 +1266,8 @@ function drawPlat(ctx: CanvasRenderingContext2D, p: Plat, g: LavaGame, v: View) 
     ctx.fillText('⬆ CAMA ELÁSTICA', x + w / 2, y + s * 0.75);
     return;
   }
+  if (p.kind === 'jib') return; // la pluma la dibuja la grúa
+  if (p.kind === 'skybridge') return drawSkybridge(ctx, p, g, v);
   // Puentes y tablones entre edificios (los tablones tiemblan y se caen).
   if (p.gone > 0) return;
   const shake = p.crumble > 0 ? Math.sin(g.time * 60) * s * 0.04 : 0;
@@ -1000,6 +1283,40 @@ function drawPlat(ctx: CanvasRenderingContext2D, p: Plat, g: LavaGame, v: View) 
   }
 }
 
+// Medio puente colgante vidriado entre dos torres: el otro extremo está roto (vigas dobladas, vidrios
+// partidos y cables que cuelgan) y hay que saltar el hueco.
+function drawSkybridge(ctx: CanvasRenderingContext2D, p: Plat, g: LavaGame, v: View) {
+  const s = v.s, x = X(v, p.x), y = Y(v, p.y), w = p.w * s, h = 2.2 * s;
+  const attachedLeft = g.buildings.some(b => Math.abs(b.x + b.w - (p.x + 0.15)) < 0.3);
+  const brokenX = attachedLeft ? x + w : x, dir = attachedLeft ? 1 : -1;
+  // Vidrios (con alguno partido cerca de la rotura) y parantes.
+  ctx.fillStyle = 'rgba(186,230,253,0.16)'; ctx.fillRect(x, y - h, w, h);
+  ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = Math.max(1.5, s * 0.04); ctx.beginPath();
+  for (let u = 0; u <= w; u += s * 0.9) { ctx.moveTo(x + u, y); ctx.lineTo(x + u, y - h); }
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.18)'; for (let u = s * 0.2; u < w; u += s * 1.8) { ctx.beginPath(); ctx.moveTo(x + u, y - h * 0.15); ctx.lineTo(x + u + s * 0.3, y - h * 0.9); ctx.lineTo(x + u + s * 0.45, y - h * 0.9); ctx.lineTo(x + u + s * 0.15, y - h * 0.15); ctx.fill(); }
+  ctx.strokeStyle = 'rgba(226,232,240,0.7)'; ctx.lineWidth = 1; ctx.beginPath();
+  const cx = brokenX - dir * s * 0.5;
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; ctx.moveTo(cx, y - h * 0.5); ctx.lineTo(cx + Math.cos(a) * s * 0.5, y - h * 0.5 + Math.sin(a) * s * 0.6); }
+  ctx.stroke();
+  // Techo de vigas y la losa por donde se camina.
+  ctx.fillStyle = '#64748b'; ctx.fillRect(x, y - h - s * 0.14, w, s * 0.14);
+  const deck = ctx.createLinearGradient(0, y, 0, y + s * 0.3); deck.addColorStop(0, '#cbd5e1'); deck.addColorStop(0.3, '#64748b'); deck.addColorStop(1, '#1e293b');
+  ctx.fillStyle = deck; ctx.fillRect(x, y, w, s * 0.3);
+  // Borde roto: hormigón partido, vigas dobladas y cables colgando.
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath(); ctx.moveTo(brokenX, y - s * 0.02);
+  for (let j = 0; j <= 6; j++) ctx.lineTo(brokenX + dir * hash(p.id + j) * s * 0.25, y + (j / 6) * s * 0.3);
+  ctx.lineTo(brokenX - dir * s * 0.05, y + s * 0.3); ctx.fill();
+  ctx.strokeStyle = '#7c2d12'; ctx.lineWidth = Math.max(1.5, s * 0.04); ctx.beginPath();
+  for (let j = 0; j < 3; j++) { ctx.moveTo(brokenX, y + s * (0.06 + j * 0.09)); ctx.lineTo(brokenX + dir * s * (0.3 + j * 0.12), y + s * (0.25 + j * 0.2)); }
+  ctx.moveTo(brokenX, y - h); ctx.lineTo(brokenX + dir * s * 0.5, y - h + s * 0.6); ctx.stroke();
+  ctx.strokeStyle = '#111827'; ctx.lineWidth = Math.max(1, s * 0.025);
+  for (let j = 0; j < 2; j++) { const sw = Math.sin(v.t * 1.6 + j + p.id) * s * 0.15; ctx.beginPath(); ctx.moveTo(brokenX - dir * s * 0.1, y - h * (0.9 - j * 0.3)); ctx.quadraticCurveTo(brokenX + dir * s * 0.3 + sw, y + s * 0.5, brokenX + dir * s * 0.2 + sw * 1.5, y + s * (1.2 + j * 0.5)); ctx.stroke(); }
+  // Franjas de peligro en la punta.
+  for (let j = 0; j < 3; j++) { ctx.fillStyle = j % 2 ? '#111827' : '#facc15'; ctx.fillRect(brokenX - dir * s * (0.3 + j * 0.15) - (dir < 0 ? 0 : s * 0.15), y - s * 0.02, s * 0.15, s * 0.08); }
+}
+
 function drawHelipad(ctx: CanvasRenderingContext2D, cx: number, y: number, s: number) {
   ctx.fillStyle = '#1f2937'; ctx.beginPath(); ctx.ellipse(cx, y - s * 0.03, s * 1.9, s * 0.22, 0, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = '#fde047'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(cx, y - s * 0.03, s * 1.6, s * 0.17, 0, 0, Math.PI * 2); ctx.stroke();
@@ -1010,6 +1327,8 @@ function drawHelipad(ctx: CanvasRenderingContext2D, cx: number, y: number, s: nu
 function drawElevators(ctx: CanvasRenderingContext2D, g: LavaGame, v: View) {
   const s = v.s;
   for (const e of g.elevators) {
+    if (e.skin === 'gondola') { drawGondola(ctx, e, g, v); continue; }
+    if (e.skin === 'hoist') { drawHoist(ctx, e, g, v); continue; }
     if (!visible(v, e.x - 1, e.x + e.w + 1, e.y1, e.y2 + 3)) continue;
     const b = g.buildings[e.b], st = elevatorAt(e, g.time);
     const x = X(v, e.x), w = e.w * s;
@@ -1053,8 +1372,45 @@ function drawElevators(ctx: CanvasRenderingContext2D, g: LavaGame, v: View) {
 }
 
 function drawClimb(ctx: CanvasRenderingContext2D, c: Climb, v: View) {
-  if (!visible(v, c.x - 1, c.x + 1, c.y1, c.y2)) return;
+  if (!visible(v, c.x - 1, c.x + 1, c.y1 - 1, c.y2)) return;
   const x = X(v, c.x), s = v.s, top = Y(v, c.y2), bottom = Y(v, c.y1);
+  if (c.skin === 'pipe' || c.skin === 'pole') { // caño de desagüe (con abrazaderas) o caño de bronce
+    const r = s * (c.skin === 'pipe' ? 0.08 : 0.055);
+    const metal = ctx.createLinearGradient(x - r, 0, x + r, 0);
+    if (c.skin === 'pipe') { metal.addColorStop(0, '#44403c'); metal.addColorStop(0.35, '#a8a29e'); metal.addColorStop(1, '#292524'); }
+    else { metal.addColorStop(0, '#78350f'); metal.addColorStop(0.35, '#fde68a'); metal.addColorStop(1, '#92400e'); }
+    ctx.fillStyle = metal; ctx.fillRect(x - r, top, r * 2, bottom - top);
+    ctx.fillStyle = c.skin === 'pipe' ? '#292524' : '#b45309';
+    for (let y = bottom - s * 0.4; y > top; y -= s * (c.skin === 'pipe' ? 0.8 : 1.4)) ctx.fillRect(x - r * 1.6, y, r * 3.2, s * 0.06);
+    return;
+  }
+  if (c.skin === 'chain') { // cadena del gancho de la grúa (o colgada en la obra) con el gancho abajo
+    ctx.strokeStyle = '#57534e'; ctx.lineWidth = Math.max(1.5, s * 0.035);
+    const step = s * 0.16;
+    for (let y = top, i = 0; y < bottom; y += step, i++) { ctx.beginPath(); if (i % 2) ctx.ellipse(x, y, s * 0.025, step * 0.6, 0, 0, Math.PI * 2); else ctx.ellipse(x, y, s * 0.06, step * 0.6, 0, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.strokeStyle = '#292524'; ctx.lineWidth = Math.max(3, s * 0.08);
+    ctx.beginPath(); ctx.moveTo(x, bottom); ctx.lineTo(x, bottom + s * 0.25); ctx.arc(x + s * 0.18, bottom + s * 0.25, s * 0.18, Math.PI, Math.PI * 0.15, true); ctx.stroke();
+    return;
+  }
+  if (c.skin === 'mast') { // escalera adentro del mástil de la grúa (el mástil lo dibuja la grúa)
+    ctx.strokeStyle = '#78716c'; ctx.lineWidth = Math.max(1.5, s * 0.04); ctx.beginPath();
+    ctx.moveTo(x - s * 0.2, top); ctx.lineTo(x - s * 0.2, bottom); ctx.moveTo(x + s * 0.2, top); ctx.lineTo(x + s * 0.2, bottom);
+    for (let y = bottom - s * 0.3; y > top; y -= s * 0.35) { ctx.moveTo(x - s * 0.2, y); ctx.lineTo(x + s * 0.2, y); }
+    ctx.stroke();
+    return;
+  }
+  if (c.skin === 'scaffold') { // andamio de caños galvanizados con su escalerita
+    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = Math.max(2, s * 0.06); ctx.beginPath();
+    ctx.moveTo(x - s * 0.45, top); ctx.lineTo(x - s * 0.45, bottom); ctx.moveTo(x + s * 0.45, top); ctx.lineTo(x + s * 0.45, bottom);
+    for (let y = bottom - s * 1.0; y > top; y -= s * 1.0) { ctx.moveTo(x - s * 0.55, y); ctx.lineTo(x + s * 0.55, y); }
+    ctx.moveTo(x - s * 0.45, bottom); ctx.lineTo(x + s * 0.45, top + (bottom - top) * 0.5); ctx.stroke();
+    ctx.fillStyle = '#475569'; for (let y = bottom - s * 1.0; y > top; y -= s * 1.0) for (const dx of [-0.45, 0.45]) { ctx.beginPath(); ctx.arc(x + dx * s, y, s * 0.06, 0, Math.PI * 2); ctx.fill(); }
+    ctx.strokeStyle = '#a16207'; ctx.lineWidth = Math.max(1.5, s * 0.045); ctx.beginPath();
+    ctx.moveTo(x - s * 0.18, top); ctx.lineTo(x - s * 0.18, bottom); ctx.moveTo(x + s * 0.18, top); ctx.lineTo(x + s * 0.18, bottom);
+    for (let y = bottom - s * 0.3; y > top; y -= s * 0.35) { ctx.moveTo(x - s * 0.18, y); ctx.lineTo(x + s * 0.18, y); }
+    ctx.stroke();
+    return;
+  }
   if (c.skin === 'rope') {
     ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(x - s * 0.3, top + s * 0.28, s * 0.6, s * 0.12); // agujero en el techo
     ctx.strokeStyle = '#a16207'; ctx.lineWidth = Math.max(3, s * 0.1);
@@ -1168,24 +1524,32 @@ function hslRgb(h: number, s: number, l: number) {
   const k = (n: number) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
   return [0, 8, 4].map(n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))));
 }
-// Cuerpo de una persona en coordenadas locales (los pies en 0,0; hacia arriba es negativo).
-function drawBody(ctx: CanvasRenderingContext2D, person: Person, h: number, dir: 1 | -1, swing: number, arms: number, burn: number, t: number) {
-  const w = h * 0.4;
-  const skin = mix(SKINS[Math.floor(person.look * 4)], CHAR, burn), shirt = mix(hslRgb(person.hue, 65, 50), CHAR, burn), pants = mix(hslRgb((person.hue + 200) % 360, 35, 30), CHAR, burn);
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = pants; ctx.lineWidth = w * 0.35;
-  ctx.beginPath(); ctx.moveTo(0, -h * 0.45); ctx.lineTo(-w * 0.4 * swing, 0); ctx.moveTo(0, -h * 0.45); ctx.lineTo(w * 0.4 * swing, 0); ctx.stroke();
-  ctx.fillStyle = shirt; ctx.beginPath(); ctx.roundRect(-w / 2, -h * 0.8, w, h * 0.4, w * 0.2); ctx.fill();
-  ctx.strokeStyle = skin; ctx.lineWidth = w * 0.22;
-  const wave = arms ? Math.sin(t * 24 + person.id) * h * 0.12 : 0;
-  ctx.beginPath(); ctx.moveTo(0, -h * 0.75); ctx.lineTo(dir * w * 0.6, -h * 0.5 - arms * h * 0.42 + wave); ctx.moveTo(0, -h * 0.75); ctx.lineTo(-dir * w * 0.5, -h * 0.52 - arms * h * 0.4 - wave); ctx.stroke();
-  ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(0, -h * 0.9, w * 0.38, 0, Math.PI * 2); ctx.fill();
-  if (person.helmet) { ctx.fillStyle = mix([250, 204, 21], CHAR, burn); ctx.beginPath(); ctx.arc(0, -h * 0.95, w * 0.42, Math.PI, Math.PI * 2); ctx.fill(); ctx.fillRect(-w * 0.55, -h * 0.96, w * 1.1, w * 0.1); }
-  else if (burn < 0.6) { // el pelo se quema primero
-    ctx.save(); ctx.globalAlpha *= 1 - burn / 0.6;
-    ctx.fillStyle = person.look > 0.5 ? '#3b2412' : '#facc15'; ctx.beginPath(); ctx.arc(-dir * w * 0.08, -h * 0.97, w * 0.36, Math.PI, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
+// Cómo está vestida cada persona: el mismo estilo que el protagonista, pero con su propia piel, pelo, gorro
+// (o ninguno), remera (lisa, a rayas o de dos colores), pantalón y zapatillas. En las obras, casco y chaleco.
+const HAIRS = ['#1c1917', '#3b2412', '#78350f', '#a16207', '#facc15', '#d6d3d1', '#7c2d12'];
+const PANTS = [[37, 99, 235], [30, 58, 138], [17, 24, 39], [120, 113, 108], [180, 150, 100], [127, 29, 29], [21, 128, 61]];
+const SHOES = [[248, 250, 252], [17, 24, 39], [220, 38, 38], [234, 179, 8], [120, 53, 15]];
+const HATS: RunnerHat[] = ['short', 'long', 'cap', 'short', 'bun', 'beanie', 'long', 'bald', 'cap'];
+function personLook(person: Person, burn: number): RunnerLook {
+  const h = (n: number) => hash(person.id * 31 + n);
+  const c = (rgb: number[]) => mix(rgb, CHAR, burn);
+  const skin = SKINS[Math.floor(person.look * 4)];
+  const shirtA = hslRgb(person.hue, 65, 48), shirtB = hslRgb((person.hue + 40 + h(1) * 160) % 360, 55, 72);
+  const pattern = Math.floor(h(2) * 3); // 0 lisa, 1 a rayas, 2 dos colores
+  const shirt: [string, string, string] = person.helmet ? [c([249, 115, 22]), c([250, 204, 21]), c([249, 115, 22])]
+    : pattern === 0 ? [c(shirtA), c(shirtA), c(shirtA)] : pattern === 1 ? [c(shirtA), c(shirtB), c(shirtA)] : [c(shirtB), c(shirtA), c(shirtA)];
+  const hat: RunnerHat = person.helmet ? 'helmet' : HATS[Math.floor(h(3) * HATS.length)];
+  const hatRgb = hslRgb((person.hue + 180) % 360, 60, 45);
+  return {
+    skin: c(skin), ear: c(skin.map(v => v * 0.92)), hair: burn > 0.5 ? '#1c1917' : HAIRS[Math.floor(h(4) * HAIRS.length)],
+    hat, hatColor: person.helmet ? c([250, 204, 21]) : c(hatRgb), brim: c(hatRgb.map(v => v * 0.75)), dot: c([255, 255, 255]),
+    shirt, pants: c(PANTS[Math.floor(h(5) * PANTS.length)]), pantsEdge: 'rgba(0,0,0,0.35)', shoes: c(SHOES[Math.floor(h(6) * SHOES.length)]),
+  };
+}
+// Una persona con los pies en 0,0 (hacia arriba es negativo), del mismo tamaño que el protagonista.
+function drawBody(ctx: CanvasRenderingContext2D, person: Person, h: number, dir: 1 | -1, moving: boolean, armsUp: boolean, burn: number, t: number, pace = 9) {
+  const w = h * (PLAYER_W / PLAYER_H);
+  drawRunner(ctx, { x: -w / 2, y: -h, w, h, facing: dir, time: t + person.id, running: moving, airborne: false, falling: armsUp, look: personLook(person, burn), pace });
 }
 // Cuánto se ve una persona carbonizada antes de hundirse del todo en la lava.
 const CHARRED_SHOW = 9;
@@ -1197,10 +1561,10 @@ function drawPerson(ctx: CanvasRenderingContext2D, person: Person, v: View, lava
   const y = person.burnAt === null ? person.y : Math.max(person.y, lava + 0.02 - sink);
   if (!visible(v, x - 2, x + 2, y, y + 3)) return;
   const state = personState(person, v.t), s = v.s;
-  const px = X(v, x), base = Y(v, y), h = s * (person.look < 0.2 ? 0.6 : 0.82), w = h * 0.4;
+  const px = X(v, x), base = Y(v, y), h = s * PLAYER_H * (person.look < 0.2 ? 0.75 : 0.95 + hash(person.id) * 0.1), w = h * 0.4;
   if (state === 'calm') {
     ctx.save(); ctx.translate(px, base);
-    drawBody(ctx, person, h, dir, Math.sin(v.t * 9 + person.id) * 0.5, 0, 0, v.t);
+    drawBody(ctx, person, h, dir, true, false, 0, v.t);
     ctx.restore();
     return;
   }
@@ -1211,7 +1575,7 @@ function drawPerson(ctx: CanvasRenderingContext2D, person: Person, v: View, lava
     glow.addColorStop(0, `rgba(255,150,40,${0.55 + 0.15 * Math.sin(v.t * 20 + person.id)})`); glow.addColorStop(1, 'rgba(255,150,40,0)');
     ctx.fillStyle = glow; ctx.fillRect(px - h * 2.4, base - h * 3, h * 4.8, h * 4.8);
     ctx.save(); ctx.translate(px, base);
-    drawBody(ctx, person, h, dir, Math.sin(v.t * 22 + person.id) * 0.7, 1, burn, v.t); // corre desesperada con los brazos arriba
+    drawBody(ctx, person, h, dir, true, true, burn, v.t, 22); // corre desesperada con los brazos arriba
     ctx.restore();
     // Llamas que le salen de todo el cuerpo (cada vez más grandes).
     for (let i = 0; i < 26; i++) {
@@ -1238,7 +1602,7 @@ function drawPerson(ctx: CanvasRenderingContext2D, person: Person, v: View, lava
   if (Number.isFinite(lava)) { const top = Y(v, lava); ctx.beginPath(); ctx.rect(px - h * 2, top - h * 3, h * 4, h * 3); ctx.clip(); } // lo que se hundió no se ve
   ctx.translate(px, base); ctx.rotate(dir * fall * fall * Math.PI * 0.5);
   ctx.shadowColor = 'rgba(255,120,40,0.7)'; ctx.shadowBlur = h * 0.25; // contorno rojizo para que se recorte sobre la lava
-  drawBody(ctx, person, h, dir, 0, 0.8 * (1 - fall), 1, 0);
+  drawBody(ctx, person, h, dir, false, fall < 0.5, 1, 0);
   ctx.restore();
   const smokeA = Math.max(0, 1 - after / CHARRED_SHOW);
   for (let i = 0; i < 3; i++) { const k = (after * 0.4 + i / 3) % 1; ctx.fillStyle = `rgba(110,105,100,${0.45 * (1 - k) * smokeA})`; ctx.beginPath(); ctx.arc(px + dir * h * 0.4 + Math.sin(after + i) * w, base - h * 0.3 - k * s * 1.4, w * (0.3 + k), 0, Math.PI * 2); ctx.fill(); }
@@ -1383,7 +1747,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, g: LavaGame, v: View) {
   const px = X(v, p.x) - pw / 2, py = Y(v, p.y) - ph;
   const burnt = !!g.dying;
   if (p.zip) drawTrolley(ctx, X(v, p.x), Y(v, p.y + 1.1), s, true);
-  drawRunner(ctx, { x: px, y: py, w: pw, h: ph, facing: p.facing, time: v.t, running: p.vx !== 0 && !!p.ground, airborne: !p.ground && !p.climb && !p.zip, climbing: !!p.climb || !!p.zip, falling: !!g.dying, burnt });
+  drawRunner(ctx, { x: px, y: py, w: pw, h: ph, facing: p.facing, time: v.t, running: p.vx !== 0 && !!p.ground, airborne: !p.ground && !p.climb && !p.zip && !p.wire, climbing: !!p.climb || !!p.zip || !!p.wire, falling: !!g.dying, burnt });
   if (g.dying?.reason === 'zap' && Math.floor(v.t * 20) % 2) bolts(ctx, px + pw / 2, py + ph / 2, pw * 1.2, v.t, '#fde047');
   if (g.dying) for (let i = 0; i < 3; i++) { ctx.fillStyle = `rgba(120,113,108,${0.5 - i * 0.12})`; ctx.beginPath(); ctx.arc(px + pw / 2 + Math.sin(v.t * 6 + i) * pw * 0.4, py - i * pw * 0.6, pw * (0.25 + i * 0.1), 0, Math.PI * 2); ctx.fill(); }
 }
@@ -1398,6 +1762,8 @@ function draw(ctx: CanvasRenderingContext2D, g: LavaGame, v: View) {
   for (const e of g.escapes) drawEscape(ctx, e, g, v);
   for (const c of g.climbs) drawClimb(ctx, c, v);
   for (const z of g.zips) drawZip(ctx, z, g, v);
+  for (const c of g.cranes) drawCrane(ctx, c, g, v);
+  for (const w of g.wires) drawWire(ctx, w, g, v);
   for (const p of g.plats) if (p.kind !== 'furniture' && p.kind !== 'step') drawPlat(ctx, p, g, v); // los muebles y escalones van en la imagen de cada piso
   for (const f of g.fires) drawFire(ctx, f, v);
   for (const sp of g.sparks) drawSpark(ctx, sp, v);
@@ -1443,6 +1809,7 @@ export function LavaFloor() {
   const brokeRef = useRef(false);
   const startedRef = useRef(false);
   const zipToldRef = useRef(false);
+  const wireToldRef = useRef(false);
   const [status, setStatus] = useState<Status>('ready');
   const [hud, setHud] = useState({ tenths: 0, m: 0, lava: 0, lavaM: 0, heli: '' });
   const [record, setRecord] = useState(readLavaRecord);
@@ -1498,7 +1865,7 @@ export function LavaFloor() {
     follow(-1);
     input.current = { ...NO_INPUT };
     recordRef.current = readLavaRecord();
-    brokeRef.current = false; startedRef.current = false; zipToldRef.current = false;
+    brokeRef.current = false; startedRef.current = false; zipToldRef.current = false; wireToldRef.current = false;
     setHud({ tenths: 0, m: 0, lava: 0, lavaM: 0, heli: '' });
     setToast({ text: `¡La lava empieza a subir en ${LAVA_DELAY} segundos! 🔥`, id: Date.now() });
     setStatus('playing');
@@ -1554,6 +1921,7 @@ export function LavaFloor() {
         if (e.type === 'heli') setToast({ text: '¡Ahí están los helicópteros! Subite cuando aterricen 🚁', id: now });
         if (e.type === 'heliLand') setToast({ text: '¡Aterrizó un helicóptero! Tenés 5 segundos 🚁', id: now, big: true });
         if (e.type === 'zip' && !zipToldRef.current) { zipToldRef.current = true; setToast({ text: '¡Tirolesa! Con ↓ te soltás 🪢', id: now }); }
+        if (e.type === 'wire' && !wireToldRef.current) { wireToldRef.current = true; setToast({ text: '¡Colgado del cable! Con ← → avanzás a mano y con ↓ te soltás 🧗', id: now }); }
         if (e.type === 'lose') setToast({ text: LOSE_TEXT[e.reason], id: now });
       }
       follow(dt);
@@ -1639,7 +2007,7 @@ export function LavaFloor() {
           <div>
             {status === 'ready' && <>
               <h2 id="lava-message" className="lava-title">¡El piso es de lava! 🌋</h2>
-              <p>La lava sube y no para: subí lo más rápido que puedas para sobrevivir. Cada partida arrancás en otro lugar de la cuadra. Trepá por escaleras, muebles, sogas y ascensores (entrá cuando abren las puertas), salí por las puertas de los costados y pasá de edificio en edificio por tablones, camas elásticas, tirolesas y edificios caídos. Esquivá el fuego, los cables y los pisos rotos. Arriba de la torre más alta aterrizan tres helicópteros: esperan 5 segundos y se vuelven a ir, ¡subite a tiempo!</p>
+              <p>La lava sube y no para: subí lo más rápido que puedas para sobrevivir. Cada partida arrancás en otro lugar de la cuadra. Trepá por escaleras (también caracol), muebles, sogas, caños, andamios y ascensores (entrá cuando abren las puertas), salí por las puertas de los costados y pasá de edificio en edificio por tablones, camas elásticas, tirolesas, edificios caídos y góndolas. Colgate de los cables con ↑ y avanzá a mano, trepá las grúas de las obras y caminá por la pluma, y en las avenidas saltá el hueco de los puentes rotos. Esquivá el fuego, los cortocircuitos y los pisos rotos. Arriba de la torre más alta aterrizan tres helicópteros: esperan 5 segundos y se vuelven a ir, ¡subite a tiempo!</p>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> subir por sogas, escaleras y tirolesas (o saltar) · <kbd>↓</kbd> bajar · <kbd>Espacio</kbd> saltar · <kbd>P</kbd> pausa</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}

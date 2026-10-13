@@ -118,7 +118,7 @@ export function Games() {
           <Cover src={lavaCover} />
           <span className="game-card-text">
             <strong>¡El piso es de lava!</strong>
-            <span>¡La lava sube y no para! Subí lo más rápido que puedas para sobrevivir: saltá de edificio en edificio por escaleras, muebles, sogas, ascensores, tablones y tirolesas, y esquivá el fuego y los cortocircuitos.</span>
+            <span>¡La lava sube y no para! Subí lo más rápido que puedas para sobrevivir: saltá de edificio en edificio por escaleras caracol, muebles, sogas, ascensores, tirolesas, cables, grúas y puentes rotos de torres altísimas, y esquivá el fuego y los cortocircuitos.</span>
             <span className="game-card-win"><b>Cómo se gana:</b> Subite a uno de los helicópteros que aterrizan arriba de la torre más alta antes de que la lava te alcance. Esperan solo 5 segundos y se vuelven a ir.</span>
           </span>
           <span className="game-card-foot">

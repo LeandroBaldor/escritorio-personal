@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCity, BURN_T, elevatorAt, elevatorPeriod, elevatorY, HANG, heliState, HELI_AIR, HELI_WAIT, lavaLevel, LAVA_DELAY, newLava, nextLanding,
-  personState, PLAYER_H, REACH, START_BUILDINGS, step, takeEvents, towerOf, zipY,
+  personState, PLAYER_H, REACH, START_BUILDINGS, step, takeEvents, towerOf, zipY, floorY, WIRE_UP,
   type City, type Input, type LavaGame, type Plat,
 } from './lava';
 
@@ -75,10 +75,55 @@ describe('¡El piso es de lava!: la ciudad', () => {
 
   it('se pasa de edificio en edificio de muchas formas: camas elásticas, tirolesas y rampas', () => {
     const modes = new Set(city.links.map(l => l.mode));
-    for (const m of ['bounce', 'zip', 'ramp', 'jump', 'walk', 'elevator'] as const) expect(modes.has(m), m).toBe(true);
-    expect(city.plats.filter(p => p.kind === 'trampoline').length).toBeGreaterThanOrEqual(2);
+    for (const m of ['bounce', 'zip', 'ramp', 'jump', 'walk', 'elevator', 'wire'] as const) expect(modes.has(m), m).toBe(true);
+    expect(city.plats.filter(p => p.kind === 'trampoline').length).toBeGreaterThanOrEqual(5);
     expect(city.zips.length).toBeGreaterThanOrEqual(2);
     for (const z of city.zips) expect(z.y2).toBeLessThan(z.y1); // siempre en bajada
+  });
+
+  it('hay avenidas anchas cruzadas por puentes colgantes rotos (con un hueco que se salta)', () => {
+    const byId = platById(city);
+    const sky = city.plats.filter(p => p.kind === 'skybridge');
+    expect(sky.length).toBeGreaterThanOrEqual(6);
+    const holes = city.links.filter(l => byId.get(l.from)?.kind === 'skybridge' && byId.get(l.to)?.kind === 'skybridge');
+    expect(holes.length).toBe(sky.length); // cada mitad salta a la otra
+    for (const l of holes) { expect(l.mode).toBe('jump'); expect(l.edge).toBeGreaterThan(1.3); expect(l.edge).toBeLessThanOrEqual(2.2); }
+  });
+
+  it('las torres de lujo tienen escaleras caracol que se suben de a un escalón', () => {
+    expect(city.spirals.length).toBeGreaterThan(10);
+    for (const sp of city.spirals) {
+      const b = city.buildings[sp.b];
+      expect(b.luxury).toBe(true);
+      const steps = city.plats.filter(p => p.kind === 'step' && p.b === sp.b && p.y > sp.y0 && p.y < sp.y1 && p.x >= sp.x1 - 0.01 && p.x + p.w <= sp.x2 + 0.01).sort((p, q) => p.y - q.y);
+      expect(steps.length).toBeGreaterThan(4);
+      steps.forEach((p, i) => {
+        const prev = i ? steps[i - 1] : null;
+        expect(p.y - (prev ? prev.y : sp.y0)).toBeLessThan(0.6);
+        if (prev) expect(Math.min(p.x + p.w, prev.x + prev.w) - Math.max(p.x, prev.x)).toBeGreaterThan(0.2); // se pisan: se sube caminando
+      });
+      expect(sp.y1 - steps[steps.length - 1].y).toBeLessThan(0.6);
+    }
+  });
+
+  it('hay cables entre edificios para colgarse (casi todos en subida), grúas en las obras y góndolas por afuera', () => {
+    expect(city.wires.length).toBeGreaterThanOrEqual(8);
+    expect(city.wires.filter(w => w.y2 - w.y1 > 1.2).length).toBeGreaterThan(city.wires.length / 3);
+    for (const w of city.wires) expect(w.x2).toBeGreaterThan(w.x1);
+    expect(city.cranes.length).toBe(2);
+    for (const c of city.cranes) {
+      const B = city.buildings[c.b + 1];
+      expect(c.jy).toBeGreaterThan(B.top + 1.5);
+      expect(c.jy - B.top).toBeLessThan(REACH - 0.15); // desde la terraza de al lado se salta a la pluma
+      expect(city.plats.some(p => p.kind === 'jib' && p.x <= c.mx && p.x + p.w >= B.x + 2)).toBe(true);
+    }
+    expect(city.elevators.filter(e => e.skin === 'gondola').length).toBeGreaterThanOrEqual(2);
+    expect(city.elevators.filter(e => e.skin === 'hoist').length).toBe(2);
+    for (const e of city.elevators.filter(e => e.skin === 'gondola')) {
+      const b = city.buildings[e.b];
+      expect(e.x >= b.x + b.w || e.x + e.w <= b.x).toBe(true); // por afuera
+      for (const y of e.stops) { const k = Math.round(y / b.fh); expect(e.x > b.x ? b.doors.right.has(k) : b.doors.left.has(k)).toBe(true); }
+    }
   });
 
   it('los departamentos tienen puertas a los costados con balcones para salir', () => {
@@ -93,8 +138,9 @@ describe('¡El piso es de lava!: la ciudad', () => {
 
   it('los edificios son distintos: bajitos y torres, de colores y altos de piso distintos', () => {
     const tops = city.buildings.map(b => b.top);
-    expect(Math.min(...tops)).toBeLessThan(20);
-    expect(Math.max(...tops)).toBeGreaterThan(70);
+    expect(Math.min(...tops)).toBeLessThan(25);
+    expect(Math.max(...tops)).toBeGreaterThan(100);
+    expect(city.buildings.filter(b => b.luxury).length).toBeGreaterThanOrEqual(3);
     expect(new Set(city.buildings.map(b => b.hue)).size).toBe(city.buildings.length);
     expect(new Set(city.buildings.map(b => b.fh.toFixed(2))).size).toBeGreaterThan(5);
   });
@@ -103,13 +149,13 @@ describe('¡El piso es de lava!: la ciudad', () => {
     const kinds = new Set(city.plats.map(p => p.kind));
     for (const k of ['step', 'furniture', 'bridge', 'plank', 'landing', 'elevator', 'roof', 'floor'] as Plat['kind'][]) expect(kinds.has(k), k).toBe(true);
     expect(new Set(city.plats.filter(p => p.furniture).map(p => p.furniture)).size).toBeGreaterThan(15);
-    expect(city.plats.filter(p => p.furniture).length).toBeGreaterThan(130);
-    expect(new Set(city.climbs.map(c => c.skin))).toEqual(new Set(['ladder', 'rope', 'escape']));
+    expect(city.plats.filter(p => p.furniture).length).toBeGreaterThan(120);
+    expect(new Set(city.climbs.map(c => c.skin))).toEqual(new Set(['ladder', 'rope', 'escape', 'pipe', 'chain', 'mast', 'scaffold', 'pole']));
     expect(city.escapes.length).toBeGreaterThan(1);
     // Las escaleras de emergencia están rotas: nunca llegan a la terraza.
     for (const e of city.escapes) expect(e.broken).toBeLessThan(city.buildings[e.b].floors);
     // Los ascensores llegan como mucho hasta la terraza.
-    for (const e of city.elevators) expect(e.y2).toBeCloseTo(city.buildings[e.b].top);
+    for (const e of city.elevators) if (e.skin !== 'gondola') expect(e.y2).toBeCloseTo(city.buildings[e.b].top);
     expect(city.fires.length).toBeGreaterThan(25);
     expect(city.sparks.length).toBeGreaterThan(18);
     expect(city.sparks.some(s => s.kind === 'cable') && city.sparks.some(s => s.kind === 'puddle')).toBe(true);
@@ -327,6 +373,71 @@ describe('¡El piso es de lava!: el juego', () => {
     expect(g2.player.ground?.kind).toBe('floor');
     expect(g2.player.x).toBeGreaterThan(z.x2 - 0.5);
     expect(g2.player.y).toBeCloseTo(z.y2 - 1.5);
+  });
+
+  // Una partida tranquila: sin fuego, ni cortocircuitos, ni lava (para probar cómo se mueve).
+  const calm = () => { const g = newLava(0, 1); g.fires = []; g.sparks = []; return g; };
+  const place = (g: LavaGame, pl: Plat, x: number) => Object.assign(g.player, { x, y: pl.y, vx: 0, vy: 0, ground: pl, climb: null, zip: null, wire: null, climbCooldown: 0 });
+  // El piso (o la calle) donde se apoya algo a esa altura.
+  const floorAt = (g: LavaGame, y: number, x: number) => g.plats.find(p => (p.kind === 'floor' || p.kind === 'roof' || p.kind === 'street') && Math.abs(p.y - y) < 0.01 && x >= p.x && x <= p.x + p.w)!;
+
+  it('se cuelga de un cable con ↑ y avanza a mano hasta el otro edificio (en subida)', () => {
+    const g = calm(), w = g.wires.find(w => w.y2 - w.y1 > 1.2)!;
+    const A = g.buildings.find(b => Math.abs(b.x + b.w - 0.8 - w.x1) < 0.01)!, B = g.buildings.find(b => Math.abs(b.x + 0.8 - w.x2) < 0.01)!;
+    place(g, floorAt(g, w.y1 - WIRE_UP, w.x1), w.x1);
+    expect(A.doors.right.has(Math.round((w.y1 - WIRE_UP) / A.fh))).toBe(true);
+    run(g, 0.1, { up: true });
+    expect(g.player.wire).toBe(w);
+    expect(takeEvents(g).some(e => e.type === 'wire')).toBe(true);
+    run(g, 0.5, { right: true });
+    expect(g.player.y + HANG).toBeCloseTo(zipY(w, g.player.x), 3);
+    for (let i = 0; i < 60 * 8 && g.player.wire; i++) step(g, { ...idle, right: true }, 1 / 60);
+    expect(g.player.wire).toBeNull(); // en la punta se suelta
+    run(g, 0.5);
+    expect(g.player.ground?.b).toBe(B.id);
+    expect(g.player.y).toBeCloseTo(w.y2 - WIRE_UP, 2);
+  });
+
+  it('en la obra se trepa el mástil de la grúa, se camina por la pluma y se baja en la terraza de al lado', () => {
+    const g = calm(), c = g.cranes[0], A = g.buildings[c.b], B = g.buildings[c.b + 1];
+    place(g, floorAt(g, A.top, c.mx), c.mx);
+    run(g, 0.1, { up: true });
+    expect(g.player.climb?.skin).toBe('mast');
+    run(g, (c.jy - A.top) / 4 + 1.5, { up: true });
+    expect(g.player.ground?.kind).toBe('jib');
+    run(g, (c.jx2 - c.mx) / 6 + 0.3, { right: true });
+    run(g, 0.6);
+    expect(g.player.ground?.b).toBe(B.id);
+    expect(g.player.y).toBeCloseTo(B.top, 2);
+  });
+
+  it('la escalera caracol se sube yendo y viniendo', () => {
+    const g = calm(), sp = g.spirals[0], b = g.buildings[sp.b];
+    const k = Math.round(sp.y0 / b.fh);
+    expect(k).toBeGreaterThanOrEqual(0);
+    place(g, floorAt(g, sp.y0, sp.x1 - 0.2), sp.x1 - 0.2);
+    let dir: 'right' | 'left' = 'right', best = g.player.y, still = 0;
+    for (let i = 0; i < 60 * 12 && g.player.y < sp.y1 - 0.01; i++) {
+      step(g, { ...idle, [dir]: true }, 1 / 60);
+      if (g.player.y > best + 0.01) { best = g.player.y; still = 0; } else if (++still > 12) { dir = dir === 'right' ? 'left' : 'right'; still = 0; }
+    }
+    expect(g.player.y).toBeCloseTo(sp.y1, 2);
+  });
+
+  it('la góndola de limpiavidrios sube por afuera parando en cada piso', () => {
+    const g = calm(), e = g.elevators.find(e => e.skin === 'gondola')!;
+    const seen = new Set<number>();
+    for (let t = 0; t < 60; t += 0.05) { const st = elevatorAt(e, t); if (st.open) seen.add(Math.round(st.y * 100)); }
+    expect(seen.size).toBe(e.stops.length);
+  });
+
+  it('la cama elástica de abajo de un piso roto te tira hasta el piso de arriba', () => {
+    const g = calm(), tp = g.plats.find(p => p.kind === 'trampoline' && p.b >= 0 && p.floor >= 0 && p.y < g.buildings[p.b].top - 1)!;
+    const b = g.buildings[tp.b], above = floorY(b, tp.floor + 1);
+    Object.assign(g.player, { x: tp.x + tp.w / 2, y: tp.y + 1, vx: 0, vy: 0, ground: null, climb: null, zip: null, wire: null });
+    let top = 0;
+    for (let i = 0; i < 60; i++) { step(g, idle, 1 / 60); top = Math.max(top, g.player.y); }
+    expect(top).toBeGreaterThan(above + 1.5);
   });
 
   it('se sube un piso saltando desde un mueble', () => {

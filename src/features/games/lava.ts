@@ -12,6 +12,11 @@
 // - Para pasar de un edificio a otro hay puertas a los costados de los departamentos (algunas con
 //   balconcito): se cruza por tablones, puentes, saltando el hueco, rebotando en camas elásticas,
 //   colgándose de tirolesas o subiendo por los edificios caídos.
+// - Torres de lujo vidriadas (con escaleras caracol), avenidas anchas cruzadas por puentes colgantes rotos
+//   (hay que saltar el hueco), cables entre edificios para colgarse y avanzar a mano (algunos en subida),
+//   grúas de obra (se trepa el mástil, se camina por la pluma o se sube por la cadena del gancho),
+//   góndolas de limpiavidrios que suben y bajan por afuera, montacargas en las obras, caños de desagüe
+//   para trepar por afuera y camas elásticas debajo de los pisos rotos.
 // - Peligros: departamentos incendiados, cables y charcos con cortocircuitos, pisos rotos y tablones que
 //   se caen. La gente que camina por los pisos se prende fuego cuando la llega la lava y queda carbonizada.
 // - Tres helicópteros aterrizan, esperan 5 segundos, vuelven al aire unos 30 segundos y vuelven a
@@ -30,6 +35,7 @@ export const BURN_T = 3.2; // segundos que una persona arde antes de quedar carb
 const DIE_T = 1.6; // lo que dura la animación de perder antes del GAME OVER
 export const BOUNCE = 17.5; // la cama elástica te tira para arriba (unas 5 unidades)
 export const ZIP_SPEED = 7, HANG = 1.05; // la tirolesa: velocidad y distancia de las manos a los pies
+export const WIRE_SPEED = 3.2, WIRE_UP = 1.5; // colgado de un cable se avanza a mano; el cable está a esta altura del piso
 export const ELEV_STOP = 1.6; // lo que el ascensor se queda con las puertas abiertas en cada piso
 // Helicópteros: aterrizados 5 segundos, en el aire 30 (3 para despegar y 3 para aterrizar).
 export const HELI_WAIT = 5, HELI_AIR = 30, HELI_MOVE = 3, HELI_PERIOD = HELI_WAIT + HELI_AIR;
@@ -45,7 +51,7 @@ export function lavaLevel(t: number) {
 }
 export const meters = (y: number) => Math.max(0, Math.round(y * M_PER_UNIT));
 
-export type PlatKind = 'street' | 'floor' | 'roof' | 'furniture' | 'step' | 'bridge' | 'plank' | 'landing' | 'balcony' | 'elevator' | 'ramp' | 'trampoline' | 'pad';
+export type PlatKind = 'street' | 'floor' | 'roof' | 'furniture' | 'step' | 'bridge' | 'plank' | 'landing' | 'balcony' | 'elevator' | 'ramp' | 'trampoline' | 'pad' | 'skybridge' | 'jib';
 export type FurnitureKind =
   | 'sofa' | 'bed' | 'table' | 'desk' | 'dresser' | 'piano' | 'wardrobe' | 'fridge' | 'bookshelf' | 'washer'
   | 'armchair' | 'stove' | 'counter' | 'chair' | 'nightstand' | 'coffeetable' | 'tvstand'
@@ -54,8 +60,10 @@ export interface Plat {
   id: number; kind: PlatKind; x: number; y: number; w: number; b: number; floor: number;
   furniture?: FurnitureKind; h?: number; elev?: Elevator; dy: number; crumble: number; gone: number; hue: number;
 }
-export interface Elevator { id: number; b: number; x: number; w: number; y1: number; y2: number; stops: number[]; speed: number; dwell: number; phase: number }
-export interface Climb { id: number; x: number; y1: number; y2: number; skin: 'ladder' | 'rope' | 'escape' }
+// `skin`: ascensor común, góndola de limpiavidrios (por afuera, colgada de la terraza) o montacargas de obra.
+export interface Elevator { id: number; b: number; x: number; w: number; y1: number; y2: number; stops: number[]; speed: number; dwell: number; phase: number; skin: 'cab' | 'gondola' | 'hoist' }
+export type ClimbSkin = 'ladder' | 'rope' | 'escape' | 'pipe' | 'chain' | 'mast' | 'scaffold' | 'pole';
+export interface Climb { id: number; x: number; y1: number; y2: number; skin: ClimbSkin }
 export interface Wall { x: number; y1: number; y2: number }
 export interface Fire { id: number; x1: number; x2: number; y: number; h: number }
 export interface Spark { id: number; x1: number; x2: number; y1: number; y2: number; period: number; on: number; phase: number; kind: 'cable' | 'puddle' }
@@ -63,24 +71,31 @@ export interface Person { id: number; b: number; y: number; x1: number; x2: numb
 export interface Heli { id: number; x: number; y: number; w: number; h: number; phase: number; drift: -1 | 1 }
 export interface Escape { id: number; b: number; side: -1 | 1; x: number; floors: number[]; broken: number }
 export interface Zip { id: number; x1: number; y1: number; x2: number; y2: number }
+// Cable tendido entre dos edificios (x1 < x2): se cuelga de las manos y se avanza para los dos lados.
+export interface Wire { id: number; x1: number; y1: number; x2: number; y2: number }
+// Grúa torre de una obra: mástil desde la terraza, pluma por la que se camina (y, del gancho, una cadena).
+export interface Crane { id: number; b: number; mx: number; base: number; jy: number; jx1: number; jx2: number; hookX: number; hookY: number }
+// Escalera caracol (para dibujarla: los escalones son plataformas comunes).
+export interface Spiral { id: number; b: number; x1: number; x2: number; y0: number; y1: number }
 export interface Fallen { id: number; a: number; b: number; x1: number; y1: number; x2: number; y2: number; thick: number }
 export interface Building {
   id: number; x: number; w: number; fh: number; floors: number; top: number; hue: number; tone: number; tower: boolean;
-  construction: boolean; broken: boolean; roofDecor: boolean;
+  construction: boolean; broken: boolean; roofDecor: boolean; luxury: boolean;
   doors: { left: Set<number>; right: Set<number> }; holes: { floor: number; x1: number; x2: number }[];
 }
-export type LinkMode = 'walk' | 'jump' | 'stairs' | 'climb' | 'elevator' | 'zip' | 'bounce' | 'ramp';
+export type LinkMode = 'walk' | 'jump' | 'stairs' | 'climb' | 'elevator' | 'zip' | 'bounce' | 'ramp' | 'wire';
 export interface Link { from: number; to: number; mode: LinkMode; dy: number; edge: number; fromX: number; toX: number; fromY: number; toY: number; cost: number }
-export interface Player { x: number; y: number; vx: number; vy: number; facing: 1 | -1; ground: Plat | null; climb: Climb | null; zip: Zip | null; climbCooldown: number; coyote: number }
+export interface Player { x: number; y: number; vx: number; vy: number; facing: 1 | -1; ground: Plat | null; climb: Climb | null; zip: Zip | null; wire: Wire | null; climbCooldown: number; coyote: number }
 export interface Input { left: boolean; right: boolean; jump: boolean; down: boolean; up: boolean }
 export type LoseReason = 'lava' | 'fire' | 'zap';
 export type LavaEvent =
   | { type: 'jump' } | { type: 'crumble' } | { type: 'burn'; id: number } | { type: 'faster'; level: number } | { type: 'heli' } | { type: 'heliLand' }
-  | { type: 'bounce' } | { type: 'zip' }
+  | { type: 'bounce' } | { type: 'zip' } | { type: 'wire' }
   | { type: 'lose'; reason: LoseReason } | { type: 'gameover' } | { type: 'win' };
 export interface City {
   width: number; buildings: Building[]; plats: Plat[]; climbs: Climb[]; walls: Wall[]; fires: Fire[]; sparks: Spark[];
   people: Person[]; helis: Heli[]; elevators: Elevator[]; escapes: Escape[]; zips: Zip[]; fallens: Fallen[]; links: Link[];
+  wires: Wire[]; cranes: Crane[]; spirals: Spiral[];
   street: number; starts: { b: number; x1: number; x2: number }[];
 }
 export interface LavaGame extends City {
@@ -146,13 +161,15 @@ export function personX(p: Person, t: number) {
 }
 export const personState = (p: Person, t: number) => p.burnAt === null ? 'calm' : t - p.burnAt < BURN_T ? 'burning' : 'charred';
 export const floorY = (b: Building, k: number) => k * b.fh;
-export const zipY = (z: Zip, x: number) => z.y1 + ((z.y2 - z.y1) * (x - z.x1)) / (z.x2 - z.x1);
+export const zipY = (z: Zip | Wire, x: number) => z.y1 + ((z.y2 - z.y1) * (x - z.x1)) / (z.x2 - z.x1);
 
 // ---------- La ciudad ----------
 // Pisos de cada edificio, de izquierda a derecha: el último es la torre más alta (la de los helicópteros).
-const FLOORS = [6, 9, 5, 12, 8, 15, 10, 18, 13, 21, 16, 26];
-const CONSTRUCTION = new Set([3, 7]); // edificios en construcción
-const TRAMPOLINES = [0, 4, 8]; // cama elástica en la terraza, para rebotar hasta el edificio de al lado
+const FLOORS = [8, 12, 7, 16, 11, 20, 14, 24, 17, 28, 21, 34];
+const CONSTRUCTION = new Set([4, 8]); // edificios en construcción (con grúa hasta el edificio de al lado)
+const LUXURY = new Set([5, 7, 11]); // torres de lujo vidriadas
+const AVENUES = new Set([3, 7]); // después de estos edificios hay una avenida ancha (con puentes colgantes rotos)
+const TRAMPOLINES = [0]; // cama elástica en la terraza, para rebotar hasta el edificio de al lado
 const FALLEN = [2, 6, 10]; // la parte de arriba se cayó y quedó apoyada en el edificio de al lado
 const ZIPS = [1, 5, 9]; // tirolesa desde la terraza, por encima del vecino, hasta el siguiente
 export const START_BUILDINGS = 8; // se arranca en la vereda de alguno de los primeros edificios
@@ -174,26 +191,26 @@ export function buildCity(seed = 20261006): City {
   const between = (a: number, b: number) => a + rand() * (b - a);
   const pick = <T,>(list: T[]) => list[Math.floor(rand() * list.length)];
   let id = 1;
-  const city: City = { width: 0, buildings: [], plats: [], climbs: [], walls: [], fires: [], sparks: [], people: [], helis: [], elevators: [], escapes: [], zips: [], fallens: [], links: [], street: 0, starts: [] };
-  const { buildings, plats, climbs, walls, fires, sparks, people, helis, elevators, escapes, zips, fallens, links } = city;
+  const city: City = { width: 0, buildings: [], plats: [], climbs: [], walls: [], fires: [], sparks: [], people: [], helis: [], elevators: [], escapes: [], zips: [], fallens: [], links: [], wires: [], cranes: [], spirals: [], street: 0, starts: [] };
+  const { buildings, plats, climbs, walls, fires, sparks, people, helis, elevators, escapes, zips, fallens, links, wires, cranes, spirals } = city;
 
-  // 1) Edificios y huecos entre ellos (callecitas angostas o pasillos con escalera de emergencia).
+  // 1) Edificios y huecos entre ellos (callecitas angostas, pasillos con escalera de emergencia o avenidas).
   let x = 3;
-  const gaps: { kind: 'narrow' | 'alley'; w: number; escapeSide: -1 | 1 }[] = [];
+  const gaps: { kind: 'narrow' | 'alley' | 'avenue'; w: number; escapeSide: -1 | 1 }[] = [];
   FLOORS.forEach((floors, i) => {
     const tower = i === FLOORS.length - 1;
     const w = tower ? 15 : between(10, 13.5);
     const fh = tower ? 3.1 : between(2.95, 3.3);
     buildings.push({
       id: i, x, w, fh, floors, top: floors * fh, hue: Math.floor(rand() * 360), tone: rand(), tower,
-      construction: CONSTRUCTION.has(i), broken: FALLEN.includes(i), roofDecor: true,
+      construction: CONSTRUCTION.has(i), broken: FALLEN.includes(i), roofDecor: true, luxury: LUXURY.has(i),
       doors: { left: new Set([0]), right: new Set([0]) }, holes: [],
     });
     if (tower) return;
-    const alley = rand() < 0.45;
-    const gap = alley ? between(3, 3.35) : between(1.5, 2.05);
+    const alley = rand() < 0.45, avenue = AVENUES.has(i);
+    const gap = avenue ? between(6.4, 7.2) : alley ? between(3, 3.35) : between(1.5, 2.05);
     // Donde hay un edificio caído, la escalera de emergencia queda del lado de abajo.
-    gaps.push({ kind: alley ? 'alley' : 'narrow', w: gap, escapeSide: FALLEN.includes(i) ? -1 : rand() < 0.5 ? -1 : 1 });
+    gaps.push({ kind: avenue ? 'avenue' : alley ? 'alley' : 'narrow', w: gap, escapeSide: FALLEN.includes(i) ? -1 : rand() < 0.5 ? -1 : 1 });
     x += w + gap;
   });
   const last = buildings[buildings.length - 1];
@@ -272,21 +289,42 @@ export function buildCity(seed = 20261006): City {
     C.doors.left.add(k);
     protos.push({ mode: 'zip', b: A.id, bTo: C.id, fromK: A.floors, toK: k, fromX: x1, toX: x2, cost: (x2 - x1) / ZIP_SPEED + 0.5, edge: 0 });
   }
+  //    Grúas: en las obras, un mástil desde la terraza (se trepa) y una pluma por la que se camina hasta
+  //    arriba de la terraza del edificio de al lado (más alto). Del gancho cuelga una cadena que también se trepa.
+  for (const i of CONSTRUCTION) {
+    const A = buildings[i], B = buildings[i + 1];
+    if (!B || B.top <= A.top + 3) continue;
+    const mx = A.x + A.w - 1.6, jy = B.top + 2.3, jx1 = mx - 3.2, jx2 = B.x + 3.2;
+    const hookX = (A.x + A.w + B.x) / 2, hookY = A.top - 4;
+    const jib: Plat = { id: id++, kind: 'jib', x: jx1, y: jy, w: jx2 - jx1, b: -1, floor: 0, dy: 0, crumble: 0, gone: 0, hue: 48 };
+    plats.push(jib);
+    climbs.push({ id: id++, x: mx, y1: A.top + 0.05, y2: jy + 0.3, skin: 'mast' });
+    climbs.push({ id: id++, x: hookX, y1: hookY, y2: jy + 0.3, skin: 'chain' });
+    cranes.push({ id: id++, b: A.id, mx, base: A.top, jy, jx1, jx2, hookX, hookY });
+    A.roofDecor = false;
+    reserve(A.id, A.floors, mx - 0.7, A.x + A.w + 1);
+    reserve(B.id, B.floors, B.x - 1, jx2 + 0.8);
+    protos.push({ mode: 'climb', b: A.id, bTo: B.id, fromK: A.floors, toK: B.floors, fromX: mx, toX: mx, toPlat: jib, cost: (jy - A.top) / CLIMB + 0.5, edge: 0 });
+    protos.push({ mode: 'climb', b: A.id, bTo: B.id, fromK: A.floors, toK: B.floors, fromX: A.x + A.w - 0.3, toX: hookX, toPlat: jib, cost: (jy - A.top) / CLIMB + 1, edge: 0 });
+    protos.push({ mode: 'walk', b: B.id, fromK: B.floors, toK: B.floors, fromPlat: jib, fromX: jx2 - 0.2, toX: jx2 + 0.3, cost: 0.4, edge: 0 });
+    protos.push({ mode: 'jump', b: B.id, fromK: B.floors, toK: B.floors, toPlat: jib, fromX: B.x + 2.4, toX: B.x + 2.4, cost: 0.6, edge: 0 });
+  }
   //    Helipuertos: dos en la terraza de la torre y una plataforma que sale de su costado, tres pisos abajo.
   const tower = last, kb = tower.floors - 3;
   const padX = [tower.x + 0.9, tower.x + tower.w - 0.9 - 3.8];
   for (const px of padX) reserve(tower.id, tower.floors, px - 0.3, px + 4.1);
 
-  // 3) Ascensores: suben desde algún piso hasta la terraza (y no más), parando en cada piso.
+  // 3) Ascensores (en las obras, montacargas): suben desde algún piso hasta la terraza (y no más), parando en
+  //    cada piso.
   for (const b of buildings) {
-    if (b.construction || b.floors < 7 || rand() > 0.75) continue;
+    if (b.floors < 7 || (!b.construction && rand() > 0.75)) continue;
     const from = rand() < 0.5 ? 0 : Math.floor(rand() * Math.max(1, Math.floor(b.floors * 0.35)));
     const ks = Array.from({ length: b.floors - from + 1 }, (_, i) => from + i);
     const ex = spot(b, ks, 1.8);
     if (ex === null) continue;
     for (const k of ks) reserve(b.id, k, ex - 0.4, ex + 2.2);
     const stops = ks.map(k => floorY(b, k));
-    const e: Elevator = { id: id++, b: b.id, x: ex, w: 1.8, y1: stops[0], y2: b.top, stops, speed: between(2.2, 2.8), dwell: between(1.6, 2.2), phase: rand() * 30 };
+    const e: Elevator = { id: id++, b: b.id, x: ex, w: 1.8, y1: stops[0], y2: b.top, stops, speed: between(2.2, 2.8), dwell: between(1.6, 2.2), phase: rand() * 30, skin: b.construction ? 'hoist' : 'cab' };
     elevators.push(e);
     plats.push({ id: id++, kind: 'elevator', x: ex, y: e.y1, w: e.w, b: b.id, floor: from, elev: e, dy: 0, crumble: 0, gone: 0, hue: b.hue });
     const wait = elevatorPeriod(e) / 2;
@@ -299,10 +337,25 @@ export function buildCity(seed = 20261006): City {
       const y0 = floorY(b, k), y1 = floorY(b, k + 1);
       const ways: string[] = [];
       const want = 1 + (rand() < 0.3 ? 1 : 0);
-      const order = ['stairs', 'furniture', 'furniture', 'ladder', 'rope'];
+      // En las torres de lujo hay escaleras caracol y caños; en las obras, andamios y cadenas.
+      const order = b.luxury ? ['spiral', 'spiral', 'furniture', 'pole', 'stairs'] : b.construction ? ['stairs', 'furniture', 'furniture', 'scaffold', 'chain'] : ['stairs', 'furniture', 'furniture', 'ladder', 'rope'];
       for (let tries = 0; ways.length < want && tries < 12; tries++) {
         const way = pick(order);
-        if (way === 'stairs') {
+        if (way === 'spiral') {
+          // Escalera caracol: tramos cortos que van y vienen alrededor de una columna (se sube cambiando de lado).
+          const W = 2.3, sw = 0.7, run = 0.4, n = Math.ceil(b.fh / 0.44), rise = b.fh / n;
+          const x1 = spot(b, [k], W + 0.6);
+          if (x1 === null || !free(b.id, k + 1, x1 - 0.4, x1 + W + 1)) continue;
+          let u = 0, dir = 1;
+          for (let i = 1; i < n; i++) {
+            u += run * dir;
+            if (u > W - sw) { u = W - sw; dir = -1; } else if (u < 0) { u = 0; dir = 1; }
+            plats.push({ id: id++, kind: 'step', x: x1 + 0.3 + u, y: y0 + i * rise, w: sw, b: b.id, floor: k, dy: 0, crumble: 0, gone: 0, hue: b.hue });
+          }
+          spirals.push({ id: id++, b: b.id, x1: x1 + 0.3, x2: x1 + 0.3 + W, y0, y1 });
+          reserve(b.id, k, x1, x1 + W + 0.6); reserve(b.id, k + 1, x1 - 0.4, x1 + W + 1);
+          protos.push({ mode: 'stairs', b: b.id, fromK: k, toK: k + 1, fromX: x1 + 0.4, toX: x1 + 0.3 + u + sw / 2, cost: 2.2, edge: 0 });
+        } else if (way === 'stairs') {
           const n = Math.ceil(b.fh / 0.42), rise = b.fh / n, run = 0.62, span = n * run;
           const x1 = spot(b, [k], span + 0.6);
           if (x1 === null || !free(b.id, k + 1, x1 + span - 0.8, x1 + span + 1.4)) continue;
@@ -332,7 +385,7 @@ export function buildCity(seed = 20261006): City {
         } else {
           const lx = spot(b, [k], 1.2);
           if (lx === null || !free(b.id, k + 1, lx - 0.7, lx + 1.9)) continue;
-          climbs.push({ id: id++, x: lx + 0.6, y1: y0 + 0.05, y2: y1 + 0.3, skin: way === 'rope' ? 'rope' : 'ladder' });
+          climbs.push({ id: id++, x: lx + 0.6, y1: y0 + 0.05, y2: y1 + 0.3, skin: way as ClimbSkin });
           reserve(b.id, k, lx, lx + 1.2); reserve(b.id, k + 1, lx - 0.7, lx + 1.9);
           protos.push({ mode: 'climb', b: b.id, fromK: k, toK: k + 1, fromX: lx + 0.6, toX: lx + 0.6, cost: b.fh / CLIMB + 0.5, edge: 0 });
         }
@@ -408,15 +461,24 @@ export function buildCity(seed = 20261006): City {
       }
       return false;
     };
-    for (const ea of exitsA) tryExit(ea, false);
+    if (gap.kind !== 'avenue') for (const ea of exitsA) tryExit(ea, false); // en las avenidas, solo los puentes colgantes justos
     // Garantías: una unión en la parte de arriba del más bajito de los dos y al menos tres en total.
     const high = Math.min(A.top, B.top) * 0.62;
     if (!chosen.some(c => c.from.y >= high)) for (const ea of [...exitsA].filter(e => e.y >= high).reverse()) if (tryExit(ea, true)) break;
-    for (const ea of [...exitsA].reverse()) { if (chosen.length >= 3) break; if (!chosen.some(c => c.from === ea)) tryExit(ea, true); }
+    for (const ea of [...exitsA].reverse()) {
+      if (chosen.length >= 3) break;
+      if (gap.kind === 'avenue' && chosen.some(c => Math.abs(c.from.k - ea.k) < 4)) continue; // los puentes colgantes, separados
+      if (!chosen.some(c => c.from === ea)) tryExit(ea, true);
+    }
     crossings.push(...chosen);
   });
+  // Pisos de cada costado de cada edificio que ya tienen una salida (para no encimar cables y góndolas).
+  const sideUsed = new Map<string, Set<number>>();
+  const markSide = (b: number, side: -1 | 1, k: number) => { const kk = `${b}:${side}`; const set = sideUsed.get(kk) ?? new Set<number>(); set.add(k); sideUsed.set(kk, set); };
+  const sideFree = (b: number, side: -1 | 1, k: number) => !sideUsed.get(`${b}:${side}`)?.has(k);
   for (const c of crossings) {
     const ya = c.from.y, yb = c.to.y;
+    markSide(c.a.id, 1, c.from.k); markSide(c.b.id, -1, c.to.k);
     if (!c.from.landing && c.from.k < c.a.floors) c.a.doors.right.add(c.from.k);
     if (!c.to.landing && c.to.k < c.b.floors) c.b.doors.left.add(c.to.k);
     const gapW = c.to.edge - c.from.edge;
@@ -426,6 +488,20 @@ export function buildCity(seed = 20261006): City {
     } else {
       // El tablón queda a la altura del más alto de los dos pisos (al otro se sube o se baja de un paso o un salto).
       const y = Math.max(ya, yb);
+      if (gapW > 4) {
+        // Avenida: puente colgante roto, con un hueco en el medio que hay que saltar.
+        const hole = between(1.45, 1.85), mid = c.from.edge + gapW * between(0.4, 0.6);
+        const p1: Plat = { id: id++, kind: 'skybridge', x: c.from.edge - 0.15, y, w: mid - hole / 2 - (c.from.edge - 0.15), b: -1, floor: c.from.k, dy: 0, crumble: 0, gone: 0, hue: c.a.hue };
+        const p2: Plat = { id: id++, kind: 'skybridge', x: mid + hole / 2, y, w: c.to.edge + 0.15 - (mid + hole / 2), b: -1, floor: c.to.k, dy: 0, crumble: 0, gone: 0, hue: c.b.hue };
+        plats.push(p1, p2);
+        protos.push({ mode: y - ya > 0.6 ? 'jump' : 'walk', b: c.a.id, fromK: c.from.k, toK: c.from.k, toPlat: p1, fromX: c.from.edge - 0.4, toX: p1.x + 0.3, cost: 0.3, edge: 0 });
+        protos.push({ mode: 'walk', b: c.a.id, fromK: c.from.k, toK: c.from.k, fromPlat: p1, fromX: p1.x + 0.3, toX: c.from.edge - 0.4, cost: 0.3, edge: 0 });
+        protos.push({ mode: 'jump', b: -1, fromK: 0, toK: 0, fromPlat: p1, toPlat: p2, fromX: p1.x + p1.w - 0.3, toX: p2.x + 0.3, cost: 0.6, edge: hole });
+        protos.push({ mode: 'jump', b: -1, fromK: 0, toK: 0, fromPlat: p2, toPlat: p1, fromX: p2.x + 0.3, toX: p1.x + p1.w - 0.3, cost: 0.6, edge: hole });
+        protos.push({ mode: y - yb > 0.6 ? 'jump' : 'walk', b: c.b.id, fromK: c.to.k, toK: c.to.k, fromPlat: p2, fromX: p2.x + p2.w - 0.3, toX: c.to.edge + 0.5, cost: 0.3, edge: 0 });
+        protos.push({ mode: y - yb > 0.6 ? 'jump' : 'walk', b: c.b.id, fromK: c.to.k, toK: c.to.k, toPlat: p2, fromX: c.to.edge + 0.5, toX: p2.x + p2.w - 0.3, cost: 0.3, edge: 0 });
+        continue;
+      }
       const p: Plat = { id: id++, kind: c.kind, x: c.from.edge - 0.15, y, w: gapW + 0.3, b: -1, floor: c.from.k, dy: 0, crumble: 0, gone: 0, hue: Math.floor(rand() * 360) };
       plats.push(p);
       protos.push({ mode: y - ya > 0.6 ? 'jump' : 'walk', b: c.a.id, fromK: c.from.k, toK: c.from.k, toPlat: p, fromX: c.from.edge - 0.4, toX: p.x + 0.3, cost: 0.3, edge: 0 });
@@ -434,6 +510,56 @@ export function buildCity(seed = 20261006): City {
       protos.push({ mode: 'walk', b: c.a.id, fromK: c.from.k, toK: c.from.k, fromPlat: p, fromX: p.x + 0.3, toX: c.from.edge - 0.4, cost: 0.3, edge: 0 });
     }
   }
+
+  // 7b) Cables tendidos entre edificios vecinos: se cuelgan a la altura de las manos al lado de las puertas
+  //     y casi siempre suben (se trepan a mano). En las avenidas hay dos.
+  gaps.forEach((gap, i) => {
+    const A = buildings[i], B = buildings[i + 1];
+    const n = gap.kind === 'avenue' ? 2 : (rand() < 0.75 ? 1 : 0) + (rand() < 0.3 ? 1 : 0);
+    for (let j = 0, tries = 0; j < n && tries < 20; tries++) {
+      const ka = 2 + Math.floor(rand() * Math.max(1, Math.min(A.floors, B.floors) - 3));
+      if (ka >= A.floors || !sideFree(A.id, 1, ka)) continue;
+      const ya = floorY(A, ka), want = between(1.5, 4.2);
+      let kb = -1;
+      for (let k = 1; k < B.floors; k++) {
+        const dy = floorY(B, k) - ya;
+        if (dy < -1 || dy > 4.6 || !sideFree(B.id, -1, k)) continue;
+        if (kb < 0 || Math.abs(dy - want) < Math.abs(floorY(B, kb) - ya - want)) kb = k;
+      }
+      if (kb < 0) continue;
+      const w: Wire = { id: id++, x1: A.x + A.w - 0.8, y1: ya + WIRE_UP, x2: B.x + 0.8, y2: floorY(B, kb) + WIRE_UP };
+      wires.push(w);
+      A.doors.right.add(ka); B.doors.left.add(kb); markSide(A.id, 1, ka); markSide(B.id, -1, kb);
+      reserve(A.id, ka, w.x1 - 0.8, w.x1 + 0.8); reserve(B.id, kb, w.x2 - 0.8, w.x2 + 0.8);
+      const cost = (w.x2 - w.x1) / WIRE_SPEED + 0.5;
+      protos.push({ mode: 'wire', b: A.id, bTo: B.id, fromK: ka, toK: kb, fromX: w.x1, toX: w.x2, cost, edge: 0 });
+      protos.push({ mode: 'wire', b: B.id, bTo: A.id, fromK: kb, toK: ka, fromX: w.x2, toX: w.x1, cost, edge: 0 });
+      j++;
+    }
+  });
+
+  // 7c) Góndolas de limpiavidrios en las fachadas que dan a las avenidas: suben y bajan unos pisos por afuera
+  //     (paran en cada piso, donde hay una puerta).
+  gaps.forEach((gap, i) => {
+    if (gap.kind !== 'avenue') return;
+    for (const [b, side] of [[buildings[i], 1], [buildings[i + 1], -1]] as const) {
+      const span = 3 + Math.floor(rand() * 2);
+      let k1 = -1;
+      for (let tries = 0; tries < 30 && k1 < 0; tries++) {
+        const k = 2 + Math.floor(rand() * Math.max(1, b.floors - span - 3));
+        if (Array.from({ length: span + 1 }, (_, j) => k + j).every(kk => kk < b.floors && sideFree(b.id, side, kk))) k1 = k;
+      }
+      if (k1 < 0) continue;
+      const ks = Array.from({ length: span + 1 }, (_, j) => k1 + j), stops = ks.map(k => floorY(b, k));
+      const gx = side > 0 ? b.x + b.w + 0.05 : b.x - 1.75;
+      const e: Elevator = { id: id++, b: b.id, x: gx, w: 1.7, y1: stops[0], y2: stops[stops.length - 1], stops, speed: between(1.2, 1.5), dwell: between(1.4, 1.9), phase: rand() * 20, skin: 'gondola' };
+      elevators.push(e);
+      plats.push({ id: id++, kind: 'elevator', x: gx, y: e.y1, w: e.w, b: b.id, floor: k1, elev: e, dy: 0, crumble: 0, gone: 0, hue: b.hue });
+      for (const k of ks) { (side > 0 ? b.doors.right : b.doors.left).add(k); markSide(b.id, side, k); }
+      const wait = elevatorPeriod(e) / 2, cx = gx + e.w / 2;
+      for (const k of ks) for (const k2 of ks) if (k2 > k) protos.push({ mode: 'elevator', b: b.id, fromK: k, toK: k2, fromX: cx, toX: cx, cost: wait + (floorY(b, k2) - floorY(b, k)) / e.speed + ELEV_STOP * (k2 - k), edge: 0 });
+    }
+  });
 
   // 8) Puertas a los costados de los departamentos, con un balconcito afuera para salir.
   const hasRamp = new Set(fallens.map(f => f.a));
@@ -446,17 +572,48 @@ export function buildCity(seed = 20261006): City {
       const gapW = gapIndex < 0 ? b.x : gaps[gapIndex].w;
       const set = side < 0 ? b.doors.left : b.doors.right;
       const bw = Math.min(1.05, gapW * 0.4);
+      const mine: Plat[] = [];
       for (let k = 1; k < b.floors; k++) {
-        if (set.has(k) || rand() > 0.28) continue;
+        if (set.has(k) || rand() > 0.3) continue;
         set.add(k);
         const p: Plat = { id: id++, kind: 'balcony', x: side < 0 ? b.x - bw : b.x + b.w, y: floorY(b, k), w: bw, b: b.id, floor: k, dy: 0, crumble: 0, gone: 0, hue: b.hue };
-        plats.push(p);
+        plats.push(p); mine.push(p);
         const inX = side < 0 ? b.x + 0.5 : b.x + b.w - 0.5, outX = p.x + bw / 2;
         protos.push({ mode: 'walk', b: b.id, fromK: k, toK: k, fromX: inX, toX: outX, toPlat: p, cost: 0.3, edge: 0 });
         protos.push({ mode: 'walk', b: b.id, fromK: k, toK: k, fromPlat: p, fromX: outX, toX: inX, cost: 0.3, edge: 0 });
       }
+      // Caños de desagüe que unen un balcón con el de arriba: se trepan por afuera.
+      for (let j = 0; j + 1 < mine.length; j++) {
+        const lo = mine[j], hi = mine[j + 1];
+        if (hi.floor - lo.floor > 2 || rand() > 0.6) continue;
+        const cx = side < 0 ? lo.x + 0.28 : lo.x + lo.w - 0.28;
+        climbs.push({ id: id++, x: cx, y1: lo.y + 0.05, y2: hi.y + 0.3, skin: 'pipe' });
+        protos.push({ mode: 'climb', b: b.id, fromK: lo.floor, toK: hi.floor, fromPlat: lo, toPlat: hi, fromX: cx, toX: cx, cost: (hi.y - lo.y) / CLIMB + 0.5, edge: 0 });
+      }
     }
   });
+
+  // 10) Pisos rotos: agujeros en el piso (no donde se llega ni de donde se sale, ni arriba de un incendio).
+  const below = (y: number, x1: number, x2: number) => fires.some(f => Math.abs(f.y - y) < 0.01 && f.x2 > x1 - 0.3 && f.x1 < x2 + 0.3)
+    || sparks.some(s => s.kind === 'puddle' && Math.abs(s.y1 - y) < 0.01 && s.x2 > x1 - 0.3 && s.x1 < x2 + 0.3);
+  for (const b of buildings) {
+    for (let k = 1; k < b.floors; k++) {
+      if (rand() > 0.4) continue;
+      const hw = between(1.1, 1.5), hx = spot(b, [k, k - 1], hw, 30);
+      if (hx === null || below(floorY(b, k - 1), hx, hx + hw)) continue;
+      b.holes.push({ floor: k, x1: hx, x2: hx + hw }); reserve(b.id, k, hx - 0.2, hx + hw + 0.2);
+      // A veces, abajo del agujero quedó una cama elástica: rebotando se sube al piso de arriba.
+      const tw = 1.1, tx = (hx + hx + hw) / 2 - tw / 2;
+      if (rand() < 0.6 && free(b.id, k - 1, tx - 0.3, tx + tw + 0.3)) {
+        const y = floorY(b, k - 1) + 0.45;
+        const tp: Plat = { id: id++, kind: 'trampoline', x: tx, y, w: tw, b: b.id, floor: k - 1, dy: 0, crumble: 0, gone: 0, hue: 200 };
+        plats.push(tp);
+        protos.push({ mode: 'walk', b: b.id, fromK: k - 1, toK: k - 1, toPlat: tp, fromX: tx - 0.3, toX: tx + 0.3, cost: 0.2, edge: 0 });
+        protos.push({ mode: 'bounce', b: b.id, fromK: k - 1, toK: k, fromPlat: tp, fromX: tx + tw / 2, toX: hx - 0.4, cost: 1, edge: 0 });
+      }
+      reserve(b.id, k - 1, tx - 0.3, tx + tw + 0.3); // abajo del agujero no va nada (ni fuego ni muebles)
+    }
+  }
 
   // 9) Peligros adentro (nunca en la planta baja, donde arrancás): departamentos incendiados, pisos rotos
   //    y cortocircuitos.
@@ -465,21 +622,9 @@ export function buildCity(seed = 20261006): City {
       const y0 = floorY(b, k);
       for (const chance of [0.48, 0.18]) {
         if (rand() > chance) continue;
-        const fw = between(0.7, 1.4), fx = spot(b, [k], fw + 0.4, 12);
+        const fw = between(0.7, 1.4), fx = spot(b, [k], fw + 0.4, 30);
         if (fx !== null) { fires.push({ id: id++, x1: fx + 0.2, x2: fx + 0.2 + fw, y: y0, h: between(0.9, 1.4) }); reserve(b.id, k, fx, fx + fw + 0.4); }
       }
-    }
-  }
-
-  // 10) Pisos rotos: agujeros en el piso (no donde se llega ni de donde se sale, ni arriba de un incendio).
-  const below = (y: number, x1: number, x2: number) => fires.some(f => Math.abs(f.y - y) < 0.01 && f.x2 > x1 - 0.3 && f.x1 < x2 + 0.3)
-    || sparks.some(s => s.kind === 'puddle' && Math.abs(s.y1 - y) < 0.01 && s.x2 > x1 - 0.3 && s.x1 < x2 + 0.3);
-  for (const b of buildings) {
-    for (let k = 1; k < b.floors; k++) {
-      if (rand() > 0.4) continue;
-      const hw = between(1.1, 1.5), hx = spot(b, [k], hw, 12);
-      if (hx === null || below(floorY(b, k - 1), hx, hx + hw)) continue;
-      b.holes.push({ floor: k, x1: hx, x2: hx + hw }); reserve(b.id, k, hx - 0.2, hx + hw + 0.2);
     }
   }
 
@@ -601,7 +746,7 @@ export function newLava(start?: number, seed?: number): LavaGame {
   return {
     ...city, start: where.b, time: 0, lava: LAVA0, bestGround: 0, won: false, nearHeli: false, speedLevel: 0, heliLanded: city.helis.map(() => false),
     dying: null, over: false, events: [],
-    player: { x, y: 0, vx: 0, vy: 0, facing: Math.random() < 0.5 ? -1 : 1, ground: street, climb: null, zip: null, climbCooldown: 0, coyote: 0 },
+    player: { x, y: 0, vx: 0, vy: 0, facing: Math.random() < 0.5 ? -1 : 1, ground: street, climb: null, zip: null, wire: null, climbCooldown: 0, coyote: 0 },
   };
 }
 
@@ -612,7 +757,7 @@ const hitsBox = (p: Player, x1: number, x2: number, y1: number, y2: number) => p
 function lose(g: LavaGame, reason: LoseReason) {
   const p = g.player;
   g.dying = { t: 0, reason };
-  p.climb = null; p.zip = null; p.vx = 0;
+  p.climb = null; p.zip = null; p.wire = null; p.vx = 0;
   if (reason !== 'lava') { p.vy = 6; p.ground = null; }
   g.events.push({ type: 'lose', reason });
 }
@@ -628,14 +773,21 @@ function moveX(g: LavaGame, p: Player, nx: number) {
   return Math.max(PLAYER_W / 2, Math.min(g.width - PLAYER_W / 2, nx));
 }
 
-function grabClimb(p: Player, c: Climb) { p.climb = c; p.x = c.x; p.vx = 0; p.vy = 0; p.ground = null; }
+function grabClimb(p: Player, c: Climb) { p.climb = c; p.x = c.x; p.vx = 0; p.vy = 0; p.ground = null; p.wire = null; }
 function grabZip(g: LavaGame, p: Player, z: Zip) {
-  p.zip = z; p.x = Math.max(p.x, z.x1); p.y = zipY(z, p.x) - HANG; p.vx = 0; p.vy = 0; p.ground = null; p.climb = null;
+  p.zip = z; p.x = Math.max(p.x, z.x1); p.y = zipY(z, p.x) - HANG; p.vx = 0; p.vy = 0; p.ground = null; p.climb = null; p.wire = null;
   g.events.push({ type: 'zip' });
 }
 // Una tirolesa al alcance de las manos (parado, hace falta menos puntería que en el aire).
 const zipNear = (g: LavaGame, p: Player, slack: number) =>
   g.zips.find(z => p.x >= z.x1 - 0.6 && p.x < z.x2 - 0.5 && Math.abs(zipY(z, Math.max(p.x, z.x1)) - (p.y + HANG)) < slack);
+// Un cable al alcance de las manos.
+const wireNear = (g: LavaGame, p: Player, slack: number) =>
+  g.wires.find(w => p.x >= w.x1 - 0.1 && p.x <= w.x2 + 0.1 && Math.abs(zipY(w, Math.max(w.x1, Math.min(w.x2, p.x))) - (p.y + HANG)) < slack);
+function grabWire(g: LavaGame, p: Player, w: Wire) {
+  p.wire = w; p.x = Math.max(w.x1, Math.min(w.x2, p.x)); p.y = zipY(w, p.x) - HANG; p.vx = 0; p.vy = 0; p.ground = null; p.climb = null; p.zip = null;
+  g.events.push({ type: 'wire' });
+}
 
 export function step(g: LavaGame, input: Input, dt: number) {
   if (dt <= 0 || g.won || g.over) return;
@@ -684,6 +836,20 @@ export function step(g: LavaGame, input: Input, dt: number) {
     hazards(g, t); finish(g); return;
   }
 
+  // Colgado de un cable: ← → se avanza a mano (en la punta se suelta), ↓ se suelta y saltando se larga.
+  if (p.wire) {
+    const w = p.wire;
+    if (input.jump) { p.wire = null; p.vy = 7; p.climbCooldown = 0.35; g.events.push({ type: 'jump' }); }
+    else if (input.down) { p.wire = null; p.vy = 0; p.climbCooldown = 0.4; }
+    else {
+      const nx = p.x + dir * WIRE_SPEED * dt;
+      p.x = Math.max(w.x1, Math.min(w.x2, nx));
+      p.y = zipY(w, p.x) - HANG;
+      if (nx > w.x2 || nx < w.x1) { p.wire = null; p.vy = 0; p.climbCooldown = 0.4; }
+      else { hazards(g, t); finish(g); return; }
+    }
+  }
+
   // En una escalera o soga: ↑ sube, ↓ baja, de costado se salta.
   if (p.climb) {
     const c = p.climb, vertical = (input.up || input.jump ? 1 : 0) - (input.down ? 1 : 0);
@@ -722,6 +888,8 @@ export function step(g: LavaGame, input: Input, dt: number) {
       if (c) { grabClimb(p, c); p.y = Math.max(p.y, c.y1); hazards(g, t); finish(g); return; }
       const z = zipNear(g, p, 0.6);
       if (z) { grabZip(g, p, z); hazards(g, t); finish(g); return; }
+      const w = wireNear(g, p, 0.6);
+      if (w) { grabWire(g, p, w); hazards(g, t); finish(g); return; }
     } else if (input.down) {
       const c = g.climbs.find(c => Math.abs(p.x - c.x) < 0.45 && c.y2 >= p.y - 0.05 && c.y2 <= p.y + 0.7 && c.y1 < p.y - 0.5);
       if (c) { grabClimb(p, c); p.y = Math.min(p.y - 0.2, c.y2 - 0.4); hazards(g, t); finish(g); return; }
@@ -735,10 +903,13 @@ export function step(g: LavaGame, input: Input, dt: number) {
 
   // Agarrarse de una escalera, soga o tirolesa en el aire (manteniendo ↑ o saltar).
   if (!p.ground && (input.jump || input.up) && !p.climbCooldown) {
-    const c = g.climbs.find(c => Math.abs(p.x - c.x) < 0.5 && p.y + PLAYER_H * 0.6 > c.y1 && p.y < c.y2);
+    // (no desde el último tramo de arriba: recién salido de una escalera se apoya arriba, no se vuelve a agarrar)
+    const c = g.climbs.find(c => Math.abs(p.x - c.x) < 0.5 && p.y + PLAYER_H * 0.6 > c.y1 && p.y < c.y2 - 0.35);
     if (c) { grabClimb(p, c); hazards(g, t); finish(g); return; }
     const z = zipNear(g, p, 0.35);
     if (z) { grabZip(g, p, z); hazards(g, t); finish(g); return; }
+    const w = wireNear(g, p, 0.35);
+    if (w) { grabWire(g, p, w); hazards(g, t); finish(g); return; }
   }
 
   if (!p.ground) {
