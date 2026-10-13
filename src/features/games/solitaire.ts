@@ -131,3 +131,55 @@ export function finishStep(state: Solitaire): Solitaire | null {
   }
   return null;
 }
+
+// ¿Ya no hay forma de ganar? Se prueban todas las jugadas posibles (también dar vuelta el mazo las veces que
+// haga falta) buscando alguna combinación que suba una carta a las bases o destape una carta de las
+// columnas. Si ninguna lo logra, la partida está perdida. Si hay demasiadas combinaciones para probarlas
+// todas, se la da por viva (mejor no cortar una partida que todavía se podía ganar).
+const pileKey = (p: Card[]) => p.map(c => `${c.id}${c.up ? '' : '*'}`).join(',');
+// (el orden de las columnas y de las bases no cambia nada: se comparan ordenadas)
+const keyOf = (s: Solitaire) => `${pileKey(s.stock)}|${pileKey(s.waste)}|${s.foundations.map(pileKey).sort().join('/')}|${s.tableau.map(pileKey).sort().join('/')}`;
+const progressOf = (s: Solitaire) => s.foundations.reduce((n, p) => n + p.length, 0) * 100 - s.tableau.reduce((n, p) => n + p.filter(c => !c.up).length, 0);
+function successors(s: Solitaire): Solitaire[] {
+  const out: Solitaire[] = [];
+  const drawn = draw(s);
+  if (drawn) out.push(drawn);
+  const froms: From[] = [];
+  if (s.waste.length) froms.push({ kind: 'waste' });
+  s.foundations.forEach((p, pile) => { if (p.length) froms.push({ kind: 'foundation', pile }); });
+  s.tableau.forEach((p, pile) => p.forEach((c, index) => { if (c.up) froms.push({ kind: 'tableau', pile, index }); }));
+  const tos: To[] = [...[0, 1, 2, 3].map(pile => ({ kind: 'foundation', pile }) as To), ...[0, 1, 2, 3, 4, 5, 6].map(pile => ({ kind: 'tableau', pile }) as To)];
+  for (const from of froms) for (const to of tos) {
+    // Pasar una columna entera a otra columna vacía no cambia nada (es la misma jugada en otro lugar).
+    if (from.kind === 'tableau' && from.index === 0 && to.kind === 'tableau' && !s.tableau[to.pile].length) continue;
+    const next = move(s, from, to);
+    if (next) out.push(next);
+  }
+  return out;
+}
+// La búsqueda se hace de a pedacitos (para no trabar el juego): `step` revisa algunas jugadas más y devuelve
+// true (perdida), false (todavía se puede) o null (falta revisar).
+export function stuckSearch(state: Solitaire, budget = 20000) {
+  const base = progressOf(state), seen = new Set([keyOf(state)]), stack = [state];
+  let done: boolean | null = isWon(state) ? false : null;
+  return {
+    step(count: number): boolean | null {
+      for (let i = 0; i < count && done === null; i++) {
+        if (!stack.length) { done = true; break; }
+        if (seen.size > budget) { done = false; break; }
+        for (const next of successors(stack.pop()!)) {
+          if (progressOf(next) > base) { done = false; break; }
+          const key = keyOf(next);
+          if (!seen.has(key)) { seen.add(key); stack.push(next); }
+        }
+      }
+      return done;
+    },
+  };
+}
+export function isStuck(state: Solitaire, budget = 20000) {
+  const search = stuckSearch(state, budget);
+  let result: boolean | null = null;
+  while (result === null) result = search.step(500);
+  return result;
+}

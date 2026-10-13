@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BACK_IMAGE, CARD_H, CARD_W, cardImage, SUIT_PATHS, suitColor } from './futureCards';
-import { playAceUp, playCardOnCard, playCardUp, playColumnFree, playDrawCard, playStart, playStockEmpty, playStockReset, playSuitDone, playWinFanfare, preloadSolitaireSounds, unlockSounds } from './sounds';
+import { playAceUp, playCardOnCard, playCardUp, playColumnFree, playDrawCard, playGameOver, playSolitaireWin, playStart, playStockEmpty, playStockReset, playSuitDone, preloadSolitaireSounds, unlockSounds } from './sounds';
 import { EndBanner } from './EndBanner';
-import { bestTarget, canFinish, canMove, cardName, deal, draw, finalScore, finishStep, isWon, liveScore, move, picked, POINTS, SUITS, timeBonus, type Card, type From, type Solitaire, type To } from './solitaire';
+import { bestTarget, canFinish, canMove, cardName, deal, draw, finalScore, finishStep, isWon, liveScore, move, picked, POINTS, stuckSearch, SUITS, timeBonus, type Card, type From, type Solitaire, type To } from './solitaire';
 
 const RECORD_KEY = 'escritorio-personal-juegos:solitario-record';
 export interface SolitaireRecord { seconds: number; moves: number; score?: number }
@@ -46,6 +46,25 @@ export function PixelSolitaire() {
   const [layout, setLayout] = useState<Layout>({ cw: 80, ch: 112, gap: 8, tableauHeight: 400 });
   const boardRef = useRef<HTMLDivElement>(null);
   const won = isWon(game);
+  // Sin ninguna forma de ganar: GAME OVER (se revisa después de cada jugada).
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    setStuck(false);
+    if (!started || won || finishing) return;
+    // Se revisa de a pedacitos de pocos milisegundos para que el juego no se trabe.
+    const search = stuckSearch(game);
+    let id = 0;
+    const tick = () => {
+      const t0 = performance.now();
+      let result: boolean | null = null;
+      while (result === null && performance.now() - t0 < 6) result = search.step(4);
+      if (result === null) id = window.setTimeout(tick, 16);
+      else setStuck(result);
+    };
+    id = window.setTimeout(tick, 120);
+    return () => clearTimeout(id);
+  }, [game, started, won, finishing]);
+  useEffect(() => { if (stuck) playGameOver(); }, [stuck]);
 
   // Tamaño de las cartas según la pantalla: 7 columnas a lo ancho y que entre todo a lo alto.
   useLayoutEffect(() => {
@@ -66,19 +85,19 @@ export function PixelSolitaire() {
   }, []);
 
   useEffect(() => {
-    if (!started || won || paused) return;
+    if (!started || won || paused || stuck) return;
     const id = setInterval(() => setSeconds(s => s + 1), 1000);
     return () => clearInterval(id);
-  }, [started, won, paused]);
+  }, [started, won, paused, stuck]);
 
   // Pausa con la P (o Escape): el reloj se frena y el tablero queda tapado.
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
-      if ((event.key === 'p' || event.key === 'P' || event.key === 'Escape') && started && !won) setPaused(v => !v);
+      if ((event.key === 'p' || event.key === 'P' || event.key === 'Escape') && started && !won && !stuck) setPaused(v => !v);
     };
     window.addEventListener('keydown', down);
     return () => window.removeEventListener('keydown', down);
-  }, [started, won]);
+  }, [started, won, stuck]);
 
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -114,7 +133,7 @@ export function PixelSolitaire() {
     if (!won || !started) return;
     const best = readSolitaireRecord();
     const score = finalScore(game, seconds, penalties);
-    playWinFanfare();
+    playSolitaireWin();
     if (!best || best.score === undefined || score > best.score) { const value = { seconds, moves: game.moves, score }; saveRecord(value); setRecord(value); setNewRecord(true); }
   }, [won]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -201,7 +220,7 @@ export function PixelSolitaire() {
         <span>Movimientos <strong data-testid="solitaire-moves">{game.moves}</strong></span>
         {record && <span>Récord <strong>{record.score !== undefined ? `${record.score} pts` : clock(record.seconds)}</strong></span>}
       </div>
-      {started && !won && <button type="button" onClick={() => setPaused(v => !v)}>{paused ? 'Seguir' : 'Pausa'}</button>}
+      {started && !won && !stuck && <button type="button" onClick={() => setPaused(v => !v)}>{paused ? 'Seguir' : 'Pausa'}</button>}
       <button type="button" onClick={undo} disabled={!history.length || finishing}>Deshacer</button>
       <button type="button" onClick={restart}>Nueva partida</button>
     </div>
@@ -249,6 +268,15 @@ export function PixelSolitaire() {
         <div>
           <h2 id="sol-paused">Pausa</h2>
           <button type="button" onClick={() => setPaused(false)} autoFocus>Seguir</button>
+        </div>
+      </div>}
+      {stuck && !won && <div className="runner-overlay" role="dialog" aria-labelledby="sol-over">
+        <div>
+          <EndBanner win={false} id="sol-over" />
+          <p>Ya no quedan jugadas para ganar: ninguna carta puede subir a las bases ni destapar otra.</p>
+          <p className="sol-total">Terminaste con <strong>{liveScore(game, seconds, penalties)} puntos</strong> en {clock(seconds)}.</p>
+          <button type="button" onClick={restart} autoFocus>Jugar de nuevo</button>
+          {history.length > 0 && <button type="button" onClick={undo}>Deshacer ({POINTS.undo})</button>}
         </div>
       </div>}
       {won && <div className="runner-overlay" role="dialog" aria-labelledby="sol-won">

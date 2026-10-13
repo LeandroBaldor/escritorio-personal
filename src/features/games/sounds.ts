@@ -15,6 +15,10 @@ import cartaArribaUrl from './assets/sonidos/carta-arriba.mp3';
 import paloCompletoUrl from './assets/sonidos/palo-completo.mp3';
 import mazoVacioUrl from './assets/sonidos/mazo-vacio.mp3';
 import mazoReiniciaUrl from './assets/sonidos/mazo-reinicia.mp3';
+import cartaMazoUrl from './assets/sonidos/carta-mazo.mp3';
+import cartaAsUrl from './assets/sonidos/carta-as.mp3';
+import columnaLibreUrl from './assets/sonidos/columna-libre.mp3';
+import solitarioGanasteUrl from './assets/sonidos/solitario-ganaste.mp3';
 import gameOverUrl from './assets/sonidos/game-over.mp3';
 import ganasteUrl from './assets/sonidos/ganaste.mp3';
 import jugarUrl from './assets/sonidos/jugar.mp3';
@@ -828,21 +832,22 @@ export function playBell() {
   burst(c, 'highpass', 5000, t, 0.02, 0.15); // el golpe del badajo
 }
 // Las grabaciones de Solitario 3.000 (mientras cargan suenan los sintetizados de arriba).
-const SOLITAIRE = [victoriaUrl, cartaUrl, cartaSobreCartaUrl, cartaArribaUrl, paloCompletoUrl, mazoVacioUrl, mazoReiniciaUrl];
+const SOLITAIRE = [victoriaUrl, cartaUrl, cartaSobreCartaUrl, cartaArribaUrl, paloCompletoUrl, mazoVacioUrl, mazoReiniciaUrl, cartaMazoUrl, cartaAsUrl, columnaLibreUrl, solitarioGanasteUrl];
 export function preloadSolitaireSounds() { for (const url of SOLITAIRE) loadSample(url); }
 // Sacar una carta del mazo (tocando el 3.000).
-export function playDrawCard() { if (!playSample(cartaUrl, 0.9)) playCardFlip(); }
+export function playDrawCard() { if (!playSample(cartaMazoUrl, 0.9)) playCardFlip(); }
 // Una carta sobre otra carta de las columnas.
 export function playCardOnCard() { if (!playSample(cartaSobreCartaUrl, 0.9)) playCardZap(); }
 // Una carta en las bases de arriba (el as tiene su campana y el palo completo, su festejo).
 export function playCardUp() { if (!playSample(cartaArribaUrl, 0.9)) playCardFlip(); }
-export function playAceUp() { playBell(); }
+export function playAceUp() { if (!playSample(cartaAsUrl, 0.9)) playBell(); }
 export function playSuitDone() { if (!playSample(paloCompletoUrl, 0.85)) playBell(); }
 // El mazo se quedó sin cartas, y cuando se vuelve a armar.
 export function playStockEmpty() { playSample(mazoVacioUrl, 0.8); }
 export function playStockReset() { if (!playSample(mazoReiniciaUrl, 0.9)) playShuffle(); }
-// Se liberó una columna (ahí se puede poner un Rey): un "fiu" que sube y un tintineo.
+// Se liberó una columna (ahí se puede poner un Rey): la grabación; mientras carga, un "fiu" y un tintineo.
 export function playColumnFree() {
+  if (playSample(columnaLibreUrl, 0.9)) return;
   const c = running(); if (!c) return;
   const t = c.currentTime;
   tone(c, 'triangle', 420, 1260, t, 0.22, 0.22);
@@ -850,6 +855,8 @@ export function playColumnFree() {
   tone(c, 'sine', 2093, 2093, t + 0.24, 0.6, 0.12);
 }
 export function playVictory() { if (!playSample(victoriaUrl, 0.85)) playWin(); }
+// Ganar el Solitario 3.000: su propia música de festejo.
+export function playSolitaireWin() { if (!playSample(solitarioGanasteUrl, 0.85)) playWinFanfare(); }
 
 // ---------- ¡Huye de la serpiente! ----------
 // Los pasitos de la manzana: un golpecito suave y agudo, alternando un pie y el otro.
