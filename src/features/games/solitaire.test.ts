@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bestTarget, canFinish, canMove, cardName, deal, draw, finishStep, fitsFoundation, fitsTableau, finalScore, isWon, liveScore, move, POINTS, SUITS, timeBonus, type Card, type Solitaire } from './solitaire';
+import { bestTarget, canFinish, isStuck, canMove, cardName, deal, draw, finishStep, fitsFoundation, fitsTableau, finalScore, isWon, liveScore, move, POINTS, SUITS, timeBonus, type Card, type Solitaire } from './solitaire';
 
 const card = (suit: Card['suit'], rank: number, up = true): Card => ({ id: `${suit}-${rank}`, suit, rank, up });
 const empty = (): Solitaire => ({ stock: [], waste: [], foundations: [[], [], [], []], tableau: [[], [], [], [], [], [], []], moves: 0, score: 0 });
@@ -110,5 +110,17 @@ describe('puntaje', () => {
     expect(liveScore(s, 0, 3 * POINTS.undo)).toBe(300 - 30); // deshacer jugadas resta
     expect(finalScore(s, 120)).toBeGreaterThan(finalScore(s, 400));
     expect(timeBonus(10000)).toBe(0);
+  });
+
+  it('sabe cuándo ya no quedan jugadas para ganar (GAME OVER)', () => {
+    // Un 2 de picas sin el As en ninguna parte y una carta boca abajo debajo: no hay nada que hacer.
+    const stuck = { ...empty(), tableau: [[{ ...c('corazon', 13), up: false }, c('pica', 2)], [], [], [], [], [], []] };
+    expect(isStuck(stuck)).toBe(true);
+    // Con el As de picas en el mazo, dando vuelta cartas aparece y se puede subir.
+    expect(isStuck({ ...stuck, stock: [{ ...c('pica', 1), up: false }, { ...c('trebol', 9), up: false }] })).toBe(false);
+    // Mover el 2 a una columna vacía destapa la carta de abajo: todavía se puede seguir.
+    expect(isStuck({ ...stuck, tableau: [[{ ...c('corazon', 9), up: false }, c('pica', 13)], [], [], [], [], [], []] })).toBe(false);
+    // Una partida recién repartida casi nunca está trabada; ganada, nunca.
+    expect(isStuck(deal(() => 0.5))).toBe(false);
   });
 });
