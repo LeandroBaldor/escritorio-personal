@@ -1319,7 +1319,9 @@ function viewFor(w: number, h: number) {
 export function Trepaluna() {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const gameRef = useRef<Trepa>(newTrepa());
+  // La partida se arma una sola vez (no en cada vez que se vuelve a dibujar el componente).
+  const [firstGame] = useState(() => newTrepa());
+  const gameRef = useRef<Trepa>(firstGame);
   const camRef = useRef(0);
   const camXRef = useRef(WORLD_W / 2);
   const input = useRef<Input>({ left: false, right: false, jump: false, down: false });

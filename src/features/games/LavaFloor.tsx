@@ -1555,12 +1555,14 @@ function drawBody(ctx: CanvasRenderingContext2D, person: Person, h: number, dir:
 const CHARRED_SHOW = 9;
 function drawPerson(ctx: CanvasRenderingContext2D, person: Person, v: View, lava = -Infinity) {
   const { x, dir } = personX(person, v.t);
-  const age = person.burnAt === null ? 0 : v.t - person.burnAt;
+  // La gente que ya viene prendida fuego arde sin parar (y grita cada tanto) hasta que la alcanza la lava.
+  const torch = person.torch && person.burnAt === null;
+  const age = torch ? (v.t * 0.8 + person.id * 0.37) % 3 : person.burnAt === null ? 0 : v.t - person.burnAt;
   // Mientras arde y después, queda parada sobre la lava (que la va tapando de a poco), así se ve bien.
   const sink = Math.max(0, age - BURN_T - 2.6) * 0.14;
   const y = person.burnAt === null ? person.y : Math.max(person.y, lava + 0.02 - sink);
   if (!visible(v, x - 2, x + 2, y, y + 3)) return;
-  const state = personState(person, v.t), s = v.s;
+  const state = torch ? 'burning' : personState(person, v.t), s = v.s;
   const px = X(v, x), base = Y(v, y), h = s * PLAYER_H * (person.look < 0.2 ? 0.75 : 0.95 + hash(person.id) * 0.1), w = h * 0.4;
   if (state === 'calm') {
     ctx.save(); ctx.translate(px, base);
@@ -1569,7 +1571,7 @@ function drawPerson(ctx: CanvasRenderingContext2D, person: Person, v: View, lava
     return;
   }
   if (state === 'burning') {
-    const burn = Math.min(1, age / BURN_T);
+    const burn = torch ? 0.3 : Math.min(1, age / BURN_T);
     // Resplandor del fuego alrededor.
     const glow = ctx.createRadialGradient(px, base - h * 0.6, 0, px, base - h * 0.6, h * 2.4);
     glow.addColorStop(0, `rgba(255,150,40,${0.55 + 0.15 * Math.sin(v.t * 20 + person.id)})`); glow.addColorStop(1, 'rgba(255,150,40,0)');
@@ -1578,7 +1580,8 @@ function drawPerson(ctx: CanvasRenderingContext2D, person: Person, v: View, lava
     drawBody(ctx, person, h, dir, true, true, burn, v.t, 22); // corre desesperada con los brazos arriba
     ctx.restore();
     // Llamas que le salen de todo el cuerpo (cada vez más grandes).
-    for (let i = 0; i < 26; i++) {
+    if (torch) ctx.globalAlpha = 0.8; // a los que corren prendidos fuego se les ve el cuerpo
+    for (let i = 0; i < (torch ? 15 : 26); i++) {
       const life = (v.t * (1.6 + hash(i) * 0.8) + hash(person.id * 7 + i)) % 1;
       const fx = px + (hash(i * 5 + person.id) - 0.5) * w * 1.8 + Math.sin(v.t * 9 + i) * w * 0.2;
       const fy = base - h * (0.05 + 0.9 * hash(i * 3 + person.id)) - life * h * (0.9 + burn * 0.8);
@@ -1586,6 +1589,7 @@ function drawPerson(ctx: CanvasRenderingContext2D, person: Person, v: View, lava
       ctx.fillStyle = life < 0.25 ? `rgba(254,240,138,${1 - life})` : life < 0.6 ? `rgba(251,146,60,${0.95 - life})` : `rgba(220,38,38,${0.9 - life})`;
       ctx.beginPath(); ctx.moveTo(fx - r, fy); ctx.quadraticCurveTo(fx - r * 0.3, fy - r * 2.2, fx, fy - r * 2.6); ctx.quadraticCurveTo(fx + r * 0.3, fy - r * 2.2, fx + r, fy); ctx.arc(fx, fy, r, 0, Math.PI); ctx.fill();
     }
+    ctx.globalAlpha = 1;
     // Chispas y humo negro.
     for (let i = 0; i < 6; i++) { const life = (v.t * 1.3 + hash(i + person.id)) % 1; ctx.fillStyle = `rgba(253,224,71,${1 - life})`; ctx.fillRect(px + Math.sin(i * 2 + v.t * 3) * w * (0.5 + life * 2), base - h * (0.8 + life * 1.4), 2, 2); }
     for (let i = 0; i < 4; i++) { const k = (age * 0.7 + i / 4) % 1; ctx.fillStyle = `rgba(40,36,36,${0.45 * (1 - k)})`; ctx.beginPath(); ctx.arc(px + Math.sin(age * 2 + i) * w * 0.8, base - h * 1.3 - k * s * 1.6, w * (0.4 + k * 1.1), 0, Math.PI * 2); ctx.fill(); }
@@ -1787,7 +1791,7 @@ function draw(ctx: CanvasRenderingContext2D, g: LavaGame, v: View) {
   }
 }
 
-const LOSE_TEXT: Record<LoseReason, string> = { lava: '¡Te alcanzó la lava!', fire: '¡Te quemaste!', zap: '¡Cortocircuito!' };
+const LOSE_TEXT: Record<LoseReason, string> = { lava: '¡Te alcanzó la lava!', fire: '¡Te quemaste!', zap: '¡Cortocircuito!', torch: '¡Te prendió fuego una persona en llamas!' };
 const NO_INPUT: Input = { left: false, right: false, jump: false, down: false, up: false };
 
 // Se ven unas 14 unidades de alto (un poco más de 4 pisos) y, en pantallas angostas, unas 12 de ancho.
@@ -1802,7 +1806,9 @@ function heliHud(g: LavaGame) {
 export function LavaFloor() {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const gameRef = useRef<LavaGame>(newLava());
+  // La partida se arma una sola vez (no en cada vez que se vuelve a dibujar el componente).
+  const [firstGame] = useState(() => newLava());
+  const gameRef = useRef<LavaGame>(firstGame);
   const cam = useRef({ x: 0, y: 0 });
   const input = useRef<Input>({ ...NO_INPUT });
   const recordRef = useRef<LavaRecord>(readLavaRecord());
@@ -1810,6 +1816,7 @@ export function LavaFloor() {
   const startedRef = useRef(false);
   const zipToldRef = useRef(false);
   const wireToldRef = useRef(false);
+  const torchScreamRef = useRef(-10);
   const [status, setStatus] = useState<Status>('ready');
   const [hud, setHud] = useState({ tenths: 0, m: 0, lava: 0, lavaM: 0, heli: '' });
   const [record, setRecord] = useState(readLavaRecord);
@@ -1865,7 +1872,7 @@ export function LavaFloor() {
     follow(-1);
     input.current = { ...NO_INPUT };
     recordRef.current = readLavaRecord();
-    brokeRef.current = false; startedRef.current = false; zipToldRef.current = false; wireToldRef.current = false;
+    brokeRef.current = false; startedRef.current = false; zipToldRef.current = false; wireToldRef.current = false; torchScreamRef.current = -10;
     setHud({ tenths: 0, m: 0, lava: 0, lavaM: 0, heli: '' });
     setToast({ text: `¡La lava empieza a subir en ${LAVA_DELAY} segundos! 🔥`, id: Date.now() });
     setStatus('playing');
@@ -1903,13 +1910,18 @@ export function LavaFloor() {
       });
       doors = open;
       setLavaAmbient(lavaLevels(g));
+      // La gente prendida fuego que pasa cerca grita cada tanto.
+      if (!g.dying && g.time - torchScreamRef.current > 2.6) {
+        const near = g.people.filter(q => q.torch && q.burnAt === null && Math.abs(q.y - g.player.y) < 1.6).map(q => ({ q, d: Math.abs(personX(q, g.time).x - g.player.x) })).sort((a, b) => a.d - b.d)[0];
+        if (near && near.d < 7) { torchScreamRef.current = g.time; playPersonBurn(0.6 * (1 - near.d / 7), 0.8 + near.q.look * 0.6); }
+      }
       if (!startedRef.current && g.time >= LAVA_DELAY) { startedRef.current = true; setToast({ text: '¡La lava empezó a subir! ¡Corré para arriba! 🔥', id: now }); }
       for (const e of takeEvents(g)) {
         if (e.type === 'jump') playJump();
         if (e.type === 'bounce') playTramp();
         if (e.type === 'crumble') playCrumble();
         if (e.type === 'win') playWinFanfare();
-        if (e.type === 'lose') { if (e.reason === 'lava') playLavaFall(); else playLose(e.reason === 'fire' ? 'burn' : 'zap'); }
+        if (e.type === 'lose') { if (e.reason === 'lava') playLavaFall(); else playLose(e.reason === 'zap' ? 'zap' : 'burn'); }
         if (e.type === 'burn' && g.time - lastScream > 0.3) { // la gente que alcanza la lava (solo la que está cerca)
           const person = g.people.find(q => q.id === e.id);
           if (person) {
@@ -2007,7 +2019,7 @@ export function LavaFloor() {
           <div>
             {status === 'ready' && <>
               <h2 id="lava-message" className="lava-title">¡El piso es de lava! 🌋</h2>
-              <p>La lava sube y no para: subí lo más rápido que puedas para sobrevivir. Cada partida arrancás en otro lugar de la cuadra. Trepá por escaleras (también caracol), muebles, sogas, caños, andamios y ascensores (entrá cuando abren las puertas), salí por las puertas de los costados y pasá de edificio en edificio por tablones, camas elásticas, tirolesas, edificios caídos y góndolas. Colgate de los cables con ↑ y avanzá a mano, trepá las grúas de las obras y caminá por la pluma, y en las avenidas saltá el hueco de los puentes rotos. Esquivá el fuego, los cortocircuitos y los pisos rotos. Arriba de la torre más alta aterrizan tres helicópteros: esperan 5 segundos y se vuelven a ir, ¡subite a tiempo!</p>
+              <p>La lava sube y no para: subí lo más rápido que puedas para sobrevivir. Cada partida arrancás en otro lugar de la cuadra. Trepá por escaleras (también caracol), muebles, sogas, caños, andamios y ascensores (entrá cuando abren las puertas), salí por las puertas de los costados y pasá de edificio en edificio por tablones, camas elásticas, tirolesas, edificios caídos y góndolas. Colgate de los cables con ↑ y avanzá a mano, trepá las grúas de las obras y caminá por la pluma, y en las avenidas saltá el hueco de los puentes rotos. Esquivá el fuego, los cortocircuitos, los pisos rotos y a la gente prendida fuego que corre por los pisos: si te toca, te prendés fuego (saltala o esperá a que pase). Arriba de la torre más alta aterrizan tres helicópteros: esperan 5 segundos y se vuelven a ir, ¡subite a tiempo!</p>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> subir por sogas, escaleras y tirolesas (o saltar) · <kbd>↓</kbd> bajar · <kbd>Espacio</kbd> saltar · <kbd>P</kbd> pausa</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}

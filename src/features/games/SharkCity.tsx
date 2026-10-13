@@ -704,7 +704,9 @@ function scaleFor(w: number, h: number) { return Math.min(h / 13, w / (h > w ? 9
 export function SharkCity() {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const gameRef = useRef<SharkGame>(newShark());
+  // La partida se arma una sola vez (no en cada vez que se vuelve a dibujar el componente).
+  const [firstGame] = useState(() => newShark());
+  const gameRef = useRef<SharkGame>(firstGame);
   useEffect(() => { loadSharkSprites(); }, []);
   const cam = useRef({ x: 0, y: 0 });
   const input = useRef<Input>({ ...NO_INPUT });

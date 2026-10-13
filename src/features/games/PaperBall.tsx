@@ -98,7 +98,9 @@ function draw(ctx: CanvasRenderingContext2D, g: PaperGame, v: View, aim: Aim | n
 export function PaperBall() {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const gameRef = useRef<PaperGame>(newPaper());
+  // La partida se arma una sola vez (no en cada vez que se vuelve a dibujar el componente).
+  const [firstGame] = useState(() => newPaper());
+  const gameRef = useRef<PaperGame>(firstGame);
   const aimRef = useRef<Aim | null>(null);
   const popsRef = useRef<Pop[]>([]);
   const bannerRef = useRef<Banner>({ quarter: 0, at: -99 });
