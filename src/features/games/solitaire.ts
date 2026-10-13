@@ -89,12 +89,17 @@ export function move(state: Solitaire, from: From, to: To): Solitaire | null {
   return next;
 }
 
-// Tocar el mazo: da vuelta una carta; si ya no quedan, vuelven todas las de la pila al mazo.
-export function draw(state: Solitaire): Solitaire | null {
+// Tocar el mazo: da vuelta una carta; si ya no quedan, las de la pila se mezclan y vuelven al mazo (como
+// juntarlas, mezclarlas y volver a tirar: no salen siempre en el mismo orden).
+export function draw(state: Solitaire, rand: () => number = Math.random): Solitaire | null {
   if (!state.stock.length && !state.waste.length) return null;
   const next = clone(state);
   if (next.stock.length) next.waste.push({ ...next.stock.pop()!, up: true });
-  else { next.stock = next.waste.reverse().map(card => ({ ...card, up: false })); next.waste = []; next.score += POINTS.recycle; }
+  else {
+    const deck = next.waste.map(card => ({ ...card, up: false }));
+    for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+    next.stock = deck; next.waste = []; next.score += POINTS.recycle;
+  }
   next.moves++;
   return next;
 }
@@ -132,23 +137,27 @@ export function finishStep(state: Solitaire): Solitaire | null {
   return null;
 }
 
-// ¿Ya no hay forma de ganar? Se prueban todas las jugadas posibles (también dar vuelta el mazo las veces que
-// haga falta) buscando alguna combinación que suba una carta a las bases o destape una carta de las
-// columnas. Si ninguna lo logra, la partida está perdida. Si hay demasiadas combinaciones para probarlas
+// ¿Ya no hay forma de ganar? Se prueban todas las jugadas posibles buscando alguna combinación que suba una
+// carta a las bases o destape una carta de las columnas. Como el mazo se mezcla cada vez que se vuelve a
+// armar, cualquier carta del mazo (o de la pila) puede llegar a salir: se las cuenta a todas como jugables. Si ninguna lo logra, la partida está perdida. Si hay demasiadas combinaciones para probarlas
 // todas, se la da por viva (mejor no cortar una partida que todavía se podía ganar).
 const pileKey = (p: Card[]) => p.map(c => `${c.id}${c.up ? '' : '*'}`).join(',');
 // (el orden de las columnas y de las bases no cambia nada: se comparan ordenadas)
-const keyOf = (s: Solitaire) => `${pileKey(s.stock)}|${pileKey(s.waste)}|${s.foundations.map(pileKey).sort().join('/')}|${s.tableau.map(pileKey).sort().join('/')}`;
+const keyOf = (s: Solitaire) => `${[...s.stock, ...s.waste].map(c => c.id).sort().join(',')}|${s.foundations.map(pileKey).sort().join('/')}|${s.tableau.map(pileKey).sort().join('/')}`;
 const progressOf = (s: Solitaire) => s.foundations.reduce((n, p) => n + p.length, 0) * 100 - s.tableau.reduce((n, p) => n + p.filter(c => !c.up).length, 0);
 function successors(s: Solitaire): Solitaire[] {
   const out: Solitaire[] = [];
-  const drawn = draw(s);
-  if (drawn) out.push(drawn);
   const froms: From[] = [];
-  if (s.waste.length) froms.push({ kind: 'waste' });
   s.foundations.forEach((p, pile) => { if (p.length) froms.push({ kind: 'foundation', pile }); });
   s.tableau.forEach((p, pile) => p.forEach((c, index) => { if (c.up) froms.push({ kind: 'tableau', pile, index }); }));
   const tos: To[] = [...[0, 1, 2, 3].map(pile => ({ kind: 'foundation', pile }) as To), ...[0, 1, 2, 3, 4, 5, 6].map(pile => ({ kind: 'tableau', pile }) as To)];
+  // Cualquier carta del mazo o de la pila, como si fuera la que quedó dada vuelta.
+  const pool = [...s.stock, ...s.waste];
+  pool.forEach((card, i) => {
+    const rest = pool.filter((_, j) => j !== i).map(c => ({ ...c, up: false }));
+    const shown: Solitaire = { ...s, stock: rest, waste: [{ ...card, up: true }] };
+    for (const to of tos) { const next = move(shown, { kind: 'waste' }, to); if (next) out.push(next); }
+  });
   for (const from of froms) for (const to of tos) {
     // Pasar una columna entera a otra columna vacía no cambia nada (es la misma jugada en otro lugar).
     if (from.kind === 'tableau' && from.index === 0 && to.kind === 'tableau' && !s.tableau[to.pile].length) continue;
