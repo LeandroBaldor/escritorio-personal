@@ -666,7 +666,7 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 @keyframes sol-shake{25%{translate:-5px 0}50%{translate:5px 0}75%{translate:-3px 0}}
 .sol-face,.sol-back{position:absolute;inset:0;display:block;background-size:100% 100%;background-repeat:no-repeat}
 .sol-finish{position:absolute;left:50%;bottom:4%;z-index:150;transform:translateX(-50%);padding:.7rem 1.4rem;background:#04130b;color:var(--green);border:2px solid var(--green);font-weight:900;border-radius:10px;box-shadow:0 0 16px #39ff8888;text-shadow:0 0 8px var(--green)}
-.sol .runner-overlay{background:#050816cc}
+.sol .runner-overlay{z-index:400;background:#050816cc} /* siempre delante de las cartas (también de las que se arrastran) */
 .sol .runner-overlay>div{background:#0b1430;border:2px solid var(--neon);border-radius:14px;box-shadow:0 0 24px #22d3ee88}
 .sol .runner-overlay h2{font-family:ui-monospace,"Courier New",monospace;font-weight:900;letter-spacing:.12em;color:#e0faff;text-shadow:0 0 10px var(--neon)}
 .sol .runner-overlay p{color:#bae6fd}

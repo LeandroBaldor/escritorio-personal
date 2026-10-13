@@ -53,9 +53,16 @@ describe('Solitario 3.000', () => {
     expect(one.waste[0].up).toBe(true);
     const two = draw(one)!;
     const again = draw(two)!;
-    expect(again.stock.map(c => c.rank)).toEqual([3, 4]);
+    expect(again.stock.map(c => c.rank).sort()).toEqual([3, 4]);
     expect(again.stock.every(c => !c.up)).toBe(true);
     expect(again.waste).toHaveLength(0);
+  });
+
+  it('al volver a armar el mazo, las cartas se mezclan (no salen siempre en el mismo orden)', () => {
+    const waste = Array.from({ length: 12 }, (_, i) => card('corazon', i + 1));
+    const orders = new Set([1, 2, 3, 4, 5].map(seed => { let x = seed; const rand = () => (x = (x * 16807) % 2147483647) / 2147483647; return draw({ ...empty(), waste }, rand)!.stock.map(c => c.rank).join(','); }));
+    expect(orders.size).toBeGreaterThan(1);
+    for (const o of orders) expect(o.split(',').map(Number).sort((a, b) => a - b)).toEqual(waste.map(c => c.rank));
   });
 
   it('al tocar una carta va primero a su base y si no a una columna', () => {

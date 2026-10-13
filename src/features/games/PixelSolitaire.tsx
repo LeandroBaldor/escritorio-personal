@@ -57,7 +57,7 @@ export function PixelSolitaire() {
     const tick = () => {
       const t0 = performance.now();
       let result: boolean | null = null;
-      while (result === null && performance.now() - t0 < 6) result = search.step(4);
+      while (result === null && performance.now() - t0 < 6) result = search.step(1);
       if (result === null) id = window.setTimeout(tick, 16);
       else setStuck(result);
     };
