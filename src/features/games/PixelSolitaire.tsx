@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BACK_IMAGE, CARD_H, CARD_W, cardImage, SUIT_PATHS, suitColor } from './futureCards';
+import { BACK_IMAGE, CARD_H, CARD_W, cardImage } from './futureCards';
 import { playAceUp, playCardOnCard, playCardUp, playColumnFree, playDrawCard, playGameOver, playSolitaireWin, playStart, playStockEmpty, playStockReset, playSuitDone, preloadSolitaireSounds, unlockSounds } from './sounds';
 import { EndBanner } from './EndBanner';
-import { bestTarget, canFinish, canMove, cardName, deal, draw, finalScore, finishStep, isWon, liveScore, move, picked, POINTS, stuckSearch, SUITS, timeBonus, type Card, type From, type Solitaire, type To } from './solitaire';
+import { bestTarget, canFinish, canMove, cardName, deal, draw, finalScore, finishStep, isWon, liveScore, move, picked, POINTS, stuckSearch, timeBonus, type Card, type From, type Solitaire, type To } from './solitaire';
 
 const RECORD_KEY = 'escritorio-personal-juegos:solitario-record';
 export interface SolitaireRecord { seconds: number; moves: number; score?: number }
@@ -12,11 +12,6 @@ export const readSolitaireRecord = (): SolitaireRecord | null => {
 };
 const saveRecord = (value: SolitaireRecord) => { try { localStorage.setItem(RECORD_KEY, JSON.stringify(value)); } catch { /* sin almacenamiento */ } };
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-
-// Un palo de neón suelto (para el festejo).
-export function NeonSuit({ suit }: { suit: (typeof SUITS)[number] }) {
-  return <svg viewBox="-1 -1 12 12" aria-hidden="true"><path d={SUIT_PATHS[suit]} fill={suitColor(suit)} style={{ filter: `drop-shadow(0 0 3px ${suitColor(suit)})` }} /></svg>;
-}
 
 // Las cartas son imágenes futuristas armadas en futureCards.
 function CardFace({ card }: { card: Card }) {
@@ -280,9 +275,6 @@ export function PixelSolitaire() {
         </div>
       </div>}
       {won && <div className="runner-overlay" role="dialog" aria-labelledby="sol-won">
-        <div className="sol-confetti" aria-hidden="true">
-          {Array.from({ length: 28 }, (_, i) => <span key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${(i % 7) * 0.25}s`, animationDuration: `${2.4 + (i % 5) * 0.4}s` }}><NeonSuit suit={SUITS[i % 4]} /></span>)}
-        </div>
         <div>
           <EndBanner win id="sol-won" />
           <p>Lo terminaste en <strong>{clock(seconds)}</strong> con <strong>{game.moves}</strong> movimientos.</p>
