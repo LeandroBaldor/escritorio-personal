@@ -106,7 +106,8 @@ describe('puntaje', () => {
     const s = { ...empty(), score: 300 };
     expect(liveScore(s, 0)).toBe(300);
     expect(liveScore(s, 60)).toBe(288);
-    expect(liveScore({ ...s, score: 5 }, 600)).toBe(0);
+    expect(liveScore({ ...s, score: 5 }, 600)).toBe(5 - 120); // se descuenta aunque quede en negativo
+    expect(liveScore(s, 0, 3 * POINTS.undo)).toBe(300 - 30); // deshacer jugadas resta
     expect(finalScore(s, 120)).toBeGreaterThan(finalScore(s, 400));
     expect(timeBonus(10000)).toBe(0);
   });
