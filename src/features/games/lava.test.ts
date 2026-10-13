@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCity, BURN_T, elevatorAt, elevatorPeriod, elevatorY, HANG, heliState, HELI_AIR, HELI_WAIT, lavaLevel, LAVA_DELAY, newLava, nextLanding,
-  personState, PLAYER_H, REACH, START_BUILDINGS, step, takeEvents, towerOf, zipY, floorY, WIRE_UP,
+  personState, personX, PLAYER_H, TORCH_W, REACH, START_BUILDINGS, step, takeEvents, towerOf, zipY, floorY, WIRE_UP,
   type City, type Input, type LavaGame, type Plat,
 } from './lava';
 
@@ -282,7 +282,7 @@ describe('¡El piso es de lava!: el juego', () => {
       expect(g.bestGround).toBe(0);
     }
     for (let b = 0; b < city.starts.length; b++) expect(newLava(b).player.y).toBe(0);
-  });
+  }, 20000); // juega 60 partidas: le damos tiempo de sobra
 
   it('el ascensor para en cada piso con las puertas abiertas y llega hasta la terraza (y no más)', () => {
     const g = newLava(0);
@@ -438,6 +438,30 @@ describe('¡El piso es de lava!: el juego', () => {
     let top = 0;
     for (let i = 0; i < 60; i++) { step(g, idle, 1 / 60); top = Math.max(top, g.player.y); }
     expect(top).toBeGreaterThan(above + 1.5);
+  });
+
+  it('hay gente prendida fuego corriendo por los pisos: si te toca te prendés fuego, pero se la puede saltar', () => {
+    const city = buildCity(), torches = city.people.filter(p => p.torch);
+    expect(torches.length).toBeGreaterThanOrEqual(8);
+    for (const q of torches) { expect(q.y).toBeGreaterThan(city.buildings[q.b].fh * 1.5); expect(q.speed).toBeGreaterThan(2); }
+    // Quieto en su camino: te alcanza y perdés.
+    let g = calm(), q = g.people.find(p => p.torch)!;
+    const at = (x: number) => floorAt(g, q.y, x);
+    const mid = (q.x1 + q.x2) / 2;
+    place(g, at(mid), mid);
+    for (let i = 0; i < 60 * 12 && !g.dying; i++) { g.player.x = mid; step(g, idle, 1 / 60); }
+    expect(g.dying?.reason).toBe('torch');
+    // Saltándola cuando se acerca, pasa por abajo.
+    g = calm(); q = g.people.find(p => p.torch)!;
+    place(g, floorAt(g, q.y, mid), mid);
+    let passed = 0;
+    for (let i = 0; i < 60 * 12 && !g.dying && passed < 2; i++) {
+      const d = Math.abs(personX(q, g.time).x - g.player.x);
+      step(g, { ...idle, jump: !!g.player.ground && d < 1.3 && d > TORCH_W + 0.5 }, 1 / 60);
+      if (d < 0.05) passed++;
+    }
+    expect(g.dying).toBeNull();
+    expect(passed).toBeGreaterThan(0);
   });
 
   it('se sube un piso saltando desde un mueble', () => {

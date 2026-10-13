@@ -17,6 +17,8 @@
 //   grúas de obra (se trepa el mástil, se camina por la pluma o se sube por la cadena del gancho),
 //   góndolas de limpiavidrios que suben y bajan por afuera, montacargas en las obras, caños de desagüe
 //   para trepar por afuera y camas elásticas debajo de los pisos rotos.
+// - Gente prendida fuego que corre desesperada de una punta a la otra del piso: si te toca, te prende fuego
+//   (hay que saltarla o esperar a que pase).
 // - Peligros: departamentos incendiados, cables y charcos con cortocircuitos, pisos rotos y tablones que
 //   se caen. La gente que camina por los pisos se prende fuego cuando la llega la lava y queda carbonizada.
 // - Tres helicópteros aterrizan, esperan 5 segundos, vuelven al aire unos 30 segundos y vuelven a
@@ -32,6 +34,7 @@ export const GRAVITY = 30, JUMP = 12.5;
 export const REACH = (JUMP * JUMP) / (2 * GRAVITY); // lo más alto que se llega saltando (unas 2,6 unidades)
 export const WALL = 0.3;
 export const BURN_T = 3.2; // segundos que una persona arde antes de quedar carbonizada
+export const TORCH_W = 0.22; // media cintura de una persona prendida fuego (lo que quema si te toca)
 const DIE_T = 1.6; // lo que dura la animación de perder antes del GAME OVER
 export const BOUNCE = 17.5; // la cama elástica te tira para arriba (unas 5 unidades)
 export const ZIP_SPEED = 7, HANG = 1.05; // la tirolesa: velocidad y distancia de las manos a los pies
@@ -67,7 +70,8 @@ export interface Climb { id: number; x: number; y1: number; y2: number; skin: Cl
 export interface Wall { x: number; y1: number; y2: number }
 export interface Fire { id: number; x1: number; x2: number; y: number; h: number }
 export interface Spark { id: number; x1: number; x2: number; y1: number; y2: number; period: number; on: number; phase: number; kind: 'cable' | 'puddle' }
-export interface Person { id: number; b: number; y: number; x1: number; x2: number; speed: number; phase: number; hue: number; look: number; helmet: boolean; burnAt: number | null }
+// `torch`: ya está prendida fuego y corre desesperada (si te toca, te prende fuego).
+export interface Person { id: number; b: number; y: number; x1: number; x2: number; speed: number; phase: number; hue: number; look: number; helmet: boolean; burnAt: number | null; torch: boolean }
 export interface Heli { id: number; x: number; y: number; w: number; h: number; phase: number; drift: -1 | 1 }
 export interface Escape { id: number; b: number; side: -1 | 1; x: number; floors: number[]; broken: number }
 export interface Zip { id: number; x1: number; y1: number; x2: number; y2: number }
@@ -87,7 +91,7 @@ export type LinkMode = 'walk' | 'jump' | 'stairs' | 'climb' | 'elevator' | 'zip'
 export interface Link { from: number; to: number; mode: LinkMode; dy: number; edge: number; fromX: number; toX: number; fromY: number; toY: number; cost: number }
 export interface Player { x: number; y: number; vx: number; vy: number; facing: 1 | -1; ground: Plat | null; climb: Climb | null; zip: Zip | null; wire: Wire | null; climbCooldown: number; coyote: number }
 export interface Input { left: boolean; right: boolean; jump: boolean; down: boolean; up: boolean }
-export type LoseReason = 'lava' | 'fire' | 'zap';
+export type LoseReason = 'lava' | 'fire' | 'zap' | 'torch';
 export type LavaEvent =
   | { type: 'jump' } | { type: 'crumble' } | { type: 'burn'; id: number } | { type: 'faster'; level: number } | { type: 'heli' } | { type: 'heliLand' }
   | { type: 'bounce' } | { type: 'zip' } | { type: 'wire' }
@@ -724,10 +728,18 @@ export function buildCity(seed = 20261006): City {
     const [a, c] = inner(b);
     for (let k = 0; k < b.floors; k++) {
       if (rand() > (k === 0 ? 0.7 : 0.4)) continue;
-      people.push({ id: id++, b: b.id, y: floorY(b, k), x1: a + 0.3, x2: c - 0.3, speed: between(0.6, 1.3), phase: rand() * 2, hue: Math.floor(rand() * 360), look: rand(), helmet: b.construction, burnAt: null });
+      people.push({ id: id++, b: b.id, y: floorY(b, k), x1: a + 0.3, x2: c - 0.3, speed: between(0.6, 1.3), phase: rand() * 2, hue: Math.floor(rand() * 360), look: rand(), helmet: b.construction, burnAt: null, torch: false });
     }
     // y alguno en la terraza
-    if (rand() < 0.5) people.push({ id: id++, b: b.id, y: b.top, x1: b.x + 0.5, x2: b.x + b.w - 0.5, speed: between(0.6, 1.1), phase: rand() * 2, hue: Math.floor(rand() * 360), look: rand(), helmet: b.construction, burnAt: null });
+    if (rand() < 0.5) people.push({ id: id++, b: b.id, y: b.top, x1: b.x + 0.5, x2: b.x + b.w - 0.5, speed: between(0.6, 1.1), phase: rand() * 2, hue: Math.floor(rand() * 360), look: rand(), helmet: b.construction, burnAt: null, torch: false });
+  }
+  // 15) Gente prendida fuego corriendo de una punta a la otra (nunca en la planta baja ni en el primer piso).
+  for (const b of buildings) {
+    const [a, c] = inner(b);
+    for (let k = 2; k < b.floors; k++) {
+      if (rand() > 0.14) continue;
+      people.push({ id: id++, b: b.id, y: floorY(b, k), x1: a + 0.3, x2: c - 0.3, speed: between(2.4, 3.2), phase: rand() * 2, hue: Math.floor(rand() * 360), look: 0.2 + rand() * 0.8, helmet: b.construction, burnAt: null, torch: true });
+    }
   }
   return city;
 }
@@ -925,12 +937,20 @@ export function step(g: LavaGame, input: Input, dt: number) {
   finish(g);
 }
 
+// La gente prendida fuego (se guarda la lista para no recorrer a toda la gente en cada paso).
+const torchCache = new WeakMap<Person[], Person[]>();
+const torchesOf = (g: LavaGame) => { let list = torchCache.get(g.people); if (!list) { list = g.people.filter(q => q.torch); torchCache.set(g.people, list); } return list; };
 function hazards(g: LavaGame, t: number) {
   const p = g.player;
   if (g.dying) return;
   if (p.y < g.lava + 0.1) { lose(g, 'lava'); return; }
   for (const f of g.fires) if (hitsBox(p, f.x1 + 0.1, f.x2 - 0.1, f.y, f.y + f.h)) { lose(g, 'fire'); return; }
   for (const s of g.sparks) if (sparkActive(s, t) && hitsBox(p, s.x1, s.x2, s.y1, s.y2)) { lose(g, 'zap'); return; }
+  for (const q of torchesOf(g)) {
+    if (q.burnAt !== null || Math.abs(q.y - p.y) > 1.5) continue;
+    const { x } = personX(q, t);
+    if (hitsBox(p, x - TORCH_W, x + TORCH_W, q.y, q.y + PLAYER_H * 0.9)) { lose(g, 'torch'); return; }
+  }
 }
 
 function landOn(g: LavaGame, pl: Plat) {
