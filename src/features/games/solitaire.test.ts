@@ -58,11 +58,15 @@ describe('Solitario 3.000', () => {
     expect(again.waste).toHaveLength(0);
   });
 
-  it('al volver a armar el mazo, las cartas se mezclan (no salen siempre en el mismo orden)', () => {
-    const waste = Array.from({ length: 12 }, (_, i) => card('corazon', i + 1));
-    const orders = new Set([1, 2, 3, 4, 5].map(seed => { let x = seed; const rand = () => (x = (x * 16807) % 2147483647) / 2147483647; return draw({ ...empty(), waste }, rand)!.stock.map(c => c.rank).join(','); }));
-    expect(orders.size).toBeGreaterThan(1);
-    for (const o of orders) expect(o.split(',').map(Number).sort((a, b) => a - b)).toEqual(waste.map(c => c.rank));
+  it('al volver a armar el mazo, las cartas salen en el mismo orden que la vuelta anterior (no se mezclan)', () => {
+    let game: Solitaire = { ...empty(), stock: Array.from({ length: 12 }, (_, i) => card('corazon', i + 1, false)) };
+    const firstPass: number[] = [];
+    for (let i = 0; i < 12; i++) { game = draw(game)!; firstPass.push(game.waste[game.waste.length - 1].rank); }
+    game = draw(game)!;
+    expect(game.stock.every(c => !c.up)).toBe(true);
+    const secondPass: number[] = [];
+    for (let i = 0; i < 12; i++) { game = draw(game)!; secondPass.push(game.waste[game.waste.length - 1].rank); }
+    expect(secondPass).toEqual(firstPass);
   });
 
   it('al tocar una carta va primero a su base y si no a una columna', () => {

@@ -89,17 +89,13 @@ export function move(state: Solitaire, from: From, to: To): Solitaire | null {
   return next;
 }
 
-// Tocar el mazo: da vuelta una carta; si ya no quedan, las de la pila se mezclan y vuelven al mazo (como
-// juntarlas, mezclarlas y volver a tirar: no salen siempre en el mismo orden).
-export function draw(state: Solitaire, rand: () => number = Math.random): Solitaire | null {
+// Tocar el mazo: da vuelta una carta; si ya no quedan, la pila se da vuelta entera y vuelve a ser el mazo
+// (como en el solitario de verdad: sin mezclar, así que las cartas salen en el mismo orden que antes).
+export function draw(state: Solitaire): Solitaire | null {
   if (!state.stock.length && !state.waste.length) return null;
   const next = clone(state);
   if (next.stock.length) next.waste.push({ ...next.stock.pop()!, up: true });
-  else {
-    const deck = next.waste.map(card => ({ ...card, up: false }));
-    for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
-    next.stock = deck; next.waste = []; next.score += POINTS.recycle;
-  }
+  else { next.stock = next.waste.reverse().map(card => ({ ...card, up: false })); next.waste = []; next.score += POINTS.recycle; }
   next.moves++;
   return next;
 }
@@ -138,8 +134,8 @@ export function finishStep(state: Solitaire): Solitaire | null {
 }
 
 // ¿Ya no hay forma de ganar? Se prueban todas las jugadas posibles buscando alguna combinación que suba una
-// carta a las bases o destape una carta de las columnas. Como el mazo se mezcla cada vez que se vuelve a
-// armar, cualquier carta del mazo (o de la pila) puede llegar a salir: se las cuenta a todas como jugables. Si ninguna lo logra, la partida está perdida. Si hay demasiadas combinaciones para probarlas
+// carta a las bases o destape una carta de las columnas. Como el mazo se puede dar vuelta todas las veces
+// que se quiera, cualquier carta del mazo (o de la pila) puede llegar a salir: se las cuenta a todas como jugables. Si ninguna lo logra, la partida está perdida. Si hay demasiadas combinaciones para probarlas
 // todas, se la da por viva (mejor no cortar una partida que todavía se podía ganar).
 const pileKey = (p: Card[]) => p.map(c => `${c.id}${c.up ? '' : '*'}`).join(',');
 // (el orden de las columnas y de las bases no cambia nada: se comparan ordenadas)
