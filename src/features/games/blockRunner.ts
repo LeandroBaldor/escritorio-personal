@@ -94,6 +94,13 @@ function shove(game: Game) {
   return false;
 }
 
+const pieceCells = (piece: Piece) => piece.cells.map(([cx, cy]) => [piece.x + cx, piece.y + cy] as [number, number]);
+const TOUCH = 1e-4;
+const touchesPlayer = (p: Player, bx: number, by: number) =>
+  p.x < bx + 1 - TOUCH && p.x + PLAYER_W > bx + TOUCH && p.y < by + 1 - TOUCH && p.y + PLAYER_H > by + TOUCH;
+const hitsPieces = (game: Game, x: number, y: number) =>
+  game.pieces.some(piece => pieceCells(piece).some(([bx, by]) => touchesPlayer({ ...game.player, x, y }, bx, by)));
+
 const overlapsPlayer = (p: Player, x: number, y: number, w: number, h: number, inset = 0.08) =>
   p.x + inset < x + w && p.x + PLAYER_W - inset > x && p.y + inset < y + h && p.y + PLAYER_H > y;
 
@@ -143,13 +150,13 @@ function freeColumns(game: Game, width: number) {
   return free;
 }
 
-// Dificultad: sube de a poco. Cada nivel dura 1 minuto y al llegar al nivel 10, a los 9 minutos, se gana.
+// Dificultad: sube de a poco. Son 10 niveles de 30 segundos: al terminar el nivel 10 (a los 5 minutos) se gana.
 // Las piezas caen más rápido, aparecen más seguido y casi la mitad de lo que cae son bombas. Todo sube
-// al ritmo de los niveles ("pace" va de 0 a 135 entre el nivel 1 y el 10). La cantidad de piezas depende
-// del tamaño del tablero, así en la compu y en el celular la pila tarda parecido en llegar arriba.
-export const LEVEL_SECONDS = 60;
+// al ritmo de los niveles ("pace" va de 0 a 150 entre el principio y el final del nivel 10). La cantidad
+// de piezas depende del tamaño del tablero, así en la compu y en el celular la pila tarda parecido en llegar arriba.
+export const LEVEL_SECONDS = 30;
 export const WIN_LEVEL = 10;
-export const level = (game: Game) => 1 + Math.floor(game.time / LEVEL_SECONDS);
+export const level = (game: Game) => Math.min(game.winLevel, 1 + Math.floor(game.time / LEVEL_SECONDS));
 const pace = (game: Game) => game.time * 15 / LEVEL_SECONDS;
 const SPAWN_BASE = 1.1;
 const spawnInterval = (game: Game, rand: () => number) =>
@@ -231,7 +238,7 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   updateEffects(game, dt); // las explosiones se siguen viendo un momento después de perder
   if (game.over) return;
   game.time += dt;
-  if (level(game) >= game.winLevel) { game.over = 'won'; return; }
+  if (game.time >= game.winLevel * LEVEL_SECONDS) { game.over = 'won'; return; }
 
   game.spawnIn -= dt;
   if (game.spawnIn <= 0) {
@@ -276,18 +283,35 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   if (game.over) return;
 
   const p = game.player;
+  // Una pieza que cae solo lo aplasta si le cae en la cabeza: lo empuja hacia abajo y, si abajo no
+  // hay lugar (el piso o los bloques), lo aplasta. Si apenas lo roza de costado, lo corre.
+  for (const piece of game.pieces) for (const [bx, by] of pieceCells(piece)) {
+    if (!touchesPlayer(p, bx, by)) continue;
+    if (Math.min(p.x + PLAYER_W - bx, bx + 1 - p.x) <= MAX_SHOVE) {
+      const x = p.x + PLAYER_W / 2 < bx + 0.5 ? bx - PLAYER_W : bx + 1;
+      if (!hitsGrid(game, x, p.y, PLAYER_W, PLAYER_H)) { p.x = x; continue; }
+    }
+    if (by + 0.5 > p.y + PLAYER_H / 2) continue; // la pieza está debajo: se para arriba de ella
+    p.y = by + 1;
+    p.vy = Math.max(p.vy, piece.speed);
+    if (hitsGrid(game, p.x, p.y, PLAYER_W, PLAYER_H)) { game.over = 'crushed'; return; }
+  }
+
   p.vx = ((input.right ? 1 : 0) - (input.left ? 1 : 0)) * RUN;
   if (p.vx) p.facing = p.vx > 0 ? 1 : -1;
   if (input.jump && p.onGround) { p.vy = -JUMP; p.onGround = false; emit(game, { type: 'jump' }); }
 
+  // Las piezas que caen son sólidas: no se las atraviesa corriendo.
+  const blocked = (x: number) => hitsGrid(game, x, p.y, PLAYER_W, PLAYER_H) || hitsPieces(game, x, p.y);
   const oldX = p.x;
   p.x += p.vx * dt;
-  if (p.vx && hitsGrid(game, p.x, p.y, PLAYER_W, PLAYER_H)) {
+  if (p.vx && blocked(p.x)) {
     p.x = p.vx > 0 ? Math.floor(p.x + PLAYER_W - EPS) - PLAYER_W : Math.floor(p.x) + 1;
-    if (hitsGrid(game, p.x, p.y, PLAYER_W, PLAYER_H)) p.x = oldX;
+    if (blocked(p.x)) p.x = oldX;
   }
 
   p.vy = Math.min(MAX_FALL, p.vy + GRAVITY * dt);
+  const falling = p.vy > 0;
   const oldY = p.y;
   p.y += p.vy * dt;
   p.onGround = false;
@@ -302,18 +326,21 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
     p.onGround = down;
     p.vy = 0;
   }
-
-  // Si una pieza lo roza de costado (al caer o al apoyarse al lado) lo empuja; solo lo aplasta si le cae encima.
-  if (hitsGrid(game, p.x, p.y, PLAYER_W, PLAYER_H) && !shove(game)) { game.over = 'crushed'; return; }
-  for (const piece of game.pieces) {
-    const touching = piece.cells.map(([cx, cy]) => [piece.x + cx, piece.y + cy]).filter(([bx, by]) => overlapsPlayer(p, bx, by, 1, 1, 0));
-    if (!touching.length) continue;
-    // Si la pieza le tapa más que un costadito, le cayó encima.
-    if (touching.some(([bx]) => Math.min(p.x + PLAYER_W - bx, bx + 1 - p.x) > MAX_SHOVE)) { game.over = 'crushed'; return; }
-    const [bx] = touching[0];
-    p.x = p.x + PLAYER_W / 2 < bx + 0.5 ? bx - PLAYER_W : bx + 1;
-    if (hitsGrid(game, p.x, p.y, PLAYER_W, PLAYER_H)) { game.over = 'crushed'; return; }
+  // Al caer sobre una pieza que todavía baja, se para arriba y baja con ella; al saltar y chocarla
+  // por abajo, rebota con la cabeza y cae.
+  const hit = game.pieces.flatMap(piece => pieceCells(piece).filter(([bx, by]) => touchesPlayer(p, bx, by)).map(([, by]) => ({ by, speed: piece.speed })));
+  if (hit.length) {
+    const y = falling ? Math.min(...hit.map(h => h.by)) - PLAYER_H : Math.max(...hit.map(h => h.by + 1));
+    const landed = y < p.y;
+    if (!hitsGrid(game, p.x, y, PLAYER_W, PLAYER_H)) {
+      p.y = y;
+      p.vy = landed ? Math.min(...hit.map(h => h.speed)) : Math.max(...hit.map(h => h.speed));
+      p.onGround = landed;
+    }
   }
+
+  // Si los bloques apoyados lo encierran (una fila que baja, bloques que caen) y no hay lugar al costado, lo aplastan.
+  if (hitsGrid(game, p.x, p.y, PLAYER_W, PLAYER_H) && !shove(game)) { game.over = 'crushed'; return; }
 
   // Encerrado: si los bloques lo dejan en un hueco sin salida hacia arriba, tiene 10 segundos para
   // salir (una bomba o una pieza de su color pueden abrirle camino). Si no, queda atrapado.

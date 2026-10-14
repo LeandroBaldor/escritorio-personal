@@ -1,7 +1,7 @@
 // Sonidos de ambiente de "¡El piso es de lava!": cuánto se escucha cada cosa según lo cerca que esté del
 // personaje (0 = no se escucha, 1 = pegado). La gente prendida fuego suena como el fuego. Los cortocircuitos solo suenan mientras chispean y el
 // ascensor solo mientras se mueve.
-import { elevatorAt, heliState, personX, PLAYER_H, sparkActive, type LavaGame } from './lava';
+import { elevatorAt, HELI_H, HELI_W, heliState, personX, PLAYER_H, sparkActive, type LavaGame } from './lava';
 
 export type LavaChannel = 'lava' | 'fire' | 'electric' | 'heli' | 'elevator';
 export const LAVA_CHANNELS: LavaChannel[] = ['lava', 'fire', 'electric', 'heli', 'elevator'];
@@ -22,11 +22,8 @@ export function lavaLevels(g: LavaGame): Record<LavaChannel, number> {
   for (const q of g.people) if (q.torch && q.burnAt === null && Math.abs(q.y - y) < HEAR + 2) { const { x: qx } = personX(q, t); hear('fire', boxDist(x, y, qx - 0.3, qx + 0.3, q.y, q.y + PLAYER_H)); }
   for (const s of g.sparks) if (Math.abs(s.y1 - y) < HEAR + 2 && sparkActive(s, t)) hear('electric', boxDist(x, y, s.x1, s.x2, s.y1, s.y2));
   // El helicóptero se escucha desde lejos (más fuerte en el aire, con el rotor a toda potencia).
-  for (const h of g.helis) {
-    const st = heliState(h, t);
-    const d = boxDist(x, y, st.x, st.x + h.w, st.y, st.y + h.h);
-    levels.heli = Math.max(levels.heli, near(d, HELI_HEAR) * (st.phase === 'landed' ? 0.75 : 1));
-  }
+  const st = heliState(g, t);
+  levels.heli = near(boxDist(x, y, st.x, st.x + HELI_W, st.y, st.y + HELI_H), HELI_HEAR) * (st.phase === 'landed' ? 0.75 : 1);
   for (const e of g.elevators) {
     const at = elevatorAt(e, t);
     if (at.dir !== 0) hear('elevator', boxDist(x, y, e.x, e.x + e.w, at.y, at.y + 2.2));

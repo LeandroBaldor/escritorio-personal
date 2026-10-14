@@ -5,6 +5,7 @@ import { cupOutcome, FINAL, ROUNDS, type CupOutcome } from './worldCup';
 import { canShoot, chase, dive, FORMATIONS, GOAL, minute, newMatch, pass, passRisk, PITCH, shoot, shotChance, startSecondHalf, step, takeEvents, type FormationId, type Match, type MatchEvent, type Side } from './tikiTaka';
 import { playGameOver, playGoal, playKick, playRefWhistle, playStart, playWinFanfare, preloadSoccerSounds, setCrowd } from './sounds';
 import { EndBanner } from './EndBanner';
+import { Penalties } from './Penalties';
 
 // ---------- Equipo guardado y récord ----------
 export interface TeamSetup { coach: string; country: string; formation: FormationId }
@@ -242,6 +243,7 @@ export function TikiTaka() {
   const [banner, setBanner] = useState<Banner | null>(null);
   const [cup, setCup] = useState<Cup | null>(null);
   const [outcome, setOutcome] = useState<CupOutcome | null>(null);
+  const [shootout, setShootout] = useState(0); // >0 mientras se patean los penales (cambia en cada tanda)
   const cupRef = useRef(cup);
   useEffect(() => { cupRef.current = cup; }, [cup]);
   useEffect(() => {
@@ -257,6 +259,19 @@ export function TikiTaka() {
   const cameraRef = useRef(PITCH.h / 2);
   const names: Names = { team: myKit.name, coach: setup.coach.trim() || DEFAULT_SETUP.coach, rival, rivalCoach };
 
+  // Cómo terminó el partido (en el Mundial, con los penales si hubo): carteles, récord de Mundiales y sonido.
+  const settle = (result: CupOutcome | null) => {
+    const m = matchRef.current;
+    if (!m) return;
+    if (result) {
+      setOutcome(result);
+      if (result.shout) setBanner({ text: result.shout, trophy: result.champion, seconds: 3.5, id: performance.now() });
+      if (result.champion) { const r = readTikiRecord(), next = { ...r, cups: (r.cups ?? 0) + 1 }; write(RECORD_KEY, next); setRecord(next); }
+    }
+    if (result ? !result.won : m.goals.mine < m.goals.rival) playGameOver(); // perdiste el partido o quedaste afuera del Mundial
+    else if (result ? result.won : m.goals.mine > m.goals.rival) playWinFanfare();
+  };
+
   useEffect(() => {
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -271,6 +286,7 @@ export function TikiTaka() {
     setLine(say('kickoff', names));
     setBanner(null);
     setOutcome(null);
+    setShootout(0);
     setScreen('match');
   };
 
@@ -335,13 +351,12 @@ export function TikiTaka() {
         if (event.type === 'rivalGoal') setBanner({ text: `¡GOOOOL DE ${names.rival.toUpperCase()}!!!`, seconds: 1.8, id: now });
         if (event.type === 'end') {
           const r = readTikiRecord();
-          // En el Mundial, si termina empatado se define por penales.
-          const c = cupRef.current, result = c ? cupOutcome(c.round, m.goals.mine, m.goals.rival) : null;
-          const next = { ...r, played: r.played + 1, won: r.won + (m.goals.mine > m.goals.rival ? 1 : 0), drawn: r.drawn + (m.goals.mine === m.goals.rival ? 1 : 0), lost: r.lost + (m.goals.mine < m.goals.rival ? 1 : 0), goals: r.goals + m.goals.mine, cups: (r.cups ?? 0) + (result?.champion ? 1 : 0) };
+          const next = { ...r, played: r.played + 1, won: r.won + (m.goals.mine > m.goals.rival ? 1 : 0), drawn: r.drawn + (m.goals.mine === m.goals.rival ? 1 : 0), lost: r.lost + (m.goals.mine < m.goals.rival ? 1 : 0), goals: r.goals + m.goals.mine };
           write(RECORD_KEY, next); setRecord(next);
-          if (result) { setOutcome(result); if (result.shout) setBanner({ text: result.shout, trophy: result.champion, seconds: 3.5, id: now }); }
-          if (result ? !result.won : m.goals.mine < m.goals.rival) playGameOver(); // perdiste el partido o quedaste afuera del Mundial
-          else if (result ? result.won : m.goals.mine > m.goals.rival) playWinFanfare();
+          // En el Mundial, si termina empatado se define por penales (los pateás vos).
+          const c = cupRef.current;
+          if (c && m.goals.mine === m.goals.rival) { setLine('¡Penales! Elegí 1, 2 o 3 cuando suene el silbato'); setShootout(n => n + 1); }
+          else settle(c ? cupOutcome(c.round, m.goals.mine, m.goals.rival) : null);
         }
       }
       setHud(prev => {
@@ -356,6 +371,13 @@ export function TikiTaka() {
     document.addEventListener('visibilitychange', hide);
     return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); setCrowd(0); };
   }, [screen, paint]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const penaltiesDone = (pens: [number, number]) => {
+    const m = matchRef.current, c = cupRef.current;
+    setShootout(0);
+    setLine(`Por penales: ${pens[0]} - ${pens[1]}`);
+    if (m && c) settle(cupOutcome(c.round, m.goals.mine, m.goals.rival, Math.random, pens));
+  };
 
   const tryShoot = () => { const m = matchRef.current; if (m) shoot(m); };
   const tryDive = (side: Side) => { const m = matchRef.current; if (m) dive(m, side); };
@@ -447,7 +469,7 @@ export function TikiTaka() {
         <button type="submit" className="tt-go">Amistoso ⚽</button>
         <button type="button" className="tt-go tt-go--cup" onClick={startCup}>🏆 Jugar el Mundial</button>
       </div>
-      <p className="tt-tip">En el Mundial arrancás en octavos de final: si ganás, pasás de ronda hasta la final. Si empatás, se define por penales.</p>
+      <p className="tt-tip">En el Mundial arrancás en octavos de final: si ganás, pasás de ronda hasta la final. Si empatás, se define por penales: cuando suena el silbato elegís 1 (izquierda), 2 (medio) o 3 (derecha) para patear o para tirarte.</p>
       {record.played > 0 && <p className="tt-record">Tu campaña: {record.won} ganados, {record.drawn} empatados, {record.lost} perdidos · {record.goals} goles{record.cups ? ` · 🏆 ${record.cups} ${record.cups === 1 ? 'Mundial' : 'Mundiales'}` : ''}</p>}
     </form>}
 
@@ -485,6 +507,7 @@ export function TikiTaka() {
             <div className="tt-end-actions"><button type="button" onClick={rematch} autoFocus>Revancha</button><button type="button" onClick={() => setScreen('setup')}>Cambiar equipo</button></div>
           </div>
         </div>}
+        {hud.phase === 'end' && cup && shootout > 0 && <Penalties key={shootout} team={names.team} rival={rival} myKit={myKit} rivalKit={rivalShirt} onDone={penaltiesDone} />}
         {hud.phase === 'end' && cup && outcome && !banner && <div className="runner-overlay" role="dialog" aria-labelledby="tt-end">
           <div className="tt-cup-end">
             <p className="tt-round">Mundial · {ROUNDS[cup.round]}</p>

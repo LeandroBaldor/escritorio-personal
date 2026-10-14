@@ -2,8 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Link } from 'react-router-dom';
 import { drawRunner, type RunnerHat, type RunnerLook } from './runnerCharacter';
 import {
-  BURN_T, elevatorAt, floorY, heliState, LAVA_DELAY, zipY, meters, newLava, nextLanding, PLAYER_H, PLAYER_W, personState, personX, sparkActive, sparkWarning, step, takeEvents, towerOf, WALL,
-  type Building, type Climb, type Crane, type Elevator, type Escape, type Fallen, type Fire, type Heli, type Input, type LavaGame, type LoseReason, type Person, type Plat, type Spark, type Spiral, type Wire, type Zip,
+  BURN_T, elevatorAt, floorY, HELI_H, HELI_W, heliState, heliTarget, LAVA_DELAY, zipY, meters, newLava, PLAYER_H, PLAYER_W, personState, personX, sparkActive, sparkWarning, step, takeEvents, towerOf, WALL,
+  type Building, type Climb, type Crane, type Elevator, type Escape, type Fallen, type Fire, type Input, type LavaGame, type LoseReason, type Person, type Plat, type Spark, type Spiral, type Wire, type Zip,
 } from './lava';
 import { lavaLevels } from './lavaSound';
 import { playCrumble, playElevatorDing, playFootstep, playGameOver, playJump, playLavaFall, playLose, playPersonBurn, playStart, playTramp, playWinFanfare, preloadLavaSounds, setLavaAmbient } from './sounds';
@@ -654,8 +654,12 @@ function drawDoor(ctx: CanvasRenderingContext2D, b: Building, k: number, side: -
   ctx.fillText(side < 0 ? '← SALIDA' : 'SALIDA →', X(v, xw + WALL / 2), Y(v, y0 + dh + 0.3));
 }
 
-// Habitaciones de un piso: una o dos, cada una con su empapelado y sus cosas.
+// Habitaciones de un piso: una o dos, cada una con su empapelado y sus cosas. Si hay una pared del medio
+// (con la puerta tapiada), las dos habitaciones son las de cada lado.
+const partitionOf = (b: Building, k: number) => b.partitions.find(w => w.floor === k);
 const roomsOf = (b: Building, k: number): [number, number][] => {
+  const wall = partitionOf(b, k);
+  if (wall) return [[b.x, wall.x], [wall.x, b.x + b.w]];
   const split = b.w > 8.5 && hash(b.id * 7 + k) < 0.65 ? b.x + b.w * (0.4 + hash(b.id + k) * 0.2) : null;
   return split ? [[b.x, split], [split, b.x + b.w]] : [[b.x, b.x + b.w]];
 };
@@ -686,9 +690,10 @@ function drawFloorStatic(ctx: CanvasRenderingContext2D, g: LavaGame, b: Building
     }
     for (const p of g.plats) if (mine(p) && isSlab(p)) fillTex(ctx, v, texture(ctx, v, 'slab', 1, 1, concrete(48)), '#78716c', p.x, p.y - 0.24, p.w, 0.24);
   } else {
-    const rooms = roomsOf(b, k);
+    const rooms = roomsOf(b, k), wall = partitionOf(b, k);
     rooms.forEach(([a, c], r) => (b.luxury ? drawLuxRoom : drawRoom)(ctx, g, b, k, a, c, r, v));
-    if (rooms.length > 1 && b.luxury) { // tabique de vidrio esmerilado
+    if (wall) drawPartition(ctx, b, k, wall.x, v);
+    else if (rooms.length > 1 && b.luxury) { // tabique de vidrio esmerilado
       const split = rooms[0][1];
       ctx.fillStyle = 'rgba(226,232,240,0.35)'; ctx.fillRect(X(v, split) - s * 0.06, Y(v, y1), s * 0.12, (y1 - y0) * s);
       ctx.fillStyle = '#94a3b8'; ctx.fillRect(X(v, split) - s * 0.08, Y(v, y1), s * 0.03, (y1 - y0) * s); ctx.fillRect(X(v, split) + s * 0.05, Y(v, y1), s * 0.03, (y1 - y0) * s);
@@ -777,6 +782,54 @@ function drawFloorStatic(ctx: CanvasRenderingContext2D, g: LavaGame, b: Building
   for (const sp of spirals) drawSpiral(ctx, sp, g, v);
   const inSpiral = (p: Plat) => spirals.some(sp => p.y > sp.y0 && p.y < sp.y1 && p.x >= sp.x1 - 0.01 && p.x + p.w <= sp.x2 + 0.01);
   for (const p of g.plats) if (p.b === b.id && p.floor === k && (p.kind === 'furniture' || p.kind === 'step') && !inSpiral(p)) drawPlat(ctx, p, g, v);
+}
+
+// Pared del medio, de piso a techo, que no se puede cruzar: ladrillo (en las torres de lujo, vidrio esmerilado
+// con perfiles de acero). Donde había una puerta quedó tapiada con ladrillos nuevos, tablones clavados, cinta
+// de peligro y un cartel de "SIN PASO".
+function drawPartition(ctx: CanvasRenderingContext2D, b: Building, k: number, x: number, v: View) {
+  const s = v.s, y0 = floorY(b, k), y1 = floorY(b, k + 1), seed = b.id * 977 + k * 31, ww = WALL * 1.3;
+  const left = X(v, x - ww / 2), top = Y(v, y1), w = ww * s, h = (y1 - y0) * s;
+  const dh = Math.min(2.2, y1 - y0 - 0.45);
+  if (b.luxury) {
+    const glass = ctx.createLinearGradient(left, 0, left + w, 0);
+    glass.addColorStop(0, '#334155'); glass.addColorStop(0.5, '#cbd5e1'); glass.addColorStop(1, '#1e293b');
+    ctx.fillStyle = glass; ctx.fillRect(left, top, w, h);
+    ctx.fillStyle = '#0f172a'; ctx.fillRect(left - 1, top, 2, h); ctx.fillRect(left + w - 1, top, 2, h); ctx.fillRect(left, Y(v, y0 + dh), w, s * 0.05);
+  } else {
+    fillTex(ctx, v, brickOf(ctx, v, b), facade(b), x - ww / 2, y0, ww, y1 - y0);
+    // Ladrillos nuevos (más claros) donde estaba la puerta.
+    fillTex(ctx, v, texture(ctx, v, 'brick-new', 1, 0.5, bricks(16, 55, 52, '#d6d3d1')), '#c2410c', x - ww / 2, y0, ww, dh);
+    ctx.fillStyle = 'rgba(120,113,108,0.5)'; ctx.fillRect(left, Y(v, y0 + dh), w, s * 0.06);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(left + w - 2, top, 2, h);
+    ctx.fillStyle = 'rgba(255,255,255,0.16)'; ctx.fillRect(left, top, 2, h);
+  }
+  // Marco de la puerta vieja, a los dos lados de la pared.
+  ctx.fillStyle = '#5b3a1e';
+  ctx.fillRect(left - s * 0.08, Y(v, y0 + dh), s * 0.08, dh * s); ctx.fillRect(left + w, Y(v, y0 + dh), s * 0.08, dh * s);
+  ctx.fillRect(left - s * 0.12, Y(v, y0 + dh) - s * 0.08, w + s * 0.24, s * 0.1);
+  // Tablones cruzados y clavados.
+  const plank = (y: number, tilt: number, tone: number) => {
+    ctx.save(); ctx.translate(X(v, x), Y(v, y0 + y)); ctx.rotate(tilt);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(-s * 0.5, -s * 0.04, s * 1.0, s * 0.16);
+    ctx.fillStyle = `hsl(30, 42%, ${tone}%)`; ctx.fillRect(-s * 0.5, -s * 0.08, s * 1.0, s * 0.15);
+    ctx.strokeStyle = 'rgba(80,45,20,0.45)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-s * 0.45, -s * 0.02); ctx.lineTo(s * 0.45, -s * 0.03); ctx.stroke();
+    ctx.fillStyle = '#d1d5db'; for (const px of [-0.4, 0.4]) { ctx.beginPath(); ctx.arc(px * s, 0, s * 0.025, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+  };
+  plank(dh * 0.82, -0.5 + hash(seed) * 0.12, 50); plank(dh * 0.82, 0.5 - hash(seed + 1) * 0.12, 44);
+  plank(dh * 0.45, 0.06 - hash(seed + 2) * 0.12, 48); plank(dh * 0.15, -0.04 + hash(seed + 3) * 0.08, 42);
+  // Cinta de peligro cruzada y cartel.
+  ctx.save(); ctx.translate(X(v, x), Y(v, y0 + dh * 0.62)); ctx.rotate(0.35);
+  ctx.beginPath(); ctx.rect(-s * 0.55, -s * 0.05, s * 1.1, s * 0.1); ctx.clip();
+  for (let i = -6; i < 6; i++) { ctx.fillStyle = i % 2 ? '#111827' : '#facc15'; ctx.beginPath(); ctx.moveTo(i * s * 0.1, s * 0.05); ctx.lineTo(i * s * 0.1 + s * 0.05, -s * 0.05); ctx.lineTo(i * s * 0.1 + s * 0.15, -s * 0.05); ctx.lineTo(i * s * 0.1 + s * 0.1, s * 0.05); ctx.fill(); }
+  ctx.restore();
+  const sy = Y(v, y0 + dh + 0.42);
+  ctx.strokeStyle = '#57534e'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X(v, x) - s * 0.25, top); ctx.lineTo(X(v, x) - s * 0.25, sy - s * 0.14); ctx.moveTo(X(v, x) + s * 0.25, top); ctx.lineTo(X(v, x) + s * 0.25, sy - s * 0.14); ctx.stroke();
+  ctx.fillStyle = '#b91c1c'; ctx.beginPath(); ctx.roundRect(X(v, x) - s * 0.46, sy - s * 0.14, s * 0.92, s * 0.28, s * 0.04); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.roundRect(X(v, x) - s * 0.42, sy - s * 0.11, s * 0.84, s * 0.22, s * 0.03); ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.font = font(900, s * 0.15); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('SIN PASO', X(v, x), sy + s * 0.01);
 }
 
 // Cada piso se dibuja una sola vez en una imagen aparte y después se copia (es mucho más rápido). Se
@@ -1317,10 +1370,29 @@ function drawSkybridge(ctx: CanvasRenderingContext2D, p: Plat, g: LavaGame, v: V
   for (let j = 0; j < 3; j++) { ctx.fillStyle = j % 2 ? '#111827' : '#facc15'; ctx.fillRect(brokenX - dir * s * (0.3 + j * 0.15) - (dir < 0 ? 0 : s * 0.15), y - s * 0.02, s * 0.15, s * 0.08); }
 }
 
-function drawHelipad(ctx: CanvasRenderingContext2D, cx: number, y: number, s: number) {
-  ctx.fillStyle = '#1f2937'; ctx.beginPath(); ctx.ellipse(cx, y - s * 0.03, s * 1.9, s * 0.22, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#fde047'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(cx, y - s * 0.03, s * 1.6, s * 0.17, 0, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = '#fde047'; ctx.font = font(900, s * 0.3); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('H', cx, y - s * 0.04);
+// Helipuerto: plataforma de chapa con borde, círculo amarillo y la H; el que espera al helicóptero tiene las
+// luces de borde encendidas (titilan en verde cuando está por aterrizar o ya aterrizó).
+function drawHelipad(ctx: CanvasRenderingContext2D, cx: number, y: number, s: number, active = false, t = 0, soon = false) {
+  const deck = ctx.createLinearGradient(0, y - s * 0.3, 0, y + s * 0.05);
+  deck.addColorStop(0, '#4b5563'); deck.addColorStop(1, '#111827');
+  ctx.fillStyle = '#374151'; ctx.fillRect(cx - s * 2, y - s * 0.16, s * 4, s * 0.16); // estructura
+  ctx.fillStyle = deck; ctx.beginPath(); ctx.ellipse(cx, y - s * 0.16, s * 2.05, s * 0.24, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = Math.max(1, s * 0.03); ctx.beginPath(); ctx.ellipse(cx, y - s * 0.16, s * 1.95, s * 0.21, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = '#fde047'; ctx.lineWidth = Math.max(2, s * 0.05); ctx.beginPath(); ctx.ellipse(cx, y - s * 0.16, s * 1.45, s * 0.15, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#fde047'; ctx.font = font(900, s * 0.3); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('H', cx, y - s * 0.17);
+  for (let i = 0; i < 8; i++) { // luces del borde
+    const a = (i / 8) * Math.PI * 2, lx = cx + Math.cos(a) * s * 2, ly = y - s * 0.16 + Math.sin(a) * s * 0.23;
+    const on = active && (!soon || Math.floor(t * 4 + i * 0.5) % 2 === 0);
+    ctx.fillStyle = on ? (soon ? '#4ade80' : '#fde047') : '#57534e';
+    if (on) { ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = s * 0.35; }
+    ctx.beginPath(); ctx.arc(lx, ly, s * 0.07, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  // Manga de viento al costado.
+  const mx = cx + s * 2.25;
+  ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = Math.max(1.5, s * 0.04); ctx.beginPath(); ctx.moveTo(mx, y); ctx.lineTo(mx, y - s * 1.3); ctx.stroke();
+  const flap = Math.sin(t * 3) * s * 0.06;
+  for (let j = 0; j < 3; j++) { ctx.fillStyle = j % 2 ? '#f8fafc' : '#f97316'; ctx.beginPath(); ctx.moveTo(mx + j * s * 0.2, y - s * (1.3 - j * 0.02) + flap * j); ctx.lineTo(mx + (j + 1) * s * 0.2, y - s * (1.28 - (j + 1) * 0.02) + flap * (j + 1)); ctx.lineTo(mx + (j + 1) * s * 0.2, y - s * (1.08 + (j + 1) * 0.02) + flap * (j + 1)); ctx.lineTo(mx + j * s * 0.2, y - s * (1.06 + j * 0.02) + flap * j); ctx.fill(); }
 }
 
 // Ascensor: pozo, cabina con luz, puertas en cada piso (se abren cuando para), botón y número de piso.
@@ -1613,20 +1685,25 @@ function drawPerson(ctx: CanvasRenderingContext2D, person: Person, v: View, lava
 }
 
 // ---------- Helicópteros ----------
-function drawHeli(ctx: CanvasRenderingContext2D, h: Heli, v: View, t: number) {
-  const st = heliState(h, t), s = v.s;
-  // Lugar donde aterriza: cartel con la cuenta regresiva.
-  if (visible(v, h.x - 1, h.x + h.w + 1, h.y - 1, h.y + 3)) {
-    const cx = X(v, h.x + h.w / 2), py = Y(v, h.y);
-    if (st.phase !== 'landed') {
-      const soon = st.back < 6, blink = Math.floor(t * 4) % 2;
-      ctx.fillStyle = soon && blink ? '#22c55e' : 'rgba(0,0,0,0.55)'; ctx.beginPath(); ctx.roundRect(cx - s * 1.3, py - s * 1.25, s * 2.6, s * 0.5, s * 0.12); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.font = font(900, s * 0.26); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(`🚁 vuelve en ${Math.ceil(st.back)} s`, cx, py - s * 1.0);
-    }
-  }
+function drawHeli(ctx: CanvasRenderingContext2D, g: LavaGame, v: View, t: number) {
+  const st = heliState(g, t), s = v.s;
+  // Helipuertos: el que espera al helicóptero tiene las luces prendidas y un cartel con la cuenta regresiva.
+  g.pads.forEach((pad, i) => {
+    if (!visible(v, pad.x - 3, pad.x + HELI_W + 3, pad.y - 1, pad.y + 3)) return;
+    const active = i === st.pad, soon = active && (st.phase === 'landed' || st.back < 8);
+    drawHelipad(ctx, X(v, pad.x + HELI_W * 0.45), Y(v, pad.y), s, active, t, soon);
+    if (!active || st.phase === 'landed') return;
+    const cx = X(v, pad.x + HELI_W / 2), py = Y(v, pad.y), blink = Math.floor(t * 4) % 2;
+    ctx.fillStyle = soon && blink ? '#16a34a' : 'rgba(0,0,0,0.6)'; ctx.beginPath(); ctx.roundRect(cx - s * 1.5, py - s * 1.35, s * 3, s * 0.52, s * 0.12); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = font(900, s * 0.26); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(`🚁 aterriza en ${Math.ceil(st.back)} s`, cx, py - s * 1.09);
+  });
+  const h = { x: st.phase === 'up' ? g.pads[st.from].x : g.pads[st.pad].x, y: st.phase === 'up' ? g.pads[st.from].y : g.pads[st.pad].y, w: HELI_W, h: HELI_H };
   if (!visible(v, st.x - 3, st.x + h.w + 3, st.y - 2, st.y + h.h + 3)) return;
   const x = X(v, st.x), y = Y(v, st.y + h.h), w = h.w * s, hh = h.h * s;
+  // Vuela con la trompa para el lado al que va (aterrizado queda mirando a la izquierda).
+  const flip = st.dir > 0 && st.phase !== 'landed', mirror = 2 * (x + w * 0.68);
+  if (flip) { ctx.save(); ctx.translate(mirror, 0); ctx.scale(-1, 1); }
   // Polvo que levanta el rotor cerca del piso.
   if (st.y - h.y < 4) {
     const k = 1 - (st.y - h.y) / 4;
@@ -1669,7 +1746,7 @@ function drawHeli(ctx: CanvasRenderingContext2D, h: Heli, v: View, t: number) {
   ctx.fillStyle = '#f8fafc'; ctx.fillRect(x, y + hh * 0.56, w * 0.8, hh * 0.1);
   ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fillRect(x, y + hh * 0.14, w * 0.8, hh * 0.06); // brillo de arriba
   ctx.restore();
-  ctx.fillStyle = '#fff'; ctx.font = font(900, hh * 0.13); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('RESCATE', x + w * 0.22, y + hh * 0.73);
+  if (!flip) { ctx.fillStyle = '#fff'; ctx.font = font(900, hh * 0.13); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('RESCATE', x + w * 0.22, y + hh * 0.73); }
   // Cabina vidriada (con el piloto) y su marco.
   const glass = ctx.createLinearGradient(x, y + hh * 0.15, x + w * 0.3, y + hh * 0.55);
   glass.addColorStop(0, '#bae6fd'); glass.addColorStop(0.6, '#38bdf8'); glass.addColorStop(1, '#0c4a6e');
@@ -1713,6 +1790,10 @@ function drawHeli(ctx: CanvasRenderingContext2D, h: Heli, v: View, t: number) {
   ctx.fillStyle = Math.floor(t * 3) % 2 ? '#f87171' : '#7f1d1d'; ctx.beginPath(); ctx.arc(x + w * 0.45, y - hh * 0.05, s * 0.06, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#4ade80'; ctx.beginPath(); ctx.arc(x + w * 1.34, y + hh * 0.06, s * 0.05, 0, Math.PI * 2); ctx.fill();
   if (Math.floor(t * 6) % 6 === 0) { const sx = x + w * 1.29, sy = y + hh * 0.42, glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, s * 0.4); glow.addColorStop(0, 'rgba(255,255,255,0.95)'); glow.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = glow; ctx.fillRect(sx - s * 0.4, sy - s * 0.4, s * 0.8, s * 0.8); }
+  if (flip) {
+    ctx.restore();
+    ctx.fillStyle = '#fff'; ctx.font = font(900, hh * 0.13); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('RESCATE', mirror - (x + w * 0.22), y + hh * 0.73);
+  }
   if (st.phase === 'landed') {
     const pulse = 0.5 + 0.5 * Math.sin(t * 8);
     ctx.font = font(900, s * 0.5); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1756,12 +1837,35 @@ function drawPlayer(ctx: CanvasRenderingContext2D, g: LavaGame, v: View) {
   if (g.dying) for (let i = 0; i < 3; i++) { ctx.fillStyle = `rgba(120,113,108,${0.5 - i * 0.12})`; ctx.beginPath(); ctx.arc(px + pw / 2 + Math.sin(v.t * 6 + i) * pw * 0.4, py - i * pw * 0.6, pw * (0.25 + i * 0.1), 0, Math.PI * 2); ctx.fill(); }
 }
 
+// Flecha arriba de la cabeza que apunta al helipuerto donde va a aterrizar (o ya aterrizó) el helicóptero,
+// con los metros que faltan hasta ahí. Cuando el helicóptero está aterrizado se pone verde y late.
+function drawHeliArrow(ctx: CanvasRenderingContext2D, g: LavaGame, v: View) {
+  if (g.dying || g.won) return;
+  const p = g.player, s = v.s, target = heliTarget(g, g.time), landed = heliState(g, g.time).phase === 'landed';
+  const dx = target.x - p.x, dy = target.y - (p.y + PLAYER_H / 2), dist = Math.hypot(target.x - p.x, target.y - p.y);
+  const hx = X(v, p.x), hy = Y(v, p.y + PLAYER_H) - s * 0.95, pulse = landed ? 1 + 0.12 * Math.sin(v.t * 10) : 1;
+  const fill = landed ? '#4ade80' : '#facc15', edge = landed ? '#14532d' : '#713f12';
+  ctx.save();
+  ctx.translate(hx, hy); ctx.rotate(Math.atan2(-dy, dx)); ctx.scale(pulse, pulse);
+  const L = s * 0.42, T = s * 0.13, H = s * 0.26;
+  ctx.beginPath();
+  ctx.moveTo(-L, -T / 2); ctx.lineTo(L - H, -T / 2); ctx.lineTo(L - H, -H * 0.85); ctx.lineTo(L + H * 0.35, 0); ctx.lineTo(L - H, H * 0.85); ctx.lineTo(L - H, T / 2); ctx.lineTo(-L, T / 2); ctx.closePath();
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = s * 0.12;
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.shadowBlur = 0; ctx.lineWidth = Math.max(1.5, s * 0.045); ctx.strokeStyle = edge; ctx.stroke();
+  ctx.restore();
+  // Metros hasta el helipuerto, en un cartelito arriba de la flecha.
+  const label = `🚁 ${meters(dist)} m`;
+  ctx.font = font(900, s * 0.26); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tw = ctx.measureText(label).width + s * 0.3, ty = hy - s * 0.62;
+  ctx.fillStyle = 'rgba(15,23,42,0.75)'; ctx.beginPath(); ctx.roundRect(hx - tw / 2, ty - s * 0.2, tw, s * 0.4, s * 0.12); ctx.fill();
+  ctx.fillStyle = fill; ctx.fillText(label, hx, ty + s * 0.01);
+}
+
 function draw(ctx: CanvasRenderingContext2D, g: LavaGame, v: View) {
   drawSoftBackground(ctx, v);
   for (const b of g.buildings) drawBuilding(ctx, b, g, v);
   for (const f of g.fallens) drawFallen(ctx, f, g, v);
-  // Helipuertos de la terraza de la torre.
-  for (const h of g.helis) if (h.y === towerOf(g).top && visible(v, h.x - 1, h.x + h.w + 1, h.y - 1, h.y + 1)) drawHelipad(ctx, X(v, h.x + h.w * 0.42), Y(v, h.y), v.s);
   drawElevators(ctx, g, v);
   for (const e of g.escapes) drawEscape(ctx, e, g, v);
   for (const c of g.climbs) drawClimb(ctx, c, v);
@@ -1772,7 +1876,7 @@ function draw(ctx: CanvasRenderingContext2D, g: LavaGame, v: View) {
   for (const f of g.fires) drawFire(ctx, f, v);
   for (const sp of g.sparks) drawSpark(ctx, sp, v);
   for (const person of g.people) if (person.burnAt === null) drawPerson(ctx, person, v);
-  for (const h of g.helis) drawHeli(ctx, h, v, g.time);
+  drawHeli(ctx, g, v, g.time);
   drawPlayer(ctx, g, v);
   drawLava(ctx, g, v);
   // La gente que alcanzó la lava se ve arder y quedar carbonizada (negra), parada sobre la lava hasta que se hunde.
@@ -1781,6 +1885,7 @@ function draw(ctx: CanvasRenderingContext2D, g: LavaGame, v: View) {
     drawPerson(ctx, person, v, g.lava);
   }
   drawEmbers(ctx, v);
+  drawHeliArrow(ctx, g, v);
   // Si la lava está muy cerca, el borde de la pantalla se pone rojo.
   const near = g.player.y - g.lava;
   if (!g.dying && near < 3) {
@@ -1796,11 +1901,10 @@ const NO_INPUT: Input = { left: false, right: false, jump: false, down: false, u
 
 // Se ven unas 14 unidades de alto (un poco más de 4 pisos) y, en pantallas angostas, unas 12 de ancho.
 function scaleFor(w: number, h: number) { return Math.min(h / 14, w / 12); }
-// Cuánto falta para que aterrice algún helicóptero (0 si hay uno aterrizado) y cuánto le queda al aterrizado.
+// Cuánto falta para que aterrice el helicóptero y, si está aterrizado, cuánto le queda.
 function heliHud(g: LavaGame) {
-  const landed = g.helis.map(h => heliState(h, g.time)).filter(s => s.phase === 'landed');
-  if (landed.length) return { landed: true, s: Math.ceil(Math.max(...landed.map(s => s.left))) };
-  return { landed: false, s: Math.ceil(Math.min(...g.helis.map(h => nextLanding(h, g.time)))) };
+  const st = heliState(g, g.time);
+  return st.phase === 'landed' ? { landed: true, s: Math.ceil(st.left) } : { landed: false, s: Math.ceil(st.back) };
 }
 
 export function LavaFloor() {
@@ -1930,8 +2034,11 @@ export function LavaFloor() {
           }
         }
         if (e.type === 'faster') setToast({ text: e.level >= 4 ? '¡La lava sube a toda velocidad! 🌋' : '¡La lava sube cada vez más rápido! 🔥', id: now });
-        if (e.type === 'heli') setToast({ text: '¡Ahí están los helicópteros! Subite cuando aterricen 🚁', id: now });
-        if (e.type === 'heliLand') setToast({ text: '¡Aterrizó un helicóptero! Tenés 5 segundos 🚁', id: now, big: true });
+        if (e.type === 'heli') setToast({ text: '¡Llegaste al helipuerto! Subite cuando aterrice 🚁', id: now });
+        if (e.type === 'heliLand') {
+          const goal = heliTarget(g, g.time), far = meters(Math.hypot(goal.x - p.x, goal.y - p.y));
+          setToast({ text: far < 30 ? '¡Aterrizó el helicóptero! Tenés 5 segundos 🚁' : `Aterrizó el helicóptero a ${far} m: seguí la flecha 🚁`, id: now, big: far < 30 });
+        }
         if (e.type === 'zip' && !zipToldRef.current) { zipToldRef.current = true; setToast({ text: '¡Tirolesa! Con ↓ te soltás 🪢', id: now }); }
         if (e.type === 'wire' && !wireToldRef.current) { wireToldRef.current = true; setToast({ text: '¡Colgado del cable! Con ← → avanzás a mano y con ↓ te soltás 🧗', id: now }); }
         if (e.type === 'lose') setToast({ text: LOSE_TEXT[e.reason], id: now });
@@ -1946,7 +2053,7 @@ export function LavaFloor() {
       setHud(p => p.tenths === shown.tenths && p.m === shown.m && p.lava === shown.lava && p.lavaM === shown.lavaM && p.heli === shown.heli ? p : shown);
       if (g.over || g.won) {
         const rec = readLavaRecord();
-        const height = g.won ? TOWER_M : m;
+        const height = g.won ? Math.max(m, meters(g.player.y)) : m;
         const next: LavaRecord = { height: Math.max(rec.height, height), time: g.won ? Math.min(rec.time ?? Infinity, g.time) : rec.time };
         const isNew = next.height > rec.height || (g.won && (rec.time === null || g.time < rec.time));
         saveRecord(next); setRecord(next);
@@ -2019,7 +2126,7 @@ export function LavaFloor() {
           <div>
             {status === 'ready' && <>
               <h2 id="lava-message" className="lava-title">¡El piso es de lava! 🌋</h2>
-              <p>La lava sube y no para: subí lo más rápido que puedas para sobrevivir. Cada partida arrancás en otro lugar de la cuadra. Trepá por escaleras (también caracol), muebles, sogas, caños, andamios y ascensores (entrá cuando abren las puertas), salí por las puertas de los costados y pasá de edificio en edificio por tablones, camas elásticas, tirolesas, edificios caídos y góndolas. Colgate de los cables con ↑ y avanzá a mano, trepá las grúas de las obras y caminá por la pluma, y en las avenidas saltá el hueco de los puentes rotos. Esquivá el fuego, los cortocircuitos, los pisos rotos y a la gente prendida fuego que corre por los pisos: si te toca, te prendés fuego (saltala o esperá a que pase). Arriba de la torre más alta aterrizan tres helicópteros: esperan 5 segundos y se vuelven a ir, ¡subite a tiempo!</p>
+              <p>La lava sube y no para: subí lo más rápido que puedas para sobrevivir. Cada partida arrancás en otro lugar de la cuadra. Trepá por escaleras (también caracol), muebles, sogas, caños, andamios y ascensores (entrá cuando abren las puertas), salí por las puertas de los costados y pasá de edificio en edificio por tablones, camas elásticas, tirolesas, edificios caídos y góndolas. Colgate de los cables con ↑ y avanzá a mano, trepá las grúas de las obras y caminá por la pluma, y en las avenidas saltá el hueco de los puentes rotos. Esquivá el fuego, los cortocircuitos, los pisos rotos y a la gente prendida fuego que corre por los pisos: si te toca, te prendés fuego (saltala o esperá a que pase). Hay 6 helipuertos en terrazas lejanas: el helicóptero aterriza en uno, espera solo 5 segundos y a los 30 segundos aterriza en otro. La flecha arriba de tu cabeza te muestra hacia dónde ir y a cuántos metros está. Algunos pisos tienen la puerta tapiada en el medio: buscá otro camino. ¡Subite a tiempo!</p>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> subir por sogas, escaleras y tirolesas (o saltar) · <kbd>↓</kbd> bajar · <kbd>Espacio</kbd> saltar · <kbd>P</kbd> pausa</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}
@@ -2052,7 +2159,7 @@ export function LavaFloor() {
             <div className="trepa-meter-fill" style={{ height: pct(hud.m) }} />
             {record.height > 0 && <span className="trepa-meter-record" style={{ bottom: pct(record.height) }} title="Récord" />}
           </div>
-          <div className="trepa-meter-marks"><span style={{ bottom: '100%' }}>🚁 Helicópteros<small>{TOWER_M} m</small></span><span style={{ bottom: pct(lavaM) }}>🌋 Lava<small>{lavaM} m</small></span></div>
+          <div className="trepa-meter-marks"><span style={{ bottom: '100%' }}>🏙️ Torre<small>{TOWER_M} m</small></span><span style={{ bottom: pct(lavaM) }}>🌋 Lava<small>{lavaM} m</small></span></div>
         </div>
       </aside>
     </div>

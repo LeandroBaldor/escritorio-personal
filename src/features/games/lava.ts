@@ -21,8 +21,11 @@
 //   (hay que saltarla o esperar a que pase).
 // - Peligros: departamentos incendiados, cables y charcos con cortocircuitos, pisos rotos y tablones que
 //   se caen. La gente que camina por los pisos se prende fuego cuando la llega la lava y queda carbonizada.
-// - Tres helicópteros aterrizan, esperan 5 segundos, vuelven al aire unos 30 segundos y vuelven a
-//   aterrizar. Ganás cuando te subís a uno mientras está aterrizado.
+// - Hay 6 helipuertos en terrazas lejanas entre sí. El helicóptero aterriza en uno, espera 5 segundos,
+//   vuela 30 y aterriza en otro (nunca en uno que ya tapó la lava). Una flecha arriba del personaje
+//   apunta al helipuerto donde va a aterrizar y dice a cuántos metros está. Ganás cuando te subís
+//   mientras está aterrizado.
+// - Algunos pisos tienen una pared en el medio con la puerta tapiada: hay que dar la vuelta por otro piso.
 // - Cada partida arranca en un lugar distinto de la cuadra.
 //
 // Todo se mide en "unidades" (el personaje mide casi una) y en pantalla se muestran metros.
@@ -40,8 +43,10 @@ export const BOUNCE = 17.5; // la cama elástica te tira para arriba (unas 5 uni
 export const ZIP_SPEED = 7, HANG = 1.05; // la tirolesa: velocidad y distancia de las manos a los pies
 export const WIRE_SPEED = 3.2, WIRE_UP = 1.5; // colgado de un cable se avanza a mano; el cable está a esta altura del piso
 export const ELEV_STOP = 1.6; // lo que el ascensor se queda con las puertas abiertas en cada piso
-// Helicópteros: aterrizados 5 segundos, en el aire 30 (3 para despegar y 3 para aterrizar).
-export const HELI_WAIT = 5, HELI_AIR = 30, HELI_MOVE = 3, HELI_PERIOD = HELI_WAIT + HELI_AIR;
+// Helicóptero: aterrizado 5 segundos, en el aire 30 (3 para despegar y 3 para aterrizar) y aterriza en otro
+// helipuerto. El primer aterrizaje es a los HELI_FIRST segundos.
+export const HELI_WAIT = 5, HELI_AIR = 30, HELI_MOVE = 3, HELI_PERIOD = HELI_WAIT + HELI_AIR, HELI_FIRST = 20;
+export const HELI_W = 3.8, HELI_H = 1.6, PADS = 6;
 
 // La lava espera unos segundos, después sube despacio y cada vez más rápido (hasta un máximo).
 export const LAVA_DELAY = 5, LAVA0 = -1.5;
@@ -72,7 +77,8 @@ export interface Fire { id: number; x1: number; x2: number; y: number; h: number
 export interface Spark { id: number; x1: number; x2: number; y1: number; y2: number; period: number; on: number; phase: number; kind: 'cable' | 'puddle' }
 // `torch`: ya está prendida fuego y corre desesperada (si te toca, te prende fuego).
 export interface Person { id: number; b: number; y: number; x1: number; x2: number; speed: number; phase: number; hue: number; look: number; helmet: boolean; burnAt: number | null; torch: boolean }
-export interface Heli { id: number; x: number; y: number; w: number; h: number; phase: number; drift: -1 | 1 }
+// Helipuerto: `x` es la punta izquierda del helicóptero cuando está aterrizado ahí.
+export interface Pad { id: number; b: number; x: number; y: number }
 export interface Escape { id: number; b: number; side: -1 | 1; x: number; floors: number[]; broken: number }
 export interface Zip { id: number; x1: number; y1: number; x2: number; y2: number }
 // Cable tendido entre dos edificios (x1 < x2): se cuelga de las manos y se avanza para los dos lados.
@@ -86,6 +92,7 @@ export interface Building {
   id: number; x: number; w: number; fh: number; floors: number; top: number; hue: number; tone: number; tower: boolean;
   construction: boolean; broken: boolean; roofDecor: boolean; luxury: boolean;
   doors: { left: Set<number>; right: Set<number> }; holes: { floor: number; x1: number; x2: number }[];
+  partitions: { floor: number; x: number }[]; // paredes en el medio de un piso (con la puerta tapiada)
 }
 export type LinkMode = 'walk' | 'jump' | 'stairs' | 'climb' | 'elevator' | 'zip' | 'bounce' | 'ramp' | 'wire';
 export interface Link { from: number; to: number; mode: LinkMode; dy: number; edge: number; fromX: number; toX: number; fromY: number; toY: number; cost: number }
@@ -98,13 +105,13 @@ export type LavaEvent =
   | { type: 'lose'; reason: LoseReason } | { type: 'gameover' } | { type: 'win' };
 export interface City {
   width: number; buildings: Building[]; plats: Plat[]; climbs: Climb[]; walls: Wall[]; fires: Fire[]; sparks: Spark[];
-  people: Person[]; helis: Heli[]; elevators: Elevator[]; escapes: Escape[]; zips: Zip[]; fallens: Fallen[]; links: Link[];
+  people: Person[]; pads: Pad[]; heliShift: number; elevators: Elevator[]; escapes: Escape[]; zips: Zip[]; fallens: Fallen[]; links: Link[];
   wires: Wire[]; cranes: Crane[]; spirals: Spiral[];
   street: number; starts: { b: number; x1: number; x2: number }[];
 }
 export interface LavaGame extends City {
   player: Player; start: number; time: number; lava: number; bestGround: number; won: boolean; nearHeli: boolean; speedLevel: number;
-  heliLanded: boolean[]; dying: { t: number; reason: LoseReason } | null; over: boolean; events: LavaEvent[];
+  heliLanded: boolean; dying: { t: number; reason: LoseReason } | null; over: boolean; events: LavaEvent[];
 }
 
 export const sparkActive = (s: Spark, t: number) => ((t + s.phase) % s.period) < s.period * s.on;
@@ -141,20 +148,67 @@ export function elevatorAt(e: Elevator, t: number) {
 export const elevatorY = (e: Elevator, t: number) => elevatorAt(e, t).y;
 export const elevatorPeriod = (e: Elevator) => elevatorLegs(e).period;
 
-// Helicópteros: aterrizados, despegando, en el aire o aterrizando.
+// Helicóptero: aterrizado, despegando, en el aire o aterrizando.
 export type HeliPhase = 'landed' | 'up' | 'air' | 'down';
+type Sky = Pick<City, 'pads' | 'heliShift'>;
 const ease = (k: number) => k * k * (3 - 2 * k);
-export function heliState(h: Heli, t: number): { x: number; y: number; phase: HeliPhase; left: number; back: number } {
-  const u = (((t + h.phase) % HELI_PERIOD) + HELI_PERIOD) % HELI_PERIOD;
-  if (u < HELI_WAIT) return { x: h.x, y: h.y, phase: 'landed', left: HELI_WAIT - u, back: 0 };
-  const a = u - HELI_WAIT, back = HELI_AIR - a;
-  const lift = a < HELI_MOVE ? ease(a / HELI_MOVE) : back < HELI_MOVE ? ease(back / HELI_MOVE) : 1;
-  const x = h.x + h.drift * 4 * lift + Math.sin(t * 0.5 + h.id) * 1.2 * lift;
-  const y = h.y + 6.5 * lift + Math.sin(t * 1.7 + h.id) * 0.25 * lift;
-  return { x, y, phase: a < HELI_MOVE ? 'up' : back < HELI_MOVE ? 'down' : 'air', left: 0, back };
+// Orden en que recorre los helipuertos (de izquierda a derecha son 0…5): cada uno queda lejos del anterior.
+const PAD_ORDER = [0, 3, 1, 4, 2, 5];
+export const landingTime = (n: number) => HELI_FIRST + n * HELI_PERIOD;
+// Un helipuerto sirve si la lava no lo tapa mientras el helicóptero está aterrizado.
+const padAlive = (pad: Pad, n: number) => lavaLevel(landingTime(n) + HELI_WAIT) < pad.y - 2;
+const firstAlive = (c: Sky, n: number, skip = -1) => {
+  for (let i = 0; i < c.pads.length; i++) {
+    const j = PAD_ORDER[(((n + c.heliShift + i) % PAD_ORDER.length) + PAD_ORDER.length) % PAD_ORDER.length] % c.pads.length;
+    if (j !== skip && padAlive(c.pads[j], n)) return j;
+  }
+  return -1;
+};
+// Dónde aterriza la vez número n: el que le toca en la ronda, salteando los que tapó la lava y sin repetir el
+// anterior (si ya no queda otro, el más alto). Se calcula la ronda entera una vez y se guarda.
+const MAX_LANDINGS = 60;
+const padsCache = new WeakMap<Pad[], Map<number, number[]>>();
+export function padFor(c: Sky, n: number) {
+  let byShift = padsCache.get(c.pads);
+  if (!byShift) { byShift = new Map(); padsCache.set(c.pads, byShift); }
+  let seq = byShift.get(c.heliShift);
+  if (!seq) {
+    const top = c.pads.reduce((best, p, i) => p.y > c.pads[best].y ? i : best, 0);
+    seq = [];
+    let prev = -1;
+    for (let k = -1; k < MAX_LANDINGS; k++) {
+      const j = firstAlive(c, k, prev);
+      prev = j >= 0 ? j : prev >= 0 && padAlive(c.pads[prev], k) ? prev : top;
+      seq.push(prev);
+    }
+    byShift.set(c.heliShift, seq);
+  }
+  return seq[Math.max(-1, Math.min(MAX_LANDINGS - 1, n)) + 1];
 }
-// Segundos que faltan para que el helicóptero esté aterrizado (0 si ya lo está).
-export const nextLanding = (h: Heli, t: number) => { const s = heliState(h, t); return s.phase === 'landed' ? 0 : s.back; };
+export interface HeliState { x: number; y: number; phase: HeliPhase; left: number; back: number; pad: number; from: number; dir: -1 | 1 }
+export function heliState(c: Sky, t: number): HeliState {
+  const n = Math.floor((t - HELI_FIRST) / HELI_PERIOD), u = t - landingTime(n);
+  const from = padFor(c, n), to = padFor(c, n + 1), A = c.pads[from], B = c.pads[to];
+  if (u < HELI_WAIT) return { x: A.x, y: A.y, phase: 'landed', left: HELI_WAIT - u, back: 0, pad: from, from, dir: -1 };
+  const a = u - HELI_WAIT, back = HELI_AIR - a, cruise = Math.max(A.y, B.y) + 6.5;
+  const k = ease(Math.max(0, Math.min(1, (a - HELI_MOVE) / (HELI_AIR - 2 * HELI_MOVE))));
+  const bob = Math.sin(t * 1.7) * 0.25 * Math.min(1, a / HELI_MOVE, back / HELI_MOVE);
+  const x = A.x + (B.x - A.x) * k + Math.sin(t * 0.5) * 0.8 * Math.min(1, a / HELI_MOVE, back / HELI_MOVE);
+  const y = a < HELI_MOVE ? A.y + (cruise - A.y) * ease(a / HELI_MOVE) : back < HELI_MOVE ? B.y + (cruise - B.y) * ease(back / HELI_MOVE) : cruise + bob;
+  return { x, y, phase: a < HELI_MOVE ? 'up' : back < HELI_MOVE ? 'down' : 'air', left: 0, back, pad: to, from, dir: B.x >= A.x ? 1 : -1 };
+}
+// Segundos que faltan para que el helicóptero esté aterrizado (0 si ya lo está) y dónde.
+export const nextLanding = (c: Sky, t: number) => { const s = heliState(c, t); return { wait: s.phase === 'landed' ? 0 : s.back, pad: s.pad }; };
+// Cuándo va a estar aterrizado en ese helipuerto (desde el momento t), o Infinity si no vuelve antes de que llegue la lava.
+export function landingAt(c: Sky, pad: number, t: number) {
+  for (let n = Math.max(0, Math.floor((t - HELI_FIRST) / HELI_PERIOD)); n < MAX_LANDINGS; n++) {
+    if (padFor(c, n) !== pad || landingTime(n) + HELI_WAIT <= t) continue;
+    return Math.max(t, landingTime(n));
+  }
+  return Infinity;
+}
+// El lugar donde el personaje tiene que ir: el helipuerto donde está o va a aterrizar el helicóptero.
+export const heliTarget = (c: Sky, t: number) => { const s = heliState(c, t), pad = c.pads[s.pad]; return { x: pad.x + HELI_W / 2, y: pad.y, pad: s.pad }; };
 
 // La gente camina de un lado al otro; cuando la lava la alcanza corre desesperada, arde y queda carbonizada.
 export function personX(p: Person, t: number) {
@@ -176,6 +230,8 @@ const AVENUES = new Set([3, 7]); // después de estos edificios hay una avenida 
 const TRAMPOLINES = [0]; // cama elástica en la terraza, para rebotar hasta el edificio de al lado
 const FALLEN = [2, 6, 10]; // la parte de arriba se cayó y quedó apoyada en el edificio de al lado
 const ZIPS = [1, 5, 9]; // tirolesa desde la terraza, por encima del vecino, hasta el siguiente
+const PAD_BUILDINGS = [1, 3, 5, 7, 9, 11]; // helipuertos en las terrazas (bien separados entre sí)
+export const PARTITION_CHANCE = 0.9; // pisos donde se prueba poner una pared en el medio (después se sacan las que encierran)
 export const START_BUILDINGS = 8; // se arranca en la vereda de alguno de los primeros edificios
 const FURNITURE: { kind: FurnitureKind; h: number }[] = [
   { kind: 'sofa', h: 0.95 }, { kind: 'bed', h: 0.85 }, { kind: 'table', h: 1 }, { kind: 'desk', h: 1.05 }, { kind: 'dresser', h: 1.2 },
@@ -195,8 +251,8 @@ export function buildCity(seed = 20261006): City {
   const between = (a: number, b: number) => a + rand() * (b - a);
   const pick = <T,>(list: T[]) => list[Math.floor(rand() * list.length)];
   let id = 1;
-  const city: City = { width: 0, buildings: [], plats: [], climbs: [], walls: [], fires: [], sparks: [], people: [], helis: [], elevators: [], escapes: [], zips: [], fallens: [], links: [], wires: [], cranes: [], spirals: [], street: 0, starts: [] };
-  const { buildings, plats, climbs, walls, fires, sparks, people, helis, elevators, escapes, zips, fallens, links, wires, cranes, spirals } = city;
+  const city: City = { width: 0, buildings: [], plats: [], climbs: [], walls: [], fires: [], sparks: [], people: [], pads: [], heliShift: 0, elevators: [], escapes: [], zips: [], fallens: [], links: [], wires: [], cranes: [], spirals: [], street: 0, starts: [] };
+  const { buildings, plats, climbs, walls, fires, sparks, people, pads, elevators, escapes, zips, fallens, links, wires, cranes, spirals } = city;
 
   // 1) Edificios y huecos entre ellos (callecitas angostas, pasillos con escalera de emergencia o avenidas).
   let x = 3;
@@ -208,7 +264,7 @@ export function buildCity(seed = 20261006): City {
     buildings.push({
       id: i, x, w, fh, floors, top: floors * fh, hue: Math.floor(rand() * 360), tone: rand(), tower,
       construction: CONSTRUCTION.has(i), broken: FALLEN.includes(i), roofDecor: true, luxury: LUXURY.has(i),
-      doors: { left: new Set([0]), right: new Set([0]) }, holes: [],
+      doors: { left: new Set([0]), right: new Set([0]) }, holes: [], partitions: [],
     });
     if (tower) return;
     const alley = rand() < 0.45, avenue = AVENUES.has(i);
@@ -313,10 +369,19 @@ export function buildCity(seed = 20261006): City {
     protos.push({ mode: 'walk', b: B.id, fromK: B.floors, toK: B.floors, fromPlat: jib, fromX: jx2 - 0.2, toX: jx2 + 0.3, cost: 0.4, edge: 0 });
     protos.push({ mode: 'jump', b: B.id, fromK: B.floors, toK: B.floors, toPlat: jib, fromX: B.x + 2.4, toX: B.x + 2.4, cost: 0.6, edge: 0 });
   }
-  //    Helipuertos: dos en la terraza de la torre y una plataforma que sale de su costado, tres pisos abajo.
-  const tower = last, kb = tower.floors - 3;
-  const padX = [tower.x + 0.9, tower.x + tower.w - 0.9 - 3.8];
-  for (const px of padX) reserve(tower.id, tower.floors, px - 0.3, px + 4.1);
+  //    Helipuertos: en las terrazas de varios edificios, lo más al medio que se pueda (en la torre, a un
+  //    costado de la antena). Se buscan sin sorteo, así el resto de la ciudad no cambia.
+  for (const i of PAD_BUILDINGS) {
+    const b = buildings[i], [a, c] = inner(b);
+    const fits = (x: number) => x >= a && x + HELI_W <= c && free(b.id, b.floors, x - 0.35, x + HELI_W + 0.35);
+    const mid = b.tower ? b.x + 0.9 : b.x + (b.w - HELI_W) / 2;
+    let px: number | null = null;
+    for (let d = 0; d < b.w && px === null; d += 0.25) for (const x of [mid - d, mid + d]) if (px === null && fits(x)) px = x;
+    if (px === null) continue;
+    reserve(b.id, b.floors, px - 0.35, px + HELI_W + 0.35);
+    pads.push({ id: id++, b: b.id, x: px, y: b.top });
+    if (!b.tower) b.roofDecor = false; // las cosas de la terraza (o la pileta) no van encima del helipuerto
+  }
 
   // 3) Ascensores (en las obras, montacargas): suben desde algún piso hasta la terraza (y no más), parando en
   //    cada piso.
@@ -663,24 +728,45 @@ export function buildCity(seed = 20261006): City {
     }
   }
 
-  // 11) Losas de cada piso (partidas donde hay agujeros) y terrazas.
+  // 10c) Laberinto: en algunos pisos hay una pared en el medio, de piso a techo, con la puerta tapiada. Se
+  //      elige sin sorteo (así el resto de la ciudad no cambia) y al final se dejan solo las que no encierran
+  //      a nadie (ver 12b).
+  const noise = (n: number) => { const v = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return v - Math.floor(v); };
+  for (const b of buildings) {
+    if (b.construction) continue;
+    const [a, c] = inner(b);
+    for (let k = 1; k < b.floors; k++) {
+      if (noise(b.id * 131 + k * 17) > PARTITION_CHANCE) continue;
+      const mid = a + (c - a) * (0.3 + noise(b.id * 71 + k * 29) * 0.4);
+      const ok = (x: number) => x > a + 2 && x < c - 2 && free(b.id, k, x - 0.55, x + 0.55)
+        && !b.holes.some(h => (h.floor === k || h.floor === k + 1) && h.x2 > x - 0.8 && h.x1 < x + 0.8);
+      for (let d = 0; d < 3; d += 0.2) {
+        const x = [mid + d, mid - d].find(ok);
+        if (x !== undefined) { b.partitions.push({ floor: k, x }); reserve(b.id, k, x - 0.5, x + 0.5); break; }
+      }
+    }
+  }
+
+  // 11) Losas de cada piso (partidas donde hay agujeros o paredes del medio) y terrazas.
   const floorPlats = new Map<string, Plat[]>();
   for (const b of buildings) {
     floorPlats.set(key(b.id, 0), [street]);
     for (let k = 1; k <= b.floors; k++) {
       const roof = k === b.floors;
       const x1 = roof ? b.x - 0.15 : b.x, x2 = roof ? b.x + b.w + 0.15 : b.x + b.w;
-      const holes = b.holes.filter(h => h.floor === k).sort((p, q) => p.x1 - q.x1);
-      const parts: Plat[] = [];
+      const cuts = [...b.holes.filter(h => h.floor === k), ...b.partitions.filter(w => w.floor === k).map(w => ({ x1: w.x, x2: w.x, wall: true }))].sort((p, q) => p.x1 - q.x1);
+      const parts: Plat[] = [], walled = new Set<Plat>();
       let from = x1;
-      for (const h of [...holes, { x1: x2, x2: x2 }]) {
+      for (const h of [...cuts, { x1: x2, x2: x2 }]) {
         if (h.x1 - from > 0.2) parts.push({ id: id++, kind: roof ? 'roof' : 'floor', x: from, y: floorY(b, k), w: h.x1 - from, b: b.id, floor: k, dy: 0, crumble: 0, gone: 0, hue: b.hue });
+        if ('wall' in h && parts.length) walled.add(parts[parts.length - 1]);
         from = h.x2;
       }
       plats.push(...parts);
       floorPlats.set(key(b.id, k), parts);
-      for (let j = 0; j + 1 < parts.length; j++) { // los agujeros se cruzan saltando
+      for (let j = 0; j + 1 < parts.length; j++) { // los agujeros se cruzan saltando (las paredes, no)
         const p = parts[j], q = parts[j + 1], edge = q.x - (p.x + p.w);
+        if (walled.has(p)) continue;
         links.push({ from: p.id, to: q.id, mode: 'jump', dy: 0, edge, fromX: p.x + p.w - 0.3, toX: q.x + 0.3, fromY: p.y, toY: q.y, cost: 0.6 });
         links.push({ from: q.id, to: p.id, mode: 'jump', dy: 0, edge, fromX: q.x + 0.3, toX: p.x + p.w - 0.3, fromY: q.y, toY: p.y, cost: 0.6 });
       }
@@ -691,16 +777,6 @@ export function buildCity(seed = 20261006): City {
     return list.find(p => x >= p.x - 0.05 && x <= p.x + p.w + 0.05) ?? list.reduce((best, p) => Math.abs(p.x + p.w / 2 - x) < Math.abs(best.x + best.w / 2 - x) ? p : best, list[0]);
   };
 
-  // 12) Helicópteros: aterrizan por turnos (dos en la terraza de la torre y uno en la plataforma del costado).
-  const by = floorY(tower, kb);
-  const deck: Plat = { id: id++, kind: 'pad', x: tower.x + tower.w, y: by, w: 4.8, b: tower.id, floor: kb, dy: 0, crumble: 0, gone: 0, hue: tower.hue };
-  plats.push(deck);
-  tower.doors.right.add(kb);
-  protos.push({ mode: 'walk', b: tower.id, fromK: kb, toK: kb, fromX: tower.x + tower.w - 0.5, toX: deck.x + 0.5, toPlat: deck, cost: 0.3, edge: 0 });
-  helis.push({ id: id++, x: padX[0], y: tower.top, w: 3.8, h: 1.6, phase: 0, drift: -1 });
-  helis.push({ id: id++, x: padX[1], y: tower.top, w: 3.8, h: 1.6, phase: HELI_PERIOD / 3, drift: 1 });
-  helis.push({ id: id++, x: deck.x + 0.5, y: by, w: 3.8, h: 1.6, phase: (HELI_PERIOD * 2) / 3, drift: 1 });
-
   for (const pr of protos) {
     const bTo = pr.bTo ?? pr.b;
     const from = pr.fromPlat ?? platAt(pr.b, pr.fromK, pr.fromX);
@@ -710,6 +786,54 @@ export function buildCity(seed = 20261006): City {
     const toY = to.kind === 'elevator' ? floorY(buildings[pr.b], pr.toK) : to.y;
     links.push({ from: from.id, to: to.id, mode: pr.mode, dy: toY - fromY, edge: pr.edge, fromX: pr.fromX, toX: pr.toX, fromY, toY, cost: pr.cost });
   }
+
+  // 12b) De las paredes del medio quedan solo las que no dejan a nadie encerrado: desde cada lado se tiene que
+  //      poder seguir hasta algún helipuerto y todos los helipuertos se tienen que poder alcanzar desde la calle.
+  //      Las que encierran se sacan (y las dos mitades del piso vuelven a ser una).
+  const goals = new Set(plats.filter(p => p.kind === 'roof' && pads.some(pad => pad.b === p.b)).map(p => p.id));
+  const merged = new Map<number, number>(); // mitad derecha → mitad izquierda
+  const repOf = (idn: number) => merged.get(idn) ?? idn;
+  const stuck = () => {
+    const fwd = new Map<number, number[]>(), back = new Map<number, number[]>();
+    for (const l of links) {
+      const a = repOf(l.from), c = repOf(l.to);
+      (fwd.get(a) ?? fwd.set(a, []).get(a)!).push(c);
+      (back.get(c) ?? back.set(c, []).get(c)!).push(a);
+    }
+    const reach = (from: number[], edges: Map<number, number[]>) => {
+      const seen = new Set(from), list = [...from];
+      while (list.length) for (const n of edges.get(list.pop()!) ?? []) if (!seen.has(n)) { seen.add(n); list.push(n); }
+      return seen;
+    };
+    const F = reach([street.id], fwd), R = reach([...goals].map(repOf), back);
+    let bad = 0;
+    for (const n of F) if (!R.has(n)) bad++;
+    for (const gid of goals) if (!F.has(repOf(gid))) bad += 1000;
+    return bad;
+  };
+  const halves = buildings.flatMap(b => b.partitions.map(w => {
+    const list = floorPlats.get(key(b.id, w.floor)) ?? [];
+    return { b, w, left: list.find(p => Math.abs(p.x + p.w - w.x) < 1e-6), right: list.find(p => Math.abs(p.x - w.x) < 1e-6) };
+  }));
+  for (const h of halves) if (h.left && h.right) merged.set(h.right.id, h.left.id);
+  const base = stuck();
+  for (const h of halves) {
+    if (!h.left || !h.right) { h.b.partitions = h.b.partitions.filter(w => w !== h.w); continue; }
+    merged.delete(h.right.id);
+    if (stuck() <= base) continue; // queda la pared
+    merged.set(h.right.id, h.left.id);
+    h.b.partitions = h.b.partitions.filter(w => w !== h.w);
+  }
+  // Se juntan las mitades de las paredes que no quedaron.
+  for (const [r, l] of merged) {
+    const right = plats.find(p => p.id === r)!, left = plats.find(p => p.id === l)!;
+    left.w = right.x + right.w - left.x;
+    plats.splice(plats.indexOf(right), 1);
+    for (const lk of links) { if (lk.from === r) lk.from = l; if (lk.to === r) lk.to = l; }
+    const list = floorPlats.get(key(left.b, left.floor))!;
+    list.splice(list.indexOf(right), 1);
+  }
+  for (const b of buildings) for (const w of b.partitions) walls.push({ x: w.x, y1: floorY(b, w.floor), y2: floorY(b, w.floor + 1) });
 
   // 13) Paredes de cada piso, con las puertas abiertas (la terraza no tiene paredes y los edificios en
   //     construcción tampoco).
@@ -723,11 +847,17 @@ export function buildCity(seed = 20261006): City {
     }
   }
 
-  // 14) Gente caminando por los pisos (en las obras, albañiles con casco).
+  // 14) Gente caminando por los pisos (en las obras, albañiles con casco). Donde hay una pared en el medio,
+  //     cada uno camina de su lado (el más grande).
+  const lane = (b: Building, k: number) => {
+    const [a, c] = inner(b), w = b.partitions.find(p => p.floor === k);
+    if (!w) return [a, c] as const;
+    return w.x - a > c - w.x ? [a, w.x - WALL / 2 - 0.3] as const : [w.x + WALL / 2 + 0.3, c] as const;
+  };
   for (const b of buildings) {
-    const [a, c] = inner(b);
     for (let k = 0; k < b.floors; k++) {
       if (rand() > (k === 0 ? 0.7 : 0.4)) continue;
+      const [a, c] = lane(b, k);
       people.push({ id: id++, b: b.id, y: floorY(b, k), x1: a + 0.3, x2: c - 0.3, speed: between(0.6, 1.3), phase: rand() * 2, hue: Math.floor(rand() * 360), look: rand(), helmet: b.construction, burnAt: null, torch: false });
     }
     // y alguno en la terraza
@@ -735,18 +865,19 @@ export function buildCity(seed = 20261006): City {
   }
   // 15) Gente prendida fuego corriendo de una punta a la otra (nunca en la planta baja ni en el primer piso).
   for (const b of buildings) {
-    const [a, c] = inner(b);
     for (let k = 2; k < b.floors; k++) {
       if (rand() > 0.14) continue;
+      const [a, c] = lane(b, k);
       people.push({ id: id++, b: b.id, y: floorY(b, k), x1: a + 0.3, x2: c - 0.3, speed: between(2.4, 3.2), phase: rand() * 2, hue: Math.floor(rand() * 360), look: 0.2 + rand() * 0.8, helmet: b.construction, burnAt: null, torch: true });
     }
   }
   return city;
 }
 
-// Cada partida arranca en un lugar distinto de la vereda (o en el edificio que se pida).
-export function newLava(start?: number, seed?: number): LavaGame {
-  const city = buildCity(seed);
+// Cada partida arranca en un lugar distinto de la vereda (o en el edificio que se pida) y el helicóptero
+// empieza la ronda de helipuertos por uno distinto.
+export function newLava(start?: number, seed?: number, heliShift = start === undefined ? Math.floor(Math.random() * PADS) : 0): LavaGame {
+  const city = { ...buildCity(seed), heliShift };
   const i = start ?? Math.floor(Math.random() * city.starts.length);
   const where = city.starts[Math.max(0, Math.min(city.starts.length - 1, i))];
   // Nunca adentro de un ascensor de planta baja (te llevaría para arriba apenas arranca).
@@ -756,7 +887,7 @@ export function newLava(start?: number, seed?: number): LavaGame {
   for (let tries = 0; tries < 30 && inElevator(x); tries++) x = anywhere();
   const street = city.plats.find(p => p.id === city.street)!;
   return {
-    ...city, start: where.b, time: 0, lava: LAVA0, bestGround: 0, won: false, nearHeli: false, speedLevel: 0, heliLanded: city.helis.map(() => false),
+    ...city, start: where.b, time: 0, lava: LAVA0, bestGround: 0, won: false, nearHeli: false, speedLevel: 0, heliLanded: false,
     dying: null, over: false, events: [],
     player: { x, y: 0, vx: 0, vy: 0, facing: Math.random() < 0.5 ? -1 : 1, ground: street, climb: null, zip: null, wire: null, climbCooldown: 0, coyote: 0 },
   };
@@ -818,12 +949,10 @@ export function step(g: LavaGame, input: Input, dt: number) {
     if (pl.gone > 0) { pl.gone -= dt; if (pl.gone <= 0) { pl.gone = 0; pl.crumble = 0; } }
     else if (pl.crumble > 0) { pl.crumble += dt; if (pl.crumble > 0.7) { pl.gone = 3.5; if (g.player.ground === pl) g.player.ground = null; } }
   }
-  // Avisa cuando aterriza un helicóptero (si ya estás cerca).
-  g.helis.forEach((h, i) => {
-    const landed = heliState(h, t).phase === 'landed';
-    if (landed && !g.heliLanded[i] && g.nearHeli) g.events.push({ type: 'heliLand' });
-    g.heliLanded[i] = landed;
-  });
+  // Avisa cuando aterriza el helicóptero.
+  const landed = heliState(g, t).phase === 'landed';
+  if (landed && !g.heliLanded) g.events.push({ type: 'heliLand' });
+  g.heliLanded = landed;
 
   const p = g.player;
   if (g.dying) {
@@ -965,13 +1094,12 @@ function finish(g: LavaGame) {
   const p = g.player;
   if (g.dying) return;
   if (p.ground?.elev) g.bestGround = Math.max(g.bestGround, p.y);
-  // ¿Se subió a un helicóptero aterrizado?
-  for (const h of g.helis) {
-    if (heliState(h, g.time).phase !== 'landed') continue;
-    if (hitsBox(p, h.x, h.x + h.w, h.y, h.y + h.h)) { g.won = true; g.events.push({ type: 'win' }); return; }
-  }
-  const tower = towerOf(g);
-  if (!g.nearHeli && p.x > tower.x - 2 && p.y > tower.top - 5 * tower.fh) { g.nearHeli = true; g.events.push({ type: 'heli' }); }
+  // ¿Se subió al helicóptero aterrizado?
+  const h = heliState(g, g.time);
+  if (h.phase === 'landed' && hitsBox(p, h.x, h.x + HELI_W, h.y, h.y + HELI_H)) { g.won = true; g.events.push({ type: 'win' }); return; }
+  // Avisa la primera vez que llega cerca del helipuerto donde va a aterrizar.
+  const goal = g.pads[h.pad];
+  if (!g.nearHeli && Math.abs(p.x - (goal.x + HELI_W / 2)) < 8 && Math.abs(p.y - goal.y) < 4) { g.nearHeli = true; g.events.push({ type: 'heli' }); }
 }
 
 export const takeEvents = (g: LavaGame) => g.events.splice(0);

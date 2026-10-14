@@ -1,5 +1,6 @@
 // Modo Mundial de Tiki-Taka: arranca en octavos de final y, si vas ganando, sigue hasta la final.
-// Si un partido termina empatado se define por penales.
+// Si un partido termina empatado se define por penales (se patean en penalties.ts; si no se pasa el
+// resultado de la tanda, se sortea).
 
 export const ROUNDS = ['Octavos de final', 'Cuartos de final', 'Semifinal', 'Final'] as const;
 export const FINAL = ROUNDS.length - 1;
@@ -24,8 +25,8 @@ export function penaltyShootout(rand: () => number = Math.random): [number, numb
   return [mine, rival];
 }
 
-export function cupOutcome(round: number, mine: number, rival: number, rand: () => number = Math.random): CupOutcome {
-  const penalties = mine === rival ? penaltyShootout(rand) : null;
+export function cupOutcome(round: number, mine: number, rival: number, rand: () => number = Math.random, shootout?: [number, number]): CupOutcome {
+  const penalties = mine === rival ? shootout ?? penaltyShootout(rand) : null;
   const won = penalties ? penalties[0] > penalties[1] : mine > rival;
   const final = round >= FINAL;
   // Ganar los cuartos te deja en la semifinal: entre los cuatro mejores.
