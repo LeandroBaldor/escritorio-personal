@@ -26,6 +26,8 @@ describe('Mundial de Tiki-Taka', () => {
       expect(a).not.toBe(b);
     }
     expect(penaltyShootout(() => 0.1)[0]).not.toBe(penaltyShootout(() => 0.1)[1]); // aunque todos la metan, termina
+    expect(cupOutcome(0, 2, 2, Math.random, [4, 3])).toMatchObject({ won: true, penalties: [4, 3] }); // la tanda que se pateó
+    expect(cupOutcome(0, 2, 2, Math.random, [5, 6])).toMatchObject({ won: false, penalties: [5, 6] });
     const tie = cupOutcome(0, 1, 1);
     expect(tie.penalties).not.toBeNull();
     expect(tie.won).toBe(tie.penalties![0] > tie.penalties![1]);

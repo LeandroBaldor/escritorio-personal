@@ -67,15 +67,15 @@ describe('Ciudad Tiburón: el juego', () => {
   it('arranca arriba de un local en el medio, con 7 tiburones lejos y 8 para rescatar', () => {
     const g = newShark(3);
     expect(g.player.ground?.kind).toBe('roof');
-    expect(g.sharks).toHaveLength(7);
+    expect(g.sharks).toHaveLength(5);
     for (const s of g.sharks) expect(Math.abs((g.lanes[s.lane].x1 + g.lanes[s.lane].x2) / 2 - g.player.x)).toBeGreaterThan(10);
     expect(g.rescues.filter(r => r.state === 'drift')).toHaveLength(8);
     expect(new Set(g.rescues.map(r => r.kind)).size).toBeGreaterThan(1);
   });
 
   it('con el tiempo llegan más tiburones y aparece el tiburón ballena', () => {
-    expect(sharksAt(0)).toBe(7);
-    expect(sharksAt(TIME_LIMIT - 1)).toBeGreaterThan(20);
+    expect(sharksAt(0)).toBe(5);
+    expect(sharksAt(TIME_LIMIT - 1)).toBe(15);
     const g = newShark(4);
     Object.assign(g.player, { y: 40 }); g.player.ground = null; // lejos del agua, que no lo coman
     const types = new Set<string>();
@@ -165,7 +165,8 @@ describe('Ciudad Tiburón: el juego', () => {
       const k = { id: 5000, kind: 'kiosk' as const, x: lane.pole + 1, y: 2.2, w: 1.6, dx: 0, hue: 0 };
       g.plats.push(k);
       stand(g, k);
-      run(g, 8);
+      // Solo el tiburón de la prueba: los que llegan con el tiempo se sacan.
+      for (let t = 0; t < 8 && !g.over; t += 1 / 60) { g.sharks = g.sharks.filter(s => s.id === 77); step(g, idle, 1 / 60); }
       expect(!!g.dying, type).toBe(dies);
     }
   });
@@ -453,7 +454,7 @@ describe('Ciudad Tiburón: el juego', () => {
 
 describe('Ciudad Tiburón: tiburones voladores', () => {
   const flyerOver = (g: SharkGame) => {
-    g.time = 30; g.sharks = []; g.rescues = []; g.windPower = 0;
+    g.time = 40; g.sharks = []; g.rescues = []; g.windPower = 0;
     const pl = g.plats.find(p => p.kind === 'roof')!;
     stand(g, pl);
     step(g, idle, 1 / 60); // aparece el primero
@@ -464,10 +465,11 @@ describe('Ciudad Tiburón: tiburones voladores', () => {
 
   it('aparecen con el tiempo (más cuanto más avanza la partida)', () => {
     expect(flyersAt(0)).toBe(0);
-    expect(flyersAt(30)).toBe(1);
+    expect(flyersAt(30)).toBe(0);
+    expect(flyersAt(40)).toBe(1);
     expect(flyersAt(TIME_LIMIT - 1)).toBeGreaterThan(flyersAt(60));
     const g = newShark(2);
-    g.time = 30; step(g, idle, 1 / 60);
+    g.time = 40; step(g, idle, 1 / 60);
     expect(g.flyers.length).toBe(1);
     expect(takeEvents(g).some(e => e.type === 'flyerNew')).toBe(true);
   });

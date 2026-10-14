@@ -892,10 +892,10 @@ export function playGoal() {
   playSample(golUrl, 0.9);
   if (crowd && ctx) { const t = ctx.currentTime; crowd.gain.cancelScheduledValues(t); crowd.gain.setTargetAtTime(0.55, t, 0.2); crowd.gain.setTargetAtTime(crowdLevel, t + 4, 1); }
 }
-// El silbato del árbitro: un pitazo largo para sacar del medio, dos al terminar el primer tiempo y tres
-// (el último bien largo) al final del partido.
-export function playRefWhistle(kind: 'kickoff' | 'half' | 'end') {
-  playWhistle(kind === 'kickoff' ? [[0, 0.6]] : kind === 'half' ? [[0, 0.35], [0.45, 0.9]] : [[0, 0.3], [0.4, 0.3], [0.8, 1.2]]);
+// El silbato del árbitro: un pitazo largo para sacar del medio, dos al terminar el primer tiempo, tres
+// (el último bien largo) al final del partido y uno corto y seco para dar la orden de patear un penal.
+export function playRefWhistle(kind: 'kickoff' | 'half' | 'end' | 'penalty') {
+  playWhistle(kind === 'kickoff' ? [[0, 0.6]] : kind === 'half' ? [[0, 0.35], [0.45, 0.9]] : kind === 'penalty' ? [[0, 0.42]] : [[0, 0.3], [0.4, 0.3], [0.8, 1.2]]);
 }
 // La hinchada de fondo: la grabación en bucle; level 0 la apaga.
 let crowd: GainNode | null = null, crowdLevel = 0;

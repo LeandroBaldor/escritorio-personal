@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildCity, BURN_T, elevatorAt, elevatorPeriod, elevatorY, HANG, heliState, HELI_AIR, HELI_WAIT, lavaLevel, LAVA_DELAY, newLava, nextLanding,
+  buildCity, BURN_T, elevatorAt, elevatorPeriod, elevatorY, HANG, heliState, heliTarget, HELI_AIR, HELI_H, HELI_W, HELI_WAIT, landingAt, lavaLevel, LAVA_DELAY, newLava, nextLanding, PADS, padFor,
   personState, personX, PLAYER_H, TORCH_W, REACH, START_BUILDINGS, step, takeEvents, towerOf, zipY, floorY, WIRE_UP,
   type City, type Input, type LavaGame, type Plat,
 } from './lava';
@@ -11,25 +11,22 @@ const run = (g: LavaGame, seconds: number, input: Partial<Input> = {}) => {
 };
 const platById = (c: City) => new Map(c.plats.map(p => [p.id, p]));
 
-// Camino más rápido hasta un helicóptero, sumando el tiempo de caminar entre una unión y la siguiente. Un
+// Camino más rápido hasta el helicóptero, sumando el tiempo de caminar entre una unión y la siguiente. Un
 // lugar solo sirve si la lava todavía no llegó cuando lo alcanza alguien que tarda `slack` veces más. Al
-// llegar arriba hay que esperar a que aterrice algún helicóptero (sin que llegue la lava).
+// llegar a una terraza con helipuerto hay que esperar a que el helicóptero aterrice ahí (sin que llegue la lava).
 function fastestRoute(c: City, slack: number, startX = c.starts[0].x1 + 0.3 * (c.starts[0].x2 - c.starts[0].x1)) {
   const byId = platById(c), out = new Map<number, typeof c.links>();
   for (const l of c.links) out.set(l.from, [...(out.get(l.from) ?? []), l]);
-  const tower = towerOf(c);
-  const goals = new Set(c.plats.filter(p => (p.b === tower.id && p.kind === 'roof') || p.kind === 'pad').map(p => p.id));
+  const roofPad = new Map(c.plats.filter(p => p.kind === 'roof').map(p => [p.id, c.pads.findIndex(pad => pad.b === p.b)] as const).filter(([, i]) => i >= 0));
   type State = { plat: number; x: number; t: number; path: string[] };
   const best = new Map<string, number>();
   const queue: State[] = [{ plat: c.street, x: startX, t: 0, path: [] }];
   while (queue.length) {
     queue.sort((a, b) => a.t - b.t);
     const s = queue.shift()!;
-    if (goals.has(s.plat)) {
-      const y = byId.get(s.plat)!.y, arrive = s.t * slack;
-      const wait = Math.min(...c.helis.filter(h => Math.abs(h.y - y) < 0.01).map(h => nextLanding(h, arrive)));
+    if (roofPad.has(s.plat)) {
+      const y = byId.get(s.plat)!.y, arrive = s.t * slack, wait = landingAt(c, roofPad.get(s.plat)!, arrive) - arrive;
       if (lavaLevel(arrive + wait) < y - 0.5) return { ...s, wait };
-      continue;
     }
     for (const l of out.get(s.plat) ?? []) {
       const t = s.t + Math.abs(l.fromX - s.x) / 6 + l.cost;
@@ -47,14 +44,22 @@ function fastestRoute(c: City, slack: number, startX = c.starts[0].x1 + 0.3 * (c
 describe('¡El piso es de lava!: la ciudad', () => {
   const city = buildCity();
 
-  it('siempre es la misma y termina en la torre más alta, con tres helicópteros', () => {
+  it('siempre es la misma y termina en la torre más alta, con 6 helipuertos en terrazas lejanas entre sí', () => {
     const again = buildCity();
     expect(again.plats.map(p => [p.kind, p.x, p.y])).toEqual(city.plats.map(p => [p.kind, p.x, p.y]));
     const tower = towerOf(city);
     expect(tower.tower).toBe(true);
     expect(city.buildings.every(b => b === tower || b.top < tower.top)).toBe(true);
-    expect(city.helis).toHaveLength(3);
-    expect(city.helis.every(h => h.x + h.w > tower.x && h.x < tower.x + tower.w + 6 && h.y >= tower.top - 4 * tower.fh)).toBe(true);
+    expect(city.pads).toHaveLength(PADS);
+    expect(city.pads.some(p => p.b === tower.id)).toBe(true);
+    for (const pad of city.pads) {
+      const b = city.buildings[pad.b];
+      expect(pad.y).toBe(b.top);
+      expect(pad.x).toBeGreaterThanOrEqual(b.x);
+      expect(pad.x + HELI_W).toBeLessThanOrEqual(b.x + b.w);
+    }
+    const xs = city.pads.map(p => p.x).sort((a, b) => a - b);
+    for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1]).toBeGreaterThan(20);
   });
 
   it('hay edificios en construcción (sin paredes) y edificios caídos apoyados en el de al lado', () => {
@@ -302,30 +307,60 @@ describe('¡El piso es de lava!: el juego', () => {
     expect(g.player.y).toBeGreaterThan(e.y2 - 0.5);
   });
 
-  it('los helicópteros aterrizan, esperan 5 segundos, vuelan unos 30 y vuelven (por turnos)', () => {
+  it('el helicóptero aterriza, espera 5 segundos, vuela 30 y aterriza en otro helipuerto lejos (nunca en la lava)', () => {
     const g = newLava(0);
-    for (const h of g.helis) {
-      const states = Array.from({ length: 800 }, (_, i) => heliState(h, i * 0.1));
-      const landed = states.filter(s => s.phase === 'landed').length * 0.1, air = states.filter(s => s.phase !== 'landed').length * 0.1;
-      expect(landed / (landed + air)).toBeCloseTo(HELI_WAIT / (HELI_WAIT + HELI_AIR), 1);
-      expect(Math.max(...states.map(s => s.y))).toBeGreaterThan(h.y + 6);
+    const states = Array.from({ length: 2000 }, (_, i) => ({ t: i * 0.1, ...heliState(g, i * 0.1) }));
+    const landed = states.filter(s => s.phase === 'landed').length, all = states.filter(s => s.t >= 20).length;
+    expect(landed / all).toBeCloseTo(HELI_WAIT / (HELI_WAIT + HELI_AIR), 1);
+    // Cada aterrizaje dura 5 segundos y el siguiente es 30 segundos después, en otro lugar lejos del anterior.
+    const visits: { t: number; pad: number }[] = [];
+    for (const s of states) if (s.phase === 'landed' && (!visits.length || s.t - visits[visits.length - 1].t > HELI_WAIT + 1)) visits.push({ t: s.t, pad: s.pad });
+    expect(visits.length).toBeGreaterThan(4);
+    // (mientras quede más de un helipuerto sin lava)
+    const twoLeft = (t: number) => g.pads.filter(p => lavaLevel(t + HELI_WAIT) < p.y - 2).length > 1;
+    for (let i = 1; i < visits.length && twoLeft(visits[i].t); i++) {
+      expect(visits[i].t - visits[i - 1].t).toBeCloseTo(HELI_WAIT + HELI_AIR, 0);
+      expect(visits[i].pad).not.toBe(visits[i - 1].pad);
+      expect(Math.abs(g.pads[visits[i].pad].x - g.pads[visits[i - 1].pad].x)).toBeGreaterThan(20);
+      expect(lavaLevel(visits[i].t + HELI_WAIT)).toBeLessThan(g.pads[visits[i].pad].y);
     }
-    // Aterrizan por turnos: siempre hay uno que aterriza pronto.
-    for (let t = 0; t < 120; t += 0.5) expect(Math.min(...g.helis.map(h => nextLanding(h, t)))).toBeLessThan(HELI_AIR / 3 + 1);
+    expect(new Set(visits.slice(0, 4).map(v => v.pad)).size).toBe(4);
+    // En el aire vuela alto y aterriza justo en el helipuerto.
+    expect(Math.max(...states.map(s => s.y - g.pads[s.pad].y))).toBeGreaterThan(6);
+    const n = 2, at = heliState(g, 20 + n * (HELI_WAIT + HELI_AIR) + 1);
+    expect(at.phase).toBe('landed');
+    expect(at.pad).toBe(padFor(g, n));
+    expect([at.x, at.y]).toEqual([g.pads[at.pad].x, g.pads[at.pad].y]);
+    expect(nextLanding(g, 20 + n * (HELI_WAIT + HELI_AIR) - 4)).toEqual({ wait: expect.closeTo(4, 5), pad: at.pad });
   });
 
-  it('se gana subiéndose a un helicóptero aterrizado (en el aire no)', () => {
+  it('cada partida empieza la ronda de helipuertos por uno distinto', () => {
+    const firsts = new Set(Array.from({ length: PADS }, (_, k) => padFor({ ...buildCity(), heliShift: k }, 0)));
+    expect(firsts.size).toBeGreaterThan(3);
+  });
+
+  it('la flecha apunta al helipuerto donde va a aterrizar (o donde está aterrizado)', () => {
     const g = newLava(0);
-    const h = g.helis[0];
-    g.time = Array.from({ length: 400 }, (_, i) => i * 0.1).find(t => heliState(h, t).phase === 'air')!;
-    Object.assign(g.player, { x: h.x + h.w / 2, y: h.y + 0.1, ground: null, vy: 0 });
+    for (const t of [5, 20, 23, 40, 60]) {
+      const s = heliState(g, t), target = heliTarget(g, t);
+      expect(target.pad).toBe(s.pad);
+      expect(target.x).toBeCloseTo(g.pads[s.pad].x + HELI_W / 2);
+      expect(target.y).toBe(g.pads[s.pad].y);
+    }
+  });
+
+  it('se gana subiéndose al helicóptero aterrizado (en el aire no)', () => {
+    const g = newLava(0);
+    g.time = Array.from({ length: 400 }, (_, i) => i * 0.1).find(t => heliState(g, t).phase === 'air')!;
+    const h = heliState(g, g.time);
+    Object.assign(g.player, { x: h.x + HELI_W / 2, y: h.y + 0.1, ground: null, vy: 0 });
     step(g, idle, 1 / 60);
     expect(g.won).toBe(false);
 
     const g2 = newLava(0);
-    const h2 = g2.helis[1];
-    g2.time = Array.from({ length: 400 }, (_, i) => i * 0.1).find(t => heliState(h2, t).phase === 'landed' && heliState(h2, t).left > 1)!;
-    Object.assign(g2.player, { x: h2.x + h2.w / 2, y: h2.y + 0.1, ground: null, vy: 0 });
+    g2.time = Array.from({ length: 400 }, (_, i) => i * 0.1).find(t => heliState(g2, t).phase === 'landed' && heliState(g2, t).left > 1)!;
+    const h2 = heliState(g2, g2.time);
+    Object.assign(g2.player, { x: h2.x + HELI_W / 2, y: h2.y + HELI_H * 0.1, ground: null, vy: 0 });
     step(g2, idle, 1 / 60);
     expect(g2.won).toBe(true);
     expect(takeEvents(g2).some(e => e.type === 'win')).toBe(true);
@@ -380,6 +415,23 @@ describe('¡El piso es de lava!: el juego', () => {
   const place = (g: LavaGame, pl: Plat, x: number) => Object.assign(g.player, { x, y: pl.y, vx: 0, vy: 0, ground: pl, climb: null, zip: null, wire: null, climbCooldown: 0 });
   // El piso (o la calle) donde se apoya algo a esa altura.
   const floorAt = (g: LavaGame, y: number, x: number) => g.plats.find(p => (p.kind === 'floor' || p.kind === 'roof' || p.kind === 'street') && Math.abs(p.y - y) < 0.01 && x >= p.x && x <= p.x + p.w)!;
+
+  it('hay pisos con una pared en el medio (con la puerta tapiada) que no se puede cruzar: hay que dar la vuelta', () => {
+    const g = calm();
+    g.people = [];
+    const walls = g.buildings.flatMap(b => b.partitions.map(w => ({ b, w })));
+    expect(walls.length).toBeGreaterThan(15);
+    for (const { b, w } of walls.slice(0, 5)) {
+      const y = floorY(b, w.floor), left = floorAt(g, y, w.x - 1), right = floorAt(g, y, w.x + 1);
+      expect(left).not.toBe(right); // el piso queda partido en dos (no hay unión entre las mitades)
+      expect(g.links.some(l => l.from === left.id && l.to === right.id)).toBe(false);
+      g.time = 0;
+      place(g, left, w.x - 1.6);
+      for (let t = 0; t < 1; t += 1 / 60) { g.lava = -100; step(g, { ...idle, right: true }, 1 / 60); }
+      expect(g.player.x).toBeLessThan(w.x);
+      expect(g.player.ground).toBe(left);
+    }
+  });
 
   it('se cuelga de un cable con ↑ y avanza a mano hasta el otro edificio (en subida)', () => {
     const g = calm(), w = g.wires.find(w => w.y2 - w.y1 > 1.2)!;
@@ -447,7 +499,10 @@ describe('¡El piso es de lava!: el juego', () => {
     // Quieto en su camino: te alcanza y perdés.
     let g = calm(), q = g.people.find(p => p.torch)!;
     const at = (x: number) => floorAt(g, q.y, x);
-    const mid = (q.x1 + q.x2) / 2;
+    // Un lugar de su camino sin muebles ni nada arriba (para que el salto caiga de nuevo en el piso).
+    const clear = (x: number) => !!at(x) && !g.plats.some(p => p.y > q.y + 0.01 && p.y < q.y + 3 && p.x < x + 1.2 && p.x + p.w > x - 1.2);
+    let mid = (q.x1 + q.x2) / 2;
+    for (let d = 0; d < q.x2 - q.x1 && !clear(mid); d += 0.1) mid = clear((q.x1 + q.x2) / 2 + d) ? (q.x1 + q.x2) / 2 + d : (q.x1 + q.x2) / 2 - d;
     place(g, at(mid), mid);
     for (let i = 0; i < 60 * 12 && !g.dying; i++) { g.player.x = mid; step(g, idle, 1 / 60); }
     expect(g.dying?.reason).toBe('torch');

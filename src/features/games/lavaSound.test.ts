@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { elevatorAt, heliState, newLava, sparkActive, towerOf } from './lava';
+import { elevatorAt, heliState, newLava, sparkActive } from './lava';
 import { lavaLevels } from './lavaSound';
 
 describe('El piso es de lava: sonidos de ambiente', () => {
@@ -32,11 +32,11 @@ describe('El piso es de lava: sonidos de ambiente', () => {
   });
 
   it('el helicóptero se escucha desde lejos y más fuerte cuanto más cerca', () => {
-    const g = newLava(0, 1), tower = towerOf(g), h = g.helis[0];
+    const g = newLava(0, 1);
     g.player.x = 5; g.player.y = 0;
     expect(lavaLevels(g).heli).toBe(0);
-    const st = heliState(h, g.time);
-    g.player.x = st.x - 8; g.player.y = tower.top;
+    const st = heliState(g, g.time);
+    g.player.x = st.x - 8; g.player.y = st.y;
     const mid = lavaLevels(g).heli;
     g.player.x = st.x - 1;
     expect(mid).toBeGreaterThan(0);

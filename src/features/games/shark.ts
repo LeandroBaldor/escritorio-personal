@@ -58,7 +58,8 @@ export const SHARKS: Record<SharkType, SharkSpec> = {
   ballena: { name: 'tiburón ballena', speed: 1.2, chase: 2.1, reach: 1.8, warn: 1.1, size: 1.9, mouth: [0.375, 0.055] },
 };
 // Cuántos tiburones hay según el tiempo (empieza con 7 y llega uno nuevo cada 15 segundos).
-export const sharksAt = (t: number) => Math.min(27, 7 + Math.floor(t / 15));
+// Arranca con 5 tiburones y llega uno más cada 30 segundos, hasta 15.
+export const sharksAt = (t: number) => Math.min(15, 5 + Math.floor(t / 30));
 export const BALLENA_AT = 60;
 
 export type BlockKind = 'building' | 'house' | 'shop';
@@ -104,7 +105,7 @@ export interface Flyer { id: number; type: SharkType; x: number; y: number; dir:
 export const FLYER_LEN = 3.6, FLY_SPEED = 3.2, FLY_DIVE = 10, FLY_WARN = 1.3, FLY_SIGHT = 7;
 export const FLYER_SIZE: Record<SharkType, number> = { blanco: 1, martillo: 0.95, ballena: 1.3 };
 export const flyerLen = (f: Flyer) => FLYER_LEN * FLYER_SIZE[f.type];
-export const flyersAt = (t: number) => t < 25 ? 0 : t < 80 ? 1 : t < 150 ? 2 : 3;
+export const flyersAt = (t: number) => t < 40 ? 0 : t < 200 ? 1 : 2;
 export const flyerMouth = (f: Flyer) => { const len = flyerLen(f), sp = Math.hypot(f.vx, f.vy) || 1, k = f.state === 'dive' || f.state === 'carry' ? 1 : 0; return { x: f.x + (k ? (f.vx / sp) * len * 0.45 : f.dir * len * 0.45), y: f.y + (k ? (f.vy / sp) * len * 0.45 : -len * 0.03) }; };
 
 // `inside`: el edificio donde estás adentro (en un departamento). `zipT` y `zipFrom`: para colgarse de a poco.
@@ -285,7 +286,7 @@ export function newShark(seed?: number): SharkGame {
     rand, nextId: 10000, seen: new Set(), hurried: 0, gust: 0, windPower: 1, fx: [], gale: { warnAt: 0, start: 0, end: 0, dir: 1, told: 0 },
     player: { x: city.startX, y: city.startY, vx: 0, vy: 0, facing: 1, ground: city.plats.find(p => p.kind === 'roof' && p.y === city.startY && p.x < city.startX && p.x + p.w > city.startX) ?? null, climb: null, zip: null, swimming: false, climbCooldown: 0, coyote: 0, inside: null, zipT: 0, zipFrom: 0, fling: 0 },
   };
-  for (const type of ['blanco', 'blanco', 'martillo', 'martillo', 'blanco', 'martillo', 'blanco'] as const) addShark(g, type);
+  for (const type of ['blanco', 'martillo', 'blanco', 'martillo', 'blanco'] as const) addShark(g, type);
   for (let i = 0; i < ACTIVE_RESCUES; i++) addRescue(g);
   scheduleGale(g, 22 + rand() * 18);
   return g;

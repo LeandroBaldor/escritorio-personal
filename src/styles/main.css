@@ -748,6 +748,28 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 @media(max-aspect-ratio:1/1){.tt-save{top:.6rem;bottom:auto}}
 .tt-sides{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
 .tt-sides button{padding:.75rem .3rem;background:#16a34a;font-weight:900;font-size:1rem;border-radius:10px;box-shadow:0 4px 0 #14532d}
+/* Penales: cartel de opciones arriba, arco con arquero y pelota, y los botones 1, 2 y 3. */
+.tt-pen{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;padding:.5rem;background:#000b;overflow:auto}
+.tt-pen-card{width:min(520px,100%);max-height:100%;overflow:auto;padding:.7rem .9rem .9rem;background:#0b1220f2;border:3px solid #facc15;border-radius:16px;text-align:center;box-shadow:0 10px 30px #000c;color:#f8fafc}
+.tt-pen-card h2{margin:.5rem 0 .15rem;font-size:clamp(1.05rem,4vw,1.4rem)}
+.tt-pen-detail{margin:0 0 .55rem;min-height:1.3em;color:#cbd5e1;font-size:.9rem}
+.tt-pen-board{display:grid;gap:.25rem;margin:.35rem 0 .5rem}
+.tt-pen-row{display:grid;grid-template-columns:minmax(0,1fr) auto 2ch;align-items:center;gap:.5rem;font-weight:800}
+.tt-pen-row .tt-team{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.tt-pen-row strong{font:900 1.2rem "Courier New",ui-monospace,monospace;color:#fde047}
+.tt-pen-dots{display:flex;gap:.2rem}
+.tt-pen-dots span{display:grid;place-items:center;width:1.25rem;height:1.25rem;border-radius:50%;border:2px solid #475569;font-size:.75rem;font-weight:900}
+.tt-pen-dots .is-goal{background:#16a34a;border-color:#22c55e}
+.tt-pen-dots .is-miss{background:#b91c1c;border-color:#ef4444}
+.tt-pen-sign{display:inline-block;margin:0 auto .45rem;padding:.35rem .9rem;background:#facc15;color:#111827;border:3px solid #111827;border-radius:8px;font-weight:900;letter-spacing:.02em;box-shadow:0 4px 0 #92400e;font-size:clamp(.85rem,3.4vw,1.05rem)}
+.tt-pen-sign b{display:inline-grid;place-items:center;min-width:1.5em;margin-left:.15em;padding:0 .2em;background:#111827;color:#facc15;border-radius:5px}
+.tt-pen-field{display:block;width:100%;height:auto;border-radius:10px;border:2px solid #1e293b}
+.tt-pen-keeper-idle{animation:tt-pen-sway 1.1s ease-in-out infinite alternate}
+@keyframes tt-pen-sway{from{transform:translateX(-6px)}to{transform:translateX(6px)}}
+.tt-pen-buttons button{display:flex;flex-direction:column;align-items:center;gap:.1rem;line-height:1.1}
+.tt-pen-buttons button b{font-size:1.6rem}
+.tt-pen-buttons button small{font-size:.8rem;font-weight:800}
+.tt-pen-buttons button:disabled{opacity:.45;box-shadow:none}
 .tt .runner-overlay>div{background:#0b1f14;border-color:#16a34a}
 .tt-final{font:900 1.5rem "Courier New",ui-monospace,monospace;color:#fde047!important}
 .tt-end-actions{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap}

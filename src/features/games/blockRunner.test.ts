@@ -176,6 +176,58 @@ describe('roce de costado', () => {
   });
 });
 
+describe('tocar una pieza que cae', () => {
+  it('correr contra el costado de una pieza que cae no lo hace perder: la pieza lo frena', () => {
+    const game = newGame(10, 12);
+    game.spawnIn = 99;
+    game.player.x = 2;
+    game.pieces.push({ id: 1, x: 5, y: 7.5, cells: [[0, 0], [0, 1], [0, 2], [0, 3]], width: 1, height: 4, color: '#f00', speed: 0.5 });
+    run(game, 0.8, { left: false, right: true, jump: false });
+    expect(game.pieces).toHaveLength(1); // todavía cae
+    expect(game.over).toBeNull();
+    expect(game.player.x + 0.6).toBeLessThanOrEqual(5 + 1e-6);
+  });
+
+  it('saltar y chocar una pieza por abajo no lo hace perder: rebota y cae', () => {
+    const game = newGame(10, 12);
+    game.spawnIn = 99;
+    game.player.x = 4.2;
+    game.pieces.push({ id: 1, x: 3, y: 8.2, cells: [[0, 0], [1, 0], [2, 0]], width: 3, height: 1, color: '#f00', speed: 0.3 });
+    step(game, { left: false, right: false, jump: true }, 1 / 60);
+    run(game, 0.15);
+    expect(game.over).toBeNull();
+    expect(game.player.y).toBeGreaterThanOrEqual(game.pieces[0].y + 1 - 1e-6);
+    // Se corre antes de que la pieza llegue al piso, así no le cae encima.
+    run(game, 0.6, { left: false, right: true, jump: false });
+    run(game, 3);
+    expect(game.over).toBeNull();
+  });
+
+  it('caer arriba de una pieza que baja no lo hace perder: se para encima', () => {
+    const game = newGame(10, 12);
+    game.spawnIn = 99;
+    game.player.x = 4.2; game.player.y = 2;
+    game.pieces.push({ id: 1, x: 3, y: 6, cells: [[0, 0], [1, 0], [2, 0]], width: 3, height: 1, color: '#f00', speed: 1 });
+    run(game, 0.6);
+    expect(game.over).toBeNull();
+    expect(game.player.onGround).toBe(true);
+    expect(game.player.y + PLAYER_H).toBeCloseTo(game.pieces[0].y, 1);
+    run(game, 6);
+    expect(game.over).toBeNull();
+    expect(game.grid[11][4]).toBe('#f00');
+    expect(game.player.y + PLAYER_H).toBeCloseTo(11, 3);
+  });
+
+  it('si la pieza le cae en la cabeza mientras está en el aire, lo baja; al llegar al piso lo aplasta', () => {
+    const game = newGame(10, 12);
+    game.spawnIn = 99;
+    game.player.x = 4.2; game.player.y = 5; game.player.onGround = false;
+    game.pieces.push({ id: 1, x: 4, y: 3.5, cells: [[0, 0], [0, 1]], width: 1, height: 2, color: '#f00', speed: 18 });
+    run(game, 2);
+    expect(game.over).toBe('crushed');
+  });
+});
+
 describe('gravedad', () => {
   it('después de una explosión, lo que queda flotando cae', () => {
     const game = newGame(10, 8);
@@ -201,14 +253,14 @@ describe('gravedad', () => {
 });
 
 describe('duración de la ronda', () => {
-  it('sin que lo pisen, la pila no llega arriba antes del nivel 10 (9 minutos) y termina poco después', () => {
+  it('sin que lo pisen, la pila no llega arriba antes de terminar el nivel 10 (5 minutos) y termina poco después', () => {
     for (const [cols, rows] of [[26, 12], [14, 14], [10, 16]]) {
       let seed = 4242; const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
       const game = newGame(cols, rows);
       game.winLevel = Infinity; // acá se mide solo cuánto tarda en llenarse
       while (game.time < 1000) { step(game, idle, 1 / 30, rand); if (game.over === 'full') break; game.over = null; game.player.y = -5; }
-      expect(game.time).toBeGreaterThan(9 * 60);
-      expect(game.time).toBeLessThan(12 * 60);
+      expect(game.time).toBeGreaterThan(5 * 60);
+      expect(game.time).toBeLessThan(7 * 60);
     }
   });
 });
@@ -244,10 +296,13 @@ describe('encerrado', () => {
 });
 
 describe('ganar', () => {
-  it('al llegar al nivel 10 gana la partida', () => {
+  it('son 10 niveles de 30 segundos: al terminar el nivel 10 gana la partida', () => {
+    expect(LEVEL_SECONDS).toBe(30);
     const game = newGame(10, 12);
     game.spawnIn = 99;
-    game.time = (WIN_LEVEL - 1) * LEVEL_SECONDS - 0.02;
+    game.time = (WIN_LEVEL - 1) * LEVEL_SECONDS + 0.5;
+    expect(level(game)).toBe(WIN_LEVEL);
+    game.time = WIN_LEVEL * LEVEL_SECONDS - 0.02;
     step(game, idle, 0.01);
     expect(game.over).toBeNull();
     step(game, idle, 0.05);
