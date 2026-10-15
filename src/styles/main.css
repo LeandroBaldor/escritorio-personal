@@ -1367,6 +1367,7 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .invasion .runner-overlay>div{background:#0b1f14;border-color:#22c55e}
 .inv-stage{cursor:none;touch-action:none}
 .inv-stage canvas{display:block}
+.inv-stage .inv-scope{position:absolute;inset:0;width:100%;height:100%;z-index:5;pointer-events:none;box-shadow:none!important}
 .inv-stage .inv-map{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:min(560px,70%);height:46px;border:2px solid #14532d;border-radius:6px;box-shadow:none!important;pointer-events:none;opacity:.9}
 .inv-toast{top:64px;border-color:#22c55e;background:#04120ae6;color:#bbf7d0}
 .inv-toast.is-bad{border-color:#ef4444;color:#fecaca}
