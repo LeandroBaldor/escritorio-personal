@@ -124,9 +124,11 @@ function drawHead(ctx: CanvasRenderingContext2D, o: Outfit, x: number, y: number
     const g = ctx.createRadialGradient(-R * 0.3, -R * 0.5, R * 0.2, 0, -R * 0.2, R * 1.5);
     g.addColorStop(0, '#d1d5db'); g.addColorStop(1, '#6b7280');
     ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(f * R * 0.1, -R * 0.35, R * 1.05, R * 1.3, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#05070a';
+    ctx.fillStyle = h.eyes ?? '#05070a'; // mirándote fijo, los ojos le brillan verdes
+    if (h.eyes) { ctx.shadowColor = h.eyes; ctx.shadowBlur = R * 0.8; }
     if (h.face === 'front') for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * R * 0.42, -R * 0.25, R * 0.3, R * 0.5, s * 0.5, 0, Math.PI * 2); ctx.fill(); }
     else { ctx.beginPath(); ctx.ellipse(f * R * 0.6, -R * 0.25, R * 0.28, R * 0.52, f * 0.5, 0, Math.PI * 2); ctx.fill(); }
+    ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(255,255,255,0.7)'; dot(ctx, 'rgba(255,255,255,0.7)', f * R * 0.55, -R * 0.45, R * 0.08);
     ctx.restore();
     return;
@@ -146,7 +148,7 @@ function drawHead(ctx: CanvasRenderingContext2D, o: Outfit, x: number, y: number
   if (front) {
     for (const s of [-1, 1]) {
       if (h.closed) line(ctx, '#111', Math.max(1, R * 0.08), [s * R * 0.42 - R * 0.14, -R * 0.08], [s * R * 0.42 + R * 0.14, -R * 0.08]);
-      else { const [gx, gy] = h.gaze ?? [0, 0]; dot(ctx, '#fff', s * R * 0.4, -R * 0.08, R * 0.2); dot(ctx, eye, s * R * 0.4 + gx * R * 0.08, -R * 0.06 + gy * R * 0.08, R * (h.gaze ? 0.08 : 0.11)); if (detail) dot(ctx, '#fff', s * R * 0.4 + R * 0.04 + gx * R * 0.08, -R * 0.1 + gy * R * 0.08, R * 0.03); }
+      else { const [gx, gy] = h.gaze ?? [0, 0]; dot(ctx, '#fff', s * R * 0.4, -R * 0.08, R * 0.2); dot(ctx, eye, s * R * 0.4 + gx * R * 0.06, -R * 0.06 + gy * R * 0.06, R * (h.gaze ? 0.15 : 0.11)); if (detail) dot(ctx, '#fff', s * R * 0.4 + R * 0.04 + gx * R * 0.08, -R * 0.1 + gy * R * 0.08, R * 0.03); }
       if (detail) { line(ctx, brow, Math.max(0.8, R * 0.08), [s * R * 0.25, -R * 0.36], [s * R * 0.58, -R * 0.33]); dot(ctx, 'rgba(244,114,182,0.22)', s * R * 0.55, R * 0.2, R * 0.16); }
     }
     if (detail) line(ctx, mixColor(o.skin, '#000000', 0.25), Math.max(0.7, R * 0.05), [0, -R * 0.05], [R * 0.06, R * 0.18], [-R * 0.04, R * 0.2]); // nariz
@@ -492,7 +494,7 @@ export function drawPerson(ctx: CanvasRenderingContext2D, g: Invasion, p: Person
   const staring = p.alien && !p.dead && t < p.stareUntil;
   if (staring) {
     const dx = g.aim.x - pose.x, dy = g.aim.y - (pose.y + pose.h * 0.85), L = Math.hypot(dx, dy) || 1;
-    body = { ...body, head: { ...(body.head ?? {}), face: 'front', gaze: [(dx / L) * pose.dir, -dy / L] } };
+    body = { ...body, head: { ...(body.head ?? {}), face: 'front', gaze: [(dx / L) * pose.dir, -dy / L], eyes: '#4ade80' } };
     front = true;
   }
   if (p.dog && !p.dead) drawDog(ctx, sx + p.dir * H * 0.55, sy, H * 0.45, p.dir, p.moving ? t * 12 : 0, false);

@@ -622,23 +622,51 @@ function drawUfo(ctx: CanvasRenderingContext2D, u: Invasion['ufos'][number], v: 
     const tx = X(v, u.beam.x), ty = Y(v, u.beam.y), k = Math.min(1, (t - u.beam.t0) * 3);
     const beam = ctx.createLinearGradient(x, y, tx, ty); beam.addColorStop(0, 'rgba(165,243,252,0.9)'); beam.addColorStop(1, 'rgba(74,222,128,0.7)');
     ctx.fillStyle = beam; ctx.globalAlpha = 0.55 + Math.sin(t * 50) * 0.2;
-    ctx.beginPath(); ctx.moveTo(x - 0.6 * s, y + 0.4 * s); ctx.lineTo(x + 0.6 * s, y + 0.4 * s); ctx.lineTo(x + (tx - x) * k + 0.25 * s, y + (ty - y) * k); ctx.lineTo(x + (tx - x) * k - 0.25 * s, y + (ty - y) * k); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x - 1.2 * s, y + 0.9 * s); ctx.lineTo(x + 1.2 * s, y + 0.9 * s); ctx.lineTo(x + (tx - x) * k + 0.25 * s, y + (ty - y) * k); ctx.lineTo(x + (tx - x) * k - 0.25 * s, y + (ty - y) * k); ctx.fill();
     ctx.globalAlpha = 1;
-    ctx.strokeStyle = '#ecfeff'; ctx.lineWidth = Math.max(1.5, s * 0.06); ctx.beginPath(); ctx.moveTo(x, y + 0.4 * s); ctx.lineTo(x + (tx - x) * k, y + (ty - y) * k); ctx.stroke();
+    ctx.strokeStyle = '#ecfeff'; ctx.lineWidth = Math.max(1.5, s * 0.06); ctx.beginPath(); ctx.moveTo(x, y + 0.9 * s); ctx.lineTo(x + (tx - x) * k, y + (ty - y) * k); ctx.stroke();
     const hit = ctx.createRadialGradient(tx, ty, 0, tx, ty, s * 1.5); hit.addColorStop(0, 'rgba(236,254,255,0.95)'); hit.addColorStop(1, 'rgba(74,222,128,0)');
     if (k >= 1) { ctx.fillStyle = hit; ctx.fillRect(tx - s * 1.5, ty - s * 1.5, s * 3, s * 3); }
   }
-  if (x < -s * 5 || x > v.w + s * 5 || y < -s * 3 || y > v.h + s * 3) return;
-  const under = ctx.createRadialGradient(x, y + 0.5 * s, 0, x, y + 0.5 * s, 3 * s); under.addColorStop(0, 'rgba(103,232,249,0.55)'); under.addColorStop(1, 'rgba(103,232,249,0)');
-  ctx.fillStyle = under; ctx.fillRect(x - 3 * s, y - 2 * s, 6 * s, 5 * s);
-  const dome = ctx.createRadialGradient(x - 0.4 * s, y - 1 * s, 0, x, y - 0.6 * s, 1.4 * s); dome.addColorStop(0, 'rgba(236,254,255,0.95)'); dome.addColorStop(1, 'rgba(14,116,144,0.7)');
-  ctx.fillStyle = dome; ctx.beginPath(); ctx.ellipse(x, y - 0.35 * s, 1.25 * s, 0.95 * s, 0, Math.PI, 0); ctx.fill();
-  ctx.fillStyle = '#4b5563'; ctx.beginPath(); ctx.ellipse(x - 0.1 * s, y - 0.75 * s, 0.32 * s, 0.42 * s, 0, 0, Math.PI * 2); ctx.fill(); // el piloto
-  ctx.fillStyle = '#05070a'; ctx.beginPath(); ctx.ellipse(x + 0.05 * s, y - 0.78 * s, 0.1 * s, 0.16 * s, 0.4, 0, Math.PI * 2); ctx.fill();
-  const hull = ctx.createLinearGradient(0, y - 0.5 * s, 0, y + 0.5 * s); hull.addColorStop(0, '#e5e7eb'); hull.addColorStop(0.45, '#9ca3af'); hull.addColorStop(1, '#374151');
-  ctx.fillStyle = hull; ctx.beginPath(); ctx.ellipse(x, y, 3.4 * s, 0.6 * s, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(x, y - 0.1 * s, 3.1 * s, 0.4 * s, 0, Math.PI, 0); ctx.stroke();
-  for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2 + t * 2, lx = x + Math.cos(a) * 2.9 * s, ly = y + Math.sin(a) * 0.3 * s + 0.15 * s; if (Math.sin(a) < 0) continue; ctx.fillStyle = i % 2 ? '#fde047' : '#ef4444'; ctx.beginPath(); ctx.arc(lx, ly, 0.13 * s, 0, Math.PI * 2); ctx.fill(); }
+  if (x < -s * 9 || x > v.w + s * 9 || y < -s * 5 || y > v.h + s * 5) return;
+  // Un platillo grande: luz que sale de abajo, la parte de abajo con sus ojos de buey, el disco con paneles,
+  // un anillo de luces que gira alrededor, la cúpula con el piloto y la antena.
+  const R = 6.2 * s, spin = t * 1.6 + u.id;
+  const under = ctx.createRadialGradient(x, y + 0.9 * s, 0, x, y + 0.9 * s, 5.5 * s); under.addColorStop(0, 'rgba(103,232,249,0.6)'); under.addColorStop(1, 'rgba(103,232,249,0)');
+  ctx.fillStyle = under; ctx.fillRect(x - 5.5 * s, y - 3 * s, 11 * s, 9 * s);
+  // Panza de abajo, con un anillo que brilla y ventanitas que se prenden en orden.
+  const belly = ctx.createLinearGradient(0, y, 0, y + 1.3 * s); belly.addColorStop(0, '#4b5563'); belly.addColorStop(1, '#111827');
+  ctx.fillStyle = belly; ctx.beginPath(); ctx.ellipse(x, y + 0.35 * s, R * 0.55, 1 * s, 0, 0, Math.PI); ctx.fill();
+  const ring = ctx.createRadialGradient(x, y + 0.9 * s, 0, x, y + 0.9 * s, 1.6 * s); ring.addColorStop(0, `rgba(236,254,255,${0.8 + Math.sin(t * 6) * 0.2})`); ring.addColorStop(0.5, 'rgba(34,211,238,0.7)'); ring.addColorStop(1, 'rgba(34,211,238,0)');
+  ctx.fillStyle = ring; ctx.beginPath(); ctx.ellipse(x, y + 0.95 * s, 1.6 * s, 0.45 * s, 0, 0, Math.PI * 2); ctx.fill();
+  for (let i = 0; i < 7; i++) { const px = x + (i - 3) * 0.75 * s, on = Math.floor(t * 5 - i) % 7 === 0; ctx.fillStyle = on ? '#a5f3fc' : '#0e7490'; ctx.beginPath(); ctx.arc(px, y + 0.55 * s + Math.abs(i - 3) * -0.06 * s, 0.17 * s, 0, Math.PI * 2); ctx.fill(); }
+  // Cúpula de vidrio con el piloto adentro.
+  const dome = ctx.createRadialGradient(x - 0.8 * s, y - 2 * s, 0, x, y - 1.2 * s, 2.6 * s); dome.addColorStop(0, 'rgba(236,254,255,0.95)'); dome.addColorStop(0.6, 'rgba(56,189,248,0.6)'); dome.addColorStop(1, 'rgba(14,116,144,0.8)');
+  ctx.fillStyle = dome; ctx.beginPath(); ctx.ellipse(x, y - 0.6 * s, 2.3 * s, 1.9 * s, 0, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#6b7280'; ctx.beginPath(); ctx.ellipse(x - 0.2 * s, y - 1.4 * s, 0.6 * s, 0.8 * s, 0, 0, Math.PI * 2); ctx.fill(); // el piloto
+  ctx.fillStyle = '#4ade80'; ctx.shadowColor = '#4ade80'; ctx.shadowBlur = s * 0.4;
+  for (const d of [-1, 1]) { ctx.beginPath(); ctx.ellipse(x - 0.2 * s + d * 0.24 * s, y - 1.45 * s, 0.15 * s, 0.26 * s, d * 0.4, 0, Math.PI * 2); ctx.fill(); }
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = Math.max(1, s * 0.05); ctx.beginPath(); ctx.ellipse(x - 0.6 * s, y - 1.2 * s, 1.2 * s, 1 * s, 0, Math.PI * 1.1, Math.PI * 1.45); ctx.stroke();
+  ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = Math.max(1, s * 0.08); ctx.beginPath(); ctx.moveTo(x, y - 2.5 * s); ctx.lineTo(x, y - 3.5 * s); ctx.stroke();
+  ctx.fillStyle = Math.floor(t * 3) % 2 ? '#ef4444' : '#fecaca'; ctx.beginPath(); ctx.arc(x, y - 3.6 * s, 0.22 * s, 0, Math.PI * 2); ctx.fill();
+  // El disco: metal con brillo, paneles y remaches.
+  const hull = ctx.createLinearGradient(0, y - 1 * s, 0, y + 1 * s); hull.addColorStop(0, '#f3f4f6'); hull.addColorStop(0.4, '#9ca3af'); hull.addColorStop(0.55, '#d1d5db'); hull.addColorStop(1, '#374151');
+  ctx.fillStyle = hull; ctx.beginPath(); ctx.ellipse(x, y, R, 1.05 * s, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(31,41,55,0.5)'; ctx.lineWidth = Math.max(1, s * 0.04);
+  for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2 + spin * 0.5; if (Math.sin(a) < 0) continue; const px = x + Math.cos(a) * R * 0.98; ctx.beginPath(); ctx.moveTo(px, y - Math.sin(a) * 0.25 * s - 0.6 * s); ctx.lineTo(px, y + Math.sin(a) * 0.5 * s + 0.4 * s); ctx.stroke(); }
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = Math.max(1, s * 0.05); ctx.beginPath(); ctx.ellipse(x, y - 0.25 * s, R * 0.93, 0.6 * s, 0, Math.PI, 0); ctx.stroke();
+  ctx.fillStyle = '#374151'; ctx.fillRect(x - R, y - 0.05 * s, R * 2, 0.1 * s);
+  // Anillo de luces que gira alrededor del disco (las de atrás más apagadas), con colores que van cambiando.
+  const N = 26;
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2 + spin, lx = x + Math.cos(a) * R * 0.9, ly = y + Math.sin(a) * 0.55 * s + 0.2 * s, front = Math.sin(a) > 0;
+    const c = ['#ef4444', '#fde047', '#22d3ee', '#4ade80', '#f472b6'][(i + Math.floor(t * 4)) % 5];
+    ctx.globalAlpha = front ? 1 : 0.35;
+    if (front) { const gl = ctx.createRadialGradient(lx, ly, 0, lx, ly, 0.6 * s); gl.addColorStop(0, c); gl.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gl; ctx.fillRect(lx - 0.6 * s, ly - 0.6 * s, 1.2 * s, 1.2 * s); }
+    ctx.fillStyle = c; ctx.beginPath(); ctx.arc(lx, ly, 0.2 * s, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
 }
 
 // ---------- Todo junto ----------

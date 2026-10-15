@@ -358,9 +358,11 @@ function stepPerson(g: Invasion, p: Person, dt: number) {
     if (p.anomaly && t > p.anomaly.until) { p.anomaly = null; p.nextAnomaly = t + between(r, 6, 16) * (1 - ruinAt(t) * 0.5); }
     if (p.comm && t > p.comm.until) { p.comm = null; p.nextComm = t + between(r, 25, 50); }
     const busy = () => !!(p.anomaly || p.sabotage || p.comm || t < p.stareUntil);
-    // Si la mira le pasa cerca, se da cuenta y se queda mirándola fijo.
-    if (!busy() && t > p.nextStare && Math.hypot(g.aim.x - p.x, g.aim.y - (p.y + 0.8)) < 5 && r() < dt * 0.9) {
-      p.stareUntil = t + between(r, 2.5, 4.5); p.nextStare = p.stareUntil + between(r, 6, 14); p.moving = false;
+    // Se quedan mirando fijo a la cámara (a vos), con los ojos verdes: seguido si la mira les pasa cerca, y
+    // cada tanto aunque no los estés mirando.
+    const aimNear = Math.hypot(g.aim.x - p.x, g.aim.y - (p.y + 0.8)) < 9;
+    if (!busy() && t > p.nextStare && r() < dt * (aimNear ? 1.6 : 0.15)) {
+      p.stareUntil = t + between(r, 3, 5); p.nextStare = p.stareUntil + between(r, 4, 10); p.moving = false;
     }
     if (!busy() && t > p.nextComm) { p.comm = { t0: t, until: t + between(r, 4, 6.5) }; p.moving = false; emit(g, { type: 'comm', x: p.x, y: p.y + 0.8 }); }
     if (!busy() && t > p.nextAnomaly) startAnomaly(g, p, room);
@@ -412,7 +414,7 @@ export function wallPath(room: Room, x0: number, d: number) {
 function startAnomaly(g: Invasion, p: Person, room: Room | null) {
   const theme = room ? room.theme : null;
   // Bastante seguido se ponen a caminar por las paredes y el techo (es de lo más raro que hacen).
-  if (room && room.h > 2 && g.rand() < 0.2) {
+  if (room && room.h > 2 && g.rand() < 0.45) {
     p.anomaly = { id: WALLWALK.id, t0: g.time, until: g.time + wallPath(room, p.x, 0).L / WALL_SPEED, seed: g.rand() };
     p.act = 'stand'; p.y = room.y; p.tx = p.x;
     if (!g.seen.includes(WALLWALK.id)) g.seen.push(WALLWALK.id);
@@ -651,7 +653,7 @@ export function shoot(g: Invasion, x: number, y: number) {
   if (g.over) return 'none' as const;
   g.shots++;
   emit(g, { type: 'shot', x, y });
-  for (const u of g.ufos) if (Math.abs(x - u.x) < 3.4 && Math.abs(y - u.y) < 1.2) {
+  for (const u of g.ufos) if (Math.abs(x - u.x) < 6.4 && Math.abs(y - u.y) < 2.2) {
     burst(g, x, y, 12, '#a5f3fc', 'spark', 4, 0.05);
     emit(g, { type: 'ufoPing', x, y });
     return 'ufo' as const;
