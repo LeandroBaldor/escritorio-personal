@@ -9,7 +9,7 @@
 //   explosivos (la gente también deja cajas, pero las de ellos tienen una lucecita roja que titila).
 // - Con el tiempo hay más aliens, la gente corre, y desde la mitad del juego llegan ovnis (a los que las
 //   balas no les hacen nada) que disparan contra la ciudad hasta destruirla del todo a los 10 minutos.
-// - Ganás cuando matás a 10 aliens. Tenés 3 vidas: cada persona a la que le disparás te saca una (y si se
+// - Ganás cuando matás a 20 aliens. Tenés 3 vidas: cada persona a la que le disparás te saca una (y si se
 //   terminan los 10 minutos, también perdés).
 //
 // Todo se mide en "unidades" (una persona mide 1). El piso de la calle es y = 0 y hacia arriba es positivo.
@@ -22,7 +22,7 @@ export const SIDEWALK_Y = 0, ROAD_Y = -1.6;
 export const UFO_FROM = 420; // a los 7 minutos llegan los ovnis
 export const RAIN_FROM = 300; // a los 5 minutos empieza a llover
 export const MAG = 5, BOLT_TIME = 0.75, RELOAD_TIME = 2.2;
-export const GOAL_KILLS = 10;
+export const GOAL_KILLS = 20;
 export const LIVES = 3; // personas a las que se les puede disparar antes de perder
 export type Outcome = 'won' | 'civilian' | 'time';
 
@@ -214,7 +214,7 @@ export function newInvasion(seed?: number): Invasion {
   const g: Invasion = {
     ...city, people: [], boxes: [], ufos: [], cars: [], particles: [], decals: [], blasts: [],
     time: 0, kills: 0, civilians: 0, headshots: 0, defused: 0, shots: 0, hits: 0, over: false, outcome: null, events: [],
-    deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: 5, told: { ufo: false, rain: false },
+    deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), told: { ufo: false, rain: false },
     aim: { x: city.width / 2, y: 10 }, lightning: null,
   };
   // Gente en cada habitación (en las obras, albañiles; en los locales, el que atiende y algún cliente).
@@ -251,8 +251,8 @@ function convert(g: Invasion) {
 export const revealed = (p: Person, t: number) => p.alien && !p.dead && ((t + p.revealPhase) % REVEAL_EVERY) < REVEAL_TIME;
 export const roomOf = (g: Invasion, p: Person) => p.room >= 0 ? g.rooms[p.room] : null;
 export const anomalyOf = (p: Person): Anomaly | null => p.anomaly ? ANOMALIES[p.anomaly.id] : null;
-// Cuántos aliens tiene que haber según el tiempo: arranca con 5 y llega uno más cada 35 segundos (hasta 26).
-export const aliensAt = (t: number) => Math.min(26, 5 + Math.floor(t / 35));
+// Cuántos aliens tiene que haber según el tiempo: arranca con 12 y llega uno más cada 20 segundos (hasta 40).
+export const aliensAt = (t: number) => Math.min(40, 12 + Math.floor(t / 20));
 // Ovnis: desde los 7 minutos, uno más cada 40 segundos (hasta 5).
 export const ufosAt = (t: number) => t < UFO_FROM ? 0 : Math.min(5, 1 + Math.floor((t - UFO_FROM) / 40));
 // Cuánto llueve (0 = nada, 1 = tormenta): empieza a los 5 minutos y en medio minuto ya es una tormenta.
@@ -358,9 +358,11 @@ function stepPerson(g: Invasion, p: Person, dt: number) {
     if (p.anomaly && t > p.anomaly.until) { p.anomaly = null; p.nextAnomaly = t + between(r, 6, 16) * (1 - ruinAt(t) * 0.5); }
     if (p.comm && t > p.comm.until) { p.comm = null; p.nextComm = t + between(r, 25, 50); }
     const busy = () => !!(p.anomaly || p.sabotage || p.comm || t < p.stareUntil);
-    // Si la mira le pasa cerca, se da cuenta y se queda mirándola fijo.
-    if (!busy() && t > p.nextStare && Math.hypot(g.aim.x - p.x, g.aim.y - (p.y + 0.8)) < 5 && r() < dt * 0.9) {
-      p.stareUntil = t + between(r, 2.5, 4.5); p.nextStare = p.stareUntil + between(r, 6, 14); p.moving = false;
+    // Se quedan mirando fijo a la cámara (a vos), con los ojos verdes: seguido si la mira les pasa cerca, y
+    // cada tanto aunque no los estés mirando.
+    const aimNear = Math.hypot(g.aim.x - p.x, g.aim.y - (p.y + 0.8)) < 9;
+    if (!busy() && t > p.nextStare && r() < dt * (aimNear ? 1.6 : 0.15)) {
+      p.stareUntil = t + between(r, 3, 5); p.nextStare = p.stareUntil + between(r, 4, 10); p.moving = false;
     }
     if (!busy() && t > p.nextComm) { p.comm = { t0: t, until: t + between(r, 4, 6.5) }; p.moving = false; emit(g, { type: 'comm', x: p.x, y: p.y + 0.8 }); }
     if (!busy() && t > p.nextAnomaly) startAnomaly(g, p, room);
@@ -412,7 +414,7 @@ export function wallPath(room: Room, x0: number, d: number) {
 function startAnomaly(g: Invasion, p: Person, room: Room | null) {
   const theme = room ? room.theme : null;
   // Bastante seguido se ponen a caminar por las paredes y el techo (es de lo más raro que hacen).
-  if (room && room.h > 2 && g.rand() < 0.2) {
+  if (room && room.h > 2 && g.rand() < 0.45) {
     p.anomaly = { id: WALLWALK.id, t0: g.time, until: g.time + wallPath(room, p.x, 0).L / WALL_SPEED, seed: g.rand() };
     p.act = 'stand'; p.y = room.y; p.tx = p.x;
     if (!g.seen.includes(WALLWALK.id)) g.seen.push(WALLWALK.id);
@@ -651,7 +653,7 @@ export function shoot(g: Invasion, x: number, y: number) {
   if (g.over) return 'none' as const;
   g.shots++;
   emit(g, { type: 'shot', x, y });
-  for (const u of g.ufos) if (Math.abs(x - u.x) < 3.4 && Math.abs(y - u.y) < 1.2) {
+  for (const u of g.ufos) if (Math.abs(x - u.x) < 6.4 && Math.abs(y - u.y) < 2.2) {
     burst(g, x, y, 12, '#a5f3fc', 'spark', 4, 0.05);
     emit(g, { type: 'ufoPing', x, y });
     return 'ufo' as const;
