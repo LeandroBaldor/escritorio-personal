@@ -548,6 +548,12 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   for (const d of g.decals) {
     if (!visible(v, d.x - 1, d.x + 1, d.y - 1, d.y + 1)) continue;
     const px = X(v, d.x), py = Y(v, d.y);
+    if (d.goo) { // mancha verde del alien que explotó
+      ctx.fillStyle = 'rgba(74,222,128,0.75)';
+      for (let i = 0; i < 9; i++) { const a = i * 0.7 + d.x, r = v.s * (0.12 + hash(i + d.x * 3) * 0.2); ctx.beginPath(); ctx.ellipse(px + Math.cos(a) * v.s * 0.4 * hash(i * 2 + d.t), py - Math.abs(Math.sin(a)) * v.s * 0.5 * hash(i + d.t), r, r * 0.7, a, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = 'rgba(22,101,52,0.8)'; ctx.beginPath(); ctx.ellipse(px, py, v.s * 0.45, v.s * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+      continue;
+    }
     if (d.glass) { ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1; for (let i = 0; i < 7; i++) { const a = i * 0.9 + d.x; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + Math.cos(a) * v.s * (0.25 + hash(i + d.y) * 0.35), py + Math.sin(a) * v.s * (0.25 + hash(i * 3 + d.x) * 0.35)); ctx.stroke(); } }
     ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(px, py, Math.max(1.2, v.s * 0.035), 0, Math.PI * 2); ctx.fill();
   }
@@ -578,6 +584,13 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   for (const bl of g.blasts) {
     const k = bl.t / 1.2, r = (0.6 + k * 1.8) * bl.size * v.s, px = X(v, bl.x), py = Y(v, bl.y);
     const gl = ctx.createRadialGradient(px, py, 0, px, py, r);
+    if (bl.green) { // el alien explota en verde: bola de luz, anillo y destello
+      gl.addColorStop(0, `rgba(240,255,220,${1 - k})`); gl.addColorStop(0.35, `rgba(132,204,22,${0.9 * (1 - k)})`); gl.addColorStop(0.7, `rgba(22,163,74,${0.6 * (1 - k)})`); gl.addColorStop(1, 'rgba(20,83,45,0)');
+      ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = `rgba(190,242,100,${0.9 * (1 - k)})`; ctx.lineWidth = Math.max(2, v.s * 0.08 * (1 - k)); ctx.beginPath(); ctx.arc(px, py, r * 1.25, 0, Math.PI * 2); ctx.stroke();
+      if (k < 0.15) { ctx.fillStyle = `rgba(190,242,100,${0.25 * (1 - k / 0.15)})`; ctx.fillRect(0, 0, v.w, v.h); }
+      continue;
+    }
     gl.addColorStop(0, `rgba(255,250,220,${1 - k})`); gl.addColorStop(0.4, `rgba(251,146,60,${0.85 * (1 - k)})`); gl.addColorStop(1, 'rgba(127,29,29,0)');
     ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
   }

@@ -1060,6 +1060,14 @@ export function playAlienDeath(volume = 1) {
   tone(c, 'square', 900, 120, t + 0.05, 0.6, 0.12 * volume);
   for (let i = 0; i < 5; i++) tone(c, 'sine', 160 + Math.random() * 120, 80, t + 0.4 + i * 0.08, 0.08, 0.2 * volume);
 }
+// El alien que explota: un golpe sordo y un chapoteo viscoso.
+export function playGooBlast() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  tone(c, 'sine', 120, 35, t, 0.45, 0.9);
+  burst(c, 'lowpass', 900, t, 0.35, 0.7);
+  for (let i = 0; i < 6; i++) tone(c, 'sine', 300 + Math.random() * 400, 90, t + 0.08 + i * 0.05, 0.1, 0.18);
+}
 // Le pegaste a una persona: un grito.
 export function playCivilianHit(volume = 1) { const c = running(); if (!c) return; scream(c, c.currentTime + 0.05, 1, 0.7 * volume); }
 // Un grito de la gente que corre.

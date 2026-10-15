@@ -360,6 +360,7 @@ function anomalyOpts(fx: AnomalyFx, t: number, k: number): { body: BodyOpts; ski
 export function drawPerson(ctx: CanvasRenderingContext2D, g: Invasion, p: Person, sx: number, sy: number, s: number, t: number) {
   const pose = poseOf(g, p), H = pose.h * s, a = anomalyOf(p), room = roomOf(g, p);
   const isAlien = revealed(p, t) || (p.dead?.alien && t - p.dead.t > 0.25);
+  if (H < 16) { drawTiny(ctx, p, pose, sx, sy, H, !!isAlien, t); return; }
   const k = p.moving ? t * (pose.kind === 'run' ? 16 : 9) + p.id : t * 2 + p.id;
   const ak = a ? t - p.anomaly!.t0 : 0;
   const fx = a?.fx;
@@ -449,6 +450,19 @@ export function drawPerson(ctx: CanvasRenderingContext2D, g: Invasion, p: Person
     case 'pose': if (fx.mode === 'sleepStand') bubble(ctx, head[0] + r, head[1] - r * 1.6, 'Zzz', s); if (fx.mode === 'sniff') bubble(ctx, head[0] + p.dir * r * 2, head[1] - r, 'snif snif', s); break;
     case 'env': drawEnv(ctx, fx.mode, sx, sy, H, s, t, p.dir, hand, head); break;
   }
+}
+
+// Visto de muy lejos (el fondo de la mira): solo la silueta con los colores de la ropa.
+function drawTiny(ctx: CanvasRenderingContext2D, p: Person, pose: Pose, sx: number, sy: number, H: number, alien: boolean, t: number) {
+  const o = alien ? ALIEN : outfitOf(p), lie = pose.kind === 'lie' || pose.kind === 'dead';
+  const y = sy - pose.lift * H;
+  if (lie) { ctx.fillStyle = o.shirt[1]; ctx.fillRect(sx - H * 0.4, y - H * 0.18, H * 0.8, H * 0.16); dot(ctx, o.skin, sx + pose.dir * H * 0.45, y - H * 0.12, H * 0.12); return; }
+  const h = pose.kind === 'sit' || pose.kind === 'squat' ? H * 0.75 : H, w = Math.max(1.5, H * 0.26);
+  const swing = p.moving ? Math.sin(t * 9 + p.id) * H * 0.08 : 0;
+  ctx.fillStyle = o.pants; ctx.fillRect(sx - w / 2 + swing * 0.3, y - h * 0.35, w * 0.45, h * 0.35); ctx.fillRect(sx - swing * 0.3, y - h * 0.35, w * 0.45, h * 0.35);
+  ctx.fillStyle = o.shirt[1]; ctx.fillRect(sx - w / 2, y - h * 0.72, w, h * 0.4);
+  dot(ctx, o.skin, sx, y - h * 0.83, H * (alien ? 0.17 : 0.12));
+  if (!alien && o.hat !== 'bald') { ctx.fillStyle = o.hat === 'helmet' ? o.hatColor : o.hair; ctx.fillRect(sx - H * 0.12, y - h * 0.97, H * 0.24, H * 0.07); }
 }
 
 function bubble(ctx: CanvasRenderingContext2D, x: number, y: number, text: string, s: number, color?: string) {

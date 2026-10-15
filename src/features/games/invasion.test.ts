@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aliensAt, aliveAliens, buildCity, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt,
+  aliensAt, aliveAliens, buildCity, GAME_SECONDS, GOAL_KILLS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt,
   type Invasion, type Person,
 } from './invasion';
 import { ANOMALIES, fitsPlace, shuffledAnomalies } from './invasionAnomalies';
@@ -98,31 +98,54 @@ describe('Invasión: la gente y los aliens', () => {
     expect(ruined).toBeGreaterThan(ruinAt(520) * 0.6);
     run(g, 90);
     expect(g.over).toBe(true);
+    expect(g.outcome).toBe('time');
     expect(g.rooms.every(r => r.destroyed)).toBe(true);
     expect(takeEvents(g).some(e => e.type === 'end')).toBe(true);
   }, 30000);
 });
 
 describe('Invasión: el disparo', () => {
-  it('matar a un alien suma uno (a la cabeza cuenta como tiro a la cabeza)', () => {
+  it('matar a un alien suma uno y el alien explota en una nube verde (no queda el cuerpo, queda la mancha)', () => {
     const g = newInvasion(8), alien = g.people.find(p => p.alien && p.room >= 0)!;
     const [x, y] = aimAt(g, alien, true);
     expect(shoot(g, x, y)).toBe('alien');
     expect(g.kills).toBe(1);
     expect(g.headshots).toBe(1);
     expect(alien.dead?.alien).toBe(true);
+    expect(alien.gone).toBe(true);
+    expect(g.blasts.some(b => b.green)).toBe(true);
+    expect(g.particles.filter(p => p.kind === 'goo').length).toBeGreaterThan(30);
+    expect(g.decals.at(-1)?.goo).toBe(true);
     expect(takeEvents(g).some(e => e.type === 'kill')).toBe(true);
+    expect(g.over).toBe(false);
   });
 
-  it('matar a una persona resta uno y asusta a los que están cerca', () => {
+  it('si matás a una persona, perdés', () => {
     const g = newInvasion(9);
     const alien = g.people.find(p => p.alien && p.room < 0)!;
     shoot(g, ...aimAt(g, alien));
     const human = g.people.find(p => !p.alien && p.room >= 0 && g.people.some(o => o !== p && o.room === p.room && !o.alien))!;
     expect(shoot(g, ...aimAt(g, human))).toBe('civilian');
-    expect(g.kills).toBe(0);
     expect(g.civilians).toBe(1);
-    expect(g.people.filter(o => o.room === human.room && o !== human && !o.alien).every(o => o.panic > 0)).toBe(true);
+    expect(g.over).toBe(true);
+    expect(g.outcome).toBe('civilian');
+    expect(takeEvents(g).some(e => e.type === 'end')).toBe(true);
+    expect(shoot(g, ...aimAt(g, alien))).toBe('none'); // ya terminó
+  });
+
+  it('con 20 aliens eliminados, ganás', () => {
+    const g = newInvasion(15);
+    expect(GOAL_KILLS).toBe(20);
+    for (let i = 0; i < GOAL_KILLS; i++) {
+      const alien = g.people.find(p => p.alien && !p.dead && !p.gone)!;
+      alien.anomaly = null;
+      expect(g.over).toBe(false);
+      expect(shoot(g, ...aimAt(g, alien))).toBe('alien');
+      step(g, 0.05); // llegan otros aliens a reemplazarlos
+    }
+    expect(g.kills).toBe(GOAL_KILLS);
+    expect(g.over).toBe(true);
+    expect(g.outcome).toBe('won');
   });
 
   it('a los ovnis las balas no les hacen nada', () => {

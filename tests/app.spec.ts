@@ -597,12 +597,12 @@ test('Invasión: se abre desde Juegos, corre el tiempo, se dispara, se recarga y
   await page.getByRole('link', { name: /Invasión/ }).click();
   await expect(page.getByRole('heading', { name: 'Invasión', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
-  await expect(page.getByTestId('inv-time')).toHaveText(/^9:5\d$/);
-  await expect(page.getByTestId('inv-kills')).toHaveText('0 👽');
+  await expect(page.getByTestId('inv-time')).toHaveText(/^0:0\d$/);
+  await expect(page.getByTestId('inv-kills')).toHaveText('0 / 20');
   await expect(page.getByTestId('inv-ammo')).toHaveAttribute('aria-label', '5 balas');
   await page.keyboard.press('Space');
   await expect(page.getByTestId('inv-ammo')).toHaveAttribute('aria-label', '4 balas');
-  await expect(page.locator('.runner-pad button[aria-label="Disparar"]')).toHaveCount(1);
+  await expect(page.locator('button[aria-label="Mover la vista a la derecha"]')).toHaveCount(1); // en la compu está oculto: se usan las flechas
   await page.keyboard.press('p');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
   const paused = await page.getByTestId('inv-time').textContent();
@@ -610,7 +610,6 @@ test('Invasión: se abre desde Juegos, corre el tiempo, se dispara, se recarga y
   await expect(page.getByTestId('inv-time')).toHaveText(paused ?? '');
   await page.getByRole('button', { name: 'Seguir' }).first().click();
   await expect(page.getByRole('heading', { name: 'Pausa' })).toHaveCount(0);
-  await page.keyboard.press('p'); // jugando, el mouse queda en la mira: para salir se pausa (o Escape)
   await page.getByRole('link', { name: '‹ Juegos' }).click();
   await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
 });

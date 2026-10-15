@@ -7,7 +7,7 @@
 //   explosivos (la gente también deja cajas, pero las de ellos tienen una lucecita roja que titila).
 // - Con el tiempo hay más aliens, la gente corre, y desde la mitad del juego llegan ovnis (a los que las
 //   balas no les hacen nada) que disparan contra la ciudad hasta destruirla del todo a los 10 minutos.
-// - Se cuentan los aliens que matás. Matar a una persona resta uno.
+// - Ganás cuando matás a 20 aliens. Si matás a una persona, perdés (y si se terminan los 10 minutos, también).
 //
 // Todo se mide en "unidades" (una persona mide 1). El piso de la calle es y = 0 y hacia arriba es positivo.
 import { ANOMALIES, fitsPlace, shuffledAnomalies, type Anomaly } from './invasionAnomalies';
@@ -18,6 +18,8 @@ export const PERSON_H = 1, PERSON_W = 0.42;
 export const SIDEWALK_Y = 0, ROAD_Y = -1.6;
 export const UFO_FROM = 300; // a los 5 minutos llegan los ovnis
 export const MAG = 5, BOLT_TIME = 0.75, RELOAD_TIME = 2.2;
+export const GOAL_KILLS = 20;
+export type Outcome = 'won' | 'civilian' | 'time';
 
 export type Style = 'brick' | 'stucco' | 'glass' | 'office' | 'construction' | 'old' | 'hotel';
 export type Theme = 'living' | 'kitchen' | 'bedroom' | 'bath' | 'office' | 'gym' | 'kids' | 'dining' | 'studio' | 'laundry' | 'shop' | 'site' | 'lobby';
@@ -50,8 +52,8 @@ export interface Box { id: number; room: number; x: number; y: number; explosive
 export interface Ufo { id: number; x: number; y: number; vx: number; t0: number; beam: { room: number; t0: number; until: number; x: number; y: number } | null; nextBeam: number; wobble: number }
 export interface Car { id: number; x: number; dir: 1 | -1; speed: number; hue: number; kind: 'car' | 'taxi' | 'bus' | 'van' | 'police'; lane: number }
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; kind: 'blood' | 'spark' | 'glass' | 'smoke' | 'debris' | 'ember' | 'goo' }
-export interface Decal { room: number; x: number; y: number; glass: boolean; t: number }
-export interface Blast { x: number; y: number; t: number; size: number }
+export interface Decal { room: number; x: number; y: number; glass: boolean; t: number; goo?: boolean }
+export interface Blast { x: number; y: number; t: number; size: number; green?: boolean }
 export type InvasionEvent =
   | { type: 'shot'; x: number; y: number } | { type: 'kill'; x: number; y: number; head: boolean; anomaly: number | null }
   | { type: 'civilian'; x: number; y: number } | { type: 'defused'; x: number; y: number } | { type: 'boxHit'; x: number; y: number }
@@ -62,7 +64,7 @@ export type InvasionEvent =
 export interface Invasion {
   width: number; buildings: Building[]; rooms: Room[]; people: Person[]; boxes: Box[]; ufos: Ufo[]; cars: Car[];
   particles: Particle[]; decals: Decal[]; blasts: Blast[];
-  time: number; kills: number; civilians: number; headshots: number; defused: number; shots: number; hits: number; over: boolean;
+  time: number; kills: number; civilians: number; headshots: number; defused: number; shots: number; hits: number; over: boolean; outcome: Outcome | null;
   events: InvasionEvent[]; deck: number[]; deckPos: number; rand: () => number; nextId: number; seen: number[]; killedAnomalies: number[];
   aliensWanted: number; told: { ufo: boolean };
 }
@@ -198,7 +200,7 @@ export function newInvasion(seed?: number): Invasion {
   const rand = rng(s + 7);
   const g: Invasion = {
     ...city, people: [], boxes: [], ufos: [], cars: [], particles: [], decals: [], blasts: [],
-    time: 0, kills: 0, civilians: 0, headshots: 0, defused: 0, shots: 0, hits: 0, over: false, events: [],
+    time: 0, kills: 0, civilians: 0, headshots: 0, defused: 0, shots: 0, hits: 0, over: false, outcome: null, events: [],
     deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: 5, told: { ufo: false },
   };
   // Gente en cada habitación (en las obras, albañiles; en los locales, el que atiende y algún cliente).
@@ -276,7 +278,7 @@ export function step(g: Invasion, dt: number) {
   dt = Math.min(dt, 0.05);
   g.time += dt;
   const t = g.time;
-  if (t >= GAME_SECONDS) { g.over = true; for (const room of g.rooms) { room.destroyed = 1; room.burnt = 1; } emit(g, { type: 'end' }); return; }
+  if (t >= GAME_SECONDS) { g.over = true; g.outcome = 'time'; for (const room of g.rooms) { room.destroyed = 1; room.burnt = 1; } emit(g, { type: 'end' }); return; }
 
   // Más aliens con el tiempo.
   const want = aliensAt(t);
@@ -574,15 +576,25 @@ export function shoot(g: Invasion, x: number, y: number) {
     p.dead = { t: g.time, alien: p.alien, head };
     p.sabotage = null;
     g.hits++;
-    const color = p.alien ? '#4ade80' : '#b91c1c';
-    burst(g, x, y, head ? 26 : 16, color, p.alien ? 'goo' : 'blood', 3.5, 0.05);
     if (p.alien) {
+      // El alien explota en una nube verde (no queda el cuerpo, queda la mancha).
+      const box = hitbox(g, p), cx = (box.x1 + box.x2) / 2, cy = (box.y1 + box.y2) / 2;
+      p.gone = true;
+      g.blasts.push({ x: cx, y: cy, t: 0, size: 1.3, green: true });
+      burst(g, cx, cy, 46, '#4ade80', 'goo', 5.5, 0.07);
+      burst(g, cx, cy, 18, '#bef264', 'spark', 6.5, 0.05);
+      burst(g, cx, cy, 10, '#14532d', 'goo', 3, 0.1);
+      g.decals.push({ room: p.room, x: cx, y: p.y + 0.02, glass: false, t: g.time, goo: true });
       g.kills++; if (head) g.headshots++;
       if (p.anomaly) g.killedAnomalies.push(p.anomaly.id);
-      emit(g, { type: 'kill', x, y, head, anomaly: p.anomaly?.id ?? null });
+      emit(g, { type: 'kill', x: cx, y: cy, head, anomaly: p.anomaly?.id ?? null });
+      if (g.kills >= GOAL_KILLS) { g.over = true; g.outcome = 'won'; emit(g, { type: 'end' }); }
     } else {
-      g.kills = Math.max(0, g.kills - 1); g.civilians++;
+      // Mataste a una persona: perdés.
+      burst(g, x, y, head ? 26 : 16, '#b91c1c', 'blood', 3.5, 0.05);
+      g.civilians++;
       emit(g, { type: 'civilian', x, y });
+      g.over = true; g.outcome = 'civilian'; emit(g, { type: 'end' });
     }
     p.anomaly = null;
     // Los que estaban cerca se asustan y corren.
