@@ -4,7 +4,7 @@
 // - Los aliens se ven como personas, pero cada uno, cada 30 segundos (con su propio ritmo), muestra durante 5
 //   segundos su cara de alien gris. Además cada tanto hacen algo anormal (ver invasionAnomalies.ts): se quedan
 //   mirando fijo a la mira, hablan por un intercomunicador extraterrestre, caminan por las paredes y el techo.
-// - A los 5 minutos empieza a llover (nubes, relámpagos) y a los 7 llegan los ovnis.
+// - A los 3 minutos empieza a llover (nubes, relámpagos) y a los 5 llegan los ovnis.
 // - Quieren incendiar todo: prenden fuego con un encendedor, con un arma alienígena, o dejan cajas con
 //   explosivos (la gente también deja cajas, pero las de ellos tienen una lucecita roja que titila).
 // - Con el tiempo hay más aliens, la gente corre, y desde la mitad del juego llegan ovnis (a los que las
@@ -19,8 +19,8 @@ export const GAME_SECONDS = 600;
 export const REVEAL_EVERY = 30, REVEAL_TIME = 5;
 export const PERSON_H = 1, PERSON_W = 0.42;
 export const SIDEWALK_Y = 0, ROAD_Y = -1.6;
-export const UFO_FROM = 420; // a los 7 minutos llegan los ovnis
-export const RAIN_FROM = 300; // a los 5 minutos empieza a llover
+export const UFO_FROM = 300; // a los 5 minutos llegan los ovnis
+export const RAIN_FROM = 180; // a los 3 minutos empieza a llover
 export const MAG = 5, BOLT_TIME = 0.75, RELOAD_TIME = 2.2;
 export const GOAL_KILLS = 20;
 export const LIVES = 3; // personas a las que se les puede disparar antes de perder
@@ -253,9 +253,9 @@ export const roomOf = (g: Invasion, p: Person) => p.room >= 0 ? g.rooms[p.room] 
 export const anomalyOf = (p: Person): Anomaly | null => p.anomaly ? ANOMALIES[p.anomaly.id] : null;
 // Cuántos aliens tiene que haber según el tiempo: arranca con 12 y llega uno más cada 20 segundos (hasta 40).
 export const aliensAt = (t: number) => Math.min(40, 12 + Math.floor(t / 20));
-// Ovnis: desde los 7 minutos, uno más cada 40 segundos (hasta 5).
+// Ovnis: desde los 5 minutos, van apareciendo de a uno cada 40 segundos (hasta 5).
 export const ufosAt = (t: number) => t < UFO_FROM ? 0 : Math.min(5, 1 + Math.floor((t - UFO_FROM) / 40));
-// Cuánto llueve (0 = nada, 1 = tormenta): empieza a los 5 minutos y en medio minuto ya es una tormenta.
+// Cuánto llueve (0 = nada, 1 = tormenta): empieza a los 3 minutos y en medio minuto ya es una tormenta.
 export const rainAt = (t: number) => Math.max(0, Math.min(1, (t - RAIN_FROM) / 30));
 // Cuánto de la ciudad tiene que estar destruida a cada momento (al final, toda).
 export const ruinAt = (t: number) => t < UFO_FROM ? 0 : Math.min(1, ((t - UFO_FROM) / (GAME_SECONDS - UFO_FROM)) ** 1.6);
@@ -745,7 +745,8 @@ export function nearby(g: Invasion, x: number, y: number, radius: number) {
   }
   for (const room of g.rooms) if (room.fire > 0.05) out.fire = Math.max(out.fire, near(room.fireAt, room.y + 0.6) * Math.min(1, room.fire * 2));
   for (const b of g.boxes) if (b.explosive && !b.defused && !b.exploded) out.tick = Math.max(out.tick, near(b.x, b.y) * 0.7);
-  for (const u of g.ufos) out.ufo = Math.max(out.ufo, Math.max(0, 1 - Math.hypot(u.x - x, u.y - y) / (radius * 3)));
+  // Los ovnis se escuchan fuerte y desde lejos (y algo en toda la ciudad mientras haya alguno).
+  for (const u of g.ufos) out.ufo = Math.max(out.ufo, 0.35, 1 - Math.hypot(u.x - x, u.y - y) / (radius * 6));
   const calm = 1 - ruinAt(g.time);
   out.street = Math.max(0.15, near(x, 0) * 1.2) * calm + (1 - calm) * 0.3;
   out.birds = Math.max(0.1, near(x, 30)) * calm * calm;

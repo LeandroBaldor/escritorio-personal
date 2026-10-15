@@ -91,9 +91,9 @@ describe('Invasión: la gente y los aliens', () => {
     expect(harmless).toBeGreaterThan(0);
   });
 
-  it('con el tiempo hay más aliens, a los 5 minutos llueve, a los 7 llegan los ovnis y a los 10 la ciudad queda destruida', () => {
-    expect(RAIN_FROM).toBe(300);
-    expect(UFO_FROM).toBe(420);
+  it('con el tiempo hay más aliens, a los 3 minutos llueve, a los 5 llegan los ovnis y a los 10 la ciudad queda destruida', () => {
+    expect(RAIN_FROM).toBe(180);
+    expect(UFO_FROM).toBe(300);
     expect(rainAt(RAIN_FROM - 1)).toBe(0);
     expect(rainAt(RAIN_FROM + 60)).toBe(1);
     expect(aliensAt(0)).toBe(12);
@@ -103,18 +103,19 @@ describe('Invasión: la gente y los aliens', () => {
     expect(ufosAt(GAME_SECONDS - 1)).toBeGreaterThan(3);
     expect(ruinAt(GAME_SECONDS)).toBe(1);
     const g = newInvasion(7);
-    run(g, 330);
+    run(g, RAIN_FROM + 30);
     expect(g.ufos.length).toBe(0);
     const events = takeEvents(g);
     expect(events.some(e => e.type === 'rain')).toBe(true);
     run(g, 60);
     expect([...events, ...takeEvents(g)].some(e => e.type === 'thunder')).toBe(true); // relámpagos
-    run(g, UFO_FROM + 15 - 390);
+    expect(g.ufos.length).toBe(0);
+    run(g, UFO_FROM + 15 - (RAIN_FROM + 90));
     expect(g.ufos.length).toBe(1);
     expect(aliveAliens(g)).toBeGreaterThanOrEqual(aliensAt(UFO_FROM) - 1);
-    run(g, 105);
+    run(g, 540 - g.time);
     const ruined = g.rooms.filter(r => r.destroyed).length / g.rooms.length;
-    expect(ruined).toBeGreaterThan(ruinAt(540) * 0.6);
+    expect(ruined).toBeGreaterThan(ruinAt(g.time) * 0.6);
     run(g, 70);
     expect(g.over).toBe(true);
     expect(g.outcome).toBe('time');
