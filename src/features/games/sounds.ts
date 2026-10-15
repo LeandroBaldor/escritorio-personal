@@ -34,6 +34,11 @@ import helicopteroUrl from './assets/sonidos/helicoptero.mp3';
 import electricidadUrl from './assets/sonidos/electricidad.mp3';
 import fuegoUrl from './assets/sonidos/fuego.mp3';
 import personaQuemaUrl from './assets/sonidos/persona-quema.mp3';
+import invTiroUrl from './assets/sonidos/invasion-tiro.mp3';
+import invSangreAlienUrl from './assets/sonidos/invasion-sangre-alien.mp3';
+import invSangreHumanoUrl from './assets/sonidos/invasion-sangre-humano.mp3';
+import invBombaUrl from './assets/sonidos/invasion-bomba.mp3';
+import invAutosUrl from './assets/sonidos/invasion-autos.mp3';
 
 type WithWebkit = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 let ctx: AudioContext | null = null;
@@ -919,7 +924,7 @@ export function setCrowd(level: number) {
 
 // ---------- Invasión ----------
 let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
-export function preloadInvasionSounds() { for (const url of [fuegoUrl, bombaUrl, personaQuemaUrl]) loadSample(url); }
+export function preloadInvasionSounds() { for (const url of [fuegoUrl, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl]) loadSample(url); }
 // Voces en un idioma inventado: una voz (tono que sube y baja) que pasa por dos "formantes" que cambian todo
 // el tiempo (las vocales) y se corta en sílabas.
 function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
@@ -934,15 +939,15 @@ function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
 function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel> {
   const channel = (max: number, make: (out: GainNode) => void) => ambientChannel(c, max, make);
   return {
-    // La ciudad: el rumor del tránsito, motores que pasan y alguna bocina lejana.
-    city: channel(0.45, out => {
+    // La ciudad: la grabación de los autos (mientras carga, el rumor del tránsito y alguna bocina lejana).
+    city: channel(0.55, out => recorded(c, invAutosUrl, 1, out, out => {
       const traffic = noiseSource(c), low = filter(c, 'lowpass', 380), level = c.createGain();
       level.gain.value = 0.7; wobble(c, level.gain, 0.13, 0.35); wobble(c, low.frequency, 0.21, 160);
       traffic.connect(low).connect(level).connect(out); traffic.start();
       const horn = osc(c, 'square', 415), hornF = filter(c, 'lowpass', 1400), hornGate = c.createGain();
       hornGate.gain.value = 0; wobble(c, hornGate.gain, 0.09, 0.04, 'square');
       horn.connect(hornF).connect(hornGate).connect(out); horn.start();
-    }),
+    })),
     // Pájaros: trinos cortos que suben y bajan.
     birds: channel(0.25, out => {
       for (const [f, rate] of [[3200, 5.3], [4100, 7.1], [2700, 3.7]]) {
@@ -1026,6 +1031,7 @@ export function setInvasionAmbient(levels: Record<InvasionChannel, number> | nul
 }
 // El disparo del rifle: un estampido seco con un eco que se va por la calle.
 export function playRifleShot() {
+  if (playSample(invTiroUrl, 0.9)) return;
   const c = running(); if (!c) return;
   const t = c.currentTime;
   burst(c, 'lowpass', 5000, t, 0.12, 1.2);
@@ -1062,6 +1068,7 @@ export function playAlienDeath(volume = 1) {
 }
 // El alien que explota: un golpe sordo y un chapoteo viscoso.
 export function playGooBlast() {
+  if (playSample(invSangreAlienUrl, 1)) return;
   const c = running(); if (!c) return;
   const t = c.currentTime;
   tone(c, 'sine', 120, 35, t, 0.45, 0.9);
@@ -1069,7 +1076,7 @@ export function playGooBlast() {
   for (let i = 0; i < 6; i++) tone(c, 'sine', 300 + Math.random() * 400, 90, t + 0.08 + i * 0.05, 0.1, 0.18);
 }
 // Le pegaste a una persona: un grito.
-export function playCivilianHit(volume = 1) { const c = running(); if (!c) return; scream(c, c.currentTime + 0.05, 1, 0.7 * volume); }
+export function playCivilianHit(volume = 1) { playSample(invSangreHumanoUrl, volume); const c = running(); if (!c) return; scream(c, c.currentTime + 0.05, 1, 0.5 * volume); }
 // Un grito de la gente que corre.
 export function playScream(volume: number, pitch: number) { const c = running(); if (!c || volume < 0.05) return; scream(c, c.currentTime, pitch, 0.5 * volume); }
 // La bala rebota en un ovni: un "ping" metálico.
@@ -1079,7 +1086,7 @@ export function playDefuse() { const c = running(); if (!c) return; const t = c.
 // Una explosión, más fuerte cuanto más cerca de la mira.
 export function playBlast(volume: number) {
   if (volume < 0.05) return;
-  if (playSample(bombaUrl, 0.9 * volume)) return;
+  if (playSample(invBombaUrl, volume)) return;
   const c = running(); if (!c) return;
   const t = c.currentTime;
   tone(c, 'sine', 90, 28, t, 0.6, 1.1 * volume);

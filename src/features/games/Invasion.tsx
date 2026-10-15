@@ -18,7 +18,7 @@ const saveRecord = (value: InvasionRecord) => { try { localStorage.setItem(RECOR
 export const formatInvasionTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 type Status = 'ready' | 'playing' | 'paused' | 'over';
-const MAX_ZOOM = 120, START_ZOOM = 58;
+const MAX_ZOOM = 520, START_ZOOM = 58; // con todo el zoom, la cabeza de una persona llena la mira
 const BREATH = 4; // segundos que se puede contener la respiración (Shift)
 const PAN = 26; // lo que se mueve la vista con las flechas (unidades por segundo)
 // Lo que entra de alto en el fondo: de la calle a lo más alto de los edificios (la ciudad ocupa casi toda la pantalla).
@@ -217,12 +217,12 @@ export function Invasion() {
       const p = stage ? target(stage.clientWidth, stage.clientHeight) : { x: 0, y: 0 };
       const near = (x: number, y: number) => Math.max(0, 1 - Math.hypot(x - p.x, y - p.y) / (600 / a.zoom));
       for (const e of takeEvents(g)) {
-        if (e.type === 'kill') { playGooBlast(); playAlienDeath(); if (e.head && !g.over) setToast({ text: `¡Tiro a la cabeza! ${g.kills} de ${GOAL_KILLS} 👽`, id: now }); }
+        if (e.type === 'kill') { playGooBlast(); playAlienDeath(0.45); if (e.head && !g.over) setToast({ text: `¡Tiro a la cabeza! ${g.kills} de ${GOAL_KILLS} 👽`, id: now }); }
         if (e.type === 'civilian') playCivilianHit();
         if (e.type === 'glass') playGlass(0.8);
         if (e.type === 'ufoPing') playRicochet();
         if (e.type === 'defused') playDefuse();
-        if (e.type === 'explosion') { const k = near(e.x, e.y); playBlast(Math.max(0.15, k)); a.shake = Math.max(a.shake, k * 0.8); }
+        if (e.type === 'explosion') { const k = near(e.x, e.y); playBlast(Math.max(0.15, k)); a.shake = Math.max(a.shake, 0.3 + k * 1.2); }
         if (e.type === 'bomb') { playRadioBeep(); setToast({ text: '📻 Radio: un alien dejó una bomba 💣 Buscá la caja con la luz roja y dispárale', id: now, bad: true }); }
         if (e.type === 'laser') playLaser(Math.max(0.2, near(e.x, e.y)));
         if (e.type === 'lighter') playLighter(near(e.x, e.y));

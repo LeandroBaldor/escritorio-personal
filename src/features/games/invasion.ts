@@ -56,7 +56,7 @@ export interface Ufo { id: number; x: number; y: number; vx: number; t0: number;
 export interface Car { id: number; x: number; dir: 1 | -1; speed: number; hue: number; kind: 'car' | 'taxi' | 'bus' | 'van' | 'police'; lane: number }
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; kind: 'blood' | 'spark' | 'glass' | 'smoke' | 'debris' | 'ember' | 'goo' }
 export interface Decal { room: number; x: number; y: number; glass: boolean; t: number; goo?: boolean; blood?: boolean; size?: number }
-export interface Blast { x: number; y: number; t: number; size: number; green?: boolean }
+export interface Blast { x: number; y: number; t: number; size: number; green?: boolean; big?: boolean }
 export type InvasionEvent =
   | { type: 'shot'; x: number; y: number } | { type: 'kill'; x: number; y: number; head: boolean; anomaly: number | null }
   | { type: 'civilian'; x: number; y: number; lives: number } | { type: 'bomb'; x: number; y: number } | { type: 'defused'; x: number; y: number } | { type: 'boxHit'; x: number; y: number }
@@ -270,7 +270,7 @@ export function destroyRoom(g: Invasion, room: Room) {
   if (room.destroyed >= 1) return;
   room.destroyed = 1; room.fire = Math.max(room.fire, 0.6); room.burnt = 1;
   const cx = (room.x1 + room.x2) / 2, cy = room.y + room.h / 2;
-  g.blasts.push({ x: cx, y: cy, t: 0, size: Math.min(3, (room.x2 - room.x1) * 0.5) });
+  g.blasts.push({ x: cx, y: cy, t: 0, size: Math.min(4.5, (room.x2 - room.x1) * 0.8), big: true });
   burst(g, cx, cy, 30, '#78716c', 'debris', 6, 0.14);
   burst(g, cx, cy, 20, '#fb923c', 'ember', 5, 0.06);
   emit(g, { type: 'explosion', x: cx, y: cy });
@@ -303,7 +303,7 @@ export function step(g: Invasion, dt: number) {
   for (const s of g.particles) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy -= (s.kind === 'smoke' || s.kind === 'ember' ? -0.6 : 14) * dt; s.life -= dt; }
   g.particles = g.particles.filter(s => s.life > 0).slice(-1400);
   for (const b of g.blasts) b.t += dt;
-  g.blasts = g.blasts.filter(b => b.t < 1.2);
+  g.blasts = g.blasts.filter(b => b.t < (b.big ? 2.6 : 1.2));
 }
 
 function chooseActivity(g: Invasion, p: Person, room: Room | null) {
@@ -450,7 +450,7 @@ function stepBoxes(g: Invasion) {
     if (!b.explosive || b.defused || b.exploded || g.time < b.explodeAt) continue;
     b.exploded = true;
     const room = b.room >= 0 ? g.rooms[b.room] : g.rooms.find(o => o.floor === 0 && b.x >= o.x1 && b.x <= o.x2);
-    g.blasts.push({ x: b.x, y: b.y + 0.4, t: 0, size: 2.6 });
+    g.blasts.push({ x: b.x, y: b.y + 0.6, t: 0, size: 4.2, big: true });
     burst(g, b.x, b.y + 0.3, 50, '#fbbf24', 'spark', 9, 0.08);
     burst(g, b.x, b.y + 0.3, 24, '#57534e', 'debris', 6, 0.14);
     burst(g, b.x, b.y + 0.3, 16, '#fb923c', 'ember', 5, 0.06);

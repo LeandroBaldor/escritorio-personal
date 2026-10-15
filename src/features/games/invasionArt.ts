@@ -16,7 +16,7 @@ export interface View { w: number; h: number; s: number; cx: number; cy: number;
 export const X = (v: View, x: number) => v.w / 2 + (x - v.cx) * v.s;
 export const Y = (v: View, y: number) => v.h / 2 - (y - v.cy) * v.s;
 const visible = (v: View, x1: number, x2: number, y1: number, y2: number) => X(v, x2) > -30 && X(v, x1) < v.w + 30 && Y(v, y1) > -30 && Y(v, y2) < v.h + 30;
-export const ZOOMS = [12, 18, 26, 38, 55, 80, 115];
+export const ZOOMS = [12, 18, 26, 38, 55, 80, 115, 170, 250];
 export const SKY_TOP = CITY_TOP + 6;
 
 // ---------- Cielo y fondo ----------
@@ -340,7 +340,9 @@ function drawItem(ctx: CanvasRenderingContext2D, f: Furniture, room: Room, P: P,
 }
 
 const roomCache = new Map<string, HTMLCanvasElement>();
-const CACHE_MAX = 700;
+// Se guardan imágenes hasta un total de píxeles (las de mucho zoom son enormes): se tiran las que hace más que no se usan.
+const CACHE_PIXELS = 48e6;
+let cachePixels = 0;
 // Cuántas imágenes nuevas se arman por cuadro (las demás, en los cuadros siguientes): así arrancar o hacer
 // zoom no traba el juego en las compus y celulares lentos.
 let budget = 0;
@@ -351,6 +353,7 @@ function roomImage(room: Room, b: Building, level: number, dpr: number) {
   if (typeof document === 'undefined' || budget <= 0) return null;
   budget--;
   const S = ZOOMS[level], pad = 0.05;
+  if (S > 120) dpr = 1; // con tanto zoom no hace falta más resolución (y las imágenes serían gigantes)
   const canvas = document.createElement('canvas');
   canvas.width = Math.ceil((room.x2 - room.x1 + pad * 2) * S * dpr); canvas.height = Math.ceil((room.h + pad * 2) * S * dpr);
   const ctx = canvas.getContext('2d');
@@ -358,7 +361,8 @@ function roomImage(room: Room, b: Building, level: number, dpr: number) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   drawRoomStatic(ctx, room, b, { x: u => (u - room.x1 + pad) * S, y: u => (room.y + room.h + pad - u) * S, s: S });
   roomCache.set(key, canvas);
-  if (roomCache.size > CACHE_MAX) roomCache.delete(roomCache.keys().next().value!);
+  cachePixels += canvas.width * canvas.height;
+  while (cachePixels > CACHE_PIXELS && roomCache.size > 1) { const [old, img] = roomCache.entries().next().value!; roomCache.delete(old); cachePixels -= img.width * img.height; }
   return canvas;
 }
 // Cualquier imagen ya armada de la habitación (de otro zoom), mientras se arma la del zoom actual.
@@ -689,6 +693,7 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
   // Explosiones y partículas.
   for (const bl of g.blasts) {
     if (bl.t < 0) continue;
+    if (bl.big) { drawBigBlast(ctx, bl, v); continue; }
     const k = bl.t / 1.2, r = (0.6 + k * 1.8) * bl.size * v.s, px = X(v, bl.x), py = Y(v, bl.y);
     const gl = ctx.createRadialGradient(px, py, 0, px, py, r);
     if (bl.green) { // el alien explota en verde: bola de luz, anillo y destello
@@ -718,6 +723,39 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
   const ruin = ruinAt(g.time);
   if (ruin > 0) { ctx.fillStyle = `rgba(40,10,5,${ruin * 0.3})`; ctx.fillRect(0, 0, v.w, v.h); }
 }
+// Una explosión grande (las bombas y los rayos de los ovnis): el destello, una bola de fuego que crece y se
+// vuelve humo negro, la onda expansiva, llamaradas para todos lados y un hongo de humo que sube.
+export const BIG_BLAST_TIME = 2.6;
+function drawBigBlast(ctx: CanvasRenderingContext2D, bl: Invasion['blasts'][number], v: View) {
+  const k = Math.min(1, bl.t / BIG_BLAST_TIME), s = v.s, px = X(v, bl.x), py = Y(v, bl.y), R = bl.size * s;
+  // Destello que ilumina todo.
+  if (bl.t < 0.25) { ctx.fillStyle = `rgba(255,244,214,${0.55 * (1 - bl.t / 0.25)})`; ctx.fillRect(0, 0, v.w, v.h); }
+  // Onda expansiva.
+  const ring = R * (0.5 + Math.min(1, bl.t / 0.7) * 2.6);
+  if (bl.t < 0.8) { ctx.strokeStyle = `rgba(255,255,255,${0.6 * (1 - bl.t / 0.8)})`; ctx.lineWidth = Math.max(3, R * 0.1 * (1 - bl.t / 0.8)); ctx.beginPath(); ctx.arc(px, py, ring, 0, Math.PI * 2); ctx.stroke(); }
+  // Humo que sube (hongo).
+  const rise = k * R * 1.6;
+  for (let i = 0; i < 12; i++) {
+    const a = i / 12 * Math.PI * 2 + bl.x, d = R * (0.4 + hash(i + bl.x) * 0.6) * (0.4 + k), r = R * (0.45 + hash(i * 3 + bl.y) * 0.35) * (0.5 + k);
+    const cx = px + Math.cos(a) * d, cy = py - rise + Math.sin(a) * d * 0.6, al = 0.9 * Math.min(1, k * 4) * (1 - k * 0.55);
+    const sm = ctx.createRadialGradient(cx, cy, 0, cx, cy, r); sm.addColorStop(0, `rgba(41,37,36,${al})`); sm.addColorStop(1, 'rgba(41,37,36,0)');
+    ctx.fillStyle = sm; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  }
+  // Bola de fuego: grande al principio, después se achica y se oscurece.
+  const fk = Math.min(1, bl.t / 1.3), fr = R * (0.6 + Math.sqrt(fk) * 1.2) * (1 - Math.max(0, fk - 0.6));
+  if (fk < 1) {
+    for (let i = 0; i < 9; i++) {
+      const a = i / 9 * Math.PI * 2 + bl.t * 0.8, d = fr * 0.45 * hash(i + bl.x * 7), cx = px + Math.cos(a) * d, cy = py - fk * R * 0.6 + Math.sin(a) * d * 0.8, r = fr * (0.55 + hash(i * 5 + bl.x) * 0.4);
+      const f = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      f.addColorStop(0, `rgba(255,251,235,${1 - fk})`); f.addColorStop(0.3, `rgba(253,224,71,${0.95 * (1 - fk)})`); f.addColorStop(0.6, `rgba(249,115,22,${0.85 * (1 - fk)})`); f.addColorStop(1, 'rgba(127,29,29,0)');
+      ctx.fillStyle = f; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    }
+    // Llamaradas que salen disparadas.
+    ctx.fillStyle = `rgba(251,146,60,${0.9 * (1 - fk)})`;
+    for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2 + bl.y, l = fr * (1.2 + hash(i + bl.y * 3) * 1.1), w = fr * 0.1; ctx.beginPath(); ctx.moveTo(px + Math.cos(a + 0.2) * w, py + Math.sin(a + 0.2) * w); ctx.lineTo(px + Math.cos(a) * l, py + Math.sin(a) * l); ctx.lineTo(px + Math.cos(a - 0.2) * w, py + Math.sin(a - 0.2) * w); ctx.fill(); }
+  }
+}
+
 // La bomba de los aliens: la caja con cables, una lucecita roja que titila (más rápido cuando falta poco) y,
 // mirando de cerca, el reloj con la cuenta regresiva.
 function drawBomb(ctx: CanvasRenderingContext2D, box: Invasion['boxes'][number], px: number, py: number, s: number, t: number) {
