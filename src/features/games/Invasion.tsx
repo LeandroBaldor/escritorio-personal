@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BOLT_TIME, GOAL_KILLS, MAG, newInvasion, RELOAD_TIME, shoot, step, takeEvents, type Invasion as Game, type Outcome } from './invasion';
+import { BOLT_TIME, CITY_TOP, GOAL_KILLS, LIVES, MAG, newInvasion, RELOAD_TIME, shoot, step, takeEvents, type Invasion as Game, type Outcome } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import { drawMinimap, paintCity, type View } from './invasionArt';
 import { invasionLevels } from './invasionSound';
@@ -21,12 +21,12 @@ type Status = 'ready' | 'playing' | 'paused' | 'over';
 const MAX_ZOOM = 120, START_ZOOM = 58;
 const BREATH = 4; // segundos que se puede contener la respiración (Shift)
 const PAN = 26; // lo que se mueve la vista con las flechas (unidades por segundo)
-// Lo que entra de alto en el fondo: de la calle a lo más alto de los edificios.
-const FLOOR_Y = -3.4, TOP_Y = 47;
+// Lo que entra de alto en el fondo: de la calle a lo más alto de los edificios (la ciudad ocupa casi toda la pantalla).
+const FLOOR_Y = -3.4, TOP_Y = CITY_TOP;
 
 const OUTCOME_TEXT: Record<Outcome, string> = {
   won: '¡Eliminaste a los 20 aliens y salvaste la ciudad! 👽',
-  civilian: '¡Le disparaste a una persona! Perdiste.',
+  civilian: `¡Le disparaste a ${LIVES} personas! Perdiste.`,
   time: 'Se terminaron los 10 minutos y la ciudad cayó.',
 };
 
@@ -69,12 +69,12 @@ export function Invasion() {
   // `cam`: dónde está la vista (se mueve con las flechas). `mouse`: dónde está la mira en la pantalla.
   const cam = useRef({ x: 60 });
   const mouse = useRef({ x: -1, y: -1 });
-  const aim = useRef({ zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0 });
+  const aim = useRef({ zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0 });
   const gun = useRef({ mag: MAG, cycle: 0, reload: 0 });
   const drag = useRef<{ x: number; y: number; id: number; moved: number; t: number } | null>(null);
   const keys = useRef(new Set<string>());
   const [status, setStatus] = useState<Status>('ready');
-  const [hud, setHud] = useState({ time: 0, kills: 0, mag: MAG, reloading: false, breath: 1 });
+  const [hud, setHud] = useState({ time: 0, kills: 0, lives: LIVES, mag: MAG, reloading: false, breath: 1 });
   const [record, setRecord] = useState(readInvasionRecord);
   const [result, setResult] = useState({ outcome: 'time' as Outcome, kills: 0, time: 0, headshots: 0, shots: 0, hits: 0, defused: 0, newRecord: false, clues: [] as string[] });
   const [toast, setToast] = useState<{ text: string; id: number; big?: boolean; bad?: boolean } | null>(null);
@@ -122,10 +122,12 @@ export function Invasion() {
     if (bg.canvas.width !== canvas.width || bg.canvas.height !== canvas.height || Math.abs(bg.x - b.cx) > 0.01 || now - bg.at > 100) {
       bg.canvas.width = canvas.width; bg.canvas.height = canvas.height;
       const bctx = bg.canvas.getContext('2d');
-      if (bctx) { bctx.setTransform(dpr, 0, 0, dpr, 0, 0); paintCity(bctx, g, { ...b, t: g.time, dpr }, 4); bctx.fillStyle = 'rgba(2,8,4,0.5)'; bctx.fillRect(0, 0, w, h); }
+      if (bctx) { bctx.setTransform(dpr, 0, 0, dpr, 0, 0); paintCity(bctx, g, { ...b, t: g.time, dpr }, 10); bctx.fillStyle = 'rgba(2,8,4,0.3)'; bctx.fillRect(0, 0, w, h); }
       bg.x = b.cx; bg.at = now;
     }
-    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(bg.canvas, 0, 0); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Cuando explota un alien (o una bomba cerca) tiembla todo.
+    const shake = a.shake > 0 ? [Math.sin(g.time * 90) * a.shake * 14, Math.cos(g.time * 77) * a.shake * 10] : [0, 0];
+    ctx.setTransform(1, 0, 0, 1, shake[0] * dpr, shake[1] * dpr); ctx.drawImage(bg.canvas, 0, 0); ctx.setTransform(dpr, 0, 0, dpr, shake[0] * dpr, shake[1] * dpr);
     // Adentro del círculo, agrandado.
     ctx.save();
     ctx.beginPath(); ctx.arc(p.mx, p.my, R, 0, Math.PI * 2); ctx.clip();
@@ -133,6 +135,9 @@ export function Invasion() {
     paintCity(ctx, g, { w: R * 2, h: R * 2, s: a.zoom, cx: p.x, cy: p.y, t: g.time, dpr });
     ctx.restore();
     drawScope(ctx, p.mx, p.my, R, a.zoom, g.time, a.kick);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Destello de la pantalla: verde si explotó un alien, rojo si le diste a una persona.
+    if (a.flash) { const k = Math.abs(a.flash); ctx.fillStyle = a.flash > 0 ? `rgba(163,230,53,${k * 0.35})` : `rgba(185,28,28,${k * 0.4})`; ctx.fillRect(0, 0, w, h); }
     const map = mapRef.current;
     if (map) {
       const mw = map.clientWidth, mh = map.clientHeight;
@@ -158,7 +163,8 @@ export function Invasion() {
     G.mag--; aim.current.kick = 1;
     playRifleShot();
     const hit = shoot(g, p.x, p.y);
-    if (hit === 'alien' && !g.over) setToast({ text: `¡Alien eliminado! ${g.kills} de ${GOAL_KILLS} 👽`, id: performance.now() });
+    if (hit === 'alien') { aim.current.shake = 1; aim.current.flash = 1; if (!g.over) setToast({ text: `¡Alien eliminado! ${g.kills} de ${GOAL_KILLS} 👽`, id: performance.now() }); }
+    if (hit === 'civilian') { aim.current.shake = 0.5; aim.current.flash = -1; if (!g.over) { const left = LIVES - g.civilians; setToast({ text: `¡Era una persona! ${left === 1 ? 'Te queda 1 vida' : `Te quedan ${left} vidas`} ❤️`, id: performance.now(), big: true, bad: true }); } }
     if (hit === 'defused') setToast({ text: '¡Bomba desactivada! 💣', id: performance.now() });
     if (hit === 'ufo') setToast({ text: 'Las balas no le hacen nada al ovni', id: performance.now(), bad: true });
     if (G.mag > 0) { G.cycle = BOLT_TIME; playBolt(); } else { G.reload = RELOAD_TIME; playReload(); }
@@ -170,10 +176,10 @@ export function Invasion() {
     gameRef.current = newInvasion();
     const g = gameRef.current;
     cam.current.x = g.width * (0.3 + Math.random() * 0.4);
-    Object.assign(aim.current, { zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0 });
+    Object.assign(aim.current, { zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0 });
     gun.current = { mag: MAG, cycle: 0, reload: 0 };
-    setHud({ time: 0, kills: 0, mag: MAG, reloading: false, breath: 1 });
-    setToast({ text: `Hay aliens disfrazados de personas: eliminá a ${GOAL_KILLS}. ¡No le dispares a la gente!`, id: performance.now(), big: true });
+    setHud({ time: 0, kills: 0, lives: LIVES, mag: MAG, reloading: false, breath: 1 });
+    setToast({ text: `Hay aliens disfrazados de personas: eliminá a ${GOAL_KILLS}. ¡Cuidado con la gente: tenés ${LIVES} vidas!`, id: performance.now(), big: true });
     setStatus('playing');
   }, []);
 
@@ -198,6 +204,8 @@ export function Invasion() {
       step(g, dt);
       a.swayT += dt;
       a.kick = Math.max(0, a.kick - dt * 4);
+      a.shake = Math.max(0, a.shake - dt * 2.2);
+      a.flash = a.flash > 0 ? Math.max(0, a.flash - dt * 3) : Math.min(0, a.flash + dt * 2);
       a.zoom += (a.target - a.zoom) * Math.min(1, dt * 10);
       a.holding = keys.current.has('Shift');
       a.breath = a.holding ? Math.max(0, a.breath - dt) : Math.min(BREATH, a.breath + dt * 0.6);
@@ -214,7 +222,8 @@ export function Invasion() {
         if (e.type === 'glass') playGlass(0.8);
         if (e.type === 'ufoPing') playRicochet();
         if (e.type === 'defused') playDefuse();
-        if (e.type === 'explosion') playBlast(Math.max(0.15, near(e.x, e.y)));
+        if (e.type === 'explosion') { const k = near(e.x, e.y); playBlast(Math.max(0.15, k)); a.shake = Math.max(a.shake, k * 0.8); }
+        if (e.type === 'bomb') { playRadioBeep(); setToast({ text: '📻 Radio: un alien dejó una bomba 💣 Buscá la caja con la luz roja y dispárale', id: now, bad: true }); }
         if (e.type === 'laser') playLaser(Math.max(0.2, near(e.x, e.y)));
         if (e.type === 'lighter') playLighter(near(e.x, e.y));
         if (e.type === 'ray') playRayGun(near(e.x, e.y));
@@ -224,7 +233,7 @@ export function Invasion() {
       }
       if (now - soundAt > 100) { soundAt = now; setInvasionAmbient(invasionLevels(g, p.x, p.y, a.zoom)); }
       paint();
-      const shown = { time: Math.floor(g.time), kills: g.kills, mag: G.mag, reloading: G.reload > 0, breath: Math.round((a.breath / BREATH) * 10) / 10 };
+      const shown = { time: Math.floor(g.time), kills: g.kills, lives: LIVES - g.civilians, mag: G.mag, reloading: G.reload > 0, breath: Math.round((a.breath / BREATH) * 10) / 10 };
       setHud(prev => JSON.stringify(prev) === JSON.stringify(shown) ? prev : shown);
       if (g.over) {
         const outcome = g.outcome ?? 'time', rec = readInvasionRecord(), won = outcome === 'won';
@@ -326,7 +335,7 @@ export function Invasion() {
             {status === 'ready' && <>
               <h2 id="inv-message" className="inv-title">Invasión 👽</h2>
               <p>Los aliens se metieron en la ciudad disfrazados de personas y quieren prenderla fuego. Sos francotirador: recorré la cuadra y mirá con la mira cada departamento, cada local y la vereda. <strong>Cada alien se ve como un alien gris solo 1 segundo cada 30</strong>, así que prestá atención a lo raro: gente que camina para atrás, que come plantas, que te mira fijo, que flota, que habla en símbolos… Hay más de 100 cosas raras distintas.</p>
-              <p><strong>Eliminá a {GOAL_KILLS} aliens para ganar. Si le disparás a una persona, perdés.</strong> Los aliens prenden fuego y dejan cajas con explosivos (las que tienen una lucecita roja que titila): dispárale a la caja para desactivarla. A los 5 minutos llegan ovnis a los que las balas no les hacen nada, y a los 10 minutos la ciudad cae.</p>
+              <p><strong>Eliminá a {GOAL_KILLS} aliens para ganar. Tenés {LIVES} vidas: cada persona a la que le disparás te saca una.</strong> Los aliens prenden fuego y dejan bombas en cajas (las que tienen una lucecita roja que titila y el reloj corriendo): si nadie les dispara, explotan y matan a los que están al lado. A los 5 minutos llegan ovnis a los que las balas no les hacen nada, y a los 10 minutos la ciudad cae.</p>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse por la cuadra · <kbd>Mouse</kbd> apuntar · <kbd>Clic</kbd> disparar · <kbd>Ruedita</kbd> zoom · <kbd>Shift</kbd> contener la respiración · <kbd>R</kbd> recargar · <kbd>P</kbd> pausa</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}
@@ -345,9 +354,10 @@ export function Invasion() {
           </div>
         </div>}
       </div>
-      <aside className="trepa-side inv-side" aria-label="Tiempo, aliens, balas y respiración">
+      <aside className="trepa-side inv-side" aria-label="Tiempo, aliens, vidas, balas y respiración">
         <div className="trepa-stat"><span>Tiempo</span><strong data-testid="inv-time">{formatInvasionTime(hud.time)}</strong></div>
         <div className="trepa-stat inv-kills"><span>Aliens</span><strong data-testid="inv-kills">{hud.kills} / {GOAL_KILLS}</strong></div>
+        <div className="trepa-stat inv-lives"><span>Vidas</span><strong data-testid="inv-lives" aria-label={`${hud.lives} vidas`}>{Array.from({ length: LIVES }, (_, i) => <i key={i} className={i < hud.lives ? 'is-full' : ''}>{i < hud.lives ? '❤️' : '🖤'}</i>)}</strong></div>
         <div className="trepa-stat"><span>Récord</span><strong>{recordText}</strong></div>
         <div className="trepa-stat inv-ammo"><span>{hud.reloading ? 'Recargando…' : 'Balas'}</span><strong data-testid="inv-ammo" aria-label={`${hud.mag} balas`}>{Array.from({ length: MAG }, (_, i) => <i key={i} className={i < hud.mag && !hud.reloading ? 'is-full' : ''} />)}</strong></div>
         <div className="trepa-stat"><span>Respiración</span><strong className="inv-breath"><i style={{ width: `${hud.breath * 100}%` }} /></strong></div>

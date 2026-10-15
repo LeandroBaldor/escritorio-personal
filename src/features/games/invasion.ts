@@ -7,7 +7,8 @@
 //   explosivos (la gente también deja cajas, pero las de ellos tienen una lucecita roja que titila).
 // - Con el tiempo hay más aliens, la gente corre, y desde la mitad del juego llegan ovnis (a los que las
 //   balas no les hacen nada) que disparan contra la ciudad hasta destruirla del todo a los 10 minutos.
-// - Ganás cuando matás a 20 aliens. Si matás a una persona, perdés (y si se terminan los 10 minutos, también).
+// - Ganás cuando matás a 20 aliens. Tenés 3 vidas: cada persona a la que le disparás te saca una (y si se
+//   terminan los 10 minutos, también perdés).
 //
 // Todo se mide en "unidades" (una persona mide 1). El piso de la calle es y = 0 y hacia arriba es positivo.
 import { ANOMALIES, fitsPlace, shuffledAnomalies, type Anomaly } from './invasionAnomalies';
@@ -19,6 +20,7 @@ export const SIDEWALK_Y = 0, ROAD_Y = -1.6;
 export const UFO_FROM = 300; // a los 5 minutos llegan los ovnis
 export const MAG = 5, BOLT_TIME = 0.75, RELOAD_TIME = 2.2;
 export const GOAL_KILLS = 20;
+export const LIVES = 3; // personas a las que se les puede disparar antes de perder
 export type Outcome = 'won' | 'civilian' | 'time';
 
 export type Style = 'brick' | 'stucco' | 'glass' | 'office' | 'construction' | 'old' | 'hotel';
@@ -28,7 +30,8 @@ export type Item =
   | 'sofa' | 'tv' | 'armchair' | 'bookshelf' | 'plant' | 'lamp' | 'rug' | 'stove' | 'fridge' | 'kitchenTable' | 'sink' | 'bed' | 'wardrobe'
   | 'desk' | 'mirror' | 'tub' | 'washbasin' | 'computerDesk' | 'whiteboard' | 'cooler' | 'treadmill' | 'weights' | 'mat' | 'toys' | 'bunk'
   | 'diningTable' | 'cabinet' | 'easel' | 'piano' | 'washer' | 'counter' | 'stool' | 'cafeTable' | 'oven' | 'shelves' | 'barberChair'
-  | 'crates' | 'freezer' | 'bricks' | 'mixer' | 'scaffold' | 'lobbyDesk' | 'elevator' | 'fishbowl' | 'radio' | 'clock' | 'catBed' | 'dogBed';
+  | 'crates' | 'freezer' | 'bricks' | 'mixer' | 'scaffold' | 'lobbyDesk' | 'elevator' | 'fishbowl' | 'radio' | 'clock' | 'catBed' | 'dogBed'
+  | 'toilet' | 'nightstand' | 'sideTable' | 'filing' | 'printer' | 'bin' | 'coatRack';
 export type Activity =
   | 'walk' | 'stand' | 'tv' | 'sleep' | 'cook' | 'work' | 'read' | 'eat' | 'drink' | 'clean' | 'groom' | 'run' | 'lift' | 'yoga' | 'paint'
   | 'play' | 'serve' | 'cut' | 'hammer' | 'carry' | 'talk' | 'phone' | 'dance' | 'fold' | 'jog' | 'flee' | 'sit' | 'piano' | 'shop';
@@ -52,11 +55,11 @@ export interface Box { id: number; room: number; x: number; y: number; explosive
 export interface Ufo { id: number; x: number; y: number; vx: number; t0: number; beam: { room: number; t0: number; until: number; x: number; y: number } | null; nextBeam: number; wobble: number }
 export interface Car { id: number; x: number; dir: 1 | -1; speed: number; hue: number; kind: 'car' | 'taxi' | 'bus' | 'van' | 'police'; lane: number }
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; kind: 'blood' | 'spark' | 'glass' | 'smoke' | 'debris' | 'ember' | 'goo' }
-export interface Decal { room: number; x: number; y: number; glass: boolean; t: number; goo?: boolean }
+export interface Decal { room: number; x: number; y: number; glass: boolean; t: number; goo?: boolean; blood?: boolean; size?: number }
 export interface Blast { x: number; y: number; t: number; size: number; green?: boolean }
 export type InvasionEvent =
   | { type: 'shot'; x: number; y: number } | { type: 'kill'; x: number; y: number; head: boolean; anomaly: number | null }
-  | { type: 'civilian'; x: number; y: number } | { type: 'defused'; x: number; y: number } | { type: 'boxHit'; x: number; y: number }
+  | { type: 'civilian'; x: number; y: number; lives: number } | { type: 'bomb'; x: number; y: number } | { type: 'defused'; x: number; y: number } | { type: 'boxHit'; x: number; y: number }
   | { type: 'ufoPing'; x: number; y: number } | { type: 'explosion'; x: number; y: number } | { type: 'fire'; x: number; y: number }
   | { type: 'laser'; x: number; y: number } | { type: 'ufoArrive' } | { type: 'moreAliens'; count: number } | { type: 'scream'; x: number; y: number }
   | { type: 'lighter'; x: number; y: number } | { type: 'ray'; x: number; y: number } | { type: 'glass'; x: number; y: number } | { type: 'miss'; x: number; y: number }
@@ -77,7 +80,7 @@ const pick = <T,>(r: () => number, list: readonly T[]) => list[Math.floor(r() * 
 const between = (r: () => number, a: number, b: number) => a + r() * (b - a);
 
 // ---------- La ciudad ----------
-const STYLE_FLOORS: Record<Style, [number, number]> = { brick: [5, 8], stucco: [4, 6], glass: [9, 13], office: [8, 12], construction: [6, 9], old: [3, 5], hotel: [7, 10] };
+const STYLE_FLOORS: Record<Style, [number, number]> = { brick: [14, 17], stucco: [12, 15], glass: [19, 23], office: [17, 21], construction: [13, 16], old: [10, 13], hotel: [15, 19] };
 const SHOPS: Shop[] = ['bar', 'cafe', 'kiosco', 'pizzeria', 'farmacia', 'peluqueria', 'verduleria', 'gimnasio', 'lavanderia', 'ferreteria', 'libreria', 'heladeria'];
 export const SHOP_NAMES: Record<Shop, string> = {
   bar: 'BAR EL FARO', cafe: 'CAFÉ TORTONI', kiosco: 'KIOSCO 24HS', pizzeria: 'PIZZERÍA', farmacia: 'FARMACIA', peluqueria: 'PELUQUERÍA',
@@ -87,11 +90,11 @@ const HOME_THEMES: Theme[] = ['living', 'kitchen', 'bedroom', 'living', 'kitchen
 // Cómo se amueblan las habitaciones: [cosa, ancho, qué se hace ahí (o nada), hacia dónde se mira].
 type Layout = [Item, number, Activity | null, (1 | -1)?][];
 const LAYOUTS: Record<Theme, Layout[]> = {
-  living: [[['tv', 1.1, null], ['rug', 0.1, null], ['sofa', 2, 'tv', -1], ['plant', 0.6, null], ['bookshelf', 1.2, 'read'], ['lamp', 0.4, null]], [['armchair', 1, 'read'], ['fishbowl', 0.6, null], ['tv', 1.1, null], ['sofa', 2, 'tv', -1], ['radio', 0.6, 'dance']]],
-  kitchen: [[['fridge', 0.9, 'stand'], ['stove', 1, 'cook'], ['sink', 1.1, 'clean'], ['kitchenTable', 1.6, 'eat'], ['clock', 0.4, null]], [['kitchenTable', 1.6, 'eat'], ['sink', 1.1, 'clean'], ['stove', 1, 'cook'], ['fridge', 0.9, 'stand'], ['plant', 0.5, null]]],
-  bedroom: [[['wardrobe', 1.2, 'stand'], ['bed', 2.2, 'sleep'], ['lamp', 0.4, null], ['desk', 1.2, 'work'], ['dogBed', 0.8, null]], [['mirror', 0.8, 'groom'], ['bed', 2.2, 'sleep'], ['catBed', 0.6, null], ['wardrobe', 1.2, 'stand']]],
-  bath: [[['tub', 1.8, 'groom'], ['washbasin', 0.8, 'groom'], ['mirror', 0.7, null]]],
-  office: [[['computerDesk', 1.4, 'work'], ['computerDesk', 1.4, 'work'], ['cooler', 0.5, 'talk'], ['whiteboard', 1.3, 'talk'], ['plant', 0.5, null]], [['computerDesk', 1.4, 'work'], ['shelves', 1, 'read'], ['computerDesk', 1.4, 'work'], ['clock', 0.4, null]]],
+  living: [[['tv', 1.1, null], ['rug', 0.1, null], ['sofa', 2, 'tv', -1], ['sideTable', 0.5, null], ['plant', 0.6, null], ['bookshelf', 1.2, 'read'], ['lamp', 0.4, null]], [['armchair', 1, 'read'], ['sideTable', 0.5, null], ['fishbowl', 0.6, null], ['tv', 1.1, null], ['sofa', 2, 'tv', -1], ['radio', 0.6, 'dance']], [['coatRack', 0.4, null], ['tv', 1.1, null], ['rug', 0.1, null], ['sofa', 2, 'tv', -1], ['lamp', 0.4, null], ['bookshelf', 1.2, 'read']]],
+  kitchen: [[['fridge', 0.9, 'stand'], ['stove', 1, 'cook'], ['sink', 1.1, 'clean'], ['kitchenTable', 1.6, 'eat'], ['bin', 0.4, null], ['clock', 0.4, null]], [['kitchenTable', 1.6, 'eat'], ['bin', 0.4, null], ['sink', 1.1, 'clean'], ['stove', 1, 'cook'], ['fridge', 0.9, 'stand'], ['plant', 0.5, null]]],
+  bedroom: [[['wardrobe', 1.2, 'stand'], ['nightstand', 0.5, null], ['bed', 2.2, 'sleep'], ['nightstand', 0.5, null], ['desk', 1.2, 'work'], ['dogBed', 0.8, null]], [['mirror', 0.8, 'groom'], ['nightstand', 0.5, null], ['bed', 2.2, 'sleep'], ['catBed', 0.6, null], ['wardrobe', 1.2, 'stand']]],
+  bath: [[['washbasin', 0.8, 'groom'], ['toilet', 0.6, null], ['tub', 1.8, 'groom'], ['bin', 0.3, null]]],
+  office: [[['computerDesk', 1.4, 'work'], ['computerDesk', 1.4, 'work'], ['cooler', 0.5, 'talk'], ['whiteboard', 1.3, 'talk'], ['filing', 0.6, null], ['plant', 0.5, null]], [['computerDesk', 1.4, 'work'], ['printer', 0.6, 'stand'], ['shelves', 1, 'read'], ['computerDesk', 1.4, 'work'], ['filing', 0.6, null], ['clock', 0.4, null]]],
   gym: [[['treadmill', 1.6, 'run'], ['weights', 1.1, 'lift'], ['mat', 1.6, 'yoga'], ['radio', 0.5, null]]],
   kids: [[['bunk', 1.8, 'sleep'], ['toys', 1.4, 'play'], ['desk', 1.1, 'work'], ['lamp', 0.4, null]]],
   dining: [[['cabinet', 1.2, null], ['diningTable', 2.4, 'eat'], ['plant', 0.6, null], ['clock', 0.4, null]]],
@@ -177,6 +180,8 @@ export function buildCity(seed = 20261014) {
   });
   return { width: x + 2, buildings, rooms };
 }
+// Lo más alto de la cuadra (la vista y los ovnis se acomodan a esto).
+export const CITY_TOP = Math.max(...buildCity().buildings.map(b => b.top)) + 1.5;
 
 // ---------- La gente ----------
 const ROOM_ACTS: Partial<Record<Theme, Activity[]>> = { living: ['tv', 'read', 'phone', 'dance', 'talk', 'walk'], kitchen: ['cook', 'eat', 'clean', 'stand', 'talk'], bedroom: ['sleep', 'groom', 'stand', 'phone', 'work'] };
@@ -205,7 +210,7 @@ export function newInvasion(seed?: number): Invasion {
   };
   // Gente en cada habitación (en las obras, albañiles; en los locales, el que atiende y algún cliente).
   for (const room of g.rooms) {
-    const n = room.theme === 'shop' ? 2 + (rand() < 0.5 ? 1 : 0) : room.theme === 'site' ? (rand() < 0.7 ? 1 : 0) : room.theme === 'office' ? 1 + (rand() < 0.6 ? 1 : 0) : rand() < 0.62 ? 1 + (rand() < 0.3 ? 1 : 0) : 0;
+    const n = room.theme === 'shop' ? 2 + (rand() < 0.5 ? 1 : 0) : room.theme === 'site' ? (rand() < 0.7 ? 1 : 0) : room.theme === 'office' ? (rand() < 0.75 ? 1 : 0) + (rand() < 0.35 ? 1 : 0) : rand() < 0.5 ? 1 + (rand() < 0.25 ? 1 : 0) : 0;
     for (let i = 0; i < n; i++) {
       const spot = room.spots[i % room.spots.length];
       const p = addPerson(g, room.id, spot.x, room.y, room.theme === 'site' ? 'worker' : 'resident', room.theme === 'kids' && i === 0);
@@ -213,7 +218,7 @@ export function newInvasion(seed?: number): Invasion {
     }
   }
   // Gente en la vereda: paseando (algunos con perro), corriendo, hablando por teléfono.
-  for (let i = 0; i < 26; i++) addPerson(g, -1, between(rand, 1, g.width - 1), SIDEWALK_Y, i % 6 === 0 ? 'jogger' : 'walker');
+  for (let i = 0; i < 34; i++) addPerson(g, -1, between(rand, 1, g.width - 1), SIDEWALK_Y, i % 6 === 0 ? 'jogger' : 'walker');
   for (let i = 0; i < 9; i++) g.cars.push({ id: g.nextId++, x: between(rand, 0, g.width), dir: i % 2 ? 1 : -1, speed: between(rand, 5, 9), hue: Math.floor(rand() * 360), kind: pick(rand, ['car', 'car', 'taxi', 'bus', 'van', 'car'] as const), lane: i % 2 });
   for (const p of g.people) { p.nextAnomaly = between(rand, 3, 14); p.nextSabotage = between(rand, 45, 90); }
   while (aliveAliens(g) < g.aliensWanted) convert(g);
@@ -245,6 +250,7 @@ export const ruinAt = (t: number) => t < UFO_FROM ? 0 : Math.min(1, ((t - UFO_FR
 const emit = (g: Invasion, e: InvasionEvent) => g.events.push(e);
 export const takeEvents = (g: Invasion) => g.events.splice(0);
 
+function addDecal(g: Invasion, d: Decal) { g.decals.push(d); if (g.decals.length > 220) g.decals.shift(); }
 function burst(g: Invasion, x: number, y: number, n: number, color: string, kind: Particle['kind'], power = 3, size = 0.08) {
   for (let i = 0; i < n; i++) {
     const a = g.rand() * Math.PI * 2, v = power * (0.3 + g.rand() * 0.9), max = 0.5 + g.rand() * 0.8;
@@ -295,7 +301,7 @@ export function step(g: Invasion, dt: number) {
     if (c.x > g.width + 8) c.x = -8; else if (c.x < -8) c.x = g.width + 8;
   }
   for (const s of g.particles) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy -= (s.kind === 'smoke' || s.kind === 'ember' ? -0.6 : 14) * dt; s.life -= dt; }
-  g.particles = g.particles.filter(s => s.life > 0).slice(-900);
+  g.particles = g.particles.filter(s => s.life > 0).slice(-1400);
   for (const b of g.blasts) b.t += dt;
   g.blasts = g.blasts.filter(b => b.t < 1.2);
 }
@@ -407,7 +413,7 @@ function stepAnomaly(g: Invasion, p: Person, room: Room | null, dt: number) {
 // ---------- Sabotajes ----------
 function startSabotage(g: Invasion, p: Person, room: Room | null) {
   const r = g.rand;
-  const kind: SabotageKind = !room ? pick(r, ['ray', 'box'] as const) : pick(r, ['lighter', 'lighter', 'ray', 'box'] as const);
+  const kind: SabotageKind = !room ? pick(r, ['ray', 'box', 'box'] as const) : pick(r, ['lighter', 'ray', 'box', 'box'] as const);
   const lo = room ? room.x1 + 0.5 : p.x - 4, hi = room ? room.x2 - 0.5 : p.x + 4;
   p.sabotage = { kind, t0: g.time, x: between(r, lo, hi), done: false };
   p.tx = p.sabotage.x;
@@ -437,18 +443,26 @@ function dropBox(g: Invasion, p: Person, room: Room | null, explosive: boolean) 
   if (g.boxes.filter(b => b.explosive === explosive && !b.exploded && !b.defused).length > (explosive ? 30 : 12)) return;
   const x = p.x + p.dir * 0.35;
   g.boxes.push({ id: g.nextId++, room: room?.id ?? -1, x, y: p.y, explosive, t0: g.time, explodeAt: g.time + between(g.rand, 22, 32), defused: false, exploded: false, hit: false, kind: Math.floor(g.rand() * 4) });
+  if (explosive) emit(g, { type: 'bomb', x, y: p.y });
 }
 function stepBoxes(g: Invasion) {
   for (const b of g.boxes) {
     if (!b.explosive || b.defused || b.exploded || g.time < b.explodeAt) continue;
     b.exploded = true;
     const room = b.room >= 0 ? g.rooms[b.room] : g.rooms.find(o => o.floor === 0 && b.x >= o.x1 && b.x <= o.x2);
-    g.blasts.push({ x: b.x, y: b.y + 0.3, t: 0, size: 1.6 });
-    burst(g, b.x, b.y + 0.3, 30, '#fbbf24', 'spark', 7, 0.07);
-    burst(g, b.x, b.y + 0.3, 14, '#57534e', 'debris', 5, 0.12);
+    g.blasts.push({ x: b.x, y: b.y + 0.4, t: 0, size: 2.6 });
+    burst(g, b.x, b.y + 0.3, 50, '#fbbf24', 'spark', 9, 0.08);
+    burst(g, b.x, b.y + 0.3, 24, '#57534e', 'debris', 6, 0.14);
+    burst(g, b.x, b.y + 0.3, 16, '#fb923c', 'ember', 5, 0.06);
     emit(g, { type: 'explosion', x: b.x, y: b.y });
-    if (room) { if (room.fire < 0.05) ignite(g, room, b.x); room.fire = Math.max(room.fire, 0.5); room.burnt = Math.max(room.burnt, 0.4); }
-    for (const p of g.people) if (!p.dead && Math.abs(p.x - b.x) < 3 && Math.abs(p.y - b.y) < 1.5) p.panic = 8;
+    if (room) { if (room.fire < 0.05) ignite(g, room, b.x); room.fire = Math.max(room.fire, 0.6); room.burnt = Math.max(room.burnt, 0.5); }
+    // La bomba mata a los que están pegados y los demás salen corriendo.
+    for (const p of g.people) {
+      if (p.dead || p.gone || Math.abs(p.y - b.y) > 1.5) continue;
+      const d = Math.abs(p.x - b.x);
+      if (d < 1.3) { p.dead = { t: g.time, alien: p.alien, head: false }; p.sabotage = null; p.anomaly = null; }
+      else if (d < 4) p.panic = 8;
+    }
   }
   // Las cajas comunes (un paquete, una pizza) alguien las levanta al rato; las desactivadas quedan un poco más.
   g.boxes = g.boxes.filter(b => b.explosive ? (!b.exploded || g.time - b.explodeAt < 1) && (!b.defused || g.time - b.explodeAt < 30) : g.time < b.explodeAt + 15);
@@ -469,7 +483,7 @@ function stepFires(g: Invasion, dt: number) {
 function stepUfos(g: Invasion, dt: number) {
   const r = g.rand, t = g.time;
   if (g.ufos.length < ufosAt(t)) {
-    g.ufos.push({ id: g.nextId++, x: r() < 0.5 ? -10 : g.width + 10, y: between(r, 34, 44), vx: 0, t0: t, beam: null, nextBeam: t + between(r, 3, 6), wobble: r() * 10 });
+    g.ufos.push({ id: g.nextId++, x: r() < 0.5 ? -10 : g.width + 10, y: between(r, CITY_TOP - 9, CITY_TOP - 2), vx: 0, t0: t, beam: null, nextBeam: t + between(r, 3, 6), wobble: r() * 10 });
     emit(g, { type: 'ufoArrive' });
   }
   const behind = ruinAt(t) - g.rooms.filter(o => o.destroyed).length / g.rooms.length; // cuánto les falta destruir
@@ -478,7 +492,13 @@ function stepUfos(g: Invasion, dt: number) {
     u.vx += ((goal - u.x) * 0.05 - u.vx) * Math.min(1, dt * 0.6);
     u.x += u.vx * dt;
     u.y += Math.sin(t * 0.8 + u.wobble) * 0.3 * dt;
-    if (u.beam && t > u.beam.until) { const room = g.rooms[u.beam.room]; destroyRoom(g, room); for (const o of neighbors(g, room)) if (!o.destroyed && r() < 0.5) ignite(g, o, (o.x1 + o.x2) / 2); u.beam = null; }
+    if (u.beam && t > u.beam.until) {
+      const room = g.rooms[u.beam.room];
+      destroyRoom(g, room);
+      // Si les falta destruir mucho, el rayo se lleva también las habitaciones de al lado.
+      for (const o of neighbors(g, room)) if (!o.destroyed) { if (behind > 0.03) destroyRoom(g, o); else if (r() < 0.5) ignite(g, o, (o.x1 + o.x2) / 2); }
+      u.beam = null;
+    }
     if (!u.beam && t > u.nextBeam) {
       const near = g.rooms.filter(o => !o.destroyed && Math.abs((o.x1 + o.x2) / 2 - u.x) < 22);
       const target = near.length ? pick(r, near) : g.rooms.find(o => !o.destroyed);
@@ -580,21 +600,39 @@ export function shoot(g: Invasion, x: number, y: number) {
       // El alien explota en una nube verde (no queda el cuerpo, queda la mancha).
       const box = hitbox(g, p), cx = (box.x1 + box.x2) / 2, cy = (box.y1 + box.y2) / 2;
       p.gone = true;
-      g.blasts.push({ x: cx, y: cy, t: 0, size: 1.3, green: true });
-      burst(g, cx, cy, 46, '#4ade80', 'goo', 5.5, 0.07);
-      burst(g, cx, cy, 18, '#bef264', 'spark', 6.5, 0.05);
-      burst(g, cx, cy, 10, '#14532d', 'goo', 3, 0.1);
-      g.decals.push({ room: p.room, x: cx, y: p.y + 0.02, glass: false, t: g.time, goo: true });
+      // Exagerada: una bola verde enorme, otra que llega un instante después, chorros de baba para todos
+      // lados y la pared salpicada.
+      g.blasts.push({ x: cx, y: cy, t: 0, size: 2.4, green: true }, { x: cx, y: cy + 0.3, t: -0.12, size: 1.6, green: true });
+      burst(g, cx, cy, 140, '#4ade80', 'goo', 8, 0.08);
+      burst(g, cx, cy, 60, '#a3e635', 'goo', 11, 0.05);
+      burst(g, cx, cy, 40, '#bef264', 'spark', 9, 0.05);
+      burst(g, cx, cy, 30, '#14532d', 'goo', 4, 0.13);
+      const room = roomOf(g, p);
+      addDecal(g, { room: p.room, x: cx, y: p.y + 0.02, glass: false, t: g.time, goo: true, size: 1.6 });
+      for (let i = 0; i < 9; i++) {
+        let sx = cx + between(g.rand, -2.4, 2.4), sy = cy + between(g.rand, -0.5, 1.6);
+        if (room) { sx = Math.max(room.x1 + 0.15, Math.min(room.x2 - 0.15, sx)); sy = Math.max(room.y + 0.2, Math.min(room.y + room.h - 0.15, sy)); }
+        addDecal(g, { room: p.room, x: sx, y: sy, glass: false, t: g.time, goo: true, size: between(g.rand, 0.5, 1.2) });
+      }
       g.kills++; if (head) g.headshots++;
       if (p.anomaly) g.killedAnomalies.push(p.anomaly.id);
       emit(g, { type: 'kill', x: cx, y: cy, head, anomaly: p.anomaly?.id ?? null });
       if (g.kills >= GOAL_KILLS) { g.over = true; g.outcome = 'won'; emit(g, { type: 'end' }); }
     } else {
-      // Mataste a una persona: perdés.
-      burst(g, x, y, head ? 26 : 16, '#b91c1c', 'blood', 3.5, 0.05);
+      // Le diste a una persona: mucha sangre y perdés una vida (con 3, perdés).
+      burst(g, x, y, head ? 90 : 70, '#b91c1c', 'blood', 5, 0.06);
+      burst(g, x, y, 40, '#7f1d1d', 'blood', 2.5, 0.09);
+      burst(g, x, y, 30, '#dc2626', 'blood', 8, 0.035);
+      const room = roomOf(g, p);
+      for (let i = 0; i < 6; i++) {
+        let sx = x + between(g.rand, -1.2, 1.2) + p.dir * -0.4, sy = y + between(g.rand, -0.4, 0.6);
+        if (room) { sx = Math.max(room.x1 + 0.15, Math.min(room.x2 - 0.15, sx)); sy = Math.max(room.y + 0.15, Math.min(room.y + room.h - 0.15, sy)); }
+        addDecal(g, { room: p.room, x: sx, y: sy, glass: false, t: g.time, blood: true, size: between(g.rand, 0.5, 1.1) });
+      }
+      addDecal(g, { room: p.room, x: p.x, y: p.y + 0.02, glass: false, t: g.time, blood: true, size: 1.4 });
       g.civilians++;
-      emit(g, { type: 'civilian', x, y });
-      g.over = true; g.outcome = 'civilian'; emit(g, { type: 'end' });
+      emit(g, { type: 'civilian', x, y, lives: LIVES - g.civilians });
+      if (g.civilians >= LIVES) { g.over = true; g.outcome = 'civilian'; emit(g, { type: 'end' }); }
     }
     p.anomaly = null;
     // Los que estaban cerca se asustan y corren.
@@ -611,8 +649,7 @@ export function shoot(g: Invasion, x: number, y: number) {
   }
   const room = g.rooms.find(o => x >= o.x1 - 0.25 && x <= o.x2 + 0.25 && y >= o.y && y <= o.y + o.h);
   const glass = !!room && room.floor > 0 && (y - room.y) > 0.9 && (y - room.y) < room.h - 0.5 && !room.destroyed;
-  g.decals.push({ room: room?.id ?? -1, x, y, glass, t: g.time });
-  if (g.decals.length > 120) g.decals.shift();
+  addDecal(g, { room: room?.id ?? -1, x, y, glass, t: g.time });
   burst(g, x, y, glass ? 14 : 8, glass ? '#e0f2fe' : '#a8a29e', glass ? 'glass' : 'debris', 2.5, 0.04);
   emit(g, { type: glass ? 'glass' : 'miss', x, y });
   return 'miss' as const;
