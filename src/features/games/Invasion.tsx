@@ -63,8 +63,6 @@ export function Invasion() {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mapRef = useRef<HTMLCanvasElement>(null);
-  // La mira se dibuja acá (por encima del cartel) mientras el cartel de inicio, pausa o fin está abierto.
-  const scopeRef = useRef<HTMLCanvasElement>(null);
   const bgRef = useRef({ canvas: typeof document === 'undefined' ? null as unknown as HTMLCanvasElement : document.createElement('canvas'), x: NaN, at: 0 });
   const [firstGame] = useState(() => newInvasion());
   const gameRef = useRef<Game>(firstGame);
@@ -130,21 +128,16 @@ export function Invasion() {
     // Cuando explota un alien (o una bomba cerca) tiembla todo.
     const shake = a.shake > 0 ? [Math.sin(g.time * 90) * a.shake * 14, Math.cos(g.time * 77) * a.shake * 10] : [0, 0];
     ctx.setTransform(1, 0, 0, 1, shake[0] * dpr, shake[1] * dpr); ctx.drawImage(bg.canvas, 0, 0); ctx.setTransform(dpr, 0, 0, dpr, shake[0] * dpr, shake[1] * dpr);
-    // Con el cartel abierto, la mira va en la capa de arriba (así pasa por encima del cartel y no por detrás).
-    const top = scopeRef.current, onTop = statusRef.current !== 'playing' && !!top;
-    let sctx = ctx;
-    if (top) {
-      if (top.width !== canvas.width || top.height !== canvas.height) { top.width = canvas.width; top.height = canvas.height; }
-      const tctx = top.getContext('2d');
-      if (tctx) { tctx.setTransform(1, 0, 0, 1, 0, 0); tctx.clearRect(0, 0, top.width, top.height); if (onTop) { tctx.setTransform(dpr, 0, 0, dpr, 0, 0); sctx = tctx; } }
+    // La mira solo se ve jugando: con el cartel abierto (inicio, pausa o fin) se usa la flecha del mouse
+    // normal, que pasa por delante del cartel y deja ver bien el botón.
+    if (statusRef.current === 'playing') {
+      ctx.save();
+      ctx.beginPath(); ctx.arc(p.mx, p.my, R, 0, Math.PI * 2); ctx.clip();
+      ctx.translate(p.mx - R, p.my - R);
+      paintCity(ctx, g, { w: R * 2, h: R * 2, s: a.zoom, cx: p.x, cy: p.y, t: g.time, dpr });
+      ctx.restore();
+      drawScope(ctx, p.mx, p.my, R, a.zoom, g.time, a.kick);
     }
-    // Adentro del círculo, agrandado.
-    sctx.save();
-    sctx.beginPath(); sctx.arc(p.mx, p.my, R, 0, Math.PI * 2); sctx.clip();
-    sctx.translate(p.mx - R, p.my - R);
-    paintCity(sctx, g, { w: R * 2, h: R * 2, s: a.zoom, cx: p.x, cy: p.y, t: g.time, dpr });
-    sctx.restore();
-    drawScope(sctx, p.mx, p.my, R, a.zoom, g.time, a.kick);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // Destello de la pantalla: verde si explotó un alien, rojo si le diste a una persona.
     if (a.flash) { const k = Math.abs(a.flash); ctx.fillStyle = a.flash > 0 ? `rgba(163,230,53,${k * 0.35})` : `rgba(185,28,28,${k * 0.4})`; ctx.fillRect(0, 0, w, h); }
@@ -202,6 +195,9 @@ export function Invasion() {
     observer.observe(stage);
     return () => observer.disconnect();
   }, [paint]);
+
+  // Al abrirse un cartel (pausa o fin) se vuelve a dibujar sin la mira.
+  useEffect(() => { if (status !== 'playing') paint(); }, [status, paint]);
 
   // Bucle del juego.
   useEffect(() => {
@@ -332,7 +328,6 @@ export function Invasion() {
       <div className="runner-stage inv-stage" ref={stageRef} {...touch}>
         <canvas ref={canvasRef} role="img" aria-label="La ciudad vista con la mira del rifle" />
         <canvas ref={mapRef} className="inv-map" aria-hidden="true" />
-        <canvas ref={scopeRef} className="inv-scope" aria-hidden="true" />
         {status === 'playing' && <div className="inv-touch" aria-label="Moverse, zoom y recarga">
           <button type="button" aria-label="Mover la vista a la izquierda" onPointerDown={e => { e.preventDefault(); press('pad-left', true); }} onPointerUp={() => press('pad-left', false)} onPointerLeave={() => press('pad-left', false)} onPointerCancel={() => press('pad-left', false)} onContextMenu={e => e.preventDefault()}>◀</button>
           <button type="button" aria-label="Mover la vista a la derecha" onPointerDown={e => { e.preventDefault(); press('pad-right', true); }} onPointerUp={() => press('pad-right', false)} onPointerLeave={() => press('pad-right', false)} onPointerCancel={() => press('pad-right', false)} onContextMenu={e => e.preventDefault()}>▶</button>
