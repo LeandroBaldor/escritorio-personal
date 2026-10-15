@@ -7,7 +7,7 @@
 // Lo que no se mueve de cada habitación se dibuja una sola vez en una imagen aparte (para cada zoom) y
 // después se copia: así se puede dibujar con mucho detalle sin que se trabe.
 import {
-  CITY_TOP, GAME_SECONDS, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
+  CITY_TOP, GAME_SECONDS, rainAt, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
 } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import { drawPerson, drawProp, font, hash, hsl, mixColor } from './invasionPeople';
@@ -21,10 +21,11 @@ export const SKY_TOP = CITY_TOP + 6;
 
 // ---------- Cielo y fondo ----------
 function skyColors(t: number) {
-  const k = ruinAt(t), dusk = Math.min(1, t / GAME_SECONDS);
-  const top = mixColor(mixColor('#3b82f6', '#4c1d95', dusk * 0.7), '#1c0a0a', k);
-  const mid = mixColor(mixColor('#93c5fd', '#f97316', dusk * 0.8), '#7f1d1d', k * 0.8);
-  const low = mixColor(mixColor('#e0f2fe', '#fcd34d', dusk * 0.8), '#ea580c', k * 0.8);
+  const k = ruinAt(t), dusk = Math.min(1, t / GAME_SECONDS), rain = rainAt(t);
+  // Con la tormenta el cielo se pone gris oscuro (y con los ovnis, rojo de fuego).
+  const top = mixColor(mixColor(mixColor('#3b82f6', '#4c1d95', dusk * 0.7), '#111827', rain * 0.85), '#1c0a0a', k);
+  const mid = mixColor(mixColor(mixColor('#93c5fd', '#f97316', dusk * 0.8), '#374151', rain * 0.85), '#7f1d1d', k * 0.8);
+  const low = mixColor(mixColor(mixColor('#e0f2fe', '#fcd34d', dusk * 0.8), '#4b5563', rain * 0.8), '#ea580c', k * 0.8);
   return { top, mid, low };
 }
 function drawSky(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
@@ -32,11 +33,14 @@ function drawSky(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   const sky = ctx.createLinearGradient(0, Y(v, SKY_TOP), 0, Y(v, -3));
   sky.addColorStop(0, c.top); sky.addColorStop(0.55, c.mid); sky.addColorStop(1, c.low);
   ctx.fillStyle = sky; ctx.fillRect(0, 0, v.w, v.h);
-  // El sol que baja (más rojo con el humo).
+  const rain = rainAt(g.time);
+  // El sol que baja (más rojo con el humo; con la tormenta se tapa).
+  ctx.globalAlpha = 1 - rain * 0.95;
   const sun = { x: v.w * 0.5 + (g.width * 0.6 - v.cx) * v.s * 0.08, y: Y(v, 40 - g.time / GAME_SECONDS * 26) };
   const glow = ctx.createRadialGradient(sun.x, sun.y, 0, sun.x, sun.y, v.s * 9);
   glow.addColorStop(0, 'rgba(255,240,200,0.95)'); glow.addColorStop(0.15, 'rgba(255,210,140,0.6)'); glow.addColorStop(1, 'rgba(255,200,120,0)');
   ctx.fillStyle = glow; ctx.fillRect(sun.x - v.s * 9, sun.y - v.s * 9, v.s * 18, v.s * 18);
+  ctx.globalAlpha = 1;
   // Nubes que pasan (cada vez más oscuras por el humo).
   const ruin = ruinAt(g.time);
   for (let i = 0; i < 9; i++) {
@@ -45,6 +49,17 @@ function drawSky(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
     const w = v.s * (6 + hash(i + 7) * 8);
     ctx.fillStyle = ruin > 0.2 ? `rgba(60,40,40,${0.5 + ruin * 0.3})` : 'rgba(255,255,255,0.75)';
     for (let j = 0; j < 5; j++) { ctx.beginPath(); ctx.ellipse(x + (j - 2) * w * 0.18, y + Math.sin(j * 2) * w * 0.05, w * 0.22, w * 0.11, 0, 0, Math.PI * 2); ctx.fill(); }
+  }
+  // Tormenta: muchas nubes de lluvia, grandes y oscuras, que tapan el cielo.
+  if (rain > 0) {
+    for (let i = 0; i < 34; i++) {
+      const cx = ((hash(i + 50) * g.width * 1.5 + g.time * (1.2 + hash(i + 51))) % (g.width * 1.5)) - g.width * 0.25;
+      const x = v.w / 2 + (cx - v.cx) * v.s * 0.6, y = Y(v, CITY_TOP * (0.72 + hash(i + 52) * 0.4)) + (v.cy - CITY_TOP * 0.45) * v.s * 0.4;
+      const w = v.s * (10 + hash(i + 53) * 14);
+      const lit = g.lightning && g.time - g.lightning.t < 0.3 ? 0.25 : 0;
+      ctx.fillStyle = `rgba(${Math.round(55 + hash(i + 54) * 30 + lit * 300)},${Math.round(60 + hash(i + 54) * 30 + lit * 300)},${Math.round(72 + hash(i + 54) * 30 + lit * 300)},${Math.min(1, rain * (0.75 + hash(i + 55) * 0.25))})`;
+      for (let j = 0; j < 6; j++) { ctx.beginPath(); ctx.ellipse(x + (j - 2.5) * w * 0.16, y + Math.sin(j * 1.7 + i) * w * 0.05, w * 0.2, w * 0.12, 0, 0, Math.PI * 2); ctx.fill(); }
+    }
   }
   // La nave nodriza aparece de a poco en el fondo.
   if (g.time > UFO_FROM + 60) {
@@ -670,16 +685,18 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
   // La gente de los departamentos y las cajas.
   for (const p of g.people) {
     if (p.gone || p.room < 0) continue;
-    if (!visible(v, p.x - 2, p.x + 2, p.y - 1.2, p.y + 2.6)) continue;
+    if (!visible(v, p.x - 2.5, p.x + 2.5, p.y - 1.2, p.y + 3.4)) continue;
     drawPerson(ctx, g, p, X(v, p.x), Y(v, p.y), v.s, g.time);
   }
   for (const box of g.boxes) {
     if (box.exploded || !visible(v, box.x - 1, box.x + 1, box.y, box.y + 1)) continue;
     const px = X(v, box.x), py = Y(v, box.y);
-    drawProp(ctx, 'box', px, py, v.s * 0.42 * 2.4, g.time);
-    if (box.kind === 1 && !box.explosive) { ctx.fillStyle = '#ef4444'; ctx.fillRect(px - v.s * 0.06, py - v.s * 0.3, v.s * 0.12, v.s * 0.08); } // una caja de pizza con su logo
-    if (box.explosive && !box.defused) drawBomb(ctx, box, px, py, v.s, g.time);
-    if (box.defused) { ctx.fillStyle = 'rgba(34,197,94,0.9)'; ctx.font = font(900, v.s * 0.22); ctx.textAlign = 'center'; ctx.fillText('✓', px, py - v.s * 0.45); }
+    if (box.explosive) drawBomb(ctx, box, px, py, v.s, g.time); // la bomba de los aliens: una caja roja grande
+    else {
+      drawProp(ctx, 'box', px, py, v.s * 0.42 * 2.4, g.time);
+      if (box.kind === 1) { ctx.fillStyle = '#ef4444'; ctx.fillRect(px - v.s * 0.06, py - v.s * 0.3, v.s * 0.12, v.s * 0.08); } // una caja de pizza con su logo
+    }
+    if (box.defused) { ctx.fillStyle = 'rgba(34,197,94,0.95)'; ctx.font = font(900, v.s * 0.3); ctx.textAlign = 'center'; ctx.fillText('✓', px, py - v.s * 0.6); }
   }
   drawStreetBack(ctx, g, v);
   for (const p of g.people) {
@@ -719,6 +736,7 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
     else ctx.fillRect(X(v, pt.x) - r / 2, Y(v, pt.y) - r / 2, Math.max(1, r), Math.max(1, r));
   }
   ctx.globalAlpha = 1;
+  drawStorm(ctx, g, v);
   // Humo general que oscurece la ciudad al final.
   const ruin = ruinAt(g.time);
   if (ruin > 0) { ctx.fillStyle = `rgba(40,10,5,${ruin * 0.3})`; ctx.fillRect(0, 0, v.w, v.h); }
@@ -759,15 +777,38 @@ function drawBigBlast(ctx: CanvasRenderingContext2D, bl: Invasion['blasts'][numb
 // La bomba de los aliens: la caja con cables, una lucecita roja que titila (más rápido cuando falta poco) y,
 // mirando de cerca, el reloj con la cuenta regresiva.
 function drawBomb(ctx: CanvasRenderingContext2D, box: Invasion['boxes'][number], px: number, py: number, s: number, t: number) {
-  const left = Math.max(0, box.explodeAt - t), fast = left < 6;
-  if (Math.floor(t * (fast ? 8 : 3)) % 2 === 0) { ctx.fillStyle = '#ef4444'; ctx.shadowColor = '#ef4444'; ctx.shadowBlur = s * 0.2; ctx.beginPath(); ctx.arc(px + s * 0.12, py - s * 0.17, Math.max(1.2, s * 0.03), 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
-  if (s < 26) return;
-  ctx.strokeStyle = '#dc2626'; ctx.lineWidth = Math.max(1, s * 0.012); ctx.beginPath(); ctx.moveTo(px - s * 0.12, py - s * 0.41); ctx.quadraticCurveTo(px - s * 0.2, py - s * 0.52, px - s * 0.05, py - s * 0.5); ctx.stroke();
-  ctx.strokeStyle = '#2563eb'; ctx.beginPath(); ctx.moveTo(px - s * 0.06, py - s * 0.41); ctx.quadraticCurveTo(px + s * 0.02, py - s * 0.55, px + s * 0.1, py - s * 0.46); ctx.stroke();
-  ctx.fillStyle = '#111827'; ctx.fillRect(px - s * 0.13, py - s * 0.3, s * 0.2, s * 0.1);
-  ctx.fillStyle = fast ? '#f87171' : '#ef4444'; ctx.font = font(900, s * 0.075); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(`0:${String(Math.ceil(left)).padStart(2, '0')}`, px - s * 0.03, py - s * 0.25);
-  if (fast) { const gl = ctx.createRadialGradient(px, py - s * 0.2, 0, px, py - s * 0.2, s * 0.6); gl.addColorStop(0, `rgba(239,68,68,${0.25 + Math.sin(t * 20) * 0.15})`); gl.addColorStop(1, 'rgba(239,68,68,0)'); ctx.fillStyle = gl; ctx.fillRect(px - s * 0.6, py - s * 0.8, s * 1.2, s * 1.2); }
+  const left = Math.max(0, box.explodeAt - t), fast = left < 6, cy = py - s * 0.21;
+  if (fast && !box.defused) { const gl = ctx.createRadialGradient(px, cy, 0, px, cy, s * 0.9); gl.addColorStop(0, `rgba(239,68,68,${0.35 + Math.sin(t * 20) * 0.2})`); gl.addColorStop(1, 'rgba(239,68,68,0)'); ctx.fillStyle = gl; ctx.fillRect(px - s * 0.9, cy - s * 0.9, s * 1.8, s * 1.8); }
+  drawProp(ctx, box.defused ? 'bombOff' : 'bomb', px, cy, s, fast ? t * 2.5 : t);
+  if (s < 22 || box.defused) return;
+  ctx.fillStyle = fast ? '#fca5a5' : '#ef4444'; ctx.font = font(900, s * 0.07); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(`0:${String(Math.ceil(left)).padStart(2, '0')}`, px + s * 0.15, cy - s * 0.128);
+}
+
+// La lluvia (líneas inclinadas que caen) y los relámpagos (el rayo y el destello que ilumina todo).
+function drawStorm(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
+  const rain = rainAt(g.time);
+  if (rain <= 0) return;
+  const t = g.time, n = Math.round(Math.min(700, (v.w * v.h) / 1400) * rain), len = Math.max(6, Math.min(46, v.s * 0.55));
+  ctx.strokeStyle = 'rgba(186,200,220,0.45)'; ctx.lineWidth = Math.max(1, Math.min(2.5, v.s * 0.012)); ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const sp = 0.8 + hash(i + 3) * 0.5, x = ((hash(i) * 1.2 * v.w - t * 90 * sp) % v.w + v.w) % v.w, y = ((hash(i + 7) * v.h + t * v.h * 1.3 * sp) % (v.h + len)) - len;
+    ctx.moveTo(x, y); ctx.lineTo(x - len * 0.25, y + len);
+  }
+  ctx.stroke();
+  ctx.fillStyle = `rgba(15,23,42,${rain * 0.22})`; ctx.fillRect(0, 0, v.w, v.h); // todo más oscuro y mojado
+  const L = g.lightning, k = L ? t - L.t : 9;
+  if (L && k < 0.45) {
+    // El rayo: una línea en zigzag desde las nubes hasta lo más alto de la cuadra.
+    const b = g.buildings.find(o => L.x >= o.x && L.x <= o.x + o.w), top = b ? b.top + 0.3 : 0;
+    if (k < 0.25 && visible(v, L.x - 6, L.x + 6, top, CITY_TOP + 12)) {
+      ctx.strokeStyle = `rgba(255,255,255,${1 - k * 3})`; ctx.lineWidth = Math.max(2, v.s * 0.08); ctx.shadowColor = '#bfdbfe'; ctx.shadowBlur = v.s * 0.6;
+      ctx.beginPath(); let x = L.x, y = CITY_TOP + 12; ctx.moveTo(X(v, x), Y(v, y));
+      for (let i = 1; y > top; i++) { y = Math.max(top, y - 1.6 - hash(i + L.t) * 1.4); x += (hash(i * 3 + L.t) - 0.5) * 2.4; ctx.lineTo(X(v, x), Y(v, y)); }
+      ctx.stroke(); ctx.shadowBlur = 0;
+    }
+    ctx.fillStyle = `rgba(226,232,255,${0.4 * (1 - k / 0.45) * (Math.sin(k * 60) > -0.3 ? 1 : 0.3)})`; ctx.fillRect(0, 0, v.w, v.h);
+  }
 }
 
 // La anomalía de ambiente que hace cada persona (para las luces que titilan).

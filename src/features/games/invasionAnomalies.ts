@@ -7,7 +7,7 @@
 
 export type MoveMode =
   | 'backwards' | 'moonwalk' | 'slide' | 'jitter' | 'freeze' | 'speedy' | 'wallbump' | 'hop' | 'crawl' | 'float'
-  | 'ceiling' | 'stopmotion' | 'spin' | 'tilt' | 'zigzag' | 'runInPlace' | 'sidestep' | 'teleport' | 'robot' | 'sway';
+  | 'ceiling' | 'stopmotion' | 'spin' | 'tilt' | 'zigzag' | 'runInPlace' | 'sidestep' | 'teleport' | 'robot' | 'sway' | 'wallwalk';
 export type BodyMode = 'stretch' | 'shrink' | 'headspin' | 'headback' | 'longarms' | 'ghosts' | 'flicker' | 'bigHead' | 'thin' | 'neck' | 'upsideHead';
 export type LookMode = 'eyes' | 'skin' | 'noshadow' | 'alienshadow' | 'antenna' | 'glitch' | 'steam' | 'drool' | 'aura' | 'sweat' | 'hairup' | 'nosebleed' | 'tongue' | 'scales';
 export type PropKind =
@@ -49,6 +49,7 @@ const SPECS: Spec[] = [
   ['Gatea por el piso', 'any', { t: 'move', mode: 'crawl' }],
   ['Flota unos centímetros sobre el piso', 'any', { t: 'move', mode: 'float' }],
   ['Está parado en el techo, cabeza abajo', 'room', { t: 'move', mode: 'ceiling' }],
+  ['Camina por las paredes y por el techo', 'room', { t: 'move', mode: 'wallwalk' }],
   ['Se mueve a los saltos, como en cámara lenta cortada', 'any', { t: 'move', mode: 'stopmotion' }],
   ['Gira sobre sí mismo sin parar', 'any', { t: 'move', mode: 'spin' }],
   ['Está inclinado como la torre de Pisa y no se cae', 'any', { t: 'move', mode: 'tilt' }],

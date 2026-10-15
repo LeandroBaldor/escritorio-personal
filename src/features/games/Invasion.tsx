@@ -5,8 +5,8 @@ import { ANOMALIES } from './invasionAnomalies';
 import { drawMinimap, paintCity, type View } from './invasionArt';
 import { invasionLevels } from './invasionSound';
 import {
-  playAlienDeath, playBlast, playBolt, playCivilianHit, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playRadioBeep, playRayGun, playReload,
-  playRicochet, playRifleShot, playScream, playStart, playUfoArrive, playWinFanfare, preloadInvasionSounds, setInvasionAmbient,
+  playAlienComm, playAlienDeath, playBlast, playBolt, playCivilianHit, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playRadioBeep, playRayGun, playReload,
+  playRicochet, playRifleShot, playScream, playStart, playThunder, playUfoArrive, playWinFanfare, preloadInvasionSounds, setInvasionAmbient,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 
@@ -221,6 +221,7 @@ export function Invasion() {
       if (G.cycle > 0) G.cycle = Math.max(0, G.cycle - dt);
       if (G.reload > 0) { G.reload = Math.max(0, G.reload - dt); if (G.reload === 0) G.mag = MAG; }
       const p = stage ? target(stage.clientWidth, stage.clientHeight) : { x: 0, y: 0 };
+      g.aim.x = p.x; g.aim.y = p.y; // los aliens se dan cuenta de dónde está la mira
       const near = (x: number, y: number) => Math.max(0, 1 - Math.hypot(x - p.x, y - p.y) / (600 / a.zoom));
       for (const e of takeEvents(g)) {
         if (e.type === 'kill') { playGooBlast(); playAlienDeath(0.45); if (e.head && !g.over) setToast({ text: `¡Tiro a la cabeza! ${g.kills} de ${GOAL_KILLS} 👽`, id: now }); }
@@ -235,6 +236,9 @@ export function Invasion() {
         if (e.type === 'ray') playRayGun(near(e.x, e.y));
         if (e.type === 'scream') playScream(near(e.x, e.y), 0.8 + Math.random() * 0.6);
         if (e.type === 'ufoArrive') { playUfoArrive(); setToast({ text: g.ufos.length === 1 ? '¡Llegaron los ovnis! Las balas no les hacen nada 🛸' : `¡Otro ovni! Ya son ${g.ufos.length} 🛸`, id: now, big: g.ufos.length === 1 }); }
+        if (e.type === 'comm') playAlienComm(near(e.x, e.y));
+        if (e.type === 'thunder') { playThunder(Math.max(0.35, 1 - Math.abs(e.x - p.x) / 120)); a.shake = Math.max(a.shake, 0.25); }
+        if (e.type === 'rain') setToast({ text: '🌧️ Se largó una tormenta: llueve y hay relámpagos', id: now, big: true });
         if (e.type === 'moreAliens') { playRadioBeep(); setToast({ text: `📻 Radio: hay más aliens en la ciudad (${e.count})`, id: now }); }
       }
       if (now - soundAt > 100) { soundAt = now; setInvasionAmbient(invasionLevels(g, p.x, p.y, a.zoom)); }
@@ -340,8 +344,8 @@ export function Invasion() {
           <div className="inv-card">
             {status === 'ready' && <>
               <h2 id="inv-message" className="inv-title">Invasión 👽</h2>
-              <p>Los aliens se metieron en la ciudad disfrazados de personas y quieren prenderla fuego. Sos francotirador: recorré la cuadra y mirá con la mira cada departamento, cada local y la vereda. <strong>Cada alien se ve como un alien gris solo 1 segundo cada 30</strong>, así que prestá atención a lo raro: gente que camina para atrás, que come plantas, que te mira fijo, que flota, que habla en símbolos… Hay más de 100 cosas raras distintas.</p>
-              <p><strong>Eliminá a {GOAL_KILLS} aliens para ganar. Tenés {LIVES} vidas: cada persona a la que le disparás te saca una.</strong> Los aliens prenden fuego y dejan bombas en cajas (las que tienen una lucecita roja que titila y el reloj corriendo): si nadie les dispara, explotan y matan a los que están al lado. A los 5 minutos llegan ovnis a los que las balas no les hacen nada, y a los 10 minutos la ciudad cae.</p>
+              <p>Los aliens se metieron en la ciudad disfrazados de personas y quieren prenderla fuego. Sos francotirador: recorré la cuadra y mirá con la mira cada departamento, cada local y la vereda. <strong>Cada 30 segundos (cada uno a su ritmo), a cada alien se le ve la cara de alien gris durante 5 segundos</strong>. Y prestá atención a lo raro: se quedan mirando fijo a tu mira, hablan por un intercomunicador extraterrestre, caminan por las paredes y el techo, comen plantas, flotan, hablan en símbolos… Hay más de 100 cosas raras distintas.</p>
+              <p><strong>Eliminá a {GOAL_KILLS} aliens para ganar. Tenés {LIVES} vidas: cada persona a la que le disparás te saca una.</strong> Los aliens prenden fuego y pasean con bombas: cajas rojas grandes que después dejan en el piso con el reloj corriendo. Si nadie le dispara a la caja, explota y mata a los que están al lado. A los 5 minutos se larga una tormenta, a los 7 llegan los ovnis (a los que las balas no les hacen nada) y a los 10 minutos la ciudad queda destruida.</p>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse por la cuadra · <kbd>Mouse</kbd> apuntar · <kbd>Clic</kbd> disparar · <kbd>Ruedita</kbd> zoom · <kbd>Shift</kbd> contener la respiración · <kbd>R</kbd> recargar · <kbd>P</kbd> pausa</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}

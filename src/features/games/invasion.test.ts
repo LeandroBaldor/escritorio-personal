@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aliensAt, aliveAliens, buildCity, CITY_TOP, GAME_SECONDS, GOAL_KILLS, LIVES, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt,
+  aliensAt, aliveAliens, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, GOAL_KILLS, LIVES, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt,
   type Invasion, type Person,
 } from './invasion';
 import { ANOMALIES, fitsPlace, shuffledAnomalies } from './invasionAnomalies';
@@ -49,7 +49,8 @@ describe('Invasión: la gente y los aliens', () => {
     expect(g.people.filter(p => p.room < 0).length).toBeGreaterThan(20); // en la vereda
   });
 
-  it('cada alien se ve como alien 1 segundo cada 30, cada uno con su propio ritmo', () => {
+  it('a cada alien se le ve la cara de alien 5 segundos cada 30, cada uno con su propio ritmo', () => {
+    expect(REVEAL_TIME).toBe(5);
     const g = newInvasion(2), aliens = g.people.filter(p => p.alien);
     for (const p of aliens) {
       const shown = Array.from({ length: 600 }, (_, i) => revealed(p, i * 0.1)).filter(Boolean).length * 0.1;
@@ -90,7 +91,11 @@ describe('Invasión: la gente y los aliens', () => {
     expect(harmless).toBeGreaterThan(0);
   });
 
-  it('con el tiempo hay más aliens, a los 5 minutos llegan los ovnis y a los 10 la ciudad queda destruida', () => {
+  it('con el tiempo hay más aliens, a los 5 minutos llueve, a los 7 llegan los ovnis y a los 10 la ciudad queda destruida', () => {
+    expect(RAIN_FROM).toBe(300);
+    expect(UFO_FROM).toBe(420);
+    expect(rainAt(RAIN_FROM - 1)).toBe(0);
+    expect(rainAt(RAIN_FROM + 60)).toBe(1);
     expect(aliensAt(0)).toBe(5);
     expect(aliensAt(400)).toBeGreaterThan(12);
     expect(ufosAt(UFO_FROM - 1)).toBe(0);
@@ -98,18 +103,83 @@ describe('Invasión: la gente y los aliens', () => {
     expect(ufosAt(GAME_SECONDS - 1)).toBeGreaterThan(3);
     expect(ruinAt(GAME_SECONDS)).toBe(1);
     const g = newInvasion(7);
-    run(g, 320);
+    run(g, 330);
+    expect(g.ufos.length).toBe(0);
+    const events = takeEvents(g);
+    expect(events.some(e => e.type === 'rain')).toBe(true);
+    expect(events.some(e => e.type === 'thunder')).toBe(true); // relámpagos
+    run(g, UFO_FROM + 15 - 330);
     expect(g.ufos.length).toBe(1);
-    expect(aliveAliens(g)).toBeGreaterThanOrEqual(aliensAt(320) - 1);
-    run(g, 200);
+    expect(aliveAliens(g)).toBeGreaterThanOrEqual(aliensAt(UFO_FROM) - 1);
+    run(g, 105);
     const ruined = g.rooms.filter(r => r.destroyed).length / g.rooms.length;
-    expect(ruined).toBeGreaterThan(ruinAt(520) * 0.6);
-    run(g, 90);
+    expect(ruined).toBeGreaterThan(ruinAt(540) * 0.6);
+    run(g, 70);
     expect(g.over).toBe(true);
     expect(g.outcome).toBe('time');
     expect(g.rooms.every(r => r.destroyed)).toBe(true);
     expect(takeEvents(g).some(e => e.type === 'end')).toBe(true);
   }, 30000);
+});
+
+describe('Invasión: lo que hacen los aliens', () => {
+  it('si la mira les pasa cerca, se quedan mirándola fijo (las personas no)', () => {
+    const g = newInvasion(31), alien = g.people.find(p => p.alien && p.room >= 0)!;
+    for (const p of g.people) if (p.alien) { p.nextComm = 999; p.nextAnomaly = 999; p.nextSabotage = 999; p.nextStare = 0; }
+    g.aim = { x: alien.x + 1, y: alien.y + 0.8 };
+    run(g, 8);
+    expect(alien.stareUntil).toBeGreaterThan(0);
+    expect(g.people.filter(p => !p.alien).every(p => p.stareUntil === 0)).toBe(true);
+    // Mientras mira fijo, se queda parado mirando para el lado de la mira.
+    alien.stareUntil = g.time + 3; step(g, 0.05);
+    expect(alien.moving).toBe(false);
+    expect(alien.dir).toBe(1);
+  });
+
+  it('hablan por un intercomunicador extraterrestre', () => {
+    const g = newInvasion(32);
+    run(g, 60);
+    expect(takeEvents(g).filter(e => e.type === 'comm').length).toBeGreaterThan(2);
+  });
+
+  it('pasean un rato con la bomba (una caja roja) antes de dejarla', () => {
+    const g = newInvasion(33), alien = g.people.find(p => p.alien && p.room >= 0)!;
+    for (const p of g.people) if (p.alien && p !== alien) p.nextSabotage = 999;
+    alien.nextSabotage = 0; alien.nextAnomaly = 999; alien.nextComm = 999; alien.nextStare = 999;
+    let carried = 0;
+    while (!alien.sabotage || alien.sabotage.kind !== 'box') { alien.sabotage = null; alien.nextSabotage = 0; step(g, 0.05); }
+    const until = alien.sabotage.carryUntil;
+    expect(until - g.time).toBeGreaterThan(7);
+    while (g.time < until) { step(g, 0.05); if (alien.moving) carried++; }
+    expect(carried).toBeGreaterThan(50); // camina con la caja
+    expect(g.boxes.filter(b => b.explosive).length).toBe(0);
+    run(g, 6);
+    expect(g.boxes.some(b => b.explosive)).toBe(true);
+  });
+
+  it('a veces caminan por las paredes y el techo (y el tiro les pega ahí)', () => {
+    const g = newInvasion(34), room = g.rooms.find(r => r.floor === 3 && r.x2 - r.x1 > 3)!;
+    const start = room.x1 + 1;
+    const floor = wallPath(room, start, 0);
+    expect(floor.x).toBeCloseTo(start); expect(floor.y).toBe(room.y); expect(floor.wall).toBe(0);
+    const W = room.x2 - room.x1 - 0.6, H = room.h - 0.04;
+    const up = wallPath(room, start, (room.x2 - 0.3 - start) + H / 2);
+    expect(up.wall).toBeCloseTo(-Math.PI / 2);
+    expect(up.y).toBeGreaterThan(room.y + 0.5);
+    const top = wallPath(room, start, (room.x2 - 0.3 - start) + H + W / 2);
+    expect(top.wall).toBeCloseTo(Math.PI);
+    expect(top.y).toBeCloseTo(room.y + H);
+    const alien = g.people.find(p => p.alien)!;
+    alien.room = room.id; alien.x = start; alien.y = room.y; alien.sabotage = null; alien.comm = null; alien.stareUntil = 0;
+    const WALL = ANOMALIES.find(a => a.fx.t === 'move' && a.fx.mode === 'wallwalk')!;
+    alien.anomaly = { id: WALL.id, t0: g.time - ((room.x2 - 0.3 - start) + H + W / 2) / 1.3, until: g.time + 30, seed: 0 };
+    alien.tx = start;
+    const pose = poseOf(g, alien);
+    expect(pose.wall).toBeCloseTo(Math.PI); // cabeza abajo en el techo
+    const box = hitbox(g, alien);
+    expect(box.y2).toBeCloseTo(room.y + H);
+    expect(shoot(g, (box.x1 + box.x2) / 2, (box.y1 + box.y2) / 2)).toBe('alien');
+  });
 });
 
 describe('Invasión: el disparo', () => {
