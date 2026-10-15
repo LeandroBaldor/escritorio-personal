@@ -1005,7 +1005,7 @@ function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel>
       roar.connect(body).connect(level).connect(out); roar.start();
     })),
     // Ovnis: un zumbido grave que vibra y un silbido agudo.
-    ufo: channel(0.7, out => recorded(c, invOvniUrl, 1, out, out => {
+    ufo: channel(1, out => recorded(c, invOvniUrl, 1.2, out, out => {
       const hum = osc(c, 'sawtooth', 48), low = filter(c, 'lowpass', 260), level = c.createGain();
       level.gain.value = 0.8; wobble(c, hum.frequency, 0.6, 6); wobble(c, level.gain, 7, 0.25);
       hum.connect(low).connect(level).connect(out); hum.start();
