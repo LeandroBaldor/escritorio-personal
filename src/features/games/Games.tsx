@@ -163,7 +163,7 @@ export function Games() {
           <Cover src={invasionCover} />
           <span className="game-card-text">
             <strong>Invasión</strong>
-            <span>Sos francotirador y la ciudad está llena de aliens disfrazados de personas. Recorré la cuadra con las flechas y apuntá con el mouse a cada departamento, local y vereda: se ven como aliens solo 1 segundo cada 30, así que buscá a la gente que hace cosas raras. Quieren quemarlo todo, y a los 5 minutos llegan los ovnis.</span>
+            <span>Sos francotirador y la ciudad está llena de aliens disfrazados de personas. Recorré la cuadra con las flechas y apuntá con el mouse a cada departamento, local y vereda: cada 30 segundos se les ve la cara de alien por 5 segundos, se te quedan mirando fijo y pasean con bombas rojas. A los 5 minutos se larga una tormenta y a los 7 llegan los ovnis.</span>
             <span className="game-card-win"><b>Cómo se gana:</b> Eliminá a 10 aliens antes de que pasen los 10 minutos. Tenés 3 vidas: cada persona a la que le disparás te saca una.</span>
           </span>
           <span className="game-card-foot">

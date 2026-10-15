@@ -5,7 +5,7 @@
 import { anomalyOf, poseOf, revealed, roomOf, type Invasion, type Person, type Pose } from './invasion';
 import type { AnomalyFx, PropKind } from './invasionAnomalies';
 
-export type HandProp = PropKind | 'glass' | 'brush' | 'toothbrush' | 'hammer' | 'brick' | 'scissors' | 'cloth' | 'ball' | 'dumbbell' | 'lighter' | 'raygun' | 'box' | 'tray' | 'pen';
+export type HandProp = PropKind | 'bomb' | 'bombOff' | 'communicator' | 'glass' | 'brush' | 'toothbrush' | 'hammer' | 'brick' | 'scissors' | 'cloth' | 'ball' | 'dumbbell' | 'lighter' | 'raygun' | 'box' | 'tray' | 'pen';
 
 export const hash = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 export const hsl = (h: number, s: number, l: number, a = 1) => `hsla(${h},${s}%,${l}%,${a})`;
@@ -82,6 +82,7 @@ export interface Outfit {
   skin: string; hair: string; hat: Hat; hatColor: string; shirt: [string, string, string]; pants: string; shoes: string; vest: boolean; alien: boolean;
   // Los detalles de cada uno: qué tiene puesto arriba, anteojos, barba o bigote, mochila o cartera, reloj, aros, corbata.
   top: Top; glasses: boolean; beard: 0 | 1 | 2; bag: 0 | 1 | 2; watch: boolean; earring: boolean; tie: boolean; inner: string; belt: string;
+  alienHead?: boolean; // el disfraz se le cae: la ropa es la de siempre pero la cara es la de un alien gris
 }
 const TOPS: Top[] = ['tee', 'shirt', 'hoodie', 'jacket', 'sweater', 'tee', 'shirt'];
 export function outfitOf(p: Person, skinOverride?: string): Outfit {
@@ -112,14 +113,14 @@ const line = (ctx: CanvasRenderingContext2D, color: string, width: number, ...pt
 };
 const dot = (ctx: CanvasRenderingContext2D, color: string, x: number, y: number, r: number) => { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, Math.max(0.6, r), 0, Math.PI * 2); ctx.fill(); };
 
-export interface HeadOpts { face?: 'front' | 'back'; spin?: number; big?: number; upside?: boolean; eyes?: string; closed?: boolean; grin?: boolean; tongue?: boolean; scales?: boolean; hairUp?: boolean; neck?: number; antenna?: boolean; shades?: boolean }
+export interface HeadOpts { gaze?: [number, number]; face?: 'front' | 'back'; spin?: number; big?: number; upside?: boolean; eyes?: string; closed?: boolean; grin?: boolean; tongue?: boolean; scales?: boolean; hairUp?: boolean; neck?: number; antenna?: boolean; shades?: boolean }
 
 // La cabeza: de perfil (como en los otros juegos) o de frente (cuando te mira), o la de un alien gris.
 function drawHead(ctx: CanvasRenderingContext2D, o: Outfit, x: number, y: number, r: number, f: number, h: HeadOpts, t: number) {
   ctx.save(); ctx.translate(x, y);
   if (h.upside) ctx.rotate(Math.PI);
   const R = r * (h.big ?? 1);
-  if (o.alien) { // cabeza de alien gris: un huevo grande, ojos negros almendrados
+  if (o.alien || o.alienHead) { // cabeza de alien gris: un huevo grande, ojos negros almendrados
     const g = ctx.createRadialGradient(-R * 0.3, -R * 0.5, R * 0.2, 0, -R * 0.2, R * 1.5);
     g.addColorStop(0, '#d1d5db'); g.addColorStop(1, '#6b7280');
     ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(f * R * 0.1, -R * 0.35, R * 1.05, R * 1.3, 0, 0, Math.PI * 2); ctx.fill();
@@ -145,7 +146,7 @@ function drawHead(ctx: CanvasRenderingContext2D, o: Outfit, x: number, y: number
   if (front) {
     for (const s of [-1, 1]) {
       if (h.closed) line(ctx, '#111', Math.max(1, R * 0.08), [s * R * 0.42 - R * 0.14, -R * 0.08], [s * R * 0.42 + R * 0.14, -R * 0.08]);
-      else { dot(ctx, '#fff', s * R * 0.4, -R * 0.08, R * 0.2); dot(ctx, eye, s * R * 0.4, -R * 0.06, R * 0.11); if (detail) dot(ctx, '#fff', s * R * 0.4 + R * 0.04, -R * 0.1, R * 0.035); }
+      else { const [gx, gy] = h.gaze ?? [0, 0]; dot(ctx, '#fff', s * R * 0.4, -R * 0.08, R * 0.2); dot(ctx, eye, s * R * 0.4 + gx * R * 0.08, -R * 0.06 + gy * R * 0.08, R * (h.gaze ? 0.08 : 0.11)); if (detail) dot(ctx, '#fff', s * R * 0.4 + R * 0.04 + gx * R * 0.08, -R * 0.1 + gy * R * 0.08, R * 0.03); }
       if (detail) { line(ctx, brow, Math.max(0.8, R * 0.08), [s * R * 0.25, -R * 0.36], [s * R * 0.58, -R * 0.33]); dot(ctx, 'rgba(244,114,182,0.22)', s * R * 0.55, R * 0.2, R * 0.16); }
     }
     if (detail) line(ctx, mixColor(o.skin, '#000000', 0.25), Math.max(0.7, R * 0.05), [0, -R * 0.05], [R * 0.06, R * 0.18], [-R * 0.04, R * 0.2]); // nariz
@@ -314,7 +315,7 @@ export function drawBody(ctx: CanvasRenderingContext2D, o: Outfit, kind: Pose['k
 export function drawProp(ctx: CanvasRenderingContext2D, kind: HandProp, x: number, y: number, H: number, t: number, upside = false) {
   const u = H * 0.1;
   ctx.save(); ctx.translate(x, y); if (upside) ctx.rotate(Math.PI);
-  const rect = (c: string, x1: number, y1: number, w: number, h: number, rr = 0) => { ctx.fillStyle = c; ctx.beginPath(); ctx.roundRect(x1 * u, y1 * u, w * u, h * u, rr * u); ctx.fill(); };
+  const rect = (c: string | CanvasGradient, x1: number, y1: number, w: number, h: number, rr = 0) => { ctx.fillStyle = c; ctx.beginPath(); ctx.roundRect(x1 * u, y1 * u, w * u, h * u, rr * u); ctx.fill(); };
   const circ = (c: string, cx: number, cy: number, r: number) => dot(ctx, c, cx * u, cy * u, r * u);
   switch (kind) {
     case 'plant': case 'cactus': rect('#9a3412', -0.5, -0.2, 1, 0.8, 0.1); for (let i = 0; i < 4; i++) { ctx.fillStyle = kind === 'cactus' ? '#16a34a' : '#22c55e'; ctx.beginPath(); ctx.ellipse((i - 1.5) * 0.3 * u, -0.8 * u, 0.25 * u, 0.7 * u, (i - 1.5) * 0.3, 0, Math.PI * 2); ctx.fill(); } break;
@@ -365,6 +366,37 @@ export function drawProp(ctx: CanvasRenderingContext2D, kind: HandProp, x: numbe
     case 'lighter': rect('#ef4444', -0.2, -0.5, 0.4, 0.7, 0.08); { const fl = 0.8 + Math.sin(t * 30) * 0.2; ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.ellipse(0, -0.85 * u, 0.15 * u, 0.35 * u * fl, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fb923c'; ctx.beginPath(); ctx.ellipse(0, -0.8 * u, 0.08 * u, 0.2 * u * fl, 0, 0, Math.PI * 2); ctx.fill(); } break;
     case 'raygun': rect('#64748b', -0.3, -0.3, 1.4, 0.45, 0.15); rect('#4ade80', 0.9, -0.22, 0.4, 0.3, 0.1); rect('#475569', -0.2, -0.05, 0.3, 0.6, 0.1); break;
     case 'box': rect('#c08a4b', -0.7, -1, 1.4, 1, 0.05); rect('#e7c48b', -0.7, -0.6, 1.4, 0.1); break;
+    case 'bomb': case 'bombOff': { // la bomba de los aliens: una caja roja grande, con cinta de peligro, cables y una luz
+      const on = kind === 'bomb', gr = ctx.createLinearGradient(0, -2.1 * u, 0, 2.1 * u);
+      gr.addColorStop(0, on ? '#ef4444' : '#a8a29e'); gr.addColorStop(1, on ? '#7f1d1d' : '#57534e');
+      rect(gr, -2.8, -2.1, 5.6, 4.2, 0.25);
+      ctx.save(); ctx.beginPath(); ctx.rect(-2.8 * u, -0.45 * u, 5.6 * u, 0.9 * u); ctx.clip();
+      ctx.fillStyle = '#facc15'; ctx.fillRect(-2.8 * u, -0.45 * u, 5.6 * u, 0.9 * u);
+      ctx.fillStyle = '#111827'; for (let i = -4; i < 4; i++) { ctx.beginPath(); ctx.moveTo(i * 0.8 * u, 0.45 * u); ctx.lineTo((i * 0.8 + 0.4) * u, 0.45 * u); ctx.lineTo((i * 0.8 + 0.9) * u, -0.45 * u); ctx.lineTo((i * 0.8 + 0.5) * u, -0.45 * u); ctx.fill(); }
+      ctx.restore();
+      rect('#111827', 0.5, -1.75, 2, 0.95, 0.1); // pantallita del reloj
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = Math.max(1, u * 0.12); ctx.strokeRect(-2.8 * u, -2.1 * u, 5.6 * u, 4.2 * u);
+      line(ctx, '#2563eb', u * 0.18, [-1.8 * u, -2.1 * u], [-1.2 * u, -3 * u], [-0.4 * u, -2.1 * u]);
+      line(ctx, '#16a34a', u * 0.18, [-1.4 * u, -2.1 * u], [-0.3 * u, -3.2 * u], [0.6 * u, -2.1 * u]);
+      const blink = on && Math.floor(t * 4) % 2 === 0;
+      if (blink) { const g = ctx.createRadialGradient(-2 * u, -1.4 * u, 0, -2 * u, -1.4 * u, 2.2 * u); g.addColorStop(0, 'rgba(254,202,202,0.9)'); g.addColorStop(1, 'rgba(239,68,68,0)'); ctx.fillStyle = g; ctx.fillRect(-4.2 * u, -3.6 * u, 4.4 * u, 4.4 * u); }
+      circ(blink ? '#fef2f2' : on ? '#7f1d1d' : '#44403c', -2, -1.4, 0.4);
+      break;
+    }
+    case 'communicator': { // el intercomunicador extraterrestre: grande, violeta, con pantalla verde, botones y antena
+      const gr = ctx.createLinearGradient(-1.6 * u, 0, 1.6 * u, 0); gr.addColorStop(0, '#6d28d9'); gr.addColorStop(0.5, '#4c1d95'); gr.addColorStop(1, '#1e1b4b');
+      rect(gr, -1.6, -2.8, 3.2, 4.6, 0.6);
+      line(ctx, '#a5b4fc', u * 0.2, [-1 * u, -2.7 * u], [-1.6 * u, -5.2 * u]);
+      const pulse = 0.5 + Math.sin(t * 9) * 0.5;
+      circ(`rgba(74,222,128,${0.4 + pulse * 0.6})`, -1.6, -5.3, 0.45);
+      rect('#052e16', -1.15, -2.3, 2.3, 1.7, 0.2);
+      ctx.strokeStyle = '#4ade80'; ctx.lineWidth = Math.max(1, u * 0.15); ctx.beginPath();
+      for (let i = 0; i <= 12; i++) { const x = -1 + i * (2 / 12), y = -1.45 + Math.sin(i * 1.3 + t * 14) * 0.45 * pulse; if (i) ctx.lineTo(x * u, y * u); else ctx.moveTo(x * u, y * u); }
+      ctx.stroke();
+      for (let i = 0; i < 6; i++) circ(['#f472b6', '#22d3ee', '#facc15', '#4ade80', '#f97316', '#a78bfa'][i], -0.8 + (i % 3) * 0.8, -0.1 + Math.floor(i / 3) * 0.75, 0.25);
+      for (let i = 0; i < 4; i++) rect('rgba(255,255,255,0.15)', -1.3, 1.1 + i * 0.16, 2.6, 0.06);
+      break;
+    }
     case 'tray': rect('#94a3b8', -0.9, -0.08, 1.8, 0.16); rect('rgba(186,230,253,0.8)', -0.5, -0.65, 0.35, 0.57); rect('rgba(186,230,253,0.8)', 0.15, -0.65, 0.35, 0.57); break;
     case 'pen': line(ctx, '#1d4ed8', u * 0.1, [0, 0], [0.5 * u, -0.9 * u]); break;
   }
@@ -432,33 +464,49 @@ function anomalyOpts(fx: AnomalyFx, t: number, k: number): { body: BodyOpts; ski
 }
 
 // Dibuja a una persona del juego (o su cuerpo, si está muerta) en la pantalla, donde corresponde.
-export function drawPerson(ctx: CanvasRenderingContext2D, g: Invasion, p: Person, sx: number, sy: number, s: number, t: number) {
+export function drawPerson(ctx: CanvasRenderingContext2D, g: Invasion, p: Person, px: number, py: number, s: number, t: number) {
   const pose = poseOf(g, p), H = pose.h * s, a = anomalyOf(p), room = roomOf(g, p);
-  const isAlien = revealed(p, t) || (p.dead?.alien && t - p.dead.t > 0.25);
-  if (H < 16) { drawTiny(ctx, p, pose, sx, sy, H, !!isAlien, t); return; }
+  // Donde está según la postura (en la cama, en la pared o en el techo).
+  const sx = px + (pose.x - p.x) * s, sy = py - (pose.y - p.y) * s;
+  const reveal = revealed(p, t) && !p.dead, deadAlien = !!p.dead?.alien && t - p.dead.t > 0.25, isAlien = reveal || deadAlien;
+  if (H < 16) { drawTiny(ctx, p, pose, sx, sy, H, isAlien, t); return; }
   const k = p.moving ? t * (pose.kind === 'run' ? 16 : 9) + p.id : t * 2 + p.id;
   const ak = a ? t - p.anomaly!.t0 : 0;
   const fx = a?.fx;
   const opts = fx ? anomalyOpts(fx, t, ak) : { body: {} as BodyOpts, skin: undefined, front: false };
-  const { skin, front } = opts;
+  const { skin } = opts;
+  let front = opts.front;
   let body = opts.body;
   if (!fx && !p.dead && !p.moving) {
     const prop = ACTIVITY_PROP[p.act];
     if (prop) body = { ...body, prop: prop[0], propAt: prop[1] };
   }
-  if (p.sabotage && !p.moving && !p.dead) body = { ...body, prop: p.sabotage.kind === 'lighter' ? 'lighter' : p.sabotage.kind === 'ray' ? 'raygun' : 'box' };
+  if (p.sabotage && !p.dead) {
+    // La bomba la lleva con las dos manos (una caja roja grande); el encendedor y el arma, cuando se frena.
+    if (p.sabotage.kind === 'box') { if (!p.sabotage.done) body = { ...body, prop: 'bomb', propAt: 'front', handF: [0.3, -0.5], handB: [0.24, -0.47] }; }
+    else if (!p.moving) body = { ...body, prop: p.sabotage.kind === 'lighter' ? 'lighter' : 'raygun' };
+  }
+  // El intercomunicador extraterrestre, a la altura de la cara.
+  if (p.comm && !p.dead) body = { ...body, prop: 'communicator', propAt: 'front', handF: [0.27, -0.78], handB: [0.18, -0.6] };
+  // Mirando fijo a la mira: de frente, con los ojos clavados en vos.
+  const staring = p.alien && !p.dead && t < p.stareUntil;
+  if (staring) {
+    const dx = g.aim.x - pose.x, dy = g.aim.y - (pose.y + pose.h * 0.85), L = Math.hypot(dx, dy) || 1;
+    body = { ...body, head: { ...(body.head ?? {}), face: 'front', gaze: [(dx / L) * pose.dir, -dy / L] } };
+    front = true;
+  }
   if (p.dog && !p.dead) drawDog(ctx, sx + p.dir * H * 0.55, sy, H * 0.45, p.dir, p.moving ? t * 12 : 0, false);
   if (body.handF) body.handF = [body.handF[0] * H, body.handF[1] * H];
   if (body.handB) body.handB = [body.handB[0] * H, body.handB[1] * H];
-  const outfit = isAlien ? ALIEN : outfitOf(p, skin);
-  body.vest = !isAlien && p.job === 'worker';
+  const outfit = deadAlien ? ALIEN : reveal ? { ...outfitOf(p, skin), skin: ALIEN.skin, alienHead: true } : outfitOf(p, skin);
+  body.vest = !deadAlien && p.job === 'worker';
   body.sx = pose.sx;
   if (isAlien && body.head) body.head = { ...body.head, face: front ? 'front' : undefined };
   const by = sy - pose.lift * s;
 
   // Sombra en el piso (y en la pared de atrás, para los que están adentro). Hay aliens sin sombra, o con sombra de alien.
   const noShadow = fx?.t === 'look' && fx.mode === 'noshadow';
-  if (!noShadow && !pose.upside && pose.kind !== 'dead') {
+  if (!noShadow && !pose.upside && !pose.wall && pose.kind !== 'dead') {
     ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(sx, sy, H * (pose.kind === 'lie' ? 0.5 : 0.24), H * 0.04, 0, 0, Math.PI * 2); ctx.fill();
     if (room && room.lights && pose.kind !== 'lie') {
       ctx.save(); ctx.globalAlpha = 0.08; ctx.translate(sx + H * 0.2, sy - H * 0.02); ctx.scale(1.08, 1.04);
@@ -489,6 +537,7 @@ export function drawPerson(ctx: CanvasRenderingContext2D, g: Invasion, p: Person
   }
   ctx.save();
   ctx.translate(sx, by);
+  if (pose.wall) ctx.rotate(pose.wall); // caminando por la pared o el techo (gira sobre los pies)
   if (pose.upside) ctx.scale(1, -1);
   if (pose.rot) { ctx.translate(0, -H * 0.5); ctx.rotate(pose.rot); ctx.translate(0, H * 0.5); }
   if (fx?.t === 'move' && fx.mode === 'jitter' && Math.sin(t * 23) > 0.7) ctx.translate(H * 0.08, 0);
@@ -512,6 +561,14 @@ export function drawPerson(ctx: CanvasRenderingContext2D, g: Invasion, p: Person
     ctx.beginPath(); ctx.moveTo(hand[0] + p.dir * H * 0.15, hand[1]); ctx.lineTo(tx, hand[1] + Math.sin(t * 13) * s * 0.1); ctx.stroke();
     ctx.shadowBlur = 0;
   }
+  // Hablando por el intercomunicador: ondas verdes que salen de la antena y palabras en su idioma.
+  if (p.comm) {
+    const ax = hand[0] - p.dir * H * 0.16, ay = hand[1] - H * 0.53;
+    ctx.strokeStyle = '#4ade80'; ctx.lineWidth = Math.max(1, H * 0.015);
+    for (let i = 0; i < 3; i++) { const l = (t * 1.3 + i / 3) % 1; ctx.globalAlpha = 1 - l; ctx.beginPath(); ctx.arc(ax, ay, H * (0.06 + l * 0.35), 0, Math.PI * 2); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    if (Math.floor((t - p.comm.t0) / 1.4) % 2 === 0) bubble(ctx, head[0], head[1] - parts.r * 1.8, ['⍙⟟⏃ ⋏⏚ ⟒', '⌇⍜⍀ ⏁⟟⏃', '⋔⏃⍀ ⍙⟟⏁'][Math.floor((t - p.comm.t0) / 2.8) % 3], s, '#4ade80');
+  }
   if (!fx) { if (p.talk > 0 && p.act === 'flee' && Math.floor(t * 3 + p.id) % 4 === 0) bubble(ctx, head[0], head[1] - parts.r * 1.6, '¡AAAH!', s, '#fef08a'); return; }
   // Lo que pasa alrededor (anomalías del ambiente) y lo que dicen.
   const r = parts.r;
@@ -529,7 +586,7 @@ export function drawPerson(ctx: CanvasRenderingContext2D, g: Invasion, p: Person
 
 // Visto de muy lejos (el fondo de la mira): solo la silueta con los colores de la ropa.
 function drawTiny(ctx: CanvasRenderingContext2D, p: Person, pose: Pose, sx: number, sy: number, H: number, alien: boolean, t: number) {
-  const o = alien ? ALIEN : outfitOf(p), lie = pose.kind === 'lie' || pose.kind === 'dead';
+  const o = alien ? { ...outfitOf(p), skin: ALIEN.skin } : outfitOf(p), lie = pose.kind === 'lie' || pose.kind === 'dead';
   const y = sy - pose.lift * H;
   if (lie) { ctx.fillStyle = o.shirt[1]; ctx.fillRect(sx - H * 0.4, y - H * 0.18, H * 0.8, H * 0.16); dot(ctx, o.skin, sx + pose.dir * H * 0.45, y - H * 0.12, H * 0.12); return; }
   const h = pose.kind === 'sit' || pose.kind === 'squat' ? H * 0.75 : H, w = Math.max(1.5, H * 0.26);

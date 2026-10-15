@@ -926,7 +926,7 @@ export function setCrowd(level: number) {
 
 // ---------- Invasión ----------
 let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
-export function preloadInvasionSounds() { for (const url of [fuegoUrl, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl]) loadSample(url); }
+export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl]) loadSample(url); }
 // Voces en un idioma inventado: una voz (tono que sube y baja) que pasa por dos "formantes" que cambian todo
 // el tiempo (las vocales) y se corta en sílabas.
 function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
@@ -1014,6 +1014,12 @@ function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel>
       const hp = filter(c, 'highpass', 2000), short = c.createGain(); short.gain.value = 0.3; wobble(c, short.gain, 20, 0.3, 'square');
       tk.connect(hp).connect(gate).connect(short).connect(out); tk.start();
     }),
+    // La lluvia: la grabación (mientras carga, un ruido suave y agudo).
+    rain: channel(0.7, out => recorded(c, lluviaUrl, 1, out, out => {
+      const drops = noiseSource(c), hi = filter(c, 'highpass', 1800), level = c.createGain();
+      level.gain.value = 0.35; wobble(c, level.gain, 0.2, 0.08);
+      drops.connect(hi).connect(level).connect(out); drops.start();
+    })),
     // Perros que ladran.
     dog: channel(0.3, out => {
       const bark = noiseSource(c), band = filter(c, 'bandpass', 700, 3), gate = c.createGain();
@@ -1093,6 +1099,14 @@ export function playBlast(volume: number) {
   const t = c.currentTime;
   tone(c, 'sine', 90, 28, t, 0.6, 1.1 * volume);
   burst(c, 'lowpass', 1500, t, 0.8, 0.9 * volume);
+}
+// El intercomunicador de los aliens: pitidos que suben y bajan y una voz metálica que tartamudea.
+export function playAlienComm(volume: number) {
+  const c = running(); if (!c || volume < 0.05) return;
+  const t = c.currentTime;
+  for (let i = 0; i < 6; i++) tone(c, 'square', 700 + Math.random() * 900, 400 + Math.random() * 1400, t + i * 0.11, 0.09, 0.07 * volume);
+  for (let i = 0; i < 4; i++) tone(c, 'sawtooth', 180 + i * 35, 120 + Math.random() * 200, t + 0.7 + i * 0.22, 0.18, 0.1 * volume);
+  burst(c, 'bandpass', 2500, t + 1.6, 0.25, 0.12 * volume);
 }
 // El rayo de un ovni: un "zap" que baja.
 export function playLaser(volume: number) {
