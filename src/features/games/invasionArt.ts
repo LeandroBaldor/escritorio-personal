@@ -246,12 +246,16 @@ function drawItem(ctx: CanvasRenderingContext2D, f: Furniture, room: Room, P: P,
 }
 
 const roomCache = new Map<string, HTMLCanvasElement>();
-const CACHE_MAX = 260;
+const CACHE_MAX = 320;
+// Cuántas imágenes nuevas se arman por cuadro (las demás, en los cuadros siguientes): así arrancar o hacer
+// zoom no traba el juego en las compus y celulares lentos.
+let budget = 0;
 function roomImage(room: Room, b: Building, level: number, dpr: number) {
   const key = `${room.id}:${level}:${dpr}`;
   const hit = roomCache.get(key);
   if (hit) { roomCache.delete(key); roomCache.set(key, hit); return hit; }
-  if (typeof document === 'undefined') return null;
+  if (typeof document === 'undefined' || budget <= 0) return null;
+  budget--;
   const S = ZOOMS[level], pad = 0.05;
   const canvas = document.createElement('canvas');
   canvas.width = Math.ceil((room.x2 - room.x1 + pad * 2) * S * dpr); canvas.height = Math.ceil((room.h + pad * 2) * S * dpr);
@@ -263,6 +267,8 @@ function roomImage(room: Room, b: Building, level: number, dpr: number) {
   if (roomCache.size > CACHE_MAX) roomCache.delete(roomCache.keys().next().value!);
   return canvas;
 }
+// Cualquier imagen ya armada de la habitación (de otro zoom), mientras se arma la del zoom actual.
+const cachedAny = (room: Room, dpr: number) => { for (let l = ZOOMS.length - 1; l >= 0; l--) { const hit = roomCache.get(`${room.id}:${l}:${dpr}`); if (hit) return hit; } return null; };
 export const levelFor = (s: number) => { const i = ZOOMS.findIndex(z => z >= s * 0.95); return i < 0 ? ZOOMS.length - 1 : i; };
 
 // ---------- Lo que se mueve en cada habitación ----------
@@ -523,7 +529,8 @@ function drawUfo(ctx: CanvasRenderingContext2D, u: Invasion['ufos'][number], v: 
 }
 
 // ---------- Todo junto ----------
-export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
+export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, newImages = 6) {
+  budget = newImages;
   drawSky(ctx, g, v);
   const level = levelFor(v.s);
   for (let i = 0; i + 1 < g.buildings.length; i++) { const a = g.buildings[i], b = g.buildings[i + 1]; if (visible(v, a.x + a.w, b.x, 0, 30)) drawAlley(ctx, a, b, v); }
@@ -536,8 +543,9 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
       const room = g.rooms[id];
       if (!visible(v, room.x1, room.x2, room.y, room.y + room.h)) continue;
       if (!room.destroyed) {
-        const img = roomImage(room, b, level, v.dpr);
+        const img = roomImage(room, b, level, v.dpr) ?? roomImage(room, b, Math.max(0, level - 1), v.dpr) ?? cachedAny(room, v.dpr);
         if (img) ctx.drawImage(img, X(v, room.x1 - 0.05), Y(v, room.y + room.h + 0.05), (room.x2 - room.x1 + 0.1) * v.s, (room.h + 0.1) * v.s);
+        else { ctx.fillStyle = WALLS[room.theme](b.hue); ctx.fillRect(X(v, room.x1), Y(v, room.y + room.h), (room.x2 - room.x1) * v.s, room.h * v.s); } // todavía no está la imagen
         drawRoomLive(ctx, g, room, b, v, flickering.has(room.id));
       }
       drawRoomDamage(ctx, room, v);
@@ -548,6 +556,12 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   for (const d of g.decals) {
     if (!visible(v, d.x - 1, d.x + 1, d.y - 1, d.y + 1)) continue;
     const px = X(v, d.x), py = Y(v, d.y);
+    if (d.goo) { // mancha verde del alien que explotó
+      ctx.fillStyle = 'rgba(74,222,128,0.75)';
+      for (let i = 0; i < 9; i++) { const a = i * 0.7 + d.x, r = v.s * (0.12 + hash(i + d.x * 3) * 0.2); ctx.beginPath(); ctx.ellipse(px + Math.cos(a) * v.s * 0.4 * hash(i * 2 + d.t), py - Math.abs(Math.sin(a)) * v.s * 0.5 * hash(i + d.t), r, r * 0.7, a, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = 'rgba(22,101,52,0.8)'; ctx.beginPath(); ctx.ellipse(px, py, v.s * 0.45, v.s * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+      continue;
+    }
     if (d.glass) { ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1; for (let i = 0; i < 7; i++) { const a = i * 0.9 + d.x; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + Math.cos(a) * v.s * (0.25 + hash(i + d.y) * 0.35), py + Math.sin(a) * v.s * (0.25 + hash(i * 3 + d.x) * 0.35)); ctx.stroke(); } }
     ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(px, py, Math.max(1.2, v.s * 0.035), 0, Math.PI * 2); ctx.fill();
   }
@@ -578,6 +592,13 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   for (const bl of g.blasts) {
     const k = bl.t / 1.2, r = (0.6 + k * 1.8) * bl.size * v.s, px = X(v, bl.x), py = Y(v, bl.y);
     const gl = ctx.createRadialGradient(px, py, 0, px, py, r);
+    if (bl.green) { // el alien explota en verde: bola de luz, anillo y destello
+      gl.addColorStop(0, `rgba(240,255,220,${1 - k})`); gl.addColorStop(0.35, `rgba(132,204,22,${0.9 * (1 - k)})`); gl.addColorStop(0.7, `rgba(22,163,74,${0.6 * (1 - k)})`); gl.addColorStop(1, 'rgba(20,83,45,0)');
+      ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = `rgba(190,242,100,${0.9 * (1 - k)})`; ctx.lineWidth = Math.max(2, v.s * 0.08 * (1 - k)); ctx.beginPath(); ctx.arc(px, py, r * 1.25, 0, Math.PI * 2); ctx.stroke();
+      if (k < 0.15) { ctx.fillStyle = `rgba(190,242,100,${0.25 * (1 - k / 0.15)})`; ctx.fillRect(0, 0, v.w, v.h); }
+      continue;
+    }
     gl.addColorStop(0, `rgba(255,250,220,${1 - k})`); gl.addColorStop(0.4, `rgba(251,146,60,${0.85 * (1 - k)})`); gl.addColorStop(1, 'rgba(127,29,29,0)');
     ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
   }

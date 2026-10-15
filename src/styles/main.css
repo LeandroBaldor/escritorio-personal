@@ -1373,7 +1373,7 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .inv-toast.is-big{font-size:clamp(1rem,2.8vw,1.5rem)}
 .inv-title{font-size:clamp(1.6rem,4vw,2.4rem);color:#86efac}
 .inv-card{max-width:min(720px,94vw)!important;max-height:100%;overflow:auto}
-.inv-touch{display:none;position:absolute;right:10px;bottom:10px;flex-direction:column;gap:8px}
+.inv-touch{display:none;position:absolute;left:50%;bottom:10px;transform:translateX(-50%);gap:8px}
 .inv-touch button{width:52px;height:52px;border-radius:50%;background:#14532dcc;color:#bbf7d0;font:900 1.6rem/1 Nunito,system-ui,sans-serif;border:2px solid #22c55e}
 @media(pointer:coarse),(max-width:800px){.inv-touch{display:flex}}
 .inv-ammo strong{display:flex;gap:4px}
