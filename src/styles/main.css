@@ -1377,6 +1377,8 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .inv-touch button{width:52px;height:52px;border-radius:50%;background:#14532dcc;color:#bbf7d0;font:900 1.6rem/1 Nunito,system-ui,sans-serif;border:2px solid #22c55e}
 @media(pointer:coarse),(max-width:800px){.inv-touch{display:flex}}
 .inv-ammo strong{display:flex;gap:4px}
+.inv-lives strong{display:flex;gap:2px;font-size:1.1rem}
+.inv-lives i{font-style:normal}
 .inv-ammo i{width:8px;height:26px;border-radius:4px 4px 2px 2px;background:#3f3f46}
 .inv-ammo i.is-full{background:linear-gradient(180deg,#fde68a 0 30%,#b45309 30% 100%)}
 .inv-breath{display:block;width:100%;height:10px;background:#1f2937;border-radius:999px;overflow:hidden}

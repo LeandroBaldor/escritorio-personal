@@ -77,18 +77,34 @@ function skeleton(kind: Pose['kind'], H: number, k: number, opts: { armsOut?: bo
   return { hip, neck, head, r, kneeF, kneeB, footF, footB, handF, handB, elbowF: elbow(handF, 1), elbowB: elbow(handB, -1) };
 }
 
-export interface Outfit { skin: string; hair: string; hat: Hat; hatColor: string; shirt: [string, string, string]; pants: string; shoes: string; vest: boolean; alien: boolean }
+type Top = 'tee' | 'shirt' | 'hoodie' | 'jacket' | 'sweater';
+export interface Outfit {
+  skin: string; hair: string; hat: Hat; hatColor: string; shirt: [string, string, string]; pants: string; shoes: string; vest: boolean; alien: boolean;
+  // Los detalles de cada uno: qué tiene puesto arriba, anteojos, barba o bigote, mochila o cartera, reloj, aros, corbata.
+  top: Top; glasses: boolean; beard: 0 | 1 | 2; bag: 0 | 1 | 2; watch: boolean; earring: boolean; tie: boolean; inner: string; belt: string;
+}
+const TOPS: Top[] = ['tee', 'shirt', 'hoodie', 'jacket', 'sweater', 'tee', 'shirt'];
 export function outfitOf(p: Person, skinOverride?: string): Outfit {
   const L = p.look, worker = p.job === 'worker';
   const a = hsl(L.shirt, 62, 46), b = hsl(L.shirt2, 55, 70);
+  // Los detalles salen de la misma "semilla" de cada persona, así siempre se ve igual.
+  const ex = (n: number) => hash(L.skin * 1000 + L.hair * 100 + L.pants * 10 + L.shoes + n * 7.3);
+  const hat = worker ? 'helmet' : HATS[Math.floor(L.hat * HATS.length)];
+  const top = worker ? 'tee' : TOPS[Math.floor(ex(0) * TOPS.length)];
   return {
     skin: skinOverride ?? SKINS[Math.floor(L.skin * SKINS.length)], hair: HAIRS[Math.floor(L.hair * HAIRS.length)],
-    hat: worker ? 'helmet' : HATS[Math.floor(L.hat * HATS.length)], hatColor: worker ? '#facc15' : hsl((L.shirt + 180) % 360, 55, 42),
+    hat, hatColor: worker ? '#facc15' : hsl((L.shirt + 180) % 360, 55, 42),
     shirt: worker ? ['#f97316', '#facc15', '#f97316'] : L.pattern === 0 ? [a, a, a] : L.pattern === 1 ? [a, b, a] : [b, a, a],
     pants: PANTS[Math.floor(L.pants * PANTS.length)], shoes: SHOES[Math.floor(L.shoes * SHOES.length)], vest: worker, alien: false,
+    top, glasses: ex(1) < 0.22, beard: L.kid || hat === 'long' || hat === 'bun' ? 0 : ex(2) < 0.16 ? 2 : ex(2) < 0.26 ? 1 : 0,
+    bag: p.room < 0 && !worker ? (ex(3) < 0.25 ? 1 : ex(3) < 0.4 ? 2 : 0) : 0, watch: ex(4) < 0.45, earring: (hat === 'long' || hat === 'bun') && ex(5) < 0.6,
+    tie: top === 'shirt' && ex(6) < 0.4 && !L.kid, inner: hsl(L.shirt2, 30, 88), belt: ex(7) < 0.5 ? '#1c1917' : '#78350f',
   };
 }
-const ALIEN: Outfit = { skin: '#a8adb5', hair: '#a8adb5', hat: 'bald', hatColor: '#a8adb5', shirt: ['#9ca3af', '#9ca3af', '#9ca3af'], pants: '#8b9099', shoes: '#6b7280', vest: false, alien: true };
+const ALIEN: Outfit = {
+  skin: '#a8adb5', hair: '#a8adb5', hat: 'bald', hatColor: '#a8adb5', shirt: ['#9ca3af', '#9ca3af', '#9ca3af'], pants: '#8b9099', shoes: '#6b7280', vest: false, alien: true,
+  top: 'tee', glasses: false, beard: 0, bag: 0, watch: false, earring: false, tie: false, inner: '#9ca3af', belt: '#8b9099',
+};
 
 const line = (ctx: CanvasRenderingContext2D, color: string, width: number, ...pts: Pt[]) => {
   ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -125,19 +141,31 @@ function drawHead(ctx: CanvasRenderingContext2D, o: Outfit, x: number, y: number
   ctx.fillStyle = shade; ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
   if (h.scales) for (let i = 0; i < 9; i++) dot(ctx, 'rgba(74,222,128,0.75)', (hash(i) - 0.5) * R * 1.4, (hash(i + 4) - 0.3) * R, R * 0.09);
   const eye = h.eyes ?? '#111';
+  const brow = mixColor(o.hair, '#000000', 0.2), detail = R > 5;
   if (front) {
     for (const s of [-1, 1]) {
       if (h.closed) line(ctx, '#111', Math.max(1, R * 0.08), [s * R * 0.42 - R * 0.14, -R * 0.08], [s * R * 0.42 + R * 0.14, -R * 0.08]);
-      else { dot(ctx, '#fff', s * R * 0.4, -R * 0.08, R * 0.2); dot(ctx, eye, s * R * 0.4, -R * 0.06, R * 0.11); }
+      else { dot(ctx, '#fff', s * R * 0.4, -R * 0.08, R * 0.2); dot(ctx, eye, s * R * 0.4, -R * 0.06, R * 0.11); if (detail) dot(ctx, '#fff', s * R * 0.4 + R * 0.04, -R * 0.1, R * 0.035); }
+      if (detail) { line(ctx, brow, Math.max(0.8, R * 0.08), [s * R * 0.25, -R * 0.36], [s * R * 0.58, -R * 0.33]); dot(ctx, 'rgba(244,114,182,0.22)', s * R * 0.55, R * 0.2, R * 0.16); }
     }
+    if (detail) line(ctx, mixColor(o.skin, '#000000', 0.25), Math.max(0.7, R * 0.05), [0, -R * 0.05], [R * 0.06, R * 0.18], [-R * 0.04, R * 0.2]); // nariz
+    if (o.glasses) { ctx.strokeStyle = '#1f2937'; ctx.lineWidth = Math.max(0.8, R * 0.07); for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(s * R * 0.4, -R * 0.07, R * 0.25, 0, Math.PI * 2); ctx.stroke(); } line(ctx, '#1f2937', Math.max(0.8, R * 0.06), [-R * 0.15, -R * 0.1], [R * 0.15, -R * 0.1]); }
+    if (o.beard === 2) { ctx.fillStyle = o.hair; ctx.beginPath(); ctx.arc(0, R * 0.15, R * 0.9, Math.PI * 0.08, Math.PI * 0.92); ctx.lineTo(-R * 0.5, R * 0.35); ctx.quadraticCurveTo(0, R * 0.62, R * 0.5, R * 0.35); ctx.fill(); }
+    if (o.beard >= 1) line(ctx, o.hair, Math.max(1, R * 0.12), [-R * 0.28, R * 0.36], [R * 0.28, R * 0.36]);
     if (h.grin) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(0, R * 0.45, R * 0.55, R * 0.24, 0, 0, Math.PI); ctx.fill(); ctx.strokeStyle = '#78716c'; ctx.lineWidth = 0.8; for (let i = -3; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(i * R * 0.15, R * 0.45); ctx.lineTo(i * R * 0.15, R * 0.62); ctx.stroke(); } }
     else line(ctx, '#7f1d1d', Math.max(1, R * 0.08), [-R * 0.2, R * 0.48], [R * 0.2, R * 0.48]);
     if (h.tongue) line(ctx, '#f472b6', R * 0.22, [0, R * 0.5], [Math.sin(t * 6) * R * 0.3, R * 1.6]);
   } else {
     dot(ctx, mixColor(o.skin, '#000000', 0.12), -ff * R * 0.12, R * 0.12, R * 0.26); // oreja
+    if (detail) dot(ctx, mixColor(o.skin, '#000000', 0.25), -ff * R * 0.12, R * 0.12, R * 0.1);
+    if (o.earring) dot(ctx, '#facc15', -ff * R * 0.12, R * 0.42, Math.max(0.7, R * 0.08));
     if (h.closed) line(ctx, '#111', Math.max(1, R * 0.08), [ff * R * 0.38, -R * 0.05], [ff * R * 0.62, -R * 0.05]);
-    else { dot(ctx, '#fff', ff * R * 0.52, -R * 0.06, R * 0.17); dot(ctx, eye, ff * R * 0.58, -R * 0.05, R * 0.1); }
+    else { dot(ctx, '#fff', ff * R * 0.52, -R * 0.06, R * 0.17); dot(ctx, eye, ff * R * 0.58, -R * 0.05, R * 0.1); if (detail) dot(ctx, '#fff', ff * R * 0.61, -R * 0.09, R * 0.03); }
+    if (detail) { line(ctx, brow, Math.max(0.8, R * 0.08), [ff * R * 0.36, -R * 0.33], [ff * R * 0.72, -R * 0.3]); dot(ctx, 'rgba(244,114,182,0.22)', ff * R * 0.45, R * 0.25, R * 0.17); }
     line(ctx, mixColor(o.skin, '#7f1d1d', 0.5), Math.max(0.8, R * 0.07), [ff * R * 0.55, R * 0.48], [ff * R * 0.8, R * 0.42]); // boca
+    if (o.beard === 2) { ctx.fillStyle = o.hair; ctx.beginPath(); ctx.moveTo(-ff * R * 0.1, R * 0.2); ctx.quadraticCurveTo(-ff * R * 0.05, R * 0.95, ff * R * 0.55, R * 0.92); ctx.quadraticCurveTo(ff * R * 0.9, R * 0.75, ff * R * 0.85, R * 0.52); ctx.lineTo(ff * R * 0.5, R * 0.55); ctx.quadraticCurveTo(ff * R * 0.2, R * 0.5, -ff * R * 0.1, R * 0.2); ctx.fill(); }
+    if (o.beard >= 1) line(ctx, o.hair, Math.max(1, R * 0.12), [ff * R * 0.5, R * 0.36], [ff * R * 0.85, R * 0.32]);
+    if (o.glasses) { ctx.strokeStyle = '#1f2937'; ctx.lineWidth = Math.max(0.8, R * 0.07); ctx.beginPath(); ctx.arc(ff * R * 0.62, -R * 0.06, R * 0.23, 0, Math.PI * 2); ctx.stroke(); line(ctx, '#1f2937', Math.max(0.8, R * 0.06), [ff * R * 0.39, -R * 0.1], [-ff * R * 0.1, -R * 0.02]); }
     if (h.grin) { ctx.fillStyle = '#fff'; ctx.fillRect(ff > 0 ? R * 0.35 : -R * 0.95, R * 0.36, R * 0.6, R * 0.2); }
     if (h.tongue) line(ctx, '#f472b6', R * 0.2, [ff * R * 0.8, R * 0.45], [ff * R * (1.8 + Math.sin(t * 7) * 0.3), R * 0.9]);
   }
@@ -160,6 +188,11 @@ function drawHead(ctx: CanvasRenderingContext2D, o: Outfit, x: number, y: number
       top(o.hair);
       if (!front) { ctx.fillStyle = o.hair; ctx.beginPath(); ctx.ellipse(-ff * R * 0.55, R * 0.05, R * 0.48, R * 0.6, 0, 0, Math.PI * 2); ctx.fill(); }
       if (o.hat === 'bun') dot(ctx, o.hair, -ff * R * 0.55, -R * 1.05, R * 0.42);
+      if (R > 5) { // mechones y flequillo
+        const strand = mixColor(o.hair, '#ffffff', 0.18);
+        for (let i = 0; i < 4; i++) line(ctx, strand, Math.max(0.6, R * 0.05), [(-0.6 + i * 0.35) * R, -R * 0.95], [(-0.45 + i * 0.35) * R, -R * 0.55]);
+        if (!front) { ctx.fillStyle = o.hair; ctx.beginPath(); ctx.moveTo(ff * R * 0.2, -R * 0.85); ctx.quadraticCurveTo(ff * R * 0.85, -R * 0.75, ff * R * 0.8, -R * 0.4); ctx.quadraticCurveTo(ff * R * 0.5, -R * 0.55, ff * R * 0.2, -R * 0.5); ctx.fill(); }
+      }
   }
   if (h.antenna) for (const s of [-1, 1]) { line(ctx, '#4ade80', Math.max(1, R * 0.08), [s * R * 0.35, -R * 0.9], [s * R * 0.65, -R * 1.9]); dot(ctx, '#86efac', s * R * 0.65, -R * 1.9, R * 0.18); }
   ctx.restore();
@@ -190,17 +223,36 @@ export function drawBody(ctx: CanvasRenderingContext2D, o: Outfit, kind: Pose['k
   const sk = skeleton(lie ? 'stand' : kind, H, k, opts);
   if (kind === 'dead') { sk.handF = [H * 0.3, -H * 0.62]; sk.handB = [-H * 0.25, -H * 0.5]; sk.footF = [H * 0.18, 0]; sk.footB = [-H * 0.12, -H * 0.02]; sk.kneeF = [H * 0.1, -H * 0.16]; }
   const limb = Math.max(1.5, H * (o.alien ? 0.06 : 0.09));
-  const sleeve = o.alien ? o.skin : o.shirt[0];
+  const sleeve = o.alien ? o.skin : o.top === 'jacket' ? mixColor(o.shirt[0], '#000000', 0.15) : o.shirt[0];
+  const detail = H > 40 && !o.alien;
+  // Un brazo: manga (corta o larga, con puño), la piel, la mano con el pulgar y, a veces, el reloj.
+  const arm = (shoulder: Pt, elbow: Pt, hand: Pt, dark: number, back: boolean) => {
+    const sl = mixColor(sleeve, '#000000', dark), skin = mixColor(o.skin, '#000000', dark * 0.6);
+    const along = (a: Pt, b: Pt, k: number): Pt => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+    const long = o.alien || o.top !== 'tee';
+    line(ctx, skin, limb * 0.9, elbow, hand);
+    if (long) { const cuff = along(elbow, hand, 0.82); line(ctx, sl, limb * 1.05, shoulder, elbow, cuff); if (detail) line(ctx, mixColor(sl, '#000000', 0.2), limb * 1.1, along(elbow, hand, 0.74), cuff); }
+    else { line(ctx, skin, limb * 0.9, along(shoulder, elbow, 0.5), elbow); line(ctx, sl, limb * 1.15, shoulder, along(shoulder, elbow, 0.55)); }
+    if (o.watch && back && detail) line(ctx, '#1f2937', limb * 1.0, along(elbow, hand, 0.84), along(elbow, hand, 0.9));
+    dot(ctx, skin, hand[0], hand[1], limb * 0.62);
+    if (detail) dot(ctx, mixColor(skin, '#000000', 0.08), hand[0] + limb * 0.35, hand[1] - limb * 0.35, limb * 0.28);
+  };
+  const shoulderPt: Pt = [sk.neck[0], sk.neck[1] + H * 0.04];
+  // Cartera colgada (atrás) y mochila.
+  if (o.bag === 2 && kind !== 'lie' && kind !== 'dead') { line(ctx, '#57534e', Math.max(1, H * 0.015), shoulderPt, [sk.hip[0] - H * 0.1, sk.hip[1] - H * 0.02]); ctx.fillStyle = '#7c2d12'; ctx.beginPath(); ctx.roundRect(sk.hip[0] - H * 0.2, sk.hip[1] - H * 0.06, H * 0.16, H * 0.12, H * 0.02); ctx.fill(); }
+  if (o.bag === 1 && kind !== 'lie' && kind !== 'dead') { const bx = (sk.hip[0] + sk.neck[0]) / 2 - H * 0.2, by = (sk.hip[1] + sk.neck[1]) / 2; ctx.fillStyle = mixColor(o.hatColor, '#000000', 0.2); ctx.beginPath(); ctx.roundRect(bx - H * 0.07, by - H * 0.12, H * 0.14, H * 0.26, H * 0.04); ctx.fill(); ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(bx - H * 0.06, by + H * 0.02, H * 0.12, H * 0.02); }
   // Brazo de atrás.
-  line(ctx, mixColor(sleeve, '#000000', 0.25), limb * 1.1, [sk.neck[0], sk.neck[1] + H * 0.04], sk.elbowB);
-  line(ctx, mixColor(o.skin, '#000000', 0.15), limb * 0.9, sk.elbowB, sk.handB);
-  dot(ctx, mixColor(o.skin, '#000000', 0.15), sk.handB[0], sk.handB[1], limb * 0.6);
+  arm(shoulderPt, sk.elbowB, sk.handB, 0.25, true);
   if (opts.prop && opts.propAt === 'back') drawProp(ctx, opts.prop, sk.handB[0], sk.handB[1], H, t, opts.propUpside);
   // Piernas.
   const legW = Math.max(2, H * (o.alien ? 0.07 : 0.11));
   line(ctx, mixColor(o.pants, '#000000', 0.3), legW, sk.hip, sk.kneeB, sk.footB);
   line(ctx, o.pants, legW, sk.hip, sk.kneeF, sk.footF);
-  for (const [fx, fy] of [sk.footB, sk.footF]) { ctx.fillStyle = o.shoes; ctx.beginPath(); ctx.ellipse(fx + H * 0.03, fy - H * 0.015, H * 0.075, H * 0.035, 0, 0, Math.PI * 2); ctx.fill(); }
+  if (detail) for (const [hip, knee] of [[sk.hip, sk.kneeF]] as [Pt, Pt][]) line(ctx, 'rgba(0,0,0,0.12)', Math.max(1, legW * 0.15), [hip[0] + legW * 0.25, hip[1]], [knee[0] + legW * 0.25, knee[1]]); // costura
+  for (const [fx, fy] of [sk.footB, sk.footF]) {
+    ctx.fillStyle = o.shoes; ctx.beginPath(); ctx.ellipse(fx + H * 0.03, fy - H * 0.017, H * 0.075, H * 0.035, 0, 0, Math.PI * 2); ctx.fill();
+    if (detail) { ctx.fillStyle = mixColor(o.shoes, o.shoes === '#f8fafc' ? '#000000' : '#ffffff', 0.35); ctx.fillRect(fx - H * 0.04, fy - H * 0.008, H * 0.145, H * 0.012); ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(fx, fy - H * 0.04, H * 0.04, H * 0.008); } // suela y cordones
+  }
   // Torso: remera de tres franjas (o el cuerpo gris de un alien), un poco inclinado si corre o se agacha.
   const tw = H * (o.alien ? 0.2 : 0.28), ang = Math.atan2(sk.neck[0] - sk.hip[0], sk.hip[1] - sk.neck[1]);
   const len = Math.hypot(sk.neck[0] - sk.hip[0], sk.neck[1] - sk.hip[1]) + H * 0.05;
@@ -210,19 +262,42 @@ export function drawBody(ctx: CanvasRenderingContext2D, o: Outfit, kind: Pose['k
   ctx.fillStyle = o.shirt[1]; ctx.fillRect(-tw, -len * 0.66, tw * 2, len * 0.34);
   ctx.fillStyle = o.shirt[0]; ctx.fillRect(-tw, -len, tw * 2, len * 0.34);
   if (opts.vest) { ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.fillRect(-tw, -len * 0.42, tw * 2, len * 0.07); }
+  if (detail) {
+    const thin = Math.max(0.8, H * 0.008);
+    if (o.top === 'shirt') { // camisa: tapa de botones, botones y bolsillo
+      ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(tw * 0.28, -len, thin, len);
+      for (let i = 1; i < 5; i++) dot(ctx, '#f8fafc', tw * 0.36, -len + i * len * 0.2, H * 0.009);
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = thin; ctx.strokeRect(-tw * 0.05, -len * 0.78, tw * 0.28, len * 0.16);
+      if (o.tie) { ctx.fillStyle = mixColor(o.hatColor, '#000000', 0.2); ctx.beginPath(); ctx.moveTo(tw * 0.33, -len + H * 0.02); ctx.lineTo(tw * 0.43, -len * 0.4); ctx.lineTo(tw * 0.33, -len * 0.3); ctx.lineTo(tw * 0.23, -len * 0.4); ctx.fill(); }
+    }
+    if (o.top === 'jacket') { // campera abierta: se ve la remera de abajo y la solapa
+      ctx.fillStyle = o.inner; ctx.fillRect(tw * 0.22, -len, tw * 0.3, len);
+      ctx.fillStyle = mixColor(o.shirt[0], '#000000', 0.25); ctx.beginPath(); ctx.moveTo(tw * 0.2, -len); ctx.lineTo(tw * 0.38, -len * 0.62); ctx.lineTo(tw * 0.18, -len * 0.55); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(-tw * 0.3, -len * 0.38, tw * 0.35, thin);
+    }
+    if (o.top === 'hoodie') { // buzo con capucha y cordones
+      line(ctx, '#f8fafc', thin * 1.3, [tw * 0.3, -len * 0.95], [tw * 0.33, -len * 0.7]); line(ctx, '#f8fafc', thin * 1.3, [tw * 0.15, -len * 0.95], [tw * 0.17, -len * 0.72]);
+      ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(-tw * 0.2, -len * 0.4, tw * 0.55, len * 0.22);
+    }
+    if (o.top === 'sweater') for (let i = 0; i < 4; i++) { ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(-tw, -len * 0.1 + i * len * 0.025, tw * 2, thin); } // puño elástico abajo
+    if (o.top === 'tee') { ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(-tw, -len * 0.04, tw * 2, thin); }
+  }
   const sh = ctx.createLinearGradient(-tw / 2, 0, tw / 2, 0); sh.addColorStop(0, 'rgba(0,0,0,0.22)'); sh.addColorStop(0.5, 'rgba(255,255,255,0.06)'); sh.addColorStop(1, 'rgba(0,0,0,0.12)');
   ctx.fillStyle = sh; ctx.fillRect(-tw, -len, tw * 2, len);
   ctx.restore();
+  if (detail) { ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = Math.max(0.8, H * 0.007); ctx.beginPath(); ctx.roundRect(-tw / 2, -len, tw, len, tw * 0.35); ctx.stroke(); } // contorno
   ctx.fillStyle = o.pants; ctx.fillRect(-tw / 2, -H * 0.06, tw, H * 0.07); // cintura
+  if (detail && (o.top === 'shirt' || o.top === 'tee')) { ctx.fillStyle = o.belt; ctx.fillRect(-tw / 2, -H * 0.06, tw, H * 0.03); ctx.fillStyle = '#d4d4d8'; ctx.fillRect(tw * 0.3, -H * 0.063, H * 0.03, H * 0.036); } // cinturón
+  if (detail && o.top === 'hoodie') { ctx.fillStyle = o.shirt[0]; ctx.beginPath(); ctx.ellipse(-tw * 0.45, -len + H * 0.03, tw * 0.3, H * 0.05, -0.3, 0, Math.PI * 2); ctx.fill(); } // capucha
+  if (detail && o.top === 'shirt') { ctx.fillStyle = mixColor(o.shirt[0], '#ffffff', 0.25); ctx.beginPath(); ctx.moveTo(-tw * 0.1, -len + H * 0.01); ctx.lineTo(tw * 0.4, -len + H * 0.01); ctx.lineTo(tw * 0.25, -len + H * 0.06); ctx.fill(); } // cuello
   ctx.restore();
+  if (!o.alien) { const nk: Pt = [sk.neck[0], sk.neck[1]]; line(ctx, mixColor(o.skin, '#000000', 0.1), Math.max(1.5, H * 0.075), [nk[0], nk[1] + H * 0.01], [sk.head[0] * 0.6 + nk[0] * 0.4, sk.head[1] + sk.r * 0.7]); } // cuello
   // Cabeza.
   const h = opts.head ?? {};
   const head: Pt = [sk.head[0], sk.head[1] - (h.neck ?? 0)];
   drawHead(ctx, o, head[0], head[1], sk.r, 1, h.face === 'front' && f < 0 ? h : h, t);
   // Brazo de adelante.
-  line(ctx, sleeve, limb * 1.1, [sk.neck[0], sk.neck[1] + H * 0.04], sk.elbowF);
-  line(ctx, o.skin, limb * 0.9, sk.elbowF, sk.handF);
-  dot(ctx, o.skin, sk.handF[0], sk.handF[1], limb * 0.6);
+  arm(shoulderPt, sk.elbowF, sk.handF, 0, false);
   if (o.alien) for (let i = -1; i <= 1; i++) line(ctx, o.skin, Math.max(0.8, limb * 0.3), sk.handF, [sk.handF[0] + H * 0.06, sk.handF[1] + i * H * 0.03]); // dedos largos
   if (opts.prop) {
     const at = opts.propAt ?? 'front';

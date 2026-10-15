@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aliensAt, aliveAliens, buildCity, GAME_SECONDS, GOAL_KILLS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt,
+  aliensAt, aliveAliens, buildCity, CITY_TOP, GAME_SECONDS, GOAL_KILLS, LIVES, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt,
   type Invasion, type Person,
 } from './invasion';
 import { ANOMALIES, fitsPlace, shuffledAnomalies } from './invasionAnomalies';
@@ -8,6 +8,8 @@ import { ANOMALIES, fitsPlace, shuffledAnomalies } from './invasionAnomalies';
 const run = (g: Invasion, seconds: number) => { for (let t = 0; t < seconds; t += 0.05) step(g, 0.05); };
 // Le apunta al medio del cuerpo (o a la cabeza) de una persona.
 const aimAt = (g: Invasion, p: Person, head = false) => { const b = hitbox(g, p); return head ? [b.headX, b.headY] as const : [(b.x1 + b.x2) / 2, (b.y1 + b.y2) / 2] as const; };
+// Que no haya nadie más en la línea de tiro.
+const clear = (g: Invasion, p: Person) => { const [x, y] = aimAt(g, p); return !g.people.some(o => o !== p && !o.dead && !o.gone && (({ x1, x2, y1, y2 }) => x >= x1 && x <= x2 && y >= y1 && y <= y2)(hitbox(g, o))); };
 
 describe('Invasión: la ciudad', () => {
   const city = buildCity();
@@ -16,6 +18,12 @@ describe('Invasión: la ciudad', () => {
     expect(new Set(city.buildings.map(b => b.style))).toEqual(new Set(['brick', 'stucco', 'glass', 'office', 'construction', 'old', 'hotel']));
     for (let i = 1; i < city.buildings.length; i++) expect(city.buildings[i].style).not.toBe(city.buildings[i - 1].style);
     expect(new Set(city.buildings.map(b => b.floors)).size).toBeGreaterThan(5);
+  });
+
+  it('los edificios son altos: casi todos pasan los 10 pisos', () => {
+    expect(city.buildings.filter(b => b.floors >= 10).length).toBe(city.buildings.length);
+    expect(Math.max(...city.buildings.map(b => b.floors))).toBeGreaterThanOrEqual(19);
+    expect(CITY_TOP).toBeGreaterThan(Math.max(...city.buildings.map(b => b.top)));
   });
 
   it('en planta baja hay locales y bares, y arriba departamentos con habitaciones de todo tipo', () => {
@@ -114,22 +122,30 @@ describe('Invasión: el disparo', () => {
     expect(alien.dead?.alien).toBe(true);
     expect(alien.gone).toBe(true);
     expect(g.blasts.some(b => b.green)).toBe(true);
-    expect(g.particles.filter(p => p.kind === 'goo').length).toBeGreaterThan(30);
-    expect(g.decals.at(-1)?.goo).toBe(true);
+    expect(g.particles.filter(p => p.kind === 'goo').length).toBeGreaterThan(200); // explota exagerado
+    expect(g.blasts.filter(b => b.green).length).toBe(2);
+    expect(g.decals.filter(d => d.goo).length).toBeGreaterThanOrEqual(8); // y salpica la pared
     expect(takeEvents(g).some(e => e.type === 'kill')).toBe(true);
     expect(g.over).toBe(false);
   });
 
-  it('si matás a una persona, perdés', () => {
+  it('le disparás a una persona: mucha sangre y perdés una vida; con 3, perdés', () => {
     const g = newInvasion(9);
-    const alien = g.people.find(p => p.alien && p.room < 0)!;
-    shoot(g, ...aimAt(g, alien));
-    const human = g.people.find(p => !p.alien && p.room >= 0 && g.people.some(o => o !== p && o.room === p.room && !o.alien))!;
-    expect(shoot(g, ...aimAt(g, human))).toBe('civilian');
-    expect(g.civilians).toBe(1);
-    expect(g.over).toBe(true);
+    expect(LIVES).toBe(3);
+    const alien = g.people.find(p => p.alien)!;
+    for (let i = 1; i <= LIVES; i++) {
+      const human = g.people.find(p => !p.alien && !p.dead && !p.gone && p.room >= 0 && p.act !== 'flee' && clear(g, p))!;
+      const before = g.particles.filter(p => p.kind === 'blood').length;
+      expect(shoot(g, ...aimAt(g, human))).toBe('civilian');
+      expect(g.particles.filter(p => p.kind === 'blood').length - before).toBeGreaterThan(100);
+      expect(g.decals.filter(d => d.blood).length).toBeGreaterThanOrEqual(i * 6);
+      expect(g.civilians).toBe(i);
+      const events = takeEvents(g);
+      expect(events.find(e => e.type === 'civilian')).toMatchObject({ lives: LIVES - i });
+      expect(g.over).toBe(i === LIVES);
+      expect(events.some(e => e.type === 'end')).toBe(i === LIVES);
+    }
     expect(g.outcome).toBe('civilian');
-    expect(takeEvents(g).some(e => e.type === 'end')).toBe(true);
     expect(shoot(g, ...aimAt(g, alien))).toBe('none'); // ya terminó
   });
 
@@ -139,6 +155,9 @@ describe('Invasión: el disparo', () => {
     for (let i = 0; i < GOAL_KILLS; i++) {
       const alien = g.people.find(p => p.alien && !p.dead && !p.gone)!;
       alien.anomaly = null;
+      // Si alguien se le cruza adelante, se va (acá solo importa que se pueda ganar).
+      const [ax, ay] = aimAt(g, alien);
+      for (const o of g.people) { const b = hitbox(g, o); if (o !== alien && ax >= b.x1 && ax <= b.x2 && ay >= b.y1 && ay <= b.y2) o.gone = true; }
       expect(g.over).toBe(false);
       expect(shoot(g, ...aimAt(g, alien))).toBe('alien');
       step(g, 0.05); // llegan otros aliens a reemplazarlos
@@ -174,13 +193,25 @@ describe('Invasión: el disparo', () => {
     expect(g.decals.at(-1)?.glass).toBe(true);
   });
 
-  it('la caja con explosivos que nadie desactiva explota y prende fuego', () => {
+  it('la caja con explosivos que nadie desactiva explota, prende fuego y mata a los que están al lado', () => {
     const g = newInvasion(13);
     const room = g.rooms.find(r => r.floor === 2)!;
-    g.boxes.push({ id: 1, room: room.id, x: (room.x1 + room.x2) / 2, y: room.y, explosive: true, t0: 0, explodeAt: 1, defused: false, exploded: false, hit: false, kind: 0 });
+    const x = (room.x1 + room.x2) / 2;
+    g.people = g.people.filter(p => p.room !== room.id);
+    g.boxes.push({ id: 1, room: room.id, x, y: room.y, explosive: true, t0: 0, explodeAt: 1, defused: false, exploded: false, hit: false, kind: 0 });
+    g.people.push({ ...g.people[0], id: 999, room: room.id, x: x + 0.5, y: room.y, act: 'read', actUntil: 99, tx: x + 0.5, alien: false, dead: null, gone: false, panic: 0, anomaly: null, sabotage: null });
     run(g, 1.5);
     expect(room.fire).toBeGreaterThan(0);
+    expect(g.people.find(p => p.id === 999)?.dead).toBeTruthy();
+    expect(g.civilians).toBe(0); // no cuenta como que le disparaste
     expect(takeEvents(g).some(e => e.type === 'explosion')).toBe(true);
+  });
+
+  it('los aliens dejan bombas seguido (y avisa la radio)', () => {
+    const g = newInvasion(21);
+    let bombs = 0;
+    for (let t = 0; t < 180; t += 0.05) { step(g, 0.05); bombs += takeEvents(g).filter(e => e.type === 'bomb').length; }
+    expect(bombs).toBeGreaterThanOrEqual(4);
   });
 
   it('la pose cambia el lugar donde está la cabeza (sentado, acostado)', () => {
