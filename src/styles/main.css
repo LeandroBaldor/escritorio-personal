@@ -1355,3 +1355,32 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .cal-page .section-title>div:first-child{--neon:#facc15}
 .games-heading{--neon:#39ff14}
 :is(.board-page,.journal-page,.expenses-page,.cal-page) .section-title>div:first-child,.games-heading{box-shadow:0 0 3px var(--neon),0 0 9px color-mix(in srgb,var(--neon) 75%,transparent),0 0 20px color-mix(in srgb,var(--neon) 45%,transparent),0 0 36px color-mix(in srgb,var(--neon) 20%,transparent),inset 0 0 8px color-mix(in srgb,var(--neon) 35%,transparent),0 8px 22px #000b}
+/* Invasión: verde militar, la mira ocupa toda la pantalla y arriba un plano chiquito de la cuadra. */
+.invasion .runner-back,.invasion .runner-scores{color:#86efac}
+.invasion .runner-bar button,.invasion .runner-pad button{background:#166534}
+.invasion .runner-pad .runner-jump{background:#dc2626;color:#fff}
+.invasion .runner-stage canvas{box-shadow:0 0 0 3px #14532d,0 10px 30px #000a}
+.invasion .trepa-side{background:#0b1f14;border-color:#166534}
+.invasion .trepa-stat{background:#04120a}
+.invasion .trepa-stat span{color:#86efac}
+.invasion .runner-overlay{background:#020a05cc}
+.invasion .runner-overlay>div{background:#0b1f14;border-color:#22c55e}
+.inv-stage{cursor:none;touch-action:none}
+.inv-stage canvas{display:block}
+.inv-stage .inv-map{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:min(560px,70%);height:46px;border:2px solid #14532d;border-radius:6px;box-shadow:none!important;pointer-events:none;opacity:.9}
+.inv-toast{top:64px;border-color:#22c55e;background:#04120ae6;color:#bbf7d0}
+.inv-toast.is-bad{border-color:#ef4444;color:#fecaca}
+.inv-toast.is-big{font-size:clamp(1rem,2.8vw,1.5rem)}
+.inv-title{font-size:clamp(1.6rem,4vw,2.4rem);color:#86efac}
+.inv-card{max-width:min(720px,94vw)!important;max-height:100%;overflow:auto}
+.inv-touch{display:none;position:absolute;right:10px;bottom:10px;flex-direction:column;gap:8px}
+.inv-touch button{width:52px;height:52px;border-radius:50%;background:#14532dcc;color:#bbf7d0;font:900 1.6rem/1 Nunito,system-ui,sans-serif;border:2px solid #22c55e}
+@media(pointer:coarse),(max-width:800px){.inv-touch{display:flex}}
+.inv-ammo strong{display:flex;gap:4px}
+.inv-ammo i{width:8px;height:26px;border-radius:4px 4px 2px 2px;background:#3f3f46}
+.inv-ammo i.is-full{background:linear-gradient(180deg,#fde68a 0 30%,#b45309 30% 100%)}
+.inv-breath{display:block;width:100%;height:10px;background:#1f2937;border-radius:999px;overflow:hidden}
+.inv-breath i{display:block;height:100%;background:#38bdf8;transition:width .1s}
+.inv-bad strong{color:#f87171}
+.inv-clues{text-align:left;max-height:30vh;overflow:auto}
+.inv-clues ul{margin:.3rem 0 .6rem;padding-left:1.2rem;color:#d1fae5}

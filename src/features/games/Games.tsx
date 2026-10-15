@@ -8,6 +8,7 @@ import solitaireCover from './assets/portada-solitario.webp';
 import trepaCover from './assets/portada-trepaluna.webp';
 import sharkCover from './assets/tiburon-portada.webp';
 import terminatorCover from './assets/terminator-portada.webp';
+import invasionCover from './assets/portada-invasion.webp';
 import { CalculatorLink, CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { readRecord } from './BlockRunner';
 import { readSolitaireRecord } from './PixelSolitaire';
@@ -17,6 +18,7 @@ import { readSnakeRecord } from './ReverseSnake';
 import { formatLavaTime, readLavaRecord } from './LavaFloor';
 import { readPaperRecord } from './PaperBall';
 import { formatSharkTime, readSharkRecord } from './SharkCity';
+import { readInvasionRecord } from './Invasion';
 import memeJigsaw from '../../assets/images/meme-jigsaw.jpg';
 
 // Portadas de las tarjetas: una captura de cada juego en plena acción.
@@ -35,6 +37,7 @@ export function Games() {
   const lava = readLavaRecord();
   const shark = readSharkRecord();
   const paper = readPaperRecord();
+  const invasion = readInvasionRecord();
   return <section className="games-page">
     <div className="section-title games-title">
       <div className="games-heading"><p className="eyebrow">Para cortar un rato</p><h1>MiniJuegos</h1><p className="games-byline">By YEYO</p></div>
@@ -48,7 +51,7 @@ export function Games() {
           <span className="game-card-text">
             <strong>¡Cuidado, bloques!</strong>
             <span>Caen piezas de Tetris y bombas desde arriba. Corré y saltá para que no te aplasten: las piezas rompen los bloques de su mismo color y las demás se apilan y te sirven de escalones. Las bombas explotan al llegar, y si quedás encerrado tenés 10 segundos para salir.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Llegá al nivel 10. Cada nivel dura 1 minuto, así que hay que aguantar 9 minutos sin que te aplasten, te explote una bomba, quedes encerrado o la pila llegue arriba.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Superá los 10 niveles de 30 segundos (5 minutos) sin que una pieza te caiga en la cabeza, te explote una bomba, quedes encerrado o la pila llegue arriba.</span>
           </span>
           {/* El récord va siempre en el mismo lugar: abajo, a la izquierda de Jugar. */}
           <span className="game-card-foot">
@@ -119,7 +122,7 @@ export function Games() {
           <span className="game-card-text">
             <strong>¡El piso es de lava!</strong>
             <span>¡La lava sube y no para! Subí lo más rápido que puedas para sobrevivir: saltá de edificio en edificio por escaleras caracol, muebles, sogas, ascensores, tirolesas, cables, grúas y puentes rotos de torres altísimas, y esquivá el fuego y los cortocircuitos.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Subite a uno de los helicópteros que aterrizan arriba de la torre más alta antes de que la lava te alcance. Esperan solo 5 segundos y se vuelven a ir.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Subite al helicóptero antes de que la lava te alcance. Aterriza en uno de los 6 helipuertos, espera solo 5 segundos y a los 30 aterriza en otro: seguí la flecha.</span>
           </span>
           <span className="game-card-foot">
             {lava.height > 0 && <small><b>Récord</b>{lava.time !== null ? `🚁 en ${formatLavaTime(lava.time)}` : `${lava.height} metros`}</small>}
@@ -151,6 +154,20 @@ export function Games() {
           </span>
           <span className="game-card-foot">
             {shark.saved > 0 && <small><b>Récord</b>{shark.time !== null ? `🏆 en ${formatSharkTime(shark.time)}` : `${shark.saved} rescatados`}</small>}
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
+        </Link>
+      </li>
+      <li>
+        <Link onClick={playStart} className="game-card game-card--inv" to="/juegos/invasion">
+          <Cover src={invasionCover} />
+          <span className="game-card-text">
+            <strong>Invasión</strong>
+            <span>Sos francotirador y la ciudad está llena de aliens disfrazados de personas. Mirá con la mira cada departamento, local y vereda: se ven como aliens solo 1 segundo cada 30, así que buscá a la gente que hace cosas raras. Quieren quemarlo todo, y a los 5 minutos llegan los ovnis.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Eliminá la mayor cantidad de aliens en 10 minutos, sin dispararle a la gente, y superá tu récord.</span>
+          </span>
+          <span className="game-card-foot">
+            {invasion.kills > 0 && <small><b>Récord</b>{invasion.kills} aliens</small>}
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
           </span>
         </Link>

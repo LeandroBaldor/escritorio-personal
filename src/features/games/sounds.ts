@@ -3,6 +3,7 @@
 import { AMBIENT_CHANNELS, type AmbientChannel } from './trepaSound';
 import { LAVA_CHANNELS, type LavaChannel } from './lavaSound';
 import { STORM_CHANNELS, type StormChannel } from './sharkSound';
+import { INVASION_CHANNELS, type InvasionChannel } from './invasionSound';
 import bombaUrl from './assets/sonidos/bomba.mp3';
 import personaCaeUrl from './assets/sonidos/persona-cae.mp3';
 import t800Url from './assets/sonidos/t800.mp3';
@@ -915,6 +916,186 @@ export function setCrowd(level: number) {
   crowd.gain.cancelScheduledValues(ctx.currentTime);
   crowd.gain.setTargetAtTime(crowdLevel, ctx.currentTime, 0.4);
 }
+
+// ---------- Invasión ----------
+let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
+export function preloadInvasionSounds() { for (const url of [fuegoUrl, bombaUrl, personaQuemaUrl]) loadSample(url); }
+// Voces en un idioma inventado: una voz (tono que sube y baja) que pasa por dos "formantes" que cambian todo
+// el tiempo (las vocales) y se corta en sílabas.
+function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
+  const voice = osc(c, 'sawtooth', pitch), level = c.createGain(), syl = c.createGain();
+  wobble(c, voice.frequency, 0.7 + rate * 0.1, pitch * 0.18); wobble(c, voice.frequency, 3.1, pitch * 0.06);
+  const f1 = filter(c, 'bandpass', 600, 5), f2 = filter(c, 'bandpass', 1500, 6);
+  wobble(c, f1.frequency, rate * 0.9, 260, 'square'); wobble(c, f2.frequency, rate * 1.3, 600, 'triangle');
+  syl.gain.value = 0.5; wobble(c, syl.gain, rate, 0.5, 'square'); wobble(c, syl.gain, rate * 0.23, 0.35, 'square');
+  level.gain.value = 0.35;
+  voice.connect(f1).connect(syl); voice.connect(f2).connect(syl); syl.connect(level).connect(out); voice.start();
+}
+function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel> {
+  const channel = (max: number, make: (out: GainNode) => void) => ambientChannel(c, max, make);
+  return {
+    // La ciudad: el rumor del tránsito, motores que pasan y alguna bocina lejana.
+    city: channel(0.45, out => {
+      const traffic = noiseSource(c), low = filter(c, 'lowpass', 380), level = c.createGain();
+      level.gain.value = 0.7; wobble(c, level.gain, 0.13, 0.35); wobble(c, low.frequency, 0.21, 160);
+      traffic.connect(low).connect(level).connect(out); traffic.start();
+      const horn = osc(c, 'square', 415), hornF = filter(c, 'lowpass', 1400), hornGate = c.createGain();
+      hornGate.gain.value = 0; wobble(c, hornGate.gain, 0.09, 0.04, 'square');
+      horn.connect(hornF).connect(hornGate).connect(out); horn.start();
+    }),
+    // Pájaros: trinos cortos que suben y bajan.
+    birds: channel(0.25, out => {
+      for (const [f, rate] of [[3200, 5.3], [4100, 7.1], [2700, 3.7]]) {
+        const tw = osc(c, 'sine', f), gate = c.createGain(), phrase = c.createGain();
+        wobble(c, tw.frequency, rate * 3, f * 0.18, 'sawtooth');
+        gate.gain.value = 0.3; wobble(c, gate.gain, rate, 0.3, 'square');
+        phrase.gain.value = 0.5; wobble(c, phrase.gain, rate * 0.11, 0.5, 'square');
+        tw.connect(gate).connect(phrase).connect(out); tw.start();
+      }
+    }),
+    // Gente hablando en un idioma inventado (dos voces, una grave y una aguda).
+    voices: channel(0.55, out => { babble(c, out, 125, 4.7); babble(c, out, 215, 5.9); }),
+    // La tele: voces que salen por un parlante chico, con música de fondo.
+    tv: channel(0.35, out => {
+      const tinny = filter(c, 'bandpass', 1800, 1.2); tinny.connect(out);
+      babble(c, tinny, 170, 6.4);
+      const tune = osc(c, 'triangle', 330), tl = c.createGain(); tl.gain.value = 0.08; wobble(c, tune.frequency, 1.2, 60, 'square');
+      tune.connect(tl).connect(tinny); tune.start();
+    }),
+    // La cocina: algo que se fríe en la sartén.
+    kitchen: channel(0.3, out => {
+      const sizzle = noiseSource(c), hi = filter(c, 'highpass', 3800), level = c.createGain();
+      level.gain.value = 0.5; wobble(c, level.gain, 13, 0.25, 'square'); wobble(c, level.gain, 2.9, 0.15);
+      sizzle.connect(hi).connect(level).connect(out); sizzle.start();
+    }),
+    // Música (el bar, la radio): unos acordes con ritmo.
+    music: channel(0.3, out => {
+      const beat = c.createGain(); beat.gain.value = 0.25; wobble(c, beat.gain, 2.1, 0.25, 'square'); beat.connect(out);
+      for (const f of [196, 247, 294, 392]) { const o = osc(c, 'triangle', f); wobble(c, o.frequency, 0.26, f * 0.12, 'square'); o.connect(beat); o.start(); }
+      const bass = osc(c, 'sine', 98), bl = c.createGain(); bl.gain.value = 0.4; wobble(c, bass.frequency, 1.05, 24, 'square'); bass.connect(bl).connect(beat); bass.start();
+    }),
+    // La obra: martillazos y una amoladora de fondo.
+    work: channel(0.4, out => {
+      const hit = noiseSource(c), band = filter(c, 'bandpass', 1500, 4), gate = c.createGain();
+      gate.gain.value = 0.4; wobble(c, gate.gain, 2.6, 0.4, 'square');
+      hit.connect(band).connect(gate).connect(out); hit.start();
+      const grinder = osc(c, 'sawtooth', 2400), gl = c.createGain(); gl.gain.value = 0.02; wobble(c, gl.gain, 0.15, 0.02, 'square');
+      grinder.connect(gl).connect(out); grinder.start();
+    }),
+    // El gimnasio: los pasos en la cinta y las pesas.
+    gym: channel(0.3, out => {
+      const thump = osc(c, 'sine', 70), gate = c.createGain(); gate.gain.value = 0.4; wobble(c, gate.gain, 2.8, 0.4, 'square');
+      thump.connect(gate).connect(out); thump.start();
+    }),
+    // Fuego: la grabación (mientras carga, un rugido con chisporroteo).
+    fire: channel(0.8, out => recorded(c, fuegoUrl, 1.3, out, out => {
+      const roar = noiseSource(c), body = filter(c, 'lowpass', 600), level = c.createGain();
+      level.gain.value = 0.85; wobble(c, level.gain, 2.3, 0.15);
+      roar.connect(body).connect(level).connect(out); roar.start();
+    })),
+    // Ovnis: un zumbido grave que vibra y un silbido agudo.
+    ufo: channel(0.6, out => {
+      const hum = osc(c, 'sawtooth', 48), low = filter(c, 'lowpass', 260), level = c.createGain();
+      level.gain.value = 0.8; wobble(c, hum.frequency, 0.6, 6); wobble(c, level.gain, 7, 0.25);
+      hum.connect(low).connect(level).connect(out); hum.start();
+      const whine = osc(c, 'sine', 1900), wl = c.createGain(); wl.gain.value = 0.05; wobble(c, whine.frequency, 0.9, 220);
+      whine.connect(wl).connect(out); whine.start();
+    }),
+    // El tic-tac de una caja con explosivos.
+    tick: channel(0.35, out => {
+      const tk = osc(c, 'square', 2600), gate = c.createGain(); gate.gain.value = 0; wobble(c, gate.gain, 2, 0.5, 'square');
+      const hp = filter(c, 'highpass', 2000), short = c.createGain(); short.gain.value = 0.3; wobble(c, short.gain, 20, 0.3, 'square');
+      tk.connect(hp).connect(gate).connect(short).connect(out); tk.start();
+    }),
+    // Perros que ladran.
+    dog: channel(0.3, out => {
+      const bark = noiseSource(c), band = filter(c, 'bandpass', 700, 3), gate = c.createGain();
+      gate.gain.value = 0; wobble(c, gate.gain, 1.7, 0.6, 'square'); wobble(c, gate.gain, 0.4, 0.4, 'square');
+      bark.connect(band).connect(gate).connect(out); bark.start();
+    }),
+  };
+}
+export function setInvasionAmbient(levels: Record<InvasionChannel, number> | null) {
+  if (!ctx || (!invasionAmbient && !levels)) return;
+  invasionAmbient ??= buildInvasionAmbient(ctx);
+  const t = ctx.currentTime;
+  for (const name of INVASION_CHANNELS) {
+    const { gain, max } = invasionAmbient[name];
+    gain.gain.setTargetAtTime(levels ? levels[name] * max : 0, t, levels ? 0.12 : 0.03);
+  }
+}
+// El disparo del rifle: un estampido seco con un eco que se va por la calle.
+export function playRifleShot() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  burst(c, 'lowpass', 5000, t, 0.12, 1.2);
+  tone(c, 'sine', 140, 40, t, 0.35, 1.1);
+  for (const [d, v] of [[0.18, 0.25], [0.42, 0.12], [0.75, 0.06]]) burst(c, 'lowpass', 1200, t + d, 0.35, v);
+}
+// El cerrojo: dos clics metálicos (atrás y adelante).
+export function playBolt() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  burst(c, 'highpass', 3000, t + 0.12, 0.05, 0.35); tone(c, 'square', 900, 700, t + 0.12, 0.05, 0.08);
+  burst(c, 'highpass', 2500, t + 0.38, 0.06, 0.4); tone(c, 'square', 600, 500, t + 0.38, 0.06, 0.1);
+}
+// Recarga: el cargador que sale, el nuevo que entra y el cerrojo.
+export function playReload() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  for (const d of [0.1, 0.9, 1.6, 1.85]) { burst(c, 'bandpass', 1800, t + d, 0.07, 0.35); tone(c, 'square', 500, 380, t + d, 0.06, 0.06); }
+}
+export function playEmpty() { const c = running(); if (!c) return; burst(c, 'highpass', 3500, c.currentTime, 0.03, 0.3); }
+// Vidrio que se rompe.
+export function playGlass(volume = 1) {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  for (let i = 0; i < 9; i++) { const d = Math.random() * 0.35; tone(c, 'sine', 2500 + Math.random() * 3500, 2000 + Math.random() * 2000, t + d, 0.12, 0.08 * volume); burst(c, 'highpass', 4000, t + d, 0.05, 0.15 * volume); }
+}
+// El alien que muere: un chillido que baja y un gorgoteo.
+export function playAlienDeath(volume = 1) {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  tone(c, 'sawtooth', 1400, 180, t, 0.7, 0.35 * volume);
+  tone(c, 'square', 900, 120, t + 0.05, 0.6, 0.12 * volume);
+  for (let i = 0; i < 5; i++) tone(c, 'sine', 160 + Math.random() * 120, 80, t + 0.4 + i * 0.08, 0.08, 0.2 * volume);
+}
+// Le pegaste a una persona: un grito.
+export function playCivilianHit(volume = 1) { const c = running(); if (!c) return; scream(c, c.currentTime + 0.05, 1, 0.7 * volume); }
+// Un grito de la gente que corre.
+export function playScream(volume: number, pitch: number) { const c = running(); if (!c || volume < 0.05) return; scream(c, c.currentTime, pitch, 0.5 * volume); }
+// La bala rebota en un ovni: un "ping" metálico.
+export function playRicochet() { const c = running(); if (!c) return; tone(c, 'sine', 2600, 3400, c.currentTime, 0.4, 0.3); tone(c, 'triangle', 5200, 4100, c.currentTime + 0.02, 0.3, 0.1); }
+// Bomba desactivada: unos pitidos que bajan.
+export function playDefuse() { const c = running(); if (!c) return; const t = c.currentTime; [1760, 1320, 880].forEach((f, i) => tone(c, 'square', f, f, t + i * 0.12, 0.1, 0.15)); }
+// Una explosión, más fuerte cuanto más cerca de la mira.
+export function playBlast(volume: number) {
+  if (volume < 0.05) return;
+  if (playSample(bombaUrl, 0.9 * volume)) return;
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  tone(c, 'sine', 90, 28, t, 0.6, 1.1 * volume);
+  burst(c, 'lowpass', 1500, t, 0.8, 0.9 * volume);
+}
+// El rayo de un ovni: un "zap" que baja.
+export function playLaser(volume: number) {
+  const c = running(); if (!c || volume < 0.03) return;
+  const t = c.currentTime;
+  tone(c, 'sawtooth', 2200, 120, t, 0.9, 0.3 * volume);
+  tone(c, 'square', 1100, 60, t + 0.05, 0.8, 0.12 * volume);
+}
+// Llega un ovni: una bocina grave que retumba.
+export function playUfoArrive() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  for (const f of [55, 82.5]) tone(c, 'sawtooth', f, f * 0.98, t, 2.2, 0.35);
+  tone(c, 'sine', 440, 220, t + 0.3, 1.6, 0.1);
+}
+// El encendedor de un alien (clic y la llama) o su arma (un silbido que sube).
+export function playLighter(volume: number) { const c = running(); if (!c || volume < 0.05) return; const t = c.currentTime; burst(c, 'highpass', 3000, t, 0.03, 0.3 * volume); burst(c, 'bandpass', 900, t + 0.05, 0.5, 0.25 * volume); }
+export function playRayGun(volume: number) { const c = running(); if (!c || volume < 0.05) return; tone(c, 'sine', 300, 2400, c.currentTime, 0.5, 0.25 * volume); }
+// Más aliens: el aviso de la radio del francotirador.
+export function playRadioBeep() { const c = running(); if (!c) return; const t = c.currentTime; burst(c, 'bandpass', 2000, t, 0.25, 0.15); tone(c, 'sine', 1200, 1200, t + 0.05, 0.1, 0.15); tone(c, 'sine', 1200, 1200, t + 0.2, 0.1, 0.15); }
 
 // ---------- Para todos los juegos ----------
 // Al tocar "Jugar" (o "Jugar de nuevo"): activa el audio y suena la grabación de "Jugar".
