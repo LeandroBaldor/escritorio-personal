@@ -598,6 +598,7 @@ test('Invasión: se abre desde Juegos, corre el tiempo, se dispara, se recarga y
   await expect(page.getByRole('heading', { name: 'Invasión', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
   await expect(page.getByTestId('inv-time')).toHaveText(/^0:0\d$/);
+  await expect(page.getByTestId('inv-time')).not.toHaveText('0:00', { timeout: 15000 }); // el reloj corre (en las máquinas lentas, más despacio)
   await expect(page.getByTestId('inv-kills')).toHaveText('0 / 20');
   await expect(page.getByTestId('inv-ammo')).toHaveAttribute('aria-label', '5 balas');
   await page.keyboard.press('Space');

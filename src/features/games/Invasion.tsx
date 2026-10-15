@@ -63,6 +63,7 @@ export function Invasion() {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mapRef = useRef<HTMLCanvasElement>(null);
+  const bgRef = useRef({ canvas: typeof document === 'undefined' ? null as unknown as HTMLCanvasElement : document.createElement('canvas'), x: NaN, at: 0 });
   const [firstGame] = useState(() => newInvasion());
   const gameRef = useRef<Game>(firstGame);
   // `cam`: dónde está la vista (se mueve con las flechas). `mouse`: dónde está la mira en la pantalla.
@@ -115,9 +116,16 @@ export function Invasion() {
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const a = aim.current, b = baseView(w, h), p = target(w, h), R = scopeRadius(w, h);
-    // Toda la cuadra de fondo, más oscura.
-    paintCity(ctx, g, { ...b, t: g.time, dpr });
-    ctx.fillStyle = 'rgba(2,8,4,0.5)'; ctx.fillRect(0, 0, w, h);
+    // Toda la cuadra de fondo, más oscura. Se vuelve a dibujar como mucho 10 veces por segundo (o si se movió
+    // la vista): está de fondo y así la mira anda fluida en las compus y celulares lentos.
+    const bg = bgRef.current, now = performance.now();
+    if (bg.canvas.width !== canvas.width || bg.canvas.height !== canvas.height || Math.abs(bg.x - b.cx) > 0.01 || now - bg.at > 100) {
+      bg.canvas.width = canvas.width; bg.canvas.height = canvas.height;
+      const bctx = bg.canvas.getContext('2d');
+      if (bctx) { bctx.setTransform(dpr, 0, 0, dpr, 0, 0); paintCity(bctx, g, { ...b, t: g.time, dpr }, 4); bctx.fillStyle = 'rgba(2,8,4,0.5)'; bctx.fillRect(0, 0, w, h); }
+      bg.x = b.cx; bg.at = now;
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(bg.canvas, 0, 0); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // Adentro del círculo, agrandado.
     ctx.save();
     ctx.beginPath(); ctx.arc(p.mx, p.my, R, 0, Math.PI * 2); ctx.clip();

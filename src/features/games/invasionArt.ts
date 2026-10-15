@@ -246,12 +246,16 @@ function drawItem(ctx: CanvasRenderingContext2D, f: Furniture, room: Room, P: P,
 }
 
 const roomCache = new Map<string, HTMLCanvasElement>();
-const CACHE_MAX = 260;
+const CACHE_MAX = 320;
+// Cuántas imágenes nuevas se arman por cuadro (las demás, en los cuadros siguientes): así arrancar o hacer
+// zoom no traba el juego en las compus y celulares lentos.
+let budget = 0;
 function roomImage(room: Room, b: Building, level: number, dpr: number) {
   const key = `${room.id}:${level}:${dpr}`;
   const hit = roomCache.get(key);
   if (hit) { roomCache.delete(key); roomCache.set(key, hit); return hit; }
-  if (typeof document === 'undefined') return null;
+  if (typeof document === 'undefined' || budget <= 0) return null;
+  budget--;
   const S = ZOOMS[level], pad = 0.05;
   const canvas = document.createElement('canvas');
   canvas.width = Math.ceil((room.x2 - room.x1 + pad * 2) * S * dpr); canvas.height = Math.ceil((room.h + pad * 2) * S * dpr);
@@ -263,6 +267,8 @@ function roomImage(room: Room, b: Building, level: number, dpr: number) {
   if (roomCache.size > CACHE_MAX) roomCache.delete(roomCache.keys().next().value!);
   return canvas;
 }
+// Cualquier imagen ya armada de la habitación (de otro zoom), mientras se arma la del zoom actual.
+const cachedAny = (room: Room, dpr: number) => { for (let l = ZOOMS.length - 1; l >= 0; l--) { const hit = roomCache.get(`${room.id}:${l}:${dpr}`); if (hit) return hit; } return null; };
 export const levelFor = (s: number) => { const i = ZOOMS.findIndex(z => z >= s * 0.95); return i < 0 ? ZOOMS.length - 1 : i; };
 
 // ---------- Lo que se mueve en cada habitación ----------
@@ -523,7 +529,8 @@ function drawUfo(ctx: CanvasRenderingContext2D, u: Invasion['ufos'][number], v: 
 }
 
 // ---------- Todo junto ----------
-export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
+export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, newImages = 6) {
+  budget = newImages;
   drawSky(ctx, g, v);
   const level = levelFor(v.s);
   for (let i = 0; i + 1 < g.buildings.length; i++) { const a = g.buildings[i], b = g.buildings[i + 1]; if (visible(v, a.x + a.w, b.x, 0, 30)) drawAlley(ctx, a, b, v); }
@@ -536,8 +543,9 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
       const room = g.rooms[id];
       if (!visible(v, room.x1, room.x2, room.y, room.y + room.h)) continue;
       if (!room.destroyed) {
-        const img = roomImage(room, b, level, v.dpr);
+        const img = roomImage(room, b, level, v.dpr) ?? roomImage(room, b, Math.max(0, level - 1), v.dpr) ?? cachedAny(room, v.dpr);
         if (img) ctx.drawImage(img, X(v, room.x1 - 0.05), Y(v, room.y + room.h + 0.05), (room.x2 - room.x1 + 0.1) * v.s, (room.h + 0.1) * v.s);
+        else { ctx.fillStyle = WALLS[room.theme](b.hue); ctx.fillRect(X(v, room.x1), Y(v, room.y + room.h), (room.x2 - room.x1) * v.s, room.h * v.s); } // todavía no está la imagen
         drawRoomLive(ctx, g, room, b, v, flickering.has(room.id));
       }
       drawRoomDamage(ctx, room, v);
