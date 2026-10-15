@@ -5,7 +5,7 @@ import { ANOMALIES } from './invasionAnomalies';
 import { drawMinimap, paintCity, type View } from './invasionArt';
 import { invasionLevels } from './invasionSound';
 import {
-  playAlienComm, playAlienDeath, playBlast, playBolt, playCivilianHit, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playRadioBeep, playRayGun, playReload,
+  playAlienComm, playAlienDeath, playAlienTalk, playBlast, playBolt, playCivilianHit, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playRadioBeep, playRayGun, playReload,
   playRicochet, playRifleShot, playScream, playStart, playThunder, playUfoArrive, playWinFanfare, preloadInvasionSounds, setInvasionAmbient,
 } from './sounds';
 import { EndBanner } from './EndBanner';
@@ -202,7 +202,7 @@ export function Invasion() {
   // Bucle del juego.
   useEffect(() => {
     if (status !== 'playing') { setInvasionAmbient(null); return; }
-    let frame = 0, last = performance.now(), soundAt = 0;
+    let frame = 0, last = performance.now(), soundAt = 0, talkAt = 0;
     const tick = (now: number) => {
       const g = gameRef.current, a = aim.current, G = gun.current, stage = stageRef.current;
       const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
@@ -236,12 +236,19 @@ export function Invasion() {
         if (e.type === 'ray') playRayGun(near(e.x, e.y));
         if (e.type === 'scream') playScream(near(e.x, e.y), 0.8 + Math.random() * 0.6);
         if (e.type === 'ufoArrive') { playUfoArrive(); setToast({ text: g.ufos.length === 1 ? '¡Llegaron los ovnis! Las balas no les hacen nada 🛸' : `¡Otro ovni! Ya son ${g.ufos.length} 🛸`, id: now, big: g.ufos.length === 1 }); }
-        if (e.type === 'comm') playAlienComm(near(e.x, e.y));
+        if (e.type === 'comm') { playAlienComm(near(e.x, e.y) * 0.6); playAlienTalk(near(e.x, e.y)); }
         if (e.type === 'thunder') { playThunder(Math.max(0.35, 1 - Math.abs(e.x - p.x) / 120)); a.shake = Math.max(a.shake, 0.25); }
         if (e.type === 'rain') setToast({ text: '🌧️ Se largó una tormenta: llueve y hay relámpagos', id: now, big: true });
         if (e.type === 'moreAliens') { playRadioBeep(); setToast({ text: `📻 Radio: hay más aliens en la ciudad (${e.count})`, id: now }); }
       }
       if (now - soundAt > 100) { soundAt = now; setInvasionAmbient(invasionLevels(g, p.x, p.y, a.zoom)); }
+      // Cada tanto habla (en su idioma) el alien más cercano a la mira: si escuchás esa voz, hay uno cerca.
+      if (now > talkAt) {
+        const radius = Math.max(3, Math.min(12, 420 / a.zoom));
+        let best: { d: number; who: Game['people'][number] } | null = null;
+        for (const o of g.people) { if (!o.alien || o.dead || o.gone) continue; const d = Math.hypot(o.x - p.x, (o.y + 0.8 - p.y) * 1.3); if (d < radius && (!best || d < best.d)) best = { d, who: o }; }
+        if (best) { playAlienTalk(1 - best.d / radius); best.who.talk = 1.6; talkAt = now + 2500 + Math.random() * 3500; } else talkAt = now + 800;
+      }
       paint();
       const shown = { time: Math.floor(g.time), kills: g.kills, lives: LIVES - g.civilians, mag: G.mag, reloading: G.reload > 0, breath: Math.round((a.breath / BREATH) * 10) / 10 };
       setHud(prev => JSON.stringify(prev) === JSON.stringify(shown) ? prev : shown);

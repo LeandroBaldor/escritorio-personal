@@ -41,6 +41,10 @@ import invBombaUrl from './assets/sonidos/invasion-bomba.mp3';
 import invAutosUrl from './assets/sonidos/invasion-autos.mp3';
 import invPajarosUrl from './assets/sonidos/invasion-pajaros.mp3';
 import invPersonasUrl from './assets/sonidos/invasion-personas.mp3';
+import invOvniUrl from './assets/sonidos/invasion-ovni.mp3';
+import invOvniDisparoUrl from './assets/sonidos/invasion-ovni-disparo.mp3';
+import invAlienHablaUrl from './assets/sonidos/invasion-alien-habla.mp3';
+import invLluviaUrl from './assets/sonidos/invasion-lluvia.mp3';
 
 type WithWebkit = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 let ctx: AudioContext | null = null;
@@ -370,11 +374,11 @@ function loadSample(url: string) {
 }
 export function preloadSkynetSounds() { loadSample(t800Url); loadSample(personaCaeUrl); }
 // Devuelve false si el archivo todavía no está listo (entonces suena el sonido sintetizado de respaldo).
-function playSample(url: string, volume: number, delay = 0) {
+function playSample(url: string, volume: number, delay = 0, rate = 1) {
   const c = running(), buffer = samples.get(url);
   if (!c || !(buffer instanceof AudioBuffer)) { loadSample(url); return false; }
   const source = c.createBufferSource(), gain = c.createGain();
-  source.buffer = buffer; gain.gain.value = volume;
+  source.buffer = buffer; source.playbackRate.value = rate; gain.gain.value = volume;
   source.connect(gain).connect(out(c)); source.start(c.currentTime + delay);
   return true;
 }
@@ -926,7 +930,7 @@ export function setCrowd(level: number) {
 
 // ---------- Invasión ----------
 let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
-export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl]) loadSample(url); }
+export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, invOvniUrl, invOvniDisparoUrl, invAlienHablaUrl, invLluviaUrl]) loadSample(url); }
 // Voces en un idioma inventado: una voz (tono que sube y baja) que pasa por dos "formantes" que cambian todo
 // el tiempo (las vocales) y se corta en sílabas.
 function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
@@ -1001,13 +1005,13 @@ function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel>
       roar.connect(body).connect(level).connect(out); roar.start();
     })),
     // Ovnis: un zumbido grave que vibra y un silbido agudo.
-    ufo: channel(0.6, out => {
+    ufo: channel(0.7, out => recorded(c, invOvniUrl, 1, out, out => {
       const hum = osc(c, 'sawtooth', 48), low = filter(c, 'lowpass', 260), level = c.createGain();
       level.gain.value = 0.8; wobble(c, hum.frequency, 0.6, 6); wobble(c, level.gain, 7, 0.25);
       hum.connect(low).connect(level).connect(out); hum.start();
       const whine = osc(c, 'sine', 1900), wl = c.createGain(); wl.gain.value = 0.05; wobble(c, whine.frequency, 0.9, 220);
       whine.connect(wl).connect(out); whine.start();
-    }),
+    })),
     // El tic-tac de una caja con explosivos.
     tick: channel(0.35, out => {
       const tk = osc(c, 'square', 2600), gate = c.createGain(); gate.gain.value = 0; wobble(c, gate.gain, 2, 0.5, 'square');
@@ -1015,7 +1019,7 @@ function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel>
       tk.connect(hp).connect(gate).connect(short).connect(out); tk.start();
     }),
     // La lluvia: la grabación (mientras carga, un ruido suave y agudo).
-    rain: channel(0.7, out => recorded(c, lluviaUrl, 1, out, out => {
+    rain: channel(0.7, out => recorded(c, invLluviaUrl, 1, out, out => {
       const drops = noiseSource(c), hi = filter(c, 'highpass', 1800), level = c.createGain();
       level.gain.value = 0.35; wobble(c, level.gain, 0.2, 0.08);
       drops.connect(hi).connect(level).connect(out); drops.start();
@@ -1100,6 +1104,8 @@ export function playBlast(volume: number) {
   tone(c, 'sine', 90, 28, t, 0.6, 1.1 * volume);
   burst(c, 'lowpass', 1500, t, 0.8, 0.9 * volume);
 }
+// Un alien que habla (en su idioma): si se escucha esta voz cerca de la mira, ahí hay un alien.
+export function playAlienTalk(volume: number) { if (volume >= 0.05) playSample(invAlienHablaUrl, volume, 0, 0.9 + Math.random() * 0.25); }
 // El intercomunicador de los aliens: pitidos que suben y bajan y una voz metálica que tartamudea.
 export function playAlienComm(volume: number) {
   const c = running(); if (!c || volume < 0.05) return;
@@ -1110,7 +1116,9 @@ export function playAlienComm(volume: number) {
 }
 // El rayo de un ovni: un "zap" que baja.
 export function playLaser(volume: number) {
-  const c = running(); if (!c || volume < 0.03) return;
+  if (volume < 0.03) return;
+  if (playSample(invOvniDisparoUrl, volume)) return;
+  const c = running(); if (!c) return;
   const t = c.currentTime;
   tone(c, 'sawtooth', 2200, 120, t, 0.9, 0.3 * volume);
   tone(c, 'square', 1100, 60, t + 0.05, 0.8, 0.12 * volume);
