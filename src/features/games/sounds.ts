@@ -39,6 +39,8 @@ import invSangreAlienUrl from './assets/sonidos/invasion-sangre-alien.mp3';
 import invSangreHumanoUrl from './assets/sonidos/invasion-sangre-humano.mp3';
 import invBombaUrl from './assets/sonidos/invasion-bomba.mp3';
 import invAutosUrl from './assets/sonidos/invasion-autos.mp3';
+import invPajarosUrl from './assets/sonidos/invasion-pajaros.mp3';
+import invPersonasUrl from './assets/sonidos/invasion-personas.mp3';
 
 type WithWebkit = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 let ctx: AudioContext | null = null;
@@ -924,7 +926,7 @@ export function setCrowd(level: number) {
 
 // ---------- Invasión ----------
 let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
-export function preloadInvasionSounds() { for (const url of [fuegoUrl, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl]) loadSample(url); }
+export function preloadInvasionSounds() { for (const url of [fuegoUrl, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl]) loadSample(url); }
 // Voces en un idioma inventado: una voz (tono que sube y baja) que pasa por dos "formantes" que cambian todo
 // el tiempo (las vocales) y se corta en sílabas.
 function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
@@ -948,8 +950,8 @@ function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel>
       hornGate.gain.value = 0; wobble(c, hornGate.gain, 0.09, 0.04, 'square');
       horn.connect(hornF).connect(hornGate).connect(out); horn.start();
     })),
-    // Pájaros: trinos cortos que suben y bajan.
-    birds: channel(0.25, out => {
+    // Pájaros: la grabación (mientras carga, trinos cortos que suben y bajan).
+    birds: channel(0.4, out => recorded(c, invPajarosUrl, 1, out, out => {
       for (const [f, rate] of [[3200, 5.3], [4100, 7.1], [2700, 3.7]]) {
         const tw = osc(c, 'sine', f), gate = c.createGain(), phrase = c.createGain();
         wobble(c, tw.frequency, rate * 3, f * 0.18, 'sawtooth');
@@ -957,9 +959,9 @@ function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel>
         phrase.gain.value = 0.5; wobble(c, phrase.gain, rate * 0.11, 0.5, 'square');
         tw.connect(gate).connect(phrase).connect(out); tw.start();
       }
-    }),
-    // Gente hablando en un idioma inventado (dos voces, una grave y una aguda).
-    voices: channel(0.55, out => { babble(c, out, 125, 4.7); babble(c, out, 215, 5.9); }),
+    })),
+    // Gente hablando: la grabación (mientras carga, voces en un idioma inventado, una grave y una aguda).
+    voices: channel(0.6, out => recorded(c, invPersonasUrl, 1, out, out => { babble(c, out, 125, 4.7); babble(c, out, 215, 5.9); })),
     // La tele: voces que salen por un parlante chico, con música de fondo.
     tv: channel(0.35, out => {
       const tinny = filter(c, 'bandpass', 1800, 1.2); tinny.connect(out);

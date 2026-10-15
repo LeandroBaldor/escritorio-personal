@@ -7,7 +7,7 @@
 //   explosivos (la gente también deja cajas, pero las de ellos tienen una lucecita roja que titila).
 // - Con el tiempo hay más aliens, la gente corre, y desde la mitad del juego llegan ovnis (a los que las
 //   balas no les hacen nada) que disparan contra la ciudad hasta destruirla del todo a los 10 minutos.
-// - Ganás cuando matás a 20 aliens. Tenés 3 vidas: cada persona a la que le disparás te saca una (y si se
+// - Ganás cuando matás a 10 aliens. Tenés 3 vidas: cada persona a la que le disparás te saca una (y si se
 //   terminan los 10 minutos, también perdés).
 //
 // Todo se mide en "unidades" (una persona mide 1). El piso de la calle es y = 0 y hacia arriba es positivo.
@@ -19,7 +19,7 @@ export const PERSON_H = 1, PERSON_W = 0.42;
 export const SIDEWALK_Y = 0, ROAD_Y = -1.6;
 export const UFO_FROM = 300; // a los 5 minutos llegan los ovnis
 export const MAG = 5, BOLT_TIME = 0.75, RELOAD_TIME = 2.2;
-export const GOAL_KILLS = 20;
+export const GOAL_KILLS = 10;
 export const LIVES = 3; // personas a las que se les puede disparar antes de perder
 export type Outcome = 'won' | 'civilian' | 'time';
 
@@ -663,7 +663,8 @@ export function nearby(g: Invasion, x: number, y: number, radius: number) {
     if (p.dead || p.gone) continue;
     const k = near(p.x, p.y + 0.6);
     if (!k) continue;
-    if (p.talk > 0) out.voices = Math.max(out.voices, k * (p.act === 'flee' ? 1 : 0.8));
+    // El murmullo de la gente se escucha donde hay gente (y más fuerte si están hablando).
+    out.voices = Math.max(out.voices, p.talk > 0 ? k * (p.act === 'flee' ? 1 : 0.8) : k * 0.45);
     if (p.act === 'tv' && !p.moving) out.tv = Math.max(out.tv, k);
     if (p.act === 'cook' && !p.moving) out.kitchen = Math.max(out.kitchen, k);
     if ((p.act === 'dance' || p.act === 'drink' || p.act === 'piano' || p.act === 'serve') && !p.moving) out.music = Math.max(out.music, k);

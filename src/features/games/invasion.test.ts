@@ -149,9 +149,9 @@ describe('Invasión: el disparo', () => {
     expect(shoot(g, ...aimAt(g, alien))).toBe('none'); // ya terminó
   });
 
-  it('con 20 aliens eliminados, ganás', () => {
+  it('con 10 aliens eliminados, ganás', () => {
     const g = newInvasion(15);
-    expect(GOAL_KILLS).toBe(20);
+    expect(GOAL_KILLS).toBe(10);
     for (let i = 0; i < GOAL_KILLS; i++) {
       const alien = g.people.find(p => p.alien && !p.dead && !p.gone)!;
       alien.anomaly = null;

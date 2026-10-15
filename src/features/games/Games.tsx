@@ -164,7 +164,7 @@ export function Games() {
           <span className="game-card-text">
             <strong>Invasión</strong>
             <span>Sos francotirador y la ciudad está llena de aliens disfrazados de personas. Recorré la cuadra con las flechas y apuntá con el mouse a cada departamento, local y vereda: se ven como aliens solo 1 segundo cada 30, así que buscá a la gente que hace cosas raras. Quieren quemarlo todo, y a los 5 minutos llegan los ovnis.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Eliminá a 20 aliens antes de que pasen los 10 minutos. Tenés 3 vidas: cada persona a la que le disparás te saca una.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Eliminá a 10 aliens antes de que pasen los 10 minutos. Tenés 3 vidas: cada persona a la que le disparás te saca una.</span>
           </span>
           <span className="game-card-foot">
             {invasion.kills > 0 && <small><b>Récord</b>{invasion.time ? `🏆 en ${formatInvasionTime(invasion.time)}` : `${invasion.kills} aliens`}</small>}
