@@ -11,7 +11,7 @@ import {
 import { EndBanner } from './EndBanner';
 
 const RECORD_KEY = 'escritorio-personal-juegos:invasion-record';
-// Récord: el menor tiempo en eliminar a los 10 aliens (o, si todavía no se ganó nunca, la mayor cantidad de aliens).
+// Récord: el menor tiempo en eliminar a los 20 aliens (o, si todavía no se ganó nunca, la mayor cantidad de aliens).
 export interface InvasionRecord { kills: number; time?: number | null }
 export const readInvasionRecord = (): InvasionRecord => { try { const v = JSON.parse(localStorage.getItem(RECORD_KEY) ?? 'null'); return v && typeof v.kills === 'number' ? v : { kills: 0, time: null }; } catch { return { kills: 0, time: null }; } };
 const saveRecord = (value: InvasionRecord) => { try { localStorage.setItem(RECORD_KEY, JSON.stringify(value)); } catch { /* sin almacenamiento */ } };

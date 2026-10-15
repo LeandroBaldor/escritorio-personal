@@ -9,7 +9,7 @@
 //   explosivos (la gente también deja cajas, pero las de ellos tienen una lucecita roja que titila).
 // - Con el tiempo hay más aliens, la gente corre, y desde la mitad del juego llegan ovnis (a los que las
 //   balas no les hacen nada) que disparan contra la ciudad hasta destruirla del todo a los 10 minutos.
-// - Ganás cuando matás a 10 aliens. Tenés 3 vidas: cada persona a la que le disparás te saca una (y si se
+// - Ganás cuando matás a 20 aliens. Tenés 3 vidas: cada persona a la que le disparás te saca una (y si se
 //   terminan los 10 minutos, también perdés).
 //
 // Todo se mide en "unidades" (una persona mide 1). El piso de la calle es y = 0 y hacia arriba es positivo.
@@ -22,7 +22,7 @@ export const SIDEWALK_Y = 0, ROAD_Y = -1.6;
 export const UFO_FROM = 420; // a los 7 minutos llegan los ovnis
 export const RAIN_FROM = 300; // a los 5 minutos empieza a llover
 export const MAG = 5, BOLT_TIME = 0.75, RELOAD_TIME = 2.2;
-export const GOAL_KILLS = 10;
+export const GOAL_KILLS = 20;
 export const LIVES = 3; // personas a las que se les puede disparar antes de perder
 export type Outcome = 'won' | 'civilian' | 'time';
 
@@ -214,7 +214,7 @@ export function newInvasion(seed?: number): Invasion {
   const g: Invasion = {
     ...city, people: [], boxes: [], ufos: [], cars: [], particles: [], decals: [], blasts: [],
     time: 0, kills: 0, civilians: 0, headshots: 0, defused: 0, shots: 0, hits: 0, over: false, outcome: null, events: [],
-    deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: 5, told: { ufo: false, rain: false },
+    deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), told: { ufo: false, rain: false },
     aim: { x: city.width / 2, y: 10 }, lightning: null,
   };
   // Gente en cada habitación (en las obras, albañiles; en los locales, el que atiende y algún cliente).
@@ -251,8 +251,8 @@ function convert(g: Invasion) {
 export const revealed = (p: Person, t: number) => p.alien && !p.dead && ((t + p.revealPhase) % REVEAL_EVERY) < REVEAL_TIME;
 export const roomOf = (g: Invasion, p: Person) => p.room >= 0 ? g.rooms[p.room] : null;
 export const anomalyOf = (p: Person): Anomaly | null => p.anomaly ? ANOMALIES[p.anomaly.id] : null;
-// Cuántos aliens tiene que haber según el tiempo: arranca con 5 y llega uno más cada 35 segundos (hasta 26).
-export const aliensAt = (t: number) => Math.min(26, 5 + Math.floor(t / 35));
+// Cuántos aliens tiene que haber según el tiempo: arranca con 12 y llega uno más cada 20 segundos (hasta 40).
+export const aliensAt = (t: number) => Math.min(40, 12 + Math.floor(t / 20));
 // Ovnis: desde los 7 minutos, uno más cada 40 segundos (hasta 5).
 export const ufosAt = (t: number) => t < UFO_FROM ? 0 : Math.min(5, 1 + Math.floor((t - UFO_FROM) / 40));
 // Cuánto llueve (0 = nada, 1 = tormenta): empieza a los 5 minutos y en medio minuto ya es una tormenta.

@@ -41,11 +41,11 @@ describe('Invasión: la ciudad', () => {
 });
 
 describe('Invasión: la gente y los aliens', () => {
-  it('hay mucha gente haciendo cosas distintas y arrancan 5 aliens disfrazados', () => {
+  it('hay mucha gente haciendo cosas distintas y arrancan 12 aliens disfrazados', () => {
     const g = newInvasion(1);
     expect(g.people.length).toBeGreaterThan(80);
     expect(new Set(g.people.map(p => p.act)).size).toBeGreaterThan(12);
-    expect(aliveAliens(g)).toBe(5);
+    expect(aliveAliens(g)).toBe(12);
     expect(g.people.filter(p => p.room < 0).length).toBeGreaterThan(20); // en la vereda
   });
 
@@ -96,8 +96,8 @@ describe('Invasión: la gente y los aliens', () => {
     expect(UFO_FROM).toBe(420);
     expect(rainAt(RAIN_FROM - 1)).toBe(0);
     expect(rainAt(RAIN_FROM + 60)).toBe(1);
-    expect(aliensAt(0)).toBe(5);
-    expect(aliensAt(400)).toBeGreaterThan(12);
+    expect(aliensAt(0)).toBe(12);
+    expect(aliensAt(400)).toBeGreaterThan(30);
     expect(ufosAt(UFO_FROM - 1)).toBe(0);
     expect(ufosAt(UFO_FROM + 1)).toBe(1);
     expect(ufosAt(GAME_SECONDS - 1)).toBeGreaterThan(3);
@@ -107,8 +107,9 @@ describe('Invasión: la gente y los aliens', () => {
     expect(g.ufos.length).toBe(0);
     const events = takeEvents(g);
     expect(events.some(e => e.type === 'rain')).toBe(true);
-    expect(events.some(e => e.type === 'thunder')).toBe(true); // relámpagos
-    run(g, UFO_FROM + 15 - 330);
+    run(g, 60);
+    expect([...events, ...takeEvents(g)].some(e => e.type === 'thunder')).toBe(true); // relámpagos
+    run(g, UFO_FROM + 15 - 390);
     expect(g.ufos.length).toBe(1);
     expect(aliveAliens(g)).toBeGreaterThanOrEqual(aliensAt(UFO_FROM) - 1);
     run(g, 105);
@@ -219,9 +220,9 @@ describe('Invasión: el disparo', () => {
     expect(shoot(g, ...aimAt(g, alien))).toBe('none'); // ya terminó
   });
 
-  it('con 10 aliens eliminados, ganás', () => {
+  it('con 20 aliens eliminados, ganás', () => {
     const g = newInvasion(15);
-    expect(GOAL_KILLS).toBe(10);
+    expect(GOAL_KILLS).toBe(20);
     for (let i = 0; i < GOAL_KILLS; i++) {
       const alien = g.people.find(p => p.alien && !p.dead && !p.gone)!;
       alien.anomaly = null;
