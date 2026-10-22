@@ -13,6 +13,7 @@ const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'vierne
 // Nombre completo de cada día; en el celular (columnas angostas) se muestra la abreviatura.
 const WEEK_HEADER = [['Lunes', 'Lun'], ['Martes', 'Mar'], ['Miércoles', 'Mié'], ['Jueves', 'Jue'], ['Viernes', 'Vie'], ['Sábado', 'Sáb'], ['Domingo', 'Dom']];
 const MAX_CHIPS = 3;
+const VISIBLE_WEEKS = 4; // en la compu, cuántas filas de semana entran sin scrollear
 
 
 // Cada categoría tiene su color (clase cal-cat--…).
@@ -148,16 +149,39 @@ export function Calendar() {
   const sheetRef = useRef<HTMLDivElement>(null);
   const bandRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const gridScrollRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const [rowHeight, setRowHeight] = useState<number | null>(null);
-  // Días cuadrados: en la compu cada fila mide lo mismo que el ancho de un día (así se sabe cuántas cosas entran).
-  // En pantallas táctiles (celulares y tablets) las filas crecen lo necesario para que cada tarea se lea entera.
+  // En pantallas de escritorio toda la página del calendario (título, meme, íconos, mes, leyenda, días de la semana
+  // y panel del día) ocupa justo el alto visible y queda quieta; sólo la cuadrícula de días scrollea adentro suyo.
+  // Este efecto va primero porque el de abajo necesita medir la cuadrícula ya con ese alto aplicado.
+  useLayoutEffect(() => {
+    const page = pageRef.current;
+    const main = page?.closest('main');
+    if (!page || !main) return;
+    const place = () => {
+      const top = page.getBoundingClientRect().top;
+      const bottomPad = parseFloat(getComputedStyle(main).paddingBottom) || 0;
+      page.style.setProperty('--cal-page-h', `${Math.max(360, window.innerHeight - top - bottomPad)}px`);
+    };
+    place();
+    const header = document.querySelector<HTMLElement>('header');
+    const observer = typeof ResizeObserver === 'undefined' || !header ? null : new ResizeObserver(place);
+    observer?.observe(header!);
+    window.addEventListener('resize', place);
+    return () => { observer?.disconnect(); window.removeEventListener('resize', place); };
+  }, []);
+  // En la compu cada fila mide lo que haga falta para que entren 4 filas de semana en el alto disponible (se scrollea
+  // para ver el resto del mes). En pantallas táctiles (celulares y tablets) las filas crecen para que cada tarea se lea entera.
   useLayoutEffect(() => {
     const fit = () => {
-      const grid = gridRef.current;
+      const grid = gridRef.current, scrollBox = gridScrollRef.current;
       const day = grid?.querySelector<HTMLElement>('.cal-day');
-      if (!grid || !day || window.innerWidth <= 1000 || window.matchMedia?.('(pointer:coarse)').matches) { setRowHeight(null); return; }
-      setRowHeight(Math.round(day.getBoundingClientRect().width));
+      const weekday = grid?.querySelector<HTMLElement>('.cal-weekday');
+      const desktop = window.innerWidth > 1000 && !window.matchMedia?.('(pointer:coarse)').matches;
+      if (!grid || !day || !weekday || !scrollBox || !desktop) { setRowHeight(null); return; }
+      const available = scrollBox.getBoundingClientRect().height - weekday.getBoundingClientRect().height;
+      setRowHeight(Math.max(60, Math.floor(available / VISIBLE_WEEKS)));
     };
     fit();
     window.addEventListener('resize', fit);
@@ -165,6 +189,7 @@ export function Calendar() {
   }, [weeks]);
   // La banda del mes, la barra de leyenda/Hoy y la fila de los días de la semana quedan fijas al bajar, apiladas
   // justo debajo del encabezado de la app (si ese encabezado también queda fijo), así el resto del mes se puede scrollear por debajo.
+  // (Esto es lo que se usa en celular/tablet angosto; en la compu la página entera ya no scrollea, ver arriba.)
   useLayoutEffect(() => {
     const header = document.querySelector<HTMLElement>('header');
     const sheet = sheetRef.current, band = bandRef.current, toolbar = toolbarRef.current;
@@ -182,24 +207,6 @@ export function Calendar() {
     observer?.observe(header);
     observer?.observe(band);
     observer?.observe(toolbar);
-    window.addEventListener('resize', place);
-    return () => { observer?.disconnect(); window.removeEventListener('resize', place); };
-  }, []);
-  // En pantallas de escritorio toda la página del calendario (título, meme, íconos, mes, leyenda, días de la semana
-  // y panel del día) ocupa justo el alto visible y queda quieta; sólo la cuadrícula de días scrollea adentro suyo.
-  useLayoutEffect(() => {
-    const page = pageRef.current;
-    const main = page?.closest('main');
-    if (!page || !main) return;
-    const place = () => {
-      const top = page.getBoundingClientRect().top;
-      const bottomPad = parseFloat(getComputedStyle(main).paddingBottom) || 0;
-      page.style.setProperty('--cal-page-h', `${Math.max(360, window.innerHeight - top - bottomPad)}px`);
-    };
-    place();
-    const header = document.querySelector<HTMLElement>('header');
-    const observer = typeof ResizeObserver === 'undefined' || !header ? null : new ResizeObserver(place);
-    observer?.observe(header!);
     window.addEventListener('resize', place);
     return () => { observer?.disconnect(); window.removeEventListener('resize', place); };
   }, []);
@@ -233,7 +240,7 @@ export function Calendar() {
           </ul>
           <button type="button" className="cal-today" onClick={() => goTo(todayIso)}>Hoy</button>
         </div>
-        <div className="cal-grid-scroll">
+        <div ref={gridScrollRef} className="cal-grid-scroll">
           <div ref={gridRef} className={`cal-grid${rowHeight !== null ? ' cal-grid--compact' : ''}`} style={rowHeight ? { gridTemplateRows: `auto repeat(${weeks}, ${rowHeight}px)` } : undefined}>
             {WEEK_HEADER.map(([name, short], index) => <div key={name} className={`cal-weekday${index >= 5 ? ' cal-weekday--weekend' : ''}`} aria-hidden="true"><span className="cal-weekday-full">{name}</span><span className="cal-weekday-short">{short}</span></div>)}
             {days.map(day => {

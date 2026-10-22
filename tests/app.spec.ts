@@ -492,16 +492,22 @@ test('Juegos: las tarjetas van justo debajo del encabezado y el meme ocupa el lu
   }
 });
 
-test('el calendario tiene el mes a la izquierda, días cuadrados y el meme llega hasta el borde de abajo del mes', async ({ page }) => {
+test('el calendario tiene el mes a la izquierda, se ven 4 filas de semana en la compu (días cuadrados en el celular) y el meme llega hasta el borde de abajo del mes', async ({ page }) => {
+  // Alto generoso (como una ventana de verdad) para que entren las 4 filas sin que el viewport chico del test las recorte.
+  const vp = page.viewportSize()!;
+  await page.setViewportSize({ width: vp.width, height: 900 });
   await page.goto('/escritorio-personal/#/calendario');
   const sheet = (await page.locator('.cal-sheet').boundingBox())!;
   const band = (await page.locator('.cal-band').boundingBox())!;
   const month = (await page.locator('.cal-band h2').boundingBox())!;
   const title = (await page.locator('.cal-page .section-title h1').boundingBox())!;
   const day = (await page.locator('.cal-day').nth(10).boundingBox())!;
-  expect(Math.abs(day.width - day.height)).toBeLessThanOrEqual(1.5);
   const meme = page.locator('.cal-art');
   if (page.viewportSize()!.width > 800) {
+    // En la compu las filas se ajustan para que entren 4 semanas sin scrollear (no quedan cuadradas).
+    const scrollBox = (await page.locator('.cal-grid-scroll').boundingBox())!;
+    const weekdayRow = (await page.locator('.cal-weekday').first().boundingBox())!;
+    expect(Math.abs(scrollBox.height - (weekdayRow.height + 4 * day.height))).toBeLessThanOrEqual(6);
     const art = (await meme.boundingBox())!;
     const icons = (await page.locator('.cal-page .section-title .section-objects').boundingBox())!;
     expect(month.x - sheet.x).toBeLessThan(sheet.width * .15);
@@ -519,6 +525,7 @@ test('el calendario tiene el mes a la izquierda, días cuadrados y el meme llega
       expect(art.x + art.width).toBeLessThanOrEqual(icons.x);
     }
   } else {
+    expect(Math.abs(day.width - day.height)).toBeLessThanOrEqual(1.5);
     const art = (await meme.boundingBox())!;
     expect(Math.abs(art.y + art.height - sheet.y)).toBeLessThanOrEqual(1);
     expect(art.y).toBeGreaterThanOrEqual(title.y + title.height);
