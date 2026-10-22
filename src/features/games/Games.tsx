@@ -10,15 +10,15 @@ import sharkCover from './assets/tiburon-portada.webp';
 import terminatorCover from './assets/terminator-portada.webp';
 import invasionCover from './assets/portada-invasion.webp';
 import { CalculatorLink, CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
-import { readRecord } from './BlockRunner';
+import { readRecord } from './BlockRunnerGame';
 import { readSolitaireRecord } from './PixelSolitaire';
-import { readTikiRecord } from './TikiTaka';
-import { formatTime, readTrepaRecord } from './Trepaluna';
-import { readSnakeRecord } from './ReverseSnake';
+import { readTikiRecord } from './TikiTakaGame';
+import { formatTime, readTrepaRecord } from './TrepalunaGame';
+import { readSnakeRecord } from './ReverseSnakeGame';
 import { formatLavaTime, readLavaRecord } from './LavaFloor';
-import { readPaperRecord } from './PaperBall';
+import { readPaperRecord } from './PaperBallGame';
 import { formatSharkTime, readSharkRecord } from './SharkCity';
-import { formatInvasionTime, readInvasionRecord } from './Invasion';
+import { formatInvasionTime, readInvasionRecord } from './InvasionGame';
 import memeJigsaw from '../../assets/images/meme-jigsaw.jpg';
 
 // Portadas de las tarjetas: una captura de cada juego en plena acción.

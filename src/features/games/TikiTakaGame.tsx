@@ -5,7 +5,7 @@ import { cupOutcome, FINAL, ROUNDS, type CupOutcome } from './worldCup';
 import { canShoot, chase, dive, FORMATIONS, GOAL, minute, newMatch, pass, passRisk, PITCH, shoot, shotChance, startSecondHalf, step, takeEvents, type FormationId, type Match, type MatchEvent, type Side } from './tikiTaka';
 import { playGameOver, playGoal, playKick, playRefWhistle, playStart, playWinFanfare, preloadSoccerSounds, setCrowd } from './sounds';
 import { EndBanner } from './EndBanner';
-import { Penalties } from './Penalties';
+import { Penalties } from './PenaltiesGame';
 
 // ---------- Equipo guardado y récord ----------
 export interface TeamSetup { coach: string; country: string; formation: FormationId }
