@@ -144,6 +144,9 @@ export function Calendar() {
 
   const days = monthGrid(view.year, view.month);
   const weeks = days.length / 7;
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const bandRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const [rowHeight, setRowHeight] = useState<number | null>(null);
   // Días cuadrados: en la compu cada fila mide lo mismo que el ancho de un día (así se sabe cuántas cosas entran).
@@ -159,15 +162,25 @@ export function Calendar() {
     window.addEventListener('resize', fit);
     return () => window.removeEventListener('resize', fit);
   }, [weeks]);
-  // La fila de los días de la semana queda fija al bajar, justo debajo del encabezado de la app (si ese encabezado también queda fijo).
+  // La banda del mes, la barra de leyenda/Hoy y la fila de los días de la semana quedan fijas al bajar, apiladas
+  // justo debajo del encabezado de la app (si ese encabezado también queda fijo), así el resto del mes se puede scrollear por debajo.
   useLayoutEffect(() => {
     const header = document.querySelector<HTMLElement>('header');
-    const grid = gridRef.current;
-    if (!header || !grid) return;
-    const place = () => grid.style.setProperty('--cal-sticky-top', getComputedStyle(header).position === 'sticky' ? `${header.getBoundingClientRect().height}px` : '0px');
+    const sheet = sheetRef.current, band = bandRef.current, toolbar = toolbarRef.current;
+    if (!header || !sheet || !band || !toolbar) return;
+    const place = () => {
+      const headerH = getComputedStyle(header).position === 'sticky' ? header.getBoundingClientRect().height : 0;
+      const bandH = band.getBoundingClientRect().height;
+      const toolbarH = toolbar.getBoundingClientRect().height;
+      sheet.style.setProperty('--cal-sticky-top', `${headerH}px`);
+      sheet.style.setProperty('--cal-sticky-toolbar-top', `${headerH + bandH}px`);
+      sheet.style.setProperty('--cal-sticky-weekday-top', `${headerH + bandH + toolbarH}px`);
+    };
     place();
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
     observer?.observe(header);
+    observer?.observe(band);
+    observer?.observe(toolbar);
     window.addEventListener('resize', place);
     return () => { observer?.disconnect(); window.removeEventListener('resize', place); };
   }, []);
@@ -185,9 +198,9 @@ export function Calendar() {
 
 
     <div className="cal-layout">
-      <div className="cal-sheet">
+      <div ref={sheetRef} className="cal-sheet">
         <div className="cal-rings" aria-hidden="true"><span /><span /></div>
-        <div className="cal-band-wrap">
+        <div ref={bandRef} className="cal-band-wrap">
           <div className="cal-band">
             <button type="button" className="cal-arrow" onClick={() => shiftMonth(-1)} aria-label="Mes anterior">‹</button>
             <BandClock />
@@ -195,7 +208,7 @@ export function Calendar() {
             <button type="button" className="cal-arrow" onClick={() => shiftMonth(1)} aria-label="Mes siguiente">›</button>
           </div>
         </div>
-        <div className="cal-toolbar">
+        <div ref={toolbarRef} className="cal-toolbar">
           <ul className="cal-legend" aria-label="Colores">
             {EVENT_CATEGORIES.map(c => <li key={c}><span className={`cal-dot ${categoryClass(c)}`} aria-hidden="true" />{c}</li>)}
           </ul>

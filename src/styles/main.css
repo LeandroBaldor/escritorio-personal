@@ -430,7 +430,8 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-band h2 span,.cal-band h2 small{font:900 clamp(2rem,4.4vw,3.1rem)/1 Nunito,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#fff;text-shadow:0 2px 6px #0b1d4a88}
 .cal-arrow{width:48px;height:48px;padding:0;border-radius:50%;background:#fff3;color:#fff;font-size:2rem;line-height:1;font-weight:700}
 .cal-arrow:hover{background:#fff6}
-.cal-toolbar{display:flex;align-items:center;justify-content:space-between;gap:.8rem;padding:.75rem 1.2rem 0}
+.cal-band-wrap{position:sticky;top:var(--cal-sticky-top,0px);z-index:5}
+.cal-toolbar{position:sticky;top:var(--cal-sticky-toolbar-top,0px);z-index:4;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:.8rem;padding:.75rem 1.2rem 0}
 .cal-legend{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin:0;padding:0;list-style:none;font-size:.85rem}
 .cal-legend li{display:flex;align-items:center;gap:.3rem}
 .cal-today{padding:.4rem .9rem;background:#cfe8f3;color:#1f2937;font-weight:700}
@@ -900,8 +901,8 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 .cal-weekday{border-bottom:2px solid #c4c8ce;text-transform:uppercase;font-size:min(.9rem,1vw);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cal-weekday--weekend,.cal-day--weekend .cal-day-number{color:#15803d}
 .cal-weekday-short{display:none}
-/* La fila de los días de la semana queda fija al bajar, debajo del encabezado de la app (la altura la pone Calendar.tsx). */
-.cal-weekday{position:sticky;top:var(--cal-sticky-top,0px);z-index:3;background:#fff}
+/* La fila de los días de la semana queda fija al bajar, debajo de la banda del mes y la barra de leyenda/Hoy (las alturas las pone Calendar.tsx). */
+.cal-weekday{position:sticky;top:var(--cal-sticky-weekday-top,0px);z-index:3;background:#fff}
 /* Los días de otros meses se ven más claros, pero sus líneas quedan iguales que las demás. */
 .cal-day--outside{opacity:1}.cal-day--outside>*{opacity:.38}
 @media(max-width:700px){.cal-weekday-full{display:none}.cal-weekday-short{display:inline}}
