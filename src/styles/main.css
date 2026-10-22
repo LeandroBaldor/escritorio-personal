@@ -900,6 +900,8 @@ h2 .tt-trophy{width:clamp(56px,10vw,90px)}
 .cal-weekday{border-bottom:2px solid #c4c8ce;text-transform:uppercase;font-size:min(.9rem,1vw);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cal-weekday--weekend,.cal-day--weekend .cal-day-number{color:#15803d}
 .cal-weekday-short{display:none}
+/* La fila de los días de la semana queda fija al bajar, debajo del encabezado de la app (la altura la pone Calendar.tsx). */
+.cal-weekday{position:sticky;top:var(--cal-sticky-top,0px);z-index:3;background:#fff}
 /* Los días de otros meses se ven más claros, pero sus líneas quedan iguales que las demás. */
 .cal-day--outside{opacity:1}.cal-day--outside>*{opacity:.38}
 @media(max-width:700px){.cal-weekday-full{display:none}.cal-weekday-short{display:inline}}

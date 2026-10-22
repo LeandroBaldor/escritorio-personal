@@ -159,6 +159,18 @@ export function Calendar() {
     window.addEventListener('resize', fit);
     return () => window.removeEventListener('resize', fit);
   }, [weeks]);
+  // La fila de los días de la semana queda fija al bajar, justo debajo del encabezado de la app (si ese encabezado también queda fijo).
+  useLayoutEffect(() => {
+    const header = document.querySelector<HTMLElement>('header');
+    const grid = gridRef.current;
+    if (!header || !grid) return;
+    const place = () => grid.style.setProperty('--cal-sticky-top', getComputedStyle(header).position === 'sticky' ? `${header.getBoundingClientRect().height}px` : '0px');
+    place();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
+    observer?.observe(header);
+    window.addEventListener('resize', place);
+    return () => { observer?.disconnect(); window.removeEventListener('resize', place); };
+  }, []);
   // Con filas ajustadas cada cosa ocupa una línea (unos 30px con el espacio) debajo del número del día.
   const chipLimit = rowHeight === null ? MAX_CHIPS : Math.max(1, Math.min(MAX_CHIPS, Math.floor((rowHeight - 36) / 30)));
   const selectedItems = itemsOf(selected);
