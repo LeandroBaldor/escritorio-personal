@@ -144,6 +144,7 @@ export function Calendar() {
 
   const days = monthGrid(view.year, view.month);
   const weeks = days.length / 7;
+  const pageRef = useRef<HTMLElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const bandRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -184,11 +185,29 @@ export function Calendar() {
     window.addEventListener('resize', place);
     return () => { observer?.disconnect(); window.removeEventListener('resize', place); };
   }, []);
+  // En pantallas de escritorio toda la página del calendario (título, meme, íconos, mes, leyenda, días de la semana
+  // y panel del día) ocupa justo el alto visible y queda quieta; sólo la cuadrícula de días scrollea adentro suyo.
+  useLayoutEffect(() => {
+    const page = pageRef.current;
+    const main = page?.closest('main');
+    if (!page || !main) return;
+    const place = () => {
+      const top = page.getBoundingClientRect().top;
+      const bottomPad = parseFloat(getComputedStyle(main).paddingBottom) || 0;
+      page.style.setProperty('--cal-page-h', `${Math.max(360, window.innerHeight - top - bottomPad)}px`);
+    };
+    place();
+    const header = document.querySelector<HTMLElement>('header');
+    const observer = typeof ResizeObserver === 'undefined' || !header ? null : new ResizeObserver(place);
+    observer?.observe(header!);
+    window.addEventListener('resize', place);
+    return () => { observer?.disconnect(); window.removeEventListener('resize', place); };
+  }, []);
   // Con filas ajustadas cada cosa ocupa una línea (unos 30px con el espacio) debajo del número del día.
   const chipLimit = rowHeight === null ? MAX_CHIPS : Math.max(1, Math.min(MAX_CHIPS, Math.floor((rowHeight - 36) / 30)));
   const selectedItems = itemsOf(selected);
 
-  return <section className="cal-page">
+  return <section ref={pageRef} className="cal-page">
     <div className="section-title">
       <div><p className="eyebrow">Lo que se viene</p><h1>Calendario</h1></div>
       {/* El meme ocupa el lugar libre del encabezado y se apoya sobre el borde de arriba del calendario. */}
@@ -214,23 +233,25 @@ export function Calendar() {
           </ul>
           <button type="button" className="cal-today" onClick={() => goTo(todayIso)}>Hoy</button>
         </div>
-        <div ref={gridRef} className={`cal-grid${rowHeight !== null ? ' cal-grid--compact' : ''}`} style={rowHeight ? { gridTemplateRows: `auto repeat(${weeks}, ${rowHeight}px)` } : undefined}>
-          {WEEK_HEADER.map(([name, short], index) => <div key={name} className={`cal-weekday${index >= 5 ? ' cal-weekday--weekend' : ''}`} aria-hidden="true"><span className="cal-weekday-full">{name}</span><span className="cal-weekday-short">{short}</span></div>)}
-          {days.map(day => {
-            const iso = isoOf(day);
-            const items = itemsOf(iso);
-            const outside = day.getMonth() !== view.month;
-            const weekend = day.getDay() === 0 || day.getDay() === 6;
-            return <button type="button" key={iso} onClick={() => setSelected(iso)}
-              className={`cal-day${outside ? ' cal-day--outside' : ''}${weekend ? ' cal-day--weekend' : ''}${iso === todayIso ? ' cal-day--today' : ''}${iso === selected ? ' cal-day--selected' : ''}`}
-              aria-label={`${longDate(iso)}${items.length ? `, ${items.length} ${items.length === 1 ? 'cosa' : 'cosas'}` : ''}`} aria-pressed={iso === selected}>
-              <span className="cal-day-number">{day.getDate()}</span>
-              <span className="cal-chips" aria-hidden="true">
-                {items.slice(0, chipLimit).map(item => <span key={item.key} className={`cal-chip ${categoryClass(item.category)}${item.done ? ' cal-chip--done' : ''}`}>{item.time && <><b>{item.time}</b> </>}{item.text}</span>)}
-                {items.length > chipLimit && <span className="cal-more">+{items.length - chipLimit}{chipLimit > 1 ? ' más' : ''}</span>}
-              </span>
-            </button>;
-          })}
+        <div className="cal-grid-scroll">
+          <div ref={gridRef} className={`cal-grid${rowHeight !== null ? ' cal-grid--compact' : ''}`} style={rowHeight ? { gridTemplateRows: `auto repeat(${weeks}, ${rowHeight}px)` } : undefined}>
+            {WEEK_HEADER.map(([name, short], index) => <div key={name} className={`cal-weekday${index >= 5 ? ' cal-weekday--weekend' : ''}`} aria-hidden="true"><span className="cal-weekday-full">{name}</span><span className="cal-weekday-short">{short}</span></div>)}
+            {days.map(day => {
+              const iso = isoOf(day);
+              const items = itemsOf(iso);
+              const outside = day.getMonth() !== view.month;
+              const weekend = day.getDay() === 0 || day.getDay() === 6;
+              return <button type="button" key={iso} onClick={() => setSelected(iso)}
+                className={`cal-day${outside ? ' cal-day--outside' : ''}${weekend ? ' cal-day--weekend' : ''}${iso === todayIso ? ' cal-day--today' : ''}${iso === selected ? ' cal-day--selected' : ''}`}
+                aria-label={`${longDate(iso)}${items.length ? `, ${items.length} ${items.length === 1 ? 'cosa' : 'cosas'}` : ''}`} aria-pressed={iso === selected}>
+                <span className="cal-day-number">{day.getDate()}</span>
+                <span className="cal-chips" aria-hidden="true">
+                  {items.slice(0, chipLimit).map(item => <span key={item.key} className={`cal-chip ${categoryClass(item.category)}${item.done ? ' cal-chip--done' : ''}`}>{item.time && <><b>{item.time}</b> </>}{item.text}</span>)}
+                  {items.length > chipLimit && <span className="cal-more">+{items.length - chipLimit}{chipLimit > 1 ? ' más' : ''}</span>}
+                </span>
+              </button>;
+            })}
+          </div>
         </div>
       </div>
 

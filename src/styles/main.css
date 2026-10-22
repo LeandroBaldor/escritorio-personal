@@ -1391,3 +1391,19 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .inv-bad strong{color:#f87171}
 .inv-clues{text-align:left;max-height:30vh;overflow:auto}
 .inv-clues ul{margin:.3rem 0 .6rem;padding-left:1.2rem;color:#d1fae5}
+
+/* Calendario en escritorio: la página entera (título, meme, íconos, mes, leyenda, días de la semana y panel del
+   día) ocupa exactamente el alto visible y no se mueve; sólo la cuadrícula de días scrollea adentro suyo (el alto
+   lo calcula Calendar.tsx). En celular/tablet angosto se mantiene el comportamiento anterior (la página entera
+   scrollea y la banda, la leyenda y los días de la semana quedan pegados al bajar). */
+@media(min-width:1001px) and (pointer:fine),(min-width:1151px){
+  .cal-page{display:flex;flex-direction:column;height:var(--cal-page-h,auto);min-height:0;overflow:hidden}
+  .cal-page>.section-title{flex:none}
+  .cal-layout{flex:1;min-height:0;align-items:stretch}
+  .cal-sheet{height:100%;min-height:0;display:flex;flex-direction:column}
+  .cal-band-wrap{position:static;flex:none}
+  .cal-toolbar{position:static;flex:none}
+  .cal-grid-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
+  .cal-weekday{top:0}
+  .cal-day-panel{position:static;height:100%;min-height:0;max-height:none}
+}
