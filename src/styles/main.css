@@ -1406,5 +1406,10 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
   .cal-grid-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
   .cal-grid--compact .cal-day{aspect-ratio:auto}
   .cal-weekday{top:0}
-  .cal-day-panel{position:static;height:100%;min-height:0;max-height:none}
+  /* El panel del día en tres tarjetas apiladas: la de las tareas del día se achica y scrollea sola (tiene su
+     propia barra) si hay muchas; la de "Agregar tarea" nunca se recorta, siempre se ve entera. */
+  .cal-day-panel{position:static;height:100%;min-height:0;max-height:none;display:flex;flex-direction:column;overflow-y:auto}
+  .cal-day-panel>.cal-card--day{flex:1;min-height:9rem;display:flex;flex-direction:column}
+  .cal-day-panel>.cal-card--day>.cal-card-body{flex:1;min-height:0;overflow-y:auto}
+  .cal-day-panel>.cal-card--add,.cal-day-panel>.cal-card--doubts{flex:none}
 }
