@@ -302,6 +302,11 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .desk-object svg{display:block;width:100%;height:auto}
 .desk-object strong{font-size:.8rem}
 .section-objects a:hover,.section-objects a:focus-visible{transform:rotate(0) translateY(-2px) scale(1.1)}
+/* Mismo efecto de agrandarse al pasar el mouse, pero para los íconos del escritorio (Guardadas, Mi diario, Gastos),
+   que no viven dentro de .section-objects sino de .desk-objects. */
+.notebook,.calc-object,.desk-object{transition:transform .15s ease}
+.notebook:hover,.notebook:focus-visible,.calc-object:hover,.calc-object:focus-visible,.desk-object:hover,.desk-object:focus-visible{transform:rotate(0) translateY(-2px) scale(1.1)}
+.floppy:hover,.floppy:focus-visible{transform:rotate(-3deg) scale(1.1)}
 @media(min-width:801px) and (orientation:landscape),(min-width:1101px){.section-title:has(>.section-objects){display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.section-title:has(>.section-objects)>button,.section-title:has(>.section-objects)>.total{justify-self:end;align-self:end}.section-objects{justify-self:center}}
 @media(max-width:800px),(orientation:portrait) and (max-width:1100px){.section-objects{align-self:flex-start}}
 .section-objects .notebook{width:120px;height:100px;padding:.8rem .8rem .8rem 1.9rem}.section-objects .notebook span:not(.notebook-binding){font-size:1.5rem;line-height:1}
