@@ -492,7 +492,7 @@ test('Juegos: las tarjetas van justo debajo del encabezado y el meme ocupa el lu
   }
 });
 
-test('el calendario tiene el mes a la izquierda, se ven 4 filas de semana en la compu (días cuadrados en el celular) y el meme llega hasta el borde de abajo del mes', async ({ page }) => {
+test('el calendario tiene el mes a la izquierda, se ven 4 filas de semana en la compu (días cuadrados en el celular) y el meme para justo en el borde de arriba del mes sin taparlo', async ({ page }) => {
   // Alto generoso (como una ventana de verdad) para que entren las 4 filas sin que el viewport chico del test las recorte.
   const vp = page.viewportSize()!;
   await page.setViewportSize({ width: vp.width, height: 900 });
@@ -518,9 +518,9 @@ test('el calendario tiene el mes a la izquierda, se ven 4 filas de semana en la 
       expect(art.x + art.width).toBeLessThanOrEqual(icons.x);
       expect(art.y + art.height).toBeLessThanOrEqual(band.y + 2);
     } else {
-      // Full desktop (1500px+): meme at bottom of band, between month and icons
+      // Full desktop (1500px+): meme between month and icons, sin tapar la banda (para justo en su borde de arriba)
       expect(month.x + month.width).toBeLessThanOrEqual(art.x);
-      expect(Math.abs(art.y + art.height - (band.y + band.height))).toBeLessThanOrEqual(1);
+      expect(art.y + art.height).toBeLessThanOrEqual(band.y + 2);
       expect(art.x).toBeGreaterThanOrEqual(title.x + title.width);
       expect(art.x + art.width).toBeLessThanOrEqual(icons.x);
     }
