@@ -296,12 +296,12 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 @media(max-width:480px){.column .note,.column .drop-indicator{flex-basis:calc((100% - .4rem)/2)}.note-text{padding-right:.8rem}.note textarea{font-size:.95rem}.note small,.note details{font-size:.72rem}}
 /* Mi diario y Mis gastos: accesos como objetos del escritorio (un escritorio y la calculadora de gastos). */
 .section-objects{display:flex;align-items:end;gap:1.1rem;font-size:16px;align-self:center;text-shadow:none}
-.section-objects a{text-decoration:none;box-shadow:5px 8px 14px #2c120b77}
+.section-objects a{text-decoration:none;box-shadow:5px 8px 14px #2c120b77;transition:transform .15s ease}
 .section-objects .calc-object{width:90px}
 .desk-object{display:flex;flex-direction:column;align-items:center;gap:.2rem;width:120px;padding:.45rem .5rem .4rem;background:#f4e1bf;border-radius:8px;color:#332317;transform:rotate(-2deg)}
 .desk-object svg{display:block;width:100%;height:auto}
 .desk-object strong{font-size:.8rem}
-.section-objects a:hover,.section-objects a:focus-visible{transform:rotate(0) translateY(-2px)}
+.section-objects a:hover,.section-objects a:focus-visible{transform:rotate(0) translateY(-2px) scale(1.1)}
 @media(min-width:801px) and (orientation:landscape),(min-width:1101px){.section-title:has(>.section-objects){display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.section-title:has(>.section-objects)>button,.section-title:has(>.section-objects)>.total{justify-self:end;align-self:end}.section-objects{justify-self:center}}
 @media(max-width:800px),(orientation:portrait) and (max-width:1100px){.section-objects{align-self:flex-start}}
 .section-objects .notebook{width:120px;height:100px;padding:.8rem .8rem .8rem 1.9rem}.section-objects .notebook span:not(.notebook-binding){font-size:1.5rem;line-height:1}
@@ -393,7 +393,7 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .expense-row select option{background:#fff;color:#332317}
 .expense-row select:not(.paid-select){appearance:none;padding-right:2.2rem;background:#15803d url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E") no-repeat right .8rem center}
 /* Calendario: almanaque de mesa como acceso desde las secciones (muestra el día de hoy). */
-.calendar-object{position:relative;display:flex;flex-direction:column;align-items:center;width:100px;padding:0 0 .35em;background:#fff;border-radius:8px;color:#1f2937!important;text-decoration:none;transform:rotate(-2deg);overflow:visible}
+.calendar-object{position:relative;display:flex;flex-direction:column;align-items:center;width:100px;padding:0 0 .35em;background:#fff;border-radius:8px;color:#1f2937!important;text-decoration:none;transform:rotate(-2deg);overflow:visible;transition:transform .15s ease}
 .calendar-object::before{content:"";position:absolute;inset:0 0 auto;height:1.55em;background:#e5534b;border-radius:8px 8px 0 0}
 .calendar-object-rings{position:absolute;top:-.45em;left:0;right:0;display:flex;justify-content:space-around;padding:0 1.4em}
 .calendar-object-rings i{width:.4em;height:.95em;background:#4b4f58;border-radius:.2em}
@@ -402,7 +402,7 @@ main{max-width:2200px;padding:clamp(1rem,2.5vw,2.5rem)}
 .calendar-object strong{font-size:.75em;color:#4b4f58}
 .desk-objects .calendar-object{box-shadow:5px 8px 14px #2c120b77}
 .section-objects .calendar-object{width:92px}
-.calendar-object:hover,.calendar-object:focus-visible{transform:rotate(0) translateY(-2px)}
+.calendar-object:hover,.calendar-object:focus-visible{transform:rotate(0) translateY(-2px) scale(1.1)}
 
 
 /* Colores por tipo (los gastos de Mis gastos usan el verde de Pagos). */
@@ -575,12 +575,12 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .cal-cancel:hover{background:#f1f5f9}
 .cal-item-form .cal-item-actions button{margin:0}
 /* Juegos: joystick en los accesos, tarjetas de juegos y "¡Cuidado, bloques!" casi en pantalla completa. */
-.games-object{display:flex;flex-direction:column;align-items:center;gap:.2rem;width:110px;padding:.55rem .55rem .4rem;background:#3b2f6b;border-radius:10px;color:#fff!important;text-decoration:none;transform:rotate(2deg)}
+.games-object{display:flex;flex-direction:column;align-items:center;gap:.2rem;width:110px;padding:.55rem .55rem .4rem;background:#3b2f6b;border-radius:10px;color:#fff!important;text-decoration:none;transform:rotate(2deg);transition:transform .15s ease}
 .games-object svg{display:block;width:100%;height:auto;filter:drop-shadow(0 2px 2px #0006)}
 .games-object strong{font-size:.8rem}
 .desk-objects .games-object{box-shadow:5px 8px 14px #2c120b77}
 .section-objects .games-object{width:100px}
-.games-object:hover,.games-object:focus-visible{transform:rotate(0) translateY(-2px)}
+.games-object:hover,.games-object:focus-visible{transform:rotate(0) translateY(-2px) scale(1.1)}
 .games-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:1.2rem}
 .game-card{display:flex;flex-direction:column;height:100%;background:#2b2452;border:6px solid #1c1738;border-radius:14px;color:#fff;text-decoration:none;overflow:hidden;box-shadow:8px 12px 24px #25100888;transition:transform .15s}
 .game-card:hover,.game-card:focus-visible{transform:translateY(-3px)}
@@ -1409,7 +1409,7 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
   /* El panel del día en tres tarjetas apiladas: la de las tareas del día se achica y scrollea sola (tiene su
      propia barra) si hay muchas; la de "Agregar tarea" nunca se recorta, siempre se ve entera. */
   .cal-day-panel{position:static;height:100%;min-height:0;max-height:none;display:flex;flex-direction:column;overflow-y:auto}
-  .cal-day-panel>.cal-card--day{flex:1;min-height:9rem;display:flex;flex-direction:column}
+  .cal-day-panel>.cal-card--day{flex:1;min-height:16rem;display:flex;flex-direction:column}
   .cal-day-panel>.cal-card--day>.cal-card-body{flex:1;min-height:0;overflow-y:auto}
   .cal-day-panel>.cal-card--add,.cal-day-panel>.cal-card--doubts{flex:none}
 }
