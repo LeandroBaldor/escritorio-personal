@@ -637,6 +637,7 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 @media(max-width:800px),(orientation:portrait) and (max-width:1100px){.sol .sol-box{padding:.1rem .45rem;font-size:.65rem}.sol .sol-box strong{font-size:1.05rem}}
 @keyframes sol-pop{0%{opacity:0;transform:translate(-50%,10px) scale(.8)}15%{opacity:1;transform:translate(-50%,0) scale(1.08)}70%{opacity:1;transform:translate(-50%,-14px) scale(1)}100%{opacity:0;transform:translate(-50%,-30px)}}
 .sol-total{font-family:ui-monospace,"Courier New",monospace;font-weight:700}
+.sol-hint{margin:0 0 .4rem;padding:.35rem .7rem;background:#0b1430cc;border:2px solid var(--neon);border-radius:8px;box-shadow:0 0 10px #22d3ee66;color:#e0faff;font-size:.85rem;text-align:center}
 .sol .runner-bar button{background:#0b1430;color:#e0faff;border:2px solid var(--neon);border-radius:8px;font-weight:900;box-shadow:0 0 10px #22d3ee55}
 .sol .runner-bar button:hover{background:#12305a}
 .sol .runner-bar button:active{filter:brightness(1.3)}

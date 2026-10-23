@@ -2126,8 +2126,8 @@ export function LavaFloor() {
           <div>
             {status === 'ready' && <>
               <h2 id="lava-message" className="lava-title">¡El piso es de lava! 🌋</h2>
-              <p>La lava sube y no para: subí lo más rápido que puedas para sobrevivir. Cada partida arrancás en otro lugar de la cuadra. Trepá por escaleras (también caracol), muebles, sogas, caños, andamios y ascensores (entrá cuando abren las puertas), salí por las puertas de los costados y pasá de edificio en edificio por tablones, camas elásticas, tirolesas, edificios caídos y góndolas. Colgate de los cables con ↑ y avanzá a mano, trepá las grúas de las obras y caminá por la pluma, y en las avenidas saltá el hueco de los puentes rotos. Esquivá el fuego, los cortocircuitos, los pisos rotos y a la gente prendida fuego que corre por los pisos: si te toca, te prendés fuego (saltala o esperá a que pase). Hay 6 helipuertos en terrazas lejanas: el helicóptero aterriza en uno, espera solo 5 segundos y a los 30 segundos aterriza en otro. La flecha arriba de tu cabeza te muestra hacia dónde ir y a cuántos metros está. Algunos pisos tienen la puerta tapiada en el medio: buscá otro camino. ¡Subite a tiempo!</p>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> subir por sogas, escaleras y tirolesas (o saltar) · <kbd>↓</kbd> bajar · <kbd>Espacio</kbd> saltar · <kbd>P</kbd> pausa</p>
+              <p className="runner-tip">💡 Seguí la flecha de arriba de tu cabeza: te lleva al helipuerto más cercano.</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}
             {status === 'paused' && <>

@@ -1491,9 +1491,9 @@ export function Trepaluna() {
         {status !== 'playing' && <div className="runner-overlay" role="dialog" aria-labelledby="trepa-message">
           <div>
             {status === 'ready' && <>
-              <h2 id="trepa-message">Trepaluna</h2>
-              <p>Como un juego de plataformas, pero para arriba: trepá terrazas, balcones, vigas, escaleras y sogas, usá trampolines y montacargas, esquivá caños de fuego, bolas de demolición y pájaros. Pasá las nubes, la zona tecnológica (láseres, imanes, portales y engranajes) y el espacio hasta clavar el banderín en la Luna. Si te quemás o te caés muy abajo… ¡GAME OVER!</p>
+              <h2 id="trepa-message">Trepaluna 🌙</h2>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> o <kbd>Espacio</kbd> saltar (en escaleras, mantené para trepar) · <kbd>↓</kbd> bajar · <kbd>P</kbd> pausa</p>
+              <p className="runner-tip">💡 No te quemes ni te caigas muy abajo: llegá a la Luna y clavá el banderín.</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}
             {status === 'paused' && <>

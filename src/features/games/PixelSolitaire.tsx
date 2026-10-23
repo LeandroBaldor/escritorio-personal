@@ -219,6 +219,7 @@ export function PixelSolitaire() {
       <button type="button" onClick={undo} disabled={!history.length || finishing}>Deshacer</button>
       <button type="button" onClick={restart}>Nueva partida</button>
     </div>
+    {!started && <p className="sol-hint">👆 Arrastrá o tocá una carta para moverla · 🎯 Llevá cada palo, del as al rey, arriba</p>}
     <div ref={boardRef} onPointerMove={onMove} onPointerUp={endDrag} onPointerCancel={() => setDrag(null)}
       className="sol-board" style={{ '--cw': `${cw}px`, '--ch': `${ch}px`, '--gap': `${gap}px` } as React.CSSProperties}>
       <div className="sol-top">

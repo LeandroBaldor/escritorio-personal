@@ -262,10 +262,8 @@ export function PaperBall() {
           <div>
             {status === 'ready' && <>
               <h2 id="bol-message">SkynetBall 🤖</h2>
-              <p>Sos el <strong>T-800</strong> en la oficina de Skynet y los humanos en miniatura van al tacho. Hacé <strong>clic</strong>, tirá para atrás como una gomera y <strong>soltá</strong>.</p>
-              <p>No hay límite de tiros, solo el tiempo. Cada tiro es una posición y se pasa a la siguiente, cada vez más difícil: el tacho <strong>cerca</strong>, a <strong>media distancia</strong> y <strong>lejos</strong>; después lo mismo con el <strong>ventilador</strong> soplando para la derecha, y después soplando para la izquierda. Al terminar las 9 vuelve a empezar el ciclo.</p>
-              <p>Embocar en la 1ª posición vale <strong>1 punto</strong>, en la 2ª <strong>2</strong>… y en la 9ª <strong>9</strong>. Si hacés el ciclo rápido sumás <strong>puntos por velocidad</strong>. Son <strong>4 cuartos de 2 minutos</strong>, como en el básquet.</p>
-              <p className="runner-keys">Solo con el mouse · <kbd>P</kbd> pausa</p>
+              <p className="runner-keys">🖱️ Clic, tirá para atrás como una gomera y soltá · <kbd>P</kbd> pausa</p>
+              <p className="runner-tip">💡 Embocá rápido: cada ciclo completo suma puntos extra por velocidad.</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}
             {status === 'paused' && <>

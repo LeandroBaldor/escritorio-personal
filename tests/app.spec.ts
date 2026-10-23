@@ -559,7 +559,7 @@ test('Mis gastos: sin recuadro de Total arriba, disquete al lado del título y m
 
 test('¡El piso es de lava!: se abre desde Juegos, corre el tiempo, la lava avisa a cuánto está y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.getByText('¡La lava sube y no para!', { exact: false })).toBeVisible();
+  await expect(page.getByText('La lava sube sin parar', { exact: false })).toBeVisible();
   await page.getByRole('link', { name: /El piso es de lava/ }).click();
   await expect(page.getByRole('heading', { name: '¡El piso es de lava!', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
@@ -580,7 +580,7 @@ test('¡El piso es de lava!: se abre desde Juegos, corre el tiempo, la lava avis
 
 test('Ciudad Tiburón: se abre desde Juegos, corre el tiempo para atrás, cuenta rescatados y tiburones y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.getByText('La ciudad se inundó y el agua está llena de tiburones', { exact: false })).toBeVisible();
+  await expect(page.getByText('La ciudad se inundó y está llena de tiburones', { exact: false })).toBeVisible();
   await page.getByRole('link', { name: /Ciudad Tiburón/ }).click();
   await expect(page.getByRole('heading', { name: 'Ciudad Tiburón', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
@@ -600,7 +600,7 @@ test('Ciudad Tiburón: se abre desde Juegos, corre el tiempo para atrás, cuenta
 
 test('Invasión: se abre desde Juegos, corre el tiempo, se dispara, se recarga y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.getByText('la ciudad está llena de aliens disfrazados de personas', { exact: false })).toBeVisible();
+  await expect(page.getByText('ciudad invadida por aliens disfrazados de personas', { exact: false })).toBeVisible();
   await page.getByRole('link', { name: /Invasión/ }).click();
   await expect(page.getByRole('heading', { name: 'Invasión', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();

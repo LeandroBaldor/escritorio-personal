@@ -351,9 +351,8 @@ export function Invasion() {
           <div className="inv-card">
             {status === 'ready' && <>
               <h2 id="inv-message" className="inv-title">Invasión 👽</h2>
-              <p>Los aliens se metieron en la ciudad disfrazados de personas y quieren prenderla fuego. Sos francotirador: recorré la cuadra y mirá con la mira cada departamento, cada local y la vereda. <strong>Cada 30 segundos (cada uno a su ritmo), a cada alien se le ve la cara de alien gris durante 5 segundos</strong>. Y prestá atención a lo raro: se quedan mirando fijo a tu mira, hablan por un intercomunicador extraterrestre, caminan por las paredes y el techo, comen plantas, flotan, hablan en símbolos… Hay más de 100 cosas raras distintas.</p>
-              <p><strong>Eliminá a {GOAL_KILLS} aliens para ganar. Tenés {LIVES} vidas: cada persona a la que le disparás te saca una.</strong> Los aliens prenden fuego y pasean con bombas: cajas rojas grandes que después dejan en el piso con el reloj corriendo. Si nadie le dispara a la caja, explota y mata a los que están al lado. A los 3 minutos se larga una tormenta, a los 5 llegan los ovnis (a los que las balas no les hacen nada) y a los 10 minutos la ciudad queda destruida.</p>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse por la cuadra · <kbd>Mouse</kbd> apuntar · <kbd>Clic</kbd> disparar · <kbd>Ruedita</kbd> zoom · <kbd>Shift</kbd> contener la respiración · <kbd>R</kbd> recargar · <kbd>P</kbd> pausa</p>
+              <p className="runner-tip">💡 Esperá a verles la cara de alien antes de disparar: a una persona te saca una vida.</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}
             {status === 'paused' && <>

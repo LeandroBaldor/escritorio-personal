@@ -338,8 +338,8 @@ export function ReverseSnake() {
         <div>
           {status === 'ready' && <>
             <h2 id="snk-message">¡Huye de la serpiente! 🍎</h2>
-            <p>El viborita de siempre, pero esta vez sos la manzana. Cada bolita blanca que agarrás suma 10 puntos, mientras la serpiente te persigue cada vez más rápido. Si se come las manzanas verdes que aparecen, crece. Su cuerpo es una pared: si la hacés enredarse, se marea y ganás puntos. Usá la tijera para cortarle la cola y el reloj para congelarla.</p>
             <p className="runner-keys"><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> moverse · <kbd>P</kbd> pausa</p>
+            <p className="runner-tip">💡 Hacé que se enrede con su propio cuerpo para que se maree y frenarla.</p>
             <button type="button" onClick={start} autoFocus>Jugar</button>
           </>}
           {status === 'paused' && <>

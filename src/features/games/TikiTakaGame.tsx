@@ -463,13 +463,14 @@ export function TikiTaka() {
           <FormationPreview id={id} color={myKit.base} /><span>{id}</span>
         </button>)}
       </fieldset>
-      <p className="tt-tip">Con más defensores te cuesta menos defender; con más volantes y delanteros, tenés más opciones de pase cerca del arco.</p>
+      <p className="tt-tip">🖱️ Tocá a un compañero para pasarle, tocá el arco para patear.</p>
+      <p className="tt-tip">💡 Con más defensores te cuesta menos defender; con más delanteros, tenés más opciones cerca del arco.</p>
       <p className="tt-rival"><span className="tt-rival-kit"><KitPreview kit={rivalShirt} /></span><span>Hoy {myKit.name} juega contra <strong>{rival}</strong>, dirigido por {rivalCoach}</span></p>
       <div className="tt-go-row">
         <button type="submit" className="tt-go">Amistoso ⚽</button>
         <button type="button" className="tt-go tt-go--cup" onClick={startCup}>🏆 Jugar el Mundial</button>
       </div>
-      <p className="tt-tip">En el Mundial arrancás en octavos de final: si ganás, pasás de ronda hasta la final. Si empatás, se define por penales: cuando suena el silbato elegís 1 (izquierda), 2 (medio) o 3 (derecha) para patear o para tirarte.</p>
+      <p className="tt-tip">🏆 Ganá cada ronda hasta la final; los empates van a penales.</p>
       {record.played > 0 && <p className="tt-record">Tu campaña: {record.won} ganados, {record.drawn} empatados, {record.lost} perdidos · {record.goals} goles{record.cups ? ` · 🏆 ${record.cups} ${record.cups === 1 ? 'Mundial' : 'Mundiales'}` : ''}</p>}
     </form>}
 

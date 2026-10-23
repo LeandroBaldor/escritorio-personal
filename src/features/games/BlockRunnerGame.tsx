@@ -259,9 +259,9 @@ export function BlockRunner() {
       {status !== 'playing' && <div className="runner-overlay" role="dialog" aria-labelledby="runner-message">
         <div>
           {status === 'ready' && <>
-            <h2 id="runner-message">¡Cuidado, bloques!</h2>
-            <p>Caen piezas de tetris y bombas desde arriba. Corré y saltá para que no te aplasten. Cada pieza rompe los bloques de su mismo color que encuentra abajo; las demás se apilan y te sirven de escalones. Las bombas explotan al llegar: alejate. Si quedás encerrado tenés 10 segundos para salir. Solo perdés si una pieza te cae en la cabeza y te aplasta: si la chocás de costado o saltando, no pasa nada. Si los bloques llegan arriba, se termina. Son 10 niveles de 30 segundos: superalos todos para ganar.</p>
+            <h2 id="runner-message">¡Cuidado, bloques! 🧱</h2>
             <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> correr · <kbd>↑</kbd> o <kbd>Espacio</kbd> saltar · <kbd>P</kbd> pausa</p>
+            <p className="runner-tip">💡 Saltala de costado o desde arriba: solo te aplasta si te cae en la cabeza.</p>
             <button type="button" onClick={start} autoFocus>Jugar</button>
           </>}
           {status === 'paused' && <>
