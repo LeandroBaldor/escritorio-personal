@@ -75,10 +75,10 @@ export function parseEvent(input: string, today: Date): ParsedEvent {
 }
 
 const KEYWORDS: [EventCategory, RegExp][] = [
-  ['Salud', /\b(turno|medic|doctor|dr\.?|dra\.?|dentista|odontolog|analisis|estudio|vacuna|clinica|hospital|kinesio|psicolog|oculista|farmacia|altamar)/],
-  ['Pagos', /\b(pagar|pago|vence|vencimiento|cuota|tarjeta|factura|impuesto|alquiler|expensas|abl|luz|gas|agua|internet|claro|movistar|telecentro|fibertel|seguro|monotributo)/],
+  ['Médicos', /\b(turno|medic|doctor|dr\.?|dra\.?|dentista|odontolog|analisis|estudio|vacuna|clinica|hospital|kinesio|psicolog|oculista|farmacia|altamar)/],
+  ['Plata', /\b(pagar|pago|vence|vencimiento|cuota|tarjeta|factura|impuesto|alquiler|expensas|abl|luz|gas|agua|internet|claro|movistar|telecentro|fibertel|seguro|monotributo)/],
   ['Trabajo', /\b(trabajo|reunion|oficina|cliente|entrega|jefe|laburo|meet|zoom|presentacion|informe)/],
-  ['Cumpleaños', /\b(cumple|cumpleanos|aniversario)/],
+  ['IMPORTANTE', /\b(cumple|cumpleanos|aniversario)/],
 ];
 
 // Elige un color según las palabras del texto; si no reconoce ninguna, queda en "Personal".

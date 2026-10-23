@@ -842,7 +842,7 @@ test('el calendario muestra las notas con fecha y cambia de mes con las flechas'
   await page.locator('main').getByRole('link', { name: 'Calendario' }).click();
   await expect(page.getByRole('heading', { name: 'Calendario', exact: true })).toBeVisible();
   await expect(page.getByPlaceholder('Ej. Turno Altamar 13/10 10:30')).toHaveCount(0);
-  await expect(page.locator('.cal-chip.cal-cat--salud', { hasText: 'Turno dentista' })).toHaveText('09:15 Turno dentista');
+  await expect(page.locator('.cal-chip.cal-cat--trabajo', { hasText: 'Turno dentista' })).toHaveText('09:15 Turno dentista');
   await expect(page.locator('.cal-day-panel')).toContainText('Turno dentista');
   const month = page.locator('.cal-band h2');
   const current = await month.textContent();
@@ -985,7 +985,7 @@ test('los gastos se editan en el panel del día con el mismo formato que las not
   await page.getByRole('navigation', { name: 'Ir a otras secciones' }).getByRole('link', { name: 'Calendario' }).click();
   await page.getByRole('button', { name: /^Editar Claro/ }).click();
   const editor = page.getByRole('form', { name: /^Editar Claro/ });
-  await expect(editor.getByLabel('Categoría')).toHaveValue('Pagos');
+  await expect(editor.getByLabel('Categoría')).toHaveValue('Plata');
   await expect(page.getByRole('link', { name: 'Ver gasto' })).toHaveCount(0);
   await editor.getByLabel(/^Hora de Claro/).fill('09:00');
   await editor.getByLabel('Categoría').selectOption('Trabajo');

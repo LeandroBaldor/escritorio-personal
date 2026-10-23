@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { type Data, EMPTY, isData } from '../storage/model';
+import { type Data, EMPTY, isData, migrateData } from '../storage/model';
 import { load, loadForUser, markMigrationDecided, migrationDecided, saveForUser } from '../storage/store';
 import { type DataBackend, supabaseBackend } from '../lib/supabase';
 import { useAuth } from './AuthContext';
@@ -54,14 +54,15 @@ export function DataProvider({ children, backend: providedBackend }: { children:
     if (token !== generation.current) return;
     if (result.error) { hydrateCache(`No pudimos cargar la nube: ${result.error.message}. Usamos la caché de esta cuenta.`); return; }
     if (result.data) {
-      if (result.data.user_id !== userId || !isData(result.data.data)) { hydrateCache('Los datos remotos no pertenecen a esta cuenta o no tienen un formato compatible.'); return; }
+      const migrated = migrateData(result.data.data);
+      if (result.data.user_id !== userId || !isData(migrated)) { hydrateCache('Los datos remotos no pertenecen a esta cuenta o no tienen un formato compatible.'); return; }
       revision.current = result.data.updated_at;
       if (hadDirty) {
         setWarning('La nube contiene otra versión. Exportá tu copia local o cargá la versión remota.');
         setSyncState('conflict'); setLoading(false); hydrated.current = true; blocked.current = true; return;
       }
-      dirty.current = false; blocked.current = false; suppressNextSave.current = true; setData(result.data.data);
-      const cacheIssue = saveForUser(userId, result.data.data); setWarning(cacheIssue); setSyncState('synced'); setLoading(false); hydrated.current = true; return;
+      dirty.current = false; blocked.current = false; suppressNextSave.current = true; setData(migrated);
+      const cacheIssue = saveForUser(userId, migrated); setWarning(cacheIssue); setSyncState('synced'); setLoading(false); hydrated.current = true; return;
     }
     const legacy = load();
     const hasLegacy = JSON.stringify(legacy.data) !== JSON.stringify(EMPTY);
@@ -75,10 +76,11 @@ export function DataProvider({ children, backend: providedBackend }: { children:
       try {
         const raced = await backend.read(userId);
         if (token !== generation.current) return;
-        if (raced.data?.user_id === userId && isData(raced.data.data)) {
+        const racedMigrated = raced.data ? migrateData(raced.data.data) : null;
+        if (raced.data?.user_id === userId && isData(racedMigrated)) {
           revision.current = raced.data.updated_at;
           if (hadDirty) { setWarning('Otra sesión creó datos para esta cuenta. Exportá tu copia o cargá la versión remota.'); setSyncState('conflict'); setLoading(false); hydrated.current = true; blocked.current = true; return; }
-          dirty.current = false; blocked.current = false; suppressNextSave.current = true; setData(raced.data.data); saveForUser(userId, raced.data.data); setSyncState('synced'); setLoading(false); hydrated.current = true; return;
+          dirty.current = false; blocked.current = false; suppressNextSave.current = true; setData(racedMigrated); saveForUser(userId, racedMigrated); setSyncState('synced'); setLoading(false); hydrated.current = true; return;
         }
       } catch (issue) { hydrateCache(`No pudimos recuperar la cuenta: ${messageOf(issue)}.`); return; }
     }
@@ -102,7 +104,7 @@ export function DataProvider({ children, backend: providedBackend }: { children:
         if (token !== generation.current) return false;
         if (result.error) { dirty.current = true; setWarning(`No pudimos sincronizar: ${result.error.message}`); setSyncState('error'); return false; }
         if (!result.data) { blocked.current = true; setWarning('Hay cambios más nuevos en otro dispositivo. Podés cargar la versión remota o exportar tu copia antes.'); setSyncState('conflict'); return false; }
-        if (result.data.user_id !== userId || !isData(result.data.data)) { dirty.current = true; setWarning('La respuesta remota no pertenece a esta cuenta o no es válida.'); setSyncState('error'); return false; }
+        if (result.data.user_id !== userId || !isData(migrateData(result.data.data))) { dirty.current = true; setWarning('La respuesta remota no pertenece a esta cuenta o no es válida.'); setSyncState('error'); return false; }
         revision.current = result.data.updated_at;
       } while (dirty.current);
       blocked.current = false; setSyncState('synced'); return true;

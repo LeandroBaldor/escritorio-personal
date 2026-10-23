@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { useData } from '../../app/DataContext';
 import { DeskLink, NotebookLink, CalculatorLink, GamesLink, SectionObjects } from '../../app/SectionObjects';
-import { EVENT_CATEGORIES, id, syncMonthEntry, type CalendarEvent, type Expense, type EventCategory, type Note, type NoteCalendar } from '../../storage/model';
+import { COLOR_CATEGORY, EVENT_CATEGORIES, id, syncMonthEntry, type CalendarEvent, type Expense, type EventCategory, type Note, type NoteCalendar } from '../../storage/model';
 import { DateInput, formatExpenseDate, money } from '../expenses/Expenses';
 import { calendarFrom, TimeInput } from './DateTimeFields';
 import { DateQuestion } from './DateQuestion';
@@ -87,7 +87,7 @@ export function Calendar() {
   const byDay = new Map<string, Item[]>();
   const push = (date: string, item: Item) => byDay.set(date, [...(byDay.get(date) ?? []), item]);
   for (const event of data.events ?? []) push(event.date, { key: event.id, text: event.text, time: event.time, category: event.category, event });
-  for (const expense of data.expenses) if (expense.date) push(expense.date, { key: `gasto-${expense.id}`, text: `${expense.concept} · ${money(expense.cents)}`, time: expense.time, category: expense.calendarCategory ?? 'Pagos', done: expense.paid ?? false, source: 'expense', expense });
+  for (const expense of data.expenses) if (expense.date) push(expense.date, { key: `gasto-${expense.id}`, text: `${expense.concept} · ${money(expense.cents)}`, time: expense.time, category: expense.calendarCategory ?? 'Plata', done: expense.paid ?? false, source: 'expense', expense });
   // Las notas del escritorio y de Guardadas con una fecha en el texto también aparecen; "13/10" sin año se toma desde el día en que se creó la nota.
   // Si la fecha se confirmó a mano (note.calendar) se usa esa; si el texto parece tener una fecha que no se entiende, se pregunta.
   const doubts: Doubt[] = [];
@@ -97,7 +97,7 @@ export function Calendar() {
     const doubt = found.date ? null : dateDoubt(note.text, noteDay(note, today));
     const date = note.calendar?.date ?? found.date;
     const time = note.calendar ? note.calendar.time : found.time ?? undefined;
-    if (date) push(date, { key: `nota-${note.id}`, text: doubt?.text ?? found.text, time, category: note.calendarCategory ?? guessCategory(note.text), done: note.status === 'done', source: 'note', note });
+    if (date) push(date, { key: `nota-${note.id}`, text: doubt?.text ?? found.text, time, category: note.calendarCategory ?? COLOR_CATEGORY[note.color] ?? 'Personal', done: note.status === 'done', source: 'note', note });
     else if (doubt) doubts.push({ note, date: doubt.date, time: doubt.time });
   }
   const itemsOf = (iso: string) => (byDay.get(iso) ?? []).sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));

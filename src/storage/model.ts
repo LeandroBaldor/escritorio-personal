@@ -10,12 +10,29 @@ export const EXPENSE_CATEGORIES:ExpenseCategory[]=['Gastos mensuales','Médicos'
 // time y calendarCategory: hora y color con que el gasto aparece en el calendario (se editan desde ahí).
 export type Expense={id:string,concept:string,cents:number,date?:string,category?:ExpenseCategory,paid?:boolean,month?:string,time?:string,calendarCategory?:EventCategory};
 export type ExpenseMonth={id:string,name:string,expenses:Expense[]};
-export type EventCategory='Salud'|'Pagos'|'Trabajo'|'Personal'|'Cumpleaños'|'Otros';
-export const EVENT_CATEGORIES:EventCategory[]=['Salud','Pagos','Trabajo','Personal','Cumpleaños','Otros'];
+export type EventCategory='Trabajo'|'Plata'|'IMPORTANTE'|'Médicos'|'Personal';
+export const EVENT_CATEGORIES:EventCategory[]=['Trabajo','Plata','IMPORTANTE','Médicos','Personal'];
 export type CalendarEvent={id:string,text:string,date:string,time?:string,category:EventCategory};
 export type Data={version:1,notes:Note[],folders:Folder[],expenses:Expense[],expenseMonths?:ExpenseMonth[],noteFolders?:NoteFolder[],events?:CalendarEvent[]};
 export const EMPTY:Data={version:1,notes:[],folders:[],expenses:[]};
 export const COLORS=['#ffe783','#f7b7c3','#bde7c6','#bcdcf6','#e3c5f4'];
+// Cada color de nota corresponde 1 a 1 con una categoría del calendario, en el mismo orden que COLORS.
+export const COLOR_CATEGORY:Record<string,EventCategory>=Object.fromEntries(COLORS.map((c,i)=>[c,EVENT_CATEGORIES[i]]));
+export const CATEGORY_COLOR:Record<EventCategory,string>=Object.fromEntries(EVENT_CATEGORIES.map((c,i)=>[c,COLORS[i]])) as Record<EventCategory,string>;
+// Categorías viejas (antes de unificar el calendario con los colores de las notas), para no romper datos guardados.
+const LEGACY_CATEGORY:Record<string,EventCategory>={Salud:'Médicos',Pagos:'Plata',Cumpleaños:'IMPORTANTE',Otros:'IMPORTANTE'};
+const migrateCategory=(c:unknown)=>typeof c==='string'&&c in LEGACY_CATEGORY?LEGACY_CATEGORY[c]:c;
+// Pasa las categorías viejas a las nuevas antes de validar, así los datos guardados antes del cambio siguen andando.
+export function migrateData(raw:unknown):unknown{
+  if(!raw||typeof raw!=='object')return raw;
+  const d=raw as Record<string,unknown>;
+  const mapExpense=(e:unknown)=>e&&typeof e==='object'&&'calendarCategory' in e?{...e,calendarCategory:migrateCategory((e as Record<string,unknown>).calendarCategory)}:e;
+  const notes=Array.isArray(d.notes)?d.notes.map(n=>n&&typeof n==='object'&&'calendarCategory' in n?{...n,calendarCategory:migrateCategory((n as Record<string,unknown>).calendarCategory)}:n):d.notes;
+  const events=Array.isArray(d.events)?d.events.map(e=>e&&typeof e==='object'?{...e,category:migrateCategory((e as Record<string,unknown>).category)}:e):d.events;
+  const expenses=Array.isArray(d.expenses)?d.expenses.map(mapExpense):d.expenses;
+  const expenseMonths=Array.isArray(d.expenseMonths)?d.expenseMonths.map(m=>m&&typeof m==='object'&&Array.isArray((m as Record<string,unknown>).expenses)?{...m,expenses:((m as Record<string,unknown>).expenses as unknown[]).map(mapExpense)}:m):d.expenseMonths;
+  return {...d,notes,events,expenses,expenseMonths};
+}
 export const PAGE_LIMIT=2000;
 // Hojas guardadas cuando el límite era 3.000: se siguen aceptando al cargar datos o una copia, y al editarlas lo que pase de PAGE_LIMIT baja a la hoja siguiente.
 const STORED_PAGE_LIMIT=3000;

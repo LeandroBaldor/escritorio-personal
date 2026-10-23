@@ -1,7 +1,7 @@
 import { DragEvent, FormEvent, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarLink, GamesLink } from '../../app/SectionObjects';
-import { COLORS, id, Note, NoteCalendar, Status } from '../../storage/model';
+import { COLOR_CATEGORY, COLORS, id, Note, NoteCalendar, Status } from '../../storage/model';
 import { DateQuestion } from '../calendar/DateQuestion';
 import { calendarFrom, TimeInput } from '../calendar/DateTimeFields';
 import { DateInput, formatExpenseDate } from '../expenses/Expenses';
@@ -282,11 +282,14 @@ export function Board() {
     <section className="board-page">
       <div className="section-title">
         <div><p className="eyebrow">Tu mesa de hoy</p><h1>Notas del escritorio</h1></div>
-        <form onSubmit={add} className="new-note">
-          <label>Nueva nota<input value={text} onChange={event => setText(event.target.value)} placeholder="¿Qué necesitás recordar?" /></label>
-          <fieldset className="color-picker"><legend>Color</legend>{COLORS.map(option => <button key={option} type="button" className={color === option ? 'chosen' : ''} style={{ backgroundColor: option }} aria-label={colorNames[option]} title={colorNames[option]} aria-pressed={color === option} onClick={() => setColor(option)}><span aria-hidden="true">✓</span></button>)}</fieldset>
-          <button>Agregar nota</button>
-        </form>
+        <div className="new-note-wrap">
+          <p className="new-note-category" style={{ backgroundColor: color }}>Categoría: <strong>{COLOR_CATEGORY[color]}</strong></p>
+          <form onSubmit={add} className="new-note">
+            <label>Nueva nota<input value={text} onChange={event => setText(event.target.value)} placeholder="¿Qué necesitás recordar?" /></label>
+            <fieldset className="color-picker"><legend>Color</legend>{COLORS.map(option => <button key={option} type="button" className={color === option ? 'chosen' : ''} style={{ backgroundColor: option }} aria-label={colorNames[option]} title={colorNames[option]} aria-pressed={color === option} onClick={() => setColor(option)}><span aria-hidden="true">✓</span></button>)}</fieldset>
+            <button>Agregar nota</button>
+          </form>
+        </div>
       </div>
       {dateAsk?.doubt && <div className="date-ask" role="region" aria-label="¿Esto es una fecha?">
         <strong>¿Esto es una fecha?</strong>

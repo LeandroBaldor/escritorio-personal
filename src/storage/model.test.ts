@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { appendToMonth, cleanMonthName, EMPTY, moveToMonth, PAGE_LIMIT, parseMonthKey, sortMonths, syncMonthEntry, isData, isExpenseDate, parseCents, sameMonthName, total } from './model';
+import { appendToMonth, cleanMonthName, EMPTY, migrateData, moveToMonth, PAGE_LIMIT, parseMonthKey, sortMonths, syncMonthEntry, isData, isExpenseDate, parseCents, sameMonthName, total } from './model';
 import { load, parseBackup, save, serialize } from './store';
 import { editableMoney, formatExpenseDate, money, parseExpenseDate } from '../features/expenses/Expenses';
 
@@ -121,4 +121,17 @@ describe('datos exactos y backup', () => {
   it('persiste', () => { save(EMPTY); expect(load().data).toEqual(EMPTY); });
   it.each([{ ...EMPTY, notes: [{ id: '', text: 'x', color: '#ffe783', status: 'todo', history: [] }] }, { ...EMPTY, folders: [{ id: 'f', name: 'n', pages: [] }] }, { ...EMPTY, expenses: [{ id: 'e', concept: '', cents: -1 }] }])('rechaza estructuras internas inválidas', bad => expect(() => parseBackup(JSON.stringify(bad))).toThrow());
   it('rechaza backup incompatible', () => expect(() => parseBackup('{}')).toThrow());
+  it('pasa las categorías viejas del calendario a las nuevas', () => {
+    const note = { id: 'n', text: 'x', color: '#ffe783', status: 'todo', history: [{ status: 'todo', at: '2026-07-22T00:00:00.000Z' }], calendarCategory: 'Salud' };
+    const event = { id: 'e', text: 'Turno', date: '2026-10-13', category: 'Pagos' };
+    const gasto = { id: 'g', concept: 'Luz', cents: 100, calendarCategory: 'Cumpleaños' };
+    const raw = { ...EMPTY, notes: [note], events: [event], expenses: [gasto], expenseMonths: [{ id: 'm', name: '08/2026', expenses: [{ ...gasto, calendarCategory: 'Otros' }] }] };
+    const migrated = migrateData(raw) as typeof raw;
+    expect(isData(migrated)).toBe(true);
+    expect(migrated.notes[0].calendarCategory).toBe('Médicos');
+    expect(migrated.events![0].category).toBe('Plata');
+    expect(migrated.expenses[0].calendarCategory).toBe('IMPORTANTE');
+    expect(migrated.expenseMonths![0].expenses[0].calendarCategory).toBe('IMPORTANTE');
+    expect(isData({ ...EMPTY, notes: [{ ...note, calendarCategory: 'Trabajo' }] })).toBe(true);
+  });
 });

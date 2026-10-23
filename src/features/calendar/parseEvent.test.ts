@@ -49,20 +49,20 @@ describe('parseEvent', () => {
 
 describe('guessCategory', () => {
   it.each([
-    ['Turno Altamar', 'Salud'],
-    ['Dentista', 'Salud'],
-    ['Pagar luz', 'Pagos'],
-    ['Vence tarjeta', 'Pagos'],
-    ['Lunes Telecentro', 'Pagos'],
+    ['Turno Altamar', 'Médicos'],
+    ['Dentista', 'Médicos'],
+    ['Pagar luz', 'Plata'],
+    ['Vence tarjeta', 'Plata'],
+    ['Lunes Telecentro', 'Plata'],
     ['Reunión con el cliente', 'Trabajo'],
-    ['Cumple de Juan', 'Cumpleaños'],
+    ['Cumple de Juan', 'IMPORTANTE'],
     ['Cena con amigos', 'Personal'],
   ])('%s → %s', (text, category) => expect(guessCategory(text)).toBe(category));
 });
 
 describe('eventos guardados', () => {
   it('valida los eventos del calendario', () => {
-    const event = { id: 'e', text: 'Turno', date: '2026-10-13', time: '10:30', category: 'Salud' };
+    const event = { id: 'e', text: 'Turno', date: '2026-10-13', time: '10:30', category: 'Médicos' };
     expect(isData({ ...EMPTY, events: [event] })).toBe(true);
     expect(isData({ ...EMPTY, events: [{ ...event, date: '2026-02-30' }] })).toBe(false);
     expect(isData({ ...EMPTY, events: [{ ...event, time: '25:00' }] })).toBe(false);
