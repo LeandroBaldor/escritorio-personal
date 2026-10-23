@@ -352,7 +352,7 @@ export function Invasion() {
             {status === 'ready' && <>
               <h2 id="inv-message" className="inv-title">Invasión 👽</h2>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse por la cuadra · <kbd>Mouse</kbd> apuntar · <kbd>Clic</kbd> disparar · <kbd>Ruedita</kbd> zoom · <kbd>Shift</kbd> contener la respiración · <kbd>R</kbd> recargar · <kbd>P</kbd> pausa</p>
-              <p className="runner-tip">💡 Esperá a verles la cara de alien antes de disparar: a una persona te saca una vida.</p>
+              <p className="runner-tip">💡 La clave es descubrir quién es alien por sus comportamientos raros: dispararle a una persona te saca una vida.</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}
             {status === 'paused' && <>
