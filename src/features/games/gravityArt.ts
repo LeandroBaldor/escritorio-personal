@@ -8,7 +8,7 @@ import {
   mineCenter, pendulumBall, plantBite, pressRect, pressState, sawCenter, scannerY, sporeCenter, sweeperAngle, wormHeight, wormWarn,
   type Game, type Gib, type Hazard, type Solid, type ThemeId,
 } from './gravitySwap';
-import { drawBackdrop, drawBlackhole, drawUpperSky } from './gravityBackdrops';
+import { drawAngler, drawBackdrop, drawBlackhole, drawUpperSky } from './gravityBackdrops';
 
 export const PX = 32;
 const P = 1 / PX; // un píxel, en casilleros
@@ -1128,126 +1128,15 @@ function drawHazard(ctx: CanvasRenderingContext2D, h: Hazard, game: Game, t: The
 
 // ---------- Monstruos, cometas, lásers nuevos y agujeros negros ----------
 
-// El color de los monstruos en cada escenario.
-const MONSTER: Record<ThemeId, string> = {
-  city: '#a21caf', mines: '#7c3aed', base: '#0d9488', ice: '#2563eb', volcano: '#b91c1c',
-  inverse: '#db2777', factory: '#4d7c0f', forest: '#059669', storm: '#6d28d9', moon: '#475569',
-};
-
-// Un tentáculo que se afina hacia la punta, con ventosas de un lado.
-function tentacle(ctx: CanvasRenderingContext2D, pts: [number, number][], w0: number, w1: number, color: string, sucker: string) {
-  const left: [number, number][] = [], right: [number, number][] = [];
-  pts.forEach(([x, y], i) => {
-    const [ax, ay] = pts[Math.max(0, i - 1)], [bx, by] = pts[Math.min(pts.length - 1, i + 1)];
-    const len = Math.hypot(bx - ax, by - ay) || 1, nx = -(by - ay) / len, ny = (bx - ax) / len, w = (w0 + (w1 - w0) * i / (pts.length - 1)) / 2;
-    left.push([x + nx * w, y + ny * w]); right.push([x - nx * w, y - ny * w]);
-  });
-  const [tx, ty] = pts[pts.length - 1];
-  ink(ctx, () => { left.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.lineTo(tx, ty); for (let i = right.length - 1; i >= 0; i--) ctx.lineTo(right[i][0], right[i][1]); ctx.closePath(); },
-    lin(ctx, pts[0][0], pts[0][1], tx, ty, [[0, color], [1, darken(color, 0.35)]]), 1.5);
-  ctx.fillStyle = sucker;
-  for (let i = 1; i < pts.length - 1; i++) { const [x, y] = right[i], r = (w0 + (w1 - w0) * i / (pts.length - 1)) * 0.22; ctx.beginPath(); ctx.arc(x * 0.7 + pts[i][0] * 0.3, y * 0.7 + pts[i][1] * 0.3, r, 0, Math.PI * 2); ctx.fill(); }
-}
-
-// Monstruo del espacio: un bicho de piel húmeda y venosa, con verrugas, manchas, baba que chorrea, tentáculos
-// con ventosas, un ojo enorme inyectado en sangre que te sigue y, cuando te persigue, la boca abierta con
-// encías y dientes desparejos.
+// Monstruo del espacio: un pez abisal verde con la boca enorme llena de colmillos (en gravityBackdrops). Mira para
+// donde va (o hacia el astronauta si todavía está quieto), se inclina un poco y abre y cierra la boca.
 function monster(ctx: CanvasRenderingContext2D, h: Hazard, game: Game) {
-  const { x, y } = h, t = game.time + h.id, angry = h.state === 1, body = MONSTER[game.def.theme];
-  const p = game.player, look = Math.atan2(p.y + PLAYER_H / 2 - y, p.x + PLAYER_W / 2 - x);
-  const R = h.r * 1.25, breathe = 1 + Math.sin(t * (angry ? 9 : 3)) * 0.045;
-  glow(ctx, x, y, R * 2.6, angry ? '#ef4444' : lighten(body, 0.3), angry ? 0.3 + 0.12 * Math.sin(t * 8) : 0.22);
-  // Tentáculos (para atrás mientras persigue; colgando y meciéndose si está quieto).
-  const back = angry ? h.aim + Math.PI : Math.PI / 2;
-  for (let k = 0; k < 6; k++) {
-    const pts: [number, number][] = [];
-    for (let j = 0; j < 6; j++) {
-      const d = R * 0.55 + j * 0.13, a = back + (k - 2.5) * 0.36 + Math.sin(t * 4 + j * 0.7 + k * 1.3) * 0.07 * j;
-      pts.push([x + Math.cos(a) * d, y + Math.sin(a) * d]);
-    }
-    tentacle(ctx, pts, 0.3, 0.06, darken(body, 0.05 + (k % 3) * 0.08), mix(lighten(body, 0.55), '#fbcfe8', 0.5));
-  }
-  // El cuerpo: una masa irregular que respira.
-  const shape = () => { for (let i = 0; i <= 24; i++) { const a = i / 24 * Math.PI * 2, rr = R * breathe * (1 + Math.sin(a * 3 + t * 1.7) * 0.05 + (hash(i + h.id * 3) - 0.5) * 0.06); ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.94); } ctx.closePath(); };
-  const skin = ctx.createRadialGradient(x - R * 0.35, y - R * 0.45, R * 0.05, x, y, R * 1.05);
-  skin.addColorStop(0, lighten(body, 0.45)); skin.addColorStop(0.4, body); skin.addColorStop(0.85, darken(body, 0.45)); skin.addColorStop(1, darken(body, 0.7));
-  ink(ctx, shape, skin);
-  ctx.save(); ctx.beginPath(); shape(); ctx.clip();
-  // Manchas oscuras y venas.
-  ctx.fillStyle = darken(body, 0.3); ctx.globalAlpha = 0.55;
-  for (let k = 0; k < 7; k++) { const a = hash(k * 3 + h.id) * 6.3, d = R * (0.3 + hash(k + h.id) * 0.6); ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * d, y + Math.sin(a) * d, R * (0.08 + hash(k * 7) * 0.1), R * (0.05 + hash(k * 5) * 0.07), a, 0, Math.PI * 2); ctx.fill(); }
-  ctx.globalAlpha = 0.6; ctx.strokeStyle = mix(body, '#7f1d1d', 0.55); ctx.lineWidth = P;
-  for (let k = 0; k < 6; k++) {
-    const a = Math.PI * 0.2 + k * 0.45, x0 = x + Math.cos(a) * R, y0 = y + Math.sin(a) * R;
-    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(x + Math.cos(a + 0.4) * R * 0.6, y + Math.sin(a + 0.4) * R * 0.6, x + Math.cos(a + 0.2) * R * 0.35, y + Math.sin(a + 0.2) * R * 0.35); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x + Math.cos(a + 0.3) * R * 0.7, y + Math.sin(a + 0.3) * R * 0.7); ctx.lineTo(x + Math.cos(a + 0.55) * R * 0.55, y + Math.sin(a + 0.55) * R * 0.55); ctx.stroke();
-  }
-  // Textura de la piel (poros) y verrugas con brillo.
-  ctx.globalAlpha = 1; grain(ctx, x - R, y - R, x + R, y + R, h.id * 13, darken(body, 0.5), 0.35, 0.09);
-  for (let k = 0; k < 9; k++) {
-    const a = hash(k * 11 + h.id) * 6.3, d = R * (0.25 + hash(k * 13 + h.id) * 0.65), wx = x + Math.cos(a) * d, wy = y + Math.sin(a) * d, wr = R * (0.05 + hash(k * 17) * 0.05);
-    ctx.fillStyle = ball(ctx, wx, wy, wr, lighten(body, 0.15)); ctx.beginPath(); ctx.arc(wx, wy, wr, 0, Math.PI * 2); ctx.fill();
-  }
-  // Borde iluminado (como luz que atraviesa la piel) y el brillo húmedo.
-  ctx.restore();
-  ctx.strokeStyle = lighten(body, 0.5); ctx.globalAlpha = 0.35; ctx.lineWidth = 1.5 * P;
-  ctx.beginPath(); ctx.arc(x, y, R * 0.9, Math.PI * 1.05, Math.PI * 1.6); ctx.stroke();
-  ctx.globalAlpha = 0.45; ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(x - R * 0.42, y - R * 0.5, R * 0.2, R * 0.09, -0.6, 0, Math.PI * 2); ctx.fill();
-  ctx.globalAlpha = 0.8; ctx.fillRect(x - R * 0.2, y - R * 0.66, 2 * P, 2 * P); ctx.fillRect(x + R * 0.3, y - R * 0.55, P, P);
-  ctx.globalAlpha = 1;
-  // Baba que chorrea por abajo.
-  const slime = 'rgba(190,242,100,0.75)';
-  for (let k = 0; k < 3; k++) {
-    const sx = x + (k - 1) * R * 0.45 + Math.sin(t + k) * 0.02, sy = y + R * 0.78, len = R * (0.25 + 0.3 * ((t * 0.6 + hash(k + h.id)) % 1));
-    ctx.fillStyle = slime; ctx.globalAlpha = 0.85;
-    ctx.beginPath(); ctx.moveTo(sx - 0.03, sy); ctx.quadraticCurveTo(sx - 0.012, sy + len * 0.7, sx, sy + len); ctx.quadraticCurveTo(sx + 0.012, sy + len * 0.7, sx + 0.03, sy); ctx.fill();
-    ctx.beginPath(); ctx.arc(sx, sy + len, 0.035, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-  // La boca: del lado hacia donde mira.
-  const mx = x + Math.cos(look) * R * 0.35, my = y + Math.sin(look) * R * 0.25 + R * 0.38;
-  if (angry) {
-    const open = R * (0.2 + 0.12 * Math.abs(Math.sin(t * 10))), mw = R * 0.5;
-    ink(ctx, () => ctx.ellipse(mx, my, mw, open, 0, 0, Math.PI * 2), '#c2416b', 1.5); // encías
-    const throat = ctx.createRadialGradient(mx, my, 0, mx, my, mw);
-    throat.addColorStop(0, '#000000'); throat.addColorStop(0.7, '#3b0712'); throat.addColorStop(1, '#7f1d3a');
-    ctx.fillStyle = throat; ctx.beginPath(); ctx.ellipse(mx, my, mw * 0.82, open * 0.72, 0, 0, Math.PI * 2); ctx.fill();
-    for (let k = 0; k < 7; k++) { // dientes desparejos, amarillentos
-      const tx = mx - mw * 0.75 + k * mw * 0.25, tl = open * (0.45 + hash(k + h.id) * 0.45), tw = mw * 0.09;
-      ctx.fillStyle = lin(ctx, 0, my - open, 0, my - open + tl, [[0, '#fefce8'], [1, '#d6c99a']]);
-      ctx.beginPath(); ctx.moveTo(tx - tw, my - open * 0.75); ctx.lineTo(tx + (hash(k) - 0.5) * 0.02, my - open * 0.75 + tl); ctx.lineTo(tx + tw, my - open * 0.75); ctx.fill();
-      const bl = open * (0.35 + hash(k * 3 + h.id) * 0.4);
-      ctx.fillStyle = lin(ctx, 0, my + open, 0, my + open - bl, [[0, '#fefce8'], [1, '#d6c99a']]);
-      ctx.beginPath(); ctx.moveTo(tx - tw + 0.02, my + open * 0.75); ctx.lineTo(tx + 0.02, my + open * 0.75 - bl); ctx.lineTo(tx + tw + 0.02, my + open * 0.75); ctx.fill();
-    }
-    ctx.strokeStyle = 'rgba(217,249,157,0.6)'; ctx.lineWidth = P; // hilos de baba
-    for (let k = 0; k < 2; k++) { const sx = mx - mw * 0.3 + k * mw * 0.6; ctx.beginPath(); ctx.moveTo(sx, my - open * 0.6); ctx.quadraticCurveTo(sx + 0.03, my, sx - 0.01, my + open * 0.6); ctx.stroke(); }
-  } else {
-    ctx.strokeStyle = darken(body, 0.7); ctx.lineWidth = 2 * P; ctx.beginPath(); ctx.moveTo(mx - R * 0.35, my); ctx.quadraticCurveTo(mx, my + R * 0.12, mx + R * 0.35, my); ctx.stroke();
-    ctx.fillStyle = '#fefce8'; ctx.beginPath(); ctx.moveTo(mx - R * 0.2, my + 0.02); ctx.lineTo(mx - R * 0.16, my + R * 0.16); ctx.lineTo(mx - R * 0.1, my + 0.03); ctx.fill();
-  }
-  // El ojo: blanco amarillento con venitas, iris con rayas, pupila de serpiente, brillo y párpado.
-  const er = R * 0.36, ex = x + Math.cos(look) * R * 0.12, ey = y - R * 0.18 + Math.sin(look) * R * 0.06;
-  ctx.fillStyle = darken(body, 0.55); ctx.beginPath(); ctx.arc(ex, ey, er * 1.12, 0, Math.PI * 2); ctx.fill(); // la cuenca
-  const sclera = ctx.createRadialGradient(ex - er * 0.3, ey - er * 0.3, er * 0.1, ex, ey, er);
-  sclera.addColorStop(0, '#fffef5'); sclera.addColorStop(0.7, '#f1e9c8'); sclera.addColorStop(1, '#c9a98a');
-  ink(ctx, circle(ctx, ex, ey, er), sclera, 1.5);
-  ctx.strokeStyle = angry ? 'rgba(220,38,38,0.8)' : 'rgba(220,38,38,0.45)'; ctx.lineWidth = P * 0.8;
-  for (let k = 0; k < 7; k++) { const a = k * 0.9 + 0.3; ctx.beginPath(); ctx.moveTo(ex + Math.cos(a) * er * 0.95, ey + Math.sin(a) * er * 0.95); ctx.quadraticCurveTo(ex + Math.cos(a + 0.25) * er * 0.75, ey + Math.sin(a + 0.25) * er * 0.75, ex + Math.cos(a + 0.1) * er * 0.6, ey + Math.sin(a + 0.1) * er * 0.6); ctx.stroke(); }
-  const ix = ex + Math.cos(look) * er * 0.38, iy = ey + Math.sin(look) * er * 0.38, ir = er * 0.52;
-  const iris = ctx.createRadialGradient(ix, iy, ir * 0.15, ix, iy, ir);
-  iris.addColorStop(0, angry ? '#fde047' : '#fef08a'); iris.addColorStop(0.55, angry ? '#ea580c' : '#ca8a04'); iris.addColorStop(1, angry ? '#7f1d1d' : '#713f12');
-  ctx.fillStyle = iris; ctx.beginPath(); ctx.arc(ix, iy, ir, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = P * 0.6;
-  for (let k = 0; k < 12; k++) { const a = k * Math.PI / 6; ctx.beginPath(); ctx.moveTo(ix + Math.cos(a) * ir * 0.35, iy + Math.sin(a) * ir * 0.35); ctx.lineTo(ix + Math.cos(a) * ir * 0.95, iy + Math.sin(a) * ir * 0.95); ctx.stroke(); }
-  ctx.fillStyle = '#000000'; ctx.beginPath(); ctx.ellipse(ix, iy, ir * (angry ? 0.14 : 0.22), ir * 0.82, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(ex - er * 0.35, ey - er * 0.4, er * 0.18, er * 0.11, -0.6, 0, Math.PI * 2); ctx.fill();
-  ctx.fillRect(ex + er * 0.2, ey + er * 0.25, P, P);
-  // Párpado: baja enojado, y cada tanto parpadea.
-  const blinkNow = Math.sin(t * 0.9) > 0.985, lid = blinkNow ? 1 : angry ? 0.42 : 0.18;
-  ctx.fillStyle = lin(ctx, ex, ey - er, ex, ey, [[0, darken(body, 0.15)], [1, darken(body, 0.45)]]);
-  ctx.beginPath(); ctx.arc(ex, ey, er * 1.04, Math.PI, Math.PI * 2); ctx.lineTo(ex + er * 1.04, ey - er + lid * er * 2 * 0.98); ctx.quadraticCurveTo(ex, ey - er + lid * er * 2 + er * 0.25 * (angry ? -1 : 1), ex - er * 1.04, ey - er + lid * er * 2 * 0.98); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = INK; ctx.lineWidth = 1.5 * P; ctx.beginPath(); ctx.arc(ex, ey, er * 1.04, 0, Math.PI * 2); ctx.stroke();
+  const t = game.time + h.id, angry = h.state === 1, p = game.player;
+  const dir = angry ? h.aim : Math.atan2(p.y + PLAYER_H / 2 - h.y, p.x + PLAYER_W / 2 - h.x);
+  const left = Math.cos(dir) < 0, tilt = Math.max(-0.45, Math.min(0.45, Math.atan2(Math.sin(dir), Math.abs(Math.cos(dir))) * (left ? -1 : 1) * 0.7));
+  const open = angry ? 0.45 + 0.4 * Math.abs(Math.sin(t * 4)) : 0.15 + 0.08 * Math.sin(t * 1.5);
+  if (angry) glow(ctx, h.x, h.y, 1.6, '#34d399', 0.15);
+  drawAngler(ctx, h.x, h.y + Math.sin(t * 2) * 0.03, 0.72, left, tilt, open, angry, game.time, h.id);
 }
 
 // Gusano espacial que sale del piso o del techo: un bicho de carne con anillos marcados (cada uno con volumen,

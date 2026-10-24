@@ -842,3 +842,156 @@ export function drawBlackhole(ctx: CanvasRenderingContext2D, x: number, y: numbe
   ctx.strokeStyle = `rgba(165,243,252,${0.55 + 0.25 * Math.sin(time * 5 + seed)})`; ctx.lineWidth = 0.035;
   ctx.beginPath(); ctx.arc(x, y, core * 1.12, 0, Math.PI * 2); ctx.stroke();
 }
+
+// ---------- El monstruo: un pez abisal del espacio ----------
+
+// Como un rape de las profundidades: cuerpo verde azulado con la piel moteada y brillosa, una mandíbula enorme
+// con colmillos largos como agujas, dos ojos grandes y vidriosos, púas en el lomo, aletas con nervaduras, la
+// antena con su luz colgando adelante y tentáculos verdes atrás. El cuerpo y la mandíbula de abajo se pintan
+// una vez (en alta resolución); la mandíbula se abre girando sobre la bisagra, y la luz y los tentáculos se
+// mueven. Todo se dibuja mirando a la izquierda, con el centro del cuerpo en (AX, AY).
+const AW = 2.7, AH = 1.9, AX = 1.25, AY = 0.9, HINGE: [number, number] = [1.0, 1.04];
+const FISH = { top: '#4fae95', mid: '#1d6455', low: '#082622', ink: '#03140f', bone: '#e6f5ef', boneDark: '#8fb3a8' };
+function upperLip(t: number): [number, number] { return [0.2 + (HINGE[0] - 0.2) * t, 0.84 + (HINGE[1] - 0.84) * t]; }
+function lowerLip(t: number): [number, number] { return [0.0 + (HINGE[0] - 0.0) * t, 0.96 + (HINGE[1] - 0.96) * t]; }
+// Un colmillo largo y finito que se curva, con brillo.
+function fang(g: CanvasRenderingContext2D, bx: number, by: number, len: number, dir: number, bend: number, w = 0.032) {
+  const tx = bx + bend * len, ty = by + dir * len;
+  g.fillStyle = lin(g, bx, by, tx, ty, [[0, FISH.boneDark], [0.25, FISH.bone], [1, '#ffffff']]);
+  g.beginPath(); g.moveTo(bx - w, by); g.quadraticCurveTo(bx - w * 0.3 + bend * len * 0.2, by + dir * len * 0.6, tx, ty); g.quadraticCurveTo(bx + w * 0.6 + bend * len * 0.4, by + dir * len * 0.5, bx + w, by); g.closePath(); g.fill();
+  g.strokeStyle = 'rgba(4,26,23,0.55)'; g.lineWidth = 0.007; g.stroke();
+  g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 0.006; g.beginPath(); g.moveTo(bx - w * 0.3, by + dir * 0.02); g.quadraticCurveTo(bx + bend * len * 0.15, by + dir * len * 0.45, tx - bend * 0.02, ty - dir * 0.05); g.stroke();
+}
+// Textura de piel: manchitas claras y oscuras, puntitos y escamitas, dentro de la figura que esté recortada.
+function fishSkin(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, seed: number) {
+  const res = 48, w = (x1 - x0) * res, h = (y1 - y0) * res;
+  const tex = pixels(w, h, (x, y) => {
+    const u = x / res, v = y / res, n = fbm(u * 5 + seed, v * 5, seed, 5), fine = fbm(u * 22, v * 22, seed + 3, 3);
+    const light = Math.max(0, n - 0.55) * 2.5, dark = Math.max(0, 0.45 - n) * 2.2;
+    if (fine > 0.7) return [200, 250, 232, 70];
+    if (light > dark) return [150, 230, 200, Math.min(255, light * 45)];
+    return [2, 20, 18, Math.min(255, dark * 110)];
+  });
+  g.drawImage(tex, x0, y0, x1 - x0, y1 - y0);
+  g.strokeStyle = 'rgba(180,240,220,0.12)'; g.lineWidth = 0.008; // escamitas
+  for (let y = y0 + 0.05; y < y1; y += 0.07) for (let x = x0 + ((y * 100) % 2 ? 0.035 : 0); x < x1; x += 0.07) { g.beginPath(); g.arc(x, y, 0.035, 0.2, Math.PI - 0.2); g.stroke(); }
+}
+function anglerUpper() {
+  return sprite('angler-upper', AW, AH, g => {
+    const shape = () => {
+      g.beginPath(); g.moveTo(0.22, 0.86);
+      g.bezierCurveTo(0.18, 0.6, 0.42, 0.42, 0.62, 0.36); g.bezierCurveTo(0.85, 0.2, 1.25, 0.18, 1.55, 0.36);
+      g.bezierCurveTo(1.85, 0.5, 2.0, 0.7, 2.08, 0.88); g.bezierCurveTo(2.0, 1.06, 1.8, 1.26, 1.45, 1.3);
+      g.bezierCurveTo(1.25, 1.32, 1.08, 1.2, 1.0, 1.04); g.lineTo(0.22, 0.86); g.closePath();
+    };
+    // La cola, detrás: un abanico con nervaduras, transparente en el borde.
+    g.fillStyle = lin(g, 2.0, 0, 2.65, 0, [[0, FISH.mid], [0.6, 'rgba(95,191,164,0.7)'], [1, 'rgba(160,240,215,0.35)']]);
+    g.beginPath(); g.moveTo(2.0, 0.78); g.quadraticCurveTo(2.4, 0.45, 2.66, 0.38); g.quadraticCurveTo(2.55, 0.88, 2.68, 1.36); g.quadraticCurveTo(2.35, 1.2, 2.0, 0.98); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(200,250,235,0.5)'; g.lineWidth = 0.012;
+    for (let k = 0; k <= 8; k++) { const a = -0.45 + k * 0.11; g.beginPath(); g.moveTo(2.02, 0.88); g.quadraticCurveTo(2.3, 0.88 + a * 0.6, 2.62, 0.88 + a * 1.05); g.stroke(); }
+    // El cuerpo con su luz (arriba a la izquierda) y la textura.
+    g.fillStyle = lin(g, 0, 0.2, 0, 1.3, [[0, FISH.top], [0.45, FISH.mid], [1, FISH.low]]); shape(); g.fill();
+    g.save(); shape(); g.clip();
+    fishSkin(g, 0.1, 0.15, 2.15, 1.35, 11);
+    const hl = g.createRadialGradient(0.85, 0.42, 0.02, 0.85, 0.5, 0.8); hl.addColorStop(0, 'rgba(210,255,240,0.45)'); hl.addColorStop(1, 'rgba(210,255,240,0)');
+    g.fillStyle = hl; g.fillRect(0, 0, AW, AH);
+    g.fillStyle = lin(g, 0, 0.7, 0, 1.32, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,10,8,0.55)']]); g.fillRect(0, 0.7, AW, 0.7); // panza en sombra
+    // Línea lateral y branquias.
+    g.strokeStyle = 'rgba(200,250,235,0.35)'; g.lineWidth = 0.012; g.beginPath(); g.moveTo(1.05, 0.62); g.bezierCurveTo(1.4, 0.58, 1.75, 0.68, 2.0, 0.84); g.stroke();
+    g.strokeStyle = 'rgba(2,20,18,0.7)'; g.lineWidth = 0.02; for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(1.32 + k * 0.07, 0.86, 0.22, Math.PI * 0.65, Math.PI * 1.1); g.stroke(); }
+    g.restore();
+    g.strokeStyle = 'rgba(170,240,215,0.6)'; g.lineWidth = 0.015; g.beginPath(); g.moveTo(0.5, 0.42); g.bezierCurveTo(0.8, 0.24, 1.2, 0.2, 1.5, 0.34); g.stroke(); // borde iluminado
+    // Brillos húmedos (como la piel mojada de la foto).
+    g.save(); shape(); g.clip();
+    for (const [hx, hy, rx, ry, a] of [[0.75, 0.36, 0.22, 0.05, -0.45], [1.15, 0.3, 0.25, 0.04, -0.1], [0.45, 0.62, 0.08, 0.12, 0.3], [1.55, 0.5, 0.18, 0.03, 0.35]] as const) {
+      const sh = g.createRadialGradient(hx, hy, 0, hx, hy, Math.max(rx, ry)); sh.addColorStop(0, 'rgba(240,255,250,0.55)'); sh.addColorStop(1, 'rgba(240,255,250,0)');
+      g.fillStyle = sh; g.beginPath(); g.ellipse(hx, hy, rx, ry, a, 0, Math.PI * 2); g.fill();
+    }
+    g.restore();
+    shape(); g.strokeStyle = FISH.ink; g.lineWidth = 0.014; g.stroke();
+    // Púas del lomo y de la cabeza.
+    for (const [x, y, len, lean] of [[0.55, 0.4, 0.12, -0.2], [0.68, 0.32, 0.14, -0.1], [0.98, 0.24, 0.22, 0.25], [1.12, 0.22, 0.27, 0.3], [1.26, 0.23, 0.29, 0.35], [1.4, 0.28, 0.26, 0.4], [1.54, 0.35, 0.22, 0.45], [1.67, 0.43, 0.17, 0.5]] as const) {
+      g.fillStyle = lin(g, x, y, x + lean * len, y - len, [[0, FISH.mid], [0.5, FISH.boneDark], [1, FISH.bone]]);
+      g.beginPath(); g.moveTo(x - 0.035, y + 0.02); g.quadraticCurveTo(x + lean * len * 0.3, y - len * 0.6, x + lean * len, y - len); g.quadraticCurveTo(x + 0.02 + lean * len * 0.4, y - len * 0.4, x + 0.04, y + 0.02); g.closePath(); g.fill();
+      g.strokeStyle = 'rgba(4,26,23,0.6)'; g.lineWidth = 0.008; g.stroke();
+    }
+    // Aleta del costado: transparente, con nervaduras.
+    g.fillStyle = 'rgba(120,225,195,0.55)'; g.beginPath(); g.moveTo(1.38, 0.96); g.quadraticCurveTo(1.7, 0.85, 1.82, 1.02); g.quadraticCurveTo(1.72, 1.2, 1.4, 1.1); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(220,255,245,0.6)'; g.lineWidth = 0.008; for (let k = 0; k < 6; k++) { g.beginPath(); g.moveTo(1.4, 1.02); g.lineTo(1.72 + k * 0.015, 0.9 + k * 0.05); g.stroke(); }
+    // Encía de arriba y los colmillos de arriba (más largos adelante).
+    g.strokeStyle = '#0e3b33'; g.lineWidth = 0.05; g.beginPath(); g.moveTo(...upperLip(0)); g.lineTo(...upperLip(1)); g.stroke();
+    const r = rng(17);
+    for (let i = 0; i < 19; i++) { const t = 0.02 + i / 19 * 0.94, [bx, by] = upperLip(t); fang(g, bx, by + 0.01, (0.2 + r() * 0.28) * (1 - t * 0.5), 1, -0.18 + r() * 0.36, 0.021); }
+    // Los ojos: grandes, negros y vidriosos, con su cuenca y dos brillos.
+    for (const [ex, ey, er] of [[0.78, 0.47, 0.1], [0.6, 0.52, 0.115]] as const) {
+      g.fillStyle = '#0b2f29'; g.beginPath(); g.arc(ex, ey, er * 1.3, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(160,230,210,0.5)'; g.lineWidth = 0.012; g.beginPath(); g.arc(ex, ey, er * 1.28, Math.PI * 1.05, Math.PI * 1.7); g.stroke();
+      const eye = g.createRadialGradient(ex - er * 0.3, ey - er * 0.3, er * 0.1, ex, ey, er);
+      eye.addColorStop(0, '#3a4a55'); eye.addColorStop(0.5, '#05080a'); eye.addColorStop(0.92, '#000000'); eye.addColorStop(1, '#1d4a44');
+      g.fillStyle = eye; g.beginPath(); g.arc(ex, ey, er, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(ex - er * 0.35, ey - er * 0.35, er * 0.28, er * 0.2, -0.6, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.6)'; g.beginPath(); g.arc(ex + er * 0.35, ey + er * 0.3, er * 0.1, 0, Math.PI * 2); g.fill();
+    }
+  }, 110);
+}
+function anglerLower() {
+  return sprite('angler-lower', AW, AH, g => {
+    const shape = () => { g.beginPath(); g.moveTo(...lowerLip(0)); g.bezierCurveTo(-0.04, 1.15, 0.12, 1.55, 0.5, 1.62); g.bezierCurveTo(0.85, 1.66, 1.08, 1.38, HINGE[0] + 0.04, HINGE[1]); g.lineTo(...lowerLip(0)); g.closePath(); };
+    // Colmillos de abajo (para arriba, enormes), detrás de la mandíbula.
+    const r = rng(23);
+    for (let i = 0; i < 17; i++) { const t = 0.01 + i / 17 * 0.88, [bx, by] = lowerLip(t); fang(g, bx, by + 0.02, (0.28 + r() * 0.38) * (1 - t * 0.45), -1, 0.12 + r() * 0.28, 0.024); }
+    g.fillStyle = lin(g, 0, 0.98, 0, 1.52, [[0, FISH.mid], [0.6, '#15493f'], [1, FISH.low]]); shape(); g.fill();
+    g.save(); shape(); g.clip(); fishSkin(g, 0, 0.95, 1.1, 1.55, 29);
+    g.fillStyle = 'rgba(210,255,240,0.18)'; g.fillRect(0, 0.98, 1.1, 0.08); g.restore();
+    g.strokeStyle = '#0e3b33'; g.lineWidth = 0.05; g.beginPath(); g.moveTo(...lowerLip(0)); g.lineTo(...lowerLip(0.9)); g.stroke(); // encía
+    shape(); g.strokeStyle = FISH.ink; g.lineWidth = 0.014; g.stroke();
+  }, 110);
+}
+function fishTentacle(ctx: CanvasRenderingContext2D, pts: [number, number][], w0: number, w1: number) {
+  const left: [number, number][] = [], right: [number, number][] = [];
+  pts.forEach(([x, y], i) => {
+    const [ax, ay] = pts[Math.max(0, i - 1)], [bx, by] = pts[Math.min(pts.length - 1, i + 1)], len = Math.hypot(bx - ax, by - ay) || 1;
+    const w = (w0 + (w1 - w0) * i / (pts.length - 1)) / 2, nx = -(by - ay) / len, ny = (bx - ax) / len;
+    left.push([x + nx * w, y + ny * w]); right.push([x - nx * w, y - ny * w]);
+  });
+  const [tx, ty] = pts[pts.length - 1];
+  ctx.beginPath(); left.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.lineTo(tx, ty); for (let i = right.length - 1; i >= 0; i--) ctx.lineTo(right[i][0], right[i][1]); ctx.closePath();
+  ctx.fillStyle = lin(ctx, pts[0][0], pts[0][1] - w0, pts[0][0], pts[0][1] + w0, [[0, FISH.top], [0.5, FISH.mid], [1, FISH.low]]); ctx.fill();
+  ctx.strokeStyle = FISH.ink; ctx.lineWidth = 0.012; ctx.stroke();
+  ctx.strokeStyle = 'rgba(200,250,235,0.35)'; ctx.lineWidth = 0.01; ctx.beginPath(); left.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
+  ctx.fillStyle = 'rgba(190,245,225,0.55)';
+  for (let i = 1; i < pts.length - 1; i += 1) { const [x, y] = right[i], r = (w0 + (w1 - w0) * i / (pts.length - 1)) * 0.18; ctx.beginPath(); ctx.arc((x + pts[i][0]) / 2, (y + pts[i][1]) / 2, r, 0, Math.PI * 2); ctx.fill(); }
+}
+// x, y: el centro del monstruo; left: si mira a la izquierda; tilt: cuánto se inclina; open: 0 a 1 cuánto abre la
+// boca; angry: si te persigue (la luz brilla más).
+export function drawAngler(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, left: boolean, tilt: number, open: number, angry: boolean, time: number, seed: number) {
+  const up = anglerUpper(), low = anglerLower();
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(tilt); if (!left) ctx.scale(-1, 1); ctx.scale(size, size); ctx.translate(-AX, -AY);
+  // Tentáculos verdes atrás, ondulando.
+  for (let k = 0; k < 5; k++) {
+    const pts: [number, number][] = [];
+    for (let j = 0; j < 8; j++) {
+      const d = j * 0.16, wave = Math.sin(time * 4 - j * 0.7 + k * 1.4 + seed) * 0.05 * j;
+      pts.push([1.75 + d * 1.1, 0.72 + k * 0.12 + d * (k - 2) * 0.22 + wave]);
+    }
+    fishTentacle(ctx, pts, 0.16, 0.03);
+  }
+  // La garganta, oscura, detrás de las mandíbulas.
+  const throat = ctx.createRadialGradient(0.65, 1.0 + open * 0.12, 0.02, 0.65, 1.0 + open * 0.12, 0.6);
+  throat.addColorStop(0, '#000000'); throat.addColorStop(0.7, '#03130f'); throat.addColorStop(1, '#0d3a32');
+  const jaw = open * 0.8, cx = HINGE[0] - (HINGE[0] - 0.0) * Math.cos(jaw), cy = HINGE[1] + (HINGE[0] - 0.0) * Math.sin(jaw);
+  ctx.fillStyle = throat; ctx.beginPath(); ctx.moveTo(0.18, 0.84); ctx.lineTo(HINGE[0], HINGE[1]); ctx.lineTo(cx, cy); ctx.quadraticCurveTo(0.05, (0.84 + cy) / 2, 0.18, 0.84); ctx.closePath(); ctx.fill();
+  // La mandíbula de abajo, que gira sobre la bisagra.
+  if (low) { ctx.save(); ctx.translate(HINGE[0], HINGE[1]); ctx.rotate(-jaw); ctx.translate(-HINGE[0], -HINGE[1]); ctx.drawImage(low.img, 0, 0, AW, AH); ctx.restore(); }
+  if (up) ctx.drawImage(up.img, 0, 0, AW, AH);
+  // La antena con la luz colgando adelante de la boca.
+  const bx = -0.1 + Math.sin(time * 1.7 + seed) * 0.06, by = 0.15 + Math.sin(time * 2.3 + seed) * 0.07;
+  ctx.strokeStyle = lin(ctx, 0.8, 0.3, bx, by, [[0, FISH.mid], [1, '#a7f3d0']]); ctx.lineWidth = 0.035; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0.82, 0.28); ctx.bezierCurveTo(0.7, -0.35, 0.05, -0.35, bx, by - 0.08); ctx.stroke();
+  const pulse = (angry ? 0.9 : 0.6) + 0.25 * Math.sin(time * 6 + seed);
+  glow(ctx, bx, by, 0.75, '#e0fffa', pulse * 0.6);
+  glow(ctx, bx, by, 0.28, '#ffffff', pulse);
+  ctx.fillStyle = lin(ctx, bx, by - 0.1, bx, by + 0.12, [[0, '#d1fae5'], [1, '#ffffff']]); ctx.beginPath(); ctx.ellipse(bx, by + 0.02, 0.055, 0.09, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
