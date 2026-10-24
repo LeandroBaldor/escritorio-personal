@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CEIL, CHECKPOINTS, blackholeNear, bombCount, FLOOR, LEVELS, LEVEL_COUNT, LIVES, PLAYER_H, PLAYER_W, ROWS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input } from './gravitySwap';
+import { CEIL, CHECKPOINTS, HINT_TIME, blackholeNear, bombCount, FLOOR, LEVELS, LEVEL_COUNT, LIVES, PLAYER_H, PLAYER_W, ROWS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input } from './gravitySwap';
 
 const idle: Input = { left: false, right: false, up: false, down: false };
 const fixed = () => 0.5;
@@ -70,6 +70,17 @@ describe('Gravity Swap: gravedad que gira', () => {
     expect(game.player.x - game.cam).toBeCloseTo(4, 0);
     expect(game.player.onGround).toBe(true);
     expect(game.player.y + PLAYER_H).toBeCloseTo(FLOOR, 2);
+  });
+
+  it('al cambiar la gravedad aparece la flecha de para dónde ir, y a los 5 segundos se va', () => {
+    const game = empty();
+    expect(game.hint).toBe(0); // al empezar no está
+    flipGravity(game, fixed, Math.PI / 2); game.gravityIn = 999;
+    expect(game.hint).toBe(HINT_TIME);
+    run(game, 4.5);
+    expect(game.hint).toBeGreaterThan(0);
+    run(game, 0.6);
+    expect(game.hint).toBe(0);
   });
 
   it('la gravedad cambia de golpe, sin aviso, de a 90° (en los primeros escenarios)', () => {
@@ -266,6 +277,14 @@ describe('Gravity Swap: monstruos, cometas, lásers nuevos y agujeros negros', (
     expect(takeEvents(game).some(e => e.type === 'roar')).toBe(true);
     runUntil(game, () => game.phase === 'dead', 6);
     expect(game.death).toBe('monster');
+  });
+
+  it('el monstruo ruge una y otra vez mientras te persigue', () => {
+    const game = empty();
+    game.hazards.push(hazard({ kind: 'monster', x: 15, y: 3, x0: 15, y0: 3, r: 0.48, amp: 0.5, speed: 0.4, aim: Math.PI }));
+    let roars = 0;
+    for (let i = 0; i < 6 * 60 && game.phase === 'play'; i++) { game.cam = 0; game.player.x = 4; step(game, idle, 1 / 60, fixed); roars += takeEvents(game).filter(e => e.type === 'roar').length; }
+    expect(roars).toBeGreaterThanOrEqual(3);
   });
 
   it('el gusano sale del piso cada tanto y te traga', () => {

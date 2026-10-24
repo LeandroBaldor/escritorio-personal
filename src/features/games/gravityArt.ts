@@ -4,7 +4,7 @@
 // fósiles debajo del piso, así la pantalla queda siempre llena), las trampas y los villanos, con degradés,
 // texturas y brillos para que se vean más reales.
 import {
-  CEIL, FLOOR, PLAYER_H, PLAYER_W, ROWS, STRIDE, bombCount, cometPath, doorOpen, flyerCenter, geyserHeight, geyserWarn, laserOn, laserWarn, lightningState,
+  CEIL, FLOOR, HINT_TIME, PLAYER_H, PLAYER_W, ROWS, STRIDE, bombCount, cometPath, doorOpen, flyerCenter, geyserHeight, geyserWarn, laserOn, laserWarn, lightningState,
   mineCenter, pendulumBall, plantBite, pressRect, pressState, sawCenter, scannerY, sporeCenter, sweeperAngle, wormHeight, wormWarn,
   type Game, type Gib, type Hazard, type Solid, type ThemeId,
 } from './gravitySwap';
@@ -1651,6 +1651,24 @@ function drawPlayer(ctx: CanvasRenderingContext2D, game: Game) {
   drawAstronaut(ctx, cx, cy, poseFor(game));
 }
 
+// La flecha que muestra para dónde hay que ir (hacia el portal) después de un cambio de gravedad: tres
+// flechas que avanzan y brillan delante del astronauta. Se dibuja en el pasillo, así gira con la pantalla y
+// siempre apunta para el lado correcto. Dura 5 segundos y se va apagando al final.
+function directionHint(ctx: CanvasRenderingContext2D, game: Game) {
+  if (game.hint <= 0 || game.phase !== 'play') return;
+  const p = game.player, fade = Math.min(1, game.hint / 0.8) * Math.min(1, (HINT_TIME - game.hint) / 0.25);
+  const cx = p.x + PLAYER_W / 2 + 2.2, cy = Math.max(CEIL + 1.2, Math.min(FLOOR - 1.2, p.y + PLAYER_H / 2));
+  ctx.save(); ctx.globalAlpha = fade;
+  glow(ctx, cx + 0.6, cy, 1.6, '#facc15', 0.35);
+  for (let k = 0; k < 3; k++) {
+    const t = (game.time * 1.6 + k / 3) % 1, x = cx + t * 2, a = Math.sin(t * Math.PI);
+    ctx.globalAlpha = fade * (0.35 + 0.65 * a);
+    ink(ctx, () => { ctx.moveTo(x - 0.35, cy - 0.65); ctx.lineTo(x + 0.35, cy); ctx.lineTo(x - 0.35, cy + 0.65); ctx.lineTo(x - 0.08, cy); ctx.closePath(); },
+      lin(ctx, x - 0.35, cy - 0.65, x + 0.35, cy + 0.65, [[0, '#fef9c3'], [0.5, '#facc15'], [1, '#f59e0b']]), 2.5);
+  }
+  ctx.restore();
+}
+
 // ---------- La pantalla girada ----------
 
 // Cuánto se aleja la cámara y alrededor de qué punto gira. Derecha, muestra todo el ancho de la pantalla;
@@ -1764,6 +1782,7 @@ export function drawGame(ctx: CanvasRenderingContext2D, game: Game, rows: number
     if (h.kind === 'ufo' || h.kind === 'asteroid' || h.kind === 'meteor' ? h.active : h.kind === 'comet' ? h.state > 0 : seen(h.x - h.len, h.w + h.len * 2 + 2)) drawHazard(ctx, h, game, t);
   }
   for (const b of game.bolts) { glow(ctx, b.x, b.y, b.r * 3, b.color, 0.6); ink(ctx, circle(ctx, b.x, b.y, b.r), ball(ctx, b.x, b.y, b.r, b.color), 1.5); ctx.fillStyle = '#fff'; ctx.fillRect(b.x - P, b.y - P, 2 * P, 2 * P); }
+  directionHint(ctx, game);
   drawPlayer(ctx, game);
   // El humo de las explosiones (detrás del fuego).
   for (const m of game.smoke) {

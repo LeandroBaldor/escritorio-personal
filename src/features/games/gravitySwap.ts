@@ -16,6 +16,7 @@ export const PLAYER_W = 0.78; // cuadrado: así el choque es igual mire para don
 export const PLAYER_H = 0.78;
 export const STRIDE = 9; // qué tan rápido mueve las piernas al caminar (un paso cada π/9 segundos)
 export const LIVES = 3;
+export const HINT_TIME = 5; // la flecha de para dónde ir dura 5 segundos después de cada cambio de gravedad
 export const LEVEL_COUNT = 10;
 const G = 14; // gravedad baja: flota
 const THRUST = 30; // el chorro de oxígeno le gana a la gravedad
@@ -128,6 +129,7 @@ export interface Game {
   drops: Drop[]; stains: Stain[]; gibs: Gib[]; smoke: Smoke[]; shake: number; clock: number;
   player: Player;
   cam: number; speed: number; time: number;
+  hint: number; // segundos que le quedan a la flecha que muestra para dónde ir (aparece al cambiar la gravedad)
   follow: number; // hacia dónde mira la cámara cuando la pantalla está de costado (sigue al astronauta con un poco de retraso)
   angle: number; // hacia dónde tira la gravedad (radianes; 0 = hacia el piso)
   view: number; // hacia dónde está girada la pantalla (sigue a "angle" de a poco)
@@ -436,7 +438,7 @@ export function loadLevel(game: Game, level: number, rand: () => number = Math.r
       x: cam + 4, y: angle ? CEIL : FLOOR - PLAYER_H, vx: 0, vy: 0, tx: 0, ty: 0, facing: 1,
       onGround: true, touch: { down: !angle, up: !!angle, left: false, right: false }, landT: 9, stride: -1,
     },
-    cam, follow: cam + 4 + PLAYER_W / 2 + 2.5, speed: def.speed[0], time: 0,
+    cam, hint: 0, follow: cam + 4 + PLAYER_W / 2 + 2.5, speed: def.speed[0], time: 0,
     angle, view: angle,
     gravityIn: Math.max(3.5, between(rand, def.flip)), flipCooldown: 0,
     gust: 0, gustIn: 5, flash: 0,
@@ -591,6 +593,8 @@ export function cometPath(h: Hazard, k: number) {
   return { x: h.x0 + h.len / 2 - h.len * k, y: from + (to - from) * k };
 }
 const COMET_TIME = 1.15; // lo que tarda en cruzar el pasillo
+const ROAR_EVERY = 1.8; // cada cuánto ruge el monstruo mientras te persigue
+const hash01 = (n: number) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
 // Láser giratorio: hacia dónde apunta. Láser que sube y baja: a qué altura está.
 export const sweeperAngle = (game: Game, h: Hazard) => h.phase + game.time * h.speed;
 export const scannerY = (game: Game, h: Hazard) => (CEIL + FLOOR) / 2 + Math.sin((game.time + h.phase) * h.speed) * h.amp;
@@ -696,13 +700,15 @@ function updateHazards(game: Game, dt: number) {
         if (h.state === 0) {
           h.y = h.y0 + Math.sin((game.time + h.phase) * 1.5) * h.amp;
           // Se despierta cuando el astronauta se acerca (y ya está en la pantalla).
-          if (visible(game, h.x, -1) && Math.abs(px - h.x) < 11) { h.state = 1; emit(game, { type: 'roar' }); }
+          if (visible(game, h.x, -1) && Math.abs(px - h.x) < 11) { h.state = 1; h.timer = ROAR_EVERY; emit(game, { type: 'roar' }); }
           break;
         }
         // Lo persigue, doblando de a poco (si lo pasás, se da vuelta pero es más lento que el escenario).
         h.aim += angleDiff(Math.atan2(py - h.y, px - h.x), h.aim) * Math.min(1, 3.4 * dt);
         h.x += Math.cos(h.aim) * h.speed * dt;
         h.y = Math.max(CEIL + 0.5, Math.min(FLOOR - 0.5, h.y + Math.sin(h.aim) * h.speed * dt));
+        // Mientras lo persigue (y se lo ve), ruge una y otra vez.
+        if (visible(game, h.x, 1) && (h.timer -= dt) <= 0) { h.timer = ROAR_EVERY + (hash01(h.id + game.time) - 0.5) * 0.6; emit(game, { type: 'roar' }); }
         if (h.x < game.cam - 3) h.dead = true;
         break;
       }
@@ -805,6 +811,7 @@ export function flipGravity(game: Game, rand: () => number = Math.random, to = c
   game.player.onGround = false;
   game.gravityIn = between(rand, game.def.flip);
   game.pendingFlips.push(game.time);
+  game.hint = HINT_TIME; // la flecha que muestra para dónde está el portal
   emit(game, { type: 'flip' });
 }
 
@@ -958,6 +965,7 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   while (game.pendingFlips.length && game.time - game.pendingFlips[0] > 2) { game.pendingFlips.shift(); game.stats.flips++; }
 
   // Cambio de gravedad: sin aviso, de golpe.
+  game.hint = Math.max(0, game.hint - dt);
   game.gravityIn -= dt;
   game.flipCooldown -= dt;
   if (game.gravityIn <= 0) flipGravity(game, rand);
