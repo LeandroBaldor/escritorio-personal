@@ -180,8 +180,8 @@ export function Games() {
           <Cover src={gravityCover} />
           <span className="game-card-text">
             <strong>Gravity Swap</strong>
-            <span>🚀 Sos un astronauta corriendo por 10 escenarios llenos de trampas, y la gravedad se da vuelta sola cuando menos lo esperás.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Llegá al portal del final de cada escenario hasta completar la Luna. Tenés 3 vidas por escenario.</span>
+            <span>🚀 Sos un astronauta que flota por 10 escenarios llenos de trampas. La gravedad gira sola (y la pantalla con ella), y te movés con chorros del oxígeno de tu tanque.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Llegá al portal del final de cada escenario hasta completar la Luna, sin quedarte sin oxígeno. Tenés 3 vidas por escenario.</span>
           </span>
           <span className="game-card-foot">
             {(gravity.unlocked > 1 || gravity.time !== null) && <small><b>Récord</b>{gravity.time !== null ? `🏆 en ${formatGravityTime(gravity.time)}` : `Escenario ${gravity.unlocked}/10`}</small>}

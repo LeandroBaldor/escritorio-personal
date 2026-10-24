@@ -4,12 +4,13 @@
 import {
   CEIL, FLOOR, PLAYER_H, PLAYER_W, ROWS, WARN_SECONDS, flyerCenter, geyserHeight, geyserWarn, laserOn, laserWarn, lightningState,
   mineCenter, pendulumBall, plantBite, pressRect, pressState, sawCenter, sporeCenter,
-  type Game, type Hazard, type Player, type Solid, type ThemeId,
+  type Game, type Hazard, type Solid, type ThemeId,
 } from './gravitySwap';
 
 export const PX = 24;
 const P = 1 / PX; // un píxel, en casilleros
 const INK = '#0a0a16'; // el borde oscuro de todo
+const PAD = 14; // lo que se ve de más a los costados cuando la pantalla está girada
 
 interface Theme {
   sky: [string, string, string]; ground: string; brick: string; top: string;
@@ -84,8 +85,8 @@ function planet(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, 
   ctx.restore();
 }
 
-function background(ctx: CanvasRenderingContext2D, game: Game, t: Theme) {
-  const { cam, cols, time } = game;
+function background(ctx: CanvasRenderingContext2D, game: Game, t: Theme, cols: number) {
+  const { cam, time } = game;
   const sky = ctx.createLinearGradient(0, 0, 0, ROWS);
   sky.addColorStop(0, t.sky[0]); sky.addColorStop(0.55, t.sky[1]); sky.addColorStop(1, t.sky[2]);
   ctx.fillStyle = sky; ctx.fillRect(0, 0, cols, ROWS);
@@ -252,15 +253,17 @@ function drawSolid(ctx: CanvasRenderingContext2D, s: Solid, t: Theme, game: Game
   let { x, y } = s;
   const { w, h } = s;
   if (s.kind === 'crumble' && s.crumble !== undefined) { x += Math.sin(game.time * 70) * 0.05; y += Math.cos(game.time * 60) * 0.03; }
-  const left = Math.max(x, game.cam - 1), right = Math.min(x + w, game.cam + game.cols + 1);
+  const left = Math.max(x, game.cam - PAD), right = Math.min(x + w, game.cam + game.cols + PAD);
   if (right <= left) return;
-  ink(ctx, () => ctx.rect(left, y, right - left, h), s.kind === 'base' ? '#475569' : t.ground);
-  ctx.save(); ctx.beginPath(); ctx.rect(left, y, right - left, h); ctx.clip();
+  // El piso y el techo son más gruesos de lo que se ve sin girar (al girar la pantalla se ve de costado).
+  const deep = s.kind === 'ground' ? 7 : 0, top = y >= FLOOR - 0.01 ? y : y - deep, tall = h + deep;
+  ink(ctx, () => ctx.rect(left, top, right - left, tall), s.kind === 'base' ? '#475569' : t.ground);
+  ctx.save(); ctx.beginPath(); ctx.rect(left, top, right - left, tall); ctx.clip();
   // Ladrillos.
   ctx.fillStyle = t.brick;
-  for (let row = 0; row < h; row += 0.5) {
-    const shift = (Math.floor((y + row) * 2) % 2) * 0.5;
-    for (let cx = Math.floor(left) - 1 + shift; cx < right; cx += 1) { ctx.fillRect(cx, y + row, P * 1.5, 0.5); ctx.fillRect(cx, y + row, 1, P * 1.5); }
+  for (let row = 0; row < tall; row += 0.5) {
+    const shift = (Math.floor((top + row) * 2) % 2) * 0.5;
+    for (let cx = Math.floor(left) - 1 + shift; cx < right; cx += 1) { ctx.fillRect(cx, top + row, P * 1.5, 0.5); ctx.fillRect(cx, top + row, 1, P * 1.5); }
   }
   if (theme === 'factory' && s.kind !== 'ground') { // franjas de peligro
     ctx.fillStyle = '#facc15';
@@ -586,6 +589,17 @@ function drawHazard(ctx: CanvasRenderingContext2D, h: Hazard, game: Game, t: The
       ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.arc(h.x + 0.12, h.y - 0.15, h.r * 0.4, 0, Math.PI * 2); ctx.fill();
       break;
     }
+    case 'oxygen': { // tanque de oxígeno para recargar
+      const y = h.y + Math.sin(time * 2 + h.id) * 0.1;
+      glow(ctx, h.x, y, 0.9, '#38bdf8', 0.45 + 0.15 * Math.sin(time * 4));
+      ink(ctx, () => ctx.roundRect(h.x - 0.2, y - 0.3, 0.4, 0.62, 0.14), '#e0f2fe');
+      ctx.fillStyle = '#38bdf8'; ctx.fillRect(h.x - 0.16, y - 0.05, 0.32, 0.22);
+      ink(ctx, () => ctx.rect(h.x - 0.09, y - 0.42, 0.18, 0.13), '#64748b', 1.5);
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(h.x - 0.14, y - 0.24, P * 2, 0.15);
+      ctx.fillStyle = '#0c4a6e'; ctx.font = `900 ${0.2}px Nunito, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('O₂', h.x, y + 0.06);
+      break;
+    }
     case 'ufo': {
       if (!h.active) break;
       const { x, y } = h;
@@ -620,19 +634,15 @@ function portal(ctx: CanvasRenderingContext2D, game: Game, t: Theme) {
 
 // ---------- El astronauta ----------
 
-export interface AstronautPose { pose: 'idle' | 'run' | 'jump' | 'fall' | 'spin' | 'land'; time: number; angle: number; mirror: boolean; squash?: number }
+export interface AstronautPose { pose: 'idle' | 'run' | 'float' | 'thrust' | 'land'; time: number; angle: number; mirror: boolean; squash?: number }
 
-export function poseFor(p: Player, time: number): AstronautPose {
-  const target = p.grav === 1 ? 0 : Math.PI;
-  const k = Math.min(1, p.flipT / 0.45), ease = 1 - (1 - k) ** 3;
-  const angle = target - (1 - ease) * Math.PI;
-  const mirror = (p.facing === -1) !== (p.grav === -1);
-  let pose: AstronautPose['pose'] = 'idle';
-  if (p.flipT < 0.45) pose = 'spin';
-  else if (!p.onGround) pose = p.vy * p.grav < 0 ? 'jump' : 'fall';
-  else if (p.landT < 0.14) pose = 'land';
-  else if (Math.abs(p.vx) > 0.3) pose = 'run';
-  return { pose, time, angle, mirror, squash: p.landT < 0.14 ? 1 - (0.14 - p.landT) * 1.2 : 1 };
+// Siempre con los pies hacia donde tira la gravedad: flota, se impulsa, se apoya o corre apoyado.
+export function poseFor(game: Game): AstronautPose {
+  const p = game.player;
+  let pose: AstronautPose['pose'] = 'float';
+  if (p.onGround) pose = p.landT < 0.14 ? 'land' : Math.abs(game.speed + p.vx) > 0.3 && game.phase === 'play' ? 'run' : 'idle';
+  else if (p.tx || p.ty) pose = 'thrust';
+  return { pose, time: game.time, angle: -game.angle, mirror: p.facing === -1, squash: p.landT < 0.14 ? 1 - (0.14 - p.landT) * 1.2 : 1 };
 }
 
 // Dibuja al astronauta centrado en (x, y), con 1 casillero de alto, mirando a la derecha.
@@ -640,21 +650,21 @@ export function drawAstronaut(ctx: CanvasRenderingContext2D, x: number, y: numbe
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(a.angle);
-  ctx.scale(1.18, 1.18); // un poco más grande que su caja de choque, como en la referencia
+  ctx.scale(1.05, 1.05);
   if (a.mirror) ctx.scale(-1, 1);
   if (a.squash && a.squash !== 1) { ctx.translate(0, 0.48); ctx.scale(1 + (1 - a.squash) * 0.6, a.squash); ctx.translate(0, -0.48); }
-  const s = Math.sin(a.time * 14), c = Math.cos(a.time * 14);
-  const bob = a.pose === 'idle' ? Math.sin(a.time * 3) * 0.02 : a.pose === 'run' ? Math.abs(c) * -0.03 : 0;
+  const s = Math.sin(a.time * 14), c = Math.cos(a.time * 14), drift = Math.sin(a.time * 2.2);
+  const bob = a.pose === 'idle' ? Math.sin(a.time * 3) * 0.02 : a.pose === 'run' ? Math.abs(c) * -0.03 : a.pose === 'float' ? drift * 0.04 : 0;
   ctx.translate(0, bob);
+  if (a.pose === 'float') ctx.rotate(drift * 0.12); // flotando se balancea despacio
   const WHITE = '#f1f5f9', SHADE = '#c3cfdd', BLUE = '#2563eb';
   // Manos y pies según la pose.
   let feet: [[number, number], [number, number]] = [[-0.09, 0.44], [0.09, 0.44]];
   let hands: [[number, number], [number, number]] = [[-0.24, 0.13], [0.24, 0.13]];
   switch (a.pose) {
     case 'run': feet = [[-0.04 - s * 0.18, 0.44 - Math.max(0, c) * 0.09], [0.04 + s * 0.18, 0.44 - Math.max(0, -c) * 0.09]]; hands = [[-0.12 + s * 0.16, 0.12], [0.14 - s * 0.16, 0.1]]; break;
-    case 'jump': feet = [[-0.14, 0.42], [0.16, 0.26]]; hands = [[-0.28, 0.06], [0.27, -0.24]]; break;
-    case 'fall': feet = [[-0.2, 0.4], [0.18, 0.42]]; hands = [[-0.3, -0.28], [0.3, -0.24]]; break;
-    case 'spin': feet = [[-0.12, 0.26], [0.12, 0.24]]; hands = [[-0.28, 0], [0.28, 0.02]]; break;
+    case 'float': feet = [[-0.17, 0.4 + drift * 0.03], [0.13, 0.36 - drift * 0.03]]; hands = [[-0.31, -0.06 + drift * 0.05], [0.31, -0.12 - drift * 0.05]]; break;
+    case 'thrust': feet = [[-0.14, 0.4], [-0.03, 0.43]]; hands = [[0.16, 0.04], [0.3, -0.06]]; break;
     case 'land': feet = [[-0.18, 0.45], [0.18, 0.45]]; hands = [[-0.3, 0.14], [0.3, 0.14]]; break;
   }
   const leg = (foot: [number, number], hipX: number) => {
@@ -666,7 +676,8 @@ export function drawAstronaut(ctx: CanvasRenderingContext2D, x: number, y: numbe
     ink(ctx, circle(ctx, hand[0], hand[1], 0.065), SHADE, 1.5);
   };
   arm(hands[0], -0.1);
-  ink(ctx, () => ctx.roundRect(-0.31, -0.2, 0.17, 0.34, 0.04), '#cbd5e1'); // mochila
+  ink(ctx, () => ctx.roundRect(-0.33, -0.22, 0.19, 0.38, 0.05), '#cbd5e1'); // tanque de oxígeno en la espalda
+  ctx.fillStyle = '#38bdf8'; ctx.fillRect(-0.3, -0.12, 0.13, 0.08);
   leg(feet[0], -0.07);
   ink(ctx, () => ctx.roundRect(-0.19, -0.14, 0.38, 0.34, 0.1), WHITE); // cuerpo
   ctx.fillStyle = SHADE; ctx.fillRect(-0.16, 0.1, 0.32, 0.06);
@@ -690,41 +701,71 @@ function drawPlayer(ctx: CanvasRenderingContext2D, game: Game) {
   const p = game.player;
   if (game.phase === 'dead' || game.phase === 'ending' || game.phase === 'won') return;
   const cx = p.x + PLAYER_W / 2, cy = p.y + PLAYER_H / 2;
-  // Estela de velocidad (como en la referencia) y polvo al aterrizar.
-  if (p.onGround && Math.abs(p.vx) > 0.3 && game.phase === 'play') {
-    const feet = p.grav === 1 ? p.y + PLAYER_H : p.y;
-    ctx.fillStyle = '#60a5fa';
-    for (let k = 0; k < 3; k++) {
-      const y = cy + (k - 1) * 0.22, len = 0.6 + ((game.time * 7 + k * 0.37) % 1) * 0.8;
-      ctx.globalAlpha = 0.35 - k * 0.07; ctx.fillRect(p.x - len, y, len - 0.05, 2 * P);
+  // El chorro de oxígeno sale del tanque para el lado contrario de hacia donde se impulsa.
+  if (p.tx || p.ty) {
+    const ox = cx - p.tx * 0.35, oy = cy - p.ty * 0.35, flicker = 0.75 + 0.25 * Math.sin(game.time * 60);
+    glow(ctx, ox - p.tx * 0.3, oy - p.ty * 0.3, 0.7, '#bae6fd', 0.5);
+    for (let k = 0; k < 6; k++) {
+      const d = ((game.time * 7 + k / 6) % 1), spread = (hash(k + Math.floor(game.time * 7)) - 0.5) * 0.4 * d;
+      ctx.globalAlpha = (1 - d) * 0.85; ctx.fillStyle = k % 2 ? '#e0f2fe' : '#7dd3fc';
+      ctx.beginPath(); ctx.arc(ox - p.tx * d * 1.1 * flicker - p.ty * spread, oy - p.ty * d * 1.1 * flicker + p.tx * spread, 0.07 + d * 0.13, 0, Math.PI * 2); ctx.fill();
     }
-    ctx.globalAlpha = 0.6; ctx.fillStyle = '#e2e8f0';
-    for (let k = 0; k < 3; k++) { const d = ((game.time * 4 + k / 3) % 1); ctx.beginPath(); ctx.arc(p.x - d * 0.6, feet - p.grav * (0.05 + d * 0.15), 0.06 + d * 0.06, 0, Math.PI * 2); ctx.fill(); }
     ctx.globalAlpha = 1;
   }
+  // Polvo al apoyarse (sale para los costados, del lado de los pies).
   if (p.landT < 0.3) {
-    const feet = p.grav === 1 ? p.y + PLAYER_H : p.y, k = p.landT / 0.3;
+    const gx = Math.sin(game.angle), gy = Math.cos(game.angle), k = p.landT / 0.3;
+    const fx = cx + gx * PLAYER_H / 2, fy = cy + gy * PLAYER_H / 2;
     ctx.fillStyle = '#f8fafc'; ctx.globalAlpha = 0.8 * (1 - k);
-    for (const s of [-1, 1]) for (let j = 0; j < 3; j++) { ctx.beginPath(); ctx.arc(cx + s * (0.3 + k * 0.6 + j * 0.15), feet - p.grav * (0.08 + j * 0.03), 0.1 * (1 - k * 0.5), 0, Math.PI * 2); ctx.fill(); }
+    for (const side of [-1, 1]) for (let j = 0; j < 3; j++) {
+      const d = side * (0.3 + k * 0.6 + j * 0.15), back = 0.08 + j * 0.03;
+      ctx.beginPath(); ctx.arc(fx + gy * d - gx * back, fy - gx * d - gy * back, 0.1 * (1 - k * 0.5), 0, Math.PI * 2); ctx.fill();
+    }
     ctx.globalAlpha = 1;
   }
-  drawAstronaut(ctx, cx, cy, poseFor(p, game.time));
+  drawAstronaut(ctx, cx, cy, poseFor(game));
 }
 
-// El aviso de que la gravedad va a cambiar: el borde de la pantalla titila y aparecen flechas.
+// ---------- La pantalla girada ----------
+
+// Cuánto se aleja la cámara y alrededor de qué punto gira. Derecha, muestra todo el ancho de la pantalla;
+// de costado se aleja un poco y sigue al astronauta (mirando un poco hacia adelante), así nunca queda afuera.
+export function viewOf(game: Game) {
+  const side = Math.abs(Math.sin(game.view)), center = game.cam + game.cols / 2, follow = game.player.x + PLAYER_W / 2 + 2.5;
+  return { z: 1 - 0.28 * side, px: center + (follow - center) * side, py: ROWS / 2 };
+}
+// Dónde queda en la pantalla un punto del pasillo.
+export function toScreen(game: Game, x: number, y: number) {
+  const { z, px, py } = viewOf(game), c = Math.cos(game.view), s = Math.sin(game.view), dx = x - px, dy = y - py;
+  return { x: game.cols / 2 + z * (dx * c - dy * s), y: ROWS / 2 + z * (dx * s + dy * c) };
+}
+
+// El aviso de que la gravedad va a cambiar: el borde de la pantalla titila y una flecha grande marca
+// hacia dónde va a tirar (en la pantalla de ahora).
 function gravityWarning(ctx: CanvasRenderingContext2D, game: Game) {
   if (!game.warned || game.phase !== 'play') return;
   const left = Math.max(0, game.gravityIn) / WARN_SECONDS, on = Math.sin(game.time * 26) > 0;
-  const color = game.player.grav === 1 ? '#f472b6' : '#22d3ee';
+  const color = '#f472b6';
   ctx.strokeStyle = color; ctx.lineWidth = 0.18 + (1 - left) * 0.12; ctx.globalAlpha = on ? 0.9 : 0.35;
   ctx.strokeRect(0.09, 0.09, game.cols - 0.18, ROWS - 0.18);
-  const p = game.player, cx = p.x - game.cam + PLAYER_W / 2, dir = -game.player.grav;
-  const cy = p.y + PLAYER_H / 2 + dir * 1.1;
+  const p = game.player, at = toScreen(game, p.x + PLAYER_W / 2, p.y + PLAYER_H / 2), turn = game.nextAngle - game.view;
+  ctx.save();
+  ctx.translate(at.x, at.y); ctx.rotate(-turn); // la flecha apunta para abajo y se gira hacia la nueva gravedad
   for (let k = 0; k < 3; k++) {
-    const y = cy + dir * k * 0.35;
-    ink(ctx, () => { ctx.moveTo(cx - 0.35, y); ctx.lineTo(cx, y + dir * 0.3); ctx.lineTo(cx + 0.35, y); ctx.lineTo(cx + 0.35, y + dir * 0.12); ctx.lineTo(cx, y + dir * 0.42); ctx.lineTo(cx - 0.35, y + dir * 0.12); ctx.closePath(); }, color, 1.5);
+    const y = 0.9 + k * 0.35;
+    ink(ctx, () => { ctx.moveTo(-0.35, y); ctx.lineTo(0, y + 0.3); ctx.lineTo(0.35, y); ctx.lineTo(0.35, y + 0.12); ctx.lineTo(0, y + 0.42); ctx.lineTo(-0.35, y + 0.12); ctx.closePath(); }, color, 1.5);
   }
+  ctx.restore();
   ctx.globalAlpha = 1;
+}
+
+// El borde de atrás de la pantalla: una pared de energía (si te aplasta contra ella, perdés una vida).
+function edgeWall(ctx: CanvasRenderingContext2D, game: Game) {
+  const x = game.cam, g = ctx.createLinearGradient(x - 0.8, 0, x + 0.15, 0);
+  g.addColorStop(0, 'rgba(244,63,94,0)'); g.addColorStop(1, 'rgba(244,63,94,0.55)');
+  ctx.fillStyle = g; ctx.fillRect(x - 0.8, CEIL, 0.95, FLOOR - CEIL);
+  ctx.fillStyle = '#fda4af';
+  for (let y = CEIL; y < FLOOR; y += 0.5) ctx.fillRect(x + 0.05, y + ((game.time * 3) % 0.5), P * 2, 0.25);
 }
 
 // ---------- Escena final: el astronauta llega a la base de la Luna ----------
@@ -768,15 +809,24 @@ function endingScene(ctx: CanvasRenderingContext2D, game: Game) {
 export function drawGame(ctx: CanvasRenderingContext2D, game: Game) {
   const t = THEMES[game.def.theme];
   if (game.phase === 'ending' || game.phase === 'won') { endingScene(ctx, game); return; }
-  background(ctx, game, t);
+  // Afuera del pasillo (por los pozos) está el vacío.
+  ctx.fillStyle = '#04040a'; ctx.fillRect(0, 0, game.cols, ROWS);
+  // Todo el pasillo se dibuja girado, para que la gravedad apunte siempre hacia abajo de la pantalla.
+  const { z, px, py } = viewOf(game);
+  ctx.save();
+  ctx.translate(game.cols / 2, ROWS / 2); ctx.scale(z, z); ctx.rotate(game.view); ctx.translate(-px, -py);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(game.cam - PAD, 0, game.cols + PAD * 2, ROWS); ctx.clip();
+  ctx.translate(game.cam - PAD, 0);
+  background(ctx, game, t, game.cols + PAD * 2);
+  ctx.restore();
   if (game.def.theme === 'volcano') { // lava que se ve por los pozos
     const lava = ctx.createLinearGradient(0, FLOOR, 0, ROWS);
     lava.addColorStop(0, '#fde047'); lava.addColorStop(0.3, '#f97316'); lava.addColorStop(1, '#b91c1c');
-    ctx.fillStyle = lava; ctx.fillRect(0, FLOOR + 0.25 + Math.sin(game.time * 2) * 0.05, game.cols, ROWS);
+    ctx.fillStyle = lava; ctx.fillRect(game.cam - PAD, FLOOR + 0.25 + Math.sin(game.time * 2) * 0.05, game.cols + PAD * 2, ROWS - FLOOR + 6);
   }
-  ctx.save();
-  ctx.translate(-game.cam, 0);
-  const seen = (x: number, w = 0) => x + w > game.cam - 3 && x < game.cam + game.cols + 3;
+  const seen = (x: number, w = 0) => x + w > game.cam - PAD && x < game.cam + game.cols + PAD;
+  edgeWall(ctx, game);
   for (const h of game.hazards) if (h.kind === 'waterfall' && seen(h.x, h.w)) drawHazard(ctx, h, game, t);
   for (const h of game.hazards) if ((h.kind === 'saw' || h.kind === 'geyser') && !h.dead && seen(h.x, h.len + 2)) drawHazard(ctx, h, game, t);
   if (seen(game.portalX, 2)) portal(ctx, game, t);
@@ -800,15 +850,17 @@ export function drawGame(ctx: CanvasRenderingContext2D, game: Game) {
   ctx.globalAlpha = 1;
   ctx.restore();
 
-  // Viento: rayitas que pasan hacia atrás.
+  // Viento: rayitas que pasan hacia atrás (por el pasillo, así giran con la pantalla).
   if (game.gust > 0) {
+    ctx.save();
+    ctx.translate(game.cols / 2, ROWS / 2); ctx.scale(z, z); ctx.rotate(game.view); ctx.translate(-px, -py);
     ctx.strokeStyle = '#e0e7ff'; ctx.lineWidth = P; ctx.globalAlpha = Math.min(1, game.gust) * 0.6;
-    for (let i = 0; i < 18; i++) { const x = game.cols - ((game.time * 18 + hash(i) * game.cols * 2) % (game.cols + 3)); const y = 1.5 + hash(i + 4) * 7; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 1.2, y); ctx.stroke(); }
-    ctx.globalAlpha = 1;
+    for (let i = 0; i < 18; i++) { const x = game.cam + game.cols - ((game.time * 18 + hash(i) * game.cols * 2) % (game.cols + 3)); const y = 1.5 + hash(i + 4) * 7; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 1.2, y); ctx.stroke(); }
+    ctx.restore();
   }
   // Oscuridad de la tormenta: se ve alrededor del astronauta y todo cuando cae un rayo.
   if (game.def.dark && game.flash <= 0) {
-    const p = game.player, cx = p.x - game.cam + PLAYER_W / 2, cy = p.y + PLAYER_H / 2;
+    const p = game.player, { x: cx, y: cy } = toScreen(game, p.x + PLAYER_W / 2, p.y + PLAYER_H / 2);
     const dark = ctx.createRadialGradient(cx, cy, 2.5, cx, cy, 9);
     dark.addColorStop(0, 'rgba(5,4,15,0)'); dark.addColorStop(1, 'rgba(5,4,15,0.62)');
     ctx.fillStyle = dark; ctx.fillRect(0, 0, game.cols, ROWS);

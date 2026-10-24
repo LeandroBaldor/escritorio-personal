@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LEVELS, LEVEL_COUNT, LIVES, ROWS, loadLevel, newGame, progress, step, takeEvents, type Death, type Game, type Input, type Stats } from './gravitySwap';
+import { LEVELS, LEVEL_COUNT, LIVES, OXYGEN_LOW, OXYGEN_MAX, ROWS, loadLevel, newGame, progress, step, takeEvents, type Death, type Game, type Input, type Stats } from './gravitySwap';
 import { PX, drawGame } from './gravityArt';
-import { playAstronautHit, playAstronautLand, playCrumble, playExplosion, playGameOver, playGravityFlip, playGravityWarn, playGust, playJump, playLaserOn, playStart, playTeleport, playThunder, playTramp, playTurretShot, playWinFanfare, preloadGravitySounds } from './sounds';
+import { playAstronautHit, playAstronautLand, playCrumble, playExplosion, playGameOver, playGravityFlip, playGravityWarn, playGust, playLaserOn, playLowOxygen, playOxygenTank, playStart, playTeleport, playThunder, playTramp, playTurretShot, playThrust, playWinFanfare, preloadGravitySounds } from './sounds';
 import { EndBanner } from './EndBanner';
 
 const LEVEL_KEY = 'escritorio-personal-juegos:gravedad-nivel';
@@ -20,15 +20,17 @@ const DEATH_TEXT: Record<Death, string> = {
   saw: '¡Te cortó una sierra!', enemy: '¡Te atrapó un enemigo!', void: '¡Te perdiste en el vacío!', edge: '¡Te aplastó el borde de la pantalla!',
   fire: '¡Te quemaste!', bolt: '¡Te dieron un disparo!', lightning: '¡Te partió un rayo!', press: '¡Te aplastó una prensa!',
   icicle: '¡Te cayó una estalactita!', spore: '¡Tocaste una espora venenosa!', rock: '¡Te golpeó una roca espacial!',
+  oxygen: '¡Te quedaste sin oxígeno!',
 };
 
 // Columnas visibles según la forma de la pantalla (siempre 10 casilleros de alto).
 const colsFor = (width: number, height: number) => Math.max(12, Math.min(24, Math.round(ROWS * width / Math.max(1, height))));
 
-interface Hud { level: number; lives: number; progress: number; time: number; phase: Game['phase']; death: Death | null; intro: boolean; warn: boolean }
+interface Hud { level: number; lives: number; progress: number; time: number; phase: Game['phase']; death: Death | null; intro: boolean; warn: boolean; oxygen: number; angle: number }
 const hudOf = (game: Game): Hud => ({
   level: game.level, lives: game.lives, progress: Math.floor(progress(game) * 100), time: Math.floor(game.stats.time),
   phase: game.phase, death: game.death, intro: game.phase === 'play' && game.time < 2.6, warn: game.warned && game.phase === 'play',
+  oxygen: Math.ceil(game.oxygen), angle: Math.round(game.angle * 180 / Math.PI) % 360,
 });
 const sameHud = (a: Hud, b: Hud) => (Object.keys(a) as (keyof Hud)[]).every(k => a[k] === b[k]);
 
@@ -36,12 +38,12 @@ export function GravitySwap() {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<Game | null>(null);
-  const input = useRef<Input>({ left: false, right: false, jump: false });
+  const input = useRef<Input>({ left: false, right: false, up: false, down: false });
   const startLevel = useRef(1);
   const [status, setStatus] = useState<Status>('ready');
   const [record, setRecord] = useState(readGravityRecord);
   const [chosen, setChosen] = useState(() => readGravityRecord().unlocked);
-  const [hud, setHud] = useState<Hud>({ level: 1, lives: LIVES, progress: 0, time: 0, phase: 'play', death: null, intro: false, warn: false });
+  const [hud, setHud] = useState<Hud>({ level: 1, lives: LIVES, progress: 0, time: 0, phase: 'play', death: null, intro: false, warn: false, oxygen: OXYGEN_MAX, angle: 0 });
   const [newRecord, setNewRecord] = useState(false);
   const [mission, setMission] = useState<Stats | null>(null);
   const statusRef = useRef(status);
@@ -72,7 +74,7 @@ export function GravitySwap() {
     const previous = gameRef.current;
     if (keepRun && previous) { previous.lives = LIVES; loadLevel(previous, level); previous.phase = 'play'; }
     else { startLevel.current = level; gameRef.current = newGame(level, cols); }
-    input.current = { left: false, right: false, jump: false };
+    input.current = { left: false, right: false, up: false, down: false };
     setNewRecord(false);
     setHud(hudOf(gameRef.current!));
     setStatus('playing');
@@ -92,16 +94,21 @@ export function GravitySwap() {
 
   useEffect(() => {
     if (status !== 'playing') return;
-    let frame = 0, last = performance.now();
+    let frame = 0, last = performance.now(), puff = 0;
     const tick = (now: number) => {
       const game = gameRef.current;
       if (!game) return;
       const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
       last = now;
       step(game, input.current, dt);
+      // Mientras usa el chorro de oxígeno, un soplido seguido.
+      const thrusting = game.phase === 'play' && (game.player.tx !== 0 || game.player.ty !== 0);
+      puff = thrusting ? puff - dt : 0;
+      if (thrusting && puff <= 0) { playThrust(); puff = 0.12; }
       for (const e of takeEvents(game)) {
         switch (e.type) {
-          case 'jump': playJump(); break;
+          case 'oxygen': playOxygenTank(); break;
+          case 'lowOxygen': playLowOxygen(); break;
           case 'land': playAstronautLand(); break;
           case 'warn': playGravityWarn(); break;
           case 'flip': playGravityFlip(); break;
@@ -145,7 +152,7 @@ export function GravitySwap() {
   }, [status, paint]);
 
   useEffect(() => {
-    const keys: Record<string, keyof Input> = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ArrowUp: 'jump', w: 'jump', W: 'jump', ' ': 'jump' };
+    const keys: Record<string, keyof Input> = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ArrowUp: 'up', w: 'up', W: 'up', ' ': 'up', ArrowDown: 'down', s: 'down', S: 'down' };
     const down = (event: KeyboardEvent) => {
       const s = statusRef.current;
       if ((event.key === 'p' || event.key === 'P' || event.key === 'Escape') && (s === 'playing' || s === 'paused')) {
@@ -190,6 +197,8 @@ export function GravitySwap() {
       <div className="runner-scores">
         <span>Nivel <strong data-testid="grav-level">{status === 'ready' ? chosen : hud.level}/{LEVEL_COUNT}</strong></span>
         <span className="grav-lives" aria-label={`Vidas: ${hud.lives}`}>{Array.from({ length: LIVES }, (_, i) => <b key={i} className={i < hud.lives ? '' : 'grav-lost'}>♥</b>)}</span>
+        <span className={`grav-o2${hud.oxygen <= OXYGEN_LOW ? ' grav-o2-low' : ''}`}>O₂ <meter data-testid="grav-oxygen" min={0} max={OXYGEN_MAX} low={OXYGEN_LOW} optimum={OXYGEN_MAX} value={hud.oxygen} aria-label={`Oxígeno: ${hud.oxygen}%`} /></span>
+        <span>Gravedad <strong data-testid="grav-angle">{hud.angle}°</strong></span>
         <span>Avance <strong data-testid="grav-progress">{hud.progress}%</strong></span>
         <span>Tiempo <strong data-testid="grav-time">{formatGravityTime(hud.time)}</strong></span>
         {record.time !== null && <span>Récord <strong>{formatGravityTime(record.time)}</strong></span>}
@@ -208,8 +217,8 @@ export function GravitySwap() {
         <div>
           {status === 'ready' && <>
             <h2 id="grav-message">Gravity Swap 🚀</h2>
-            <p className="runner-keys"><kbd>A</kbd> <kbd>D</kbd> o <kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>Espacio</kbd> saltar · <kbd>R</kbd> reiniciar · <kbd>Esc</kbd> pausa</p>
-            <p className="runner-tip">💡 La gravedad cambia sola: cuando titila la pantalla, preparate para caer al otro lado.</p>
+            <p className="runner-keys"><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> o flechas: chorros de oxígeno · <kbd>R</kbd> reiniciar · <kbd>Esc</kbd> pausa</p>
+            <p className="runner-tip">💡 Flotás y la gravedad gira sola (cuando titila, mirá la flecha). Impulsarte gasta oxígeno: juntá los tanques de O₂ para no quedarte sin aire.</p>
             <div className="grav-levels" role="group" aria-label="Escenarios">
               {LEVELS.map((level, i) => {
                 const n = i + 1, locked = n > record.unlocked;
@@ -247,9 +256,10 @@ export function GravitySwap() {
       </div>}
     </div>
     <div className="runner-pad" aria-label="Controles">
-      <button type="button" aria-label="Izquierda" {...hold('left')}>◀</button>
-      <button type="button" aria-label="Derecha" {...hold('right')}>▶</button>
-      <button type="button" className="runner-jump" aria-label="Saltar" {...hold('jump')}>Saltar</button>
+      <button type="button" aria-label="Impulso a la izquierda" {...hold('left')}>◀</button>
+      <button type="button" aria-label="Impulso hacia arriba" {...hold('up')}>▲</button>
+      <button type="button" aria-label="Impulso hacia abajo" {...hold('down')}>▼</button>
+      <button type="button" aria-label="Impulso a la derecha" {...hold('right')}>▶</button>
     </div>
   </section>;
 }
