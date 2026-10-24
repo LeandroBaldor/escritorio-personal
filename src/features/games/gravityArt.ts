@@ -1563,7 +1563,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, game: Game) {
 // de costado se aleja un poco y sigue al astronauta (mirando un poco hacia adelante), así nunca queda afuera.
 // "rows" es lo que mide la pantalla de alto, en casilleros (10 o más: lo que sobra muestra el cielo y la tierra).
 export function viewOf(game: Game, rows: number) {
-  const side = Math.abs(Math.sin(game.view)), center = game.cam + game.cols / 2, follow = game.player.x + PLAYER_W / 2 + 2.5 + Math.min(3.5, Math.max(0, game.player.vx) * 0.35); // cuanto más rápido va para adelante, más adelante mira
+  const side = Math.abs(Math.sin(game.view)), center = game.cam + game.cols / 2, follow = game.follow;
   const z = 1 - 0.28 * side * Math.min(1, ROWS / rows * 1.15);
   // Lo que sobra de alto se reparte: un poco de cielo arriba y más tierra abajo.
   return { z, px: center + (follow - center) * side, py: ROWS / 2 + Math.max(0, rows - ROWS) * 0.22, reach: Math.hypot(game.cols, rows) / 2 / z + 1.5 };
@@ -1715,6 +1715,19 @@ export function drawGame(ctx: CanvasRenderingContext2D, game: Game, rows: number
   for (const g of game.gibs) if (seen(g.x - 1, 2)) drawGib(ctx, g);
   ctx.fillStyle = BLOOD_L;
   for (const d of game.drops) { ctx.beginPath(); ctx.arc(d.x, d.y, Math.max(P, d.r), 0, Math.PI * 2); ctx.fill(); }
+  // Líneas de velocidad: cuando va bastante más rápido que el escenario (cayendo con la pantalla girada o con
+  // el chorro), pasan rayitas para atrás alrededor del astronauta.
+  const rush = Math.max(0, game.player.vx) - 2.5;
+  if (rush > 0 && game.phase === 'play') {
+    const p = game.player, k = Math.min(1, rush / 8);
+    ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = P * 1.5;
+    for (let i = 0; i < 16; i++) {
+      const len = 0.8 + hash(i) * 1.6 * k, x = p.x + 9 - ((game.time * (14 + rush * 3) + hash(i + 7) * 18) % 18), y = CEIL + 0.3 + hash(i + 3) * (FLOOR - CEIL - 0.6);
+      ctx.globalAlpha = (0.15 + 0.35 * k) * (0.5 + hash(i + 11) * 0.5);
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - len, y); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
   // Viento: rayitas que pasan hacia atrás (por el pasillo, así giran con la pantalla).
   if (game.gust > 0) {
     ctx.strokeStyle = '#e0e7ff'; ctx.lineWidth = P; ctx.globalAlpha = Math.min(1, game.gust) * 0.6;

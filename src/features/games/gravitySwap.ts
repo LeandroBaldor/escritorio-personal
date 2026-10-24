@@ -128,6 +128,7 @@ export interface Game {
   drops: Drop[]; stains: Stain[]; gibs: Gib[]; smoke: Smoke[]; shake: number; clock: number;
   player: Player;
   cam: number; speed: number; time: number;
+  follow: number; // hacia dónde mira la cámara cuando la pantalla está de costado (sigue al astronauta con un poco de retraso)
   angle: number; // hacia dónde tira la gravedad (radianes; 0 = hacia el piso)
   view: number; // hacia dónde está girada la pantalla (sigue a "angle" de a poco)
   gravityIn: number; flipCooldown: number;
@@ -435,7 +436,7 @@ export function loadLevel(game: Game, level: number, rand: () => number = Math.r
       x: cam + 4, y: angle ? CEIL : FLOOR - PLAYER_H, vx: 0, vy: 0, tx: 0, ty: 0, facing: 1,
       onGround: true, touch: { down: !angle, up: !!angle, left: false, right: false }, landT: 9, stride: -1,
     },
-    cam, speed: def.speed[0], time: 0,
+    cam, follow: cam + 4 + PLAYER_W / 2 + 2.5, speed: def.speed[0], time: 0,
     angle, view: angle,
     gravityIn: Math.max(3.5, between(rand, def.flip)), flipCooldown: 0,
     gust: 0, gustIn: 5, flash: 0,
@@ -911,6 +912,11 @@ function updateEffects(game: Game, dt: number) {
 export function step(game: Game, input: Input, dt: number, rand: () => number = Math.random) {
   if (dt <= 0) return;
   updateEffects(game, dt);
+  // La cámara de la pantalla girada sigue al astronauta con retraso: si acelera (por ejemplo cayendo con el
+  // chorro), se lo ve bajar por la pantalla y la cámara lo alcanza de a poco (sin que se salga de la vista).
+  const target = game.player.x + PLAYER_W / 2 + 2.5;
+  game.follow += (target - game.follow) * Math.min(1, 3.5 * dt);
+  game.follow = Math.max(target - 6.5, Math.min(target + 2.5, game.follow));
   game.phaseT += dt;
   const p = game.player;
 
