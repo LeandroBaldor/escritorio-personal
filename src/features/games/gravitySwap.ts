@@ -90,8 +90,9 @@ export interface Particle { x: number; y: number; vx: number; vy: number; life: 
 export interface Blast { x: number; y: number; r: number; t: number; max: number; lethal: boolean }
 // La sangre (como en SkynetBall): gotas que vuelan y caen para donde tira la gravedad, y manchas que quedan
 // pegadas donde pegan (charco, salpicaduras y chorreaduras). "at" es el reloj del juego (no se reinicia al morir).
+export interface Smoke { x: number; y: number; vx: number; vy: number; r: number; life: number; max: number }
 export interface Drop { x: number; y: number; vx: number; vy: number; r: number; life: number }
-export interface Stain { x: number; y: number; r: number; at: number; nx: number; ny: number; gx: number; gy: number; kind: 'pool' | 'splat'; seed: number }
+export interface Stain { x: number; y: number; r: number; at: number; nx: number; ny: number; gx: number; gy: number; kind: 'pool' | 'splat' | 'scorch'; seed: number }
 // Pedazos del astronauta que salen volando, rebotan y dejan un rastro de sangre.
 export interface Gib { x: number; y: number; vx: number; vy: number; a: number; va: number; kind: 'helmet' | 'arm' | 'leg' | 'tank' | 'chunk'; life: number; drip: number }
 
@@ -112,7 +113,7 @@ export type GravityEvent =
   | { type: 'land' } | { type: 'flip' } | { type: 'death'; reason: Death }
   | { type: 'boom' } | { type: 'shot' } | { type: 'zap' } | { type: 'spring' } | { type: 'crumble' } | { type: 'cleared'; level: number }
   | { type: 'thunder' } | { type: 'gust' } | { type: 'respawn' } | { type: 'won' }
-  | { type: 'checkpoint' } | { type: 'roar' } | { type: 'comet' } | { type: 'worm' } | { type: 'door'; opening: boolean };
+  | { type: 'beep'; count: number } | { type: 'checkpoint' } | { type: 'roar' } | { type: 'comet' } | { type: 'worm' } | { type: 'door'; opening: boolean };
 
 export interface Stats { time: number; deaths: number; flips: number; levels: number }
 
@@ -121,7 +122,7 @@ export interface Game {
   length: number; portalX: number;
   solids: Solid[]; hazards: Hazard[]; bolts: Bolt[]; particles: Particle[]; blasts: Blast[];
   checkpoints: number[]; checkpoint: number; // las banderas y la última que pasó (0: ninguna)
-  drops: Drop[]; stains: Stain[]; gibs: Gib[]; shake: number; clock: number;
+  drops: Drop[]; stains: Stain[]; gibs: Gib[]; smoke: Smoke[]; shake: number; clock: number;
   player: Player;
   cam: number; speed: number; time: number;
   angle: number; // hacia dónde tira la gravedad (radianes; 0 = hacia el piso)
@@ -323,9 +324,10 @@ export function buildLevel(level: number): Layout {
         return 1;
       }
       case 'bomb': {
-        // Bomba plantada que explota sola cada tanto, con la mecha blinqueando antes.
+        // Bomba: un aparato con una pantallita que cuenta 3, 2, 1 (con un pitido cada número) y explota; después
+        // se vuelve a armar y repite.
         const onSurface = rand() < 0.75;
-        hazard('bomb', { x: x + 0.5, y: onSurface ? (side === 1 ? FLOOR - 0.42 : CEIL + 0.42) : 3 + rand() * 4, side: onSurface ? side : 0, r: 0.42, period: 2.4 + rand() * 0.9 });
+        hazard('bomb', { x: x + 0.5, y: onSurface ? (side === 1 ? FLOOR - 0.42 : CEIL + 0.42) : 3 + rand() * 4, side: onSurface ? side : 0, r: 0.42, period: 4 + rand() * 1.4 });
         return 1;
       }
       case 'door': {
@@ -425,7 +427,7 @@ export function loadLevel(game: Game, level: number, rand: () => number = Math.r
   if (from) for (const h of layout.hazards) if (h.kind !== 'ufo' && h.x < cam - 2) h.dead = true;
   Object.assign(game, {
     level, def, ...layout, checkpoint: from,
-    bolts: [], particles: [], blasts: [],
+    bolts: [], particles: [], blasts: [], smoke: [],
     player: {
       x: cam + 4, y: angle ? CEIL : FLOOR - PLAYER_H, vx: 0, vy: 0, tx: 0, ty: 0, facing: 1,
       onGround: true, touch: { down: !angle, up: !!angle, left: false, right: false }, landT: 9,
@@ -489,9 +491,29 @@ function burst(game: Game, x: number, y: number, colors: string[], count: number
 const BOOM = ['#fde047', '#fb923c', '#ef4444', '#f8fafc'];
 const FIRE = ['#fef08a', '#fde047', '#fb923c', '#f97316', '#ef4444'];
 
+// Una explosión: el fogonazo (lo que mata), la onda expansiva, chispas y escombros que salen volando, humo
+// que queda flotando, la pantalla que tiembla y una mancha de hollín en la pared más cercana.
 function explode(game: Game, x: number, y: number, r: number) {
-  game.blasts.push({ x, y, r, t: 0, max: 0.55, lethal: true });
-  burst(game, x, y, BOOM, 28, 7);
+  game.blasts.push({ x, y, r, t: 0, max: 0.7, lethal: true });
+  burst(game, x, y, BOOM, 26, 9, 4);
+  burst(game, x, y, ['#57534e', '#44403c', '#78716c'], 12, 6, 14); // escombros
+  for (let i = 0; i < 9; i++) {
+    const a = Math.random() * Math.PI * 2, v = 0.4 + Math.random() * 1.4, max = 1.2 + Math.random() * 1.2;
+    game.smoke.push({ x: x + Math.cos(a) * r * 0.3, y: y + Math.sin(a) * r * 0.3, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: r * (0.35 + Math.random() * 0.3), life: max, max });
+  }
+  if (visible(game, x, 2)) game.shake = Math.max(game.shake, 0.55);
+  // Hollín: en la cara del sólido más cercano (si hay uno al alcance).
+  const solids = game.solids.filter(s => !s.gone && s.x < x + r + 1 && s.x + s.w > x - r - 1);
+  let best: { hit: ReturnType<typeof surfaceHit>; d: number } | null = null;
+  for (let k = 0; k < 12; k++) {
+    const a = k * Math.PI / 6, dx = Math.cos(a), dy = Math.sin(a);
+    for (let d = 0, px = x, py = y; d < r * 1.1; d += 0.1) {
+      const sx = x + dx * d, sy = y + dy * d, s = solids.find(s => inside(s, sx, sy));
+      if (s) { if (!best || d < best.d) best = { hit: surfaceHit(s, px, py, sx, sy), d }; break; }
+      px = sx; py = sy;
+    }
+  }
+  if (best) stain(game, best.hit, r * 0.9, 'scorch');
   emit(game, { type: 'boom' });
 }
 
@@ -532,6 +554,11 @@ export function doorOpen(game: Game, h: Hazard) {
   if (c < 0.82) return 1;
   if (c < 0.9) return 1 - (c - 0.82) / 0.08;
   return 0;
+}
+// Bomba: qué número muestra la pantallita (3, 2, 1; 0 mientras espera) y cuánto falta para que explote.
+export function bombCount(game: Game, h: Hazard, at = game.time) {
+  const left = (1 - ((((at + h.phase) % h.period) + h.period) % h.period) / h.period) * h.period;
+  return left <= 3 ? Math.max(1, Math.ceil(left)) : 0;
 }
 export const plantBite = (game: Game, h: Hazard) => cycle(game, h) > 0.7;
 export const lightningState = (game: Game, h: Hazard) => { const c = cycle(game, h); return c > 0.9 ? 'strike' : c > 0.62 ? 'warn' : 'idle'; };
@@ -643,9 +670,13 @@ function updateHazards(game: Game, dt: number) {
       case 'lightning':
         if (visible(game, h.x) && lightningState(game, h) === 'strike' && (cycle(game, h) - 0.9) * h.period < dt * 1.5) { game.flash = 0.25; emit(game, { type: 'thunder' }); }
         break;
-      case 'bomb':
-        if (visible(game, h.x) && cycle(game, h) * h.period < dt * 1.5) explode(game, h.x, h.y, 1.5);
+      case 'bomb': {
+        if (!visible(game, h.x)) break;
+        if (cycle(game, h) * h.period < dt * 1.5) { explode(game, h.x, h.y, 1.5); break; }
+        const count = bombCount(game, h);
+        if (count && count !== bombCount(game, h, game.time - dt)) emit(game, { type: 'beep', count });
         break;
+      }
       case 'worm':
         if (visible(game, h.x) && Math.abs(cycle(game, h) - 0.55) * h.period < dt * 0.75) emit(game, { type: 'worm' });
         break;
@@ -833,6 +864,12 @@ function updateEffects(game: Game, dt: number) {
   game.blasts = game.blasts.filter(b => b.t < b.max);
   game.flash = Math.max(0, game.flash - dt);
   game.shake = Math.max(0, game.shake - dt * 2.2);
+  // El humo sube (contra la gravedad), se agranda y se va.
+  for (const m of game.smoke) {
+    m.life -= dt; m.x += m.vx * dt; m.y += m.vy * dt; m.vx *= 1 - Math.min(1, 1.5 * dt); m.vy *= 1 - Math.min(1, 1.5 * dt);
+    m.x -= Math.sin(game.angle) * 0.6 * dt; m.y -= Math.cos(game.angle) * 0.6 * dt; m.r += 0.5 * dt;
+  }
+  game.smoke = game.smoke.filter(m => m.life > 0);
   if (!game.drops.length && !game.gibs.length) return;
   // La sangre y los pedazos caen para donde tira la gravedad y se pegan (o rebotan) en lo que tocan.
   const gx = Math.sin(game.angle) * BLOOD_G, gy = Math.cos(game.angle) * BLOOD_G;

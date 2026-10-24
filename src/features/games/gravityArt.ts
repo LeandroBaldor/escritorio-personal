@@ -4,7 +4,7 @@
 // fósiles debajo del piso, así la pantalla queda siempre llena), las trampas y los villanos, con degradés,
 // texturas y brillos para que se vean más reales.
 import {
-  CEIL, FLOOR, PLAYER_H, PLAYER_W, ROWS, cometPath, doorOpen, flyerCenter, geyserHeight, geyserWarn, hazardCycle, laserOn, laserWarn, lightningState,
+  CEIL, FLOOR, PLAYER_H, PLAYER_W, ROWS, bombCount, cometPath, doorOpen, flyerCenter, geyserHeight, geyserWarn, laserOn, laserWarn, lightningState,
   mineCenter, pendulumBall, plantBite, pressRect, pressState, sawCenter, scannerY, sporeCenter, sweeperAngle, wormHeight, wormWarn,
   type Game, type Gib, type Hazard, type Solid, type ThemeId,
 } from './gravitySwap';
@@ -1039,19 +1039,42 @@ function drawHazard(ctx: CanvasRenderingContext2D, h: Hazard, game: Game, t: The
       break;
     }
     case 'bomb': {
-      // Bomba negra con remaches, mecha chispeante y una luz que titila cada vez más rápido antes de estallar.
-      const c = hazardCycle(game, h), near = c > 0.72, flicker = near ? Math.sin(time * (18 + c * 40)) > 0 : Math.sin(time * 3) > 0.5;
-      if (near) glow(ctx, h.x, h.y, 1.1, '#ef4444', 0.35 * (c - 0.72) / 0.28);
-      ink(ctx, circle(ctx, h.x, h.y, h.r), ball(ctx, h.x, h.y, h.r, '#18181b'));
-      ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = P; ctx.beginPath(); ctx.arc(h.x, h.y, h.r * 0.74, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = 'rgba(255,255,255,0.3)'; for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; ctx.fillRect(h.x + Math.cos(a) * h.r * 0.74 - P, h.y + Math.sin(a) * h.r * 0.74 - P, 2 * P, 2 * P); } // remaches
-      ctx.fillStyle = flicker ? '#fde047' : '#991b1b'; ctx.beginPath(); ctx.arc(h.x, h.y - h.r * 0.1, h.r * 0.22, 0, Math.PI * 2); ctx.fill(); // luz de aviso
-      if (flicker) glow(ctx, h.x, h.y - h.r * 0.1, 0.35, '#fde047', 0.6);
-      ctx.strokeStyle = '#a16207'; ctx.lineWidth = Math.max(1.5, h.r * 0.14); // mecha
-      ctx.beginPath(); ctx.moveTo(h.x + h.r * 0.3, h.y - h.r * 0.75); ctx.quadraticCurveTo(h.x + h.r * 0.75, h.y - h.r * 1.4, h.x + h.r * 0.4, h.y - h.r * 1.6); ctx.stroke();
-      const sparkR = h.r * (0.1 + 0.05 * Math.abs(Math.sin(time * 30)));
-      glow(ctx, h.x + h.r * 0.4, h.y - h.r * 1.6, 0.3, '#fde047', 0.7);
-      ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.arc(h.x + h.r * 0.4, h.y - h.r * 1.6, sparkR, 0, Math.PI * 2); ctx.fill();
+      // Un aparato explosivo: tres cartuchos rojos atados con cinta, una caja negra con la pantallita que cuenta
+      // 3, 2, 1 (en verde "--" mientras espera), cables de colores y una luz que titila cada vez más rápido.
+      const count = bombCount(game, h), { x, y } = h;
+      const blink = count ? Math.sin(time * (count === 1 ? 40 : count === 2 ? 22 : 12)) > 0 : Math.sin(time * 3) > 0.6;
+      if (count) glow(ctx, x, y, 1 + (3 - count) * 0.35, '#ef4444', 0.18 + 0.12 * (3 - count) + (blink ? 0.1 : 0));
+      ctx.save(); ctx.translate(x, y);
+      if (count === 1) ctx.translate((hash(Math.floor(time * 30)) - 0.5) * 0.05, (hash(Math.floor(time * 30) + 7) - 0.5) * 0.05); // tiembla
+      ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(0, 0.37, 0.5, 0.06, 0, 0, Math.PI * 2); ctx.fill();
+      for (let k = 0; k < 3; k++) { // los cartuchos
+        const sx = -0.36 + k * 0.24;
+        ink(ctx, () => ctx.roundRect(sx, -0.33, 0.22, 0.68, 0.06), lin(ctx, sx, 0, sx + 0.22, 0, [[0, '#f87171'], [0.35, '#dc2626'], [1, '#7f1d1d']]), 1.5);
+        ctx.fillStyle = '#fca5a5'; ctx.fillRect(sx + 0.04, -0.3, P * 1.5, 0.6);
+        ctx.fillStyle = '#44403c'; ctx.fillRect(sx + 0.08, -0.4, 0.06, 0.08); // la puntita de la mecha
+      }
+      for (const ty of [-0.2, 0.2]) { ink(ctx, () => ctx.rect(-0.4, ty - 0.04, 0.8, 0.08), lin(ctx, 0, ty - 0.04, 0, ty + 0.04, [[0, '#a8a29e'], [1, '#57534e']]), 1); } // cinta
+      // Cables.
+      const wires: [string, number][] = [['#ef4444', -0.28], ['#3b82f6', 0], ['#facc15', 0.26]];
+      ctx.lineWidth = 2 * P; ctx.lineCap = 'round';
+      for (const [color, wx] of wires) { ctx.strokeStyle = color; ctx.beginPath(); ctx.moveTo(wx, -0.36); ctx.bezierCurveTo(wx + 0.15, -0.6, wx * 0.3 + 0.1, -0.5, wx * 0.3, -0.14); ctx.stroke(); }
+      // La caja con la pantalla.
+      ink(ctx, () => ctx.roundRect(-0.3, -0.16, 0.6, 0.34, 0.05), lin(ctx, 0, -0.16, 0, 0.18, [[0, '#374151'], [1, '#0b0f17']]), 1.5);
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(-0.27, -0.14, 0.54, P);
+      for (const bx of [-0.26, 0.24]) { ctx.fillStyle = '#9ca3af'; ctx.fillRect(bx, -0.13, 2 * P, 2 * P); ctx.fillRect(bx, 0.12, 2 * P, 2 * P); } // tornillos
+      const screen = count ? '#1a0505' : '#03140a';
+      ink(ctx, () => ctx.rect(-0.21, -0.11, 0.42, 0.22), screen, 1);
+      const digit = count ? String(count) : '--', color = count ? '#ff3b3b' : '#22c55e';
+      glow(ctx, 0, 0, 0.32, color, count ? 0.6 : 0.25);
+      ctx.fillStyle = count ? 'rgba(255,59,59,0.15)' : 'rgba(34,197,94,0.12)'; ctx.font = `bold 0.2px monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('88', 0, 0.01); // los segmentos apagados de la pantalla
+      ctx.fillStyle = color; ctx.fillText(count ? `0${digit}` : digit, 0, 0.01);
+      // La luz de arriba.
+      ink(ctx, circle(ctx, 0.22, -0.2, 0.05), blink ? (count ? '#fecaca' : '#bbf7d0') : (count ? '#7f1d1d' : '#14532d'), 1);
+      if (blink) glow(ctx, 0.22, -0.2, 0.25, count ? '#ef4444' : '#22c55e', 0.8);
+      // Cuando está por explotar, se pone al rojo.
+      if (count === 1) { ctx.globalAlpha = 0.2 + 0.2 * Math.sin(time * 40); ctx.fillStyle = '#ef4444'; ctx.fillRect(-0.42, -0.36, 0.84, 0.74); ctx.globalAlpha = 1; }
+      ctx.restore();
       break;
     }
     case 'door': {
@@ -1090,51 +1113,120 @@ const MONSTER: Record<ThemeId, string> = {
   inverse: '#db2777', factory: '#4d7c0f', forest: '#059669', storm: '#6d28d9', moon: '#475569',
 };
 
-// Monstruo del espacio: una bola con un ojo enorme, tentáculos que ondulan y, cuando te persigue, la boca abierta
-// con dientes.
+// Un tentáculo que se afina hacia la punta, con ventosas de un lado.
+function tentacle(ctx: CanvasRenderingContext2D, pts: [number, number][], w0: number, w1: number, color: string, sucker: string) {
+  const left: [number, number][] = [], right: [number, number][] = [];
+  pts.forEach(([x, y], i) => {
+    const [ax, ay] = pts[Math.max(0, i - 1)], [bx, by] = pts[Math.min(pts.length - 1, i + 1)];
+    const len = Math.hypot(bx - ax, by - ay) || 1, nx = -(by - ay) / len, ny = (bx - ax) / len, w = (w0 + (w1 - w0) * i / (pts.length - 1)) / 2;
+    left.push([x + nx * w, y + ny * w]); right.push([x - nx * w, y - ny * w]);
+  });
+  const [tx, ty] = pts[pts.length - 1];
+  ink(ctx, () => { left.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.lineTo(tx, ty); for (let i = right.length - 1; i >= 0; i--) ctx.lineTo(right[i][0], right[i][1]); ctx.closePath(); },
+    lin(ctx, pts[0][0], pts[0][1], tx, ty, [[0, color], [1, darken(color, 0.35)]]), 1.5);
+  ctx.fillStyle = sucker;
+  for (let i = 1; i < pts.length - 1; i++) { const [x, y] = right[i], r = (w0 + (w1 - w0) * i / (pts.length - 1)) * 0.22; ctx.beginPath(); ctx.arc(x * 0.7 + pts[i][0] * 0.3, y * 0.7 + pts[i][1] * 0.3, r, 0, Math.PI * 2); ctx.fill(); }
+}
+
+// Monstruo del espacio: un bicho de piel húmeda y venosa, con verrugas, manchas, baba que chorrea, tentáculos
+// con ventosas, un ojo enorme inyectado en sangre que te sigue y, cuando te persigue, la boca abierta con
+// encías y dientes desparejos.
 function monster(ctx: CanvasRenderingContext2D, h: Hazard, game: Game) {
   const { x, y } = h, t = game.time + h.id, angry = h.state === 1, body = MONSTER[game.def.theme];
   const p = game.player, look = Math.atan2(p.y + PLAYER_H / 2 - y, p.x + PLAYER_W / 2 - x);
-  if (angry) glow(ctx, x, y, 1.4, '#ef4444', 0.3 + 0.15 * Math.sin(t * 8));
-  else glow(ctx, x, y, 1.1, lighten(body, 0.3), 0.25);
-  // Tentáculos para atrás (o colgando, si está quieto).
+  const R = h.r * 1.25, breathe = 1 + Math.sin(t * (angry ? 9 : 3)) * 0.045;
+  glow(ctx, x, y, R * 2.6, angry ? '#ef4444' : lighten(body, 0.3), angry ? 0.3 + 0.12 * Math.sin(t * 8) : 0.22);
+  // Tentáculos (para atrás mientras persigue; colgando y meciéndose si está quieto).
   const back = angry ? h.aim + Math.PI : Math.PI / 2;
   for (let k = 0; k < 6; k++) {
     const pts: [number, number][] = [];
-    for (let j = 0; j < 5; j++) {
-      const d = 0.3 + j * 0.17, a = back + (k - 2.5) * 0.32 + Math.sin(t * 6 + j * 0.9 + k) * 0.28;
+    for (let j = 0; j < 6; j++) {
+      const d = R * 0.55 + j * 0.13, a = back + (k - 2.5) * 0.36 + Math.sin(t * 4 + j * 0.7 + k * 1.3) * 0.07 * j;
       pts.push([x + Math.cos(a) * d, y + Math.sin(a) * d]);
     }
-    limb(ctx, pts, darken(body, 0.15 + (k % 2) * 0.15), 0.1);
-    ctx.fillStyle = lighten(body, 0.45); ctx.fillRect(pts[2][0] - P, pts[2][1] - P, 2 * P, 2 * P); // ventosas
+    tentacle(ctx, pts, 0.3, 0.06, darken(body, 0.05 + (k % 3) * 0.08), mix(lighten(body, 0.55), '#fbcfe8', 0.5));
   }
-  const pulse = 1 + Math.sin(t * 5) * 0.04;
-  ink(ctx, circle(ctx, x, y, h.r * pulse), ball(ctx, x, y, h.r * pulse, body));
-  ctx.fillStyle = lighten(body, 0.35); // manchas
-  for (let k = 0; k < 5; k++) { const a = k * 1.3 + h.id; ctx.beginPath(); ctx.arc(x + Math.cos(a) * h.r * 0.62, y + Math.sin(a) * h.r * 0.62, 0.05 + hash(k + h.id) * 0.04, 0, Math.PI * 2); ctx.fill(); }
-  // La boca (abierta y con dientes cuando te persigue), del lado hacia donde mira.
-  const mx = x + Math.cos(look) * 0.22, my = y + Math.sin(look) * 0.22 + 0.16;
+  // El cuerpo: una masa irregular que respira.
+  const shape = () => { for (let i = 0; i <= 24; i++) { const a = i / 24 * Math.PI * 2, rr = R * breathe * (1 + Math.sin(a * 3 + t * 1.7) * 0.05 + (hash(i + h.id * 3) - 0.5) * 0.06); ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.94); } ctx.closePath(); };
+  const skin = ctx.createRadialGradient(x - R * 0.35, y - R * 0.45, R * 0.05, x, y, R * 1.05);
+  skin.addColorStop(0, lighten(body, 0.45)); skin.addColorStop(0.4, body); skin.addColorStop(0.85, darken(body, 0.45)); skin.addColorStop(1, darken(body, 0.7));
+  ink(ctx, shape, skin);
+  ctx.save(); ctx.beginPath(); shape(); ctx.clip();
+  // Manchas oscuras y venas.
+  ctx.fillStyle = darken(body, 0.3); ctx.globalAlpha = 0.55;
+  for (let k = 0; k < 7; k++) { const a = hash(k * 3 + h.id) * 6.3, d = R * (0.3 + hash(k + h.id) * 0.6); ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * d, y + Math.sin(a) * d, R * (0.08 + hash(k * 7) * 0.1), R * (0.05 + hash(k * 5) * 0.07), a, 0, Math.PI * 2); ctx.fill(); }
+  ctx.globalAlpha = 0.6; ctx.strokeStyle = mix(body, '#7f1d1d', 0.55); ctx.lineWidth = P;
+  for (let k = 0; k < 6; k++) {
+    const a = Math.PI * 0.2 + k * 0.45, x0 = x + Math.cos(a) * R, y0 = y + Math.sin(a) * R;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(x + Math.cos(a + 0.4) * R * 0.6, y + Math.sin(a + 0.4) * R * 0.6, x + Math.cos(a + 0.2) * R * 0.35, y + Math.sin(a + 0.2) * R * 0.35); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + Math.cos(a + 0.3) * R * 0.7, y + Math.sin(a + 0.3) * R * 0.7); ctx.lineTo(x + Math.cos(a + 0.55) * R * 0.55, y + Math.sin(a + 0.55) * R * 0.55); ctx.stroke();
+  }
+  // Textura de la piel (poros) y verrugas con brillo.
+  ctx.globalAlpha = 1; grain(ctx, x - R, y - R, x + R, y + R, h.id * 13, darken(body, 0.5), 0.35, 0.09);
+  for (let k = 0; k < 9; k++) {
+    const a = hash(k * 11 + h.id) * 6.3, d = R * (0.25 + hash(k * 13 + h.id) * 0.65), wx = x + Math.cos(a) * d, wy = y + Math.sin(a) * d, wr = R * (0.05 + hash(k * 17) * 0.05);
+    ctx.fillStyle = ball(ctx, wx, wy, wr, lighten(body, 0.15)); ctx.beginPath(); ctx.arc(wx, wy, wr, 0, Math.PI * 2); ctx.fill();
+  }
+  // Borde iluminado (como luz que atraviesa la piel) y el brillo húmedo.
+  ctx.restore();
+  ctx.strokeStyle = lighten(body, 0.5); ctx.globalAlpha = 0.35; ctx.lineWidth = 1.5 * P;
+  ctx.beginPath(); ctx.arc(x, y, R * 0.9, Math.PI * 1.05, Math.PI * 1.6); ctx.stroke();
+  ctx.globalAlpha = 0.45; ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(x - R * 0.42, y - R * 0.5, R * 0.2, R * 0.09, -0.6, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 0.8; ctx.fillRect(x - R * 0.2, y - R * 0.66, 2 * P, 2 * P); ctx.fillRect(x + R * 0.3, y - R * 0.55, P, P);
+  ctx.globalAlpha = 1;
+  // Baba que chorrea por abajo.
+  const slime = 'rgba(190,242,100,0.75)';
+  for (let k = 0; k < 3; k++) {
+    const sx = x + (k - 1) * R * 0.45 + Math.sin(t + k) * 0.02, sy = y + R * 0.78, len = R * (0.25 + 0.3 * ((t * 0.6 + hash(k + h.id)) % 1));
+    ctx.fillStyle = slime; ctx.globalAlpha = 0.85;
+    ctx.beginPath(); ctx.moveTo(sx - 0.03, sy); ctx.quadraticCurveTo(sx - 0.012, sy + len * 0.7, sx, sy + len); ctx.quadraticCurveTo(sx + 0.012, sy + len * 0.7, sx + 0.03, sy); ctx.fill();
+    ctx.beginPath(); ctx.arc(sx, sy + len, 0.035, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  // La boca: del lado hacia donde mira.
+  const mx = x + Math.cos(look) * R * 0.35, my = y + Math.sin(look) * R * 0.25 + R * 0.38;
   if (angry) {
-    const open = 0.1 + 0.06 * Math.abs(Math.sin(t * 10));
-    ink(ctx, () => ctx.ellipse(mx, my, 0.24, open, 0, 0, Math.PI * 2), '#3b0a0a', 1.5);
-    ctx.fillStyle = '#fef2f2';
-    for (let k = 0; k < 5; k++) {
-      const tx = mx - 0.19 + k * 0.095;
-      ctx.beginPath(); ctx.moveTo(tx - 0.035, my - open); ctx.lineTo(tx, my - open + 0.08); ctx.lineTo(tx + 0.035, my - open); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(tx - 0.035, my + open); ctx.lineTo(tx, my + open - 0.08); ctx.lineTo(tx + 0.035, my + open); ctx.fill();
+    const open = R * (0.2 + 0.12 * Math.abs(Math.sin(t * 10))), mw = R * 0.5;
+    ink(ctx, () => ctx.ellipse(mx, my, mw, open, 0, 0, Math.PI * 2), '#c2416b', 1.5); // encías
+    const throat = ctx.createRadialGradient(mx, my, 0, mx, my, mw);
+    throat.addColorStop(0, '#000000'); throat.addColorStop(0.7, '#3b0712'); throat.addColorStop(1, '#7f1d3a');
+    ctx.fillStyle = throat; ctx.beginPath(); ctx.ellipse(mx, my, mw * 0.82, open * 0.72, 0, 0, Math.PI * 2); ctx.fill();
+    for (let k = 0; k < 7; k++) { // dientes desparejos, amarillentos
+      const tx = mx - mw * 0.75 + k * mw * 0.25, tl = open * (0.45 + hash(k + h.id) * 0.45), tw = mw * 0.09;
+      ctx.fillStyle = lin(ctx, 0, my - open, 0, my - open + tl, [[0, '#fefce8'], [1, '#d6c99a']]);
+      ctx.beginPath(); ctx.moveTo(tx - tw, my - open * 0.75); ctx.lineTo(tx + (hash(k) - 0.5) * 0.02, my - open * 0.75 + tl); ctx.lineTo(tx + tw, my - open * 0.75); ctx.fill();
+      const bl = open * (0.35 + hash(k * 3 + h.id) * 0.4);
+      ctx.fillStyle = lin(ctx, 0, my + open, 0, my + open - bl, [[0, '#fefce8'], [1, '#d6c99a']]);
+      ctx.beginPath(); ctx.moveTo(tx - tw + 0.02, my + open * 0.75); ctx.lineTo(tx + 0.02, my + open * 0.75 - bl); ctx.lineTo(tx + tw + 0.02, my + open * 0.75); ctx.fill();
     }
-  } else { ctx.strokeStyle = INK; ctx.lineWidth = 1.5 * P; ctx.beginPath(); ctx.arc(mx, my - 0.05, 0.12, 0.2, Math.PI - 0.2); ctx.stroke(); }
-  // El ojo: sigue al astronauta.
-  const ex = x + Math.cos(look) * 0.1, ey = y - 0.1 + Math.sin(look) * 0.05;
-  ink(ctx, circle(ctx, ex, ey, 0.21), ball(ctx, ex, ey, 0.21, '#fefce8'), 1.5);
-  ctx.fillStyle = angry ? '#dc2626' : '#facc15';
-  ctx.beginPath(); ctx.arc(ex + Math.cos(look) * 0.08, ey + Math.sin(look) * 0.08, 0.11, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = INK; ctx.beginPath(); ctx.ellipse(ex + Math.cos(look) * 0.1, ey + Math.sin(look) * 0.1, 0.03, 0.09, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.fillRect(ex - 0.08, ey - 0.1, 2 * P, 2 * P);
-  if (angry) { // cejas enojadas
-    ctx.strokeStyle = INK; ctx.lineWidth = 2 * P;
-    ctx.beginPath(); ctx.moveTo(ex - 0.22, ey - 0.3); ctx.lineTo(ex + 0.05, ey - 0.2); ctx.lineTo(ex + 0.22, ey - 0.3); ctx.stroke();
+    ctx.strokeStyle = 'rgba(217,249,157,0.6)'; ctx.lineWidth = P; // hilos de baba
+    for (let k = 0; k < 2; k++) { const sx = mx - mw * 0.3 + k * mw * 0.6; ctx.beginPath(); ctx.moveTo(sx, my - open * 0.6); ctx.quadraticCurveTo(sx + 0.03, my, sx - 0.01, my + open * 0.6); ctx.stroke(); }
+  } else {
+    ctx.strokeStyle = darken(body, 0.7); ctx.lineWidth = 2 * P; ctx.beginPath(); ctx.moveTo(mx - R * 0.35, my); ctx.quadraticCurveTo(mx, my + R * 0.12, mx + R * 0.35, my); ctx.stroke();
+    ctx.fillStyle = '#fefce8'; ctx.beginPath(); ctx.moveTo(mx - R * 0.2, my + 0.02); ctx.lineTo(mx - R * 0.16, my + R * 0.16); ctx.lineTo(mx - R * 0.1, my + 0.03); ctx.fill();
   }
+  // El ojo: blanco amarillento con venitas, iris con rayas, pupila de serpiente, brillo y párpado.
+  const er = R * 0.36, ex = x + Math.cos(look) * R * 0.12, ey = y - R * 0.18 + Math.sin(look) * R * 0.06;
+  ctx.fillStyle = darken(body, 0.55); ctx.beginPath(); ctx.arc(ex, ey, er * 1.12, 0, Math.PI * 2); ctx.fill(); // la cuenca
+  const sclera = ctx.createRadialGradient(ex - er * 0.3, ey - er * 0.3, er * 0.1, ex, ey, er);
+  sclera.addColorStop(0, '#fffef5'); sclera.addColorStop(0.7, '#f1e9c8'); sclera.addColorStop(1, '#c9a98a');
+  ink(ctx, circle(ctx, ex, ey, er), sclera, 1.5);
+  ctx.strokeStyle = angry ? 'rgba(220,38,38,0.8)' : 'rgba(220,38,38,0.45)'; ctx.lineWidth = P * 0.8;
+  for (let k = 0; k < 7; k++) { const a = k * 0.9 + 0.3; ctx.beginPath(); ctx.moveTo(ex + Math.cos(a) * er * 0.95, ey + Math.sin(a) * er * 0.95); ctx.quadraticCurveTo(ex + Math.cos(a + 0.25) * er * 0.75, ey + Math.sin(a + 0.25) * er * 0.75, ex + Math.cos(a + 0.1) * er * 0.6, ey + Math.sin(a + 0.1) * er * 0.6); ctx.stroke(); }
+  const ix = ex + Math.cos(look) * er * 0.38, iy = ey + Math.sin(look) * er * 0.38, ir = er * 0.52;
+  const iris = ctx.createRadialGradient(ix, iy, ir * 0.15, ix, iy, ir);
+  iris.addColorStop(0, angry ? '#fde047' : '#fef08a'); iris.addColorStop(0.55, angry ? '#ea580c' : '#ca8a04'); iris.addColorStop(1, angry ? '#7f1d1d' : '#713f12');
+  ctx.fillStyle = iris; ctx.beginPath(); ctx.arc(ix, iy, ir, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = P * 0.6;
+  for (let k = 0; k < 12; k++) { const a = k * Math.PI / 6; ctx.beginPath(); ctx.moveTo(ix + Math.cos(a) * ir * 0.35, iy + Math.sin(a) * ir * 0.35); ctx.lineTo(ix + Math.cos(a) * ir * 0.95, iy + Math.sin(a) * ir * 0.95); ctx.stroke(); }
+  ctx.fillStyle = '#000000'; ctx.beginPath(); ctx.ellipse(ix, iy, ir * (angry ? 0.14 : 0.22), ir * 0.82, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(ex - er * 0.35, ey - er * 0.4, er * 0.18, er * 0.11, -0.6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillRect(ex + er * 0.2, ey + er * 0.25, P, P);
+  // Párpado: baja enojado, y cada tanto parpadea.
+  const blinkNow = Math.sin(t * 0.9) > 0.985, lid = blinkNow ? 1 : angry ? 0.42 : 0.18;
+  ctx.fillStyle = lin(ctx, ex, ey - er, ex, ey, [[0, darken(body, 0.15)], [1, darken(body, 0.45)]]);
+  ctx.beginPath(); ctx.arc(ex, ey, er * 1.04, Math.PI, Math.PI * 2); ctx.lineTo(ex + er * 1.04, ey - er + lid * er * 2 * 0.98); ctx.quadraticCurveTo(ex, ey - er + lid * er * 2 + er * 0.25 * (angry ? -1 : 1), ex - er * 1.04, ey - er + lid * er * 2 * 0.98); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 1.5 * P; ctx.beginPath(); ctx.arc(ex, ey, er * 1.04, 0, Math.PI * 2); ctx.stroke();
 }
 
 // Gusano espacial que sale del piso o del techo: anillos rosados, la boca redonda llena de dientes.
@@ -1295,6 +1387,13 @@ function drawStains(ctx: CanvasRenderingContext2D, game: Game, x0: number, x1: n
     // Sobre la cara del sólido: "tx, ty" va a lo largo de la cara y "nx, ny" para afuera.
     const tx = -st.ny, ty = st.nx;
     const at = (u: number, v: number): [number, number] => [st.x + tx * u + st.nx * v, st.y + ty * u + st.ny * v];
+    if (st.kind === 'scorch') { // hollín de una explosión: una mancha negra con rayas que salen para afuera
+      ctx.fillStyle = 'rgba(20,14,10,0.7)'; ctx.beginPath();
+      for (let i = 0; i < 18; i++) { const a = (i / 18) * Math.PI * 2, rr = st.r * (i % 2 ? 0.45 : 0.7 + hash(st.seed * 40 + i) * 0.5); const [px, py] = at(Math.cos(a) * rr, Math.abs(Math.sin(a)) * rr * 0.25 * (Math.sin(a) > 0 ? 1 : 0.2)); if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); }
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.5)'; const [cx, cy] = at(0, 0.02); ctx.beginPath(); ctx.arc(cx, cy, st.r * 0.3, 0, Math.PI * 2); ctx.fill();
+      continue;
+    }
     const r = st.kind === 'pool' ? st.r * Math.min(1, 0.25 + age * 1.3) : st.r;
     ctx.fillStyle = st.kind === 'pool' ? BLOOD : BLOOD_L; ctx.beginPath();
     for (let i = 0; i < 16; i++) {
@@ -1400,7 +1499,8 @@ export function drawAstronaut(ctx: CanvasRenderingContext2D, x: number, y: numbe
   const bob = a.pose === 'idle' ? Math.sin(a.time * 3) * 0.02 : a.pose === 'run' ? Math.abs(c) * -0.03 : a.pose === 'float' ? drift * 0.04 : 0;
   ctx.translate(0, bob);
   if (a.pose === 'float') ctx.rotate(drift * 0.12); // flotando se balancea despacio
-  const WHITE = '#f1f5f9', SHADE = '#c3cfdd', BLUE = '#2563eb';
+  const WHITE = '#f8fafc', SHADE = '#cbd5e1', DEEP = '#94a3b8', BLUE = '#2563eb';
+  const suit = (x0: number, x1: number) => lin(ctx, x0, 0, x1, 0, [[0, '#ffffff'], [0.55, WHITE], [1, SHADE]]);
   // Manos y pies según la pose.
   let feet: [[number, number], [number, number]] = [[-0.09, 0.44], [0.09, 0.44]];
   let hands: [[number, number], [number, number]] = [[-0.24, 0.13], [0.24, 0.13]];
@@ -1410,33 +1510,68 @@ export function drawAstronaut(ctx: CanvasRenderingContext2D, x: number, y: numbe
     case 'thrust': feet = [[-0.14, 0.4], [-0.03, 0.43]]; hands = [[0.16, 0.04], [0.3, -0.06]]; break;
     case 'land': feet = [[-0.18, 0.45], [0.18, 0.45]]; hands = [[-0.3, 0.14], [0.3, 0.14]]; break;
   }
+  // Pierna: el traje con la rodilla marcada (un anillo gris) y la bota con suela.
   const leg = (foot: [number, number], hipX: number) => {
-    limb(ctx, [[hipX, 0.16], foot], WHITE, 0.15);
-    ink(ctx, () => ctx.roundRect(foot[0] - 0.08, foot[1] - 0.04, 0.17, 0.09, 0.03), '#94a3b8', 1.5);
+    const knee: [number, number] = [(hipX + foot[0]) / 2 + 0.02, (0.16 + foot[1]) / 2 - 0.01];
+    limb(ctx, [[hipX, 0.15], knee, [foot[0], foot[1] - 0.05]], WHITE, 0.16);
+    ctx.strokeStyle = SHADE; ctx.lineWidth = 0.05; ctx.beginPath(); ctx.moveTo(hipX + 0.03, 0.16); ctx.lineTo(knee[0] + 0.03, knee[1]); ctx.stroke(); // sombra del lado de atrás
+    ink(ctx, circle(ctx, knee[0], knee[1], 0.07), ball(ctx, knee[0], knee[1], 0.07, '#d1d5db'), 1);
+    ink(ctx, () => ctx.roundRect(foot[0] - 0.09, foot[1] - 0.08, 0.2, 0.11, 0.04), lin(ctx, 0, foot[1] - 0.08, 0, foot[1] + 0.03, [[0, '#e2e8f0'], [1, '#94a3b8']]), 1.5);
+    ctx.fillStyle = '#334155'; ctx.fillRect(foot[0] - 0.09, foot[1] + 0.005, 0.2, 0.03); // suela
+    ctx.fillStyle = BLUE; ctx.fillRect(foot[0] - 0.08, foot[1] - 0.07, 0.18, P * 1.5); // franja azul
   };
+  // Brazo: con el puño azul y el guante.
   const arm = (hand: [number, number], shoulderX: number) => {
-    limb(ctx, [[shoulderX, -0.06], hand], WHITE, 0.13);
-    ink(ctx, circle(ctx, hand[0], hand[1], 0.065), SHADE, 1.5);
+    const elbow: [number, number] = [(shoulderX + hand[0]) / 2, (-0.06 + hand[1]) / 2 + 0.02];
+    limb(ctx, [[shoulderX, -0.07], elbow, hand], WHITE, 0.13);
+    ink(ctx, circle(ctx, elbow[0], elbow[1], 0.055), '#d1d5db', 1);
+    const cx = hand[0] + (elbow[0] - hand[0]) * 0.28, cy = hand[1] + (elbow[1] - hand[1]) * 0.28;
+    ink(ctx, circle(ctx, cx, cy, 0.06), BLUE, 1);
+    ink(ctx, () => ctx.ellipse(hand[0], hand[1], 0.07, 0.06, 0, 0, Math.PI * 2), ball(ctx, hand[0], hand[1], 0.07, '#9ca3af'), 1.5);
   };
-  arm(hands[0], -0.1);
-  ink(ctx, () => ctx.roundRect(-0.33, -0.22, 0.19, 0.38, 0.05), '#cbd5e1'); // tanque de oxígeno en la espalda
-  ctx.fillStyle = '#38bdf8'; ctx.fillRect(-0.3, -0.12, 0.13, 0.08);
+  arm(hands[0], -0.11);
+  // Mochila de soporte de vida: caja con rejillas, luz de estado y dos toberas abajo.
+  ink(ctx, () => ctx.roundRect(-0.37, -0.25, 0.23, 0.44, 0.05), lin(ctx, -0.37, 0, -0.14, 0, [[0, '#94a3b8'], [0.5, '#e2e8f0'], [1, '#cbd5e1']]));
+  ctx.fillStyle = '#64748b'; for (let k = 0; k < 4; k++) ctx.fillRect(-0.34, -0.17 + k * 0.06, 0.15, P);
+  ctx.fillStyle = '#38bdf8'; ctx.fillRect(-0.33, 0.08, 0.06, 0.04); glow(ctx, -0.3, 0.1, 0.08, '#38bdf8', 0.6);
+  ink(ctx, () => ctx.rect(-0.35, 0.19, 0.07, 0.05), '#475569', 1); ink(ctx, () => ctx.rect(-0.24, 0.19, 0.07, 0.05), '#475569', 1);
   leg(feet[0], -0.07);
-  ink(ctx, () => ctx.roundRect(-0.19, -0.14, 0.38, 0.34, 0.1), WHITE); // cuerpo
-  ctx.fillStyle = SHADE; ctx.fillRect(-0.16, 0.1, 0.32, 0.06);
-  ink(ctx, () => ctx.roundRect(-0.04, -0.06, 0.16, 0.1, 0.03), '#3b82f6', 1); // panel del pecho
-  ctx.fillStyle = '#93c5fd'; ctx.fillRect(-0.01, -0.04, 2 * P, P);
+  // El torso: traje con pliegues, cinturón y panel de control en el pecho.
+  ink(ctx, () => ctx.roundRect(-0.2, -0.16, 0.4, 0.37, 0.11), suit(-0.2, 0.2));
+  ctx.strokeStyle = 'rgba(100,116,139,0.55)'; ctx.lineWidth = P;
+  ctx.beginPath(); ctx.moveTo(-0.15, -0.02); ctx.quadraticCurveTo(-0.1, 0.02, -0.15, 0.06); ctx.moveTo(0.16, -0.06); ctx.quadraticCurveTo(0.12, -0.02, 0.16, 0.02); ctx.stroke(); // pliegues
+  ink(ctx, () => ctx.rect(-0.2, 0.1, 0.4, 0.06), lin(ctx, 0, 0.1, 0, 0.16, [[0, '#94a3b8'], [1, '#475569']]), 1); // cinturón
+  ink(ctx, () => ctx.rect(-0.03, 0.095, 0.07, 0.07), '#facc15', 1); // hebilla
+  ink(ctx, () => ctx.roundRect(-0.06, -0.09, 0.2, 0.15, 0.025), lin(ctx, 0, -0.09, 0, 0.06, [[0, '#334155'], [1, '#0f172a']]), 1.2); // panel
+  ctx.fillStyle = '#22d3ee'; ctx.fillRect(-0.035, -0.07, 0.09, 0.04); // pantallita
+  ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(-0.03, -0.065, 0.04, P * 0.7);
+  const tick = Math.floor(a.time * 3);
+  for (const [k, color] of [[0, '#ef4444'], [1, '#22c55e'], [2, '#facc15']] as const) { ctx.fillStyle = (tick + k) % 3 === 0 ? lighten(color, 0.4) : color; ctx.fillRect(-0.035 + k * 0.045, -0.015, 0.03, 0.03); }
+  ctx.fillStyle = '#e2e8f0'; ctx.fillRect(0.075, -0.07, 0.04, 0.09);
+  // Parche con bandera en el hombro.
+  ctx.fillStyle = '#7dd3fc'; ctx.fillRect(0.1, -0.15, 0.08, 0.018); ctx.fillStyle = '#ffffff'; ctx.fillRect(0.1, -0.132, 0.08, 0.018); ctx.fillStyle = '#7dd3fc'; ctx.fillRect(0.1, -0.114, 0.08, 0.018);
+  ctx.fillStyle = '#facc15'; ctx.fillRect(0.135, -0.128, P, P);
   leg(feet[1], 0.07);
-  // Casco grande con el visor azul que brilla.
-  ink(ctx, circle(ctx, 0.02, -0.29, 0.26), WHITE);
-  ctx.fillStyle = SHADE; ctx.beginPath(); ctx.arc(0.02, -0.29, 0.26, Math.PI * 0.6, Math.PI * 1.1); ctx.lineTo(0.02, -0.29); ctx.fill();
-  const visor = ctx.createLinearGradient(0, -0.45, 0.1, -0.15);
-  visor.addColorStop(0, '#60a5fa'); visor.addColorStop(0.5, BLUE); visor.addColorStop(1, '#1e3a8a');
-  ink(ctx, () => ctx.ellipse(0.1, -0.29, 0.17, 0.15, 0, 0, Math.PI * 2), visor, 2);
-  ctx.fillStyle = '#dbeafe'; ctx.fillRect(0.04, -0.39, 3 * P, 2 * P); ctx.fillRect(0.02, -0.35, 2 * P, 2 * P);
-  ink(ctx, circle(ctx, -0.14, -0.28, 0.065), BLUE, 1.5); // oreja del casco
-  ctx.fillStyle = '#bfdbfe'; ctx.fillRect(-0.15, -0.29, P * 1.5, P * 1.5);
-  arm(hands[1], 0.11);
+  // Cuello: el anillo de metal donde se engancha el casco.
+  ink(ctx, () => ctx.ellipse(0.02, -0.12, 0.17, 0.05, 0, 0, Math.PI * 2), lin(ctx, 0, -0.17, 0, -0.07, [[0, '#e5e7eb'], [1, '#64748b']]), 1.5);
+  // Casco: esfera blanca con sombra, visor azul espejado con el reflejo de las estrellas, linterna y antena.
+  const hx = 0.02, hy = -0.3, hr = 0.27;
+  ink(ctx, circle(ctx, hx, hy, hr), ball(ctx, hx, hy, hr, '#eef2f7'));
+  limb(ctx, [[-0.14, -0.43], [-0.2, -0.56]], '#9ca3af', P * 1.5); // antena
+  ink(ctx, circle(ctx, -0.2, -0.57, 0.025), '#ef4444', 1);
+  const visor = ctx.createLinearGradient(hx, hy - 0.17, hx + 0.12, hy + 0.15);
+  visor.addColorStop(0, '#93c5fd'); visor.addColorStop(0.35, BLUE); visor.addColorStop(0.75, '#1e3a8a'); visor.addColorStop(1, '#f59e0b');
+  ink(ctx, () => ctx.ellipse(hx + 0.08, hy, 0.18, 0.16, 0, 0, Math.PI * 2), DEEP, 2.2); // marco del visor
+  ctx.fillStyle = visor; ctx.beginPath(); ctx.ellipse(hx + 0.09, hy + 0.005, 0.155, 0.135, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.ellipse(hx + 0.09, hy + 0.005, 0.155, 0.135, 0, 0, Math.PI * 2); ctx.clip();
+  ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.ellipse(hx + 0.03, hy - 0.06, 0.09, 0.035, -0.5, 0, Math.PI * 2); ctx.fill(); // reflejo grande
+  ctx.fillStyle = 'rgba(255,255,255,0.8)'; for (let k = 0; k < 4; k++) ctx.fillRect(hx + 0.08 + hash(k) * 0.12, hy - 0.02 + hash(k + 5) * 0.1, P * 0.8, P * 0.8); // estrellitas
+  ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(hx + 0.13, hy - 0.15, 0.03, 0.3);
+  ctx.restore();
+  ink(ctx, () => ctx.roundRect(hx - 0.25, hy - 0.08, 0.1, 0.15, 0.03), lin(ctx, 0, hy - 0.08, 0, hy + 0.07, [[0, '#cbd5e1'], [1, '#64748b']]), 1.5); // oreja
+  ink(ctx, circle(ctx, hx - 0.2, hy - 0.16, 0.035), '#fef9c3', 1); // linterna
+  glow(ctx, hx - 0.2, hy - 0.16, 0.12, '#fef08a', 0.5);
+  arm(hands[1], 0.12);
   ctx.restore();
 }
 
@@ -1583,12 +1718,29 @@ export function drawGame(ctx: CanvasRenderingContext2D, game: Game, rows: number
   }
   for (const b of game.bolts) { glow(ctx, b.x, b.y, b.r * 3, b.color, 0.6); ink(ctx, circle(ctx, b.x, b.y, b.r), ball(ctx, b.x, b.y, b.r, b.color), 1.5); ctx.fillStyle = '#fff'; ctx.fillRect(b.x - P, b.y - P, 2 * P, 2 * P); }
   drawPlayer(ctx, game);
+  // El humo de las explosiones (detrás del fuego).
+  for (const m of game.smoke) {
+    const k = m.life / m.max, g = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r);
+    g.addColorStop(0, `rgba(87,83,78,${0.4 * k})`); g.addColorStop(0.6, `rgba(68,64,60,${0.22 * k})`); g.addColorStop(1, 'rgba(41,37,36,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2); ctx.fill();
+  }
   for (const b of game.blasts) {
     const k = b.t / b.max, r = b.r * (0.5 + k * 0.8);
     if (b.lethal) {
-      const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
-      g.addColorStop(0, `rgba(255,255,220,${0.95 * (1 - k)})`); g.addColorStop(0.5, `rgba(251,146,60,${0.8 * (1 - k)})`); g.addColorStop(1, 'rgba(239,68,68,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill();
+      // Explosión: un fogonazo blanco, una bola de fuego hecha de varias llamaradas que se agrandan y se
+      // oscurecen, y la onda expansiva (un anillo que se abre).
+      if (k < 0.15) glow(ctx, b.x, b.y, b.r * 1.2, '#fffbeb', 1 - k / 0.15);
+      glow(ctx, b.x, b.y, b.r * 2.6, '#fb923c', 0.55 * (1 - k));
+      for (let i = 0; i < 10; i++) {
+        const a = hash(i * 7 + b.x * 3) * Math.PI * 2, d = b.r * 0.55 * Math.min(1, k * 3) * (0.3 + hash(i + b.y) * 0.7);
+        const fx = b.x + Math.cos(a) * d, fy = b.y + Math.sin(a) * d - k * 0.3, fr = b.r * (0.32 + hash(i * 3) * 0.25) * (0.6 + k * 0.9);
+        const hot = Math.max(0, 1 - k * 1.1), g = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
+        g.addColorStop(0, mix('#57534e', '#fef9c3', hot)); g.addColorStop(0.45, mix('#44403c', '#f97316', Math.min(1, hot * 1.3))); g.addColorStop(1, mix('rgba(41,37,36,0)', 'rgba(220,38,38,0)', hot));
+        ctx.globalAlpha = Math.min(1, (1 - k) * 1.6); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = Math.max(0, 0.8 * (1 - k * 1.3)); ctx.strokeStyle = '#fff7ed'; ctx.lineWidth = Math.max(P, 0.16 * (1 - k));
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r * (0.3 + k * 2.2), 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
     } else {
       // Salpicadura de sangre: un charco irregular que se queda un momento y se va desvaneciendo.
       const fade = Math.max(0, 1 - k * 1.6);

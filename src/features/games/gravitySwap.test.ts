@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CEIL, CHECKPOINTS, blackholeNear, FLOOR, LEVELS, LEVEL_COUNT, LIVES, PLAYER_H, PLAYER_W, ROWS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input } from './gravitySwap';
+import { CEIL, CHECKPOINTS, blackholeNear, bombCount, FLOOR, LEVELS, LEVEL_COUNT, LIVES, PLAYER_H, PLAYER_W, ROWS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input } from './gravitySwap';
 
 const idle: Input = { left: false, right: false, up: false, down: false };
 const fixed = () => 0.5;
@@ -150,6 +150,23 @@ describe('Gravity Swap: trampas nuevas', () => {
     game.hazards.push(hazard({ kind: 'bomb', x: game.player.x + PLAYER_W / 2, y: game.player.y + PLAYER_H / 2, side: 0, r: 0.42, period: 1, phase: 0 }));
     runUntil(game, () => game.phase === 'dead', 1.5);
     expect(game.death).toBe('blast');
+  });
+
+  it('la bomba muestra -- mientras espera, cuenta 3, 2, 1 con un pitido por número y explota', () => {
+    const game = empty();
+    game.hazards.push(hazard({ kind: 'bomb', x: 12, y: 5, side: 0, r: 0.42, period: 5, phase: 0.5 }));
+    const bomb = game.hazards[0];
+    expect(bombCount(game, bomb)).toBe(0); // faltan 4,5 s
+    const beeps: number[] = [];
+    let boom = false;
+    for (let i = 0; i < 4.6 * 60 && !boom; i++) {
+      game.cam = 0; game.player.x = 4; // que la bomba siga en la pantalla
+      step(game, idle, 1 / 60, fixed);
+      for (const e of takeEvents(game)) { if (e.type === 'beep') beeps.push(e.count); if (e.type === 'boom') boom = true; }
+    }
+    expect(beeps).toEqual([3, 2, 1]);
+    expect(boom).toBe(true);
+    expect(game.smoke.length).toBeGreaterThan(5);
   });
 
   it('una puerta cerrada bloquea el paso y, cuando se abre, se puede cruzar', () => {

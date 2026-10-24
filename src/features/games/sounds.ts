@@ -50,6 +50,7 @@ import agujeroNegroUrl from './assets/sonidos/agujero-negro.mp3';
 import laserUrl from './assets/sonidos/laser.mp3';
 import monstruoUrl from './assets/sonidos/monstruo.mp3';
 import puertaUrl from './assets/sonidos/puerta.mp3';
+import explosionUrl from './assets/sonidos/explosion.mp3';
 
 type WithWebkit = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 let ctx: AudioContext | null = null;
@@ -1156,7 +1157,7 @@ export function preloadUiSounds() { for (const url of [jugarUrl, ganasteUrl, gam
 if (typeof window !== 'undefined' && typeof fetch === 'function') preloadUiSounds();
 
 // ---------- Gravity Swap ----------
-export function preloadGravitySounds() { for (const url of [bombaUrl, propulsorUrl, personaCaeUrl, agujeroNegroUrl, laserUrl, monstruoUrl, puertaUrl, ...TRUENOS]) loadSample(url); }
+export function preloadGravitySounds() { for (const url of [bombaUrl, propulsorUrl, personaCaeUrl, agujeroNegroUrl, laserUrl, monstruoUrl, puertaUrl, explosionUrl, ...TRUENOS]) loadSample(url); }
 // La gravedad se dio vuelta: un "fuuiiip" que sube y un soplido.
 export function playGravityFlip() {
   const c = running(); if (!c) return;
@@ -1167,6 +1168,21 @@ export function playGravityFlip() {
 }
 export function playAstronautLand() { const c = running(); if (!c) return; burst(c, 'lowpass', 500, c.currentTime, 0.1, 0.5); }
 // Láser que se prende: un zumbido eléctrico corto.
+// Explosión de Gravity Swap: la grabación (si explotan varias juntas, no se amontonan).
+let lastBoom = -1;
+export function playGravityBoom() {
+  const c = running(); if (!c) return;
+  if (c.currentTime - lastBoom < 0.12) return;
+  lastBoom = c.currentTime;
+  if (!playSample(explosionUrl, 0.8)) playExplosion();
+}
+// La cuenta regresiva de la bomba: un pitido electrónico por número (el 1, más agudo y doble).
+export function playBombBeep(count: number) {
+  const c = running(); if (!c) return;
+  const t = c.currentTime, f = count === 1 ? 1760 : count === 2 ? 1320 : 1100;
+  tone(c, 'square', f, f, t, 0.09, 0.12);
+  if (count === 1) tone(c, 'square', f, f, t + 0.14, 0.09, 0.12);
+}
 // Si hay varios lásers prendiéndose juntos, suena uno solo.
 let lastLaser = -1;
 export function playLaserOn() {
