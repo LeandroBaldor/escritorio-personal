@@ -1430,6 +1430,7 @@ export function drawAstronaut(ctx: CanvasRenderingContext2D, x: number, y: numbe
   ctx.rotate(a.angle);
   ctx.scale(1.4, 1.4); // un poco más grande que su caja de choque, para que se vea bien
   if (a.mirror) ctx.scale(-1, 1);
+  if (a.pose === 'run') ctx.rotate(0.07); // caminando se inclina un poquito para adelante
   if (a.squash && a.squash !== 1) { ctx.translate(0, 0.48); ctx.scale(1 + (1 - a.squash) * 0.6, a.squash); ctx.translate(0, -0.48); }
   const s = Math.sin(a.time * STRIDE), c = Math.cos(a.time * STRIDE), drift = Math.sin(a.time * 2.2);
   const bob = a.pose === 'idle' ? Math.sin(a.time * 3) * 0.02 : a.pose === 'run' ? Math.abs(c) * -0.03 : a.pose === 'float' ? drift * 0.04 : 0;
@@ -1441,7 +1442,9 @@ export function drawAstronaut(ctx: CanvasRenderingContext2D, x: number, y: numbe
   let feet: [[number, number], [number, number]] = [[-0.09, 0.44], [0.09, 0.44]];
   let hands: [[number, number], [number, number]] = [[-0.24, 0.13], [0.24, 0.13]];
   switch (a.pose) {
-    case 'run': feet = [[-0.04 - s * 0.18, 0.44 - Math.max(0, c) * 0.09], [0.04 + s * 0.18, 0.44 - Math.max(0, -c) * 0.09]]; hands = [[-0.12 + s * 0.16, 0.12], [0.14 - s * 0.16, 0.1]]; break;
+    // Caminando: el pie que está en el aire va para adelante (levantado) y el apoyado se desliza para atrás; los
+    // brazos al revés que las piernas.
+    case 'run': feet = [[-0.04 - s * 0.18, 0.44 - Math.max(0, -c) * 0.12], [0.04 + s * 0.18, 0.44 - Math.max(0, c) * 0.12]]; hands = [[-0.12 + s * 0.16, 0.12], [0.14 - s * 0.16, 0.1]]; break;
     case 'float': feet = [[-0.17, 0.4 + drift * 0.03], [0.13, 0.36 - drift * 0.03]]; hands = [[-0.31, -0.06 + drift * 0.05], [0.31, -0.12 - drift * 0.05]]; break;
     case 'thrust': feet = [[-0.14, 0.4], [-0.03, 0.43]]; hands = [[0.16, 0.04], [0.3, -0.06]]; break;
     case 'land': feet = [[-0.18, 0.45], [0.18, 0.45]]; hands = [[-0.3, 0.14], [0.3, 0.14]]; break;
