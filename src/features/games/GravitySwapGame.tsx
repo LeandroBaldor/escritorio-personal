@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { CHECKPOINTS, LEVELS, LEVEL_COUNT, LIVES, ROWS, blackholeNear, loadLevel, newGame, progress, step, takeEvents, type Death, type Game, type Input, type Stats } from './gravitySwap';
 import { PX, drawGame } from './gravityArt';
 import {
-  playAstronautHit, playAstronautLand, playAstronautSplat, playBombBeep, playCheckpoint, playComet, playCrumble, playGameOver, playGravityBoom, playGravityFlip, playGust,
-  playDoor, playLaserOn, playMonsterRoar, playStart, playTeleport, playThunder, playTramp, playTurretShot, playThrust, playWinFanfare, playWorm, preloadGravitySounds, setBlackholeSound, setThrustSound, stopBlackholeSound,
+  playAstronautHit, playAstronautLand, playAstronautSplat, playAstronautStep, playBombBeep, playCheckpoint, playComet, playCrumble, playGameOver, playGravityBoom, playGravityFlip, playGust,
+  playDoor, playLaserOn, playMonsterRoar, playStart, playTeleport, playThunder, playTramp, playTurretShot, playThrust, playWinFanfare, playWorm, preloadGravitySounds, setBlackholeSound, setThrustSound, stopBlackholeSound, tickGravityMusic,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 
@@ -112,6 +112,7 @@ export function GravitySwap() {
       // Mientras usa el chorro de oxígeno suena el propulsor (si la grabación no cargó todavía, un soplido seguido).
       const thrusting = game.phase === 'play' && (game.player.tx !== 0 || game.player.ty !== 0);
       setBlackholeSound(game.phase === 'play' ? blackholeNear(game) : 0);
+      tickGravityMusic(game.phase !== 'over' && game.phase !== 'won');
       if (!setThrustSound(thrusting)) {
         puff = thrusting ? puff - dt : 0;
         if (thrusting && puff <= 0) { playThrust(); puff = 0.12; }
@@ -119,6 +120,7 @@ export function GravitySwap() {
       for (const e of takeEvents(game)) {
         switch (e.type) {
           case 'land': playAstronautLand(); break;
+          case 'step': playAstronautStep(); break;
           case 'flip': playGravityFlip(); break;
           case 'death': playAstronautHit(); playAstronautSplat(); break;
           case 'checkpoint': playCheckpoint(); break;
@@ -155,14 +157,14 @@ export function GravitySwap() {
       paint();
       const next = hudOf(game);
       setHud(prev => sameHud(prev, next) ? prev : next);
-      if (game.phase === 'over') { setThrustSound(false); stopBlackholeSound(); playGameOver(); setStatus('over'); return; }
+      if (game.phase === 'over') { setThrustSound(false); stopBlackholeSound(); tickGravityMusic(false); playGameOver(); setStatus('over'); return; }
       if (game.phase === 'won') { setStatus('won'); return; }
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     const hide = () => { if (document.hidden) setStatus('paused'); };
     document.addEventListener('visibilitychange', hide);
-    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); setThrustSound(false); stopBlackholeSound(); };
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); setThrustSound(false); stopBlackholeSound(); tickGravityMusic(false); };
   }, [status, paint]);
 
   useEffect(() => {

@@ -123,6 +123,19 @@ describe('Gravity Swap: gravedad que gira', () => {
 });
 
 describe('Gravity Swap: chorros de oxígeno', () => {
+  it('caminando apoyado suena un paso por pisada; flotando no', () => {
+    const game = empty();
+    run(game, 0.5); takeEvents(game);
+    run(game, 3.5);
+    const steps = takeEvents(game).filter(e => e.type === 'step').length;
+    expect(steps).toBeGreaterThanOrEqual(9); // un paso cada π/9 ≈ 0,35 s
+    expect(steps).toBeLessThanOrEqual(11);
+    flipGravity(game, fixed, Math.PI); game.gravityIn = 999;
+    run(game, 0.3); takeEvents(game);
+    run(game, 0.3, { ...idle, down: true }); // impulsándose en el aire
+    expect(takeEvents(game).some(e => e.type === 'step')).toBe(false);
+  });
+
   it('el chorro lo despega del piso, y el tanque no se termina nunca', () => {
     const game = empty();
     run(game, 0.5);

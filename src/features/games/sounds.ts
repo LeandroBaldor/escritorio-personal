@@ -51,6 +51,8 @@ import laserUrl from './assets/sonidos/laser.mp3';
 import monstruoUrl from './assets/sonidos/monstruo.mp3';
 import puertaUrl from './assets/sonidos/puerta.mp3';
 import explosionUrl from './assets/sonidos/explosion.mp3';
+import pasosUrl from './assets/sonidos/pasos.mp3';
+import musicaGravedadUrl from './assets/sonidos/musica-gravedad.mp3';
 
 type WithWebkit = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 let ctx: AudioContext | null = null;
@@ -1157,7 +1159,7 @@ export function preloadUiSounds() { for (const url of [jugarUrl, ganasteUrl, gam
 if (typeof window !== 'undefined' && typeof fetch === 'function') preloadUiSounds();
 
 // ---------- Gravity Swap ----------
-export function preloadGravitySounds() { for (const url of [bombaUrl, propulsorUrl, personaCaeUrl, agujeroNegroUrl, laserUrl, monstruoUrl, puertaUrl, explosionUrl, ...TRUENOS]) loadSample(url); }
+export function preloadGravitySounds() { for (const url of [bombaUrl, propulsorUrl, personaCaeUrl, agujeroNegroUrl, laserUrl, monstruoUrl, puertaUrl, explosionUrl, pasosUrl, musicaGravedadUrl, ...TRUENOS]) loadSample(url); }
 // La gravedad se dio vuelta: un "fuuiiip" que sube y un soplido.
 export function playGravityFlip() {
   const c = running(); if (!c) return;
@@ -1168,6 +1170,39 @@ export function playGravityFlip() {
 }
 export function playAstronautLand() { const c = running(); if (!c) return; burst(c, 'lowpass', 500, c.currentTime, 0.1, 0.5); }
 // Láser que se prende: un zumbido eléctrico corto.
+// Pasos del astronauta: la grabación trae muchas pisadas seguidas; cada paso suena una distinta (en orden).
+const STEPS = [0.6, 1.12, 1.67, 2.2, 2.78, 3.34, 3.94, 4.5, 5.02, 5.56, 6.11, 6.64, 7.15, 7.67, 8.22, 8.79, 9.33, 9.85, 10.41, 11.01];
+let stepIndex = 0;
+export function playAstronautStep() {
+  const c = running(); if (!c) return;
+  const buffer = samples.get(pasosUrl);
+  if (!(buffer instanceof AudioBuffer)) { loadSample(pasosUrl); return; }
+  const source = c.createBufferSource(), gain = c.createGain();
+  source.buffer = buffer; source.playbackRate.value = 0.95 + Math.random() * 0.1; gain.gain.value = 0.7;
+  source.connect(gain).connect(out(c));
+  source.start(c.currentTime, STEPS[stepIndex] - 0.02, 0.3);
+  stepIndex = (stepIndex + 1) % STEPS.length;
+}
+// Música de Gravity Swap: suena al empezar y, cada vez que termina, vuelve a sonar 10 segundos después.
+// Se corta en la pausa y al perder (al seguir, arranca de nuevo al rato).
+let music: AudioBufferSourceNode | null = null, musicGain: GainNode | null = null, musicNext = 0;
+export function tickGravityMusic(on: boolean) {
+  const c = running(); if (!c) return;
+  if (!on) {
+    if (music && musicGain) { musicGain.gain.setTargetAtTime(0, c.currentTime, 0.1); music.onended = null; music.stop(c.currentTime + 0.5); }
+    music = null; musicGain = null; musicNext = 0;
+    return;
+  }
+  if (!musicNext) musicNext = c.currentTime + 1;
+  if (music || c.currentTime < musicNext) return;
+  const buffer = samples.get(musicaGravedadUrl);
+  if (!(buffer instanceof AudioBuffer)) { loadSample(musicaGravedadUrl); return; }
+  const source = c.createBufferSource(), gain = c.createGain();
+  source.buffer = buffer; gain.gain.value = 0.6;
+  source.connect(gain).connect(out(c)); source.start();
+  source.onended = () => { if (music === source) { music = null; musicGain = null; musicNext = c.currentTime + 10; } };
+  music = source; musicGain = gain;
+}
 // Explosión de Gravity Swap: la grabación (si explotan varias juntas, no se amontonan).
 let lastBoom = -1;
 export function playGravityBoom() {

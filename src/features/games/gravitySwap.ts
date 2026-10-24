@@ -14,6 +14,7 @@ export const CEIL = 1; // borde de abajo del techo
 export const FLOOR = 9; // borde de arriba del piso
 export const PLAYER_W = 0.78; // cuadrado: así el choque es igual mire para donde mire
 export const PLAYER_H = 0.78;
+export const STRIDE = 9; // qué tan rápido mueve las piernas al caminar (un paso cada π/9 segundos)
 export const LIVES = 3;
 export const LEVEL_COUNT = 10;
 const G = 14; // gravedad baja: flota
@@ -104,6 +105,7 @@ export interface Player {
   onGround: boolean; // apoyado del lado hacia donde tira la gravedad
   touch: { down: boolean; up: boolean; left: boolean; right: boolean }; // contra qué está apoyado
   landT: number; // tiempo desde que se apoyó
+  stride: number; // cuántos pasos dio (para que suene cada pisada)
 }
 
 export type Death = 'spikes' | 'laser' | 'mine' | 'blast' | 'saw' | 'enemy' | 'void' | 'edge' | 'fire' | 'bolt' | 'lightning' | 'press' | 'icicle' | 'spore' | 'rock'
@@ -113,7 +115,7 @@ export type GravityEvent =
   | { type: 'land' } | { type: 'flip' } | { type: 'death'; reason: Death }
   | { type: 'boom' } | { type: 'shot' } | { type: 'zap' } | { type: 'spring' } | { type: 'crumble' } | { type: 'cleared'; level: number }
   | { type: 'thunder' } | { type: 'gust' } | { type: 'respawn' } | { type: 'won' }
-  | { type: 'beep'; count: number } | { type: 'checkpoint' } | { type: 'roar' } | { type: 'comet' } | { type: 'worm' } | { type: 'door'; opening: boolean };
+  | { type: 'step' } | { type: 'beep'; count: number } | { type: 'checkpoint' } | { type: 'roar' } | { type: 'comet' } | { type: 'worm' } | { type: 'door'; opening: boolean };
 
 export interface Stats { time: number; deaths: number; flips: number; levels: number }
 
@@ -430,7 +432,7 @@ export function loadLevel(game: Game, level: number, rand: () => number = Math.r
     bolts: [], particles: [], blasts: [], smoke: [],
     player: {
       x: cam + 4, y: angle ? CEIL : FLOOR - PLAYER_H, vx: 0, vy: 0, tx: 0, ty: 0, facing: 1,
-      onGround: true, touch: { down: !angle, up: !!angle, left: false, right: false }, landT: 9,
+      onGround: true, touch: { down: !angle, up: !!angle, left: false, right: false }, landT: 9, stride: -1,
     },
     cam, speed: def.speed[0], time: 0,
     angle, view: angle,
@@ -1022,6 +1024,11 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   p.touch = { down: !!hitsSolid(solids, p.x, p.y + probe), up: !!hitsSolid(solids, p.x, p.y - probe), left: !!hitsSolid(solids, p.x - probe, p.y), right: !!hitsSolid(solids, p.x + probe, p.y) };
   p.onGround = p.touch[Math.abs(gy) >= Math.abs(gx) ? (gy > 0 ? 'down' : 'up') : (gx > 0 ? 'right' : 'left')];
   if (p.onGround && !wasGround) { p.landT = 0; emit(game, { type: 'land' }); }
+  // Pasos: mientras camina apoyado, cada vez que apoya un pie (va igual que el dibujo de las piernas).
+  if (p.onGround && p.landT > 0.14 && Math.abs(game.speed + p.vx) > 0.3) {
+    const stride = Math.floor((game.time * STRIDE + Math.PI / 2) / Math.PI);
+    if (stride !== p.stride) { if (p.stride >= 0) emit(game, { type: 'step' }); p.stride = stride; }
+  } else p.stride = -1;
   p.landT += dt;
 
   // Plataformas que se desarman: empiezan a caerse al tocarlas.
