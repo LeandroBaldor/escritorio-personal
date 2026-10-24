@@ -253,6 +253,10 @@ describe('Gravity Swap: monstruos, cometas, lásers nuevos y agujeros negros', (
     for (let n = 1; n <= LEVEL_COUNT; n++) expect(buildLevel(n).hazards.filter(h => h.kind === 'laser' || h.kind === 'sweeper' || h.kind === 'scanner').length).toBeGreaterThanOrEqual(10);
   });
 
+  it('hay agujeros negros en todos los escenarios, bastante seguido', () => {
+    for (let n = 1; n <= LEVEL_COUNT; n++) expect(buildLevel(n).hazards.filter(h => h.kind === 'blackhole').length).toBeGreaterThanOrEqual(8);
+  });
+
   it('el monstruo se despierta cuando te acercás y te persigue', () => {
     const game = empty();
     game.hazards.push(hazard({ kind: 'monster', x: 20, y: 3, x0: 20, y0: 3, r: 0.48, amp: 0.5, speed: 3.5, aim: Math.PI }));

@@ -773,3 +773,72 @@ export function drawUpperSky(ctx: CanvasRenderingContext2D, theme: ThemeKey, cam
     });
   }
 }
+
+// ---------- El agujero negro ----------
+
+// El remolino de luz del agujero negro (como en las fotos): un disco en espiral de estelas finas, celeste y
+// blanco cerca del centro, violeta en el medio y azul profundo afuera, con polvo brillante. Se pinta una vez
+// (píxel por píxel) y después se dibuja girando. "inner": la versión más chica y brillante que gira más rápido.
+const HOLE_R = 3;
+function holeDisk(inner: boolean) {
+  const W = HOLE_R * 2, res = 72;
+  return sprite(`hole-${inner ? 'in' : 'out'}`, W, W, g => {
+    const seed = inner ? 7 : 3, px = Math.round(W * res);
+    const img = pixels(px, px, (x, y) => {
+      const dx = (x + 0.5) / res - HOLE_R, dy = (y + 0.5) / res - HOLE_R, r = Math.hypot(dx, dy) / HOLE_R * 3;
+      if (r > 3 || r < 0.42) return null;
+      const th = Math.atan2(dy, dx), lr = Math.log(r + 0.05);
+      // Estelas en espiral: varias frecuencias (enteras, para que la vuelta cierre sin costura) y un poco de ruido
+      // a lo largo del radio, así no se ven parejas.
+      let streak = 0;
+      for (const [n, c, a] of [[2, 3.2, 0.5], [5, 3.6, 0.3], [11, 4, 0.22], [19, 4.4, 0.14]] as const) {
+        const ph = n * (th + c * lr) + fbm(r * 2.2, n, seed + n, 3) * 6;
+        streak += a * Math.pow(0.5 + 0.5 * Math.sin(ph), 2.2);
+      }
+      const ring = Math.exp(-(((r - 0.95) / 0.45) ** 2)) * 1.3 + Math.exp(-(((r - 1.8) / 0.75) ** 2)) * 0.75 + Math.exp(-(((r - 2.6) / 0.5) ** 2)) * 0.25;
+      const inside = Math.min(1, (r - 0.42) / 0.12); // borde del centro negro
+      let k = Math.min(1.4, (0.25 + streak * 1.6) * ring) * inside;
+      if (inner) k *= Math.exp(-(((r - 0.9) / 0.7) ** 2)) * 1.4;
+      const base = ramp([[0, '#f0fdff'], [0.22, '#67e8f9'], [0.45, '#818cf8'], [0.62, '#c084fc'], [0.8, '#3b5bdb'], [1, '#1e1b6b']], (r - 0.42) / 2.6);
+      const c = mixRGB(base, [255, 255, 255], Math.max(0, k - 1.15) * 0.6);
+      return [c[0], c[1], c[2], Math.min(255, k * 175)];
+    });
+    g.drawImage(img, 0, 0, W, W);
+    // Polvo brillante desparramado por el disco.
+    const r = rng(seed * 5);
+    for (let i = 0; i < (inner ? 60 : 160); i++) {
+      const a = r() * Math.PI * 2, d = 0.5 + r() ** 0.7 * (inner ? 1.4 : 2.4);
+      g.fillStyle = r() < 0.6 ? 'rgba(207,250,254,0.85)' : 'rgba(216,180,254,0.8)';
+      g.beginPath(); g.arc(HOLE_R + Math.cos(a) * d, HOLE_R + Math.sin(a) * d, 0.008 + r() * 0.02, 0, Math.PI * 2); g.fill();
+    }
+  });
+}
+export function drawBlackhole(ctx: CanvasRenderingContext2D, x: number, y: number, core: number, time: number, seed: number) {
+  const size = 1.15; // el remolino mide ~3,5 casilleros de radio
+  glow(ctx, x, y, HOLE_R * size * 1.35, '#1d4ed8', 0.35);
+  glow(ctx, x, y, HOLE_R * size * 0.8, '#7c3aed', 0.25);
+  const outer = holeDisk(false), inner = holeDisk(true);
+  const prev = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = 'screen';
+  for (const [s, speed, scale, alpha] of [[outer, 0.35, 1, 0.9], [inner, 0.9, 0.85, 0.5]] as const) {
+    if (!s) continue;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(-(time * speed + seed)); ctx.scale(size * scale, size * scale * 0.94);
+    ctx.globalAlpha = alpha; ctx.drawImage(s.img, -HOLE_R, -HOLE_R, HOLE_R * 2, HOLE_R * 2);
+    ctx.restore();
+  }
+  // Chispas que caen en espiral hacia el centro.
+  for (let i = 0; i < 26; i++) {
+    const k = (time * (0.18 + hash(i + seed) * 0.12) + hash(i * 3 + seed)) % 1, d = core + (1 - k) * (2.8 * size), a = -(hash(i * 7) * 6.3 + k * 5 + time * 0.6);
+    ctx.globalAlpha = Math.min(1, k * 3) * (1 - k * 0.6);
+    ctx.fillStyle = i % 3 ? '#cffafe' : '#e9d5ff';
+    ctx.beginPath(); ctx.arc(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.94, 0.02 + (1 - k) * 0.03, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = prev;
+  // El centro: negro total, con un borde que se funde y el anillo de luz finito que late.
+  const edge = ctx.createRadialGradient(x, y, core * 0.9, x, y, core * 1.6);
+  edge.addColorStop(0, 'rgba(0,0,0,1)'); edge.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = edge; ctx.beginPath(); ctx.arc(x, y, core * 1.6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#000000'; ctx.beginPath(); ctx.arc(x, y, core * 1.05, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = `rgba(165,243,252,${0.55 + 0.25 * Math.sin(time * 5 + seed)})`; ctx.lineWidth = 0.035;
+  ctx.beginPath(); ctx.arc(x, y, core * 1.12, 0, Math.PI * 2); ctx.stroke();
+}

@@ -8,7 +8,7 @@ import {
   mineCenter, pendulumBall, plantBite, pressRect, pressState, sawCenter, scannerY, sporeCenter, sweeperAngle, wormHeight, wormWarn,
   type Game, type Gib, type Hazard, type Solid, type ThemeId,
 } from './gravitySwap';
-import { drawBackdrop, drawUpperSky } from './gravityBackdrops';
+import { drawBackdrop, drawBlackhole, drawUpperSky } from './gravityBackdrops';
 
 export const PX = 32;
 const P = 1 / PX; // un píxel, en casilleros
@@ -1355,33 +1355,9 @@ function scanner(ctx: CanvasRenderingContext2D, h: Hazard, game: Game, t: Theme)
   }
 }
 
-// Agujero negro: un disco de luz que gira alrededor de un centro negrísimo, y anillos que se van achicando
-// (muestran hasta dónde chupa).
+// Agujero negro: un remolino de luz en espiral que gira, con chispas que caen y el centro negro (en gravityBackdrops).
 function blackhole(ctx: CanvasRenderingContext2D, h: Hazard, game: Game) {
-  const time = game.time;
-  ctx.lineWidth = P;
-  for (let k = 0; k < 4; k++) {
-    const r = h.len * (1 - ((time * 0.45 + k / 4) % 1));
-    ctx.strokeStyle = '#a78bfa'; ctx.globalAlpha = 0.25 * (1 - r / h.len) + 0.05;
-    ctx.beginPath(); ctx.arc(h.x, h.y, r, 0, Math.PI * 2); ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-  glow(ctx, h.x, h.y, 2.2, '#7c3aed', 0.45);
-  ctx.save(); ctx.translate(h.x, h.y); ctx.rotate(time * 2.5);
-  for (let k = 0; k < 3; k++) { // el disco que gira, en espirales
-    ctx.strokeStyle = ['#f97316', '#e879f9', '#fde047'][k]; ctx.lineWidth = (3 - k) * 1.5 * P; ctx.globalAlpha = 0.8;
-    ctx.beginPath();
-    for (let j = 0; j <= 30; j++) { const a = k * 2.1 + j * 0.2, r = 1.2 - j * 0.022; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r * 0.75); }
-    ctx.stroke();
-  }
-  ctx.restore();
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = '#000000'; ctx.beginPath(); ctx.arc(h.x, h.y, h.r * 1.15, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#fef3c7'; ctx.lineWidth = 2 * P; ctx.globalAlpha = 0.7 + 0.3 * Math.sin(time * 8);
-  ctx.beginPath(); ctx.arc(h.x, h.y, h.r * 1.15, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
-  // Polvito que cae hacia adentro.
-  ctx.fillStyle = '#ddd6fe';
-  for (let k = 0; k < 8; k++) { const d = 2.2 * (1 - ((time * 0.7 + hash(k)) % 1)), a = k * 0.8 + time * (1 + 2 / (d + 0.3)); ctx.fillRect(h.x + Math.cos(a) * d, h.y + Math.sin(a) * d, 2 * P, 2 * P); }
+  drawBlackhole(ctx, h.x, h.y, h.r, game.time, h.id * 0.7);
 }
 
 // Las banderas: un mástil en el piso; se ponen verdes (y brillan) cuando las pasaste.
