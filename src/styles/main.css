@@ -1401,7 +1401,6 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .grav .runner-overlay>div{max-width:560px;background:#0b1430;border-color:#2563eb;box-shadow:0 0 24px #2563eb66}
 .grav-intro small{display:block;margin-top:.35rem;font-size:.32em;letter-spacing:.04em;text-transform:none;color:#bfdbfe}
 .grav-intro strong{margin-left:.3em}
-.grav-warn{position:absolute;top:10%;left:50%;transform:translateX(-50%);padding:.45rem 1rem;background:#4a044ee6;border:3px solid #f472b6;border-radius:12px;color:#fff;font-weight:900;font-size:clamp(1rem,2.6vw,1.4rem);white-space:nowrap;pointer-events:none;animation:runner-blink .25s steps(2) infinite alternate}
 .grav-levels{display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;margin:0 0 1rem}
 .grav-levels button{display:grid;gap:.15rem;justify-items:center;padding:.45rem .2rem!important;background:#13235a!important;border:2px solid #1e40af;border-radius:10px;color:#e0f2fe!important;font-size:.7rem!important;font-weight:700!important;line-height:1.1}
 .grav-levels button b{font-size:1.1rem}

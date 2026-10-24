@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CEIL, FLOOR, LEVELS, LEVEL_COUNT, LIVES, PLAYER_H, PLAYER_W, ROWS, WARN_SECONDS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input } from './gravitySwap';
+import { CEIL, FLOOR, LEVELS, LEVEL_COUNT, LIVES, PLAYER_H, PLAYER_W, ROWS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input } from './gravitySwap';
 
 const idle: Input = { left: false, right: false, up: false, down: false };
 const fixed = () => 0.5;
@@ -49,6 +49,17 @@ describe('Gravity Swap: escenarios', () => {
     expect(kinds(9).has('lightning')).toBe(true);
     expect(kinds(10).has('ufo')).toBe(true);
   });
+
+  it('desde el primer escenario hay bombas y puertas, y el tercero tiene mucha densidad de trampas', () => {
+    const level1 = buildLevel(1), level3 = buildLevel(3);
+    expect(level1.hazards.some(h => h.kind === 'bomb' || h.kind === 'door')).toBe(true);
+    // Un túnel angosto se arma con dos bloques (arriba y abajo) más anchos que los bloques sueltos.
+    const tunnels = (n: number) => buildLevel(n).solids.filter(s => s.kind === 'block' && s.w >= 4).length;
+    expect(tunnels(3) + tunnels(4) + tunnels(6) + tunnels(7)).toBeGreaterThan(0);
+    // El nivel 3 tiene bastante más trampas por casillero que el 1: no se pasa de largo.
+    const density = (layout: ReturnType<typeof buildLevel>) => layout.hazards.length / layout.portalX;
+    expect(density(level3)).toBeGreaterThan(density(level1) * 1.1);
+  });
 });
 
 describe('Gravity Swap: gravedad que gira', () => {
@@ -61,17 +72,16 @@ describe('Gravity Swap: gravedad que gira', () => {
     expect(game.player.y + PLAYER_H).toBeCloseTo(FLOOR, 2);
   });
 
-  it('avisa un segundo antes y después la gravedad gira de a 90° (en los primeros escenarios)', () => {
+  it('la gravedad cambia de golpe, sin aviso, de a 90° (en los primeros escenarios)', () => {
     const game = empty();
-    game.gravityIn = 1.5;
-    run(game, 0.6);
-    expect(takeEvents(game).some(e => e.type === 'warn')).toBe(true);
-    expect(game.gravityIn).toBeLessThanOrEqual(WARN_SECONDS);
-    const next = game.nextAngle;
-    expect(deg(next) % 90).toBe(0);
-    expect(deg(next)).not.toBe(0);
-    run(game, 1);
-    expect(game.angle).toBeCloseTo(next, 5);
+    game.gravityIn = 0.2;
+    run(game, 0.05);
+    expect(game.angle).toBe(0); // todavía no cambió
+    expect(takeEvents(game).some(e => e.type === 'flip')).toBe(false);
+    run(game, 0.2);
+    expect(takeEvents(game).some(e => e.type === 'flip')).toBe(true);
+    expect(deg(game.angle) % 90).toBe(0);
+    expect(deg(game.angle)).not.toBe(0);
   });
 
   it('desde el escenario 5 puede quedar en cualquier ángulo, siempre bastante distinto del anterior', () => {
@@ -131,6 +141,33 @@ describe('Gravity Swap: chorros de oxígeno', () => {
     const before = game.player.x - game.cam;
     run(game, 0.8, { ...idle, up: true });
     expect(game.player.x - game.cam).toBeLessThan(before - 1);
+  });
+});
+
+describe('Gravity Swap: trampas nuevas', () => {
+  it('una bomba explota sola cada tanto y mata si estás cerca', () => {
+    const game = empty();
+    game.hazards.push(hazard({ kind: 'bomb', x: game.player.x + PLAYER_W / 2, y: game.player.y + PLAYER_H / 2, side: 0, r: 0.42, period: 1, phase: 0 }));
+    runUntil(game, () => game.phase === 'dead', 1.5);
+    expect(game.death).toBe('blast');
+  });
+
+  it('una puerta cerrada bloquea el paso y, cuando se abre, se puede cruzar', () => {
+    const game = empty();
+    game.hazards.push(hazard({ kind: 'door', x: 9, y: CEIL, w: 1, h: FLOOR - CEIL, side: 0, period: 3, phase: 0 }));
+    run(game, 1); // la puerta arranca cerrada: cycle 0..0.5
+    expect(game.player.x).toBeLessThan(9);
+    run(game, 2.2); // a mitad de ciclo se abre un rato
+    expect(game.player.x).toBeGreaterThan(9);
+    expect(game.phase).toBe('play');
+  });
+
+  it('al morir, la explosión es de sangre (no la de una bomba normal)', () => {
+    const game = empty();
+    game.hazards.push(hazard({ kind: 'spikes', x: 9, y: FLOOR - 0.55, w: 2, h: 0.55, side: 1 }));
+    runUntil(game, () => game.phase === 'dead', 4);
+    expect(game.blasts.some(b => !b.lethal)).toBe(true);
+    expect(game.particles.length).toBeGreaterThan(20);
   });
 });
 

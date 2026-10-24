@@ -1,7 +1,7 @@
 // Lógica de Gravity Swap: un astronauta flota por un pasillo que avanza solo (de derecha a izquierda)
-// y la gravedad cambia de dirección sola, cada tanto y al azar: puede tirar hacia el piso, el techo, para
-// adelante, para atrás o en diagonal (la pantalla gira para que siempre tire "hacia abajo"). Un segundo antes
-// hay un aviso. El astronauta se mueve con chorros del oxígeno de su tanque (que no se termina nunca).
+// y la gravedad cambia de dirección sola, cada tanto y al azar, sin avisar: puede tirar hacia el piso, el
+// techo, para adelante, para atrás o en diagonal (la pantalla gira para que siempre tire "hacia abajo").
+// El astronauta se mueve con chorros del oxígeno de su tanque (que no se termina nunca).
 // Son 10 escenarios con trampas distintas; al final de cada uno hay un portal. Todo se mide en casilleros
 // (el pasillo tiene 10 de alto).
 //
@@ -15,7 +15,6 @@ export const PLAYER_W = 0.78; // cuadrado: así el choque es igual mire para don
 export const PLAYER_H = 0.78;
 export const LIVES = 3;
 export const LEVEL_COUNT = 10;
-export const WARN_SECONDS = 1;
 const G = 14; // gravedad baja: flota
 const THRUST = 30; // el chorro de oxígeno le gana a la gravedad
 const MAX_SPEED = 9;
@@ -28,7 +27,8 @@ export type ThemeId = 'city' | 'mines' | 'base' | 'ice' | 'volcano' | 'inverse' 
 export type Kind =
   | 'spikes' | 'block' | 'platform' | 'pit' | 'laser' | 'mine' | 'saw' | 'proxMine' | 'asteroid' | 'turret'
   | 'press' | 'icicle' | 'walker' | 'flyer' | 'fireball' | 'geyser' | 'crumble' | 'pendulum' | 'flipper'
-  | 'conveyor' | 'spring' | 'spores' | 'waterfall' | 'plant' | 'lightning' | 'meteor' | 'tracker';
+  | 'conveyor' | 'spring' | 'spores' | 'waterfall' | 'plant' | 'lightning' | 'meteor' | 'tracker'
+  | 'bomb' | 'door' | 'tunnel';
 
 export interface LevelDef {
   name: string; theme: ThemeId; stars: number;
@@ -44,26 +44,26 @@ export interface LevelDef {
 export const freeAngles = (def: LevelDef) => LEVELS.indexOf(def) >= 4;
 
 export const LEVELS: LevelDef[] = [
-  { name: 'Ciudad Futurista', theme: 'city', stars: 1, seconds: 40, speed: [3, 4], flip: [6, 10], gap: [7, 10],
-    pool: { spikes: 3, block: 2, platform: 2, laser: 1.5, mine: 1.5, pit: 1 } },
-  { name: 'Minas Espaciales', theme: 'mines', stars: 2, seconds: 45, speed: [3.2, 4.3], flip: [5.5, 9], gap: [6, 9],
-    pool: { spikes: 2, block: 1.5, platform: 2, pit: 1, mine: 1.5, proxMine: 2, asteroid: 2, laser: 1 } },
-  { name: 'Base en el Espacio', theme: 'base', stars: 2, seconds: 50, speed: [3.4, 4.6], flip: [5, 8.5], gap: [6, 8.5],
-    pool: { spikes: 2, platform: 2, laser: 2.5, turret: 2, press: 1.5, mine: 1, pit: 1, proxMine: 1 } },
-  { name: 'Planeta Helado', theme: 'ice', stars: 3, seconds: 55, speed: [3.5, 4.8], flip: [4.5, 8], gap: [5.5, 8], ice: true,
-    pool: { spikes: 2, platform: 2, icicle: 2.5, saw: 2, walker: 2, mine: 1, pit: 1.5, laser: 1 } },
-  { name: 'Planeta Volcánico', theme: 'volcano', stars: 3, seconds: 60, speed: [3.6, 5], flip: [4.5, 7.5], gap: [5, 7.5],
-    pool: { spikes: 2.5, fireball: 2, geyser: 2, crumble: 2, pit: 1.5, platform: 1.5, mine: 1, saw: 1 } },
-  { name: 'El Orden Inverso', theme: 'inverse', stars: 4, seconds: 60, speed: [3.8, 5.2], flip: [4, 7], gap: [5, 7], inverted: true,
-    pool: { spikes: 2, platform: 2, pendulum: 2, flipper: 1.5, flyer: 2, mine: 1.5, laser: 1.5, icicle: 1 } },
-  { name: 'Fábrica Robótica', theme: 'factory', stars: 4, seconds: 65, speed: [4, 5.4], flip: [4, 6.5], gap: [4.5, 7],
-    pool: { conveyor: 2, press: 2.5, saw: 2.5, walker: 2, laser: 2, turret: 1.5, spikes: 1.5, block: 1 } },
-  { name: 'Bosque Bioluminiscente', theme: 'forest', stars: 4, seconds: 70, speed: [4.1, 5.6], flip: [3.5, 6], gap: [4.5, 6.5],
-    pool: { spring: 2, spores: 2, waterfall: 1.5, plant: 2, laser: 1.5, flyer: 1.5, spikes: 1.5, mine: 1 } },
-  { name: 'Torres en la Tormenta', theme: 'storm', stars: 5, seconds: 75, speed: [4.3, 5.8], flip: [3, 5.5], gap: [4, 6], wind: true, dark: true,
-    pool: { lightning: 2.5, pendulum: 2, spikes: 2, pit: 2, platform: 1.5, laser: 1.5, flyer: 1.5, crumble: 1, turret: 1 } },
-  { name: 'La Luna', theme: 'moon', stars: 5, seconds: 90, speed: [4.5, 6.2], flip: [2.5, 5], gap: [3.5, 5.5], boss: true, spin: true,
-    pool: { meteor: 2.5, tracker: 2, laser: 1.5, spikes: 1.5, saw: 1.5, press: 1, proxMine: 1, mine: 1, pit: 1, platform: 1, pendulum: 1, asteroid: 1, icicle: 0.5 } },
+  { name: 'Ciudad Futurista', theme: 'city', stars: 1, seconds: 42, speed: [3, 4.1], flip: [6, 10], gap: [5.5, 8.5],
+    pool: { spikes: 3, block: 2, platform: 2, laser: 1.5, mine: 1.5, pit: 1, bomb: 1, door: 1 } },
+  { name: 'Minas Espaciales', theme: 'mines', stars: 2, seconds: 48, speed: [3.2, 4.4], flip: [5.5, 9], gap: [4.8, 7.5],
+    pool: { spikes: 2, block: 1.5, platform: 2, pit: 1, mine: 1.5, proxMine: 2, asteroid: 2, laser: 1, bomb: 1.5, tunnel: 1 } },
+  { name: 'Base en el Espacio', theme: 'base', stars: 3, seconds: 54, speed: [3.4, 4.8], flip: [5, 8.5], gap: [4.2, 6.8],
+    pool: { spikes: 2, platform: 2, laser: 2.5, turret: 2, press: 1.5, mine: 1, pit: 1, proxMine: 1, bomb: 1.5, door: 2, tunnel: 1.5 } },
+  { name: 'Planeta Helado', theme: 'ice', stars: 3, seconds: 58, speed: [3.5, 5], flip: [4.5, 8], gap: [4.2, 6.5], ice: true,
+    pool: { spikes: 2, platform: 2, icicle: 2.5, saw: 2, walker: 2, mine: 1, pit: 1.5, laser: 1, door: 1.5, tunnel: 1.5 } },
+  { name: 'Planeta Volcánico', theme: 'volcano', stars: 4, seconds: 62, speed: [3.6, 5.2], flip: [4.5, 7.5], gap: [4, 6.2],
+    pool: { spikes: 2.5, fireball: 2, geyser: 2, crumble: 2, pit: 1.5, platform: 1.5, mine: 1, saw: 1, bomb: 1.5, door: 1, tunnel: 1 } },
+  { name: 'El Orden Inverso', theme: 'inverse', stars: 4, seconds: 62, speed: [3.8, 5.4], flip: [4, 7], gap: [3.8, 5.8], inverted: true,
+    pool: { spikes: 2, platform: 2, pendulum: 2, flipper: 1.5, flyer: 2, mine: 1.5, laser: 1.5, icicle: 1, door: 1.5, tunnel: 1, bomb: 1 } },
+  { name: 'Fábrica Robótica', theme: 'factory', stars: 5, seconds: 68, speed: [4, 5.6], flip: [4, 6.5], gap: [4.2, 6.5],
+    pool: { conveyor: 2, press: 2.5, saw: 2.5, walker: 2.5, laser: 2, turret: 2.5, spikes: 1.5, block: 1, bomb: 1, door: 1.3 } },
+  { name: 'Bosque Bioluminiscente', theme: 'forest', stars: 4, seconds: 72, speed: [4.1, 5.8], flip: [3.5, 6], gap: [3.6, 5.5],
+    pool: { spring: 2, spores: 2, waterfall: 1.5, plant: 2, laser: 1.5, flyer: 1.5, spikes: 1.5, mine: 1, bomb: 1, door: 1 } },
+  { name: 'Torres en la Tormenta', theme: 'storm', stars: 5, seconds: 78, speed: [4.3, 6], flip: [3, 5.5], gap: [3.2, 5], wind: true, dark: true,
+    pool: { lightning: 2.5, pendulum: 2, spikes: 2, pit: 2, platform: 1.5, laser: 1.5, flyer: 1.5, crumble: 1, turret: 1, bomb: 1.5, door: 1.5 } },
+  { name: 'La Luna', theme: 'moon', stars: 5, seconds: 95, speed: [4.5, 6.4], flip: [2.5, 5], gap: [3, 4.8], boss: true, spin: true,
+    pool: { meteor: 2.5, tracker: 2.5, laser: 1.5, spikes: 1.5, saw: 1.5, press: 1, proxMine: 1, mine: 1, pit: 1, platform: 1, pendulum: 1, asteroid: 1, icicle: 0.5, bomb: 1.5, door: 1.5, tunnel: 1 } },
 ];
 
 // Paredes, piso, techo y plataformas. Las que se desarman ("crumble") caen un ratito después de pisarlas.
@@ -98,7 +98,7 @@ export interface Player {
 export type Death = 'spikes' | 'laser' | 'mine' | 'blast' | 'saw' | 'enemy' | 'void' | 'edge' | 'fire' | 'bolt' | 'lightning' | 'press' | 'icicle' | 'spore' | 'rock';
 export type Phase = 'play' | 'dead' | 'cleared' | 'ending' | 'over' | 'won';
 export type GravityEvent =
-  | { type: 'land' } | { type: 'warn' } | { type: 'flip' } | { type: 'death'; reason: Death }
+  | { type: 'land' } | { type: 'flip' } | { type: 'death'; reason: Death }
   | { type: 'boom' } | { type: 'shot' } | { type: 'zap' } | { type: 'spring' } | { type: 'crumble' } | { type: 'cleared'; level: number }
   | { type: 'thunder' } | { type: 'gust' } | { type: 'respawn' } | { type: 'won' };
 
@@ -112,8 +112,7 @@ export interface Game {
   cam: number; speed: number; time: number;
   angle: number; // hacia dónde tira la gravedad (radianes; 0 = hacia el piso)
   view: number; // hacia dónde está girada la pantalla (sigue a "angle" de a poco)
-  nextAngle: number; // el próximo ángulo (se muestra en el aviso)
-  gravityIn: number; warned: boolean; flipCooldown: number;
+  gravityIn: number; flipCooldown: number;
   gust: number; gustIn: number; // ráfagas de viento (Torres en la Tormenta)
   flash: number; // relámpago que ilumina todo
   lives: number; phase: Phase; phaseT: number; death: Death | null;
@@ -308,6 +307,27 @@ export function buildLevel(level: number): Layout {
         hazard('meteor', { x, y: -1.5, side: 0, r: 0.55, x0: x });
         return 1;
       }
+      case 'bomb': {
+        // Bomba plantada que explota sola cada tanto, con la mecha blinqueando antes.
+        const onSurface = rand() < 0.75;
+        hazard('bomb', { x: x + 0.5, y: onSurface ? (side === 1 ? FLOOR - 0.42 : CEIL + 0.42) : 3 + rand() * 4, side: onSurface ? side : 0, r: 0.42, period: 2.4 + rand() * 0.9 });
+        return 1;
+      }
+      case 'door': {
+        // Compuerta que se cierra la mayor parte del tiempo: hay que esperar a que se abra para pasar.
+        hazard('door', { x, y: CEIL, w: 1, h: FLOOR - CEIL, side: 0, period: 2.8 + rand() * 0.9 });
+        return 1.4;
+      }
+      case 'tunnel': {
+        // Un tramo angosto, con pinchos pegados a las dos paredes internas (deja bastante lugar en el medio).
+        const len = 3 + Math.floor(rand() * 2), gapH = 3.6 + rand() * 0.6;
+        const wallH = (FLOOR - CEIL - gapH) / 2;
+        solids.push({ x, y: CEIL, w: len, h: wallH, kind: 'block' });
+        solids.push({ x, y: FLOOR - wallH, w: len, h: wallH, kind: 'block' });
+        hazard('spikes', { x: x + 0.4, y: CEIL + wallH, w: len - 0.8, h: 0.4, side: -1 });
+        hazard('spikes', { x: x + 0.4, y: FLOOR - wallH - 0.4, w: len - 0.8, h: 0.4, side: 1 });
+        return len;
+      }
     }
   };
 
@@ -356,8 +376,8 @@ export function loadLevel(game: Game, level: number, rand: () => number = Math.r
       onGround: true, touch: { down: !angle, up: !!angle, left: false, right: false }, landT: 9,
     },
     cam: 0, speed: def.speed[0], time: 0,
-    angle, view: angle, nextAngle: angle,
-    gravityIn: Math.max(3.5, between(rand, def.flip)), warned: false, flipCooldown: 0,
+    angle, view: angle,
+    gravityIn: Math.max(3.5, between(rand, def.flip)), flipCooldown: 0,
     gust: 0, gustIn: 5, flash: 0,
     phase: 'play' as Phase, phaseT: 0, death: null, pendingFlips: [],
   });
@@ -378,7 +398,20 @@ const circleHits = (r: { x: number; y: number; w: number; h: number }, cx: numbe
 // El cuerpo del astronauta, un poco más chico que el dibujo (así un roce no mata).
 const body = (p: Player) => ({ x: p.x + 0.1, y: p.y + 0.1, w: PLAYER_W - 0.2, h: PLAYER_H - 0.2 });
 
-const liveSolids = (game: Game) => game.solids.filter(s => !s.gone && s.x < game.player.x + 3 && s.x + s.w > game.player.x - 3);
+// Los paneles de una puerta cerrada (o cerrándose) cuentan como sólidos: hay que esperar a que se abra.
+function doorPanels(game: Game): Solid[] {
+  const out: Solid[] = [];
+  for (const h of game.hazards) {
+    if (h.kind !== 'door' || h.dead || h.x < game.player.x - 3 || h.x > game.player.x + 3) continue;
+    const ext = doorOpen(game, h);
+    if (ext > 0.97) continue;
+    const gap = (FLOOR - CEIL) * ext, mid = (FLOOR + CEIL) / 2, half = gap / 2;
+    out.push({ x: h.x, y: CEIL, w: h.w, h: mid - half - CEIL, kind: 'block' });
+    out.push({ x: h.x, y: mid + half, w: h.w, h: FLOOR - (mid + half), kind: 'block' });
+  }
+  return out;
+}
+const liveSolids = (game: Game) => [...game.solids.filter(s => !s.gone && s.x < game.player.x + 3 && s.x + s.w > game.player.x - 3), ...doorPanels(game)];
 const hitsSolid = (solids: Solid[], x: number, y: number) => solids.find(s => overlaps({ x, y, w: PLAYER_W, h: PLAYER_H }, s));
 
 function burst(game: Game, x: number, y: number, colors: string[], count: number, power: number, gravity = 18) {
@@ -399,6 +432,7 @@ function explode(game: Game, x: number, y: number, r: number) {
 
 // Ciclos: fracción del período (0 a 1) en que está cada trampa que va y viene.
 const cycle = (game: Game, h: Hazard) => (((game.time + h.phase) % h.period) + h.period) % h.period / h.period;
+export const hazardCycle = cycle; // para que el dibujo sepa en qué parte del ciclo está una bomba, etc.
 export const laserOn = (game: Game, h: Hazard) => cycle(game, h) < (h.amp || 0.45);
 export const laserWarn = (game: Game, h: Hazard) => cycle(game, h) > 0.85;
 // Prensa: cuánto bajó (0 guardada, 1 hasta el otro lado) y si tiembla porque está por bajar.
@@ -422,6 +456,16 @@ export const geyserHeight = (game: Game, h: Hazard) => {
   return h.len * (1 - (c - 0.92) / 0.08);
 };
 export const geyserWarn = (game: Game, h: Hazard) => { const c = cycle(game, h); return c > 0.42 && c < 0.62; };
+// Puerta: 0 cerrada del todo (bloquea), 1 abierta del todo (se puede pasar). Cerrada la mayor parte del
+// tiempo, con una transición suave al abrirse y al cerrarse.
+export function doorOpen(game: Game, h: Hazard) {
+  const c = cycle(game, h);
+  if (c < 0.5) return 0;
+  if (c < 0.58) return (c - 0.5) / 0.08;
+  if (c < 0.82) return 1;
+  if (c < 0.9) return 1 - (c - 0.82) / 0.08;
+  return 0;
+}
 export const plantBite = (game: Game, h: Hazard) => cycle(game, h) > 0.7;
 export const lightningState = (game: Game, h: Hazard) => { const c = cycle(game, h); return c > 0.9 ? 'strike' : c > 0.62 ? 'warn' : 'idle'; };
 export function pendulumBall(game: Game, h: Hazard) {
@@ -513,6 +557,9 @@ function updateHazards(game: Game, dt: number) {
       case 'lightning':
         if (visible(game, h.x) && lightningState(game, h) === 'strike' && (cycle(game, h) - 0.9) * h.period < dt * 1.5) { game.flash = 0.25; emit(game, { type: 'thunder' }); }
         break;
+      case 'bomb':
+        if (visible(game, h.x) && cycle(game, h) * h.period < dt * 1.5) explode(game, h.x, h.y, 1.5);
+        break;
     }
   }
 
@@ -577,20 +624,25 @@ export function chooseAngle(game: Game, rand: () => number = Math.random) {
 }
 
 export function flipGravity(game: Game, rand: () => number = Math.random, to = chooseAngle(game, rand)) {
-  game.angle = wrapAngle(to); game.nextAngle = game.angle;
+  game.angle = wrapAngle(to);
   game.player.onGround = false;
-  game.warned = false;
   game.gravityIn = between(rand, game.def.flip);
   game.pendingFlips.push(game.time);
   emit(game, { type: 'flip' });
 }
+
+const BLOOD = ['#991b1b', '#dc2626', '#7f1d1d', '#b91c1c', '#ef4444'];
 
 function die(game: Game, reason: Death) {
   const p = game.player;
   game.phase = 'dead'; game.phaseT = 0; game.death = reason;
   game.lives--; game.stats.deaths++;
   game.pendingFlips = [];
-  burst(game, p.x + PLAYER_W / 2, p.y + PLAYER_H / 2, ['#f8fafc', '#60a5fa', '#1d4ed8', '#fde047'], 34, 8, 6);
+  const cx = p.x + PLAYER_W / 2, cy = p.y + PLAYER_H / 2;
+  // Explota con sangre: un fogonazo rojo, pedazos del traje y un chorro de sangre que salpica.
+  game.blasts.push({ x: cx, y: cy, r: 0.9, t: 0, max: 0.5, lethal: false });
+  burst(game, cx, cy, BLOOD, 46, 9, 9);
+  burst(game, cx, cy, ['#f8fafc', '#cbd5e1', '#60a5fa'], 10, 6, 7); // pedazos del traje
   emit(game, { type: 'death', reason });
 }
 
@@ -637,7 +689,9 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   const def = game.def;
   game.speed = def.speed[0] + (def.speed[1] - def.speed[0]) * Math.min(1, game.cam / game.portalX);
   const stop = camStop(game);
-  const scroll = game.cam < stop ? game.speed : 0;
+  // Si está pegado a una puerta cerrada, la cámara lo espera: no lo aplasta contra el borde por esperar.
+  const pinnedAtDoor = game.hazards.some(h => h.kind === 'door' && !h.dead && doorOpen(game, h) < 0.95 && h.x - (p.x + PLAYER_W) < 0.12 && h.x + h.w > p.x);
+  const scroll = game.cam < stop && !pinnedAtDoor ? game.speed : 0;
   game.cam = Math.min(stop, game.cam + scroll * dt);
 
   updateHazards(game, dt);
@@ -645,13 +699,12 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   // Los cambios de gravedad que pasaron hace un rato sin morir cuentan como "sobrevividos".
   while (game.pendingFlips.length && game.time - game.pendingFlips[0] > 2) { game.pendingFlips.shift(); game.stats.flips++; }
 
-  // Cambio de gravedad: un segundo antes, aviso.
+  // Cambio de gravedad: sin aviso, de golpe.
   game.gravityIn -= dt;
   game.flipCooldown -= dt;
-  if (!game.warned && game.gravityIn <= WARN_SECONDS) { game.warned = true; game.nextAngle = chooseAngle(game, rand); emit(game, { type: 'warn' }); }
-  if (game.gravityIn <= 0) flipGravity(game, rand, game.nextAngle);
+  if (game.gravityIn <= 0) flipGravity(game, rand);
   // En la Luna, además, la gravedad gira de a poco todo el tiempo.
-  if (def.spin) { game.angle = wrapAngle(game.angle + (0.22 + 0.12 * Math.sin(game.time * 0.4)) * dt); if (!game.warned) game.nextAngle = game.angle; }
+  if (def.spin) game.angle = wrapAngle(game.angle + (0.22 + 0.12 * Math.sin(game.time * 0.4)) * dt);
   // La pantalla gira de a poco hasta que la gravedad quede apuntando hacia abajo.
   game.view = wrapAngle(game.view + angleDiff(game.angle, game.view) * Math.min(1, 4.5 * dt));
 

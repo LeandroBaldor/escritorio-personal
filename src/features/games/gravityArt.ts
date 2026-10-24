@@ -4,7 +4,7 @@
 // fósiles debajo del piso, así la pantalla queda siempre llena), las trampas y los villanos, con degradés,
 // texturas y brillos para que se vean más reales.
 import {
-  CEIL, FLOOR, PLAYER_H, PLAYER_W, ROWS, WARN_SECONDS, flyerCenter, geyserHeight, geyserWarn, laserOn, laserWarn, lightningState,
+  CEIL, FLOOR, PLAYER_H, PLAYER_W, ROWS, doorOpen, flyerCenter, geyserHeight, geyserWarn, hazardCycle, laserOn, laserWarn, lightningState,
   mineCenter, pendulumBall, plantBite, pressRect, pressState, sawCenter, sporeCenter,
   type Game, type Hazard, type Solid, type ThemeId,
 } from './gravitySwap';
@@ -1038,6 +1038,41 @@ function drawHazard(ctx: CanvasRenderingContext2D, h: Hazard, game: Game, t: The
       for (let k = -2; k <= 2; k++) { const c = Math.sin(time * 10 + k) > 0 ? '#fde047' : '#f43f5e'; glow(ctx, x + k * 0.4, y + 0.05, 0.15, c, 0.7); ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x + k * 0.4, y + 0.05, 0.06, 0, Math.PI * 2); ctx.fill(); }
       break;
     }
+    case 'bomb': {
+      // Bomba negra con remaches, mecha chispeante y una luz que titila cada vez más rápido antes de estallar.
+      const c = hazardCycle(game, h), near = c > 0.72, flicker = near ? Math.sin(time * (18 + c * 40)) > 0 : Math.sin(time * 3) > 0.5;
+      if (near) glow(ctx, h.x, h.y, 1.1, '#ef4444', 0.35 * (c - 0.72) / 0.28);
+      ink(ctx, circle(ctx, h.x, h.y, h.r), ball(ctx, h.x, h.y, h.r, '#18181b'));
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = P; ctx.beginPath(); ctx.arc(h.x, h.y, h.r * 0.74, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.3)'; for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; ctx.fillRect(h.x + Math.cos(a) * h.r * 0.74 - P, h.y + Math.sin(a) * h.r * 0.74 - P, 2 * P, 2 * P); } // remaches
+      ctx.fillStyle = flicker ? '#fde047' : '#991b1b'; ctx.beginPath(); ctx.arc(h.x, h.y - h.r * 0.1, h.r * 0.22, 0, Math.PI * 2); ctx.fill(); // luz de aviso
+      if (flicker) glow(ctx, h.x, h.y - h.r * 0.1, 0.35, '#fde047', 0.6);
+      ctx.strokeStyle = '#a16207'; ctx.lineWidth = Math.max(1.5, h.r * 0.14); // mecha
+      ctx.beginPath(); ctx.moveTo(h.x + h.r * 0.3, h.y - h.r * 0.75); ctx.quadraticCurveTo(h.x + h.r * 0.75, h.y - h.r * 1.4, h.x + h.r * 0.4, h.y - h.r * 1.6); ctx.stroke();
+      const sparkR = h.r * (0.1 + 0.05 * Math.abs(Math.sin(time * 30)));
+      glow(ctx, h.x + h.r * 0.4, h.y - h.r * 1.6, 0.3, '#fde047', 0.7);
+      ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.arc(h.x + h.r * 0.4, h.y - h.r * 1.6, sparkR, 0, Math.PI * 2); ctx.fill();
+      break;
+    }
+    case 'door': {
+      // Dos paneles metálicos (uno del techo, otro del piso) que se cierran casi siempre, con luces a los costados.
+      const ext = doorOpen(game, h), gap = (FLOOR - CEIL) * ext, mid = (FLOOR + CEIL) / 2, half = gap / 2;
+      const closing = ext < 0.05, redLight = Math.sin(time * (closing ? 4 : 10)) > 0;
+      const panel = (y0: number, y1: number) => {
+        if (y1 <= y0) return;
+        ink(ctx, () => ctx.rect(h.x, y0, h.w, y1 - y0), lin(ctx, h.x, 0, h.x + h.w, 0, [[0, '#94a3b8'], [0.5, '#e2e8f0'], [1, '#64748b']]), 1.5);
+        ctx.fillStyle = 'rgba(15,23,42,0.4)';
+        for (let yy = y0 + 0.15; yy < y1 - 0.1; yy += 0.3) ctx.fillRect(h.x + 0.08, yy, h.w - 0.16, 2 * P);
+        ctx.fillStyle = redLight ? '#f87171' : '#7f1d1d'; ctx.fillRect(h.x + h.w / 2 - 0.05, y1 > y0 + 0.3 ? y0 + 0.1 : y0, 0.1, 0.1);
+      };
+      panel(CEIL, mid - half);
+      panel(mid + half, FLOOR);
+      // Marco a los costados.
+      ink(ctx, () => ctx.rect(h.x - 0.08, CEIL, 0.1, FLOOR - CEIL), '#334155', 1);
+      ink(ctx, () => ctx.rect(h.x + h.w - 0.02, CEIL, 0.1, FLOOR - CEIL), '#334155', 1);
+      if (gap > 0.1) { glow(ctx, h.x + h.w / 2, mid, gap * 0.6, '#38bdf8', 0.25); } // brillo del hueco abierto
+      break;
+    }
   }
 }
 
@@ -1078,7 +1113,7 @@ export function drawAstronaut(ctx: CanvasRenderingContext2D, x: number, y: numbe
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(a.angle);
-  ctx.scale(1.05, 1.05);
+  ctx.scale(1.4, 1.4); // un poco más grande que su caja de choque, para que se vea bien
   if (a.mirror) ctx.scale(-1, 1);
   if (a.squash && a.squash !== 1) { ctx.translate(0, 0.48); ctx.scale(1 + (1 - a.squash) * 0.6, a.squash); ctx.translate(0, -0.48); }
   const s = Math.sin(a.time * 14), c = Math.cos(a.time * 14), drift = Math.sin(a.time * 2.2);
@@ -1169,25 +1204,6 @@ export function viewOf(game: Game, rows: number) {
 export function toScreen(game: Game, rows: number, x: number, y: number) {
   const { z, px, py } = viewOf(game, rows), c = Math.cos(game.view), s = Math.sin(game.view), dx = x - px, dy = y - py;
   return { x: game.cols / 2 + z * (dx * c - dy * s), y: rows / 2 + z * (dx * s + dy * c) };
-}
-
-// El aviso de que la gravedad va a cambiar: el borde de la pantalla titila y una flecha grande marca
-// hacia dónde va a tirar (en la pantalla de ahora).
-function gravityWarning(ctx: CanvasRenderingContext2D, game: Game, rows: number) {
-  if (!game.warned || game.phase !== 'play') return;
-  const left = Math.max(0, game.gravityIn) / WARN_SECONDS, on = Math.sin(game.time * 26) > 0;
-  const color = '#f472b6';
-  ctx.strokeStyle = color; ctx.lineWidth = 0.18 + (1 - left) * 0.12; ctx.globalAlpha = on ? 0.9 : 0.35;
-  ctx.strokeRect(0.09, 0.09, game.cols - 0.18, rows - 0.18);
-  const p = game.player, at = toScreen(game, rows, p.x + PLAYER_W / 2, p.y + PLAYER_H / 2), turn = game.nextAngle - game.view;
-  ctx.save();
-  ctx.translate(at.x, at.y); ctx.rotate(-turn); // la flecha apunta para abajo y se gira hacia la nueva gravedad
-  for (let k = 0; k < 3; k++) {
-    const y = 0.9 + k * 0.35;
-    ink(ctx, () => { ctx.moveTo(-0.35, y); ctx.lineTo(0, y + 0.3); ctx.lineTo(0.35, y); ctx.lineTo(0.35, y + 0.12); ctx.lineTo(0, y + 0.42); ctx.lineTo(-0.35, y + 0.12); ctx.closePath(); }, color, 1.5);
-  }
-  ctx.restore();
-  ctx.globalAlpha = 1;
 }
 
 // El borde de atrás de la pantalla: una pared de energía (si te aplasta contra ella, perdés una vida).
@@ -1285,9 +1301,22 @@ export function drawGame(ctx: CanvasRenderingContext2D, game: Game, rows: number
   drawPlayer(ctx, game);
   for (const b of game.blasts) {
     const k = b.t / b.max, r = b.r * (0.5 + k * 0.8);
-    const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
-    g.addColorStop(0, `rgba(255,255,220,${0.95 * (1 - k)})`); g.addColorStop(0.5, `rgba(251,146,60,${0.8 * (1 - k)})`); g.addColorStop(1, 'rgba(239,68,68,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill();
+    if (b.lethal) {
+      const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
+      g.addColorStop(0, `rgba(255,255,220,${0.95 * (1 - k)})`); g.addColorStop(0.5, `rgba(251,146,60,${0.8 * (1 - k)})`); g.addColorStop(1, 'rgba(239,68,68,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill();
+    } else {
+      // Salpicadura de sangre: un charco irregular que se queda un momento y se va desvaneciendo.
+      const fade = Math.max(0, 1 - k * 1.6);
+      ctx.globalAlpha = fade * 0.85;
+      for (let i = 0; i < 7; i++) {
+        const a = i * 0.9 + b.x, dr = r * (0.5 + hash(i + b.y) * 0.9);
+        ctx.fillStyle = i % 2 ? '#7f1d1d' : '#991b1b';
+        ctx.beginPath(); ctx.ellipse(b.x + Math.cos(a) * dr * 0.5, b.y + Math.sin(a) * dr * 0.35, dr * 0.4, dr * 0.22, a, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.arc(b.x, b.y, r * 0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
   }
   for (const s of game.particles) {
     ctx.globalAlpha = Math.max(0, s.life / s.max); ctx.fillStyle = s.color;
@@ -1314,5 +1343,4 @@ export function drawGame(ctx: CanvasRenderingContext2D, game: Game, rows: number
     ctx.fillStyle = dark; ctx.fillRect(0, 0, game.cols, rows);
   }
   if (game.flash > 0) { ctx.fillStyle = `rgba(224,231,255,${game.flash * 1.6})`; ctx.fillRect(0, 0, game.cols, rows); }
-  gravityWarning(ctx, game, rows);
 }

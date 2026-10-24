@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Link } from 'react-router-dom';
 import { LEVELS, LEVEL_COUNT, LIVES, ROWS, loadLevel, newGame, progress, step, takeEvents, type Death, type Game, type Input, type Stats } from './gravitySwap';
 import { PX, drawGame } from './gravityArt';
-import { playAstronautHit, playAstronautLand, playCrumble, playExplosion, playGameOver, playGravityFlip, playGravityWarn, playGust, playLaserOn, playStart, playTeleport, playThunder, playTramp, playTurretShot, playThrust, playWinFanfare, preloadGravitySounds } from './sounds';
+import { playAstronautHit, playAstronautLand, playCrumble, playExplosion, playGameOver, playGravityFlip, playGust, playLaserOn, playStart, playTeleport, playThunder, playTramp, playTurretShot, playThrust, playWinFanfare, preloadGravitySounds } from './sounds';
 import { EndBanner } from './EndBanner';
 
 const LEVEL_KEY = 'escritorio-personal-juegos:gravedad-nivel';
@@ -30,10 +30,10 @@ function sizeFor(width: number, height: number) {
 }
 const colsFor = (width: number, height: number) => sizeFor(width, height).cols;
 
-interface Hud { level: number; lives: number; progress: number; time: number; phase: Game['phase']; death: Death | null; intro: boolean; warn: boolean; angle: number }
+interface Hud { level: number; lives: number; progress: number; time: number; phase: Game['phase']; death: Death | null; intro: boolean; angle: number }
 const hudOf = (game: Game): Hud => ({
   level: game.level, lives: game.lives, progress: Math.floor(progress(game) * 100), time: Math.floor(game.stats.time),
-  phase: game.phase, death: game.death, intro: game.phase === 'play' && game.time < 2.6, warn: game.warned && game.phase === 'play',
+  phase: game.phase, death: game.death, intro: game.phase === 'play' && game.time < 2.6,
   angle: Math.round(game.angle * 180 / Math.PI) % 360,
 });
 const sameHud = (a: Hud, b: Hud) => (Object.keys(a) as (keyof Hud)[]).every(k => a[k] === b[k]);
@@ -47,7 +47,7 @@ export function GravitySwap() {
   const [status, setStatus] = useState<Status>('ready');
   const [record, setRecord] = useState(readGravityRecord);
   const [chosen, setChosen] = useState(() => readGravityRecord().unlocked);
-  const [hud, setHud] = useState<Hud>({ level: 1, lives: LIVES, progress: 0, time: 0, phase: 'play', death: null, intro: false, warn: false, angle: 0 });
+  const [hud, setHud] = useState<Hud>({ level: 1, lives: LIVES, progress: 0, time: 0, phase: 'play', death: null, intro: false, angle: 0 });
   const [newRecord, setNewRecord] = useState(false);
   const [mission, setMission] = useState<Stats | null>(null);
   const statusRef = useRef(status);
@@ -109,7 +109,6 @@ export function GravitySwap() {
       for (const e of takeEvents(game)) {
         switch (e.type) {
           case 'land': playAstronautLand(); break;
-          case 'warn': playGravityWarn(); break;
           case 'flip': playGravityFlip(); break;
           case 'death': playAstronautHit(); break;
           case 'boom': playExplosion(); break;
@@ -208,7 +207,6 @@ export function GravitySwap() {
       {status === 'playing' && hud.intro && <div key={hud.level} className="runner-level grav-intro" role="status">
         Nivel <strong>{hud.level}</strong><small>{def.name} {'⭐'.repeat(def.stars)}</small>
       </div>}
-      {status === 'playing' && hud.warn && <div className="grav-warn" role="alert">⇅ ¡Cambia la gravedad!</div>}
       {status === 'playing' && hud.phase === 'dead' && hud.death && <div className="runner-trap" role="alert">{DEATH_TEXT[hud.death]}</div>}
       {status === 'playing' && hud.phase === 'cleared' && <div className="runner-level grav-intro" role="status">¡Escenario<strong>superado!</strong></div>}
       {status !== 'playing' && <div className="runner-overlay" role="dialog" aria-labelledby="grav-message">
@@ -216,7 +214,7 @@ export function GravitySwap() {
           {status === 'ready' && <>
             <h2 id="grav-message">Gravity Swap 🚀</h2>
             <p className="runner-keys"><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> o flechas: chorros de oxígeno · <kbd>R</kbd> reiniciar · <kbd>Esc</kbd> pausa</p>
-            <p className="runner-tip">💡 Flotás y la gravedad gira sola: cuando titila la pantalla, mirá la flecha. Tu tanque de oxígeno no se termina: impulsate todo lo que quieras.</p>
+            <p className="runner-tip">💡 Flotás y la gravedad gira sola, sin avisar: mantenete siempre listo para reaccionar. Tu tanque de oxígeno no se termina: impulsate todo lo que quieras.</p>
             <div className="grav-levels" role="group" aria-label="Escenarios">
               {LEVELS.map((level, i) => {
                 const n = i + 1, locked = n > record.unlocked;
