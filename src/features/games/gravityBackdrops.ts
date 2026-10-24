@@ -261,218 +261,200 @@ function planetSprite(look: PlanetLook, seed: number) {
   });
 }
 
-// ---------- Nivel 1: la ciudad ----------
+// ---------- Nivel 1: la ciudad del futuro ----------
+// Como la ciudad que se ve por la ventana de SkynetBall: rascacielos altísimos y finos de vidrio azul noche,
+// con tiras de neón celeste, franjas y luces rojas, agujas, anillos de luz y puentes entre las torres.
 
-// Las ventanas de un edificio: unas prendidas (amarillas, naranjas, blancas, alguna con la luz azul de una tele,
-// alguna con cortina) y otras apagadas con el reflejo del cielo.
-function windows(g: CanvasRenderingContext2D, r: () => number, x0: number, y0: number, x1: number, y1: number, stepX: number, stepY: number, ww: number, wh: number, lit: number) {
-  const warm = ['#fde68a', '#fcd34d', '#fdba74', '#fef3c7', '#fff7ed'], cool = ['#bfdbfe', '#e0f2fe', '#a5f3fc'];
-  for (let y = y0; y + wh <= y1 + 1e-6; y += stepY) {
-    const rowLit = lit * (0.5 + r());
-    for (let x = x0; x + ww <= x1 + 1e-6; x += stepX) {
-      if (r() < rowLit) {
-        const tv = r() < 0.08, c = tv ? '#60a5fa' : r() < 0.75 ? warm[Math.floor(r() * warm.length)] : cool[Math.floor(r() * cool.length)];
-        g.fillStyle = lin(g, 0, y, 0, y + wh, [[0, shade(c, 0.2)], [1, shade(c, -0.25)]]); g.fillRect(x, y, ww, wh);
-        if (r() < 0.3) { g.fillStyle = 'rgba(60,30,20,0.55)'; g.fillRect(x, y, ww * (0.3 + r() * 0.4), wh); } // cortina
-        if (r() < 0.06) { g.fillStyle = 'rgba(20,10,10,0.7)'; g.fillRect(x + ww * 0.4, y + wh * 0.35, ww * 0.25, wh * 0.65); } // alguien en la ventana
-      } else {
-        g.fillStyle = lin(g, 0, y, 0, y + wh, [[0, '#1f2a55'], [1, '#0b1028']]); g.fillRect(x, y, ww, wh);
-        g.fillStyle = 'rgba(140,160,255,0.12)'; g.fillRect(x, y, ww * 0.35, wh);
-      }
+// Fachada de vidrio: una grilla de ventanitas (casi todas azules, alguna blanca o cálida) con el reflejo del cielo.
+function facade(g: CanvasRenderingContext2D, r: () => number, x: number, y: number, w: number, h: number, dim: number, lit = 0.4) {
+  g.fillStyle = lin(g, x, 0, x + w, 0, [[0, shade('#22357a', dim)], [0.45, shade('#16245c', dim)], [1, shade('#0a1236', dim)]]); g.fillRect(x, y, w, h);
+  const cw = 0.1, ch = 0.14;
+  for (let yy = y + 0.06; yy < y + h - 0.08; yy += ch) {
+    const band = r();
+    for (let xx = x + 0.04; xx < x + w - 0.06; xx += cw) {
+      const v = r();
+      if (v < lit * (0.4 + band)) {
+        g.fillStyle = v < 0.03 ? '#fde68a' : v < 0.1 ? '#f0f9ff' : v < 0.28 ? '#93c5fd' : '#3b82f6';
+        g.globalAlpha = 0.6 + r() * 0.4; g.fillRect(xx, yy, cw * 0.62, ch * 0.5); g.globalAlpha = 1;
+      } else { g.fillStyle = 'rgba(40,60,140,0.55)'; g.fillRect(xx, yy, cw * 0.62, ch * 0.5); }
     }
   }
+  g.fillStyle = lin(g, x, y, x + w * 0.7, y + h * 0.45, [[0, 'rgba(196,160,255,0.25)'], [1, 'rgba(0,0,0,0)']]); g.fillRect(x, y, w, h); // reflejo del cielo
+  g.fillStyle = 'rgba(147,197,253,0.55)'; g.fillRect(x, y, 0.02, h); // canto iluminado
 }
-function grime(g: CanvasRenderingContext2D, r: () => number, x: number, y: number, w: number, h: number, n: number) {
-  for (let i = 0; i < n; i++) { g.fillStyle = r() < 0.5 ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.04)'; g.fillRect(x + r() * w, y + r() * h, 0.02 + r() * 0.06, 0.02 + r() * 0.04); }
+// Tira de neón vertical con su resplandor.
+function neon(g: CanvasRenderingContext2D, x: number, y: number, h: number, c = '#38bdf8', wd = 0.03) {
+  g.fillStyle = css(rgb(c), 0.16); g.fillRect(x - 0.07, y, wd + 0.14, h);
+  g.fillStyle = css(rgb(c), 0.35); g.fillRect(x - 0.025, y, wd + 0.05, h);
+  g.fillStyle = c; g.fillRect(x, y, wd, h);
+  g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(x + wd * 0.35, y, wd * 0.3, h);
+}
+function redBand(g: CanvasRenderingContext2D, x: number, y: number, w: number) {
+  g.fillStyle = 'rgba(255,42,42,0.22)'; g.fillRect(x, y - 0.05, w, 0.13);
+  g.fillStyle = '#ff2a2a'; g.fillRect(x, y, w, 0.03);
 }
 const TYPES = 7;
-// Un edificio de la ciudad. type: 0 torre de vidrio, 1 art decó escalonado, 2 departamentos con balcones,
-// 3 torre redonda con helipuerto, 4 torre corporativa con tiras de LED, 5 edificio viejo de ladrillo con
-// escalera de incendio y cartel, 6 edificio en construcción con grúa.
+// Un rascacielos del futuro. type: 0 aguja, 1 megatorre escalonada con canal de luz, 2 torres gemelas con
+// puente, 3 torre redonda con anillos de luz, 4 torre en cuña, 5 torre con pantalla gigante, 6 torre de módulos.
 function buildingSprite(type: number, seed: number, near: boolean) {
   const r0 = rng(seed * 13 + type);
-  const w = near ? 2.4 + r0() * 1.3 : 1.5 + r0() * 1.3, h = near ? 3 + r0() * 3.4 : 4.4 + r0() * 4.2, extra = 2.6, H = h + extra;
-  return sprite(`bld-${near ? 'n' : 'm'}-${type}-${seed}`, w + 0.4, H, (g, s) => {
+  const w = near ? 2.2 + r0() * 1.2 : 1.3 + r0() * 1.1, h = near ? 4.5 + r0() * 3 : 5.5 + r0() * 3.5, extra = 2.8, H = h + extra;
+  return sprite(`fut-${near ? 'n' : 'm'}-${type}-${seed}`, w + 0.4, H, (g, s) => {
     const r = rng(seed * 7 + type * 3 + (near ? 99 : 0));
-    const x = 0.2, top = H - h, dim = near ? 0 : -0.15;
+    const x = 0.2, top = H - h, dim = near ? 0 : -0.12;
     const light = (lx: number, ly: number, color = '#ff2a2a', size = 0.04) => s.lights.push({ x: lx, y: ly, color, phase: r() * 6, size });
+    const bands = (bx: number, bw: number, from: number) => { for (let y = from + 0.8 + r() * 0.5; y < H - 0.4; y += 1.2 + r() * 1.2) if (r() < 0.6) redBand(g, bx, y, bw); };
     switch (type) {
-      case 0: { // torre de vidrio
-        g.fillStyle = lin(g, x, top, x + w, H, [[0, shade('#2b4185', dim)], [0.5, shade('#1a2a5e', dim)], [1, shade('#0e1638', dim)]]); g.fillRect(x, top, w, h);
-        windows(g, r, x + 0.04, top + 0.06, x + w - 0.04, H - 0.1, 0.2, 0.26, 0.17, 0.22, 0.22);
-        g.fillStyle = lin(g, x, top, x + w, top + h * 0.7, [[0, 'rgba(200,170,255,0.22)'], [0.45, 'rgba(120,150,255,0.08)'], [1, 'rgba(0,0,0,0)']]); g.fillRect(x, top, w, h); // reflejo del cielo
-        g.strokeStyle = 'rgba(8,12,30,0.9)'; g.lineWidth = 0.02;
-        for (let lx = x; lx <= x + w + 1e-6; lx += 0.2) { g.beginPath(); g.moveTo(lx, top); g.lineTo(lx, H); g.stroke(); }
-        g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(x + w - 0.03, top, 0.03, h); // canto iluminado
-        // Corona en punta, con una tira de luz y una aguja.
-        g.fillStyle = shade('#1a2a5e', dim); g.beginPath(); g.moveTo(x, top); g.lineTo(x + w, top); g.lineTo(x + w * 0.55, top - 0.9); g.closePath(); g.fill();
-        g.strokeStyle = '#7dd3fc'; g.lineWidth = 0.03; g.beginPath(); g.moveTo(x + 0.05, top - 0.02); g.lineTo(x + w * 0.55, top - 0.86); g.stroke();
-        g.fillStyle = '#94a3b8'; g.fillRect(x + w * 0.55 - 0.015, top - 2, 0.03, 1.15);
-        light(x + w * 0.55, top - 2);
+      case 0: { // aguja: torre finita que se afina arriba y termina en una antena
+        facade(g, r, x, top + 0.7, w, h - 0.7, dim);
+        g.fillStyle = lin(g, x, 0, x + w, 0, [[0, shade('#22357a', dim)], [1, shade('#0a1236', dim)]]);
+        g.beginPath(); g.moveTo(x, top + 0.7); g.lineTo(x + w * 0.32, top - 0.3); g.lineTo(x + w * 0.68, top - 0.3); g.lineTo(x + w, top + 0.7); g.closePath(); g.fill();
+        neon(g, x + 0.04, top + 0.7, h - 0.7); neon(g, x + w - 0.07, top + 0.7, h - 0.7); neon(g, x + w / 2 - 0.015, top - 0.3, h + 0.3, '#7dd3fc', 0.025);
+        g.strokeStyle = '#7dd3fc'; g.lineWidth = 0.025; g.beginPath(); g.moveTo(x + 0.04, top + 0.7); g.lineTo(x + w * 0.32, top - 0.3); g.moveTo(x + w - 0.04, top + 0.7); g.lineTo(x + w * 0.68, top - 0.3); g.stroke();
+        g.fillStyle = '#94a3b8'; g.fillRect(x + w / 2 - 0.015, top - 2.4, 0.03, 2.1);
+        bands(x, w, top + 0.7);
+        light(x + w / 2, top - 2.4); light(x + w * 0.32, top - 0.3, '#ff2a2a', 0.03); light(x + w * 0.68, top - 0.3, '#ff2a2a', 0.03);
         break;
       }
-      case 1: { // art decó escalonado
-        const tiers = [[1, 0.55], [0.76, 0.25], [0.5, 0.2]] as const;
-        let y = H;
-        for (const [frac, hf] of tiers) {
-          const tw = w * frac, tx = x + (w - tw) / 2, th = h * hf;
-          g.fillStyle = lin(g, tx, 0, tx + tw, 0, [[0, shade('#4a4060', dim)], [0.5, shade('#3a3350', dim)], [1, shade('#221d33', dim)]]); g.fillRect(tx, y - th, tw, th);
-          g.fillStyle = lin(g, 0, y - th, 0, y, [[0, 'rgba(255,200,120,0)'], [1, 'rgba(255,190,110,0.18)']]); g.fillRect(tx, y - th, tw, th); // luces desde abajo
-          windows(g, r, tx + 0.1, y - th + 0.15, tx + tw - 0.08, y - 0.08, 0.16, 0.3, 0.07, 0.2, 0.3);
-          g.fillStyle = 'rgba(0,0,0,0.35)'; for (let px = tx + 0.08; px < tx + tw; px += 0.16) g.fillRect(px + 0.075, y - th, 0.02, th); // pilastras
-          g.fillStyle = '#d4a648'; g.fillRect(tx - 0.04, y - th, tw + 0.08, 0.05); // cornisa dorada
-          y -= th;
+      case 1: { // megatorre: el cuerpo central más alto, alas escalonadas y un canal de luz celeste en el medio
+        const side = w * 0.3, lh = h * (0.6 + r() * 0.15), rh = h * (0.7 + r() * 0.15);
+        facade(g, r, x, H - lh, side, lh, dim - 0.08); facade(g, r, x + w - side, H - rh, side, rh, dim - 0.08);
+        facade(g, r, x + side, top, w - side * 2, h, dim);
+        const cx = x + w / 2;
+        g.fillStyle = lin(g, cx - 0.08, 0, cx + 0.08, 0, [[0, 'rgba(56,189,248,0)'], [0.5, 'rgba(125,211,252,0.95)'], [1, 'rgba(56,189,248,0)']]); g.fillRect(cx - 0.12, top + 0.2, 0.24, h - 0.2);
+        g.fillStyle = 'rgba(56,189,248,0.15)'; g.fillRect(cx - 0.3, top + 0.2, 0.6, h - 0.2);
+        bands(x + side, w - side * 2, top); redBand(g, x, H - lh + 0.15, side); redBand(g, x + w - side, H - rh + 0.15, side);
+        neon(g, x + side, top, h, '#38bdf8', 0.025); neon(g, x + w - side - 0.025, top, h, '#38bdf8', 0.025);
+        for (const [mx, mh] of [[cx - 0.25, 1.1], [cx, 1.9], [cx + 0.22, 0.8]] as const) { g.fillStyle = '#94a3b8'; g.fillRect(mx - 0.012, top - mh, 0.025, mh); light(mx, top - mh, '#ff2a2a', 0.035); }
+        g.fillStyle = shade('#0a1236', dim); g.fillRect(x + side - 0.05, top - 0.12, w - side * 2 + 0.1, 0.14);
+        break;
+      }
+      case 2: { // torres gemelas unidas por un puente de luz
+        const tw = w * 0.38, h2 = h * (0.8 + r() * 0.12);
+        facade(g, r, x, top, tw, h, dim); facade(g, r, x + w - tw, H - h2, tw, h2, dim - 0.06);
+        for (const [tx, ty] of [[x, top], [x + w - tw, H - h2]] as const) {
+          g.fillStyle = shade('#16245c', dim); g.beginPath(); g.moveTo(tx, ty); g.lineTo(tx + tw / 2, ty - 0.6); g.lineTo(tx + tw, ty); g.fill();
+          neon(g, tx + tw / 2 - 0.012, ty - 0.6, H - ty + 0.6, '#7dd3fc', 0.025); light(tx + tw / 2, ty - 0.6);
+          redBand(g, tx, ty + 0.4, tw);
         }
-        g.fillStyle = '#d4a648'; g.beginPath(); g.moveTo(x + w * 0.42, y); g.lineTo(x + w * 0.58, y); g.lineTo(x + w * 0.5, y - 1.4); g.closePath(); g.fill();
-        for (let k = 0; k < 4; k++) { g.fillStyle = '#fde68a'; g.fillRect(x + w * 0.5 - 0.06 + k * 0.0, y - 0.25 - k * 0.25, 0.12 - k * 0.025, 0.03); }
-        light(x + w * 0.5, y - 1.4);
+        const by = H - h2 + h2 * 0.35;
+        g.fillStyle = lin(g, 0, by, 0, by + 0.28, [[0, '#93c5fd'], [0.5, '#1e3a8a'], [1, '#0b1640']]); g.fillRect(x + tw, by, w - tw * 2, 0.28); // el puente
+        for (let k = x + tw + 0.08; k < x + w - tw - 0.05; k += 0.12) { g.fillStyle = r() < 0.7 ? '#bae6fd' : '#3b82f6'; g.fillRect(k, by + 0.1, 0.06, 0.07); }
+        g.fillStyle = '#38bdf8'; g.fillRect(x + tw, by + 0.27, w - tw * 2, 0.02); g.fillStyle = 'rgba(56,189,248,0.2)'; g.fillRect(x + tw, by + 0.27, w - tw * 2, 0.12);
         break;
       }
-      case 2: { // departamentos con balcones
-        g.fillStyle = lin(g, x, 0, x + w, 0, [[0, shade('#3a3a52', dim)], [1, shade('#24243a', dim)]]); g.fillRect(x, top, w, h);
-        grime(g, r, x, top, w, h, 80);
-        for (let y = top + 0.2; y < H - 0.3; y += 0.42) {
-          windows(g, r, x + 0.12, y, x + w - 0.1, y + 0.24, 0.32, 1, 0.22, 0.24, 0.45);
-          g.fillStyle = shade('#4b4b66', dim); g.fillRect(x + 0.05, y + 0.27, w - 0.1, 0.05); // losa del balcón
-          g.strokeStyle = 'rgba(200,200,220,0.45)'; g.lineWidth = 0.012;
-          g.beginPath(); g.moveTo(x + 0.05, y + 0.17); g.lineTo(x + w - 0.05, y + 0.17); for (let bx = x + 0.08; bx < x + w - 0.05; bx += 0.06) { g.moveTo(bx, y + 0.17); g.lineTo(bx, y + 0.27); } g.stroke();
-          if (r() < 0.5) { const ax = x + 0.15 + r() * (w - 0.4); g.fillStyle = '#6b7280'; g.fillRect(ax, y + 0.3, 0.14, 0.09); g.fillStyle = '#374151'; g.fillRect(ax + 0.02, y + 0.32, 0.1, 0.01); } // aire acondicionado
-          if (r() < 0.25) { g.fillStyle = r() < 0.5 ? '#16a34a' : '#ea580c'; g.beginPath(); g.arc(x + 0.2 + r() * (w - 0.4), y + 0.15, 0.04, 0, Math.PI * 2); g.fill(); } // plantas
+      case 3: { // torre redonda con anillos de luz y cúpula
+        g.fillStyle = lin(g, x, 0, x + w, 0, [[0, shade('#0a1236', dim)], [0.35, shade('#2c4592', dim)], [0.55, shade('#1a2b6a', dim)], [1, shade('#070d2a', dim)]]); g.fillRect(x, top, w, h);
+        for (let y = top + 0.12; y < H - 0.05; y += 0.15) for (let k = 0; k < 16; k++) {
+          const a0 = -Math.PI / 2 + k / 16 * Math.PI, sx = x + w * (0.5 + Math.sin(a0) * 0.5), sx1 = x + w * (0.5 + Math.sin(a0 + Math.PI / 16) * 0.5);
+          if (r() < 0.45) { g.fillStyle = r() < 0.75 ? '#60a5fa' : '#e0f2fe'; g.globalAlpha = 0.4 + Math.cos(a0) * 0.6; g.fillRect(sx, y, Math.max(0.004, sx1 - sx - 0.012), 0.07); g.globalAlpha = 1; }
         }
-        // Tanque de agua de madera con patas y antena.
-        const tx = x + w * 0.25;
-        g.strokeStyle = '#1f2937'; g.lineWidth = 0.03; g.beginPath(); g.moveTo(tx, top); g.lineTo(tx + 0.05, top - 0.25); g.moveTo(tx + 0.4, top); g.lineTo(tx + 0.35, top - 0.25); g.stroke();
-        g.fillStyle = lin(g, tx, 0, tx + 0.4, 0, [[0, '#7c4a2a'], [0.5, '#a0643a'], [1, '#4a2a17']]); g.fillRect(tx, top - 0.65, 0.4, 0.42);
-        g.fillStyle = '#3b2414'; g.beginPath(); g.moveTo(tx - 0.02, top - 0.65); g.lineTo(tx + 0.2, top - 0.85); g.lineTo(tx + 0.42, top - 0.65); g.fill();
-        g.fillStyle = 'rgba(0,0,0,0.4)'; for (const by of [0.1, 0.25, 0.38]) g.fillRect(tx, top - 0.65 + by, 0.4, 0.015);
-        g.fillStyle = '#9ca3af'; g.fillRect(x + w * 0.75, top - 1.1, 0.025, 1.1); light(x + w * 0.75, top - 1.1);
-        break;
-      }
-      case 3: { // torre redonda con helipuerto
-        g.fillStyle = lin(g, x, 0, x + w, 0, [[0, shade('#141c44', dim)], [0.35, shade('#3b4f95', dim)], [0.6, shade('#22306a', dim)], [1, shade('#0c1230', dim)]]); g.fillRect(x, top, w, h);
-        for (let y = top + 0.15; y < H - 0.1; y += 0.3) {
-          for (let k = 0; k < 14; k++) { // banda de ventanas que se curva con el edificio
-            const a0 = -Math.PI / 2 + k / 14 * Math.PI, a1 = a0 + Math.PI / 14, sx0 = x + w * (0.5 + Math.sin(a0) * 0.5), sx1 = x + w * (0.5 + Math.sin(a1) * 0.5);
-            const on = r() < 0.4, c = on ? (r() < 0.7 ? '#fde68a' : '#bfdbfe') : '#0b1230';
-            g.fillStyle = css(mixRGB(rgb(c), [0, 0, 0], on ? Math.abs(Math.sin(a0)) * 0.5 : 0)); g.fillRect(sx0, y, Math.max(0.005, sx1 - sx0 - 0.01), 0.13);
-          }
+        for (let y = top + 0.9; y < H - 0.5; y += 1.3) { // anillos
+          g.strokeStyle = 'rgba(56,189,248,0.25)'; g.lineWidth = 0.12; g.beginPath(); g.ellipse(x + w / 2, y, w * 0.62, 0.12, 0, 0, Math.PI); g.stroke();
+          g.strokeStyle = '#7dd3fc'; g.lineWidth = 0.035; g.beginPath(); g.ellipse(x + w / 2, y, w * 0.62, 0.12, 0, 0, Math.PI); g.stroke();
+          g.strokeStyle = 'rgba(125,211,252,0.35)'; g.lineWidth = 0.02; g.beginPath(); g.ellipse(x + w / 2, y, w * 0.62, 0.12, 0, Math.PI, Math.PI * 2); g.stroke();
         }
-        g.fillStyle = shade('#64748b', dim); g.fillRect(x - 0.08, top - 0.1, w + 0.16, 0.12);
-        g.fillStyle = '#1f2937'; g.beginPath(); g.ellipse(x + w / 2, top - 0.12, w * 0.45, 0.08, 0, 0, Math.PI * 2); g.fill();
-        g.fillStyle = '#e5e7eb'; g.font = 'bold 0.12px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('H', x + w / 2, top - 0.12);
-        for (const k of [-0.42, 0.42]) light(x + w / 2 + w * k, top - 0.12, '#22c55e', 0.03);
+        g.fillStyle = lin(g, x, top - 0.6, x + w, top, [[0, '#93c5fd'], [1, '#1e3a8a']]); g.beginPath(); g.ellipse(x + w / 2, top, w / 2, 0.55, 0, Math.PI, 0); g.fill(); // cúpula
+        g.strokeStyle = 'rgba(224,242,254,0.6)'; g.lineWidth = 0.015; for (let k = 1; k < 5; k++) { g.beginPath(); g.ellipse(x + w / 2, top, w / 2 * k / 5, 0.55, 0, Math.PI, 0); g.stroke(); }
+        g.fillStyle = '#94a3b8'; g.fillRect(x + w / 2 - 0.012, top - 1.5, 0.025, 1); light(x + w / 2, top - 1.5);
         break;
       }
-      case 4: { // torre corporativa con tiras de LED
-        g.fillStyle = lin(g, x, 0, x + w, 0, [[0, shade('#0f1736', dim)], [0.5, shade('#18224a', dim)], [1, shade('#090e24', dim)]]); g.fillRect(x, top, w, h);
-        windows(g, r, x + 0.08, top + 0.4, x + w - 0.08, H - 0.1, 0.12, 0.16, 0.08, 0.1, 0.18);
-        const c1 = r() < 0.5 ? '#22d3ee' : '#f472b6', c2 = c1 === '#22d3ee' ? '#a78bfa' : '#38bdf8';
-        g.fillStyle = lin(g, 0, top, 0, H, [[0, c1], [1, c2]]); g.fillRect(x + w * 0.48, top, 0.05, h); // tira vertical
-        glow(g, x + w * 0.5, top + h / 2, 0.5, c1, 0.25);
-        g.fillStyle = lin(g, x, 0, x + w, 0, [[0, c2], [0.5, c1], [1, c2]]); g.fillRect(x, top + 0.08, w, 0.08); g.fillRect(x, top + 0.24, w, 0.04); // corona de LED
-        glow(g, x + w / 2, top + 0.12, w * 0.7, c1, 0.25);
-        g.fillStyle = '#0f1736'; g.fillRect(x + w * 0.3, top - 0.5, w * 0.4, 0.5); g.fillStyle = '#9ca3af'; g.fillRect(x + w * 0.5, top - 1.3, 0.03, 0.8);
-        light(x + w * 0.5, top - 1.3);
+      case 4: { // torre en cuña: el techo en diagonal con tiras de luz que bajan
+        const low = top + h * 0.25;
+        g.save(); g.beginPath(); g.moveTo(x, low); g.lineTo(x + w, top); g.lineTo(x + w, H); g.lineTo(x, H); g.closePath(); g.clip();
+        facade(g, r, x, top, w, h, dim); g.restore();
+        const c = r() < 0.5 ? '#f472b6' : '#a78bfa';
+        g.strokeStyle = css(rgb(c), 0.25); g.lineWidth = 0.12; g.beginPath(); g.moveTo(x, low); g.lineTo(x + w, top); g.stroke();
+        g.strokeStyle = c; g.lineWidth = 0.035; g.beginPath(); g.moveTo(x, low); g.lineTo(x + w, top); g.stroke();
+        for (let k = 1; k < 4; k++) { const fx = x + w * k / 4; g.strokeStyle = css(rgb('#38bdf8'), 0.7); g.lineWidth = 0.02; g.beginPath(); g.moveTo(fx, low - (low - top) * k / 4); g.lineTo(fx, H); g.stroke(); }
+        bands(x, w, low);
+        g.fillStyle = '#94a3b8'; g.fillRect(x + w - 0.1, top - 1.3, 0.025, 1.3); light(x + w - 0.09, top - 1.3);
         break;
       }
-      case 5: { // edificio viejo de ladrillo
-        g.fillStyle = shade('#5a2e2a', dim - 0.25); g.fillRect(x, top, w, h);
-        for (let y = top; y < H; y += 0.06) { const off = Math.round((y - top) / 0.06) % 2 ? 0.06 : 0; for (let bx = x - off; bx < x + w; bx += 0.12) { g.fillStyle = css(mixRGB(rgb('#6b3530'), rgb('#3b1d1a'), r()), 0.9); g.fillRect(Math.max(x, bx), y, Math.min(0.11, x + w - bx), 0.05); } }
-        for (let y = top + 0.3; y < H - 0.4; y += 0.55) for (let wx = x + 0.15; wx < x + w - 0.2; wx += 0.38) {
-          const on = r() < 0.45, c = on ? (r() < 0.8 ? '#fdba74' : '#fde68a') : '#120a10';
-          g.fillStyle = '#d6c7b0'; g.fillRect(wx - 0.02, y - 0.02, 0.24, 0.38); // marco de piedra
-          g.fillStyle = on ? lin(g, 0, y, 0, y + 0.34, [[0, shade(c, 0.2)], [1, shade(c, -0.35)]]) : c;
-          g.beginPath(); g.moveTo(wx, y + 0.34); g.lineTo(wx, y + 0.1); g.arc(wx + 0.1, y + 0.1, 0.1, Math.PI, 0); g.lineTo(wx + 0.2, y + 0.34); g.fill();
-          g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(wx + 0.095, y, 0.01, 0.34); g.fillRect(wx, y + 0.18, 0.2, 0.01);
+      case 5: { // torre con pantalla gigante roja
+        facade(g, r, x, top, w, h, dim);
+        neon(g, x + 0.04, top, h); neon(g, x + w - 0.07, top, h);
+        const sw = w - 0.3, sh = Math.min(1.4, sw * 0.65), sx = x + 0.15, sy = top + 0.6;
+        g.fillStyle = 'rgba(255,42,42,0.18)'; g.fillRect(sx - 0.12, sy - 0.12, sw + 0.24, sh + 0.24);
+        g.fillStyle = '#12040a'; g.fillRect(sx, sy, sw, sh);
+        g.strokeStyle = '#ff3b3b'; g.lineWidth = 0.035; g.strokeRect(sx + 0.04, sy + 0.04, sw - 0.08, sh - 0.08);
+        const tcx = sx + sw / 2, tcy = sy + sh * 0.45, tr = sh * 0.28;
+        g.fillStyle = '#ff2a2a'; g.beginPath(); g.moveTo(tcx, tcy - tr); g.lineTo(tcx + tr * 1.1, tcy + tr * 0.8); g.lineTo(tcx - tr * 1.1, tcy + tr * 0.8); g.closePath(); g.fill();
+        g.fillStyle = '#12040a'; g.beginPath(); g.moveTo(tcx, tcy - tr * 0.1); g.lineTo(tcx + tr * 0.4, tcy + tr * 0.6); g.lineTo(tcx - tr * 0.4, tcy + tr * 0.6); g.closePath(); g.fill();
+        g.fillStyle = '#ff6b6b'; for (let k = 0; k < 4; k++) g.fillRect(sx + sw * 0.2 + k * sw * 0.16, sy + sh * 0.82, sw * 0.12, 0.04); // texto
+        g.fillStyle = 'rgba(0,0,0,0.25)'; for (let y = sy; y < sy + sh; y += 0.04) g.fillRect(sx, y, sw, 0.012); // líneas de pantalla
+        g.fillStyle = shade('#0a1236', dim); g.fillRect(x - 0.05, top - 0.1, w + 0.1, 0.12);
+        g.fillStyle = '#94a3b8'; g.fillRect(x + w * 0.25, top - 1, 0.025, 1); light(x + w * 0.25, top - 1);
+        break;
+      }
+      case 6: { // torre de módulos: un núcleo con cápsulas que salen para los costados
+        const cw = w * 0.34, cx = x + (w - cw) / 2;
+        facade(g, r, cx, top, cw, h, dim);
+        neon(g, cx + cw / 2 - 0.015, top, h, '#7dd3fc', 0.03);
+        for (let y = top + 0.4; y < H - 0.4; y += 0.55) {
+          const left = Math.floor((y - top) / 0.55) % 2 === 0, pw = (w - cw) / 2 + 0.2 + r() * 0.2, px = left ? cx - pw + 0.1 : cx + cw - 0.1;
+          g.fillStyle = lin(g, 0, y, 0, y + 0.38, [[0, shade('#2c4592', dim)], [1, shade('#0b1640', dim)]]);
+          g.beginPath(); g.roundRect(px, y, pw, 0.38, 0.12); g.fill();
+          for (let k = px + 0.1; k < px + pw - 0.1; k += 0.13) { g.fillStyle = r() < 0.6 ? '#93c5fd' : '#fde68a'; g.globalAlpha = 0.85; g.fillRect(k, y + 0.12, 0.08, 0.12); g.globalAlpha = 1; }
+          g.fillStyle = '#38bdf8'; g.fillRect(px + 0.1, y + 0.36, pw - 0.2, 0.02);
         }
-        // Escalera de incendio.
-        g.strokeStyle = '#0b0b10'; g.lineWidth = 0.02;
-        const fx = x + w - 0.55;
-        for (let y = top + 0.75; y < H - 0.3; y += 0.55) {
-          g.beginPath(); g.moveTo(fx, y); g.lineTo(fx + 0.5, y); g.moveTo(fx, y - 0.12); g.lineTo(fx + 0.5, y - 0.12); for (let k = 0; k <= 5; k++) { g.moveTo(fx + k * 0.1, y - 0.12); g.lineTo(fx + k * 0.1, y); } g.moveTo(fx + 0.05, y); g.lineTo(fx + 0.45, y + 0.55); g.stroke();
-        }
-        g.fillStyle = '#3f1d1a'; g.fillRect(x - 0.04, top - 0.08, w + 0.08, 0.1);
-        // Cartel en la azotea, con neón.
-        const bw = Math.min(w - 0.2, 1.5), bx = x + (w - bw) / 2, c = ['#f43f5e', '#22d3ee', '#facc15', '#a3e635'][Math.floor(r() * 4)];
-        g.strokeStyle = '#111827'; g.lineWidth = 0.025; g.beginPath(); for (let k = 0; k <= 3; k++) { g.moveTo(bx + k * bw / 3, top); g.lineTo(bx + k * bw / 3, top - 0.35); } g.stroke();
-        g.fillStyle = '#0b0b14'; g.fillRect(bx, top - 0.95, bw, 0.6);
-        glow(g, bx + bw / 2, top - 0.65, bw * 0.8, c, 0.35);
-        g.strokeStyle = c; g.lineWidth = 0.035; g.strokeRect(bx + 0.05, top - 0.9, bw - 0.1, 0.5);
-        g.fillStyle = c; for (let k = 0; k < 3; k++) g.fillRect(bx + 0.15 + k * (bw - 0.3) / 3, top - 0.75, (bw - 0.3) / 3 * 0.7, 0.2);
-        break;
-      }
-      case 6: { // en construcción, con grúa
-        const built = h * (0.45 + r() * 0.2);
-        g.fillStyle = shade('#3f4256', dim); g.fillRect(x, H - built, w, built);
-        windows(g, r, x + 0.1, H - built + 0.1, x + w - 0.1, H - 0.1, 0.25, 0.32, 0.18, 0.2, 0.15);
-        g.strokeStyle = '#b45309'; g.lineWidth = 0.035; // estructura de acero
-        for (let y = H - built; y > top - 1e-6; y -= 0.4) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + w, y); g.stroke(); }
-        for (let bx = x; bx <= x + w + 1e-6; bx += w / 4) { g.beginPath(); g.moveTo(bx, H - built); g.lineTo(bx, top); g.stroke(); }
-        g.strokeStyle = 'rgba(180,83,9,0.6)'; g.lineWidth = 0.015;
-        for (let y = H - built; y > top + 0.4; y -= 0.4) for (let bx = x; bx < x + w - 0.01; bx += w / 4) { g.beginPath(); g.moveTo(bx, y); g.lineTo(bx + w / 4, y - 0.4); g.stroke(); }
-        // La grúa.
-        const mx = x + w * 0.7, my = top - 1.6;
-        g.strokeStyle = '#facc15'; g.lineWidth = 0.02;
-        for (let y = top; y > my; y -= 0.12) { g.beginPath(); g.moveTo(mx - 0.06, y); g.lineTo(mx + 0.06, y - 0.12); g.moveTo(mx + 0.06, y); g.lineTo(mx - 0.06, y - 0.12); g.stroke(); }
-        g.fillStyle = '#eab308'; g.fillRect(mx - 0.06, my, 0.02, top - my); g.fillRect(mx + 0.04, my, 0.02, top - my);
-        g.fillRect(mx - 1.1, my - 0.05, 1.6, 0.06); g.fillStyle = '#57534e'; g.fillRect(mx + 0.3, my + 0.01, 0.18, 0.12); // pluma y contrapeso
-        g.strokeStyle = '#d1d5db'; g.lineWidth = 0.008; g.beginPath(); g.moveTo(mx - 0.8, my); g.lineTo(mx - 0.8, my + 0.9); g.stroke();
-        g.fillStyle = '#facc15'; g.fillRect(mx - 0.83, my + 0.9, 0.06, 0.05);
-        light(mx, my - 0.05); light(mx - 1.1, my - 0.03, '#ff2a2a', 0.03);
+        g.fillStyle = '#94a3b8'; g.fillRect(cx + cw / 2 - 0.012, top - 1.6, 0.025, 1.6); light(cx + cw / 2, top - 1.6);
         break;
       }
     }
-    // La base: un poco de brillo de la calle.
-    g.fillStyle = lin(g, 0, H - 0.6, 0, H, [[0, 'rgba(255,170,90,0)'], [1, 'rgba(255,170,90,0.18)']]); g.fillRect(x, H - 0.6, w, 0.6);
+    g.fillStyle = lin(g, 0, H - 0.8, 0, H, [[0, 'rgba(56,189,248,0)'], [1, 'rgba(56,189,248,0.18)']]); g.fillRect(x, H - 0.8, w, 0.8); // luz de la calle
   });
 }
-// La línea del horizonte, lejos: siluetas variadas (cúpulas, agujas, escalonadas) en la niebla.
+// El horizonte, lejos: torres finitas y altísimas en la niebla azul, con agujas y luces rojas.
 function skylineSprite() {
-  const W = 40, H = 9.5;
-  return sprite('skyline', W, H, (g, s) => {
-    const r = rng(77);
+  const W = 40, H = 9.8;
+  return sprite('skyline-fut', W, H, (g, s) => {
+    const r = rng(78);
     let x = 0;
     while (x < W - 0.6) {
-      const w = 0.4 + r() * 1, h = 3 + r() * 5.5, top = H - h, kind = Math.floor(r() * 5);
-      const c = css(mixRGB(rgb('#34418a'), rgb('#4a3f8f'), r()), 1);
-      g.fillStyle = c; g.fillRect(x, top, w, h);
-      if (kind === 1) { g.beginPath(); g.arc(x + w / 2, top, w / 2, Math.PI, 0); g.fill(); }
-      if (kind === 2) { g.fillRect(x + w * 0.2, top - 0.5, w * 0.6, 0.5); g.fillRect(x + w * 0.4, top - 1.3, w * 0.2, 0.8); }
-      if (kind === 3) { g.beginPath(); g.moveTo(x, top); g.lineTo(x + w / 2, top - 0.8); g.lineTo(x + w, top); g.fill(); }
-      if (kind !== 1) { g.fillRect(x + w / 2 - 0.01, top - 1.2, 0.02, 1.2); s.lights.push({ x: x + w / 2, y: top - 1.2, color: '#ff4d4d', phase: r() * 6, size: 0.025 }); }
-      for (let y = top + 0.15; y < H; y += 0.16) for (let wx = x + 0.06; wx < x + w - 0.05; wx += 0.1) if (r() < 0.12) { g.fillStyle = r() < 0.7 ? 'rgba(253,230,138,0.7)' : 'rgba(191,219,254,0.7)'; g.fillRect(wx, y, 0.04, 0.05); }
-      x += w + r() * 0.15 - 0.05;
+      const w = 0.35 + r() * 0.8, h = 4 + r() * 5.3, top = H - h, kind = Math.floor(r() * 4);
+      g.fillStyle = css(mixRGB(rgb('#2b3a85'), rgb('#3f4c9c'), r())); g.fillRect(x, top, w, h);
+      if (kind === 1) { g.beginPath(); g.moveTo(x, top); g.lineTo(x + w / 2, top - 0.7); g.lineTo(x + w, top); g.fill(); }
+      if (kind === 2) { g.fillRect(x + w * 0.25, top - 0.6, w * 0.5, 0.6); }
+      g.fillRect(x + w / 2 - 0.012, top - 1.5, 0.025, 1.5); s.lights.push({ x: x + w / 2, y: top - 1.5, color: '#ff4d4d', phase: r() * 6, size: 0.025 });
+      if (r() < 0.6) { g.fillStyle = 'rgba(125,211,252,0.55)'; g.fillRect(x + w * (0.2 + r() * 0.6), top, 0.02, h); }
+      for (let y = top + 0.12; y < H; y += 0.13) for (let wx = x + 0.05; wx < x + w - 0.04; wx += 0.08) if (r() < 0.14) { g.fillStyle = r() < 0.85 ? 'rgba(147,197,253,0.65)' : 'rgba(254,226,226,0.7)'; g.fillRect(wx, y, 0.035, 0.04); }
+      if (r() < 0.25) { g.fillStyle = 'rgba(255,42,42,0.7)'; g.fillRect(x, top + h * 0.3, w, 0.02); }
+      x += w + r() * 0.12 - 0.04;
     }
-    // Niebla de abajo.
-    g.fillStyle = lin(g, 0, H * 0.4, 0, H, [[0, 'rgba(232,121,249,0)'], [1, 'rgba(232,121,249,0.4)']]); g.fillRect(0, H * 0.4, W, H * 0.6);
+    g.fillStyle = lin(g, 0, H * 0.35, 0, H, [[0, 'rgba(192,132,252,0)'], [1, 'rgba(192,132,252,0.42)']]); g.fillRect(0, H * 0.35, W, H * 0.65);
   });
 }
 
-function city(ctx: CanvasRenderingContext2D, cam: number, l0: number, l1: number, cols: number, time: number) {
-  // La luna, enorme y con cráteres, apenas se mueve.
-  const moon = planetSprite({ kind: 'moon' }, 3);
-  if (moon) {
-    const mx = l0 + cols * 0.72 - (cam * 0.01) % (cols + 6), my = 3.2, size = 1.15;
-    glow(ctx, mx, my, size * 2.4, '#c4b5fd', 0.3);
-    ctx.drawImage(moon.img, mx - size * moon.w / 2, my - size * moon.h / 2, size * moon.w, size * moon.h);
-  }
-  // Nubes finas iluminadas por la ciudad.
+function city(ctx: CanvasRenderingContext2D, cam: number, l0: number, l1: number, time: number) {
+  // Neblina violeta del horizonte y nubes finas iluminadas por la ciudad.
   each(cam, l0, l1, 0.02, 7, (x, i) => {
-    for (let k = 0; k < 3; k++) { ctx.fillStyle = `rgba(196,181,253,${0.06 + hash(i * 3 + k) * 0.06})`; ctx.beginPath(); ctx.ellipse(x + hash(i + k) * 5, 1.2 + hash(i * 7 + k) * 2.5, 2 + hash(k + i) * 2, 0.12 + hash(i + k * 5) * 0.12, 0, 0, Math.PI * 2); ctx.fill(); }
+    for (let k = 0; k < 3; k++) { ctx.fillStyle = `rgba(167,139,250,${0.05 + hash(i * 3 + k) * 0.05})`; ctx.beginPath(); ctx.ellipse(x + hash(i + k) * 5, 1.4 + hash(i * 7 + k) * 2.2, 2 + hash(k + i) * 2, 0.1 + hash(i + k * 5) * 0.1, 0, 0, Math.PI * 2); ctx.fill(); }
   });
   const sky = skylineSprite();
   if (sky) each(cam, l0, l1, 0.05, sky.w, x => { ctx.drawImage(sky.img, x, ROWS - sky.h, sky.w + 0.02, sky.h); blinkLights(ctx, sky, x, ROWS - sky.h, time); });
-  // Edificios del medio y los de adelante, todos distintos.
-  for (const [near, factor, gap, count] of [[false, 0.13, 2.9, 21], [true, 0.26, 4.1, 14]] as const) {
-    if (near) { ctx.fillStyle = lin(ctx, 0, ROWS * 0.5, 0, ROWS, [[0, 'rgba(232,121,249,0)'], [1, 'rgba(192,132,252,0.25)']]); ctx.fillRect(l0, ROWS * 0.5, l1 - l0, ROWS * 0.5); }
-    each(cam, l0, l1, factor, gap, (x, i) => {
-      const k = ((i % count) + count) % count, type = (k * 3) % TYPES, s = buildingSprite(type, k, near);
-      if (!s) return;
-      const bx = x + (gap - s.w) * hash(i + (near ? 50 : 0)) * 0.6;
-      ctx.drawImage(s.img, bx, ROWS - s.h, s.w, s.h);
-      blinkLights(ctx, s, bx, ROWS - s.h, time);
-    });
+  const building = (near: boolean, factor: number, gap: number, count: number) => each(cam, l0, l1, factor, gap, (x, i) => {
+    const k = ((i % count) + count) % count, type = (k * 3) % TYPES, s = buildingSprite(type, k, near);
+    if (!s) return;
+    const bx = x + (gap - s.w) * hash(i + (near ? 50 : 0)) * 0.6;
+    ctx.drawImage(s.img, bx, ROWS - s.h, s.w, s.h);
+    blinkLights(ctx, s, bx, ROWS - s.h, time);
+  });
+  building(false, 0.13, 2.6, 21);
+  // Autopista elevada que serpentea entre los edificios, con su baranda de luz roja y pilares con luz celeste.
+  const off = cam * 0.2, road = (x: number) => ROWS - 2.9 + Math.sin((x + off) * 0.22) * 0.45;
+  ctx.fillStyle = 'rgba(10,16,48,0.95)';
+  for (let x = Math.floor((l0 + off) / 3.5) * 3.5 - off; x < l1 + 3.5; x += 3.5) { ctx.fillRect(x, road(x) + 0.25, 0.24, ROWS - road(x)); ctx.fillStyle = 'rgba(56,189,248,0.6)'; ctx.fillRect(x + 0.1, road(x) + 0.35, 0.03, ROWS - road(x)); ctx.fillStyle = 'rgba(10,16,48,0.95)'; }
+  for (const [dy, th, color] of [[0, 0.28, '#0d1440'], [-0.06, 0.06, '#1e2a63']] as const) {
+    ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(l0 - 1, road(l0 - 1) + dy);
+    for (let x = l0 - 1; x <= l1 + 1; x += 0.25) ctx.lineTo(x, road(x) + dy);
+    for (let x = l1 + 1; x >= l0 - 1; x -= 0.25) ctx.lineTo(x, road(x) + dy + th);
+    ctx.fill();
   }
+  ctx.strokeStyle = 'rgba(255,42,42,0.9)'; ctx.lineWidth = 0.03; ctx.beginPath(); for (let x = l0 - 1; x <= l1 + 1; x += 0.25) { if (x === l0 - 1) ctx.moveTo(x, road(x) - 0.07); else ctx.lineTo(x, road(x) - 0.07); } ctx.stroke();
+  ctx.strokeStyle = 'rgba(125,211,252,0.85)'; ctx.lineWidth = 0.02; ctx.beginPath(); for (let x = l0 - 1; x <= l1 + 1; x += 0.25) { if (x === l0 - 1) ctx.moveTo(x, road(x) + 0.27); else ctx.lineTo(x, road(x) + 0.27); } ctx.stroke();
+  ctx.fillStyle = lin(ctx, 0, ROWS * 0.5, 0, ROWS, [[0, 'rgba(192,132,252,0)'], [1, 'rgba(168,85,247,0.22)']]); ctx.fillRect(l0, ROWS * 0.5, l1 - l0, ROWS * 0.5);
+  building(true, 0.26, 3.8, 14);
 }
 
 // ---------- Nivel 2: el espacio con planetas ----------
@@ -717,7 +699,7 @@ function shipWindows(ctx: CanvasRenderingContext2D, cam: number, l0: number, l1:
 
 export type Backdrop = 'city' | 'mines' | 'base';
 export function drawBackdrop(kind: Backdrop, ctx: CanvasRenderingContext2D, cam: number, l0: number, l1: number, cols: number, time: number) {
-  if (kind === 'city') city(ctx, cam, l0, l1, cols, time);
+  if (kind === 'city') city(ctx, cam, l0, l1, time);
   else if (kind === 'mines') space(ctx, cam, l0, l1);
   else shipWindows(ctx, cam, l0, l1, time);
 }
