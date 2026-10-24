@@ -1250,36 +1250,86 @@ function monster(ctx: CanvasRenderingContext2D, h: Hazard, game: Game) {
   ctx.strokeStyle = INK; ctx.lineWidth = 1.5 * P; ctx.beginPath(); ctx.arc(ex, ey, er * 1.04, 0, Math.PI * 2); ctx.stroke();
 }
 
-// Gusano espacial que sale del piso o del techo: anillos rosados, la boca redonda llena de dientes.
+// Gusano espacial que sale del piso o del techo: un bicho de carne con anillos marcados (cada uno con volumen,
+// manchas, venitas y pelitos), brillo de baba, y una boca redonda como de lamprea: pétalos de carne que se
+// abren, dos anillos de dientes ganchudos y la garganta oscura. Al salir levanta tierra y piedras.
 function worm(ctx: CanvasRenderingContext2D, h: Hazard, game: Game) {
-  const wh = wormHeight(game, h), warn = wormWarn(game, h), time = game.time;
+  const wh = wormHeight(game, h), warn = wormWarn(game, h), time = game.time, id = h.id;
+  const SKIN = '#b8687a', DEEP = '#5c2233', LIGHT = '#f2b8c2';
   ctx.save();
   ctx.translate(h.x + h.w / 2, h.side === 1 ? FLOOR : CEIL);
   if (h.side === -1) ctx.scale(1, -1); // del techo crece para abajo
-  // Antes de salir: el suelo tiembla, se agrieta y saltan piedritas.
+  // Antes de salir (y mientras está afuera): el suelo se agrieta, tiembla y saltan piedras y polvo.
   if (warn || wh > 0) {
-    ctx.strokeStyle = INK; ctx.lineWidth = 1.5 * P;
-    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(s * 0.3, 0.12); ctx.lineTo(s * 0.55, 0.08); ctx.lineTo(s * 0.75, 0.2); ctx.stroke(); }
-    ctx.fillStyle = '#78716c';
-    for (let k = 0; k < 5; k++) { const jump = Math.abs(Math.sin(time * 12 + k * 1.7)) * (warn ? 0.35 : 0.15); ctx.fillRect(-0.45 + k * 0.22, -0.06 - jump, 3 * P, 3 * P); }
+    const shake = warn ? Math.sin(time * 50) * 0.02 : 0;
+    ctx.strokeStyle = INK; ctx.lineWidth = 2 * P;
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(shake, 0); ctx.lineTo(s * 0.35, 0.1); ctx.lineTo(s * 0.6, 0.06); ctx.lineTo(s * 0.85, 0.18); ctx.moveTo(s * 0.5, 0.08); ctx.lineTo(s * 0.62, 0.22); ctx.stroke(); }
+    for (let k = 0; k < 7; k++) {
+      const jump = Math.abs(Math.sin(time * (warn ? 14 : 6) + k * 1.9)) * (warn ? 0.45 : 0.25), px = -0.6 + k * 0.2 + Math.sin(k * 3) * 0.05, r = 0.035 + hash(k + id) * 0.04;
+      ctx.fillStyle = ball(ctx, px, -0.05 - jump, r, k % 2 ? '#78716c' : '#a8a29e'); ctx.beginPath(); ctx.arc(px, -0.05 - jump, r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = warn ? 0.35 : 0.25; ctx.fillStyle = '#a8a29e';
+    for (let k = 0; k < 5; k++) { const a = time * 0.8 + k; ctx.beginPath(); ctx.arc(Math.sin(a * 1.3 + k) * 0.5, -0.1 - (a % 1) * 0.3, 0.12 + (a % 1) * 0.15, 0, Math.PI * 2); ctx.fill(); }
+    ctx.globalAlpha = 1;
   }
   if (wh > 0) {
-    // El cuerpo: anillos de abajo para arriba, ondulando.
-    for (let yy = 0.15; yy < wh - 0.25; yy += 0.28) {
-      const wob = Math.sin(time * 6 - yy * 2) * 0.08, i = Math.round(yy / 0.28);
-      ink(ctx, () => ctx.ellipse(wob, -yy, 0.42, 0.18, 0, 0, Math.PI * 2), i % 2 ? '#be185d' : '#db2777', 1.5);
-      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(wob - 0.25, -yy - 0.1, 0.18, P);
+    // La línea del medio del cuerpo, ondulando (más arriba se mueve más).
+    const sway = (y: number) => Math.sin(time * 3.2 - y * 1.3 + id) * 0.14 * Math.min(1, y / 1.5) + Math.sin(time * 7 + y * 3) * 0.015;
+    const width = (y: number) => 0.46 - Math.min(0.08, y * 0.015);
+    const top = wh - 0.32, seg = 0.26;
+    // El cuerpo entero primero (la silueta con borde), después cada anillo con su volumen.
+    ctx.beginPath();
+    for (let y = 0; y <= top; y += 0.1) ctx.lineTo(sway(y) - width(y), -y);
+    for (let y = top; y >= 0; y -= 0.1) ctx.lineTo(sway(y) + width(y), -y);
+    ctx.closePath(); ctx.lineWidth = 3 * P; ctx.strokeStyle = INK; ctx.stroke();
+    for (let y = 0, i = 0; y < top; y += seg, i++) {
+      const y1 = Math.min(top, y + seg), cx = sway((y + y1) / 2), w = width((y + y1) / 2);
+      // Anillo: degradé de cilindro (luz arriba a la izquierda) y un borde hinchado.
+      ctx.fillStyle = lin(ctx, cx - w, 0, cx + w, 0, [[0, darken(SKIN, 0.55)], [0.22, lighten(SKIN, 0.18)], [0.4, SKIN], [0.8, darken(SKIN, 0.35)], [1, darken(SKIN, 0.65)]]);
+      ctx.beginPath(); ctx.moveTo(sway(y) - width(y), -y); ctx.lineTo(sway(y1) - width(y1), -y1); ctx.lineTo(sway(y1) + width(y1), -y1); ctx.lineTo(sway(y) + width(y), -y); ctx.closePath(); ctx.fill();
+      // La juntura entre anillos: un surco oscuro curvo y el borde de arriba con brillo.
+      ctx.strokeStyle = DEEP; ctx.lineWidth = 2 * P;
+      ctx.beginPath(); ctx.ellipse(sway(y1), -y1, width(y1), 0.06, 0, 0, Math.PI); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,220,225,0.35)'; ctx.lineWidth = P;
+      ctx.beginPath(); ctx.ellipse(sway(y1), -y1 + 0.035, width(y1) * 0.85, 0.05, 0, Math.PI * 0.15, Math.PI * 0.6); ctx.stroke();
+      // Manchas, venitas y pelitos a los costados.
+      ctx.fillStyle = 'rgba(92,34,51,0.45)';
+      for (let k = 0; k < 3; k++) { const hx = cx + (hash(i * 7 + k + id) - 0.5) * w * 1.4, hy = -(y + seg * (0.25 + hash(i * 3 + k) * 0.5)); ctx.beginPath(); ctx.ellipse(hx, hy, 0.03 + hash(k + i) * 0.04, 0.02 + hash(k * 3 + i) * 0.02, 0, 0, Math.PI * 2); ctx.fill(); }
+      if (i % 2 === 0) { ctx.strokeStyle = 'rgba(127,29,29,0.45)'; ctx.lineWidth = P * 0.8; ctx.beginPath(); ctx.moveTo(cx - w * 0.5, -y - 0.03); ctx.quadraticCurveTo(cx - w * 0.2, -y - seg * 0.6, cx + w * 0.1, -y - seg * 0.9); ctx.stroke(); }
+      ctx.strokeStyle = '#3b1420'; ctx.lineWidth = P;
+      for (const s of [-1, 1]) for (let k = 0; k < 2; k++) { const by = -(y + seg * (0.3 + k * 0.4)), bx = cx + s * w * 0.97; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + s * 0.07, by - 0.03 + Math.sin(time * 9 + i + k) * 0.015); ctx.stroke(); }
     }
-    // La cabeza con la boca abierta llena de dientes.
-    const hy = -wh + 0.25, wob = Math.sin(time * 6 - wh * 2) * 0.08, open = 0.65 + 0.35 * Math.abs(Math.sin(time * 9));
-    ink(ctx, () => ctx.ellipse(wob, hy, 0.5, 0.3, 0, 0, Math.PI * 2), ball(ctx, wob, hy, 0.5, '#ec4899'));
-    ink(ctx, () => ctx.ellipse(wob, hy - 0.05, 0.36 * open, 0.2 * open, 0, 0, Math.PI * 2), '#450a0a', 1.5);
-    ctx.fillStyle = '#fef9c3';
-    for (let k = 0; k < 10; k++) {
-      const a = k * Math.PI / 5, ox = wob + Math.cos(a) * 0.36 * open, oy = hy - 0.05 + Math.sin(a) * 0.2 * open;
-      ctx.beginPath(); ctx.moveTo(ox + Math.cos(a + 0.4) * 0.06, oy + Math.sin(a + 0.4) * 0.04); ctx.lineTo(ox - Math.cos(a) * 0.12, oy - Math.sin(a) * 0.08); ctx.lineTo(ox + Math.cos(a - 0.4) * 0.06, oy + Math.sin(a - 0.4) * 0.04); ctx.fill();
+    // Brillo de baba a lo largo del cuerpo.
+    ctx.strokeStyle = 'rgba(255,240,245,0.5)'; ctx.lineWidth = 2 * P; ctx.lineCap = 'round';
+    ctx.beginPath(); for (let y = 0.15; y <= top - 0.1; y += 0.1) ctx.lineTo(sway(y) - width(y) * 0.55, -y); ctx.stroke();
+    // La cabeza: un collar hinchado y la boca redonda que se abre y se cierra.
+    const hx = sway(top), hy = -top, open = 0.55 + 0.45 * Math.abs(Math.sin(time * 5 + id));
+    ink(ctx, () => ctx.ellipse(hx, hy, 0.56, 0.2, 0, 0, Math.PI * 2), lin(ctx, hx - 0.56, 0, hx + 0.56, 0, [[0, darken(SKIN, 0.5)], [0.3, lighten(SKIN, 0.2)], [1, darken(SKIN, 0.6)]]), 2.5);
+    // Pétalos de carne alrededor de la boca (se abren para afuera).
+    for (let k = 0; k < 5; k++) {
+      const a = Math.PI + (k + 0.5) / 5 * Math.PI, spread = 0.5 + open * 0.2, px = hx + Math.cos(a) * spread, py = hy - 0.12 + Math.sin(a) * spread * 0.45 - open * 0.08;
+      ink(ctx, () => { ctx.moveTo(hx + Math.cos(a - 0.35) * 0.4, hy - 0.08 + Math.sin(a - 0.35) * 0.16); ctx.quadraticCurveTo(px + Math.cos(a) * 0.12, py - 0.05, hx + Math.cos(a + 0.35) * 0.4, hy - 0.08 + Math.sin(a + 0.35) * 0.16); ctx.closePath(); },
+        lin(ctx, hx, hy, px, py, [[0, DEEP], [0.6, SKIN], [1, LIGHT]]), 1.5);
     }
-    glow(ctx, wob, hy - 0.05, 0.3, '#f97316', 0.4);
+    // La boca: la garganta oscura con dos anillos de dientes ganchudos.
+    const mrx = 0.36 * (0.7 + open * 0.3), mry = 0.15 * (0.7 + open * 0.3), my = hy - 0.12;
+    const throat = ctx.createRadialGradient(hx, my, 0, hx, my, mrx);
+    throat.addColorStop(0, '#000000'); throat.addColorStop(0.5, '#2a0410'); throat.addColorStop(0.85, '#7f1d3a'); throat.addColorStop(1, '#c2416b');
+    ink(ctx, () => ctx.ellipse(hx, my, mrx, mry, 0, 0, Math.PI * 2), throat, 2);
+    for (const [ring, n, len] of [[1, 14, 0.09], [0.6, 10, 0.06]] as const) {
+      for (let k = 0; k < n; k++) {
+        const a = k / n * Math.PI * 2 + (ring < 1 ? 0.2 : 0), ox = hx + Math.cos(a) * mrx * ring, oy = my + Math.sin(a) * mry * ring, ix = hx + Math.cos(a) * mrx * (ring - len / mrx * 1.4), iy = my + Math.sin(a) * mry * (ring - len / mrx * 1.4);
+        ctx.fillStyle = lin(ctx, ox, oy, ix, iy, [[0, '#fefce8'], [1, '#d6c99a']]);
+        ctx.beginPath(); ctx.moveTo(ox + Math.sin(a) * 0.022, oy - Math.cos(a) * 0.012); ctx.quadraticCurveTo((ox + ix) / 2 + Math.sin(a) * 0.03, (oy + iy) / 2, ix, iy); ctx.lineTo(ox - Math.sin(a) * 0.022, oy + Math.cos(a) * 0.012); ctx.fill();
+      }
+    }
+    // Hilos de baba y un brillito.
+    ctx.strokeStyle = 'rgba(244,244,245,0.55)'; ctx.lineWidth = P;
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(hx + s * mrx * 0.6, my - mry * 0.5); ctx.quadraticCurveTo(hx + s * mrx * 0.4, my + 0.05, hx + s * mrx * 0.55, my + mry * 0.6); ctx.stroke(); }
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.ellipse(hx - 0.3, hy - 0.02, 0.08, 0.025, -0.3, 0, Math.PI * 2); ctx.fill();
+    // Gotas de baba que caen de la boca.
+    for (let k = 0; k < 2; k++) { const d = (time * 1.3 + k * 0.5 + hash(id)) % 1; ctx.globalAlpha = 1 - d; ctx.fillStyle = 'rgba(217,249,157,0.85)'; ctx.beginPath(); ctx.arc(hx + (k ? 0.42 : -0.45), hy + d * 0.8, 0.03, 0, Math.PI * 2); ctx.fill(); }
+    ctx.globalAlpha = 1;
   }
   ctx.restore();
 }

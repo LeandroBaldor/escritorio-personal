@@ -51,6 +51,7 @@ import laserUrl from './assets/sonidos/laser.mp3';
 import monstruoUrl from './assets/sonidos/monstruo.mp3';
 import puertaUrl from './assets/sonidos/puerta.mp3';
 import explosionUrl from './assets/sonidos/explosion.mp3';
+import gusanoUrl from './assets/sonidos/gusano.mp3';
 import pasosUrl from './assets/sonidos/pasos.mp3';
 import musicaGravedadUrl from './assets/sonidos/musica-gravedad.mp3';
 
@@ -1159,7 +1160,7 @@ export function preloadUiSounds() { for (const url of [jugarUrl, ganasteUrl, gam
 if (typeof window !== 'undefined' && typeof fetch === 'function') preloadUiSounds();
 
 // ---------- Gravity Swap ----------
-export function preloadGravitySounds() { for (const url of [bombaUrl, propulsorUrl, personaCaeUrl, agujeroNegroUrl, laserUrl, monstruoUrl, puertaUrl, explosionUrl, pasosUrl, musicaGravedadUrl, ...TRUENOS]) loadSample(url); }
+export function preloadGravitySounds() { for (const url of [bombaUrl, propulsorUrl, personaCaeUrl, agujeroNegroUrl, laserUrl, monstruoUrl, puertaUrl, explosionUrl, pasosUrl, musicaGravedadUrl, gusanoUrl, ...TRUENOS]) loadSample(url); }
 // La gravedad se dio vuelta: un "fuuiiip" que sube y un soplido.
 export function playGravityFlip() {
   const c = running(); if (!c) return;
@@ -1320,9 +1321,13 @@ export function playComet() {
   tone(c, 'sine', 1800, 300, t, 1.1, 0.12);
 }
 // El gusano sale: un retumbo de tierra.
+let lastWorm = -1;
 export function playWorm() {
   const c = running(); if (!c) return;
   const t = c.currentTime;
+  if (t - lastWorm < 0.4) return; // si salen varios juntos, suena uno
+  lastWorm = t;
+  if (playSample(gusanoUrl, 0.85)) return; // la grabación del gusano
   burst(c, 'lowpass', 220, t, 0.5, 0.7);
   tone(c, 'sawtooth', 70, 45, t, 0.45, 0.15);
 }
