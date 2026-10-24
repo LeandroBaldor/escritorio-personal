@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CEIL, FLOOR, LEVELS, LEVEL_COUNT, LIVES, OXYGEN_MAX, PLAYER_H, PLAYER_W, ROWS, WARN_SECONDS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input } from './gravitySwap';
+import { CEIL, FLOOR, LEVELS, LEVEL_COUNT, LIVES, PLAYER_H, PLAYER_W, ROWS, WARN_SECONDS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input } from './gravitySwap';
 
 const idle: Input = { left: false, right: false, up: false, down: false };
 const fixed = () => 0.5;
@@ -27,11 +27,10 @@ describe('Gravity Swap: escenarios', () => {
     expect(LEVELS.map(l => l.name)).toEqual(['Ciudad Futurista', 'Minas Espaciales', 'Base en el Espacio', 'Planeta Helado', 'Planeta Volcánico', 'El Orden Inverso', 'Fábrica Robótica', 'Bosque Bioluminiscente', 'Torres en la Tormenta', 'La Luna']);
   });
 
-  it('cada escenario se arma siempre igual, con el principio libre, tanques de oxígeno y todo dentro del pasillo', () => {
+  it('cada escenario se arma siempre igual, con el principio libre y todo dentro del pasillo', () => {
     for (let n = 1; n <= LEVEL_COUNT; n++) {
       const a = buildLevel(n), b = buildLevel(n);
       expect(a.hazards.map(h => [h.kind, h.x, h.y])).toEqual(b.hazards.map(h => [h.kind, h.x, h.y]));
-      expect(a.hazards.filter(h => h.kind === 'oxygen').length).toBeGreaterThanOrEqual(3);
       for (const h of a.hazards) {
         if (h.kind === 'ufo') continue;
         expect(h.x).toBeGreaterThanOrEqual(15);
@@ -113,14 +112,16 @@ describe('Gravity Swap: gravedad que gira', () => {
   });
 });
 
-describe('Gravity Swap: chorros y oxígeno', () => {
-  it('el chorro lo despega del piso y gasta oxígeno', () => {
+describe('Gravity Swap: chorros de oxígeno', () => {
+  it('el chorro lo despega del piso, y el tanque no se termina nunca', () => {
     const game = empty();
     run(game, 0.5);
-    const air = game.oxygen;
     run(game, 0.6, { ...idle, up: true });
     expect(game.player.y + PLAYER_H).toBeLessThan(FLOOR - 1);
-    expect(air - game.oxygen).toBeGreaterThan(5);
+    // 20 segundos seguidos impulsándose (contra el techo) sin quedarse sin aire.
+    run(game, 20, { ...idle, up: true });
+    expect(game.phase).toBe('play');
+    expect(game.player.touch.up).toBe(true);
   });
 
   it('las flechas son de la pantalla girada: con la gravedad para adelante, "arriba" lo lleva para atrás', () => {
@@ -130,21 +131,6 @@ describe('Gravity Swap: chorros y oxígeno', () => {
     const before = game.player.x - game.cam;
     run(game, 0.8, { ...idle, up: true });
     expect(game.player.x - game.cam).toBeLessThan(before - 1);
-  });
-
-  it('respirar gasta oxígeno; los tanques lo recargan y si se termina pierde una vida', () => {
-    const game = empty();
-    game.oxygen = 30;
-    game.hazards.push(hazard({ kind: 'oxygen', x: game.player.x + PLAYER_W / 2 + 1.5, y: game.player.y + PLAYER_H / 2 }));
-    run(game, 1);
-    expect(takeEvents(game).some(e => e.type === 'oxygen')).toBe(true);
-    expect(game.oxygen).toBeGreaterThan(60);
-    game.oxygen = 1;
-    runUntil(game, () => game.phase === 'dead', 3);
-    expect(game.death).toBe('oxygen');
-    expect(game.lives).toBe(LIVES - 1);
-    runUntil(game, () => game.phase === 'play', 2);
-    expect(game.oxygen).toBe(OXYGEN_MAX);
   });
 });
 
@@ -174,7 +160,7 @@ describe('Gravity Swap: vidas y portal', () => {
     expect(game.lives).toBe(0);
   });
 
-  it('al llegar al portal pasa al escenario siguiente con las vidas y el oxígeno completos', () => {
+  it('al llegar al portal pasa al escenario siguiente con las vidas completas', () => {
     const game = empty();
     game.lives = 1;
     game.cam = game.portalX - game.cols + 3; game.player.x = game.portalX - 1;
@@ -183,7 +169,6 @@ describe('Gravity Swap: vidas y portal', () => {
     run(game, 2.5);
     expect(game.level).toBe(2);
     expect(game.lives).toBe(LIVES);
-    expect(game.oxygen).toBeGreaterThan(OXYGEN_MAX - 1);
     expect(game.stats.levels).toBe(1);
   });
 

@@ -1180,11 +1180,3 @@ export function playAstronautHit() {
 export function playGust() { const c = running(); if (!c) return; burst(c, 'bandpass', 500, c.currentTime, 1.4, 0.35); }
 // El chorro de oxígeno: un soplido corto (suena seguido mientras se usa).
 export function playThrust() { const c = running(); if (!c) return; burst(c, 'bandpass', 1800 + Math.random() * 400, c.currentTime, 0.14, 0.12); }
-// Juntó un tanque de oxígeno: burbujas que suben.
-export function playOxygenTank() {
-  const c = running(); if (!c) return;
-  const t = c.currentTime;
-  [520, 700, 940, 1250].forEach((f, i) => tone(c, 'sine', f, f * 1.3, t + i * 0.06, 0.1, 0.25));
-}
-// Queda poco oxígeno: dos pitidos graves de alarma.
-export function playLowOxygen() { const c = running(); if (!c) return; const t = c.currentTime; tone(c, 'square', 440, 440, t, 0.15, 0.2); tone(c, 'square', 330, 330, t + 0.2, 0.25, 0.2); }

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LEVELS, LEVEL_COUNT, LIVES, OXYGEN_LOW, OXYGEN_MAX, ROWS, loadLevel, newGame, progress, step, takeEvents, type Death, type Game, type Input, type Stats } from './gravitySwap';
+import { LEVELS, LEVEL_COUNT, LIVES, ROWS, loadLevel, newGame, progress, step, takeEvents, type Death, type Game, type Input, type Stats } from './gravitySwap';
 import { PX, drawGame } from './gravityArt';
-import { playAstronautHit, playAstronautLand, playCrumble, playExplosion, playGameOver, playGravityFlip, playGravityWarn, playGust, playLaserOn, playLowOxygen, playOxygenTank, playStart, playTeleport, playThunder, playTramp, playTurretShot, playThrust, playWinFanfare, preloadGravitySounds } from './sounds';
+import { playAstronautHit, playAstronautLand, playCrumble, playExplosion, playGameOver, playGravityFlip, playGravityWarn, playGust, playLaserOn, playStart, playTeleport, playThunder, playTramp, playTurretShot, playThrust, playWinFanfare, preloadGravitySounds } from './sounds';
 import { EndBanner } from './EndBanner';
 
 const LEVEL_KEY = 'escritorio-personal-juegos:gravedad-nivel';
@@ -20,17 +20,21 @@ const DEATH_TEXT: Record<Death, string> = {
   saw: '¡Te cortó una sierra!', enemy: '¡Te atrapó un enemigo!', void: '¡Te perdiste en el vacío!', edge: '¡Te aplastó el borde de la pantalla!',
   fire: '¡Te quemaste!', bolt: '¡Te dieron un disparo!', lightning: '¡Te partió un rayo!', press: '¡Te aplastó una prensa!',
   icicle: '¡Te cayó una estalactita!', spore: '¡Tocaste una espora venenosa!', rock: '¡Te golpeó una roca espacial!',
-  oxygen: '¡Te quedaste sin oxígeno!',
 };
 
-// Columnas visibles según la forma de la pantalla (siempre 10 casilleros de alto).
-const colsFor = (width: number, height: number) => Math.max(12, Math.min(24, Math.round(ROWS * width / Math.max(1, height))));
+// El lienzo llena todo el lugar: el pasillo (10 casilleros de alto) entra siempre, con al menos 12 de ancho, y
+// arriba y abajo se ven por lo menos 3 casilleros más: el cielo y las capas de la tierra (en el celular parado, muchos más).
+function sizeFor(width: number, height: number) {
+  const cell = Math.max(1, Math.min(height / (ROWS + 3), width / 12), width / 26);
+  return { cols: width / cell, rows: height / cell };
+}
+const colsFor = (width: number, height: number) => sizeFor(width, height).cols;
 
-interface Hud { level: number; lives: number; progress: number; time: number; phase: Game['phase']; death: Death | null; intro: boolean; warn: boolean; oxygen: number; angle: number }
+interface Hud { level: number; lives: number; progress: number; time: number; phase: Game['phase']; death: Death | null; intro: boolean; warn: boolean; angle: number }
 const hudOf = (game: Game): Hud => ({
   level: game.level, lives: game.lives, progress: Math.floor(progress(game) * 100), time: Math.floor(game.stats.time),
   phase: game.phase, death: game.death, intro: game.phase === 'play' && game.time < 2.6, warn: game.warned && game.phase === 'play',
-  oxygen: Math.ceil(game.oxygen), angle: Math.round(game.angle * 180 / Math.PI) % 360,
+  angle: Math.round(game.angle * 180 / Math.PI) % 360,
 });
 const sameHud = (a: Hud, b: Hud) => (Object.keys(a) as (keyof Hud)[]).every(k => a[k] === b[k]);
 
@@ -43,7 +47,7 @@ export function GravitySwap() {
   const [status, setStatus] = useState<Status>('ready');
   const [record, setRecord] = useState(readGravityRecord);
   const [chosen, setChosen] = useState(() => readGravityRecord().unlocked);
-  const [hud, setHud] = useState<Hud>({ level: 1, lives: LIVES, progress: 0, time: 0, phase: 'play', death: null, intro: false, warn: false, oxygen: OXYGEN_MAX, angle: 0 });
+  const [hud, setHud] = useState<Hud>({ level: 1, lives: LIVES, progress: 0, time: 0, phase: 'play', death: null, intro: false, warn: false, angle: 0 });
   const [newRecord, setNewRecord] = useState(false);
   const [mission, setMission] = useState<Stats | null>(null);
   const statusRef = useRef(status);
@@ -52,17 +56,14 @@ export function GravitySwap() {
   const paint = useCallback(() => {
     const stage = stageRef.current, canvas = canvasRef.current, game = gameRef.current;
     if (!stage || !canvas || !game) return;
-    const cols = colsFor(stage.clientWidth, stage.clientHeight);
+    const { cols, rows } = sizeFor(stage.clientWidth, stage.clientHeight);
     game.cols = cols;
-    if (canvas.width !== cols * PX || canvas.height !== ROWS * PX) { canvas.width = cols * PX; canvas.height = ROWS * PX; }
-    // Se agranda entero (sin suavizar) hasta llenar el lugar.
-    const scale = Math.min(stage.clientWidth / (cols * PX), stage.clientHeight / (ROWS * PX));
-    canvas.style.width = `${Math.floor(cols * PX * scale)}px`;
-    canvas.style.height = `${Math.floor(ROWS * PX * scale)}px`;
+    const w = Math.round(cols * PX), h = Math.round(rows * PX);
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.setTransform(PX, 0, 0, PX, 0, 0);
-    drawGame(ctx, game);
+    ctx.setTransform(w / cols, 0, 0, h / rows, 0, 0);
+    drawGame(ctx, game, rows);
   }, []);
 
   const begin = useCallback((level: number, keepRun = false) => {
@@ -107,8 +108,6 @@ export function GravitySwap() {
       if (thrusting && puff <= 0) { playThrust(); puff = 0.12; }
       for (const e of takeEvents(game)) {
         switch (e.type) {
-          case 'oxygen': playOxygenTank(); break;
-          case 'lowOxygen': playLowOxygen(); break;
           case 'land': playAstronautLand(); break;
           case 'warn': playGravityWarn(); break;
           case 'flip': playGravityFlip(); break;
@@ -197,7 +196,6 @@ export function GravitySwap() {
       <div className="runner-scores">
         <span>Nivel <strong data-testid="grav-level">{status === 'ready' ? chosen : hud.level}/{LEVEL_COUNT}</strong></span>
         <span className="grav-lives" aria-label={`Vidas: ${hud.lives}`}>{Array.from({ length: LIVES }, (_, i) => <b key={i} className={i < hud.lives ? '' : 'grav-lost'}>♥</b>)}</span>
-        <span className={`grav-o2${hud.oxygen <= OXYGEN_LOW ? ' grav-o2-low' : ''}`}>O₂ <meter data-testid="grav-oxygen" min={0} max={OXYGEN_MAX} low={OXYGEN_LOW} optimum={OXYGEN_MAX} value={hud.oxygen} aria-label={`Oxígeno: ${hud.oxygen}%`} /></span>
         <span>Gravedad <strong data-testid="grav-angle">{hud.angle}°</strong></span>
         <span>Avance <strong data-testid="grav-progress">{hud.progress}%</strong></span>
         <span>Tiempo <strong data-testid="grav-time">{formatGravityTime(hud.time)}</strong></span>
@@ -218,7 +216,7 @@ export function GravitySwap() {
           {status === 'ready' && <>
             <h2 id="grav-message">Gravity Swap 🚀</h2>
             <p className="runner-keys"><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> o flechas: chorros de oxígeno · <kbd>R</kbd> reiniciar · <kbd>Esc</kbd> pausa</p>
-            <p className="runner-tip">💡 Flotás y la gravedad gira sola (cuando titila, mirá la flecha). Impulsarte gasta oxígeno: juntá los tanques de O₂ para no quedarte sin aire.</p>
+            <p className="runner-tip">💡 Flotás y la gravedad gira sola: cuando titila la pantalla, mirá la flecha. Tu tanque de oxígeno no se termina: impulsate todo lo que quieras.</p>
             <div className="grav-levels" role="group" aria-label="Escenarios">
               {LEVELS.map((level, i) => {
                 const n = i + 1, locked = n > record.unlocked;

@@ -1,9 +1,9 @@
 // Lógica de Gravity Swap: un astronauta flota por un pasillo que avanza solo (de derecha a izquierda)
 // y la gravedad cambia de dirección sola, cada tanto y al azar: puede tirar hacia el piso, el techo, para
 // adelante, para atrás o en diagonal (la pantalla gira para que siempre tire "hacia abajo"). Un segundo antes
-// hay un aviso. El astronauta se mueve con chorros del oxígeno de su tanque, que también usa para respirar:
-// si se queda sin oxígeno, pierde una vida (por el camino hay tanques para recargar). Son 10 escenarios con
-// trampas distintas; al final de cada uno hay un portal. Todo se mide en casilleros (10 de alto).
+// hay un aviso. El astronauta se mueve con chorros del oxígeno de su tanque (que no se termina nunca).
+// Son 10 escenarios con trampas distintas; al final de cada uno hay un portal. Todo se mide en casilleros
+// (el pasillo tiene 10 de alto).
 //
 // Cada escenario se arma siempre igual (sale de una semilla fija), pero los cambios de gravedad son al azar.
 // La gravedad es un ángulo: 0 tira hacia el piso, 90° hacia adelante, 180° hacia el techo y 270° hacia atrás.
@@ -16,15 +16,10 @@ export const PLAYER_H = 0.78;
 export const LIVES = 3;
 export const LEVEL_COUNT = 10;
 export const WARN_SECONDS = 1;
-export const OXYGEN_MAX = 100;
-export const OXYGEN_LOW = 25;
 const G = 14; // gravedad baja: flota
 const THRUST = 30; // el chorro de oxígeno le gana a la gravedad
 const MAX_SPEED = 9;
 const DRAG = 0.6; // lo que va frenando solo en el aire
-const BREATH = 1; // oxígeno por segundo al respirar
-const THRUST_O2 = 16; // oxígeno por segundo mientras usa el chorro
-const TANK_O2 = 40;
 const EDGE = 0.15; // lo más a la izquierda que puede quedar en la pantalla
 const START_SAFE = 18; // casilleros libres al principio de cada escenario
 const EPS = 1e-6;
@@ -33,7 +28,7 @@ export type ThemeId = 'city' | 'mines' | 'base' | 'ice' | 'volcano' | 'inverse' 
 export type Kind =
   | 'spikes' | 'block' | 'platform' | 'pit' | 'laser' | 'mine' | 'saw' | 'proxMine' | 'asteroid' | 'turret'
   | 'press' | 'icicle' | 'walker' | 'flyer' | 'fireball' | 'geyser' | 'crumble' | 'pendulum' | 'flipper'
-  | 'conveyor' | 'spring' | 'spores' | 'waterfall' | 'plant' | 'lightning' | 'meteor' | 'tracker' | 'oxygen';
+  | 'conveyor' | 'spring' | 'spores' | 'waterfall' | 'plant' | 'lightning' | 'meteor' | 'tracker';
 
 export interface LevelDef {
   name: string; theme: ThemeId; stars: number;
@@ -100,12 +95,12 @@ export interface Player {
   landT: number; // tiempo desde que se apoyó
 }
 
-export type Death = 'spikes' | 'laser' | 'mine' | 'blast' | 'saw' | 'enemy' | 'void' | 'edge' | 'fire' | 'bolt' | 'lightning' | 'press' | 'icicle' | 'spore' | 'rock' | 'oxygen';
+export type Death = 'spikes' | 'laser' | 'mine' | 'blast' | 'saw' | 'enemy' | 'void' | 'edge' | 'fire' | 'bolt' | 'lightning' | 'press' | 'icicle' | 'spore' | 'rock';
 export type Phase = 'play' | 'dead' | 'cleared' | 'ending' | 'over' | 'won';
 export type GravityEvent =
   | { type: 'land' } | { type: 'warn' } | { type: 'flip' } | { type: 'death'; reason: Death }
   | { type: 'boom' } | { type: 'shot' } | { type: 'zap' } | { type: 'spring' } | { type: 'crumble' } | { type: 'cleared'; level: number }
-  | { type: 'thunder' } | { type: 'gust' } | { type: 'respawn' } | { type: 'won' } | { type: 'oxygen' } | { type: 'lowOxygen' };
+  | { type: 'thunder' } | { type: 'gust' } | { type: 'respawn' } | { type: 'won' };
 
 export interface Stats { time: number; deaths: number; flips: number; levels: number }
 
@@ -118,7 +113,6 @@ export interface Game {
   angle: number; // hacia dónde tira la gravedad (radianes; 0 = hacia el piso)
   view: number; // hacia dónde está girada la pantalla (sigue a "angle" de a poco)
   nextAngle: number; // el próximo ángulo (se muestra en el aviso)
-  oxygen: number;
   gravityIn: number; warned: boolean; flipCooldown: number;
   gust: number; gustIn: number; // ráfagas de viento (Torres en la Tormenta)
   flash: number; // relámpago que ilumina todo
@@ -314,20 +308,15 @@ export function buildLevel(level: number): Layout {
         hazard('meteor', { x, y: -1.5, side: 0, r: 0.55, x0: x });
         return 1;
       }
-      case 'oxygen': return 0; // los tanques se ponen aparte, entre las trampas
     }
   };
 
-  let x = START_SAFE, tankAt = 0;
+  let x = START_SAFE;
   const end = portalX - 12;
-  const tankEvery = 18 + def.stars * 3; // tanques de oxígeno: más separados en los escenarios difíciles
   while (x < end) {
     const kind = pick(def.pool, rand);
     const used = place(kind, x);
-    const gap = between(rand, def.gap) * (1 - 0.15 * x / length);
-    // Los tanques van en el medio del espacio libre entre dos trampas, a una altura al azar.
-    if (x + used - tankAt >= tankEvery && gap >= 3) { tankAt = x + used + gap / 2; hazard('oxygen', { x: tankAt, y: 2.5 + rand() * 5, side: 0, r: 0.35 }); }
-    x += used + gap;
+    x += used + between(rand, def.gap) * (1 - 0.15 * x / length);
   }
   // El jefe de la Luna: un ovni que persigue en el último tramo.
   if (def.boss) hazard('ufo', { x: length * 0.72, y: 5, side: 0, w: 1.8, h: 0.8, period: 1.7 });
@@ -367,7 +356,7 @@ export function loadLevel(game: Game, level: number, rand: () => number = Math.r
       onGround: true, touch: { down: !angle, up: !!angle, left: false, right: false }, landT: 9,
     },
     cam: 0, speed: def.speed[0], time: 0,
-    angle, view: angle, nextAngle: angle, oxygen: OXYGEN_MAX,
+    angle, view: angle, nextAngle: angle,
     gravityIn: Math.max(3.5, between(rand, def.flip)), warned: false, flipCooldown: 0,
     gust: 0, gustIn: 5, flash: 0,
     phase: 'play' as Phase, phaseT: 0, death: null, pendingFlips: [],
@@ -677,12 +666,11 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   const gx = Math.sin(game.angle) * G, gy = Math.cos(game.angle) * G;
   const sx = (input.right ? 1 : 0) - (input.left ? 1 : 0), sy = (input.down ? 1 : 0) - (input.up ? 1 : 0);
   p.tx = 0; p.ty = 0;
-  if ((sx || sy) && game.oxygen > 0) {
+  if (sx || sy) {
     // Las flechas son de la pantalla girada: se pasan a la dirección del pasillo.
     const len = Math.hypot(sx, sy), ux = sx / len, uy = sy / len, c = Math.cos(game.view), s = Math.sin(game.view);
     p.tx = ux * c + uy * s; p.ty = -ux * s + uy * c;
     if (ux) p.facing = ux > 0 ? 1 : -1;
-    game.oxygen -= THRUST_O2 * dt;
   }
   let ax = gx + p.tx * THRUST, ay = gy + p.ty * THRUST;
   if (game.gust > 0) ax -= 6;
@@ -696,12 +684,6 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   if (p.touch.left || p.touch.right) p.vy *= grip;
   const speed = Math.hypot(p.vx, p.vy);
   if (speed > MAX_SPEED) { p.vx *= MAX_SPEED / speed; p.vy *= MAX_SPEED / speed; }
-
-  // Respira: el oxígeno baja solo. Si se termina, se ahoga.
-  const before = game.oxygen;
-  game.oxygen = Math.max(0, game.oxygen - BREATH * dt);
-  if (before > OXYGEN_LOW && game.oxygen <= OXYGEN_LOW) emit(game, { type: 'lowOxygen' });
-  if (game.oxygen <= 0) { die(game, 'oxygen'); return; }
 
   const solids = liveSolids(game);
   // Cinta transportadora: lo lleva mientras está apoyado en ella.
@@ -743,15 +725,10 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
     if (s.crumble <= 0) { s.gone = true; burst(game, s.x + s.w / 2, s.y + s.h / 2, ['#57534e', '#78716c', '#f97316'], 20, 4); }
   }
 
-  // Hongo que rebota, flecha que cambia la gravedad y tanques de oxígeno.
+  // Hongo que rebota y flecha que cambia la gravedad.
   const r = body(p);
   for (const h of game.hazards) {
     if (h.dead) continue;
-    if (h.kind === 'oxygen' && circleHits(r, h.x, h.y, h.r + 0.15)) {
-      h.dead = true; game.oxygen = Math.min(OXYGEN_MAX, game.oxygen + TANK_O2);
-      burst(game, h.x, h.y, ['#bae6fd', '#38bdf8', '#ffffff'], 16, 3, 0);
-      emit(game, { type: 'oxygen' });
-    }
     if (h.kind !== 'spring' && h.kind !== 'flipper') continue;
     if (p.x + PLAYER_W < h.x || p.x > h.x + h.w) continue;
     if (h.kind === 'spring' && (h.side === 1 ? p.touch.down : p.touch.up)) { p.vy = h.side === 1 ? -13 : 13; emit(game, { type: 'spring' }); }
