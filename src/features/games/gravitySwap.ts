@@ -992,8 +992,10 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   p.vx *= drag; p.vy *= drag;
   // Apoyado contra algo, frena lo que se desliza (en el hielo, casi nada).
   const grip = 1 - Math.min(1, (def.ice ? 0.6 : 5) * dt);
-  if (p.touch.down || p.touch.up) p.vx *= grip;
-  if (p.touch.left || p.touch.right) p.vy *= grip;
+  // (solo contra lo que tiene "abajo": con la gravedad de costado, rozar el piso o el techo no lo frena al caer)
+  const standsVertical = Math.abs(gy) >= Math.abs(gx);
+  if (standsVertical && (p.touch.down || p.touch.up)) p.vx *= grip;
+  if (!standsVertical && (p.touch.left || p.touch.right)) p.vy *= grip;
   const speed = Math.hypot(p.vx, p.vy);
   // Con el chorro prendido el tope es más alto: así siempre se nota, aunque ya venga cayendo rápido. Al
   // soltarlo, frena de a poco hasta el tope normal (no de golpe).
@@ -1012,8 +1014,12 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
     if (dx > 0) { p.x = wall.x - PLAYER_W - EPS; p.vx = Math.min(p.vx, 0); }
     else { p.x = wall.x + wall.w + EPS; p.vx = Math.max(p.vx, -game.speed); }
   }
+  // El borde de adelante no es una pared: si va más rápido que el escenario (cayendo para adelante con la
+  // gravedad de costado, o con el chorro), la cámara lo sigue. Solo al final, con el portal a la vista, frena.
+  const ahead = game.cols - 1.5 - PLAYER_W;
+  if (game.cam < stop && p.x > game.cam + ahead) game.cam = Math.min(stop, p.x - ahead);
   const maxX = game.cam + (game.cam >= stop ? game.cols : game.cols - 1.5) - PLAYER_W;
-  if (p.x > maxX) { p.x = maxX; p.vx = Math.min(p.vx, 0); }
+  if (p.x > maxX + 1e-6) { p.x = maxX; p.vx = Math.min(p.vx, 0); } // (con un margen, para que el redondeo no lo frene)
   if (p.x < game.cam + EDGE) {
     p.x = game.cam + EDGE; p.vx = Math.max(p.vx, 0);
     if (hitsSolid(solids, p.x, p.y)) { die(game, 'edge'); return; }

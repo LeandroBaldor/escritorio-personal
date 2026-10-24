@@ -161,6 +161,22 @@ describe('Gravity Swap: chorros de oxígeno', () => {
     expect(up.vy).toBeLessThan(free.vy - 4);
   });
 
+  it('con la gravedad para adelante (pantalla vertical), la flecha para abajo lo hace caer más rápido y la cámara lo sigue', () => {
+    const fall = (input: Input) => {
+      const game = empty();
+      flipGravity(game, fixed, Math.PI / 2); game.gravityIn = 999;
+      run(game, 1.5);
+      const x = game.player.x;
+      run(game, 1, input);
+      return { dist: game.player.x - x, game };
+    };
+    const free = fall(idle), down = fall({ ...idle, down: true });
+    expect(free.dist).toBeGreaterThan(6); // ya cae más rápido que el escenario (que va a 3 por segundo)
+    expect(down.dist).toBeGreaterThan(free.dist + 4);
+    expect(down.game.phase).toBe('play');
+    expect(down.game.player.x - down.game.cam).toBeLessThanOrEqual(down.game.cols); // sigue en la pantalla
+  });
+
   it('las flechas son de la pantalla girada: con la gravedad para adelante, "arriba" lo lleva para atrás', () => {
     const game = empty();
     flipGravity(game, fixed, Math.PI / 2); game.gravityIn = 999;
