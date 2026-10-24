@@ -1384,6 +1384,32 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .inv-toast{top:64px;border-color:#22c55e;background:#04120ae6;color:#bbf7d0}
 .inv-toast.is-bad{border-color:#ef4444;color:#fecaca}
 .inv-toast.is-big{font-size:clamp(1rem,2.8vw,1.5rem)}
+
+/* Gravity Swap: el lienzo es chiquito y se agranda sin suavizar (pixel art). */
+.grav.runner{background:#070b1a}
+.grav .runner-back{color:#7dd3fc}
+.grav .runner-bar button{background:#1d4ed8}
+.grav .runner-scores{flex-wrap:wrap;align-items:center;color:#bfdbfe}
+.grav .runner-stage canvas{image-rendering:pixelated;image-rendering:crisp-edges;border-radius:4px;box-shadow:0 0 0 3px #1e3a8a,0 0 24px #2563eb66,0 10px 30px #000a}
+.grav-lives{display:flex;gap:.15rem;font-size:1.25rem;line-height:1}
+.grav-lives b{color:#f43f5e;text-shadow:0 0 6px #f43f5e88}
+.grav-lives b.grav-lost{color:#334155;text-shadow:none}
+.grav .runner-overlay>div{max-width:560px;background:#0b1430;border-color:#2563eb;box-shadow:0 0 24px #2563eb66}
+.grav-intro small{display:block;margin-top:.35rem;font-size:.32em;letter-spacing:.04em;text-transform:none;color:#bfdbfe}
+.grav-intro strong{margin-left:.3em}
+.grav-warn{position:absolute;top:10%;left:50%;transform:translateX(-50%);padding:.45rem 1rem;background:#4a044ee6;border:3px solid #f472b6;border-radius:12px;color:#fff;font-weight:900;font-size:clamp(1rem,2.6vw,1.4rem);white-space:nowrap;pointer-events:none;animation:runner-blink .25s steps(2) infinite alternate}
+.grav-levels{display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;margin:0 0 1rem}
+.grav-levels button{display:grid;gap:.15rem;justify-items:center;padding:.45rem .2rem!important;background:#13235a!important;border:2px solid #1e40af;border-radius:10px;color:#e0f2fe!important;font-size:.7rem!important;font-weight:700!important;line-height:1.1}
+.grav-levels button b{font-size:1.1rem}
+.grav-levels button.grav-chosen{background:#1d4ed8!important;border-color:#fde047;box-shadow:0 0 10px #fde04788}
+.grav-levels button:disabled{opacity:.45;cursor:default}
+.grav-actions{display:flex;flex-wrap:wrap;gap:.6rem;justify-content:center}
+.grav-actions .grav-secondary{background:#1e3a8a!important;color:#e0f2fe!important}
+.runner-overlay .end-banner.grav-mission{font-size:clamp(.7rem,4.6cqi,1.35rem)!important;white-space:normal}
+.grav-stats{list-style:none;margin:0 0 1rem;padding:0;display:grid;gap:.35rem;text-align:left}
+.grav-stats li{display:flex;justify-content:space-between;gap:1rem;padding:.35rem .6rem;border-radius:6px;background:#0f1d40;color:#bfdbfe}
+.grav-stats strong{color:#fde047}
+@media(max-width:600px){.grav-levels{grid-template-columns:repeat(5,1fr);gap:.25rem}.grav-levels button span{display:none}}
 .inv-title{font-size:clamp(1.6rem,4vw,2.4rem);color:#86efac}
 .inv-card{max-width:min(720px,94vw)!important;max-height:100%;overflow:auto}
 .inv-touch{display:none;position:absolute;left:50%;bottom:10px;transform:translateX(-50%);gap:8px}

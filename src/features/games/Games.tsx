@@ -9,6 +9,7 @@ import trepaCover from './assets/portada-trepaluna.webp';
 import sharkCover from './assets/tiburon-portada.webp';
 import terminatorCover from './assets/terminator-portada.webp';
 import invasionCover from './assets/portada-invasion.webp';
+import gravityCover from './assets/portada-gravedad.webp';
 import { CalculatorLink, CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { readRecord } from './BlockRunnerGame';
 import { readSolitaireRecord } from './PixelSolitaire';
@@ -19,6 +20,7 @@ import { formatLavaTime, readLavaRecord } from './LavaFloor';
 import { readPaperRecord } from './PaperBallGame';
 import { formatSharkTime, readSharkRecord } from './SharkCity';
 import { formatInvasionTime, readInvasionRecord } from './InvasionGame';
+import { formatGravityTime, readGravityRecord } from './GravitySwapGame';
 import memeJigsaw from '../../assets/images/meme-jigsaw.jpg';
 
 // Portadas de las tarjetas: una captura de cada juego en plena acción.
@@ -38,6 +40,7 @@ export function Games() {
   const shark = readSharkRecord();
   const paper = readPaperRecord();
   const invasion = readInvasionRecord();
+  const gravity = readGravityRecord();
   return <section className="games-page">
     <div className="section-title games-title">
       <div className="games-heading"><p className="eyebrow">Para cortar un rato</p><h1>MiniJuegos</h1><p className="games-byline">By YEYO</p></div>
@@ -168,6 +171,20 @@ export function Games() {
           </span>
           <span className="game-card-foot">
             {invasion.kills > 0 && <small><b>Récord</b>{invasion.time ? `🏆 en ${formatInvasionTime(invasion.time)}` : `${invasion.kills} aliens`}</small>}
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
+        </Link>
+      </li>
+      <li>
+        <Link onClick={playStart} className="game-card game-card--grav" to="/juegos/gravedad">
+          <Cover src={gravityCover} />
+          <span className="game-card-text">
+            <strong>Gravity Swap</strong>
+            <span>🚀 Sos un astronauta corriendo por 10 escenarios llenos de trampas, y la gravedad se da vuelta sola cuando menos lo esperás.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Llegá al portal del final de cada escenario hasta completar la Luna. Tenés 3 vidas por escenario.</span>
+          </span>
+          <span className="game-card-foot">
+            {(gravity.unlocked > 1 || gravity.time !== null) && <small><b>Récord</b>{gravity.time !== null ? `🏆 en ${formatGravityTime(gravity.time)}` : `Escenario ${gravity.unlocked}/10`}</small>}
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
           </span>
         </Link>

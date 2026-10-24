@@ -1149,3 +1149,32 @@ export function playWinFanfare() {
 // Se cargan apenas se abre un juego, así suenan desde el primer clic.
 export function preloadUiSounds() { for (const url of [jugarUrl, ganasteUrl, gameOverUrl]) loadSample(url); }
 if (typeof window !== 'undefined' && typeof fetch === 'function') preloadUiSounds();
+
+// ---------- Gravity Swap ----------
+export function preloadGravitySounds() { for (const url of [bombaUrl, ...TRUENOS]) loadSample(url); }
+// Aviso de que la gravedad va a cambiar: tres pitidos que suben.
+export function playGravityWarn() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  [660, 880, 1170].forEach((f, i) => tone(c, 'square', f, f, t + i * 0.28, 0.12, 0.16));
+}
+// La gravedad se dio vuelta: un "fuuiiip" que sube y un soplido.
+export function playGravityFlip() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  tone(c, 'sine', 180, 1400, t, 0.45, 0.4);
+  tone(c, 'triangle', 90, 700, t, 0.45, 0.25);
+  burst(c, 'bandpass', 1200, t, 0.35, 0.3);
+}
+export function playAstronautLand() { const c = running(); if (!c) return; burst(c, 'lowpass', 500, c.currentTime, 0.1, 0.5); }
+// Láser que se prende: un zumbido eléctrico corto.
+export function playLaserOn() { const c = running(); if (!c) return; const t = c.currentTime; tone(c, 'sawtooth', 900, 1500, t, 0.12, 0.08); burst(c, 'highpass', 4000, t, 0.06, 0.08); }
+export function playTurretShot() { const c = running(); if (!c) return; tone(c, 'square', 1400, 300, c.currentTime, 0.14, 0.14); }
+// Al morir: un golpe y un tono que baja.
+export function playAstronautHit() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  burst(c, 'lowpass', 1500, t, 0.25, 0.8);
+  tone(c, 'square', 600, 70, t + 0.05, 0.6, 0.25);
+}
+export function playGust() { const c = running(); if (!c) return; burst(c, 'bandpass', 500, c.currentTime, 1.4, 0.35); }
