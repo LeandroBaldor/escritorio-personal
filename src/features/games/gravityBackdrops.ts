@@ -707,3 +707,69 @@ export function drawBackdrop(kind: Backdrop, ctx: CanvasRenderingContext2D, cam:
 export function drawSkyStars(ctx: CanvasRenderingContext2D, cam: number, l0: number, l1: number, y0: number) {
   drawStarField(ctx, starField('stars-sky', ['#0b1033', '#312e81', '#a78bfa'], 5), cam, l0, l1, 0.01, y0);
 }
+
+// ---------- El cielo de arriba del techo (lo que se ve a un costado con la pantalla girada) ----------
+
+type ThemeKey = 'city' | 'mines' | 'base' | 'ice' | 'volcano' | 'inverse' | 'factory' | 'forest' | 'storm' | 'moon';
+interface UpperSky { stars: [string, string, string]; cloud: [string, string]; moon: PlanetLook; space?: boolean }
+const UPPER: Record<ThemeKey, UpperSky> = {
+  city: { stars: ['#0b1033', '#312e81', '#a78bfa'], cloud: ['#232a5c', '#a5b4fc'], moon: { kind: 'moon' } },
+  mines: { stars: ['#2e1065', '#7c3aed', '#f0abfc'], cloud: ['#2e1065', '#c084fc'], moon: { kind: 'moon' }, space: true },
+  base: { stars: ['#0c1a3a', '#1d4ed8', '#7dd3fc'], cloud: ['#0c1a3a', '#7dd3fc'], moon: { kind: 'earth', atmo: '#60a5fa' }, space: true },
+  ice: { stars: ['#0c2a5a', '#1d4ed8', '#bae6fd'], cloud: ['#47698f', '#f0f9ff'], moon: { kind: 'ice', atmo: '#bae6fd' } },
+  volcano: { stars: ['#2a0808', '#7f1d1d', '#fb923c'], cloud: ['#2b1612', '#f97316'], moon: { kind: 'mars', atmo: '#fb923c' } },
+  inverse: { stars: ['#2e0b4f', '#86198f', '#f0abfc'], cloud: ['#3b1660', '#f0abfc'], moon: { kind: 'neptune', atmo: '#93c5fd' } },
+  factory: { stars: ['#0b0f17', '#374151', '#9ca3af'], cloud: ['#272c35', '#9ca3af'], moon: { kind: 'moon' } },
+  forest: { stars: ['#022c22', '#0f766e', '#99f6e4'], cloud: ['#123b33', '#99f6e4'], moon: { kind: 'moon' } },
+  storm: { stars: ['#111025', '#3730a3', '#a5b4fc'], cloud: ['#1a1a2c', '#a5b4fc'], moon: { kind: 'moon' } },
+  moon: { stars: ['#030712', '#1e3a8a', '#93c5fd'], cloud: ['#0b1220', '#93c5fd'], moon: { kind: 'earth', atmo: '#60a5fa' }, space: true },
+};
+// Una nube (o, en el espacio, una nube de gas) hecha con ruido: esponjosa, con el borde de arriba iluminado
+// por la luna.
+function cloudSprite(theme: ThemeKey, v: number) {
+  const [base, light] = UPPER[theme].cloud, W = 6, H = 2.2, res = 24;
+  return sprite(`cloud-${theme}-${v}`, W, H, g => {
+    const c0 = rgb(base), c1 = rgb(light), space = UPPER[theme].space;
+    const img = pixels(W * res, H * res, (x, y) => {
+      const u = x / res, w = y / res, dx = (u - W / 2) / (W / 2), dy = (w - H * 0.58) / (H * 0.42);
+      const shape = 1 - (dx * dx + dy * dy * (space ? 1 : 1.6)), n = fbm(u * 1.3 + v * 7, w * 1.3, 90 + v, 5);
+      const d = shape * 0.9 + (n - 0.5) * 1.4;
+      if (d <= 0) return null;
+      const lit = Math.max(0, Math.min(1, 1 - w / H * 1.5 + (n - 0.5)));
+      const c = mixRGB(c0, c1, lit * (space ? 0.6 : 0.75));
+      return [c[0], c[1], c[2], Math.min(255, d * (space ? 260 : 420))];
+    });
+    g.drawImage(img, 0, 0, W, H);
+  });
+}
+export function drawUpperSky(ctx: CanvasRenderingContext2D, theme: ThemeKey, cam: number, l0: number, l1: number, yTop: number, time: number) {
+  const bottom = -1, look = UPPER[theme], room = bottom - yTop;
+  if (room <= 0) return;
+  // Estrellas (y la Vía Láctea), repetidas para arriba hasta llenar todo.
+  const sf = starField(`stars-up-${theme}`, look.stars, theme.length * 13);
+  if (sf) each(cam, l0, l1, 0.02, sf.w, x => { for (let y = bottom - sf.h; y + sf.h > yTop - 0.1; y -= sf.h) ctx.drawImage(sf.img, x, y, sf.w + 0.02, sf.h + 0.02); });
+  // Algunas estrellas titilan.
+  each(cam, l0, l1, 0.02, 1.3, (x, i) => {
+    const y = bottom - 0.3 - hash(i * 3) * room, tw = Math.sin(time * (1 + hash(i)) * 2 + i);
+    if (tw < 0.6) return;
+    glow(ctx, x, y, 0.18, '#ffffff', (tw - 0.6) * 1.5);
+  });
+  // La luna (o un planeta, según el escenario), grande y con su halo.
+  each(cam, l0, l1, 0.01, 20, (x, i) => {
+    const m = planetSprite(look.moon, 3 + (i & 1));
+    if (!m) return;
+    const size = Math.min(2.2 + hash(i * 5) * 0.8, Math.max(0.9, room * 0.45)), mx = x + 3 + hash(i) * 12, my = bottom - Math.max(size * 1.1, Math.min(room - size * 1.1, 2 + hash(i * 7) * (room - 2)));
+    glow(ctx, mx, my, size * 2.2, look.moon.atmo ?? '#e0e7ff', 0.28);
+    ctx.drawImage(m.img, mx - size * m.w / 2, my - size * m.h / 2, size * m.w, size * m.h);
+  });
+  // Nubes a distintas alturas (en el espacio, nubes de gas), que se mueven un poco con el viento.
+  for (const [factor, gap, alpha] of [[0.03, 5, 0.85], [0.06, 6.5, 1]] as const) {
+    each(cam, l0, l1, factor, gap, (x, i) => {
+      if (hash(i * 9 + gap) < 0.2) return;
+      const c = cloudSprite(theme, ((i % 4) + 4) % 4);
+      if (!c) return;
+      const sc = 0.7 + hash(i * 2 + gap) * 0.7, cx = x + hash(i + gap) * gap + (time * 0.08) % gap, cy = bottom - 0.4 - hash(i * 5 + gap) * Math.max(0.5, room - 1.5) - c.h * sc;
+      ctx.globalAlpha = alpha; ctx.drawImage(c.img, cx, cy, c.w * sc, c.h * sc); ctx.globalAlpha = 1;
+    });
+  }
+}

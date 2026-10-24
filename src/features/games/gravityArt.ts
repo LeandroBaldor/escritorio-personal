@@ -8,7 +8,7 @@ import {
   mineCenter, pendulumBall, plantBite, pressRect, pressState, sawCenter, scannerY, sporeCenter, sweeperAngle, wormHeight, wormWarn,
   type Game, type Gib, type Hazard, type Solid, type ThemeId,
 } from './gravitySwap';
-import { drawBackdrop } from './gravityBackdrops';
+import { drawBackdrop, drawUpperSky } from './gravityBackdrops';
 
 export const PX = 32;
 const P = 1 / PX; // un píxel, en casilleros
@@ -393,7 +393,7 @@ function fossil(ctx: CanvasRenderingContext2D, kind: number, x: number, y: numbe
     ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
     ctx.beginPath(); ctx.arc(x0, y0, w * 0.75, 0, Math.PI * 2); ctx.arc(x1, y1, w * 0.75, 0, Math.PI * 2); ctx.fill();
   };
-  switch (kind % 5) {
+  switch (kind % FOSSILS) {
     case 0: { // tiranosaurio
       const back: [number, number][] = [];
       for (let i = 0; i <= 18; i++) { const t = i / 18; back.push([-1.6 + t * 2.6, -0.35 + Math.sin(t * Math.PI) * -0.25 + (t < 0.3 ? (0.3 - t) * 0.8 : 0)]); }
@@ -446,9 +446,69 @@ function fossil(ctx: CanvasRenderingContext2D, kind: number, x: number, y: numbe
       ctx.fillStyle = dark; ctx.beginPath(); ctx.arc(0.6, -0.03, 0.03, 0, Math.PI * 2); ctx.fill();
       break;
     }
+    case 5: { // esqueleto humano acostado
+      ctx.beginPath(); ctx.ellipse(-0.95, -0.02, 0.16, 0.14, 0, 0, Math.PI * 2); ctx.fill(); // cráneo
+      ctx.fillStyle = dark; ctx.beginPath(); ctx.arc(-1.0, -0.05, 0.035, 0, Math.PI * 2); ctx.arc(-0.92, -0.06, 0.035, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(-0.98, 0.04, 0.08, 0.02); ctx.fillStyle = bone;
+      boneLine(-1.02, 0.12, -0.86, 0.12, 0.025); // mandíbula
+      spine([[-0.78, 0], [-0.68, 0], [-0.58, 0], [-0.48, 0], [-0.38, 0], [-0.28, 0], [-0.18, 0]], 0.035);
+      ctx.lineWidth = 0.025; for (let i = 0; i < 6; i++) { const rx = -0.72 + i * 0.07; ctx.beginPath(); ctx.ellipse(rx, 0, 0.03, 0.15, 0, 0, Math.PI * 2); ctx.stroke(); } // costillas
+      ctx.beginPath(); ctx.ellipse(-0.12, 0, 0.09, 0.14, 0, 0, Math.PI * 2); ctx.fill(); // cadera
+      boneLine(-0.75, -0.12, -0.5, -0.28, 0.03); boneLine(-0.5, -0.28, -0.3, -0.22, 0.025); // brazo
+      boneLine(-0.75, 0.12, -0.5, 0.25, 0.03); boneLine(-0.5, 0.25, -0.25, 0.3, 0.025);
+      boneLine(-0.05, -0.06, 0.35, -0.1, 0.04); boneLine(0.35, -0.1, 0.72, -0.08, 0.035); boneLine(0.72, -0.08, 0.8, -0.18, 0.025); // piernas
+      boneLine(-0.05, 0.06, 0.35, 0.12, 0.04); boneLine(0.35, 0.12, 0.72, 0.14, 0.035); boneLine(0.72, 0.14, 0.8, 0.04, 0.025);
+      break;
+    }
+    case 6: { // calavera y huesos sueltos
+      ctx.beginPath(); ctx.arc(0, -0.05, 0.22, Math.PI * 0.85, Math.PI * 2.15); ctx.lineTo(0.12, 0.2); ctx.lineTo(-0.12, 0.2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = dark; ctx.beginPath(); ctx.ellipse(-0.08, -0.04, 0.06, 0.07, 0, 0, Math.PI * 2); ctx.ellipse(0.08, -0.04, 0.06, 0.07, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(0, 0.04); ctx.lineTo(-0.03, 0.1); ctx.lineTo(0.03, 0.1); ctx.fill();
+      for (let k = 0; k < 4; k++) ctx.fillRect(-0.08 + k * 0.045, 0.15, 0.015, 0.05);
+      ctx.fillStyle = bone; boneLine(0.35, 0.15, 0.85, -0.1, 0.035); boneLine(-0.35, 0.18, -0.75, -0.05, 0.035); boneLine(0.4, -0.2, 0.7, 0.2, 0.03);
+      break;
+    }
+    case 7: { // pterodáctilo con las alas abiertas
+      spine([[-0.2, 0], [-0.1, 0], [0, 0], [0.1, 0], [0.2, 0.02]], 0.04);
+      boneLine(0, -0.02, -0.5, -0.45, 0.035); boneLine(-0.5, -0.45, -1.2, -0.3, 0.025); boneLine(-1.2, -0.3, -1.6, -0.55, 0.02);
+      boneLine(0, 0.02, 0.5, -0.45, 0.035); boneLine(0.5, -0.45, 1.1, -0.35, 0.025); boneLine(1.1, -0.35, 1.5, -0.6, 0.02);
+      ctx.beginPath(); ctx.moveTo(0.22, -0.05); ctx.lineTo(0.75, -0.02); ctx.lineTo(0.3, 0.06); ctx.closePath(); ctx.fill(); // pico
+      ctx.beginPath(); ctx.moveTo(0.22, -0.05); ctx.lineTo(0.05, -0.25); ctx.lineTo(0.3, -0.02); ctx.fill(); // cresta
+      boneLine(-0.15, 0.03, -0.3, 0.35, 0.025); boneLine(-0.05, 0.03, -0.15, 0.35, 0.025);
+      break;
+    }
+    case 8: { // mamut: cráneo con colmillos curvos
+      ctx.beginPath(); ctx.ellipse(0, -0.1, 0.4, 0.32, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = dark; ctx.beginPath(); ctx.arc(0.12, -0.15, 0.07, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = bone;
+      ctx.lineWidth = 0.08; ctx.beginPath(); ctx.moveTo(0.25, 0.1); ctx.quadraticCurveTo(0.9, 0.5, 0.95, -0.15); ctx.stroke();
+      ctx.lineWidth = 0.06; ctx.beginPath(); ctx.moveTo(0.15, 0.15); ctx.quadraticCurveTo(0.7, 0.6, 0.78, 0); ctx.stroke();
+      spine([[-0.45, 0.05], [-0.62, 0.08], [-0.78, 0.1], [-0.94, 0.12], [-1.1, 0.12]], 0.06);
+      break;
+    }
+    case 9: { // trilobite
+      ctx.beginPath(); ctx.ellipse(0, 0, 0.35, 0.22, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = dark; ctx.lineWidth = 0.02;
+      for (let k = -3; k <= 3; k++) { ctx.beginPath(); ctx.moveTo(k * 0.08, -0.2); ctx.lineTo(k * 0.08, 0.2); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(-0.35, -0.06); ctx.lineTo(0.35, -0.06); ctx.moveTo(-0.35, 0.06); ctx.lineTo(0.35, 0.06); ctx.stroke();
+      ctx.fillStyle = bone; ctx.beginPath(); ctx.ellipse(0.38, 0, 0.12, 0.2, 0, -Math.PI / 2, Math.PI / 2); ctx.fill();
+      break;
+    }
+    case 10: { // raptor
+      const back: [number, number][] = [];
+      for (let i = 0; i <= 14; i++) { const t = i / 14; back.push([-1.1 + t * 1.6, -0.25 - Math.sin(t * Math.PI) * 0.12]); }
+      spine(back, 0.045);
+      ctx.lineWidth = 0.025; for (let i = 0; i < 5; i++) { const rx = -0.15 + i * 0.08; ctx.beginPath(); ctx.moveTo(rx, -0.35); ctx.quadraticCurveTo(rx + 0.08, -0.1, rx, 0.05); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(0.45, -0.38); ctx.lineTo(0.85, -0.3); ctx.lineTo(0.48, -0.2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = dark; ctx.beginPath(); ctx.arc(0.55, -0.32, 0.03, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = bone;
+      boneLine(0.1, -0.25, 0.0, 0.1, 0.04); boneLine(0.0, 0.1, 0.12, 0.38, 0.035); boneLine(0.12, 0.38, 0.28, 0.4, 0.02);
+      ctx.beginPath(); ctx.moveTo(0.28, 0.4); ctx.quadraticCurveTo(0.38, 0.3, 0.33, 0.25); ctx.lineTo(0.3, 0.38); ctx.fill(); // la garra
+      boneLine(0.35, -0.3, 0.42, -0.12, 0.02);
+      break;
+    }
   }
   ctx.restore();
 }
+const FOSSILS = 11;
 
 function crystal(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string, time: number) {
   glow(ctx, x, y, s * 1.6, color, 0.3 + 0.1 * Math.sin(time * 2 + x));
@@ -509,23 +569,14 @@ function underground(ctx: CanvasRenderingContext2D, game: Game, t: Theme, x0: nu
       ctx.fillStyle = 'rgba(255,255,255,0.45)';
       for (let bx = Math.floor(x0); bx < x1; bx += 0.6) if (hash(bx * 5) > 0.7) { ctx.beginPath(); ctx.arc(bx, top + 0.4 + hash(bx) * (bottom - top), 0.05 + hash(bx * 2) * 0.06, 0, Math.PI * 2); ctx.fill(); }
     }
-    // Fósiles: un esqueleto de dinosaurio cada tanto (y peces y caracoles entre medio).
-    for (let i = Math.floor((x0 - 6) / 13); i * 13 < x1 + 6; i++) {
-      const kind = Math.floor(hash(i * 11 + seed) * 5), big = kind < 2;
-      const fx = i * 13 + hash(i * 5 + seed) * 7, fy = top + (big ? 1.05 : 0.6) + hash(i * 3 + 1) * (big ? 1.4 : 1.8);
-      if (fy > bottom + 1) continue;
-      fossil(ctx, kind, fx, fy, big ? 0.9 : 0.6, theme === 'ice' ? '#f1f5f9' : '#e9dfc7');
-    }
+    bones(ctx, x0, x1, top, bottom, seed, theme === 'ice' ? '#f1f5f9' : '#e9dfc7', 1);
   } else if (t.under === 'rock') {
     for (let i = Math.floor((x0 - 3) / 3.5); i * 3.5 < x1 + 3; i++) { // cristales y vetas de metal
       const cx = i * 3.5 + hash(i + seed) * 2, cy = top + 0.9 + hash(i * 7) * Math.min(4, bottom - top);
       if (hash(i * 13) > 0.45) crystal(ctx, cx, cy, 0.7 + hash(i) * 0.5, ['#a78bfa', '#22d3ee', '#f472b6', '#34d399'][i & 3], time);
       else { ctx.strokeStyle = '#d4a017'; ctx.lineWidth = P * 2; ctx.beginPath(); ctx.moveTo(cx - 0.8, cy); ctx.lineTo(cx, cy + 0.2); ctx.lineTo(cx + 0.7, cy - 0.15); ctx.stroke(); }
     }
-    for (let i = Math.floor((x0 - 6) / 19); i * 19 < x1 + 6; i++) { // un fósil raro de vez en cuando
-      const fx = i * 19 + hash(i * 5 + seed) * 8, fy = top + 1.2 + hash(i * 3 + 1) * 2;
-      if (fy < bottom + 1) fossil(ctx, Math.floor(hash(i * 11) * 5), fx, fy, 0.75, '#d6d3d1');
-    }
+    bones(ctx, x0, x1, top, bottom, seed, '#d6d3d1', 0.7);
   } else { // pisos de máquinas: caños, cables, luces y engranajes
     for (let d = top + 0.6; d < bottom; d += 2.2) {
       ctx.fillStyle = lin(ctx, 0, d, 0, d + 0.4, [[0, '#64748b'], [0.5, '#475569'], [1, '#1e293b']]); ctx.fillRect(x0, d, x1 - x0, 0.4);
@@ -540,6 +591,23 @@ function underground(ctx: CanvasRenderingContext2D, game: Game, t: Theme, x0: nu
         for (let k = 0; k < 16; k++) { const ang = a + k * Math.PI / 8, rr = k % 2 ? r : r * 1.25; ctx.lineTo(gx + 3 + Math.cos(ang) * rr, gy + Math.sin(ang) * rr); }
         ctx.fill();
       }
+    }
+    bones(ctx, x0, x1, top + 0.9, bottom, seed, '#cbd5e1', 0.45); // entre las máquinas también quedaron huesos
+  }
+}
+
+// Huesos y esqueletos enterrados (de humanos, dinosaurios, mamuts, peces...), a distintas profundidades, bastante
+// seguidos. "amount" (0 a 1) dice qué tan seguido.
+function bones(ctx: CanvasRenderingContext2D, x0: number, x1: number, top: number, bottom: number, seed: number, bone: string, amount: number) {
+  const gap = 4.2 / amount;
+  for (let i = Math.floor((x0 - 4) / gap); i * gap < x1 + 4; i++) {
+    for (let layer = 0; layer < 3; layer++) {
+      const h = hash(i * 31 + layer * 7 + seed);
+      if (layer > 0 && h < 0.35) continue;
+      const kind = Math.floor(hash(i * 11 + layer * 5 + seed) * FOSSILS), big = kind < 2 || kind === 7;
+      const fx = i * gap + hash(i * 5 + layer + seed) * gap * 0.7, fy = top + 0.7 + layer * 2.1 + hash(i * 3 + layer) * 1.2 + (big ? 0.4 : 0);
+      if (fy > bottom + 1.5) continue;
+      fossil(ctx, kind, fx, fy, (big ? 1.05 : 0.8) * (0.85 + hash(i + layer * 13) * 0.3), bone);
     }
   }
 }
@@ -1565,9 +1633,9 @@ function drawPlayer(ctx: CanvasRenderingContext2D, game: Game) {
 export function viewOf(game: Game, rows: number) {
   const side = Math.abs(Math.sin(game.view)), center = game.cam + game.cols / 2, follow = game.follow;
   const base = 1 - 0.28 * side * Math.min(1, ROWS / rows * 1.15);
-  // De costado (pantalla vertical), el pasillo se ve un 50% más grande; sin pasarse del ancho de la pantalla
+  // De costado (pantalla vertical), el pasillo se ve bastante más grande (un 87,5% más); sin pasarse del ancho de la pantalla
   // (en el celular parado, lo que entre).
-  const z = side > 0 ? Math.min(base * (1 + 0.5 * side), Math.max(base, game.cols / (ROWS + 2.5))) : base;
+  const z = side > 0 ? Math.min(base * (1 + 0.875 * side), Math.max(base, game.cols / (ROWS + 2.5))) : base;
   // Lo que sobra de alto se reparte: un poco de cielo arriba y más tierra abajo.
   return { z, px: center + (follow - center) * side, py: ROWS / 2 + Math.max(0, rows - ROWS) * 0.22, reach: Math.hypot(game.cols, rows) / 2 / z + 1.5 };
 }
@@ -1643,13 +1711,10 @@ export function drawGame(ctx: CanvasRenderingContext2D, game: Game, rows: number
   // El cielo (también arriba del techo) y el fondo del escenario.
   ctx.fillStyle = lin(ctx, 0, Math.min(0, y0), 0, ROWS, [[0, t.sky[0]], [Math.max(0, -y0) / (ROWS - Math.min(0, y0)), t.sky[0]], [(Math.max(0, -y0) + ROWS * 0.55) / (ROWS - Math.min(0, y0)), t.sky[1]], [1, t.sky[2]]]);
   ctx.fillRect(x0, y0, x1 - x0, FLOOR + 1 - y0);
-  // Arriba del techo sigue el cielo: con estrellas (y alguna nebulosa) o con nubes.
-  if (y0 < 0) {
+  // Arriba del techo sigue el cielo: estrellas, la luna (o un planeta) y nubes (en el espacio, nubes de gas).
+  if (y0 < -1) {
     ctx.save(); ctx.translate(game.cam, 0);
-    if (t.stars) {
-      stars(ctx, game.cam, x0 - game.cam, x1 - game.cam, y0, 0, game.time);
-      layer(ctx, game.cam, x0 - game.cam, x1 - game.cam, 0.03, 9, (x, i) => glow(ctx, x, -1 - hash(i) * Math.max(1, -y0 - 1), 2.5, t.haze, 0.18));
-    } else layer(ctx, game.cam, x0 - game.cam, x1 - game.cam, 0.05, 4, (x, i) => cloud(ctx, x, -0.7 - hash(i) * Math.max(0.5, -y0 - 1.5), 3, lighten(t.sky[0], 0.18), lighten(t.sky[0], 0.06)));
+    drawUpperSky(ctx, game.def.theme, game.cam, x0 - game.cam, x1 - game.cam, y0, game.time);
     ctx.restore();
   }
   ctx.save();

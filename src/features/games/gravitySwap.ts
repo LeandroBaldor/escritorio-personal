@@ -916,7 +916,7 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   // chorro), se lo ve bajar por la pantalla y la cámara lo alcanza de a poco (sin que se salga de la vista).
   const target = game.player.x + PLAYER_W / 2 + 2.5;
   game.follow += (target - game.follow) * Math.min(1, 3.5 * dt);
-  game.follow = Math.max(target - 6.5, Math.min(target + 2.5, game.follow));
+  game.follow = Math.max(target - 5, Math.min(target + 2.5, game.follow));
   game.phaseT += dt;
   const p = game.player;
 
