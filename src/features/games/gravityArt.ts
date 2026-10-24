@@ -1564,7 +1564,10 @@ function drawPlayer(ctx: CanvasRenderingContext2D, game: Game) {
 // "rows" es lo que mide la pantalla de alto, en casilleros (10 o más: lo que sobra muestra el cielo y la tierra).
 export function viewOf(game: Game, rows: number) {
   const side = Math.abs(Math.sin(game.view)), center = game.cam + game.cols / 2, follow = game.follow;
-  const z = 1 - 0.28 * side * Math.min(1, ROWS / rows * 1.15);
+  const base = 1 - 0.28 * side * Math.min(1, ROWS / rows * 1.15);
+  // De costado (pantalla vertical), el pasillo se ve un 50% más grande; sin pasarse del ancho de la pantalla
+  // (en el celular parado, lo que entre).
+  const z = side > 0 ? Math.min(base * (1 + 0.5 * side), Math.max(base, game.cols / (ROWS + 2.5))) : base;
   // Lo que sobra de alto se reparte: un poco de cielo arriba y más tierra abajo.
   return { z, px: center + (follow - center) * side, py: ROWS / 2 + Math.max(0, rows - ROWS) * 0.22, reach: Math.hypot(game.cols, rows) / 2 / z + 1.5 };
 }
