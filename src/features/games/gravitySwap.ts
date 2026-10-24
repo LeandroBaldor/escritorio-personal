@@ -593,7 +593,7 @@ export function cometPath(h: Hazard, k: number) {
   return { x: h.x0 + h.len / 2 - h.len * k, y: from + (to - from) * k };
 }
 const COMET_TIME = 1.15; // lo que tarda en cruzar el pasillo
-const ROAR_EVERY = 1.8; // cada cuánto ruge el monstruo mientras te persigue
+const ROAR_EVERY = 2.3; // cada cuánto ruge el monstruo mientras te persigue
 const hash01 = (n: number) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
 // Láser giratorio: hacia dónde apunta. Láser que sube y baja: a qué altura está.
 export const sweeperAngle = (game: Game, h: Hazard) => h.phase + game.time * h.speed;

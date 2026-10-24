@@ -48,7 +48,7 @@ import invLluviaUrl from './assets/sonidos/invasion-lluvia.mp3';
 import propulsorUrl from './assets/sonidos/propulsor.mp3';
 import agujeroNegroUrl from './assets/sonidos/agujero-negro.mp3';
 import laserUrl from './assets/sonidos/laser.mp3';
-import monstruoUrl from './assets/sonidos/monstruo.mp3';
+import monstruoUrl from './assets/sonidos/monstruo-pez.mp3';
 import puertaUrl from './assets/sonidos/puerta.mp3';
 import explosionUrl from './assets/sonidos/explosion.mp3';
 import gusanoUrl from './assets/sonidos/gusano.mp3';
@@ -1305,9 +1305,20 @@ export function playCheckpoint() {
   [784, 1175, 1568].forEach((f, i) => tone(c, 'triangle', f, f, t + i * 0.09, 0.3, 0.28));
 }
 // El monstruo te vio: un rugido grave que tiembla.
+const GROWLS: [number, number][] = [[0.45, 1.85], [3.2, 4.55], [5.25, 6.05], [6.6, 7.45], [8.25, 9.45], [10.35, 11.7], [12.35, 13.55], [14, 16.1], [16.45, 17.15]];
+let growl = 0;
 export function playMonsterRoar() {
   const c = running(); if (!c) return;
-  if (playSample(monstruoUrl, 0.9)) return; // la grabación del monstruo
+  // La grabación trae varios gruñidos con silencios en el medio: cada rugido usa otro (en orden).
+  const buffer = samples.get(monstruoUrl);
+  if (buffer instanceof AudioBuffer) {
+    const [from, to] = GROWLS[growl]; growl = (growl + 1) % GROWLS.length;
+    const source = c.createBufferSource(), gain = c.createGain();
+    source.buffer = buffer; gain.gain.value = 1.1; source.connect(gain).connect(out(c));
+    source.start(c.currentTime, Math.max(0, from - 0.05), to - from + 0.15);
+    return;
+  }
+  loadSample(monstruoUrl);
   const t = c.currentTime;
   tone(c, 'sawtooth', 140, 70, t, 0.7, 0.22);
   tone(c, 'square', 95, 55, t + 0.04, 0.65, 0.12);
