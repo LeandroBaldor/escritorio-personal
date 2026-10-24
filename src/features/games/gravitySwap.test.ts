@@ -147,6 +147,20 @@ describe('Gravity Swap: chorros de oxígeno', () => {
     expect(game.player.touch.up).toBe(true);
   });
 
+  it('el chorro siempre se nota: cayendo rápido, apretar para abajo (o para un costado) lo acelera más', () => {
+    const speedAfter = (input: Input) => {
+      const game = empty();
+      game.solids = []; game.player.y = 2; game.player.onGround = false; // en el aire, sin piso cerca
+      run(game, 0.6); // cae y llega a la velocidad de caída
+      run(game, 0.5, input);
+      return { vy: game.player.vy, vx: game.player.vx };
+    };
+    const free = speedAfter(idle), down = speedAfter({ ...idle, down: true }), right = speedAfter({ ...idle, right: true }), up = speedAfter({ ...idle, up: true });
+    expect(down.vy).toBeGreaterThan(free.vy + 4);
+    expect(right.vx).toBeGreaterThan(free.vx + 3);
+    expect(up.vy).toBeLessThan(free.vy - 4);
+  });
+
   it('las flechas son de la pantalla girada: con la gravedad para adelante, "arriba" lo lleva para atrás', () => {
     const game = empty();
     flipGravity(game, fixed, Math.PI / 2); game.gravityIn = 999;

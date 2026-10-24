@@ -19,7 +19,8 @@ export const LIVES = 3;
 export const LEVEL_COUNT = 10;
 const G = 14; // gravedad baja: flota
 const THRUST = 30; // el chorro de oxígeno le gana a la gravedad
-const MAX_SPEED = 9;
+const MAX_SPEED = 8; // lo más rápido que lo lleva la gravedad sola
+const MAX_THRUST_SPEED = 15; // con el chorro prendido puede ir bastante más rápido (para cualquier lado)
 const DRAG = 0.6; // lo que va frenando solo en el aire
 const EDGE = 0.15; // lo más a la izquierda que puede quedar en la pantalla
 const START_SAFE = 18; // casilleros libres al principio de cada escenario
@@ -994,7 +995,10 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   if (p.touch.down || p.touch.up) p.vx *= grip;
   if (p.touch.left || p.touch.right) p.vy *= grip;
   const speed = Math.hypot(p.vx, p.vy);
-  if (speed > MAX_SPEED) { p.vx *= MAX_SPEED / speed; p.vy *= MAX_SPEED / speed; }
+  // Con el chorro prendido el tope es más alto: así siempre se nota, aunque ya venga cayendo rápido. Al
+  // soltarlo, frena de a poco hasta el tope normal (no de golpe).
+  const cap = p.tx || p.ty ? MAX_THRUST_SPEED : MAX_SPEED;
+  if (speed > cap) { const k = Math.max(cap / speed, p.tx || p.ty ? 0 : 1 - 3 * dt); p.vx *= k; p.vy *= k; }
 
   const solids = liveSolids(game);
   // Cinta transportadora: lo lleva mientras está apoyado en ella.
