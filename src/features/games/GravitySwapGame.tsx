@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CHECKPOINTS, LEVELS, LEVEL_COUNT, LIVES, ROWS, loadLevel, newGame, progress, step, takeEvents, type Death, type Game, type Input, type Stats } from './gravitySwap';
+import { CHECKPOINTS, LEVELS, LEVEL_COUNT, LIVES, ROWS, blackholeNear, loadLevel, newGame, progress, step, takeEvents, type Death, type Game, type Input, type Stats } from './gravitySwap';
 import { PX, drawGame } from './gravityArt';
 import {
   playAstronautHit, playAstronautLand, playAstronautSplat, playCheckpoint, playComet, playCrumble, playExplosion, playGameOver, playGravityFlip, playGust,
-  playLaserOn, playMonsterRoar, playStart, playTeleport, playThunder, playTramp, playTurretShot, playThrust, playWinFanfare, playWorm, preloadGravitySounds, setThrustSound,
+  playDoor, playLaserOn, playMonsterRoar, playStart, playTeleport, playThunder, playTramp, playTurretShot, playThrust, playWinFanfare, playWorm, preloadGravitySounds, setBlackholeSound, setThrustSound, stopBlackholeSound,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 
@@ -111,6 +111,7 @@ export function GravitySwap() {
       step(game, input.current, dt);
       // Mientras usa el chorro de oxígeno suena el propulsor (si la grabación no cargó todavía, un soplido seguido).
       const thrusting = game.phase === 'play' && (game.player.tx !== 0 || game.player.ty !== 0);
+      setBlackholeSound(game.phase === 'play' ? blackholeNear(game) : 0);
       if (!setThrustSound(thrusting)) {
         puff = thrusting ? puff - dt : 0;
         if (thrusting && puff <= 0) { playThrust(); puff = 0.12; }
@@ -124,6 +125,7 @@ export function GravitySwap() {
           case 'roar': playMonsterRoar(); break;
           case 'comet': playComet(); break;
           case 'worm': playWorm(); break;
+          case 'door': playDoor(e.opening); break;
           case 'boom': playExplosion(); break;
           case 'shot': playTurretShot(); break;
           case 'zap': playLaserOn(); break;
@@ -152,14 +154,14 @@ export function GravitySwap() {
       paint();
       const next = hudOf(game);
       setHud(prev => sameHud(prev, next) ? prev : next);
-      if (game.phase === 'over') { setThrustSound(false); playGameOver(); setStatus('over'); return; }
+      if (game.phase === 'over') { setThrustSound(false); stopBlackholeSound(); playGameOver(); setStatus('over'); return; }
       if (game.phase === 'won') { setStatus('won'); return; }
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     const hide = () => { if (document.hidden) setStatus('paused'); };
     document.addEventListener('visibilitychange', hide);
-    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); setThrustSound(false); };
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); setThrustSound(false); stopBlackholeSound(); };
   }, [status, paint]);
 
   useEffect(() => {

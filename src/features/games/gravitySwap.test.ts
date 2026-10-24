@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CEIL, CHECKPOINTS, FLOOR, LEVELS, LEVEL_COUNT, LIVES, PLAYER_H, PLAYER_W, ROWS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input } from './gravitySwap';
+import { CEIL, CHECKPOINTS, blackholeNear, FLOOR, LEVELS, LEVEL_COUNT, LIVES, PLAYER_H, PLAYER_W, ROWS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input } from './gravitySwap';
 
 const idle: Input = { left: false, right: false, up: false, down: false };
 const fixed = () => 0.5;
@@ -226,6 +226,21 @@ describe('Gravity Swap: monstruos, cometas, lásers nuevos y agujeros negros', (
     b.hazards.push(hazard({ kind: 'scanner', x: 9, y: 5, w: 4, h: 0.2, amp: 3.6, speed: 1, phase: 0 })); // (con amp 3 no llega a tocar a uno apoyado en el piso)
     runUntil(b, () => b.phase === 'dead', 6);
     expect(b.death).toBe('laser');
+  });
+
+  it('las puertas suenan al abrirse y al cerrarse, y el agujero negro suena más fuerte cuanto más cerca', () => {
+    const game = empty();
+    game.hazards.push(hazard({ kind: 'door', x: 12, y: CEIL, w: 1, h: FLOOR - CEIL, side: 0, period: 3, phase: 0 }));
+    run(game, 3);
+    const doors = takeEvents(game).filter(e => e.type === 'door');
+    expect(doors.map(e => e.type === 'door' && e.opening)).toEqual([true, false]);
+    const hole = empty();
+    expect(blackholeNear(hole)).toBe(0);
+    hole.hazards.push(hazard({ kind: 'blackhole', x: hole.player.x + 6, y: 5, r: 0.45, len: 4.5, amp: 0 }));
+    const far = blackholeNear(hole);
+    hole.hazards[0].x = hole.player.x + 2;
+    expect(far).toBeGreaterThan(0);
+    expect(blackholeNear(hole)).toBeGreaterThan(far);
   });
 
   it('el agujero negro te chupa; con los chorros te escapás y si llegás al centro te traga', () => {

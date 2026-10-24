@@ -46,6 +46,10 @@ import invOvniDisparoUrl from './assets/sonidos/invasion-ovni-disparo.mp3';
 import invAlienHablaUrl from './assets/sonidos/invasion-alien-habla.mp3';
 import invLluviaUrl from './assets/sonidos/invasion-lluvia.mp3';
 import propulsorUrl from './assets/sonidos/propulsor.mp3';
+import agujeroNegroUrl from './assets/sonidos/agujero-negro.mp3';
+import laserUrl from './assets/sonidos/laser.mp3';
+import monstruoUrl from './assets/sonidos/monstruo.mp3';
+import puertaUrl from './assets/sonidos/puerta.mp3';
 
 type WithWebkit = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 let ctx: AudioContext | null = null;
@@ -1152,7 +1156,7 @@ export function preloadUiSounds() { for (const url of [jugarUrl, ganasteUrl, gam
 if (typeof window !== 'undefined' && typeof fetch === 'function') preloadUiSounds();
 
 // ---------- Gravity Swap ----------
-export function preloadGravitySounds() { for (const url of [bombaUrl, propulsorUrl, personaCaeUrl, ...TRUENOS]) loadSample(url); }
+export function preloadGravitySounds() { for (const url of [bombaUrl, propulsorUrl, personaCaeUrl, agujeroNegroUrl, laserUrl, monstruoUrl, puertaUrl, ...TRUENOS]) loadSample(url); }
 // La gravedad se dio vuelta: un "fuuiiip" que sube y un soplido.
 export function playGravityFlip() {
   const c = running(); if (!c) return;
@@ -1163,7 +1167,51 @@ export function playGravityFlip() {
 }
 export function playAstronautLand() { const c = running(); if (!c) return; burst(c, 'lowpass', 500, c.currentTime, 0.1, 0.5); }
 // Láser que se prende: un zumbido eléctrico corto.
-export function playLaserOn() { const c = running(); if (!c) return; const t = c.currentTime; tone(c, 'sawtooth', 900, 1500, t, 0.12, 0.08); burst(c, 'highpass', 4000, t, 0.06, 0.08); }
+// Si hay varios lásers prendiéndose juntos, suena uno solo.
+let lastLaser = -1;
+export function playLaserOn() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  if (t - lastLaser < 0.25) return;
+  lastLaser = t;
+  if (playSample(laserUrl, 0.45)) return; // la grabación del láser
+  tone(c, 'sawtooth', 900, 1500, t, 0.12, 0.08); burst(c, 'highpass', 4000, t, 0.06, 0.08);
+}
+// Puerta: la grabación trae varios golpes mecánicos de casi un segundo; uno suena al abrirse y otro al cerrarse.
+let lastDoor = -1;
+export function playDoor(opening: boolean) {
+  const c = running(), buffer = samples.get(puertaUrl);
+  if (!c || c.currentTime - lastDoor < 0.3) return;
+  lastDoor = c.currentTime;
+  if (!(buffer instanceof AudioBuffer)) { loadSample(puertaUrl); burst(c, 'lowpass', 700, c.currentTime, 0.3, 0.3); return; }
+  const source = c.createBufferSource(), gain = c.createGain();
+  source.buffer = buffer; gain.gain.value = 0.55;
+  source.connect(gain).connect(out(c));
+  if (opening) source.start(c.currentTime, 0.2, 0.65); else source.start(c.currentTime, 1.1, 0.75);
+}
+// Agujero negro: un ambiente grabado que suena en loop mientras hay uno cerca ("level" de 0 a 1: más fuerte
+// cuanto más cerca). Se saltean el principio y el final de la grabación, que suben y bajan de a poco.
+let hole: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
+export function setBlackholeSound(level: number) {
+  const c = running();
+  if (!c) return;
+  if (!hole) {
+    if (level <= 0) return;
+    const buffer = samples.get(agujeroNegroUrl);
+    if (!(buffer instanceof AudioBuffer)) { loadSample(agujeroNegroUrl); return; }
+    const source = c.createBufferSource(), gain = c.createGain();
+    source.buffer = buffer; source.loop = true; source.loopStart = 4; source.loopEnd = Math.min(buffer.duration, 24);
+    gain.gain.value = 0;
+    source.connect(gain).connect(out(c)); source.start(0, 4);
+    hole = { source, gain };
+  }
+  hole.gain.gain.setTargetAtTime(Math.max(0, Math.min(1, level)) * 0.8, c.currentTime, 0.15);
+}
+export function stopBlackholeSound() {
+  const c = running();
+  if (hole && c) { hole.gain.gain.setTargetAtTime(0, c.currentTime, 0.05); hole.source.stop(c.currentTime + 0.4); }
+  hole = null;
+}
 export function playTurretShot() { const c = running(); if (!c) return; tone(c, 'square', 1400, 300, c.currentTime, 0.14, 0.14); }
 // Al morir: un golpe húmedo, un chapoteo de sangre y un tono que baja.
 export function playAstronautHit() {
@@ -1207,6 +1255,7 @@ export function playCheckpoint() {
 // El monstruo te vio: un rugido grave que tiembla.
 export function playMonsterRoar() {
   const c = running(); if (!c) return;
+  if (playSample(monstruoUrl, 0.9)) return; // la grabación del monstruo
   const t = c.currentTime;
   tone(c, 'sawtooth', 140, 70, t, 0.7, 0.22);
   tone(c, 'square', 95, 55, t + 0.04, 0.65, 0.12);

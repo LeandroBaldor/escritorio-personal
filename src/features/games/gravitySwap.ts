@@ -112,7 +112,7 @@ export type GravityEvent =
   | { type: 'land' } | { type: 'flip' } | { type: 'death'; reason: Death }
   | { type: 'boom' } | { type: 'shot' } | { type: 'zap' } | { type: 'spring' } | { type: 'crumble' } | { type: 'cleared'; level: number }
   | { type: 'thunder' } | { type: 'gust' } | { type: 'respawn' } | { type: 'won' }
-  | { type: 'checkpoint' } | { type: 'roar' } | { type: 'comet' } | { type: 'worm' };
+  | { type: 'checkpoint' } | { type: 'roar' } | { type: 'comet' } | { type: 'worm' } | { type: 'door'; opening: boolean };
 
 export interface Stats { time: number; deaths: number; flips: number; levels: number }
 
@@ -438,6 +438,17 @@ export function loadLevel(game: Game, level: number, rand: () => number = Math.r
   });
 }
 
+// Qué tan cerca hay un agujero negro (0 ninguno, 1 encima): para el volumen de su sonido.
+export function blackholeNear(game: Game) {
+  const px = game.player.x + PLAYER_W / 2, py = game.player.y + PLAYER_H / 2;
+  let near = 0;
+  for (const h of game.hazards) {
+    if (h.kind !== 'blackhole' || h.dead || Math.abs(h.x - px) > 12) continue;
+    near = Math.max(near, 1 - Math.hypot(h.x - px, h.y - py) / 11);
+  }
+  return near;
+}
+
 export const progress = (game: Game) => Math.max(0, Math.min(1, (game.player.x + PLAYER_W) / game.portalX));
 
 // Lo que se puede ver (con un poco de margen).
@@ -637,6 +648,14 @@ function updateHazards(game: Game, dt: number) {
         break;
       case 'worm':
         if (visible(game, h.x) && Math.abs(cycle(game, h) - 0.55) * h.period < dt * 0.75) emit(game, { type: 'worm' });
+        break;
+      case 'door': { // suena al empezar a abrirse y al empezar a cerrarse
+        const c = cycle(game, h), before = ((((game.time - dt + h.phase) % h.period) + h.period) % h.period) / h.period;
+        for (const [at, opening] of [[0.5, true], [0.82, false]] as const) if (visible(game, h.x) && before < at && c >= at) emit(game, { type: 'door', opening });
+        break;
+      }
+      case 'sweeper': case 'scanner': // el láser giratorio y el que sube y baja suenan cuando aparecen en la pantalla
+        if (!h.active && visible(game, h.x, -1)) { h.active = true; emit(game, { type: 'zap' }); }
         break;
       case 'monster': {
         if (h.state === 0) {
