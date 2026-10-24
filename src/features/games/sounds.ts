@@ -45,6 +45,7 @@ import invOvniUrl from './assets/sonidos/invasion-ovni.mp3';
 import invOvniDisparoUrl from './assets/sonidos/invasion-ovni-disparo.mp3';
 import invAlienHablaUrl from './assets/sonidos/invasion-alien-habla.mp3';
 import invLluviaUrl from './assets/sonidos/invasion-lluvia.mp3';
+import propulsorUrl from './assets/sonidos/propulsor.mp3';
 
 type WithWebkit = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 let ctx: AudioContext | null = null;
@@ -1151,7 +1152,7 @@ export function preloadUiSounds() { for (const url of [jugarUrl, ganasteUrl, gam
 if (typeof window !== 'undefined' && typeof fetch === 'function') preloadUiSounds();
 
 // ---------- Gravity Swap ----------
-export function preloadGravitySounds() { for (const url of [bombaUrl, ...TRUENOS]) loadSample(url); }
+export function preloadGravitySounds() { for (const url of [bombaUrl, propulsorUrl, personaCaeUrl, ...TRUENOS]) loadSample(url); }
 // La gravedad se dio vuelta: un "fuuiiip" que sube y un soplido.
 export function playGravityFlip() {
   const c = running(); if (!c) return;
@@ -1173,5 +1174,55 @@ export function playAstronautHit() {
   tone(c, 'square', 600, 70, t + 0.05, 0.6, 0.25);
 }
 export function playGust() { const c = running(); if (!c) return; burst(c, 'bandpass', 500, c.currentTime, 1.4, 0.35); }
-// El chorro de oxígeno: un soplido corto (suena seguido mientras se usa).
+// El chorro de oxígeno (de respaldo, mientras carga la grabación): un soplido corto que suena seguido.
 export function playThrust() { const c = running(); if (!c) return; burst(c, 'bandpass', 1800 + Math.random() * 400, c.currentTime, 0.14, 0.12); }
+// El propulsor grabado: arranca con el principio del soplido y, mientras se mantiene la tecla, repite el tramo
+// del medio sin corte; al soltar se apaga rápido. Devuelve false si la grabación todavía no está lista.
+let thrust: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
+export function setThrustSound(on: boolean) {
+  const c = running();
+  if (!on) {
+    if (thrust && c) { const t = c.currentTime; thrust.gain.gain.cancelScheduledValues(t); thrust.gain.gain.setTargetAtTime(0, t, 0.04); thrust.source.stop(t + 0.3); }
+    thrust = null;
+    return true;
+  }
+  if (thrust) return true;
+  const buffer = samples.get(propulsorUrl);
+  if (!c || !(buffer instanceof AudioBuffer)) { loadSample(propulsorUrl); return false; }
+  const source = c.createBufferSource(), gain = c.createGain();
+  source.buffer = buffer; source.loop = true; source.loopStart = 0.18; source.loopEnd = Math.min(buffer.duration, 0.74);
+  gain.gain.setValueAtTime(0.0001, c.currentTime); gain.gain.setTargetAtTime(0.95, c.currentTime, 0.015);
+  source.connect(gain).connect(out(c)); source.start();
+  thrust = { source, gain };
+  return true;
+}
+// Al morir, además del golpe, el sonido de la caída de SkynetBall.
+export function playAstronautSplat() { playSplat(1); }
+// Pasaste una bandera: dos notas que suben, como una campanita.
+export function playCheckpoint() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  [784, 1175, 1568].forEach((f, i) => tone(c, 'triangle', f, f, t + i * 0.09, 0.3, 0.28));
+}
+// El monstruo te vio: un rugido grave que tiembla.
+export function playMonsterRoar() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  tone(c, 'sawtooth', 140, 70, t, 0.7, 0.22);
+  tone(c, 'square', 95, 55, t + 0.04, 0.65, 0.12);
+  burst(c, 'lowpass', 600, t, 0.6, 0.35);
+}
+// El cometa entra: un silbido de fuego que baja.
+export function playComet() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  burst(c, 'bandpass', 2400, t, 1.1, 0.3);
+  tone(c, 'sine', 1800, 300, t, 1.1, 0.12);
+}
+// El gusano sale: un retumbo de tierra.
+export function playWorm() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  burst(c, 'lowpass', 220, t, 0.5, 0.7);
+  tone(c, 'sawtooth', 70, 45, t, 0.45, 0.15);
+}

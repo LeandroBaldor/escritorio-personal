@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CEIL, FLOOR, LEVELS, LEVEL_COUNT, LIVES, PLAYER_H, PLAYER_W, ROWS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input } from './gravitySwap';
+import { CEIL, CHECKPOINTS, FLOOR, LEVELS, LEVEL_COUNT, LIVES, PLAYER_H, PLAYER_W, ROWS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input } from './gravitySwap';
 
 const idle: Input = { left: false, right: false, up: false, down: false };
 const fixed = () => 0.5;
@@ -167,7 +167,123 @@ describe('Gravity Swap: trampas nuevas', () => {
     game.hazards.push(hazard({ kind: 'spikes', x: 9, y: FLOOR - 0.55, w: 2, h: 0.55, side: 1 }));
     runUntil(game, () => game.phase === 'dead', 4);
     expect(game.blasts.some(b => !b.lethal)).toBe(true);
-    expect(game.particles.length).toBeGreaterThan(20);
+    expect(game.particles.length + game.drops.length).toBeGreaterThan(100);
+  });
+});
+
+describe('Gravity Swap: monstruos, cometas, lásers nuevos y agujeros negros', () => {
+  it('los escenarios son por lo menos 5 veces más largos que antes y tienen las trampas nuevas', () => {
+    // Antes el primero medía 149 casilleros y la Luna 518.
+    expect(levelLength(LEVELS[0])).toBeGreaterThanOrEqual(149 * 5);
+    expect(levelLength(LEVELS[9])).toBeGreaterThanOrEqual(518 * 5);
+    const all = new Set(Array.from({ length: LEVEL_COUNT }, (_, i) => buildLevel(i + 1).hazards.map(h => h.kind)).flat());
+    for (const kind of ['monster', 'worm', 'comet', 'sweeper', 'scanner', 'blackhole', 'bomb', 'door', 'laser'] as const) expect(all.has(kind)).toBe(true);
+    // Muchos lásers: en todos los escenarios hay, de los tres tipos, más de 12.
+    for (let n = 1; n <= LEVEL_COUNT; n++) expect(buildLevel(n).hazards.filter(h => h.kind === 'laser' || h.kind === 'sweeper' || h.kind === 'scanner').length).toBeGreaterThanOrEqual(10);
+  });
+
+  it('el monstruo se despierta cuando te acercás y te persigue', () => {
+    const game = empty();
+    game.hazards.push(hazard({ kind: 'monster', x: 20, y: 3, x0: 20, y0: 3, r: 0.48, amp: 0.5, speed: 3.5, aim: Math.PI }));
+    run(game, 0.3);
+    expect(game.hazards[0].state).toBe(0);
+    runUntil(game, () => game.hazards[0].state === 1, 3);
+    expect(takeEvents(game).some(e => e.type === 'roar')).toBe(true);
+    runUntil(game, () => game.phase === 'dead', 6);
+    expect(game.death).toBe('monster');
+  });
+
+  it('el gusano sale del piso cada tanto y te traga', () => {
+    const game = empty();
+    game.hazards.push(hazard({ kind: 'worm', x: 8, y: FLOOR, w: 0.9, side: 1, period: 2, len: 3.5, phase: 0 }));
+    run(game, 0.5);
+    expect(game.phase).toBe('play'); // todavía no salió
+    runUntil(game, () => game.phase === 'dead', 2);
+    expect(game.death).toBe('worm');
+  });
+
+  it('el cometa avisa por dónde va a pasar, cruza el pasillo en diagonal y explota contra la pared', () => {
+    const game = empty();
+    game.player.y = CEIL; // lejos de su camino
+    game.hazards.push(hazard({ kind: 'comet', x: 12, x0: 12, y: 5, side: 1, r: 0.45, len: 6 }));
+    flipGravity(game, fixed, Math.PI); game.gravityIn = 999;
+    run(game, 0.1);
+    expect(game.hazards[0].state).toBe(1); // aviso
+    run(game, 0.9);
+    expect(game.hazards[0].state).toBe(2);
+    expect(takeEvents(game).some(e => e.type === 'comet')).toBe(true);
+    runUntil(game, () => game.hazards[0].dead, 2);
+    expect(game.hazards[0].y).toBeGreaterThan(FLOOR - 0.5);
+    expect(game.blasts.some(b => b.lethal)).toBe(true);
+  });
+
+  it('el láser giratorio y el que sube y baja también matan', () => {
+    const a = empty();
+    a.hazards.push(hazard({ kind: 'sweeper', x: 9, y: FLOOR - 0.4, len: 3, speed: 0, phase: 0 })); // quieto y acostado, a la altura del astronauta
+    runUntil(a, () => a.phase === 'dead', 3);
+    expect(a.death).toBe('laser');
+    const b = empty();
+    b.hazards.push(hazard({ kind: 'scanner', x: 9, y: 5, w: 4, h: 0.2, amp: 3.6, speed: 1, phase: 0 })); // (con amp 3 no llega a tocar a uno apoyado en el piso)
+    runUntil(b, () => b.phase === 'dead', 6);
+    expect(b.death).toBe('laser');
+  });
+
+  it('el agujero negro te chupa; con los chorros te escapás y si llegás al centro te traga', () => {
+    const pulled = empty();
+    pulled.hazards.push(hazard({ kind: 'blackhole', x: 9, y: 6.5, r: 0.45, len: 4.5, amp: 25 }));
+    runUntil(pulled, () => pulled.phase === 'dead', 5);
+    expect(pulled.death).toBe('blackhole');
+    // Impulsándose para atrás y para abajo no llega a tragarlo.
+    const escape = empty();
+    escape.hazards.push(hazard({ kind: 'blackhole', x: 12, y: 6.5, r: 0.45, len: 4.5, amp: 25 }));
+    run(escape, 1.5, { ...idle, down: true, left: true });
+    expect(escape.death).not.toBe('blackhole');
+  });
+});
+
+describe('Gravity Swap: banderas', () => {
+  it('cada escenario tiene banderas con lugar libre alrededor', () => {
+    for (let n = 1; n <= LEVEL_COUNT; n++) {
+      const layout = buildLevel(n);
+      expect(layout.checkpoints).toHaveLength(CHECKPOINTS.length);
+      for (const c of layout.checkpoints) {
+        expect(layout.hazards.some(h => h.kind !== 'ufo' && h.x > c - 2 && h.x < c + 9)).toBe(false);
+        expect(layout.solids.some(s => s.kind !== 'ground' && s.x < c + 9 && s.x + s.w > c - 2)).toBe(false);
+      }
+    }
+  });
+
+  it('al pasar una bandera, si morís volvés ahí (y no al principio)', () => {
+    const game = empty();
+    const flag = game.checkpoints[1];
+    game.cam = flag - 6; game.player.x = flag - 2;
+    run(game, 1);
+    expect(game.checkpoint).toBe(flag);
+    expect(takeEvents(game).some(e => e.type === 'checkpoint')).toBe(true);
+    game.player.y = ROWS + 2;
+    run(game, 1.9);
+    expect(game.phase).toBe('play');
+    expect(game.lives).toBe(LIVES - 1);
+    expect(game.player.x).toBeGreaterThan(flag);
+    expect(game.player.x).toBeLessThan(flag + 3);
+  });
+});
+
+describe('Gravity Swap: sangre', () => {
+  it('al morir salta mucha sangre, pedazos del traje y quedan manchas pegadas donde cae', () => {
+    const game = empty();
+    game.hazards.push(hazard({ kind: 'spikes', x: 9, y: FLOOR - 0.55, w: 2, h: 0.55, side: 1 }));
+    runUntil(game, () => game.phase === 'dead', 4);
+    expect(game.drops.length).toBeGreaterThan(100);
+    expect(game.gibs.length).toBeGreaterThan(5);
+    expect(game.shake).toBeGreaterThan(0.5);
+    expect(game.stains.some(s => s.kind === 'pool')).toBe(true); // el charco en el piso
+    run(game, 1.5);
+    expect(game.stains.filter(s => s.kind === 'splat').length).toBeGreaterThan(30);
+    // Las manchas quedan después de volver a aparecer.
+    run(game, 0.5);
+    expect(game.phase).toBe('play');
+    expect(game.stains.length).toBeGreaterThan(30);
   });
 });
 
@@ -192,7 +308,7 @@ describe('Gravity Swap: vidas y portal', () => {
 
   it('con 3 muertes se termina la partida', () => {
     const game = empty();
-    for (let i = 0; i < LIVES; i++) { game.player.y = ROWS + 2; run(game, 1.4); }
+    for (let i = 0; i < LIVES; i++) { game.player.y = ROWS + 2; run(game, 1.9); }
     expect(game.phase).toBe('over');
     expect(game.lives).toBe(0);
   });

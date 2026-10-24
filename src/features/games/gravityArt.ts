@@ -4,9 +4,9 @@
 // fósiles debajo del piso, así la pantalla queda siempre llena), las trampas y los villanos, con degradés,
 // texturas y brillos para que se vean más reales.
 import {
-  CEIL, FLOOR, PLAYER_H, PLAYER_W, ROWS, doorOpen, flyerCenter, geyserHeight, geyserWarn, hazardCycle, laserOn, laserWarn, lightningState,
-  mineCenter, pendulumBall, plantBite, pressRect, pressState, sawCenter, sporeCenter,
-  type Game, type Hazard, type Solid, type ThemeId,
+  CEIL, FLOOR, PLAYER_H, PLAYER_W, ROWS, cometPath, doorOpen, flyerCenter, geyserHeight, geyserWarn, hazardCycle, laserOn, laserWarn, lightningState,
+  mineCenter, pendulumBall, plantBite, pressRect, pressState, sawCenter, scannerY, sporeCenter, sweeperAngle, wormHeight, wormWarn,
+  type Game, type Gib, type Hazard, type Solid, type ThemeId,
 } from './gravitySwap';
 
 export const PX = 32;
@@ -1073,7 +1073,287 @@ function drawHazard(ctx: CanvasRenderingContext2D, h: Hazard, game: Game, t: The
       if (gap > 0.1) { glow(ctx, h.x + h.w / 2, mid, gap * 0.6, '#38bdf8', 0.25); } // brillo del hueco abierto
       break;
     }
+    case 'monster': monster(ctx, h, game); break;
+    case 'worm': worm(ctx, h, game); break;
+    case 'comet': comet(ctx, h, game); break;
+    case 'sweeper': sweeper(ctx, h, game, t); break;
+    case 'scanner': scanner(ctx, h, game, t); break;
+    case 'blackhole': blackhole(ctx, h, game); break;
   }
+}
+
+// ---------- Monstruos, cometas, lásers nuevos y agujeros negros ----------
+
+// El color de los monstruos en cada escenario.
+const MONSTER: Record<ThemeId, string> = {
+  city: '#a21caf', mines: '#7c3aed', base: '#0d9488', ice: '#2563eb', volcano: '#b91c1c',
+  inverse: '#db2777', factory: '#4d7c0f', forest: '#059669', storm: '#6d28d9', moon: '#475569',
+};
+
+// Monstruo del espacio: una bola con un ojo enorme, tentáculos que ondulan y, cuando te persigue, la boca abierta
+// con dientes.
+function monster(ctx: CanvasRenderingContext2D, h: Hazard, game: Game) {
+  const { x, y } = h, t = game.time + h.id, angry = h.state === 1, body = MONSTER[game.def.theme];
+  const p = game.player, look = Math.atan2(p.y + PLAYER_H / 2 - y, p.x + PLAYER_W / 2 - x);
+  if (angry) glow(ctx, x, y, 1.4, '#ef4444', 0.3 + 0.15 * Math.sin(t * 8));
+  else glow(ctx, x, y, 1.1, lighten(body, 0.3), 0.25);
+  // Tentáculos para atrás (o colgando, si está quieto).
+  const back = angry ? h.aim + Math.PI : Math.PI / 2;
+  for (let k = 0; k < 6; k++) {
+    const pts: [number, number][] = [];
+    for (let j = 0; j < 5; j++) {
+      const d = 0.3 + j * 0.17, a = back + (k - 2.5) * 0.32 + Math.sin(t * 6 + j * 0.9 + k) * 0.28;
+      pts.push([x + Math.cos(a) * d, y + Math.sin(a) * d]);
+    }
+    limb(ctx, pts, darken(body, 0.15 + (k % 2) * 0.15), 0.1);
+    ctx.fillStyle = lighten(body, 0.45); ctx.fillRect(pts[2][0] - P, pts[2][1] - P, 2 * P, 2 * P); // ventosas
+  }
+  const pulse = 1 + Math.sin(t * 5) * 0.04;
+  ink(ctx, circle(ctx, x, y, h.r * pulse), ball(ctx, x, y, h.r * pulse, body));
+  ctx.fillStyle = lighten(body, 0.35); // manchas
+  for (let k = 0; k < 5; k++) { const a = k * 1.3 + h.id; ctx.beginPath(); ctx.arc(x + Math.cos(a) * h.r * 0.62, y + Math.sin(a) * h.r * 0.62, 0.05 + hash(k + h.id) * 0.04, 0, Math.PI * 2); ctx.fill(); }
+  // La boca (abierta y con dientes cuando te persigue), del lado hacia donde mira.
+  const mx = x + Math.cos(look) * 0.22, my = y + Math.sin(look) * 0.22 + 0.16;
+  if (angry) {
+    const open = 0.1 + 0.06 * Math.abs(Math.sin(t * 10));
+    ink(ctx, () => ctx.ellipse(mx, my, 0.24, open, 0, 0, Math.PI * 2), '#3b0a0a', 1.5);
+    ctx.fillStyle = '#fef2f2';
+    for (let k = 0; k < 5; k++) {
+      const tx = mx - 0.19 + k * 0.095;
+      ctx.beginPath(); ctx.moveTo(tx - 0.035, my - open); ctx.lineTo(tx, my - open + 0.08); ctx.lineTo(tx + 0.035, my - open); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(tx - 0.035, my + open); ctx.lineTo(tx, my + open - 0.08); ctx.lineTo(tx + 0.035, my + open); ctx.fill();
+    }
+  } else { ctx.strokeStyle = INK; ctx.lineWidth = 1.5 * P; ctx.beginPath(); ctx.arc(mx, my - 0.05, 0.12, 0.2, Math.PI - 0.2); ctx.stroke(); }
+  // El ojo: sigue al astronauta.
+  const ex = x + Math.cos(look) * 0.1, ey = y - 0.1 + Math.sin(look) * 0.05;
+  ink(ctx, circle(ctx, ex, ey, 0.21), ball(ctx, ex, ey, 0.21, '#fefce8'), 1.5);
+  ctx.fillStyle = angry ? '#dc2626' : '#facc15';
+  ctx.beginPath(); ctx.arc(ex + Math.cos(look) * 0.08, ey + Math.sin(look) * 0.08, 0.11, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = INK; ctx.beginPath(); ctx.ellipse(ex + Math.cos(look) * 0.1, ey + Math.sin(look) * 0.1, 0.03, 0.09, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.fillRect(ex - 0.08, ey - 0.1, 2 * P, 2 * P);
+  if (angry) { // cejas enojadas
+    ctx.strokeStyle = INK; ctx.lineWidth = 2 * P;
+    ctx.beginPath(); ctx.moveTo(ex - 0.22, ey - 0.3); ctx.lineTo(ex + 0.05, ey - 0.2); ctx.lineTo(ex + 0.22, ey - 0.3); ctx.stroke();
+  }
+}
+
+// Gusano espacial que sale del piso o del techo: anillos rosados, la boca redonda llena de dientes.
+function worm(ctx: CanvasRenderingContext2D, h: Hazard, game: Game) {
+  const wh = wormHeight(game, h), warn = wormWarn(game, h), time = game.time;
+  ctx.save();
+  ctx.translate(h.x + h.w / 2, h.side === 1 ? FLOOR : CEIL);
+  if (h.side === -1) ctx.scale(1, -1); // del techo crece para abajo
+  // Antes de salir: el suelo tiembla, se agrieta y saltan piedritas.
+  if (warn || wh > 0) {
+    ctx.strokeStyle = INK; ctx.lineWidth = 1.5 * P;
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(s * 0.3, 0.12); ctx.lineTo(s * 0.55, 0.08); ctx.lineTo(s * 0.75, 0.2); ctx.stroke(); }
+    ctx.fillStyle = '#78716c';
+    for (let k = 0; k < 5; k++) { const jump = Math.abs(Math.sin(time * 12 + k * 1.7)) * (warn ? 0.35 : 0.15); ctx.fillRect(-0.45 + k * 0.22, -0.06 - jump, 3 * P, 3 * P); }
+  }
+  if (wh > 0) {
+    // El cuerpo: anillos de abajo para arriba, ondulando.
+    for (let yy = 0.15; yy < wh - 0.25; yy += 0.28) {
+      const wob = Math.sin(time * 6 - yy * 2) * 0.08, i = Math.round(yy / 0.28);
+      ink(ctx, () => ctx.ellipse(wob, -yy, 0.42, 0.18, 0, 0, Math.PI * 2), i % 2 ? '#be185d' : '#db2777', 1.5);
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(wob - 0.25, -yy - 0.1, 0.18, P);
+    }
+    // La cabeza con la boca abierta llena de dientes.
+    const hy = -wh + 0.25, wob = Math.sin(time * 6 - wh * 2) * 0.08, open = 0.65 + 0.35 * Math.abs(Math.sin(time * 9));
+    ink(ctx, () => ctx.ellipse(wob, hy, 0.5, 0.3, 0, 0, Math.PI * 2), ball(ctx, wob, hy, 0.5, '#ec4899'));
+    ink(ctx, () => ctx.ellipse(wob, hy - 0.05, 0.36 * open, 0.2 * open, 0, 0, Math.PI * 2), '#450a0a', 1.5);
+    ctx.fillStyle = '#fef9c3';
+    for (let k = 0; k < 10; k++) {
+      const a = k * Math.PI / 5, ox = wob + Math.cos(a) * 0.36 * open, oy = hy - 0.05 + Math.sin(a) * 0.2 * open;
+      ctx.beginPath(); ctx.moveTo(ox + Math.cos(a + 0.4) * 0.06, oy + Math.sin(a + 0.4) * 0.04); ctx.lineTo(ox - Math.cos(a) * 0.12, oy - Math.sin(a) * 0.08); ctx.lineTo(ox + Math.cos(a - 0.4) * 0.06, oy + Math.sin(a - 0.4) * 0.04); ctx.fill();
+    }
+    glow(ctx, wob, hy - 0.05, 0.3, '#f97316', 0.4);
+  }
+  ctx.restore();
+}
+
+// Cometa: antes de entrar se marca la entrada (parpadea) y el camino con puntitos; después cruza con la cola de fuego.
+function comet(ctx: CanvasRenderingContext2D, h: Hazard, game: Game) {
+  const time = game.time, a = cometPath(h, 0), b = cometPath(h, 1), len = Math.hypot(b.x - a.x, b.y - a.y);
+  const dx = (b.x - a.x) / len, dy = (b.y - a.y) / len;
+  if (h.state === 1) {
+    const blink = Math.sin(time * 22) > 0;
+    ctx.strokeStyle = blink ? '#fb923c' : '#fde047'; ctx.lineWidth = 2 * P; ctx.globalAlpha = 0.6;
+    ctx.setLineDash([0.18, 0.22]); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    const ex = a.x + dx * 0.9, ey = a.y + dy * 0.9;
+    glow(ctx, ex, ey, 0.9, '#f97316', blink ? 0.8 : 0.4);
+    ink(ctx, () => { ctx.moveTo(ex, ey - 0.38); ctx.lineTo(ex + 0.34, ey + 0.26); ctx.lineTo(ex - 0.34, ey + 0.26); ctx.closePath(); }, blink ? '#fde047' : '#f97316', 1.5);
+    ctx.fillStyle = INK; ctx.fillRect(ex - P, ey - 0.18, 2 * P, 0.24); ctx.fillRect(ex - P, ey + 0.11, 2 * P, 2 * P);
+    return;
+  }
+  if (h.state !== 2) return;
+  // La cola: del amarillo al rojo y al humo, para el lado de donde viene.
+  for (let j = 12; j >= 1; j--) {
+    const tx = h.x - dx * j * 0.24 + Math.sin(time * 30 + j) * 0.04, ty = h.y - dy * j * 0.24 + Math.cos(time * 27 + j) * 0.04;
+    ctx.globalAlpha = 0.75 * (1 - j / 13);
+    ctx.fillStyle = j < 3 ? '#fef08a' : j < 6 ? '#fb923c' : j < 9 ? '#ef4444' : '#57534e';
+    ctx.beginPath(); ctx.arc(tx, ty, h.r * (1.05 - j * 0.06), 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  glow(ctx, h.x, h.y, 1.6, '#f97316', 0.6);
+  ink(ctx, circle(ctx, h.x, h.y, h.r), ball(ctx, h.x, h.y, h.r, '#7c2d12'));
+  // Llamas que lo envuelven.
+  for (let k = 0; k < 6; k++) {
+    const fa = Math.atan2(-dy, -dx) + (k - 2.5) * 0.45, fl = h.r * (1.1 + 0.4 * Math.abs(Math.sin(time * 25 + k)));
+    ctx.fillStyle = k % 2 ? '#fde047' : '#f97316';
+    ctx.beginPath(); ctx.moveTo(h.x + Math.cos(fa - 0.5) * h.r * 0.8, h.y + Math.sin(fa - 0.5) * h.r * 0.8);
+    ctx.lineTo(h.x + Math.cos(fa) * (h.r + fl), h.y + Math.sin(fa) * (h.r + fl)); ctx.lineTo(h.x + Math.cos(fa + 0.5) * h.r * 0.8, h.y + Math.sin(fa + 0.5) * h.r * 0.8); ctx.fill();
+  }
+  ctx.fillStyle = '#fef9c3'; ctx.beginPath(); ctx.arc(h.x + dx * 0.1, h.y + dy * 0.1, h.r * 0.45, 0, Math.PI * 2); ctx.fill();
+}
+
+// Un rayo láser recto entre dos puntos (resplandor, rayo de color y centro blanco).
+function beam(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, color: string, time: number) {
+  const flicker = 0.85 + 0.15 * Math.sin(time * 70);
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = color; ctx.globalAlpha = 0.3 * flicker; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  ctx.globalAlpha = 0.9; ctx.lineWidth = 6 * P; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  ctx.globalAlpha = 1; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2 * P; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+}
+
+// Láser giratorio: un eje con luces y dos rayos que dan vueltas.
+function sweeper(ctx: CanvasRenderingContext2D, h: Hazard, game: Game, t: Theme) {
+  const a = sweeperAngle(game, h), c = Math.cos(a), s = Math.sin(a), color = h.id % 2 ? t.laser : t.laser2;
+  beam(ctx, h.x - c * h.len, h.y - s * h.len, h.x + c * h.len, h.y + s * h.len, color, game.time);
+  for (const k of [-1, 1]) glow(ctx, h.x + c * h.len * k, h.y + s * h.len * k, 0.35, '#ffffff', 0.6);
+  ink(ctx, circle(ctx, h.x, h.y, 0.34), ball(ctx, h.x, h.y, 0.34, '#64748b'));
+  ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(h.x, h.y, 0.2, 0, Math.PI * 2); ctx.fill();
+  for (let k = 0; k < 4; k++) { const la = a * 2 + k * Math.PI / 2; ctx.fillStyle = k % 2 ? color : '#fde047'; ctx.fillRect(h.x + Math.cos(la) * 0.26 - P, h.y + Math.sin(la) * 0.26 - P, 2 * P, 2 * P); }
+  glow(ctx, h.x, h.y, 0.5, color, 0.7);
+  ctx.fillStyle = color; ctx.beginPath(); ctx.arc(h.x, h.y, 0.1, 0, Math.PI * 2); ctx.fill();
+}
+
+// Láser acostado que sube y baja: dos rieles y un emisor en cada uno.
+function scanner(ctx: CanvasRenderingContext2D, h: Hazard, game: Game, t: Theme) {
+  const y = scannerY(game, h), color = h.id % 2 ? t.laser2 : t.laser;
+  for (const rx of [h.x - 0.1, h.x + h.w + 0.1]) {
+    ink(ctx, () => ctx.rect(rx - 0.05, CEIL, 0.1, FLOOR - CEIL), '#334155', 1);
+    ctx.fillStyle = '#64748b'; for (let yy = CEIL + 0.2; yy < FLOOR; yy += 0.5) ctx.fillRect(rx - 0.05, yy, 0.1, P);
+  }
+  beam(ctx, h.x, y, h.x + h.w, y, color, game.time);
+  for (const rx of [h.x - 0.1, h.x + h.w + 0.1]) {
+    ink(ctx, () => ctx.roundRect(rx - 0.2, y - 0.2, 0.4, 0.4, 0.06), lin(ctx, rx - 0.2, 0, rx + 0.2, 0, [[0, '#94a3b8'], [1, '#334155']]), 1.5);
+    ctx.fillStyle = color; ctx.fillRect(rx - 0.06, y - 0.06, 0.12, 0.12); glow(ctx, rx, y, 0.35, color, 0.7);
+  }
+}
+
+// Agujero negro: un disco de luz que gira alrededor de un centro negrísimo, y anillos que se van achicando
+// (muestran hasta dónde chupa).
+function blackhole(ctx: CanvasRenderingContext2D, h: Hazard, game: Game) {
+  const time = game.time;
+  ctx.lineWidth = P;
+  for (let k = 0; k < 4; k++) {
+    const r = h.len * (1 - ((time * 0.45 + k / 4) % 1));
+    ctx.strokeStyle = '#a78bfa'; ctx.globalAlpha = 0.25 * (1 - r / h.len) + 0.05;
+    ctx.beginPath(); ctx.arc(h.x, h.y, r, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  glow(ctx, h.x, h.y, 2.2, '#7c3aed', 0.45);
+  ctx.save(); ctx.translate(h.x, h.y); ctx.rotate(time * 2.5);
+  for (let k = 0; k < 3; k++) { // el disco que gira, en espirales
+    ctx.strokeStyle = ['#f97316', '#e879f9', '#fde047'][k]; ctx.lineWidth = (3 - k) * 1.5 * P; ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    for (let j = 0; j <= 30; j++) { const a = k * 2.1 + j * 0.2, r = 1.2 - j * 0.022; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r * 0.75); }
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#000000'; ctx.beginPath(); ctx.arc(h.x, h.y, h.r * 1.15, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#fef3c7'; ctx.lineWidth = 2 * P; ctx.globalAlpha = 0.7 + 0.3 * Math.sin(time * 8);
+  ctx.beginPath(); ctx.arc(h.x, h.y, h.r * 1.15, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+  // Polvito que cae hacia adentro.
+  ctx.fillStyle = '#ddd6fe';
+  for (let k = 0; k < 8; k++) { const d = 2.2 * (1 - ((time * 0.7 + hash(k)) % 1)), a = k * 0.8 + time * (1 + 2 / (d + 0.3)); ctx.fillRect(h.x + Math.cos(a) * d, h.y + Math.sin(a) * d, 2 * P, 2 * P); }
+}
+
+// Las banderas: un mástil en el piso; se ponen verdes (y brillan) cuando las pasaste.
+function checkpointFlag(ctx: CanvasRenderingContext2D, x: number, reached: boolean, time: number, n: number) {
+  const top = FLOOR - 2.4, color = reached ? '#22c55e' : '#ef4444';
+  if (reached) glow(ctx, x, FLOOR - 1.8, 1.4, '#4ade80', 0.35);
+  limb(ctx, [[x, FLOOR], [x, top]], '#e2e8f0', P * 3);
+  ink(ctx, circle(ctx, x, top, 0.09), '#facc15', 1);
+  const wave = (k: number) => Math.sin(time * 6 + k * 2) * 0.06;
+  ink(ctx, () => { ctx.moveTo(x, top + 0.1); ctx.quadraticCurveTo(x + 0.45, top + 0.1 + wave(0), x + 0.9, top + 0.2 + wave(1)); ctx.lineTo(x + 0.9, top + 0.75 + wave(1)); ctx.quadraticCurveTo(x + 0.45, top + 0.65 + wave(0), x, top + 0.7); ctx.closePath(); }, lin(ctx, x, 0, x + 0.9, 0, [[0, color], [1, darken(color, 0.25)]]), 1.5);
+  ctx.fillStyle = '#ffffff'; ctx.font = `bold ${0.36}px monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(String(n), x + 0.43, top + 0.43 + wave(0));
+  ink(ctx, () => ctx.rect(x - 0.25, FLOOR - 0.12, 0.5, 0.12), '#64748b', 1);
+}
+
+// ---------- La sangre (como en SkynetBall) ----------
+const BLOOD = '#8a0303', BLOOD_L = '#c1121f';
+function drawStains(ctx: CanvasRenderingContext2D, game: Game, x0: number, x1: number) {
+  for (const st of game.stains) {
+    if (st.x < x0 - 2 || st.x > x1 + 2) continue;
+    const age = game.clock - st.at, alpha = Math.max(0, Math.min(1, (150 - age) / 20));
+    if (alpha <= 0) continue;
+    ctx.globalAlpha = alpha;
+    // Sobre la cara del sólido: "tx, ty" va a lo largo de la cara y "nx, ny" para afuera.
+    const tx = -st.ny, ty = st.nx;
+    const at = (u: number, v: number): [number, number] => [st.x + tx * u + st.nx * v, st.y + ty * u + st.ny * v];
+    const r = st.kind === 'pool' ? st.r * Math.min(1, 0.25 + age * 1.3) : st.r;
+    ctx.fillStyle = st.kind === 'pool' ? BLOOD : BLOOD_L; ctx.beginPath();
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2, rr = r * (st.kind === 'pool' ? 0.75 + hash(st.seed * 50 + i) * 0.5 : i % 2 ? 0.5 : 0.8 + hash(st.seed * 70 + i) * 0.7);
+      const [px, py] = at(Math.cos(a) * rr, Math.abs(Math.sin(a)) * rr * (st.kind === 'pool' ? 0.22 : 0.4) * (Math.sin(a) > 0 ? 1 : 0.25) + 0.01);
+      if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+    }
+    ctx.closePath(); ctx.fill();
+    if (st.kind === 'pool') { // brillo del charco
+      ctx.fillStyle = 'rgba(255,90,90,0.35)'; const [hx, hy] = at(-r * 0.25, 0.04);
+      ctx.beginPath(); ctx.ellipse(hx, hy, r * 0.3, 0.035, Math.atan2(ty, tx), 0, Math.PI * 2); ctx.fill();
+    }
+    // Chorreaduras: si la cara no es un "piso" (para donde tiraba la gravedad), la sangre chorrea.
+    const facing = st.nx * st.gx + st.ny * st.gy;
+    if (facing > -0.6) {
+      // Por la pared baja a lo largo de la cara; del techo cuelga en gotas.
+      const along = tx * st.gx + ty * st.gy, hanging = facing > 0.6;
+      const dx = hanging ? st.gx : tx * Math.sign(along || 1), dy = hanging ? st.gy : ty * Math.sign(along || 1);
+      ctx.strokeStyle = BLOOD; ctx.lineCap = 'round';
+      const n = st.kind === 'pool' ? 5 : 3;
+      for (let i = 0; i < n; i++) {
+        const off = (hash(st.seed * 9 + i) - 0.5) * r * (hanging ? 1.4 : 0.5);
+        const len = (hanging ? 0.08 + hash(st.seed * 3 + i) * 0.22 : 0.2 + hash(st.seed * 3 + i) * 0.9) * Math.min(1, age / 2.5) * Math.min(1, st.r * 6);
+        const [sx, sy] = hanging ? at(off, 0) : at(0, 0.02 + off * 0.2);
+        ctx.lineWidth = Math.max(P, 0.03 + hash(i + st.seed) * 0.03);
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + dx * len, sy + dy * len); ctx.stroke();
+        if (hanging) { ctx.fillStyle = BLOOD; ctx.beginPath(); ctx.arc(sx + dx * len, sy + dy * len, ctx.lineWidth * 0.9, 0, Math.PI * 2); ctx.fill(); }
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+function drawGib(ctx: CanvasRenderingContext2D, g: Gib) {
+  ctx.save(); ctx.translate(g.x, g.y); ctx.rotate(g.a);
+  const WHITE = '#f1f5f9';
+  switch (g.kind) {
+    case 'helmet':
+      ink(ctx, circle(ctx, 0, 0, 0.3), WHITE);
+      ink(ctx, () => ctx.ellipse(0.1, 0, 0.19, 0.17, 0, 0, Math.PI * 2), '#2563eb', 2);
+      ctx.fillStyle = '#dbeafe'; ctx.fillRect(0.03, -0.1, 3 * P, 2 * P);
+      ctx.fillStyle = BLOOD_L; ctx.beginPath(); ctx.ellipse(-0.18, 0.15, 0.13, 0.09, 0.4, 0, Math.PI * 2); ctx.fill(); // el cuello, ensangrentado
+      break;
+    case 'arm': case 'leg': {
+      const l = g.kind === 'arm' ? 0.26 : 0.32;
+      limb(ctx, [[-l / 2, 0], [l / 2, 0]], WHITE, g.kind === 'arm' ? 0.13 : 0.15);
+      ctx.fillStyle = BLOOD_L; ctx.beginPath(); ctx.arc(-l / 2 - 0.02, 0, 0.08, 0, Math.PI * 2); ctx.fill();
+      if (g.kind === 'leg') ink(ctx, () => ctx.roundRect(l / 2 - 0.05, -0.05, 0.17, 0.1, 0.03), '#94a3b8', 1.5);
+      else ink(ctx, circle(ctx, l / 2 + 0.03, 0, 0.065), '#c3cfdd', 1.5);
+      break;
+    }
+    case 'tank':
+      ink(ctx, () => ctx.roundRect(-0.1, -0.19, 0.2, 0.38, 0.05), '#cbd5e1');
+      ctx.fillStyle = '#38bdf8'; ctx.fillRect(-0.07, -0.1, 0.14, 0.08);
+      break;
+    case 'chunk':
+      ink(ctx, () => { for (let k = 0; k < 7; k++) { const a = k * Math.PI * 2 / 7, rr = 0.1 + hash(k + g.va) * 0.06; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } ctx.closePath(); }, BLOOD_L, 1.5);
+      break;
+  }
+  ctx.restore();
 }
 
 function portal(ctx: CanvasRenderingContext2D, game: Game, t: Theme) {
@@ -1266,7 +1546,9 @@ export function drawGame(ctx: CanvasRenderingContext2D, game: Game, rows: number
   const { z, px, py, reach } = viewOf(game, rows);
   const x0 = px - reach, x1 = px + reach, y0 = py - reach, y1 = py + reach;
   ctx.save();
-  ctx.translate(game.cols / 2, rows / 2); ctx.scale(z, z); ctx.rotate(game.view); ctx.translate(-px, -py);
+  // Al morir, la pantalla tiembla.
+  const shake = game.shake * game.shake * 0.35;
+  ctx.translate(game.cols / 2 + (Math.random() - 0.5) * shake, rows / 2 + (Math.random() - 0.5) * shake); ctx.scale(z, z); ctx.rotate(game.view); ctx.translate(-px, -py);
   // El cielo (también arriba del techo) y el fondo del escenario.
   ctx.fillStyle = lin(ctx, 0, Math.min(0, y0), 0, ROWS, [[0, t.sky[0]], [Math.max(0, -y0) / (ROWS - Math.min(0, y0)), t.sky[0]], [(Math.max(0, -y0) + ROWS * 0.55) / (ROWS - Math.min(0, y0)), t.sky[1]], [1, t.sky[2]]]);
   ctx.fillRect(x0, y0, x1 - x0, FLOOR + 1 - y0);
@@ -1290,12 +1572,14 @@ export function drawGame(ctx: CanvasRenderingContext2D, game: Game, rows: number
   const seen = (x: number, w = 0) => x + w > x0 && x < x1;
   edgeWall(ctx, game);
   for (const h of game.hazards) if (h.kind === 'waterfall' && seen(h.x, h.w)) drawHazard(ctx, h, game, t);
-  for (const h of game.hazards) if ((h.kind === 'saw' || h.kind === 'geyser') && !h.dead && seen(h.x, h.len + 2)) drawHazard(ctx, h, game, t);
+  for (const h of game.hazards) if ((h.kind === 'saw' || h.kind === 'geyser' || h.kind === 'blackhole') && !h.dead && seen(h.x - 4, h.len + 8)) drawHazard(ctx, h, game, t);
+  game.checkpoints.forEach((c, i) => { if (seen(c - 1, 3)) checkpointFlag(ctx, c, c <= game.checkpoint, game.time, i + 1); });
   if (seen(game.portalX, 2)) portal(ctx, game, t);
   for (const s of game.solids) if (seen(s.x, s.w)) drawSolid(ctx, s, t, game, x0, x1);
+  drawStains(ctx, game, x0, x1);
   for (const h of game.hazards) {
-    if (h.dead || h.kind === 'waterfall' || h.kind === 'saw' || h.kind === 'geyser') continue;
-    if (h.kind === 'ufo' || h.kind === 'asteroid' || h.kind === 'meteor' ? h.active : seen(h.x, h.w + h.len + 2)) drawHazard(ctx, h, game, t);
+    if (h.dead || h.kind === 'waterfall' || h.kind === 'saw' || h.kind === 'geyser' || h.kind === 'blackhole') continue;
+    if (h.kind === 'ufo' || h.kind === 'asteroid' || h.kind === 'meteor' ? h.active : h.kind === 'comet' ? h.state > 0 : seen(h.x - h.len, h.w + h.len * 2 + 2)) drawHazard(ctx, h, game, t);
   }
   for (const b of game.bolts) { glow(ctx, b.x, b.y, b.r * 3, b.color, 0.6); ink(ctx, circle(ctx, b.x, b.y, b.r), ball(ctx, b.x, b.y, b.r, b.color), 1.5); ctx.fillStyle = '#fff'; ctx.fillRect(b.x - P, b.y - P, 2 * P, 2 * P); }
   drawPlayer(ctx, game);
@@ -1323,6 +1607,9 @@ export function drawGame(ctx: CanvasRenderingContext2D, game: Game, rows: number
     ctx.fillRect(s.x - s.size / 2, s.y - s.size / 2, s.size, s.size);
   }
   ctx.globalAlpha = 1;
+  for (const g of game.gibs) if (seen(g.x - 1, 2)) drawGib(ctx, g);
+  ctx.fillStyle = BLOOD_L;
+  for (const d of game.drops) { ctx.beginPath(); ctx.arc(d.x, d.y, Math.max(P, d.r), 0, Math.PI * 2); ctx.fill(); }
   // Viento: rayitas que pasan hacia atrás (por el pasillo, así giran con la pantalla).
   if (game.gust > 0) {
     ctx.strokeStyle = '#e0e7ff'; ctx.lineWidth = P; ctx.globalAlpha = Math.min(1, game.gust) * 0.6;

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LEVELS, LEVEL_COUNT, LIVES, ROWS, loadLevel, newGame, progress, step, takeEvents, type Death, type Game, type Input, type Stats } from './gravitySwap';
+import { CHECKPOINTS, LEVELS, LEVEL_COUNT, LIVES, ROWS, loadLevel, newGame, progress, step, takeEvents, type Death, type Game, type Input, type Stats } from './gravitySwap';
 import { PX, drawGame } from './gravityArt';
-import { playAstronautHit, playAstronautLand, playCrumble, playExplosion, playGameOver, playGravityFlip, playGust, playLaserOn, playStart, playTeleport, playThunder, playTramp, playTurretShot, playThrust, playWinFanfare, preloadGravitySounds } from './sounds';
+import {
+  playAstronautHit, playAstronautLand, playAstronautSplat, playCheckpoint, playComet, playCrumble, playExplosion, playGameOver, playGravityFlip, playGust,
+  playLaserOn, playMonsterRoar, playStart, playTeleport, playThunder, playTramp, playTurretShot, playThrust, playWinFanfare, playWorm, preloadGravitySounds, setThrustSound,
+} from './sounds';
 import { EndBanner } from './EndBanner';
 
 const LEVEL_KEY = 'escritorio-personal-juegos:gravedad-nivel';
@@ -20,6 +23,7 @@ const DEATH_TEXT: Record<Death, string> = {
   saw: '¡Te cortó una sierra!', enemy: '¡Te atrapó un enemigo!', void: '¡Te perdiste en el vacío!', edge: '¡Te aplastó el borde de la pantalla!',
   fire: '¡Te quemaste!', bolt: '¡Te dieron un disparo!', lightning: '¡Te partió un rayo!', press: '¡Te aplastó una prensa!',
   icicle: '¡Te cayó una estalactita!', spore: '¡Tocaste una espora venenosa!', rock: '¡Te golpeó una roca espacial!',
+  monster: '¡Te devoró un monstruo espacial!', worm: '¡Te tragó un gusano espacial!', comet: '¡Te atropelló un cometa en llamas!', blackhole: '¡Te tragó un agujero negro!',
 };
 
 // El lienzo llena todo el lugar: el pasillo (10 casilleros de alto) entra siempre, con al menos 12 de ancho, y
@@ -30,11 +34,13 @@ function sizeFor(width: number, height: number) {
 }
 const colsFor = (width: number, height: number) => sizeFor(width, height).cols;
 
-interface Hud { level: number; lives: number; progress: number; time: number; phase: Game['phase']; death: Death | null; intro: boolean; angle: number }
+interface Hud { level: number; lives: number; progress: number; time: number; phase: Game['phase']; death: Death | null; intro: boolean; angle: number; flags: number; flagT: boolean }
 const hudOf = (game: Game): Hud => ({
   level: game.level, lives: game.lives, progress: Math.floor(progress(game) * 100), time: Math.floor(game.stats.time),
   phase: game.phase, death: game.death, intro: game.phase === 'play' && game.time < 2.6,
   angle: Math.round(game.angle * 180 / Math.PI) % 360,
+  flags: game.checkpoints.filter(c => c <= game.checkpoint).length,
+  flagT: game.phase === 'play' && game.time > 2.6 && game.checkpoint > 0 && game.player.x - game.checkpoint < 6,
 });
 const sameHud = (a: Hud, b: Hud) => (Object.keys(a) as (keyof Hud)[]).every(k => a[k] === b[k]);
 
@@ -47,7 +53,7 @@ export function GravitySwap() {
   const [status, setStatus] = useState<Status>('ready');
   const [record, setRecord] = useState(readGravityRecord);
   const [chosen, setChosen] = useState(() => readGravityRecord().unlocked);
-  const [hud, setHud] = useState<Hud>({ level: 1, lives: LIVES, progress: 0, time: 0, phase: 'play', death: null, intro: false, angle: 0 });
+  const [hud, setHud] = useState<Hud>({ level: 1, lives: LIVES, progress: 0, time: 0, phase: 'play', death: null, intro: false, angle: 0, flags: 0, flagT: false });
   const [newRecord, setNewRecord] = useState(false);
   const [mission, setMission] = useState<Stats | null>(null);
   const statusRef = useRef(status);
@@ -73,7 +79,8 @@ export function GravitySwap() {
     if (!stage) return;
     const cols = colsFor(stage.clientWidth, stage.clientHeight);
     const previous = gameRef.current;
-    if (keepRun && previous) { previous.lives = LIVES; loadLevel(previous, level); previous.phase = 'play'; }
+    // Reintentar: vuelve a la última bandera que pasó en ese escenario.
+    if (keepRun && previous) { previous.lives = LIVES; loadLevel(previous, level, undefined, previous.level === level ? previous.checkpoint : 0); previous.phase = 'play'; }
     else { startLevel.current = level; gameRef.current = newGame(level, cols); }
     input.current = { left: false, right: false, up: false, down: false };
     setNewRecord(false);
@@ -102,15 +109,21 @@ export function GravitySwap() {
       const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
       last = now;
       step(game, input.current, dt);
-      // Mientras usa el chorro de oxígeno, un soplido seguido.
+      // Mientras usa el chorro de oxígeno suena el propulsor (si la grabación no cargó todavía, un soplido seguido).
       const thrusting = game.phase === 'play' && (game.player.tx !== 0 || game.player.ty !== 0);
-      puff = thrusting ? puff - dt : 0;
-      if (thrusting && puff <= 0) { playThrust(); puff = 0.12; }
+      if (!setThrustSound(thrusting)) {
+        puff = thrusting ? puff - dt : 0;
+        if (thrusting && puff <= 0) { playThrust(); puff = 0.12; }
+      }
       for (const e of takeEvents(game)) {
         switch (e.type) {
           case 'land': playAstronautLand(); break;
           case 'flip': playGravityFlip(); break;
-          case 'death': playAstronautHit(); break;
+          case 'death': playAstronautHit(); playAstronautSplat(); break;
+          case 'checkpoint': playCheckpoint(); break;
+          case 'roar': playMonsterRoar(); break;
+          case 'comet': playComet(); break;
+          case 'worm': playWorm(); break;
           case 'boom': playExplosion(); break;
           case 'shot': playTurretShot(); break;
           case 'zap': playLaserOn(); break;
@@ -139,14 +152,14 @@ export function GravitySwap() {
       paint();
       const next = hudOf(game);
       setHud(prev => sameHud(prev, next) ? prev : next);
-      if (game.phase === 'over') { playGameOver(); setStatus('over'); return; }
+      if (game.phase === 'over') { setThrustSound(false); playGameOver(); setStatus('over'); return; }
       if (game.phase === 'won') { setStatus('won'); return; }
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     const hide = () => { if (document.hidden) setStatus('paused'); };
     document.addEventListener('visibilitychange', hide);
-    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); };
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); setThrustSound(false); };
   }, [status, paint]);
 
   useEffect(() => {
@@ -158,7 +171,7 @@ export function GravitySwap() {
         return;
       }
       if ((event.key === 'r' || event.key === 'R') && s === 'playing' && gameRef.current?.phase === 'play') {
-        loadLevel(gameRef.current, gameRef.current.level); // reinicia el escenario (con las vidas que le quedan)
+        loadLevel(gameRef.current, gameRef.current.level, undefined, gameRef.current.checkpoint); // vuelve a la última bandera (con las vidas que le quedan)
         return;
       }
       const key = keys[event.key];
@@ -197,6 +210,7 @@ export function GravitySwap() {
         <span className="grav-lives" aria-label={`Vidas: ${hud.lives}`}>{Array.from({ length: LIVES }, (_, i) => <b key={i} className={i < hud.lives ? '' : 'grav-lost'}>♥</b>)}</span>
         <span>Gravedad <strong data-testid="grav-angle">{hud.angle}°</strong></span>
         <span>Avance <strong data-testid="grav-progress">{hud.progress}%</strong></span>
+        <span aria-label={`Banderas: ${hud.flags} de ${CHECKPOINTS.length}`}>🚩 <strong data-testid="grav-flags">{hud.flags}/{CHECKPOINTS.length}</strong></span>
         <span>Tiempo <strong data-testid="grav-time">{formatGravityTime(hud.time)}</strong></span>
         {record.time !== null && <span>Récord <strong>{formatGravityTime(record.time)}</strong></span>}
       </div>
@@ -208,13 +222,14 @@ export function GravitySwap() {
         Nivel <strong>{hud.level}</strong><small>{def.name} {'⭐'.repeat(def.stars)}</small>
       </div>}
       {status === 'playing' && hud.phase === 'dead' && hud.death && <div className="runner-trap" role="alert">{DEATH_TEXT[hud.death]}</div>}
+      {status === 'playing' && hud.flagT && <div className="runner-level grav-intro" role="status">🚩 Bandera <strong>{hud.flags}/{CHECKPOINTS.length}</strong></div>}
       {status === 'playing' && hud.phase === 'cleared' && <div className="runner-level grav-intro" role="status">¡Escenario<strong>superado!</strong></div>}
       {status !== 'playing' && <div className="runner-overlay" role="dialog" aria-labelledby="grav-message">
         <div>
           {status === 'ready' && <>
             <h2 id="grav-message">Gravity Swap 🚀</h2>
-            <p className="runner-keys"><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> o flechas: chorros de oxígeno · <kbd>R</kbd> reiniciar · <kbd>Esc</kbd> pausa</p>
-            <p className="runner-tip">💡 Flotás y la gravedad gira sola, sin avisar: mantenete siempre listo para reaccionar. Tu tanque de oxígeno no se termina: impulsate todo lo que quieras.</p>
+            <p className="runner-keys"><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> o flechas: chorros de oxígeno · <kbd>R</kbd> volver a la bandera · <kbd>Esc</kbd> pausa</p>
+            <p className="runner-tip">💡 Flotás y la gravedad gira sola, sin avisar. Los escenarios son largos: cada 🚩 que pasás es tu nuevo punto de partida si morís. Cuidado con los monstruos, los cometas en llamas y los agujeros negros.</p>
             <div className="grav-levels" role="group" aria-label="Escenarios">
               {LEVELS.map((level, i) => {
                 const n = i + 1, locked = n > record.unlocked;
@@ -233,7 +248,7 @@ export function GravitySwap() {
             <EndBanner win={false} id="grav-message" />
             <p className="end-reason">{hud.death ? DEATH_TEXT[hud.death] : ''} Te quedaste sin vidas en {def.name}.</p>
             <div className="grav-actions">
-              <button type="button" onClick={() => begin(hud.level, true)} autoFocus>Reintentar escenario</button>
+              <button type="button" onClick={() => begin(hud.level, true)} autoFocus>{hud.flags ? `Reintentar desde la bandera ${hud.flags}` : 'Reintentar escenario'}</button>
               <button type="button" className="grav-secondary" onClick={() => { setChosen(hud.level); setStatus('ready'); }}>Elegir escenario</button>
             </div>
           </>}

@@ -2,8 +2,9 @@
 // y la gravedad cambia de dirección sola, cada tanto y al azar, sin avisar: puede tirar hacia el piso, el
 // techo, para adelante, para atrás o en diagonal (la pantalla gira para que siempre tire "hacia abajo").
 // El astronauta se mueve con chorros del oxígeno de su tanque (que no se termina nunca).
-// Son 10 escenarios con trampas distintas; al final de cada uno hay un portal. Todo se mide en casilleros
-// (el pasillo tiene 10 de alto).
+// Son 10 escenarios largos con trampas distintas; al final de cada uno hay un portal y en el camino hay
+// banderas: si morís, volvés a la última bandera que pasaste. Todo se mide en casilleros (el pasillo tiene
+// 10 de alto).
 //
 // Cada escenario se arma siempre igual (sale de una semilla fija), pero los cambios de gravedad son al azar.
 // La gravedad es un ángulo: 0 tira hacia el piso, 90° hacia adelante, 180° hacia el techo y 270° hacia atrás.
@@ -28,7 +29,8 @@ export type Kind =
   | 'spikes' | 'block' | 'platform' | 'pit' | 'laser' | 'mine' | 'saw' | 'proxMine' | 'asteroid' | 'turret'
   | 'press' | 'icicle' | 'walker' | 'flyer' | 'fireball' | 'geyser' | 'crumble' | 'pendulum' | 'flipper'
   | 'conveyor' | 'spring' | 'spores' | 'waterfall' | 'plant' | 'lightning' | 'meteor' | 'tracker'
-  | 'bomb' | 'door' | 'tunnel';
+  | 'bomb' | 'door' | 'tunnel'
+  | 'monster' | 'worm' | 'comet' | 'sweeper' | 'scanner' | 'blackhole';
 
 export interface LevelDef {
   name: string; theme: ThemeId; stars: number;
@@ -44,27 +46,29 @@ export interface LevelDef {
 export const freeAngles = (def: LevelDef) => LEVELS.indexOf(def) >= 4;
 
 export const LEVELS: LevelDef[] = [
-  { name: 'Ciudad Futurista', theme: 'city', stars: 1, seconds: 42, speed: [3, 4.1], flip: [6, 10], gap: [5.5, 8.5],
-    pool: { spikes: 3, block: 2, platform: 2, laser: 1.5, mine: 1.5, pit: 1, bomb: 1, door: 1 } },
-  { name: 'Minas Espaciales', theme: 'mines', stars: 2, seconds: 48, speed: [3.2, 4.4], flip: [5.5, 9], gap: [4.8, 7.5],
-    pool: { spikes: 2, block: 1.5, platform: 2, pit: 1, mine: 1.5, proxMine: 2, asteroid: 2, laser: 1, bomb: 1.5, tunnel: 1 } },
-  { name: 'Base en el Espacio', theme: 'base', stars: 3, seconds: 54, speed: [3.4, 4.8], flip: [5, 8.5], gap: [4.2, 6.8],
-    pool: { spikes: 2, platform: 2, laser: 2.5, turret: 2, press: 1.5, mine: 1, pit: 1, proxMine: 1, bomb: 1.5, door: 2, tunnel: 1.5 } },
-  { name: 'Planeta Helado', theme: 'ice', stars: 3, seconds: 58, speed: [3.5, 5], flip: [4.5, 8], gap: [4.2, 6.5], ice: true,
-    pool: { spikes: 2, platform: 2, icicle: 2.5, saw: 2, walker: 2, mine: 1, pit: 1.5, laser: 1, door: 1.5, tunnel: 1.5 } },
-  { name: 'Planeta Volcánico', theme: 'volcano', stars: 4, seconds: 62, speed: [3.6, 5.2], flip: [4.5, 7.5], gap: [4, 6.2],
-    pool: { spikes: 2.5, fireball: 2, geyser: 2, crumble: 2, pit: 1.5, platform: 1.5, mine: 1, saw: 1, bomb: 1.5, door: 1, tunnel: 1 } },
-  { name: 'El Orden Inverso', theme: 'inverse', stars: 4, seconds: 62, speed: [3.8, 5.4], flip: [4, 7], gap: [3.8, 5.8], inverted: true,
-    pool: { spikes: 2, platform: 2, pendulum: 2, flipper: 1.5, flyer: 2, mine: 1.5, laser: 1.5, icicle: 1, door: 1.5, tunnel: 1, bomb: 1 } },
-  { name: 'Fábrica Robótica', theme: 'factory', stars: 5, seconds: 68, speed: [4, 5.6], flip: [4, 6.5], gap: [4.2, 6.5],
-    pool: { conveyor: 2, press: 2.5, saw: 2.5, walker: 2.5, laser: 2, turret: 2.5, spikes: 1.5, block: 1, bomb: 1, door: 1.3 } },
-  { name: 'Bosque Bioluminiscente', theme: 'forest', stars: 4, seconds: 72, speed: [4.1, 5.8], flip: [3.5, 6], gap: [3.6, 5.5],
-    pool: { spring: 2, spores: 2, waterfall: 1.5, plant: 2, laser: 1.5, flyer: 1.5, spikes: 1.5, mine: 1, bomb: 1, door: 1 } },
-  { name: 'Torres en la Tormenta', theme: 'storm', stars: 5, seconds: 78, speed: [4.3, 6], flip: [3, 5.5], gap: [3.2, 5], wind: true, dark: true,
-    pool: { lightning: 2.5, pendulum: 2, spikes: 2, pit: 2, platform: 1.5, laser: 1.5, flyer: 1.5, crumble: 1, turret: 1, bomb: 1.5, door: 1.5 } },
-  { name: 'La Luna', theme: 'moon', stars: 5, seconds: 95, speed: [4.5, 6.4], flip: [2.5, 5], gap: [3, 4.8], boss: true, spin: true,
-    pool: { meteor: 2.5, tracker: 2.5, laser: 1.5, spikes: 1.5, saw: 1.5, press: 1, proxMine: 1, mine: 1, pit: 1, platform: 1, pendulum: 1, asteroid: 1, icicle: 0.5, bomb: 1.5, door: 1.5, tunnel: 1 } },
+  { name: 'Ciudad Futurista', theme: 'city', stars: 1, seconds: 210, speed: [3, 4.1], flip: [6, 10], gap: [5.5, 8.5],
+    pool: { spikes: 3, block: 2, platform: 2, laser: 2.2, mine: 1.2, pit: 1, bomb: 1.5, door: 1.4, sweeper: 0.8, scanner: 0.8, monster: 0.8, comet: 0.7, blackhole: 0.4 } },
+  { name: 'Minas Espaciales', theme: 'mines', stars: 2, seconds: 240, speed: [3.2, 4.4], flip: [5.5, 9], gap: [4.8, 7.5],
+    pool: { spikes: 2, block: 1.5, platform: 2, pit: 1, mine: 1.5, proxMine: 2, asteroid: 2, laser: 1.6, bomb: 2, tunnel: 1, comet: 1, monster: 1, worm: 1, sweeper: 0.7 } },
+  { name: 'Base en el Espacio', theme: 'base', stars: 3, seconds: 270, speed: [3.4, 4.8], flip: [5, 8.5], gap: [4.2, 6.8],
+    pool: { spikes: 2, platform: 2, laser: 2.8, turret: 2, press: 1.5, mine: 1, pit: 1, proxMine: 1, bomb: 2, door: 2.4, tunnel: 1.5, sweeper: 1.2, scanner: 1.2, monster: 0.8, blackhole: 0.6 } },
+  { name: 'Planeta Helado', theme: 'ice', stars: 3, seconds: 290, speed: [3.5, 5], flip: [4.5, 8], gap: [4.2, 6.5], ice: true,
+    pool: { spikes: 2, platform: 2, icicle: 2.5, saw: 2, walker: 2, mine: 1, pit: 1.5, laser: 1.6, door: 1.8, tunnel: 1.5, comet: 1, worm: 1.2, monster: 0.8, scanner: 0.8, bomb: 1 } },
+  { name: 'Planeta Volcánico', theme: 'volcano', stars: 4, seconds: 310, speed: [3.6, 5.2], flip: [4.5, 7.5], gap: [4, 6.2],
+    pool: { spikes: 2.5, fireball: 2, geyser: 2, crumble: 2, pit: 1.5, platform: 1.5, mine: 1, saw: 1, bomb: 2, door: 1.3, tunnel: 1, comet: 2, worm: 1.4, laser: 1.2, sweeper: 0.8, monster: 0.8 } },
+  { name: 'El Orden Inverso', theme: 'inverse', stars: 4, seconds: 310, speed: [3.8, 5.4], flip: [4, 7], gap: [3.8, 5.8], inverted: true,
+    pool: { spikes: 2, platform: 2, pendulum: 2, flipper: 1.5, flyer: 2, mine: 1.5, laser: 2, icicle: 1, door: 1.8, tunnel: 1, bomb: 1.4, sweeper: 1.2, blackhole: 1, monster: 1, scanner: 0.8 } },
+  { name: 'Fábrica Robótica', theme: 'factory', stars: 5, seconds: 340, speed: [4, 5.6], flip: [4, 6.5], gap: [4.2, 6.5],
+    pool: { conveyor: 2, press: 2.5, saw: 2.5, walker: 2.5, laser: 2.6, turret: 2.5, spikes: 1.5, block: 1, bomb: 1.5, door: 1.8, sweeper: 1.4, scanner: 1.4, monster: 0.6 } },
+  { name: 'Bosque Bioluminiscente', theme: 'forest', stars: 4, seconds: 360, speed: [4.1, 5.8], flip: [3.5, 6], gap: [3.6, 5.5],
+    pool: { spring: 2, spores: 2, waterfall: 1.5, plant: 2, laser: 2, flyer: 1.5, spikes: 1.5, mine: 1, bomb: 1.4, door: 1.4, monster: 1.4, worm: 1.4, comet: 0.8, sweeper: 0.8 } },
+  { name: 'Torres en la Tormenta', theme: 'storm', stars: 5, seconds: 390, speed: [4.3, 6], flip: [3, 5.5], gap: [3.2, 5], wind: true, dark: true,
+    pool: { lightning: 2.5, pendulum: 2, spikes: 2, pit: 2, platform: 1.5, laser: 2, flyer: 1.5, crumble: 1, turret: 1, bomb: 2, door: 1.8, comet: 1.4, monster: 1, scanner: 1, blackhole: 0.8, sweeper: 0.8 } },
+  { name: 'La Luna', theme: 'moon', stars: 5, seconds: 476, speed: [4.5, 6.4], flip: [2.5, 5], gap: [3, 4.8], boss: true, spin: true,
+    pool: { meteor: 2.5, tracker: 2.5, laser: 2, spikes: 1.5, saw: 1.5, press: 1, proxMine: 1, mine: 1, pit: 1, platform: 1, pendulum: 1, asteroid: 1, icicle: 0.5, bomb: 2, door: 1.8, tunnel: 1, comet: 1.6, monster: 1.2, blackhole: 1.2, sweeper: 1, scanner: 1, worm: 0.8 } },
 ];
+// Dónde están las banderas de cada escenario (en qué parte del recorrido).
+export const CHECKPOINTS = [0.2, 0.4, 0.6, 0.8];
 
 // Paredes, piso, techo y plataformas. Las que se desarman ("crumble") caen un ratito después de pisarlas.
 export interface Solid { x: number; y: number; w: number; h: number; kind: 'ground' | 'block' | 'platform' | 'crumble' | 'base'; crumble?: number; gone?: boolean }
@@ -84,6 +88,12 @@ export interface Hazard {
 export interface Bolt { x: number; y: number; vx: number; vy: number; r: number; color: string }
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; gravity: number }
 export interface Blast { x: number; y: number; r: number; t: number; max: number; lethal: boolean }
+// La sangre (como en SkynetBall): gotas que vuelan y caen para donde tira la gravedad, y manchas que quedan
+// pegadas donde pegan (charco, salpicaduras y chorreaduras). "at" es el reloj del juego (no se reinicia al morir).
+export interface Drop { x: number; y: number; vx: number; vy: number; r: number; life: number }
+export interface Stain { x: number; y: number; r: number; at: number; nx: number; ny: number; gx: number; gy: number; kind: 'pool' | 'splat'; seed: number }
+// Pedazos del astronauta que salen volando, rebotan y dejan un rastro de sangre.
+export interface Gib { x: number; y: number; vx: number; vy: number; a: number; va: number; kind: 'helmet' | 'arm' | 'leg' | 'tank' | 'chunk'; life: number; drip: number }
 
 export interface Player {
   x: number; y: number;
@@ -95,12 +105,14 @@ export interface Player {
   landT: number; // tiempo desde que se apoyó
 }
 
-export type Death = 'spikes' | 'laser' | 'mine' | 'blast' | 'saw' | 'enemy' | 'void' | 'edge' | 'fire' | 'bolt' | 'lightning' | 'press' | 'icicle' | 'spore' | 'rock';
+export type Death = 'spikes' | 'laser' | 'mine' | 'blast' | 'saw' | 'enemy' | 'void' | 'edge' | 'fire' | 'bolt' | 'lightning' | 'press' | 'icicle' | 'spore' | 'rock'
+  | 'monster' | 'worm' | 'comet' | 'blackhole';
 export type Phase = 'play' | 'dead' | 'cleared' | 'ending' | 'over' | 'won';
 export type GravityEvent =
   | { type: 'land' } | { type: 'flip' } | { type: 'death'; reason: Death }
   | { type: 'boom' } | { type: 'shot' } | { type: 'zap' } | { type: 'spring' } | { type: 'crumble' } | { type: 'cleared'; level: number }
-  | { type: 'thunder' } | { type: 'gust' } | { type: 'respawn' } | { type: 'won' };
+  | { type: 'thunder' } | { type: 'gust' } | { type: 'respawn' } | { type: 'won' }
+  | { type: 'checkpoint' } | { type: 'roar' } | { type: 'comet' } | { type: 'worm' };
 
 export interface Stats { time: number; deaths: number; flips: number; levels: number }
 
@@ -108,6 +120,8 @@ export interface Game {
   level: number; def: LevelDef; cols: number;
   length: number; portalX: number;
   solids: Solid[]; hazards: Hazard[]; bolts: Bolt[]; particles: Particle[]; blasts: Blast[];
+  checkpoints: number[]; checkpoint: number; // las banderas y la última que pasó (0: ninguna)
+  drops: Drop[]; stains: Stain[]; gibs: Gib[]; shake: number; clock: number;
   player: Player;
   cam: number; speed: number; time: number;
   angle: number; // hacia dónde tira la gravedad (radianes; 0 = hacia el piso)
@@ -149,13 +163,14 @@ export const levelLength = (def: LevelDef) => Math.round(def.seconds * (def.spee
 
 // ---------- Armado del escenario ----------
 
-interface Layout { solids: Solid[]; hazards: Hazard[]; length: number; portalX: number }
+interface Layout { solids: Solid[]; hazards: Hazard[]; length: number; portalX: number; checkpoints: number[] }
 
 export function buildLevel(level: number): Layout {
   const def = LEVELS[level - 1];
   const rand = seeded(level * 7919 + 2026);
   const length = levelLength(def);
   const portalX = length;
+  const checkpoints = CHECKPOINTS.map(f => Math.round(length * f));
   const solids: Solid[] = [];
   const hazards: Hazard[] = [];
   const gaps: Record<1 | -1, [number, number][]> = { 1: [], [-1]: [] };
@@ -328,18 +343,53 @@ export function buildLevel(level: number): Layout {
         hazard('spikes', { x: x + 0.4, y: FLOOR - wallH - 0.4, w: len - 0.8, h: 0.4, side: 1 });
         return len;
       }
+      case 'monster': {
+        // Monstruo del espacio: flota quieto hasta que te ve y ahí te persigue (dobla de a poco).
+        hazard('monster', { x: x + 1, y: 3 + rand() * 4, side: 0, r: 0.48, amp: 0.5, speed: 3.2 + hard * 0.3 });
+        return 2;
+      }
+      case 'worm': {
+        // Gusano espacial que sale del piso o del techo cada tanto (antes tiembla y se agrieta).
+        hazard('worm', { x, y: surface(side), w: 0.9, side, period: 3 + rand() * 0.8, len: 3 + rand() * 1.5 });
+        return 1.5;
+      }
+      case 'comet': {
+        // Cometa en llamas que cruza el pasillo en diagonal (se marca por dónde va a pasar) y revienta contra la pared.
+        hazard('comet', { x, y: 5, side: randomSide(), r: 0.45, len: 5 + rand() * 3 });
+        return 2;
+      }
+      case 'sweeper': {
+        // Láser giratorio: dos rayos que salen de un eje en el medio del pasillo y dan vueltas.
+        const len = 2.6 + rand() * 0.7;
+        hazard('sweeper', { x: x + len, y: 4.4 + rand() * 1.2, side: 0, len, speed: (rand() < 0.5 ? -1 : 1) * (0.9 + rand() * 0.4 + hard * 0.05) });
+        return len * 2;
+      }
+      case 'scanner': {
+        // Láser acostado que sube y baja por el pasillo.
+        const w = 3 + rand() * 2.5;
+        hazard('scanner', { x, y: 5, w, h: 0.2, side: 0, amp: 3, speed: 0.9 + rand() * 0.5 + hard * 0.04 });
+        return w;
+      }
+      case 'blackhole': {
+        // Agujero negro: te chupa para el centro (con los chorros te escapás) y en el centro te traga.
+        hazard('blackhole', { x: x + 2, y: 3.5 + rand() * 3, side: 0, r: 0.45, len: 4.5, amp: 24 + hard * 0.8 });
+        return 4;
+      }
     }
   };
 
   let x = START_SAFE;
   const end = portalX - 12;
   while (x < end) {
+    // Alrededor de cada bandera queda un tramo libre (para volver a arrancar tranquilo).
+    const flag = checkpoints.find(c => x + 7 > c - 2 && x < c + 10);
+    if (flag !== undefined) { x = flag + 10; continue; }
     const kind = pick(def.pool, rand);
     const used = place(kind, x);
     x += used + between(rand, def.gap) * (1 - 0.15 * x / length);
   }
   // El jefe de la Luna: un ovni que persigue en el último tramo.
-  if (def.boss) hazard('ufo', { x: length * 0.72, y: 5, side: 0, w: 1.8, h: 0.8, period: 1.7 });
+  if (def.boss) hazard('ufo', { x: length * 0.88, y: 5, side: 0, w: 1.8, h: 0.8, period: 1.7 });
 
   // Piso y techo, con los pozos.
   for (const side of [1, -1] as const) {
@@ -350,7 +400,7 @@ export function buildLevel(level: number): Layout {
       from = Math.max(from, b);
     }
   }
-  return { solids, hazards, length, portalX };
+  return { solids, hazards, length, portalX, checkpoints };
 }
 
 // ---------- Partida ----------
@@ -363,19 +413,24 @@ export function newGame(level: number, cols: number, stats: Stats = newStats(), 
   return game;
 }
 
-// Arranca (o vuelve a arrancar) el escenario desde el principio.
-export function loadLevel(game: Game, level: number, rand: () => number = Math.random) {
+// Arranca (o vuelve a arrancar) el escenario: desde el principio o desde una bandera ("from").
+// La sangre que quedó en el escenario se queda (solo se borra al pasar a otro escenario).
+export function loadLevel(game: Game, level: number, rand: () => number = Math.random, from = 0) {
   const def = LEVELS[level - 1];
   const layout = buildLevel(level);
   const angle = def.inverted ? Math.PI : 0;
+  if (game.level !== level || !game.stains) Object.assign(game, { drops: [], stains: [], gibs: [], shake: 0, clock: game.clock ?? 0 });
+  const cam = from ? from - 3 : 0;
+  // Lo que quedó atrás de la bandera ya no está (así no explotan meteoros ni pasan cometas fuera de la pantalla).
+  if (from) for (const h of layout.hazards) if (h.kind !== 'ufo' && h.x < cam - 2) h.dead = true;
   Object.assign(game, {
-    level, def, ...layout,
+    level, def, ...layout, checkpoint: from,
     bolts: [], particles: [], blasts: [],
     player: {
-      x: 4, y: angle ? CEIL : FLOOR - PLAYER_H, vx: 0, vy: 0, tx: 0, ty: 0, facing: 1,
+      x: cam + 4, y: angle ? CEIL : FLOOR - PLAYER_H, vx: 0, vy: 0, tx: 0, ty: 0, facing: 1,
       onGround: true, touch: { down: !angle, up: !!angle, left: false, right: false }, landT: 9,
     },
-    cam: 0, speed: def.speed[0], time: 0,
+    cam, speed: def.speed[0], time: 0,
     angle, view: angle,
     gravityIn: Math.max(3.5, between(rand, def.flip)), flipCooldown: 0,
     gust: 0, gustIn: 5, flash: 0,
@@ -421,6 +476,7 @@ function burst(game: Game, x: number, y: number, colors: string[], count: number
   }
 }
 const BOOM = ['#fde047', '#fb923c', '#ef4444', '#f8fafc'];
+const FIRE = ['#fef08a', '#fde047', '#fb923c', '#f97316', '#ef4444'];
 
 function explode(game: Game, x: number, y: number, r: number) {
   game.blasts.push({ x, y, r, t: 0, max: 0.55, lethal: true });
@@ -477,6 +533,25 @@ export const mineCenter = (game: Game, h: Hazard) => ({ x: h.x, y: h.y + Math.si
 export const flyerCenter = (game: Game, h: Hazard) => ({ x: h.x + Math.sin((game.time + h.phase) * h.speed * 0.7) * h.len, y: h.y + Math.sin((game.time + h.phase) * h.speed) * h.amp });
 export const sporeCenter = (game: Game, h: Hazard) => ({ x: h.x + Math.cos((game.time + h.phase) * h.speed) * h.amp, y: h.y + Math.sin((game.time + h.phase) * h.speed * 1.3) * h.amp });
 export const walkerX = (game: Game, h: Hazard) => h.x0 + (1 - Math.cos((game.time + h.phase) * h.speed / Math.max(1, h.len) * 2)) / 2 * h.len;
+// Gusano: cuánto salió (0 adentro, len afuera del todo) y si está por salir (tiembla el suelo).
+export function wormHeight(game: Game, h: Hazard) {
+  const c = cycle(game, h);
+  if (c < 0.55) return 0;
+  if (c < 0.63) return h.len * (c - 0.55) / 0.08;
+  if (c < 0.85) return h.len;
+  if (c < 0.95) return h.len * (1 - (c - 0.85) / 0.1);
+  return 0;
+}
+export const wormWarn = (game: Game, h: Hazard) => { const c = cycle(game, h); return c > 0.33 && c < 0.55; };
+// Cometa: por dónde pasa (k = 0 cuando entra por una pared, 1 cuando choca contra la otra).
+export function cometPath(h: Hazard, k: number) {
+  const from = h.side === 1 ? CEIL - 0.6 : FLOOR + 0.6, to = h.side === 1 ? FLOOR - 0.2 : CEIL + 0.2;
+  return { x: h.x0 + h.len / 2 - h.len * k, y: from + (to - from) * k };
+}
+const COMET_TIME = 1.15; // lo que tarda en cruzar el pasillo
+// Láser giratorio: hacia dónde apunta. Láser que sube y baja: a qué altura está.
+export const sweeperAngle = (game: Game, h: Hazard) => h.phase + game.time * h.speed;
+export const scannerY = (game: Game, h: Hazard) => (CEIL + FLOOR) / 2 + Math.sin((game.time + h.phase) * h.speed) * h.amp;
 
 function updateHazards(game: Game, dt: number) {
   const p = game.player;
@@ -560,6 +635,40 @@ function updateHazards(game: Game, dt: number) {
       case 'bomb':
         if (visible(game, h.x) && cycle(game, h) * h.period < dt * 1.5) explode(game, h.x, h.y, 1.5);
         break;
+      case 'worm':
+        if (visible(game, h.x) && Math.abs(cycle(game, h) - 0.55) * h.period < dt * 0.75) emit(game, { type: 'worm' });
+        break;
+      case 'monster': {
+        if (h.state === 0) {
+          h.y = h.y0 + Math.sin((game.time + h.phase) * 1.5) * h.amp;
+          // Se despierta cuando el astronauta se acerca (y ya está en la pantalla).
+          if (visible(game, h.x, -1) && Math.abs(px - h.x) < 11) { h.state = 1; emit(game, { type: 'roar' }); }
+          break;
+        }
+        // Lo persigue, doblando de a poco (si lo pasás, se da vuelta pero es más lento que el escenario).
+        h.aim += angleDiff(Math.atan2(py - h.y, px - h.x), h.aim) * Math.min(1, 3.4 * dt);
+        h.x += Math.cos(h.aim) * h.speed * dt;
+        h.y = Math.max(CEIL + 0.5, Math.min(FLOOR - 0.5, h.y + Math.sin(h.aim) * h.speed * dt));
+        if (h.x < game.cam - 3) h.dead = true;
+        break;
+      }
+      case 'comet': {
+        const entry = cometPath(h, 0);
+        if (h.state === 0 && entry.x < game.cam + game.cols - 0.5) { h.state = 1; h.timer = 0.85; }
+        if (h.state === 1 && (h.timer -= dt) <= 0) { h.state = 2; h.timer = 0; h.active = true; emit(game, { type: 'comet' }); }
+        if (h.state === 2) {
+          h.timer += dt;
+          const k = Math.min(1, h.timer / COMET_TIME), at = cometPath(h, k);
+          h.x = at.x; h.y = at.y;
+          // Estela de fuego.
+          for (let i = 0; i < 3; i++) {
+            const max = 0.25 + Math.random() * 0.35;
+            game.particles.push({ x: h.x + (Math.random() - 0.5) * 0.4, y: h.y + (Math.random() - 0.5) * 0.4, vx: (Math.random() - 0.5) * 1.5, vy: (Math.random() - 0.5) * 1.5, life: max, max, color: FIRE[Math.floor(Math.random() * FIRE.length)], size: 0.12 + Math.random() * 0.16, gravity: 0 });
+          }
+          if (k >= 1) { h.dead = true; explode(game, h.x, h.y, 1.3); }
+        }
+        break;
+      }
     }
   }
 
@@ -599,6 +708,20 @@ function lethal(game: Game): Death | null {
       case 'lightning': if (lightningState(game, h) === 'strike' && overlaps(r, { x: h.x + 0.2, y: h.y, w: h.w - 0.4, h: h.h })) return 'lightning'; break;
       case 'meteor': if (h.active && circleHits(r, h.x, h.y, h.r)) return 'rock'; break;
       case 'ufo': if (h.active && overlaps(r, { x: h.x - h.w / 2, y: h.y - h.h / 2, w: h.w, h: h.h })) return 'enemy'; break;
+      case 'monster': if (circleHits(r, h.x, h.y, h.r)) return 'monster'; break;
+      case 'worm': {
+        const wh = wormHeight(game, h);
+        if (wh > 0 && overlaps(r, { x: h.x + 0.1, y: h.side === 1 ? FLOOR - wh : CEIL, w: h.w - 0.2, h: wh })) return 'worm';
+        break;
+      }
+      case 'comet': if (h.state === 2 && circleHits(r, h.x, h.y, h.r)) return 'comet'; break;
+      case 'sweeper': {
+        const a = sweeperAngle(game, h), c = Math.cos(a), s = Math.sin(a);
+        for (let k = -h.len; k <= h.len; k += 0.12) { const bx = h.x + c * k, by = h.y + s * k; if (bx > r.x && bx < r.x + r.w && by > r.y && by < r.y + r.h) return 'laser'; }
+        break;
+      }
+      case 'scanner': if (overlaps(r, { x: h.x, y: scannerY(game, h) - 0.1, w: h.w, h: 0.2 })) return 'laser'; break;
+      case 'blackhole': if (circleHits(r, h.x, h.y, h.r)) return 'blackhole'; break;
     }
   }
   return null;
@@ -632,6 +755,21 @@ export function flipGravity(game: Game, rand: () => number = Math.random, to = c
 }
 
 const BLOOD = ['#991b1b', '#dc2626', '#7f1d1d', '#b91c1c', '#ef4444'];
+const BLOOD_G = 20; // la sangre cae más rápido que el astronauta (es más pesada)
+
+// En qué cara de un sólido pegó algo que venía de (px, py) y quedó en (x, y): el punto y hacia dónde mira la cara.
+function surfaceHit(s: Solid, px: number, py: number, x: number, y: number) {
+  const cx = Math.max(s.x, Math.min(s.x + s.w, x)), cy = Math.max(s.y, Math.min(s.y + s.h, y));
+  if (py <= s.y) return { x: cx, y: s.y, nx: 0, ny: -1 };
+  if (py >= s.y + s.h) return { x: cx, y: s.y + s.h, nx: 0, ny: 1 };
+  if (px <= s.x) return { x: s.x, y: cy, nx: -1, ny: 0 };
+  return { x: s.x + s.w, y: cy, nx: 1, ny: 0 };
+}
+const inside = (s: Solid, x: number, y: number) => x > s.x && x < s.x + s.w && y > s.y && y < s.y + s.h;
+function stain(game: Game, hit: { x: number; y: number; nx: number; ny: number }, r: number, kind: Stain['kind']) {
+  game.stains.push({ ...hit, r, kind, at: game.clock, gx: Math.sin(game.angle), gy: Math.cos(game.angle), seed: Math.random() });
+  if (game.stains.length > 600) game.stains.splice(0, game.stains.length - 600);
+}
 
 function die(game: Game, reason: Death) {
   const p = game.player;
@@ -639,19 +777,74 @@ function die(game: Game, reason: Death) {
   game.lives--; game.stats.deaths++;
   game.pendingFlips = [];
   const cx = p.x + PLAYER_W / 2, cy = p.y + PLAYER_H / 2;
-  // Explota con sangre: un fogonazo rojo, pedazos del traje y un chorro de sangre que salpica.
-  game.blasts.push({ x: cx, y: cy, r: 0.9, t: 0, max: 0.5, lethal: false });
-  burst(game, cx, cy, BLOOD, 46, 9, 9);
-  burst(game, cx, cy, ['#f8fafc', '#cbd5e1', '#60a5fa'], 10, 6, 7); // pedazos del traje
+  const gx = Math.sin(game.angle), gy = Math.cos(game.angle);
+  // Revienta como los humanos de SkynetBall: un fogonazo rojo, la pantalla que tiembla, muchísimas gotas que
+  // salen volando para todos lados (más para "arriba", contra la gravedad) y quedan pegadas donde caen.
+  game.shake = 1;
+  game.blasts.push({ x: cx, y: cy, r: 1.1, t: 0, max: 0.45, lethal: false });
+  burst(game, cx, cy, BLOOD, 12, 5, 9);
+  burst(game, cx, cy, ['#f8fafc', '#cbd5e1', '#60a5fa'], 8, 5, 7); // pedacitos del traje
+  for (const [n, power, size] of [[90, 7, 0.05], [40, 3.5, 0.08], [50, 11, 0.03]] as const) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = power * (0.3 + Math.random() * 0.9);
+      game.drops.push({ x: cx, y: cy, vx: Math.cos(a) * sp - gx * power * 0.45, vy: Math.sin(a) * sp - gy * power * 0.45, r: size * (0.5 + Math.random()), life: 0 });
+    }
+  }
+  // El charco: en lo que tenga abajo (para donde tira la gravedad), si está cerca.
+  const solids = game.solids.filter(s => !s.gone && s.x < cx + 4 && s.x + s.w > cx - 4);
+  for (let d = 0, px = cx, py = cy; d < 3.5; d += 0.08) {
+    const x = cx + gx * d, y = cy + gy * d, s = solids.find(s => inside(s, x, y));
+    if (s) { stain(game, surfaceHit(s, px, py, x, y), 1.4, 'pool'); break; }
+    px = x; py = y;
+  }
+  // Los pedazos: el casco, los brazos, las piernas, el tanque y unos trozos.
+  const kinds: Gib['kind'][] = ['helmet', 'arm', 'arm', 'leg', 'leg', 'tank', 'chunk', 'chunk', 'chunk'];
+  for (const kind of kinds) {
+    const a = Math.random() * Math.PI * 2, sp = 3 + Math.random() * 6;
+    game.gibs.push({ x: cx, y: cy, vx: Math.cos(a) * sp - gx * 4, vy: Math.sin(a) * sp - gy * 4, a: Math.random() * 6, va: (Math.random() - 0.5) * 18, kind, life: 0, drip: 0 });
+  }
   emit(game, { type: 'death', reason });
 }
 
 function updateEffects(game: Game, dt: number) {
+  game.clock += dt;
   for (const s of game.particles) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += s.gravity * dt; s.life -= dt; }
   game.particles = game.particles.filter(s => s.life > 0);
   for (const b of game.blasts) b.t += dt;
   game.blasts = game.blasts.filter(b => b.t < b.max);
   game.flash = Math.max(0, game.flash - dt);
+  game.shake = Math.max(0, game.shake - dt * 2.2);
+  if (!game.drops.length && !game.gibs.length) return;
+  // La sangre y los pedazos caen para donde tira la gravedad y se pegan (o rebotan) en lo que tocan.
+  const gx = Math.sin(game.angle) * BLOOD_G, gy = Math.cos(game.angle) * BLOOD_G;
+  const near = game.solids.filter(s => !s.gone && s.x < game.cam + game.cols + 8 && s.x + s.w > game.cam - 8);
+  for (const d of game.drops) {
+    const px = d.x, py = d.y;
+    d.life += dt; d.vx += gx * dt; d.vy += gy * dt; d.x += d.vx * dt; d.y += d.vy * dt;
+    const s = near.find(s => inside(s, d.x, d.y));
+    if (s) { stain(game, surfaceHit(s, px, py, d.x, d.y), d.r * (2 + Math.random() * 1.5), 'splat'); d.life = 99; }
+  }
+  game.drops = game.drops.filter(d => d.life < 4 && d.y > -4 && d.y < ROWS + 4);
+  for (const g of game.gibs) {
+    g.life += dt;
+    const px = g.x, py = g.y;
+    g.vx += gx * 0.8 * dt; g.vy += gy * 0.8 * dt; g.a += g.va * dt;
+    g.x += g.vx * dt;
+    if (near.some(s => inside(s, g.x, g.y))) { g.x = px; g.vx *= -0.35; g.vy *= 0.7; g.va *= 0.6; }
+    g.y += g.vy * dt;
+    const s = near.find(s => inside(s, g.x, g.y));
+    if (s) {
+      // Al rebotar deja una mancha.
+      if (Math.hypot(g.vx, g.vy) > 2.5) stain(game, surfaceHit(s, g.x, py, g.x, g.y), 0.22, 'splat');
+      g.y = py; g.vy *= -0.35; g.vx *= 0.7; g.va *= 0.6;
+    }
+    // Mientras vuela, va chorreando.
+    if ((g.drip -= dt) <= 0 && Math.hypot(g.vx, g.vy) > 1.5 && g.life < 2.5) {
+      g.drip = 0.035;
+      game.drops.push({ x: g.x, y: g.y, vx: g.vx * 0.2 + (Math.random() - 0.5), vy: g.vy * 0.2 + (Math.random() - 0.5), r: 0.03 + Math.random() * 0.03, life: 0 });
+    }
+  }
+  game.gibs = game.gibs.filter(g => g.life < 7 && g.y > -4 && g.y < ROWS + 4);
 }
 
 // ---------- Un paso del juego ----------
@@ -663,8 +856,8 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   const p = game.player;
 
   if (game.phase === 'dead') {
-    if (game.phaseT >= 1.3) {
-      if (game.lives > 0) { loadLevel(game, game.level, rand); emit(game, { type: 'respawn' }); }
+    if (game.phaseT >= 1.8) {
+      if (game.lives > 0) { loadLevel(game, game.level, rand, game.checkpoint); emit(game, { type: 'respawn' }); }
       else game.phase = 'over';
     }
     return;
@@ -727,7 +920,14 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   }
   let ax = gx + p.tx * THRUST, ay = gy + p.ty * THRUST;
   if (game.gust > 0) ax -= 6;
-  for (const h of game.hazards) if (h.kind === 'waterfall' && p.x + PLAYER_W > h.x && p.x < h.x + h.w) ay += 20;
+  for (const h of game.hazards) {
+    if (h.kind === 'waterfall' && p.x + PLAYER_W > h.x && p.x < h.x + h.w) ay += 20;
+    // El agujero negro chupa (más fuerte cuanto más cerca).
+    if (h.kind === 'blackhole' && !h.dead) {
+      const dx = h.x - (p.x + PLAYER_W / 2), dy = h.y - (p.y + PLAYER_H / 2), d = Math.hypot(dx, dy);
+      if (d < h.len && d > 0.01) { const f = h.amp * Math.sqrt(1 - d / h.len); ax += dx / d * f; ay += dy / d * f; }
+    }
+  }
   p.vx += ax * dt; p.vy += ay * dt;
   const drag = 1 - Math.min(1, DRAG * dt);
   p.vx *= drag; p.vy *= drag;
@@ -795,6 +995,9 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   if (p.y > ROWS + 0.5 || p.y + PLAYER_H < -0.5) { die(game, 'void'); return; }
   const reason = lethal(game);
   if (reason) { die(game, reason); return; }
+
+  // Banderas: al pasarlas, si morís volvés ahí.
+  for (const c of game.checkpoints) if (c > game.checkpoint && p.x >= c) { game.checkpoint = c; emit(game, { type: 'checkpoint' }); }
 
   if (p.x + PLAYER_W >= game.portalX + 0.4) {
     game.phase = 'cleared'; game.phaseT = 0;
