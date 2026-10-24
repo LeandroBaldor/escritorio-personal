@@ -64,7 +64,9 @@ export function GravitySwap() {
     if (!stage || !canvas || !game) return;
     const { cols, rows } = sizeFor(stage.clientWidth, stage.clientHeight);
     game.cols = cols;
-    const w = Math.round(cols * PX), h = Math.round(rows * PX);
+    // Se dibuja a la resolución de la pantalla (nítido), con un tope para que no se ponga lento.
+    const cell = Math.max(PX, Math.min(64, stage.clientWidth / cols * (window.devicePixelRatio || 1)));
+    const w = Math.round(cols * cell), h = Math.round(rows * cell);
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     const ctx = canvas.getContext('2d');
     if (!ctx) return;

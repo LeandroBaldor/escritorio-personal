@@ -1393,8 +1393,8 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .grav .runner-back{color:#7dd3fc}
 .grav .runner-bar button{background:#1d4ed8}
 .grav .runner-scores{flex-wrap:wrap;align-items:center;color:#bfdbfe}
-/* El lienzo se agranda (sin suavizar) hasta ocupar todo el lugar, sin cambiar el tamaño del lugar. */
-.grav .runner-stage canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;border-radius:4px;box-shadow:0 0 0 3px #1e3a8a,0 0 24px #2563eb66,0 10px 30px #000a}
+/* El lienzo ocupa todo el lugar (se dibuja a la resolución de la pantalla, nítido). */
+.grav .runner-stage canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:4px;box-shadow:0 0 0 3px #1e3a8a,0 0 24px #2563eb66,0 10px 30px #000a}
 .grav-lives{display:flex;gap:.15rem;font-size:1.25rem;line-height:1}
 .grav-lives b{color:#f43f5e;text-shadow:0 0 6px #f43f5e88}
 .grav-lives b.grav-lost{color:#334155;text-shadow:none}

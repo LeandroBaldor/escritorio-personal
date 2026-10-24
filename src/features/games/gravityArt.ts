@@ -8,6 +8,7 @@ import {
   mineCenter, pendulumBall, plantBite, pressRect, pressState, sawCenter, scannerY, sporeCenter, sweeperAngle, wormHeight, wormWarn,
   type Game, type Gib, type Hazard, type Solid, type ThemeId,
 } from './gravitySwap';
+import { drawBackdrop } from './gravityBackdrops';
 
 export const PX = 32;
 const P = 1 / PX; // un píxel, en casilleros
@@ -158,96 +159,11 @@ function background(ctx: CanvasRenderingContext2D, game: Game, t: Theme, l0: num
   const haze = () => { ctx.fillStyle = lin(ctx, 0, ROWS * 0.45, 0, ROWS, [[0, 'rgba(0,0,0,0)'], [1, t.haze]]); ctx.globalAlpha = 0.28; ctx.fillRect(l0, ROWS * 0.45, W, ROWS * 0.55); ctx.globalAlpha = 1; };
 
   switch (game.def.theme) {
-    case 'city': {
-      // Una ciudad del futuro al anochecer, como la que se ve por la ventana de SkynetBall: cielo azul que se
-      // pone violeta en el horizonte, rascacielos altísimos con tiras de neón azul y luces rojas, autopistas
-      // elevadas con el tránsito y autos voladores que pasan para los dos lados.
-      layer(ctx, cam, l0, l1, 0.04, 1.1, (x, i) => { // torres muy lejanas, borrosas en la niebla
-        const h = 5 + hash(i) * 4.5, w = 0.7 + hash(i + 1) * 0.6;
-        ctx.fillStyle = '#34417f'; ctx.globalAlpha = 0.75; ctx.fillRect(x, ROWS - h, w, h);
-        if (hash(i + 2) > 0.5) ctx.fillRect(x + w / 2 - P, ROWS - h - 1.2, 2 * P, 1.2); // aguja
-        ctx.globalAlpha = 1;
-        if (hash(i + 3) > 0.55) { ctx.fillStyle = '#7dd3fc'; ctx.globalAlpha = 0.45; ctx.fillRect(x + w * 0.3, ROWS - h + 0.4, P, h - 0.4); ctx.globalAlpha = 1; }
-      });
-      // Autos voladores chiquitos, a lo lejos.
-      for (let k = 0; k < 10; k++) {
-        const dir = k % 2 ? 1 : -1, span = W + 6, sp = 0.6 + hash(k + 40) * 0.8;
-        const fx = l0 - 3 + (((hash(k + 41) * span + dir * time * sp - cam * 0.06) % span) + span) % span, fy = 0.6 + hash(k + 42) * 3.2;
-        ctx.fillStyle = '#1e2347'; ctx.fillRect(fx - 0.09, fy, 0.18, 0.05);
-        ctx.fillStyle = dir > 0 ? '#e0f2fe' : '#ff3b3b'; ctx.fillRect(fx + dir * 0.09, fy, P, P);
-      }
-      haze();
-      layer(ctx, cam, l0, l1, 0.12, 2.1, (x, i) => { // rascacielos del medio: escalonados, con tiras de neón
-        const h = 4.5 + hash(i + 7) * 4.5, w = 1.2 + hash(i + 8) * 0.7, top = ROWS - h;
-        ctx.fillStyle = lin(ctx, x, 0, x + w, 0, [[0, '#1d2a60'], [0.6, '#16204b'], [1, '#0f173a']]);
-        ctx.fillRect(x, top, w, h);
-        ctx.fillRect(x + w * 0.2, top - 0.7, w * 0.6, 0.7); // el escalón de arriba
-        ctx.fillRect(x + w / 2 - P, top - 1.9, 2 * P, 1.2); // antena
-        if (Math.sin(time * 2.2 + i * 1.7) > 0.3) glow(ctx, x + w / 2, top - 1.9, 0.25, '#ff2a2a', 0.9);
-        for (let wy = 0.25; wy < h; wy += 0.32) for (let wx = 0.12; wx < w - 0.1; wx += 0.2) {
-          const lit = hash(i * 53 + wy * 13 + wx * 7);
-          if (lit > 0.55) { ctx.fillStyle = lit > 0.93 ? '#fecaca' : lit > 0.75 ? '#93c5fd' : '#3b5bb5'; ctx.fillRect(x + wx, top + wy, 2 * P, 2 * P); }
-        }
-        ctx.fillStyle = '#38bdf8'; ctx.globalAlpha = 0.85; ctx.fillRect(x + 0.06, top, P, h); if (hash(i + 9) > 0.5) ctx.fillRect(x + w - 0.1, top + 0.5, P, h); ctx.globalAlpha = 1;
-        if (hash(i + 10) > 0.6) { ctx.fillStyle = '#ef4444'; ctx.fillRect(x, top + h * 0.3, w, 1.5 * P); } // franja roja
-      });
-      // Autopista elevada con el tránsito: luces blancas para un lado, rojas para el otro.
-      ctx.save(); ctx.translate(-(cam * 0.2) % 3, 0);
-      const road = ROWS - 2.7;
-      ctx.fillStyle = '#121a3d'; ctx.fillRect(l0 - 3, road, W + 6, 0.32);
-      ctx.fillStyle = '#26336b'; ctx.fillRect(l0 - 3, road - 0.12, W + 6, 0.12);
-      ctx.fillStyle = '#f472b6'; ctx.globalAlpha = 0.5; ctx.fillRect(l0 - 3, road + 0.3, W + 6, P); ctx.globalAlpha = 1;
-      for (let px = Math.floor((l0 - 3) / 3) * 3; px < l1 + 3; px += 3) { ctx.fillStyle = '#10173a'; ctx.fillRect(px, road + 0.32, 0.3, 2.4); ctx.fillStyle = '#38bdf8'; ctx.globalAlpha = 0.55; ctx.fillRect(px + 0.12, road + 0.5, P, 2.2); ctx.globalAlpha = 1; }
-      ctx.restore();
-      for (let k = 0; k < 14; k++) {
-        const dir = k % 2 ? 1 : -1, span = W + 4, fx = l0 - 2 + (((hash(k + 60) * span + dir * time * (2 + hash(k) * 1.5) - cam * 0.2) % span) + span) % span;
-        ctx.fillStyle = dir > 0 ? '#fef9c3' : '#ff2a2a'; ctx.fillRect(fx, road - 0.07 + (dir > 0 ? 0 : 0.04), 0.16, 1.5 * P);
-        glow(ctx, fx + 0.08, road - 0.05, 0.22, dir > 0 ? '#fef9c3' : '#ff2a2a', 0.35);
-      }
-      layer(ctx, cam, l0, l1, 0.24, 3.3, (x, i) => { // edificios cercanos, bien detallados
-        const h = 3 + hash(i + 11) * 3.6, w = 2 + hash(i + 12) * 0.8, top = ROWS - h;
-        ctx.fillStyle = lin(ctx, x, 0, x + w, 0, [[0, '#121a42'], [0.5, '#0d1434'], [1, '#080d24']]); ctx.fillRect(x, top, w, h);
-        ctx.fillStyle = '#1f2b63'; ctx.fillRect(x - 0.06, top, w + 0.12, 0.1); // cornisa
-        for (let wy = 0.3; wy < h - 0.2; wy += 0.36) for (let wx = 0.15; wx < w - 0.15; wx += 0.27) {
-          const lit = hash(i * 31 + wy * 7 + wx * 3);
-          ctx.fillStyle = lit > 0.62 ? (lit > 0.95 ? '#fee2e2' : lit > 0.8 ? '#bfdbfe' : '#60a5fa') : '#0a0f2a';
-          ctx.fillRect(x + wx, top + wy, 4 * P, 3 * P);
-        }
-        // Tiras de neón azules a los costados y una franja roja.
-        for (const nx of [x + 0.03, x + w - 0.06]) { glow(ctx, nx, top + h / 2, 0.4, '#38bdf8', 0.15); ctx.fillStyle = '#7dd3fc'; ctx.fillRect(nx, top + 0.1, 1.5 * P, h); }
-        if (hash(i + 14) > 0.4) { ctx.fillStyle = '#ff2a2a'; ctx.fillRect(x, top + 0.18, w, 1.5 * P); glow(ctx, x + w / 2, top + 0.2, 0.5, '#ff2a2a', 0.25); }
-        // En la azotea: tanque, antena con luz roja que titila.
-        ctx.fillStyle = '#0d1434'; ctx.fillRect(x + 0.3, top - 0.35, 0.5, 0.35); ctx.fillRect(x + w - 0.5, top - 1, P * 2, 1);
-        if (Math.sin(time * 2.6 + i * 2.3) > 0.2) glow(ctx, x + w - 0.48, top - 1, 0.3, '#ff2a2a', 0.9);
-        if (hash(i + 13) > 0.55) { // pantalla gigante de neón (rojo, como en SkynetBall)
-          const sy = top + 0.6, bw = w - 0.6;
-          glow(ctx, x + w / 2, sy + 0.35, 1.2, '#ff2a2a', 0.25);
-          ink(ctx, () => ctx.rect(x + 0.3, sy, bw, 0.7), '#16060a', 1);
-          ctx.strokeStyle = '#ff3b3b'; ctx.lineWidth = 1.5 * P; ctx.strokeRect(x + 0.35, sy + 0.05, bw - 0.1, 0.6);
-          ctx.fillStyle = '#ff3b3b'; ctx.beginPath(); ctx.moveTo(x + w / 2, sy + 0.12); ctx.lineTo(x + w / 2 + 0.22, sy + 0.5); ctx.lineTo(x + w / 2 - 0.22, sy + 0.5); ctx.closePath(); ctx.fill(); // un triángulo rojo
-          ctx.fillStyle = '#16060a'; ctx.beginPath(); ctx.moveTo(x + w / 2, sy + 0.3); ctx.lineTo(x + w / 2 + 0.08, sy + 0.45); ctx.lineTo(x + w / 2 - 0.08, sy + 0.45); ctx.closePath(); ctx.fill();
-        }
-      });
-      // Autos voladores cerca, como los de SkynetBall: carrocería oscura, cabina, luces adelante y atrás y el
-      // brillo azul de los motores abajo. Pasan para los dos lados a distintas alturas y velocidades.
-      for (let k = 0; k < 6; k++) {
-        const dir = k % 2 ? 1 : -1, span = W + 8, sp = 1.8 + hash(k + 80) * 2.2, size = 0.32 + hash(k + 81) * 0.2;
-        const fx = l0 - 4 + (((hash(k + 82) * span + dir * time * sp - cam * 0.35) % span) + span) % span, fy = 1.4 + hash(k + 83) * 3.6 + Math.sin(time * 1.3 + k) * 0.08;
-        ctx.save(); ctx.translate(fx, fy); ctx.rotate(dir * 0.04);
-        glow(ctx, 0, size * 0.35, size * 1.2, '#38bdf8', 0.3 + 0.15 * Math.sin(time * 12 + k));
-        ink(ctx, () => ctx.ellipse(0, 0, size, size * 0.3, 0, 0, Math.PI * 2), lin(ctx, 0, -size * 0.3, 0, size * 0.3, [[0, '#3b4466'], [0.5, '#1c2033'], [1, '#0b0d16']]), 1.5);
-        ink(ctx, () => ctx.ellipse(-dir * size * 0.1, -size * 0.18, size * 0.45, size * 0.2, 0, Math.PI, 0), lin(ctx, 0, -size * 0.38, 0, -size * 0.18, [[0, '#93c5fd'], [1, '#1e3a8a']]), 1);
-        ctx.fillStyle = '#7dd3fc'; ctx.fillRect(-size * 0.7, -P / 2, size * 1.4, P); // filete de neón
-        ctx.fillStyle = 'rgba(56,189,248,0.8)'; ctx.beginPath(); ctx.ellipse(0, size * 0.3, size * 0.5, size * 0.07, 0, 0, Math.PI * 2); ctx.fill();
-        glow(ctx, dir * size * 0.95, 0, 0.3, '#fef9c3', 0.7); ctx.fillStyle = '#fef9c3'; ctx.fillRect(dir * size * 0.92 - P, -P, 2 * P, 2 * P);
-        glow(ctx, -dir * size * 0.95, 0, 0.22, '#ff2a2a', 0.7); ctx.fillStyle = '#ff2a2a'; ctx.fillRect(-dir * size * 0.95 - P, -P, 2 * P, 2 * P);
-        ctx.restore();
-      }
+    case 'city': // edificios distintos y con mucho detalle (en gravityBackdrops)
+      drawBackdrop('city', ctx, cam, l0, l1, cols, time);
       break;
-    }
     case 'mines': {
-      for (const [nx, ny, nr, nc] of [[0.25, 3, 4, '#7c3aed'], [0.7, 6, 5, '#be185d'], [0.5, 2, 3, '#0e7490']] as const) glow(ctx, cols * nx - (cam * 0.02) % 6, ny, nr, nc, 0.22);
-      planet(ctx, cols * 0.3 - (cam * 0.015) % (cols + 6), 2.4, 1.1, '#b45309', '#78350f', true);
+      drawBackdrop('mines', ctx, cam, l0, l1, cols, time); // estrellas, la Vía Láctea y planetas de verdad
       ctx.fillStyle = '#6b5a52'; // cinturón de asteroides lejano
       layer(ctx, cam, l0, l1, 0.06, 0.35, (x, i) => { ctx.globalAlpha = 0.5; ctx.fillRect(x, 7.2 + Math.sin(i * 0.7) * 0.4 + hash(i) * 0.5, P * (1 + Math.floor(hash(i + 1) * 2)), P); });
       ctx.globalAlpha = 0.28; // asteroides lejanos (oscuros, para no confundirlos con los que lastiman)
@@ -277,16 +193,7 @@ function background(ctx: CanvasRenderingContext2D, game: Game, t: Theme, l0: num
       });
       ctx.fillStyle = '#1e293b'; // caños y cables
       layer(ctx, cam, l0, l1, 0.3, 10, x => { ctx.fillRect(x, 1.5, 10, 0.18); ctx.fillStyle = '#0f172a'; ctx.fillRect(x, 1.62, 10, 3 * P); ctx.fillStyle = '#1e293b'; ctx.fillRect(x, 8.3, 10, 0.12); });
-      layer(ctx, cam, l0, l1, 0.3, 7, (x, i) => { // ventanales con la Tierra
-        ctx.fillStyle = '#020617'; ctx.fillRect(x + 1, 2.2, 3.4, 5);
-        ctx.save(); ctx.beginPath(); ctx.rect(x + 1, 2.2, 3.4, 5); ctx.clip();
-        stars(ctx, 0, x, x + 5, 2.2, 7.2, time + i); planet(ctx, x + 2.7 + hash(i), 7.5, 2.6, '#2563eb', '#16a34a');
-        ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.beginPath(); ctx.moveTo(x + 1, 2.2); ctx.lineTo(x + 2.2, 2.2); ctx.lineTo(x + 1, 4.5); ctx.fill(); // reflejo del vidrio
-        ctx.restore();
-        ctx.strokeStyle = '#475569'; ctx.lineWidth = 4 * P; ctx.strokeRect(x + 1, 2.2, 3.4, 5);
-        ctx.strokeStyle = '#64748b'; ctx.lineWidth = P; ctx.strokeRect(x + 1.08, 2.28, 3.24, 4.84);
-        ctx.fillStyle = '#f97316'; ctx.fillRect(x + 0.6, 2.2, 2 * P, 5);
-      });
+      drawBackdrop('base', ctx, cam, l0, l1, cols, time); // ventanales con naves distintas en cada uno
       break;
     }
     case 'ice': {
