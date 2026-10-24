@@ -854,7 +854,8 @@ test('el diario inserta emoticones y mantiene los renglones parejos', async ({ p
     return { lineHeight, offsets: [...el.querySelectorAll('br')].map(br => { const range = document.createRange(); range.selectNode(br); return (range.getBoundingClientRect().top - top) / lineHeight; }) };
   });
   expect(Number.isInteger(lines.lineHeight)).toBe(true);
-  for (const offset of lines.offsets) expect(Math.abs((offset % 1) - (lines.offsets[0] % 1))).toBeLessThan(0.03);
+  // Cada renglón queda a un número entero de renglones del primero (-0,05 y 0,95 también están parejos).
+  for (const offset of lines.offsets) { const apart = offset - lines.offsets[0]; expect(Math.abs(apart - Math.round(apart))).toBeLessThan(0.03); }
 });
 
 test('el calendario muestra las notas con fecha y cambia de mes con las flechas', async ({ page }) => {
