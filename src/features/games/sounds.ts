@@ -49,6 +49,12 @@ import propulsorUrl from './assets/sonidos/propulsor.mp3';
 import trepaCiudadUrl from './assets/sonidos/trepa-ciudad.mp3';
 import trepaLluviaUrl from './assets/sonidos/trepa-lluvia.mp3';
 import trepaVientoUrl from './assets/sonidos/trepa-viento.mp3';
+import trepaHelicopteroUrl from './assets/sonidos/trepa-helicoptero.mp3';
+import trepaAvionUrl from './assets/sonidos/trepa-avion.mp3';
+import trepaPalomasUrl from './assets/sonidos/trepa-palomas.mp3';
+import trepaAscensorUrl from './assets/sonidos/trepa-ascensor.mp3';
+import trepaFuegoUrl from './assets/sonidos/trepa-fuego.mp3';
+import trepaGritoUrl from './assets/sonidos/trepa-grito.mp3';
 import agujeroNegroUrl from './assets/sonidos/agujero-negro.mp3';
 import laserUrl from './assets/sonidos/laser.mp3';
 import monstruoUrl from './assets/sonidos/monstruo-pez.mp3';
@@ -125,12 +131,14 @@ function buildAmbient(c: AudioContext) {
   return {
     // La ciudad: tránsito, bocinas y gente (hasta los 1.000 m).
     city: channel(1, out => recorded(c, trepaCiudadUrl, 1.7, out, noisy('lowpass', 500, 0.15))),
+    // Pisos que suben y bajan como ascensor: la grabación del ascensor.
+    lift: channel(0.7, out => recorded(c, trepaAscensorUrl, 0.9, out, noisy('lowpass', 300, 0.2))),
     // La lluvia fuerte de la tormenta (de 2.000 a 3.000 m).
     rain: channel(1, out => recorded(c, trepaLluviaUrl, 1.1, out, noisy('highpass', 1500, 0.3))),
     // El viento fuerte de arriba (desde los 3.000 m).
     gale: channel(1, out => recorded(c, trepaVientoUrl, 0.95, out, noisy('bandpass', 400, 0.35))),
     // Fuego: un rugido grave con chisporroteo.
-    fire: channel(0.85, out => {
+    fire: channel(0.3, out => { // (más bajo: cuando se prende suena la llamarada grabada, ver playFlame)
       const roar = noiseSource(c), body = filter(c, 'lowpass', 700);
       roar.connect(body).connect(out); roar.start();
       const crackle = noiseSource(c), hi = filter(c, 'bandpass', 2600, 3), level = c.createGain();
@@ -155,21 +163,23 @@ function buildAmbient(c: AudioContext) {
       air.connect(band).connect(out); air.start();
     }),
     // Pájaros: piídos cortos que van y vienen.
-    bird: channel(0.22, out => {
+    // Palomas: la grabación del arrullo y el aleteo (mientras carga, el piído sintetizado).
+    bird: channel(0.8, out => recorded(c, trepaPalomasUrl, 1.6, out, out => {
       const tweet = osc(c, 'sine', 3000), gate = c.createGain(), pattern = c.createGain();
       wobble(c, tweet.frequency, 9, 900, 'sawtooth');
       gate.gain.value = 0.5; wobble(c, gate.gain, 2.6, 0.5, 'square');
       pattern.gain.value = 0.5; wobble(c, pattern.gain, 0.55, 0.5, 'square');
       tweet.connect(gate).connect(pattern).connect(out); tweet.start();
-    }),
+    })),
     // Aviones: el rugido grave del motor al pasar.
-    plane: channel(0.6, out => {
+    // Aviones: la grabación del motor del avión.
+    plane: channel(0.85, out => recorded(c, trepaAvionUrl, 0.8, out, out => {
       const jet = noiseSource(c), body = filter(c, 'lowpass', 650);
       jet.connect(body).connect(out); jet.start();
       const engine = osc(c, 'sawtooth', 74), low = filter(c, 'lowpass', 380), level = c.createGain();
       level.gain.value = 0.5; wobble(c, level.gain, 3, 0.15);
       engine.connect(low).connect(level).connect(out); engine.start();
-    }),
+    })),
     // Drones: zumbido agudo de hélices.
     drone: channel(0.2, out => {
       const buzz = osc(c, 'sawtooth', 260), low = filter(c, 'lowpass', 1600);
@@ -213,12 +223,13 @@ function buildAmbient(c: AudioContext) {
       engine.connect(low).connect(chop).connect(out); engine.start();
     }),
     // Baldosas voladoras: el zumbido de sus helicitas.
-    hover: channel(0.16, out => {
+    // Baldosas voladoras (escalones con ventiladores): la grabación del helicóptero.
+    hover: channel(0.6, out => recorded(c, trepaHelicopteroUrl, 0.8, out, out => {
       const whir = osc(c, 'sawtooth', 330), low = filter(c, 'lowpass', 1500), level = c.createGain();
       wobble(c, whir.frequency, 1.5, 15);
       level.gain.value = 0.6; wobble(c, level.gain, 38, 0.4);
       whir.connect(low).connect(level).connect(out); whir.start();
-    }),
+    })),
     // Pistones y bloques tecnológicos: aire comprimido y un zumbido hidráulico.
     hydraulic: channel(0.35, out => {
       const hiss = noiseSource(c), hi = filter(c, 'highpass', 2200), level = c.createGain();
@@ -318,7 +329,8 @@ export function playLose(reason: 'burn' | 'zap' | 'fall') {
   const t = c.currentTime;
   if (reason === 'burn') burst(c, 'lowpass', 900, t, 0.7, 0.9);
   else if (reason === 'zap') { tone(c, 'sawtooth', 1400, 90, t, 0.35, 0.5); burst(c, 'highpass', 3000, t, 0.25, 0.5); }
-  scream(c, t + (reason === 'fall' ? 0 : 0.12));
+  // El grito al caer: la grabación (si todavía no cargó, el grito sintetizado).
+  if (!playSample(trepaGritoUrl, 1.4, reason === 'fall' ? 0 : 0.12)) scream(c, t + (reason === 'fall' ? 0 : 0.12));
 }
 // Un "¡aaah!" corto: una voz sintética (cuerdas vocales + resonancias de la boca) que baja de tono.
 // pitch: más agudo o más grave (cada persona grita distinto); volume: según lo lejos que esté.
@@ -750,7 +762,14 @@ function whenLoaded(url: string, ready: (buffer: AudioBuffer) => void) {
   check();
 }
 // Trepaluna: el clima (la ciudad, la lluvia, el viento) y los truenos de la tormenta.
-export function preloadTrepaSounds() { for (const url of [trepaCiudadUrl, trepaLluviaUrl, trepaVientoUrl, ...TRUENOS]) loadSample(url); }
+export function preloadTrepaSounds() { for (const url of [trepaCiudadUrl, trepaLluviaUrl, trepaVientoUrl, trepaHelicopteroUrl, trepaAvionUrl, trepaPalomasUrl, trepaAscensorUrl, trepaFuegoUrl, trepaGritoUrl, ...TRUENOS]) loadSample(url); }
+// Un caño de fuego que se prende cerca: la llamarada grabada (más fuerte cuanto más cerca, near de 0 a 1).
+let lastFlame = -1;
+export function playFlame(near: number) {
+  const c = running(); if (!c || c.currentTime - lastFlame < 0.25) return;
+  lastFlame = c.currentTime;
+  playSample(trepaFuegoUrl, 0.15 + near * 0.75);
+}
 export function playThunder(near: number) {
   // La grabación (uno de los tres truenos, al azar): más tarde y más bajo si el rayo cayó lejos.
   if (playSample(TRUENOS[Math.floor(Math.random() * TRUENOS.length)], 0.15 + near * 0.2, (1 - near) * 0.5)) return;

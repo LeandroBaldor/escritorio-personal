@@ -48,7 +48,7 @@ describe('Trepaluna: sonidos de los objetos', () => {
     const plat = { id: 2, kind: 'moving' as const, skin: 'tile' as const, x: 9, y: 50, w: 2, baseX: 9, baseY: 50, amp: 2, speed: 1, phase: 0, dx: 0, dy: 0, crumble: 0, gone: 0, belt: 0, hue: 0 };
     const heard = (p: Partial<typeof plat>) => { g.plats = [{ ...plat, ...p } as typeof plat]; const l = ambientLevels(g); return Object.entries(l).filter(([k, v]) => v > 0.5 && !WEATHER.includes(k)).map(([k]) => k); };
     expect(heard({})).toEqual(['hover']);
-    expect(heard({ kind: 'elevator', skin: 'lift' } as never)).toEqual(['motor']);
+    expect(heard({ kind: 'elevator', skin: 'lift' } as never)).toEqual(['lift']); // el ascensor
     expect(heard({ skin: 'zeppelin' } as never)).toEqual(['propeller']);
     expect(heard({ kind: 'elevator', skin: 'piston' } as never)).toEqual(['hydraulic']);
     expect(heard({ kind: 'elevator', skin: 'ufo' } as never)).toEqual(['ufo']);

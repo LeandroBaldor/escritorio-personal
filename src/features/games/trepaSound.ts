@@ -6,12 +6,12 @@ export type AmbientChannel =
   | 'fire' | 'motor' | 'conveyor' | 'swing' | 'electric' | 'wind' | 'hum'
   | 'bird' | 'plane' | 'drone' | 'meteor'
   | 'balloon' | 'propeller' | 'hover' | 'hydraulic' | 'ufo'
-  | 'city' | 'rain' | 'gale';
+  | 'city' | 'rain' | 'gale' | 'lift';
 export const AMBIENT_CHANNELS: AmbientChannel[] = [
   'fire', 'motor', 'conveyor', 'swing', 'electric', 'wind', 'hum',
   'bird', 'plane', 'drone', 'meteor',
   'balloon', 'propeller', 'hover', 'hydraulic', 'ufo',
-  'city', 'rain', 'gale',
+  'city', 'rain', 'gale', 'lift',
 ];
 // Se escucha hasta unas 7 unidades (más o menos media pantalla) y sube de volumen al acercarse.
 export const HEAR_RADIUS = 7;
@@ -19,7 +19,7 @@ export const HEAR_RADIUS = 7;
 // Cada plataforma que se mueve suena según lo que es: el globo aerostático con su quemador, el dirigible
 // con su hélice, las baldosas voladoras con sus helicitas, el pistón con su aire comprimido, el ovni…
 const PLAT_CHANNEL: Partial<Record<Plat['skin'], AmbientChannel>> = {
-  basket: 'balloon', zeppelin: 'propeller', tile: 'hover', lift: 'motor', crane: 'motor',
+  basket: 'balloon', zeppelin: 'propeller', tile: 'hover', lift: 'lift', crane: 'motor',
   piston: 'hydraulic', techTile: 'hydraulic', ufo: 'ufo', satellite: 'ufo',
 };
 
