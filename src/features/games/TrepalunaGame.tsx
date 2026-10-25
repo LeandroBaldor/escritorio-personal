@@ -5,7 +5,7 @@ import { playCrumble, playGameOver, playJump, playKnock, playLose, playStart, pl
 import { EndBanner } from './EndBanner';
 import { ambientLevels } from './trepaSound';
 import {
-  ballPos, birdPos, blinkOn, fireActive, fireWarning, laserActive, laserHalf, laserWarning, meters, moonOf, newTrepa, PLAYER_H, PLAYER_W, step, takeEvents, weatherAt, WORLD_W, ZONES,
+  ballPos, birdPos, blinkOn, fireActive, fireWarning, laserActive, laserHalf, laserWarning, LIVES, meters, moonOf, newTrepa, PLAYER_H, PLAYER_W, step, takeEvents, weatherAt, WORLD_W, ZONES,
   type Ball, type Bird, type Climb, type Facade, type Fan, type Fire, type Gear, type Laser, type Magnet, type Portal, type Input, type LoseReason, type Plat, type Trepa, type Zone,
 } from './trepaluna';
 
@@ -1309,8 +1309,11 @@ function drawPlayer(ctx: CanvasRenderingContext2D, g: Trepa, v: View) {
   const p = g.player, s = v.s;
   const pw = PLAYER_W * s, ph = PLAYER_H * s;
   const px = X(v, p.x) - pw / 2, py = Y(v, p.y) - ph;
-  const burnt = g.dying?.reason === 'burn';
+  const burnt = g.dying?.reason === 'burn' || g.hurt?.reason === 'burn';
+  // Perdió una vida: titila; al volver, titila suave mientras nada lo lastima.
+  if (g.hurt && Math.sin(v.t * 28) > 0) return;
   ctx.save();
+  if (g.invuln > 0 && Math.sin(v.t * 22) > 0.2) ctx.globalAlpha = 0.35;
   if (g.dying) { ctx.translate(px + pw / 2, py + ph / 2); ctx.rotate(p.spin); ctx.translate(-(px + pw / 2), -(py + ph / 2)); }
   drawRunner(ctx, { x: px, y: py, w: pw, h: ph, facing: p.facing, time: v.t, running: p.vx !== 0 && !!p.ground, airborne: !p.ground && !p.climb, climbing: !!p.climb, falling: !!g.dying, burnt });
   ctx.restore();
@@ -1427,7 +1430,7 @@ export function Trepaluna() {
   const recordRef = useRef<TrepaRecord>(readTrepaRecord());
   const brokeRef = useRef(false);
   const [status, setStatus] = useState<Status>('ready');
-  const [hud, setHud] = useState({ tenths: 0, m: 0, best: 0 });
+  const [hud, setHud] = useState({ tenths: 0, m: 0, best: 0, lives: LIVES });
   const [record, setRecord] = useState(readTrepaRecord);
   const [result, setResult] = useState({ m: 0, time: 0, reason: 'fall' as LoseReason, newRecord: false });
   const [toast, setToast] = useState<{ text: string; id: number; big?: boolean } | null>(null);
@@ -1478,7 +1481,7 @@ export function Trepaluna() {
     input.current = { left: false, right: false, jump: false, down: false };
     recordRef.current = readTrepaRecord();
     brokeRef.current = false;
-    setHud({ tenths: 0, m: 0, best: 0 });
+    setHud({ tenths: 0, m: 0, best: 0, lives: LIVES });
     setToast(null);
     setStatus('playing');
     paint();
@@ -1523,8 +1526,8 @@ export function Trepaluna() {
       // ¡Rompiste el récord! (una vez por partida, cuando superás la altura del récord anterior).
       const prev = recordRef.current.height;
       if (!brokeRef.current && prev > 0 && best > prev && !g.dying) { brokeRef.current = true; setToast({ text: '¡Rompiste el récord!', id: now, big: true }); }
-      const shown = { tenths: Math.floor(g.time * 10), m, best };
-      setHud(p => p.tenths === shown.tenths && p.m === shown.m ? p : shown);
+      const shown = { tenths: Math.floor(g.time * 10), m, best, lives: g.lives };
+      setHud(p => p.tenths === shown.tenths && p.m === shown.m && p.lives === shown.lives ? p : shown);
       if (g.over || g.won) {
         const rec = readTrepaRecord();
         const next: TrepaRecord = { height: Math.max(rec.height, g.won ? MOON_M : best), time: g.won ? Math.min(rec.time ?? Infinity, g.time) : rec.time };
@@ -1594,7 +1597,7 @@ export function Trepaluna() {
             {status === 'ready' && <>
               <h2 id="trepa-message">Trepaluna 🌙</h2>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> o <kbd>Espacio</kbd> saltar (en escaleras, mantené para trepar) · <kbd>↓</kbd> bajar · <kbd>P</kbd> pausa</p>
-              <p className="runner-tip">💡 No te quemes ni te caigas muy abajo: llegá a la Luna y clavá el banderín.</p>
+              <p className="runner-tip">💡 No te quemes ni te caigas muy abajo: llegá a la Luna y clavá el banderín. Tenés 3 vidas: si perdés una, seguís desde donde estabas.</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}
             {status === 'paused' && <>
@@ -1618,6 +1621,7 @@ export function Trepaluna() {
       <aside className="trepa-side" aria-label="Tiempo y metros">
         <div className="trepa-stat"><span>Tiempo</span><strong data-testid="trepa-time">{formatTime(hud.tenths / 10)}</strong></div>
         <div className="trepa-stat"><span>Metros</span><strong data-testid="trepa-meters">{fmtM(hud.m)}</strong></div>
+        <div className="trepa-stat" aria-label={`Vidas: ${hud.lives}`}><span>Vidas</span><strong className="trepa-lives">{Array.from({ length: LIVES }, (_, i) => <b key={i} className={i < hud.lives ? '' : 'trepa-lost'}>♥</b>)}</strong></div>
         <div className="trepa-meter" aria-hidden="true">
           <div className="trepa-meter-track">
             <div className="trepa-meter-best" style={{ height: pct(hud.best) }} />

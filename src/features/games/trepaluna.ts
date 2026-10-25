@@ -67,6 +67,9 @@ export interface Trepa extends Course {
   dying: { t: number; reason: LoseReason } | null; over: boolean; zone: Zone; events: TrepaEvent[];
   // La tormenta: el fogonazo de un relámpago (se apaga solo), el rayo que se ve y cuánto falta para el próximo.
   flash: number; bolt: { x: number; seed: number } | null; nextBolt: number;
+  // Vidas: al perder una, titila un momento y vuelve a la última plataforma firme que pisó ("safe"), un rato
+  // sin que lo lastime nada ("invuln").
+  lives: number; hurt: { t: number; reason: LoseReason } | null; invuln: number; safe: { x: number; y: number; id: number };
 }
 
 // Mismo tamaño y movimiento que el personaje de ¡Cuidado, bloques!: corre a 6, salta con 12,5, gravedad
@@ -76,6 +79,9 @@ const RUN = 6;
 export const JUMP = 12.5;
 export const TRAMP = 22;
 const CLIMB = 4;
+export const LIVES = 3; // con las 3 perdidas, se cae hasta la calle y es GAME OVER
+const RESPAWN = 1.1; // lo que tarda en volver a aparecer después de perder una vida
+const SAFE_TIME = 2; // después de volver, unos segundos sin que lo lastime nada
 export const FALL_LOSE = 10; // caer más de 100 m por debajo de lo más alto que pisaste es perder
 const BALL_R = 0.75, BIRD_R = 0.5;
 const MAGNET_LIFT = 6.5, MAGNET_W = 1.4, PORTAL_R = 0.55;
@@ -369,6 +375,7 @@ export function newTrepa(seed?: number): Trepa {
   const course = buildCourse(seed);
   return {
     ...course, time: 0, best: 0, bestGround: 0, won: false, dying: null, over: false, zone: 'city', events: [], flash: 0, bolt: null, nextBolt: 1.5,
+    lives: LIVES, hurt: null, invuln: 0, safe: { x: WORLD_W / 2, y: 0, id: course.plats[0].id },
     player: { x: WORLD_W / 2, y: 0, vx: 0, vy: 0, facing: 1, ground: course.plats[0], climb: null, climbCooldown: 0, coyote: 0, stun: 0, spin: 0, portalCooldown: 0 },
   };
 }
@@ -383,6 +390,12 @@ const hitsCircle = (p: Player, cx: number, cy: number, r: number) => {
 
 function lose(g: Trepa, reason: LoseReason) {
   const p = g.player;
+  g.lives = Math.max(0, g.lives - 1);
+  if (g.lives > 0) { // pierde una vida: titila y vuelve donde estaba
+    g.hurt = { t: 0, reason }; p.vx = 0; p.vy = 0; p.ground = null; p.climb = null;
+    g.events.push({ type: 'lose', reason });
+    return;
+  }
   g.dying = { t: 0, reason };
   p.ground = null; p.climb = null;
   p.vy = reason === 'fall' ? Math.min(p.vy, 0) : 9; p.vx = -p.facing * 1.5;
@@ -403,6 +416,18 @@ export function step(g: Trepa, input: Input, dt: number) {
     if (p.y <= 0) { p.y = 0; g.over = true; g.events.push({ type: 'gameover' }); }
     return;
   }
+
+  // Perdió una vida: queda quieto titilando y después vuelve a la última plataforma firme que pisó.
+  if (g.hurt) {
+    g.hurt.t += dt;
+    if (g.hurt.t >= RESPAWN) {
+      const safe = g.plats.find(pl => pl.id === g.safe.id) ?? null;
+      p.x = g.safe.x; p.y = safe ? safe.y : g.safe.y; p.vx = 0; p.vy = 0; p.ground = safe; p.climb = null; p.stun = 0;
+      g.bestGround = p.y; g.hurt = null; g.invuln = SAFE_TIME;
+    }
+    return;
+  }
+  g.invuln = Math.max(0, g.invuln - dt);
 
   g.time += dt;
   const t = g.time;
@@ -502,7 +527,7 @@ export function step(g: Trepa, input: Input, dt: number) {
 
 function hazards(g: Trepa, t: number) {
   const p = g.player;
-  if (g.dying) return;
+  if (g.dying || g.invuln > 0) return;
   for (const f of g.fires) {
     if (!fireActive(f, t)) continue;
     const r = fireRect(f);
@@ -528,6 +553,9 @@ function landOn(g: Trepa, pl: Plat) {
   if (pl.kind === 'tramp') { p.vy = TRAMP; p.ground = null; g.events.push({ type: 'tramp' }); return; }
   p.vy = 0; p.ground = pl; p.stun = 0;
   g.bestGround = Math.max(g.bestGround, pl.y);
+  // Las plataformas firmes (que no se mueven, ni se desarman, ni desaparecen) son el lugar para volver al
+  // perder una vida.
+  if (pl.kind === 'ground' || pl.kind === 'solid' || pl.kind === 'conveyor') g.safe = { x: Math.max(pl.x + 0.4, Math.min(pl.x + pl.w - 0.4, p.x)), y: pl.y, id: pl.id };
   if (pl.kind === 'crumble' && !pl.crumble) { pl.crumble = 0.001; g.events.push({ type: 'crumble' }); }
   if (pl.kind === 'moon') { g.won = true; g.events.push({ type: 'win' }); }
 }

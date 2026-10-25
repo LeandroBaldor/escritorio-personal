@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ballPos, buildCourse, FALL_LOSE, fireActive, fireRect, gravityAt, JUMP, jumpPeak, meters, moonOf, newTrepa, step, takeEvents, TRAMP, ZONES, type Input, type Plat, type Trepa } from './trepaluna';
+import { ballPos, buildCourse, FALL_LOSE, LIVES, fireActive, fireRect, gravityAt, JUMP, jumpPeak, meters, moonOf, newTrepa, step, takeEvents, TRAMP, ZONES, type Input, type Plat, type Trepa } from './trepaluna';
 
 const idle: Input = { left: false, right: false, jump: false, down: false };
 const run = (g: Trepa, seconds: number, input: Partial<Input> = {}) => {
@@ -152,8 +152,9 @@ describe('Trepaluna: movimiento', () => {
 });
 
 describe('Trepaluna: peligros, perder y ganar', () => {
-  it('el fuego quema: pierde, cae por toda la estructura hasta la calle y termina en GAME OVER', () => {
+  it('el fuego quema: con la última vida, cae por toda la estructura hasta la calle y termina en GAME OVER', () => {
     const g = newTrepa();
+    g.lives = 1;
     only(g, { x: 5, y: 40, w: 6 });
     g.fires = [{ id: 1, x: 8, y: 40, dir: 'up', len: 3, period: 2, on: 0.5, phase: 0 }];
     g.bestGround = 40;
@@ -180,8 +181,9 @@ describe('Trepaluna: peligros, perder y ganar', () => {
     expect(fireRect(f).y2).toBeGreaterThan(42);
   });
 
-  it('caer más de 100 m desde lo más alto que pisó es perder', () => {
+  it('caer más de 100 m desde lo más alto que pisó es perder (con la última vida, GAME OVER)', () => {
     const g = newTrepa();
+    g.lives = 1;
     only(g, { x: 0.3, y: 60, w: 3 });
     g.bestGround = 60;
     Object.assign(g.player, { x: 8, y: 60, ground: null, vy: 0 });
@@ -226,6 +228,7 @@ describe('Trepaluna: peligros, perder y ganar', () => {
 describe('Trepaluna: zona tecnológica', () => {
   it('el láser prendido electrocuta y apagado se puede pasar', () => {
     const g = newTrepa();
+    g.lives = 1;
     only(g, { x: 2, y: 160, w: 12 });
     g.bestGround = 160;
     const laser = { id: 1, y: 160.5, x1: 0, x2: 16, period: 2, on: 0.5, phase: 1.5, style: 'laser' as const };
@@ -297,5 +300,42 @@ describe('Trepaluna: zona tecnológica', () => {
     let none = 0;
     for (let i = 0; i < 60 * 12; i++) { calm.player.y = 150; calm.player.vy = 0; step(calm, { left: false, right: false, jump: false, down: false }, 1 / 60); none += takeEvents(calm).filter(e => e.type === 'thunder').length; }
     expect(none).toBe(0);
+  });
+
+  it('tiene 3 vidas: al perder una, titila y vuelve a la última plataforma firme que pisó, un rato sin que lo lastime nada', () => {
+    const g = newTrepa();
+    only(g, { x: 5, y: 40, w: 6 });
+    g.fires = [{ id: 1, x: 8, y: 40, dir: 'up', len: 3, period: 2, on: 0.5, phase: 0 }];
+    // Pisa la plataforma (queda como lugar seguro), camina hasta el fuego y se quema.
+    Object.assign(g.player, { x: 6, y: 41, ground: null, vy: -1 });
+    run(g, 0.3);
+    expect(g.safe.id).toBe(g.plats[1].id);
+    Object.assign(g.player, { x: 8, y: 40, ground: g.plats[1] });
+    step(g, idle, 1 / 60);
+    expect(g.lives).toBe(LIVES - 1);
+    expect(g.dying).toBe(null);
+    expect(g.hurt?.reason).toBe('burn');
+    run(g, 1.3);
+    expect(g.hurt).toBe(null);
+    expect(g.player.y).toBe(40);
+    expect(g.player.x).toBeGreaterThan(5);
+    expect(g.player.x).toBeLessThan(11);
+    expect(g.invuln).toBeGreaterThan(0);
+    expect(g.over).toBe(false);
+    // Mientras titila, el fuego no lo lastima.
+    Object.assign(g.player, { x: 8 });
+    step(g, idle, 1 / 60);
+    expect(g.lives).toBe(LIVES - 1);
+  });
+
+  it('al caer más de 100 m pierde una vida y vuelve arriba, donde estaba', () => {
+    const g = newTrepa();
+    only(g, { x: 5, y: 60, w: 6 });
+    Object.assign(g.player, { x: 7, y: 61, ground: null, vy: -1 });
+    run(g, 0.3); // aterriza (lugar seguro)
+    Object.assign(g.player, { x: 13, ground: null, vy: 0 }); // se tira por el costado
+    run(g, 3);
+    expect(g.lives).toBe(LIVES - 1);
+    expect(g.player.y).toBe(60);
   });
 });
