@@ -1179,7 +1179,7 @@ export function playAstronautStep() {
   const buffer = samples.get(pasosUrl);
   if (!(buffer instanceof AudioBuffer)) { loadSample(pasosUrl); return; }
   const source = c.createBufferSource(), gain = c.createGain();
-  source.buffer = buffer; source.playbackRate.value = 0.95 + Math.random() * 0.1; gain.gain.value = 0.4;
+  source.buffer = buffer; source.playbackRate.value = 0.95 + Math.random() * 0.1; gain.gain.value = 0.2;
   source.connect(gain).connect(out(c));
   source.start(c.currentTime, STEPS[stepIndex] - 0.02, 0.3);
   stepIndex = (stepIndex + 1) % STEPS.length;
@@ -1199,7 +1199,7 @@ export function tickGravityMusic(on: boolean) {
   const buffer = samples.get(musicaGravedadUrl);
   if (!(buffer instanceof AudioBuffer)) { loadSample(musicaGravedadUrl); return; }
   const source = c.createBufferSource(), gain = c.createGain();
-  source.buffer = buffer; gain.gain.value = 0.6;
+  source.buffer = buffer; gain.gain.value = 0.3;
   source.connect(gain).connect(out(c)); source.start();
   source.onended = () => { if (music === source) { music = null; musicGain = null; musicNext = c.currentTime + 10; } };
   music = source; musicGain = gain;
