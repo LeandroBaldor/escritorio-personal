@@ -11,6 +11,7 @@ import { drawBuilding, drawDebrisArt, drawFx, drawHouse, drawInterior, drawLamp,
 import { stormLevels } from './sharkSound';
 import { playFlyerDive, playFlyerWarn, playGameOver, playJump, playRescue, playSharkBite, playSharkLeap, playSplash, playStart, playThunder, playWetStep, playWinFanfare, preloadSharkSounds, setStormAmbient } from './sounds';
 import { EndBanner } from './EndBanner';
+import { drawHero } from './trepaArt';
 
 const RECORD_KEY = 'escritorio-personal-juegos:tiburon-record';
 export interface SharkRecord { saved: number; time: number | null } // más rescatados y mejor tiempo para rescatar a todos
@@ -499,8 +500,8 @@ function drawWater(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, flash: 
   for (const b of g.blocks) for (const ex of [b.x1, b.x2]) { if (!visible(v, ex - 1, ex + 1, -1, 1)) continue; ctx.beginPath(); ctx.ellipse(X(v, ex), Y(v, waveY(ex, t)), s * 0.3, s * 0.07, 0, 0, Math.PI * 2); ctx.fill(); }
 }
 
-// ---------- El bombero ----------
-function drawFirefighter(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, shrink = 1) {
+// ---------- El héroe (el mismo trepador que en Trepaluna) ----------
+function drawHeroFigure(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, shrink = 1) {
   const p = g.player, s = v.s, t = v.t;
   ctx.save();
   if (shrink !== 1) { const cx = X(v, p.x), cy = Y(v, p.y + PLAYER_H / 2); ctx.translate(cx, cy); ctx.scale(shrink, shrink); ctx.translate(-cx, -cy); }
@@ -509,8 +510,6 @@ function drawFirefighter(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, s
   const px = X(v, p.x) - pw / 2, py = Y(v, p.y) - ph;
   const f = p.facing, climbing = !!p.climb || !!p.zip, airborne = !p.ground && !climbing && !p.swimming, falling = !!g.dying;
   const running = p.vx !== 0 && !!p.ground;
-  const swing = running || climbing || p.swimming ? Math.sin(t * (climbing ? 12 : p.swimming ? 8 : 22)) : 0;
-  const COAT = '#1f2937', STRIPE = '#d9f99d', SKIN = '#fcd9b6';
   // Colgado de la tirolesa: la roldana corre por el cable, con las correas hasta la barra que agarra.
   const barY = Y(v, p.y + PLAYER_H + 0.12);
   if (p.zip) {
@@ -522,67 +521,17 @@ function drawFirefighter(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, s
     ctx.fillStyle = '#374151'; for (const dx of [-0.11, 0.11]) { ctx.beginPath(); ctx.arc(cx + dx * s, cableY, s * 0.07, 0, Math.PI * 2); ctx.fill(); }
     if (p.zipT > 0.3) { ctx.fillStyle = '#fde047'; for (let i = 0; i < 4; i++) { const q = (t * 7 + i * 0.25) % 1; ctx.beginPath(); ctx.arc(cx - f * s * (0.15 + q * 0.5), cableY + s * q * 0.3, s * 0.025, 0, Math.PI * 2); ctx.fill(); } } // chispas
   }
-  ctx.lineCap = 'round';
-  const arm = (side: 1 | -1, phase: number) => {
-    const sx = px + pw / 2 + side * pw * 0.32, sy = py + ph * 0.44;
-    let hx = sx + side * pw * 0.2 + phase * pw * 0.18, hy = airborne ? sy - ph * 0.18 : sy + ph * 0.24;
-    if (climbing) { hx = px + pw / 2 + side * pw * 0.12; hy = py + ph * (0.0 + 0.08 * phase * side); }
-    if (p.zip) { hx = px + pw / 2 + side * pw * 0.28; hy = barY; }
-    if (p.swimming) { hx = sx + side * pw * 0.45 + phase * pw * 0.2; hy = sy - ph * 0.05 + phase * ph * 0.08; }
-    if (falling) { hx = sx + side * pw * 0.5; hy = sy - ph * 0.35; }
-    ctx.strokeStyle = COAT; ctx.lineWidth = Math.max(2.5, pw * 0.2);
-    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke();
-    ctx.strokeStyle = STRIPE; ctx.lineWidth = Math.max(1, pw * 0.06);
-    ctx.beginPath(); ctx.moveTo(sx + (hx - sx) * 0.55 - pw * 0.08, sy + (hy - sy) * 0.55); ctx.lineTo(sx + (hx - sx) * 0.55 + pw * 0.08, sy + (hy - sy) * 0.55); ctx.stroke();
-    ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(hx, hy, Math.max(1.8, pw * 0.11), 0, Math.PI * 2); ctx.fill(); // guante
-  };
-  arm(-f as 1 | -1, -swing);
-  // Piernas con botas negras.
-  const dangle = p.zip ? -f * pw * 0.25 * Math.min(1, p.zipT * 2) + Math.sin(t * 5) * pw * 0.06 : 0; // las piernas cuelgan para atrás
-  const legSwing = p.zip ? 0 : swing;
-  const footL = px + pw * 0.38 + legSwing * pw * 0.22 + dangle, footR = px + pw * 0.62 - legSwing * pw * 0.22 + dangle;
-  ctx.strokeStyle = COAT; ctx.lineWidth = Math.max(3, pw * 0.22);
-  ctx.beginPath(); ctx.moveTo(px + pw * 0.38, py + ph * 0.7); ctx.lineTo(footL, py + ph * 0.94); ctx.moveTo(px + pw * 0.62, py + ph * 0.7); ctx.lineTo(footR, py + ph * 0.94); ctx.stroke();
-  ctx.strokeStyle = STRIPE; ctx.lineWidth = Math.max(1, pw * 0.06);
-  ctx.beginPath(); for (const fx of [footL, footR]) { ctx.moveTo(fx - pw * 0.1, py + ph * 0.84); ctx.lineTo(fx + pw * 0.1, py + ph * 0.84); } ctx.stroke();
-  ctx.fillStyle = '#0a0a0a';
-  for (const fx of [footL, footR]) { ctx.beginPath(); ctx.roundRect(fx - pw * 0.12 + f * pw * 0.03, py + ph * 0.88, pw * 0.26, ph * 0.1, pw * 0.04); ctx.fill(); }
-  // Saco de bombero con franjas reflectivas.
-  const tx = px + pw * 0.18, ty = py + ph * 0.36, tw = pw * 0.64, th = ph * 0.42;
-  ctx.fillStyle = COAT; ctx.beginPath(); ctx.roundRect(tx, ty, tw, th, pw * 0.12); ctx.fill();
-  ctx.fillStyle = STRIPE; ctx.fillRect(tx, ty + th * 0.55, tw, th * 0.12); ctx.fillRect(tx, ty + th * 0.85, tw, th * 0.1);
-  ctx.fillStyle = '#9ca3af'; ctx.fillRect(tx, ty + th * 0.6, tw, th * 0.03);
-  // Cara: el ojo, la nariz y el bigote quedan del lado para el que mira (el mismo de la visera del casco).
-  const hx = px + pw / 2, hy = py + ph * 0.22, r = pw * 0.3;
-  ctx.fillStyle = SKIN;
-  ctx.beginPath(); ctx.arc(hx, hy + r * 0.12, r, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#eab38a'; ctx.beginPath(); ctx.arc(hx - f * r * 0.42, hy + r * 0.25, r * 0.2, 0, Math.PI * 2); ctx.fill(); // oreja, atrás
-  ctx.fillStyle = SKIN; ctx.beginPath(); ctx.ellipse(hx + f * r * 1.0, hy + r * 0.4, r * 0.28, r * 0.22, 0, 0, Math.PI * 2); ctx.fill(); // nariz
-  ctx.fillStyle = '#5b3a1e'; ctx.beginPath(); ctx.ellipse(hx + f * r * 0.62, hy + r * 0.72, r * 0.4, r * 0.14, f * 0.15, 0, Math.PI * 2); ctx.fill(); // bigote
-  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(hx + f * r * 0.55, hy + r * 0.15, Math.max(1.3, r * 0.16), 0, Math.PI * 2); ctx.fill(); // ojo
-  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx + f * r * 0.6, hy + r * 0.1, Math.max(0.5, r * 0.05), 0, Math.PI * 2); ctx.fill();
-  // Casco rojo: la visera larga sale para adelante (para donde mira) y atrás tiene una cortita.
-  ctx.fillStyle = '#dc2626';
-  ctx.beginPath(); ctx.arc(hx, hy - r * 0.18, r * 1.05, Math.PI, Math.PI * 2); ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(hx - f * r * 0.7, hy - r * 0.22); ctx.lineTo(hx + f * r * 0.95, hy - r * 0.22);
-  ctx.quadraticCurveTo(hx + f * r * 1.55, hy - r * 0.18, hx + f * r * 1.8, hy + r * 0.02); // la punta de la visera
-  ctx.quadraticCurveTo(hx + f * r * 1.25, hy - r * 0.02, hx + f * r * 0.7, hy - r * 0.06);
-  ctx.lineTo(hx - f * r * 0.7, hy - r * 0.06); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(hx - f * r * 0.95, hy - r * 0.12, r * 0.4, r * 0.11, -f * 0.15, 0, Math.PI * 2); ctx.fill(); // atrás, cortita
-  ctx.fillStyle = '#991b1b'; ctx.fillRect(hx - r * 0.08, hy - r * 1.28, r * 0.16, r * 1.08); // cresta
-  ctx.fillRect(hx - r * 1.02, hy - r * 0.3, r * 2.04, r * 0.09); // la banda de abajo
-  ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.moveTo(hx + f * r * 0.35, hy - r * 0.95); ctx.lineTo(hx + f * r * 0.85, hy - r * 0.8); ctx.lineTo(hx + f * r * 0.8, hy - r * 0.35); ctx.lineTo(hx + f * r * 0.3, hy - r * 0.38); ctx.fill(); // escudo, adelante
-  arm(f, swing);
+  // El protagonista: el mismo trepador que en Trepaluna (nadando mueve brazos y piernas como al correr).
+  drawHero(ctx, { x: px, y: py, w: pw, h: ph, facing: f, time: t, running: running || p.swimming, airborne, climbing, falling, burnt: false });
   ctx.restore();
 }
 
 // Nadando, lo que está debajo del agua se ve apagado (sin ningún recuadro).
 function drawPlayer(ctx: CanvasRenderingContext2D, g: SharkGame, v: View, shrink = 1) {
-  if (!g.player.swimming) { drawFirefighter(ctx, g, v, shrink); return; }
+  if (!g.player.swimming) { drawHeroFigure(ctx, g, v, shrink); return; }
   const x = X(v, g.player.x), half = v.s * 1.4;
-  ctx.save(); surfaceClip(ctx, v, x - half, x + half, true); drawFirefighter(ctx, g, v, shrink); ctx.restore();
-  ctx.save(); surfaceClip(ctx, v, x - half, x + half, false); ctx.globalAlpha = 0.35; drawFirefighter(ctx, g, v, shrink); ctx.restore();
+  ctx.save(); surfaceClip(ctx, v, x - half, x + half, true); drawHeroFigure(ctx, g, v, shrink); ctx.restore();
+  ctx.save(); surfaceClip(ctx, v, x - half, x + half, false); ctx.globalAlpha = 0.35; drawHeroFigure(ctx, g, v, shrink); ctx.restore();
 }
 
 // El súper viento: antes de que llegue, empiezan a volar hojas y papeles desde un costado; cuando sopla,
@@ -666,7 +615,7 @@ function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
   // tragó entero.
   const eaten = g.dying?.reason === 'shark' || g.dying?.reason === 'flyer' ? g.dying : null;
   if (!eaten) drawPlayer(ctx, g, v);
-  else if (eaten.t < CHOMP) drawFirefighter(ctx, g, v, 1 - (eaten.t / CHOMP) * 0.4);
+  else if (eaten.t < CHOMP) drawHeroFigure(ctx, g, v, 1 - (eaten.t / CHOMP) * 0.4);
   for (const k of g.sharks) drawSharkJump(ctx, k, v, g);
   for (const f of g.flyers) drawFlyer(ctx, f, v, flash.a, !flyerMouthOpen(f, g));
   drawFx(ctx, g, v, 'air');
@@ -674,7 +623,7 @@ function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
     // Vuelve a dibujar al bombero adentro de la boca y la mandíbula de abajo por encima: queda entre los dientes.
     const k = g.sharks.find(s => s.id === eaten.shark);
     if (k) {
-      drawFirefighter(ctx, g, v, 1 - (eaten.t / CHOMP) * 0.4);
+      drawHeroFigure(ctx, g, v, 1 - (eaten.t / CHOMP) * 0.4);
       const { dir, a } = sharkPose(k);
       drawShark(ctx, k, X(v, k.x), Y(v, k.y), v.s, -a * dir, dir, { jawOnly: true });
     }

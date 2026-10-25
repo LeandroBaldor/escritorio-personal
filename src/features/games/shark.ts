@@ -1,5 +1,5 @@
 // Lógica de "Ciudad Tiburón": la ciudad está inundada, llueve, hay relámpagos y viento, y por las calles
-// (ahora canales) nadan tiburones. Sos un bombero y tenés que rescatar 20 perritos, gatos y personas que
+// (ahora canales) nadan tiburones. Sos el héroe y tenés que rescatar 20 perritos, gatos y personas que
 // flotan en el agua (arriba de gomas, cajones, puertas y colchones) antes de que se termine el tiempo.
 //
 // - La ciudad es una fila de edificios, casas y locales, con una calle inundada entre cada uno. Se arranca

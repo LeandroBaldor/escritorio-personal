@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { drawRunner } from './runnerCharacter';
+import { drawHero } from './trepaArt';
 import { level, LEVEL_SECONDS, newGame, WIN_LEVEL, TRAP_SECONDS, PLAYER_H, PLAYER_W, score, step, takeEvents, type Game, type GameOver, type Input } from './blockRunner';
 import { playBlockLand, playExplosion, playFootstep, playGameOver, playJump, playStart, playWinFanfare, preloadBlockSounds } from './sounds';
 import { EndBanner } from './EndBanner';
@@ -79,7 +79,7 @@ function draw(ctx: CanvasRenderingContext2D, game: Game, cell: number) {
 
   // El personaje (el mismo que en Trepaluna).
   const p = game.player;
-  drawRunner(ctx, { x: p.x * cell, y: p.y * cell, w: PLAYER_W * cell, h: PLAYER_H * cell, facing: p.facing, time: game.time, running: p.vx !== 0 && p.onGround, airborne: !p.onGround });
+  drawHero(ctx, { x: p.x * cell, y: p.y * cell, w: PLAYER_W * cell, h: PLAYER_H * cell, facing: p.facing, time: game.time, running: p.vx !== 0 && p.onGround, airborne: !p.onGround, climbing: false, falling: false, burnt: false });
 
   // Explosiones: un fogonazo que crece y se apaga, y chispas de los bloques que se rompen.
   for (const b of game.blasts) {

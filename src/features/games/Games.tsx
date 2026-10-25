@@ -152,7 +152,7 @@ export function Games() {
           <Cover src={sharkCover} />
           <span className="game-card-text">
             <strong>Ciudad Tiburón</strong>
-            <span>🦈 La ciudad se inundó y está llena de tiburones. Sos bombero: saltá de techo en techo esquivándolos.</span>
+            <span>🦈 La ciudad se inundó y está llena de tiburones. Sos el héroe que rescata a las personas, perros y gatos.</span>
             <span className="game-card-win"><b>Cómo se gana:</b> Rescatá a 20 que flotan en el agua antes de los 10 minutos, sin que te coma un tiburón.</span>
           </span>
           <span className="game-card-foot">

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { drawBalloonEnvelope, drawBalloonRig, drawClimber, drawGoreFlying, drawPigeon, drawPlane, drawStains, drawUfo, drawZeppelin } from './trepaArt';
+import { drawBalloonEnvelope, drawBalloonRig, drawClimber, drawGoreFlying, drawPigeon, drawPlane, drawStains, drawUfo, drawZeppelin, HERO_SCALE } from './trepaArt';
 import { playAbducted, playAstronautHit, playAstronautSplat, playTrepaStep, playCrumble, playGameOver, playJump, playKnock, playLose, playStart, playTeleport, playThunder, playFlame, playTramp, playWinFanfare, preloadTrepaSounds, setAmbient } from './sounds';
 import { EndBanner } from './EndBanner';
 import { ambientLevels, HEAR_RADIUS } from './trepaSound';
@@ -1241,7 +1241,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, g: Trepa, v: View) {
   const p = g.player, s = v.s;
   if (g.hurt?.phase === 'rise' || g.splat) return; // subiendo la cámara, o reventado contra la calle
   const falling = !!g.dying || !!g.hurt;
-  const pw = PLAYER_W * s, ph = PLAYER_H * s, big = 1.55;
+  const pw = PLAYER_W * s, ph = PLAYER_H * s, big = HERO_SCALE;
   const dw = pw * big, dh = ph * big, fx = X(v, p.x), fy = Y(v, p.y);
   const px = fx - dw / 2, py = fy - dh;
   const burnt = g.dying?.reason === 'burn' || g.hurt?.reason === 'burn';

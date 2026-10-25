@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { drawRunner, type RunnerHat, type RunnerLook } from './runnerCharacter';
+import { drawHero } from './trepaArt';
 import {
   BURN_T, elevatorAt, floorY, HELI_H, HELI_W, heliState, heliTarget, LAVA_DELAY, zipY, meters, newLava, PLAYER_H, PLAYER_W, personState, personX, sparkActive, sparkWarning, step, takeEvents, towerOf, WALL,
   type Building, type Climb, type Crane, type Elevator, type Escape, type Fallen, type Fire, type Input, type LavaGame, type LoseReason, type Person, type Plat, type Spark, type Spiral, type Wire, type Zip,
@@ -1832,7 +1833,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, g: LavaGame, v: View) {
   const px = X(v, p.x) - pw / 2, py = Y(v, p.y) - ph;
   const burnt = !!g.dying;
   if (p.zip) drawTrolley(ctx, X(v, p.x), Y(v, p.y + 1.1), s, true);
-  drawRunner(ctx, { x: px, y: py, w: pw, h: ph, facing: p.facing, time: v.t, running: p.vx !== 0 && !!p.ground, airborne: !p.ground && !p.climb && !p.zip && !p.wire, climbing: !!p.climb || !!p.zip || !!p.wire, falling: !!g.dying, burnt });
+  drawHero(ctx, { x: px, y: py, w: pw, h: ph, facing: p.facing, time: v.t, running: p.vx !== 0 && !!p.ground, airborne: !p.ground && !p.climb && !p.zip && !p.wire, climbing: !!p.climb || !!p.zip || !!p.wire, falling: !!g.dying, burnt }); // el mismo trepador que en Trepaluna
   if (g.dying?.reason === 'zap' && Math.floor(v.t * 20) % 2) bolts(ctx, px + pw / 2, py + ph / 2, pw * 1.2, v.t, '#fde047');
   if (g.dying) for (let i = 0; i < 3; i++) { ctx.fillStyle = `rgba(120,113,108,${0.5 - i * 0.12})`; ctx.beginPath(); ctx.arc(px + pw / 2 + Math.sin(v.t * 6 + i) * pw * 0.4, py - i * pw * 0.6, pw * (0.25 + i * 0.1), 0, Math.PI * 2); ctx.fill(); }
 }

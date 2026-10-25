@@ -876,3 +876,13 @@ export function drawGoreFlying(ctx: CanvasRenderingContext2D, gore: Gore, at: To
     ctx.restore();
   }
 }
+
+// ---------------------------------------------------------------- El protagonista en los otros juegos
+// El trepador, igual que en Trepaluna, para ¡Cuidado, bloques!, ¡El piso es de lava! y Ciudad Tiburón. Recibe
+// la caja de choque en la pantalla (todos usan la misma: 0,6 × 0,85) y lo dibuja 1,55 veces más grande,
+// parado en el mismo lugar (los pies, abajo al centro).
+export const HERO_SCALE = 1.55;
+export function drawHero(ctx: CanvasRenderingContext2D, pose: ClimberPose) {
+  const w = pose.w * HERO_SCALE, h = pose.h * HERO_SCALE;
+  drawClimber(ctx, { ...pose, x: pose.x + pose.w / 2 - w / 2, y: pose.y + pose.h - h, w, h });
+}
