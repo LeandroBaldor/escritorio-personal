@@ -51,25 +51,25 @@ export const freeAngles = (def: LevelDef) => LEVELS.indexOf(def) >= 4;
 
 export const LEVELS: LevelDef[] = [
   { name: 'Ciudad Futurista', theme: 'city', stars: 1, seconds: 210, speed: [3, 4.1], flip: [6, 10], gap: [5.5, 8.5],
-    pool: { spikes: 3, block: 2, platform: 2, laser: 2.7, mine: 1.2, pit: 1, bomb: 1.5, door: 1.4, sweeper: 0.8, scanner: 0.8, monster: 2.4, comet: 0.7, blackhole: 2.6 } },
+    pool: { spikes: 3, block: 2, platform: 2, laser: 2.7, mine: 1.2, pit: 1, bomb: 1.5, door: 1.4, sweeper: 0.8, scanner: 0.8, monster: 1.2, comet: 0.7, blackhole: 2.6 } },
   { name: 'Minas Espaciales', theme: 'mines', stars: 2, seconds: 240, speed: [3.2, 4.4], flip: [5.5, 9], gap: [4.8, 7.5],
-    pool: { spikes: 2, block: 1.5, platform: 2, pit: 1, mine: 1.5, proxMine: 2, asteroid: 2, laser: 2.1, bomb: 2, tunnel: 1, comet: 1, monster: 3, worm: 1, sweeper: 0.7, blackhole: 2.6 } },
+    pool: { spikes: 2, block: 1.5, platform: 2, pit: 1, mine: 1.5, proxMine: 2, asteroid: 2, laser: 2.1, bomb: 2, tunnel: 1, comet: 1, monster: 1.5, worm: 1, sweeper: 0.7, blackhole: 2.6 } },
   { name: 'Base en el Espacio', theme: 'base', stars: 3, seconds: 270, speed: [3.4, 4.8], flip: [5, 8.5], gap: [4.2, 6.8],
-    pool: { spikes: 2, platform: 2, laser: 3.3, turret: 2, press: 1.5, mine: 1, pit: 1, proxMine: 1, bomb: 2, door: 2.4, tunnel: 1.5, sweeper: 1.2, scanner: 1.2, monster: 2.4, blackhole: 2.6 } },
+    pool: { spikes: 2, platform: 2, laser: 3.3, turret: 2, press: 1.5, mine: 1, pit: 1, proxMine: 1, bomb: 2, door: 2.4, tunnel: 1.5, sweeper: 1.2, scanner: 1.2, monster: 1.2, blackhole: 2.6 } },
   { name: 'Planeta Helado', theme: 'ice', stars: 3, seconds: 290, speed: [3.5, 5], flip: [4.5, 8], gap: [4.2, 6.5], ice: true,
-    pool: { spikes: 2, platform: 2, icicle: 2.5, saw: 2, walker: 2, mine: 1, pit: 1.5, laser: 2.1, door: 1.8, tunnel: 1.5, comet: 1, worm: 1.2, monster: 2.4, scanner: 0.8, bomb: 1, blackhole: 2.6 } },
+    pool: { spikes: 2, platform: 2, icicle: 2.5, saw: 2, walker: 2, mine: 1, pit: 1.5, laser: 2.1, door: 1.8, tunnel: 1.5, comet: 1, worm: 1.2, monster: 1.2, scanner: 0.8, bomb: 1, blackhole: 2.6 } },
   { name: 'Planeta Volcánico', theme: 'volcano', stars: 4, seconds: 310, speed: [3.6, 5.2], flip: [4.5, 7.5], gap: [4, 6.2],
-    pool: { spikes: 2.5, fireball: 2, geyser: 2, crumble: 2, pit: 1.5, platform: 1.5, mine: 1, saw: 1, bomb: 2, door: 1.3, tunnel: 1, comet: 2, worm: 1.4, laser: 2.6, sweeper: 1.2, monster: 2.4, blackhole: 2.6 } },
+    pool: { spikes: 2.5, fireball: 2, geyser: 2, crumble: 2, pit: 1.5, platform: 1.5, mine: 1, saw: 1, bomb: 2, door: 1.3, tunnel: 1, comet: 2, worm: 1.4, laser: 2.6, sweeper: 1.2, monster: 1.2, blackhole: 2.6 } },
   { name: 'El Orden Inverso', theme: 'inverse', stars: 4, seconds: 310, speed: [3.8, 5.4], flip: [4, 7], gap: [3.8, 5.8], inverted: true,
-    pool: { spikes: 2, platform: 2, pendulum: 2, flipper: 1.5, flyer: 2, mine: 1.5, laser: 2.5, icicle: 1, door: 1.8, tunnel: 1, bomb: 1.4, sweeper: 1.2, blackhole: 2.6, monster: 3, scanner: 0.8 } },
+    pool: { spikes: 2, platform: 2, pendulum: 2, flipper: 1.5, flyer: 2, mine: 1.5, laser: 2.5, icicle: 1, door: 1.8, tunnel: 1, bomb: 1.4, sweeper: 1.2, blackhole: 2.6, monster: 1.5, scanner: 0.8 } },
   { name: 'Fábrica Robótica', theme: 'factory', stars: 5, seconds: 340, speed: [4, 5.6], flip: [4, 6.5], gap: [4.2, 6.5],
-    pool: { conveyor: 2, press: 2.5, saw: 2.5, walker: 2.5, laser: 3.1, turret: 2.5, spikes: 1.5, block: 1, bomb: 1.5, door: 1.8, sweeper: 1.4, scanner: 1.4, monster: 1.8, blackhole: 2.6 } },
+    pool: { conveyor: 2, press: 2.5, saw: 2.5, walker: 2.5, laser: 3.1, turret: 2.5, spikes: 1.5, block: 1, bomb: 1.5, door: 1.8, sweeper: 1.4, scanner: 1.4, monster: 0.9, blackhole: 2.6 } },
   { name: 'Bosque Bioluminiscente', theme: 'forest', stars: 4, seconds: 360, speed: [4.1, 5.8], flip: [3.5, 6], gap: [3.6, 5.5],
-    pool: { spring: 2, spores: 2, waterfall: 1.5, plant: 2, laser: 2.5, flyer: 1.5, spikes: 1.5, mine: 1, bomb: 1.4, door: 1.4, monster: 4.2, worm: 1.4, comet: 0.8, sweeper: 0.8, blackhole: 2.6 } },
+    pool: { spring: 2, spores: 2, waterfall: 1.5, plant: 2, laser: 2.5, flyer: 1.5, spikes: 1.5, mine: 1, bomb: 1.4, door: 1.4, monster: 2.1, worm: 1.4, comet: 0.8, sweeper: 0.8, blackhole: 2.6 } },
   { name: 'Torres en la Tormenta', theme: 'storm', stars: 5, seconds: 390, speed: [4.3, 6], flip: [3, 5.5], gap: [3.2, 5], wind: true, dark: true,
-    pool: { lightning: 2.5, pendulum: 2, spikes: 2, pit: 2, platform: 1.5, laser: 2.5, flyer: 1.5, crumble: 1, turret: 1, bomb: 2, door: 1.8, comet: 1.4, monster: 3, scanner: 1, blackhole: 2.6, sweeper: 0.8 } },
+    pool: { lightning: 2.5, pendulum: 2, spikes: 2, pit: 2, platform: 1.5, laser: 2.5, flyer: 1.5, crumble: 1, turret: 1, bomb: 2, door: 1.8, comet: 1.4, monster: 1.5, scanner: 1, blackhole: 2.6, sweeper: 0.8 } },
   { name: 'La Luna', theme: 'moon', stars: 5, seconds: 476, speed: [4.5, 6.4], flip: [2.5, 5], gap: [3, 4.8], boss: true, spin: true,
-    pool: { meteor: 2.5, tracker: 2.5, laser: 2.5, spikes: 1.5, saw: 1.5, press: 1, proxMine: 1, mine: 1, pit: 1, platform: 1, pendulum: 1, asteroid: 1, icicle: 0.5, bomb: 2, door: 1.8, tunnel: 1, comet: 1.6, monster: 3.6, blackhole: 2.6, sweeper: 1, scanner: 1, worm: 0.8 } },
+    pool: { meteor: 2.5, tracker: 2.5, laser: 2.5, spikes: 1.5, saw: 1.5, press: 1, proxMine: 1, mine: 1, pit: 1, platform: 1, pendulum: 1, asteroid: 1, icicle: 0.5, bomb: 2, door: 1.8, tunnel: 1, comet: 1.6, monster: 1.8, blackhole: 2.6, sweeper: 1, scanner: 1, worm: 0.8 } },
 ];
 // Dónde están las banderas de cada escenario (en qué parte del recorrido).
 export const CHECKPOINTS = [0.2, 0.4, 0.6, 0.8];
@@ -118,7 +118,7 @@ export type GravityEvent =
   | { type: 'land' } | { type: 'flip' } | { type: 'death'; reason: Death }
   | { type: 'boom' } | { type: 'shot' } | { type: 'zap' } | { type: 'spring' } | { type: 'crumble' } | { type: 'cleared'; level: number }
   | { type: 'thunder' } | { type: 'gust' } | { type: 'respawn' } | { type: 'won' }
-  | { type: 'step' } | { type: 'beep'; count: number } | { type: 'checkpoint' } | { type: 'roar' } | { type: 'comet' } | { type: 'worm' } | { type: 'door'; opening: boolean };
+  | { type: 'step' } | { type: 'beep'; count: number } | { type: 'checkpoint' } | { type: 'roar' } | { type: 'monsterDie' } | { type: 'comet' } | { type: 'worm' } | { type: 'door'; opening: boolean };
 
 export interface Stats { time: number; deaths: number; flips: number; levels: number }
 
@@ -496,12 +496,14 @@ const circleHits = (r: { x: number; y: number; w: number; h: number }, cx: numbe
 };
 // El cuerpo del astronauta, un poco más chico que el dibujo (así un roce no mata).
 const body = (p: Player) => ({ x: p.x + 0.1, y: p.y + 0.1, w: PLAYER_W - 0.2, h: PLAYER_H - 0.2 });
+// El cuerpo de un monstruo (un poco más chico que el dibujo, igual que el del astronauta).
+const monsterBody = (h: Hazard) => ({ x: h.x - h.r * 0.7, y: h.y - h.r * 0.7, w: h.r * 1.4, h: h.r * 1.4 });
 
 // Los paneles de una puerta cerrada (o cerrándose) cuentan como sólidos: hay que esperar a que se abra.
-function doorPanels(game: Game): Solid[] {
+function doorPanels(game: Game, near = game.player.x): Solid[] {
   const out: Solid[] = [];
   for (const h of game.hazards) {
-    if (h.kind !== 'door' || h.dead || h.x < game.player.x - 3 || h.x > game.player.x + 3) continue;
+    if (h.kind !== 'door' || h.dead || h.x < near - 3 || h.x > near + 3) continue;
     const ext = doorOpen(game, h);
     if (ext > 0.97) continue;
     const gap = (FLOOR - CEIL) * ext, mid = (FLOOR + CEIL) / 2, half = gap / 2;
@@ -730,8 +732,17 @@ function updateHazards(game: Game, dt: number) {
         }
         // Lo persigue, doblando de a poco (si lo pasás, se da vuelta pero es más lento que el escenario).
         h.aim += angleDiff(Math.atan2(py - h.y, px - h.x), h.aim) * Math.min(1, 3.4 * dt);
+        // No atraviesa paredes, bloques ni puertas cerradas (se desliza por el costado o espera).
+        const walls = [...game.solids.filter(s => !s.gone && s.kind !== 'base' && s.x < h.x + 3 && s.x + s.w > h.x - 3), ...doorPanels(game, h.x)];
+        const blocked = () => walls.some(s => overlaps(monsterBody(h), s));
+        const ox = h.x, oy = h.y;
         h.x += Math.cos(h.aim) * h.speed * dt;
+        if (blocked()) h.x = ox;
         h.y = Math.max(CEIL + 0.5, Math.min(FLOOR - 0.5, h.y + Math.sin(h.aim) * h.speed * dt));
+        if (blocked()) h.y = oy;
+        // Se muere con lo mismo que el astronauta: láseres, minas, pinchos, explosiones, el gusano, el agujero negro…
+        const killed = lethalFor(game, monsterBody(h), h);
+        if (killed) { killMonster(game, h); break; }
         // Mientras lo persigue (y se lo ve), ruge una y otra vez.
         if (visible(game, h.x, 1) && (h.timer -= dt) <= 0) { h.timer = ROAR_EVERY + (hash01(h.id + game.time) - 0.5) * 0.6; emit(game, { type: 'roar' }); }
         if (h.x < game.cam - 3) h.dead = true;
@@ -764,12 +775,14 @@ function updateHazards(game: Game, dt: number) {
 }
 
 // ¿Lo mató algo? Devuelve el motivo.
-function lethal(game: Game): Death | null {
-  const p = game.player, r = body(p);
+const lethal = (game: Game) => lethalFor(game, body(game.player));
+// Lo mismo para cualquier cuerpo "r" (también los monstruos: mueren con lo mismo que el astronauta, menos
+// con otros monstruos). "self": el monstruo que se está mirando.
+function lethalFor(game: Game, r: { x: number; y: number; w: number; h: number }, self?: Hazard): Death | null {
   for (const b of game.blasts) if (b.lethal && b.t < 0.22 && circleHits(r, b.x, b.y, b.r)) return 'blast';
   for (const b of game.bolts) if (circleHits(r, b.x, b.y, b.r)) return 'bolt';
   for (const h of game.hazards) {
-    if (h.dead || !visible(game, h.x, 4)) continue;
+    if (h.dead || !visible(game, h.x, 4) || (self && (h === self || h.kind === 'monster'))) continue;
     switch (h.kind) {
       case 'spikes': if (overlaps(r, { x: h.x + 0.08, y: h.y + (h.side === 1 ? 0.15 : 0), w: h.w - 0.16, h: h.h - 0.15 })) return 'spikes'; break;
       case 'laser': if (laserOn(game, h) && overlaps(r, h)) return 'laser'; break;
@@ -855,6 +868,21 @@ const inside = (s: Solid, x: number, y: number) => x > s.x && x < s.x + s.w && y
 function stain(game: Game, hit: { x: number; y: number; nx: number; ny: number }, r: number, kind: Stain['kind']) {
   game.stains.push({ ...hit, r, kind, at: game.clock, gx: Math.sin(game.angle), gy: Math.cos(game.angle), seed: Math.random() });
   if (game.stains.length > 600) game.stains.splice(0, game.stains.length - 600);
+}
+
+// Un monstruo que se muere (con lo mismo que mata al astronauta): revienta con un fogonazo, sangre que mancha
+// donde cae y pedacitos verdes.
+function killMonster(game: Game, h: Hazard) {
+  h.dead = true;
+  game.blasts.push({ x: h.x, y: h.y, r: 0.8, t: 0, max: 0.35, lethal: false });
+  burst(game, h.x, h.y, BLOOD, 10, 5, 9);
+  burst(game, h.x, h.y, ['#14532d', '#166534', '#22c55e', '#4d7c0f'], 14, 5, 8);
+  const gx = Math.sin(game.angle), gy = Math.cos(game.angle);
+  for (let i = 0; i < 45; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 6 * (0.3 + Math.random() * 0.9);
+    game.drops.push({ x: h.x, y: h.y, vx: Math.cos(a) * sp - gx * 2.5, vy: Math.sin(a) * sp - gy * 2.5, r: 0.04 * (0.5 + Math.random()), life: 0 });
+  }
+  emit(game, { type: 'monsterDie' });
 }
 
 function die(game: Game, reason: Death) {

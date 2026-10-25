@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { CHECKPOINTS, LEVELS, LEVEL_COUNT, LIVES, ROWS, blackholeNear, loadLevel, newGame, progress, step, takeEvents, type Death, type Game, type Input, type Stats } from './gravitySwap';
 import { PX, drawGame } from './gravityArt';
 import {
-  playAstronautHit, playAstronautLand, playAstronautSplat, playAstronautStep, playBombBeep, playCheckpoint, playComet, playCrumble, playGameOver, playGravityBoom, playGravityFlip, playGust,
+  playAstronautHit, playAstronautLand, playSplat, playAstronautSplat, playAstronautStep, playBombBeep, playCheckpoint, playComet, playCrumble, playGameOver, playGravityBoom, playGravityFlip, playGust,
   playDoor, playLaserOn, playMonsterRoar, playStart, playTeleport, playThunder, playTramp, playTurretShot, playThrust, playWinFanfare, playWorm, preloadGravitySounds, setBlackholeSound, setThrustSound, stopBlackholeSound, tickGravityMusic,
 } from './sounds';
 import { EndBanner } from './EndBanner';
@@ -127,6 +127,7 @@ export function GravitySwap() {
           case 'death': playAstronautHit(); playAstronautSplat(); break;
           case 'checkpoint': playCheckpoint(); break;
           case 'roar': playMonsterRoar(); break;
+          case 'monsterDie': playSplat(0.6); break;
           case 'comet': playComet(); break;
           case 'worm': playWorm(); break;
           case 'door': playDoor(e.opening); break;

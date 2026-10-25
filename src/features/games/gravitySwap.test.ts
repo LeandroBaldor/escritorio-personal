@@ -287,6 +287,27 @@ describe('Gravity Swap: monstruos, cometas, lásers nuevos y agujeros negros', (
     expect(roars).toBeGreaterThanOrEqual(3);
   });
 
+  it('el monstruo se muere con lo mismo que el astronauta: si cruza un láser prendido, revienta', () => {
+    const game = empty();
+    game.hazards.push(hazard({ id: 1, kind: 'monster', x: 13, y: 5, x0: 13, y0: 5, r: 0.48, amp: 0.5, speed: 3.5, aim: Math.PI, state: 1, timer: 9 }));
+    game.hazards.push(hazard({ id: 2, kind: 'laser', x: 8, y: CEIL, w: 0.3, h: FLOOR - CEIL, period: 1000, amp: 0.99, phase: 0 }));
+    let died = false;
+    for (let i = 0; i < 4 * 60 && game.phase === 'play' && !died; i++) { game.cam = 0; game.player.x = 2; step(game, idle, 1 / 60, fixed); died = takeEvents(game).some(e => e.type === 'monsterDie'); }
+    expect(died).toBe(true);
+    expect(game.hazards[0].dead).toBe(true);
+    expect(game.phase).toBe('play'); // al astronauta no le pasó nada
+  });
+
+  it('el monstruo no pasa por una puerta cerrada (ni atraviesa bloques)', () => {
+    const game = empty();
+    game.hazards.push(hazard({ id: 1, kind: 'monster', x: 13, y: 5, x0: 13, y0: 5, r: 0.48, amp: 0.5, speed: 3.5, aim: Math.PI, state: 1, timer: 9 }));
+    game.hazards.push(hazard({ id: 2, kind: 'door', x: 8, y: CEIL, w: 1, h: FLOOR - CEIL, period: 1000, phase: 0 }));
+    for (let i = 0; i < 3 * 60 && game.phase === 'play'; i++) { game.cam = 0; game.player.x = 2; step(game, idle, 1 / 60, fixed); }
+    expect(game.phase).toBe('play');
+    expect(game.hazards[0].dead).toBe(false);
+    expect(game.hazards[0].x - 0.48).toBeGreaterThanOrEqual(9 - 0.2); // quedó del otro lado de la puerta
+  });
+
   it('el gusano sale del piso cada tanto y te traga', () => {
     const game = empty();
     game.hazards.push(hazard({ kind: 'worm', x: 8, y: FLOOR, w: 0.9, side: 1, period: 2, len: 3.5, phase: 0 }));
