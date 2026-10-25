@@ -247,8 +247,11 @@ describe('Trepaluna: zona tecnológica', () => {
     g.magnets = [{ id: 1, x: 8, y1: 160.05, y2: 168.6 }];
     g.bestGround = 160;
     Object.assign(g.player, { x: 8, y: 160, ground: g.plats[1] });
+    takeEvents(g);
     run(g, 2.5);
     expect(g.player.ground).toBe(top);
+    // al agarrarlo suena "abducido" una sola vez
+    expect(takeEvents(g).filter(e => e.type === 'abduct').length).toBe(1);
   });
 
   it('el teletransportador lo lleva al portal de arriba', () => {

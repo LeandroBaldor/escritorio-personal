@@ -59,7 +59,7 @@ export interface Input { left: boolean; right: boolean; jump: boolean; down: boo
 export type LoseReason = 'burn' | 'zap' | 'fall';
 export type TrepaEvent =
   | { type: 'jump' } | { type: 'tramp' } | { type: 'crumble' } | { type: 'knock' } | { type: 'zone'; zone: Zone } | { type: 'teleport' }
-  | { type: 'lose'; reason: LoseReason } | { type: 'splat' } | { type: 'gameover' } | { type: 'win' } | { type: 'thunder'; near: number };
+  | { type: 'lose'; reason: LoseReason } | { type: 'splat' } | { type: 'abduct' } | { type: 'gameover' } | { type: 'win' } | { type: 'thunder'; near: number };
 export interface Course {
   plats: Plat[]; climbs: Climb[]; fires: Fire[]; balls: Ball[]; birds: Bird[]; facades: Facade[]; links: Link[];
   lasers: Laser[]; fans: Fan[]; magnets: Magnet[]; gears: Gear[]; portals: Portal[];
@@ -73,7 +73,9 @@ export interface Trepa extends Course {
   // sin que lo lastime nada ("invuln").
   lives: number; hurt: { t: number; reason: LoseReason; phase: 'fall' | 'splat' | 'rise'; rise: number } | null;
   // El golpe contra la calle: la sangre y los pedazos (ver trepaGore) y desde cuándo está reventado.
-  gore: Gore; splat: { t: number } | null; invuln: number; safe: { x: number; y: number; id: number };
+  gore: Gore; splat: { t: number } | null;
+  invuln: number; safe: { x: number; y: number; id: number };
+  abducted: boolean; // si un imán lo está llevando para arriba (para que el sonido suene al agarrarlo)
 }
 
 // Mismo tamaño y movimiento que el personaje de ¡Cuidado, bloques!: corre a 6, salta con 12,5, gravedad
@@ -386,7 +388,7 @@ export function newTrepa(seed?: number): Trepa {
   const course = buildCourse(seed);
   return {
     ...course, time: 0, best: 0, bestGround: 0, won: false, dying: null, over: false, zone: 'city', events: [], flash: 0, bolt: null, nextBolt: 1.5,
-    lives: LIVES, hurt: null, invuln: 0, gore: newGore(), splat: null, safe: { x: WORLD_W / 2, y: 0, id: course.plats[0].id },
+    lives: LIVES, hurt: null, invuln: 0, gore: newGore(), splat: null, abducted: false, safe: { x: WORLD_W / 2, y: 0, id: course.plats[0].id },
     player: { x: WORLD_W / 2, y: 0, vx: 0, vy: 0, facing: 1, ground: course.plats[0], climb: null, climbCooldown: 0, coyote: 0, stun: 0, spin: 0, portalCooldown: 0 },
   };
 }
@@ -534,6 +536,9 @@ export function step(g: Trepa, input: Input, dt: number) {
   // (no agarra al que ya está parado arriba de todo ni al que viene cayendo después de salir por arriba)
   const magnet = g.magnets.find(m => Math.abs(p.x - m.x) < MAGNET_W / 2 && p.y >= m.y1 - 0.1 && p.y < m.y2 && (p.ground ? p.ground.y < m.y2 - 1 : p.vy > -1));
   if (magnet && !p.climb) { p.ground = null; p.vy = Math.min(MAGNET_LIFT, p.vy + 40 * dt); }
+  const lifted = !!magnet && !p.climb;
+  if (lifted && !g.abducted) g.events.push({ type: 'abduct' });
+  g.abducted = lifted;
 
   if (!p.ground) {
     const prev = p.y;

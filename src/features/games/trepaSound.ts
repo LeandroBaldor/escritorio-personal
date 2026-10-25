@@ -1,17 +1,19 @@
 // Sonidos de ambiente de Trepaluna: cuánto se escucha cada tipo de objeto según lo cerca que esté del
 // personaje (0 = no se escucha, 1 = pegado). El fuego y los láseres solo suenan mientras están prendidos.
-import { ballPos, birdPos, fireActive, fireRect, laserActive, laserHalf, PLAYER_H, weatherAt, WORLD_W, type Plat, type Trepa } from './trepaluna';
+import { ballPos, birdPos, blinkOn, fireActive, fireRect, laserActive, laserHalf, PLAYER_H, weatherAt, WORLD_W, type Plat, type Trepa } from './trepaluna';
 
 export type AmbientChannel =
   | 'fire' | 'motor' | 'conveyor' | 'swing' | 'electric' | 'wind' | 'hum'
   | 'bird' | 'plane' | 'drone' | 'meteor'
   | 'balloon' | 'propeller' | 'hover' | 'hydraulic' | 'ufo'
-  | 'city' | 'birdsong' | 'rain' | 'gale' | 'lift';
+  | 'city' | 'birdsong' | 'rain' | 'gale' | 'lift'
+  | 'laser' | 'gear' | 'blink' | 'piston';
 export const AMBIENT_CHANNELS: AmbientChannel[] = [
   'fire', 'motor', 'conveyor', 'swing', 'electric', 'wind', 'hum',
   'bird', 'plane', 'drone', 'meteor',
   'balloon', 'propeller', 'hover', 'hydraulic', 'ufo',
   'city', 'birdsong', 'rain', 'gale', 'lift',
+  'laser', 'gear', 'blink', 'piston',
 ];
 // Se escucha hasta unas 7 unidades (más o menos media pantalla) y sube de volumen al acercarse.
 export const HEAR_RADIUS = 7;
@@ -20,7 +22,7 @@ export const HEAR_RADIUS = 7;
 // con su hélice, las baldosas voladoras con sus helicitas, el pistón con su aire comprimido, el ovni…
 const PLAT_CHANNEL: Partial<Record<Plat['skin'], AmbientChannel>> = {
   basket: 'balloon', zeppelin: 'propeller', tile: 'hover', lift: 'lift', crane: 'motor',
-  piston: 'hydraulic', techTile: 'hydraulic', ufo: 'ufo', satellite: 'hum',
+  piston: 'piston', techTile: 'hydraulic', ufo: 'ufo', satellite: 'hum',
 };
 
 const near = (d: number) => Math.max(0, 1 - d / HEAR_RADIUS);
@@ -48,12 +50,13 @@ export function ambientLevels(g: Trepa): Record<AmbientChannel, number> {
     if (!close(p.y - 3, p.y + 3)) continue;
     const d = boxDist(x, y, p.x, p.x + p.w, p.y - 0.4, p.y);
     if (p.kind === 'conveyor') { hear('conveyor', d); continue; }
+    if (p.kind === 'blink') { if (blinkOn(p, t)) hear('blink', d); continue; } // los escalones que aparecen y desaparecen, mientras están
     if (p.kind !== 'moving' && p.kind !== 'elevator') continue;
     const channel = PLAT_CHANNEL[p.skin] ?? 'motor';
     // El globo prende el quemador cuando sube (ruge fuerte); al bajar apenas cruje y sopla.
     hear(channel, channel === 'balloon' ? boxDist(x, y, p.x, p.x + p.w, p.y - 0.4, p.y + 3) : d, channel === 'balloon' && p.dy <= 0 ? 0.3 : 1);
   }
-  for (const gear of g.gears) if (close(gear.y - gear.r, gear.y + gear.r)) hear('motor', Math.max(0, Math.hypot(x - gear.x, y - gear.y) - gear.r), 0.8);
+  for (const gear of g.gears) if (close(gear.y - gear.r, gear.y + gear.r)) hear('gear', Math.max(0, Math.hypot(x - gear.x, y - gear.y) - gear.r), 0.8);
   // La bola de demolición zumba más fuerte cuanto más rápido pasa (en el medio de la hamaca).
   for (const b of g.balls) {
     if (!close(b.py - b.len - 1, b.py + 1)) continue;
@@ -70,7 +73,7 @@ export function ambientLevels(g: Trepa): Record<AmbientChannel, number> {
   for (const l of g.lasers) {
     if (!close(l.y - 1, l.y + 1) || !laserActive(l, t)) continue;
     const h = laserHalf(l);
-    hear('electric', boxDist(x, y, l.x1, l.x2, l.y - h, l.y + h));
+    hear(l.style === 'laser' ? 'laser' : 'electric', boxDist(x, y, l.x1, l.x2, l.y - h, l.y + h));
   }
   // Los ventiladores soplan de un costado al otro: se escuchan a la altura de su corriente.
   for (const f of g.fans) if (close(f.y1, f.y2)) hear('wind', boxDist(x, y, 0, WORLD_W, f.y1, f.y2));

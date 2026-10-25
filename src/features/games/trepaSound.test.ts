@@ -50,7 +50,10 @@ describe('Trepaluna: sonidos de los objetos', () => {
     expect(heard({})).toEqual(['hover']);
     expect(heard({ kind: 'elevator', skin: 'lift' } as never)).toEqual(['lift']); // el ascensor
     expect(heard({ skin: 'zeppelin' } as never)).toEqual(['propeller']);
-    expect(heard({ kind: 'elevator', skin: 'piston' } as never)).toEqual(['hydraulic']);
+    expect(heard({ kind: 'elevator', skin: 'piston' } as never)).toEqual(['piston']); // el elevador mecánico de la zona tecnológica
+    // los escalones que aparecen y desaparecen suenan solo mientras están
+    expect(heard({ kind: 'blink', skin: 'hologram', speed: 3, phase: 0 } as never)).toEqual(['blink']);
+    expect(heard({ kind: 'blink', skin: 'hologram', speed: 3, phase: 2 } as never)).toEqual([]);
     expect(heard({ kind: 'elevator', skin: 'ufo' } as never)).toEqual(['ufo']);
     g.plats = [{ ...plat, kind: 'solid' } as never];
     expect(Object.entries(ambientLevels(g)).every(([k, v]) => WEATHER.includes(k) || v === 0)).toBe(true);
@@ -85,5 +88,17 @@ describe('Trepaluna: sonidos de los objetos', () => {
     g.fires = [{ ...fire, y: 50 + HEAR_RADIUS + 1 }];
     g.time = 0.1;
     expect(ambientLevels(g).fire).toBe(0);
+  });
+
+  it('zona tecnológica: los láseres prendidos suenan a láser (los rayos, a electricidad) y los engranajes a engranaje', () => {
+    const g = empty();
+    g.lasers = [{ id: 1, y: 50, x1: 0.15, x2: 15.85, period: 2, on: 0.5, phase: 0, style: 'laser' }];
+    expect(ambientLevels(g).laser).toBeGreaterThan(0.5);
+    g.lasers = [{ id: 1, y: 50, x1: 8, x2: 10, period: 2, on: 0.5, phase: 0, style: 'zap' }];
+    expect(ambientLevels(g).laser).toBe(0);
+    expect(ambientLevels(g).electric).toBeGreaterThan(0.5);
+    g.lasers = [];
+    g.gears = [{ id: 1, x: 11, y: 50.5, r: 1.2, speed: 2 }];
+    expect(ambientLevels(g).gear).toBeGreaterThan(0.5);
   });
 });

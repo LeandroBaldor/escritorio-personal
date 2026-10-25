@@ -49,6 +49,12 @@ import propulsorUrl from './assets/sonidos/propulsor.mp3';
 import trepaCiudadUrl from './assets/sonidos/trepa-ciudad.mp3';
 import trepaPajarosUrl from './assets/sonidos/trepa-pajaros.mp3';
 import trepaOvniUrl from './assets/sonidos/trepa-ovni.mp3';
+import trepaLaserUrl from './assets/sonidos/trepa-laser.mp3';
+import trepaEngranajeUrl from './assets/sonidos/trepa-engranaje.mp3';
+import trepaEscalonesUrl from './assets/sonidos/trepa-escalones.mp3';
+import trepaAscensorTecUrl from './assets/sonidos/trepa-ascensor-tec.mp3';
+import trepaAbducidoUrl from './assets/sonidos/trepa-abducido.mp3';
+import trepaFuegoTecUrl from './assets/sonidos/trepa-fuego-tec.mp3';
 import trepaLluviaUrl from './assets/sonidos/trepa-lluvia.mp3';
 import trepaVientoUrl from './assets/sonidos/trepa-viento.mp3';
 import trepaHelicopteroUrl from './assets/sonidos/trepa-helicoptero.mp3';
@@ -133,6 +139,12 @@ function buildAmbient(c: AudioContext) {
   return {
     // La ciudad: tránsito, bocinas y gente (hasta los 1.000 m).
     city: channel(1, out => recorded(c, trepaCiudadUrl, 1.7, out, noisy('lowpass', 500, 0.15))),
+    // Zona tecnológica: los láseres prendidos, los engranajes, los escalones que aparecen y desaparecen
+    // (mientras están) y los elevadores mecánicos (pistones).
+    laser: channel(0.7, out => recorded(c, trepaLaserUrl, 1, out, () => {})),
+    gear: channel(0.75, out => recorded(c, trepaEngranajeUrl, 1, out, () => {})),
+    blink: channel(0.6, out => recorded(c, trepaEscalonesUrl, 1, out, () => {})),
+    piston: channel(0.7, out => recorded(c, trepaAscensorTecUrl, 1, out, () => {})),
     // Entre los 1.000 y los 2.000 m: pájaros cantando.
     birdsong: channel(0.8, out => recorded(c, trepaPajarosUrl, 1, out, () => {})),
     // Pisos que suben y bajan como ascensor: la grabación del ascensor.
@@ -767,14 +779,16 @@ function whenLoaded(url: string, ready: (buffer: AudioBuffer) => void) {
   check();
 }
 // Trepaluna: el clima (la ciudad, la lluvia, el viento) y los truenos de la tormenta.
-export function preloadTrepaSounds() { for (const url of [trepaCiudadUrl, trepaLluviaUrl, trepaVientoUrl, trepaHelicopteroUrl, trepaAvionUrl, trepaPalomasUrl, trepaAscensorUrl, trepaFuegoUrl, trepaGritoUrl, trepaPajarosUrl, trepaOvniUrl, pasosUrl, ...TRUENOS]) loadSample(url); }
+export function preloadTrepaSounds() { for (const url of [trepaCiudadUrl, trepaLluviaUrl, trepaVientoUrl, trepaHelicopteroUrl, trepaAvionUrl, trepaPalomasUrl, trepaAscensorUrl, trepaFuegoUrl, trepaGritoUrl, trepaPajarosUrl, trepaOvniUrl, pasosUrl, trepaLaserUrl, trepaEngranajeUrl, trepaEscalonesUrl, trepaAscensorTecUrl, trepaAbducidoUrl, trepaFuegoTecUrl, ...TRUENOS]) loadSample(url); }
 // Un caño de fuego que se prende cerca: la llamarada grabada (más fuerte cuanto más cerca, near de 0 a 1).
 let lastFlame = -1;
-export function playFlame(near: number) {
+export function playFlame(near: number, tech = false) { // tech: los caños de fuego de la zona tecnológica
   const c = running(); if (!c || c.currentTime - lastFlame < 0.25) return;
   lastFlame = c.currentTime;
-  playSample(trepaFuegoUrl, 0.04 + near * 0.22);
+  playSample(tech ? trepaFuegoTecUrl : trepaFuegoUrl, 0.04 + near * 0.22);
 }
+// El imán agarra al trepador y se lo lleva para arriba.
+export function playAbducted() { playSample(trepaAbducidoUrl, 0.8); }
 export function playThunder(near: number) {
   // La grabación (uno de los tres truenos, al azar): más tarde y más bajo si el rayo cayó lejos.
   if (playSample(TRUENOS[Math.floor(Math.random() * TRUENOS.length)], 0.15 + near * 0.2, (1 - near) * 0.5)) return;

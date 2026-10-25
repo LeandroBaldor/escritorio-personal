@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { drawBalloonEnvelope, drawBalloonRig, drawClimber, drawGoreFlying, drawPigeon, drawPlane, drawStains, drawUfo, drawZeppelin } from './trepaArt';
-import { playAstronautHit, playAstronautSplat, playTrepaStep, playCrumble, playGameOver, playJump, playKnock, playLose, playStart, playTeleport, playThunder, playFlame, playTramp, playWinFanfare, preloadTrepaSounds, setAmbient } from './sounds';
+import { playAbducted, playAstronautHit, playAstronautSplat, playTrepaStep, playCrumble, playGameOver, playJump, playKnock, playLose, playStart, playTeleport, playThunder, playFlame, playTramp, playWinFanfare, preloadTrepaSounds, setAmbient } from './sounds';
 import { EndBanner } from './EndBanner';
 import { ambientLevels, HEAR_RADIUS } from './trepaSound';
 import {
-  ballPos, birdPos, blinkOn, fireActive, fireRect, fireWarning, laserActive, laserHalf, laserWarning, LIVES, meters, moonOf, newTrepa, PLAYER_H, PLAYER_W, step, takeEvents, weatherAt, WORLD_W, ZONES,
+  ballPos, birdPos, blinkOn, fireActive, fireRect, fireWarning, laserActive, laserHalf, laserWarning, LIVES, meters, moonOf, newTrepa, PLAYER_H, PLAYER_W, step, takeEvents, weatherAt, WORLD_W, ZONES, zoneOf,
   type Ball, type Bird, type Climb, type Facade, type Fan, type Fire, type Gear, type Laser, type Magnet, type Portal, type Input, type LoseReason, type Plat, type Trepa, type Zone,
 } from './trepaluna';
 
@@ -1452,6 +1452,7 @@ export function Trepaluna() {
       strideRef.current = stride;
       for (const e of takeEvents(g)) {
         if (e.type === 'jump') playJump(0.5);
+        if (e.type === 'abduct') playAbducted();
         if (e.type === 'splat') { playAstronautHit(); playAstronautSplat(); }
         if (e.type === 'tramp') playTramp();
         if (e.type === 'crumble') playCrumble();
@@ -1472,7 +1473,7 @@ export function Trepaluna() {
         if (lit.has(f.id)) continue;
         lit.add(f.id);
         const r = fireRect(f), d = Math.hypot(Math.max(r.x1 - px, 0, px - r.x2), Math.max(r.y1 - py, 0, py - r.y2));
-        if (d < HEAR_RADIUS && !g.dying && !g.hurt) playFlame(1 - d / HEAR_RADIUS);
+        if (d < HEAR_RADIUS && !g.dying && !g.hurt) playFlame(1 - d / HEAR_RADIUS, zoneOf(f.y) === 'tech');
       }
       // Sonidos de los objetos cercanos (fuego, motores, viento…); se apagan al perder.
       setAmbient(g.dying || g.hurt ? null : ambientLevels(g));
