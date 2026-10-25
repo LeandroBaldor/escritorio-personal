@@ -399,6 +399,17 @@ describe('Gravity Swap: banderas', () => {
     }
   });
 
+  it('retoma donde perdió aunque haya pasado una bandera antes (no vuelve a la bandera)', () => {
+    const game = newGame(1, 16, undefined, fixed);
+    const flag = game.checkpoints[0];
+    for (const d of [2, 15, 40]) {
+      loadLevel(game, 1, fixed, flag, flag + d);
+      expect(game.player.x).toBeGreaterThan(flag + d - 12);
+      expect(game.player.x).toBeLessThanOrEqual(flag + d);
+      expect(game.checkpoint).toBe(flag); // la bandera sigue anotada
+    }
+  });
+
   it('si se queda sin vidas y reintenta, vuelve a la última bandera', () => {
     const game = empty();
     const flag = game.checkpoints[0];

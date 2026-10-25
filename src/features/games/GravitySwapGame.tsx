@@ -81,8 +81,8 @@ export function GravitySwap() {
     if (!stage) return;
     const cols = colsFor(stage.clientWidth, stage.clientHeight);
     const previous = gameRef.current;
-    // Reintentar: vuelve a la última bandera que pasó en ese escenario.
-    if (keepRun && previous) { previous.lives = LIVES; loadLevel(previous, level, undefined, previous.level === level ? previous.checkpoint : 0); previous.phase = 'play'; }
+    // Reintentar: retoma desde donde perdió en ese escenario (con las vidas llenas).
+    if (keepRun && previous) { previous.lives = LIVES; loadLevel(previous, level, undefined, previous.level === level ? previous.checkpoint : 0, previous.level === level ? previous.deathX : undefined); previous.phase = 'play'; }
     else { startLevel.current = level; gameRef.current = newGame(level, cols); }
     input.current = { left: false, right: false, up: false, down: false };
     setNewRecord(false);
@@ -256,7 +256,7 @@ export function GravitySwap() {
             <EndBanner win={false} id="grav-message" />
             <p className="end-reason">{hud.death ? DEATH_TEXT[hud.death] : ''} Te quedaste sin vidas en {def.name}.</p>
             <div className="grav-actions">
-              <button type="button" onClick={() => begin(hud.level, true)} autoFocus>{hud.flags ? `Reintentar desde la bandera ${hud.flags}` : 'Reintentar escenario'}</button>
+              <button type="button" onClick={() => begin(hud.level, true)} autoFocus>Reintentar desde donde perdiste</button>
               <button type="button" className="grav-secondary" onClick={() => { setChosen(hud.level); setStatus('ready'); }}>Elegir escenario</button>
             </div>
           </>}

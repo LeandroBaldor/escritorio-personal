@@ -448,7 +448,7 @@ export function loadLevel(game: Game, level: number, rand: () => number = Math.r
   const flag = from;
   if (deathX !== undefined) {
     const spot = safeSpot(layout, deathX);
-    if (spot > from) {
+    if (spot > 0) { // siempre ahí, aunque haya quedado una bandera adelante: retoma donde perdió
       from = spot;
       for (const h of layout.hazards) if (h.kind !== 'ufo' && h.x > from - 1 && h.x < from + 8) h.dead = true; // despejado alrededor
     }
