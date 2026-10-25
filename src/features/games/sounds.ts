@@ -46,6 +46,9 @@ import invOvniDisparoUrl from './assets/sonidos/invasion-ovni-disparo.mp3';
 import invAlienHablaUrl from './assets/sonidos/invasion-alien-habla.mp3';
 import invLluviaUrl from './assets/sonidos/invasion-lluvia.mp3';
 import propulsorUrl from './assets/sonidos/propulsor.mp3';
+import trepaCiudadUrl from './assets/sonidos/trepa-ciudad.mp3';
+import trepaLluviaUrl from './assets/sonidos/trepa-lluvia.mp3';
+import trepaVientoUrl from './assets/sonidos/trepa-viento.mp3';
 import agujeroNegroUrl from './assets/sonidos/agujero-negro.mp3';
 import laserUrl from './assets/sonidos/laser.mp3';
 import monstruoUrl from './assets/sonidos/monstruo-pez.mp3';
@@ -117,7 +120,15 @@ function ambientChannel(c: AudioContext, max: number, make: (out: GainNode) => v
 }
 function buildAmbient(c: AudioContext) {
   const channel = (max: number, make: (out: GainNode) => void) => ambientChannel(c, max, make);
+  // El clima de Trepaluna (grabaciones que se repiten sin corte; mientras cargan, un ruido parecido).
+  const noisy = (type: BiquadFilterType, f: number, level: number) => (out: GainNode) => { const n = noiseSource(c), fl = filter(c, type, f), g = c.createGain(); g.gain.value = level; n.connect(fl).connect(g).connect(out); n.start(); };
   return {
+    // La ciudad: tránsito, bocinas y gente (hasta los 1.000 m).
+    city: channel(1, out => recorded(c, trepaCiudadUrl, 1.7, out, noisy('lowpass', 500, 0.15))),
+    // La lluvia fuerte de la tormenta (de 2.000 a 3.000 m).
+    rain: channel(1, out => recorded(c, trepaLluviaUrl, 1.1, out, noisy('highpass', 1500, 0.3))),
+    // El viento fuerte de arriba (desde los 3.000 m).
+    gale: channel(1, out => recorded(c, trepaVientoUrl, 0.95, out, noisy('bandpass', 400, 0.35))),
     // Fuego: un rugido grave con chisporroteo.
     fire: channel(0.85, out => {
       const roar = noiseSource(c), body = filter(c, 'lowpass', 700);
@@ -738,6 +749,8 @@ function whenLoaded(url: string, ready: (buffer: AudioBuffer) => void) {
   const check = () => { const b = samples.get(url); if (b instanceof AudioBuffer) ready(b); else if (b) setTimeout(check, 250); };
   check();
 }
+// Trepaluna: el clima (la ciudad, la lluvia, el viento) y los truenos de la tormenta.
+export function preloadTrepaSounds() { for (const url of [trepaCiudadUrl, trepaLluviaUrl, trepaVientoUrl, ...TRUENOS]) loadSample(url); }
 export function playThunder(near: number) {
   // La grabación (uno de los tres truenos, al azar): más tarde y más bajo si el rayo cayó lejos.
   if (playSample(TRUENOS[Math.floor(Math.random() * TRUENOS.length)], 0.15 + near * 0.2, (1 - near) * 0.5)) return;

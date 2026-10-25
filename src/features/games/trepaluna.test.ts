@@ -287,4 +287,15 @@ describe('Trepaluna: zona tecnológica', () => {
     expect(g.player.stun).toBeGreaterThan(0);
     expect(g.dying).toBeNull();
   });
+
+  it('en la tormenta (2.000 a 3.000 m) caen relámpagos con su trueno; más abajo no', () => {
+    const storm = newTrepa(); storm.player.y = 250; storm.player.ground = null;
+    let thunders = 0;
+    for (let i = 0; i < 60 * 12; i++) { storm.player.y = 250; storm.player.vy = 0; step(storm, { left: false, right: false, jump: false, down: false }, 1 / 60); thunders += takeEvents(storm).filter(e => e.type === 'thunder').length; }
+    expect(thunders).toBeGreaterThanOrEqual(1);
+    const calm = newTrepa(); calm.player.y = 150; calm.player.ground = null;
+    let none = 0;
+    for (let i = 0; i < 60 * 12; i++) { calm.player.y = 150; calm.player.vy = 0; step(calm, { left: false, right: false, jump: false, down: false }, 1 / 60); none += takeEvents(calm).filter(e => e.type === 'thunder').length; }
+    expect(none).toBe(0);
+  });
 });

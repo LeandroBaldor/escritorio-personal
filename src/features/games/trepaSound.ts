@@ -1,15 +1,17 @@
 // Sonidos de ambiente de Trepaluna: cuánto se escucha cada tipo de objeto según lo cerca que esté del
 // personaje (0 = no se escucha, 1 = pegado). El fuego y los láseres solo suenan mientras están prendidos.
-import { ballPos, birdPos, fireActive, fireRect, laserActive, laserHalf, PLAYER_H, WORLD_W, type Plat, type Trepa } from './trepaluna';
+import { ballPos, birdPos, fireActive, fireRect, laserActive, laserHalf, PLAYER_H, weatherAt, WORLD_W, type Plat, type Trepa } from './trepaluna';
 
 export type AmbientChannel =
   | 'fire' | 'motor' | 'conveyor' | 'swing' | 'electric' | 'wind' | 'hum'
   | 'bird' | 'plane' | 'drone' | 'meteor'
-  | 'balloon' | 'propeller' | 'hover' | 'hydraulic' | 'ufo';
+  | 'balloon' | 'propeller' | 'hover' | 'hydraulic' | 'ufo'
+  | 'city' | 'rain' | 'gale';
 export const AMBIENT_CHANNELS: AmbientChannel[] = [
   'fire', 'motor', 'conveyor', 'swing', 'electric', 'wind', 'hum',
   'bird', 'plane', 'drone', 'meteor',
   'balloon', 'propeller', 'hover', 'hydraulic', 'ufo',
+  'city', 'rain', 'gale',
 ];
 // Se escucha hasta unas 7 unidades (más o menos media pantalla) y sube de volumen al acercarse.
 export const HEAR_RADIUS = 7;
@@ -30,6 +32,10 @@ const silence = (): Record<AmbientChannel, number> => Object.fromEntries(AMBIENT
 export function ambientLevels(g: Trepa): Record<AmbientChannel, number> {
   const levels = silence();
   const x = g.player.x, y = g.player.y + PLAYER_H / 2, t = g.time;
+  // El clima según la altura: la ciudad (hasta los 1.000 m), la lluvia (de 2.000 a 3.000 m) y el viento fuerte
+  // (desde los 3.000 m).
+  const w = weatherAt(g.player.y);
+  levels.city = w.city; levels.rain = w.storm; levels.gale = w.night;
   const hear = (channel: AmbientChannel, d: number, k = 1) => { if (d < HEAR_RADIUS) levels[channel] = Math.max(levels[channel], near(d) * k); };
   const close = (y1: number, y2: number) => y2 > y - HEAR_RADIUS && y1 < y + HEAR_RADIUS;
 

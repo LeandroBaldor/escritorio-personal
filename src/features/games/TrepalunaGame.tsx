@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { drawRunner } from './runnerCharacter';
-import { playCrumble, playGameOver, playJump, playKnock, playLose, playStart, playTeleport, playTramp, playWinFanfare, setAmbient } from './sounds';
+import { playCrumble, playGameOver, playJump, playKnock, playLose, playStart, playTeleport, playThunder, playTramp, playWinFanfare, preloadTrepaSounds, setAmbient } from './sounds';
 import { EndBanner } from './EndBanner';
 import { ambientLevels } from './trepaSound';
 import {
-  ballPos, birdPos, blinkOn, fireActive, fireWarning, laserActive, laserHalf, laserWarning, meters, moonOf, newTrepa, PLAYER_H, PLAYER_W, step, takeEvents, WORLD_W, ZONES,
+  ballPos, birdPos, blinkOn, fireActive, fireWarning, laserActive, laserHalf, laserWarning, meters, moonOf, newTrepa, PLAYER_H, PLAYER_W, step, takeEvents, weatherAt, WORLD_W, ZONES,
   type Ball, type Bird, type Climb, type Facade, type Fan, type Fire, type Gear, type Laser, type Magnet, type Portal, type Input, type LoseReason, type Plat, type Trepa, type Zone,
 } from './trepaluna';
 
@@ -123,13 +123,42 @@ const hsl = (h: number, s: number, l: number, a = 1) => `hsla(${h},${s}%,${l}%,$
 const hash = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
 // ---------- Fondo ----------
-const SKY: [number, [number, number, number]][] = [[0, [168, 216, 255]], [90, [110, 190, 250]], [250, [80, 160, 240]], [305, [40, 36, 110]], [400, [22, 16, 62]], [470, [8, 8, 30]], [800, [3, 4, 14]]];
+const SKY: [number, [number, number, number]][] = [[0, [168, 216, 255]], [90, [110, 190, 250]], [250, [80, 160, 240]], [300, [16, 18, 48]], [320, [8, 9, 30]], [470, [4, 5, 18]], [800, [2, 3, 12]]];
 function skyAt(y: number) {
   let i = 0;
   while (i < SKY.length - 2 && y > SKY[i + 1][0]) i++;
   const [y0, a] = SKY[i], [y1, b] = SKY[i + 1];
   const k = Math.max(0, Math.min(1, (y - y0) / (y1 - y0)));
-  return `rgb(${a.map((c, j) => Math.round(c + (b[j] - c) * k)).join(',')})`;
+  // En la tormenta (2.000 a 3.000 m) el cielo se pone casi negro, gris azulado.
+  const storm = weatherAt(y).storm * 0.92, STORM = [22, 24, 32];
+  return `rgb(${a.map((c, j) => Math.round((c + (b[j] - c) * k) * (1 - storm) + STORM[j] * storm)).join(',')})`;
+}
+
+// Nubes de tormenta: oscurísimas, con el borde de arriba apenas más claro y la panza negra. Igual que las otras
+// nubes, se arman una vez por tamaño.
+const stormSprites = new Map<number, HTMLCanvasElement>();
+function stormSprite(w: number) {
+  const cached = stormSprites.get(w);
+  if (cached) return cached;
+  const q = 2, c = document.createElement('canvas'); c.width = Math.ceil(w * 1.1 * q); c.height = Math.ceil(w * 0.9 * q);
+  const x = c.getContext('2d')!; x.scale(q, q); x.translate(w * 0.55, w * 0.45);
+  x.fillStyle = '#1a1c23';
+  x.beginPath(); for (const [dx, dy, r] of CLOUD_BLOBS) { x.moveTo(dx * w + r * w, dy * w); x.arc(dx * w, dy * w, r * w, 0, Math.PI * 2); } x.ellipse(0, w * 0.06, w * 0.42, w * 0.08, 0, 0, Math.PI * 2); x.fill();
+  x.globalCompositeOperation = 'source-atop';
+  for (const [dx, dy, r] of CLOUD_BLOBS) {
+    const cx = dx * w - r * w * 0.25, cy = dy * w - r * w * 0.45, g = x.createRadialGradient(cx, cy, 0, cx, cy, r * w);
+    g.addColorStop(0, '#4a5163aa'); g.addColorStop(1, '#4a516300');
+    x.fillStyle = g; x.fillRect(-w * 0.6, -w * 0.5, w * 1.2, w * 0.95);
+  }
+  const belly = x.createLinearGradient(0, -w * 0.1, 0, w * 0.32);
+  belly.addColorStop(0, '#05060800'); belly.addColorStop(1, '#050608ee');
+  x.fillStyle = belly; x.fillRect(-w * 0.6, -w * 0.5, w * 1.2, w * 0.95);
+  stormSprites.set(w, c);
+  return c;
+}
+function stormPuff(ctx: CanvasRenderingContext2D, x: number, y: number, w: number) {
+  const size = Math.max(16, Math.round(w / 16) * 16);
+  ctx.drawImage(stormSprite(size), x - w * 0.55, y - w * 0.45, w * 1.1, w * 0.9);
 }
 
 // Nube con volumen: bultos redondos que se funden en una sola forma, iluminada desde arriba y con la base en
@@ -227,21 +256,32 @@ function nebulaSprite() {
   return nebula;
 }
 
-function drawBackground(ctx: CanvasRenderingContext2D, v: View) {
+function drawBackground(ctx: CanvasRenderingContext2D, v: View, flash = 0, boltX: number | null = null) {
   const top = v.cam + v.h / v.s, mid = v.cam + v.h / v.s / 2;
   const bg = ctx.createLinearGradient(0, 0, 0, v.h);
   bg.addColorStop(0, skyAt(top)); bg.addColorStop(1, skyAt(v.cam));
   ctx.fillStyle = bg; ctx.fillRect(0, 0, v.w, v.h);
 
-  // Estrellas y planetas en el espacio.
-  const stars = Math.max(0, Math.min(1, (mid - ZONES.tech + 5) / 40));
+  // Estrellas (desde los 3.000 m se hace de noche y aparecen muchísimas) y planetas en el espacio.
+  const sky = weatherAt(mid), stars = weatherAt(top).night;
   if (stars > 0) {
-    for (let i = 0; i < 160; i++) {
+    const colors = ['#ffffff', '#ffffff', '#dbeafe', '#fde68a', '#bfdbfe', '#fecaca'];
+    for (let i = 0; i < 600; i++) {
       const sx = hash(i) * v.w, sy = ((hash(i + 500) * v.h * 2 + v.cam * v.s * 0.1) % (v.h * 2)) - v.h * 0.5;
       if (sy < 0 || sy > v.h) continue;
-      ctx.globalAlpha = stars * (0.45 + 0.55 * Math.abs(Math.sin(v.t * 1.5 + i)));
-      ctx.fillStyle = i % 9 ? '#fff' : '#fde68a';
-      const size = 1 + hash(i + 900) * 1.8; ctx.fillRect(sx, sy, size, size);
+      ctx.globalAlpha = stars * (0.35 + 0.65 * Math.abs(Math.sin(v.t * (0.8 + hash(i + 70)) + i)));
+      ctx.fillStyle = colors[i % colors.length];
+      const size = 0.8 + hash(i + 900) ** 3 * 2.4; ctx.fillRect(sx, sy, size, size);
+    }
+    // Una franja de la Vía Láctea, muy suave.
+    ctx.globalAlpha = stars * 0.35;
+    const band = ctx.createLinearGradient(0, v.h * 0.1, v.w, v.h * 0.9);
+    band.addColorStop(0, '#a5b4fc00'); band.addColorStop(0.45, '#c7d2fe33'); band.addColorStop(0.55, '#e0e7ff44'); band.addColorStop(0.65, '#c7d2fe22'); band.addColorStop(1, '#a5b4fc00');
+    ctx.fillStyle = band; ctx.fillRect(0, 0, v.w, v.h);
+    ctx.globalAlpha = stars;
+    for (let i = 0; i < 160; i++) { // polvo de estrellas en la franja
+      const k = hash(i + 4000), sx = k * v.w, sy = v.h * (0.1 + k * 0.8) + (hash(i + 4100) - 0.5) * v.h * 0.18;
+      ctx.fillStyle = '#ffffffaa'; ctx.fillRect(sx, sy, 1, 1);
     }
     const space = Math.max(0, Math.min(1, (mid - ZONES.space + 5) / 25)); // los planetas, recién en el espacio
     ctx.globalAlpha = space;
@@ -308,7 +348,7 @@ function drawBackground(ctx: CanvasRenderingContext2D, v: View) {
   }
 
   // El sol, a partir de que se terminan los edificios.
-  const sun = Math.max(0, Math.min(1, (mid - 85) / 20)) * Math.max(0, Math.min(1, (ZONES.tech - mid) / 20));
+  const sun = Math.max(0, Math.min(1, (mid - 85) / 20)) * Math.max(0, Math.min(1, (ZONES.tech - mid) / 20)) * (1 - sky.storm); // (en la tormenta no se ve)
   if (sun > 0) {
     const sx = v.w * 0.82, sy = v.h * 0.2, r = Math.min(v.w, v.h) * 0.08;
     ctx.globalAlpha = sun;
@@ -340,9 +380,27 @@ function drawBackground(ctx: CanvasRenderingContext2D, v: View) {
     if (sy < -80 || sy > v.h + 80) continue;
     const sx = ((hash(i + 300) * (v.w + 240) + v.t * (5 + hash(i) * 10)) % (v.w + 240)) - 120;
     const cw = (60 + hash(i + 400) * 80) * Math.min(1.3, v.s / 40);
-    ctx.globalAlpha = 0.8; puff(ctx, sx, sy, cw, '#f1f5f9');
+    ctx.globalAlpha = 0.8 * (1 - weatherAt(wy).storm); puff(ctx, sx, sy, cw, '#f1f5f9');
   }
   ctx.globalAlpha = 1;
+  // La tormenta (2.000 a 3.000 m): capas de nubes negras que tapan todo el cielo, iluminadas por dentro cuando
+  // cae un relámpago.
+  if (sky.storm > 0) {
+    for (let layer = 0; layer < 3; layer++) {
+      ctx.globalAlpha = sky.storm * (0.75 + layer * 0.1);
+      for (let i = 0; i < 9; i++) {
+        const w = (140 + hash(i * 7 + layer) * 160) * Math.min(1.4, v.s / 40) * (1 + layer * 0.25), span = v.w + w * 2;
+        const sx = ((hash(i * 3 + layer * 11) * span + v.t * (4 + layer * 5)) % span) - w, sy = v.h * (0.05 + layer * 0.12 + hash(i + layer * 5) * 0.35);
+        stormPuff(ctx, sx, sy, w);
+      }
+    }
+    if (flash > 0) { // el relámpago ilumina las nubes desde adentro
+      const glowR = Math.max(v.w, v.h) * 0.6, lx = boltX ?? v.w / 2, lg = ctx.createRadialGradient(lx, v.h * 0.15, 0, lx, v.h * 0.15, glowR);
+      lg.addColorStop(0, `rgba(220,230,255,${Math.min(0.45, flash * 1.2)})`); lg.addColorStop(1, 'rgba(220,230,255,0)');
+      ctx.globalAlpha = sky.storm; ctx.fillStyle = lg; ctx.fillRect(0, 0, v.w, v.h);
+    }
+    ctx.globalAlpha = 1;
+  }
 
   // Bandadas de pájaros a lo lejos, en el cielo.
   const flocks = Math.max(0, Math.min(1, (mid - 60) / 20)) * Math.max(0, Math.min(1, (ZONES.clouds + 20 - mid) / 20));
@@ -1262,7 +1320,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, g: Trepa, v: View) {
 }
 
 function draw(ctx: CanvasRenderingContext2D, g: Trepa, v: View) {
-  drawBackground(ctx, v);
+  drawBackground(ctx, v, g.flash, g.bolt ? X(v, g.bolt.x) : null);
   drawSideBuildings(ctx, v);
   for (const f of g.facades) drawFacade(ctx, f, v);
   drawUpSign(ctx, v);
@@ -1293,10 +1351,51 @@ function draw(ctx: CanvasRenderingContext2D, g: Trepa, v: View) {
     const y = Y(v, wy);
     if (y < -150 || y > v.h + 150) continue;
     const x = X(v, -4 + ((hash(i + 800) * 26 + v.t * (0.25 + hash(i) * 0.4)) % 26));
-    ctx.globalAlpha = 0.55;
-    puff(ctx, x, y, s * (5 + hash(i + 900) * 4), i % 3 ? '#ffffff' : '#e2e8f0');
+    const storm = weatherAt(wy).storm;
+    ctx.globalAlpha = 0.55 + storm * 0.05; // (las negras, no tanto: que se vea el personaje)
+    if (storm > 0.5) stormPuff(ctx, x, y, s * (5 + hash(i + 900) * 4)); // en la tormenta, nubes negras
+    else puff(ctx, x, y, s * (5 + hash(i + 900) * 4), i % 3 ? '#ffffff' : '#e2e8f0');
   }
   ctx.globalAlpha = 1;
+  drawStorm(ctx, g, v);
+}
+
+// La tormenta, adelante de todo: la lluvia fuerte en diagonal (con el viento), el rayo y el fogonazo blanco.
+function drawStorm(ctx: CanvasRenderingContext2D, g: Trepa, v: View) {
+  const storm = weatherAt(v.cam + v.h / v.s / 2).storm;
+  if (storm <= 0) return;
+  // El rayo: una línea quebrada que baja desde las nubes, con ramas y resplandor.
+  if (g.bolt && g.flash > 0.12) {
+    const r = (n: number) => hash(g.bolt!.seed + n);
+    let x = X(v, g.bolt.x), y = -10;
+    const end = v.h * (0.55 + r(1) * 0.35), pts: [number, number][] = [[x, y]];
+    for (let k = 0; y < end; k++) { y += 18 + r(k + 10) * 30; x += (r(k + 50) - 0.5) * 50; pts.push([x, y]); }
+    ctx.save(); ctx.globalAlpha = storm; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    for (const [width, color, blur] of [[10, 'rgba(165,180,252,0.35)', 30], [4, '#e0e7ff', 16], [1.8, '#ffffff', 0]] as const) {
+      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.shadowColor = '#c7d2fe'; ctx.shadowBlur = blur;
+      ctx.beginPath(); pts.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.stroke();
+      for (let b = 2; b < pts.length - 1; b += 3) { // ramitas
+        const [bx, by] = pts[b], len = 3 + Math.floor(r(b + 90) * 3);
+        ctx.beginPath(); ctx.moveTo(bx, by); let cx = bx, cy = by;
+        for (let k = 0; k < len; k++) { cx += (r(b * 7 + k) - 0.3) * 40 * (b % 2 ? 1 : -1); cy += 12 + r(b + k) * 18; ctx.lineTo(cx, cy); }
+        ctx.lineWidth = width * 0.5; ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+  // La lluvia: gotas largas en diagonal, en dos capas (las de adelante más grandes y rápidas).
+  ctx.save(); ctx.lineCap = 'round';
+  for (const [n, speed, len, alpha, width] of [[160, 1100, 18, 0.35, 1], [90, 1500, 30, 0.5, 1.6]] as const) {
+    ctx.strokeStyle = `rgba(200,215,235,${alpha * storm})`; ctx.lineWidth = width; ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const fall = (hash(i * 3 + len) * (v.h + 60) + v.t * speed) % (v.h + 60) - 30, x = ((hash(i * 7 + len) * (v.w + 80) - fall * 0.25) % (v.w + 80) + v.w + 80) % (v.w + 80) - 40;
+      ctx.moveTo(x, fall); ctx.lineTo(x - len * 0.25, fall + len);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+  // El fogonazo blanco que ilumina toda la pantalla.
+  if (g.flash > 0) { ctx.fillStyle = `rgba(230,236,255,${Math.min(0.3, g.flash * 0.8) * storm})`; ctx.fillRect(0, 0, v.w, v.h); }
 }
 
 const ZONE_MESSAGES: Record<Zone, string> = {
@@ -1372,6 +1471,7 @@ export function Trepaluna() {
 
   const start = useCallback(() => {
     playStart();
+    preloadTrepaSounds();
     gameRef.current = newTrepa();
     camRef.current = 0;
     follow(-1);
@@ -1408,6 +1508,7 @@ export function Trepaluna() {
         if (e.type === 'crumble') playCrumble();
         if (e.type === 'knock') playKnock();
         if (e.type === 'teleport') playTeleport();
+        if (e.type === 'thunder') playThunder(0.35 + e.near * 0.65);
         if (e.type === 'lose') playLose(e.reason);
         if (e.type === 'win') playWinFanfare();
         if (e.type === 'gameover') playGameOver(true);

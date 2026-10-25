@@ -21,6 +21,13 @@ export const WORLD_W = 16;
 export const M_PER_UNIT = 10;
 export const ZONES = { sky: 100, clouds: 220, tech: 300, space: 460, moon: 600 }; // la Luna, a 6.000 m
 export type Zone = 'city' | 'sky' | 'clouds' | 'tech' | 'space';
+// El clima según la altura (0 a 1 cada cosa): el ruido de la ciudad hasta los 1.000 m, una tormenta fuerte con
+// lluvia y relámpagos de los 2.000 a los 3.000 m, y desde los 3.000 m se hace de noche (muchas estrellas) con
+// mucho viento.
+const ramp = (a: number, b: number, v: number) => Math.max(0, Math.min(1, (v - a) / (b - a)));
+export function weatherAt(y: number) {
+  return { city: 1 - ramp(92, 100, y), storm: ramp(196, 204, y) * (1 - ramp(296, 304, y)), night: ramp(296, 306, y) };
+}
 export type Kind = 'ground' | 'solid' | 'tramp' | 'moving' | 'elevator' | 'crumble' | 'conveyor' | 'blink' | 'moon';
 export type Skin =
   | 'ground' | 'beam' | 'scaffold' | 'terrace' | 'tank' | 'billboard' | 'balcony' | 'step' | 'tile' | 'crane' | 'lift'
@@ -50,7 +57,7 @@ export interface Input { left: boolean; right: boolean; jump: boolean; down: boo
 export type LoseReason = 'burn' | 'zap' | 'fall';
 export type TrepaEvent =
   | { type: 'jump' } | { type: 'tramp' } | { type: 'crumble' } | { type: 'knock' } | { type: 'zone'; zone: Zone } | { type: 'teleport' }
-  | { type: 'lose'; reason: LoseReason } | { type: 'gameover' } | { type: 'win' };
+  | { type: 'lose'; reason: LoseReason } | { type: 'gameover' } | { type: 'win' } | { type: 'thunder'; near: number };
 export interface Course {
   plats: Plat[]; climbs: Climb[]; fires: Fire[]; balls: Ball[]; birds: Bird[]; facades: Facade[]; links: Link[];
   lasers: Laser[]; fans: Fan[]; magnets: Magnet[]; gears: Gear[]; portals: Portal[];
@@ -58,6 +65,8 @@ export interface Course {
 export interface Trepa extends Course {
   player: Player; time: number; best: number; bestGround: number; won: boolean;
   dying: { t: number; reason: LoseReason } | null; over: boolean; zone: Zone; events: TrepaEvent[];
+  // La tormenta: el fogonazo de un relámpago (se apaga solo), el rayo que se ve y cuánto falta para el próximo.
+  flash: number; bolt: { x: number; seed: number } | null; nextBolt: number;
 }
 
 // Mismo tamaño y movimiento que el personaje de ¡Cuidado, bloques!: corre a 6, salta con 12,5, gravedad
@@ -359,7 +368,7 @@ export function buildCourse(seed = 20261004): Course {
 export function newTrepa(seed?: number): Trepa {
   const course = buildCourse(seed);
   return {
-    ...course, time: 0, best: 0, bestGround: 0, won: false, dying: null, over: false, zone: 'city', events: [],
+    ...course, time: 0, best: 0, bestGround: 0, won: false, dying: null, over: false, zone: 'city', events: [], flash: 0, bolt: null, nextBolt: 1.5,
     player: { x: WORLD_W / 2, y: 0, vx: 0, vy: 0, facing: 1, ground: course.plats[0], climb: null, climbCooldown: 0, coyote: 0, stun: 0, spin: 0, portalCooldown: 0 },
   };
 }
@@ -397,6 +406,16 @@ export function step(g: Trepa, input: Input, dt: number) {
 
   g.time += dt;
   const t = g.time;
+
+  // Tormenta: cada tanto cae un relámpago (fogonazo, el rayo y el trueno, más fuerte cuanto más cerca).
+  g.flash = Math.max(0, g.flash - dt);
+  if (g.flash <= 0) g.bolt = null;
+  if (weatherAt(p.y).storm > 0.5 && (g.nextBolt -= dt) <= 0) {
+    const near = Math.random();
+    g.flash = 0.3 + near * 0.25; g.bolt = { x: 1 + Math.random() * (WORLD_W - 2), seed: Math.random() * 1000 };
+    g.nextBolt = 2.5 + Math.random() * 4.5;
+    g.events.push({ type: 'thunder', near });
+  }
 
   for (const pl of g.plats) {
     if (pl.kind === 'moving') { const x = pl.baseX + Math.sin(t * pl.speed + pl.phase) * pl.amp; const nx = Math.max(0.3, Math.min(WORLD_W - pl.w - 0.3, x)); pl.dx = nx - pl.x; pl.x = nx; }
