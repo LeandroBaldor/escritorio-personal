@@ -14,6 +14,7 @@
 //
 // Todo se mide en "unidades" (una persona mide 1). El piso de la calle es y = 0 y hacia arriba es positivo.
 import { ANOMALIES, fitsPlace, shuffledAnomalies, type Anomaly } from './invasionAnomalies';
+import { isTester } from './testerMode';
 
 export const GAME_SECONDS = 600;
 export const REVEAL_EVERY = 30, REVEAL_TIME = 5;
@@ -297,7 +298,7 @@ export function step(g: Invasion, dt: number) {
   dt = Math.min(dt, 0.05);
   g.time += dt;
   const t = g.time;
-  if (t >= GAME_SECONDS) { g.over = true; g.outcome = 'time'; for (const room of g.rooms) { room.destroyed = 1; room.burnt = 1; } emit(g, { type: 'end' }); return; }
+  if (t >= GAME_SECONDS && !isTester()) { g.over = true; g.outcome = 'time'; for (const room of g.rooms) { room.destroyed = 1; room.burnt = 1; } emit(g, { type: 'end' }); return; }
 
   // Más aliens con el tiempo.
   const want = aliensAt(t);
@@ -701,7 +702,7 @@ export function shoot(g: Invasion, x: number, y: number) {
         addDecal(g, { room: p.room, x: sx, y: sy, glass: false, t: g.time, blood: true, size: between(g.rand, 0.5, 1.1) });
       }
       addDecal(g, { room: p.room, x: p.x, y: p.y + 0.02, glass: false, t: g.time, blood: true, size: 1.4 });
-      g.civilians++;
+      if (!isTester()) g.civilians++; // en el modo prueba no se pierden vidas
       emit(g, { type: 'civilian', x, y, lives: LIVES - g.civilians });
       if (g.civilians >= LIVES) { g.over = true; g.outcome = 'civilian'; emit(g, { type: 'end' }); }
     }

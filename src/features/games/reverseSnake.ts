@@ -5,6 +5,7 @@
 // veces deja de perseguirte para ir a buscarlas. Su propio cuerpo es una pared: si la hacés enredarse
 // (que no tenga por dónde seguir), se marea, te da puntos extra y vuelve a empezar cortita.
 // También aparecen tijeras (le cortan la cola) y relojes (la congelan).
+import { isTester } from './testerMode';
 
 export type Dir = 'up' | 'down' | 'left' | 'right';
 export interface Cell { x: number; y: number }
@@ -145,7 +146,7 @@ function moveSnake(g: Game) {
   if (s.grow > 0) s.grow--; else s.body.pop();
   const green = g.greens.findIndex(c => same(c, next));
   if (green >= 0) { g.greens.splice(green, 1); s.grow += GREEN_GROW; g.events.push({ type: 'ate' }); }
-  if (same(next, g.apple)) { g.over = true; g.events.push({ type: 'caught' }); }
+  if (same(next, g.apple) && !isTester()) { g.over = true; g.events.push({ type: 'caught' }); }
 }
 
 export function step(g: Game, input: Input, dt: number, rand: () => number = Math.random) {
@@ -163,7 +164,7 @@ export function step(g: Game, input: Input, dt: number, rand: () => number = Mat
     if (input.dir === 'right') a.facing = 1;
     if (inside(g, n) && !s.body.slice(1).some(b => same(b, n))) {
       a.x = n.x; a.y = n.y; a.moveIn = APPLE_STEP; a.hop = APPLE_STEP;
-      if (same(n, s.body[0])) { g.over = true; g.events.push({ type: 'caught' }); return; }
+      if (same(n, s.body[0]) && !isTester()) { g.over = true; g.events.push({ type: 'caught' }); return; }
     }
   }
 

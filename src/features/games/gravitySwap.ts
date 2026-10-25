@@ -8,6 +8,7 @@
 //
 // Cada escenario se arma siempre igual (sale de una semilla fija), pero los cambios de gravedad son al azar.
 // La gravedad es un ángulo: 0 tira hacia el piso, 90° hacia adelante, 180° hacia el techo y 270° hacia atrás.
+import { isTester } from './testerMode';
 
 export const ROWS = 10;
 export const CEIL = 1; // borde de abajo del techo
@@ -859,7 +860,8 @@ function stain(game: Game, hit: { x: number; y: number; nx: number; ny: number }
 function die(game: Game, reason: Death) {
   const p = game.player;
   game.phase = 'dead'; game.phaseT = 0; game.death = reason; game.deathX = p.x;
-  game.lives--; game.stats.deaths++;
+  if (!isTester()) game.lives--; // en el modo prueba no se descuentan vidas
+  game.stats.deaths++;
   game.pendingFlips = [];
   const cx = p.x + PLAYER_W / 2, cy = p.y + PLAYER_H / 2;
   const gx = Math.sin(game.angle), gy = Math.cos(game.angle);

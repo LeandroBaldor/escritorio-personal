@@ -1,4 +1,6 @@
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { applyTesterLink, isTester } from './testerMode';
 import { playStart } from './sounds';
 import blocksCover from './assets/portada-bloques.webp';
 import soccerCover from './assets/portada-futbol.webp';
@@ -41,9 +43,13 @@ export function Games() {
   const paper = readPaperRecord();
   const invasion = readInvasionRecord();
   const gravity = readGravityRecord();
+  // Modo prueba (vidas ilimitadas): se prende o apaga con el enlace secreto (ver testerMode).
+  const { search } = useLocation();
+  const [tester, setTester] = useState(isTester);
+  useEffect(() => { let alive = true; void applyTesterLink(search).then(on => { if (alive) setTester(on); }); return () => { alive = false; }; }, [search]);
   return <section className="games-page">
     <div className="section-title games-title">
-      <div className="games-heading"><p className="eyebrow">Para cortar un rato</p><h1>MiniJuegos</h1><p className="games-byline">By YEYO</p></div>
+      <div className="games-heading"><p className="eyebrow">Para cortar un rato</p><h1>MiniJuegos</h1><p className="games-byline">By YEYO</p>{tester && <p className="games-tester" role="status">∞ Modo prueba: vidas ilimitadas</p>}</div>
       <div className="games-art" aria-hidden="true"><img src={memeJigsaw} alt="" width={1200} height={666} draggable={false} /></div>
       <SectionObjects large><DeskLink /><NotebookLink /><CalculatorLink /><CalendarLink /></SectionObjects>
     </div>
