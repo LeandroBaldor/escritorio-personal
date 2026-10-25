@@ -60,11 +60,14 @@ export interface Input { left: boolean; right: boolean; jump: boolean; down: boo
 export type LoseReason = 'burn' | 'zap' | 'fall';
 export type TrepaEvent =
   | { type: 'jump' } | { type: 'tramp' } | { type: 'crumble' } | { type: 'knock' } | { type: 'zone'; zone: Zone } | { type: 'teleport' }
-  | { type: 'lose'; reason: LoseReason } | { type: 'splat' } | { type: 'abduct' } | { type: 'gameover' } | { type: 'win' } | { type: 'thunder'; near: number };
+  | { type: 'lose'; reason: LoseReason } | { type: 'splat' } | { type: 'abduct' } | { type: 'life' } | { type: 'gameover' } | { type: 'win' } | { type: 'thunder'; near: number };
 export interface Course {
   plats: Plat[]; climbs: Climb[]; fires: Fire[]; balls: Ball[]; birds: Bird[]; facades: Facade[]; links: Link[];
   lasers: Laser[]; fans: Fan[]; magnets: Magnet[]; gears: Gear[]; portals: Portal[];
+  hearts: Heart[]; // una vida de regalo cada 1.000 m
 }
+export interface Heart { id: number; x: number; y: number; taken: boolean }
+export const HEART_EVERY = 100; // cada 1.000 m (en unidades)
 export interface Trepa extends Course {
   player: Player; time: number; best: number; bestGround: number; won: boolean;
   dying: { t: number; reason: LoseReason } | null; over: boolean; zone: Zone; events: TrepaEvent[];
@@ -156,7 +159,7 @@ export function buildCourse(seed = 20261004): Course {
   const rand = () => (s = (s * 16807) % 2147483647) / 2147483647;
   const between = (a: number, b: number) => a + rand() * (b - a);
   const pick = <T,>(list: T[]) => list[Math.floor(rand() * list.length)];
-  const course: Course = { plats: [], climbs: [], fires: [], balls: [], birds: [], facades: [], links: [], lasers: [], fans: [], magnets: [], gears: [], portals: [] };
+  const course: Course = { plats: [], climbs: [], fires: [], balls: [], birds: [], facades: [], links: [], lasers: [], fans: [], magnets: [], gears: [], portals: [], hearts: [] };
   const { plats, climbs, fires, balls, birds, facades, links, lasers, fans, magnets, gears, portals } = course;
   let id = 1;
   const add = (kind: Kind, skin: Skin, cx: number, y: number, w: number, extra: Partial<Plat> = {}) => {
@@ -305,7 +308,8 @@ export function buildCourse(seed = 20261004): Course {
     // ---- Zona tecnológica ----
     lasers: () => {
       // Rayos láser que cruzan toda la pantalla entre plataforma y plataforma: se prenden y se apagan.
-      const soft = easy();
+      // (al principio de la zona tecnológica y en el espacio, cerca de los 5.500 m, son más fáciles)
+      const soft = easy() || zone() === 'space';
       for (let i = 0, n = soft ? 2 : 3 + Math.floor(rand() * 2); i < n; i++) {
         const prev = top, p = jumpTo('solid', beamSkin(), width(3.4, 2.4), {}, Math.max(1.75, gapY()));
         lasers.push({ id: id++, y: prev.y + Math.min(1.3, p.y - prev.y - 0.4), x1: 0.15, x2: WORLD_W - 0.15, period: soft ? between(2.8, 3.3) : between(2.2, 2.9), on: soft ? 0.3 : 0.4, phase: rand() * 3, style: 'laser' });
@@ -380,8 +384,13 @@ export function buildCourse(seed = 20261004): Course {
     segments[seg]();
     last = seg;
   }
-  const moon = add('moon', 'moon', nearX(4, WORLD_W / 2), top.y + gapY(), 4);
+  const moon = add('moon', 'moon', nearX(5, WORLD_W / 2), top.y + gapY(), 5); // la Luna: un poco más ancha para pararse
   link(top, moon, 'jump');
+  // Un corazón (una vida más) cada 1.000 m: arriba de la primera plataforma firme que llega a esa altura.
+  for (let at = HEART_EVERY; at < moon.y - 5; at += HEART_EVERY) {
+    const pl = plats.filter(p => p.y >= at && (p.kind === 'solid' || p.kind === 'ground')).sort((a, b) => a.y - b.y)[0];
+    if (pl) course.hearts.push({ id: id++, x: center(pl), y: pl.y + 1.1, taken: false });
+  }
   return course;
 }
 
@@ -562,6 +571,8 @@ export function step(g: Trepa, input: Input, dt: number) {
       g.events.push({ type: 'teleport' });
     }
   }
+  // Corazones: al agarrar uno, suma una vida.
+  for (const h of g.hearts) if (!h.taken && hitsBox(p, h.x - 0.35, h.x + 0.35, h.y - 0.35, h.y + 0.35)) { h.taken = true; g.lives++; g.events.push({ type: 'life' }); }
   hazards(g, t);
   finish(g);
 }

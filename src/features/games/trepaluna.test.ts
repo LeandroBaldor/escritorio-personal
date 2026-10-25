@@ -389,4 +389,25 @@ describe('Trepaluna: zona tecnológica', () => {
     expect(soft.every(l => l.on <= 0.33)).toBe(true);
     expect(hard.some(l => l.on >= 0.4)).toBe(true);
   });
+
+  it('hay un corazón cada 1.000 m y al agarrarlo suma una vida', () => {
+    const g = newTrepa();
+    expect(g.hearts.length).toBe(5);
+    g.hearts.forEach((h, i) => { expect(h.y).toBeGreaterThan((i + 1) * 100); expect(h.y).toBeLessThan((i + 1) * 100 + 8); });
+    const h = g.hearts[0];
+    Object.assign(g.player, { x: h.x, y: h.y - 0.6, ground: null, vy: 0 });
+    g.bestGround = h.y - 2;
+    takeEvents(g);
+    step(g, idle, 1 / 60);
+    expect(h.taken).toBe(true);
+    expect(g.lives).toBe(LIVES + 1);
+    expect(takeEvents(g).some(e => e.type === 'life')).toBe(true);
+  });
+
+  it('los láseres del espacio (cerca de los 5.500 m) son más fáciles: duran menos prendidos', () => {
+    const c = buildCourse();
+    const space = c.lasers.filter(l => l.y >= ZONES.space && l.style === 'laser');
+    expect(space.length).toBeGreaterThan(0);
+    expect(space.every(l => l.on <= 0.3 && l.period >= 2.8)).toBe(true);
+  });
 });

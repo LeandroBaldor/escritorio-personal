@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { drawMeteor, drawMoon, drawPlanet, milkyWay, prewarmSpace, starTile } from './trepaSpace';
 import { drawBalloonEnvelope, drawBalloonRig, drawClimber, drawGoreFlying, drawPigeon, drawPlane, drawStains, drawUfo, drawZeppelin, HERO_SCALE } from './trepaArt';
-import { playAbducted, playAstronautHit, playAstronautSplat, playTrepaStep, playCrumble, playGameOver, playJump, playKnock, playLose, playStart, playTeleport, playThunder, playFlame, playTramp, playWinFanfare, preloadTrepaSounds, setAmbient } from './sounds';
+import { playCheckpoint, playAbducted, playAstronautHit, playAstronautSplat, playTrepaStep, playCrumble, playGameOver, playJump, playKnock, playLose, playStart, playTeleport, playThunder, playFlame, playTramp, playWinFanfare, preloadTrepaSounds, setAmbient } from './sounds';
 import { EndBanner } from './EndBanner';
+import { Fireworks } from './Fireworks';
 import { ambientLevels, HEAR_RADIUS } from './trepaSound';
 import {
   ballPos, birdPos, blinkOn, fireActive, fireRect, fireWarning, laserActive, laserHalf, laserWarning, LIVES, meters, moonOf, newTrepa, PLAYER_H, PLAYER_W, step, takeEvents, weatherAt, WORLD_W, ZONES, zoneOf,
@@ -18,6 +20,7 @@ export const readTrepaRecord = (): TrepaRecord => {
 const saveRecord = (value: TrepaRecord) => { try { localStorage.setItem(RECORD_KEY, JSON.stringify(value)); } catch { /* sin almacenamiento: el récord dura esta partida */ } };
 export const formatTime = (seconds: number) => `${Math.floor(seconds / 60)}:${(seconds % 60).toFixed(1).padStart(4, '0')}`;
 const MOON_M = meters(moonOf(newTrepa()).y); // el recorrido es siempre el mismo
+const MOON_R = 9; // radio de la Luna (en unidades): bien grande
 const fmtM = (m: number) => m.toLocaleString('es-AR');
 
 type Status = 'ready' | 'playing' | 'paused' | 'over' | 'won';
@@ -269,52 +272,27 @@ function drawBackground(ctx: CanvasRenderingContext2D, v: View, flash = 0, boltX
   // Estrellas (desde los 3.000 m se hace de noche y aparecen muchísimas) y planetas en el espacio.
   const sky = weatherAt(mid), stars = weatherAt(top).night;
   if (stars > 0) {
-    const colors = ['#ffffff', '#ffffff', '#dbeafe', '#fde68a', '#bfdbfe', '#fecaca'];
-    for (let i = 0; i < 600; i++) {
-      const sx = hash(i) * v.w, sy = ((hash(i + 500) * v.h * 2 + v.cam * v.s * 0.1) % (v.h * 2)) - v.h * 0.5;
-      if (sy < 0 || sy > v.h) continue;
-      ctx.globalAlpha = stars * (0.35 + 0.65 * Math.abs(Math.sin(v.t * (0.8 + hash(i + 70)) + i)));
-      ctx.fillStyle = colors[i % colors.length];
-      const size = 0.8 + hash(i + 900) ** 3 * 2.4; ctx.fillRect(sx, sy, size, size);
-    }
-    // Una franja de la Vía Láctea, muy suave.
-    ctx.globalAlpha = stars * 0.35;
-    const band = ctx.createLinearGradient(0, v.h * 0.1, v.w, v.h * 0.9);
-    band.addColorStop(0, '#a5b4fc00'); band.addColorStop(0.45, '#c7d2fe33'); band.addColorStop(0.55, '#e0e7ff44'); band.addColorStop(0.65, '#c7d2fe22'); band.addColorStop(1, '#a5b4fc00');
-    ctx.fillStyle = band; ctx.fillRect(0, 0, v.w, v.h);
+    // Cielo de estrellas con calidad de foto (se repite para arriba y se mueve despacio) y la Vía Láctea.
+    const tile = starTile(v.w, v.h), off = ((v.cam * v.s * 0.1) % v.h + v.h) % v.h;
+    ctx.globalAlpha = stars * 0.85; // la Vía Láctea: una sola, que baja muy despacio al subir
+    ctx.drawImage(milkyWay(v.w, v.h), 0, -v.h * 0.15 + Math.max(-0.15, Math.min(0.15, (v.cam - 470) / 900)) * v.h, v.w, v.h * 1.3);
     ctx.globalAlpha = stars;
-    for (let i = 0; i < 160; i++) { // polvo de estrellas en la franja
-      const k = hash(i + 4000), sx = k * v.w, sy = v.h * (0.1 + k * 0.8) + (hash(i + 4100) - 0.5) * v.h * 0.18;
-      ctx.fillStyle = '#ffffffaa'; ctx.fillRect(sx, sy, 1, 1);
+    ctx.drawImage(tile, 0, off - v.h, v.w, v.h); ctx.drawImage(tile, 0, off, v.w, v.h);
+    for (let i = 0; i < 40; i++) { // algunas titilan
+      const sx = hash(i) * v.w, sy = ((hash(i + 500) * v.h + off) % v.h), tw = Math.abs(Math.sin(v.t * (0.8 + hash(i + 70)) + i));
+      const r = 1 + hash(i + 900) * 1.6, glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 3);
+      glow.addColorStop(0, `rgba(255,255,255,${0.9 * tw})`); glow.addColorStop(1, 'rgba(200,220,255,0)');
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(sx, sy, r * 3, 0, Math.PI * 2); ctx.fill();
     }
     const space = Math.max(0, Math.min(1, (mid - ZONES.space + 5) / 25)); // los planetas, recién en el espacio
     ctx.globalAlpha = space;
     // Nebulosas de colores, muy suaves.
     ctx.drawImage(nebulaSprite(), 0, (v.cam - ZONES.space) * v.s * 0.03 - v.h * 0.25, v.w, v.h * 1.5);
-    // Estrellas brillantes con destello en cruz.
-    for (let i = 0; i < 9; i++) {
-      const sx = hash(i + 3000) * v.w, sy = hash(i + 3100) * v.h, tw = 0.6 + 0.4 * Math.sin(v.t * 2 + i), len = (4 + hash(i + 3200) * 6) * tw;
-      ctx.strokeStyle = '#ffffffcc'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx - len, sy); ctx.lineTo(sx + len, sy); ctx.moveTo(sx, sy - len); ctx.lineTo(sx, sy + len); ctx.stroke();
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(sx, sy, 1.6, 0, Math.PI * 2); ctx.fill();
-    }
-    const py = v.h * 0.3 + (v.cam - ZONES.space - 40) * v.s * 0.08;
-    // Planeta con anillos (el anillo pasa por detrás y por delante) y un planeta rojo con cráteres.
-    const pr = Math.min(v.w, v.h) * 0.09, px = v.w * 0.8;
-    const ring = (front: boolean) => { ctx.save(); ctx.translate(px, py); ctx.rotate(-0.3); for (const [k, c] of [[1.85, '#f5deb399'], [1.6, '#e7c79acc'], [1.4, '#c9a46e88']] as const) { ctx.strokeStyle = c; ctx.lineWidth = Math.max(2, pr * 0.1); ctx.beginPath(); ctx.ellipse(0, 0, pr * k, pr * k * 0.25, 0, front ? 0 : Math.PI, front ? Math.PI : Math.PI * 2); ctx.stroke(); } ctx.restore(); };
-    ring(false);
-    ctx.save(); ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.clip();
-    ctx.fillStyle = '#e9b872'; ctx.fillRect(px - pr, py - pr, pr * 2, pr * 2);
-    for (let b = 0; b < 7; b++) { ctx.fillStyle = ['#d9a05b', '#f3cf92', '#c98b45', '#e8bd7c', '#b8793d', '#f0c98a', '#d39a55'][b]; ctx.fillRect(px - pr, py - pr + b * pr * 0.3, pr * 2, pr * (0.1 + hash(b + 77) * 0.14)); } // franjas
-    const lit = ctx.createRadialGradient(px - pr * 0.4, py - pr * 0.4, pr * 0.1, px, py, pr * 1.05);
-    lit.addColorStop(0, '#ffffff40'); lit.addColorStop(0.5, '#00000000'); lit.addColorStop(1, '#000000b0');
-    ctx.fillStyle = lit; ctx.fillRect(px - pr, py - pr, pr * 2, pr * 2);
-    ctx.restore();
-    ring(true);
-    const rx = v.w * 0.16, ry = py + v.h * 0.35, rr = pr * 0.45;
-    const mars = ctx.createRadialGradient(rx - rr * 0.35, ry - rr * 0.35, rr * 0.1, rx, ry, rr);
-    mars.addColorStop(0, '#fb923c'); mars.addColorStop(0.6, '#c2410c'); mars.addColorStop(1, '#431407');
-    ctx.fillStyle = mars; ctx.beginPath(); ctx.arc(rx, ry, rr, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#7c2d1288'; for (const [dx, dy, r] of [[-0.3, 0.1, 0.18], [0.25, -0.2, 0.12], [0.1, 0.4, 0.1]]) { ctx.beginPath(); ctx.arc(rx + dx * rr, ry + dy * rr, r * rr, 0, Math.PI * 2); ctx.fill(); }
+    // Planetas con luz de verdad: el gigante con anillos, Marte y uno azul helado, a distintas distancias.
+    const py = v.h * 0.3 + (v.cam - ZONES.space - 40) * v.s * 0.08, unit = Math.min(v.w, v.h);
+    drawPlanet(ctx, 'neptune', v.w * 0.46, py - v.h * 0.32 + (v.cam - ZONES.space) * v.s * 0.03, unit * 0.035);
+    drawPlanet(ctx, 'saturn', v.w * 0.8, py, unit * 0.11);
+    drawPlanet(ctx, 'mars', v.w * 0.16, py + v.h * 0.35, unit * 0.055);
     ctx.globalAlpha = 1;
   }
 
@@ -947,14 +925,9 @@ function drawPlat(ctx: CanvasRenderingContext2D, pl: Plat, v: View, g: Trepa) {
       ctx.fillStyle = '#ffffffaa'; ctx.fillRect(x + 3, y + 2, w * 0.25, 2);
       return;
     }
-    case 'moon': {
-      const r = s * 5, cx = x + w / 2, cy = y + r - s * 0.05;
-      const glow = ctx.createRadialGradient(cx, cy, r * 0.9, cx, cy, r * 1.4);
-      glow.addColorStop(0, '#fef9c366'); glow.addColorStop(1, '#fef9c300');
-      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx, cy, r * 1.4, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#e7e5d8'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#c9c6b4';
-      for (const [dx, dy, cr] of [[-0.4, 0.3, 0.16], [0.35, 0.15, 0.1], [0.1, 0.55, 0.2], [-0.15, 0.08, 0.06], [0.5, 0.5, 0.08]]) { ctx.beginPath(); ctx.arc(cx + dx * r, cy - r + dy * r * 1.2, cr * r, 0, Math.PI * 2); ctx.fill(); }
+    case 'moon': { // la Luna, grande y con calidad de foto (se para arriba de todo)
+      const r = s * MOON_R, cx = x + w / 2, cy = y + r - s * 0.12;
+      drawMoon(ctx, cx, cy, r);
       // Banderín de llegada.
       const fx = cx + s * 0.9, wave = Math.sin(v.t * 5) * s * 0.1;
       ctx.fillStyle = '#e2e8f0'; ctx.fillRect(fx, y - s * 2.6, s * 0.09, s * 2.6);
@@ -1058,21 +1031,7 @@ function drawBall(ctx: CanvasRenderingContext2D, b: Ball, v: View) {
 function drawBird(ctx: CanvasRenderingContext2D, b: Bird, v: View) {
   const s = v.s, p = birdPos(b, v.t), x = X(v, p.x), y = Y(v, p.y);
   if (y < -s * 4 || y > v.h + s * 4) return;
-  if (b.skin === 'meteor') {
-    // Meteorito: estela de fuego, resplandor y roca con cráteres.
-    const tail = ctx.createLinearGradient(x - p.dir * s * 3.2, y, x, y);
-    tail.addColorStop(0, '#f9731600'); tail.addColorStop(0.6, '#f97316aa'); tail.addColorStop(1, '#fde047');
-    ctx.fillStyle = tail; ctx.beginPath(); ctx.moveTo(x - p.dir * s * 3.2, y - s * 0.05); ctx.lineTo(x, y - s * 0.55); ctx.lineTo(x, y + s * 0.55); ctx.fill();
-    const glow = ctx.createRadialGradient(x, y, s * 0.3, x, y, s * 1.1);
-    glow.addColorStop(0, '#fb923c88'); glow.addColorStop(1, '#fb923c00');
-    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, s * 1.1, 0, Math.PI * 2); ctx.fill();
-    const rock = ctx.createRadialGradient(x - s * 0.15, y - s * 0.15, s * 0.05, x, y, s * 0.5);
-    rock.addColorStop(0, '#a8a29e'); rock.addColorStop(1, '#44403c');
-    ctx.fillStyle = rock; ctx.beginPath(); ctx.arc(x, y, s * 0.45, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#292524'; for (const [dx, dy, r] of [[-0.15, 0.1, 0.1], [0.12, -0.12, 0.07], [0.1, 0.18, 0.06]]) { ctx.beginPath(); ctx.arc(x + dx * s, y + dy * s, r * s, 0, Math.PI * 2); ctx.fill(); }
-    ctx.fillStyle = '#fde04788'; ctx.beginPath(); ctx.arc(x + p.dir * s * 0.3, y, s * 0.18, 0, Math.PI * 2); ctx.fill();
-    return;
-  }
+  if (b.skin === 'meteor') { drawMeteor(ctx, x, y, s, p.dir, v.t, b.id); return; } // meteorito: roca con estela de plasma
   if (b.skin === 'drone') { // dron de cuatro hélices, con cámara y luz roja
     ctx.save(); ctx.translate(x, y); ctx.scale(p.dir, 1);
     ctx.strokeStyle = '#1e293b'; ctx.lineWidth = Math.max(2, s * 0.08);
@@ -1233,6 +1192,21 @@ function drawPortal(ctx: CanvasRenderingContext2D, o: Portal, v: View) {
   }
 }
 
+// Corazón de pixel art (una vida más): rojo con borde oscuro y brillo, flota subiendo y bajando y late.
+const HEART_PIXELS = ['.XX.XX.', 'XrrXrrX', 'XrwrrrX', 'XrrrrrX', '.XrrrX.', '..XrX..', '...X...'];
+function drawHeart(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, t: number, id: number) {
+  if (y < -s * 2 || y > ctx.canvas.height + s * 2) return;
+  const beat = 1 + Math.max(0, Math.sin(t * 6 + id)) ** 8 * 0.18, px = Math.max(2, Math.round(s * 0.11 * beat)), cy = y + Math.sin(t * 2.5 + id) * s * 0.12;
+  const glow = ctx.createRadialGradient(x, cy, 0, x, cy, s * 0.9); glow.addColorStop(0, 'rgba(248,113,113,0.55)'); glow.addColorStop(1, 'rgba(248,113,113,0)');
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, cy, s * 0.9, 0, Math.PI * 2); ctx.fill();
+  const x0 = Math.round(x - px * 3.5), y0 = Math.round(cy - px * 3.5);
+  HEART_PIXELS.forEach((row, r) => [...row].forEach((ch, c) => {
+    if (ch === '.') return;
+    ctx.fillStyle = ch === 'X' ? '#450a0a' : ch === 'w' ? '#ffffff' : r < 2 ? '#f87171' : r < 4 ? '#ef4444' : '#dc2626';
+    ctx.fillRect(x0 + c * px, y0 + r * px, px, px);
+  }));
+}
+
 // ---------- Personaje ----------
 function drawPlayer(ctx: CanvasRenderingContext2D, g: Trepa, v: View) {
   // El trepador en versión caricatura: se dibuja más grande que su caja de choque (apoyado en los pies).
@@ -1280,6 +1254,7 @@ function draw(ctx: CanvasRenderingContext2D, g: Trepa, v: View) {
   for (const o of g.portals) drawPortal(ctx, o, v);
   for (const f of g.fans) drawFan(ctx, f, v);
   for (const l of g.lasers) drawLaser(ctx, l, v);
+  for (const h of g.hearts) if (!h.taken) drawHeart(ctx, X(v, h.x), Y(v, h.y), s, v.t, h.id);
   // El golpe contra la calle: manchas en la calle y en las paredes, y después las gotas y los pedazos.
   const at = (x: number, y: number): [number, number] => [X(v, x), Y(v, y)];
   drawStains(ctx, g.gore, at, s);
@@ -1401,6 +1376,16 @@ export function Trepaluna() {
     draw(ctx, g, { w, h, s: scale, ox, cam: camRef.current, t: g.time + (g.dying?.t ?? 0) + (g.hurt?.t ?? 0) });
   }, []);
 
+  // En la pantalla de inicio se pinta de antemano lo pesado del espacio (la Luna, los planetas, las estrellas).
+  useEffect(() => {
+    if (status !== 'ready') return;
+    const id = window.setTimeout(() => {
+      const stage = stageRef.current; if (!stage || !stage.clientWidth) return;
+      prewarmSpace(stage.clientWidth, stage.clientHeight, viewFor(stage.clientWidth, stage.clientHeight).scale, MOON_R);
+    }, 500);
+    return () => window.clearTimeout(id);
+  }, [status]);
+
   const follow = useCallback((dt: number) => {
     const stage = stageRef.current, g = gameRef.current;
     if (!stage) return;
@@ -1453,6 +1438,7 @@ export function Trepaluna() {
       for (const e of takeEvents(g)) {
         if (e.type === 'jump') playJump(0.5);
         if (e.type === 'abduct') playAbducted();
+        if (e.type === 'life') { playCheckpoint(); setToast({ text: '❤️ ¡Una vida más!', id: now }); }
         if (e.type === 'splat') { playAstronautHit(); playAstronautSplat(); }
         if (e.type === 'tramp') playTramp();
         if (e.type === 'crumble') playCrumble();
@@ -1550,7 +1536,8 @@ export function Trepaluna() {
         <canvas ref={canvasRef} role="img" aria-label="Recorrido de la ciudad a la Luna" />
         {status === 'playing' && toast && <div key={toast.id} className={toast.big ? 'trepa-record' : 'trepa-toast'} role="status">{toast.text}</div>}
         {status !== 'playing' && <div className="runner-overlay" role="dialog" aria-labelledby="trepa-message">
-          <div>
+          {status === 'won' && <Fireworks />}
+          <div className="trepa-overlay-card">
             {status === 'ready' && <>
               <h2 id="trepa-message">Trepaluna 🌙</h2>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> o <kbd>Espacio</kbd> saltar (en escaleras, mantené para trepar) · <kbd>↓</kbd> bajar · <kbd>P</kbd> pausa</p>
@@ -1578,7 +1565,7 @@ export function Trepaluna() {
       <aside className="trepa-side" aria-label="Tiempo y metros">
         <div className="trepa-stat"><span>Tiempo</span><strong data-testid="trepa-time">{formatTime(hud.tenths / 10)}</strong></div>
         <div className="trepa-stat"><span>Metros</span><strong data-testid="trepa-meters">{fmtM(hud.m)}</strong></div>
-        <div className="trepa-stat" aria-label={`Vidas: ${hud.lives}`}><span>Vidas</span><strong className="trepa-lives">{Array.from({ length: LIVES }, (_, i) => <b key={i} className={i < hud.lives ? '' : 'trepa-lost'}>♥</b>)}</strong></div>
+        <div className="trepa-stat" aria-label={`Vidas: ${hud.lives}`}><span>Vidas</span><strong className="trepa-lives">{Array.from({ length: Math.max(LIVES, hud.lives) }, (_, i) => <b key={i} className={i < hud.lives ? '' : 'trepa-lost'}>♥</b>)}</strong></div>
         <div className="trepa-meter" aria-hidden="true">
           <div className="trepa-meter-track">
             <div className="trepa-meter-best" style={{ height: pct(hud.best) }} />

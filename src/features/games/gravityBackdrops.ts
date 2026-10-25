@@ -10,7 +10,7 @@ const ROWS = 10;
 // ---------- Números al azar fijos y ruido ----------
 
 const hash = (i: number) => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
-function rng(seed: number) {
+export function rng(seed: number) {
   let a = Math.imul(Math.floor(seed) + 1, 0x9e3779b1) >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -33,7 +33,7 @@ function noise(x: number, y: number, seed: number, period = 0) {
   const a = lattice(wx(xi), yi, seed), b = lattice(wx(xi + 1), yi, seed), c = lattice(wx(xi), yi + 1, seed), d = lattice(wx(xi + 1), yi + 1, seed);
   return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
 }
-function fbm(x: number, y: number, seed: number, octaves = 5, period = 0) {
+export function fbm(x: number, y: number, seed: number, octaves = 5, period = 0) {
   let sum = 0, amp = 0.5, f = 1, norm = 0;
   for (let i = 0; i < octaves; i++) { sum += amp * noise(x * f, y * f, seed + i * 31, period * f); norm += amp; f *= 2; amp *= 0.5; }
   return sum / norm;
@@ -41,13 +41,13 @@ function fbm(x: number, y: number, seed: number, octaves = 5, period = 0) {
 
 // ---------- Colores ----------
 
-type RGB = [number, number, number];
-const rgb = (c: string): RGB => { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
-const mixRGB = (a: RGB, b: RGB, k: number): RGB => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+export type RGB = [number, number, number];
+export const rgb = (c: string): RGB => { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+export const mixRGB = (a: RGB, b: RGB, k: number): RGB => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
 const css = (c: RGB, a = 1) => `rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},${a})`;
 const shade = (c: string, k: number) => css(k >= 0 ? mixRGB(rgb(c), [255, 255, 255], k) : mixRGB(rgb(c), [0, 0, 0], -k));
 // Escala de colores: k de 0 a 1 entre varios colores.
-function ramp(stops: [number, string][], k: number): RGB {
+export function ramp(stops: [number, string][], k: number): RGB {
   k = Math.max(0, Math.min(1, k));
   for (let i = 1; i < stops.length; i++) if (k <= stops[i][0]) return mixRGB(rgb(stops[i - 1][1]), rgb(stops[i][1]), (k - stops[i - 1][0]) / (stops[i][0] - stops[i - 1][0] || 1));
   return rgb(stops[stops.length - 1][1]);
@@ -83,7 +83,7 @@ function sprite(key: string, w: number, h: number, draw: (g: CanvasRenderingCont
   return s;
 }
 // Un dibujo hecho píxel por píxel (para texturas con ruido y luz): f devuelve [r, g, b, a] o null si es transparente.
-function pixels(wf: number, hf: number, f: (x: number, y: number) => [number, number, number, number] | null) {
+export function pixels(wf: number, hf: number, f: (x: number, y: number) => [number, number, number, number] | null) {
   const w = Math.round(wf), h = Math.round(hf); // (tienen que ser enteros, si no la imagen sale torcida)
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const g = c.getContext('2d');
