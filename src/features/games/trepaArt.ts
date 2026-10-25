@@ -129,7 +129,7 @@ function paintPlane(ctx: CanvasRenderingContext2D, L: number, H: number, hue: nu
   ctx.fillStyle = '#e5e7eb'; ctx.beginPath(); ctx.ellipse(front + er * 0.05, ey, er * 0.08, er * 0.2, 0, 0, TAU); ctx.fill(); // cono
 }
 export function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, dir: number, hue: number, t: number, id: number) {
-  const L = s * 3.2, H = s * 0.52;
+  const L = s * 4.4, H = s * 0.7;
   ctx.save(); ctx.translate(x, y); ctx.scale(dir, 1);
   // estela de condensación de las dos turbinas
   const trail = ctx.createLinearGradient(-L * 2, 0, -L * 0.15, 0); trail.addColorStop(0, '#ffffff00'); trail.addColorStop(1, '#ffffffb0');
@@ -202,7 +202,7 @@ function pigeonWing(ctx: CanvasRenderingContext2D, u: number, angle: number, sy:
   ctx.restore();
 }
 export function drawPigeon(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, dir: number, t: number, id: number) {
-  const c = PIGEONS[id % PIGEONS.length], u = s * 0.68, line = Math.max(0.6, u * 0.03);
+  const c = PIGEONS[id % PIGEONS.length], u = s * 0.46, line = Math.max(0.6, u * 0.03);
   const beat = t * 11 + id * 1.7, flap = Math.sin(beat);
   const bob = Math.cos(beat) * u * 0.06; // el cuerpo sube y baja con el aleteo
   // el ala sube abierta (vista de frente, más alta) y baja de canto (más achatada)
@@ -249,15 +249,24 @@ export function drawPigeon(ctx: CanvasRenderingContext2D, x: number, y: number, 
 }
 
 // ---------------------------------------------------------------- Globo aerostático
-// La tela: gajos que siguen la curva del globo (los de los costados se ven más angostos), con luz de un lado,
-// costuras, cintas de carga horizontales, una guarda en zigzag en el medio y la válvula de la corona.
+// La tela, como la de un globo de verdad: gajos de nailon que siguen la curva (los de los costados se ven
+// más angostos), cada gajo un poco inflado entre sus cintas de carga (más oscuro en las costuras), paños
+// horizontales cosidos, una corona oscura arriba, una franja con filetes en el medio, la luz del sol de
+// arriba a la izquierda con un reflejo satinado, el reflejo azulado del cielo del lado de la sombra y la
+// parte de abajo más oscura. Se pinta una sola vez en alta resolución.
 const balloons = new Map<string, Sprite>();
 export function balloonRadius(t: number, R: number, throat: number) {
-  const tm = 0.44;
-  return t < tm ? R * Math.sin((t / tm) * Math.PI / 2) ** 0.55 : throat + (R - throat) * Math.cos(((t - tm) / (1 - tm)) * Math.PI / 2) ** 1.1;
+  const tm = 0.4;
+  return t < tm ? R * Math.sin((t / tm) * Math.PI / 2) ** 0.5 : throat + (R - throat) * Math.cos(((t - tm) / (1 - tm)) * Math.PI / 2) ** 1.25;
 }
+const BALLOON_SCHEMES = [ // [color principal, segundo color, tercer color, corona y franja]
+  (h: number) => [hsl(h, 72, 45), hsl(h + 40, 82, 52), hsl(h, 72, 45), hsl(h + 200, 45, 24)],
+  (h: number) => [hsl(h, 68, 46), '#f1ede4', hsl(h + 180, 55, 38), hsl(h, 60, 22)],
+  (h: number) => [hsl(h, 75, 47), hsl(h + 60, 75, 48), hsl(h + 120, 60, 40), hsl(h + 240, 50, 26)],
+  (h: number) => [hsl(h, 64, 40), hsl(h, 70, 55), hsl(h + 30, 85, 55), '#2a2420'],
+];
 function paintBalloon(ctx: CanvasRenderingContext2D, R: number, Ht: number, throat: number, hue: number) {
-  const N = 9, tilt = 0.07, steps = 44, off = ((hue * 7) % 10) / 10 * (Math.PI / N);
+  const N = 12, tilt = 0.06, steps = 48, off = ((hue * 7) % 10) / 10 * (Math.PI / N);
   const r = (t: number) => balloonRadius(t, R, throat);
   const pt = (t: number, th: number): [number, number] => { const rr = r(t); return [rr * Math.sin(th), t * Ht + rr * tilt * Math.cos(th)]; };
   const clampT = (th: number) => Math.max(-Math.PI / 2, Math.min(Math.PI / 2, th));
@@ -267,51 +276,165 @@ function paintBalloon(ctx: CanvasRenderingContext2D, R: number, Ht: number, thro
     for (let i = steps; i >= 0; i--) { const t = t0 + (t1 - t0) * i / steps, [x, y] = pt(t, b); ctx.lineTo(x, y); }
     ctx.closePath();
   };
-  const palette = [hsl(hue, 85, 48), hsl(hue + 42, 92, 55), '#f8fafc', hsl(hue + 200, 72, 40)];
-  // gajos de colores, con una guarda en el medio
+  const ring = (t: number) => { ctx.beginPath(); for (let i = 0; i <= 40; i++) { const [x, y] = pt(t, -Math.PI / 2 + i * Math.PI / 40); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); } };
+  const outline = () => { ctx.beginPath(); for (let i = 0; i <= 80; i++) { const [x, y] = pt(i / 80, -Math.PI / 2); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); } for (let i = 80; i >= 0; i--) { const [x, y] = pt(i / 80, Math.PI / 2); ctx.lineTo(x, y); } ctx.closePath(); };
+  const pal = BALLOON_SCHEMES[hue % BALLOON_SCHEMES.length](hue);
+  // gajos: patrón A B A C alrededor, corona oscura y una franja con filetes claros
   for (let k = -1; k <= N; k++) {
     const a = clampT(-Math.PI / 2 + k * Math.PI / N + off), b = clampT(-Math.PI / 2 + (k + 1) * Math.PI / N + off);
     if (b - a < 1e-3) continue;
     const ci = ((k % 4) + 4) % 4;
-    ctx.fillStyle = palette[ci]; strip(a, b, 0, 1); ctx.fill();
-    ctx.fillStyle = palette[(ci + 2) % 4]; strip(a, b, 0.47, 0.58); ctx.fill();
-    // zigzag de la guarda
-    ctx.fillStyle = palette[(ci + 1) % 4];
-    const m = (a + b) / 2, [x1, y1] = pt(0.47, a), [x2, y2] = pt(0.47, b), [xm, ym] = pt(0.53, m), [x3, y3] = pt(0.58, a), [x4, y4] = pt(0.58, b), [xn, yn] = pt(0.52, m);
-    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(xm, ym); ctx.lineTo(x2, y2); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(x3, y3); ctx.lineTo(xn, yn); ctx.lineTo(x4, y4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = [pal[0], pal[1], pal[0], pal[2]][ci]; strip(a, b, 0, 1); ctx.fill();
+    ctx.fillStyle = pal[3]; strip(a, b, 0, 0.1); ctx.fill(); strip(a, b, 0.5, 0.6); ctx.fill();
+    ctx.fillStyle = '#efe6d2'; strip(a, b, 0.49, 0.505); ctx.fill(); strip(a, b, 0.595, 0.61); ctx.fill();
+    // cada gajo se infla entre sus costuras: más oscuro en los bordes
+    for (let j = 0; j < 8; j++) {
+      const u = (j + 0.5) / 8, edge = Math.abs(u - 0.5) * 2, sa = a + (b - a) * j / 8, sb = a + (b - a) * (j + 1) / 8 + 0.002;
+      if (edge > 0.5) { ctx.fillStyle = `rgba(20,10,20,${(edge - 0.5) * 0.32})`; strip(sa, sb, 0, 1); ctx.fill(); }
+      else if (edge < 0.3) { ctx.fillStyle = `rgba(255,255,255,${(0.3 - edge) * 0.18})`; strip(sa, sb, 0.04, 0.95); ctx.fill(); }
+    }
   }
-  // sombreado por franjas finas: la luz viene de arriba a la izquierda
-  const S = 60;
+  // luz del sol (de arriba a la izquierda), sombra y reflejo azulado del cielo del lado de atrás
+  const S = 72;
   for (let i = 0; i < S; i++) {
-    const a = -Math.PI / 2 + i * Math.PI / S, b = a + Math.PI / S + 0.004, m = (a + b) / 2;
-    const lambert = Math.cos(m + 0.75);
-    if (lambert < 0.55) { ctx.fillStyle = `rgba(15,10,30,${(0.55 - lambert) * 0.55})`; strip(a, b, 0, 1); ctx.fill(); }
-    else { ctx.fillStyle = `rgba(255,255,255,${(lambert - 0.55) * 0.35})`; strip(a, b, 0, 1); ctx.fill(); }
+    const a = -Math.PI / 2 + i * Math.PI / S, b = a + Math.PI / S + 0.003, m = (a + b) / 2;
+    const lambert = Math.cos(m + 0.7);
+    if (lambert < 0.5) { ctx.fillStyle = `rgba(18,12,35,${(0.5 - lambert) * 0.62})`; strip(a, b, 0, 1); ctx.fill(); }
+    else { ctx.fillStyle = `rgba(255,248,235,${(lambert - 0.5) * 0.3})`; strip(a, b, 0, 1); ctx.fill(); }
+    if (m > 1.05) { ctx.fillStyle = `rgba(150,195,255,${(m - 1.05) * 0.35})`; strip(a, b, 0.05, 0.85); ctx.fill(); }
   }
-  // costuras de los gajos y cintas de carga
-  ctx.strokeStyle = 'rgba(40,20,10,0.35)'; ctx.lineWidth = Math.max(0.7, R * 0.012);
+  ctx.save(); outline(); ctx.clip();
+  const vert = ctx.createLinearGradient(0, 0, 0, Ht); // arriba le da más el sol; abajo, en la boca, queda en sombra
+  vert.addColorStop(0, 'rgba(255,250,240,0.18)'); vert.addColorStop(0.35, 'rgba(255,255,255,0)'); vert.addColorStop(0.75, 'rgba(10,5,20,0.12)'); vert.addColorStop(1, 'rgba(10,5,20,0.5)');
+  ctx.fillStyle = vert; ctx.fillRect(-R * 1.2, 0, R * 2.4, Ht);
+  // reflejo satinado del nailon, que sigue la curva del globo
+  ctx.save(); ctx.translate(-R * 0.42, Ht * 0.24); ctx.rotate(-0.25); ctx.scale(0.45, 1);
+  const shine = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.5); shine.addColorStop(0, 'rgba(255,255,255,0.42)'); shine.addColorStop(0.5, 'rgba(255,255,255,0.12)'); shine.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = shine; ctx.beginPath(); ctx.arc(0, 0, R * 0.5, 0, TAU); ctx.fill();
+  ctx.restore();
+  ctx.restore();
+  // costuras: paños horizontales (finitas) y cintas de carga verticales (más marcadas)
+  ctx.lineWidth = Math.max(0.5, R * 0.006); ctx.strokeStyle = 'rgba(30,15,10,0.16)';
+  for (let t = 0.065; t < 0.97; t += 0.065) { ring(t); ctx.stroke(); }
+  ctx.lineWidth = Math.max(0.7, R * 0.012); ctx.strokeStyle = 'rgba(35,20,12,0.4)';
   for (let k = 0; k <= N; k++) {
     const a = -Math.PI / 2 + k * Math.PI / N + off; if (a < -Math.PI / 2 || a > Math.PI / 2) continue;
     ctx.beginPath(); for (let i = 0; i <= steps; i++) { const [x, y] = pt(i / steps, a); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); } ctx.stroke();
   }
-  ctx.strokeStyle = 'rgba(40,20,10,0.22)';
-  for (const t of [0.16, 0.3, 0.68, 0.8, 0.9]) { ctx.beginPath(); for (let i = 0; i <= 30; i++) { const [x, y] = pt(t, -Math.PI / 2 + i * Math.PI / 30); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); } ctx.stroke(); }
-  // la corona (válvula de paracaídas) y el brillo
-  ctx.fillStyle = 'rgba(20,10,10,0.35)'; ctx.beginPath(); ctx.ellipse(0, Ht * 0.02, R * 0.2, R * 0.045, 0, 0, TAU); ctx.fill();
-  const shine = ctx.createRadialGradient(-R * 0.42, Ht * 0.22, 0, -R * 0.42, Ht * 0.22, R * 0.55); shine.addColorStop(0, 'rgba(255,255,255,0.45)'); shine.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.save(); ctx.beginPath(); for (let i = 0; i <= 60; i++) { const t = i / 60, [x, y] = pt(t, -Math.PI / 2); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); } for (let i = 60; i >= 0; i--) { const t = i / 60, [x, y] = pt(t, Math.PI / 2); ctx.lineTo(x, y); } ctx.closePath(); ctx.clip();
-  ctx.fillStyle = shine; ctx.fillRect(-R * 1.2, 0, R * 2.4, Ht);
-  const bottom = ctx.createLinearGradient(0, Ht * 0.55, 0, Ht); bottom.addColorStop(0, 'rgba(0,0,0,0)'); bottom.addColorStop(1, 'rgba(10,5,20,0.4)');
-  ctx.fillStyle = bottom; ctx.fillRect(-R * 1.2, 0, R * 2.4, Ht * 1.05);
-  ctx.restore();
-  ctx.strokeStyle = 'rgba(20,10,10,0.45)'; ctx.lineWidth = Math.max(1, R * 0.015);
-  ctx.beginPath(); for (let i = 0; i <= 60; i++) { const [x, y] = pt(i / 60, -Math.PI / 2); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); } for (let i = 60; i >= 0; i--) { const [x, y] = pt(i / 60, Math.PI / 2); ctx.lineTo(x, y); } ctx.stroke();
+  ctx.strokeStyle = 'rgba(35,20,12,0.3)'; for (const t of [0.1, 0.5, 0.6]) { ring(t); ctx.stroke(); }
+  // válvula de la corona
+  ctx.fillStyle = 'rgba(15,10,10,0.35)'; ctx.beginPath(); ctx.ellipse(0, Ht * 0.012, R * 0.16, R * 0.03, 0, 0, TAU); ctx.fill();
+  ctx.strokeStyle = 'rgba(20,10,10,0.5)'; ctx.lineWidth = Math.max(1, R * 0.012); outline(); ctx.stroke();
 }
 // Dibuja la tela con la boca (garganta) centrada en (cx, throatY) y alto total Ht.
 export function drawBalloonEnvelope(ctx: CanvasRenderingContext2D, cx: number, throatY: number, R: number, Ht: number, throat: number, hue: number) {
   const sp = cached(balloons, `${Math.round(R)}|${Math.round(Ht)}|${Math.round(throat)}|${hue}|${pixelRatio()}`, () => makeSprite(R * 2.1, Ht + R * 0.2, R * 1.05, R * 0.05, c => paintBalloon(c, R, Ht, throat, hue)));
   blit(ctx, sp, cx, throatY - Ht);
+}
+
+// La canasta de mimbre tejido (varillas verticales y fibras que pasan por delante y por detrás), con el borde
+// acolchado de cuero, esquineros de cuero, la base con patines de madera y las manijas de soga.
+const baskets = new Map<string, Sprite>();
+function paintBasket(ctx: CanvasRenderingContext2D, w: number, bh: number, s: number) {
+  const body = () => { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w, 0); ctx.lineTo(w - w * 0.03, bh - s * 0.08); ctx.quadraticCurveTo(w - w * 0.035, bh, w - w * 0.08, bh); ctx.lineTo(w * 0.08, bh); ctx.quadraticCurveTo(w * 0.035, bh, w * 0.03, bh - s * 0.08); ctx.closePath(); };
+  ctx.fillStyle = '#8a6234'; body(); ctx.fill();
+  ctx.save(); body(); ctx.clip();
+  const row = Math.max(2.5, s * 0.065), stake = Math.max(4, s * 0.13);
+  for (let r = 0, y = s * 0.12; y < bh; r++, y += row) {
+    for (let c = 0, x = -stake / 2; x < w + stake; c++, x += stake) {
+      const over = (r + c) % 2 === 0;
+      const g = ctx.createLinearGradient(0, y, 0, y + row);
+      if (over) { g.addColorStop(0, '#e6c993'); g.addColorStop(0.45, '#cfa766'); g.addColorStop(1, '#8f6a37'); }
+      else { g.addColorStop(0, '#a98450'); g.addColorStop(1, '#6e4f28'); }
+      ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(x + (over ? 0 : stake * 0.15), y + row * 0.08, over ? stake * 1.02 : stake * 0.7, row * 0.86, row * 0.45); ctx.fill();
+    }
+  }
+  ctx.fillStyle = 'rgba(60,35,10,0.35)'; for (let x = 0; x < w + stake; x += stake) ctx.fillRect(x - Math.max(0.6, s * 0.012), s * 0.1, Math.max(1.2, s * 0.024), bh); // varillas
+  const shade = ctx.createLinearGradient(0, 0, w, 0); shade.addColorStop(0, 'rgba(30,15,5,0.45)'); shade.addColorStop(0.3, 'rgba(255,240,210,0.08)'); shade.addColorStop(0.55, 'rgba(0,0,0,0)'); shade.addColorStop(1, 'rgba(30,15,5,0.5)');
+  ctx.fillStyle = shade; ctx.fillRect(0, 0, w, bh);
+  const under = ctx.createLinearGradient(0, 0, 0, bh); under.addColorStop(0, 'rgba(20,10,0,0.35)'); under.addColorStop(0.25, 'rgba(0,0,0,0)'); under.addColorStop(0.85, 'rgba(0,0,0,0)'); under.addColorStop(1, 'rgba(20,10,0,0.35)');
+  ctx.fillStyle = under; ctx.fillRect(0, 0, w, bh);
+  ctx.restore();
+  // esquineros y base de cuero, patines de madera
+  ctx.fillStyle = '#5a3418'; ctx.fillRect(0, s * 0.1, s * 0.09, bh - s * 0.15); ctx.fillRect(w - s * 0.09, s * 0.1, s * 0.09, bh - s * 0.15);
+  ctx.fillStyle = '#4a2a12'; ctx.beginPath(); ctx.roundRect(w * 0.02, bh - s * 0.1, w * 0.96, s * 0.1, s * 0.04); ctx.fill();
+  ctx.fillStyle = '#6b4423'; ctx.fillRect(w * 0.12, bh - s * 0.01, w * 0.2, s * 0.05); ctx.fillRect(w * 0.68, bh - s * 0.01, w * 0.2, s * 0.05);
+  // borde acolchado de gamuza con costura
+  const pad = ctx.createLinearGradient(0, -s * 0.06, 0, s * 0.16); pad.addColorStop(0, '#9a6a3c'); pad.addColorStop(0.45, '#6e4422'); pad.addColorStop(1, '#3d2410');
+  ctx.fillStyle = pad; ctx.beginPath(); ctx.roundRect(-s * 0.05, -s * 0.06, w + s * 0.1, s * 0.2, s * 0.09); ctx.fill();
+  ctx.strokeStyle = 'rgba(240,215,170,0.7)'; ctx.lineWidth = Math.max(0.6, s * 0.012); ctx.setLineDash([Math.max(1.5, s * 0.04), Math.max(1.5, s * 0.035)]);
+  ctx.beginPath(); ctx.moveTo(0, s * 0.03); ctx.lineTo(w, s * 0.03); ctx.stroke(); ctx.setLineDash([]);
+  // manijas de soga a los costados
+  ctx.strokeStyle = '#c8a46a'; ctx.lineWidth = Math.max(1, s * 0.03);
+  for (const hx of [w * 0.22, w * 0.78]) { ctx.beginPath(); ctx.arc(hx, bh * 0.38, s * 0.1, 0.1, Math.PI - 0.1); ctx.stroke(); }
+}
+// Todo lo que cuelga del globo: cables, armazón y quemador (con su llama), mangueras, el piloto y la canasta.
+export function drawBalloonRig(ctx: CanvasRenderingContext2D, o: { cx: number; x: number; y: number; w: number; s: number; throatY: number; throat: number; rising: boolean; t: number; id: number }, envelope: () => void) {
+  const { cx, x, y, w, s, throatY, throat, rising, t, id } = o;
+  const frameY = y - s * 0.62, fw = s * 0.36, bh = s * 0.85;
+  // cables de acero de la boca del globo al armazón del quemador
+  ctx.strokeStyle = '#3b2f2a'; ctx.lineWidth = Math.max(0.8, s * 0.022);
+  ctx.beginPath(); for (const [a, b] of [[-1, -1], [-0.45, -0.6], [0.45, 0.6], [1, 1]]) { ctx.moveTo(cx + a * throat * 0.95, throatY + s * 0.2); ctx.lineTo(cx + b * fw, frameY); } ctx.stroke();
+  // llama del quemador (sube por adentro de la boca del globo) y su resplandor
+  if (rising) {
+    const fl = 0.8 + 0.2 * Math.sin(t * 37 + id) + 0.1 * Math.sin(t * 23);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const glow = ctx.createRadialGradient(cx, frameY - s * 0.5, s * 0.1, cx, frameY - s * 0.5, s * 1.1);
+    glow.addColorStop(0, 'rgba(255,170,70,0.38)'); glow.addColorStop(1, 'rgba(255,140,40,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx, frameY - s * 0.5, s * 1.1, 0, TAU); ctx.fill();
+    for (const [wd, len, c0, c1, c2] of [[0.2, 1.15, '#3b82f6', '#fb923c', '#dc262600'], [0.12, 0.85, '#93c5fd', '#fde68a', '#f9731600'], [0.06, 0.45, '#ffffff', '#fef9c3', '#fde04700']] as const) {
+      const top = frameY - s * 0.12 - s * len * fl, g = ctx.createLinearGradient(0, frameY - s * 0.1, 0, top);
+      g.addColorStop(0, c0); g.addColorStop(0.35, c1); g.addColorStop(1, c2);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(cx - s * wd, frameY - s * 0.1);
+      ctx.bezierCurveTo(cx - s * wd * 1.4, frameY - s * len * 0.5, cx + Math.sin(t * 19) * s * 0.06, top + s * 0.2, cx + Math.sin(t * 13) * s * 0.04, top);
+      ctx.bezierCurveTo(cx + Math.sin(t * 17) * s * 0.06, top + s * 0.2, cx + s * wd * 1.4, frameY - s * len * 0.5, cx + s * wd, frameY - s * 0.1); ctx.fill();
+    }
+    ctx.restore();
+  }
+  envelope();
+  // pollera de lona (ignífuga) en la boca, iluminada por la llama
+  const skirt = ctx.createLinearGradient(cx - throat, 0, cx + throat, 0); skirt.addColorStop(0, '#2b1a10'); skirt.addColorStop(0.4, '#5c3a22'); skirt.addColorStop(1, '#1e120a');
+  ctx.fillStyle = skirt; ctx.beginPath(); ctx.moveTo(cx - throat, throatY - 1); ctx.lineTo(cx + throat, throatY - 1); ctx.lineTo(cx + throat * 0.78, throatY + s * 0.22); ctx.lineTo(cx - throat * 0.78, throatY + s * 0.22); ctx.closePath(); ctx.fill();
+  if (rising) { ctx.fillStyle = 'rgba(255,170,80,0.35)'; ctx.fill(); }
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = Math.max(0.6, s * 0.012); for (const k of [-0.6, -0.2, 0.2, 0.6]) { ctx.beginPath(); ctx.moveTo(cx + throat * k, throatY); ctx.lineTo(cx + throat * k * 0.78, throatY + s * 0.22); ctx.stroke(); }
+  // varillas del armazón, forradas en gamuza, de la canasta al quemador
+  for (const side of [-1, 1]) {
+    const bx = side < 0 ? x + w * 0.1 : x + w * 0.9, tx = cx + side * fw;
+    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = Math.max(1.2, s * 0.04); ctx.beginPath(); ctx.moveTo(tx, frameY); ctx.lineTo(tx + (bx - tx) * 0.15, frameY + (y - frameY) * 0.15); ctx.stroke();
+    ctx.strokeStyle = '#6b4423'; ctx.lineWidth = Math.max(2, s * 0.075); ctx.beginPath(); ctx.moveTo(tx + (bx - tx) * 0.15, frameY + (y - frameY) * 0.15); ctx.lineTo(bx, y); ctx.stroke();
+  }
+  // mangueras de gas
+  ctx.strokeStyle = '#111827'; ctx.lineWidth = Math.max(1, s * 0.03);
+  for (const side of [-1, 1]) { ctx.beginPath(); ctx.moveTo(cx + side * s * 0.12, frameY + s * 0.1); ctx.bezierCurveTo(cx + side * s * 0.45, frameY + s * 0.3, cx + side * s * 0.1, y - s * 0.1, cx + side * s * 0.3, y + s * 0.05); ctx.stroke(); }
+  // quemador doble: serpentines de acero, válvulas y la llamita piloto azul
+  for (const side of [-1, 1]) {
+    const bx = cx + side * s * 0.13, g = ctx.createLinearGradient(bx - s * 0.12, 0, bx + s * 0.12, 0);
+    g.addColorStop(0, '#475569'); g.addColorStop(0.4, '#e2e8f0'); g.addColorStop(1, '#334155');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(bx - s * 0.12, frameY - s * 0.14, s * 0.24, s * 0.24, s * 0.04); ctx.fill();
+    ctx.strokeStyle = 'rgba(30,41,59,0.6)'; ctx.lineWidth = Math.max(0.6, s * 0.012); for (let k = 1; k < 5; k++) { ctx.beginPath(); ctx.moveTo(bx - s * 0.12, frameY - s * 0.14 + s * 0.048 * k); ctx.lineTo(bx + s * 0.12, frameY - s * 0.14 + s * 0.048 * k); ctx.stroke(); }
+    ctx.fillStyle = '#b91c1c'; ctx.beginPath(); ctx.arc(bx, frameY + s * 0.15, s * 0.04, 0, TAU); ctx.fill(); // válvula
+  }
+  ctx.fillStyle = '#64748b'; ctx.fillRect(cx - fw, frameY + s * 0.08, fw * 2, Math.max(1.5, s * 0.04)); // travesaño del armazón
+  ctx.fillStyle = 'rgba(96,165,250,0.85)'; ctx.beginPath(); ctx.ellipse(cx, frameY - s * 0.17, s * 0.03, s * 0.05, 0, 0, TAU); ctx.fill();
+  // el piloto, asomado por encima del borde; cuando sube el globo, levanta el brazo a la válvula
+  const px = x + w * 0.27, py = y - s * 0.2, hr = s * 0.12;
+  ctx.fillStyle = '#1f3b5c'; ctx.beginPath(); ctx.roundRect(px - s * 0.17, py + hr * 0.7, s * 0.34, s * 0.4, s * 0.1); ctx.fill(); // campera
+  if (rising) { ctx.strokeStyle = '#1f3b5c'; ctx.lineWidth = Math.max(2, s * 0.07); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(px + s * 0.12, py + hr); ctx.lineTo(cx - s * 0.16, frameY + s * 0.16); ctx.stroke(); ctx.fillStyle = '#e8b48a'; ctx.beginPath(); ctx.arc(cx - s * 0.16, frameY + s * 0.16, s * 0.035, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = '#e8b48a'; ctx.beginPath(); ctx.arc(px, py, hr, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(px, py - hr * 0.15, hr * 1.02, Math.PI, TAU); ctx.fill(); // gorro
+  ctx.fillStyle = '#111827'; ctx.fillRect(px - hr * 0.95, py - hr * 0.25, hr * 1.9, hr * 0.3); // antiparras
+  ctx.fillStyle = '#7dd3fc'; ctx.fillRect(px - hr * 0.2, py - hr * 0.2, hr * 0.9, hr * 0.2);
+  // la canasta
+  const sp = cached(baskets, `${Math.round(w)}|${Math.round(s)}|${pixelRatio()}`, () => makeSprite(w + s * 0.2, bh + s * 0.2, s * 0.1, s * 0.08, c => paintBasket(c, w, bh, s)));
+  blit(ctx, sp, x, y);
+  // bolsas de arena colgando a los costados
+  for (const side of [-1, 1]) {
+    const bx = side < 0 ? x - s * 0.08 : x + w + s * 0.08, by = y + bh * 0.5 + Math.sin(t * 2 + id + side) * s * 0.02;
+    ctx.strokeStyle = '#a07a46'; ctx.lineWidth = Math.max(0.8, s * 0.02); ctx.beginPath(); ctx.moveTo(bx - side * s * 0.06, y + s * 0.08); ctx.lineTo(bx, by - s * 0.12); ctx.stroke();
+    const g = ctx.createRadialGradient(bx - s * 0.04, by - s * 0.04, 0, bx, by, s * 0.17); g.addColorStop(0, '#d9bf8c'); g.addColorStop(1, '#8a6a3a');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(bx, by, s * 0.11, s * 0.15, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#6b4f2a'; ctx.fillRect(bx - s * 0.05, by - s * 0.15, s * 0.1, s * 0.03);
+  }
 }
 
 // ---------------------------------------------------------------- El trepador

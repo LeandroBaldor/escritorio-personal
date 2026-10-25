@@ -83,7 +83,7 @@ export const LIVES = 3; // con las 3 perdidas, se cae hasta la calle y es GAME O
 export const RISE_TIME = 1.8; // al perder una vida, lo que tarda la cámara en subir de la calle hasta donde perdió
 const SAFE_TIME = 2; // después de volver, unos segundos sin que lo lastime nada
 export const FALL_LOSE = 10; // caer más de 100 m por debajo de lo más alto que pisaste es perder
-const BALL_R = 0.75, BIRD_R = 0.5;
+const BALL_R = 0.75, BIRD_R = 0.5, PIGEON_R = 0.36;
 const MAGNET_LIFT = 6.5, MAGNET_W = 1.4, PORTAL_R = 0.55;
 const MAX_FALL = 18;
 
@@ -132,7 +132,8 @@ const SEGMENTS: Record<Zone, [Seg, number][]> = {
 };
 const SIGNATURE: Record<Zone, Seg[]> = {
   city: ['terrace', 'firePipe', 'zigzag', 'balconies'], sky: ['birds', 'zeppelin', 'elevator'], clouds: ['tiles', 'elevator'],
-  tech: ['fireLadder', 'gears', 'fans', 'portal', 'magnet', 'blink', 'zaps', 'lasers'], space: ['birds', 'tramp', 'tiles', 'elevator'],
+  // (en la zona tecnológica salen primero las que ayudan a subir: portal, ventiladores e imán; las más difíciles, después)
+  tech: ['fireLadder', 'lasers', 'zaps', 'gears', 'blink', 'magnet', 'fans', 'portal'], space: ['birds', 'tramp', 'tiles', 'elevator'],
 };
 const BEAM_SKINS: Record<Zone, Skin[]> = { city: ['beam', 'scaffold', 'billboard'], sky: ['scaffold', 'beam'], clouds: ['scaffold', 'cloudBricks'], tech: ['neon', 'hologram', 'neon'], space: ['asteroid', 'station'] };
 const TILE_SKIN: Record<Zone, Skin> = { city: 'tile', sky: 'tile', clouds: 'tile', tech: 'techTile', space: 'ufo' };
@@ -163,8 +164,11 @@ export function buildCourse(seed = 20261004): Course {
   const zone = () => zoneOf(top.y);
   const diff = () => Math.min(1, top.y / ZONES.moon);
   const reach = () => zone() === 'space' ? 3.9 : 2.3;
-  const gapY = () => reach() * between(0.68, 0.78 + 0.18 * diff());
-  const width = (big: number, small: number) => Math.max(small, big - (big - small) * diff());
+  // El comienzo de la zona tecnológica (sus primeros 600 m) es más sencillo: saltos más cortos, plataformas
+  // más anchas, láseres y rayos que duran menos prendidos, engranajes más lentos, ovnis y drones más lentos.
+  const easy = () => zone() === 'tech' && top.y < ZONES.tech + 60;
+  const gapY = () => reach() * between(0.68, 0.78 + 0.18 * diff()) * (easy() ? 0.88 : 1);
+  const width = (big: number, small: number) => Math.max(small, big - (big - small) * diff()) + (easy() ? 0.5 : 0);
   // Próxima x: cerca de la anterior, sin que el hueco entre los bordes pase de 2,3.
   const nearX = (w: number, want?: number, spread = 4) => {
     const c = center(top), lim = (top.w + w) / 2 + 2.3;
@@ -188,7 +192,7 @@ export function buildCourse(seed = 20261004): Course {
     if (withFire) { // caños a los costados que cruzan la escalera con fuego: hay que esperar el momento
       for (let fy = base.y + 2.2, k = 0; fy < topY - 1.2; fy += 2.4, k++) {
         const s = k % 2 ? 1 : -1;
-        fires.push({ id: id++, x: x + s * 2.4, y: fy, dir: s > 0 ? 'left' : 'right', len: 3.8, period: between(2, 2.6), on: 0.42, phase: rand() * 3 });
+        fires.push({ id: id++, x: x + s * 2.4, y: fy, dir: s > 0 ? 'left' : 'right', len: 3.8, period: between(2, 2.6) * (easy() ? 1.2 : 1), on: easy() ? 0.32 : 0.42, phase: rand() * 3 });
       }
     }
     const w = 3;
@@ -287,22 +291,24 @@ export function buildCourse(seed = 20261004): Course {
       // Pájaros (o meteoritos en el espacio) que cruzan entre las plataformas y te empujan.
       for (let i = 0; i < 3; i++) {
         const p = jumpTo('solid', beamSkin(), width(3.4, 2.4));
-        if (i < 2) birds.push({ id: id++, y: p.y + between(1, 1.6), x0: 0.8, x1: WORLD_W - 0.8, speed: between(2.5, 4), phase: rand() * 2, skin: zone() === 'tech' ? (id % 2 ? 'ufo' : 'drone') : zone() === 'space' ? (rand() < 0.5 ? 'meteor' : id % 2 ? 'ufo' : 'drone') : rand() < 0.3 ? 'plane' : 'bird' });
+        if (i < 2) birds.push({ id: id++, y: p.y + between(1, 1.6), x0: 0.8, x1: WORLD_W - 0.8, speed: easy() ? between(1.8, 2.6) : between(2.5, 4), phase: rand() * 2, skin: zone() === 'tech' ? (id % 2 ? 'ufo' : 'drone') : zone() === 'space' ? (rand() < 0.5 ? 'meteor' : id % 2 ? 'ufo' : 'drone') : rand() < 0.3 ? 'plane' : 'bird' });
       }
     },
     // ---- Zona tecnológica ----
     lasers: () => {
       // Rayos láser que cruzan toda la pantalla entre plataforma y plataforma: se prenden y se apagan.
-      for (let i = 0, n = 3 + Math.floor(rand() * 2); i < n; i++) {
+      const soft = easy();
+      for (let i = 0, n = soft ? 2 : 3 + Math.floor(rand() * 2); i < n; i++) {
         const prev = top, p = jumpTo('solid', beamSkin(), width(3.4, 2.4), {}, Math.max(1.75, gapY()));
-        lasers.push({ id: id++, y: prev.y + Math.min(1.3, p.y - prev.y - 0.4), x1: 0.15, x2: WORLD_W - 0.15, period: between(2.2, 2.9), on: 0.4, phase: rand() * 3, style: 'laser' });
+        lasers.push({ id: id++, y: prev.y + Math.min(1.3, p.y - prev.y - 0.4), x1: 0.15, x2: WORLD_W - 0.15, period: soft ? between(2.8, 3.3) : between(2.2, 2.9), on: soft ? 0.3 : 0.4, phase: rand() * 3, style: 'laser' });
       }
     },
     zaps: () => {
       // Rayos eléctricos entre dos postes, arriba de una plataforma ancha: se pasa cuando se cortan.
-      for (let i = 0; i < 2; i++) {
+      const soft = easy();
+      for (let i = 0, n = soft ? 1 : 2; i < n; i++) {
         const prev = top, p = jumpTo('solid', 'neon', 6.2);
-        lasers.push({ id: id++, y: p.y + 0.45, x1: center(p) - 0.8, x2: center(p) + 0.8, period: between(2, 2.6), on: 0.45, phase: rand() * 3, style: 'zap' });
+        lasers.push({ id: id++, y: p.y + 0.45, x1: center(p) - 0.8, x2: center(p) + 0.8, period: soft ? between(2.6, 3.1) : between(2, 2.6), on: soft ? 0.33 : 0.45, phase: rand() * 3, style: 'zap' });
         const far = center(p) >= center(prev) ? 1 : -1; // la próxima queda del otro lado de los postes
         const next = add('solid', beamSkin(), far > 0 ? p.x + p.w - 0.7 : p.x + 0.7, p.y + gapY(), width(3, 2.4));
         link(p, next, 'jump'); top = next;
@@ -312,7 +318,7 @@ export function buildCourse(seed = 20261004): Course {
       // Ventiladores a un costado que soplan y te empujan mientras saltás.
       const side: -1 | 1 = rand() < 0.5 ? -1 : 1, y1 = top.y + 0.3;
       for (let i = 0, n = 3 + Math.floor(rand() * 2); i < n; i++) jumpTo('solid', beamSkin(), width(3.4, 2.6));
-      fans.push({ id: id++, side, y1, y2: top.y + 0.2, force: between(3, 4.2) });
+      fans.push({ id: id++, side, y1, y2: top.y + 0.2, force: y1 < ZONES.tech + 60 ? between(2.3, 3) : between(3, 4.2) });
     },
     magnet: () => {
       // Imán gigante: te parás debajo y te levanta hasta la plataforma de arriba.
@@ -327,7 +333,7 @@ export function buildCourse(seed = 20261004): Course {
       for (let i = 0; i < 3; i++) {
         const prev = top, p = jumpTo('solid', beamSkin(), width(3.2, 2.4));
         const mx = (center(prev) + center(p)) / 2, gx = mx + (mx < WORLD_W / 2 ? 2.6 : -2.6);
-        gears.push({ id: id++, x: Math.max(1.4, Math.min(WORLD_W - 1.4, gx)), y: (prev.y + p.y) / 2 + 0.8, r: between(1.1, 1.5), speed: (rand() < 0.5 ? -1 : 1) * between(1.5, 2.5) });
+        gears.push({ id: id++, x: Math.max(1.4, Math.min(WORLD_W - 1.4, gx)), y: (prev.y + p.y) / 2 + 0.8, r: easy() ? between(1, 1.2) : between(1.1, 1.5), speed: (rand() < 0.5 ? -1 : 1) * (easy() ? between(1, 1.5) : between(1.5, 2.5)) });
       }
     },
     portal: () => {
@@ -340,8 +346,8 @@ export function buildCourse(seed = 20261004): Course {
     },
     blink: () => {
       // Plataformas que desaparecen y vuelven: hay que saltar en el momento justo.
-      const period = between(2.4, 3);
-      for (let i = 0, n = 3 + Math.floor(rand() * 2); i < n; i++) jumpTo('blink', 'hologram', width(3, 2.4), { speed: period, phase: (i * period * 0.35) % period });
+      const soft = easy(), period = soft ? between(3.2, 3.7) : between(2.4, 3);
+      for (let i = 0, n = soft ? 3 : 3 + Math.floor(rand() * 2); i < n; i++) jumpTo('blink', 'hologram', width(3, 2.4), { speed: period, phase: (i * period * 0.35) % period });
     },
   };
 
@@ -556,7 +562,11 @@ function hazards(g: Trepa, t: number) {
   for (const b of g.birds) {
     const c = birdPos(b, t);
     // el ovni es un plato ancho: choca en el centro y en las dos puntas del disco
-    if (b.skin === 'ufo' ? [-0.7, 0, 0.7].some(dx => hitsCircle(p, c.x + dx, c.y - (dx ? 0.05 : 0), dx ? 0.38 : 0.55)) : hitsCircle(p, c.x, c.y, BIRD_R)) { knock(c.x); return; }
+    // el ovni es un plato ancho y el avión, largo: chocan en todo su ancho; las palomas son chicas
+    const hit = b.skin === 'ufo' ? [-0.7, 0, 0.7].some(dx => hitsCircle(p, c.x + dx, c.y - (dx ? 0.05 : 0), dx ? 0.38 : 0.55))
+      : b.skin === 'plane' ? [-1.2, -0.4, 0.4, 1.2].some(dx => hitsCircle(p, c.x + dx, c.y, 0.38))
+      : hitsCircle(p, c.x, c.y, b.skin === 'bird' ? PIGEON_R : BIRD_R);
+    if (hit) { knock(c.x); return; }
   }
   for (const gr of g.gears) if (hitsCircle(p, gr.x, gr.y, gr.r)) { knock(gr.x); return; }
 }

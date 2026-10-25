@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { drawBalloonEnvelope, drawClimber, drawPigeon, drawPlane, drawUfo } from './trepaArt';
+import { drawBalloonEnvelope, drawBalloonRig, drawClimber, drawPigeon, drawPlane, drawUfo } from './trepaArt';
 import { playCrumble, playGameOver, playJump, playKnock, playLose, playStart, playTeleport, playThunder, playFlame, playTramp, playWinFanfare, preloadTrepaSounds, setAmbient } from './sounds';
 import { EndBanner } from './EndBanner';
 import { ambientLevels, HEAR_RADIUS } from './trepaSound';
@@ -842,41 +842,10 @@ function drawPlat(ctx: CanvasRenderingContext2D, pl: Plat, v: View, g: Trepa) {
       }
       return;
     }
-    case 'basket': { // globo aerostático: gajos de colores, brillo, cuerdas, quemador y canasta de mimbre
+    case 'basket': { // globo aerostático: tela de gajos, cables, quemador con su llama, piloto y canasta de mimbre
       const cx = x + w / 2, R = Math.max(w * 0.85, s * 1.75), cy = y - s * 1.55 - R * 1.05, throatY = y - s * 1.35, throat = R * 0.32;
       const rising = pl.dy > 0;
-      // cuerdas de la canasta al globo
-      ctx.strokeStyle = '#78350f'; ctx.lineWidth = Math.max(1, s * 0.035);
-      ctx.beginPath(); for (const [bx, tx] of [[x + 2, cx - throat], [x + w * 0.35, cx - throat * 0.4], [x + w * 0.65, cx + throat * 0.4], [x + w - 2, cx + throat]]) { ctx.moveTo(bx, y); ctx.lineTo(tx, throatY); } ctx.stroke();
-      // quemador y su llama (cuando sube)
-      if (rising) {
-        const fl = 0.75 + 0.25 * Math.sin(v.t * 35 + pl.id);
-        const glow = ctx.createRadialGradient(cx, y - s * 1.0, s * 0.1, cx, y - s * 1.0, s * 1.4);
-        glow.addColorStop(0, '#fde68a99'); glow.addColorStop(1, '#fde68a00');
-        ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx, y - s * 1.0, s * 1.4, 0, Math.PI * 2); ctx.fill();
-        const flame = ctx.createLinearGradient(0, y - s * 0.75, 0, y - s * (0.75 + 0.85 * fl));
-        flame.addColorStop(0, '#60a5fa'); flame.addColorStop(0.25, '#fef3c7'); flame.addColorStop(0.6, '#f97316'); flame.addColorStop(1, '#dc262600');
-        ctx.fillStyle = flame; ctx.beginPath(); ctx.moveTo(cx - s * 0.14, y - s * 0.75); ctx.quadraticCurveTo(cx - s * 0.18, y - s * (0.75 + 0.5 * fl), cx, y - s * (0.75 + 0.9 * fl)); ctx.quadraticCurveTo(cx + s * 0.18, y - s * (0.75 + 0.5 * fl), cx + s * 0.14, y - s * 0.75); ctx.fill();
-      }
-      // tela del globo (gajos con volumen, costuras y guarda), pintada una vez en alta resolución
-      drawBalloonEnvelope(ctx, cx, throatY, R, throatY - (cy - R * 1.17), throat, pl.hue);
-      // pollera de la boca, de lona oscura con costuras
-      const skirt = ctx.createLinearGradient(cx - throat, 0, cx + throat, 0); skirt.addColorStop(0, '#3f1d0b'); skirt.addColorStop(0.4, '#7c2d12'); skirt.addColorStop(1, '#2a1208');
-      ctx.fillStyle = skirt; ctx.beginPath(); ctx.moveTo(cx - throat, throatY - 1); ctx.lineTo(cx + throat, throatY - 1); ctx.lineTo(cx + throat * 0.72, throatY + s * 0.24); ctx.lineTo(cx - throat * 0.72, throatY + s * 0.24); ctx.fill();
-      ctx.strokeStyle = '#00000044'; ctx.lineWidth = 1; for (const k of [-0.5, 0, 0.5]) { ctx.beginPath(); ctx.moveTo(cx + throat * k, throatY); ctx.lineTo(cx + throat * k * 0.72, throatY + s * 0.24); ctx.stroke(); }
-      // armazón del quemador: dos caños de los costados de la canasta hasta el quemador
-      ctx.strokeStyle = '#64748b'; ctx.lineWidth = Math.max(1.5, s * 0.05);
-      ctx.beginPath(); ctx.moveTo(x + w * 0.2, y); ctx.lineTo(cx - s * 0.22, y - s * 0.66); ctx.moveTo(x + w * 0.8, y); ctx.lineTo(cx + s * 0.22, y - s * 0.66); ctx.stroke();
-      const burner = ctx.createLinearGradient(0, y - s * 0.78, 0, y - s * 0.55); burner.addColorStop(0, '#cbd5e1'); burner.addColorStop(0.5, '#64748b'); burner.addColorStop(1, '#1e293b');
-      ctx.fillStyle = burner; ctx.beginPath(); ctx.roundRect(cx - s * 0.24, y - s * 0.78, s * 0.48, s * 0.22, s * 0.05); ctx.fill();
-      ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1; for (let k = 1; k < 5; k++) { ctx.beginPath(); ctx.moveTo(cx - s * 0.24 + s * 0.096 * k, y - s * 0.78); ctx.lineTo(cx - s * 0.24 + s * 0.096 * k, y - s * 0.56); ctx.stroke(); } // serpentín
-      // canasta de mimbre con borde de cuero y bolsas de arena
-      fillTex(ctx, 'wicker', x, y, w, s * 0.8, v);
-      const shade = ctx.createLinearGradient(x, 0, x + w, 0); shade.addColorStop(0, '#00000033'); shade.addColorStop(0.4, '#00000000'); shade.addColorStop(1, '#00000044');
-      ctx.fillStyle = shade; ctx.fillRect(x, y, w, s * 0.8);
-      ctx.fillStyle = '#5b3412'; ctx.beginPath(); ctx.roundRect(x - 2, y - s * 0.05, w + 4, s * 0.18, s * 0.06); ctx.fill();
-      ctx.strokeStyle = '#78350f'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, s * 0.8);
-      ctx.fillStyle = '#a16207'; for (const bx of [x - s * 0.05, x + w + s * 0.05]) { ctx.beginPath(); ctx.ellipse(bx, y + s * 0.45, s * 0.12, s * 0.18, 0, 0, Math.PI * 2); ctx.fill(); }
+      drawBalloonRig(ctx, { cx, x, y, w, s, throatY, throat, rising, t: v.t, id: pl.id }, () => drawBalloonEnvelope(ctx, cx, throatY, R, throatY - (cy - R * 1.17), throat, pl.hue));
       return;
     }
     case 'zeppelin': { // dirigible con volumen, timones y hélice que gira

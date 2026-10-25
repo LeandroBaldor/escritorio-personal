@@ -364,4 +364,15 @@ describe('Trepaluna: zona tecnológica', () => {
       expect(takeEvents(h).some(e => e.type === 'knock')).toBe(hits);
     }
   });
+
+  it('el comienzo de la zona tecnológica es más sencillo: primero el portal, láseres y rayos que duran menos prendidos', () => {
+    const c = buildCourse();
+    const early = (y: number) => y >= ZONES.tech && y < ZONES.tech + 60;
+    const firstTech = c.portals.concat().sort((a, b) => a.y1 - b.y1)[0];
+    expect(firstTech.y1).toBeLessThan(ZONES.tech + 20);
+    const soft = c.lasers.filter(l => early(l.y)), hard = c.lasers.filter(l => l.y >= ZONES.tech + 60 && l.y < ZONES.space);
+    expect(soft.length).toBeGreaterThan(0);
+    expect(soft.every(l => l.on <= 0.33)).toBe(true);
+    expect(hard.some(l => l.on >= 0.4)).toBe(true);
+  });
 });
