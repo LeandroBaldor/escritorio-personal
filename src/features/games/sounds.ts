@@ -31,9 +31,12 @@ import trueno2Url from './assets/sonidos/trueno-2.mp3';
 import trueno3Url from './assets/sonidos/trueno-3.mp3';
 import lavaUrl from './assets/sonidos/lava.mp3';
 import helicopteroUrl from './assets/sonidos/helicoptero.mp3';
-import electricidadUrl from './assets/sonidos/electricidad.mp3';
 import fuegoUrl from './assets/sonidos/fuego.mp3';
 import personaQuemaUrl from './assets/sonidos/persona-quema.mp3';
+import lavaAscensorUrl from './assets/sonidos/lava-ascensor.mp3';
+import lavaElectricidadUrl from './assets/sonidos/lava-electricidad.mp3';
+import lavaPersonaFuegoUrl from './assets/sonidos/lava-persona-fuego.mp3';
+import lavaSirenaUrl from './assets/sonidos/lava-sirena.mp3';
 import invTiroUrl from './assets/sonidos/invasion-tiro.mp3';
 import invSangreAlienUrl from './assets/sonidos/invasion-sangre-alien.mp3';
 import invSangreHumanoUrl from './assets/sonidos/invasion-sangre-humano.mp3';
@@ -576,7 +579,7 @@ export function playExplosion() {
 
 // ---------- ¡El piso es de lava! ----------
 let lavaAmbient: Record<LavaChannel, Channel> | null = null;
-export function preloadLavaSounds() { for (const url of [lavaUrl, helicopteroUrl, electricidadUrl, fuegoUrl, personaQuemaUrl]) loadSample(url); }
+export function preloadLavaSounds() { for (const url of [lavaUrl, helicopteroUrl, lavaElectricidadUrl, fuegoUrl, personaQuemaUrl, lavaAscensorUrl, lavaPersonaFuegoUrl, lavaSirenaUrl, pasosUrl]) loadSample(url); }
 // Un sonido de ambiente grabado que se repite sin corte (el mp3 deja un silencito en las puntas, se saltea).
 // Mientras carga suena el sintetizado (`synth`) y, apenas está, se pasa a la grabación.
 function recorded(c: AudioContext, url: string, volume: number, out: GainNode, synth: (out: GainNode) => void) {
@@ -621,7 +624,7 @@ function buildLavaAmbient(c: AudioContext): Record<LavaChannel, Channel> {
       crackle.connect(hi).connect(pops).connect(out); crackle.start();
     })),
     // Cortocircuitos: la grabación de la electricidad (mientras carga, un zumbido y chispazos que restallan).
-    electric: channel(0.4, out => recorded(c, electricidadUrl, 1.6, out, out => {
+    electric: channel(0.4, out => recorded(c, lavaElectricidadUrl, 1.5, out, out => {
       const hum = osc(c, 'sawtooth', 100), band = filter(c, 'bandpass', 900, 2), level = c.createGain();
       level.gain.value = 0.6; wobble(c, level.gain, 50, 0.3, 'square');
       hum.connect(band).connect(level).connect(out); hum.start();
@@ -641,15 +644,23 @@ function buildLavaAmbient(c: AudioContext): Record<LavaChannel, Channel> {
       whine.gain.value = 0.025; wobble(c, turbine.frequency, 0.3, 25);
       turbine.connect(whine).connect(out); turbine.start();
     })),
-    // Ascensor: el motor eléctrico que zumba y el cable que roza en las poleas.
-    elevator: channel(0.32, out => {
+    // Gente prendida fuego: su propia grabación de fuego (mientras carga, un rugido de llamas sintetizado).
+    burning: channel(0.7, out => recorded(c, lavaPersonaFuegoUrl, 1.2, out, out => {
+      const roar = noiseSource(c), body = filter(c, 'lowpass', 700), level = c.createGain();
+      level.gain.value = 0.7; wobble(c, level.gain, 3.1, 0.2);
+      roar.connect(body).connect(level).connect(out); roar.start();
+    })),
+    // Sirena lejana: suena todo el tiempo, bajita y apagada (como a varias cuadras).
+    siren: channel(0.09, out => recorded(c, lavaSirenaUrl, 1, out, () => { /* mientras carga, nada */ })),
+    // Ascensor: la grabación del ascensor (mientras carga, el motor eléctrico que zumba y el cable que roza).
+    elevator: channel(0.45, out => recorded(c, lavaAscensorUrl, 1.2, out, out => {
       const motor = osc(c, 'sawtooth', 82), low = filter(c, 'lowpass', 280), level = c.createGain();
       level.gain.value = 0.7; wobble(c, level.gain, 5, 0.12);
       motor.connect(low).connect(level).connect(out); motor.start();
       const cable = noiseSource(c), band = filter(c, 'bandpass', 650, 3), rub = c.createGain();
       rub.gain.value = 0.35;
       cable.connect(band).connect(rub).connect(out); cable.start();
-    }),
+    })),
   };
 }
 // levels: cuánto se escucha cada cosa (0 a 1); null apaga todo (pausa, fin de partida).

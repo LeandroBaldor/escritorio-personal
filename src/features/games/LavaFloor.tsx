@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { drawRunner, type RunnerHat, type RunnerLook } from './runnerCharacter';
-import { drawHero } from './trepaArt';
+import { drawHero, type ClimberHat, type ClimberLook } from './trepaArt';
 import {
   BURN_T, elevatorAt, floorY, HELI_H, HELI_W, heliState, heliTarget, LAVA_DELAY, zipY, meters, newLava, PLAYER_H, PLAYER_W, personState, personX, sparkActive, sparkWarning, step, takeEvents, towerOf, WALL,
   type Building, type Climb, type Crane, type Elevator, type Escape, type Fallen, type Fire, type Input, type LavaGame, type LoseReason, type Person, type Plat, type Spark, type Spiral, type Wire, type Zip,
 } from './lava';
 import { lavaLevels } from './lavaSound';
-import { playCrumble, playElevatorDing, playFootstep, playGameOver, playJump, playLavaFall, playLose, playPersonBurn, playStart, playTramp, playWinFanfare, preloadLavaSounds, setLavaAmbient } from './sounds';
+import { playCrumble, playElevatorDing, playGameOver, playJump, playLavaFall, playLose, playPersonBurn, playStart, playTramp, playTrepaStep, playWinFanfare, preloadLavaSounds, setLavaAmbient } from './sounds';
 import { EndBanner } from './EndBanner';
 
 const RECORD_KEY = 'escritorio-personal-juegos:lava-record';
@@ -1597,32 +1596,36 @@ function hslRgb(h: number, s: number, l: number) {
   const k = (n: number) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
   return [0, 8, 4].map(n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))));
 }
-// Cómo está vestida cada persona: el mismo estilo que el protagonista, pero con su propia piel, pelo, gorro
-// (o ninguno), remera (lisa, a rayas o de dos colores), pantalón y zapatillas. En las obras, casco y chaleco.
-const HAIRS = ['#1c1917', '#3b2412', '#78350f', '#a16207', '#facc15', '#d6d3d1', '#7c2d12'];
+// Cómo está vestida cada persona: el mismo dibujo que el protagonista (cabeza grande, contorno grueso, remera
+// de tres franjas, zapatillas con suela), pero con su propia piel, pelo, gorra/gorro (o ninguno), remera (lisa,
+// a rayas o de dos colores), short o pantalón largo y zapatillas. En las obras, casco y chaleco.
+const HAIRS = [[28, 25, 23], [59, 36, 18], [120, 53, 15], [161, 98, 7], [250, 204, 21], [214, 211, 209], [124, 45, 18]];
 const PANTS = [[37, 99, 235], [30, 58, 138], [17, 24, 39], [120, 113, 108], [180, 150, 100], [127, 29, 29], [21, 128, 61]];
-const SHOES = [[248, 250, 252], [17, 24, 39], [220, 38, 38], [234, 179, 8], [120, 53, 15]];
-const HATS: RunnerHat[] = ['short', 'long', 'cap', 'short', 'bun', 'beanie', 'long', 'bald', 'cap'];
-function personLook(person: Person, burn: number): RunnerLook {
+const SHOES = [[17, 24, 39], [248, 250, 252], [220, 38, 38], [234, 179, 8], [120, 53, 15]];
+const HATS: ClimberHat[] = ['short', 'long', 'cap', 'short', 'bun', 'beanie', 'long', 'bald', 'cap'];
+function personLook(person: Person, burn: number): ClimberLook {
   const h = (n: number) => hash(person.id * 31 + n);
-  const c = (rgb: number[]) => mix(rgb, CHAR, burn);
+  const c = (rgb: number[], k = 1) => mix(rgb.map(v => Math.min(255, v * k)), CHAR, burn);
   const skin = SKINS[Math.floor(person.look * 4)];
   const shirtA = hslRgb(person.hue, 65, 48), shirtB = hslRgb((person.hue + 40 + h(1) * 160) % 360, 55, 72);
   const pattern = Math.floor(h(2) * 3); // 0 lisa, 1 a rayas, 2 dos colores
-  const shirt: [string, string, string] = person.helmet ? [c([249, 115, 22]), c([250, 204, 21]), c([249, 115, 22])]
-    : pattern === 0 ? [c(shirtA), c(shirtA), c(shirtA)] : pattern === 1 ? [c(shirtA), c(shirtB), c(shirtA)] : [c(shirtB), c(shirtA), c(shirtA)];
-  const hat: RunnerHat = person.helmet ? 'helmet' : HATS[Math.floor(h(3) * HATS.length)];
-  const hatRgb = hslRgb((person.hue + 180) % 360, 60, 45);
+  const [top, stripe] = person.helmet ? [[249, 115, 22], [250, 204, 21]] : pattern === 0 ? [shirtA, shirtA] : pattern === 1 ? [shirtA, shirtB] : [shirtB, shirtA];
+  const hat: ClimberHat = person.helmet ? 'helmet' : HATS[Math.floor(h(3) * HATS.length)];
+  const hatRgb = person.helmet ? [250, 204, 21] : hslRgb((person.hue + 180) % 360, 60, 45);
+  const pants = PANTS[Math.floor(h(5) * PANTS.length)], shoe = SHOES[Math.floor(h(6) * SHOES.length)];
   return {
-    skin: c(skin), ear: c(skin.map(v => v * 0.92)), hair: burn > 0.5 ? '#1c1917' : HAIRS[Math.floor(h(4) * HAIRS.length)],
-    hat, hatColor: person.helmet ? c([250, 204, 21]) : c(hatRgb), brim: c(hatRgb.map(v => v * 0.75)), dot: c([255, 255, 255]),
-    shirt, pants: c(PANTS[Math.floor(h(5) * PANTS.length)]), pantsEdge: 'rgba(0,0,0,0.35)', shoes: c(SHOES[Math.floor(h(6) * SHOES.length)]),
+    skin: c(skin), skinBack: c(skin, 0.88), shirt: c(top), shirtBack: c(top, 0.82), stripe: c(stripe),
+    shorts: c(pants), shortsBack: c(pants, 0.75), longPants: person.helmet || h(7) < 0.45,
+    shoe: c(shoe), sole: c(shoe[0] > 200 ? [148, 163, 184] : [248, 250, 252]),
+    hair: burn > 0.5 ? '#1c1917' : c(HAIRS[Math.floor(h(4) * HAIRS.length)]),
+    hat, cap: c(hatRgb), capLight: c(hatRgb, 1.35), brim: c(hatRgb, 0.75), button: c(h(8) < 0.5 ? [255, 255, 255] : [250, 204, 21]),
   };
 }
-// Una persona con los pies en 0,0 (hacia arriba es negativo), del mismo tamaño que el protagonista.
+// Una persona con los pies en 0,0 (hacia arriba es negativo), del mismo tamaño y con la misma animación que el
+// protagonista.
 function drawBody(ctx: CanvasRenderingContext2D, person: Person, h: number, dir: 1 | -1, moving: boolean, armsUp: boolean, burn: number, t: number, pace = 9) {
   const w = h * (PLAYER_W / PLAYER_H);
-  drawRunner(ctx, { x: -w / 2, y: -h, w, h, facing: dir, time: t + person.id, running: moving, airborne: false, falling: armsUp, look: personLook(person, burn), pace });
+  drawHero(ctx, { x: -w / 2, y: -h, w, h, facing: dir, time: t + person.id, running: moving, airborne: false, climbing: false, falling: armsUp, burnt: burn > 0.5, look: personLook(person, burn), pace: pace * 1.45 });
 }
 // Cuánto se ve una persona carbonizada antes de hundirse del todo en la lava.
 const CHARRED_SHOW = 9;
@@ -1996,17 +1999,18 @@ export function LavaFloor() {
 
   useEffect(() => {
     if (status !== 'playing') return;
-    let frame = 0, last = performance.now(), walked = 0, lastScream = -1;
+    let frame = 0, last = performance.now(), lastStride = 0, lastScream = -1;
     let doors = gameRef.current.elevators.map(e => elevatorAt(e, gameRef.current.time).open);
     const tick = (now: number) => {
       const g = gameRef.current;
       const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
       last = now;
-      const x0 = g.player.x;
       step(g, input.current, dt);
       // Sonidos: pasos mientras camina apoyado, el "ding" de los ascensores cercanos y el ambiente.
       const p = g.player;
-      if (p.ground && !g.dying) { walked += Math.abs(p.x - x0); if (walked > 1.5) { walked = 0; playFootstep(); } } else walked = 1;
+      const stride = Math.sin(g.time * 13) >= 0 ? 1 : -1; // un paso cada vez que apoya un pie (como en Trepaluna)
+      if (stride !== lastStride && p.ground && p.vx !== 0 && !g.dying) playTrepaStep();
+      lastStride = stride;
       const open = g.elevators.map(e => elevatorAt(e, g.time).open);
       g.elevators.forEach((e, i) => {
         if (!open[i] || doors[i]) return;

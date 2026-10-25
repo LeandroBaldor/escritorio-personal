@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { elevatorAt, heliState, newLava, sparkActive } from './lava';
+import { elevatorAt, heliState, newLava, personX, sparkActive } from './lava';
 import { lavaLevels } from './lavaSound';
 
 describe('El piso es de lava: sonidos de ambiente', () => {
@@ -52,5 +52,13 @@ describe('El piso es de lava: sonidos de ambiente', () => {
     const stopped = [...Array(3000).keys()].map(i => i / 50).find(t => elevatorAt(e, t).open)!;
     g.time = stopped;
     expect(lavaLevels(g).elevator).toBe(0);
+  });
+  it('la sirena lejana suena siempre y la gente prendida fuego tiene su propio sonido', () => {
+    expect(lavaLevels(newLava(0, 1)).siren).toBe(1);
+    const q = [...Array(40).keys()].map(seed => newLava(seed, 1)).flatMap(l => l.people.map(p => ({ l, p }))).find(({ p }) => p.torch);
+    expect(q).toBeTruthy();
+    const { l, p } = q!;
+    l.player.x = personX(p, l.time).x; l.player.y = p.y;
+    expect(lavaLevels(l).burning).toBeGreaterThan(0.8);
   });
 });

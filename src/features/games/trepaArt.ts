@@ -446,16 +446,25 @@ export interface ClimberPose {
   x: number; y: number; w: number; h: number; // rectángulo en pantalla donde se dibuja (arriba a la izquierda)
   facing: 1 | -1; time: number;
   running: boolean; airborne: boolean; climbing: boolean; falling: boolean; burnt: boolean;
+  look?: ClimberLook; // otra ropa y otro pelo (la gente de "¡El piso es de lava!"); sin esto, el protagonista
+  pace?: number; // velocidad de la zancada (13 = la del protagonista)
+}
+// Lo que cambia de una persona a otra con el mismo dibujo del protagonista: piel, remera (arriba/abajo y la
+// franja del medio), short o pantalón largo, zapatillas, pelo y qué lleva en la cabeza.
+export type ClimberHat = 'cap' | 'helmet' | 'beanie' | 'short' | 'long' | 'bun' | 'bald';
+export interface ClimberLook {
+  skin: string; skinBack: string; shirt: string; shirtBack: string; stripe: string; shorts: string; shortsBack: string;
+  longPants: boolean; shoe: string; sole: string; hair: string; hat: ClimberHat; cap: string; capLight: string; brim: string; button: string;
 }
 type P = [number, number];
 export function drawClimber(ctx: CanvasRenderingContext2D, pose: ClimberPose) {
-  const { x, y, w, h, facing: f, time: t, burnt } = pose;
-  const C = burnt
-    ? { skin: '#5b5550', skinBack: '#47423e', shirt: '#2b2926', stripe: '#3a3632', shorts: '#292524', shortsBack: '#1c1917', cap: '#1c1917', capLight: '#292524', brim: '#141210', shoe: '#0c0a09', sole: '#44403c', hair: '#1c1917', outline: '#0c0a09', cheek: '#00000000' }
-    : { skin: '#ffd2a8', skinBack: '#e9b48a', shirt: '#2563eb', stripe: '#facc15', shorts: '#1e3a8a', shortsBack: '#172554', cap: '#2563eb', capLight: '#60a5fa', brim: '#1e3a8a', shoe: '#111111', sole: '#f8fafc', hair: '#4a2a12', outline: '#15122a', cheek: 'rgba(248,113,113,0.45)' };
+  const { x, y, w, h, facing: f, time: t, burnt, look } = pose;
+  const C = look ? { ...look, outline: '#15122a', cheek: burnt ? '#00000000' : 'rgba(248,113,113,0.4)' } : burnt
+    ? { shirtBack: '#2b2926', button: '#1c1917', longPants: false, hat: 'cap' as ClimberHat, skin: '#5b5550', skinBack: '#47423e', shirt: '#2b2926', stripe: '#3a3632', shorts: '#292524', shortsBack: '#1c1917', cap: '#1c1917', capLight: '#292524', brim: '#141210', shoe: '#0c0a09', sole: '#44403c', hair: '#1c1917', outline: '#0c0a09', cheek: '#00000000' }
+    : { shirtBack: '#1d4ed8', button: '#facc15', longPants: false, hat: 'cap' as ClimberHat, skin: '#ffd2a8', skinBack: '#e9b48a', shirt: '#2563eb', stripe: '#facc15', shorts: '#1e3a8a', shortsBack: '#172554', cap: '#2563eb', capLight: '#60a5fa', brim: '#1e3a8a', shoe: '#111111', sole: '#f8fafc', hair: '#4a2a12', outline: '#15122a', cheek: 'rgba(248,113,113,0.45)' };
   const cx = x + w / 2;
   const thigh = h * 0.15, shin = h * 0.15, upper = h * 0.115, fore = h * 0.105, headR = h * 0.19;
-  const walk = t * 13, run = pose.running, climb = pose.climbing, air = pose.airborne && !climb, fall = pose.falling;
+  const walk = t * (pose.pace ?? 13), run = pose.running, climb = pose.climbing, air = pose.airborne && !climb, fall = pose.falling;
   const idle = !run && !air && !climb && !fall;
   const bob = run ? Math.abs(Math.sin(walk)) * h * 0.03 : idle ? Math.sin(t * 2.6) * h * 0.008 : 0;
   const lean = run ? 0.12 : 0;
@@ -469,9 +478,9 @@ export function drawClimber(ctx: CanvasRenderingContext2D, pose: ClimberPose) {
     return [side > 0 ? 0.08 : -0.08, 0.04];
   };
   const armAngles = (side: number): [number, number] => { // [brazo, codo]
+    if (fall) return [2.6 + 0.45 * Math.sin(t * 20 + side * 2), 0.5 + 0.3 * Math.sin(t * 23 + side)]; // brazos arriba (también si corre)
     if (run) { const ph = walk + (side > 0 ? Math.PI : 0); return [0.85 * Math.sin(ph), 1.3 + 0.3 * Math.sin(ph)]; }
     if (climb) { const ph = t * 12 + (side > 0 ? Math.PI : 0); return [2.75 + 0.3 * Math.sin(ph), 0.2 + 0.3 * Math.max(0, -Math.sin(ph))]; }
-    if (fall) return [2.6 + 0.45 * Math.sin(t * 20 + side * 2), 0.5 + 0.3 * Math.sin(t * 23 + side)];
     if (air) return side > 0 ? [2.5, 0.5] : [1.9, 0.7];
     return [side > 0 ? 0.45 : -0.25, 0.5];
   };
@@ -490,10 +499,13 @@ export function drawClimber(ctx: CanvasRenderingContext2D, pose: ClimberPose) {
     const back = side < 0, [a, k] = legAngles(side);
     const hp: P = [hip[0] + f * side * h * 0.045, hip[1]];
     const knee = add(hp, dirv(a), thigh), foot = add(knee, dirv(a - k), shin);
-    outlined([hp, knee, foot], lw, back ? C.skinBack : C.skin);
-    // botamanga del short sobre el muslo
-    const hem = add(hp, dirv(a), thigh * 0.45);
-    ctx.lineCap = 'butt'; outlined([[hp[0], hp[1] - lw * 0.4], hem], lw * 1.5, back ? C.shortsBack : C.shorts); ctx.lineCap = 'round';
+    if (C.longPants) outlined([hp, knee, foot], lw * 1.2, back ? C.shortsBack : C.shorts); // pantalón largo
+    else {
+      outlined([hp, knee, foot], lw, back ? C.skinBack : C.skin);
+      // botamanga del short sobre el muslo
+      const hem = add(hp, dirv(a), thigh * 0.45);
+      ctx.lineCap = 'butt'; outlined([[hp[0], hp[1] - lw * 0.4], hem], lw * 1.5, back ? C.shortsBack : C.shorts); ctx.lineCap = 'round';
+    }
     // zapatilla negra con suela blanca y cordones
     ctx.save(); ctx.translate(foot[0], foot[1] + lw * 0.2); ctx.scale(f, 1); ctx.rotate(climb || air || fall ? (a - k) * 0.5 : 0);
     const L = h * 0.19, Hh = h * 0.085;
@@ -511,7 +523,7 @@ export function drawClimber(ctx: CanvasRenderingContext2D, pose: ClimberPose) {
     outlined([sp, elbow, hand], aw, back ? C.skinBack : C.skin);
     const sleeve = add(sp, dirv(a), upper * 0.62);
     { // manga corta azul: hombro redondeado y botamanga recta
-      const sc = back ? '#1d4ed8' : C.shirt, r = aw * 0.8;
+      const sc = back ? C.shirtBack : C.shirt, r = aw * 0.8;
       ctx.lineCap = 'butt';
       ctx.fillStyle = C.outline; ctx.beginPath(); ctx.arc(sp[0], sp[1], r + ow, 0, TAU); ctx.fill(); stroke([sp, sleeve], aw * 1.6 + ow * 2, C.outline);
       ctx.fillStyle = sc; ctx.beginPath(); ctx.arc(sp[0], sp[1], r, 0, TAU); ctx.fill(); stroke([sp, sleeve], aw * 1.6, sc);
@@ -545,7 +557,7 @@ export function drawClimber(ctx: CanvasRenderingContext2D, pose: ClimberPose) {
   const nose: P = [hx + f * headR * 0.98, hy + headR * 0.12];
   ctx.beginPath(); ctx.arc(nose[0], nose[1], headR * 0.2 + ow, 0, TAU); ctx.fill();
   const face = ctx.createRadialGradient(hx + f * headR * 0.3, hy - headR * 0.2, headR * 0.1, hx, hy, headR * 1.1);
-  face.addColorStop(0, burnt ? C.skin : '#ffe6cc'); face.addColorStop(0.7, C.skin); face.addColorStop(1, C.skinBack);
+  face.addColorStop(0, burnt || look ? C.skin : '#ffe6cc'); face.addColorStop(0.7, C.skin); face.addColorStop(1, C.skinBack);
   ctx.fillStyle = face; ctx.beginPath(); ctx.arc(hx, hy, headR, 0, TAU); ctx.fill();
   ctx.beginPath(); ctx.arc(nose[0], nose[1], headR * 0.2, 0, TAU); ctx.fill();
   ctx.fillStyle = C.hair; ctx.beginPath(); ctx.ellipse(hx - f * headR * 0.62, hy + headR * 0.05, headR * 0.4, headR * 0.55, 0, 0, TAU); ctx.fill(); // pelo de la nuca
@@ -564,19 +576,57 @@ export function drawClimber(ctx: CanvasRenderingContext2D, pose: ClimberPose) {
     ctx.fillStyle = C.outline; ctx.beginPath(); ctx.ellipse(hx + f * headR * 0.6, hy + headR * 0.55, headR * 0.15, headR * (fall ? 0.2 : 0.11), 0, 0, TAU); ctx.fill();
     ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.ellipse(hx + f * headR * 0.6, hy + headR * 0.6, headR * 0.09, headR * (fall ? 0.1 : 0.05), 0, 0, TAU); ctx.fill();
   } else { ctx.beginPath(); ctx.moveTo(hx + f * headR * 0.35, hy + headR * 0.52); ctx.quadraticCurveTo(hx + f * headR * 0.6, hy + headR * 0.72, hx + f * headR * 0.82, hy + headR * 0.45); ctx.stroke(); } // sonrisa
-  // gorra azul: copa con brillo, costuras, botón amarillo y visera hacia adelante
-  const cap = () => { ctx.beginPath(); ctx.ellipse(hx - f * headR * 0.03, hy - headR * 0.25, headR * 1.05, headR * 0.92, 0, Math.PI, TAU); ctx.closePath(); };
-  ctx.save(); ctx.lineWidth = ow * 2; ctx.strokeStyle = C.outline; cap(); ctx.stroke(); ctx.restore();
-  const capG = ctx.createLinearGradient(hx - f * headR, hy - headR, hx + f * headR, hy - headR * 0.3);
-  capG.addColorStop(0, C.cap); capG.addColorStop(0.7, C.cap); capG.addColorStop(1, C.capLight);
-  ctx.fillStyle = capG; cap(); ctx.fill();
-  ctx.fillStyle = '#ffffff40'; ctx.beginPath(); ctx.ellipse(hx + f * headR * 0.25, hy - headR * 0.85, headR * 0.35, headR * 0.12, f * 0.3, 0, TAU); ctx.fill(); // brillo
-  ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = Math.max(0.6, headR * 0.05);
-  ctx.beginPath(); ctx.moveTo(hx, hy - headR * 1.15); ctx.quadraticCurveTo(hx + f * headR * 0.5, hy - headR * 0.8, hx + f * headR * 0.55, hy - headR * 0.27); ctx.stroke();
-  ctx.fillStyle = C.outline; ctx.beginPath(); ctx.arc(hx - f * headR * 0.03, hy - headR * 1.17, headR * 0.15 + ow, 0, TAU); ctx.fill();
-  ctx.fillStyle = burnt ? C.cap : '#facc15'; ctx.beginPath(); ctx.arc(hx - f * headR * 0.03, hy - headR * 1.17, headR * 0.15, 0, TAU); ctx.fill(); // botón
-  ctx.fillStyle = C.outline; ctx.beginPath(); ctx.ellipse(hx + f * headR * 1.0, hy - headR * 0.26, headR * 0.72 + ow, headR * 0.15 + ow, f * 0.06, 0, TAU); ctx.fill();
-  ctx.fillStyle = C.brim; ctx.beginPath(); ctx.ellipse(hx + f * headR * 1.0, hy - headR * 0.26, headR * 0.72, headR * 0.15, f * 0.06, 0, TAU); ctx.fill(); // visera
+  const hat = C.hat;
+  if (hat === 'long') { // pelo largo que cae por la espalda
+    ctx.fillStyle = C.outline; ctx.beginPath(); ctx.ellipse(hx - f * headR * 0.55, hy + headR * 0.55, headR * 0.5 + ow, headR * 1.0 + ow, f * 0.15, 0, TAU); ctx.fill();
+    ctx.fillStyle = C.hair; ctx.beginPath(); ctx.ellipse(hx - f * headR * 0.55, hy + headR * 0.55, headR * 0.5, headR * 1.0, f * 0.15, 0, TAU); ctx.fill();
+  }
+  const dome = (r: number) => { ctx.beginPath(); ctx.ellipse(hx - f * headR * 0.03, hy - headR * 0.25, headR * 1.05 * r, headR * 0.92 * r, 0, Math.PI, TAU); ctx.closePath(); };
+  const shell = (fill: string | CanvasGradient, r = 1) => {
+    ctx.save(); ctx.lineWidth = ow * 2; ctx.strokeStyle = C.outline; dome(r); ctx.stroke(); ctx.restore();
+    ctx.fillStyle = fill; dome(r); ctx.fill();
+    ctx.fillStyle = '#ffffff40'; ctx.beginPath(); ctx.ellipse(hx + f * headR * 0.25, hy - headR * 0.85 * r, headR * 0.35, headR * 0.12, f * 0.3, 0, TAU); ctx.fill(); // brillo
+  };
+  const knob = (dx: number, dy: number, r: number, color: string) => {
+    ctx.fillStyle = C.outline; ctx.beginPath(); ctx.arc(hx + f * headR * dx, hy + headR * dy, headR * r + ow, 0, TAU); ctx.fill();
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(hx + f * headR * dx, hy + headR * dy, headR * r, 0, TAU); ctx.fill();
+  };
+  if (hat === 'cap') {
+    // gorra: copa con brillo, costuras, botón y visera hacia adelante
+    const capG = ctx.createLinearGradient(hx - f * headR, hy - headR, hx + f * headR, hy - headR * 0.3);
+    capG.addColorStop(0, C.cap); capG.addColorStop(0.7, C.cap); capG.addColorStop(1, C.capLight);
+    shell(capG);
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = Math.max(0.6, headR * 0.05);
+    ctx.beginPath(); ctx.moveTo(hx, hy - headR * 1.15); ctx.quadraticCurveTo(hx + f * headR * 0.5, hy - headR * 0.8, hx + f * headR * 0.55, hy - headR * 0.27); ctx.stroke();
+    knob(-0.03, -1.17, 0.15, burnt ? C.cap : C.button);
+    ctx.fillStyle = C.outline; ctx.beginPath(); ctx.ellipse(hx + f * headR * 1.0, hy - headR * 0.26, headR * 0.72 + ow, headR * 0.15 + ow, f * 0.06, 0, TAU); ctx.fill();
+    ctx.fillStyle = C.brim; ctx.beginPath(); ctx.ellipse(hx + f * headR * 1.0, hy - headR * 0.26, headR * 0.72, headR * 0.15, f * 0.06, 0, TAU); ctx.fill(); // visera
+  } else if (hat === 'helmet') {
+    // casco de obra: copa con una costilla en el medio y ala alrededor
+    const g = ctx.createLinearGradient(hx - f * headR, hy - headR, hx + f * headR, hy - headR * 0.3);
+    g.addColorStop(0, C.cap); g.addColorStop(1, C.capLight);
+    shell(g, 1.05);
+    ctx.strokeStyle = C.brim; ctx.lineWidth = Math.max(1, headR * 0.12);
+    ctx.beginPath(); ctx.moveTo(hx - f * headR * 0.1, hy - headR * 1.2); ctx.quadraticCurveTo(hx + f * headR * 0.45, hy - headR * 1.0, hx + f * headR * 0.6, hy - headR * 0.32); ctx.stroke();
+    ctx.fillStyle = C.outline; ctx.beginPath(); ctx.ellipse(hx + f * headR * 0.1, hy - headR * 0.24, headR * 1.3 + ow, headR * 0.13 + ow, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = C.brim; ctx.beginPath(); ctx.ellipse(hx + f * headR * 0.1, hy - headR * 0.24, headR * 1.3, headR * 0.13, 0, 0, TAU); ctx.fill();
+  } else if (hat === 'beanie') {
+    // gorro de lana: copa, doblez con rayas y pompón
+    shell(C.cap, 1.02);
+    ctx.fillStyle = C.outline; ctx.beginPath(); ctx.roundRect(hx - headR * 1.12, hy - headR * 0.45, headR * 2.2, headR * 0.34, headR * 0.12); ctx.fill();
+    ctx.fillStyle = C.brim; ctx.beginPath(); ctx.roundRect(hx - headR * 1.08, hy - headR * 0.42, headR * 2.12, headR * 0.28, headR * 0.1); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = Math.max(0.6, headR * 0.05);
+    for (let i = -4; i <= 4; i++) { ctx.beginPath(); ctx.moveTo(hx + i * headR * 0.24, hy - headR * 0.4); ctx.lineTo(hx + i * headR * 0.24, hy - headR * 0.16); ctx.stroke(); }
+    knob(-0.05, -1.12, 0.24, C.button);
+  } else if (hat !== 'bald') {
+    // pelo: casquete con flequillo (y rodete, si tiene)
+    if (hat === 'bun') knob(-0.55, -0.95, 0.38, C.hair);
+    shell(C.hair, 0.98);
+    ctx.fillStyle = C.hair; ctx.beginPath(); // flequillo
+    ctx.moveTo(hx - f * headR * 0.2, hy - headR * 0.3);
+    ctx.quadraticCurveTo(hx + f * headR * 0.5, hy - headR * 0.05, hx + f * headR * 0.95, hy - headR * 0.32);
+    ctx.lineTo(hx + f * headR * 0.6, hy - headR * 0.6); ctx.closePath(); ctx.fill();
+  }
   arm(1);
   ctx.restore();
 }
