@@ -140,7 +140,7 @@ function buildAmbient(c: AudioContext) {
     // La lluvia fuerte de la tormenta (de 2.000 a 3.000 m).
     rain: channel(1, out => recorded(c, trepaLluviaUrl, 1.1, out, noisy('highpass', 1500, 0.3))),
     // El viento fuerte de arriba (desde los 3.000 m).
-    gale: channel(1, out => recorded(c, trepaVientoUrl, 0.95, out, noisy('bandpass', 400, 0.35))),
+    gale: channel(0.5, out => recorded(c, trepaVientoUrl, 0.95, out, noisy('bandpass', 400, 0.35))),
     // Fuego: un rugido grave con chisporroteo.
     fire: channel(0.12, out => { // (más bajo: cuando se prende suena la llamarada grabada, ver playFlame)
       const roar = noiseSource(c), body = filter(c, 'lowpass', 700);
@@ -283,9 +283,9 @@ function burst(c: AudioContext, type: BiquadFilterType, frequency: number, start
 }
 
 // Salto: un "boing" corto que sube de tono.
-export function playJump() {
+export function playJump(volume = 0.35) {
   const c = running(); if (!c) return;
-  tone(c, 'square', 330, 760, c.currentTime, 0.14, 0.35);
+  tone(c, 'square', 330, 760, c.currentTime, 0.14, volume);
 }
 // Trampolín: como una cama elástica. Primero el "thump" grave de la lona y después el "boooing" del
 // resorte, que sube de tono y vibra cada vez menos hasta apagarse.

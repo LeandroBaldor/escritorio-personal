@@ -2,6 +2,7 @@
 // trepador (el protagonista). Lo que no se mueve (el avión y la tela del globo) se pinta una sola vez en
 // alta resolución (con la densidad de píxeles de la pantalla) y después se copia; lo que se anima (las alas
 // de las palomas y el cuerpo del trepador) se dibuja en cada cuadro con volumen, sombras y contornos.
+import { BLAST_TIME, type Gore } from './trepaGore';
 
 const TAU = Math.PI * 2;
 const hsl = (h: number, s: number, l: number, a = 1) => `hsla(${h},${s}%,${l}%,${a})`;
@@ -787,4 +788,91 @@ export function drawZeppelin(ctx: CanvasRenderingContext2D, x: number, y: number
   light(cx - rx * 0.97, cy + ry * 0.43, 'rgba(239,68,68,0.9)', Math.sin(t * 5 + id) > 0, s * 0.05);
   light(cx - rx * 1.0, cy - ry * 1.04, 'rgba(255,255,255,0.9)', (t * 1.2 + id * 0.3) % 1 < 0.08, s * 0.045);
   light(cx + rx * 0.2, cy + ry * 1.0, 'rgba(239,68,68,0.9)', (t * 1.4 + id * 0.17) % 1 < 0.15, s * 0.045);
+}
+
+// ---------------------------------------------------------------- La sangre (como en Gravity Swap)
+const BLOOD = '#8a0303', BLOOD_L = '#c1121f';
+const ghash = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+type ToScreen = (x: number, y: number) => [number, number];
+// Las manchas: el charco y las salpicaduras en la calle (aplastadas, porque se ven de costado) y en las
+// paredes de los edificios, donde chorrean para abajo. Se van borrando de a poco.
+export function drawStains(ctx: CanvasRenderingContext2D, gore: Gore, at: ToScreen, s: number) {
+  for (const st of gore.stains) {
+    const age = gore.clock - st.at, alpha = Math.max(0, Math.min(1, (150 - age) / 20));
+    if (alpha <= 0) continue;
+    const [sx, sy] = at(st.x, st.y);
+    if (sy < -s * 3 || sy > ctx.canvas.height + s * 3) continue;
+    ctx.globalAlpha = alpha;
+    const r = (st.kind === 'pool' ? st.r * Math.min(1, 0.25 + age * 1.3) : st.r) * s;
+    ctx.fillStyle = st.kind === 'pool' ? BLOOD : BLOOD_L; ctx.beginPath();
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * TAU, rr = r * (st.kind === 'pool' ? 0.75 + ghash(st.seed * 50 + i) * 0.5 : i % 2 ? 0.5 : 0.8 + ghash(st.seed * 70 + i) * 0.7);
+      const along = Math.cos(a) * rr, out = Math.abs(Math.sin(a)) * rr * (st.kind === 'pool' ? 0.3 : 0.45) * (Math.sin(a) > 0 ? 1 : st.wall ? 0.25 : 0.55);
+      const [px, py] = st.wall ? [sx - st.wall * out, sy + along] : [sx + along, sy + (Math.sin(a) > 0 ? -out : out) + 1];
+      if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+    }
+    ctx.closePath(); ctx.fill();
+    if (st.kind === 'pool') { ctx.fillStyle = 'rgba(255,90,90,0.35)'; ctx.beginPath(); ctx.ellipse(sx - r * 0.25, sy - r * 0.06, r * 0.3, Math.max(1, r * 0.03), 0, 0, TAU); ctx.fill(); } // brillo del charco
+    if (st.wall) { // chorreaduras por la pared
+      ctx.strokeStyle = BLOOD; ctx.lineCap = 'round';
+      for (let i = 0; i < 3; i++) {
+        const off = (ghash(st.seed * 9 + i) - 0.5) * r * 0.5, len = (0.2 + ghash(st.seed * 3 + i) * 0.9) * s * Math.min(1, age / 2.5) * Math.min(1, st.r * 6);
+        ctx.lineWidth = Math.max(1, (0.03 + ghash(i + st.seed) * 0.03) * s);
+        ctx.beginPath(); ctx.moveTo(sx - st.wall * 1, sy + off); ctx.lineTo(sx - st.wall * 1, sy + off + len); ctx.stroke();
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+// Las gotas que vuelan, el fogonazo rojo y los pedazos del trepador.
+export function drawGoreFlying(ctx: CanvasRenderingContext2D, gore: Gore, at: ToScreen, s: number) {
+  if (gore.blast) {
+    const k = gore.blast.t / BLAST_TIME, [bx, by] = at(gore.blast.x, gore.blast.y), r = s * (0.6 + k * 1.6);
+    const g = ctx.createRadialGradient(bx, by, 0, bx, by, r); g.addColorStop(0, `rgba(255,60,60,${0.75 * (1 - k)})`); g.addColorStop(0.5, `rgba(185,10,10,${0.5 * (1 - k)})`); g.addColorStop(1, 'rgba(120,0,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, by, r, 0, TAU); ctx.fill();
+  }
+  ctx.fillStyle = BLOOD_L;
+  for (const d of gore.drops) { const [dx, dy] = at(d.x, d.y); ctx.beginPath(); ctx.arc(dx, dy, Math.max(1, d.r * s), 0, TAU); ctx.fill(); }
+  const ow = Math.max(1, s * 0.03), OUT = '#15122a';
+  const blob = (x: number, y: number, r: number, color: string) => { ctx.fillStyle = OUT; ctx.beginPath(); ctx.arc(x, y, r + ow, 0, TAU); ctx.fill(); ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); };
+  const limb = (x1: number, x2: number, w: number, color: string) => { ctx.lineCap = 'round'; ctx.strokeStyle = OUT; ctx.lineWidth = w + ow * 2; ctx.beginPath(); ctx.moveTo(x1, 0); ctx.lineTo(x2, 0); ctx.stroke(); ctx.strokeStyle = color; ctx.lineWidth = w; ctx.stroke(); };
+  for (const p of gore.gibs) {
+    const [x, y] = at(p.x, p.y), alpha = Math.max(0, Math.min(1, (20 - p.life) / 3));
+    if (alpha <= 0) continue;
+    ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.rotate(-p.a); ctx.scale(1.4, 1.4);
+    switch (p.kind) {
+      case 'cap': // la gorra azul con la visera y el botón
+        ctx.fillStyle = OUT; ctx.beginPath(); ctx.arc(0, 0, s * 0.22 + ow, Math.PI, TAU); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#2563eb'; ctx.beginPath(); ctx.arc(0, 0, s * 0.22, Math.PI, TAU); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#1e3a8a'; ctx.beginPath(); ctx.ellipse(s * 0.24, 0, s * 0.16, s * 0.04, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(0, -s * 0.22, s * 0.04, 0, TAU); ctx.fill();
+        ctx.fillStyle = BLOOD_L; ctx.beginPath(); ctx.ellipse(-s * 0.05, s * 0.01, s * 0.12, s * 0.04, 0, 0, TAU); ctx.fill();
+        break;
+      case 'arm': // brazo con la manga azul y la mano
+        limb(-s * 0.15, s * 0.15, s * 0.1, '#ffd2a8');
+        ctx.lineCap = 'butt'; ctx.strokeStyle = '#2563eb'; ctx.lineWidth = s * 0.15; ctx.beginPath(); ctx.moveTo(-s * 0.16, 0); ctx.lineTo(-s * 0.05, 0); ctx.stroke();
+        blob(s * 0.17, 0, s * 0.065, '#ffd2a8');
+        ctx.fillStyle = BLOOD_L; ctx.beginPath(); ctx.arc(-s * 0.18, 0, s * 0.07, 0, TAU); ctx.fill();
+        break;
+      case 'leg': // pierna con la botamanga del short y la zapatilla negra
+        limb(-s * 0.2, s * 0.15, s * 0.11, '#ffd2a8');
+        ctx.lineCap = 'butt'; ctx.strokeStyle = '#1e3a8a'; ctx.lineWidth = s * 0.17; ctx.beginPath(); ctx.moveTo(-s * 0.21, 0); ctx.lineTo(-s * 0.08, 0); ctx.stroke();
+        ctx.fillStyle = OUT; ctx.beginPath(); ctx.roundRect(s * 0.1, -s * 0.09, s * 0.22, s * 0.16, s * 0.05); ctx.fill();
+        ctx.fillStyle = '#111111'; ctx.beginPath(); ctx.roundRect(s * 0.11, -s * 0.08, s * 0.2, s * 0.12, s * 0.04); ctx.fill();
+        ctx.fillStyle = '#f8fafc'; ctx.fillRect(s * 0.11, s * 0.02, s * 0.2, s * 0.03);
+        ctx.fillStyle = BLOOD_L; ctx.beginPath(); ctx.arc(-s * 0.22, 0, s * 0.08, 0, TAU); ctx.fill();
+        break;
+      case 'torso': // un pedazo de la remera de franjas
+        ctx.fillStyle = OUT; ctx.beginPath(); ctx.roundRect(-s * 0.2 - ow, -s * 0.16 - ow, s * 0.4 + ow * 2, s * 0.32 + ow * 2, s * 0.06); ctx.fill();
+        ctx.fillStyle = '#2563eb'; ctx.fillRect(-s * 0.2, -s * 0.16, s * 0.4, s * 0.32);
+        ctx.fillStyle = '#facc15'; ctx.fillRect(-s * 0.2, -s * 0.05, s * 0.4, s * 0.1);
+        ctx.fillStyle = BLOOD_L; ctx.beginPath(); ctx.ellipse(s * 0.12, s * 0.12, s * 0.12, s * 0.07, 0.3, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.ellipse(-s * 0.15, -s * 0.12, s * 0.08, s * 0.06, 0, 0, TAU); ctx.fill();
+        break;
+      case 'chunk':
+        ctx.fillStyle = OUT; ctx.beginPath(); for (let k = 0; k < 7; k++) { const a = k * TAU / 7, rr = (0.1 + ghash(k + p.va) * 0.06) * s + ow; if (k) ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); else ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); } ctx.closePath(); ctx.fill();
+        ctx.fillStyle = BLOOD_L; ctx.beginPath(); for (let k = 0; k < 7; k++) { const a = k * TAU / 7, rr = (0.1 + ghash(k + p.va) * 0.06) * s; if (k) ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); else ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); } ctx.closePath(); ctx.fill();
+        break;
+    }
+    ctx.restore();
+  }
 }

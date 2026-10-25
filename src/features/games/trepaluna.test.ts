@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ballPos, buildCourse, FALL_LOSE, LIVES, fireActive, fireRect, gravityAt, JUMP, jumpPeak, meters, moonOf, newTrepa, RISE_TIME, step, takeEvents, TRAMP, ZONES, type Input, type Plat, type Trepa } from './trepaluna';
+import { ballPos, buildCourse, FALL_LOSE, LIVES, fireActive, fireRect, gravityAt, JUMP, jumpPeak, meters, moonOf, newTrepa, RISE_TIME, SPLAT_TIME, step, takeEvents, TRAMP, ZONES, type Input, type Plat, type Trepa } from './trepaluna';
 
 const idle: Input = { left: false, right: false, jump: false, down: false };
 const run = (g: Trepa, seconds: number, input: Partial<Input> = {}) => {
@@ -321,6 +321,17 @@ describe('Trepaluna: zona tecnológica', () => {
     while (g.hurt?.phase === 'fall') step(g, idle, 1 / 60);
     expect(g.player.y).toBe(0); // llegó a la calle
     expect(g.over).toBe(false);
+    // Revienta contra la calle: charco, gotas y pedazos, y se queda así un momento.
+    expect(g.hurt?.phase).toBe('splat');
+    expect(takeEvents(g).some(e => e.type === 'splat')).toBe(true);
+    expect(g.gore.stains.some(s => s.kind === 'pool')).toBe(true);
+    expect(g.gore.drops.length).toBeGreaterThan(50);
+    expect(g.gore.gibs.length).toBeGreaterThan(5);
+    run(g, SPLAT_TIME / 2);
+    expect(g.hurt?.phase).toBe('splat');
+    expect(g.gore.stains.length).toBeGreaterThan(5); // las gotas fueron cayendo y manchando
+    run(g, SPLAT_TIME / 2 + 0.02);
+    expect(g.hurt?.phase).toBe('rise');
     run(g, RISE_TIME / 2);
     expect(g.player.y).toBeGreaterThan(0); // la cámara (que sigue al personaje) va subiendo
     expect(g.player.y).toBeLessThan(40);

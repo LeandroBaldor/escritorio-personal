@@ -17,6 +17,8 @@
 // Si te quemás con el fuego o te caés demasiado, perdés: el personaje cae por toda la estructura
 // hasta la calle y aparece GAME OVER. Todas las plataformas se atraviesan desde abajo.
 
+import { newGore, splat, updateGore, type Gore } from './trepaGore';
+
 export const WORLD_W = 16;
 export const M_PER_UNIT = 10;
 export const ZONES = { sky: 100, clouds: 220, tech: 300, space: 460, moon: 600 }; // la Luna, a 6.000 m
@@ -57,7 +59,7 @@ export interface Input { left: boolean; right: boolean; jump: boolean; down: boo
 export type LoseReason = 'burn' | 'zap' | 'fall';
 export type TrepaEvent =
   | { type: 'jump' } | { type: 'tramp' } | { type: 'crumble' } | { type: 'knock' } | { type: 'zone'; zone: Zone } | { type: 'teleport' }
-  | { type: 'lose'; reason: LoseReason } | { type: 'gameover' } | { type: 'win' } | { type: 'thunder'; near: number };
+  | { type: 'lose'; reason: LoseReason } | { type: 'splat' } | { type: 'gameover' } | { type: 'win' } | { type: 'thunder'; near: number };
 export interface Course {
   plats: Plat[]; climbs: Climb[]; fires: Fire[]; balls: Ball[]; birds: Bird[]; facades: Facade[]; links: Link[];
   lasers: Laser[]; fans: Fan[]; magnets: Magnet[]; gears: Gear[]; portals: Portal[];
@@ -69,7 +71,9 @@ export interface Trepa extends Course {
   flash: number; bolt: { x: number; seed: number } | null; nextBolt: number;
   // Vidas: al perder una, titila un momento y vuelve a la última plataforma firme que pisó ("safe"), un rato
   // sin que lo lastime nada ("invuln").
-  lives: number; hurt: { t: number; reason: LoseReason; phase: 'fall' | 'rise'; rise: number } | null; invuln: number; safe: { x: number; y: number; id: number };
+  lives: number; hurt: { t: number; reason: LoseReason; phase: 'fall' | 'splat' | 'rise'; rise: number } | null;
+  // El golpe contra la calle: la sangre y los pedazos (ver trepaGore) y desde cuándo está reventado.
+  gore: Gore; splat: { t: number } | null; invuln: number; safe: { x: number; y: number; id: number };
 }
 
 // Mismo tamaño y movimiento que el personaje de ¡Cuidado, bloques!: corre a 6, salta con 12,5, gravedad
@@ -81,6 +85,7 @@ export const TRAMP = 22;
 const CLIMB = 4;
 export const LIVES = 3; // con las 3 perdidas, se cae hasta la calle y es GAME OVER
 export const RISE_TIME = 1.8; // al perder una vida, lo que tarda la cámara en subir de la calle hasta donde perdió
+export const SPLAT_TIME = 1.6; // lo que se ve el golpe contra la calle antes de seguir (o de terminar)
 const SAFE_TIME = 2; // después de volver, unos segundos sin que lo lastime nada
 export const FALL_LOSE = 10; // caer más de 100 m por debajo de lo más alto que pisaste es perder
 const BALL_R = 0.75, BIRD_R = 0.5, PIGEON_R = 0.36;
@@ -381,7 +386,7 @@ export function newTrepa(seed?: number): Trepa {
   const course = buildCourse(seed);
   return {
     ...course, time: 0, best: 0, bestGround: 0, won: false, dying: null, over: false, zone: 'city', events: [], flash: 0, bolt: null, nextBolt: 1.5,
-    lives: LIVES, hurt: null, invuln: 0, safe: { x: WORLD_W / 2, y: 0, id: course.plats[0].id },
+    lives: LIVES, hurt: null, invuln: 0, gore: newGore(), splat: null, safe: { x: WORLD_W / 2, y: 0, id: course.plats[0].id },
     player: { x: WORLD_W / 2, y: 0, vx: 0, vy: 0, facing: 1, ground: course.plats[0], climb: null, climbCooldown: 0, coyote: 0, stun: 0, spin: 0, portalCooldown: 0 },
   };
 }
@@ -416,10 +421,18 @@ export function step(g: Trepa, input: Input, dt: number) {
     p.y += p.vy * dt; p.x = Math.max(0.3, Math.min(WORLD_W - 0.3, p.x + p.vx * dt));
     p.spin += dt * 9;
   };
+  updateGore(g.gore, dt, WORLD_W);
+  // Llega a la calle: revienta (sangre y pedazos, como en Gravity Swap) y se queda un momento así.
+  const hitStreet = () => { p.y = 0; p.vx = 0; p.vy = 0; p.spin = 0; g.splat = { t: 0 }; splat(g.gore, p.x); g.events.push({ type: 'splat' }); };
   if (g.dying) {
     g.dying.t += dt;
+    if (g.splat) {
+      g.splat.t += dt;
+      if (g.splat.t >= SPLAT_TIME) { g.over = true; g.events.push({ type: 'gameover' }); }
+      return;
+    }
     fallDown();
-    if (p.y <= 0) { p.y = 0; g.over = true; g.events.push({ type: 'gameover' }); }
+    if (p.y <= 0) hitStreet();
     return;
   }
 
@@ -431,7 +444,12 @@ export function step(g: Trepa, input: Input, dt: number) {
     const safe = g.plats.find(pl => pl.id === g.safe.id) ?? null, safeY = safe ? safe.y : g.safe.y;
     if (hurt.phase === 'fall') {
       fallDown();
-      if (p.y <= 0) { p.y = 0; p.vx = 0; p.vy = 0; p.spin = 0; hurt.phase = 'rise'; }
+      if (p.y <= 0) { hitStreet(); hurt.phase = 'splat'; }
+      return;
+    }
+    if (hurt.phase === 'splat') {
+      g.splat!.t += dt;
+      if (g.splat!.t >= SPLAT_TIME) { g.splat = null; hurt.phase = 'rise'; }
       return;
     }
     hurt.rise += dt;

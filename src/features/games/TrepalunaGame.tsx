@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { drawBalloonEnvelope, drawBalloonRig, drawClimber, drawPigeon, drawPlane, drawUfo, drawZeppelin } from './trepaArt';
-import { playTrepaStep, playCrumble, playGameOver, playJump, playKnock, playLose, playStart, playTeleport, playThunder, playFlame, playTramp, playWinFanfare, preloadTrepaSounds, setAmbient } from './sounds';
+import { drawBalloonEnvelope, drawBalloonRig, drawClimber, drawGoreFlying, drawPigeon, drawPlane, drawStains, drawUfo, drawZeppelin } from './trepaArt';
+import { playAstronautHit, playAstronautSplat, playTrepaStep, playCrumble, playGameOver, playJump, playKnock, playLose, playStart, playTeleport, playThunder, playFlame, playTramp, playWinFanfare, preloadTrepaSounds, setAmbient } from './sounds';
 import { EndBanner } from './EndBanner';
 import { ambientLevels, HEAR_RADIUS } from './trepaSound';
 import {
@@ -1239,7 +1239,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, g: Trepa, v: View) {
   // Al perder cae girando (y chamuscado si se quemó); si le quedan vidas, mientras la cámara sube hasta
   // donde perdió no se ve, y al volver titila suave mientras nada lo lastima.
   const p = g.player, s = v.s;
-  if (g.hurt?.phase === 'rise') return;
+  if (g.hurt?.phase === 'rise' || g.splat) return; // subiendo la cámara, o reventado contra la calle
   const falling = !!g.dying || !!g.hurt;
   const pw = PLAYER_W * s, ph = PLAYER_H * s, big = 1.55;
   const dw = pw * big, dh = ph * big, fx = X(v, p.x), fy = Y(v, p.y);
@@ -1280,7 +1280,11 @@ function draw(ctx: CanvasRenderingContext2D, g: Trepa, v: View) {
   for (const o of g.portals) drawPortal(ctx, o, v);
   for (const f of g.fans) drawFan(ctx, f, v);
   for (const l of g.lasers) drawLaser(ctx, l, v);
+  // El golpe contra la calle: manchas en la calle y en las paredes, y después las gotas y los pedazos.
+  const at = (x: number, y: number): [number, number] => [X(v, x), Y(v, y)];
+  drawStains(ctx, g.gore, at, s);
   drawPlayer(ctx, g, v);
+  drawGoreFlying(ctx, g.gore, at, s);
   // Capa de nubes: se pasa a través (no se pueden pisar).
   for (let i = 0; i < 26; i++) {
     const wy = ZONES.clouds + 2 + hash(i + 700) * (ZONES.tech - ZONES.clouds - 2);
@@ -1389,8 +1393,10 @@ export function Trepaluna() {
     }
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const { scale, viewW } = viewFor(w, h);
+    // La pantalla tiembla con el golpe contra la calle.
+    const shake = g.gore.shake ** 2 * scale * 0.35;
+    ctx.setTransform(dpr, 0, 0, dpr, (Math.random() - 0.5) * shake * dpr, (Math.random() - 0.5) * shake * dpr);
     const ox = viewW >= WORLD_W ? (w - WORLD_W * scale) / 2 : -camXRef.current * scale;
     draw(ctx, g, { w, h, s: scale, ox, cam: camRef.current, t: g.time + (g.dying?.t ?? 0) + (g.hurt?.t ?? 0) });
   }, []);
@@ -1445,7 +1451,8 @@ export function Trepaluna() {
       if (stride !== strideRef.current && p.ground && p.vx !== 0 && !g.dying && !g.hurt) playTrepaStep();
       strideRef.current = stride;
       for (const e of takeEvents(g)) {
-        if (e.type === 'jump') playJump();
+        if (e.type === 'jump') playJump(0.5);
+        if (e.type === 'splat') { playAstronautHit(); playAstronautSplat(); }
         if (e.type === 'tramp') playTramp();
         if (e.type === 'crumble') playCrumble();
         if (e.type === 'knock') playKnock();
