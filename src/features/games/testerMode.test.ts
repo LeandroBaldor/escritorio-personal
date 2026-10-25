@@ -19,15 +19,21 @@ describe('Modo prueba (vidas ilimitadas)', () => {
     expect(isTester()).toBe(false);
   });
 
-  it('en Trepaluna, con el modo prueba perder no descuenta vidas (sin él, sí)', () => {
+  it('en Trepaluna, con el modo prueba las vidas se gastan y al perder la última se recargan las 3', () => {
     for (const tester of [false, true]) {
       setTesterForTests(tester);
       const g = newTrepa();
       g.fires = [{ id: 1, x: 8, y: 0, dir: 'up', len: 3, period: 2, on: 1.9, phase: 0 }];
-      Object.assign(g.player, { x: 8, y: 0 });
-      for (let i = 0; i < 30 && !g.hurt; i++) step(g, { left: false, right: false, jump: false, down: false }, 1 / 60);
-      expect(g.hurt).not.toBe(null);
-      expect(g.lives).toBe(tester ? LIVES : LIVES - 1);
+      const burn = () => {
+        g.hurt = null; g.dying = null; g.splat = null; g.invuln = 0;
+        Object.assign(g.player, { x: 8, y: 0, ground: g.plats[0] });
+        for (let i = 0; i < 30 && !g.hurt && !g.dying; i++) step(g, { left: false, right: false, jump: false, down: false }, 1 / 60);
+      };
+      burn(); expect(g.lives).toBe(LIVES - 1);
+      burn(); expect(g.lives).toBe(LIVES - 2);
+      burn(); // pierde la última
+      if (tester) { expect(g.lives).toBe(LIVES); expect(g.dying).toBe(null); expect(g.hurt).not.toBe(null); }
+      else { expect(g.lives).toBe(0); expect(g.dying).not.toBe(null); }
     }
   });
 

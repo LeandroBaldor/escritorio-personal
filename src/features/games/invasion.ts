@@ -702,7 +702,8 @@ export function shoot(g: Invasion, x: number, y: number) {
         addDecal(g, { room: p.room, x: sx, y: sy, glass: false, t: g.time, blood: true, size: between(g.rand, 0.5, 1.1) });
       }
       addDecal(g, { room: p.room, x: p.x, y: p.y + 0.02, glass: false, t: g.time, blood: true, size: 1.4 });
-      if (!isTester()) g.civilians++; // en el modo prueba no se pierden vidas
+      g.civilians++;
+      if (g.civilians >= LIVES && isTester()) g.civilians = 0; // modo prueba: al perder la última vida, se recargan las 3
       emit(g, { type: 'civilian', x, y, lives: LIVES - g.civilians });
       if (g.civilians >= LIVES) { g.over = true; g.outcome = 'civilian'; emit(g, { type: 'end' }); }
     }

@@ -860,7 +860,8 @@ function stain(game: Game, hit: { x: number; y: number; nx: number; ny: number }
 function die(game: Game, reason: Death) {
   const p = game.player;
   game.phase = 'dead'; game.phaseT = 0; game.death = reason; game.deathX = p.x;
-  if (!isTester()) game.lives--; // en el modo prueba no se descuentan vidas
+  game.lives--;
+  if (game.lives <= 0 && isTester()) game.lives = LIVES; // modo prueba: al perder la última, se recargan las 3 vidas
   game.stats.deaths++;
   game.pendingFlips = [];
   const cx = p.x + PLAYER_W / 2, cy = p.y + PLAYER_H / 2;

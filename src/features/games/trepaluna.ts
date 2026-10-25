@@ -404,7 +404,8 @@ const hitsCircle = (p: Player, cx: number, cy: number, r: number) => {
 
 function lose(g: Trepa, reason: LoseReason) {
   const p = g.player;
-  if (!isTester()) g.lives = Math.max(0, g.lives - 1); // en el modo prueba no se descuentan vidas
+  g.lives = Math.max(0, g.lives - 1);
+  if (g.lives === 0 && isTester()) g.lives = LIVES; // modo prueba: al perder la última, se recargan las 3 vidas
   p.ground = null; p.climb = null;
   p.vy = reason === 'fall' ? Math.min(p.vy, 0) : 9; p.vx = -p.facing * 1.5;
   // Si le quedan vidas, cae igual que al perder del todo y después la cámara sube hasta donde perdió.

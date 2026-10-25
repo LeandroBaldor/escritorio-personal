@@ -4,11 +4,12 @@
 // programa. Queda guardado en ese navegador; para el resto de la gente los juegos son normales.
 //
 // Con el modo prueba:
-// - Trepaluna y Gravity Swap: perder no descuenta vidas.
+// - Trepaluna, Gravity Swap e Invasión: las 3 vidas se gastan como siempre, pero al perder la última se
+//   recargan otras 3 (y así, sin fin).
 // - ¡Cuidado, bloques!: en vez de aplastarte, se rompen los bloques que te aprietan; las bombas no te matan.
 // - ¡El piso es de lava!: la lava, el fuego, la electricidad y las antorchas no te hacen nada.
 // - Ciudad Tiburón: los tiburones no te comen y el tiempo no se termina.
-// - Invasión: no hay límite de civiles ni de tiempo.
+// - Invasión: además, no hay límite de tiempo.
 // - La serpiente al revés: la serpiente no te come.
 
 const KEY = 'escritorio-personal-juegos:modo-prueba';
