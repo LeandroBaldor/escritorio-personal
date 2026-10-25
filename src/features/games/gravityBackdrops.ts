@@ -155,10 +155,10 @@ function drawStarField(ctx: CanvasRenderingContext2D, s: Sprite | null, cam: num
 // ---------- Planetas con luz de verdad ----------
 
 type PlanetKind = 'gas' | 'earth' | 'moon' | 'ice' | 'lava' | 'mars' | 'neptune';
-interface PlanetLook { kind: PlanetKind; rings?: boolean; atmo?: string }
+export interface PlanetLook { kind: PlanetKind; rings?: boolean; atmo?: string }
 const LIGHT = (() => { const v = [-0.62, -0.48, 0.62], l = Math.hypot(...v); return v.map(n => n / l); })();
 
-function planetSprite(look: PlanetLook, seed: number) {
+export function planetSprite(look: PlanetLook, seed: number) {
   const R = 1, ring = look.rings ? 2.3 : 1.25, W = R * ring * 2, H = look.rings ? R * 2.5 : R * 2.5;
   return sprite(`planet-${look.kind}-${seed}-${look.rings ? 1 : 0}`, W, H, g => {
     const px = 150, size = px * 2;

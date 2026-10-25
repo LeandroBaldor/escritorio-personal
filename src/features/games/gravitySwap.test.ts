@@ -260,8 +260,32 @@ describe('Gravity Swap: monstruos, cometas, lásers nuevos y agujeros negros', (
     expect(levelLength(LEVELS[9])).toBeGreaterThanOrEqual(518 * 5);
     const all = new Set(Array.from({ length: LEVEL_COUNT }, (_, i) => buildLevel(i + 1).hazards.map(h => h.kind)).flat());
     for (const kind of ['monster', 'worm', 'comet', 'sweeper', 'scanner', 'blackhole', 'bomb', 'door', 'laser'] as const) expect(all.has(kind)).toBe(true);
-    // Muchos lásers: en todos los escenarios hay, de los tres tipos, más de 12.
-    for (let n = 1; n <= LEVEL_COUNT; n++) expect(buildLevel(n).hazards.filter(h => h.kind === 'laser' || h.kind === 'sweeper' || h.kind === 'scanner').length).toBeGreaterThanOrEqual(10);
+    // Muchos lásers: en todos los escenarios hay, de los tres tipos, por lo menos 8.
+    for (let n = 1; n <= LEVEL_COUNT; n++) expect(buildLevel(n).hazards.filter(h => h.kind === 'laser' || h.kind === 'sweeper' || h.kind === 'scanner').length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('los escenarios son variados: túneles, paredes que se cierran, cortocircuitos, fuego y bobinas de Tesla', () => {
+    const kinds = (n: number) => new Set(buildLevel(n).hazards.map(h => h.kind));
+    for (let n = 1; n <= LEVEL_COUNT; n++) expect(['squeeze', 'shorts', 'burners', 'tesla'].filter(k => kinds(n).has(k as never)).length).toBeGreaterThanOrEqual(2 - (n === 1 ? 1 : 0));
+    const all = new Set(Array.from({ length: LEVEL_COUNT }, (_, i) => [...kinds(i + 1)]).flat());
+    for (const k of ['squeeze', 'shorts', 'burners', 'tesla']) expect(all.has(k as never)).toBe(true);
+    // y los túneles son paredes sólidas (bloques arriba y abajo) en muchos escenarios
+    expect(Array.from({ length: LEVEL_COUNT }, (_, i) => buildLevel(i + 1).solids.filter(s => s.kind === 'block' && s.h > 2).length).filter(c => c > 0).length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('las paredes que se cierran, el cortocircuito, los quemadores y la bobina matan cuando están activos', () => {
+    const cases: [Partial<Hazard>, number][] = [
+      [{ kind: 'squeeze', x: 3, y: CEIL, w: 4, h: FLOOR - CEIL, period: 4, phase: 0.75 * 4 }, 0], // cerradas
+      [{ kind: 'burners', x: 4, y: FLOOR, w: 1.1, h: 0, side: 1, period: 2, len: 3, state: 1, phase: 0.1 * 2 }, 0],
+      [{ kind: 'tesla', x: 5.6, y: FLOOR, w: 0.7, h: 1.7, side: 1, period: 3, r: 1.9, phase: 0.85 * 3 }, 0],
+    ];
+    for (const [fields] of cases) {
+      const game = empty();
+      game.hazards.push(hazard({ id: 5, ...fields }));
+      game.player.x = 4.2; game.player.y = FLOOR - PLAYER_H; game.cam = 0;
+      step(game, idle, 1 / 60, fixed);
+      expect(game.phase).toBe('dead');
+    }
   });
 
   it('hay agujeros negros en todos los escenarios, bastante seguido', () => {

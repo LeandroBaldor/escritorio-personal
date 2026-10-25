@@ -8,7 +8,9 @@ import {
   mineCenter, monsterOf, pendulumBall, plantBite, pressRect, pressState, sawCenter, scannerY, serpentTrail, sporeCenter, sweeperAngle, wormHeight, wormWarn,
   type Game, type Gib, type Hazard, type Solid, type ThemeId,
 } from './gravitySwap';
-import { drawAngler, drawBackdrop, drawBlackhole, drawUpperSky } from './gravityBackdrops';
+import { drawAngler, drawBackdrop, drawBlackhole, drawUpperSky, planetSprite } from './gravityBackdrops';
+import { cloudLayer, drawLayer, factoryWall, forestLayer, ridgeLayer } from './gravityScenery';
+import { drawBurners, drawShorts, drawSqueeze, drawTesla } from './gravityTraps';
 import { drawDrone, drawForest, drawInsect, drawKaiju, drawRoach, drawRobot, drawSerpentBody, drawSerpentHead, drawSpider } from './gravityMonsters';
 
 export const PX = 32;
@@ -206,18 +208,10 @@ function background(ctx: CanvasRenderingContext2D, game: Game, t: Theme, l0: num
         ctx.lineTo(l1, 3.5); ctx.closePath(); ctx.fill();
       }
       ctx.globalAlpha = 1;
-      layer(ctx, cam, l0, l1, 0.08, 3.5, (x, i) => { // montañas nevadas con cara iluminada y cara en sombra
-        const h = 3.4 + hash(i) * 3, tx = x + (hash(i + 2) - 0.5) * 0.8;
-        ctx.fillStyle = '#5f8fca'; ctx.beginPath(); ctx.moveTo(x - 2.6, ROWS); ctx.lineTo(tx, ROWS - h - 1); ctx.lineTo(x + 2.6, ROWS); ctx.fill();
-        ctx.fillStyle = '#4677b3'; ctx.beginPath(); ctx.moveTo(tx, ROWS - h - 1); ctx.lineTo(x + 2.6, ROWS); ctx.lineTo(tx + 0.3, ROWS); ctx.fill();
-        ctx.fillStyle = '#f4f9ff'; ctx.beginPath(); ctx.moveTo(tx - 0.8, ROWS - h - 0.15); ctx.lineTo(tx, ROWS - h - 1); ctx.lineTo(tx + 0.85, ROWS - h - 0.1); ctx.lineTo(tx + 0.4, ROWS - h - 0.3); ctx.lineTo(tx, ROWS - h - 0.05); ctx.lineTo(tx - 0.4, ROWS - h - 0.35); ctx.fill();
-      });
+      // Cordilleras nevadas de verdad: roca con estratos, nieve en las cumbres y laderas, niebla azul lejos.
+      drawLayer(ctx, ridgeLayer('ice-far', { period: 24, base: 3.4, amp: 3.6, scale: 4, seed: 3, rock: [[0, '#243954'], [1, '#6f8db5']], light: 1.1, haze: '#a8c8ec', hazeK: 0.42, snow: 4.6, sharp: 1.9 }), 24, cam, l0, l1, 0.08);
       haze();
-      layer(ctx, cam, l0, l1, 0.25, 2.6, (x, i) => {
-        const h = 2 + hash(i + 3) * 2.5;
-        ctx.fillStyle = '#9cc4ee'; ctx.beginPath(); ctx.moveTo(x - 1.8, ROWS); ctx.lineTo(x, ROWS - h); ctx.lineTo(x + 1.8, ROWS); ctx.fill();
-        ctx.fillStyle = '#86b2e0'; ctx.beginPath(); ctx.moveTo(x, ROWS - h); ctx.lineTo(x + 1.8, ROWS); ctx.lineTo(x + 0.2, ROWS); ctx.fill();
-      });
+      drawLayer(ctx, ridgeLayer('ice-mid', { period: 24, base: 1.6, amp: 2.6, scale: 3, seed: 7, rock: [[0, '#1b2a40'], [1, '#55759e']], light: 1.2, haze: '#9cc4ee', hazeK: 0.16, snow: 2.6, sharp: 1.7 }), 24, cam, l0, l1, 0.22);
       layer(ctx, cam, l0, l1, 0.42, 1.7, (x, i) => { // pinos nevados
         if (hash(i) < 0.4) return;
         const h = 1.2 + hash(i + 1) * 1.3;
@@ -240,7 +234,10 @@ function background(ctx: CanvasRenderingContext2D, game: Game, t: Theme, l0: num
     case 'volcano': {
       ctx.fillStyle = '#1a0606'; // humo
       layer(ctx, cam, l0, l1, 0.05, 4, (x, i) => cloud(ctx, x, 1 + hash(i) * 1.5, 3.5, '#2a0d0b', '#160505'));
+      // Cordillera volcánica: basalto con grietas de lava que brillan, y los cráteres que humean.
+      drawLayer(ctx, ridgeLayer('volc-far', { period: 24, base: 2.8, amp: 3.6, scale: 3, seed: 13, rock: [[0, '#0d0605'], [1, '#3b201a']], light: 0.9, haze: '#3a0e0a', hazeK: 0.28, lava: true, sharp: 2.3 }), 24, cam, l0, l1, 0.08);
       layer(ctx, cam, l0, l1, 0.12, 6, (x, i) => { // volcanes con ríos de lava
+        if (hash(i + 9) < 0.5) return;
         const h = 4 + hash(i) * 2;
         ctx.fillStyle = lin(ctx, x - 3.5, 0, x + 3.5, 0, [[0, '#3a1010'], [0.5, '#2a0b0b'], [1, '#1a0707']]);
         ctx.beginPath(); ctx.moveTo(x - 3.5, ROWS); ctx.lineTo(x - 0.6, ROWS - h); ctx.lineTo(x + 0.6, ROWS - h); ctx.lineTo(x + 3.5, ROWS); ctx.fill();
@@ -252,11 +249,7 @@ function background(ctx: CanvasRenderingContext2D, game: Game, t: Theme, l0: num
         for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.arc(x + Math.sin(time * 0.5 + k) * 0.3 + k * 0.2, ROWS - h - 0.6 - k * 0.7, 0.4 + k * 0.15, 0, Math.PI * 2); ctx.fill(); }
       });
       haze();
-      layer(ctx, cam, l0, l1, 0.3, 3, (x, i) => { // rocas cercanas
-        const h = 0.8 + hash(i) * 1.4;
-        ctx.fillStyle = '#1c0a0a'; ctx.beginPath(); ctx.moveTo(x - 1, ROWS); ctx.lineTo(x - 0.4, ROWS - h); ctx.lineTo(x + 0.3, ROWS - h * 0.8); ctx.lineTo(x + 1, ROWS); ctx.fill();
-        ctx.fillStyle = 'rgba(249,115,22,0.35)'; ctx.fillRect(x - 0.4, ROWS - h, 0.5, P * 2);
-      });
+      drawLayer(ctx, ridgeLayer('volc-near', { period: 24, base: 0.5, amp: 1.8, scale: 5, seed: 17, rock: [[0, '#0a0404'], [1, '#2a1410']], light: 1.2, haze: '#200806', hazeK: 0.05, lava: true, sharp: 1.4 }), 24, cam, l0, l1, 0.3);
       for (let i = 0; i < 40; i++) { // brasas y ceniza
         const x = l0 + ((hash(i) * W * 1.3 - cam * 0.6) % W + W) % W + Math.sin(time * 2 + i) * 0.2;
         const y = ROWS - ((time * (0.6 + hash(i + 2)) + hash(i + 5) * ROWS) % ROWS);
@@ -267,7 +260,10 @@ function background(ctx: CanvasRenderingContext2D, game: Game, t: Theme, l0: num
     }
     case 'inverse': {
       layer(ctx, cam, l0, l1, 0.06, 5, (x, i) => glow(ctx, x, 2 + hash(i) * 5, 2.5, hash(i + 1) > 0.5 ? '#f0abfc' : '#22d3ee', 0.15));
+      // Techo de roca violeta con cristales que brillan (todo está dado vuelta).
+      drawLayer(ctx, ridgeLayer('inv-ceil', { period: 24, base: 1.2, amp: 3.2, scale: 4, seed: 23, rock: [[0, '#1a0633'], [1, '#5b2a8a']], light: 1, haze: '#2e1065', hazeK: 0.18, ceiling: true, crystals: '#67e8f9', sharp: 2 }), 24, cam, l0, l1, 0.1);
       layer(ctx, cam, l0, l1, 0.15, 2.8, (x, i) => { // rocas que cuelgan del techo
+        if (hash(i + 7) < 0.6) return;
         const h = 2 + hash(i) * 3;
         ctx.fillStyle = lin(ctx, x - 1, 0, x + 1, 0, [[0, '#4a1475'], [1, '#2a0848']]);
         ctx.beginPath(); ctx.moveTo(x - 1, 0); ctx.lineTo(x + 1, 0); ctx.lineTo(x + 0.2, h); ctx.lineTo(x - 0.3, h * 0.8); ctx.fill();
@@ -285,11 +281,7 @@ function background(ctx: CanvasRenderingContext2D, game: Game, t: Theme, l0: num
       break;
     }
     case 'factory': {
-      layer(ctx, cam, l0, l1, 0.3, 1.5, (x, i) => { // planchas de metal con remaches
-        ctx.fillStyle = lin(ctx, x, 0, x + 1.5, 0, [[0, '#1a2230'], [0.5, '#161e2b'], [1, '#121924']]); ctx.fillRect(x, 0, 1.5 - P, ROWS);
-        ctx.fillStyle = '#2a3445'; for (let ry = 0.3; ry < ROWS; ry += 1.2) { ctx.fillRect(x + 0.1, ry, 2 * P, 2 * P); ctx.fillRect(x + 1.32, ry, 2 * P, 2 * P); }
-        ctx.fillStyle = 'rgba(146,64,14,0.25)'; if (hash(i) > 0.6) ctx.fillRect(x + 0.3, 2 + hash(i + 1) * 5, 0.5, 0.8); // óxido
-      });
+      drawLayer(ctx, factoryWall('factory-wall'), 6, cam, l0, l1, 0.3); // chapas remachadas, gastadas y oxidadas
       layer(ctx, cam, l0, l1, 0.3, 5, (x, i) => { // engranajes que giran
         const r = 0.9 + hash(i) * 0.6, y = 3 + hash(i + 1) * 4, a = time * (i % 2 ? 0.8 : -0.8);
         ctx.fillStyle = ball(ctx, x, y, r * 1.2, '#2f3a4b');
@@ -314,7 +306,7 @@ function background(ctx: CanvasRenderingContext2D, game: Game, t: Theme, l0: num
     }
     case 'forest': {
       haze();
-      layer(ctx, cam, l0, l1, 0.06, 2.2, (x, i) => { ctx.fillStyle = '#04241e'; ctx.fillRect(x, 0, 0.35 + hash(i) * 0.3, ROWS); }); // troncos lejanos
+      drawLayer(ctx, forestLayer('forest-far', 24, 5, false), 24, cam, l0, l1, 0.06); // troncos lejanos, con corteza y musgo
       layer(ctx, cam, l0, l1, 0.12, 3.2, (x, i) => { // hongos gigantes que brillan
         const h = 3 + hash(i) * 3, c = hash(i + 1) > 0.5 ? '#22d3ee' : '#a78bfa';
         ctx.fillStyle = lin(ctx, x - 0.15, 0, x + 0.15, 0, [[0, '#0f4a40'], [1, '#062a24']]); ctx.fillRect(x - 0.15, ROWS - h, 0.3, h);
@@ -329,6 +321,7 @@ function background(ctx: CanvasRenderingContext2D, game: Game, t: Theme, l0: num
         ctx.fillStyle = 'rgba(103,232,249,0.18)'; ctx.fillRect(x, 0, 0.5, ROWS);
         ctx.fillStyle = 'rgba(236,254,255,0.3)'; for (let y = (time * 3) % 1; y < ROWS; y += 1) ctx.fillRect(x + 0.1 + hash(y) * 0.3, y, P * 2, 0.4);
       });
+      drawLayer(ctx, forestLayer('forest-near', 24, 9, true), 24, cam, l0, l1, 0.22, 0.92); // troncos más cerca
       ctx.strokeStyle = '#14532d'; ctx.lineWidth = P * 2; // lianas
       layer(ctx, cam, l0, l1, 0.35, 1.9, (x, i) => { if (hash(i) < 0.5) return; const len = 1 + hash(i + 1) * 2.5; ctx.beginPath(); ctx.moveTo(x, 0); ctx.quadraticCurveTo(x + Math.sin(time + i) * 0.2, len / 2, x + 0.1, len); ctx.stroke(); ctx.fillStyle = '#22c55e'; ctx.fillRect(x, len, 3 * P, 3 * P); });
       for (let i = 0; i < 36; i++) { // luciérnagas
@@ -341,7 +334,7 @@ function background(ctx: CanvasRenderingContext2D, game: Game, t: Theme, l0: num
       break;
     }
     case 'storm': {
-      layer(ctx, cam, l0, l1, 0.03, 3, (x, i) => cloud(ctx, x, 1.2 + hash(i) * 1.5, 4, '#2c2945', '#1a1829'));
+      drawLayer(ctx, cloudLayer('storm-far', 24, 3, 0.2, 4.4, '#9a98c4', '#1c1a2c', 1), 24, cam, l0, l1, 0.03); // nubes de tormenta con volumen
       if (Math.sin(time * 1.7) > 0.985) { ctx.fillStyle = 'rgba(199,210,254,0.25)'; ctx.fillRect(l0, 0, W, ROWS); } // relámpago lejano
       layer(ctx, cam, l0, l1, 0.1, 3, (x, i) => { // torres lejanas con ventanas
         const h = 4 + hash(i) * 4;
@@ -350,7 +343,7 @@ function background(ctx: CanvasRenderingContext2D, game: Game, t: Theme, l0: num
         if (hash(i + 3) > 0.5) { ctx.fillStyle = Math.sin(time * 2 + i) > 0 ? '#ef4444' : '#450a0a'; ctx.fillRect(x + 0.35, ROWS - h - 0.3, 3 * P, 3 * P); }
       });
       haze();
-      layer(ctx, cam, l0, l1, 0.2, 2.5, (x, i) => cloud(ctx, x, 0.5 + hash(i) * 0.8, 3, '#3d3a5e', '#25233a'));
+      drawLayer(ctx, cloudLayer('storm-near', 24, 11, -0.6, 2.6, '#b4b1d8', '#26243a', 1), 24, cam, l0, l1, 0.2);
       ctx.strokeStyle = 'rgba(165,180,252,0.38)'; ctx.lineWidth = P; // lluvia
       for (let i = 0; i < 90; i++) {
         const x = l0 + ((hash(i) * W * 1.3 - time * 3 - cam * 0.8) % W + W) % W;
@@ -361,17 +354,14 @@ function background(ctx: CanvasRenderingContext2D, game: Game, t: Theme, l0: num
     }
     case 'moon': {
       glow(ctx, cols * 0.12, 1.2, 3, '#fef9c3', 0.18); // el sol, lejos
-      planet(ctx, cols * 0.72 - (cam * 0.03) % (cols + 6), 3.2, 1.8, '#2563eb', '#22c55e');
-      layer(ctx, cam, l0, l1, 0.06, 5, (x, i) => { // montañas lunares lejanas
-        const h = 2 + hash(i) * 2;
-        ctx.fillStyle = '#2d323b'; ctx.beginPath(); ctx.moveTo(x - 3, ROWS); ctx.lineTo(x - 0.5, ROWS - h); ctx.lineTo(x + 0.4, ROWS - h * 0.85); ctx.lineTo(x + 3, ROWS); ctx.fill();
-        ctx.fillStyle = '#3d434e'; ctx.beginPath(); ctx.moveTo(x - 3, ROWS); ctx.lineTo(x - 0.5, ROWS - h); ctx.lineTo(x - 0.2, ROWS); ctx.fill();
-      });
-      layer(ctx, cam, l0, l1, 0.15, 4, (x, i) => { // cerros con cráteres
-        const h = 1.2 + hash(i) * 1.5;
-        ctx.fillStyle = lin(ctx, 0, ROWS - h, 0, ROWS, [[0, '#6b7280'], [1, '#3f444d']]); ctx.beginPath(); ctx.ellipse(x, ROWS - 0.5, 2.6, h, 0, Math.PI, Math.PI * 2); ctx.fill();
-        for (let k = 0; k < 2; k++) { const cx = x - 1 + hash(i + k) * 2, cy = ROWS - h * (0.3 + hash(i + k + 5) * 0.4); ctx.fillStyle = '#4b5059'; ctx.beginPath(); ctx.ellipse(cx, cy, 0.35, 0.12, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#7d8592'; ctx.fillRect(cx - 0.3, cy + 0.08, 0.6, P); }
-      });
+      { // la Tierra, con mares, continentes, nubes y atmósfera
+        const earth = planetSprite({ kind: 'earth', atmo: '#7dd3fc' }, 3);
+        const ex = cols * 0.72 - (cam * 0.03) % (cols + 6), size = 1.9;
+        if (earth) ctx.drawImage(earth.img, ex - size * earth.w / 2, 3.2 - size * earth.h / 2, size * earth.w, size * earth.h);
+      }
+      // Montañas lunares y la ladera con cráteres: roca gris con luz rasante del sol.
+      drawLayer(ctx, ridgeLayer('moon-far', { period: 24, base: 2, amp: 2.8, scale: 3, seed: 29, rock: [[0, '#1d2026'], [1, '#727884']], light: 1.4, haze: '#0b0d12', hazeK: 0.22, sharp: 2.1 }), 24, cam, l0, l1, 0.06);
+      drawLayer(ctx, ridgeLayer('moon-near', { period: 24, base: 0.8, amp: 1.3, scale: 4, seed: 31, rock: [[0, '#3a3e46'], [1, '#9aa1ad']], light: 1.3, haze: '#0b0d12', hazeK: 0.04, craters: true, sharp: 1.2 }), 24, cam, l0, l1, 0.15);
       layer(ctx, cam, l0, l1, 0.25, 12, (x, i) => { // una base lunar lejana con luces
         ctx.fillStyle = '#9ca3af'; ctx.beginPath(); ctx.arc(x, ROWS - 0.3, 0.5, Math.PI, Math.PI * 2); ctx.fill();
         ctx.fillStyle = Math.sin(time * 3 + i) > 0 ? '#facc15' : '#713f12'; ctx.fillRect(x - 0.05, ROWS - 0.65, 3 * P, 3 * P);
@@ -1124,6 +1114,10 @@ function drawHazard(ctx: CanvasRenderingContext2D, h: Hazard, game: Game, t: The
     case 'sweeper': sweeper(ctx, h, game, t); break;
     case 'scanner': scanner(ctx, h, game, t); break;
     case 'blackhole': blackhole(ctx, h, game); break;
+    case 'squeeze': drawSqueeze(ctx, h, game); break;
+    case 'shorts': drawShorts(ctx, h, game); break;
+    case 'burners': drawBurners(ctx, h, game); break;
+    case 'tesla': drawTesla(ctx, h, game); break;
   }
 }
 

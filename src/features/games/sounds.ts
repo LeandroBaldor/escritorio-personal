@@ -1211,7 +1211,7 @@ export function preloadUiSounds() { for (const url of [jugarUrl, ganasteUrl, gam
 if (typeof window !== 'undefined' && typeof fetch === 'function') preloadUiSounds();
 
 // ---------- Gravity Swap ----------
-export function preloadGravitySounds() { for (const url of [bombaUrl, propulsorUrl, personaCaeUrl, agujeroNegroUrl, laserUrl, monstruoUrl, puertaUrl, explosionUrl, pasosUrl, musicaGravedadUrl, gusanoUrl, ...TRUENOS]) loadSample(url); }
+export function preloadGravitySounds() { for (const url of [bombaUrl, propulsorUrl, personaCaeUrl, agujeroNegroUrl, laserUrl, monstruoUrl, puertaUrl, explosionUrl, pasosUrl, musicaGravedadUrl, gusanoUrl, trepaFuegoUrl, ...TRUENOS]) loadSample(url); }
 // La gravedad se dio vuelta: un "fuuiiip" que sube y un soplido.
 export function playGravityFlip() {
   const c = running(); if (!c) return;

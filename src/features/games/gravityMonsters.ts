@@ -5,8 +5,8 @@
 // centrados en (0, 0) y midiendo más o menos 1,4 casilleros; quien los llama los da vuelta e inclina.
 // "angry": ya te vio y te persigue (abre más la boca, aletea más rápido, brillan más los ojos).
 
-const P = 1 / 32; // un píxel, en casilleros
-const INK = '#0a0a16';
+export const P = 1 / 32; // un píxel, en casilleros
+export const INK = '#0a0a16';
 const TAU = Math.PI * 2;
 type Pt = [number, number];
 
@@ -17,29 +17,29 @@ function mix(a: string, b: string, k: number) {
 }
 const lighten = (c: string, k: number) => mix(c, '#ffffff', k);
 const darken = (c: string, k: number) => mix(c, '#000000', k);
-function lin(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, stops: [number, string][]) {
+export function lin(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, stops: [number, string][]) {
   const g = ctx.createLinearGradient(x0, y0, x1, y1);
   for (const [at, c] of stops) g.addColorStop(at, c);
   return g;
 }
-function ball(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string) {
+export function ball(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string) {
   const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
   g.addColorStop(0, lighten(color, 0.5)); g.addColorStop(0.45, color); g.addColorStop(1, darken(color, 0.6));
   return g;
 }
-function ink(ctx: CanvasRenderingContext2D, path: () => void, fill: string | CanvasGradient, width = 2) {
+export function ink(ctx: CanvasRenderingContext2D, path: () => void, fill: string | CanvasGradient, width = 2) {
   ctx.beginPath(); path();
   ctx.lineWidth = width * P; ctx.strokeStyle = INK; ctx.lineJoin = 'round'; ctx.stroke();
   ctx.fillStyle = fill; ctx.fill();
 }
-function limb(ctx: CanvasRenderingContext2D, pts: Pt[], color: string | CanvasGradient, width: number) {
+export function limb(ctx: CanvasRenderingContext2D, pts: Pt[], color: string | CanvasGradient, width: number) {
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   for (const [c, w] of [[INK, width + 2.2 * P], [color, width]] as const) {
     ctx.strokeStyle = c; ctx.lineWidth = w;
     ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
   }
 }
-function glow(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string, alpha = 0.5) {
+export function glow(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string, alpha = 0.5) {
   const g = ctx.createRadialGradient(x, y, 0, x, y, r);
   g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.globalAlpha = alpha; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
@@ -67,7 +67,7 @@ function drool(ctx: CanvasRenderingContext2D, x: number, y: number, len: number,
   if (k > 0.85) { ctx.beginPath(); ctx.arc(x, y + l + (k - 0.85) * 2, 1.5 * P, 0, TAU); ctx.fill(); } // la gota que se suelta
 }
 // Un rayo eléctrico quebrado entre dos puntos (cambia en cada cuadro).
-function zap(ctx: CanvasRenderingContext2D, a: Pt, b: Pt, color = '#7dd3fc') {
+export function zap(ctx: CanvasRenderingContext2D, a: Pt, b: Pt, color = '#7dd3fc') {
   const pts: Pt[] = [a];
   for (let i = 1; i < 6; i++) { const k = i / 6; pts.push([a[0] + (b[0] - a[0]) * k + (Math.random() - 0.5) * 0.12, a[1] + (b[1] - a[1]) * k + (Math.random() - 0.5) * 0.12]); }
   pts.push(b);

@@ -61,6 +61,7 @@ export type Kind =
   | 'press' | 'icicle' | 'walker' | 'flyer' | 'fireball' | 'geyser' | 'crumble' | 'pendulum' | 'flipper'
   | 'conveyor' | 'spring' | 'spores' | 'waterfall' | 'plant' | 'lightning' | 'meteor' | 'tracker'
   | 'bomb' | 'door' | 'tunnel'
+  | 'squeeze' | 'shorts' | 'burners' | 'tesla'
   | 'monster' | 'worm' | 'comet' | 'sweeper' | 'scanner' | 'blackhole';
 
 export interface LevelDef {
@@ -78,25 +79,25 @@ export const freeAngles = (def: LevelDef) => LEVELS.indexOf(def) >= 4;
 
 export const LEVELS: LevelDef[] = [
   { name: 'Ciudad Futurista', theme: 'city', stars: 1, seconds: 210, speed: [3, 4.1], flip: [6, 10], gap: [5.5, 8.5],
-    pool: { spikes: 3, block: 2, platform: 2, laser: 2.7, mine: 1.2, pit: 1, bomb: 1.5, door: 1.4, sweeper: 0.8, scanner: 0.8, monster: 1.2, comet: 0.7, blackhole: 2.6 } },
+    pool: { tunnel: 1.2, tesla: 1.2, spikes: 3, block: 2, platform: 2, laser: 2.7, mine: 1.2, pit: 1, bomb: 1.5, door: 1.4, sweeper: 0.8, scanner: 0.8, monster: 1.2, comet: 0.7, blackhole: 2.6 } },
   { name: 'Minas Espaciales', theme: 'mines', stars: 2, seconds: 240, speed: [3.2, 4.4], flip: [5.5, 9], gap: [4.8, 7.5],
-    pool: { spikes: 2, block: 1.5, platform: 2, pit: 1, mine: 1.5, proxMine: 2, asteroid: 2, laser: 2.1, bomb: 2, tunnel: 1, comet: 1, monster: 1.5, worm: 1, sweeper: 0.7, blackhole: 2.6 } },
+    pool: { squeeze: 1.5, shorts: 1, tunnel: 1.2, spikes: 2, block: 1.5, platform: 2, pit: 1, mine: 1.5, proxMine: 2, asteroid: 2, laser: 2.1, bomb: 2, comet: 1, monster: 1.5, worm: 1, sweeper: 0.7, blackhole: 2.6 } },
   { name: 'Base en el Espacio', theme: 'base', stars: 3, seconds: 270, speed: [3.4, 4.8], flip: [5, 8.5], gap: [4.2, 6.8],
-    pool: { spikes: 2, platform: 2, laser: 3.3, turret: 2, press: 1.5, mine: 1, pit: 1, proxMine: 1, bomb: 2, door: 2.4, tunnel: 1.5, sweeper: 1.2, scanner: 1.2, monster: 1.2, blackhole: 2.6 } },
+    pool: { shorts: 2, tesla: 1.5, squeeze: 1, spikes: 2, platform: 2, laser: 3.3, turret: 2, press: 1.5, mine: 1, pit: 1, proxMine: 1, bomb: 2, door: 2.4, tunnel: 1.5, sweeper: 1.2, scanner: 1.2, monster: 1.2, blackhole: 2.6 } },
   { name: 'Planeta Helado', theme: 'ice', stars: 3, seconds: 290, speed: [3.5, 5], flip: [4.5, 8], gap: [4.2, 6.5], ice: true,
-    pool: { spikes: 2, platform: 2, icicle: 2.5, saw: 2, walker: 2, mine: 1, pit: 1.5, laser: 2.1, door: 1.8, tunnel: 1.5, comet: 1, worm: 1.2, monster: 1.2, scanner: 0.8, bomb: 1, blackhole: 2.6 } },
+    pool: { squeeze: 1.2, tunnel: 1.2, burners: 0.8, spikes: 2, platform: 2, icicle: 2.5, saw: 2, walker: 2, mine: 1, pit: 1.5, laser: 2.1, door: 1.8, comet: 1, worm: 1.2, monster: 1.2, scanner: 0.8, bomb: 1, blackhole: 2.6 } },
   { name: 'Planeta Volcánico', theme: 'volcano', stars: 4, seconds: 310, speed: [3.6, 5.2], flip: [4.5, 7.5], gap: [4, 6.2],
-    pool: { spikes: 2.5, fireball: 2, geyser: 2, crumble: 2, pit: 1.5, platform: 1.5, mine: 1, saw: 1, bomb: 2, door: 1.3, tunnel: 1, comet: 2, worm: 1.4, laser: 2.6, sweeper: 1.2, monster: 1.2, blackhole: 2.6 } },
+    pool: { burners: 2.5, squeeze: 1, spikes: 2.5, fireball: 2, geyser: 2, crumble: 2, pit: 1.5, platform: 1.5, mine: 1, saw: 1, bomb: 2, door: 1.3, tunnel: 1, comet: 2, worm: 1.4, laser: 2.6, sweeper: 1.2, monster: 1.2, blackhole: 2.6 } },
   { name: 'El Orden Inverso', theme: 'inverse', stars: 4, seconds: 310, speed: [3.8, 5.4], flip: [4, 7], gap: [3.8, 5.8], inverted: true,
-    pool: { spikes: 2, platform: 2, pendulum: 2, flipper: 1.5, flyer: 2, mine: 1.5, laser: 2.5, icicle: 1, door: 1.8, tunnel: 1, bomb: 1.4, sweeper: 1.2, blackhole: 2.6, monster: 1.5, scanner: 0.8 } },
+    pool: { tesla: 1.2, shorts: 1.2, tunnel: 1, spikes: 2, platform: 2, pendulum: 2, flipper: 1.5, flyer: 2, mine: 1.5, laser: 2.5, icicle: 1, door: 1.8, bomb: 1.4, sweeper: 1.2, blackhole: 2.6, monster: 1.5, scanner: 0.8 } },
   { name: 'Fábrica Robótica', theme: 'factory', stars: 5, seconds: 340, speed: [4, 5.6], flip: [4, 6.5], gap: [4.2, 6.5],
-    pool: { conveyor: 2, press: 2.5, saw: 2.5, walker: 2.5, laser: 3.1, turret: 2.5, spikes: 1.5, block: 1, bomb: 1.5, door: 1.8, sweeper: 1.4, scanner: 1.4, monster: 0.9, blackhole: 2.6 } },
+    pool: { squeeze: 2.2, burners: 1.5, shorts: 1.5, tesla: 1, conveyor: 2, press: 2.5, saw: 2.5, walker: 2.5, laser: 3.1, turret: 2.5, spikes: 1.5, block: 1, bomb: 1.5, door: 1.8, sweeper: 1.4, scanner: 1.4, monster: 0.9, blackhole: 2.6 } },
   { name: 'Bosque Bioluminiscente', theme: 'forest', stars: 4, seconds: 360, speed: [4.1, 5.8], flip: [3.5, 6], gap: [3.6, 5.5],
-    pool: { spring: 2, spores: 2, waterfall: 1.5, plant: 2, laser: 2.5, flyer: 1.5, spikes: 1.5, mine: 1, bomb: 1.4, door: 1.4, monster: 2.1, worm: 1.4, comet: 0.8, sweeper: 0.8, blackhole: 2.6 } },
+    pool: { burners: 1.2, tunnel: 1.5, shorts: 0.8, spring: 2, spores: 2, waterfall: 1.5, plant: 2, laser: 2.5, flyer: 1.5, spikes: 1.5, mine: 1, bomb: 1.4, door: 1.4, monster: 2.1, worm: 1.4, comet: 0.8, sweeper: 0.8, blackhole: 2.6 } },
   { name: 'Torres en la Tormenta', theme: 'storm', stars: 5, seconds: 390, speed: [4.3, 6], flip: [3, 5.5], gap: [3.2, 5], wind: true, dark: true,
-    pool: { lightning: 2.5, pendulum: 2, spikes: 2, pit: 2, platform: 1.5, laser: 2.5, flyer: 1.5, crumble: 1, turret: 1, bomb: 2, door: 1.8, comet: 1.4, monster: 1.5, scanner: 1, blackhole: 2.6, sweeper: 0.8 } },
+    pool: { tesla: 2.2, shorts: 2, squeeze: 1, lightning: 2.5, pendulum: 2, spikes: 2, pit: 2, platform: 1.5, laser: 2.5, flyer: 1.5, crumble: 1, turret: 1, bomb: 2, door: 1.8, comet: 1.4, monster: 1.5, scanner: 1, blackhole: 2.6, sweeper: 0.8 } },
   { name: 'La Luna', theme: 'moon', stars: 5, seconds: 476, speed: [4.5, 6.4], flip: [2.5, 5], gap: [3, 4.8], boss: true, spin: true,
-    pool: { meteor: 2.5, tracker: 2.5, laser: 2.5, spikes: 1.5, saw: 1.5, press: 1, proxMine: 1, mine: 1, pit: 1, platform: 1, pendulum: 1, asteroid: 1, icicle: 0.5, bomb: 2, door: 1.8, tunnel: 1, comet: 1.6, monster: 1.8, blackhole: 2.6, sweeper: 1, scanner: 1, worm: 0.8 } },
+    pool: { squeeze: 1.5, tesla: 1.5, burners: 1.2, shorts: 1.2, tunnel: 1, meteor: 2.5, tracker: 2.5, laser: 2.5, spikes: 1.5, saw: 1.5, press: 1, proxMine: 1, mine: 1, pit: 1, platform: 1, pendulum: 1, asteroid: 1, icicle: 0.5, bomb: 2, door: 1.8, comet: 1.6, monster: 1.8, blackhole: 2.6, sweeper: 1, scanner: 1, worm: 0.8 } },
 ];
 // Dónde están las banderas de cada escenario (en qué parte del recorrido).
 export const CHECKPOINTS = [0.2, 0.4, 0.6, 0.8];
@@ -145,7 +146,7 @@ export type GravityEvent =
   | { type: 'land' } | { type: 'flip' } | { type: 'death'; reason: Death }
   | { type: 'boom' } | { type: 'shot' } | { type: 'zap' } | { type: 'spring' } | { type: 'crumble' } | { type: 'cleared'; level: number }
   | { type: 'thunder' } | { type: 'gust' } | { type: 'respawn' } | { type: 'won' }
-  | { type: 'step' } | { type: 'beep'; count: number } | { type: 'checkpoint' } | { type: 'roar' } | { type: 'monsterDie' } | { type: 'comet' } | { type: 'worm' } | { type: 'door'; opening: boolean };
+  | { type: 'step' } | { type: 'beep'; count: number } | { type: 'checkpoint' } | { type: 'roar' } | { type: 'monsterDie' } | { type: 'flame' } | { type: 'comet' } | { type: 'worm' } | { type: 'door'; opening: boolean };
 
 export interface Stats { time: number; deaths: number; flips: number; levels: number }
 
@@ -370,6 +371,31 @@ export function buildLevel(level: number): Layout {
         hazard('door', { x, y: CEIL, w: 1, h: FLOOR - CEIL, side: 0, period: 2.8 + rand() * 0.9 });
         return 1.4;
       }
+      case 'squeeze': {
+        // El piso y el techo se empiezan a cerrar: dos paredes de acero que avanzan hasta dejar un hueco
+        // angosto en el medio (avisan con luces) y después se vuelven a abrir.
+        const len = 4 + Math.floor(rand() * 3);
+        hazard('squeeze', { x, y: CEIL, w: len, h: FLOOR - CEIL, side: 0, period: 4.2 + rand() * 1.2 });
+        return len;
+      }
+      case 'shorts': {
+        // Cortocircuito: cables pelados en el piso y el techo; cada tanto saltan rayos de punta a punta en
+        // lugares distintos (antes chisporrotean donde van a saltar).
+        const len = 4.5 + Math.floor(rand() * 2);
+        hazard('shorts', { x, y: CEIL, w: len, h: FLOOR - CEIL, side: 0, period: 2.2 + rand() * 0.6 });
+        return len;
+      }
+      case 'burners': {
+        // Quemadores en fila en el piso o el techo: largan llamaradas una detrás de otra, como una ola.
+        const n = 4 + Math.floor(rand() * 2);
+        hazard('burners', { x, y: side === 1 ? FLOOR : CEIL, w: n * 1.1, h: 0, side, period: 2.6 + rand() * 0.6, len: 2.4 + rand() * 0.8, state: n });
+        return n * 1.1;
+      }
+      case 'tesla': {
+        // Bobina de Tesla: se carga (brilla cada vez más) y descarga rayos alrededor; si estás cerca, te alcanza.
+        hazard('tesla', { x: x + 0.6, y: side === 1 ? FLOOR : CEIL, w: 0.7, h: 1.7, side, period: 3 + rand() * 0.8, r: 1.9 });
+        return 2.2;
+      }
       case 'tunnel': {
         // Un tramo angosto, con pinchos pegados a las dos paredes internas (deja bastante lugar en el medio).
         const len = 3 + Math.floor(rand() * 2), gapH = 3.6 + rand() * 0.6;
@@ -588,6 +614,32 @@ const cycle = (game: Game, h: Hazard) => (((game.time + h.phase) % h.period) + h
 export const hazardCycle = cycle; // para que el dibujo sepa en qué parte del ciclo está una bomba, etc.
 export const laserOn = (game: Game, h: Hazard) => cycle(game, h) < (h.amp || 0.45);
 export const laserWarn = (game: Game, h: Hazard) => cycle(game, h) > 0.85;
+// Paredes que se cierran: cuánto avanzó cada una (0 abiertas … el máximo deja 1,6 casilleros en el medio).
+export const SQUEEZE_GAP = 1.6;
+export function squeezeExt(game: Game, h: Hazard) {
+  const c = cycle(game, h), max = (FLOOR - CEIL - SQUEEZE_GAP) / 2;
+  const k = c < 0.45 ? 0 : c < 0.7 ? (c - 0.45) / 0.25 : c < 0.82 ? 1 : c < 0.95 ? 1 - (c - 0.82) / 0.13 : 0;
+  return max * k * k * (3 - 2 * k);
+}
+export const squeezeWarn = (game: Game, h: Hazard) => { const c = cycle(game, h); return c > 0.3 && c < 0.45; };
+// Cortocircuito: dónde saltan los rayos en este ciclo (3 lugares), si están saltando o por saltar.
+export function shortArcs(game: Game, h: Hazard) {
+  const n = Math.floor((game.time + h.phase) / h.period), c = cycle(game, h);
+  const xs = [0, 1, 2].map(k => h.x + 0.5 + hash01(n * 7.3 + k * 3.1 + h.id) * (h.w - 1));
+  return { xs, on: c > 0.78 && c < 0.92, warn: c > 0.5 && c <= 0.78 };
+}
+// Quemadores: qué tan alta es la llamarada de cada uno (salen en ola, uno detrás de otro).
+export function burnerFlame(game: Game, h: Hazard, k: number) {
+  const c = ((cycle(game, h) - k * 0.14) % 1 + 1) % 1;
+  if (c < 0.06) return h.len * c / 0.06;
+  if (c < 0.3) return h.len;
+  if (c < 0.36) return h.len * (1 - (c - 0.3) / 0.06);
+  return 0;
+}
+export const burnerWarn = (game: Game, h: Hazard, k: number) => { const c = ((cycle(game, h) - k * 0.14) % 1 + 1) % 1; return c > 0.85; };
+// Bobina de Tesla: carga de 0 a 1 y descarga (los rayos) al final del ciclo.
+export function teslaState(game: Game, h: Hazard) { const c = cycle(game, h); return { charge: Math.min(1, c / 0.8), firing: c >= 0.8 && c < 0.94 }; }
+export const teslaTop = (h: Hazard) => ({ x: h.x + h.w / 2, y: h.side === 1 ? FLOOR - h.h : CEIL + h.h });
 // Prensa: cuánto bajó (0 guardada, 1 hasta el otro lado) y si tiembla porque está por bajar.
 export function pressState(game: Game, h: Hazard) {
   const t = cycle(game, h) * h.period, rest = h.period - 0.9;
@@ -751,6 +803,21 @@ function updateHazards(game: Game, dt: number) {
         for (const [at, opening] of [[0.5, true], [0.82, false]] as const) if (visible(game, h.x) && before < at && c >= at) emit(game, { type: 'door', opening });
         break;
       }
+      case 'squeeze': { // las paredes suenan al empezar a cerrarse y al abrirse
+        const c = cycle(game, h), before = ((((game.time - dt + h.phase) % h.period) + h.period) % h.period) / h.period;
+        for (const [at, opening] of [[0.45, false], [0.82, true]] as const) if (visible(game, h.x) && before < at && c >= at) emit(game, { type: 'door', opening });
+        break;
+      }
+      case 'shorts': case 'tesla': { // el chispazo
+        const c = cycle(game, h), before = ((((game.time - dt + h.phase) % h.period) + h.period) % h.period) / h.period, at = h.kind === 'shorts' ? 0.78 : 0.8;
+        if (visible(game, h.x) && before < at && c >= at) emit(game, { type: 'zap' });
+        break;
+      }
+      case 'burners': {
+        if (!visible(game, h.x)) break;
+        for (let k = 0; k < h.state; k++) if (burnerFlame(game, h, k) > 0 && burnerFlame({ ...game, time: game.time - dt } as Game, h, k) === 0) { emit(game, { type: 'flame' }); break; }
+        break;
+      }
       case 'sweeper': case 'scanner': // el láser giratorio y el que sube y baja suenan cuando aparecen en la pantalla
         if (!h.active && visible(game, h.x, -1)) { h.active = true; emit(game, { type: 'zap' }); }
         break;
@@ -855,6 +922,14 @@ function lethalFor(game: Game, r: { x: number; y: number; w: number; h: number }
       }
       case 'scanner': if (overlaps(r, { x: h.x, y: scannerY(game, h) - 0.1, w: h.w, h: 0.2 })) return 'laser'; break;
       case 'blackhole': if (circleHits(r, h.x, h.y, h.r)) return 'blackhole'; break;
+      case 'squeeze': { const e = squeezeExt(game, h); if (e > 0.05 && (overlaps(r, { x: h.x, y: CEIL, w: h.w, h: e }) || overlaps(r, { x: h.x, y: FLOOR - e, w: h.w, h: e }))) return 'press'; break; }
+      case 'shorts': { const a = shortArcs(game, h); if (a.on && a.xs.some(x => overlaps(r, { x: x - 0.18, y: CEIL, w: 0.36, h: FLOOR - CEIL }))) return 'lightning'; break; }
+      case 'burners': for (let k = 0; k < h.state; k++) { const fh = burnerFlame(game, h, k), nx = h.x + 0.55 + k * 1.1; if (fh > 0.1 && overlaps(r, { x: nx - 0.22, y: h.side === 1 ? FLOOR - fh : CEIL, w: 0.44, h: fh })) return 'fire'; } break;
+      case 'tesla': {
+        if (overlaps(r, { x: h.x, y: h.side === 1 ? FLOOR - h.h : CEIL, w: h.w, h: h.h })) return 'lightning';
+        const top = teslaTop(h); if (teslaState(game, h).firing && circleHits(r, top.x, top.y, h.r)) return 'lightning';
+        break;
+      }
     }
   }
   return null;
