@@ -1179,7 +1179,7 @@ export function playAstronautStep() {
   const buffer = samples.get(pasosUrl);
   if (!(buffer instanceof AudioBuffer)) { loadSample(pasosUrl); return; }
   const source = c.createBufferSource(), gain = c.createGain();
-  source.buffer = buffer; source.playbackRate.value = 0.95 + Math.random() * 0.1; gain.gain.value = 0.7;
+  source.buffer = buffer; source.playbackRate.value = 0.95 + Math.random() * 0.1; gain.gain.value = 0.4;
   source.connect(gain).connect(out(c));
   source.start(c.currentTime, STEPS[stepIndex] - 0.02, 0.3);
   stepIndex = (stepIndex + 1) % STEPS.length;

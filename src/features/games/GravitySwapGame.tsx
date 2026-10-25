@@ -236,7 +236,7 @@ export function GravitySwap() {
           {status === 'ready' && <>
             <h2 id="grav-message">Gravity Swap 🚀</h2>
             <p className="runner-keys"><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> o flechas: chorros de oxígeno · <kbd>R</kbd> volver a la bandera · <kbd>Esc</kbd> pausa</p>
-            <p className="runner-tip">💡 Flotás y la gravedad gira sola, sin avisar. Los escenarios son largos: cada 🚩 que pasás es tu nuevo punto de partida si morís. Cuidado con los monstruos, los cometas en llamas y los agujeros negros.</p>
+            <p className="runner-tip">💡 Flotás y la gravedad gira sola, sin avisar. Si perdés una vida, seguís cerca de donde caíste; si te quedás sin vidas, reintentás desde la última 🚩 que pasaste. Cuidado con los monstruos, los cometas en llamas y los agujeros negros.</p>
             <div className="grav-levels" role="group" aria-label="Escenarios">
               {LEVELS.map((level, i) => {
                 const n = i + 1, locked = n > record.unlocked;

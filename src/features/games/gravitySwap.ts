@@ -129,6 +129,7 @@ export interface Game {
   drops: Drop[]; stains: Stain[]; gibs: Gib[]; smoke: Smoke[]; shake: number; clock: number;
   player: Player;
   cam: number; speed: number; time: number;
+  deathX: number; // dónde murió (para volver a aparecer ahí cerca)
   hint: number; // segundos que le quedan a la flecha que muestra para dónde ir (aparece al cambiar la gravedad)
   follow: number; // hacia dónde mira la cámara cuando la pantalla está de costado (sigue al astronauta con un poco de retraso)
   angle: number; // hacia dónde tira la gravedad (radianes; 0 = hacia el piso)
@@ -421,18 +422,41 @@ export function newGame(level: number, cols: number, stats: Stats = newStats(), 
   return game;
 }
 
-// Arranca (o vuelve a arrancar) el escenario: desde el principio o desde una bandera ("from").
+// Un lugar seguro para volver a aparecer, un poco antes de "x": con piso y techo firmes (sin pozos), sin paredes
+// ni plataformas encima. Devuelve dónde arranca (como una bandera: el astronauta aparece 1 casillero después).
+function safeSpot(layout: Layout, x: number) {
+  for (let k = 0; k < 120; k++) {
+    const at = x - 1.5 - k * 0.5, px = at + 1;
+    if (at < START_SAFE / 2) return 0;
+    const ground = (y: number) => layout.solids.some(s => s.kind === 'ground' && s.y === y && s.x <= px - 0.8 && s.x + s.w >= px + PLAYER_W + 0.8);
+    const blocked = layout.solids.some(s => s.kind !== 'ground' && s.x < px + PLAYER_W + 1 && s.x + s.w > px - 1);
+    if (ground(FLOOR) && ground(CEIL - 2) && !blocked) return at;
+  }
+  return 0;
+}
+
+// Arranca (o vuelve a arrancar) el escenario: desde el principio, desde una bandera ("from"), o (al perder una
+// vida) desde un lugar seguro cerca de donde murió ("deathX"), sin trampas alrededor. "checkpoint" es la última
+// bandera que pasó (a la que vuelve si se queda sin vidas y reintenta).
 // La sangre que quedó en el escenario se queda (solo se borra al pasar a otro escenario).
-export function loadLevel(game: Game, level: number, rand: () => number = Math.random, from = 0) {
+export function loadLevel(game: Game, level: number, rand: () => number = Math.random, from = 0, deathX?: number) {
   const def = LEVELS[level - 1];
   const layout = buildLevel(level);
   const angle = def.inverted ? Math.PI : 0;
   if (game.level !== level || !game.stains) Object.assign(game, { drops: [], stains: [], gibs: [], shake: 0, clock: game.clock ?? 0 });
+  const flag = from;
+  if (deathX !== undefined) {
+    const spot = safeSpot(layout, deathX);
+    if (spot > from) {
+      from = spot;
+      for (const h of layout.hazards) if (h.kind !== 'ufo' && h.x > from - 1 && h.x < from + 8) h.dead = true; // despejado alrededor
+    }
+  }
   const cam = from ? from - 3 : 0;
   // Lo que quedó atrás de la bandera ya no está (así no explotan meteoros ni pasan cometas fuera de la pantalla).
   if (from) for (const h of layout.hazards) if (h.kind !== 'ufo' && h.x < cam - 2) h.dead = true;
   Object.assign(game, {
-    level, def, ...layout, checkpoint: from,
+    level, def, ...layout, checkpoint: flag,
     bolts: [], particles: [], blasts: [], smoke: [],
     player: {
       x: cam + 4, y: angle ? CEIL : FLOOR - PLAYER_H, vx: 0, vy: 0, tx: 0, ty: 0, facing: 1,
@@ -834,7 +858,7 @@ function stain(game: Game, hit: { x: number; y: number; nx: number; ny: number }
 
 function die(game: Game, reason: Death) {
   const p = game.player;
-  game.phase = 'dead'; game.phaseT = 0; game.death = reason;
+  game.phase = 'dead'; game.phaseT = 0; game.death = reason; game.deathX = p.x;
   game.lives--; game.stats.deaths++;
   game.pendingFlips = [];
   const cx = p.x + PLAYER_W / 2, cy = p.y + PLAYER_H / 2;
@@ -929,7 +953,7 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
 
   if (game.phase === 'dead') {
     if (game.phaseT >= 1.8) {
-      if (game.lives > 0) { loadLevel(game, game.level, rand, game.checkpoint); emit(game, { type: 'respawn' }); }
+      if (game.lives > 0) { loadLevel(game, game.level, rand, game.checkpoint, game.deathX); emit(game, { type: 'respawn' }); }
       else game.phase = 'over';
     }
     return;

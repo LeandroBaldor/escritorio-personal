@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CEIL, CHECKPOINTS, HINT_TIME, blackholeNear, bombCount, FLOOR, LEVELS, LEVEL_COUNT, LIVES, PLAYER_H, PLAYER_W, ROWS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input } from './gravitySwap';
+import { CEIL, CHECKPOINTS, HINT_TIME, loadLevel, blackholeNear, bombCount, FLOOR, LEVELS, LEVEL_COUNT, LIVES, PLAYER_H, PLAYER_W, ROWS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input } from './gravitySwap';
 
 const idle: Input = { left: false, right: false, up: false, down: false };
 const fixed = () => 0.5;
@@ -360,6 +360,32 @@ describe('Gravity Swap: banderas', () => {
         expect(layout.solids.some(s => s.kind !== 'ground' && s.x < c + 9 && s.x + s.w > c - 2)).toBe(false);
       }
     }
+  });
+
+  it('al perder una vida, vuelve a aparecer cerca de donde murió, con piso y sin trampas alrededor', () => {
+    for (const level of [1, 3, 6, 10]) for (const at of [230, 420, 600]) {
+      const game = newGame(level, 16, undefined, fixed);
+      game.cam = at - 4; game.player.x = at; game.player.y = ROWS + 2; // se cae al vacío ahí
+      game.gravityIn = 999;
+      run(game, 1.9);
+      expect(game.phase).toBe('play');
+      expect(game.lives).toBe(LIVES - 1);
+      const x = game.player.x;
+      expect(x).toBeLessThanOrEqual(at);
+      expect(x).toBeGreaterThan(at - 25);
+      expect(game.hazards.some(h => !h.dead && h.kind !== 'ufo' && h.x > x - 1 && h.x < x + 6)).toBe(false);
+      expect(game.solids.some(s => s.kind === 'ground' && s.y === FLOOR && s.x <= x && s.x + s.w >= x + PLAYER_W)).toBe(true);
+    }
+  });
+
+  it('si se queda sin vidas y reintenta, vuelve a la última bandera', () => {
+    const game = empty();
+    const flag = game.checkpoints[0];
+    game.cam = flag - 6; game.player.x = flag - 2;
+    run(game, 1);
+    expect(game.checkpoint).toBe(flag);
+    loadLevel(game, game.level, fixed, game.checkpoint);
+    expect(game.player.x).toBeCloseTo(flag + 1, 5);
   });
 
   it('al pasar una bandera, si morís volvés ahí (y no al principio)', () => {
