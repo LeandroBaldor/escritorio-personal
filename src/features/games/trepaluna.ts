@@ -40,7 +40,7 @@ export interface Plat {
 export interface Climb { id: number; x: number; y1: number; y2: number; skin: 'ladder' | 'rope' | 'truss' }
 export interface Fire { id: number; x: number; y: number; dir: 'up' | 'left' | 'right'; len: number; period: number; on: number; phase: number }
 export interface Ball { id: number; px: number; py: number; len: number; amp: number; speed: number; phase: number }
-export interface Bird { id: number; y: number; x0: number; x1: number; speed: number; phase: number; skin: 'bird' | 'plane' | 'meteor' | 'drone' }
+export interface Bird { id: number; y: number; x0: number; x1: number; speed: number; phase: number; skin: 'bird' | 'plane' | 'meteor' | 'drone' | 'ufo' }
 // Zona tecnológica.
 export interface Laser { id: number; y: number; x1: number; x2: number; period: number; on: number; phase: number; style: 'laser' | 'zap' }
 export interface Fan { id: number; side: -1 | 1; y1: number; y2: number; force: number } // ventilador pegado a un costado: sopla hacia el otro
@@ -69,7 +69,7 @@ export interface Trepa extends Course {
   flash: number; bolt: { x: number; seed: number } | null; nextBolt: number;
   // Vidas: al perder una, titila un momento y vuelve a la última plataforma firme que pisó ("safe"), un rato
   // sin que lo lastime nada ("invuln").
-  lives: number; hurt: { t: number; reason: LoseReason } | null; invuln: number; safe: { x: number; y: number; id: number };
+  lives: number; hurt: { t: number; reason: LoseReason; phase: 'fall' | 'rise'; rise: number } | null; invuln: number; safe: { x: number; y: number; id: number };
 }
 
 // Mismo tamaño y movimiento que el personaje de ¡Cuidado, bloques!: corre a 6, salta con 12,5, gravedad
@@ -80,7 +80,7 @@ export const JUMP = 12.5;
 export const TRAMP = 22;
 const CLIMB = 4;
 export const LIVES = 3; // con las 3 perdidas, se cae hasta la calle y es GAME OVER
-const RESPAWN = 1.1; // lo que tarda en volver a aparecer después de perder una vida
+export const RISE_TIME = 1.8; // al perder una vida, lo que tarda la cámara en subir de la calle hasta donde perdió
 const SAFE_TIME = 2; // después de volver, unos segundos sin que lo lastime nada
 export const FALL_LOSE = 10; // caer más de 100 m por debajo de lo más alto que pisaste es perder
 const BALL_R = 0.75, BIRD_R = 0.5;
@@ -287,7 +287,7 @@ export function buildCourse(seed = 20261004): Course {
       // Pájaros (o meteoritos en el espacio) que cruzan entre las plataformas y te empujan.
       for (let i = 0; i < 3; i++) {
         const p = jumpTo('solid', beamSkin(), width(3.4, 2.4));
-        if (i < 2) birds.push({ id: id++, y: p.y + between(1, 1.6), x0: 0.8, x1: WORLD_W - 0.8, speed: between(2.5, 4), phase: rand() * 2, skin: zone() === 'tech' ? 'drone' : zone() === 'space' ? (rand() < 0.5 ? 'meteor' : 'drone') : rand() < 0.3 ? 'plane' : 'bird' });
+        if (i < 2) birds.push({ id: id++, y: p.y + between(1, 1.6), x0: 0.8, x1: WORLD_W - 0.8, speed: between(2.5, 4), phase: rand() * 2, skin: zone() === 'tech' ? (id % 2 ? 'ufo' : 'drone') : zone() === 'space' ? (rand() < 0.5 ? 'meteor' : id % 2 ? 'ufo' : 'drone') : rand() < 0.3 ? 'plane' : 'bird' });
       }
     },
     // ---- Zona tecnológica ----
@@ -391,14 +391,11 @@ const hitsCircle = (p: Player, cx: number, cy: number, r: number) => {
 function lose(g: Trepa, reason: LoseReason) {
   const p = g.player;
   g.lives = Math.max(0, g.lives - 1);
-  if (g.lives > 0) { // pierde una vida: titila y vuelve donde estaba
-    g.hurt = { t: 0, reason }; p.vx = 0; p.vy = 0; p.ground = null; p.climb = null;
-    g.events.push({ type: 'lose', reason });
-    return;
-  }
-  g.dying = { t: 0, reason };
   p.ground = null; p.climb = null;
   p.vy = reason === 'fall' ? Math.min(p.vy, 0) : 9; p.vx = -p.facing * 1.5;
+  // Si le quedan vidas, cae igual que al perder del todo y después la cámara sube hasta donde perdió.
+  if (g.lives > 0) g.hurt = { t: 0, reason, phase: 'fall', rise: 0 };
+  else g.dying = { t: 0, reason };
   g.events.push({ type: 'lose', reason });
 }
 
@@ -408,21 +405,34 @@ export function step(g: Trepa, input: Input, dt: number) {
   const p = g.player;
 
   // Perdiste: cae por toda la estructura (sin poder agarrarse) hasta la calle.
-  if (g.dying) {
-    g.dying.t += dt;
+  const fallDown = () => {
     p.vy = Math.max(-70, p.vy - 50 * dt);
     p.y += p.vy * dt; p.x = Math.max(0.3, Math.min(WORLD_W - 0.3, p.x + p.vx * dt));
     p.spin += dt * 9;
+  };
+  if (g.dying) {
+    g.dying.t += dt;
+    fallDown();
     if (p.y <= 0) { p.y = 0; g.over = true; g.events.push({ type: 'gameover' }); }
     return;
   }
 
-  // Perdió una vida: queda quieto titilando y después vuelve a la última plataforma firme que pisó.
+  // Perdió una vida: cae hasta la calle igual que al perder del todo; después la cámara sube (el personaje
+  // no se ve) hasta la última plataforma firme que pisó, y ahí vuelve a aparecer y sigue.
   if (g.hurt) {
-    g.hurt.t += dt;
-    if (g.hurt.t >= RESPAWN) {
-      const safe = g.plats.find(pl => pl.id === g.safe.id) ?? null;
-      p.x = g.safe.x; p.y = safe ? safe.y : g.safe.y; p.vx = 0; p.vy = 0; p.ground = safe; p.climb = null; p.stun = 0;
+    const hurt = g.hurt;
+    hurt.t += dt;
+    const safe = g.plats.find(pl => pl.id === g.safe.id) ?? null, safeY = safe ? safe.y : g.safe.y;
+    if (hurt.phase === 'fall') {
+      fallDown();
+      if (p.y <= 0) { p.y = 0; p.vx = 0; p.vy = 0; p.spin = 0; hurt.phase = 'rise'; }
+      return;
+    }
+    hurt.rise += dt;
+    const k = Math.min(1, hurt.rise / RISE_TIME), ease = k * k * (3 - 2 * k);
+    p.x = g.safe.x; p.y = safeY * ease;
+    if (k >= 1) {
+      p.y = safeY; p.vx = 0; p.vy = 0; p.ground = safe; p.climb = null; p.stun = 0;
       g.bestGround = p.y; g.hurt = null; g.invuln = SAFE_TIME;
     }
     return;
@@ -543,7 +553,11 @@ function hazards(g: Trepa, t: number) {
     g.events.push({ type: 'knock' });
   };
   for (const b of g.balls) { const c = ballPos(b, t); if (hitsCircle(p, c.x, c.y, BALL_R)) { knock(c.x); return; } }
-  for (const b of g.birds) { const c = birdPos(b, t); if (hitsCircle(p, c.x, c.y, BIRD_R)) { knock(c.x); return; } }
+  for (const b of g.birds) {
+    const c = birdPos(b, t);
+    // el ovni es un plato ancho: choca en el centro y en las dos puntas del disco
+    if (b.skin === 'ufo' ? [-0.7, 0, 0.7].some(dx => hitsCircle(p, c.x + dx, c.y - (dx ? 0.05 : 0), dx ? 0.38 : 0.55)) : hitsCircle(p, c.x, c.y, BIRD_R)) { knock(c.x); return; }
+  }
   for (const gr of g.gears) if (hitsCircle(p, gr.x, gr.y, gr.r)) { knock(gr.x); return; }
 }
 

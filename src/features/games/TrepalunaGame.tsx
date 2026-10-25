@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { drawBalloonEnvelope, drawClimber, drawPigeon, drawPlane } from './trepaArt';
+import { drawBalloonEnvelope, drawClimber, drawPigeon, drawPlane, drawUfo } from './trepaArt';
 import { playCrumble, playGameOver, playJump, playKnock, playLose, playStart, playTeleport, playThunder, playFlame, playTramp, playWinFanfare, preloadTrepaSounds, setAmbient } from './sounds';
 import { EndBanner } from './EndBanner';
 import { ambientLevels, HEAR_RADIUS } from './trepaSound';
@@ -1140,6 +1140,7 @@ function drawBird(ctx: CanvasRenderingContext2D, b: Bird, v: View) {
     ctx.restore();
     return;
   }
+  if (b.skin === 'ufo') { drawUfo(ctx, x, y, s, p.dir, v.t, b.id); return; } // ovni
   if (b.skin === 'plane') { drawPlane(ctx, x, y, s, p.dir, [0, 215, 145, 270][b.id % 4], v.t, b.id); return; } // avión de línea
   drawPigeon(ctx, x, y, s, p.dir, v.t, b.id); // paloma
 }
@@ -1282,20 +1283,23 @@ function drawPortal(ctx: CanvasRenderingContext2D, o: Portal, v: View) {
 
 // ---------- Personaje ----------
 function drawPlayer(ctx: CanvasRenderingContext2D, g: Trepa, v: View) {
-  // El trepador (con más detalle que el de ¡Cuidado, bloques!); al perder, cae girando (y chamuscado si se quemó).
+  // El trepador en versión caricatura: se dibuja más grande que su caja de choque (apoyado en los pies).
+  // Al perder cae girando (y chamuscado si se quemó); si le quedan vidas, mientras la cámara sube hasta
+  // donde perdió no se ve, y al volver titila suave mientras nada lo lastima.
   const p = g.player, s = v.s;
-  const pw = PLAYER_W * s, ph = PLAYER_H * s;
-  const px = X(v, p.x) - pw / 2, py = Y(v, p.y) - ph;
+  if (g.hurt?.phase === 'rise') return;
+  const falling = !!g.dying || !!g.hurt;
+  const pw = PLAYER_W * s, ph = PLAYER_H * s, big = 1.55;
+  const dw = pw * big, dh = ph * big, fx = X(v, p.x), fy = Y(v, p.y);
+  const px = fx - dw / 2, py = fy - dh;
   const burnt = g.dying?.reason === 'burn' || g.hurt?.reason === 'burn';
-  // Perdió una vida: titila; al volver, titila suave mientras nada lo lastima.
-  if (g.hurt && Math.sin(v.t * 28) > 0) return;
   ctx.save();
   if (g.invuln > 0 && Math.sin(v.t * 22) > 0.2) ctx.globalAlpha = 0.35;
-  if (g.dying) { ctx.translate(px + pw / 2, py + ph / 2); ctx.rotate(p.spin); ctx.translate(-(px + pw / 2), -(py + ph / 2)); }
-  drawClimber(ctx, { x: px, y: py, w: pw, h: ph, facing: p.facing, time: v.t, running: p.vx !== 0 && !!p.ground, airborne: !p.ground && !p.climb, climbing: !!p.climb, falling: !!g.dying, burnt });
+  if (falling) { ctx.translate(fx, fy - dh / 2); ctx.rotate(p.spin); ctx.translate(-fx, -(fy - dh / 2)); }
+  drawClimber(ctx, { x: px, y: py, w: dw, h: dh, facing: p.facing, time: v.t, running: p.vx !== 0 && !!p.ground, airborne: !p.ground && !p.climb, climbing: !!p.climb, falling, burnt });
   ctx.restore();
   if (burnt) { // humito
-    for (let i = 0; i < 3; i++) { ctx.fillStyle = `rgba(120,113,108,${0.5 - i * 0.12})`; ctx.beginPath(); ctx.arc(px + pw / 2 + Math.sin(v.t * 6 + i) * pw * 0.4, py - i * pw * 0.6, pw * (0.25 + i * 0.1), 0, Math.PI * 2); ctx.fill(); }
+    for (let i = 0; i < 3; i++) { ctx.fillStyle = `rgba(120,113,108,${0.5 - i * 0.12})`; ctx.beginPath(); ctx.arc(fx + Math.sin(v.t * 6 + i) * pw * 0.4, py - i * pw * 0.6, pw * (0.25 + i * 0.1), 0, Math.PI * 2); ctx.fill(); }
   }
 }
 
@@ -1435,7 +1439,7 @@ export function Trepaluna() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const { scale, viewW } = viewFor(w, h);
     const ox = viewW >= WORLD_W ? (w - WORLD_W * scale) / 2 : -camXRef.current * scale;
-    draw(ctx, g, { w, h, s: scale, ox, cam: camRef.current, t: g.time + (g.dying?.t ?? 0) });
+    draw(ctx, g, { w, h, s: scale, ox, cam: camRef.current, t: g.time + (g.dying?.t ?? 0) + (g.hurt?.t ?? 0) });
   }, []);
 
   const follow = useCallback((dt: number) => {
@@ -1443,9 +1447,9 @@ export function Trepaluna() {
     if (!stage) return;
     const { scale, viewW } = viewFor(stage.clientWidth, stage.clientHeight);
     const viewH = stage.clientHeight / scale;
-    const target = Math.max(-1.2, g.player.y - viewH * (g.dying ? 0.5 : 0.38));
+    const target = Math.max(-1.2, g.player.y - viewH * (g.dying || g.hurt?.phase === 'fall' ? 0.5 : 0.38));
     const targetX = Math.max(-1.2, Math.min(WORLD_W - viewW + 1.2, g.player.x - viewW / 2));
-    const k = dt < 0 || g.dying ? 1 : Math.min(1, dt * 4);
+    const k = dt < 0 || g.dying || g.hurt ? 1 : Math.min(1, dt * 4);
     camRef.current += (target - camRef.current) * k;
     camXRef.current += (targetX - camXRef.current) * (dt < 0 ? 1 : Math.min(1, dt * 6));
   }, []);
@@ -1504,10 +1508,10 @@ export function Trepaluna() {
         if (lit.has(f.id)) continue;
         lit.add(f.id);
         const r = fireRect(f), d = Math.hypot(Math.max(r.x1 - px, 0, px - r.x2), Math.max(r.y1 - py, 0, py - r.y2));
-        if (d < HEAR_RADIUS && !g.dying) playFlame(1 - d / HEAR_RADIUS);
+        if (d < HEAR_RADIUS && !g.dying && !g.hurt) playFlame(1 - d / HEAR_RADIUS);
       }
       // Sonidos de los objetos cercanos (fuego, motores, viento…); se apagan al perder.
-      setAmbient(g.dying ? null : ambientLevels(g));
+      setAmbient(g.dying || g.hurt ? null : ambientLevels(g));
       follow(dt);
       paint();
       const m = meters(g.player.y), best = meters(g.best);

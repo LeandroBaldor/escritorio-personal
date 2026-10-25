@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ballPos, buildCourse, FALL_LOSE, LIVES, fireActive, fireRect, gravityAt, JUMP, jumpPeak, meters, moonOf, newTrepa, step, takeEvents, TRAMP, ZONES, type Input, type Plat, type Trepa } from './trepaluna';
+import { ballPos, buildCourse, FALL_LOSE, LIVES, fireActive, fireRect, gravityAt, JUMP, jumpPeak, meters, moonOf, newTrepa, RISE_TIME, step, takeEvents, TRAMP, ZONES, type Input, type Plat, type Trepa } from './trepaluna';
 
 const idle: Input = { left: false, right: false, jump: false, down: false };
 const run = (g: Trepa, seconds: number, input: Partial<Input> = {}) => {
@@ -302,7 +302,7 @@ describe('Trepaluna: zona tecnológica', () => {
     expect(none).toBe(0);
   });
 
-  it('tiene 3 vidas: al perder una, titila y vuelve a la última plataforma firme que pisó, un rato sin que lo lastime nada', () => {
+  it('tiene 3 vidas: al perder una, cae hasta la calle, la cámara sube y vuelve a la última plataforma firme que pisó, un rato sin que lo lastime nada', () => {
     const g = newTrepa();
     only(g, { x: 5, y: 40, w: 6 });
     g.fires = [{ id: 1, x: 8, y: 40, dir: 'up', len: 3, period: 2, on: 0.5, phase: 0 }];
@@ -315,7 +315,16 @@ describe('Trepaluna: zona tecnológica', () => {
     expect(g.lives).toBe(LIVES - 1);
     expect(g.dying).toBe(null);
     expect(g.hurt?.reason).toBe('burn');
-    run(g, 1.3);
+    expect(g.hurt?.phase).toBe('fall');
+    run(g, 0.5);
+    expect(g.player.y).toBeLessThan(40); // cae como al perder del todo
+    while (g.hurt?.phase === 'fall') step(g, idle, 1 / 60);
+    expect(g.player.y).toBe(0); // llegó a la calle
+    expect(g.over).toBe(false);
+    run(g, RISE_TIME / 2);
+    expect(g.player.y).toBeGreaterThan(0); // la cámara (que sigue al personaje) va subiendo
+    expect(g.player.y).toBeLessThan(40);
+    run(g, RISE_TIME / 2 + 0.1);
     expect(g.hurt).toBe(null);
     expect(g.player.y).toBe(40);
     expect(g.player.x).toBeGreaterThan(5);
@@ -336,6 +345,23 @@ describe('Trepaluna: zona tecnológica', () => {
     Object.assign(g.player, { x: 13, ground: null, vy: 0 }); // se tira por el costado
     run(g, 3);
     expect(g.lives).toBe(LIVES - 1);
+    run(g, 6);
+    expect(g.hurt).toBe(null);
     expect(g.player.y).toBe(60);
+  });
+
+  it('en la zona tecnológica aparecen ovnis, que chocan en todo el ancho del platillo', () => {
+    const g = newTrepa();
+    expect(g.birds.some(b => b.skin === 'ufo' && b.y >= ZONES.tech)).toBe(true);
+    expect(g.birds.every(b => b.skin !== 'ufo' || b.y >= ZONES.tech)).toBe(true);
+    for (const [skin, hits] of [['ufo', true], ['bird', false]] as const) {
+      const h = newTrepa();
+      only(h, { x: 2, y: 50, w: 10 });
+      // quieto en x = 5, sin moverse ni subir y bajar (speed 0, phase 0 a t = 0 → y fijo)
+      h.birds = [{ id: 1, y: 50.45, x0: 5.95, x1: 5.95 + 1e-9, speed: 0, phase: 0, skin }];
+      Object.assign(h.player, { x: 5, y: 50, ground: h.plats[1], vy: 0 });
+      step(h, { left: false, right: false, jump: false, down: false }, 1 / 60);
+      expect(takeEvents(h).some(e => e.type === 'knock')).toBe(hits);
+    }
   });
 });

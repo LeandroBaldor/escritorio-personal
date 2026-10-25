@@ -138,7 +138,7 @@ function buildAmbient(c: AudioContext) {
     // El viento fuerte de arriba (desde los 3.000 m).
     gale: channel(1, out => recorded(c, trepaVientoUrl, 0.95, out, noisy('bandpass', 400, 0.35))),
     // Fuego: un rugido grave con chisporroteo.
-    fire: channel(0.3, out => { // (más bajo: cuando se prende suena la llamarada grabada, ver playFlame)
+    fire: channel(0.2, out => { // (más bajo: cuando se prende suena la llamarada grabada, ver playFlame)
       const roar = noiseSource(c), body = filter(c, 'lowpass', 700);
       roar.connect(body).connect(out); roar.start();
       const crackle = noiseSource(c), hi = filter(c, 'bandpass', 2600, 3), level = c.createGain();
@@ -768,7 +768,7 @@ let lastFlame = -1;
 export function playFlame(near: number) {
   const c = running(); if (!c || c.currentTime - lastFlame < 0.25) return;
   lastFlame = c.currentTime;
-  playSample(trepaFuegoUrl, 0.15 + near * 0.75);
+  playSample(trepaFuegoUrl, 0.08 + near * 0.42);
 }
 export function playThunder(near: number) {
   // La grabación (uno de los tres truenos, al azar): más tarde y más bajo si el rayo cayó lejos.
