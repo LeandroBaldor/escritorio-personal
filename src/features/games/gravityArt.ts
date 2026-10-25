@@ -5,10 +5,11 @@
 // texturas y brillos para que se vean más reales.
 import {
   CEIL, FLOOR, HINT_TIME, PLAYER_H, PLAYER_W, ROWS, STRIDE, bombCount, cometPath, doorOpen, flyerCenter, geyserHeight, geyserWarn, laserOn, laserWarn, lightningState,
-  mineCenter, pendulumBall, plantBite, pressRect, pressState, sawCenter, scannerY, sporeCenter, sweeperAngle, wormHeight, wormWarn,
+  mineCenter, monsterOf, pendulumBall, plantBite, pressRect, pressState, sawCenter, scannerY, serpentTrail, sporeCenter, sweeperAngle, wormHeight, wormWarn,
   type Game, type Gib, type Hazard, type Solid, type ThemeId,
 } from './gravitySwap';
 import { drawAngler, drawBackdrop, drawBlackhole, drawUpperSky } from './gravityBackdrops';
+import { drawDrone, drawForest, drawInsect, drawKaiju, drawRoach, drawRobot, drawSerpentBody, drawSerpentHead, drawSpider } from './gravityMonsters';
 
 export const PX = 32;
 const P = 1 / PX; // un píxel, en casilleros
@@ -1135,8 +1136,22 @@ function monster(ctx: CanvasRenderingContext2D, h: Hazard, game: Game) {
   const dir = angry ? h.aim : Math.atan2(p.y + PLAYER_H / 2 - h.y, p.x + PLAYER_W / 2 - h.x);
   const left = Math.cos(dir) < 0, tilt = Math.max(-0.45, Math.min(0.45, Math.atan2(Math.sin(dir), Math.abs(Math.cos(dir))) * (left ? -1 : 1) * 0.7));
   const open = angry ? 0.45 + 0.4 * Math.abs(Math.sin(t * 4)) : 0.15 + 0.08 * Math.sin(t * 1.5);
-  if (angry) glow(ctx, h.x, h.y, 1.6, '#34d399', 0.15);
-  drawAngler(ctx, h.x, h.y + Math.sin(t * 2) * 0.03, 0.72, left, tilt, open, angry, game.time, h.id);
+  const sp = monsterOf(game);
+  if (sp === 'fish') {
+    if (angry) glow(ctx, h.x, h.y, 1.6, '#34d399', 0.15);
+    drawAngler(ctx, h.x, h.y + Math.sin(t * 2) * 0.03, 0.72, left, tilt, open, angry, game.time, h.id);
+    return;
+  }
+  // Los demás (uno por escenario, en gravityMonsters): mirando para donde van, inclinados y flotando.
+  if (sp === 'serpent') drawSerpentBody(ctx, serpentTrail(h), t);
+  ctx.save();
+  ctx.translate(h.x, h.y + (sp === 'serpent' ? 0 : Math.sin(t * 2) * 0.04));
+  ctx.rotate(tilt * (sp === 'kaiju' || sp === 'forest' || sp === 'spider' ? 0.4 : 1));
+  if (left) ctx.scale(-1, 1);
+  if (sp === 'serpent') { const tr = serpentTrail(h); if (tr.length > 2) { const a = Math.atan2(h.y - tr[2][1], (h.x - tr[2][0]) * (left ? -1 : 1)); ctx.rotate(a * 0.6 - tilt); } }
+  const draw = { robot: drawRobot, roach: drawRoach, spider: drawSpider, serpent: drawSerpentHead, drone: drawDrone, forest: drawForest, kaiju: drawKaiju, insect: drawInsect, worm: drawRobot }[sp];
+  draw(ctx, t, angry);
+  ctx.restore();
 }
 
 // Gusano espacial que sale del piso o del techo: un bicho de carne con anillos marcados (cada uno con volumen,

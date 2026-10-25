@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CEIL, CHECKPOINTS, HINT_TIME, loadLevel, blackholeNear, bombCount, FLOOR, LEVELS, LEVEL_COUNT, LIVES, PLAYER_H, PLAYER_W, ROWS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input } from './gravitySwap';
+import { CEIL, CHECKPOINTS, HINT_TIME, loadLevel, blackholeNear, bombCount, FLOOR, LEVELS, LEVEL_COUNT, LIVES, PLAYER_H, PLAYER_W, ROWS, angleDiff, buildLevel, chooseAngle, flipGravity, freeAngles, levelLength, newGame, step, takeEvents, type Game, type Hazard, type Input, MONSTERS, MONSTER_SIZE, serpentTrail } from './gravitySwap';
 
 const idle: Input = { left: false, right: false, up: false, down: false };
 const fixed = () => 0.5;
@@ -306,6 +306,37 @@ describe('Gravity Swap: monstruos, cometas, lásers nuevos y agujeros negros', (
     expect(game.phase).toBe('play');
     expect(game.hazards[0].dead).toBe(false);
     expect(game.hazards[0].x - 0.48).toBeGreaterThanOrEqual(9 - 0.2); // quedó del otro lado de la puerta
+  });
+
+  it('cada escenario tiene su monstruo: en el 2 son gusanos que salen de la tierra; el kaiju es el más grande', () => {
+    expect(MONSTERS).toEqual(['fish', 'worm', 'robot', 'roach', 'spider', 'serpent', 'drone', 'forest', 'kaiju', 'insect']);
+    expect(buildLevel(2).hazards.some(h => h.kind === 'monster')).toBe(false);
+    expect(buildLevel(2).hazards.filter(h => h.kind === 'worm').length).toBeGreaterThan(buildLevel(1).hazards.filter(h => h.kind === 'worm').length);
+    for (const n of [3, 4, 5, 6, 7, 8, 9, 10]) {
+      const ms = buildLevel(n).hazards.filter(h => h.kind === 'monster');
+      expect(ms.length).toBeGreaterThan(0);
+      expect(ms.every(h => h.r === MONSTER_SIZE[MONSTERS[n - 1]].r)).toBe(true);
+    }
+  });
+
+  it('la serpiente alienígena es larga: su cuerpo sigue a la cabeza y también te mata', () => {
+    const game = newGame(6, 16, undefined, fixed);
+    game.hazards = []; game.gravityIn = 999;
+    game.solids = [{ x: -40, y: FLOOR, w: 2000, h: 2, kind: 'ground' }, { x: -40, y: CEIL - 2, w: 2000, h: 2, kind: 'ground' }];
+    const snake = hazard({ id: 1, kind: 'monster', x: 12, y: 2.5, x0: 12, y0: 2.5, r: 0.42, amp: 0.5, speed: 3, aim: 0, state: 1, timer: 9 });
+    game.hazards.push(snake);
+    // se va para adelante (lejos del astronauta, que queda atrás) y deja el cuerpo estirado
+    for (let i = 0; i < 40; i++) { game.cam = 0; game.player.x = 2; game.player.y = FLOOR - 0.85; snake.aim = 0; step(game, idle, 1 / 60, fixed); }
+    const body = serpentTrail(snake);
+    expect(body.length).toBeGreaterThan(8);
+    expect(body[0][0] - body[body.length - 1][0]).toBeGreaterThan(1.5);
+    // el astronauta toca la mitad del cuerpo (no la cabeza) y muere
+    const mid = body[Math.floor(body.length / 2)];
+    game.player.x = mid[0] - 0.3; game.player.y = mid[1] - 0.42;
+    game.cam = game.player.x - 4;
+    snake.speed = 0;
+    step(game, idle, 1 / 60, fixed);
+    expect(game.death).toBe('monster');
   });
 
   it('el gusano sale del piso cada tanto y te traga', () => {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CHECKPOINTS, LEVELS, LEVEL_COUNT, LIVES, ROWS, blackholeNear, loadLevel, newGame, progress, step, takeEvents, type Death, type Game, type Input, type Stats } from './gravitySwap';
+import { CHECKPOINTS, LEVELS, LEVEL_COUNT, LIVES, ROWS, blackholeNear, loadLevel, monsterOf, newGame, progress, step, takeEvents, type Death, type Game, type Input, type Stats } from './gravitySwap';
 import { PX, drawGame } from './gravityArt';
 import {
   playAstronautHit, playAstronautLand, playSplat, playAstronautSplat, playAstronautStep, playBombBeep, playCheckpoint, playComet, playCrumble, playGameOver, playGravityBoom, playGravityFlip, playGust,
@@ -126,7 +126,7 @@ export function GravitySwap() {
           case 'flip': playGravityFlip(); break;
           case 'death': playAstronautHit(); playAstronautSplat(); break;
           case 'checkpoint': playCheckpoint(); break;
-          case 'roar': playMonsterRoar(); break;
+          case 'roar': if (monsterOf(game) === 'robot' || monsterOf(game) === 'drone') playLaserOn(); else playMonsterRoar(); break; // los robots y drones chisporrotean
           case 'monsterDie': playSplat(0.6); break;
           case 'comet': playComet(); break;
           case 'worm': playWorm(); break;

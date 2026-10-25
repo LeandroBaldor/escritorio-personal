@@ -15,6 +15,33 @@ export const CEIL = 1; // borde de abajo del techo
 export const FLOOR = 9; // borde de arriba del piso
 export const PLAYER_W = 0.78; // cuadrado: así el choque es igual mire para donde mire
 export const PLAYER_H = 0.78;
+// El monstruo de cada escenario (del 1 al 10).
+export type MonsterSpecies = 'fish' | 'worm' | 'robot' | 'roach' | 'spider' | 'serpent' | 'drone' | 'forest' | 'kaiju' | 'insect';
+export const MONSTERS: MonsterSpecies[] = ['fish', 'worm', 'robot', 'roach', 'spider', 'serpent', 'drone', 'forest', 'kaiju', 'insect'];
+// Tamaño de choque (radio) y velocidad (relativa) de cada uno: el kaiju es grande y lento, el dron y la
+// serpiente, rápidos.
+export const MONSTER_SIZE: Record<MonsterSpecies, { r: number; speed: number }> = {
+  fish: { r: 0.48, speed: 1 }, worm: { r: 0.45, speed: 1 }, robot: { r: 0.45, speed: 1 }, roach: { r: 0.45, speed: 1.1 },
+  spider: { r: 0.55, speed: 0.95 }, serpent: { r: 0.42, speed: 1.1 }, drone: { r: 0.45, speed: 1.15 },
+  forest: { r: 0.6, speed: 0.9 }, kaiju: { r: 0.72, speed: 0.8 }, insect: { r: 0.5, speed: 1.05 },
+};
+export const monsterOf = (game: { level: number }) => MONSTERS[game.level - 1] ?? 'fish';
+// La serpiente alienígena es larga: el cuerpo sigue el camino de la cabeza (y también mata si lo tocás).
+const trails = new WeakMap<Hazard, [number, number][]>();
+export const SERPENT_LEN = 3.6;
+export function serpentTrail(h: Hazard) {
+  let t = trails.get(h);
+  if (!t) { t = [[h.x, h.y]]; trails.set(h, t); }
+  return t;
+}
+function growTrail(h: Hazard) {
+  const t = serpentTrail(h), [lx, ly] = t[0];
+  if (Math.hypot(h.x - lx, h.y - ly) > 0.08) t.unshift([h.x, h.y]);
+  else if (!t.length) t.push([h.x, h.y]);
+  let len = 0;
+  for (let i = 1; i < t.length; i++) { len += Math.hypot(t[i][0] - t[i - 1][0], t[i][1] - t[i - 1][1]); if (len > SERPENT_LEN) { t.length = i + 1; break; } }
+}
+
 export const STRIDE = 9; // qué tan rápido mueve las piernas al caminar (un paso cada π/9 segundos)
 export const LIVES = 3;
 export const HINT_TIME = 5; // la flecha de para dónde ir dura 5 segundos después de cada cambio de gravedad
@@ -354,8 +381,12 @@ export function buildLevel(level: number): Layout {
         return len;
       }
       case 'monster': {
-        // Monstruo del espacio: flota quieto hasta que te ve y ahí te persigue (dobla de a poco).
-        hazard('monster', { x: x + 1, y: 3 + rand() * 4, side: 0, r: 0.48, amp: 0.5, speed: 3.2 + hard * 0.3 });
+        // Cada escenario tiene su monstruo (ver MONSTERS). En el 2 son gusanos que salen de la tierra.
+        const sp = MONSTERS[level - 1];
+        if (sp === 'worm') return place('worm', x);
+        // Los demás flotan quietos hasta que te ven y ahí te persiguen (doblan de a poco).
+        const size = MONSTER_SIZE[sp];
+        hazard('monster', { x: x + 1, y: 3 + rand() * 4, side: 0, r: size.r, amp: 0.5, speed: (3.2 + hard * 0.3) * size.speed });
         return 2;
       }
       case 'worm': {
@@ -740,6 +771,7 @@ function updateHazards(game: Game, dt: number) {
         if (blocked()) h.x = ox;
         h.y = Math.max(CEIL + 0.5, Math.min(FLOOR - 0.5, h.y + Math.sin(h.aim) * h.speed * dt));
         if (blocked()) h.y = oy;
+        if (monsterOf(game) === 'serpent') growTrail(h);
         // Se muere con lo mismo que el astronauta: láseres, minas, pinchos, explosiones, el gusano, el agujero negro…
         const killed = lethalFor(game, monsterBody(h), h);
         if (killed) { killMonster(game, h); break; }
@@ -806,7 +838,10 @@ function lethalFor(game: Game, r: { x: number; y: number; w: number; h: number }
       case 'lightning': if (lightningState(game, h) === 'strike' && overlaps(r, { x: h.x + 0.2, y: h.y, w: h.w - 0.4, h: h.h })) return 'lightning'; break;
       case 'meteor': if (h.active && circleHits(r, h.x, h.y, h.r)) return 'rock'; break;
       case 'ufo': if (h.active && overlaps(r, { x: h.x - h.w / 2, y: h.y - h.h / 2, w: h.w, h: h.h })) return 'enemy'; break;
-      case 'monster': if (circleHits(r, h.x, h.y, h.r)) return 'monster'; break;
+      case 'monster':
+        if (circleHits(r, h.x, h.y, h.r)) return 'monster';
+        if (!self && monsterOf(game) === 'serpent') { const tr = serpentTrail(h); for (let i = 3; i < tr.length; i += 2) if (circleHits(r, tr[i][0], tr[i][1], h.r * 0.75 * (1 - i / tr.length * 0.5))) return 'monster'; }
+        break;
       case 'worm': {
         const wh = wormHeight(game, h);
         if (wh > 0 && overlaps(r, { x: h.x + 0.1, y: h.side === 1 ? FLOOR - wh : CEIL, w: h.w - 0.2, h: wh })) return 'worm';
