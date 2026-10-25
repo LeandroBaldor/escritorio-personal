@@ -6,12 +6,12 @@ export type AmbientChannel =
   | 'fire' | 'motor' | 'conveyor' | 'swing' | 'electric' | 'wind' | 'hum'
   | 'bird' | 'plane' | 'drone' | 'meteor'
   | 'balloon' | 'propeller' | 'hover' | 'hydraulic' | 'ufo'
-  | 'city' | 'rain' | 'gale' | 'lift';
+  | 'city' | 'birdsong' | 'rain' | 'gale' | 'lift';
 export const AMBIENT_CHANNELS: AmbientChannel[] = [
   'fire', 'motor', 'conveyor', 'swing', 'electric', 'wind', 'hum',
   'bird', 'plane', 'drone', 'meteor',
   'balloon', 'propeller', 'hover', 'hydraulic', 'ufo',
-  'city', 'rain', 'gale', 'lift',
+  'city', 'birdsong', 'rain', 'gale', 'lift',
 ];
 // Se escucha hasta unas 7 unidades (más o menos media pantalla) y sube de volumen al acercarse.
 export const HEAR_RADIUS = 7;
@@ -20,7 +20,7 @@ export const HEAR_RADIUS = 7;
 // con su hélice, las baldosas voladoras con sus helicitas, el pistón con su aire comprimido, el ovni…
 const PLAT_CHANNEL: Partial<Record<Plat['skin'], AmbientChannel>> = {
   basket: 'balloon', zeppelin: 'propeller', tile: 'hover', lift: 'lift', crane: 'motor',
-  piston: 'hydraulic', techTile: 'hydraulic', ufo: 'ufo', satellite: 'ufo',
+  piston: 'hydraulic', techTile: 'hydraulic', ufo: 'ufo', satellite: 'hum',
 };
 
 const near = (d: number) => Math.max(0, 1 - d / HEAR_RADIUS);
@@ -35,7 +35,7 @@ export function ambientLevels(g: Trepa): Record<AmbientChannel, number> {
   // El clima según la altura: la ciudad (hasta los 1.000 m), la lluvia (de 2.000 a 3.000 m) y el viento fuerte
   // (desde los 3.000 m).
   const w = weatherAt(g.player.y);
-  levels.city = w.city; levels.rain = w.storm; levels.gale = w.night;
+  levels.city = w.city; levels.birdsong = w.birds; levels.rain = w.storm; levels.gale = w.night;
   const hear = (channel: AmbientChannel, d: number, k = 1) => { if (d < HEAR_RADIUS) levels[channel] = Math.max(levels[channel], near(d) * k); };
   const close = (y1: number, y2: number) => y2 > y - HEAR_RADIUS && y1 < y + HEAR_RADIUS;
 

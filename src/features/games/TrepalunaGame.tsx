@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { drawBalloonEnvelope, drawBalloonRig, drawClimber, drawPigeon, drawPlane, drawUfo } from './trepaArt';
-import { playCrumble, playGameOver, playJump, playKnock, playLose, playStart, playTeleport, playThunder, playFlame, playTramp, playWinFanfare, preloadTrepaSounds, setAmbient } from './sounds';
+import { drawBalloonEnvelope, drawBalloonRig, drawClimber, drawPigeon, drawPlane, drawUfo, drawZeppelin } from './trepaArt';
+import { playTrepaStep, playCrumble, playGameOver, playJump, playKnock, playLose, playStart, playTeleport, playThunder, playFlame, playTramp, playWinFanfare, preloadTrepaSounds, setAmbient } from './sounds';
 import { EndBanner } from './EndBanner';
 import { ambientLevels, HEAR_RADIUS } from './trepaSound';
 import {
@@ -848,26 +848,9 @@ function drawPlat(ctx: CanvasRenderingContext2D, pl: Plat, v: View, g: Trepa) {
       drawBalloonRig(ctx, { cx, x, y, w, s, throatY, throat, rising, t: v.t, id: pl.id }, () => drawBalloonEnvelope(ctx, cx, throatY, R, throatY - (cy - R * 1.17), throat, pl.hue));
       return;
     }
-    case 'zeppelin': { // dirigible con volumen, timones y hélice que gira
-      const cy = y + s * 0.9, rx = w / 2 + s * 0.4, ry = s * 0.95, cx = x + w / 2;
-      ctx.fillStyle = '#94a3b8'; // timones
-      ctx.beginPath(); ctx.moveTo(cx - rx * 0.7, cy - ry * 0.3); ctx.lineTo(cx - rx * 1.12, cy - ry * 1.05); ctx.lineTo(cx - rx * 1.05, cy - ry * 0.1); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(cx - rx * 0.7, cy + ry * 0.3); ctx.lineTo(cx - rx * 1.12, cy + ry * 1.05); ctx.lineTo(cx - rx * 1.05, cy + ry * 0.1); ctx.fill();
-      const hull = ctx.createLinearGradient(0, cy - ry, 0, cy + ry); hull.addColorStop(0, '#f1f5f9'); hull.addColorStop(0.5, '#cbd5e1'); hull.addColorStop(1, '#64748b');
-      ctx.fillStyle = hull; ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#94a3b855'; ctx.lineWidth = 1; for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.ellipse(cx, cy, rx * Math.abs(k) / 2.4 + 1, ry, 0, -Math.PI / 2, Math.PI / 2, k < 0); ctx.stroke(); }
-      ctx.fillStyle = hsl(pl.hue, 70, 45); ctx.fillRect(x + w * 0.1, cy - s * 0.15, w * 0.8, s * 0.3);
-      ctx.fillStyle = '#fff'; ctx.font = `900 ${Math.round(s * 0.24)}px Nunito, system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('TREPALUNA', cx, cy, w * 0.75);
-      // hélice de atrás
-      const hx = cx - rx * 1.12, a = Math.abs(Math.sin(v.t * 30 + pl.id));
-      ctx.fillStyle = '#475569'; ctx.fillRect(hx - s * 0.06, cy - s * 0.06, s * 0.2, s * 0.12);
-      ctx.fillStyle = '#cbd5e1aa'; ctx.beginPath(); ctx.ellipse(hx - s * 0.08, cy, s * 0.06, s * 0.55 * a + 1, 0, 0, Math.PI * 2); ctx.fill();
-      // góndola con ventanas encendidas
-      ctx.fillStyle = '#475569'; ctx.beginPath(); ctx.roundRect(x + w * 0.33, cy + s * 0.82, w * 0.34, s * 0.38, s * 0.1); ctx.fill();
-      ctx.fillStyle = '#fde68a'; for (let k = 0; k < 3; k++) ctx.fillRect(x + w * 0.37 + k * w * 0.09, cy + s * 0.92, w * 0.05, s * 0.15);
-      ctx.fillStyle = '#e2e8f0'; ctx.fillRect(x, y, w, s * 0.12);
+    case 'zeppelin': // dirigible: casco plateado con librea, timones, góndola, motores con hélices y luces
+      drawZeppelin(ctx, x, y, w, s, pl.hue, v.t, pl.id);
       return;
-    }
     case 'cloudBricks': { // bloques dorados con signo de pregunta
       const n = Math.max(1, Math.round(pl.w / 0.9)), bw = w / n;
       for (let i = 0; i < n; i++) {
@@ -1379,6 +1362,7 @@ export function Trepaluna() {
   const input = useRef<Input>({ left: false, right: false, jump: false, down: false });
   const recordRef = useRef<TrepaRecord>(readTrepaRecord());
   const brokeRef = useRef(false);
+  const strideRef = useRef(0); // de qué lado va la zancada (para que suene un paso cada vez que apoya un pie)
   const litRef = useRef(new Set<number>()); // los caños de fuego que están prendidos (para que la llamarada suene una vez)
   const [status, setStatus] = useState<Status>('ready');
   const [hud, setHud] = useState({ tenths: 0, m: 0, best: 0, lives: LIVES });
@@ -1456,6 +1440,10 @@ export function Trepaluna() {
       const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
       last = now;
       step(g, input.current, dt);
+      // Pasos: suenan cada vez que apoya un pie mientras corre (al ritmo de las piernas del dibujo).
+      const stride = Math.sin(g.time * 13) >= 0 ? 1 : -1, p = g.player;
+      if (stride !== strideRef.current && p.ground && p.vx !== 0 && !g.dying && !g.hurt) playTrepaStep();
+      strideRef.current = stride;
       for (const e of takeEvents(g)) {
         if (e.type === 'jump') playJump();
         if (e.type === 'tramp') playTramp();

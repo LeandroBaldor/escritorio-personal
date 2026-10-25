@@ -11,21 +11,21 @@ const empty = (): Trepa => {
 };
 const fire = { id: 1, x: 8, y: 50, dir: 'up' as const, len: 2, period: 2, on: 0.5, phase: 0 };
 
-const WEATHER = ['city', 'rain', 'gale'];
+const WEATHER = ['city', 'birdsong', 'rain', 'gale'];
 
 describe('Trepaluna: sonidos de los objetos', () => {
   it('sin objetos cerca no suena ningún objeto (solo el clima)', () => {
     expect(Object.entries(ambientLevels(empty())).every(([k, v]) => WEATHER.includes(k) || v === 0)).toBe(true);
   });
 
-  it('el clima según la altura: la ciudad hasta los 1.000 m, lluvia de 2.000 a 3.000 m y viento desde los 3.000 m', () => {
-    const at = (m: number) => { const g = empty(); g.player.y = m / 10; const l = ambientLevels(g); return { city: l.city, rain: l.rain, gale: l.gale }; };
-    expect(at(50)).toEqual({ city: 1, rain: 0, gale: 0 });
+  it('el clima según la altura: la ciudad hasta los 1.000 m, pájaros de 1.000 a 2.000 m, lluvia de 2.000 a 3.000 m y viento desde los 3.000 m', () => {
+    const at = (m: number) => { const g = empty(); g.player.y = m / 10; const l = ambientLevels(g); return { city: l.city, birdsong: l.birdsong, rain: l.rain, gale: l.gale }; };
+    expect(at(50)).toEqual({ city: 1, birdsong: 0, rain: 0, gale: 0 });
     expect(at(950).city).toBeGreaterThan(0);
-    expect(at(1050)).toEqual({ city: 0, rain: 0, gale: 0 });
-    expect(at(1500)).toEqual({ city: 0, rain: 0, gale: 0 });
-    expect(at(2500)).toEqual({ city: 0, rain: 1, gale: 0 });
-    expect(at(3500)).toEqual({ city: 0, rain: 0, gale: 1 });
+    expect(at(1050)).toEqual({ city: 0, birdsong: 1, rain: 0, gale: 0 });
+    expect(at(1500)).toEqual({ city: 0, birdsong: 1, rain: 0, gale: 0 });
+    expect(at(2500)).toEqual({ city: 0, birdsong: 0, rain: 1, gale: 0 });
+    expect(at(3500)).toEqual({ city: 0, birdsong: 0, rain: 0, gale: 1 });
     expect(at(5500).gale).toBe(1);
   });
 

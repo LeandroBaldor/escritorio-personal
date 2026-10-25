@@ -661,3 +661,130 @@ export function drawUfo(ctx: CanvasRenderingContext2D, x: number, y: number, s: 
   ctx.fillStyle = blink ? '#fecaca' : '#991b1b'; ctx.beginPath(); ctx.arc(0, dy - dr * 1.4, s * 0.05, 0, TAU); ctx.fill();
   ctx.restore();
 }
+
+// ---------------------------------------------------------------- Dirigible
+// Un dirigible de verdad: casco de tela plateada con nariz redonda y cola que se afina, anillos y largueros
+// del armazón marcados, luz de arriba con un brillo largo, franja de la librea que sigue la curva del casco,
+// cuatro timones con sus bisagras y franjas, góndola aerodinámica con ventanas encendidas, dos motores con
+// hélice a los costados, luces de navegación y arriba la cubierta con baranda donde se para el trepador.
+const zeppelins = new Map<string, Sprite>();
+function zeppelinHalf(u: number, ry: number) { // medio alto del casco en u (-1 cola … 1 nariz)
+  if (u >= 0.25) return ry * Math.sqrt(Math.max(0, 1 - ((u - 0.25) / 0.75) ** 2));
+  return ry * Math.max(0.06, 1 - ((0.25 - u) / 1.25) ** 1.9);
+}
+function paintZeppelin(ctx: CanvasRenderingContext2D, rx: number, ry: number, s: number, hue: number) {
+  const N = 80, line = Math.max(0.6, s * 0.018);
+  const px = (u: number) => u * rx;
+  const hull = () => {
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) { const u = -1 + 2 * i / N; const h = zeppelinHalf(u, ry); if (i) ctx.lineTo(px(u), -h); else ctx.moveTo(px(u), -h); }
+    for (let i = N; i >= 0; i--) { const u = -1 + 2 * i / N; ctx.lineTo(px(u), zeppelinHalf(u, ry)); }
+    ctx.closePath();
+  };
+  const accent = hsl(hue, 70, 44), accentDark = hsl(hue, 70, 28);
+  // timones de cola: arriba, abajo y el de este costado (en perspectiva)
+  const fin = (sign: number, scale: number, color: string) => {
+    const bx = -rx * 0.62, h0 = zeppelinHalf(-0.62, ry) * sign;
+    ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(bx, h0); ctx.lineTo(-rx * 0.86, sign * ry * 1.05 * scale); ctx.lineTo(-rx * 1.02, sign * ry * 1.05 * scale); ctx.lineTo(-rx * 0.98, zeppelinHalf(-0.98, ry) * sign); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(15,23,42,0.5)'; ctx.lineWidth = line; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-rx * 0.93, sign * ry * 1.03 * scale); ctx.lineTo(-rx * 0.92, zeppelinHalf(-0.92, ry) * sign); ctx.stroke(); // bisagra del timón
+    ctx.fillStyle = accent; ctx.beginPath(); ctx.moveTo(-rx * 0.93, sign * ry * 1.04 * scale); ctx.lineTo(-rx * 1.02, sign * ry * 1.05 * scale); ctx.lineTo(-rx * 0.99, sign * ry * 0.6 * scale); ctx.lineTo(-rx * 0.925, sign * ry * 0.6 * scale); ctx.closePath(); ctx.fill();
+  };
+  fin(-1, 1, '#cbd5e1'); fin(1, 1, '#94a3b8');
+  // casco
+  const body = ctx.createLinearGradient(0, -ry, 0, ry);
+  body.addColorStop(0, '#f8fafc'); body.addColorStop(0.25, '#e2e8f0'); body.addColorStop(0.6, '#a9b4c4'); body.addColorStop(1, '#4b5567');
+  ctx.fillStyle = body; hull(); ctx.fill();
+  ctx.save(); hull(); ctx.clip();
+  // librea: franja de color que sigue la curva, con filetes
+  ctx.beginPath();
+  for (let i = 0; i <= N; i++) { const u = -1 + 2 * i / N, h = zeppelinHalf(u, ry); if (i) ctx.lineTo(px(u), -h * 0.05); else ctx.moveTo(px(u), -h * 0.05); }
+  for (let i = N; i >= 0; i--) { const u = -1 + 2 * i / N; ctx.lineTo(px(u), zeppelinHalf(u, ry) * 0.42); }
+  ctx.closePath();
+  const band = ctx.createLinearGradient(0, -ry * 0.1, 0, ry * 0.45); band.addColorStop(0, hsl(hue, 75, 52)); band.addColorStop(1, accentDark);
+  ctx.fillStyle = band; ctx.fill();
+  ctx.strokeStyle = '#facc15'; ctx.lineWidth = Math.max(1, s * 0.035);
+  for (const k of [-0.13, 0.5]) { ctx.beginPath(); for (let i = 0; i <= N; i++) { const u = -1 + 2 * i / N, h = zeppelinHalf(u, ry); if (i) ctx.lineTo(px(u), h * k); else ctx.moveTo(px(u), h * k); } ctx.stroke(); }
+  // anillos del armazón (curvos, por la redondez) y largueros
+  ctx.strokeStyle = 'rgba(30,41,59,0.14)'; ctx.lineWidth = line;
+  for (let u = -0.9; u < 0.95; u += 0.12) { const h = zeppelinHalf(u, ry), x = px(u); ctx.beginPath(); ctx.ellipse(x, 0, Math.max(1, h * 0.12), h, 0, -Math.PI / 2, Math.PI / 2); ctx.stroke(); }
+  ctx.strokeStyle = 'rgba(30,41,59,0.11)';
+  for (const k of [-0.75, -0.45, 0.75]) { ctx.beginPath(); for (let i = 0; i <= N; i++) { const u = -1 + 2 * i / N; if (i) ctx.lineTo(px(u), zeppelinHalf(u, ry) * k); else ctx.moveTo(px(u), zeppelinHalf(u, ry) * k); } ctx.stroke(); }
+  // brillo largo de arriba y sombra de abajo
+  ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.ellipse(rx * 0.05, -ry * 0.62, rx * 0.72, ry * 0.08, 0, 0, TAU); ctx.fill();
+  const shade = ctx.createLinearGradient(-rx, 0, rx, 0); shade.addColorStop(0, 'rgba(15,23,42,0.35)'); shade.addColorStop(0.35, 'rgba(15,23,42,0)'); shade.addColorStop(0.85, 'rgba(255,255,255,0.08)'); shade.addColorStop(1, 'rgba(15,23,42,0.25)');
+  ctx.fillStyle = shade; ctx.fillRect(-rx * 1.1, -ry, rx * 2.2, ry * 2);
+  // nariz con la cúpula de amarre
+  const nose = ctx.createRadialGradient(rx * 0.92, -ry * 0.2, 0, rx * 0.92, 0, ry * 0.75); nose.addColorStop(0, '#e2e8f0'); nose.addColorStop(1, '#475569');
+  ctx.fillStyle = nose; ctx.beginPath(); ctx.ellipse(rx * 0.97, 0, rx * 0.06, ry * 0.55, 0, 0, TAU); ctx.fill();
+  ctx.strokeStyle = 'rgba(15,23,42,0.35)'; for (let k = 1; k < 4; k++) { ctx.beginPath(); ctx.ellipse(rx * 0.97, 0, rx * 0.06 * k / 4, ry * 0.55 * k / 4, 0, 0, TAU); ctx.stroke(); }
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(15,23,42,0.55)'; ctx.lineWidth = line * 1.4; hull(); ctx.stroke();
+  // timón de este costado (horizontal, se ve en perspectiva)
+  const sf = ctx.createLinearGradient(0, ry * 0.05, 0, ry * 0.45); sf.addColorStop(0, '#cbd5e1'); sf.addColorStop(1, '#7c8799');
+  ctx.fillStyle = sf; ctx.beginPath(); ctx.moveTo(-rx * 0.66, ry * 0.18); ctx.lineTo(-rx * 0.9, ry * 0.45); ctx.lineTo(-rx * 1.0, ry * 0.42); ctx.lineTo(-rx * 0.97, ry * 0.12); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(15,23,42,0.5)'; ctx.lineWidth = line; ctx.stroke();
+  ctx.fillStyle = accent; ctx.beginPath(); ctx.moveTo(-rx * 0.92, ry * 0.44); ctx.lineTo(-rx * 1.0, ry * 0.42); ctx.lineTo(-rx * 0.98, ry * 0.25); ctx.lineTo(-rx * 0.9, ry * 0.3); ctx.closePath(); ctx.fill();
+  // góndola: puntales, cabina aerodinámica, ventanas, puerta
+  const gy = ry * 0.86, gw = rx * 0.5, gh = ry * 0.42, gx = rx * 0.08;
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = Math.max(1, s * 0.03);
+  ctx.beginPath(); for (const k of [-0.35, 0.3]) { ctx.moveTo(gx + gw * k, gy); ctx.lineTo(gx + gw * k * 0.8, gy + gh * 0.3); } ctx.stroke();
+  const gondola = () => { ctx.beginPath(); ctx.moveTo(gx - gw * 0.55, gy + gh * 0.25); ctx.quadraticCurveTo(gx - gw * 0.5, gy + gh * 1.05, gx, gy + gh); ctx.quadraticCurveTo(gx + gw * 0.62, gy + gh * 0.95, gx + gw * 0.62, gy + gh * 0.35); ctx.quadraticCurveTo(gx + gw * 0.5, gy + gh * 0.15, gx, gy + gh * 0.15); ctx.closePath(); };
+  const gg = ctx.createLinearGradient(0, gy, 0, gy + gh); gg.addColorStop(0, '#e2e8f0'); gg.addColorStop(0.5, '#94a3b8'); gg.addColorStop(1, '#334155');
+  ctx.fillStyle = gg; gondola(); ctx.fill(); ctx.strokeStyle = 'rgba(15,23,42,0.6)'; ctx.lineWidth = line; ctx.stroke();
+  ctx.fillStyle = accent; ctx.fillRect(gx - gw * 0.5, gy + gh * 0.72, gw * 1.08, gh * 0.08);
+  for (let k = 0; k < 5; k++) {
+    const wx = gx - gw * 0.38 + k * gw * 0.19, wy = gy + gh * 0.32, ww = gw * 0.13, wh = gh * 0.3;
+    const glass = ctx.createLinearGradient(0, wy, 0, wy + wh); glass.addColorStop(0, '#fef3c7'); glass.addColorStop(1, '#f59e0b');
+    ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.roundRect(wx - line, wy - line, ww + line * 2, wh + line * 2, ww * 0.3); ctx.fill();
+    ctx.fillStyle = glass; ctx.beginPath(); ctx.roundRect(wx, wy, ww, wh, ww * 0.3); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(wx + ww * 0.15, wy + wh * 0.1, ww * 0.2, wh * 0.5);
+  }
+  ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.moveTo(gx + gw * 0.5, gy + gh * 0.3); ctx.quadraticCurveTo(gx + gw * 0.6, gy + gh * 0.35, gx + gw * 0.6, gy + gh * 0.55); ctx.lineTo(gx + gw * 0.5, gy + gh * 0.55); ctx.closePath(); ctx.fill(); // parabrisas
+  // motores con su soporte a los costados (las hélices giran y se dibujan aparte)
+  for (const [ex, ey] of [[-rx * 0.38, ry * 0.75], [rx * 0.52, ry * 0.62]] as const) {
+    ctx.strokeStyle = '#475569'; ctx.lineWidth = Math.max(1, s * 0.035); ctx.beginPath(); ctx.moveTo(ex + s * 0.1, ey - ry * 0.18); ctx.lineTo(ex + s * 0.1, ey); ctx.stroke();
+    const eg = ctx.createLinearGradient(0, ey - s * 0.13, 0, ey + s * 0.13); eg.addColorStop(0, '#e2e8f0'); eg.addColorStop(1, '#475569');
+    ctx.fillStyle = eg; ctx.beginPath(); ctx.ellipse(ex + s * 0.1, ey + s * 0.06, s * 0.28, s * 0.12, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(15,23,42,0.5)'; ctx.lineWidth = line; ctx.stroke();
+  }
+}
+export function drawZeppelin(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, s: number, hue: number, t: number, id: number) {
+  const rx = w / 2 + s * 0.4, ry = s * 0.95, cx = x + w / 2, cy = y + s * 0.9;
+  const sp = cached(zeppelins, `${Math.round(w)}|${Math.round(s)}|${hue}|${pixelRatio()}`, () => makeSprite(rx * 2.15, ry * 2 + ry * 1.5, rx * 1.08, ry * 1.1, c => paintZeppelin(c, rx, ry, s, hue)));
+  // cubierta de arriba (donde se para): piso de chapa estriada y baranda
+  const deck = ctx.createLinearGradient(0, y, 0, y + s * 0.16); deck.addColorStop(0, '#e2e8f0'); deck.addColorStop(1, '#64748b');
+  ctx.fillStyle = '#475569'; for (let k = 0.08; k < 1; k += 0.28) ctx.fillRect(x + w * k, y + s * 0.1, Math.max(1.5, s * 0.05), s * 0.12); // patas de la cubierta
+  ctx.fillStyle = deck; ctx.beginPath(); ctx.roundRect(x, y, w, s * 0.14, s * 0.05); ctx.fill();
+  ctx.strokeStyle = 'rgba(15,23,42,0.25)'; ctx.lineWidth = 1; for (let k = x + s * 0.12; k < x + w; k += s * 0.18) { ctx.beginPath(); ctx.moveTo(k, y + s * 0.02); ctx.lineTo(k - s * 0.06, y + s * 0.12); ctx.stroke(); }
+  blit(ctx, sp, cx, cy);
+  // TREPALUNA con contorno, sombra y una luna al lado
+  const fs = Math.round(s * 0.36);
+  ctx.save(); ctx.font = `900 ${fs}px Nunito, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tx = cx + rx * 0.06, ty = cy + ry * 0.2, maxW = rx * 1.1;
+  ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(15,23,42,0.6)'; ctx.lineWidth = Math.max(2, fs * 0.16); ctx.strokeText('TREPALUNA', tx, ty, maxW);
+  const tg = ctx.createLinearGradient(0, ty - fs / 2, 0, ty + fs / 2); tg.addColorStop(0, '#ffffff'); tg.addColorStop(1, '#fde68a');
+  ctx.fillStyle = tg; ctx.fillText('TREPALUNA', tx, ty, maxW);
+  const width = Math.min(maxW, ctx.measureText('TREPALUNA').width), mx = tx - width / 2 - fs * 0.75, my = ty;
+  ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.arc(mx, my, fs * 0.42, 0, TAU); ctx.fill(); // luna en cuarto
+  ctx.fillStyle = hsl(hue, 72, 42); ctx.beginPath(); ctx.arc(mx + fs * 0.2, my - fs * 0.1, fs * 0.36, 0, TAU); ctx.fill();
+  ctx.restore();
+  // hélices de los motores y de la cola, girando
+  const spin = (hx: number, hy: number, r: number, k: number) => {
+    const a = Math.abs(Math.sin(t * 34 + id + k));
+    ctx.fillStyle = 'rgba(226,232,240,0.35)'; ctx.beginPath(); ctx.ellipse(hx, hy, Math.max(1, r * 0.12), r, 0, 0, TAU); ctx.fill(); // disco borroso
+    ctx.fillStyle = '#334155'; ctx.beginPath(); ctx.ellipse(hx, hy, Math.max(1, r * 0.08), r * a + 1, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#94a3b8'; ctx.beginPath(); ctx.arc(hx, hy, r * 0.14, 0, TAU); ctx.fill();
+  };
+  spin(cx - rx * 0.38 - s * 0.2, cy + ry * 0.75 + s * 0.06, s * 0.36, 0);
+  spin(cx + rx * 0.52 - s * 0.2, cy + ry * 0.62 + s * 0.06, s * 0.36, 1);
+  spin(cx - rx * 1.06, cy, s * 0.5, 2);
+  // luces: roja de navegación en el timón, destello blanco en la cola, baliza roja arriba
+  const light = (lx: number, ly: number, color: string, on: boolean, r: number) => {
+    if (on) { const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, r * 5); g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(lx, ly, r * 5, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = on ? '#ffffff' : color; ctx.beginPath(); ctx.arc(lx, ly, r, 0, TAU); ctx.fill();
+  };
+  light(cx - rx * 0.97, cy + ry * 0.43, 'rgba(239,68,68,0.9)', Math.sin(t * 5 + id) > 0, s * 0.05);
+  light(cx - rx * 1.0, cy - ry * 1.04, 'rgba(255,255,255,0.9)', (t * 1.2 + id * 0.3) % 1 < 0.08, s * 0.045);
+  light(cx + rx * 0.2, cy + ry * 1.0, 'rgba(239,68,68,0.9)', (t * 1.4 + id * 0.17) % 1 < 0.15, s * 0.045);
+}

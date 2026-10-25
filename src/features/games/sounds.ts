@@ -47,6 +47,8 @@ import invAlienHablaUrl from './assets/sonidos/invasion-alien-habla.mp3';
 import invLluviaUrl from './assets/sonidos/invasion-lluvia.mp3';
 import propulsorUrl from './assets/sonidos/propulsor.mp3';
 import trepaCiudadUrl from './assets/sonidos/trepa-ciudad.mp3';
+import trepaPajarosUrl from './assets/sonidos/trepa-pajaros.mp3';
+import trepaOvniUrl from './assets/sonidos/trepa-ovni.mp3';
 import trepaLluviaUrl from './assets/sonidos/trepa-lluvia.mp3';
 import trepaVientoUrl from './assets/sonidos/trepa-viento.mp3';
 import trepaHelicopteroUrl from './assets/sonidos/trepa-helicoptero.mp3';
@@ -131,6 +133,8 @@ function buildAmbient(c: AudioContext) {
   return {
     // La ciudad: tránsito, bocinas y gente (hasta los 1.000 m).
     city: channel(1, out => recorded(c, trepaCiudadUrl, 1.7, out, noisy('lowpass', 500, 0.15))),
+    // Entre los 1.000 y los 2.000 m: pájaros cantando.
+    birdsong: channel(0.8, out => recorded(c, trepaPajarosUrl, 1, out, () => {})),
     // Pisos que suben y bajan como ascensor: la grabación del ascensor.
     lift: channel(0.7, out => recorded(c, trepaAscensorUrl, 0.9, out, noisy('lowpass', 300, 0.2))),
     // La lluvia fuerte de la tormenta (de 2.000 a 3.000 m).
@@ -238,9 +242,10 @@ function buildAmbient(c: AudioContext) {
       const pump = osc(c, 'sine', 90); pump.connect(out); pump.start();
     }),
     // Ovnis y satélites: el clásico sonido ondulante de ciencia ficción.
-    ufo: channel(0.14, out => {
-      for (const [f, rate, depth] of [[520, 7, 120], [780, 5, 60]]) { const tone = osc(c, 'sine', f); wobble(c, tone.frequency, rate, depth); tone.connect(out); tone.start(); }
-    }),
+    ufo: channel(0.8, out => recorded(c, trepaOvniUrl, 1, out, out => { // la grabación del ovni (mientras carga, el ondulante clásico)
+      const quiet = c.createGain(); quiet.gain.value = 0.18; quiet.connect(out);
+      for (const [f, rate, depth] of [[520, 7, 120], [780, 5, 60]]) { const tone = osc(c, 'sine', f); wobble(c, tone.frequency, rate, depth); tone.connect(quiet); tone.start(); }
+    })),
   };
 }
 
@@ -762,7 +767,7 @@ function whenLoaded(url: string, ready: (buffer: AudioBuffer) => void) {
   check();
 }
 // Trepaluna: el clima (la ciudad, la lluvia, el viento) y los truenos de la tormenta.
-export function preloadTrepaSounds() { for (const url of [trepaCiudadUrl, trepaLluviaUrl, trepaVientoUrl, trepaHelicopteroUrl, trepaAvionUrl, trepaPalomasUrl, trepaAscensorUrl, trepaFuegoUrl, trepaGritoUrl, ...TRUENOS]) loadSample(url); }
+export function preloadTrepaSounds() { for (const url of [trepaCiudadUrl, trepaLluviaUrl, trepaVientoUrl, trepaHelicopteroUrl, trepaAvionUrl, trepaPalomasUrl, trepaAscensorUrl, trepaFuegoUrl, trepaGritoUrl, trepaPajarosUrl, trepaOvniUrl, pasosUrl, ...TRUENOS]) loadSample(url); }
 // Un caño de fuego que se prende cerca: la llamarada grabada (más fuerte cuanto más cerca, near de 0 a 1).
 let lastFlame = -1;
 export function playFlame(near: number) {
@@ -1215,6 +1220,18 @@ export function playAstronautStep() {
   source.connect(gain).connect(out(c));
   source.start(c.currentTime, STEPS[stepIndex] - 0.02, 0.3);
   stepIndex = (stepIndex + 1) % STEPS.length;
+}
+// Pasos del trepador de Trepaluna: la misma grabación de pisadas, una distinta en cada paso.
+let trepaStep = 0;
+export function playTrepaStep() {
+  const c = running(); if (!c) return;
+  const buffer = samples.get(pasosUrl);
+  if (!(buffer instanceof AudioBuffer)) { loadSample(pasosUrl); return; }
+  const source = c.createBufferSource(), gain = c.createGain();
+  source.buffer = buffer; source.playbackRate.value = 1.02 + Math.random() * 0.1; gain.gain.value = 0.32;
+  source.connect(gain).connect(out(c));
+  source.start(c.currentTime, STEPS[trepaStep] - 0.02, 0.28);
+  trepaStep = (trepaStep + 1) % STEPS.length;
 }
 // Música de Gravity Swap: suena al empezar y, cada vez que termina, vuelve a sonar 10 segundos después.
 // Se corta en la pausa y al perder (al seguir, arranca de nuevo al rato).

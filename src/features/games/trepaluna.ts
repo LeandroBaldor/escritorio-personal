@@ -26,7 +26,7 @@ export type Zone = 'city' | 'sky' | 'clouds' | 'tech' | 'space';
 // mucho viento.
 const ramp = (a: number, b: number, v: number) => Math.max(0, Math.min(1, (v - a) / (b - a)));
 export function weatherAt(y: number) {
-  return { city: 1 - ramp(92, 100, y), storm: ramp(196, 204, y) * (1 - ramp(296, 304, y)), night: ramp(296, 306, y) };
+  return { city: 1 - ramp(92, 100, y), birds: ramp(96, 104, y) * (1 - ramp(196, 204, y)), storm: ramp(196, 204, y) * (1 - ramp(296, 304, y)), night: ramp(296, 306, y) };
 }
 export type Kind = 'ground' | 'solid' | 'tramp' | 'moving' | 'elevator' | 'crumble' | 'conveyor' | 'blink' | 'moon';
 export type Skin =
