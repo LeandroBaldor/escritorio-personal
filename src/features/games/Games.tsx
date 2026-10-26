@@ -12,6 +12,7 @@ import sharkCover from './assets/tiburon-portada.webp';
 import terminatorCover from './assets/terminator-portada.webp';
 import invasionCover from './assets/portada-invasion.webp';
 import gravityCover from './assets/portada-gravedad.webp';
+import kombatCover from './assets/portada-kombat.webp';
 import { CalculatorLink, CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { readRecord } from './BlockRunnerGame';
 import { readSolitaireRecord } from './PixelSolitaire';
@@ -23,6 +24,7 @@ import { readPaperRecord } from './PaperBallGame';
 import { formatSharkTime, readSharkRecord } from './SharkCity';
 import { formatInvasionTime, readInvasionRecord } from './InvasionGame';
 import { formatGravityTime, readGravityRecord } from './GravitySwapGame';
+import { readKombatRecord } from './KombatFootballGame';
 import memeJigsaw from '../../assets/images/meme-jigsaw.jpg';
 
 // Portadas de las tarjetas: una captura de cada juego en plena acción.
@@ -43,6 +45,7 @@ export function Games() {
   const paper = readPaperRecord();
   const invasion = readInvasionRecord();
   const gravity = readGravityRecord();
+  const kombat = readKombatRecord();
   // Modo prueba (vidas ilimitadas): se prende o apaga con el enlace secreto (ver testerMode).
   const { search } = useLocation();
   const [tester, setTester] = useState(isTester);
@@ -191,6 +194,20 @@ export function Games() {
           </span>
           <span className="game-card-foot">
             {(gravity.unlocked > 1 || gravity.time !== null) && <small><b>Récord</b>{gravity.time !== null ? `🏆 en ${formatGravityTime(gravity.time)}` : `Escenario ${gravity.unlocked}/10`}</small>}
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
+        </Link>
+      </li>
+      <li>
+        <Link onClick={playStart} className="game-card game-card--kf" to="/juegos/kombat">
+          <Cover src={kombatCover} />
+          <span className="game-card-text">
+            <strong>Kombat Football</strong>
+            <span>☠️ Fútbol 1 contra 1 al estilo Mortal Kombat: patadas, poderes de fuego, hielo, veneno, rayo y oscuridad, y escenarios llenos de peligros.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Meté más goles que el rival en 2 minutos (si empatan, gol de oro). Con la barra llena tirá el FATAL GOAL. En el torneo, ganá 10 partidos seguidos.</span>
+          </span>
+          <span className="game-card-foot">
+            {kombat.wins + kombat.losses > 0 && <small><b>Récord</b>{kombat.cups ? `🏆 ${kombat.cups} · ` : ''}{kombat.wins}G {kombat.losses}P</small>}
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
           </span>
         </Link>

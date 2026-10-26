@@ -1416,3 +1416,49 @@ export function playWorm() {
   burst(c, 'lowpass', 220, t, 0.5, 0.7);
   tone(c, 'sawtooth', 70, 45, t, 0.45, 0.15);
 }
+
+// ---------- Kombat Football ----------
+export function preloadKombatSounds() { for (const url of [golUrl, hinchadaUrl, patadaUrl, explosionUrl, laserUrl, trepaFuegoUrl, bombaUrl, ...TRUENOS]) loadSample(url); }
+// Una piña / patada al cuerpo: golpe grave y seco con un chasquido.
+export function playKfHit(volume = 1) {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  tone(c, 'sine', 180, 45, t, 0.18, 0.9 * volume);
+  burst(c, 'lowpass', 900, t, 0.12, 0.7 * volume);
+  burst(c, 'highpass', 3000, t, 0.03, 0.35 * volume);
+}
+// Bloqueo: un escudo de energía que suena metálico.
+export function playKfBlock() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  tone(c, 'triangle', 900, 700, t, 0.25, 0.22); tone(c, 'sine', 1800, 1500, t, 0.18, 0.12);
+  burst(c, 'bandpass', 2500, t, 0.08, 0.3);
+}
+// La pelota pega en el palo.
+export function playKfPost() { const c = running(); if (!c) return; const t = c.currentTime; tone(c, 'triangle', 620, 600, t, 0.5, 0.3); tone(c, 'sine', 1240, 1200, t, 0.35, 0.12); }
+// Un rebote de la pelota contra el piso (más fuerte cuanto más rápido venía).
+export function playKfBounce(power: number) { const c = running(); if (!c || power < 0.08) return; tone(c, 'sine', 120, 70, c.currentTime, 0.1, 0.4 * power); }
+// Las habilidades de cada personaje.
+export function playKfPower(char: 'toxic' | 'bull' | 'frost' | 'volt' | 'void', defense: boolean) {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  switch (char) {
+    case 'toxic': burst(c, 'bandpass', 600, t, 0.5, 0.6); tone(c, 'sawtooth', 120, 60, t, 0.4, 0.15); for (let k = 0; k < 5; k++) tone(c, 'sine', 300 + k * 90, 500 + k * 120, t + k * 0.06, 0.08, 0.12); break; // burbujeo
+    case 'bull': playSample(trepaFuegoUrl, defense ? 0.9 : 0.7); burst(c, 'lowpass', 400, t, 0.6, 0.6); tone(c, 'sawtooth', 90, 50, t, 0.5, 0.25); break;
+    case 'frost': for (let k = 0; k < 6; k++) tone(c, 'sine', 2400 + k * 300, 1800 + k * 200, t + k * 0.04, 0.2, 0.1); burst(c, 'highpass', 4000, t, defense ? 0.7 : 0.5, 0.4); break;
+    case 'volt': if (!playSample(laserUrl, 0.5)) tone(c, 'square', 200, 1600, t, 0.3, 0.15); burst(c, 'highpass', 5000, t, 0.4, 0.4); tone(c, 'sawtooth', 60, 60, t, 0.5, 0.1); break;
+    case 'void': tone(c, 'sine', 900, 80, t, 0.7, 0.4); tone(c, 'triangle', 300, 1200, t + 0.1, 0.5, 0.15); burst(c, 'bandpass', 300, t, 0.6, 0.3); break;
+  }
+}
+// FATAL GOAL: un golpe enorme, un estruendo que sube y una campanada grave.
+export function playKfFatal() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  tone(c, 'sine', 70, 30, t, 1.4, 1.1);
+  tone(c, 'sawtooth', 55, 220, t + 0.1, 1.2, 0.18);
+  burst(c, 'lowpass', 600, t, 1.2, 0.8);
+  [110, 165, 220].forEach((f, i) => tone(c, 'triangle', f, f, t + 0.05 + i * 0.02, 1.6, 0.18));
+  playSample(explosionUrl, 0.7, 0.05);
+}
+// Agarró un potenciador o cambió la pelota: un arpegio corto que sube.
+export function playKfPickup() { const c = running(); if (!c) return; const t = c.currentTime; [660, 880, 1320].forEach((f, i) => tone(c, 'triangle', f, f, t + i * 0.06, 0.18, 0.22)); }
