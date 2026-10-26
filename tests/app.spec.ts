@@ -1038,7 +1038,7 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
 
 test('el Solitario 3.000 se abre desde Juegos, da vuelta cartas y deshace', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(10);
+  await expect(page.locator('.games-list > li')).toHaveCount(11);
   await page.getByRole('link', { name: /Solitario 3\.000/ }).click();
   await expect(page.getByRole('heading', { name: 'Solitario 3.000' })).toBeVisible();
   await expect(page.locator('.sol-column .sol-card')).toHaveCount(28);
@@ -1057,7 +1057,7 @@ test('el Solitario 3.000 se abre desde Juegos, da vuelta cartas y deshace', asyn
 
 test('Tiki-Taka: se elige el país y el DT, arranca el partido y el rival sigue jugando', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(10);
+  await expect(page.locator('.games-list > li')).toHaveCount(11);
   await page.getByRole('link', { name: /Tiki-Taka/ }).click();
   await page.getByLabel('Nombre del DT').fill('El Bambino');
   await page.getByRole('button', { name: 'Brasil' }).click();
@@ -1078,7 +1078,7 @@ test('Tiki-Taka: se elige el país y el DT, arranca el partido y el rival sigue 
 
 test('Trepaluna: se abre desde Juegos, corre el tiempo, muestra la altura y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(10);
+  await expect(page.locator('.games-list > li')).toHaveCount(11);
   await page.getByRole('link', { name: /Trepaluna/ }).click();
   await expect(page.getByRole('heading', { name: 'Trepaluna', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
@@ -1103,7 +1103,7 @@ test('Tiki-Taka: el Mundial arranca en octavos de final', async ({ page }) => {
 
 test('¡Huye de la serpiente!: se abre desde Juegos, suma puntos con las bolitas y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(10);
+  await expect(page.locator('.games-list > li')).toHaveCount(11);
   await page.getByRole('link', { name: /Huye de la serpiente/ }).click();
   await expect(page.getByRole('heading', { name: '¡Huye de la serpiente!', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
