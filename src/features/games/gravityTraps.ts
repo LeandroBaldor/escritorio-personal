@@ -1,7 +1,8 @@
 // Las trampas nuevas de Gravity Swap: paredes que se cierran, cortocircuitos, quemadores en fila y bobinas
 // de Tesla. Mismo estilo que el resto (borde oscuro, volumen, brillos).
 import { CEIL, FLOOR, burnerFlame, burnerWarn, shortArcs, squeezeExt, squeezeWarn, teslaState, teslaTop, type Game, type Hazard } from './gravitySwap';
-import { INK, P, glow, ink, lin, zap } from './gravityMonsters';
+import { INK, P, glow, ink, lin, spec, zap } from './gravityMonsters';
+import { bolt, hazardStripes, plate } from './gravityHazardArt';
 
 const TAU = Math.PI * 2;
 
@@ -15,20 +16,17 @@ export function drawSqueeze(ctx: CanvasRenderingContext2D, h: Hazard, game: Game
     // pistones
     for (let k = 0; k < Math.floor(h.w / 1.6); k++) {
       const px = h.x + 0.5 + k * 1.6 + dx;
-      ink(ctx, () => ctx.rect(px, top ? CEIL - 0.1 : edge, 0.3, e), lin(ctx, px, 0, px + 0.3, 0, [[0, '#94a3b8'], [0.35, '#f8fafc'], [1, '#475569']]), 1.2);
+      ctx.beginPath(); ctx.rect(px, top ? CEIL - 0.1 : edge, 0.3, e); ctx.fillStyle = lin(ctx, px, 0, px + 0.3, 0, [[0, '#4b5563'], [0.2, '#cbd5e1'], [0.32, '#ffffff'], [0.5, '#9aa3b0'], [1, '#1f242c']]); ctx.fill(); ctx.strokeStyle = '#0b0d11'; ctx.lineWidth = 0.6 * P; ctx.stroke();
     }
     const plateH = Math.min(e, 0.7), py = top ? edge - plateH : edge;
-    ink(ctx, () => ctx.rect(h.x + dx, py, h.w, plateH), lin(ctx, 0, py, 0, py + plateH, top ? [[0, '#1f2937'], [0.6, '#4b5563'], [1, '#9ca3af']] : [[0, '#9ca3af'], [0.4, '#4b5563'], [1, '#1f2937']]), 1.5);
+    plate(ctx, h.x + dx, py, h.w, plateH, '#4b5361', { rust: 0.4 });
     // franja de peligro amarilla y negra sobre el borde
     const band = top ? py + plateH - 0.16 : py;
-    ctx.save(); ctx.beginPath(); ctx.rect(h.x + dx, band, h.w, 0.16); ctx.clip();
-    ctx.fillStyle = '#facc15'; ctx.fillRect(h.x + dx, band, h.w, 0.16); ctx.fillStyle = INK;
-    for (let k = -1; k < h.w + 1; k += 0.4) { ctx.beginPath(); ctx.moveTo(h.x + dx + k, band + 0.16); ctx.lineTo(h.x + dx + k + 0.2, band + 0.16); ctx.lineTo(h.x + dx + k + 0.36, band); ctx.lineTo(h.x + dx + k + 0.16, band); ctx.fill(); }
-    ctx.restore();
-    ctx.fillStyle = '#d1d5db'; for (let k = 0.2; k < h.w; k += 0.6) { ctx.beginPath(); ctx.arc(h.x + dx + k, top ? py + 0.12 : py + plateH - 0.12, 1.4 * P, 0, TAU); ctx.fill(); } // remaches
+    hazardStripes(ctx, h.x + dx, band, h.w, 0.16);
+    for (let k = 0.2; k < h.w; k += 0.6) bolt(ctx, h.x + dx + k, top ? py + 0.12 : py + plateH - 0.12); // remaches
     // dientes de acero en el borde
-    ctx.fillStyle = '#e5e7eb'; ctx.strokeStyle = INK; ctx.lineWidth = P;
-    for (let k = 0; k < h.w - 0.1; k += 0.3) { ctx.beginPath(); ctx.moveTo(h.x + dx + k, edge); ctx.lineTo(h.x + dx + k + 0.15, edge + (top ? 0.18 : -0.18)); ctx.lineTo(h.x + dx + k + 0.3, edge); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(10,12,16,0.85)'; ctx.lineWidth = 0.6 * P;
+    for (let k = 0; k < h.w - 0.1; k += 0.3) { const x0 = h.x + dx + k; ctx.beginPath(); ctx.moveTo(x0, edge); ctx.lineTo(x0 + 0.15, edge + (top ? 0.18 : -0.18)); ctx.lineTo(x0 + 0.3, edge); ctx.closePath(); ctx.fillStyle = lin(ctx, x0, 0, x0 + 0.3, 0, [[0, '#f8fafc'], [0.48, '#cbd5e1'], [0.52, '#64748b'], [1, '#334155']]); ctx.fill(); ctx.stroke(); }
     // luces de aviso
     const on = warn ? Math.sin(t * 20) > 0 : e > 0.3;
     for (const lx of [h.x + 0.25, h.x + h.w - 0.35]) { ctx.fillStyle = on ? '#ef4444' : '#7f1d1d'; ctx.fillRect(lx + dx, top ? py + 0.25 : py + plateH - 0.35, 0.1, 0.1); if (on) glow(ctx, lx + 0.05 + dx, top ? py + 0.3 : py + plateH - 0.3, 0.4, '#ef4444', 0.6); }
@@ -47,7 +45,7 @@ export function drawShorts(ctx: CanvasRenderingContext2D, h: Hazard, game: Game)
     }
     for (let k = 0.6; k < h.w; k += 1.6) { // cajas de empalme abiertas
       const bx = h.x + k;
-      ink(ctx, () => ctx.rect(bx - 0.22, top ? CEIL : FLOOR - 0.4, 0.44, 0.4), lin(ctx, bx - 0.22, 0, bx + 0.22, 0, [[0, '#6b7280'], [1, '#374151']]), 1.2);
+      plate(ctx, bx - 0.22, top ? CEIL : FLOOR - 0.4, 0.44, 0.4, '#4b5361', { rust: 0.5 });
       ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.moveTo(bx - 0.08, top ? CEIL + 0.3 : FLOOR - 0.1); ctx.lineTo(bx + 0.02, top ? CEIL + 0.12 : FLOOR - 0.28); ctx.lineTo(bx + 0.08, top ? CEIL + 0.3 : FLOOR - 0.1); ctx.fill(); // rayito de peligro
       if (Math.random() < 0.25) { ctx.fillStyle = '#fde68a'; for (let s = 0; s < 4; s++) ctx.fillRect(bx + (Math.random() - 0.5) * 0.5, (top ? CEIL + 0.45 : FLOOR - 0.45) + (Math.random() - 0.5) * 0.3, 1.5 * P, 1.5 * P); } // chispitas
     }
@@ -90,9 +88,9 @@ export function drawBurners(ctx: CanvasRenderingContext2D, h: Hazard, game: Game
     }
     // la tobera
     const ny = h.side === 1 ? FLOOR - 0.32 : CEIL;
-    ink(ctx, () => ctx.roundRect(nx - 0.26, ny, 0.52, 0.32, 0.05), lin(ctx, nx - 0.26, 0, nx + 0.26, 0, [[0, '#57534e'], [0.4, '#a8a29e'], [1, '#292524']]), 1.3);
+    plate(ctx, nx - 0.26, ny, 0.52, 0.32, '#4a4440', { rust: 0.6, r: 0.05 });
+    if (fh > 0.05 || warn) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = lin(ctx, 0, h.side === 1 ? ny : ny + 0.32, 0, h.side === 1 ? ny + 0.25 : ny + 0.07, [[0, 'rgba(255,120,40,0.7)'], [1, 'rgba(255,60,20,0)']]); ctx.fillRect(nx - 0.24, ny, 0.48, 0.32); ctx.restore(); } // metal al rojo
     ctx.fillStyle = fh > 0.05 || warn ? '#fb923c' : '#1c1917'; ctx.fillRect(nx - 0.16, h.side === 1 ? ny - 0.02 : ny + 0.3, 0.32, 0.04); // la boca
-    ctx.fillStyle = '#d6d3d1'; for (const bx of [-0.18, 0.15]) ctx.fillRect(nx + bx, ny + 0.13, 1.5 * P, 1.5 * P);
   }
   // el caño de gas que las une
   const py = h.side === 1 ? FLOOR - 0.1 : CEIL + 0.03;
@@ -104,7 +102,7 @@ export function drawBurners(ctx: CanvasRenderingContext2D, h: Hazard, game: Game
 export function drawTesla(ctx: CanvasRenderingContext2D, h: Hazard, game: Game) {
   const { charge, firing } = teslaState(game, h), top = teslaTop(h), up = h.side === 1, t = game.time;
   const baseY = up ? FLOOR : CEIL, dir = up ? -1 : 1, cx = h.x + h.w / 2;
-  ink(ctx, () => ctx.rect(h.x - 0.1, up ? FLOOR - 0.25 : CEIL, h.w + 0.2, 0.25), lin(ctx, 0, baseY - 0.25, 0, baseY, [[0, '#4b5563'], [1, '#111827']]), 1.3);
+  plate(ctx, h.x - 0.1, up ? FLOOR - 0.25 : CEIL, h.w + 0.2, 0.25, '#3a414c', { rust: 0.3 });
   for (let k = 0; k < 3; k++) { const y = baseY + dir * (0.3 + k * 0.12); ink(ctx, () => ctx.ellipse(cx, y, 0.2, 0.06, 0, 0, TAU), '#e5e7eb', 1); } // aisladores
   const coilY0 = baseY + dir * 0.65, coilY1 = top.y - dir * 0.25;
   ink(ctx, () => ctx.rect(cx - 0.18, Math.min(coilY0, coilY1), 0.36, Math.abs(coilY1 - coilY0)), lin(ctx, cx - 0.18, 0, cx + 0.18, 0, [[0, '#7c2d12'], [0.4, '#f59e0b'], [0.7, '#c2410c'], [1, '#431407']]), 1.3);
@@ -112,7 +110,8 @@ export function drawTesla(ctx: CanvasRenderingContext2D, h: Hazard, game: Game) 
   ink(ctx, () => ctx.ellipse(cx, top.y - dir * 0.2, 0.4, 0.12, 0, 0, TAU), lin(ctx, 0, top.y - 0.3, 0, top.y, [[0, '#f1f5f9'], [1, '#64748b']]), 1.3); // toroide
   glow(ctx, top.x, top.y, 0.5 + charge * 0.9, '#a5b4fc', 0.25 + charge * 0.45);
   const sph = ctx.createRadialGradient(top.x - 0.06, top.y - 0.06, 0.02, top.x, top.y, 0.2); sph.addColorStop(0, '#ffffff'); sph.addColorStop(0.5, charge > 0.7 ? '#c7d2fe' : '#cbd5e1'); sph.addColorStop(1, '#475569');
-  ink(ctx, () => ctx.arc(top.x, top.y, 0.2, 0, TAU), sph, 1.3);
+  ink(ctx, () => ctx.arc(top.x, top.y, 0.2, 0, TAU), sph, 1);
+  spec(ctx, top.x - 0.07, top.y - 0.08, 0.06, 0.03, -0.6, 0.9);
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   if (charge > 0.4 && !firing && Math.random() < charge) zap(ctx, [top.x, top.y], [top.x + (Math.random() - 0.5) * 0.7, top.y + (Math.random() - 0.5) * 0.7], '#a5b4fc'); // chispitas mientras se carga
   if (firing) {

@@ -946,15 +946,15 @@ function anglerUpper() {
     g.strokeStyle = '#0e3b33'; g.lineWidth = 0.05; g.beginPath(); g.moveTo(...upperLip(0)); g.lineTo(...upperLip(1)); g.stroke();
     const r = rng(17);
     for (let i = 0; i < 19; i++) { const t = 0.02 + i / 19 * 0.94, [bx, by] = upperLip(t); fang(g, bx, by + 0.01, (0.2 + r() * 0.28) * (1 - t * 0.5), 1, -0.18 + r() * 0.36, 0.021); }
-    // Los ojos: grandes, negros y vidriosos, con su cuenca y dos brillos.
-    for (const [ex, ey, er] of [[0.78, 0.47, 0.1], [0.6, 0.52, 0.115]] as const) {
-      g.fillStyle = '#0b2f29'; g.beginPath(); g.arc(ex, ey, er * 1.3, 0, Math.PI * 2); g.fill();
-      g.strokeStyle = 'rgba(160,230,210,0.5)'; g.lineWidth = 0.012; g.beginPath(); g.arc(ex, ey, er * 1.28, Math.PI * 1.05, Math.PI * 1.7); g.stroke();
-      const eye = g.createRadialGradient(ex - er * 0.3, ey - er * 0.3, er * 0.1, ex, ey, er);
-      eye.addColorStop(0, '#3a4a55'); eye.addColorStop(0.5, '#05080a'); eye.addColorStop(0.92, '#000000'); eye.addColorStop(1, '#1d4a44');
+    // Los ojos: hundidos, lechosos y vidriosos (como los de un pez de las profundidades), con la pupila chica.
+    for (const [ex, ey, er] of [[0.78, 0.47, 0.075], [0.6, 0.52, 0.085]] as const) {
+      g.fillStyle = '#071f1b'; g.beginPath(); g.arc(ex, ey, er * 1.35, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(120,190,170,0.35)'; g.lineWidth = 0.01; g.beginPath(); g.arc(ex, ey, er * 1.32, Math.PI * 1.05, Math.PI * 1.7); g.stroke();
+      const eye = g.createRadialGradient(ex - er * 0.2, ey - er * 0.2, er * 0.05, ex, ey, er);
+      eye.addColorStop(0, '#e8f4ef'); eye.addColorStop(0.55, '#a9c9c1'); eye.addColorStop(0.9, '#4d716a'); eye.addColorStop(1, '#1b3a35');
       g.fillStyle = eye; g.beginPath(); g.arc(ex, ey, er, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(ex - er * 0.35, ey - er * 0.35, er * 0.28, er * 0.2, -0.6, 0, Math.PI * 2); g.fill();
-      g.fillStyle = 'rgba(255,255,255,0.6)'; g.beginPath(); g.arc(ex + er * 0.35, ey + er * 0.3, er * 0.1, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#020403'; g.beginPath(); g.arc(ex + er * 0.12, ey + er * 0.05, er * 0.32, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.ellipse(ex - er * 0.35, ey - er * 0.4, er * 0.16, er * 0.09, -0.6, 0, Math.PI * 2); g.fill();
     }
   }, 110);
 }
