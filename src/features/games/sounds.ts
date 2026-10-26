@@ -941,27 +941,7 @@ export function playVictory() { if (!playSample(victoriaUrl, 0.85)) playWin(); }
 // Ganar el Solitario 3.000: su propia música de festejo.
 export function playSolitaireWin() { if (!playSample(solitarioGanasteUrl, 0.85)) playWinFanfare(); }
 
-// ---------- ¡Huye de la serpiente! ----------
-// Los pasitos de la manzana: un golpecito suave y agudo, alternando un pie y el otro.
-let appleSide = 0;
-export function playAppleStep() {
-  const c = running(); if (!c) return;
-  appleSide = 1 - appleSide;
-  const t = c.currentTime, f = appleSide ? 520 : 600;
-  tone(c, 'sine', f, f * 0.55, t, 0.05, 0.16);
-  burst(c, 'bandpass', 2400, t, 0.025, 0.08);
-}
-// La serpiente se come una manzana: el mordiscón crocante y el "glup" al tragar.
-export function playSnakeEat() {
-  const c = running(); if (!c) return;
-  const t = c.currentTime;
-  for (let i = 0; i < 4; i++) burst(c, 'bandpass', 2200 + Math.random() * 1800, t + i * 0.045, 0.05, 0.45);
-  burst(c, 'lowpass', 900, t, 0.08, 0.5);
-  tone(c, 'sine', 260, 90, t + 0.22, 0.18, 0.5);
-}
-
-// ---------- Tiki-Taka ----------
-export function preloadSoccerSounds() { for (const url of [golUrl, hinchadaUrl, patadaUrl]) loadSample(url); }
+// ---------- Fútbol (patada, gol, silbato e hinchada: los usa Kombat Football) ----------
 // Una patada a la pelota (pase, tiro o pase del rival): la grabación; mientras carga, un golpe sintetizado.
 export function playKick(volume = 1) {
   const c = running(); if (!c) return;

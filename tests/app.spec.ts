@@ -532,11 +532,11 @@ test('el calendario tiene el mes a la izquierda, se ven 4 filas de semana en la 
   }
 });
 
-test('Juegos: en pantallas anchas el meme queda centrado arriba de Tiki-Taka, en el medio de la pantalla', async ({ page }) => {
+test('Juegos: en pantallas anchas el meme queda centrado arriba de la tarjeta del medio, en el medio de la pantalla', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1000 });
   await page.goto('/escritorio-personal/#/juegos');
   const meme = (await page.locator('.games-art img').boundingBox())!;
-  const tiki = (await page.locator('.games-list > li').filter({ hasText: 'Tiki-Taka' }).boundingBox())!;
+  const tiki = (await page.locator('.games-list > li').nth(2).boundingBox())!;
   expect(Math.abs(meme.x + meme.width / 2 - (tiki.x + tiki.width / 2))).toBeLessThanOrEqual(1);
   expect(Math.abs(meme.x + meme.width / 2 - 960)).toBeLessThanOrEqual(1);
   expect(meme.y + meme.height).toBeLessThanOrEqual(tiki.y);
@@ -1038,7 +1038,7 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
 
 test('el Solitario 3.000 se abre desde Juegos, da vuelta cartas y deshace', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(11);
+  await expect(page.locator('.games-list > li')).toHaveCount(9);
   await page.getByRole('link', { name: /Solitario 3\.000/ }).click();
   await expect(page.getByRole('heading', { name: 'Solitario 3.000' })).toBeVisible();
   await expect(page.locator('.sol-column .sol-card')).toHaveCount(28);
@@ -1055,30 +1055,9 @@ test('el Solitario 3.000 se abre desde Juegos, da vuelta cartas y deshace', asyn
   await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
 });
 
-test('Tiki-Taka: se elige el país y el DT, arranca el partido y el rival sigue jugando', async ({ page }) => {
-  await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(11);
-  await page.getByRole('link', { name: /Tiki-Taka/ }).click();
-  await page.getByLabel('Nombre del DT').fill('El Bambino');
-  await page.getByRole('button', { name: 'Brasil' }).click();
-  await expect(page.getByText('País: Brasil')).toBeVisible();
-  await page.getByRole('button', { name: /5-3-2/ }).click();
-  await page.getByRole('button', { name: /Amistoso/ }).click();
-  await expect(page.locator('.tt-board')).toContainText('Brasil');
-  await expect(page.locator('.tt-coach').first()).toContainText('El Bambino');
-  await expect(page.getByTestId('tt-score')).toHaveText('0 - 0');
-  await expect(page.locator('.tt-board-time')).toHaveText(/1T · \d+'/);
-  // Sin pasar la pelota, el rival la roba y sigue jugando: el relator lo cuenta.
-  await expect(page.locator('.tt-line')).toHaveText(/robaron|Presión de|cortó|recuper|gambeteó|amague|Patea|ATAJ|Gol de/, { timeout: 12000 });
-  await page.getByRole('link', { name: '‹ Juegos' }).click();
-  await page.getByRole('link', { name: /Tiki-Taka/ }).click();
-  await expect(page.getByLabel('Nombre del DT')).toHaveValue('El Bambino');
-  await expect(page.getByText('País: Brasil')).toBeVisible();
-});
-
 test('Trepaluna: se abre desde Juegos, corre el tiempo, muestra la altura y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(11);
+  await expect(page.locator('.games-list > li')).toHaveCount(9);
   await page.getByRole('link', { name: /Trepaluna/ }).click();
   await expect(page.getByRole('heading', { name: 'Trepaluna', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
@@ -1089,30 +1068,6 @@ test('Trepaluna: se abre desde Juegos, corre el tiempo, muestra la altura y se p
   const paused = await page.getByTestId('trepa-time').textContent();
   await page.waitForTimeout(400);
   await expect(page.getByTestId('trepa-time')).toHaveText(paused ?? '');
-  await page.getByRole('button', { name: 'Seguir' }).first().click();
-  await page.getByRole('link', { name: '‹ Juegos' }).click();
-  await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
-});
-
-test('Tiki-Taka: el Mundial arranca en octavos de final', async ({ page }) => {
-  await page.goto('/escritorio-personal/#/juegos/futbol');
-  await page.getByRole('button', { name: /Jugar el Mundial/ }).click();
-  await expect(page.locator('.tt-board-time')).toContainText('Octavos de final');
-  await expect(page.getByTestId('tt-score')).toHaveText('0 - 0');
-});
-
-test('¡Huye de la serpiente!: se abre desde Juegos, suma puntos con las bolitas y se pausa', async ({ page }) => {
-  await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(11);
-  await page.getByRole('link', { name: /Huye de la serpiente/ }).click();
-  await expect(page.getByRole('heading', { name: '¡Huye de la serpiente!', level: 1 })).toBeVisible();
-  await page.getByRole('button', { name: 'Jugar' }).click();
-  await expect(page.getByTestId('snake-points')).toHaveText('0');
-  await page.keyboard.down('ArrowUp');
-  await expect(page.getByTestId('snake-points')).not.toHaveText('0');
-  await page.keyboard.up('ArrowUp');
-  await page.keyboard.press('p');
-  await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
   await page.getByRole('button', { name: 'Seguir' }).first().click();
   await page.getByRole('link', { name: '‹ Juegos' }).click();
   await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();

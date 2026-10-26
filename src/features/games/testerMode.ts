@@ -10,7 +10,6 @@
 // - ¡El piso es de lava!: la lava, el fuego, la electricidad y las antorchas no te hacen nada.
 // - Ciudad Tiburón: los tiburones no te comen y el tiempo no se termina.
 // - Invasión: además, no hay límite de tiempo.
-// - La serpiente al revés: la serpiente no te come.
 
 const KEY = 'escritorio-personal-juegos:modo-prueba';
 const CODE_HASH = '9716422b8f7d0e38eeecb2b9deb49134e3a8455440bfb07afed12749f920a5ab';
