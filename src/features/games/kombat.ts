@@ -1,11 +1,12 @@
 // Lógica de Kombat Football: fútbol 1 contra 1 visto de costado, mezclado con peleas al estilo Mortal Kombat.
-// La cancha ocupa toda la pantalla y es larga (cuesta llegar al otro arco). Cada equipo tiene su luchador (lo
-// maneja el jugador o la máquina) y un arquero común que ataja solo; hay un árbitro que corre por la cancha.
-// Se juegan dos tiempos de 1:30 y en el entretiempo los equipos cambian de lado. Si empatan, gol de oro.
-// Barras: la ENERGÍA del luchador (correr, saltar, patear y recibir golpes la gastan; cuanto menos tiene, más
-// lento corre y más flojo patea; quieto se recupera) y el PODER (se carga jugando, en 3 niveles): cada nivel
-// habilita una jugada especial que se hace con una combinación de flechas + ESPACIO.
-// En el piso de cada escenario hay trampas (pinches, fuego, electricidad, láseres…) que afectan a todos.
+// La cancha ocupa toda la pantalla y es larga, con un arco en cada borde (sin arqueros: cada luchador defiende
+// su arco con su habilidad, que también sirve para dispararle a la pelota antes de que entre). Hay un árbitro
+// que corre por la cancha. Dos tiempos de 1:30 con cambio de lado en el entretiempo; si empatan, gol de oro.
+// Cada escenario tiene desniveles, plataformas flotantes y trampas (pinches, sierras, láseres, fuego, lava,
+// minas…). Las trampas no matan: bajan la ENERGÍA, igual que los ataques del rival y usar la habilidad propia;
+// la energía se recupera descansando y, cuanto menos queda, más lento se corre. Si la pelota se quema (fuego,
+// lava, láser, sierra, mina), explota y baja una nueva por el tubo del medio.
+// La barra de PODER se carga jugando: llena, habilita el FATAL GOAL con una combinación de flechas + patear.
 // Todo se mide en metros: la cancha mide W de largo, el piso está en y = 0 y para arriba es positivo.
 
 export const W = 30; // largo de la cancha
@@ -18,77 +19,73 @@ export const PW = 0.8; // ancho de una persona
 export const PH = 1.85; // alto de una persona
 export const HALF_TIME = 90; // cada tiempo dura 1:30
 export const STAMINA = 100; // energía llena
-export const POWER_MAX = 300; // poder: 3 niveles de 100
+export const POWER_MAX = 100; // poder para el FATAL GOAL
 export const FATAL_CINE = 1.4; // la presentación del FATAL GOAL (todo se congela)
 export const TOURNAMENT = 10;
+export const TUBE_Y = 10.4; // boca del tubo del medio, por donde baja la pelota
 
-export type CharId = 'venox' | 'blazehorn' | 'frostbane' | 'voltrax' | 'nullshade';
-export type StageId = 'city' | 'factory' | 'volcano' | 'glacier' | 'lab' | 'space' | 'graveyard' | 'storm' | 'desert' | 'arena';
+export type CharId = 'cometa' | 'inferno' | 'frost' | 'thunder' | 'shadow' | 'shadowRed' | 'orbot' | 'orbotBlue' | 'bruto' | 'brutoRed' | 'aguila' | 'aguilaBlack' | 'espectro' | 'toxic' | 'magma' | 'cyber';
+export type Ability = 'superJump' | 'fireball' | 'freeze' | 'lightning' | 'shuriken' | 'bomb' | 'burst' | 'beam' | 'quake' | 'charge' | 'flight' | 'feathers' | 'phase' | 'toxicCloud' | 'magmaSpikes' | 'laserCut';
+export type Element = 'fire' | 'ice' | 'volt' | 'dark' | 'toxic' | 'rock';
+export type FatalStyle = 'meteor' | 'avalanche' | 'bolt' | 'void' | 'acid' | 'boulder';
+export type StageId = 'industrial' | 'mines' | 'base' | 'ice' | 'volcano' | 'forest' | 'factory' | 'storm' | 'temple' | 'moon';
 export type PowerKind = 'shield' | 'speed' | 'magnet' | 'power' | 'giant' | 'energy';
 export type BallKind = 'normal' | 'toxic' | 'fire' | 'ice' | 'spike' | 'void';
-export type Move = 'shot' | 'defense' | 'attack' | 'fatal'; // las jugadas especiales
-// Combinaciones (relativas: F = adelante, hacia el arco rival; B = atrás; D = abajo; U = arriba) + ESPACIO.
-export const COMBOS: Record<Move, ('F' | 'B' | 'D' | 'U')[]> = { shot: ['F', 'F'], defense: ['B', 'B'], attack: ['D', 'F'], fatal: ['F', 'B', 'F'] };
-export const COST: Record<Move, number> = { shot: 100, defense: 100, attack: 200, fatal: 300 };
-export const MOVE_NAME: Record<Move, string> = { shot: 'Tiro especial', defense: 'Defensa especial', attack: 'Golpe especial', fatal: 'FATAL GOAL' };
+// Combinación del FATAL GOAL (F = adelante, hacia el arco rival; B = atrás) + patear.
+export const FATAL_COMBO: ('F' | 'B')[] = ['F', 'B', 'F'];
 
 export interface CharDef {
-  id: CharId; name: string; element: string; color: string; glow: string; bio: string;
-  speed: number; power: number; jump: number; stamina: number; // 1 = normal
-  shot: string; shotText: string; attack: string; attackText: string; defense: string; defenseText: string; fatal: string; fatalText: string;
+  id: CharId; name: string; color: string; glow: string; element: Element; fatal: FatalStyle; fatalName: string; bio: string;
+  speed: number; power: number; jump: number; rest: number; // 1 = normal (rest: qué tan rápido recupera energía)
+  ability: Ability; abilityName: string; abilityText: string; cost: number; cd: number;
 }
-export const CHARS: Record<CharId, CharDef> = {
-  venox: { id: 'venox', name: 'VENOX', element: 'Veneno', color: '#4ade80', glow: '#86efac', bio: 'Salió de una fábrica de químicos abandonada. Respira gas tóxico y envenena todo lo que toca.', speed: 1, power: 0.95, jump: 1, stamina: 1.15,
-    shot: 'Tiro ácido', shotText: 'La pelota sale envuelta en ácido y zigzaguea: el arquero que la toca queda envenenado.',
-    attack: 'Aliento de gas', attackText: 'Escupe una nube venenosa hacia adelante: al rival se le va la energía.',
-    defense: 'Nube tóxica', defenseText: 'Una nube de gas frente a su arco que frena la pelota.',
-    fatal: 'BOMBA ÁCIDA', fatalText: 'La pelota se vuelve una calavera de ácido que vuela ondulando hasta el arco.' },
-  blazehorn: { id: 'blazehorn', name: 'BLAZEHORN', element: 'Fuego', color: '#ef4444', glow: '#fb923c', bio: 'Un toro de pelea forjado en un volcán. Lento, pero cada patada es una bola de fuego.', speed: 0.92, power: 1.22, jump: 0.92, stamina: 1,
-    shot: 'Bola de fuego', shotText: 'El tiro más fuerte del juego, prendido fuego: quema al arquero.',
-    attack: 'Embestida', attackText: 'Carga con los cuernos en llamas y voltea al rival.',
-    defense: 'Muro de fuego', defenseText: 'Una pared de llamas frente a su arco rechaza la pelota.',
-    fatal: 'METEORITO', fatalText: 'Patea la pelota al cielo y cae como un meteorito sobre el arco rival.' },
-  frostbane: { id: 'frostbane', name: 'FROSTBANE', element: 'Hielo', color: '#60a5fa', glow: '#bae6fd', bio: 'Un guerrero de hielo con cara de calavera. Congela el aire, la pelota y a sus rivales.', speed: 0.98, power: 1, jump: 1.05, stamina: 1.05,
-    shot: 'Tiro helado', shotText: 'La pelota sale congelada: el arquero que la ataja queda hecho hielo.',
-    attack: 'Aliento helado', attackText: 'Sopla hielo hacia adelante y congela al rival (y la pelota).',
-    defense: 'Muro de hielo', defenseText: 'Un bloque de hielo sólido tapa su arco por unos segundos.',
-    fatal: 'AVALANCHA', fatalText: 'La pelota se vuelve una bola de hielo gigante que rueda arrasando todo.' },
-  voltrax: { id: 'voltrax', name: 'VOLTRAX', element: 'Electricidad', color: '#facc15', glow: '#fef08a', bio: 'Un robot de carreras con un reactor en el pecho. El más rápido de todos, pero se cansa enseguida.', speed: 1.13, power: 0.9, jump: 1.08, stamina: 0.85,
-    shot: 'Tiro relámpago', shotText: 'La pelota sale electrificada a toda velocidad: paraliza al arquero.',
-    attack: 'Descarga', attackText: 'Supervelocidad un rato y patadas que electrocutan.',
-    defense: 'Campo magnético', defenseText: 'Un campo eléctrico a su alrededor que repele la pelota.',
-    fatal: 'RELÁMPAGO', fatalText: 'La pelota salta en zigzag como un rayo hasta meterse en el arco.' },
-  nullshade: { id: 'nullshade', name: 'NULLSHADE', element: 'Oscuridad', color: '#a855f7', glow: '#d8b4fe', bio: 'Una sombra encapuchada que viene del vacío. Aparece y desaparece donde menos lo esperás.', speed: 1.02, power: 1, jump: 1, stamina: 0.95,
-    shot: 'Tiro fantasma', shotText: 'La pelota se vuelve invisible a ratos y atraviesa al arquero.',
-    attack: 'Golpe sombra', attackText: 'Desaparece y aparece detrás del rival para voltearlo.',
-    defense: 'Portal', defenseText: 'Un portal frente a su arco: la pelota que entra sale por el medio de la cancha.',
-    fatal: 'AGUJERO NEGRO', fatalText: 'Un agujero negro atrapa al rival mientras la pelota gira en espiral hasta el arco.' },
+const C = (id: CharId, name: string, color: string, glow: string, element: Element, stats: [number, number, number, number], ability: Ability, abilityName: string, abilityText: string, cost: number, cd: number, bio: string): CharDef => {
+  const fatal: FatalStyle = ({ fire: 'meteor', ice: 'avalanche', volt: 'bolt', dark: 'void', toxic: 'acid', rock: 'boulder' } as const)[element];
+  const fatalName = ({ meteor: 'METEORITO', avalanche: 'AVALANCHA', bolt: 'RELÁMPAGO', void: 'AGUJERO NEGRO', acid: 'BOMBA ÁCIDA', boulder: 'ROCA GIGANTE' } as const)[fatal];
+  return { id, name, color, glow, element, fatal, fatalName, bio, speed: stats[0], power: stats[1], jump: stats[2], rest: stats[3], ability, abilityName, abilityText, cost, cd };
 };
-export const CHAR_IDS: CharId[] = ['venox', 'blazehorn', 'frostbane', 'voltrax', 'nullshade'];
+export const CHARS: Record<CharId, CharDef> = {
+  cometa: C('cometa', 'COMETA', '#60a5fa', '#bae6fd', 'ice', [1.04, 0.95, 1.15, 1.05], 'superJump', 'Salto potenciado', 'Sale volando con los propulsores: si en el aire toca la pelota, la manda lejísimos.', 14, 1.8, 'Un astronauta de las estaciones de hielo. Salta como nadie.'),
+  inferno: C('inferno', 'INFERNO', '#ef4444', '#fb923c', 'fire', [0.98, 1.12, 0.95, 1], 'fireball', 'Bolas de fuego', 'Lanza una bola de fuego: empuja la pelota y quema al rival.', 18, 1.5, 'Guerrero con casco de cuernos que nació entre las llamas.'),
+  frost: C('frost', 'FROST', '#38bdf8', '#e0f2fe', 'ice', [1, 1, 1.02, 1], 'freeze', 'Congela el escenario', 'Congela todo a su alrededor: la pelota se frena en seco y el rival queda hecho hielo.', 22, 3, 'Su armadura es de hielo eterno. Congela el aire con la mano.'),
+  thunder: C('thunder', 'THUNDER', '#facc15', '#fef08a', 'volt', [1.1, 0.95, 1.05, 0.95], 'lightning', 'Rayos eléctricos', 'Dispara un rayo instantáneo que le pega a la pelota o al rival a distancia.', 18, 1.7, 'Cargado de electricidad. Rápido y nervioso.'),
+  shadow: C('shadow', 'SHADOW', '#a855f7', '#e9d5ff', 'dark', [1.12, 0.92, 1.08, 1], 'shuriken', 'Estrellas ninja', 'Tira estrellas ninja muy rápidas y baratas.', 9, 0.7, 'Ninja de las sombras. Nadie lo ve llegar.'),
+  shadowRed: C('shadowRed', 'SHADOW ROJO', '#ef4444', '#fca5a5', 'fire', [1.08, 0.95, 1.05, 1], 'bomb', 'Estrellas explosivas', 'Su estrella explota al tocar algo y voltea todo alrededor.', 18, 1.7, 'El hermano rojo de Shadow. Le gusta que las cosas exploten.'),
+  orbot: C('orbot', 'ORBOT', '#84cc16', '#bef264', 'toxic', [0.96, 1.02, 0.95, 1], 'burst', 'Disparo automático', 'Tres disparos seguidos con el cañón del brazo.', 16, 1.5, 'Robot de combate con un cañón tóxico en el brazo.'),
+  orbotBlue: C('orbotBlue', 'ORBOT AZUL', '#3b82f6', '#93c5fd', 'volt', [0.96, 1.02, 0.95, 1], 'beam', 'Rayo de energía', 'Carga y dispara un rayo de energía larguísimo y muy fuerte.', 22, 2.3, 'Versión azul del Orbot, con un cañón de energía.'),
+  bruto: C('bruto', 'BRUTO', '#9ca3af', '#fbbf24', 'rock', [0.86, 1.25, 0.85, 1.15], 'quake', 'Golpe terrestre', 'Golpea el piso: la onda levanta la pelota y voltea a los que estén cerca.', 20, 2.4, 'Un gigante de piedra y metal. Lento pero imparable.'),
+  brutoRed: C('brutoRed', 'BRUTO ROJO', '#dc2626', '#f97316', 'fire', [0.88, 1.22, 0.86, 1.1], 'charge', 'Embestida', 'Carga a toda velocidad envuelto en fuego: arrasa con la pelota y con el rival.', 18, 2, 'El Bruto más furioso. Cuando corre, tiembla el piso.'),
+  aguila: C('aguila', 'ÁGUILA', '#eab308', '#fde68a', 'volt', [1.06, 0.98, 1.12, 1], 'flight', 'Vuelo corto', 'Vuela en línea recta un momento: si choca la pelota, la manda como un misil.', 16, 2, 'Guerrero alado con armadura dorada.'),
+  aguilaBlack: C('aguilaBlack', 'ÁGUILA NEGRA', '#c026d3', '#f0abfc', 'dark', [1.06, 0.98, 1.1, 1], 'feathers', 'Plumas envenenadas', 'Tira tres plumas en abanico que envenenan al rival.', 16, 1.5, 'El águila de la noche. Sus plumas son veneno.'),
+  espectro: C('espectro', 'ESPECTRO', '#22d3ee', '#a5f3fc', 'dark', [1.1, 0.92, 1.05, 1.05], 'phase', 'Fase', 'Se vuelve fantasma: atraviesa trampas y rivales a toda velocidad.', 14, 1.8, 'Un astronauta perdido que se volvió fantasma.'),
+  toxic: C('toxic', 'TOXIC', '#4ade80', '#bbf7d0', 'toxic', [1, 1, 1, 1], 'toxicCloud', 'Nube tóxica', 'Lanza una burbuja que se abre en una nube: frena la pelota y envenena al rival.', 18, 2.2, 'Respira gas tóxico detrás de su máscara.'),
+  magma: C('magma', 'MAGMA', '#f97316', '#fdba74', 'fire', [0.9, 1.18, 0.88, 1.1], 'magmaSpikes', 'Picos de magma', 'Hace salir picos de lava del piso que avanzan hacia adelante.', 20, 2.2, 'Hecho de roca volcánica. Por las grietas le corre lava.'),
+  cyber: C('cyber', 'CYBER', '#ec4899', '#f9a8d4', 'volt', [1.08, 1, 1.05, 1], 'laserCut', 'Corte láser', 'Un tajo con la espada láser que despeja la pelota con fuerza.', 13, 1.3, 'Samurái cibernético con espada de luz.'),
+};
+export const CHAR_IDS: CharId[] = ['cometa', 'inferno', 'frost', 'thunder', 'shadow', 'shadowRed', 'orbot', 'orbotBlue', 'bruto', 'brutoRed', 'aguila', 'aguilaBlack', 'espectro', 'toxic', 'magma', 'cyber'];
 
-export type TrapKind = 'spikes' | 'flame' | 'shock' | 'laser';
-export interface StageDef { id: StageId; name: string; hazard: string; gravity: number; friction: number; traps: TrapKind[] }
+export interface StageDef { id: StageId; name: string; hazard: string; gravity: number; friction: number }
 export const STAGES: StageDef[] = [
-  { id: 'city', name: 'Ciudad Tóxica', hazard: 'Placas eléctricas, un láser en el medio y rayos de las torres', gravity: 1, friction: 1, traps: ['shock', 'laser', 'shock'] },
-  { id: 'factory', name: 'Fábrica Abandonada', hazard: 'Pinches, fuego, bola de demolición y cinta transportadora', gravity: 1, friction: 1, traps: ['spikes', 'flame', 'spikes'] },
-  { id: 'volcano', name: 'Volcán', hazard: 'Chorros de fuego, pozos de lava y lluvia de meteoritos', gravity: 1, friction: 1, traps: ['flame', 'flame', 'flame'] },
-  { id: 'glacier', name: 'Glaciar', hazard: 'Piso que resbala, pinches de hielo y carámbanos que caen', gravity: 1, friction: 0.3, traps: ['spikes', 'spikes'] },
-  { id: 'lab', name: 'Laboratorio', hazard: 'Láseres, placas eléctricas y una zona antigravedad', gravity: 1, friction: 1, traps: ['laser', 'shock', 'laser'] },
-  { id: 'space', name: 'Estación Espacial', hazard: 'Gravedad baja, láseres y compuertas que chupan todo', gravity: 0.6, friction: 1, traps: ['laser', 'laser'] },
-  { id: 'graveyard', name: 'Cementerio', hazard: 'Pinches, braseros y manos de zombis que salen del piso', gravity: 1, friction: 1, traps: ['spikes', 'flame', 'spikes'] },
-  { id: 'storm', name: 'Azotea en Tormenta', hazard: 'Placas eléctricas, rayos y ráfagas de viento', gravity: 1, friction: 1, traps: ['shock', 'shock', 'shock'] },
-  { id: 'desert', name: 'Desierto', hazard: 'Pinches, fuego y un tornado que cruza la cancha', gravity: 1, friction: 1, traps: ['spikes', 'flame', 'spikes'] },
-  { id: 'arena', name: 'Coliseo del Vacío', hazard: 'Fuego, láseres, un agujero negro y portales', gravity: 1, friction: 1, traps: ['flame', 'laser', 'flame'] },
+  { id: 'industrial', name: 'Ciudad Industrial', hazard: 'Láseres, pinches, sierras y una bola con púas', gravity: 1, friction: 1 },
+  { id: 'mines', name: 'Minas Espaciales', hazard: 'Minas flotantes, láseres y plataformas con pinches', gravity: 0.85, friction: 1 },
+  { id: 'base', name: 'Base en el Espacio', hazard: 'Gravedad baja y muchos láseres', gravity: 0.7, friction: 1 },
+  { id: 'ice', name: 'Planeta Helado', hazard: 'Piso que resbala, pinches y carámbanos que caen', gravity: 1, friction: 0.35 },
+  { id: 'volcano', name: 'Planeta Volcánico', hazard: 'Pozos de lava, chorros de fuego y meteoritos', gravity: 1, friction: 1 },
+  { id: 'forest', name: 'Bosque Bioluminiscente', hazard: 'Hongos que rebotan, cascada y pinches', gravity: 1, friction: 1 },
+  { id: 'factory', name: 'Fábrica Robótica', hazard: 'Sierras, láseres y cinta transportadora', gravity: 1, friction: 1 },
+  { id: 'storm', name: 'Torres en la Tormenta', hazard: 'Rayos, placas eléctricas y bolas con púas', gravity: 1, friction: 1 },
+  { id: 'temple', name: 'El Templo Antiguo', hazard: 'Antorchas de fuego, pinches y escalones', gravity: 1, friction: 1 },
+  { id: 'moon', name: 'La Luna', hazard: 'Gravedad lunar, láseres y bloques con pinches', gravity: 0.45, friction: 1 },
 ];
 export const stageDef = (id: StageId) => STAGES.find(s => s.id === id) ?? STAGES[0];
 
 export const POWERS: Record<PowerKind, { name: string; text: string; color: string; time: number }> = {
   shield: { name: 'Escudo', text: 'no te pueden voltear', color: '#38bdf8', time: 8 },
-  speed: { name: 'Turbo', text: 'corrés más y no te cansás', color: '#22c55e', time: 8 },
+  speed: { name: 'Turbo', text: 'corrés más rápido', color: '#22c55e', time: 8 },
   magnet: { name: 'Imán', text: 'la pelota viene hacia vos', color: '#ec4899', time: 7 },
   power: { name: 'Súper patada', text: 'pateás mucho más fuerte', color: '#a855f7', time: 8 },
   giant: { name: 'Arco gigante', text: 'el arco del rival se agranda', color: '#f97316', time: 10 },
-  energy: { name: 'Energía', text: 'energía llena y +1 de poder', color: '#facc15', time: 0 },
+  energy: { name: 'Energía', text: 'energía llena y más poder', color: '#facc15', time: 0 },
 };
 export const BALLS: Record<Exclude<BallKind, 'normal'>, { name: string; text: string; color: string }> = {
   toxic: { name: 'Pelota tóxica', text: 'se mueve sola, para cualquier lado', color: '#4ade80' },
@@ -98,53 +95,60 @@ export const BALLS: Record<Exclude<BallKind, 'normal'>, { name: string; text: st
   void: { name: 'Pelota del vacío', text: 'flota como en la Luna', color: '#a855f7' },
 };
 
-export interface Input { left: boolean; right: boolean; up: boolean; down: boolean; kick: boolean; cast?: Move | null }
-export const noInput = (): Input => ({ left: false, right: false, up: false, down: false, kick: false, cast: null });
+export type Cast = 'ability' | 'fatal';
+export interface Input { left: boolean; right: boolean; up: boolean; down: boolean; kick: boolean; ability: boolean; cast?: Cast | null }
+export const noInput = (): Input => ({ left: false, right: false, up: false, down: false, kick: false, ability: false, cast: null });
 
 export type Action = 'idle' | 'run' | 'jump' | 'kick' | 'slide' | 'block' | 'stun' | 'special' | 'celebrate' | 'sad' | 'fatal' | 'tired';
-export type StunKind = 'hit' | 'freeze' | 'poison' | 'burn' | 'zap' | 'grab' | 'none';
+export type StunKind = 'hit' | 'freeze' | 'poison' | 'burn' | 'zap' | 'none';
 export interface Fighter {
   side: 0 | 1; char: CharId;
   x: number; y: number; vx: number; vy: number; facing: 1 | -1; ground: boolean;
   action: Action; actionT: number;
   kickT: number; kickKind: 'normal' | 'lob' | 'low'; kickHit: boolean; slideT: number;
-  stun: number; stunKind: StunKind; poison: number; inv: number; // inv: un ratito invulnerable después de levantarse
-  stamina: number; power: number; unlocked: number; // poder: hasta qué nivel ya se avisó
-  speedT: number; dashT: number; // descarga de VOLTRAX, embestida de BLAZEHORN
+  stun: number; stunKind: StunKind; poison: number; inv: number;
+  stamina: number; power: number; cd: number;
+  abilityT: number; abilityHit: boolean; burst: number; burstT: number; // habilidades que duran (salto, embestida, vuelo, fase, ráfaga)
   powers: Partial<Record<PowerKind, number>>;
   prev: Input; taps: { d: 'F' | 'B' | 'U' | 'D'; t: number }[];
-  goals: number;
+  goals: number; restT: number;
 }
-export interface Person { // arquero o árbitro: corren solos
-  role: 'keeper' | 'ref'; team: 0 | 1; x: number; y: number; vx: number; vy: number; facing: 1 | -1; ground: boolean;
-  action: 'idle' | 'run' | 'jump' | 'dive' | 'hold' | 'kick' | 'stun' | 'down' | 'gone' | 'celebrate' | 'sad' | 'whistle'; actionT: number;
-  stun: number; stunKind: StunKind; hold: number; away: number;
+export interface Person { // el árbitro
+  x: number; y: number; vx: number; vy: number; facing: 1 | -1; ground: boolean;
+  action: 'idle' | 'run' | 'jump' | 'stun' | 'down' | 'gone' | 'whistle'; actionT: number;
+  stun: number; stunKind: StunKind; away: number;
 }
-export interface Ball { x: number; y: number; vx: number; vy: number; spin: number; kind: BallKind; kindT: number; owner: 0 | 1 | null; fx: 'none' | 'toxic' | 'fire' | 'ice' | 'volt' | 'void'; fxT: number; frozen: number; held: Person | null }
-export interface Shield { kind: 'cloud' | 'firewall' | 'icewall' | 'field' | 'portal'; side: 0 | 1; x: number; y: number; w: number; h: number; t: number; life: number }
-export interface Shot { kind: 'gas' | 'breath'; side: 0 | 1; x: number; y: number; t: number; life: number; hit: boolean }
-export interface Fatal { side: 0 | 1; char: CharId; t: number; x0: number; y0: number; dir: 1 | -1; blocked: boolean; done: boolean }
+export interface Ball { x: number; y: number; vx: number; vy: number; spin: number; kind: BallKind; kindT: number; owner: 0 | 1 | null; fx: 'none' | 'toxic' | 'fire' | 'ice' | 'volt' | 'void'; fxT: number; frozen: number; alive: boolean; respawn: number; heat: number }
+export interface Solid { x: number; y: number; w: number; h: number; kind: 'block' | 'float' | 'bouncy'; id: number }
+export type ShotKind = 'fireball' | 'shuriken' | 'bomb' | 'bullet' | 'feather' | 'bubble';
+export interface Shot { kind: ShotKind; side: 0 | 1; x: number; y: number; vx: number; vy: number; r: number; t: number; life: number; done: boolean }
+// Efectos de las habilidades que se dibujan un ratito (rayos, cortes, ondas, explosiones, nubes, picos).
+export interface Fx { kind: 'bolt' | 'beam' | 'charge' | 'slash' | 'nova' | 'quake' | 'boom' | 'cloud' | 'magma'; side: 0 | 1; x: number; y: number; x2: number; y2: number; t: number; life: number; dir: number; hit: number }
+export interface Fatal { side: 0 | 1; char: CharId; style: FatalStyle; t: number; x0: number; y0: number; dir: 1 | -1; blocked: boolean; done: boolean }
 export interface PowerUp { id: number; kind: PowerKind; x: number; y: number; t: number }
+export type TrapKind = 'spikes' | 'flame' | 'shock' | 'laser' | 'saw';
 export interface Hazard {
-  kind: TrapKind | 'wreck' | 'conveyor' | 'meteor' | 'lava' | 'block' | 'icicle' | 'antigrav' | 'airlock' | 'hand' | 'lightning' | 'arc' | 'gust' | 'tornado' | 'blackhole' | 'portal';
+  kind: TrapKind | 'wreck' | 'conveyor' | 'meteor' | 'lava' | 'icicle' | 'lightning' | 'mine' | 'waterfall';
+  // spikes/flame/shock/lava/conveyor/waterfall: de x a x+w, apoyada en y (la superficie); laser: de y a h (alto);
+  // saw: recorre de x a x+w; wreck: cuelga de (x, y) con largo h; mine: flota en (x, y)
   x: number; y: number; w: number; h: number; t: number; state: number; dir: number; id: number; period: number;
-  struck?: number; // a quiénes ya lastimó en este encendido (bits: luchadores 1 y 2, arqueros 4 y 8, árbitro 16)
+  struck?: number; // a quiénes ya lastimó en este encendido (bits: luchadores 1 y 2, árbitro 4)
 }
 export type KfEvent =
-  | { type: 'kick'; power: number } | { type: 'hit'; who: 'fighter' | 'keeper' | 'ref'; kind: StunKind } | { type: 'block' } | { type: 'goal'; side: 0 | 1; fatal: boolean }
-  | { type: 'bounce'; power: number } | { type: 'post' } | { type: 'jump' } | { type: 'move'; side: 0 | 1; char: CharId; move: Move }
-  | { type: 'fatalBlocked'; side: 0 | 1 } | { type: 'power'; side: 0 | 1; kind: PowerKind } | { type: 'ballKind'; kind: BallKind }
-  | { type: 'unlock'; side: 0 | 1; level: number } | { type: 'save'; team: 0 | 1; caught: boolean } | { type: 'refDown' } | { type: 'refBack' }
+  | { type: 'kick'; power: number } | { type: 'hit'; who: 'fighter' | 'ref'; kind: StunKind } | { type: 'block' } | { type: 'goal'; side: 0 | 1; fatal: boolean }
+  | { type: 'bounce'; power: number } | { type: 'post' } | { type: 'jump' } | { type: 'ability'; side: 0 | 1; char: CharId }
+  | { type: 'fatal'; side: 0 | 1; char: CharId } | { type: 'fatalBlocked'; side: 0 | 1 } | { type: 'power'; side: 0 | 1; kind: PowerKind } | { type: 'ballKind'; kind: BallKind }
+  | { type: 'unlock'; side: 0 | 1 } | { type: 'refDown' } | { type: 'refBack' } | { type: 'ballBoom' } | { type: 'ballDrop' } | { type: 'save'; side: 0 | 1 }
   | { type: 'trap'; kind: Hazard['kind'] } | { type: 'boom' } | { type: 'thunder' } | { type: 'zap' } | { type: 'whistle'; kind: 'kickoff' | 'half' | 'end' }
-  | { type: 'halftime' } | { type: 'extra' } | { type: 'warn' } | { type: 'tired'; side: 0 | 1 } | { type: 'far'; side: 0 | 1 };
+  | { type: 'halftime' } | { type: 'extra' } | { type: 'warn' } | { type: 'tired'; side: 0 | 1 } | { type: 'noEnergy'; side: 0 | 1 };
 export type Phase = 'intro' | 'play' | 'goal' | 'fatal' | 'halftime' | 'end';
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; color: string; kind: 'spark' | 'smoke' | 'shard' | 'bubble' | 'ember' | 'flash' | 'ring' | 'blood' }
 export interface CpuState { level: number; think: number; plan: Input; reactFatal: number }
 
 export interface Match {
-  stage: StageId; fighters: [Fighter, Fighter]; keepers: [Person, Person]; ref: Person; ball: Ball; trail: [number, number][];
+  stage: StageId; fighters: [Fighter, Fighter]; ref: Person; ball: Ball; trail: [number, number][];
   phase: Phase; phaseT: number; time: number; half: 1 | 2; clock: number; extra: boolean; extraT: number; kickoffTeam: 0 | 1;
-  shields: Shield[]; shots: Shot[]; fatal: Fatal | null; powerups: PowerUp[]; hazards: Hazard[]; particles: Particle[];
+  solids: Solid[]; shots: Shot[]; fx: Fx[]; fatal: Fatal | null; powerups: PowerUp[]; hazards: Hazard[]; particles: Particle[];
   nextPower: number; nextBall: number; nextHazard: number; nextId: number;
   lastGoal: { side: 0 | 1; fatal: boolean } | null; winner: 0 | 1 | null;
   events: KfEvent[]; shake: number; flash: number; rand: () => number;
@@ -165,7 +169,6 @@ export const defendsLeft = (m: Match, team: 0 | 1) => (team === 0) === (m.half =
 export const attackDir = (m: Match, team: 0 | 1): 1 | -1 => defendsLeft(m, team) ? 1 : -1;
 export const goalLineX = (left: boolean) => left ? GOAL_DEPTH : W - GOAL_DEPTH;
 const ownGoalX = (m: Match, team: 0 | 1) => goalLineX(defendsLeft(m, team));
-// El equipo que defiende el arco de un lado.
 export const teamAt = (m: Match, left: boolean): 0 | 1 => defendsLeft(m, 0) === left ? 0 : 1;
 // Alto del arco que defiende "team" (se agranda con el potenciador del rival y en el tiempo extra).
 export function goalHeight(m: Match, team: 0 | 1) {
@@ -175,61 +178,121 @@ export function goalHeight(m: Match, team: 0 | 1) {
 
 function newFighter(side: 0 | 1, char: CharId): Fighter {
   return { side, char, x: 0, y: 0, vx: 0, vy: 0, facing: 1, ground: true, action: 'idle', actionT: 0,
-    kickT: 0, kickKind: 'normal', kickHit: false, slideT: 0, stun: 0, stunKind: 'none', poison: 0, inv: 0, stamina: STAMINA, power: 0, unlocked: 0,
-    speedT: 0, dashT: 0, powers: {}, prev: noInput(), taps: [], goals: 0 };
+    kickT: 0, kickKind: 'normal', kickHit: false, slideT: 0, stun: 0, stunKind: 'none', poison: 0, inv: 0, stamina: STAMINA, power: 0, cd: 0,
+    abilityT: 0, abilityHit: false, burst: 0, burstT: 0, powers: {}, prev: noInput(), taps: [], goals: 0, restT: 0 };
 }
-const newPerson = (role: Person['role'], team: 0 | 1): Person => ({ role, team, x: W / 2, y: 0, vx: 0, vy: 0, facing: 1, ground: true, action: 'idle', actionT: 0, stun: 0, stunKind: 'none', hold: 0, away: 0 });
 
-// Trampas del piso (simétricas, así ningún lado tiene ventaja) y los peligros fijos de cada escenario.
-function stageHazards(m: Match): Hazard[] {
-  const hz = (kind: Hazard['kind'], x: number, y: number, w: number, h: number, extra: Partial<Hazard> = {}): Hazard => ({ kind, x, y, w, h, t: 0, state: 0, dir: 1, id: m.nextId++, period: 6, ...extra });
-  const out: Hazard[] = [];
-  const traps = stageDef(m.stage).traps;
-  const spots = traps.length === 2 ? [0.3, 0.7] : [0.27, 0.5, 0.73];
-  traps.forEach((k, i) => {
-    const cx = W * spots[i], w = k === 'laser' ? 0.3 : k === 'flame' ? 1.1 : 1.8;
-    const phase = spots[i] === 0.5 ? 2.5 : 0; // las de los costados van en espejo (mismo ritmo)
-    out.push(hz(k, cx - w / 2, 0, w, k === 'laser' ? 2.4 : 0.1, { t: phase, period: k === 'laser' ? 5.5 : 6.5 }));
-  });
+// ---------------------------------------------------------------- Escenarios: desniveles, plataformas y trampas
+// Todo va en espejo (lo mismo de los dos lados) para que ningún arco tenga ventaja; las áreas de los arcos
+// (los primeros 4,5 m) quedan libres.
+function buildStage(m: Match) {
+  const S: Solid[] = [], Z: Hazard[] = [];
+  const both = (cx: number, fn: (x: number) => void) => { fn(cx); fn(W - cx); };
+  const solid = (x: number, y: number, w: number, h: number, kind: Solid['kind'] = 'block') => S.push({ x, y, w, h, kind, id: m.nextId++ });
+  const block = (cx: number, w: number, h: number, kind: Solid['kind'] = 'block') => both(cx, x => solid(x - w / 2, 0, w, h, kind));
+  const plat = (cx: number, y: number, w: number) => both(cx, x => solid(x - w / 2, y, w, 0.4, 'float'));
+  const hz = (kind: Hazard['kind'], x: number, y: number, w: number, h: number, extra: Partial<Hazard> = {}): Hazard => ({ kind, x, y, w, h, t: 0, state: 0, dir: 1, id: m.nextId++, period: 6.5, ...extra });
+  const trap = (kind: TrapKind, cx: number, w: number, base: number, extra: Partial<Hazard> = {}) => both(cx, x => Z.push(hz(kind, x - w / 2, base, w, kind === 'laser' ? (extra.h ?? 3) : 0.1, { period: kind === 'laser' ? 5.5 : 6.5, ...extra })));
+  const laser = (cx: number, top: number, phase = 0, base = 0) => trap('laser', cx, 0.3, base, { h: top, t: phase });
+  const saw = (x0: number, x1: number, phase = 0) => { Z.push(hz('saw', x0, 0, x1 - x0, 0.6, { t: phase, period: 7 })); Z.push(hz('saw', W - x1, 0, x1 - x0, 0.6, { t: phase, period: 7, dir: -1 })); };
   switch (m.stage) {
-    case 'factory': out.push(hz('wreck', W / 2, H - 1.5, 0, 6.3), hz('conveyor', W * 0.39, 0, W * 0.22, 0.25, { dir: 1 })); break;
-    case 'volcano': out.push(hz('lava', W * 0.38 - 0.6, 0, 1.2, 0.1), hz('lava', W * 0.62 - 0.6, 0, 1.2, 0.1)); break;
-    case 'glacier': out.push(hz('block', W * 0.42 - 0.9, 0, 1.8, 0.9), hz('block', W * 0.58 - 0.9, 0, 1.8, 0.9)); break;
-    case 'lab': out.push(hz('antigrav', W / 2 - 2, 0, 4, H)); break;
-    case 'space': out.push(hz('airlock', 0, 0, 0, 0, { t: -6 })); break;
-    case 'arena': out.push(hz('blackhole', W / 2, 8.5, 0, 0), hz('portal', W * 0.2, 5, 0, 0), hz('portal', W * 0.8, 5, 0, 0)); break;
+    case 'industrial':
+      block(6.8, 1.8, 0.8); plat(10.2, 3.3, 3.2);
+      trap('spikes', 8.6, 1.4, 0); laser(10.2, 3.3); saw(11.8, 13.2, 3);
+      Z.push(hz('wreck', W / 2, H - 0.4, 0, H - 2.9));
+      break;
+    case 'mines':
+      plat(8, 2.9, 3); block(11.6, 1.8, 0.7); solid(W / 2 - 1.6, 6.3, 3.2, 0.4, 'float');
+      trap('spikes', 8, 1.4, 3.3); trap('spikes', 9.9, 1.2, 0, { t: 2 }); laser(13, 5.6, 2.5);
+      both(10.8, x => Z.push(hz('mine', x, 5.1, 0.45, 0)));
+      break;
+    case 'base':
+      plat(6.3, 2.6, 2.4); plat(10.8, 3.6, 2.6);
+      laser(8.6, 4.4); laser(12.9, 4.4, 2.7); trap('spikes', 10.8, 1.8, 0, { t: 1.3 });
+      break;
+    case 'ice':
+      block(7, 2, 1.1); block(12.3, 1.6, 0.6); plat(9.7, 3.5, 2.6);
+      trap('spikes', 9.7, 1.6, 0); trap('spikes', 12.3, 1, 0.6, { t: 3 });
+      break;
+    case 'volcano':
+      block(12.3, 2, 0.9); plat(7.4, 3, 2.4);
+      both(9.7, x => Z.push(hz('lava', x - 0.8, 0, 1.6, 0.1)));
+      trap('flame', 12.3, 1, 0.9, { t: 2.5 }); trap('spikes', 7.4, 1.2, 3.4);
+      break;
+    case 'forest':
+      block(7.2, 1.8, 0.9); plat(10.8, 3.2, 2.6); block(12.9, 1.5, 0.75, 'bouncy');
+      trap('spikes', 9, 1.4, 0);
+      Z.push(hz('waterfall', W / 2 - 0.5, 0, 1, H));
+      break;
+    case 'factory':
+      plat(6.4, 3, 2.4);
+      saw(7.6, 10.2); laser(11.6, 5.2, 2); trap('spikes', 6.4, 1.2, 3.4, { t: 3.5 });
+      Z.push(hz('conveyor', W * 0.41, 0, W * 0.18, 0.25));
+      break;
+    case 'storm':
+      plat(8.2, 3, 3.2); solid(W / 2 - 1.5, 5.8, 3, 0.4, 'float');
+      trap('shock', 11.4, 1.8, 0); laser(13, 5.8, 2.7);
+      both(8.2, x => Z.push(hz('wreck', x, H - 0.4, 0, 8.6, { t: x < W / 2 ? 0 : Math.PI })));
+      break;
+    case 'temple':
+      block(6.8, 2, 1); plat(11.2, 3.3, 2.4); block(13.2, 1.2, 0.5);
+      trap('flame', 6.8, 0.8, 1, { period: 7 }); trap('spikes', 9.3, 1.6, 0, { t: 3 });
+      break;
+    case 'moon':
+      block(8, 2.4, 0.9); plat(12.8, 3.9, 2);
+      trap('spikes', 8, 1.6, 0.9); laser(11, 4.6, 1.5);
+      break;
   }
-  return out;
+  m.solids = S; m.hazards = Z;
 }
+
 export function newMatch(stage: StageId, chars: [CharId, CharId], cpuLevels: [number | null, number | null], rand: () => number = Math.random): Match {
   const m: Match = {
-    stage, fighters: [newFighter(0, chars[0]), newFighter(1, chars[1])], keepers: [newPerson('keeper', 0), newPerson('keeper', 1)], ref: newPerson('ref', 0),
-    ball: { x: W / 2, y: BALL_R, vx: 0, vy: 0, spin: 0, kind: 'normal', kindT: 0, owner: null, fx: 'none', fxT: 0, frozen: 0, held: null }, trail: [],
+    stage, fighters: [newFighter(0, chars[0]), newFighter(1, chars[1])],
+    ref: { x: W / 2, y: 0, vx: 0, vy: 0, facing: 1, ground: true, action: 'idle', actionT: 0, stun: 0, stunKind: 'none', away: 0 },
+    ball: { x: W / 2, y: TUBE_Y, vx: 0, vy: 0, spin: 0, kind: 'normal', kindT: 0, owner: null, fx: 'none', fxT: 0, frozen: 0, alive: false, respawn: 0, heat: 0 }, trail: [],
     phase: 'intro', phaseT: 0, time: 0, half: 1, clock: HALF_TIME, extra: false, extraT: 0, kickoffTeam: 0,
-    shields: [], shots: [], fatal: null, powerups: [], hazards: [], particles: [],
+    solids: [], shots: [], fx: [], fatal: null, powerups: [], hazards: [], particles: [],
     nextPower: 14, nextBall: 30, nextHazard: 4, nextId: 1, lastGoal: null, winner: null,
     events: [], shake: 0, flash: 0, rand,
     cpu: [cpuLevels[0] === null ? null : newCpu(cpuLevels[0]), cpuLevels[1] === null ? null : newCpu(cpuLevels[1])],
   };
-  m.hazards = stageHazards(m);
+  buildStage(m);
   resetKickoff(m);
   return m;
 }
 const newCpu = (level: number): CpuState => ({ level, think: 0, plan: noInput(), reactFatal: 0 });
 
-// Todos a su lugar para sacar del medio.
+// Todos a su lugar; la pelota baja por el tubo del medio.
 function resetKickoff(m: Match) {
   const b = m.ball;
-  b.x = W / 2; b.y = BALL_R; b.vx = 0; b.vy = 0; b.spin = 0; b.owner = null; b.fx = 'none'; b.fxT = 0; b.frozen = 0; b.held = null;
+  b.alive = false; b.respawn = 0.5; b.x = W / 2; b.y = TUBE_Y; b.vx = 0; b.vy = 0; b.fx = 'none'; b.fxT = 0; b.frozen = 0; b.owner = null; b.heat = 0;
   m.trail = [];
   for (const f of m.fighters) {
     const left = defendsLeft(m, f.side);
-    f.x = W / 2 + (left ? -1 : 1) * (f.side === m.kickoffTeam ? 0.9 : 3.5); f.y = 0; f.vx = 0; f.vy = 0; f.ground = true; f.facing = left ? 1 : -1;
-    f.action = 'idle'; f.stun = 0; f.stunKind = 'none'; f.kickT = 0; f.dashT = 0; f.slideT = 0; f.taps = [];
+    f.x = W / 2 + (left ? -1 : 1) * (f.side === m.kickoffTeam ? 2.2 : 3.6); f.y = supportAt(m, f.x, 10); f.vx = 0; f.vy = 0; f.ground = true; f.facing = left ? 1 : -1;
+    f.action = 'idle'; f.stun = 0; f.stunKind = 'none'; f.kickT = 0; f.slideT = 0; f.abilityT = 0; f.burst = 0; f.taps = [];
   }
-  for (const k of m.keepers) { const left = defendsLeft(m, k.team); k.x = goalLineX(left) + (left ? 0.7 : -0.7); k.y = 0; k.vx = 0; k.vy = 0; k.facing = left ? 1 : -1; k.action = 'idle'; k.stun = 0; k.hold = 0; }
-  const r = m.ref; if (r.action !== 'gone') { r.x = W / 2; r.y = 0; r.vx = 0; r.vy = 0; r.action = 'idle'; r.stun = 0; }
-  m.shields = []; m.shots = [];
+  const r = m.ref; if (r.action !== 'gone') { r.x = W / 2 + 1; r.y = 0; r.vx = 0; r.vy = 0; r.action = 'idle'; r.stun = 0; }
+  m.shots = []; m.fx = [];
+}
+// La pelota sale por el tubo.
+function dropBall(m: Match) {
+  const b = m.ball;
+  b.alive = true; b.x = W / 2; b.y = TUBE_Y; b.vx = (m.rand() - 0.5) * 3; b.vy = -2; b.spin = 0; b.kind = 'normal'; b.kindT = 0; b.fx = 'none'; b.fxT = 0; b.frozen = 0; b.owner = null; b.heat = 0;
+  m.trail = [];
+  burst(m, b.x, b.y, 10, '#e2e8f0', 'smoke', 2);
+  emit(m, { type: 'ballDrop' });
+}
+// La pelota se quemó: explota y al rato baja otra.
+export function explodeBall(m: Match) {
+  const b = m.ball; if (!b.alive) return;
+  b.alive = false; b.respawn = 1.6;
+  if (m.fatal && !m.fatal.done) m.fatal.done = true;
+  burst(m, b.x, b.y, 30, '#fb923c', 'ember', 8); burst(m, b.x, b.y, 14, '#57534e', 'smoke', 3); burst(m, b.x, b.y, 1, '#fff7ed', 'ring', 1);
+  for (let k = 0; k < 10; k++) m.particles.push({ x: b.x, y: b.y, vx: (Math.random() - 0.5) * 12, vy: Math.random() * 9, life: 1.2, max: 1.2, size: 0.08 + Math.random() * 0.06, color: k % 2 ? '#f8fafc' : '#111827', kind: 'shard' });
+  m.shake = Math.max(m.shake, 0.6); m.flash = Math.max(m.flash, 0.3); m.trail = [];
+  emit(m, { type: 'ballBoom' });
 }
 
 // ---------------------------------------------------------------- Un paso de la simulación
@@ -237,6 +300,7 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
   m.time += dt; m.phaseT += dt;
   m.shake = Math.max(0, m.shake - dt * 2.5); m.flash = Math.max(0, m.flash - dt * 2);
   updateParticles(m, dt);
+  m.fx = m.fx.filter(e => (e.t += dt) < e.life);
   if (m.phase === 'intro') {
     idlePeople(m, dt);
     if (m.phaseT > 2.4) { m.phase = 'play'; m.phaseT = 0; emit(m, { type: 'whistle', kind: 'kickoff' }); }
@@ -249,7 +313,7 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
     return;
   }
   if (m.phase === 'goal') {
-    idlePeople(m, dt); moveBall(m, dt);
+    idlePeople(m, dt); if (m.ball.alive) moveBall(m, dt);
     if (m.phaseT > 2.8) {
       if (m.winner !== null) { m.phase = 'end'; m.phaseT = 0; emit(m, { type: 'whistle', kind: 'end' }); return; }
       m.kickoffTeam = m.lastGoal?.side === 0 ? 1 : 0; resetKickoff(m); m.phase = 'play'; m.phaseT = 0; emit(m, { type: 'whistle', kind: 'kickoff' });
@@ -261,86 +325,100 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
   if (!m.extra) {
     m.clock = Math.max(0, m.clock - dt);
     if (m.clock <= 0) {
-      if (m.half === 1) { m.phase = 'halftime'; m.phaseT = 0; m.fatal = null; emit(m, { type: 'whistle', kind: 'half' }); emit(m, { type: 'halftime' }); return; }
+      m.fatal = null;
+      if (m.half === 1) { m.phase = 'halftime'; m.phaseT = 0; emit(m, { type: 'whistle', kind: 'half' }); emit(m, { type: 'halftime' }); return; }
       const [a, b] = m.fighters;
       if (a.goals !== b.goals) { m.winner = a.goals > b.goals ? 0 : 1; m.phase = 'end'; m.phaseT = 0; emit(m, { type: 'whistle', kind: 'end' }); return; }
-      m.extra = true; m.extraT = 0; m.kickoffTeam = 0; m.fatal = null; emit(m, { type: 'extra' }); resetKickoff(m); m.phase = 'intro'; m.phaseT = 0.6;
+      m.extra = true; m.extraT = 0; m.kickoffTeam = 0; emit(m, { type: 'extra' }); resetKickoff(m); m.phase = 'intro'; m.phaseT = 0.6;
       return;
     }
   } else m.extraT += dt;
+  const b = m.ball;
+  if (!b.alive) { b.respawn -= dt; if (b.respawn <= 0) dropBall(m); }
   const ins: [Input, Input] = [inputs[0], inputs[1]];
   for (const s of [0, 1] as const) { const c = m.cpu[s]; if (c) ins[s] = cpuThink(m, s, c, dt); }
   for (const s of [0, 1] as const) updateFighter(m, m.fighters[s], ins[s], dt);
   fighterCollide(m);
-  for (const k of m.keepers) updateKeeper(m, k, dt);
   updateRef(m, dt);
-  updateShields(m, dt);
   updateShots(m, dt);
   updateFatal(m, dt);
   if (m.phase !== 'play') return;
   updateHazards(m, dt);
-  moveBall(m, dt);
-  checkGoal(m);
+  if (b.alive) { moveBall(m, dt); checkGoal(m); }
   updatePowerups(m, dt);
 }
 
 function gravityOf(m: Match) { return 30 * stageDef(m.stage).gravity; }
-function settle(m: Match, p: { x: number; y: number; vx: number; vy: number; ground: boolean }, dt: number) {
-  p.vy -= gravityOf(m) * dt; p.y += p.vy * dt; p.x = clamp(p.x + p.vx * dt, 0.4, W - 0.4);
-  const fl = floorAt(m, p.x);
-  if (p.y <= fl) { p.y = fl; p.vy = 0; p.ground = true; } else if (p.y > fl + 0.01) p.ground = false;
+// La superficie más alta debajo de (x, y): el piso o el techo de un bloque o plataforma.
+export function supportAt(m: Match, x: number, y: number, half = PW / 2 - 0.1) {
+  let top = 0;
+  for (const s of m.solids) { const t = s.y + s.h; if (x + half > s.x && x - half < s.x + s.w && t <= y + 0.05 && t > top) top = t; }
+  return top;
+}
+// Mueve un cuerpo con gravedad chocando contra los bloques (de costado) y apoyándose en bloques y plataformas.
+function moveBody(m: Match, p: { x: number; y: number; vx: number; vy: number; ground: boolean }, dt: number, gScale = 1, ghost = false) {
+  const px = p.x, py = p.y;
+  p.vy -= gravityOf(m) * gScale * dt;
+  p.x = clamp(p.x + p.vx * dt, 0.5, W - 0.5); p.y += p.vy * dt;
+  const half = PW / 2;
+  if (!ghost) for (const s of m.solids) {
+    if (s.kind === 'float') continue;
+    const top = s.y + s.h;
+    if (p.y < top - 0.06 && p.y + PH > s.y && p.x + half > s.x && p.x - half < s.x + s.w) { // de costado
+      p.x = px <= s.x + s.w / 2 ? s.x - half : s.x + s.w + half; p.vx = 0;
+    }
+  }
+  let ground = false;
+  if (p.vy <= 0) for (const s of m.solids) {
+    const top = s.y + s.h;
+    if (p.x + half - 0.12 > s.x && p.x - half + 0.12 < s.x + s.w && py >= top - 0.03 && p.y <= top) {
+      p.y = top; ground = true;
+      if (s.kind === 'bouncy' && p.vy < -4) { p.vy = 15; ground = false; emit(m, { type: 'jump' }); } else p.vy = 0;
+    }
+  }
+  if (p.y <= 0) { p.y = 0; p.vy = 0; ground = true; }
+  if (p.y > H - PH) { p.y = H - PH; p.vy = Math.min(0, p.vy); }
+  p.ground = ground;
 }
 function idlePeople(m: Match, dt: number) {
   for (const f of m.fighters) {
-    f.actionT += dt; f.vx *= Math.pow(0.02, dt); settle(m, f, dt);
+    f.actionT += dt; f.vx *= Math.pow(0.02, dt); moveBody(m, f, dt);
+    f.stamina = Math.min(STAMINA, f.stamina + dt * 20);
     if (m.phase === 'goal' && m.lastGoal) {
       const scorer = m.lastGoal.side === f.side;
       f.action = scorer ? 'celebrate' : 'sad';
       if (scorer && f.ground && m.phaseT > 0.3 && m.phaseT < 2.2) { f.vy = 7; f.ground = false; }
     } else if (m.phase === 'end' && m.winner !== null) f.action = m.winner === f.side ? 'celebrate' : 'sad';
-    else if (m.phase === 'halftime') { f.action = 'run'; const d = defendsLeft(m, f.side) ? 1 : -1; f.facing = d; f.x = clamp(f.x + d * 1.2 * dt, 0.5, W - 0.5); }
+    else if (m.phase === 'halftime') { f.action = 'run'; const d = defendsLeft(m, f.side) ? 1 : -1; f.facing = d; f.vx = d * 1.5; }
     else if (f.action !== 'fatal') f.action = 'idle';
   }
-  for (const k of m.keepers) {
-    k.actionT += dt; settle(m, k, dt); k.vx *= Math.pow(0.02, dt);
-    if (m.phase === 'goal' && m.lastGoal) k.action = m.lastGoal.side === k.team ? 'celebrate' : 'sad'; else if (k.action !== 'stun' && k.action !== 'down') k.action = 'idle';
-    if (k.stun > 0) { k.stun -= dt; if (k.stun <= 0) k.action = 'idle'; }
-  }
   const r = m.ref; r.actionT += dt;
-  if (r.action === 'gone') { r.away -= dt; if (r.away <= 0) { r.action = 'idle'; r.x = W / 2; r.y = 0; } }
-  else { settle(m, r, dt); r.vx *= Math.pow(0.02, dt); if (r.action !== 'down') r.action = m.phase === 'goal' || m.phase === 'halftime' || m.phase === 'end' ? 'whistle' : 'idle'; }
+  if (r.action === 'gone') { r.away -= dt; if (r.away <= 0) { r.action = 'idle'; r.x = W / 2 + 1; r.y = 0; } }
+  else { moveBody(m, r, dt); r.vx *= Math.pow(0.02, dt); if (r.action !== 'down') r.action = m.phase === 'goal' || m.phase === 'halftime' || m.phase === 'end' ? 'whistle' : 'idle'; }
 }
 
-// Altura del piso en x (los bloques de hielo del glaciar son escalones).
-export function floorAt(m: Match, x: number) {
-  let y = 0;
-  for (const h of m.hazards) if (h.kind === 'block' && x > h.x && x < h.x + h.w) y = Math.max(y, h.h);
-  return y;
-}
-
-const pressed = (f: Fighter, i: Input, k: 'left' | 'right' | 'up' | 'down' | 'kick') => i[k] && !f.prev[k];
-const canAct = (f: Fighter) => f.stun <= 0 && f.action !== 'fatal' && f.dashT <= 0 && f.slideT <= 0;
+const pressed = (f: Fighter, i: Input, k: 'left' | 'right' | 'up' | 'down' | 'kick' | 'ability') => i[k] && !f.prev[k];
+const busy = (f: Fighter) => f.stun > 0 || f.action === 'fatal' || f.slideT > 0 || (f.abilityT > 0 && (f.char === 'brutoRed' || f.char === 'aguila' || f.char === 'espectro'));
 export const staminaFactor = (f: Fighter) => 0.45 + 0.55 * Math.min(1, f.stamina / STAMINA);
-export const powerLevel = (f: Fighter) => Math.floor(f.power / 100);
-// Qué jugadas especiales tiene disponibles (por el poder cargado).
-export function movesReady(f: Fighter): Move[] { return (['shot', 'defense', 'attack', 'fatal'] as Move[]).filter(mv => f.power >= COST[mv]); }
+export const fatalReady = (f: Fighter) => f.power >= POWER_MAX;
+export const abilityReady = (f: Fighter) => f.cd <= 0 && f.stamina >= CHARS[f.char].cost;
 function gainPower(m: Match, f: Fighter, n: number) {
+  const was = f.power;
   f.power = Math.min(POWER_MAX, f.power + n);
-  const lvl = powerLevel(f);
-  if (lvl > f.unlocked) { f.unlocked = lvl; emit(m, { type: 'unlock', side: f.side, level: lvl }); }
+  if (was < POWER_MAX && f.power >= POWER_MAX) emit(m, { type: 'unlock', side: f.side });
 }
 function spend(f: Fighter, n: number) { f.stamina = Math.max(0, f.stamina - n); }
 
 function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
   const def = CHARS[f.char], st = stageDef(m.stage), rival = m.fighters[f.side === 0 ? 1 : 0], dir = attackDir(m, f.side);
   f.actionT += dt;
-  f.poison = Math.max(0, f.poison - dt); f.speedT = Math.max(0, f.speedT - dt);
+  f.poison = Math.max(0, f.poison - dt); f.cd = Math.max(0, f.cd - dt); f.inv = Math.max(0, f.inv - dt);
+  if (f.poison > 0) spend(f, dt * 5);
   for (const k of Object.keys(f.powers) as PowerKind[]) { const left = (f.powers[k] ?? 0) - dt; if (left <= 0) delete f.powers[k]; else f.powers[k] = left; }
-  gainPower(m, f, dt * 2.2);
-  f.inv = Math.max(0, f.inv - dt);
+  gainPower(m, f, dt * 0.25);
   if (f.stun > 0) { f.stun -= dt; if (f.stun <= 0) { f.stun = 0; f.stunKind = 'none'; f.action = 'idle'; f.inv = 0.8; } }
   const stunned = f.stun > 0;
-  // --- combinaciones: se anotan las flechas que se aprietan (relativas al arco rival)
+  // --- combinación del FATAL: se anotan las flechas que se aprietan (relativas al arco rival)
   const tap = (d: 'F' | 'B' | 'U' | 'D') => { f.taps.push({ d, t: m.time }); if (f.taps.length > 6) f.taps.shift(); };
   if (pressed(f, i, 'right')) tap(dir > 0 ? 'F' : 'B');
   if (pressed(f, i, 'left')) tap(dir > 0 ? 'B' : 'F');
@@ -349,39 +427,37 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
   f.taps = f.taps.filter(tp => m.time - tp.t < 1.1);
   // --- movimiento
   const turbo = (f.powers.speed ?? 0) > 0;
-  let speed = 8.4 * def.speed * staminaFactor(f) * (f.speedT > 0 ? 1.5 : 1) * (turbo ? 1.3 : 1) * (f.poison > 0 ? 0.6 : 1);
+  let speed = 8.4 * def.speed * staminaFactor(f) * (turbo ? 1.3 : 1) * (f.poison > 0 ? 0.7 : 1);
   const cpu = m.cpu[f.side];
-  if (cpu) speed *= 0.76 + cpu.level * 0.28;
-  const blocking = !stunned && i.down && !i.kick && f.ground && f.kickT <= 0 && canAct(f) && Math.abs(f.vx) < 2.5;
+  if (cpu) speed *= 0.7 + cpu.level * 0.4;
+  const blocking = !stunned && i.down && !i.kick && f.ground && f.kickT <= 0 && !busy(f) && Math.abs(f.vx) < 2.5;
   let want = 0;
-  if (!stunned && canAct(f)) { if (i.left) want -= 1; if (i.right) want += 1; }
+  if (!stunned && !busy(f)) { if (i.left) want -= 1; if (i.right) want += 1; }
   if (blocking) want *= 0.15;
-  const accel = f.ground ? (st.friction < 1 ? 16 : 60) : 24;
-  if (f.dashT > 0) { f.dashT -= dt; f.vx = f.facing * 18; if (f.dashT <= 0) f.action = 'idle'; }
-  else if (f.slideT > 0) { f.slideT -= dt; f.vx *= Math.pow(0.15, dt); if (f.slideT <= 0) f.action = 'idle'; }
-  else if (!stunned) {
+  const accel = f.ground ? (st.friction < 1 ? 18 : 60) : 26;
+  let gScale = 1;
+  if (f.abilityT > 0) { // habilidades con movimiento propio
+    f.abilityT -= dt;
+    if (f.char === 'brutoRed') { f.vx = f.facing * 18; }
+    else if (f.char === 'aguila') { f.vx = f.facing * 15; f.vy = 1.5; gScale = 0; }
+    else if (f.char === 'espectro') { f.vx = f.facing * 20; f.vy = Math.max(f.vy, 0); gScale = 0; }
+    if (f.abilityT <= 0 && f.action === 'special') f.action = 'idle';
+  }
+  if (f.slideT > 0) { f.slideT -= dt; f.vx *= Math.pow(0.15, dt); if (f.slideT <= 0) f.action = 'idle'; }
+  else if (!stunned && !busy(f)) {
     const d = want * speed - f.vx, maxd = accel * dt;
     f.vx += clamp(d, -maxd, maxd);
     if (want !== 0 && f.kickT <= 0) f.facing = want > 0 ? 1 : -1;
-  } else f.vx *= Math.pow(f.ground ? 0.05 : 0.6, dt);
-  // energía: correr cansa, quieto o caminando se recupera
+  } else if (stunned) f.vx *= Math.pow(f.ground ? 0.05 : 0.6, dt);
   const sp = Math.abs(f.vx);
-  if (!turbo) { if (sp > 4.5) spend(f, dt * 5.2 / def.stamina); else f.stamina = Math.min(STAMINA, f.stamina + dt * (sp < 1 ? 11 : 6)); }
-  else f.stamina = Math.min(STAMINA, f.stamina + dt * 4);
+  // energía: se recupera descansando (quieto, parado en algo y sin que le peguen)
+  if (f.ground && sp < 1 && !stunned && f.kickT <= 0 && f.abilityT <= 0) { f.restT += dt; if (f.restT > 0.35) f.stamina = Math.min(STAMINA, f.stamina + dt * 14 * def.rest); } else f.restT = 0;
   // salto
-  if (!stunned && f.ground && pressed(f, i, 'up') && canAct(f) && !i.kick) {
-    f.vy = 12 * def.jump * (0.8 + 0.2 * staminaFactor(f)) * (turbo ? 1.12 : 1) * Math.sqrt(st.gravity); f.ground = false; spend(f, 4); emit(m, { type: 'jump' });
+  if (!stunned && f.ground && pressed(f, i, 'up') && !busy(f) && !i.kick) {
+    f.vy = 12 * def.jump * (0.8 + 0.2 * staminaFactor(f)) * (turbo ? 1.1 : 1) * Math.sqrt(st.gravity); f.ground = false; emit(m, { type: 'jump' });
   }
-  f.vy -= gravityOf(m) * dt;
-  f.x += f.vx * dt; f.y += f.vy * dt;
-  f.x = clamp(f.x, 0.5, W - 0.5);
-  // no atraviesa bloques ni muros de hielo
-  for (const h of m.hazards) if (h.kind === 'block' && f.y < h.h - 0.05 && f.x + PW / 2 > h.x && f.x - PW / 2 < h.x + h.w) { f.x = f.x < h.x + h.w / 2 ? h.x - PW / 2 : h.x + h.w + PW / 2; f.vx = 0; }
-  for (const s of m.shields) if (s.kind === 'icewall' && f.side !== s.side && f.x + PW / 2 > s.x && f.x - PW / 2 < s.x + s.w && f.y < s.y + s.h) { f.x = f.x < s.x + s.w / 2 ? s.x - PW / 2 : s.x + s.w + PW / 2; f.vx = 0; }
-  const fl = floorAt(m, f.x);
-  if (f.y <= fl) { if (!f.ground && f.vy < -6) emit(m, { type: 'bounce', power: 0.3 }); f.y = fl; f.vy = 0; f.ground = true; } else if (f.y > fl + 0.01) f.ground = false;
-  if (f.y > H - PH) { f.y = H - PH; f.vy = Math.min(0, f.vy); }
-  // --- acciones
+  moveBody(m, f, dt, gScale, f.char === 'espectro' && f.abilityT > 0);
+  // --- patadas
   if (f.kickT > 0) {
     f.kickT -= dt;
     const k = 0.3 - f.kickT;
@@ -389,227 +465,271 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
     if (f.kickT <= 0) { f.kickT = 0; if (f.action === 'kick') f.action = 'idle'; }
   }
   if (f.slideT > 0 && !f.kickHit) doSlide(m, f, rival);
-  if (canAct(f) && !stunned) {
-    const wantCast = i.cast ?? (pressed(f, i, 'kick') ? comboOf(f) : null);
-    if (wantCast && f.power >= COST[wantCast]) { if (castMove(m, f, rival, wantCast)) { f.power -= COST[wantCast]; f.unlocked = powerLevel(f); f.taps = []; } }
-    else if (pressed(f, i, 'kick') && f.kickT <= 0) {
-      if (i.down && f.ground && sp > 3.5) { f.slideT = 0.5; f.vx = f.facing * Math.max(sp, 7); f.action = 'slide'; f.actionT = 0; f.kickHit = false; spend(f, 6); }
-      else { f.kickT = 0.3; f.kickHit = false; f.kickKind = i.up ? 'lob' : i.down ? 'low' : 'normal'; f.action = 'kick'; f.actionT = 0; spend(f, 2.5); }
+  if (!busy(f) && !stunned) {
+    const comboFatal = pressed(f, i, 'kick') && comboDone(f);
+    const wantFatal = i.cast === 'fatal' || comboFatal;
+    if (wantFatal && fatalReady(f) && !m.fatal && m.ball.alive) { f.power = 0; f.taps = []; startFatal(m, f); }
+    else if (i.cast === 'ability' || pressed(f, i, 'ability')) {
+      if (abilityReady(f)) castAbility(m, f, rival);
+      else if (f.cd <= 0) emit(m, { type: 'noEnergy', side: f.side });
+    } else if (pressed(f, i, 'kick') && f.kickT <= 0) {
+      if (i.down && f.ground && sp > 3.5) { f.slideT = 0.5; f.vx = f.facing * Math.max(sp, 7); f.action = 'slide'; f.actionT = 0; f.kickHit = false; }
+      else { f.kickT = 0.3; f.kickHit = false; f.kickKind = i.up ? 'lob' : i.down ? 'low' : 'normal'; f.action = 'kick'; f.actionT = 0; }
     }
   }
-  if (!stunned && f.action !== 'fatal' && f.action !== 'special' && f.kickT <= 0 && f.dashT <= 0 && f.slideT <= 0)
-    f.action = blocking ? 'block' : !f.ground ? 'jump' : f.stamina < 10 && sp < 1 ? 'tired' : sp > 0.8 ? 'run' : 'idle';
-  if (f.action === 'special' && f.actionT > 0.45) f.action = 'idle';
+  // ráfaga del Orbot: los disparos que quedan
+  if (f.burst > 0) { f.burstT -= dt; if (f.burstT <= 0) { f.burst--; f.burstT = 0.13; fireShot(m, f, 'bullet', 26, 0.14, 0); } }
+  // habilidades que pegan con el cuerpo
+  if (f.abilityT > 0 && (f.char === 'brutoRed' || f.char === 'aguila' || f.char === 'espectro' || f.char === 'cometa')) bodyAbility(m, f, rival);
+  if (!stunned && f.action !== 'fatal' && f.action !== 'special' && f.kickT <= 0 && f.slideT <= 0)
+    f.action = blocking ? 'block' : !f.ground ? 'jump' : f.stamina < 15 && sp < 1 ? 'tired' : sp > 0.8 ? 'run' : 'idle';
+  if (f.action === 'special' && f.actionT > 0.45 && f.abilityT <= 0) f.action = 'idle';
   if (f.action === 'fatal' && m.phase === 'play' && m.fatal === null) f.action = 'idle';
   if (stunned) f.action = 'stun';
-  // embestida: voltea al rival (y a cualquiera que se cruce)
-  if (f.dashT > 0) {
-    if (rival.stun <= 0 && Math.abs(rival.x - f.x) < 1 && Math.abs(rival.y - f.y) < 1.4) hurtFighter(m, rival, f, 'burn', 1.3, 10, 26);
-    hitPeopleNear(m, f.x, f.y + 1, 0.8, 'burn');
-    const b = m.ball; if (!b.held && Math.abs(b.x - f.x) < 1 && b.y < 2) { b.vx = f.facing * 26; b.vy = 4; b.fx = 'fire'; b.fxT = 1.5; b.owner = f.side; f.dashT = 0; emit(m, { type: 'kick', power: 1.3 }); }
-  }
   // imán
-  if ((f.powers.magnet ?? 0) > 0 && !m.ball.held) { const b = m.ball, dx = f.x + f.facing * 0.5 - b.x, dy = f.y + 0.5 - b.y, d = Math.hypot(dx, dy); if (d < 5 && d > 0.5) { b.vx += dx / d * 14 * dt; b.vy += dy / d * 14 * dt; } }
+  const b = m.ball;
+  if ((f.powers.magnet ?? 0) > 0 && b.alive) { const dx = f.x + f.facing * 0.5 - b.x, dy = f.y + 0.5 - b.y, d = Math.hypot(dx, dy); if (d < 5 && d > 0.5) { b.vx += dx / d * 14 * dt; b.vy += dy / d * 14 * dt; } }
   f.prev = { ...i, cast: null };
 }
-// ¿Qué combinación terminó de apretar? (la más larga primero)
-function comboOf(f: Fighter): Move | null {
-  const seq = f.taps.map(t => t.d);
-  const ends = (c: string[]) => c.length <= seq.length && c.every((d, k) => seq[seq.length - c.length + k] === d);
-  for (const mv of ['fatal', 'attack', 'shot', 'defense'] as Move[]) if (ends(COMBOS[mv])) return mv;
-  return null;
+// ¿Terminó de apretar la combinación del FATAL (adelante, atrás, adelante)?
+function comboDone(f: Fighter) {
+  const seq = f.taps.map(t => t.d), c = FATAL_COMBO;
+  return c.length <= seq.length && c.every((d, k) => seq[seq.length - c.length + k] === d);
 }
 
 // La patada: si el pie llega a la pelota, sale hacia donde mira (globo con ↑, rasante con ↓). Si en vez de la
-// pelota alcanza al rival (o al arquero, o al árbitro), lo voltea.
+// pelota alcanza al rival (o al árbitro), lo voltea (sin gastarle energía).
 function doKick(m: Match, f: Fighter, rival: Fighter) {
   const b = m.ball, def = CHARS[f.char];
   const fx = f.x + f.facing * 0.5, fy = f.y + (f.ground ? 0.4 : 0.7);
-  if (Math.hypot(b.x - fx, b.y - fy) < 1.1 && !b.held && !(m.fatal && !m.fatal.done)) {
-    let power = 17 * def.power * (0.75 + 0.25 * staminaFactor(f)) * ((f.powers.power ?? 0) > 0 ? 1.4 : 1) * (f.speedT > 0 ? 1.2 : 1);
+  if (b.alive && Math.hypot(b.x - fx, b.y - fy) < 1.1 && !(m.fatal && !m.fatal.done)) {
+    let power = 17 * def.power * (0.75 + 0.25 * staminaFactor(f)) * ((f.powers.power ?? 0) > 0 ? 1.4 : 1);
     let ang = f.kickKind === 'lob' ? 0.9 : f.kickKind === 'low' ? 0.05 : 0.3;
     if (!f.ground) ang = f.kickKind === 'lob' ? 0.55 : b.y > f.y + 1.2 ? -0.2 : 0.12;
     if (b.kind === 'fire') power *= 1.2;
     if (b.frozen > 0) { b.frozen = 0; power *= 1.1; }
     b.vx = Math.cos(ang) * power * f.facing; b.vy = Math.sin(ang) * power + (f.kickKind === 'lob' ? 2 : 0);
     b.spin = f.facing * (f.kickKind === 'low' ? 4 : -8); b.owner = f.side;
-    if (f.speedT > 0) { b.fx = 'volt'; b.fxT = 0.8; }
-    f.kickHit = true; gainPower(m, f, 8);
+    f.kickHit = true; gainPower(m, f, 1);
     burst(m, b.x, b.y, 6, '#ffffff', 'spark', 3);
     emit(m, { type: 'kick', power: power / 20 });
     return;
   }
   if (Math.abs(rival.x - (f.x + f.facing * 0.6)) < 0.8 && Math.abs(rival.y + PH / 2 - (f.y + 0.9)) < 1.3) {
     f.kickHit = true;
-    if (rival.action === 'block' && rival.facing === -f.facing) { rival.vx = f.facing * 3; spend(rival, 3); gainPower(m, rival, 6); emit(m, { type: 'block' }); burst(m, rival.x - f.facing * 0.3, rival.y + 1, 8, '#93c5fd', 'spark', 3); return; }
-    hurtFighter(m, rival, f, f.speedT > 0 ? 'zap' : 'hit', 0.6, 7, 12);
+    if (rival.action === 'block' && rival.facing === -f.facing) { rival.vx = f.facing * 3; gainPower(m, rival, 2); emit(m, { type: 'block' }); burst(m, rival.x - f.facing * 0.3, rival.y + 1, 8, '#93c5fd', 'spark', 3); return; }
+    hurtFighter(m, rival, f, 'hit', 0.6, 7, 0);
     return;
   }
-  if (hitPeopleNear(m, f.x + f.facing * 0.6, f.y + 0.9, 0.5, f.speedT > 0 ? 'zap' : 'hit')) f.kickHit = true;
+  const r = m.ref;
+  if (r.action !== 'gone' && Math.abs(r.x - (f.x + f.facing * 0.6)) < 0.8 && Math.abs(r.y - f.y) < 1.2) { f.kickHit = true; hurtRef(m, 'hit', 1.4); }
 }
 // Barrida: le saca la pelota al rival y lo hace caer.
 function doSlide(m: Match, f: Fighter, rival: Fighter) {
   const b = m.ball;
-  if (!b.held && Math.abs(b.x - (f.x + f.facing * 0.5)) < 0.8 && b.y < 1) { b.vx = f.facing * 9 + f.vx * 0.3; b.vy = 2.5; b.owner = f.side; f.kickHit = true; emit(m, { type: 'kick', power: 0.5 }); gainPower(m, f, 6); }
-  if (rival.stun <= 0 && rival.ground && Math.abs(rival.x - (f.x + f.facing * 0.5)) < 0.8) { f.kickHit = true; hurtFighter(m, rival, f, 'hit', 0.9, 4, 14); }
+  if (b.alive && Math.abs(b.x - (f.x + f.facing * 0.5)) < 0.8 && b.y < f.y + 1) { b.vx = f.facing * 9 + f.vx * 0.3; b.vy = 2.5; b.owner = f.side; f.kickHit = true; emit(m, { type: 'kick', power: 0.5 }); }
+  if (rival.stun <= 0 && rival.ground && Math.abs(rival.x - (f.x + f.facing * 0.5)) < 0.8 && Math.abs(rival.y - f.y) < 0.5) { f.kickHit = true; hurtFighter(m, rival, f, 'hit', 0.9, 4, 0); }
 }
-// Un luchador recibe un golpe: pierde energía y queda volteado un rato (salvo que tenga escudo).
+// Un luchador recibe un golpe: queda volteado un rato y pierde la energía indicada (salvo que tenga escudo).
 function hurtFighter(m: Match, f: Fighter, by: Fighter | null, kind: StunKind, time: number, push: number, drain: number) {
-  if ((f.powers.shield ?? 0) > 0 && kind !== 'grab') { emit(m, { type: 'block' }); burst(m, f.x, f.y + 1, 10, '#38bdf8', 'ring', 1); return; }
-  if (f.action === 'fatal' || (f.inv > 0 && kind !== 'grab')) return;
-  f.stun = Math.max(f.stun, time); f.stunKind = kind; f.action = 'stun'; f.kickT = 0; f.dashT = 0; f.slideT = 0;
-  if (push) { const d = by ? Math.sign(f.x - by.x) || -by.facing : (f.x < W / 2 ? 1 : -1); f.vx = d * push; if (kind !== 'freeze' && kind !== 'grab') { f.vy = push * 0.55; f.ground = false; } }
-  if (kind === 'freeze' || kind === 'grab') f.vx = 0;
-  if (kind === 'poison') f.poison = 3;
+  if (f.char === 'espectro' && f.abilityT > 0) return; // en fase no lo toca nada
+  if ((f.powers.shield ?? 0) > 0) { emit(m, { type: 'block' }); burst(m, f.x, f.y + 1, 10, '#38bdf8', 'ring', 1); return; }
+  if (f.action === 'fatal' || f.inv > 0) return;
+  f.stun = Math.max(f.stun, time); f.stunKind = kind; f.action = 'stun'; f.kickT = 0; f.slideT = 0; f.abilityT = 0;
+  if (push) { const d = by ? Math.sign(f.x - by.x) || -by.facing : (f.x < W / 2 ? 1 : -1); f.vx = d * push; if (kind !== 'freeze') { f.vy = push * 0.55; f.ground = false; } }
+  if (kind === 'freeze') f.vx = 0;
+  if (kind === 'poison') f.poison = 2.5;
   spend(f, drain);
-  gainPower(m, f, 8); if (by) gainPower(m, by, 14);
+  gainPower(m, f, 1); if (by) gainPower(m, by, 1.5);
   m.shake = Math.max(m.shake, 0.4);
   fxBurst(m, f.x, f.y + 1.1, kind);
   emit(m, { type: 'hit', who: 'fighter', kind });
+  if (f.stamina <= 0) emit(m, { type: 'tired', side: f.side });
 }
 function fxBurst(m: Match, x: number, y: number, kind: StunKind) {
   const color = kind === 'freeze' ? '#bae6fd' : kind === 'poison' ? '#86efac' : kind === 'burn' ? '#fb923c' : kind === 'zap' ? '#fde047' : '#ffffff';
   burst(m, x, y, 12, color, kind === 'freeze' ? 'shard' : kind === 'poison' ? 'bubble' : kind === 'burn' ? 'ember' : 'spark', 5);
   if (kind === 'hit') burst(m, x, y, 6, '#b91c1c', 'blood', 3);
 }
-// Arquero o árbitro alcanzado (por una patada, un poder o una trampa).
-function hurtPerson(m: Match, p: Person, kind: StunKind, time: number) {
-  if (p.action === 'gone' || p.stun > 0.3) return;
-  p.stun = time; p.stunKind = kind; p.action = kind === 'freeze' ? 'stun' : 'down'; p.actionT = 0; p.vx = 0;
-  if (m.ball.held === p) { m.ball.held = null; m.ball.vy = 3; m.ball.vx = (m.rand() - 0.5) * 4; p.hold = 0; }
-  fxBurst(m, p.x, p.y + 1, kind);
-  emit(m, { type: 'hit', who: p.role === 'ref' ? 'ref' : 'keeper', kind });
-  if (p.role === 'ref') emit(m, { type: 'refDown' });
+// El árbitro alcanzado (por una patada, un poder o una trampa).
+function hurtRef(m: Match, kind: StunKind, time: number) {
+  const r = m.ref;
+  if (r.action === 'gone' || r.stun > 0.3) return;
+  r.stun = time; r.stunKind = kind; r.action = kind === 'freeze' ? 'stun' : 'down'; r.actionT = 0; r.vx = 0;
+  fxBurst(m, r.x, r.y + 1, kind);
+  emit(m, { type: 'hit', who: 'ref', kind }); emit(m, { type: 'refDown' });
 }
-function hitPeopleNear(m: Match, x: number, y: number, r: number, kind: StunKind) {
-  let any = false;
-  for (const p of [...m.keepers, m.ref]) if (p.action !== 'gone' && Math.abs(p.x - x) < r + 0.3 && y > p.y - 0.3 && y < p.y + PH + 0.3) { hurtPerson(m, p, kind, p.role === 'ref' ? 1.4 : 2.4); any = true; }
-  return any;
-}
+const refIn = (m: Match, x0: number, x1: number, y0: number, y1: number) => { const r = m.ref; return r.action !== 'gone' && r.x + PW / 2 > x0 && r.x - PW / 2 < x1 && r.y < y1 && r.y + PH > y0; };
 
-// ---------------------------------------------------------------- Jugadas especiales
-// Devuelve false si no se pudo hacer (por ejemplo, el tiro especial sin la pelota cerca).
-function castMove(m: Match, f: Fighter, rival: Fighter, mv: Move): boolean {
-  const b = m.ball, dir = attackDir(m, f.side);
-  if (mv === 'fatal') { if (m.fatal) return false; startFatal(m, f); return true; }
-  if (mv === 'shot') {
-    if (b.held || Math.hypot(b.x - f.x, b.y - f.y - 0.5) > 2.6) { emit(m, { type: 'far', side: f.side }); return false; }
-    f.action = 'special'; f.actionT = 0; f.facing = dir;
-    const fx: Ball['fx'] = ({ venox: 'toxic', blazehorn: 'fire', frostbane: 'ice', voltrax: 'volt', nullshade: 'void' } as const)[f.char];
-    const power = f.char === 'blazehorn' ? 29 : f.char === 'voltrax' ? 27 : 24;
-    b.x = clamp(f.x + dir * 0.6, 1, W - 1); b.y = Math.max(b.y, 0.6); b.vx = dir * power; b.vy = f.char === 'frostbane' ? 3 : 4.5; b.fx = fx; b.fxT = 2.4; b.owner = f.side; b.frozen = 0;
-    burst(m, b.x, b.y, 18, CHARS[f.char].glow, 'spark', 6); m.shake = 0.4;
-    emit(m, { type: 'move', side: f.side, char: f.char, move: mv }); emit(m, { type: 'kick', power: 1.4 });
-    return true;
-  }
-  f.action = 'special'; f.actionT = 0;
-  emit(m, { type: 'move', side: f.side, char: f.char, move: mv });
-  if (mv === 'defense') {
-    const left = defendsLeft(m, f.side), gx = goalLineX(left) + (left ? 0.5 : -0.5);
-    switch (f.char) {
-      case 'venox': m.shields.push({ kind: 'cloud', side: f.side, x: left ? gx - 0.5 : gx - 3.5, y: 0, w: 4, h: 4.2, t: 0, life: 5 }); break;
-      case 'blazehorn': m.shields.push({ kind: 'firewall', side: f.side, x: gx - 0.35, y: 0, w: 0.7, h: 4, t: 0, life: 4 }); break;
-      case 'frostbane': m.shields.push({ kind: 'icewall', side: f.side, x: gx - 0.45, y: 0, w: 0.9, h: 3.6, t: 0, life: 5 }); break;
-      case 'voltrax': m.shields.push({ kind: 'field', side: f.side, x: f.x, y: f.y + 1, w: 2.8, h: 2.8, t: 0, life: 4 }); break;
-      case 'nullshade': m.shields.push({ kind: 'portal', side: f.side, x: gx + (left ? 0.1 : -0.1), y: 0.2, w: 1.2, h: 3.8, t: 0, life: 4.5 }); break;
+// ---------------------------------------------------------------- Habilidades
+// Empujón a la pelota desde una habilidad: si era el FATAL GOAL del rival, lo frena.
+function pushBall(m: Match, f: Fighter, vx: number, vy: number, fx: Ball['fx'] = 'none') {
+  const b = m.ball; if (!b.alive) return;
+  if (m.fatal && !m.fatal.done) { if (m.fatal.side !== f.side) blockFatal(m, f.side); return; } // frenó el FATAL: la pelota sale rebotada
+  b.vx = vx; b.vy = vy; b.owner = f.side; b.frozen = 0;
+  if (fx !== 'none') { b.fx = fx; b.fxT = 1.2; }
+  gainPower(m, f, 1);
+  // si la pelota iba a entrar al arco propio y la sacó, es una salvada
+  const own = ownGoalX(m, f.side);
+  if (Math.abs(b.x - own) < 6 && Math.sign(vx) === attackDir(m, f.side)) emit(m, { type: 'save', side: f.side });
+  burst(m, b.x, b.y, 10, CHARS[f.char].glow, 'spark', 5);
+  emit(m, { type: 'kick', power: Math.hypot(vx, vy) / 20 });
+}
+// Hacia dónde apunta: a la pelota si la tiene adelante (más o menos), si no derecho.
+function aim(m: Match, f: Fighter, x0: number, y0: number, range: number): [number, number] {
+  const b = m.ball;
+  if (b.alive) { const dx = b.x - x0, dy = b.y - y0, d = Math.hypot(dx, dy); if (d < range && dx * f.facing > 0 && Math.abs(dy) < Math.abs(dx) * 2.2 + 1.5) return [dx / d, dy / d]; }
+  return [f.facing, 0];
+}
+function fireShot(m: Match, f: Fighter, kind: ShotKind, speed: number, r: number, spread: number) {
+  const x0 = f.x + f.facing * 0.55, y0 = f.y + 1.15;
+  let [ax, ay] = aim(m, f, x0, y0, 14);
+  if (spread) { const a = Math.atan2(ay, ax) + spread; ax = Math.cos(a); ay = Math.sin(a); }
+  m.shots.push({ kind, side: f.side, x: x0, y: y0, vx: ax * speed, vy: ay * speed, r, t: 0, life: kind === 'bomb' ? 0.9 : kind === 'bubble' ? 1 : 1.2, done: false });
+}
+function castAbility(m: Match, f: Fighter, rival: Fighter) {
+  const def = CHARS[f.char], b = m.ball;
+  spend(f, def.cost); f.cd = def.cd; f.action = 'special'; f.actionT = 0; f.abilityHit = false;
+  emit(m, { type: 'ability', side: f.side, char: f.char });
+  const hx = f.x + f.facing * 0.5, hy = f.y + 1.15;
+  switch (def.ability) {
+    case 'superJump': f.vy = 19 * Math.sqrt(stageDef(m.stage).gravity); f.ground = false; f.abilityT = 0.9; burst(m, f.x, f.y, 16, '#bae6fd', 'smoke', 3); break;
+    case 'fireball': fireShot(m, f, 'fireball', 18, 0.32, 0); break;
+    case 'shuriken': fireShot(m, f, 'shuriken', 24, 0.2, 0); break;
+    case 'bomb': fireShot(m, f, 'bomb', 20, 0.22, 0); break;
+    case 'burst': f.burst = 2; f.burstT = 0.13; fireShot(m, f, 'bullet', 26, 0.14, 0); break;
+    case 'feathers': for (const a of [-0.16, 0, 0.16]) fireShot(m, f, 'feather', 20, 0.16, a); break;
+    case 'toxicCloud': fireShot(m, f, 'bubble', 12, 0.32, 0); break;
+    case 'charge': f.abilityT = 0.55; burst(m, f.x, f.y + 0.9, 14, '#fb923c', 'ember', 4); break;
+    case 'flight': f.abilityT = 1; f.ground = false; burst(m, f.x, f.y + 1, 12, '#fde68a', 'spark', 4); break;
+    case 'phase': f.abilityT = 0.7; burst(m, f.x, f.y + 1, 16, '#a5f3fc', 'smoke', 2); break;
+    case 'lightning': case 'beam': {
+      const range = def.ability === 'beam' ? 16 : 11, [ax, ay] = aim(m, f, hx, hy, range);
+      const x2 = hx + ax * range, y2 = hy + ay * range;
+      m.fx.push({ kind: def.ability === 'beam' ? 'beam' : 'bolt', side: f.side, x: hx, y: hy, x2, y2, t: 0, life: def.ability === 'beam' ? 0.45 : 0.3, dir: f.facing, hit: 0 });
+      const near = (px: number, py: number, r: number) => { const t = clamp(((px - hx) * ax + (py - hy) * ay) / range, 0, 1); return Math.hypot(hx + ax * range * t - px, hy + ay * range * t - py) < r; };
+      const power = def.ability === 'beam' ? 22 : 19;
+      if (b.alive && near(b.x, b.y, 0.7)) pushBall(m, f, ax * power, ay * power + 3, 'volt');
+      if (near(rival.x, rival.y + 1, 0.9)) hurtFighter(m, rival, f, 'zap', def.ability === 'beam' ? 1.1 : 0.9, 4, def.ability === 'beam' ? 22 : 18);
+      if (near(m.ref.x, m.ref.y + 1, 0.9)) hurtRef(m, 'zap', 1.3);
+      for (const h of m.hazards) if (h.kind === 'mine' && h.state === 0 && near(h.x, h.y, 0.7)) mineBoom(m, h);
+      break;
     }
-    return true;
-  }
-  // golpe especial
-  switch (f.char) {
-    case 'venox': m.shots.push({ kind: 'gas', side: f.side, x: f.x, y: f.y + 1.3, t: 0, life: 0.8, hit: false }); break;
-    case 'blazehorn': f.dashT = 0.55; burst(m, f.x, f.y + 0.9, 14, '#fb923c', 'ember', 4); break;
-    case 'frostbane': m.shots.push({ kind: 'breath', side: f.side, x: f.x, y: f.y + 1.3, t: 0, life: 0.6, hit: false }); break;
-    case 'voltrax': f.speedT = 4; burst(m, f.x, f.y + 1, 16, '#fde047', 'spark', 5); break;
-    case 'nullshade': {
-      burst(m, f.x, f.y + 1, 18, '#c084fc', 'smoke', 2);
-      const side = rival.facing; // aparece a la espalda del rival
-      f.x = clamp(rival.x - side * 0.85, 0.6, W - 0.6); f.y = rival.y; f.vx = 0; f.vy = 0; f.facing = side;
-      burst(m, f.x, f.y + 1, 18, '#c084fc', 'smoke', 2);
-      hurtFighter(m, rival, f, 'hit', 1.3, 9, 22);
+    case 'freeze': {
+      const R = 5.5;
+      m.fx.push({ kind: 'nova', side: f.side, x: f.x, y: f.y + 1, x2: 0, y2: 0, t: 0, life: 0.7, dir: f.facing, hit: 0 });
+      if (b.alive && Math.hypot(b.x - f.x, b.y - f.y - 1) < R) {
+        if (m.fatal && !m.fatal.done && m.fatal.side !== f.side) blockFatal(m, f.side);
+        b.vx = 0; b.vy = 0; b.frozen = 1.6; b.fx = 'ice'; b.fxT = 1.6; burst(m, b.x, b.y, 14, '#e0f2fe', 'shard', 4);
+        if (Math.abs(b.x - ownGoalX(m, f.side)) < 6) emit(m, { type: 'save', side: f.side });
+      }
+      if (Math.hypot(rival.x - f.x, rival.y - f.y) < R) hurtFighter(m, rival, f, 'freeze', 1.6, 0, 15);
+      if (Math.hypot(m.ref.x - f.x, m.ref.y - f.y) < R) hurtRef(m, 'freeze', 1.6);
+      break;
+    }
+    case 'quake': {
+      const R = 4.6;
+      m.fx.push({ kind: 'quake', side: f.side, x: f.x, y: f.y, x2: 0, y2: 0, t: 0, life: 0.6, dir: f.facing, hit: 0 });
+      m.shake = Math.max(m.shake, 0.8);
+      if (b.alive && Math.abs(b.x - f.x) < R && b.y - f.y < 2) { const d = Math.sign(b.x - f.x) || f.facing; pushBall(m, f, d * 10, 15); }
+      if (Math.abs(rival.x - f.x) < R && rival.ground && Math.abs(rival.y - f.y) < 1) hurtFighter(m, rival, f, 'hit', 1.2, 6, 18);
+      if (Math.abs(m.ref.x - f.x) < R && m.ref.ground) hurtRef(m, 'hit', 1.4);
+      break;
+    }
+    case 'magmaSpikes': m.fx.push({ kind: 'magma', side: f.side, x: f.x + f.facing * 0.6, y: 0, x2: 0, y2: 0, t: 0, life: 0.85, dir: f.facing, hit: 0 }); break;
+    case 'laserCut': {
+      const R = 2.5;
+      m.fx.push({ kind: 'slash', side: f.side, x: f.x, y: f.y + 1.1, x2: 0, y2: 0, t: 0, life: 0.28, dir: f.facing, hit: 0 });
+      const inArc = (px: number, py: number) => { const dx = (px - f.x) * f.facing, dy = py - (f.y + 1.1); return dx > -0.3 && Math.hypot(dx, dy) < R; };
+      if (b.alive && inArc(b.x, b.y)) pushBall(m, f, f.facing * 20, 6, 'volt');
+      if (inArc(rival.x, rival.y + 1)) hurtFighter(m, rival, f, 'hit', 1, 7, 18);
+      if (inArc(m.ref.x, m.ref.y + 1)) hurtRef(m, 'hit', 1.4);
       break;
     }
   }
-  return true;
 }
-
-function updateShields(m: Match, dt: number) {
+// Las habilidades que pegan con el cuerpo: salto potenciado, embestida, vuelo y fase.
+function bodyAbility(m: Match, f: Fighter, rival: Fighter) {
   const b = m.ball;
-  for (const s of m.shields) {
-    s.t += dt;
-    const owner = m.fighters[s.side], rival = m.fighters[s.side === 0 ? 1 : 0];
-    if (s.kind === 'field') { s.x = owner.x; s.y = owner.y + 1; }
-    const fatalBall = !!m.fatal && !m.fatal.done && m.fatal.side !== s.side;
-    const inRect = !b.held && b.x + BALL_R > s.x && b.x - BALL_R < s.x + s.w && b.y - BALL_R < s.y + s.h && b.y + BALL_R > s.y;
-    const away = attackDir(m, s.side); // hacia afuera del arco que protege
-    switch (s.kind) {
-      case 'cloud':
-        if (inRect) { b.vx *= Math.pow(0.06, dt); b.vy *= Math.pow(0.3, dt); if (fatalBall) blockFatal(m, s.side); }
-        if (rival.x > s.x && rival.x < s.x + s.w && rival.poison <= 0.5) { rival.poison = 2.5; spend(rival, 10); burst(m, rival.x, rival.y + 1, 6, '#86efac', 'bubble', 2); }
-        break;
-      case 'firewall': case 'icewall': {
-        if (inRect && (fatalBall || Math.sign(b.vx) === -away)) {
-          if (fatalBall) blockFatal(m, s.side);
-          b.vx = away * Math.max(6, Math.abs(b.vx) * (s.kind === 'firewall' ? 0.9 : 0.55)); b.vy = Math.max(b.vy, 3); b.x = away > 0 ? s.x + s.w + BALL_R : s.x - BALL_R;
-          burst(m, b.x, b.y, 12, s.kind === 'firewall' ? '#fb923c' : '#bae6fd', s.kind === 'firewall' ? 'ember' : 'shard', 4);
-          emit(m, { type: 'block' });
-        }
-        if (s.kind === 'firewall' && rival.stun <= 0 && rival.x + PW / 2 > s.x && rival.x - PW / 2 < s.x + s.w) hurtFighter(m, rival, null, 'burn', 0.8, 8, 15);
-        break;
-      }
-      case 'field': {
-        const dx = b.x - s.x, dy = b.y - s.y, d = Math.hypot(dx, dy);
-        if (d < s.w && !b.held) {
-          if (fatalBall) blockFatal(m, s.side);
-          const k = (1 - d / s.w) * 70 * dt; b.vx += dx / (d || 1) * k + away * k * 0.4; b.vy += dy / (d || 1) * k;
-        }
-        break;
-      }
-      case 'portal': {
-        const cx = s.x, cy = s.y + s.h / 2;
-        if (!b.held && Math.abs(b.x - cx) < 0.6 && Math.abs(b.y - cy) < s.h / 2 + 0.1) {
-          if (fatalBall) blockFatal(m, s.side);
-          burst(m, b.x, b.y, 14, '#c084fc', 'smoke', 2);
-          m.trail = []; b.x = W / 2 + away * 2; b.y = 5; b.vx = away * 6; b.vy = 2; b.owner = s.side;
-          burst(m, b.x, b.y, 14, '#c084fc', 'smoke', 2);
-          s.life = Math.min(s.life, s.t + 0.3);
-          emit(m, { type: 'block' });
-        }
-        break;
-      }
-    }
+  if (b.alive && !f.abilityHit && Math.hypot(b.x - (f.x + f.facing * 0.3), b.y - (f.y + 0.9)) < 1.2) {
+    f.abilityHit = true;
+    const power = f.char === 'brutoRed' ? 21 : f.char === 'aguila' ? 20 : f.char === 'cometa' ? 20 : 18;
+    pushBall(m, f, f.facing * power, f.char === 'cometa' ? 4 : 5, f.char === 'brutoRed' ? 'fire' : f.char === 'aguila' ? 'volt' : 'none');
+    if (f.char === 'brutoRed') f.abilityT = Math.min(f.abilityT, 0.05);
   }
-  m.shields = m.shields.filter(s => s.t < s.life);
+  if (f.char !== 'espectro' && rival.stun <= 0 && Math.abs(rival.x - f.x) < 0.9 && Math.abs(rival.y - f.y) < 1.4) hurtFighter(m, rival, f, f.char === 'brutoRed' ? 'burn' : 'hit', 1.2, 10, 20);
+  if (f.char !== 'espectro' && Math.abs(m.ref.x - f.x) < 0.8 && Math.abs(m.ref.y - f.y) < 1.4) hurtRef(m, f.char === 'brutoRed' ? 'burn' : 'hit', 1.4);
 }
 
+// Proyectiles, nubes y picos de magma.
 function updateShots(m: Match, dt: number) {
   const b = m.ball;
   for (const s of m.shots) {
     s.t += dt;
-    const owner = m.fighters[s.side], rival = m.fighters[s.side === 0 ? 1 : 0], dir = owner.facing;
-    const x0 = owner.x + dir * 0.4, y0 = owner.y + 1.3;
-    s.x = x0; s.y = y0;
-    const reach = Math.min(1, s.t / 0.25) * 3.8;
-    const inCone = (px: number, py: number) => { const dx = (px - x0) * dir; return dx > 0 && dx < reach && Math.abs(py - y0) < 0.5 + dx * 0.35; };
-    if (!s.hit && inCone(rival.x, rival.y + 1)) { s.hit = true; hurtFighter(m, rival, owner, s.kind === 'gas' ? 'poison' : 'freeze', s.kind === 'gas' ? 1 : 1.8, s.kind === 'gas' ? 2 : 0, s.kind === 'gas' ? 32 : 18); }
-    for (const p of [...m.keepers, m.ref]) if (inCone(p.x, p.y + 1)) hurtPerson(m, p, s.kind === 'gas' ? 'poison' : 'freeze', 2);
-    if (s.kind === 'breath' && inCone(b.x, b.y) && b.frozen <= 0 && !b.held) { b.vx = 0; b.vy = 0; b.frozen = 1.3; b.fx = 'ice'; b.fxT = 1.3; burst(m, b.x, b.y, 12, '#bae6fd', 'shard', 3); }
-    m.particles.push({ x: x0 + dir * reach * Math.random(), y: y0 + (Math.random() - 0.5) * reach * 0.5, vx: dir * 4, vy: (Math.random() - 0.5), life: 0.45, max: 0.45, size: 0.1 + Math.random() * 0.12, color: s.kind === 'gas' ? '#86efac' : '#e0f2fe', kind: s.kind === 'gas' ? 'smoke' : 'shard' });
+    const owner = m.fighters[s.side], rival = m.fighters[s.side === 0 ? 1 : 0];
+    if (s.kind === 'bubble') s.vy -= 4 * dt;
+    // un poquito de puntería: las estrellas ninja siguen la pelota
+    if ((s.kind === 'shuriken' || s.kind === 'fireball') && b.alive && s.t < 0.5) { const dx = b.x - s.x, dy = b.y - s.y, d = Math.hypot(dx, dy); if (d < 6 && dx * s.vx > 0) { const sp = Math.hypot(s.vx, s.vy); s.vx += (dx / d * sp - s.vx) * dt * 4; s.vy += (dy / d * sp - s.vy) * dt * 4; } }
+    s.x += s.vx * dt; s.y += s.vy * dt;
+    const end = () => { s.done = true; if (s.kind === 'bomb') explodeAt(m, owner, s.x, s.y, 2.2); if (s.kind === 'bubble') cloudAt(m, owner, s.x, s.y); };
+    // la pelota
+    if (b.alive && Math.hypot(b.x - s.x, b.y - s.y) < BALL_R + s.r) {
+      const sp = Math.hypot(s.vx, s.vy), ux = s.vx / sp, uy = s.vy / sp;
+      const power = s.kind === 'fireball' ? 18 : s.kind === 'shuriken' ? 14 : s.kind === 'bullet' ? 9 : s.kind === 'feather' ? 8 : 0;
+      if (power) pushBall(m, owner, b.vx * 0.2 + ux * power, Math.max(b.vy * 0.2 + uy * power, 0) + 3, s.kind === 'fireball' ? 'fire' : s.kind === 'feather' ? 'toxic' : 'none');
+      end(); continue;
+    }
+    // el rival
+    if (Math.abs(rival.x - s.x) < PW / 2 + s.r && s.y > rival.y && s.y < rival.y + PH) {
+      const k: StunKind = s.kind === 'fireball' ? 'burn' : s.kind === 'feather' ? 'poison' : s.kind === 'bubble' ? 'poison' : 'hit';
+      if (s.kind !== 'bomb' && s.kind !== 'bubble') hurtFighter(m, rival, owner, k, s.kind === 'bullet' ? 0.35 : 0.8, s.kind === 'bullet' ? 2 : 5, s.kind === 'fireball' ? 18 : s.kind === 'bullet' ? 7 : s.kind === 'feather' ? 9 : 12);
+      end(); continue;
+    }
+    if (refIn(m, s.x - s.r, s.x + s.r, s.y - s.r, s.y + s.r)) { if (s.kind !== 'bomb' && s.kind !== 'bubble') hurtRef(m, s.kind === 'fireball' ? 'burn' : 'hit', 1.3); end(); continue; }
+    for (const h of m.hazards) if (h.kind === 'mine' && h.state === 0 && Math.hypot(h.x - s.x, h.y - s.y) < h.w + s.r) { mineBoom(m, h); end(); }
+    // paredes, piso y bloques
+    if (!s.done && (s.y < 0.1 || s.x < 0 || s.x > W || s.y > H || s.t > s.life || m.solids.some(o => s.x > o.x && s.x < o.x + o.w && s.y > o.y && s.y < o.y + o.h))) end();
+    if (s.kind === 'fireball' && Math.random() < 0.8) m.particles.push({ x: s.x, y: s.y, vx: -s.vx * 0.1 + (Math.random() - 0.5), vy: (Math.random() - 0.5) + 1, life: 0.35, max: 0.35, size: 0.12, color: '#fb923c', kind: 'ember' });
   }
-  m.shots = m.shots.filter(s => s.t < s.life);
+  m.shots = m.shots.filter(s => !s.done);
+  // nubes tóxicas: frenan la pelota y envenenan; picos de magma que avanzan por el piso
+  for (const e of m.fx) {
+    const owner = m.fighters[e.side], rival = m.fighters[e.side === 0 ? 1 : 0];
+    if (e.kind === 'cloud') {
+      const R = 2.2 * Math.min(1, e.t * 4);
+      if (b.alive && Math.hypot(b.x - e.x, b.y - e.y) < R) {
+        if (m.fatal && !m.fatal.done && m.fatal.side !== e.side) blockFatal(m, e.side);
+        b.vx *= Math.pow(0.03, dt); b.vy *= Math.pow(0.2, dt);
+      }
+      if (Math.hypot(rival.x - e.x, rival.y + 1 - e.y) < R && rival.poison < 0.5) hurtFighter(m, rival, owner, 'poison', 0.4, 0, 10);
+    }
+    if (e.kind === 'magma') {
+      const x = e.x + e.dir * e.t * 14;
+      if (b.alive && !(e.hit & 1) && Math.abs(b.x - x) < 0.9 && b.y < 1.6) { e.hit |= 1; pushBall(m, owner, e.dir * 10, 14, 'fire'); }
+      if (!(e.hit & 2) && Math.abs(rival.x - x) < 0.8 && rival.y < 1) { e.hit |= 2; hurtFighter(m, rival, owner, 'burn', 1, 5, 18); }
+      if (!(e.hit & 4) && refIn(m, x - 0.5, x + 0.5, 0, 1)) { e.hit |= 4; hurtRef(m, 'burn', 1.3); }
+      if (Math.random() < 0.7) m.particles.push({ x, y: 0.2, vx: (Math.random() - 0.5) * 2, vy: 3 + Math.random() * 3, life: 0.5, max: 0.5, size: 0.1, color: '#fb923c', kind: 'ember' });
+    }
+  }
 }
+function explodeAt(m: Match, owner: Fighter, x: number, y: number, R: number) {
+  const b = m.ball, rival = m.fighters[owner.side === 0 ? 1 : 0];
+  m.fx.push({ kind: 'boom', side: owner.side, x, y, x2: 0, y2: 0, t: 0, life: 0.45, dir: 1, hit: 0 });
+  burst(m, x, y, 24, '#fb923c', 'ember', 7); m.shake = Math.max(m.shake, 0.5); emit(m, { type: 'boom' });
+  if (b.alive) { const dx = b.x - x, dy = b.y - y, d = Math.hypot(dx, dy); if (d < R) pushBall(m, owner, dx / (d || 1) * 17, Math.max(dy / (d || 1) * 17, 4) + 4, 'fire'); }
+  if (Math.hypot(rival.x - x, rival.y + 1 - y) < R) hurtFighter(m, rival, owner, 'burn', 1.1, 8, 20);
+  if (Math.hypot(m.ref.x - x, m.ref.y + 1 - y) < R) hurtRef(m, 'burn', 1.4);
+}
+function cloudAt(m: Match, owner: Fighter, x: number, y: number) { m.fx.push({ kind: 'cloud', side: owner.side, x, y, x2: 0, y2: 0, t: 0, life: 3, dir: 1, hit: 0 }); burst(m, x, y, 14, '#86efac', 'bubble', 3); }
 
 // ---------------------------------------------------------------- FATAL GOAL
 function startFatal(m: Match, f: Fighter) {
   f.action = 'fatal'; f.actionT = 0;
-  const rival = m.fighters[f.side === 0 ? 1 : 0];
-  rival.power = Math.max(rival.power, COST.defense); // el rival siempre puede intentar frenarlo con su defensa
   const dir = attackDir(m, f.side), b = m.ball;
-  b.held = null; b.x = clamp(f.x + dir * 0.7, 1, W - 1); b.y = f.y + 0.6; b.vx = 0; b.vy = 0; b.owner = f.side; b.frozen = 0;
-  for (const k of m.keepers) k.hold = 0;
-  m.fatal = { side: f.side, char: f.char, t: 0, x0: b.x, y0: b.y, dir, blocked: false, done: false }; m.trail = [];
+  b.x = clamp(f.x + dir * 0.7, 1, W - 1); b.y = f.y + 0.6; b.vx = 0; b.vy = 0; b.owner = f.side; b.frozen = 0;
+  m.fatal = { side: f.side, char: f.char, style: CHARS[f.char].fatal, t: 0, x0: b.x, y0: b.y, dir, blocked: false, done: false }; m.trail = [];
   m.phase = 'fatal'; m.phaseT = 0; m.flash = 1; m.shake = 0.6;
-  emit(m, { type: 'move', side: f.side, char: f.char, move: 'fatal' });
+  emit(m, { type: 'fatal', side: f.side, char: f.char });
 }
 function blockFatal(m: Match, side: 0 | 1) {
   const fat = m.fatal; if (!fat || fat.done) return;
@@ -620,27 +740,27 @@ function blockFatal(m: Match, side: 0 | 1) {
   m.fighters[fat.side].action = 'idle';
   emit(m, { type: 'fatalBlocked', side });
 }
-// Dónde va la pelota del FATAL GOAL en el tiempo t (cada personaje con su recorrido), hasta el arco rival.
-export function fatalPath(fat: Fatal, t: number): { x: number; y: number; done: boolean; size: number } {
+// Dónde va la pelota del FATAL GOAL en el tiempo t (cada estilo con su recorrido), hasta el arco rival.
+export function fatalPath(fat: Pick<Fatal, 'style' | 'x0' | 'y0' | 'dir'>, t: number): { x: number; y: number; done: boolean; size: number } {
   const dir = fat.dir, gx = dir === 1 ? W - GOAL_DEPTH * 0.4 : GOAL_DEPTH * 0.4, gy = 1.2;
   const dist = Math.abs(gx - fat.x0);
-  switch (fat.char) {
-    case 'blazehorn': {
+  switch (fat.style) {
+    case 'meteor': {
       if (t < 0.55) return { x: fat.x0 + dir * t * 2, y: fat.y0 + (H + 3 - fat.y0) * (t / 0.55) ** 1.5, done: false, size: 1 };
       const k = Math.min(1, (t - 0.55) / 0.8), sx = gx - dir * 7, sy = H + 3;
       return { x: sx + (gx - sx) * k, y: sy + (gy - sy) * k, done: k >= 1, size: 2 };
     }
-    case 'frostbane': {
+    case 'avalanche': case 'boulder': {
       const k = Math.min(1, t * 22 / dist);
       return { x: fat.x0 + dir * dist * k, y: BALL_R * 2.8 + (1 - Math.min(1, t * 4)) * fat.y0, done: k >= 1, size: 2.8 };
     }
-    case 'voltrax': {
+    case 'bolt': {
       const hops = 6, k = Math.min(1, t / 1.1), i = Math.min(hops, Math.floor(k * hops + 1e-6)), hk = (k * hops) % 1;
-      const at = (j: number) => ({ x: fat.x0 + dir * dist * j / hops, y: j === hops ? gy : j % 2 ? 5 : j === 0 ? fat.y0 : 1.6 });
+      const at = (j: number) => ({ x: fat.x0 + dir * dist * j / hops, y: j === hops ? gy : j % 2 ? 6 : j === 0 ? fat.y0 : 1.6 });
       const a = at(i), c = at(Math.min(hops, i + 1)), q = hk < 0.6 ? 0 : (hk - 0.6) / 0.4;
       return { x: a.x + (c.x - a.x) * q, y: a.y + (c.y - a.y) * q, done: k >= 1, size: 1.3 };
     }
-    case 'nullshade': {
+    case 'void': {
       const k = Math.min(1, t * 13 / dist), r = (1 - k) * 1.8;
       return { x: fat.x0 + dir * dist * k + Math.cos(t * 14) * r, y: Math.max(BALL_R, fat.y0 + (gy - fat.y0) * k + 2 * Math.sin(k * Math.PI) + Math.sin(t * 14) * r), done: k >= 1, size: 1.5 };
     }
@@ -658,72 +778,13 @@ function updateFatal(m: Match, dt: number) {
   b.x = p.x; b.y = p.y; b.vx = (p.x - px) / Math.max(dt, 1e-3); b.vy = (p.y - py) / Math.max(dt, 1e-3); b.owner = fat.side;
   const rival = m.fighters[fat.side === 0 ? 1 : 0], shooter = m.fighters[fat.side];
   if (fat.t > 0.1) shooter.action = 'idle';
-  if (fat.char === 'nullshade' && rival.stun <= 0.2) { rival.stun = 0.4; rival.stunKind = 'grab'; rival.vx = (W / 2 - rival.x) * 1.2; }
-  const kind: StunKind = fat.char === 'frostbane' ? 'freeze' : fat.char === 'blazehorn' ? 'burn' : fat.char === 'voltrax' ? 'zap' : fat.char === 'venox' ? 'poison' : 'hit';
-  if (rival.action !== 'stun' && Math.abs(rival.x - b.x) < 0.5 + BALL_R * p.size && b.y > rival.y - 0.2 && b.y < rival.y + PH + 0.2) hurtFighter(m, rival, shooter, kind, 1.2, fat.char === 'frostbane' ? 0 : 10, 25);
-  for (const q of [...m.keepers, m.ref]) if (q.action !== 'gone' && Math.abs(q.x - b.x) < 0.5 + BALL_R * p.size && b.y > q.y - 0.2 && b.y < q.y + PH + 0.4) hurtPerson(m, q, kind, 2.5);
+  if (fat.style === 'void' && rival.stun <= 0.2) { rival.stun = 0.4; rival.stunKind = 'hit'; rival.vx = (W / 2 - rival.x) * 1.2; }
+  const kind: StunKind = fat.style === 'avalanche' ? 'freeze' : fat.style === 'meteor' ? 'burn' : fat.style === 'bolt' ? 'zap' : fat.style === 'acid' ? 'poison' : 'hit';
+  if (rival.action !== 'stun' && Math.abs(rival.x - b.x) < 0.5 + BALL_R * p.size && b.y > rival.y - 0.2 && b.y < rival.y + PH + 0.2) hurtFighter(m, rival, shooter, kind, 1.2, fat.style === 'avalanche' ? 0 : 10, 25);
+  if (refIn(m, b.x - 0.5, b.x + 0.5, b.y - 0.5, b.y + 0.5)) hurtRef(m, kind, 2);
   const glow = CHARS[fat.char].glow;
-  for (let k = 0; k < 3; k++) m.particles.push({ x: b.x + (Math.random() - 0.5) * 0.4, y: b.y + (Math.random() - 0.5) * 0.4, vx: -b.vx * 0.05 + (Math.random() - 0.5), vy: -b.vy * 0.05 + (Math.random() - 0.5), life: 0.5, max: 0.5, size: 0.15 * p.size, color: glow, kind: fat.char === 'blazehorn' ? 'ember' : fat.char === 'frostbane' ? 'shard' : fat.char === 'venox' ? 'bubble' : 'spark' });
+  for (let k = 0; k < 3; k++) m.particles.push({ x: b.x + (Math.random() - 0.5) * 0.4, y: b.y + (Math.random() - 0.5) * 0.4, vx: -b.vx * 0.05 + (Math.random() - 0.5), vy: -b.vy * 0.05 + (Math.random() - 0.5), life: 0.5, max: 0.5, size: 0.15 * p.size, color: glow, kind: fat.style === 'meteor' ? 'ember' : fat.style === 'avalanche' ? 'shard' : fat.style === 'acid' ? 'bubble' : 'spark' });
   if (p.done) { fat.done = true; scoreGoal(m, fat.side, true); }
-}
-
-// ---------------------------------------------------------------- Arqueros
-// Se quedan en su arco, se mueven con la pelota, saltan o se tiran a atajar. Atajan los tiros flojos y medianos;
-// los muy fuertes y los especiales les cuestan (y los poderes los voltean). Si la agarran, la sacan al rato.
-function updateKeeper(m: Match, k: Person, dt: number) {
-  k.actionT += dt;
-  const left = defendsLeft(m, k.team), gx = goalLineX(left), out: 1 | -1 = left ? 1 : -1, b = m.ball;
-  k.facing = out;
-  if (k.stun > 0) {
-    k.stun -= dt; k.vx *= Math.pow(0.05, dt); settle(m, k, dt);
-    if (k.stun <= 0) { k.action = 'idle'; k.stunKind = 'none'; }
-    return;
-  }
-  if (b.held === k) { // la tiene: espera y la saca jugando hacia adelante
-    k.hold += dt; k.action = 'hold'; k.vx = 0; settle(m, k, dt);
-    b.x = k.x + out * 0.35; b.y = k.y + 1.1; b.vx = 0; b.vy = 0;
-    if (k.hold > 1.1) { b.held = null; b.vx = out * (13 + m.rand() * 4); b.vy = 9 + m.rand() * 3; b.owner = k.team; k.hold = 0; k.action = 'kick'; k.actionT = 0; emit(m, { type: 'kick', power: 0.9 }); }
-    return;
-  }
-  const home = gx + out * 0.7;
-  let target = home + out * clamp(Math.abs(b.x - gx) * 0.04, 0, 1);
-  // pelota suelta cerca del arco y sin rival encima: sale a buscarla
-  const rivalF = m.fighters[k.team === 0 ? 1 : 0];
-  const loose = Math.abs(b.x - gx) < 4.5 && Math.hypot(b.vx, b.vy) < 7 && b.y < 2.2 && Math.abs(rivalF.x - b.x) > Math.abs(k.x - b.x) + 0.4;
-  if (loose) target = b.x - out * 0.3;
-  // tiro que viene al arco: calcula a qué altura pasa por donde está parado y salta o se tira
-  const coming = Math.sign(b.vx) === -out && Math.abs(b.vx) > 2 && (b.x - k.x) * out > 0 && Math.abs(b.x - k.x) < 14;
-  if (coming && k.ground && k.action !== 'dive' && !b.held) {
-    const t = Math.abs((k.x - b.x) / b.vx), yAt = b.y + b.vy * t - 10 * stageDef(m.stage).gravity * t * t;
-    if (t < 0.5 && yAt > 1.75 && yAt < goalHeight(m, k.team) + 1.2) { k.vy = Math.min(11, Math.sqrt(2 * gravityOf(m) * Math.max(0.3, yAt - 1.3))); k.ground = false; k.action = 'jump'; k.actionT = 0; }
-    else if (t < 0.35 && yAt < 0.7) { k.action = 'dive'; k.actionT = 0; }
-  }
-  if (k.action === 'dive' && k.actionT > 0.7) k.action = 'idle';
-  const d = target - k.x;
-  k.vx = k.action === 'dive' ? 0 : Math.abs(d) > 0.08 ? Math.sign(d) * Math.min(6.5, Math.abs(d) * 6) : 0;
-  settle(m, k, dt);
-  const lo = Math.min(gx - out * 0.9, gx + out * 4.8), hi = Math.max(gx - out * 0.9, gx + out * 4.8);
-  k.x = clamp(k.x, lo, hi);
-  if (k.action !== 'dive' && !(k.action === 'kick' && k.actionT < 0.4)) k.action = !k.ground ? 'jump' : Math.abs(k.vx) > 0.5 ? 'run' : 'idle';
-  // la atajada: alcance del cuerpo (más alto saltando, y acostado si se tira abajo)
-  if (b.held || (m.fatal && !m.fatal.done)) return;
-  const reachTop = k.y + PH + (k.ground ? 0.25 : 0.45), reachBot = k.action === 'dive' ? 0 : k.y - 0.1;
-  const halfW = k.action === 'dive' ? 0.95 : 0.55;
-  if (b.x + BALL_R > k.x - halfW && b.x - BALL_R < k.x + halfW && b.y - BALL_R < reachTop && b.y + BALL_R > reachBot) {
-    const speedB = Math.hypot(b.vx, b.vy), shooter = b.owner !== null && b.owner !== k.team;
-    if (shooter && b.fx !== 'none' && b.fxT > 0 && m.rand() < 0.75) { // tiro especial: lo voltea casi siempre
-      hurtPerson(m, k, b.fx === 'fire' ? 'burn' : b.fx === 'ice' ? 'freeze' : b.fx === 'toxic' ? 'poison' : b.fx === 'volt' ? 'zap' : 'hit', 2.2); return;
-    }
-    if (shooter && speedB > 15 && m.rand() < (speedB - 15) / 25) return; // se le escapó
-    if (speedB < 13 && Math.sign(b.vx) !== out) { // la agarra
-      if (speedB > 7 && shooter) emit(m, { type: 'save', team: k.team, caught: true });
-      b.held = k; k.hold = 0; b.vx = 0; b.vy = 0; b.fx = 'none'; b.owner = k.team; m.trail = [];
-    } else if (Math.sign(b.vx) !== out || speedB > 4) { // la rechaza
-      b.vx = out * Math.max(5, Math.abs(b.vx) * 0.45); b.vy = 5 + m.rand() * 4; b.x = k.x + out * (halfW + BALL_R + 0.05); b.owner = k.team; b.fx = 'none';
-      emit(m, { type: 'save', team: k.team, caught: false });
-      burst(m, b.x, b.y, 8, '#ffffff', 'spark', 3);
-    }
-  }
 }
 
 // ---------------------------------------------------------------- Árbitro
@@ -731,68 +792,85 @@ function updateKeeper(m: Match, k: Person, dt: number) {
 function updateRef(m: Match, dt: number) {
   const r = m.ref, b = m.ball;
   r.actionT += dt;
-  if (r.action === 'gone') { r.away -= dt; if (r.away <= 0) { r.action = 'idle'; r.x = W / 2; r.y = 0; r.vx = 0; r.vy = 0; r.stun = 0; burst(m, r.x, 1, 16, '#ffffff', 'smoke', 2); emit(m, { type: 'refBack' }); } return; }
+  if (r.action === 'gone') { r.away -= dt; if (r.away <= 0) { r.action = 'idle'; r.x = W / 2 + 1; r.y = 0; r.vx = 0; r.vy = 0; r.stun = 0; burst(m, r.x, 1, 16, '#ffffff', 'smoke', 2); emit(m, { type: 'refBack' }); } return; }
   if (r.stun > 0) {
-    r.stun -= dt; settle(m, r, dt); r.vx *= Math.pow(0.05, dt);
+    r.stun -= dt; moveBody(m, r, dt); r.vx *= Math.pow(0.05, dt);
     if (r.stun <= 0) { if (r.action === 'down') { r.action = 'gone'; r.away = 2.5; burst(m, r.x, 0.8, 14, '#d4d4d8', 'smoke', 2); } else r.action = 'idle'; }
     return;
   }
-  const side = b.x < W / 2 ? 1 : -1, target = clamp(b.x + side * 3.2, 4, W - 4);
+  const bx = b.alive ? b.x : W / 2, side = bx < W / 2 ? 1 : -1, target = clamp(bx + side * 3.2, 4.5, W - 4.5);
   let d = target - r.x;
   // no pisa trampas encendidas (ni las que avisan): si está encima se corre, si va hacia una se frena
-  for (const h of m.hazards) if ((trapLike(h) && h.state >= 1) || h.kind === 'lava') {
+  for (const h of m.hazards) if ((trapLike(h) && h.state >= 1 && h.y < 0.5) || h.kind === 'lava') {
     const c = h.x + h.w / 2, gap = h.w / 2 + 0.7;
     if (Math.abs(c - r.x) < gap) { d = (r.x < c ? -1 : 1) * 3; break; }
     if (Math.abs(c - (r.x + Math.sign(d) * 1.2)) < gap) d = 0;
   }
   r.vx = Math.abs(d) > 0.4 ? Math.sign(d) * Math.min(6, Math.abs(d) * 2) : 0;
   if (Math.abs(r.vx) > 0.2) r.facing = r.vx > 0 ? 1 : -1;
-  settle(m, r, dt);
-  r.action = Math.abs(r.vx) > 0.5 ? 'run' : 'idle';
-  // la pelota le pega
-  if (!b.held && Math.abs(b.x - r.x) < 0.4 + BALL_R && b.y < r.y + PH && b.y > r.y) {
+  const before = r.x;
+  moveBody(m, r, dt);
+  if (r.ground && Math.abs(r.vx) > 1 && Math.abs(r.x - before) < Math.abs(r.vx) * dt * 0.3) { r.vy = 11; r.ground = false; } // salta el escalón
+  r.action = !r.ground ? 'jump' : Math.abs(r.vx) > 0.5 ? 'run' : 'idle';
+  if (b.alive && Math.abs(b.x - r.x) < 0.4 + BALL_R && b.y < r.y + PH && b.y > r.y) {
     const s = Math.hypot(b.vx, b.vy);
-    if (s > 16) hurtPerson(m, r, 'hit', 1.2);
+    if (s > 16) hurtRef(m, 'hit', 1.2);
     if (Math.sign(b.vx) === Math.sign(r.x - b.x)) { b.vx = -b.vx * 0.4; b.x = r.x + Math.sign(b.x - r.x || 1) * (0.4 + BALL_R); emit(m, { type: 'bounce', power: 0.4 }); }
   }
 }
-const trapLike = (h: Hazard) => h.kind === 'spikes' || h.kind === 'flame' || h.kind === 'shock' || h.kind === 'laser';
+const trapLike = (h: Hazard) => h.kind === 'spikes' || h.kind === 'flame' || h.kind === 'shock' || h.kind === 'laser' || h.kind === 'saw';
 // Una trampa que en este momento lastima.
 export function isDanger(h: Hazard) { return trapLike(h) && h.state === 2; }
 
 // ---------------------------------------------------------------- La pelota
 function moveBall(m: Match, dt: number) {
   const b = m.ball, st = stageDef(m.stage);
-  if (b.held) return;
   if (m.fatal && !m.fatal.done && m.phase === 'play') return;
   const steps = Math.ceil(Math.hypot(b.vx, b.vy) * dt / 0.12) || 1, h = dt / steps;
   b.kindT = Math.max(0, b.kindT - dt); if (b.kindT <= 0 && b.kind !== 'normal') { b.kind = 'normal'; emit(m, { type: 'ballKind', kind: 'normal' }); }
   b.fxT = Math.max(0, b.fxT - dt); if (b.fxT <= 0) b.fx = 'none';
-  if (b.frozen > 0) { b.frozen -= dt; b.vx *= Math.pow(0.001, dt); b.vy = Math.min(b.vy, 0); }
+  if (b.frozen > 0) { b.frozen -= dt; b.vx = 0; b.vy = 0; m.trail = []; return; }
   for (let s = 0; s < steps; s++) {
-    let g = 20 * st.gravity * (b.kind === 'void' ? 0.45 : 1);
-    for (const hz of m.hazards) if (hz.kind === 'antigrav' && hz.state === 1 && b.x > hz.x && b.x < hz.x + hz.w) g = 2.5 + Math.sin(m.time * 3) * 2;
+    const g = 20 * st.gravity * (b.kind === 'void' ? 0.45 : 1);
     b.vy -= g * h;
     if (b.kind === 'toxic' || b.fx === 'toxic') b.vy += Math.cos(m.time * 9) * 14 * h;
     b.vx *= Math.pow(b.kind === 'ice' ? 0.92 : 0.86, h); b.vy *= Math.pow(0.95, h);
     b.x += b.vx * h; b.y += b.vy * h;
     collideBallWorld(m, b, h);
     if (m.phase === 'play') for (const f of m.fighters) collideBallFighter(m, b, f);
+    if (!b.alive) return;
   }
   b.spin += b.vx * dt * 2;
   m.trail.unshift([b.x, b.y]); if (m.trail.length > 14) m.trail.length = 14;
 }
+function rollFriction(m: Match, b: Ball, dt: number) {
+  const fr = b.kind === 'ice' ? 0.05 : stageDef(m.stage).friction;
+  b.vx *= Math.pow(0.22, fr * dt); b.vx -= Math.sign(b.vx) * Math.min(Math.abs(b.vx), 5 * fr * dt);
+}
 function collideBallWorld(m: Match, b: Ball, dt: number) {
-  const st = stageDef(m.stage), fl = floorAt(m, b.x);
-  if (b.y - BALL_R < fl) {
-    b.y = fl + BALL_R;
+  if (b.y - BALL_R < 0) {
+    b.y = BALL_R;
     if (b.vy < -2) { emit(m, { type: 'bounce', power: Math.min(1, -b.vy / 15) }); b.vy = -b.vy * (b.kind === 'ice' ? 0.5 : 0.6); } else b.vy = 0;
-    const fr = b.kind === 'ice' ? 0.05 : st.friction;
-    b.vx *= Math.pow(0.35, fr * dt); b.vx -= Math.sign(b.vx) * Math.min(Math.abs(b.vx), 2.2 * fr * dt);
+    rollFriction(m, b, dt);
     for (const h of m.hazards) if (h.kind === 'conveyor' && b.x > h.x && b.x < h.x + h.w) b.vx += h.dir * 5 * dt;
   }
-  for (const h of m.hazards) if (h.kind === 'block' && b.y < h.h - 0.1 && b.x + BALL_R > h.x && b.x - BALL_R < h.x + h.w) {
-    if (b.x < h.x + h.w / 2) { b.x = h.x - BALL_R; b.vx = -Math.abs(b.vx) * 0.6; } else { b.x = h.x + h.w + BALL_R; b.vx = Math.abs(b.vx) * 0.6; }
+  for (const s of m.solids) {
+    const cx = clamp(b.x, s.x, s.x + s.w), cy = clamp(b.y, s.y, s.y + s.h), dx = b.x - cx, dy = b.y - cy, d = Math.hypot(dx, dy);
+    if (d >= BALL_R) continue;
+    let nx: number, ny: number;
+    if (d === 0) { // adentro: sale por el lado más cercano
+      const l = b.x - s.x, r = s.x + s.w - b.x, bo = b.y - s.y, t = s.y + s.h - b.y, mn = Math.min(l, r, bo, t);
+      nx = mn === l ? -1 : mn === r ? 1 : 0; ny = mn === t ? 1 : mn === bo ? -1 : 0;
+      b.x += nx * (mn + BALL_R); b.y += ny * (mn + BALL_R);
+    } else { nx = dx / d; ny = dy / d; b.x = cx + nx * BALL_R; b.y = cy + ny * BALL_R; }
+    const vn = b.vx * nx + b.vy * ny;
+    if (vn < 0) {
+      const e = s.kind === 'bouncy' ? 1.15 : 0.55;
+      b.vx -= (1 + e) * vn * nx; b.vy -= (1 + e) * vn * ny;
+      if (s.kind === 'bouncy' && ny > 0.5) b.vy = Math.max(b.vy, 11);
+      if (Math.abs(vn) > 3) emit(m, { type: 'bounce', power: Math.min(1, Math.abs(vn) / 15) });
+    }
+    if (ny > 0.7) rollFriction(m, b, dt);
   }
   if (b.y + BALL_R > H) { b.y = H - BALL_R; b.vy = -Math.abs(b.vy) * 0.6; }
   if (b.x - BALL_R < 0) { b.x = BALL_R; b.vx = Math.abs(b.vx) * 0.5; }
@@ -808,7 +886,7 @@ function collideBallWorld(m: Match, b: Ball, dt: number) {
   }
 }
 function collideBallFighter(m: Match, b: Ball, f: Fighter) {
-  if (b.held) return;
+  if (f.char === 'espectro' && f.abilityT > 0) return;
   const x0 = f.x - PW / 2, x1 = f.x + PW / 2, y0 = f.y, y1 = f.y + PH * (f.slideT > 0 ? 0.35 : 1);
   const cx = clamp(b.x, x0, x1), cy = clamp(b.y, y0, y1), dx = b.x - cx, dy = b.y - cy, d = Math.hypot(dx, dy);
   if (d >= BALL_R) return;
@@ -821,20 +899,18 @@ function collideBallFighter(m: Match, b: Ball, f: Fighter) {
     const e = blocking ? 0.2 : ny > 0.6 ? 0.75 : 0.35;
     b.vx -= (1 + e) * vn * nx; b.vy -= (1 + e) * vn * ny;
     if (ny > 0.6 && !f.ground && f.vy > 0) b.vy += 3; // cabezazo
-    if (blocking && Math.abs(vn) > 6) { emit(m, { type: 'block' }); gainPower(m, f, 5); burst(m, b.x, b.y, 8, '#93c5fd', 'spark', 3); }
+    if (blocking && Math.abs(vn) > 6) { emit(m, { type: 'block' }); burst(m, b.x, b.y, 8, '#93c5fd', 'spark', 3); }
     const hard = !blocking && Math.abs(vn) > 7 && b.owner !== null && b.owner !== f.side;
-    if (hard && (b.kind === 'spike' || b.kind === 'fire' || b.fx === 'fire')) hurtFighter(m, f, null, b.kind === 'spike' ? 'hit' : 'burn', 0.6, 5, 10);
-    else if (hard && b.fx === 'toxic') hurtFighter(m, f, null, 'poison', 0.5, 2, 12);
-    else if (hard && b.fx === 'volt') hurtFighter(m, f, null, 'zap', 0.5, 3, 10);
-    else if (hard && b.fx === 'ice') hurtFighter(m, f, null, 'freeze', 0.9, 0, 8);
-    if (hard && b.fx !== 'none') { b.fx = 'none'; b.fxT = 0; } // el efecto se gasta en el primer golpe
+    if (hard && (b.kind === 'spike' || b.kind === 'fire' || b.fx === 'fire')) hurtFighter(m, f, null, b.kind === 'spike' ? 'hit' : 'burn', 0.6, 5, 8);
+    else if (hard && b.fx === 'volt') hurtFighter(m, f, null, 'zap', 0.5, 3, 6);
+    if (hard && b.fx !== 'none') { b.fx = 'none'; b.fxT = 0; }
   }
   if (Math.abs(b.vx - f.vx) < 1) b.owner = f.side;
 }
 
 function checkGoal(m: Match) {
   const b = m.ball;
-  if (m.phase !== 'play' || b.held) return;
+  if (m.phase !== 'play' || !b.alive) return;
   const viaFatal = (side: 0 | 1) => !!m.fatal && !m.fatal.done && m.fatal.side === side;
   for (const left of [true, false]) {
     const def = teamAt(m, left), inside = left ? b.x < GOAL_DEPTH - BALL_R * 0.3 : b.x > W - GOAL_DEPTH + BALL_R * 0.3;
@@ -843,10 +919,10 @@ function checkGoal(m: Match) {
 }
 function scoreGoal(m: Match, side: 0 | 1, fatal: boolean) {
   const f = m.fighters[side], rival = m.fighters[side === 0 ? 1 : 0];
-  f.goals++; gainPower(m, rival, 50);
+  f.goals++; gainPower(m, rival, 10);
   m.lastGoal = { side, fatal }; m.phase = 'goal'; m.phaseT = 0; m.shake = fatal ? 1 : 0.5; m.flash = fatal ? 1 : 0.4;
   if (m.fatal) m.fatal.done = true;
-  const b = m.ball; b.vx *= 0.25; b.vy = Math.min(b.vy, 2); b.fx = 'none'; b.held = null;
+  const b = m.ball; b.vx *= 0.25; b.vy = Math.min(b.vy, 2); b.fx = 'none';
   burst(m, b.x, b.y, fatal ? 50 : 26, fatal ? CHARS[f.char].glow : '#ffffff', 'spark', fatal ? 9 : 6);
   if (m.extra) m.winner = side;
   emit(m, { type: 'goal', side, fatal });
@@ -864,7 +940,7 @@ function updatePowerups(m: Match, dt: number) {
     p.t += dt;
     for (const f of m.fighters) if (Math.abs(f.x - p.x) < 0.7 && p.y > f.y - 0.3 && p.y < f.y + PH + 0.4) {
       p.t = 99;
-      if (p.kind === 'energy') { f.stamina = STAMINA; gainPower(m, f, 100); } else f.powers[p.kind] = POWERS[p.kind].time;
+      if (p.kind === 'energy') { f.stamina = STAMINA; gainPower(m, f, 40); } else f.powers[p.kind] = POWERS[p.kind].time;
       burst(m, p.x, p.y, 20, POWERS[p.kind].color, 'ring', 2);
       emit(m, { type: 'power', side: f.side, kind: p.kind });
       break;
@@ -872,7 +948,7 @@ function updatePowerups(m: Match, dt: number) {
   }
   m.powerups = m.powerups.filter(p => p.t < 12);
   m.nextBall -= dt;
-  if (m.nextBall <= 0 && !m.ball.held) {
+  if (m.nextBall <= 0 && m.ball.alive) {
     const kinds: Exclude<BallKind, 'normal'>[] = ['toxic', 'fire', 'ice', 'spike', 'void'];
     m.ball.kind = kinds[Math.floor(m.rand() * kinds.length)]; m.ball.kindT = 12;
     burst(m, m.ball.x, m.ball.y, 20, BALLS[m.ball.kind].color, 'ring', 2);
@@ -882,8 +958,23 @@ function updatePowerups(m: Match, dt: number) {
 }
 
 // ---------------------------------------------------------------- Trampas y peligros
-// Ciclo de las trampas del piso: apagada → aviso (0,9 s) → encendida (1,6 s).
-function trapCycle(h: Hazard) { const c = ((h.t % h.period) + h.period) % h.period; return c < h.period - 2.5 ? 0 : c < h.period - 1.6 ? 1 : 2; }
+// Ciclo de las trampas: apagada → aviso (0,9 s) → encendida (1,6 s; las sierras 2,4 s).
+function trapCycle(h: Hazard) { const on = h.kind === 'saw' ? 2.4 : 1.6, c = ((h.t % h.period) + h.period) % h.period; return c < h.period - on - 0.9 ? 0 : c < h.period - on ? 1 : 2; }
+// Dónde está la sierra (centro) en este momento.
+export function sawPos(h: Hazard) { const c = ((h.t % h.period) + h.period) % h.period, k = Math.max(0, c - (h.period - 2.4)) / 2.4; const u = 0.5 - 0.5 * Math.cos(k * Math.PI * 2); return { x: h.dir > 0 ? h.x + h.w * u : h.x + h.w * (1 - u), y: h.state === 2 ? h.y + 0.1 : h.state === 1 ? h.y - 0.25 : h.y - 0.7, r: h.h }; }
+export function wreckPos(h: Hazard, time: number) { const a = Math.sin(time * 0.8 + h.t) * Math.min(0.95, 4.2 / h.h); return { a, x: h.x + Math.sin(a) * h.h, y: h.y - Math.cos(a) * h.h, r: 0.95 }; }
+export function minePos(h: Hazard, time: number) { return { x: h.x + Math.sin(time * 0.7 + h.id) * 0.6, y: h.y + Math.sin(time * 1.3 + h.id * 2) * 0.35 }; }
+function mineBoom(m: Match, h: Hazard) {
+  if (h.state !== 0) return;
+  const p = minePos(h, m.time);
+  h.state = 1; h.dir = 7; // vuelve a aparecer a los 7 segundos
+  m.fx.push({ kind: 'boom', side: 0, x: p.x, y: p.y, x2: 0, y2: 0, t: 0, life: 0.5, dir: 1, hit: 0 });
+  burst(m, p.x, p.y, 30, '#f87171', 'ember', 8); m.shake = Math.max(m.shake, 0.7); emit(m, { type: 'boom' });
+  const b = m.ball;
+  if (b.alive && Math.hypot(b.x - p.x, b.y - p.y) < 2.2) explodeBall(m);
+  for (const f of m.fighters) if (Math.hypot(f.x - p.x, f.y + 1 - p.y) < 2.4) hurtFighter(m, f, null, 'burn', 1, 9, 20);
+  if (Math.hypot(m.ref.x - p.x, m.ref.y + 1 - p.y) < 2.4) hurtRef(m, 'burn', 1.4);
+}
 function updateHazards(m: Match, dt: number) {
   const b = m.ball, r = m.rand;
   m.nextHazard -= dt;
@@ -891,24 +982,19 @@ function updateHazards(m: Match, dt: number) {
   if (m.nextHazard <= 0) {
     const x = 5 + r() * (W - 10);
     switch (m.stage) {
-      case 'city': spawn('arc', x, 1.2, 1.1); m.nextHazard = 7 + r() * 4; break;
-      case 'volcano': spawn('meteor', x, 1.8, 1.3); m.nextHazard = 4.5 + r() * 3; break;
-      case 'glacier': spawn('icicle', x, 0.9, 1); m.nextHazard = 4.5 + r() * 4; break;
-      case 'graveyard': spawn('hand', x, 0.9, 1); m.nextHazard = 4 + r() * 3; break;
-      case 'storm':
-        if (r() < 0.6) spawn('lightning', x, 1.3, 1.1);
-        else { m.hazards.push({ kind: 'gust', x: 0, y: 0, w: 0, h: 0, t: -1, state: 0, dir: r() < 0.5 ? -1 : 1, id: m.nextId++, period: 0 }); emit(m, { type: 'warn' }); }
-        m.nextHazard = 5 + r() * 3; break;
-      case 'desert': if (!m.hazards.some(h => h.kind === 'tornado')) m.hazards.push({ kind: 'tornado', x: r() < 0.5 ? 3 : W - 3, y: 0, w: 2, h: 8, t: 0, state: 0, dir: 0, id: m.nextId++, period: 0 }); m.nextHazard = 12 + r() * 6; break;
+      case 'volcano': spawn('meteor', x, 1.8, 1.3); m.nextHazard = 5 + r() * 3; break;
+      case 'ice': spawn('icicle', x, 0.9, 1); m.nextHazard = 4.5 + r() * 4; break;
+      case 'storm': spawn('lightning', x, 1.3, 1.1); m.nextHazard = 5 + r() * 3; break;
       default: m.nextHazard = 99;
     }
   }
+  // quiénes están en una zona: lastima una vez por encendido de cada trampa
   const hit = (x0: number, x1: number, y0: number, y1: number, kind: StunKind, time: number, push: number, drain: number, h?: Hazard) => {
     const ok = (bit: number) => { if (!h) return true; if ((h.struck ?? 0) & bit) return false; h.struck = (h.struck ?? 0) | bit; return true; };
-    const inside = (x: number, y: number) => x + PW / 2 > x0 && x - PW / 2 < x1 && y < y1 && y + PH > y0;
-    m.fighters.forEach((f, i) => { if (f.stun <= 0 && inside(f.x, f.y) && ok(1 << i)) hurtFighter(m, f, null, kind, time, push, drain); });
-    [...m.keepers, m.ref].forEach((p, i) => { if (p.action !== 'gone' && inside(p.x, p.y) && ok(4 << i)) hurtPerson(m, p, kind, p.role === 'ref' ? 1.2 : 2); });
+    m.fighters.forEach((f, i) => { if (f.stun <= 0 && !(f.char === 'espectro' && f.abilityT > 0) && f.x + PW / 2 > x0 && f.x - PW / 2 < x1 && f.y < y1 && f.y + PH > y0 && ok(1 << i)) hurtFighter(m, f, null, kind, time, push, drain); });
+    if (refIn(m, x0, x1, y0, y1) && ok(4)) hurtRef(m, kind, 1.3);
   };
+  const ballIn = (x0: number, x1: number, y0: number, y1: number) => b.alive && b.x + BALL_R > x0 && b.x - BALL_R < x1 && b.y - BALL_R < y1 && b.y + BALL_R > y0 && !(m.fatal && !m.fatal.done);
   for (const h of m.hazards) {
     h.t += dt;
     switch (h.kind) {
@@ -916,81 +1002,74 @@ function updateHazards(m: Match, dt: number) {
         const before = h.state; h.state = trapCycle(h);
         if (h.state === 2 && before !== 2) emit(m, { type: 'trap', kind: h.kind });
         if (h.state !== 2) { h.struck = 0; break; }
-        const top = h.kind === 'flame' ? 3.2 : h.kind === 'laser' ? h.h : 0.7;
-        hit(h.x, h.x + h.w, 0, top, h.kind === 'flame' ? 'burn' : h.kind === 'spikes' ? 'hit' : 'zap', 0.9, h.kind === 'spikes' ? 6 : 5, h.kind === 'spikes' ? 18 : 15, h);
-        // la pelota: rebota en los pinches, se prende fuego o se electrifica
-        if (!b.held && b.x > h.x - BALL_R && b.x < h.x + h.w + BALL_R && b.y < top + BALL_R) {
-          if (h.kind === 'spikes' && b.y < 0.8) { b.vy = Math.max(b.vy, 9); b.vx += (b.x - (h.x + h.w / 2)) * 4; }
-          if (h.kind === 'flame') { b.fx = 'fire'; b.fxT = 1.2; b.vy = Math.max(b.vy, 6); b.owner = null; }
-          if (h.kind === 'shock' || h.kind === 'laser') { b.fx = 'volt'; b.fxT = 0.8; b.owner = null; }
+        const y0 = h.y, y1 = h.kind === 'flame' ? h.y + 3.2 : h.kind === 'laser' ? h.h : h.y + 0.75;
+        hit(h.x, h.x + h.w, y0, y1, h.kind === 'flame' ? 'burn' : h.kind === 'spikes' ? 'hit' : 'zap', 0.9, h.kind === 'spikes' ? 6 : 5, h.kind === 'spikes' ? 18 : 15, h);
+        if (ballIn(h.x, h.x + h.w, y0, y1)) {
+          if (h.kind === 'flame' || h.kind === 'laser') explodeBall(m); // se quema y explota
+          else if (h.kind === 'spikes') { b.vy = Math.max(b.vy, 9); b.vx += (b.x - (h.x + h.w / 2)) * 4; }
+          else { b.fx = 'volt'; b.fxT = 0.8; b.owner = null; }
         }
         break;
       }
+      case 'saw': {
+        const before = h.state; h.state = trapCycle(h);
+        if (h.state === 2 && before !== 2) emit(m, { type: 'trap', kind: 'saw' });
+        if (h.state !== 2) { h.struck = 0; break; }
+        const p = sawPos(h);
+        hit(p.x - p.r, p.x + p.r, p.y - p.r, p.y + p.r, 'hit', 0.9, 7, 18, h);
+        if (b.alive && Math.hypot(b.x - p.x, b.y - p.y) < p.r + BALL_R) explodeBall(m);
+        break;
+      }
       case 'wreck': {
-        const a = Math.sin(m.time * 0.8) * 0.95, bx = h.x + Math.sin(a) * h.h, by = h.y - Math.cos(a) * h.h, R = 0.95;
-        h.dir = a;
-        const dx = b.x - bx, dy = b.y - by, d = Math.hypot(dx, dy);
-        if (!b.held && d < R + BALL_R) { const nx = dx / d, ny = dy / d; b.x = bx + nx * (R + BALL_R); b.y = by + ny * (R + BALL_R); const vn = b.vx * nx + b.vy * ny; if (vn < 0) { b.vx -= 1.8 * vn * nx; b.vy -= 1.8 * vn * ny; } emit(m, { type: 'post' }); }
-        if (Math.abs(a) > 0.9) h.struck = 0;
-        hit(bx - R, bx + R, by - R, by + R, 'hit', 0.9, 10, 20, h);
+        const p = wreckPos(h, m.time), dx = b.x - p.x, dy = b.y - p.y, d = Math.hypot(dx, dy);
+        if (b.alive && d < p.r + BALL_R) { const nx = dx / d, ny = dy / d; b.x = p.x + nx * (p.r + BALL_R); b.y = p.y + ny * (p.r + BALL_R); const vn = b.vx * nx + b.vy * ny; if (vn < 0) { b.vx -= 1.8 * vn * nx; b.vy -= 1.8 * vn * ny; } b.vx += Math.cos(m.time * 0.8 + h.t) * 6; emit(m, { type: 'post' }); }
+        if (Math.abs(p.a) > 0.9) h.struck = 0;
+        hit(p.x - p.r, p.x + p.r, p.y - p.r, p.y + p.r, 'hit', 0.9, 10, 20, h);
         break;
       }
       case 'conveyor': {
         const s = Math.floor(m.time / 8) % 2; if (s !== h.state) { h.state = s; h.dir = s ? -1 : 1; }
-        for (const f of m.fighters) if (f.ground && f.x > h.x && f.x < h.x + h.w) f.x = clamp(f.x + h.dir * 2.4 * dt, 0.5, W - 0.5);
+        for (const f of m.fighters) if (f.ground && f.y < 0.1 && f.x > h.x && f.x < h.x + h.w) f.x = clamp(f.x + h.dir * 2.4 * dt, 0.5, W - 0.5);
         break;
       }
       case 'lava':
         if (Math.floor(h.t * 0.8) !== h.state) { h.state = Math.floor(h.t * 0.8); h.struck = 0; }
         hit(h.x + 0.2, h.x + h.w - 0.2, 0, 0.3, 'burn', 1.1, 0, 20, h);
-        for (const f of m.fighters) if (f.stun > 0 && f.stunKind === 'burn' && f.ground && f.x > h.x && f.x < h.x + h.w) { f.vy = 9; f.ground = false; f.vx = (f.x < W / 2 ? 1 : -1) * 6; }
+        for (const f of m.fighters) if (f.stun > 0 && f.stunKind === 'burn' && f.ground && f.y < 0.1 && f.x > h.x && f.x < h.x + h.w) { f.vy = 9; f.ground = false; f.vx = (f.x < W / 2 ? 1 : -1) * 6; }
+        if (ballIn(h.x + 0.1, h.x + h.w - 0.1, 0, 0.15)) explodeBall(m);
         break;
-      case 'antigrav': h.state = (m.time % 12) > 6 ? 1 : 0; break;
-      case 'airlock': {
-        const cyc = ((h.t % 14) + 14) % 14; h.dir = Math.floor(h.t / 14) % 2 ? 1 : -1;
-        h.state = cyc > 9 && cyc < 10.5 ? 1 : cyc >= 10.5 && cyc < 13.5 ? 2 : 0;
-        if (h.state === 2) { if (!b.held) b.vx += h.dir * 7 * dt; for (const f of m.fighters) f.x = clamp(f.x + h.dir * 1.3 * dt, 0.5, W - 0.5); }
+      case 'mine': {
+        if (h.state === 1) { h.dir -= dt; if (h.dir <= 0) { h.state = 0; burst(m, h.x, h.y, 10, '#fca5a5', 'smoke', 2); } break; }
+        const p = minePos(h, m.time);
+        if (b.alive && Math.hypot(b.x - p.x, b.y - p.y) < h.w + BALL_R) { mineBoom(m, h); break; }
+        for (const f of m.fighters) if (Math.abs(f.x - p.x) < PW / 2 + h.w && p.y > f.y - h.w && p.y < f.y + PH + h.w) { mineBoom(m, h); break; }
         break;
       }
-      case 'arc': case 'lightning': case 'meteor': case 'icicle': case 'hand': {
+      case 'waterfall':
+        if (b.alive && b.x > h.x - BALL_R && b.x < h.x + h.w + BALL_R) { b.vy -= 22 * dt; b.vx *= Math.pow(0.4, dt); }
+        break;
+      case 'meteor': case 'icicle': case 'lightning': {
         if (h.t >= 0 && h.state === 0) {
           h.state = 1;
           const x0 = h.x - h.w / 2, x1 = h.x + h.w / 2;
-          if (h.kind === 'hand') { for (const f of m.fighters) if (f.ground && f.x > x0 - 0.3 && f.x < x1 + 0.3) hurtFighter(m, f, null, 'grab', 1.3, 0, 8); emit(m, { type: 'trap', kind: 'hand' }); }
-          else {
-            const kind: StunKind = h.kind === 'icicle' ? 'freeze' : h.kind === 'meteor' ? 'burn' : 'zap';
-            hit(x0 - 0.3, x1 + 0.3, 0, H, kind, h.kind === 'icicle' ? 1.1 : 0.9, h.kind === 'icicle' ? 0 : 8, 18);
-            if (!b.held && Math.abs(b.x - h.x) < h.w / 2 + 0.6 && (h.kind !== 'icicle' || b.y < 3)) { b.vy = 12 + r() * 4; b.vx += (b.x - h.x) * 6; }
-            m.shake = Math.max(m.shake, h.kind === 'meteor' ? 0.7 : 0.4);
-            if (h.kind !== 'icicle') m.flash = Math.max(m.flash, 0.3);
-            burst(m, h.x, 0.2, h.kind === 'meteor' ? 30 : 16, h.kind === 'meteor' ? '#fb923c' : h.kind === 'icicle' ? '#e0f2fe' : '#fde047', h.kind === 'meteor' ? 'ember' : h.kind === 'icicle' ? 'shard' : 'spark', 6);
-            emit(m, { type: h.kind === 'meteor' ? 'boom' : h.kind === 'icicle' ? 'block' : 'thunder' });
-          }
+          const kind: StunKind = h.kind === 'icicle' ? 'freeze' : h.kind === 'meteor' ? 'burn' : 'zap';
+          hit(x0 - 0.3, x1 + 0.3, 0, H, kind, h.kind === 'icicle' ? 1.1 : 0.9, h.kind === 'icicle' ? 0 : 8, 18);
+          if (b.alive && Math.abs(b.x - h.x) < h.w / 2 + 0.6) { if (h.kind === 'meteor') explodeBall(m); else if (h.kind !== 'icicle' || b.y < 3) { b.vy = 12 + r() * 4; b.vx += (b.x - h.x) * 6; } }
+          m.shake = Math.max(m.shake, h.kind === 'meteor' ? 0.7 : 0.4);
+          if (h.kind !== 'icicle') m.flash = Math.max(m.flash, 0.3);
+          burst(m, h.x, 0.2, h.kind === 'meteor' ? 30 : 16, h.kind === 'meteor' ? '#fb923c' : h.kind === 'icicle' ? '#e0f2fe' : '#fde047', h.kind === 'meteor' ? 'ember' : h.kind === 'icicle' ? 'shard' : 'spark', 6);
+          emit(m, { type: h.kind === 'meteor' ? 'boom' : h.kind === 'icicle' ? 'block' : 'thunder' });
         }
-        break;
-      }
-      case 'gust': if (h.t > 0) { if (!b.held) b.vx += h.dir * 9 * dt; for (const f of m.fighters) if (!f.ground) f.vx += h.dir * 6 * dt; } break;
-      case 'tornado': {
-        if (!h.dir) h.dir = h.x < W / 2 ? 1 : -1;
-        h.x += h.dir * 2.2 * dt;
-        if (!b.held && Math.abs(b.x - h.x) < h.w / 2 + BALL_R && b.y < h.h) { b.vy += 34 * dt; b.vx += (h.x - b.x) * 6 * dt + h.dir * 3 * dt; }
-        m.fighters.forEach((f, i) => { if (Math.abs(f.x - h.x) < h.w / 2 && f.stun <= 0 && !((h.struck ?? 0) & (1 << i))) { h.struck = (h.struck ?? 0) | (1 << i); hurtFighter(m, f, null, 'hit', 0.9, 0, 10); f.vy = 13; f.ground = false; f.vx = h.dir * 5; } });
-        if (Math.abs(m.ref.x - h.x) < h.w / 2) hurtPerson(m, m.ref, 'hit', 1.2);
-        break;
-      }
-      case 'blackhole': if (!b.held) { const dx = h.x - b.x, dy = h.y - b.y, d = Math.max(1.2, Math.hypot(dx, dy)); b.vx += dx / d * 30 / d * dt; b.vy += dy / d * 30 / d * dt; } break;
-      case 'portal': {
-        const other = m.hazards.find(o => o.kind === 'portal' && o !== h);
-        if (other && !b.held && Math.hypot(b.x - h.x, b.y - h.y) < 0.65 && m.time - h.w > 1) { m.trail = []; b.x = other.x + Math.sign(b.vx || 1) * 0.8; b.y = other.y; other.w = m.time; h.w = m.time; burst(m, other.x, other.y, 14, '#c084fc', 'smoke', 2); emit(m, { type: 'zap' }); }
         break;
       }
     }
   }
-  m.hazards = m.hazards.filter(h => !((h.kind === 'arc' || h.kind === 'lightning' || h.kind === 'meteor' || h.kind === 'icicle' || h.kind === 'hand') && h.t > 1.3) && !(h.kind === 'gust' && h.t > 3) && !(h.kind === 'tornado' && (h.x < -1 || h.x > W + 1)));
+  m.hazards = m.hazards.filter(h => !((h.kind === 'meteor' || h.kind === 'icicle' || h.kind === 'lightning') && h.t > 1.3));
 }
 
 function fighterCollide(m: Match) {
   const [a, b] = m.fighters, dx = b.x - a.x, overlap = PW - Math.abs(dx);
+  if ((a.char === 'espectro' && a.abilityT > 0) || (b.char === 'espectro' && b.abilityT > 0)) return;
   if (overlap > 0 && Math.abs(a.y - b.y) < PH * 0.8) { const s = Math.sign(dx) || 1; a.x = clamp(a.x - s * overlap / 2, 0.5, W - 0.5); b.x = clamp(b.x + s * overlap / 2, 0.5, W - 0.5); }
 }
 
@@ -1015,43 +1094,67 @@ function updateParticles(m: Match, dt: number) {
 }
 
 // ---------------------------------------------------------------- La máquina
+// Hasta dónde le llega la habilidad (para decidir si usarla).
+function abilityReach(f: Fighter, x: number, y: number) {
+  const dx = (x - f.x) * f.facing, dy = y - (f.y + 1);
+  switch (CHARS[f.char].ability) {
+    case 'freeze': return Math.hypot(x - f.x, dy) < 5;
+    case 'quake': return Math.abs(x - f.x) < 4.2 && dy < 1.5 && f.ground;
+    case 'laserCut': return dx > -0.2 && Math.hypot(dx, dy) < 2.3;
+    case 'superJump': return Math.abs(x - f.x) < 1.5 && dy > 1 && dy < 6;
+    case 'charge': case 'phase': return dx > 0 && dx < 6 && Math.abs(dy) < 1;
+    case 'flight': return dx > 0 && dx < 9 && Math.abs(dy) < 1.5;
+    case 'magmaSpikes': return dx > 0 && dx < 10 && y < 1.4;
+    default: return dx > 0.3 && dx < 12 && Math.abs(dy) < dx * 1.1 + 1;
+  }
+}
 function cpuThink(m: Match, side: 0 | 1, c: CpuState, dt: number): Input {
   const f = m.fighters[side], rival = m.fighters[side === 0 ? 1 : 0], b = m.ball, dir = attackDir(m, side);
   const ownX = ownGoalX(m, side), goalX = ownGoalX(m, side === 0 ? 1 : 0);
   c.think -= dt;
   const plan = c.plan;
-  plan.kick = false; plan.cast = null; plan.up = false;
+  plan.kick = false; plan.cast = null; plan.up = false; plan.ability = false;
+  const canCast = abilityReady(f) && f.stamina > CHARS[f.char].cost + 8;
+  // FATAL del rival: si llega, le tira la habilidad a la pelota
   if (m.fatal && !m.fatal.done && m.fatal.side !== side) {
-    // decide una sola vez si llega a reaccionar (cuanto mejor la máquina, más seguido)
     const before = c.reactFatal; c.reactFatal += dt;
-    const at = 0.55 - c.level * 0.35;
-    if (before < at && c.reactFatal >= at && f.power >= COST.defense && m.rand() < 0.2 + c.level * 0.45) plan.cast = 'defense';
+    const at = 0.45 - c.level * 0.25;
+    if (before < at && c.reactFatal >= at && abilityReady(f) && m.rand() < 0.15 + c.level * 0.4) { f.facing = Math.sign(b.x - f.x) as 1 | -1 || f.facing; plan.cast = 'ability'; }
     return { ...plan };
   }
   c.reactFatal = 0;
+  // pelota que va a entrar al arco propio: la habilidad para salvarla (cuanto mejor la máquina, más seguido)
+  if (b.alive && canCast && Math.sign(b.vx) === -dir && Math.abs(b.vx) > 6 && Math.abs(b.x - ownX) < 9) {
+    // tiene que estar entre la pelota y su arco, mirándola (así la habilidad la manda para el otro lado)
+    if ((b.x - f.x) * dir > 0) {
+      const was = f.facing; f.facing = dir;
+      if (abilityReach(f, b.x, b.y) && m.rand() < (0.08 + c.level * 0.3) * dt * 15) { plan.cast = 'ability'; return { ...plan }; }
+      f.facing = was;
+    }
+  }
   if (c.think > 0) return { ...plan };
   c.think = 0.3 - c.level * 0.22 + m.rand() * 0.08;
   plan.left = false; plan.right = false; plan.down = false;
+  if (!b.alive) { // espera debajo del tubo
+    const dx = W / 2 - dir * 2 - f.x; if (Math.abs(dx) > 0.3) { plan.right = dx > 0; plan.left = dx < 0; }
+    return { ...plan };
+  }
   const ahead = (b.x - f.x) * dir; // >0: la pelota está entre él y el arco rival
   const toGoal = Math.abs(goalX - f.x);
-  let targetX: number;
-  if (b.held) targetX = b.held.team === side ? f.x + dir * 3 : W / 2 - dir * 3; // el arquero la tiene: se acomoda
-  else if (ahead > -0.3) targetX = b.x - dir * 0.5;
-  else targetX = b.x - dir * 1.2; // del lado equivocado: rodea
-  // cansado y lejos de la pelota: camina para recuperar energía
-  const tiredWalk = f.stamina < 25 + (1 - c.level) * 15 && Math.abs(b.x - f.x) > 6;
+  const targetX = ahead > -0.3 ? b.x - dir * 0.5 : b.x - dir * 1.2;
   const dx = targetX - f.x;
-  if (Math.abs(dx) > 0.15) { if (dx > 0) plan.right = true; else plan.left = true; }
-  if (tiredWalk && m.rand() < 0.6) { plan.left = false; plan.right = false; }
-  if (ahead < -0.2 && Math.abs(b.x - f.x) < 1.4 && b.y < 1.2 && f.ground && m.rand() < 0.5) plan.up = true; // salta la pelota para ponerse detrás
-  if (b.y > 2 && b.y < 4 && Math.abs(b.x - f.x) < 1.5 && f.ground && m.rand() < 0.3 + c.level * 0.3) plan.up = true; // cabezazo
-  // trampas encendidas o por encenderse adelante: frena (o salta los pinches)
+  const lowEnergy = f.stamina < 20 && Math.abs(b.x - f.x) > 7; // casi sin energía y lejos: descansa
+  if (Math.abs(dx) > 0.15 && !lowEnergy) { if (dx > 0) plan.right = true; else plan.left = true; }
+  if (ahead < -0.2 && Math.abs(b.x - f.x) < 1.4 && b.y < f.y + 1.2 && f.ground && m.rand() < 0.5) plan.up = true; // salta la pelota para ponerse detrás
+  if (b.y > f.y + 2 && b.y < f.y + 4.5 && Math.abs(b.x - f.x) < 1.6 && f.ground && m.rand() < 0.3 + c.level * 0.4) plan.up = true; // cabezazo o pelota en una plataforma
+  if (f.ground && Math.abs(f.vx) < 0.5 && Math.abs(dx) > 0.8) plan.up = true; // trabado contra un escalón
+  // trampas encendidas o por encenderse adelante: frena (o salta los pinches y la lava)
   const go = Math.sign(dx);
   for (const h of m.hazards) {
-    if (!trapLike(h) && h.kind !== 'lava') continue;
+    if ((!trapLike(h) && h.kind !== 'lava') || h.y > f.y + 0.5 || h.kind === 'laser' && h.h < f.y) continue;
     const dist = go > 0 ? h.x - (f.x + PW / 2) : f.x - PW / 2 - (h.x + h.w);
     const on = f.x + PW / 2 > h.x && f.x - PW / 2 < h.x + h.w;
-    if (on && h.kind !== 'lava' && h.state === 1 && m.rand() < 0.3 + c.level * 0.65) { const out = f.x < h.x + h.w / 2 ? -1 : 1; plan.left = out < 0; plan.right = out > 0; break; } // salir antes de que se encienda
+    if (on && h.kind !== 'lava' && h.state === 1 && m.rand() < 0.3 + c.level * 0.65) { const out = f.x < h.x + h.w / 2 ? -1 : 1; plan.left = out < 0; plan.right = out > 0; break; }
     if (dist < -0.1 || dist > 0.6 + c.level * 1.4) continue;
     if (h.kind === 'lava') { if (f.ground && dist < 0.7 && m.rand() < 0.5 + c.level * 0.5) plan.up = true; }
     else if (h.state !== 0 && m.rand() < 0.3 + c.level * 0.65) { plan.left = false; plan.right = false; }
@@ -1059,30 +1162,29 @@ function cpuThink(m: Match, side: 0 | 1, c: CpuState, dt: number): Input {
   }
   const near = Math.hypot(b.x - (f.x + dir * 0.5), b.y - (f.y + 0.5));
   // patear: con la pelota adelante
-  if (!b.held && (near < 1.2 || (ahead > 0.2 && ahead < 1.8 && Math.abs(b.y - f.y - 0.5) < 0.9)) && ahead > -0.1 && f.kickT <= 0 && m.rand() < 0.45 + c.level * 0.55) {
+  if ((near < 1.2 || (ahead > 0.2 && ahead < 1.8 && Math.abs(b.y - f.y - 0.5) < 0.9)) && ahead > -0.1 && f.kickT <= 0 && m.rand() < 0.45 + c.level * 0.55) {
     if (f.facing !== dir) { if (dir > 0) plan.right = true; else plan.left = true; }
-    else if (f.power >= COST.shot && toGoal < 12 && m.rand() < 0.2 + c.level * 0.45) plan.cast = 'shot'; // tiro especial cerca del arco
     else if (toGoal < 15 || m.rand() < 0.3) {
       plan.kick = true;
-      const keeper = m.keepers[side === 0 ? 1 : 0];
-      if (toGoal < 9 && keeper.action !== 'down' && keeper.action !== 'stun' && m.rand() < 0.45) plan.up = true; // globo por arriba del arquero
-      else if (Math.abs(rival.x - f.x) < 3 && (rival.x - f.x) * dir > 0 && m.rand() < 0.5) plan.up = true;
+      if (Math.abs(rival.x - f.x) < 3 && (rival.x - f.x) * dir > 0 && m.rand() < 0.5) plan.up = true;
     }
   }
+  // habilidad para tirar al arco o para pegarle al rival
+  if (canCast && f.facing === dir && ahead > 0 && toGoal < 12 && abilityReach(f, b.x, b.y) && m.rand() < 0.05 + c.level * 0.15) plan.cast = 'ability';
+  else if (canCast && abilityReach(f, rival.x, rival.y + 1) && m.rand() < 0.04 + c.level * 0.12) plan.cast = 'ability';
+  // pelota fuerte que viene a su arco y él está delante: se planta a bloquearla
+  if (Math.sign(b.vx) === -dir && Math.abs(b.vx) > 7 && (f.x - b.x) * dir < 0 && Math.abs(f.x - b.x) < 2.5 && b.y < f.y + PH && f.ground && m.rand() < 0.2 + c.level * 0.7) { plan.left = false; plan.right = false; plan.down = true; plan.kick = false; f.facing = dir; }
   // barrida si el rival tiene la pelota cerca
   const rivalHas = Math.abs(rival.x - b.x) < 1 && Math.abs(f.x - rival.x) < 2.2 && Math.abs(f.vx) > 3.5;
   if (rivalHas && m.rand() < 0.15 + c.level * 0.3) { plan.down = true; plan.kick = true; }
-  // golpe especial y FATAL
-  if (f.power >= COST.fatal && !m.fatal && m.rand() < 0.1 + c.level * 0.25) plan.cast = 'fatal';
-  else if (f.power >= COST.attack && Math.abs(rival.x - f.x) < 3.5 && m.rand() < 0.08 + c.level * 0.2) plan.cast = 'attack';
-  // defensa: tiro fuerte que viene a su arco
-  if (f.power >= COST.defense && Math.sign(b.vx) === -dir && Math.abs(b.vx) > 13 && Math.abs(b.x - ownX) < 9 && m.rand() < 0.2 + c.level * 0.4) plan.cast = 'defense';
+  // FATAL
+  if (fatalReady(f) && !m.fatal && m.rand() < 0.1 + c.level * 0.25) plan.cast = 'fatal';
   // potenciador cerca
   const pu = m.powerups.find(p => Math.abs(p.x - f.x) < 3);
-  if (pu && Math.abs(b.x - f.x) > 3) { plan.left = pu.x < f.x; plan.right = pu.x > f.x; if (pu.y > 3 && Math.abs(pu.x - f.x) < 1.2 && f.ground) plan.up = true; }
+  if (pu && Math.abs(b.x - f.x) > 3) { plan.left = pu.x < f.x; plan.right = pu.x > f.x; if (pu.y > f.y + 3 && Math.abs(pu.x - f.x) < 1.2 && f.ground) plan.up = true; }
   return { ...plan };
 }
 
 export const clockText = (s: number) => `${String(Math.floor(Math.ceil(s) / 60)).padStart(2, '0')}:${String(Math.ceil(s) % 60).padStart(2, '0')}`;
-// Las flechas de una combinación para quien ataca hacia "dir" (1: a la derecha).
-export function comboKeys(mv: Move, dir: 1 | -1): string[] { return COMBOS[mv].map(d => d === 'U' ? '↑' : d === 'D' ? '↓' : (d === 'F') === (dir > 0) ? '→' : '←'); }
+// Las flechas del FATAL para quien ataca hacia "dir" (1: a la derecha).
+export function fatalKeys(dir: 1 | -1): string[] { return FATAL_COMBO.map(d => (d === 'F') === (dir > 0) ? '→' : '←'); }

@@ -1,154 +1,147 @@
 import { describe, expect, it } from 'vitest';
-import { CHAR_IDS, COST, GOAL_DEPTH, HALF_TIME, POWER_MAX, STAGES, STAMINA, W, attackDir, comboKeys, defendsLeft, fatalPath, newMatch, noInput, seeded, step, takeEvents, type Input, type Match } from './kombat';
+import { CHARS, CHAR_IDS, GOAL_DEPTH, HALF_TIME, POWER_MAX, STAGES, STAMINA, TUBE_Y, W, attackDir, defendsLeft, explodeBall, fatalKeys, fatalPath, newMatch, noInput, seeded, step, supportAt, takeEvents, type Input, type Match } from './kombat';
 
 const idle = (): [Input, Input] => [noInput(), noInput()];
 function play(m: Match, seconds: number, inputs: (m: Match) => [Input, Input] = idle) {
   for (let t = 0; t < seconds; t += 1 / 60) { step(m, inputs(m), 1 / 60); if (m.phase === 'end') break; }
 }
-const toPlay = (m: Match) => { play(m, 2.45); expect(m.phase).toBe('play'); };
-// Aprieta una secuencia de teclas, una por cuadro (con un cuadro suelto entre medio).
+// Hasta que arranca y la pelota terminó de bajar por el tubo.
+const toPlay = (m: Match) => { play(m, 3.4); expect(m.phase).toBe('play'); expect(m.ball.alive).toBe(true); };
 function keys(seq: (keyof Input)[]) {
   let k = 0;
   return (): [Input, Input] => { const i = noInput(); const n = k++; if (n % 2 === 0 && n / 2 < seq.length) (i[seq[n / 2]] as boolean) = true; return [i, noInput()]; };
 }
 
 describe('Kombat Football', () => {
+  it('hay 16 luchadores, cada uno con su habilidad, y 10 escenarios', () => {
+    expect(CHAR_IDS).toHaveLength(16);
+    expect(new Set(CHAR_IDS.map(c => CHARS[c].ability)).size).toBe(16);
+    expect(STAGES).toHaveLength(10);
+  });
+
+  it('la pelota baja por el tubo del medio al empezar', () => {
+    const m = newMatch('industrial', ['cometa', 'inferno'], [null, null], seeded(1));
+    play(m, 3.1);
+    expect(m.ball.alive).toBe(true);
+    expect(m.ball.x).toBeCloseTo(W / 2, 0);
+    expect(m.ball.y).toBeLessThan(TUBE_Y);
+  });
+
   it('dos tiempos de 1:30: en el entretiempo los equipos cambian de lado', () => {
-    const m = newMatch('city', ['venox', 'blazehorn'], [null, null], seeded(1));
+    const m = newMatch('industrial', ['cometa', 'inferno'], [null, null], seeded(1));
     toPlay(m);
     expect(defendsLeft(m, 0)).toBe(true);
-    expect(attackDir(m, 0)).toBe(1);
     m.clock = 0.05; play(m, 0.2);
     expect(m.phase).toBe('halftime');
     play(m, 6);
     expect(m.half).toBe(2);
     expect(m.clock).toBeLessThanOrEqual(HALF_TIME);
-    expect(defendsLeft(m, 0)).toBe(false);
     expect(attackDir(m, 0)).toBe(-1);
-    // los arqueros también cambiaron de arco
-    expect(m.keepers[0].x).toBeGreaterThan(W / 2);
-    expect(m.keepers[1].x).toBeLessThan(W / 2);
   });
 
-  it('una patada fuerte cerca del arco puede ser gol (con el arquero volteado)', () => {
-    const m = newMatch('city', ['blazehorn', 'frostbane'], [null, null], seeded(2));
+  it('una patada cerca del arco es gol (no hay arqueros)', () => {
+    const m = newMatch('temple', ['inferno', 'frost'], [null, null], seeded(2));
     toPlay(m);
     const f = m.fighters[0], b = m.ball;
     m.fighters[1].x = 3;
-    m.keepers[1].stun = 10; m.keepers[1].action = 'down';
-    f.x = W - 7; b.x = f.x + 0.6; b.y = 0.5; b.vx = 0; b.vy = 0;
-    play(m, 3, keys(['kick']));
+    f.x = W - 4; f.y = 0; b.x = f.x + 0.6; b.y = 0.5; b.vx = 0; b.vy = 0;
+    play(m, 2, keys(['kick']));
     expect(f.goals).toBe(1);
-    expect(m.lastGoal?.side).toBe(0);
   });
 
-  it('el arquero ataja un tiro flojo y después la saca', () => {
-    const m = newMatch('city', ['venox', 'frostbane'], [null, null], seeded(3));
-    toPlay(m);
-    m.fighters[0].x = 10; m.fighters[1].x = 20;
-    const b = m.ball, k = m.keepers[1];
-    b.x = W - 6; b.y = 1; b.vx = 9; b.vy = 1; b.owner = 0;
-    let saved = false;
-    for (let t = 0; t < 2; t += 1 / 60) { step(m, idle(), 1 / 60); if (takeEvents(m).some(e => e.type === 'save')) saved = true; }
-    expect(saved).toBe(true);
-    expect(m.fighters[0].goals).toBe(0);
-    expect(k.hold).toBe(0); // ya la sacó
-  });
-
-  it('correr gasta energía y cansado se corre más lento; quieto se recupera', () => {
-    const m = newMatch('city', ['voltrax', 'venox'], [null, null], seeded(4));
-    toPlay(m);
-    const f = m.fighters[0];
-    f.x = 3; m.ball.x = 25;
-    play(m, 2.5, () => { const i = noInput(); i.right = true; return [i, noInput()]; });
-    expect(f.stamina).toBeLessThan(STAMINA * 0.9);
-    const tired = f.stamina;
-    play(m, 2);
-    expect(f.stamina).toBeGreaterThan(tired);
-  });
-
-  it('las combinaciones de flechas + espacio hacen las jugadas especiales y gastan poder', () => {
-    const m = newMatch('city', ['frostbane', 'venox'], [null, null], seeded(5));
-    toPlay(m);
-    const f = m.fighters[0];
-    f.power = COST.defense;
-    // atrás atrás espacio (ataca a la derecha, así que atrás es ←)
-    play(m, 0.3, keys(['left', 'left', 'kick']));
-    expect(m.shields.some(s => s.kind === 'icewall')).toBe(true);
-    expect(f.power).toBeLessThan(COST.defense);
-    expect(comboKeys('fatal', 1)).toEqual(['→', '←', '→']);
-    expect(comboKeys('shot', -1)).toEqual(['←', '←']);
-  });
-
-  it('el poder se carga y avisa al desbloquear cada nivel', () => {
-    const m = newMatch('city', ['venox', 'blazehorn'], [null, null], seeded(6));
-    toPlay(m);
-    takeEvents(m);
-    m.fighters[0].power = 99.9;
-    play(m, 0.2);
-    expect(takeEvents(m).some(e => e.type === 'unlock' && e.side === 0 && e.level === 1)).toBe(true);
-  });
-
-  it('si alguien patea al rival lo voltea, salvo que esté bloqueando (↓)', () => {
-    const m = newMatch('city', ['voltrax', 'nullshade'], [null, null], seeded(7));
-    toPlay(m);
-    const [a, b] = m.fighters;
-    m.ball.x = 3; m.ball.y = 5;
-    a.x = 10; b.x = 10.9; b.facing = -1;
-    play(m, 0.5, keys(['kick']));
-    expect(b.stun > 0 || b.action === 'stun').toBe(true);
-    const m2 = newMatch('city', ['voltrax', 'nullshade'], [null, null], seeded(7));
-    toPlay(m2);
-    const [a2, b2] = m2.fighters;
-    m2.ball.x = 3; m2.ball.y = 5;
-    a2.x = 10; b2.x = 10.9; b2.facing = -1;
-    let k = 0;
-    play(m2, 0.5, () => { k++; const i = noInput(), j = noInput(); i.kick = k === 4; j.down = true; return [i, j]; });
-    expect(b2.stun).toBe(0);
-  });
-
-  it('al árbitro se lo puede voltear: desaparece y vuelve a los segundos', () => {
-    const m = newMatch('city', ['venox', 'blazehorn'], [null, null], seeded(8));
-    toPlay(m);
-    const r = m.ref, f = m.fighters[0];
-    m.ball.x = 3; m.ball.y = 6;
-    play(m, 0.3);
-    f.x = r.x - 0.8; f.facing = 1; m.fighters[1].x = 26;
-    play(m, 0.4, keys(['kick']));
-    expect(['down', 'gone']).toContain(r.action);
-    play(m, 2.5);
-    expect(r.action).toBe('gone');
-    play(m, 3);
-    expect(r.action).not.toBe('gone');
-  });
-
-  it('el FATAL GOAL necesita los 3 niveles de poder, entra si nadie lo frena, y la defensa del rival lo para', () => {
+  it('cada habilidad gasta energía y le pega a la pelota (sirve para sacarla del arco)', () => {
     for (const char of CHAR_IDS) {
-      const m = newMatch('city', [char, 'venox'], [null, null], seeded(9));
+      const m = newMatch('temple', [char, 'frost'], [null, null], seeded(3));
       toPlay(m);
-      m.fighters[1].x = W - 3;
+      m.solids = []; m.hazards = []; // cancha lisa
+      const f = m.fighters[0], b = m.ball;
+      m.fighters[1].x = 26; m.ref.x = 27;
+      f.x = 14; f.y = 0; f.facing = 1; f.stamina = STAMINA;
+      const ab = CHARS[char].ability;
+      // la pelota donde la alcanza cada habilidad
+      b.x = ab === 'superJump' ? 14.3 : ab === 'quake' || ab === 'laserCut' || ab === 'charge' || ab === 'phase' || ab === 'freeze' ? 15.5 : 18; b.y = ab === 'superJump' ? 3 : ab === 'magmaSpikes' || ab === 'quake' || ab === 'charge' || ab === 'phase' ? 0.4 : 1.1; b.vx = 0; b.vy = 0;
+      if (ab === 'freeze' || ab === 'toxicCloud') b.vx = -8;
+      const x0 = b.x;
+      let k = 0, low = STAMINA, far = 0;
+      for (let t = 0; t < 1.2; t += 1 / 60) { k++; const i = noInput(); i.ability = k === 2; step(m, [i, noInput()], 1 / 60); low = Math.min(low, f.stamina); far = Math.max(far, b.x - x0); }
+      expect(low, char).toBeLessThan(STAMINA - 5);
+      if (ab === 'freeze') expect(Math.abs(b.x - x0), char).toBeLessThan(1.5);
+      else if (ab === 'toxicCloud') expect(x0 - b.x, char).toBeLessThan(6); // la nube la frena (sin nube recorrería mucho más)
+      else expect(far, char).toBeGreaterThan(2);
+    }
+  });
+
+  it('descansando se recupera la energía, y con poca energía se corre más lento', () => {
+    const m = newMatch('temple', ['shadow', 'toxic'], [null, null], seeded(4));
+    toPlay(m);
+    const f = m.fighters[0];
+    f.x = 15; f.stamina = 20;
+    play(m, 2);
+    expect(f.stamina).toBeGreaterThan(35);
+    const runSpeed = (stamina: number) => { const m2 = newMatch('temple', ['shadow', 'toxic'], [null, null], seeded(4)); toPlay(m2); m2.solids = []; m2.hazards = []; const g = m2.fighters[0]; g.x = 6; g.stamina = stamina; play(m2, 0.6, () => { const i = noInput(); i.right = true; return [i, noInput()]; }); return g.vx; };
+    expect(runSpeed(10)).toBeLessThan(runSpeed(100) * 0.7);
+  });
+
+  it('las trampas bajan la energía pero no matan', () => {
+    const m = newMatch('industrial', ['cometa', 'toxic'], [null, null], seeded(5));
+    toPlay(m);
+    const f = m.fighters[0], spikes = m.hazards.find(h => h.kind === 'spikes')!;
+    f.x = spikes.x + spikes.w / 2; f.y = 0;
+    let low = f.stamina;
+    for (let t = 0; t < 7; t += 1 / 60) { step(m, idle(), 1 / 60); low = Math.min(low, f.stamina); }
+    expect(low).toBeLessThan(STAMINA - 10);
+    expect(low).toBeGreaterThanOrEqual(0);
+  });
+
+  it('si la pelota se quema explota y baja otra por el tubo', () => {
+    const m = newMatch('volcano', ['cometa', 'toxic'], [null, null], seeded(6));
+    toPlay(m);
+    const lava = m.hazards.find(h => h.kind === 'lava')!;
+    m.ball.x = lava.x + lava.w / 2; m.ball.y = 1; m.ball.vx = 0; m.ball.vy = 0;
+    let boom = false, drop = false;
+    for (let t = 0; t < 3; t += 1 / 60) { step(m, idle(), 1 / 60); for (const e of takeEvents(m)) { if (e.type === 'ballBoom') boom = true; if (e.type === 'ballDrop') drop = true; } }
+    expect(boom).toBe(true);
+    expect(drop).toBe(true);
+    expect(m.ball.alive).toBe(true);
+    explodeBall(m); expect(m.ball.alive).toBe(false);
+  });
+
+  it('se puede pararse arriba de las plataformas', () => {
+    const m = newMatch('temple', ['cometa', 'toxic'], [null, null], seeded(7));
+    toPlay(m);
+    const p = m.solids.find(s => s.kind === 'float')!, f = m.fighters[0];
+    f.x = p.x + p.w / 2; f.y = p.y + p.h + 1; f.vy = 0;
+    play(m, 0.6);
+    expect(f.y).toBeCloseTo(p.y + p.h, 1);
+    expect(supportAt(m, f.x, f.y)).toBeCloseTo(p.y + p.h, 1);
+  });
+
+  it('el FATAL GOAL necesita la barra de poder llena, entra si nadie lo frena, y una habilidad del rival lo para', () => {
+    for (const char of ['inferno', 'frost', 'thunder', 'shadow', 'toxic', 'bruto'] as const) {
+      const m = newMatch('temple', [char, 'toxic'], [null, null], seeded(9));
+      toPlay(m);
+      m.fighters[1].x = W - 3; m.fighters[0].x = 10;
       const cast = () => { let k = 0; return (): [Input, Input] => { k++; const i = noInput(); i.cast = k === 2 ? 'fatal' : null; return [i, noInput()]; }; };
       play(m, 0.2, cast());
-      expect(m.fatal).toBeNull(); // sin poder no sale
+      expect(m.fatal).toBeNull();
       m.fighters[0].power = POWER_MAX;
       play(m, 6, cast());
       expect(m.fighters[0].goals, char).toBe(1);
       expect(m.lastGoal?.fatal).toBe(true);
     }
-    for (const defender of CHAR_IDS) {
-      const m = newMatch('city', ['blazehorn', defender], [null, null], seeded(10));
-      toPlay(m);
-      m.fighters[0].power = POWER_MAX;
-      m.fighters[1].x = W - GOAL_DEPTH - 1;
-      let k = 0;
-      play(m, 6, () => { k++; const i = noInput(), j = noInput(); i.cast = k === 2 ? 'fatal' : null; j.cast = k === 95 ? 'defense' : null; return [i, j]; });
-      expect(m.fighters[0].goals, defender).toBe(0);
-    }
+    const m = newMatch('temple', ['inferno', 'thunder'], [null, null], seeded(10));
+    toPlay(m);
+    m.fighters[0].power = POWER_MAX; m.fighters[0].x = 10;
+    m.fighters[1].x = W - 6; m.fighters[1].facing = 1;
+    let k = 0;
+    play(m, 6, () => { k++; const i = noInput(), j = noInput(); i.cast = k === 2 ? 'fatal' : null; j.ability = m.fatal !== null && Math.hypot(m.ball.x - m.fighters[1].x, m.ball.y - 1) < 6 && k % 2 === 0; return [i, j]; });
+    expect(m.fighters[0].goals).toBe(0);
+    expect(fatalKeys(1)).toEqual(['→', '←', '→']);
   });
 
   it('el recorrido de cada FATAL termina en el arco rival', () => {
-    for (const char of CHAR_IDS) for (const dir of [1, -1] as const) {
-      const fat = { side: 0 as const, char, t: 0, x0: dir === 1 ? 6 : W - 6, y0: 0.8, dir, blocked: false, done: false };
+    for (const style of ['meteor', 'avalanche', 'bolt', 'void', 'acid', 'boulder'] as const) for (const dir of [1, -1] as const) {
+      const fat = { style, x0: dir === 1 ? 6 : W - 6, y0: 0.8, dir };
       let p = fatalPath(fat, 0), t = 0;
       while (!p.done && t < 10) { t += 1 / 60; p = fatalPath(fat, t); expect(Number.isFinite(p.x) && Number.isFinite(p.y)).toBe(true); }
       expect(p.done).toBe(true);
@@ -157,16 +150,13 @@ describe('Kombat Football', () => {
   });
 
   it('empate al final: tiempo extra y el primer gol gana (gol de oro)', () => {
-    const m = newMatch('city', ['venox', 'blazehorn'], [null, null], seeded(11));
+    const m = newMatch('temple', ['cometa', 'inferno'], [null, null], seeded(11));
     toPlay(m);
-    m.clock = 0.05; play(m, 0.2); play(m, 6); // entretiempo
-    expect(m.half).toBe(2);
+    m.clock = 0.05; play(m, 0.2); play(m, 6);
     toPlay(m);
     m.clock = 0.05; play(m, 0.2);
     expect(m.extra).toBe(true);
-    play(m, 3);
-    // segundo tiempo: el equipo 0 ataca a la izquierda
-    m.keepers[1].stun = 10;
+    play(m, 4);
     m.ball.x = 0.6; m.ball.y = 1; m.ball.vx = -3;
     play(m, 4);
     expect(m.winner).toBe(0);
@@ -176,15 +166,14 @@ describe('Kombat Football', () => {
   it('dos máquinas juegan partidos completos en los 10 escenarios sin romperse', () => {
     let goals = 0, matches = 0;
     STAGES.forEach((stage, i) => {
-      const m = newMatch(stage.id, [CHAR_IDS[i % 5], CHAR_IDS[(i + 2) % 5]], [0.6, 0.6], seeded(100 + i));
+      const m = newMatch(stage.id, [CHAR_IDS[i], CHAR_IDS[15 - i]], [0.6, 0.6], seeded(100 + i));
       play(m, 230);
-      for (const f of m.fighters) expect(Number.isFinite(f.x) && Number.isFinite(f.y), stage.id).toBe(true);
+      for (const f of m.fighters) { expect(Number.isFinite(f.x) && Number.isFinite(f.y), stage.id).toBe(true); expect(f.stamina).toBeGreaterThanOrEqual(0); }
       expect(Number.isFinite(m.ball.x) && Number.isFinite(m.ball.y)).toBe(true);
       goals += m.fighters[0].goals + m.fighters[1].goals; matches++;
       if (m.phase === 'end') expect(m.winner === 0 || m.winner === 1).toBe(true);
     });
-    // con arqueros y una cancha larga, los goles cuestan: ni 0 ni una lluvia
     expect(goals).toBeGreaterThan(3);
-    expect(goals / matches).toBeLessThan(9);
+    expect(goals / matches).toBeLessThan(16);
   }, 90000);
 });
