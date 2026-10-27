@@ -317,8 +317,10 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
     }
     ctx.restore();
   };
+  // los hombros en las esquinas de arriba del pecho (izquierdo y derecho), girados con el cuerpo
+  const shoulderAt = (i: number): Pt => { const lx = (i === 0 ? -0.33 : 0.31) * K, ly = -0.42 + (i === 0 ? 0.02 : 0); return [hip[0] + lx * Math.cos(lean) - ly * Math.sin(lean), hip[1] + lx * Math.sin(lean) + ly * Math.cos(lean)]; };
   const arm = (i: number) => {
-    const back = i === 0, [ua, eb] = p.arms[i], sp: Pt = [shoulder[0] + (back ? -0.24 : 0.22) * K, shoulder[1] + (back ? -0.02 : 0)];
+    const back = i === 0, [ua, eb] = p.arms[i], sp = shoulderAt(i);
     const elbow = add(sp, dirv(ua), 0.3), hand = add(elbow, dirv(ua + eb), 0.28);
     segment(ctx, sp, elbow, 0.2 * K, 0.16 * K, limbCol(back, L.armor), 0.6);
     const cannon = !back && L.extras.includes('cannon');
@@ -346,7 +348,10 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
       for (const [c, w] of [[alpha(L.trim, 0.35), 0.16], [alpha(L.trim, 0.8), 0.07], ['#fff5fa', 0.03]] as const) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(b0[0], b0[1]); ctx.lineTo(b1[0], b1[1]); ctx.stroke(); }
       ctx.restore();
     }
-    // hombrera (con púas los grandotes)
+  };
+  // hombrera (con púas los grandotes): las dos se ven, una en cada esquina de arriba del pecho, como las piernas
+  const pad = (i: number) => {
+    const back = i === 0, ua = p.arms[i][0], sp = shoulderAt(i);
     shade(ctx, () => ctx.ellipse(sp[0], sp[1] + 0.01, 0.17 * K * (L.brute ? 1.25 : 1), 0.13 * K * (L.brute ? 1.25 : 1), ua * 0.3, 0, TAU), limbCol(back, L.armor), { x: sp[0] - 0.04, y: sp[1] - 0.05, r: 0.2, hi: 0.45, lw: 0.6 });
     ctx.strokeStyle = limbCol(back, trimOf(L)); ctx.lineWidth = 0.02; ctx.beginPath(); ctx.ellipse(sp[0], sp[1] + 0.01, 0.15 * K * (L.brute ? 1.25 : 1), 0.11 * K * (L.brute ? 1.25 : 1), ua * 0.3, 0.3, Math.PI - 0.3); ctx.stroke(); // borde de la hombrera
     ctx.fillStyle = limbCol(back, '#e2e8f0'); ctx.beginPath(); ctx.arc(sp[0] - 0.05, sp[1] - 0.04, 0.018, 0, TAU); ctx.fill();
@@ -383,12 +388,12 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
   ctx.save(); ctx.translate(0.03, -0.27); EMBLEM[CHARS[f.char].element](ctx, L.helmet === 'visor' ? '#17140c' : L.glow, t); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0, 0, 0.18, L.glow, 0.25 + fx.power * 0.5); ctx.restore();
   if (L.extras.includes('cracks')) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(251,146,60,${0.75 + 0.25 * Math.sin(t * 4)})`; ctx.lineWidth = 0.025; ctx.beginPath(); ctx.moveTo(-0.3, -0.35); ctx.lineTo(-0.1, -0.2); ctx.lineTo(-0.15, 0.0); ctx.moveTo(0.3, -0.38); ctx.lineTo(0.12, -0.15); ctx.lineTo(0.2, 0.02); ctx.moveTo(-0.1, -0.2); ctx.lineTo(0.12, -0.15); ctx.stroke(); bloom(ctx, 0, -0.2, 0.5, '#f97316', 0.3); ctx.restore(); }
   ctx.restore();
-  leg(1);
+  pad(0); leg(1);
   // manguera del Orbot / Toxic: de la máscara a la espalda
   ctx.save(); ctx.translate(neck[0] + 0.03, neck[1] - 0.37); ctx.rotate(p.head * 0.5);
   drawHead(ctx, f.char, t, fx.power, f.action === 'celebrate' ? 'happy' : f.action === 'stun' || f.action === 'sad' || f.action === 'tired' ? 'hurt' : 'normal');
   ctx.restore();
-  arm(1);
+  arm(1); pad(1);
   if (L.extras.includes('cracks')) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0, -0.9, 0.9, '#f97316', 0.15 + 0.08 * Math.sin(t * 3)); ctx.restore(); }
   if (ghost) {
     ctx.restore();
