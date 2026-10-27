@@ -5,13 +5,13 @@
 // láseres, fuego, placas eléctricas, minas, bolas con púas, lava), los luchadores, el árbitro, la pelota, las
 // habilidades, los potenciadores y los efectos. El mundo se mide en metros (kombat.ts); acá se pasa a píxeles.
 import {
-  BALLS, BALL_R, BAR, CHARS, GOAL_DEPTH, H, POWERS, POWER_MAX, TUBE_Y, W, fatalPath, goalHeight, minePos, sawPos, teamAt, wreckPos,
+  BALLS, BALL_R, BAR, CHARS, GOAL_DEPTH, H, NET_FLAT, POWERS, POWER_MAX, TUBE_Y, W, fatalPath, goalHeight, minePos, netTop, sawPos, teamAt, wreckPos,
   type Ball, type Fx, type Hazard, type Match, type Particle, type PowerKind, type Shot, type Solid, type StageId,
 } from './kombat';
 import { BODY_SCALE, drawFighterLit, drawRef, LOOKS } from './kombatFighters';
 import { alpha, bloom, darken, grain, hash, lighten, lin, shade, spec, zap } from './gravityMonsters';
 import { bolt, hazardStripes, laserBeam, laserEmitter, laserWarnLine, plate, rock, sawBlade, seaMine, steelSpikes } from './gravityHazardArt';
-import { paintScenery } from './kombatScenery';
+import { drawAmbient, gradeScenery, paintScenery } from './kombatScenery';
 
 const TAU = Math.PI * 2;
 export interface View { w: number; h: number; s: number; ox: number; oy: number }
@@ -50,8 +50,9 @@ function background(m: Match, v: View): HTMLCanvasElement | null {
   if (!g) { bgCache.set(key, null); return null; }
   if (bgCache.size > 8) bgCache.clear();
   paintScenery(g, m.stage, v.w, v.h, Y(v, 0), v.s);
+  gradeScenery(c, m.stage);
   paintFloor(g, m.stage, v);
-  for (const s of m.solids) paintSolid(g, m.stage, s, v);
+  for (const s of m.solids) if (!s.move) paintSolid(g, m.stage, s, v);
   paintTube(g, v);
   bgCache.set(key, c);
   return c;
@@ -102,7 +103,7 @@ function paintSolid(g: CanvasRenderingContext2D, stage: StageId, sd: Solid, v: V
     return;
   }
   // soportes de las plataformas flotantes
-  if (sd.kind === 'float') {
+  if (sd.kind === 'float' && !sd.move) {
     if (T.support === 'truss') { for (const px of [x + w * 0.2, x + w * 0.8 - s * 0.5]) { g.strokeStyle = '#1b2232'; g.lineWidth = Math.max(1, s * 0.07); g.strokeRect(px, y + hh, s * 0.5, gy - y - hh); for (let yy = y + hh; yy < gy; yy += s * 0.5) { g.beginPath(); g.moveTo(px, yy); g.lineTo(px + s * 0.5, yy + s * 0.5); g.moveTo(px + s * 0.5, yy); g.lineTo(px, yy + s * 0.5); g.stroke(); } } }
     if (T.support === 'chains') for (const px of [x + w * 0.15, x + w * 0.85]) { g.strokeStyle = '#2b2f3a'; g.lineWidth = Math.max(1, s * 0.05); for (let yy = 0; yy < y; yy += s * 0.22) { g.beginPath(); g.ellipse(px, yy, s * 0.06, s * 0.12, 0, 0, TAU); g.stroke(); } }
     if (T.support === 'vines') for (let k = 0; k < 4; k++) { const px = x + w * (0.15 + k * 0.23); g.strokeStyle = '#2f6b25'; g.lineWidth = Math.max(1, s * 0.05); g.beginPath(); g.moveTo(px, y + hh); g.quadraticCurveTo(px + s * 0.2, y + hh + s * 0.5, px, y + hh + s * (0.6 + hash(k + sd.id) * 0.8)); g.stroke(); }
@@ -148,33 +149,42 @@ function paintTube(g: CanvasRenderingContext2D, v: View) {
 }
 
 // ---------------------------------------------------------------- Arcos
+// El arco visto de costado: el palo vertical en la boca, el travesaño que sale un tramo para atrás y la red que
+// cae en curva hasta el piso en el fondo (con la malla que sigue la curva y se mueve un poco).
 function drawGoal(ctx: CanvasRenderingContext2D, m: Match, v: View, left: boolean, front: boolean) {
-  const side = teamAt(m, left), s = v.s, gh = goalHeight(m, side), x0 = left ? 0 : W - GOAL_DEPTH, x1 = left ? GOAL_DEPTH : W;
-  const fx = left ? x1 : x0, bx = left ? x0 : x1;
+  const side = teamAt(m, left), s = v.s, gh = goalHeight(m, side);
+  const mouth = left ? GOAL_DEPTH : W - GOAL_DEPTH, back = left ? 0 : W, dir = left ? -1 : 1; // dir: hacia el fondo
   const L = LOOKS[m.fighters[side].char];
+  const at = (u: number) => mouth + dir * u * GOAL_DEPTH;
   if (!front) {
-    ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(X(v, Math.min(x0, x1)), Y(v, gh), GOAL_DEPTH * s, gh * s);
-    ctx.save(); ctx.beginPath(); ctx.rect(X(v, Math.min(x0, x1)), Y(v, gh), GOAL_DEPTH * s, gh * s); ctx.clip();
-    ctx.strokeStyle = 'rgba(230,240,255,0.45)'; ctx.lineWidth = Math.max(1, s * 0.025);
-    const sway = Math.sin(m.time * 2 + side) * 0.03;
-    for (let x = Math.min(x0, x1); x <= Math.max(x0, x1) + 0.01; x += 0.25) { ctx.beginPath(); ctx.moveTo(X(v, x), Y(v, gh)); ctx.quadraticCurveTo(X(v, x + sway * 4), Y(v, gh / 2), X(v, x), Y(v, 0)); ctx.stroke(); }
-    for (let y = 0; y <= gh; y += 0.25) { ctx.beginPath(); ctx.moveTo(X(v, x0), Y(v, y)); ctx.quadraticCurveTo(X(v, (x0 + x1) / 2), Y(v, y - 0.06), X(v, x1), Y(v, y)); ctx.stroke(); }
+    const sway = Math.sin(m.time * 2 + side) * 0.04;
+    const outline = () => { ctx.beginPath(); ctx.moveTo(X(v, mouth), Y(v, 0)); ctx.lineTo(X(v, mouth), Y(v, gh)); for (let k = 0; k <= 24; k++) { const u = k / 24; ctx.lineTo(X(v, at(u) + sway * u), Y(v, netTop(gh, u))); } ctx.lineTo(X(v, back), Y(v, 0)); ctx.closePath(); };
+    ctx.save();
+    outline(); ctx.fillStyle = lin(ctx, X(v, mouth), 0, X(v, back), 0, [[0, 'rgba(0,0,0,0.25)'], [1, 'rgba(0,0,0,0.55)']]); ctx.fill();
+    outline(); ctx.clip();
+    ctx.strokeStyle = 'rgba(235,242,255,0.5)'; ctx.lineWidth = Math.max(1, s * 0.022);
+    for (let k = 1; k <= 7; k++) { const u = k / 7; ctx.beginPath(); ctx.moveTo(X(v, at(u * NET_FLAT)), Y(v, gh)); ctx.quadraticCurveTo(X(v, at(u * 0.5 + 0.2) + sway * 3), Y(v, netTop(gh, u) * 0.55), X(v, at(u) + sway * u), Y(v, 0)); ctx.stroke(); } // hilos que bajan
+    for (let j = 1; j <= 11; j++) { const y = gh * j / 12; ctx.beginPath(); for (let k = 0; k <= 16; k++) { const u = k / 16, px = X(v, at(u) + sway * u * (y / gh)), py = Y(v, y - Math.sin(u * Math.PI) * 0.06); if (k) ctx.lineTo(px, py); else ctx.moveTo(px, py); } ctx.stroke(); } // hilos que siguen la curva
     ctx.restore();
-    ctx.fillStyle = '#9aa3b0'; ctx.fillRect(X(v, bx) - s * 0.05, Y(v, gh), s * 0.1, gh * s);
+    ctx.strokeStyle = 'rgba(240,245,255,0.75)'; ctx.lineWidth = Math.max(1.2, s * 0.035); ctx.beginPath(); for (let k = 0; k <= 24; k++) { const u = k / 24; const px = X(v, at(u) + sway * u), py = Y(v, netTop(gh, u)); if (k) ctx.lineTo(px, py); else ctx.moveTo(px, py); } ctx.stroke(); // el borde de la red
+    ctx.fillStyle = lin(ctx, 0, Y(v, 0) - s * 0.08, 0, Y(v, 0), [[0, '#c7ced8'], [1, '#3b4250']]); ctx.fillRect(Math.min(X(v, mouth), X(v, back)), Y(v, 0) - s * 0.07, GOAL_DEPTH * s, s * 0.07); // caño del piso
     return;
   }
-  const post = (x: number, y0: number, y1: number, wd: number, horiz: boolean) => {
-    ctx.beginPath(); if (horiz) ctx.rect(X(v, Math.min(x0, x1)), Y(v, y1), GOAL_DEPTH * s, (y1 - y0) * s); else ctx.rect(X(v, x) - wd * s / 2, Y(v, y1), wd * s, (y1 - y0) * s);
-    ctx.fillStyle = horiz ? lin(ctx, 0, Y(v, y1), 0, Y(v, y0), [[0, '#ffffff'], [0.4, '#c7ced8'], [1, '#5b6472']]) : lin(ctx, X(v, x) - wd * s / 2, 0, X(v, x) + wd * s / 2, 0, [[0, '#5b6472'], [0.35, '#ffffff'], [0.6, '#c7ced8'], [1, '#3b4250']]);
-    ctx.fill(); ctx.strokeStyle = '#11141a'; ctx.lineWidth = 1; ctx.stroke();
-  };
-  post(fx, 0, gh + BAR, 0.16, false);
-  post(0, gh, gh + BAR, 0, true);
+  // travesaño: un caño corto que va de la boca hacia atrás, con brillo arriba
+  const tb = at(NET_FLAT), bxA = Math.min(X(v, mouth), X(v, tb)), bw = Math.abs(X(v, tb) - X(v, mouth));
+  ctx.beginPath(); ctx.roundRect(bxA - s * 0.08, Y(v, gh + BAR), bw + s * 0.16, BAR * s, BAR * s / 2);
+  ctx.fillStyle = lin(ctx, 0, Y(v, gh + BAR), 0, Y(v, gh), [[0, '#ffffff'], [0.45, '#d5dbe4'], [1, '#5b6472']]); ctx.fill(); ctx.strokeStyle = '#11141a'; ctx.lineWidth = 1; ctx.stroke();
+  // palo vertical en la boca, de punta a punta, con base
+  const pw = 0.2 * s, px = X(v, mouth) - pw / 2;
+  ctx.beginPath(); ctx.roundRect(px, Y(v, gh + BAR), pw, (gh + BAR) * s, pw / 2);
+  ctx.fillStyle = lin(ctx, px, 0, px + pw, 0, [[0, '#4b5260'], [0.3, '#ffffff'], [0.55, '#d5dbe4'], [1, '#2f3542']]); ctx.fill(); ctx.strokeStyle = '#11141a'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#2a2f3a'; ctx.fillRect(px - pw * 0.4, Y(v, 0) - s * 0.08, pw * 1.8, s * 0.08);
+  for (let k = 1; k < 6; k++) { ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(px, Y(v, gh * k / 6), pw, 1); }
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  ctx.fillStyle = alpha(L.glow, 0.35 + 0.15 * Math.sin(m.time * 3)); ctx.fillRect(X(v, fx) - s * 0.03, Y(v, gh), s * 0.06, gh * s);
-  bloom(ctx, X(v, fx), Y(v, gh), s * 0.8, L.glow, 0.35);
+  ctx.fillStyle = alpha(L.glow, 0.35 + 0.15 * Math.sin(m.time * 3)); ctx.fillRect(X(v, mouth) - s * 0.03, Y(v, gh), s * 0.06, gh * s);
+  bloom(ctx, X(v, mouth), Y(v, gh), s * 0.8, L.glow, 0.35);
   ctx.restore();
-  if ((m.fighters[side === 0 ? 1 : 0].powers.giant ?? 0) > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(249,115,22,${0.5 + 0.4 * Math.sin(m.time * 10)})`; ctx.lineWidth = s * 0.06; ctx.strokeRect(X(v, Math.min(x0, x1)), Y(v, gh), GOAL_DEPTH * s, gh * s); ctx.restore(); }
+  if ((m.fighters[side === 0 ? 1 : 0].powers.giant ?? 0) > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(249,115,22,${0.5 + 0.4 * Math.sin(m.time * 10)})`; ctx.lineWidth = s * 0.06; ctx.beginPath(); ctx.moveTo(X(v, mouth), Y(v, 0)); ctx.lineTo(X(v, mouth), Y(v, gh)); for (let k = 0; k <= 16; k++) ctx.lineTo(X(v, at(k / 16)), Y(v, netTop(gh, k / 16))); ctx.stroke(); ctx.restore(); }
 }
 
 // ---------------------------------------------------------------- Pelota
@@ -525,12 +535,45 @@ function drawChargeMeter(ctx: CanvasRenderingContext2D, charge: number, x: numbe
   if (k >= 1) { ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, y + h / 2, w * 0.7, glow, 0.35 + 0.25 * Math.sin(t * 20)); }
   ctx.restore();
 }
+// Ascensores, plataformas que van y vienen y pistones (se dibujan en cada cuadro porque se mueven).
+function drawMover(ctx: CanvasRenderingContext2D, m: Match, sd: Solid, v: View) {
+  const mv = sd.move!, T = THEMES[m.stage], s = v.s, x = X(v, sd.x), w = sd.w * s, top = Y(v, sd.y + sd.h), gy = Y(v, 0);
+  ctx.save();
+  if (mv.kind === 'lift') { // guías verticales con luces y la cadena
+    const yTop = Y(v, mv.y0 + mv.ay + 0.6);
+    for (const px of [x - s * 0.12, x + w + s * 0.02]) {
+      ctx.fillStyle = lin(ctx, px, 0, px + s * 0.1, 0, [[0, '#1b2130'], [0.5, '#7b8698'], [1, '#141a26']]); ctx.fillRect(px, yTop, s * 0.1, gy - yTop);
+      for (let yy = yTop + s * 0.3; yy < gy; yy += s * 0.6) { ctx.fillStyle = alpha(T.edge, 0.55 + 0.45 * Math.sin(m.time * 4 + yy * 0.05)); ctx.fillRect(px + s * 0.03, yy, s * 0.04, s * 0.08); }
+    }
+    ctx.strokeStyle = '#3a4252'; ctx.lineWidth = Math.max(1, s * 0.04); ctx.setLineDash([s * 0.08, s * 0.06]); ctx.beginPath(); ctx.moveTo(x + w / 2, yTop); ctx.lineTo(x + w / 2, top); ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (mv.kind === 'slide') { // riel de arriba con el carrito
+    const ry = Y(v, sd.y + 2.2), xa = X(v, mv.x0 - Math.abs(mv.ax)) , xb = X(v, mv.x0 + Math.abs(mv.ax)) + w;
+    ctx.fillStyle = lin(ctx, 0, ry - s * 0.08, 0, ry + s * 0.08, [[0, '#9aa6b8'], [1, '#232a38']]); ctx.fillRect(xa, ry - s * 0.06, xb - xa, s * 0.12);
+    for (const px of [x + w * 0.2, x + w * 0.8]) { ctx.strokeStyle = '#2b3240'; ctx.lineWidth = Math.max(1, s * 0.05); ctx.beginPath(); ctx.moveTo(px, ry); ctx.lineTo(px, top); ctx.stroke(); ctx.fillStyle = '#4b5563'; ctx.beginPath(); ctx.arc(px, ry, s * 0.1, 0, TAU); ctx.fill(); }
+  }
+  if (mv.kind === 'piston') { // cilindro que sale del piso con franjas y vapor
+    const k = (sd.h - mv.h0) / Math.max(0.01, mv.ah);
+    ctx.fillStyle = lin(ctx, x + w * 0.2, 0, x + w * 0.8, 0, [[0, '#2b3240'], [0.35, '#d5dce6'], [0.6, '#7b8698'], [1, '#1b2130']]); ctx.fillRect(x + w * 0.22, top + s * 0.2, w * 0.56, gy - top - s * 0.2);
+    ctx.save(); ctx.translate(v.ox, v.oy); ctx.scale(s, s); hazardStripes(ctx, sd.x, -(sd.y + sd.h), sd.w, 0.22, 0.3); ctx.restore();
+    if (k > 0.05 && k < 0.98) { ctx.globalCompositeOperation = 'lighter'; for (let i = 0; i < 6; i++) { const d = (m.time * 1.8 + i / 6) % 1; ctx.fillStyle = `rgba(230,236,245,${0.25 * (1 - d)})`; ctx.beginPath(); ctx.arc(x + w * (i % 2 ? -0.05 : 1.05), gy - s * (0.1 + d * 0.9), s * (0.12 + d * 0.25), 0, TAU); ctx.fill(); } ctx.globalCompositeOperation = 'source-over'; }
+    ctx.fillStyle = `rgba(255,60,40,${0.5 + 0.5 * Math.sin(m.time * 10)})`; ctx.beginPath(); ctx.arc(x + w / 2, top + s * 0.11, s * 0.06, 0, TAU); ctx.fill();
+  }
+  paintSolid(ctx, m.stage, sd, v);
+  if (mv.kind !== 'piston') { // propulsores debajo
+    ctx.globalCompositeOperation = 'lighter';
+    for (const px of [x + w * 0.25, x + w * 0.75]) { const g = ctx.createRadialGradient(px, top + sd.h * s, 0, px, top + sd.h * s, s * 0.45); g.addColorStop(0, alpha(T.edge, 0.7)); g.addColorStop(1, alpha(T.edge, 0)); ctx.fillStyle = g; ctx.fillRect(px - s * 0.45, top + sd.h * s - s * 0.1, s * 0.9, s * 0.6); }
+  }
+  ctx.restore();
+}
 export function drawMatch(ctx: CanvasRenderingContext2D, m: Match, v: View) {
   ctx.save();
   if (m.shake > 0) ctx.translate((Math.random() - 0.5) * m.shake * v.s * 0.5, (Math.random() - 0.5) * m.shake * v.s * 0.5);
   const bg = background(m, v);
   if (bg) ctx.drawImage(bg, 0, 0); else { ctx.fillStyle = THEMES[m.stage].sky[1]; ctx.fillRect(0, 0, v.w, v.h); }
+  drawAmbient(ctx, m.stage, v.w, v.h, Y(v, 0), v.s, m.time);
   for (const h of m.hazards) if (h.kind === 'waterfall') drawHazard(ctx, h, m, v);
+  for (const sd of m.solids) if (sd.move) drawMover(ctx, m, sd, v);
   for (const h of m.hazards) if (h.kind === 'lava' || h.kind === 'conveyor' || h.kind === 'spikes' || h.kind === 'shock' || h.kind === 'saw' || (h.kind === 'flame' && h.state < 2)) drawHazard(ctx, h, m, v);
   drawGoal(ctx, m, v, true, false); drawGoal(ctx, m, v, false, false);
   for (const h of m.hazards) if (h.kind === 'laser' || h.kind === 'mine') drawHazard(ctx, h, m, v);

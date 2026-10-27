@@ -119,9 +119,10 @@ export function KombatFootball() {
   const [fighting, setFighting] = useState<[CharId, CharId]>(['cometa', 'inferno']);
   const [stageName, setStageName] = useState('');
   const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.innerWidth < 700);
+  const [vp, setVp] = useState(() => typeof window !== 'undefined' ? { w: window.innerWidth, h: window.innerHeight } : { w: 1280, h: 720 });
   const screenRef = useRef(screen); useEffect(() => { screenRef.current = screen; }, [screen]);
   const modeRef = useRef(mode); useEffect(() => { modeRef.current = mode; }, [mode]);
-  useEffect(() => { const on = () => setNarrow(window.innerWidth < 700); window.addEventListener('resize', on); return () => window.removeEventListener('resize', on); }, []);
+  useEffect(() => { const on = () => { setNarrow(window.innerWidth < 700); setVp({ w: window.innerWidth, h: window.innerHeight }); }; window.addEventListener('resize', on); return () => window.removeEventListener('resize', on); }, []);
   const shoutId = useRef(0);
   const shout = useCallback((text: string, kind: Shout['kind'], sub?: string, ms = 1800) => {
     const id = ++shoutId.current;
@@ -306,7 +307,7 @@ export function KombatFootball() {
     const s = hud?.sides[i], c = CHARS[chars[i]], stamina = s?.stamina ?? STAMINA, power = s?.power ?? 0;
     const color = stamina > 55 ? '#22c55e' : stamina > 25 ? '#facc15' : '#ef4444';
     return <div className={`kf-side kf-side--${i}`} data-testid={`kf-side-${i}`}>
-      <Portrait char={chars[i]} size={46} mirror={i === 1} square />
+      <Portrait char={chars[i]} size={64} mirror={i === 1} square />
       <div className="kf-bars">
         <div className={`kf-energy${stamina < 20 ? ' kf-energy--low' : ''}`} role="meter" aria-valuemin={0} aria-valuemax={STAMINA} aria-valuenow={stamina} aria-label={`Energía de ${c.name}: ${stamina} de ${STAMINA}`}>
           <i style={{ width: `${stamina}%`, background: `linear-gradient(180deg, ${color}, ${color}aa 60%, ${color}77)` }} />
@@ -335,7 +336,10 @@ export function KombatFootball() {
   const playing = screen === 'playing' || screen === 'paused';
   const selecting = screen === 'select';
   const shown = selecting ? CHAR_IDS[cursor] : p1;
-  const cardW = narrow ? 120 : 190, cardH = narrow ? 150 : 250;
+  // La selección ocupa toda la pantalla, centrada: los cuadrados 50% más grandes (156 px) si entran, y el
+  // luchador elegido del alto de la grilla.
+  const cell = narrow ? Math.max(56, Math.min(99, Math.floor((vp.w - 40) / 4))) : Math.max(70, Math.min(156, Math.floor((vp.h - 230) / 4)));
+  const cardH = narrow ? 225 : Math.round(Math.min(375, cell * 4 * 0.98)), cardW = Math.round(cardH * 0.76);
   return <section className="runner kf" aria-label="Kombat Football">
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
@@ -351,7 +355,9 @@ export function KombatFootball() {
       {playing && hud && <div className="kf-hud">
         {sideBar(0)}
         <div className="kf-score" aria-live="polite">
-          <div data-testid="kf-score">{hud.score[0]} - {hud.score[1]}</div>
+          <div className="kf-score-main" data-testid="kf-score">
+            <span className="kf-goals" style={{ ['--kf-c' as string]: CHARS[chars[0]].color }}>{hud.score[0]}</span><i> - </i><span className="kf-goals" style={{ ['--kf-c' as string]: CHARS[chars[1]].color }}>{hud.score[1]}</span>
+          </div>
           <small data-testid="kf-clock" className={hud.extra ? 'kf-golden' : ''}>{hud.extra ? '' : <b>{hud.half}</b>}{hud.clock}</small>
           {hud.ball && <em>{hud.ball}</em>}
         </div>
@@ -384,7 +390,7 @@ export function KombatFootball() {
               return <button key={id} type="button" className={`kf-cell${sel1 ? ' kf-cell--1' : ''}${sel2 ? ' kf-cell--2' : ''}`} aria-label={CHARS[id].name} aria-pressed={cursor === i}
                 onClick={() => { if (cursor === i) chooseChar(i); else { setCursor(i); if (pick === 0) setP1(id); else setP2(id); } }}
                 onDoubleClick={() => chooseChar(i)}>
-                <Portrait char={id} size={narrow ? 66 : 104} square />
+                <Portrait char={id} size={cell} square />
                 {sel1 && <i className="kf-tag kf-tag--1">1</i>}{sel2 && <i className="kf-tag kf-tag--2">{mode === 'versus' ? '2' : 'CPU'}</i>}
               </button>;
             })}

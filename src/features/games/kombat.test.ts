@@ -161,6 +161,23 @@ describe('Kombat Football', () => {
     expect(supportAt(m, f.x, f.y)).toBeCloseTo(p.y + p.h, 1);
   });
 
+  it('los ascensores llevan al que está arriba y los pistones lanzan la pelota', () => {
+    const m = newMatch('moon', ['cometa', 'toxic'], [null, null], seeded(15));
+    toPlay(m);
+    const lift = m.solids.find(s => s.move?.kind === 'lift')!, f = m.fighters[0];
+    f.x = lift.x + lift.w / 2; f.y = lift.y + lift.h + 0.5; f.vy = 0;
+    let lo = 99, hi = 0;
+    play(m, 8, () => { lo = Math.min(lo, f.y); hi = Math.max(hi, f.y); return idle(); });
+    expect(hi - lo).toBeGreaterThan(2);
+    expect(f.y).toBeCloseTo(lift.y + lift.h, 1);
+    const v = newMatch('volcano', ['cometa', 'toxic'], [null, null], seeded(16));
+    toPlay(v);
+    const pis = v.solids.find(s => s.move?.kind === 'piston')!;
+    let top = 0;
+    for (let t = 0; t < 6; t += 1 / 60) { if (pis.h < 0.3) { v.ball.x = pis.x + pis.w / 2; v.ball.y = pis.y + pis.h + 0.3; v.ball.vx = 0; v.ball.vy = 0; } step(v, idle(), 1 / 60); top = Math.max(top, v.ball.y); }
+    expect(top).toBeGreaterThan(2.5);
+  });
+
   it('el FATAL GOAL necesita la barra de poder llena, entra si nadie lo frena, y una habilidad del rival lo para', () => {
     for (const char of ['inferno', 'frost', 'thunder', 'shadow', 'toxic', 'bruto'] as const) {
       const m = newMatch('temple', [char, 'toxic'], [null, null], seeded(9));
@@ -208,11 +225,15 @@ describe('Kombat Football', () => {
     expect(m.phase).toBe('end');
   });
 
-  it('dos máquinas juegan partidos completos en los 10 escenarios sin romperse', () => {
-    let goals = 0, matches = 0;
+  it('dos máquinas juegan partidos completos en los 10 escenarios sin romperse y casi sin goles en contra', () => {
+    let goals = 0, matches = 0, own = 0;
     STAGES.forEach((stage, i) => {
       const m = newMatch(stage.id, [CHAR_IDS[i], CHAR_IDS[15 - i]], [0.6, 0.6], seeded(100 + i));
-      play(m, 230);
+      let touchT = 0;
+      for (let t = 0; t < 230 && m.phase !== 'end'; t += 1 / 60) {
+        const owner = m.ball.owner; step(m, idle(), 1 / 60); if (m.ball.owner !== owner) touchT = m.time;
+        for (const e of takeEvents(m)) if (e.type === 'goal' && owner !== null && owner !== e.side && m.time - touchT < 1.5) own++;
+      }
       for (const f of m.fighters) { expect(Number.isFinite(f.x) && Number.isFinite(f.y), stage.id).toBe(true); expect(f.stamina).toBeGreaterThanOrEqual(0); }
       expect(Number.isFinite(m.ball.x) && Number.isFinite(m.ball.y)).toBe(true);
       goals += m.fighters[0].goals + m.fighters[1].goals; matches++;
@@ -220,5 +241,6 @@ describe('Kombat Football', () => {
     });
     expect(goals).toBeGreaterThan(3);
     expect(goals / matches).toBeLessThan(16);
+    expect(own / goals).toBeLessThan(0.12); // casi nunca goles en contra
   }, 90000);
 });
