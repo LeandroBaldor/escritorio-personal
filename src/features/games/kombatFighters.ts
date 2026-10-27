@@ -318,7 +318,23 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
     ctx.restore();
   };
   // los hombros en las esquinas de arriba del pecho (izquierdo y derecho), girados con el cuerpo
-  const shoulderAt = (i: number): Pt => { const lx = (i === 0 ? -0.33 : 0.31) * K, ly = -0.42 + (i === 0 ? 0.02 : 0); return [hip[0] + lx * Math.cos(lean) - ly * Math.sin(lean), hip[1] + lx * Math.sin(lean) + ly * Math.cos(lean)]; };
+  const shoulderAt = (i: number): Pt => { const lx = (i === 0 ? -0.33 : 0.27) * K, ly = -0.42 + (i === 0 ? 0.02 : -0.04); return [hip[0] + lx * Math.cos(lean) - ly * Math.sin(lean), hip[1] + lx * Math.sin(lean) + ly * Math.cos(lean)]; };
+  // El puño: guante con nudillos marcados, dedos cerrados, el pulgar cruzado, una placa arriba y la muñequera.
+  // Se dibuja girado según hacia dónde apunta el antebrazo.
+  const fist = (hand: Pt, ang: number, back: boolean) => {
+    const z = (L.brute ? 1.45 : 1) * 1.05, gc = limbCol(back, L.glove);
+    ctx.save(); ctx.translate(hand[0], hand[1]); ctx.rotate(-ang); ctx.scale(z, z); // +y: hacia donde apunta el antebrazo
+    shade(ctx, () => ctx.roundRect(-0.085, -0.13, 0.17, 0.065, 0.02), limbCol(back, trimOf(L)), { x: -0.03, y: -0.12, r: 0.1, lw: 0.6 }); // muñequera
+    shade(ctx, () => ctx.roundRect(-0.115, -0.08, 0.23, 0.2, 0.07), gc, { x: -0.04, y: -0.04, r: 0.2, hi: 0.45, lw: 0.6 }); // la mano cerrada
+    for (let k = 0; k < 4; k++) { const kx = -0.08 + k * 0.053; shade(ctx, () => ctx.ellipse(kx, 0.095, 0.03, 0.035, 0, 0, TAU), lighten(gc, 0.06), { x: kx - 0.01, y: 0.085, r: 0.035, hi: 0.6, lw: 0.4 }); } // nudillos
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 0.01; ctx.beginPath();
+    for (let k = 1; k < 4; k++) { const kx = -0.107 + k * 0.053; ctx.moveTo(kx, 0.03); ctx.lineTo(kx, 0.12); } ctx.stroke(); // separación de los dedos
+    shade(ctx, () => ctx.ellipse(0.08, 0.02, 0.045, 0.075, -0.35, 0, TAU), darken(gc, 0.08), { x: 0.07, y: 0, r: 0.06, lw: 0.5 }); // el pulgar cruzado
+    shade(ctx, () => ctx.roundRect(-0.07, -0.05, 0.11, 0.07, 0.02), limbCol(back, L.armor), { x: -0.05, y: -0.04, r: 0.08, hi: 0.5, lw: 0.4 }); // placa del dorso
+    ctx.fillStyle = limbCol(back, '#e2e8f0'); ctx.beginPath(); ctx.arc(-0.015, -0.015, 0.012, 0, TAU); ctx.fill(); // remache
+    if (!back) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = alpha(L.glow, 0.7); ctx.lineWidth = 0.014; ctx.beginPath(); ctx.moveTo(-0.09, 0.06); ctx.lineTo(0.06, 0.06); ctx.stroke(); ctx.restore(); } // costura con luz
+    ctx.restore();
+  };
   const arm = (i: number) => {
     const back = i === 0, [ua, eb] = p.arms[i], sp = shoulderAt(i);
     const elbow = add(sp, dirv(ua), 0.3), hand = add(elbow, dirv(ua + eb), 0.28);
@@ -337,7 +353,7 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
       segment(ctx, add(elbow, fd, 0.19), add(elbow, fd, 0.22), 0.21 * K, 0.2 * K, limbCol(back, trimOf(L)), 0.5);
       if (!back) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const gp = add(elbow, fd, 0.15); bloom(ctx, gp[0], gp[1], 0.07, L.glow, 0.7); ctx.restore(); }
       shade(ctx, () => ctx.arc(elbow[0], elbow[1], 0.085 * K, 0, TAU), limbCol(back, lighten(L.armor, 0.05)), { x: elbow[0] - 0.02, y: elbow[1] - 0.03, r: 0.09, lw: 0.6 }); // codera
-      shade(ctx, () => ctx.arc(hand[0], hand[1], 0.125 * (L.brute ? 1.45 : 1), 0, TAU), limbCol(back, L.glove), { x: hand[0] - 0.03, y: hand[1] - 0.04, r: 0.12, lw: 0.6 });
+      fist(hand, ua + eb, back);
       if (L.brute) for (let k = 0; k < 3; k++) { ctx.fillStyle = limbCol(back, '#d1d5db'); const a = (ua + eb) + (k - 1) * 0.6; ctx.beginPath(); ctx.moveTo(hand[0] + Math.sin(a - 0.15) * 0.15, hand[1] + Math.cos(a - 0.15) * 0.15); ctx.lineTo(hand[0] + Math.sin(a) * 0.27, hand[1] + Math.cos(a) * 0.27); ctx.lineTo(hand[0] + Math.sin(a + 0.15) * 0.15, hand[1] + Math.cos(a + 0.15) * 0.15); ctx.fill(); } // nudillos con púas
     }
     // espada láser
@@ -390,10 +406,15 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
   ctx.restore();
   arm(0); pad(0); leg(1); // el brazo derecho (el de atrás) adelante del pecho, así se ve como el izquierdo
   // manguera del Orbot / Toxic: de la máscara a la espalda
+  // el hombro izquierdo (el de adelante) queda un poco tapado por la cabeza; el brazo va adelante de la cabeza
+  // solo cuando la mano sube a la altura de la cara (bloqueo, festejo, salto...)
+  const [ua1, eb1] = p.arms[1], s1 = shoulderAt(1), hand1 = add(add(s1, dirv(ua1), 0.3), dirv(ua1 + eb1), 0.28), armUp = hand1[1] < neck[1] + 0.05;
+  if (!armUp) arm(1);
+  pad(1);
   ctx.save(); ctx.translate(neck[0] + 0.03, neck[1] - 0.37); ctx.rotate(p.head * 0.5);
   drawHead(ctx, f.char, t, fx.power, f.action === 'celebrate' ? 'happy' : f.action === 'stun' || f.action === 'sad' || f.action === 'tired' ? 'hurt' : 'normal');
   ctx.restore();
-  arm(1); pad(1);
+  if (armUp) arm(1);
   if (L.extras.includes('cracks')) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0, -0.9, 0.9, '#f97316', 0.15 + 0.08 * Math.sin(t * 3)); ctx.restore(); }
   if (ghost) {
     ctx.restore();
