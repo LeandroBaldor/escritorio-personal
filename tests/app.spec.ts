@@ -1036,28 +1036,9 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
   await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
 });
 
-test('el Solitario 3.000 se abre desde Juegos, da vuelta cartas y deshace', async ({ page }) => {
-  await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(9);
-  await page.getByRole('link', { name: /Solitario 3\.000/ }).click();
-  await expect(page.getByRole('heading', { name: 'Solitario 3.000' })).toBeVisible();
-  await expect(page.locator('.sol-column .sol-card')).toHaveCount(28);
-  await expect(page.getByRole('button', { name: 'Mazo: 24 cartas, dar vuelta una' })).toBeVisible();
-  await page.getByRole('button', { name: /Mazo/ }).click();
-  await expect(page.getByTestId('solitaire-moves')).toHaveText('1');
-  await expect(page.getByTestId('solitaire-points')).toHaveText(/^-?\d+$/);
-  await expect(page.locator('.sol-waste .sol-card')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Deshacer' }).click();
-  await expect(page.getByTestId('solitaire-moves')).toHaveText('0');
-  await expect(page.getByTestId('solitaire-points')).toHaveText(/^-\d+$/); // deshacer descuenta puntos
-  await expect(page.locator('.sol-waste .sol-card')).toHaveCount(0);
-  await page.getByRole('link', { name: '‹ Juegos' }).click();
-  await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
-});
-
 test('Trepaluna: se abre desde Juegos, corre el tiempo, muestra la altura y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(9);
+  await expect(page.locator('.games-list > li')).toHaveCount(8);
   await page.getByRole('link', { name: /Trepaluna/ }).click();
   await expect(page.getByRole('heading', { name: 'Trepaluna', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();

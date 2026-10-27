@@ -4,7 +4,6 @@ import { applyTesterLink, isTester } from './testerMode';
 import { playStart } from './sounds';
 import blocksCover from './assets/portada-bloques.webp';
 import lavaCover from './assets/portada-lava.webp';
-import solitaireCover from './assets/portada-solitario.webp';
 import trepaCover from './assets/portada-trepaluna.webp';
 import sharkCover from './assets/tiburon-portada.webp';
 import terminatorCover from './assets/terminator-portada.webp';
@@ -13,7 +12,6 @@ import gravityCover from './assets/portada-gravedad.webp';
 import kombatCover from './assets/portada-kombat.webp';
 import { CalculatorLink, CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { readRecord } from './BlockRunnerGame';
-import { readSolitaireRecord } from './PixelSolitaire';
 import { formatTime, readTrepaRecord } from './TrepalunaGame';
 import { formatLavaTime, readLavaRecord } from './LavaFloor';
 import { readPaperRecord } from './PaperBallGame';
@@ -32,7 +30,6 @@ function Cover({ src }: { src: string }) {
 
 export function Games() {
   const record = readRecord();
-  const solitaire = readSolitaireRecord();
   const trepa = readTrepaRecord();
   const lava = readLavaRecord();
   const shark = readSharkRecord();
@@ -62,20 +59,6 @@ export function Games() {
           {/* El récord va siempre en el mismo lugar: abajo, a la izquierda de Jugar. */}
           <span className="game-card-foot">
             {record > 0 && <small><b>Récord</b>{record} puntos</small>}
-            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
-          </span>
-        </Link>
-      </li>
-      <li>
-        <Link onClick={playStart} className="game-card game-card--fut" to="/juegos/solitario">
-          <Cover src={solitaireCover} />
-          <span className="game-card-text">
-            <strong>Solitario 3.000</strong>
-            <span>🃏 El solitario de siempre, con cartas del futuro.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Llevá las cuatro pilas completas arriba, del as al rey. Cuanto más rápido, más puntos.</span>
-          </span>
-          <span className="game-card-foot">
-            {solitaire && <small><b>Récord</b>{solitaire.score !== undefined ? `${solitaire.score} puntos` : `${Math.floor(solitaire.seconds / 60)}:${String(solitaire.seconds % 60).padStart(2, '0')}`}</small>}
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
           </span>
         </Link>
