@@ -6,7 +6,7 @@
 // ROJO (gigantes con hombreras de púas), ÁGUILA y ÁGUILA NEGRA (con alas), ESPECTRO (astronauta fantasma),
 // TOXIC (máscara de gas), MAGMA (roca con lava en las grietas) y CYBER (samurái con espada láser).
 // También el árbitro. Se dibujan con los pies en (0, 0), mirando a la derecha, en metros.
-import { CHARS, type CharId, type Element, type Fighter, type Person } from './kombat';
+import { CHARS, PH, type CharId, type Element, type Fighter, type Person } from './kombat';
 import { alpha, bloom, darken, lighten, segment, shade, spec } from './gravityMonsters';
 
 const TAU = Math.PI * 2;
@@ -46,6 +46,10 @@ function poseOf(f: Fighter, t: number): Pose {
     return { bob: Math.abs(s(w)) * 0.06, lean: 0.18, crouch: 0, head: 0.05,
       legs: [[-0.75 * s(w), 0.3 + 1.1 * Math.max(0, -Math.cos(w))], [0.75 * s(w), 0.3 + 1.1 * Math.max(0, Math.cos(w))]],
       arms: [[0.9 * s(w), 1.5], [-0.9 * s(w), 1.5]] };
+  }
+  if (a === 'charge') { // carga el tiro: la pierna atrás y los brazos abiertos, temblando cuando está a tope
+    const k = Math.min(1, f.charge), sh = k > 0.95 ? s(t * 60) * 0.03 : 0;
+    return { bob: sh, lean: -0.08 - k * 0.12, crouch: 0.12 + k * 0.12, head: -0.05, legs: [[-0.3, 0.55], [-0.5 - k * 0.7, 1.2 + k * 0.6]], arms: [[1.5 + k * 0.4, 0.6], [-0.7 - k * 0.5, 0.9]] };
   }
   if (a === 'jump') return { bob: 0, lean: 0.05, crouch: 0, head: -0.05, legs: [[-0.3, 1.2], [0.9, 1.6]], arms: [[2.2, 0.6], [2.5, 0.5]] };
   if (a === 'kick') {
@@ -243,7 +247,7 @@ export function drawHead(ctx: CanvasRenderingContext2D, char: CharId, t: number,
 }
 
 // ---------------------------------------------------------------- El cuerpo completo
-export interface FighterFx { power: number; frozen: boolean; poison: boolean; burn: boolean; zap: boolean; shield: boolean; speed: boolean; aura: string | null }
+export interface FighterFx { power: number; frozen: boolean; poison: boolean; burn: boolean; zap: boolean; shield: boolean; speed: boolean; aura: string | null; lit?: boolean }
 const EMBLEM: Record<Element, (ctx: CanvasRenderingContext2D, c: string, t: number) => void> = {
   fire: (ctx, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(0, -0.09); ctx.quadraticCurveTo(0.08, -0.01, 0.04, 0.07); ctx.quadraticCurveTo(0, 0.02, -0.04, 0.07); ctx.quadraticCurveTo(-0.08, -0.01, 0, -0.09); ctx.fill(); },
   ice: (ctx, c) => { ctx.strokeStyle = c; ctx.lineWidth = 0.02; for (let k = 0; k < 3; k++) { const a = k * Math.PI / 3; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 0.08, Math.sin(a) * 0.08); ctx.lineTo(-Math.cos(a) * 0.08, -Math.sin(a) * 0.08); ctx.stroke(); } },
@@ -257,12 +261,12 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
   const hipY = -0.66 + p.bob + p.crouch * 0.4, hip: Pt = [0, hipY];
   const lean = p.lean, neck: Pt = [Math.sin(lean) * 0.5, hipY - Math.cos(lean) * 0.5];
   const shoulder: Pt = [neck[0] - 0.02, neck[1] + 0.06];
-  if (fx.aura) {
+  if (fx.aura && !fx.lit) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     for (let k = 0; k < 3; k++) { const g = ctx.createRadialGradient(0, -1, 0, 0, -1, 1.3 + k * 0.2 + Math.sin(t * 12 + k) * 0.05); g.addColorStop(0, alpha(fx.aura, 0.25)); g.addColorStop(1, alpha(fx.aura, 0)); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, -1, 0.9 + k * 0.1, 1.4 + k * 0.1, 0, 0, TAU); ctx.fill(); }
     ctx.restore();
   }
-  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0, 0.02, 0.45 * K, 0.07, 0, 0, TAU); ctx.fill();
+  if (!fx.lit) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0, 0.02, 0.45 * K, 0.07, 0, 0, TAU); ctx.fill(); }
   if (ghost) { ctx.save(); ctx.globalAlpha = 0.82; }
   // alas (detrás de todo)
   if (L.extras.includes('wings')) {
@@ -285,15 +289,30 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
     if (f.abilityT > 0 || !f.ground) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const fl = 0.3 + (f.abilityT > 0 ? 0.4 : 0) + Math.sin(t * 40) * 0.05; ctx.fillStyle = grad(ctx, 0, jp[1] + 0.2, 0, jp[1] + 0.2 + fl, [[0, 'rgba(255,255,255,0.9)'], [0.3, 'rgba(125,211,252,0.8)'], [1, 'rgba(59,130,246,0)']]); ctx.beginPath(); ctx.moveTo(jp[0] - 0.07, jp[1] + 0.2); ctx.lineTo(jp[0], jp[1] + 0.2 + fl); ctx.lineTo(jp[0] + 0.07, jp[1] + 0.2); ctx.fill(); ctx.restore(); }
   }
   const limbCol = (back: boolean, c: string) => back ? darken(c, 0.35) : c;
+  const trimOf = (l: Look) => l.trim === '#17140c' ? '#e0a812' : l.trim;
   const leg = (i: number) => {
     const back = i === 0, [ta, kb] = p.legs[i], hp: Pt = [hip[0] + (back ? -0.1 : 0.1) * K, hip[1]];
     const knee = add(hp, dirv(ta), 0.34), foot = add(knee, dirv(ta - kb), 0.34);
     segment(ctx, hp, knee, 0.27 * K, 0.21 * K, limbCol(back, L.armor), 0.6);
     segment(ctx, knee, foot, 0.21 * K, 0.17 * K, limbCol(back, L.dark), 0.5);
+    // placa del muslo con la franja de color y la canillera con una luz
+    const td = dirv(ta), tn: Pt = [td[1], -td[0]];
+    segment(ctx, add(hp, td, 0.07), add(hp, td, 0.26), 0.2 * K, 0.17 * K, limbCol(back, lighten(L.armor, 0.08)), 0.8);
+    ctx.strokeStyle = limbCol(back, trimOf(L)); ctx.lineWidth = 0.025; ctx.beginPath(); const tm = add(hp, td, 0.17); ctx.moveTo(tm[0] - tn[0] * 0.09 * K, tm[1] - tn[1] * 0.09 * K); ctx.lineTo(tm[0] + tn[0] * 0.09 * K, tm[1] + tn[1] * 0.09 * K); ctx.stroke();
+    const sd = dirv(ta - kb), s0 = add(knee, sd, 0.08), s1 = add(knee, sd, 0.27);
+    if (!back) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = alpha(L.glow, 0.75); ctx.lineWidth = 0.022; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(s0[0] + sd[1] * 0.06, s0[1] - sd[0] * 0.06); ctx.lineTo(s1[0] + sd[1] * 0.05, s1[1] - sd[0] * 0.05); ctx.stroke(); ctx.restore(); }
     shade(ctx, () => ctx.arc(knee[0], knee[1], 0.11 * K, 0, TAU), limbCol(back, L.armor), { x: knee[0] - 0.03, y: knee[1] - 0.03, r: 0.1, lw: 0.6 });
+    ctx.fillStyle = limbCol(back, darken(L.armor, 0.4)); ctx.beginPath(); ctx.arc(knee[0] + 0.02, knee[1] + 0.01, 0.025, 0, TAU); ctx.fill(); // remache
     ctx.save(); ctx.translate(foot[0], foot[1]); ctx.rotate(-(ta - kb) * 0.6); ctx.scale(K * 0.95 + 0.05, 1);
     shade(ctx, () => { ctx.moveTo(-0.12, -0.14); ctx.lineTo(0.14, -0.11); ctx.quadraticCurveTo(0.29, -0.05, 0.27, 0.04); ctx.lineTo(-0.14, 0.04); ctx.closePath(); }, limbCol(back, L.boot), { x: 0, y: -0.08, r: 0.25, lw: 0.6 });
     ctx.fillStyle = limbCol(back, L.trim === '#17140c' ? '#e0a812' : L.trim); ctx.fillRect(-0.14, 0.012, 0.41, 0.03);
+    ctx.fillStyle = '#07080b'; ctx.fillRect(-0.15, 0.04, 0.43, 0.035); // suela
+    if (!back) { spec(ctx, 0.16, -0.07, 0.08, 0.035, -0.3, 0.55); ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.moveTo(0.02, -0.12); ctx.lineTo(0.06, 0.0); ctx.stroke(); }
+    if (!back && f.action === 'charge') { // el pie se carga de energía
+      const k = Math.min(1, f.charge); ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0.08, -0.04, 0.25 + k * 0.45, L.glow, 0.35 + k * 0.5);
+      for (let j = 0; j < 7; j++) { const a = t * 9 + j * TAU / 7, r = (0.55 - ((t * 2 + j / 7) % 1) * 0.45) * (0.5 + k); ctx.fillStyle = alpha(j % 2 ? L.glow : '#ffffff', 0.8); ctx.beginPath(); ctx.arc(0.08 + Math.cos(a) * r, -0.04 + Math.sin(a) * r * 0.7, 0.025, 0, TAU); ctx.fill(); }
+      ctx.restore();
+    }
     ctx.restore();
   };
   const arm = (i: number) => {
@@ -330,6 +349,17 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
   ctx.save(); ctx.translate(hip[0], hip[1]); ctx.rotate(lean); ctx.scale(K, 1);
   const torso = () => { ctx.moveTo(-0.28, 0.06); ctx.lineTo(-0.38, -0.4); ctx.quadraticCurveTo(0, -0.6, 0.38, -0.4); ctx.lineTo(0.27, 0.06); ctx.closePath(); };
   shade(ctx, torso, L.armor, { x: 0.05, y: -0.45, r: 0.6, hi: 0.4, tex: 0.45 });
+  // placas del abdomen, costuras y remaches
+  ctx.save(); ctx.beginPath(); torso(); ctx.clip();
+  ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fillRect(-0.4, -0.6, 0.12, 0.7); ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(0.2, -0.6, 0.04, 0.7);
+  ctx.strokeStyle = 'rgba(0,0,0,0.38)'; ctx.lineWidth = 0.014; ctx.beginPath();
+  for (const y of [-0.17, -0.1]) { ctx.moveTo(-0.2, y); ctx.lineTo(0.2, y); }
+  ctx.moveTo(0.0, -0.2); ctx.lineTo(0.0, -0.08); ctx.moveTo(-0.33, -0.36); ctx.quadraticCurveTo(-0.22, -0.2, -0.24, 0.0); ctx.moveTo(0.33, -0.36); ctx.quadraticCurveTo(0.22, -0.2, 0.24, 0.0); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.16)'; ctx.beginPath(); for (const y of [-0.165, -0.095]) { ctx.moveTo(-0.19, y + 0.012); ctx.lineTo(0.19, y + 0.012); } ctx.stroke();
+  ctx.restore();
+  for (const [rx, ry] of [[-0.3, -0.36], [0.3, -0.36], [-0.25, -0.02], [0.24, -0.02]] as const) { ctx.fillStyle = darken(L.armor, 0.5); ctx.beginPath(); ctx.arc(rx, ry, 0.022, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.arc(rx - 0.006, ry - 0.007, 0.008, 0, TAU); ctx.fill(); }
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = alpha(L.glow, 0.55 + fx.power * 0.4); ctx.lineWidth = 0.018; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-0.16, -0.42); ctx.lineTo(-0.1, -0.32); ctx.moveTo(0.18, -0.42); ctx.lineTo(0.13, -0.32); ctx.stroke(); ctx.restore(); // luces del pecho
   ctx.fillStyle = L.dark; ctx.beginPath(); ctx.roundRect(-0.27, -0.08, 0.53, 0.12, 0.03); ctx.fill(); // cinturón
   const trimC = L.trim === '#17140c' ? '#17140c' : L.trim;
   ctx.fillStyle = trimC; ctx.fillRect(-0.04, -0.07, 0.09, 0.09);
@@ -375,6 +405,45 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
   if (f.action === 'tired') for (let k = 0; k < 2; k++) { const d = (t * 0.8 + k * 0.5) % 1; ctx.fillStyle = `rgba(186,230,253,${0.8 * (1 - d)})`; ctx.beginPath(); ctx.ellipse(0.35 + k * 0.1, -1.9 + d * 0.6, 0.03, 0.05, 0, 0, TAU); ctx.fill(); } // gotas de sudor
   if (fx.speed || (f.abilityT > 0 && (f.char === 'brutoRed' || f.char === 'aguila' || f.char === 'espectro'))) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = alpha(L.glow, 0.55); ctx.lineWidth = 0.035; for (let k = 0; k < 6; k++) { const y = -0.2 - k * 0.3; ctx.beginPath(); ctx.moveTo(-0.45, y); ctx.lineTo(-1.2 - (k % 2) * 0.4, y); ctx.stroke(); } if (f.char === 'brutoRed' && f.abilityT > 0) bloom(ctx, 0.2, -1, 1.1, '#f97316', 0.5); ctx.restore(); }
 }
+// El luchador con luz de escena: se dibuja aparte, se le pone luz cálida de arriba adelante, sombra abajo atrás,
+// un borde de luz del color del escenario y un brillo de su elemento alrededor; después va a la pantalla.
+let litA: HTMLCanvasElement | null = null, litB: HTMLCanvasElement | null = null;
+export const BODY_SCALE = PH / 1.85; // los luchadores miden PH (2,3 m); el dibujo está hecho para 1,85 m
+export function drawFighterLit(ctx: CanvasRenderingContext2D, f: Fighter, t: number, fx: FighterFx, x: number, y: number, s: number, rim: string) {
+  const L = LOOKS[f.char], S = s * BODY_SCALE, K = L.brute ? 1.32 : 1, mir = f.facing < 0 ? -1 : 1;
+  // sombra en el piso y aura (sin luz)
+  ctx.save(); ctx.translate(x, y); ctx.scale(S, S);
+  const sg = ctx.createRadialGradient(0, 0.02, 0, 0, 0.02, 0.6 * K); sg.addColorStop(0, 'rgba(0,0,0,0.55)'); sg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(0, 0.02, 0.62 * K, 0.1, 0, 0, TAU); ctx.fill();
+  if (fx.aura) { ctx.globalCompositeOperation = 'lighter'; for (let k = 0; k < 3; k++) { const g = ctx.createRadialGradient(0, -1, 0, 0, -1, 1.3 + k * 0.2 + Math.sin(t * 12 + k) * 0.05); g.addColorStop(0, alpha(fx.aura, 0.25)); g.addColorStop(1, alpha(fx.aura, 0)); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, -1, 0.9 + k * 0.1, 1.4 + k * 0.1, 0, 0, TAU); ctx.fill(); } }
+  ctx.restore();
+  if (typeof document === 'undefined') return;
+  const bw = Math.ceil(4 * S), bh = Math.ceil(3.4 * S), ox = bw / 2, oy = Math.ceil(2.9 * S);
+  litA ??= document.createElement('canvas'); litB ??= document.createElement('canvas');
+  for (const c of [litA, litB]) { if (c.width < bw) c.width = bw; if (c.height < bh) c.height = bh; }
+  const a = litA.getContext('2d')!, b = litB.getContext('2d')!;
+  a.setTransform(1, 0, 0, 1, 0, 0); a.globalCompositeOperation = 'source-over'; a.clearRect(0, 0, bw, bh);
+  a.save(); a.translate(ox, oy); a.scale(S * mir, S); drawFighterBody(a, f, t, { ...fx, aura: null, lit: true }); a.restore();
+  // luz y sombra de volumen
+  a.globalCompositeOperation = 'source-atop';
+  const lx = mir > 0 ? ox + S * 0.6 : ox - S * 0.6;
+  let g = a.createLinearGradient(lx, oy - 2.6 * S, mir > 0 ? ox - S * 0.8 : ox + S * 0.8, oy);
+  g.addColorStop(0, 'rgba(255,244,220,0.22)'); g.addColorStop(0.45, 'rgba(255,244,220,0)'); g.addColorStop(0.7, 'rgba(0,0,10,0.12)'); g.addColorStop(1, 'rgba(0,0,12,0.42)');
+  a.fillStyle = g; a.fillRect(0, 0, bw, bh);
+  g = a.createLinearGradient(0, oy - 0.5 * S, 0, oy); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.3)'); a.fillStyle = g; a.fillRect(0, 0, bw, bh); // oclusión cerca del piso
+  // borde de luz: la silueta menos la silueta corrida
+  const d = Math.max(1.5, S * 0.05);
+  b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'source-over'; b.clearRect(0, 0, bw, bh);
+  b.drawImage(litA, 0, 0, bw, bh, 0, 0, bw, bh); b.globalCompositeOperation = 'source-in'; b.fillStyle = rim; b.fillRect(0, 0, bw, bh);
+  b.globalCompositeOperation = 'destination-out'; b.drawImage(litA, 0, 0, bw, bh, -mir * d, d, bw, bh);
+  a.globalCompositeOperation = 'source-atop'; a.globalAlpha = 0.7; a.drawImage(litB, 0, 0, bw, bh, 0, 0, bw, bh); a.globalAlpha = 1;
+  a.globalCompositeOperation = 'source-over';
+  // a la pantalla, con el brillo del elemento
+  ctx.save();
+  ctx.shadowColor = alpha(L.glow, 0.45 + fx.power * 0.35); ctx.shadowBlur = S * (0.18 + fx.power * 0.2);
+  ctx.drawImage(litA, 0, 0, bw, bh, x - ox, y - oy, bw, bh);
+  ctx.restore();
+}
 function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string) {
   ctx.fillStyle = color; ctx.beginPath();
   for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? r * 0.45 : r; ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
@@ -383,7 +452,7 @@ function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, r: number
 
 // Un luchador quieto para las pantallas (la ficha y la selección).
 export function idleFighter(char: CharId): Fighter {
-  return { side: 0, char, x: 0, y: 0, vx: 0, vy: 0, facing: 1, ground: true, action: 'idle', actionT: 0, kickT: 0, kickKind: 'normal', kickHit: false, slideT: 0, stun: 0, stunKind: 'none', poison: 0, inv: 0, stamina: 100, power: 0, cd: 0, abilityT: 0, abilityHit: false, burst: 0, burstT: 0, powers: {}, prev: { left: false, right: false, up: false, down: false, kick: false, ability: false }, taps: [], goals: 0, restT: 0 };
+  return { side: 0, char, x: 0, y: 0, vx: 0, vy: 0, facing: 1, ground: true, action: 'idle', actionT: 0, kickT: 0, kickKind: 'normal', kickHit: false, slideT: 0, stun: 0, stunKind: 'none', poison: 0, inv: 0, stamina: 100, power: 0, cd: 0, abilityT: 0, abilityHit: false, burst: 0, burstT: 0, powers: {}, prev: { left: false, right: false, up: false, down: false, kick: false, ability: false }, taps: [], goals: 0, restT: 0, charge: 0, kickPow: 1, jumpHold: 0 };
 }
 // La cara para los cuadraditos de la selección y la barra de arriba: la cabeza sobre un fondo de su color.
 export function drawPortrait(ctx: CanvasRenderingContext2D, char: CharId, size: number, t = 0, mirror = false, square = false) {

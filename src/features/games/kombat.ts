@@ -12,11 +12,11 @@
 export const W = 30; // largo de la cancha
 export const H = 14; // techo invisible (arriba de todo de la pantalla)
 export const GOAL_DEPTH = 1.6; // qué tan hondo es el arco
-export const GOAL_H = 2.7; // alto del travesaño
+export const GOAL_H = 3.0; // alto del travesaño
 export const BAR = 0.16; // grosor del travesaño
 export const BALL_R = 0.3;
-export const PW = 0.8; // ancho de una persona
-export const PH = 1.85; // alto de una persona
+export const PW = 0.96; // ancho de una persona
+export const PH = 2.3; // alto de una persona
 export const HALF_TIME = 90; // cada tiempo dura 1:30
 export const STAMINA = 100; // energía llena
 export const POWER_MAX = 100; // poder para el FATAL GOAL
@@ -33,6 +33,8 @@ export type PowerKind = 'shield' | 'speed' | 'magnet' | 'power' | 'giant' | 'ene
 export type BallKind = 'normal' | 'toxic' | 'fire' | 'ice' | 'spike' | 'void';
 // Combinación del FATAL GOAL (F = adelante, hacia el arco rival; B = atrás) + patear.
 export const FATAL_COMBO: ('F' | 'B')[] = ['F', 'B', 'F'];
+export const CHARGE_MAX = 1; // segundos de barra espaciadora para el tiro más fuerte
+export const kickMult = (charge: number) => 0.55 + 0.95 * Math.min(1, charge / CHARGE_MAX);
 
 export interface CharDef {
   id: CharId; name: string; color: string; glow: string; element: Element; fatal: FatalStyle; fatalName: string; bio: string;
@@ -99,13 +101,14 @@ export type Cast = 'ability' | 'fatal';
 export interface Input { left: boolean; right: boolean; up: boolean; down: boolean; kick: boolean; ability: boolean; cast?: Cast | null }
 export const noInput = (): Input => ({ left: false, right: false, up: false, down: false, kick: false, ability: false, cast: null });
 
-export type Action = 'idle' | 'run' | 'jump' | 'kick' | 'slide' | 'block' | 'stun' | 'special' | 'celebrate' | 'sad' | 'fatal' | 'tired';
+export type Action = 'idle' | 'run' | 'jump' | 'charge' | 'kick' | 'slide' | 'block' | 'stun' | 'special' | 'celebrate' | 'sad' | 'fatal' | 'tired';
 export type StunKind = 'hit' | 'freeze' | 'poison' | 'burn' | 'zap' | 'none';
 export interface Fighter {
   side: 0 | 1; char: CharId;
   x: number; y: number; vx: number; vy: number; facing: 1 | -1; ground: boolean;
   action: Action; actionT: number;
   kickT: number; kickKind: 'normal' | 'lob' | 'low'; kickHit: boolean; slideT: number;
+  charge: number; kickPow: number; jumpHold: number; // segundos cargando el tiro, fuerza del tiro, tiempo que queda del salto largo
   stun: number; stunKind: StunKind; poison: number; inv: number;
   stamina: number; power: number; cd: number;
   abilityT: number; abilityHit: boolean; burst: number; burstT: number; // habilidades que duran (salto, embestida, vuelo, fase, ráfaga)
@@ -136,14 +139,14 @@ export interface Hazard {
 }
 export type KfEvent =
   | { type: 'kick'; power: number } | { type: 'hit'; who: 'fighter' | 'ref'; kind: StunKind } | { type: 'block' } | { type: 'goal'; side: 0 | 1; fatal: boolean }
-  | { type: 'bounce'; power: number } | { type: 'post' } | { type: 'jump' } | { type: 'ability'; side: 0 | 1; char: CharId }
+  | { type: 'bounce'; power: number } | { type: 'post' } | { type: 'jump' } | { type: 'charged'; side: 0 | 1; power: number } | { type: 'ability'; side: 0 | 1; char: CharId }
   | { type: 'fatal'; side: 0 | 1; char: CharId } | { type: 'fatalBlocked'; side: 0 | 1 } | { type: 'power'; side: 0 | 1; kind: PowerKind } | { type: 'ballKind'; kind: BallKind }
   | { type: 'unlock'; side: 0 | 1 } | { type: 'refDown' } | { type: 'refBack' } | { type: 'ballBoom' } | { type: 'ballDrop' } | { type: 'save'; side: 0 | 1 }
   | { type: 'trap'; kind: Hazard['kind'] } | { type: 'boom' } | { type: 'thunder' } | { type: 'zap' } | { type: 'whistle'; kind: 'kickoff' | 'half' | 'end' }
   | { type: 'halftime' } | { type: 'extra' } | { type: 'warn' } | { type: 'tired'; side: 0 | 1 } | { type: 'noEnergy'; side: 0 | 1 };
 export type Phase = 'intro' | 'play' | 'goal' | 'fatal' | 'halftime' | 'end';
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; color: string; kind: 'spark' | 'smoke' | 'shard' | 'bubble' | 'ember' | 'flash' | 'ring' | 'blood' }
-export interface CpuState { level: number; think: number; plan: Input; reactFatal: number }
+export interface CpuState { level: number; think: number; plan: Input; reactFatal: number; kickHold: number; upHold: number }
 
 export interface Match {
   stage: StageId; fighters: [Fighter, Fighter]; ref: Person; ball: Ball; trail: [number, number][];
@@ -178,7 +181,7 @@ export function goalHeight(m: Match, team: 0 | 1) {
 
 function newFighter(side: 0 | 1, char: CharId): Fighter {
   return { side, char, x: 0, y: 0, vx: 0, vy: 0, facing: 1, ground: true, action: 'idle', actionT: 0,
-    kickT: 0, kickKind: 'normal', kickHit: false, slideT: 0, stun: 0, stunKind: 'none', poison: 0, inv: 0, stamina: STAMINA, power: 0, cd: 0,
+    kickT: 0, kickKind: 'normal', kickHit: false, slideT: 0, charge: 0, kickPow: 1, jumpHold: 0, stun: 0, stunKind: 'none', poison: 0, inv: 0, stamina: STAMINA, power: 0, cd: 0,
     abilityT: 0, abilityHit: false, burst: 0, burstT: 0, powers: {}, prev: noInput(), taps: [], goals: 0, restT: 0 };
 }
 
@@ -261,7 +264,7 @@ export function newMatch(stage: StageId, chars: [CharId, CharId], cpuLevels: [nu
   resetKickoff(m);
   return m;
 }
-const newCpu = (level: number): CpuState => ({ level, think: 0, plan: noInput(), reactFatal: 0 });
+const newCpu = (level: number): CpuState => ({ level, think: 0, plan: noInput(), reactFatal: 0, kickHold: 0, upHold: 0 });
 
 // Todos a su lugar; la pelota baja por el tubo del medio.
 function resetKickoff(m: Match) {
@@ -271,7 +274,7 @@ function resetKickoff(m: Match) {
   for (const f of m.fighters) {
     const left = defendsLeft(m, f.side);
     f.x = W / 2 + (left ? -1 : 1) * (f.side === m.kickoffTeam ? 2.2 : 3.6); f.y = supportAt(m, f.x, 10); f.vx = 0; f.vy = 0; f.ground = true; f.facing = left ? 1 : -1;
-    f.action = 'idle'; f.stun = 0; f.stunKind = 'none'; f.kickT = 0; f.slideT = 0; f.abilityT = 0; f.burst = 0; f.taps = [];
+    f.action = 'idle'; f.stun = 0; f.stunKind = 'none'; f.kickT = 0; f.slideT = 0; f.abilityT = 0; f.burst = 0; f.taps = []; f.charge = 0; f.jumpHold = 0;
   }
   const r = m.ref; if (r.action !== 'gone') { r.x = W / 2 + 1; r.y = 0; r.vx = 0; r.vy = 0; r.action = 'idle'; r.stun = 0; }
   m.shots = []; m.fx = [];
@@ -336,7 +339,7 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
   const b = m.ball;
   if (!b.alive) { b.respawn -= dt; if (b.respawn <= 0) dropBall(m); }
   const ins: [Input, Input] = [inputs[0], inputs[1]];
-  for (const s of [0, 1] as const) { const c = m.cpu[s]; if (c) ins[s] = cpuThink(m, s, c, dt); }
+  for (const s of [0, 1] as const) { const c = m.cpu[s]; if (c) ins[s] = cpuHold(m, s, c, cpuThink(m, s, c, dt), dt); }
   for (const s of [0, 1] as const) updateFighter(m, m.fighters[s], ins[s], dt);
   fighterCollide(m);
   updateRef(m, dt);
@@ -434,6 +437,7 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
   let want = 0;
   if (!stunned && !busy(f)) { if (i.left) want -= 1; if (i.right) want += 1; }
   if (blocking) want *= 0.15;
+  if (f.charge > 0) want *= 0.5; // cargando el tiro camina despacio
   const accel = f.ground ? (st.friction < 1 ? 18 : 60) : 26;
   let gScale = 1;
   if (f.abilityT > 0) { // habilidades con movimiento propio
@@ -447,14 +451,20 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
   else if (!stunned && !busy(f)) {
     const d = want * speed - f.vx, maxd = accel * dt;
     f.vx += clamp(d, -maxd, maxd);
-    if (want !== 0 && f.kickT <= 0) f.facing = want > 0 ? 1 : -1;
+    if (want !== 0 && f.kickT <= 0 && f.charge <= 0) f.facing = want > 0 ? 1 : -1;
   } else if (stunned) f.vx *= Math.pow(f.ground ? 0.05 : 0.6, dt);
   const sp = Math.abs(f.vx);
   // energía: se recupera descansando (quieto, parado en algo y sin que le peguen)
-  if (f.ground && sp < 1 && !stunned && f.kickT <= 0 && f.abilityT <= 0) { f.restT += dt; if (f.restT > 0.35) f.stamina = Math.min(STAMINA, f.stamina + dt * 14 * def.rest); } else f.restT = 0;
+  if (f.ground && sp < 1 && !stunned && f.kickT <= 0 && f.charge <= 0 && f.abilityT <= 0) { f.restT += dt; if (f.restT > 0.35) f.stamina = Math.min(STAMINA, f.stamina + dt * 14 * def.rest); } else f.restT = 0;
   // salto
-  if (!stunned && f.ground && pressed(f, i, 'up') && !busy(f) && !i.kick) {
-    f.vy = 12 * def.jump * (0.8 + 0.2 * staminaFactor(f)) * (turbo ? 1.1 : 1) * Math.sqrt(st.gravity); f.ground = false; emit(m, { type: 'jump' });
+  // salto: cuanto más tiempo se mantiene ↑, más alto (hasta ~4 m)
+  if (!stunned && f.ground && pressed(f, i, 'up') && !busy(f) && !i.kick && f.charge <= 0) {
+    f.vy = 10.5 * def.jump * (0.8 + 0.2 * staminaFactor(f)) * (turbo ? 1.1 : 1) * Math.sqrt(st.gravity); f.ground = false; f.jumpHold = 0.3; emit(m, { type: 'jump' });
+  }
+  if (f.jumpHold > 0) {
+    if (stunned || f.vy <= 0 || f.ground) f.jumpHold = 0;
+    else if (i.up) { f.jumpHold -= dt; if (gScale > 0) gScale *= 0.35; }
+    else { f.vy *= 0.65; f.jumpHold = 0; }
   }
   moveBody(m, f, dt, gScale, f.char === 'espectro' && f.abilityT > 0);
   // --- patadas
@@ -466,22 +476,34 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
   }
   if (f.slideT > 0 && !f.kickHit) doSlide(m, f, rival);
   if (!busy(f) && !stunned) {
-    const comboFatal = pressed(f, i, 'kick') && comboDone(f);
-    const wantFatal = i.cast === 'fatal' || comboFatal;
-    if (wantFatal && fatalReady(f) && !m.fatal && m.ball.alive) { f.power = 0; f.taps = []; startFatal(m, f); }
-    else if (i.cast === 'ability' || pressed(f, i, 'ability')) {
+    const kickNow = pressed(f, i, 'kick');
+    const comboFatal = kickNow && comboDone(f);
+    const wantFatal = i.cast === 'fatal' || (comboFatal && fatalReady(f));
+    const combo = kickNow && !comboFatal ? abilityCombo(f, m.time) : 0; // adelante, adelante + espacio
+    if (wantFatal && fatalReady(f) && !m.fatal && m.ball.alive) { f.power = 0; f.taps = []; f.charge = 0; startFatal(m, f); }
+    else if (i.cast === 'ability' || combo !== 0) {
+      if (combo !== 0) { f.facing = (combo === 1 ? dir : -dir) as 1 | -1; f.taps = []; }
+      f.charge = 0;
       if (abilityReady(f)) castAbility(m, f, rival);
       else if (f.cd <= 0) emit(m, { type: 'noEnergy', side: f.side });
-    } else if (pressed(f, i, 'kick') && f.kickT <= 0) {
+    } else if (kickNow && f.kickT <= 0) {
       if (i.down && f.ground && sp > 3.5) { f.slideT = 0.5; f.vx = f.facing * Math.max(sp, 7); f.action = 'slide'; f.actionT = 0; f.kickHit = false; }
-      else { f.kickT = 0.3; f.kickHit = false; f.kickKind = i.up ? 'lob' : i.down ? 'low' : 'normal'; f.action = 'kick'; f.actionT = 0; }
+      else { f.charge = 0.001; f.action = 'charge'; f.actionT = 0; } // empieza a cargar: patea al soltar
+    } else if (f.charge > 0) {
+      if (i.kick && f.kickT <= 0) f.charge = Math.min(CHARGE_MAX, f.charge + dt);
+      else { // soltó la barra: la fuerza depende de cuánto la sostuvo
+        f.kickPow = kickMult(f.charge); f.charge = 0;
+        f.kickT = 0.3; f.kickHit = false; f.kickKind = i.up ? 'lob' : i.down ? 'low' : 'normal'; f.action = 'kick'; f.actionT = 0;
+        if (f.kickPow > 1.2) emit(m, { type: 'charged', side: f.side, power: f.kickPow });
+      }
     }
   }
   // ráfaga del Orbot: los disparos que quedan
   if (f.burst > 0) { f.burstT -= dt; if (f.burstT <= 0) { f.burst--; f.burstT = 0.13; fireShot(m, f, 'bullet', 26, 0.14, 0); } }
   // habilidades que pegan con el cuerpo
   if (f.abilityT > 0 && (f.char === 'brutoRed' || f.char === 'aguila' || f.char === 'espectro' || f.char === 'cometa')) bodyAbility(m, f, rival);
-  if (!stunned && f.action !== 'fatal' && f.action !== 'special' && f.kickT <= 0 && f.slideT <= 0)
+  if (f.charge > 0 && !stunned && f.action !== 'fatal') f.action = 'charge';
+  else if (!stunned && f.action !== 'fatal' && f.action !== 'special' && f.kickT <= 0 && f.slideT <= 0)
     f.action = blocking ? 'block' : !f.ground ? 'jump' : f.stamina < 15 && sp < 1 ? 'tired' : sp > 0.8 ? 'run' : 'idle';
   if (f.action === 'special' && f.actionT > 0.45 && f.abilityT <= 0) f.action = 'idle';
   if (f.action === 'fatal' && m.phase === 'play' && m.fatal === null) f.action = 'idle';
@@ -490,6 +512,15 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
   const b = m.ball;
   if ((f.powers.magnet ?? 0) > 0 && b.alive) { const dx = f.x + f.facing * 0.5 - b.x, dy = f.y + 0.5 - b.y, d = Math.hypot(dx, dy); if (d < 5 && d > 0.5) { b.vx += dx / d * 14 * dt; b.vy += dy / d * 14 * dt; } }
   f.prev = { ...i, cast: null };
+}
+// Habilidad: dos veces la misma flecha (adelante, adelante) y enseguida espacio. Devuelve 1 (hacia el arco rival),
+// -1 (hacia atrás) o 0 si no se hizo la combinación.
+function abilityCombo(f: Fighter, now: number): 0 | 1 | -1 {
+  const h = f.taps.filter(t => t.d === 'F' || t.d === 'B');
+  if (h.length < 2) return 0;
+  const a = h[h.length - 2], b = h[h.length - 1];
+  if (a.d !== b.d || b.t - a.t > 0.45 || now - b.t > 0.5) return 0;
+  return b.d === 'F' ? 1 : -1;
 }
 // ¿Terminó de apretar la combinación del FATAL (adelante, atrás, adelante)?
 function comboDone(f: Fighter) {
@@ -501,9 +532,9 @@ function comboDone(f: Fighter) {
 // pelota alcanza al rival (o al árbitro), lo voltea (sin gastarle energía).
 function doKick(m: Match, f: Fighter, rival: Fighter) {
   const b = m.ball, def = CHARS[f.char];
-  const fx = f.x + f.facing * 0.5, fy = f.y + (f.ground ? 0.4 : 0.7);
-  if (b.alive && Math.hypot(b.x - fx, b.y - fy) < 1.1 && !(m.fatal && !m.fatal.done)) {
-    let power = 17 * def.power * (0.75 + 0.25 * staminaFactor(f)) * ((f.powers.power ?? 0) > 0 ? 1.4 : 1);
+  const fx = f.x + f.facing * 0.56, fy = f.y + (f.ground ? 0.45 : 0.8);
+  if (b.alive && Math.hypot(b.x - fx, b.y - fy) < 1.18 && !(m.fatal && !m.fatal.done)) {
+    let power = 17 * def.power * f.kickPow * (0.75 + 0.25 * staminaFactor(f)) * ((f.powers.power ?? 0) > 0 ? 1.4 : 1);
     let ang = f.kickKind === 'lob' ? 0.9 : f.kickKind === 'low' ? 0.05 : 0.3;
     if (!f.ground) ang = f.kickKind === 'lob' ? 0.55 : b.y > f.y + 1.2 ? -0.2 : 0.12;
     if (b.kind === 'fire') power *= 1.2;
@@ -535,7 +566,7 @@ function hurtFighter(m: Match, f: Fighter, by: Fighter | null, kind: StunKind, t
   if (f.char === 'espectro' && f.abilityT > 0) return; // en fase no lo toca nada
   if ((f.powers.shield ?? 0) > 0) { emit(m, { type: 'block' }); burst(m, f.x, f.y + 1, 10, '#38bdf8', 'ring', 1); return; }
   if (f.action === 'fatal' || f.inv > 0) return;
-  f.stun = Math.max(f.stun, time); f.stunKind = kind; f.action = 'stun'; f.kickT = 0; f.slideT = 0; f.abilityT = 0;
+  f.stun = Math.max(f.stun, time); f.stunKind = kind; f.action = 'stun'; f.kickT = 0; f.slideT = 0; f.abilityT = 0; f.charge = 0;
   if (push) { const d = by ? Math.sign(f.x - by.x) || -by.facing : (f.x < W / 2 ? 1 : -1); f.vx = d * push; if (kind !== 'freeze') { f.vy = push * 0.55; f.ground = false; } }
   if (kind === 'freeze') f.vx = 0;
   if (kind === 'poison') f.poison = 2.5;
@@ -1107,6 +1138,14 @@ function abilityReach(f: Fighter, x: number, y: number) {
     case 'magmaSpikes': return dx > 0 && dx < 10 && y < 1.4;
     default: return dx > 0.3 && dx < 12 && Math.abs(dy) < dx * 1.1 + 1;
   }
+}
+// La máquina también mantiene apretado: carga el tiro (más cuanto mejor juega) y estira el salto.
+function cpuHold(m: Match, side: 0 | 1, c: CpuState, i: Input, dt: number): Input {
+  const f = m.fighters[side];
+  if (c.kickHold > 0) { c.kickHold -= dt; i.kick = c.kickHold > 0; } // al llegar a 0 suelta y patea
+  else if (i.kick && !i.down && f.charge <= 0 && f.kickT <= 0) c.kickHold = 0.03 + m.rand() * (0.15 + c.level * 0.5);
+  if (c.upHold > 0) { c.upHold -= dt; i.up = true; } else if (i.up && f.ground) c.upHold = 0.08 + m.rand() * 0.3;
+  return i;
 }
 function cpuThink(m: Match, side: 0 | 1, c: CpuState, dt: number): Input {
   const f = m.fighters[side], rival = m.fighters[side === 0 ? 1 : 0], b = m.ball, dir = attackDir(m, side);

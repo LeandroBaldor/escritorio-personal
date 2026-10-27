@@ -8,10 +8,10 @@ import {
   BALLS, BALL_R, BAR, CHARS, GOAL_DEPTH, H, POWERS, POWER_MAX, TUBE_Y, W, fatalPath, goalHeight, minePos, sawPos, teamAt, wreckPos,
   type Ball, type Fx, type Hazard, type Match, type Particle, type PowerKind, type Shot, type Solid, type StageId,
 } from './kombat';
-import { drawFighterBody, drawRef, LOOKS } from './kombatFighters';
+import { BODY_SCALE, drawFighterLit, drawRef, LOOKS } from './kombatFighters';
 import { alpha, bloom, darken, grain, hash, lighten, lin, shade, spec, zap } from './gravityMonsters';
 import { bolt, hazardStripes, laserBeam, laserEmitter, laserWarnLine, plate, rock, sawBlade, seaMine, steelSpikes } from './gravityHazardArt';
-import { fbm } from './gravityBackdrops';
+import { paintScenery } from './kombatScenery';
 
 const TAU = Math.PI * 2;
 export interface View { w: number; h: number; s: number; ox: number; oy: number }
@@ -49,7 +49,7 @@ function background(m: Match, v: View): HTMLCanvasElement | null {
   const g = c.getContext('2d');
   if (!g) { bgCache.set(key, null); return null; }
   if (bgCache.size > 8) bgCache.clear();
-  paintScenery(g, m.stage, v);
+  paintScenery(g, m.stage, v.w, v.h, Y(v, 0), v.s);
   paintFloor(g, m.stage, v);
   for (const s of m.solids) paintSolid(g, m.stage, s, v);
   paintTube(g, v);
@@ -59,190 +59,10 @@ function background(m: Match, v: View): HTMLCanvasElement | null {
 // Miniatura de un escenario (para elegirlo), sin luchadores.
 export function drawStageThumb(ctx: CanvasRenderingContext2D, m: Match, w: number, h: number) {
   const s = w / W, v: View = { w, h: Math.max(h, (H * 0.75) * s), s, ox: 0, oy: h - 1.2 * s };
-  paintScenery(ctx, m.stage, v); paintFloor(ctx, m.stage, v);
+  paintScenery(ctx, m.stage, v.w, v.h, Y(v, 0), v.s); paintFloor(ctx, m.stage, v);
   for (const sd of m.solids) paintSolid(ctx, m.stage, sd, v);
   for (const hz of m.hazards) { if (hz.kind === 'spikes' || hz.kind === 'laser' || hz.kind === 'saw' || hz.kind === 'flame' || hz.kind === 'shock') { const st = hz.state; hz.state = 2; drawTrap(ctx, hz, m, v); hz.state = st; } else if (hz.kind !== 'meteor' && hz.kind !== 'icicle' && hz.kind !== 'lightning') drawHazard(ctx, hz, m, v); }
   drawGoal(ctx, m, v, true, false); drawGoal(ctx, m, v, false, false); drawGoal(ctx, m, v, true, true); drawGoal(ctx, m, v, false, true);
-}
-
-// Nubes, humo o nebulosa con ruido fractal en baja resolución (después se estira suave).
-function cloudLayer(stage: StageId, w: number, h: number): HTMLCanvasElement | null {
-  const T = THEMES[stage]; if (!T.cloud[3]) return null;
-  const cw = Math.max(1, Math.round(w / 4)), ch = Math.max(1, Math.round(h / 4));
-  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
-  const g = c.getContext('2d'); if (!g) return null;
-  const img = g.createImageData(cw, ch), seed = stage.length * 7 + stage.charCodeAt(0);
-  const [cr, cg, cb, ca] = T.cloud;
-  for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
-    const u = x / cw * 6, vv = y / ch * 3;
-    const n = fbm(u + fbm(u * 0.5, vv * 0.5, seed + 3, 3) * 1.5, vv * 1.6, seed, 5);
-    const d = Math.max(0, Math.min(1, (n - 0.45) * 3.2)) * (1 - y / ch * 0.55);
-    const light = Math.max(0, Math.min(1, (fbm(u + 0.15, vv - 0.2, seed, 4) - n) * 6 + 0.5));
-    const i = (y * cw + x) * 4;
-    img.data[i] = Math.min(255, cr * (0.6 + light * 0.7)); img.data[i + 1] = Math.min(255, cg * (0.6 + light * 0.7)); img.data[i + 2] = Math.min(255, cb * (0.6 + light * 0.7)); img.data[i + 3] = 255 * d * ca;
-  }
-  g.putImageData(img, 0, 0);
-  return c;
-}
-function paintScenery(g: CanvasRenderingContext2D, stage: StageId, v: View) {
-  const T = THEMES[stage], s = v.s, w = v.w, h = v.h, ground = Y(v, 0);
-  const r = (n: number) => hash(n * 1.37 + stage.length * 11.1);
-  g.fillStyle = lin(g, 0, 0, 0, ground, [[0, T.sky[0]], [0.55, T.sky[1]], [1, T.sky[2]]]); g.fillRect(0, 0, w, h);
-  const stars = (n: number, top: number) => { for (let k = 0; k < n; k++) { g.fillStyle = `rgba(255,255,255,${0.25 + r(k) * 0.7})`; const sz = r(k + 3) < 0.07 ? 2 : 1; g.fillRect(r(k + 1) * w, r(k + 2) * top, sz, sz); } };
-  const glowDisc = (x: number, y: number, rr: number, color: string, a: number) => { const gg = g.createRadialGradient(x, y, 0, x, y, rr); gg.addColorStop(0, alpha(color, a)); gg.addColorStop(1, alpha(color, 0)); g.fillStyle = gg; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); };
-  const moon = (x: number, y: number, rr: number, tint = '#c9d4f0') => {
-    glowDisc(x, y, rr * 3, tint, 0.25);
-    const md = g.createRadialGradient(x - rr * 0.35, y - rr * 0.35, 0, x, y, rr); md.addColorStop(0, lighten(tint, 0.5)); md.addColorStop(1, darken(tint, 0.35)); g.fillStyle = md; g.beginPath(); g.arc(x, y, rr, 0, TAU); g.fill();
-    g.fillStyle = alpha(darken(tint, 0.45), 0.45); for (let k = 0; k < 9; k++) { g.beginPath(); g.arc(x + (r(k + 9) - 0.5) * rr * 1.3, y + (r(k + 10) - 0.5) * rr * 1.3, rr * 0.13 * (0.4 + r(k)), 0, TAU); g.fill(); }
-  };
-  const planet = (x: number, y: number, rr: number, land = true) => {
-    glowDisc(x, y, rr * 1.4, '#60a5fa', 0.35);
-    const pg = g.createRadialGradient(x - rr * 0.4, y - rr * 0.4, rr * 0.1, x, y, rr); pg.addColorStop(0, '#bfe4ff'); pg.addColorStop(0.45, '#2f6bb8'); pg.addColorStop(1, '#061026'); g.fillStyle = pg; g.beginPath(); g.arc(x, y, rr, 0, TAU); g.fill();
-    if (land) { g.save(); g.beginPath(); g.arc(x, y, rr, 0, TAU); g.clip(); g.fillStyle = 'rgba(80,150,80,0.55)'; for (let k = 0; k < 7; k++) { g.beginPath(); g.ellipse(x + (r(k + 20) - 0.5) * rr * 1.5, y + (r(k + 21) - 0.5) * rr * 1.4, rr * 0.3, rr * 0.16, r(k) * 3, 0, TAU); g.fill(); } g.fillStyle = 'rgba(255,255,255,0.4)'; for (let k = 0; k < 6; k++) { g.beginPath(); g.ellipse(x + (r(k + 40) - 0.5) * rr * 1.6, y + (r(k + 41) - 0.5) * rr * 1.6, rr * 0.35, rr * 0.06, r(k) * 2, 0, TAU); g.fill(); } g.restore(); }
-  };
-  const clouds = cloudLayer(stage, w, ground);
-  // capas de edificios / siluetas
-  const skyline = (base: number, color: string, scale: number, lit: number, seed: number, neon = false) => {
-    let x = -s;
-    while (x < w + s) {
-      const bw = s * (1 + r(seed + x) * 2) * scale, bh = s * (3 + r(seed + x * 1.3) * 7) * scale;
-      g.fillStyle = color; g.fillRect(x, base - bh, bw, bh + s);
-      if (r(seed + x * 2.7) < 0.35) g.fillRect(x + bw * 0.2, base - bh - s * 0.8 * scale, bw * 0.5, s * 0.8 * scale);
-      if (r(seed + x * 2.1) < 0.35) { g.fillRect(x + bw * 0.45, base - bh - s * 2 * scale, Math.max(1, s * 0.06), s * 2 * scale); g.fillStyle = '#ff3b3b'; g.fillRect(x + bw * 0.45 - 1, base - bh - s * 2 * scale, 3, 3); }
-      if (lit > 0) for (let yy = base - bh + s * 0.35 * scale; yy < base - s * 0.2; yy += s * 0.36 * scale) for (let xx = x + s * 0.15 * scale; xx < x + bw - s * 0.15 * scale; xx += s * 0.3 * scale) if (r(xx * 3.3 + yy * 1.7) < lit) { g.fillStyle = `rgba(${r(xx) < 0.6 ? '255,200,120' : '140,200,255'},${0.3 + r(xx + yy) * 0.6})`; g.fillRect(xx, yy, s * 0.12 * scale, s * 0.16 * scale); }
-      if (neon && r(seed + x * 4.1) < 0.45) { const nc = ['#f472b6', '#22d3ee', '#a78bfa', '#f87171'][Math.floor(r(seed + x) * 4)], ny = base - bh * (0.4 + r(x) * 0.4); g.fillStyle = nc; g.fillRect(x + bw * 0.25, ny, bw * 0.5, s * 0.9 * scale); g.fillStyle = 'rgba(0,0,0,0.5)'; for (let k = 0; k < 3; k++) g.fillRect(x + bw * 0.32, ny + s * (0.15 + k * 0.25) * scale, bw * 0.36, s * 0.08 * scale); glowDisc(x + bw / 2, ny + s * 0.45 * scale, s * 1.4 * scale, nc, 0.35); }
-      x += bw + s * 0.15 * r(seed + x);
-    }
-  };
-  const haze = (a: number, color = T.sky[2]) => { g.fillStyle = lin(g, 0, ground * 0.3, 0, ground, [[0, alpha(color, 0)], [1, alpha(color, a)]]); g.fillRect(0, 0, w, ground); };
-  const truss = (x: number, top: number, wd: number, color: string) => { // torre de vigas cruzadas
-    g.fillStyle = color; g.fillRect(x, top, s * 0.12, ground - top); g.fillRect(x + wd, top, s * 0.12, ground - top);
-    g.strokeStyle = color; g.lineWidth = Math.max(1, s * 0.06);
-    for (let y = top; y < ground; y += wd) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + wd, y + wd); g.moveTo(x + wd, y); g.lineTo(x, y + wd); g.moveTo(x, y); g.lineTo(x + wd, y); g.stroke(); }
-  };
-  switch (stage) {
-    case 'industrial': {
-      stars(220, ground * 0.6); moon(w * 0.62, ground * 0.18, s * 2.2, '#9fb4e0');
-      if (clouds) g.drawImage(clouds, 0, 0, w, ground * 0.7);
-      skyline(ground - s * 2.2, '#16224a', 1.1, 0.12, 1, true); haze(0.35);
-      for (const [x, y] of [[0.17, 0.2], [0.58, 0.3]] as const) { const sx = w * x, sy = ground * y; g.fillStyle = '#2a3150'; g.beginPath(); g.ellipse(sx, sy, s * 1.1, s * 0.25, 0, 0, TAU); g.fill(); g.fillStyle = '#7dd3fc'; g.beginPath(); g.ellipse(sx, sy - s * 0.2, s * 0.45, s * 0.25, 0, Math.PI, TAU); g.fill(); for (let k = -2; k <= 2; k++) { g.fillStyle = '#f87171'; g.fillRect(sx + k * s * 0.4 - 1, sy - 1, 3, 3); } glowDisc(sx, sy + s * 0.3, s * 1.5, '#f43f5e', 0.25); } // platos voladores
-      skyline(ground - s * 0.9, '#0c1330', 1.4, 0.08, 2, true);
-      for (const x of [0.08, 0.36, 0.7, 0.93]) truss(w * x, ground - s * (6 + r(x * 9) * 2), s * 0.9, '#0a1024');
-      for (const x of [0.25, 0.8]) { const tx = w * x, ty = ground - s * 7; g.fillStyle = '#0b1229'; g.fillRect(tx - s * 0.6, ty, s * 1.2, ground - ty); g.fillStyle = '#ef4444'; g.beginPath(); g.arc(tx, ty - s * 0.3, s * 0.25, 0, TAU); g.fill(); glowDisc(tx, ty - s * 0.3, s * 1.4, '#ef4444', 0.45); }
-      break;
-    }
-    case 'mines': {
-      stars(300, ground); if (clouds) g.drawImage(clouds, 0, 0, w, ground);
-      planet(w * 0.55, ground + s * 1.5, s * 6.5);
-      const rockMass = (cx: number, cy: number, rr: number, seed: number, c: string) => { g.fillStyle = c; g.beginPath(); for (let k = 0; k < 14; k++) { const a = k * TAU / 14, d = rr * (0.7 + hash(seed + k) * 0.45); g.lineTo(cx + Math.cos(a) * d, cy + Math.sin(a) * d); } g.closePath(); g.fill(); g.fillStyle = 'rgba(192,132,252,0.18)'; g.beginPath(); g.arc(cx - rr * 0.2, cy - rr * 0.25, rr * 0.5, 0, TAU); g.fill(); };
-      for (let k = 0; k < 7; k++) rockMass(w * r(k + 30), ground * (0.15 + r(k + 31) * 0.5), s * (0.4 + r(k + 32) * 0.9), k * 13, '#2b1a3e'); // asteroides
-      for (let k = 0; k < 9; k++) { rockMass(w * (k / 8), -s * 0.5, s * (2 + r(k + 50) * 1.6), k * 7, '#1b0f2b'); } // techo de la cueva
-      for (const sx of [0, w]) for (let k = 0; k < 5; k++) rockMass(sx, ground * (0.2 + k * 0.2), s * (2.2 + r(k + 60) * 1.2), k * 5 + sx, '#160c24'); // paredes
-      for (let k = 0; k < 10; k++) { const cx = w * r(k + 70), cy = ground * (0.1 + r(k + 71) * 0.7); g.fillStyle = ['#c084fc', '#f472b6', '#38bdf8'][k % 3]; g.beginPath(); g.moveTo(cx, cy - s * 0.3); g.lineTo(cx + s * 0.12, cy); g.lineTo(cx, cy + s * 0.2); g.lineTo(cx - s * 0.12, cy); g.fill(); glowDisc(cx, cy, s * 0.8, g.fillStyle as string, 0.35); } // cristales
-      break;
-    }
-    case 'base': {
-      // pared de paneles con una ventana grande que muestra la Tierra
-      g.fillStyle = '#0c1724'; g.fillRect(0, 0, w, ground);
-      const win = { x: w * 0.3, y: ground * 0.18, w: w * 0.4, h: ground * 0.48 };
-      g.save(); g.beginPath(); g.roundRect(win.x, win.y, win.w, win.h, s * 0.8); g.clip();
-      g.fillStyle = '#01030a'; g.fillRect(win.x, win.y, win.w, win.h); stars(160, ground);
-      planet(win.x + win.w * 0.5, win.y + win.h * 0.95, win.w * 0.55);
-      g.restore();
-      for (let y = 0; y < ground; y += s * 1.6) for (let x = 0; x < w; x += s * 2.4) { if (x + s * 2.4 > win.x && x < win.x + win.w && y + s * 1.6 > win.y && y < win.y + win.h) continue; g.fillStyle = r(x * 3 + y) < 0.5 ? '#13243a' : '#101e31'; g.fillRect(x + 2, y + 2, s * 2.4 - 4, s * 1.6 - 4); g.fillStyle = 'rgba(255,255,255,0.05)'; g.fillRect(x + 2, y + 2, s * 2.4 - 4, 2); if (r(x + y * 7) < 0.12) { g.fillStyle = r(x) < 0.5 ? '#f59e0b' : '#38bdf8'; g.fillRect(x + s * 0.3, y + s * 0.3, s * 0.35, s * 0.15); glowDisc(x + s * 0.47, y + s * 0.37, s * 0.6, g.fillStyle as string, 0.3); } }
-      g.strokeStyle = '#2b3d55'; g.lineWidth = s * 0.25; g.beginPath(); g.roundRect(win.x, win.y, win.w, win.h, s * 0.8); g.stroke();
-      g.strokeStyle = '#f59e0b'; g.lineWidth = Math.max(1, s * 0.05); g.beginPath(); g.roundRect(win.x - s * 0.2, win.y - s * 0.2, win.w + s * 0.4, win.h + s * 0.4, s * 0.9); g.stroke();
-      for (let k = 0; k < 6; k++) { const lx = w * (0.08 + k * 0.17), ly = s * 0.4; g.fillStyle = '#e0f2fe'; g.fillRect(lx - s * 0.4, ly, s * 0.8, s * 0.12); const cone = g.createLinearGradient(0, ly, 0, ground); cone.addColorStop(0, 'rgba(186,230,253,0.18)'); cone.addColorStop(1, 'rgba(186,230,253,0)'); g.fillStyle = cone; g.beginPath(); g.moveTo(lx - s * 0.4, ly); g.lineTo(lx + s * 0.4, ly); g.lineTo(lx + s * 2.5, ground); g.lineTo(lx - s * 2.5, ground); g.fill(); }
-      g.fillStyle = '#0a1320'; g.fillRect(0, 0, w, s * 0.4);
-      for (const py of [0.72, 0.78]) { g.fillStyle = '#1c2c42'; g.fillRect(0, ground * py, w, s * 0.22); g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(0, ground * py, w, 2); } // caños
-      break;
-    }
-    case 'ice': {
-      stars(150, ground * 0.5); moon(w * 0.66, ground * 0.25, s * 2.6, '#cfe0ff');
-      if (clouds) g.drawImage(clouds, 0, 0, w, ground * 0.6);
-      for (let layer = 0; layer < 3; layer++) { // montañas nevadas
-        const base = ground - s * (0.5 + layer * 0.2), hgt = s * (9 - layer * 2.5);
-        g.fillStyle = lin(g, 0, base - hgt, 0, base, [[0, ['#eaf4ff', '#cfe3fb', '#a9c8ee'][layer]], [0.35, ['#9cbbe2', '#7aa3d6', '#5b86c0'][layer]], [1, ['#3b5f93', '#2c4f84', '#1f3f73'][layer]]]);
-        g.beginPath(); g.moveTo(0, base + s);
-        for (let x = 0; x <= w + s; x += s * 0.8) { const n = fbm(x / s * 0.12 + layer * 7, layer, 3 + layer, 4); g.lineTo(x, base - hgt * (0.35 + n * 0.75) * (0.75 + 0.25 * Math.sin(x / w * 7 + layer))); }
-        g.lineTo(w, base + s); g.fill();
-      }
-      for (let k = 0; k < 8; k++) { const ix = w * r(k + 30), ih = s * (2 + r(k + 32) * 3); g.fillStyle = lin(g, ix, ground - ih, ix + s, ground, [[0, '#f0f9ff'], [0.5, '#7fb2df'], [1, '#2a5486']]); g.beginPath(); g.moveTo(ix - s * 0.6, ground); g.lineTo(ix, ground - ih); g.lineTo(ix + s * 0.6, ground); g.fill(); }
-      g.fillStyle = 'rgba(225,240,255,0.9)'; for (let x = 0; x < w; x += s * 0.6) { const l = s * (0.3 + r(x) * 1.1); g.beginPath(); g.moveTo(x, 0); g.lineTo(x + s * 0.12, l); g.lineTo(x + s * 0.24, 0); g.fill(); } // carámbanos arriba
-      break;
-    }
-    case 'volcano': {
-      if (clouds) g.drawImage(clouds, 0, 0, w, ground * 0.8);
-      const vx = w * 0.5, vy = ground - s * 8.5, vw = s * 9;
-      glowDisc(vx, vy, s * 6, '#ff7a1a', 0.5);
-      const slope = (x: number) => { const d = Math.abs(x - vx) / vw; return d < 0.12 ? vy + s * 0.3 * Math.sin(x / s * 3) : vy + (ground - vy) * Math.pow((d - 0.12) / 0.88, 0.7) - s * 0.5 * (fbm(x / s * 0.5, 2, 5, 3) - 0.5) * 2; };
-      g.fillStyle = lin(g, vx, vy, vx, ground, [[0, '#3a0f06'], [0.4, '#220803'], [1, '#110302']]); g.beginPath(); g.moveTo(vx - vw, ground + s); for (let x = vx - vw; x <= vx + vw; x += s * 0.25) g.lineTo(x, Math.min(ground, slope(x))); g.lineTo(vx + vw, ground + s); g.fill();
-      g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = Math.max(1, s * 0.05); for (let k = 0; k < 14; k++) { const x0 = vx + (r(k + 80) - 0.5) * vw * 1.6, y0 = slope(x0); if (y0 >= ground) continue; g.beginPath(); g.moveTo(x0, y0 + s * 0.3); g.lineTo(x0 + (x0 > vx ? 1 : -1) * s * 1.2, y0 + s * 2.2); g.stroke(); }
-      g.strokeStyle = 'rgba(255,120,30,0.85)'; g.lineWidth = Math.max(1.5, s * 0.12); for (const d of [-1, 1, 0.3]) { g.beginPath(); g.moveTo(vx + d * s * 0.3, vy); g.quadraticCurveTo(vx + d * vw * 0.18, vy + s * 3, vx + d * vw * 0.42, ground - s); g.stroke(); }
-      for (let k = 0; k < 18; k++) { g.fillStyle = `rgba(255,${120 + r(k) * 100},40,0.9)`; g.beginPath(); g.arc(vx + (r(k + 1) - 0.5) * s * 4, vy - r(k + 2) * s * 4, s * 0.1, 0, TAU); g.fill(); } // erupción
-      for (const sx of [0.12, 0.85]) { const rx = w * sx, rh = s * 7; g.fillStyle = '#170503'; g.beginPath(); g.moveTo(rx - s * 3, ground); g.lineTo(rx - s * 1.2, ground - rh); g.lineTo(rx + s * 0.5, ground - rh * 0.8); g.lineTo(rx + s * 2.6, ground); g.fill(); g.fillStyle = lin(g, rx, ground - rh * 0.8, rx, ground, [[0, '#fff3b0'], [0.3, '#ff8a1a'], [1, '#c2260c']]); g.fillRect(rx - s * 0.2, ground - rh * 0.8, s * 0.4, rh * 0.8); glowDisc(rx, ground - rh * 0.4, s * 2.5, '#ff6a1a', 0.35); } // cascadas de lava
-      haze(0.35, '#ff5a1a');
-      break;
-    }
-    case 'forest': {
-      stars(120, ground * 0.4); if (clouds) g.drawImage(clouds, 0, 0, w, ground * 0.6);
-      for (let k = 0; k < 14; k++) { const tx = w * r(k + 5), tw = s * (0.6 + r(k + 6) * 1.2); g.fillStyle = k % 2 ? '#05121f' : '#081a2c'; g.fillRect(tx, 0, tw, ground); g.fillStyle = 'rgba(103,232,249,0.06)'; g.fillRect(tx, 0, tw * 0.2, ground); } // troncos
-      const shroom = (x: number, base: number, hgt: number, capW: number, color: string) => {
-        g.fillStyle = lin(g, x - s * 0.4, 0, x + s * 0.4, 0, [[0, '#b9e6ff'], [1, '#5aa4d6']]); g.beginPath(); g.moveTo(x - capW * 0.08, base); g.quadraticCurveTo(x - capW * 0.12, base - hgt * 0.5, x - capW * 0.06, base - hgt); g.lineTo(x + capW * 0.06, base - hgt); g.quadraticCurveTo(x + capW * 0.12, base - hgt * 0.5, x + capW * 0.08, base); g.fill();
-        glowDisc(x, base - hgt, capW * 0.9, color, 0.35);
-        g.fillStyle = lin(g, 0, base - hgt - capW * 0.35, 0, base - hgt, [[0, lighten(color, 0.4)], [1, darken(color, 0.3)]]); g.beginPath(); g.ellipse(x, base - hgt, capW / 2, capW * 0.32, 0, Math.PI, TAU); g.fill();
-        g.strokeStyle = alpha(darken(color, 0.5), 0.8); g.lineWidth = 1; for (let k = -4; k <= 4; k++) { g.beginPath(); g.moveTo(x + k * capW * 0.1, base - hgt); g.lineTo(x + k * capW * 0.03, base - hgt + capW * 0.06); g.stroke(); }
-        g.fillStyle = 'rgba(255,255,255,0.75)'; for (let k = 0; k < 6; k++) { g.beginPath(); g.arc(x + (r(k + x) - 0.5) * capW * 0.7, base - hgt - r(k + x + 1) * capW * 0.25, s * 0.07, 0, TAU); g.fill(); }
-      };
-      shroom(w * 0.12, ground, s * 4.5, s * 4, '#38bdf8'); shroom(w * 0.38, ground, s * 6.5, s * 6, '#818cf8'); shroom(w * 0.86, ground, s * 5, s * 4.5, '#a78bfa'); shroom(w * 0.68, ground, s * 3, s * 2.6, '#22d3ee');
-      for (let k = 0; k < 24; k++) { const px = w * r(k + 90), ph = s * (0.4 + r(k + 91) * 0.9); g.fillStyle = ['#f472b6', '#c084fc', '#22d3ee'][k % 3]; g.beginPath(); g.moveTo(px, ground); g.quadraticCurveTo(px - s * 0.3, ground - ph, px - s * 0.05, ground - ph * 1.1); g.quadraticCurveTo(px + s * 0.1, ground - ph * 0.5, px + s * 0.1, ground); g.fill(); } // plantas que brillan
-      for (let k = 0; k < 40; k++) { g.fillStyle = `rgba(190,255,200,${0.4 + r(k) * 0.5})`; g.beginPath(); g.arc(w * r(k + 120), ground * (0.2 + r(k + 121) * 0.7), 1.5, 0, TAU); g.fill(); } // luciérnagas
-      haze(0.3, '#0e7490');
-      break;
-    }
-    case 'factory': {
-      g.fillStyle = '#100e0c'; g.fillRect(0, 0, w, ground);
-      for (let y = 0; y < ground; y += s * 1.4) for (let x = (y / s) % 2 ? -s : 0; x < w; x += s * 2.2) { g.fillStyle = r(x + y * 3) < 0.5 ? '#1d1a17' : '#191613'; g.fillRect(x + 2, y + 2, s * 2.2 - 4, s * 1.4 - 4); g.fillStyle = 'rgba(255,255,255,0.04)'; g.fillRect(x + 2, y + 2, s * 2.2 - 4, 2); }
-      for (const x of [0.2, 0.52, 0.82]) { const wx = w * x, wy = ground * 0.2; g.fillStyle = '#2a1608'; g.fillRect(wx - s * 1.2, wy, s * 2.4, s * 1.6); g.fillStyle = lin(g, 0, wy, 0, wy + s * 1.6, [[0, '#f59e0b'], [1, '#b45309']]); for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) g.fillRect(wx - s * 1.1 + i * s * 0.78, wy + s * 0.1 + j * s * 0.75, s * 0.68, s * 0.65); glowDisc(wx, wy + s * 0.8, s * 3, '#f59e0b', 0.25); } // ventanas
-      const robotArm = (bx: number, flip: number) => { const by = ground; g.save(); g.translate(bx, by); g.scale(flip, 1); g.lineCap = 'round'; for (const [c, wd] of [['#3b2a0a', s * 0.55], ['#e0a812', s * 0.42]] as const) { g.strokeStyle = c; g.lineWidth = wd; g.beginPath(); g.moveTo(0, 0); g.lineTo(s * 0.4, -s * 2.6); g.lineTo(s * 2.2, -s * 3.6); g.lineTo(s * 2.8, -s * 2.6); g.stroke(); } g.fillStyle = '#222'; for (const [jx, jy] of [[s * 0.4, -s * 2.6], [s * 2.2, -s * 3.6]]) { g.beginPath(); g.arc(jx, jy, s * 0.28, 0, TAU); g.fill(); } g.fillStyle = '#1a1a1a'; g.fillRect(-s * 0.6, -s * 0.4, s * 1.2, s * 0.4); g.restore(); };
-      robotArm(w * 0.14, 1); robotArm(w * 0.5, -1); robotArm(w * 0.74, 1);
-      const gear = (cx: number, cy: number, rr: number) => { g.fillStyle = '#2b2620'; g.beginPath(); for (let k = 0; k < 24; k++) { const a = k * TAU / 24, d = k % 2 ? rr : rr * 1.15; g.lineTo(cx + Math.cos(a) * d, cy + Math.sin(a) * d); } g.fill(); g.fillStyle = '#100e0c'; g.beginPath(); g.arc(cx, cy, rr * 0.35, 0, TAU); g.fill(); };
-      gear(w * 0.36, ground * 0.45, s * 1.6); gear(w * 0.95, ground * 0.3, s * 2.2); gear(w * 0.03, ground * 0.6, s * 1.4);
-      for (const py of [0.08, 0.6]) { g.fillStyle = '#2a241d'; g.fillRect(0, ground * py, w, s * 0.3); for (let x = 0; x < w; x += s * 3) { g.fillStyle = '#3a3128'; g.fillRect(x, ground * py - s * 0.05, s * 0.2, s * 0.4); } } // caños
-      break;
-    }
-    case 'storm': {
-      if (clouds) g.drawImage(clouds, 0, 0, w, ground * 0.8);
-      const boltBg = (x: number) => { g.strokeStyle = 'rgba(165,180,252,0.6)'; g.lineWidth = Math.max(1.5, s * 0.08); g.beginPath(); let px = x, py = 0; g.moveTo(px, py); while (py < ground * 0.8) { px += (r(px + py) - 0.5) * s * 1.5; py += s * 0.8; g.lineTo(px, py); } g.stroke(); glowDisc(x, ground * 0.3, s * 4, '#a5b4fc', 0.15); };
-      boltBg(w * 0.12); boltBg(w * 0.62); boltBg(w * 0.86);
-      for (let k = 0; k < 7; k++) { const tx = w * (0.04 + k * 0.155), tw = s * (1.4 + r(k) * 1), th = s * (6 + r(k + 3) * 5); g.fillStyle = '#0b0f1e'; g.fillRect(tx, ground - th, tw, th); g.beginPath(); g.moveTo(tx - s * 0.2, ground - th); g.lineTo(tx + tw / 2, ground - th - s * 1.8); g.lineTo(tx + tw + s * 0.2, ground - th); g.fill(); for (let j = 0; j < 4; j++) if (r(k * 4 + j) < 0.5) { g.fillStyle = '#fbbf24'; g.fillRect(tx + tw * 0.4, ground - th + s * (1 + j * 1.3), s * 0.25, s * 0.4); } } // torres
-      haze(0.35, '#3b4a7a');
-      break;
-    }
-    case 'temple': {
-      if (clouds) g.drawImage(clouds, 0, 0, w, ground * 0.5);
-      for (let layer = 0; layer < 3; layer++) { // follaje
-        g.fillStyle = ['#0f3b25', '#0b2e1d', '#082316'][layer];
-        for (let k = 0; k < 26; k++) { const cx = w * r(k + layer * 40), cy = ground * (0.05 + layer * 0.15) + r(k + 3) * s * 2; g.beginPath(); g.arc(cx, cy, s * (1.5 + r(k + 7) * 2), 0, TAU); g.fill(); }
-      }
-      for (const x of [0.36, 0.68]) { const fx = w * x; g.fillStyle = lin(g, fx, 0, fx + s * 1.5, 0, [[0, 'rgba(186,230,253,0.5)'], [0.5, 'rgba(240,249,255,0.85)'], [1, 'rgba(125,211,252,0.5)']]); g.fillRect(fx, ground * 0.15, s * 1.5, ground * 0.85); glowDisc(fx + s * 0.75, ground, s * 2.5, '#bae6fd', 0.35); } // cascadas
-      for (let k = 0; k < 5; k++) { const bx = w * (0.05 + k * 0.23); g.fillStyle = '#1d2b20'; g.fillRect(bx, ground - s * 5, s * 2.6, s * 5); for (let j = 0; j < 7; j++) { g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(bx, ground - s * (5 - j * 0.72), s * 2.6, 2); } } // muros
-      const head = (cx: number, base: number, sz: number) => { shade(g, () => g.roundRect(cx - sz * 0.5, base - sz * 1.2, sz, sz * 1.2, sz * 0.15), '#6b6a50', { x: cx - sz * 0.2, y: base - sz, r: sz * 1.2, tex: 0.6, lw: 0 }); g.fillStyle = '#2a2a1e'; g.fillRect(cx - sz * 0.35, base - sz * 0.85, sz * 0.25, sz * 0.12); g.fillRect(cx + sz * 0.1, base - sz * 0.85, sz * 0.25, sz * 0.12); g.fillRect(cx - sz * 0.25, base - sz * 0.4, sz * 0.5, sz * 0.1); g.fillStyle = '#7dd3fc'; g.fillRect(cx - sz * 0.27, base - sz * 0.82, sz * 0.08, sz * 0.06); g.fillRect(cx + sz * 0.18, base - sz * 0.82, sz * 0.08, sz * 0.06); }; // cabezas de piedra
-      head(w * 0.08, ground, s * 2.6); head(w * 0.55, ground - s * 0.5, s * 3); head(w * 0.92, ground, s * 2.4);
-      for (let k = 0; k < 30; k++) { g.strokeStyle = '#1f5130'; g.lineWidth = Math.max(1, s * 0.06); g.beginPath(); const vx = w * r(k + 200); g.moveTo(vx, 0); g.quadraticCurveTo(vx + s * 0.4, s * (1 + r(k) * 2), vx, s * (2 + r(k + 1) * 4)); g.stroke(); } // lianas
-      haze(0.25, '#3f8f5f');
-      break;
-    }
-    case 'moon': {
-      stars(400, ground); planet(w * 0.66, ground * 0.32, s * 3.6); moon(w * 0.2, ground * 0.2, s * 1.3, '#d4d4d8');
-      for (let layer = 0; layer < 2; layer++) { const base = ground - s * (0.6 - layer * 0.3); g.fillStyle = ['#3f4250', '#2c2f3a'][layer]; g.beginPath(); g.moveTo(0, ground + s); for (let x = 0; x <= w + s; x += s * 0.6) g.lineTo(x, base - s * (1.2 + layer) * (0.4 + fbm(x / s * 0.15, layer, 9, 3))); g.lineTo(w, ground + s); g.fill(); }
-      for (let k = 0; k < 10; k++) { const cx = w * r(k + 7), cy = ground - s * (0.6 + r(k + 8) * 1.2); g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(cx, cy, s * (0.4 + r(k) * 0.6), s * 0.15, 0, 0, TAU); g.fill(); }
-      const dome = (cx: number, rr: number) => { g.fillStyle = '#4b5563'; g.fillRect(cx - rr, ground - s * 1.4, rr * 2, s * 0.5); const dg = g.createRadialGradient(cx - rr * 0.3, ground - s * 1.4 - rr * 0.6, 0, cx, ground - s * 1.4, rr); dg.addColorStop(0, 'rgba(186,230,253,0.9)'); dg.addColorStop(1, 'rgba(37,99,235,0.6)'); g.fillStyle = dg; g.beginPath(); g.arc(cx, ground - s * 1.4, rr, Math.PI, TAU); g.fill(); g.strokeStyle = '#94a3b8'; g.lineWidth = 1; g.stroke(); };
-      dome(w * 0.12, s * 1.2); dome(w * 0.86, s * 1.6);
-      for (const x of [0.32, 0.55]) { const tx = w * x; g.fillStyle = '#6b7280'; g.fillRect(tx - s * 0.6, ground - s * 4, s * 1.2, s * 3); g.fillStyle = '#38bdf8'; g.fillRect(tx - s * 0.3, ground - s * 3.4, s * 0.6, s * 0.8); g.fillStyle = '#9ca3af'; g.beginPath(); g.arc(tx, ground - s * 4, s * 0.6, Math.PI, TAU); g.fill(); }
-      break;
-    }
-  }
 }
 
 // El piso, visto en corte: baldosas, ladrillos, roca, hielo… y su borde de arriba.
@@ -694,6 +514,17 @@ function drawWeather(ctx: CanvasRenderingContext2D, m: Match, v: View) {
 }
 
 // ---------------------------------------------------------------- Todo junto
+// La barrita que se llena mientras se mantiene apretada la barra espaciadora (verde → amarillo → rojo).
+function drawChargeMeter(ctx: CanvasRenderingContext2D, charge: number, x: number, y: number, s: number, glow: string, t: number) {
+  const k = Math.min(1, charge), w = s * 1.3, h = Math.max(5, s * 0.16);
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.beginPath(); ctx.roundRect(x - w / 2 - 2, y - 2, w + 4, h + 4, h / 2 + 2); ctx.fill();
+  const g = ctx.createLinearGradient(x - w / 2, 0, x + w / 2, 0); g.addColorStop(0, '#22c55e'); g.addColorStop(0.55, '#facc15'); g.addColorStop(1, '#ef4444');
+  ctx.save(); ctx.beginPath(); ctx.roundRect(x - w / 2, y, w, h, h / 2); ctx.clip(); ctx.fillStyle = g; ctx.fillRect(x - w / 2, y, w * k, h);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(x - w / 2, y, w * k, h * 0.4); ctx.restore();
+  if (k >= 1) { ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, y + h / 2, w * 0.7, glow, 0.35 + 0.25 * Math.sin(t * 20)); }
+  ctx.restore();
+}
 export function drawMatch(ctx: CanvasRenderingContext2D, m: Match, v: View) {
   ctx.save();
   if (m.shake > 0) ctx.translate((Math.random() - 0.5) * m.shake * v.s * 0.5, (Math.random() - 0.5) * m.shake * v.s * 0.5);
@@ -705,18 +536,17 @@ export function drawMatch(ctx: CanvasRenderingContext2D, m: Match, v: View) {
   for (const h of m.hazards) if (h.kind === 'laser' || h.kind === 'mine') drawHazard(ctx, h, m, v);
   // árbitro
   const r = m.ref;
-  if (r.action !== 'gone') { ctx.save(); ctx.translate(X(v, r.x), Y(v, r.y)); ctx.scale(v.s, v.s); if (r.facing < 0) ctx.scale(-1, 1); drawRef(ctx, r, m.time + 0.7); ctx.restore(); }
+  if (r.action !== 'gone') { ctx.save(); ctx.translate(X(v, r.x), Y(v, r.y)); ctx.scale(v.s * BODY_SCALE, v.s * BODY_SCALE); if (r.facing < 0) ctx.scale(-1, 1); drawRef(ctx, r, m.time + 0.7); ctx.restore(); }
   // luchadores
   for (const f of m.fighters) {
     const L = LOOKS[f.char], x = X(v, f.x), y = Y(v, f.y);
-    ctx.save(); ctx.translate(x, y); ctx.scale(v.s, v.s); if (f.facing < 0) ctx.scale(-1, 1);
     const fatalNow = m.phase === 'fatal' && m.fatal?.side === f.side;
-    drawFighterBody(ctx, f, m.time + f.side * 0.37, {
+    drawFighterLit(ctx, f, m.time + f.side * 0.37, {
       power: f.power / POWER_MAX, frozen: f.stun > 0 && f.stunKind === 'freeze', poison: f.poison > 0 || (f.stun > 0 && f.stunKind === 'poison'), burn: (f.stun > 0 && f.stunKind === 'burn') || (f.char === 'brutoRed' && f.abilityT > 0),
       zap: f.stun > 0 && f.stunKind === 'zap', shield: (f.powers.shield ?? 0) > 0, speed: (f.powers.speed ?? 0) > 0,
       aura: fatalNow || f.power >= POWER_MAX ? L.glow : null,
-    });
-    ctx.restore();
+    }, x, y, v.s, THEMES[m.stage].light);
+    if (f.charge > 0) drawChargeMeter(ctx, f.charge, x, Y(v, f.y + 2.55), v.s, L.glow, m.time);
   }
   for (const sh of m.shots) drawShot(ctx, sh, m, v);
   for (const e of m.fx) drawFx(ctx, e, m, v);
@@ -734,9 +564,7 @@ export function drawMatch(ctx: CanvasRenderingContext2D, m: Match, v: View) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, X(v, f.x), Y(v, f.y + 1), v.s * 4, L.glow, 0.8 * k);
     for (let i = 0; i < 12; i++) { const a = i * TAU / 12 + m.time; ctx.strokeStyle = alpha(L.glow, 0.5 * k); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(X(v, f.x) + Math.cos(a) * v.s * 0.8, Y(v, f.y + 1) + Math.sin(a) * v.s * 0.8); ctx.lineTo(X(v, f.x) + Math.cos(a) * v.s * (3 + Math.sin(m.time * 9 + i)), Y(v, f.y + 1) + Math.sin(a) * v.s * (3 + Math.sin(m.time * 9 + i))); ctx.stroke(); }
     ctx.restore();
-    ctx.save(); ctx.translate(X(v, f.x), Y(v, f.y)); ctx.scale(v.s, v.s); if (f.facing < 0) ctx.scale(-1, 1);
-    drawFighterBody(ctx, f, m.time, { power: 1, frozen: false, poison: false, burn: false, zap: false, shield: false, speed: false, aura: L.glow });
-    ctx.restore();
+    drawFighterLit(ctx, f, m.time, { power: 1, frozen: false, poison: false, burn: false, zap: false, shield: false, speed: false, aura: L.glow }, X(v, f.x), Y(v, f.y), v.s, L.glow);
   }
   if (m.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${m.flash * 0.45})`; ctx.fillRect(0, 0, v.w, v.h); }
   const vg = ctx.createRadialGradient(v.w / 2, v.h * 0.55, Math.min(v.w, v.h) * 0.35, v.w / 2, v.h * 0.55, Math.max(v.w, v.h) * 0.75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.45)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, v.w, v.h);

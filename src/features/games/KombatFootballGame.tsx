@@ -29,16 +29,19 @@ const TOURNAMENT_STAGES: StageId[] = ['industrial', 'temple', 'ice', 'factory', 
 function tournamentRival(you: CharId, n: number): CharId { const others = CHAR_IDS.filter(c => c !== you); return others[(n * 5 + 3) % others.length]; }
 const tournamentLevel = (n: number) => 0.2 + n * 0.08;
 
-// Teclas (por la tecla física): un jugador con las flechas, ESPACIO patea y X tira la habilidad (también WASD);
-// dos jugadores: J1 con WASD + ESPACIO + E y J2 con las flechas + ENTER + SHIFT derecho.
-type Key = 'left' | 'right' | 'up' | 'down' | 'kick' | 'ability';
-const KEYS_SOLO: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Space: 'kick', KeyX: 'ability', KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down' };
-const KEYS_P1: Record<string, Key> = { KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', Space: 'kick', KeyE: 'ability' };
-const KEYS_P2: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'kick', NumpadEnter: 'kick', ShiftRight: 'ability', Numpad0: 'ability' };
-interface KeyHelp { move: string[]; jump: string; block: string; kick: string; ability: string }
+// Teclas (por la tecla física): un jugador con las flechas (o WASD) y ESPACIO; dos jugadores: J1 con WASD +
+// ESPACIO y J2 con las flechas + ENTER. Mantener la patada carga el tiro, mantener ↑ salta más alto y la
+// habilidad sale con adelante, adelante + patada.
+type Key = 'left' | 'right' | 'up' | 'down' | 'kick';
+const KEYS_SOLO: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Space: 'kick', KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down' };
+const KEYS_P1: Record<string, Key> = { KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', Space: 'kick' };
+const KEYS_P2: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'kick', NumpadEnter: 'kick' };
+interface KeyHelp { move: string[]; jump: string; block: string; kick: string }
 const helpFor = (mode: Mode, side: 0 | 1): KeyHelp => mode === 'versus'
-  ? side === 0 ? { move: ['A', 'D'], jump: 'W', block: 'S', kick: 'ESPACIO', ability: 'E' } : { move: ['←', '→'], jump: '↑', block: '↓', kick: 'ENTER', ability: 'SHIFT der.' }
-  : { move: ['←', '→'], jump: '↑', block: '↓', kick: 'ESPACIO', ability: 'X' };
+  ? side === 0 ? { move: ['A', 'D'], jump: 'W', block: 'S', kick: 'ESPACIO' } : { move: ['←', '→'], jump: '↑', block: '↓', kick: 'ENTER' }
+  : { move: ['←', '→'], jump: '↑', block: '↓', kick: 'ESPACIO' };
+// Habilidad: dos veces la flecha hacia donde se quiere tirar y la patada.
+const abilityCombo = (mode: Mode, side: 0 | 1, dir: 1 | -1) => { const f = mode === 'versus' && side === 0 ? (dir > 0 ? 'D' : 'A') : dir > 0 ? '→' : '←'; return [f, f, helpFor(mode, side).kick]; };
 const fatalCombo = (mode: Mode, side: 0 | 1, dir: 1 | -1) => [...fatalKeys(dir).map(k => mode === 'versus' && side === 0 ? (k === '→' ? 'D' : 'A') : k), helpFor(mode, side).kick];
 
 interface Side { stamina: number; power: number; cd: number; ready: boolean; fatal: boolean; dir: 1 | -1; powers: string[] }
@@ -175,7 +178,7 @@ export function KombatFootball() {
       setPick(1); const other = CHAR_IDS.indexOf(p2 === id ? CHAR_IDS[(idx + 1) % 16] : p2); setCursor(other); if (p2 === id) setP2(CHAR_IDS[other]);
     } else { setP2(id); setScreen('stage'); }
   }, [pick, mode, p2]);
-  const cols = narrow ? 4 : 8;
+  const cols = 4; // la grilla es un cuadrado de 4 × 4
   // teclado de las pantallas de elegir
   useEffect(() => {
     if (screen !== 'select' && screen !== 'stage' && screen !== 'howto') return;
@@ -311,7 +314,7 @@ export function KombatFootball() {
         </div>
         <div className="kf-sub">
           <span className={`kf-power${s?.fatal ? ' kf-power--full' : ''}`} title="Poder: lleno habilita el FATAL GOAL"><u style={{ width: `${power}%` }} /><em>{s?.fatal ? 'FATAL ☠' : 'PODER'}</em></span>
-          {isHuman(i) && <span className={`kf-skill${s?.ready ? ' kf-ready' : ''}`} title={c.abilityText}>✦ {c.abilityName}{s && !s.ready && s.cd > 0 ? '…' : ''}</span>}
+          {isHuman(i) && <span className={`kf-skill${s?.ready ? ' kf-ready' : ''}`} title={`${c.abilityText} (${abilityCombo(mode, i, s?.dir ?? 1).join(' ')})`}>✦ {c.abilityName} <small>{abilityCombo(mode, i, s?.dir ?? 1).join(' ')}</small>{s && !s.ready && s.cd > 0 ? '…' : ''}</span>}
           {s?.powers.map(p => <em key={p} className="kf-pw">{p}</em>)}
         </div>
       </div>
@@ -322,9 +325,9 @@ export function KombatFootball() {
     <div className="kf-howto-head"><Portrait char={chars[side]} size={56} square mirror={side === 1} /><div><b>{c.name}</b><small>{mode === 'versus' ? `Jugador ${side + 1}` : 'Vos'}</small></div></div>
     <ul>
       <li><Keys keys={k.move} /> correr</li>
-      <li><Keys keys={[k.jump]} /> saltar · <Keys keys={[k.block]} /> bloquear</li>
-      <li><Keys keys={[k.kick]} /> patear (con {k.jump} globo, con {k.block} rasante; corriendo con {k.block} barrida)</li>
-      <li className="kf-howto-ab"><Keys keys={[k.ability]} /> <b>{c.abilityName}:</b> {c.abilityText} <em>Gasta energía.</em></li>
+      <li><Keys keys={[k.jump]} /> saltar (cuanto más lo mantenés, más alto) · <Keys keys={[k.block]} /> bloquear</li>
+      <li><Keys keys={[k.kick]} /> patear: <b>mantenelo para cargar el tiro</b>, cuanto más tiempo, más fuerte sale la pelota (al soltar con {k.jump} globo, con {k.block} rasante; corriendo con {k.block} barrida)</li>
+      <li className="kf-howto-ab"><Keys keys={abilityCombo(mode, side, 1)} /> <b>{c.abilityName}:</b> {c.abilityText} Adelante, adelante + patada (o para el otro lado). <em>Gasta energía.</em></li>
       <li className="kf-howto-fatal"><Keys keys={fatalCombo(mode, side, 1)} /> <b>FATAL GOAL</b> ({c.fatalName}) cuando la barra de poder está llena. Las flechas son hacia el arco rival.</li>
     </ul>
   </div>; };
@@ -381,7 +384,7 @@ export function KombatFootball() {
               return <button key={id} type="button" className={`kf-cell${sel1 ? ' kf-cell--1' : ''}${sel2 ? ' kf-cell--2' : ''}`} aria-label={CHARS[id].name} aria-pressed={cursor === i}
                 onClick={() => { if (cursor === i) chooseChar(i); else { setCursor(i); if (pick === 0) setP1(id); else setP2(id); } }}
                 onDoubleClick={() => chooseChar(i)}>
-                <Portrait char={id} size={narrow ? 60 : 72} square />
+                <Portrait char={id} size={narrow ? 66 : 104} square />
                 {sel1 && <i className="kf-tag kf-tag--1">1</i>}{sel2 && <i className="kf-tag kf-tag--2">{mode === 'versus' ? '2' : 'CPU'}</i>}
               </button>;
             })}
@@ -471,7 +474,7 @@ export function KombatFootball() {
       <button type="button" aria-label="Saltar" {...hold('up')}>▲</button>
       <button type="button" aria-label="Bloquear" {...hold('down')}>▼</button>
       <button type="button" className="kf-kick" aria-label="Patear" {...hold('kick')}>⚽</button>
-      <button type="button" className={`kf-cast${hud?.sides[0].ready ? '' : ' kf-cast--off'}`} aria-label={CHARS[chars[0]].abilityName} {...hold('ability')}>✦</button>
+      <button type="button" className={`kf-cast${hud?.sides[0].ready ? '' : ' kf-cast--off'}`} aria-label={CHARS[chars[0]].abilityName} onPointerDown={e => { e.preventDefault(); inputs.current[0].cast = 'ability'; }}>✦</button>
       {hud?.sides[0].fatal && <button type="button" className="kf-cast kf-cast--fatal" aria-label="FATAL GOAL" onPointerDown={e => { e.preventDefault(); inputs.current[0].cast = 'fatal'; }}>☠</button>}
     </div>}
   </section>;

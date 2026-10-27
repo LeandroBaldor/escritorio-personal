@@ -49,7 +49,7 @@ describe('Kombat Football', () => {
     expect(f.goals).toBe(1);
   });
 
-  it('cada habilidad gasta energía y le pega a la pelota (sirve para sacarla del arco)', () => {
+  it('cada habilidad sale con adelante, adelante + espacio, gasta energía y le pega a la pelota', () => {
     for (const char of CHAR_IDS) {
       const m = newMatch('temple', [char, 'frost'], [null, null], seeded(3));
       toPlay(m);
@@ -61,14 +61,59 @@ describe('Kombat Football', () => {
       // la pelota donde la alcanza cada habilidad
       b.x = ab === 'superJump' ? 14.3 : ab === 'quake' || ab === 'laserCut' || ab === 'charge' || ab === 'phase' || ab === 'freeze' ? 15.5 : 18; b.y = ab === 'superJump' ? 3 : ab === 'magmaSpikes' || ab === 'quake' || ab === 'charge' || ab === 'phase' ? 0.4 : 1.1; b.vx = 0; b.vy = 0;
       if (ab === 'freeze' || ab === 'toxicCloud') b.vx = -8;
-      const x0 = b.x;
+      const x0 = b.x, y0 = b.y, v0 = b.vx;
       let k = 0, low = STAMINA, far = 0;
-      for (let t = 0; t < 1.2; t += 1 / 60) { k++; const i = noInput(); i.ability = k === 2; step(m, [i, noInput()], 1 / 60); low = Math.min(low, f.stamina); far = Math.max(far, b.x - x0); }
+      for (let t = 0; t < 1.2; t += 1 / 60) { k++; const i = noInput(); i.right = k === 2 || k === 5; i.kick = k === 8; if (k <= 8) { b.x = x0; b.y = y0; b.vx = v0; b.vy = 0; } step(m, [i, noInput()], 1 / 60); low = Math.min(low, f.stamina); far = Math.max(far, ab === 'superJump' ? Math.hypot(b.x - x0, b.y - 3) : b.x - x0); }
       expect(low, char).toBeLessThan(STAMINA - 5);
       if (ab === 'freeze') expect(Math.abs(b.x - x0), char).toBeLessThan(1.5);
       else if (ab === 'toxicCloud') expect(x0 - b.x, char).toBeLessThan(6); // la nube la frena (sin nube recorrería mucho más)
       else expect(far, char).toBeGreaterThan(2);
     }
+  });
+
+  it('mantener la barra espaciadora carga el tiro: cuanto más tiempo, más rápido sale la pelota', () => {
+    const shot = (frames: number) => {
+      const m = newMatch('temple', ['inferno', 'frost'], [null, null], seeded(12));
+      toPlay(m); m.solids = []; m.hazards = [];
+      const f = m.fighters[0], b = m.ball; m.fighters[1].x = 3; m.ref.x = 3;
+      f.x = 12; f.y = 0; f.facing = 1; b.x = 12.6; b.y = 0.45; b.vx = 0; b.vy = 0;
+      let k = 0, top = 0, charging = false;
+      play(m, 1.6, () => { k++; const i = noInput(); i.kick = k <= frames; if (f.action === 'charge') charging = true; if (k <= frames) { b.x = 12.6; b.y = 0.45; b.vx = 0; b.vy = 0; } top = Math.max(top, Math.hypot(b.vx, b.vy)); return [i, noInput()]; });
+      if (frames > 5) expect(charging).toBe(true);
+      return top;
+    };
+    const tap = shot(1), half = shot(30), full = shot(70);
+    expect(half).toBeGreaterThan(tap * 1.2);
+    expect(full).toBeGreaterThan(half * 1.1);
+  });
+
+  it('la habilidad también sale para atrás (atrás, atrás + espacio) y sin la combinación no sale', () => {
+    const m = newMatch('temple', ['inferno', 'frost'], [null, null], seeded(13));
+    toPlay(m); m.solids = []; m.hazards = [];
+    const f = m.fighters[0]; f.x = 15; f.facing = 1; f.stamina = STAMINA;
+    let k = 0;
+    play(m, 0.4, () => { k++; const i = noInput(); i.left = k === 2 || k === 5; i.kick = k === 8; return [i, noInput()]; });
+    expect(f.facing).toBe(-1);
+    expect(m.shots.length + (f.cd > 0 ? 1 : 0)).toBeGreaterThan(0);
+    const m2 = newMatch('temple', ['inferno', 'frost'], [null, null], seeded(13));
+    toPlay(m2); const g = m2.fighters[0];
+    k = 0; play(m2, 0.4, () => { k++; const i = noInput(); i.right = k === 2; i.kick = k === 8; return [i, noInput()]; });
+    expect(g.cd).toBe(0);
+  });
+
+  it('el salto es más alto cuanto más tiempo se mantiene la flecha para arriba (hasta unos 4 m)', () => {
+    const jump = (frames: number) => {
+      const m = newMatch('temple', ['cometa', 'frost'], [null, null], seeded(14));
+      toPlay(m); m.solids = []; m.hazards = [];
+      const f = m.fighters[0]; f.x = 15; let k = 0, top = 0;
+      play(m, 1.6, () => { k++; const i = noInput(); i.up = k <= frames; top = Math.max(top, f.y); return [i, noInput()]; });
+      return top;
+    };
+    const tap = jump(1), long = jump(40);
+    expect(tap).toBeLessThan(2);
+    expect(long).toBeGreaterThan(tap * 2);
+    expect(long).toBeGreaterThan(3.2);
+    expect(long).toBeLessThan(5);
   });
 
   it('descansando se recupera la energía, y con poca energía se corre más lento', () => {
@@ -134,7 +179,7 @@ describe('Kombat Football', () => {
     m.fighters[0].power = POWER_MAX; m.fighters[0].x = 10;
     m.fighters[1].x = W - 6; m.fighters[1].facing = 1;
     let k = 0;
-    play(m, 6, () => { k++; const i = noInput(), j = noInput(); i.cast = k === 2 ? 'fatal' : null; j.ability = m.fatal !== null && Math.hypot(m.ball.x - m.fighters[1].x, m.ball.y - 1) < 6 && k % 2 === 0; return [i, j]; });
+    play(m, 6, () => { k++; const i = noInput(), j = noInput(); i.cast = k === 2 ? 'fatal' : null; j.cast = m.fatal !== null && Math.hypot(m.ball.x - m.fighters[1].x, m.ball.y - 1) < 6 && k % 2 === 0 ? 'ability' : null; return [i, j]; });
     expect(m.fighters[0].goals).toBe(0);
     expect(fatalKeys(1)).toEqual(['→', '←', '→']);
   });
