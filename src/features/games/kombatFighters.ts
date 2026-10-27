@@ -76,7 +76,7 @@ function poseOf(f: Fighter, t: number): Pose {
   }
   // guardia de pelea
   const br = s(t * 3.2);
-  return { bob: br * 0.025, lean: 0.08, crouch: 0.08 + br * 0.02, head: 0.05, legs: [[-0.45, 0.55], [0.4, 0.6]], arms: [[0.35 + br * 0.05, 1.75], [0.55 - br * 0.05, 1.45]] }; // guardia: puños adelante a la altura del pecho
+  return { bob: br * 0.025, lean: 0.08, crouch: 0.08 + br * 0.02, head: 0.05, legs: [[-0.45, 0.55], [0.4, 0.6]], arms: [[0.04 + br * 0.03, 1.7], [0.08 - br * 0.03, 1.55]] }; // guardia: el brazo cae derecho (hombro y codo en la misma línea) y el antebrazo va adelante
 }
 const dirv = (a: number): Pt => [Math.sin(a), Math.cos(a)];
 const add = (p: Pt, d: Pt, l: number): Pt => [p[0] + d[0] * l, p[1] + d[1] * l];
@@ -260,7 +260,7 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
   const L = LOOKS[f.char], p = poseOf(f, t), K = L.brute ? 1.32 : 1, ghost = L.extras.includes('ghost');
   const hipY = -0.66 + p.bob + p.crouch * 0.4, hip: Pt = [0, hipY];
   const lean = p.lean, neck: Pt = [Math.sin(lean) * 0.5, hipY - Math.cos(lean) * 0.5];
-  const shoulder: Pt = [neck[0] - 0.02, neck[1] + 0.1]; // hombros un poco más abajo y más separados: se ven los brazos
+  const shoulder: Pt = [neck[0] - 0.02, neck[1] + 0.13]; // hombros un poco más abajo y más separados: se ven los brazos
   if (fx.aura && !fx.lit) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     for (let k = 0; k < 3; k++) { const g = ctx.createRadialGradient(0, -1, 0, 0, -1, 1.3 + k * 0.2 + Math.sin(t * 12 + k) * 0.05); g.addColorStop(0, alpha(fx.aura, 0.25)); g.addColorStop(1, alpha(fx.aura, 0)); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, -1, 0.9 + k * 0.1, 1.4 + k * 0.1, 0, 0, TAU); ctx.fill(); }
@@ -318,7 +318,7 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
     ctx.restore();
   };
   const arm = (i: number) => {
-    const back = i === 0, [ua, eb] = p.arms[i], sp: Pt = [shoulder[0] + (back ? -0.19 : 0.17) * K, shoulder[1] + (back ? -0.02 : 0)];
+    const back = i === 0, [ua, eb] = p.arms[i], sp: Pt = [shoulder[0] + (back ? -0.24 : 0.22) * K, shoulder[1] + (back ? -0.02 : 0)];
     const elbow = add(sp, dirv(ua), 0.3), hand = add(elbow, dirv(ua + eb), 0.28);
     segment(ctx, sp, elbow, 0.2 * K, 0.16 * K, limbCol(back, L.armor), 0.6);
     const cannon = !back && L.extras.includes('cannon');

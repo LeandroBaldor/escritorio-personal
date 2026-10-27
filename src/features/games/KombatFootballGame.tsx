@@ -375,7 +375,7 @@ export function KombatFootball() {
       <div className="kf-shouts" aria-live="assertive">
         {shouts.map(s => <div key={s.id} className={`kf-shout kf-shout--${s.kind}`} role="status">{s.text}{s.sub && <small>{s.sub}</small>}</div>)}
       </div>
-      {selecting && <div className="kf-select" role="dialog" aria-labelledby="kf-title" style={{ backgroundImage: `radial-gradient(ellipse 60% 45% at 50% 42%, #ffb44a14, #0000 70%), radial-gradient(circle at 6% 30%, #ff8a1a33, #0000 22%), radial-gradient(circle at 94% 30%, #ff8a1a33, #0000 22%), radial-gradient(ellipse at 50% 45%, #0000 35%, #000000d0 100%), url(${brickWallURL() ?? ''})`, backgroundSize: 'auto, auto, auto, auto, 384px 288px' }}>
+      {selecting && <div className="kf-select" role="dialog" aria-labelledby="kf-title" style={{ backgroundImage: `radial-gradient(ellipse at 50% 45%, #0000 55%, #00000080 100%), url(${brickWallURL() ?? ''})`, backgroundSize: 'auto, 448px 336px', backgroundColor: '#151614' }}>
         <h2 id="kf-title">{mode === 'versus' ? `JUGADOR ${pick + 1}: ELEGÍ TU LUCHADOR` : pick === 0 ? 'ELEGÍ TU LUCHADOR' : 'ELEGÍ AL RIVAL'}</h2>
         <div className="kf-select-row">
           <div className={`kf-pick kf-pick--1${pick === 0 ? ' kf-pick--active' : ''}`} style={{ ['--kf-c' as string]: CHARS[pick === 0 ? shown : p1].color }}>

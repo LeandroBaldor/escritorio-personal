@@ -744,26 +744,33 @@ export function brickWallURL(): string | null {
   if (brickURL || typeof document === 'undefined') return brickURL;
   const W0 = 512, H0 = 384, c = document.createElement('canvas'); c.width = W0; c.height = H0;
   const g = c.getContext('2d'); if (!g) return null;
-  g.fillStyle = '#121214'; g.fillRect(0, 0, W0, H0); // la mezcla
-  const bw = 128, bh = 48, gap = 5;
+  g.fillStyle = '#151614'; g.fillRect(0, 0, W0, H0); // la mezcla (casi negra)
+  const bh = 48, gap = 6;
   const id = g.getImageData(0, 0, W0, H0), d = id.data;
-  for (let row = 0; row < H0 / bh; row++) for (let col = -1; col < W0 / bw + 1; col++) {
-    const x0 = col * bw + (row % 2 ? bw / 2 : 0), y0 = row * bh, tone = 34 + hash(row * 31 + col * 7 + 3) * 18, warm = hash(row * 13 + col) * 6;
-    for (let y = y0 + gap / 2; y < y0 + bh - gap / 2; y++) for (let x = x0 + gap / 2; x < x0 + bw - gap / 2; x++) {
-      const px = ((Math.floor(x) % W0) + W0) % W0, py = Math.floor(y); if (py < 0 || py >= H0) continue;
-      const ex = Math.min(x - x0 - gap / 2, x0 + bw - gap / 2 - x), ey = Math.min(y - y0 - gap / 2, y0 + bh - gap / 2 - y), e = Math.min(ex, ey);
-      const n = hash(px * 0.913 + py * 1.731) * 0.5 + hash(Math.floor(px / 3) * 3.1 + Math.floor(py / 3) * 7.7) * 0.5; // grano fino y grueso
-      let v = tone + (n - 0.5) * 26;
-      if (e < 3) v -= (3 - e) * 6; // borde gastado
-      if (y - y0 - gap / 2 < 4) v += 14; else if (y0 + bh - gap / 2 - y < 4) v -= 16; // luz arriba, sombra abajo
-      if (x - x0 - gap / 2 < 3) v += 8;
-      const k = (py * W0 + px) * 4; d[k] = v + warm; d[k + 1] = v + warm * 0.6; d[k + 2] = v + 3; d[k + 3] = 255;
+  for (let row = 0; row < H0 / bh; row++) {
+    // ladrillos de largo distinto en cada fila (como la pared de Mortal Kombat 3), que cierran justo en el borde
+    const c0 = hash(row * 17.3) * 90, cuts: number[] = []; let acc = c0;
+    while (acc < c0 + W0 - 70) { cuts.push(acc); acc += 80 + hash(row * 7.1 + cuts.length * 3.3) * 70; }
+    cuts.push(c0 + W0); // el último cierra justo donde empieza el primero (el mosaico no tiene costura)
+    for (let k = 0; k < cuts.length - 1; k++) {
+      const x0 = cuts[k], x1 = cuts[k + 1], y0 = row * bh, tone = 40 + hash(row * 31 + k * 7 + 3) * 12;
+      for (let y = y0 + gap / 2; y < y0 + bh - gap / 2; y++) for (let x = x0 + gap / 2; x < x1 - gap / 2; x++) {
+        const px = ((Math.floor(x) % W0) + W0) % W0, py = Math.floor(y); if (py < 0 || py >= H0) continue;
+        const top = y - y0 - gap / 2, bot = y0 + bh - gap / 2 - y, lef = x - x0 - gap / 2, rig = x1 - gap / 2 - x;
+        const n = hash(px * 0.913 + py * 1.731) * 0.45 + hash(Math.floor(px / 4) * 3.1 + Math.floor(py / 3) * 7.7) * 0.55; // piedra granulada
+        let v = tone + (n - 0.5) * 30;
+        if (top < 3) v += 22 - top * 4; else if (top < 7) v += 6; // borde de arriba con luz
+        if (lef < 3) v += 12 - lef * 3;
+        if (bot < 4) v -= 14 - bot * 2; if (rig < 3) v -= 8; // abajo y a la derecha en sombra
+        if (Math.min(top, bot, lef, rig) < 1.2 && hash(px * 3.3 + py) < 0.5) v -= 18; // esquinas gastadas
+        const k4 = (py * W0 + px) * 4; d[k4] = v; d[k4 + 1] = v + 1.5; d[k4 + 2] = v - 2; d[k4 + 3] = 255;
+      }
     }
   }
   g.putImageData(id, 0, 0);
   // grietas y astillas
-  g.strokeStyle = 'rgba(0,0,0,0.55)'; g.lineWidth = 1.2;
-  for (let k = 0; k < 14; k++) { let x = hash(k * 5.3) * W0, y = hash(k * 9.1) * H0; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 5; j++) { x += (hash(k * 3 + j) - 0.5) * 18; y += (hash(k * 7 + j) - 0.3) * 10; g.lineTo(x, y); } g.stroke(); }
+  g.strokeStyle = 'rgba(0,0,0,0.4)'; g.lineWidth = 1;
+  for (let k = 0; k < 9; k++) { let x = hash(k * 5.3) * W0, y = hash(k * 9.1) * H0; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 5; j++) { x += (hash(k * 3 + j) - 0.5) * 18; y += (hash(k * 7 + j) - 0.3) * 10; g.lineTo(x, y); } g.stroke(); }
   for (let k = 0; k < 22; k++) { const x = hash(k * 2.7 + 1) * W0, y = hash(k * 4.9 + 2) * H0, r = 2 + hash(k) * 4; g.fillStyle = 'rgba(0,0,0,0.45)'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(255,255,255,0.06)'; g.beginPath(); g.arc(x - 1, y - 1, r * 0.6, 0, Math.PI * 2); g.fill(); }
   brickURL = c.toDataURL('image/png');
   return brickURL;
