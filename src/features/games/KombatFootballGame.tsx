@@ -4,7 +4,7 @@ import {
   BALLS, CHARS, CHAR_IDS, HALF_TIME, POWERS, POWER_MAX, STAGES, STAMINA, TOURNAMENT, abilityReady, attackDir, clockText, fatalKeys, newMatch, noInput, step, takeEvents,
   type CharId, type Input, type Match, type StageId,
 } from './kombat';
-import { drawMatch, drawStageThumb, viewFor } from './kombatArt';
+import { brickWallURL, drawMatch, drawStageThumb, viewFor } from './kombatArt';
 import { drawFighterCard, drawPortrait } from './kombatFighters';
 import {
   playExplosion, playGameOver, playGoal, playJump, playKfBlock, playKfBounce, playKfFatal, playKfHit, playKfPickup, playKfPost, playKfPower, playKick, playLaserOn,
@@ -229,7 +229,6 @@ export function KombatFootball() {
           case 'fatalBlocked': playExplosion(); shout('¡BLOQUEADO!', 'block', 'Frenó el FATAL GOAL', 1500); break;
           case 'goal': playGoal(); shout(e.fatal ? '☠ FATAL GOAL ☠' : '¡GOL!', e.fatal ? 'fatal' : 'goal', `${CHARS[m.fighters[e.side].char].name} ${m.fighters[0].goals} - ${m.fighters[1].goals}`, 2400); break;
           case 'save': playKfBlock(); shout('¡SALVADA!', 'block', `${CHARS[m.fighters[e.side].char].name} la sacó del arco`, 1000); break;
-          case 'ballBoom': playExplosion(); shout('¡LA PELOTA EXPLOTÓ!', 'block', 'Ya baja otra por el tubo', 1400); break;
           case 'ballDrop': playKfPickup(); break;
           case 'refDown': shout('¡ÁRBITRO KO!', 'block', 'Vuelve en unos segundos', 1300); break;
           case 'power': playKfPickup(); shout(`${who(e.side)}: ${POWERS[e.kind].name}`, 'info', POWERS[e.kind].text, 2200); break;
@@ -326,7 +325,7 @@ export function KombatFootball() {
     <div className="kf-howto-head"><Portrait char={chars[side]} size={56} square mirror={side === 1} /><div><b>{c.name}</b><small>{mode === 'versus' ? `Jugador ${side + 1}` : 'Vos'}</small></div></div>
     <ul>
       <li><Keys keys={k.move} /> correr</li>
-      <li><Keys keys={[k.jump]} /> saltar (cuanto más lo mantenés, más alto) · <Keys keys={[k.block]} /> bloquear</li>
+      <li><Keys keys={[k.jump]} /> saltar (apretalo de nuevo en el aire: dos veces salta el doble, tres veces el triple) · <Keys keys={[k.block]} /> bloquear</li>
       <li><Keys keys={[k.kick]} /> patear: <b>mantenelo para cargar el tiro</b>, cuanto más tiempo, más fuerte sale la pelota (al soltar con {k.jump} globo, con {k.block} rasante; corriendo con {k.block} barrida)</li>
       <li className="kf-howto-ab"><Keys keys={abilityCombo(mode, side, 1)} /> <b>{c.abilityName}:</b> {c.abilityText} Adelante, adelante + patada (o para el otro lado). <em>Gasta energía.</em></li>
       <li className="kf-howto-fatal"><Keys keys={fatalCombo(mode, side, 1)} /> <b>FATAL GOAL</b> ({c.fatalName}) cuando la barra de poder está llena. Las flechas son hacia el arco rival.</li>
@@ -376,7 +375,7 @@ export function KombatFootball() {
       <div className="kf-shouts" aria-live="assertive">
         {shouts.map(s => <div key={s.id} className={`kf-shout kf-shout--${s.kind}`} role="status">{s.text}{s.sub && <small>{s.sub}</small>}</div>)}
       </div>
-      {selecting && <div className="kf-select" role="dialog" aria-labelledby="kf-title">
+      {selecting && <div className="kf-select" role="dialog" aria-labelledby="kf-title" style={{ backgroundImage: `radial-gradient(ellipse 60% 45% at 50% 42%, #ffb44a14, #0000 70%), radial-gradient(circle at 6% 30%, #ff8a1a33, #0000 22%), radial-gradient(circle at 94% 30%, #ff8a1a33, #0000 22%), radial-gradient(ellipse at 50% 45%, #0000 35%, #000000d0 100%), url(${brickWallURL() ?? ''})`, backgroundSize: 'auto, auto, auto, auto, 384px 288px' }}>
         <h2 id="kf-title">{mode === 'versus' ? `JUGADOR ${pick + 1}: ELEGÍ TU LUCHADOR` : pick === 0 ? 'ELEGÍ TU LUCHADOR' : 'ELEGÍ AL RIVAL'}</h2>
         <div className="kf-select-row">
           <div className={`kf-pick kf-pick--1${pick === 0 ? ' kf-pick--active' : ''}`} style={{ ['--kf-c' as string]: CHARS[pick === 0 ? shown : p1].color }}>
@@ -440,7 +439,7 @@ export function KombatFootball() {
             <h2 id="kf-title" className="kf-title-mk">CONTROLES</h2>
             <p className="kf-note">{CHARS[chars[0]].name} vs {CHARS[chars[1]].name} · {STAGES.find(s => s.id === (mode === 'tournament' ? TOURNAMENT_STAGES[round] : stage))!.name}</p>
             <div className="kf-howto">{howto(0)}{mode === 'versus' && howto(1)}</div>
-            <p className="kf-note">La barra de arriba es tu <b>energía</b>: la bajan las trampas, los poderes del rival y usar tu habilidad; se recupera descansando. Con poca energía corrés más lento. Si la pelota se quema, explota y baja otra por el tubo del medio.</p>
+            <p className="kf-note">La barra de arriba es tu <b>energía</b>: la bajan las trampas, los poderes del rival y usar tu habilidad; se recupera descansando. Con poca energía corrés más lento. Las trampas no rompen la pelota: el fuego y la lava la despiden prendida fuego (quema al rival que toca).</p>
             <div className="kf-actions">
               <button type="button" className="kf-secondary" onClick={() => setScreen(mode === 'tournament' ? 'select' : 'stage')}>‹ Volver</button>
               <button type="button" onClick={() => begin(mode === 'tournament' ? round : 0)} autoFocus>¡A jugar!</button>

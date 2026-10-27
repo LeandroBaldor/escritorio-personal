@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHARS, CHAR_IDS, GOAL_DEPTH, HALF_TIME, POWER_MAX, STAGES, STAMINA, TUBE_Y, W, attackDir, defendsLeft, explodeBall, fatalKeys, fatalPath, newMatch, noInput, seeded, step, supportAt, takeEvents, type Input, type Match } from './kombat';
+import { CHARS, CHAR_IDS, GOAL_DEPTH, HALF_TIME, POWER_MAX, STAGES, STAMINA, TUBE_Y, W, attackDir, defendsLeft, fatalKeys, fatalPath, newMatch, noInput, seeded, step, supportAt, takeEvents, type Input, type Match } from './kombat';
 
 const idle = (): [Input, Input] => [noInput(), noInput()];
 function play(m: Match, seconds: number, inputs: (m: Match) => [Input, Input] = idle) {
@@ -101,19 +101,19 @@ describe('Kombat Football', () => {
     expect(g.cd).toBe(0);
   });
 
-  it('el salto es más alto cuanto más tiempo se mantiene la flecha para arriba (hasta unos 4 m)', () => {
-    const jump = (frames: number) => {
-      const m = newMatch('temple', ['cometa', 'frost'], [null, null], seeded(14));
+  it('una vez ↑ salta, dos veces salta el doble y tres veces el triple (en el aire); no hay cuarto salto', () => {
+    const jump = (presses: number) => {
+      const m = newMatch('temple', ['frost', 'toxic'], [null, null], seeded(14));
       toPlay(m); m.solids = []; m.hazards = [];
-      const f = m.fighters[0]; f.x = 15; let k = 0, top = 0;
-      play(m, 1.6, () => { k++; const i = noInput(); i.up = k <= frames; top = Math.max(top, f.y); return [i, noInput()]; });
+      const f = m.fighters[0]; f.x = 15; let k = 0, top = 0, done = 0, wasUp = false;
+      play(m, 3, () => { k++; const i = noInput(); if (done < presses && !wasUp && (k === 2 || (done > 0 && f.vy < 0.5 && !f.ground))) { i.up = true; done++; } wasUp = i.up; top = Math.max(top, f.y); return [i, noInput()]; });
       return top;
     };
-    const tap = jump(1), long = jump(40);
-    expect(tap).toBeLessThan(2);
-    expect(long).toBeGreaterThan(tap * 2);
-    expect(long).toBeGreaterThan(3.2);
-    expect(long).toBeLessThan(5);
+    const one = jump(1), two = jump(2), three = jump(3), four = jump(4);
+    expect(one).toBeGreaterThan(1.8); expect(one).toBeLessThan(2.8);
+    expect(two).toBeGreaterThan(one * 1.8);
+    expect(three).toBeGreaterThan(one * 2.5);
+    expect(four).toBeCloseTo(three, 1);
   });
 
   it('descansando se recupera la energía, y con poca energía se corre más lento', () => {
@@ -138,17 +138,15 @@ describe('Kombat Football', () => {
     expect(low).toBeGreaterThanOrEqual(0);
   });
 
-  it('si la pelota se quema explota y baja otra por el tubo', () => {
+  it('la pelota nunca explota: la lava y el fuego la despiden prendida fuego y sigue en juego', () => {
     const m = newMatch('volcano', ['cometa', 'toxic'], [null, null], seeded(6));
     toPlay(m);
     const lava = m.hazards.find(h => h.kind === 'lava')!;
     m.ball.x = lava.x + lava.w / 2; m.ball.y = 1; m.ball.vx = 0; m.ball.vy = 0;
-    let boom = false, drop = false;
-    for (let t = 0; t < 3; t += 1 / 60) { step(m, idle(), 1 / 60); for (const e of takeEvents(m)) { if (e.type === 'ballBoom') boom = true; if (e.type === 'ballDrop') drop = true; } }
-    expect(boom).toBe(true);
-    expect(drop).toBe(true);
-    expect(m.ball.alive).toBe(true);
-    explodeBall(m); expect(m.ball.alive).toBe(false);
+    let top = 0, fire = false;
+    for (let t = 0; t < 3; t += 1 / 60) { step(m, idle(), 1 / 60); expect(m.ball.alive).toBe(true); top = Math.max(top, m.ball.y); if (m.ball.fx === 'fire') fire = true; }
+    expect(top).toBeGreaterThan(2);
+    expect(fire).toBe(true);
   });
 
   it('se puede pararse arriba de las plataformas', () => {
@@ -176,6 +174,14 @@ describe('Kombat Football', () => {
     let top = 0;
     for (let t = 0; t < 6; t += 1 / 60) { if (pis.h < 0.3) { v.ball.x = pis.x + pis.w / 2; v.ball.y = pis.y + pis.h + 0.3; v.ball.vx = 0; v.ball.vy = 0; } step(v, idle(), 1 / 60); top = Math.max(top, v.ball.y); }
     expect(top).toBeGreaterThan(2.5);
+  });
+
+  it('el árbitro recorre toda la cancha y se sube a las plataformas', () => {
+    const m = newMatch('temple', ['cometa', 'toxic'], [0.5, 0.5], seeded(17));
+    let lo = W, hi = 0, up = 0;
+    play(m, 90, mm => { const r = mm.ref; if (r.action !== 'gone') { lo = Math.min(lo, r.x); hi = Math.max(hi, r.x); if (r.ground) up = Math.max(up, r.y); } return idle(); });
+    expect(hi - lo).toBeGreaterThan(15);
+    expect(up).toBeGreaterThan(1);
   });
 
   it('el FATAL GOAL necesita la barra de poder llena, entra si nadie lo frena, y una habilidad del rival lo para', () => {
