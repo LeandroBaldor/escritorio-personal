@@ -358,7 +358,7 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
     if (L.brute) for (const k of [-1, 0, 1]) { const bx = sp[0] + k * 0.12, by = sp[1] - 0.12 - (k === 0 ? 0.04 : 0); ctx.beginPath(); ctx.moveTo(bx - 0.05, by + 0.06); ctx.lineTo(bx + k * 0.03, by - 0.2); ctx.lineTo(bx + 0.05, by + 0.06); ctx.closePath(); ctx.fillStyle = grad(ctx, bx - 0.05, 0, bx + 0.05, 0, [[0, limbCol(back, '#f1f5f9')], [1, limbCol(back, '#6b7280')]]); ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 0.01; ctx.stroke(); }
     if (f.char === 'frost') { ctx.fillStyle = limbCol(back, '#bae6fd'); for (const k of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sp[0] + k * 0.05 - 0.03, sp[1] - 0.07); ctx.lineTo(sp[0] + k * 0.05, sp[1] - 0.2); ctx.lineTo(sp[0] + k * 0.05 + 0.03, sp[1] - 0.07); ctx.fill(); } }
   };
-  arm(0); leg(0);
+  leg(0);
   // torso: pechera con el emblema del elemento
   ctx.save(); ctx.translate(hip[0], hip[1]); ctx.rotate(lean); ctx.scale(K, 1);
   const torso = () => { ctx.moveTo(-0.28, 0.06); ctx.lineTo(-0.38, -0.4); ctx.quadraticCurveTo(0, -0.6, 0.38, -0.4); ctx.lineTo(0.27, 0.06); ctx.closePath(); };
@@ -388,7 +388,7 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
   ctx.save(); ctx.translate(0.03, -0.27); EMBLEM[CHARS[f.char].element](ctx, L.helmet === 'visor' ? '#17140c' : L.glow, t); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0, 0, 0.18, L.glow, 0.25 + fx.power * 0.5); ctx.restore();
   if (L.extras.includes('cracks')) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(251,146,60,${0.75 + 0.25 * Math.sin(t * 4)})`; ctx.lineWidth = 0.025; ctx.beginPath(); ctx.moveTo(-0.3, -0.35); ctx.lineTo(-0.1, -0.2); ctx.lineTo(-0.15, 0.0); ctx.moveTo(0.3, -0.38); ctx.lineTo(0.12, -0.15); ctx.lineTo(0.2, 0.02); ctx.moveTo(-0.1, -0.2); ctx.lineTo(0.12, -0.15); ctx.stroke(); bloom(ctx, 0, -0.2, 0.5, '#f97316', 0.3); ctx.restore(); }
   ctx.restore();
-  pad(0); leg(1);
+  arm(0); pad(0); leg(1); // el brazo derecho (el de atrás) adelante del pecho, así se ve como el izquierdo
   // manguera del Orbot / Toxic: de la máscara a la espalda
   ctx.save(); ctx.translate(neck[0] + 0.03, neck[1] - 0.37); ctx.rotate(p.head * 0.5);
   drawHead(ctx, f.char, t, fx.power, f.action === 'celebrate' ? 'happy' : f.action === 'stun' || f.action === 'sad' || f.action === 'tired' ? 'hurt' : 'normal');
