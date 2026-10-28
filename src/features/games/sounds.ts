@@ -1332,7 +1332,7 @@ export function playKfName(id: string, delay = 0) { const url = kfNameUrl(id); i
 // Los sonidos grabados de Kombat Football: botones, la pelota, el láser del mapa, el relator y el locutor.
 const KF = import.meta.glob('./assets/sonidos/kf-*.mp3', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const kf = (name: string) => KF[`./assets/sonidos/kf-${name}.mp3`];
-export function preloadKombatUi() { for (const url of Object.values(KF_NAMES)) loadSample(url); for (const n of ['boton', 'voz-seleccionar', 'musica']) loadSample(kf(n)); for (const n of ['pelota', 'salto', 'laser', 'gol-1', 'gol-2', 'gol-3', 'voz-fight', 'voz-finality', 'voz-primer-tiempo', 'voz-segundo-tiempo']) loadSample(kf(n)); }
+export function preloadKombatUi() { for (const url of Object.values(KF_NAMES)) loadSample(url); for (const n of ['boton', 'voz-seleccionar', 'voz-vs', 'musica']) loadSample(kf(n)); for (const n of ['pelota', 'salto', 'laser', 'gol-1', 'gol-2', 'gol-3', 'voz-fight', 'voz-finality', 'voz-gol-de-oro', 'voz-you-died', 'voz-primer-tiempo', 'voz-segundo-tiempo']) loadSample(kf(n)); }
 // Cualquier botón del juego (menú, elegir luchador, iniciar, abandonar...).
 let lastButton = 0;
 export function playKfButton(volume = 0.8) { unlockSounds(); whenRunning(c => { if (c.currentTime - lastButton < 0.05) return; lastButton = c.currentTime; playSample(kf('boton'), volume); }); }
@@ -1357,6 +1357,11 @@ export function playKfKickoffVoice(half: 1 | 2, delay: number) {
   if (half === 1) { playSample(kf('voz-fight'), 1, delay); playSample(kf('voz-primer-tiempo'), 1, delay + 0.95); }
   else playSample(kf('voz-segundo-tiempo'), 1, delay);
 }
+// "Fear is weakness" en la pantalla VS, "Death round" al empezar el gol de oro y "You died" cuando un luchador
+// recibe un FATAL GOAL y el rayo lo revienta.
+export function playKfVsVoice() { unlockSounds(); whenRunning(() => { playSample(kf('voz-vs'), 1, 1.3); }); }
+export function playKfGoldenRound() { playSample(kf('voz-gol-de-oro'), 1, 0.6); }
+export function playKfYouDied() { playSample(kf('voz-you-died'), 1, 0.5); }
 export function playKfFinality() { playSample(kf('voz-finality'), 1, 0.15); }
 export function playKfSelectVoice() { unlockSounds(); whenRunning(() => { playSample(kf('voz-seleccionar'), 1, 0.1); }); }
 // La música del menú: en bucle mientras se elige; se corta (con un fundido corto) cuando arranca el partido.

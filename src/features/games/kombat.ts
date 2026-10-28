@@ -134,6 +134,7 @@ export interface Fighter {
   powers: Partial<Record<PowerKind, number>>;
   prev: Input; taps: { d: 'F' | 'B' | 'U' | 'D'; t: number }[];
   goals: number; restT: number;
+  gone?: boolean; // reventado por el rayo (recibió un FATAL GOAL o perdió el partido): vuelve en el próximo saque
 }
 export interface Person { // el árbitro
   x: number; y: number; vx: number; vy: number; facing: 1 | -1; ground: boolean;
@@ -164,7 +165,7 @@ export type KfEvent =
   | { type: 'kick'; power: number } | { type: 'hit'; who: 'fighter' | 'ref'; kind: StunKind } | { type: 'block' } | { type: 'goal'; side: 0 | 1; fatal: boolean }
   | { type: 'bounce'; power: number } | { type: 'post' } | { type: 'jump' } | { type: 'charged'; side: 0 | 1; power: number } | { type: 'ability'; side: 0 | 1; char: CharId }
   | { type: 'fatal'; side: 0 | 1; char: CharId } | { type: 'fatalBlocked'; side: 0 | 1 } | { type: 'power'; side: 0 | 1; kind: PowerKind } | { type: 'ballKind'; kind: BallKind }
-  | { type: 'unlock'; side: 0 | 1 } | { type: 'refDown' } | { type: 'refBack' } | { type: 'refBoom' } | { type: 'ballBoom' } | { type: 'ballDrop' } | { type: 'save'; side: 0 | 1 }
+  | { type: 'unlock'; side: 0 | 1 } | { type: 'refDown' } | { type: 'refBack' } | { type: 'refBoom' } | { type: 'ballBoom' } | { type: 'strike'; side: 0 | 1; color: 'green' | 'red' } | { type: 'fighterBoom'; side: 0 | 1; color: 'green' | 'red' } | { type: 'ballDrop' } | { type: 'save'; side: 0 | 1 }
   | { type: 'trap'; kind: Hazard['kind'] } | { type: 'boom' } | { type: 'thunder' } | { type: 'zap' } | { type: 'whistle'; kind: 'kickoff' | 'half' | 'end'; start?: 1 | 2 }
   | { type: 'halftime' } | { type: 'extra' } | { type: 'warn' } | { type: 'tired'; side: 0 | 1 } | { type: 'noEnergy'; side: 0 | 1 } | { type: 'needBall'; side: 0 | 1 } | { type: 'header'; side: 0 | 1 };
 export type Phase = 'intro' | 'play' | 'goal' | 'fatal' | 'halftime' | 'end';
@@ -184,11 +185,15 @@ export interface Match {
   gore: Gore; // la sangre y los huesos del árbitro cuando revienta
   tint?: { c: string; t: number }; // la pantalla se tiñe un instante del color del poder
   netHit?: { left: boolean; t: number; y: number }; // la red que se infla cuando entra la pelota
+  strike?: Strike; // el rayo que cae sobre un luchador (verde: recibió un FATAL GOAL; rojo: perdió el partido)
+  screenBlood: ScreenBlood[]; // la sangre que salpica la cámara (en fracciones de la pantalla)
 }
 // El árbitro que revienta (como el astronauta de Gravity Swap): gotas de sangre que vuelan y manchan donde caen,
 // y los pedazos del esqueleto (calavera, costillas, cadera, huesos) que rebotan chorreando.
-export type GibKind = 'skull' | 'ribs' | 'pelvis' | 'bone' | 'jaw' | 'chunk' | 'shirt';
-export interface Gore { drops: { x: number; y: number; vx: number; vy: number; r: number; life: number }[]; gibs: { x: number; y: number; vx: number; vy: number; a: number; va: number; kind: GibKind; life: number; drip: number }[]; stains: { x: number; y: number; r: number; at: number; seed: number }[] }
+export type GibKind = 'skull' | 'ribs' | 'pelvis' | 'bone' | 'jaw' | 'chunk' | 'shirt' | 'plate';
+export interface Strike { side: 0 | 1; t: number; at: number; color: 'green' | 'red'; seed: number; done: boolean; x: number; y: number }
+export interface ScreenBlood { x: number; y: number; r: number; t: number; seed: number; drips: number }
+export interface Gore { drops: { x: number; y: number; vx: number; vy: number; r: number; life: number }[]; gibs: { x: number; y: number; vx: number; vy: number; a: number; va: number; kind: GibKind; life: number; drip: number; c?: string }[]; stains: { x: number; y: number; r: number; at: number; seed: number }[] }
 
 export function seeded(seed: number) {
   let s = seed >>> 0 || 1;
@@ -338,7 +343,7 @@ export function newMatch(stage: StageId, chars: [CharId, CharId], cpuLevels: [nu
     phase: 'intro', phaseT: 0, time: 0, half: 1, clock: HALF_TIME, extra: false, extraT: 0, kickoffTeam: 0,
     solids: [], shots: [], fx: [], fatal: null, powerups: [], hazards: [], particles: [],
     nextPower: 14, nextBall: 30, nextHazard: 4, nextId: 1, lastGoal: null, winner: null,
-    events: [], shake: 0, flash: 0, rand, gore: { drops: [], gibs: [], stains: [] },
+    events: [], shake: 0, flash: 0, rand, gore: { drops: [], gibs: [], stains: [] }, screenBlood: [],
     cpu: [cpuLevels[0] === null ? null : newCpu(cpuLevels[0]), cpuLevels[1] === null ? null : newCpu(cpuLevels[1])],
   };
   buildStage(m);
@@ -355,6 +360,7 @@ function resetKickoff(m: Match) {
   for (const f of m.fighters) {
     const left = defendsLeft(m, f.side);
     f.x = W / 2 + (left ? -1 : 1) * (f.side === m.kickoffTeam ? 2.2 : 3.6); f.y = supportAt(m, f.x, 10); f.vx = 0; f.vy = 0; f.ground = true; f.facing = left ? 1 : -1;
+    if (f.gone) { f.gone = false; burst(m, f.x, f.y + 1, 18, CHARS[f.char].glow, 'spark', 4); burst(m, f.x, f.y + 1, 1, CHARS[f.char].glow, 'ring', 1.5); } // el que había reventado vuelve a aparecer
     f.action = 'idle'; f.stun = 0; f.stunKind = 'none'; f.kickT = 0; f.slideT = 0; f.abilityT = 0; f.burst = 0; f.taps = []; f.charge = 0; f.jumps = 0;
   }
   const r = m.ref; if (r.action !== 'gone') { r.x = W / 2 + 1; r.y = 0; r.vx = 0; r.vy = 0; r.action = 'idle'; r.stun = 0; }
@@ -428,6 +434,7 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
   updateParticles(m, dt); updateGore(m, dt);
   m.fx = m.fx.filter(e => (e.t += dt) < e.life);
   if (m.netHit && (m.netHit.t += dt) > 3) m.netHit = undefined;
+  updateStrike(m, dt);
   if (m.phase !== 'fatal') updateSolids(m, dt);
   if (m.phase === 'intro') {
     idlePeople(m, dt);
@@ -448,7 +455,7 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
     }
     if (m.ball.alive) moveBall(m, dt);
     if (m.phaseT > 2.8) {
-      if (m.winner !== null) { m.phase = 'end'; m.phaseT = 0; emit(m, { type: 'whistle', kind: 'end' }); return; }
+      if (m.winner !== null) { m.phase = 'end'; m.phaseT = 0; emit(m, { type: 'whistle', kind: 'end' }); callStrike(m, m.winner === 0 ? 1 : 0, 'red', 0.8); return; }
       m.kickoffTeam = m.lastGoal?.side === 0 ? 1 : 0; resetKickoff(m); m.phase = 'play'; m.phaseT = 0; emit(m, { type: 'whistle', kind: 'kickoff' });
     }
     return;
@@ -461,7 +468,7 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
       m.fatal = null;
       if (m.half === 1) { m.phase = 'halftime'; m.phaseT = 0; emit(m, { type: 'whistle', kind: 'half' }); emit(m, { type: 'halftime' }); return; }
       const [a, b] = m.fighters;
-      if (a.goals !== b.goals) { m.winner = a.goals > b.goals ? 0 : 1; m.phase = 'end'; m.phaseT = 0; emit(m, { type: 'whistle', kind: 'end' }); return; }
+      if (a.goals !== b.goals) { m.winner = a.goals > b.goals ? 0 : 1; m.phase = 'end'; m.phaseT = 0; emit(m, { type: 'whistle', kind: 'end' }); callStrike(m, m.winner === 0 ? 1 : 0, 'red', 0.8); return; }
       m.extra = true; m.extraT = 0; m.kickoffTeam = 0; emit(m, { type: 'extra' }); resetKickoff(m); m.phase = 'intro'; m.phaseT = 0.6;
       return;
     }
@@ -539,6 +546,7 @@ function moveBody(m: Match, p: { x: number; y: number; vx: number; vy: number; g
 }
 function idlePeople(m: Match, dt: number) {
   for (const f of m.fighters) {
+    if (f.gone) continue;
     f.actionT += dt; f.vx *= Math.pow(0.02, dt); moveBody(m, f, dt, playerG(m));
     f.stamina = Math.min(STAMINA, f.stamina + dt * 20);
     if (m.phase === 'goal' && m.lastGoal) {
@@ -567,6 +575,7 @@ function gainPower(m: Match, f: Fighter, n: number) {
 function spend(f: Fighter, n: number) { f.stamina = Math.max(0, f.stamina - n); }
 
 function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
+  if (f.gone) { f.vx = 0; f.prev = i; return; }
   const def = CHARS[f.char], st = stageDef(m.stage), rival = m.fighters[f.side === 0 ? 1 : 0], dir = attackDir(m, f.side);
   f.actionT += dt;
   f.poison = Math.max(0, f.poison - dt); f.cd = Math.max(0, f.cd - dt); f.inv = Math.max(0, f.inv - dt);
@@ -725,6 +734,7 @@ function doSlide(m: Match, f: Fighter, rival: Fighter) {
 }
 // Un luchador recibe un golpe: queda volteado un rato y pierde la energía indicada (salvo que tenga escudo).
 function hurtFighter(m: Match, f: Fighter, by: Fighter | null, kind: StunKind, time: number, push: number, drain: number) {
+  if (f.gone) return;
   if (f.char === 'espectro' && f.abilityT > 0) return; // en fase no lo toca nada
   if ((f.powers.shield ?? 0) > 0) { emit(m, { type: 'block' }); burst(m, f.x, f.y + 1, 10, '#38bdf8', 'ring', 1); return; }
   if (f.action === 'fatal' || f.inv > 0) return;
@@ -768,6 +778,42 @@ function explodeRef(m: Match) {
   const kinds: GibKind[] = ['skull', 'jaw', 'ribs', 'pelvis', 'bone', 'bone', 'bone', 'bone', 'chunk', 'chunk', 'chunk', 'shirt'];
   for (const kind of kinds) { const a = rnd() * Math.PI * 2, sp = 4 + rnd() * 7; g.gibs.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.abs(Math.sin(a)) * sp + 4, a: rnd() * 6, va: (rnd() - 0.5) * 20, kind, life: 0, drip: 0 }); }
   emit(m, { type: 'refBoom' });
+}
+// El rayo: se anuncia (la pantalla parpadea), cae desde el cielo sobre el luchador y lo revienta en sangre
+// (como al árbitro pero mucho más), con pedazos de armadura de su color y sangre que salpica la cámara.
+function callStrike(m: Match, side: 0 | 1, color: 'green' | 'red', at: number) {
+  const f = m.fighters[side];
+  m.strike = { side, t: 0, at, color, seed: Math.floor(m.rand() * 1e6), done: false, x: f.x, y: f.y };
+}
+function updateStrike(m: Match, dt: number) {
+  for (const b of m.screenBlood) b.t += dt;
+  m.screenBlood = m.screenBlood.filter(b => b.t < 5);
+  const st = m.strike; if (!st) return;
+  st.t += dt;
+  const f = m.fighters[st.side];
+  if (!st.done) { st.x = f.x; st.y = f.y; if (st.t >= st.at - 0.3 && st.t - dt < st.at - 0.3) emit(m, { type: 'strike', side: st.side, color: st.color }); }
+  if (!st.done && st.t >= st.at) { st.done = true; explodeFighter(m, f, st.color); }
+  if (st.t > st.at + 1.4) m.strike = undefined;
+}
+function explodeFighter(m: Match, f: Fighter, color: 'green' | 'red') {
+  const g = m.gore, h = heightOf(f), cx = f.x, cy = f.y + h * 0.55, rnd = Math.random, glow = color === 'green' ? '#39ff14' : '#ff1744';
+  f.gone = true; f.vx = 0; f.vy = 0; f.stun = 0; f.action = 'idle';
+  m.shake = Math.max(m.shake, 1.4); m.flash = Math.max(m.flash, 0.6); m.tint = { c: glow, t: 0.5 };
+  burst(m, cx, cy, 40, '#b91c1c', 'blood', 12); burst(m, cx, cy, 2, '#fee2e2', 'ring', 2); burst(m, cx, f.y, 30, glow, 'spark', 9); burst(m, cx, cy, 12, '#3f3f46', 'smoke', 4);
+  const k = h / PH;
+  for (const [n, power, size] of [[260, 12, 0.06], [120, 6, 0.1], [160, 18, 0.035], [60, 9, 0.14]] as const) for (let i = 0; i < n * k && g.drops.length < 1100; i++) {
+    const a = rnd() * Math.PI * 2, sp = power * (0.3 + rnd() * 0.9);
+    g.drops.push({ x: cx + (rnd() - 0.5) * 0.6, y: cy + (rnd() - 0.5) * h * 0.6, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + power * 0.5, r: size * (0.5 + rnd()), life: 0 });
+  }
+  const kinds: GibKind[] = ['skull', 'jaw', 'ribs', 'pelvis', 'bone', 'bone', 'bone', 'bone', 'bone', 'bone', 'chunk', 'chunk', 'chunk', 'chunk', 'chunk', 'chunk', 'plate', 'plate', 'plate', 'plate', 'plate'];
+  for (const kind of kinds) { const a = rnd() * Math.PI * 2, sp = 5 + rnd() * 9; g.gibs.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.abs(Math.sin(a)) * sp + 5, a: rnd() * 6, va: (rnd() - 0.5) * 24, kind, life: 0, drip: 0, c: CHARS[f.char].color }); }
+  // la sangre que salpica la cámara: manchas grandes y chicas, más cerca de donde reventó
+  const px = clamp(cx / W, 0.1, 0.9);
+  for (let i = 0; i < 11; i++) {
+    const near = i < 6, x = near ? clamp(px + (rnd() - 0.5) * 0.5, 0.04, 0.96) : 0.05 + rnd() * 0.9, y = near ? 0.2 + rnd() * 0.45 : 0.08 + rnd() * 0.6;
+    m.screenBlood.push({ x, y, r: near ? 0.028 + rnd() * 0.04 : 0.01 + rnd() * 0.018, t: -i * 0.02, seed: rnd() * 1000, drips: 1 + Math.floor(rnd() * 3) });
+  }
+  emit(m, { type: 'fighterBoom', side: f.side, color });
 }
 // Las gotas caen y manchan el piso (o lo que tengan abajo); los huesos rebotan, giran y van chorreando.
 function updateGore(m: Match, dt: number) {
@@ -1148,6 +1194,7 @@ function collideBallWorld(m: Match, b: Ball, dt: number) {
   }
 }
 function collideBallFighter(m: Match, b: Ball, f: Fighter) {
+  if (f.gone) return;
   if (f.char === 'espectro' && f.abilityT > 0) return;
   const x0 = f.x - PW / 2, x1 = f.x + PW / 2, y0 = f.y, y1 = f.y + heightOf(f) * (f.slideT > 0 ? 0.35 : 1);
   const cx = clamp(b.x, x0, x1), cy = clamp(b.y, y0, y1), dx = b.x - cx, dy = b.y - cy, d = Math.hypot(dx, dy);
@@ -1201,6 +1248,7 @@ function scoreGoal(m: Match, side: 0 | 1, fatal: boolean) {
   burst(m, b.x, b.y, fatal ? 50 : 26, fatal ? CHARS[f.char].glow : '#ffffff', 'spark', fatal ? 9 : 6);
   if (m.extra) m.winner = side;
   emit(m, { type: 'goal', side, fatal });
+  if (fatal) callStrike(m, rival.side, 'green', 0.45);
 }
 
 // ---------------------------------------------------------------- Potenciadores y pelotas especiales

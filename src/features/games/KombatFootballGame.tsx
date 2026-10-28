@@ -8,7 +8,7 @@ import { brokenWallURL, drawMatch, drawStageThumb, viewFor, vortexURL } from './
 import { drawFighterCard, drawPortrait } from './kombatFighters';
 import { spaceURL } from './kombatSpace';
 import {
-  playExplosion, playGameOver, playKfBlock, playKfBall, playKfButton, playKfFatal, playKfFinality, playKfGoal, playKfHit, playKfJump, playKfKickoffVoice, playKfLaser, playKfName, playKfSelectVoice, playKfPickup, playKfPost, playKfPower, playLaserOn,
+  playExplosion, playGameOver, playKfBlock, playKfBall, playKfButton, playKfFatal, playKfFinality, playKfGoal, playKfGoldenRound, playKfVsVoice, playKfYouDied, playKfHit, playKfJump, playKfKickoffVoice, playKfLaser, playKfName, playKfSelectVoice, playKfPickup, playKfPost, playKfPower, playLaserOn,
   playRefWhistle, playStart, playThunder, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
 } from './sounds';
 import { EndBanner } from './EndBanner';
@@ -173,7 +173,7 @@ export function KombatFootball() {
     m.phase = 'play';
     matchRef.current = m;
     let frame = 0, last = performance.now();
-    const tick = (now: number) => { const dt = Math.min(0.05, (now - last) / 1000); last = now; step(m, [noInput(), noInput()], dt); takeEvents(m); if (m.phase === 'end' || m.phase === 'halftime' || (m.phase === 'goal' && m.phaseT > 2)) { m.phase = 'play'; m.clock = HALF_TIME; } if (screenRef.current !== 'select' && screenRef.current !== 'ladder') paint(); frame = requestAnimationFrame(tick); }; // tapado por la selección: no se dibuja
+    const tick = (now: number) => { const dt = Math.min(0.05, (now - last) / 1000); last = now; step(m, [noInput(), noInput()], dt); takeEvents(m); m.screenBlood.length = 0; if (m.phase === 'end' || m.phase === 'halftime' || (m.phase === 'goal' && m.phaseT > 2)) { m.phase = 'play'; m.clock = HALF_TIME; } if (screenRef.current !== 'select' && screenRef.current !== 'ladder') paint(); frame = requestAnimationFrame(tick); }; // tapado por la selección: no se dibuja
     frame = requestAnimationFrame(tick);
     const observer = new ResizeObserver(paint); if (stageRef.current) observer.observe(stageRef.current);
     return () => { cancelAnimationFrame(frame); observer.disconnect(); };
@@ -201,7 +201,7 @@ export function KombatFootball() {
       setP1(id);
       if (mode === 'tournament') { const n = id === p1 ? round : 0; setRound(n); setLadderFrom(n); setScreen('ladder'); return; } // otro luchador: el torneo vuelve a empezar
       setPick(1); const other = CHAR_IDS.indexOf(p2 === id ? CHAR_IDS[(idx + 1) % 16] : p2); setCursor(other); if (p2 === id) setP2(CHAR_IDS[other]);
-    } else { setP2(id); setScreen('vs'); } // los dos frente a frente antes de elegir el escenario
+    } else { setP2(id); setScreen('vs'); playKfVsVoice(); } // los dos frente a frente antes de elegir el escenario
   }, [pick, mode, p1, p2, round]);
   const cols = 4; // la grilla es un cuadrado de 4 × 4
   // teclado de las pantallas de elegir
@@ -270,6 +270,8 @@ export function KombatFootball() {
           case 'ballDrop': playKfPickup(); break;
           case 'refDown': shout('¡EL ÁRBITRO REVENTÓ!', 'block', 'En unos segundos entra otro', 1500); break;
           case 'refBoom': playExplosion(); break;
+          case 'strike': playThunder(1); break;
+          case 'fighterBoom': playExplosion(); if (e.color === 'green') playKfYouDied(); break;
           case 'ballBoom': playExplosion(); shout('¡LA PELOTA EXPLOTÓ!', 'block', 'La salvó justo antes del gol · baja otra por el tubo', 1500); break;
           case 'power': playKfPickup(); shout(`${who(e.side)}: ${POWERS[e.kind].name}`, 'info', POWERS[e.kind].text, 2200); break;
           case 'ballKind': if (e.kind !== 'normal') { playKfPickup(); shout(BALLS[e.kind].name, 'info', BALLS[e.kind].text, 2600); } break;
@@ -285,13 +287,13 @@ export function KombatFootball() {
           case 'zap': playLaserOn(); break;
           case 'whistle': playRefWhistle(e.kind); if (e.kind === 'kickoff' && e.start) playKfKickoffVoice(e.start, 0.7); if (e.kind === 'kickoff' && m.fighters[0].goals + m.fighters[1].goals === 0 && !m.extra) shout(m.half === 1 ? '¡A JUGAR!' : 'SEGUNDO TIEMPO', 'extra', undefined, 1100); break;
           case 'halftime': { const d = -attackDir(m, 0); shout('ENTRETIEMPO', 'extra', `Cambio de lado: ${modeRef.current === 'versus' ? 'J1 ataca' : 'ahora atacás'} hacia la ${d > 0 ? 'derecha ▶' : '◀ izquierda'}`, 3000); break; }
-          case 'extra': playRefWhistle('half'); shout('TIEMPO EXTRA', 'extra', 'Gol de oro: el primero que mete gana', 2600); break;
+          case 'extra': playRefWhistle('half'); playKfGoldenRound(); shout('TIEMPO EXTRA', 'extra', 'Gol de oro: el primero que mete gana', 2600); break;
         }
       }
       paint();
       const next = hudOf(m);
       setHud(prev => prev && sameHud(prev, next) ? prev : next);
-      if (m.phase === 'end' && m.phaseT > 1.6 && m.winner !== null) {
+      if (m.phase === 'end' && m.phaseT > 3.6 && m.winner !== null) { // (antes, el rayo rojo revienta al que perdió)
         const win = m.winner === 0, rec = readKombatRecord();
         if (modeRef.current !== 'versus') { if (win) rec.wins++; else rec.losses++; }
         let champion = false;

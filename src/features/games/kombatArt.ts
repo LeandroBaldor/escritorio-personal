@@ -6,7 +6,7 @@
 // habilidades, los potenciadores y los efectos. El mundo se mide en metros (kombat.ts); acá se pasa a píxeles.
 import {
   BALLS, BALL_R, BAR, CHARS, GOAL_DEPTH, H, NET_FLAT, POWERS, POWER_MAX, TUBE_Y, W, fatalPath, goalHeight, heightOf, minePos, netTop, sawPos, teamAt, wreckPos,
-  type Ball, type Fx, type GibKind, type Hazard, type Match, type Particle, type PowerKind, type Shot, type Solid, type StageId,
+  type Ball, type Fx, type GibKind, type ScreenBlood, type Strike, type Hazard, type Match, type Particle, type PowerKind, type Shot, type Solid, type StageId,
 } from './kombat';
 import { fbm, pixels, ramp } from './gravityBackdrops';
 import { drawFighterLit, drawRefLit, LOOKS } from './kombatFighters';
@@ -889,9 +889,14 @@ function drawStains(ctx: CanvasRenderingContext2D, m: Match, v: View) {
   }
   ctx.globalAlpha = 1;
 }
-function drawGib(ctx: CanvasRenderingContext2D, kind: GibKind) {
+function drawGib(ctx: CanvasRenderingContext2D, kind: GibKind, c = '#9ca3af') {
   const bone = (x0: number, y0: number, x1: number, y1: number, w: number) => { ctx.strokeStyle = BONE; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); for (const [px, py] of [[x0, y0], [x1, y1]]) { ctx.fillStyle = BONE; ctx.beginPath(); ctx.arc(px, py - w * 0.4, w * 0.75, 0, TAU); ctx.arc(px, py + w * 0.4, w * 0.75, 0, TAU); ctx.fill(); } };
   switch (kind) {
+    case 'plate': { // un pedazo de armadura del color del luchador, abollado y con sangre
+      ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(-0.17, -0.08); ctx.lineTo(0.12, -0.12); ctx.lineTo(0.18, 0.04); ctx.lineTo(0.02, 0.12); ctx.lineTo(-0.15, 0.08); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 0.02; ctx.stroke(); ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(-0.12, -0.07, 0.2, 0.025);
+      ctx.fillStyle = BLOOD_L; ctx.beginPath(); ctx.ellipse(0.06, 0.05, 0.07, 0.04, 0.3, 0, TAU); ctx.fill(); break;
+    }
     case 'skull':
       ctx.fillStyle = BONE; ctx.beginPath(); ctx.arc(0, -0.04, 0.2, 0, TAU); ctx.fill(); ctx.fillRect(-0.12, 0.05, 0.24, 0.12);
       ctx.fillStyle = '#1c1917'; ctx.beginPath(); ctx.ellipse(-0.075, -0.02, 0.055, 0.065, 0, 0, TAU); ctx.ellipse(0.075, -0.02, 0.055, 0.065, 0, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.moveTo(0, 0.05); ctx.lineTo(-0.025, 0.1); ctx.lineTo(0.025, 0.1); ctx.fill();
@@ -909,7 +914,7 @@ function drawGib(ctx: CanvasRenderingContext2D, kind: GibKind) {
 }
 function drawGore(ctx: CanvasRenderingContext2D, m: Match, v: View) {
   const g = m.gore; if (!g.drops.length && !g.gibs.length) return;
-  for (const b of g.gibs) { ctx.save(); ctx.translate(X(v, b.x), Y(v, b.y)); ctx.scale(v.s * 1.2, v.s * 1.2); ctx.rotate(b.a); drawGib(ctx, b.kind); ctx.restore(); }
+  for (const b of g.gibs) { ctx.save(); ctx.translate(X(v, b.x), Y(v, b.y)); ctx.scale(v.s * 1.2, v.s * 1.2); ctx.rotate(b.a); drawGib(ctx, b.kind, b.c); ctx.restore(); }
   ctx.fillStyle = BLOOD_L;
   for (const d of g.drops) { ctx.beginPath(); ctx.arc(X(v, d.x), Y(v, d.y), Math.max(1, d.r * v.s), 0, TAU); ctx.fill(); }
 }
@@ -930,6 +935,7 @@ export function drawMatch(ctx: CanvasRenderingContext2D, m: Match, v: View) {
   if (r.action !== 'gone') drawRefLit(ctx, r, m.time + 0.7, X(v, r.x), Y(v, r.y), v.s, THEMES[m.stage].light);
   // luchadores
   for (const f of m.fighters) {
+    if (f.gone) continue; // reventado por el rayo
     const L = LOOKS[f.char], x = X(v, f.x), y = Y(v, f.y);
     const fatalNow = m.phase === 'fatal' && m.fatal?.side === f.side;
     drawFighterLit(ctx, f, m.time + f.side * 0.37, {
@@ -958,9 +964,102 @@ export function drawMatch(ctx: CanvasRenderingContext2D, m: Match, v: View) {
     ctx.restore();
     drawFighterLit(ctx, f, m.time, { power: 1, frozen: false, poison: false, burn: false, zap: false, shield: false, speed: false, aura: L.glow }, X(v, f.x), Y(v, f.y), v.s, L.glow);
   }
+  if (m.strike) drawFighterStrike(ctx, m.strike, m, v);
   if (m.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${m.flash * 0.45})`; ctx.fillRect(0, 0, v.w, v.h); }
   if (m.tint) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = alpha(m.tint.c, Math.min(0.22, m.tint.t * 0.7)); ctx.fillRect(0, 0, v.w, v.h); ctx.restore(); }
   const vg = ctx.createRadialGradient(v.w / 2, v.h * 0.55, Math.min(v.w, v.h) * 0.35, v.w / 2, v.h * 0.55, Math.max(v.w, v.h) * 0.75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.45)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, v.w, v.h);
+  if (m.screenBlood.length) drawScreenBlood(ctx, m.screenBlood, v);
+  ctx.restore();
+}
+// ---------------------------------------------------------------- El rayo que revienta a un luchador
+// Un rayo de verdad: el camino se arma partiendo cada tramo en dos y corriendo el medio para un costado (así
+// queda quebrado a todas las escalas), con ramas que se abren hacia abajo. Antes de caer bajan "líderes"
+// finitos que tantean el camino; después la descarga principal pega varias veces seguidas (parpadea) y se apaga.
+// Se dibuja en capas: un halo ancho del color, una franja media y el centro casi blanco.
+function boltPath(x0: number, y0: number, x1: number, y1: number, rough: number, depth: number, rnd: () => number): [number, number][] {
+  let pts: [number, number][] = [[x0, y0], [x1, y1]];
+  for (let d = 0; d < depth; d++) {
+    const next: [number, number][] = [pts[0]];
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, ay] = pts[i - 1], [bx, by] = pts[i], len = Math.hypot(bx - ax, by - ay), nx = -(by - ay) / (len || 1), ny = (bx - ax) / (len || 1);
+      const off = (rnd() - 0.5) * len * rough;
+      next.push([(ax + bx) / 2 + nx * off, (ay + by) / 2 + ny * off], pts[i]);
+    }
+    pts = next;
+  }
+  return pts;
+}
+function strokeBolt(ctx: CanvasRenderingContext2D, pts: [number, number][], w: number, color: string, a: number, upTo = 1) {
+  const n = Math.max(2, Math.floor(pts.length * upTo));
+  const line = () => { ctx.beginPath(); for (let i = 0; i < n; i++) { if (i) ctx.lineTo(pts[i][0], pts[i][1]); else ctx.moveTo(pts[i][0], pts[i][1]); } ctx.stroke(); };
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.strokeStyle = alpha(color, 0.12 * a); ctx.lineWidth = w * 7; line();
+  ctx.strokeStyle = alpha(color, 0.3 * a); ctx.lineWidth = w * 3; line();
+  ctx.strokeStyle = alpha(color, 0.85 * a); ctx.lineWidth = w * 1.4; line();
+  ctx.strokeStyle = `rgba(255,255,255,${0.95 * a})`; ctx.lineWidth = Math.max(1, w * 0.55); line();
+}
+function drawFighterStrike(ctx: CanvasRenderingContext2D, st: Strike, m: Match, v: View) {
+  const tt = st.t - st.at; if (tt < -0.32 || tt > 0.9) return;
+  const col = st.color === 'green' ? '#39ff14' : '#ff1744', s = v.s;
+  const gx = X(v, st.x), gy = Y(v, st.y), w = Math.max(2, s * 0.09);
+  let seed = st.seed + Math.floor((tt + 1) * 30); // el camino cambia de a poco (parpadea)
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed % 100000) / 100000; };
+  let seed0 = st.seed; const rnd0 = () => { seed0 = (seed0 * 16807 + 11) % 2147483647; return (seed0 % 100000) / 100000; }; // el camino principal casi no cambia
+  const top = -s * 0.5, x0 = gx + (rnd0() - 0.5) * s * 6;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  if (tt < 0) { // líderes: bajan tanteando y la pantalla parpadea
+    const k = (tt + 0.32) / 0.32;
+    ctx.fillStyle = alpha(col, 0.05 * k * (rnd() < 0.5 ? 1 : 0.3)); ctx.fillRect(0, 0, v.w, v.h);
+    for (let b = 0; b < 3; b++) strokeBolt(ctx, boltPath(x0 + (b - 1) * s * 0.8, top, gx + (rnd() - 0.5) * s * 3, gy, 0.55, 6, rnd), w * 0.35, col, 0.55 * k, k * (0.6 + b * 0.15));
+    ctx.restore(); return;
+  }
+  // la descarga: pega fuerte, vuelve a pegar dos veces y se apaga
+  const pulse = Math.max(Math.exp(-tt * 9), 0.85 * Math.exp(-Math.abs(tt - 0.13) * 30), 0.7 * Math.exp(-Math.abs(tt - 0.27) * 30)) * (tt > 0.5 ? Math.max(0, 1 - (tt - 0.5) / 0.4) : 1);
+  const main = boltPath(x0, top, gx, gy, 0.42, 8, rnd0);
+  // ramas que salen del camino principal hacia abajo
+  for (let b = 0; b < 7; b++) {
+    const i = Math.floor((0.1 + rnd0() * 0.7) * main.length), [bx, by] = main[i], len = (gy - by) * (0.25 + rnd0() * 0.4), ang = Math.PI / 2 + (rnd0() - 0.5) * 1.6;
+    strokeBolt(ctx, boltPath(bx, by, bx + Math.cos(ang) * len, by + Math.sin(ang) * len, 0.6, 5, rnd), w * 0.4, col, pulse * (0.5 + rnd() * 0.4));
+  }
+  strokeBolt(ctx, main, w * (1 + pulse * 0.6), col, Math.min(1, 0.25 + pulse));
+  // el impacto: bola de luz, anillo en el piso y la pantalla iluminada del color
+  bloom(ctx, gx, gy - s * 0.4, s * (2.5 + pulse * 3), col, 0.9 * pulse);
+  bloom(ctx, gx, gy - s * 0.4, s * 0.9, '#ffffff', 0.8 * pulse);
+  ctx.strokeStyle = alpha(col, 0.6 * pulse); ctx.lineWidth = s * 0.08; ctx.beginPath(); ctx.ellipse(gx, gy, s * (0.8 + tt * 6), s * (0.2 + tt * 1.5), 0, 0, TAU); ctx.stroke();
+  ctx.fillStyle = alpha(col, 0.12 * pulse); ctx.fillRect(0, 0, v.w, v.h);
+  ctx.restore();
+  // la marca quemada en el piso
+  ctx.fillStyle = `rgba(10,10,10,${0.45 * Math.min(1, tt * 4)})`; ctx.beginPath(); ctx.ellipse(gx, gy, s * 0.9, s * 0.16, 0, 0, TAU); ctx.fill();
+}
+// La sangre en la cámara: cada mancha aparece de golpe, es irregular y brillante, tiene gotitas alrededor y
+// chorrea hacia abajo de a poco; a los segundos se va borrando.
+function drawScreenBlood(ctx: CanvasRenderingContext2D, list: ScreenBlood[], v: View) {
+  const U = Math.min(v.w, v.h * 1.7);
+  ctx.save();
+  for (const b of list) {
+    if (b.t < 0) continue;
+    const a = b.t < 3 ? 1 : Math.max(0, 1 - (b.t - 3) / 2), grow = Math.min(1, b.t / 0.06), cx = b.x * v.w, cy = b.y * v.h, r = b.r * U * grow;
+    ctx.globalAlpha = a * 0.9;
+    // los chorros que bajan despacio
+    for (let k = 0; k < b.drips; k++) {
+      const dx = cx + (hash(b.seed + k * 7) - 0.5) * r, len = Math.min(r * (1.2 + hash(b.seed + k) * 3), b.t * r * (0.4 + hash(b.seed + k * 3) * 0.8)), dw = r * (0.09 + hash(b.seed + k * 5) * 0.08);
+      ctx.fillStyle = '#7a0000'; ctx.beginPath(); ctx.moveTo(dx - dw, cy); ctx.quadraticCurveTo(dx - dw * 0.5, cy + len * 0.6, dx - dw * 0.7, cy + len); ctx.arc(dx, cy + len, dw * 0.85, Math.PI, 0, true); ctx.quadraticCurveTo(dx + dw * 0.5, cy + len * 0.6, dx + dw, cy); ctx.closePath(); ctx.fill();
+    }
+    // la mancha: borde redondeado e irregular, oscura en el borde y brillante en el medio
+    const gr = ctx.createRadialGradient(cx - r * 0.2, cy - r * 0.25, r * 0.05, cx, cy, r * 1.1);
+    gr.addColorStop(0, '#c8101e'); gr.addColorStop(0.6, '#8a0303'); gr.addColorStop(1, '#4a0000');
+    ctx.fillStyle = gr; ctx.beginPath();
+    const N = 12, pt = (k: number) => { const ang = (k % N) / N * TAU, rr = r * (0.75 + hash(b.seed + (k % N) * 13) * 0.4); return [cx + Math.cos(ang) * rr, cy + Math.sin(ang) * rr]; };
+    const mid = (k: number) => { const [ax, ay] = pt(k), [bx, by] = pt(k + 1); return [(ax + bx) / 2, (ay + by) / 2]; };
+    const [sx, sy] = mid(0); ctx.moveTo(sx, sy);
+    for (let k = 1; k <= N; k++) { const [px, py] = pt(k), [qx, qy] = mid(k); ctx.quadraticCurveTo(px, py, qx, qy); }
+    ctx.closePath(); ctx.fill();
+    // gotitas salpicadas alrededor
+    ctx.fillStyle = '#8a0303';
+    for (let k = 0; k < 8; k++) { const ang = hash(b.seed + k * 3.7) * TAU, d = r * (1.15 + hash(b.seed + k * 5.3) * 1.2), rr = r * (0.04 + hash(b.seed + k * 9.1) * 0.09); ctx.beginPath(); ctx.arc(cx + Math.cos(ang) * d, cy + Math.sin(ang) * d, rr, 0, TAU); ctx.fill(); }
+    // el brillo (está sobre el vidrio de la cámara)
+    ctx.fillStyle = 'rgba(255,220,220,0.3)'; ctx.beginPath(); ctx.ellipse(cx - r * 0.3, cy - r * 0.35, r * 0.26, r * 0.1, -0.6, 0, TAU); ctx.fill();
+  }
   ctx.restore();
 }
 // Columna de fuego que sale de la rejilla: lenguas de llama, humo arriba.

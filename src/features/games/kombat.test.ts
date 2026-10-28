@@ -228,6 +228,36 @@ describe('Kombat Football', () => {
     expect(fatalKeys(1)).toEqual(['→', '←', '→']);
   });
 
+  it('al que recibe un FATAL GOAL le cae un rayo verde y revienta; vuelve en el saque', () => {
+    const m = newMatch('temple', ['inferno', 'toxic'], [null, null], seeded(9));
+    toPlay(m);
+    m.fighters[1].x = W - 3; m.fighters[0].x = 10; m.ball.x = 10.6; m.ball.y = 0.4; m.ball.vx = 0; m.ball.vy = 0;
+    play(m, 0.2); m.fighters[0].power = POWER_MAX;
+    let k = 0; const seen: string[] = [];
+    for (let t = 0; t < 6 && !m.lastGoal; t += 1 / 60) { k++; const i = noInput(); i.cast = k === 2 ? 'fatal' : null; step(m, [i, noInput()], 1 / 60); }
+    expect(m.lastGoal?.fatal).toBe(true);
+    for (let t = 0; t < 1.2; t += 1 / 60) { step(m, [noInput(), noInput()], 1 / 60); for (const e of takeEvents(m)) if (e.type === 'strike' || e.type === 'fighterBoom') seen.push(`${e.type}:${e.side}:${e.color}`); }
+    expect(seen).toEqual(['strike:1:green', 'fighterBoom:1:green']);
+    expect(m.fighters[1].gone).toBe(true);
+    expect(m.screenBlood.length).toBeGreaterThan(5);
+    expect(m.gore.drops.length).toBeGreaterThan(300);
+    play(m, 2.5);
+    expect(m.phase).toBe('play');
+    expect(m.fighters[1].gone).toBe(false);
+  });
+
+  it('al que pierde el partido le cae un rayo rojo y revienta', () => {
+    const m = newMatch('temple', ['inferno', 'toxic'], [null, null], seeded(12));
+    toPlay(m);
+    m.half = 2; m.fighters[0].goals = 2; m.fighters[1].goals = 1; m.clock = 0.05;
+    const seen: string[] = [];
+    for (let t = 0; t < 2; t += 1 / 60) { step(m, [noInput(), noInput()], 1 / 60); for (const e of takeEvents(m)) if (e.type === 'fighterBoom') seen.push(`${e.side}:${e.color}`); }
+    expect(m.phase).toBe('end');
+    expect(seen).toEqual(['1:red']);
+    expect(m.fighters[1].gone).toBe(true);
+    expect(m.fighters[0].gone).toBeFalsy();
+  });
+
   it('el FATAL GOAL solo sale con la pelota cerca', () => {
     const m = newMatch('temple', ['inferno', 'toxic'], [null, null], seeded(18));
     toPlay(m); m.solids = []; m.hazards = [];
