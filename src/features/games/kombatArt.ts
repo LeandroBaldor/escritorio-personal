@@ -180,6 +180,83 @@ function paintProp(g: CanvasRenderingContext2D, sd: Solid, x: number, y: number,
   const shadow = () => { const sg = g.createRadialGradient(x + w / 2, y + h, 0, x + w / 2, y + h, w * 0.7); sg.addColorStop(0, 'rgba(0,0,0,0.45)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sg; g.fillRect(x - w * 0.2, y + h - s * 0.2, w * 1.4, s * 0.3); };
   shadow(); g.save();
   switch (sd.look) {
+    case 'hydrant': { // hidrante rojo de la calle
+      const cx = x + w / 2; g.fillStyle = lin(g, x, 0, x + w, 0, [[0, '#fca5a5'], [0.4, '#dc2626'], [1, '#7f1d1d']]); g.beginPath(); g.roundRect(x + w * 0.18, y + h * 0.25, w * 0.64, h * 0.75, w * 0.1); g.fill();
+      g.beginPath(); g.ellipse(cx, y + h * 0.25, w * 0.34, h * 0.14, 0, Math.PI, TAU); g.fill(); g.fillRect(cx - w * 0.08, y, w * 0.16, h * 0.14);
+      g.fillStyle = '#991b1b'; g.fillRect(x, y + h * 0.42, w, h * 0.16); g.fillRect(x + w * 0.1, y + h * 0.88, w * 0.8, h * 0.12);
+      g.fillStyle = '#facc15'; g.beginPath(); g.arc(cx, y + h * 0.5, w * 0.08, 0, TAU); g.fill(); spec(g, x + w * 0.35, y + h * 0.4, w * 0.08, h * 0.2, 0, 0.5); break;
+    }
+    case 'dish': { // antena parabólica
+      g.fillStyle = '#64748b'; g.fillRect(x + w * 0.42, y + h * 0.45, w * 0.16, h * 0.55); g.fillRect(x + w * 0.2, y + h * 0.9, w * 0.6, h * 0.1);
+      g.save(); g.translate(x + w / 2, y + h * 0.42); g.rotate(-0.5); g.fillStyle = lin(g, -w / 2, 0, w / 2, 0, [[0, '#f1f5f9'], [1, '#94a3b8']]); g.beginPath(); g.ellipse(0, 0, w * 0.5, h * 0.22, 0, Math.PI, TAU); g.fill(); g.strokeStyle = '#475569'; g.lineWidth = lw; g.beginPath(); g.moveTo(0, -h * 0.02); g.lineTo(0, -h * 0.4); g.stroke(); g.fillStyle = '#ef4444'; g.beginPath(); g.arc(0, -h * 0.42, s * 0.05, 0, TAU); g.fill(); g.restore(); break;
+    }
+    case 'gears': { // máquina de engranajes
+      g.fillStyle = lin(g, x, y, x, y + h, [[0, '#57534e'], [1, '#292524']]); g.fillRect(x, y + h * 0.3, w, h * 0.7);
+      const gear = (cx: number, cy: number, r: number, c: string) => { g.fillStyle = c; g.beginPath(); for (let k = 0; k < 20; k++) { const a = k / 20 * TAU, rr = k % 2 ? r : r * 0.8; g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } g.fill(); g.fillStyle = '#1c1917'; g.beginPath(); g.arc(cx, cy, r * 0.3, 0, TAU); g.fill(); };
+      gear(x + w * 0.35, y + h * 0.35, w * 0.35, '#b45309'); gear(x + w * 0.75, y + h * 0.6, w * 0.25, '#a16207'); g.fillStyle = '#ef4444'; g.fillRect(x + w * 0.1, y + h * 0.82, w * 0.12, h * 0.08); break;
+    }
+    case 'gargoyle': { // gárgola de piedra sobre pedestal
+      g.fillStyle = lin(g, x, 0, x + w, 0, [[0, '#6b7280'], [1, '#1f2937']]); g.fillRect(x, y + h * 0.6, w, h * 0.4);
+      g.fillStyle = '#4b5563'; g.beginPath(); g.moveTo(x + w * 0.15, y + h * 0.6); g.lineTo(x + w * 0.2, y + h * 0.25); g.lineTo(x + w * 0.5, y + h * 0.08); g.lineTo(x + w * 0.85, y + h * 0.25); g.lineTo(x + w * 0.85, y + h * 0.6); g.fill(); // cuerpo agachado
+      g.beginPath(); g.moveTo(x + w * 0.1, y + h * 0.3); g.lineTo(x - w * 0.25, y + h * 0.05); g.lineTo(x + w * 0.05, y + h * 0.45); g.fill(); g.beginPath(); g.moveTo(x + w * 0.9, y + h * 0.3); g.lineTo(x + w * 1.25, y + h * 0.05); g.lineTo(x + w * 0.95, y + h * 0.45); g.fill(); // alas
+      g.fillStyle = '#fbbf24'; for (const ex of [0.4, 0.6]) { g.beginPath(); g.arc(x + w * ex, y + h * 0.2, s * 0.04, 0, TAU); g.fill(); } g.fillStyle = '#374151'; g.beginPath(); g.moveTo(x + w * 0.38, y + h * 0.08); g.lineTo(x + w * 0.3, y - h * 0.08); g.lineTo(x + w * 0.45, y + h * 0.06); g.moveTo(x + w * 0.62, y + h * 0.08); g.lineTo(x + w * 0.7, y - h * 0.08); g.lineTo(x + w * 0.55, y + h * 0.06); g.fill(); break; // ojos y cuernos
+    }
+    case 'idol': { // ídolo de piedra con cara tallada
+      g.fillStyle = lin(g, x, 0, x + w, 0, [[0, '#a8a082'], [0.5, '#7a7458'], [1, '#3e3c2e']]); g.beginPath(); g.roundRect(x + w * 0.1, y, w * 0.8, h, [w * 0.35, w * 0.35, 0, 0]); g.fill();
+      g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(x + w * 0.25, y + h * 0.3, w * 0.18, h * 0.1); g.fillRect(x + w * 0.57, y + h * 0.3, w * 0.18, h * 0.1); g.fillRect(x + w * 0.44, y + h * 0.42, w * 0.12, h * 0.2); g.fillRect(x + w * 0.3, y + h * 0.7, w * 0.4, h * 0.08);
+      g.fillStyle = '#34d399'; for (const ex of [0.34, 0.66]) { g.beginPath(); g.arc(x + w * ex, y + h * 0.35, s * 0.04, 0, TAU); g.fill(); }
+      g.fillStyle = '#2f7a3a'; g.beginPath(); g.ellipse(x + w * 0.7, y + h * 0.05, w * 0.2, s * 0.05, 0, 0, TAU); g.fill(); break;
+    }
+    case 'lander': { // módulo lunar
+      g.strokeStyle = '#94a3b8'; g.lineWidth = lw * 1.5; g.beginPath(); g.moveTo(x + w * 0.2, y + h * 0.55); g.lineTo(x, y + h); g.moveTo(x + w * 0.8, y + h * 0.55); g.lineTo(x + w, y + h); g.stroke();
+      g.fillStyle = lin(g, 0, y + h * 0.35, 0, y + h * 0.7, [[0, '#fde68a'], [1, '#b45309']]); g.fillRect(x + w * 0.15, y + h * 0.38, w * 0.7, h * 0.3); // lámina dorada
+      g.fillStyle = lin(g, x, 0, x + w, 0, [[0, '#f1f5f9'], [1, '#64748b']]); g.beginPath(); g.moveTo(x + w * 0.25, y + h * 0.38); g.lineTo(x + w * 0.3, y + h * 0.05); g.lineTo(x + w * 0.7, y + h * 0.05); g.lineTo(x + w * 0.75, y + h * 0.38); g.fill();
+      g.fillStyle = '#0f172a'; g.beginPath(); g.moveTo(x + w * 0.38, y + h * 0.15); g.lineTo(x + w * 0.5, y + h * 0.12); g.lineTo(x + w * 0.5, y + h * 0.28); g.lineTo(x + w * 0.4, y + h * 0.28); g.fill();
+      g.fillStyle = '#e2e8f0'; g.fillRect(x + w * 0.62, y - h * 0.15, w * 0.04, h * 0.2); g.fillStyle = '#2563eb'; g.fillRect(x + w * 0.66, y - h * 0.15, w * 0.18, h * 0.1); break; // banderita
+    }
+    case 'vending': { // máquina expendedora con luz
+      g.fillStyle = lin(g, x, 0, x + w, 0, [[0, '#ef4444'], [1, '#7f1d1d']]); g.fillRect(x, y, w, h);
+      g.fillStyle = '#0f172a'; g.fillRect(x + w * 0.1, y + h * 0.08, w * 0.58, h * 0.6);
+      for (let r2 = 0; r2 < 4; r2++) for (let c2 = 0; c2 < 3; c2++) { g.fillStyle = ['#22c55e', '#facc15', '#38bdf8', '#f472b6'][(r2 + c2) % 4]; g.fillRect(x + w * (0.14 + c2 * 0.18), y + h * (0.12 + r2 * 0.14), w * 0.12, h * 0.09); }
+      g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(186,230,253,0.25)'; g.fillRect(x + w * 0.1, y + h * 0.08, w * 0.58, h * 0.6); g.restore();
+      g.fillStyle = '#1f2937'; g.fillRect(x + w * 0.74, y + h * 0.2, w * 0.16, h * 0.3); g.fillRect(x + w * 0.15, y + h * 0.76, w * 0.5, h * 0.1); g.fillStyle = '#fef08a'; g.fillRect(x + w * 0.78, y + h * 0.24, w * 0.08, h * 0.04); break;
+    }
+    case 'brazier': { // brasero de hierro con fuego
+      g.fillStyle = '#1f2937'; g.beginPath(); g.moveTo(x + w * 0.3, y + h); g.lineTo(x + w * 0.45, y + h * 0.5); g.lineTo(x + w * 0.55, y + h * 0.5); g.lineTo(x + w * 0.7, y + h); g.fill();
+      g.fillStyle = lin(g, 0, y + h * 0.25, 0, y + h * 0.55, [[0, '#6b7280'], [1, '#111827']]); g.beginPath(); g.moveTo(x, y + h * 0.25); g.lineTo(x + w, y + h * 0.25); g.lineTo(x + w * 0.75, y + h * 0.55); g.lineTo(x + w * 0.25, y + h * 0.55); g.fill();
+      g.save(); g.globalCompositeOperation = 'lighter'; const gl = g.createRadialGradient(x + w / 2, y + h * 0.2, 0, x + w / 2, y + h * 0.2, w * 0.9); gl.addColorStop(0, 'rgba(251,146,60,0.6)'); gl.addColorStop(1, 'rgba(251,146,60,0)'); g.fillStyle = gl; g.fillRect(x - w * 0.5, y - h * 0.8, w * 2, h * 1.5); g.restore();
+      for (let k = 0; k < 4; k++) { const fx2 = x + w * (0.2 + k * 0.2); g.fillStyle = k % 2 ? '#fde047' : '#f97316'; g.beginPath(); g.moveTo(fx2 - w * 0.1, y + h * 0.27); g.quadraticCurveTo(fx2, y - h * (0.2 + r(k) * 0.3), fx2 + w * 0.1, y + h * 0.27); g.fill(); } break;
+    }
+    case 'cage': { // jaula de hierro colgando de una cadena
+      g.strokeStyle = '#3f3a2a'; g.lineWidth = lw * 1.5; g.beginPath(); g.moveTo(x + w / 2, y - h * 0.6); g.lineTo(x + w / 2, y); g.stroke();
+      g.strokeStyle = '#57534e'; g.lineWidth = lw * 1.4; g.beginPath(); g.ellipse(x + w / 2, y + h * 0.08, w / 2, h * 0.08, 0, 0, TAU); g.stroke(); g.fillStyle = '#292524'; g.fillRect(x, y + h * 0.92, w, h * 0.08);
+      for (let k = 0; k <= 6; k++) { const bx = x + w * k / 6; g.beginPath(); g.moveTo(bx, y + h * 0.08); g.lineTo(bx, y + h * 0.92); g.stroke(); }
+      g.fillStyle = 'rgba(196,181,253,0.35)'; g.beginPath(); g.arc(x + w * 0.5, y + h * 0.55, s * 0.12, 0, TAU); g.fill(); break; // un fueguito fatuo adentro
+    }
+    case 'ruin': { // bloque de arenisca con jeroglíficos
+      g.fillStyle = lin(g, x, y, x + w, y + h, [[0, '#f3d9a4'], [1, '#a77b45']]); g.fillRect(x, y, w, h); g.fillStyle = '#c99a5b'; g.fillRect(x, y, w, h * 0.12);
+      g.strokeStyle = 'rgba(90,55,20,0.75)'; g.lineWidth = lw; for (let k = 0; k < 5; k++) { const gx = x + w * (0.1 + k * 0.18), gy2 = y + h * 0.3; g.beginPath(); if (k % 3 === 0) { g.arc(gx + w * 0.05, gy2 + h * 0.15, w * 0.04, 0, TAU); g.moveTo(gx + w * 0.05, gy2 + h * 0.2); g.lineTo(gx + w * 0.05, gy2 + h * 0.45); } else if (k % 3 === 1) { g.moveTo(gx, gy2 + h * 0.45); g.lineTo(gx + w * 0.05, gy2); g.lineTo(gx + w * 0.1, gy2 + h * 0.45); } else { g.ellipse(gx + w * 0.05, gy2 + h * 0.2, w * 0.06, h * 0.12, 0, 0, TAU); g.moveTo(gx + w * 0.02, gy2 + h * 0.2); g.lineTo(gx + w * 0.08, gy2 + h * 0.2); } g.stroke(); }
+      g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.moveTo(x + w * 0.8, y); g.lineTo(x + w, y); g.lineTo(x + w, y + h * 0.4); g.fill(); break; // esquina rota
+    }
+    case 'anchor': { // ancla oxidada clavada en la arena
+      g.strokeStyle = '#78350f'; g.lineWidth = lw * 3; g.lineCap = 'round'; g.beginPath(); g.moveTo(x + w / 2, y + h * 0.12); g.lineTo(x + w / 2, y + h * 0.9); g.moveTo(x + w * 0.2, y + h * 0.3); g.lineTo(x + w * 0.8, y + h * 0.3); g.stroke();
+      g.beginPath(); g.arc(x + w / 2, y + h * 0.55, w * 0.42, 0.15, Math.PI - 0.15); g.stroke(); g.lineWidth = lw * 2; g.beginPath(); g.arc(x + w / 2, y + h * 0.06, w * 0.12, 0, TAU); g.stroke();
+      g.fillStyle = '#166534'; g.beginPath(); g.ellipse(x + w * 0.6, y + h * 0.6, s * 0.08, s * 0.2, 0.4, 0, TAU); g.fill(); break;
+    }
+    case 'urn': { // jarrón dorado
+      g.fillStyle = lin(g, x, 0, x + w, 0, [[0, '#fef3c7'], [0.35, '#f59e0b'], [1, '#78350f']]); g.beginPath(); g.moveTo(x + w * 0.3, y); g.lineTo(x + w * 0.7, y); g.quadraticCurveTo(x + w * 0.62, y + h * 0.2, x + w, y + h * 0.5); g.quadraticCurveTo(x + w, y + h * 0.9, x + w * 0.65, y + h); g.lineTo(x + w * 0.35, y + h); g.quadraticCurveTo(x, y + h * 0.9, x, y + h * 0.5); g.quadraticCurveTo(x + w * 0.38, y + h * 0.2, x + w * 0.3, y); g.fill();
+      g.fillStyle = '#7c2d12'; g.fillRect(x + w * 0.08, y + h * 0.48, w * 0.84, h * 0.06); spec(g, x + w * 0.3, y + h * 0.45, w * 0.08, h * 0.2, 0, 0.6); break;
+    }
+    case 'fountain': { // fuente de mármol con agua
+      g.fillStyle = lin(g, 0, y, 0, y + h, [[0, '#ffffff'], [1, '#cbd5e1']]); g.beginPath(); g.ellipse(x + w / 2, y + h * 0.35, w / 2, h * 0.3, 0, 0, Math.PI); g.lineTo(x, y + h * 0.35); g.fill(); g.fillRect(x + w * 0.35, y + h * 0.5, w * 0.3, h * 0.5);
+      g.fillStyle = 'rgba(56,189,248,0.75)'; g.beginPath(); g.ellipse(x + w / 2, y + h * 0.35, w * 0.45, h * 0.12, 0, 0, TAU); g.fill();
+      g.strokeStyle = 'rgba(224,242,254,0.85)'; g.lineWidth = lw; for (const d of [-1, 1]) { g.beginPath(); g.moveTo(x + w / 2, y + h * 0.3); g.quadraticCurveTo(x + w / 2 + d * w * 0.2, y - h * 0.8, x + w / 2 + d * w * 0.35, y + h * 0.3); g.stroke(); } break;
+    }
+    case 'rack': { // estante con armas de gladiador
+      g.fillStyle = '#5a3e26'; g.fillRect(x, y + h * 0.1, w * 0.1, h * 0.9); g.fillRect(x + w * 0.9, y + h * 0.1, w * 0.1, h * 0.9); g.fillRect(x, y + h * 0.25, w, h * 0.06); g.fillRect(x, y + h * 0.85, w, h * 0.08);
+      for (let k = 0; k < 4; k++) { const wx = x + w * (0.2 + k * 0.2); g.fillStyle = '#cbd5e1'; g.fillRect(wx - 1, y - h * 0.15, 2.5, h); g.fillStyle = '#78350f'; g.fillRect(wx - 2, y + h * 0.55, 4.5, h * 0.3); if (k % 2) { g.fillStyle = '#94a3b8'; g.beginPath(); g.moveTo(wx - s * 0.08, y - h * 0.15); g.lineTo(wx, y - h * 0.32); g.lineTo(wx + s * 0.08, y - h * 0.15); g.fill(); } }
+      g.fillStyle = '#b91c1c'; g.beginPath(); g.arc(x + w * 0.5, y + h * 0.6, w * 0.22, 0, TAU); g.fill(); g.fillStyle = '#facc15'; g.beginPath(); g.arc(x + w * 0.5, y + h * 0.6, w * 0.07, 0, TAU); g.fill(); break; // escudo
+    }
     case 'bench': { // banco del andén
       g.fillStyle = '#1f2937'; for (const lx of [0.1, 0.82]) g.fillRect(x + w * lx, y + h * 0.35, w * 0.08, h * 0.65);
       g.fillStyle = lin(g, 0, y, 0, y + h * 0.4, [[0, '#f59e0b'], [1, '#92400e']]); for (let k = 0; k < 3; k++) g.fillRect(x, y + k * h * 0.12, w, h * 0.09);

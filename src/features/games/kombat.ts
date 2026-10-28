@@ -120,14 +120,14 @@ export type Cast = 'ability' | 'fatal';
 export interface Input { left: boolean; right: boolean; up: boolean; down: boolean; kick: boolean; ability: boolean; cast?: Cast | null }
 export const noInput = (): Input => ({ left: false, right: false, up: false, down: false, kick: false, ability: false, cast: null });
 
-export type Action = 'idle' | 'run' | 'jump' | 'charge' | 'kick' | 'slide' | 'block' | 'stun' | 'special' | 'celebrate' | 'sad' | 'fatal' | 'tired';
+export type Action = 'idle' | 'run' | 'jump' | 'charge' | 'kick' | 'header' | 'slide' | 'block' | 'stun' | 'special' | 'celebrate' | 'sad' | 'fatal' | 'tired';
 export type StunKind = 'hit' | 'freeze' | 'poison' | 'burn' | 'zap' | 'none';
 export interface Fighter {
   side: 0 | 1; char: CharId;
   x: number; y: number; vx: number; vy: number; facing: 1 | -1; ground: boolean;
   action: Action; actionT: number;
   kickT: number; kickKind: 'normal' | 'lob' | 'low'; kickHit: boolean; slideT: number;
-  charge: number; kickPow: number; jumps: number; // segundos cargando el tiro, fuerza del tiro, saltos hechos desde que despegó
+  charge: number; kickPow: number; jumps: number; headT: number; // segundos cargando el tiro, fuerza del tiro, saltos hechos desde que despegó
   stun: number; stunKind: StunKind; poison: number; inv: number;
   stamina: number; power: number; cd: number;
   abilityT: number; abilityHit: boolean; burst: number; burstT: number; // habilidades que duran (salto, embestida, vuelo, fase, ráfaga)
@@ -142,7 +142,7 @@ export interface Person { // el árbitro
   roam?: { x: number; t: number; solid: number | null }; // a dónde va (recorre la cancha y se sube a las plataformas)
 }
 export interface Ball { x: number; y: number; vx: number; vy: number; spin: number; kind: BallKind; kindT: number; owner: 0 | 1 | null; fx: 'none' | 'toxic' | 'fire' | 'ice' | 'volt' | 'void'; fxT: number; frozen: number; alive: boolean; respawn: number; heat: number; pass?: { side: 0 | 1; t: number } } // pass: atraviesa un ratito al que la acaba de pegar
-export type PropLook = 'bench' | 'cactus' | 'coral' | 'chest' | 'statue' | 'crate' | 'container' | 'cart' | 'crystal' | 'pod' | 'icecube' | 'snow' | 'obsidian' | 'basalt' | 'log' | 'stump' | 'barrels' | 'tomb' | 'altar' | 'column' | 'boulder';
+export type PropLook = 'hydrant' | 'dish' | 'gears' | 'gargoyle' | 'idol' | 'lander' | 'vending' | 'brazier' | 'cage' | 'ruin' | 'anchor' | 'urn' | 'fountain' | 'rack' | 'bench' | 'cactus' | 'coral' | 'chest' | 'statue' | 'crate' | 'container' | 'cart' | 'crystal' | 'pod' | 'icecube' | 'snow' | 'obsidian' | 'basalt' | 'log' | 'stump' | 'barrels' | 'tomb' | 'altar' | 'column' | 'boulder';
 export interface Solid { x: number; y: number; w: number; h: number; kind: 'block' | 'float' | 'bouncy'; id: number; move?: Mover; look?: PropLook }
 // Plataformas que se mueven: ascensores (suben y bajan), plataformas que van y vienen y pistones que salen del piso.
 export interface Mover { kind: 'lift' | 'slide' | 'piston'; x0: number; y0: number; h0: number; ax: number; ay: number; ah: number; period: number; phase: number }
@@ -166,7 +166,7 @@ export type KfEvent =
   | { type: 'fatal'; side: 0 | 1; char: CharId } | { type: 'fatalBlocked'; side: 0 | 1 } | { type: 'power'; side: 0 | 1; kind: PowerKind } | { type: 'ballKind'; kind: BallKind }
   | { type: 'unlock'; side: 0 | 1 } | { type: 'refDown' } | { type: 'refBack' } | { type: 'ballDrop' } | { type: 'save'; side: 0 | 1 }
   | { type: 'trap'; kind: Hazard['kind'] } | { type: 'boom' } | { type: 'thunder' } | { type: 'zap' } | { type: 'whistle'; kind: 'kickoff' | 'half' | 'end' }
-  | { type: 'halftime' } | { type: 'extra' } | { type: 'warn' } | { type: 'tired'; side: 0 | 1 } | { type: 'noEnergy'; side: 0 | 1 };
+  | { type: 'halftime' } | { type: 'extra' } | { type: 'warn' } | { type: 'tired'; side: 0 | 1 } | { type: 'noEnergy'; side: 0 | 1 } | { type: 'needBall'; side: 0 | 1 } | { type: 'header'; side: 0 | 1 };
 export type Phase = 'intro' | 'play' | 'goal' | 'fatal' | 'halftime' | 'end';
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; color: string; kind: 'spark' | 'smoke' | 'shard' | 'bubble' | 'ember' | 'flash' | 'ring' | 'blood' }
 export interface CpuState { level: number; think: number; plan: Input; reactFatal: number; kickHold: number }
@@ -179,6 +179,7 @@ export interface Match {
   lastGoal: { side: 0 | 1; fatal: boolean } | null; winner: 0 | 1 | null;
   events: KfEvent[]; shake: number; flash: number; rand: () => number;
   cpu: [CpuState | null, CpuState | null];
+  stillT?: number; // cuánto hace que la pelota está quieta y lejos de todos
 }
 
 export function seeded(seed: number) {
@@ -204,7 +205,7 @@ export function goalHeight(m: Match, team: 0 | 1) {
 
 function newFighter(side: 0 | 1, char: CharId): Fighter {
   return { side, char, x: 0, y: 0, vx: 0, vy: 0, facing: 1, ground: true, action: 'idle', actionT: 0,
-    kickT: 0, kickKind: 'normal', kickHit: false, slideT: 0, charge: 0, kickPow: 1, jumps: 0, stun: 0, stunKind: 'none', poison: 0, inv: 0, stamina: STAMINA, power: 0, cd: 0,
+    kickT: 0, kickKind: 'normal', kickHit: false, slideT: 0, charge: 0, kickPow: 1, jumps: 0, headT: 0, stun: 0, stunKind: 'none', poison: 0, inv: 0, stamina: STAMINA, power: 0, cd: 0,
     abilityT: 0, abilityHit: false, burst: 0, burstT: 0, powers: {}, prev: noInput(), taps: [], goals: 0, restT: 0 };
 }
 
@@ -228,7 +229,7 @@ function buildStage(m: Match) {
   const saw = (x0: number, x1: number, phase = 0) => { Z.push(hz('saw', x0, 0, x1 - x0, 0.6, { t: phase, period: 7 })); Z.push(hz('saw', W - x1, 0, x1 - x0, 0.6, { t: phase, period: 7, dir: -1 })); };
   switch (m.stage) {
     case 'industrial':
-      block(6.8, 1.8, 0.8, 'block', 'container'); plat(10.2, 3.3, 3.2);
+      block(6.8, 1.8, 0.8, 'block', 'container'); plat(10.2, 3.3, 3.2); block(5.1, 0.5, 0.6, 'block', 'hydrant');
       trap('spikes', 8.6, 1.4, 0); laser(10.2, 3.3); saw(11.8, 13.2, 3);
       Z.push(hz('wreck', W / 2, H - 0.4, 0, H - 2.9));
       mover('lift', 3.6, 1.6, 1.8, 0.35, 0, 2.4, 0, 6);
@@ -240,7 +241,7 @@ function buildStage(m: Match) {
       mover('slide', 4.4, 4.6, 1.8, 0.35, 1.6, 0, 0, 5.5);
       break;
     case 'base':
-      plat(6.3, 2.6, 2.4); plat(10.8, 3.6, 2.6); block(4.9, 1.3, 0.8, 'block', 'pod');
+      plat(6.3, 2.6, 2.4); plat(10.8, 3.6, 2.6); block(4.9, 1.3, 0.8, 'block', 'pod'); block(3.3, 1, 0.9, 'block', 'dish');
       laser(8.6, 4.4); laser(12.9, 4.4, 2.7); trap('spikes', 10.8, 1.8, 0, { t: 1.3 });
       mover('lift', W / 2, 5.2, 2.6, 0.35, 0, 1.6, 0, 7, 0, false);
       break;
@@ -262,57 +263,57 @@ function buildStage(m: Match) {
       mover('lift', 4.2, 1.4, 1.6, 0.35, 0, 2.2, 0, 6.5, 1);
       break;
     case 'factory':
-      plat(6.4, 3, 2.4); block(4.4, 1.2, 1, 'block', 'barrels');
+      plat(6.4, 3, 2.4); block(4.4, 1.2, 1, 'block', 'barrels'); block(2.9, 0.9, 1, 'block', 'gears');
       saw(7.6, 10.2); laser(11.6, 5.2, 2); trap('spikes', 6.4, 1.2, 3.4, { t: 3.5 });
       Z.push(hz('conveyor', W * 0.41, 0, W * 0.18, 0.25));
       mover('piston', 13.4, 0, 1.2, 0.15, 0, 0, 1.2, 4.5);
       mover('slide', W / 2, 5.6, 2.2, 0.35, 2.6, 0, 0, 7, 0, false);
       break;
     case 'storm':
-      plat(8.2, 3, 3.2); solid(W / 2 - 1.5, 5.8, 3, 0.4, 'float'); block(6.2, 0.9, 1, 'block', 'tomb');
+      plat(8.2, 3, 3.2); solid(W / 2 - 1.5, 5.8, 3, 0.4, 'float'); block(6.2, 0.9, 1, 'block', 'tomb'); block(13.8, 0.9, 1.2, 'block', 'gargoyle');
       trap('shock', 11.4, 1.8, 0); laser(13, 5.8, 2.7);
       both(8.2, x => Z.push(hz('wreck', x, H - 0.4, 0, 8.6, { t: x < W / 2 ? 0 : Math.PI })));
       mover('lift', 4.4, 1.5, 1.6, 0.35, 0, 2, 0, 6);
       break;
     case 'temple':
-      block(6.8, 2, 1, 'block', 'altar'); plat(11.2, 3.3, 2.4); block(13.2, 1.2, 0.5, 'block', 'column');
+      block(6.8, 2, 1, 'block', 'altar'); plat(11.2, 3.3, 2.4); block(13.2, 1, 1, 'block', 'idol');
       trap('flame', 6.8, 0.8, 1, { period: 7 }); trap('spikes', 9.3, 1.6, 0, { t: 3 });
       mover('piston', W / 2, 0, 1.8, 0.15, 0, 0, 1.1, 6, 0, false);
       mover('lift', 4, 1.6, 1.5, 0.35, 0, 2, 0, 7, 2);
       break;
     case 'moon':
-      block(8, 2.4, 0.9, 'block', 'boulder'); plat(12.8, 3.9, 2); block(5.9, 1, 0.6, 'block', 'boulder');
+      block(8, 2.4, 0.9, 'block', 'boulder'); plat(12.8, 3.9, 2); block(5.9, 1, 1, 'block', 'lander');
       trap('spikes', 8, 1.6, 0.9); laser(11, 4.6, 1.5);
       mover('slide', W / 2, 6, 2.4, 0.35, 3, 0, 0, 9, 0, false);
       mover('lift', 4.2, 1.8, 1.6, 0.35, 0, 2.6, 0, 8);
       break;
     case 'subway':
-      block(6.9, 1.8, 0.6, 'block', 'bench'); plat(10.4, 3.2, 3); block(12.9, 1, 0.9, 'block', 'crate');
+      block(6.9, 1.8, 0.6, 'block', 'bench'); plat(10.4, 3.2, 3); block(12.9, 0.9, 1.3, 'block', 'vending');
       trap('shock', 8.9, 1.6, 0); laser(12, 4.6, 1.2);
       mover('slide', W / 2, 5.4, 2.4, 0.35, 2.8, 0, 0, 7, 0, false);
       break;
     case 'pit':
-      block(7, 1.6, 0.8, 'block', 'column'); plat(5, 3.2, 2.2); trap('spikes', 9.4, 1.4, 0, { t: 1.5 });
+      block(7, 1.2, 1, 'block', 'brazier'); plat(5, 3.2, 2.2); block(3.4, 1.1, 1.2, 'block', 'cage'); trap('spikes', 9.4, 1.4, 0, { t: 1.5 });
       both(11.6, x => Z.push(hz('wreck', x, H - 0.4, 0, 8.4, { t: x < W / 2 ? 0 : Math.PI })));
       mover('lift', W / 2, 1.2, 2, 0.35, 0, 3.4, 0, 8, 0, false);
       break;
     case 'desert':
-      block(6.6, 0.9, 1.5, 'block', 'cactus'); plat(9.6, 3.4, 2.6); block(12.6, 1.8, 0.7, 'block', 'crate');
+      block(6.6, 0.9, 1.5, 'block', 'cactus'); plat(9.6, 3.4, 2.6); block(12.6, 1.8, 0.8, 'block', 'ruin');
       trap('flame', 9.6, 0.9, 0, { t: 1.8 }); saw(10.8, 12.2, 2);
       mover('piston', 4.4, 0, 1.4, 0.15, 0, 0, 1.2, 5.5);
       break;
     case 'ocean':
-      block(7, 1.8, 0.8, 'block', 'coral'); block(12.5, 1.3, 0.7, 'block', 'chest'); plat(9.4, 3.2, 2.4);
+      block(7, 1.8, 0.8, 'block', 'coral'); block(12.5, 1.3, 0.7, 'block', 'chest'); plat(9.4, 3.2, 2.4); block(2.9, 0.8, 1, 'block', 'anchor');
       trap('spikes', 4.6, 1.2, 0, { t: 2 }); both(10.6, x => Z.push(hz('mine', x, 5.2, 0.45, 0)));
       mover('lift', W / 2, 2, 2.2, 0.35, 0, 2.6, 0, 9, 0, false);
       break;
     case 'sky':
-      plat(6.4, 2.8, 2.4); plat(10.6, 4.2, 2.6); block(12.8, 1.2, 0.7, 'block', 'statue');
+      plat(6.4, 2.8, 2.4); plat(10.6, 4.2, 2.6); block(12.8, 0.9, 1, 'block', 'urn'); block(5.5, 1.4, 0.5, 'block', 'fountain');
       laser(8.6, 4.6, 0.8); trap('spikes', 10.6, 1.4, 0, { t: 3 });
       mover('lift', 3.8, 1.5, 1.6, 0.35, 0, 2.6, 0, 6.5); mover('slide', W / 2, 6.6, 2.4, 0.35, 3, 0, 0, 8, 0, false);
       break;
     case 'coliseum':
-      block(6.8, 1.4, 1.1, 'block', 'statue'); plat(10.8, 3.3, 2.6);
+      block(6.8, 1.4, 1.1, 'block', 'statue'); plat(10.8, 3.3, 2.6); block(4.2, 1, 1, 'block', 'rack');
       trap('spikes', 9, 1.6, 0); trap('flame', 12.6, 0.9, 0, { t: 2.2 });
       mover('piston', W / 2, 0, 1.8, 0.15, 0, 0, 1.2, 6, 0, false);
       Z.push(hz('wreck', W / 2, H - 0.4, 0, H - 3.4));
@@ -454,6 +455,12 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
   if (m.phase !== 'play') return;
   updateHazards(m, dt);
   if (b.alive) { moveBall(m, dt); checkGoal(m); }
+  // pelota trabada (quieta y lejos de todos un rato): salta hacia el medio
+  if (b.alive && m.phase === 'play') {
+    const near = m.fighters.some(f => Math.abs(f.x - b.x) < 2.5 && Math.abs(f.y - b.y) < 3);
+    m.stillT = Math.hypot(b.vx, b.vy) < 0.6 && !near ? (m.stillT ?? 0) + dt : 0;
+    if (m.stillT > 3.5) { m.stillT = 0; b.vx = Math.sign(W / 2 - b.x) * 6; b.vy = 9; b.owner = null; burst(m, b.x, b.y, 10, '#e2e8f0', 'smoke', 3); emit(m, { type: 'bounce', power: 0.6 }); }
+  }
   updatePowerups(m, dt);
 }
 
@@ -586,7 +593,8 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
     const comboFatal = kickNow && comboDone(f);
     const wantFatal = i.cast === 'fatal' || (comboFatal && fatalReady(f));
     const combo = kickNow && !comboFatal ? abilityCombo(f, m.time) : 0; // adelante, adelante + espacio
-    if (wantFatal && fatalReady(f) && !m.fatal && m.ball.alive) { f.power = 0; f.taps = []; f.charge = 0; startFatal(m, f); }
+    if (wantFatal && fatalReady(f) && !m.fatal && m.ball.alive && !hasBall(m, f)) { if (i.cast === 'fatal' || comboFatal) emit(m, { type: 'needBall', side: f.side }); f.taps = []; }
+    else if (wantFatal && fatalReady(f) && !m.fatal && m.ball.alive) { f.power = 0; f.taps = []; f.charge = 0; startFatal(m, f); }
     else if (i.cast === 'ability' || combo !== 0) {
       if (combo !== 0) { f.facing = (combo === 1 ? dir : -dir) as 1 | -1; f.taps = []; }
       f.charge = 0;
@@ -599,6 +607,7 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
       if (i.kick && f.kickT <= 0) f.charge = Math.min(CHARGE_MAX, f.charge + dt);
       else { // soltó la barra: la fuerza depende de cuánto la sostuvo
         f.kickPow = kickMult(f.charge); f.charge = 0;
+        { const bx = m.ball.x - f.x; if (m.ball.alive && Math.abs(bx) < 1.3 && Math.sign(bx) !== f.facing && m.ball.y < f.y + 1.6) f.facing = (Math.sign(bx) || f.facing) as 1 | -1; } // si la pelota quedó atrás, se da vuelta para patearla
         f.kickT = 0.3; f.kickHit = false; f.kickKind = i.up ? 'lob' : i.down ? 'low' : 'normal'; f.action = 'kick'; f.actionT = 0;
         if (f.kickPow > 1.2) emit(m, { type: 'charged', side: f.side, power: f.kickPow });
       }
@@ -613,7 +622,13 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
     f.action = blocking ? 'block' : !f.ground ? 'jump' : f.stamina < 15 && sp < 1 ? 'tired' : sp > 0.8 ? 'run' : 'idle';
   if (f.action === 'special' && f.actionT > 0.45 && f.abilityT <= 0) f.action = 'idle';
   if (f.action === 'fatal' && m.phase === 'play' && m.fatal === null) f.action = 'idle';
+  if (f.headT > 0) { f.headT -= dt; if (!stunned && f.action !== 'fatal' && f.action !== 'special') f.action = 'header'; }
   if (stunned) f.action = 'stun';
+  // conducción: corriendo con la pelota pegada al pie, la lleva (se puede gambetear)
+  { const bl = m.ball, ahead = (bl.x - f.x) * f.facing;
+    if (bl.alive && f.ground && !stunned && f.kickT <= 0 && f.charge <= 0 && Math.abs(f.vx) > 1.5 && Math.sign(f.vx) === f.facing && ahead > 0.2 && ahead < 0.95 && bl.y < f.y + BALL_R + 0.25 && Math.abs(bl.vx - f.vx) < 5 && !(m.fatal && !m.fatal.done)) {
+      bl.vx += (f.vx * 1.08 + f.facing * 0.3 - bl.vx) * Math.min(1, dt * 12); bl.owner = f.side;
+    } }
   // imán
   const b = m.ball;
   if ((f.powers.magnet ?? 0) > 0 && b.alive) { const dx = f.x + f.facing * 0.5 - b.x, dy = f.y + 0.5 - b.y, d = Math.hypot(dx, dy); if (d < 5 && d > 0.5) { b.vx += dx / d * 14 * dt; b.vy += dy / d * 14 * dt; } }
@@ -863,6 +878,10 @@ function explodeAt(m: Match, owner: Fighter, x: number, y: number, R: number) {
 function cloudAt(m: Match, owner: Fighter, x: number, y: number) { m.fx.push({ kind: 'cloud', side: owner.side, x, y, x2: 0, y2: 0, t: 0, life: 3, dir: 1, hit: 0 }); burst(m, x, y, 14, '#86efac', 'bubble', 3); }
 
 // ---------------------------------------------------------------- FATAL GOAL
+// ¿Tiene la pelota? (cerca de los pies o del cuerpo): hace falta para tirar el FATAL GOAL.
+export function hasBall(m: Match, f: Fighter) {
+  const b = m.ball; return b.alive && Math.abs(b.x - f.x) < 1.6 && b.y > f.y - 0.4 && b.y < f.y + heightOf(f) + 0.4;
+}
 function startFatal(m: Match, f: Fighter) {
   f.action = 'fatal'; f.actionT = 0;
   const dir = attackDir(m, f.side), b = m.ball;
@@ -1052,11 +1071,22 @@ function collideBallFighter(m: Match, b: Ball, f: Fighter) {
   let nx = dx / (d || 1), ny = dy / (d || 1);
   if (d === 0) { nx = Math.sign(b.x - f.x) || 1; ny = 0; }
   b.x = cx + nx * BALL_R; b.y = cy + ny * BALL_R;
+  // cabezazo: la pelota le pega en la cabeza (arriba del cuerpo) y sale hacia donde mira
+  const hh = heightOf(f);
+  if (!blocking && f.stun <= 0 && f.headT <= 0 && f.slideT <= 0 && cy > f.y + hh * 0.72 && ny > -0.3 && !(m.fatal && !m.fatal.done)) {
+    const sp = Math.hypot(b.vx, b.vy), air = !f.ground, ang = air ? (b.y > 3.2 ? -0.15 : 0.25) : 0.55;
+    const pow = Math.min(19, 9 + sp * 0.3 + (air ? 3 : 0) + Math.abs(f.vx) * 0.3);
+    const hd = m.cpu[f.side] ? attackDir(m, f.side) : f.facing; // la máquina siempre cabecea hacia el arco rival
+    b.vx = Math.cos(ang) * pow * hd + f.vx * 0.2; b.vy = Math.sin(ang) * pow + (air ? 0 : 2);
+    b.y = Math.max(b.y, f.y + hh + BALL_R * 0.6); b.owner = f.side; b.pass = { side: f.side, t: 0.2 }; b.spin = -hd * 6;
+    f.headT = 0.35; gainPower(m, f, 1);
+    burst(m, b.x, b.y, 8, '#ffffff', 'spark', 3); emit(m, { type: 'header', side: f.side }); emit(m, { type: 'kick', power: pow / 20 });
+    return;
+  }
   const rvx = b.vx - f.vx, rvy = b.vy - f.vy, vn = rvx * nx + rvy * ny;
   if (vn < 0) {
     const e = blocking ? 0.2 : ny > 0.6 ? 0.75 : 0.35;
     b.vx -= (1 + e) * vn * nx; b.vy -= (1 + e) * vn * ny;
-    if (ny > 0.6 && !f.ground && f.vy > 0) b.vy += 3; // cabezazo
     if (blocking && Math.abs(vn) > 6) { emit(m, { type: 'block' }); burst(m, b.x, b.y, 8, '#93c5fd', 'spark', 3); }
     const hard = !blocking && Math.abs(vn) > 7 && b.owner !== null && b.owner !== f.side;
     if (hard && (b.kind === 'spike' || b.kind === 'fire' || b.fx === 'fire')) hurtFighter(m, f, null, b.kind === 'spike' ? 'hit' : 'burn', 0.6, 5, 8);
@@ -1344,7 +1374,7 @@ function cpuThink(m: Match, side: 0 | 1, c: CpuState, dt: number): Input {
   const rivalHas = Math.abs(rival.x - b.x) < 1 && Math.abs(f.x - rival.x) < 2.2 && Math.abs(f.vx) > 3.5;
   if (rivalHas && f.facing === dir && m.rand() < 0.15 + c.level * 0.3) { plan.down = true; plan.kick = true; }
   // FATAL
-  if (fatalReady(f) && !m.fatal && m.rand() < 0.1 + c.level * 0.25) plan.cast = 'fatal';
+  if (fatalReady(f) && !m.fatal && hasBall(m, f) && m.rand() < 0.1 + c.level * 0.25) plan.cast = 'fatal';
   // potenciador cerca
   const pu = m.powerups.find(p => Math.abs(p.x - f.x) < 3);
   if (pu && Math.abs(b.x - f.x) > 3) { plan.left = pu.x < f.x; plan.right = pu.x > f.x; if (pu.y > f.y + 3 && Math.abs(pu.x - f.x) < 1.2 && f.ground) plan.up = true; }

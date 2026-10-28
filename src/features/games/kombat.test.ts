@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHARS, CHAR_IDS, SIZE, heightOf, GOAL_DEPTH, HALF_TIME, POWER_MAX, STAGES, STAMINA, TUBE_Y, W, attackDir, defendsLeft, fatalKeys, fatalPath, newMatch, noInput, seeded, step, supportAt, takeEvents, type Input, type Match } from './kombat';
+import { BALL_R, CHARS, CHAR_IDS, SIZE, heightOf, GOAL_DEPTH, HALF_TIME, POWER_MAX, STAGES, STAMINA, TUBE_Y, W, attackDir, defendsLeft, fatalKeys, fatalPath, newMatch, noInput, seeded, step, supportAt, takeEvents, type Input, type Match } from './kombat';
 
 const idle = (): [Input, Input] => [noInput(), noInput()];
 function play(m: Match, seconds: number, inputs: (m: Match) => [Input, Input] = idle) {
@@ -112,7 +112,7 @@ describe('Kombat Football', () => {
     const jump = (presses: number) => {
       const m = newMatch('temple', ['frost', 'toxic'], [null, null], seeded(14));
       toPlay(m); m.solids = []; m.hazards = [];
-      const f = m.fighters[0]; f.x = 15; let k = 0, top = 0, done = 0, wasUp = false;
+      const f = m.fighters[0]; f.x = 15; f.y = 0; f.vy = 0; let k = 0, top = 0, done = 0, wasUp = false;
       play(m, 3, () => { k++; const i = noInput(); if (done < presses && !wasUp && (k === 2 || (done > 0 && f.vy < 0.5 && !f.ground))) { i.up = true; done++; } wasUp = i.up; top = Math.max(top, f.y); return [i, noInput()]; });
       return top;
     };
@@ -195,7 +195,7 @@ describe('Kombat Football', () => {
     for (const char of ['inferno', 'frost', 'thunder', 'shadow', 'toxic', 'bruto'] as const) {
       const m = newMatch('temple', [char, 'toxic'], [null, null], seeded(9));
       toPlay(m);
-      m.fighters[1].x = W - 3; m.fighters[0].x = 10;
+      m.fighters[1].x = W - 3; m.fighters[0].x = 10; m.ball.x = 10.6; m.ball.y = 0.4; m.ball.vx = 0; m.ball.vy = 0;
       const cast = () => { let k = 0; return (): [Input, Input] => { k++; const i = noInput(); i.cast = k === 2 ? 'fatal' : null; return [i, noInput()]; }; };
       play(m, 0.2, cast());
       expect(m.fatal).toBeNull();
@@ -206,12 +206,42 @@ describe('Kombat Football', () => {
     }
     const m = newMatch('temple', ['inferno', 'thunder'], [null, null], seeded(10));
     toPlay(m);
-    m.fighters[0].power = POWER_MAX; m.fighters[0].x = 10;
+    m.fighters[0].power = POWER_MAX; m.fighters[0].x = 10; m.ball.x = 10.6; m.ball.y = 0.4; m.ball.vx = 0; m.ball.vy = 0;
     m.fighters[1].x = W - 6; m.fighters[1].facing = 1;
     let k = 0;
     play(m, 6, () => { k++; const i = noInput(), j = noInput(); i.cast = k === 2 ? 'fatal' : null; j.cast = m.fatal !== null && Math.hypot(m.ball.x - m.fighters[1].x, m.ball.y - 1) < 6 && k % 2 === 0 ? 'ability' : null; return [i, j]; });
     expect(m.fighters[0].goals).toBe(0);
     expect(fatalKeys(1)).toEqual(['→', '←', '→']);
+  });
+
+  it('el FATAL GOAL solo sale con la pelota cerca', () => {
+    const m = newMatch('temple', ['inferno', 'toxic'], [null, null], seeded(18));
+    toPlay(m); m.solids = []; m.hazards = [];
+    const f = m.fighters[0]; f.x = 5; f.power = POWER_MAX; m.ball.x = 20; m.ball.y = 0.4; m.ball.vx = 0; m.ball.vy = 0;
+    let k = 0, need = false;
+    play(m, 0.3, () => { k++; const i = noInput(); i.cast = k === 2 ? 'fatal' : null; for (const e of takeEvents(m)) if (e.type === 'needBall') need = true; return [i, noInput()]; });
+    expect(m.fatal).toBeNull(); expect(need).toBe(true); expect(f.power).toBe(POWER_MAX);
+  });
+
+  it('cabezazo: la pelota que cae en la cabeza sale hacia donde mira', () => {
+    const m = newMatch('temple', ['frost', 'toxic'], [null, null], seeded(19));
+    toPlay(m); m.solids = []; m.hazards = [];
+    const f = m.fighters[0]; f.x = 15; f.y = 0; f.vy = 0; f.facing = 1; m.fighters[1].x = 3; m.ref.x = 3;
+    m.ball.x = 15.1; m.ball.y = 5; m.ball.vx = 0; m.ball.vy = -4;
+    let headed = false;
+    play(m, 1, () => { for (const e of takeEvents(m)) if (e.type === 'header') headed = true; return idle(); });
+    expect(headed).toBe(true);
+    expect(m.ball.x).toBeGreaterThan(17);
+  });
+
+  it('corriendo con la pelota al pie la lleva', () => {
+    const m = newMatch('temple', ['frost', 'toxic'], [null, null], seeded(20));
+    toPlay(m); m.solids = []; m.hazards = [];
+    const f = m.fighters[0]; f.x = 8; f.y = 0; f.vy = 0; f.facing = 1; m.fighters[1].x = 26; m.ref.x = 27;
+    m.ball.x = 8.6; m.ball.y = BALL_R; m.ball.vx = 0; m.ball.vy = 0;
+    play(m, 1.2, () => { const i = noInput(); i.right = true; return [i, noInput()]; });
+    expect(m.ball.x - f.x).toBeGreaterThan(0); expect(m.ball.x - f.x).toBeLessThan(2.2);
+    expect(f.x).toBeGreaterThan(13);
   });
 
   it('el recorrido de cada FATAL termina en el arco rival', () => {

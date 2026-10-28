@@ -34,7 +34,7 @@ export const LOOKS: Record<CharId, Look> = {
   cyber: { armor: '#e7e9ef', dark: '#1d1d24', trim: '#ec4899', glow: '#f9a8d4', boot: '#22222a', glove: '#d9dbe3', helmet: 'cyber', extras: ['sword'], eye: '#fbcfe8' },
 };
 
-interface Pose { bob: number; lean: number; legs: [number, number][]; arms: [number, number][]; head: number; crouch: number }
+interface Pose { bob: number; lean: number; legs: [number, number][]; arms: [number, number][]; head: number; crouch: number; reach?: number } // reach: largo de los brazos (festejo: los estira bien arriba)
 // Ángulos medidos desde "para abajo" (0) y positivos hacia adelante. legs: [muslo, doblez de la rodilla];
 // arms: [brazo, doblez del codo]. El primero de cada par es el de atrás.
 function poseOf(f: Fighter, t: number): Pose {
@@ -51,6 +51,7 @@ function poseOf(f: Fighter, t: number): Pose {
     const k = Math.min(1, f.charge), sh = k > 0.95 ? s(t * 60) * 0.03 : 0;
     return { bob: sh, lean: -0.08 - k * 0.12, crouch: 0.12 + k * 0.12, head: -0.05, legs: [[-0.3, 0.55], [-0.5 - k * 0.7, 1.2 + k * 0.6]], arms: [[1.5 + k * 0.4, 0.6], [-0.7 - k * 0.5, 0.9]] };
   }
+  if (a === 'header') { const k = Math.min(1, f.actionT / 0.12); return { bob: 0, lean: 0.15 + 0.25 * k, crouch: 0.05, head: 0.25 + 0.55 * k, legs: f.ground ? [[-0.35, 0.5], [0.3, 0.6]] : [[-0.3, 1.1], [0.5, 1.3]], arms: [[-0.7, 0.4], [-0.5, 0.5]] }; } // cabezazo: mete la cabeza
   if (a === 'jump') return { bob: 0, lean: 0.05, crouch: 0, head: -0.05, legs: [[-0.3, 1.2], [0.9, 1.6]], arms: [[-0.9, 0.5], [2.3, 0.4]] };
   if (a === 'kick') {
     const k = Math.min(1, (0.3 - f.kickT) / 0.3), swing = k < 0.35 ? -0.7 * (k / 0.35) : -0.7 + Math.min(1, (k - 0.35) / 0.25) * (f.kickKind === 'lob' ? 2.6 : f.kickKind === 'low' ? 1.5 : 2.1);
@@ -67,7 +68,7 @@ function poseOf(f: Fighter, t: number): Pose {
     return { bob: 0, lean: -0.1, crouch: 0.08, head: -0.1, legs: [[-0.5, 0.4], [0.45, 0.5]], arms: [[0.4, 0.5], [1.55, 0.15]] }; // tira para adelante
   }
   if (a === 'fatal') return { bob: s(t * 20) * 0.02, lean: -0.2, crouch: 0.1, head: -0.25, legs: [[-0.55, 0.5], [0.5, 0.5]], arms: [[2.6, 0.3], [2.4, 0.3]] };
-  if (a === 'celebrate') return { bob: 0, lean: -0.1, crouch: 0, head: -0.25, legs: [[-0.2, 0.3], [0.3, 0.6]], arms: [[2.8 + s(t * 10) * 0.2, 0.3], [2.9 - s(t * 10) * 0.2, 0.3]] };
+  if (a === 'celebrate') return { bob: Math.abs(s(t * 8)) * 0.05, lean: -0.08, crouch: 0, head: -0.25, legs: [[-0.2, 0.3], [0.3, 0.6]], arms: [[2.62 + s(t * 10) * 0.1, 0.12], [2.9 - s(t * 10) * 0.1, 0.1]], reach: 1.5 }; // festejo: los dos brazos arriba, adelante del cuerpo
   if (a === 'sad') return { bob: 0, lean: 0.35, crouch: 0.25, head: 0.4, legs: [[-0.3, 0.9], [0.4, 1.1]], arms: [[2.6, 2.4], [2.7, 2.5]] };
   if (a === 'stun') {
     if (f.stunKind === 'freeze') return { bob: 0, lean: 0.05, crouch: 0.05, head: 0, legs: [[-0.3, 0.4], [0.3, 0.4]], arms: [[0.8, 1.6], [1, 1.6]] };
@@ -337,7 +338,7 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
   };
   const arm = (i: number) => {
     const back = i === 0, [ua, eb] = p.arms[i], sp = shoulderAt(i);
-    const elbow = add(sp, dirv(ua), 0.3), hand = add(elbow, dirv(ua + eb), 0.28);
+    const elbow = add(sp, dirv(ua), 0.3 * (p.reach ?? 1)), hand = add(elbow, dirv(ua + eb), 0.28 * (p.reach ?? 1));
     segment(ctx, sp, elbow, 0.2 * K, 0.16 * K, limbCol(back, L.armor), 0.6);
     const cannon = !back && L.extras.includes('cannon');
     if (cannon) { // el antebrazo es un cañón
@@ -404,16 +405,22 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
   ctx.save(); ctx.translate(0.03, -0.27); EMBLEM[CHARS[f.char].element](ctx, L.helmet === 'visor' ? '#17140c' : L.glow, t); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0, 0, 0.18, L.glow, 0.25 + fx.power * 0.5); ctx.restore();
   if (L.extras.includes('cracks')) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(251,146,60,${0.75 + 0.25 * Math.sin(t * 4)})`; ctx.lineWidth = 0.025; ctx.beginPath(); ctx.moveTo(-0.3, -0.35); ctx.lineTo(-0.1, -0.2); ctx.lineTo(-0.15, 0.0); ctx.moveTo(0.3, -0.38); ctx.lineTo(0.12, -0.15); ctx.lineTo(0.2, 0.02); ctx.moveTo(-0.1, -0.2); ctx.lineTo(0.12, -0.15); ctx.stroke(); bloom(ctx, 0, -0.2, 0.5, '#f97316', 0.3); ctx.restore(); }
   ctx.restore();
-  arm(0); pad(0); leg(1); // el brazo derecho (el de atrás) adelante del pecho, así se ve como el izquierdo
+  // el brazo derecho (el de atrás) va adelante del pecho, así se ve como el izquierdo; si la mano sube a la altura
+  // de la cara (festejo, bloqueo) se dibuja después de la cabeza, siempre adelante del cuerpo
+  const handAt = (i: number) => { const [ua, eb] = p.arms[i]; return add(add(shoulderAt(i), dirv(ua), 0.3 * (p.reach ?? 1)), dirv(ua + eb), 0.28 * (p.reach ?? 1)); };
+  const up0 = handAt(0)[1] < neck[1] + 0.05;
+  if (!up0) arm(0);
+  pad(0); leg(1);
   // manguera del Orbot / Toxic: de la máscara a la espalda
   // el hombro izquierdo (el de adelante) queda un poco tapado por la cabeza; el brazo va adelante de la cabeza
   // solo cuando la mano sube a la altura de la cara (bloqueo, festejo, salto...)
-  const [ua1, eb1] = p.arms[1], s1 = shoulderAt(1), hand1 = add(add(s1, dirv(ua1), 0.3), dirv(ua1 + eb1), 0.28), armUp = hand1[1] < neck[1] + 0.05;
+  const armUp = handAt(1)[1] < neck[1] + 0.05;
   if (!armUp) arm(1);
   pad(1);
   ctx.save(); ctx.translate(neck[0] + 0.03, neck[1] - 0.37); ctx.rotate(p.head * 0.5);
   drawHead(ctx, f.char, t, fx.power, f.action === 'celebrate' ? 'happy' : f.action === 'stun' || f.action === 'sad' || f.action === 'tired' ? 'hurt' : 'normal');
   ctx.restore();
+  if (up0) arm(0);
   if (armUp) arm(1);
   if (L.extras.includes('cracks')) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0, -0.9, 0.9, '#f97316', 0.15 + 0.08 * Math.sin(t * 3)); ctx.restore(); }
   if (ghost) {
@@ -507,7 +514,7 @@ function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, r: number
 
 // Un luchador quieto para las pantallas (la ficha y la selección).
 export function idleFighter(char: CharId): Fighter {
-  return { side: 0, char, x: 0, y: 0, vx: 0, vy: 0, facing: 1, ground: true, action: 'idle', actionT: 0, kickT: 0, kickKind: 'normal', kickHit: false, slideT: 0, stun: 0, stunKind: 'none', poison: 0, inv: 0, stamina: 100, power: 0, cd: 0, abilityT: 0, abilityHit: false, burst: 0, burstT: 0, powers: {}, prev: { left: false, right: false, up: false, down: false, kick: false, ability: false }, taps: [], goals: 0, restT: 0, charge: 0, kickPow: 1, jumps: 0 };
+  return { side: 0, char, x: 0, y: 0, vx: 0, vy: 0, facing: 1, ground: true, action: 'idle', actionT: 0, kickT: 0, kickKind: 'normal', kickHit: false, slideT: 0, stun: 0, stunKind: 'none', poison: 0, inv: 0, stamina: 100, power: 0, cd: 0, abilityT: 0, abilityHit: false, burst: 0, burstT: 0, powers: {}, prev: { left: false, right: false, up: false, down: false, kick: false, ability: false }, taps: [], goals: 0, restT: 0, charge: 0, kickPow: 1, jumps: 0, headT: 0 };
 }
 // La cara para los cuadraditos de la selección y la barra de arriba: la cabeza sobre un fondo de su color.
 export function drawPortrait(ctx: CanvasRenderingContext2D, char: CharId, size: number, t = 0, mirror = false, square = false) {

@@ -260,6 +260,8 @@ export function KombatFootball() {
           case 'unlock':
             if (human(e.side)) { playKfPickup(); const id = ++bannerId; setBanner({ id, side: e.side, dir: attackDir(m, e.side) }); setTimeout(() => setBanner(b => b && b.id === id ? null : b), 4000); }
             break;
+          case 'needBall': if (human(e.side)) shout('¡Necesitás la pelota!', 'info', 'El FATAL GOAL sale solo cuando tenés la pelota cerca', 1800); break;
+          case 'header': if (human(e.side)) shout('¡CABEZAZO!', 'info', undefined, 700); break;
           case 'noEnergy': case 'tired': if (human(e.side) && tiredT <= 0) { tiredT = 6; shout('¡Sin energía!', 'info', 'Quedate quieto un momento para recuperarla', 2200); } break;
           case 'trap': if (e.kind === 'laser') playLaserOn(); break;
           case 'boom': playExplosion(); break;
@@ -352,7 +354,8 @@ export function KombatFootball() {
       <li><Keys keys={[k.jump]} /> saltar (apretalo de nuevo en el aire: dos veces salta el doble, tres veces el triple) · <Keys keys={[k.block]} /> bloquear</li>
       <li><Keys keys={[k.kick]} /> patear: <b>mantenelo para cargar el tiro</b>, cuanto más tiempo, más fuerte sale la pelota (al soltar con {k.jump} globo, con {k.block} rasante; corriendo con {k.block} barrida)</li>
       <li className="kf-howto-ab"><Keys keys={abilityCombo(mode, side, 1)} /> <b>{c.abilityName}:</b> {c.abilityText} Adelante, adelante + patada (o para el otro lado). <em>Gasta energía.</em></li>
-      <li className="kf-howto-fatal"><Keys keys={fatalCombo(mode, side, 1)} /> <b>FATAL GOAL</b> ({c.fatalName}) cuando la barra de poder está llena. Las flechas son hacia el arco rival.</li>
+      <li className="kf-howto-fatal"><Keys keys={fatalCombo(mode, side, 1)} /> <b>FATAL GOAL</b> ({c.fatalName}) cuando la barra de poder está llena <b>y tenés la pelota</b>. Las flechas son hacia el arco rival.</li>
+      <li>Corriendo con la pelota al pie la llevás; si la pelota te cae arriba, <b>cabeceás</b> (saltá para cabecear más fuerte).</li>
     </ul>
   </div>; };
 
