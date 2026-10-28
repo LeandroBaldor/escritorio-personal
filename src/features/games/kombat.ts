@@ -502,6 +502,10 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
 }
 
 function gravityOf(m: Match) { return 30 * stageDef(m.stage).gravity; }
+// Los luchadores tienen la gravedad de la Luna en todos los escenarios (saltos lentos y flotados); la pelota, el
+// árbitro y lo demás siguen con la gravedad de cada escenario.
+export const PLAYER_GRAVITY = 0.45;
+const playerG = (m: Match) => PLAYER_GRAVITY / stageDef(m.stage).gravity; // la escala sobre la gravedad del escenario
 // La superficie más alta debajo de (x, y): el piso o el techo de un bloque o plataforma.
 export function supportAt(m: Match, x: number, y: number, half = PW / 2 - 0.1) {
   let top = 0;
@@ -535,7 +539,7 @@ function moveBody(m: Match, p: { x: number; y: number; vx: number; vy: number; g
 }
 function idlePeople(m: Match, dt: number) {
   for (const f of m.fighters) {
-    f.actionT += dt; f.vx *= Math.pow(0.02, dt); moveBody(m, f, dt);
+    f.actionT += dt; f.vx *= Math.pow(0.02, dt); moveBody(m, f, dt, playerG(m));
     f.stamina = Math.min(STAMINA, f.stamina + dt * 20);
     if (m.phase === 'goal' && m.lastGoal) {
       const scorer = m.lastGoal.side === f.side;
@@ -611,12 +615,12 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
   // tres veces el triple. Al tocar el piso se vuelve a contar.
   if (f.ground) f.jumps = 0;
   if (!stunned && pressed(f, i, 'up') && !busy(f) && !i.kick && f.charge <= 0 && f.jumps < MAX_JUMPS) {
-    const v = 11.5 * def.jump * (0.8 + 0.2 * staminaFactor(f)) * (turbo ? 1.1 : 1) * Math.sqrt(st.gravity);
+    const v = 11.5 * def.jump * (0.8 + 0.2 * staminaFactor(f)) * (turbo ? 1.1 : 1) * Math.sqrt(PLAYER_GRAVITY);
     if (f.ground || f.jumps === 0) { f.vy = v; f.jumps = 1; } // en el aire sin haber saltado (cayendo de un borde) cuenta como el primero
     else { f.vy = Math.max(f.vy, 0) * 0.3 + v; f.jumps++; burst(m, f.x, f.y, 10, '#e2e8f0', 'smoke', 2.5); burst(m, f.x, f.y, 1, CHARS[f.char].glow, 'ring', 1); }
     f.ground = false; emit(m, { type: 'jump' });
   }
-  moveBody(m, f, dt, gScale, f.char === 'espectro' && f.abilityT > 0);
+  moveBody(m, f, dt, gScale * playerG(m), f.char === 'espectro' && f.abilityT > 0);
   // --- patadas
   if (f.kickT > 0) {
     f.kickT -= dt;
@@ -829,7 +833,7 @@ function castAbility(m: Match, f: Fighter, rival: Fighter) {
   m.tint = { c: def.glow, t: 0.35 }; m.shake = Math.max(m.shake, 0.25);
   const hx = f.x + f.facing * 0.5, hy = f.y + 1.15;
   switch (def.ability) {
-    case 'superJump': f.vy = 19 * Math.sqrt(stageDef(m.stage).gravity); f.ground = false; f.abilityT = 0.9; burst(m, f.x, f.y, 16, '#bae6fd', 'smoke', 3); break;
+    case 'superJump': f.vy = 19 * Math.sqrt(PLAYER_GRAVITY); f.ground = false; f.abilityT = 0.9; burst(m, f.x, f.y, 16, '#bae6fd', 'smoke', 3); break;
     case 'fireball': fireShot(m, f, 'fireball', 18, 0.32, 0); break;
     case 'shuriken': fireShot(m, f, 'shuriken', 24, 0.2, 0); break;
     case 'bomb': fireShot(m, f, 'bomb', 20, 0.22, 0); break;

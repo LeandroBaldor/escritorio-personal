@@ -183,8 +183,22 @@ describe('Kombat Football', () => {
     expect(top).toBeGreaterThan(2.5);
   });
 
+  it('los luchadores tienen la gravedad de la Luna en todos los escenarios: el salto dura lo mismo en la Luna que en el templo', () => {
+    const air = (stage: 'moon' | 'temple') => {
+      const m = newMatch(stage, ['frost', 'toxic'], [null, null], seeded(5)); toPlay(m);
+      const f = m.fighters[0]; f.x = 8; f.y = 0; f.vy = 0; m.ball.x = 20;
+      let t = 0, k = 0; const y0 = f.y;
+      do { const i = noInput(); i.up = k++ === 1; step(m, [i, noInput()], 1 / 60); t += 1 / 60; } while ((k < 3 || f.vy > 0) && t < 5); // hasta lo más alto del salto
+      return [t, f.y - y0];
+    };
+    const [moonT, moonH] = air('moon'), [templeT, templeH] = air('temple');
+    expect(templeT).toBeCloseTo(moonT, 1);
+    expect(templeH).toBeCloseTo(moonH, 1);
+    expect(templeT).toBeGreaterThan(0.5); // flotado: tarda más de medio segundo en llegar arriba
+  });
+
   it('el árbitro recorre toda la cancha y se sube a las plataformas', () => {
-    const m = newMatch('temple', ['cometa', 'toxic'], [0.5, 0.5], seeded(17));
+    const m = newMatch('temple', ['cometa', 'toxic'], [0.5, 0.5], seeded(18));
     let lo = W, hi = 0, up = 0;
     play(m, 90, mm => { const r = mm.ref; if (r.action !== 'gone') { lo = Math.min(lo, r.x); hi = Math.max(hi, r.x); if (r.ground) up = Math.max(up, r.y); } return idle(); });
     expect(hi - lo).toBeGreaterThan(15);
