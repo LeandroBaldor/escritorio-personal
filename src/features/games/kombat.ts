@@ -21,7 +21,7 @@ export const netTop = (gh: number, u: number) => u <= NET_FLAT ? gh : gh * Math.
 export const BALL_R = 0.3;
 export const PW = 0.96; // ancho de una persona
 export const PH = 2.3;
-// Tamaño de cada luchador (alto = PH × tamaño): los grandotes BRUTO, BRUTO ROJO y MAGMA; los petizos CYBER,
+// Tamaño de cada luchador (alto = PH × tamaño): los grandotes BRUTO, RED BRUTO y MAGMA; los petizos CYBER,
 // THUNDER y COMETA; el resto varía un poco.
 export const SIZE: Record<CharId, number> = {
   bruto: 1.4, brutoRed: 1.36, magma: 1.32, cyber: 0.7, thunder: 0.72, cometa: 0.74,
@@ -65,13 +65,13 @@ export const CHARS: Record<CharId, CharDef> = {
   frost: C('frost', 'FROST', '#38bdf8', '#e0f2fe', 'ice', [1, 1, 1.02, 1], 'freeze', 'Congela el escenario', 'Congela todo a su alrededor: la pelota se frena en seco y el rival queda hecho hielo.', 22, 3, 'Su armadura es de hielo eterno. Congela el aire con la mano.'),
   thunder: C('thunder', 'THUNDER', '#facc15', '#fef08a', 'volt', [1.1, 0.95, 1.05, 0.95], 'lightning', 'Rayos eléctricos', 'Dispara un rayo instantáneo que le pega a la pelota o al rival a distancia.', 18, 1.7, 'Cargado de electricidad. Rápido y nervioso.'),
   shadow: C('shadow', 'SHADOW', '#a855f7', '#e9d5ff', 'dark', [1.12, 0.92, 1.08, 1], 'shuriken', 'Estrellas ninja', 'Tira estrellas ninja muy rápidas y baratas.', 9, 0.7, 'Ninja de las sombras. Nadie lo ve llegar.'),
-  shadowRed: C('shadowRed', 'SHADOW ROJO', '#ef4444', '#fca5a5', 'fire', [1.08, 0.95, 1.05, 1], 'bomb', 'Estrellas explosivas', 'Su estrella explota al tocar algo y voltea todo alrededor.', 18, 1.7, 'El hermano rojo de Shadow. Le gusta que las cosas exploten.'),
+  shadowRed: C('shadowRed', 'RED SHADOW', '#ef4444', '#fca5a5', 'fire', [1.08, 0.95, 1.05, 1], 'bomb', 'Estrellas explosivas', 'Su estrella explota al tocar algo y voltea todo alrededor.', 18, 1.7, 'El hermano rojo de Shadow. Le gusta que las cosas exploten.'),
   orbot: C('orbot', 'ORBOT', '#84cc16', '#bef264', 'toxic', [0.96, 1.02, 0.95, 1], 'burst', 'Disparo automático', 'Tres disparos seguidos con el cañón del brazo.', 16, 1.5, 'Robot de combate con un cañón tóxico en el brazo.'),
-  orbotBlue: C('orbotBlue', 'ORBOT AZUL', '#3b82f6', '#93c5fd', 'volt', [0.96, 1.02, 0.95, 1], 'beam', 'Rayo de energía', 'Carga y dispara un rayo de energía larguísimo y muy fuerte.', 22, 2.3, 'Versión azul del Orbot, con un cañón de energía.'),
+  orbotBlue: C('orbotBlue', 'BLUE ORBOT', '#3b82f6', '#93c5fd', 'volt', [0.96, 1.02, 0.95, 1], 'beam', 'Rayo de energía', 'Carga y dispara un rayo de energía larguísimo y muy fuerte.', 22, 2.3, 'Versión azul del Orbot, con un cañón de energía.'),
   bruto: C('bruto', 'BRUTO', '#9ca3af', '#fbbf24', 'rock', [0.86, 1.25, 0.85, 1.15], 'quake', 'Golpe terrestre', 'Golpea el piso: la onda levanta la pelota y voltea a los que estén cerca.', 20, 2.4, 'Un gigante de piedra y metal. Lento pero imparable.'),
-  brutoRed: C('brutoRed', 'BRUTO ROJO', '#dc2626', '#f97316', 'fire', [0.88, 1.22, 0.86, 1.1], 'charge', 'Embestida', 'Carga a toda velocidad envuelto en fuego: arrasa con la pelota y con el rival.', 18, 2, 'El Bruto más furioso. Cuando corre, tiembla el piso.'),
-  aguila: C('aguila', 'ÁGUILA', '#eab308', '#fde68a', 'volt', [1.06, 0.98, 1.12, 1], 'flight', 'Vuelo corto', 'Vuela en línea recta un momento: si choca la pelota, la manda como un misil.', 16, 2, 'Guerrero alado con armadura dorada.'),
-  aguilaBlack: C('aguilaBlack', 'ÁGUILA NEGRA', '#c026d3', '#f0abfc', 'dark', [1.06, 0.98, 1.1, 1], 'feathers', 'Plumas envenenadas', 'Tira tres plumas en abanico que envenenan al rival.', 16, 1.5, 'El águila de la noche. Sus plumas son veneno.'),
+  brutoRed: C('brutoRed', 'RED BRUTO', '#dc2626', '#f97316', 'fire', [0.88, 1.22, 0.86, 1.1], 'charge', 'Embestida', 'Carga a toda velocidad envuelto en fuego: arrasa con la pelota y con el rival.', 18, 2, 'El Bruto más furioso. Cuando corre, tiembla el piso.'),
+  aguila: C('aguila', 'AGUILA', '#eab308', '#fde68a', 'volt', [1.06, 0.98, 1.12, 1], 'flight', 'Vuelo corto', 'Vuela en línea recta un momento: si choca la pelota, la manda como un misil.', 16, 2, 'Guerrero alado con armadura dorada.'),
+  aguilaBlack: C('aguilaBlack', 'BLACK AGUILA', '#c026d3', '#f0abfc', 'dark', [1.06, 0.98, 1.1, 1], 'feathers', 'Plumas envenenadas', 'Tira tres plumas en abanico que envenenan al rival.', 16, 1.5, 'El águila de la noche. Sus plumas son veneno.'),
   espectro: C('espectro', 'ESPECTRO', '#22d3ee', '#a5f3fc', 'dark', [1.1, 0.92, 1.05, 1.05], 'phase', 'Fase', 'Se vuelve fantasma: atraviesa trampas y rivales a toda velocidad.', 14, 1.8, 'Un astronauta perdido que se volvió fantasma.'),
   toxic: C('toxic', 'TOXIC', '#4ade80', '#bbf7d0', 'toxic', [1, 1, 1, 1], 'toxicCloud', 'Nube tóxica', 'Lanza una burbuja que se abre en una nube: frena la pelota y envenena al rival.', 18, 2.2, 'Respira gas tóxico detrás de su máscara.'),
   magma: C('magma', 'MAGMA', '#f97316', '#fdba74', 'fire', [0.9, 1.18, 0.88, 1.1], 'magmaSpikes', 'Picos de magma', 'Hace salir picos de lava del piso que avanzan hacia adelante.', 20, 2.2, 'Hecho de roca volcánica. Por las grietas le corre lava.'),

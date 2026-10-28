@@ -19,7 +19,7 @@ describe('Kombat Football', () => {
     expect(STAGES).toHaveLength(16);
   });
 
-  it('los más grandes son BRUTO, BRUTO ROJO y MAGMA y los más petizos CYBER, THUNDER y COMETA', () => {
+  it('los más grandes son BRUTO, RED BRUTO y MAGMA y los más petizos CYBER, THUNDER y COMETA', () => {
     const order = [...CHAR_IDS].sort((a, b) => SIZE[b] - SIZE[a]);
     expect(new Set(order.slice(0, 3))).toEqual(new Set(['bruto', 'brutoRed', 'magma']));
     expect(new Set(order.slice(-3))).toEqual(new Set(['cyber', 'thunder', 'cometa']));

@@ -2,8 +2,8 @@
 // todos dibujados por código con el mismo esqueleto y animaciones (guardia que respira, carrera, salto, patada,
 // bloqueo, golpeado, habilidad, FATAL, festejo y bronca) y cada uno con su casco, sus colores y sus extras:
 // COMETA (astronauta), INFERNO (casco con cuernos), FROST (corona de hielo), THUNDER (casco dorado con visor),
-// SHADOW y SHADOW ROJO (ninjas con bufanda), ORBOT y ORBOT AZUL (robots con cañón en el brazo), BRUTO y BRUTO
-// ROJO (gigantes con hombreras de púas), ÁGUILA y ÁGUILA NEGRA (con alas), ESPECTRO (astronauta fantasma),
+// SHADOW y RED SHADOW (ninjas con bufanda), ORBOT y BLUE ORBOT (robots con cañón en el brazo), BRUTO y BRUTO
+// ROJO (gigantes con hombreras de púas), AGUILA y BLACK AGUILA (con alas), ESPECTRO (astronauta fantasma),
 // TOXIC (máscara de gas), MAGMA (roca con lava en las grietas) y CYBER (samurái con espada láser).
 // También el árbitro. Se dibujan con los pies en (0, 0), mirando a la derecha, en metros.
 import { CHARS, PH, SIZE, type CharId, type Element, type Fighter, type Person } from './kombat';
@@ -200,7 +200,7 @@ export function drawHead(ctx: CanvasRenderingContext2D, char: CharId, t: number,
       ctx.restore();
       break;
     }
-    case 'robot': { // ORBOT AZUL: domo azul con cresta, máscara respirador y ojos de luz
+    case 'robot': { // BLUE ORBOT: domo azul con cresta, máscara respirador y ojos de luz
       helmet(L.armor);
       ctx.fillStyle = darken(L.armor, 0.4); ctx.beginPath(); ctx.moveTo(-0.04, -0.37); ctx.lineTo(0.04, -0.37); ctx.lineTo(0.02, -0.05); ctx.lineTo(-0.06, -0.05); ctx.fill(); // cresta
       ctx.strokeStyle = alpha(L.trim, 0.7); ctx.lineWidth = 0.02; ctx.beginPath(); ctx.arc(0, 0, r * 0.82, -2.7, -0.6); ctx.stroke();
@@ -223,7 +223,7 @@ export function drawHead(ctx: CanvasRenderingContext2D, char: CharId, t: number,
       if (magma) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = '#fb923c'; ctx.lineWidth = 0.022; ctx.beginPath(); ctx.moveTo(-0.3, -0.3); ctx.lineTo(-0.15, -0.18); ctx.lineTo(-0.2, 0.0); ctx.moveTo(0.1, -0.38); ctx.lineTo(0.18, -0.22); ctx.moveTo(-0.32, 0.12); ctx.lineTo(-0.12, 0.16); ctx.stroke(); bloom(ctx, -0.15, -0.1, 0.4, '#f97316', 0.35); ctx.restore(); }
       break;
     }
-    case 'eagle': { // ÁGUILA: casco con alas a los costados, visor y mentón
+    case 'eagle': { // AGUILA: casco con alas a los costados, visor y mentón
       const wingC = L.trim === '#f8fafc' ? '#f1f5f9' : '#2d1b45';
       for (let k = 0; k < 4; k++) { ctx.save(); ctx.translate(-0.12, -0.2); ctx.rotate(-0.9 - k * 0.22); ctx.fillStyle = k % 2 ? darken(wingC, 0.15) : wingC; ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(0.06, -0.25, 0.0, -0.42 + k * 0.04); ctx.quadraticCurveTo(-0.07, -0.22, 0, 0); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 0.01; ctx.stroke(); ctx.restore(); }
       helmet(L.armor);
