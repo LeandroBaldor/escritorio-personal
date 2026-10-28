@@ -192,7 +192,7 @@ describe('Kombat Football', () => {
     expect(top).toBeGreaterThan(2.5);
   });
 
-  it('los luchadores tienen la gravedad de la Luna en todos los escenarios: el salto dura lo mismo en la Luna que en el templo', () => {
+  it('los luchadores tienen la misma gravedad en todos los escenarios: el salto dura lo mismo en la Luna que en el templo', () => {
     const air = (stage: 'moon' | 'temple') => {
       const m = newMatch(stage, ['frost', 'toxic'], [null, null], seeded(5)); toPlay(m);
       const f = m.fighters[0]; f.x = 8; f.y = 0; f.vy = 0; m.ball.x = 20;
@@ -203,7 +203,8 @@ describe('Kombat Football', () => {
     const [moonT, moonH] = air('moon'), [templeT, templeH] = air('temple');
     expect(templeT).toBeCloseTo(moonT, 1);
     expect(templeH).toBeCloseTo(moonH, 1);
-    expect(templeT).toBeGreaterThan(0.5); // flotado: tarda más de medio segundo en llegar arriba
+    expect(templeT).toBeGreaterThan(0.35); // tarda un ratito en llegar arriba
+    expect(templeT).toBeLessThan(0.55); // pero no flota como antes (más dinámico)
   });
 
   it('el árbitro recorre toda la cancha y se sube a las plataformas', () => {
@@ -343,6 +344,19 @@ describe('Kombat Football', () => {
     expect(m.ball.x).toBeGreaterThan(0);
   });
 
+  it('si la pelota entra al arco por atrás o por arriba de la red no es gol: sale volando al medio', () => {
+    const m = newMatch('industrial', ['cometa', 'inferno'], [null, null], seeded(6));
+    toPlay(m);
+    m.fighters[0].x = 20; m.fighters[1].x = 22;
+    m.ball.x = 0.5; m.ball.y = 0.8; m.ball.vx = 0; m.ball.vy = 0; m.ballPrev = { x: 0.5, y: 0.8 }; // ya adentro sin haber cruzado la línea
+    play(m, 0.1);
+    expect(m.fighters[0].goals + m.fighters[1].goals).toBe(0); // no es gol
+    expect(m.ball.vy).toBeGreaterThan(10); // sale volando para arriba
+    expect(m.ball.vx).toBeGreaterThan(5); // hacia el medio
+    play(m, 1);
+    expect(m.ball.x).toBeGreaterThan(W / 2 - 6);
+  });
+
   it('la pelota trabada arriba del arco (sobre la red, contra la pared) rebota hacia la cancha', () => {
     const m = newMatch('industrial', ['cometa', 'inferno'], [null, null], seeded(4));
     toPlay(m);
@@ -362,7 +376,7 @@ describe('Kombat Football', () => {
     m.clock = 0.05; play(m, 0.2);
     expect(m.extra).toBe(true);
     play(m, 4);
-    m.ball.x = 0.6; m.ball.y = 1; m.ball.vx = -3;
+    m.ball.x = GOAL_DEPTH + 0.6; m.ball.y = 1; m.ball.vx = -9; m.ball.vy = 0;
     play(m, 4);
     expect(m.winner).toBe(0);
     expect(m.phase).toBe('end');

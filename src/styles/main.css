@@ -1318,6 +1318,14 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .kf-score small b{margin-right:.5rem;padding:0 .3rem;border-radius:3px;background:#b91c1c;color:#fff;text-shadow:none}
 .kf-score small.kf-golden{color:#fde047;animation:kf-pulse .7s ease-in-out infinite alternate}
 .kf-score em{font-style:normal;font-size:.62rem;font-weight:800;color:#fde68a}
+.kf-center{display:grid;justify-items:center;gap:.35rem}
+.kf-specials{display:flex;gap:.4rem;white-space:nowrap}
+.kf-special{display:flex;align-items:center;gap:.3rem;padding:.2rem .55rem;border-radius:5px;background:#000c;border:1px solid color-mix(in srgb,var(--kf-c) 55%,transparent);box-shadow:0 2px 8px #0008;font:800 .78rem/1.1 Nunito,system-ui,sans-serif;color:#e2e8f0}
+.kf-special b{color:color-mix(in srgb,var(--kf-c) 70%,#fff);font-weight:900}
+.kf-special small{font-size:.72em;color:#cbd5e1;letter-spacing:.05em}
+.kf-special.kf-ready{box-shadow:0 0 0 1px var(--kf-c),0 0 10px color-mix(in srgb,var(--kf-c) 60%,transparent)}
+.kf-special.kf-ready b{color:#fde047}
+@media(max-width:700px){.kf-specials{flex-direction:column;align-items:center;gap:.15rem}.kf-special{font-size:.6rem;padding:.1rem .35rem}}
 @keyframes kf-pulse{to{color:#ef4444;text-shadow:0 0 8px #ef4444}}
 .kf-combo{display:inline-flex;align-items:center;gap:.12rem;white-space:nowrap}
 .kf-combo>span{display:inline-flex;align-items:center;gap:.12rem}

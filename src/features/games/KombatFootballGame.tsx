@@ -369,7 +369,6 @@ export function KombatFootball() {
         </div>
         <div className="kf-sub">
           <span className={`kf-power${s?.fatal ? ' kf-power--full' : ''}`} title="Poder: lleno habilita el FATAL GOAL"><u style={{ width: `${power}%` }} /><em>{s?.fatal ? 'FATAL ☠' : 'PODER'}</em></span>
-          {isHuman(i) && <span className={`kf-skill${s?.ready ? ' kf-ready' : ''}`} title={`${c.abilityText} (${abilityCombo(mode, i, s?.dir ?? 1).join(' ')})`}>✦ {c.abilityName} <small>{abilityCombo(mode, i, s?.dir ?? 1).join(' ')}</small>{s && !s.ready && s.cd > 0 ? '…' : ''}</span>}
           {s?.powers.map(p => <em key={p} className="kf-pw">{p}</em>)}
         </div>
       </div>
@@ -409,12 +408,19 @@ export function KombatFootball() {
       <canvas ref={canvasRef} role="img" aria-label="Cancha de Kombat Football" />
       {playing && hud && <div className="kf-hud">
         {sideBar(0)}
+        <div className="kf-center">
         <div className="kf-score" aria-live="polite">
           <div className="kf-score-main" data-testid="kf-score">
             <span className="kf-goals" style={{ ['--kf-c' as string]: CHARS[chars[0]].color }}>{hud.score[0]}</span><i> - </i><span className="kf-goals" style={{ ['--kf-c' as string]: CHARS[chars[1]].color }}>{hud.score[1]}</span>
           </div>
           <small data-testid="kf-clock" className={hud.extra ? 'kf-golden' : ''}>{hud.extra ? '' : <b>{hud.half}</b>}{hud.clock}</small>
           {hud.ball && <em>{hud.ball}</em>}
+        </div>
+          <div className="kf-specials" data-testid="kf-specials">
+            {([0, 1] as const).map(i => { const c = CHARS[chars[i]], sd = hud.sides[i]; return <span key={i} className={`kf-special kf-special--${i}${sd?.ready ? ' kf-ready' : ''}`} style={{ ['--kf-c' as string]: c.color }} title={c.abilityText}>
+              <b>✦ {c.abilityName}{sd && !sd.ready && sd.cd > 0 ? '…' : ''}</b>{isHuman(i) && <small>{abilityCombo(mode, i, sd?.dir ?? 1).join(' ')}</small>}
+            </span>; })}
+          </div>
         </div>
         {sideBar(1)}
       </div>}

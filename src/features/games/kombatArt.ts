@@ -11,8 +11,9 @@ import {
 import { fbm, pixels, ramp } from './gravityBackdrops';
 import { drawFighterLit, drawRefLit, LOOKS } from './kombatFighters';
 import { alpha, bloom, darken, grain, hash, lighten, lin, shade, spec, zap } from './gravityMonsters';
-import { bolt, hazardStripes, laserBeam, laserEmitter, laserWarnLine, plate, rock, sawBlade, seaMine, steelSpikes } from './gravityHazardArt';
+import { bolt, hazardStripes, laserBeam, laserWarnLine, plate, rock, sawBlade, seaMine, steelSpikes } from './gravityHazardArt';
 import { drawAmbient, gradeScenery, paintScenery } from './kombatScenery';
+import { STRUCT, paintEmitter, paintEmitterMount, paintLiftDrive, paintPlatform, paintSlideRail, paintSupport } from './kombatStructures';
 
 const TAU = Math.PI * 2;
 export interface View { w: number; h: number; s: number; ox: number; oy: number }
@@ -133,14 +134,13 @@ function paintSolid(g: CanvasRenderingContext2D, stage: StageId, sd: Solid, v: V
     const gl = g.createRadialGradient(x + w / 2, y, 0, x + w / 2, y, w); gl.addColorStop(0, 'rgba(232,121,249,0.35)'); gl.addColorStop(1, 'rgba(232,121,249,0)'); g.fillStyle = gl; g.fillRect(x - w / 2, y - w, w * 2, w * 2);
     return;
   }
-  // soportes de las plataformas flotantes
-  if (sd.kind === 'float' && !sd.move) {
-    if (T.support === 'truss') { for (const px of [x + w * 0.2, x + w * 0.8 - s * 0.5]) { g.strokeStyle = '#1b2232'; g.lineWidth = Math.max(1, s * 0.07); g.strokeRect(px, y + hh, s * 0.5, gy - y - hh); for (let yy = y + hh; yy < gy; yy += s * 0.5) { g.beginPath(); g.moveTo(px, yy); g.lineTo(px + s * 0.5, yy + s * 0.5); g.moveTo(px + s * 0.5, yy); g.lineTo(px, yy + s * 0.5); g.stroke(); } } }
-    if (T.support === 'chains') for (const px of [x + w * 0.15, x + w * 0.85]) { g.strokeStyle = '#2b2f3a'; g.lineWidth = Math.max(1, s * 0.05); for (let yy = 0; yy < y; yy += s * 0.22) { g.beginPath(); g.ellipse(px, yy, s * 0.06, s * 0.12, 0, 0, TAU); g.stroke(); } }
-    if (T.support === 'vines') for (let k = 0; k < 4; k++) { const px = x + w * (0.15 + k * 0.23); g.strokeStyle = '#2f6b25'; g.lineWidth = Math.max(1, s * 0.05); g.beginPath(); g.moveTo(px, y + hh); g.quadraticCurveTo(px + s * 0.2, y + hh + s * 0.5, px, y + hh + s * (0.6 + hash(k + sd.id) * 0.8)); g.stroke(); }
-  }
   g.save(); g.translate(v.ox, v.oy); g.scale(s, s); // a metros (y para abajo)
   const mx = sd.x, my = -(sd.y + sd.h), mw = sd.w, mh = sd.h;
+  if (sd.kind === 'float') { // plataformas con el estilo de cada planeta (y lo que las sostiene)
+    if (!sd.move) paintSupport(g, stage, mx, my, mw, mh, sd.id * 7.3, -H - 1);
+    paintPlatform(g, stage, mx, my, mw, mh, sd.id * 7.3);
+    g.restore(); return;
+  }
   switch (T.floor) {
     case 'metal': case 'grate': case 'panel': case 'rock': case 'tile':
       plate(g, mx, my, mw, mh, T.floor === 'panel' ? '#2a3b55' : T.floor === 'rock' ? '#3a2d52' : T.floor === 'tile' ? '#4a505c' : '#2b3446', { rust: T.floor === 'grate' ? 0.6 : 0.2 });
@@ -675,9 +675,9 @@ function drawTrap(ctx: CanvasRenderingContext2D, h: Hazard, m: Match, v: View) {
       const color = THEMES[m.stage].laser, top = -h.h, x = cx;
       // emisor de arriba: colgado de una cadena (o pegado debajo de una plataforma)
       const under = m.solids.some(sd => sd.kind !== 'block' && Math.abs(sd.y - h.h) < 0.05 && x > sd.x && x < sd.x + sd.w);
-      if (!under) { ctx.strokeStyle = '#2b2f3a'; ctx.lineWidth = 0.05; for (let yy = -H; yy < top - 0.36; yy += 0.22) { ctx.beginPath(); ctx.ellipse(x, yy, 0.06, 0.12, 0, 0, TAU); ctx.stroke(); } }
-      laserEmitter(ctx, x, top - 0.36, false, on, warn, color, t);
-      laserEmitter(ctx, x, base - 0.3, true, on, warn, color, t);
+      if (!under) paintEmitterMount(ctx, m.stage, x, -H - 1, top - 0.36);
+      paintEmitter(ctx, STRUCT[m.stage].emitter, x, top - 0.36, false, on, warn, color, t);
+      paintEmitter(ctx, STRUCT[m.stage].emitter, x, base - 0.3, true, on, warn, color, t);
       if (on) laserBeam(ctx, x, top, base - 0.3, color, t, [base - 0.3]); else if (warn) laserWarnLine(ctx, x, top, base - 0.3, color, t);
       break;
     }
@@ -848,28 +848,22 @@ function drawChargeMeter(ctx: CanvasRenderingContext2D, charge: number, x: numbe
 function drawMover(ctx: CanvasRenderingContext2D, m: Match, sd: Solid, v: View) {
   const mv = sd.move!, T = THEMES[m.stage], s = v.s, x = X(v, sd.x), w = sd.w * s, top = Y(v, sd.y + sd.h), gy = Y(v, 0);
   ctx.save();
-  if (mv.kind === 'lift') { // guías verticales con luces y la cadena
-    const yTop = Y(v, mv.y0 + mv.ay + 0.6);
-    for (const px of [x - s * 0.12, x + w + s * 0.02]) {
-      ctx.fillStyle = lin(ctx, px, 0, px + s * 0.1, 0, [[0, '#1b2130'], [0.5, '#7b8698'], [1, '#141a26']]); ctx.fillRect(px, yTop, s * 0.1, gy - yTop);
-      for (let yy = yTop + s * 0.3; yy < gy; yy += s * 0.6) { ctx.fillStyle = alpha(T.edge, 0.55 + 0.45 * Math.sin(m.time * 4 + yy * 0.05)); ctx.fillRect(px + s * 0.03, yy, s * 0.04, s * 0.08); }
-    }
-    ctx.strokeStyle = '#3a4252'; ctx.lineWidth = Math.max(1, s * 0.04); ctx.setLineDash([s * 0.08, s * 0.06]); ctx.beginPath(); ctx.moveTo(x + w / 2, yTop); ctx.lineTo(x + w / 2, top); ctx.stroke(); ctx.setLineDash([]);
+  if (mv.kind === 'lift') paintLiftDrive(ctx, m.stage, x, w, top, Y(v, mv.y0 + mv.ay + 0.6), gy, s, m.time, T.edge); // rieles, poleas, burbujas o magia según el planeta
+  if (mv.kind === 'slide') { // riel de arriba (de acero, soga o cadena; los mágicos flotan solos)
+    const ry = Y(v, sd.y + 2.2), xa = X(v, mv.x0 - Math.abs(mv.ax)), xb = X(v, mv.x0 + Math.abs(mv.ax)) + w;
+    paintSlideRail(ctx, m.stage, xa, xb, ry, [x + w * 0.2, x + w * 0.8], top, s);
   }
-  if (mv.kind === 'slide') { // riel de arriba con el carrito
-    const ry = Y(v, sd.y + 2.2), xa = X(v, mv.x0 - Math.abs(mv.ax)) , xb = X(v, mv.x0 + Math.abs(mv.ax)) + w;
-    ctx.fillStyle = lin(ctx, 0, ry - s * 0.08, 0, ry + s * 0.08, [[0, '#9aa6b8'], [1, '#232a38']]); ctx.fillRect(xa, ry - s * 0.06, xb - xa, s * 0.12);
-    for (const px of [x + w * 0.2, x + w * 0.8]) { ctx.strokeStyle = '#2b3240'; ctx.lineWidth = Math.max(1, s * 0.05); ctx.beginPath(); ctx.moveTo(px, ry); ctx.lineTo(px, top); ctx.stroke(); ctx.fillStyle = '#4b5563'; ctx.beginPath(); ctx.arc(px, ry, s * 0.1, 0, TAU); ctx.fill(); }
-  }
-  if (mv.kind === 'piston') { // cilindro que sale del piso con franjas y vapor
-    const k = (sd.h - mv.h0) / Math.max(0.01, mv.ah);
-    ctx.fillStyle = lin(ctx, x + w * 0.2, 0, x + w * 0.8, 0, [[0, '#2b3240'], [0.35, '#d5dce6'], [0.6, '#7b8698'], [1, '#1b2130']]); ctx.fillRect(x + w * 0.22, top + s * 0.2, w * 0.56, gy - top - s * 0.2);
-    ctx.save(); ctx.translate(v.ox, v.oy); ctx.scale(s, s); hazardStripes(ctx, sd.x, -(sd.y + sd.h), sd.w, 0.22, 0.3); ctx.restore();
+  if (mv.kind === 'piston') { // cilindro que sale del piso (de metal, o columna de piedra o de roca con magma)
+    const k = (sd.h - mv.h0) / Math.max(0.01, mv.ah), stone = m.stage === 'temple' || m.stage === 'desert' || m.stage === 'volcano';
+    ctx.fillStyle = m.stage === 'volcano' ? lin(ctx, x + w * 0.2, 0, x + w * 0.8, 0, [[0, '#1a0f0c'], [0.4, '#4a3530'], [1, '#120a08']]) : stone ? lin(ctx, x + w * 0.2, 0, x + w * 0.8, 0, [[0, '#6b6046'], [0.4, '#c9b98e'], [1, '#4f4632']]) : lin(ctx, x + w * 0.2, 0, x + w * 0.8, 0, [[0, '#2b3240'], [0.35, '#d5dce6'], [0.6, '#7b8698'], [1, '#1b2130']]); ctx.fillRect(x + w * 0.22, top + s * 0.2, w * 0.56, gy - top - s * 0.2);
+    if (m.stage === 'volcano') { ctx.strokeStyle = '#ff7a1a'; ctx.lineWidth = Math.max(1, s * 0.04); ctx.beginPath(); ctx.moveTo(x + w * 0.45, top + s * 0.3); ctx.lineTo(x + w * 0.55, top + s * 0.7); ctx.lineTo(x + w * 0.42, gy); ctx.stroke(); }
+    else if (stone) { ctx.strokeStyle = 'rgba(60,45,20,0.5)'; ctx.lineWidth = Math.max(1, s * 0.02); for (let yy = top + s * 0.5; yy < gy; yy += s * 0.4) { ctx.beginPath(); ctx.moveTo(x + w * 0.22, yy); ctx.lineTo(x + w * 0.78, yy); ctx.stroke(); } }
+    else { ctx.save(); ctx.translate(v.ox, v.oy); ctx.scale(s, s); hazardStripes(ctx, sd.x, -(sd.y + sd.h), sd.w, 0.22, 0.3); ctx.restore(); }
     if (k > 0.05 && k < 0.98) { ctx.globalCompositeOperation = 'lighter'; for (let i = 0; i < 6; i++) { const d = (m.time * 1.8 + i / 6) % 1; ctx.fillStyle = `rgba(230,236,245,${0.25 * (1 - d)})`; ctx.beginPath(); ctx.arc(x + w * (i % 2 ? -0.05 : 1.05), gy - s * (0.1 + d * 0.9), s * (0.12 + d * 0.25), 0, TAU); ctx.fill(); } ctx.globalCompositeOperation = 'source-over'; }
     ctx.fillStyle = `rgba(255,60,40,${0.5 + 0.5 * Math.sin(m.time * 10)})`; ctx.beginPath(); ctx.arc(x + w / 2, top + s * 0.11, s * 0.06, 0, TAU); ctx.fill();
   }
   paintSolid(ctx, m.stage, sd, v);
-  if (mv.kind !== 'piston') { // propulsores debajo
+  if (mv.kind !== 'piston' && STRUCT[m.stage].thrusters) { // propulsores debajo (solo en los escenarios con naves)
     ctx.globalCompositeOperation = 'lighter';
     for (const px of [x + w * 0.25, x + w * 0.75]) { const g = ctx.createRadialGradient(px, top + sd.h * s, 0, px, top + sd.h * s, s * 0.45); g.addColorStop(0, alpha(T.edge, 0.7)); g.addColorStop(1, alpha(T.edge, 0)); ctx.fillStyle = g; ctx.fillRect(px - s * 0.45, top + sd.h * s - s * 0.1, s * 0.9, s * 0.6); }
   }
