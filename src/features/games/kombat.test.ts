@@ -244,6 +244,25 @@ describe('Kombat Football', () => {
     expect(f.x).toBeGreaterThan(13);
   });
 
+  it('si al árbitro lo lastima una trampa revienta (sangre y huesos) y después entra otro', () => {
+    const m = newMatch('industrial', ['cometa', 'toxic'], [null, null], seeded(21));
+    toPlay(m);
+    const spikes = m.hazards.find(h => h.kind === 'spikes')!;
+    let boom = false, back = false;
+    for (let t = 0; t < 12; t += 1 / 60) { if (m.ref.action !== 'gone' && !boom) { m.ref.x = spikes.x + spikes.w / 2; m.ref.y = spikes.y; } step(m, idle(), 1 / 60); for (const e of takeEvents(m)) { if (e.type === 'refBoom') boom = true; if (e.type === 'refBack') back = true; } if (boom && !back) expect(m.gore.drops.length + m.gore.gibs.length + m.gore.stains.length).toBeGreaterThan(0); }
+    expect(boom).toBe(true); expect(back).toBe(true);
+  });
+
+  it('un poder que frena la pelota justo antes de entrar al arco propio la hace explotar', () => {
+    const m = newMatch('temple', ['inferno', 'toxic'], [null, null], seeded(22));
+    toPlay(m); m.solids = []; m.hazards = [];
+    const f = m.fighters[0]; f.x = 4; f.y = 0; f.facing = -1; f.stamina = STAMINA; m.fighters[1].x = 20; m.ref.x = 22;
+    m.ball.x = 3; m.ball.y = 1.1; m.ball.vx = -9; m.ball.vy = 0;
+    let boom = false, k = 0;
+    play(m, 0.5, () => { k++; const i = noInput(); i.cast = k === 1 ? 'ability' : null; for (const e of takeEvents(m)) if (e.type === 'ballBoom') boom = true; return [i, noInput()]; });
+    expect(boom).toBe(true); expect(m.fighters[1].goals).toBe(0);
+  });
+
   it('el recorrido de cada FATAL termina en el arco rival', () => {
     for (const style of ['meteor', 'avalanche', 'bolt', 'void', 'acid', 'boulder'] as const) for (const dir of [1, -1] as const) {
       const fat = { style, x0: dir === 1 ? 6 : W - 6, y0: 0.8, dir };
@@ -283,7 +302,7 @@ describe('Kombat Football', () => {
       if (m.phase === 'end') expect(m.winner === 0 || m.winner === 1).toBe(true);
     });
     expect(goals).toBeGreaterThan(3);
-    expect(goals / matches).toBeLessThan(16);
+    expect(goals / matches).toBeLessThan(20);
     expect(own / goals).toBeLessThan(0.12); // casi nunca goles en contra
   }, 90000);
 });

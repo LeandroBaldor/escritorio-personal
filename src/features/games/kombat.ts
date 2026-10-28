@@ -164,12 +164,12 @@ export type KfEvent =
   | { type: 'kick'; power: number } | { type: 'hit'; who: 'fighter' | 'ref'; kind: StunKind } | { type: 'block' } | { type: 'goal'; side: 0 | 1; fatal: boolean }
   | { type: 'bounce'; power: number } | { type: 'post' } | { type: 'jump' } | { type: 'charged'; side: 0 | 1; power: number } | { type: 'ability'; side: 0 | 1; char: CharId }
   | { type: 'fatal'; side: 0 | 1; char: CharId } | { type: 'fatalBlocked'; side: 0 | 1 } | { type: 'power'; side: 0 | 1; kind: PowerKind } | { type: 'ballKind'; kind: BallKind }
-  | { type: 'unlock'; side: 0 | 1 } | { type: 'refDown' } | { type: 'refBack' } | { type: 'ballDrop' } | { type: 'save'; side: 0 | 1 }
+  | { type: 'unlock'; side: 0 | 1 } | { type: 'refDown' } | { type: 'refBack' } | { type: 'refBoom' } | { type: 'ballBoom' } | { type: 'ballDrop' } | { type: 'save'; side: 0 | 1 }
   | { type: 'trap'; kind: Hazard['kind'] } | { type: 'boom' } | { type: 'thunder' } | { type: 'zap' } | { type: 'whistle'; kind: 'kickoff' | 'half' | 'end' }
   | { type: 'halftime' } | { type: 'extra' } | { type: 'warn' } | { type: 'tired'; side: 0 | 1 } | { type: 'noEnergy'; side: 0 | 1 } | { type: 'needBall'; side: 0 | 1 } | { type: 'header'; side: 0 | 1 };
 export type Phase = 'intro' | 'play' | 'goal' | 'fatal' | 'halftime' | 'end';
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; color: string; kind: 'spark' | 'smoke' | 'shard' | 'bubble' | 'ember' | 'flash' | 'ring' | 'blood' }
-export interface CpuState { level: number; think: number; plan: Input; reactFatal: number; kickHold: number }
+export interface CpuState { level: number; think: number; plan: Input; reactFatal: number; kickHold: number; lob?: boolean; holdFor?: number }
 
 export interface Match {
   stage: StageId; fighters: [Fighter, Fighter]; ref: Person; ball: Ball; trail: [number, number][];
@@ -180,7 +180,13 @@ export interface Match {
   events: KfEvent[]; shake: number; flash: number; rand: () => number;
   cpu: [CpuState | null, CpuState | null];
   stillT?: number; // cuánto hace que la pelota está quieta y lejos de todos
+  gore: Gore; // la sangre y los huesos del árbitro cuando revienta
+  tint?: { c: string; t: number }; // la pantalla se tiñe un instante del color del poder
 }
+// El árbitro que revienta (como el astronauta de Gravity Swap): gotas de sangre que vuelan y manchan donde caen,
+// y los pedazos del esqueleto (calavera, costillas, cadera, huesos) que rebotan chorreando.
+export type GibKind = 'skull' | 'ribs' | 'pelvis' | 'bone' | 'jaw' | 'chunk' | 'shirt';
+export interface Gore { drops: { x: number; y: number; vx: number; vy: number; r: number; life: number }[]; gibs: { x: number; y: number; vx: number; vy: number; a: number; va: number; kind: GibKind; life: number; drip: number }[]; stains: { x: number; y: number; r: number; at: number; seed: number }[] }
 
 export function seeded(seed: number) {
   let s = seed >>> 0 || 1;
@@ -330,7 +336,7 @@ export function newMatch(stage: StageId, chars: [CharId, CharId], cpuLevels: [nu
     phase: 'intro', phaseT: 0, time: 0, half: 1, clock: HALF_TIME, extra: false, extraT: 0, kickoffTeam: 0,
     solids: [], shots: [], fx: [], fatal: null, powerups: [], hazards: [], particles: [],
     nextPower: 14, nextBall: 30, nextHazard: 4, nextId: 1, lastGoal: null, winner: null,
-    events: [], shake: 0, flash: 0, rand,
+    events: [], shake: 0, flash: 0, rand, gore: { drops: [], gibs: [], stains: [] },
     cpu: [cpuLevels[0] === null ? null : newCpu(cpuLevels[0]), cpuLevels[1] === null ? null : newCpu(cpuLevels[1])],
   };
   buildStage(m);
@@ -353,6 +359,15 @@ function resetKickoff(m: Match) {
   m.shots = []; m.fx = [];
 }
 // La pelota sale por el tubo.
+// La pelota explota (solo cuando un poder la frena justo antes de entrar al arco propio) y al rato baja otra.
+export function explodeBall(m: Match) {
+  const b = m.ball; if (!b.alive) return;
+  b.alive = false; b.respawn = 1.2; b.owner = null;
+  burst(m, b.x, b.y, 30, '#fb923c', 'ember', 8); burst(m, b.x, b.y, 14, '#57534e', 'smoke', 3); burst(m, b.x, b.y, 1, '#fff7ed', 'ring', 1);
+  for (let k = 0; k < 10; k++) m.particles.push({ x: b.x, y: b.y, vx: (Math.random() - 0.5) * 12, vy: Math.random() * 9, life: 1.2, max: 1.2, size: 0.08 + Math.random() * 0.06, color: k % 2 ? '#f8fafc' : '#111827', kind: 'shard' });
+  m.shake = Math.max(m.shake, 0.6); m.flash = Math.max(m.flash, 0.3); m.trail = [];
+  emit(m, { type: 'ballBoom' });
+}
 function dropBall(m: Match) {
   const b = m.ball;
   b.alive = true; b.x = W / 2; b.y = TUBE_Y; b.vx = (m.rand() - 0.5) * 3; b.vy = -2; b.spin = 0; b.kind = 'normal'; b.kindT = 0; b.fx = 'none'; b.fxT = 0; b.frozen = 0; b.owner = null; b.heat = 0;
@@ -407,8 +422,8 @@ function updateSolids(m: Match, dt: number) {
 }
 export function step(m: Match, inputs: [Input, Input], dt: number) {
   m.time += dt; m.phaseT += dt;
-  m.shake = Math.max(0, m.shake - dt * 2.5); m.flash = Math.max(0, m.flash - dt * 2);
-  updateParticles(m, dt);
+  m.shake = Math.max(0, m.shake - dt * 2.5); m.flash = Math.max(0, m.flash - dt * 2); if (m.tint) { m.tint.t -= dt; if (m.tint.t <= 0) m.tint = undefined; }
+  updateParticles(m, dt); updateGore(m, dt);
   m.fx = m.fx.filter(e => (e.t += dt) < e.life);
   if (m.phase !== 'fatal') updateSolids(m, dt);
   if (m.phase === 'intro') {
@@ -509,7 +524,7 @@ function idlePeople(m: Match, dt: number) {
     else if (f.action !== 'fatal') f.action = 'idle';
   }
   const r = m.ref; r.actionT += dt;
-  if (r.action === 'gone') { r.away -= dt; if (r.away <= 0) { r.action = 'idle'; r.x = W / 2 + 1; r.y = 0; } }
+  if (r.action === 'gone') { r.away -= dt; if (r.away <= 0) { r.action = 'idle'; r.x = m.rand() < 0.5 ? 2.2 : W - 2.2; r.y = 0; r.roam = undefined; emit(m, { type: 'refBack' }); } }
   else { moveBody(m, r, dt); r.vx *= Math.pow(0.02, dt); if (r.action !== 'down') r.action = m.phase === 'goal' || m.phase === 'halftime' || m.phase === 'end' ? 'whistle' : 'idle'; }
 }
 
@@ -626,7 +641,7 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
   if (stunned) f.action = 'stun';
   // conducción: corriendo con la pelota pegada al pie, la lleva (se puede gambetear)
   { const bl = m.ball, ahead = (bl.x - f.x) * f.facing;
-    if (bl.alive && f.ground && !stunned && f.kickT <= 0 && f.charge <= 0 && Math.abs(f.vx) > 1.5 && Math.sign(f.vx) === f.facing && ahead > 0.2 && ahead < 0.95 && bl.y < f.y + BALL_R + 0.25 && Math.abs(bl.vx - f.vx) < 5 && !(m.fatal && !m.fatal.done)) {
+    if (bl.alive && f.ground && !stunned && f.kickT <= 0 && f.charge <= 0 && Math.abs(f.vx) > 1.5 && Math.sign(f.vx) === f.facing && !(m.cpu[f.side] && f.facing !== dir) && ahead > 0.2 && ahead < 0.95 && bl.y < f.y + BALL_R + 0.25 && Math.abs(bl.vx - f.vx) < 5 && !(m.fatal && !m.fatal.done)) {
       bl.vx += (f.vx * 1.08 + f.facing * 0.3 - bl.vx) * Math.min(1, dt * 12); bl.owner = f.side;
     } }
   // imán
@@ -687,6 +702,7 @@ function hurtFighter(m: Match, f: Fighter, by: Fighter | null, kind: StunKind, t
   if (f.char === 'espectro' && f.abilityT > 0) return; // en fase no lo toca nada
   if ((f.powers.shield ?? 0) > 0) { emit(m, { type: 'block' }); burst(m, f.x, f.y + 1, 10, '#38bdf8', 'ring', 1); return; }
   if (f.action === 'fatal' || f.inv > 0) return;
+  if (by) { const c = CHARS[by.char]; burst(m, f.x, f.y + heightOf(f) * 0.6, 24, c.glow, 'spark', 9); burst(m, f.x, f.y + heightOf(f) * 0.6, 1, c.color, 'ring', 1); m.tint = { c: c.glow, t: 0.3 }; m.shake = Math.max(m.shake, 0.45); }
   f.stun = Math.max(f.stun, time); f.stunKind = kind; f.action = 'stun'; f.kickT = 0; f.slideT = 0; f.abilityT = 0; f.charge = 0;
   if (push) { const d = by ? Math.sign(f.x - by.x) || -by.facing : (f.x < W / 2 ? 1 : -1); f.vx = d * push; if (kind !== 'freeze') { f.vy = push * 0.55; f.ground = false; } }
   if (kind === 'freeze') f.vx = 0;
@@ -704,12 +720,49 @@ function fxBurst(m: Match, x: number, y: number, kind: StunKind) {
   if (kind === 'hit') burst(m, x, y, 6, '#b91c1c', 'blood', 3);
 }
 // El árbitro alcanzado (por una patada, un poder o una trampa).
+// Cualquier daño (trampa o ataque) hace reventar al árbitro: sangre por todos lados y los huesos que saltan.
+// A los segundos entra otro árbitro.
 function hurtRef(m: Match, kind: StunKind, time: number) {
   const r = m.ref;
-  if (r.action === 'gone' || r.stun > 0.3) return;
-  r.stun = time; r.stunKind = kind; r.action = kind === 'freeze' ? 'stun' : 'down'; r.actionT = 0; r.vx = 0;
+  if (r.action === 'gone') return;
+  void time;
   fxBurst(m, r.x, r.y + 1, kind);
+  explodeRef(m);
   emit(m, { type: 'hit', who: 'ref', kind }); emit(m, { type: 'refDown' });
+}
+function explodeRef(m: Match) {
+  const r = m.ref, g = m.gore, cx = r.x, cy = r.y + PH * 0.55, rnd = Math.random;
+  r.action = 'gone'; r.away = 3.5; r.stun = 0; r.vx = 0; r.vy = 0;
+  m.shake = Math.max(m.shake, 0.9); m.flash = Math.max(m.flash, 0.25);
+  burst(m, cx, cy, 24, '#b91c1c', 'blood', 9); burst(m, cx, cy, 1, '#fee2e2', 'ring', 1);
+  for (const [n, power, size] of [[110, 9, 0.05], [50, 4.5, 0.08], [60, 14, 0.03]] as const) for (let i = 0; i < n && g.drops.length < 400; i++) {
+    const a = rnd() * Math.PI * 2, sp = power * (0.3 + rnd() * 0.9);
+    g.drops.push({ x: cx + (rnd() - 0.5) * 0.4, y: cy + (rnd() - 0.5) * 0.8, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + power * 0.45, r: size * (0.5 + rnd()), life: 0 });
+  }
+  const kinds: GibKind[] = ['skull', 'jaw', 'ribs', 'pelvis', 'bone', 'bone', 'bone', 'bone', 'chunk', 'chunk', 'chunk', 'shirt'];
+  for (const kind of kinds) { const a = rnd() * Math.PI * 2, sp = 4 + rnd() * 7; g.gibs.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.abs(Math.sin(a)) * sp + 4, a: rnd() * 6, va: (rnd() - 0.5) * 20, kind, life: 0, drip: 0 }); }
+  emit(m, { type: 'refBoom' });
+}
+// Las gotas caen y manchan el piso (o lo que tengan abajo); los huesos rebotan, giran y van chorreando.
+function updateGore(m: Match, dt: number) {
+  const g = m.gore; if (!g.drops.length && !g.gibs.length) return;
+  const grav = gravityOf(m) * 0.9, top = (x: number, y: number) => supportAt(m, x, y + 0.01, 0.02);
+  for (const d of g.drops) {
+    d.life += dt; d.vy -= grav * dt; d.x += d.vx * dt; d.y += d.vy * dt;
+    if (d.x < 0 || d.x > W) d.life = 99;
+    const t = top(d.x, d.y - d.vy * dt);
+    if (d.y <= t && d.vy < 0) { if (g.stains.length < 160) g.stains.push({ x: d.x, y: t, r: d.r * (2 + Math.random() * 1.5), at: m.time, seed: Math.random() }); d.life = 99; }
+  }
+  g.drops = g.drops.filter(d => d.life < 4);
+  for (const b of g.gibs) {
+    b.life += dt; b.vy -= grav * 0.85 * dt; b.a += b.va * dt; b.x += b.vx * dt; b.y += b.vy * dt;
+    if (b.x < 0.3 || b.x > W - 0.3) { b.x = clamp(b.x, 0.3, W - 0.3); b.vx *= -0.5; }
+    const t = top(b.x, b.y - b.vy * dt);
+    if (b.y <= t + 0.08 && b.vy < 0) { if (Math.abs(b.vy) > 3 && g.stains.length < 160) g.stains.push({ x: b.x, y: t, r: 0.18, at: m.time, seed: Math.random() }); b.y = t + 0.08; b.vy *= -0.35; b.vx *= 0.6; b.va *= 0.6; }
+    if ((b.drip -= dt) <= 0 && Math.hypot(b.vx, b.vy) > 1.5 && b.life < 2.5 && g.drops.length < 400) { b.drip = 0.04; g.drops.push({ x: b.x, y: b.y, vx: b.vx * 0.2 + (Math.random() - 0.5), vy: b.vy * 0.2, r: 0.03 + Math.random() * 0.03, life: 0 }); }
+  }
+  g.gibs = g.gibs.filter(b => b.life < 9);
+  g.stains = g.stains.filter(st => m.time - st.at < 40);
 }
 const refIn = (m: Match, x0: number, x1: number, y0: number, y1: number) => { const r = m.ref; return r.action !== 'gone' && r.x + PW / 2 > x0 && r.x - PW / 2 < x1 && r.y < y1 && r.y + PH > y0; };
 
@@ -718,8 +771,10 @@ const refIn = (m: Match, x0: number, x1: number, y0: number, y1: number) => { co
 function pushBall(m: Match, f: Fighter, vx: number, vy: number, fx: Ball['fx'] = 'none') {
   const b = m.ball; if (!b.alive) return;
   if (m.fatal && !m.fatal.done) { if (m.fatal.side !== f.side) blockFatal(m, f.side); return; } // frenó el FATAL: la pelota sale rebotada
-  // un poder nunca mete la pelota en el arco propio: en la mitad propia la despeja para arriba y afuera
+  // la pelota estaba por entrar al arco propio: el poder la hace explotar (y baja otra por el tubo)
   const home = ownGoalX(m, f.side), out = attackDir(m, f.side);
+  if (Math.abs(b.x - home) < 5 && Math.sign(b.vx) === -out && Math.abs(b.vx) > 2 && b.y < goalHeight(m, f.side) + 1.5) { explodeBall(m); emit(m, { type: 'save', side: f.side }); gainPower(m, f, 1); return; }
+  // un poder nunca mete la pelota en el arco propio: en la mitad propia la despeja para arriba y afuera
   if (Math.sign(vx) === -out && Math.abs(b.x - home) < W * 0.5) { vx = out * Math.max(Math.abs(vx) * 0.75, 9); vy = Math.max(vy, 6); }
   b.vx = vx; b.vy = vy; b.owner = f.side; b.frozen = 0; b.pass = { side: f.side, t: 0.3 };
   if (fx !== 'none') { b.fx = fx; b.fxT = 1.2; }
@@ -727,7 +782,7 @@ function pushBall(m: Match, f: Fighter, vx: number, vy: number, fx: Ball['fx'] =
   // si la pelota iba a entrar al arco propio y la sacó, es una salvada
   const own = ownGoalX(m, f.side);
   if (Math.abs(b.x - own) < 6 && Math.sign(vx) === attackDir(m, f.side)) emit(m, { type: 'save', side: f.side });
-  burst(m, b.x, b.y, 10, CHARS[f.char].glow, 'spark', 5);
+  burst(m, b.x, b.y, 22, CHARS[f.char].glow, 'spark', 8); burst(m, b.x, b.y, 1, CHARS[f.char].color, 'ring', 1); m.shake = Math.max(m.shake, 0.3);
   emit(m, { type: 'kick', power: Math.hypot(vx, vy) / 20 });
 }
 // Hacia dónde apunta: a la pelota si la tiene adelante (más o menos), si no derecho.
@@ -746,6 +801,10 @@ function castAbility(m: Match, f: Fighter, rival: Fighter) {
   const def = CHARS[f.char], b = m.ball;
   spend(f, def.cost); f.cd = def.cd; f.action = 'special'; f.actionT = 0; f.abilityHit = false;
   emit(m, { type: 'ability', side: f.side, char: f.char });
+  // que se note: chispas del color del luchador, un anillo, la pantalla que se tiñe y un sacudón
+  const cxh = f.x + f.facing * 0.7, cyh = f.y + heightOf(f) * 0.55;
+  burst(m, cxh, cyh, 28, def.glow, 'spark', 8); burst(m, cxh, cyh, 10, def.color, 'ember', 5); burst(m, cxh, cyh, 1, def.glow, 'ring', 1); burst(m, f.x, f.y + 0.1, 8, def.glow, 'smoke', 2.5);
+  m.tint = { c: def.glow, t: 0.35 }; m.shake = Math.max(m.shake, 0.25);
   const hx = f.x + f.facing * 0.5, hy = f.y + 1.15;
   switch (def.ability) {
     case 'superJump': f.vy = 19 * Math.sqrt(stageDef(m.stage).gravity); f.ground = false; f.abilityT = 0.9; burst(m, f.x, f.y, 16, '#bae6fd', 'smoke', 3); break;
@@ -951,7 +1010,7 @@ function updateFatal(m: Match, dt: number) {
 function updateRef(m: Match, dt: number) {
   const r = m.ref, b = m.ball;
   r.actionT += dt;
-  if (r.action === 'gone') { r.away -= dt; if (r.away <= 0) { r.action = 'idle'; r.x = W / 2 + 1; r.y = 0; r.vx = 0; r.vy = 0; r.stun = 0; burst(m, r.x, 1, 16, '#ffffff', 'smoke', 2); emit(m, { type: 'refBack' }); } return; }
+  if (r.action === 'gone') { r.away -= dt; if (r.away <= 0) { r.action = 'idle'; r.x = m.rand() < 0.5 ? 2.2 : W - 2.2; r.y = 0; r.roam = undefined; r.vx = 0; r.vy = 0; r.stun = 0; burst(m, r.x, 1, 16, '#ffffff', 'smoke', 2); emit(m, { type: 'refBack' }); } return; }
   if (r.stun > 0) {
     r.stun -= dt; moveBody(m, r, dt); r.vx *= Math.pow(0.05, dt);
     if (r.stun <= 0) { if (r.action === 'down') { r.action = 'gone'; r.away = 2.5; burst(m, r.x, 0.8, 14, '#d4d4d8', 'smoke', 2); } else r.action = 'idle'; }
@@ -1015,7 +1074,7 @@ function moveBall(m: Match, dt: number) {
     if (!b.alive) return;
   }
   b.spin += b.vx * dt * 2;
-  m.trail.unshift([b.x, b.y]); if (m.trail.length > 14) m.trail.length = 14;
+  m.trail.unshift([b.x, b.y]); if (m.trail.length > 20) m.trail.length = 20;
 }
 function rollFriction(m: Match, b: Ball, dt: number) {
   const fr = b.kind === 'ice' ? 0.05 : stageDef(m.stage).friction;
@@ -1301,8 +1360,9 @@ function abilityReach(f: Fighter, x: number, y: number) {
 // La máquina también mantiene apretado: carga el tiro (más cuanto mejor juega) y estira el salto.
 function cpuHold(m: Match, side: 0 | 1, c: CpuState, i: Input, dt: number): Input {
   const f = m.fighters[side];
-  if (c.kickHold > 0) { c.kickHold -= dt; i.kick = c.kickHold > 0; } // al llegar a 0 suelta y patea
-  else if (i.kick && !i.down && f.charge <= 0 && f.kickT <= 0) c.kickHold = 0.03 + m.rand() * (0.15 + c.level * 0.5);
+  if (c.kickHold > 0) { // mantiene la patada (carga el tiro); al llegar a 0 suelta y patea. Si va de globo aprieta ↑ al final
+    c.kickHold -= dt; i.kick = c.kickHold > 0; i.up = !!c.lob && c.kickHold < 0.12; if (c.kickHold <= 0) c.lob = false;
+  } else if (i.kick && !i.down && f.charge <= 0 && f.kickT <= 0) c.kickHold = c.holdFor ?? (0.03 + m.rand() * (0.15 + c.level * 0.5));
   return i;
 }
 function cpuThink(m: Match, side: 0 | 1, c: CpuState, dt: number): Input {
@@ -1360,9 +1420,16 @@ function cpuThink(m: Match, side: 0 | 1, c: CpuState, dt: number): Input {
   // patear: con la pelota adelante
   if ((near < 1.2 || (ahead > 0.2 && ahead < 1.8 && Math.abs(b.y - f.y - 0.5) < 0.9)) && ahead > -0.1 && f.kickT <= 0 && m.rand() < 0.45 + c.level * 0.55) {
     if (f.facing !== dir) { if (dir > 0) plan.right = true; else plan.left = true; }
-    else if (toGoal < 15 || m.rand() < 0.3) {
-      plan.kick = true;
-      if (Math.abs(rival.x - f.x) < 3 && (rival.x - f.x) * dir > 0 && m.rand() < 0.5) plan.up = true;
+    else {
+      // ¿tiro o conducción? Lejos del arco y sin nadie adelante, la lleva corriendo; cerca, o si el rival viene,
+      // patea: más fuerte cuanto más lejos está el arco, y de globo si el rival le tapa el camino
+      const blocker = (rival.x - f.x) * dir > 0 && Math.abs(rival.x - f.x) < 3.5 && Math.abs(rival.y - f.y) < 1.5;
+      const shoot = toGoal < 12 || blocker || m.rand() < 0.08 + (1 - c.level) * 0.15;
+      if (shoot && f.kickT <= 0 && f.charge <= 0) {
+        plan.kick = true;
+        c.holdFor = Math.min(1, 0.08 + (toGoal / 13) * 0.75 * (0.65 + c.level * 0.35) + m.rand() * 0.12);
+        c.lob = blocker && rival.ground && m.rand() < 0.4 + c.level * 0.5;
+      } else { if (dir > 0) plan.right = true; else plan.left = true; } // conducción
     }
   }
   // habilidad para tirar al arco o para pegarle al rival

@@ -6,7 +6,7 @@
 // habilidades, los potenciadores y los efectos. El mundo se mide en metros (kombat.ts); acá se pasa a píxeles.
 import {
   BALLS, BALL_R, BAR, CHARS, GOAL_DEPTH, H, NET_FLAT, POWERS, POWER_MAX, TUBE_Y, W, fatalPath, goalHeight, heightOf, minePos, netTop, sawPos, teamAt, wreckPos,
-  type Ball, type Fx, type Hazard, type Match, type Particle, type PowerKind, type Shot, type Solid, type StageId,
+  type Ball, type Fx, type GibKind, type Hazard, type Match, type Particle, type PowerKind, type Shot, type Solid, type StageId,
 } from './kombat';
 import { fbm, pixels, ramp } from './gravityBackdrops';
 import { drawFighterLit, drawRefLit, LOOKS } from './kombatFighters';
@@ -463,6 +463,48 @@ export function drawBallSprite(ctx: CanvasRenderingContext2D, x: number, y: numb
   if (fx === 'fire' || kind === 'fire') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let k = 0; k < 7; k++) { const a = -Math.PI / 2 + (k - 3) * 0.35, l = r * (1.3 + 0.4 * Math.sin(t * 25 + k)); ctx.fillStyle = k % 2 ? 'rgba(253,224,71,0.6)' : 'rgba(249,115,22,0.6)'; ctx.beginPath(); ctx.moveTo(x + Math.cos(a - 0.25) * r * 0.8, y + Math.sin(a - 0.25) * r * 0.8); ctx.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); ctx.lineTo(x + Math.cos(a + 0.25) * r * 0.8, y + Math.sin(a + 0.25) * r * 0.8); ctx.fill(); } ctx.restore(); }
   if (fx === 'volt' || kind === 'void') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = fx === 'volt' ? '#fef08a' : '#d8b4fe'; ctx.lineWidth = Math.max(1, r * 0.06); for (let k = 0; k < 3; k++) { let a = Math.random() * TAU, px = x + Math.cos(a) * r, py = y + Math.sin(a) * r; ctx.beginPath(); ctx.moveTo(px, py); for (let j = 0; j < 3; j++) { a += (Math.random() - 0.5); px += Math.cos(a) * r * 0.5; py += Math.sin(a) * r * 0.5; ctx.lineTo(px, py); } ctx.stroke(); } ctx.restore(); }
 }
+// El rastro de la pelota según el escenario: electricidad en los tecnológicos, fuego en el volcán y el desierto,
+// viento blanco en el hielo, hojas que brillan en el bosque y el templo, burbujas en el mar, nubecitas en el cielo,
+// fantasmas en el foso, rayos en la tormenta, polvo de estrellas en la Luna y arena en el coliseo.
+type TrailStyle = 'volt' | 'fire' | 'wind' | 'leaf' | 'bubble' | 'cloud' | 'ghost' | 'dust' | 'star';
+const TRAIL: Record<StageId, [TrailStyle, string, string]> = {
+  industrial: ['volt', '#38bdf8', '#e0f2fe'], mines: ['volt', '#e879f9', '#fae8ff'], base: ['volt', '#22d3ee', '#ecfeff'], factory: ['volt', '#fbbf24', '#fef9c3'], subway: ['volt', '#facc15', '#fefce8'],
+  storm: ['volt', '#a5b4fc', '#ffffff'], volcano: ['fire', '#f97316', '#fde047'], desert: ['fire', '#fb923c', '#fef3c7'], ice: ['wind', '#e0f2fe', '#ffffff'],
+  forest: ['leaf', '#a3e635', '#67e8f9'], temple: ['leaf', '#4ade80', '#fde68a'], ocean: ['bubble', '#a5f3fc', '#ffffff'], sky: ['cloud', '#ffffff', '#fde68a'],
+  pit: ['ghost', '#a78bfa', '#ede9fe'], coliseum: ['dust', '#e8b96a', '#fff7ed'], moon: ['star', '#cbd5e1', '#ffffff'],
+};
+function drawStageTrail(ctx: CanvasRenderingContext2D, m: Match, v: View, speed: number) {
+  const tr = m.trail; if (tr.length < 3 || speed < 1.2) return;
+  const [style, c1, c2] = TRAIL[m.stage], s = v.s, t = m.time, k0 = Math.min(1, speed / 10), r = BALL_R * s;
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const pts = tr.map(([px, py]) => [X(v, px), Y(v, py)] as const);
+  switch (style) {
+    case 'volt': { ctx.globalCompositeOperation = 'lighter';
+      for (const [w, a, col] of [[r * 1.1, 0.25, c1], [Math.max(1.5, r * 0.28), 0.9, c2]] as const) { ctx.strokeStyle = alpha(col, a * k0); ctx.lineWidth = w; ctx.beginPath(); pts.forEach(([px, py], i) => { const j = i === 0 ? 0 : (hash(i * 7.3 + Math.floor(t * 30)) - 0.5) * r * 1.4; if (i) ctx.lineTo(px + j, py + j * 0.7); else ctx.moveTo(px, py); }); ctx.stroke(); }
+      for (let i = 2; i < pts.length; i += 3) if (hash(i + Math.floor(t * 20)) < 0.6) { const [px, py] = pts[i]; ctx.strokeStyle = alpha(c2, 0.8 * k0); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + (hash(i * 3 + t) - 0.5) * r * 3, py + (hash(i * 5 + t) - 0.5) * r * 3); ctx.stroke(); } // chispas que saltan
+      break; }
+    case 'fire': { ctx.globalCompositeOperation = 'lighter';
+      pts.forEach(([px, py], i) => { const k = 1 - i / pts.length, rr = r * (0.4 + k * 1.1) * (0.85 + 0.3 * hash(i + Math.floor(t * 25))); const g = ctx.createRadialGradient(px, py - rr * 0.3, 0, px, py, rr); g.addColorStop(0, alpha(c2, 0.85 * k * k0)); g.addColorStop(0.5, alpha(c1, 0.55 * k * k0)); g.addColorStop(1, alpha('#7f1d1d', 0)); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py - i * r * 0.06, rr, 0, TAU); ctx.fill(); });
+      break; }
+    case 'wind': {
+      for (let l = -1; l <= 1; l++) { ctx.strokeStyle = alpha(c2, (0.55 - Math.abs(l) * 0.2) * k0); ctx.lineWidth = Math.max(1, r * (0.35 - Math.abs(l) * 0.12)); ctx.beginPath(); pts.forEach(([px, py], i) => { const o = l * r * (0.6 + i * 0.08) + Math.sin(t * 8 + i * 0.7 + l) * r * 0.2; if (i) ctx.lineTo(px, py + o); else ctx.moveTo(px, py + o); }); ctx.stroke(); }
+      ctx.fillStyle = alpha('#ffffff', 0.9 * k0); for (let i = 1; i < pts.length; i += 2) { const [px, py] = pts[i]; ctx.beginPath(); ctx.arc(px + (hash(i * 3.1) - 0.5) * r * 2, py + (hash(i * 7.7) - 0.5) * r * 2, Math.max(1, r * 0.12), 0, TAU); ctx.fill(); } // copos
+      break; }
+    case 'leaf': case 'star': case 'dust': case 'cloud': case 'ghost': case 'bubble': {
+      if (style === 'leaf' || style === 'star' || style === 'ghost') ctx.globalCompositeOperation = 'lighter';
+      pts.forEach(([px, py], i) => { if (!i) return; const k = 1 - i / pts.length, jx = (hash(i * 4.1 + (style === 'bubble' ? 0 : Math.floor(t * 6))) - 0.5) * r * 1.6, jy = (hash(i * 6.7) - 0.5) * r * 1.6 + (style === 'bubble' ? -i * r * 0.15 : 0), x2 = px + jx, y2 = py + jy, a = k * k0;
+        switch (style) {
+          case 'leaf': ctx.fillStyle = alpha(i % 2 ? c1 : c2, 0.8 * a); ctx.beginPath(); ctx.ellipse(x2, y2, r * 0.32, r * 0.14, t * 4 + i, 0, TAU); ctx.fill(); break;
+          case 'star': ctx.fillStyle = alpha(c2, 0.9 * a); ctx.fillRect(x2 - 1, y2 - r * 0.3, 2, r * 0.6); ctx.fillRect(x2 - r * 0.3, y2 - 1, r * 0.6, 2); break;
+          case 'dust': ctx.fillStyle = alpha(c1, 0.45 * a); ctx.beginPath(); ctx.arc(x2, py + jy * 0.4, r * (0.3 + (1 - k) * 0.9), 0, TAU); ctx.fill(); break;
+          case 'cloud': ctx.fillStyle = alpha(c1, 0.6 * a); ctx.beginPath(); ctx.arc(x2, y2, r * (0.4 + (1 - k) * 0.7), 0, TAU); ctx.fill(); if (i % 3 === 0) { ctx.fillStyle = alpha(c2, a); ctx.fillRect(x2, y2, 2, 2); } break;
+          case 'ghost': { const g = ctx.createRadialGradient(x2, y2, 0, x2, y2, r * (0.5 + (1 - k))); g.addColorStop(0, alpha(c2, 0.5 * a)); g.addColorStop(1, alpha(c1, 0)); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x2, y2, r * (0.5 + (1 - k)), 0, TAU); ctx.fill(); break; }
+          case 'bubble': ctx.strokeStyle = alpha(c2, 0.8 * a); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x2, y2, r * (0.15 + hash(i) * 0.25), 0, TAU); ctx.stroke(); break;
+        } });
+      break; }
+  }
+  ctx.restore();
+}
 function drawBall(ctx: CanvasRenderingContext2D, m: Match, v: View) {
   const b = m.ball, s = v.s, fat = m.fatal && !m.fatal.done ? m.fatal : null;
   if (!b.alive) return;
@@ -473,6 +515,7 @@ function drawBall(ctx: CanvasRenderingContext2D, m: Match, v: View) {
     for (let i = 1; i < m.trail.length; i++) { const k = 1 - i / m.trail.length; ctx.strokeStyle = alpha(tc, 0.55 * k); ctx.lineWidth = BALL_R * 2 * s * k * (fat ? 1.8 : 1); ctx.beginPath(); ctx.moveTo(X(v, m.trail[i - 1][0]), Y(v, m.trail[i - 1][1])); ctx.lineTo(X(v, m.trail[i][0]), Y(v, m.trail[i][1])); ctx.stroke(); }
     ctx.restore();
   }
+  if (!fat) drawStageTrail(ctx, m, v, speed);
   const x = X(v, b.x), y = Y(v, b.y);
   ctx.fillStyle = `rgba(0,0,0,${Math.max(0.05, 0.4 - b.y * 0.04)})`; ctx.beginPath(); ctx.ellipse(x, Y(v, 0), BALL_R * s * (1 - Math.min(0.6, b.y * 0.05)), BALL_R * s * 0.25, 0, 0, TAU); ctx.fill();
   if (fat) { drawFatalBall(ctx, m, v, x, y); return; }
@@ -530,6 +573,12 @@ function drawFatalBall(ctx: CanvasRenderingContext2D, m: Match, v: View, x: numb
 function drawShot(ctx: CanvasRenderingContext2D, sh: Shot, m: Match, v: View) {
   const s = v.s, x = X(v, sh.x), y = Y(v, sh.y), r = sh.r * s, t = m.time, ang = Math.atan2(-sh.vy, sh.vx), owner = CHARS[m.fighters[sh.side].char];
   ctx.save();
+  { // estela y halo grandes del color del luchador (para que el disparo se vea mucho)
+    ctx.globalCompositeOperation = 'lighter'; const L2 = r * 9, ex = x - Math.cos(ang) * L2, ey = y - Math.sin(ang) * L2;
+    const sg = ctx.createLinearGradient(x, y, ex, ey); sg.addColorStop(0, alpha(owner.glow, 0.7)); sg.addColorStop(1, alpha(owner.color, 0)); ctx.strokeStyle = sg; ctx.lineCap = 'round'; ctx.lineWidth = r * 1.8; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.lineWidth = r * 0.6; ctx.strokeStyle = alpha('#ffffff', 0.6); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.cos(ang) * L2 * 0.5, y - Math.sin(ang) * L2 * 0.5); ctx.stroke();
+    bloom(ctx, x, y, r * 7, owner.glow, 0.5); ctx.globalCompositeOperation = 'source-over';
+  }
   switch (sh.kind) {
     case 'fireball': {
       ctx.globalCompositeOperation = 'lighter';
@@ -567,6 +616,7 @@ function drawFx(ctx: CanvasRenderingContext2D, e: Fx, m: Match, v: View) {
     case 'magma': { const xh = e.x + e.dir * e.t * 14; ctx.globalCompositeOperation = 'source-over'; for (let j = 0; j < 7; j++) { const px = xh - e.dir * j * 0.55, life = 1 - j / 7, hh = s * (0.5 + hash(j + e.x) * 0.9) * life * Math.min(1, (1 - k) * 3); if ((px - e.x) * e.dir < 0) continue; ctx.fillStyle = lin(ctx, 0, Y(v, 0) - hh, 0, Y(v, 0), [[0, '#fff3b0'], [0.3, '#fb923c'], [1, '#7c2d12']]); ctx.beginPath(); ctx.moveTo(X(v, px) - s * 0.25, Y(v, 0)); ctx.lineTo(X(v, px) - s * 0.05, Y(v, 0) - hh); ctx.lineTo(X(v, px) + s * 0.25, Y(v, 0)); ctx.fill(); } ctx.globalCompositeOperation = 'lighter'; bloom(ctx, X(v, xh), Y(v, 0.4), s * 1.2, '#f97316', 0.6); break; }
     default: break;
   }
+  if (e.kind !== 'cloud' && e.kind !== 'magma') bloom(ctx, X(v, e.x), Y(v, e.y), s * 3, owner.glow, 0.45 * (1 - k)); // halo extra
   ctx.restore();
 }
 
@@ -816,6 +866,44 @@ function drawMover(ctx: CanvasRenderingContext2D, m: Match, sd: Solid, v: View) 
   }
   ctx.restore();
 }
+// ---------------------------------------------------------------- La sangre y los huesos del árbitro
+const BLOOD = '#8a0303', BLOOD_L = '#c1121f', BONE = '#efe6cf';
+function drawStains(ctx: CanvasRenderingContext2D, m: Match, v: View) {
+  const g = m.gore; if (!g.stains.length) return;
+  for (const st of g.stains) {
+    const age = m.time - st.at, a = Math.max(0, Math.min(1, (40 - age) / 8)); if (a <= 0) continue;
+    const x = X(v, st.x), y = Y(v, st.y), r = st.r * v.s * Math.min(1, 0.4 + age * 3);
+    ctx.globalAlpha = a; ctx.fillStyle = st.r > 0.15 ? BLOOD : BLOOD_L; ctx.beginPath();
+    for (let i = 0; i < 12; i++) { const an = Math.PI + (i / 11) * Math.PI, rr = r * (0.75 + hash(st.seed * 50 + i) * 0.5); ctx.lineTo(x + Math.cos(an) * rr * 1.6, y + Math.sin(an) * rr * 0.35); }
+    ctx.closePath(); ctx.fill();
+    if (st.seed > 0.7) { ctx.fillRect(x + r * 0.3, y, Math.max(1, r * 0.15), r * (0.6 + st.seed)); } // chorrito que cae del borde
+  }
+  ctx.globalAlpha = 1;
+}
+function drawGib(ctx: CanvasRenderingContext2D, kind: GibKind) {
+  const bone = (x0: number, y0: number, x1: number, y1: number, w: number) => { ctx.strokeStyle = BONE; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); for (const [px, py] of [[x0, y0], [x1, y1]]) { ctx.fillStyle = BONE; ctx.beginPath(); ctx.arc(px, py - w * 0.4, w * 0.75, 0, TAU); ctx.arc(px, py + w * 0.4, w * 0.75, 0, TAU); ctx.fill(); } };
+  switch (kind) {
+    case 'skull':
+      ctx.fillStyle = BONE; ctx.beginPath(); ctx.arc(0, -0.04, 0.2, 0, TAU); ctx.fill(); ctx.fillRect(-0.12, 0.05, 0.24, 0.12);
+      ctx.fillStyle = '#1c1917'; ctx.beginPath(); ctx.ellipse(-0.075, -0.02, 0.055, 0.065, 0, 0, TAU); ctx.ellipse(0.075, -0.02, 0.055, 0.065, 0, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.moveTo(0, 0.05); ctx.lineTo(-0.025, 0.1); ctx.lineTo(0.025, 0.1); ctx.fill();
+      for (let k = 0; k < 4; k++) ctx.fillRect(-0.09 + k * 0.055, 0.13, 0.012, 0.05);
+      ctx.fillStyle = BLOOD_L; ctx.beginPath(); ctx.ellipse(0.12, 0.12, 0.08, 0.05, 0.5, 0, TAU); ctx.fill(); break;
+    case 'jaw': bone(-0.12, 0, 0.12, 0, 0.05); ctx.fillStyle = BONE; for (let k = 0; k < 4; k++) ctx.fillRect(-0.08 + k * 0.05, -0.07, 0.025, 0.05); break;
+    case 'ribs':
+      bone(0, -0.22, 0, 0.22, 0.05); ctx.strokeStyle = BONE; ctx.lineWidth = 0.035; for (let k = 0; k < 4; k++) { const y = -0.15 + k * 0.1; ctx.beginPath(); ctx.moveTo(0, y); ctx.quadraticCurveTo(0.22, y - 0.02, 0.2, y + 0.1); ctx.moveTo(0, y); ctx.quadraticCurveTo(-0.22, y - 0.02, -0.2, y + 0.1); ctx.stroke(); }
+      ctx.fillStyle = BLOOD_L; ctx.beginPath(); ctx.ellipse(0.05, 0.05, 0.08, 0.12, 0, 0, TAU); ctx.fill(); break;
+    case 'pelvis': ctx.fillStyle = BONE; ctx.beginPath(); ctx.ellipse(-0.1, 0, 0.12, 0.09, -0.4, 0, TAU); ctx.ellipse(0.1, 0, 0.12, 0.09, 0.4, 0, TAU); ctx.fill(); ctx.fillStyle = '#1c1917'; ctx.beginPath(); ctx.arc(-0.1, 0.01, 0.035, 0, TAU); ctx.arc(0.1, 0.01, 0.035, 0, TAU); ctx.fill(); break;
+    case 'bone': bone(-0.17, 0, 0.17, 0, 0.055); ctx.fillStyle = BLOOD_L; ctx.beginPath(); ctx.arc(0.05, 0.01, 0.035, 0, TAU); ctx.fill(); break;
+    case 'chunk': ctx.fillStyle = BLOOD_L; ctx.beginPath(); for (let k = 0; k < 7; k++) { const a = k * TAU / 7, rr = 0.09 + hash(k * 3.1) * 0.06; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } ctx.closePath(); ctx.fill(); ctx.fillStyle = BLOOD; ctx.beginPath(); ctx.arc(0.02, 0.02, 0.05, 0, TAU); ctx.fill(); break;
+    case 'shirt': ctx.fillStyle = '#f4f4f5'; ctx.fillRect(-0.16, -0.1, 0.32, 0.2); ctx.fillStyle = '#111114'; for (let k = 0; k < 3; k++) ctx.fillRect(-0.12 + k * 0.1, -0.1, 0.04, 0.2); ctx.fillStyle = BLOOD_L; ctx.beginPath(); ctx.ellipse(0.06, 0.04, 0.09, 0.06, 0, 0, TAU); ctx.fill(); break;
+  }
+}
+function drawGore(ctx: CanvasRenderingContext2D, m: Match, v: View) {
+  const g = m.gore; if (!g.drops.length && !g.gibs.length) return;
+  for (const b of g.gibs) { ctx.save(); ctx.translate(X(v, b.x), Y(v, b.y)); ctx.scale(v.s * 1.2, v.s * 1.2); ctx.rotate(b.a); drawGib(ctx, b.kind); ctx.restore(); }
+  ctx.fillStyle = BLOOD_L;
+  for (const d of g.drops) { ctx.beginPath(); ctx.arc(X(v, d.x), Y(v, d.y), Math.max(1, d.r * v.s), 0, TAU); ctx.fill(); }
+}
 export function drawMatch(ctx: CanvasRenderingContext2D, m: Match, v: View) {
   ctx.save();
   if (m.shake > 0) ctx.translate((Math.random() - 0.5) * m.shake * v.s * 0.5, (Math.random() - 0.5) * m.shake * v.s * 0.5);
@@ -824,6 +912,7 @@ export function drawMatch(ctx: CanvasRenderingContext2D, m: Match, v: View) {
   drawAmbient(ctx, m.stage, v.w, v.h, Y(v, 0), v.s, m.time);
   for (const h of m.hazards) if (h.kind === 'waterfall') drawHazard(ctx, h, m, v);
   for (const sd of m.solids) if (sd.move) drawMover(ctx, m, sd, v);
+  drawStains(ctx, m, v);
   for (const h of m.hazards) if (h.kind === 'lava' || h.kind === 'conveyor' || h.kind === 'spikes' || h.kind === 'shock' || h.kind === 'saw' || (h.kind === 'flame' && h.state < 2)) drawHazard(ctx, h, m, v);
   drawGoal(ctx, m, v, true, false); drawGoal(ctx, m, v, false, false);
   for (const h of m.hazards) if (h.kind === 'laser' || h.kind === 'mine') drawHazard(ctx, h, m, v);
@@ -841,6 +930,7 @@ export function drawMatch(ctx: CanvasRenderingContext2D, m: Match, v: View) {
     }, x, y, v.s, THEMES[m.stage].light);
     if (f.charge > 0) drawChargeMeter(ctx, f.charge, x, Y(v, f.y + heightOf(f) + 0.25), v.s, L.glow, m.time);
   }
+  drawGore(ctx, m, v);
   for (const sh of m.shots) drawShot(ctx, sh, m, v);
   for (const e of m.fx) drawFx(ctx, e, m, v);
   drawBall(ctx, m, v);
@@ -860,6 +950,7 @@ export function drawMatch(ctx: CanvasRenderingContext2D, m: Match, v: View) {
     drawFighterLit(ctx, f, m.time, { power: 1, frozen: false, poison: false, burn: false, zap: false, shield: false, speed: false, aura: L.glow }, X(v, f.x), Y(v, f.y), v.s, L.glow);
   }
   if (m.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${m.flash * 0.45})`; ctx.fillRect(0, 0, v.w, v.h); }
+  if (m.tint) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = alpha(m.tint.c, Math.min(0.22, m.tint.t * 0.7)); ctx.fillRect(0, 0, v.w, v.h); ctx.restore(); }
   const vg = ctx.createRadialGradient(v.w / 2, v.h * 0.55, Math.min(v.w, v.h) * 0.35, v.w / 2, v.h * 0.55, Math.max(v.w, v.h) * 0.75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.45)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, v.w, v.h);
   ctx.restore();
 }
@@ -885,7 +976,7 @@ export { bolt };
 // ---------------------------------------------------------------- Pared de la pantalla de selección
 // Ladrillos gris oscuro con textura: cada uno con su tono, grano de piedra, bordes gastados con luz arriba y
 // sombra abajo, algunas grietas y astillas, y la mezcla oscura entre ladrillos. Se hace una vez (un mosaico).
-let brickURL: string | null = null;
+let brickURL: string | null = null, brickTile: HTMLCanvasElement | null = null;
 export function brickWallURL(): string | null {
   if (brickURL || typeof document === 'undefined') return brickURL;
   const W0 = 512, H0 = 384, c = document.createElement('canvas'); c.width = W0; c.height = H0;
@@ -918,8 +1009,38 @@ export function brickWallURL(): string | null {
   g.strokeStyle = 'rgba(0,0,0,0.4)'; g.lineWidth = 1;
   for (let k = 0; k < 9; k++) { let x = hash(k * 5.3) * W0, y = hash(k * 9.1) * H0; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 5; j++) { x += (hash(k * 3 + j) - 0.5) * 18; y += (hash(k * 7 + j) - 0.3) * 10; g.lineTo(x, y); } g.stroke(); }
   for (let k = 0; k < 22; k++) { const x = hash(k * 2.7 + 1) * W0, y = hash(k * 4.9 + 2) * H0, r = 2 + hash(k) * 4; g.fillStyle = 'rgba(0,0,0,0.45)'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(255,255,255,0.06)'; g.beginPath(); g.arc(x - 1, y - 1, r * 0.6, 0, Math.PI * 2); g.fill(); }
-  brickURL = c.toDataURL('image/png');
+  brickURL = c.toDataURL('image/png'); brickTile = c;
   return brickURL;
+}
+// La pared del menú: los mismos ladrillos pero rotos, con agujeros oscuros de bordes astillados, grietas que salen
+// para afuera, pedazos sueltos y escombros abajo de cada agujero.
+let brokenURL: string | null = null;
+export function brokenWallURL(): string | null {
+  if (brokenURL || typeof document === 'undefined') return brokenURL;
+  brickWallURL(); if (!brickTile) return null;
+  const W0 = 1280, H0 = 800, c = document.createElement('canvas'); c.width = W0; c.height = H0;
+  const g = c.getContext('2d'); if (!g) return null;
+  const tile = 0.85; // los ladrillos un poco más chicos
+  for (let y = 0; y < H0; y += brickTile.height * tile) for (let x = 0; x < W0; x += brickTile.width * tile) g.drawImage(brickTile, x, y, brickTile.width * tile, brickTile.height * tile);
+  const holes: [number, number, number][] = [[0.12, 0.22, 120], [0.86, 0.16, 95], [0.07, 0.8, 85], [0.9, 0.74, 140], [0.5, 0.93, 60], [0.33, 0.06, 45]];
+  holes.forEach(([hx, hy, R], n) => {
+    const cx = W0 * hx, cy = H0 * hy, pts: [number, number][] = [];
+    for (let k = 0; k < 22; k++) { const a = (k / 22) * Math.PI * 2, rr = R * (0.62 + hash(n * 31 + k) * 0.45); const row = 41 * tile; pts.push([cx + Math.cos(a) * rr, Math.round((cy + Math.sin(a) * rr * 0.8) / row) * row]); } // bordes que siguen las filas de ladrillos
+    const path = () => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); };
+    // grietas que salen del agujero
+    g.strokeStyle = 'rgba(0,0,0,0.65)'; g.lineWidth = 1.6;
+    for (let k = 0; k < 9; k++) { const a = hash(n * 7 + k) * Math.PI * 2; let x = cx + Math.cos(a) * R * 0.8, y = cy + Math.sin(a) * R * 0.65; g.beginPath(); g.moveTo(x, y); const L = R * (0.5 + hash(n + k * 3) * 0.9); for (let j = 0; j < 6; j++) { x += Math.cos(a + (hash(n + k + j * 5) - 0.5) * 1.2) * L / 6; y += Math.sin(a + (hash(n * 3 + k + j) - 0.5) * 1.2) * L / 6; g.lineTo(x, y); } g.stroke(); }
+    // el borde astillado: una franja clara (la cara rota de los ladrillos) y el hueco negro con profundidad
+    g.save(); g.translate(5, 6); path(); g.fillStyle = '#6b6a63'; g.fill(); g.restore();
+    g.save(); g.translate(-3, -3); path(); g.fillStyle = '#26261f'; g.fill(); g.restore();
+    path(); const hg = g.createRadialGradient(cx, cy, 0, cx, cy, R * 1.05); hg.addColorStop(0, '#000000'); hg.addColorStop(0.7, '#050505'); hg.addColorStop(1, '#141412'); g.fillStyle = hg; g.fill();
+    g.save(); path(); g.clip(); g.strokeStyle = 'rgba(255,255,255,0.05)'; g.lineWidth = 1; for (let k = 0; k < 5; k++) { g.beginPath(); g.ellipse(cx, cy + R * 0.1, R * (0.25 + k * 0.15), R * (0.18 + k * 0.1), 0, 0, Math.PI * 2); g.stroke(); } g.restore(); // un poco de fondo adentro
+    // pedazos de ladrillo sueltos en el borde y escombros abajo
+    for (let k = 0; k < 8; k++) { const a = hash(n * 13 + k) * Math.PI * 2, d = R * (0.8 + hash(n + k) * 0.25), px = cx + Math.cos(a) * d, py = cy + Math.sin(a) * d * 0.8, sz = 8 + hash(k * 3 + n) * 14; g.fillStyle = `rgb(${52 + hash(k + n) * 20},${53 + hash(k + n) * 20},${50 + hash(k + n) * 18})`; g.beginPath(); g.moveTo(px, py); g.lineTo(px + sz, py + sz * 0.2); g.lineTo(px + sz * 0.8, py + sz * 0.7); g.lineTo(px - sz * 0.1, py + sz * 0.6); g.closePath(); g.fill(); g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(px, py, sz * 0.8, 2); }
+    for (let k = 0; k < 14; k++) { const px = cx + (hash(n * 5 + k) - 0.5) * R * 1.6, py = cy + R * 0.85 + hash(n * 9 + k) * R * 0.35, sz = 4 + hash(k + n * 2) * 10; g.fillStyle = `rgb(${46 + hash(k) * 25},${46 + hash(k) * 25},${44 + hash(k) * 22})`; g.beginPath(); g.ellipse(px, py, sz, sz * 0.6, hash(k) * 3, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(0,0,0,0.4)'; g.beginPath(); g.ellipse(px + 2, py + sz * 0.5, sz, sz * 0.25, 0, 0, Math.PI * 2); g.fill(); }
+  });
+  brokenURL = c.toDataURL('image/jpeg', 0.9);
+  return brokenURL;
 }
 
 // ---------------------------------------------------------------- Fondo de la escalera del torneo

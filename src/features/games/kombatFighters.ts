@@ -34,7 +34,7 @@ export const LOOKS: Record<CharId, Look> = {
   cyber: { armor: '#e7e9ef', dark: '#1d1d24', trim: '#ec4899', glow: '#f9a8d4', boot: '#22222a', glove: '#d9dbe3', helmet: 'cyber', extras: ['sword'], eye: '#fbcfe8' },
 };
 
-interface Pose { bob: number; lean: number; legs: [number, number][]; arms: [number, number][]; head: number; crouch: number; reach?: number } // reach: largo de los brazos (festejo: los estira bien arriba)
+interface Pose { bob: number; lean: number; legs: [number, number][]; arms: [number, number][]; head: number; crouch: number; reach?: number; shrug?: number } // reach: largo de los brazos (festejo: los estira bien arriba)
 // Ángulos medidos desde "para abajo" (0) y positivos hacia adelante. legs: [muslo, doblez de la rodilla];
 // arms: [brazo, doblez del codo]. El primero de cada par es el de atrás.
 function poseOf(f: Fighter, t: number): Pose {
@@ -68,7 +68,7 @@ function poseOf(f: Fighter, t: number): Pose {
     return { bob: 0, lean: -0.1, crouch: 0.08, head: -0.1, legs: [[-0.5, 0.4], [0.45, 0.5]], arms: [[0.4, 0.5], [1.55, 0.15]] }; // tira para adelante
   }
   if (a === 'fatal') return { bob: s(t * 20) * 0.02, lean: -0.2, crouch: 0.1, head: -0.25, legs: [[-0.55, 0.5], [0.5, 0.5]], arms: [[2.6, 0.3], [2.4, 0.3]] };
-  if (a === 'celebrate') return { bob: Math.abs(s(t * 8)) * 0.05, lean: -0.08, crouch: 0, head: -0.25, legs: [[-0.2, 0.3], [0.3, 0.6]], arms: [[2.62 + s(t * 10) * 0.1, 0.12], [2.9 - s(t * 10) * 0.1, 0.1]], reach: 1.5 }; // festejo: los dos brazos arriba, adelante del cuerpo
+  if (a === 'celebrate') { const w = t * 9, p0 = Math.max(0, Math.sin(w)), p1 = Math.max(0, Math.sin(w + Math.PI)); return { bob: Math.abs(s(t * 4.5)) * 0.06, lean: -0.12, crouch: 0, head: -0.32, legs: [[-0.25, 0.35], [0.3, 0.55]], arms: [[3.4 + p0 * 0.25, 0.08 - p0 * 1.2], [2.5 - p1 * 0.25, 0.1 + p1 * 1.2]], reach: 1.3, shrug: 0.07 }; } // festejo: agita los dos puños arriba, alternados, con los hombros arriba
   if (a === 'sad') return { bob: 0, lean: 0.35, crouch: 0.25, head: 0.4, legs: [[-0.3, 0.9], [0.4, 1.1]], arms: [[2.6, 2.4], [2.7, 2.5]] };
   if (a === 'stun') {
     if (f.stunKind === 'freeze') return { bob: 0, lean: 0.05, crouch: 0.05, head: 0, legs: [[-0.3, 0.4], [0.3, 0.4]], arms: [[0.8, 1.6], [1, 1.6]] };
@@ -319,7 +319,7 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
     ctx.restore();
   };
   // los hombros en las esquinas de arriba del pecho (izquierdo y derecho), girados con el cuerpo
-  const shoulderAt = (i: number): Pt => { const lx = (i === 0 ? -0.33 : 0.27) * K, ly = -0.42 + (i === 0 ? 0.02 : -0.04); return [hip[0] + lx * Math.cos(lean) - ly * Math.sin(lean), hip[1] + lx * Math.sin(lean) + ly * Math.cos(lean)]; };
+  const shoulderAt = (i: number): Pt => { const lx = (i === 0 ? -0.33 : 0.27) * K, ly = -0.42 + (i === 0 ? 0.02 : -0.04) - (p.shrug ?? 0); return [hip[0] + lx * Math.cos(lean) - ly * Math.sin(lean), hip[1] + lx * Math.sin(lean) + ly * Math.cos(lean)]; };
   // El puño: guante con nudillos marcados, dedos cerrados, el pulgar cruzado, una placa arriba y la muñequera.
   // Se dibuja girado según hacia dónde apunta el antebrazo.
   const fist = (hand: Pt, ang: number, back: boolean) => {
@@ -471,7 +471,7 @@ export function drawFighterLit(ctx: CanvasRenderingContext2D, f: Fighter, t: num
 // abajo atrás, oclusión cerca del piso y un borde de luz del color "rim"; después va a la pantalla con un brillo.
 function litBlit(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, mir: number, rim: string, glow: string, glowK: number, draw: (c: CanvasRenderingContext2D) => void) {
   if (typeof document === 'undefined') return;
-  const tr = ctx.getTransform(), res = Math.min(3, Math.max(1, Math.hypot(tr.a, tr.b))); // nítido en pantallas retina
+  const tr = ctx.getTransform(), res = Math.min(3, Math.max(1, Math.hypot(tr.a, tr.b)), 150 / Math.max(1, S)); // nítido en retina, pero con un tope (en pantallas enormes no se pone lento)
   const ow = 4 * S, oh = 3.4 * S, bw = Math.ceil(ow * res), bh = Math.ceil(oh * res), ox = bw / 2, oy = Math.ceil(2.9 * S * res);
   litA ??= document.createElement('canvas'); litB ??= document.createElement('canvas');
   for (const c of [litA, litB]) { if (c.width < bw) c.width = bw; if (c.height < bh) c.height = bh; }
@@ -492,10 +492,9 @@ function litBlit(ctx: CanvasRenderingContext2D, x: number, y: number, S: number,
   b.globalCompositeOperation = 'destination-out'; b.drawImage(litA, 0, 0, bw, bh, -mir * d, d, bw, bh);
   a.globalCompositeOperation = 'source-atop'; a.globalAlpha = 0.7; a.drawImage(litB, 0, 0, bw, bh, 0, 0, bw, bh); a.globalAlpha = 1;
   a.globalCompositeOperation = 'source-over';
-  ctx.save();
-  ctx.shadowColor = glow; ctx.shadowBlur = S * res * glowK;
+  // brillo alrededor: un halo suave detrás (mucho más rápido que un shadowBlur en pantallas grandes)
+  if (glowK > 0) { ctx.save(); ctx.translate(x, y - S * 1.05); ctx.scale(1, 1.55); const hg = ctx.createRadialGradient(0, 0, S * 0.2, 0, 0, S * (0.75 + glowK)); hg.addColorStop(0, glow); hg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = hg; ctx.fillRect(-S * 2, -S * 2, S * 4, S * 4); ctx.restore(); }
   ctx.drawImage(litA, 0, 0, bw, bh, x - ox / res, y - oy / res, ow, oh);
-  ctx.restore();
 }
 // El árbitro con la misma luz que los luchadores.
 export function drawRefLit(ctx: CanvasRenderingContext2D, p: Person, t: number, x: number, y: number, s: number, rim: string) {

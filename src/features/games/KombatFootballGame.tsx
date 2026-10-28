@@ -4,13 +4,12 @@ import {
   BALLS, CHARS, CHAR_IDS, HALF_TIME, POWERS, POWER_MAX, STAGES, STAMINA, TOURNAMENT, abilityReady, attackDir, clockText, fatalKeys, newMatch, noInput, step, takeEvents,
   type CharId, type Input, type Match, type StageId,
 } from './kombat';
-import { brickWallURL, drawMatch, drawStageThumb, viewFor, vortexURL } from './kombatArt';
+import { brickWallURL, brokenWallURL, drawMatch, drawStageThumb, viewFor, vortexURL } from './kombatArt';
 import { drawFighterCard, drawPortrait } from './kombatFighters';
 import {
   playExplosion, playGameOver, playGoal, playJump, playKfBlock, playKfBounce, playKfFatal, playKfHit, playKfPickup, playKfPost, playKfPower, playKick, playLaserOn,
   playRefWhistle, playStart, playThunder, playWinFanfare, preloadKombatSounds, setCrowd,
 } from './sounds';
-import { isTester } from './testerMode';
 import { EndBanner } from './EndBanner';
 import { Fireworks } from './Fireworks';
 
@@ -156,7 +155,8 @@ export function KombatFootball() {
   const paint = useCallback(() => {
     const el = stageRef.current, canvas = canvasRef.current, m = matchRef.current;
     if (!el || !canvas || !m) return;
-    const k = Math.min(2, window.devicePixelRatio || 1), w = Math.round(el.clientWidth * k), h = Math.round(el.clientHeight * k);
+    // como mucho ~1920 × 1100 píxeles reales: en pantallas grandes o retina el dibujo no se pone lento
+    const k = Math.min(2, window.devicePixelRatio || 1, 1920 / Math.max(1, el.clientWidth), 1100 / Math.max(1, el.clientHeight)), w = Math.round(el.clientWidth * k), h = Math.round(el.clientHeight * k);
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -172,7 +172,7 @@ export function KombatFootball() {
     m.phase = 'play';
     matchRef.current = m;
     let frame = 0, last = performance.now();
-    const tick = (now: number) => { const dt = Math.min(0.05, (now - last) / 1000); last = now; step(m, [noInput(), noInput()], dt); takeEvents(m); if (m.phase === 'end' || m.phase === 'halftime' || (m.phase === 'goal' && m.phaseT > 2)) { m.phase = 'play'; m.clock = HALF_TIME; } paint(); frame = requestAnimationFrame(tick); };
+    const tick = (now: number) => { const dt = Math.min(0.05, (now - last) / 1000); last = now; step(m, [noInput(), noInput()], dt); takeEvents(m); if (m.phase === 'end' || m.phase === 'halftime' || (m.phase === 'goal' && m.phaseT > 2)) { m.phase = 'play'; m.clock = HALF_TIME; } if (screenRef.current !== 'select' && screenRef.current !== 'ladder') paint(); frame = requestAnimationFrame(tick); }; // tapado por la selección: no se dibuja
     frame = requestAnimationFrame(tick);
     const observer = new ResizeObserver(paint); if (stageRef.current) observer.observe(stageRef.current);
     return () => { cancelAnimationFrame(frame); observer.disconnect(); };
@@ -198,10 +198,10 @@ export function KombatFootball() {
     playKfPickup();
     if (pick === 0) {
       setP1(id);
-      if (mode === 'tournament') { setLadderFrom(round); setScreen('ladder'); return; }
+      if (mode === 'tournament') { const n = id === p1 ? round : 0; setRound(n); setLadderFrom(n); setScreen('ladder'); return; } // otro luchador: el torneo vuelve a empezar
       setPick(1); const other = CHAR_IDS.indexOf(p2 === id ? CHAR_IDS[(idx + 1) % 16] : p2); setCursor(other); if (p2 === id) setP2(CHAR_IDS[other]);
     } else { setP2(id); setScreen('stage'); }
-  }, [pick, mode, p2, round]);
+  }, [pick, mode, p1, p2, round]);
   const cols = 4; // la grilla es un cuadrado de 4 × 4
   // teclado de las pantallas de elegir
   useEffect(() => {
@@ -231,14 +231,15 @@ export function KombatFootball() {
   useEffect(() => {
     if (screen !== 'playing') { setCrowd(0); return; }
     setCrowd(0.6);
-    let frame = 0, last = performance.now(), bounceT = 0, tiredT = 0, bannerId = 0;
+    let frame = 0, last = performance.now(), acc = 0, bounceT = 0, tiredT = 0, bannerId = 0;
     const human = (side: 0 | 1) => modeRef.current === 'versus' || side === 0;
     const who = (side: 0 | 1) => modeRef.current === 'versus' ? `J${side + 1}` : side === 0 ? 'Vos' : 'Rival';
     const tick = (now: number) => {
       const m = matchRef.current; if (!m) return;
-      const dt = Math.min(0.05, (now - last) / 1000); last = now;
-      step(m, inputs.current, dt);
-      inputs.current[0].cast = null; inputs.current[1].cast = null;
+      // pasos fijos de 1/60 s: si la compu va lenta el partido no se pone en cámara lenta (hasta 6 pasos por cuadro)
+      const dt = Math.min(0.2, (now - last) / 1000); last = now; acc += dt;
+      for (let n = 0; acc >= 1 / 60 && n < 6; n++) { acc -= 1 / 60; step(m, inputs.current, 1 / 60); inputs.current[0].cast = null; inputs.current[1].cast = null; }
+      if (acc > 1 / 60) acc = 0;
       bounceT -= dt; tiredT -= dt;
       for (const e of takeEvents(m)) {
         switch (e.type) {
@@ -254,7 +255,9 @@ export function KombatFootball() {
           case 'goal': playGoal(); shout(e.fatal ? '☠ FATAL GOAL ☠' : '¡GOL!', e.fatal ? 'fatal' : 'goal', `${CHARS[m.fighters[e.side].char].name} ${m.fighters[0].goals} - ${m.fighters[1].goals}`, 2400); break;
           case 'save': playKfBlock(); shout('¡SALVADA!', 'block', `${CHARS[m.fighters[e.side].char].name} la sacó del arco`, 1000); break;
           case 'ballDrop': playKfPickup(); break;
-          case 'refDown': shout('¡ÁRBITRO KO!', 'block', 'Vuelve en unos segundos', 1300); break;
+          case 'refDown': shout('¡EL ÁRBITRO REVENTÓ!', 'block', 'En unos segundos entra otro', 1500); break;
+          case 'refBoom': playExplosion(); break;
+          case 'ballBoom': playExplosion(); shout('¡LA PELOTA EXPLOTÓ!', 'block', 'La salvó justo antes del gol · baja otra por el tubo', 1500); break;
           case 'power': playKfPickup(); shout(`${who(e.side)}: ${POWERS[e.kind].name}`, 'info', POWERS[e.kind].text, 2200); break;
           case 'ballKind': if (e.kind !== 'normal') { playKfPickup(); shout(BALLS[e.kind].name, 'info', BALLS[e.kind].text, 2600); } break;
           case 'unlock':
@@ -325,7 +328,6 @@ export function KombatFootball() {
   });
 
   const chars: [CharId, CharId] = screen === 'playing' || screen === 'paused' || screen === 'result' || screen === 'champion' ? fighting : [p1, mode === 'tournament' ? tournamentRival(p1, round) : p2];
-  const tester = isTester();
   const isHuman = (i: 0 | 1) => mode === 'versus' || i === 0;
   // La barra de arriba de cada lado: retrato, nombre y la energía (con el poder y la habilidad abajo).
   const sideBar = (i: 0 | 1) => {
@@ -443,11 +445,8 @@ export function KombatFootball() {
           <button type="button" onClick={() => chooseChar(cursor)}>Elegir {CHARS[CHAR_IDS[cursor]].name} ▶</button>
         </div>
         <p className="kf-hint">Flechas para moverte · ENTER para elegir · o tocá la cara (dos veces para elegir)</p>
-        {mode === 'tournament' && (tester || record.best > 0) && <div className="kf-stages kf-rounds" role="group" aria-label="Partido del torneo">
-          {TOURNAMENT_STAGES.map((st, n) => { const locked = !tester && n > Math.min(record.best, TOURNAMENT - 1); return <button key={st} type="button" disabled={locked} className={round === n ? 'kf-chosen' : ''} aria-pressed={round === n} onClick={() => setRound(n)}><b>{locked ? '🔒' : n + 1}</b><small>{STAGES.find(s => s.id === st)!.name}</small></button>; })}
-        </div>}
       </div>}
-      {screen !== 'playing' && !selecting && <div className="runner-overlay kf-overlay" role="dialog" aria-labelledby="kf-title">
+      {screen !== 'playing' && !selecting && <div className={`runner-overlay kf-overlay${screen === 'menu' ? ' kf-menu-wall' : ''}`} role="dialog" aria-labelledby="kf-title" style={screen === 'menu' ? { backgroundImage: `radial-gradient(ellipse at 50% 45%, #0000 40%, #000000b3 100%), url(${brokenWallURL() ?? ''})`, backgroundSize: 'auto, cover', backgroundPosition: 'center', backgroundColor: '#151614' } : undefined}>
         <div>
           {screen === 'menu' && <>
             <h2 id="kf-title" className="kf-logo">KOMBAT<br /><span>FOOTBALL</span></h2>
