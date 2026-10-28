@@ -13,10 +13,10 @@ function keys(seq: (keyof Input)[]) {
 }
 
 describe('Kombat Football', () => {
-  it('hay 16 luchadores, cada uno con su habilidad, y 10 escenarios', () => {
+  it('hay 16 luchadores, cada uno con su habilidad, y 16 escenarios', () => {
     expect(CHAR_IDS).toHaveLength(16);
     expect(new Set(CHAR_IDS.map(c => CHARS[c].ability)).size).toBe(16);
-    expect(STAGES).toHaveLength(10);
+    expect(STAGES).toHaveLength(16);
   });
 
   it('los más grandes son BRUTO, BRUTO ROJO y MAGMA y los más petizos CYBER, THUNDER y COMETA', () => {
@@ -238,7 +238,7 @@ describe('Kombat Football', () => {
     expect(m.phase).toBe('end');
   });
 
-  it('dos máquinas juegan partidos completos en los 10 escenarios sin romperse y casi sin goles en contra', () => {
+  it('dos máquinas juegan partidos completos en los 16 escenarios sin romperse y casi sin goles en contra', () => {
     let goals = 0, matches = 0, own = 0;
     STAGES.forEach((stage, i) => {
       const m = newMatch(stage.id, [CHAR_IDS[i], CHAR_IDS[15 - i]], [0.6, 0.6], seeded(100 + i));

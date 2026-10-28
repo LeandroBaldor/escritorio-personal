@@ -33,14 +33,14 @@ export const HALF_TIME = 90; // cada tiempo dura 1:30
 export const STAMINA = 100; // energía llena
 export const POWER_MAX = 100; // poder para el FATAL GOAL
 export const FATAL_CINE = 1.4; // la presentación del FATAL GOAL (todo se congela)
-export const TOURNAMENT = 10;
+export const TOURNAMENT = 15; // todos los demás luchadores, uno por uno
 export const TUBE_Y = 10.4; // boca del tubo del medio, por donde baja la pelota
 
 export type CharId = 'cometa' | 'inferno' | 'frost' | 'thunder' | 'shadow' | 'shadowRed' | 'orbot' | 'orbotBlue' | 'bruto' | 'brutoRed' | 'aguila' | 'aguilaBlack' | 'espectro' | 'toxic' | 'magma' | 'cyber';
 export type Ability = 'superJump' | 'fireball' | 'freeze' | 'lightning' | 'shuriken' | 'bomb' | 'burst' | 'beam' | 'quake' | 'charge' | 'flight' | 'feathers' | 'phase' | 'toxicCloud' | 'magmaSpikes' | 'laserCut';
 export type Element = 'fire' | 'ice' | 'volt' | 'dark' | 'toxic' | 'rock';
 export type FatalStyle = 'meteor' | 'avalanche' | 'bolt' | 'void' | 'acid' | 'boulder';
-export type StageId = 'industrial' | 'mines' | 'base' | 'ice' | 'volcano' | 'forest' | 'factory' | 'storm' | 'temple' | 'moon';
+export type StageId = 'industrial' | 'mines' | 'base' | 'ice' | 'volcano' | 'forest' | 'factory' | 'storm' | 'temple' | 'moon' | 'subway' | 'pit' | 'desert' | 'ocean' | 'sky' | 'coliseum';
 export type PowerKind = 'shield' | 'speed' | 'magnet' | 'power' | 'giant' | 'energy';
 export type BallKind = 'normal' | 'toxic' | 'fire' | 'ice' | 'spike' | 'void';
 // Combinación del FATAL GOAL (F = adelante, hacia el arco rival; B = atrás) + patear.
@@ -91,6 +91,12 @@ export const STAGES: StageDef[] = [
   { id: 'storm', name: 'Torres en la Tormenta', hazard: 'Rayos, placas eléctricas y bolas con púas', gravity: 1, friction: 1 },
   { id: 'temple', name: 'El Templo Antiguo', hazard: 'Antorchas de fuego, pinches y escalones', gravity: 1, friction: 1 },
   { id: 'moon', name: 'La Luna', hazard: 'Gravedad lunar, láseres y bloques con pinches', gravity: 0.45, friction: 1 },
+  { id: 'subway', name: 'Estación de Subte', hazard: 'Riel electrificado, láseres y una plataforma que va y viene', gravity: 1, friction: 1 },
+  { id: 'pit', name: 'El Puente del Foso', hazard: 'Bolas con púas, pinches y un ascensor sobre el abismo', gravity: 1, friction: 1 },
+  { id: 'desert', name: 'Desierto de Fuego', hazard: 'Géiseres de fuego, sierras y arena que resbala', gravity: 1, friction: 0.8 },
+  { id: 'ocean', name: 'Fondo del Mar', hazard: 'Minas submarinas, erizos y se flota (poca gravedad)', gravity: 0.55, friction: 0.9 },
+  { id: 'sky', name: 'Ciudad en las Nubes', hazard: 'Rayos, láseres y plataformas en el aire', gravity: 0.8, friction: 1 },
+  { id: 'coliseum', name: 'El Coliseo', hazard: 'Pinches, fuego, un pistón y una bola con púas', gravity: 1, friction: 1 },
 ];
 export const stageDef = (id: StageId) => STAGES.find(s => s.id === id) ?? STAGES[0];
 
@@ -136,7 +142,7 @@ export interface Person { // el árbitro
   roam?: { x: number; t: number; solid: number | null }; // a dónde va (recorre la cancha y se sube a las plataformas)
 }
 export interface Ball { x: number; y: number; vx: number; vy: number; spin: number; kind: BallKind; kindT: number; owner: 0 | 1 | null; fx: 'none' | 'toxic' | 'fire' | 'ice' | 'volt' | 'void'; fxT: number; frozen: number; alive: boolean; respawn: number; heat: number; pass?: { side: 0 | 1; t: number } } // pass: atraviesa un ratito al que la acaba de pegar
-export type PropLook = 'container' | 'cart' | 'crystal' | 'pod' | 'icecube' | 'snow' | 'obsidian' | 'basalt' | 'log' | 'stump' | 'barrels' | 'tomb' | 'altar' | 'column' | 'boulder';
+export type PropLook = 'bench' | 'cactus' | 'coral' | 'chest' | 'statue' | 'crate' | 'container' | 'cart' | 'crystal' | 'pod' | 'icecube' | 'snow' | 'obsidian' | 'basalt' | 'log' | 'stump' | 'barrels' | 'tomb' | 'altar' | 'column' | 'boulder';
 export interface Solid { x: number; y: number; w: number; h: number; kind: 'block' | 'float' | 'bouncy'; id: number; move?: Mover; look?: PropLook }
 // Plataformas que se mueven: ascensores (suben y bajan), plataformas que van y vienen y pistones que salen del piso.
 export interface Mover { kind: 'lift' | 'slide' | 'piston'; x0: number; y0: number; h0: number; ax: number; ay: number; ah: number; period: number; phase: number }
@@ -279,6 +285,37 @@ function buildStage(m: Match) {
       trap('spikes', 8, 1.6, 0.9); laser(11, 4.6, 1.5);
       mover('slide', W / 2, 6, 2.4, 0.35, 3, 0, 0, 9, 0, false);
       mover('lift', 4.2, 1.8, 1.6, 0.35, 0, 2.6, 0, 8);
+      break;
+    case 'subway':
+      block(6.9, 1.8, 0.6, 'block', 'bench'); plat(10.4, 3.2, 3); block(12.9, 1, 0.9, 'block', 'crate');
+      trap('shock', 8.9, 1.6, 0); laser(12, 4.6, 1.2);
+      mover('slide', W / 2, 5.4, 2.4, 0.35, 2.8, 0, 0, 7, 0, false);
+      break;
+    case 'pit':
+      block(7, 1.6, 0.8, 'block', 'column'); plat(5, 3.2, 2.2); trap('spikes', 9.4, 1.4, 0, { t: 1.5 });
+      both(11.6, x => Z.push(hz('wreck', x, H - 0.4, 0, 8.4, { t: x < W / 2 ? 0 : Math.PI })));
+      mover('lift', W / 2, 1.2, 2, 0.35, 0, 3.4, 0, 8, 0, false);
+      break;
+    case 'desert':
+      block(6.6, 0.9, 1.5, 'block', 'cactus'); plat(9.6, 3.4, 2.6); block(12.6, 1.8, 0.7, 'block', 'crate');
+      trap('flame', 9.6, 0.9, 0, { t: 1.8 }); saw(10.8, 12.2, 2);
+      mover('piston', 4.4, 0, 1.4, 0.15, 0, 0, 1.2, 5.5);
+      break;
+    case 'ocean':
+      block(7, 1.8, 0.8, 'block', 'coral'); block(12.5, 1.3, 0.7, 'block', 'chest'); plat(9.4, 3.2, 2.4);
+      trap('spikes', 4.6, 1.2, 0, { t: 2 }); both(10.6, x => Z.push(hz('mine', x, 5.2, 0.45, 0)));
+      mover('lift', W / 2, 2, 2.2, 0.35, 0, 2.6, 0, 9, 0, false);
+      break;
+    case 'sky':
+      plat(6.4, 2.8, 2.4); plat(10.6, 4.2, 2.6); block(12.8, 1.2, 0.7, 'block', 'statue');
+      laser(8.6, 4.6, 0.8); trap('spikes', 10.6, 1.4, 0, { t: 3 });
+      mover('lift', 3.8, 1.5, 1.6, 0.35, 0, 2.6, 0, 6.5); mover('slide', W / 2, 6.6, 2.4, 0.35, 3, 0, 0, 8, 0, false);
+      break;
+    case 'coliseum':
+      block(6.8, 1.4, 1.1, 'block', 'statue'); plat(10.8, 3.3, 2.6);
+      trap('spikes', 9, 1.6, 0); trap('flame', 12.6, 0.9, 0, { t: 2.2 });
+      mover('piston', W / 2, 0, 1.8, 0.15, 0, 0, 1.2, 6, 0, false);
+      Z.push(hz('wreck', W / 2, H - 0.4, 0, H - 3.4));
       break;
   }
   m.solids = S; m.hazards = Z;
@@ -1106,7 +1143,8 @@ function updateHazards(m: Match, dt: number) {
     switch (m.stage) {
       case 'volcano': spawn('meteor', x, 1.8, 1.3); m.nextHazard = 5 + r() * 3; break;
       case 'ice': spawn('icicle', x, 0.9, 1); m.nextHazard = 4.5 + r() * 4; break;
-      case 'storm': spawn('lightning', x, 1.3, 1.1); m.nextHazard = 5 + r() * 3; break;
+      case 'storm': case 'sky': spawn('lightning', x, 1.3, 1.1); m.nextHazard = (m.stage === 'sky' ? 7 : 5) + r() * 3; break;
+      case 'desert': spawn('meteor', x, 1.6, 1.4); m.nextHazard = 7 + r() * 4; break; // bolas de fuego del cielo
       default: m.nextHazard = 99;
     }
   }

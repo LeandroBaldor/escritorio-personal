@@ -1140,7 +1140,7 @@ test('Kombat Football: se abre desde Juegos, se eligen los luchadores como en un
   await page.goto('/escritorio-personal/#/juegos');
   await page.getByRole('link', { name: /Kombat Football/ }).click();
   await expect(page.getByRole('heading', { name: 'Kombat Football', level: 1 })).toBeVisible();
-  await page.getByRole('button', { name: /contra la máquina/ }).click();
+  await page.getByRole('button', { name: /contra la máquina/i }).click();
   const mine = page.getByRole('group', { name: 'Tu luchador' }).getByRole('button', { name: 'FROST' });
   await mine.click();
   await expect(page.getByTestId('kf-pick-1')).toHaveText('FROST');
@@ -1166,4 +1166,16 @@ test('Kombat Football: se abre desde Juegos, se eligen los luchadores como en un
   await expect(page.getByRole('heading', { name: 'Pausa' })).toHaveCount(0);
   await page.getByRole('link', { name: '‹ Juegos' }).click();
   await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
+});
+
+test('Kombat Football torneo: la escalera de rivales como en Mortal Kombat', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/juegos');
+  await page.getByRole('link', { name: /Kombat Football/ }).click();
+  await page.getByRole('button', { name: 'Torneo' }).click();
+  const mine = page.getByRole('group', { name: 'Tu luchador' }).getByRole('button', { name: 'FROST' });
+  await mine.click(); await mine.click();
+  await expect(page.getByRole('heading', { name: 'ELEGÍ TU DESTINO' })).toBeVisible();
+  await expect(page.getByTestId('kf-ladder-next')).toContainText('Partido 1 de 15');
+  await page.getByRole('button', { name: '¡A pelear! ▶' }).click();
+  await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
 });

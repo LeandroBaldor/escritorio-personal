@@ -153,7 +153,7 @@ export function Games() {
           <span className="game-card-text">
             <strong>Kombat Football</strong>
             <span>☠️ Fútbol 1 contra 1 al estilo Mortal Kombat: patadas, poderes de fuego, hielo, veneno, rayo y oscuridad, y escenarios llenos de peligros.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Meté más goles que el rival en 2 minutos (si empatan, gol de oro). Con la barra llena tirá el FATAL GOAL. En el torneo, ganá 10 partidos seguidos.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Meté más goles que el rival en dos tiempos de 1:30 (si empatan, gol de oro). Con la barra llena tirá el FATAL GOAL. En el torneo, subí la escalera ganándole a los 15 rivales, uno por uno.</span>
           </span>
           <span className="game-card-foot">
             {kombat.wins + kombat.losses > 0 && <small><b>Récord</b>{kombat.cups ? `🏆 ${kombat.cups} · ` : ''}{kombat.wins}G {kombat.losses}P</small>}
