@@ -255,7 +255,7 @@ describe('Kombat Football', () => {
     expect(seen).toEqual(['strike:1:green', 'fighterBoom:1:green']);
     expect(m.fighters[1].gone).toBe(true);
     expect(m.screenBlood.length).toBeGreaterThan(5);
-    expect(m.gore.drops.length).toBeGreaterThan(300);
+    expect(m.gore.drops.length).toBeGreaterThan(120); // (al azar: muchas ya cayeron y mancharon)
     play(m, 2.5);
     expect(m.phase).toBe('play');
     expect(m.fighters[1].gone).toBe(false);
