@@ -28,6 +28,22 @@ export const SIZE: Record<CharId, number> = {
   inferno: 1.08, frost: 1, shadow: 0.9, shadowRed: 0.94, orbot: 1.12, orbotBlue: 1.05, aguila: 1.03, aguilaBlack: 0.97, espectro: 1.1, toxic: 0.88,
 };
 export const heightOf = (f: { char: CharId }) => PH * SIZE[f.char];
+// Velocidad, fuerza y salto de cada luchador (0 a 100), según el tamaño: los grandotes pegan más fuerte pero son
+// lentos y saltan poco; los petizos corren y saltan más pero patean más flojo. Cada uno tiene además lo suyo
+// (Cometa salta como nadie, Shadow es el más escurridizo, las Águilas saltan bien por las alas).
+export interface Stats { speed: number; strength: number; jump: number }
+export const STATS: Record<CharId, Stats> = {
+  bruto: { speed: 37, strength: 95, jump: 40 }, brutoRed: { speed: 42, strength: 93, jump: 42 }, magma: { speed: 40, strength: 90, jump: 45 },
+  orbot: { speed: 58, strength: 76, jump: 55 }, espectro: { speed: 66, strength: 64, jump: 58 }, inferno: { speed: 60, strength: 78, jump: 56 },
+  orbotBlue: { speed: 60, strength: 72, jump: 58 }, aguila: { speed: 64, strength: 66, jump: 74 }, frost: { speed: 64, strength: 68, jump: 62 },
+  aguilaBlack: { speed: 68, strength: 62, jump: 72 }, shadowRed: { speed: 76, strength: 60, jump: 70 }, shadow: { speed: 84, strength: 52, jump: 74 },
+  toxic: { speed: 72, strength: 58, jump: 66 }, cometa: { speed: 86, strength: 40, jump: 95 }, thunder: { speed: 96, strength: 36, jump: 84 },
+  cyber: { speed: 94, strength: 38, jump: 86 },
+};
+// cómo se traducen al juego: multiplican la carrera, la patada y el salto
+const speedMul = (c: CharId) => 0.72 + STATS[c].speed / 100 * 0.5;
+const strengthMul = (c: CharId) => 0.75 + STATS[c].strength / 100 * 0.45;
+const jumpMul = (c: CharId) => 0.78 + STATS[c].jump / 100 * 0.4;
 const bodyH = (p: object) => 'char' in p ? heightOf(p as { char: CharId }) : PH; // alto de una persona
 export const HALF_TIME = 90; // cada tiempo dura 1:30
 export const STAMINA = 100; // energía llena
@@ -57,7 +73,7 @@ export interface CharDef {
 const C = (id: CharId, name: string, color: string, glow: string, element: Element, stats: [number, number, number, number], ability: Ability, abilityName: string, abilityText: string, cost: number, cd: number, bio: string): CharDef => {
   const fatal: FatalStyle = ({ fire: 'meteor', ice: 'avalanche', volt: 'bolt', dark: 'void', toxic: 'acid', rock: 'boulder' } as const)[element];
   const fatalName = ({ meteor: 'METEORITO', avalanche: 'AVALANCHA', bolt: 'RELÁMPAGO', void: 'AGUJERO NEGRO', acid: 'BOMBA ÁCIDA', boulder: 'ROCA GIGANTE' } as const)[fatal];
-  return { id, name, color, glow, element, fatal, fatalName, bio, speed: stats[0], power: stats[1], jump: stats[2], rest: stats[3], ability, abilityName, abilityText, cost, cd };
+  return { id, name, color, glow, element, fatal, fatalName, bio, speed: speedMul(id), power: strengthMul(id), jump: jumpMul(id), rest: stats[3], ability, abilityName, abilityText, cost, cd };
 };
 export const CHARS: Record<CharId, CharDef> = {
   cometa: C('cometa', 'COMETA', '#60a5fa', '#bae6fd', 'ice', [1.04, 0.95, 1.15, 1.05], 'superJump', 'Salto potenciado', 'Sale volando con los propulsores: si en el aire toca la pelota, la manda lejísimos.', 14, 1.8, 'Un astronauta de las estaciones de hielo. Salta como nadie.'),

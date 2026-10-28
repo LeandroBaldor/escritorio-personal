@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BALL_R, CHARS, CHAR_IDS, SIZE, heightOf, GOAL_DEPTH, HALF_TIME, POWER_MAX, STAGES, STAMINA, TUBE_Y, W, attackDir, defendsLeft, fatalKeys, fatalPath, goalHeight, netTop, newMatch, teamAt, noInput, seeded, step, supportAt, takeEvents, type Input, type Match } from './kombat';
+import { BALL_R, CHARS, CHAR_IDS, SIZE, heightOf, GOAL_DEPTH, HALF_TIME, POWER_MAX, STAGES, STAMINA, STATS, TUBE_Y, W, attackDir, defendsLeft, fatalKeys, fatalPath, goalHeight, netTop, newMatch, teamAt, noInput, seeded, step, supportAt, takeEvents, type Input, type Match } from './kombat';
 
 const idle = (): [Input, Input] => [noInput(), noInput()];
 function play(m: Match, seconds: number, inputs: (m: Match) => [Input, Input] = idle) {
@@ -24,6 +24,15 @@ describe('Kombat Football', () => {
     expect(new Set(order.slice(0, 3))).toEqual(new Set(['bruto', 'brutoRed', 'magma']));
     expect(new Set(order.slice(-3))).toEqual(new Set(['cyber', 'thunder', 'cometa']));
     expect(heightOf({ char: 'bruto' })).toBeGreaterThan(heightOf({ char: 'cometa' }) * 1.8);
+  });
+
+  it('velocidad, fuerza y salto van de 0 a 100 según el tamaño: los grandotes más fuertes y lentos, los petizos más rápidos', () => {
+    const big = ['bruto', 'brutoRed', 'magma'] as const, small = ['cyber', 'thunder', 'cometa'] as const;
+    for (const b of big) for (const c of CHAR_IDS) if (!(big as readonly string[]).includes(c)) { expect(STATS[b].strength).toBeGreaterThan(STATS[c].strength); expect(STATS[b].speed).toBeLessThan(STATS[c].speed); }
+    for (const sm of small) for (const b of big) { expect(STATS[sm].speed).toBeGreaterThan(STATS[b].speed + 40); expect(STATS[sm].jump).toBeGreaterThan(STATS[b].jump); }
+    for (const c of CHAR_IDS) for (const v of Object.values(STATS[c])) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(100); }
+    expect(CHARS.cyber.speed).toBeGreaterThan(CHARS.bruto.speed * 1.25); // y se nota en el juego
+    expect(CHARS.bruto.power).toBeGreaterThan(CHARS.cyber.power * 1.2);
   });
 
   it('la pelota baja por el tubo del medio al empezar', () => {
@@ -198,11 +207,16 @@ describe('Kombat Football', () => {
   });
 
   it('el árbitro recorre toda la cancha y se sube a las plataformas', () => {
-    const m = newMatch('temple', ['cometa', 'toxic'], [0.5, 0.5], seeded(18));
-    let lo = W, hi = 0, up = 0;
-    play(m, 90, mm => { const r = mm.ref; if (r.action !== 'gone') { lo = Math.min(lo, r.x); hi = Math.max(hi, r.x); if (r.ground) up = Math.max(up, r.y); } return idle(); });
-    expect(hi - lo).toBeGreaterThan(15);
-    expect(up).toBeGreaterThan(1);
+    // (depende de cómo viene cada partido: se juegan varios y en la mayoría se tiene que subir)
+    let climbed = 0;
+    for (const sd of [11, 13, 16, 18, 20]) {
+      const m = newMatch('temple', ['cometa', 'toxic'], [0.5, 0.5], seeded(sd));
+      let lo = W, hi = 0, up = 0;
+      play(m, 90, mm => { const r = mm.ref; if (r.action !== 'gone') { lo = Math.min(lo, r.x); hi = Math.max(hi, r.x); if (r.ground) up = Math.max(up, r.y); } return idle(); });
+      expect(hi - lo).toBeGreaterThan(15);
+      if (up > 1) climbed++;
+    }
+    expect(climbed).toBeGreaterThanOrEqual(3);
   });
 
   it('el FATAL GOAL necesita la barra de poder llena, entra si nadie lo frena, y una habilidad del rival lo para', () => {

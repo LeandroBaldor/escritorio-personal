@@ -1328,7 +1328,19 @@ export function playWorm() {
 const KF_NAMES = import.meta.glob('./assets/sonidos/kf-nombre-*.mp3', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const kfNameUrl = (id: string) => KF_NAMES[`./assets/sonidos/kf-nombre-${id}.mp3`];
 export function preloadKombatSounds() { for (const url of [golUrl, hinchadaUrl, patadaUrl, explosionUrl, laserUrl, trepaFuegoUrl, bombaUrl, ...TRUENOS, ...Object.values(KF_NAMES)]) loadSample(url); }
-export function playKfName(id: string, delay = 0) { const url = kfNameUrl(id); if (url) playSample(url, 1, delay); }
+// (si ya estaba diciendo otro nombre, lo corta: así al recorrer la grilla rápido no se pisan)
+let lastName: AudioBufferSourceNode | null = null;
+export function playKfName(id: string, delay = 0) {
+  const url = kfNameUrl(id); if (!url) return;
+  unlockSounds();
+  whenRunning(c => {
+    const buffer = samples.get(url);
+    if (!(buffer instanceof AudioBuffer)) { loadSample(url); return; }
+    try { lastName?.stop(); } catch { /* ya terminó */ }
+    const src = c.createBufferSource(), gain = c.createGain(); src.buffer = buffer; gain.gain.value = 1;
+    src.connect(gain).connect(out(c)); src.start(c.currentTime + delay); lastName = src;
+  });
+}
 // Los sonidos grabados de Kombat Football: botones, la pelota, el láser del mapa, el relator y el locutor.
 const KF = import.meta.glob('./assets/sonidos/kf-*.mp3', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const kf = (name: string) => KF[`./assets/sonidos/kf-${name}.mp3`];
