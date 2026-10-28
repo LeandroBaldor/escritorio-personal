@@ -97,7 +97,7 @@ export const CHAR_IDS: CharId[] = ['cometa', 'inferno', 'frost', 'thunder', 'sha
 
 export interface StageDef { id: StageId; name: string; hazard: string; gravity: number; friction: number }
 export const STAGES: StageDef[] = [
-  { id: 'industrial', name: 'Planeta Herrumbre', hazard: 'Láseres, pinches, sierras y una bola con púas', gravity: 1, friction: 1 },
+  { id: 'industrial', name: 'Planeta Neon', hazard: 'Láseres, pinches, sierras y una bola con púas', gravity: 1, friction: 1 },
   { id: 'mines', name: 'Planeta Minado', hazard: 'Minas flotantes, láseres y plataformas con pinches', gravity: 0.85, friction: 1 },
   { id: 'base', name: 'Planeta Órbita', hazard: 'Gravedad baja y muchos láseres', gravity: 0.7, friction: 1 },
   { id: 'ice', name: 'Planeta Helado', hazard: 'Piso que resbala, pinches y carámbanos que caen', gravity: 1, friction: 0.35 },
@@ -107,7 +107,7 @@ export const STAGES: StageDef[] = [
   { id: 'storm', name: 'Planeta Tormenta', hazard: 'Rayos, placas eléctricas y bolas con púas', gravity: 1, friction: 1 },
   { id: 'temple', name: 'Planeta Ancestral', hazard: 'Antorchas de fuego, pinches y escalones', gravity: 1, friction: 1 },
   { id: 'moon', name: 'Planeta Selene', hazard: 'Gravedad lunar, láseres y bloques con pinches', gravity: 0.45, friction: 1 },
-  { id: 'subway', name: 'Planeta Metro', hazard: 'Riel electrificado, láseres y una plataforma que va y viene', gravity: 1, friction: 1 },
+  { id: 'subway', name: 'Planeta Templo', hazard: 'Riel electrificado, láseres y una plataforma que va y viene', gravity: 1, friction: 1 },
   { id: 'pit', name: 'Planeta Abismo', hazard: 'Bolas con púas, pinches y un ascensor sobre el abismo', gravity: 1, friction: 1 },
   { id: 'desert', name: 'Planeta Duna', hazard: 'Géiseres de fuego, sierras y arena que resbala', gravity: 1, friction: 0.8 },
   { id: 'ocean', name: 'Planeta Coral', hazard: 'Minas submarinas, erizos y se flota (poca gravedad)', gravity: 0.55, friction: 0.9 },

@@ -12,7 +12,7 @@ import { fbm, pixels, ramp } from './gravityBackdrops';
 import { drawFighterLit, drawRefLit, LOOKS } from './kombatFighters';
 import { alpha, bloom, darken, grain, hash, lighten, lin, shade, spec, zap } from './gravityMonsters';
 import { bolt, hazardStripes, laserBeam, laserWarnLine, plate, rock, sawBlade, seaMine, steelSpikes } from './gravityHazardArt';
-import { drawAmbient, gradeScenery, paintScenery } from './kombatScenery';
+import { backdropReady, drawAmbient, gradeScenery, paintBackdrop, paintScenery } from './kombatScenery';
 import { STRUCT, paintEmitter, paintEmitterMount, paintLiftDrive, paintPlatform, paintSlideRail, paintSupport } from './kombatStructures';
 
 const TAU = Math.PI * 2;
@@ -50,16 +50,18 @@ export const THEMES: Record<StageId, Theme> = {
 // ---------------------------------------------------------------- Fondo + piso + plataformas + tubo (se pintan una vez)
 const bgCache = new Map<string, HTMLCanvasElement | null>();
 function background(m: Match, v: View): HTMLCanvasElement | null {
-  const key = `${m.stage}:${Math.round(v.w)}x${Math.round(v.h)}`;
+  const key = `${m.stage}:${Math.round(v.w)}x${Math.round(v.h)}:${backdropReady(m.stage) ? 'img' : 'drawn'}`; // (cuando carga la imagen se vuelve a armar)
   if (bgCache.has(key)) return bgCache.get(key)!;
   if (typeof document === 'undefined') return null;
   const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(v.w)); c.height = Math.max(1, Math.round(v.h));
   const g = c.getContext('2d');
   if (!g) { bgCache.set(key, null); return null; }
   if (bgCache.size > 8) bgCache.clear();
-  paintScenery(g, m.stage, v.w, v.h, Y(v, 0), v.s);
-  gradeScenery(c, m.stage);
-  paintFloor(g, m.stage, v);
+  if (!paintBackdrop(g, m.stage, v.w, v.h, Y(v, 0))) { // el fondo pintado; mientras carga, el dibujado
+    paintScenery(g, m.stage, v.w, v.h, Y(v, 0), v.s);
+    gradeScenery(c, m.stage);
+    paintFloor(g, m.stage, v);
+  }
   for (const s of m.solids) if (!s.move) paintSolid(g, m.stage, s, v);
   paintTube(g, v);
   bgCache.set(key, c);
@@ -68,7 +70,7 @@ function background(m: Match, v: View): HTMLCanvasElement | null {
 // Miniatura de un escenario (para elegirlo), sin luchadores.
 export function drawStageThumb(ctx: CanvasRenderingContext2D, m: Match, w: number, h: number) {
   const s = w / W, v: View = { w, h: Math.max(h, (H * 0.75) * s), s, ox: 0, oy: h - 1.2 * s };
-  paintScenery(ctx, m.stage, v.w, v.h, Y(v, 0), v.s); paintFloor(ctx, m.stage, v);
+  if (!paintBackdrop(ctx, m.stage, v.w, v.h, Y(v, 0))) { paintScenery(ctx, m.stage, v.w, v.h, Y(v, 0), v.s); paintFloor(ctx, m.stage, v); }
   for (const sd of m.solids) paintSolid(ctx, m.stage, sd, v);
   for (const hz of m.hazards) { if (hz.kind === 'spikes' || hz.kind === 'laser' || hz.kind === 'saw' || hz.kind === 'flame' || hz.kind === 'shock') { const st = hz.state; hz.state = 2; drawTrap(ctx, hz, m, v); hz.state = st; } else if (hz.kind !== 'meteor' && hz.kind !== 'icicle' && hz.kind !== 'lightning') drawHazard(ctx, hz, m, v); }
   drawGoal(ctx, m, v, true, false); drawGoal(ctx, m, v, false, false); drawGoal(ctx, m, v, true, true); drawGoal(ctx, m, v, false, true);

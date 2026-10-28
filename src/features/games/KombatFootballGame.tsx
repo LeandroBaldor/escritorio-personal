@@ -7,6 +7,7 @@ import {
 import { brokenWallURL, drawMatch, drawStageThumb, viewFor, vortexURL } from './kombatArt';
 import { drawFighterCard, drawPortrait } from './kombatFighters';
 import { spaceURL } from './kombatSpace';
+import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
   playExplosion, playGameOver, playKfBlock, playKfBall, playKfButton, playKfFatal, playKfFinality, playKfGoal, playKfGoldenRound, playKfVsVoice, playKfYouDied, playKfHit, playKfJump, playKfKickoffVoice, playKfLaser, playKfName, playKfSelectVoice, playKfPickup, playKfPost, playKfPower, playLaserOn,
   playRefWhistle, playStart, playThunder, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
@@ -123,12 +124,14 @@ function Ladder({ you, round, from, height }: { you: CharId; round: number; from
 }
 function StageThumb({ stage, w, h }: { stage: StageId; w: number; h: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const [loaded, setLoaded] = useState(0);
+  useEffect(() => onBackdropLoad(() => setLoaded(n => n + 1)), []); // cuando llega el fondo pintado, se redibuja
   useEffect(() => {
     const c = ref.current; if (!c) return;
     const k = Math.min(2, window.devicePixelRatio || 1); c.width = w * k; c.height = h * k;
     const ctx = c.getContext('2d'); if (!ctx) return;
     ctx.setTransform(k, 0, 0, k, 0, 0); drawStageThumb(ctx, newMatch(stage, ['cometa', 'inferno'], [null, null]), w, h);
-  }, [stage, w, h]);
+  }, [stage, w, h, loaded]);
   return <canvas ref={ref} style={{ width: '100%', aspectRatio: `${w}/${h}` }} aria-hidden="true" />;
 }
 const Keys = ({ keys }: { keys: string[] }) => <span className="kf-combo">{keys.map((k, i) => <span key={i}>{i > 0 && <i>+</i>}<kbd>{k}</kbd></span>)}</span>;
@@ -244,7 +247,7 @@ export function KombatFootball() {
   }, [screen, cursor, cols, narrow, stage, pick, p1, p2, mode, round, begin, chooseChar]);
 
   // La música del menú: suena mientras se elige y se corta cuando aparece el escenario del partido.
-  useEffect(() => { preloadKombatUi(); const id = window.setTimeout(() => spaceURL(), 700); return () => window.clearTimeout(id); }, []); // el espacio de la selección se pinta antes de que haga falta
+  useEffect(() => { preloadKombatUi(); preloadBackdrops(STAGES.map(st => st.id)); const id = window.setTimeout(() => spaceURL(), 700); return () => window.clearTimeout(id); }, []); // el espacio de la selección se pinta antes de que haga falta
   useEffect(() => {
     setKfMusic(menuish);
     if (!menuish) return;

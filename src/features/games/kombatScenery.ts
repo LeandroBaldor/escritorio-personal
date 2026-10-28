@@ -8,6 +8,45 @@ import type { StageId } from './kombat';
 
 const TAU = Math.PI * 2;
 type Ctx = CanvasRenderingContext2D;
+
+// ---------------------------------------------------------------- Los fondos pintados (imágenes fijas)
+// Cada escenario tiene su fondo pintado (1672 × 941). FLOOR_Y es la altura, en la imagen, de la línea donde se
+// paran los luchadores: la imagen se escala para cubrir la pantalla y se corre para que esa línea quede justo
+// sobre el piso del juego. Todo lo demás (plataformas, trampas, arcos, lo que se mueve) se dibuja adelante.
+const BG_W = 1672, BG_H = 941;
+const FLOOR_Y: Record<StageId, number> = {
+  pit: 795, temple: 770, ocean: 850, desert: 785, factory: 715, forest: 770, coliseum: 785, ice: 780,
+  industrial: 755, subway: 790, mines: 775, sky: 755, base: 765, moon: 775, storm: 745, volcano: 760,
+};
+const BG_URLS = import.meta.glob('./assets/fondos/kf-fondo-*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const bgImgs = new Map<StageId, HTMLImageElement>();
+const readyFns = new Set<() => void>();
+function bgImage(stage: StageId): HTMLImageElement | null {
+  if (typeof Image === 'undefined') return null;
+  let img = bgImgs.get(stage);
+  if (!img) {
+    const url = BG_URLS[`./assets/fondos/kf-fondo-${stage}.webp`]; if (!url) return null;
+    img = new Image(); img.decoding = 'async'; img.src = url; bgImgs.set(stage, img);
+    img.onload = () => { for (const fn of readyFns) fn(); };
+  }
+  return img.complete && img.naturalWidth > 0 ? img : null;
+}
+export function preloadBackdrops(stages: StageId[]) { for (const st of stages) bgImage(st); }
+export function backdropReady(stage: StageId) { return !!bgImage(stage); }
+// avisa cuando termina de cargar algún fondo (para volver a dibujar las miniaturas)
+export function onBackdropLoad(fn: () => void) { readyFns.add(fn); return () => { readyFns.delete(fn); }; }
+// cómo queda la imagen en la pantalla: escala k y corrimiento (dx, dy)
+export function backdropFit(stage: StageId, w: number, h: number, ground: number) {
+  const fy = FLOOR_Y[stage], k = Math.max(w / BG_W, ground / fy, (h - ground) / (BG_H - fy));
+  return { k, dx: (w - BG_W * k) / 2, dy: ground - fy * k };
+}
+export function paintBackdrop(g: Ctx, stage: StageId, w: number, h: number, ground: number) {
+  const img = bgImage(stage); if (!img) return false;
+  const { k, dx, dy } = backdropFit(stage, w, h, ground);
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.drawImage(img, dx, dy, BG_W * k, BG_H * k);
+  return true;
+}
 interface Area { w: number; h: number; ground: number; s: number; res: number }
 
 // ---------------------------------------------------------------- Herramientas
@@ -605,9 +644,65 @@ function shootingStar(g: Ctx, w: number, top: number, t: number, seed: number) {
   g.strokeStyle = lin(g, x - len * 0.3, y - len * 0.1, x, y, [[0, 'rgba(255,255,255,0)'], [1, `rgba(255,255,255,${0.9 * (1 - u)})`]]); g.lineWidth = 2; g.beginPath(); g.moveTo(x - len * 0.3, y - len * 0.1); g.lineTo(x, y); g.stroke();
 }
 function puff(g: Ctx, x: number, y: number, r: number, color: string, a: number) { const gg = g.createRadialGradient(x, y, 0, x, y, r); gg.addColorStop(0, alpha(color, a)); gg.addColorStop(1, alpha(color, 0)); g.fillStyle = gg; g.fillRect(x - r, y - r, r * 2, r * 2); }
+// Una llama que titila (antorchas, braseros) con chispas que suben.
+function flame(g: Ctx, x: number, y: number, r: number, t: number, seed: number) {
+  const f = 0.8 + 0.2 * Math.sin(t * 13 + seed) + 0.1 * Math.sin(t * 29 + seed * 3);
+  g.globalCompositeOperation = 'lighter';
+  puff(g, x, y, r * 3.2 * f, '#ff7a1a', 0.22); puff(g, x, y - r * 0.4, r * 1.3 * f, '#ffd27a', 0.55);
+  for (let k = 0; k < 4; k++) { const u = wrap(t * 0.9 + k / 4 + seed, 1); g.fillStyle = `rgba(255,190,90,${0.9 * (1 - u)})`; g.fillRect(x + Math.sin(t * 3 + k + seed) * r * 0.8, y - r - u * r * 6, Math.max(1, r * 0.12), Math.max(1, r * 0.12)); }
+  g.globalCompositeOperation = 'source-over';
+}
+// Lo que se mueve sobre los fondos pintados (en coordenadas de la imagen de 1672 × 941).
+function drawPaintedAmbient(g: Ctx, stage: StageId, w: number, h: number, ground: number, s: number, t: number): boolean {
+  const { k, dx, dy } = backdropFit(stage, w, h, ground), X = (ix: number) => dx + ix * k, Y = (iy: number) => dy + iy * k, r = (n: number) => hash(n * 1.37 + stage.length * 11.1);
+  switch (stage) {
+    case 'coliseum': { // braseros encendidos, chispas que vuelan y pájaros
+      [[60, 470], [410, 640], [625, 655], [1040, 655], [1250, 640], [1615, 470]].forEach(([x, y], i) => flame(g, X(x), Y(y), k * 22, t, i * 1.7));
+      g.globalCompositeOperation = 'lighter'; for (let j = 0; j < 30; j++) { const u = wrap(t * (0.06 + r(j) * 0.05) + r(j + 1), 1); g.fillStyle = `rgba(255,170,80,${0.8 * (1 - u)})`; g.fillRect(w * r(j + 2) + Math.sin(t + j) * s * 0.5, ground - u * ground * 0.8, 2, 2); } g.globalCompositeOperation = 'source-over';
+      for (let j = 0; j < 3; j++) { const x = wrap(w * r(j + 50) + t * s * 1.3, w + s * 4) - s * 2; bird(g, x, ground * 0.1 + j * s * 0.6, s * 0.2, t + j, '#1e293b'); }
+      return true;
+    }
+    case 'subway': { // el templo de los cerezos: faroles que titilan y pétalos que caen con el viento
+      [[40, 180], [225, 210], [1640, 180], [1490, 205], [250, 555], [1495, 560], [670, 490], [1070, 480]].forEach(([x, y], i) => { g.globalCompositeOperation = 'lighter'; puff(g, X(x), Y(y), k * (40 + 8 * Math.sin(t * 3 + i * 2)), '#ffb347', 0.28); g.globalCompositeOperation = 'source-over'; });
+      [[110, 560], [1610, 560]].forEach(([x, y], i) => flame(g, X(x), Y(y), k * 20, t, i * 2.3));
+      for (let j = 0; j < 45; j++) { const u = wrap(t * (0.05 + r(j) * 0.04) + r(j + 7), 1), x = wrap(w * r(j + 3) + u * w * 0.5 + Math.sin(t * 1.3 + j) * s * 0.6, w), y = u * ground; g.save(); g.translate(x, y); g.rotate(t * 2 + j); g.fillStyle = j % 3 ? '#f9a8d4' : '#fbcfe8'; g.beginPath(); g.ellipse(0, 0, Math.max(2, s * 0.09), Math.max(1, s * 0.05), 0, 0, TAU); g.fill(); g.restore(); }
+      return true;
+    }
+    case 'factory': { // humo de las chimeneas, balizas rojas y chispas de soldadura de los brazos
+      for (const [x, y, big] of [[372, 55, 1], [688, 120, 1], [934, 160, 0.8], [1350, 230, 1.6], [1633, 30, 1]] as const) for (let j = 0; j < 5; j++) { const u = wrap(t * 0.12 + j / 5 + x, 1); puff(g, X(x) + u * s * 4 * big, Y(y) - u * s * 5 * big, s * (0.8 + u * 2.5) * big, '#d6c4b0', 0.3 * (1 - u)); }
+      for (const [x, y] of [[372, 50], [688, 115], [1350, 232], [1633, 25], [1030, 140]] as const) if (Math.sin(t * 3 + x) > 0) { g.globalCompositeOperation = 'lighter'; puff(g, X(x), Y(y), k * 30, '#ff2a2a', 0.8); g.globalCompositeOperation = 'source-over'; }
+      for (const [x, y] of [[440, 560], [1330, 520]] as const) if (Math.sin(t * 11 + x) > 0.1) { g.globalCompositeOperation = 'lighter'; puff(g, X(x), Y(y), k * 45, '#fff3b0', 0.7); for (let j = 0; j < 8; j++) { const a = r(j + Math.floor(t * 15)) * TAU, d = k * (20 + r(j * 3 + Math.floor(t * 15)) * 60); g.fillStyle = '#ffd27a'; g.fillRect(X(x) + Math.cos(a) * d, Y(y) + Math.abs(Math.sin(a)) * d, 2, 2); } g.globalCompositeOperation = 'source-over'; }
+      return true;
+    }
+    case 'volcano': { // el volcán del fondo escupe lava y humo; las antorchas titilan
+      const vx = X(1265), crater = Y(95);
+      g.globalCompositeOperation = 'lighter'; puff(g, vx, crater, k * (120 + Math.sin(t * 2) * 25), '#ff7a1a', 0.3);
+      for (let j = 0; j < 9; j++) { const per = 2.4 + r(j) * 1.5, u = wrap(t + r(j + 1) * per, per) / per, x = vx + (r(j + 2) - 0.5) * k * 260 * u, y = crater - k * 220 * u + k * 380 * u * u; g.fillStyle = `rgba(255,${150 + j * 10},60,${1 - u})`; g.beginPath(); g.arc(x, y, Math.max(1.5, k * 6), 0, TAU); g.fill(); }
+      g.globalCompositeOperation = 'source-over';
+      for (let j = 0; j < 5; j++) { const u = wrap(t * 0.08 + j / 5, 1); puff(g, vx + Math.sin(j * 2 + t * 0.3) * s * 2 + u * s * 6, crater - u * ground * 0.4, s * (1.5 + u * 3), '#1b0c09', 0.35 * (1 - u)); }
+      [[38, 45], [655, 375], [783, 375], [1420, 300], [1630, 45]].forEach(([x, y], i) => flame(g, X(x), Y(y), k * 22, t, i * 1.9));
+      return true;
+    }
+    case 'pit': { // antorchas de las torres que titilan, murciélagos y niebla que sube del foso
+      [[160, 240], [590, 295], [1065, 295], [1530, 285], [130, 420], [545, 445], [1060, 440], [1555, 430], [130, 740]].forEach(([x, y], i) => flame(g, X(x), Y(y), k * 20, t, i * 1.3));
+      for (let j = 0; j < 6; j++) { const x = wrap(r(j + 40) * w + t * s * (1.2 + j * 0.2) * (j % 2 ? -1 : 1), w + s * 4) - s * 2; bird(g, x, ground * (0.2 + (j % 3) * 0.1) + Math.sin(t * 2 + j) * s * 0.5, s * 0.28, t * 1.4 + j, '#0b0a14'); }
+      for (let j = 0; j < 4; j++) puff(g, wrap(r(j + 9) * w + t * s * 0.8, w + s * 10) - s * 5, ground - s * (1 + j * 0.7), s * 4.5, '#8b80c9', 0.13);
+      return true;
+    }
+    case 'industrial': { // la ciudad neón: naves que pasan, carteles que parpadean y reflectores
+      for (let j = 0; j < 4; j++) { const dir = j % 2 ? -1 : 1, sp = s * (1.2 + j * 0.5), x = wrap(r(j) * w + dir * t * sp, w + s * 6) - s * 3; ship(g, x, ground * (0.08 + j * 0.07), s * (0.35 + j * 0.08), t + j, dir, j === 1 ? '#f472b6' : '#38bdf8'); }
+      g.globalCompositeOperation = 'lighter';
+      [[405, 215, '#ff2d55'], [840, 250, '#c026d3'], [1150, 250, '#22d3ee'], [1300, 300, '#d946ef'], [295, 290, '#38bdf8']].forEach(([x, y, c], i) => { if (Math.sin(t * (2 + i) + i * 3) > -0.6) puff(g, X(x as number), Y(y as number), k * 110, c as string, 0.18 + 0.08 * Math.sin(t * 9 + i)); });
+      g.globalCompositeOperation = 'source-over';
+      return true;
+    }
+  }
+  return false;
+}
 export function drawAmbient(g: Ctx, stage: StageId, w: number, h: number, ground: number, s: number, t: number) {
   const r = (n: number) => hash(n * 1.37 + stage.length * 11.1);
   g.save(); g.beginPath(); g.rect(0, 0, w, ground); g.clip(); void h;
+  if (backdropReady(stage) && drawPaintedAmbient(g, stage, w, h, ground, s, t)) { g.restore(); return; }
   switch (stage) {
     case 'industrial': {
       g.globalCompositeOperation = 'lighter';

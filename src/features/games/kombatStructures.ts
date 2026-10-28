@@ -1,6 +1,6 @@
 // Las estructuras del medio de cada escenario (plataformas, lo que las sostiene, los emisores de los láseres y
 // lo que mueve a los ascensores), cada una con el estilo de su planeta para que no se repitan:
-//   Herrumbre: vigas de acero remachadas con óxido, colgadas de cadenas con gancho.
+//   Neon: vigas de acero remachadas con óxido, colgadas de cadenas con gancho.
 //   Minado: rocas flotantes con cristales que brillan.          Órbita: plataformas antigravedad con luces.
 //   Helado: bloques de hielo con nieve y carámbanos.            Volcánico: basalto con grietas de magma.
 //   Fungi: hongos repisa con puntos que brillan y musgo.        Engranaje: pasarelas de rejilla sobre tijeras.
