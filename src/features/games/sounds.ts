@@ -1329,6 +1329,58 @@ const KF_NAMES = import.meta.glob('./assets/sonidos/kf-nombre-*.mp3', { eager: t
 const kfNameUrl = (id: string) => KF_NAMES[`./assets/sonidos/kf-nombre-${id}.mp3`];
 export function preloadKombatSounds() { for (const url of [golUrl, hinchadaUrl, patadaUrl, explosionUrl, laserUrl, trepaFuegoUrl, bombaUrl, ...TRUENOS, ...Object.values(KF_NAMES)]) loadSample(url); }
 export function playKfName(id: string, delay = 0) { const url = kfNameUrl(id); if (url) playSample(url, 1, delay); }
+// Los sonidos grabados de Kombat Football: botones, la pelota, el láser del mapa, el relator y el locutor.
+const KF = import.meta.glob('./assets/sonidos/kf-*.mp3', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const kf = (name: string) => KF[`./assets/sonidos/kf-${name}.mp3`];
+export function preloadKombatUi() { for (const url of Object.values(KF_NAMES)) loadSample(url); for (const n of ['boton', 'voz-seleccionar', 'musica']) loadSample(kf(n)); for (const n of ['pelota', 'laser', 'gol-1', 'gol-2', 'gol-3', 'voz-fight', 'voz-finality', 'voz-primer-tiempo', 'voz-segundo-tiempo']) loadSample(kf(n)); }
+// Cualquier botón del juego (menú, elegir luchador, iniciar, abandonar...).
+let lastButton = 0;
+export function playKfButton(volume = 0.8) { unlockSounds(); whenRunning(c => { if (c.currentTime - lastButton < 0.05) return; lastButton = c.currentTime; playSample(kf('boton'), volume); }); }
+// La pelota: la misma grabación para la patada (más fuerte) y para cada rebote (según la velocidad).
+export function playKfBall(volume: number, rate = 1) { playSample(kf('pelota'), volume, 0, rate); }
+// Los láseres del mapa.
+let lastKfLaser = 0;
+export function playKfLaser() { const c = running(); if (!c || c.currentTime - lastKfLaser < 0.3) return; lastKfLaser = c.currentTime; playSample(kf('laser'), 0.55); }
+// ¡Gol!: el relator con uno de sus tres gritos (nunca el mismo dos veces seguidas) y la hinchada que se levanta.
+let lastGol = -1;
+export function playKfGoal() {
+  let n = Math.floor(Math.random() * 3); if (n === lastGol) n = (n + 1 + Math.floor(Math.random() * 2)) % 3; lastGol = n;
+  playSample(kf(`gol-${n + 1}`), 1);
+  if (crowd && ctx) { const t = ctx.currentTime; crowd.gain.cancelScheduledValues(t); crowd.gain.setTargetAtTime(0.4, t, 0.2); crowd.gain.setTargetAtTime(crowdLevel, t + 4.5, 1); }
+}
+// El locutor: "Fight" + "Primer tiempo" al arrancar, "Segundo tiempo" al volver del entretiempo (después del silbato),
+// "Finality" con el FATAL GOAL y "Seleccioná" al entrar a la elección de luchadores.
+export function playKfKickoffVoice(half: 1 | 2, delay: number) {
+  if (half === 1) { playSample(kf('voz-fight'), 1, delay); playSample(kf('voz-primer-tiempo'), 1, delay + 0.95); }
+  else playSample(kf('voz-segundo-tiempo'), 1, delay);
+}
+export function playKfFinality() { playSample(kf('voz-finality'), 1, 0.15); }
+export function playKfSelectVoice() { unlockSounds(); whenRunning(() => { playSample(kf('voz-seleccionar'), 1, 0.1); }); }
+// La música del menú: en bucle mientras se elige; se corta (con un fundido corto) cuando arranca el partido.
+let kfMusic: { src: AudioBufferSourceNode; gain: GainNode } | null = null, musicWanted = false;
+export function setKfMusic(on: boolean) {
+  musicWanted = on;
+  if (!on) {
+    if (kfMusic && ctx) { const m = kfMusic, t = ctx.currentTime; m.gain.gain.cancelScheduledValues(t); m.gain.gain.setTargetAtTime(0, t, 0.08); try { m.src.stop(t + 0.5); } catch { /* ya paró */ } }
+    kfMusic = null; return;
+  }
+  if (kfMusic) return;
+  unlockSounds();
+  const url = kf('musica');
+  const go = () => whenRunning(c => {
+    if (!musicWanted || kfMusic) return;
+    const buffer = samples.get(url);
+    if (!(buffer instanceof AudioBuffer)) { loadSample(url); setTimeout(go, 300); return; }
+    const src = c.createBufferSource(), gain = c.createGain();
+    src.buffer = buffer; src.loop = true; gain.gain.value = 0;
+    gain.gain.setTargetAtTime(0.45, c.currentTime, 0.3);
+    src.connect(gain).connect(out(c)); src.start();
+    kfMusic = { src, gain };
+  });
+  go();
+}
+// Si la página todavía no tuvo un clic o una tecla, el navegador no deja sonar nada: arranca con el primero.
+export function kfMusicNeedsGesture() { return !ctx || ctx.state !== 'running'; }
 // Una piña / patada al cuerpo: golpe grave y seco con un chasquido.
 export function playKfHit(volume = 1) {
   const c = running(); if (!c) return;

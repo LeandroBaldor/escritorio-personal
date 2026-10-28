@@ -165,7 +165,7 @@ export type KfEvent =
   | { type: 'bounce'; power: number } | { type: 'post' } | { type: 'jump' } | { type: 'charged'; side: 0 | 1; power: number } | { type: 'ability'; side: 0 | 1; char: CharId }
   | { type: 'fatal'; side: 0 | 1; char: CharId } | { type: 'fatalBlocked'; side: 0 | 1 } | { type: 'power'; side: 0 | 1; kind: PowerKind } | { type: 'ballKind'; kind: BallKind }
   | { type: 'unlock'; side: 0 | 1 } | { type: 'refDown' } | { type: 'refBack' } | { type: 'refBoom' } | { type: 'ballBoom' } | { type: 'ballDrop' } | { type: 'save'; side: 0 | 1 }
-  | { type: 'trap'; kind: Hazard['kind'] } | { type: 'boom' } | { type: 'thunder' } | { type: 'zap' } | { type: 'whistle'; kind: 'kickoff' | 'half' | 'end' }
+  | { type: 'trap'; kind: Hazard['kind'] } | { type: 'boom' } | { type: 'thunder' } | { type: 'zap' } | { type: 'whistle'; kind: 'kickoff' | 'half' | 'end'; start?: 1 | 2 }
   | { type: 'halftime' } | { type: 'extra' } | { type: 'warn' } | { type: 'tired'; side: 0 | 1 } | { type: 'noEnergy'; side: 0 | 1 } | { type: 'needBall'; side: 0 | 1 } | { type: 'header'; side: 0 | 1 };
 export type Phase = 'intro' | 'play' | 'goal' | 'fatal' | 'halftime' | 'end';
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; color: string; kind: 'spark' | 'smoke' | 'shard' | 'bubble' | 'ember' | 'flash' | 'ring' | 'blood' }
@@ -428,7 +428,7 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
   if (m.phase !== 'fatal') updateSolids(m, dt);
   if (m.phase === 'intro') {
     idlePeople(m, dt);
-    if (m.phaseT > 2.4) { m.phase = 'play'; m.phaseT = 0; emit(m, { type: 'whistle', kind: 'kickoff' }); }
+    if (m.phaseT > 2.4) { m.phase = 'play'; m.phaseT = 0; emit(m, { type: 'whistle', kind: 'kickoff', start: m.half }); } // arranca un tiempo
     return;
   }
   if (m.phase === 'end') { idlePeople(m, dt); return; }
