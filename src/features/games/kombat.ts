@@ -20,7 +20,15 @@ export const NET_FLAT = 0.28;
 export const netTop = (gh: number, u: number) => u <= NET_FLAT ? gh : gh * Math.pow(Math.max(0, 1 - Math.pow((u - NET_FLAT) / (1 - NET_FLAT), 1.8)), 0.75);
 export const BALL_R = 0.3;
 export const PW = 0.96; // ancho de una persona
-export const PH = 2.3; // alto de una persona
+export const PH = 2.3;
+// Tamaño de cada luchador (alto = PH × tamaño): los grandotes BRUTO, BRUTO ROJO y MAGMA; los petizos CYBER,
+// THUNDER y COMETA; el resto varía un poco.
+export const SIZE: Record<CharId, number> = {
+  bruto: 1.2, brutoRed: 1.17, magma: 1.15, cyber: 0.84, thunder: 0.86, cometa: 0.85,
+  inferno: 1.04, frost: 1, shadow: 0.96, shadowRed: 0.98, orbot: 1.06, orbotBlue: 1.03, aguila: 1.02, aguilaBlack: 0.99, espectro: 1.05, toxic: 0.95,
+};
+export const heightOf = (f: { char: CharId }) => PH * SIZE[f.char];
+const bodyH = (p: object) => 'char' in p ? heightOf(p as { char: CharId }) : PH; // alto de una persona
 export const HALF_TIME = 90; // cada tiempo dura 1:30
 export const STAMINA = 100; // energía llena
 export const POWER_MAX = 100; // poder para el FATAL GOAL
@@ -428,7 +436,7 @@ function moveBody(m: Match, p: { x: number; y: number; vx: number; vy: number; g
   if (!ghost) for (const s of m.solids) {
     if (s.kind === 'float') continue;
     const top = s.y + s.h;
-    if (p.y < top - 0.06 && p.y + PH > s.y && p.x + half > s.x && p.x - half < s.x + s.w) { // de costado
+    if (p.y < top - 0.06 && p.y + bodyH(p) > s.y && p.x + half > s.x && p.x - half < s.x + s.w) { // de costado
       p.x = px <= s.x + s.w / 2 ? s.x - half : s.x + s.w + half; p.vx = 0;
     }
   }
@@ -441,7 +449,7 @@ function moveBody(m: Match, p: { x: number; y: number; vx: number; vy: number; g
     }
   }
   if (p.y <= 0) { p.y = 0; p.vy = 0; ground = true; }
-  if (p.y > H - PH) { p.y = H - PH; p.vy = Math.min(0, p.vy); }
+  if (p.y > H - bodyH(p)) { p.y = H - bodyH(p); p.vy = Math.min(0, p.vy); }
   p.ground = ground;
 }
 function idlePeople(m: Match, dt: number) {
@@ -607,7 +615,7 @@ function doKick(m: Match, f: Fighter, rival: Fighter) {
     emit(m, { type: 'kick', power: power / 20 });
     return;
   }
-  if (Math.abs(rival.x - (f.x + f.facing * 0.6)) < 0.8 && Math.abs(rival.y + PH / 2 - (f.y + 0.9)) < 1.3) {
+  if (Math.abs(rival.x - (f.x + f.facing * 0.6)) < 0.8 && Math.abs(rival.y + heightOf(rival) / 2 - (f.y + 0.9)) < 1.3) {
     f.kickHit = true;
     if (rival.action === 'block' && rival.facing === -f.facing) { rival.vx = f.facing * 3; gainPower(m, rival, 2); emit(m, { type: 'block' }); burst(m, rival.x - f.facing * 0.3, rival.y + 1, 8, '#93c5fd', 'spark', 3); return; }
     hurtFighter(m, rival, f, 'hit', 0.6, 7, 0);
@@ -775,7 +783,7 @@ function updateShots(m: Match, dt: number) {
       end(); continue;
     }
     // el rival
-    if (Math.abs(rival.x - s.x) < PW / 2 + s.r && s.y > rival.y && s.y < rival.y + PH) {
+    if (Math.abs(rival.x - s.x) < PW / 2 + s.r && s.y > rival.y && s.y < rival.y + heightOf(rival)) {
       const k: StunKind = s.kind === 'fireball' ? 'burn' : s.kind === 'feather' ? 'poison' : s.kind === 'bubble' ? 'poison' : 'hit';
       if (s.kind !== 'bomb' && s.kind !== 'bubble') hurtFighter(m, rival, owner, k, s.kind === 'bullet' ? 0.35 : 0.8, s.kind === 'bullet' ? 2 : 5, s.kind === 'fireball' ? 18 : s.kind === 'bullet' ? 7 : s.kind === 'feather' ? 9 : 12);
       end(); continue;
@@ -875,7 +883,7 @@ function updateFatal(m: Match, dt: number) {
   if (fat.t > 0.1) shooter.action = 'idle';
   if (fat.style === 'void' && rival.stun <= 0.2) { rival.stun = 0.4; rival.stunKind = 'hit'; rival.vx = (W / 2 - rival.x) * 1.2; }
   const kind: StunKind = fat.style === 'avalanche' ? 'freeze' : fat.style === 'meteor' ? 'burn' : fat.style === 'bolt' ? 'zap' : fat.style === 'acid' ? 'poison' : 'hit';
-  if (rival.action !== 'stun' && Math.abs(rival.x - b.x) < 0.5 + BALL_R * p.size && b.y > rival.y - 0.2 && b.y < rival.y + PH + 0.2) hurtFighter(m, rival, shooter, kind, 1.2, fat.style === 'avalanche' ? 0 : 10, 25);
+  if (rival.action !== 'stun' && Math.abs(rival.x - b.x) < 0.5 + BALL_R * p.size && b.y > rival.y - 0.2 && b.y < rival.y + heightOf(rival) + 0.2) hurtFighter(m, rival, shooter, kind, 1.2, fat.style === 'avalanche' ? 0 : 10, 25);
   if (refIn(m, b.x - 0.5, b.x + 0.5, b.y - 0.5, b.y + 0.5)) hurtRef(m, kind, 2);
   const glow = CHARS[fat.char].glow;
   for (let k = 0; k < 3; k++) m.particles.push({ x: b.x + (Math.random() - 0.5) * 0.4, y: b.y + (Math.random() - 0.5) * 0.4, vx: -b.vx * 0.05 + (Math.random() - 0.5), vy: -b.vy * 0.05 + (Math.random() - 0.5), life: 0.5, max: 0.5, size: 0.15 * p.size, color: glow, kind: fat.style === 'meteor' ? 'ember' : fat.style === 'avalanche' ? 'shard' : fat.style === 'acid' ? 'bubble' : 'spark' });
@@ -1000,7 +1008,7 @@ function collideBallWorld(m: Match, b: Ball, dt: number) {
 }
 function collideBallFighter(m: Match, b: Ball, f: Fighter) {
   if (f.char === 'espectro' && f.abilityT > 0) return;
-  const x0 = f.x - PW / 2, x1 = f.x + PW / 2, y0 = f.y, y1 = f.y + PH * (f.slideT > 0 ? 0.35 : 1);
+  const x0 = f.x - PW / 2, x1 = f.x + PW / 2, y0 = f.y, y1 = f.y + heightOf(f) * (f.slideT > 0 ? 0.35 : 1);
   const cx = clamp(b.x, x0, x1), cy = clamp(b.y, y0, y1), dx = b.x - cx, dy = b.y - cy, d = Math.hypot(dx, dy);
   if (d >= BALL_R) return;
   const blocking = f.action === 'block' && Math.sign(b.x - f.x) === f.facing;
@@ -1052,7 +1060,7 @@ function updatePowerups(m: Match, dt: number) {
   }
   for (const p of m.powerups) {
     p.t += dt;
-    for (const f of m.fighters) if (Math.abs(f.x - p.x) < 0.7 && p.y > f.y - 0.3 && p.y < f.y + PH + 0.4) {
+    for (const f of m.fighters) if (Math.abs(f.x - p.x) < 0.7 && p.y > f.y - 0.3 && p.y < f.y + heightOf(f) + 0.4) {
       p.t = 99;
       if (p.kind === 'energy') { f.stamina = STAMINA; gainPower(m, f, 40); } else f.powers[p.kind] = POWERS[p.kind].time;
       burst(m, p.x, p.y, 20, POWERS[p.kind].color, 'ring', 2);
@@ -1105,7 +1113,7 @@ function updateHazards(m: Match, dt: number) {
   // quiénes están en una zona: lastima una vez por encendido de cada trampa
   const hit = (x0: number, x1: number, y0: number, y1: number, kind: StunKind, time: number, push: number, drain: number, h?: Hazard) => {
     const ok = (bit: number) => { if (!h) return true; if ((h.struck ?? 0) & bit) return false; h.struck = (h.struck ?? 0) | bit; return true; };
-    m.fighters.forEach((f, i) => { if (f.stun <= 0 && !(f.char === 'espectro' && f.abilityT > 0) && f.x + PW / 2 > x0 && f.x - PW / 2 < x1 && f.y < y1 && f.y + PH > y0 && ok(1 << i)) hurtFighter(m, f, null, kind, time, push, drain); });
+    m.fighters.forEach((f, i) => { if (f.stun <= 0 && !(f.char === 'espectro' && f.abilityT > 0) && f.x + PW / 2 > x0 && f.x - PW / 2 < x1 && f.y < y1 && f.y + heightOf(f) > y0 && ok(1 << i)) hurtFighter(m, f, null, kind, time, push, drain); });
     if (refIn(m, x0, x1, y0, y1) && ok(4)) hurtRef(m, kind, 1.3);
   };
   const ballIn = (x0: number, x1: number, y0: number, y1: number) => b.alive && b.x + BALL_R > x0 && b.x - BALL_R < x1 && b.y - BALL_R < y1 && b.y + BALL_R > y0 && !(m.fatal && !m.fatal.done);
@@ -1156,7 +1164,7 @@ function updateHazards(m: Match, dt: number) {
         if (h.state === 1) { h.dir -= dt; if (h.dir <= 0) { h.state = 0; burst(m, h.x, h.y, 10, '#fca5a5', 'smoke', 2); } break; }
         const p = minePos(h, m.time);
         if (b.alive && Math.hypot(b.x - p.x, b.y - p.y) < h.w + BALL_R) { mineBoom(m, h); break; }
-        for (const f of m.fighters) if (Math.abs(f.x - p.x) < PW / 2 + h.w && p.y > f.y - h.w && p.y < f.y + PH + h.w) { mineBoom(m, h); break; }
+        for (const f of m.fighters) if (Math.abs(f.x - p.x) < PW / 2 + h.w && p.y > f.y - h.w && p.y < f.y + heightOf(f) + h.w) { mineBoom(m, h); break; }
         break;
       }
       case 'waterfall':
@@ -1293,7 +1301,7 @@ function cpuThink(m: Match, side: 0 | 1, c: CpuState, dt: number): Input {
   if (canCast && f.facing === dir && ahead > 0 && toGoal < 12 && abilityReach(f, b.x, b.y) && m.rand() < 0.05 + c.level * 0.15) plan.cast = 'ability';
   else if (canCast && abilityReach(f, rival.x, rival.y + 1) && m.rand() < 0.04 + c.level * 0.12) plan.cast = 'ability';
   // pelota fuerte que viene a su arco y él está delante: se planta a bloquearla
-  if (Math.sign(b.vx) === -dir && Math.abs(b.vx) > 7 && (f.x - b.x) * dir < 0 && Math.abs(f.x - b.x) < 2.5 && b.y < f.y + PH && f.ground && m.rand() < 0.2 + c.level * 0.7) { plan.left = false; plan.right = false; plan.down = true; plan.kick = false; f.facing = dir; }
+  if (Math.sign(b.vx) === -dir && Math.abs(b.vx) > 7 && (f.x - b.x) * dir < 0 && Math.abs(f.x - b.x) < 2.5 && b.y < f.y + heightOf(f) && f.ground && m.rand() < 0.2 + c.level * 0.7) { plan.left = false; plan.right = false; plan.down = true; plan.kick = false; f.facing = dir; }
   // barrida si el rival tiene la pelota cerca
   const rivalHas = Math.abs(rival.x - b.x) < 1 && Math.abs(f.x - rival.x) < 2.2 && Math.abs(f.vx) > 3.5;
   if (rivalHas && f.facing === dir && m.rand() < 0.15 + c.level * 0.3) { plan.down = true; plan.kick = true; }

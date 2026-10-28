@@ -5,7 +5,7 @@
 // láseres, fuego, placas eléctricas, minas, bolas con púas, lava), los luchadores, el árbitro, la pelota, las
 // habilidades, los potenciadores y los efectos. El mundo se mide en metros (kombat.ts); acá se pasa a píxeles.
 import {
-  BALLS, BALL_R, BAR, CHARS, GOAL_DEPTH, H, NET_FLAT, POWERS, POWER_MAX, TUBE_Y, W, fatalPath, goalHeight, minePos, netTop, sawPos, teamAt, wreckPos,
+  BALLS, BALL_R, BAR, CHARS, GOAL_DEPTH, H, NET_FLAT, POWERS, POWER_MAX, TUBE_Y, W, fatalPath, goalHeight, heightOf, minePos, netTop, sawPos, teamAt, wreckPos,
   type Ball, type Fx, type Hazard, type Match, type Particle, type PowerKind, type Shot, type Solid, type StageId,
 } from './kombat';
 import { drawFighterLit, drawRefLit, LOOKS } from './kombatFighters';
@@ -693,7 +693,7 @@ export function drawMatch(ctx: CanvasRenderingContext2D, m: Match, v: View) {
       zap: f.stun > 0 && f.stunKind === 'zap', shield: (f.powers.shield ?? 0) > 0, speed: (f.powers.speed ?? 0) > 0,
       aura: fatalNow || f.power >= POWER_MAX ? L.glow : null,
     }, x, y, v.s, THEMES[m.stage].light);
-    if (f.charge > 0) drawChargeMeter(ctx, f.charge, x, Y(v, f.y + 2.55), v.s, L.glow, m.time);
+    if (f.charge > 0) drawChargeMeter(ctx, f.charge, x, Y(v, f.y + heightOf(f) + 0.25), v.s, L.glow, m.time);
   }
   for (const sh of m.shots) drawShot(ctx, sh, m, v);
   for (const e of m.fx) drawFx(ctx, e, m, v);

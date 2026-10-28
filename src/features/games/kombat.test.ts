@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHARS, CHAR_IDS, GOAL_DEPTH, HALF_TIME, POWER_MAX, STAGES, STAMINA, TUBE_Y, W, attackDir, defendsLeft, fatalKeys, fatalPath, newMatch, noInput, seeded, step, supportAt, takeEvents, type Input, type Match } from './kombat';
+import { CHARS, CHAR_IDS, SIZE, heightOf, GOAL_DEPTH, HALF_TIME, POWER_MAX, STAGES, STAMINA, TUBE_Y, W, attackDir, defendsLeft, fatalKeys, fatalPath, newMatch, noInput, seeded, step, supportAt, takeEvents, type Input, type Match } from './kombat';
 
 const idle = (): [Input, Input] => [noInput(), noInput()];
 function play(m: Match, seconds: number, inputs: (m: Match) => [Input, Input] = idle) {
@@ -17,6 +17,13 @@ describe('Kombat Football', () => {
     expect(CHAR_IDS).toHaveLength(16);
     expect(new Set(CHAR_IDS.map(c => CHARS[c].ability)).size).toBe(16);
     expect(STAGES).toHaveLength(10);
+  });
+
+  it('los más grandes son BRUTO, BRUTO ROJO y MAGMA y los más petizos CYBER, THUNDER y COMETA', () => {
+    const order = [...CHAR_IDS].sort((a, b) => SIZE[b] - SIZE[a]);
+    expect(new Set(order.slice(0, 3))).toEqual(new Set(['bruto', 'brutoRed', 'magma']));
+    expect(new Set(order.slice(-3))).toEqual(new Set(['cyber', 'thunder', 'cometa']));
+    expect(heightOf({ char: 'bruto' })).toBeGreaterThan(heightOf({ char: 'cometa' }) * 1.3);
   });
 
   it('la pelota baja por el tubo del medio al empezar', () => {

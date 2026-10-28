@@ -6,7 +6,7 @@
 // ROJO (gigantes con hombreras de púas), ÁGUILA y ÁGUILA NEGRA (con alas), ESPECTRO (astronauta fantasma),
 // TOXIC (máscara de gas), MAGMA (roca con lava en las grietas) y CYBER (samurái con espada láser).
 // También el árbitro. Se dibujan con los pies en (0, 0), mirando a la derecha, en metros.
-import { CHARS, PH, type CharId, type Element, type Fighter, type Person } from './kombat';
+import { CHARS, PH, SIZE, type CharId, type Element, type Fighter, type Person } from './kombat';
 import { alpha, bloom, darken, lighten, segment, shade, spec } from './gravityMonsters';
 
 const TAU = Math.PI * 2;
@@ -451,7 +451,7 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
 let litA: HTMLCanvasElement | null = null, litB: HTMLCanvasElement | null = null;
 export const BODY_SCALE = PH / 1.85; // los luchadores miden PH (2,3 m); el dibujo está hecho para 1,85 m
 export function drawFighterLit(ctx: CanvasRenderingContext2D, f: Fighter, t: number, fx: FighterFx, x: number, y: number, s: number, rim: string) {
-  const L = LOOKS[f.char], S = s * BODY_SCALE, K = L.brute ? 1.32 : 1, mir = f.facing < 0 ? -1 : 1;
+  const L = LOOKS[f.char], S = s * BODY_SCALE * SIZE[f.char], K = L.brute ? 1.32 : 1, mir = f.facing < 0 ? -1 : 1; // cada uno de su tamaño
   // sombra en el piso y aura (sin luz)
   ctx.save(); ctx.translate(x, y); ctx.scale(S, S);
   const sg = ctx.createRadialGradient(0, 0.02, 0, 0, 0.02, 0.6 * K); sg.addColorStop(0, 'rgba(0,0,0,0.55)'); sg.addColorStop(1, 'rgba(0,0,0,0)');
@@ -526,7 +526,7 @@ export function drawFighterCard(ctx: CanvasRenderingContext2D, char: CharId, w: 
   ctx.clearRect(0, 0, w, h);
   const L = LOOKS[char], g = ctx.createRadialGradient(w / 2, h * 0.75, 0, w / 2, h * 0.75, w * 0.6);
   g.addColorStop(0, alpha(L.glow, 0.35)); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
-  const s = h / (L.extras.includes('wings') ? 2.6 : 2.4);
+  const s = h / (L.extras.includes('wings') ? 2.6 : 2.4) * (0.8 + 0.2 * SIZE[char] / 1.2) / SIZE[char]; // en la ficha se nota un poco el tamaño
   const f = idleFighter(char); f.facing = mirror ? -1 : 1;
   drawFighterLit(ctx, f, t, { power: 0.5, frozen: false, poison: false, burn: false, zap: false, shield: false, speed: false, aura: null }, w / 2, h * 0.94, s / BODY_SCALE, L.glow);
 }
