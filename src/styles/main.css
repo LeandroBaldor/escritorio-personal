@@ -1429,6 +1429,20 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .kf-vs strong{font:900 clamp(2.4rem,9vw,5.5rem)/1 Impact,"Arial Black",sans-serif;color:#fde047;text-shadow:0 0 24px #dc2626,4px 4px 0 #7f1d1d;animation:kf-shout .5s .25s cubic-bezier(.2,1.6,.4,1) both}
 .kf-vs small{font:800 clamp(.8rem,2vw,1.1rem)/1.2 Nunito,system-ui,sans-serif;color:#e2e8f0;text-shadow:0 2px 6px #000}
 @keyframes kf-vs-in{from{transform:translateX(-60vw)}}
+.kf-versus{gap:1rem;align-content:safe center}
+.kf-versus-row{position:relative;display:flex;align-items:center;justify-content:center;gap:clamp(4rem,16vw,15rem);width:100%;max-width:1300px}
+.kf-versus-side{display:grid;justify-items:center;gap:.3rem;animation:kf-vs-in .6s cubic-bezier(.2,1.3,.4,1) both}
+.kf-versus-side--2{animation-name:kf-vs-in2}
+.kf-versus-side canvas{filter:drop-shadow(0 0 22px var(--kf-c)) drop-shadow(0 0 60px color-mix(in srgb,var(--kf-c) 45%,transparent))}
+.kf-versus-side small{font:400 clamp(.9rem,1.8vw,1.2rem)/1 "KF Menu",Impact,sans-serif;letter-spacing:.14em;color:#e5e7eb;text-shadow:2px 2px 0 #000}
+.kf-versus-side b{font:400 clamp(1.8rem,4.6vw,3.4rem)/1 "KF Menu",Impact,"Arial Black",sans-serif;letter-spacing:.08em;font-style:italic;color:var(--kf-c);-webkit-text-stroke:1.5px #000;paint-order:stroke fill;text-shadow:3px 3px 0 #000,0 0 18px color-mix(in srgb,var(--kf-c) 70%,transparent)}
+.kf-versus-side span{font:800 clamp(.8rem,1.6vw,1rem)/1.2 Nunito,system-ui,sans-serif;color:#f1f5f9;background:#000a;border:1px solid color-mix(in srgb,var(--kf-c) 60%,transparent);border-radius:999px;padding:.25rem .8rem}
+.kf-versus-mid{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);display:grid;place-items:center;pointer-events:none}
+.kf-versus-mid::before{content:"";position:absolute;width:260%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,#ffb34788 0,#e2541a44 30%,#0000 65%);animation:kf-versus-pulse 1.4s ease-in-out infinite}
+.kf-versus-mid strong{position:relative;font:400 clamp(5rem,15vw,12rem)/.85 "KF Logo",Impact,"Arial Black",sans-serif;letter-spacing:.02em;background:linear-gradient(#fff7d1 0,#fde047 22%,#f59e0b 45%,#b91c1c 62%,#f97316 80%,#fde68a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:3px #1c0a02;paint-order:stroke fill;filter:drop-shadow(5px 5px 0 #000) drop-shadow(0 0 28px #dc2626);animation:kf-versus-slam .55s .35s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes kf-versus-slam{from{transform:scale(3.2) rotate(-8deg);opacity:0}}
+@keyframes kf-versus-pulse{50%{transform:scale(1.15);opacity:.7}}
+@media(max-width:700px){.kf-versus-row{gap:.6rem}.kf-versus-mid{top:40%}.kf-versus-mid strong{font-size:4.2rem}}
 @keyframes kf-vs-in2{from{transform:translateX(60vw)}}
 .kf-unlock{position:absolute;left:50%;top:22%;transform:translateX(-50%);display:grid;justify-items:center;gap:.35rem;padding:.6rem 1.1rem .7rem;border-radius:12px;background:linear-gradient(#1c1003f2,#0a0602f2);box-shadow:0 0 0 2px #facc15,0 0 30px #f59e0b99;pointer-events:none;animation:kf-shout .45s cubic-bezier(.2,1.6,.4,1) both;font-family:Nunito,system-ui,sans-serif}
 .kf-unlock>b{font:900 clamp(1.2rem,3.6vw,2rem)/1 Impact,"Arial Black",sans-serif;letter-spacing:.08em;color:#fde047;text-shadow:0 0 14px #f59e0b,3px 3px 0 #000}

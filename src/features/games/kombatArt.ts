@@ -406,20 +406,29 @@ function drawGoal(ctx: CanvasRenderingContext2D, m: Match, v: View, left: boolea
   const mouth = left ? GOAL_DEPTH : W - GOAL_DEPTH, back = left ? 0 : W, dir = left ? -1 : 1; // dir: hacia el fondo
   const L = LOOKS[m.fighters[side].char];
   const at = (u: number) => mouth + dir * u * GOAL_DEPTH;
+  // la red se infla hacia atrás y tiembla cuando entra la pelota
+  const hit = m.netHit && m.netHit.left === left ? m.netHit : null;
+  const bulge = hit ? Math.exp(-hit.t * 2.2) * (0.35 + 0.25 * Math.sin(hit.t * 22)) : 0;
+  const sway = Math.sin(m.time * 2 + side) * 0.04 + bulge * dir;
+  const outline = () => { ctx.beginPath(); ctx.moveTo(X(v, mouth), Y(v, 0)); ctx.lineTo(X(v, mouth), Y(v, gh)); for (let k = 0; k <= 24; k++) { const u = k / 24; ctx.lineTo(X(v, at(u) + sway * u), Y(v, netTop(gh, u))); } ctx.lineTo(X(v, back), Y(v, 0)); ctx.closePath(); };
+  // los hilos: los de atrás (finitos, detrás de la pelota) y los de adelante (por encima de la pelota y de quien esté adentro)
+  const threads = (a: number, off: number) => {
+    ctx.save(); outline(); ctx.clip();
+    ctx.strokeStyle = `rgba(235,242,255,${a})`; ctx.lineWidth = Math.max(1, s * 0.022);
+    for (let k = 1; k <= 7; k++) { const u = (k - off) / 7; ctx.beginPath(); ctx.moveTo(X(v, at(u * NET_FLAT)), Y(v, gh)); ctx.quadraticCurveTo(X(v, at(u * 0.5 + 0.2) + sway * 3), Y(v, netTop(gh, u) * 0.55), X(v, at(u) + sway * u), Y(v, 0)); ctx.stroke(); } // hilos que bajan
+    for (let j = 1; j <= 11; j++) { const y = gh * (j - off) / 12; ctx.beginPath(); for (let k = 0; k <= 16; k++) { const u = k / 16, px = X(v, at(u) + sway * u * (y / gh)), py = Y(v, y - Math.sin(u * Math.PI) * 0.06); if (k) ctx.lineTo(px, py); else ctx.moveTo(px, py); } ctx.stroke(); } // hilos que siguen la curva
+    ctx.restore();
+  };
   if (!front) {
-    const sway = Math.sin(m.time * 2 + side) * 0.04;
-    const outline = () => { ctx.beginPath(); ctx.moveTo(X(v, mouth), Y(v, 0)); ctx.lineTo(X(v, mouth), Y(v, gh)); for (let k = 0; k <= 24; k++) { const u = k / 24; ctx.lineTo(X(v, at(u) + sway * u), Y(v, netTop(gh, u))); } ctx.lineTo(X(v, back), Y(v, 0)); ctx.closePath(); };
     ctx.save();
     outline(); ctx.fillStyle = lin(ctx, X(v, mouth), 0, X(v, back), 0, [[0, 'rgba(0,0,0,0.25)'], [1, 'rgba(0,0,0,0.55)']]); ctx.fill();
-    outline(); ctx.clip();
-    ctx.strokeStyle = 'rgba(235,242,255,0.5)'; ctx.lineWidth = Math.max(1, s * 0.022);
-    for (let k = 1; k <= 7; k++) { const u = k / 7; ctx.beginPath(); ctx.moveTo(X(v, at(u * NET_FLAT)), Y(v, gh)); ctx.quadraticCurveTo(X(v, at(u * 0.5 + 0.2) + sway * 3), Y(v, netTop(gh, u) * 0.55), X(v, at(u) + sway * u), Y(v, 0)); ctx.stroke(); } // hilos que bajan
-    for (let j = 1; j <= 11; j++) { const y = gh * j / 12; ctx.beginPath(); for (let k = 0; k <= 16; k++) { const u = k / 16, px = X(v, at(u) + sway * u * (y / gh)), py = Y(v, y - Math.sin(u * Math.PI) * 0.06); if (k) ctx.lineTo(px, py); else ctx.moveTo(px, py); } ctx.stroke(); } // hilos que siguen la curva
     ctx.restore();
-    ctx.strokeStyle = 'rgba(240,245,255,0.75)'; ctx.lineWidth = Math.max(1.2, s * 0.035); ctx.beginPath(); for (let k = 0; k <= 24; k++) { const u = k / 24; const px = X(v, at(u) + sway * u), py = Y(v, netTop(gh, u)); if (k) ctx.lineTo(px, py); else ctx.moveTo(px, py); } ctx.stroke(); // el borde de la red
+    threads(0.28, 0.5);
     ctx.fillStyle = lin(ctx, 0, Y(v, 0) - s * 0.08, 0, Y(v, 0), [[0, '#c7ced8'], [1, '#3b4250']]); ctx.fillRect(Math.min(X(v, mouth), X(v, back)), Y(v, 0) - s * 0.07, GOAL_DEPTH * s, s * 0.07); // caño del piso
     return;
   }
+  threads(0.5, 0);
+  ctx.strokeStyle = 'rgba(240,245,255,0.75)'; ctx.lineWidth = Math.max(1.2, s * 0.035); ctx.beginPath(); for (let k = 0; k <= 24; k++) { const u = k / 24; const px = X(v, at(u) + sway * u), py = Y(v, netTop(gh, u)); if (k) ctx.lineTo(px, py); else ctx.moveTo(px, py); } ctx.stroke(); // el borde de la red
   // travesaño: un caño corto que va de la boca hacia atrás, con brillo arriba
   const tb = at(NET_FLAT), bxA = Math.min(X(v, mouth), X(v, tb)), bw = Math.abs(X(v, tb) - X(v, mouth));
   ctx.beginPath(); ctx.roundRect(bxA - s * 0.08, Y(v, gh + BAR), bw + s * 0.16, BAR * s, BAR * s / 2);

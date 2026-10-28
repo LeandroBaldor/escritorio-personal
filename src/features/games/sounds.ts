@@ -1332,12 +1332,15 @@ export function playKfName(id: string, delay = 0) { const url = kfNameUrl(id); i
 // Los sonidos grabados de Kombat Football: botones, la pelota, el láser del mapa, el relator y el locutor.
 const KF = import.meta.glob('./assets/sonidos/kf-*.mp3', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const kf = (name: string) => KF[`./assets/sonidos/kf-${name}.mp3`];
-export function preloadKombatUi() { for (const url of Object.values(KF_NAMES)) loadSample(url); for (const n of ['boton', 'voz-seleccionar', 'musica']) loadSample(kf(n)); for (const n of ['pelota', 'laser', 'gol-1', 'gol-2', 'gol-3', 'voz-fight', 'voz-finality', 'voz-primer-tiempo', 'voz-segundo-tiempo']) loadSample(kf(n)); }
+export function preloadKombatUi() { for (const url of Object.values(KF_NAMES)) loadSample(url); for (const n of ['boton', 'voz-seleccionar', 'musica']) loadSample(kf(n)); for (const n of ['pelota', 'salto', 'laser', 'gol-1', 'gol-2', 'gol-3', 'voz-fight', 'voz-finality', 'voz-primer-tiempo', 'voz-segundo-tiempo']) loadSample(kf(n)); }
 // Cualquier botón del juego (menú, elegir luchador, iniciar, abandonar...).
 let lastButton = 0;
 export function playKfButton(volume = 0.8) { unlockSounds(); whenRunning(c => { if (c.currentTime - lastButton < 0.05) return; lastButton = c.currentTime; playSample(kf('boton'), volume); }); }
 // La pelota: la misma grabación para la patada (más fuerte) y para cada rebote (según la velocidad).
 export function playKfBall(volume: number, rate = 1) { playSample(kf('pelota'), volume, 0, rate); }
+// El salto de los luchadores (la grabación, también en el 2° y 3° salto en el aire).
+let lastJump = 0;
+export function playKfJump() { const c = running(); if (!c || c.currentTime - lastJump < 0.06) return; lastJump = c.currentTime; playSample(kf('salto'), 0.7); }
 // Los láseres del mapa.
 let lastKfLaser = 0;
 export function playKfLaser() { const c = running(); if (!c || c.currentTime - lastKfLaser < 0.3) return; lastKfLaser = c.currentTime; playSample(kf('laser'), 0.55); }

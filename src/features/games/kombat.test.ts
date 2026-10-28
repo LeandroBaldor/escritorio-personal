@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BALL_R, CHARS, CHAR_IDS, SIZE, heightOf, GOAL_DEPTH, HALF_TIME, POWER_MAX, STAGES, STAMINA, TUBE_Y, W, attackDir, defendsLeft, fatalKeys, fatalPath, newMatch, noInput, seeded, step, supportAt, takeEvents, type Input, type Match } from './kombat';
+import { BALL_R, CHARS, CHAR_IDS, SIZE, heightOf, GOAL_DEPTH, HALF_TIME, POWER_MAX, STAGES, STAMINA, TUBE_Y, W, attackDir, defendsLeft, fatalKeys, fatalPath, goalHeight, netTop, newMatch, teamAt, noInput, seeded, step, supportAt, takeEvents, type Input, type Match } from './kombat';
 
 const idle = (): [Input, Input] => [noInput(), noInput()];
 function play(m: Match, seconds: number, inputs: (m: Match) => [Input, Input] = idle) {
@@ -271,6 +271,29 @@ describe('Kombat Football', () => {
       expect(p.done).toBe(true);
       expect(dir === 1 ? p.x > W - GOAL_DEPTH : p.x < GOAL_DEPTH).toBe(true);
     }
+  });
+
+  it('en el gol la red atrapa la pelota: queda adentro del arco, hacia el fondo', () => {
+    const m = newMatch('industrial', ['cometa', 'inferno'], [null, null], seeded(3));
+    toPlay(m);
+    m.fighters[0].x = 20; m.fighters[1].x = 22;
+    m.ball.x = GOAL_DEPTH + 1; m.ball.y = 0.8; m.ball.vx = -12; m.ball.vy = 0;
+    play(m, 0.3);
+    expect(m.phase).toBe('goal');
+    play(m, 1.5);
+    expect(m.ball.x).toBeLessThan(GOAL_DEPTH * 0.75);
+    expect(m.ball.x).toBeGreaterThan(0);
+  });
+
+  it('la pelota trabada arriba del arco (sobre la red, contra la pared) rebota hacia la cancha', () => {
+    const m = newMatch('industrial', ['cometa', 'inferno'], [null, null], seeded(4));
+    toPlay(m);
+    m.fighters[0].x = 4; m.fighters[1].x = 22; // aunque haya alguien cerca
+    const u = (GOAL_DEPTH - 0.35) / GOAL_DEPTH;
+    m.ball.x = 0.35; m.ball.y = netTop(goalHeight(m, teamAt(m, true)), u) + BALL_R; m.ball.vx = 0; m.ball.vy = 0;
+    let out = false;
+    for (let t = 0; t < 2.5 && !out; t += 1 / 60) { step(m, [noInput(), noInput()], 1 / 60); if (m.ball.x > GOAL_DEPTH + 1) out = true; }
+    expect(out).toBe(true);
   });
 
   it('empate al final: tiempo extra y el primer gol gana (gol de oro)', () => {

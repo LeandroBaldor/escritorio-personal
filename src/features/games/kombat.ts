@@ -81,22 +81,22 @@ export const CHAR_IDS: CharId[] = ['cometa', 'inferno', 'frost', 'thunder', 'sha
 
 export interface StageDef { id: StageId; name: string; hazard: string; gravity: number; friction: number }
 export const STAGES: StageDef[] = [
-  { id: 'industrial', name: 'Ciudad Industrial', hazard: 'Láseres, pinches, sierras y una bola con púas', gravity: 1, friction: 1 },
-  { id: 'mines', name: 'Minas Espaciales', hazard: 'Minas flotantes, láseres y plataformas con pinches', gravity: 0.85, friction: 1 },
-  { id: 'base', name: 'Base en el Espacio', hazard: 'Gravedad baja y muchos láseres', gravity: 0.7, friction: 1 },
+  { id: 'industrial', name: 'Planeta Herrumbre', hazard: 'Láseres, pinches, sierras y una bola con púas', gravity: 1, friction: 1 },
+  { id: 'mines', name: 'Planeta Minado', hazard: 'Minas flotantes, láseres y plataformas con pinches', gravity: 0.85, friction: 1 },
+  { id: 'base', name: 'Planeta Órbita', hazard: 'Gravedad baja y muchos láseres', gravity: 0.7, friction: 1 },
   { id: 'ice', name: 'Planeta Helado', hazard: 'Piso que resbala, pinches y carámbanos que caen', gravity: 1, friction: 0.35 },
   { id: 'volcano', name: 'Planeta Volcánico', hazard: 'Pozos de lava, chorros de fuego y meteoritos', gravity: 1, friction: 1 },
-  { id: 'forest', name: 'Bosque Bioluminiscente', hazard: 'Hongos que rebotan, cascada y pinches', gravity: 1, friction: 1 },
-  { id: 'factory', name: 'Fábrica Robótica', hazard: 'Sierras, láseres y cinta transportadora', gravity: 1, friction: 1 },
-  { id: 'storm', name: 'Torres en la Tormenta', hazard: 'Rayos, placas eléctricas y bolas con púas', gravity: 1, friction: 1 },
-  { id: 'temple', name: 'El Templo Antiguo', hazard: 'Antorchas de fuego, pinches y escalones', gravity: 1, friction: 1 },
-  { id: 'moon', name: 'La Luna', hazard: 'Gravedad lunar, láseres y bloques con pinches', gravity: 0.45, friction: 1 },
-  { id: 'subway', name: 'Estación de Subte', hazard: 'Riel electrificado, láseres y una plataforma que va y viene', gravity: 1, friction: 1 },
-  { id: 'pit', name: 'El Puente del Foso', hazard: 'Bolas con púas, pinches y un ascensor sobre el abismo', gravity: 1, friction: 1 },
-  { id: 'desert', name: 'Desierto de Fuego', hazard: 'Géiseres de fuego, sierras y arena que resbala', gravity: 1, friction: 0.8 },
-  { id: 'ocean', name: 'Fondo del Mar', hazard: 'Minas submarinas, erizos y se flota (poca gravedad)', gravity: 0.55, friction: 0.9 },
-  { id: 'sky', name: 'Ciudad en las Nubes', hazard: 'Rayos, láseres y plataformas en el aire', gravity: 0.8, friction: 1 },
-  { id: 'coliseum', name: 'El Coliseo', hazard: 'Pinches, fuego, un pistón y una bola con púas', gravity: 1, friction: 1 },
+  { id: 'forest', name: 'Planeta Fungi', hazard: 'Hongos que rebotan, cascada y pinches', gravity: 1, friction: 1 },
+  { id: 'factory', name: 'Planeta Engranaje', hazard: 'Sierras, láseres y cinta transportadora', gravity: 1, friction: 1 },
+  { id: 'storm', name: 'Planeta Tormenta', hazard: 'Rayos, placas eléctricas y bolas con púas', gravity: 1, friction: 1 },
+  { id: 'temple', name: 'Planeta Ancestral', hazard: 'Antorchas de fuego, pinches y escalones', gravity: 1, friction: 1 },
+  { id: 'moon', name: 'Planeta Selene', hazard: 'Gravedad lunar, láseres y bloques con pinches', gravity: 0.45, friction: 1 },
+  { id: 'subway', name: 'Planeta Metro', hazard: 'Riel electrificado, láseres y una plataforma que va y viene', gravity: 1, friction: 1 },
+  { id: 'pit', name: 'Planeta Abismo', hazard: 'Bolas con púas, pinches y un ascensor sobre el abismo', gravity: 1, friction: 1 },
+  { id: 'desert', name: 'Planeta Duna', hazard: 'Géiseres de fuego, sierras y arena que resbala', gravity: 1, friction: 0.8 },
+  { id: 'ocean', name: 'Planeta Coral', hazard: 'Minas submarinas, erizos y se flota (poca gravedad)', gravity: 0.55, friction: 0.9 },
+  { id: 'sky', name: 'Planeta Nimbo', hazard: 'Rayos, láseres y plataformas en el aire', gravity: 0.8, friction: 1 },
+  { id: 'coliseum', name: 'Planeta Gladiador', hazard: 'Pinches, fuego, un pistón y una bola con púas', gravity: 1, friction: 1 },
 ];
 export const stageDef = (id: StageId) => STAGES.find(s => s.id === id) ?? STAGES[0];
 
@@ -180,8 +180,10 @@ export interface Match {
   events: KfEvent[]; shake: number; flash: number; rand: () => number;
   cpu: [CpuState | null, CpuState | null];
   stillT?: number; // cuánto hace que la pelota está quieta y lejos de todos
+  roofT?: number; // cuánto hace que la pelota está trabada arriba del arco (sobre la red o contra la pared)
   gore: Gore; // la sangre y los huesos del árbitro cuando revienta
   tint?: { c: string; t: number }; // la pantalla se tiñe un instante del color del poder
+  netHit?: { left: boolean; t: number; y: number }; // la red que se infla cuando entra la pelota
 }
 // El árbitro que revienta (como el astronauta de Gravity Swap): gotas de sangre que vuelan y manchan donde caen,
 // y los pedazos del esqueleto (calavera, costillas, cadera, huesos) que rebotan chorreando.
@@ -425,6 +427,7 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
   m.shake = Math.max(0, m.shake - dt * 2.5); m.flash = Math.max(0, m.flash - dt * 2); if (m.tint) { m.tint.t -= dt; if (m.tint.t <= 0) m.tint = undefined; }
   updateParticles(m, dt); updateGore(m, dt);
   m.fx = m.fx.filter(e => (e.t += dt) < e.life);
+  if (m.netHit && (m.netHit.t += dt) > 3) m.netHit = undefined;
   if (m.phase !== 'fatal') updateSolids(m, dt);
   if (m.phase === 'intro') {
     idlePeople(m, dt);
@@ -438,7 +441,12 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
     return;
   }
   if (m.phase === 'goal') {
-    idlePeople(m, dt); if (m.ball.alive) moveBall(m, dt);
+    idlePeople(m, dt);
+    if (m.ball.alive && m.netHit) { // la red atrapa la pelota: la frena y la lleva hasta el fondo del arco
+      const b = m.ball, back = m.netHit.left ? GOAL_DEPTH * 0.42 : W - GOAL_DEPTH * 0.42;
+      b.vx += (back - b.x) * 14 * dt; b.vx *= Math.max(0, 1 - 5 * dt);
+    }
+    if (m.ball.alive) moveBall(m, dt);
     if (m.phaseT > 2.8) {
       if (m.winner !== null) { m.phase = 'end'; m.phaseT = 0; emit(m, { type: 'whistle', kind: 'end' }); return; }
       m.kickoffTeam = m.lastGoal?.side === 0 ? 1 : 0; resetKickoff(m); m.phase = 'play'; m.phaseT = 0; emit(m, { type: 'whistle', kind: 'kickoff' });
@@ -470,6 +478,20 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
   if (m.phase !== 'play') return;
   updateHazards(m, dt);
   if (b.alive) { moveBall(m, dt); checkGoal(m); }
+  // pelota trabada arriba/atrás del arco (sobre la red, contra la pared): al rato rebota bien alto hacia la cancha
+  if (b.alive && m.phase === 'play') {
+    let roof = false;
+    for (const left of [true, false]) {
+      const u = Math.abs(b.x - (left ? GOAL_DEPTH : W - GOAL_DEPTH)) / GOAL_DEPTH, over = left ? b.x < GOAL_DEPTH + BALL_R : b.x > W - GOAL_DEPTH - BALL_R;
+      const top = netTop(goalHeight(m, teamAt(m, left)), Math.min(1, u));
+      if (over && b.y >= top - 0.1 && b.y < top + 1.2 && Math.abs(b.vy) < 4) roof = true; // apoyada (no cuando pasa volando por arriba)
+    }
+    m.roofT = roof ? (m.roofT ?? 0) + dt : 0;
+    if (m.roofT > 0.9) {
+      m.roofT = 0; b.vx = Math.sign(W / 2 - b.x) * (6 + m.rand() * 3); b.vy = 13 + m.rand() * 3; b.owner = null;
+      burst(m, b.x, b.y, 12, '#e2e8f0', 'spark', 4); emit(m, { type: 'bounce', power: 0.8 });
+    }
+  }
   // pelota trabada (quieta y lejos de todos un rato): salta hacia el medio
   if (b.alive && m.phase === 'play') {
     const near = m.fighters.some(f => Math.abs(f.x - b.x) < 2.5 && Math.abs(f.y - b.y) < 3);
@@ -1170,7 +1192,8 @@ function scoreGoal(m: Match, side: 0 | 1, fatal: boolean) {
   f.goals++; gainPower(m, rival, 10);
   m.lastGoal = { side, fatal }; m.phase = 'goal'; m.phaseT = 0; m.shake = fatal ? 1 : 0.5; m.flash = fatal ? 1 : 0.4;
   if (m.fatal) m.fatal.done = true;
-  const b = m.ball; b.vx *= 0.25; b.vy = Math.min(b.vy, 2); b.fx = 'none';
+  const b = m.ball; b.vx *= 0.6; b.vy = Math.min(b.vy, 2); b.fx = 'none';
+  m.netHit = { left: b.x < W / 2, t: 0, y: b.y };
   burst(m, b.x, b.y, fatal ? 50 : 26, fatal ? CHARS[f.char].glow : '#ffffff', 'spark', fatal ? 9 : 6);
   if (m.extra) m.winner = side;
   emit(m, { type: 'goal', side, fatal });

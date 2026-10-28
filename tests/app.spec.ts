@@ -1147,6 +1147,9 @@ test('Kombat Football: se abre desde Juegos, se eligen los luchadores como en un
   await mine.click();
   const rival = page.getByRole('group', { name: 'Rival' }).getByRole('button', { name: 'THUNDER' });
   await rival.click(); await rival.click();
+  await expect(page.getByTestId('kf-vs-1')).toHaveText('FROST');
+  await expect(page.getByTestId('kf-vs-2')).toHaveText('THUNDER');
+  await page.getByRole('button', { name: 'Seleccionar escenario ▶' }).click();
   await page.getByRole('button', { name: /Planeta Volcánico/ }).click();
   await page.getByRole('button', { name: 'Siguiente ▶' }).click();
   await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
