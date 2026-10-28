@@ -24,8 +24,8 @@ export const PH = 2.3;
 // Tamaño de cada luchador (alto = PH × tamaño): los grandotes BRUTO, BRUTO ROJO y MAGMA; los petizos CYBER,
 // THUNDER y COMETA; el resto varía un poco.
 export const SIZE: Record<CharId, number> = {
-  bruto: 1.2, brutoRed: 1.17, magma: 1.15, cyber: 0.84, thunder: 0.86, cometa: 0.85,
-  inferno: 1.04, frost: 1, shadow: 0.96, shadowRed: 0.98, orbot: 1.06, orbotBlue: 1.03, aguila: 1.02, aguilaBlack: 0.99, espectro: 1.05, toxic: 0.95,
+  bruto: 1.4, brutoRed: 1.36, magma: 1.32, cyber: 0.7, thunder: 0.72, cometa: 0.74,
+  inferno: 1.08, frost: 1, shadow: 0.9, shadowRed: 0.94, orbot: 1.12, orbotBlue: 1.05, aguila: 1.03, aguilaBlack: 0.97, espectro: 1.1, toxic: 0.88,
 };
 export const heightOf = (f: { char: CharId }) => PH * SIZE[f.char];
 const bodyH = (p: object) => 'char' in p ? heightOf(p as { char: CharId }) : PH; // alto de una persona

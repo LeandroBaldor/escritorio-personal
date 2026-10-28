@@ -23,7 +23,7 @@ describe('Kombat Football', () => {
     const order = [...CHAR_IDS].sort((a, b) => SIZE[b] - SIZE[a]);
     expect(new Set(order.slice(0, 3))).toEqual(new Set(['bruto', 'brutoRed', 'magma']));
     expect(new Set(order.slice(-3))).toEqual(new Set(['cyber', 'thunder', 'cometa']));
-    expect(heightOf({ char: 'bruto' })).toBeGreaterThan(heightOf({ char: 'cometa' }) * 1.3);
+    expect(heightOf({ char: 'bruto' })).toBeGreaterThan(heightOf({ char: 'cometa' }) * 1.8);
   });
 
   it('la pelota baja por el tubo del medio al empezar', () => {

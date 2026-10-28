@@ -526,7 +526,7 @@ export function drawFighterCard(ctx: CanvasRenderingContext2D, char: CharId, w: 
   ctx.clearRect(0, 0, w, h);
   const L = LOOKS[char], g = ctx.createRadialGradient(w / 2, h * 0.75, 0, w / 2, h * 0.75, w * 0.6);
   g.addColorStop(0, alpha(L.glow, 0.35)); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
-  const s = h / (L.extras.includes('wings') ? 2.6 : 2.4) * (0.8 + 0.2 * SIZE[char] / 1.2) / SIZE[char]; // en la ficha se nota un poco el tamaño
+  const s = h / (L.extras.includes('wings') ? 2.6 : 2.4) * (0.62 + 0.38 * SIZE[char] / 1.4) / SIZE[char]; // en la ficha también se nota el tamaño
   const f = idleFighter(char); f.facing = mirror ? -1 : 1;
   drawFighterLit(ctx, f, t, { power: 0.5, frozen: false, poison: false, burn: false, zap: false, shield: false, speed: false, aura: null }, w / 2, h * 0.94, s / BODY_SCALE, L.glow);
 }
