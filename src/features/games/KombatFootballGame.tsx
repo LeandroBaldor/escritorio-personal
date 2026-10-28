@@ -78,14 +78,16 @@ function Portrait({ char, size, mirror = false, square = false }: { char: CharId
 // Las barras de velocidad, fuerza y salto (0 a 100). A la izquierda: nombre, barra y número; a la derecha (el
 // rival) al revés: número, barra y nombre, y la barra se llena desde la derecha.
 const STAT_ROWS = [['Velocidad', 'speed'], ['Fuerza', 'strength'], ['Salto', 'jump']] as const;
-function StatBars({ char, right = false, testId }: { char: CharId; right?: boolean; testId?: string }) {
-  return <div className={`kf-stats${right ? ' kf-stats--r' : ''}`} data-testid={testId}>
+function StatBars({ char, right = false, testId, attack = false }: { char: CharId; right?: boolean; testId?: string; attack?: boolean }) {
+  return <><div className={`kf-stats${right ? ' kf-stats--r' : ''}`} data-testid={testId}>
     {STAT_ROWS.map(([label, k]) => { const v = STATS[char][k]; return <div key={k} className="kf-stat" aria-label={`${label} ${v}`}>
       <span>{label}</span>
       <i style={{ ['--v' as string]: `${v}%`, ['--c' as string]: `hsl(${Math.round(v * 1.2)} 85% 48%)` }}><b /></i>
       <em>{v}</em>
     </div>; })}
-  </div>;
+  </div>
+  {attack && <p className={`kf-attack${right ? ' kf-attack--r' : ''}`} data-testid={testId && `${testId}-attack`}><b>✦ {CHARS[char].abilityName}</b> {CHARS[char].abilityText}</p>}
+  </>;
 }
 function FighterCard({ char, w, h, mirror = false }: { char: CharId; w: number; h: number; mirror?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -470,7 +472,7 @@ export function KombatFootball() {
             <FighterCard char={pick === 0 ? shown : p1} w={cardW} h={cardH} />
             <b data-testid="kf-pick-1">{CHARS[pick === 0 ? shown : p1].name}</b>
             <small>{mode === 'versus' ? 'J1' : 'VOS'}</small>
-            <StatBars char={pick === 0 ? shown : p1} testId="kf-stats-1" />
+            <StatBars char={pick === 0 ? shown : p1} testId="kf-stats-1" attack />
           </div>
           <div className="kf-grid" role="group" aria-label={pick === 0 ? 'Tu luchador' : 'Rival'} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
             {CHAR_IDS.map((id, i) => {
@@ -487,10 +489,9 @@ export function KombatFootball() {
             {pick === 1 || mode === 'tournament' ? <FighterCard char={pick === 1 ? CHAR_IDS[cursor] : chars[1]} w={cardW} h={cardH} mirror /> : <div className="kf-pick-empty" style={{ width: cardW, height: cardH }}>?</div>}
             <b data-testid="kf-pick-2">{pick === 1 || mode === 'tournament' ? CHARS[pick === 1 ? CHAR_IDS[cursor] : chars[1]].name : '—'}</b>
             <small>{mode === 'versus' ? 'J2' : 'CPU'}</small>
-            {(pick === 1 || mode === 'tournament') && <StatBars char={pick === 1 ? CHAR_IDS[cursor] : chars[1]} right testId="kf-stats-2" />}
+            {(pick === 1 || mode === 'tournament') && <StatBars char={pick === 1 ? CHAR_IDS[cursor] : chars[1]} right testId="kf-stats-2" attack />}
           </div>
         </div>
-        <p className="kf-zone"><b>{CHARS[CHAR_IDS[cursor]].name}</b> · ✦ {CHARS[CHAR_IDS[cursor]].abilityName}: {CHARS[CHAR_IDS[cursor]].abilityText}</p>
         <div className="kf-actions">
           <button type="button" className="kf-secondary" onClick={() => { if (pick === 1) { setPick(0); setCursor(CHAR_IDS.indexOf(p1)); } else setScreen('menu'); }}>‹ Volver</button>
           {pick === 1 && mode === 'cpu' && <button type="button" className="kf-secondary" onClick={() => chooseChar(CHAR_IDS.indexOf(CHAR_IDS.filter(c => c !== p1)[Math.floor(Math.random() * 15)]))}>🎲 Al azar</button>}
