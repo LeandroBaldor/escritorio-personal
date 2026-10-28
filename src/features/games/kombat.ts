@@ -520,7 +520,7 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
   if (b.alive && m.phase === 'play') {
     const near = m.fighters.some(f => Math.abs(f.x - b.x) < 2.5 && Math.abs(f.y - b.y) < 3);
     m.stillT = Math.hypot(b.vx, b.vy) < 0.6 && !near ? (m.stillT ?? 0) + dt : 0;
-    if (m.stillT > 3.5) { m.stillT = 0; b.vx = Math.sign(W / 2 - b.x) * 6; b.vy = 9; b.owner = null; burst(m, b.x, b.y, 10, '#e2e8f0', 'smoke', 3); emit(m, { type: 'bounce', power: 0.6 }); }
+    if (m.stillT > 1.8) { m.stillT = 0; b.vx = Math.sign(W / 2 - b.x) * 6; b.vy = 9; b.owner = null; burst(m, b.x, b.y, 10, '#e2e8f0', 'smoke', 3); emit(m, { type: 'bounce', power: 0.6 }); }
   }
   updatePowerups(m, dt);
 }
@@ -529,7 +529,7 @@ function gravityOf(m: Match) { return 30 * stageDef(m.stage).gravity; }
 const BALL_G = 27; // la gravedad de la pelota (más pesada: cae rápido y el juego es más dinámico)
 // Los luchadores tienen la misma gravedad en todos los escenarios (un poco más liviana que la normal); la pelota,
 // el árbitro y lo demás siguen con la gravedad de cada escenario.
-export const PLAYER_GRAVITY = 0.7; // (más pesado que en la Luna: saltos más rápidos y dinámicos)
+export const PLAYER_GRAVITY = 0.9; // (casi la normal: saltos rápidos y dinámicos)
 const playerG = (m: Match) => PLAYER_GRAVITY / stageDef(m.stage).gravity; // la escala sobre la gravedad del escenario
 // La superficie más alta debajo de (x, y): el piso o el techo de un bloque o plataforma.
 export function supportAt(m: Match, x: number, y: number, half = PW / 2 - 0.1) {
@@ -615,13 +615,14 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
   let speed = 8.4 * def.speed * staminaFactor(f) * (turbo ? 1.3 : 1) * (f.poison > 0 ? 0.7 : 1);
   const cpu = m.cpu[f.side];
   if (cpu) speed *= 0.7 + cpu.level * 0.4;
+  let gScale = 1;
   const blocking = !stunned && i.down && !i.kick && f.ground && f.kickT <= 0 && !busy(f) && Math.abs(f.vx) < 2.5;
   let want = 0;
   if (!stunned && !busy(f)) { if (i.left) want -= 1; if (i.right) want += 1; }
   if (blocking) want *= 0.15;
   if (f.charge > 0) want *= 0.5; // cargando el tiro camina despacio
-  const accel = f.ground ? (st.friction < 1 ? 18 : 60) : 26;
-  let gScale = 1;
+  const accel = f.ground ? (st.friction < 1 ? 18 : 60) : 55; // en el aire se maneja casi igual que en el piso
+  if (!f.ground && !stunned && i.down && f.vy < 4) gScale = 2.2; // ↓ en el aire: cae más rápido (se dirige la caída)
   if (f.abilityT > 0) { // habilidades con movimiento propio
     f.abilityT -= dt;
     if (f.char === 'brutoRed') { f.vx = f.facing * 18; }
@@ -645,7 +646,7 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
   if (!stunned && pressed(f, i, 'up') && !busy(f) && !i.kick && f.charge <= 0 && f.jumps < MAX_JUMPS) {
     const v = 11.5 * def.jump * (0.8 + 0.2 * staminaFactor(f)) * (turbo ? 1.1 : 1) * Math.sqrt(PLAYER_GRAVITY);
     if (f.ground || f.jumps === 0) { f.vy = v; f.jumps = 1; } // en el aire sin haber saltado (cayendo de un borde) cuenta como el primero
-    else { f.vy = Math.max(f.vy, 0) * 0.3 + v; f.jumps++; burst(m, f.x, f.y, 10, '#e2e8f0', 'smoke', 2.5); burst(m, f.x, f.y, 1, CHARS[f.char].glow, 'ring', 1); }
+    else { f.vy = Math.max(f.vy, 0) * 0.3 + v; f.jumps++; if (want) f.vx = want * Math.max(Math.abs(f.vx), speed) * 1.35; /* el salto en el aire da un impulso hacia donde apunta */ burst(m, f.x, f.y, 10, '#e2e8f0', 'smoke', 2.5); burst(m, f.x, f.y, 1, CHARS[f.char].glow, 'ring', 1); }
     f.ground = false; emit(m, { type: 'jump' });
   }
   moveBody(m, f, dt, gScale * playerG(m), f.char === 'espectro' && f.abilityT > 0);
@@ -724,7 +725,7 @@ function doKick(m: Match, f: Fighter, rival: Fighter) {
   const b = m.ball, def = CHARS[f.char];
   const fx = f.x + f.facing * 0.56, fy = f.y + (f.ground ? 0.45 : 0.8);
   if (b.alive && Math.hypot(b.x - fx, b.y - fy) < 1.18 && !(m.fatal && !m.fatal.done)) {
-    let power = 17 * def.power * f.kickPow * (0.75 + 0.25 * staminaFactor(f)) * ((f.powers.power ?? 0) > 0 ? 1.4 : 1);
+    let power = 15 * def.power * f.kickPow * (0.75 + 0.25 * staminaFactor(f)) * ((f.powers.power ?? 0) > 0 ? 1.4 : 1);
     let ang = f.kickKind === 'lob' ? 0.9 : f.kickKind === 'low' ? 0.05 : 0.3;
     if (!f.ground) ang = f.kickKind === 'lob' ? 0.55 : b.y > f.y + 1.2 ? -0.2 : 0.12;
     if (b.kind === 'fire') power *= 1.2;
@@ -1198,7 +1199,7 @@ function rollFriction(m: Match, b: Ball, dt: number) {
 function collideBallWorld(m: Match, b: Ball, dt: number) {
   if (b.y - BALL_R < 0) {
     b.y = BALL_R;
-    if (b.vy < -2) { emit(m, { type: 'bounce', power: Math.min(1, -b.vy / 15) }); b.vy = -b.vy * (b.kind === 'ice' ? 0.5 : 0.6); } else b.vy = 0;
+    if (b.vy < -1.2) { emit(m, { type: 'bounce', power: Math.min(1, -b.vy / 15) }); b.vy = -b.vy * (b.kind === 'ice' ? 0.72 : 0.84); } else b.vy = 0; // pica mucho
     rollFriction(m, b, dt);
     for (const h of m.hazards) if (h.kind === 'conveyor' && b.x > h.x && b.x < h.x + h.w) b.vx += h.dir * 5 * dt;
   }
@@ -1213,7 +1214,7 @@ function collideBallWorld(m: Match, b: Ball, dt: number) {
     } else { nx = dx / d; ny = dy / d; b.x = cx + nx * BALL_R; b.y = cy + ny * BALL_R; }
     const vn = b.vx * nx + b.vy * ny;
     if (vn < 0) {
-      const e = s.kind === 'bouncy' ? 1.15 : 0.55;
+      const e = s.kind === 'bouncy' ? 1.15 : 0.78;
       b.vx -= (1 + e) * vn * nx; b.vy -= (1 + e) * vn * ny;
       if (s.kind === 'bouncy' && ny > 0.5) b.vy = Math.max(b.vy, 11);
       if (Math.abs(vn) > 3) emit(m, { type: 'bounce', power: Math.min(1, Math.abs(vn) / 15) });
