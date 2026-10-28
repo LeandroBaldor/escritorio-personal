@@ -1393,7 +1393,7 @@ export function setKfMusic(on: boolean) {
     if (!(buffer instanceof AudioBuffer)) { loadSample(url); setTimeout(go, 300); return; }
     const src = c.createBufferSource(), gain = c.createGain();
     src.buffer = buffer; src.loop = true; gain.gain.value = 0;
-    gain.gain.setTargetAtTime(0.09, c.currentTime, 0.3); // la música bien bajita, de fondo
+    gain.gain.setTargetAtTime(0.15, c.currentTime, 0.3); // la música de fondo
     src.connect(gain).connect(out(c)); src.start();
     kfMusic = { src, gain };
   });

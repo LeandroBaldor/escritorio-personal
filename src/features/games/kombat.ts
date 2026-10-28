@@ -99,18 +99,18 @@ export interface StageDef { id: StageId; name: string; hazard: string; gravity: 
 export const STAGES: StageDef[] = [
   { id: 'industrial', name: 'Planeta Neon', hazard: 'Láseres, pinches, sierras y una bola con púas', gravity: 1, friction: 1 },
   { id: 'mines', name: 'Planeta Minado', hazard: 'Minas flotantes, láseres y plataformas con pinches', gravity: 0.85, friction: 1 },
-  { id: 'base', name: 'Planeta Órbita', hazard: 'Gravedad baja y muchos láseres', gravity: 0.7, friction: 1 },
+  { id: 'base', name: 'Planeta Órbita', hazard: 'Muchos láseres y plataformas antigravedad', gravity: 0.7, friction: 1 },
   { id: 'ice', name: 'Planeta Helado', hazard: 'Piso que resbala, pinches y carámbanos que caen', gravity: 1, friction: 0.35 },
   { id: 'volcano', name: 'Planeta Volcánico', hazard: 'Pozos de lava, chorros de fuego y meteoritos', gravity: 1, friction: 1 },
   { id: 'forest', name: 'Planeta Fungi', hazard: 'Hongos que rebotan, cascada y pinches', gravity: 1, friction: 1 },
   { id: 'factory', name: 'Planeta Engranaje', hazard: 'Sierras, láseres y cinta transportadora', gravity: 1, friction: 1 },
   { id: 'storm', name: 'Planeta Tormenta', hazard: 'Rayos, placas eléctricas y bolas con púas', gravity: 1, friction: 1 },
   { id: 'temple', name: 'Planeta Ancestral', hazard: 'Antorchas de fuego, pinches y escalones', gravity: 1, friction: 1 },
-  { id: 'moon', name: 'Planeta Selene', hazard: 'Gravedad lunar, láseres y bloques con pinches', gravity: 0.45, friction: 1 },
+  { id: 'moon', name: 'Planeta Selene', hazard: 'Láseres, bloques con pinches y plataformas que se mueven', gravity: 0.45, friction: 1 },
   { id: 'subway', name: 'Planeta Templo', hazard: 'Riel electrificado, láseres y una plataforma que va y viene', gravity: 1, friction: 1 },
   { id: 'pit', name: 'Planeta Abismo', hazard: 'Bolas con púas, pinches y un ascensor sobre el abismo', gravity: 1, friction: 1 },
   { id: 'desert', name: 'Planeta Duna', hazard: 'Géiseres de fuego, sierras y arena que resbala', gravity: 1, friction: 0.8 },
-  { id: 'ocean', name: 'Planeta Coral', hazard: 'Minas submarinas, erizos y se flota (poca gravedad)', gravity: 0.55, friction: 0.9 },
+  { id: 'ocean', name: 'Planeta Coral', hazard: 'Minas submarinas y erizos', gravity: 0.55, friction: 0.9 },
   { id: 'sky', name: 'Planeta Nimbo', hazard: 'Rayos, láseres y plataformas en el aire', gravity: 0.8, friction: 1 },
   { id: 'coliseum', name: 'Planeta Gladiador', hazard: 'Pinches, fuego, un pistón y una bola con púas', gravity: 1, friction: 1 },
 ];
@@ -526,10 +526,10 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
 }
 
 function gravityOf(m: Match) { return 30 * stageDef(m.stage).gravity; }
-const BALL_G = 27; // la gravedad de la pelota (más pesada: cae rápido y el juego es más dinámico)
+const BALL_G = 33; // la gravedad de la pelota: la misma en todos los escenarios (pesada: cae rápido y el juego es más dinámico)
 // Los luchadores tienen la misma gravedad en todos los escenarios (un poco más liviana que la normal); la pelota,
 // el árbitro y lo demás siguen con la gravedad de cada escenario.
-export const PLAYER_GRAVITY = 0.9; // (casi la normal: saltos rápidos y dinámicos)
+export const PLAYER_GRAVITY = 1.2; // (más pesada que la normal: saltos rápidos y dinámicos, igual en todos los escenarios)
 const playerG = (m: Match) => PLAYER_GRAVITY / stageDef(m.stage).gravity; // la escala sobre la gravedad del escenario
 // La superficie más alta debajo de (x, y): el piso o el techo de un bloque o plataforma.
 export function supportAt(m: Match, x: number, y: number, half = PW / 2 - 0.1) {
@@ -852,7 +852,7 @@ function explodeFighter(m: Match, f: Fighter, color: 'green' | 'red') {
 }
 // La pelota que quedó atrás o arriba del arco sale volando y cae cerca del medio de la cancha.
 function launchToMiddle(m: Match) {
-  const b = m.ball, st = stageDef(m.stage), g = BALL_G * st.gravity * (b.kind === 'void' ? 0.45 : 1);
+  const b = m.ball, g = BALL_G * (b.kind === 'void' ? 0.45 : 1);
   const vy = 17 + m.rand() * 2, flight = (vy + Math.sqrt(vy * vy + 2 * g * Math.max(0, b.y - 1))) / g, target = W / 2 + (m.rand() - 0.5) * 4;
   const k = -Math.log(b.kind === 'ice' ? 0.92 : 0.86); // (el aire la frena: se calcula con eso para que llegue)
   b.vy = vy; b.vx = clamp((target - b.x) * k / (1 - Math.exp(-k * flight)), -22, 22); b.owner = null; b.y = Math.max(b.y, goalHeight(m, 0) + BAR + BALL_R);
@@ -1172,14 +1172,14 @@ export function isDanger(h: Hazard) { return trapLike(h) && h.state === 2; }
 
 // ---------------------------------------------------------------- La pelota
 function moveBall(m: Match, dt: number) {
-  const b = m.ball, st = stageDef(m.stage);
+  const b = m.ball;
   if (m.fatal && !m.fatal.done && m.phase === 'play') return;
   const steps = Math.ceil(Math.hypot(b.vx, b.vy) * dt / 0.12) || 1, h = dt / steps;
   b.kindT = Math.max(0, b.kindT - dt); if (b.kindT <= 0 && b.kind !== 'normal') { b.kind = 'normal'; emit(m, { type: 'ballKind', kind: 'normal' }); }
   b.fxT = Math.max(0, b.fxT - dt); if (b.fxT <= 0) b.fx = 'none';
   if (b.frozen > 0) { b.frozen -= dt; b.vx = 0; b.vy = 0; m.trail = []; return; }
   for (let s = 0; s < steps; s++) {
-    const g = BALL_G * st.gravity * (b.kind === 'void' ? 0.45 : 1);
+    const g = BALL_G * (b.kind === 'void' ? 0.45 : 1);
     b.vy -= g * h;
     if (b.kind === 'toxic' || b.fx === 'toxic') b.vy += Math.cos(m.time * 9) * 14 * h;
     b.vx *= Math.pow(b.kind === 'ice' ? 0.92 : 0.86, h); b.vy *= Math.pow(0.95, h);
