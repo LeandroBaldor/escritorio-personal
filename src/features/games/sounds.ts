@@ -1324,7 +1324,11 @@ export function playWorm() {
 }
 
 // ---------- Kombat Football ----------
-export function preloadKombatSounds() { for (const url of [golUrl, hinchadaUrl, patadaUrl, explosionUrl, laserUrl, trepaFuegoUrl, bombaUrl, ...TRUENOS]) loadSample(url); }
+// El locutor que dice el nombre de cada luchador (como en Mortal Kombat): kf-nombre-<id>.mp3
+const KF_NAMES = import.meta.glob('./assets/sonidos/kf-nombre-*.mp3', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const kfNameUrl = (id: string) => KF_NAMES[`./assets/sonidos/kf-nombre-${id}.mp3`];
+export function preloadKombatSounds() { for (const url of [golUrl, hinchadaUrl, patadaUrl, explosionUrl, laserUrl, trepaFuegoUrl, bombaUrl, ...TRUENOS, ...Object.values(KF_NAMES)]) loadSample(url); }
+export function playKfName(id: string, delay = 0) { const url = kfNameUrl(id); if (url) playSample(url, 1, delay); }
 // Una piña / patada al cuerpo: golpe grave y seco con un chasquido.
 export function playKfHit(volume = 1) {
   const c = running(); if (!c) return;

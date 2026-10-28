@@ -7,7 +7,7 @@ import {
 import { brickWallURL, brokenWallURL, drawMatch, drawStageThumb, viewFor, vortexURL } from './kombatArt';
 import { drawFighterCard, drawPortrait } from './kombatFighters';
 import {
-  playExplosion, playGameOver, playGoal, playJump, playKfBlock, playKfBounce, playKfFatal, playKfHit, playKfPickup, playKfPost, playKfPower, playKick, playLaserOn,
+  playExplosion, playGameOver, playGoal, playJump, playKfBlock, playKfBounce, playKfFatal, playKfHit, playKfName, playKfPickup, playKfPost, playKfPower, playKick, playLaserOn,
   playRefWhistle, playStart, playThunder, playWinFanfare, preloadKombatSounds, setCrowd,
 } from './sounds';
 import { EndBanner } from './EndBanner';
@@ -195,7 +195,7 @@ export function KombatFootball() {
   // ---------------------------------------------------------------- La selección (estilo juego de pelea)
   const chooseChar = useCallback((idx: number) => {
     const id = CHAR_IDS[idx];
-    playKfPickup();
+    playKfPickup(); playKfName(id, 0.12);
     if (pick === 0) {
       setP1(id);
       if (mode === 'tournament') { const n = id === p1 ? round : 0; setRound(n); setLadderFrom(n); setScreen('ladder'); return; } // otro luchador: el torneo vuelve a empezar
