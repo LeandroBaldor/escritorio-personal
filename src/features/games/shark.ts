@@ -20,7 +20,6 @@
 //   para el otro, y te empuja.
 //
 // Todo se mide en "unidades" (el personaje mide casi una). El agua está en y = 0.
-import { isTester } from './testerMode';
 
 export const PLAYER_W = 0.6, PLAYER_H = 0.85;
 export const RUN = 6, CLIMB = 4, SWIM = 2.2, MAX_FALL = 18;
@@ -389,7 +388,6 @@ export function galeAt(g: SharkGame, t = g.time) {
 const addFx = (g: SharkGame, kind: Fx['kind'], x: number, size: number, y = 0) => { g.fx.push({ kind, x, y, at: g.time + (g.dying?.t ?? 0), size }); };
 
 function lose(g: SharkGame, reason: LoseReason, shark = -1) {
-  if (isTester()) return; // modo prueba: no te comen y el tiempo no se termina
   const p = g.player;
   g.dying = { t: 0, reason, shark };
   p.climb = null; p.zip = null; p.vx = 0; p.ground = null;
@@ -439,7 +437,7 @@ export function step(g: SharkGame, input: Input, dt: number) {
   }
   g.time += dt;
   const t = g.time;
-  if (t >= TIME_LIMIT && !isTester()) { g.time = TIME_LIMIT; lose(g, 'time'); return; }
+  if (t >= TIME_LIMIT) { g.time = TIME_LIMIT; lose(g, 'time'); return; }
   const left = TIME_LIMIT - t;
   if (left <= 60 && !g.hurried) { g.hurried = 60; g.events.push({ type: 'hurry', left: 60 }); }
   else if (left <= 30 && g.hurried === 60) { g.hurried = 30; g.events.push({ type: 'hurry', left: 30 }); }
@@ -653,7 +651,7 @@ function sharks(g: SharkGame, dt: number) {
     if (s.state === 'jump') {
       s.vy -= SHARK_G * dt; s.y += s.vy * dt; s.x = Math.max(a, Math.min(b, s.x + s.vx * dt));
       const box = sharkBox(s);
-      if (!g.dying && !isTester() && p.inside === null && p.x + PLAYER_W / 2 > box.x1 && p.x - PLAYER_W / 2 < box.x2 && p.y < box.y2 && p.y + PLAYER_H > box.y1) { s.state = 'bite'; lose(g, 'shark', s.id); return; }
+      if (!g.dying && p.inside === null && p.x + PLAYER_W / 2 > box.x1 && p.x - PLAYER_W / 2 < box.x2 && p.y < box.y2 && p.y + PLAYER_H > box.y1) { s.state = 'bite'; lose(g, 'shark', s.id); return; }
       for (const r of g.rescues) {
         if (r.state !== 'drift') continue;
         if (Math.abs(rescueX(r) - s.x) < 0.3 * L && box.y2 > FLOAT_Y) { r.state = 'taken'; r.at = g.time; r.fromX = rescueX(r); r.fromY = FLOAT_Y; removePlat(g, r.plat); s.ate = true; s.ateAt = g.time; s.prey = { kind: r.kind, look: r.look }; g.events.push({ type: 'taken', kind: r.kind, x: r.fromX }); addFx(g, 'blood', r.fromX, r.kind === 'persona' ? 2.6 : 2, FLOAT_Y + 0.3); }
@@ -676,7 +674,7 @@ function sharks(g: SharkGame, dt: number) {
       // Si te caés al agua, va derecho a buscarte.
       s.state = 'chase';
       const d = toward(p.x, spec.chase);
-      if (d < 0.35 + 0.4 * spec.size && !isTester()) { s.y = swimY(s); s.vy = 0; lose(g, 'shark', s.id); return; }
+      if (d < 0.35 + 0.4 * spec.size) { s.y = swimY(s); s.vy = 0; lose(g, 'shark', s.id); return; }
       continue;
     }
     s.rest = Math.max(0, s.rest - dt);
@@ -749,7 +747,7 @@ function flyers(g: SharkGame, dt: number) {
     } else if (f.state === 'dive') {
       f.dist -= FLY_DIVE * dt;
       const m = flyerMouth(f);
-      if (p.inside === null && !isTester() && Math.abs(m.x - p.x) < PLAYER_W / 2 + 0.3 && m.y > p.y - 0.2 && m.y < p.y + PLAYER_H + 0.2) { lose(g, 'flyer', f.id); return; }
+      if (p.inside === null && Math.abs(m.x - p.x) < PLAYER_W / 2 + 0.3 && m.y > p.y - 0.2 && m.y < p.y + PLAYER_H + 0.2) { lose(g, 'flyer', f.id); return; }
       if (f.dist <= 0 || f.y < -0.3) { f.state = 'climb'; f.vy = 4; f.vx = f.dir * FLY_SPEED; f.cool = 4 + g.rand() * 3; }
     } else if (f.state === 'climb') {
       f.vx = f.dir * FLY_SPEED; f.vy = 4;

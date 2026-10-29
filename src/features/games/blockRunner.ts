@@ -2,7 +2,6 @@
 // arriba, y un personaje chiquito que corre y salta para que no lo aplasten. Una pieza que cae
 // rompe los bloques de su mismo color que encuentra abajo. Todo se mide en celdas (no en
 // píxeles), así el juego no cambia si la pantalla cambia de tamaño.
-import { isTester } from './testerMode';
 
 export type Cell = string | null;
 export interface Piece { id: number; x: number; y: number; cells: [number, number][]; width: number; height: number; color: string; speed: number; drilled?: boolean }
@@ -205,18 +204,7 @@ export function explode(game: Game, x: number, y: number, rand: () => number) {
   game.blasts.push({ x: x + 0.5, y: y + 0.5, t: 0, max: 0.7, size: 1 });
   emit(game, { type: 'boom' });
   burst(game, x + 0.5, y + 0.5, BLAST_COLORS, 40, 10, rand);
-  if (!game.over && !isTester() && overlapsPlayer(game.player, x - 1, y - 1, 3, 3, 0.12)) game.over = 'bomb';
-}
-
-// Modo prueba: en vez de perder, se rompen los bloques que lo aprietan (una columna de 3 de ancho desde donde
-// está hasta arriba) y las piezas que caen ahí. Si los bloques llegaron arriba, se vacían las primeras filas.
-function spare(game: Game, top = false) {
-  const p = game.player, c0 = Math.max(0, Math.floor(p.x) - 1), c1 = Math.min(game.cols - 1, Math.floor(p.x + PLAYER_W) + 1);
-  const r1 = Math.min(game.rows - 1, Math.floor(p.y + PLAYER_H));
-  for (let r = 0; r <= r1; r++) for (let c = c0; c <= c1; c++) game.grid[r][c] = null;
-  game.pieces = game.pieces.filter(piece => !pieceCells(piece).some(([bx]) => bx >= c0 && bx <= c1));
-  if (top) for (let r = 0; r < Math.min(4, game.rows); r++) game.grid[r].fill(null);
-  game.trapped = 0;
+  if (!game.over && overlapsPlayer(game.player, x - 1, y - 1, 3, 3, 0.12)) game.over = 'bomb';
 }
 
 function clearRows(game: Game) {
@@ -232,7 +220,7 @@ function clearRows(game: Game) {
 function lock(game: Game, piece: Piece, y: number) {
   for (const [cx, cy] of piece.cells) {
     const r = y + cy;
-    if (r < 0) { if (isTester()) spare(game, true); else game.over = 'full'; continue; } // los bloques llegaron arriba
+    if (r < 0) { game.over = 'full'; continue; } // los bloques llegaron arriba
     game.grid[r][piece.x + cx] = piece.color;
   }
   emit(game, { type: 'land', lines: clearRows(game) });
@@ -306,7 +294,7 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
     if (by + 0.5 > p.y + PLAYER_H / 2) continue; // la pieza está debajo: se para arriba de ella
     p.y = by + 1;
     p.vy = Math.max(p.vy, piece.speed);
-    if (hitsGrid(game, p.x, p.y, PLAYER_W, PLAYER_H)) { if (isTester()) { spare(game); continue; } game.over = 'crushed'; return; }
+    if (hitsGrid(game, p.x, p.y, PLAYER_W, PLAYER_H)) { game.over = 'crushed'; return; }
   }
 
   p.vx = ((input.right ? 1 : 0) - (input.left ? 1 : 0)) * RUN;
@@ -352,12 +340,12 @@ export function step(game: Game, input: Input, dt: number, rand: () => number = 
   }
 
   // Si los bloques apoyados lo encierran (una fila que baja, bloques que caen) y no hay lugar al costado, lo aplastan.
-  if (hitsGrid(game, p.x, p.y, PLAYER_W, PLAYER_H) && !shove(game)) { if (isTester()) spare(game); else { game.over = 'crushed'; return; } }
+  if (hitsGrid(game, p.x, p.y, PLAYER_W, PLAYER_H) && !shove(game)) { game.over = 'crushed'; return; }
 
   // Encerrado: si los bloques lo dejan en un hueco sin salida hacia arriba, tiene 10 segundos para
   // salir (una bomba o una pieza de su color pueden abrirle camino). Si no, queda atrapado.
   game.trapped = isEnclosed(game) ? game.trapped + dt : 0;
-  if (game.trapped >= TRAP_SECONDS) { if (isTester()) spare(game); else game.over = 'trapped'; }
+  if (game.trapped >= TRAP_SECONDS) game.over = 'trapped';
 }
 
 export const TRAP_SECONDS = 10;

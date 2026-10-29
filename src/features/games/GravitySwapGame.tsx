@@ -6,7 +6,6 @@ import {
   playAstronautHit, playAstronautLand, playFlame, playSplat, playAstronautSplat, playAstronautStep, playBombBeep, playCheckpoint, playComet, playCrumble, playGameOver, playGravityBoom, playGravityFlip, playGust,
   playDoor, playLaserOn, playMonsterRoar, playStart, playTeleport, playThunder, playTramp, playTurretShot, playThrust, playWinFanfare, playWorm, preloadGravitySounds, setBlackholeSound, setThrustSound, stopBlackholeSound, tickGravityMusic,
 } from './sounds';
-import { isTester } from './testerMode';
 import { EndBanner } from './EndBanner';
 
 const LEVEL_KEY = 'escritorio-personal-juegos:gravedad-nivel';
@@ -14,8 +13,7 @@ const RECORD_KEY = 'escritorio-personal-juegos:gravedad-record';
 const readNumber = (key: string) => { try { return Number(localStorage.getItem(key)) || 0; } catch { return 0; } };
 const saveNumber = (key: string, value: number) => { try { localStorage.setItem(key, String(value)); } catch { /* sin almacenamiento: dura esta partida */ } };
 // Hasta qué escenario llegó (para elegir desde dónde jugar) y el mejor tiempo para pasar los 10 seguidos.
-// (en el modo prueba están todos los escenarios habilitados, para poder probarlos)
-export const readGravityRecord = () => ({ unlocked: isTester() ? LEVEL_COUNT : Math.max(1, Math.min(LEVEL_COUNT, readNumber(LEVEL_KEY))), time: readNumber(RECORD_KEY) || null });
+export const readGravityRecord = () => ({ unlocked: Math.max(1, Math.min(LEVEL_COUNT, readNumber(LEVEL_KEY))), time: readNumber(RECORD_KEY) || null });
 export const formatGravityTime = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 
 type Status = 'ready' | 'playing' | 'paused' | 'over' | 'won';

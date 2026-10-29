@@ -29,7 +29,6 @@
 // - Cada partida arranca en un lugar distinto de la cuadra.
 //
 // Todo se mide en "unidades" (el personaje mide casi una) y en pantalla se muestran metros.
-import { isTester } from './testerMode';
 
 export const M_PER_UNIT = 3;
 export const PLAYER_W = 0.6, PLAYER_H = 0.85;
@@ -899,7 +898,6 @@ const overlapsX = (p: Player, pl: Plat) => p.x + PLAYER_W / 2 > pl.x && p.x - PL
 const hitsBox = (p: Player, x1: number, x2: number, y1: number, y2: number) => p.x + PLAYER_W / 2 > x1 && p.x - PLAYER_W / 2 < x2 && p.y + PLAYER_H > y1 && p.y < y2;
 
 function lose(g: LavaGame, reason: LoseReason) {
-  if (isTester()) return; // modo prueba: no te pasa nada
   const p = g.player;
   g.dying = { t: 0, reason };
   p.climb = null; p.zip = null; p.wire = null; p.vx = 0;
