@@ -203,7 +203,7 @@ describe('Kombat Football', () => {
     const [moonT, moonH] = air('moon'), [templeT, templeH] = air('temple');
     expect(templeT).toBeCloseTo(moonT, 1);
     expect(templeH).toBeCloseTo(moonH, 1);
-    expect(templeT).toBeGreaterThan(0.2); // tarda un ratito en llegar arriba
+    expect(templeT).toBeGreaterThan(0.12); // tarda un ratito en llegar arriba
     expect(templeT).toBeLessThan(0.55); // pero no flota como antes (más dinámico)
   });
 
@@ -382,8 +382,17 @@ describe('Kombat Football', () => {
     m.ball.x = bp.x + bp.w / 2; m.ball.y = bp.y + bp.h + 1.2; m.ball.vx = 0; m.ball.vy = -6;
     let fast = 0;
     for (let t = 0; t < 0.6; t += 1 / 60) { step(m, [noInput(), noInput()], 1 / 60); fast = Math.max(fast, Math.hypot(m.ball.vx, m.ball.vy)); }
-    expect(fast).toBeGreaterThan(18);
+    expect(fast).toBeGreaterThan(13);
     expect(takeEvents(m).some(e => e.type === 'bumper')).toBe(true);
+  });
+
+  it('si la pelota queda trabada entre los dos, sale para arriba', () => {
+    const m = newMatch('temple', ['frost', 'toxic'], [null, null], seeded(8));
+    toPlay(m); m.solids = []; m.hazards = [];
+    const [a, c] = m.fighters; a.x = 14.1; c.x = 15.9; a.y = c.y = 0; m.ball.x = 15; m.ball.y = 0.42; m.ball.vx = 0; m.ball.vy = 0;
+    let top = 0;
+    for (let t = 0; t < 1.5; t += 1 / 60) { a.x = 14.1; c.x = 15.9; step(m, [noInput(), noInput()], 1 / 60); top = Math.max(top, m.ball.y); }
+    expect(top).toBeGreaterThan(1.5);
   });
 
   it('empate al final: tiempo extra y el primer gol gana (gol de oro)', () => {
