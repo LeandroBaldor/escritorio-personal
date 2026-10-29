@@ -808,7 +808,7 @@ function stageHurt(m: Match, f: Fighter, kind: StunKind, time: number, push: num
   let away = Math.sign(f.x - from) || (f.x < W / 2 ? 1 : -1);
   const blocked = (d: number) => f.x + d * 2.2 < 1 || f.x + d * 2.2 > W - 1 || m.solids.some(sd => sd.y < f.y + 1.5 && sd.y + sd.h > f.y + 0.1 && (d > 0 ? sd.x > f.x && sd.x < f.x + 2.2 : sd.x + sd.w < f.x && sd.x + sd.w > f.x - 2.2));
   if (blocked(away) && !blocked(-away)) away = -away; // del lado que esté libre
-  f.vx = away * (6 + Math.random() * 2); f.vy = 10 + Math.random() * 2; f.ground = false; f.inv = Math.max(f.inv, 1.4);
+  f.vx = away * (6 + m.rand() * 2); f.vy = 10 + m.rand() * 2; f.ground = false; f.inv = Math.max(f.inv, 1.4);
   if (blocked(away)) f.y += 0.9; // (algo bajo al lado: que salga por encima)
   const g = m.gore, h = heightOf(f), cx = f.x, cy = f.y + h * 0.6, rnd = Math.random;
   burst(m, cx, cy, 40, '#b91c1c', 'blood', 9); burst(m, cx, cy, 1, '#ef4444', 'ring', 1);

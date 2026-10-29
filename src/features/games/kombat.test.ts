@@ -410,7 +410,7 @@ describe('Kombat Football', () => {
       const was = f.stun;
       step(m, [noInput(), noInput()], 1 / 60);
       if (!hit && was <= 0 && f.stun > 0) hit = true;
-      if (hit) { maxY = Math.max(maxY, f.y); if (f.ground && (f.x < sp.x - 0.3 || f.x > sp.x + sp.w + 0.3)) out = true; }
+      if (hit) { maxY = Math.max(maxY, f.y); if (f.x < sp.x - 0.8 || f.x > sp.x + sp.w + 0.8) out = true; } // salió de la zona de la trampa
     }
     expect(hit).toBe(true);
     expect(maxY).toBeGreaterThan(1);
