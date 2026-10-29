@@ -1344,7 +1344,7 @@ export function playKfName(id: string, delay = 0) {
 // Los sonidos grabados de Kombat Football: botones, la pelota, el láser del mapa, el relator y el locutor.
 const KF = import.meta.glob('./assets/sonidos/kf-*.mp3', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const kf = (name: string) => KF[`./assets/sonidos/kf-${name}.mp3`];
-export function preloadKombatUi() { for (const url of Object.values(KF_NAMES)) loadSample(url); for (const n of ['boton', 'voz-seleccionar', 'voz-vs', 'musica']) loadSample(kf(n)); for (const n of ['pelota', 'salto', 'laser', 'fuego', 'electricidad', 'energia', 'trueno-1', 'trueno-2', 'trueno-3', 'trueno-4', 'trueno-5', 'gol-1', 'gol-2', 'gol-3', 'voz-fight', 'voz-finality', 'voz-gol-de-oro', 'voz-you-died', 'voz-primer-tiempo', 'voz-segundo-tiempo']) loadSample(kf(n)); }
+export function preloadKombatUi() { for (const url of Object.values(KF_NAMES)) loadSample(url); for (const n of ['boton', 'voz-seleccionar', 'voz-vs', 'voz-versus', 'musica']) loadSample(kf(n)); for (const n of ['pelota', 'salto', 'laser', 'fuego', 'electricidad', 'energia', 'trueno-1', 'trueno-2', 'trueno-3', 'trueno-4', 'trueno-5', 'gol-1', 'gol-2', 'gol-3', 'voz-fight', 'voz-finality', 'voz-gol-de-oro', 'voz-you-died', 'voz-primer-tiempo', 'voz-segundo-tiempo']) loadSample(kf(n)); }
 // Cualquier botón del juego (menú, elegir luchador, iniciar, abandonar...).
 let lastButton = 0;
 export function playKfButton(volume = 0.8) { unlockSounds(); whenRunning(c => { if (c.currentTime - lastButton < 0.05) return; lastButton = c.currentTime; playSample(kf('boton'), volume); }); }
@@ -1380,6 +1380,19 @@ export function playKfKickoffVoice(half: 1 | 2, delay: number) {
 // "Fear is weakness" en la pantalla VS, "Death round" al empezar el gol de oro y "You died" cuando un luchador
 // recibe un FATAL GOAL y el rayo lo revienta.
 export function playKfVsVoice() { unlockSounds(); whenRunning(() => { playSample(kf('voz-vs'), 1, 1.3); }); }
+// La pantalla VS: el locutor dice "(luchador 1) versus (luchador 2)" de corrido y después "Fear is weakness".
+export function playKfVsSentence(p1: string, p2: string) {
+  unlockSounds();
+  whenRunning(() => {
+    const dur = (url: string | undefined) => { const b = url ? samples.get(url) : undefined; return b instanceof AudioBuffer ? b.duration : 0.7; };
+    const n1 = kfNameUrl(p1), vs = kf('voz-versus'), n2 = kfNameUrl(p2);
+    let at = 0.35;
+    if (n1) playSample(n1, 1, at); at += dur(n1) + 0.12;
+    playSample(vs, 1, at); at += dur(vs) + 0.12;
+    if (n2) playSample(n2, 1, at); at += dur(n2) + 0.5;
+    playSample(kf('voz-vs'), 1, at);
+  });
+}
 export function playKfGoldenRound() { playSample(kf('voz-gol-de-oro'), 1, 0.6); }
 export function playKfYouDied() { playSample(kf('voz-you-died'), 1, 0.5); }
 export function playKfFinality() { playSample(kf('voz-finality'), 1, 0.15); }

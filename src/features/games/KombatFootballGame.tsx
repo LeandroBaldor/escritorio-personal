@@ -9,7 +9,7 @@ import { drawFighterCard, drawPortrait } from './kombatFighters';
 import { spaceURL } from './kombatSpace';
 import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
-  playExplosion, playGameOver, playKfBlock, playKfBall, playKfButton, playKfElectric, playKfEnergy, playKfFatal, playKfFinality, playKfFire, playKfThunder, playKfGoal, playKfGoldenRound, playKfVsVoice, playKfYouDied, playKfHit, playKfJump, playKfKickoffVoice, playKfLaser, playKfName, playKfSelectVoice, playKfPickup, playKfPost, playKfPower,
+  playExplosion, playGameOver, playKfBlock, playKfBall, playKfButton, playKfElectric, playKfEnergy, playKfFatal, playKfFinality, playKfFire, playKfThunder, playKfGoal, playKfGoldenRound, playKfVsSentence, playKfYouDied, playKfHit, playKfJump, playKfKickoffVoice, playKfLaser, playKfName, playKfSelectVoice, playKfPickup, playKfPost, playKfPower,
   playRefWhistle, playStart, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
 } from './sounds';
 import { EndBanner } from './EndBanner';
@@ -213,12 +213,12 @@ export function KombatFootball() {
   // ---------------------------------------------------------------- La selección (estilo juego de pelea)
   const chooseChar = useCallback((idx: number) => {
     const id = CHAR_IDS[idx];
-    playKfName(id, 0.12);
+    if (pick === 0 || mode === 'tournament') playKfName(id, 0.12); // (el rival lo dice la frase de la pantalla VS)
     if (pick === 0) {
       setP1(id);
       if (mode === 'tournament') { const n = id === p1 ? round : 0; setRound(n); setLadderFrom(n); setScreen('ladder'); return; } // otro luchador: el torneo vuelve a empezar
       setPick(1); const other = CHAR_IDS.indexOf(p2 === id ? CHAR_IDS[(idx + 1) % 16] : p2); setCursor(other); if (p2 === id) setP2(CHAR_IDS[other]);
-    } else { setP2(id); setScreen('vs'); playKfVsVoice(); } // los dos frente a frente antes de elegir el escenario
+    } else { setP2(id); setScreen('vs'); playKfVsSentence(p1, id); } // los dos frente a frente antes de elegir el escenario
   }, [pick, mode, p1, p2, round]);
   const cols = 4; // la grilla es un cuadrado de 4 × 4
   // teclado de las pantallas de elegir
