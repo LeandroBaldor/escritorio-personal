@@ -36,7 +36,7 @@ describe('Kombat Football', () => {
   });
 
   it('la pelota baja por el tubo del medio al empezar', () => {
-    const m = newMatch('industrial', ['cometa', 'inferno'], [null, null], seeded(1));
+    const m = newMatch('desert', ['cometa', 'inferno'], [null, null], seeded(1));
     play(m, 3.1);
     expect(m.ball.alive).toBe(true);
     expect(m.ball.x).toBeCloseTo(W / 2, 0);
@@ -121,12 +121,13 @@ describe('Kombat Football', () => {
     const jump = (presses: number) => {
       const m = newMatch('temple', ['frost', 'toxic'], [null, null], seeded(14));
       toPlay(m); m.solids = []; m.hazards = [];
+      m.ball.x = 25; m.ball.y = 0.42; m.ball.frozen = 99; // (la pelota quieta lejos: que no haya gol en el medio)
       const f = m.fighters[0]; f.x = 15; f.y = 0; f.vy = 0; let k = 0, top = 0, done = 0, wasUp = false;
       play(m, 3, () => { k++; const i = noInput(); if (done < presses && !wasUp && (k === 2 || (done > 0 && f.vy < 0.5 && !f.ground))) { i.up = true; done++; } wasUp = i.up; top = Math.max(top, f.y); return [i, noInput()]; });
       return top;
     };
     const one = jump(1), two = jump(2), three = jump(3), four = jump(4);
-    expect(one).toBeGreaterThan(1.3); expect(one).toBeLessThan(2.2); // (con la gravedad fuerte se salta más bajo)
+    expect(one).toBeGreaterThan(2); expect(one).toBeLessThan(3.4); // (saltos de astronauta)
     expect(two).toBeGreaterThan(one * 1.8);
     expect(three).toBeGreaterThan(one * 2.5);
     expect(four).toBeCloseTo(three, 1);
@@ -203,8 +204,7 @@ describe('Kombat Football', () => {
     const [moonT, moonH] = air('moon'), [templeT, templeH] = air('temple');
     expect(templeT).toBeCloseTo(moonT, 1);
     expect(templeH).toBeCloseTo(moonH, 1);
-    expect(templeT).toBeGreaterThan(0.12); // tarda un ratito en llegar arriba
-    expect(templeT).toBeLessThan(0.55); // pero no flota como antes (más dinámico)
+    expect(templeT).toBeGreaterThan(0.5); // flota como en la Luna: tarda en llegar arriba
   });
 
   it('el árbitro recorre toda la cancha y se sube a las plataformas', () => {
@@ -382,8 +382,40 @@ describe('Kombat Football', () => {
     m.ball.x = bp.x + bp.w / 2; m.ball.y = bp.y + bp.h + 1.2; m.ball.vx = 0; m.ball.vy = -6;
     let fast = 0;
     for (let t = 0; t < 0.6; t += 1 / 60) { step(m, [noInput(), noInput()], 1 / 60); fast = Math.max(fast, Math.hypot(m.ball.vx, m.ball.vy)); }
-    expect(fast).toBeGreaterThan(13);
+    expect(fast).toBeGreaterThan(12);
     expect(takeEvents(m).some(e => e.type === 'bumper')).toBe(true);
+  });
+
+  it('la patada siempre eleva la pelota (no sale al ras del piso)', () => {
+    for (const kind of [false, true]) {
+      const m = newMatch('temple', ['frost', 'toxic'], [null, null], seeded(21));
+      toPlay(m); m.solids = []; m.hazards = [];
+      const f = m.fighters[0]; f.x = 8; f.y = 0; f.facing = kind ? -1 : 1; m.fighters[1].x = 25; m.ref.x = 27;
+      m.ball.x = f.x + f.facing * 0.9; m.ball.y = 0.42; m.ball.vx = 0; m.ball.vy = 0;
+      let top = 0, k = 0;
+      for (let t = 0; t < 1.2; t += 1 / 60) { k++; const i = noInput(); i.kick = k === 2; step(m, [i, noInput()], 1 / 60); top = Math.max(top, m.ball.y); }
+      expect(top).toBeGreaterThan(1.3);
+    }
+  });
+
+  it('una trampa despide al luchador para arriba y afuera, sangrando (no queda trabado)', () => {
+    const m = newMatch('industrial', ['frost', 'toxic'], [null, null], seeded(22));
+    toPlay(m);
+    const sp = m.hazards.find(h => h.kind === 'spikes' && h.y === 0)!, f = m.fighters[0];
+    m.ball.x = 25; m.fighters[1].x = 26;
+    f.stun = 0; f.inv = 0; f.stunKind = 'none'; f.action = 'idle';
+    let hit = false, out = false, maxY = 0;
+    for (let t = 0; t < 8 && !out; t += 1 / 60) {
+      if (!hit) { f.x = sp.x + sp.w / 2; f.y = 0; f.vx = 0; }
+      const was = f.stun;
+      step(m, [noInput(), noInput()], 1 / 60);
+      if (!hit && was <= 0 && f.stun > 0) hit = true;
+      if (hit) { maxY = Math.max(maxY, f.y); if (f.ground && (f.x < sp.x - 0.3 || f.x > sp.x + sp.w + 0.3)) out = true; }
+    }
+    expect(hit).toBe(true);
+    expect(maxY).toBeGreaterThan(1);
+    expect(out).toBe(true);
+    expect(m.gore.drops.length + m.gore.stains.length).toBeGreaterThan(20);
   });
 
   it('si la pelota queda trabada entre los dos, sale para arriba', () => {

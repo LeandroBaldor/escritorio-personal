@@ -63,7 +63,7 @@ export type BallKind = 'normal' | 'toxic' | 'fire' | 'ice' | 'spike' | 'void';
 export const FATAL_COMBO: ('F' | 'B')[] = ['F', 'B', 'F'];
 export const MAX_JUMPS = 3; // saltos seguidos (en el aire)
 export const CHARGE_MAX = 1; // segundos de barra espaciadora para el tiro más fuerte
-export const kickMult = (charge: number) => 0.55 + 0.95 * Math.min(1, charge / CHARGE_MAX);
+export const kickMult = (charge: number) => 0.8 + 0.75 * Math.min(1, charge / CHARGE_MAX);
 
 export interface CharDef {
   id: CharId; name: string; color: string; glow: string; element: Element; fatal: FatalStyle; fatalName: string; bio: string;
@@ -551,11 +551,11 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
 
 export const BUMP_GLOW: Record<BumperStyle, string> = { neon: '#f0abfc', crystal: '#c084fc', pad: '#38bdf8', tesla: '#a5b4fc', drum: '#fb7185', clam: '#5eead4', cloud: '#fde68a', shield: '#fbbf24', crater: '#e2e8f0' };
 function gravityOf(m: Match) { return 30 * stageDef(m.stage).gravity; }
-const BALL_G = 58; // la gravedad de la pelota: la misma en todos los escenarios (pesada: cae rápido y el juego es más dinámico)
+const BALL_G = 30; // la gravedad de la pelota: la misma en todos los escenarios (pesada: cae rápido y el juego es más dinámico)
 // Los luchadores tienen la misma gravedad en todos los escenarios (un poco más liviana que la normal); la pelota,
 // el árbitro y lo demás siguen con la gravedad de cada escenario.
-export const PLAYER_GRAVITY = 4.2; // (más pesada que la normal: saltos rápidos y dinámicos, igual en todos los escenarios)
-const JUMP_REF = 2.9; // el salto no compensa toda la gravedad: se salta más bajo y se siente el peso
+export const PLAYER_GRAVITY = 0.5; // (como en la Luna: saltos lentos y flotados, como un astronauta) // (más pesada que la normal: saltos rápidos y dinámicos, igual en todos los escenarios)
+const JUMP_REF = 0.62; // el salto no compensa toda la gravedad: se salta más bajo y se siente el peso
 const playerG = (m: Match) => PLAYER_GRAVITY / stageDef(m.stage).gravity; // la escala sobre la gravedad del escenario
 // La superficie más alta debajo de (x, y): el piso o el techo de un bloque o plataforma.
 export function supportAt(m: Match, x: number, y: number, half = PW / 2 - 0.1) {
@@ -629,7 +629,7 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
   if (f.poison > 0) spend(f, dt * 5);
   for (const k of Object.keys(f.powers) as PowerKind[]) { const left = (f.powers[k] ?? 0) - dt; if (left <= 0) delete f.powers[k]; else f.powers[k] = left; }
   gainPower(m, f, dt * 0.25);
-  if (f.stun > 0) { f.stun -= dt; if (f.stun <= 0) { f.stun = 0; f.stunKind = 'none'; f.action = 'idle'; f.inv = 0.8; } }
+  if (f.stun > 0) { f.stun -= dt; if (f.stun <= 0) { f.stun = 0; f.stunKind = 'none'; f.action = 'idle'; f.inv = Math.max(f.inv, 0.8); } }
   const stunned = f.stun > 0;
   // --- combinación del FATAL: se anotan las flechas que se aprietan (relativas al arco rival)
   const tap = (d: 'F' | 'B' | 'U' | 'D') => { f.taps.push({ d, t: m.time }); if (f.taps.length > 6) f.taps.shift(); };
@@ -640,7 +640,7 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
   f.taps = f.taps.filter(tp => m.time - tp.t < 1.1);
   // --- movimiento
   const turbo = (f.powers.speed ?? 0) > 0;
-  let speed = 8.4 * def.speed * staminaFactor(f) * (turbo ? 1.3 : 1) * (f.poison > 0 ? 0.7 : 1);
+  let speed = 7.6 * def.speed * staminaFactor(f) * (turbo ? 1.3 : 1) * (f.poison > 0 ? 0.7 : 1);
   const cpu = m.cpu[f.side];
   if (cpu) speed *= 0.7 + cpu.level * 0.4;
   let gScale = 1;
@@ -650,7 +650,7 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
   if (blocking) want *= 0.15;
   if (f.charge > 0) want *= 0.5; // cargando el tiro camina despacio
   const accel = f.ground ? (st.friction < 1 ? 18 : 60) : 55; // en el aire se maneja casi igual que en el piso
-  if (!f.ground && f.vy < 0) gScale = 1.6; // cae más rápido de lo que sube (se siente pesado)
+  if (!f.ground && f.vy < 0) gScale = 0.9; // (cae despacito) // cae más rápido de lo que sube (se siente pesado)
   if (!f.ground && !stunned && i.down && f.vy < 4) gScale = 2.2; // ↓ en el aire: cae más rápido (se dirige la caída)
   if (f.abilityT > 0) { // habilidades con movimiento propio
     f.abilityT -= dt;
@@ -754,13 +754,13 @@ function doKick(m: Match, f: Fighter, rival: Fighter) {
   const b = m.ball, def = CHARS[f.char];
   const fx = f.x + f.facing * 0.56, fy = f.y + (f.ground ? 0.45 : 0.8);
   if (b.alive && Math.hypot(b.x - fx, b.y - fy) < 1.0 + BALL_R && !(m.fatal && !m.fatal.done)) {
-    let power = 10.5 * def.power * f.kickPow * (0.75 + 0.25 * staminaFactor(f)) * ((f.powers.power ?? 0) > 0 ? 1.4 : 1);
-    let ang = f.kickKind === 'lob' ? 0.9 : f.kickKind === 'low' ? 0.05 : 0.3;
-    if (!f.ground) ang = f.kickKind === 'lob' ? 0.55 : b.y > f.y + 1.2 ? -0.2 : 0.12;
+    let power = 13 * def.power * f.kickPow * (0.75 + 0.25 * staminaFactor(f)) * ((f.powers.power ?? 0) > 0 ? 1.4 : 1);
+    let ang = f.kickKind === 'lob' ? 1.05 : f.kickKind === 'low' ? 0.32 : 0.6; // (la pelota siempre se eleva)
+    if (!f.ground) ang = f.kickKind === 'lob' ? 0.8 : b.y > f.y + 1.2 ? 0.15 : 0.45;
     if (f.ground && f.kickKind === 'normal' && f.facing === attackDir(m, f.side)) ang = aimAssist(m, f, b, power, ang); // ayuda para que el tiro vaya al arco
     if (b.kind === 'fire') power *= 1.2;
     if (b.frozen > 0) { b.frozen = 0; power *= 1.1; }
-    b.vx = Math.cos(ang) * power * f.facing; b.vy = Math.sin(ang) * power + (f.kickKind === 'lob' ? 2 : 0);
+    b.vx = Math.cos(ang) * power * f.facing; b.vy = Math.max(Math.sin(ang) * power + (f.kickKind === 'lob' ? 2 : 0), f.kickKind === 'low' ? 5 : 8); // (siempre se eleva)
     b.spin = f.facing * (f.kickKind === 'low' ? 4 : -8); b.owner = f.side; b.pass = { side: f.side, t: 0.2 };
     f.kickHit = true; gainPower(m, f, 1);
     burst(m, b.x, b.y, 6, '#ffffff', 'spark', 3);
@@ -783,7 +783,7 @@ function aimAssist(m: Match, f: Fighter, b: Ball, power: number, ang: number) {
   if (d > 14) return ang;
   const g = BALL_G * (b.kind === 'void' ? 0.45 : 1), k = -Math.log(0.7), target = goalHeight(m, f.side === 0 ? 1 : 0) * 0.45;
   let best = ang, err = Infinity;
-  for (let a = Math.max(0.02, ang - 0.35); a <= ang + 0.45; a += 0.02) {
+  for (let a = Math.max(0.3, ang - 0.25); a <= ang + 0.45; a += 0.02) { // (siempre elevado)
     const vx = Math.cos(a) * power, vy = Math.sin(a) * power;
     const arg = 1 - k * d / vx; if (arg <= 0.05) continue; // no llega
     const t = -Math.log(arg) / k, y = b.y + vy * t - g * t * t / 2;
@@ -800,13 +800,19 @@ function doSlide(m: Match, f: Fighter, rival: Fighter) {
 }
 // Un luchador recibe un golpe: queda volteado un rato y pierde la energía indicada (salvo que tenga escudo).
 // Una trampa del escenario lo lastima: además del golpe, sangra (salpica, gotea un rato y mancha el piso).
-function stageHurt(m: Match, f: Fighter, kind: StunKind, time: number, push: number, drain: number) {
+function stageHurt(m: Match, f: Fighter, kind: StunKind, time: number, push: number, drain: number, from = f.x) {
   const before = f.stun;
-  hurtFighter(m, f, null, kind, time, push, drain);
+  hurtFighter(m, f, null, kind, Math.min(time, 0.55), push, drain);
   if (f.stun <= before || f.gone) return; // no lo tocó (escudo, en fase, invulnerable)
+  // sale despedido para arriba y hacia afuera de la trampa (nunca queda trabado adentro)
+  let away = Math.sign(f.x - from) || (f.x < W / 2 ? 1 : -1);
+  const blocked = (d: number) => f.x + d * 2.2 < 1 || f.x + d * 2.2 > W - 1 || m.solids.some(sd => sd.y < f.y + 1.5 && sd.y + sd.h > f.y + 0.1 && (d > 0 ? sd.x > f.x && sd.x < f.x + 2.2 : sd.x + sd.w < f.x && sd.x + sd.w > f.x - 2.2));
+  if (blocked(away) && !blocked(-away)) away = -away; // del lado que esté libre
+  f.vx = away * (6 + Math.random() * 2); f.vy = 10 + Math.random() * 2; f.ground = false; f.inv = Math.max(f.inv, 1.4);
+  if (blocked(away)) f.y += 0.9; // (algo bajo al lado: que salga por encima)
   const g = m.gore, h = heightOf(f), cx = f.x, cy = f.y + h * 0.6, rnd = Math.random;
-  burst(m, cx, cy, 18, '#b91c1c', 'blood', 6);
-  for (let i = 0; i < 45 && g.drops.length < 1100; i++) { const a = rnd() * Math.PI * 2, sp = 2 + rnd() * 6; g.drops.push({ x: cx + (rnd() - 0.5) * 0.4, y: cy + (rnd() - 0.5) * h * 0.4, vx: Math.cos(a) * sp + f.vx * 0.3, vy: Math.sin(a) * sp + 3, r: 0.03 + rnd() * 0.05, life: 0 }); }
+  burst(m, cx, cy, 40, '#b91c1c', 'blood', 9); burst(m, cx, cy, 1, '#ef4444', 'ring', 1);
+  for (let i = 0; i < 90 && g.drops.length < 1100; i++) { const a = rnd() * Math.PI * 2, sp = 2 + rnd() * 6; g.drops.push({ x: cx + (rnd() - 0.5) * 0.4, y: cy + (rnd() - 0.5) * h * 0.4, vx: Math.cos(a) * sp + f.vx * 0.3, vy: Math.sin(a) * sp + 3, r: 0.03 + rnd() * 0.05, life: 0 }); }
   f.bleed = 2.2;
 }
 function bleedDrops(m: Match, f: Fighter, dt: number) {
@@ -970,7 +976,7 @@ function castAbility(m: Match, f: Fighter, rival: Fighter) {
   m.tint = { c: def.glow, t: 0.7 }; m.shake = Math.max(m.shake, 0.8); m.flash = Math.max(m.flash, 0.2);
   const hx = f.x + f.facing * 0.5, hy = f.y + 1.15;
   switch (def.ability) {
-    case 'superJump': f.vy = 19 * Math.sqrt(3.6); f.ground = false; f.abilityT = 0.9; burst(m, f.x, f.y, 16, '#bae6fd', 'smoke', 3); break;
+    case 'superJump': f.vy = 19 * Math.sqrt(0.75); f.ground = false; f.abilityT = 0.9; burst(m, f.x, f.y, 16, '#bae6fd', 'smoke', 3); break;
     case 'fireball': fireShot(m, f, 'fireball', 18, 0.32, 0); break;
     case 'shuriken': fireShot(m, f, 'shuriken', 24, 0.2, 0); break;
     case 'bomb': fireShot(m, f, 'bomb', 20, 0.22, 0); break;
@@ -1236,7 +1242,7 @@ function moveBall(m: Match, dt: number) {
     if (m.phase === 'play') for (const f of m.fighters) if (b.pass?.side !== f.side) collideBallFighter(m, b, f);
     if (!b.alive) return;
   }
-  const sp = Math.hypot(b.vx, b.vy), cap = (m.fatal && !m.fatal.done) || m.midDrop ? 99 : 15; if (sp > cap) { b.vx *= cap / sp; b.vy *= cap / sp; } // tope de velocidad: siempre se la puede seguir
+  const sp = Math.hypot(b.vx, b.vy), cap = (m.fatal && !m.fatal.done) || m.midDrop ? 99 : 18; if (sp > cap) { b.vx *= cap / sp; b.vy *= cap / sp; } // tope de velocidad: siempre se la puede seguir
   b.spin += b.vx * dt * 2;
   m.trail.unshift([b.x, b.y]); if (m.trail.length > 20) m.trail.length = 20;
 }
@@ -1400,7 +1406,7 @@ function mineBoom(m: Match, h: Hazard) {
   burst(m, p.x, p.y, 30, '#f87171', 'ember', 8); m.shake = Math.max(m.shake, 0.7); emit(m, { type: 'boom' });
   const b = m.ball;
   if (b.alive && Math.hypot(b.x - p.x, b.y - p.y) < 2.6) blastBall(m, p.x, p.y, 16, true);
-  for (const f of m.fighters) if (Math.hypot(f.x - p.x, f.y + 1 - p.y) < 2.4) stageHurt(m, f, 'burn', 1, 9, 20);
+  for (const f of m.fighters) if (Math.hypot(f.x - p.x, f.y + 1 - p.y) < 2.4) stageHurt(m, f, 'burn', 1, 9, 20, p.x);
   if (Math.hypot(m.ref.x - p.x, m.ref.y + 1 - p.y) < 2.4) hurtRef(m, 'burn', 1.4);
 }
 function updateHazards(m: Match, dt: number) {
@@ -1420,7 +1426,7 @@ function updateHazards(m: Match, dt: number) {
   // quiénes están en una zona: lastima una vez por encendido de cada trampa
   const hit = (x0: number, x1: number, y0: number, y1: number, kind: StunKind, time: number, push: number, drain: number, h?: Hazard) => {
     const ok = (bit: number) => { if (!h) return true; if ((h.struck ?? 0) & bit) return false; h.struck = (h.struck ?? 0) | bit; return true; };
-    m.fighters.forEach((f, i) => { if (f.stun <= 0 && !(f.char === 'espectro' && f.abilityT > 0) && f.x + PW / 2 > x0 && f.x - PW / 2 < x1 && f.y < y1 && f.y + heightOf(f) > y0 && ok(1 << i)) stageHurt(m, f, kind, time, push, drain); });
+    m.fighters.forEach((f, i) => { if (f.stun <= 0 && !(f.char === 'espectro' && f.abilityT > 0) && f.x + PW / 2 > x0 && f.x - PW / 2 < x1 && f.y < y1 && f.y + heightOf(f) > y0 && ok(1 << i)) stageHurt(m, f, kind, time, push, drain, (x0 + x1) / 2); });
     if (refIn(m, x0, x1, y0, y1) && ok(4)) hurtRef(m, kind, 1.3);
   };
   const ballIn = (x0: number, x1: number, y0: number, y1: number) => b.alive && b.x + BALL_R > x0 && b.x - BALL_R < x1 && b.y - BALL_R < y1 && b.y + BALL_R > y0 && !(m.fatal && !m.fatal.done);
