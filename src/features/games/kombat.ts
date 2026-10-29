@@ -160,14 +160,16 @@ export interface Person { // el árbitro
   roam?: { x: number; t: number; solid: number | null }; // a dónde va (recorre la cancha y se sube a las plataformas)
 }
 export interface Ball { x: number; y: number; vx: number; vy: number; spin: number; kind: BallKind; kindT: number; owner: 0 | 1 | null; fx: 'none' | 'toxic' | 'fire' | 'ice' | 'volt' | 'void'; fxT: number; frozen: number; alive: boolean; respawn: number; heat: number; pass?: { side: 0 | 1; t: number } } // pass: atraviesa un ratito al que la acaba de pegar
-export type PropLook = 'hydrant' | 'dish' | 'gears' | 'gargoyle' | 'idol' | 'lander' | 'vending' | 'brazier' | 'cage' | 'ruin' | 'anchor' | 'urn' | 'fountain' | 'rack' | 'bench' | 'cactus' | 'coral' | 'chest' | 'statue' | 'crate' | 'container' | 'cart' | 'crystal' | 'pod' | 'icecube' | 'snow' | 'obsidian' | 'basalt' | 'log' | 'stump' | 'barrels' | 'tomb' | 'altar' | 'column' | 'boulder';
-export interface Solid { x: number; y: number; w: number; h: number; kind: 'block' | 'float' | 'bouncy'; id: number; move?: Mover; look?: PropLook }
+export type PropLook = 'hydrant' | 'dish' | 'gears' | 'gargoyle' | 'idol' | 'lander' | 'vending' | 'brazier' | 'cage' | 'ruin' | 'anchor' | 'urn' | 'fountain' | 'rack' | 'bench' | 'cactus' | 'coral' | 'chest' | 'statue' | 'crate' | 'container' | 'cart' | 'crystal' | 'pod' | 'icecube' | 'snow' | 'obsidian' | 'basalt' | 'log' | 'stump' | 'barrels' | 'tomb' | 'altar' | 'column' | 'boulder' | 'lantern';
+// bumper: el objeto de súper rebote (la pelota sale disparada y los luchadores rebotan como en un trampolín)
+export type BumperStyle = 'neon' | 'crystal' | 'pad' | 'tesla' | 'drum' | 'clam' | 'cloud' | 'shield' | 'crater';
+export interface Solid { x: number; y: number; w: number; h: number; kind: 'block' | 'float' | 'bouncy' | 'bumper'; id: number; move?: Mover; look?: PropLook; bump?: BumperStyle; hit?: number }
 // Plataformas que se mueven: ascensores (suben y bajan), plataformas que van y vienen y pistones que salen del piso.
 export interface Mover { kind: 'lift' | 'slide' | 'piston'; x0: number; y0: number; h0: number; ax: number; ay: number; ah: number; period: number; phase: number }
 export type ShotKind = 'fireball' | 'shuriken' | 'bomb' | 'bullet' | 'feather' | 'bubble';
 export interface Shot { kind: ShotKind; side: 0 | 1; x: number; y: number; vx: number; vy: number; r: number; t: number; life: number; done: boolean }
 // Efectos de las habilidades que se dibujan un ratito (rayos, cortes, ondas, explosiones, nubes, picos).
-export interface Fx { kind: 'bolt' | 'beam' | 'charge' | 'slash' | 'nova' | 'quake' | 'boom' | 'cloud' | 'magma'; side: 0 | 1; x: number; y: number; x2: number; y2: number; t: number; life: number; dir: number; hit: number }
+export interface Fx { kind: 'bolt' | 'beam' | 'charge' | 'slash' | 'nova' | 'quake' | 'boom' | 'cloud' | 'magma' | 'wave'; side: 0 | 1; x: number; y: number; x2: number; y2: number; t: number; life: number; dir: number; hit: number }
 export interface Fatal { side: 0 | 1; char: CharId; style: FatalStyle; t: number; x0: number; y0: number; dir: 1 | -1; blocked: boolean; done: boolean }
 export interface PowerUp { id: number; kind: PowerKind; x: number; y: number; t: number }
 export type TrapKind = 'spikes' | 'flame' | 'shock' | 'laser' | 'saw';
@@ -182,7 +184,7 @@ export type KfEvent =
   | { type: 'kick'; power: number } | { type: 'hit'; who: 'fighter' | 'ref'; kind: StunKind } | { type: 'block' } | { type: 'goal'; side: 0 | 1; fatal: boolean }
   | { type: 'bounce'; power: number } | { type: 'post' } | { type: 'jump' } | { type: 'charged'; side: 0 | 1; power: number } | { type: 'ability'; side: 0 | 1; char: CharId }
   | { type: 'fatal'; side: 0 | 1; char: CharId } | { type: 'fatalBlocked'; side: 0 | 1 } | { type: 'power'; side: 0 | 1; kind: PowerKind } | { type: 'ballKind'; kind: BallKind }
-  | { type: 'unlock'; side: 0 | 1 } | { type: 'refDown' } | { type: 'refBack' } | { type: 'refBoom' } | { type: 'ballBoom' } | { type: 'strike'; side: 0 | 1; color: 'green' | 'red' } | { type: 'fighterBoom'; side: 0 | 1; color: 'green' | 'red' } | { type: 'ballDrop' } | { type: 'save'; side: 0 | 1 }
+  | { type: 'unlock'; side: 0 | 1 } | { type: 'refDown' } | { type: 'refBack' } | { type: 'bumper'; power: number } | { type: 'refBoom' } | { type: 'ballBoom' } | { type: 'strike'; side: 0 | 1; color: 'green' | 'red' } | { type: 'fighterBoom'; side: 0 | 1; color: 'green' | 'red' } | { type: 'ballDrop' } | { type: 'save'; side: 0 | 1 }
   | { type: 'trap'; kind: Hazard['kind'] } | { type: 'boom' } | { type: 'thunder' } | { type: 'zap' } | { type: 'whistle'; kind: 'kickoff' | 'half' | 'end'; start?: 1 | 2 }
   | { type: 'halftime' } | { type: 'extra' } | { type: 'warn' } | { type: 'tired'; side: 0 | 1 } | { type: 'noEnergy'; side: 0 | 1 } | { type: 'needBall'; side: 0 | 1 } | { type: 'header'; side: 0 | 1 };
 export type Phase = 'intro' | 'play' | 'goal' | 'fatal' | 'halftime' | 'end';
@@ -202,6 +204,7 @@ export interface Match {
   midDrop?: boolean; // la pelota va volando al medio: al caer se frena (como un balón tirado)
   ballPrev?: { x: number; y: number }; // dónde estaba la pelota antes de moverse (para saber por dónde entró al arco)
   gore: Gore; // la sangre y los huesos del árbitro cuando revienta
+  freeze?: number; // golpe fuerte: el juego se congela un instante (para que el impacto se sienta)
   tint?: { c: string; t: number }; // la pantalla se tiñe un instante del color del poder
   netHit?: { left: boolean; t: number; y: number }; // la red que se infla cuando entra la pelota
   strike?: Strike; // el rayo que cae sobre un luchador (verde: recibió un FATAL GOAL; rojo: perdió el partido)
@@ -258,28 +261,29 @@ function buildStage(m: Match) {
     const one = (x: number, ph: number, sx: number) => S.push({ x: x - w / 2, y, w, h, kind: kind === 'piston' ? 'block' : 'float', id: m.nextId++, move: { kind, x0: x - w / 2, y0: y, h0: h, ax: ax * sx, ay, ah, period, phase: ph } });
     if (mirror) { one(cx, phase, 1); one(W - cx, kind === 'lift' ? phase + Math.PI : phase, -1); } else one(cx, phase, 1);
   };
+  const bumper = (cx: number, y: number, w: number, h: number, style: BumperStyle) => both(cx, x => S.push({ x: x - w / 2, y, w, h, kind: 'bumper', id: m.nextId++, bump: style }));
   const saw = (x0: number, x1: number, phase = 0) => { Z.push(hz('saw', x0, 0, x1 - x0, 0.6, { t: phase, period: 7 })); Z.push(hz('saw', W - x1, 0, x1 - x0, 0.6, { t: phase, period: 7, dir: -1 })); };
   switch (m.stage) {
     case 'industrial':
       block(6.8, 1.8, 0.8, 'block', 'container'); plat(10.2, 3.3, 3.2); block(5.1, 0.5, 0.6, 'block', 'hydrant');
-      trap('spikes', 8.6, 1.4, 0); laser(10.2, 3.3); saw(11.8, 13.2, 3);
+      trap('spikes', 8.6, 1.4, 0); bumper(10.2, 0, 1.6, 0.8, 'neon'); saw(11.8, 13.2, 3);
       Z.push(hz('wreck', W / 2, H - 0.4, 0, H - 2.9));
       mover('lift', 3.6, 1.6, 1.8, 0.35, 0, 2.4, 0, 6);
       break;
     case 'mines':
       plat(8, 2.9, 3); block(11.6, 1.8, 0.7, 'block', 'cart'); block(5.7, 0.9, 0.6, 'block', 'crystal'); solid(W / 2 - 1.6, 6.3, 3.2, 0.4, 'float');
-      trap('spikes', 8, 1.4, 3.3); trap('spikes', 9.9, 1.2, 0, { t: 2 }); laser(13, 5.6, 2.5);
+      trap('spikes', 8, 1.4, 3.3); trap('spikes', 9.9, 1.2, 0, { t: 2 }); bumper(13, 3.4, 1.4, 1.1, 'crystal');
       both(10.8, x => Z.push(hz('mine', x, 5.1, 0.45, 0)));
       mover('slide', 4.4, 4.6, 1.8, 0.35, 1.6, 0, 0, 5.5);
       break;
     case 'base':
       plat(6.3, 2.6, 2.4); plat(10.8, 3.6, 2.6); block(4.9, 1.3, 0.8, 'block', 'pod'); block(3.3, 1, 0.9, 'block', 'dish');
-      laser(8.6, 4.4); laser(12.9, 4.4, 2.7); trap('spikes', 10.8, 1.8, 0, { t: 1.3 });
+      laser(8.6, 4.4); bumper(12.9, 0, 1.7, 0.55, 'pad'); trap('spikes', 10.8, 1.8, 0, { t: 1.3 });
       mover('lift', W / 2, 5.2, 2.6, 0.35, 0, 1.6, 0, 7, 0, false);
       break;
     case 'ice':
       block(7, 2, 1.1, 'block', 'icecube'); block(12.3, 1.6, 0.6, 'block', 'snow'); plat(9.7, 3.5, 2.6);
-      trap('spikes', 9.7, 1.6, 0); trap('spikes', 12.3, 1, 0.6, { t: 3 });
+      trap('spikes', 9.7, 1.6, 0); trap('spikes', 12.3, 1, 0.6, { t: 3 }); saw(3.6, 5.2, 1.5);
       mover('slide', W / 2, 5.4, 2.4, 0.4, 3.2, 0, 0, 8, 0, false);
       break;
     case 'volcano':
@@ -303,7 +307,7 @@ function buildStage(m: Match) {
       break;
     case 'storm':
       plat(8.2, 3, 3.2); solid(W / 2 - 1.5, 5.8, 3, 0.4, 'float'); block(6.2, 0.9, 1, 'block', 'tomb'); block(13.8, 0.9, 1.2, 'block', 'gargoyle');
-      trap('shock', 11.4, 1.8, 0); laser(13, 5.8, 2.7);
+      trap('shock', 11.4, 1.8, 0); bumper(12.6, 3.8, 1.3, 1.3, 'tesla');
       both(8.2, x => Z.push(hz('wreck', x, H - 0.4, 0, 8.6, { t: x < W / 2 ? 0 : Math.PI })));
       mover('lift', 4.4, 1.5, 1.6, 0.35, 0, 2, 0, 6);
       break;
@@ -315,13 +319,13 @@ function buildStage(m: Match) {
       break;
     case 'moon':
       block(8, 2.4, 0.9, 'block', 'boulder'); plat(12.8, 3.9, 2); block(5.9, 1, 1, 'block', 'lander');
-      trap('spikes', 8, 1.6, 0.9); laser(11, 4.6, 1.5);
+      trap('spikes', 8, 1.6, 0.9); bumper(10.6, 0, 1.9, 0.6, 'crater'); plat(10.6, 5.4, 1.8);
       mover('slide', W / 2, 6, 2.4, 0.35, 3, 0, 0, 9, 0, false);
       mover('lift', 4.2, 1.8, 1.6, 0.35, 0, 2.6, 0, 8);
       break;
     case 'subway':
-      block(6.9, 1.8, 0.6, 'block', 'bench'); plat(10.4, 3.2, 3); block(12.9, 0.9, 1.3, 'block', 'vending');
-      trap('shock', 8.9, 1.6, 0); laser(12, 4.6, 1.2);
+      bumper(6.9, 0, 1.6, 1.1, 'drum'); plat(10.4, 3.2, 3); block(12.9, 0.9, 1.3, 'block', 'lantern');
+      trap('spikes', 8.8, 1.4, 0, { t: 1 }); saw(10.2, 11.8, 2.5);
       mover('slide', W / 2, 5.4, 2.4, 0.35, 2.8, 0, 0, 7, 0, false);
       break;
     case 'pit':
@@ -336,17 +340,17 @@ function buildStage(m: Match) {
       break;
     case 'ocean':
       block(7, 1.8, 0.8, 'block', 'coral'); block(12.5, 1.3, 0.7, 'block', 'chest'); plat(9.4, 3.2, 2.4); block(2.9, 0.8, 1, 'block', 'anchor');
-      trap('spikes', 4.6, 1.2, 0, { t: 2 }); both(10.6, x => Z.push(hz('mine', x, 5.2, 0.45, 0)));
+      trap('spikes', 4.6, 1.2, 0, { t: 2 }); both(10.6, x => Z.push(hz('mine', x, 5.2, 0.45, 0))); bumper(9.4, 0, 1.7, 0.85, 'clam');
       mover('lift', W / 2, 2, 2.2, 0.35, 0, 2.6, 0, 9, 0, false);
       break;
     case 'sky':
       plat(6.4, 2.8, 2.4); plat(10.6, 4.2, 2.6); block(12.8, 0.9, 1, 'block', 'urn'); block(5.5, 1.4, 0.5, 'block', 'fountain');
-      laser(8.6, 4.6, 0.8); trap('spikes', 10.6, 1.4, 0, { t: 3 });
+      bumper(8.6, 4.4, 1.8, 0.8, 'cloud'); trap('spikes', 10.6, 1.4, 0, { t: 3 });
       mover('lift', 3.8, 1.5, 1.6, 0.35, 0, 2.6, 0, 6.5); mover('slide', W / 2, 6.6, 2.4, 0.35, 3, 0, 0, 8, 0, false);
       break;
     case 'coliseum':
       block(6.8, 1.4, 1.1, 'block', 'statue'); plat(10.8, 3.3, 2.6); block(4.2, 1, 1, 'block', 'rack');
-      trap('spikes', 9, 1.6, 0); trap('flame', 12.6, 0.9, 0, { t: 2.2 });
+      trap('spikes', 9, 1.6, 0); trap('flame', 12.6, 0.9, 0, { t: 2.2 }); bumper(10.8, 4.6, 1.25, 1.25, 'shield');
       mover('piston', W / 2, 0, 1.8, 0.15, 0, 0, 1.2, 6, 0, false);
       Z.push(hz('wreck', W / 2, H - 0.4, 0, H - 3.4));
       break;
@@ -454,6 +458,7 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
   m.fx = m.fx.filter(e => (e.t += dt) < e.life);
   if (m.netHit && (m.netHit.t += dt) > 3) m.netHit = undefined;
   updateStrike(m, dt);
+  if ((m.freeze ?? 0) > 0) { m.freeze = (m.freeze ?? 0) - dt; return; }
   if (m.phase !== 'fatal') updateSolids(m, dt);
   if (m.phase === 'intro') {
     idlePeople(m, dt);
@@ -525,6 +530,7 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
   updatePowerups(m, dt);
 }
 
+export const BUMP_GLOW: Record<BumperStyle, string> = { neon: '#f0abfc', crystal: '#c084fc', pad: '#38bdf8', tesla: '#a5b4fc', drum: '#fb7185', clam: '#5eead4', cloud: '#fde68a', shield: '#fbbf24', crater: '#e2e8f0' };
 function gravityOf(m: Match) { return 30 * stageDef(m.stage).gravity; }
 const BALL_G = 33; // la gravedad de la pelota: la misma en todos los escenarios (pesada: cae rápido y el juego es más dinámico)
 // Los luchadores tienen la misma gravedad en todos los escenarios (un poco más liviana que la normal); la pelota,
@@ -555,7 +561,9 @@ function moveBody(m: Match, p: { x: number; y: number; vx: number; vy: number; g
     const top = s.y + s.h;
     if (p.x + half - 0.12 > s.x && p.x - half + 0.12 < s.x + s.w && py >= top - 0.03 && p.y <= top) {
       p.y = top; ground = true;
-      if (s.kind === 'bouncy' && p.vy < -4) { p.vy = 15; ground = false; emit(m, { type: 'jump' }); } else p.vy = 0;
+      if (s.kind === 'bouncy' && p.vy < -4) { p.vy = 15; ground = false; emit(m, { type: 'jump' }); }
+      else if (s.kind === 'bumper' && p.vy < -2) { p.vy = 17; ground = false; s.hit = m.time; emit(m, { type: 'bumper', power: 0.6 }); }
+      else p.vy = 0;
     }
   }
   if (p.y <= 0) { p.y = 0; p.vy = 0; ground = true; }
@@ -773,7 +781,7 @@ function hurtFighter(m: Match, f: Fighter, by: Fighter | null, kind: StunKind, t
   if (f.char === 'espectro' && f.abilityT > 0) return; // en fase no lo toca nada
   if ((f.powers.shield ?? 0) > 0) { emit(m, { type: 'block' }); burst(m, f.x, f.y + 1, 10, '#38bdf8', 'ring', 1); return; }
   if (f.action === 'fatal' || f.inv > 0) return;
-  if (by) { const c = CHARS[by.char]; burst(m, f.x, f.y + heightOf(f) * 0.6, 24, c.glow, 'spark', 9); burst(m, f.x, f.y + heightOf(f) * 0.6, 1, c.color, 'ring', 1); m.tint = { c: c.glow, t: 0.3 }; m.shake = Math.max(m.shake, 0.45); }
+  if (by) { const c = CHARS[by.char], hy = f.y + heightOf(f) * 0.6; burst(m, f.x, hy, 70, c.glow, 'spark', 16); burst(m, f.x, hy, 25, '#ffffff', 'spark', 10); burst(m, f.x, hy, 1, c.color, 'ring', 1); m.fx.push({ kind: 'wave', side: by.side, x: f.x, y: hy, x2: 0, y2: 0, t: 0, life: 0.5, dir: 1, hit: 0 }); m.tint = { c: c.glow, t: 0.6 }; m.shake = Math.max(m.shake, 1); m.flash = Math.max(m.flash, 0.3); m.freeze = 0.07; }
   f.stun = Math.max(f.stun, time); f.stunKind = kind; f.action = 'stun'; f.kickT = 0; f.slideT = 0; f.abilityT = 0; f.charge = 0;
   if (push) { const d = by ? Math.sign(f.x - by.x) || -by.facing : (f.x < W / 2 ? 1 : -1); f.vx = d * push; if (kind !== 'freeze') { f.vy = push * 0.55; f.ground = false; } }
   if (kind === 'freeze') f.vx = 0;
@@ -919,8 +927,9 @@ function castAbility(m: Match, f: Fighter, rival: Fighter) {
   emit(m, { type: 'ability', side: f.side, char: f.char });
   // que se note: chispas del color del luchador, un anillo, la pantalla que se tiñe y un sacudón
   const cxh = f.x + f.facing * 0.7, cyh = f.y + heightOf(f) * 0.55;
-  burst(m, cxh, cyh, 28, def.glow, 'spark', 8); burst(m, cxh, cyh, 10, def.color, 'ember', 5); burst(m, cxh, cyh, 1, def.glow, 'ring', 1); burst(m, f.x, f.y + 0.1, 8, def.glow, 'smoke', 2.5);
-  m.tint = { c: def.glow, t: 0.35 }; m.shake = Math.max(m.shake, 0.25);
+  burst(m, cxh, cyh, 70, def.glow, 'spark', 15); burst(m, cxh, cyh, 30, def.color, 'ember', 8); burst(m, cxh, cyh, 1, def.glow, 'ring', 1); burst(m, cxh, cyh, 1, '#ffffff', 'ring', 1); burst(m, f.x, f.y + 0.1, 20, def.glow, 'smoke', 4);
+  m.fx.push({ kind: 'wave', side: f.side, x: cxh, y: cyh, x2: 0, y2: 0, t: 0, life: 0.6, dir: f.facing, hit: 0 }); // onda expansiva
+  m.tint = { c: def.glow, t: 0.7 }; m.shake = Math.max(m.shake, 0.8); m.flash = Math.max(m.flash, 0.2);
   const hx = f.x + f.facing * 0.5, hy = f.y + 1.15;
   switch (def.ability) {
     case 'superJump': f.vy = 19 * Math.sqrt(PLAYER_GRAVITY); f.ground = false; f.abilityT = 0.9; burst(m, f.x, f.y, 16, '#bae6fd', 'smoke', 3); break;
@@ -1136,7 +1145,7 @@ function updateRef(m: Match, dt: number) {
   // plataforma para mirar desde arriba. Cambia de idea cada tantos segundos.
   const bx = b.alive ? b.x : W / 2;
   if (!r.roam || (r.roam.t -= dt) <= 0) {
-    const q = m.rand(), plats = m.solids.filter(s => s.kind !== 'bouncy' && s.y + s.h > 0.6 && !(s.move?.kind === 'piston'));
+    const q = m.rand(), plats = m.solids.filter(s => s.kind !== 'bouncy' && s.kind !== 'bumper' && s.y + s.h > 0.6 && !(s.move?.kind === 'piston'));
     if (q < 0.45) r.roam = { x: clamp(bx + (bx < W / 2 ? 1 : -1) * (2.5 + m.rand() * 2), 3.2, W - 3.2), t: 2 + m.rand() * 2, solid: null };
     else if (q < 0.75 || !plats.length) r.roam = { x: 3.2 + m.rand() * (W - 6.4), t: 3 + m.rand() * 3, solid: null };
     else { const s = plats[Math.floor(m.rand() * plats.length)]; r.roam = { x: s.x + s.w / 2, t: 4 + m.rand() * 3, solid: s.id }; }
@@ -1213,6 +1222,14 @@ function collideBallWorld(m: Match, b: Ball, dt: number) {
       b.x += nx * (mn + BALL_R); b.y += ny * (mn + BALL_R);
     } else { nx = dx / d; ny = dy / d; b.x = cx + nx * BALL_R; b.y = cy + ny * BALL_R; }
     const vn = b.vx * nx + b.vy * ny;
+    if (vn < 0 && s.kind === 'bumper') { // súper rebote: sale disparada para afuera, más rápido de lo que vino
+      const sp = Math.max(Math.hypot(b.vx, b.vy) * 1.35, 20), ox = b.x - (s.x + s.w / 2), oy = b.y - (s.y + s.h / 2), ol = Math.hypot(ox, oy) || 1;
+      const ux = nx * 0.6 + (ox / ol) * 0.4, uy = ny * 0.6 + (oy / ol) * 0.4 + 0.25, ul = Math.hypot(ux, uy) || 1;
+      b.vx = ux / ul * sp; b.vy = uy / ul * sp; s.hit = m.time; b.owner = null;
+      burst(m, b.x, b.y, 22, BUMP_GLOW[s.bump ?? 'neon'], 'spark', 9); burst(m, b.x, b.y, 1, '#ffffff', 'ring', 1.6); m.shake = Math.max(m.shake, 0.35);
+      emit(m, { type: 'bumper', power: Math.min(1, sp / 30) });
+      continue;
+    }
     if (vn < 0) {
       const e = s.kind === 'bouncy' ? 1.15 : 0.78;
       b.vx -= (1 + e) * vn * nx; b.vy -= (1 + e) * vn * ny;

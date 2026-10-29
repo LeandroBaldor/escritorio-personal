@@ -10,7 +10,7 @@
 //   Coral: rocas con corales, anémonas y algas.                 Nimbo: mármol con oro sobre nubes.
 //   Gladiador: travertino con laureles sobre una columna.
 // Todo se dibuja en metros (el contexto ya está escalado; y crece hacia abajo).
-import type { StageId } from './kombat';
+import type { BumperStyle, StageId } from './kombat';
 import { alpha, bloom, darken, hash, lighten, lin, spec } from './gravityMonsters';
 
 const TAU = Math.PI * 2;
@@ -339,4 +339,89 @@ export function paintSlideRail(g: G, stage: StageId, xa: number, xb: number, ry:
   if (d === 'rails') { g.fillStyle = lin(g, 0, ry - s * 0.08, 0, ry + s * 0.08, [[0, '#9aa6b8'], [1, '#232a38']]); g.fillRect(xa, ry - s * 0.06, xb - xa, s * 0.12); }
   else { g.strokeStyle = d === 'chain' ? '#3a3f4a' : d === 'vine' ? '#2f6b25' : '#6b4f2a'; g.lineWidth = Math.max(1, s * 0.07); g.beginPath(); g.moveTo(xa, ry); g.quadraticCurveTo((xa + xb) / 2, ry + s * 0.25, xb, ry); g.stroke(); }
   for (const px of hangers) { g.strokeStyle = d === 'rails' ? '#2b3240' : d === 'vine' ? '#2f6b25' : '#6b4f2a'; g.lineWidth = Math.max(1, s * 0.05); g.beginPath(); g.moveTo(px, ry); g.lineTo(px, top); g.stroke(); g.fillStyle = d === 'rails' ? '#4b5563' : '#57534e'; g.beginPath(); g.arc(px, ry, s * 0.1, 0, TAU); g.fill(); }
+}
+
+// ---------------------------------------------------------------- objetos de súper rebote
+// Cada planeta tiene el suyo: hongo de neón de pinball, cristal flotante, plataforma antigravedad, esfera
+// Tesla, tambor taiko, almeja gigante, nube dorada, escudo de bronce y trampolín lunar. Cuando algo los toca
+// se inflan, brillan y largan un destello. (x, y, w, h en píxeles: y es el borde de arriba.)
+export function paintBumper(g: G, style: BumperStyle, x: number, y: number, w: number, h: number, s: number, t: number, age: number) {
+  const hit = age < 0.35 ? 1 - age / 0.35 : 0, pulse = 1 + hit * 0.22, cx = x + w / 2, cy = y + h / 2, glowC = ({ neon: '#f0abfc', crystal: '#c084fc', pad: '#38bdf8', tesla: '#a5b4fc', drum: '#fb7185', clam: '#5eead4', cloud: '#fde68a', shield: '#fbbf24', crater: '#e2e8f0' } as const)[style];
+  g.save(); g.translate(cx, y + h); g.scale(pulse, 2 - pulse); g.translate(-cx, -(y + h)); // se aplasta y se estira al rebotar
+  const breathe = 0.5 + 0.5 * Math.sin(t * 3 + x);
+  switch (style) {
+    case 'neon': { // bumper de pinball: base negra, anillo de neón y tapa con estrella
+      g.fillStyle = lin(g, x, 0, x + w, 0, [[0, '#111827'], [0.5, '#374151'], [1, '#0b0f19']]); g.fillRect(x + w * 0.1, y + h * 0.35, w * 0.8, h * 0.65);
+      g.fillStyle = '#1f2937'; g.beginPath(); g.ellipse(cx, y + h, w * 0.5, h * 0.18, 0, 0, TAU); g.fill();
+      g.strokeStyle = alpha('#f472b6', 0.7 + 0.3 * breathe); g.lineWidth = Math.max(2, s * 0.08); g.beginPath(); g.ellipse(cx, y + h * 0.6, w * 0.46, h * 0.16, 0, 0, TAU); g.stroke();
+      g.fillStyle = lin(g, 0, y, 0, y + h * 0.4, [[0, '#fdf4ff'], [1, '#c026d3']]); g.beginPath(); g.ellipse(cx, y + h * 0.3, w * 0.42, h * 0.28, 0, 0, TAU); g.fill();
+      g.fillStyle = '#22d3ee'; g.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? w * 0.07 : w * 0.17; g.lineTo(cx + Math.cos(a) * rr, y + h * 0.3 + Math.sin(a) * rr * 0.55); } g.closePath(); g.fill();
+      break;
+    }
+    case 'crystal': { // racimo de cristales que flota y gira despacio
+      const bob = Math.sin(t * 2 + x) * s * 0.08;
+      for (let k = -2; k <= 2; k++) { const kx = cx + k * w * 0.17, L = h * (1 - Math.abs(k) * 0.2), c = k % 2 ? '#a855f7' : '#e879f9'; g.fillStyle = lin(g, kx - w * 0.1, 0, kx + w * 0.1, 0, [[0, darken(c, 0.4)], [0.5, lighten(c, 0.4)], [1, darken(c, 0.2)]]); g.beginPath(); g.moveTo(kx, y + h - L + bob); g.lineTo(kx + w * 0.1, y + h * 0.75 + bob); g.lineTo(kx, y + h + bob); g.lineTo(kx - w * 0.1, y + h * 0.75 + bob); g.closePath(); g.fill(); }
+      break;
+    }
+    case 'pad': { // plataforma de salto antigravedad con flechas de luz
+      g.fillStyle = lin(g, 0, y, 0, y + h, [[0, '#e2e8f0'], [1, '#475569']]); g.beginPath(); g.roundRect(x, y + h * 0.3, w, h * 0.7, h * 0.2); g.fill();
+      g.fillStyle = alpha('#38bdf8', 0.7 + 0.3 * breathe); g.fillRect(x + w * 0.08, y + h * 0.3, w * 0.84, h * 0.18);
+      for (let k = 0; k < 3; k++) { const ay = y - ((t * 1.4 + k / 3) % 1) * h * 3; g.strokeStyle = alpha('#7dd3fc', 0.8 * (1 - ((t * 1.4 + k / 3) % 1))); g.lineWidth = Math.max(2, s * 0.06); g.beginPath(); g.moveTo(cx - w * 0.2, ay + h * 0.4); g.lineTo(cx, ay); g.lineTo(cx + w * 0.2, ay + h * 0.4); g.stroke(); }
+      break;
+    }
+    case 'tesla': { // esfera de metal flotante con rayos alrededor
+      const r = Math.min(w, h) * 0.45, bob = Math.sin(t * 2.3 + x) * s * 0.08, sg = g.createRadialGradient(cx - r * 0.3, cy - r * 0.35 + bob, r * 0.1, cx, cy + bob, r);
+      sg.addColorStop(0, '#f8fafc'); sg.addColorStop(0.4, '#94a3b8'); sg.addColorStop(1, '#1e293b'); g.fillStyle = sg; g.beginPath(); g.arc(cx, cy + bob, r, 0, TAU); g.fill();
+      g.strokeStyle = '#c7d2fe'; g.lineWidth = Math.max(1, s * 0.025);
+      for (let k = 0; k < 4; k++) { let a = hash(k + Math.floor(t * 14)) * TAU, px = cx + Math.cos(a) * r, py = cy + bob + Math.sin(a) * r; g.beginPath(); g.moveTo(px, py); for (let j = 0; j < 4; j++) { a += (hash(k * 7 + j + Math.floor(t * 14)) - 0.5) * 0.8; px += Math.cos(a) * r * 0.35; py += Math.sin(a) * r * 0.35; g.lineTo(px, py); } g.stroke(); }
+      break;
+    }
+    case 'drum': { // tambor taiko: cuerpo de madera roja, tachas y el parche de cuero
+      g.fillStyle = lin(g, x, 0, x + w, 0, [[0, '#4a0d0d'], [0.45, '#b91c1c'], [1, '#3f0a0a']]); g.beginPath(); g.moveTo(x + w * 0.05, y + h * 0.15); g.quadraticCurveTo(cx, y + h * 0.05, x + w * 0.95, y + h * 0.15); g.lineTo(x + w * 0.95, y + h * 0.9); g.quadraticCurveTo(cx, y + h * 1.02, x + w * 0.05, y + h * 0.9); g.closePath(); g.fill();
+      g.fillStyle = '#fbbf24'; for (let k = 0; k < 7; k++) { g.beginPath(); g.arc(x + w * (0.12 + k * 0.127), y + h * 0.24, Math.max(1, s * 0.03), 0, TAU); g.fill(); g.beginPath(); g.arc(x + w * (0.12 + k * 0.127), y + h * 0.85, Math.max(1, s * 0.03), 0, TAU); g.fill(); }
+      g.fillStyle = lin(g, 0, y, 0, y + h * 0.25, [[0, '#fef3c7'], [1, '#d6b98c']]); g.beginPath(); g.ellipse(cx, y + h * 0.15, w * 0.45, h * 0.12, 0, 0, TAU); g.fill();
+      g.fillStyle = 'rgba(0,0,0,0.6)'; g.beginPath(); g.arc(cx, y + h * 0.55, w * 0.12, 0, TAU); g.fill(); g.fillStyle = '#fbbf24'; g.beginPath(); g.arc(cx, y + h * 0.55, w * 0.09, 0, TAU); g.fill(); // el emblema
+      break;
+    }
+    case 'clam': { // almeja gigante con una perla que brilla
+      g.fillStyle = lin(g, 0, y, 0, y + h, [[0, '#99f6e4'], [1, '#0f766e']]); g.beginPath(); g.ellipse(cx, y + h * 0.75, w * 0.5, h * 0.3, 0, 0, Math.PI); g.fill();
+      const open = 0.25 + 0.15 * breathe + hit * 0.3; g.beginPath(); g.ellipse(cx, y + h * 0.7, w * 0.5, h * (0.5 + open * 0.3), 0, Math.PI, TAU); g.fill();
+      g.strokeStyle = 'rgba(15,60,60,0.5)'; g.lineWidth = Math.max(1, s * 0.02); for (let k = 1; k < 6; k++) { g.beginPath(); g.moveTo(cx, y + h * 0.7); g.lineTo(x + w * k / 6, y + h * (0.25 - open * 0.2)); g.stroke(); }
+      const pg = g.createRadialGradient(cx - w * 0.05, y + h * 0.6, 0, cx, y + h * 0.65, w * 0.14); pg.addColorStop(0, '#ffffff'); pg.addColorStop(1, '#e0e7ff'); g.fillStyle = pg; g.beginPath(); g.arc(cx, y + h * 0.66, w * 0.12, 0, TAU); g.fill();
+      break;
+    }
+    case 'cloud': { // nube dorada que rebota
+      g.fillStyle = '#fff7e6'; for (const [ox, oy, rr] of [[-0.3, 0.55, 0.28], [0, 0.4, 0.36], [0.3, 0.55, 0.28], [-0.12, 0.7, 0.3], [0.15, 0.72, 0.3]]) { g.beginPath(); g.arc(cx + ox * w, y + oy * h, rr * w * 0.6, 0, TAU); g.fill(); }
+      g.strokeStyle = alpha('#f59e0b', 0.6 + 0.4 * breathe); g.lineWidth = Math.max(2, s * 0.05); g.beginPath(); g.ellipse(cx, y + h * 0.95, w * 0.45, h * 0.12, 0, 0, TAU); g.stroke();
+      break;
+    }
+    case 'shield': { // escudo redondo de bronce con cabeza de león, colgado de cadenas
+      const r = Math.min(w, h) * 0.5;
+      g.strokeStyle = '#78350f'; g.lineWidth = Math.max(1, s * 0.03); g.beginPath(); g.moveTo(cx - r * 0.6, cy - r * 0.8); g.lineTo(cx - r * 1.2, 0); g.moveTo(cx + r * 0.6, cy - r * 0.8); g.lineTo(cx + r * 1.2, 0); g.stroke();
+      const sg = g.createRadialGradient(cx - r * 0.3, cy - r * 0.3, r * 0.1, cx, cy, r); sg.addColorStop(0, '#fde68a'); sg.addColorStop(0.5, '#b45309'); sg.addColorStop(1, '#451a03'); g.fillStyle = sg; g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.fill();
+      g.strokeStyle = '#fbbf24'; g.lineWidth = Math.max(1, s * 0.04); g.beginPath(); g.arc(cx, cy, r * 0.85, 0, TAU); g.stroke();
+      g.fillStyle = '#92400e'; g.beginPath(); g.arc(cx, cy, r * 0.35, 0, TAU); g.fill(); g.fillStyle = '#fcd34d'; g.beginPath(); g.arc(cx - r * 0.1, cy - r * 0.08, r * 0.1, 0, TAU); g.arc(cx + r * 0.1, cy - r * 0.08, r * 0.1, 0, TAU); g.fill();
+      break;
+    }
+    case 'crater': { // trampolín lunar: aro de metal, resortes y lona
+      g.strokeStyle = '#94a3b8'; g.lineWidth = Math.max(1, s * 0.03); for (let k = 0; k < 5; k++) { const sx = x + w * (0.1 + k * 0.2); g.beginPath(); for (let j = 0; j <= 6; j++) g.lineTo(sx + (j % 2 ? w * 0.04 : -w * 0.04), y + h * (0.3 + j * 0.11)); g.stroke(); }
+      g.fillStyle = '#1e293b'; g.beginPath(); g.ellipse(cx, y + h * 0.25, w * 0.5, h * 0.22, 0, 0, TAU); g.fill();
+      g.strokeStyle = '#cbd5e1'; g.lineWidth = Math.max(2, s * 0.05); g.stroke();
+      g.fillStyle = alpha('#f97316', 0.6 + 0.4 * breathe); g.beginPath(); g.arc(x + w * 0.05, y + h * 0.25, Math.max(2, s * 0.05), 0, TAU); g.arc(x + w * 0.95, y + h * 0.25, Math.max(2, s * 0.05), 0, TAU); g.fill();
+      break;
+    }
+  }
+  g.restore();
+  // el resplandor de siempre y el destello cuando rebota algo
+  bloom(g, cx, cy, Math.max(w, h) * (0.9 + hit * 1.2), glowC, 0.25 + 0.15 * breathe + hit * 0.7);
+  if (hit > 0) { g.save(); g.globalCompositeOperation = 'lighter'; g.strokeStyle = alpha('#ffffff', hit); g.lineWidth = Math.max(2, s * 0.08); g.beginPath(); g.ellipse(cx, cy, Math.max(w, h) * (1.4 - hit * 0.6), Math.max(w, h) * (1.1 - hit * 0.5), 0, 0, TAU); g.stroke(); g.restore(); }
+}
+// Linterna de piedra japonesa (tōrō) con la luz adentro.
+export function paintLantern(g: G, x: number, y: number, w: number, h: number) {
+  const cx = x + w / 2, stone = (yy: number, ww: number, hh: number) => { g.fillStyle = lin(g, cx - ww / 2, 0, cx + ww / 2, 0, [[0, '#4b4f57'], [0.45, '#9ca3af'], [1, '#3f434b']]); g.fillRect(cx - ww / 2, yy, ww, hh); };
+  stone(y + h * 0.85, w, h * 0.15); stone(y + h * 0.55, w * 0.35, h * 0.3); stone(y + h * 0.48, w * 0.8, h * 0.08);
+  stone(y + h * 0.26, w * 0.62, h * 0.22);
+  g.fillStyle = '#ffb347'; g.fillRect(cx - w * 0.15, y + h * 0.3, w * 0.3, h * 0.14); bloom(g, cx, y + h * 0.37, w * 0.9, '#ffb347', 0.6);
+  g.fillStyle = lin(g, 0, y, 0, y + h * 0.26, [[0, '#6b7280'], [1, '#374151']]); g.beginPath(); g.moveTo(cx - w * 0.55, y + h * 0.26); g.quadraticCurveTo(cx, y + h * 0.02, cx + w * 0.55, y + h * 0.26); g.closePath(); g.fill();
+  g.fillStyle = '#4b5563'; g.beginPath(); g.arc(cx, y + h * 0.06, w * 0.08, 0, TAU); g.fill();
 }

@@ -13,7 +13,7 @@ import { drawFighterLit, drawRefLit, LOOKS } from './kombatFighters';
 import { alpha, bloom, darken, grain, hash, lighten, lin, shade, spec, zap } from './gravityMonsters';
 import { bolt, hazardStripes, laserBeam, laserWarnLine, plate, rock, sawBlade, seaMine, steelSpikes } from './gravityHazardArt';
 import { backdropReady, drawAmbient, gradeScenery, paintBackdrop, paintScenery } from './kombatScenery';
-import { STRUCT, paintEmitter, paintEmitterMount, paintLiftDrive, paintPlatform, paintSlideRail, paintSupport } from './kombatStructures';
+import { STRUCT, paintBumper, paintEmitter, paintLantern, paintEmitterMount, paintLiftDrive, paintPlatform, paintSlideRail, paintSupport } from './kombatStructures';
 
 const TAU = Math.PI * 2;
 export interface View { w: number; h: number; s: number; ox: number; oy: number }
@@ -62,7 +62,7 @@ function background(m: Match, v: View): HTMLCanvasElement | null {
     gradeScenery(c, m.stage);
     paintFloor(g, m.stage, v);
   }
-  for (const s of m.solids) if (!s.move) paintSolid(g, m.stage, s, v);
+  for (const s of m.solids) if (!s.move && s.kind !== 'bumper') paintSolid(g, m.stage, s, v); // (los de súper rebote se dibujan cada vez: se mueven)
   paintTube(g, v);
   bgCache.set(key, c);
   return c;
@@ -127,6 +127,8 @@ function paintFloor(g: CanvasRenderingContext2D, stage: StageId, v: View) {
 // Bloques (desniveles) y plataformas flotantes, cada escenario con su material y sus soportes.
 function paintSolid(g: CanvasRenderingContext2D, stage: StageId, sd: Solid, v: View) {
   const T = THEMES[stage], s = v.s, x = X(v, sd.x), y = Y(v, sd.y + sd.h), w = sd.w * s, hh = sd.h * s, gy = Y(v, 0);
+  if (sd.kind === 'bumper') { paintBumper(g, sd.bump ?? 'neon', x, y, w, hh, s, 0, 9); return; }
+  if (sd.look === 'lantern') { paintLantern(g, x, y, w, hh); return; }
   if (sd.look) { paintProp(g, sd, x, y, w, hh, s); return; }
   if (sd.kind === 'bouncy') { // hongo que rebota
     g.fillStyle = lin(g, x, 0, x + w, 0, [[0, '#9fd8ff'], [1, '#4a8fc4']]); g.fillRect(x + w * 0.35, y + hh * 0.3, w * 0.3, gy - y - hh * 0.3);
@@ -582,13 +584,15 @@ function drawFatalBall(ctx: CanvasRenderingContext2D, m: Match, v: View, x: numb
 
 // ---------------------------------------------------------------- Habilidades (proyectiles y efectos)
 function drawShot(ctx: CanvasRenderingContext2D, sh: Shot, m: Match, v: View) {
-  const s = v.s, x = X(v, sh.x), y = Y(v, sh.y), r = sh.r * s, t = m.time, ang = Math.atan2(-sh.vy, sh.vx), owner = CHARS[m.fighters[sh.side].char];
+  const s = v.s, x = X(v, sh.x), y = Y(v, sh.y), r = sh.r * s * 1.6, t = m.time, ang = Math.atan2(-sh.vy, sh.vx), owner = CHARS[m.fighters[sh.side].char]; // (dibujado bien grande)
   ctx.save();
   { // estela y halo grandes del color del luchador (para que el disparo se vea mucho)
-    ctx.globalCompositeOperation = 'lighter'; const L2 = r * 9, ex = x - Math.cos(ang) * L2, ey = y - Math.sin(ang) * L2;
+    ctx.globalCompositeOperation = 'lighter'; const L2 = r * 14, ex = x - Math.cos(ang) * L2, ey = y - Math.sin(ang) * L2;
     const sg = ctx.createLinearGradient(x, y, ex, ey); sg.addColorStop(0, alpha(owner.glow, 0.7)); sg.addColorStop(1, alpha(owner.color, 0)); ctx.strokeStyle = sg; ctx.lineCap = 'round'; ctx.lineWidth = r * 1.8; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke();
     ctx.lineWidth = r * 0.6; ctx.strokeStyle = alpha('#ffffff', 0.6); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.cos(ang) * L2 * 0.5, y - Math.sin(ang) * L2 * 0.5); ctx.stroke();
-    bloom(ctx, x, y, r * 7, owner.glow, 0.5); ctx.globalCompositeOperation = 'source-over';
+    bloom(ctx, x, y, r * 12, owner.glow, 0.85); bloom(ctx, x, y, r * 4, '#ffffff', 0.5);
+    for (let k = 0; k < 8; k++) { const a = k * TAU / 8 + t * 6; ctx.strokeStyle = alpha(owner.glow, 0.6); ctx.lineWidth = Math.max(1, r * 0.15); ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r * 1.3, y + Math.sin(a) * r * 1.3); ctx.lineTo(x + Math.cos(a) * r * 2.6, y + Math.sin(a) * r * 2.6); ctx.stroke(); } // rayos que giran
+    ctx.globalCompositeOperation = 'source-over';
   }
   switch (sh.kind) {
     case 'fireball': {
@@ -625,9 +629,17 @@ function drawFx(ctx: CanvasRenderingContext2D, e: Fx, m: Match, v: View) {
     case 'boom': { const cx = X(v, e.x), cy = Y(v, e.y), R = s * 2.2 * Math.min(1, k * 3), a = 1 - k; const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R); g.addColorStop(0, `rgba(255,250,220,${a})`); g.addColorStop(0.4, `rgba(251,146,60,${0.8 * a})`); g.addColorStop(1, 'rgba(220,38,38,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fill(); break; }
     case 'cloud': { const a = Math.min(1, e.t * 4, (e.life - e.t) * 2); for (let j = 0; j < 12; j++) { const px = X(v, e.x + Math.cos(j * 2.1 + t * 0.6) * 1.4 * hash(j)), py = Y(v, e.y + Math.sin(j * 1.7 + t * 0.5) * 1.1 * hash(j + 3)), pr = s * (0.9 + hash(j + 5) * 0.7); const g = ctx.createRadialGradient(px, py, 0, px, py, pr); g.addColorStop(0, `rgba(134,239,172,${0.38 * a})`); g.addColorStop(1, 'rgba(34,197,94,0)'); ctx.fillStyle = g; ctx.fillRect(px - pr, py - pr, pr * 2, pr * 2); } break; }
     case 'magma': { const xh = e.x + e.dir * e.t * 14; ctx.globalCompositeOperation = 'source-over'; for (let j = 0; j < 7; j++) { const px = xh - e.dir * j * 0.55, life = 1 - j / 7, hh = s * (0.5 + hash(j + e.x) * 0.9) * life * Math.min(1, (1 - k) * 3); if ((px - e.x) * e.dir < 0) continue; ctx.fillStyle = lin(ctx, 0, Y(v, 0) - hh, 0, Y(v, 0), [[0, '#fff3b0'], [0.3, '#fb923c'], [1, '#7c2d12']]); ctx.beginPath(); ctx.moveTo(X(v, px) - s * 0.25, Y(v, 0)); ctx.lineTo(X(v, px) - s * 0.05, Y(v, 0) - hh); ctx.lineTo(X(v, px) + s * 0.25, Y(v, 0)); ctx.fill(); } ctx.globalCompositeOperation = 'lighter'; bloom(ctx, X(v, xh), Y(v, 0.4), s * 1.2, '#f97316', 0.6); break; }
+    case 'wave': { // onda expansiva: dos anillos, rayos que salen y un destello
+      const cx = X(v, e.x), cy = Y(v, e.y), a = 1 - k, R = s * 7 * Math.pow(k, 0.5);
+      ctx.strokeStyle = alpha(owner.glow, 0.9 * a); ctx.lineWidth = s * 0.35 * a; ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = alpha('#ffffff', 0.8 * a); ctx.lineWidth = s * 0.12 * a; ctx.beginPath(); ctx.arc(cx, cy, R * 0.7, 0, TAU); ctx.stroke();
+      for (let j = 0; j < 14; j++) { const an = j * TAU / 14 + e.x; ctx.strokeStyle = alpha(j % 2 ? owner.glow : '#ffffff', 0.8 * a); ctx.lineWidth = Math.max(1, s * 0.08); ctx.beginPath(); ctx.moveTo(cx + Math.cos(an) * R * 0.5, cy + Math.sin(an) * R * 0.5); ctx.lineTo(cx + Math.cos(an) * R * 1.3, cy + Math.sin(an) * R * 1.3); ctx.stroke(); }
+      bloom(ctx, cx, cy, s * 4 * a + s, '#ffffff', 0.6 * a);
+      break;
+    }
     default: break;
   }
-  if (e.kind !== 'cloud' && e.kind !== 'magma') bloom(ctx, X(v, e.x), Y(v, e.y), s * 3, owner.glow, 0.45 * (1 - k)); // halo extra
+  if (e.kind !== 'cloud' && e.kind !== 'magma') bloom(ctx, X(v, e.x), Y(v, e.y), s * 6, owner.glow, 0.8 * (1 - k)); // halo extra (grande)
   ctx.restore();
 }
 
@@ -922,6 +934,7 @@ export function drawMatch(ctx: CanvasRenderingContext2D, m: Match, v: View) {
   drawAmbient(ctx, m.stage, v.w, v.h, Y(v, 0), v.s, m.time);
   for (const h of m.hazards) if (h.kind === 'waterfall') drawHazard(ctx, h, m, v);
   for (const sd of m.solids) if (sd.move) drawMover(ctx, m, sd, v);
+  for (const sd of m.solids) if (sd.kind === 'bumper') paintBumper(ctx, sd.bump ?? 'neon', X(v, sd.x), Y(v, sd.y + sd.h), sd.w * v.s, sd.h * v.s, v.s, m.time, m.time - (sd.hit ?? -9));
   drawStains(ctx, m, v);
   for (const h of m.hazards) if (h.kind === 'lava' || h.kind === 'conveyor' || h.kind === 'spikes' || h.kind === 'shock' || h.kind === 'saw' || (h.kind === 'flame' && h.state < 2)) drawHazard(ctx, h, m, v);
   drawGoal(ctx, m, v, true, false); drawGoal(ctx, m, v, false, false);

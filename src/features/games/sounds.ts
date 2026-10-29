@@ -1344,7 +1344,7 @@ export function playKfName(id: string, delay = 0) {
 // Los sonidos grabados de Kombat Football: botones, la pelota, el láser del mapa, el relator y el locutor.
 const KF = import.meta.glob('./assets/sonidos/kf-*.mp3', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const kf = (name: string) => KF[`./assets/sonidos/kf-${name}.mp3`];
-export function preloadKombatUi() { for (const url of Object.values(KF_NAMES)) loadSample(url); for (const n of ['boton', 'voz-seleccionar', 'voz-vs', 'musica']) loadSample(kf(n)); for (const n of ['pelota', 'salto', 'laser', 'gol-1', 'gol-2', 'gol-3', 'voz-fight', 'voz-finality', 'voz-gol-de-oro', 'voz-you-died', 'voz-primer-tiempo', 'voz-segundo-tiempo']) loadSample(kf(n)); }
+export function preloadKombatUi() { for (const url of Object.values(KF_NAMES)) loadSample(url); for (const n of ['boton', 'voz-seleccionar', 'voz-vs', 'musica']) loadSample(kf(n)); for (const n of ['pelota', 'salto', 'laser', 'fuego', 'electricidad', 'energia', 'trueno-1', 'trueno-2', 'trueno-3', 'trueno-4', 'trueno-5', 'gol-1', 'gol-2', 'gol-3', 'voz-fight', 'voz-finality', 'voz-gol-de-oro', 'voz-you-died', 'voz-primer-tiempo', 'voz-segundo-tiempo']) loadSample(kf(n)); }
 // Cualquier botón del juego (menú, elegir luchador, iniciar, abandonar...).
 let lastButton = 0;
 export function playKfButton(volume = 0.8) { unlockSounds(); whenRunning(c => { if (c.currentTime - lastButton < 0.05) return; lastButton = c.currentTime; playSample(kf('boton'), volume); }); }
@@ -1355,7 +1355,15 @@ let lastJump = 0;
 export function playKfJump() { const c = running(); if (!c || c.currentTime - lastJump < 0.06) return; lastJump = c.currentTime; playSample(kf('salto'), 0.7); }
 // Los láseres del mapa.
 let lastKfLaser = 0;
-export function playKfLaser() { const c = running(); if (!c || c.currentTime - lastKfLaser < 0.3) return; lastKfLaser = c.currentTime; playSample(kf('laser'), 0.55); }
+export function playKfLaser() { const c = running(); if (!c || c.currentTime - lastKfLaser < 0.3) return; lastKfLaser = c.currentTime; playSample(kf('laser'), 0.9); }
+// Fuego, electricidad, energía y truenos (las grabaciones), con un poco de variación de tono para que no cansen.
+const lastAt: Record<string, number> = {};
+function kfOnce(name: string, volume: number, gap: number, rate = 1, delay = 0) { const c = running(); if (!c || c.currentTime - (lastAt[name] ?? -9) < gap) return; lastAt[name] = c.currentTime; playSample(kf(name), volume, delay, rate); }
+export function playKfFire(volume = 0.8) { kfOnce('fuego', volume, 0.15, 0.9 + Math.random() * 0.2); }
+export function playKfElectric(volume = 0.8) { kfOnce('electricidad', volume, 0.15, 0.9 + Math.random() * 0.25); }
+export function playKfEnergy(volume = 0.8, rate = 1) { kfOnce('energia', volume, 0.12, rate); }
+let lastThunder = -1;
+export function playKfThunder(volume = 0.9, delay = 0) { let n = Math.floor(Math.random() * 5); if (n === lastThunder) n = (n + 1) % 5; lastThunder = n; kfOnce(`trueno-${n + 1}`, volume, 0.8, 1, delay); }
 // ¡Gol!: el relator con uno de sus tres gritos (nunca el mismo dos veces seguidas) y la hinchada que se levanta.
 let lastGol = -1;
 export function playKfGoal() {
@@ -1425,12 +1433,13 @@ export function playKfPower(element: 'fire' | 'ice' | 'volt' | 'dark' | 'toxic' 
   const defense = loud;
   const c = running(); if (!c) return;
   const t = c.currentTime;
+  if (element !== 'fire' && element !== 'volt') playSample(kf('energia'), 0.85); // (hielo, oscuridad, tóxico y roca: la descarga de energía)
   switch (element) {
     case 'toxic': burst(c, 'bandpass', 600, t, 0.5, 0.6); tone(c, 'sawtooth', 120, 60, t, 0.4, 0.15); for (let k = 0; k < 5; k++) tone(c, 'sine', 300 + k * 90, 500 + k * 120, t + k * 0.06, 0.08, 0.12); break; // burbujeo
     case 'rock': burst(c, 'lowpass', 220, t, 0.7, 0.9); tone(c, 'sine', 60, 30, t, 0.6, 0.6); break;
-    case 'fire': playSample(trepaFuegoUrl, defense ? 0.9 : 0.7); burst(c, 'lowpass', 400, t, 0.6, 0.6); tone(c, 'sawtooth', 90, 50, t, 0.5, 0.25); break;
+    case 'fire': if (!playSample(kf('fuego'), defense ? 1 : 0.85)) playSample(trepaFuegoUrl, 0.7); burst(c, 'lowpass', 400, t, 0.6, 0.6); tone(c, 'sawtooth', 90, 50, t, 0.5, 0.25); break;
     case 'ice': for (let k = 0; k < 6; k++) tone(c, 'sine', 2400 + k * 300, 1800 + k * 200, t + k * 0.04, 0.2, 0.1); burst(c, 'highpass', 4000, t, defense ? 0.7 : 0.5, 0.4); break;
-    case 'volt': if (!playSample(laserUrl, 0.5)) tone(c, 'square', 200, 1600, t, 0.3, 0.15); burst(c, 'highpass', 5000, t, 0.4, 0.4); tone(c, 'sawtooth', 60, 60, t, 0.5, 0.1); break;
+    case 'volt': playSample(kf('electricidad'), 0.9); if (!playSample(kf('laser'), 0.6)) tone(c, 'square', 200, 1600, t, 0.3, 0.15); burst(c, 'highpass', 5000, t, 0.4, 0.4); tone(c, 'sawtooth', 60, 60, t, 0.5, 0.1); break;
     case 'dark': tone(c, 'sine', 900, 80, t, 0.7, 0.4); tone(c, 'triangle', 300, 1200, t + 0.1, 0.5, 0.15); burst(c, 'bandpass', 300, t, 0.6, 0.3); break;
   }
 }

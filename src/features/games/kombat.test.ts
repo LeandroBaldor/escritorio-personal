@@ -368,6 +368,24 @@ describe('Kombat Football', () => {
     expect(out).toBe(true);
   });
 
+  it('cada escenario tiene sus trampas: láseres solo en pocos y ninguno repite la misma combinación', () => {
+    const sig = STAGES.map(st => { const m = newMatch(st.id, ['cometa', 'inferno'], [null, null], seeded(1)); return [...m.hazards.map(h => h.kind), ...m.solids.filter(x => x.kind === 'bumper').map(x => x.bump)].sort().join(','); });
+    expect(new Set(sig).size).toBe(16);
+    expect(STAGES.filter(st => newMatch(st.id, ['cometa', 'inferno'], [null, null], seeded(1)).hazards.some(h => h.kind === 'laser')).length).toBeLessThanOrEqual(2);
+    expect(STAGES.filter(st => newMatch(st.id, ['cometa', 'inferno'], [null, null], seeded(1)).solids.some(x => x.kind === 'bumper')).length).toBeGreaterThanOrEqual(9);
+  });
+
+  it('el objeto de súper rebote dispara la pelota más rápido de lo que vino', () => {
+    const m = newMatch('industrial', ['cometa', 'inferno'], [null, null], seeded(2));
+    toPlay(m); m.fighters[0].x = 25; m.fighters[1].x = 27;
+    const bp = m.solids.find(x => x.kind === 'bumper')!;
+    m.ball.x = bp.x + bp.w / 2; m.ball.y = bp.y + bp.h + 1.2; m.ball.vx = 0; m.ball.vy = -6;
+    let fast = 0;
+    for (let t = 0; t < 0.6; t += 1 / 60) { step(m, [noInput(), noInput()], 1 / 60); fast = Math.max(fast, Math.hypot(m.ball.vx, m.ball.vy)); }
+    expect(fast).toBeGreaterThan(18);
+    expect(takeEvents(m).some(e => e.type === 'bumper')).toBe(true);
+  });
+
   it('empate al final: tiempo extra y el primer gol gana (gol de oro)', () => {
     const m = newMatch('temple', ['cometa', 'inferno'], [null, null], seeded(11));
     toPlay(m);

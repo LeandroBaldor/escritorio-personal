@@ -9,8 +9,8 @@ import { drawFighterCard, drawPortrait } from './kombatFighters';
 import { spaceURL } from './kombatSpace';
 import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
-  playExplosion, playGameOver, playKfBlock, playKfBall, playKfButton, playKfFatal, playKfFinality, playKfGoal, playKfGoldenRound, playKfVsVoice, playKfYouDied, playKfHit, playKfJump, playKfKickoffVoice, playKfLaser, playKfName, playKfSelectVoice, playKfPickup, playKfPost, playKfPower, playLaserOn,
-  playRefWhistle, playStart, playThunder, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
+  playExplosion, playGameOver, playKfBlock, playKfBall, playKfButton, playKfElectric, playKfEnergy, playKfFatal, playKfFinality, playKfFire, playKfThunder, playKfGoal, playKfGoldenRound, playKfVsVoice, playKfYouDied, playKfHit, playKfJump, playKfKickoffVoice, playKfLaser, playKfName, playKfSelectVoice, playKfPickup, playKfPost, playKfPower,
+  playRefWhistle, playStart, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 import { Fireworks } from './Fireworks';
@@ -261,7 +261,7 @@ export function KombatFootball() {
   useEffect(() => {
     if (screen !== 'playing') { setCrowd(0); return; }
     setCrowd(0.6);
-    let frame = 0, last = performance.now(), acc = 0, bounceT = 0, tiredT = 0, bannerId = 0;
+    let frame = 0, last = performance.now(), acc = 0, bounceT = 0, tiredT = 0, bannerId = 0, lastBolt = -1;
     const human = (side: 0 | 1) => modeRef.current === 'versus' || side === 0;
     const who = (side: 0 | 1) => modeRef.current === 'versus' ? `J${side + 1}` : side === 0 ? 'Vos' : 'Rival';
     const tick = (now: number) => {
@@ -271,10 +271,12 @@ export function KombatFootball() {
       for (let n = 0; acc >= 1 / 60 && n < 6; n++) { acc -= 1 / 60; step(m, inputs.current, 1 / 60); inputs.current[0].cast = null; inputs.current[1].cast = null; }
       if (acc > 1 / 60) acc = 0;
       bounceT -= dt; tiredT -= dt;
+      if (m.stage === 'storm') { const k = Math.floor(m.time / 4.2); if (k !== lastBolt) { if (lastBolt >= 0) playKfThunder(0.6, 0.15); lastBolt = k; } } // los relámpagos del fondo con su trueno
       for (const e of takeEvents(m)) {
         switch (e.type) {
           case 'kick': playKfBall(Math.min(1.3, 0.6 + e.power * 0.6)); break;
-          case 'hit': playKfHit(e.who === 'fighter' ? 1 : 0.7); break;
+          case 'hit': playKfHit(e.who === 'fighter' ? 1 : 0.7); if (e.kind === 'burn') playKfFire(0.6); else if (e.kind === 'zap') playKfElectric(0.6); break;
+          case 'bumper': playKfEnergy(0.4 + e.power * 0.5, 1.35); playKfBall(1.1, 0.8); break;
           case 'block': playKfBlock(); break;
           case 'bounce': if (bounceT <= 0 && e.power >= 0.08) { playKfBall(Math.min(0.8, 0.15 + e.power * 0.6), 1.12); bounceT = 0.08; } break;
           case 'post': playKfPost(); break;
@@ -287,21 +289,21 @@ export function KombatFootball() {
           case 'ballDrop': playKfPickup(); break;
           case 'refDown': shout('¡EL ÁRBITRO REVENTÓ!', 'block', 'En unos segundos entra otro', 1500); break;
           case 'refBoom': playExplosion(); break;
-          case 'strike': playThunder(1); break;
+          case 'strike': playKfThunder(1); playKfElectric(0.8); break;
           case 'fighterBoom': playExplosion(); if (e.color === 'green') playKfYouDied(); break;
           case 'ballBoom': playExplosion(); shout('¡LA PELOTA EXPLOTÓ!', 'block', 'La salvó justo antes del gol · baja otra por el tubo', 1500); break;
-          case 'power': playKfPickup(); shout(`${who(e.side)}: ${POWERS[e.kind].name}`, 'info', POWERS[e.kind].text, 2200); break;
+          case 'power': playKfPickup(); playKfEnergy(0.6); shout(`${who(e.side)}: ${POWERS[e.kind].name}`, 'info', POWERS[e.kind].text, 2200); break;
           case 'ballKind': if (e.kind !== 'normal') { playKfPickup(); shout(BALLS[e.kind].name, 'info', BALLS[e.kind].text, 2600); } break;
           case 'unlock':
-            if (human(e.side)) { playKfPickup(); const id = ++bannerId; setBanner({ id, side: e.side, dir: attackDir(m, e.side) }); setTimeout(() => setBanner(b => b && b.id === id ? null : b), 4000); }
+            if (human(e.side)) { playKfPickup(); playKfEnergy(0.8); const id = ++bannerId; setBanner({ id, side: e.side, dir: attackDir(m, e.side) }); setTimeout(() => setBanner(b => b && b.id === id ? null : b), 4000); }
             break;
           case 'needBall': if (human(e.side)) shout('¡Necesitás la pelota!', 'info', 'El FATAL GOAL sale solo cuando tenés la pelota cerca', 1800); break;
           case 'header': if (human(e.side)) shout('¡CABEZAZO!', 'info', undefined, 700); break;
           case 'noEnergy': case 'tired': if (human(e.side) && tiredT <= 0) { tiredT = 6; shout('¡Sin energía!', 'info', 'Quedate quieto un momento para recuperarla', 2200); } break;
-          case 'trap': if (e.kind === 'laser') playKfLaser(); break;
+          case 'trap': if (e.kind === 'laser') playKfLaser(); else if (e.kind === 'flame') playKfFire(0.55); else if (e.kind === 'shock') playKfElectric(0.5); break;
           case 'boom': playExplosion(); break;
-          case 'thunder': playThunder(0.7); break;
-          case 'zap': playLaserOn(); break;
+          case 'thunder': playKfThunder(0.9); break;
+          case 'zap': playKfElectric(0.6); break;
           case 'whistle': playRefWhistle(e.kind); if (e.kind === 'kickoff' && e.start) playKfKickoffVoice(e.start, 0.7); if (e.kind === 'kickoff' && m.fighters[0].goals + m.fighters[1].goals === 0 && !m.extra) shout(m.half === 1 ? '¡A JUGAR!' : 'SEGUNDO TIEMPO', 'extra', undefined, 1100); break;
           case 'halftime': { const d = -attackDir(m, 0); shout('ENTRETIEMPO', 'extra', `Cambio de lado: ${modeRef.current === 'versus' ? 'J1 ataca' : 'ahora atacás'} hacia la ${d > 0 ? 'derecha ▶' : '◀ izquierda'}`, 3000); break; }
           case 'extra': playRefWhistle('half'); playKfGoldenRound(); shout('TIEMPO EXTRA', 'extra', 'Gol de oro: el primero que mete gana', 2600); break;
