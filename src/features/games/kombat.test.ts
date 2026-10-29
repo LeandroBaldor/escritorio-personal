@@ -126,7 +126,7 @@ describe('Kombat Football', () => {
       return top;
     };
     const one = jump(1), two = jump(2), three = jump(3), four = jump(4);
-    expect(one).toBeGreaterThan(1.8); expect(one).toBeLessThan(2.8);
+    expect(one).toBeGreaterThan(1.3); expect(one).toBeLessThan(2.2); // (con la gravedad fuerte se salta más bajo)
     expect(two).toBeGreaterThan(one * 1.8);
     expect(three).toBeGreaterThan(one * 2.5);
     expect(four).toBeCloseTo(three, 1);
@@ -224,7 +224,7 @@ describe('Kombat Football', () => {
     for (const char of ['inferno', 'frost', 'thunder', 'shadow', 'toxic', 'bruto'] as const) {
       const m = newMatch('temple', [char, 'toxic'], [null, null], seeded(9));
       toPlay(m);
-      m.fighters[1].x = W - 3; m.fighters[0].x = 10; m.ball.x = 10.6; m.ball.y = 0.4; m.ball.vx = 0; m.ball.vy = 0;
+      m.fighters[1].x = W - 3; m.fighters[0].x = 10; m.ball.x = 11; m.ball.y = 0.42; m.ball.vx = 0; m.ball.vy = 0;
       const cast = () => { let k = 0; return (): [Input, Input] => { k++; const i = noInput(); i.cast = k === 2 ? 'fatal' : null; return [i, noInput()]; }; };
       play(m, 0.2, cast());
       expect(m.fatal).toBeNull();
@@ -235,7 +235,7 @@ describe('Kombat Football', () => {
     }
     const m = newMatch('temple', ['inferno', 'thunder'], [null, null], seeded(10));
     toPlay(m);
-    m.fighters[0].power = POWER_MAX; m.fighters[0].x = 10; m.ball.x = 10.6; m.ball.y = 0.4; m.ball.vx = 0; m.ball.vy = 0;
+    m.fighters[0].power = POWER_MAX; m.fighters[0].x = 10; m.ball.x = 11; m.ball.y = 0.42; m.ball.vx = 0; m.ball.vy = 0;
     m.fighters[1].x = W - 6; m.fighters[1].facing = 1;
     let k = 0;
     play(m, 6, () => { k++; const i = noInput(), j = noInput(); i.cast = k === 2 ? 'fatal' : null; j.cast = m.fatal !== null && Math.hypot(m.ball.x - m.fighters[1].x, m.ball.y - 1) < 6 && k % 2 === 0 ? 'ability' : null; return [i, j]; });
@@ -246,7 +246,7 @@ describe('Kombat Football', () => {
   it('al que recibe un FATAL GOAL le cae un rayo verde y revienta; vuelve en el saque', () => {
     const m = newMatch('temple', ['inferno', 'toxic'], [null, null], seeded(9));
     toPlay(m);
-    m.fighters[1].x = W - 3; m.fighters[0].x = 10; m.ball.x = 10.6; m.ball.y = 0.4; m.ball.vx = 0; m.ball.vy = 0;
+    m.fighters[1].x = W - 3; m.fighters[0].x = 10; m.ball.x = 11; m.ball.y = 0.42; m.ball.vx = 0; m.ball.vy = 0;
     play(m, 0.2); m.fighters[0].power = POWER_MAX;
     let k = 0; const seen: string[] = [];
     for (let t = 0; t < 6 && !m.lastGoal; t += 1 / 60) { k++; const i = noInput(); i.cast = k === 2 ? 'fatal' : null; step(m, [i, noInput()], 1 / 60); }

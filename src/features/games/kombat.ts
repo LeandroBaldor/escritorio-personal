@@ -523,7 +523,7 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
   }
   // pelota trabada (quieta y lejos de todos un rato): salta hacia el medio
   if (b.alive && m.phase === 'play') {
-    const near = m.fighters.some(f => Math.abs(f.x - b.x) < 2.5 && Math.abs(f.y - b.y) < 3);
+    const near = m.fighters.some(f => f.stun <= 0 && !f.gone && Math.abs(f.x - b.x) < 2.5 && Math.abs(f.y - b.y) < 3); // (los aturdidos no cuentan)
     m.stillT = Math.hypot(b.vx, b.vy) < 0.6 && !near ? (m.stillT ?? 0) + dt : 0;
     if (m.stillT > 1.8) { m.stillT = 0; b.vx = Math.sign(W / 2 - b.x) * 6; b.vy = 9; b.owner = null; burst(m, b.x, b.y, 10, '#e2e8f0', 'smoke', 3); emit(m, { type: 'bounce', power: 0.6 }); }
   }
@@ -532,10 +532,11 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
 
 export const BUMP_GLOW: Record<BumperStyle, string> = { neon: '#f0abfc', crystal: '#c084fc', pad: '#38bdf8', tesla: '#a5b4fc', drum: '#fb7185', clam: '#5eead4', cloud: '#fde68a', shield: '#fbbf24', crater: '#e2e8f0' };
 function gravityOf(m: Match) { return 30 * stageDef(m.stage).gravity; }
-const BALL_G = 48; // la gravedad de la pelota: la misma en todos los escenarios (pesada: cae rápido y el juego es más dinámico)
+const BALL_G = 58; // la gravedad de la pelota: la misma en todos los escenarios (pesada: cae rápido y el juego es más dinámico)
 // Los luchadores tienen la misma gravedad en todos los escenarios (un poco más liviana que la normal); la pelota,
 // el árbitro y lo demás siguen con la gravedad de cada escenario.
-export const PLAYER_GRAVITY = 1.8; // (más pesada que la normal: saltos rápidos y dinámicos, igual en todos los escenarios)
+export const PLAYER_GRAVITY = 2.6; // (más pesada que la normal: saltos rápidos y dinámicos, igual en todos los escenarios)
+const JUMP_REF = 1.9; // el salto no compensa toda la gravedad: se salta más bajo y se siente el peso
 const playerG = (m: Match) => PLAYER_GRAVITY / stageDef(m.stage).gravity; // la escala sobre la gravedad del escenario
 // La superficie más alta debajo de (x, y): el piso o el techo de un bloque o plataforma.
 export function supportAt(m: Match, x: number, y: number, half = PW / 2 - 0.1) {
@@ -630,6 +631,7 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
   if (blocking) want *= 0.15;
   if (f.charge > 0) want *= 0.5; // cargando el tiro camina despacio
   const accel = f.ground ? (st.friction < 1 ? 18 : 60) : 55; // en el aire se maneja casi igual que en el piso
+  if (!f.ground && f.vy < 0) gScale = 1.35; // cae más rápido de lo que sube (se siente pesado)
   if (!f.ground && !stunned && i.down && f.vy < 4) gScale = 2.2; // ↓ en el aire: cae más rápido (se dirige la caída)
   if (f.abilityT > 0) { // habilidades con movimiento propio
     f.abilityT -= dt;
@@ -652,7 +654,7 @@ function updateFighter(m: Match, f: Fighter, i: Input, dt: number) {
   // tres veces el triple. Al tocar el piso se vuelve a contar.
   if (f.ground) f.jumps = 0;
   if (!stunned && pressed(f, i, 'up') && !busy(f) && !i.kick && f.charge <= 0 && f.jumps < MAX_JUMPS) {
-    const v = 11.5 * def.jump * (0.8 + 0.2 * staminaFactor(f)) * (turbo ? 1.1 : 1) * Math.sqrt(PLAYER_GRAVITY);
+    const v = 11.5 * def.jump * (0.8 + 0.2 * staminaFactor(f)) * (turbo ? 1.1 : 1) * Math.sqrt(JUMP_REF);
     if (f.ground || f.jumps === 0) { f.vy = v; f.jumps = 1; } // en el aire sin haber saltado (cayendo de un borde) cuenta como el primero
     else { f.vy = Math.max(f.vy, 0) * 0.3 + v; f.jumps++; if (want) f.vx = want * Math.max(Math.abs(f.vx), speed) * 1.35; /* el salto en el aire da un impulso hacia donde apunta */ burst(m, f.x, f.y, 10, '#e2e8f0', 'smoke', 2.5); burst(m, f.x, f.y, 1, CHARS[f.char].glow, 'ring', 1); }
     f.ground = false; emit(m, { type: 'jump' });
@@ -732,10 +734,11 @@ function comboDone(f: Fighter) {
 function doKick(m: Match, f: Fighter, rival: Fighter) {
   const b = m.ball, def = CHARS[f.char];
   const fx = f.x + f.facing * 0.56, fy = f.y + (f.ground ? 0.45 : 0.8);
-  if (b.alive && Math.hypot(b.x - fx, b.y - fy) < 1.18 && !(m.fatal && !m.fatal.done)) {
-    let power = 15 * def.power * f.kickPow * (0.75 + 0.25 * staminaFactor(f)) * ((f.powers.power ?? 0) > 0 ? 1.4 : 1);
+  if (b.alive && Math.hypot(b.x - fx, b.y - fy) < 1.0 + BALL_R && !(m.fatal && !m.fatal.done)) {
+    let power = 15.5 * def.power * f.kickPow * (0.75 + 0.25 * staminaFactor(f)) * ((f.powers.power ?? 0) > 0 ? 1.4 : 1);
     let ang = f.kickKind === 'lob' ? 0.9 : f.kickKind === 'low' ? 0.05 : 0.3;
     if (!f.ground) ang = f.kickKind === 'lob' ? 0.55 : b.y > f.y + 1.2 ? -0.2 : 0.12;
+    if (f.ground && f.kickKind === 'normal' && f.facing === attackDir(m, f.side)) ang = aimAssist(m, f, b, power, ang); // ayuda para que el tiro vaya al arco
     if (b.kind === 'fire') power *= 1.2;
     if (b.frozen > 0) { b.frozen = 0; power *= 1.1; }
     b.vx = Math.cos(ang) * power * f.facing; b.vy = Math.sin(ang) * power + (f.kickKind === 'lob' ? 2 : 0);
@@ -753,6 +756,22 @@ function doKick(m: Match, f: Fighter, rival: Fighter) {
   }
   const r = m.ref;
   if (r.action !== 'gone' && Math.abs(r.x - (f.x + f.facing * 0.6)) < 0.8 && Math.abs(r.y - f.y) < 1.2) { f.kickHit = true; hurtRef(m, 'hit', 1.4); }
+}
+// Ayuda de puntería: entre ángulos cercanos al del tiro, elige el que hace llegar la pelota al arco rival a media
+// altura (si el arco está a tiro); si no, deja el tiro como estaba.
+function aimAssist(m: Match, f: Fighter, b: Ball, power: number, ang: number) {
+  const gx = f.facing > 0 ? W - GOAL_DEPTH : GOAL_DEPTH, d = Math.abs(gx - b.x);
+  if (d > 14) return ang;
+  const g = BALL_G * (b.kind === 'void' ? 0.45 : 1), k = -Math.log(0.76), target = goalHeight(m, f.side === 0 ? 1 : 0) * 0.45;
+  let best = ang, err = Infinity;
+  for (let a = Math.max(0.02, ang - 0.35); a <= ang + 0.45; a += 0.02) {
+    const vx = Math.cos(a) * power, vy = Math.sin(a) * power;
+    const arg = 1 - k * d / vx; if (arg <= 0.05) continue; // no llega
+    const t = -Math.log(arg) / k, y = b.y + vy * t - g * t * t / 2;
+    if (y < BALL_R) continue; // pica antes: no sirve
+    const e = Math.abs(y - target); if (e < err) { err = e; best = a; }
+  }
+  return err < 1.5 ? best : ang;
 }
 // Barrida: le saca la pelota al rival y lo hace caer.
 function doSlide(m: Match, f: Fighter, rival: Fighter) {
@@ -862,7 +881,7 @@ function explodeFighter(m: Match, f: Fighter, color: 'green' | 'red') {
 function launchToMiddle(m: Match) {
   const b = m.ball, g = BALL_G * (b.kind === 'void' ? 0.45 : 1);
   const vy = 17 + m.rand() * 2, flight = (vy + Math.sqrt(vy * vy + 2 * g * Math.max(0, b.y - 1))) / g, target = W / 2 + (m.rand() - 0.5) * 4;
-  const k = -Math.log(b.kind === 'ice' ? 0.92 : 0.86); // (el aire la frena: se calcula con eso para que llegue)
+  const k = -Math.log(b.kind === 'ice' ? 0.9 : 0.84); // (el aire la frena: se calcula con eso para que llegue)
   b.vy = vy; b.vx = clamp((target - b.x) * k / (1 - Math.exp(-k * flight)), -22, 22); b.owner = null; b.y = Math.max(b.y, goalHeight(m, 0) + BAR + BALL_R);
   burst(m, b.x, b.y, 14, '#e2e8f0', 'spark', 5); burst(m, b.x, b.y, 1, '#ffffff', 'ring', 1); emit(m, { type: 'bounce', power: 0.9 });
   m.midDrop = true;
@@ -932,7 +951,7 @@ function castAbility(m: Match, f: Fighter, rival: Fighter) {
   m.tint = { c: def.glow, t: 0.7 }; m.shake = Math.max(m.shake, 0.8); m.flash = Math.max(m.flash, 0.2);
   const hx = f.x + f.facing * 0.5, hy = f.y + 1.15;
   switch (def.ability) {
-    case 'superJump': f.vy = 19 * Math.sqrt(PLAYER_GRAVITY); f.ground = false; f.abilityT = 0.9; burst(m, f.x, f.y, 16, '#bae6fd', 'smoke', 3); break;
+    case 'superJump': f.vy = 19 * Math.sqrt(2.4); f.ground = false; f.abilityT = 0.9; burst(m, f.x, f.y, 16, '#bae6fd', 'smoke', 3); break;
     case 'fireball': fireShot(m, f, 'fireball', 18, 0.32, 0); break;
     case 'shuriken': fireShot(m, f, 'shuriken', 24, 0.2, 0); break;
     case 'bomb': fireShot(m, f, 'bomb', 20, 0.22, 0); break;
@@ -1055,7 +1074,7 @@ function explodeAt(m: Match, owner: Fighter, x: number, y: number, R: number) {
   const b = m.ball, rival = m.fighters[owner.side === 0 ? 1 : 0];
   m.fx.push({ kind: 'boom', side: owner.side, x, y, x2: 0, y2: 0, t: 0, life: 0.45, dir: 1, hit: 0 });
   burst(m, x, y, 24, '#fb923c', 'ember', 7); m.shake = Math.max(m.shake, 0.5); emit(m, { type: 'boom' });
-  if (b.alive) { const dx = b.x - x, dy = b.y - y, d = Math.hypot(dx, dy); if (d < R) pushBall(m, owner, dx / (d || 1) * 17, Math.max(dy / (d || 1) * 17, 4) + 4, 'fire'); }
+  if (b.alive) { const dx = b.x - x, dy = b.y - y, d = Math.hypot(dx, dy); if (d < R) { let ux = dx / (d || 1); if (Math.abs(ux) < 0.6) ux = owner.facing * 0.7; pushBall(m, owner, ux * 17, Math.max(dy / (d || 1) * 17, 4) + 4, 'fire'); } } // (siempre la manda para adelante)
   if (Math.hypot(rival.x - x, rival.y + 1 - y) < R) hurtFighter(m, rival, owner, 'burn', 1.1, 8, 20);
   if (Math.hypot(m.ref.x - x, m.ref.y + 1 - y) < R) hurtRef(m, 'burn', 1.4);
 }
@@ -1191,13 +1210,14 @@ function moveBall(m: Match, dt: number) {
     const g = BALL_G * (b.kind === 'void' ? 0.45 : 1);
     b.vy -= g * h;
     if (b.kind === 'toxic' || b.fx === 'toxic') b.vy += Math.cos(m.time * 9) * 14 * h;
-    b.vx *= Math.pow(b.kind === 'ice' ? 0.92 : 0.86, h); b.vy *= Math.pow(0.95, h);
+    b.vx *= Math.pow(b.kind === 'ice' ? 0.9 : 0.84, h); b.vy *= Math.pow(0.95, h);
     b.x += b.vx * h; b.y += b.vy * h;
     collideBallWorld(m, b, h);
     if (b.pass) { b.pass.t -= h; if (b.pass.t <= 0) b.pass = undefined; }
     if (m.phase === 'play') for (const f of m.fighters) if (b.pass?.side !== f.side) collideBallFighter(m, b, f);
     if (!b.alive) return;
   }
+  const sp = Math.hypot(b.vx, b.vy), cap = (m.fatal && !m.fatal.done) || m.midDrop ? 99 : 24; if (sp > cap) { b.vx *= cap / sp; b.vy *= cap / sp; } // tope de velocidad: siempre se la puede seguir
   b.spin += b.vx * dt * 2;
   m.trail.unshift([b.x, b.y]); if (m.trail.length > 20) m.trail.length = 20;
 }
@@ -1223,7 +1243,7 @@ function collideBallWorld(m: Match, b: Ball, dt: number) {
     } else { nx = dx / d; ny = dy / d; b.x = cx + nx * BALL_R; b.y = cy + ny * BALL_R; }
     const vn = b.vx * nx + b.vy * ny;
     if (vn < 0 && s.kind === 'bumper') { // súper rebote: sale disparada para afuera, más rápido de lo que vino
-      const sp = Math.max(Math.hypot(b.vx, b.vy) * 1.35, 20), ox = b.x - (s.x + s.w / 2), oy = b.y - (s.y + s.h / 2), ol = Math.hypot(ox, oy) || 1;
+      const sp = Math.max(Math.hypot(b.vx, b.vy) * 1.15, 16), ox = b.x - (s.x + s.w / 2), oy = b.y - (s.y + s.h / 2), ol = Math.hypot(ox, oy) || 1;
       const ux = nx * 0.6 + (ox / ol) * 0.4, uy = ny * 0.6 + (oy / ol) * 0.4 + 0.25, ul = Math.hypot(ux, uy) || 1;
       b.vx = ux / ul * sp; b.vy = uy / ul * sp; s.hit = m.time; b.owner = null;
       burst(m, b.x, b.y, 22, BUMP_GLOW[s.bump ?? 'neon'], 'spark', 9); burst(m, b.x, b.y, 1, '#ffffff', 'ring', 1.6); m.shake = Math.max(m.shake, 0.35);
@@ -1426,7 +1446,7 @@ function updateHazards(m: Match, dt: number) {
         if (Math.floor(h.t * 0.8) !== h.state) { h.state = Math.floor(h.t * 0.8); h.struck = 0; }
         hit(h.x + 0.2, h.x + h.w - 0.2, 0, 0.3, 'burn', 1.1, 0, 20, h);
         for (const f of m.fighters) if (f.stun > 0 && f.stunKind === 'burn' && f.ground && f.y < 0.1 && f.x > h.x && f.x < h.x + h.w) { f.vy = 9; f.ground = false; f.vx = (f.x < W / 2 ? 1 : -1) * 6; }
-        if (ballIn(h.x + 0.1, h.x + h.w - 0.1, 0, 0.15)) blastBall(m, h.x + h.w / 2 + (b.x < h.x + h.w / 2 ? 0.4 : -0.4), -1, 13, true); // la lava la escupe
+        if (ballIn(h.x + 0.1, h.x + h.w - 0.1, 0, 0.15)) blastBall(m, h.x + h.w / 2 + (b.x < h.x + h.w / 2 ? 0.4 : -0.4), -1, 16, true); // la lava la escupe
         break;
       case 'mine': {
         if (h.state === 1) { h.dir -= dt; if (h.dir <= 0) { h.state = 0; burst(m, h.x, h.y, 10, '#fca5a5', 'smoke', 2); } break; }
@@ -1542,8 +1562,10 @@ function cpuThink(m: Match, side: 0 | 1, c: CpuState, dt: number): Input {
   const lowEnergy = f.stamina < 20 && Math.abs(b.x - f.x) > 7; // casi sin energía y lejos: descansa
   if (Math.abs(dx) > 0.15 && !lowEnergy) { if (dx > 0) plan.right = true; else plan.left = true; }
   if (ahead < -0.2 && Math.abs(b.x - f.x) < 1.4 && b.y < f.y + 1.2 && f.ground && m.rand() < 0.5) plan.up = true; // salta la pelota para ponerse detrás
+  if (ahead < -0.2 && Math.abs(b.x - f.x) < 1.8 && b.y < f.y + 1.6 && !f.ground && f.jumps < MAX_JUMPS && f.vy < 1.5) plan.up = true; // (con la gravedad fuerte: un segundo salto para pasarla)
   if (b.y > f.y + 2 && b.y < f.y + 4.5 && Math.abs(b.x - f.x) < 1.6 && f.ground && m.rand() < 0.3 + c.level * 0.4) plan.up = true; // cabezazo o pelota en una plataforma
   if (f.ground && Math.abs(f.vx) < 0.5 && Math.abs(dx) > 0.8) plan.up = true; // trabado contra un escalón
+  if (!f.ground && f.jumps < MAX_JUMPS && Math.abs(f.vx) < 0.5 && Math.abs(dx) > 0.8 && f.vy < 1) plan.up = true; // (no alcanzó: otro salto en el aire)
   if (!f.ground && f.jumps < MAX_JUMPS && f.vy < 3 && b.y > f.y + 2.4 && Math.abs(b.x - f.x) < 2.5 && m.rand() < 0.3 + c.level * 0.5) plan.up = true; // otro salto en el aire para llegar a la pelota alta
   // trampas encendidas o por encenderse adelante: frena (o salta los pinches y la lava)
   const go = Math.sign(dx);
@@ -1555,7 +1577,7 @@ function cpuThink(m: Match, side: 0 | 1, c: CpuState, dt: number): Input {
     if (dist < -0.1 || dist > 0.6 + c.level * 1.4) continue;
     if (h.kind === 'lava') { if (f.ground && dist < 0.7 && m.rand() < 0.5 + c.level * 0.5) plan.up = true; }
     else if (h.state !== 0 && m.rand() < 0.3 + c.level * 0.65) { plan.left = false; plan.right = false; }
-    else if (h.kind === 'spikes' && f.ground && dist < 0.6) plan.up = true;
+    else if (h.kind === 'spikes' && f.ground && dist < 0.6 + Math.abs(f.vx) * 0.06) plan.up = true;
   }
   const near = Math.hypot(b.x - (f.x + dir * 0.5), b.y - (f.y + 0.5));
   // patear: con la pelota adelante
