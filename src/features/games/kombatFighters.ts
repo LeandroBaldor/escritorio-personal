@@ -22,7 +22,7 @@ export const LOOKS: Record<CharId, Look> = {
   thunder: { armor: '#e0a812', dark: '#17140c', trim: '#17140c', glow: '#fef08a', boot: '#1c1a14', glove: '#c99410', helmet: 'visor', extras: [], eye: '#fffbe0', skin: '#e8b48f' },
   shadow: { armor: '#24212c', dark: '#0d0b12', trim: '#a855f7', glow: '#d8b4fe', boot: '#121016', glove: '#1b1922', helmet: 'ninja', extras: ['scarf'], eye: '#e9d5ff' },
   shadowRed: { armor: '#24191b', dark: '#0f0809', trim: '#ef4444', glow: '#fca5a5', boot: '#140c0d', glove: '#1e1416', helmet: 'ninja', extras: ['scarf'], eye: '#fecaca' },
-  orbot: { armor: '#5b21b6', dark: '#1e0b3d', trim: '#f8fafc', glow: '#ede9fe', boot: '#1c1033', glove: '#3b1a6e', helmet: 'robot', extras: ['cannon'], eye: '#ffffff' }, // igual que BLUE ORBOT pero violeta con detalles blancos
+  orbot: { armor: '#e7e5e4', dark: '#57534e', trim: '#facc15', glow: '#fde047', boot: '#292524', glove: '#a8a29e', helmet: 'robot', extras: ['cannon'], eye: '#fde047' }, // igual que BLUE ORBOT pero blanco con detalles amarillos
   orbotBlue: { armor: '#1e3a8a', dark: '#0b1530', trim: '#60a5fa', glow: '#93c5fd', boot: '#111a33', glove: '#22305e', helmet: 'robot', extras: ['cannon'], eye: '#bfdbfe' },
   bruto: { armor: '#6b7280', dark: '#2b2f36', trim: '#a16207', glow: '#fbbf24', boot: '#24272c', glove: '#7b818c', helmet: 'brute', brute: true, extras: [], eye: '#fcd34d' },
   brutoRed: { armor: '#b91c1c', dark: '#3f0a0a', trim: '#f97316', glow: '#fb923c', boot: '#2a0a0a', glove: '#a11a1a', helmet: 'brute', brute: true, extras: [], eye: '#fdba74' },

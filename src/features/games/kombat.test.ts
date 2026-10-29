@@ -203,7 +203,7 @@ describe('Kombat Football', () => {
     const [moonT, moonH] = air('moon'), [templeT, templeH] = air('temple');
     expect(templeT).toBeCloseTo(moonT, 1);
     expect(templeH).toBeCloseTo(moonH, 1);
-    expect(templeT).toBeGreaterThan(0.35); // tarda un ratito en llegar arriba
+    expect(templeT).toBeGreaterThan(0.2); // tarda un ratito en llegar arriba
     expect(templeT).toBeLessThan(0.55); // pero no flota como antes (más dinámico)
   });
 

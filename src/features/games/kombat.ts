@@ -18,7 +18,7 @@ export const BAR = 0.16; // grosor del travesaño
 // u: 0 en la boca del arco, 1 en el fondo. Devuelve el alto de la red ahí.
 export const NET_FLAT = 0.28;
 export const netTop = (gh: number, u: number) => u <= NET_FLAT ? gh : gh * Math.pow(Math.max(0, 1 - Math.pow((u - NET_FLAT) / (1 - NET_FLAT), 1.8)), 0.75);
-export const BALL_R = 0.3;
+export const BALL_R = 0.42; // (bien grande)
 export const PW = 0.96; // ancho de una persona
 export const PH = 2.3;
 // Tamaño de cada luchador (alto = PH × tamaño): los grandotes BRUTO, RED BRUTO y MAGMA; los petizos CYBER,
@@ -82,7 +82,7 @@ export const CHARS: Record<CharId, CharDef> = {
   thunder: C('thunder', 'THUNDER', '#facc15', '#fef08a', 'volt', [1.1, 0.95, 1.05, 0.95], 'lightning', 'Rayos eléctricos', 'Dispara un rayo instantáneo que le pega a la pelota o al rival a distancia.', 18, 1.7, 'Cargado de electricidad. Rápido y nervioso.'),
   shadow: C('shadow', 'SHADOW', '#a855f7', '#e9d5ff', 'dark', [1.12, 0.92, 1.08, 1], 'shuriken', 'Estrellas ninja', 'Tira estrellas ninja muy rápidas y baratas.', 9, 0.7, 'Ninja de las sombras. Nadie lo ve llegar.'),
   shadowRed: C('shadowRed', 'RED SHADOW', '#ef4444', '#fca5a5', 'fire', [1.08, 0.95, 1.05, 1], 'bomb', 'Estrellas explosivas', 'Su estrella explota al tocar algo y voltea todo alrededor.', 18, 1.7, 'El hermano rojo de Shadow. Le gusta que las cosas exploten.'),
-  orbot: C('orbot', 'ORBOT', '#8b5cf6', '#ede9fe', 'toxic', [0.96, 1.02, 0.95, 1], 'burst', 'Disparo automático', 'Tres disparos seguidos con el cañón del brazo.', 16, 1.5, 'Robot de combate con un cañón tóxico en el brazo.'),
+  orbot: C('orbot', 'ORBOT', '#f5f5f4', '#fde047', 'toxic', [0.96, 1.02, 0.95, 1], 'burst', 'Disparo automático', 'Tres disparos seguidos con el cañón del brazo.', 16, 1.5, 'Robot de combate con un cañón tóxico en el brazo.'),
   orbotBlue: C('orbotBlue', 'BLUE ORBOT', '#3b82f6', '#93c5fd', 'volt', [0.96, 1.02, 0.95, 1], 'beam', 'Rayo de energía', 'Carga y dispara un rayo de energía larguísimo y muy fuerte.', 22, 2.3, 'Versión azul del Orbot, con un cañón de energía.'),
   bruto: C('bruto', 'BRUTO', '#9ca3af', '#fbbf24', 'rock', [0.86, 1.25, 0.85, 1.15], 'quake', 'Golpe terrestre', 'Golpea el piso: la onda levanta la pelota y voltea a los que estén cerca.', 20, 2.4, 'Un gigante de piedra y metal. Lento pero imparable.'),
   brutoRed: C('brutoRed', 'RED BRUTO', '#dc2626', '#f97316', 'fire', [0.88, 1.22, 0.86, 1.1], 'charge', 'Embestida', 'Carga a toda velocidad envuelto en fuego: arrasa con la pelota y con el rival.', 18, 2, 'El Bruto más furioso. Cuando corre, tiembla el piso.'),
@@ -532,10 +532,10 @@ export function step(m: Match, inputs: [Input, Input], dt: number) {
 
 export const BUMP_GLOW: Record<BumperStyle, string> = { neon: '#f0abfc', crystal: '#c084fc', pad: '#38bdf8', tesla: '#a5b4fc', drum: '#fb7185', clam: '#5eead4', cloud: '#fde68a', shield: '#fbbf24', crater: '#e2e8f0' };
 function gravityOf(m: Match) { return 30 * stageDef(m.stage).gravity; }
-const BALL_G = 33; // la gravedad de la pelota: la misma en todos los escenarios (pesada: cae rápido y el juego es más dinámico)
+const BALL_G = 48; // la gravedad de la pelota: la misma en todos los escenarios (pesada: cae rápido y el juego es más dinámico)
 // Los luchadores tienen la misma gravedad en todos los escenarios (un poco más liviana que la normal); la pelota,
 // el árbitro y lo demás siguen con la gravedad de cada escenario.
-export const PLAYER_GRAVITY = 1.2; // (más pesada que la normal: saltos rápidos y dinámicos, igual en todos los escenarios)
+export const PLAYER_GRAVITY = 1.8; // (más pesada que la normal: saltos rápidos y dinámicos, igual en todos los escenarios)
 const playerG = (m: Match) => PLAYER_GRAVITY / stageDef(m.stage).gravity; // la escala sobre la gravedad del escenario
 // La superficie más alta debajo de (x, y): el piso o el techo de un bloque o plataforma.
 export function supportAt(m: Match, x: number, y: number, half = PW / 2 - 0.1) {
@@ -1064,7 +1064,7 @@ function cloudAt(m: Match, owner: Fighter, x: number, y: number) { m.fx.push({ k
 // ---------------------------------------------------------------- FATAL GOAL
 // ¿Tiene la pelota? (cerca de los pies o del cuerpo): hace falta para tirar el FATAL GOAL.
 export function hasBall(m: Match, f: Fighter) {
-  const b = m.ball; return b.alive && Math.abs(b.x - f.x) < 1.6 && b.y > f.y - 0.4 && b.y < f.y + heightOf(f) + 0.4;
+  const b = m.ball; return b.alive && Math.abs(b.x - f.x) < 1.4 + BALL_R && b.y > f.y - 0.4 && b.y < f.y + heightOf(f) + 0.4;
 }
 function startFatal(m: Match, f: Fighter) {
   f.action = 'fatal'; f.actionT = 0;
