@@ -16,9 +16,13 @@ function rgbOf(c: string): [number, number, number] {
   if (c.startsWith('#')) { const v = parseInt(c.slice(1, 7), 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; }
   const m = c.match(/[\d.]+/g) ?? ['0', '0', '0']; return [+m[0], +m[1], +m[2]];
 }
+const mixCache = new Map<string, string>(); // (se piden los mismos colores miles de veces por segundo)
 function mix(a: string, b: string, k: number) {
+  const key = `${a}|${b}|${k}`, hit = mixCache.get(key); if (hit) return hit;
   const pa = rgbOf(a), pb = rgbOf(b);
-  return `rgb(${pa.map((v, i) => Math.round(v + (pb[i] - v) * k)).join(',')})`;
+  const out = `rgb(${pa.map((v, i) => Math.round(v + (pb[i] - v) * k)).join(',')})`;
+  if (mixCache.size > 4000) mixCache.clear();
+  mixCache.set(key, out); return out;
 }
 export const lighten = (c: string, k: number) => mix(c, '#ffffff', k);
 export const darken = (c: string, k: number) => mix(c, '#000000', k);
@@ -92,7 +96,11 @@ function grainPattern(ctx: CanvasRenderingContext2D) {
   if (!grainPatterns.has(ctx)) grainPatterns.set(ctx, ctx.createPattern(grainTile, 'repeat'));
   return grainPatterns.get(ctx) ?? null;
 }
+// Sin textura (celulares: el recorte + la mezcla "overlay" por cada parte del cuerpo es caro).
+let noGrain = false;
+export function setNoGrain(on: boolean) { noGrain = on; }
 export function grain(ctx: CanvasRenderingContext2D, path: Path, amount: number, size = 1) {
+  if (noGrain) return;
   const pat = grainPattern(ctx);
   if (!pat || amount <= 0) return;
   if (typeof DOMMatrix !== 'undefined' && pat.setTransform) pat.setTransform(new DOMMatrix([P * 0.55 * size, 0, 0, P * 0.55 * size, 0, 0]));

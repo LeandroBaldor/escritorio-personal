@@ -456,6 +456,9 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
 // El luchador con luz de escena: se dibuja aparte, se le pone luz cálida de arriba adelante, sombra abajo atrás,
 // un borde de luz del color del escenario y un brillo de su elemento alrededor; después va a la pantalla.
 let litA: HTMLCanvasElement | null = null, litB: HTMLCanvasElement | null = null;
+// Celulares: los luchadores van directo a la pantalla, sin la luz de escena (es lo más lento en un teléfono).
+let lowFx = false;
+export function setLowFx(on: boolean) { lowFx = on; }
 export const BODY_SCALE = PH / 1.85; // los luchadores miden PH (2,3 m); el dibujo está hecho para 1,85 m
 export function drawFighterLit(ctx: CanvasRenderingContext2D, f: Fighter, t: number, fx: FighterFx, x: number, y: number, s: number, rim: string) {
   const L = LOOKS[f.char], S = s * BODY_SCALE * SIZE[f.char], K = L.brute ? 1.32 : 1, mir = f.facing < 0 ? -1 : 1; // cada uno de su tamaño
@@ -471,6 +474,9 @@ export function drawFighterLit(ctx: CanvasRenderingContext2D, f: Fighter, t: num
 // abajo atrás, oclusión cerca del piso y un borde de luz del color "rim"; después va a la pantalla con un brillo.
 function litBlit(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, mir: number, rim: string, glow: string, glowK: number, draw: (c: CanvasRenderingContext2D) => void) {
   if (typeof document === 'undefined') return;
+  const halo = () => { if (glowK > 0) { ctx.save(); ctx.translate(x, y - S * 1.05); ctx.scale(1, 1.55); const hg = ctx.createRadialGradient(0, 0, S * 0.2, 0, 0, S * (0.75 + glowK)); hg.addColorStop(0, glow); hg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = hg; ctx.fillRect(-S * 2, -S * 2, S * 4, S * 4); ctx.restore(); } };
+  // celulares: directo a la pantalla, sin el lienzo aparte ni la luz de escena (es lo que más tarda por cuadro)
+  if (lowFx) { halo(); ctx.save(); ctx.translate(x, y); ctx.scale(S * mir, S); draw(ctx); ctx.restore(); return; }
   const tr = ctx.getTransform(), res = Math.min(3, Math.max(1, Math.hypot(tr.a, tr.b)), 150 / Math.max(1, S)); // nítido en retina, pero con un tope (en pantallas enormes no se pone lento)
   const ow = 4 * S, oh = 3.4 * S, bw = Math.ceil(ow * res), bh = Math.ceil(oh * res), ox = bw / 2, oy = Math.ceil(2.9 * S * res);
   litA ??= document.createElement('canvas'); litB ??= document.createElement('canvas');
@@ -493,7 +499,7 @@ function litBlit(ctx: CanvasRenderingContext2D, x: number, y: number, S: number,
   a.globalCompositeOperation = 'source-atop'; a.globalAlpha = 0.7; a.drawImage(litB, 0, 0, bw, bh, 0, 0, bw, bh); a.globalAlpha = 1;
   a.globalCompositeOperation = 'source-over';
   // brillo alrededor: un halo suave detrás (mucho más rápido que un shadowBlur en pantallas grandes)
-  if (glowK > 0) { ctx.save(); ctx.translate(x, y - S * 1.05); ctx.scale(1, 1.55); const hg = ctx.createRadialGradient(0, 0, S * 0.2, 0, 0, S * (0.75 + glowK)); hg.addColorStop(0, glow); hg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = hg; ctx.fillRect(-S * 2, -S * 2, S * 4, S * 4); ctx.restore(); }
+  halo();
   ctx.drawImage(litA, 0, 0, bw, bh, x - ox / res, y - oy / res, ow, oh);
 }
 // El árbitro con la misma luz que los luchadores.

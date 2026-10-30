@@ -8,7 +8,8 @@ import {
   type CharId, type Input, type Match, type StageId,
 } from './kombat';
 import { brokenWallURL, drawMatch, drawStageThumb, viewFor, vortexURL } from './kombatArt';
-import { drawFighterCard, drawPortrait } from './kombatFighters';
+import { drawFighterCard, drawPortrait, setLowFx } from './kombatFighters';
+import { setNoGrain } from './gravityMonsters';
 import { spaceURL } from './kombatSpace';
 import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
@@ -57,12 +58,13 @@ interface Hud { score: [number, number]; clock: string; half: string; extra: boo
 const hudOf = (m: Match): Hud => ({
   score: [m.fighters[0].goals, m.fighters[1].goals], clock: m.extra ? 'GOL DE ORO' : clockText(m.clock), half: m.extra ? 'EXTRA' : m.half === 1 ? '1T' : '2T', extra: m.extra,
   sides: m.fighters.map(f => ({
-    stamina: Math.round(f.stamina), power: Math.floor(f.power), cd: Math.round(f.cd / CHARS[f.char].cd * 10) / 10, ready: abilityReady(f), fatal: f.power >= POWER_MAX, dir: attackDir(m, f.side),
+    stamina: Math.round(f.stamina / 4) * 4, power: Math.floor(f.power), cd: Math.round(f.cd / CHARS[f.char].cd * 10) / 10, ready: abilityReady(f), fatal: f.power >= POWER_MAX, dir: attackDir(m, f.side),
     powers: (Object.keys(f.powers) as (keyof typeof POWERS)[]).map(k => POWERS[k].name),
   })) as [Side, Side],
   ball: m.ball.alive ? m.ball.kind === 'normal' ? null : BALLS[m.ball.kind].name : '💥 Sale otra por el tubo…',
   intro: m.phase === 'intro' && m.half === 1 && !m.extra && m.time < 2.4,
 });
+const QUALITY = [1, 0.82, 0.68, 0.55]; // escalones de resolución del partido
 const sameHud = (a: Hud, b: Hud) => JSON.stringify(a) === JSON.stringify(b);
 
 interface Shout { id: number; text: string; sub?: string; kind: 'goal' | 'fatal' | 'info' | 'block' | 'extra' }
@@ -174,15 +176,21 @@ export function KombatFootball() {
     setTimeout(() => setShouts(list => list.filter(s => s.id !== id)), ms);
   }, []);
 
+  // Calidad del dibujo: si los cuadros tardan mucho (celular lento) baja un escalón; si sobra, vuelve a subir.
+  const quality = useRef(0);
   const paint = useCallback(() => {
     const el = stageRef.current, canvas = canvasRef.current, m = matchRef.current;
     if (!el || !canvas || !m) return;
-    // como mucho ~1920 × 1100 píxeles reales: en pantallas grandes o retina el dibujo no se pone lento
-    const k = Math.min(pixelRatio(2), 1920 / Math.max(1, el.clientWidth), 1100 / Math.max(1, el.clientHeight)), w = Math.round(el.clientWidth * k), h = Math.round(el.clientHeight * k);
+    // como mucho ~1920 × 1100 píxeles reales: en pantallas grandes o retina el dibujo no se pone lento. En celulares
+    // y tablets un poco menos, y si igual va lento (quality baja sola) se dibuja con menos píxeles.
+    const touch = !!window.matchMedia?.('(pointer: coarse)').matches;
+    const k = Math.min(pixelRatio(touch ? 1.5 : 2), (touch ? 1280 : 1920) / Math.max(1, el.clientWidth), (touch ? 760 : 1100) / Math.max(1, el.clientHeight)) * QUALITY[quality.current], w = Math.round(el.clientWidth * k), h = Math.round(el.clientHeight * k);
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    const low = touch || quality.current > 0; setLowFx(low); setNoGrain(low);
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     drawMatch(ctx, m, viewFor(w, h));
+    setNoGrain(false); // (los otros juegos sí la usan)
   }, []);
 
   // El partido que se ve de fondo en los menús (dos máquinas jugando).
@@ -265,6 +273,7 @@ export function KombatFootball() {
   useEffect(() => {
     if (screen !== 'playing') { setCrowd(0); return; }
     setCrowd(0.6);
+    let slow = 1 / 60, checkT = 0;
     let frame = 0, last = performance.now(), acc = 0, bounceT = 0, tiredT = 0, bannerId = 0, lastBolt = -1;
     const human = (side: 0 | 1) => modeRef.current === 'versus' || side === 0;
     const who = (side: 0 | 1) => modeRef.current === 'versus' ? `J${side + 1}` : side === 0 ? 'Vos' : 'Rival';
@@ -272,6 +281,11 @@ export function KombatFootball() {
       const m = matchRef.current; if (!m) return;
       // pasos fijos de 1/60 s: si la compu va lenta el partido no se pone en cámara lenta (hasta 6 pasos por cuadro)
       const dt = Math.min(0.2, (now - last) / 1000); last = now; acc += dt;
+      slow = slow * 0.95 + dt * 0.05; checkT += dt;
+      if (checkT > 1.5) { // como mucho un cambio cada 1,5 s (cambiar el tamaño rearma el fondo)
+        if (slow > 1 / 45 && quality.current < QUALITY.length - 1) { quality.current++; checkT = 0; }
+        else if (slow < 1 / 57 && quality.current > 0 && checkT > 6) { quality.current--; checkT = 0; }
+      }
       for (let n = 0; acc >= 1 / 60 && n < 6; n++) { acc -= 1 / 60; step(m, inputs.current, 1 / 60); inputs.current[0].cast = null; inputs.current[1].cast = null; }
       if (acc > 1 / 60) acc = 0;
       bounceT -= dt; tiredT -= dt;
