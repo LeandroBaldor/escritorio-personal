@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { fitScale, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
 import {
   inFlight, launch, newPaper, ORIGIN, preview, QUARTER, quarterLeft, spotOf, STEPS, step, stepValue, takeEvents, throwBall, TOP, W,
@@ -96,6 +97,7 @@ function draw(ctx: CanvasRenderingContext2D, g: PaperGame, v: View, aim: Aim | n
 }
 
 export function PaperBall() {
+  const fit = useFitScreen(); // celulares y tablets en horizontal: igual que en la computadora, más chico
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // La partida se arma una sola vez (no en cada vez que se vuelve a dibujar el componente).
@@ -125,7 +127,7 @@ export function PaperBall() {
   const paint = useCallback(() => {
     const canvas = canvasRef.current, v = view();
     if (!canvas || !v) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = pixelRatio(2);
     if (canvas.width !== Math.round(v.w * dpr) || canvas.height !== Math.round(v.h * dpr)) {
       canvas.width = Math.round(v.w * dpr); canvas.height = Math.round(v.h * dpr);
       canvas.style.width = `${v.w}px`; canvas.style.height = `${v.h}px`;
@@ -226,7 +228,7 @@ export function PaperBall() {
   const toWorld = (event: React.PointerEvent) => {
     const v = view(), r = canvasRef.current?.getBoundingClientRect();
     if (!v || !r) return null;
-    return { x: (event.clientX - r.left - v.ox) / v.s, y: TOP - (event.clientY - r.top - v.oy) / v.s };
+    const k = fitScale(); return { x: ((event.clientX - r.left) / k - v.ox) / v.s, y: TOP - ((event.clientY - r.top) / k - v.oy) / v.s };
   };
   const onDown = (event: React.PointerEvent) => {
     if (statusRef.current !== 'playing') return;
@@ -248,7 +250,7 @@ export function PaperBall() {
   };
 
   const fanText = hud.dir > 0 ? '→ Sopla' : hud.dir < 0 ? '← Sopla' : 'Apagado';
-  return <section className="runner bol" aria-label="SkynetBall">
+  return <section className="runner bol" style={fit} aria-label="SkynetBall">
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>SkynetBall</h1>

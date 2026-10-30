@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { fitScale, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
 import { BOLT_TIME, CITY_TOP, GOAL_KILLS, LIVES, MAG, newInvasion, RELOAD_TIME, shoot, step, takeEvents, type Invasion as Game, type Outcome } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
@@ -60,6 +61,7 @@ function drawScope(ctx: CanvasRenderingContext2D, cx: number, cy: number, R: num
 }
 
 export function Invasion() {
+  const fit = useFitScreen(); // celulares y tablets en horizontal: igual que en la computadora, más chico
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mapRef = useRef<HTMLCanvasElement>(null);
@@ -110,7 +112,7 @@ export function Invasion() {
     if (!stage || !canvas) return;
     const w = stage.clientWidth, h = stage.clientHeight;
     if (!w || !h) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = pixelRatio(2);
     if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); canvas.style.width = `${w}px`; canvas.style.height = `${h}px`; }
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -276,7 +278,7 @@ export function Invasion() {
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    const move = (e: MouseEvent) => { const r = stage.getBoundingClientRect(); mouse.current = { x: e.clientX - r.left, y: e.clientY - r.top }; if (statusRef.current !== 'playing') paint(); };
+    const move = (e: MouseEvent) => { const r = stage.getBoundingClientRect(); const k = fitScale(); mouse.current = { x: (e.clientX - r.left) / k, y: (e.clientY - r.top) / k }; if (statusRef.current !== 'playing') paint(); };
     const down = (e: MouseEvent) => { if (e.button === 0 && e.target === canvasRef.current) fire(); };
     const wheel = (e: WheelEvent) => { if (statusRef.current !== 'playing') return; e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.18 : 1 / 1.18); };
     stage.addEventListener('mousemove', move);
@@ -316,8 +318,8 @@ export function Invasion() {
     onPointerDown: (e: React.PointerEvent) => { if (e.pointerType !== 'mouse' && e.target === canvasRef.current) { e.preventDefault(); drag.current = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: 0, t: performance.now() }; } }, // sin el clic de mouse que el navegador simula después
     onPointerMove: (e: React.PointerEvent) => {
       const d = drag.current, stage = stageRef.current; if (!d || d.id !== e.pointerId || !stage) return;
-      const m = mouse.current, w = stage.clientWidth, h = stage.clientHeight;
-      mouse.current = { x: Math.max(0, Math.min(w, (m.x < 0 ? w / 2 : m.x) + e.clientX - d.x)), y: Math.max(0, Math.min(h, (m.y < 0 ? h * 0.55 : m.y) + e.clientY - d.y)) };
+      const m = mouse.current, w = stage.clientWidth, h = stage.clientHeight, k = fitScale();
+      mouse.current = { x: Math.max(0, Math.min(w, (m.x < 0 ? w / 2 : m.x) + (e.clientX - d.x) / k)), y: Math.max(0, Math.min(h, (m.y < 0 ? h * 0.55 : m.y) + (e.clientY - d.y) / k)) };
       d.moved += Math.hypot(e.clientX - d.x, e.clientY - d.y); d.x = e.clientX; d.y = e.clientY;
     },
     onPointerUp: () => { const d = drag.current; drag.current = null; if (d && d.moved < 10 && performance.now() - d.t < 350) fire(); },
@@ -328,7 +330,7 @@ export function Invasion() {
   const accuracy = result.shots ? Math.round((result.hits / result.shots) * 100) : 0;
   const recordText = record.time ? `🏆 ${formatInvasionTime(record.time)}` : `${record.kills} 👽`;
 
-  return <section className="runner trepa invasion" aria-label="Invasión">
+  return <section className="runner trepa invasion" style={fit} aria-label="Invasión">
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>Invasión</h1>

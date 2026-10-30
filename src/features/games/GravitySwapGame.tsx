@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { GamePad } from './GamePad';
+import { pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
 import { CHECKPOINTS, LEVELS, LEVEL_COUNT, LIVES, ROWS, blackholeNear, loadLevel, monsterOf, newGame, progress, step, takeEvents, type Death, type Game, type Input, type Stats } from './gravitySwap';
 import { PX, drawGame } from './gravityArt';
@@ -45,6 +47,7 @@ const hudOf = (game: Game): Hud => ({
 const sameHud = (a: Hud, b: Hud) => (Object.keys(a) as (keyof Hud)[]).every(k => a[k] === b[k]);
 
 export function GravitySwap() {
+  const fit = useFitScreen(); // celulares y tablets en horizontal: igual que en la computadora, más chico
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<Game | null>(null);
@@ -65,7 +68,7 @@ export function GravitySwap() {
     const { cols, rows } = sizeFor(stage.clientWidth, stage.clientHeight);
     game.cols = cols;
     // Se dibuja a la resolución de la pantalla (nítido), con un tope para que no se ponga lento.
-    const cell = Math.max(PX, Math.min(64, stage.clientWidth / cols * (window.devicePixelRatio || 1)));
+    const cell = Math.max(PX, Math.min(64, stage.clientWidth / cols * pixelRatio()));
     const w = Math.round(cols * cell), h = Math.round(rows * cell);
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     const ctx = canvas.getContext('2d');
@@ -210,7 +213,7 @@ export function GravitySwap() {
   });
 
   const def = LEVELS[hud.level - 1];
-  return <section className="runner grav" aria-label="Gravity Swap">
+  return <section className="runner grav" style={fit} aria-label="Gravity Swap">
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>Gravity Swap</h1>
@@ -275,11 +278,6 @@ export function GravitySwap() {
         </div>
       </div>}
     </div>
-    <div className="runner-pad" aria-label="Controles">
-      <button type="button" aria-label="Impulso a la izquierda" {...hold('left')}>◀</button>
-      <button type="button" aria-label="Impulso hacia arriba" {...hold('up')}>▲</button>
-      <button type="button" aria-label="Impulso hacia abajo" {...hold('down')}>▼</button>
-      <button type="button" aria-label="Impulso a la derecha" {...hold('right')}>▶</button>
-    </div>
+    <GamePad action={{ hold: hold('up'), label: 'Impulso' }} dirs={{ left: { hold: hold('left'), aria: 'Impulso a la izquierda' }, right: { hold: hold('right'), aria: 'Impulso a la derecha' }, up: { hold: hold('up'), aria: 'Impulso hacia arriba' }, down: { hold: hold('down'), aria: 'Impulso hacia abajo' } }} />
   </section>;
 }

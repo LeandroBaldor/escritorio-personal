@@ -6,7 +6,7 @@
 import { fbm, mixRGB, pixels, ramp, rgb, rng, type RGB } from './gravityBackdrops';
 
 const TAU = Math.PI * 2;
-const dpr = () => (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+import { pixelRatio as dpr } from './fitScreen';
 // La luz del sol viene de arriba a la izquierda y un poco de adelante.
 const LIGHT = (() => { const v = [-0.6, -0.45, 0.66], l = Math.hypot(...v); return v.map(n => n / l); })();
 const cache = new Map<string, HTMLCanvasElement>();

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { GamePad } from './GamePad';
+import { pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
 import { drawHero, type ClimberHat, type ClimberLook } from './trepaArt';
 import {
@@ -1912,6 +1914,7 @@ function heliHud(g: LavaGame) {
 }
 
 export function LavaFloor() {
+  const fit = useFitScreen(); // celulares y tablets en horizontal: igual que en la computadora, más chico
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // La partida se arma una sola vez (no en cada vez que se vuelve a dibujar el componente).
@@ -1943,7 +1946,7 @@ export function LavaFloor() {
     if (!stage) return null;
     const w = stage.clientWidth, h = stage.clientHeight;
     if (!w || !h) return null;
-    return { w, h, s: scaleFor(w, h), cx: cam.current.x, cy: cam.current.y, t: g.time + (g.dying?.t ?? 0), dpr: Math.min(2, window.devicePixelRatio || 1) }; // más de 2x no se nota y cuesta mucho
+    return { w, h, s: scaleFor(w, h), cx: cam.current.x, cy: cam.current.y, t: g.time + (g.dying?.t ?? 0), dpr: pixelRatio(2) }; // más de 2x no se nota y cuesta mucho
   }, []);
 
   const paint = useCallback(() => {
@@ -2116,7 +2119,7 @@ export function LavaFloor() {
   const pct = (m: number) => `${Math.max(0, Math.min(100, (m / TOWER_M) * 100))}%`;
   const lavaM = hud.lavaM;
 
-  return <section className="runner trepa lava" aria-label="¡El piso es de lava!">
+  return <section className="runner trepa lava" style={fit} aria-label="¡El piso es de lava!">
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>¡El piso es de lava!</h1>
@@ -2168,12 +2171,6 @@ export function LavaFloor() {
         </div>
       </aside>
     </div>
-    <div className="runner-pad" aria-label="Controles">
-      <button type="button" aria-label="Izquierda" {...hold('left')}>◀</button>
-      <button type="button" aria-label="Derecha" {...hold('right')}>▶</button>
-      <button type="button" aria-label="Subir" {...hold('up')}>▲</button>
-      <button type="button" aria-label="Bajar" {...hold('down')}>▼</button>
-      <button type="button" className="runner-jump" aria-label="Saltar" {...hold('jump')}>Saltar</button>
-    </div>
+    <GamePad action={{ hold: hold('jump'), label: 'Saltar' }} dirs={{ left: { hold: hold('left'), aria: 'Izquierda' }, right: { hold: hold('right'), aria: 'Derecha' }, up: { hold: hold('up'), aria: 'Subir' }, down: { hold: hold('down'), aria: 'Bajar' } }} />
   </section>;
 }

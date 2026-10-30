@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { GamePad } from './GamePad';
+import { fitViewport, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
 import {
   BALLS, CHARS, CHAR_IDS, HALF_TIME, POWERS, POWER_MAX, STAGES, STAMINA, STATS, TOURNAMENT, abilityReady, attackDir, clockText, fatalKeys, newMatch, noInput, step, takeEvents,
@@ -69,7 +71,7 @@ function Portrait({ char, size, mirror = false, square = false }: { char: CharId
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const c = ref.current; if (!c) return;
-    const k = window.devicePixelRatio || 1; c.width = size * k; c.height = size * k;
+    const k = pixelRatio(); c.width = size * k; c.height = size * k;
     const ctx = c.getContext('2d'); if (!ctx) return;
     ctx.setTransform(k, 0, 0, k, 0, 0); drawPortrait(ctx, char, size, 0, mirror, square);
   }, [char, size, mirror, square]);
@@ -94,7 +96,7 @@ function FighterCard({ char, w, h, mirror = false }: { char: CharId; w: number; 
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const c = ref.current; if (!c) return;
-    const k = Math.min(2, window.devicePixelRatio || 1); c.width = w * k; c.height = h * k;
+    const k = pixelRatio(2); c.width = w * k; c.height = h * k;
     const ctx = c.getContext('2d'); if (!ctx) return;
     let frame = 0; const t0 = performance.now();
     const draw = (now: number) => { ctx.setTransform(k, 0, 0, k, 0, 0); drawFighterCard(ctx, char, w, h, (now - t0) / 1000, mirror); frame = requestAnimationFrame(draw); };
@@ -128,7 +130,7 @@ function StageThumb({ stage, w, h }: { stage: StageId; w: number; h: number }) {
   useEffect(() => onBackdropLoad(() => setLoaded(n => n + 1)), []); // cuando llega el fondo pintado, se redibuja
   useEffect(() => {
     const c = ref.current; if (!c) return;
-    const k = Math.min(2, window.devicePixelRatio || 1); c.width = w * k; c.height = h * k;
+    const k = pixelRatio(2); c.width = w * k; c.height = h * k;
     const ctx = c.getContext('2d'); if (!ctx) return;
     ctx.setTransform(k, 0, 0, k, 0, 0); drawStageThumb(ctx, newMatch(stage, ['cometa', 'inferno'], [null, null]), w, h);
   }, [stage, w, h, loaded]);
@@ -137,6 +139,7 @@ function StageThumb({ stage, w, h }: { stage: StageId; w: number; h: number }) {
 const Keys = ({ keys }: { keys: string[] }) => <span className="kf-combo">{keys.map((k, i) => <span key={i}>{i > 0 && <i>+</i>}<kbd>{k}</kbd></span>)}</span>;
 
 export function KombatFootball() {
+  const fit = useFitScreen(); // celulares y tablets en horizontal: igual que en la computadora, más chico
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const matchRef = useRef<Match | null>(null);
@@ -158,11 +161,11 @@ export function KombatFootball() {
   const [result, setResult] = useState<{ winner: 0 | 1; score: [number, number] } | null>(null);
   const [fighting, setFighting] = useState<[CharId, CharId]>(['cometa', 'inferno']);
   const [stageName, setStageName] = useState('');
-  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.innerWidth < 700);
-  const [vp, setVp] = useState(() => typeof window !== 'undefined' ? { w: window.innerWidth, h: window.innerHeight } : { w: 1280, h: 720 });
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && fitViewport().w < 700);
+  const [vp, setVp] = useState(() => typeof window !== 'undefined' ? fitViewport() : { w: 1280, h: 720 });
   const screenRef = useRef(screen); useEffect(() => { screenRef.current = screen; }, [screen]);
   const modeRef = useRef(mode); useEffect(() => { modeRef.current = mode; }, [mode]);
-  useEffect(() => { const on = () => { setNarrow(window.innerWidth < 700); setVp({ w: window.innerWidth, h: window.innerHeight }); }; window.addEventListener('resize', on); return () => window.removeEventListener('resize', on); }, []);
+  useEffect(() => { const on = () => { setNarrow(fitViewport().w < 700); setVp(fitViewport()); }; window.addEventListener('resize', on); return () => window.removeEventListener('resize', on); }, []);
   const shoutId = useRef(0);
   const shout = useCallback((text: string, kind: Shout['kind'], sub?: string, ms = 1800) => {
     const id = ++shoutId.current;
@@ -174,7 +177,7 @@ export function KombatFootball() {
     const el = stageRef.current, canvas = canvasRef.current, m = matchRef.current;
     if (!el || !canvas || !m) return;
     // como mucho ~1920 × 1100 píxeles reales: en pantallas grandes o retina el dibujo no se pone lento
-    const k = Math.min(2, window.devicePixelRatio || 1, 1920 / Math.max(1, el.clientWidth), 1100 / Math.max(1, el.clientHeight)), w = Math.round(el.clientWidth * k), h = Math.round(el.clientHeight * k);
+    const k = Math.min(pixelRatio(2), 1920 / Math.max(1, el.clientWidth), 1100 / Math.max(1, el.clientHeight)), w = Math.round(el.clientWidth * k), h = Math.round(el.clientHeight * k);
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -400,8 +403,8 @@ export function KombatFootball() {
   // La selección ocupa toda la pantalla, centrada: los cuadrados 50% más grandes (156 px) si entran, y el
   // luchador elegido del alto de la grilla.
   const cell = narrow ? Math.max(56, Math.min(99, Math.floor((vp.w - 40) / 4))) : Math.max(70, Math.min(156, Math.floor((vp.h - 230) / 4)));
-  const cardH = narrow ? 225 : Math.round(Math.min(375, cell * 4 * 0.98)), cardW = Math.round(cardH * 0.76);
-  return <section className="runner kf" aria-label="Kombat Football" onClickCapture={e => { if ((e.target as Element).closest('button, a')) playKfButton(); }}>
+  const cardH = narrow ? 225 : Math.round(Math.min(375, cell * 4 * 0.98, Math.max(150, vp.h - 360))) /* (pantallas bajas: más chico, así entra con sus barras) */, cardW = Math.round(cardH * 0.76);
+  return <section className="runner kf" style={fit} aria-label="Kombat Football" onClickCapture={e => { if ((e.target as Element).closest('button, a')) playKfButton(); }}>
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>Kombat Football</h1>
@@ -566,14 +569,9 @@ export function KombatFootball() {
         </div>
       </div>}
     </div>
-    {playing && mode !== 'versus' && <div className="runner-pad kf-pad" aria-label="Controles">
-      <button type="button" aria-label="Izquierda" {...hold('left')}>◀</button>
-      <button type="button" aria-label="Derecha" {...hold('right')}>▶</button>
-      <button type="button" aria-label="Saltar" {...hold('up')}>▲</button>
-      <button type="button" aria-label="Bloquear" {...hold('down')}>▼</button>
-      <button type="button" className="kf-kick" aria-label="Patear" {...hold('kick')}>⚽</button>
+    {playing && mode !== 'versus' && <GamePad className="kf-pad" action={{ hold: hold('kick'), label: 'Patear' }} actionLabel="⚽" dirs={{ left: { hold: hold('left'), aria: 'Izquierda' }, right: { hold: hold('right'), aria: 'Derecha' }, up: { hold: hold('up'), aria: 'Saltar' }, down: { hold: hold('down'), aria: 'Bloquear' } }} extra={<>
       <button type="button" className={`kf-cast${hud?.sides[0].ready ? '' : ' kf-cast--off'}`} aria-label={CHARS[chars[0]].abilityName} onPointerDown={e => { e.preventDefault(); inputs.current[0].cast = 'ability'; }}>✦</button>
       {hud?.sides[0].fatal && <button type="button" className="kf-cast kf-cast--fatal" aria-label="FATAL GOAL" onPointerDown={e => { e.preventDefault(); inputs.current[0].cast = 'fatal'; }}>☠</button>}
-    </div>}
+    </>} />}
   </section>;
 }

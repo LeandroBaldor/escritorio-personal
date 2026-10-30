@@ -6,7 +6,7 @@ import { BLAST_TIME, type Gore } from './trepaGore';
 
 const TAU = Math.PI * 2;
 const hsl = (h: number, s: number, l: number, a = 1) => `hsla(${h},${s}%,${l}%,${a})`;
-const pixelRatio = () => (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+import { pixelRatio } from './fitScreen';
 
 interface Sprite { canvas: HTMLCanvasElement; ox: number; oy: number; w: number; h: number }
 // Pinta `paint` en un canvas de w×h (en píxeles de pantalla) con el origen en (ox, oy), a la densidad real.

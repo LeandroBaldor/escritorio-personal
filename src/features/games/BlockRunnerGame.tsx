@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { GamePad } from './GamePad';
+import { pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
 import { drawHero } from './trepaArt';
 import { level, LEVEL_SECONDS, newGame, WIN_LEVEL, TRAP_SECONDS, PLAYER_H, PLAYER_W, score, step, takeEvents, type Game, type GameOver, type Input } from './blockRunner';
@@ -106,6 +108,7 @@ function draw(ctx: CanvasRenderingContext2D, game: Game, cell: number) {
 const OVER_TEXT: Record<GameOver, string> = { crushed: '¡Te aplastaron!', bomb: '¡Te alcanzó una bomba!', full: '¡Los bloques llegaron arriba!', trapped: '¡Quedaste atrapado!', won: '¡Superaste los 10 niveles! 🏆' };
 
 export function BlockRunner() {
+  const fit = useFitScreen(); // celulares y tablets en horizontal: igual que en la computadora, más chico
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<Game | null>(null);
@@ -124,7 +127,7 @@ export function BlockRunner() {
     const stage = stageRef.current, canvas = canvasRef.current, game = gameRef.current;
     if (!stage || !canvas || !game) return;
     const cell = Math.min(stage.clientWidth / game.cols, stage.clientHeight / game.rows);
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = pixelRatio();
     const cssW = Math.floor(game.cols * cell), cssH = Math.floor(game.rows * cell);
     if (canvas.width !== Math.round(cssW * dpr) || canvas.height !== Math.round(cssH * dpr)) {
       canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
@@ -238,7 +241,7 @@ export function BlockRunner() {
     onContextMenu: (event: React.MouseEvent) => event.preventDefault(),
   });
 
-  return <section className="runner" aria-label="¡Cuidado, bloques!">
+  return <section className="runner" style={fit} aria-label="¡Cuidado, bloques!">
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>¡Cuidado, bloques!</h1>
@@ -277,11 +280,7 @@ export function BlockRunner() {
         </div>
       </div>}
     </div>
-    <div className="runner-pad" aria-label="Controles">
-      <button type="button" aria-label="Izquierda" {...hold('left')}>◀</button>
-      <button type="button" aria-label="Derecha" {...hold('right')}>▶</button>
-      <button type="button" className="runner-jump" aria-label="Saltar" {...hold('jump')}>Saltar</button>
-    </div>
+    <GamePad action={{ hold: hold('jump'), label: 'Saltar' }} dirs={{ left: { hold: hold('left'), aria: 'Izquierda' }, right: { hold: hold('right'), aria: 'Derecha' }, up: { hold: hold('jump'), aria: 'Arriba' } }} />
   </section>;
 }
 

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { GamePad } from './GamePad';
+import { pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
 import { drawMeteor, drawMoon, drawPlanet, milkyWay, prewarmSpace, starTile } from './trepaSpace';
 import { drawBalloonEnvelope, drawBalloonRig, drawClimber, drawGoreFlying, drawPigeon, drawPlane, drawStains, drawUfo, drawZeppelin, HERO_SCALE } from './trepaArt';
@@ -1331,6 +1333,7 @@ function viewFor(w: number, h: number) {
 }
 
 export function Trepaluna() {
+  const fit = useFitScreen(); // celulares y tablets en horizontal: igual que en la computadora, más chico
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // La partida se arma una sola vez (no en cada vez que se vuelve a dibujar el componente).
@@ -1361,7 +1364,7 @@ export function Trepaluna() {
     if (!stage || !canvas) return;
     const w = stage.clientWidth, h = stage.clientHeight;
     if (!w || !h) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = pixelRatio();
     if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
       canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
       canvas.style.width = `${w}px`; canvas.style.height = `${h}px`;
@@ -1524,7 +1527,7 @@ export function Trepaluna() {
   const pct = (m: number) => `${Math.max(0, Math.min(100, (m / MOON_M) * 100))}%`;
   const marks: [number, string][] = [[ZONES.sky * 10, 'Fin de los edificios'], [ZONES.clouds * 10, 'Nubes'], [ZONES.tech * 10, 'Zona tecnológica'], [ZONES.space * 10, 'Espacio'], [MOON_M, 'Luna']];
 
-  return <section className="runner trepa" aria-label="Trepaluna">
+  return <section className="runner trepa" style={fit} aria-label="Trepaluna">
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>Trepaluna</h1>
@@ -1576,11 +1579,6 @@ export function Trepaluna() {
         </div>
       </aside>
     </div>
-    <div className="runner-pad" aria-label="Controles">
-      <button type="button" aria-label="Izquierda" {...hold('left')}>◀</button>
-      <button type="button" aria-label="Derecha" {...hold('right')}>▶</button>
-      <button type="button" aria-label="Bajar" {...hold('down')}>▼</button>
-      <button type="button" className="runner-jump" aria-label="Saltar" {...hold('jump')}>Saltar</button>
-    </div>
+    <GamePad action={{ hold: hold('jump'), label: 'Saltar' }} dirs={{ left: { hold: hold('left'), aria: 'Izquierda' }, right: { hold: hold('right'), aria: 'Derecha' }, up: { hold: hold('jump'), aria: 'Arriba' }, down: { hold: hold('down'), aria: 'Bajar' } }} />
   </section>;
 }

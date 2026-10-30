@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { GamePad } from './GamePad';
+import { pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
 import {
   CHOMP, flyerMouthOpen, sharkMouth, FLOAT_Y, galeAt, mouthOpen, GOAL, newShark, PLAYER_H, PLAYER_TARGET, PLAYER_W, rescueX, sharkLen, sharkPose, SHARKS, step, takeEvents, timeLeft, TIME_LIMIT, windAt,
@@ -651,6 +653,7 @@ const NO_INPUT: Input = { left: false, right: false, jump: false, down: false, u
 function scaleFor(w: number, h: number) { return Math.min(h / 13, w / (h > w ? 9.5 : 18)); }
 
 export function SharkCity() {
+  const fit = useFitScreen(); // celulares y tablets en horizontal: igual que en la computadora, más chico
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // La partida se arma una sola vez (no en cada vez que se vuelve a dibujar el componente).
@@ -679,7 +682,7 @@ export function SharkCity() {
     if (!stage) return null;
     const w = stage.clientWidth, h = stage.clientHeight;
     if (!w || !h) return null;
-    return { w, h, s: scaleFor(w, h), cx: cam.current.x, cy: cam.current.y, t: g.time + (g.dying?.t ?? 0), dpr: Math.min(2, window.devicePixelRatio || 1) };
+    return { w, h, s: scaleFor(w, h), cx: cam.current.x, cy: cam.current.y, t: g.time + (g.dying?.t ?? 0), dpr: pixelRatio(2) };
   }, []);
 
   const paint = useCallback(() => {
@@ -837,7 +840,7 @@ export function SharkCity() {
 
   const pct = (n: number) => `${Math.max(0, Math.min(100, (n / GOAL) * 100))}%`;
 
-  return <section className="runner trepa tib" aria-label="Ciudad Tiburón">
+  return <section className="runner trepa tib" style={fit} aria-label="Ciudad Tiburón">
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>Ciudad Tiburón</h1>
@@ -889,12 +892,6 @@ export function SharkCity() {
         </div>
       </aside>
     </div>
-    <div className="runner-pad" aria-label="Controles">
-      <button type="button" aria-label="Izquierda" {...hold('left')}>◀</button>
-      <button type="button" aria-label="Derecha" {...hold('right')}>▶</button>
-      <button type="button" aria-label="Subir" {...hold('up')}>▲</button>
-      <button type="button" aria-label="Bajar" {...hold('down')}>▼</button>
-      <button type="button" className="runner-jump" aria-label="Saltar" {...hold('jump')}>Saltar</button>
-    </div>
+    <GamePad action={{ hold: hold('jump'), label: 'Saltar' }} dirs={{ left: { hold: hold('left'), aria: 'Izquierda' }, right: { hold: hold('right'), aria: 'Derecha' }, up: { hold: hold('up'), aria: 'Subir' }, down: { hold: hold('down'), aria: 'Bajar' } }} />
   </section>;
 }
