@@ -23,6 +23,8 @@ type Status = 'ready' | 'playing' | 'paused' | 'over';
 const MAX_ZOOM = 520, START_ZOOM = 58; // con todo el zoom, la cabeza de una persona llena la mira
 const BREATH = 4; // segundos que se puede contener la respiración (Shift)
 const PAN = 26; // lo que se mueve la vista con las flechas (unidades por segundo)
+const TOUCH_SPEED = 1.35; // en el celular la mira se mueve un poco más que el dedo (se llega a todos lados sin soltar)
+const EDGE = 0.1; // con la mira en el último 10 % de cada costado, la vista se corre sola
 // Lo que entra de alto en el fondo: de la calle a lo más alto de los edificios (la ciudad ocupa casi toda la pantalla).
 const FLOOR_Y = -3.4, TOP_Y = CITY_TOP;
 
@@ -66,7 +68,7 @@ export function Invasion() {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mapRef = useRef<HTMLCanvasElement>(null);
-  const bgRef = useRef({ canvas: typeof document === 'undefined' ? null as unknown as HTMLCanvasElement : document.createElement('canvas'), x: NaN, at: 0 });
+  const bgRef = useRef({ canvas: typeof document === 'undefined' ? null as unknown as HTMLCanvasElement : document.createElement('canvas'), x: NaN, s: 0, at: 0 });
   const [firstGame] = useState(() => newInvasion());
   const gameRef = useRef<Game>(firstGame);
   // `cam`: dónde está la vista (se mueve con las flechas). `mouse`: dónde está la mira en la pantalla.
@@ -75,6 +77,8 @@ export function Invasion() {
   const aim = useRef({ zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0 });
   const gun = useRef({ mag: MAG, cycle: 0, reload: 0 });
   const drag = useRef<{ x: number; y: number; id: number; moved: number; t: number } | null>(null);
+  const fingers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ d: number; zoom: number } | null>(null);
   const keys = useRef(new Set<string>());
   const [status, setStatus] = useState<Status>('ready');
   const [hud, setHud] = useState({ time: 0, kills: 0, lives: LIVES, mag: MAG, reloading: false, breath: 1 });
@@ -120,27 +124,30 @@ export function Invasion() {
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const a = aim.current, b = baseView(w, h), p = target(w, h), R = scopeRadius(w, h);
-    // Toda la cuadra de fondo, más oscura. Se vuelve a dibujar como mucho 10 veces por segundo (o si se movió
-    // la vista): está de fondo y así la mira anda fluida en las compus y celulares lentos.
-    const bg = bgRef.current, now = performance.now();
-    // (en celulares, a menos resolución y 5 veces por segundo: es lo que más tarda y está oscuro detrás de la mira)
-    const bs = touch ? 0.6 : 1, bw = Math.round(canvas.width * bs), bh = Math.round(canvas.height * bs);
-    if (bg.canvas.width !== bw || bg.canvas.height !== bh || Math.abs(bg.x - b.cx) > 0.01 || now - bg.at > (touch ? 200 : 100)) {
+    // Toda la cuadra de fondo, más oscura. Se arma en una imagen más ancha que la pantalla (un margen a cada lado):
+    // al mover la vista solo se corre la imagen, y se vuelve a armar cuando se acaba el margen o cada tanto (la
+    // gente de fondo se mueve). En celulares, a menos resolución y menos seguido: es lo que más tarda y está
+    // oscuro detrás de la mira, así la mira anda fluida.
+    const aiming = !!drag.current || fingers.current.size > 0; // con el dedo apuntando no se rearma el fondo (salvo que haga falta): la mira no pega tirones
+    const bg = bgRef.current, now = performance.now(), M = 0.3, W = w * (1 + 2 * M);
+    const bs = touch ? 0.55 : 1, bw = Math.round(W * dpr * bs), bh = Math.round(h * dpr * bs);
+    if (bg.canvas.width !== bw || bg.canvas.height !== bh || bg.s !== b.s || Math.abs(bg.x - b.cx) * b.s > M * w * 0.85 || now - bg.at > (!touch ? 120 : aiming ? 3000 : 450)) {
       if (bg.canvas.width !== bw || bg.canvas.height !== bh) { bg.canvas.width = bw; bg.canvas.height = bh; }
       const bctx = bg.canvas.getContext('2d');
-      if (bctx) { bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, bw, bh); bctx.setTransform(dpr * bs, 0, 0, dpr * bs, 0, 0); paintCity(bctx, g, { ...b, t: g.time, dpr }, 10); bctx.fillStyle = 'rgba(2,8,4,0.3)'; bctx.fillRect(0, 0, w, h); }
-      bg.x = b.cx; bg.at = now;
+      if (bctx) { bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, bw, bh); bctx.setTransform(dpr * bs, 0, 0, dpr * bs, 0, 0); paintCity(bctx, g, { ...b, w: W, t: g.time, dpr }, 10); bctx.fillStyle = 'rgba(2,8,4,0.3)'; bctx.fillRect(0, 0, W, h); }
+      bg.x = b.cx; bg.s = b.s; bg.at = now;
     }
+    const off = ((bg.x - b.cx) * b.s - M * w) * dpr; // dónde cae la imagen según cuánto se movió la vista
     // Cuando explota un alien (o una bomba cerca) tiembla todo.
     const shake = a.shake > 0 ? [Math.sin(g.time * 90) * a.shake * 14, Math.cos(g.time * 77) * a.shake * 10] : [0, 0];
-    ctx.setTransform(1, 0, 0, 1, shake[0] * dpr, shake[1] * dpr); ctx.drawImage(bg.canvas, 0, 0, canvas.width, canvas.height); ctx.setTransform(dpr, 0, 0, dpr, shake[0] * dpr, shake[1] * dpr);
+    ctx.setTransform(1, 0, 0, 1, shake[0] * dpr, shake[1] * dpr); ctx.drawImage(bg.canvas, off, 0, W * dpr, canvas.height); ctx.setTransform(dpr, 0, 0, dpr, shake[0] * dpr, shake[1] * dpr);
     // La mira solo se ve jugando: con el cartel abierto (inicio, pausa o fin) se usa la flecha del mouse
     // normal, que pasa por delante del cartel y deja ver bien el botón.
     if (statusRef.current === 'playing') {
       ctx.save();
       ctx.beginPath(); ctx.arc(p.mx, p.my, R, 0, Math.PI * 2); ctx.clip();
       ctx.translate(p.mx - R, p.my - R);
-      paintCity(ctx, g, { w: R * 2, h: R * 2, s: a.zoom, cx: p.x, cy: p.y, t: g.time, dpr });
+      paintCity(ctx, g, { w: R * 2, h: R * 2, s: a.zoom, cx: p.x, cy: p.y, t: g.time, dpr }, touch ? 2 : 6); // (en celulares arma de a pocas habitaciones nuevas por cuadro)
       ctx.restore();
       drawScope(ctx, p.mx, p.my, R, a.zoom, g.time, a.kick);
     }
@@ -158,6 +165,10 @@ export function Invasion() {
     }
   }, [baseView, target]);
 
+  const setZoom = useCallback((z: number) => {
+    const a = aim.current, stage = stageRef.current, min = stage ? stage.clientHeight / (TOP_Y - FLOOR_Y) * 2 : 20;
+    a.target = Math.max(min, Math.min(MAX_ZOOM, z));
+  }, []);
   const zoomBy = useCallback((factor: number) => {
     const a = aim.current, stage = stageRef.current, min = stage ? stage.clientHeight / (TOP_Y - FLOOR_Y) * 2 : 20;
     a.target = Math.max(min, Math.min(MAX_ZOOM, a.target * factor));
@@ -224,6 +235,10 @@ export function Invasion() {
       // Flechas (o A y D): la vista se mueve para los costados.
       const dir = (keys.current.has('ArrowRight') || keys.current.has('d') || keys.current.has('pad-right') ? 1 : 0) - (keys.current.has('ArrowLeft') || keys.current.has('a') || keys.current.has('pad-left') ? 1 : 0);
       cam.current.x += dir * PAN * dt;
+      if (drag.current && stage) { // celular: la mira contra un costado corre la vista para ese lado (más rápido cuanto más al borde)
+        const w = stage.clientWidth, mx = mouse.current.x / w;
+        if (mx < EDGE) cam.current.x -= PAN * 1.4 * (1 - mx / EDGE) * dt; else if (mx > 1 - EDGE) cam.current.x += PAN * 1.4 * (1 - (1 - mx) / EDGE) * dt;
+      }
       if (G.cycle > 0) G.cycle = Math.max(0, G.cycle - dt);
       if (G.reload > 0) { G.reload = Math.max(0, G.reload - dt); if (G.reload === 0) G.mag = MAG; }
       const p = stage ? target(stage.clientWidth, stage.clientHeight) : { x: 0, y: 0 };
@@ -317,17 +332,33 @@ export function Invasion() {
     return () => { document.body.style.overflow = previous; setInvasionAmbient(null); };
   }, []);
 
-  // En el celular: arrastrando con el dedo se mueve la mira y un toque cortito dispara.
+  // En el celular: arrastrando con el dedo se mueve la mira (si llega al borde, la vista se corre sola para ese
+  // lado), un toque cortito dispara y con dos dedos se hace zoom: estirando se acerca, cerrando se aleja.
+  const spread = () => { const [p1, p2] = [...fingers.current.values()]; return Math.hypot(p1.x - p2.x, p1.y - p2.y) || 1; };
   const touch = {
-    onPointerDown: (e: React.PointerEvent) => { if (e.pointerType !== 'mouse' && e.target === canvasRef.current) { e.preventDefault(); drag.current = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: 0, t: performance.now() }; } }, // sin el clic de mouse que el navegador simula después
+    onPointerDown: (e: React.PointerEvent) => {
+      if (e.pointerType === 'mouse' || e.target !== canvasRef.current) return;
+      e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); // sin el clic de mouse que el navegador simula
+      fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (fingers.current.size >= 2) { drag.current = null; pinch.current = { d: spread(), zoom: aim.current.target }; return; } // dos dedos: zoom (y ese toque ya no dispara)
+      if (!pinch.current) drag.current = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: 0, t: performance.now() };
+    },
     onPointerMove: (e: React.PointerEvent) => {
+      const f = fingers.current.get(e.pointerId); if (!f) return;
+      f.x = e.clientX; f.y = e.clientY;
+      const pz = pinch.current;
+      if (pz && fingers.current.size >= 2) { setZoom(pz.zoom * spread() / pz.d); aim.current.zoom = aim.current.target; return; } // sigue a los dedos sin demora
       const d = drag.current, stage = stageRef.current; if (!d || d.id !== e.pointerId || !stage) return;
-      const m = mouse.current, w = stage.clientWidth, h = stage.clientHeight, k = fitScale();
+      const m = mouse.current, w = stage.clientWidth, h = stage.clientHeight, k = fitScale() / TOUCH_SPEED;
       mouse.current = { x: Math.max(0, Math.min(w, (m.x < 0 ? w / 2 : m.x) + (e.clientX - d.x) / k)), y: Math.max(0, Math.min(h, (m.y < 0 ? h * 0.55 : m.y) + (e.clientY - d.y) / k)) };
       d.moved += Math.hypot(e.clientX - d.x, e.clientY - d.y); d.x = e.clientX; d.y = e.clientY;
     },
-    onPointerUp: () => { const d = drag.current; drag.current = null; if (d && d.moved < 10 && performance.now() - d.t < 350) fire(); },
-    onPointerCancel: () => { drag.current = null; },
+    onPointerUp: (e: React.PointerEvent) => {
+      fingers.current.delete(e.pointerId);
+      if (pinch.current) { if (!fingers.current.size) pinch.current = null; return; }
+      const d = drag.current; drag.current = null; if (d && d.id === e.pointerId && d.moved < 10 && performance.now() - d.t < 350) fire();
+    },
+    onPointerCancel: (e: React.PointerEvent) => { fingers.current.delete(e.pointerId); if (!fingers.current.size) pinch.current = null; drag.current = null; },
   };
   // Botones ◀ ▶ del celular: mientras se mantienen apretados, la vista se mueve.
   const press = useCallback((key: string, on: boolean) => { if (on) keys.current.add(key); else keys.current.delete(key); }, []);

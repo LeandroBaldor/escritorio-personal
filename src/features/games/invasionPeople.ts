@@ -201,7 +201,13 @@ function drawHead(ctx: CanvasRenderingContext2D, o: Outfit, x: number, y: number
   ctx.restore();
 }
 
+const mixMemo = new Map<string, string>(); // (los mismos colores se mezclan miles de veces por segundo)
 export function mixColor(a: string, b: string, k: number) {
+  const key = `${a}|${b}|${k}`, hit = mixMemo.get(key); if (hit) return hit;
+  if (mixMemo.size > 5000) mixMemo.clear();
+  const out = mixColorRaw(a, b, k); mixMemo.set(key, out); return out;
+}
+function mixColorRaw(a: string, b: string, k: number) {
   const parse = (c: string) => {
     if (c.startsWith('#')) { const n = parseInt(c.length === 4 ? c.slice(1).split('').map(x => x + x).join('') : c.slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
     const rgb = c.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/);
