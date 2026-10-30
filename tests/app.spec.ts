@@ -607,7 +607,7 @@ test('Gravity Swap: se abre desde Juegos, el escenario avanza, muestra las vidas
   await expect(page.getByRole('button', { name: /La Luna/ })).toBeDisabled();
   await page.getByRole('button', { name: 'Jugar' }).click();
   await expect(page.getByTestId('grav-level')).toHaveText('1/10');
-  await expect(page.getByLabel('Vidas: 3')).toBeVisible();
+  await expect(page.getByLabel('Vidas: 10')).toBeVisible();
   await expect(page.getByTestId('grav-progress')).not.toHaveText('0%', { timeout: 15000 });
   await page.keyboard.press('Escape');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();

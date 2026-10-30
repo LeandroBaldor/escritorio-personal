@@ -631,8 +631,8 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .grip{position:fixed;top:0;bottom:0;width:var(--grip);z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vh;padding:2vh 0;box-sizing:border-box;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;
   background:radial-gradient(ellipse 60% 35% at 30% 18%,#f7fee7aa,#0000 70%),radial-gradient(ellipse 70% 40% at 75% 70%,#fde04799,#0000 70%),radial-gradient(ellipse 50% 30% at 20% 85%,#22c55e,#0000 70%),conic-gradient(from 200deg at 55% 45%,#65d81f,#bef264,#4ade80,#a3e635,#22c55e,#d9f99d,#65d81f);
   border:3px solid #0b0f0a;box-shadow:inset 0 0 0 2px #84cc16,inset 0 0 18px #14532d99,0 0 14px #84cc1666}
-.grip--left{left:0;border-radius:0 34px 34px 0}
-.grip--right{right:0;border-radius:34px 0 0 34px}
+.grip--left{left:0;border-radius:0 34px 34px 0;padding-left:max(18px,env(safe-area-inset-left));padding-right:6px}
+.grip--right{right:0;border-radius:34px 0 0 34px;padding-right:max(22px,env(safe-area-inset-right));padding-left:4px} /* (lejos del borde: ahí el celular toma el gesto de "atrás") */
 .grip button{all:unset;box-sizing:border-box;display:grid;place-items:center;cursor:pointer;touch-action:none;-webkit-tap-highlight-color:transparent}
 .grip .grip-a{width:min(76%,104px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 50% 50%,#164e63 0 52%,#0e3a4a 58%,#082f3a 70%,#020617 72%,#0f172a 100%);
   box-shadow:0 0 0 4px #0b0f0a,0 6px 0 #14532d,0 10px 16px #0008,inset 0 3px 6px #ffffff33;color:#ecfeff;font:900 clamp(11px,2.2vh,15px)/1 Nunito,system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;text-align:center;text-shadow:0 1px 2px #000}
@@ -642,15 +642,15 @@ radial-gradient(circle at 50% 120%,#4f8df0 0,#2563eb 45%,#1e3a8a 100%)}
 .grip-extra .kf-cast{width:min(30vw,52px);height:min(30vw,52px);border-radius:50%;font-size:24px;color:#fff;background:radial-gradient(circle at 35% 28%,#fcd34d,#b45309 60%,#78350f);box-shadow:0 0 0 3px #0b0f0a,0 4px 0 #451a03}
 .grip-extra .kf-cast--off{opacity:.45}
 .grip-extra .kf-cast--fatal{background:radial-gradient(circle at 35% 28%,#fca5a5,#b91c1c 60%,#450a0a);animation:kf-pulse-btn .6s ease-in-out infinite alternate}
-.grip-cross{position:relative;width:min(84%,138px);aspect-ratio:1}
-.grip .grip-dir{position:absolute;width:34%;height:34%;font-size:clamp(14px,2.6vh,20px);color:#1a2e05;background:linear-gradient(160deg,#f7fee7,#d9f99d 25%,#a3e635 55%,#65a30d);
+.grip-cross{position:relative;width:min(100%,180px);aspect-ratio:1;touch-action:none;cursor:pointer}
+.grip .grip-dir{position:absolute;pointer-events:none;width:36%;height:36%;font-size:clamp(14px,2.6vh,20px);color:#1a2e05;background:linear-gradient(160deg,#f7fee7,#d9f99d 25%,#a3e635 55%,#65a30d);
   box-shadow:0 0 0 3px #0b0f0a,0 4px 0 #3f6212,inset 0 2px 2px #ffffffcc}
-.grip .grip-dir--up{left:33%;top:0;border-radius:10px 10px 3px 3px}
-.grip .grip-dir--down{left:33%;bottom:0;border-radius:3px 3px 10px 10px}
-.grip .grip-dir--left{top:33%;left:0;border-radius:10px 3px 3px 10px}
-.grip .grip-dir--right{top:33%;right:0;border-radius:3px 10px 10px 3px}
-.grip .grip-dir:active{filter:brightness(1.2);transform:translateY(3px);box-shadow:0 0 0 3px #0b0f0a,0 1px 0 #3f6212,0 0 14px #ecfccb}
-.grip-hub{position:absolute;left:33%;top:33%;width:34%;height:34%;background:linear-gradient(160deg,#ecfccb,#a3e635 50%,#65a30d)}
+.grip .grip-dir--up{left:32%;top:0;border-radius:12px 12px 3px 3px}
+.grip .grip-dir--down{left:32%;bottom:0;border-radius:3px 3px 12px 12px}
+.grip .grip-dir--left{top:32%;left:0;border-radius:12px 3px 3px 12px}
+.grip .grip-dir--right{top:32%;right:0;border-radius:3px 12px 12px 3px}
+.grip .grip-dir.grip-dir--on{filter:brightness(1.2);transform:translateY(3px);box-shadow:0 0 0 3px #0b0f0a,0 1px 0 #3f6212,0 0 14px #ecfccb}
+.grip-hub{position:absolute;left:32%;top:32%;width:36%;height:36%;pointer-events:none;background:linear-gradient(160deg,#ecfccb,#a3e635 50%,#65a30d)}
 .grip-hub::after{content:"";position:absolute;inset:30%;border-radius:50%;background:radial-gradient(circle at 40% 35%,#f7fee7,#84cc16)}
 .grip-small{display:flex;gap:min(4vw,18px)}
 .grip .grip-mini{width:min(26vw,46px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 35% 30%,#4b5563,#111827 60%,#030712);box-shadow:0 0 0 3px #0b0f0a,0 3px 0 #14532d;color:#e5e7eb;position:relative}
@@ -1261,7 +1261,7 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .grav .runner-scores{flex-wrap:wrap;align-items:center;color:#bfdbfe}
 /* El lienzo ocupa todo el lugar (se dibuja a la resolución de la pantalla, nítido). */
 .grav .runner-stage canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:4px;box-shadow:0 0 0 3px #1e3a8a,0 0 24px #2563eb66,0 10px 30px #000a}
-.grav-lives{display:flex;gap:.15rem;font-size:1.25rem;line-height:1}
+.grav-lives{display:flex;flex-wrap:wrap;justify-content:center;gap:.1rem;max-width:7.5em;font-size:1rem;line-height:1}
 .grav-lives b{color:#f43f5e;text-shadow:0 0 6px #f43f5e88}
 .grav-lives b.grav-lost{color:#334155;text-shadow:none}
 .grav .runner-overlay>div{max-width:560px;background:#0b1430;border-color:#2563eb;box-shadow:0 0 24px #2563eb66}

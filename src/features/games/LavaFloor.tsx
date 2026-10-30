@@ -286,14 +286,17 @@ function drawBackground(ctx: CanvasRenderingContext2D, v: View) {
 // es mucho más liviano.
 const BG_SCALE = 0.6;
 let bgCanvas: HTMLCanvasElement | null = null;
+// En celulares y tablets va a menos resolución todavía y se rearma un cuadro sí y uno no (es lo que más tarda).
+let bgFrame = 0;
 function drawSoftBackground(ctx: CanvasRenderingContext2D, v: View) {
-  const w = Math.max(1, Math.ceil(v.w * BG_SCALE)), h = Math.max(1, Math.ceil(v.h * BG_SCALE));
+  const touch = !!window.matchMedia?.('(pointer: coarse)').matches, k = touch ? 0.42 : BG_SCALE;
+  const w = Math.max(1, Math.ceil(v.w * k)), h = Math.max(1, Math.ceil(v.h * k));
   bgCanvas ??= document.createElement('canvas');
-  if (bgCanvas.width !== w || bgCanvas.height !== h) { bgCanvas.width = w; bgCanvas.height = h; }
+  const resized = bgCanvas.width !== w || bgCanvas.height !== h;
+  if (resized) { bgCanvas.width = w; bgCanvas.height = h; }
   const c = bgCanvas.getContext('2d');
   if (!c) return drawBackground(ctx, v);
-  c.setTransform(BG_SCALE, 0, 0, BG_SCALE, 0, 0);
-  drawBackground(c, v);
+  if (resized || !touch || bgFrame++ % 2 === 0) { c.setTransform(k, 0, 0, k, 0, 0); drawBackground(c, v); }
   ctx.drawImage(bgCanvas, 0, 0, v.w, v.h);
 }
 
@@ -1947,7 +1950,7 @@ export function LavaFloor() {
     if (!stage) return null;
     const w = stage.clientWidth, h = stage.clientHeight;
     if (!w || !h) return null;
-    return { w, h, s: scaleFor(w, h), cx: cam.current.x, cy: cam.current.y, t: g.time + (g.dying?.t ?? 0), dpr: pixelRatio(2) }; // más de 2x no se nota y cuesta mucho
+    return { w, h, s: scaleFor(w, h), cx: cam.current.x, cy: cam.current.y, t: g.time + (g.dying?.t ?? 0), dpr: pixelRatio(window.matchMedia?.('(pointer: coarse)').matches ? 1.5 : 2) }; // más de 2x no se nota y cuesta mucho
   }, []);
 
   const paint = useCallback(() => {

@@ -14,7 +14,7 @@ export function hasGrips() {
   return window.innerWidth > window.innerHeight && !!window.matchMedia?.('(pointer: coarse)').matches;
 }
 // El ancho de cada agarradera (0 si no hay).
-export function gripWidth() { return hasGrips() ? Math.round(Math.max(96, Math.min(190, window.innerWidth * 0.15))) : 0; }
+export function gripWidth() { return hasGrips() ? Math.round(Math.max(112, Math.min(200, window.innerWidth * 0.17))) : 0; }
 const areaWidth = () => window.innerWidth - 2 * gripWidth();
 function compute() {
   const w = areaWidth(), h = window.innerHeight;

@@ -113,7 +113,8 @@ export function Invasion() {
     if (!stage || !canvas) return;
     const w = stage.clientWidth, h = stage.clientHeight;
     if (!w || !h) return;
-    const dpr = pixelRatio(2);
+    const touch = !!window.matchMedia?.('(pointer: coarse)').matches; // celulares y tablets: menos píxeles
+    const dpr = pixelRatio(touch ? 1.5 : 2);
     if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); canvas.style.width = `${w}px`; canvas.style.height = `${h}px`; }
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -122,15 +123,17 @@ export function Invasion() {
     // Toda la cuadra de fondo, más oscura. Se vuelve a dibujar como mucho 10 veces por segundo (o si se movió
     // la vista): está de fondo y así la mira anda fluida en las compus y celulares lentos.
     const bg = bgRef.current, now = performance.now();
-    if (bg.canvas.width !== canvas.width || bg.canvas.height !== canvas.height || Math.abs(bg.x - b.cx) > 0.01 || now - bg.at > 100) {
-      bg.canvas.width = canvas.width; bg.canvas.height = canvas.height;
+    // (en celulares, a menos resolución y 5 veces por segundo: es lo que más tarda y está oscuro detrás de la mira)
+    const bs = touch ? 0.6 : 1, bw = Math.round(canvas.width * bs), bh = Math.round(canvas.height * bs);
+    if (bg.canvas.width !== bw || bg.canvas.height !== bh || Math.abs(bg.x - b.cx) > 0.01 || now - bg.at > (touch ? 200 : 100)) {
+      if (bg.canvas.width !== bw || bg.canvas.height !== bh) { bg.canvas.width = bw; bg.canvas.height = bh; }
       const bctx = bg.canvas.getContext('2d');
-      if (bctx) { bctx.setTransform(dpr, 0, 0, dpr, 0, 0); paintCity(bctx, g, { ...b, t: g.time, dpr }, 10); bctx.fillStyle = 'rgba(2,8,4,0.3)'; bctx.fillRect(0, 0, w, h); }
+      if (bctx) { bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, bw, bh); bctx.setTransform(dpr * bs, 0, 0, dpr * bs, 0, 0); paintCity(bctx, g, { ...b, t: g.time, dpr }, 10); bctx.fillStyle = 'rgba(2,8,4,0.3)'; bctx.fillRect(0, 0, w, h); }
       bg.x = b.cx; bg.at = now;
     }
     // Cuando explota un alien (o una bomba cerca) tiembla todo.
     const shake = a.shake > 0 ? [Math.sin(g.time * 90) * a.shake * 14, Math.cos(g.time * 77) * a.shake * 10] : [0, 0];
-    ctx.setTransform(1, 0, 0, 1, shake[0] * dpr, shake[1] * dpr); ctx.drawImage(bg.canvas, 0, 0); ctx.setTransform(dpr, 0, 0, dpr, shake[0] * dpr, shake[1] * dpr);
+    ctx.setTransform(1, 0, 0, 1, shake[0] * dpr, shake[1] * dpr); ctx.drawImage(bg.canvas, 0, 0, canvas.width, canvas.height); ctx.setTransform(dpr, 0, 0, dpr, shake[0] * dpr, shake[1] * dpr);
     // La mira solo se ve jugando: con el cartel abierto (inicio, pausa o fin) se usa la flecha del mouse
     // normal, que pasa por delante del cartel y deja ver bien el botón.
     if (statusRef.current === 'playing') {

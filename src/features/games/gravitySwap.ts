@@ -42,7 +42,7 @@ function growTrail(h: Hazard) {
 }
 
 export const STRIDE = 9; // qué tan rápido mueve las piernas al caminar (un paso cada π/9 segundos)
-export const LIVES = 3;
+export const LIVES = 10;
 export const HINT_TIME = 5; // la flecha de para dónde ir dura 5 segundos después de cada cambio de gravedad
 export const LEVEL_COUNT = 10;
 const G = 14; // gravedad baja: flota
