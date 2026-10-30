@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { TouchGrips } from './TouchGrips';
 import { fitScale, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
 import { BOLT_TIME, CITY_TOP, GOAL_KILLS, LIVES, MAG, newInvasion, RELOAD_TIME, shoot, step, takeEvents, type Invasion as Game, type Outcome } from './invasion';
@@ -331,6 +332,7 @@ export function Invasion() {
   const recordText = record.time ? `🏆 ${formatInvasionTime(record.time)}` : `${record.kills} 👽`;
 
   return <section className="runner trepa invasion" style={fit} aria-label="Invasión">
+    <TouchGrips actionLabel={'Disparar'} />
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>Invasión</h1>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { TouchGrips } from './TouchGrips';
 import { GamePad } from './GamePad';
 import { pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
@@ -1528,6 +1529,7 @@ export function Trepaluna() {
   const marks: [number, string][] = [[ZONES.sky * 10, 'Fin de los edificios'], [ZONES.clouds * 10, 'Nubes'], [ZONES.tech * 10, 'Zona tecnológica'], [ZONES.space * 10, 'Espacio'], [MOON_M, 'Luna']];
 
   return <section className="runner trepa" style={fit} aria-label="Trepaluna">
+    <TouchGrips actionLabel={'Saltar'} />
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>Trepaluna</h1>

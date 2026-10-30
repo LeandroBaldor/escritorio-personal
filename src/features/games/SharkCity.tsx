@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { TouchGrips } from './TouchGrips';
 import { GamePad } from './GamePad';
 import { pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
@@ -841,6 +842,7 @@ export function SharkCity() {
   const pct = (n: number) => `${Math.max(0, Math.min(100, (n / GOAL) * 100))}%`;
 
   return <section className="runner trepa tib" style={fit} aria-label="Ciudad Tiburón">
+    <TouchGrips actionLabel={'Saltar'} />
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>Ciudad Tiburón</h1>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { TouchGrips } from './TouchGrips';
 import { GamePad } from './GamePad';
 import { pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
@@ -242,6 +243,7 @@ export function BlockRunner() {
   });
 
   return <section className="runner" style={fit} aria-label="¡Cuidado, bloques!">
+    <TouchGrips actionLabel={'Saltar'} />
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>¡Cuidado, bloques!</h1>

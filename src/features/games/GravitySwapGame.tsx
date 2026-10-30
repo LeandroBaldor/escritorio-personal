@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { TouchGrips } from './TouchGrips';
 import { GamePad } from './GamePad';
 import { pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
@@ -214,6 +215,7 @@ export function GravitySwap() {
 
   const def = LEVELS[hud.level - 1];
   return <section className="runner grav" style={fit} aria-label="Gravity Swap">
+    <TouchGrips actionLabel={'Impulso'} />
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>Gravity Swap</h1>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { TouchGrips } from './TouchGrips';
 import { fitScale, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
 import {
@@ -251,6 +252,7 @@ export function PaperBall() {
 
   const fanText = hud.dir > 0 ? '→ Sopla' : hud.dir < 0 ? '← Sopla' : 'Apagado';
   return <section className="runner bol" style={fit} aria-label="SkynetBall">
+    <TouchGrips actionLabel={'Elegir'} />
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>SkynetBall</h1>

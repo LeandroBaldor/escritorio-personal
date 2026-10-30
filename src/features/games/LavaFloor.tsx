@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { TouchGrips } from './TouchGrips';
 import { GamePad } from './GamePad';
 import { pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
@@ -2120,6 +2121,7 @@ export function LavaFloor() {
   const lavaM = hud.lavaM;
 
   return <section className="runner trepa lava" style={fit} aria-label="¡El piso es de lava!">
+    <TouchGrips actionLabel={'Saltar'} />
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>¡El piso es de lava!</h1>

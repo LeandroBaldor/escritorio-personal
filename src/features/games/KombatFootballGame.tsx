@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { TouchGrips } from './TouchGrips';
 import { GamePad } from './GamePad';
 import { fitViewport, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
@@ -405,6 +406,10 @@ export function KombatFootball() {
   const cell = narrow ? Math.max(56, Math.min(99, Math.floor((vp.w - 40) / 4))) : Math.max(70, Math.min(156, Math.floor((vp.h - 230) / 4)));
   const cardH = narrow ? 225 : Math.round(Math.min(375, cell * 4 * 0.98, Math.max(150, vp.h - 360))) /* (pantallas bajas: más chico, así entra con sus barras) */, cardW = Math.round(cardH * 0.76);
   return <section className="runner kf" style={fit} aria-label="Kombat Football" onClickCapture={e => { if ((e.target as Element).closest('button, a')) playKfButton(); }}>
+    <TouchGrips actionLabel={screen === 'playing' ? '⚽' : 'Elegir'} extra={playing && mode !== 'versus' ? <>
+      <button type="button" className={`kf-cast${hud?.sides[0].ready ? '' : ' kf-cast--off'}`} aria-label={CHARS[chars[0]].abilityName} onPointerDown={e => { e.preventDefault(); inputs.current[0].cast = 'ability'; }}>✦</button>
+      {hud?.sides[0].fatal && <button type="button" className="kf-cast kf-cast--fatal" aria-label="FATAL GOAL" onPointerDown={e => { e.preventDefault(); inputs.current[0].cast = 'fatal'; }}>☠</button>}
+    </> : undefined} />
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1>Kombat Football</h1>
