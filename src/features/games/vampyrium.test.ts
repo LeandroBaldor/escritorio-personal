@@ -37,8 +37,9 @@ describe('Vampyrium', () => {
     expect(g.kills.walker).toBe(1);
     expect(g.total).toBe(1);
     expect(g.corpses.length).toBe(1); // el esqueleto
-    run(g, 0.5);
+    run(g, 0.8);
     expect(g.corpses.length).toBe(0);
+    expect(g.drops.length).toBeGreaterThan(10); // la sangre que salpica
     expect(g.bones.length).toBeGreaterThan(5); // los huesos volando
     expect(g.sparks.length).toBeGreaterThan(10);
     expect(takeEvents(g).some(e => e.type === 'bones')).toBe(true);
@@ -175,6 +176,12 @@ describe('Vampyrium', () => {
     walker(g, 5.2); pressAttack(g); run(g, 0.4);
     expect(g.combo.n).toBe(2);
     expect(takeEvents(g).some(e => e.type === 'combo')).toBe(true);
+  });
+
+  it('salen tantos vampiros voladores como caminantes', () => {
+    const g = newGame(11); g.crateT = 1e9; g.player.inv = 1e9;
+    for (let i = 0; i < 40; i++) { g.spawnT = 0; run(g, 1 / 60); for (const v of [...g.vamps]) { g.vamps.splice(g.vamps.indexOf(v), 1); g.kills[v.kind]++; } }
+    expect(Math.abs(g.kills.walker - g.kills.flyer)).toBeLessThanOrEqual(1);
   });
 
   it('aparecen vampiros solos y de a más a medida que se matan', () => {

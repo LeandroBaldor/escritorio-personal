@@ -189,7 +189,8 @@ export function Vampyrium() {
         {status === 'playing' && toast && <div key={toast.id} className={`${toast.big ? 'trepa-record' : 'trepa-toast'}${toast.bad ? ' vamp-bad' : ''}`} role="status">{toast.text}</div>}
         {status === 'playing' && hud.combo >= 2 && <div key={`c${hud.combo}`} className="vamp-combo" aria-live="polite">COMBO ×{hud.combo}</div>}
         {status === 'playing' && hud.menu && <div className="vamp-arsenal" role="dialog" aria-label="Armas">
-          <h2>⚔️ Tus armas</h2>
+          <p className="vamp-paused">⏸ Juego en pausa</p>
+          <h2>⚔️ Elegí tu arma</h2>
           <ul>
             {WEAPONS.map((w, i) => {
               const off = w === 'stakes' && hud.ammo <= 0;
@@ -238,7 +239,8 @@ export function Vampyrium() {
         <div className="trepa-stat vamp-kills" aria-label={`Vampiros: ${hud.total} de ${GOAL}`}>
           <span>Vampiros</span><strong data-testid="vamp-total">{hud.total}<small>/{GOAL}</small></strong>
           <i className="vamp-bar"><b style={{ width: `${Math.min(100, hud.total / GOAL * 100)}%` }} /></i>
-          <em>🧛 <b data-testid="vamp-walkers">{hud.walker}</b> · 🦇 <b data-testid="vamp-flyers">{hud.flyer}</b></em>
+          <p className="vamp-count">Vampiros: <b data-testid="vamp-walkers">{hud.walker}</b></p>
+          <p className="vamp-count">Vampiros voladores: <b data-testid="vamp-flyers">{hud.flyer}</b></p>
         </div>
         <div className="trepa-stat" aria-label={`Vida: ${hud.hp}`}><span>Vida</span><strong className="trepa-lives">{Array.from({ length: MAX_HP }, (_, i) => <b key={i} className={i < hud.hp ? '' : 'trepa-lost'}>♥</b>)}</strong></div>
         <div className="trepa-stat vamp-weapons"><span>Armas</span>

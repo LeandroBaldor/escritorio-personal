@@ -63,6 +63,9 @@ export interface Corpse { id: number; kind: VampKind; x: number; y: number; face
 export type BoneKind = 'skull' | 'jaw' | 'ribs' | 'pelvis' | 'arm' | 'leg' | 'spine';
 export interface Bone { kind: BoneKind; x: number; y: number; vx: number; vy: number; a: number; va: number; t: number; rest: boolean }
 export interface Spark { x: number; y: number; vx: number; vy: number; t: number; life: number; hue: number }
+// Sangre que salpica: gotas que vuelan y quedan como manchas en el piso.
+export interface Drop { x: number; y: number; vx: number; vy: number; r: number; t: number; stuck: boolean }
+export const BURN_AT = 0.3, BLOW_AT = 0.85; // el vampiro se vuelve esqueleto, se prende fuego y a los 0,85 s revienta
 export interface Stake { x: number; y: number; vx: number; vy: number; t: number; stuck: boolean }
 export type CrateKind = 'stakes' | 'heart' | 'garlic';
 export interface Crate { id: number; kind: CrateKind; x: number; y: number; vy: number; landed: boolean; t: number; surface: Surface | null }
@@ -79,7 +82,7 @@ export type GameEvent =
 export type Phase = 'play' | 'menu' | 'dead' | 'cleared' | 'won' | 'over';
 export interface Game {
   time: number; real: number; phase: Phase; phaseT: number;
-  player: Player; vamps: Vamp[]; corpses: Corpse[]; bones: Bone[]; sparks: Spark[]; stakes: Stake[]; crates: Crate[];
+  player: Player; vamps: Vamp[]; corpses: Corpse[]; bones: Bone[]; sparks: Spark[]; drops: Drop[]; stakes: Stake[]; crates: Crate[];
   kills: Record<VampKind, number>; total: number; voidKills: number; trapKills: number;
   weapon: Weapon; ammo: number; menu: { sel: number; t: number }; lastTap: number;
   combo: { n: number; t: number; best: number }; power: number; holyT: number; garlicT: number;
@@ -97,7 +100,7 @@ export function newPlayer(): Player {
 }
 export function newGame(seed = Math.floor(Math.random() * 1e9)): Game {
   return {
-    time: 0, real: 0, phase: 'play', phaseT: 0, player: newPlayer(), vamps: [], corpses: [], bones: [], sparks: [], stakes: [], crates: [],
+    time: 0, real: 0, phase: 'play', phaseT: 0, player: newPlayer(), vamps: [], corpses: [], bones: [], sparks: [], drops: [], stakes: [], crates: [],
     kills: { walker: 0, flyer: 0 }, total: 0, voidKills: 0, trapKills: 0, weapon: 'sword', ammo: START_STAKES, menu: { sel: 0, t: 0 }, lastTap: -9,
     combo: { n: 0, t: 0, best: 0 }, power: 0, holyT: 0, garlicT: 0, door: { open: false, t: 0 }, spawnT: 1.6, crateT: 9, nextId: 1, wave: 1, bloodMoon: false,
     flash: 0, shake: 0, events: [], rand: mulberry(seed), stats: { slashes: 0, throws: 0, hits: 0, crates: 0, falls: 0 },
@@ -227,7 +230,9 @@ function hurt(g: Game, fromX: number) {
 
 // ---------------------------------------------------------------- Vampiros
 function spawn(g: Game) {
-  const r = g.rand, flyerChance = Math.min(0.42, 0.22 + g.total * 0.006);
+  // parejo: sale el tipo del que hay menos (muertos + vivos); si están iguales, al azar
+  const r = g.rand, count = (k: VampKind) => g.kills[k] + g.vamps.filter(v => v.kind === k).length;
+  const flyerChance = count('flyer') < count('walker') ? 1 : count('flyer') > count('walker') ? 0 : 0.5;
   const speedK = g.bloodMoon ? 1.25 : 1;
   const base = { id: g.nextId++, vx: 0, vy: 0, t: 0, onGround: false, surface: null, walkT: 0, cool: 1 + r(), jumpT: 0, dropT: 0, hit: false };
   if (r() < flyerChance) {
@@ -348,14 +353,16 @@ function updateRemains(g: Game, dt: number) {
   const r = g.rand;
   for (const c of [...g.corpses]) {
     c.t += dt;
-    if (r() < dt * 40) g.sparks.push({ x: c.x + (r() - 0.5) * 0.9, y: c.y + 0.3 + r() * 1.6, vx: (r() - 0.5) * 3, vy: 1 + r() * 3, t: 0, life: 0.4 + r() * 0.4, hue: 30 + r() * 30 });
-    if (c.t >= 0.55) {
+    const fly = c.kind === 'flyer' ? -0.6 : 0;
+    if (r() < dt * (c.t > BURN_AT ? 90 : 40)) g.sparks.push({ x: c.x + (r() - 0.5) * 0.9, y: c.y + fly + 0.3 + r() * 1.6, vx: (r() - 0.5) * 3, vy: 1 + r() * 4, t: 0, life: 0.4 + r() * 0.4, hue: 20 + r() * 35 });
+    if (c.t >= BLOW_AT) {
       g.corpses.splice(g.corpses.indexOf(c), 1);
       const hs: Record<BoneKind, number> = { skull: 1.55, jaw: 1.35, ribs: 1.05, spine: 0.9, pelvis: 0.7, arm: 1.1, leg: 0.4 };
       for (const k of BONES) {
-        const a = (r() - 0.5) * 2.4 + Math.PI / 2, sp = 6 + r() * 7;
-        g.bones.push({ kind: k, x: c.x + (r() - 0.5) * 0.4, y: c.y + hs[k], vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 3, a: r() * 6, va: (r() - 0.5) * 22, t: 0, rest: false });
+        const a = (r() - 0.5) * 2.8 + Math.PI / 2, sp = 9 + r() * 9;
+        g.bones.push({ kind: k, x: c.x + (r() - 0.5) * 0.4, y: c.y + fly + hs[k], vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 3, a: r() * 6, va: (r() - 0.5) * 30, t: 0, rest: false });
       }
+      for (let i = 0; i < 34; i++) { const a = r() * Math.PI, sp = 3 + r() * 10; g.drops.push({ x: c.x + (r() - 0.5) * 0.5, y: c.y + fly + 0.6 + r() * 1.2, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 0.05 + r() * 0.1, t: 0, stuck: false }); }
       for (let i = 0; i < 26; i++) { const a = r() * Math.PI * 2, sp = 3 + r() * 9; g.sparks.push({ x: c.x, y: c.y + 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 2, t: 0, life: 0.5 + r() * 0.6, hue: r() < 0.3 ? 0 : 35 + r() * 25 }); }
       emit(g, { type: 'bones', x: c.x, y: c.y });
     }
@@ -370,6 +377,12 @@ function updateRemains(g: Game, dt: number) {
   }
   for (const s of [...g.sparks]) { s.t += dt; s.vy -= 9 * dt; s.x += s.vx * dt; s.y += s.vy * dt; if (s.t > s.life) g.sparks.splice(g.sparks.indexOf(s), 1); }
   if (g.sparks.length > 400) g.sparks.splice(0, g.sparks.length - 400);
+  for (const d of [...g.drops]) {
+    d.t += dt;
+    if (!d.stuck) { d.vy -= GRAV * 0.7 * dt; const prev = d.y; d.x += d.vx * dt; d.y += d.vy * dt; if (d.vy < 0) { const s = surfaceUnder(d.x, 0.05, prev, d.y, false); if (s) { d.y = s.y; d.stuck = true; d.t = 0; d.r *= 1.8; } } }
+    if ((d.stuck && d.t > 7) || d.y < -6) g.drops.splice(g.drops.indexOf(d), 1);
+  }
+  if (g.drops.length > 500) g.drops.splice(0, g.drops.length - 500);
 }
 
 // ---------------------------------------------------------------- Un paso del juego
