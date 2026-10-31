@@ -37,9 +37,9 @@ describe('Vampyrium', () => {
     expect(g.kills.walker).toBe(1);
     expect(g.total).toBe(1);
     expect(g.corpses.length).toBe(1); // el esqueleto
-    run(g, 0.8);
+    run(g, 1.1);
     expect(g.corpses.length).toBe(0);
-    expect(g.drops.length).toBeGreaterThan(10); // la sangre que salpica
+    expect(g.drops.length).toBeGreaterThan(60); // mucha sangre que salpica
     expect(g.bones.length).toBeGreaterThan(5); // los huesos volando
     expect(g.sparks.length).toBeGreaterThan(10);
     expect(takeEvents(g).some(e => e.type === 'bones')).toBe(true);
@@ -52,12 +52,17 @@ describe('Vampyrium', () => {
     expect(g.vamps.length).toBe(1);
   });
 
-  it('dos toques de espacio abren el cartel de armas; se elige con flechas y espacio, y las estacas se gastan', () => {
+  it('manteniendo espacio 3 segundos aparece el cartel de armas y el juego queda en pausa; se elige con flechas y espacio', () => {
     const g = quiet();
-    pressAttack(g); step(g, idle(), 0.1); pressAttack(g);
+    pressAttack(g); // el toque ataca
+    expect(g.player.attackT).toBeGreaterThanOrEqual(0);
+    run(g, 2.5, { ...idle(), attack: true });
+    expect(g.phase).toBe('play');
+    run(g, 0.6, { ...idle(), attack: true });
     expect(g.phase).toBe('menu');
-    const t = g.time; run(g, 1);
+    const t = g.time; run(g, 1, { ...idle(), attack: true });
     expect(g.time).toBe(t); // con el cartel abierto el juego espera
+    expect(g.phase).toBe('menu'); // seguir apretando no lo cierra
     menuMove(g, 1); pressAttack(g);
     expect(g.phase).toBe('play');
     expect(g.weapon).toBe('stakes');
@@ -65,6 +70,12 @@ describe('Vampyrium', () => {
     pressAttack(g);
     expect(g.ammo).toBe(START_STAKES - 1);
     expect(g.stakes.length).toBe(1);
+  });
+
+  it('soltar antes de los 3 segundos no abre el cartel', () => {
+    const g = quiet();
+    run(g, 2, { ...idle(), attack: true }); run(g, 0.1); run(g, 2, { ...idle(), attack: true });
+    expect(g.phase).toBe('play');
   });
 
   it('la estaca vuela y mata a un vampiro lejos', () => {

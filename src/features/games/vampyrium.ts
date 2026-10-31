@@ -46,11 +46,12 @@ export const TRAPS: Trap[] = [
   { kind: 'fire', x: 23.6, x2: 23.6, y: GROUND_Y, period: 4.6, offset: 1.7, len: 4.2, amp: 0 },
 ];
 
-export interface Input { left: boolean; right: boolean; up: boolean; down: boolean }
+export interface Input { left: boolean; right: boolean; up: boolean; down: boolean; attack?: boolean } // attack: Espacio apretado (mantenido 3 s abre las armas)
+export const HOLD_MENU = 3;
 export interface Player {
   x: number; y: number; vx: number; vy: number; face: 1 | -1; onGround: boolean; surface: Surface | null; jumps: number;
   hp: number; inv: number; attackT: number; attackWeapon: Weapon; hitIds: Set<number>; cool: number; walkT: number;
-  dropT: number; coyote: number; safeX: number; prevUp: boolean; prevDown: boolean; hurtT: number; landT: number;
+  dropT: number; coyote: number; safeX: number; prevUp: boolean; prevDown: boolean; hurtT: number; landT: number; spinT: number; // spinT: la vuelta en el aire del doble salto
 }
 export type VampKind = 'walker' | 'flyer';
 export type VampState = 'walk' | 'claw' | 'hover' | 'dive' | 'rise';
@@ -65,7 +66,7 @@ export interface Bone { kind: BoneKind; x: number; y: number; vx: number; vy: nu
 export interface Spark { x: number; y: number; vx: number; vy: number; t: number; life: number; hue: number }
 // Sangre que salpica: gotas que vuelan y quedan como manchas en el piso.
 export interface Drop { x: number; y: number; vx: number; vy: number; r: number; t: number; stuck: boolean }
-export const BURN_AT = 0.3, BLOW_AT = 0.85; // el vampiro se vuelve esqueleto, se prende fuego y a los 0,85 s revienta
+export const BURN_AT = 0.25, BLOW_AT = 1.05; // el vampiro se vuelve esqueleto, arde como una antorcha y al segundo revienta
 export interface Stake { x: number; y: number; vx: number; vy: number; t: number; stuck: boolean }
 export type CrateKind = 'stakes' | 'heart' | 'garlic';
 export interface Crate { id: number; kind: CrateKind; x: number; y: number; vy: number; landed: boolean; t: number; surface: Surface | null }
@@ -84,7 +85,7 @@ export interface Game {
   time: number; real: number; phase: Phase; phaseT: number;
   player: Player; vamps: Vamp[]; corpses: Corpse[]; bones: Bone[]; sparks: Spark[]; drops: Drop[]; stakes: Stake[]; crates: Crate[];
   kills: Record<VampKind, number>; total: number; voidKills: number; trapKills: number;
-  weapon: Weapon; ammo: number; menu: { sel: number; t: number }; lastTap: number;
+  weapon: Weapon; ammo: number; menu: { sel: number; t: number }; lastTap: number; holdT: number;
   combo: { n: number; t: number; best: number }; power: number; holyT: number; garlicT: number;
   door: { open: boolean; t: number }; spawnT: number; crateT: number; nextId: number; wave: number; bloodMoon: boolean;
   flash: number; shake: number; events: GameEvent[]; rand: () => number; stats: { slashes: number; throws: number; hits: number; crates: number; falls: number };
@@ -96,12 +97,12 @@ export function mulberry(seed: number) {
 }
 
 export function newPlayer(): Player {
-  return { x: START_X, y: GROUND_Y, vx: 0, vy: 0, face: 1, onGround: true, surface: SURFACES[0], jumps: 0, hp: MAX_HP, inv: 0, attackT: -1, attackWeapon: 'sword', hitIds: new Set(), cool: 0, walkT: 0, dropT: 0, coyote: 0, safeX: START_X, prevUp: false, prevDown: false, hurtT: 0, landT: 0 };
+  return { x: START_X, y: GROUND_Y, vx: 0, vy: 0, face: 1, onGround: true, surface: SURFACES[0], jumps: 0, hp: MAX_HP, inv: 0, attackT: -1, attackWeapon: 'sword', hitIds: new Set(), cool: 0, walkT: 0, dropT: 0, coyote: 0, safeX: START_X, prevUp: false, prevDown: false, hurtT: 0, landT: 0, spinT: 0 };
 }
 export function newGame(seed = Math.floor(Math.random() * 1e9)): Game {
   return {
     time: 0, real: 0, phase: 'play', phaseT: 0, player: newPlayer(), vamps: [], corpses: [], bones: [], sparks: [], drops: [], stakes: [], crates: [],
-    kills: { walker: 0, flyer: 0 }, total: 0, voidKills: 0, trapKills: 0, weapon: 'sword', ammo: START_STAKES, menu: { sel: 0, t: 0 }, lastTap: -9,
+    kills: { walker: 0, flyer: 0 }, total: 0, voidKills: 0, trapKills: 0, weapon: 'sword', ammo: START_STAKES, menu: { sel: 0, t: 0 }, lastTap: -9, holdT: 0,
     combo: { n: 0, t: 0, best: 0 }, power: 0, holyT: 0, garlicT: 0, door: { open: false, t: 0 }, spawnT: 1.6, crateT: 9, nextId: 1, wave: 1, bloodMoon: false,
     flash: 0, shake: 0, events: [], rand: mulberry(seed), stats: { slashes: 0, throws: 0, hits: 0, crates: 0, falls: 0 },
   };
@@ -165,11 +166,10 @@ function trapHits(t: Trap, time: number, x1: number, x2: number, y1: number, y2:
 }
 
 // ---------------------------------------------------------------- Ataques del cazador
-// Espacio: ataca con el arma que tiene. Dos veces seguidas rápido: abre el cartel de las armas.
+// Espacio: ataca con el arma que tiene. Mantenido 3 segundos: abre el cartel de las armas (eso lo mira step).
 export function pressAttack(g: Game) {
   if (g.phase === 'menu') { chooseWeapon(g, WEAPONS[g.menu.sel]); return; }
   if (g.phase !== 'play') return;
-  if (g.real - g.lastTap < 0.3) { g.lastTap = -9; openMenu(g); return; }
   g.lastTap = g.real;
   attack(g);
 }
@@ -348,7 +348,7 @@ function updateCrates(g: Game, dt: number) {
 }
 
 // ---------------------------------------------------------------- Restos: esqueleto, chispas y huesos
-const BONES: BoneKind[] = ['skull', 'jaw', 'ribs', 'spine', 'pelvis', 'arm', 'arm', 'leg', 'leg'];
+const BONES: BoneKind[] = ['skull', 'jaw', 'ribs', 'spine', 'pelvis', 'arm', 'arm', 'arm', 'arm', 'leg', 'leg', 'leg', 'leg', 'spine'];
 function updateRemains(g: Game, dt: number) {
   const r = g.rand;
   for (const c of [...g.corpses]) {
@@ -359,10 +359,11 @@ function updateRemains(g: Game, dt: number) {
       g.corpses.splice(g.corpses.indexOf(c), 1);
       const hs: Record<BoneKind, number> = { skull: 1.55, jaw: 1.35, ribs: 1.05, spine: 0.9, pelvis: 0.7, arm: 1.1, leg: 0.4 };
       for (const k of BONES) {
-        const a = (r() - 0.5) * 2.8 + Math.PI / 2, sp = 9 + r() * 9;
+        const a = (r() - 0.5) * 3.4 + Math.PI / 2, sp = 11 + r() * 13;
         g.bones.push({ kind: k, x: c.x + (r() - 0.5) * 0.4, y: c.y + fly + hs[k], vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 3, a: r() * 6, va: (r() - 0.5) * 30, t: 0, rest: false });
       }
-      for (let i = 0; i < 34; i++) { const a = r() * Math.PI, sp = 3 + r() * 10; g.drops.push({ x: c.x + (r() - 0.5) * 0.5, y: c.y + fly + 0.6 + r() * 1.2, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 0.05 + r() * 0.1, t: 0, stuck: false }); }
+      for (let i = 0; i < 110; i++) { const a = r() * Math.PI * 1.15 - 0.08, sp = 2 + r() * 15; g.drops.push({ x: c.x + (r() - 0.5) * 0.6, y: c.y + fly + 0.5 + r() * 1.4, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 0.05 + r() * 0.14, t: 0, stuck: false }); } // mucha sangre
+      g.shake = Math.max(g.shake, 0.55); g.flash = Math.max(g.flash, 0.25);
       for (let i = 0; i < 26; i++) { const a = r() * Math.PI * 2, sp = 3 + r() * 9; g.sparks.push({ x: c.x, y: c.y + 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 2, t: 0, life: 0.5 + r() * 0.6, hue: r() < 0.3 ? 0 : 35 + r() * 25 }); }
       emit(g, { type: 'bones', x: c.x, y: c.y });
     }
@@ -380,9 +381,9 @@ function updateRemains(g: Game, dt: number) {
   for (const d of [...g.drops]) {
     d.t += dt;
     if (!d.stuck) { d.vy -= GRAV * 0.7 * dt; const prev = d.y; d.x += d.vx * dt; d.y += d.vy * dt; if (d.vy < 0) { const s = surfaceUnder(d.x, 0.05, prev, d.y, false); if (s) { d.y = s.y; d.stuck = true; d.t = 0; d.r *= 1.8; } } }
-    if ((d.stuck && d.t > 7) || d.y < -6) g.drops.splice(g.drops.indexOf(d), 1);
+    if ((d.stuck && d.t > 9) || d.y < -6) g.drops.splice(g.drops.indexOf(d), 1);
   }
-  if (g.drops.length > 500) g.drops.splice(0, g.drops.length - 500);
+  if (g.drops.length > 900) g.drops.splice(0, g.drops.length - 900);
 }
 
 // ---------------------------------------------------------------- Un paso del juego
@@ -390,7 +391,10 @@ export function aliveCap(g: Game) { return g.door.open ? 2 : Math.min(8, 3 + Mat
 
 export function step(g: Game, input: Input, dt: number) {
   g.real += dt;
-  if (g.phase === 'menu') { g.menu.t += dt; if (g.menu.t > 5) chooseWeapon(g, WEAPONS[g.menu.sel]); return; } // el cartel de armas frena todo
+  if (g.phase === 'menu') { g.menu.t += dt; g.holdT = input.attack ? -1 : 0; return; } // el cartel de armas pone el juego en pausa
+  // Espacio mantenido: se llena la barra y a los 3 segundos aparece el cartel de las armas
+  if (input.attack && g.phase === 'play') { if (g.holdT >= 0) { g.holdT += dt; if (g.holdT >= HOLD_MENU) { g.holdT = -1; openMenu(g); return; } } }
+  else if (!input.attack) g.holdT = 0;
   g.time += dt; g.phaseT += dt;
   g.flash = Math.max(0, g.flash - dt * 1.8); g.shake = Math.max(0, g.shake - dt * 2);
   g.holyT = Math.max(0, g.holyT - dt); g.garlicT = Math.max(0, g.garlicT - dt); g.combo.t = Math.max(0, g.combo.t - dt);
@@ -401,7 +405,7 @@ export function step(g: Game, input: Input, dt: number) {
   if (g.phase === 'cleared') { updateRemains(g, dt); p.x += dt * 2; p.walkT += dt * 2; if (g.phaseT > 2.4) { g.phase = 'won'; emit(g, { type: 'won' }); } return; }
 
   // El cazador
-  p.inv = Math.max(0, p.inv - dt); p.cool = Math.max(0, p.cool - dt); p.dropT -= dt; p.coyote -= dt; p.hurtT = Math.max(0, p.hurtT - dt); p.landT = Math.max(0, p.landT - dt);
+  p.inv = Math.max(0, p.inv - dt); p.cool = Math.max(0, p.cool - dt); p.dropT -= dt; p.coyote -= dt; p.hurtT = Math.max(0, p.hurtT - dt); p.landT = Math.max(0, p.landT - dt); p.spinT = Math.max(0, p.spinT - dt);
   if (p.attackT >= 0) { p.attackT += dt; if (p.attackT > 0.3) p.attackT = -1; }
   const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
   if (dir) p.face = dir as 1 | -1;
@@ -412,7 +416,7 @@ export function step(g: Game, input: Input, dt: number) {
   p.prevUp = input.up; p.prevDown = input.down;
   if (upPress) {
     if (p.onGround || p.coyote > 0) { p.vy = JUMP; p.jumps = 1; p.onGround = false; p.surface = null; p.coyote = 0; emit(g, { type: 'jump', double: false }); }
-    else if (p.jumps < 2) { p.vy = JUMP2; p.jumps = 2; emit(g, { type: 'jump', double: true }); }
+    else if (p.jumps < 2) { p.vy = JUMP2; p.jumps = 2; p.spinT = 0.42; emit(g, { type: 'jump', double: true }); }
   }
   if (downPress && p.onGround && p.surface && !p.surface.ground) { p.dropT = 0.28; p.onGround = false; p.surface = null; p.vy = -1; }
   const wasGround = p.onGround;

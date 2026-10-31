@@ -1188,13 +1188,18 @@ test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de
   await page.getByRole('link', { name: /Vampyrium/ }).click();
   await expect(page.getByRole('heading', { name: 'Vampyrium', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
+  // El cartel del nivel con el objetivo
+  await expect(page.getByRole('heading', { name: 'El puente de las ánimas' })).toBeVisible();
+  await expect(page.getByText('tendrás que matar a los', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: /A cazar/ }).click();
   await expect(page.getByTestId('vamp-total')).toContainText('/50');
   await expect(page.getByTestId('vamp-time')).not.toHaveText('0:00', { timeout: 5000 });
   await expect(page.getByLabel('Vida: 5')).toBeVisible();
   await expect(page.getByTestId('vamp-ammo')).toHaveText('8');
-  // Dos veces espacio rápido: el cartel con las armas; se eligen las estacas y se tira una.
-  await page.keyboard.press(' '); await page.keyboard.press(' ');
+  // Manteniendo espacio 3 segundos: el cartel con las armas (el juego en pausa); se eligen las estacas y se tira una.
+  await page.keyboard.down(' '); await page.waitForTimeout(3400); await page.keyboard.up(' ');
   await expect(page.getByRole('dialog', { name: 'Armas' })).toBeVisible();
+  await expect(page.getByText('Juego en pausa')).toBeVisible();
   await page.keyboard.press('ArrowDown'); await page.keyboard.press(' ');
   await expect(page.getByRole('dialog', { name: 'Armas' })).toHaveCount(0);
   await page.waitForTimeout(400);

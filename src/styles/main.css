@@ -1534,7 +1534,7 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .vamp .runner-bar button,.vamp .runner-pad button{background:#7f1d1d}
 .vamp .vamp-logo{font:400 clamp(1.5rem,3vw,2.2rem)/1 "Vamp Gothic",Georgia,serif;letter-spacing:.06em;color:#e11d2a;text-shadow:0 0 10px #ff1e3c88,0 2px 0 #000}
 .vamp .runner-stage{overflow:hidden;border-radius:8px}
-.vamp .runner-stage canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:8px;box-shadow:0 0 0 3px #3b0a10,0 10px 30px #000c}
+.vamp .runner-stage>canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:8px;box-shadow:0 0 0 3px #3b0a10,0 10px 30px #000c}
 .vamp-side{background:#140b10;border-color:#5f0f17}
 .vamp-side .trepa-stat{background:#0b0609}
 .vamp-side .trepa-stat span{color:#f2a1a1}
@@ -1558,21 +1558,55 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .vamp .trepa-record{background:linear-gradient(180deg,#fca5a5,#991b1b);color:#fff;text-shadow:0 2px 0 #450a0a;font-size:clamp(1.1rem,2.6vw,1.7rem)}
 .vamp-combo{position:absolute;top:20%;right:4%;font:400 clamp(1.6rem,4vw,2.8rem)/1 "Vamp Gothic",Georgia,serif;color:#fde68a;text-shadow:0 0 12px #f59e0b,0 3px 0 #7c2d12;animation:vamp-pop .35s ease-out;pointer-events:none}
 @keyframes vamp-pop{from{transform:scale(1.8) rotate(-6deg);opacity:0}to{transform:none;opacity:1}}
-.vamp-arsenal{position:absolute;inset:0;margin:auto;width:min(620px,88%);height:fit-content;padding:1.6rem 2rem 1.3rem;background:linear-gradient(180deg,#2a0d12,#120609);border:5px solid #b91c1c;border-radius:18px;box-shadow:0 0 0 4px #000,0 0 60px #b91c1caa,0 0 0 100vmax #000a;text-align:center;animation:vamp-pop .2s ease-out;z-index:5}
-.vamp-paused{margin:0 0 .3rem!important;font-weight:900;letter-spacing:.2em;text-transform:uppercase;font-size:.95rem!important;color:#fde68a!important}
 .vamp-count{margin:.1rem 0 0;width:100%;display:flex;align-items:flex-end;justify-content:space-between;gap:.3rem;font-weight:800;font-size:.76rem;line-height:1.15;color:#e8d5c4;text-align:left}
 .vamp-count b{color:#fde68a;font-size:1rem;font-variant-numeric:tabular-nums}
-.vamp-arsenal h2{margin:0 0 1rem;font:400 clamp(2.2rem,5vw,3.2rem)/1 "Vamp Gothic",Georgia,serif;color:#fca5a5;letter-spacing:.04em}
-.vamp-arsenal ul{list-style:none;margin:0;padding:0;display:grid;gap:.45rem}
-.vamp-arsenal button{width:100%;display:flex;align-items:center;gap:.9rem;padding:.9rem 1.2rem;background:#1f0a0e;border:2px solid #5f0f17;border-radius:10px;color:#f5e6da;font-weight:900;font-size:clamp(1.2rem,2.6vw,1.6rem);cursor:pointer}
-.vamp-arsenal button em{margin-left:auto;font-style:normal;color:#fde68a}
-.vamp-arsenal button.vamp-sel{border-color:#fbbf24;box-shadow:0 0 0 2px #fbbf24,0 0 16px #fbbf2466;background:#3b0f16}
-.vamp-arsenal button.vamp-now b::after{content:" ✓";color:#86efac}
-.vamp-arsenal button:disabled{opacity:.4;cursor:not-allowed}
-.vamp-arsenal .vamp-ico{font-size:2.2rem}
-.vamp-arsenal p{margin:.9rem 0 0;font-size:.95rem;color:#c9a9a0}
 .vamp-overlay{background:#06030899}
 .vamp-overlay .trepa-overlay-card{background:linear-gradient(180deg,#1f0a0f,#0d0508);border-color:#991b1b}
 .vamp-title{margin:0 0 .4rem!important;font:400 clamp(2.6rem,8vw,4.6rem)/1 "Vamp Gothic",Georgia,serif!important;letter-spacing:.06em;background:linear-gradient(#fecaca,#dc2626 45%,#450a0a 80%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 0 #000) drop-shadow(0 0 12px #ff1e3c88)}
 .grip-extra .vamp-cross,.runner .gpad .vamp-cross{background:radial-gradient(circle at 35% 28%,#fde68a,#b45309 60%,#451a03)}
 .grip-extra .vamp-cross.kf-cast--fatal,.runner .gpad .vamp-cross.kf-cast--fatal{background:radial-gradient(circle at 35% 28%,#fff7d6,#f59e0b 55%,#78350f)}
+/* El cartel de las armas y los carteles del juego: como el inventario de un juego de rol medieval (marco de
+   piedra con bisel, cuero oscuro adentro, placa del título con letras doradas, casilleros hundidos). */
+.ds-frame{position:relative;background:radial-gradient(ellipse at 30% 20%,#3a2a1e 0,#21170f 55%,#140d08 100%);border:10px ridge #7a6e60;border-radius:6px;box-shadow:inset 0 0 0 2px #120c08,inset 0 0 0 4px #8a6d3b,inset 0 0 36px #000c,0 0 0 3px #0b0806,0 18px 50px #000d;color:#e9dcc1}
+.ds-frame::before,.ds-frame::after{content:"";position:absolute;width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#f3e2b0,#8a6d3b 55%,#3b2a12);box-shadow:0 0 0 2px #120c08;top:-14px;left:-14px}
+.ds-frame::after{left:auto;right:-14px}
+.ds-plate{margin:0 auto 1rem;padding:.35rem 1.4rem .5rem;width:fit-content;max-width:100%;background:linear-gradient(180deg,#4a3b2e,#1f1610);border:2px solid #8a6d3b;border-radius:4px;box-shadow:inset 0 1px 0 #ffffff22,0 4px 10px #0008;text-align:center}
+.ds-plate h2{margin:0;font:400 clamp(1.5rem,3.2vw,2.3rem)/1.05 "Vamp Gothic",Georgia,serif;color:#e8c77a;letter-spacing:.05em;text-shadow:0 2px 0 #000,0 0 12px #e8c77a55}
+.vamp-paused{display:block;font-weight:900;letter-spacing:.25em;text-transform:uppercase;font-size:.78rem;color:#fca5a5}
+.vamp-arsenal{position:absolute;inset:0;margin:auto;width:min(720px,92%);height:fit-content;max-height:96%;overflow:auto;padding:1.1rem 1.3rem 1rem;z-index:5;animation:vamp-pop .2s ease-out;box-shadow:inset 0 0 0 2px #120c08,inset 0 0 0 4px #8a6d3b,inset 0 0 36px #000c,0 0 0 3px #0b0806,0 0 0 100vmax #000b}
+.ds-body{display:flex;gap:1rem;align-items:stretch}
+.ds-hero{flex:0 0 150px;display:flex;flex-direction:column;align-items:center;gap:.35rem;padding:.5rem;background:#0f0a07;border:3px inset #5e5246;border-radius:4px}
+.ds-hero canvas{background:radial-gradient(circle at 50% 70%,#3b2416,#120b07 70%);border:2px solid #3d332a}
+.ds-hero b{font:400 1.3rem/1 "Vamp Gothic",Georgia,serif;color:#e8c77a}
+.ds-bar{position:relative;width:100%;height:16px;background:#1a0f0a;border:2px solid #3d332a;border-radius:3px;overflow:hidden}
+.ds-bar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(180deg,#ff6b6b,#9b1c1c)}
+.ds-bar--holy i{background:linear-gradient(180deg,#fde68a,#b45309)}
+.ds-bar span{position:relative;display:block;text-align:center;font-size:.68rem;font-weight:900;line-height:12px;color:#fff;text-shadow:0 1px 0 #000}
+.ds-inv{flex:1;display:flex;flex-direction:column;gap:.7rem;min-width:0}
+.ds-grid{list-style:none;margin:0;padding:.5rem;display:grid;grid-template-columns:repeat(4,64px);gap:6px;justify-content:center;background:#0f0a07;border:3px inset #5e5246;border-radius:4px}
+.ds-slot{position:relative;display:grid;place-items:center;width:64px;height:64px;padding:0;background:radial-gradient(circle at 50% 40%,#2a1f17,#0d0806);border:2px solid #3d332a;border-radius:3px;box-shadow:inset 0 0 10px #000;cursor:pointer;color:#e8c77a;font-size:1.3rem}
+.ds-slot em{position:absolute;right:3px;bottom:1px;font-style:normal;font-weight:900;font-size:.85rem;color:#fde68a;text-shadow:0 1px 0 #000,0 0 4px #000}
+.ds-slot.ds-sel{border-color:#e8c77a;box-shadow:inset 0 0 10px #000,0 0 0 2px #e8c77a,0 0 16px #e8c77aaa}
+.ds-slot.ds-now::after{content:"✓";position:absolute;left:4px;top:1px;font-size:.8rem;font-weight:900;color:#86efac}
+.ds-slot:disabled{opacity:.4;cursor:not-allowed}
+.ds-locked{opacity:.35;font-size:1rem;cursor:default}
+.ds-info{padding:.6rem .8rem;background:linear-gradient(180deg,#2a1d13,#160f0a);border:2px solid #5e4a2e;border-radius:4px}
+.ds-info h3{margin:0 0 .3rem;font:400 1.5rem/1 "Vamp Gothic",Georgia,serif;color:#e8c77a}
+.ds-info h3 small{font:700 .8rem Nunito,system-ui,sans-serif;color:#86efac}
+.ds-info p{margin:0 0 .45rem;font-size:.85rem;color:#d8c9ad}
+.ds-info dl{margin:0;display:grid;grid-template-columns:repeat(3,1fr);gap:.3rem}
+.ds-info dl div{padding:.2rem .35rem;background:#0f0a07;border:1px solid #3d332a;border-radius:3px;text-align:center}
+.ds-info dt{font-size:.62rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#a8936b}
+.ds-info dd{margin:0;font-weight:900;font-size:.8rem;color:#f5e6c8}
+.ds-keys{margin:.8rem 0 0;text-align:center;font-size:.8rem;color:#a8936b}
+.vamp-intro{width:min(600px,90%);padding:1rem 1.4rem 1.1rem;text-align:center;animation:vamp-pop .3s ease-out}
+.ds-story{margin:.3rem 0;font-size:.92rem;color:#d8c9ad;font-style:italic}
+.ds-goal{margin:.8rem 0;padding:.6rem .8rem;background:#120b07;border:2px solid #8a6d3b;border-radius:4px;font:400 clamp(1.1rem,2.2vw,1.4rem)/1.25 "Vamp Gothic",Georgia,serif;color:#f5e6c8}
+.ds-goal b{color:#ff4d5a;font-weight:400}
+.vamp-intro button,.vamp-overlay .ds-frame button{margin-top:.8rem;padding:.7rem 1.8rem;background:linear-gradient(180deg,#9b1c1c,#5a0c0c);border:2px solid #e8c77a;border-radius:4px;color:#fde68a;font:400 1.5rem/1 "Vamp Gothic",Georgia,serif;letter-spacing:.05em;box-shadow:0 4px 0 #2a0505,0 0 14px #b91c1c88;cursor:pointer}
+.vamp-overlay>.ds-frame,.vamp-overlay .trepa-overlay-card.ds-frame{background:radial-gradient(ellipse at 30% 20%,#3a2a1e 0,#21170f 55%,#140d08 100%);border:10px ridge #7a6e60;border-radius:6px;box-shadow:inset 0 0 0 2px #120c08,inset 0 0 0 4px #8a6d3b,inset 0 0 36px #000c,0 0 0 3px #0b0806,0 18px 50px #000d;max-width:min(620px,92%)}
+.vamp-hold{position:absolute;left:50%;bottom:8%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.4rem .8rem;background:#140d08dd;border:2px solid #8a6d3b;border-radius:6px;color:#e8c77a;font-weight:900;font-size:.85rem;pointer-events:none}
+.vamp-hold i{display:block;width:180px;height:10px;background:#1a0f0a;border:1px solid #3d332a;border-radius:99px;overflow:hidden}
+.vamp-hold b{display:block;height:100%;background:linear-gradient(90deg,#b45309,#fde68a)}
+@media(max-width:700px){.ds-body{flex-direction:column}.ds-hero{flex-basis:auto;flex-direction:row;flex-wrap:wrap;justify-content:center}.ds-grid{grid-template-columns:repeat(4,52px)}.ds-slot{width:52px;height:52px}}
+.vamp .runner-stage .ds-frame canvas{box-shadow:none;border-radius:2px}
