@@ -8,6 +8,7 @@ import terminatorCover from './assets/terminator-portada.webp';
 import invasionCover from './assets/portada-invasion.webp';
 import gravityCover from './assets/portada-gravedad.webp';
 import kombatCover from './assets/portada-kombat.webp';
+import vampCover from './assets/portada-vampyrium.webp';
 import { CalculatorLink, CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { readRecord } from './BlockRunnerGame';
 import { formatTime, readTrepaRecord } from './TrepalunaGame';
@@ -17,6 +18,8 @@ import { formatSharkTime, readSharkRecord } from './SharkCity';
 import { formatInvasionTime, readInvasionRecord } from './InvasionGame';
 import { formatGravityTime, readGravityRecord } from './GravitySwapGame';
 import { readKombatRecord } from './KombatFootballGame';
+import { readVampyriumRecord } from './VampyriumGame';
+import { formatVampTime } from './vampyrium';
 import memeJigsaw from '../../assets/images/meme-jigsaw.jpg';
 
 // Portadas de las tarjetas: una captura de cada juego en plena acción.
@@ -35,6 +38,7 @@ export function Games() {
   const invasion = readInvasionRecord();
   const gravity = readGravityRecord();
   const kombat = readKombatRecord();
+  const vamp = readVampyriumRecord();
   return <section className="games-page">
     <div className="section-title games-title">
       <div className="games-heading"><p className="eyebrow">Para cortar un rato</p><h1>MiniJuegos</h1><p className="games-byline">By YEYO</p></div>
@@ -151,6 +155,20 @@ export function Games() {
           </span>
           <span className="game-card-foot">
             {kombat.wins + kombat.losses > 0 && <small><b>Récord</b>{kombat.cups ? `🏆 ${kombat.cups} · ` : ''}{kombat.wins}G {kombat.losses}P</small>}
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
+        </Link>
+      </li>
+      <li>
+        <Link onClick={playStart} className="game-card game-card--vamp" to="/juegos/vampyrium">
+          <Cover src={vampCover} />
+          <span className="game-card-text">
+            <strong>Vampyrium</strong>
+            <span>🧛 Sos un cazador de vampiros en el puente de un castillo maldito: espada, estacas y una cruz sagrada contra vampiros que caminan, trepan del vacío y vuelan en picada.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Matá 50 vampiros sin quedarte sin vida y cruzá la puerta que se abre a la derecha. Cuidado con los huecos al vacío y las trampas.</span>
+          </span>
+          <span className="game-card-foot">
+            {vamp.kills > 0 && <small><b>Récord</b>{vamp.time ? `🏆 en ${formatVampTime(vamp.time)}` : `${vamp.kills} vampiros`}</small>}
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
           </span>
         </Link>

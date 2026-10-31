@@ -1038,7 +1038,7 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
 
 test('Trepaluna: se abre desde Juegos, corre el tiempo, muestra la altura y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(8);
+  await expect(page.locator('.games-list > li')).toHaveCount(9);
   await page.getByRole('link', { name: /Trepaluna/ }).click();
   await expect(page.getByRole('heading', { name: 'Trepaluna', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
@@ -1181,4 +1181,31 @@ test('Kombat Football torneo: la escalera de rivales como en Mortal Kombat', asy
   await expect(page.getByTestId('kf-ladder-next')).toContainText('Partido 1 de 15');
   await page.getByRole('button', { name: '¡A pelear! ▶' }).click();
   await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
+});
+
+test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de armas y se pausa', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/juegos');
+  await page.getByRole('link', { name: /Vampyrium/ }).click();
+  await expect(page.getByRole('heading', { name: 'Vampyrium', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: 'Jugar' }).click();
+  await expect(page.getByTestId('vamp-total')).toContainText('/50');
+  await expect(page.getByTestId('vamp-time')).not.toHaveText('0:00', { timeout: 5000 });
+  await expect(page.getByLabel('Vida: 5')).toBeVisible();
+  await expect(page.getByTestId('vamp-ammo')).toHaveText('8');
+  // Dos veces espacio rápido: el cartel con las armas; se eligen las estacas y se tira una.
+  await page.keyboard.press(' '); await page.keyboard.press(' ');
+  await expect(page.getByRole('dialog', { name: 'Armas' })).toBeVisible();
+  await page.keyboard.press('ArrowDown'); await page.keyboard.press(' ');
+  await expect(page.getByRole('dialog', { name: 'Armas' })).toHaveCount(0);
+  await page.waitForTimeout(400);
+  await page.keyboard.press(' ');
+  await expect(page.getByTestId('vamp-ammo')).toHaveText('7');
+  await page.keyboard.press('p');
+  await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
+  const paused = await page.getByTestId('vamp-time').textContent();
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId('vamp-time')).toHaveText(paused ?? '');
+  await page.getByRole('button', { name: 'Seguir' }).first().click();
+  await page.getByRole('link', { name: '‹ Juegos' }).click();
+  await expect(page.getByText('cazador de vampiros', { exact: false })).toBeVisible();
 });

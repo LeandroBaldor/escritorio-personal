@@ -1470,3 +1470,65 @@ export function playKfFatal() {
 }
 // Agarró un potenciador o cambió la pelota: un arpegio corto que sube.
 export function playKfPickup() { const c = running(); if (!c) return; const t = c.currentTime; [660, 880, 1320].forEach((f, i) => tone(c, 'triangle', f, f, t + i * 0.06, 0.18, 0.22)); }
+
+// ---------------------------------------------------------------- Vampyrium
+// Espada: un "fuish" de aire cortado y un brillo metálico.
+export function playVampSlash() { const c = running(); if (!c) return; const t = c.currentTime; burst(c, 'bandpass', 2400 + Math.random() * 600, t, 0.16, 0.45); tone(c, 'triangle', 2200, 1500, t + 0.02, 0.12, 0.05); }
+// Tira una estaca: soplido corto que baja.
+export function playVampThrow() { const c = running(); if (!c) return; const t = c.currentTime; burst(c, 'bandpass', 1300, t, 0.2, 0.35); tone(c, 'sine', 600, 300, t, 0.15, 0.08); }
+// La estaca se clava en la piedra.
+export function playVampStakeHit() { const c = running(); if (!c) return; const t = c.currentTime; burst(c, 'lowpass', 900, t, 0.08, 0.4); tone(c, 'square', 180, 90, t, 0.07, 0.08); }
+// El vampiro muere: un siseo que se ahoga y un chisporroteo.
+export function playVampDeath() {
+  const c = running(); if (!c) return; const t = c.currentTime;
+  tone(c, 'sawtooth', 520 + Math.random() * 120, 140, t, 0.45, 0.14); burst(c, 'highpass', 3500, t, 0.5, 0.22);
+  for (let i = 0; i < 6; i++) burst(c, 'highpass', 5000, t + 0.05 + i * 0.06 + Math.random() * 0.03, 0.03, 0.25);
+}
+// Los huesos que salen volando: estallido y tablitas de madera (huesos) que golpetean.
+export function playVampBones() {
+  const c = running(); if (!c) return; const t = c.currentTime;
+  burst(c, 'lowpass', 600, t, 0.25, 0.5);
+  for (let i = 0; i < 8; i++) { const at = t + 0.05 + i * 0.045 + Math.random() * 0.03, f = 900 + Math.random() * 1400; tone(c, 'triangle', f, f * 0.8, at, 0.06, 0.12); }
+}
+export function playVampHiss(volume = 0.5) { const c = running(); if (!c) return; burst(c, 'highpass', 2800, c.currentTime, 0.35, 0.25 * volume); tone(c, 'sawtooth', 300, 200, c.currentTime, 0.3, 0.05 * volume); }
+export function playVampDive() { const c = running(); if (!c) return; const t = c.currentTime; tone(c, 'sawtooth', 900, 260, t, 0.5, 0.06); burst(c, 'bandpass', 700, t, 0.5, 0.2); }
+export function playVampWing() { const c = running(); if (!c) return; burst(c, 'lowpass', 400, c.currentTime, 0.12, 0.25); }
+// El cazador recibe un golpe: un gruñido grave.
+export function playVampHurt() { const c = running(); if (!c) return; const t = c.currentTime; tone(c, 'sawtooth', 190, 110, t, 0.22, 0.2); burst(c, 'lowpass', 500, t, 0.15, 0.4); }
+// Se cae al vacío: un grito que baja y se pierde.
+export function playVampFall() { const c = running(); if (!c) return; const t = c.currentTime; tone(c, 'sawtooth', 520, 90, t, 1.1, 0.12); tone(c, 'sine', 260, 60, t, 1.2, 0.15); }
+export function playVampCrate() { const c = running(); if (!c) return; const t = c.currentTime; tone(c, 'sine', 140, 60, t, 0.18, 0.5); burst(c, 'lowpass', 1200, t, 0.12, 0.35); }
+// La luz sagrada de la cruz: un acorde de coro que se abre y un estallido.
+export function playVampHoly() {
+  const c = running(); if (!c) return; const t = c.currentTime;
+  for (const [f, d] of [[392, 0], [494, 0.04], [587, 0.08], [784, 0.12], [988, 0.16]] as const) { tone(c, 'triangle', f, f, t + d, 1.6, 0.09); tone(c, 'sine', f * 2, f * 2, t + d, 1.2, 0.03); }
+  burst(c, 'highpass', 1800, t, 1.2, 0.3);
+}
+export function playVampCombo(n: number) { const c = running(); if (!c) return; const t = c.currentTime, f = 520 * Math.pow(1.12, Math.min(8, n)); tone(c, 'square', f, f, t, 0.1, 0.06); tone(c, 'square', f * 1.5, f * 1.5, t + 0.08, 0.14, 0.06); }
+export function playVampMenu(open: boolean) { const c = running(); if (!c) return; const t = c.currentTime; tone(c, 'triangle', open ? 440 : 660, open ? 660 : 440, t, 0.12, 0.12); burst(c, 'bandpass', 3000, t, 0.06, 0.15); }
+export function playVampSpikes() { const c = running(); if (!c) return; const t = c.currentTime; for (let i = 0; i < 3; i++) tone(c, 'square', 1200 - i * 200, 400, t + i * 0.02, 0.08, 0.06); burst(c, 'highpass', 4000, t, 0.12, 0.25); }
+export function playVampSwing() { const c = running(); if (!c) return; burst(c, 'bandpass', 500, c.currentTime, 0.5, 0.18); }
+// La campana de la iglesia (suena cada tanto y cuando se abre la puerta).
+export function playVampBell(volume = 0.25) {
+  const c = running(); if (!c) return; const t = c.currentTime;
+  for (const [f, k] of [[196, 1], [392, 0.5], [494, 0.25], [784, 0.15], [1174, 0.08]] as const) tone(c, 'sine', f, f * 0.995, t, 3.5, volume * k);
+}
+// Ambiente: un zumbido grave y oscuro (dos ondas desafinadas con un filtro que respira).
+let vampDrone: { nodes: OscillatorNode[]; gain: GainNode } | null = null;
+export function setVampAmbient(on: boolean) {
+  const c = running();
+  if (!c) return;
+  if (on && !vampDrone) {
+    const gain = c.createGain(), f = filter(c, 'lowpass', 320, 3);
+    gain.gain.value = 0; gain.gain.setTargetAtTime(0.05, c.currentTime, 1);
+    const nodes = [osc(c, 'sawtooth', 55), osc(c, 'sawtooth', 55.6), osc(c, 'triangle', 82.4)];
+    for (const o of nodes) { o.connect(f); o.start(); }
+    wobble(c, f.frequency, 0.07, 160);
+    f.connect(gain).connect(out(c));
+    vampDrone = { nodes, gain };
+  } else if (!on && vampDrone) {
+    const d = vampDrone; vampDrone = null;
+    d.gain.gain.setTargetAtTime(0, c.currentTime, 0.2);
+    for (const o of d.nodes) o.stop(c.currentTime + 1);
+  }
+}
