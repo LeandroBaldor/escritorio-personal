@@ -45,7 +45,7 @@ function hunterPose(p: Player, t: number): Pose {
       arms: [[0.9 * s(w), 1.4], [-0.6 * s(w) + 0.3, 1.5]], blade: 1.0 };
   }
   const br = s(t * 3.2); // guardia: el puño con la espada adelante, la hoja para arriba (como la cruz de la referencia)
-  return { bob: br * 0.025, lean: 0.06, crouch: 0.08 + br * 0.02, head: 0.05, legs: [[-0.45, 0.55], [0.42, 0.6]], arms: [[0.05 + br * 0.03, 0.4], [0.15 - br * 0.03, 1.5]], blade: 1.45 };
+  return { bob: br * 0.025, lean: 0.06, crouch: 0.08 + br * 0.02, head: 0.05, legs: [[-0.45, 0.55], [0.42, 0.6]], arms: [[-0.1 + br * 0.03, 1.25], [0.15 - br * 0.03, 1.5]], blade: 1.45 };
 }
 function walkerPose(v: Vamp, t: number): Pose {
   const s = Math.sin;
@@ -116,17 +116,18 @@ function claw(ctx: CanvasRenderingContext2D, hand: Pt, ang: number, back: boolea
   ctx.restore();
 }
 function sword(ctx: CanvasRenderingContext2D, hand: Pt, ang: number) {
-  const d = dirv(ang), b0 = add(hand, d, 0.1), b1 = add(hand, d, 1.05), n: Pt = [d[1], -d[0]];
-  segment(ctx, add(hand, d, -0.13), add(hand, d, 0.04), 0.07, 0.07, '#3a2414', 0.4); // empuñadura
-  { const pm = add(hand, d, -0.15); shade(ctx, () => ctx.arc(pm[0], pm[1], 0.05, 0, TAU), '#d6a032', { x: pm[0], y: pm[1], r: 0.06, lw: 0.5 }); } // pomo
-  const g0 = add(b0, n, 0.17), g1 = add(b0, n, -0.17);
-  segment(ctx, g0, g1, 0.065, 0.065, '#c99a2e', 0.7); // guarda dorada
-  ctx.beginPath(); const w = 0.055;
-  ctx.moveTo(b0[0] + n[0] * w, b0[1] + n[1] * w); ctx.lineTo(b1[0] - d[0] * 0.12 + n[0] * w, b1[1] - d[1] * 0.12 + n[1] * w); ctx.lineTo(b1[0], b1[1]);
-  ctx.lineTo(b1[0] - d[0] * 0.12 - n[0] * w, b1[1] - d[1] * 0.12 - n[1] * w); ctx.lineTo(b0[0] - n[0] * w, b0[1] - n[1] * w); ctx.closePath();
+  const d = dirv(ang), b0 = add(hand, d, 0.13), b1 = add(hand, d, 1.5), n: Pt = [d[1], -d[0]];
+  segment(ctx, add(hand, d, -0.17), add(hand, d, 0.06), 0.085, 0.085, '#3a2414', 0.4); // empuñadura
+  { const pm = add(hand, d, -0.2); shade(ctx, () => ctx.arc(pm[0], pm[1], 0.065, 0, TAU), '#d6a032', { x: pm[0], y: pm[1], r: 0.06, lw: 0.5 }); } // pomo
+  const g0 = add(b0, n, 0.24), g1 = add(b0, n, -0.24);
+  segment(ctx, g0, g1, 0.085, 0.085, '#c99a2e', 0.7); // guarda dorada
+  ctx.beginPath(); const w = 0.08;
+  ctx.moveTo(b0[0] + n[0] * w, b0[1] + n[1] * w); ctx.lineTo(b1[0] - d[0] * 0.18 + n[0] * w, b1[1] - d[1] * 0.18 + n[1] * w); ctx.lineTo(b1[0], b1[1]);
+  ctx.lineTo(b1[0] - d[0] * 0.18 - n[0] * w, b1[1] - d[1] * 0.18 - n[1] * w); ctx.lineTo(b0[0] - n[0] * w, b0[1] - n[1] * w); ctx.closePath();
   ctx.fillStyle = grad(ctx, b0[0] + n[0] * w, b0[1] + n[1] * w, b0[0] - n[0] * w, b0[1] - n[1] * w, [[0, '#f5f8ff'], [0.45, '#c9d1e0'], [0.55, '#8e97a8'], [1, '#5d6474']]); ctx.fill();
   ctx.strokeStyle = '#1b1d24'; ctx.lineWidth = 0.022; ctx.stroke();
-  ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.moveTo(...add(b0, d, 0.05)); ctx.lineTo(...add(b1, d, -0.15)); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.moveTo(...add(b0, d, 0.05)); ctx.lineTo(...add(b1, d, -0.2)); ctx.stroke();
+  ctx.strokeStyle = 'rgba(40,44,56,0.55)'; ctx.lineWidth = 0.016; ctx.beginPath(); ctx.moveTo(...add(b0, d, 0.08)); ctx.lineTo(...add(b0, d, 0.55)); ctx.stroke(); // canal de la hoja
 }
 function stake(ctx: CanvasRenderingContext2D, hand: Pt, ang: number) {
   const d = dirv(ang), a = add(hand, d, -0.12), b = add(hand, d, 0.42), n: Pt = [d[1], -d[0]];
@@ -137,7 +138,7 @@ function stake(ctx: CanvasRenderingContext2D, hand: Pt, ang: number) {
 function armDraw(ctx: CanvasRenderingContext2D, hip: Pt, pose: Pose, i: number, L: Look, item: Weapon | 'none' | 'claw') {
   const back = i === 0, [ua, eb] = pose.arms[i], sp = shoulderAt(hip, pose, i);
   const elbow = add(sp, dirv(ua), 0.31), hand = add(elbow, dirv(ua + eb), 0.29);
-  const col = (c: string) => back ? darken(c, 0.35) : c;
+  const col = (c: string) => back ? darken(c, L === HUNTER ? 0.12 : 0.35) : c;
   segment(ctx, sp, elbow, 0.22 * LIMB, 0.18 * LIMB, col(L.sleeve), 0.5);
   if (L === HUNTER) { const m = add(sp, dirv(ua), 0.16), n: Pt = [Math.cos(ua), -Math.sin(ua)]; segment(ctx, add(m, n, 0.13), add(m, n, -0.13), 0.05, 0.05, col(L.strap), 0.4); } // correa
   segment(ctx, elbow, hand, 0.19 * LIMB, 0.17 * LIMB, col(L.sleeve), 0.4);
@@ -309,8 +310,8 @@ export function drawHunterK(ctx: CanvasRenderingContext2D, p: Player, g: Game, t
   cape(ctx, neck, HUNTER, t, Math.abs(p.vx), p.onGround ? 0 : 1, false);
   legDraw(ctx, hip, pose, 0, HUNTER);
   const backUp = handOf(hip, pose, 0)[1] < neck[1] + 0.05;
-  if (!backUp) armDraw(ctx, hip, pose, 0, HUNTER, 'none');
   ctx.save(); ctx.translate(hip[0], hip[1]); ctx.rotate(pose.lean); hunterTorso(ctx); ctx.restore();
+  if (!backUp) armDraw(ctx, hip, pose, 0, HUNTER, 'none'); // el brazo derecho va adelante del pecho (como en Kombat Football), así se ve
   pauldron(ctx, shoulderAt(hip, pose, 0), pose.arms[0][0], true);
   legDraw(ctx, hip, pose, 1, HUNTER);
   const item: Weapon | 'none' = p.attackT >= 0 && p.attackWeapon === 'stakes' && p.attackT > 0.1 ? 'none' : g.weapon;
@@ -320,7 +321,7 @@ export function drawHunterK(ctx: CanvasRenderingContext2D, p: Player, g: Game, t
     const k = Math.min(1, p.attackT / 0.14), e = 1 - (1 - k) * (1 - k), fade = p.attackT > 0.14 ? 1 - (p.attackT - 0.14) / 0.1 : 1, sp = shoulderAt(hip, pose, 1);
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
     const a0 = Math.PI / 2 - 3.0 - 0.4, a1 = Math.PI / 2 - (3.0 - e * 2.15) - 0.4;
-    for (const [r, w, c] of [[1.25, 0.32, `rgba(255,255,255,${0.45 * fade})`], [1.2, 0.14, `rgba(255,80,80,${0.65 * fade})`], [0.95, 0.06, `rgba(255,220,220,${0.5 * fade})`]] as const) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.arc(sp[0], sp[1], r, Math.min(a0, a1), Math.max(a0, a1)); ctx.stroke(); }
+    for (const [r, w, c] of [[1.65, 0.4, `rgba(255,255,255,${0.45 * fade})`], [1.6, 0.16, `rgba(255,80,80,${0.65 * fade})`], [1.3, 0.07, `rgba(255,220,220,${0.5 * fade})`]] as const) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.arc(sp[0], sp[1], r, Math.min(a0, a1), Math.max(a0, a1)); ctx.stroke(); }
     ctx.restore();
   }
   if (!frontUp) armDraw(ctx, hip, pose, 1, HUNTER, item);

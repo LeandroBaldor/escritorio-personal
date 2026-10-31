@@ -134,11 +134,12 @@ describe('Vampyrium', () => {
     expect(g.player.x).not.toBeGreaterThan(b);
   });
 
-  it('un vampiro que se cae al vacío también cuenta', () => {
+  it('un vampiro que se cae al vacío desaparece pero no cuenta (solo cuentan los que mata el cazador)', () => {
     const g = quiet(); const [a] = GAPS[0];
     const v = walker(g, a + 1.2, { onGround: false, y: 0 });
     v.y = -3; run(g, 0.1);
-    expect(g.total).toBe(1);
+    expect(g.vamps.length).toBe(0);
+    expect(g.total).toBe(0);
     expect(g.voidKills).toBe(1);
   });
 
@@ -150,6 +151,7 @@ describe('Vampyrium', () => {
     walker(g, (spikes.x + spikes.x2) / 2);
     run(g, 0.15);
     expect(g.trapKills).toBe(1);
+    expect(g.total).toBe(0); // los de las trampas no cuentan
     g.player.x = (spikes.x + spikes.x2) / 2; g.player.y = GROUND_Y; g.time = tt - 0.05;
     run(g, 0.15);
     expect(g.player.hp).toBeLessThan(MAX_HP);
@@ -198,7 +200,7 @@ describe('Vampyrium', () => {
   it('aparecen vampiros solos y de a más a medida que se matan', () => {
     const g = newGame(3); g.crateT = 1e9;
     run(g, 8);
-    expect(g.vamps.length + g.total).toBeGreaterThan(1);
+    expect(g.vamps.length + g.total + g.trapKills + g.voidKills).toBeGreaterThan(1);
   });
 
   it('sin vida: se termina el juego', () => {

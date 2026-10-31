@@ -111,7 +111,7 @@ export function Vampyrium() {
           case 'throw': playVampThrow(); break;
           case 'stakeHit': playVampStakeHit(); break;
           case 'empty': setToast({ text: 'Sin estacas: vuelve la espada 🗡️ (buscá cajas que caen del cielo)', id: now, bad: true }); break;
-          case 'kill': playVampDeath(); if (e.how === 'void') playVampFall(); if (e.how === 'trap') setToast({ text: '¡Lo agarró una trampa! 💀', id: now }); break;
+          case 'kill': playVampDeath(); if (e.how === 'void') playVampFall(); if (e.how === 'trap') setToast({ text: '¡Lo agarró una trampa! 💀 (no cuenta)', id: now }); break;
           case 'bones': playVampBones(); break;
           case 'hurt': playVampHurt(); break;
           case 'fall': playVampFall(); setToast({ text: e.hp > 0 ? '¡Te caíste al vacío! −1 ♥' : '¡Te caíste al vacío!', id: now, bad: true }); break;
@@ -249,7 +249,7 @@ export function Vampyrium() {
             <div className="ds-plate"><span className="vamp-paused">Nivel 1</span><h2 id="vamp-intro">El puente de las ánimas</h2></div>
             <p className="ds-story">La luna llena se asoma sobre el castillo de Drácula y el puente está tomado por sus siervos. Esta noche no hay vuelta atrás, cazador:</p>
             <p className="ds-goal">para poder entrar al castillo de Drácula tendrás que matar a los <b>{GOAL} vampiros</b> que protegen la entrada.</p>
-            <p className="ds-story">Cuando caiga el último, la reja de la puerta de la derecha se va a abrir. Cuidado con el vacío y las trampas… a ellos también los matan.</p>
+            <p className="ds-story">Cuando caiga el último, la reja de la puerta de la derecha se va a abrir. Cuidado con el vacío y las trampas: a ellos también los matan, pero solo cuentan los que matás vos.</p>
             <button type="button" onClick={() => { playVampBell(0.25); setStatus('playing'); }} autoFocus>⚔️ ¡A cazar!</button>
           </div>
         </div>}
@@ -258,7 +258,7 @@ export function Vampyrium() {
             {status === 'ready' && <>
               <h2 id="vamp-message" className="vamp-title">VAMPYRIUM</h2>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> saltar (otra vez en el aire: doble salto) · <kbd>↓</kbd> bajar de una plataforma · <kbd>Espacio</kbd> atacar (mantenelo 3 segundos: armas) · <kbd>C</kbd> cruz sagrada · <kbd>P</kbd> pausa</p>
-              <p className="runner-tip">🧛 Matá {GOAL} vampiros y se abre la puerta de la derecha. La espada es ilimitada; las estacas se tiran y se terminan: del cielo caen cajas con más (y a veces corazones o ajo). Cada 10 vampiros se carga la cruz: su luz los revienta a todos. Ojo con los huecos al vacío, los pinches, el péndulo y el brasero… ¡a los vampiros también los matan!</p>
+              <p className="runner-tip">🧛 Matá {GOAL} vampiros y se abre la puerta de la derecha. La espada es ilimitada; las estacas se tiran y se terminan: del cielo caen cajas con más (y a veces corazones o ajo). Cada 10 vampiros se carga la cruz: su luz los revienta a todos. Ojo con los huecos al vacío, los pinches, el péndulo y el brasero: a los vampiros también los matan, pero solo cuentan los que matás vos.</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}
             {status === 'paused' && <>

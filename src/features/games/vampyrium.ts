@@ -206,11 +206,12 @@ export function castHoly(g: Game) {
 function kill(g: Game, v: Vamp, how: KillHow) {
   const i = g.vamps.indexOf(v); if (i < 0) return;
   g.vamps.splice(i, 1);
-  g.kills[v.kind]++; g.total++;
-  if (how === 'void') g.voidKills++;
-  if (how === 'trap') g.trapKills++;
   if (how !== 'void') g.corpses.push({ id: v.id, kind: v.kind, x: v.x, y: v.y, face: v.face, t: 0, how });
   emit(g, { type: 'kill', kind: v.kind, how, x: v.x, y: v.y });
+  // Solo cuentan los que mata el cazador (no los que se caen al vacío ni los que agarra una trampa).
+  if (how === 'void') { g.voidKills++; return; }
+  if (how === 'trap') { g.trapKills++; return; }
+  g.kills[v.kind]++; g.total++;
   g.combo.n = g.combo.t > 0 ? g.combo.n + 1 : 1; g.combo.t = 2.4; g.combo.best = Math.max(g.combo.best, g.combo.n);
   if (g.combo.n >= 2) emit(g, { type: 'combo', n: g.combo.n });
   if (how !== 'holy') { const was = g.power; g.power = Math.min(POWER_MAX, g.power + 1); if (was < POWER_MAX && g.power === POWER_MAX) emit(g, { type: 'powerReady' }); }
@@ -440,7 +441,7 @@ export function step(g: Game, input: Input, dt: number) {
 
   // El golpe de la espada: un arco adelante del cazador.
   if (p.attackT >= 0.04 && p.attackT <= 0.2 && p.attackWeapon === 'sword') {
-    const x1 = p.face > 0 ? p.x - 0.3 : p.x - 2.1, x2 = p.face > 0 ? p.x + 2.1 : p.x + 0.3;
+    const x1 = p.face > 0 ? p.x - 0.3 : p.x - 2.6, x2 = p.face > 0 ? p.x + 2.6 : p.x + 0.3; // espada grande: más alcance
     for (const v of [...g.vamps]) {
       if (p.hitIds.has(v.id)) continue;
       const vy1 = v.kind === 'flyer' ? v.y - 0.6 : v.y, vy2 = v.kind === 'flyer' ? v.y + 0.8 : v.y + VAMP_H;
