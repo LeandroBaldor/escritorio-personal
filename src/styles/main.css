@@ -1610,3 +1610,13 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .vamp-hold b{display:block;height:100%;background:linear-gradient(90deg,#b45309,#fde68a)}
 @media(max-width:700px){.ds-body{flex-direction:column}.ds-hero{flex-basis:auto;flex-direction:row;flex-wrap:wrap;justify-content:center}.ds-grid{grid-template-columns:repeat(4,52px)}.ds-slot{width:52px;height:52px}}
 .vamp .runner-stage .ds-frame canvas{box-shadow:none;border-radius:2px}
+/* La historia del cazador (debajo del cartel de Jugar): rectángulo negro con letras rojas y el retrato. */
+.vamp-overlay{gap:.8rem;align-content:center;overflow:auto}
+.vamp-story{display:flex;align-items:center;gap:1rem;width:min(620px,92%);padding:.8rem 1.1rem;background:#000;border:2px solid #7f1d1d;border-radius:6px;box-shadow:0 0 0 3px #000,0 0 24px #b91c1c66;color:#ef4444;text-align:left}
+.vamp-story canvas{flex:0 0 auto;background:radial-gradient(circle at 50% 75%,#3b0a0a,#000 70%)}
+.vamp-story h3{margin:0 0 .35rem;font:400 1.6rem/1 "Vamp Gothic",Georgia,serif;color:#f87171;letter-spacing:.04em}
+.vamp-story p{margin:0 0 .5rem;font-size:.95rem;line-height:1.4;color:#ef4444}
+.vamp-story h4{margin:.2rem 0 .2rem;font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:#fca5a5}
+.vamp-story ul{margin:0;padding-left:1.1rem;font-size:.85rem;line-height:1.35;color:#dc2626}
+@media(max-width:700px){.vamp-story canvas{display:none}}
+.vamp .runner-stage .vamp-story canvas{box-shadow:0 0 0 2px #7f1d1d;border-radius:4px}

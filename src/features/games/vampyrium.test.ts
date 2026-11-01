@@ -134,25 +134,26 @@ describe('Vampyrium', () => {
     expect(g.player.x).not.toBeGreaterThan(b);
   });
 
-  it('un vampiro que se cae al vacío desaparece pero no cuenta (solo cuentan los que mata el cazador)', () => {
-    const g = quiet(); const [a] = GAPS[0];
-    const v = walker(g, a + 1.2, { onGround: false, y: 0 });
-    v.y = -3; run(g, 0.1);
-    expect(g.vamps.length).toBe(0);
+  it('los vampiros no se caen al vacío: si caen en un hueco, saltan y salen', () => {
+    const g = quiet(); const [a, b] = GAPS[0];
+    const v = walker(g, (a + b) / 2, { onGround: false, y: 0, vy: -5 });
+    run(g, 1.5);
+    expect(g.vamps).toContain(v);
+    expect(v.y).toBeGreaterThanOrEqual(GROUND_Y - 0.1);
     expect(g.total).toBe(0);
-    expect(g.voidKills).toBe(1);
   });
 
-  it('las trampas lastiman al cazador y matan vampiros', () => {
+  it('las trampas lastiman al cazador; a los vampiros les sacan sangre pero no los matan', () => {
     const g = quiet(); const spikes = TRAPS.find(t => t.kind === 'spikes')!;
-    // Esperar a que salgan los pinches con un vampiro parado arriba.
     let tt = 0; while (trapState(spikes, tt).on < 1) tt += 0.02;
     g.time = tt - 0.05;
-    walker(g, (spikes.x + spikes.x2) / 2);
+    const v = walker(g, (spikes.x + spikes.x2) / 2);
     run(g, 0.15);
-    expect(g.trapKills).toBe(1);
-    expect(g.total).toBe(0); // los de las trampas no cuentan
-    g.player.x = (spikes.x + spikes.x2) / 2; g.player.y = GROUND_Y; g.time = tt - 0.05;
+    expect(g.vamps).toContain(v);
+    expect(g.total).toBe(0);
+    expect(g.drops.length).toBeGreaterThan(10);
+    expect(takeEvents(g).some(e => e.type === 'vampHurt')).toBe(true);
+    g.player.x = (spikes.x + spikes.x2) / 2; g.player.y = GROUND_Y; g.time = tt - 0.05; g.vamps = [];
     run(g, 0.15);
     expect(g.player.hp).toBeLessThan(MAX_HP);
   });

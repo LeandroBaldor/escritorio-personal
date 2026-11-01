@@ -1513,22 +1513,41 @@ export function playVampBell(volume = 0.25) {
   const c = running(); if (!c) return; const t = c.currentTime;
   for (const [f, k] of [[196, 1], [392, 0.5], [494, 0.25], [784, 0.15], [1174, 0.08]] as const) tone(c, 'sine', f, f * 0.995, t, 3.5, volume * k);
 }
-// Ambiente: un zumbido grave y oscuro (dos ondas desafinadas con un filtro que respira).
-let vampDrone: { nodes: OscillatorNode[]; gain: GainNode } | null = null;
-export function setVampAmbient(on: boolean) {
-  const c = running();
-  if (!c) return;
-  if (on && !vampDrone) {
-    const gain = c.createGain(), f = filter(c, 'lowpass', 320, 3);
-    gain.gain.value = 0; gain.gain.setTargetAtTime(0.05, c.currentTime, 1);
-    const nodes = [osc(c, 'sawtooth', 55), osc(c, 'sawtooth', 55.6), osc(c, 'triangle', 82.4)];
-    for (const o of nodes) { o.connect(f); o.start(); }
-    wobble(c, f.frequency, 0.07, 160);
-    f.connect(gain).connect(out(c));
-    vampDrone = { nodes, gain };
-  } else if (!on && vampDrone) {
-    const d = vampDrone; vampDrone = null;
-    d.gain.gain.setTargetAtTime(0, c.currentTime, 0.2);
-    for (const o of d.nodes) o.stop(c.currentTime + 1);
+// Las grabaciones de Vampyrium: espada, salto, alas de los voladores, fuego, explosión y la música de fondo.
+const VAMP_S = import.meta.glob('./assets/sonidos/vamp-*.mp3', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const vs = (name: string) => VAMP_S[`./assets/sonidos/vamp-${name}.mp3`];
+export function preloadVampSounds() { for (const url of Object.values(VAMP_S)) loadSample(url); }
+const vampLast: Record<string, number> = {};
+function vampOnce(name: string, volume: number, gap: number, rate = 1) { const c = running(); if (!c || c.currentTime - (vampLast[name] ?? -9) < gap) return true; vampLast[name] = c.currentTime; return playSample(vs(name), volume, 0, rate); }
+// El tajo de la espada (la grabación, un poquito distinta cada vez; mientras carga, el sintetizado).
+export function playVampSword() { if (!vampOnce('espada', 1, 0.05, 0.94 + Math.random() * 0.12)) playVampSlash(); }
+export function playVampJumpSound(double: boolean) { if (!vampOnce('salto', double ? 0.55 : 0.75, 0.05, double ? 1.12 : 1)) playJump(double ? 0.22 : 0.3); }
+// El vampiro se prende fuego y después revienta.
+export function playVampBurn() { vampOnce('fuego', 0.75, 0.12, 0.92 + Math.random() * 0.16); }
+export function playVampExplosion() { if (!vampOnce('explosion', 1, 0.06, 0.9 + Math.random() * 0.2)) playExplosion(); }
+// Pasos del cazador (dos pisadas grabadas, alternadas), la voz de los vampiros y el rayo de la cruz.
+let vampStepN = 0;
+export function playVampStep() { vampStepN = 1 - vampStepN; if (!vampOnce(`paso-${vampStepN + 1}`, 0.55, 0.12, 0.95 + Math.random() * 0.1)) playFootstep(); }
+export function playVampVoice(volume = 0.6) { vampOnce('voz', volume, 0.45, 0.88 + Math.random() * 0.24); }
+export function playVampCross() { if (!vampOnce('rayos-cruz', 1, 0.3)) playVampHoly(); }
+// Loops: las alas de los voladores (más fuerte cuantos más hay), la música del nivel y la tormenta.
+type LoopName = 'alas' | 'musica-1' | 'truenos';
+interface Loop { src: AudioBufferSourceNode; gain: GainNode }
+const vampLoops: Record<LoopName, Loop | null> = { alas: null, 'musica-1': null, truenos: null };
+function setVampLoop(name: LoopName, level: number) {
+  const c = running(); if (!c) return;
+  let l = vampLoops[name];
+  if (!l) {
+    if (level <= 0) return;
+    const buffer = samples.get(vs(name));
+    if (!(buffer instanceof AudioBuffer)) { loadSample(vs(name)); return; }
+    const src = c.createBufferSource(), gain = c.createGain();
+    src.buffer = buffer; src.loop = true; gain.gain.value = 0;
+    src.connect(gain).connect(out(c)); src.start(0, name === 'musica-1' ? 0 : Math.random() * buffer.duration);
+    l = vampLoops[name] = { src, gain };
   }
+  l.gain.gain.setTargetAtTime(Math.max(0, level), c.currentTime, name === 'alas' ? 0.15 : 0.6);
+  if (level <= 0) { const dead = l; vampLoops[name] = null; try { dead.src.stop(c.currentTime + 2); } catch { /* ya paró */ } }
 }
+export function setVampWings(level: number) { setVampLoop('alas', Math.min(0.7, level)); }
+export function setVampAmbient(on: boolean) { setVampLoop('musica-1', on ? 0.32 : 0); setVampLoop('truenos', on ? 0.9 : 0); if (!on) setVampLoop('alas', 0); } // nivel 1: música y tormenta

@@ -11,9 +11,9 @@ import { drawGame, drawPortrait, drawStakeIcon, drawSwordIcon, setBackdrop } fro
 import { setNoGrain } from './gravityMonsters';
 import fondoNivel1 from './assets/vampyrium/fondo-nivel-1.webp';
 import {
-  playFootstep, playGameOver, playJump, playKfPickup, playStart, playThunder, playVampBell, playVampBones, playVampCombo, playVampCrate, playVampDeath, playVampDive,
-  playVampFall, playVampHiss, playVampHoly, playVampHurt, playVampMenu, playVampSlash, playVampSpikes, playVampStakeHit, playVampSwing, playVampThrow, playDoor,
-  playFlame, playWinFanfare, setVampAmbient,
+  playGameOver, playKfPickup, playStart, playThunder, playVampBell, playVampBones, playVampCombo, playVampCrate, playVampDeath, playVampDive,
+  playVampFall, playVampHurt, playVampMenu, playVampSpikes, playVampStakeHit, playVampSwing, playVampThrow, playDoor,
+  playWinFanfare, setVampAmbient, setVampWings, preloadVampSounds, playVampStep, playVampVoice, playVampCross, playVampSword, playVampJumpSound, playVampBurn, playVampExplosion,
 } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:vampyrium-record';
@@ -87,7 +87,7 @@ export function Vampyrium() {
   }, [paint]);
 
   const start = useCallback(() => {
-    playStart(); playVampBell(0.2);
+    playStart(); playVampBell(0.2); preloadVampSounds();
     gameRef.current = newGame();
     input.current = { left: false, right: false, up: false, down: false };
     setHud(hudOf(gameRef.current));
@@ -107,35 +107,38 @@ export function Vampyrium() {
       bellT -= dt; if (bellT <= 0 && g.phase === 'play') { playVampBell(0.12); bellT = 18 + Math.random() * 10; }
       for (const e of takeEvents(g)) {
         switch (e.type) {
-          case 'slash': playVampSlash(); break;
+          case 'slash': playVampSword(); break;
           case 'throw': playVampThrow(); break;
           case 'stakeHit': playVampStakeHit(); break;
           case 'empty': setToast({ text: 'Sin estacas: vuelve la espada 🗡️ (buscá cajas que caen del cielo)', id: now, bad: true }); break;
-          case 'kill': playVampDeath(); if (e.how === 'void') playVampFall(); if (e.how === 'trap') setToast({ text: '¡Lo agarró una trampa! 💀 (no cuenta)', id: now }); break;
-          case 'bones': playVampBones(); break;
+          case 'kill': playVampDeath(); break;
+          case 'vampHurt': playVampVoice(0.5); break;
+          case 'bones': playVampExplosion(); playVampBones(); break;
           case 'hurt': playVampHurt(); break;
           case 'fall': playVampFall(); setToast({ text: e.hp > 0 ? '¡Te caíste al vacío! −1 ♥' : '¡Te caíste al vacío!', id: now, bad: true }); break;
-          case 'jump': playJump(e.double ? 0.22 : 0.3); break;
-          case 'step': playFootstep(); break;
+          case 'jump': playVampJumpSound(e.double); break;
+          case 'step': playVampStep(); break;
           case 'crate': playVampCrate(); setToast({ text: '📦 ¡Cayó una caja del cielo!', id: now }); break;
           case 'pickup': playKfPickup(); setToast({ text: e.kind === 'stakes' ? `+${e.amount} estacas 🪵` : e.kind === 'heart' ? `+${e.amount} ♥` : '🧄 ¡Ajo! Los vampiros te tienen miedo por 8 segundos', id: now, big: e.kind === 'garlic' }); break;
           case 'door': playDoor(true); playVampBell(0.3); setToast({ text: `¡${GOAL} vampiros! Se abrió la puerta de la derecha ▶`, id: now, big: true }); break;
           case 'spikes': playVampSpikes(); break;
-          case 'fire': playFlame(0.6); break;
+          case 'fire': playVampBurn(); break;
           case 'swing': playVampSwing(); break;
           case 'combo': playVampCombo(e.n); break;
-          case 'holy': playVampHoly(); setToast({ text: `✝ ¡LUZ SAGRADA! ${e.count} vampiros hechos polvo`, id: now, big: true }); break;
+          case 'holy': playVampCross(); setToast({ text: `✝ ¡LUZ SAGRADA! ${e.count} vampiros hechos polvo`, id: now, big: true }); break;
           case 'powerReady': playVampBell(0.2); setToast({ text: '✝ La cruz está cargada: tocá C (o ↓ + Espacio)', id: now, big: true }); break;
           case 'wave': setToast({ text: `Oleada ${e.n}: vienen más vampiros 🦇`, id: now }); break;
           case 'bloodMoon': playThunder(1); setToast({ text: '🌕 ¡LUNA DE SANGRE! Los vampiros se ponen más rápidos', id: now, big: true, bad: true }); break;
           case 'menu': playVampMenu(e.open); break;
           case 'choose': setToast({ text: `${ICON[e.weapon]} ${WEAPON_NAME[e.weapon]}`, id: now }); break;
-          case 'hiss': playVampHiss(0.6); break;
+          case 'hiss': playVampVoice(0.65); break;
           case 'dive': playVampDive(); break;
-          case 'emerge': playVampHiss(0.4); break;
+          case 'burn': playVampBurn(); break;
+          case 'emerge': playVampVoice(0.45); break;
           case 'won': break;
         }
       }
+      setVampWings(g.phase === 'play' ? g.vamps.filter(v => v.kind === 'flyer').length * 0.3 : 0); // las alas de los voladores
       paint();
       const next = hudOf(g);
       setHud(prev => sameHud(prev, next) ? prev : next);
@@ -249,7 +252,7 @@ export function Vampyrium() {
             <div className="ds-plate"><span className="vamp-paused">Nivel 1</span><h2 id="vamp-intro">El puente de las ánimas</h2></div>
             <p className="ds-story">La luna llena se asoma sobre el castillo de Drácula y el puente está tomado por sus siervos. Esta noche no hay vuelta atrás, cazador:</p>
             <p className="ds-goal">para poder entrar al castillo de Drácula tendrás que matar a los <b>{GOAL} vampiros</b> que protegen la entrada.</p>
-            <p className="ds-story">Cuando caiga el último, la reja de la puerta de la derecha se va a abrir. Cuidado con el vacío y las trampas: a ellos también los matan, pero solo cuentan los que matás vos.</p>
+            <p className="ds-story">Cuando caiga el último, la reja de la puerta de la derecha se va a abrir. Cuidado con el vacío y las trampas.</p>
             <button type="button" onClick={() => { playVampBell(0.25); setStatus('playing'); }} autoFocus>⚔️ ¡A cazar!</button>
           </div>
         </div>}
@@ -258,7 +261,6 @@ export function Vampyrium() {
             {status === 'ready' && <>
               <h2 id="vamp-message" className="vamp-title">VAMPYRIUM</h2>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> saltar (otra vez en el aire: doble salto) · <kbd>↓</kbd> bajar de una plataforma · <kbd>Espacio</kbd> atacar (mantenelo 3 segundos: armas) · <kbd>C</kbd> cruz sagrada · <kbd>P</kbd> pausa</p>
-              <p className="runner-tip">🧛 Matá {GOAL} vampiros y se abre la puerta de la derecha. La espada es ilimitada; las estacas se tiran y se terminan: del cielo caen cajas con más (y a veces corazones o ajo). Cada 10 vampiros se carga la cruz: su luz los revienta a todos. Ojo con los huecos al vacío, los pinches, el péndulo y el brasero: a los vampiros también los matan, pero solo cuentan los que matás vos.</p>
               <button type="button" onClick={start} autoFocus>Jugar</button>
             </>}
             {status === 'paused' && <>
@@ -284,6 +286,19 @@ export function Vampyrium() {
               <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
             </>}
           </div>
+          {status === 'ready' && <section className="vamp-story" aria-label="La historia del cazador">
+            <ArtCanvas w={150} h={220} draw={(ctx, t) => drawPortrait(ctx, 'hunter', gameRef.current, 62, 212, 96, t)} />
+            <div>
+              <h3>La historia de Demian</h3>
+              <p>Tras perder a su familia por culpa de Drácula, Demian se volvió un cazador de vampiros. Su venganza comienza en la entrada del castillo de Drácula, donde deberá matar a {GOAL} vampiros para poder abrir las puertas del castillo.</p>
+              <h4>Tips</h4>
+              <ul>
+                <li>Apretando la barra espaciadora por tres segundos podés seleccionar el arma.</li>
+                <li>Usá las flechas para moverte y saltar.</li>
+                <li>Caen cajas que te van a ayudar a completar cada nivel.</li>
+              </ul>
+            </div>
+          </section>}
         </div>}
       </div>
       <aside className="trepa-side vamp-side" aria-label="Tiempo, vampiros y armas">

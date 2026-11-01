@@ -58,6 +58,7 @@ export type VampState = 'walk' | 'claw' | 'hover' | 'dive' | 'rise';
 export interface Vamp {
   id: number; kind: VampKind; x: number; y: number; vx: number; vy: number; face: 1 | -1; state: VampState; t: number;
   onGround: boolean; surface: Surface | null; walkT: number; cool: number; speed: number; jumpT: number; dropT: number; hit: boolean;
+  hurtT?: number; // golpeado por una trampa: sangra y sale despedido, pero no muere
 }
 export type KillHow = 'sword' | 'stake' | 'trap' | 'void' | 'holy' | 'crate';
 export interface Corpse { id: number; kind: VampKind; x: number; y: number; face: 1 | -1; t: number; how: KillHow }
@@ -78,7 +79,7 @@ export type GameEvent =
   | { type: 'crate' } | { type: 'pickup'; kind: CrateKind; amount: number } | { type: 'door' } | { type: 'spikes' } | { type: 'fire' }
   | { type: 'swing' } | { type: 'combo'; n: number } | { type: 'holy'; count: number } | { type: 'wave'; n: number } | { type: 'bloodMoon' }
   | { type: 'menu'; open: boolean } | { type: 'choose'; weapon: Weapon } | { type: 'hiss'; x: number } | { type: 'dive' } | { type: 'emerge' }
-  | { type: 'vampFall' } | { type: 'cleared' } | { type: 'over' } | { type: 'won' } | { type: 'powerReady' };
+  | { type: 'vampFall' } | { type: 'burn' } | { type: 'vampHurt'; x: number } | { type: 'cleared' } | { type: 'over' } | { type: 'won' } | { type: 'powerReady' };
 
 export type Phase = 'play' | 'menu' | 'dead' | 'cleared' | 'won' | 'over';
 export interface Game {
@@ -276,7 +277,7 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
       if (s && (ahead < s.x1 || ahead > s.x2) && ahead > 0.2 && ahead < W - 0.2) {
         const otherSide = s.ground ? (dir > 0 ? p.x > s.x2 + 1 : p.x < s.x1 - 1) : false;
         if (s.ground && otherSide && v.jumpT <= 0) { v.vy = 14.5; v.vx = dir * Math.max(4.8, v.speed * 1.7); v.onGround = false; v.surface = null; v.jumpT = 1; }
-        else if (s.ground && r() > dt * 0.3) v.vx = 0; // espera en el borde (de vez en cuando se distrae y se cae al vacío)
+        else if (s.ground) v.vx = 0; // espera en el borde: no se cae al vacío
       }
       // El cazador está arriba: salta a buscarlo.
       if (v.onGround && dy > 2.2 && Math.abs(dx) < 4 && v.jumpT <= 0 && r() < dt * 2.2) { v.vy = 17.5; v.onGround = false; v.surface = null; v.jumpT = 1.6; }
@@ -288,7 +289,13 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
   const was = v.onGround;
   moveBody(v, dt, VAMP_W / 2, -1.2, W + 1.2);
   if (!was && v.onGround) v.walkT = 0;
-  if (v.y < -2.5) { emit(g, { type: 'vampFall' }); kill(g, v, 'void'); }
+  // Si cae en un hueco, salta y sale (saltan bien: nunca se caen al vacío).
+  if (v.y < GROUND_Y - 0.9 && v.vy < 0) {
+    const gap = GAPS.find(([a, b]) => v.x > a - 0.5 && v.x < b + 0.5), mid = gap ? (gap[0] + gap[1]) / 2 : v.x;
+    v.vy = 20; v.vx = (v.x < mid ? -1 : 1) * 3.6; v.onGround = false; v.surface = null; v.jumpT = 1;
+    if (v.y < -2.5) v.y = -1.5;
+    emit(g, { type: 'emerge' });
+  }
 }
 
 function updateFlyer(g: Game, v: Vamp, dt: number) {
@@ -356,6 +363,7 @@ function updateRemains(g: Game, dt: number) {
     c.t += dt;
     const fly = c.kind === 'flyer' ? -0.6 : 0;
     if (r() < dt * (c.t > BURN_AT ? 90 : 40)) g.sparks.push({ x: c.x + (r() - 0.5) * 0.9, y: c.y + fly + 0.3 + r() * 1.6, vx: (r() - 0.5) * 3, vy: 1 + r() * 4, t: 0, life: 0.4 + r() * 0.4, hue: 20 + r() * 35 });
+    if (c.t >= BURN_AT && c.t - dt < BURN_AT) emit(g, { type: 'burn' }); // se prende fuego
     if (c.t >= BLOW_AT) {
       g.corpses.splice(g.corpses.indexOf(c), 1);
       const hs: Record<BoneKind, number> = { skull: 1.55, jaw: 1.35, ribs: 1.05, spine: 0.9, pelvis: 0.7, arm: 1.1, leg: 0.4 };
@@ -463,7 +471,16 @@ export function step(g: Game, input: Input, dt: number) {
     if (v.kind === 'walker') updateWalker(g, v, dt); else updateFlyer(g, v, dt);
     if (!g.vamps.includes(v)) continue;
     const y1 = v.kind === 'flyer' ? v.y - 0.6 : v.y, y2 = v.kind === 'flyer' ? v.y + 0.8 : v.y + VAMP_H;
-    for (const t of TRAPS) if (trapHits(t, g.time, v.x - 0.35, v.x + 0.35, y1, y2)) { kill(g, v, 'trap'); break; }
+    // Las trampas no los matan: salta sangre y salen despedidos.
+    v.hurtT = Math.max(0, (v.hurtT ?? 0) - dt);
+    if (!v.hurtT) for (const t of TRAPS) if (trapHits(t, g.time, v.x - 0.35, v.x + 0.35, y1, y2)) {
+      const st = trapState(t, g.time), from = t.kind === 'pendulum' ? st.tipX - (st.a > trapState(t, g.time - dt).a ? 1 : -1) : t.x;
+      v.hurtT = 0.9; v.vx = (v.x >= from ? 1 : -1) * 6.5;
+      if (v.kind === 'walker') { v.vy = 9; v.onGround = false; v.surface = null; v.state = 'walk'; } else v.vy = 5;
+      for (let i = 0; i < 28; i++) { const a = g.rand() * Math.PI, sp = 2 + g.rand() * 8; g.drops.push({ x: v.x, y: (y1 + y2) / 2, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 0.05 + g.rand() * 0.09, t: 0, stuck: false }); }
+      emit(g, { type: 'vampHurt', x: v.x });
+      break;
+    }
   }
   // Trampas contra el cazador
   for (const t of TRAPS) {
