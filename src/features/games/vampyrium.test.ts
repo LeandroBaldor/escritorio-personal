@@ -495,3 +495,31 @@ describe('Vampyrium: las armas aparecen nivel a nivel', () => {
     newGame(1, 1);
   });
 });
+
+describe('Vampyrium: los vampiros se mueven con inteligencia', () => {
+  const chase = (level: number, px: number, py: number, kind: VampKind, fromX: number, secs = 15) => {
+    const g = newGame(5, level); g.spawnT = 1e9; g.crateT = 1e9; g.player.inv = 1e9; g.player.hp = 1e9;
+    g.player.x = px; g.player.y = py + 0.3; g.player.onGround = false; g.player.surface = null;
+    run(g, 0.5);
+    const s = SURFACES.find(q => q.ground && q.x1 <= Math.max(0, Math.min(28, fromX)) && q.x2 >= Math.max(0, Math.min(28, fromX)))!;
+    const v = makeVamp(g, kind, { x: fromX, y: GROUND_Y, onGround: true, surface: s, face: fromX < 14 ? 1 : -1, speed: 2.8, cool: 99 });
+    g.vamps.push(v); takeEvents(g);
+    let t = 0, hurts = 0;
+    for (; t < secs; t += 1 / 60) { g.player.inv = 1e9; step(g, idle(), 1 / 60); hurts += takeEvents(g).filter(e => e.type === 'vampHurt').length; if (Math.abs(v.x - g.player.x) < 1.6 && Math.abs(v.y - g.player.y) < 1.2) break; }
+    newGame(1, 1);
+    return { reached: t < secs, t, hurts };
+  };
+
+  it('entra por la derecha, cruza los huecos y sube de plataforma en plataforma hasta el cazador', () => {
+    expect(chase(1, 4.1, 6.6, 'walker', 28.6).reached).toBe(true); // plataforma baja del otro lado del hueco
+    expect(chase(1, 8.7, 9.9, 'walker', -0.6).reached).toBe(true); // plataforma alta
+    expect(chase(4, 3.8, 6.6, 'giant', 28.6).reached).toBe(true); // el gigante también
+  });
+
+  it('esquiva las trampas: casi nunca lo lastiman en el camino', () => {
+    let hurts = 0, reached = 0;
+    for (const [lv, px, py] of [[3, 3.3, 3.2], [3, 11.4, 6.6], [5, 4.6, 3.2], [7, 3.8, 3.2], [9, 5, 3.2]] as const) for (const from of [-0.6, 28.6]) { const r = chase(lv, px, py, 'walker', from); hurts += r.hurts; if (r.reached) reached++; }
+    expect(reached).toBeGreaterThanOrEqual(8);
+    expect(hurts).toBeLessThanOrEqual(10);
+  });
+});

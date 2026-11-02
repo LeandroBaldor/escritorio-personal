@@ -102,7 +102,11 @@ export interface Vamp {
   hp?: number; maxHp?: number; flash?: number; // los fuertes aguantan varios golpes (flash: el destello blanco del golpe)
   hurtT?: number; // golpeado por una trampa: sangra y sale despedido, pero no muere
   special?: number; // Drácula y el dragón: cuenta para el próximo ataque especial
+  nav?: Nav; stuckT?: number; bestD?: number; unstuck?: number; waitT?: number; braveT?: number; // cómo se mueve por el nivel (ver navigate)
 }
+// El plan para llegar hasta el cazador: el próximo salto entre pisos y el lugar desde donde hacerlo.
+export type Hop = 'same' | 'gap' | 'up' | 'down';
+export interface Nav { t: number; kind: Hop; to: Surface | null; tx: number }
 // Caja que ocupa (para los golpes del cazador y las trampas).
 export function vampBox(v: Vamp): [number, number, number, number] {
   if (v.kind === 'flyer') return [v.x - 0.4, v.x + 0.4, v.y - 0.6, v.y + 0.8];
@@ -137,7 +141,7 @@ export type GameEvent =
   | { type: 'crate' } | { type: 'pickup'; kind: CrateKind; amount: number } | { type: 'door' } | { type: 'spikes' } | { type: 'fire' }
   | { type: 'swing' } | { type: 'combo'; n: number } | { type: 'holy'; count: number } | { type: 'wave'; n: number } | { type: 'bloodMoon' }
   | { type: 'menu'; open: boolean } | { type: 'choose'; weapon: Weapon } | { type: 'hiss'; x: number } | { type: 'dive' } | { type: 'emerge' }
-  | { type: 'vampFall' } | { type: 'burn' } | { type: 'vampHurt'; x: number } | { type: 'cleared' } | { type: 'over' } | { type: 'won' } | { type: 'powerReady' };
+  | { type: 'vampFall' } | { type: 'burn' } | { type: 'vampHurt'; x: number; trap?: TrapKind } | { type: 'cleared' } | { type: 'over' } | { type: 'won' } | { type: 'powerReady' };
 
 export type Phase = 'play' | 'menu' | 'dead' | 'cleared' | 'won' | 'over';
 export interface Game {
@@ -182,11 +186,13 @@ export function takeEvents(g: Game) { const e = g.events; g.events = []; return 
 
 // ---------------------------------------------------------------- Suelo y huecos
 export const inGap = (x: number) => GAPS.some(([a, b]) => x > a && x < b);
+// Los pisos de los bordes siguen fuera de la pantalla (por ahí entran los vampiros).
+const ex1 = (s: Surface) => s.ground && s.x1 <= 0.01 ? -6 : s.x1, ex2 = (s: Surface) => s.ground && s.x2 >= W - 0.01 ? W + 6 : s.x2;
 const surfaceUnder = (x: number, halfW: number, prevY: number, y: number, skipPlatforms: boolean) => {
   let best: Surface | null = null;
   for (const s of SURFACES) {
     if (!s.ground && skipPlatforms) continue;
-    if (x + halfW * 0.6 < s.x1 || x - halfW * 0.6 > s.x2) continue;
+    if (x + halfW * 0.6 < ex1(s) || x - halfW * 0.6 > ex2(s)) continue;
     if (prevY >= s.y - 0.02 && y <= s.y && (!best || s.y > best.y)) best = s;
   }
   return best;
@@ -197,7 +203,7 @@ function gapWalls(x: number, y: number, halfW: number) {
   for (const [a, b] of GAPS) if (x > a - halfW * 2 && x < b + halfW * 2) return Math.max(a + halfW, Math.min(b - halfW, x));
   return x;
 }
-const stillOn = (s: Surface | null, x: number, halfW: number) => !!s && x + halfW * 0.6 >= s.x1 && x - halfW * 0.6 <= s.x2;
+const stillOn = (s: Surface | null, x: number, halfW: number) => !!s && x + halfW * 0.6 >= ex1(s) && x - halfW * 0.6 <= ex2(s);
 
 // Mueve un cuerpo (cazador o vampiro caminante) con gravedad y lo apoya en el suelo y las plataformas.
 interface Body { x: number; y: number; vx: number; vy: number; onGround: boolean; surface: Surface | null; dropT: number }
@@ -428,6 +434,105 @@ function standAt(x: number, preferY: number): [number, Surface] {
   return [Math.max(best.x1 + 0.6, Math.min(best.x2 - 0.6, x)), best];
 }
 
+// ---------------------------------------------------------------- Cómo se mueven por el nivel
+const maxJumpV = (v: Vamp) => v.kind === 'giant' ? 17.2 : 17.5;
+const maxRise = (v: Vamp) => maxJumpV(v) ** 2 / (2 * GRAV) - 0.45; // lo más alto que llega con un salto (≈ 4 m; el gigante un poco menos)
+// El piso que tiene abajo un punto (el más alto que no esté por encima).
+function surfaceBelow(x: number, y: number): Surface | null {
+  let best: Surface | null = null;
+  for (const q of SURFACES) if (x >= q.x1 - 0.15 && x <= q.x2 + 0.15 && q.y <= y + 0.1 && (!best || q.y > best.y)) best = q;
+  return best;
+}
+// Los saltos posibles desde un piso: cruzar un hueco, subir a una plataforma o bajar a otra.
+function hopsFrom(a: Surface, rise: number): { to: Surface; kind: Hop; lo: number; hi: number }[] {
+  const out: { to: Surface; kind: Hop; lo: number; hi: number }[] = [];
+  for (const b of SURFACES) {
+    if (b === a) continue;
+    if (a.ground && b.ground) { // por encima del hueco
+      if (b.x1 >= a.x2 - 0.1 && b.x1 - a.x2 <= 4.5) out.push({ to: b, kind: 'gap', lo: a.x2 - 0.2, hi: a.x2 - 0.2 });
+      else if (b.x2 <= a.x1 + 0.1 && a.x1 - b.x2 <= 4.5) out.push({ to: b, kind: 'gap', lo: a.x1 + 0.2, hi: a.x1 + 0.2 });
+      continue;
+    }
+    const lo = Math.max(a.x1 + 0.35, b.x1 + 0.35), hi = Math.min(a.x2 - 0.35, b.x2 - 0.35);
+    if (lo <= hi) {
+      if (b.y > a.y + 0.4 && b.y - a.y <= rise) out.push({ to: b, kind: 'up', lo, hi }); // se salta desde abajo: las plataformas se atraviesan subiendo
+      else if (b.y < a.y - 0.4 && !a.ground) out.push({ to: b, kind: 'down', lo, hi }); // se deja caer atravesando la plataforma
+      continue;
+    }
+    // no están una arriba de la otra: salto en diagonal desde el borde, o bajar caminando por el borde
+    const right = b.x1 >= a.x2 - 0.35, edge = right ? a.x2 - 0.3 : a.x1 + 0.3, dist = right ? b.x1 - a.x2 : a.x1 - b.x2;
+    if (b.y > a.y + 0.4 && b.y - a.y <= rise - 0.4 && dist <= 2.4) out.push({ to: b, kind: 'up', lo: edge, hi: edge });
+    else if (b.y < a.y - 0.4 && !a.ground) { const off = right ? a.x2 + 0.6 : a.x1 - 0.6; if (off >= b.x1 + 0.2 && off <= b.x2 - 0.2) out.push({ to: b, kind: 'down', lo: right ? a.x2 + 0.8 : a.x1 - 0.8, hi: right ? a.x2 + 0.8 : a.x1 - 0.8 }); }
+  }
+  return out;
+}
+// Busca el camino más corto (en saltos) desde el piso del vampiro hasta el del cazador y devuelve el primer paso.
+// Lo recalcula cada tanto (las plataformas que se mueven cambian el camino).
+function navigate(g: Game, v: Vamp, rise = maxRise(v)): Nav {
+  if (rise === maxRise(v) && v.nav && (!v.onGround ? g.time - v.nav.t < 1.6 : g.time - v.nav.t < 0.35)) return v.nav; // en el aire sigue el plan con el que saltó
+  const p = g.player, from = v.onGround && v.surface ? v.surface : surfaceBelow(v.x, v.y);
+  const goal = p.onGround && p.surface ? p.surface : surfaceBelow(p.x, p.y);
+  let nav: Nav = { t: g.time, kind: 'same', to: null, tx: p.x };
+  if (from && goal && from !== goal) {
+    const prev = new Map<Surface, { at: Surface; hop: ReturnType<typeof hopsFrom>[number] }>(), queue = [from], seen = new Set([from]);
+    while (queue.length) {
+      const a = queue.shift()!; if (a === goal) break;
+      for (const h of hopsFrom(a, rise)) if (!seen.has(h.to)) { seen.add(h.to); prev.set(h.to, { at: a, hop: h }); queue.push(h.to); }
+    }
+    if (!prev.has(goal) && rise === maxRise(v)) return navigate(g, v, 7); // no llega saltando normal: salto de vampiro (más alto)
+    if (prev.has(goal)) {
+      let step = goal; while (prev.get(step)!.at !== from) step = prev.get(step)!.at;
+      const h = prev.get(step)!.hop, aim = (v.x + p.x) / 2; // el lugar del salto: lo más cerca del camino hacia el cazador
+      nav = { t: g.time, kind: h.kind, to: h.to, tx: Math.max(h.lo, Math.min(h.hi, h.kind === 'gap' ? h.lo : aim)) };
+      if (h.kind === 'gap') nav.tx = h.lo + (h.to.x1 >= from.x2 - 0.1 ? 0.6 : -0.6); // camina hasta pasar el borde: ahí salta
+    }
+  }
+  v.nav = nav;
+  return nav;
+}
+const LOW_TRAPS: TrapKind[] = ['spikes', 'roller', 'saw']; // las que se pueden saltar por encima
+// ¿Hay una trampa justo adelante que lo va a lastimar en el próximo segundo?
+// (simula el camino que va a hacer caminando: así cruza la sierra o el péndulo cuando no lo van a agarrar)
+function trapAhead(g: Game, v: Vamp, dir: number, reach = 3.2): Trap | null {
+  const [x1, x2, y1, y2] = vampBox(v), sp = Math.max(1.5, v.speed);
+  for (let look = 0.08; look <= 1.5; look += 0.12) {
+    const ox = dir * Math.min(reach, 0.3 + sp * look);
+    for (const t of TRAPS) if (trapHits(t, g.time + look, x1 + ox - 0.15, x2 + ox + 0.15, y1, y2 + 0.2)) return t;
+  }
+  return null;
+}
+// ¿El salto (vx, vy) pasa limpio? Simula la parábola hasta que vuelve a tocar el piso.
+function jumpSafe(g: Game, v: Vamp, vx: number, vy: number, landY = v.y) {
+  const [x1, x2, y1, y2] = vampBox(v);
+  let t = 0.04, dx = 0;
+  for (; t < 1.6; t += 0.05) {
+    dx = vx * t; const dy = vy * t - 0.5 * GRAV * t * t;
+    if (vy - GRAV * t < 0 && v.y + dy < landY - 0.05) break; // (bajando) ya llegó al piso
+    for (const tr of TRAPS) if (trapHits(tr, g.time + t, x1 + dx - 0.1, x2 + dx + 0.1, y1 + dy, y2 + dy)) return false;
+  }
+  for (let k = 0; k <= 0.6; k += 0.15) for (const tr of TRAPS) if (trapHits(tr, g.time + t + k, x1 + dx - 0.1, x2 + dx + 0.1, landY, landY + (y2 - y1))) return false; // y donde cae, que no haya nada
+  return true;
+}
+// ¿Y en este lugar (corrido ox), dentro de poco? (look: hasta cuántos segundos mira; dy: si va a estar en el aire)
+function trapAt(g: Game, v: Vamp, ox: number, look: number, dy = 0): Trap | null {
+  const [x1, x2, y1, y2] = vampBox(v);
+  for (const t of TRAPS) for (let k = 0.05; k <= look; k += 0.15) if (trapHits(t, g.time + k, x1 + ox - 0.1, x2 + ox + 0.1, y1 + dy, y2 + dy)) return t;
+  return null;
+}
+// Si hace rato que no se acerca al cazador, prueba otra cosa: un salto grande hacia él; y si sigue trabado, vuelve a entrar.
+function unstick(g: Game, v: Vamp, dt: number) {
+  const p = g.player, d = Math.hypot(p.x - v.x, (p.y - v.y) * 1.4);
+  v.bestD = Math.min((v.bestD ?? d) + dt * 0.8, d); // (si el cazador se aleja, de a poco se le perdona)
+  if (d < 2.5 || v.state !== 'walk' || (v.waitT ?? 0) > 0) { v.stuckT = 0; return; }
+  v.stuckT = d > v.bestD + 0.05 || Math.abs(v.vx) < 0.3 ? (v.stuckT ?? 0) + dt : Math.max(0, (v.stuckT ?? 0) - dt * 2);
+  if (v.stuckT < 2.8 || !v.onGround) return;
+  v.stuckT = 0; v.unstuck = (v.unstuck ?? 0) + 1; v.nav = undefined;
+  if (v.unstuck < 3) { v.vy = maxJumpV(v); v.vx = (Math.sign(p.x - v.x) || 1) * v.speed * 1.5; v.onGround = false; v.surface = null; v.jumpT = 1; return; }
+  // trabado de verdad: sale por el costado y vuelve a entrar por el lado del cazador
+  v.unstuck = 0; const left = p.x > W / 2; const q = left ? groundL() : groundR();
+  v.x = left ? -0.6 : W + 0.6; v.y = q.y; v.surface = q; v.onGround = true; v.vx = 0; v.vy = 0; v.bestD = undefined;
+}
+
 function updateWalker(g: Game, v: Vamp, dt: number) {
   const p = g.player, r = g.rand, atk = ATTACK[v.kind]!, boss = v.kind === 'dracula';
   const dx = p.x - v.x, dy = p.y - v.y;
@@ -464,46 +569,82 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
     if (!v.hit && x2 > p.x - 0.3 && x1 < p.x + 0.3 && y1 < p.y + PLAYER_H && y2 > p.y) { v.hit = true; hurt(g, v.x, DAMAGE.wolf); }
     if (v.onGround && v.t > 0.2) { v.state = 'walk'; v.cool = 0.5 + r() * 0.4; v.vx *= 0.3; }
   } else {
-    let dir = Math.sign(dx) || v.face;
+    // Hacia dónde ir: si el cazador está en otro piso, el plan dice a qué plataforma saltar (o bajar) y desde dónde.
+    const nav = navigate(g, v);
+    let dir = nav.kind === 'same' ? (Math.sign(dx) || v.face) : (Math.sign(nav.tx - v.x) || v.face);
     if (scared) dir = -Math.sign(dx) || 1; // el ajo: se escapa
     // el mago se queda lejos (a 5 o 6 metros) para tirar sus bolas de fuego
     let want = 1;
-    if (v.kind === 'mage' && !scared) { const d = Math.abs(dx); want = d < 4.2 ? -1 : d < 6.5 ? 0 : 1; }
-    v.face = (Math.sign(dx) || v.face) as 1 | -1;
-    if (scared) v.face = dir as 1 | -1;
-    const target = dir * v.speed * (scared ? 1.3 : 1) * want;
+    if (v.kind === 'mage' && !scared && nav.kind === 'same') { const d = Math.abs(dx); want = d < 4.2 ? -1 : d < 6.5 ? 0 : 1; }
+    if (nav.kind !== 'same' && !scared && Math.abs(nav.tx - v.x) < 0.3) want = 0; // llegó al lugar del salto
+    v.face = (nav.kind === 'same' || scared ? (scared ? dir : Math.sign(dx) || v.face) : dir) as 1 | -1;
+    let target = dir * v.speed * (scared ? 1.3 : 1) * want;
     if (v.onGround) {
-      v.vx += (target - v.vx) * Math.min(1, dt * 8);
-      v.walkT += dt * Math.abs(v.vx);
-      // ¿Se termina el piso adelante?
-      const mdir = Math.sign(v.vx) || dir, ahead = v.x + mdir * 0.7, s = v.surface;
-      if (s && (ahead < s.x1 || ahead > s.x2) && ahead > 0.2 && ahead < W - 0.2) {
-        const otherSide = s.ground ? (mdir > 0 ? p.x > s.x2 + 1 : p.x < s.x1 - 1) : false;
-        if (s.ground && otherSide && v.jumpT <= 0) { v.vy = 14.5; v.vx = mdir * Math.max(4.8, v.speed * 1.7); v.onGround = false; v.surface = null; v.jumpT = 1; }
-        else if (s.ground) v.vx = 0; // espera en el borde: no se cae al vacío
+      // Las trampas: mira un poco adelante; si va a lastimarlo, las salta (las bajas) o espera a que pasen.
+      v.braveT = Math.max(0, (v.braveT ?? 0) - dt);
+      const tdir = Math.sign(target) || v.face;
+      const here = !v.braveT ? trapAt(g, v, 0, 0.7) : null, danger = target !== 0 && !v.braveT ? trapAhead(g, v, tdir) : null;
+      // un salto que no choque con ninguna trampa en todo el recorrido (adelante, en el lugar o para atrás)
+      let safeJump: [number, number] | undefined;
+      if ((here || danger) && v.jumpT <= 0 && LOW_TRAPS.includes((here ?? danger)!.kind))
+        for (const jy of [13.5, 16.5]) { const jx = [tdir * Math.max(5, v.speed * 1.6), tdir * 2.5, 0, -tdir * 3.5, -tdir * 6].find(x => jumpSafe(g, v, x, jy)); if (jx !== undefined) { safeJump = [jx, jy]; break; } }
+      if (safeJump) { v.vx = safeJump[0]; v.vy = safeJump[1]; v.onGround = false; v.surface = null; v.jumpT = 0.9; v.waitT = 0; } // salta por encima
+      else if (here && !danger && target !== 0) target = tdir * v.speed * 1.6; // está debajo de una trampa: sale corriendo hacia adelante
+      else if (here) target = -tdir * v.speed * 1.4; // adelante y acá es peligroso: retrocede rápido
+      else if (danger) {
+        v.waitT = (v.waitT ?? 0) + dt; target = -tdir * 0.8; // se para y retrocede un poquito hasta que pase
+        if (v.waitT > 3.5) { v.braveT = 1.2; v.waitT = 0; } // no espera para siempre
+      } else v.waitT = 0;
+      if (v.onGround) {
+        v.vx += (target - v.vx) * Math.min(1, dt * 8);
+        v.walkT += dt * Math.abs(v.vx);
+        const s = v.surface, mdir = Math.sign(v.vx) || dir, ahead = v.x + mdir * 0.7;
+        // ¿Se termina el piso adelante? Si el plan es cruzar el hueco, salta; si no, espera en el borde (nunca se cae al vacío).
+        if (s && s.ground && (ahead < s.x1 || ahead > s.x2) && ahead > 0.2 && ahead < W - 0.2) {
+          const across = nav.kind === 'gap' && nav.to && (mdir > 0 ? nav.to.x1 >= s.x2 - 0.1 : nav.to.x2 <= s.x1 + 0.1);
+          const gw = across ? (mdir > 0 ? nav.to!.x1 - s.x2 : s.x1 - nav.to!.x2) : 0, jvx = mdir * Math.max(4.8, v.speed * 1.7, gw * 1.6 + 1);
+          if (across && v.jumpT <= 0 && (v.braveT || jumpSafe(g, v, jvx, 14.5, nav.to!.y))) { v.vy = 14.5; v.vx = jvx; v.onGround = false; v.surface = null; v.jumpT = 1; v.waitT = 0; }
+          else { v.vx = 0; if (across) { v.waitT = (v.waitT ?? 0) + dt; if (v.waitT > 3.5) { v.braveT = 1.2; v.waitT = 0; } } } // espera a que pase la trampa del otro lado
+        }
+        // Llegó al lugar: salta a la plataforma de arriba o se deja caer a la de abajo.
+        if (v.onGround && nav.to && Math.abs(nav.tx - v.x) < 0.45 && v.jumpT <= 0) {
+          if (nav.kind === 'up') {
+            const rise = nav.to.y - v.y, land = Math.max(nav.to.x1 + 0.6, Math.min(nav.to.x2 - 0.6, v.x)), far = Math.abs(land - v.x);
+            const jvy = Math.min(rise > maxRise(v) ? 24 : maxJumpV(v), Math.sqrt(2 * GRAV * (rise + 0.8) + (far > 0.3 ? 30 : 0))), jvx = Math.sign(land - v.x) * Math.min(6.5, far * 2.2 + 0.5);
+            if (v.braveT || jumpSafe(g, v, jvx, jvy, nav.to.y)) { v.vy = jvy; v.vx = jvx; v.onGround = false; v.surface = null; v.jumpT = 0.8; v.waitT = 0; }
+            else { v.vx = 0; v.waitT = (v.waitT ?? 0) + dt; if (v.waitT > 3.5) { v.braveT = 1.2; v.waitT = 0; } } // arriba hay una trampa: espera
+          }
+          else if (nav.kind === 'down' && s && !s.ground) {
+            if (v.braveT || jumpSafe(g, v, 0, -1, nav.to.y)) { v.dropT = 0.3; v.onGround = false; v.surface = null; v.vy = -1; v.waitT = 0; }
+            else { v.vx = 0; v.waitT = (v.waitT ?? 0) + dt; if (v.waitT > 3.5) { v.braveT = 1.2; v.waitT = 0; } }
+          }
+        }
       }
-      // El cazador está arriba: salta a buscarlo.
-      if (v.onGround && dy > 2.2 && Math.abs(dx) < 4 && v.jumpT <= 0 && r() < dt * (v.kind === 'giant' ? 1 : 2.2)) { v.vy = v.kind === 'giant' ? 16.5 : 17.5; v.onGround = false; v.surface = null; v.jumpT = 1.6; }
-      // Está abajo: baja de la plataforma.
-      if (v.onGround && v.surface && !v.surface.ground && dy < -1.5 && Math.abs(dx) < 3 && r() < dt * 1.5) { v.dropT = 0.3; v.onGround = false; v.surface = null; }
       if (!scared && v.onGround) {
         if (Math.abs(dx) < atk.reach && Math.abs(dy) < 1.3 && v.cool <= 0) { v.state = 'claw'; v.t = 0; v.hit = false; v.vx = 0; emit(g, { type: 'hiss', x: v.x }); }
         else if (v.kind === 'mage' && v.cool <= 0 && Math.abs(dx) < 11 && Math.abs(dy) < 4) { v.state = 'cast'; v.t = 0; v.hit = false; emit(g, { type: 'cast' }); }
-        else if (v.kind === 'wolf' && v.cool <= 0 && Math.abs(dx) > 2.2 && Math.abs(dx) < 5.5 && Math.abs(dy) < 2.5 && r() < dt * 3) { v.state = 'leap'; v.t = 0; v.hit = false; v.vy = 11.5; v.vx = Math.sign(dx) * Math.min(9.5, Math.abs(dx) * 2.2); v.onGround = false; v.surface = null; emit(g, { type: 'hiss', x: v.x }); }
+        else if (v.kind === 'wolf' && v.cool <= 0 && Math.abs(dx) > 2.2 && Math.abs(dx) < 5.5 && Math.abs(dy) < 2.5 && !trapAhead(g, v, Math.sign(dx), 1.8) && r() < dt * 3) { v.state = 'leap'; v.t = 0; v.hit = false; v.vy = 11.5; v.vx = Math.sign(dx) * Math.min(9.5, Math.abs(dx) * 2.2); v.onGround = false; v.surface = null; emit(g, { type: 'hiss', x: v.x }); }
         else if (boss && (v.special ?? 0) <= 0 && Math.abs(dx) > 2.5) { // Drácula: niebla de murciélagos o murciélagos que vuelan
           v.special = 4.5 + r() * 2; v.t = 0; v.hit = false;
           if (r() < 0.5) { v.state = 'mist'; emit(g, { type: 'mist' }); } else { v.state = 'cast'; emit(g, { type: 'cast' }); }
         }
       }
-    } else v.vx += (target - v.vx) * Math.min(1, dt * 1.5);
+    } else {
+      // en el aire: si saltó a una plataforma, se acomoda encima; si no, sigue hacia el cazador
+      const to = nav.to, airTx = to && (nav.kind === 'up' || nav.kind === 'gap') ? Math.max(to.x1 + 0.5, Math.min(to.x2 - 0.5, v.x + v.vx * 0.3)) : null;
+      const airTarget = airTx !== null ? Math.sign(airTx - v.x) * Math.min(v.speed * 1.4, Math.abs(airTx - v.x) * 4) : target;
+      v.vx += (airTarget - v.vx) * Math.min(1, dt * (airTx !== null ? 3 : 1.5));
+    }
+    unstick(g, v, dt);
   }
   const was = v.onGround;
   moveBody(v, dt, VAMP_W / 2, -1.2, W + 1.2);
   if (!was && v.onGround) v.walkT = 0;
   // Si cae en un hueco, salta y sale (saltan bien: nunca se caen al vacío).
   if (v.y < GROUND_Y - 0.9 && v.vy < 0) {
-    const gap = GAPS.find(([a, b]) => v.x > a - 0.5 && v.x < b + 0.5), mid = gap ? (gap[0] + gap[1]) / 2 : v.x;
-    v.vy = 20; v.vx = (v.x < mid ? -1 : 1) * 3.6; v.onGround = false; v.surface = null; v.jumpT = 1;
+    // sale del lado del hueco que queda para el cazador
+    const gap = GAPS.find(([a, b]) => v.x > a - 0.5 && v.x < b + 0.5), toward = gap ? (g.player.x < (gap[0] + gap[1]) / 2 ? -1 : 1) : Math.sign(g.player.x - v.x) || 1;
+    v.vy = 20; v.vx = toward * (gap ? Math.max(3.6, (gap[1] - gap[0]) / 2 + 1.5) : 3.6); v.onGround = false; v.surface = null; v.jumpT = 1;
     if (v.state === 'leap') v.state = 'walk';
     if (v.y < -2.5) v.y = -1.5;
     emit(g, { type: 'emerge' });
@@ -801,7 +942,7 @@ export function step(g: Game, input: Input, dt: number) {
       v.hurtT = 0.9; v.vx = (v.x >= from ? 1 : -1) * 6.5;
       if (v.kind !== 'flyer') { v.vy = 9; v.onGround = false; v.surface = null; v.state = 'walk'; } else v.vy = 5;
       for (let i = 0; i < 28; i++) { const a = g.rand() * Math.PI, sp = 2 + g.rand() * 8; g.drops.push({ x: v.x, y: (y1 + y2) / 2, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 0.05 + g.rand() * 0.09, t: 0, stuck: false }); }
-      emit(g, { type: 'vampHurt', x: v.x });
+      emit(g, { type: 'vampHurt', x: v.x, trap: t.kind });
       break;
     }
   }
