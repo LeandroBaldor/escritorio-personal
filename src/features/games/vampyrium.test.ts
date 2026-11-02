@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp } from './vampyrium';
+import { DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp } from './vampyrium';
 
 const idle = (): Input => ({ left: false, right: false, up: false, down: false });
 const run = (g: Game, seconds: number, input: Input = idle()) => { for (let t = 0; t < seconds; t += 1 / 60) step(g, input, 1 / 60); };
 // Un juego sin vampiros que aparezcan solos ni cajas (para probar una cosa por vez).
-const quiet = () => { const g = newGame(7); g.spawnT = 1e9; g.crateT = 1e9; return g; };
+const quiet = () => { const g = newGame(7); g.spawnT = 1e9; g.crateT = 1e9; g.level = 6; return g; }; // (nivel 1, con todas las armas)
 const walker = (g: Game, x: number, extra: Partial<Vamp> = {}): Vamp => {
   const v: Vamp = { id: g.nextId++, kind: 'walker', x, y: GROUND_Y, vx: 0, vy: 0, face: -1, state: 'walk', t: 0, onGround: true, surface: null, walkT: 0, cool: 5, speed: 0, jumpT: 9, dropT: 0, hit: false, ...extra };
   g.vamps.push(v); return v;
@@ -464,6 +464,34 @@ describe('Vampyrium: las armas', () => {
     run(g, 2);
     expect(g.ammo.pistol).toBe(Math.min(MAX_AMMO.pistol, START_AMMO.pistol - 1 + 4));
     expect(g.ammo.firesword).toBe(START_AMMO.firesword - 1 + 3);
+    newGame(1, 1);
+  });
+});
+
+describe('Vampyrium: las armas aparecen nivel a nivel', () => {
+  it('ballesta en el 2, ajo en el 3, cruz en el 4, espada de fuego en el 5 y pistola en el 6', () => {
+    expect(WEAPON_LEVEL).toEqual({ sword: 1, crossbow: 2, garlic: 3, cross: 4, firesword: 5, pistol: 6 });
+    for (let n = 1; n <= 10; n++) {
+      const g = newGame(3, n);
+      for (const w of WEAPONS) {
+        chooseWeapon(g, w);
+        expect(g.weapon === w, `nivel ${n} ${w}`).toBe(n >= WEAPON_LEVEL[w]);
+        chooseWeapon(g, 'sword');
+      }
+    }
+    newGame(1, 1);
+  });
+
+  it('en el nivel 1 solo está la espada: el cartel salta las bloqueadas, la cruz no se carga y no caen cajas de armas', () => {
+    const g = newGame(3, 1); g.spawnT = 1e9;
+    g.phase = 'menu'; g.menu.sel = 0; menuMove(g, 1);
+    expect(g.menu.sel).toBe(0);
+    g.phase = 'play'; g.power = POWER_MAX - 1;
+    expect(castHoly(g)).toBe(false);
+    for (let i = 0; i < 60; i++) { g.crateT = 0; run(g, 1 / 60); }
+    expect(g.crates.every(c => c.kind === 'heart' || c.kind === 'garlic')).toBe(true);
+    const g3 = newGame(3, 3); g3.phase = 'menu'; g3.menu.sel = 2; menuMove(g3, 1);
+    expect(g3.menu.sel).toBe(0); // del ajo vuelve a la espada (la cruz todavía no)
     newGame(1, 1);
   });
 });

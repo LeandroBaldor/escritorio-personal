@@ -1192,10 +1192,11 @@ test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de
   await expect(levels).toHaveCount(10);
   await levels.nth(2).click();
   await expect(page.getByRole('button', { name: 'Jugar · Nivel 3' })).toBeVisible();
-  await levels.nth(0).click();
-  await page.getByRole('button', { name: 'Jugar · Nivel 1' }).click();
-  // El cartel del nivel con el objetivo
-  await expect(page.getByRole('heading', { name: 'El puente de las ánimas' })).toBeVisible();
+  await levels.nth(1).click();
+  await page.getByRole('button', { name: 'Jugar · Nivel 2' }).click();
+  // El cartel del nivel con el objetivo (en el nivel 2 aparece la ballesta)
+  await expect(page.getByRole('heading', { name: 'Las cloacas' })).toBeVisible();
+  await expect(page.getByText('Arma nueva')).toBeVisible();
   await expect(page.getByText('tendrás que matar a', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: /A cazar/ }).click();
   await expect(page.getByTestId('vamp-total')).toContainText('/50');

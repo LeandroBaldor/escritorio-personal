@@ -6,7 +6,7 @@ import { TouchGrips } from './TouchGrips';
 import { GamePad } from './GamePad';
 import { pixelRatio, useFitScreen } from './fitScreen';
 import { EndBanner } from './EndBanner';
-import { BODY, DAMAGE, GOAL, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, WEAPON_NAME, castHoly, chooseWeapon, closeMenu, formatVampTime, menuMove, newGame, pressAttack, step, takeEvents, type Game, type Input, type Weapon } from './vampyrium';
+import { BODY, DAMAGE, GOAL, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, WEAPON_NAME, castHoly, chooseWeapon, closeMenu, formatVampTime, menuMove, newGame, pressAttack, step, takeEvents, type Game, type Input, type Weapon } from './vampyrium';
 import { drawGame, drawPortrait, drawSwordIcon, setBackdrop } from './vampyriumArt';
 import { drawWeaponIcon } from './vampyriumWeapons';
 import { setNoGrain } from './gravityMonsters';
@@ -150,7 +150,7 @@ export function Vampyrium() {
           case 'jump': playVampJumpSound(e.double); break;
           case 'step': playVampStep(); break;
           case 'crate': playVampCrate(); setToast({ text: '📦 ¡Cayó una caja del cielo!', id: now }); break;
-          case 'pickup': playKfPickup(); setToast({ text: e.kind === 'bolts' ? `🏹 +${e.amount} flechas` : e.kind === 'heart' ? `+${e.amount} de vida ♥` : e.kind === 'fire' ? `🔥 +${e.amount} tajos de la espada de fuego` : e.kind === 'bullets' ? `🔫 +${e.amount} balas de fuego` : `🧄 +${e.amount} bombas de ajo, y los vampiros te tienen miedo 8 segundos`, id: now, big: e.kind === 'fire' || e.kind === 'bullets' }); break;
+          case 'pickup': playKfPickup(); setToast({ text: e.kind === 'bolts' ? `🏹 +${e.amount} flechas` : e.kind === 'heart' ? `+${e.amount} de vida ♥` : e.kind === 'fire' ? `🔥 +${e.amount} tajos de la espada de fuego` : e.kind === 'bullets' ? `🔫 +${e.amount} balas de fuego` : e.amount ? `🧄 +${e.amount} bombas de ajo, y los vampiros te tienen miedo 8 segundos` : '🧄 ¡Ajo! Los vampiros te tienen miedo por 8 segundos', id: now, big: e.kind === 'fire' || e.kind === 'bullets' }); break;
           case 'door': playDoor(true); playVampBell(0.3); setToast({ text: `¡${GOAL} vampiros! Se abrió la puerta de la derecha ▶`, id: now, big: true }); break;
           case 'spikes': playVampSpikes(); break;
           case 'fire': playVampBurn(); break;
@@ -234,7 +234,7 @@ export function Vampyrium() {
   const ready = ammoOf('cross') > 0;
   const crossBtn = <button type="button" className={`kf-cast vamp-cross${ready ? ' kf-cast--fatal' : ' kf-cast--off'}`} aria-label={`Cruz sagrada: ${ammoOf('cross')}`} {...holyTap}>✝</button>;
   const [bossKindRaw, bossHpRaw] = hud.boss.split(':'), bossKind = (bossKindRaw || null) as VampKind | 'transform' | null, bossHp = Number(bossHpRaw) || 0;
-  const roster = rosterOf(level), newcomer = newcomerOf(level), finalLevel = level >= LEVEL_COUNT;
+  const roster = rosterOf(level), newWeapon = WEAPONS.find(w => w !== 'sword' && WEAPON_LEVEL[w] === level), newcomer = newcomerOf(level), finalLevel = level >= LEVEL_COUNT;
   const killsOf = hud.kills.split(',').map(Number);
   const recordText = record.time ? `🏆 ${formatVampTime(record.time)}` : `${record.kills} 🧛`;
 
@@ -265,11 +265,12 @@ export function Vampyrium() {
               <ArtCanvas w={120} h={150} draw={(ctx, t) => drawPortrait(ctx, 'hunter', gameRef.current, 52, 142, 64, t)} />
               <b>Cazador</b>
               <div className="ds-bar ds-bar--hp" aria-label={`Vida ${hud.hp} de ${MAX_HP}`}><i style={{ width: `${hud.hp / MAX_HP * 100}%` }} /><span>Vida {hud.hp}/{MAX_HP}</span></div>
-              <div className="ds-bar ds-bar--holy" aria-label={`Cruz ${hud.power} de ${POWER_MAX}`}><i style={{ width: `${hud.power / POWER_MAX * 100}%` }} /><span>Cruz {hud.power}/{POWER_MAX}</span></div>
+{level >= WEAPON_LEVEL.cross &&               <div className="ds-bar ds-bar--holy" aria-label={`Cruz ${hud.power} de ${POWER_MAX}`}><i style={{ width: `${hud.power / POWER_MAX * 100}%` }} /><span>Cruz {hud.power}/{POWER_MAX}</span></div>}
             </div>
             <div className="ds-inv">
               <ul className="ds-grid">
                 {WEAPONS.map((w, i) => {
+                  if (WEAPON_LEVEL[w] > level) return <li key={w}><span className="ds-slot ds-locked" title={`${WEAPON_NAME[w]}: aparece en el nivel ${WEAPON_LEVEL[w]}`} aria-label={`${WEAPON_NAME[w]}: aparece en el nivel ${WEAPON_LEVEL[w]}`}>🔒<small>Nivel {WEAPON_LEVEL[w]}</small></span></li>;
                   const off = ammoOf(w) === 0;
                   return <li key={w}><button type="button" disabled={off} aria-label={WEAPON_NAME[w]} className={`ds-slot${hud.sel === i ? ' ds-sel' : ''}${hud.weapon === w ? ' ds-now' : ''}`}
                     onPointerDown={e => { e.preventDefault(); if (!off) chooseWeapon(gameRef.current, w); }} onClick={() => { if (!off && gameRef.current.phase === 'menu') chooseWeapon(gameRef.current, w); }}>
@@ -303,6 +304,11 @@ export function Vampyrium() {
               <ArtCanvas w={120} h={130} draw={(ctx, t) => drawPortrait(ctx, newcomer, gameRef.current, 58, 122, 112 / (BODY[newcomer].k * 2.3), t)} />
               <div><small>{finalLevel ? 'El jefe final' : 'Enemigo nuevo'}</small><b>{VAMP_NAME[newcomer]}</b>
                 <p>Aguanta <strong>{STRENGTH[newcomer]} golpes</strong> y te saca <strong>{DAMAGE[newcomer]} de vida</strong>.</p></div>
+            </div>}
+            {newWeapon && <div className="vamp-newcomer vamp-newweapon">
+              <ArtCanvas w={120} h={110} draw={(ctx, t) => { ctx.translate(60, 55); drawWeaponIcon(ctx, newWeapon, 96, t, drawSwordIcon); }} />
+              <div><small>Arma nueva</small><b>{WEAPON_NAME[newWeapon]}</b>
+                <p>{INFO[newWeapon].stats[0][1]} · {INFO[newWeapon].stats[1][1]}. Elegila con la tecla <strong>{WEAPONS.indexOf(newWeapon) + 1}</strong> o manteniendo Espacio.</p></div>
             </div>}
             <button type="button" onClick={() => { playVampBell(0.25); setStatus('playing'); }} autoFocus>⚔️ ¡A cazar!</button>
           </div>
@@ -373,14 +379,14 @@ export function Vampyrium() {
         <div className="trepa-stat vamp-hpstat" aria-label={`Vida: ${hud.hp}`}><span>Vida</span><strong>{hud.hp}<small>/{MAX_HP}</small></strong><i className="vamp-bar vamp-bar--hp"><b style={{ width: `${hud.hp / MAX_HP * 100}%` }} /></i></div>
         <div className="trepa-stat vamp-weapons"><span>Armas</span>
           <ul>
-            {WEAPONS.map(w => <li key={w} className={hud.weapon === w ? 'vamp-now' : ammoOf(w) === 0 ? 'vamp-empty' : ''} title={`${WEAPON_NAME[w]}: ${WEAPON_DMG[w]} de daño`}>{ICON[w]} {WEAPON_NAME[w]} {w === 'sword' ? <b>∞</b> : <><b data-testid={w === 'crossbow' ? 'vamp-ammo' : undefined}>{ammoOf(w)}</b><small>/{MAX_AMMO[w]}</small></>}</li>)}
+            {WEAPONS.filter(w => WEAPON_LEVEL[w] <= level).map(w => <li key={w} className={hud.weapon === w ? 'vamp-now' : ammoOf(w) === 0 ? 'vamp-empty' : ''} title={`${WEAPON_NAME[w]}: ${WEAPON_DMG[w]} de daño`}>{ICON[w]} {WEAPON_NAME[w]} {w === 'sword' ? <b>∞</b> : <><b data-testid={w === 'crossbow' ? 'vamp-ammo' : undefined}>{ammoOf(w)}</b><small>/{MAX_AMMO[w]}</small></>}</li>)}
           </ul>
         </div>
-        <div className={`trepa-stat vamp-power${ready ? ' vamp-ready' : ''}`} aria-label={`Cruz sagrada: ${hud.power} de ${POWER_MAX}`}>
+        {level >= WEAPON_LEVEL.cross && <div className={`trepa-stat vamp-power${ready ? ' vamp-ready' : ''}`} aria-label={`Cruz sagrada: ${hud.power} de ${POWER_MAX}`}>
           <span>Cruz ✝</span>
           <i className="vamp-bar vamp-bar--gold"><b style={{ width: `${hud.power / POWER_MAX * 100}%` }} /></i>
           <em>{ready ? `${ammoOf('cross')} lista${ammoOf('cross') > 1 ? 's' : ''} · tecla C` : `${hud.power}/${POWER_MAX}`}</em>
-        </div>
+        </div>}
         {hud.garlic && <div className="trepa-stat vamp-garlic">🧄 Ajo</div>}
         {hud.door && <div className="trepa-stat vamp-door">🚪 ¡Puerta abierta! ▶</div>}
       </aside>

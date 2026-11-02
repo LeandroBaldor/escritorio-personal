@@ -32,6 +32,9 @@ export const BOLT_PIERCE = 3; // la flecha de la ballesta atraviesa hasta 3 vamp
 export const GARLIC_R = 3; // la onda de la bomba de ajo: 3 metros a cada lado del estallido (6 de punta a punta, unos 7 vampiros en fila)
 export const CROSS_TARGETS = 6; // la cruz: rayos sobre los 6 vampiros más cercanos que estén a la vista
 export const PISTOL_RANGE = 10; // la pistola de fuego: 10 metros (unos 10 vampiros uno al lado del otro); le pega al primero
+// En qué nivel aparece cada arma: se van sumando a medida que se pasan los niveles.
+export const WEAPON_LEVEL: Record<Weapon, number> = { sword: 1, crossbow: 2, garlic: 3, cross: 4, firesword: 5, pistol: 6 };
+export const weaponUnlocked = (g: { level: number }, w: Weapon) => g.level >= WEAPON_LEVEL[w];
 export const AMMO_PICKUP: Record<Weapon, number> = { sword: 0, crossbow: 8, garlic: 2, cross: 1, firesword: 3, pistol: 4 };
 
 import { LEVELS, LEVEL_COUNT, type LevelDef, type Surface, type Trap, type TrapKind } from './vampyriumLevels';
@@ -267,8 +270,14 @@ export function pressAttack(g: Game) {
 }
 export function openMenu(g: Game) { if (g.phase !== 'play') return; g.phase = 'menu'; g.menu = { sel: WEAPONS.indexOf(g.weapon), t: 0 }; emit(g, { type: 'menu', open: true }); }
 export function closeMenu(g: Game) { if (g.phase !== 'menu') return; g.phase = 'play'; emit(g, { type: 'menu', open: false }); }
-export function menuMove(g: Game, step: number) { if (g.phase !== 'menu') return; g.menu.sel = (g.menu.sel + step + WEAPONS.length) % WEAPONS.length; g.menu.t = 0; }
+export function menuMove(g: Game, step: number) { // salta las armas que todavía no aparecieron
+  if (g.phase !== 'menu') return;
+  let sel = g.menu.sel;
+  for (let i = 0; i < WEAPONS.length; i++) { sel = (sel + step + WEAPONS.length) % WEAPONS.length; if (weaponUnlocked(g, WEAPONS[sel])) break; }
+  g.menu.sel = sel; g.menu.t = 0;
+}
 export function chooseWeapon(g: Game, w: Weapon) {
+  if (!weaponUnlocked(g, w)) return;
   g.weapon = w; emit(g, { type: 'choose', weapon: w });
   if (g.phase === 'menu') { g.phase = 'play'; emit(g, { type: 'menu', open: false }); }
 }
@@ -294,7 +303,7 @@ export function attack(g: Game) {
 // La cruz: una tormenta de rayos sobre los 6 vampiros más cercanos que estén a la vista (10 de daño a cada uno).
 export function stormCross(g: Game) {
   const p = g.player;
-  if (g.phase !== 'play' || g.ammo.cross <= 0 || p.cool > 0) return false;
+  if (g.phase !== 'play' || !weaponUnlocked(g, 'cross') || g.ammo.cross <= 0 || p.cool > 0) return false;
   g.ammo.cross--; p.cool = 0.6; p.attackT = 0; p.attackWeapon = 'cross';
   g.holyT = 1.2; g.flash = 0.9; g.shake = 0.6; g.shots = g.shots.filter(s => s.kind === 'flame');
   const before = g.total;
@@ -308,6 +317,7 @@ export function stormCross(g: Game) {
 export const castHoly = stormCross; // (la tecla C y ↓ + Espacio)
 // La carga de la cruz: cada 10 vampiros (o 5 golpes a Drácula) suma una cruz.
 function chargeCross(g: Game) {
+  if (!weaponUnlocked(g, 'cross')) return; // la cruz aparece en el nivel 4
   if (g.ammo.cross >= MAX_AMMO.cross) { g.power = POWER_MAX; return; }
   g.power++;
   if (g.power >= POWER_MAX) { g.power = 0; g.ammo.cross++; emit(g, { type: 'crossReady' }); emit(g, { type: 'powerReady' }); }
@@ -585,8 +595,10 @@ function updateShots(g: Game, dt: number) {
 
 // ---------------------------------------------------------------- Cajas del cielo
 function dropCrate(g: Game) {
-  const r = g.rand, roll = r();
-  const kind: CrateKind = roll < 0.36 ? 'bolts' : roll < 0.56 ? 'heart' : roll < 0.72 ? 'garlic' : roll < 0.86 ? 'fire' : 'bullets';
+  // solo caen cajas de las armas que ya aparecieron (el ajo siempre: espanta a los vampiros)
+  const r = g.rand, pool = ([['bolts', 0.36, 'crossbow'], ['heart', 0.2, 'sword'], ['garlic', 0.16, 'sword'], ['fire', 0.14, 'firesword'], ['bullets', 0.14, 'pistol']] as const).filter(([, , w]) => weaponUnlocked(g, w));
+  let roll = r() * pool.reduce((a, [, k]) => a + k, 0), kind: CrateKind = 'heart';
+  for (const [k, wgt] of pool) { if (roll < wgt) { kind = k; break; } roll -= wgt; }
   const spots = SURFACES.filter(s => s.x2 - s.x1 > 2 && !s.mv);
   const s = spots[Math.floor(r() * spots.length)];
   const x = s.x1 + 0.8 + r() * (s.x2 - s.x1 - 1.6);
@@ -608,7 +620,7 @@ function updateCrates(g: Game, dt: number) {
       if (c.kind === 'bolts') give('crossbow');
       else if (c.kind === 'fire') give('firesword');
       else if (c.kind === 'bullets') give('pistol');
-      else if (c.kind === 'garlic') { g.garlicT = 8; give('garlic'); } // ajo: espanta a los vampiros 8 segundos y trae 2 bombas
+      else if (c.kind === 'garlic') { g.garlicT = 8; if (weaponUnlocked(g, 'garlic')) give('garlic'); else emit(g, { type: 'pickup', kind: 'garlic', amount: 0 }); } // ajo: espanta a los vampiros 8 segundos y trae 2 bombas
       else if (c.kind === 'heart') { const before = p.hp; p.hp = Math.min(MAX_HP, p.hp + HEART_HP); emit(g, { type: 'pickup', kind: 'heart', amount: p.hp - before }); }
       continue;
     }
