@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp } from './vampyrium';
+import { DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp, CHAPTERS, hitObject } from './vampyrium';
 
 const idle = (): Input => ({ left: false, right: false, up: false, down: false });
 const run = (g: Game, seconds: number, input: Input = idle()) => { for (let t = 0; t < seconds; t += 1 / 60) step(g, input, 1 / 60); };
@@ -404,7 +404,7 @@ describe('Vampyrium: los vampiros de cada nivel y los puntos', () => {
 });
 
 describe('Vampyrium: las armas', () => {
-  const quiet10 = (level = 6) => { const g = newGame(7, level); g.spawnT = 1e9; g.crateT = 1e9; g.vamps = []; g.player.inv = 1e9; return g; };
+  const quiet10 = (level = 6) => { const g = newGame(7, level); g.spawnT = 1e9; g.crateT = 1e9; g.vamps = []; g.objects = []; g.player.inv = 1e9; return g; };
   const put = (g: Game, kind: VampKind, x: number) => { const v = makeVamp(g, kind, { x, y: GROUND_Y, onGround: true, surface: SURFACES.find(s => s.ground && s.x1 <= x && s.x2 >= x) ?? null, face: -1, cool: 9, speed: 0 }); g.vamps.push(v); return v; };
   const use = (g: Game, w: Weapon, secs = 0.6) => { chooseWeapon(g, w); g.player.cool = 0; pressAttack(g); run(g, secs); };
 
@@ -538,6 +538,61 @@ describe('Vampyrium: apuntar arriba y abajo', () => {
     expect(g.bullets.at(-1)!.vy).toBeLessThan(-10);
     g.player.cool = 0; step(g, idle(), 1 / 60); pressAttack(g);
     expect(g.bullets.at(-1)!.vy).toBe(0); // sin flechas: derecho
+    newGame(1, 1);
+  });
+});
+
+describe('Vampyrium: cada nivel tiene su meta (el viaje del héroe)', () => {
+  const fresh = (n: number) => { const g = newGame(4, n); g.spawnT = 1e9; g.crateT = 1e9; g.player.inv = 1e9; g.player.hp = 1e9; return g; };
+  it('las metas: 50 vampiros, 20 estrellas, 6 jaulas, 100 s, 8 guerreros, 6 ataúdes, 15 almas, 20 voladores, 120 s y Drácula', () => {
+    expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => { const g = CHAPTERS[n].goal; return `${g.type}:${g.n}`; }))
+      .toEqual(['kill:50', 'collect:20', 'break:6', 'survive:100', 'hunt:8', 'break:6', 'collect:15', 'hunt:20', 'survive:120', 'boss:1']);
+    for (let n = 1; n <= 10; n++) expect(CHAPTERS[n].story.length).toBeGreaterThan(80);
+    newGame(1, 1);
+  });
+
+  it('nivel 2: caen estrellas doradas; con 20 se abre la puerta', () => {
+    const g = fresh(2);
+    run(g, 4);
+    expect(g.items.length).toBeGreaterThan(0);
+    expect(g.items.every(i => i.kind === 'star')).toBe(true);
+    let guard = 0;
+    while (!g.door.open && guard++ < 3000) { const it = g.items.find(i => i.landed); if (it) { g.player.x = it.x; g.player.y = it.y; g.player.vy = 0; } run(g, 0.2); }
+    expect(g.progress).toBeGreaterThanOrEqual(20);
+    expect(g.door.open).toBe(true);
+    newGame(1, 1);
+  });
+
+  it('nivel 3: hay 6 jaulas; se rompen a golpes y al romper las 6 se abre la puerta', () => {
+    const g = fresh(3);
+    expect(g.objects.length).toBe(6);
+    expect(g.objects.every(o => o.kind === 'cage')).toBe(true);
+    for (const o of [...g.objects]) for (let i = 0; i < 10 && g.objects.includes(o); i++) hitObject(g, o, 1);
+    run(g, 0.1);
+    expect(g.progress).toBe(6);
+    expect(g.door.open).toBe(true);
+    newGame(1, 1);
+  });
+
+  it('nivel 6: de cada ataúd que se rompe sale un vampiro', () => {
+    const g = fresh(6); g.vamps = [];
+    const o = g.objects[0]; expect(o.kind).toBe('coffin');
+    hitObject(g, o, 50);
+    expect(g.vamps.length).toBe(1);
+    newGame(1, 1);
+  });
+
+  it('nivel 4: aguantando 100 segundos se abre la puerta (y no antes)', () => {
+    const g = fresh(4);
+    run(g, 60); expect(g.door.open).toBe(false);
+    run(g, 41); expect(g.door.open).toBe(true);
+    newGame(1, 1);
+  });
+
+  it('nivel 5: cuentan los guerreros, no los demás', () => {
+    const g = fresh(5); g.total = 49;
+    run(g, 0.1); expect(g.door.open).toBe(false);
+    g.kills.warrior = 8; run(g, 0.1); expect(g.door.open).toBe(true);
     newGame(1, 1);
   });
 });

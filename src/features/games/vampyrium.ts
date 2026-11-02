@@ -40,8 +40,8 @@ export const AIMED: Weapon[] = ['crossbow', 'pistol', 'garlic'];
 export const AIM_ANGLE = 0.7; // ≈ 40 grados
 export const AMMO_PICKUP: Record<Weapon, number> = { sword: 0, crossbow: 8, garlic: 2, cross: 1, firesword: 3, pistol: 4 };
 
-import { LEVELS, LEVEL_COUNT, type LevelDef, type Surface, type Trap, type TrapKind } from './vampyriumLevels';
-export { LEVELS, LEVEL_COUNT, type LevelDef, type Surface, type Trap, type TrapKind };
+import { CHAPTERS, LEVELS, LEVEL_COUNT, type Chapter, type Goal, type LevelDef, type Surface, type Trap, type TrapKind } from './vampyriumLevels';
+export { CHAPTERS, LEVELS, LEVEL_COUNT, type Chapter, type Goal, type LevelDef, type Surface, type Trap, type TrapKind };
 // El nivel que se está jugando. Los arreglos se cambian por dentro (no se reemplazan): así SURFACES, GAPS y
 // TRAPS siempre apuntan al nivel actual.
 export const SURFACES: Surface[] = [];
@@ -119,6 +119,10 @@ export function vampBox(v: Vamp): [number, number, number, number] {
 // Lo que tiran: la bola de fuego del mago, los murciélagos de Drácula y el fuego del dragón.
 export interface Shot { x: number; y: number; vx: number; vy: number; t: number; life: number; kind: 'orb' | 'bat' | 'flame'; dmg: number }
 // Los números que saltan con cada golpe.
+// Lo que cae del cielo para juntar (estrellas doradas, almas) y lo que hay que romper (jaulas, ataúdes).
+export interface Item { id: number; kind: 'star' | 'soul'; x: number; y: number; vy: number; landed: boolean; t: number }
+export interface Breakable { id: number; kind: 'cage' | 'coffin'; x: number; y: number; hp: number; maxHp: number; flash: number; t: number }
+export const BREAK_HP = { cage: 4, coffin: 5 };
 export interface Pop { x: number; y: number; t: number; text: string; bad: boolean }
 export type KillHow = 'sword' | 'bolt' | 'bomb' | 'cross' | 'fire' | 'bullet' | 'trap' | 'void' | 'crate';
 export interface Corpse { id: number; kind: VampKind; x: number; y: number; face: 1 | -1; t: number; how: KillHow }
@@ -140,7 +144,7 @@ export type GameEvent =
   | { type: 'slash' } | { type: 'throw' } | { type: 'stakeHit' } | { type: 'empty'; weapon: Weapon } | { type: 'shoot'; weapon: Weapon } | { type: 'blast'; count: number } | { type: 'crossReady' }
   | { type: 'kill'; kind: VampKind; how: KillHow; x: number; y: number } | { type: 'bones'; x: number; y: number }
   | { type: 'hurt'; hp: number; dmg: number } | { type: 'vampHit'; kind: VampKind; hp: number } | { type: 'block' } | { type: 'slam' } | { type: 'cast' } | { type: 'bats' } | { type: 'breath' } | { type: 'mist' }
-  | { type: 'transform' } | { type: 'dragon' } | { type: 'bossDead' } | { type: 'howl'; kind: VampKind } | { type: 'spawn'; kind: VampKind } | { type: 'fall'; hp: number } | { type: 'jump'; double: boolean } | { type: 'land' } | { type: 'step' }
+  | { type: 'collect'; kind: Item['kind']; n: number; of: number } | { type: 'break'; kind: Breakable['kind']; n: number; of: number } | { type: 'objHit' } | { type: 'transform' } | { type: 'dragon' } | { type: 'bossDead' } | { type: 'howl'; kind: VampKind } | { type: 'spawn'; kind: VampKind } | { type: 'fall'; hp: number } | { type: 'jump'; double: boolean } | { type: 'land' } | { type: 'step' }
   | { type: 'crate' } | { type: 'pickup'; kind: CrateKind; amount: number } | { type: 'door' } | { type: 'spikes' } | { type: 'fire' }
   | { type: 'swing' } | { type: 'combo'; n: number } | { type: 'holy'; count: number } | { type: 'wave'; n: number } | { type: 'bloodMoon' }
   | { type: 'menu'; open: boolean } | { type: 'choose'; weapon: Weapon } | { type: 'hiss'; x: number } | { type: 'dive' } | { type: 'emerge' }
@@ -150,6 +154,7 @@ export type Phase = 'play' | 'menu' | 'dead' | 'cleared' | 'won' | 'over';
 export interface Game {
   level: number; time: number; real: number; phase: Phase; phaseT: number;
   player: Player; vamps: Vamp[]; corpses: Corpse[]; bones: Bone[]; sparks: Spark[]; drops: Drop[]; bolts: Bolt[]; bombs: Bomb[]; bullets: Bullet[]; fx: Fx[]; crates: Crate[];
+  goal: Goal; progress: number; items: Item[]; objects: Breakable[]; itemT: number;
   kills: Record<VampKind, number>; total: number; shots: Shot[]; pops: Pop[]; transformT: number; bossDeadT: number; bossHits: number; voidKills: number; trapKills: number;
   weapon: Weapon; ammo: Record<Weapon, number>; menu: { sel: number; t: number }; lastTap: number; holdT: number;
   combo: { n: number; t: number; best: number }; power: number; holyT: number; garlicT: number;
@@ -170,9 +175,10 @@ export function newGame(seed = Math.floor(Math.random() * 1e9), level = 1): Game
   const g: Game = {
     level: LV.def.n, time: 0, real: 0, phase: 'play', phaseT: 0, player: newPlayer(), vamps: [], corpses: [], bones: [], sparks: [], drops: [], bolts: [], bombs: [], bullets: [], fx: [], crates: [],
     kills: Object.fromEntries(VAMP_KINDS.map(k => [k, 0])) as Record<VampKind, number>, total: 0, shots: [], pops: [], transformT: 0, bossDeadT: -1, bossHits: 0, voidKills: 0, trapKills: 0, weapon: 'sword', ammo: { ...START_AMMO }, menu: { sel: 0, t: 0 }, lastTap: -9, holdT: 0,
-    combo: { n: 0, t: 0, best: 0 }, power: 0, holyT: 0, garlicT: 0, door: { open: false, t: 0 }, spawnT: 1.6, crateT: 9, nextId: 1, wave: 1, bloodMoon: false,
+    combo: { n: 0, t: 0, best: 0 }, power: 0, holyT: 0, garlicT: 0, goal: CHAPTERS[LV.def.n]?.goal ?? { type: 'kill', n: GOAL }, progress: 0, items: [], objects: [], itemT: 2, door: { open: false, t: 0 }, spawnT: 1.6, crateT: 9, nextId: 1, wave: 1, bloodMoon: false,
     flash: 0, shake: 0, events: [], rand: mulberry(seed), stats: { slashes: 0, throws: 0, hits: 0, crates: 0, falls: 0 },
   };
+  if (g.goal.type === 'break') placeBreakables(g, g.goal.n, g.goal.obj);
   if (rosterOf(g.level)[0] === 'dracula') { // el último nivel: solo Drácula, que espera en el salón del trono
     const s = groundR();
     g.vamps.push(makeVamp(g, 'dracula', { x: Math.min(s.x2 - 3, 22), y: s.y, onGround: true, surface: s, face: -1, state: 'walk', speed: 3.1, cool: 2.5, special: 5 }));
@@ -372,7 +378,6 @@ function kill(g: Game, v: Vamp, how: KillHow) {
   if (how !== 'cross') chargeCross(g);
   if (g.total % 10 === 0 && g.total < GOAL) { g.wave = g.total / 10 + 1; emit(g, { type: 'wave', n: g.wave }); }
   if (g.total >= 35 && !g.bloodMoon) { g.bloodMoon = true; emit(g, { type: 'bloodMoon' }); }
-  if (g.total >= GOAL && !g.door.open) { g.door.open = true; emit(g, { type: 'door' }); }
 }
 
 // Le sacan vida al cazador (cada vampiro según su fuerza; trampas y caídas, 10).
@@ -391,9 +396,9 @@ function spawn(g: Game) {
   const r = g.rand, roster = rosterOf(g.level), specials = roster.filter(k => SPECIALS.includes(k));
   const speedK = (g.bloodMoon ? 1.25 : 1) * LV.def.speed;
   // Los fuertes: de a uno o dos por vez, cada tanto (el más nuevo del nivel sale un poco más).
-  const strong = g.vamps.filter(v => SPECIALS.includes(v.kind)).length;
-  if (specials.length && strong < 2 && r() < 0.34) {
-    const pick = r() < 0.4 ? specials[specials.length - 1] : specials[Math.floor(r() * specials.length)];
+  const strong = g.vamps.filter(v => SPECIALS.includes(v.kind)).length, hunt = g.goal.type === 'hunt' ? g.goal.kind : null;
+  if (specials.length && strong < (hunt === 'warrior' ? 3 : 2) && r() < (hunt === 'warrior' ? 0.5 : 0.34)) {
+    const pick = hunt === 'warrior' && r() < 0.6 ? 'warrior' : r() < 0.4 ? specials[specials.length - 1] : specials[Math.floor(r() * specials.length)];
     const left = r() < 0.5 && g.player.x > 4, x = left ? -0.6 : W + 0.6;
     const speed = ({ giant: 1.7, mage: 2.0, hammer: 2.1, warrior: 2.5, wolf: 4.6 } as Record<string, number>)[pick] * speedK;
     g.vamps.push(makeVamp(g, pick, { x, y: GROUND_Y, onGround: true, surface: left ? groundL() : groundR(), face: left ? 1 : -1, speed, cool: 1 + r() }));
@@ -402,7 +407,7 @@ function spawn(g: Game) {
   }
   // parejo: sale el tipo del que hay menos (muertos + vivos); si están iguales, al azar
   const count = (k: VampKind) => g.kills[k] + g.vamps.filter(v => v.kind === k).length;
-  const flyerChance = count('flyer') < count('walker') ? 1 : count('flyer') > count('walker') ? 0 : 0.5;
+  const flyerChance = hunt === 'flyer' ? 0.7 : count('flyer') < count('walker') ? 1 : count('flyer') > count('walker') ? 0 : 0.5; // (en el jardín salen más voladores)
   if (r() < flyerChance) {
     const left = r() < 0.5;
     g.vamps.push(makeVamp(g, 'flyer', { x: left ? -1 : W + 1, y: H - 2 - r() * 3, face: left ? 1 : -1, state: 'hover', speed: (3.2 + r() * 1.2) * speedK, cool: 2 + r() * 2 }));
@@ -737,6 +742,78 @@ function updateShots(g: Game, dt: number) {
   }
 }
 
+// ---------------------------------------------------------------- La meta del nivel
+// Cuánto lleva de la meta (vampiros, estrellas, jaulas, segundos...).
+export function goalProgress(g: Game) {
+  switch (g.goal.type) {
+    case 'kill': return g.total;
+    case 'hunt': return g.kills[g.goal.kind];
+    case 'survive': return Math.floor(g.time);
+    case 'boss': return g.bossDeadT >= 0 ? 1 : 0;
+    default: return g.progress;
+  }
+}
+// Pone las jaulas o los ataúdes repartidos por el nivel, lejos de las trampas, de los huecos y de la puerta.
+function placeBreakables(g: Game, n: number, kind: Breakable['kind']) {
+  const spots: [number, number][] = [];
+  for (const s of SURFACES) { if (s.mv) continue; for (let x = s.x1 + 0.9; x <= s.x2 - 0.9; x += 1.6) spots.push([x, s.y]); }
+  const ok = (x: number, y: number) => x > START_X + 2 && x < DOOR.x1 - 1.2 && !TRAPS.some(t => Math.abs(t.y - y) < 2.5 && x > Math.min(t.x, t.x2) - 1.6 && x < Math.max(t.x, t.x2) + 1.6);
+  const free = spots.filter(([x, y]) => ok(x, y));
+  const pool = free.length >= n ? free : spots.filter(([x]) => x > START_X + 2 && x < DOOR.x1 - 1.2);
+  for (let i = 0; i < n && pool.length; i++) {
+    const k = Math.floor((i + 0.5) / n * pool.length + (g.rand() - 0.5) * 2), [x, y] = pool.splice(Math.max(0, Math.min(pool.length - 1, k)), 1)[0];
+    for (let j = pool.length - 1; j >= 0; j--) if (Math.abs(pool[j][0] - x) < 2.2 && pool[j][1] === y) pool.splice(j, 1); // no dos pegadas
+    g.objects.push({ id: g.nextId++, kind, x, y, hp: BREAK_HP[kind], maxHp: BREAK_HP[kind], flash: 0, t: 0 });
+  }
+}
+// Un golpe a una jaula o un ataúd; si se rompe, suma a la meta (la jaula libera al prisionero, del ataúd sale un vampiro).
+export function hitObject(g: Game, o: Breakable, dmg: number) {
+  if (!g.objects.includes(o)) return;
+  o.hp -= dmg; o.flash = 0.18;
+  for (let i = 0; i < 8; i++) { const a = g.rand() * Math.PI, sp = 2 + g.rand() * 5; g.sparks.push({ x: o.x, y: o.y + 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, t: 0, life: 0.35, hue: o.kind === 'cage' ? 40 : 25 }); }
+  if (o.hp > 0) { emit(g, { type: 'objHit' }); return; }
+  g.objects.splice(g.objects.indexOf(o), 1); g.progress++; g.shake = Math.max(g.shake, 0.4);
+  const of = g.goal.type === 'break' ? g.goal.n : 0;
+  if (o.kind === 'cage') pop(g, o.x, o.y + 2.4, '¡Libre!', false);
+  else { // del ataúd sale un vampiro antiguo
+    for (let i = 0; i < 6; i++) g.bones.push({ kind: (['skull', 'ribs', 'arm', 'leg', 'spine', 'jaw'] as BoneKind[])[i], x: o.x, y: o.y + 1, vx: (g.rand() - 0.5) * 10, vy: 6 + g.rand() * 6, a: 0, va: (g.rand() - 0.5) * 20, t: 0, rest: false });
+    const q = surfaceBelow(o.x, o.y + 0.1);
+    g.vamps.push(makeVamp(g, 'walker', { x: o.x, y: o.y + 0.2, vy: 9, face: g.player.x > o.x ? 1 : -1, speed: 2.6 * LV.def.speed, cool: 1.2, surface: q, onGround: false }));
+    emit(g, { type: 'emerge' });
+  }
+  g.fx.push({ kind: 'burst', x: o.x, y: o.y + 1, t: 0, life: 0.4, r: 1.3, face: 1, seed: g.rand() });
+  emit(g, { type: 'break', kind: o.kind, n: g.progress, of });
+}
+function updateGoal(g: Game, dt: number) {
+  const p = g.player, goal = g.goal;
+  for (const o of g.objects) { o.t += dt; o.flash = Math.max(0, o.flash - dt); }
+  // lo que cae del cielo para juntar
+  if (goal.type === 'collect' && !g.door.open) {
+    g.itemT -= dt;
+    if (g.itemT <= 0 && g.items.length < 3) {
+      const spots = SURFACES.filter(s => s.x2 - s.x1 > 1.6 && !s.mv), s = spots[Math.floor(g.rand() * spots.length)];
+      g.items.push({ id: g.nextId++, kind: goal.item, x: Math.min(DOOR.x1 - 1, Math.max(1, s.x1 + 0.6 + g.rand() * (s.x2 - s.x1 - 1.2))), y: H + 1, vy: goal.item === 'soul' ? -1.6 : -2.6, landed: false, t: 0 });
+      g.itemT = 2 + g.rand() * 1.4;
+    }
+  }
+  for (const it of [...g.items]) {
+    it.t += dt;
+    if (!it.landed) { const prev = it.y; it.y += it.vy * dt; const q = surfaceUnder(it.x, 0.3, prev, it.y, false); if (q) { it.y = q.y; it.landed = true; it.t = 0; } if (it.y < -2) { g.items.splice(g.items.indexOf(it), 1); continue; } }
+    if (Math.abs(p.x - it.x) < 0.8 && it.y + 0.5 > p.y - 0.3 && it.y < p.y + PLAYER_H + 0.3) {
+      g.items.splice(g.items.indexOf(it), 1); g.progress++;
+      for (let i = 0; i < 14; i++) { const a = g.rand() * Math.PI * 2, sp = 2 + g.rand() * 5; g.sparks.push({ x: it.x, y: it.y + 0.5, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 2, t: 0, life: 0.5, hue: it.kind === 'star' ? 50 : 200 }); }
+      emit(g, { type: 'collect', kind: it.kind, n: g.progress, of: goal.type === 'collect' ? goal.n : 0 });
+      continue;
+    }
+    if (it.landed && it.t > 14) g.items.splice(g.items.indexOf(it), 1);
+  }
+  // ¿Cumplió la meta? Se abre la puerta al siguiente nivel.
+  if (!g.door.open && goal.type !== 'boss' && goalProgress(g) >= goal.n) {
+    g.door.open = true; g.items = []; emit(g, { type: 'door' });
+    if (goal.type === 'survive') g.flash = Math.max(g.flash, 0.5);
+  }
+}
+
 // ---------------------------------------------------------------- Cajas del cielo
 function dropCrate(g: Game) {
   // solo caen cajas de las armas que ya aparecieron (el ajo siempre: espanta a los vampiros)
@@ -879,6 +956,7 @@ export function step(g: Game, input: Input, dt: number) {
       const [bx1, bx2, vy1, vy2] = vampBox(v);
       if (bx2 > x1 && bx1 < x2 && vy2 > ya && vy1 < yb) { p.hitIds.add(v.id); g.stats.hits++; hitVamp(g, v, WEAPON_DMG[p.attackWeapon], fire ? 'fire' : 'sword', p.x); }
     }
+    for (const o of [...g.objects]) if (!p.hitIds.has(o.id) && o.x + 0.6 > x1 && o.x - 0.6 < x2 && o.y + 2 > ya && o.y < yb) { p.hitIds.add(o.id); hitObject(g, o, WEAPON_DMG[p.attackWeapon]); }
     // también corta las bolas de fuego y los murciélagos (la de fuego, también el fuego del dragón)
     for (const s of [...g.shots]) if ((fire || s.kind !== 'flame') && s.x > x1 && s.x < x2 && s.y > ya && s.y < yb) { g.shots.splice(g.shots.indexOf(s), 1); for (let i = 0; i < 8; i++) { const a = g.rand() * Math.PI * 2; g.sparks.push({ x: s.x, y: s.y, vx: Math.cos(a) * 5, vy: Math.sin(a) * 5, t: 0, life: 0.35, hue: s.kind === 'orb' ? 10 : 0 }); } }
   }
@@ -893,6 +971,8 @@ export function step(g: Game, input: Input, dt: number) {
     s.t += dt;
     if (s.stuck) { if (s.t > 1.2) g.bolts.splice(g.bolts.indexOf(s), 1); continue; }
     s.vy -= 3 * dt; const prev = s.y; s.x += s.vx * dt; s.y += s.vy * dt;
+    const ob = g.objects.find(o => Math.abs(o.x - s.x) < 0.6 && s.y > o.y && s.y < o.y + 2);
+    if (ob) { hitObject(g, ob, WEAPON_DMG.crossbow); g.bolts.splice(g.bolts.indexOf(s), 1); continue; }
     const v = g.vamps.find(q => !s.hits.includes(q.id) && q.state !== 'mist' && (() => { const [a, b, c, d] = vampBox(q); return s.x > a - 0.15 && s.x < b + 0.15 && s.y > c - 0.1 && s.y < d + 0.1; })());
     if (v) {
       if (shield(v, s.vx, s.y)) { g.bolts.splice(g.bolts.indexOf(s), 1); continue; }
@@ -904,6 +984,8 @@ export function step(g: Game, input: Input, dt: number) {
   // Las balas de fuego de la pistola: le pegan al primero que tocan, hasta 10 metros
   for (const b of [...g.bullets]) {
     b.t += dt; b.x += b.vx * dt; b.y += b.vy * dt;
+    const ob = g.objects.find(o => Math.abs(o.x - b.x) < 0.6 && b.y > o.y && b.y < o.y + 2);
+    if (ob) { hitObject(g, ob, WEAPON_DMG.pistol); g.bullets.splice(g.bullets.indexOf(b), 1); g.fx.push({ kind: 'burst', x: b.x, y: b.y, t: 0, life: 0.35, r: 1, face: 1, seed: g.rand() }); continue; }
     const v = hitBy(b.x, b.y, 0.2);
     const done = Math.hypot(b.x - b.x0, b.y - b.y0) > PISTOL_RANGE || b.x < -1 || b.x > W + 1 || b.y > H + 1 || (b.vy < 0 && !!surfaceUnder(b.x, 0.05, b.y - b.vy * dt, b.y, false));
     if (v || done) {
@@ -929,6 +1011,7 @@ export function step(g: Game, input: Input, dt: number) {
         const [a, c, d, e] = vampBox(v), nx = Math.max(a, Math.min(c, b.x)), ny = Math.max(d, Math.min(e, cy));
         if (v.state !== 'mist' && Math.hypot(nx - b.x, ny - cy) <= GARLIC_R) { count++; hitVamp(g, v, WEAPON_DMG.garlic, 'bomb', b.x); }
       }
+      for (const o of [...g.objects]) if (Math.hypot(o.x - b.x, Math.max(o.y, Math.min(o.y + 2, cy)) - cy) <= GARLIC_R) hitObject(g, o, WEAPON_DMG.garlic);
       g.fx.push({ kind: 'blast', x: b.x, y: cy, t: 0, life: 0.6, r: GARLIC_R, face: 1, seed: g.rand() });
       g.garlicT = Math.max(g.garlicT, 2); g.shake = Math.max(g.shake, 0.6); g.flash = Math.max(g.flash, 0.2);
       for (let i = 0; i < 30; i++) { const a = g.rand() * Math.PI * 2, sp = 3 + g.rand() * 9; g.sparks.push({ x: b.x, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 2, t: 0, life: 0.4 + g.rand() * 0.4, hue: g.rand() < 0.5 ? 90 : 45 }); }
@@ -975,6 +1058,8 @@ export function step(g: Game, input: Input, dt: number) {
   }
   // El dragón cayó: se gana el juego
   if (g.bossDeadT >= 0) { g.bossDeadT += dt; if (g.bossDeadT > 3) { g.phase = 'cleared'; g.phaseT = 0; emit(g, { type: 'cleared' }); return; } }
+
+  updateGoal(g, dt);
 
   // Aparecen vampiros y caen cajas
   g.spawnT -= dt;

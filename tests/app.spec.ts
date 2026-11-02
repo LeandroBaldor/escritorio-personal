@@ -1197,9 +1197,9 @@ test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de
   // El cartel del nivel con el objetivo (en el nivel 2 aparece la ballesta)
   await expect(page.getByRole('heading', { name: 'Las cloacas' })).toBeVisible();
   await expect(page.getByText('Arma nueva')).toBeVisible();
-  await expect(page.getByText('tendrás que matar a', { exact: false })).toBeVisible();
+  await expect(page.getByText('Juntá 20 estrellas doradas', { exact: false })).toBeVisible(); // la meta del nivel 2
   await page.getByRole('button', { name: /A cazar/ }).click();
-  await expect(page.getByTestId('vamp-total')).toContainText('/50');
+  await expect(page.getByTestId('vamp-total')).toContainText('/20');
   await expect(page.getByTestId('vamp-time')).not.toHaveText('0:00', { timeout: 5000 });
   // la barra de vida de arriba: 100 puntos
   await expect(page.getByTestId('vamp-hp')).toHaveText(/^\d+\/100$/);

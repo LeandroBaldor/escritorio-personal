@@ -3,7 +3,7 @@
 // Football); acá el escenario, las trampas, las cajas, los huesos, la sangre y las chispas.
 import { bodyFire, drawHunterK, drawSkeletonK } from './vampyriumChars';
 import { drawShotK, drawVampK } from './vampyriumMonsters';
-import { BODY, DOOR, GAPS, GROUND_Y, H, LV, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Bomb, type Bullet, type Fx, type Vamp, type VampKind } from './vampyrium';
+import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Bomb, type Bullet, type Fx, type Vamp, type VampKind } from './vampyrium';
 import { drawBolt, drawGarlicBomb, drawWeaponIcon } from './vampyriumWeapons';
 
 const TAU = Math.PI * 2;
@@ -249,7 +249,10 @@ function drawDoor(ctx: CanvasRenderingContext2D, g: Game, v: View, t: number) {
   const sy = top - r - v.s * 0.55;
   ctx.font = `900 ${Math.max(10, v.s * 0.42)}px Nunito, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   if (open > 0) { ctx.fillStyle = `rgba(255,230,150,${0.7 + 0.3 * Math.sin(t * 6)})`; ctx.fillText('SALIDA ▶', mid - v.s * 0.3, sy); }
-  else if (LV.def.n < 10) { ctx.fillStyle = '#c9c2b5'; ctx.fillText(`🔒 ${Math.max(0, 50 - g.total)}`, mid - v.s * 0.2, sy); } // (en el salón del trono no hay cuenta: es Drácula)
+  else if (g.goal.type !== 'boss') { // cuánto falta para la meta del nivel
+    const left = Math.max(0, g.goal.n - goalProgress(g)), icon = ({ kill: '🧛', collect: g.goal.type === 'collect' && g.goal.item === 'soul' ? '👻' : '⭐', break: g.goal.type === 'break' && g.goal.obj === 'cage' ? '⛓' : '⚰', survive: '⏳', hunt: g.goal.type === 'hunt' && g.goal.kind === 'flyer' ? '🦇' : '🛡', boss: '' } as Record<string, string>)[g.goal.type];
+    ctx.fillStyle = '#c9c2b5'; ctx.fillText(`🔒 ${left}${g.goal.type === 'survive' ? 's' : ''} ${icon}`, mid - v.s * 0.2, sy);
+  }
 }
 function flame(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, t: number, seed: number) {
   const f = 0.85 + 0.15 * Math.sin(t * 13 + seed) + 0.1 * Math.sin(t * 29 + seed * 2);
@@ -482,6 +485,62 @@ function drawCrate(ctx: CanvasRenderingContext2D, c: Crate, v: View, t: number) 
   ctx.restore();
   ctx.restore();
 }
+// Lo que cae del cielo para juntar: la estrella dorada (gira y brilla) o el alma (llama azul con carita que flota).
+function drawItem(ctx: CanvasRenderingContext2D, it: Item, v: View, t: number) {
+  const s = v.s, x = X(v, it.x), y = Y(v, it.y + 0.55 + (it.landed ? Math.sin(t * 3 + it.id) * 0.1 : 0));
+  const fade = it.landed && it.t > 11 ? (Math.floor(it.t * 8) % 2 ? 0.4 : 1) : 1; // titila antes de desaparecer
+  ctx.save(); ctx.globalAlpha = fade; ctx.translate(x, y);
+  if (it.kind === 'star') {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, 0, 0, s * 1.1, `rgba(255,214,90,${0.55 + 0.2 * Math.sin(t * 5 + it.id)})`); ctx.restore();
+    ctx.scale(Math.cos(t * 2.5 + it.id), 1); // gira
+    const R = s * 0.42, r = s * 0.18;
+    ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r : R; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } ctx.closePath();
+    ctx.fillStyle = lin(ctx, 0, -R, 0, R, [[0, '#fff6c0'], [0.45, '#f5c02a'], [1, '#a8660a']]); ctx.fill(); ctx.strokeStyle = '#5a3404'; ctx.lineWidth = Math.max(1.5, s * 0.05); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.ellipse(-R * 0.15, -R * 0.35, R * 0.18, R * 0.1, -0.5, 0, TAU); ctx.fill();
+  } else {
+    const bob = Math.sin(t * 4 + it.id) * s * 0.06;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, 0, bob, s * 1.2, 'rgba(120,200,255,0.55)'); ctx.restore();
+    ctx.beginPath(); ctx.moveTo(0, -s * 0.6 + bob); ctx.quadraticCurveTo(s * 0.35 + Math.sin(t * 6) * s * 0.05, -s * 0.1 + bob, s * 0.28, s * 0.2 + bob); ctx.quadraticCurveTo(0, s * 0.45 + bob, -s * 0.28, s * 0.2 + bob); ctx.quadraticCurveTo(-s * 0.35, -s * 0.1 + bob, 0, -s * 0.6 + bob); ctx.closePath();
+    ctx.fillStyle = lin(ctx, 0, -s * 0.6, 0, s * 0.4, [[0, 'rgba(200,240,255,0.95)'], [1, 'rgba(80,150,255,0.85)']]); ctx.fill();
+    ctx.fillStyle = '#16324a'; for (const ex of [-0.1, 0.1]) { ctx.beginPath(); ctx.ellipse(ex * s, bob, s * 0.045, s * 0.07, 0, 0, TAU); ctx.fill(); }
+    ctx.beginPath(); ctx.ellipse(0, s * 0.13 + bob, s * 0.04, s * 0.05, 0, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
+// Las jaulas con prisioneros (nivel 3) y los ataúdes de huesos de los vampiros antiguos (nivel 6). Con cada golpe se rajan.
+function drawBreakable(ctx: CanvasRenderingContext2D, o: Breakable, v: View, t: number) {
+  const s = v.s, x = X(v, o.x) + (o.flash > 0 ? Math.sin(t * 90) * s * 0.06 : 0), y = Y(v, o.y), dmg = 1 - o.hp / o.maxHp;
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.6, s * 0.1, 0, 0, TAU); ctx.fill();
+  if (o.kind === 'cage') {
+    const w = s * 0.62, h = s * 1.9;
+    ctx.strokeStyle = '#2a2830'; ctx.lineWidth = Math.max(1.5, s * 0.05); for (let cy = -h - s * 0.2; cy > -h - s * 4; cy -= s * 0.3) { ctx.beginPath(); ctx.ellipse(0, cy, s * 0.06, s * 0.13, 0, 0, TAU); ctx.stroke(); } // cadena
+    // el prisionero adentro: silueta agarrada de los barrotes, que mira para afuera
+    ctx.fillStyle = '#3a2a24'; ctx.beginPath(); ctx.arc(0, -h * 0.72, s * 0.2, 0, TAU); ctx.fill(); ctx.fillRect(-s * 0.2, -h * 0.62, s * 0.4, h * 0.55);
+    ctx.fillStyle = '#d9b48c'; ctx.beginPath(); ctx.arc(s * 0.03, -h * 0.72, s * 0.15, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#1a0e08'; for (const ex of [-0.03, 0.08]) { ctx.beginPath(); ctx.arc(ex * s, -h * 0.74, s * 0.025, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = '#d9b48c'; for (const hx of [-w * 0.55, w * 0.55]) { ctx.beginPath(); ctx.arc(hx, -h * 0.55, s * 0.06, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = 'rgba(10,6,6,0.35)'; ctx.fillRect(-w, -h, w * 2, h);
+    ctx.strokeStyle = '#4a3a30'; ctx.lineWidth = Math.max(2, s * 0.08);
+    for (let k = 0; k <= 5; k++) { const bx = -w + k * w * 0.4, bend = dmg > 0.4 && k === 2 ? s * 0.18 * dmg : 0; ctx.beginPath(); ctx.moveTo(bx, -h); ctx.quadraticCurveTo(bx + bend, -h / 2, bx, 0); ctx.stroke(); }
+    ctx.beginPath(); ctx.ellipse(0, -h, w, s * 0.25, 0, Math.PI, TAU); ctx.stroke(); ctx.strokeRect(-w, -s * 0.06, w * 2, s * 0.06);
+    ctx.strokeStyle = 'rgba(200,180,150,0.35)'; ctx.lineWidth = Math.max(1, s * 0.025); for (let k = 0; k <= 5; k++) { const bx = -w + k * w * 0.4 - s * 0.02; ctx.beginPath(); ctx.moveTo(bx, -h + s * 0.1); ctx.lineTo(bx, -s * 0.2); ctx.stroke(); }
+    ctx.fillStyle = '#8a7a50'; ctx.fillRect(w * 0.6, -h * 0.5, s * 0.18, s * 0.22); // el candado
+  } else {
+    const w = s * 0.55, h = s * 2.0;
+    const path = () => { ctx.beginPath(); ctx.moveTo(-w * 0.55, 0); ctx.lineTo(-w, -h * 0.68); ctx.lineTo(-w * 0.6, -h); ctx.lineTo(w * 0.6, -h); ctx.lineTo(w, -h * 0.68); ctx.lineTo(w * 0.55, 0); ctx.closePath(); };
+    path(); ctx.fillStyle = lin(ctx, -w, 0, w, 0, [[0, '#2a1a10'], [0.45, '#5a3a24'], [1, '#22140c']]); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = Math.max(2, s * 0.06); ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = Math.max(1, s * 0.02); for (let k = 1; k < 5; k++) { ctx.beginPath(); ctx.moveTo(-w * 0.8 + k * w * 0.32, -h * 0.95); ctx.lineTo(-w * 0.6 + k * w * 0.24, -s * 0.05); ctx.stroke(); } // vetas
+    ctx.fillStyle = '#e8dcc2'; ctx.fillRect(-s * 0.06, -h * 0.85, s * 0.12, h * 0.55); ctx.fillRect(-s * 0.25, -h * 0.72, s * 0.5, s * 0.11); // cruz de hueso
+    ctx.beginPath(); ctx.arc(0, -h * 0.25, s * 0.16, 0, TAU); ctx.fill(); ctx.fillStyle = '#1a0e08'; for (const ex of [-0.06, 0.06]) { ctx.beginPath(); ctx.arc(ex * s, -h * 0.26, s * 0.04, 0, TAU); ctx.fill(); } // calavera
+    if (o.t % 5 < 0.6) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, 0, -h * 0.5, s * 0.9, 'rgba(255,40,40,0.35)'); ctx.restore(); } // algo se mueve adentro
+  }
+  if (dmg > 0) { ctx.strokeStyle = 'rgba(0,0,0,0.75)'; ctx.lineWidth = Math.max(1.5, s * 0.03); ctx.beginPath(); ctx.moveTo(-s * 0.3, -s * 1.6); ctx.lineTo(-s * 0.05, -s * 1.2); ctx.lineTo(-s * 0.2, -s * 0.9); if (dmg > 0.5) { ctx.moveTo(s * 0.25, -s * 0.6); ctx.lineTo(s * 0.05, -s * 0.9); ctx.lineTo(s * 0.2, -s * 1.3); } ctx.stroke(); } // rajaduras
+  if (o.flash > 0) { ctx.globalCompositeOperation = 'lighter'; glow(ctx, 0, -s, s * 1.2, `rgba(255,255,255,${o.flash * 2})`); }
+  ctx.restore();
+  // la barrita de lo que le falta
+  if (o.hp < o.maxHp) { const bw = s * 1.0, bh = Math.max(4, s * 0.12), bx = X(v, o.x) - bw / 2, by = Y(v, o.y + 2.4); ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4); ctx.fillStyle = '#e8c77a'; ctx.fillRect(bx, by, bw * o.hp / o.maxHp, bh); }
+}
 // La flecha de la ballesta (y clavada en el piso, que se desvanece).
 function drawBoltW(ctx: CanvasRenderingContext2D, s: Bolt, v: View) {
   ctx.save(); ctx.globalAlpha = s.stuck ? Math.max(0, 1 - s.t / 1.2) : 1; ctx.translate(X(v, s.x), Y(v, s.y)); ctx.rotate(s.stuck ? 0.5 * Math.sign(s.vx) : Math.atan2(-s.vy, s.vx)); if (s.vx < 0 && s.stuck) ctx.scale(-1, 1); ctx.scale(v.s, v.s);
@@ -567,6 +626,8 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   drawDoor(ctx, g, v, t);
   drawTraps(ctx, g, v, t);
   for (const c of g.crates) drawCrate(ctx, c, v, t);
+  for (const o of g.objects) drawBreakable(ctx, o, v, t);
+  for (const it of g.items) drawItem(ctx, it, v, t);
   drawBlood(ctx, g, v);
   for (const b of g.bones) drawBone(ctx, b, v);
   for (const c of g.corpses) drawCorpse(ctx, c, v, t, g);

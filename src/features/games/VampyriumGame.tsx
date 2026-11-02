@@ -6,7 +6,7 @@ import { TouchGrips } from './TouchGrips';
 import { GamePad } from './GamePad';
 import { pixelRatio, useFitScreen } from './fitScreen';
 import { EndBanner } from './EndBanner';
-import { BODY, DAMAGE, GOAL, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, WEAPON_NAME, chooseWeapon, closeMenu, formatVampTime, menuMove, newGame, pressAttack, step, takeEvents, type Game, type Input, type Weapon } from './vampyrium';
+import { BODY, CHAPTERS, goalProgress, DAMAGE, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, WEAPON_NAME, chooseWeapon, closeMenu, formatVampTime, menuMove, newGame, pressAttack, step, takeEvents, type Game, type Input, type Weapon } from './vampyrium';
 import { drawGame, drawPortrait, drawSwordIcon, setBackdrop } from './vampyriumArt';
 import { drawWeaponIcon } from './vampyriumWeapons';
 import { setNoGrain } from './gravityMonsters';
@@ -25,9 +25,9 @@ export const readVampyriumRecord = (): VampRecord => { try { const r = JSON.pars
 const saveRecord = (r: VampRecord) => { try { localStorage.setItem(RECORD_KEY, JSON.stringify(r)); } catch { /* sin almacenamiento: dura esta partida */ } };
 
 type Status = 'ready' | 'intro' | 'playing' | 'paused' | 'over' | 'won';
-interface Hud { time: number; walker: number; flyer: number; total: number; hp: number; kills: string; boss: string; ammo: string; weapon: Weapon; power: number; menu: boolean; sel: number; combo: number; garlic: boolean; door: boolean; hold: number }
+interface Hud { time: number; walker: number; flyer: number; total: number; hp: number; kills: string; boss: string; goal: number; ammo: string; weapon: Weapon; power: number; menu: boolean; sel: number; combo: number; garlic: boolean; door: boolean; hold: number }
 const bossOf = (g: Game) => { const b = g.vamps.find(v => isBoss(v.kind)); return b ? `${b.kind}:${Math.max(0, b.hp ?? 0)}` : g.transformT > 0 ? 'transform:0' : ''; };
-const hudOf = (g: Game): Hud => ({ time: Math.floor(g.time), walker: g.kills.walker, flyer: g.kills.flyer, total: g.total, hp: g.player.hp, kills: rosterOf(g.level).map(k => g.kills[k]).join(','), boss: bossOf(g), ammo: WEAPONS.map(w => g.ammo[w] === Infinity ? -1 : g.ammo[w]).join(','), weapon: g.weapon, power: g.power, menu: g.phase === 'menu', sel: g.menu.sel, combo: g.combo.t > 0 ? g.combo.n : 0, garlic: g.garlicT > 0, door: g.door.open, hold: g.phase === 'play' && g.holdT > 0.35 ? Math.round(g.holdT / HOLD_MENU * 20) / 20 : 0 });
+const hudOf = (g: Game): Hud => ({ time: Math.floor(g.time), walker: g.kills.walker, flyer: g.kills.flyer, total: g.total, hp: g.player.hp, goal: goalProgress(g), kills: rosterOf(g.level).map(k => g.kills[k]).join(','), boss: bossOf(g), ammo: WEAPONS.map(w => g.ammo[w] === Infinity ? -1 : g.ammo[w]).join(','), weapon: g.weapon, power: g.power, menu: g.phase === 'menu', sel: g.menu.sel, combo: g.combo.t > 0 ? g.combo.n : 0, garlic: g.garlicT > 0, door: g.door.open, hold: g.phase === 'play' && g.holdT > 0.35 ? Math.round(g.holdT / HOLD_MENU * 20) / 20 : 0 });
 const sameHud = (a: Hud, b: Hud) => (Object.keys(a) as (keyof Hud)[]).every(k => a[k] === b[k]);
 const ICON: Record<Weapon, string> = { sword: '🗡️', crossbow: '🏹', garlic: '🧄', cross: '✝️', firesword: '🔥', pistol: '🔫' };
 const KIND_ICON: Record<VampKind, string> = { walker: '🧛', flyer: '🦇', giant: '👹', mage: '🔮', hammer: '🔨', warrior: '🛡️', wolf: '🐺', dracula: '🧛‍♂️', dragon: '🐉' };
@@ -151,7 +151,10 @@ export function Vampyrium() {
           case 'step': playVampStep(); break;
           case 'crate': playVampCrate(); setToast({ text: '📦 ¡Cayó una caja del cielo!', id: now }); break;
           case 'pickup': playKfPickup(); setToast({ text: e.kind === 'bolts' ? `🏹 +${e.amount} flechas` : e.kind === 'heart' ? `+${e.amount} de vida ♥` : e.kind === 'fire' ? `🔥 +${e.amount} tajos de la espada de fuego` : e.kind === 'bullets' ? `🔫 +${e.amount} balas de fuego` : e.amount ? `🧄 +${e.amount} bombas de ajo, y los vampiros te tienen miedo 8 segundos` : '🧄 ¡Ajo! Los vampiros te tienen miedo por 8 segundos', id: now, big: e.kind === 'fire' || e.kind === 'bullets' }); break;
-          case 'door': playDoor(true); playVampBell(0.3); setToast({ text: `¡${GOAL} vampiros! Se abrió la puerta de la derecha ▶`, id: now, big: true }); break;
+          case 'door': playDoor(true); playVampBell(0.3); setToast({ text: '✨ ¡Meta cumplida! Se abrió la puerta de la derecha ▶', id: now, big: true }); break;
+          case 'collect': playKfPickup(); setToast({ text: `${e.kind === 'star' ? '⭐ Estrella dorada' : '👻 Alma liberada'} ${e.n}/${e.of}`, id: now }); break;
+          case 'break': playVampExplosion(); setToast({ text: e.kind === 'cage' ? `⛓ ¡Prisionero libre! ${e.n}/${e.of}` : `⚰ Ataúd destruido ${e.n}/${e.of} ¡salió un vampiro!`, id: now, big: e.n === e.of }); break;
+          case 'objHit': playVampStakeHit(); break;
           case 'spikes': playVampSpikes(); break;
           case 'fire': playVampBurn(); break;
           case 'swing': playVampSwing(); break;
@@ -232,6 +235,8 @@ export function Vampyrium() {
   const [bossKindRaw, bossHpRaw] = hud.boss.split(':'), bossKind = (bossKindRaw || null) as VampKind | 'transform' | null, bossHp = Number(bossHpRaw) || 0;
   const roster = rosterOf(level), newWeapon = WEAPONS.find(w => w !== 'sword' && WEAPON_LEVEL[w] === level), newcomer = newcomerOf(level), finalLevel = level >= LEVEL_COUNT;
   const killsOf = hud.kills.split(',').map(Number);
+  const chapter = CHAPTERS[level], goal = chapter.goal;
+  const goalLabel = goal.type === 'kill' ? 'Vampiros' : goal.type === 'collect' ? (goal.item === 'star' ? '⭐ Estrellas' : '👻 Almas') : goal.type === 'break' ? (goal.obj === 'cage' ? '⛓ Jaulas' : '⚰ Ataúdes') : goal.type === 'survive' ? '⏳ Resistí' : goal.type === 'hunt' ? (goal.kind === 'warrior' ? '🛡️ Guerreros' : '🦇 Voladores') : 'Drácula';
   const recordText = record.time ? `🏆 ${formatVampTime(record.time)}` : `${record.kills} 🧛`;
 
   return <section className="runner trepa vamp" style={fit} aria-label="Vampyrium">
@@ -288,14 +293,11 @@ export function Vampyrium() {
         {status === 'intro' && <div className="runner-overlay vamp-overlay" role="dialog" aria-labelledby="vamp-intro">
           <div className="ds-frame vamp-intro">
             <div className="ds-plate"><span className="vamp-paused">Nivel {level} de {LEVEL_COUNT}</span><h2 id="vamp-intro">{def.name}</h2></div>
-            <p className="ds-story">{def.tagline}</p>
-            {finalLevel ? <>
-              <p className="ds-goal">Drácula te espera en su trono. Pegale <b>50 golpes</b> y se va a convertir en dragón: <b>50 golpes más</b> y se termina su reinado.</p>
-              <p className="ds-story">Te saca 10 de vida con las garras y 15 con el fuego de dragón. Esquivá sus murciélagos.</p>
-            </> : <>
-              <p className="ds-goal">{level === 1 ? 'Para poder entrar al castillo de Drácula' : 'Para abrir la puerta y seguir avanzando'} tendrás que matar a <b>{GOAL} vampiros</b>.</p>
-              <p className="ds-story">Cuando caiga el último, la reja de la puerta de la derecha se va a abrir. Cuidado con las trampas.</p>
-            </>}
+            <p className="vamp-chapter">Capítulo {level} · {chapter.stage}</p>
+            <p className="ds-story">{chapter.story}</p>
+            <p className="ds-goal">{chapter.goalText}</p>
+            <p className="ds-story">{finalLevel ? 'Te saca 10 de vida con las garras y 15 con el fuego de dragón. Esquivá sus murciélagos.' : `Cuando cumplas la meta, la reja de la puerta de la derecha se va a abrir. ${def.tagline}`}</p>
+            {(newcomer || newWeapon) && <div className="vamp-intro-cards">
             {newcomer && <div className="vamp-newcomer">
               <ArtCanvas w={120} h={130} draw={(ctx, t) => drawPortrait(ctx, newcomer, gameRef.current, 58, 122, 112 / (BODY[newcomer].k * 2.3), t)} />
               <div><small>{finalLevel ? 'El jefe final' : 'Enemigo nuevo'}</small><b>{VAMP_NAME[newcomer]}</b>
@@ -306,6 +308,7 @@ export function Vampyrium() {
               <div><small>Arma nueva</small><b>{WEAPON_NAME[newWeapon]}</b>
                 <p>{INFO[newWeapon].stats[0][1]} · {INFO[newWeapon].stats[1][1]}. Elegila con la tecla <strong>{WEAPONS.indexOf(newWeapon) + 1}</strong> o manteniendo Espacio.</p></div>
             </div>}
+            </div>}
             <button type="button" onClick={() => { playVampBell(0.25); setStatus('playing'); }} autoFocus>⚔️ ¡A cazar!</button>
           </div>
         </div>}
@@ -315,7 +318,9 @@ export function Vampyrium() {
             <div>
               <h2 id="vamp-message" className="vamp-title">VAMPYRIUM</h2>
               <h3>La historia de Demian</h3>
-              <p>Tras perder a su familia por culpa de Drácula, Demian se volvió un cazador de vampiros. Su venganza comienza en la entrada del castillo de Drácula, donde deberá matar a {GOAL} vampiros para poder abrir las puertas del castillo.</p>
+              <p className="vamp-chapter">Capítulo {level} · {chapter.stage} — {def.name}</p>
+              <p>{chapter.story}</p>
+              <p className="vamp-goalline">🎯 {chapter.goalText}</p>
               <h4>Tips</h4>
               <ul>
                 <li>Apretando la barra espaciadora por tres segundos podés seleccionar el arma.</li>
@@ -379,9 +384,9 @@ export function Vampyrium() {
           <span>Drácula</span><strong data-testid="vamp-total">{bossKind === 'dragon' ? '🐉' : '🧛‍♂️'}</strong>
           <p className="vamp-count">Drácula: <b>{bossKind === 'dracula' ? `${bossHp}/50` : '0/50'}</b></p>
           <p className="vamp-count">Dragón: <b>{bossKind === 'dragon' ? `${bossHp}/50` : bossKind === 'dracula' || bossKind === 'transform' ? '50/50' : '0/50'}</b></p>
-        </div> : <div className="trepa-stat vamp-kills" aria-label={`Vampiros: ${hud.total} de ${GOAL}`}>
-          <span>Vampiros</span><strong data-testid="vamp-total">{hud.total}<small>/{GOAL}</small></strong>
-          <i className="vamp-bar"><b style={{ width: `${Math.min(100, hud.total / GOAL * 100)}%` }} /></i>
+        </div> : <div className="trepa-stat vamp-kills" aria-label={`${goalLabel}: ${hud.goal} de ${goal.n}`}>
+          <span>{goalLabel}</span><strong data-testid="vamp-total">{goal.type === 'survive' ? `${Math.max(0, goal.n - hud.goal)}s` : hud.goal}<small>{goal.type === 'survive' ? ' faltan' : `/${goal.n}`}</small></strong>
+          <i className="vamp-bar"><b style={{ width: `${Math.min(100, hud.goal / goal.n * 100)}%` }} /></i>
           {roster.map((k, i) => <p key={k} className="vamp-count" title={`Aguanta ${STRENGTH[k]} ${STRENGTH[k] === 1 ? 'golpe' : 'golpes'} y saca ${DAMAGE[k]} de vida`}>{KIND_ICON[k]} {k === 'walker' ? 'Vampiros' : k === 'flyer' ? 'Voladores' : VAMP_NAME[k]}: <b data-testid={k === 'walker' ? 'vamp-walkers' : k === 'flyer' ? 'vamp-flyers' : undefined}>{killsOf[i] ?? 0}</b></p>)}
         </div>}
         <div className="trepa-stat vamp-hpstat" aria-label={`Vida: ${hud.hp}`}><span>Vida</span><strong>{hud.hp}<small>/{MAX_HP}</small></strong><i className="vamp-bar vamp-bar--hp"><b style={{ width: `${hud.hp / MAX_HP * 100}%` }} /></i></div>

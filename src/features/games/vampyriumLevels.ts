@@ -87,3 +87,48 @@ export const LEVELS: LevelDef[] = [
     { pit: 'blood', stone: [52, 40, 44], cap: '#8a5050' }),
 ];
 export const LEVEL_COUNT = LEVELS.length;
+
+// ---------------------------------------------------------------- La meta de cada nivel y el viaje del héroe
+// No siempre hay que matar 50 vampiros: cada parte del castillo pide otra cosa para abrir la puerta al siguiente.
+//  kill: matar n vampiros · collect: juntar n cosas que caen del cielo · break: romper n jaulas o ataúdes
+//  survive: aguantar vivo n segundos · hunt: matar n de un tipo de vampiro · boss: vencer a Drácula
+export type Goal =
+  | { type: 'kill'; n: number }
+  | { type: 'collect'; n: number; item: 'star' | 'soul' }
+  | { type: 'break'; n: number; obj: 'cage' | 'coffin' }
+  | { type: 'survive'; n: number }
+  | { type: 'hunt'; n: number; kind: 'warrior' | 'flyer' }
+  | { type: 'boss'; n: number };
+export interface Chapter { stage: string; story: string; goal: Goal; goalText: string }
+export const CHAPTERS: Record<number, Chapter> = {
+  1: { stage: 'La llamada a la aventura', goal: { type: 'kill', n: 50 },
+    story: 'Tras perder a su familia por culpa de Drácula, Demian se volvió un cazador de vampiros. Una noche de luna llena, el aullido del castillo lo llama: es hora de cobrar venganza. Pero el puente de las ánimas está tomado por los siervos del conde.',
+    goalText: 'Matá a 50 vampiros para que la reja del castillo se abra.' },
+  2: { stage: 'El cruce del umbral', goal: { type: 'collect', n: 20, item: 'star' },
+    story: 'Demian baja a las cloacas, donde ningún cazador volvió a salir. Por las rejillas del techo caen estrellas doradas: son las cuentas del rosario de su madre, que Drácula arrancó y tiró al río de ácido. Con ellas podrá abrir la compuerta.',
+    goalText: 'Juntá 20 estrellas doradas que caen del cielo para abrir la compuerta.' },
+  3: { stage: 'Los aliados', goal: { type: 'break', n: 6, obj: 'cage' },
+    story: 'En la fragua hay prisioneros encerrados en jaulas, esperando ser el próximo banquete del conde. Demian no puede seguir solo: si los libera, ellos le van a mostrar el pasaje secreto hacia la catedral.',
+    goalText: 'Rompé 6 jaulas y liberá a los prisioneros: ellos abren el pasaje.' },
+  4: { stage: 'Las pruebas', goal: { type: 'survive', n: 100 },
+    story: 'Los prisioneros le contaron que la catedral está maldita: la puerta solo se abre cuando suenan las campanas del alba. Hasta entonces, los vampiros no van a dejar de llegar. Demian tiene que aguantar.',
+    goalText: 'Resistí 100 segundos hasta que suenen las campanas y la puerta se abra.' },
+  5: { stage: 'El guardián del umbral', goal: { type: 'hunt', n: 8, kind: 'warrior' },
+    story: 'La cámara de los pinches está custodiada por la guardia personal de Drácula: los vampiros guerreros, con espada y escudo. Cada uno lleva un pedazo de la llave de la cámara.',
+    goalText: 'Derrotá a 8 vampiros guerreros para armar la llave.' },
+  6: { stage: 'El descenso al abismo', goal: { type: 'break', n: 6, obj: 'coffin' },
+    story: 'En el osario duermen los primeros vampiros que creó Drácula, en ataúdes de huesos. Si despiertan, nadie podrá detenerlos. Demian tiene que destruir los ataúdes antes de que caiga la noche más oscura.',
+    goalText: 'Destruí 6 ataúdes de los vampiros antiguos (cuidado: salen de adentro).' },
+  7: { stage: 'La recompensa', goal: { type: 'collect', n: 15, item: 'soul' },
+    story: 'Detrás de las puertas del infierno, las almas de los inocentes que Drácula atrapó flotan entre el fuego, entre ellas la de su familia. Cada alma que Demian libera le da fuerza para seguir.',
+    goalText: 'Liberá 15 almas atrapadas: tocalas cuando caen.' },
+  8: { stage: 'La tentación', goal: { type: 'hunt', n: 20, kind: 'flyer' },
+    story: 'En el jardín de la luna roja, Drácula le habla a Demian al oído: le promete devolverle a su familia si se une a él. Sus heraldos, los vampiros voladores, rodean el jardín. Demian rechaza la oferta.',
+    goalText: 'Derribá a 20 vampiros voladores, los heraldos del conde.' },
+  9: { stage: 'La noche más oscura', goal: { type: 'survive', n: 120 },
+    story: 'En el cementerio, Demian encuentra las tumbas de su familia. Los muertos se levantan y la niebla lo envuelve: es su hora más difícil. Si resiste hasta la medianoche, se abrirá el camino al salón del trono.',
+    goalText: 'Sobreviví 120 segundos hasta la medianoche.' },
+  10: { stage: 'La prueba suprema', goal: { type: 'boss', n: 1 },
+    story: 'Al fin, el salón del trono. Drácula espera sentado, sonriendo. Es el último combate: si Demian lo vence, volverá a casa con la paz que le robaron. Si cae, la noche será eterna.',
+    goalText: 'Vencé a Drácula: 50 golpes, y después 50 más a su forma de dragón.' },
+};
