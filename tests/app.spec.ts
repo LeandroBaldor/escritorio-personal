@@ -1200,7 +1200,8 @@ test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de
   await page.getByRole('button', { name: /A cazar/ }).click();
   await expect(page.getByTestId('vamp-total')).toContainText('/50');
   await expect(page.getByTestId('vamp-time')).not.toHaveText('0:00', { timeout: 5000 });
-  await expect(page.getByLabel('Vida: 5')).toBeVisible();
+  // la barra de vida de arriba: 100 puntos
+  await expect(page.getByTestId('vamp-hp')).toHaveText(/^\d+\/100$/);
   await expect(page.getByTestId('vamp-ammo')).toHaveText('8');
   // Manteniendo espacio 3 segundos: el cartel con las armas (el juego en pausa); se eligen las estacas y se tira una.
   await page.keyboard.down(' '); await page.waitForTimeout(3400); await page.keyboard.up(' ');

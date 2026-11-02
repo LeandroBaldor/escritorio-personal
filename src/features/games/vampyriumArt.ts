@@ -1,8 +1,9 @@
 // El dibujo de Vampyrium. El mundo va en unidades (vampyrium.ts) y acá se pasa a píxeles: `s` píxeles por unidad,
 // el borde de abajo de la pantalla es y = 0. Los personajes están en vampyriumChars.ts (al estilo de Kombat
 // Football); acá el escenario, las trampas, las cajas, los huesos, la sangre y las chispas.
-import { bodyFire, drawFlyerK, drawHunterK, drawSkeletonK, drawWalkerK } from './vampyriumChars';
-import { DOOR, GAPS, GROUND_Y, H, LV, PLAYER_H, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Stake, type Vamp } from './vampyrium';
+import { bodyFire, drawHunterK, drawSkeletonK } from './vampyriumChars';
+import { drawShotK, drawVampK } from './vampyriumMonsters';
+import { BODY, DOOR, GAPS, GROUND_Y, H, LV, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Stake, type Vamp, type VampKind } from './vampyrium';
 
 const TAU = Math.PI * 2;
 const INK = '#07060a';
@@ -79,23 +80,32 @@ export function drawBone(ctx: CanvasRenderingContext2D, b: Bone, v: View) {
 // El vampiro se vuelve esqueleto: la carne se desvanece, el esqueleto brilla y arde entero como una antorcha
 // (como la gente que se prende fuego en "El piso es de lava"), grita y al segundo revienta.
 export const CHAR_K = 1.05; // metros del personaje → unidades del mundo
-export function drawCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t: number) {
-  const k = CHAR_K * v.s, f = Math.min(1, c.t / BURN_AT), burn = Math.max(0, Math.min(1, (c.t - BURN_AT) / (BLOW_AT - BURN_AT)));
-  const fly = c.kind === 'flyer';
+export function drawCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t: number, g?: Game) {
+  const B = BODY[c.kind], k = CHAR_K * v.s * B.k, f = Math.min(1, c.t / BURN_AT), burn = Math.max(0, Math.min(1, (c.t - BURN_AT) / (BLOW_AT - BURN_AT)));
+  const fly = c.kind === 'flyer', dragon = c.kind === 'dragon';
+  const fake: Vamp = { id: c.id, kind: c.kind, x: 0, y: 0, vx: 0, vy: 0, face: 1, state: c.kind === 'dragon' ? 'hover' : 'claw', t: 0.4, onGround: !fly && !dragon, surface: null, walkT: 0, cool: 0, speed: 0, jumpT: 0, dropT: 0, hit: false };
+  if (c.kind === 'dracula') { // se está convirtiendo en dragón: tiembla, se pone rojo, lo rodean murciélagos y crece
+    const q = g ? 1 - Math.max(0, g.transformT) / 2.4 : 0;
+    ctx.save(); ctx.translate(X(v, c.x) + Math.sin(t * 70) * v.s * 0.06 * q, Y(v, c.y)); ctx.scale(k * c.face * (1 + q * 0.6), k * (1 + q * 0.6));
+    drawVampK(ctx, { ...fake, state: 'cast', t: 0.6 }, t);
+    ctx.globalCompositeOperation = 'lighter'; glow(ctx, 0, -1.1, 1.5 + q * 2.5, `rgba(255,30,40,${0.3 + q * 0.5})`);
+    ctx.restore();
+    return;
+  }
   ctx.save(); ctx.translate(X(v, c.x) + Math.sin(c.t * 90) * (0.4 + burn) * v.s * 0.05, Y(v, c.y) + (fly ? -v.s * 0.6 : 0)); ctx.scale(k * c.face, k);
-  if (f < 1) {
-    ctx.save(); ctx.globalAlpha = 1 - f;
-    const fake: Vamp = { id: c.id, kind: c.kind, x: 0, y: 0, vx: 0, vy: 0, face: 1, state: 'claw', t: 0.4, onGround: !fly, surface: null, walkT: 0, cool: 0, speed: 0, jumpT: 0, dropT: 0, hit: false };
-    if (fly) drawFlyerK(ctx, fake, t); else drawWalkerK(ctx, fake, t);
+  if (f < 1 || dragon) {
+    ctx.save(); ctx.globalAlpha = dragon ? Math.max(0, 1 - burn) : 1 - f;
+    drawVampK(ctx, fake, t);
     ctx.restore();
   }
-  ctx.save(); ctx.globalAlpha = f; ctx.translate(0, fly ? 0.4 : 0);
-  if (burn > 0) { ctx.filter = 'none'; }
-  drawSkeletonK(ctx, false, t, 1);
-  if (burn > 0) { ctx.globalAlpha = 0.55 * burn; ctx.fillStyle = '#1a0a02'; ctx.beginPath(); ctx.ellipse(0.02, -1.0, 0.45, 1.05, 0, 0, TAU); ctx.globalCompositeOperation = 'source-atop'; ctx.fill(); }
-  ctx.restore();
+  if (!dragon) {
+    ctx.save(); ctx.globalAlpha = f; ctx.translate(0, fly ? 0.4 : 0);
+    drawSkeletonK(ctx, false, t, 1);
+    if (burn > 0) { ctx.globalAlpha = 0.55 * burn; ctx.fillStyle = '#1a0a02'; ctx.beginPath(); ctx.ellipse(0.02, -1.0, 0.45, 1.05, 0, 0, TAU); ctx.globalCompositeOperation = 'source-atop'; ctx.fill(); }
+    ctx.restore();
+  }
   if (burn > 0) {
-    bodyFire(ctx, 2.0, 0.9, burn, t, c.id);
+    if (dragon) { ctx.save(); ctx.translate(0, 1.2); bodyFire(ctx, 2.6, 3.2, burn, t, c.id); ctx.restore(); } else bodyFire(ctx, 2.0, 0.9, burn, t, c.id);
     if (Math.floor(c.t * 8) % 2) { // grita mientras arde
       ctx.save(); ctx.scale(c.face, 1); ctx.font = '900 0.34px Nunito, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 0.06; ctx.strokeStyle = '#1a0606'; ctx.fillStyle = '#fef08a';
       ctx.strokeText('¡AAARGH!', 0, -2.55); ctx.fillText('¡AAARGH!', 0, -2.55); ctx.restore();
@@ -238,7 +248,7 @@ function drawDoor(ctx: CanvasRenderingContext2D, g: Game, v: View, t: number) {
   const sy = top - r - v.s * 0.55;
   ctx.font = `900 ${Math.max(10, v.s * 0.42)}px Nunito, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   if (open > 0) { ctx.fillStyle = `rgba(255,230,150,${0.7 + 0.3 * Math.sin(t * 6)})`; ctx.fillText('SALIDA ▶', mid - v.s * 0.3, sy); }
-  else { ctx.fillStyle = '#c9c2b5'; ctx.fillText(`🔒 ${Math.max(0, 50 - g.total)}`, mid - v.s * 0.2, sy); }
+  else if (LV.def.n < 10) { ctx.fillStyle = '#c9c2b5'; ctx.fillText(`🔒 ${Math.max(0, 50 - g.total)}`, mid - v.s * 0.2, sy); } // (en el salón del trono no hay cuenta: es Drácula)
 }
 function flame(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, t: number, seed: number) {
   const f = 0.85 + 0.15 * Math.sin(t * 13 + seed) + 0.1 * Math.sin(t * 29 + seed * 2);
@@ -513,14 +523,25 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   for (const c of g.crates) drawCrate(ctx, c, v, t);
   drawBlood(ctx, g, v);
   for (const b of g.bones) drawBone(ctx, b, v);
-  for (const c of g.corpses) drawCorpse(ctx, c, v, t);
+  for (const c of g.corpses) drawCorpse(ctx, c, v, t, g);
   // vampiros
   for (const vp of g.vamps) {
-    const k = CHAR_K * v.s;
+    const k = CHAR_K * v.s * BODY[vp.kind].k;
     ctx.save(); ctx.translate(X(v, vp.x), Y(v, vp.y)); ctx.scale(k * vp.face, k);
-    if (vp.kind === 'walker') drawWalkerK(ctx, vp, t); else drawFlyerK(ctx, vp, t);
+    drawVampK(ctx, vp, t);
     ctx.restore();
+    // la barrita de vida de los fuertes (cuando ya les pegaron)
+    const hp = vp.hp ?? 1, max = vp.maxHp ?? 1;
+    if (max > 1 && hp < max && !isBoss(vp.kind)) {
+      const bw = v.s * 1.1, bh = Math.max(4, v.s * 0.13), bx = X(v, vp.x) - bw / 2, by = Y(v, vp.y + BODY[vp.kind].h + 0.35);
+      ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
+      ctx.fillStyle = '#3a0408'; ctx.fillRect(bx, by, bw, bh);
+      ctx.fillStyle = lin(ctx, 0, by, 0, by + bh, [[0, '#ff6070'], [1, '#b0101c']]); ctx.fillRect(bx, by, bw * hp / max, bh);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'; for (let i = 1; i < max; i++) ctx.fillRect(bx + bw * i / max - 0.5, by, 1, bh);
+    }
   }
+  // bolas de fuego, murciélagos y el fuego del dragón
+  for (const s of g.shots) { ctx.save(); ctx.translate(X(v, s.x), Y(v, s.y)); ctx.scale(v.s, v.s); drawShotK(ctx, s, t); ctx.restore(); }
   // el ajo: un halo verde blanco que los espanta
   const p = g.player;
   if (g.garlicT > 0) glow(ctx, X(v, p.x), Y(v, p.y + 1), v.s * 4.5, `rgba(210,255,200,${0.25 * Math.min(1, g.garlicT)})`);
@@ -533,6 +554,13 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   }
   for (const s of g.stakes) drawStake(ctx, s, v);
   drawSparks(ctx, g, v);
+  // los números de los golpes
+  ctx.textAlign = 'center'; ctx.font = `900 ${Math.max(12, v.s * 0.55)}px Nunito, system-ui, sans-serif`; ctx.lineJoin = 'round';
+  for (const q of g.pops) {
+    ctx.globalAlpha = Math.max(0, 1 - q.t * q.t); ctx.lineWidth = Math.max(3, v.s * 0.12); ctx.strokeStyle = '#120406';
+    ctx.strokeText(q.text, X(v, q.x), Y(v, q.y)); ctx.fillStyle = q.bad ? '#ff4a5a' : '#ffe08a'; ctx.fillText(q.text, X(v, q.x), Y(v, q.y));
+  }
+  ctx.globalAlpha = 1;
   // la luz sagrada de la cruz
   if (g.holyT > 0) {
     const k = g.holyT / 1.4, x = X(v, p.x), y = Y(v, p.y + 1.2);
@@ -550,10 +578,10 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   ctx.restore();
 }
 // Para el cartel de las armas: el cazador o un vampiro sueltos en un lienzo (pies en x, y; size = píxeles por metro).
-export function drawPortrait(ctx: CanvasRenderingContext2D, who: 'hunter' | 'walker' | 'flyer', g: Game, x: number, y: number, size: number, t: number) {
+export function drawPortrait(ctx: CanvasRenderingContext2D, who: 'hunter' | VampKind, g: Game, x: number, y: number, size: number, t: number) {
   ctx.save(); ctx.translate(x, y); ctx.scale(size, size);
   if (who === 'hunter') drawHunterK(ctx, g.player, g, t);
-  else { const fake: Vamp = { id: 1, kind: who, x: 0, y: 0, vx: 0, vy: 0, face: 1, state: who === 'flyer' ? 'hover' : 'walk', t: 0, onGround: true, surface: null, walkT: t, cool: 0, speed: 0, jumpT: 0, dropT: 0, hit: false }; if (who === 'walker') drawWalkerK(ctx, fake, t); else drawFlyerK(ctx, fake, t); }
+  else { const fake: Vamp = { id: 1, kind: who, x: 0, y: 0, vx: 0, vy: 0, face: 1, state: who === 'flyer' || who === 'dragon' ? 'hover' : 'walk', t: 0, onGround: who !== 'flyer' && who !== 'dragon', surface: null, walkT: t, cool: 0, speed: 0, jumpT: 0, dropT: 0, hit: false }; drawVampK(ctx, fake, t); }
   ctx.restore();
 }
 export { drawSword as drawSwordIcon, drawStakeItem as drawStakeIcon };

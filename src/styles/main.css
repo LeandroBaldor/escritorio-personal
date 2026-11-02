@@ -1633,6 +1633,26 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .vamp-levels .vamp-lv-on{border-color:#ef4444!important;box-shadow:0 0 12px #ef444488!important}
 .vamp-ghost{background:transparent!important;border:1px solid #7f1d1d!important;color:#fecaca!important;margin-left:.4rem}
 @media (max-width:560px){.vamp-levels small{display:none}}
+.vamp-life,.vamp-boss{position:absolute;top:.5rem;display:flex;align-items:center;gap:.45rem;padding:.3rem .55rem;background:#0c0507d9;border:2px solid #7f1d1d;border-radius:6px;color:#fecaca;font-weight:900;font-size:clamp(.66rem,1.4vw,.82rem);letter-spacing:.04em;text-transform:uppercase;pointer-events:none;box-shadow:0 2px 10px #000a}
+.vamp-life{left:.5rem}
+.vamp-life i,.vamp-boss i{display:block;width:clamp(90px,18vw,220px);height:12px;background:#2a0b0e;border:1px solid #000;border-radius:99px;overflow:hidden}
+.vamp-life b{display:block;height:100%;background:linear-gradient(180deg,#ff6b78,#c81e2c 60%,#7f1018);transition:width .2s}
+.vamp-life em,.vamp-boss em{font-style:normal;color:#fff;min-width:3.6em;text-align:right}
+.vamp-life--low{animation:vamp-lowhp .6s ease-in-out infinite alternate}
+@keyframes vamp-lowhp{to{border-color:#ef4444;box-shadow:0 0 16px #ef4444aa}}
+.vamp-boss{left:50%;transform:translateX(-50%);top:2.9rem;border-color:#b45309;color:#fde68a;white-space:nowrap}
+.vamp-boss i{width:clamp(110px,24vw,320px)}
+.vamp-boss b{display:block;height:100%;background:linear-gradient(180deg,#fbbf24,#dc2626 55%,#7f1d1d);transition:width .2s}
+.vamp-boss--transform{animation:vamp-lowhp .25s ease-in-out infinite alternate}
+.vamp-bar--hp b{background:linear-gradient(90deg,#991b1b,#f87171)}
+.vamp-hpstat strong small{font-size:.6em;opacity:.7}
+.vamp-newcomer{display:flex;align-items:center;gap:.8rem;margin:.6rem auto 0;padding:.4rem .8rem;max-width:420px;background:#0d0606;border:2px solid #7f1d1d;border-radius:6px;text-align:left;color:#f5e6c8}
+.vamp-newcomer canvas{flex:none;width:120px;height:130px}
+.vamp-newcomer small{display:block;color:#fca5a5;text-transform:uppercase;letter-spacing:.08em;font-size:.7rem;font-weight:900}
+.vamp-newcomer b{display:block;font:400 1.35rem/1.1 "Vamp Gothic",Georgia,serif;color:#fde68a}
+.vamp-newcomer p{margin:.25rem 0 0;font-size:.85rem}
+.vamp-newcomer strong{color:#ff6b78}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.vamp-side .vamp-count,.vamp-side .vamp-hpstat{display:none}.vamp-life{top:.3rem;left:.3rem}.vamp-boss{top:2.4rem}}
 .game-card-cover{position:relative;display:block}
 .game-card-cover>svg{display:block;width:100%;height:auto}
 .game-card-wip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-8deg);padding:.35rem 1rem;background:repeating-linear-gradient(-45deg,#facc15 0 14px,#111 14px 28px);border:3px solid #111;border-radius:6px;box-shadow:0 6px 16px #000a;white-space:nowrap}

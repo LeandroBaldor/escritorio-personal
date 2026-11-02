@@ -10,17 +10,18 @@
 import { alpha, bloom, darken, lighten, segment, shade, spec } from './gravityMonsters';
 import type { Game, Player, Vamp, Weapon } from './vampyrium';
 
-const TAU = Math.PI * 2;
-type Pt = [number, number];
-const dirv = (a: number): Pt => [Math.sin(a), Math.cos(a)];
-const add = (p: Pt, d: Pt, l: number): Pt => [p[0] + d[0] * l, p[1] + d[1] * l];
-const grad = (ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, stops: [number, string][]) => { const g = ctx.createLinearGradient(x0, y0, x1, y1); for (const [k, c] of stops) g.addColorStop(k, c); return g; };
-const LIMB = 1.2; // brazos y piernas más gruesos que en Kombat Football
+export const TAU = Math.PI * 2;
+export type Pt = [number, number];
+export const dirv = (a: number): Pt => [Math.sin(a), Math.cos(a)];
+export const add = (p: Pt, d: Pt, l: number): Pt => [p[0] + d[0] * l, p[1] + d[1] * l];
+export const grad = (ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, stops: [number, string][]) => { const g = ctx.createLinearGradient(x0, y0, x1, y1); for (const [k, c] of stops) g.addColorStop(k, c); return g; };
+let LIMB = 1.2; // brazos y piernas más gruesos que en Kombat Football
+export const setLimb = (k: number) => { LIMB = k; };
 
-interface Pose { bob: number; lean: number; crouch: number; head: number; legs: [number, number][]; arms: [number, number][]; blade: number }
-interface Look { armor: string; dark: string; trim: string; strap: string; boot: string; cape: string; capeD: string; skin: string; sleeve: string }
-const HUNTER: Look = { armor: '#2a2a32', dark: '#16161b', trim: '#b9bdc9', strap: '#7a4526', boot: '#17171c', cape: '#b3121b', capeD: '#4f070c', skin: '#e9b088', sleeve: '#1d1d23' };
-const VAMP: Look = { armor: '#1c1820', dark: '#0f0c12', trim: '#d01624', strap: '#5e3520', boot: '#121015', cape: '#c8121e', capeD: '#4a050b', skin: '#c8b4e0', sleeve: '#16131a' };
+export interface Pose { bob: number; lean: number; crouch: number; head: number; legs: [number, number][]; arms: [number, number][]; blade: number }
+export interface Look { armor: string; dark: string; trim: string; strap: string; boot: string; cape: string; capeD: string; skin: string; sleeve: string }
+export const HUNTER: Look = { armor: '#2a2a32', dark: '#16161b', trim: '#b9bdc9', strap: '#7a4526', boot: '#17171c', cape: '#b3121b', capeD: '#4f070c', skin: '#e9b088', sleeve: '#1d1d23' };
+export const VAMP: Look = { armor: '#1c1820', dark: '#0f0c12', trim: '#d01624', strap: '#5e3520', boot: '#121015', cape: '#c8121e', capeD: '#4a050b', skin: '#c8b4e0', sleeve: '#16131a' };
 
 // ---------------------------------------------------------------- Poses
 function hunterPose(p: Player, t: number): Pose {
@@ -47,7 +48,7 @@ function hunterPose(p: Player, t: number): Pose {
   const br = s(t * 3.2); // guardia: el puño con la espada adelante, la hoja para arriba (como la cruz de la referencia)
   return { bob: br * 0.025, lean: 0.06, crouch: 0.08 + br * 0.02, head: 0.05, legs: [[-0.45, 0.55], [0.42, 0.6]], arms: [[-0.1 + br * 0.03, 1.25], [0.15 - br * 0.03, 1.5]], blade: 1.45 };
 }
-function walkerPose(v: Vamp, t: number): Pose {
+export function walkerPose(v: Vamp, t: number): Pose {
   const s = Math.sin;
   if (v.state === 'claw') { // levanta las garras y araña hacia abajo
     const up = v.t < 0.36 ? Math.min(1, v.t / 0.25) : Math.max(0, 1 - (v.t - 0.36) * 7);
@@ -62,7 +63,7 @@ function walkerPose(v: Vamp, t: number): Pose {
 
 // ---------------------------------------------------------------- Partes del cuerpo
 function boot(ctx: CanvasRenderingContext2D, foot: Pt, ang: number, L: Look, back: boolean) {
-  const c = back ? darken(L.boot, 0.3) : L.boot, silver = L === VAMP ? '#a3a8b4' : L.trim, metal = back ? darken(silver, 0.35) : silver;
+  const c = back ? darken(L.boot, 0.3) : L.boot, silver = L !== HUNTER ? '#a3a8b4' : L.trim, metal = back ? darken(silver, 0.35) : silver;
   ctx.save(); ctx.translate(foot[0], foot[1]); ctx.rotate(-ang * 0.6); ctx.scale(1.15, 1.1);
   shade(ctx, () => { ctx.moveTo(-0.13, -0.17); ctx.lineTo(0.14, -0.14); ctx.quadraticCurveTo(0.31, -0.07, 0.29, 0.04); ctx.lineTo(-0.15, 0.04); ctx.closePath(); }, c, { x: 0.02, y: -0.1, r: 0.28, hi: 0.5, lw: 0.6 });
   ctx.fillStyle = metal; ctx.fillRect(-0.15, 0.01, 0.44, 0.035); // suela de metal
@@ -72,7 +73,7 @@ function boot(ctx: CanvasRenderingContext2D, foot: Pt, ang: number, L: Look, bac
   if (!back) spec(ctx, 0.05, -0.08, 0.07, 0.03, -0.3, 0.5);
   ctx.restore();
 }
-function legDraw(ctx: CanvasRenderingContext2D, hip: Pt, pose: Pose, i: number, L: Look) {
+export function legDraw(ctx: CanvasRenderingContext2D, hip: Pt, pose: Pose, i: number, L: Look) {
   const back = i === 0, [ta, kb] = pose.legs[i], hp: Pt = [hip[0] + (back ? -0.11 : 0.11), hip[1]];
   const knee = add(hp, dirv(ta), 0.36), foot = add(knee, dirv(ta - kb), 0.35);
   const col = (c: string) => back ? darken(c, 0.35) : c;
@@ -80,20 +81,20 @@ function legDraw(ctx: CanvasRenderingContext2D, hip: Pt, pose: Pose, i: number, 
   segment(ctx, knee, foot, 0.22 * LIMB, 0.19 * LIMB, col(L.dark), 0.4);
   // canillera de metal y rodillera redonda
   const sd = dirv(ta - kb);
-  segment(ctx, add(knee, sd, 0.08), add(knee, sd, 0.26), 0.2 * LIMB, 0.18 * LIMB, col(L === VAMP ? '#2a2630' : L.armor), 0.8);
-  segment(ctx, add(knee, sd, 0.2), add(knee, sd, 0.23), 0.22 * LIMB, 0.21 * LIMB, col(L === VAMP ? '#8f95a3' : L.trim), 0.6);
-  shade(ctx, () => ctx.arc(knee[0], knee[1], 0.12 * LIMB, 0, TAU), col(L === VAMP ? '#3a3542' : '#3a3a44'), { x: knee[0] - 0.04, y: knee[1] - 0.04, r: 0.12, hi: 0.55, lw: 0.6 });
-  if (L === VAMP) { ctx.strokeStyle = col('#9aa0ad'); ctx.lineWidth = 0.02; ctx.beginPath(); ctx.arc(knee[0], knee[1], 0.1 * LIMB, 0.4, Math.PI - 0.4); ctx.stroke(); }
+  segment(ctx, add(knee, sd, 0.08), add(knee, sd, 0.26), 0.2 * LIMB, 0.18 * LIMB, col(L !== HUNTER ? '#2a2630' : L.armor), 0.8);
+  segment(ctx, add(knee, sd, 0.2), add(knee, sd, 0.23), 0.22 * LIMB, 0.21 * LIMB, col(L !== HUNTER ? '#8f95a3' : L.trim), 0.6);
+  shade(ctx, () => ctx.arc(knee[0], knee[1], 0.12 * LIMB, 0, TAU), col(L !== HUNTER ? '#3a3542' : '#3a3a44'), { x: knee[0] - 0.04, y: knee[1] - 0.04, r: 0.12, hi: 0.55, lw: 0.6 });
+  if (L !== HUNTER) { ctx.strokeStyle = col('#9aa0ad'); ctx.lineWidth = 0.02; ctx.beginPath(); ctx.arc(knee[0], knee[1], 0.1 * LIMB, 0.4, Math.PI - 0.4); ctx.stroke(); }
   boot(ctx, foot, ta - kb, L, back);
 }
-const shoulderAt = (hip: Pt, pose: Pose, i: number): Pt => { const lx = i === 0 ? -0.34 : 0.28, ly = -0.42 + (i === 0 ? 0.02 : -0.04); return [hip[0] + lx * Math.cos(pose.lean) - ly * Math.sin(pose.lean), hip[1] + lx * Math.sin(pose.lean) + ly * Math.cos(pose.lean)]; };
-const handOf = (hip: Pt, pose: Pose, i: number): Pt => { const [ua, eb] = pose.arms[i]; return add(add(shoulderAt(hip, pose, i), dirv(ua), 0.31), dirv(ua + eb), 0.29); };
+export const shoulderAt = (hip: Pt, pose: Pose, i: number): Pt => { const lx = i === 0 ? -0.34 : 0.28, ly = -0.42 + (i === 0 ? 0.02 : -0.04); return [hip[0] + lx * Math.cos(pose.lean) - ly * Math.sin(pose.lean), hip[1] + lx * Math.sin(pose.lean) + ly * Math.cos(pose.lean)]; };
+export const handOf = (hip: Pt, pose: Pose, i: number): Pt => { const [ua, eb] = pose.arms[i]; return add(add(shoulderAt(hip, pose, i), dirv(ua), 0.31), dirv(ua + eb), 0.29); };
 
 // El puño enguantado del cazador (con nudillos y la muñequera de metal).
-function fist(ctx: CanvasRenderingContext2D, hand: Pt, ang: number, back: boolean) {
-  const gc = back ? '#16161a' : '#26262d';
+export function fist(ctx: CanvasRenderingContext2D, hand: Pt, ang: number, back: boolean, color = '#26262d', cuff = HUNTER.trim) {
+  const gc = back ? darken(color, 0.4) : color;
   ctx.save(); ctx.translate(hand[0], hand[1]); ctx.rotate(-ang); ctx.scale(1.2, 1.2);
-  shade(ctx, () => ctx.roundRect(-0.09, -0.14, 0.18, 0.07, 0.02), back ? '#6b6e79' : HUNTER.trim, { x: -0.03, y: -0.13, r: 0.1, hi: 0.6, lw: 0.6 });
+  shade(ctx, () => ctx.roundRect(-0.09, -0.14, 0.18, 0.07, 0.02), back ? darken(cuff, 0.4) : cuff, { x: -0.03, y: -0.13, r: 0.1, hi: 0.6, lw: 0.6 });
   shade(ctx, () => ctx.roundRect(-0.12, -0.08, 0.24, 0.2, 0.07), gc, { x: -0.04, y: -0.04, r: 0.2, hi: 0.5, lw: 0.6 });
   for (let k = 0; k < 4; k++) { const kx = -0.085 + k * 0.056; shade(ctx, () => ctx.ellipse(kx, 0.095, 0.032, 0.036, 0, 0, TAU), lighten(gc, 0.1), { x: kx - 0.01, y: 0.085, r: 0.035, hi: 0.6, lw: 0.4 }); }
   shade(ctx, () => ctx.ellipse(0.085, 0.02, 0.046, 0.075, -0.35, 0, TAU), darken(gc, 0.1), { x: 0.07, y: 0, r: 0.06, lw: 0.5 });
@@ -101,21 +102,21 @@ function fist(ctx: CanvasRenderingContext2D, hand: Pt, ang: number, back: boolea
   ctx.restore();
 }
 // La garra del vampiro: mano pálida con dedos largos y uñas rojas afiladas.
-function claw(ctx: CanvasRenderingContext2D, hand: Pt, ang: number, back: boolean) {
-  const sk = back ? darken(VAMP.skin, 0.3) : VAMP.skin;
+export function claw(ctx: CanvasRenderingContext2D, hand: Pt, ang: number, back: boolean, skin = VAMP.skin, nail = '#e01b2c') {
+  const sk = back ? darken(skin, 0.3) : skin;
   ctx.save(); ctx.translate(hand[0], hand[1]); ctx.rotate(-ang); ctx.scale(1.2, 1.2);
   shade(ctx, () => ctx.roundRect(-0.085, -0.15, 0.17, 0.06, 0.02), back ? '#5f636d' : '#a9aeba', { x: -0.03, y: -0.14, r: 0.1, hi: 0.6, lw: 0.6 }); // puño de metal de la manga
   shade(ctx, () => ctx.ellipse(0, 0, 0.1, 0.09, 0, 0, TAU), sk, { x: -0.03, y: -0.03, r: 0.12, hi: 0.4, lw: 0.6 });
   for (let k = 0; k < 4; k++) {
     const fa = -0.55 + k * 0.37, bx = Math.sin(fa) * 0.07, by = Math.cos(fa) * 0.07, tx = bx + Math.sin(fa) * 0.11, ty = by + Math.cos(fa) * 0.11 + 0.03;
     segment(ctx, [bx, by], [tx, ty], 0.045, 0.035, sk, 0.3);
-    ctx.fillStyle = back ? '#7a0a12' : '#e01b2c'; ctx.beginPath(); ctx.moveTo(tx - 0.018, ty); ctx.quadraticCurveTo(tx + Math.sin(fa) * 0.05, ty + 0.06, tx + Math.sin(fa) * 0.02 + 0.01, ty + 0.1); ctx.lineTo(tx + 0.018, ty); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = back ? darken(nail, 0.45) : nail; ctx.beginPath(); ctx.moveTo(tx - 0.018, ty); ctx.quadraticCurveTo(tx + Math.sin(fa) * 0.05, ty + 0.06, tx + Math.sin(fa) * 0.02 + 0.01, ty + 0.1); ctx.lineTo(tx + 0.018, ty); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 0.008; ctx.stroke();
   }
   shade(ctx, () => ctx.ellipse(0.09, -0.01, 0.04, 0.065, -0.5, 0, TAU), sk, { x: 0.08, y: -0.02, r: 0.05, lw: 0.5 }); // pulgar
   ctx.restore();
 }
-function sword(ctx: CanvasRenderingContext2D, hand: Pt, ang: number) {
+export function sword(ctx: CanvasRenderingContext2D, hand: Pt, ang: number) {
   const d = dirv(ang), b0 = add(hand, d, 0.13), b1 = add(hand, d, 1.5), n: Pt = [d[1], -d[0]];
   segment(ctx, add(hand, d, -0.17), add(hand, d, 0.06), 0.085, 0.085, '#3a2414', 0.4); // empuñadura
   { const pm = add(hand, d, -0.2); shade(ctx, () => ctx.arc(pm[0], pm[1], 0.065, 0, TAU), '#d6a032', { x: pm[0], y: pm[1], r: 0.06, lw: 0.5 }); } // pomo
@@ -135,7 +136,8 @@ function stake(ctx: CanvasRenderingContext2D, hand: Pt, ang: number) {
   ctx.fillStyle = grad(ctx, a[0] + n[0] * 0.04, a[1] + n[1] * 0.04, a[0] - n[0] * 0.04, a[1] - n[1] * 0.04, [[0, '#c48a52'], [0.5, '#8a5a2c'], [1, '#4f3016']]); ctx.fill();
   ctx.strokeStyle = '#2a1708'; ctx.lineWidth = 0.02; ctx.stroke();
 }
-function armDraw(ctx: CanvasRenderingContext2D, hip: Pt, pose: Pose, i: number, L: Look, item: Weapon | 'none' | 'claw') {
+export type Hold = (hand: Pt, ang: number) => void;
+export function armDraw(ctx: CanvasRenderingContext2D, hip: Pt, pose: Pose, i: number, L: Look, item: Weapon | 'none' | 'claw' | 'glove' | 'fist', hold?: Hold) {
   const back = i === 0, [ua, eb] = pose.arms[i], sp = shoulderAt(hip, pose, i);
   const elbow = add(sp, dirv(ua), 0.31), hand = add(elbow, dirv(ua + eb), 0.29);
   const col = (c: string) => back ? darken(c, L === HUNTER ? 0.12 : 0.35) : c;
@@ -152,14 +154,15 @@ function armDraw(ctx: CanvasRenderingContext2D, hip: Pt, pose: Pose, i: number, 
     segment(ctx, add(elbow, fd, 0.21), add(elbow, fd, 0.23), 0.21 * LIMB, 0.21 * LIMB, col(L.trim), 0.5);
   }
   shade(ctx, () => ctx.arc(elbow[0], elbow[1], 0.09 * LIMB, 0, TAU), col(L === HUNTER ? '#3c3c46' : '#24202a'), { x: elbow[0] - 0.02, y: elbow[1] - 0.03, r: 0.09, lw: 0.6 });
-  if (item === 'claw') claw(ctx, hand, ua + eb, back);
+  if (item === 'claw') claw(ctx, hand, ua + eb, back, L.skin, L === VAMP ? '#e01b2c' : L.trim);
+  else if (item === 'glove' || item === 'fist') { hold?.(hand, ua + eb); fist(ctx, hand, ua + eb, back, item === 'fist' ? L.skin : '#24202a', item === 'fist' ? '#4a4652' : '#9aa0ad'); }
   else {
     if (item === 'sword') sword(ctx, hand, ua + eb + pose.blade);
     else if (item === 'stakes') stake(ctx, hand, ua + eb + pose.blade);
     fist(ctx, hand, ua + eb, back);
   }
 }
-function pauldron(ctx: CanvasRenderingContext2D, sp: Pt, ua: number, back: boolean, big = 1) {
+export function pauldron(ctx: CanvasRenderingContext2D, sp: Pt, ua: number, back: boolean, big = 1) {
   const c = back ? '#1b1b20' : '#30303a', rx = 0.2 * big, ry = 0.16 * big;
   shade(ctx, () => ctx.ellipse(sp[0], sp[1] - 0.01, rx, ry, ua * 0.25, 0, TAU), c, { x: sp[0] - 0.06, y: sp[1] - 0.08, r: 0.24, hi: 0.6, lw: 0.6 });
   ctx.strokeStyle = back ? '#6d707b' : HUNTER.trim; ctx.lineWidth = 0.025; ctx.beginPath(); ctx.ellipse(sp[0], sp[1] - 0.01, rx - 0.025, ry - 0.025, ua * 0.25, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke(); // borde de plata
@@ -167,7 +170,7 @@ function pauldron(ctx: CanvasRenderingContext2D, sp: Pt, ua: number, back: boole
   if (!back) spec(ctx, sp[0] - 0.07, sp[1] - 0.09, 0.07, 0.035, -0.4, 0.75);
 }
 // La capa: cuelga de los hombros por detrás y flamea según la velocidad.
-function cape(ctx: CanvasRenderingContext2D, neck: Pt, L: Look, t: number, speed: number, air: number, scallop: boolean) {
+export function cape(ctx: CanvasRenderingContext2D, neck: Pt, L: Look, t: number, speed: number, air: number, scallop: boolean) {
   const fl = Math.sin(t * 6) * 0.04 + Math.min(0.5, speed * 0.06) + air * 0.15, top: Pt = [neck[0] - 0.1, neck[1] + 0.1];
   const n = 5, x0 = top[0] - 0.62 - fl * 1.2, x1 = top[0] + 0.38, y = -0.04 - air * 0.25;
   ctx.beginPath(); ctx.moveTo(top[0] - 0.25, top[1]);
@@ -219,16 +222,16 @@ function hunterHead(ctx: CanvasRenderingContext2D, t: number, hurt: boolean) {
   ctx.lineWidth = 0.025; ctx.beginPath(); ctx.moveTo(-0.36, -0.2); ctx.quadraticCurveTo(-0.3, -0.34, -0.2, -0.36); ctx.stroke();
   ctx.strokeStyle = alpha(hairL, 0.9); ctx.lineWidth = 0.018; ctx.beginPath(); ctx.moveTo(-0.16, -0.46); ctx.quadraticCurveTo(0.0, -0.52, 0.12, -0.46); ctx.moveTo(0.1, -0.4); ctx.quadraticCurveTo(0.22, -0.42, 0.3, -0.36); ctx.stroke();
 }
-function vampEye(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, t: number) {
+export function vampEye(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, t: number) {
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, y, rx * 4, '#ff1e2e', 0.55 + 0.2 * Math.sin(t * 6)); ctx.restore();
   const g = ctx.createRadialGradient(x, y, 0, x, y, rx * 1.2); g.addColorStop(0, '#ffe6e6'); g.addColorStop(0.35, '#ff3341'); g.addColorStop(1, '#8a0010');
   ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, -0.15, 0, TAU); ctx.fill();
   ctx.strokeStyle = '#2a0006'; ctx.lineWidth = 0.012; ctx.stroke();
 }
-function vampHead(ctx: CanvasRenderingContext2D, t: number, open: boolean, spiky: boolean) {
-  const skin = VAMP.skin, hair = '#121018';
+export function vampHead(ctx: CanvasRenderingContext2D, t: number, open: boolean, spiky: boolean, o: { skin?: string; collar?: string; beard?: boolean; streak?: boolean } = {}) {
+  const skin = o.skin ?? VAMP.skin, hair = '#121018';
   // el cuello alto rojo, detrás de la cabeza
-  shade(ctx, () => { ctx.moveTo(-0.36, 0.42); ctx.lineTo(-0.56, -0.22); ctx.lineTo(-0.22, -0.02); ctx.lineTo(0.3, -0.02); ctx.lineTo(0.6, -0.2); ctx.lineTo(0.42, 0.44); ctx.closePath(); }, VAMP.cape, { x: 0, y: -0.2, r: 0.7, hi: 0.35, tex: 0.3, lw: 1 });
+  shade(ctx, () => { ctx.moveTo(-0.36, 0.42); ctx.lineTo(-0.56, -0.22); ctx.lineTo(-0.22, -0.02); ctx.lineTo(0.3, -0.02); ctx.lineTo(0.6, -0.2); ctx.lineTo(0.42, 0.44); ctx.closePath(); }, o.collar ?? VAMP.cape, { x: 0, y: -0.2, r: 0.7, hi: 0.35, tex: 0.3, lw: 1 });
   ctx.fillStyle = '#0b090e'; ctx.beginPath(); ctx.moveTo(-0.28, 0.36); ctx.lineTo(-0.42, -0.1); ctx.lineTo(-0.18, 0.06); ctx.lineTo(0.28, 0.06); ctx.lineTo(0.46, -0.08); ctx.lineTo(0.34, 0.38); ctx.closePath(); ctx.fill();
   shade(ctx, () => { ctx.moveTo(-0.36, 0.1); ctx.quadraticCurveTo(-0.5, -0.3, -0.24, -0.48); ctx.lineTo(-0.06, -0.2); ctx.closePath(); }, hair, { x: -0.3, y: -0.3, r: 0.4, tex: 0.3, lw: 1 });
   shade(ctx, () => { ctx.moveTo(-0.2, -0.06); ctx.lineTo(-0.46, -0.28); ctx.lineTo(-0.24, 0.14); ctx.closePath(); }, skin, { x: -0.25, y: -0.05, r: 0.2, lw: 0.8 }); // oreja puntiaguda
@@ -257,6 +260,10 @@ function vampHead(ctx: CanvasRenderingContext2D, t: number, open: boolean, spiky
   };
   shade(ctx, top, hair, { x: -0.05, y: -0.45, r: 0.5, hi: 0.5, tex: 0.3, lw: 1 });
   ctx.strokeStyle = 'rgba(190,150,255,0.4)'; ctx.lineWidth = 0.022; ctx.beginPath(); ctx.moveTo(-0.26, -0.38); ctx.quadraticCurveTo(-0.04, -0.52, 0.2, -0.44); ctx.stroke();
+  if (o.streak) { ctx.strokeStyle = '#e8e4f0'; ctx.lineWidth = 0.05; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-0.3, -0.2); ctx.quadraticCurveTo(-0.22, -0.46, 0.08, -0.48); ctx.stroke(); }
+  if (o.beard) { // barba negra en punta, de patilla a patilla
+    shade(ctx, () => { ctx.moveTo(-0.25, -0.02); ctx.quadraticCurveTo(-0.24, 0.3, -0.02, 0.38); ctx.lineTo(0.14, 0.52); ctx.lineTo(0.2, 0.4); ctx.quadraticCurveTo(0.34, 0.34, 0.37, 0.2); ctx.quadraticCurveTo(0.24, 0.36, 0.08, 0.33); ctx.quadraticCurveTo(-0.1, 0.28, -0.15, 0.0); ctx.closePath(); }, '#141118', { x: 0.05, y: 0.3, r: 0.3, tex: 0.3, lw: 0.8 });
+  }
 }
 
 // ---------------------------------------------------------------- Torsos
@@ -284,7 +291,7 @@ function hunterTorso(ctx: CanvasRenderingContext2D) {
   // cuello alto
   shade(ctx, () => ctx.ellipse(0.02, -0.53, 0.2, 0.08, 0, 0, TAU), '#34343e', { x: 0, y: -0.56, r: 0.2, hi: 0.5, lw: 0.6 });
 }
-function vampTorso(ctx: CanvasRenderingContext2D, t: number) {
+export function vampTorso(ctx: CanvasRenderingContext2D, t: number) {
   const torso = () => { ctx.moveTo(-0.28, 0.06); ctx.lineTo(-0.38, -0.42); ctx.quadraticCurveTo(0, -0.6, 0.38, -0.42); ctx.lineTo(0.27, 0.06); ctx.closePath(); };
   shade(ctx, torso, VAMP.armor, { x: 0.05, y: -0.45, r: 0.6, hi: 0.4, tex: 0.35 });
   ctx.strokeStyle = VAMP.trim; ctx.lineWidth = 0.03; ctx.beginPath(); ctx.moveTo(-0.3, -0.4); ctx.lineTo(-0.22, 0.04); ctx.moveTo(0.3, -0.4); ctx.lineTo(0.22, 0.04); ctx.stroke(); // ribetes rojos
@@ -349,7 +356,7 @@ export function drawWalkerK(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   if (up) armDraw(ctx, hip, pose, 1, VAMP, 'claw');
 }
 // Ala de murciélago enorme: hueso del brazo, cuatro dedos y la membrana roja festoneada entre ellos.
-function batWing(ctx: CanvasRenderingContext2D, flap: number, back: boolean) {
+export function batWing(ctx: CanvasRenderingContext2D, flap: number, back: boolean) {
   const up = flap, wrist: Pt = [0.75, -0.55 - up * 0.65];
   const tips: Pt[] = [[1.55, -1.1 - up * 0.8], [1.75, -0.35 - up * 0.55], [1.5, 0.3 - up * 0.25], [0.95, 0.55 - up * 0.05]];
   const m0 = back ? '#7d0b14' : '#e01b28', m1 = back ? '#2e0408' : '#6e0810';
@@ -381,7 +388,7 @@ export function drawFlyerK(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
 }
 
 // ---------------------------------------------------------------- El esqueleto que arde (al morir)
-function boneSeg(ctx: CanvasRenderingContext2D, a: Pt, b: Pt, w: number) {
+export function boneSeg(ctx: CanvasRenderingContext2D, a: Pt, b: Pt, w: number) {
   segment(ctx, a, b, w, w * 0.85, '#efe6d0', 0.5);
   for (const p of [a, b]) shade(ctx, () => { ctx.arc(p[0] - w * 0.25, p[1], w * 0.42, 0, TAU); ctx.moveTo(p[0] + w * 0.67, p[1]); ctx.arc(p[0] + w * 0.25, p[1], w * 0.42, 0, TAU); }, '#f4ecd8', { x: p[0], y: p[1] - w * 0.2, r: w, lw: 0.5 });
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DOOR, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, SURFACES, POWER_MAX, START_STAKES, TRAPS, castHoly, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp } from './vampyrium';
+import { DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_STAKES, TRAPS, castHoly, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp } from './vampyrium';
 
 const idle = (): Input => ({ left: false, right: false, up: false, down: false });
 const run = (g: Game, seconds: number, input: Input = idle()) => { for (let t = 0; t < seconds; t += 1 / 60) step(g, input, 1 / 60); };
@@ -100,7 +100,7 @@ describe('Vampyrium', () => {
     g.vamps.splice(0, 1);
     g.vamps.splice(g.vamps.findIndex(v => v.x === 99), 1);
     pressAttack(g); run(g, 0.3);
-    expect(g.kills).toEqual({ walker: 0, flyer: 1 });
+    expect([g.kills.walker, g.kills.flyer]).toEqual([0, 1]);
   });
 
   it('con 50 vampiros se abre la puerta de la derecha y al entrar pasa de nivel', () => {
@@ -123,12 +123,12 @@ describe('Vampyrium', () => {
     expect(g.phase).toBe('play');
   });
 
-  it('al caer al vacío pierde un corazón y vuelve a un lugar firme', () => {
+  it('al caer al vacío pierde 10 de vida y vuelve a un lugar firme', () => {
     const g = quiet(); const [a, b] = GAPS[0];
     g.player.x = a - 0.6;
     run(g, 0.6, { ...idle(), right: true });
     run(g, 1.5);
-    expect(g.player.hp).toBe(MAX_HP - 1);
+    expect(g.player.hp).toBe(MAX_HP - FALL_DMG);
     expect(g.stats.falls).toBe(1);
     expect(g.player.x).toBeLessThan(a);
     expect(g.player.x).not.toBeGreaterThan(b);
@@ -158,7 +158,7 @@ describe('Vampyrium', () => {
     expect(g.player.hp).toBeLessThan(MAX_HP);
   });
 
-  it('el vampiro que se acerca araña y saca un corazón', () => {
+  it('el vampiro común que se acerca araña y saca 1 punto de vida', () => {
     const g = quiet(); g.player.x = 5;
     walker(g, 5.6, { cool: 0, speed: 2.5 });
     run(g, 1);
@@ -258,6 +258,142 @@ describe('Vampyrium: los 10 niveles', () => {
       }
       expect(hurt, kind).toBe(true);
     }
+    newGame(1, 1);
+  });
+});
+
+describe('Vampyrium: los vampiros de cada nivel y los puntos', () => {
+  const ground = (g: Game, kind: VampKind, x: number, extra: Partial<Vamp> = {}) => { const v = makeVamp(g, kind, { x, y: GROUND_Y, onGround: true, surface: SURFACES.find(s => s.ground && s.x1 <= x && s.x2 >= x) ?? null, face: -1, cool: 9, speed: 0, ...extra }); g.vamps.push(v); return v; };
+  const quietAt = (level: number) => { const g = newGame(7, level); g.spawnT = 1e9; g.crateT = 1e9; g.vamps = []; return g; };
+
+  it('el cazador tiene 100 de vida', () => {
+    expect(MAX_HP).toBe(100);
+    expect(newGame(1).player.hp).toBe(100);
+  });
+
+  it('cada nivel suma un vampiro nuevo; del 7 al 9 como el 5; el 10 es solo Drácula', () => {
+    expect(rosterOf(1)).toEqual(['walker', 'flyer']);
+    expect(rosterOf(2)).toEqual(['walker', 'flyer', 'giant']);
+    expect(rosterOf(3)).toEqual(['walker', 'flyer', 'giant', 'mage']);
+    expect(rosterOf(4)).toEqual(['walker', 'flyer', 'giant', 'mage', 'hammer']);
+    expect(rosterOf(5)).toEqual(['walker', 'flyer', 'giant', 'mage', 'hammer', 'warrior']);
+    expect(rosterOf(6)).toEqual(['walker', 'flyer', 'giant', 'mage', 'hammer', 'warrior', 'wolf']);
+    for (const n of [7, 8, 9]) expect(rosterOf(n)).toEqual(rosterOf(5));
+    expect(rosterOf(10)).toEqual(['dracula']);
+    newGame(1, 1);
+  });
+
+  it('en cada nivel salen solo los vampiros que le tocan', () => {
+    for (const n of [1, 2, 4, 6, 8]) {
+      const g = newGame(n * 13, n); g.crateT = 1e9; g.player.inv = 1e9;
+      const seen = new Set<VampKind>();
+      for (let i = 0; i < 200; i++) { g.spawnT = 0; run(g, 1 / 60); for (const v of [...g.vamps]) { seen.add(v.kind); g.vamps.splice(g.vamps.indexOf(v), 1); } }
+      expect([...seen].every(k => rosterOf(n).includes(k)), `nivel ${n}`).toBe(true);
+      expect(seen.size, `nivel ${n}`).toBe(rosterOf(n).length);
+    }
+    newGame(1, 1);
+  });
+
+  it('cada vampiro aguanta tantos golpes como veces es más fuerte (gigante 3, mago 4, martillo 5, guerrero 6, lobo 7)', () => {
+    expect(STRENGTH).toMatchObject({ walker: 1, flyer: 1, giant: 3, mage: 4, hammer: 5, warrior: 6, wolf: 7, dracula: 50, dragon: 50 });
+    for (const kind of ['walker', 'giant', 'mage', 'hammer', 'warrior', 'wolf'] as VampKind[]) {
+      const g = quietAt(6); g.player.x = 4; g.player.face = 1; g.player.inv = 1e9;
+      const v = ground(g, kind, 5.4);
+      for (let i = 1; i <= STRENGTH[kind]; i++) {
+        pressAttack(g); run(g, 0.35); v.x = 5.4; v.state = 'walk'; v.cool = 9;
+        if (i < STRENGTH[kind]) { expect(g.vamps, `${kind} golpe ${i}`).toContain(v); expect(v.hp).toBe(STRENGTH[kind] - i); }
+      }
+      expect(g.vamps, kind).not.toContain(v);
+      expect(g.kills[kind]).toBe(1);
+      expect(g.total).toBe(1); // cada uno cuenta 1 para los 50
+    }
+    newGame(1, 1);
+  });
+
+  it('cada vampiro le saca al cazador tantos puntos como veces es más fuerte', () => {
+    expect(DAMAGE).toMatchObject({ walker: 1, flyer: 1, giant: 3, mage: 4, hammer: 5, warrior: 6, wolf: 7 });
+    for (const kind of ['walker', 'giant', 'hammer', 'warrior', 'wolf', 'mage'] as VampKind[]) {
+      const g = quietAt(6); g.player.x = 6;
+      ground(g, kind, 6.9, { cool: 0, face: -1 });
+      if (kind === 'mage') g.vamps[0].x = 6.6;
+      let lost = 0;
+      for (let i = 0; i < 240 && !lost; i++) { step(g, idle(), 1 / 60); lost = MAX_HP - g.player.hp; }
+      expect(lost, kind).toBe(DAMAGE[kind]);
+    }
+    newGame(1, 1);
+  });
+
+  it('el mago tira bolas de fuego que sacan 4 de vida (y la espada las corta)', () => {
+    const g = quietAt(3); g.player.x = 4;
+    const m = ground(g, 'mage', 10, { cool: 0 });
+    let shot = false;
+    for (let i = 0; i < 180 && !shot; i++) { step(g, idle(), 1 / 60); shot = g.shots.length > 0; m.x = 10; }
+    expect(shot).toBe(true);
+    expect(g.shots[0].dmg).toBe(4);
+    run(g, 1.2);
+    expect(g.player.hp).toBe(MAX_HP - 4);
+    // la espada la corta
+    const g2 = quietAt(3); g2.player.x = 4; g2.player.face = 1;
+    g2.shots.push({ x: 5.2, y: g2.player.y + 1, vx: -0.1, vy: 0, t: 0, life: 3, kind: 'orb', dmg: 4 });
+    pressAttack(g2); run(g2, 0.2);
+    expect(g2.shots.length).toBe(0);
+    expect(g2.player.hp).toBe(MAX_HP);
+    newGame(1, 1);
+  });
+
+  it('el guerrero ataja con el escudo las estacas, salvo cuando está atacando', () => {
+    const g = quietAt(5); g.weapon = 'stakes'; g.player.x = 3; g.player.face = 1;
+    const w = ground(g, 'warrior', 8, { face: -1 });
+    pressAttack(g); run(g, 0.5);
+    expect(w.hp).toBe(STRENGTH.warrior);
+    expect(takeEvents(g).some(e => e.type === 'block')).toBe(true);
+    w.x = 8; w.state = 'claw'; w.t = 0; w.hit = true; g.player.cool = 0;
+    pressAttack(g); run(g, 0.5);
+    expect(w.hp).toBe(STRENGTH.warrior - 1);
+    newGame(1, 1);
+  });
+
+  it('con 100 puntos perdidos se termina el juego', () => {
+    const g = quietAt(4); g.player.x = 6;
+    for (let i = 0; i < 400 && g.phase === 'play'; i++) { g.player.inv = 0; const v = ground(g, 'hammer', 6.8, { cool: 0 }); run(g, 1.3); g.vamps.splice(g.vamps.indexOf(v), 1); g.player.x = 6; g.player.y = GROUND_Y; g.player.vy = 0; }
+    run(g, 2);
+    expect(g.player.hp).toBe(0);
+    expect(g.phase).toBe('over');
+    newGame(1, 1);
+  });
+
+  it('nivel 10: solo Drácula; con 50 golpes se convierte en dragón y con 50 más se gana', () => {
+    const g = newGame(9, 10); g.crateT = 1e9; g.player.inv = 1e9;
+    expect(g.vamps.map(v => v.kind)).toEqual(['dracula']);
+    run(g, 3);
+    expect(g.vamps.every(v => v.kind === 'dracula' || v.kind === 'dragon')).toBe(true);
+    const drac = g.vamps[0];
+    for (let i = 0; i < 49; i++) hitVamp(g, drac, 1, 'sword', 0);
+    expect(drac.hp).toBe(1);
+    hitVamp(g, drac, 1, 'sword', 0);
+    expect(g.vamps.length).toBe(0);
+    expect(g.transformT).toBeGreaterThan(0);
+    expect(takeEvents(g).some(e => e.type === 'transform')).toBe(true);
+    run(g, 2.6);
+    const dragon = g.vamps.find(v => v.kind === 'dragon')!;
+    expect(dragon).toBeTruthy();
+    expect(dragon.hp).toBe(50);
+    for (let i = 0; i < 50; i++) hitVamp(g, dragon, 1, 'sword', 0);
+    expect(g.vamps.length).toBe(0);
+    run(g, 3.2);
+    expect(['cleared', 'won']).toContain(g.phase);
+    run(g, 3);
+    expect(g.phase).toBe('won');
+    newGame(1, 1);
+  });
+
+  it('el dragón escupe fuego que saca 15 de vida', () => {
+    const g = newGame(9, 10); g.crateT = 1e9; g.vamps = [];
+    g.vamps.push(makeVamp(g, 'dragon', { x: 10, y: GROUND_Y + 4, state: 'breath', t: 0, face: -1 }));
+    g.player.x = 6;
+    let lost = 0; for (let i = 0; i < 180 && !lost; i++) { step(g, idle(), 1 / 60); lost = MAX_HP - g.player.hp; }
+    expect(lost).toBe(15);
+    expect(VAMP_KINDS.length).toBe(9);
     newGame(1, 1);
   });
 });
