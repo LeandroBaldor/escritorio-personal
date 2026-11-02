@@ -1538,9 +1538,9 @@ export function playVampGarlicBomb() { if (!vampOnce('bomba-ajo', 1, 0.08, 0.95 
 export function playVampPistol() { if (!vampOnce('pistola', 0.9, 0.05, 0.95 + Math.random() * 0.1)) playVampThrow(); } // la pistola de fuego
 export function playVampCross() { if (!vampOnce('rayos-cruz', 1, 0.3)) playVampHoly(); }
 // Loops: las alas de los voladores (más fuerte cuantos más hay), la música del nivel y la tormenta.
-type LoopName = 'alas' | 'musica-1' | 'truenos';
+type LoopName = 'alas' | 'musica-1' | 'truenos' | 'musica-menu';
 interface Loop { src: AudioBufferSourceNode; gain: GainNode }
-const vampLoops: Record<LoopName, Loop | null> = { alas: null, 'musica-1': null, truenos: null };
+const vampLoops: Record<LoopName, Loop | null> = { alas: null, 'musica-1': null, truenos: null, 'musica-menu': null };
 function setVampLoop(name: LoopName, level: number) {
   const c = running(); if (!c) return;
   let l = vampLoops[name];
@@ -1550,11 +1550,15 @@ function setVampLoop(name: LoopName, level: number) {
     if (!(buffer instanceof AudioBuffer)) { loadSample(vs(name)); return; }
     const src = c.createBufferSource(), gain = c.createGain();
     src.buffer = buffer; src.loop = true; gain.gain.value = 0;
-    src.connect(gain).connect(out(c)); src.start(0, name === 'musica-1' ? 0 : Math.random() * buffer.duration);
+    src.connect(gain).connect(out(c)); src.start(0, name.startsWith('musica') ? 0 : Math.random() * buffer.duration);
     l = vampLoops[name] = { src, gain };
   }
   l.gain.gain.setTargetAtTime(Math.max(0, level), c.currentTime, name === 'alas' ? 0.15 : 0.6);
   if (level <= 0) { const dead = l; vampLoops[name] = null; try { dead.src.stop(c.currentTime + 2); } catch { /* ya paró */ } }
 }
+// La música del menú de Vampyrium (se llama seguido mientras está el menú: arranca apenas el navegador deja sonar).
+export function setVampMenuMusic(on: boolean) { setVampLoop('musica-menu', on ? 0.5 : 0); }
+// El sonido de elegir algo en los menús (niveles, botones y armas).
+export function playVampButton() { vampOnce('boton', 0.8, 0.06); }
 export function setVampWings(level: number) { setVampLoop('alas', Math.min(0.7, level)); }
 export function setVampAmbient(on: boolean) { setVampLoop('musica-1', on ? 0.32 : 0); setVampLoop('truenos', on ? 0.9 : 0); if (!on) setVampLoop('alas', 0); } // nivel 1: música y tormenta

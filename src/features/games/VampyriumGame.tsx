@@ -14,9 +14,9 @@ import { setNoGrain } from './gravityMonsters';
 const FONDOS = import.meta.glob('./assets/vampyrium/fondo-nivel-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
 const fondoOf = (bg: string) => FONDOS[`./assets/vampyrium/${bg}.webp`];
 import {
-  playGameOver, playKfPickup, playStart, playThunder, playVampBell, playVampBones, playVampCombo, playVampCrate, playVampDeath, playVampDive,
+  playGameOver, playKfPickup, playThunder, playVampBell, playVampBones, playVampCombo, playVampCrate, playVampDeath, playVampDive,
   playVampFall, playVampHurt, playVampMenu, playVampSpikes, playVampStakeHit, playVampSwing, playVampThrow, playDoor,
-  playWinFanfare, playVampCrossbow, playVampGarlicBomb, playVampPistol, playVampDeep, playVampHammer, playVampStaff, playVampFlame, setVampAmbient, setVampWings, preloadVampSounds, playVampStep, playVampVoice, playVampCross, playVampSword, playVampJumpSound, playVampBurn, playVampExplosion,
+  playWinFanfare, playVampButton, setVampMenuMusic, playVampCrossbow, playVampGarlicBomb, playVampPistol, playVampDeep, playVampHammer, playVampStaff, playVampFlame, setVampAmbient, setVampWings, preloadVampSounds, playVampStep, playVampVoice, playVampCross, playVampSword, playVampJumpSound, playVampBurn, playVampExplosion,
 } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:vampyrium-record';
@@ -102,7 +102,7 @@ export function Vampyrium() {
   }, [paint]);
 
   const start = useCallback((n: number) => {
-    playStart(); playVampBell(0.2); preloadVampSounds();
+    playVampButton(); playVampBell(0.2); preloadVampSounds();
     setLevel(n);
     gameRef.current = newGame(undefined, n); seenRef.current = new Set();
     input.current = { left: false, right: false, up: false, down: false };
@@ -164,7 +164,7 @@ export function Vampyrium() {
           case 'wave': setToast({ text: `Oleada ${e.n}: vienen más vampiros 🦇`, id: now }); break;
           case 'bloodMoon': playThunder(1); setToast({ text: '🌕 ¡LUNA DE SANGRE! Los vampiros se ponen más rápidos', id: now, big: true, bad: true }); break;
           case 'menu': playVampMenu(e.open); break;
-          case 'choose': setToast({ text: `${ICON[e.weapon]} ${WEAPON_NAME[e.weapon]}`, id: now }); break;
+          case 'choose': playVampButton(); setToast({ text: `${ICON[e.weapon]} ${WEAPON_NAME[e.weapon]}`, id: now }); break;
           case 'hiss': playVampVoice(0.65); break;
           case 'dive': playVampDive(); break;
           case 'burn': playVampBurn(); break;
@@ -194,6 +194,16 @@ export function Vampyrium() {
     return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); };
   }, [status, paint]);
   useEffect(() => () => setVampAmbient(false), []);
+  // La música del menú: suena mientras está la pantalla de inicio (reintenta hasta que el navegador deja sonar)
+  useEffect(() => {
+    if (status !== 'ready') { setVampMenuMusic(false); return; }
+    preloadVampSounds(); setVampMenuMusic(true);
+    const id = setInterval(() => setVampMenuMusic(true), 700);
+    const unlock = () => setVampMenuMusic(true);
+    window.addEventListener('pointerdown', unlock); window.addEventListener('keydown', unlock);
+    return () => { clearInterval(id); window.removeEventListener('pointerdown', unlock); window.removeEventListener('keydown', unlock); };
+  }, [status]);
+  useEffect(() => () => setVampMenuMusic(false), []);
 
   // Teclado: flechas para moverse y saltar, Espacio ataca (dos veces rápido: las armas), C la cruz, P pausa.
   useEffect(() => {
@@ -206,7 +216,7 @@ export function Vampyrium() {
       }
       if (s !== 'playing') return;
       if (g.phase === 'menu') {
-        if (e.key.startsWith('Arrow')) { e.preventDefault(); menuMove(g, e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 1); return; }
+        if (e.key.startsWith('Arrow')) { e.preventDefault(); playVampButton(); menuMove(g, e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 1); return; }
       }
       if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault(); input.current.attack = true; if (e.repeat) return;
@@ -309,7 +319,7 @@ export function Vampyrium() {
                 <p>{INFO[newWeapon].stats[0][1]} · {INFO[newWeapon].stats[1][1]}. Elegila con la tecla <strong>{WEAPONS.indexOf(newWeapon) + 1}</strong> o manteniendo Espacio.</p></div>
             </div>}
             </div>}
-            <button type="button" onClick={() => { playVampBell(0.25); setStatus('playing'); }} autoFocus>⚔️ ¡A cazar!</button>
+            <button type="button" onClick={() => { playVampButton(); playVampBell(0.25); setStatus('playing'); }} autoFocus>⚔️ ¡A cazar!</button>
           </div>
         </div>}
         {status === 'ready' && <div className="runner-overlay vamp-overlay vamp-home" role="dialog" aria-labelledby="vamp-message">
@@ -345,7 +355,7 @@ export function Vampyrium() {
             <button type="button" onClick={() => start(level)} autoFocus>Jugar · Nivel {level}</button>
           </div>
           <div className="vamp-levels" role="group" aria-label="Elegir nivel">
-            {LEVELS.map(l => <button type="button" key={l.n} className={l.n === level ? 'vamp-lv-on' : ''} aria-pressed={l.n === level} title={l.name} onClick={() => { setLevel(l.n); gameRef.current = newGame(undefined, l.n); setHud(hudOf(gameRef.current)); }}>
+            {LEVELS.map(l => <button type="button" key={l.n} className={l.n === level ? 'vamp-lv-on' : ''} aria-pressed={l.n === level} title={l.name} onClick={() => { playVampButton(); setLevel(l.n); gameRef.current = newGame(undefined, l.n); setHud(hudOf(gameRef.current)); }}>
               <img src={fondoOf(l.bg)} alt="" loading="lazy" /><b>{l.n}</b><small>{l.name}</small>
             </button>)}
           </div>
@@ -354,13 +364,13 @@ export function Vampyrium() {
           <div className="trepa-overlay-card ds-frame">
             {status === 'paused' && <>
               <h2 id="vamp-message">Pausa</h2>
-              <button type="button" onClick={() => setStatus('playing')} autoFocus>Seguir</button>
+              <button type="button" onClick={() => { playVampButton(); setStatus('playing'); }} autoFocus>Seguir</button>
             </>}
             {status === 'over' && <>
               <EndBanner win={false} id="vamp-message" />
               <p>Mataste <strong>{result.total}</strong> {result.total === 1 ? 'vampiro' : 'vampiros'} en {formatVampTime(result.time)}.{result.newRecord && ' ¡Nuevo récord!'}</p>
               <button type="button" onClick={() => start(level)} autoFocus>Jugar de nuevo</button>
-              <button type="button" className="vamp-ghost" onClick={() => setStatus('ready')}>Elegir nivel</button>
+              <button type="button" className="vamp-ghost" onClick={() => { playVampButton(); setStatus('ready'); }}>Elegir nivel</button>
             </>}
             {status === 'won' && <>
               <EndBanner win id="vamp-message" />
@@ -373,7 +383,7 @@ export function Vampyrium() {
               {result.newRecord && <p>¡Nuevo récord!</p>}
               {level < LEVEL_COUNT && <p className="runner-tip">Sigue: Nivel {level + 1} · {LEVELS[level].name}</p>}
               {level < LEVEL_COUNT ? <button type="button" onClick={() => start(level + 1)} autoFocus>Siguiente nivel ▶</button> : <button type="button" onClick={() => start(1)} autoFocus>Jugar de nuevo</button>}
-              <button type="button" className="vamp-ghost" onClick={() => setStatus('ready')}>Elegir nivel</button>
+              <button type="button" className="vamp-ghost" onClick={() => { playVampButton(); setStatus('ready'); }}>Elegir nivel</button>
             </>}
           </div>
         </div>}
