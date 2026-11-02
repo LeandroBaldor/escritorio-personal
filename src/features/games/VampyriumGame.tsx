@@ -360,7 +360,7 @@ export function Vampyrium() {
             <button type="button" ref={focusNoScroll} onClick={() => start(level)}>Jugar · Nivel {level}</button>
           </div>
           <div className="vamp-levels" role="group" aria-label="Elegir nivel">
-            {LEVELS.map(l => <button type="button" key={l.n} className={l.n === level ? 'vamp-lv-on' : ''} aria-pressed={l.n === level} title={l.name} onClick={() => { playVampButton(); setLevel(l.n); gameRef.current = newGame(undefined, l.n); setHud(hudOf(gameRef.current)); }}>
+            {LEVELS.map(l => <button type="button" key={l.n} className={l.n === level ? 'vamp-lv-on' : ''} aria-pressed={l.n === level} title={l.name} onClick={() => { playVampMenuButton(); setLevel(l.n); gameRef.current = newGame(undefined, l.n); setHud(hudOf(gameRef.current)); }}>
               <img src={fondoOf(l.bg)} alt="" loading="lazy" /><b>{l.n}</b><small>{l.name}</small>
             </button>)}
           </div>

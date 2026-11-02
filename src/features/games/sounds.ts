@@ -1562,8 +1562,8 @@ function setVampLoop(name: string, level: number) {
 export function setVampMenuMusic(on: boolean) { setVampLoop('musica-menu', on ? 0.5 : 0); }
 // El sonido de elegir algo en los menús (niveles, botones y armas).
 export function playVampButton() { vampOnce('boton', 0.8, 0.06); }
-// El botón de los menús (Jugar, ¡A cazar!, Siguiente nivel, Pausa...).
-export function playVampMenuButton() { if (!vampOnce('boton-2', 0.85, 0.06)) playVampButton(); }
+// El botón de los menús (los niveles, Jugar, ¡A cazar!, Siguiente nivel, Pausa...).
+export function playVampMenuButton() { if (!vampOnce('boton-2', 1, 0.06)) playVampButton(); }
 export function setVampWings(level: number) { setVampLoop('alas', Math.min(0.7, level)); }
 // El sonido de fondo de cada nivel (su grabación; si no tiene, la música del castillo). En el 1 y el 9 hay tormenta, y en el 9 además llueve.
 let vampAmbientName = '';
