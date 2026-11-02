@@ -16,7 +16,7 @@ const fondoOf = (bg: string) => FONDOS[`./assets/vampyrium/${bg}.webp`];
 import {
   playGameOver, playKfPickup, playThunder, playVampBell, playVampBones, playVampCombo, playVampCrate, playVampDeath, playVampDive,
   playVampFall, playVampHurt, playVampMenu, playVampSpikes, playVampStakeHit, playVampSwing, playVampThrow, playDoor,
-  playWinFanfare, playVampButton, setVampMenuMusic, playVampCrossbow, playVampGarlicBomb, playVampPistol, playVampDeep, playVampHammer, playVampStaff, playVampFlame, setVampAmbient, setVampWings, preloadVampSounds, playVampStep, playVampVoice, playVampCross, playVampSword, playVampJumpSound, playVampBurn, playVampExplosion,
+  playWinFanfare, playVampButton, playVampMenuButton, setVampMenuMusic, playVampCrossbow, playVampGarlicBomb, playVampPistol, playVampDeep, playVampHammer, playVampStaff, playVampFlame, setVampAmbient, setVampWings, preloadVampSounds, playVampStep, playVampVoice, playVampCross, playVampSword, playVampJumpSound, playVampBurn, playVampExplosion,
 } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:vampyrium-record';
@@ -61,12 +61,16 @@ function ArtCanvas({ w, h, draw }: { w: number; h: number; draw: (ctx: CanvasRen
   return <canvas ref={ref} style={{ width: w, height: h }} aria-hidden="true" />;
 }
 
+// Enfoca el botón (para jugar con el teclado) sin mover el cartel: así no queda cortado arriba.
+const focusNoScroll = (el: HTMLButtonElement | null) => { el?.focus({ preventScroll: true }); };
+
 export function Vampyrium() {
   const fit = useFitScreen();
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [firstGame] = useState(() => newGame());
   const gameRef = useRef<Game>(firstGame);
+  useEffect(() => { if (import.meta.env.DEV) (window as unknown as { __vampGame?: () => Game }).__vampGame = () => gameRef.current; }, []); // (para probar en desarrollo)
   const input = useRef<Input>({ left: false, right: false, up: false, down: false });
   const [status, setStatus] = useState<Status>('ready');
   const [level, setLevel] = useState(1);
@@ -102,7 +106,7 @@ export function Vampyrium() {
   }, [paint]);
 
   const start = useCallback((n: number) => {
-    playVampButton(); playVampBell(0.2); preloadVampSounds();
+    playVampMenuButton(); playVampBell(0.2); preloadVampSounds();
     setLevel(n);
     gameRef.current = newGame(undefined, n); seenRef.current = new Set();
     input.current = { left: false, right: false, up: false, down: false };
@@ -114,7 +118,7 @@ export function Vampyrium() {
   // El bucle del juego
   useEffect(() => {
     if (status !== 'playing') { setVampAmbient(false); paint(); return; }
-    setVampAmbient(true);
+    setVampAmbient(true, gameRef.current.level);
     let frame = 0, last = performance.now(), bellT = 14;
     const tick = (now: number) => {
       const g = gameRef.current, dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
@@ -162,6 +166,7 @@ export function Vampyrium() {
           case 'holy': playVampCross(); playThunder(0.8); setToast({ text: e.count ? `✝ ¡TORMENTA SAGRADA! ${e.count} vampiros hechos polvo` : '✝ ¡TORMENTA SAGRADA!', id: now, big: true }); break;
           case 'powerReady': playVampBell(0.2); setToast({ text: '✝ ¡+1 cruz! Elegila en las armas (tecla 4)', id: now, big: true }); break;
           case 'wave': setToast({ text: `Oleada ${e.n}: vienen más vampiros 🦇`, id: now }); break;
+          case 'thunder': playThunder(e.near); break;
           case 'bloodMoon': playThunder(1); setToast({ text: '🌕 ¡LUNA DE SANGRE! Los vampiros se ponen más rápidos', id: now, big: true, bad: true }); break;
           case 'menu': playVampMenu(e.open); break;
           case 'choose': playVampButton(); setToast({ text: `${ICON[e.weapon]} ${WEAPON_NAME[e.weapon]}`, id: now }); break;
@@ -212,7 +217,7 @@ export function Vampyrium() {
       const s = statusRef.current, g = gameRef.current;
       if ((e.key === 'p' || e.key === 'P' || e.key === 'Escape') && (s === 'playing' || s === 'paused')) {
         if (e.key === 'Escape' && g.phase === 'menu') { closeMenu(g); return; }
-        setStatus(s === 'playing' ? 'paused' : 'playing'); return;
+        playVampMenuButton(); setStatus(s === 'playing' ? 'paused' : 'playing'); return;
       }
       if (s !== 'playing') return;
       if (g.phase === 'menu') {
@@ -255,7 +260,7 @@ export function Vampyrium() {
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1 className="vamp-logo">Vampyrium</h1>
       <div className="runner-scores"><span>Récord <strong>{recordText}</strong></span></div>
-      {(status === 'playing' || status === 'paused') && <button type="button" onClick={() => setStatus(s => s === 'playing' ? 'paused' : 'playing')}>{status === 'playing' ? 'Pausa' : 'Seguir'}</button>}
+      {(status === 'playing' || status === 'paused') && <button type="button" onClick={() => { playVampMenuButton(); setStatus(s => s === 'playing' ? 'paused' : 'playing'); }}>{status === 'playing' ? 'Pausa' : 'Seguir'}</button>}
     </div>
     <div className="trepa-main">
       <div className="runner-stage" ref={stageRef}>
@@ -306,25 +311,25 @@ export function Vampyrium() {
             <p className="vamp-chapter">Capítulo {level} · {chapter.stage}</p>
             <p className="ds-story">{chapter.story}</p>
             <p className="ds-goal">{chapter.goalText}</p>
-            <p className="ds-story">{finalLevel ? 'Te saca 10 de vida con las garras y 15 con el fuego de dragón. Esquivá sus murciélagos.' : `Cuando cumplas la meta, la reja de la puerta de la derecha se va a abrir. ${def.tagline}`}</p>
+            <p className="ds-story">{finalLevel ? 'Te saca 10 de vida con las garras y 15 con el fuego de dragón. Esquivá sus murciélagos.' : 'Cuando cumplas la meta, la reja de la puerta de la derecha se va a abrir.'}</p>
             {(newcomer || newWeapon) && <div className="vamp-intro-cards">
             {newcomer && <div className="vamp-newcomer">
-              <ArtCanvas w={120} h={130} draw={(ctx, t) => drawPortrait(ctx, newcomer, gameRef.current, 58, 122, 112 / (BODY[newcomer].k * 2.3), t)} />
+              <ArtCanvas w={200} h={230} draw={(ctx, t) => drawPortrait(ctx, newcomer, gameRef.current, newcomer === 'dracula' ? 92 : 96, 218, 200 / (BODY[newcomer].k * 2.25), t)} />
               <div><small>{finalLevel ? 'El jefe final' : 'Enemigo nuevo'}</small><b>{VAMP_NAME[newcomer]}</b>
                 <p>Aguanta <strong>{STRENGTH[newcomer]} golpes</strong> y te saca <strong>{DAMAGE[newcomer]} de vida</strong>.</p></div>
             </div>}
             {newWeapon && <div className="vamp-newcomer vamp-newweapon">
-              <ArtCanvas w={120} h={110} draw={(ctx, t) => { ctx.translate(60, 55); drawWeaponIcon(ctx, newWeapon, 96, t, drawSwordIcon); }} />
+              <ArtCanvas w={200} h={200} draw={(ctx, t) => { ctx.translate(100, 100); drawWeaponIcon(ctx, newWeapon, 172, t, drawSwordIcon); }} />
               <div><small>Arma nueva</small><b>{WEAPON_NAME[newWeapon]}</b>
                 <p>{INFO[newWeapon].stats[0][1]} · {INFO[newWeapon].stats[1][1]}. Elegila con la tecla <strong>{WEAPONS.indexOf(newWeapon) + 1}</strong> o manteniendo Espacio.</p></div>
             </div>}
             </div>}
-            <button type="button" onClick={() => { playVampButton(); playVampBell(0.25); setStatus('playing'); }} autoFocus>⚔️ ¡A cazar!</button>
+            <button type="button" ref={focusNoScroll} onClick={() => { playVampMenuButton(); playVampBell(0.25); setStatus('playing'); }}>⚔️ ¡A cazar!</button>
           </div>
         </div>}
         {status === 'ready' && <div className="runner-overlay vamp-overlay vamp-home" role="dialog" aria-labelledby="vamp-message">
           <section className="vamp-story vamp-home-story" aria-label="La historia del cazador">
-            <ArtCanvas w={210} h={300} draw={(ctx, t) => drawPortrait(ctx, 'hunter', gameRef.current, 88, 292, 132, t)} />
+            <ArtCanvas w={290} h={410} draw={(ctx, t) => drawPortrait(ctx, 'hunter', gameRef.current, 122, 400, 182, t)} />
             <div>
               <h2 id="vamp-message" className="vamp-title">VAMPYRIUM</h2>
               <h3>La historia de Demian</h3>
@@ -352,7 +357,7 @@ export function Vampyrium() {
               <li><span><kbd>1</kbd>–<kbd>6</kbd></span>Cambiar de arma</li>
               <li><span><kbd>P</kbd></span>Pausa</li>
             </ul>
-            <button type="button" onClick={() => start(level)} autoFocus>Jugar · Nivel {level}</button>
+            <button type="button" ref={focusNoScroll} onClick={() => start(level)}>Jugar · Nivel {level}</button>
           </div>
           <div className="vamp-levels" role="group" aria-label="Elegir nivel">
             {LEVELS.map(l => <button type="button" key={l.n} className={l.n === level ? 'vamp-lv-on' : ''} aria-pressed={l.n === level} title={l.name} onClick={() => { playVampButton(); setLevel(l.n); gameRef.current = newGame(undefined, l.n); setHud(hudOf(gameRef.current)); }}>
@@ -364,13 +369,13 @@ export function Vampyrium() {
           <div className="trepa-overlay-card ds-frame">
             {status === 'paused' && <>
               <h2 id="vamp-message">Pausa</h2>
-              <button type="button" onClick={() => { playVampButton(); setStatus('playing'); }} autoFocus>Seguir</button>
+              <button type="button" onClick={() => { playVampMenuButton(); setStatus('playing'); }} autoFocus>Seguir</button>
             </>}
             {status === 'over' && <>
               <EndBanner win={false} id="vamp-message" />
               <p>Mataste <strong>{result.total}</strong> {result.total === 1 ? 'vampiro' : 'vampiros'} en {formatVampTime(result.time)}.{result.newRecord && ' ¡Nuevo récord!'}</p>
               <button type="button" onClick={() => start(level)} autoFocus>Jugar de nuevo</button>
-              <button type="button" className="vamp-ghost" onClick={() => { playVampButton(); setStatus('ready'); }}>Elegir nivel</button>
+              <button type="button" className="vamp-ghost" onClick={() => { playVampMenuButton(); setStatus('ready'); }}>Elegir nivel</button>
             </>}
             {status === 'won' && <>
               <EndBanner win id="vamp-message" />
@@ -383,7 +388,7 @@ export function Vampyrium() {
               {result.newRecord && <p>¡Nuevo récord!</p>}
               {level < LEVEL_COUNT && <p className="runner-tip">Sigue: Nivel {level + 1} · {LEVELS[level].name}</p>}
               {level < LEVEL_COUNT ? <button type="button" onClick={() => start(level + 1)} autoFocus>Siguiente nivel ▶</button> : <button type="button" onClick={() => start(1)} autoFocus>Jugar de nuevo</button>}
-              <button type="button" className="vamp-ghost" onClick={() => { playVampButton(); setStatus('ready'); }}>Elegir nivel</button>
+              <button type="button" className="vamp-ghost" onClick={() => { playVampMenuButton(); setStatus('ready'); }}>Elegir nivel</button>
             </>}
           </div>
         </div>}

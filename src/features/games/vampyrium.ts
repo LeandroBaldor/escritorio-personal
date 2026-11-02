@@ -146,9 +146,13 @@ export type GameEvent =
   | { type: 'hurt'; hp: number; dmg: number } | { type: 'vampHit'; kind: VampKind; hp: number } | { type: 'block' } | { type: 'slam' } | { type: 'cast' } | { type: 'bats' } | { type: 'breath' } | { type: 'mist' }
   | { type: 'collect'; kind: Item['kind']; n: number; of: number } | { type: 'break'; kind: Breakable['kind']; n: number; of: number } | { type: 'objHit' } | { type: 'transform' } | { type: 'dragon' } | { type: 'bossDead' } | { type: 'howl'; kind: VampKind } | { type: 'spawn'; kind: VampKind } | { type: 'fall'; hp: number } | { type: 'jump'; double: boolean } | { type: 'land' } | { type: 'step' }
   | { type: 'crate' } | { type: 'pickup'; kind: CrateKind; amount: number } | { type: 'door' } | { type: 'spikes' } | { type: 'fire' }
-  | { type: 'swing' } | { type: 'combo'; n: number } | { type: 'holy'; count: number } | { type: 'wave'; n: number } | { type: 'bloodMoon' }
+  | { type: 'swing' } | { type: 'thunder'; near: number } | { type: 'combo'; n: number } | { type: 'holy'; count: number } | { type: 'wave'; n: number } | { type: 'bloodMoon' }
   | { type: 'menu'; open: boolean } | { type: 'choose'; weapon: Weapon } | { type: 'hiss'; x: number } | { type: 'dive' } | { type: 'emerge' }
   | { type: 'vampFall' } | { type: 'burn' } | { type: 'vampHurt'; x: number; trap?: TrapKind } | { type: 'cleared' } | { type: 'over' } | { type: 'won' } | { type: 'powerReady' };
+
+// Un rayo de la tormenta: t = segundos desde que cayó, x = dónde (en metros), near = qué tan cerca (0 lejos, 1 encima).
+export interface Storm { next: number; t: number; x: number; near: number; seed: number }
+export const STORM_LEVEL = 9;
 
 export type Phase = 'play' | 'menu' | 'dead' | 'cleared' | 'won' | 'over';
 export interface Game {
@@ -159,6 +163,7 @@ export interface Game {
   weapon: Weapon; ammo: Record<Weapon, number>; menu: { sel: number; t: number }; lastTap: number; holdT: number;
   combo: { n: number; t: number; best: number }; power: number; holyT: number; garlicT: number;
   door: { open: boolean; t: number }; spawnT: number; crateT: number; nextId: number; wave: number; bloodMoon: boolean;
+  storm: Storm | null; // la tormenta de lluvia y rayos (nivel 9)
   flash: number; shake: number; events: GameEvent[]; rand: () => number; stats: { slashes: number; throws: number; hits: number; crates: number; falls: number };
 }
 
@@ -177,6 +182,7 @@ export function newGame(seed = Math.floor(Math.random() * 1e9), level = 1): Game
     kills: Object.fromEntries(VAMP_KINDS.map(k => [k, 0])) as Record<VampKind, number>, total: 0, shots: [], pops: [], transformT: 0, bossDeadT: -1, bossHits: 0, voidKills: 0, trapKills: 0, weapon: 'sword', ammo: { ...START_AMMO }, menu: { sel: 0, t: 0 }, lastTap: -9, holdT: 0,
     combo: { n: 0, t: 0, best: 0 }, power: 0, holyT: 0, garlicT: 0, goal: CHAPTERS[LV.def.n]?.goal ?? { type: 'kill', n: GOAL }, progress: 0, items: [], objects: [], itemT: 2, door: { open: false, t: 0 }, spawnT: 1.6, crateT: 9, nextId: 1, wave: 1, bloodMoon: false,
     flash: 0, shake: 0, events: [], rand: mulberry(seed), stats: { slashes: 0, throws: 0, hits: 0, crates: 0, falls: 0 },
+    storm: LV.def.n === STORM_LEVEL ? { next: 2.5, t: 99, x: W / 2, near: 0.5, seed: 0 } : null,
   };
   if (g.goal.type === 'break') placeBreakables(g, g.goal.n, g.goal.obj);
   if (rosterOf(g.level)[0] === 'dracula') { // el último nivel: solo Drácula, que espera en el salón del trono
@@ -893,6 +899,16 @@ function updateRemains(g: Game, dt: number) {
 // ---------------------------------------------------------------- Un paso del juego
 export function aliveCap(g: Game) { return g.door.open ? 2 : Math.min(8, 3 + Math.floor(g.total / 8)); }
 
+// La tormenta: cada tanto cae un rayo (un fogonazo que ilumina todo) y después suena el trueno.
+function updateStorm(g: Game, dt: number) {
+  const st = g.storm; if (!st) return;
+  st.t += dt; st.next -= dt;
+  if (st.next > 0) return;
+  st.t = 0; st.x = 2 + g.rand() * (W - 4); st.near = 0.25 + g.rand() * 0.75; st.seed = g.rand();
+  st.next = 4 + g.rand() * 8 * (g.rand() < 0.2 ? 0.15 : 1); // a veces dos rayos seguidos
+  emit(g, { type: 'thunder', near: st.near });
+}
+
 export function step(g: Game, input: Input, dt: number) {
   g.real += dt;
   if (g.phase === 'menu') { g.menu.t += dt; g.holdT = input.attack ? -1 : 0; return; } // el cartel de armas pone el juego en pausa
@@ -904,6 +920,7 @@ export function step(g: Game, input: Input, dt: number) {
   g.flash = Math.max(0, g.flash - dt * 1.8); g.shake = Math.max(0, g.shake - dt * 2);
   g.holyT = Math.max(0, g.holyT - dt); g.garlicT = Math.max(0, g.garlicT - dt); g.combo.t = Math.max(0, g.combo.t - dt);
   if (g.door.open) g.door.t += dt;
+  if (g.storm) updateStorm(g, dt);
   const p = g.player;
   if (g.phase === 'dead') { if (g.phaseT > 1.6) { g.phase = 'over'; emit(g, { type: 'over' }); } updateRemains(g, dt); return; }
   if (g.phase === 'over' || g.phase === 'won') return;

@@ -3,7 +3,7 @@
 // Football); acá el escenario, las trampas, las cajas, los huesos, la sangre y las chispas.
 import { bodyFire, drawHunterK, drawSkeletonK } from './vampyriumChars';
 import { drawShotK, drawVampK } from './vampyriumMonsters';
-import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Bomb, type Bullet, type Fx, type Vamp, type VampKind } from './vampyrium';
+import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm } from './vampyrium';
 import { drawBolt, drawGarlicBomb, drawWeaponIcon } from './vampyriumWeapons';
 
 const TAU = Math.PI * 2;
@@ -595,6 +595,71 @@ function drawFxW(ctx: CanvasRenderingContext2D, f: Fx, v: View, g: Game, t: numb
   ctx.restore();
 }
 
+
+// ---------------------------------------------------------------- La tormenta (nivel 9)
+// El rayo: un camino quebrado desde arriba del cielo, con ramas finitas. Mismo dibujo mientras dura (usa st.seed).
+function drawLightning(ctx: CanvasRenderingContext2D, st: Storm, v: View, w: number, h: number) {
+  const life = 0.55; if (st.t > life) return;
+  // titila: dos o tres pulsos de luz, como los rayos de verdad
+  const k = st.t < 0.06 ? 1 : st.t < 0.1 ? 0.25 : st.t < 0.17 ? 0.85 : Math.max(0, 1 - (st.t - 0.17) / (life - 0.17)) * 0.6;
+  let sd = st.seed * 9973; const rnd = () => { sd = (sd * 16807 + 11) % 2147483647; return (sd % 10000) / 10000; };
+  const x0 = X(v, st.x), yEnd = st.near > 0.6 ? Y(v, GROUND_Y) : h * (0.35 + rnd() * 0.2);
+  const pts: [number, number][] = [[x0 + (rnd() - 0.5) * w * 0.1, -10]];
+  const seg = 16;
+  for (let i = 1; i <= seg; i++) { const [px] = pts[i - 1]; pts.push([px + (rnd() - 0.5) * v.s * 2.2, -10 + (yEnd + 10) * i / seg]); }
+  const branches: [number, number][][] = [];
+  for (let b = 0; b < 4; b++) {
+    const from = 3 + Math.floor(rnd() * (seg - 6)), dir = rnd() < 0.5 ? -1 : 1; let [bx, by] = pts[from]; const br: [number, number][] = [[bx, by]];
+    for (let i = 0; i < 5; i++) { bx += dir * v.s * (0.4 + rnd() * 0.9); by += v.s * (0.5 + rnd() * 0.8); br.push([bx, by]); }
+    branches.push(br);
+  }
+  // el cielo se ilumina (más cerca = más fuerte) y el rayo con su resplandor
+  ctx.save();
+  ctx.fillStyle = `rgba(190,205,255,${0.35 * k * (0.4 + st.near * 0.6)})`; ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = 'lighter'; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const line = (path: [number, number][], width: number, color: string) => { ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath(); path.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); };
+  ctx.shadowColor = 'rgba(160,180,255,0.9)'; ctx.shadowBlur = v.s * 1.2 * k;
+  line(pts, v.s * 0.45 * k, `rgba(120,140,255,${0.35 * k})`);
+  for (const br of branches) line(br, v.s * 0.12 * k, `rgba(200,210,255,${0.55 * k})`);
+  ctx.shadowBlur = 0;
+  line(pts, Math.max(1.5, v.s * 0.1), `rgba(255,255,255,${0.95 * k})`);
+  if (st.near > 0.6) glow(ctx, pts[seg][0], pts[seg][1], v.s * 3 * k, `rgba(220,230,255,${0.6 * k})`); // donde pegó
+  ctx.restore();
+}
+// La lluvia: dos capas inclinadas por el viento (la de atrás más fina y lenta), salpicaduras en el piso y las plataformas, y neblina.
+function drawRain(ctx: CanvasRenderingContext2D, v: View, w: number, h: number, t: number, lit: number) {
+  ctx.save();
+  // oscurece un poco y le pone una neblina azulada abajo
+  ctx.fillStyle = 'rgba(10,16,30,0.22)'; ctx.fillRect(0, 0, w, h);
+  const mist = ctx.createLinearGradient(0, h * 0.55, 0, h); mist.addColorStop(0, 'rgba(120,140,170,0)'); mist.addColorStop(1, 'rgba(120,140,170,0.16)'); ctx.fillStyle = mist; ctx.fillRect(0, h * 0.55, w, h * 0.45);
+  const wind = 0.22 + Math.sin(t * 0.3) * 0.06; // ráfagas
+  const layer = (n: number, speed: number, len: number, width: number, alpha: number, off: number) => {
+    ctx.strokeStyle = `rgba(${180 + lit * 70},${195 + lit * 60},${225 + lit * 30},${alpha + lit * 0.25})`; ctx.lineWidth = width; ctx.beginPath();
+    const L = len * v.s, sp = speed * v.s;
+    for (let i = 0; i < n; i++) {
+      const y = (hash(i + off) * (h + L) + t * sp * (0.85 + hash(i + off + 7) * 0.3)) % (h + L) - L;
+      const x = ((hash(i * 3 + off) * (w + h * wind) + y * wind) % (w + h * wind)) - h * wind * 0.5;
+      ctx.moveTo(x, y); ctx.lineTo(x - L * wind, y - L);
+    }
+    ctx.stroke();
+  };
+  layer(Math.round(w * h / 6500), 18, 0.7, Math.max(1, v.s * 0.03), 0.24, 11); // lejos
+  layer(Math.round(w * h / 12000), 30, 1.3, Math.max(1.2, v.s * 0.05), 0.42, 57); // cerca
+  // salpicaduras: gotitas que rebotan sobre cada superficie
+  ctx.strokeStyle = `rgba(200,215,240,${0.45 + lit * 0.3})`; ctx.lineWidth = Math.max(1, v.s * 0.035); ctx.beginPath();
+  SURFACES.forEach((q, si) => {
+    const n = Math.max(2, Math.round((q.x2 - q.x1) * 0.9));
+    for (let i = 0; i < n; i++) {
+      const ph = (t * 2.6 + hash(i * 13 + si * 101)) % 1; if (ph > 0.35) continue;
+      const k = ph / 0.35, x = X(v, q.x1 + (q.x2 - q.x1) * hash(i * 7 + si * 31 + Math.floor(t * 2.6 + hash(i * 13 + si * 101)))), y = Y(v, q.y), r = v.s * (0.06 + k * 0.22);
+      ctx.moveTo(x - r, y - r * 0.2 * (1 - k)); ctx.quadraticCurveTo(x - r * 0.5, y - r * (1.2 - k), x, y - r * 0.15);
+      ctx.moveTo(x + r, y - r * 0.2 * (1 - k)); ctx.quadraticCurveTo(x + r * 0.5, y - r * (1.2 - k), x, y - r * 0.15);
+    }
+  });
+  ctx.stroke();
+  ctx.restore();
+}
+
 // ---------------------------------------------------------------- Todo junto
 export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: number, t: number) {
   const v = viewFor(w, h);
@@ -611,7 +676,7 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   // luna de sangre: todo se tiñe de rojo
   if (g.bloodMoon) { ctx.fillStyle = `rgba(150,0,20,${0.16 + 0.04 * Math.sin(t)})`; ctx.fillRect(0, 0, w, h); }
   // relámpago cada tanto
-  const bolt = (t * 0.13 + 0.37) % 1; if (bolt < 0.012) { ctx.fillStyle = `rgba(200,210,255,${0.25 * (1 - bolt / 0.012)})`; ctx.fillRect(0, 0, w, h); }
+  const bolt = (t * 0.13 + 0.37) % 1; if (!g.storm && bolt < 0.012) { ctx.fillStyle = `rgba(200,210,255,${0.25 * (1 - bolt / 0.012)})`; ctx.fillRect(0, 0, w, h); }
   // murciélagos que pasan lejos
   ctx.fillStyle = 'rgba(8,6,14,0.8)';
   for (let i = 0; i < 6; i++) { const bx = ((t * (0.6 + hash(i) * 0.5) * v.s + hash(i + 3) * w * 2) % (w + 200)) - 100, by = h * (0.12 + hash(i + 9) * 0.3) + Math.sin(t * 3 + i) * v.s * 0.4, fl = Math.sin(t * 14 + i * 2) * v.s * 0.12, sz = v.s * (0.18 + hash(i + 1) * 0.12); ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx - sz, by - sz - fl, bx - sz * 2, by + fl * 0.5); ctx.quadraticCurveTo(bx - sz, by, bx, by + sz * 0.3); ctx.quadraticCurveTo(bx + sz, by, bx + sz * 2, by + fl * 0.5); ctx.quadraticCurveTo(bx + sz, by - sz - fl, bx, by); ctx.fill(); }
@@ -680,6 +745,7 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
     ctx.beginPath(); ctx.moveTo(x, y - v.s * 30); ctx.lineTo(x, y + v.s * 30); ctx.moveTo(x - v.s * 18, y - v.s * 2); ctx.lineTo(x + v.s * 18, y - v.s * 2); ctx.stroke();
     ctx.restore();
   }
+  if (g.storm) { const st = g.storm, lit = st.t < 0.2 ? 1 - st.t / 0.2 : 0; drawRain(ctx, v, w, h, t, lit); drawLightning(ctx, st, v, w, h); }
   if (g.flash > 0) { ctx.fillStyle = `rgba(255,250,230,${g.flash * 0.6})`; ctx.fillRect(0, 0, w, h); }
   // viñeta
   const vg = ctx.createRadialGradient(w / 2, h * 0.5, Math.min(w, h) * 0.4, w / 2, h * 0.5, Math.max(w, h) * 0.75);

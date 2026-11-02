@@ -1516,7 +1516,8 @@ export function playVampBell(volume = 0.25) {
 // Las grabaciones de Vampyrium: espada, salto, alas de los voladores, fuego, explosión y la música de fondo.
 const VAMP_S = import.meta.glob('./assets/sonidos/vamp-*.mp3', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const vs = (name: string) => VAMP_S[`./assets/sonidos/vamp-${name}.mp3`];
-export function preloadVampSounds() { for (const url of Object.values(VAMP_S)) loadSample(url); }
+// Los fondos de cada nivel son pesados: se cargan recién cuando se juega ese nivel.
+export function preloadVampSounds() { for (const [k, url] of Object.entries(VAMP_S)) if (!k.includes('/vamp-nivel-')) loadSample(url); }
 const vampLast: Record<string, number> = {};
 function vampOnce(name: string, volume: number, gap: number, rate = 1) { const c = running(); if (!c || c.currentTime - (vampLast[name] ?? -9) < gap) return true; vampLast[name] = c.currentTime; return playSample(vs(name), volume, 0, rate); }
 // El tajo de la espada (la grabación, un poquito distinta cada vez; mientras carga, el sintetizado).
@@ -1538,19 +1539,20 @@ export function playVampGarlicBomb() { if (!vampOnce('bomba-ajo', 1, 0.08, 0.95 
 export function playVampPistol() { if (!vampOnce('pistola', 0.9, 0.05, 0.95 + Math.random() * 0.1)) playVampThrow(); } // la pistola de fuego
 export function playVampCross() { if (!vampOnce('rayos-cruz', 1, 0.3)) playVampHoly(); }
 // Loops: las alas de los voladores (más fuerte cuantos más hay), la música del nivel y la tormenta.
-type LoopName = 'alas' | 'musica-1' | 'truenos' | 'musica-menu';
 interface Loop { src: AudioBufferSourceNode; gain: GainNode }
-const vampLoops: Record<LoopName, Loop | null> = { alas: null, 'musica-1': null, truenos: null, 'musica-menu': null };
-function setVampLoop(name: LoopName, level: number) {
+const vampLoops: Record<string, Loop | null> = {};
+const loopUrl = (name: string) => name === 'lluvia' ? lluviaUrl : vs(name);
+function setVampLoop(name: string, level: number) {
   const c = running(); if (!c) return;
   let l = vampLoops[name];
   if (!l) {
     if (level <= 0) return;
-    const buffer = samples.get(vs(name));
-    if (!(buffer instanceof AudioBuffer)) { loadSample(vs(name)); return; }
+    const url = loopUrl(name); if (!url) return;
+    const buffer = samples.get(url);
+    if (!(buffer instanceof AudioBuffer)) { loadSample(url); return; }
     const src = c.createBufferSource(), gain = c.createGain();
     src.buffer = buffer; src.loop = true; gain.gain.value = 0;
-    src.connect(gain).connect(out(c)); src.start(0, name.startsWith('musica') ? 0 : Math.random() * buffer.duration);
+    src.connect(gain).connect(out(c)); src.start(0, name.startsWith('musica') || name.startsWith('nivel') ? 0 : Math.random() * buffer.duration);
     l = vampLoops[name] = { src, gain };
   }
   l.gain.gain.setTargetAtTime(Math.max(0, level), c.currentTime, name === 'alas' ? 0.15 : 0.6);
@@ -1560,5 +1562,17 @@ function setVampLoop(name: LoopName, level: number) {
 export function setVampMenuMusic(on: boolean) { setVampLoop('musica-menu', on ? 0.5 : 0); }
 // El sonido de elegir algo en los menús (niveles, botones y armas).
 export function playVampButton() { vampOnce('boton', 0.8, 0.06); }
+// El botón de los menús (Jugar, ¡A cazar!, Siguiente nivel, Pausa...).
+export function playVampMenuButton() { if (!vampOnce('boton-2', 0.85, 0.06)) playVampButton(); }
 export function setVampWings(level: number) { setVampLoop('alas', Math.min(0.7, level)); }
-export function setVampAmbient(on: boolean) { setVampLoop('musica-1', on ? 0.32 : 0); setVampLoop('truenos', on ? 0.9 : 0); if (!on) setVampLoop('alas', 0); } // nivel 1: música y tormenta
+// El sonido de fondo de cada nivel (su grabación; si no tiene, la música del castillo). En el 1 y el 9 hay tormenta, y en el 9 además llueve.
+let vampAmbientName = '';
+export function setVampAmbient(on: boolean, level = 1) {
+  const name = vs(`nivel-${level}`) ? `nivel-${level}` : 'musica-1';
+  if (vampAmbientName && vampAmbientName !== name) setVampLoop(vampAmbientName, 0);
+  vampAmbientName = on ? name : '';
+  setVampLoop(name, on ? (name === 'musica-1' ? 0.32 : 0.5) : 0);
+  setVampLoop('truenos', on && (level === 1 || level === 9) ? 0.9 : 0);
+  setVampLoop('lluvia', on && level === 9 ? 0.55 : 0);
+  if (!on) setVampLoop('alas', 0);
+}
