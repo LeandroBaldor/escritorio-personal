@@ -1202,8 +1202,8 @@ test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de
   await expect(page.getByTestId('vamp-time')).not.toHaveText('0:00', { timeout: 5000 });
   // la barra de vida de arriba: 100 puntos
   await expect(page.getByTestId('vamp-hp')).toHaveText(/^\d+\/100$/);
-  await expect(page.getByTestId('vamp-ammo')).toHaveText('8');
-  // Manteniendo espacio 3 segundos: el cartel con las armas (el juego en pausa); se eligen las estacas y se tira una.
+  await expect(page.getByTestId('vamp-ammo')).toHaveText('10'); // flechas de la ballesta
+  // Manteniendo espacio 3 segundos: el cartel con las armas (el juego en pausa); se elige la ballesta y se dispara una flecha.
   await page.keyboard.down(' '); await page.waitForTimeout(3400); await page.keyboard.up(' ');
   await expect(page.getByRole('dialog', { name: 'Armas' })).toBeVisible();
   await expect(page.getByText('Juego en pausa')).toBeVisible();
@@ -1211,7 +1211,7 @@ test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de
   await expect(page.getByRole('dialog', { name: 'Armas' })).toHaveCount(0);
   await page.waitForTimeout(400);
   await page.keyboard.press(' ');
-  await expect(page.getByTestId('vamp-ammo')).toHaveText('7');
+  await expect(page.getByTestId('vamp-ammo')).toHaveText('9');
   await page.keyboard.press('p');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
   const paused = await page.getByTestId('vamp-time').textContent();

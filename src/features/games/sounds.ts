@@ -1533,6 +1533,9 @@ export function playVampDeep(rate = 0.7, volume = 0.75) { vampOnce('voz', volume
 export function playVampHammer() { if (!vampOnce('martillo', 1, 0.1, 0.95 + Math.random() * 0.1)) playExplosion(); } // el martillo contra el piso
 export function playVampStaff() { vampOnce('baculo', 0.8, 0.25, 0.95 + Math.random() * 0.1); } // el báculo del mago
 export function playVampFlame() { vampOnce('lanzallamas', 0.85, 0.3); } // el fuego del dragón
+export function playVampCrossbow() { if (!vampOnce('ballesta', 0.9, 0.05, 0.95 + Math.random() * 0.1)) playVampThrow(); } // la ballesta
+export function playVampGarlicBomb() { if (!vampOnce('bomba-ajo', 1, 0.08, 0.95 + Math.random() * 0.1)) playExplosion(); } // la bomba de ajo que explota
+export function playVampPistol() { if (!vampOnce('pistola', 0.9, 0.05, 0.95 + Math.random() * 0.1)) playVampThrow(); } // la pistola de fuego
 export function playVampCross() { if (!vampOnce('rayos-cruz', 1, 0.3)) playVampHoly(); }
 // Loops: las alas de los voladores (más fuerte cuantos más hay), la música del nivel y la tormenta.
 type LoopName = 'alas' | 'musica-1' | 'truenos';

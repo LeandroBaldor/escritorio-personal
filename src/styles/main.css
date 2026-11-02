@@ -1653,6 +1653,11 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .vamp-newcomer p{margin:.25rem 0 0;font-size:.85rem}
 .vamp-newcomer strong{color:#ff6b78}
 @media(max-width:800px),(orientation:portrait) and (max-width:1100px){.vamp-side .vamp-count,.vamp-side .vamp-hpstat{display:none}.vamp-life{top:.3rem;left:.3rem}.vamp-boss{top:2.4rem}}
+.ds-slot .ds-key{position:absolute;left:4px;top:2px;font-style:normal;font-size:.65rem;font-weight:900;color:#e8c77a;opacity:.8}
+.vamp-weapons li.vamp-empty{opacity:.45}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.vamp-weapons li:not(.vamp-now){display:none}}
+.vamp-weapons li{font-size:.72rem;white-space:nowrap;padding:.1rem .3rem}
+.vamp-side{overflow-y:auto;scrollbar-width:thin}
 .game-card-cover{position:relative;display:block}
 .game-card-cover>svg{display:block;width:100%;height:auto}
 .game-card-wip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-8deg);padding:.35rem 1rem;background:repeating-linear-gradient(-45deg,#facc15 0 14px,#111 14px 28px);border:3px solid #111;border-radius:6px;box-shadow:0 6px 16px #000a;white-space:nowrap}

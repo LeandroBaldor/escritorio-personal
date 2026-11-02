@@ -3,7 +3,8 @@
 // Football); acá el escenario, las trampas, las cajas, los huesos, la sangre y las chispas.
 import { bodyFire, drawHunterK, drawSkeletonK } from './vampyriumChars';
 import { drawShotK, drawVampK } from './vampyriumMonsters';
-import { BODY, DOOR, GAPS, GROUND_Y, H, LV, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Stake, type Vamp, type VampKind } from './vampyrium';
+import { BODY, DOOR, GAPS, GROUND_Y, H, LV, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Bomb, type Bullet, type Fx, type Vamp, type VampKind } from './vampyrium';
+import { drawBolt, drawGarlicBomb, drawWeaponIcon } from './vampyriumWeapons';
 
 const TAU = Math.PI * 2;
 const INK = '#07060a';
@@ -468,7 +469,7 @@ function drawCrate(ctx: CanvasRenderingContext2D, c: Crate, v: View, t: number) 
     for (let i = 0; i < 4; i++) { ctx.fillStyle = i % 2 ? '#e9e2d0' : '#b3121b'; ctx.beginPath(); ctx.moveTo(0, cy - s * 0.75); ctx.arc(0, cy, s * 1.0, Math.PI + i * Math.PI / 4, Math.PI + (i + 1) * Math.PI / 4); ctx.closePath(); ctx.fill(); }
     ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, cy, s * 1.0, Math.PI, TAU); ctx.closePath(); ctx.stroke();
   }
-  if (c.landed) glow(ctx, 0, -sz / 2, s * 1.3, c.kind === 'heart' ? 'rgba(255,70,90,0.35)' : c.kind === 'garlic' ? 'rgba(220,255,220,0.35)' : 'rgba(255,210,120,0.35)', 0.6 + 0.4 * Math.sin(t * 5));
+  if (c.landed) glow(ctx, 0, -sz / 2, s * 1.3, c.kind === 'heart' ? 'rgba(255,70,90,0.35)' : c.kind === 'garlic' ? 'rgba(220,255,220,0.35)' : c.kind === 'fire' || c.kind === 'bullets' ? 'rgba(255,120,40,0.4)' : 'rgba(255,210,120,0.35)', 0.6 + 0.4 * Math.sin(t * 5));
   ctx.fillStyle = lin(ctx, -sz / 2, 0, sz / 2, 0, [[0, '#7a4a24'], [0.5, '#a8703c'], [1, '#6b3f1d']]); ctx.fillRect(-sz / 2, -sz, sz, sz);
   ctx.strokeStyle = '#4a2c14'; ctx.lineWidth = Math.max(1, s * 0.04); for (let i = 1; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-sz / 2, -sz + sz * i / 3); ctx.lineTo(sz / 2, -sz + sz * i / 3); ctx.stroke(); }
   ctx.strokeStyle = '#5a3818'; ctx.lineWidth = Math.max(2, s * 0.09); ctx.beginPath(); ctx.moveTo(-sz / 2, -sz); ctx.lineTo(sz / 2, 0); ctx.stroke();
@@ -476,17 +477,62 @@ function drawCrate(ctx: CanvasRenderingContext2D, c: Crate, v: View, t: number) 
   // el ícono de lo que trae
   ctx.save(); ctx.translate(0, -sz / 2); const k = s / 40;
   ctx.fillStyle = 'rgba(20,10,4,0.55)'; ctx.beginPath(); ctx.arc(0, 0, sz * 0.32, 0, TAU); ctx.fill();
-  if (c.kind === 'stakes') { ctx.scale(k * 0.8, k * 0.8); ctx.rotate(0.6); drawStakeItem(ctx, 26); ctx.rotate(-1.2); drawStakeItem(ctx, 26); }
-  else if (c.kind === 'heart') { ctx.scale(k, k); ctx.fillStyle = '#ff3b4f'; ctx.beginPath(); ctx.moveTo(0, 8); ctx.bezierCurveTo(-14, -2, -8, -14, 0, -6); ctx.bezierCurveTo(8, -14, 14, -2, 0, 8); ctx.fill(); }
-  else { ctx.scale(k, k); ctx.fillStyle = '#f4f1e6'; ctx.beginPath(); ctx.moveTo(0, -12); ctx.quadraticCurveTo(12, 0, 6, 8); ctx.lineTo(-6, 8); ctx.quadraticCurveTo(-12, 0, 0, -12); ctx.fill(); ctx.strokeStyle = '#c8c0a8'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(0, 8); ctx.moveTo(-4, -4); ctx.quadraticCurveTo(-5, 4, -3, 8); ctx.moveTo(4, -4); ctx.quadraticCurveTo(5, 4, 3, 8); ctx.stroke(); }
+  if (c.kind !== 'heart') drawWeaponIcon(ctx, c.kind === 'bolts' ? 'crossbow' : c.kind === 'fire' ? 'firesword' : c.kind === 'bullets' ? 'pistol' : 'garlic', sz * 0.62, t);
+  else { ctx.scale(k, k); ctx.fillStyle = '#ff3b4f'; ctx.beginPath(); ctx.moveTo(0, 8); ctx.bezierCurveTo(-14, -2, -8, -14, 0, -6); ctx.bezierCurveTo(8, -14, 14, -2, 0, 8); ctx.fill(); }
   ctx.restore();
   ctx.restore();
 }
-function drawStake(ctx: CanvasRenderingContext2D, s: Stake, v: View) {
-  const k = v.s / 40, a = Math.atan2(-s.vy, s.vx) + Math.PI / 2;
-  ctx.save(); ctx.globalAlpha = s.stuck ? Math.max(0, 1 - s.t / 1.5) : 1; ctx.translate(X(v, s.x), Y(v, s.y)); ctx.rotate(s.stuck ? Math.PI / 2 * Math.sign(s.vx) + 0.4 * Math.sign(s.vx) : a); ctx.scale(k, k);
-  if (!s.stuck) { ctx.strokeStyle = 'rgba(255,230,180,0.35)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(0, 30); ctx.stroke(); }
-  drawStakeItem(ctx, 26);
+// La flecha de la ballesta (y clavada en el piso, que se desvanece).
+function drawBoltW(ctx: CanvasRenderingContext2D, s: Bolt, v: View) {
+  ctx.save(); ctx.globalAlpha = s.stuck ? Math.max(0, 1 - s.t / 1.2) : 1; ctx.translate(X(v, s.x), Y(v, s.y)); ctx.rotate(s.stuck ? 0.5 * Math.sign(s.vx) : Math.atan2(-s.vy, s.vx)); if (s.vx < 0 && s.stuck) ctx.scale(-1, 1); ctx.scale(v.s, v.s);
+  if (!s.stuck) { ctx.strokeStyle = 'rgba(255,90,70,0.35)'; ctx.lineWidth = 0.06; ctx.beginPath(); ctx.moveTo(-1.6, 0); ctx.lineTo(-0.6, 0); ctx.stroke(); }
+  drawBolt(ctx, 0.2, 0, 0.9);
+  ctx.restore();
+}
+function drawBombW(ctx: CanvasRenderingContext2D, b: Bomb, v: View, t: number) {
+  ctx.save(); ctx.translate(X(v, b.x), Y(v, b.y + 0.3)); ctx.rotate(b.landed < 0 ? b.a : 0);
+  if (b.landed >= 0 && Math.floor(b.landed * 16) % 2) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, 0, 0, v.s * 0.9, 'rgba(255,255,200,0.6)'); ctx.restore(); } // titila antes de explotar
+  drawGarlicBomb(ctx, v.s * 0.3, t);
+  ctx.restore();
+}
+function drawBulletW(ctx: CanvasRenderingContext2D, b: Bullet, v: View) {
+  const x = X(v, b.x), y = Y(v, b.y), d = Math.sign(b.vx);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = lin(ctx, x - d * v.s * 2, y, x, y, [[0, 'rgba(255,80,20,0)'], [1, 'rgba(255,160,60,0.85)']]); ctx.lineWidth = v.s * 0.18; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x - d * v.s * 2, y); ctx.lineTo(x, y); ctx.stroke();
+  glow(ctx, x, y, v.s * 0.8, 'rgba(255,130,30,0.8)');
+  ctx.fillStyle = '#fff4c0'; ctx.beginPath(); ctx.arc(x, y, v.s * 0.13, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+// Los efectos de las armas: la onda de ajo, los rayos de la cruz, la ola de fuego y los estallidos.
+function drawFxW(ctx: CanvasRenderingContext2D, f: Fx, v: View, g: Game, t: number) {
+  if (f.t < 0) return;
+  const k = Math.min(1, f.t / f.life), fade = 1 - k;
+  ctx.save();
+  if (f.kind === 'blast') { // onda expansiva de ajo: nube blanca y verde que crece hasta 3 metros
+    const r = v.s * f.r * (0.3 + 0.7 * Math.sqrt(k)), x = X(v, f.x), y = Y(v, f.y);
+    const gr = ctx.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(255,255,240,${0.85 * fade})`); gr.addColorStop(0.55, `rgba(200,255,170,${0.55 * fade})`); gr.addColorStop(1, 'rgba(140,220,120,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = `rgba(230,255,210,${fade})`; ctx.lineWidth = Math.max(2, v.s * 0.15 * fade); ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${0.6 * fade})`; ctx.lineWidth = Math.max(1, v.s * 0.06); ctx.beginPath(); ctx.arc(x, y, r * 0.75, 0, TAU); ctx.stroke();
+    for (let i = 0; i < 10; i++) { const a = i * 0.63 + f.seed * 6, rr = r * (0.5 + 0.5 * k); ctx.fillStyle = `rgba(245,240,230,${fade})`; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.8, v.s * 0.1, v.s * 0.06, a, 0, TAU); ctx.fill(); } // dientes de ajo volando
+  } else if (f.kind === 'bolt') { // rayo de tormenta que baja del cielo
+    const x = X(v, f.x), y1 = Y(v, f.y), segs = 9;
+    ctx.globalCompositeOperation = 'lighter';
+    const pts: [number, number][] = [[x + (hash(f.seed * 7) - 0.5) * v.s * 2, 0]];
+    for (let i = 1; i < segs; i++) pts.push([x + (hash(f.seed * 13 + i + Math.floor(t * 30)) - 0.5) * v.s * 1.2 * (1 - i / segs), y1 * i / segs]);
+    pts.push([x, y1]);
+    for (const [w, c] of [[v.s * 0.5, `rgba(255,220,120,${0.35 * fade})`], [v.s * 0.2, `rgba(255,250,210,${0.8 * fade})`], [v.s * 0.07, `rgba(255,255,255,${fade})`]] as const) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.beginPath(); pts.forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.stroke(); }
+    glow(ctx, x, y1, v.s * 1.6, `rgba(255,230,140,${0.8 * fade})`);
+  } else if (f.kind === 'wave') { // la ola de fuego de la espada: una media luna que sale hacia adelante
+    const p = g.player, cx = X(v, p.x), cy = Y(v, f.y + 1.5), r = v.s * (1.2 + (f.r - 1.2) * Math.sqrt(k)), a0 = f.face > 0 ? -1.15 : Math.PI - 1.15, a1 = a0 + 2.3;
+    ctx.globalCompositeOperation = 'lighter';
+    for (const [w, c] of [[v.s * 1.1, `rgba(255,60,10,${0.45 * fade})`], [v.s * 0.55, `rgba(255,150,40,${0.75 * fade})`], [v.s * 0.2, `rgba(255,240,170,${fade})`]] as const) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(cx, cy, r, a0, a1); ctx.stroke(); }
+    for (let i = 0; i < 14; i++) { const a = a0 + (a1 - a0) * (i / 13), fx = cx + Math.cos(a) * r, fy = cy + Math.sin(a) * r, fl = v.s * (0.3 + hash(i + f.seed * 9) * 0.4) * fade; ctx.fillStyle = `rgba(255,${120 + i * 6},40,${0.8 * fade})`; ctx.beginPath(); ctx.moveTo(fx - fl * 0.4, fy); ctx.quadraticCurveTo(fx, fy - fl * 2.2, fx + fl * 0.4, fy); ctx.fill(); }
+  } else { // estallido de fuego de la bala
+    const x = X(v, f.x), y = Y(v, f.y), r = v.s * f.r * (0.4 + k);
+    ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, y, r * 1.6, `rgba(255,140,40,${0.9 * fade})`);
+    ctx.fillStyle = `rgba(255,240,170,${fade})`; ctx.beginPath(); ctx.arc(x, y, r * 0.45, 0, TAU); ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -552,7 +598,10 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
     if (g.phase === 'cleared') ctx.globalAlpha = Math.max(0, 1 - g.phaseT / 1.6);
     drawHunterK(ctx, p, g, t); ctx.restore();
   }
-  for (const s of g.stakes) drawStake(ctx, s, v);
+  for (const s of g.bolts) drawBoltW(ctx, s, v);
+  for (const b of g.bombs) drawBombW(ctx, b, v, t);
+  for (const b of g.bullets) drawBulletW(ctx, b, v);
+  for (const f of g.fx) drawFxW(ctx, f, v, g, t);
   drawSparks(ctx, g, v);
   // los números de los golpes
   ctx.textAlign = 'center'; ctx.font = `900 ${Math.max(12, v.s * 0.55)}px Nunito, system-ui, sans-serif`; ctx.lineJoin = 'round';

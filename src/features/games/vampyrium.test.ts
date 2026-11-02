@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_STAKES, TRAPS, castHoly, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp } from './vampyrium';
+import { DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp } from './vampyrium';
 
 const idle = (): Input => ({ left: false, right: false, up: false, down: false });
 const run = (g: Game, seconds: number, input: Input = idle()) => { for (let t = 0; t < seconds; t += 1 / 60) step(g, input, 1 / 60); };
@@ -65,11 +65,11 @@ describe('Vampyrium', () => {
     expect(g.phase).toBe('menu'); // seguir apretando no lo cierra
     menuMove(g, 1); pressAttack(g);
     expect(g.phase).toBe('play');
-    expect(g.weapon).toBe('stakes');
+    expect(g.weapon).toBe('crossbow');
     run(g, 0.5);
     pressAttack(g);
-    expect(g.ammo).toBe(START_STAKES - 1);
-    expect(g.stakes.length).toBe(1);
+    expect(g.ammo.crossbow).toBe(START_AMMO.crossbow - 1);
+    expect(g.bolts.length).toBe(1);
   });
 
   it('soltar antes de los 3 segundos no abre el cartel', () => {
@@ -78,16 +78,17 @@ describe('Vampyrium', () => {
     expect(g.phase).toBe('play');
   });
 
-  it('la estaca vuela y mata a un vampiro lejos', () => {
-    const g = quiet(); g.weapon = 'stakes'; g.player.x = 3; g.player.face = 1;
-    walker(g, 7.5);
-    pressAttack(g); run(g, 0.5);
-    expect(g.kills.walker).toBe(1);
-    expect(killsOf(g)[0]).toMatchObject({ how: 'stake' });
+  it('la flecha de la ballesta vuela lejos y atraviesa hasta 3 vampiros', () => {
+    const g = quiet(); g.weapon = 'crossbow'; g.player.x = 3; g.player.face = 1;
+    for (const x of [7, 9, 11, 13]) walker(g, x);
+    pressAttack(g); run(g, 0.8);
+    expect(g.kills.walker).toBe(3);
+    expect(g.vamps.length).toBe(1); // el cuarto se salva
+    expect(killsOf(g)[0]).toMatchObject({ how: 'bolt' });
   });
 
-  it('sin estacas vuelve a la espada', () => {
-    const g = quiet(); g.weapon = 'stakes'; g.ammo = 0;
+  it('sin munición vuelve a la espada', () => {
+    const g = quiet(); g.weapon = 'crossbow'; g.ammo.crossbow = 0;
     pressAttack(g);
     expect(g.weapon).toBe('sword');
     expect(takeEvents(g).some(e => e.type === 'empty')).toBe(true);
@@ -166,22 +167,26 @@ describe('Vampyrium', () => {
     expect(g.player.inv).toBeGreaterThan(0);
   });
 
-  it('caen cajas del cielo: la de estacas suma estacas', () => {
-    const g = quiet(); g.crates.push({ id: 99, kind: 'stakes', x: g.player.x, y: GROUND_Y + 3, vy: -2.6, landed: false, t: 0, surface: null });
+  it('caen cajas del cielo: la de flechas suma 8 flechas', () => {
+    const g = quiet(); g.crates.push({ id: 99, kind: 'bolts', x: g.player.x, y: GROUND_Y + 3, vy: -2.6, landed: false, t: 0, surface: null });
     run(g, 2);
-    expect(g.ammo).toBe(START_STAKES + 6);
+    expect(g.ammo.crossbow).toBe(START_AMMO.crossbow + 8);
     expect(takeEvents(g).some(e => e.type === 'pickup')).toBe(true);
   });
 
-  it('el poder de la cruz se carga con 10 vampiros y revienta a todos los de la pantalla', () => {
-    const g = quiet(); g.power = POWER_MAX - 1;
+  it('la cruz: con 10 vampiros se carga una, y la tormenta de rayos revienta a los 6 más cercanos', () => {
+    const g = quiet(); g.ammo.cross = 0;
     expect(castHoly(g)).toBe(false);
-    g.power = POWER_MAX;
-    walker(g, 10); walker(g, 15); walker(g, 20);
-    expect(castHoly(g)).toBe(true);
-    expect(g.vamps.length).toBe(0);
-    expect(g.total).toBe(3);
+    g.power = POWER_MAX - 1; g.player.x = 4; g.player.face = 1;
+    walker(g, 5.2); pressAttack(g); run(g, 0.4);
+    expect(g.ammo.cross).toBe(1);
     expect(g.power).toBe(0);
+    for (const x of [6, 9, 12, 15, 18, 21, 24]) walker(g, x, { cool: 9, speed: 0 });
+    g.player.cool = 0;
+    expect(castHoly(g)).toBe(true);
+    expect(g.vamps.length).toBe(1); // el más lejano se salva
+    expect(g.ammo.cross).toBe(0);
+    expect(g.fx.filter(f => f.kind === 'bolt').length).toBeGreaterThanOrEqual(6);
   });
 
   it('los combos suman cuando se matan seguidos', () => {
@@ -341,15 +346,15 @@ describe('Vampyrium: los vampiros de cada nivel y los puntos', () => {
     newGame(1, 1);
   });
 
-  it('el guerrero ataja con el escudo las estacas, salvo cuando está atacando', () => {
-    const g = quietAt(5); g.weapon = 'stakes'; g.player.x = 3; g.player.face = 1;
+  it('el guerrero ataja con el escudo las flechas, salvo cuando está atacando', () => {
+    const g = quietAt(5); g.weapon = 'crossbow'; g.player.x = 3; g.player.face = 1;
     const w = ground(g, 'warrior', 8, { face: -1 });
     pressAttack(g); run(g, 0.5);
     expect(w.hp).toBe(STRENGTH.warrior);
     expect(takeEvents(g).some(e => e.type === 'block')).toBe(true);
     w.x = 8; w.state = 'claw'; w.t = 0; w.hit = true; g.player.cool = 0;
     pressAttack(g); run(g, 0.5);
-    expect(w.hp).toBe(STRENGTH.warrior - 1);
+    expect(w.hp).toBe(STRENGTH.warrior - WEAPON_DMG.crossbow);
     newGame(1, 1);
   });
 
@@ -394,6 +399,71 @@ describe('Vampyrium: los vampiros de cada nivel y los puntos', () => {
     let lost = 0; for (let i = 0; i < 180 && !lost; i++) { step(g, idle(), 1 / 60); lost = MAX_HP - g.player.hp; }
     expect(lost).toBe(15);
     expect(VAMP_KINDS.length).toBe(9);
+    newGame(1, 1);
+  });
+});
+
+describe('Vampyrium: las armas', () => {
+  const quiet10 = (level = 6) => { const g = newGame(7, level); g.spawnT = 1e9; g.crateT = 1e9; g.vamps = []; g.player.inv = 1e9; return g; };
+  const put = (g: Game, kind: VampKind, x: number) => { const v = makeVamp(g, kind, { x, y: GROUND_Y, onGround: true, surface: SURFACES.find(s => s.ground && s.x1 <= x && s.x2 >= x) ?? null, face: -1, cool: 9, speed: 0 }); g.vamps.push(v); return v; };
+  const use = (g: Game, w: Weapon, secs = 0.6) => { chooseWeapon(g, w); g.player.cool = 0; pressAttack(g); run(g, secs); };
+
+  it('cuánto le saca cada arma: espada 1, ballesta 3, ajo 5, cruz 10, espada de fuego 20, pistola 20', () => {
+    expect(WEAPON_DMG).toEqual({ sword: 1, crossbow: 3, garlic: 5, cross: 10, firesword: 20, pistol: 20 });
+    for (const w of ['sword', 'crossbow', 'garlic', 'firesword', 'pistol'] as Weapon[]) {
+      const g = quiet10(); g.player.x = 3; g.player.face = 1;
+      const v = put(g, 'dracula', 5); v.special = 1e9; v.hp = 50; // Drácula aguanta 50: así se ve el daño de un golpe
+      use(g, w, 1.2);
+      expect(50 - (v.hp ?? 0), w).toBe(WEAPON_DMG[w]);
+    }
+    newGame(1, 1);
+  });
+
+  it('la bomba de ajo: la onda le saca 5 a todos los que están a 3 metros, no a los de más lejos', () => {
+    const g = quiet10(); g.player.x = 3; g.player.face = 1;
+    const near = [put(g, 'hammer', 7), put(g, 'hammer', 8.5), put(g, 'hammer', 10)], far = put(g, 'hammer', 15);
+    g.bombs.push({ x: 8.5, y: GROUND_Y + 0.05, vx: 0, vy: 0, t: 0, landed: 0, a: 0 });
+    run(g, 0.6);
+    for (const v of near) expect(g.vamps).not.toContain(v); // martillo: 5 de vida → la onda los mata
+    expect(far.hp).toBe(5);
+    expect(g.total).toBe(3);
+    expect(GARLIC_R).toBe(3);
+    newGame(1, 1);
+  });
+
+  it('la espada de fuego: la ola es 5 veces más grande que el tajo común', () => {
+    const g = quiet10(); g.player.x = 3; g.player.face = 1;
+    const a = put(g, 'giant', 5), b = put(g, 'giant', 8.8);
+    use(g, 'sword', 0.4);
+    expect(a.hp).toBe(2); expect(b.hp).toBe(3); // la común no llega al de lejos
+    use(g, 'firesword', 0.4);
+    expect(g.vamps).not.toContain(a); expect(g.vamps).not.toContain(b);
+    newGame(1, 1);
+  });
+
+  it('la pistola de fuego: le pega al primero que toca, hasta 10 metros', () => {
+    const g = quiet10(); g.player.x = 3; g.player.face = 1;
+    const a = put(g, 'wolf', 12), b = put(g, 'wolf', 13.5);
+    use(g, 'pistol', 1);
+    expect(g.vamps).not.toContain(a); expect(g.vamps).toContain(b);
+    const g2 = quiet10(); g2.player.x = 3; g2.player.face = 1;
+    const c = put(g2, 'wolf', 3 + PISTOL_RANGE + 2);
+    use(g2, 'pistol', 1);
+    expect(c.hp).toBe(7); // más lejos de 10 metros no llega
+    newGame(1, 1);
+  });
+
+  it('cada arma gasta su munición y se recarga con las cajas', () => {
+    const g = quiet10(); g.player.x = 3;
+    use(g, 'garlic', 0.1); use(g, 'pistol', 0.1); use(g, 'firesword', 0.1);
+    expect(g.ammo.garlic).toBe(START_AMMO.garlic - 1);
+    expect(g.ammo.pistol).toBe(START_AMMO.pistol - 1);
+    expect(g.ammo.firesword).toBe(START_AMMO.firesword - 1);
+    g.crates.push({ id: 99, kind: 'bullets', x: g.player.x, y: GROUND_Y + 2, vy: -2.6, landed: false, t: 0, surface: null });
+    g.crates.push({ id: 98, kind: 'fire', x: g.player.x, y: GROUND_Y + 2.2, vy: -2.6, landed: false, t: 0, surface: null });
+    run(g, 2);
+    expect(g.ammo.pistol).toBe(Math.min(MAX_AMMO.pistol, START_AMMO.pistol - 1 + 4));
+    expect(g.ammo.firesword).toBe(START_AMMO.firesword - 1 + 3);
     newGame(1, 1);
   });
 });

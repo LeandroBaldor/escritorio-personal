@@ -10,17 +10,29 @@ export const W = 28, H = 15.75;
 export const GROUND_Y = 3.2;
 export const GOAL = 50;
 export const MAX_HP = 100; // la barra de vida del cazador
-export const TRAP_DMG = 10, FALL_DMG = 10, HEART_HP = 25, HOLY_DMG = 10;
-export const START_STAKES = 8;
-export const MAX_STAKES = 30;
-export const POWER_MAX = 10;
+export const TRAP_DMG = 10, FALL_DMG = 10, HEART_HP = 25;
+export const POWER_MAX = 10; // vampiros para cargar una cruz
 export const PLAYER_W = 0.8, PLAYER_H = 1.9;
 const GRAV = 36, SPEED = 7, JUMP = 16.2, JUMP2 = 14, FALL_MAX = 24;
 const VAMP_W = 0.8;
 
-export type Weapon = 'sword' | 'stakes';
-export const WEAPONS: Weapon[] = ['sword', 'stakes'];
-export const WEAPON_NAME: Record<Weapon, string> = { sword: 'Espada', stakes: 'Estacas' };
+// ---------------------------------------------------------------- Las armas
+export type Weapon = 'sword' | 'crossbow' | 'garlic' | 'cross' | 'firesword' | 'pistol';
+export const WEAPONS: Weapon[] = ['sword', 'crossbow', 'garlic', 'cross', 'firesword', 'pistol'];
+export const WEAPON_NAME: Record<Weapon, string> = { sword: 'Espada', crossbow: 'Ballesta', garlic: 'Bomba de ajo', cross: 'Cruz', firesword: 'Espada de fuego', pistol: 'Pistola de fuego' };
+// Cuánta vida le saca a cada vampiro que alcanza.
+export const WEAPON_DMG: Record<Weapon, number> = { sword: 1, crossbow: 3, garlic: 5, cross: 10, firesword: 20, pistol: 20 };
+// Munición: con cuánto se empieza cada nivel y cuánto se puede llevar (la espada no se gasta).
+export const START_AMMO: Record<Weapon, number> = { sword: Infinity, crossbow: 10, garlic: 2, cross: 1, firesword: 3, pistol: 4 };
+export const MAX_AMMO: Record<Weapon, number> = { sword: Infinity, crossbow: 30, garlic: 6, cross: 3, firesword: 10, pistol: 12 };
+// El tamaño de cada ataque (en metros; un vampiro mide 0,8 de ancho y 1,8 de alto):
+export const SWORD_REACH = 2.6, SWORD_H = 2.7; // la espada: un arco de 2,6 adelante y 2,7 de alto
+export const FIRE_REACH = 6.5, FIRE_H = 5.4; // la espada de fuego: 2,5 veces más larga y el doble de alta = 5 veces más grande
+export const BOLT_PIERCE = 3; // la flecha de la ballesta atraviesa hasta 3 vampiros
+export const GARLIC_R = 3; // la onda de la bomba de ajo: 3 metros a cada lado del estallido (6 de punta a punta, unos 7 vampiros en fila)
+export const CROSS_TARGETS = 6; // la cruz: rayos sobre los 6 vampiros más cercanos que estén a la vista
+export const PISTOL_RANGE = 10; // la pistola de fuego: 10 metros (unos 10 vampiros uno al lado del otro); le pega al primero
+export const AMMO_PICKUP: Record<Weapon, number> = { sword: 0, crossbow: 8, garlic: 2, cross: 1, firesword: 3, pistol: 4 };
 
 import { LEVELS, LEVEL_COUNT, type LevelDef, type Surface, type Trap, type TrapKind } from './vampyriumLevels';
 export { LEVELS, LEVEL_COUNT, type LevelDef, type Surface, type Trap, type TrapKind };
@@ -98,7 +110,7 @@ export function vampBox(v: Vamp): [number, number, number, number] {
 export interface Shot { x: number; y: number; vx: number; vy: number; t: number; life: number; kind: 'orb' | 'bat' | 'flame'; dmg: number }
 // Los números que saltan con cada golpe.
 export interface Pop { x: number; y: number; t: number; text: string; bad: boolean }
-export type KillHow = 'sword' | 'stake' | 'trap' | 'void' | 'holy' | 'crate';
+export type KillHow = 'sword' | 'bolt' | 'bomb' | 'cross' | 'fire' | 'bullet' | 'trap' | 'void' | 'crate';
 export interface Corpse { id: number; kind: VampKind; x: number; y: number; face: 1 | -1; t: number; how: KillHow }
 export type BoneKind = 'skull' | 'jaw' | 'ribs' | 'pelvis' | 'arm' | 'leg' | 'spine';
 export interface Bone { kind: BoneKind; x: number; y: number; vx: number; vy: number; a: number; va: number; t: number; rest: boolean }
@@ -106,12 +118,16 @@ export interface Spark { x: number; y: number; vx: number; vy: number; t: number
 // Sangre que salpica: gotas que vuelan y quedan como manchas en el piso.
 export interface Drop { x: number; y: number; vx: number; vy: number; r: number; t: number; stuck: boolean }
 export const BURN_AT = 0.25, BLOW_AT = 1.05; // el vampiro se vuelve esqueleto, arde como una antorcha y al segundo revienta
-export interface Stake { x: number; y: number; vx: number; vy: number; t: number; stuck: boolean }
-export type CrateKind = 'stakes' | 'heart' | 'garlic';
+export interface Bolt { x: number; y: number; vx: number; vy: number; t: number; stuck: boolean; hits: number[] } // flecha de la ballesta
+export interface Bomb { x: number; y: number; vx: number; vy: number; t: number; landed: number; a: number } // bomba de ajo (landed: tiempo desde que tocó el piso)
+export interface Bullet { x: number; y: number; vx: number; x0: number; t: number } // la bala de fuego de la pistola
+// Efectos: la onda de la bomba, los rayos de la cruz, la ola de fuego de la espada y el estallido de la bala.
+export interface Fx { kind: 'blast' | 'bolt' | 'wave' | 'burst'; x: number; y: number; t: number; life: number; r: number; face: 1 | -1; seed: number }
+export type CrateKind = 'bolts' | 'heart' | 'garlic' | 'fire' | 'bullets';
 export interface Crate { id: number; kind: CrateKind; x: number; y: number; vy: number; landed: boolean; t: number; surface: Surface | null }
 
 export type GameEvent =
-  | { type: 'slash' } | { type: 'throw' } | { type: 'stakeHit' } | { type: 'empty' }
+  | { type: 'slash' } | { type: 'throw' } | { type: 'stakeHit' } | { type: 'empty'; weapon: Weapon } | { type: 'shoot'; weapon: Weapon } | { type: 'blast'; count: number } | { type: 'crossReady' }
   | { type: 'kill'; kind: VampKind; how: KillHow; x: number; y: number } | { type: 'bones'; x: number; y: number }
   | { type: 'hurt'; hp: number; dmg: number } | { type: 'vampHit'; kind: VampKind; hp: number } | { type: 'block' } | { type: 'slam' } | { type: 'cast' } | { type: 'bats' } | { type: 'breath' } | { type: 'mist' }
   | { type: 'transform' } | { type: 'dragon' } | { type: 'bossDead' } | { type: 'howl'; kind: VampKind } | { type: 'spawn'; kind: VampKind } | { type: 'fall'; hp: number } | { type: 'jump'; double: boolean } | { type: 'land' } | { type: 'step' }
@@ -123,9 +139,9 @@ export type GameEvent =
 export type Phase = 'play' | 'menu' | 'dead' | 'cleared' | 'won' | 'over';
 export interface Game {
   level: number; time: number; real: number; phase: Phase; phaseT: number;
-  player: Player; vamps: Vamp[]; corpses: Corpse[]; bones: Bone[]; sparks: Spark[]; drops: Drop[]; stakes: Stake[]; crates: Crate[];
+  player: Player; vamps: Vamp[]; corpses: Corpse[]; bones: Bone[]; sparks: Spark[]; drops: Drop[]; bolts: Bolt[]; bombs: Bomb[]; bullets: Bullet[]; fx: Fx[]; crates: Crate[];
   kills: Record<VampKind, number>; total: number; shots: Shot[]; pops: Pop[]; transformT: number; bossDeadT: number; bossHits: number; voidKills: number; trapKills: number;
-  weapon: Weapon; ammo: number; menu: { sel: number; t: number }; lastTap: number; holdT: number;
+  weapon: Weapon; ammo: Record<Weapon, number>; menu: { sel: number; t: number }; lastTap: number; holdT: number;
   combo: { n: number; t: number; best: number }; power: number; holyT: number; garlicT: number;
   door: { open: boolean; t: number }; spawnT: number; crateT: number; nextId: number; wave: number; bloodMoon: boolean;
   flash: number; shake: number; events: GameEvent[]; rand: () => number; stats: { slashes: number; throws: number; hits: number; crates: number; falls: number };
@@ -142,8 +158,8 @@ export function newPlayer(): Player {
 export function newGame(seed = Math.floor(Math.random() * 1e9), level = 1): Game {
   loadLevel(level);
   const g: Game = {
-    level: LV.def.n, time: 0, real: 0, phase: 'play', phaseT: 0, player: newPlayer(), vamps: [], corpses: [], bones: [], sparks: [], drops: [], stakes: [], crates: [],
-    kills: Object.fromEntries(VAMP_KINDS.map(k => [k, 0])) as Record<VampKind, number>, total: 0, shots: [], pops: [], transformT: 0, bossDeadT: -1, bossHits: 0, voidKills: 0, trapKills: 0, weapon: 'sword', ammo: START_STAKES, menu: { sel: 0, t: 0 }, lastTap: -9, holdT: 0,
+    level: LV.def.n, time: 0, real: 0, phase: 'play', phaseT: 0, player: newPlayer(), vamps: [], corpses: [], bones: [], sparks: [], drops: [], bolts: [], bombs: [], bullets: [], fx: [], crates: [],
+    kills: Object.fromEntries(VAMP_KINDS.map(k => [k, 0])) as Record<VampKind, number>, total: 0, shots: [], pops: [], transformT: 0, bossDeadT: -1, bossHits: 0, voidKills: 0, trapKills: 0, weapon: 'sword', ammo: { ...START_AMMO }, menu: { sel: 0, t: 0 }, lastTap: -9, holdT: 0,
     combo: { n: 0, t: 0, best: 0 }, power: 0, holyT: 0, garlicT: 0, door: { open: false, t: 0 }, spawnT: 1.6, crateT: 9, nextId: 1, wave: 1, bloodMoon: false,
     flash: 0, shake: 0, events: [], rand: mulberry(seed), stats: { slashes: 0, throws: 0, hits: 0, crates: 0, falls: 0 },
   };
@@ -259,25 +275,42 @@ export function chooseWeapon(g: Game, w: Weapon) {
 export function attack(g: Game) {
   const p = g.player;
   if (p.cool > 0 || g.phase !== 'play') return;
-  if (g.weapon === 'stakes' && g.ammo <= 0) { g.weapon = 'sword'; emit(g, { type: 'empty' }); }
-  p.attackT = 0; p.attackWeapon = g.weapon; p.hitIds = new Set();
-  if (g.weapon === 'sword') { p.cool = 0.3; g.stats.slashes++; emit(g, { type: 'slash' }); }
-  else {
-    p.cool = 0.34; g.ammo--; g.stats.throws++;
-    g.stakes.push({ x: p.x + p.face * 0.5, y: p.y + 1.25, vx: p.face * 19 + p.vx * 0.3, vy: 1.2, t: 0, stuck: false });
-    emit(g, { type: 'throw' });
-    if (g.ammo <= 0) { g.weapon = 'sword'; emit(g, { type: 'empty' }); } // la última: vuelve la espada
-  }
+  if (g.ammo[g.weapon] <= 0) { emit(g, { type: 'empty', weapon: g.weapon }); g.weapon = 'sword'; }
+  const w = g.weapon;
+  if (w === 'cross') { stormCross(g); return; }
+  p.attackT = 0; p.attackWeapon = w; p.hitIds = new Set();
+  if (w !== 'sword') g.ammo[w]--;
+  const hy = p.y + 1.3, hx = p.x + p.face * 0.6;
+  if (w === 'sword') { p.cool = 0.3; g.stats.slashes++; emit(g, { type: 'slash' }); }
+  else if (w === 'firesword') { // la ola de fuego: 5 veces más grande que el tajo común
+    p.cool = 0.55; g.stats.slashes++; g.shake = Math.max(g.shake, 0.35);
+    g.fx.push({ kind: 'wave', x: p.x, y: p.y, t: 0, life: 0.45, r: FIRE_REACH, face: p.face, seed: g.rand() });
+    emit(g, { type: 'shoot', weapon: w });
+  } else if (w === 'crossbow') { p.cool = 0.45; g.stats.throws++; g.bolts.push({ x: hx + p.face * 0.5, y: hy, vx: p.face * 24, vy: 0.4, t: 0, stuck: false, hits: [] }); emit(g, { type: 'shoot', weapon: w }); }
+  else if (w === 'pistol') { p.cool = 0.5; g.stats.throws++; g.bullets.push({ x: hx + p.face * 0.4, y: hy + 0.05, vx: p.face * 28, x0: hx, t: 0 }); g.fx.push({ kind: 'burst', x: hx + p.face * 0.75, y: hy + 0.05, t: 0, life: 0.18, r: 0.5, face: p.face, seed: g.rand() }); emit(g, { type: 'shoot', weapon: w }); }
+  else { p.cool = 0.6; g.stats.throws++; g.bombs.push({ x: hx, y: hy + 0.2, vx: p.face * 8.5 + p.vx * 0.3, vy: 8.5, t: 0, landed: -1, a: 0 }); emit(g, { type: 'throw' }); } // la bomba de ajo
+  if (g.ammo[w] <= 0) { g.weapon = 'sword'; emit(g, { type: 'empty', weapon: w }); } // la última: vuelve la espada
 }
-// El poder de la cruz: con 10 vampiros cargado, una luz sagrada le saca 10 puntos a todos los que están a la vista
-// (los comunes revientan; a Drácula y al dragón les baja la barra).
-export function castHoly(g: Game) {
-  if (g.phase !== 'play' || g.power < POWER_MAX) return false;
-  g.power = 0; g.holyT = 1.4; g.flash = 1; g.shake = 0.6; g.shots = [];
+// La cruz: una tormenta de rayos sobre los 6 vampiros más cercanos que estén a la vista (10 de daño a cada uno).
+export function stormCross(g: Game) {
+  const p = g.player;
+  if (g.phase !== 'play' || g.ammo.cross <= 0 || p.cool > 0) return false;
+  g.ammo.cross--; p.cool = 0.6; p.attackT = 0; p.attackWeapon = 'cross';
+  g.holyT = 1.2; g.flash = 0.9; g.shake = 0.6; g.shots = g.shots.filter(s => s.kind === 'flame');
   const before = g.total;
-  for (const v of [...g.vamps]) if (v.state !== 'mist') hitVamp(g, v, HOLY_DMG, 'holy', g.player.x);
+  const targets = g.vamps.filter(v => v.state !== 'mist' && v.x > -0.5 && v.x < W + 0.5).sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x)).slice(0, CROSS_TARGETS);
+  targets.forEach((v, i) => { const [, , , y2] = vampBox(v); g.fx.push({ kind: 'bolt', x: v.x, y: y2 - 0.3, t: -i * 0.06, life: 0.55, r: 0, face: 1, seed: g.rand() }); hitVamp(g, v, WEAPON_DMG.cross, 'cross', p.x); });
+  for (let i = 0; i < 3; i++) g.fx.push({ kind: 'bolt', x: g.rand() * W, y: GROUND_Y, t: -0.1 - i * 0.12, life: 0.45, r: 0, face: 1, seed: g.rand() }); // más rayos de la tormenta
+  if (g.weapon === 'cross' && g.ammo.cross <= 0) g.weapon = 'sword';
   emit(g, { type: 'holy', count: g.total - before });
   return true;
+}
+export const castHoly = stormCross; // (la tecla C y ↓ + Espacio)
+// La carga de la cruz: cada 10 vampiros (o 5 golpes a Drácula) suma una cruz.
+function chargeCross(g: Game) {
+  if (g.ammo.cross >= MAX_AMMO.cross) { g.power = POWER_MAX; return; }
+  g.power++;
+  if (g.power >= POWER_MAX) { g.power = 0; g.ammo.cross++; emit(g, { type: 'crossReady' }); emit(g, { type: 'powerReady' }); }
 }
 
 const bleed = (g: Game, x: number, y: number, n: number, sp = 8) => { for (let i = 0; i < n; i++) { const a = g.rand() * Math.PI * 1.1 - 0.05, v = 2 + g.rand() * sp; g.drops.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: 0.05 + g.rand() * 0.1, t: 0, stuck: false }); } };
@@ -287,7 +320,7 @@ export function hitVamp(g: Game, v: Vamp, dmg: number, how: KillHow, fromX: numb
   if (!g.vamps.includes(v) || v.state === 'mist' || g.transformT > 0) return;
   const [, , y1, y2] = vampBox(v);
   v.hp = (v.hp ?? 1) - dmg; v.flash = 0.18;
-  if (isBoss(v.kind)) { g.bossHits += dmg; if (how !== 'holy' && g.bossHits % 5 === 0) { const was = g.power; g.power = Math.min(POWER_MAX, g.power + 1); if (was < POWER_MAX && g.power === POWER_MAX) emit(g, { type: 'powerReady' }); } }
+  if (isBoss(v.kind)) { const before = Math.floor(g.bossHits / 5); g.bossHits += dmg; if (how !== 'cross') for (let k = before; k < Math.floor(g.bossHits / 5); k++) chargeCross(g); }
   if (v.hp <= 0) { kill(g, v, how); return; }
   pop(g, v.x, y2 + 0.2, `−${dmg}`, false);
   bleed(g, v.x, (y1 + y2) / 2, 16 + dmg * 3);
@@ -317,7 +350,7 @@ function kill(g: Game, v: Vamp, how: KillHow) {
   if (v.kind === 'dragon') { g.bossDeadT = 0; g.shots = []; emit(g, { type: 'bossDead' }); return; }
   g.combo.n = g.combo.t > 0 ? g.combo.n + 1 : 1; g.combo.t = 2.4; g.combo.best = Math.max(g.combo.best, g.combo.n);
   if (g.combo.n >= 2) emit(g, { type: 'combo', n: g.combo.n });
-  if (how !== 'holy') { const was = g.power; g.power = Math.min(POWER_MAX, g.power + 1); if (was < POWER_MAX && g.power === POWER_MAX) emit(g, { type: 'powerReady' }); }
+  if (how !== 'cross') chargeCross(g);
   if (g.total % 10 === 0 && g.total < GOAL) { g.wave = g.total / 10 + 1; emit(g, { type: 'wave', n: g.wave }); }
   if (g.total >= 35 && !g.bloodMoon) { g.bloodMoon = true; emit(g, { type: 'bloodMoon' }); }
   if (g.total >= GOAL && !g.door.open) { g.door.open = true; emit(g, { type: 'door' }); }
@@ -553,7 +586,7 @@ function updateShots(g: Game, dt: number) {
 // ---------------------------------------------------------------- Cajas del cielo
 function dropCrate(g: Game) {
   const r = g.rand, roll = r();
-  const kind: CrateKind = roll < 0.66 ? 'stakes' : roll < 0.86 ? 'heart' : 'garlic';
+  const kind: CrateKind = roll < 0.36 ? 'bolts' : roll < 0.56 ? 'heart' : roll < 0.72 ? 'garlic' : roll < 0.86 ? 'fire' : 'bullets';
   const spots = SURFACES.filter(s => s.x2 - s.x1 > 2 && !s.mv);
   const s = spots[Math.floor(r() * spots.length)];
   const x = s.x1 + 0.8 + r() * (s.x2 - s.x1 - 1.6);
@@ -571,9 +604,12 @@ function updateCrates(g: Game, dt: number) {
     }
     if (Math.abs(p.x - c.x) < 0.95 && p.y < c.y + 1 && p.y + PLAYER_H > c.y) {
       g.crates.splice(g.crates.indexOf(c), 1); g.stats.crates++;
-      if (c.kind === 'stakes') { const before = g.ammo; g.ammo = Math.min(MAX_STAKES, g.ammo + 6); emit(g, { type: 'pickup', kind: 'stakes', amount: g.ammo - before }); }
+      const give = (w: Weapon) => { const before = g.ammo[w]; g.ammo[w] = Math.min(MAX_AMMO[w], g.ammo[w] + AMMO_PICKUP[w]); emit(g, { type: 'pickup', kind: c.kind, amount: g.ammo[w] - before }); };
+      if (c.kind === 'bolts') give('crossbow');
+      else if (c.kind === 'fire') give('firesword');
+      else if (c.kind === 'bullets') give('pistol');
+      else if (c.kind === 'garlic') { g.garlicT = 8; give('garlic'); } // ajo: espanta a los vampiros 8 segundos y trae 2 bombas
       else if (c.kind === 'heart') { const before = p.hp; p.hp = Math.min(MAX_HP, p.hp + HEART_HP); emit(g, { type: 'pickup', kind: 'heart', amount: p.hp - before }); }
-      else { g.garlicT = 8; emit(g, { type: 'pickup', kind: 'garlic', amount: 8 }); }
       continue;
     }
     if (c.landed && c.t > 16) g.crates.splice(g.crates.indexOf(c), 1);
@@ -674,31 +710,72 @@ export function step(g: Game, input: Input, dt: number) {
   // La puerta abierta: entra y pasa de nivel.
   if (g.door.open && g.door.t > 0.8 && p.x > DOOR.x1 + 0.3 && p.y < DOOR.y + 1) { g.phase = 'cleared'; g.phaseT = 0; emit(g, { type: 'cleared' }); return; }
 
-  // El golpe de la espada: un arco adelante del cazador.
-  if (p.attackT >= 0.04 && p.attackT <= 0.2 && p.attackWeapon === 'sword') {
-    const x1 = p.face > 0 ? p.x - 0.3 : p.x - 2.6, x2 = p.face > 0 ? p.x + 2.6 : p.x + 0.3; // espada grande: más alcance
+  // El golpe de la espada (o la ola de la espada de fuego): todo lo que está adelante del cazador.
+  if (p.attackT >= 0.04 && p.attackT <= 0.22 && (p.attackWeapon === 'sword' || p.attackWeapon === 'firesword')) {
+    const fire = p.attackWeapon === 'firesword', reach = fire ? FIRE_REACH : SWORD_REACH, hgt = fire ? FIRE_H : SWORD_H;
+    const x1 = p.face > 0 ? p.x - 0.3 : p.x - reach, x2 = p.face > 0 ? p.x + reach : p.x + 0.3, ya = p.y - (fire ? 1.2 : 0.2), yb = ya + hgt;
     for (const v of [...g.vamps]) {
       if (p.hitIds.has(v.id)) continue;
       const [bx1, bx2, vy1, vy2] = vampBox(v);
-      if (bx2 > x1 && bx1 < x2 && vy2 > p.y - 0.2 && vy1 < p.y + 2.5) { p.hitIds.add(v.id); g.stats.hits++; hitVamp(g, v, 1, 'sword', p.x); }
+      if (bx2 > x1 && bx1 < x2 && vy2 > ya && vy1 < yb) { p.hitIds.add(v.id); g.stats.hits++; hitVamp(g, v, WEAPON_DMG[p.attackWeapon], fire ? 'fire' : 'sword', p.x); }
     }
-    // la espada también corta las bolas de fuego y los murciélagos
-    for (const s of [...g.shots]) if (s.kind !== 'flame' && s.x > x1 && s.x < x2 && s.y > p.y - 0.2 && s.y < p.y + 2.5) { g.shots.splice(g.shots.indexOf(s), 1); for (let i = 0; i < 8; i++) { const a = g.rand() * Math.PI * 2; g.sparks.push({ x: s.x, y: s.y, vx: Math.cos(a) * 5, vy: Math.sin(a) * 5, t: 0, life: 0.35, hue: s.kind === 'orb' ? 10 : 0 }); } }
+    // también corta las bolas de fuego y los murciélagos (la de fuego, también el fuego del dragón)
+    for (const s of [...g.shots]) if ((fire || s.kind !== 'flame') && s.x > x1 && s.x < x2 && s.y > ya && s.y < yb) { g.shots.splice(g.shots.indexOf(s), 1); for (let i = 0; i < 8; i++) { const a = g.rand() * Math.PI * 2; g.sparks.push({ x: s.x, y: s.y, vx: Math.cos(a) * 5, vy: Math.sin(a) * 5, t: 0, life: 0.35, hue: s.kind === 'orb' ? 10 : 0 }); } }
   }
-  // Las estacas que vuelan
-  for (const s of [...g.stakes]) {
+  const hitBy = (x: number, y: number, pad: number) => g.vamps.find(v => { const [a, b, c, d] = vampBox(v); return v.state !== 'mist' && x > a - pad && x < b + pad && y > c - 0.1 && y < d + 0.1; });
+  const shield = (v: Vamp, vx: number, y: number) => { // el guerrero ataja de frente con el escudo
+    if (v.kind !== 'warrior' || Math.sign(vx) !== -v.face || v.state === 'claw') return false;
+    emit(g, { type: 'block' }); for (let i = 0; i < 10; i++) { const a = g.rand() * Math.PI * 2; g.sparks.push({ x: v.x + v.face * 0.5, y, vx: Math.cos(a) * 6, vy: Math.sin(a) * 6, t: 0, life: 0.3, hue: 45 }); }
+    return true;
+  };
+  // Las flechas de la ballesta: atraviesan hasta 3 vampiros
+  for (const s of [...g.bolts]) {
     s.t += dt;
-    if (s.stuck) { if (s.t > 1.5) g.stakes.splice(g.stakes.indexOf(s), 1); continue; }
-    s.vy -= 7 * dt; const prev = s.y; s.x += s.vx * dt; s.y += s.vy * dt;
-    const victim = g.vamps.find(v => { const [a, b, c, d] = vampBox(v); return v.state !== 'mist' && s.x > a - 0.15 && s.x < b + 0.15 && s.y > c - 0.1 && s.y < d + 0.1; });
-    if (victim) {
-      g.stakes.splice(g.stakes.indexOf(s), 1);
-      // el guerrero ataja las estacas que le vienen de frente con el escudo
-      if (victim.kind === 'warrior' && Math.sign(s.vx) === -victim.face && victim.state !== 'claw') { emit(g, { type: 'block' }); for (let i = 0; i < 10; i++) { const a = g.rand() * Math.PI * 2; g.sparks.push({ x: victim.x + victim.face * 0.5, y: s.y, vx: Math.cos(a) * 6, vy: Math.sin(a) * 6, t: 0, life: 0.3, hue: 45 }); } continue; }
-      g.stats.hits++; hitVamp(g, victim, 1, 'stake', s.x - s.vx); continue;
+    if (s.stuck) { if (s.t > 1.2) g.bolts.splice(g.bolts.indexOf(s), 1); continue; }
+    s.vy -= 3 * dt; const prev = s.y; s.x += s.vx * dt; s.y += s.vy * dt;
+    const v = g.vamps.find(q => !s.hits.includes(q.id) && q.state !== 'mist' && (() => { const [a, b, c, d] = vampBox(q); return s.x > a - 0.15 && s.x < b + 0.15 && s.y > c - 0.1 && s.y < d + 0.1; })());
+    if (v) {
+      if (shield(v, s.vx, s.y)) { g.bolts.splice(g.bolts.indexOf(s), 1); continue; }
+      s.hits.push(v.id); g.stats.hits++; hitVamp(g, v, WEAPON_DMG.crossbow, 'bolt', s.x - s.vx);
+      if (s.hits.length >= BOLT_PIERCE) { g.bolts.splice(g.bolts.indexOf(s), 1); continue; }
     }
-    if (surfaceUnder(s.x, 0.1, prev, s.y, false) || s.x < -1 || s.x > W + 1 || s.y < -3) { s.stuck = s.x > 0 && s.x < W && s.y > -1; s.t = 0; if (s.stuck) emit(g, { type: 'stakeHit' }); else g.stakes.splice(g.stakes.indexOf(s), 1); }
+    if (surfaceUnder(s.x, 0.1, prev, s.y, false) || s.x < -1 || s.x > W + 1 || s.y < -3) { s.stuck = s.x > 0 && s.x < W && s.y > -1; s.t = 0; if (s.stuck) emit(g, { type: 'stakeHit' }); else g.bolts.splice(g.bolts.indexOf(s), 1); }
   }
+  // Las balas de fuego de la pistola: le pegan al primero que tocan, hasta 10 metros
+  for (const b of [...g.bullets]) {
+    b.t += dt; b.x += b.vx * dt;
+    const v = hitBy(b.x, b.y, 0.2);
+    const done = Math.abs(b.x - b.x0) > PISTOL_RANGE || b.x < -1 || b.x > W + 1;
+    if (v || done) {
+      g.bullets.splice(g.bullets.indexOf(b), 1);
+      g.fx.push({ kind: 'burst', x: b.x, y: b.y, t: 0, life: 0.35, r: v ? 1.1 : 0.6, face: 1, seed: g.rand() });
+      if (v) { g.stats.hits++; hitVamp(g, v, WEAPON_DMG.pistol, 'bullet', b.x - b.vx); }
+    }
+  }
+  // Las bombas de ajo: vuelan, rebotan una vez y explotan; la onda le saca 5 a todos los que están a 3 metros
+  for (const b of [...g.bombs]) {
+    b.t += dt; b.a += dt * 8 * Math.sign(b.vx || 1);
+    let boom = b.t > 2.4 || b.y < -2;
+    if (b.landed < 0) {
+      b.vy -= 22 * dt; const prev = b.y; b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.vy < 0) { const q = surfaceUnder(b.x, 0.2, prev, b.y, false); if (q) { b.y = q.y; if (Math.abs(b.vy) > 6) { b.vy = -b.vy * 0.3; b.vx *= 0.5; } else { b.landed = 0; b.vx = 0; b.vy = 0; } } }
+      if (b.x < 0.3 || b.x > W - 0.3) { b.vx = -b.vx * 0.5; b.x = Math.max(0.3, Math.min(W - 0.3, b.x)); }
+      if (hitBy(b.x, b.y, 0.1)) boom = true; // si le pega a un vampiro, explota ahí
+    } else { b.landed += dt; if (b.landed > 0.45) boom = true; }
+    if (boom) {
+      g.bombs.splice(g.bombs.indexOf(b), 1);
+      const cy = b.y + 0.4; let count = 0;
+      for (const v of [...g.vamps]) {
+        const [a, c, d, e] = vampBox(v), nx = Math.max(a, Math.min(c, b.x)), ny = Math.max(d, Math.min(e, cy));
+        if (v.state !== 'mist' && Math.hypot(nx - b.x, ny - cy) <= GARLIC_R) { count++; hitVamp(g, v, WEAPON_DMG.garlic, 'bomb', b.x); }
+      }
+      g.fx.push({ kind: 'blast', x: b.x, y: cy, t: 0, life: 0.6, r: GARLIC_R, face: 1, seed: g.rand() });
+      g.garlicT = Math.max(g.garlicT, 2); g.shake = Math.max(g.shake, 0.6); g.flash = Math.max(g.flash, 0.2);
+      for (let i = 0; i < 30; i++) { const a = g.rand() * Math.PI * 2, sp = 3 + g.rand() * 9; g.sparks.push({ x: b.x, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 2, t: 0, life: 0.4 + g.rand() * 0.4, hue: g.rand() < 0.5 ? 90 : 45 }); }
+      emit(g, { type: 'blast', count });
+    }
+  }
+  for (const f of [...g.fx]) { f.t += dt; if (f.t > f.life) g.fx.splice(g.fx.indexOf(f), 1); }
 
   // Vampiros
   for (const v of [...g.vamps]) {
@@ -746,7 +823,7 @@ export function step(g: Game, input: Input, dt: number) {
     g.spawnT = Math.max(0.8, 2.5 - g.total * 0.03) * (g.bloodMoon ? 0.8 : 1) * (0.7 + g.rand() * 0.6);
   }
   g.crateT -= dt;
-  if (g.crateT <= 0) { dropCrate(g); g.crateT = 11 + g.rand() * 5 - (g.ammo === 0 ? 5 : 0); }
+  if (g.crateT <= 0) { dropCrate(g); g.crateT = 11 + g.rand() * 5; }
   updateCrates(g, dt);
   updateRemains(g, dt);
 }
