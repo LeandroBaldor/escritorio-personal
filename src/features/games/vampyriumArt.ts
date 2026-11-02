@@ -3,6 +3,7 @@
 // Football); acá el escenario, las trampas, las cajas, los huesos, la sangre y las chispas.
 import { bodyFire, drawHunterK, drawSkeletonK } from './vampyriumChars';
 import { drawShotK, drawVampK } from './vampyriumMonsters';
+import { setVampTexture } from './vampyriumVamps';
 import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm } from './vampyrium';
 import { drawBolt, drawGarlicBomb, drawWeaponIcon } from './vampyriumWeapons';
 
@@ -662,6 +663,7 @@ function drawRain(ctx: CanvasRenderingContext2D, v: View, w: number, h: number, 
 
 // ---------------------------------------------------------------- Todo junto
 export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: number, t: number) {
+  setVampTexture(false);
   const v = viewFor(w, h);
   const key = `${w}x${h}:${LV.def.n}:${backdropReady}`;
   if (!staticCache || staticCache.key !== key) {
@@ -755,6 +757,7 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
 }
 // Para el cartel de las armas: el cazador o un vampiro sueltos en un lienzo (pies en x, y; size = píxeles por metro).
 export function drawPortrait(ctx: CanvasRenderingContext2D, who: 'hunter' | VampKind, g: Game, x: number, y: number, size: number, t: number) {
+  setVampTexture(true);
   ctx.save(); ctx.translate(x, y); ctx.scale(size, size);
   if (who === 'hunter') drawHunterK(ctx, g.player, g, t);
   else { const fake: Vamp = { id: 1, kind: who, x: 0, y: 0, vx: 0, vy: 0, face: 1, state: who === 'flyer' || who === 'dragon' ? 'hover' : 'walk', t: 0, onGround: who !== 'flyer' && who !== 'dragon', surface: null, walkT: t, cool: 0, speed: 0, jumpT: 0, dropT: 0, hit: false }; drawVampK(ctx, fake, t); }

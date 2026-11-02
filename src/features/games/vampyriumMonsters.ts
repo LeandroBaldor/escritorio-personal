@@ -10,10 +10,11 @@
 //  · Drácula dragón: dragón rojo con alas enormes, cuernos, panza clara y garras.
 import { alpha, bloom, darken, lighten, segment, shade, spec } from './gravityMonsters';
 import {
-  TAU, add, armDraw, cape, dirv, drawFlyerK, drawWalkerK, grad, handOf, legDraw, pauldron, setLimb, shoulderAt,
+  TAU, add, armDraw, cape, dirv, grad, handOf, legDraw, pauldron, setLimb, shoulderAt,
   vampEye, vampHead, walkerPose, type Look, type Pose, type Pt,
 } from './vampyriumChars';
 import type { Shot, Vamp } from './vampyrium';
+import { drawVampHD } from './vampyriumVamps';
 
 const INK = '#0b0709';
 const GIANT: Look = { armor: '#1d1a21', dark: '#17141b', trim: '#c41a26', strap: '#6a3b22', boot: '#141217', cape: '#c0121c', capeD: '#3a0408', skin: '#a08eae', sleeve: '#a08eae' };
@@ -32,7 +33,7 @@ function hitFlash(ctx: CanvasRenderingContext2D, v: Vamp, draw: (c: CanvasRender
   if (f <= 0 || typeof document === 'undefined' || !(main instanceof HTMLCanvasElement)) return;
   // la zona de la pantalla que ocupa (una caja holgada alrededor del cuerpo)
   const m = ctx.getTransform(); let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
-  for (const [lx, ly] of [[-5, -7], [5, -7], [-5, 1.5], [5, 1.5]]) { const px = m.a * lx + m.c * ly + m.e, py = m.b * lx + m.d * ly + m.f; x1 = Math.min(x1, px); x2 = Math.max(x2, px); y1 = Math.min(y1, py); y2 = Math.max(y2, py); }
+  for (const [lx, ly] of [[-6, -8], [6, -8], [-6, 2], [6, 2]]) { const px = m.a * lx + m.c * ly + m.e, py = m.b * lx + m.d * ly + m.f; x1 = Math.min(x1, px); x2 = Math.max(x2, px); y1 = Math.min(y1, py); y2 = Math.max(y2, py); }
   x1 = Math.max(0, Math.floor(x1)); y1 = Math.max(0, Math.floor(y1)); x2 = Math.min(main.width, Math.ceil(x2)); y2 = Math.min(main.height, Math.ceil(y2));
   const w = x2 - x1, h = y2 - y1; if (w <= 0 || h <= 0) return;
   flashCanvas ??= document.createElement('canvas');
@@ -596,21 +597,9 @@ export function drawDragonK(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
 }
 
 // ---------------------------------------------------------------- Todos
+// Los vampiros con el diseño nuevo (vampyriumVamps): más grandes, de tres cuartos, negro con dorado y rojo.
 export function drawVampK(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
-  const draw = (ctx: CanvasRenderingContext2D) => {
-    switch (v.kind) {
-      case 'walker': drawWalkerK(ctx, v, t); break;
-      case 'flyer': drawFlyerK(ctx, v, t); break;
-      case 'giant': drawGiantK(ctx, v, t); break;
-      case 'mage': drawMageK(ctx, v, t); break;
-      case 'hammer': drawHammerK(ctx, v, t); break;
-      case 'warrior': drawWarriorK(ctx, v, t); break;
-      case 'wolf': drawWolfK(ctx, v, t); break;
-      case 'dracula': drawDraculaK(ctx, v, t); break;
-      case 'dragon': drawDragonK(ctx, v, t); break;
-    }
-  };
-  hitFlash(ctx, v, draw);
+  hitFlash(ctx, v, c => drawVampHD(c, v, t));
 }
 // Lo que tiran (en unidades del mundo, ya trasladado al lugar del tiro): bola de fuego, murciélago o llama.
 export function drawShotK(ctx: CanvasRenderingContext2D, s: Shot, t: number) {
