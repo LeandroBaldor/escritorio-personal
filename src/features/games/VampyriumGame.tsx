@@ -6,10 +6,12 @@ import { TouchGrips } from './TouchGrips';
 import { GamePad } from './GamePad';
 import { pixelRatio, useFitScreen } from './fitScreen';
 import { EndBanner } from './EndBanner';
-import { GOAL, HOLD_MENU, MAX_HP, MAX_STAKES, POWER_MAX, WEAPONS, WEAPON_NAME, castHoly, chooseWeapon, closeMenu, formatVampTime, menuMove, newGame, pressAttack, step, takeEvents, type Game, type Input, type Weapon } from './vampyrium';
+import { GOAL, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, MAX_STAKES, POWER_MAX, WEAPONS, WEAPON_NAME, castHoly, chooseWeapon, closeMenu, formatVampTime, menuMove, newGame, pressAttack, step, takeEvents, type Game, type Input, type Weapon } from './vampyrium';
 import { drawGame, drawPortrait, drawStakeIcon, drawSwordIcon, setBackdrop } from './vampyriumArt';
 import { setNoGrain } from './gravityMonsters';
-import fondoNivel1 from './assets/vampyrium/fondo-nivel-1.webp';
+// Los fondos de los 10 niveles (fondo-nivel-N.webp)
+const FONDOS = import.meta.glob('./assets/vampyrium/fondo-nivel-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
+const fondoOf = (bg: string) => FONDOS[`./assets/vampyrium/${bg}.webp`];
 import {
   playGameOver, playKfPickup, playStart, playThunder, playVampBell, playVampBones, playVampCombo, playVampCrate, playVampDeath, playVampDive,
   playVampFall, playVampHurt, playVampMenu, playVampSpikes, playVampStakeHit, playVampSwing, playVampThrow, playDoor,
@@ -57,6 +59,8 @@ export function Vampyrium() {
   const gameRef = useRef<Game>(firstGame);
   const input = useRef<Input>({ left: false, right: false, up: false, down: false });
   const [status, setStatus] = useState<Status>('ready');
+  const [level, setLevel] = useState(1);
+  const def = LEVELS[level - 1];
   const [hud, setHud] = useState<Hud>(() => hudOf(firstGame));
   const [record, setRecord] = useState(readVampyriumRecord);
   const [result, setResult] = useState({ time: 0, total: 0, walker: 0, flyer: 0, combo: 0, falls: 0, newRecord: false });
@@ -78,17 +82,18 @@ export function Vampyrium() {
     setNoGrain(false);
   }, []);
 
+  useLayoutEffect(() => { setBackdrop(fondoOf(def.bg), () => paint()); paint(); }, [def, paint]);
   useLayoutEffect(() => {
-    setBackdrop(fondoNivel1, () => paint());
     paint();
     const stage = stageRef.current; if (!stage) return;
     const observer = new ResizeObserver(paint); observer.observe(stage);
     return () => observer.disconnect();
   }, [paint]);
 
-  const start = useCallback(() => {
+  const start = useCallback((n: number) => {
     playStart(); playVampBell(0.2); preloadVampSounds();
-    gameRef.current = newGame();
+    setLevel(n);
+    gameRef.current = newGame(undefined, n);
     input.current = { left: false, right: false, up: false, down: false };
     setHud(hudOf(gameRef.current));
     setToast(null);
@@ -213,7 +218,7 @@ export function Vampyrium() {
     </div>
     <div className="trepa-main">
       <div className="runner-stage" ref={stageRef}>
-        <canvas ref={canvasRef} role="img" aria-label="El puente del castillo de los vampiros" />
+        <canvas ref={canvasRef} role="img" aria-label={`Nivel ${level}: ${def.name}`} />
         {status === 'playing' && toast && <div key={toast.id} className={`${toast.big ? 'trepa-record' : 'trepa-toast'}${toast.bad ? ' vamp-bad' : ''}`} role="status">{toast.text}</div>}
         {status === 'playing' && hud.combo >= 2 && <div key={`c${hud.combo}`} className="vamp-combo" aria-live="polite">COMBO ×{hud.combo}</div>}
         {status === 'playing' && hud.hold > 0 && !hud.menu && <div className="vamp-hold" role="status"><span>Mantené para abrir las armas</span><i><b style={{ width: `${hud.hold * 100}%` }} /></i></div>}
@@ -249,10 +254,10 @@ export function Vampyrium() {
         </div>}
         {status === 'intro' && <div className="runner-overlay vamp-overlay" role="dialog" aria-labelledby="vamp-intro">
           <div className="ds-frame vamp-intro">
-            <div className="ds-plate"><span className="vamp-paused">Nivel 1</span><h2 id="vamp-intro">El puente de las ánimas</h2></div>
-            <p className="ds-story">La luna llena se asoma sobre el castillo de Drácula y el puente está tomado por sus siervos. Esta noche no hay vuelta atrás, cazador:</p>
-            <p className="ds-goal">para poder entrar al castillo de Drácula tendrás que matar a los <b>{GOAL} vampiros</b> que protegen la entrada.</p>
-            <p className="ds-story">Cuando caiga el último, la reja de la puerta de la derecha se va a abrir. Cuidado con el vacío y las trampas.</p>
+            <div className="ds-plate"><span className="vamp-paused">Nivel {level} de {LEVEL_COUNT}</span><h2 id="vamp-intro">{def.name}</h2></div>
+            <p className="ds-story">{def.tagline}</p>
+            <p className="ds-goal">{level === 1 ? 'Para poder entrar al castillo de Drácula' : level === LEVEL_COUNT ? 'Para llegar hasta Drácula' : 'Para abrir la puerta y seguir avanzando'} tendrás que matar a <b>{GOAL} vampiros</b>.</p>
+            <p className="ds-story">Cuando caiga el último, la reja de la puerta de la derecha se va a abrir. Cuidado con las trampas.</p>
             <button type="button" onClick={() => { playVampBell(0.25); setStatus('playing'); }} autoFocus>⚔️ ¡A cazar!</button>
           </div>
         </div>}
@@ -261,7 +266,12 @@ export function Vampyrium() {
             {status === 'ready' && <>
               <h2 id="vamp-message" className="vamp-title">VAMPYRIUM</h2>
               <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> saltar (otra vez en el aire: doble salto) · <kbd>↓</kbd> bajar de una plataforma · <kbd>Espacio</kbd> atacar (mantenelo 3 segundos: armas) · <kbd>C</kbd> cruz sagrada · <kbd>P</kbd> pausa</p>
-              <button type="button" onClick={start} autoFocus>Jugar</button>
+              <button type="button" onClick={() => start(level)} autoFocus>Jugar · Nivel {level}</button>
+              <div className="vamp-levels" role="group" aria-label="Elegir nivel">
+                {LEVELS.map(l => <button type="button" key={l.n} className={l.n === level ? 'vamp-lv-on' : ''} aria-pressed={l.n === level} title={l.name} onClick={() => { setLevel(l.n); gameRef.current = newGame(undefined, l.n); setHud(hudOf(gameRef.current)); }}>
+                  <img src={fondoOf(l.bg)} alt="" loading="lazy" /><b>{l.n}</b><small>{l.name}</small>
+                </button>)}
+              </div>
             </>}
             {status === 'paused' && <>
               <h2 id="vamp-message">Pausa</h2>
@@ -270,11 +280,12 @@ export function Vampyrium() {
             {status === 'over' && <>
               <EndBanner win={false} id="vamp-message" />
               <p>Mataste <strong>{result.total}</strong> vampiros ({result.walker} 🧛 y {result.flyer} 🦇) en {formatVampTime(result.time)}.{result.newRecord && ' ¡Nuevo récord!'}</p>
-              <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
+              <button type="button" onClick={() => start(level)} autoFocus>Jugar de nuevo</button>
+              <button type="button" className="vamp-ghost" onClick={() => setStatus('ready')}>Elegir nivel</button>
             </>}
             {status === 'won' && <>
               <EndBanner win id="vamp-message" />
-              <p className="end-reason">¡Nivel 1 superado! Cruzaste la puerta del castillo.</p>
+              <p className="end-reason">{level === LEVEL_COUNT ? '¡Terminaste los 10 niveles! Demian llegó hasta Drácula.' : `¡Nivel ${level} superado! ${def.name} quedó atrás.`}</p>
               <ul className="grav-stats">
                 <li>Tiempo <strong>{formatVampTime(result.time)}</strong></li>
                 <li>Vampiros <strong>{result.walker}</strong></li>
@@ -282,8 +293,9 @@ export function Vampyrium() {
                 <li>Mejor combo <strong>×{Math.max(1, result.combo)}</strong></li>
               </ul>
               {result.newRecord && <p>¡Nuevo récord!</p>}
-              <p className="runner-tip">El nivel 2 viene pronto…</p>
-              <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
+              {level < LEVEL_COUNT && <p className="runner-tip">Sigue: Nivel {level + 1} · {LEVELS[level].name}</p>}
+              {level < LEVEL_COUNT ? <button type="button" onClick={() => start(level + 1)} autoFocus>Siguiente nivel ▶</button> : <button type="button" onClick={() => start(1)} autoFocus>Jugar de nuevo</button>}
+              <button type="button" className="vamp-ghost" onClick={() => setStatus('ready')}>Elegir nivel</button>
             </>}
           </div>
           {status === 'ready' && <section className="vamp-story" aria-label="La historia del cazador">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DOOR, GAPS, GOAL, GROUND_Y, MAX_HP, POWER_MAX, START_STAKES, TRAPS, castHoly, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp } from './vampyrium';
+import { DOOR, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, SURFACES, POWER_MAX, START_STAKES, TRAPS, castHoly, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp } from './vampyrium';
 
 const idle = (): Input => ({ left: false, right: false, up: false, down: false });
 const run = (g: Game, seconds: number, input: Input = idle()) => { for (let t = 0; t < seconds; t += 1 / 60) step(g, input, 1 / 60); };
@@ -209,5 +209,55 @@ describe('Vampyrium', () => {
     walker(g, 5.6, { cool: 0, speed: 2.5 });
     run(g, 3);
     expect(g.phase).toBe('over');
+  });
+});
+
+describe('Vampyrium: los 10 niveles', () => {
+  it('hay 10 niveles, cada uno con su fondo, suelo a los dos lados y trampas distintas', () => {
+    expect(LEVEL_COUNT).toBe(10);
+    const kinds = new Set<string>();
+    for (const def of LEVELS) {
+      const g = newGame(5, def.n);
+      expect(g.level).toBe(def.n);
+      expect(def.bg).toBe(`fondo-nivel-${def.n}`);
+      expect(SURFACES.some(s => s.ground && s.x1 <= 0.01)).toBe(true);
+      expect(SURFACES.some(s => s.ground && s.x2 >= 27.9)).toBe(true);
+      expect(TRAPS.length).toBeGreaterThanOrEqual(3);
+      kinds.add(TRAPS.map(t => `${t.kind}:${t.style ?? ''}`).sort().join(','));
+    }
+    expect(kinds.size).toBe(10); // ningún nivel repite las mismas trampas
+    newGame(1, 1);
+  });
+
+  it('las plataformas que se mueven llevan al cazador encima', () => {
+    const def = LEVELS.find(l => l.surfaces.some(s => s.mv && s.mv.dx))!;
+    const g = newGame(2, def.n); g.spawnT = 1e9; g.crateT = 1e9; g.player.inv = 1e9;
+    const plat = SURFACES.find(s => s.mv && s.mv.dx)!;
+    run(g, 0.05);
+    g.player.x = (plat.x1 + plat.x2) / 2; g.player.y = plat.y; g.player.vy = 0;
+    run(g, 0.1);
+    const x0 = g.player.x, p0 = plat.x1;
+    run(g, 0.5);
+    expect(g.player.surface).toBe(plat);
+    expect(Math.abs((g.player.x - x0) - (plat.x1 - p0))).toBeLessThan(0.05);
+    newGame(1, 1);
+  });
+
+  it('cada clase de trampa lastima al cazador alguna vez', () => {
+    for (const kind of ['saw', 'roller', 'crusher', 'jet', 'drip', 'fire', 'pendulum', 'spikes'] as const) {
+      const def = LEVELS.find(l => l.traps.some(t => t.kind === kind))!;
+      const g = newGame(4, def.n); g.spawnT = 1e9; g.crateT = 1e9;
+      const tr = TRAPS.find(t => t.kind === kind)!;
+      let hurt = false;
+      for (let tt = 0; tt < 12 && !hurt; tt += 0.05) {
+        const st = trapState(tr, tt);
+        const hx = kind === 'jet' ? tr.x + Math.sign(tr.amp || 1) * 1.5 : kind === 'saw' || kind === 'roller' || kind === 'pendulum' ? (kind === 'pendulum' ? st.tipX : st.cx) : (tr.x + (tr.x2 || tr.x)) / 2;
+        g.time = tt; g.player.hp = MAX_HP; g.player.inv = 0; g.player.x = hx; g.player.y = kind === 'pendulum' ? st.tipY - 0.8 : tr.y; g.player.vy = 0; g.player.onGround = false; g.player.surface = null;
+        step(g, idle(), 1 / 60);
+        hurt = g.player.hp < MAX_HP;
+      }
+      expect(hurt, kind).toBe(true);
+    }
+    newGame(1, 1);
   });
 });

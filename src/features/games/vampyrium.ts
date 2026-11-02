@@ -21,30 +21,36 @@ export type Weapon = 'sword' | 'stakes';
 export const WEAPONS: Weapon[] = ['sword', 'stakes'];
 export const WEAPON_NAME: Record<Weapon, string> = { sword: 'Espada', stakes: 'Estacas' };
 
-export interface Surface { x1: number; x2: number; y: number; ground: boolean }
-export const SURFACES: Surface[] = [
-  { x1: 0, x2: 8, y: GROUND_Y, ground: true },
-  { x1: 10.6, x2: 17.6, y: GROUND_Y, ground: true },
-  { x1: 20.2, x2: W, y: GROUND_Y, ground: true },
-  { x1: 2, x2: 6.2, y: 6.6, ground: false },
-  { x1: 11.2, x2: 16.8, y: 6.6, ground: false },
-  { x1: 22.4, x2: 26.2, y: 6.6, ground: false },
-  { x1: 6.6, x2: 10.8, y: 9.9, ground: false },
-  { x1: 17, x2: 21.6, y: 9.9, ground: false },
-  { x1: 11.6, x2: 16.4, y: 13, ground: false },
-];
-// Los dos huecos al vacío (entre los tramos de suelo).
-export const GAPS: [number, number][] = [[8, 10.6], [17.6, 20.2]];
-export const DOOR = { x1: 26.7, x2: 27.9, y: GROUND_Y, h: 3.2 };
+import { LEVELS, LEVEL_COUNT, type LevelDef, type Surface, type Trap, type TrapKind } from './vampyriumLevels';
+export { LEVELS, LEVEL_COUNT, type LevelDef, type Surface, type Trap, type TrapKind };
+// El nivel que se está jugando. Los arreglos se cambian por dentro (no se reemplazan): así SURFACES, GAPS y
+// TRAPS siempre apuntan al nivel actual.
+export const SURFACES: Surface[] = [];
+export const GAPS: [number, number][] = [];
+export const TRAPS: Trap[] = [];
+export const LV: { def: LevelDef; surfaces: Surface[]; gaps: [number, number][]; traps: Trap[] } = { def: LEVELS[0], surfaces: SURFACES, gaps: GAPS, traps: TRAPS };
+export function loadLevel(n: number) {
+  const def = LEVELS[Math.max(1, Math.min(LEVEL_COUNT, n)) - 1];
+  LV.def = def;
+  SURFACES.length = 0; for (const q of def.surfaces) SURFACES.push({ ...q, bx1: q.x1, bx2: q.x2, by: q.y, dx: 0 });
+  GAPS.length = 0; GAPS.push(...def.gaps.map(g => [g[0], g[1]] as [number, number]));
+  TRAPS.length = 0; TRAPS.push(...def.traps.map(t => ({ ...t })));
+  return def;
+}
+loadLevel(1);
+const groundL = () => SURFACES.find(q => q.ground && q.x1 <= 0.01)!, groundR = () => SURFACES.find(q => q.ground && q.x2 >= W - 0.01)!;
+// Las plataformas que se mueven (colgadas de cadenas): suben y bajan o van de un lado al otro.
+function updateSurfaces(time: number) {
+  for (const q of SURFACES) {
+    if (!q.mv) { q.dx = 0; continue; }
+    const k = Math.sin((time + (q.mv.phase ?? 0)) * Math.PI * 2 / q.mv.period), nx = q.bx1! + q.mv.dx * k;
+    q.dx = nx - q.x1; q.x1 = nx; q.x2 = q.bx2! + q.mv.dx * k; q.y = q.by! + q.mv.dy * k;
+  }
+}
+const DOOR_X1 = 26.7;
+export const DOOR = { x1: DOOR_X1, x2: 27.9, y: GROUND_Y, h: 3.2 };
 export const START_X = 2.6;
 
-export type TrapKind = 'spikes' | 'pendulum' | 'fire';
-export interface Trap { kind: TrapKind; x: number; x2: number; y: number; period: number; offset: number; len: number; amp: number }
-export const TRAPS: Trap[] = [
-  { kind: 'spikes', x: 13.2, x2: 14.8, y: GROUND_Y, period: 3.4, offset: 0, len: 0, amp: 0 },
-  { kind: 'pendulum', x: 14, x2: 14, y: H + 0.5, period: 3.9, offset: 0.4, len: 8, amp: 0.8 },
-  { kind: 'fire', x: 23.6, x2: 23.6, y: GROUND_Y, period: 4.6, offset: 1.7, len: 4.2, amp: 0 },
-];
 
 export interface Input { left: boolean; right: boolean; up: boolean; down: boolean; attack?: boolean } // attack: Espacio apretado (mantenido 3 s abre las armas)
 export const HOLD_MENU = 3;
@@ -83,7 +89,7 @@ export type GameEvent =
 
 export type Phase = 'play' | 'menu' | 'dead' | 'cleared' | 'won' | 'over';
 export interface Game {
-  time: number; real: number; phase: Phase; phaseT: number;
+  level: number; time: number; real: number; phase: Phase; phaseT: number;
   player: Player; vamps: Vamp[]; corpses: Corpse[]; bones: Bone[]; sparks: Spark[]; drops: Drop[]; stakes: Stake[]; crates: Crate[];
   kills: Record<VampKind, number>; total: number; voidKills: number; trapKills: number;
   weapon: Weapon; ammo: number; menu: { sel: number; t: number }; lastTap: number; holdT: number;
@@ -98,11 +104,12 @@ export function mulberry(seed: number) {
 }
 
 export function newPlayer(): Player {
-  return { x: START_X, y: GROUND_Y, vx: 0, vy: 0, face: 1, onGround: true, surface: SURFACES[0], jumps: 0, hp: MAX_HP, inv: 0, attackT: -1, attackWeapon: 'sword', hitIds: new Set(), cool: 0, walkT: 0, dropT: 0, coyote: 0, safeX: START_X, prevUp: false, prevDown: false, hurtT: 0, landT: 0, spinT: 0 };
+  return { x: START_X, y: GROUND_Y, vx: 0, vy: 0, face: 1, onGround: true, surface: groundL(), jumps: 0, hp: MAX_HP, inv: 0, attackT: -1, attackWeapon: 'sword', hitIds: new Set(), cool: 0, walkT: 0, dropT: 0, coyote: 0, safeX: START_X, prevUp: false, prevDown: false, hurtT: 0, landT: 0, spinT: 0 };
 }
-export function newGame(seed = Math.floor(Math.random() * 1e9)): Game {
+export function newGame(seed = Math.floor(Math.random() * 1e9), level = 1): Game {
+  loadLevel(level);
   return {
-    time: 0, real: 0, phase: 'play', phaseT: 0, player: newPlayer(), vamps: [], corpses: [], bones: [], sparks: [], drops: [], stakes: [], crates: [],
+    level: LV.def.n, time: 0, real: 0, phase: 'play', phaseT: 0, player: newPlayer(), vamps: [], corpses: [], bones: [], sparks: [], drops: [], stakes: [], crates: [],
     kills: { walker: 0, flyer: 0 }, total: 0, voidKills: 0, trapKills: 0, weapon: 'sword', ammo: START_STAKES, menu: { sel: 0, t: 0 }, lastTap: -9, holdT: 0,
     combo: { n: 0, t: 0, best: 0 }, power: 0, holyT: 0, garlicT: 0, door: { open: false, t: 0 }, spawnT: 1.6, crateT: 9, nextId: 1, wave: 1, bloodMoon: false,
     flash: 0, shake: 0, events: [], rand: mulberry(seed), stats: { slashes: 0, throws: 0, hits: 0, crates: 0, falls: 0 },
@@ -136,6 +143,7 @@ function moveBody(b: Body, dt: number, halfW: number, minX: number, maxX: number
   b.vy = Math.max(-FALL_MAX, b.vy - GRAV * dt);
   b.x = Math.max(minX, Math.min(maxX, b.x + b.vx * dt));
   const prevY = b.y;
+  if (b.onGround && b.surface?.dx) b.x = Math.max(minX, Math.min(maxX, b.x + b.surface.dx)); // la plataforma que se mueve lo lleva
   if (b.onGround && stillOn(b.surface, b.x, halfW) && b.vy <= 0 && !(b.dropT > 0 && b.surface && !b.surface.ground)) { b.vy = 0; b.y = b.surface!.y; }
   else {
     b.onGround = false; b.surface = null;
@@ -150,20 +158,44 @@ function moveBody(b: Body, dt: number, halfW: number, minX: number, maxX: number
 }
 
 // ---------------------------------------------------------------- Trampas
-export function trapState(t: Trap, time: number) {
-  const ph = ((time + t.offset) % t.period + t.period) % t.period;
-  if (t.kind === 'pendulum') { const a = t.amp * Math.sin((time + t.offset) * Math.PI * 2 / t.period); return { a, tipX: t.x + Math.sin(a) * t.len, tipY: t.y - Math.cos(a) * t.len, warn: 0, on: 1 }; }
-  if (t.kind === 'spikes') { const warn = ph > 1.6 && ph < 2.2 ? 1 : 0, up = ph >= 2.2 ? Math.min(1, (ph - 2.2) / 0.08, (t.period - ph) / 0.15) : 0; return { a: 0, tipX: 0, tipY: 0, warn, on: up }; }
-  const warn = ph > 2.2 && ph < 3 ? 1 : 0, on = ph >= 3 ? Math.min(1, (ph - 3) / 0.15, (t.period - ph) / 0.3) : 0; // fuego
-  return { a: 0, tipX: 0, tipY: 0, warn, on };
+export interface TrapGeo { a: number; tipX: number; tipY: number; warn: number; on: number; cx: number; cy: number; bottom: number; reach: number }
+const geo = (o: Partial<TrapGeo>): TrapGeo => ({ a: 0, tipX: 0, tipY: 0, warn: 0, on: 0, cx: 0, cy: 0, bottom: 0, reach: 0, ...o });
+const smooth = (k: number) => 0.5 - 0.5 * Math.cos(k * Math.PI * 2);
+export const SAW_R = 0.75, ROLL_R = 0.6;
+export function trapState(t: Trap, time: number): TrapGeo {
+  const ph = ((time + t.offset) % t.period + t.period) % t.period, k = ph / t.period;
+  switch (t.kind) {
+    case 'pendulum': { const a = t.amp * Math.sin((time + t.offset) * Math.PI * 2 / t.period); return geo({ a, tipX: t.x + Math.sin(a) * t.len, tipY: t.y - Math.cos(a) * t.len, on: 1 }); }
+    case 'spikes': { const warn = ph > t.period - 1.8 && ph < t.period - 1.2 ? 1 : 0, up = ph >= t.period - 1.2 ? Math.min(1, (ph - (t.period - 1.2)) / 0.08, (t.period - ph) / 0.15) : 0; return geo({ warn, on: up }); }
+    case 'saw': { const cx = t.x + (t.x2 - t.x) * smooth(k); return geo({ cx, cy: t.y + SAW_R * 0.75, a: (time + t.offset) * 14, on: 1 }); }
+    case 'roller': { const cx = t.x + (t.x2 - t.x) * smooth(k); return geo({ cx, cy: t.y + ROLL_R, a: cx / ROLL_R, on: 1 }); }
+    case 'crusher': { // cuelga, tiembla, cae de golpe, se queda y vuelve a subir despacio
+      const top = t.top ?? 12, warn = ph > 1.6 && ph < 2.3 ? 1 : 0;
+      const bottom = ph < 2.3 ? top : ph < 2.5 ? top - (top - t.y) * ((ph - 2.3) / 0.2) ** 2 : ph < 3.1 ? t.y : t.y + (top - t.y) * Math.min(1, (ph - 3.1) / (t.period - 3.1));
+      return geo({ bottom, warn, on: ph >= 2.3 && ph < 2.55 ? 1 : 0, cx: t.x });
+    }
+    case 'drip': { // una gota (o calavera, o bola de fuego) se forma arriba y cae
+      const top = t.top ?? 16, fall = Math.max(0, ph - 0.7), cy = top - 0.5 * 22 * fall * fall;
+      return geo({ cx: t.x, cy: Math.max(t.y, cy), warn: ph < 0.7 ? ph / 0.7 : 0, on: ph >= 0.7 && cy > t.y ? 1 : 0 });
+    }
+    case 'jet': { const warn = ph > t.period - 2.2 && ph < t.period - 1.6 ? 1 : 0, on = ph >= t.period - 1.6 ? Math.min(1, (ph - (t.period - 1.6)) / 0.15, (t.period - ph) / 0.3) : 0; return geo({ warn, on, reach: t.len * on }); }
+    default: { const warn = ph > t.period - 2.4 && ph < t.period - 1.6 ? 1 : 0, on = ph >= t.period - 1.6 ? Math.min(1, (ph - (t.period - 1.6)) / 0.15, (t.period - ph) / 0.3) : 0; return geo({ warn, on }); } // fuego
+  }
 }
+const circleHits = (cx: number, cy: number, r: number, x1: number, x2: number, y1: number, y2: number) => Math.hypot(Math.max(x1, Math.min(x2, cx)) - cx, Math.max(y1, Math.min(y2, cy)) - cy) < r;
 // ¿La trampa lastima algo que ocupa esta caja (x1..x2, y1..y2)?
 function trapHits(t: Trap, time: number, x1: number, x2: number, y1: number, y2: number) {
   const s = trapState(t, time);
-  if (t.kind === 'spikes') return s.on > 0.6 && x2 > t.x && x1 < t.x2 && y1 < t.y + 0.75;
-  if (t.kind === 'fire') return s.on > 0.4 && x2 > t.x - 0.45 && x1 < t.x + 0.45 && y1 < t.y + t.len * s.on && y2 > t.y;
-  const cx = Math.max(x1, Math.min(x2, s.tipX)), cy = Math.max(y1, Math.min(y2, s.tipY));
-  return Math.hypot(cx - s.tipX, cy - s.tipY) < 0.85;
+  switch (t.kind) {
+    case 'spikes': return s.on > 0.6 && x2 > t.x && x1 < t.x2 && y1 < t.y + 0.75 && y2 > t.y - 0.1;
+    case 'fire': return s.on > 0.4 && x2 > t.x - 0.45 && x1 < t.x + 0.45 && y1 < t.y + t.len * s.on && y2 > t.y;
+    case 'saw': return circleHits(s.cx, s.cy, SAW_R * 0.92, x1, x2, y1, y2);
+    case 'roller': return circleHits(s.cx, s.cy, ROLL_R * 1.05, x1, x2, y1, y2);
+    case 'crusher': return s.on > 0 && x2 > t.x - t.len && x1 < t.x + t.len && y1 < s.bottom + 0.2 && y2 > s.bottom - 0.6;
+    case 'drip': return s.on > 0 && circleHits(s.cx, s.cy, 0.35, x1, x2, y1, y2);
+    case 'jet': { if (s.on < 0.3) return false; const a = Math.min(t.x, t.x + t.amp * s.reach), b = Math.max(t.x, t.x + t.amp * s.reach); return x2 > a && x1 < b && y1 < t.y + 1.3 && y2 > t.y + 0.5; }
+    default: return circleHits(s.tipX, s.tipY, 0.85, x1, x2, y1, y2); // péndulo
+  }
 }
 
 // ---------------------------------------------------------------- Ataques del cazador
@@ -235,7 +267,7 @@ function spawn(g: Game) {
   // parejo: sale el tipo del que hay menos (muertos + vivos); si están iguales, al azar
   const r = g.rand, count = (k: VampKind) => g.kills[k] + g.vamps.filter(v => v.kind === k).length;
   const flyerChance = count('flyer') < count('walker') ? 1 : count('flyer') > count('walker') ? 0 : 0.5;
-  const speedK = g.bloodMoon ? 1.25 : 1;
+  const speedK = (g.bloodMoon ? 1.25 : 1) * LV.def.speed;
   const base = { id: g.nextId++, vx: 0, vy: 0, t: 0, onGround: false, surface: null, walkT: 0, cool: 1 + r(), jumpT: 0, dropT: 0, hit: false };
   if (r() < flyerChance) {
     const left = r() < 0.5;
@@ -243,7 +275,7 @@ function spawn(g: Game) {
     return;
   }
   const from = r();
-  if (from < 0.28) { // sale trepando del vacío
+  if (from < 0.28 && GAPS.length) { // sale trepando del vacío
     const [a, b] = GAPS[Math.floor(r() * GAPS.length)], x = (a + b) / 2;
     g.vamps.push({ ...base, kind: 'walker', x, y: -1.5, vy: 20, vx: (r() < 0.5 ? -1 : 1) * 3.4, face: g.player.x > x ? 1 : -1, state: 'walk', speed: (2.3 + r()) * speedK });
     emit(g, { type: 'emerge' });
@@ -251,7 +283,7 @@ function spawn(g: Game) {
   }
   const left = from < 0.64 && g.player.x > 4;
   const x = left ? -0.6 : W + 0.6;
-  g.vamps.push({ ...base, kind: 'walker', x, y: GROUND_Y, onGround: true, surface: left ? SURFACES[0] : SURFACES[2], face: left ? 1 : -1, state: 'walk', speed: (2.3 + r() * 1.1) * speedK });
+  g.vamps.push({ ...base, kind: 'walker', x, y: GROUND_Y, onGround: true, surface: left ? groundL() : groundR(), face: left ? 1 : -1, state: 'walk', speed: (2.3 + r() * 1.1) * speedK });
 }
 
 function updateWalker(g: Game, v: Vamp, dt: number) {
@@ -329,7 +361,7 @@ function updateFlyer(g: Game, v: Vamp, dt: number) {
 function dropCrate(g: Game) {
   const r = g.rand, roll = r();
   const kind: CrateKind = roll < 0.66 ? 'stakes' : roll < 0.86 ? 'heart' : 'garlic';
-  const spots = SURFACES.filter(s => s.x2 - s.x1 > 2);
+  const spots = SURFACES.filter(s => s.x2 - s.x1 > 2 && !s.mv);
   const s = spots[Math.floor(r() * spots.length)];
   const x = s.x1 + 0.8 + r() * (s.x2 - s.x1 - 1.6);
   g.crates.push({ id: g.nextId++, kind, x: Math.min(W - 2, x), y: H + 1.5, vy: -2.6, landed: false, t: 0, surface: null });
@@ -405,6 +437,7 @@ export function step(g: Game, input: Input, dt: number) {
   if (input.attack && g.phase === 'play') { if (g.holdT >= 0) { g.holdT += dt; if (g.holdT >= HOLD_MENU) { g.holdT = -1; openMenu(g); return; } } }
   else if (!input.attack) g.holdT = 0;
   g.time += dt; g.phaseT += dt;
+  updateSurfaces(g.time);
   g.flash = Math.max(0, g.flash - dt * 1.8); g.shake = Math.max(0, g.shake - dt * 2);
   g.holyT = Math.max(0, g.holyT - dt); g.garlicT = Math.max(0, g.garlicT - dt); g.combo.t = Math.max(0, g.combo.t - dt);
   if (g.door.open) g.door.t += dt;

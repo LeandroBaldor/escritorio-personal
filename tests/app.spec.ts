@@ -1187,10 +1187,16 @@ test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de
   await page.goto('/escritorio-personal/#/juegos');
   await page.getByRole('link', { name: /Vampyrium/ }).click();
   await expect(page.getByRole('heading', { name: 'Vampyrium', level: 1 })).toBeVisible();
-  await page.getByRole('button', { name: 'Jugar' }).click();
+  // Los 10 niveles se pueden elegir
+  const levels = page.getByRole('group', { name: 'Elegir nivel' }).getByRole('button');
+  await expect(levels).toHaveCount(10);
+  await levels.nth(2).click();
+  await expect(page.getByRole('button', { name: 'Jugar · Nivel 3' })).toBeVisible();
+  await levels.nth(0).click();
+  await page.getByRole('button', { name: 'Jugar · Nivel 1' }).click();
   // El cartel del nivel con el objetivo
   await expect(page.getByRole('heading', { name: 'El puente de las ánimas' })).toBeVisible();
-  await expect(page.getByText('tendrás que matar a los', { exact: false })).toBeVisible();
+  await expect(page.getByText('tendrás que matar a', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: /A cazar/ }).click();
   await expect(page.getByTestId('vamp-total')).toContainText('/50');
   await expect(page.getByTestId('vamp-time')).not.toHaveText('0:00', { timeout: 5000 });
