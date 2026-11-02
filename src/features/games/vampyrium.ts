@@ -35,6 +35,9 @@ export const PISTOL_RANGE = 10; // la pistola de fuego: 10 metros (unos 10 vampi
 // En qué nivel aparece cada arma: se van sumando a medida que se pasan los niveles.
 export const WEAPON_LEVEL: Record<Weapon, number> = { sword: 1, crossbow: 2, garlic: 3, cross: 4, firesword: 5, pistol: 6 };
 export const weaponUnlocked = (g: { level: number }, w: Weapon) => g.level >= WEAPON_LEVEL[w];
+// Las armas que se disparan o se tiran: con ↑ o ↓ + Espacio apuntan en diagonal hacia arriba o hacia abajo.
+export const AIMED: Weapon[] = ['crossbow', 'pistol', 'garlic'];
+export const AIM_ANGLE = 0.7; // ≈ 40 grados
 export const AMMO_PICKUP: Record<Weapon, number> = { sword: 0, crossbow: 8, garlic: 2, cross: 1, firesword: 3, pistol: 4 };
 
 import { LEVELS, LEVEL_COUNT, type LevelDef, type Surface, type Trap, type TrapKind } from './vampyriumLevels';
@@ -73,7 +76,7 @@ export const HOLD_MENU = 3;
 export interface Player {
   x: number; y: number; vx: number; vy: number; face: 1 | -1; onGround: boolean; surface: Surface | null; jumps: number;
   hp: number; inv: number; attackT: number; attackWeapon: Weapon; hitIds: Set<number>; cool: number; walkT: number;
-  dropT: number; coyote: number; safeX: number; prevUp: boolean; prevDown: boolean; hurtT: number; landT: number; spinT: number; // spinT: la vuelta en el aire del doble salto
+  dropT: number; coyote: number; safeX: number; prevUp: boolean; prevDown: boolean; hurtT: number; landT: number; spinT: number; aim: -1 | 0 | 1; // spinT: la vuelta en el aire del doble salto; aim: apunta arriba (1), adelante (0) o abajo (-1)
 }
 export type VampKind = 'walker' | 'flyer' | 'giant' | 'mage' | 'hammer' | 'warrior' | 'wolf' | 'dracula' | 'dragon';
 export const VAMP_KINDS: VampKind[] = ['walker', 'flyer', 'giant', 'mage', 'hammer', 'warrior', 'wolf', 'dracula', 'dragon'];
@@ -127,7 +130,7 @@ export interface Drop { x: number; y: number; vx: number; vy: number; r: number;
 export const BURN_AT = 0.25, BLOW_AT = 1.05; // el vampiro se vuelve esqueleto, arde como una antorcha y al segundo revienta
 export interface Bolt { x: number; y: number; vx: number; vy: number; t: number; stuck: boolean; hits: number[] } // flecha de la ballesta
 export interface Bomb { x: number; y: number; vx: number; vy: number; t: number; landed: number; a: number } // bomba de ajo (landed: tiempo desde que tocó el piso)
-export interface Bullet { x: number; y: number; vx: number; x0: number; t: number } // la bala de fuego de la pistola
+export interface Bullet { x: number; y: number; vx: number; vy: number; x0: number; y0: number; t: number } // la bala de fuego de la pistola
 // Efectos: la onda de la bomba, los rayos de la cruz, la ola de fuego de la espada y el estallido de la bala.
 export interface Fx { kind: 'blast' | 'bolt' | 'wave' | 'burst'; x: number; y: number; t: number; life: number; r: number; face: 1 | -1; seed: number }
 export type CrateKind = 'bolts' | 'heart' | 'garlic' | 'fire' | 'bullets';
@@ -160,7 +163,7 @@ export function mulberry(seed: number) {
 }
 
 export function newPlayer(): Player {
-  return { x: START_X, y: GROUND_Y, vx: 0, vy: 0, face: 1, onGround: true, surface: groundL(), jumps: 0, hp: MAX_HP, inv: 0, attackT: -1, attackWeapon: 'sword', hitIds: new Set(), cool: 0, walkT: 0, dropT: 0, coyote: 0, safeX: START_X, prevUp: false, prevDown: false, hurtT: 0, landT: 0, spinT: 0 };
+  return { x: START_X, y: GROUND_Y, vx: 0, vy: 0, face: 1, onGround: true, surface: groundL(), jumps: 0, hp: MAX_HP, inv: 0, attackT: -1, attackWeapon: 'sword', hitIds: new Set(), cool: 0, walkT: 0, dropT: 0, coyote: 0, safeX: START_X, prevUp: false, prevDown: false, hurtT: 0, landT: 0, spinT: 0, aim: 0 };
 }
 export function newGame(seed = Math.floor(Math.random() * 1e9), level = 1): Game {
   loadLevel(level);
@@ -295,15 +298,15 @@ export function attack(g: Game) {
   if (w === 'cross') { stormCross(g); return; }
   p.attackT = 0; p.attackWeapon = w; p.hitIds = new Set();
   if (w !== 'sword') g.ammo[w]--;
-  const hy = p.y + 1.3, hx = p.x + p.face * 0.6;
+  const hy = p.y + 1.3 + p.aim * 0.25, hx = p.x + p.face * 0.6, ca = Math.cos(p.aim * AIM_ANGLE), sa = Math.sin(p.aim * AIM_ANGLE);
   if (w === 'sword') { p.cool = 0.3; g.stats.slashes++; emit(g, { type: 'slash' }); }
   else if (w === 'firesword') { // la ola de fuego: 5 veces más grande que el tajo común
     p.cool = 0.55; g.stats.slashes++; g.shake = Math.max(g.shake, 0.35);
     g.fx.push({ kind: 'wave', x: p.x, y: p.y, t: 0, life: 0.45, r: FIRE_REACH, face: p.face, seed: g.rand() });
     emit(g, { type: 'shoot', weapon: w });
-  } else if (w === 'crossbow') { p.cool = 0.45; g.stats.throws++; g.bolts.push({ x: hx + p.face * 0.5, y: hy, vx: p.face * 24, vy: 0.4, t: 0, stuck: false, hits: [] }); emit(g, { type: 'shoot', weapon: w }); }
-  else if (w === 'pistol') { p.cool = 0.5; g.stats.throws++; g.bullets.push({ x: hx + p.face * 0.4, y: hy + 0.05, vx: p.face * 28, x0: hx, t: 0 }); g.fx.push({ kind: 'burst', x: hx + p.face * 0.75, y: hy + 0.05, t: 0, life: 0.18, r: 0.5, face: p.face, seed: g.rand() }); emit(g, { type: 'shoot', weapon: w }); }
-  else { p.cool = 0.6; g.stats.throws++; g.bombs.push({ x: hx, y: hy + 0.2, vx: p.face * 8.5 + p.vx * 0.3, vy: 8.5, t: 0, landed: -1, a: 0 }); emit(g, { type: 'throw' }); } // la bomba de ajo
+  } else if (w === 'crossbow') { p.cool = 0.45; g.stats.throws++; g.bolts.push({ x: hx + p.face * 0.5 * ca, y: hy + 0.5 * sa, vx: p.face * 24 * ca, vy: 24 * sa + 0.4, t: 0, stuck: false, hits: [] }); emit(g, { type: 'shoot', weapon: w }); }
+  else if (w === 'pistol') { p.cool = 0.5; g.stats.throws++; g.bullets.push({ x: hx + p.face * 0.4 * ca, y: hy + 0.05 + 0.4 * sa, vx: p.face * 28 * ca, vy: 28 * sa, x0: hx, y0: hy, t: 0 }); g.fx.push({ kind: 'burst', x: hx + p.face * 0.75 * ca, y: hy + 0.05 + 0.75 * sa, t: 0, life: 0.18, r: 0.5, face: p.face, seed: g.rand() }); emit(g, { type: 'shoot', weapon: w }); }
+  else { p.cool = 0.6; g.stats.throws++; g.bombs.push({ x: hx, y: hy + 0.2, vx: p.face * (p.aim > 0 ? 6.5 : p.aim < 0 ? 7 : 8.5) + p.vx * 0.3, vy: p.aim > 0 ? 14 : p.aim < 0 ? 1 : 8.5, t: 0, landed: -1, a: 0 }); emit(g, { type: 'throw' }); } // la bomba de ajo
   if (g.ammo[w] <= 0) { g.weapon = 'sword'; emit(g, { type: 'empty', weapon: w }); } // la última: vuelve la espada
 }
 // La cruz: una tormenta de rayos sobre los 6 vampiros más cercanos que estén a la vista (10 de daño a cada uno).
@@ -837,7 +840,11 @@ export function step(g: Game, input: Input, dt: number) {
   const slow = p.attackT >= 0 && p.onGround && p.attackWeapon === 'sword' ? 0.45 : 1;
   const ctrl = p.hurtT > 0 ? 0 : p.onGround ? 14 : 6;
   p.vx += (dir * SPEED * slow - p.vx) * Math.min(1, dt * ctrl);
-  const upPress = input.up && !p.prevUp, downPress = input.down && !p.prevDown;
+  const aiming = !!input.attack && AIMED.includes(g.weapon); // con Espacio apretado las flechas apuntan (no saltan ni bajan)
+  const prevAim = p.aim;
+  p.aim = AIMED.includes(g.weapon) ? (input.up ? 1 : input.down ? -1 : 0) : 0;
+  if (aiming && p.aim !== 0 && prevAim !== p.aim) attack(g); // Espacio apretado y después ↑ o ↓: dispara para ese lado
+  const upPress = input.up && !p.prevUp && !aiming, downPress = input.down && !p.prevDown && !aiming;
   p.prevUp = input.up; p.prevDown = input.down;
   if (upPress) {
     if (p.onGround || p.coyote > 0) { p.vy = JUMP; p.jumps = 1; p.onGround = false; p.surface = null; p.coyote = 0; emit(g, { type: 'jump', double: false }); }
@@ -896,9 +903,9 @@ export function step(g: Game, input: Input, dt: number) {
   }
   // Las balas de fuego de la pistola: le pegan al primero que tocan, hasta 10 metros
   for (const b of [...g.bullets]) {
-    b.t += dt; b.x += b.vx * dt;
+    b.t += dt; b.x += b.vx * dt; b.y += b.vy * dt;
     const v = hitBy(b.x, b.y, 0.2);
-    const done = Math.abs(b.x - b.x0) > PISTOL_RANGE || b.x < -1 || b.x > W + 1;
+    const done = Math.hypot(b.x - b.x0, b.y - b.y0) > PISTOL_RANGE || b.x < -1 || b.x > W + 1 || b.y > H + 1 || (b.vy < 0 && !!surfaceUnder(b.x, 0.05, b.y - b.vy * dt, b.y, false));
     if (v || done) {
       g.bullets.splice(g.bullets.indexOf(b), 1);
       g.fx.push({ kind: 'burst', x: b.x, y: b.y, t: 0, life: 0.35, r: v ? 1.1 : 0.6, face: 1, seed: g.rand() });

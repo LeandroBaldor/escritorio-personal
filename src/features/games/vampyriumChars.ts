@@ -34,7 +34,7 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
   if (at >= 0) {
     if (p.attackWeapon === 'crossbow' || p.attackWeapon === 'pistol') { // el disparo: retroceso
       const k = Math.max(0, 1 - at / 0.2);
-      return { bob: 0, lean: -0.05 - k * 0.15, crouch: 0.1, head: 0.02, legs: p.onGround ? [[-0.55, 0.45], [0.55, 0.6]] : [[-0.4, 1.1], [0.7, 1.3]], arms: [[1.35 + k * 0.2, 0.35], [1.5 + k * 0.35, 0.1 + k * 0.2]], blade: -0.08 - k * 0.3 };
+      const ak = p.aim * 0.7; return { bob: 0, lean: -0.05 - k * 0.15, crouch: 0.1, head: 0.02 - ak * 0.15, legs: p.onGround ? [[-0.55, 0.45], [0.55, 0.6]] : [[-0.4, 1.1], [0.7, 1.3]], arms: [[1.35 + ak + k * 0.2, 0.35], [1.5 + ak + k * 0.35, 0.1 + k * 0.2]], blade: -0.08 - k * 0.3 };
     }
     if (p.attackWeapon === 'cross') { const k = Math.min(1, at / 0.12); return { bob: 0, lean: -0.1, crouch: 0.05, head: -0.25 * k, legs: p.onGround ? [[-0.5, 0.5], [0.5, 0.6]] : [[-0.4, 1.1], [0.7, 1.3]], arms: [[1.2, 0.8], [2.4 + k * 0.6, 0.4 - k * 0.3]], blade: 0.0 }; }
     if (p.attackWeapon === 'sword' || p.attackWeapon === 'firesword') { // tajo: la espada baja desde atrás de la cabeza hacia adelante, con estocada
@@ -46,7 +46,8 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
   }
   // con la ballesta o la pistola apunta adelante; la bomba la lleva con las dos manos; la cruz, en alto
   const aim = held === 'crossbow' || held === 'pistol', br0 = s(t * 3.2);
-  const armsFor = (base: [number, number][]): [number, number][] => aim ? [[1.35, 0.35], [1.5 + br0 * 0.02, 0.1]] : held === 'garlic' ? [[1.0, 1.15], [1.15, 1.0]] : held === 'cross' ? [[0.2, 1.2], [2.25 + br0 * 0.03, 0.55]] : base;
+  const ak = p.aim * 0.7; // apunta arriba o abajo
+  const armsFor = (base: [number, number][]): [number, number][] => aim ? [[1.35 + ak, 0.35], [1.5 + ak + br0 * 0.02, 0.1]] : held === 'garlic' ? [[1.0, 1.15], [1.15, 1.0]] : held === 'cross' ? [[0.2, 1.2], [2.25 + br0 * 0.03, 0.55]] : base;
   const bladeFor = (b: number) => aim ? -0.08 : held === 'cross' ? 0.05 : held === 'garlic' ? 0 : b;
   if (!p.onGround) {
     if (p.vy > 2 && !aim && held !== 'garlic' && held !== 'cross') return { bob: 0, lean: 0.05, crouch: 0, head: -0.05, legs: [[-0.3, 1.2], [0.9, 1.6]], arms: [[-0.9, 0.5], [2.2, 0.4]], blade: 0.3 };
@@ -98,6 +99,11 @@ export function legDraw(ctx: CanvasRenderingContext2D, hip: Pt, pose: Pose, i: n
   segment(ctx, add(knee, sd, 0.2), add(knee, sd, 0.23), 0.22 * LIMB, 0.21 * LIMB, col(L !== HUNTER ? '#8f95a3' : L.trim), 0.6);
   shade(ctx, () => ctx.arc(knee[0], knee[1], 0.12 * LIMB, 0, TAU), col(L !== HUNTER ? '#3a3542' : metal('#3a3a44')), { x: knee[0] - 0.04, y: knee[1] - 0.04, r: 0.12, hi: 0.55, lw: 0.6 });
   if (L !== HUNTER) { ctx.strokeStyle = col('#9aa0ad'); ctx.lineWidth = 0.02; ctx.beginPath(); ctx.arc(knee[0], knee[1], 0.1 * LIMB, 0.4, Math.PI - 0.4); ctx.stroke(); }
+  else { // rodillera con borde de plata, remache y reflejo
+    ctx.strokeStyle = col(GOLD_MODE ? '#fff1a8' : '#b9bdc9'); ctx.lineWidth = 0.018; ctx.beginPath(); ctx.arc(knee[0], knee[1], 0.11 * LIMB, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
+    ctx.fillStyle = col('#d9dce4'); ctx.beginPath(); ctx.arc(knee[0] + 0.03, knee[1] - 0.02, 0.016, 0, TAU); ctx.fill();
+    if (!back) spec(ctx, knee[0] - 0.04, knee[1] - 0.05, 0.05, 0.025, -0.5, 0.6);
+  }
   boot(ctx, foot, ta - kb, L, back);
 }
 export const shoulderAt = (hip: Pt, pose: Pose, i: number): Pt => { const lx = i === 0 ? -0.34 : 0.28, ly = -0.42 + (i === 0 ? 0.02 : -0.04); return [hip[0] + lx * Math.cos(pose.lean) - ly * Math.sin(pose.lean), hip[1] + lx * Math.sin(pose.lean) + ly * Math.cos(pose.lean)]; };
@@ -161,6 +167,8 @@ export function armDraw(ctx: CanvasRenderingContext2D, hip: Pt, pose: Pose, i: n
     segment(ctx, add(elbow, fd, 0.21), add(elbow, fd, 0.23), 0.21 * LIMB, 0.21 * LIMB, col(L.trim), 0.5);
   }
   shade(ctx, () => ctx.arc(elbow[0], elbow[1], 0.09 * LIMB, 0, TAU), col(L === HUNTER ? metal('#3c3c46') : '#24202a'), { x: elbow[0] - 0.02, y: elbow[1] - 0.03, r: 0.09, lw: 0.6 });
+  ctx.strokeStyle = col(L === HUNTER ? (GOLD_MODE ? '#fff1a8' : '#b9bdc9') : '#6a6e7a'); ctx.lineWidth = 0.014; ctx.beginPath(); ctx.arc(elbow[0], elbow[1], 0.075 * LIMB, ua - 0.9 + Math.PI / 2, ua + 0.9 + Math.PI / 2); ctx.stroke(); // borde del codo
+  if (!back) spec(ctx, elbow[0] - 0.03, elbow[1] - 0.04, 0.035, 0.018, -0.5, 0.5);
   if (item !== 'claw' && item !== 'glove' && item !== 'fist' && hold) hold(hand, ua + eb + pose.blade);
   if (item === 'claw') claw(ctx, hand, ua + eb, back, L.skin, L === VAMP ? '#e01b2c' : L.trim);
   else if (item === 'glove' || item === 'fist') { hold?.(hand, ua + eb); fist(ctx, hand, ua + eb, back, item === 'fist' ? L.skin : '#24202a', item === 'fist' ? '#4a4652' : '#9aa0ad'); }
@@ -174,18 +182,30 @@ export function pauldron(ctx: CanvasRenderingContext2D, sp: Pt, ua: number, back
   shade(ctx, () => ctx.ellipse(sp[0], sp[1] - 0.01, rx, ry, ua * 0.25, 0, TAU), c, { x: sp[0] - 0.06, y: sp[1] - 0.08, r: 0.24, hi: 0.6, lw: 0.6 });
   ctx.strokeStyle = back ? '#6d707b' : HUNTER.trim; ctx.lineWidth = 0.025; ctx.beginPath(); ctx.ellipse(sp[0], sp[1] - 0.01, rx - 0.025, ry - 0.025, ua * 0.25, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke(); // borde de plata
   ctx.fillStyle = back ? '#6d707b' : '#d9dce4'; for (const k of [-0.08, 0.08]) { ctx.beginPath(); ctx.arc(sp[0] + k, sp[1] - 0.02, 0.022, 0, TAU); ctx.fill(); } // remaches
-  if (!back) spec(ctx, sp[0] - 0.07, sp[1] - 0.09, 0.07, 0.035, -0.4, 0.75);
+  // las láminas de la hombrera (placas superpuestas) con borde
+  ctx.strokeStyle = back ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.6)'; ctx.lineWidth = 0.012;
+  for (const k of [0.45, 0.75]) { ctx.beginPath(); ctx.ellipse(sp[0], sp[1] - 0.01 + ry * (k - 0.3), rx * (1 - k * 0.15), ry * 0.55, ua * 0.25, Math.PI * 0.05, Math.PI * 0.95); ctx.stroke(); }
+  if (!back) { ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 0.008; ctx.beginPath(); ctx.ellipse(sp[0], sp[1] + ry * 0.15, rx * 0.93, ry * 0.55, ua * 0.25, Math.PI * 0.1, Math.PI * 0.5); ctx.stroke(); spec(ctx, sp[0] - 0.07, sp[1] - 0.09, 0.07, 0.035, -0.4, 0.75); }
 }
 // La capa: cuelga de los hombros por detrás y flamea según la velocidad.
 export function cape(ctx: CanvasRenderingContext2D, neck: Pt, L: Look, t: number, speed: number, air: number, scallop: boolean) {
   const fl = Math.sin(t * 6) * 0.04 + Math.min(0.5, speed * 0.06) + air * 0.15, top: Pt = [neck[0] - 0.1, neck[1] + 0.1];
   const n = 5, x0 = top[0] - 0.62 - fl * 1.2, x1 = top[0] + 0.38, y = -0.04 - air * 0.25;
-  ctx.beginPath(); ctx.moveTo(top[0] - 0.25, top[1]);
-  ctx.quadraticCurveTo(x0 + 0.1, (top[1] + y) / 2 - 0.1, x0, y);
-  for (let i = 0; i < n; i++) { const a = x0 + (x1 - x0) * i / n, b = x0 + (x1 - x0) * (i + 1) / n; if (scallop) ctx.quadraticCurveTo((a + b) / 2, y - 0.12, b, y + Math.sin(t * 5 + i) * 0.015); else { ctx.lineTo((a + b) / 2, y + 0.05 + Math.sin(t * 5 + i) * 0.02); ctx.lineTo(b, y - 0.02); } }
-  ctx.quadraticCurveTo(x1 + 0.08, (top[1] + y) / 2, top[0] + 0.32, top[1]); ctx.closePath();
+  const path = () => {
+    ctx.beginPath(); ctx.moveTo(top[0] - 0.25, top[1]);
+    ctx.quadraticCurveTo(x0 + 0.1, (top[1] + y) / 2 - 0.1, x0, y);
+    for (let i = 0; i < n; i++) { const a = x0 + (x1 - x0) * i / n, b = x0 + (x1 - x0) * (i + 1) / n; if (scallop) ctx.quadraticCurveTo((a + b) / 2, y - 0.12, b, y + Math.sin(t * 5 + i) * 0.015); else { ctx.lineTo((a + b) / 2, y + 0.05 + Math.sin(t * 5 + i) * 0.02); ctx.lineTo(b, y - 0.02); } }
+    ctx.quadraticCurveTo(x1 + 0.08, (top[1] + y) / 2, top[0] + 0.32, top[1]); ctx.closePath();
+  };
+  path();
   ctx.fillStyle = grad(ctx, top[0], top[1], x0, y, [[0, L.cape], [0.6, darken(L.cape, 0.25)], [1, L.capeD]]); ctx.fill();
-  ctx.strokeStyle = '#0a0406'; ctx.lineWidth = 0.03; ctx.stroke();
+  // el forro de adentro (más oscuro) que se ve en el borde de atrás, y el ribete del borde
+  ctx.save(); ctx.clip();
+  ctx.fillStyle = alpha(darken(L.cape, 0.55), 0.85); ctx.beginPath(); ctx.moveTo(x0 - 0.1, y + 0.1); ctx.quadraticCurveTo(x0 + 0.05, (top[1] + y) / 2, top[0] - 0.22, top[1] + 0.05); ctx.lineTo(top[0] - 0.12, top[1] + 0.12); ctx.quadraticCurveTo(x0 + 0.2, (top[1] + y) / 2, x0 + 0.15, y + 0.1); ctx.closePath(); ctx.fill();
+  const sh = ctx.createLinearGradient(top[0], top[1], top[0], y); sh.addColorStop(0, 'rgba(255,255,255,0.12)'); sh.addColorStop(0.4, 'rgba(255,255,255,0)'); ctx.fillStyle = sh; ctx.fillRect(x0 - 1, top[1] - 0.2, 3, y - top[1] + 0.4); // brillo de la tela arriba
+  ctx.restore();
+  path(); ctx.strokeStyle = '#0a0406'; ctx.lineWidth = 0.03; ctx.stroke();
+  ctx.strokeStyle = L === HUNTER ? (GOLD_MODE ? '#fff1a8' : '#c9a24a') : '#1a0a0e'; ctx.globalAlpha = 0.35; ctx.lineWidth = 0.01; ctx.stroke(); ctx.globalAlpha = 1; // ribete
   ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.025; for (let k = 1; k < 4; k++) { ctx.beginPath(); ctx.moveTo(top[0] - 0.2 + k * 0.08, top[1] + 0.1); ctx.quadraticCurveTo(x0 + (x1 - x0) * k / 4, (top[1] + y) / 2, x0 + (x1 - x0) * k / 4 - 0.05, y - 0.05); ctx.stroke(); } // pliegues
 }
 
@@ -210,12 +230,29 @@ function hunterHead(ctx: CanvasRenderingContext2D, t: number, hurt: boolean) {
   for (const [ex, sz] of [[0.08, 1], [0.28, 0.9]] as const) {
     if (hurt) { ctx.strokeStyle = '#0a0a0e'; ctx.lineWidth = 0.025; ctx.beginPath(); ctx.moveTo(ex - 0.035, -0.06); ctx.lineTo(ex + 0.035, 0.02); ctx.moveTo(ex + 0.035, -0.06); ctx.lineTo(ex - 0.035, 0.02); ctx.stroke(); continue; }
     if (blink) { ctx.fillStyle = '#0a0a0e'; ctx.fillRect(ex - 0.04, -0.02, 0.08, 0.02); continue; }
-    ctx.fillStyle = '#0a0a0e'; ctx.beginPath(); ctx.ellipse(ex, -0.02, 0.045 * sz, 0.065 * sz, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex + 0.012, -0.045, 0.014, 0, TAU); ctx.fill();
+    // ojo con blanco, iris marrón, pupila y brillo; párpado de arriba marcado (más real)
+    ctx.fillStyle = '#f4efe8'; ctx.beginPath(); ctx.ellipse(ex, -0.02, 0.058 * sz, 0.05 * sz, 0, 0, TAU); ctx.fill();
+    ctx.save(); ctx.beginPath(); ctx.ellipse(ex, -0.02, 0.058 * sz, 0.05 * sz, 0, 0, TAU); ctx.clip();
+    const ir = ctx.createRadialGradient(ex + 0.012, -0.02, 0.004, ex + 0.012, -0.02, 0.042 * sz); ir.addColorStop(0, '#8a5a2e'); ir.addColorStop(0.7, '#4a2a12'); ir.addColorStop(1, '#1a0c04');
+    ctx.fillStyle = ir; ctx.beginPath(); ctx.arc(ex + 0.014, -0.018, 0.04 * sz, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#060404'; ctx.beginPath(); ctx.arc(ex + 0.016, -0.018, 0.018 * sz, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(60,30,20,0.35)'; ctx.fillRect(ex - 0.07, -0.08, 0.14, 0.03); // sombra del párpado
+    ctx.restore();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex + 0.026, -0.032, 0.011, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#1a0e08'; ctx.lineWidth = 0.02; ctx.beginPath(); ctx.ellipse(ex, -0.02, 0.058 * sz, 0.05 * sz, 0, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke(); // párpado
+    ctx.strokeStyle = 'rgba(90,50,30,0.5)'; ctx.lineWidth = 0.008; ctx.beginPath(); ctx.ellipse(ex, -0.015, 0.06 * sz, 0.05 * sz, 0, 0.25, Math.PI - 0.25); ctx.stroke(); // ojera suave
   }
-  ctx.strokeStyle = hair; ctx.lineWidth = 0.075; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-0.03, -0.15); ctx.lineTo(0.15, -0.08); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0.22, -0.08); ctx.lineTo(0.38, -0.15); ctx.stroke();
+  // nariz con volumen, pómulos y la sombra de la mandíbula
+  ctx.fillStyle = 'rgba(150,80,50,0.35)'; ctx.beginPath(); ctx.moveTo(0.3, -0.02); ctx.quadraticCurveTo(0.4, 0.06, 0.36, 0.1); ctx.quadraticCurveTo(0.31, 0.11, 0.29, 0.08); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(90,40,25,0.55)'; ctx.beginPath(); ctx.ellipse(0.33, 0.095, 0.02, 0.011, 0.2, 0, TAU); ctx.fill(); // narina
+  ctx.fillStyle = 'rgba(255,190,160,0.35)'; ctx.beginPath(); ctx.ellipse(0.15, 0.06, 0.07, 0.035, -0.2, 0, TAU); ctx.fill(); // pómulo con luz
+  ctx.fillStyle = 'rgba(120,60,40,0.12)'; ctx.beginPath(); ctx.ellipse(-0.14, 0.06, 0.07, 0.13, 0.2, 0, TAU); ctx.fill(); // sombra al costado de la cara
+  ctx.strokeStyle = 'rgba(160,90,60,0.6)'; ctx.lineWidth = 0.008; ctx.beginPath(); ctx.moveTo(0.06, -0.12); ctx.quadraticCurveTo(0.18, -0.14, 0.26, -0.11); ctx.stroke(); // arruga de la frente
+  ctx.strokeStyle = '#8a1b1b'; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.moveTo(0.33, -0.1); ctx.lineTo(0.36, -0.02); ctx.stroke(); // cicatriz en la ceja
+  for (const [x0, y0, x1, y1] of [[-0.04, -0.14, 0.15, -0.085], [0.22, -0.085, 0.39, -0.15]] as const) { // cejas espesas, finitas en la punta
+    ctx.fillStyle = hair; ctx.beginPath(); ctx.moveTo(x0, y0 - 0.03); ctx.quadraticCurveTo((x0 + x1) / 2, Math.min(y0, y1) - 0.05, x1, y1 - 0.02); ctx.lineTo(x1, y1 + 0.02); ctx.quadraticCurveTo((x0 + x1) / 2, Math.max(y0, y1) - 0.01, x0, y0 + 0.02); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(120,80,50,0.6)'; ctx.lineWidth = 0.006; for (let k = 0.15; k < 1; k += 0.2) { const x = x0 + (x1 - x0) * k, y = y0 + (y1 - y0) * k; ctx.beginPath(); ctx.moveTo(x, y + 0.012); ctx.lineTo(x + 0.025, y - 0.012); ctx.stroke(); }
+  }
   // pelo de arriba: mechones despeinados que caen sobre la frente, con mechones rojos
   const top = () => {
     ctx.moveTo(-0.4, 0.0); ctx.quadraticCurveTo(-0.46, -0.36, -0.2, -0.5);
@@ -228,12 +265,18 @@ function hunterHead(ctx: CanvasRenderingContext2D, t: number, hurt: boolean) {
   ctx.strokeStyle = '#b3151d'; ctx.lineWidth = 0.035; ctx.beginPath(); ctx.moveTo(-0.3, -0.36); ctx.quadraticCurveTo(-0.18, -0.48, -0.04, -0.4); ctx.stroke();
   ctx.lineWidth = 0.025; ctx.beginPath(); ctx.moveTo(-0.36, -0.2); ctx.quadraticCurveTo(-0.3, -0.34, -0.2, -0.36); ctx.stroke();
   ctx.strokeStyle = alpha(hairL, 0.9); ctx.lineWidth = 0.018; ctx.beginPath(); ctx.moveTo(-0.16, -0.46); ctx.quadraticCurveTo(0.0, -0.52, 0.12, -0.46); ctx.moveTo(0.1, -0.4); ctx.quadraticCurveTo(0.22, -0.42, 0.3, -0.36); ctx.stroke();
+  ctx.save(); ctx.beginPath(); top(); ctx.clip(); // mechones: líneas de pelo oscuras y claras
+  for (let i = 0; i < 16; i++) { const x = -0.38 + i * 0.05, k = (i * 37) % 7 / 7; ctx.strokeStyle = i % 3 ? 'rgba(20,10,6,0.55)' : alpha(hairL, 0.55); ctx.lineWidth = 0.008; ctx.beginPath(); ctx.moveTo(x - 0.05, -0.58); ctx.quadraticCurveTo(x + 0.02, -0.4 + k * 0.05, x + 0.08 + k * 0.04, -0.14); ctx.stroke(); }
+  ctx.restore();
 }
 export function vampEye(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, t: number) {
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, y, rx * 4, '#ff1e2e', 0.55 + 0.2 * Math.sin(t * 6)); ctx.restore();
   const g = ctx.createRadialGradient(x, y, 0, x, y, rx * 1.2); g.addColorStop(0, '#ffe6e6'); g.addColorStop(0.35, '#ff3341'); g.addColorStop(1, '#8a0010');
   ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, -0.15, 0, TAU); ctx.fill();
   ctx.strokeStyle = '#2a0006'; ctx.lineWidth = 0.012; ctx.stroke();
+  ctx.fillStyle = '#1a0004'; ctx.beginPath(); ctx.ellipse(x + rx * 0.1, y, rx * 0.16, ry * 0.85, 0, 0, TAU); ctx.fill(); // pupila de gato
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(x + rx * 0.35, y - ry * 0.35, rx * 0.2, 0, TAU); ctx.fill();
+  ctx.strokeStyle = 'rgba(40,10,40,0.7)'; ctx.lineWidth = 0.016; ctx.beginPath(); ctx.ellipse(x, y, rx * 1.05, ry * 1.05, -0.15, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); // párpado
 }
 export function vampHead(ctx: CanvasRenderingContext2D, t: number, open: boolean, spiky: boolean, o: { skin?: string; collar?: string; beard?: boolean; streak?: boolean } = {}) {
   const skin = o.skin ?? VAMP.skin, hair = '#121018';
@@ -245,6 +288,14 @@ export function vampHead(ctx: CanvasRenderingContext2D, t: number, open: boolean
   const face = () => { ctx.moveTo(-0.3, -0.18); ctx.quadraticCurveTo(-0.32, 0.24, -0.04, 0.36); ctx.quadraticCurveTo(0.2, 0.41, 0.37, 0.18); ctx.quadraticCurveTo(0.44, -0.08, 0.34, -0.3); ctx.quadraticCurveTo(0, -0.44, -0.3, -0.18); ctx.closePath(); };
   shade(ctx, face, skin, { x: 0.16, y: -0.12, r: 0.6, hi: 0.12, lo: 0.5, tex: 0.04, lw: 1 });
   ctx.fillStyle = 'rgba(80,40,110,0.22)'; ctx.beginPath(); ctx.ellipse(0.17, 0.0, 0.2, 0.06, 0, 0, TAU); ctx.fill(); // ojeras
+  // pómulos hundidos, nariz afilada y la sombra del mentón (cara más real)
+  ctx.save(); ctx.beginPath(); face(); ctx.clip();
+  ctx.fillStyle = 'rgba(70,30,100,0.28)'; ctx.beginPath(); ctx.moveTo(-0.05, 0.05); ctx.quadraticCurveTo(0.05, 0.18, 0.02, 0.3); ctx.quadraticCurveTo(-0.12, 0.2, -0.16, 0.04); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.beginPath(); ctx.ellipse(0.2, 0.06, 0.08, 0.03, -0.2, 0, TAU); ctx.fill();
+  ctx.fillStyle = 'rgba(60,20,90,0.25)'; ctx.beginPath(); ctx.ellipse(0.12, 0.36, 0.22, 0.07, 0, 0, TAU); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = 'rgba(90,50,120,0.45)'; ctx.beginPath(); ctx.moveTo(0.31, 0.0); ctx.quadraticCurveTo(0.42, 0.08, 0.37, 0.11); ctx.lineTo(0.31, 0.1); ctx.closePath(); ctx.fill(); // nariz
+  ctx.strokeStyle = 'rgba(60,20,80,0.7)'; ctx.lineWidth = 0.01; ctx.beginPath(); ctx.moveTo(0.3, 0.1); ctx.lineTo(0.36, 0.11); ctx.stroke();
   vampEye(ctx, 0.08, -0.02, 0.06, 0.05, t); vampEye(ctx, 0.28, -0.015, 0.055, 0.046, t);
   ctx.strokeStyle = '#0b0a10'; ctx.lineWidth = 0.06; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(-0.04, -0.17); ctx.lineTo(0.15, -0.08); ctx.stroke();
@@ -267,6 +318,9 @@ export function vampHead(ctx: CanvasRenderingContext2D, t: number, open: boolean
   };
   shade(ctx, top, hair, { x: -0.05, y: -0.45, r: 0.5, hi: 0.5, tex: 0.3, lw: 1 });
   ctx.strokeStyle = 'rgba(190,150,255,0.4)'; ctx.lineWidth = 0.022; ctx.beginPath(); ctx.moveTo(-0.26, -0.38); ctx.quadraticCurveTo(-0.04, -0.52, 0.2, -0.44); ctx.stroke();
+  ctx.save(); ctx.beginPath(); top(); ctx.clip(); // el pelo peinado para atrás: muchas líneas finas con brillo
+  for (let i = 0; i < 14; i++) { const y = -0.56 + i * 0.035; ctx.strokeStyle = i % 3 === 0 ? 'rgba(170,140,230,0.35)' : 'rgba(0,0,0,0.5)'; ctx.lineWidth = 0.007; ctx.beginPath(); ctx.moveTo(0.36, y + 0.12); ctx.quadraticCurveTo(0.05, y - 0.06, -0.42, y + 0.18); ctx.stroke(); }
+  ctx.restore();
   if (o.streak) { ctx.strokeStyle = '#e8e4f0'; ctx.lineWidth = 0.05; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-0.3, -0.2); ctx.quadraticCurveTo(-0.22, -0.46, 0.08, -0.48); ctx.stroke(); }
   if (o.beard) { // barba negra en punta, de patilla a patilla
     shade(ctx, () => { ctx.moveTo(-0.25, -0.02); ctx.quadraticCurveTo(-0.24, 0.3, -0.02, 0.38); ctx.lineTo(0.14, 0.52); ctx.lineTo(0.2, 0.4); ctx.quadraticCurveTo(0.34, 0.34, 0.37, 0.2); ctx.quadraticCurveTo(0.24, 0.36, 0.08, 0.33); ctx.quadraticCurveTo(-0.1, 0.28, -0.15, 0.0); ctx.closePath(); }, '#141118', { x: 0.05, y: 0.3, r: 0.3, tex: 0.3, lw: 0.8 });
@@ -295,16 +349,33 @@ function hunterTorso(ctx: CanvasRenderingContext2D) {
     shade(ctx, () => { ctx.moveTo(px, 0.05); ctx.lineTo(px + pw, 0.05); ctx.lineTo(px + pw * 0.92, 0.26); ctx.lineTo(px + pw * 0.08, 0.26); ctx.closePath(); }, '#24222a', { x: px + 0.05, y: 0.06, r: 0.25, lw: 0.6 });
     ctx.strokeStyle = '#94603c'; ctx.lineWidth = 0.02; ctx.beginPath(); ctx.moveTo(px + pw * 0.1, 0.23); ctx.lineTo(px + pw * 0.9, 0.23); ctx.moveTo(px + 0.02, 0.07); ctx.lineTo(px + pw * 0.1, 0.23); ctx.moveTo(px + pw - 0.02, 0.07); ctx.lineTo(px + pw * 0.9, 0.23); ctx.stroke();
   }
+  // detalles: costuras de las placas, remaches, rayones y la cota de malla abajo del cinturón
+  ctx.save(); ctx.beginPath(); torso(); ctx.clip();
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.moveTo(-0.38, -0.3); ctx.quadraticCurveTo(0, -0.26, 0.38, -0.3); ctx.moveTo(-0.35, -0.18); ctx.quadraticCurveTo(0, -0.14, 0.35, -0.18); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 0.008; ctx.beginPath(); ctx.moveTo(-0.37, -0.31); ctx.quadraticCurveTo(0, -0.275, 0.37, -0.31); ctx.moveTo(-0.2, -0.36); ctx.lineTo(-0.12, -0.33); ctx.moveTo(0.22, -0.22); ctx.lineTo(0.3, -0.25); ctx.stroke();
+  ctx.fillStyle = GOLD_MODE ? '#fff1a8' : '#c9ccd6'; for (const [rx, ry] of [[-0.33, -0.3], [0.33, -0.3], [-0.31, -0.18], [0.31, -0.18], [-0.27, -0.4], [0.29, -0.4]] as const) { ctx.beginPath(); ctx.arc(rx, ry, 0.016, 0, TAU); ctx.fill(); }
+  ctx.restore();
+  ctx.fillStyle = '#2a2a30'; ctx.fillRect(-0.29, 0.03, 0.57, 0.06); ctx.strokeStyle = '#6b6e79'; ctx.lineWidth = 0.008; for (let x = -0.28; x < 0.28; x += 0.035) { ctx.beginPath(); ctx.arc(x, 0.05, 0.016, 0, Math.PI); ctx.arc(x + 0.017, 0.075, 0.016, 0, Math.PI); ctx.stroke(); } // cota de malla
+  shade(ctx, () => ctx.roundRect(0.16, -0.05, 0.12, 0.13, 0.025), '#6a3b1e', { x: 0.2, y: -0.03, r: 0.1, lw: 0.5 }); // bolsito del cinturón
+  ctx.strokeStyle = '#c9a070'; ctx.setLineDash([0.012, 0.01]); ctx.lineWidth = 0.006; ctx.strokeRect(0.175, -0.035, 0.09, 0.1); ctx.beginPath(); ctx.moveTo(-0.3, -0.065); ctx.lineTo(0.28, -0.065); ctx.moveTo(-0.3, 0.035); ctx.lineTo(0.28, 0.035); ctx.stroke(); ctx.setLineDash([]); // costuras
   // cuello alto
   shade(ctx, () => ctx.ellipse(0.02, -0.53, 0.2, 0.08, 0, 0, TAU), metal('#34343e'), { x: 0, y: -0.56, r: 0.2, hi: 0.5, lw: 0.6 });
 }
 export function vampTorso(ctx: CanvasRenderingContext2D, t: number) {
   const torso = () => { ctx.moveTo(-0.28, 0.06); ctx.lineTo(-0.38, -0.42); ctx.quadraticCurveTo(0, -0.6, 0.38, -0.42); ctx.lineTo(0.27, 0.06); ctx.closePath(); };
   shade(ctx, torso, VAMP.armor, { x: 0.05, y: -0.45, r: 0.6, hi: 0.4, tex: 0.35 });
+  // el chaleco bordó con brocado y botones dorados, entre las solapas negras del frac
+  ctx.save(); ctx.beginPath(); torso(); ctx.clip();
+  ctx.fillStyle = grad(ctx, 0, -0.45, 0, 0.05, [[0, '#5a0a14'], [1, '#2a0408']]); ctx.beginPath(); ctx.moveTo(-0.14, -0.46); ctx.lineTo(0.16, -0.46); ctx.lineTo(0.14, 0.06); ctx.lineTo(-0.12, 0.06); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(255,120,120,0.18)'; for (let yy = -0.42; yy < 0.04; yy += 0.06) for (let xx = -0.1; xx < 0.14; xx += 0.06) { ctx.beginPath(); ctx.moveTo(xx, yy - 0.015); ctx.lineTo(xx + 0.012, yy); ctx.lineTo(xx, yy + 0.015); ctx.lineTo(xx - 0.012, yy); ctx.closePath(); ctx.fill(); } // brocado
+  for (const yy of [-0.24, -0.15, -0.06]) shade(ctx, () => ctx.arc(0.015, yy, 0.018, 0, TAU), '#d9a632', { x: 0.01, y: yy - 0.006, r: 0.02, hi: 0.7, lw: 0.4 });
+  for (const sgn of [-1, 1]) { ctx.fillStyle = '#0e0b12'; ctx.beginPath(); ctx.moveTo(sgn * 0.14, -0.5); ctx.lineTo(sgn * 0.36, -0.42); ctx.lineTo(sgn * 0.26, 0.06); ctx.lineTo(sgn * 0.13, 0.06); ctx.lineTo(sgn * 0.16, -0.2); ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 0.008; ctx.stroke(); } // solapas
+  ctx.restore();
   ctx.strokeStyle = VAMP.trim; ctx.lineWidth = 0.03; ctx.beginPath(); ctx.moveTo(-0.3, -0.4); ctx.lineTo(-0.22, 0.04); ctx.moveTo(0.3, -0.4); ctx.lineTo(0.22, 0.04); ctx.stroke(); // ribetes rojos
   // corbatín de volados blanco con la gema roja
   shade(ctx, () => { ctx.moveTo(-0.08, -0.52); ctx.lineTo(0.12, -0.52); ctx.lineTo(0.09, -0.42); ctx.lineTo(0.14, -0.34); ctx.lineTo(0.06, -0.3); ctx.lineTo(0.02, -0.22); ctx.lineTo(-0.02, -0.3); ctx.lineTo(-0.1, -0.34); ctx.lineTo(-0.05, -0.42); ctx.closePath(); }, '#f2eef6', { x: 0.02, y: -0.48, r: 0.25, hi: 0.3, lw: 0.6 });
   ctx.strokeStyle = '#b9b0c4'; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.moveTo(-0.05, -0.41); ctx.lineTo(0.09, -0.41); ctx.moveTo(-0.07, -0.34); ctx.lineTo(0.11, -0.34); ctx.stroke();
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 0.006; for (let k = 0; k < 6; k++) { ctx.beginPath(); ctx.arc(-0.08 + k * 0.035, -0.31, 0.018, 0, Math.PI); ctx.stroke(); } // puntilla
   shade(ctx, () => ctx.arc(0.02, -0.49, 0.045, 0, TAU), '#e3142a', { x: 0.01, y: -0.5, r: 0.05, hi: 0.7, lw: 0.6 });
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0.02, -0.49, 0.12, '#ff3048', 0.4 + 0.2 * Math.sin(t * 3)); ctx.restore();
   // cinturón con hebilla
@@ -402,9 +473,16 @@ export function batWing(ctx: CanvasRenderingContext2D, flap: number, back: boole
   ctx.fillStyle = grad(ctx, 0, -0.6, 1.6, 0.4, [[0, m0], [0.55, darken(m0, 0.25)], [1, m1]]); ctx.fill();
   ctx.strokeStyle = '#140608'; ctx.lineWidth = 0.035; ctx.stroke();
   ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = '#ff6070'; ctx.beginPath(); ctx.moveTo(wrist[0], wrist[1]); ctx.lineTo(tips[0][0], tips[0][1]); ctx.lineTo(tips[1][0], tips[1][1]); ctx.closePath(); ctx.fill(); ctx.restore(); // la luz que pasa por la membrana
+  // venitas de la membrana y los pliegues entre los dedos
+  ctx.save(); ctx.clip();
+  ctx.strokeStyle = back ? 'rgba(20,0,4,0.45)' : 'rgba(90,0,10,0.55)'; ctx.lineWidth = 0.008;
+  for (let i = 0; i < tips.length - 1; i++) { const a2 = tips[i], b2 = tips[i + 1]; for (let k = 0.25; k < 1; k += 0.25) { const mx = wrist[0] + ((a2[0] + b2[0]) / 2 - wrist[0]) * k, my = wrist[1] + ((a2[1] + b2[1]) / 2 - wrist[1]) * k; ctx.beginPath(); ctx.moveTo(wrist[0] + (a2[0] - wrist[0]) * k, wrist[1] + (a2[1] - wrist[1]) * k); ctx.quadraticCurveTo(mx + 0.04, my + 0.05, wrist[0] + (b2[0] - wrist[0]) * k, wrist[1] + (b2[1] - wrist[1]) * k); ctx.stroke(); } }
+  ctx.strokeStyle = back ? 'rgba(0,0,0,0.3)' : 'rgba(255,140,150,0.25)'; ctx.lineWidth = 0.02; for (const tp of tips) { ctx.beginPath(); ctx.moveTo(wrist[0], wrist[1]); ctx.lineTo(tp[0] * 0.97, tp[1] * 0.97 + 0.03); ctx.stroke(); }
+  ctx.restore();
   const bone = back ? '#1c1418' : '#26202a';
   segment(ctx, [0, 0], wrist, 0.1, 0.07, bone, 0.4);
   for (const tp of tips.slice(0, 3)) segment(ctx, wrist, tp, 0.055, 0.03, bone, 0.3);
+  ctx.fillStyle = back ? '#5a5d68' : '#c9ccd6'; for (const tp of tips.slice(0, 3)) { ctx.beginPath(); ctx.moveTo(tp[0] - 0.02, tp[1]); ctx.lineTo(tp[0] + 0.06, tp[1] + 0.04); ctx.lineTo(tp[0], tp[1] + 0.03); ctx.closePath(); ctx.fill(); } // uñitas en la punta de los dedos
   ctx.fillStyle = back ? '#7a7d88' : '#d4d7df'; ctx.beginPath(); ctx.moveTo(wrist[0] - 0.04, wrist[1] - 0.02); ctx.lineTo(wrist[0] + 0.02, wrist[1] - 0.2); ctx.lineTo(wrist[0] + 0.07, wrist[1] - 0.01); ctx.closePath(); ctx.fill(); // garra del ala
 }
 export function drawFlyerK(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {

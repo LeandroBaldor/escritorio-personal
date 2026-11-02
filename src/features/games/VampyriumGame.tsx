@@ -6,7 +6,7 @@ import { TouchGrips } from './TouchGrips';
 import { GamePad } from './GamePad';
 import { pixelRatio, useFitScreen } from './fitScreen';
 import { EndBanner } from './EndBanner';
-import { BODY, DAMAGE, GOAL, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, WEAPON_NAME, castHoly, chooseWeapon, closeMenu, formatVampTime, menuMove, newGame, pressAttack, step, takeEvents, type Game, type Input, type Weapon } from './vampyrium';
+import { BODY, DAMAGE, GOAL, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, WEAPON_NAME, chooseWeapon, closeMenu, formatVampTime, menuMove, newGame, pressAttack, step, takeEvents, type Game, type Input, type Weapon } from './vampyrium';
 import { drawGame, drawPortrait, drawSwordIcon, setBackdrop } from './vampyriumArt';
 import { drawWeaponIcon } from './vampyriumWeapons';
 import { setNoGrain } from './gravityMonsters';
@@ -157,7 +157,7 @@ export function Vampyrium() {
           case 'swing': playVampSwing(); break;
           case 'combo': playVampCombo(e.n); break;
           case 'holy': playVampCross(); playThunder(0.8); setToast({ text: e.count ? `✝ ¡TORMENTA SAGRADA! ${e.count} vampiros hechos polvo` : '✝ ¡TORMENTA SAGRADA!', id: now, big: true }); break;
-          case 'powerReady': playVampBell(0.2); setToast({ text: '✝ ¡+1 cruz! Elegila en las armas o tocá C', id: now, big: true }); break;
+          case 'powerReady': playVampBell(0.2); setToast({ text: '✝ ¡+1 cruz! Elegila en las armas (tecla 4)', id: now, big: true }); break;
           case 'wave': setToast({ text: `Oleada ${e.n}: vienen más vampiros 🦇`, id: now }); break;
           case 'bloodMoon': playThunder(1); setToast({ text: '🌕 ¡LUNA DE SANGRE! Los vampiros se ponen más rápidos', id: now, big: true, bad: true }); break;
           case 'menu': playVampMenu(e.open); break;
@@ -207,10 +207,8 @@ export function Vampyrium() {
       }
       if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault(); input.current.attack = true; if (e.repeat) return;
-        if (input.current.down && g.phase === 'play' && castHoly(g)) return; // ↓ + Espacio: la cruz
         pressAttack(g); return;
       }
-      if ((e.key === 'c' || e.key === 'C') && !e.repeat) { castHoly(g); return; }
       if (/^[1-6]$/.test(e.key)) { const w = WEAPONS[Number(e.key) - 1]; if (g.ammo[w] > 0) chooseWeapon(g, w); return; }
       const k = keys[e.key]; if (!k) return;
       e.preventDefault(); input.current[k] = true;
@@ -229,17 +227,15 @@ export function Vampyrium() {
   });
   const noMenu = (e: React.MouseEvent) => e.preventDefault();
   const attackTap = { onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); input.current.attack = true; if (statusRef.current === 'playing') pressAttack(gameRef.current); }, onPointerUp: () => { input.current.attack = false; }, onPointerLeave: () => { input.current.attack = false; }, onPointerCancel: () => { input.current.attack = false; }, onContextMenu: noMenu };
-  const holyTap = { onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); if (statusRef.current === 'playing') castHoly(gameRef.current); }, onContextMenu: noMenu };
   const ammo = hud.ammo.split(',').map(Number), ammoOf = (w: Weapon) => ammo[WEAPONS.indexOf(w)];
   const ready = ammoOf('cross') > 0;
-  const crossBtn = <button type="button" className={`kf-cast vamp-cross${ready ? ' kf-cast--fatal' : ' kf-cast--off'}`} aria-label={`Cruz sagrada: ${ammoOf('cross')}`} {...holyTap}>✝</button>;
   const [bossKindRaw, bossHpRaw] = hud.boss.split(':'), bossKind = (bossKindRaw || null) as VampKind | 'transform' | null, bossHp = Number(bossHpRaw) || 0;
   const roster = rosterOf(level), newWeapon = WEAPONS.find(w => w !== 'sword' && WEAPON_LEVEL[w] === level), newcomer = newcomerOf(level), finalLevel = level >= LEVEL_COUNT;
   const killsOf = hud.kills.split(',').map(Number);
   const recordText = record.time ? `🏆 ${formatVampTime(record.time)}` : `${record.kills} 🧛`;
 
   return <section className="runner trepa vamp" style={fit} aria-label="Vampyrium">
-    <TouchGrips actionLabel={hud.menu ? 'Elegir' : 'Atacar'} extra={status === 'playing' ? crossBtn : undefined} />
+    <TouchGrips actionLabel={hud.menu ? 'Elegir' : 'Atacar'} />
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1 className="vamp-logo">Vampyrium</h1>
@@ -262,7 +258,7 @@ export function Vampyrium() {
           <div className="ds-plate"><span className="vamp-paused">⏸ Juego en pausa</span><h2>Arsenal del cazador</h2></div>
           <div className="ds-body">
             <div className="ds-hero">
-              <ArtCanvas w={120} h={150} draw={(ctx, t) => drawPortrait(ctx, 'hunter', gameRef.current, 52, 142, 64, t)} />
+              <ArtCanvas w={220} h={310} draw={(ctx, t) => drawPortrait(ctx, 'hunter', gameRef.current, 96, 302, 136, t)} />
               <b>Cazador</b>
               <div className="ds-bar ds-bar--hp" aria-label={`Vida ${hud.hp} de ${MAX_HP}`}><i style={{ width: `${hud.hp / MAX_HP * 100}%` }} /><span>Vida {hud.hp}/{MAX_HP}</span></div>
 {level >= WEAPON_LEVEL.cross &&               <div className="ds-bar ds-bar--holy" aria-label={`Cruz ${hud.power} de ${POWER_MAX}`}><i style={{ width: `${hud.power / POWER_MAX * 100}%` }} /><span>Cruz {hud.power}/{POWER_MAX}</span></div>}
@@ -274,7 +270,7 @@ export function Vampyrium() {
                   const off = ammoOf(w) === 0;
                   return <li key={w}><button type="button" disabled={off} aria-label={WEAPON_NAME[w]} className={`ds-slot${hud.sel === i ? ' ds-sel' : ''}${hud.weapon === w ? ' ds-now' : ''}`}
                     onPointerDown={e => { e.preventDefault(); if (!off) chooseWeapon(gameRef.current, w); }} onClick={() => { if (!off && gameRef.current.phase === 'menu') chooseWeapon(gameRef.current, w); }}>
-                    <ArtCanvas w={56} h={56} draw={(ctx, t) => { ctx.translate(28, 28); drawWeaponIcon(ctx, w, 50, t, drawSwordIcon); }} />
+                    <ArtCanvas w={72} h={72} draw={(ctx, t) => { ctx.translate(36, 36); drawWeaponIcon(ctx, w, 64, t, drawSwordIcon); }} />
                     <em>{w === 'sword' ? '∞' : ammoOf(w)}</em><i className="ds-key">{i + 1}</i>
                   </button></li>;
                 })}
@@ -313,18 +309,44 @@ export function Vampyrium() {
             <button type="button" onClick={() => { playVampBell(0.25); setStatus('playing'); }} autoFocus>⚔️ ¡A cazar!</button>
           </div>
         </div>}
-        {status !== 'playing' && status !== 'intro' && <div className="runner-overlay vamp-overlay" role="dialog" aria-labelledby="vamp-message">
-          <div className="trepa-overlay-card ds-frame">
-            {status === 'ready' && <>
+        {status === 'ready' && <div className="runner-overlay vamp-overlay vamp-home" role="dialog" aria-labelledby="vamp-message">
+          <section className="vamp-story vamp-home-story" aria-label="La historia del cazador">
+            <ArtCanvas w={210} h={300} draw={(ctx, t) => drawPortrait(ctx, 'hunter', gameRef.current, 88, 292, 132, t)} />
+            <div>
               <h2 id="vamp-message" className="vamp-title">VAMPYRIUM</h2>
-              <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse · <kbd>↑</kbd> saltar (otra vez en el aire: doble salto) · <kbd>↓</kbd> bajar de una plataforma · <kbd>Espacio</kbd> atacar (mantenelo 3 segundos: armas) · <kbd>1</kbd>–<kbd>6</kbd> cambiar de arma · <kbd>C</kbd> cruz sagrada · <kbd>P</kbd> pausa</p>
-              <button type="button" onClick={() => start(level)} autoFocus>Jugar · Nivel {level}</button>
-              <div className="vamp-levels" role="group" aria-label="Elegir nivel">
-                {LEVELS.map(l => <button type="button" key={l.n} className={l.n === level ? 'vamp-lv-on' : ''} aria-pressed={l.n === level} title={l.name} onClick={() => { setLevel(l.n); gameRef.current = newGame(undefined, l.n); setHud(hudOf(gameRef.current)); }}>
-                  <img src={fondoOf(l.bg)} alt="" loading="lazy" /><b>{l.n}</b><small>{l.name}</small>
-                </button>)}
-              </div>
-            </>}
+              <h3>La historia de Demian</h3>
+              <p>Tras perder a su familia por culpa de Drácula, Demian se volvió un cazador de vampiros. Su venganza comienza en la entrada del castillo de Drácula, donde deberá matar a {GOAL} vampiros para poder abrir las puertas del castillo.</p>
+              <h4>Tips</h4>
+              <ul>
+                <li>Apretando la barra espaciadora por tres segundos podés seleccionar el arma.</li>
+                <li>Caen cajas que te van a ayudar a completar cada nivel.</li>
+                <li>Tenés 100 de vida: cada vampiro te saca según lo fuerte que es, y los fuertes aguantan varios golpes.</li>
+                <li>En cada nivel aparece un arma nueva.</li>
+              </ul>
+            </div>
+          </section>
+          <div className="trepa-overlay-card ds-frame vamp-home-card">
+            <h3>Cómo se juega</h3>
+            <ul className="vamp-keys">
+              <li><span><kbd>←</kbd><kbd>→</kbd></span>Moverse</li>
+              <li><span><kbd>↑</kbd></span>Saltar (otra vez en el aire: doble salto)</li>
+              <li><span><kbd>↓</kbd></span>Bajar de una plataforma</li>
+              <li><span><kbd>Espacio</kbd></span>Atacar con el arma que tenés</li>
+              <li><span><kbd>↑</kbd>/<kbd>↓</kbd>+<kbd>Espacio</kbd></span>Con la ballesta, la pistola o el ajo: disparar hacia arriba o hacia abajo</li>
+              <li><span><kbd>Espacio</kbd> 3 s</span>Abrir el arsenal de armas</li>
+              <li><span><kbd>1</kbd>–<kbd>6</kbd></span>Cambiar de arma</li>
+              <li><span><kbd>P</kbd></span>Pausa</li>
+            </ul>
+            <button type="button" onClick={() => start(level)} autoFocus>Jugar · Nivel {level}</button>
+          </div>
+          <div className="vamp-levels" role="group" aria-label="Elegir nivel">
+            {LEVELS.map(l => <button type="button" key={l.n} className={l.n === level ? 'vamp-lv-on' : ''} aria-pressed={l.n === level} title={l.name} onClick={() => { setLevel(l.n); gameRef.current = newGame(undefined, l.n); setHud(hudOf(gameRef.current)); }}>
+              <img src={fondoOf(l.bg)} alt="" loading="lazy" /><b>{l.n}</b><small>{l.name}</small>
+            </button>)}
+          </div>
+        </div>}
+        {status !== 'playing' && status !== 'intro' && status !== 'ready' && <div className="runner-overlay vamp-overlay" role="dialog" aria-labelledby="vamp-message">
+          <div className="trepa-overlay-card ds-frame">
             {status === 'paused' && <>
               <h2 id="vamp-message">Pausa</h2>
               <button type="button" onClick={() => setStatus('playing')} autoFocus>Seguir</button>
@@ -349,20 +371,6 @@ export function Vampyrium() {
               <button type="button" className="vamp-ghost" onClick={() => setStatus('ready')}>Elegir nivel</button>
             </>}
           </div>
-          {status === 'ready' && <section className="vamp-story" aria-label="La historia del cazador">
-            <ArtCanvas w={150} h={220} draw={(ctx, t) => drawPortrait(ctx, 'hunter', gameRef.current, 62, 212, 96, t)} />
-            <div>
-              <h3>La historia de Demian</h3>
-              <p>Tras perder a su familia por culpa de Drácula, Demian se volvió un cazador de vampiros. Su venganza comienza en la entrada del castillo de Drácula, donde deberá matar a {GOAL} vampiros para poder abrir las puertas del castillo.</p>
-              <h4>Tips</h4>
-              <ul>
-                <li>Apretando la barra espaciadora por tres segundos podés seleccionar el arma.</li>
-                <li>Usá las flechas para moverte y saltar.</li>
-                <li>Caen cajas que te van a ayudar a completar cada nivel.</li>
-                <li>Tenés 100 de vida: cada vampiro te saca según lo fuerte que es, y los fuertes aguantan varios golpes.</li>
-              </ul>
-            </div>
-          </section>}
         </div>}
       </div>
       <aside className="trepa-side vamp-side" aria-label="Tiempo, vampiros y armas">
@@ -385,13 +393,13 @@ export function Vampyrium() {
         {level >= WEAPON_LEVEL.cross && <div className={`trepa-stat vamp-power${ready ? ' vamp-ready' : ''}`} aria-label={`Cruz sagrada: ${hud.power} de ${POWER_MAX}`}>
           <span>Cruz ✝</span>
           <i className="vamp-bar vamp-bar--gold"><b style={{ width: `${hud.power / POWER_MAX * 100}%` }} /></i>
-          <em>{ready ? `${ammoOf('cross')} lista${ammoOf('cross') > 1 ? 's' : ''} · tecla C` : `${hud.power}/${POWER_MAX}`}</em>
+          <em>{ready ? `${ammoOf('cross')} lista${ammoOf('cross') > 1 ? 's' : ''} · tecla 4` : `${hud.power}/${POWER_MAX}`}</em>
         </div>}
         {hud.garlic && <div className="trepa-stat vamp-garlic">🧄 Ajo</div>}
         {hud.door && <div className="trepa-stat vamp-door">🚪 ¡Puerta abierta! ▶</div>}
       </aside>
     </div>
-    <GamePad action={{ hold: attackTap, label: 'Atacar' }} extra={status === 'playing' ? crossBtn : undefined}
+    <GamePad action={{ hold: attackTap, label: 'Atacar' }}
       dirs={{ left: { hold: hold('left'), aria: 'Izquierda' }, right: { hold: hold('right'), aria: 'Derecha' }, up: { hold: hold('up'), aria: 'Saltar' }, down: { hold: hold('down'), aria: 'Bajar' } }} />
   </section>;
 }

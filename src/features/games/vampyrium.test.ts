@@ -523,3 +523,21 @@ describe('Vampyrium: los vampiros se mueven con inteligencia', () => {
     expect(hurts).toBeLessThanOrEqual(10);
   });
 });
+
+describe('Vampyrium: apuntar arriba y abajo', () => {
+  it('con ↑ o ↓ + Espacio la ballesta y la pistola disparan en diagonal (y no salta ni baja)', () => {
+    const g = newGame(2, 6); g.spawnT = 1e9; g.crateT = 1e9; g.player.x = 4; g.player.face = 1;
+    chooseWeapon(g, 'crossbow');
+    step(g, { ...idle(), attack: true }, 1 / 60); // Espacio apretado...
+    step(g, { ...idle(), attack: true, up: true }, 1 / 60); // ...y ↑: dispara para arriba sin saltar
+    expect(g.bolts.length).toBe(1);
+    expect(g.bolts[0].vy).toBeGreaterThan(10);
+    expect(g.player.onGround).toBe(true);
+    g.player.cool = 0; chooseWeapon(g, 'pistol');
+    step(g, { ...idle(), attack: true, down: true }, 1 / 60); pressAttack(g);
+    expect(g.bullets.at(-1)!.vy).toBeLessThan(-10);
+    g.player.cool = 0; step(g, idle(), 1 / 60); pressAttack(g);
+    expect(g.bullets.at(-1)!.vy).toBe(0); // sin flechas: derecho
+    newGame(1, 1);
+  });
+});
