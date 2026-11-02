@@ -23,10 +23,26 @@ const DRAC: Look = { armor: '#a3121c', dark: '#5c0910', trim: '#4a4452', strap: 
 
 const neckOf = (hip: Pt, pose: Pose, len = 0.52): Pt => [hip[0] + Math.sin(pose.lean) * len, hip[1] - Math.cos(pose.lean) * len];
 const shadow = (ctx: CanvasRenderingContext2D, v: Vamp, r: number) => { if (v.onGround) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0, 0.02, r, 0.09, 0, 0, TAU); ctx.fill(); } };
-// El destello blanco cuando lo golpean (dibuja todo de nuevo encima, en blanco, con poca opacidad).
-function hitFlash(ctx: CanvasRenderingContext2D, v: Vamp, draw: () => void) {
-  draw();
-  if ((v.flash ?? 0) > 0) { ctx.save(); ctx.globalAlpha = Math.min(0.75, (v.flash ?? 0) * 5); ctx.globalCompositeOperation = 'lighter'; ctx.filter = 'brightness(0) invert(1)'; draw(); ctx.restore(); }
+// El destello blanco cuando lo golpean: dibuja el vampiro en un lienzo aparte, lo pinta de blanco y lo pega encima con poca opacidad.
+// (Antes usaba ctx.filter, que con tantos detalles trababa el juego varios segundos cada vez que se le pegaba a uno fuerte.)
+let flashCanvas: HTMLCanvasElement | null = null;
+function hitFlash(ctx: CanvasRenderingContext2D, v: Vamp, draw: (c: CanvasRenderingContext2D) => void) {
+  draw(ctx);
+  const f = v.flash ?? 0, main = ctx.canvas;
+  if (f <= 0 || typeof document === 'undefined' || !(main instanceof HTMLCanvasElement)) return;
+  // la zona de la pantalla que ocupa (una caja holgada alrededor del cuerpo)
+  const m = ctx.getTransform(); let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (const [lx, ly] of [[-5, -7], [5, -7], [-5, 1.5], [5, 1.5]]) { const px = m.a * lx + m.c * ly + m.e, py = m.b * lx + m.d * ly + m.f; x1 = Math.min(x1, px); x2 = Math.max(x2, px); y1 = Math.min(y1, py); y2 = Math.max(y2, py); }
+  x1 = Math.max(0, Math.floor(x1)); y1 = Math.max(0, Math.floor(y1)); x2 = Math.min(main.width, Math.ceil(x2)); y2 = Math.min(main.height, Math.ceil(y2));
+  const w = x2 - x1, h = y2 - y1; if (w <= 0 || h <= 0) return;
+  flashCanvas ??= document.createElement('canvas');
+  if (flashCanvas.width < w) flashCanvas.width = w;
+  if (flashCanvas.height < h) flashCanvas.height = h;
+  const fc = flashCanvas.getContext('2d'); if (!fc) return;
+  fc.setTransform(1, 0, 0, 1, 0, 0); fc.globalAlpha = 1; fc.globalCompositeOperation = 'source-over'; fc.clearRect(0, 0, w, h);
+  fc.save(); fc.setTransform(m.a, m.b, m.c, m.d, m.e - x1, m.f - y1); draw(fc); fc.restore();
+  fc.setTransform(1, 0, 0, 1, 0, 0); fc.globalAlpha = 1; fc.globalCompositeOperation = 'source-in'; fc.fillStyle = '#fff'; fc.fillRect(0, 0, w, h);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = Math.min(0.75, f * 5); ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(flashCanvas, 0, 0, w, h, x1, y1, w, h); ctx.restore();
 }
 // Una gema roja tallada con brillo.
 function gem(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, frame = '#c4c8d2', t = 0) {
@@ -581,7 +597,7 @@ export function drawDragonK(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
 
 // ---------------------------------------------------------------- Todos
 export function drawVampK(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
-  const draw = () => {
+  const draw = (ctx: CanvasRenderingContext2D) => {
     switch (v.kind) {
       case 'walker': drawWalkerK(ctx, v, t); break;
       case 'flyer': drawFlyerK(ctx, v, t); break;

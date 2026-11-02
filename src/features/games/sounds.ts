@@ -1517,7 +1517,10 @@ export function playVampBell(volume = 0.25) {
 const VAMP_S = import.meta.glob('./assets/sonidos/vamp-*.mp3', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const vs = (name: string) => VAMP_S[`./assets/sonidos/vamp-${name}.mp3`];
 // Los fondos de cada nivel son pesados: se cargan recién cuando se juega ese nivel.
-export function preloadVampSounds() { for (const [k, url] of Object.entries(VAMP_S)) if (!k.includes('/vamp-nivel-')) loadSample(url); }
+export function preloadVampSounds(level = 0) {
+  for (const [k, url] of Object.entries(VAMP_S)) if (!k.includes('/vamp-nivel-') || k.endsWith(`/vamp-nivel-${level}.mp3`)) loadSample(url);
+  if (level === 9) loadSample(lluviaUrl);
+}
 const vampLast: Record<string, number> = {};
 function vampOnce(name: string, volume: number, gap: number, rate = 1) { const c = running(); if (!c || c.currentTime - (vampLast[name] ?? -9) < gap) return true; vampLast[name] = c.currentTime; return playSample(vs(name), volume, 0, rate); }
 // El tajo de la espada (la grabación, un poquito distinta cada vez; mientras carga, el sintetizado).

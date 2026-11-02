@@ -106,7 +106,7 @@ export function Vampyrium() {
   }, [paint]);
 
   const start = useCallback((n: number) => {
-    playVampMenuButton(); playVampBell(0.2); preloadVampSounds();
+    playVampMenuButton(); playVampBell(0.2); preloadVampSounds(n);
     setLevel(n);
     gameRef.current = newGame(undefined, n); seenRef.current = new Set();
     input.current = { left: false, right: false, up: false, down: false };
@@ -119,11 +119,12 @@ export function Vampyrium() {
   useEffect(() => {
     if (status !== 'playing') { setVampAmbient(false); paint(); return; }
     setVampAmbient(true, gameRef.current.level);
-    let frame = 0, last = performance.now(), bellT = 14;
+    let frame = 0, last = performance.now(), bellT = 14, ambT = 1;
     const tick = (now: number) => {
       const g = gameRef.current, dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
       // pasos fijos chicos: la física no depende de los cuadros por segundo
       let left = dt; while (left > 0) { const d = Math.min(1 / 60, left); step(g, input.current, d); left -= d; }
+      ambT -= dt; if (ambT <= 0) { ambT = 1; setVampAmbient(true, g.level); } // el fondo del nivel arranca apenas termina de cargar
       bellT -= dt; if (bellT <= 0 && g.phase === 'play') { playVampBell(0.12); bellT = 18 + Math.random() * 10; }
       for (const e of takeEvents(g)) {
         switch (e.type) {
