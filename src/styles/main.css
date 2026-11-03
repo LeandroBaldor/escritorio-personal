@@ -1872,3 +1872,37 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .vamp-intro2-weapons li{width:92px;padding:.4rem .25rem .45rem}
 .vamp-intro2-grid canvas{border:0!important;background:none!important;box-shadow:none!important}
 .vamp-intro2-grid li em{right:auto;width:max-content}
+/* el arsenal más grande (las armas bien grandes) */
+.vamp-arsenal{width:min(1180px,98%)!important;max-height:98%;padding:1rem 1.3rem .8rem}
+.vamp-arsenal .ds-grid{grid-template-columns:repeat(6,108px);gap:8px}
+.vamp-arsenal .ds-slot{width:108px;height:108px}
+.vamp-arsenal .ds-slot canvas{width:104px!important;height:104px!important}
+.vamp-arsenal .ds-slot em{font-size:1.05rem}
+.vamp-arsenal .ds-plate{padding:.3rem 1rem}
+@media(max-width:1100px){.vamp-arsenal .ds-grid{grid-template-columns:repeat(6,84px)}.vamp-arsenal .ds-slot{width:84px;height:84px}.vamp-arsenal .ds-slot canvas{width:80px!important;height:80px!important}}
+@media(max-width:800px){.vamp-arsenal .ds-grid{grid-template-columns:repeat(6,48px);gap:4px}.vamp-arsenal .ds-slot{width:48px;height:48px}.vamp-arsenal .ds-slot canvas{width:44px!important;height:44px!important}}
+.vamp-levels button.vamp-lv-locked{filter:grayscale(1) brightness(.45);cursor:not-allowed}
+.vamp-levels button.vamp-lv-locked::after{content:"🔒";position:absolute;inset:0;display:grid;place-items:center;font-size:1.3rem}
+/* el cartel de los vampiros y las armas: grandes y sueltos (sin recuadros) */
+.vamp-intro2-card{width:100%;height:100%;max-height:none;display:flex;flex-direction:column;justify-content:center;border:0;background:none;box-shadow:none;padding:.6rem 1rem}
+.vamp-intro2-grid{flex-wrap:nowrap;gap:.4rem;align-items:flex-end}
+.vamp-intro2-grid li,.vamp-intro2-weapons li,.vamp-intro2-weapons li.vamp-hub-armor,.vamp-intro2-grid li.vamp-hub-new{flex:1 1 0;min-width:0;width:auto;max-width:250px;padding:0;border:0;background:none;box-shadow:none}
+.vamp-intro2-grid canvas{width:100%!important;height:auto!important;aspect-ratio:1;max-width:240px}
+.vamp-intro2-weapons li{max-width:150px}
+.vamp-intro2-weapons canvas{max-width:150px}
+.vamp-intro2-grid li b{font-size:1.15rem;text-shadow:0 2px 6px #000}
+.vamp-intro2-weapons li b{font-size:.9rem}
+.vamp-intro2-grid .vamp-hub-hp{font-size:1rem}
+.vamp-intro2-grid li em{top:0}
+.vamp-intro2-grid li.vamp-hub-new canvas{filter:drop-shadow(0 0 14px #fde68a88)}
+@media(max-width:700px){.vamp-intro2-grid{flex-wrap:wrap}.vamp-intro2-grid li{flex:0 0 30%}.vamp-intro2-weapons li{flex:0 0 22%}}
+.vamp-intro2{background:radial-gradient(circle at 50% 40%,#2a0a10f2,#050206fc)}
+.vamp-intro2 .vamp-hub-go{align-self:center;width:auto}
+/* el menú siempre entra en la pantalla: la fila de la historia se achica (y se desplaza adentro si hace falta) */
+@media(min-width:981px){
+  .vamp-hub{overflow:hidden}
+  .vamp-hub-grid{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr) auto auto auto}
+  .vamp-hub-story,.vamp-hub-keys{min-height:0;overflow:auto}
+  .vamp-hub-hero{min-height:0;overflow:hidden}
+  .vamp-hub-hero canvas{height:auto!important;max-height:calc(100% - 4.5rem);width:auto!important;max-width:100%}
+}

@@ -26,7 +26,7 @@ export interface LevelDef {
   pit: PitStyle; stone: [number, number, number]; cap: string; speed: number;
 }
 
-const GY = 3.2, TOP = 16.3, TOPD = 25.4; // TOP: de dónde cuelgan los péndulos; TOPD: de dónde caen las gotas (arriba de todo)
+const GY = 3.2, TOP = 16.3, TOPD = 31.9; // TOP: de dónde cuelgan los péndulos; TOPD: de dónde caen las gotas (arriba de todo)
 const G = (x1: number, x2: number): Surface => ({ x1, x2, y: GY, ground: true });
 const P = (x1: number, x2: number, y: number, mv?: Move): Surface => ({ x1, x2, y, ground: false, mv });
 const T = (kind: TrapKind, style: string, x: number, x2: number, y: number, period: number, offset: number, len = 0, amp = 0, top?: number): Trap => ({ kind, style, x, x2, y, period, offset, len, amp, top });
@@ -43,10 +43,10 @@ function withHighLedges(surfaces: Surface[], traps: Trap[]): Surface[] {
   }
   return out;
 }
-// El escenario sigue para arriba (hasta y = 25,5): tres pisos más de plataformas (a 16,2, 19,4 y 22,6), distintas
+// El escenario sigue para arriba (hasta y = 32): cinco pisos más de plataformas (de 16,2 a 29), distintas
 // en cada nivel, solo donde se llega de un salto desde la de abajo y lejos de los péndulos, gotas y aplastadores;
 // arriba también hay trampas: pinches (del estilo del nivel) y una sierra que recorre una plataforma.
-const UP_TIERS = [16.2, 19.4, 22.6];
+const UP_TIERS = [16.2, 19.4, 22.6, 25.8, 29.0];
 const SPIKE_STYLE: Record<number, string> = { 6: 'bone', 8: 'thorn', 9: 'hands' };
 function withUpperFloors(n: number, surfaces: Surface[], traps: Trap[]): [Surface[], Trap[]] {
   const out = [...surfaces], added: Surface[] = [];
@@ -63,10 +63,14 @@ function withUpperFloors(n: number, surfaces: Surface[], traps: Trap[]): [Surfac
       x = x2 + 2.1 + ((n + ti + i) % 3) * 1.2;
     }
   });
-  const extra: Trap[] = [];
-  const a = added[(n * 3) % Math.max(1, added.length)], b = added[(n * 3 + 2) % Math.max(1, added.length)];
-  if (a) { const m = (a.x1 + a.x2) / 2; extra.push(T('spikes', SPIKE_STYLE[n] ?? 'iron', m - 0.8, m + 0.8, a.y, 3.2 + (n % 3) * 0.3, n * 0.37)); }
-  if (b && b !== a && b.x2 - b.x1 > 3) extra.push(T('saw', 'iron', b.x1 + 0.5, b.x2 - 0.5, b.y, 3.4 + (n % 2) * 0.6, n * 0.5));
+  // trampas arriba: pinches, sierras y braseros de fuego repartidos por las plataformas nuevas (una de cada dos)
+  const extra: Trap[] = [], kinds = ['spikes', 'saw', 'fire', 'spikes', 'saw'] as const;
+  added.filter((_, i) => (i + n) % 2 === 0).forEach((q, i) => {
+    const m = (q.x1 + q.x2) / 2, k = kinds[(i + n) % kinds.length];
+    if (k === 'spikes') extra.push(T('spikes', SPIKE_STYLE[n] ?? 'iron', m - 0.8, m + 0.8, q.y, 3.2 + (i % 3) * 0.3, n * 0.37 + i));
+    else if (k === 'saw' && q.x2 - q.x1 > 3) extra.push(T('saw', 'iron', q.x1 + 0.5, q.x2 - 0.5, q.y, 3.4 + (i % 2) * 0.6, n * 0.5 + i));
+    else if (k === 'fire') extra.push(T('fire', 'brazier', m, m, q.y, 4.4 + (i % 2) * 0.5, n * 0.3 + i, 3.4));
+  });
   return [out, [...traps, ...extra]];
 }
 function level(n: number, name: string, tagline: string, bg: string, surfaces: Surface[], traps: Trap[], look: { pit: PitStyle; stone: [number, number, number]; cap: string; crop?: number; speed?: number }): LevelDef {

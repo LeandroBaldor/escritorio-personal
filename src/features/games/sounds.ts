@@ -1518,8 +1518,7 @@ const VAMP_S = import.meta.glob('./assets/sonidos/vamp-*.mp3', { eager: true, qu
 const vs = (name: string) => VAMP_S[`./assets/sonidos/vamp-${name}.mp3`];
 // Los fondos de cada nivel son pesados: se cargan recién cuando se juega ese nivel.
 export function preloadVampSounds(level = 0) {
-  for (const [k, url] of Object.entries(VAMP_S)) if (!k.includes('/vamp-nivel-') || k.endsWith(`/vamp-nivel-${level}.mp3`)) loadSample(url);
-  if (level === 9) loadSample(lluviaUrl);
+  for (const [k, url] of Object.entries(VAMP_S)) if ((!k.includes('/vamp-nivel-') && !k.includes('/vamp-lluvia-sangre')) || k.endsWith(`/vamp-nivel-${level}.mp3`) || (level === 9 && k.includes('/vamp-lluvia-sangre'))) loadSample(url);
 }
 const vampLast: Record<string, number> = {};
 function vampOnce(name: string, volume: number, gap: number, rate = 1) { const c = running(); if (!c || c.currentTime - (vampLast[name] ?? -9) < gap) return true; vampLast[name] = c.currentTime; return playSample(vs(name), volume, 0, rate); }
@@ -1568,14 +1567,14 @@ export function playVampButton() { vampOnce('boton', 0.8, 0.06); }
 // El botón de los menús (los niveles, Jugar, ¡A cazar!, Siguiente nivel, Pausa...).
 export function playVampMenuButton() { if (!vampOnce('boton-2', 1, 0.06)) playVampButton(); }
 export function setVampWings(level: number) { setVampLoop('alas', Math.min(0.7, level)); }
-// El sonido de fondo de cada nivel (su grabación; si no tiene, la música del castillo). En el 1 y el 9 hay tormenta, y en el 9 además llueve.
+// El sonido de fondo de cada nivel (su grabación; si no tiene, la música del castillo). En el 1 hay tormenta, y en el 9 llueve sangre (lluvia con truenos).
 let vampAmbientName = '';
 export function setVampAmbient(on: boolean, level = 1) {
   const name = vs(`nivel-${level}`) ? `nivel-${level}` : 'musica-1';
   if (vampAmbientName && vampAmbientName !== name) setVampLoop(vampAmbientName, 0);
   vampAmbientName = on ? name : '';
   setVampLoop(name, on ? (name === 'musica-1' ? 0.32 : 0.5) : 0);
-  setVampLoop('truenos', on && (level === 1 || level === 9) ? 0.9 : 0);
-  setVampLoop('lluvia', on && level === 9 ? 0.55 : 0);
+  setVampLoop('truenos', on && level === 1 ? 0.9 : 0);
+  setVampLoop('lluvia-sangre', on && level === 9 ? 0.8 : 0);
   if (!on) setVampLoop('alas', 0);
 }

@@ -7,7 +7,7 @@
 // tiran; caen cajas del cielo con más). Con 50 vampiros muertos se abre la puerta de la derecha.
 
 export const W = 28, H = 15.75; // H: lo que entra en la pantalla de alto
-export const WORLD_H = 25.5; // el escenario sigue para arriba (la cámara acompaña al cazador)
+export const WORLD_H = 32; // el escenario sigue para arriba (la cámara acompaña al cazador)
 export const CAM_MAX = WORLD_H - H;
 export const GROUND_Y = 3.2;
 export const GOAL = 50;
@@ -25,19 +25,20 @@ const VAMP_W = 0.8;
 //  · Verde: tira bolas verdes; el vampiro que toca se pone verde y se derrite en el piso.
 //  · Violeta: una espada poderosa que saca 5 de vida y hace explotar al vampiro en violeta.
 //  · Protectora: un escudo que aguanta 50 puntos de ataques de los vampiros (se suma al arma que tengas).
-//  · Huesos: un martillo que saca 10 de vida; dura 10 golpes.
+//  · Huesos: un martillo que saca 10 de vida; dura 50 golpes.
 export type Weapon = 'sword' | 'crossbow' | 'garlic' | 'cross' | 'firesword' | 'pistol' | 'ice' | 'holy' | 'venom' | 'violet' | 'guard' | 'bone';
 export const WEAPONS: Weapon[] = ['sword', 'crossbow', 'garlic', 'cross', 'firesword', 'pistol', 'ice', 'holy', 'venom', 'violet', 'guard', 'bone'];
 export const ARMORS: Weapon[] = ['ice', 'holy', 'venom', 'violet', 'guard', 'bone'];
 export const isArmor = (w: Weapon) => ARMORS.includes(w);
 export const WEAPON_NAME: Record<Weapon, string> = { sword: 'Espada', crossbow: 'Ballesta', garlic: 'Bomba de ajo', cross: 'Cruz', firesword: 'Espada de fuego', pistol: 'Pistola de fuego',
-  ice: 'Armadura de hielo', holy: 'Armadura dorada', venom: 'Armadura verde', violet: 'Armadura violeta', guard: 'Armadura protectora', bone: 'Armadura de huesos' };
+  ice: 'Armadura de Hielo', holy: 'Armadura Dorada', venom: 'Armadura Verde', violet: 'Armadura Violeta', guard: 'Armadura Protectora', bone: 'Armadura de Huesos' };
 // Cuánta vida le saca a cada vampiro que alcanza.
 // (hielo, dorada y verde matan de un toque a los vampiros comunes; a Drácula y al dragón les sacan esto)
 export const WEAPON_DMG: Record<Weapon, number> = { sword: 1, crossbow: 3, garlic: 5, cross: 10, firesword: 20, pistol: 20, ice: 10, holy: 15, venom: 8, violet: 5, guard: 0, bone: 10 };
 // Munición: con cuánto se empieza cada nivel y cuánto se puede llevar (la espada no se gasta).
-export const START_AMMO: Record<Weapon, number> = { sword: Infinity, crossbow: 10, garlic: 2, cross: 1, firesword: 3, pistol: 4, ice: 5, holy: 2, venom: 5, violet: 12, guard: 1, bone: 10 };
-export const MAX_AMMO: Record<Weapon, number> = { sword: Infinity, crossbow: 30, garlic: 6, cross: 3, firesword: 10, pistol: 12, ice: 12, holy: 5, venom: 12, violet: 25, guard: 2, bone: 10 };
+// (las armas duran el doble que al principio y las armaduras cinco veces más)
+export const START_AMMO: Record<Weapon, number> = { sword: Infinity, crossbow: 20, garlic: 4, cross: 2, firesword: 6, pistol: 8, ice: 25, holy: 10, venom: 25, violet: 60, guard: 5, bone: 50 };
+export const MAX_AMMO: Record<Weapon, number> = { sword: Infinity, crossbow: 60, garlic: 12, cross: 6, firesword: 20, pistol: 24, ice: 60, holy: 25, venom: 60, violet: 125, guard: 10, bone: 50 };
 // El tamaño de cada ataque (en metros; un vampiro mide 0,8 de ancho y 1,8 de alto):
 export const SWORD_REACH = 2.6, SWORD_H = 2.7; // la espada: un arco de 2,6 adelante y 2,7 de alto
 export const FIRE_REACH = 6.5, FIRE_H = 5.4; // la espada de fuego: 2,5 veces más larga y el doble de alta = 5 veces más grande
@@ -56,7 +57,7 @@ export const weaponUnlocked = (g: { level: number }, w: Weapon) => g.level >= WE
 // Las armas que se disparan o se tiran: con ↑ o ↓ + Espacio apuntan en diagonal hacia arriba o hacia abajo.
 export const AIMED: Weapon[] = ['crossbow', 'pistol', 'garlic', 'ice', 'venom'];
 export const AIM_ANGLE = 0.7; // ≈ 40 grados
-export const AMMO_PICKUP: Record<Weapon, number> = { sword: 0, crossbow: 8, garlic: 2, cross: 1, firesword: 3, pistol: 4, ice: 4, holy: 1, venom: 4, violet: 8, guard: 1, bone: 10 };
+export const AMMO_PICKUP: Record<Weapon, number> = { sword: 0, crossbow: 16, garlic: 4, cross: 2, firesword: 6, pistol: 8, ice: 20, holy: 5, venom: 20, violet: 40, guard: 5, bone: 50 };
 
 import { CHAPTERS, LEVELS, LEVEL_COUNT, type Chapter, type Goal, type LevelDef, type Surface, type Trap, type TrapKind } from './vampyriumLevels';
 export { CHAPTERS, LEVELS, LEVEL_COUNT, type Chapter, type Goal, type LevelDef, type Surface, type Trap, type TrapKind };
@@ -90,7 +91,7 @@ export const START_X = 2.6;
 
 
 export interface Input { left: boolean; right: boolean; up: boolean; down: boolean; attack?: boolean } // attack: Espacio apretado (mantenido 3 s abre las armas)
-export const HOLD_MENU = 3;
+export const HOLD_MENU = 2;
 // Los ataques especiales de Demian (con la espada):
 //  · spin:  doble salto + Espacio → una vuelta entera en el aire que corta todo alrededor.
 //  · dash:  adelante, adelante + Espacio → atraviesa a los vampiros con una estocada rapidísima.
@@ -322,7 +323,7 @@ function trapHits(t: Trap, time: number, x1: number, x2: number, y1: number, y2:
 }
 
 // ---------------------------------------------------------------- Ataques del cazador
-// Espacio: ataca con el arma que tiene. Mantenido 3 segundos: abre el cartel de las armas (eso lo mira step).
+// Espacio: ataca con el arma que tiene. Mantenido 2 segundos: abre el cartel de las armas (eso lo mira step).
 export function pressAttack(g: Game) {
   if (g.phase === 'menu') { chooseWeapon(g, WEAPONS[g.menu.sel]); return; }
   if (g.phase !== 'play') return;
@@ -975,7 +976,7 @@ function updateGoal(g: Game, dt: number) {
 // ---------------------------------------------------------------- Cajas del cielo
 function dropCrate(g: Game) {
   // solo caen cajas de las armas que ya aparecieron (el ajo siempre: espanta a los vampiros)
-  const r = g.rand, pool = ([['bolts', 0.36, 'crossbow'], ['heart', 0.2, 'sword'], ['garlic', 0.16, 'sword'], ['fire', 0.14, 'firesword'], ['bullets', 0.14, 'pistol'], ['armor', 0.3, 'ice']] as const).filter(([, , w]) => weaponUnlocked(g, w));
+  const r = g.rand, pool = ([['bolts', 0.36, 'crossbow'], ['heart', 0.38, 'sword'], ['garlic', 0.16, 'sword'], ['fire', 0.14, 'firesword'], ['bullets', 0.14, 'pistol'], ['armor', 0.6, 'ice']] as const).filter(([, , w]) => weaponUnlocked(g, w));
   let roll = r() * pool.reduce((a, [, k]) => a + k, 0), kind: CrateKind = 'heart';
   for (const [k, wgt] of pool) { if (roll < wgt) { kind = k; break; } roll -= wgt; }
   const spots = SURFACES.filter(s => s.x2 - s.x1 > 2 && !s.mv);
@@ -1112,7 +1113,7 @@ function updateStorm(g: Game, dt: number) {
 export function step(g: Game, input: Input, dt: number) {
   g.real += dt;
   if (g.phase === 'menu') { g.menu.t += dt; g.holdT = input.attack ? -1 : 0; return; } // el cartel de armas pone el juego en pausa
-  // Espacio mantenido: se llena la barra y a los 3 segundos aparece el cartel de las armas
+  // Espacio mantenido: se llena la barra y a los 2 segundos aparece el cartel de las armas
   if (input.attack && g.phase === 'play') { if (g.holdT >= 0) { g.holdT += dt; if (g.holdT >= HOLD_MENU) { g.holdT = -1; openMenu(g); return; } } }
   else if (!input.attack) g.holdT = 0;
   g.time += dt; g.phaseT += dt;
@@ -1319,7 +1320,7 @@ export function step(g: Game, input: Input, dt: number) {
     g.spawnT = Math.max(1.3, 3.2 - g.total * 0.025) * (g.bloodMoon ? 0.8 : 1) * (0.7 + g.rand() * 0.6);
   }
   g.crateT -= dt;
-  if (g.crateT <= 0) { dropCrate(g); g.crateT = 11 + g.rand() * 5; }
+  if (g.crateT <= 0) { dropCrate(g); g.crateT = 8 + g.rand() * 4; /* (más seguido: más vidas y armaduras) */ }
   updateCrates(g, dt);
   updateRemains(g, dt);
 }

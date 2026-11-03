@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GUARD_HP, FREEZE_T, HOLY_TARGETS, DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp, CHAPTERS, hitObject, noteTap } from './vampyrium';
+import { AMMO_PICKUP, GUARD_HP, FREEZE_T, HOLY_TARGETS, DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp, CHAPTERS, hitObject, noteTap } from './vampyrium';
 
 const idle = (): Input => ({ left: false, right: false, up: false, down: false });
 const run = (g: Game, seconds: number, input: Input = idle()) => { for (let t = 0; t < seconds; t += 1 / 60) step(g, input, 1 / 60); };
@@ -52,11 +52,11 @@ describe('Vampyrium', () => {
     expect(g.vamps.length).toBe(1);
   });
 
-  it('manteniendo espacio 3 segundos aparece el cartel de armas y el juego queda en pausa; se elige con flechas y espacio', () => {
+  it('manteniendo espacio 2 segundos aparece el cartel de armas y el juego queda en pausa; se elige con flechas y espacio', () => {
     const g = quiet();
     pressAttack(g); // el toque ataca
     expect(g.player.attackT).toBeGreaterThanOrEqual(0);
-    run(g, 2.5, { ...idle(), attack: true });
+    run(g, 1.6, { ...idle(), attack: true });
     expect(g.phase).toBe('play');
     run(g, 0.6, { ...idle(), attack: true });
     expect(g.phase).toBe('menu');
@@ -72,9 +72,9 @@ describe('Vampyrium', () => {
     expect(g.bolts.length).toBe(1);
   });
 
-  it('soltar antes de los 3 segundos no abre el cartel', () => {
+  it('soltar antes de los 2 segundos no abre el cartel', () => {
     const g = quiet();
-    run(g, 2, { ...idle(), attack: true }); run(g, 0.1); run(g, 2, { ...idle(), attack: true });
+    run(g, 1.5, { ...idle(), attack: true }); run(g, 0.1); run(g, 1.5, { ...idle(), attack: true });
     expect(g.phase).toBe('play');
   });
 
@@ -167,10 +167,10 @@ describe('Vampyrium', () => {
     expect(g.player.inv).toBeGreaterThan(0);
   });
 
-  it('caen cajas del cielo: la de flechas suma 8 flechas', () => {
+  it('caen cajas del cielo: la de flechas suma 16 flechas', () => {
     const g = quiet(); g.crates.push({ id: 99, kind: 'bolts', x: g.player.x, y: GROUND_Y + 3, vy: -2.6, landed: false, t: 0, surface: null });
     run(g, 2);
-    expect(g.ammo.crossbow).toBe(START_AMMO.crossbow + 8);
+    expect(g.ammo.crossbow).toBe(START_AMMO.crossbow + AMMO_PICKUP.crossbow);
     expect(takeEvents(g).some(e => e.type === 'pickup')).toBe(true);
   });
 
@@ -461,8 +461,8 @@ describe('Vampyrium: las armas', () => {
     g.crates.push({ id: 99, kind: 'bullets', x: g.player.x, y: GROUND_Y + 2, vy: -2.6, landed: false, t: 0, surface: null });
     g.crates.push({ id: 98, kind: 'fire', x: g.player.x, y: GROUND_Y + 2.2, vy: -2.6, landed: false, t: 0, surface: null });
     run(g, 2);
-    expect(g.ammo.pistol).toBe(Math.min(MAX_AMMO.pistol, START_AMMO.pistol - 1 + 4));
-    expect(g.ammo.firesword).toBe(START_AMMO.firesword - 1 + 3);
+    expect(g.ammo.pistol).toBe(Math.min(MAX_AMMO.pistol, START_AMMO.pistol - 1 + AMMO_PICKUP.pistol));
+    expect(g.ammo.firesword).toBe(Math.min(MAX_AMMO.firesword, START_AMMO.firesword - 1 + AMMO_PICKUP.firesword));
     newGame(1, 1);
   });
 });
@@ -670,11 +670,11 @@ describe('Vampyrium: las armaduras (desde el nivel 5)', () => {
     pressAttack(g); run(g, 0.3);
     expect(v.hp).toBe(7); expect(g.fx.some(f => f.kind === 'nova')).toBe(true);
   });
-  it('huesos: el martillo saca 10 y dura 10 golpes', () => {
+  it('huesos: el martillo saca 10 y dura 50 golpes', () => {
     const g = at(); chooseWeapon(g, 'bone'); const v = put(g, 'wolf', 6.5);
     pressAttack(g); run(g, 0.3);
     expect(v.hp).toBe(18);
-    for (let i = 0; i < 9; i++) { g.vamps = []; run(g, 0.7); pressAttack(g); }
+    for (let i = 0; i < 49; i++) { g.vamps = []; run(g, 0.7); pressAttack(g); }
     expect(g.ammo.bone).toBe(0); expect(g.weapon).toBe('sword');
   });
   it('protectora: aguanta 50 de ataques de vampiros y no cambia el arma', () => {

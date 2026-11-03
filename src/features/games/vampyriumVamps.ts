@@ -601,24 +601,24 @@ function drawFlyer2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
 
 // ---------------------------------------------------------------- Vampiro gigante
 function drawGiant2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
-  const st = stance(v, t, { lean: 0.04, crouch: 0.15, wide: 1.5, lift: 0.24 }), br = Math.sin(t * 2.4 + v.id) * 0.02, sk = '#a29eae';
+  const st = stance(v, t, { lean: 0.06, crouch: 0.12, wide: 1.05, lift: 0.2 }), br = Math.sin(t * 2.4 + v.id) * 0.02, sk = '#a29eae'; // (de perfil: pasos naturales, no abierto de piernas)
   // la caminata pesada: pisa fuerte (el cuerpo baja en cada paso), se balancea de lado a lado y los brazos van y vienen
   const moving = v.onGround && Math.abs(v.vx) > 0.3, gw = v.walkT * 3.0;
-  if (moving) { st.bob = -Math.abs(Math.sin(gw)) * 0.1 + 0.03; st.lean = 0.1 + Math.sin(gw) * 0.07; st.crouch += 0.04; }
-  const sw = moving ? Math.sin(gw) * 0.22 : 0;
-  let hands: [Pt, Pt] = [[0.0 - sw, 0.55 + br + Math.abs(sw) * 0.1], [0.5 + sw, 0.24 - br]];
+  if (moving) { st.bob = -Math.abs(Math.sin(gw)) * 0.08 + 0.02; st.lean = 0.12 + Math.abs(Math.sin(gw)) * 0.04; st.crouch += 0.03; }
+  const sw = moving ? Math.sin(gw) * 0.3 : 0;
+  let hands: [Pt, Pt] = [[0.02 + sw, 0.6 + br - Math.abs(sw) * 0.12], [0.14 - sw, 0.58 - br - Math.abs(sw) * 0.12]]; // los brazos cuelgan a los costados y se balancean al revés que las piernas
   hands = swipeArms(v, hands, { up: [[-0.04, -0.72], [0.16, -0.74]], hit: [[0.6, 0.36], [0.74, 0.3]], walk: false }); // los dos puños juntos, de arriba hacia abajo
-  const r: Pose2 = { ...st, hands }, b = solve2(r, { ...BRUTE, shW: 0.33 });
+  const r: Pose2 = { ...st, hands }, b = solve2(r, { ...BRUTE, shW: 0.16 }); // hombros juntos: el cuerpo de perfil
   shadowOn(ctx, v, 0.75);
   ctx.save(); ctx.scale(1.22, 1.22); // tan alto como el gigante de antes
   const leg = (i: number) => { leg2(ctx, b, i, '#2a2630', 1.45, true, '#1a171e'); };
   leg(0); leg(1);
-  ctx.save(); ctx.translate(b.hip[0], b.hip[1]); ctx.rotate(Math.atan2(b.spine[0], -b.spine[1])); ctx.scale(BROAD, 1);
+  ctx.save(); ctx.translate(b.hip[0], b.hip[1]); ctx.rotate(Math.atan2(b.spine[0], -b.spine[1])); ctx.translate(0.05, 0); ctx.scale(BROAD * 0.66, 1); // de perfil (más angosto, con el pecho para adelante)
   const torso = () => shapePath(ctx, [[-0.25, 0.04], [-0.29, -0.25], [-0.38, -0.56], [-0.25, -0.72], [0.27, -0.72], [0.38, -0.56], [0.3, -0.25], [0.24, 0.04]]);
   form(ctx, torso, sk, [0, -0.4], 0.55, { tex: 0.4, lw: 1.4 });
   ctx.save(); ctx.beginPath(); torso(); ctx.clip();
   ctx.strokeStyle = 'rgba(60,40,80,0.5)'; ctx.lineWidth = 0.018; ctx.beginPath(); for (const sx of [-1, 1]) { ctx.moveTo(0.0, -0.6); ctx.quadraticCurveTo(sx * 0.18, -0.38, sx * 0.33, -0.52); } ctx.moveTo(0, -0.4); ctx.lineTo(0, -0.05); for (const y of [-0.28, -0.17, -0.07]) { ctx.moveTo(-0.12, y); ctx.quadraticCurveTo(0, y + 0.02, 0.12, y); } ctx.stroke();
-  for (const [a, b2] of [[[-0.36, -0.72], [0.32, -0.08]], [[0.36, -0.72], [-0.32, -0.08]]] as [Pt, Pt][]) { tube(ctx, a, b2, [0.08, 0.08], LEATHER, { rim: 0, ao: 0, tex: 0.5, lw: 1.1 }); }
+  for (const [a, b2] of [[[-0.3, -0.72], [0.3, -0.08]]] as [Pt, Pt][]) { tube(ctx, a, b2, [0.08, 0.08], LEATHER, { rim: 0, ao: 0, tex: 0.5, lw: 1.1 }); }
   ctx.restore();
   form(ctx, () => ctx.arc(0.0, -0.4, 0.075, 0, TAU), '#c68f2c', [0, -0.4], 0.08, { hi: 0.6, lw: 1.2 }); gem(ctx, 0.0, -0.4, 0.05, t, '#c68f2c');
   const loin = () => shapePath(ctx, [[-0.12, 0.0], [0.15, 0.0], [0.17, 0.3, 1], [0.1, 0.24, 1], [0.06, 0.42, 1], [0.0, 0.3, 1], [-0.06, 0.46, 1], [-0.1, 0.28, 1], [-0.16, 0.34, 1]]);
@@ -632,6 +632,13 @@ function drawGiant2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
     const c0 = lerp(el, hd, 0.25), c1 = add(hd, fd, -0.02); // el brazal negro con tachas y bordes dorados
     trimmed(ctx, [add(c0, fn, 0.12), add(c1, fn, 0.12), add(c1, fn, -0.12), add(c0, fn, -0.12)].map(p => [p[0], p[1], 1] as [number, number, number]), BLK2, lerp(c0, c1, 0.5), 0.15, back, 0.02, { hi: 0.5 });
     for (let k = 0; k < 3; k++) for (const s2 of [-1, 0, 1]) { const p = add(lerp(c0, c1, 0.25 + k * 0.25), fn, s2 * 0.07); form(ctx, () => ctx.arc(p[0], p[1], 0.016, 0, TAU), '#d9a23a', p, 0.02, { hi: 0.7, rim: 0, ao: 0, lw: 0.6 }); }
+    { // la codera de hierro con pinches (tapa la unión del brazo)
+      const ud = vec(b.sh[i], el), out: Pt = [ud[1] * -1, ud[0]];
+      form(ctx, () => ctx.ellipse(el[0], el[1], 0.15, 0.13, Math.atan2(ud[1], ud[0]), 0, TAU), back ? '#141116' : BLK2, el, 0.16, { hi: 0.55, lw: 1.3 });
+      ctx.strokeStyle = back ? '#7a5a1e' : '#c68f2c'; ctx.lineWidth = 0.022; ctx.beginPath(); ctx.ellipse(el[0], el[1], 0.12, 0.1, Math.atan2(ud[1], ud[0]), 0, TAU); ctx.stroke();
+      const o2: Pt = out[0] < 0 ? [-out[0], -out[1]] : out; // (los pinches para atrás, el lado de afuera del codo)
+      for (const a of [-0.8, 0, 0.8]) { const d: Pt = [-(o2[0] * Math.cos(a) - o2[1] * Math.sin(a)), -(o2[0] * Math.sin(a) + o2[1] * Math.cos(a))], base = add(el, d, 0.11), n: Pt = [d[1], -d[0]]; form(ctx, () => shapePath(ctx, [add(base, n, 0.04), add(base, d, 0.16), add(base, n, -0.04)]), back ? '#6a5a40' : '#d9c79a', base, 0.05, { hi: 0.6, rim: 0, ao: 0, lw: 0.8 }); }
+    }
     gauntlet(ctx, add(hd, fd, 0.05), Math.atan2(fd[0], fd[1]), sk, back, 1.75); // el puño enorme
     { const hc = add(hd, fd, 0.05); ctx.save(); ctx.translate(hc[0], hc[1]); ctx.rotate(-Math.atan2(fd[0], fd[1])); ctx.scale(1.75, 1.75); form(ctx, () => shapePath(ctx, [[0.06, 0.07], [0.09, 0.065], [0.085, 0.15, 1], [0.065, 0.1]]), '#141116', [0.075, 0.1], 0.04, { hi: 0.6, rim: 0, ao: 0, lw: 0.8 }); ctx.restore(); } // la uña negra del pulgar
     { const hc = add(hd, fd, 0.05); ctx.save(); ctx.translate(hc[0], hc[1]); ctx.rotate(-Math.atan2(fd[0], fd[1])); ctx.scale(1.75, 1.75); // pinches negros en los nudillos
@@ -639,7 +646,7 @@ function drawGiant2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
       ctx.restore(); }
   };
   arm(0);
-  spikedPad(ctx, add(b.sh[0], b.spine, 0.0), 1.05, 3, true);
+  spikedPad(ctx, add(b.sh[0], b.spine, 0.0), 0.85, 3, true);
   arm(1);
   spikedPad(ctx, add(b.sh[1], b.spine, 0.0), 1.0, 3);
   { const c = add(add(b.neck, b.spine, 0.19), b.side, 0.04); ctx.save(); ctx.translate(c[0], c[1]); ctx.scale(0.23, 0.23); bruteHead(ctx, t + v.id, v.state === 'claw' ? 0.6 : 0.25); ctx.restore(); }

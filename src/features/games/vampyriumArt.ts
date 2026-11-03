@@ -252,7 +252,7 @@ function capStones(ctx: CanvasRenderingContext2D, x1: number, x2: number, top: n
 }
 // El fondo pintado (más oscuro para que se lean los pisos y los personajes): se mueve más despacio que el
 // escenario cuando la cámara sube (paralaje), así alcanza para todo el alto.
-const PARALLAX = 0.45;
+const PARALLAX = 0.3;
 function paintBackdrop(ctx: CanvasRenderingContext2D, v: View, camY: number) {
   const base = viewFor(v.w, v.h), dh = Y(base, GROUND_Y) + v.s * 0.6, off = camY * v.s * PARALLAX;
   if (backdrop && backdropReady) {
@@ -291,6 +291,10 @@ function paintStatic(ctx: CanvasRenderingContext2D, v: View) {
   }
   // niebla baja del color del fondo, para que el piso se funda con la pintura
   ctx.fillStyle = lin(ctx, 0, gTop, 0, v.h, [[0, rgb(TINT ?? [30, 26, 46], 0.5, 0)], [0.5, rgb(TINT ?? [30, 26, 46], 0.45, 0.25)], [1, rgb(TINT ?? [30, 26, 46], 0.2, 0.6)]]); ctx.fillRect(0, gTop, v.w, v.h - gTop);
+  { // la viga de piedra del techo, arriba de todo: de ahí cuelgan las cadenas
+    const ty = Y(v, WORLD_H), by = Y(v, WORLD_H - 0.35); stoneBlocks(ctx, 0, ty - v.s * 0.4, v.w, by - ty + v.s * 0.4, v.s * 1.4, v.s * 0.38, 77, LV.def.stone, {});
+    ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, by, v.w, v.s * 0.12); ctx.strokeStyle = INK; ctx.lineWidth = Math.max(2, v.s * 0.05); ctx.beginPath(); ctx.moveTo(0, by); ctx.lineTo(v.w, by); ctx.stroke();
+  }
   for (const q of SURFACES) if (!q.ground && !q.mv) drawPlatform(ctx, v, q); // (las que se mueven, en cada cuadro)
   // la puerta: arco gótico de piedra
   const dx1 = X(v, DOOR.x1 - 0.35), dx2 = Math.max(X(v, DOOR.x2 + 0.35), v.w), dTop = Y(v, DOOR.y + DOOR.h + 0.9);
@@ -299,7 +303,7 @@ function paintStatic(ctx: CanvasRenderingContext2D, v: View) {
 }
 // Hasta dónde sube una cadena: hasta la plataforma que tenga encima (le pasa por abajo) o hasta arriba de todo.
 function chainTop(x: number, y: number) {
-  let top = WORLD_H + 2;
+  let top = WORLD_H - 0.35; // (la viga del techo)
   for (const q of SURFACES) if (!q.ground && !q.mv && q.y > y + 0.3 && q.y < top && x > q.x1 - 0.1 && x < q.x2 + 0.1) top = q.y;
   return top;
 }
@@ -367,7 +371,12 @@ function ironChain(ctx: CanvasRenderingContext2D, v: View, x: number, yTop: numb
 // Plataforma: losa de piedra tallada colgada con cadenas, con ménsulas debajo y argollas de hierro.
 function drawPlatform(ctx: CanvasRenderingContext2D, v: View, s: Surface) {
   const x1 = X(v, s.x1), x2 = X(v, s.x2), y = Y(v, s.y), th = v.s * 0.6, sz = v.s, st = LV.def.stone;
-  for (const cx of [s.x1 + 0.4, s.x2 - 0.4]) ironChain(ctx, v, X(v, cx), Math.max(0, Y(v, chainTop(cx, s.y)) + v.s * 0.55), y - v.s * 0.06); // cadenas hacia arriba (hasta la plataforma de arriba o el techo)
+  for (const cx of [s.x1 + 0.4, s.x2 - 0.4]) { // cadenas hacia arriba: enganchadas con un soporte de hierro abajo de la plataforma de arriba (o en la viga del techo)
+    const top = chainTop(cx, s.y), ty = Y(v, top) + (top > WORLD_H ? 0 : v.s * 0.62), px = X(v, cx);
+    ironChain(ctx, v, px, ty, y - v.s * 0.06);
+    ctx.fillStyle = lin(ctx, px - v.s * 0.16, 0, px + v.s * 0.16, 0, [[0, '#26262e'], [0.5, '#7a7d8a'], [1, '#202028']]); ctx.beginPath(); ctx.roundRect(px - v.s * 0.17, ty - v.s * 0.06, v.s * 0.34, v.s * 0.12, v.s * 0.03); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = Math.max(1, v.s * 0.03); ctx.stroke();
+    ctx.lineWidth = Math.max(1.5, v.s * 0.05); ctx.strokeStyle = '#5c5e6c'; ctx.beginPath(); ctx.arc(px, ty + v.s * 0.1, v.s * 0.07, 0, TAU); ctx.stroke(); // la argolla
+  }
   // sombra que tira la losa sobre el fondo
   ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.roundRect(x1 + sz * 0.15, y + th * 0.4, x2 - x1, th * 0.9, sz * 0.2); ctx.fill();
   // ménsulas de piedra escalonadas debajo de cada punta
@@ -556,7 +565,7 @@ function drawPendulum(ctx: CanvasRenderingContext2D, tr: Trap, st: ReturnType<ty
   }
   ctx.fillStyle = '#26242c'; ctx.beginPath(); ctx.arc(0, 0, v.s * 0.16, 0, TAU); ctx.fill();
   ctx.restore();
-  for (const cx of [tr.x - 0.6, tr.x + 0.6]) ironChain(ctx, v, X(v, cx), Math.max(0, Y(v, chainTop(cx, tr.y))), py);
+  for (const cx of [tr.x - 0.6, tr.x + 0.6]) { const top = chainTop(cx, tr.y); ironChain(ctx, v, X(v, cx), Y(v, top) + (top < WORLD_H - 0.4 ? v.s * 0.62 : 0), py); }
   ctx.fillStyle = '#3a2a1e'; ctx.fillRect(px - v.s * 0.8, py - v.s * 0.1, v.s * 1.6, v.s * 0.35); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(px - v.s * 0.8, py - v.s * 0.1, v.s * 1.6, v.s * 0.35);
 }
 const FIRE_COL: Record<string, [string, string, string, string]> = { brazier: ['rgba(255,80,20,0.9)', 'rgba(255,170,40,0.9)', 'rgba(255,245,180,0.95)', 'rgba(255,120,30,0.5)'], hellfire: ['rgba(255,40,10,0.92)', 'rgba(255,140,30,0.92)', 'rgba(255,240,160,0.95)', 'rgba(255,80,20,0.6)'], lava: ['rgba(200,40,5,0.95)', 'rgba(255,120,20,0.95)', 'rgba(255,220,120,0.95)', 'rgba(255,100,20,0.5)'], acid: ['rgba(40,160,30,0.9)', 'rgba(140,255,80,0.9)', 'rgba(230,255,200,0.9)', 'rgba(120,255,80,0.45)'], blood: ['rgba(110,0,10,0.95)', 'rgba(200,20,30,0.95)', 'rgba(255,120,120,0.9)', 'rgba(220,20,40,0.4)'] };
@@ -921,12 +930,12 @@ function drawLightning(ctx: CanvasRenderingContext2D, st: Storm, v: View, w: num
 // La lluvia: dos capas inclinadas por el viento (la de atrás más fina y lenta), salpicaduras en el piso y las plataformas, y neblina.
 function drawRain(ctx: CanvasRenderingContext2D, v: View, w: number, h: number, t: number, lit: number) {
   ctx.save();
-  // oscurece un poco y le pone una neblina azulada abajo
-  ctx.fillStyle = 'rgba(10,16,30,0.22)'; ctx.fillRect(0, 0, w, h);
-  const mist = ctx.createLinearGradient(0, h * 0.55, 0, h); mist.addColorStop(0, 'rgba(120,140,170,0)'); mist.addColorStop(1, 'rgba(120,140,170,0.16)'); ctx.fillStyle = mist; ctx.fillRect(0, h * 0.55, w, h * 0.45);
+  // llueve sangre: oscurece un poco, tiñe de rojo y le pone una neblina roja abajo
+  ctx.fillStyle = 'rgba(40,4,10,0.26)'; ctx.fillRect(0, 0, w, h);
+  const mist = ctx.createLinearGradient(0, h * 0.55, 0, h); mist.addColorStop(0, 'rgba(150,20,30,0)'); mist.addColorStop(1, 'rgba(150,20,30,0.2)'); ctx.fillStyle = mist; ctx.fillRect(0, h * 0.55, w, h * 0.45);
   const wind = 0.22 + Math.sin(t * 0.3) * 0.06; // ráfagas
   const layer = (n: number, speed: number, len: number, width: number, alpha: number, off: number) => {
-    ctx.strokeStyle = `rgba(${180 + lit * 70},${195 + lit * 60},${225 + lit * 30},${alpha + lit * 0.25})`; ctx.lineWidth = width; ctx.beginPath();
+    ctx.strokeStyle = `rgba(${170 + lit * 80},${10 + lit * 60},${22 + lit * 50},${alpha + 0.12 + lit * 0.25})`; ctx.lineWidth = width; ctx.beginPath();
     const L = len * v.s, sp = speed * v.s;
     for (let i = 0; i < n; i++) {
       const y = (hash(i + off) * (h + L) + t * sp * (0.85 + hash(i + off + 7) * 0.3)) % (h + L) - L;
@@ -938,7 +947,7 @@ function drawRain(ctx: CanvasRenderingContext2D, v: View, w: number, h: number, 
   layer(Math.round(w * h / 6500), 18, 0.7, Math.max(1, v.s * 0.03), 0.24, 11); // lejos
   layer(Math.round(w * h / 12000), 30, 1.3, Math.max(1.2, v.s * 0.05), 0.42, 57); // cerca
   // salpicaduras: gotitas que rebotan sobre cada superficie
-  ctx.strokeStyle = `rgba(200,215,240,${0.45 + lit * 0.3})`; ctx.lineWidth = Math.max(1, v.s * 0.035); ctx.beginPath();
+  ctx.strokeStyle = `rgba(200,20,32,${0.55 + lit * 0.3})`; ctx.lineWidth = Math.max(1, v.s * 0.035); ctx.beginPath();
   SURFACES.forEach((q, si) => {
     const n = Math.max(2, Math.round((q.x2 - q.x1) * 0.9));
     for (let i = 0; i < n; i++) {

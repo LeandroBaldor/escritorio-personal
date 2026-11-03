@@ -1187,9 +1187,13 @@ test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de
   await page.goto('/escritorio-personal/#/juegos');
   await page.getByRole('link', { name: /Vampyrium/ }).click();
   await expect(page.getByRole('heading', { name: 'Vampyrium', level: 1 })).toBeVisible();
-  // Los 10 niveles se pueden elegir
+  // Los 10 niveles: solo se abren los que ya se ganaron (al principio, solo el 1)
   const levels = page.getByRole('group', { name: 'Elegir nivel' }).getByRole('button');
   await expect(levels).toHaveCount(10);
+  await expect(levels.nth(1)).toBeDisabled();
+  await page.evaluate(() => localStorage.setItem('escritorio-personal-juegos:vampyrium-nivel', '3')); // (como si hubiera ganado el 1 y el 2)
+  await page.reload();
+  await expect(levels.nth(3)).toBeDisabled();
   await levels.nth(2).click();
   await expect(page.getByRole('button', { name: 'Jugar · Nivel 3' })).toBeVisible();
   await levels.nth(1).click();
@@ -1208,16 +1212,16 @@ test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de
   await expect(page.getByTestId('vamp-time')).not.toHaveText('0:00', { timeout: 5000 });
   // la barra de vida de arriba: 100 puntos
   await expect(page.getByTestId('vamp-hp')).toHaveText(/^\d+\/100$/);
-  await expect(page.getByTestId('vamp-ammo')).toHaveText('10'); // flechas de la ballesta
-  // Manteniendo espacio 3 segundos: el cartel con las armas (el juego en pausa); se elige la ballesta y se dispara una flecha.
-  await page.keyboard.down(' '); await page.waitForTimeout(3400); await page.keyboard.up(' ');
+  await expect(page.getByTestId('vamp-ammo')).toHaveText('20'); // flechas de la ballesta
+  // Manteniendo espacio 2 segundos: el cartel con las armas (el juego en pausa); se elige la ballesta y se dispara una flecha.
+  await page.keyboard.down(' '); await page.waitForTimeout(2600); await page.keyboard.up(' ');
   await expect(page.getByRole('dialog', { name: 'Armas' })).toBeVisible();
   await expect(page.getByText('Juego en pausa')).toBeVisible();
   await page.keyboard.press('ArrowDown'); await page.keyboard.press(' ');
   await expect(page.getByRole('dialog', { name: 'Armas' })).toHaveCount(0);
   await page.waitForTimeout(400);
   await page.keyboard.press(' ');
-  await expect(page.getByTestId('vamp-ammo')).toHaveText('9');
+  await expect(page.getByTestId('vamp-ammo')).toHaveText('19');
   await page.keyboard.press('p');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
   const paused = await page.getByTestId('vamp-time').textContent();

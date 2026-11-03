@@ -415,7 +415,7 @@ function holdWeapon(ctx: CanvasRenderingContext2D, w: Weapon, hand: Pt, ang: num
   else if (w === 'bone') { ctx.translate(-0.25, 0); ctx.scale(0.95, 0.95); drawBoneHammer(ctx, t); }
   else if (w === 'ice') { ctx.rotate(-(Math.PI / 2 - ang)); ctx.translate(0.08, -0.05); drawIceCrystal(ctx, t, 0.7 + (shot >= 0 && shot < 0.15 ? 0.3 : 0)); }
   else if (w === 'venom' && !(shot >= 0 && shot < 0.15)) { ctx.rotate(-(Math.PI / 2 - ang)); ctx.translate(0.06, -0.14); drawVenomBall(ctx, 0.16, t); }
-  else if (w === 'cross' || w === 'holy') { ctx.translate(-0.14, 0); ctx.scale(w === 'holy' ? 1.25 : 1.05, w === 'holy' ? 1.25 : 1.05); drawHolyCross(ctx, t, shot >= 0 ? 1 : 0.35); }
+  else if (w === 'cross' || w === 'holy') { ctx.translate(-0.14, 0); ctx.scale(w === 'holy' ? 1.12 : 1.05, w === 'holy' ? 0.78 : 1.05); /* (la dorada: más angosta, que se vea bien la cruz) */ drawHolyCross(ctx, t, shot >= 0 ? 1 : 0.35); }
   else if (w === 'garlic' && !(shot > 0.1)) { ctx.rotate(-(Math.PI / 2 - ang)); ctx.translate(0.05, -0.12); drawGarlicBomb(ctx, 0.3, t); }
   ctx.restore();
 }
