@@ -118,7 +118,7 @@ export const VAMP_NAME: Record<VampKind, string> = { walker: 'Vampiro', flyer: '
 export const VAMP_BIG = 1.12; // los vampiros más grandes (dibujo y caja de golpes)
 const BODY0: Record<VampKind, { w: number; h: number; k: number }> = {
   walker: { w: 0.8, h: 1.8, k: 1 }, flyer: { w: 0.8, h: 1.4, k: 1 }, giant: { w: 1.3, h: 2.6, k: 1.42 }, mage: { w: 0.8, h: 1.9, k: 1.03 },
-  hammer: { w: 0.95, h: 2.0, k: 1.1 }, warrior: { w: 0.95, h: 2.0, k: 1.08 }, wolf: { w: 1.7, h: 1.8, k: 1.3 }, dracula: { w: 1.0, h: 2.5, k: 1.32 }, dragon: { w: 4.8, h: 3.7, k: 1.35 },
+  hammer: { w: 0.95, h: 2.0, k: 1.1 }, warrior: { w: 0.95, h: 2.0, k: 1.08 }, wolf: { w: 1.7, h: 1.8, k: 1.3 }, dracula: { w: 1.25, h: 3.12, k: 1.65 }, dragon: { w: 4.8, h: 3.7, k: 1.35 },
 };
 export const BODY = Object.fromEntries(Object.entries(BODY0).map(([k, b]) => [k, { w: b.w * VAMP_BIG, h: b.h * VAMP_BIG, k: b.k * VAMP_BIG }])) as Record<VampKind, { w: number; h: number; k: number }>;
 const SPECIALS: VampKind[] = ['giant', 'mage', 'hammer', 'warrior', 'wolf'];
@@ -588,7 +588,7 @@ function spawn(g: Game) {
 export const ATTACK: Partial<Record<VampKind, { reach: number; at: number; dur: number; rest: number }>> = {
   walker: { reach: 1.0, at: 0.36, dur: 0.7, rest: 0.6 }, giant: { reach: 1.6, at: 0.55, dur: 1.0, rest: 1.0 }, mage: { reach: 1.2, at: 0.36, dur: 0.7, rest: 1.0 },
   hammer: { reach: 2.0, at: 0.72, dur: 1.2, rest: 1.1 }, warrior: { reach: 1.75, at: 0.38, dur: 0.75, rest: 0.8 }, wolf: { reach: 1.5, at: 0.22, dur: 0.5, rest: 0.6 },
-  dracula: { reach: 1.8, at: 0.32, dur: 0.65, rest: 0.5 },
+  dracula: { reach: 2.2, at: 0.32, dur: 0.65, rest: 0.5 }, // (más grande: llega más lejos)
 };
 function shoot(g: Game, x: number, y: number, tx: number, ty: number, speed: number, kind: Shot['kind'], dmg: number, life = 3, spread = 0) {
   const a = Math.atan2(ty - y, tx - x) + spread;

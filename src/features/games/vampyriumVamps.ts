@@ -894,12 +894,21 @@ function wolfPaw(ctx: CanvasRenderingContext2D, p: Pt, back: boolean, skin = WSK
 }
 
 // ---------------------------------------------------------------- Drácula
+const DSKIN = '#c2acdb'; // la piel de Drácula: pálida, apenas violeta
 function drawDracula2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   if (v.state === 'mist') { const k = v.t < 0.75 ? v.t / 0.75 : Math.max(0, 1 - (v.t - 0.75) / 0.4); ctx.save(); ctx.globalAlpha = Math.max(0, 1 - k * 1.3); drawDracula2(ctx, { ...v, state: 'walk' }, t); ctx.restore(); return; }
   const st = stance(v, t, { lean: 0.0, crouch: 0.04, wide: 0.95 }), br = Math.sin(t * 2.2 + v.id) * 0.015;
   let hands: [Pt, Pt] = [[-0.22, 0.55 + br], [0.28, 0.55 - br]];
   if (v.state === 'cast') { const k = Math.min(1, v.t / 0.5); hands = [[-0.35, 0.1 - 0.4 * k], [0.4, -0.2 - 0.3 * k]]; }
-  if (v.state !== 'cast') hands = swipeArms(v, hands);
+  if (v.state === 'claw') { // el zarpazo con todo el cuerpo (como el martillo): se echa para atrás con las garras arriba,
+    // se tira hacia adelante dando un paso y baja las dos garras de golpe, se queda un instante y vuelve
+    const a = ATTACK.dracula ?? { at: 0.32, dur: 0.65 }, w0 = a.at - 0.1, tt = v.t;
+    type K = { h: [Pt, Pt]; lean: number; crouch: number; step: number };
+    const idle: K = { h: hands, lean: st.lean, crouch: st.crouch, step: 0 }, up: K = { h: [[-0.3, -0.58], [-0.04, -0.66]], lean: -0.24, crouch: 0.0, step: 0 }, hit: K = { h: [[0.46, 0.32], [0.64, 0.2]], lean: 0.44, crouch: 0.17, step: 0.26 };
+    const mix = (A: K, B: K, q: number): K => ({ h: [lerpPt(A.h[0], B.h[0], q), lerpPt(A.h[1], B.h[1], q)], lean: A.lean + (B.lean - A.lean) * q, crouch: A.crouch + (B.crouch - A.crouch) * q, step: A.step + (B.step - A.step) * q });
+    const k = tt < w0 ? mix(idle, up, ease(tt / w0)) : tt < a.at + 0.02 ? mix(up, hit, ((tt - w0) / (a.at + 0.02 - w0)) ** 2) : tt < a.at + 0.14 ? hit : mix(hit, idle, ease((tt - a.at - 0.14) / Math.max(0.1, a.dur - a.at - 0.14)));
+    hands = k.h; st.lean = k.lean; st.crouch = k.crouch; st.feet = [[st.feet[0][0] - k.step * 0.3, st.feet[0][1]], [st.feet[1][0] + k.step, st.feet[1][1]]];
+  } else if (v.state !== 'cast') hands = swipeArms(v, hands);
   const r: Pose2 = { ...st, hands }, b = solve2(r, { ...HUMAN, spine: 0.64, shW: 0.21 });
   const CR = '#b0101c';
   shadowOn(ctx, v, 0.6);
@@ -912,6 +921,7 @@ function drawDracula2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   form(ctx, locks, '#c9c7d2', [hc[0], hc[1] + 0.2], 0.4, { hi: 0.4, lo: 0.5, tex: 0.3, lw: 1.2 });
   ctx.save(); ctx.beginPath(); locks(); ctx.clip(); for (let k = 0; k < 16; k++) curve(ctx, [hc[0] - 0.16 + k * 0.024, hc[1] - 0.05], [hc[0] - 0.24 + k * 0.035 + sway, hc[1] + 0.45], [hc[0] - 0.32 + k * 0.04 + sway, hc[1] + 0.95], 0.009, k % 2 ? 'rgba(60,60,80,0.4)' : 'rgba(255,255,255,0.5)'); ctx.restore();
   leg2(ctx, b, 0); leg2(ctx, b, 1);
+  for (const i of [0, 1]) joint(ctx, b.knee[i], 0.09, i === 0, '#5d5964', vec(b.knee[i], b.foot[i]), BLK2, GOLDC, true); // rodilleras con pinche
   // el saco largo carmesí: hasta los tobillos, abierto adelante, con ribetes dorados
   ctx.save(); ctx.translate(b.hip[0], b.hip[1]); ctx.rotate(Math.atan2(b.spine[0], -b.spine[1])); ctx.scale(BROAD, 1);
   const hemY = -b.hip[1] - 0.16;
@@ -926,7 +936,7 @@ function drawDracula2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   ctx.restore(); goldEdge(ctx, torso, 0.016);
   belt2(ctx, -0.05, -0.18, 0.18);
   ctx.restore();
-  const arm = (i: number) => { arm2(ctx, b, i, { sleeve: CR, cuff: BLK, curl: i ? 0.9 : 0.6, skin: '#c4bfd0' }); };
+  const arm = (i: number) => { arm2(ctx, b, i, { sleeve: CR, cuff: BLK, curl: i ? 0.9 : 0.6, skin: DSKIN }); joint(ctx, b.elbow[i], 0.075, i === 0, '#5d5964', vec(b.elbow[i], b.hand[i]), BLK2, GOLDC, true); }; // con coderas con pinche
   arm(0); arm(1); // los hombros quedan debajo de la esclavina
   // la esclavina dorada y roja sobre los hombros con la gema grande
   const nk = add(b.neck, b.spine, -0.03);
@@ -934,7 +944,7 @@ function drawDracula2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   for (const sx of [-1, 1]) { ctx.strokeStyle = GOLDC; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.arc(nk[0] + sx * 0.2, nk[1] + 0.06, 0.04, 0.5, 5.2); ctx.stroke(); }
   gem(ctx, nk[0] + 0.02, nk[1] + 0.03, 0.045, t, GOLDC);
   if (v.state === 'cast') for (const h of b.hand) glow(ctx, h[0], h[1], 0.5, '#ff1030', 0.6);
-  headAt(ctx, b, 0.02, 0.155, () => vampFace(ctx, t + v.id, { skin: '#c4bfd0', open: v.state === 'claw' || v.state === 'cast' ? 0.5 : 0.04, hair: 'long', hairC: '#d2d0da', ear: 0.6, gaunt: 0.7 }));
+  headAt(ctx, b, 0.02, 0.155, () => vampFace(ctx, t + v.id, { skin: DSKIN, open: v.state === 'claw' || v.state === 'cast' ? 0.5 : 0.04, hair: 'long', hairC: '#d2d0da', ear: 0.6, gaunt: 0.7 }));
 }
 
 // ---------------------------------------------------------------- Drácula dragón (parado en cuatro patas)
