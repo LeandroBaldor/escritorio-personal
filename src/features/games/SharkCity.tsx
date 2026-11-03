@@ -647,7 +647,6 @@ function draw(ctx: CanvasRenderingContext2D, g: SharkGame, v: View) {
 }
 
 const LOSE_TEXT: Record<LoseReason, string> = { shark: '¡Te comió un tiburón!', flyer: '¡Te atrapó un tiburón volador!', time: '¡Se terminó el tiempo!' };
-const KIND_TEXT: Record<RescueKind, string> = { perro: 'un perrito 🐶', gato: 'un gato 🐱', persona: 'una persona 🙋' };
 const NO_INPUT: Input = { left: false, right: false, jump: false, down: false, up: false };
 
 // Se ven unas 13 unidades de alto (el agua y unos cuantos pisos) y, en pantallas paradas, unas 9,5 de ancho.
@@ -663,20 +662,12 @@ export function SharkCity() {
   useEffect(() => { loadSharkSprites(); }, []);
   const cam = useRef({ x: 0, y: 0 });
   const input = useRef<Input>({ ...NO_INPUT });
-  const zipToldRef = useRef(false);
-  const enterToldRef = useRef(false);
   const [status, setStatus] = useState<Status>('ready');
   const [hud, setHud] = useState({ left: TIME_LIMIT, saved: 0, sharks: 5, perro: 0, gato: 0, persona: 0 });
   const [record, setRecord] = useState(readSharkRecord);
   const [result, setResult] = useState({ saved: 0, time: 0, reason: 'shark' as LoseReason, newRecord: false });
-  const [toast, setToast] = useState<{ text: string; id: number; big?: boolean } | null>(null);
   const statusRef = useRef(status);
   useEffect(() => { statusRef.current = status; }, [status]);
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 2200);
-    return () => clearTimeout(timer);
-  }, [toast]);
 
   const view = useCallback((): View | null => {
     const stage = stageRef.current, g = gameRef.current;
@@ -718,10 +709,7 @@ export function SharkCity() {
     gameRef.current = newShark();
     follow(-1);
     input.current = { ...NO_INPUT };
-    zipToldRef.current = false;
-    enterToldRef.current = false;
     setHud({ left: TIME_LIMIT, saved: 0, sharks: gameRef.current.sharks.length, perro: 0, gato: 0, persona: 0 });
-    setToast({ text: `¡Rescatá ${GOAL} antes de que se termine el tiempo! 🚒`, id: Date.now() });
     setStatus('playing');
     paint();
   }, [paint, follow]);
@@ -762,20 +750,8 @@ export function SharkCity() {
           const near = Math.max(0, 1 - Math.abs(e.x - p.x) / 16);
           playSharkBite(e.kind === 'persona' ? 'persona' : 'animal', near, 0.9 + hash(e.x) * 0.5);
         }
-        if (e.type === 'saved') setToast({ text: e.count === GOAL - 5 ? '¡Te faltan 5!' : `¡Rescataste a ${KIND_TEXT[e.kind]}! (${e.count}/${GOAL})`, id: now, big: e.count === GOAL - 5 });
-        if (e.type === 'taken') setToast({ text: `¡Un tiburón se llevó a ${KIND_TEXT[e.kind]}! 😱`, id: now });
-        if (e.type === 'newType') setToast({ text: `¡Cuidado: llegó el ${SHARKS[e.shark].name}! 🦈`, id: now });
-        if (e.type === 'more') setToast({ text: `¡Ya hay ${e.count} tiburones! 🦈`, id: now });
-        if (e.type === 'wind') setToast({ text: e.dir > 0 ? '¡Ráfaga de viento! 💨 →' : '← 💨 ¡Ráfaga de viento!', id: now });
-        if (e.type === 'hurry') setToast({ text: e.left === 60 ? '¡Queda 1 minuto!' : '¡Quedan 30 segundos!', id: now, big: true });
-        if (e.type === 'galeWarn') setToast({ text: `⚠️ ¡Se viene un SÚPER VIENTO ${e.dir > 0 ? '→' : '←'}! ¡Metete en un edificio o en una casa!`, id: now, big: true });
-        if (e.type === 'gale') setToast({ text: e.dir > 0 ? '🌪️ ¡SÚPER VIENTO! →→→' : '←←← ¡SÚPER VIENTO! 🌪️', id: now, big: true });
-        if (e.type === 'enter' && !enterToldRef.current) { enterToldRef.current = true; setToast({ text: `¡Entraste a ${g.player.inside !== null && g.blocks[g.player.inside].kind === 'house' ? 'una casa' : 'un departamento'}! Acá los tiburones no te ven 🏠 (por la escalera llegás a la terraza)`, id: now }); }
-        if (e.type === 'flyerNew') setToast({ text: '¡Llegó un tiburón volador! 🚁🦈 Adentro de los edificios no te ve', id: now, big: g.flyers.length === 1 });
-        if (e.type === 'flyerWarn') { setToast({ text: '⚠️ ¡Un tiburón volador te vio! ¡Movete!', id: now }); playFlyerWarn(); }
+        if (e.type === 'flyerWarn') playFlyerWarn();
         if (e.type === 'flyerDive') playFlyerDive();
-        if (e.type === 'zip' && !zipToldRef.current) { zipToldRef.current = true; setToast({ text: '¡Tirolesa! Con ↓ te soltás 🪢', id: now }); }
-        if (e.type === 'lose') setToast({ text: LOSE_TEXT[e.reason], id: now });
       }
       follow(dt);
       paint();
@@ -789,7 +765,6 @@ export function SharkCity() {
         const isNew = g.saved > rec.saved || (g.won && (rec.time === null || g.time < rec.time));
         saveRecord(next); setRecord(next);
         setResult({ saved: g.saved, time: g.time, reason: g.dying?.reason ?? 'shark', newRecord: isNew && (rec.saved > 0 || g.won) });
-        setToast(null);
         setStormAmbient(null);
         if (g.won) playWinFanfare(); else playGameOver();
         setStatus(g.won ? 'won' : 'over');
@@ -852,7 +827,6 @@ export function SharkCity() {
     <div className="trepa-main">
       <div className="runner-stage" ref={stageRef}>
         <canvas ref={canvasRef} role="img" aria-label="Ciudad inundada con tiburones" />
-        {status === 'playing' && toast && <div key={toast.id} className={toast.big ? 'trepa-record' : 'trepa-toast tib-toast'} role="status">{toast.text}</div>}
         {status !== 'playing' && <div className="runner-overlay" role="dialog" aria-labelledby="tib-message">
           <div>
             {status === 'ready' && <>
