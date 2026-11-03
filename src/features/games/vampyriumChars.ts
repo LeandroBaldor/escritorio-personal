@@ -9,16 +9,29 @@
 //  · El vampiro volador: igual, con el pelo en punta, la boca abierta y dos alas de murciélago enormes.
 import { alpha, bloom, darken, lighten, segment, shade, spec } from './gravityMonsters';
 import type { Game, Player, Vamp, Weapon } from './vampyrium';
-import { drawCrossbow, drawFirePistol, drawFireSword, drawGarlicBomb, drawHolyCross } from './vampyriumWeapons';
+import { drawBloodSword, drawBoneHammer, drawCrossbow, drawFirePistol, drawFireSword, drawGarlicBomb, drawHolyCross, drawIceCrystal, drawVenomBall } from './vampyriumWeapons';
 
 export const TAU = Math.PI * 2;
 export type Pt = [number, number];
 export const dirv = (a: number): Pt => [Math.sin(a), Math.cos(a)];
 export const add = (p: Pt, d: Pt, l: number): Pt => [p[0] + d[0] * l, p[1] + d[1] * l];
 export const grad = (ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, stops: [number, string][]) => { const g = ctx.createLinearGradient(x0, y0, x1, y1); for (const [k, c] of stops) g.addColorStop(k, c); return g; };
-// Con la cruz en la mano el cazador lleva la armadura dorada (y el casco), como en la referencia.
-let GOLD_MODE = false;
-const metal = (c: string) => GOLD_MODE ? ({ '#33333d': '#e3ad35', '#34343e': '#d9a22a', '#30303a': '#e0aa30', '#3c3c46': '#c9921e', '#3a3a44': '#e0aa30', '#1b1b20': '#8a5e12' } as Record<string, string>)[c] ?? c : c;
+// Los trajes del cazador: con la cruz (o la armadura dorada) lleva la armadura dorada y el casco; con cada armadura
+// nueva se viste como su referencia (hielo, verde, violeta, protectora con capucha, de huesos con calavera).
+// metal: los colores de las placas (pechera, cuello, hombreras, codos, rodillas) · hi: los bordes y remaches.
+interface Suit { look: Partial<Look>; metal: string[]; hi: string; skirt?: string; skirtTrim?: string; head?: 'gold' | 'hood' | 'skull' | 'crown'; gem?: string; aura?: 'flame' | 'spark' | 'frost'; shoulder?: 'ice' | 'skull' | 'swirl' | 'spike' }
+const METAL_KEYS = ['#33333d', '#34343e', '#30303a', '#3c3c46', '#3a3a44', '#1b1b20'];
+const GOLD_SUIT: Suit = { look: { armor: '#d9a22a', trim: '#fff1a8', boot: '#c9921e', sleeve: '#c08a1c' }, metal: ['#e3ad35', '#d9a22a', '#e0aa30', '#c9921e', '#e0aa30', '#8a5e12'], hi: '#fff1a8', head: 'gold', shoulder: 'swirl', gem: '#e3142a' };
+const SUITS: Partial<Record<Weapon | 'guardOn', Suit>> = {
+  cross: GOLD_SUIT, holy: GOLD_SUIT,
+  ice: { look: { armor: '#2c5aa8', dark: '#141a28', trim: '#e3ecf8', strap: '#3a4456', boot: '#2a3a5a', cape: '#2f6ad0', capeD: '#0c2152', sleeve: '#18233a' }, metal: ['#3f80d8', '#c9d3e2', '#4a8ae0', '#bfcadb', '#4a8ae0', '#1e3a70'], hi: '#eef8ff', skirt: '#1c3566', skirtTrim: '#c9d3e2', aura: 'frost', shoulder: 'ice', gem: '#9ee4ff' },
+  venom: { look: { armor: '#1d1f22', dark: '#101113', trim: '#c3c7cf', strap: '#2a2d2a', boot: '#1b1c20', cape: '#8ef03a', capeD: '#1e5a0a', sleeve: '#16171a' }, metal: ['#2c2f33', '#b9bdc6', '#2c2f33', '#b9bdc6', '#2e3135', '#141518'], hi: '#c6ff6a', skirt: '#1a1c1e', skirtTrim: '#8ef03a', head: 'crown', aura: 'flame', shoulder: 'spike', gem: '#7dff2a' },
+  violet: { look: { armor: '#2a2133', dark: '#130f19', trim: '#e9cdf8', strap: '#2b2233', boot: '#231b2b', cape: '#9b30d8', capeD: '#3a0a5c', sleeve: '#1a1521' }, metal: ['#6f3aa6', '#d9c2ea', '#3c2b4e', '#d9c2ea', '#3c2b4e', '#1e1428'], hi: '#f3dcff', skirt: '#2a1f36', skirtTrim: '#c07cf0', aura: 'spark', gem: '#c45cff' },
+  guardOn: { look: { armor: '#ece8e1', dark: '#2a2626', trim: '#e2a72e', strap: '#7a4526', boot: '#dedad3', cape: '#f1eee8', capeD: '#b3121b', sleeve: '#d9d4cc' }, metal: ['#f4f1ec', '#e2a72e', '#efece6', '#e2a72e', '#f0ede7', '#9a958c'], hi: '#ffd76a', skirt: '#efebe4', skirtTrim: '#c4121e', head: 'hood', shoulder: 'swirl', gem: '#e3142a' },
+  bone: { look: { armor: '#2a1f1a', dark: '#16100e', trim: '#e9dcc0', strap: '#5a2a1a', boot: '#2a2220', cape: '#a8201a', capeD: '#3a0806', sleeve: '#1e1714' }, metal: ['#e6d7b8', '#d9c8a4', '#e6d7b8', '#d9c8a4', '#e6d7b8', '#8a7a5c'], hi: '#fff4dc', skirt: '#2a1a14', skirtTrim: '#e6d7b8', head: 'skull', shoulder: 'skull' },
+};
+let SUIT: Suit | null = null;
+const metal = (c: string) => { const i = SUIT ? METAL_KEYS.indexOf(c) : -1; return i >= 0 ? SUIT!.metal[i] : c; };
 let LIMB = 1.2; // brazos y piernas más gruesos que en Kombat Football
 export const setLimb = (k: number) => { LIMB = k; };
 
@@ -28,16 +41,18 @@ export const HUNTER: Look = { armor: '#2a2a32', dark: '#16161b', trim: '#b9bdc9'
 export const VAMP: Look = { armor: '#1c1820', dark: '#0f0c12', trim: '#d01624', strap: '#5e3520', boot: '#121015', cape: '#c8121e', capeD: '#4a050b', skin: '#c8b4e0', sleeve: '#16131a' };
 
 // ---------------------------------------------------------------- Poses
+const ARMOR_W: Weapon[] = ['ice', 'holy', 'venom', 'violet', 'bone'];
+const AIM_W: Weapon[] = ['crossbow', 'pistol', 'ice', 'venom'], CROSS_W: Weapon[] = ['cross', 'holy'], SLASH_W: Weapon[] = ['sword', 'firesword', 'violet', 'bone'];
 function hunterPose(p: Player, t: number, held: Weapon): Pose {
   const s = Math.sin, at = p.attackT, run = p.onGround && Math.abs(p.vx) > 0.6;
   if (p.hurtT > 0) { const w = t * 30; return { bob: 0, lean: -0.35 + s(w) * 0.06, crouch: 0.1, head: -0.3, legs: [[-0.45, 0.5], [0.25, 0.7]], arms: [[-0.6, 0.9], [-0.9, 0.8]], blade: 0.6 }; }
   if (at >= 0) {
-    if (p.attackWeapon === 'crossbow' || p.attackWeapon === 'pistol') { // el disparo: retroceso
+    if (AIM_W.includes(p.attackWeapon)) { // el disparo: retroceso
       const k = Math.max(0, 1 - at / 0.2);
       const ak = p.aim * 0.7; return { bob: 0, lean: -0.05 - k * 0.15, crouch: 0.1, head: 0.02 - ak * 0.15, legs: p.onGround ? [[-0.55, 0.45], [0.55, 0.6]] : [[-0.4, 1.1], [0.7, 1.3]], arms: [[1.35 + ak + k * 0.2, 0.35], [1.5 + ak + k * 0.35, 0.1 + k * 0.2]], blade: -0.08 - k * 0.3 };
     }
-    if (p.attackWeapon === 'cross') { const k = Math.min(1, at / 0.12); return { bob: 0, lean: -0.1, crouch: 0.05, head: -0.25 * k, legs: p.onGround ? [[-0.5, 0.5], [0.5, 0.6]] : [[-0.4, 1.1], [0.7, 1.3]], arms: [[1.2, 0.8], [2.4 + k * 0.6, 0.4 - k * 0.3]], blade: 0.0 }; }
-    if (p.attackWeapon === 'sword' || p.attackWeapon === 'firesword') { // tajo: la espada baja desde atrás de la cabeza hacia adelante, con estocada
+    if (CROSS_W.includes(p.attackWeapon)) { const k = Math.min(1, at / 0.12); return { bob: 0, lean: -0.1, crouch: 0.05, head: -0.25 * k, legs: p.onGround ? [[-0.5, 0.5], [0.5, 0.6]] : [[-0.4, 1.1], [0.7, 1.3]], arms: [[1.2, 0.8], [2.4 + k * 0.6, 0.4 - k * 0.3]], blade: 0.0 }; }
+    if (SLASH_W.includes(p.attackWeapon)) { // tajo: la espada baja desde atrás de la cabeza hacia adelante, con estocada
       const k = Math.min(1, at / 0.14), e = 1 - (1 - k) * (1 - k);
       return { bob: 0, lean: -0.15 + e * 0.45, crouch: 0.1, head: 0.1 * e, legs: p.onGround ? [[-0.65, 0.35], [0.7, 0.75]] : [[-0.4, 1.1], [0.7, 1.3]], arms: [[-0.5 - e * 0.4, 0.7], [3.0 - e * 2.15, 0.25 - e * 0.15]], blade: 0.15 };
     }
@@ -45,12 +60,12 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
     return { bob: 0, lean: -0.2 + k * 0.4, crouch: 0.06, head: 0, legs: p.onGround ? [[-0.55, 0.4], [0.55, 0.6]] : [[-0.4, 1.1], [0.7, 1.3]], arms: [[-0.6, 0.6], [2.8 - k * 1.3, 1.0 - k * 0.9]], blade: 0.3 };
   }
   // con la ballesta o la pistola apunta adelante; la bomba la lleva con las dos manos; la cruz, en alto
-  const aim = held === 'crossbow' || held === 'pistol', br0 = s(t * 3.2);
+  const aim = AIM_W.includes(held), cross = CROSS_W.includes(held), br0 = s(t * 3.2);
   const ak = p.aim * 0.7; // apunta arriba o abajo
-  const armsFor = (base: [number, number][]): [number, number][] => aim ? [[1.35 + ak, 0.35], [1.5 + ak + br0 * 0.02, 0.1]] : held === 'garlic' ? [[1.0, 1.15], [1.15, 1.0]] : held === 'cross' ? [[0.2, 1.2], [2.25 + br0 * 0.03, 0.55]] : base;
-  const bladeFor = (b: number) => aim ? -0.08 : held === 'cross' ? 0.05 : held === 'garlic' ? 0 : b;
+  const armsFor = (base: [number, number][]): [number, number][] => aim ? [[1.35 + ak, 0.35], [1.5 + ak + br0 * 0.02, 0.1]] : held === 'garlic' ? [[1.0, 1.15], [1.15, 1.0]] : cross ? [[0.2, 1.2], [2.25 + br0 * 0.03, 0.55]] : base;
+  const bladeFor = (b: number) => aim ? -0.08 : cross ? 0.05 : held === 'garlic' ? 0 : b;
   if (!p.onGround) {
-    if (!aim && held !== 'garlic' && held !== 'cross') { // al saltar los brazos suben de abajo hacia arriba (y quedan arriba al caer)
+    if (!aim && held !== 'garlic' && !cross) { // al saltar los brazos suben de abajo hacia arriba (y quedan arriba al caer)
       const k = p.vy > 0 ? Math.min(1, Math.max(0, 1 - p.vy / 16)) * 0.8 + 0.2 : 1, e = k * k * (3 - 2 * k);
       return { bob: 0, lean: 0.05, crouch: 0, head: -0.05, legs: p.vy > 2 ? [[-0.3, 1.2], [0.9, 1.6]] : [[-0.45, 0.6], [0.5, 0.9]], arms: [[0.2 + e * 2.5, 0.5 - e * 0.25], [0.4 + e * 2.15, 0.6 - e * 0.3]], blade: 0.3 };
     }
@@ -103,7 +118,7 @@ export function legDraw(ctx: CanvasRenderingContext2D, hip: Pt, pose: Pose, i: n
   shade(ctx, () => ctx.arc(knee[0], knee[1], 0.12 * LIMB, 0, TAU), col(L !== HUNTER ? '#3a3542' : metal('#3a3a44')), { x: knee[0] - 0.04, y: knee[1] - 0.04, r: 0.12, hi: 0.55, lw: 0.6 });
   if (L !== HUNTER) { ctx.strokeStyle = col('#9aa0ad'); ctx.lineWidth = 0.02; ctx.beginPath(); ctx.arc(knee[0], knee[1], 0.1 * LIMB, 0.4, Math.PI - 0.4); ctx.stroke(); }
   else { // rodillera con borde de plata, remache y reflejo
-    ctx.strokeStyle = col(GOLD_MODE ? '#fff1a8' : '#b9bdc9'); ctx.lineWidth = 0.018; ctx.beginPath(); ctx.arc(knee[0], knee[1], 0.11 * LIMB, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
+    ctx.strokeStyle = col(SUIT?.hi ?? '#b9bdc9'); ctx.lineWidth = 0.018; ctx.beginPath(); ctx.arc(knee[0], knee[1], 0.11 * LIMB, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
     ctx.fillStyle = col('#d9dce4'); ctx.beginPath(); ctx.arc(knee[0] + 0.03, knee[1] - 0.02, 0.016, 0, TAU); ctx.fill();
     if (!back) spec(ctx, knee[0] - 0.04, knee[1] - 0.05, 0.05, 0.025, -0.5, 0.6);
   }
@@ -170,7 +185,7 @@ export function armDraw(ctx: CanvasRenderingContext2D, hip: Pt, pose: Pose, i: n
     segment(ctx, add(elbow, fd, 0.21), add(elbow, fd, 0.23), 0.21 * LIMB, 0.21 * LIMB, col(L.trim), 0.5);
   }
   shade(ctx, () => ctx.arc(elbow[0], elbow[1], 0.09 * LIMB, 0, TAU), col(L === HUNTER ? metal('#3c3c46') : '#24202a'), { x: elbow[0] - 0.02, y: elbow[1] - 0.03, r: 0.09, lw: 0.6 });
-  ctx.strokeStyle = col(L === HUNTER ? (GOLD_MODE ? '#fff1a8' : '#b9bdc9') : '#6a6e7a'); ctx.lineWidth = 0.014; ctx.beginPath(); ctx.arc(elbow[0], elbow[1], 0.075 * LIMB, ua - 0.9 + Math.PI / 2, ua + 0.9 + Math.PI / 2); ctx.stroke(); // borde del codo
+  ctx.strokeStyle = col(L === HUNTER ? (SUIT?.hi ?? '#b9bdc9') : '#6a6e7a'); ctx.lineWidth = 0.014; ctx.beginPath(); ctx.arc(elbow[0], elbow[1], 0.075 * LIMB, ua - 0.9 + Math.PI / 2, ua + 0.9 + Math.PI / 2); ctx.stroke(); // borde del codo
   if (!back) spec(ctx, elbow[0] - 0.03, elbow[1] - 0.04, 0.035, 0.018, -0.5, 0.5);
   if (item !== 'claw' && item !== 'glove' && item !== 'fist' && hold) hold(hand, ua + eb + pose.blade);
   if (item === 'claw') claw(ctx, hand, ua + eb, back, L.skin, L === VAMP ? '#e01b2c' : L.trim);
@@ -208,7 +223,7 @@ export function cape(ctx: CanvasRenderingContext2D, neck: Pt, L: Look, t: number
   const sh = ctx.createLinearGradient(top[0], top[1], top[0], y); sh.addColorStop(0, 'rgba(255,255,255,0.12)'); sh.addColorStop(0.4, 'rgba(255,255,255,0)'); ctx.fillStyle = sh; ctx.fillRect(x0 - 1, top[1] - 0.2, 3, y - top[1] + 0.4); // brillo de la tela arriba
   ctx.restore();
   path(); ctx.strokeStyle = '#0a0406'; ctx.lineWidth = 0.03; ctx.stroke();
-  ctx.strokeStyle = L === HUNTER ? (GOLD_MODE ? '#fff1a8' : '#c9a24a') : '#1a0a0e'; ctx.globalAlpha = 0.35; ctx.lineWidth = 0.01; ctx.stroke(); ctx.globalAlpha = 1; // ribete
+  ctx.strokeStyle = L === HUNTER ? (SUIT?.hi ?? '#c9a24a') : '#1a0a0e'; ctx.globalAlpha = 0.35; ctx.lineWidth = 0.01; ctx.stroke(); ctx.globalAlpha = 1; // ribete
   ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.025; for (let k = 1; k < 4; k++) { ctx.beginPath(); ctx.moveTo(top[0] - 0.2 + k * 0.08, top[1] + 0.1); ctx.quadraticCurveTo(x0 + (x1 - x0) * k / 4, (top[1] + y) / 2, x0 + (x1 - x0) * k / 4 - 0.05, y - 0.05); ctx.stroke(); } // pliegues
 }
 
@@ -349,14 +364,14 @@ function hunterTorso(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = '#4a2a16'; ctx.fillRect(-0.025, -0.045, 0.06, 0.07);
   // faldones de cuero con ribete marrón
   for (const [px, pw] of [[-0.29, 0.27], [0.03, 0.27]] as const) {
-    shade(ctx, () => { ctx.moveTo(px, 0.05); ctx.lineTo(px + pw, 0.05); ctx.lineTo(px + pw * 0.92, 0.26); ctx.lineTo(px + pw * 0.08, 0.26); ctx.closePath(); }, '#24222a', { x: px + 0.05, y: 0.06, r: 0.25, lw: 0.6 });
-    ctx.strokeStyle = '#94603c'; ctx.lineWidth = 0.02; ctx.beginPath(); ctx.moveTo(px + pw * 0.1, 0.23); ctx.lineTo(px + pw * 0.9, 0.23); ctx.moveTo(px + 0.02, 0.07); ctx.lineTo(px + pw * 0.1, 0.23); ctx.moveTo(px + pw - 0.02, 0.07); ctx.lineTo(px + pw * 0.9, 0.23); ctx.stroke();
+    shade(ctx, () => { ctx.moveTo(px, 0.05); ctx.lineTo(px + pw, 0.05); ctx.lineTo(px + pw * 0.92, 0.26); ctx.lineTo(px + pw * 0.08, 0.26); ctx.closePath(); }, SUIT?.skirt ?? '#24222a', { x: px + 0.05, y: 0.06, r: 0.25, lw: 0.6 });
+    ctx.strokeStyle = SUIT?.skirtTrim ?? '#94603c'; ctx.lineWidth = 0.02; ctx.beginPath(); ctx.moveTo(px + pw * 0.1, 0.23); ctx.lineTo(px + pw * 0.9, 0.23); ctx.moveTo(px + 0.02, 0.07); ctx.lineTo(px + pw * 0.1, 0.23); ctx.moveTo(px + pw - 0.02, 0.07); ctx.lineTo(px + pw * 0.9, 0.23); ctx.stroke();
   }
   // detalles: costuras de las placas, remaches, rayones y la cota de malla abajo del cinturón
   ctx.save(); ctx.beginPath(); torso(); ctx.clip();
   ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.moveTo(-0.38, -0.3); ctx.quadraticCurveTo(0, -0.26, 0.38, -0.3); ctx.moveTo(-0.35, -0.18); ctx.quadraticCurveTo(0, -0.14, 0.35, -0.18); ctx.stroke();
   ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 0.008; ctx.beginPath(); ctx.moveTo(-0.37, -0.31); ctx.quadraticCurveTo(0, -0.275, 0.37, -0.31); ctx.moveTo(-0.2, -0.36); ctx.lineTo(-0.12, -0.33); ctx.moveTo(0.22, -0.22); ctx.lineTo(0.3, -0.25); ctx.stroke();
-  ctx.fillStyle = GOLD_MODE ? '#fff1a8' : '#c9ccd6'; for (const [rx, ry] of [[-0.33, -0.3], [0.33, -0.3], [-0.31, -0.18], [0.31, -0.18], [-0.27, -0.4], [0.29, -0.4]] as const) { ctx.beginPath(); ctx.arc(rx, ry, 0.016, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = SUIT?.hi ?? '#c9ccd6'; for (const [rx, ry] of [[-0.33, -0.3], [0.33, -0.3], [-0.31, -0.18], [0.31, -0.18], [-0.27, -0.4], [0.29, -0.4]] as const) { ctx.beginPath(); ctx.arc(rx, ry, 0.016, 0, TAU); ctx.fill(); }
   ctx.restore();
   ctx.fillStyle = '#2a2a30'; ctx.fillRect(-0.29, 0.03, 0.57, 0.06); ctx.strokeStyle = '#6b6e79'; ctx.lineWidth = 0.008; for (let x = -0.28; x < 0.28; x += 0.035) { ctx.beginPath(); ctx.arc(x, 0.05, 0.016, 0, Math.PI); ctx.arc(x + 0.017, 0.075, 0.016, 0, Math.PI); ctx.stroke(); } // cota de malla
   shade(ctx, () => ctx.roundRect(0.16, -0.05, 0.12, 0.13, 0.025), '#6a3b1e', { x: 0.2, y: -0.03, r: 0.1, lw: 0.5 }); // bolsito del cinturón
@@ -396,7 +411,11 @@ function holdWeapon(ctx: CanvasRenderingContext2D, w: Weapon, hand: Pt, ang: num
   if (w === 'crossbow') { ctx.translate(-0.05, -0.05); ctx.scale(1.25, 1.25); drawCrossbow(ctx, !(shot >= 0 && shot < 0.3), t); }
   else if (w === 'pistol') { ctx.translate(-0.02, 0.02); ctx.scale(1.45, 1.45); drawFirePistol(ctx, t, shot >= 0 && shot < 0.12 ? 1 - shot / 0.12 : 0); }
   else if (w === 'firesword') { ctx.scale(0.95, 0.95); drawFireSword(ctx, t, shot >= 0 ? 1 : 0); }
-  else if (w === 'cross') { ctx.translate(-0.14, 0); ctx.scale(1.05, 1.05); drawHolyCross(ctx, t, shot >= 0 ? 1 : 0.35); }
+  else if (w === 'violet') { ctx.scale(0.95, 0.95); drawBloodSword(ctx, t, shot >= 0 ? 1 : 0); }
+  else if (w === 'bone') { ctx.translate(-0.25, 0); ctx.scale(0.95, 0.95); drawBoneHammer(ctx, t); }
+  else if (w === 'ice') { ctx.rotate(-(Math.PI / 2 - ang)); ctx.translate(0.08, -0.05); drawIceCrystal(ctx, t, 0.7 + (shot >= 0 && shot < 0.15 ? 0.3 : 0)); }
+  else if (w === 'venom' && !(shot >= 0 && shot < 0.15)) { ctx.rotate(-(Math.PI / 2 - ang)); ctx.translate(0.06, -0.14); drawVenomBall(ctx, 0.16, t); }
+  else if (w === 'cross' || w === 'holy') { ctx.translate(-0.14, 0); ctx.scale(w === 'holy' ? 1.25 : 1.05, w === 'holy' ? 1.25 : 1.05); drawHolyCross(ctx, t, shot >= 0 ? 1 : 0.35); }
   else if (w === 'garlic' && !(shot > 0.1)) { ctx.rotate(-(Math.PI / 2 - ang)); ctx.translate(0.05, -0.12); drawGarlicBomb(ctx, 0.3, t); }
   ctx.restore();
 }
@@ -412,12 +431,123 @@ function goldHelmet(ctx: CanvasRenderingContext2D) {
 }
 export function drawHunterK(ctx: CanvasRenderingContext2D, p: Player, g: Game, t: number) {
   const held = g.weapon, pose = hunterPose(p, t, held);
-  const gold = held === 'cross' || (p.attackT >= 0 && p.attackWeapon === 'cross');
+  const now = p.attackT >= 0 ? p.attackWeapon : held;
+  const suit = (ARMOR_W.includes(now) ? SUITS[now] : g.guardHp > 0 ? SUITS.guardOn : undefined) ?? SUITS[now] ?? SUITS[held] ?? null; // (con la protectora puesta y otra armadura en la mano, se ve esa armadura y la burbuja dorada)
   const saved = { ...HUNTER };
-  if (gold) { GOLD_MODE = true; Object.assign(HUNTER, { armor: '#d9a22a', trim: '#fff1a8', boot: '#c9921e', sleeve: '#c08a1c' }); }
-  try { drawHunterBody(ctx, p, g, t, pose, held, gold); } finally { if (gold) { GOLD_MODE = false; Object.assign(HUNTER, saved); } }
+  if (suit) { SUIT = suit; Object.assign(HUNTER, suit.look); }
+  try { drawHunterBody(ctx, p, g, t, pose, held, suit); } finally { if (suit) { SUIT = null; Object.assign(HUNTER, saved); } }
+  if (g.guardHp > 0) { // la burbuja dorada del escudo (más tenue cuanto menos aguanta)
+    const k = g.guardHp / 50;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0, -1.05, 1.5, '#ffd76a', 0.12 + 0.18 * k);
+    ctx.strokeStyle = `rgba(255,230,150,${0.25 + 0.35 * k})`; ctx.lineWidth = 0.04; ctx.beginPath(); ctx.ellipse(0, -1.05, 0.95, 1.25, 0, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,250,220,${0.4 * k})`; ctx.lineWidth = 0.025; ctx.beginPath(); ctx.ellipse(0, -1.05, 0.95, 1.25, 0, -2.3 + Math.sin(t * 2) * 0.3, -1.4 + Math.sin(t * 2) * 0.3); ctx.stroke();
+    ctx.restore();
+  }
 }
-function drawHunterBody(ctx: CanvasRenderingContext2D, p: Player, g: Game, t: number, pose: Pose, held: Weapon, gold: boolean) {
+// El aura de cada armadura (atrás del cuerpo): llamas verdes, rayos violetas o escarcha.
+function suitAura(ctx: CanvasRenderingContext2D, kind: Suit['aura'], t: number) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  if (kind === 'flame') for (let i = 0; i < 7; i++) {
+    const x = -0.75 + i * 0.25, h = 0.55 + 0.35 * Math.abs(Math.sin(t * 3 + i * 1.7)), y0 = -0.9 - Math.abs(x) * 0.3, sw = Math.sin(t * 7 + i) * 0.06;
+    ctx.fillStyle = `rgba(140,255,60,${0.32 + 0.1 * Math.sin(t * 9 + i)})`; ctx.beginPath(); ctx.moveTo(x - 0.12, y0); ctx.quadraticCurveTo(x - 0.14, y0 - h * 0.6, x + sw, y0 - h); ctx.quadraticCurveTo(x + 0.14, y0 - h * 0.5, x + 0.12, y0); ctx.closePath(); ctx.fill();
+  }
+  if (kind === 'spark') for (let i = 0; i < 4; i++) {
+    if (Math.sin(t * 13 + i * 2.1) < -0.2) continue;
+    const a = i * 1.6 + Math.floor(t * 9) * 0.7, cx = Math.cos(a) * 0.75, cy = -1.1 + Math.sin(a) * 0.9;
+    ctx.strokeStyle = 'rgba(210,120,255,0.85)'; ctx.lineWidth = 0.035; ctx.beginPath(); ctx.moveTo(cx, cy - 0.3);
+    for (let k = 1; k <= 4; k++) ctx.lineTo(cx + (k % 2 ? 0.12 : -0.1), cy - 0.3 + k * 0.16); ctx.stroke();
+    bloom(ctx, cx, cy, 0.35, '#b44cff', 0.35);
+  }
+  if (kind === 'frost') for (let i = 0; i < 10; i++) {
+    const k = (t * 0.4 + i / 10) % 1, x = Math.sin(i * 2.3) * 0.8, y = -0.2 - k * 2.2;
+    ctx.fillStyle = `rgba(190,235,255,${0.7 * Math.sin(k * Math.PI)})`; ctx.beginPath(); ctx.arc(x, y, 0.03 + (i % 3) * 0.01, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
+// Lo que lleva cada armadura en el pecho: copo de nieve, gema o calavera (en el marco del torso).
+function suitChest(ctx: CanvasRenderingContext2D, su: Suit, t: number) {
+  if (SUITS.ice === su) { // el copo de nieve que brilla
+    ctx.save(); ctx.translate(0.0, -0.27); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0, 0, 0.22, '#7fd8ff', 0.5); ctx.restore();
+    ctx.save(); ctx.translate(0.0, -0.27); ctx.strokeStyle = '#e8f8ff'; ctx.lineWidth = 0.02; ctx.lineCap = 'round';
+    for (let i = 0; i < 6; i++) { ctx.rotate(Math.PI / 3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -0.12); ctx.moveTo(0, -0.07); ctx.lineTo(0.035, -0.1); ctx.moveTo(0, -0.07); ctx.lineTo(-0.035, -0.1); ctx.stroke(); }
+    ctx.restore(); return;
+  }
+  if (su.head === 'skull' || SUITS.bone === su) { // calavera en el pecho y huesos cruzados
+    ctx.save(); ctx.translate(0.0, -0.27); ctx.scale(0.55, 0.55); skullShape(ctx); ctx.restore(); return;
+  }
+  if (su.gem) { // la gema del pecho en un marco de metal
+    ctx.save(); ctx.translate(0.0, -0.28);
+    ctx.fillStyle = su.hi; ctx.beginPath(); ctx.moveTo(0, -0.1); ctx.lineTo(0.09, 0); ctx.lineTo(0, 0.1); ctx.lineTo(-0.09, 0); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#0b0709'; ctx.lineWidth = 0.015; ctx.stroke();
+    const gg = grad(ctx, -0.06, -0.06, 0.06, 0.06, [[0, lighten(su.gem, 0.6)], [0.5, su.gem], [1, darken(su.gem, 0.5)]]);
+    ctx.fillStyle = gg; ctx.beginPath(); ctx.moveTo(0, -0.065); ctx.lineTo(0.06, 0); ctx.lineTo(0, 0.065); ctx.lineTo(-0.06, 0); ctx.closePath(); ctx.fill();
+    ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0, 0, 0.18, su.gem, 0.35 + 0.1 * Math.sin(t * 4));
+    ctx.restore();
+  }
+  if (SUITS.guardOn === su) { ctx.fillStyle = '#c4121e'; ctx.fillRect(-0.05, 0.06, 0.1, 0.2); ctx.strokeStyle = '#e2a72e'; ctx.lineWidth = 0.015; ctx.strokeRect(-0.05, 0.06, 0.1, 0.2); } // el tabardo rojo
+}
+// Una calavera chica (para el pecho y las hombreras de la armadura de huesos), en un cuadrado de ±0,2.
+function skullShape(ctx: CanvasRenderingContext2D) {
+  const bone = grad(ctx, 0, -0.2, 0, 0.2, [[0, '#fbf3df'], [0.6, '#e2cfa6'], [1, '#9c8660']]);
+  ctx.fillStyle = bone; ctx.beginPath(); ctx.moveTo(-0.15, 0.04); ctx.quadraticCurveTo(-0.2, -0.22, 0, -0.22); ctx.quadraticCurveTo(0.2, -0.22, 0.15, 0.04); ctx.lineTo(0.1, 0.17); ctx.lineTo(-0.1, 0.17); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#0b0709'; ctx.lineWidth = 0.025; ctx.stroke();
+  ctx.fillStyle = '#1a0a06'; for (const x of [-0.065, 0.065]) { ctx.beginPath(); ctx.ellipse(x, -0.05, 0.045, 0.05, 0, 0, TAU); ctx.fill(); }
+  ctx.beginPath(); ctx.moveTo(0, 0.02); ctx.lineTo(-0.02, 0.06); ctx.lineTo(0.02, 0.06); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#1a0a06'; ctx.lineWidth = 0.012; ctx.beginPath(); for (let k = -2; k <= 2; k++) { ctx.moveTo(k * 0.035, 0.1); ctx.lineTo(k * 0.035, 0.16); } ctx.stroke();
+}
+// Lo de arriba de las hombreras: cristales de hielo, calavera, espiral dorada o pinches.
+function suitShoulder(ctx: CanvasRenderingContext2D, su: Suit, sp: Pt, back: boolean, t: number) {
+  const k = back ? 0.85 : 1;
+  ctx.save(); ctx.translate(sp[0], sp[1] - 0.04); ctx.scale(k, k);
+  if (back) ctx.globalAlpha = 0.85;
+  if (su.shoulder === 'ice') for (const [a, l] of [[-0.9, 0.34], [-0.4, 0.42], [0.15, 0.3]] as const) {
+    ctx.save(); ctx.rotate(a); ctx.translate(0, -0.08);
+    ctx.fillStyle = grad(ctx, -0.06, 0, 0.06, 0, [[0, '#f2fbff'], [0.5, '#8fd6ff'], [1, '#2a6fc0']]); ctx.beginPath(); ctx.moveTo(-0.06, 0); ctx.lineTo(0, -l); ctx.lineTo(0.06, 0); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#0b0709'; ctx.lineWidth = 0.015; ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 0.01; ctx.beginPath(); ctx.moveTo(-0.02, -0.02); ctx.lineTo(0, -l * 0.8); ctx.stroke(); ctx.restore();
+  }
+  if (su.shoulder === 'skull') { ctx.translate(0, -0.02); ctx.scale(0.75, 0.75); skullShape(ctx); ctx.fillStyle = '#efe3c6'; ctx.beginPath(); ctx.moveTo(0.1, -0.15); ctx.quadraticCurveTo(0.25, -0.3, 0.2, -0.45); ctx.quadraticCurveTo(0.14, -0.3, 0.02, -0.2); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#0b0709'; ctx.lineWidth = 0.02; ctx.stroke(); }
+  if (su.shoulder === 'swirl') { ctx.strokeStyle = su.hi; ctx.lineWidth = 0.03; ctx.beginPath(); for (let a = 0; a < 9; a += 0.3) { const r = 0.012 * a; ctx.lineTo(Math.cos(a) * r - 0.04, Math.sin(a) * r - 0.02); } ctx.stroke(); }
+  if (su.shoulder === 'spike') for (const a of [-0.6, 0.1]) { ctx.save(); ctx.rotate(a); ctx.fillStyle = grad(ctx, -0.04, 0, 0.04, 0, [[0, '#e8ebf2'], [1, '#6a6e7a']]); ctx.beginPath(); ctx.moveTo(-0.05, -0.08); ctx.lineTo(0, -0.36); ctx.lineTo(0.05, -0.08); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#0b0709'; ctx.lineWidth = 0.015; ctx.stroke(); ctx.restore(); ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0, -0.1, 0.3, '#8cff3a', 0.25 + 0.1 * Math.sin(t * 5)); ctx.restore(); }
+  ctx.restore();
+}
+// Lo que lleva en la cabeza: el casco dorado, la capucha blanca, el casco de calavera con cuernos o la corona verde.
+function hoodBack(ctx: CanvasRenderingContext2D) {
+  ctx.beginPath(); ctx.moveTo(-0.52, 0.42); ctx.quadraticCurveTo(-0.74, -0.5, -0.08, -0.8); ctx.quadraticCurveTo(0.5, -0.82, 0.58, -0.2); ctx.lineTo(0.5, 0.3); ctx.closePath();
+  ctx.fillStyle = grad(ctx, 0, -0.8, 0, 0.4, [[0, '#ffffff'], [0.6, '#dcd7ce'], [1, '#9e978c']]); ctx.fill(); ctx.strokeStyle = '#0b0709'; ctx.lineWidth = 0.025; ctx.stroke();
+  ctx.fillStyle = '#5a0a10'; ctx.beginPath(); ctx.moveTo(-0.3, 0.3); ctx.quadraticCurveTo(-0.42, -0.4, 0.0, -0.52); ctx.quadraticCurveTo(0.4, -0.5, 0.46, -0.1); ctx.lineTo(0.42, 0.3); ctx.closePath(); ctx.fill(); // el forro rojo oscuro de adentro
+}
+function hoodFront(ctx: CanvasRenderingContext2D) {
+  const path = () => { ctx.beginPath(); ctx.moveTo(-0.52, 0.42); ctx.quadraticCurveTo(-0.74, -0.5, -0.08, -0.8); ctx.quadraticCurveTo(0.5, -0.82, 0.58, -0.2); ctx.lineTo(0.47, -0.12); ctx.quadraticCurveTo(0.38, -0.44, 0.04, -0.44); ctx.quadraticCurveTo(-0.24, -0.4, -0.26, -0.04); ctx.quadraticCurveTo(-0.27, 0.26, -0.32, 0.44); ctx.closePath(); };
+  path(); ctx.fillStyle = grad(ctx, -0.5, -0.8, 0.4, 0.4, [[0, '#ffffff'], [0.55, '#e9e5dd'], [1, '#a9a297']]); ctx.fill(); ctx.strokeStyle = '#0b0709'; ctx.lineWidth = 0.025; ctx.stroke();
+  ctx.save(); path(); ctx.clip();
+  ctx.strokeStyle = '#c4121e'; ctx.lineWidth = 0.035; ctx.beginPath(); ctx.moveTo(-0.46, 0.36); ctx.quadraticCurveTo(-0.62, -0.42, -0.06, -0.68); ctx.quadraticCurveTo(0.38, -0.7, 0.5, -0.24); ctx.stroke(); // la franja roja
+  ctx.lineWidth = 0.02; ctx.beginPath(); ctx.moveTo(-0.1, -0.79); ctx.lineTo(-0.2, -0.52); ctx.stroke();
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(0.12, -0.42, 0.34, 0.06, 0, 0, TAU); ctx.fill(); // sombra del borde sobre la frente
+  ctx.restore();
+  spec(ctx, -0.3, -0.55, 0.12, 0.05, -0.6, 0.5);
+}
+function skullHelmet(ctx: CanvasRenderingContext2D) {
+  const BONE = (y0: number, y1: number) => grad(ctx, 0, y0, 0, y1, [[0, '#fbf3df'], [0.55, '#e2cfa6'], [1, '#8f7a56']]);
+  for (const [bx, s] of [[-0.3, -1], [0.3, 1]] as const) { // los cuernos
+    ctx.beginPath(); ctx.moveTo(bx - 0.1, -0.56); ctx.quadraticCurveTo(bx + s * 0.32, -0.7, bx + s * 0.28, -1.12); ctx.quadraticCurveTo(bx + s * 0.18, -0.82, bx + 0.08, -0.62); ctx.closePath();
+    ctx.fillStyle = BONE(-1.1, -0.5); ctx.fill(); ctx.strokeStyle = '#0b0709'; ctx.lineWidth = 0.025; ctx.stroke();
+  }
+  ctx.beginPath(); ctx.moveTo(-0.46, 0.2); ctx.quadraticCurveTo(-0.62, -0.72, 0.02, -0.76); ctx.quadraticCurveTo(0.54, -0.72, 0.5, -0.22); ctx.lineTo(0.44, -0.14); ctx.lineTo(0.0, -0.18); ctx.lineTo(-0.16, -0.12); ctx.lineTo(-0.2, 0.06); ctx.lineTo(-0.3, 0.3); ctx.closePath();
+  ctx.fillStyle = BONE(-0.76, 0.3); ctx.fill(); ctx.strokeStyle = '#0b0709'; ctx.lineWidth = 0.025; ctx.stroke();
+  ctx.fillStyle = '#1a0a06'; for (const [x, y] of [[0.08, -0.4], [0.32, -0.38]] as const) { ctx.beginPath(); ctx.ellipse(x, y, 0.07, 0.06, 0, 0, TAU); ctx.fill(); } // las órbitas
+  ctx.beginPath(); ctx.moveTo(0.2, -0.32); ctx.lineTo(0.17, -0.25); ctx.lineTo(0.23, -0.25); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#f6ecd4'; for (let i = 0; i < 6; i++) { const x = 0.02 + i * 0.07; ctx.beginPath(); ctx.moveTo(x - 0.025, -0.2); ctx.lineTo(x, -0.1 - (i % 2) * 0.04); ctx.lineTo(x + 0.025, -0.2); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#0b0709'; ctx.lineWidth = 0.008; ctx.stroke(); } // los colmillos sobre la frente
+  ctx.strokeStyle = '#c4121e'; ctx.lineWidth = 0.04; ctx.beginPath(); ctx.moveTo(-0.1, -0.74); ctx.quadraticCurveTo(-0.02, -0.6, 0.06, -0.62); ctx.stroke(); // la pintura roja
+  ctx.strokeStyle = 'rgba(80,50,20,0.5)'; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.moveTo(-0.4, -0.2); ctx.quadraticCurveTo(-0.3, -0.4, -0.36, -0.55); ctx.stroke(); // una grieta
+  spec(ctx, -0.22, -0.56, 0.12, 0.05, -0.5, 0.6);
+}
+function venomCrown(ctx: CanvasRenderingContext2D, t: number) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let i = 0; i < 4; i++) { const x = -0.2 + i * 0.18, h = 0.25 + 0.12 * Math.abs(Math.sin(t * 5 + i)); ctx.fillStyle = 'rgba(140,255,60,0.55)'; ctx.beginPath(); ctx.moveTo(x - 0.07, -0.42); ctx.quadraticCurveTo(x, -0.42 - h, x + Math.sin(t * 8 + i) * 0.04, -0.46 - h); ctx.quadraticCurveTo(x + 0.06, -0.48, x + 0.07, -0.42); ctx.closePath(); ctx.fill(); } ctx.restore();
+  ctx.beginPath(); ctx.moveTo(-0.42, -0.2); ctx.quadraticCurveTo(0.0, -0.52, 0.48, -0.3); ctx.lineTo(0.46, -0.2); ctx.quadraticCurveTo(0.0, -0.4, -0.4, -0.1); ctx.closePath();
+  ctx.fillStyle = grad(ctx, 0, -0.5, 0, -0.1, [[0, '#ffffff'], [0.5, '#b9bdc6'], [1, '#4a4e58']]); ctx.fill(); ctx.strokeStyle = '#0b0709'; ctx.lineWidth = 0.02; ctx.stroke();
+  for (const [x, y, h] of [[-0.2, -0.33, 0.16], [0.18, -0.42, 0.26], [0.38, -0.36, 0.14]] as const) { ctx.beginPath(); ctx.moveTo(x - 0.06, y + 0.03); ctx.lineTo(x, y - h); ctx.lineTo(x + 0.06, y + 0.03); ctx.closePath(); ctx.fillStyle = '#c3c7cf'; ctx.fill(); ctx.stroke(); }
+  ctx.fillStyle = '#7dff2a'; ctx.beginPath(); ctx.moveTo(0.18, -0.5); ctx.lineTo(0.24, -0.4); ctx.lineTo(0.18, -0.3); ctx.lineTo(0.12, -0.4); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0.18, -0.4, 0.2, '#8cff3a', 0.5); ctx.restore();
+}
+function drawHunterBody(ctx: CanvasRenderingContext2D, p: Player, g: Game, t: number, pose: Pose, held: Weapon, su: Suit | null) {
   ctx.save();
   if (p.spinT > 0) { const k = 1 - p.spinT / (p.special?.kind === 'spin' ? 0.45 : 0.42); ctx.translate(0, -0.95); ctx.rotate(k * TAU); ctx.translate(0, 0.95); } // vuelta en el aire del doble salto (y el giro especial)
   if (p.special?.kind === 'whirl') ctx.scale(Math.cos(p.special.t / 0.45 * TAU), 1); // el torbellino: gira sobre sí mismo
@@ -425,27 +555,30 @@ function drawHunterBody(ctx: CanvasRenderingContext2D, p: Player, g: Game, t: nu
   if (p.landT > 0) ctx.scale(1 + p.landT * 0.6, 1 - p.landT * 0.8);
   const hip: Pt = [0, -0.7 + pose.bob + pose.crouch * 0.4], neck: Pt = [Math.sin(pose.lean) * 0.52, hip[1] - Math.cos(pose.lean) * 0.52];
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; if (p.onGround) { ctx.beginPath(); ctx.ellipse(0, 0.02, 0.5, 0.08, 0, 0, TAU); ctx.fill(); }
+  if (su?.aura) suitAura(ctx, su.aura, t);
   cape(ctx, neck, HUNTER, t, Math.abs(p.vx), p.onGround ? 0 : 1, false);
   legDraw(ctx, hip, pose, 0, HUNTER);
   const backUp = handOf(hip, pose, 0)[1] < neck[1] + 0.05;
-  ctx.save(); ctx.translate(hip[0], hip[1]); ctx.rotate(pose.lean); hunterTorso(ctx); ctx.restore();
+  ctx.save(); ctx.translate(hip[0], hip[1]); ctx.rotate(pose.lean); hunterTorso(ctx); if (su) suitChest(ctx, su, t); ctx.restore();
   if (!backUp) armDraw(ctx, hip, pose, 0, HUNTER, 'none'); // el brazo derecho va adelante del pecho (como en Kombat Football), así se ve
   pauldron(ctx, shoulderAt(hip, pose, 0), pose.arms[0][0], true);
+  if (su?.shoulder) suitShoulder(ctx, su, shoulderAt(hip, pose, 0), true, t);
   legDraw(ctx, hip, pose, 1, HUNTER);
   const item: Weapon | 'none' = held === 'sword' && !g.boomer && !(p.attackT >= 0 && p.attackWeapon !== 'sword') ? 'sword' : 'none'; // (sin espada mientras vuela el bumerán)
   const hold = (hand: Pt, ang: number) => holdWeapon(ctx, p.attackT >= 0 ? p.attackWeapon : held, hand, ang, p, t);
   const frontUp = handOf(hip, pose, 1)[1] < neck[1] + 0.05;
   // la estela del tajo
-  if (p.attackT >= 0.02 && p.attackT < 0.24 && (p.attackWeapon === 'sword' || p.attackWeapon === 'firesword')) {
+  if (p.attackT >= 0.02 && p.attackT < 0.24 && SLASH_W.includes(p.attackWeapon)) {
     const k = Math.min(1, p.attackT / 0.14), e = 1 - (1 - k) * (1 - k), fade = p.attackT > 0.14 ? 1 - (p.attackT - 0.14) / 0.1 : 1, sp = shoulderAt(hip, pose, 1);
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
     const a0 = Math.PI / 2 - 3.0 - 0.4, a1 = Math.PI / 2 - (3.0 - e * 2.15) - 0.4;
-    for (const [r, w, c] of [[1.65, 0.4, `rgba(255,255,255,${0.45 * fade})`], [1.6, 0.16, `rgba(255,80,80,${0.65 * fade})`], [1.3, 0.07, `rgba(255,220,220,${0.5 * fade})`]] as const) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.arc(sp[0], sp[1], r, Math.min(a0, a1), Math.max(a0, a1)); ctx.stroke(); }
+    for (const [r, w, c] of [[1.65, 0.4, `rgba(255,255,255,${0.45 * fade})`], [1.6, 0.16, p.attackWeapon === 'violet' ? `rgba(190,80,255,${0.75 * fade})` : p.attackWeapon === 'bone' ? `rgba(240,220,170,${0.7 * fade})` : `rgba(255,80,80,${0.65 * fade})`], [1.3, 0.07, `rgba(255,220,220,${0.5 * fade})`]] as const) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.arc(sp[0], sp[1], r, Math.min(a0, a1), Math.max(a0, a1)); ctx.stroke(); }
     ctx.restore();
   }
   if (!frontUp) armDraw(ctx, hip, pose, 1, HUNTER, item, hold);
   pauldron(ctx, shoulderAt(hip, pose, 1), pose.arms[1][0], false, 1.1);
-  ctx.save(); ctx.translate(neck[0] + 0.04, neck[1] - 0.4); ctx.rotate(pose.head * 0.5); ctx.scale(1.12, 1.12); hunterHead(ctx, t, p.hurtT > 0); if (gold) goldHelmet(ctx); ctx.restore();
+  if (su?.shoulder) suitShoulder(ctx, su, shoulderAt(hip, pose, 1), false, t);
+  ctx.save(); ctx.translate(neck[0] + 0.04, neck[1] - 0.4); ctx.rotate(pose.head * 0.5); ctx.scale(1.12, 1.12); if (su?.head === 'hood') hoodBack(ctx); hunterHead(ctx, t, p.hurtT > 0); if (su?.head === 'gold') goldHelmet(ctx); else if (su?.head === 'hood') hoodFront(ctx); else if (su?.head === 'skull') skullHelmet(ctx); else if (su?.head === 'crown') venomCrown(ctx, t); ctx.restore();
   if (backUp) armDraw(ctx, hip, pose, 0, HUNTER, 'none');
   if (frontUp) armDraw(ctx, hip, pose, 1, HUNTER, item, hold);
   ctx.restore();

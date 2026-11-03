@@ -17,14 +17,25 @@ const GRAV = 36, SPEED = 7, JUMP = 16.2, JUMP2 = 14, FALL_MAX = 24;
 const VAMP_W = 0.8;
 
 // ---------------------------------------------------------------- Las armas
-export type Weapon = 'sword' | 'crossbow' | 'garlic' | 'cross' | 'firesword' | 'pistol';
-export const WEAPONS: Weapon[] = ['sword', 'crossbow', 'garlic', 'cross', 'firesword', 'pistol'];
-export const WEAPON_NAME: Record<Weapon, string> = { sword: 'Espada', crossbow: 'Ballesta', garlic: 'Bomba de ajo', cross: 'Cruz', firesword: 'Espada de fuego', pistol: 'Pistola de fuego' };
+// Desde el nivel 5 aparecen las armaduras (una nueva por nivel): cada una viste a Demian y trae su poder.
+//  · Hielo: tira un rayo de hielo que congela al vampiro y lo hace pedazos.
+//  · Dorada: la cruz larga un rayo de luz que atraviesa y mata a varios vampiros en fila.
+//  · Verde: tira bolas verdes; el vampiro que toca se pone verde y se derrite en el piso.
+//  · Violeta: una espada poderosa que saca 5 de vida y hace explotar al vampiro en violeta.
+//  · Protectora: un escudo que aguanta 50 puntos de ataques de los vampiros (se suma al arma que tengas).
+//  · Huesos: un martillo que saca 10 de vida; dura 10 golpes.
+export type Weapon = 'sword' | 'crossbow' | 'garlic' | 'cross' | 'firesword' | 'pistol' | 'ice' | 'holy' | 'venom' | 'violet' | 'guard' | 'bone';
+export const WEAPONS: Weapon[] = ['sword', 'crossbow', 'garlic', 'cross', 'firesword', 'pistol', 'ice', 'holy', 'venom', 'violet', 'guard', 'bone'];
+export const ARMORS: Weapon[] = ['ice', 'holy', 'venom', 'violet', 'guard', 'bone'];
+export const isArmor = (w: Weapon) => ARMORS.includes(w);
+export const WEAPON_NAME: Record<Weapon, string> = { sword: 'Espada', crossbow: 'Ballesta', garlic: 'Bomba de ajo', cross: 'Cruz', firesword: 'Espada de fuego', pistol: 'Pistola de fuego',
+  ice: 'Armadura de hielo', holy: 'Armadura dorada', venom: 'Armadura verde', violet: 'Armadura violeta', guard: 'Armadura protectora', bone: 'Armadura de huesos' };
 // Cuánta vida le saca a cada vampiro que alcanza.
-export const WEAPON_DMG: Record<Weapon, number> = { sword: 1, crossbow: 3, garlic: 5, cross: 10, firesword: 20, pistol: 20 };
+// (hielo, dorada y verde matan de un toque a los vampiros comunes; a Drácula y al dragón les sacan esto)
+export const WEAPON_DMG: Record<Weapon, number> = { sword: 1, crossbow: 3, garlic: 5, cross: 10, firesword: 20, pistol: 20, ice: 10, holy: 15, venom: 8, violet: 5, guard: 0, bone: 10 };
 // Munición: con cuánto se empieza cada nivel y cuánto se puede llevar (la espada no se gasta).
-export const START_AMMO: Record<Weapon, number> = { sword: Infinity, crossbow: 10, garlic: 2, cross: 1, firesword: 3, pistol: 4 };
-export const MAX_AMMO: Record<Weapon, number> = { sword: Infinity, crossbow: 30, garlic: 6, cross: 3, firesword: 10, pistol: 12 };
+export const START_AMMO: Record<Weapon, number> = { sword: Infinity, crossbow: 10, garlic: 2, cross: 1, firesword: 3, pistol: 4, ice: 5, holy: 2, venom: 5, violet: 12, guard: 1, bone: 10 };
+export const MAX_AMMO: Record<Weapon, number> = { sword: Infinity, crossbow: 30, garlic: 6, cross: 3, firesword: 10, pistol: 12, ice: 12, holy: 5, venom: 12, violet: 25, guard: 2, bone: 10 };
 // El tamaño de cada ataque (en metros; un vampiro mide 0,8 de ancho y 1,8 de alto):
 export const SWORD_REACH = 2.6, SWORD_H = 2.7; // la espada: un arco de 2,6 adelante y 2,7 de alto
 export const FIRE_REACH = 6.5, FIRE_H = 5.4; // la espada de fuego: 2,5 veces más larga y el doble de alta = 5 veces más grande
@@ -32,13 +43,18 @@ export const BOLT_PIERCE = 3; // la flecha de la ballesta atraviesa hasta 3 vamp
 export const GARLIC_R = 3; // la onda de la bomba de ajo: 3 metros a cada lado del estallido (6 de punta a punta, unos 7 vampiros en fila)
 export const CROSS_TARGETS = 6; // la cruz: rayos sobre los 6 vampiros más cercanos que estén a la vista
 export const PISTOL_RANGE = 10; // la pistola de fuego: 10 metros (unos 10 vampiros uno al lado del otro); le pega al primero
+export const VIOLET_REACH = 3, VIOLET_H = 3; // la espada violeta
+export const BONE_REACH = 2.9, BONE_H = 3.1; // el martillo de huesos
+export const HOLY_LEN = 16, HOLY_TARGETS = 6; // el rayo de la cruz dorada: 16 metros, mata hasta 6 vampiros
+export const GUARD_HP = 50; // el escudo de la armadura protectora
+export const FREEZE_T = 0.7; // lo que tarda el vampiro congelado en hacerse pedazos
 // En qué nivel aparece cada arma: se van sumando a medida que se pasan los niveles.
-export const WEAPON_LEVEL: Record<Weapon, number> = { sword: 1, crossbow: 2, garlic: 3, cross: 4, firesword: 5, pistol: 6 };
+export const WEAPON_LEVEL: Record<Weapon, number> = { sword: 1, crossbow: 2, garlic: 3, cross: 4, firesword: 5, pistol: 6, ice: 5, holy: 6, venom: 7, violet: 8, guard: 9, bone: 10 };
 export const weaponUnlocked = (g: { level: number }, w: Weapon) => g.level >= WEAPON_LEVEL[w];
 // Las armas que se disparan o se tiran: con ↑ o ↓ + Espacio apuntan en diagonal hacia arriba o hacia abajo.
-export const AIMED: Weapon[] = ['crossbow', 'pistol', 'garlic'];
+export const AIMED: Weapon[] = ['crossbow', 'pistol', 'garlic', 'ice', 'venom'];
 export const AIM_ANGLE = 0.7; // ≈ 40 grados
-export const AMMO_PICKUP: Record<Weapon, number> = { sword: 0, crossbow: 8, garlic: 2, cross: 1, firesword: 3, pistol: 4 };
+export const AMMO_PICKUP: Record<Weapon, number> = { sword: 0, crossbow: 8, garlic: 2, cross: 1, firesword: 3, pistol: 4, ice: 4, holy: 1, venom: 4, violet: 8, guard: 1, bone: 10 };
 
 import { CHAPTERS, LEVELS, LEVEL_COUNT, type Chapter, type Goal, type LevelDef, type Surface, type Trap, type TrapKind } from './vampyriumLevels';
 export { CHAPTERS, LEVELS, LEVEL_COUNT, type Chapter, type Goal, type LevelDef, type Surface, type Trap, type TrapKind };
@@ -118,6 +134,7 @@ export interface Vamp {
   hp?: number; maxHp?: number; flash?: number; // los fuertes aguantan varios golpes (flash: el destello blanco del golpe)
   hurtT?: number; // golpeado por una trampa: sangra y sale despedido, pero no muere
   special?: number; // Drácula y el dragón: cuenta para el próximo ataque especial
+  frozen?: number; chill?: number; // congelado por la armadura de hielo (se rompe cuando llega a 0); chill: el frío en Drácula y el dragón
   nav?: Nav; stuckT?: number; bestD?: number; unstuck?: number; waitT?: number; braveT?: number; // cómo se mueve por el nivel (ver navigate)
 }
 // El plan para llegar hasta el cazador: el próximo salto entre pisos y el lugar desde donde hacerlo.
@@ -137,7 +154,7 @@ export interface Item { id: number; kind: 'star' | 'soul'; x: number; y: number;
 export interface Breakable { id: number; kind: 'cage' | 'coffin'; x: number; y: number; hp: number; maxHp: number; flash: number; t: number }
 export const BREAK_HP = { cage: 4, coffin: 5 };
 export interface Pop { x: number; y: number; t: number; text: string; bad: boolean }
-export type KillHow = 'sword' | 'bolt' | 'bomb' | 'cross' | 'fire' | 'bullet' | 'trap' | 'void' | 'crate';
+export type KillHow = 'sword' | 'bolt' | 'bomb' | 'cross' | 'fire' | 'bullet' | 'trap' | 'void' | 'crate' | 'ice' | 'venom' | 'violet' | 'holy';
 export interface Corpse { id: number; kind: VampKind; x: number; y: number; face: 1 | -1; t: number; how: KillHow }
 export type BoneKind = 'skull' | 'jaw' | 'ribs' | 'pelvis' | 'arm' | 'leg' | 'spine';
 export interface Bone { kind: BoneKind; x: number; y: number; vx: number; vy: number; a: number; va: number; t: number; rest: boolean }
@@ -149,16 +166,20 @@ export interface Bolt { x: number; y: number; vx: number; vy: number; t: number;
 export interface Bomb { x: number; y: number; vx: number; vy: number; t: number; landed: number; a: number } // bomba de ajo (landed: tiempo desde que tocó el piso)
 export interface Bullet { x: number; y: number; vx: number; vy: number; x0: number; y0: number; t: number } // la bala de fuego de la pistola
 // Efectos: la onda de la bomba, los rayos de la cruz, la ola de fuego de la espada y el estallido de la bala.
-export interface Fx { kind: 'blast' | 'bolt' | 'wave' | 'burst'; x: number; y: number; t: number; life: number; r: number; face: 1 | -1; seed: number }
-export type CrateKind = 'bolts' | 'heart' | 'garlic' | 'fire' | 'bullets';
-export interface Crate { id: number; kind: CrateKind; x: number; y: number; vy: number; landed: boolean; t: number; surface: Surface | null }
+export interface Fx { kind: 'blast' | 'bolt' | 'wave' | 'burst' | 'ray' | 'nova' | 'frost' | 'splat'; x: number; y: number; t: number; life: number; r: number; face: 1 | -1; seed: number }
+export type CrateKind = 'bolts' | 'heart' | 'garlic' | 'fire' | 'bullets' | 'armor';
+// Las bolas de las armaduras: el rayo de hielo (derecho) y la bola verde (cae en curva).
+export interface Orb { kind: 'ice' | 'venom'; x: number; y: number; vx: number; vy: number; t: number }
+// Los pedazos de hielo de un vampiro congelado que se rompió.
+export interface Shard { x: number; y: number; vx: number; vy: number; a: number; va: number; t: number; s: number; rest: boolean }
+export interface Crate { armor?: Weapon; id: number; kind: CrateKind; x: number; y: number; vy: number; landed: boolean; t: number; surface: Surface | null }
 
 export type GameEvent =
   | { type: 'slash' } | { type: 'throw' } | { type: 'stakeHit' } | { type: 'empty'; weapon: Weapon } | { type: 'shoot'; weapon: Weapon } | { type: 'blast'; count: number } | { type: 'crossReady' }
   | { type: 'kill'; kind: VampKind; how: KillHow; x: number; y: number } | { type: 'bones'; x: number; y: number }
   | { type: 'hurt'; hp: number; dmg: number } | { type: 'vampHit'; kind: VampKind; hp: number } | { type: 'block' } | { type: 'slam' } | { type: 'cast' } | { type: 'bats' } | { type: 'breath' } | { type: 'mist' }
   | { type: 'collect'; kind: Item['kind']; n: number; of: number } | { type: 'break'; kind: Breakable['kind']; n: number; of: number } | { type: 'objHit' } | { type: 'transform' } | { type: 'dragon' } | { type: 'bossDead' } | { type: 'howl'; kind: VampKind } | { type: 'spawn'; kind: VampKind } | { type: 'fall'; hp: number } | { type: 'jump'; double: boolean } | { type: 'land' } | { type: 'step' }
-  | { type: 'crate' } | { type: 'pickup'; kind: CrateKind; amount: number } | { type: 'door' } | { type: 'spikes' } | { type: 'fire' }
+  | { type: 'crate' } | { type: 'pickup'; kind: CrateKind; amount: number; weapon?: Weapon } | { type: 'guard'; on: boolean } | { type: 'guardHit'; left: number } | { type: 'freeze' } | { type: 'shatter' } | { type: 'melt' } | { type: 'nova' } | { type: 'door' } | { type: 'spikes' } | { type: 'fire' }
   | { type: 'swing' } | { type: 'special'; kind: SpecialKind } | { type: 'catch' } | { type: 'thunder'; near: number } | { type: 'combo'; n: number } | { type: 'holy'; count: number } | { type: 'wave'; n: number } | { type: 'bloodMoon' }
   | { type: 'menu'; open: boolean } | { type: 'choose'; weapon: Weapon } | { type: 'hiss'; x: number } | { type: 'dive' } | { type: 'emerge' }
   | { type: 'vampFall' } | { type: 'burn' } | { type: 'vampHurt'; x: number; trap?: TrapKind } | { type: 'cleared' } | { type: 'over' } | { type: 'won' } | { type: 'powerReady' };
@@ -174,6 +195,7 @@ export interface Game {
   goal: Goal; progress: number; items: Item[]; objects: Breakable[]; itemT: number;
   kills: Record<VampKind, number>; total: number; shots: Shot[]; pops: Pop[]; transformT: number; bossDeadT: number; bossHits: number; voidKills: number; trapKills: number;
   weapon: Weapon; ammo: Record<Weapon, number>; menu: { sel: number; t: number }; lastTap: number; holdT: number;
+  guardHp: number; orbs: Orb[]; shards: Shard[]; // el escudo de la armadura protectora, las bolas de hielo y verdes, los pedazos de hielo
   combo: { n: number; t: number; best: number }; power: number; holyT: number; garlicT: number;
   door: { open: boolean; t: number }; spawnT: number; crateT: number; nextId: number; wave: number; bloodMoon: boolean;
   taps: { d: 1 | -1; t: number; f: 1 | -1 }[]; boomer: Boomer | null; // las flechas tocadas (para los especiales) y la espada que vuelve
@@ -196,7 +218,7 @@ export function newGame(seed = Math.floor(Math.random() * 1e9), level = 1): Game
     kills: Object.fromEntries(VAMP_KINDS.map(k => [k, 0])) as Record<VampKind, number>, total: 0, shots: [], pops: [], transformT: 0, bossDeadT: -1, bossHits: 0, voidKills: 0, trapKills: 0, weapon: 'sword', ammo: { ...START_AMMO }, menu: { sel: 0, t: 0 }, lastTap: -9, holdT: 0,
     combo: { n: 0, t: 0, best: 0 }, power: 0, holyT: 0, garlicT: 0, goal: CHAPTERS[LV.def.n]?.goal ?? { type: 'kill', n: GOAL }, progress: 0, items: [], objects: [], itemT: 2, door: { open: false, t: 0 }, spawnT: 1.6, crateT: 9, nextId: 1, wave: 1, bloodMoon: false,
     flash: 0, shake: 0, events: [], rand: mulberry(seed), stats: { slashes: 0, throws: 0, hits: 0, crates: 0, falls: 0 },
-    taps: [], boomer: null,
+    taps: [], boomer: null, guardHp: 0, orbs: [], shards: [],
     storm: LV.def.n === STORM_LEVEL ? { next: 2.5, t: 99, x: W / 2, near: 0.5, seed: 0 } : null,
   };
   if (g.goal.type === 'break') placeBreakables(g, g.goal.n, g.goal.obj);
@@ -314,6 +336,11 @@ export function menuMove(g: Game, step: number) { // salta las armas que todaví
 }
 export function chooseWeapon(g: Game, w: Weapon) {
   if (!weaponUnlocked(g, w)) return;
+  if (w === 'guard') { // la armadura protectora no se agarra: se pone encima y te deja el arma que tenías
+    if (g.ammo.guard > 0 && g.guardHp < GUARD_HP) { g.ammo.guard--; g.guardHp = GUARD_HP; emit(g, { type: 'guard', on: true }); }
+    if (g.phase === 'menu') { g.phase = 'play'; emit(g, { type: 'menu', open: false }); }
+    return;
+  }
   g.weapon = w; emit(g, { type: 'choose', weapon: w });
   if (g.phase === 'menu') { g.phase = 'play'; emit(g, { type: 'menu', open: false }); }
 }
@@ -374,6 +401,8 @@ function updateSpecial(g: Game, dt: number) {
   }
 }
 
+// Las armas cuerpo a cuerpo: [alcance, alto, desde cuánto abajo de los pies, cómo mueren]
+const MELEE: Partial<Record<Weapon, [number, number, number, KillHow]>> = { sword: [SWORD_REACH, SWORD_H, 0.2, 'sword'], firesword: [FIRE_REACH, FIRE_H, 1.2, 'fire'], violet: [VIOLET_REACH, VIOLET_H, 0.3, 'violet'], bone: [BONE_REACH, BONE_H, 0.3, 'sword'] };
 export function attack(g: Game) {
   const p = g.player;
   if (g.phase !== 'play') return;
@@ -392,9 +421,37 @@ export function attack(g: Game) {
     g.fx.push({ kind: 'wave', x: p.x, y: p.y, t: 0, life: 0.45, r: FIRE_REACH, face: p.face, seed: g.rand() });
     emit(g, { type: 'shoot', weapon: w });
   } else if (w === 'crossbow') { p.cool = 0.45; g.stats.throws++; g.bolts.push({ x: hx + p.face * 0.5 * ca, y: hy + 0.5 * sa, vx: p.face * 24 * ca, vy: 24 * sa + 0.4, t: 0, stuck: false, hits: [] }); emit(g, { type: 'shoot', weapon: w }); }
+  else if (w === 'ice') { p.cool = 0.42; g.stats.throws++; g.orbs.push({ kind: 'ice', x: hx + p.face * 0.5 * ca, y: hy + 0.5 * sa, vx: p.face * 20 * ca, vy: 20 * sa, t: 0 }); emit(g, { type: 'shoot', weapon: w }); }
+  else if (w === 'venom') { p.cool = 0.4; g.stats.throws++; g.orbs.push({ kind: 'venom', x: hx, y: hy + 0.1, vx: p.face * (p.aim > 0 ? 9 : p.aim < 0 ? 12 : 13) + p.vx * 0.3, vy: p.aim > 0 ? 12 : p.aim < 0 ? -2 : 4.5, t: 0 }); emit(g, { type: 'shoot', weapon: w }); }
+  else if (w === 'holy') { p.cool = 0.6; g.stats.throws++; holyRay(g); emit(g, { type: 'shoot', weapon: w }); }
+  else if (w === 'violet') { p.cool = 0.32; g.stats.slashes++; emit(g, { type: 'shoot', weapon: w }); }
+  else if (w === 'bone') { p.cool = 0.55; g.stats.slashes++; g.shake = Math.max(g.shake, 0.3); emit(g, { type: 'shoot', weapon: w }); }
   else if (w === 'pistol') { p.cool = 0.5; g.stats.throws++; g.bullets.push({ x: hx + p.face * 0.4 * ca, y: hy + 0.05 + 0.4 * sa, vx: p.face * 28 * ca, vy: 28 * sa, x0: hx, y0: hy, t: 0 }); g.fx.push({ kind: 'burst', x: hx + p.face * 0.75 * ca, y: hy + 0.05 + 0.75 * sa, t: 0, life: 0.18, r: 0.5, face: p.face, seed: g.rand() }); emit(g, { type: 'shoot', weapon: w }); }
   else { p.cool = 0.6; g.stats.throws++; g.bombs.push({ x: hx, y: hy + 0.2, vx: p.face * (p.aim > 0 ? 6.5 : p.aim < 0 ? 7 : 8.5) + p.vx * 0.3, vy: p.aim > 0 ? 14 : p.aim < 0 ? 1 : 8.5, t: 0, landed: -1, a: 0 }); emit(g, { type: 'throw' }); } // la bomba de ajo
   if (g.ammo[w] <= 0) { g.weapon = 'sword'; emit(g, { type: 'empty', weapon: w }); } // la última: vuelve la espada
+}
+// El rayo de la cruz dorada: una franja de luz hacia adelante que atraviesa y mata a los primeros 6 vampiros.
+function holyRay(g: Game) {
+  const p = g.player, y = p.y + 1.3, x0 = p.x + p.face * 0.7, xa = Math.min(x0, x0 + p.face * HOLY_LEN), xb = Math.max(x0, x0 + p.face * HOLY_LEN);
+  g.fx.push({ kind: 'ray', x: x0, y, t: 0, life: 0.55, r: HOLY_LEN, face: p.face, seed: g.rand() });
+  g.flash = Math.max(g.flash, 0.45); g.shake = Math.max(g.shake, 0.35);
+  const inBand = (y1: number, y2: number) => y2 > y - 0.95 && y1 < y + 0.95;
+  const hits = g.vamps.filter(v => { const [a, b, c, d] = vampBox(v); return v.state !== 'mist' && b > xa && a < xb && inBand(c, d); }).sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x)).slice(0, HOLY_TARGETS);
+  for (const v of hits) armorHit(g, v, 'holy', p.x);
+  for (const o of [...g.objects]) if (o.x > xa && o.x < xb && inBand(o.y, o.y + 2)) hitObject(g, o, 5);
+  g.shots = g.shots.filter(s => !(s.x > xa && s.x < xb && Math.abs(s.y - y) < 1.1));
+}
+// Lo que hacen las armaduras de hielo, dorada y verde: a los vampiros comunes los matan (el hielo primero los
+// congela); a Drácula y al dragón solo les sacan vida (y el hielo los enfría un rato).
+function armorHit(g: Game, v: Vamp, w: 'ice' | 'holy' | 'venom', fromX: number) {
+  g.stats.hits++;
+  if (isBoss(v.kind)) { if (w === 'ice') v.chill = 1.2; hitVamp(g, v, WEAPON_DMG[w], w, fromX); return; }
+  if (w === 'ice') {
+    if (v.frozen) { kill(g, v, 'ice'); return; }
+    v.frozen = FREEZE_T; v.vx = 0; v.flash = 0.2; emit(g, { type: 'freeze' });
+    return;
+  }
+  hitVamp(g, v, Math.max(1, v.hp ?? 1), w, fromX);
 }
 // La cruz: una tormenta de rayos sobre los 6 vampiros más cercanos que estén a la vista (10 de daño a cada uno).
 export function stormCross(g: Game) {
@@ -424,6 +481,7 @@ const pop = (g: Game, x: number, y: number, text: string, bad: boolean) => { g.p
 // Un golpe del cazador (espada o estaca = 1 punto, la cruz = 10): le baja la vida y, si llega a 0, se muere.
 export function hitVamp(g: Game, v: Vamp, dmg: number, how: KillHow, fromX: number) {
   if (!g.vamps.includes(v) || v.state === 'mist' || g.transformT > 0) return;
+  if (v.frozen) { kill(g, v, 'ice'); return; } // congelado: cualquier golpe lo hace pedazos
   const [, , y1, y2] = vampBox(v);
   v.hp = (v.hp ?? 1) - dmg; v.flash = 0.18;
   if (isBoss(v.kind)) { const before = Math.floor(g.bossHits / 5); g.bossHits += dmg; if (how !== 'cross') for (let k = before; k < Math.floor(g.bossHits / 5); k++) chargeCross(g); }
@@ -462,9 +520,17 @@ function kill(g: Game, v: Vamp, how: KillHow) {
 }
 
 // Le sacan vida al cazador (cada vampiro según su fuerza; trampas y caídas, 10).
-function hurt(g: Game, fromX: number, dmg = 1) {
+function hurt(g: Game, fromX: number, dmg = 1, byVamp = true) {
   const p = g.player;
   if (p.inv > 0 || g.phase !== 'play') return;
+  if (byVamp && g.guardHp > 0) { // la armadura protectora se lleva el golpe del vampiro
+    const take = Math.min(g.guardHp, dmg); g.guardHp -= take; dmg -= take;
+    pop(g, p.x, p.y + PLAYER_H + 0.3, `🛡−${take}`, false);
+    for (let i = 0; i < 14; i++) { const a = g.rand() * Math.PI * 2; g.sparks.push({ x: p.x, y: p.y + 1.1, vx: Math.cos(a) * 6, vy: Math.sin(a) * 6, t: 0, life: 0.35, hue: 48 }); }
+    emit(g, { type: 'guardHit', left: g.guardHp });
+    if (g.guardHp <= 0) emit(g, { type: 'guard', on: false });
+    if (dmg <= 0) { p.inv = 0.6; p.vx = (p.x >= fromX ? 1 : -1) * 4; return; }
+  }
   p.hp = Math.max(0, p.hp - dmg); p.inv = 1.1; p.hurtT = 0.35; g.shake = Math.max(g.shake, Math.min(1, 0.3 + dmg * 0.04));
   p.vx = (p.x >= fromX ? 1 : -1) * (6 + Math.min(6, dmg * 0.5)); p.vy = 8 + Math.min(4, dmg * 0.3); p.onGround = false; p.surface = null;
   pop(g, p.x, p.y + PLAYER_H + 0.3, `−${dmg}`, true);
@@ -898,13 +964,14 @@ function updateGoal(g: Game, dt: number) {
 // ---------------------------------------------------------------- Cajas del cielo
 function dropCrate(g: Game) {
   // solo caen cajas de las armas que ya aparecieron (el ajo siempre: espanta a los vampiros)
-  const r = g.rand, pool = ([['bolts', 0.36, 'crossbow'], ['heart', 0.2, 'sword'], ['garlic', 0.16, 'sword'], ['fire', 0.14, 'firesword'], ['bullets', 0.14, 'pistol']] as const).filter(([, , w]) => weaponUnlocked(g, w));
+  const r = g.rand, pool = ([['bolts', 0.36, 'crossbow'], ['heart', 0.2, 'sword'], ['garlic', 0.16, 'sword'], ['fire', 0.14, 'firesword'], ['bullets', 0.14, 'pistol'], ['armor', 0.3, 'ice']] as const).filter(([, , w]) => weaponUnlocked(g, w));
   let roll = r() * pool.reduce((a, [, k]) => a + k, 0), kind: CrateKind = 'heart';
   for (const [k, wgt] of pool) { if (roll < wgt) { kind = k; break; } roll -= wgt; }
   const spots = SURFACES.filter(s => s.x2 - s.x1 > 2 && !s.mv);
   const s = spots[Math.floor(r() * spots.length)];
   const x = s.x1 + 0.8 + r() * (s.x2 - s.x1 - 1.6);
-  g.crates.push({ id: g.nextId++, kind, x: Math.min(W - 2, x), y: H + 1.5, vy: -2.6, landed: false, t: 0, surface: null });
+  const armors = ARMORS.filter(w => weaponUnlocked(g, w)), armor = kind === 'armor' ? armors[Math.floor(r() * armors.length)] : undefined; // la caja de armadura trae carga de una de las que ya aparecieron
+  g.crates.push({ id: g.nextId++, kind, armor, x: Math.min(W - 2, x), y: H + 1.5, vy: -2.6, landed: false, t: 0, surface: null });
 }
 function updateCrates(g: Game, dt: number) {
   const p = g.player;
@@ -918,8 +985,9 @@ function updateCrates(g: Game, dt: number) {
     }
     if (Math.abs(p.x - c.x) < 0.95 && p.y < c.y + 1 && p.y + PLAYER_H > c.y) {
       g.crates.splice(g.crates.indexOf(c), 1); g.stats.crates++;
-      const give = (w: Weapon) => { const before = g.ammo[w]; g.ammo[w] = Math.min(MAX_AMMO[w], g.ammo[w] + AMMO_PICKUP[w]); emit(g, { type: 'pickup', kind: c.kind, amount: g.ammo[w] - before }); };
-      if (c.kind === 'bolts') give('crossbow');
+      const give = (w: Weapon) => { const before = g.ammo[w]; g.ammo[w] = Math.min(MAX_AMMO[w], g.ammo[w] + AMMO_PICKUP[w]); emit(g, { type: 'pickup', kind: c.kind, amount: g.ammo[w] - before, weapon: w }); };
+      if (c.kind === 'armor') give(c.armor ?? 'ice');
+      else if (c.kind === 'bolts') give('crossbow');
       else if (c.kind === 'fire') give('firesword');
       else if (c.kind === 'bullets') give('pistol');
       else if (c.kind === 'garlic') { g.garlicT = 8; if (weaponUnlocked(g, 'garlic')) give('garlic'); else emit(g, { type: 'pickup', kind: 'garlic', amount: 0 }); } // ajo: espanta a los vampiros 8 segundos y trae 2 bombas
@@ -937,6 +1005,7 @@ function updateRemains(g: Game, dt: number) {
   for (const c of [...g.corpses]) {
     c.t += dt;
     if (c.kind === 'dracula') continue; // (se está transformando)
+    if (c.how === 'ice' || c.how === 'venom' || c.how === 'holy' || c.how === 'violet') { armorRemains(g, c, dt); continue; }
     const fly = c.kind === 'flyer' ? -0.6 : c.kind === 'dragon' ? -1.2 : 0, big = Math.max(1, Math.round(BODY[c.kind].k * (c.kind === 'dragon' ? 3 : 1)));
     if (r() < dt * (c.t > BURN_AT ? 90 : 40)) g.sparks.push({ x: c.x + (r() - 0.5) * 0.9, y: c.y + fly + 0.3 + r() * 1.6, vx: (r() - 0.5) * 3, vy: 1 + r() * 4, t: 0, life: 0.4 + r() * 0.4, hue: 20 + r() * 35 });
     if (c.t >= BURN_AT && c.t - dt < BURN_AT) emit(g, { type: 'burn' }); // se prende fuego
@@ -961,6 +1030,7 @@ function updateRemains(g: Game, dt: number) {
     }
     if (b.t > 3.4 || b.y < -6) g.bones.splice(g.bones.indexOf(b), 1);
   }
+  updateShards(g, dt);
   for (const s of [...g.sparks]) { s.t += dt; s.vy -= 9 * dt; s.x += s.vx * dt; s.y += s.vy * dt; if (s.t > s.life) g.sparks.splice(g.sparks.indexOf(s), 1); }
   if (g.sparks.length > 400) g.sparks.splice(0, g.sparks.length - 400);
   for (const d of [...g.drops]) {
@@ -969,6 +1039,45 @@ function updateRemains(g: Game, dt: number) {
     if ((d.stuck && d.t > 9) || d.y < -6) g.drops.splice(g.drops.indexOf(d), 1);
   }
   if (g.drops.length > 900) g.drops.splice(0, g.drops.length - 900);
+}
+
+// Cómo terminan los que mató una armadura (en vez de quemarse y reventar en huesos):
+//  hielo: se hace pedazos de hielo · verde: se pone verde y se derrite en un charco · dorada: se deshace en luz
+//  violeta: explota en violeta (y vuelan los huesos)
+export const SHATTER_AT = 0.06, MELT_T = 1.5, PUDDLE_T = 3.2, DUST_T = 0.75, NOVA_AT = 0.14;
+function armorRemains(g: Game, c: Corpse, dt: number) {
+  const r = g.rand, B = BODY[c.kind], fly = c.kind === 'flyer' ? -0.6 : 0, big = Math.max(1, Math.round(B.k));
+  if (c.how === 'ice' && c.t >= SHATTER_AT) {
+    g.corpses.splice(g.corpses.indexOf(c), 1);
+    for (let i = 0; i < 16 * big; i++) { const a = r() * Math.PI, sp = 4 + r() * 10; g.shards.push({ x: c.x + (r() - 0.5) * B.w, y: c.y + fly + 0.2 + r() * B.h, vx: Math.cos(a) * sp * (r() < 0.5 ? -1 : 1), vy: Math.sin(a) * sp, a: r() * 6, va: (r() - 0.5) * 24, t: 0, s: 0.07 + r() * 0.13 * big, rest: false }); }
+    for (let i = 0; i < 30; i++) { const a = r() * Math.PI * 2, sp = 2 + r() * 8; g.sparks.push({ x: c.x, y: c.y + fly + 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 2, t: 0, life: 0.5 + r() * 0.4, hue: 190 + r() * 20 }); }
+    g.fx.push({ kind: 'frost', x: c.x, y: c.y + fly + 1, t: 0, life: 0.5, r: 1.8, face: 1, seed: r() }); g.shake = Math.max(g.shake, 0.4);
+    emit(g, { type: 'shatter' });
+  } else if (c.how === 'venom') {
+    if (c.t - dt <= 0) emit(g, { type: 'melt' });
+    if (c.t < MELT_T && r() < dt * 30) g.sparks.push({ x: c.x + (r() - 0.5) * B.w, y: c.y + 0.1 + r() * B.h * (1 - c.t / MELT_T), vx: (r() - 0.5) * 1.5, vy: 1 + r() * 2, t: 0, life: 0.5, hue: 95 + r() * 20 }); // burbujas
+    if (c.t >= PUDDLE_T) g.corpses.splice(g.corpses.indexOf(c), 1);
+  } else if (c.how === 'holy') {
+    if (r() < dt * 120) g.sparks.push({ x: c.x + (r() - 0.5) * B.w, y: c.y + fly + r() * B.h, vx: (r() - 0.5) * 2, vy: 2 + r() * 5, t: 0, life: 0.6, hue: 45 + r() * 10 });
+    if (c.t >= DUST_T) g.corpses.splice(g.corpses.indexOf(c), 1);
+  } else if (c.how === 'violet' && c.t >= NOVA_AT) {
+    g.corpses.splice(g.corpses.indexOf(c), 1);
+    for (let n = 0; n < big; n++) for (const k of BONES) { const a = (r() - 0.5) * 3.4 + Math.PI / 2, sp = 11 + r() * 13; g.bones.push({ kind: k, x: c.x + (r() - 0.5) * 0.4, y: c.y + fly + 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 3, a: r() * 6, va: (r() - 0.5) * 30, t: 0, rest: false }); }
+    for (let i = 0; i < 50 * big; i++) { const a = r() * Math.PI * 2, sp = 3 + r() * 12; g.sparks.push({ x: c.x, y: c.y + fly + 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 2, t: 0, life: 0.5 + r() * 0.6, hue: 270 + r() * 40 }); }
+    g.fx.push({ kind: 'nova', x: c.x, y: c.y + fly + 1, t: 0, life: 0.6, r: 2.6 * big, face: 1, seed: r() });
+    g.shake = Math.max(g.shake, 0.6); g.flash = Math.max(g.flash, 0.2);
+    emit(g, { type: 'bones', x: c.x, y: c.y });
+  }
+}
+function updateShards(g: Game, dt: number) {
+  for (const b of [...g.shards]) {
+    b.t += dt;
+    if (!b.rest) {
+      b.vy -= GRAV * 0.8 * dt; const prev = b.y; b.x += b.vx * dt; b.y += b.vy * dt; b.a += b.va * dt;
+      if (b.vy < 0) { const q = surfaceUnder(b.x, 0.1, prev, b.y, false); if (q) { b.y = q.y + 0.04; if (Math.abs(b.vy) > 4) { b.vy = -b.vy * 0.3; b.vx *= 0.6; } else { b.vy = 0; b.vx = 0; b.va = 0; b.rest = true; } } }
+    }
+    if (b.t > 2.6 || b.y < -6) g.shards.splice(g.shards.indexOf(b), 1);
+  }
 }
 
 // ---------------------------------------------------------------- Un paso del juego
@@ -1050,13 +1159,19 @@ export function step(g: Game, input: Input, dt: number) {
 
   updateSpecial(g, dt);
   // El golpe de la espada (o la ola de la espada de fuego): todo lo que está adelante del cazador.
-  if (p.attackT >= 0.04 && p.attackT <= 0.22 && (p.attackWeapon === 'sword' || p.attackWeapon === 'firesword')) {
-    const fire = p.attackWeapon === 'firesword', reach = fire ? FIRE_REACH : SWORD_REACH, hgt = fire ? FIRE_H : SWORD_H;
-    const x1 = p.face > 0 ? p.x - 0.3 : p.x - reach, x2 = p.face > 0 ? p.x + reach : p.x + 0.3, ya = p.y - (fire ? 1.2 : 0.2), yb = ya + hgt;
+  const melee = MELEE[p.attackWeapon];
+  if (p.attackT >= 0.04 && p.attackT <= 0.22 && melee) {
+    const fire = p.attackWeapon === 'firesword', [reach, hgt, low, how] = melee;
+    const x1 = p.face > 0 ? p.x - 0.3 : p.x - reach, x2 = p.face > 0 ? p.x + reach : p.x + 0.3, ya = p.y - low, yb = ya + hgt;
     for (const v of [...g.vamps]) {
       if (p.hitIds.has(v.id)) continue;
       const [bx1, bx2, vy1, vy2] = vampBox(v);
-      if (bx2 > x1 && bx1 < x2 && vy2 > ya && vy1 < yb) { p.hitIds.add(v.id); g.stats.hits++; hitVamp(g, v, WEAPON_DMG[p.attackWeapon], fire ? 'fire' : 'sword', p.x); }
+      if (bx2 > x1 && bx1 < x2 && vy2 > ya && vy1 < yb) {
+        p.hitIds.add(v.id); g.stats.hits++;
+        if (p.attackWeapon === 'violet') { g.fx.push({ kind: 'nova', x: v.x, y: (vy1 + vy2) / 2, t: 0, life: 0.45, r: 1.3, face: 1, seed: g.rand() }); emit(g, { type: 'nova' }); }
+        if (p.attackWeapon === 'bone') g.shake = Math.max(g.shake, 0.5);
+        hitVamp(g, v, WEAPON_DMG[p.attackWeapon], how, p.x);
+      }
     }
     for (const o of [...g.objects]) if (!p.hitIds.has(o.id) && o.x + 0.6 > x1 && o.x - 0.6 < x2 && o.y + 2 > ya && o.y < yb) { p.hitIds.add(o.id); hitObject(g, o, WEAPON_DMG[p.attackWeapon]); }
     // también corta las bolas de fuego y los murciélagos (la de fuego, también el fuego del dragón)
@@ -1096,6 +1211,20 @@ export function step(g: Game, input: Input, dt: number) {
       if (v) { g.stats.hits++; hitVamp(g, v, WEAPON_DMG.pistol, 'bullet', b.x - b.vx); }
     }
   }
+  // El rayo de hielo y las bolas verdes: le pegan al primer vampiro que tocan
+  for (const o of [...g.orbs]) {
+    o.t += dt; if (o.kind === 'venom') o.vy -= 18 * dt;
+    const prev = o.y; o.x += o.vx * dt; o.y += o.vy * dt;
+    const ob = g.objects.find(q => Math.abs(q.x - o.x) < 0.6 && o.y > q.y && o.y < q.y + 2);
+    const v = ob ? undefined : hitBy(o.x, o.y, 0.2);
+    const done = o.t > 2.5 || o.x < -1 || o.x > W + 1 || o.y < -2 || o.y > H + 2 || (o.vy < 0 && !!surfaceUnder(o.x, 0.05, prev, o.y, false));
+    if (!ob && !v && !done) continue;
+    g.orbs.splice(g.orbs.indexOf(o), 1);
+    g.fx.push({ kind: o.kind === 'ice' ? 'frost' : 'splat', x: o.x, y: o.y, t: 0, life: 0.45, r: v ? 1.2 : 0.7, face: 1, seed: g.rand() });
+    for (let i = 0; i < 12; i++) { const a = g.rand() * Math.PI * 2, sp = 2 + g.rand() * 6; g.sparks.push({ x: o.x, y: o.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 1, t: 0, life: 0.4, hue: o.kind === 'ice' ? 195 : 100 }); }
+    if (ob) hitObject(g, ob, 3);
+    else if (v && !shield(v, o.vx, o.y)) armorHit(g, v, o.kind, o.x - o.vx);
+  }
   // Las bombas de ajo: vuelan, rebotan una vez y explotan; la onda le saca 5 a todos los que están a 3 metros
   for (const b of [...g.bombs]) {
     b.t += dt; b.a += dt * 8 * Math.sign(b.vx || 1);
@@ -1124,6 +1253,8 @@ export function step(g: Game, input: Input, dt: number) {
 
   // Vampiros
   for (const v of [...g.vamps]) {
+    if (v.chill) v.chill = Math.max(0, v.chill - dt);
+    if (v.frozen) { v.frozen -= dt; if (v.frozen <= 0) { v.frozen = 0; kill(g, v, 'ice'); } continue; } // quieto como una estatua de hielo hasta que se rompe
     if (v.kind === 'flyer') updateFlyer(g, v, dt); else if (v.kind === 'dragon') updateDragon(g, v, dt); else updateWalker(g, v, dt);
     if (!g.vamps.includes(v) || isBoss(v.kind)) continue; // a Drácula y al dragón no les hacen nada las trampas
     const [, , y1, y2] = vampBox(v);
@@ -1144,7 +1275,7 @@ export function step(g: Game, input: Input, dt: number) {
     if (t.kind === 'spikes' && st.on > 0 && prevSt.on === 0) emit(g, { type: 'spikes' });
     if (t.kind === 'fire' && st.on > 0 && prevSt.on === 0) emit(g, { type: 'fire' });
     if (t.kind === 'pendulum' && Math.sign(st.a) !== Math.sign(prevSt.a)) emit(g, { type: 'swing' });
-    if (trapHits(t, g.time, p.x - 0.32, p.x + 0.32, p.y, p.y + PLAYER_H)) hurt(g, t.kind === 'pendulum' ? st.tipX - (st.a > prevSt.a ? 1 : -1) : t.x, TRAP_DMG); // el péndulo empuja para donde va
+    if (trapHits(t, g.time, p.x - 0.32, p.x + 0.32, p.y, p.y + PLAYER_H)) hurt(g, t.kind === 'pendulum' ? st.tipX - (st.a > prevSt.a ? 1 : -1) : t.x, TRAP_DMG, false); // el péndulo empuja para donde va
   }
   updateShots(g, dt);
   for (const q of [...g.pops]) { q.t += dt; q.y += dt * 1.4; if (q.t > 1) g.pops.splice(g.pops.indexOf(q), 1); }

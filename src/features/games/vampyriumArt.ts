@@ -4,8 +4,8 @@
 import { bodyFire, drawHunterK, drawSkeletonK, sword } from './vampyriumChars';
 import { drawShotK, drawVampK } from './vampyriumMonsters';
 import { setVampTexture } from './vampyriumVamps';
-import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyrium';
-import { drawBolt, drawGarlicBomb, drawWeaponIcon } from './vampyriumWeapons';
+import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Orb, type Shard, MELT_T, PUDDLE_T, DUST_T, FREEZE_T, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyrium';
+import { drawBolt, drawGarlicBomb, drawIceCrystal, drawVenomBall, drawWeaponIcon } from './vampyriumWeapons';
 
 const TAU = Math.PI * 2;
 const INK = '#07060a';
@@ -94,6 +94,7 @@ export function drawCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t:
     ctx.restore();
     return;
   }
+  if (c.how === 'ice' || c.how === 'venom' || c.how === 'holy' || c.how === 'violet') { armorCorpse(ctx, c, v, t, k, fake); return; }
   ctx.save(); ctx.translate(X(v, c.x) + Math.sin(c.t * 90) * (0.4 + burn) * v.s * 0.05, Y(v, c.y) + (fly ? -v.s * 0.6 : 0)); ctx.scale(k * c.face, k);
   if (f < 1 || dragon) {
     ctx.save(); ctx.globalAlpha = dragon ? Math.max(0, 1 - burn) : 1 - f;
@@ -113,6 +114,29 @@ export function drawCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t:
       ctx.strokeText('¡AAARGH!', 0, -2.55); ctx.fillText('¡AAARGH!', 0, -2.55); ctx.restore();
     }
   }
+  ctx.restore();
+}
+// Los que mató una armadura: congelado (un instante antes de romperse), derritiéndose en verde, haciéndose luz o
+// a punto de explotar en violeta.
+function armorCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t: number, k: number, fake: Vamp) {
+  const B = BODY[c.kind], x = X(v, c.x), y = Y(v, c.y) + (c.kind === 'flyer' ? -v.s * 0.6 : 0), w = v.s * (B.w + 1.4), h = v.s * (B.h + 1.4);
+  const body = (sy = 1, sx = 1) => (cc: CanvasRenderingContext2D) => { cc.save(); cc.translate(x, y); cc.scale(k * c.face * sx, k * sy); drawVampK(cc, fake, t); cc.restore(); };
+  if (c.how === 'ice') { tinted(ctx, x - w / 2, y - h, w, h + v.s * 0.4, 'rgb(170,225,255)', 0.7, body()); return; }
+  if (c.how === 'violet') { tinted(ctx, x - w / 2, y - h, w, h + v.s * 0.4, 'rgb(200,110,255)', 0.4 + c.t * 3, body()); ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, y - v.s * B.h * 0.5, v.s * 1.6, 'rgba(200,100,255,0.7)'); ctx.restore(); return; }
+  if (c.how === 'holy') { // se pone blanco dorado y se deshace hacia arriba
+    const q = Math.min(1, c.t / DUST_T);
+    ctx.save(); ctx.globalAlpha = 1 - q; tinted(ctx, x - w / 2, y - h, w, h + v.s * 0.4, 'rgb(255,236,170)', 0.85, body(1 + q * 0.15, 1 - q * 0.3)); ctx.restore();
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, y - v.s * B.h * 0.5, v.s * (1.2 + q), `rgba(255,230,140,${0.8 * (1 - q)})`); ctx.restore(); return;
+  }
+  // verde: se pone verde, se aplasta y se ensancha hasta quedar en un charco que burbujea y se seca
+  const q = Math.min(1, c.t / MELT_T), e = q * q, gone = c.t > MELT_T ? Math.min(1, (c.t - MELT_T) / (PUDDLE_T - MELT_T)) : 0;
+  if (q < 1) tinted(ctx, x - w, y - h, w * 2, h + v.s * 0.4, 'rgb(120,240,60)', Math.min(0.85, 0.3 + c.t * 2), body(1 - e * 0.92, 1 + e * 0.9));
+  const pw = v.s * (B.w * 0.4 + 1.3 * q), ph = v.s * 0.14 * q;
+  ctx.save(); ctx.globalAlpha = 1 - gone;
+  ctx.fillStyle = lin(ctx, 0, y - ph, 0, y + ph, [[0, '#c8ff70'], [0.5, '#5ad21e'], [1, '#1f6a0a']]); ctx.beginPath(); ctx.ellipse(x, y, pw, ph + 1, 0, 0, TAU); ctx.fill();
+  ctx.strokeStyle = 'rgba(10,40,4,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
+  for (let i = 0; i < 4; i++) { const bt = (t * 1.3 + i * 0.27 + hash(c.id + i)) % 1, bx = x + (hash(c.id * 2 + i) - 0.5) * pw * 1.4; ctx.fillStyle = `rgba(220,255,160,${(1 - bt) * 0.9})`; ctx.beginPath(); ctx.arc(bx, y - ph * 0.3 - bt * v.s * 0.3, v.s * 0.05 * (0.5 + bt), 0, TAU); ctx.fill(); }
+  ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, y, pw * 1.2, 'rgba(120,255,60,0.35)');
   ctx.restore();
 }
 export function drawBlood(ctx: CanvasRenderingContext2D, g: Game, v: View) {
@@ -139,23 +163,91 @@ export function setBackdrop(url: string, onLoad?: () => void) {
   if (typeof Image === 'undefined') return;
   if (backdrop && backdrop.src.endsWith(url)) return;
   backdrop = new Image(); backdropReady = false;
-  backdrop.onload = () => { backdropReady = true; staticCache = null; onLoad?.(); };
+  backdrop.onload = () => { backdropReady = true; TINT = tintOf(backdrop!); staticCache = null; onLoad?.(); };
   backdrop.src = url;
 }
 let staticCache: { key: string; canvas: HTMLCanvasElement } | null = null;
 
-function stoneBlocks(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, bw: number, bh: number, seed: number, base = [44, 40, 48]) {
+// El color promedio de la parte de abajo del fondo pintado: con eso se tiñe la piedra para que combine con él.
+let TINT: [number, number, number] | null = null;
+function tintOf(img: HTMLImageElement): [number, number, number] | null {
+  try {
+    const c = document.createElement('canvas'); c.width = 12; c.height = 8; const x = c.getContext('2d', { willReadFrequently: true }); if (!x) return null;
+    x.drawImage(img, 0, img.naturalHeight * 0.35, img.naturalWidth, img.naturalHeight * 0.4, 0, 0, 12, 8);
+    const d = x.getImageData(0, 0, 12, 8).data; let r = 0, g = 0, b = 0;
+    for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
+    const n = d.length / 4; return [r / n, g / n, b / n];
+  } catch { return null; }
+}
+// Grano de piedra: un ruido con manchas (se arma una sola vez) que se aplica encima con 'overlay'.
+let GRAIN: CanvasPattern | null | undefined;
+function grain(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, a = 0.5) {
+  if (GRAIN === undefined) {
+    GRAIN = null;
+    try {
+      const c = document.createElement('canvas'); c.width = c.height = 160; const g = c.getContext('2d');
+      if (g) {
+        g.fillStyle = '#808080'; g.fillRect(0, 0, 160, 160);
+        for (let i = 0; i < 2600; i++) { const v = Math.floor(60 + hash(i * 1.7) * 140); g.fillStyle = `rgba(${v},${v},${v},${0.25 + hash(i * 3.1) * 0.5})`; g.fillRect(hash(i) * 160, hash(i * 2.3) * 160, 1 + hash(i * 5.3) * 3, 1 + hash(i * 7.1) * 2); }
+        for (let i = 0; i < 40; i++) { const v = hash(i * 9.1) > 0.5 ? 50 : 200; g.fillStyle = `rgba(${v},${v},${v},0.18)`; g.beginPath(); g.ellipse(hash(i * 4.4) * 160, hash(i * 6.6) * 160, 6 + hash(i) * 18, 3 + hash(i * 2) * 8, hash(i * 8) * 3, 0, TAU); g.fill(); }
+        GRAIN = ctx.createPattern(c, 'repeat');
+      }
+    } catch { GRAIN = null; }
+  }
+  if (!GRAIN) return;
+  ctx.save(); ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = a; ctx.fillStyle = GRAIN; ctx.fillRect(x, y, w, h); ctx.restore();
+}
+const rgb = (c: number[], k = 1, a = 1) => `rgba(${Math.round(Math.max(0, Math.min(255, c[0] * k)))},${Math.round(Math.max(0, Math.min(255, c[1] * k)))},${Math.round(Math.max(0, Math.min(255, c[2] * k)))},${a})`;
+// El musgo, el limo o la hiedra de algunos niveles (cloacas, jardín, cementerio).
+const MOSS: Record<number, [number, number, number]> = { 2: [92, 140, 52], 6: [120, 108, 80], 8: [70, 112, 56], 9: [86, 104, 70] };
+// Bloques de piedra pintados a mano: cada uno con su tono, luz arriba a la izquierda, sombra abajo, bisel, motas,
+// alguna grieta o pedazo saltado, musgo en los niveles húmedos; más oscuros cuanto más abajo (y teñidos como el fondo).
+function stoneBlocks(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, bw: number, bh: number, seed: number, base = [44, 40, 48], o: { moss?: boolean; deep?: number } = {}) {
   ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  ctx.fillStyle = rgb(base, 0.35); ctx.fillRect(x, y, w, h); // la mezcla entre las piedras
+  const m = Math.max(1, Math.min(bw, bh) * 0.07), deep = o.deep ?? bh * 7, moss = MOSS[LV.def.n];
   for (let r = 0; r * bh < h; r++) {
-    const off = (r % 2) * bw * 0.5;
-    for (let c = -1; c * bw < w; c++) {
-      const bx = x + c * bw + off, by = y + r * bh, n = hash(seed + r * 31 + c * 7), d = (n - 0.5) * 16;
-      ctx.fillStyle = `rgb(${base[0] + d},${base[1] + d},${base[2] + d})`; ctx.fillRect(bx + 1, by + 1, bw - 2, bh - 2);
-      ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(bx + 1, by + 1, bw - 2, Math.max(1, bh * 0.15));
-      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(bx + 1, by + bh - 1 - Math.max(1, bh * 0.15), bw - 2, Math.max(1, bh * 0.15));
-      if (n > 0.86) { ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx + bw * 0.3, by + 2); ctx.lineTo(bx + bw * 0.45, by + bh * 0.6); ctx.lineTo(bx + bw * 0.35, by + bh - 2); ctx.stroke(); }
+    const off = (r % 2) * bw * 0.5 + hash(seed + r) * bw * 0.2;
+    for (let c = -1; c * bw < w + bw; c++) {
+      const bx = x + c * bw + off - bw * 0.2, by = y + r * bh, n = hash(seed + r * 31 + c * 7), n2 = hash(seed * 1.3 + r * 17 + c * 11), d = (n - 0.5) * 18;
+      const dark = 1 - Math.min(0.6, (by - y) / deep * 0.6), cw = bw * (0.82 + n2 * 0.3), col = base.map(q => (q + d) * dark);
+      const x0 = bx + m / 2, y0 = by + m / 2, ww = cw - m, hh = bh - m;
+      ctx.fillStyle = lin(ctx, x0, y0, x0 + ww * 0.3, y0 + hh, [[0, rgb(col, 1.28)], [0.45, rgb(col, 1)], [1, rgb(col, 0.72)]]);
+      ctx.beginPath(); ctx.roundRect(x0, y0, ww, hh, Math.min(ww, hh) * (0.1 + n * 0.12)); ctx.fill();
+      // bisel: luz cálida arriba e izquierda, sombra abajo y a la derecha
+      ctx.lineWidth = Math.max(1, m * 0.6);
+      ctx.strokeStyle = `rgba(255,226,190,${0.1 + dark * 0.12})`; ctx.beginPath(); ctx.moveTo(x0 + 2, y0 + hh * 0.85); ctx.lineTo(x0 + 1, y0 + 1); ctx.lineTo(x0 + ww - 2, y0 + 1); ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.moveTo(x0 + 3, y0 + hh - 1); ctx.lineTo(x0 + ww - 1, y0 + hh - 1); ctx.lineTo(x0 + ww - 1, y0 + 3); ctx.stroke();
+      // motas y poros de la piedra
+      for (let k = 0; k < 5; k++) { const px = x0 + ww * hash(n * 91 + k), py = y0 + hh * hash(n2 * 53 + k * 3); ctx.fillStyle = k % 2 ? 'rgba(0,0,0,0.22)' : 'rgba(255,240,220,0.08)'; ctx.fillRect(px, py, Math.max(1, m * 0.7), Math.max(1, m * 0.7)); }
+      if (n > 0.84) { ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = Math.max(1, m * 0.5); ctx.beginPath(); ctx.moveTo(x0 + ww * 0.3, y0 + 1); ctx.lineTo(x0 + ww * 0.45, y0 + hh * 0.5); ctx.lineTo(x0 + ww * 0.38, y0 + hh * 0.75); ctx.lineTo(x0 + ww * 0.5, y0 + hh - 1); ctx.stroke(); }
+      if (n2 > 0.82) { ctx.fillStyle = rgb(col, 0.45); ctx.beginPath(); ctx.moveTo(x0 + ww, y0); ctx.lineTo(x0 + ww - bh * 0.35, y0); ctx.lineTo(x0 + ww, y0 + bh * 0.3); ctx.closePath(); ctx.fill(); } // pedazo saltado
+      if (o.moss && moss && n2 < 0.3 && r < 3) { ctx.fillStyle = rgb(moss, dark, 0.55); ctx.beginPath(); ctx.ellipse(x0 + ww * (0.2 + n * 0.6), y0 + 1, ww * (0.18 + n2 * 0.3), hh * 0.22, 0, 0, Math.PI); ctx.fill(); }
     }
   }
+  grain(ctx, x, y, w, h, 0.55);
+  // teñida con el color del fondo y con la luz de la luna que baja de arriba
+  if (TINT) { ctx.globalCompositeOperation = 'color'; ctx.globalAlpha = 0.28; ctx.fillStyle = rgb(TINT, 1.2); ctx.fillRect(x, y, w, h); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; }
+  ctx.restore();
+}
+// La fila de piedras grandes del borde de arriba (del suelo y de las losas): talladas, con la arista iluminada.
+function capStones(ctx: CanvasRenderingContext2D, x1: number, x2: number, top: number, hgt: number, s: number, seed: number) {
+  const cap = LV.def.cap, base = [parseInt(cap.slice(1, 3), 16), parseInt(cap.slice(3, 5), 16), parseInt(cap.slice(5, 7), 16)], moss = MOSS[LV.def.n];
+  ctx.save(); ctx.beginPath(); ctx.rect(x1, top - hgt, x2 - x1, hgt * 2.2); ctx.clip();
+  ctx.fillStyle = rgb(base, 0.25); ctx.fillRect(x1, top, x2 - x1, hgt);
+  const sw = s * 1.35, gap = Math.max(1, s * 0.05);
+  for (let i = -1, bx = x1 - hash(seed) * sw; bx < x2; i++) {
+    const n = hash(seed + i * 13), w = sw * (0.75 + n * 0.5), col = base.map(q => q * (0.85 + n * 0.3));
+    ctx.fillStyle = lin(ctx, 0, top, 0, top + hgt, [[0, rgb(col, 1.08)], [0.3, rgb(col, 0.86)], [1, rgb(col, 0.48)]]);
+    ctx.beginPath(); ctx.roundRect(bx + gap / 2, top, w - gap, hgt, [s * 0.1, s * 0.1, s * 0.04, s * 0.04]); ctx.fill();
+    ctx.fillStyle = 'rgba(255,214,160,0.22)'; ctx.fillRect(bx + gap / 2 + s * 0.05, top + 1, w - gap - s * 0.1, Math.max(1, s * 0.05)); // la arista con la luz de las antorchas
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(bx + w - gap / 2 - Math.max(1, s * 0.05), top + s * 0.05, Math.max(1, s * 0.05), hgt);
+    if (n > 0.7) { ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = Math.max(1, s * 0.03); ctx.beginPath(); ctx.moveTo(bx + w * 0.6, top + 1); ctx.lineTo(bx + w * 0.66, top + hgt * 0.6); ctx.stroke(); }
+    if (moss && n < 0.45) { ctx.fillStyle = rgb(moss, 1, 0.7); ctx.beginPath(); ctx.ellipse(bx + w * (0.3 + n), top + s * 0.02, w * 0.22, s * 0.07, 0, Math.PI, 0); ctx.fill(); for (let k = 0; k < 3; k++) { ctx.fillRect(bx + w * (0.2 + n + k * 0.08), top, Math.max(1, s * 0.03), s * (0.12 + hash(i + k) * 0.25)); } } // musgo que cuelga
+    bx += w;
+  }
+  grain(ctx, x1, top, x2 - x1, hgt, 0.6);
+  if (TINT) { ctx.globalCompositeOperation = 'color'; ctx.globalAlpha = 0.22; ctx.fillStyle = rgb(TINT, 1.2); ctx.fillRect(x1, top, x2 - x1, hgt); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; }
   ctx.restore();
 }
 function paintStatic(ctx: CanvasRenderingContext2D, v: View) {
@@ -183,37 +275,58 @@ function paintStatic(ctx: CanvasRenderingContext2D, v: View) {
   const gTop = Y(v, GROUND_Y), bw = v.s * 1.1, bh = v.s * 0.55;
   for (const s of SURFACES.filter(q => q.ground)) {
     const x1 = s.x1 <= 0 ? 0 : X(v, s.x1), x2 = s.x2 >= W ? v.w : X(v, s.x2);
-    stoneBlocks(ctx, x1, gTop, x2 - x1, v.h - gTop, bw, bh, s.x1 * 13 + LV.def.n * 7, LV.def.stone);
-    // borde de arriba: piedras grandes con luz de las antorchas
-    ctx.fillStyle = lin(ctx, 0, gTop - v.s * 0.12, 0, gTop + v.s * 0.35, [[0, LV.def.cap], [0.3, '#5a4a48'], [1, '#2a2430']]); ctx.fillRect(x1, gTop - v.s * 0.08, x2 - x1, v.s * 0.4);
-    ctx.fillStyle = 'rgba(255,170,90,0.18)'; ctx.fillRect(x1, gTop - v.s * 0.08, x2 - x1, v.s * 0.06);
-    ctx.strokeStyle = INK; ctx.lineWidth = Math.max(2, v.s * 0.06); ctx.strokeRect(x1, gTop - v.s * 0.08, x2 - x1, v.h);
-    // arcos de puente debajo
+    stoneBlocks(ctx, x1, gTop, x2 - x1, v.h - gTop, bw, bh, s.x1 * 13 + LV.def.n * 7, LV.def.stone, { moss: true, deep: v.h - gTop });
+    // arcos de puente debajo: el hueco oscuro con las dovelas alrededor
     if (s.x2 - s.x1 > 5) for (let ax = s.x1 + 1.6; ax < s.x2 - 1.2; ax += 3.2) {
-      const cx = X(v, ax + 0.8), top = gTop + v.s * 0.9, r = v.s * 0.75;
-      ctx.fillStyle = 'rgba(4,4,10,0.75)'; ctx.beginPath(); ctx.moveTo(cx - r, v.h); ctx.lineTo(cx - r, top + r); ctx.arc(cx, top + r, r, Math.PI, 0); ctx.lineTo(cx + r, v.h); ctx.closePath(); ctx.fill();
+      const cx = X(v, ax + 0.8), top = gTop + v.s * 0.95, r = v.s * 0.72;
+      const hole = () => { ctx.beginPath(); ctx.moveTo(cx - r, v.h); ctx.lineTo(cx - r, top + r); ctx.arc(cx, top + r, r, Math.PI, 0); ctx.lineTo(cx + r, v.h); ctx.closePath(); };
+      for (let k = 0; k <= 8; k++) { const a = Math.PI + k * Math.PI / 8, a2 = a + Math.PI / 8 * 0.92, R = r + v.s * 0.26; ctx.beginPath(); ctx.arc(cx, top + r, R, a - 0.03, Math.min(a2, TAU)); ctx.arc(cx, top + r, r, Math.min(a2, TAU), a - 0.03, true); ctx.closePath(); ctx.fillStyle = rgb(LV.def.stone, 1.3 - hash(k + ax) * 0.25); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1; ctx.stroke(); }
+      hole(); ctx.fillStyle = lin(ctx, 0, top, 0, v.h, [[0, 'rgba(14,10,22,0.92)'], [1, 'rgba(2,2,6,0.98)']]); ctx.fill();
+      ctx.save(); hole(); ctx.clip(); glow(ctx, cx, top + r * 0.4, r * 1.2, TINT ? rgb(TINT, 0.6, 0.35) : 'rgba(60,70,120,0.3)'); ctx.restore(); // un poco de luz del otro lado
     }
+    capStones(ctx, x1, x2, gTop - v.s * 0.08, v.s * 0.4, v.s, s.x1 * 7 + LV.def.n);
+    ctx.strokeStyle = INK; ctx.lineWidth = Math.max(2, v.s * 0.06); ctx.strokeRect(x1, gTop - v.s * 0.08, x2 - x1, v.h);
   }
+  // niebla baja del color del fondo, para que el piso se funda con la pintura
+  ctx.fillStyle = lin(ctx, 0, gTop, 0, v.h, [[0, rgb(TINT ?? [30, 26, 46], 0.5, 0)], [0.5, rgb(TINT ?? [30, 26, 46], 0.45, 0.25)], [1, rgb(TINT ?? [30, 26, 46], 0.2, 0.6)]]); ctx.fillRect(0, gTop, v.w, v.h - gTop);
   for (const q of SURFACES) if (!q.ground && !q.mv) drawPlatform(ctx, v, q); // (las que se mueven, en cada cuadro)
   // la puerta: arco gótico de piedra
   const dx1 = X(v, DOOR.x1 - 0.35), dx2 = Math.max(X(v, DOOR.x2 + 0.35), v.w), dTop = Y(v, DOOR.y + DOOR.h + 0.9);
   stoneBlocks(ctx, dx1, dTop, dx2 - dx1, gTop - dTop, v.s * 0.7, v.s * 0.45, 99, [58, 52, 60]);
   ctx.strokeStyle = INK; ctx.lineWidth = Math.max(2, v.s * 0.06); ctx.strokeRect(dx1, dTop, dx2 - dx1, gTop - dTop);
 }
-// Plataforma: losa de piedra colgada con cadenas.
-function drawPlatform(ctx: CanvasRenderingContext2D, v: View, s: Surface) {
-  const x1 = X(v, s.x1), x2 = X(v, s.x2), y = Y(v, s.y), th = v.s * 0.6;
-  for (const cx of [s.x1 + 0.4, s.x2 - 0.4]) { // cadenas hacia arriba (hasta el techo)
-    ctx.strokeStyle = '#2b2a33'; ctx.lineWidth = Math.max(1.5, v.s * 0.07);
-    for (let cy = y; cy > 0; cy -= v.s * 0.32) { ctx.beginPath(); ctx.ellipse(X(v, cx), cy - v.s * 0.16, v.s * 0.07, v.s * 0.14, 0, 0, TAU); ctx.stroke(); }
+// Una cadena de hierro con eslabones de metal (alternados de frente y de canto) y su brillo.
+function ironChain(ctx: CanvasRenderingContext2D, v: View, x: number, yTop: number, yBot: number) {
+  const s = v.s, step = s * 0.3;
+  for (let cy = yBot, i = 0; cy > yTop; cy -= step, i++) {
+    if (i % 2) { ctx.fillStyle = '#17161c'; ctx.fillRect(x - s * 0.025, cy - s * 0.3, s * 0.05, s * 0.3); ctx.fillStyle = 'rgba(200,205,220,0.35)'; ctx.fillRect(x - s * 0.01, cy - s * 0.27, Math.max(1, s * 0.015), s * 0.22); continue; }
+    ctx.lineWidth = Math.max(1.5, s * 0.075); ctx.strokeStyle = '#15141a'; ctx.beginPath(); ctx.ellipse(x, cy - s * 0.16, s * 0.075, s * 0.15, 0, 0, TAU); ctx.stroke();
+    ctx.lineWidth = Math.max(1, s * 0.035); ctx.strokeStyle = '#5c5e6c'; ctx.stroke();
+    ctx.strokeStyle = 'rgba(230,235,250,0.5)'; ctx.lineWidth = Math.max(1, s * 0.02); ctx.beginPath(); ctx.ellipse(x, cy - s * 0.16, s * 0.075, s * 0.15, 0, Math.PI * 0.9, Math.PI * 1.35); ctx.stroke();
   }
-  const st = LV.def.stone;
-  stoneBlocks(ctx, x1, y, x2 - x1, th, v.s * 0.9, th / 2, (s.bx1 ?? s.x1) * 17 + (s.by ?? s.y), [st[0] + 22, st[1] + 18, st[2] + 14]);
-  ctx.fillStyle = lin(ctx, 0, y - v.s * 0.1, 0, y + v.s * 0.18, [[0, LV.def.cap], [0.5, '#6a5650'], [1, '#3a3036']]); ctx.fillRect(x1, y - v.s * 0.08, x2 - x1, v.s * 0.2);
-  ctx.strokeStyle = INK; ctx.lineWidth = Math.max(2, v.s * 0.06); ctx.strokeRect(x1, y - v.s * 0.08, x2 - x1, th + v.s * 0.08);
-  ctx.fillStyle = '#26242c';
-  for (const bx of [x1 + v.s * 0.3, x2 - v.s * 0.3]) { ctx.beginPath(); ctx.moveTo(bx - v.s * 0.2, y + th); ctx.lineTo(bx + v.s * 0.2, y + th); ctx.lineTo(bx, y + th + v.s * 0.45); ctx.closePath(); ctx.fill(); }
-  if (s.mv) { ctx.fillStyle = 'rgba(255,220,140,0.35)'; for (const bx of [x1 + v.s * 0.4, x2 - v.s * 0.4]) { ctx.beginPath(); ctx.arc(bx, y + th * 0.5, v.s * 0.08, 0, TAU); ctx.fill(); } } // engranajes de las que se mueven
+}
+// Plataforma: losa de piedra tallada colgada con cadenas, con ménsulas debajo y argollas de hierro.
+function drawPlatform(ctx: CanvasRenderingContext2D, v: View, s: Surface) {
+  const x1 = X(v, s.x1), x2 = X(v, s.x2), y = Y(v, s.y), th = v.s * 0.6, sz = v.s, st = LV.def.stone;
+  for (const cx of [s.x1 + 0.4, s.x2 - 0.4]) ironChain(ctx, v, X(v, cx), 0, y - v.s * 0.06); // cadenas hacia arriba (hasta el techo)
+  // sombra que tira la losa sobre el fondo
+  ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.roundRect(x1 + sz * 0.15, y + th * 0.4, x2 - x1, th * 0.9, sz * 0.2); ctx.fill();
+  // ménsulas de piedra escalonadas debajo de cada punta
+  for (const [bx, d] of [[x1 + sz * 0.15, 1], [x2 - sz * 0.15, -1]] as const) for (let k = 0; k < 3; k++) {
+    const w = sz * (0.55 - k * 0.14), yy = y + th + k * sz * 0.16;
+    ctx.fillStyle = lin(ctx, 0, yy, 0, yy + sz * 0.16, [[0, rgb(st, 1.5 - k * 0.15)], [1, rgb(st, 0.8 - k * 0.1)]]); ctx.fillRect(d > 0 ? bx : bx - w, yy, w, sz * 0.16);
+    ctx.strokeStyle = INK; ctx.lineWidth = Math.max(1, sz * 0.03); ctx.strokeRect(d > 0 ? bx : bx - w, yy, w, sz * 0.16);
+  }
+  stoneBlocks(ctx, x1, y, x2 - x1, th, v.s * 0.9, th / 2, (s.bx1 ?? s.x1) * 17 + (s.by ?? s.y), [st[0] + 22, st[1] + 18, st[2] + 14], { moss: true, deep: th * 2.2 });
+  capStones(ctx, x1, x2, y - v.s * 0.1, v.s * 0.24, v.s, (s.bx1 ?? s.x1) * 5 + (s.by ?? s.y));
+  ctx.strokeStyle = INK; ctx.lineWidth = Math.max(2, v.s * 0.06); ctx.strokeRect(x1, y - v.s * 0.1, x2 - x1, th + v.s * 0.1);
+  // manchas de humedad que chorrean por el frente de la losa
+  for (let i = 0; i < Math.floor((x2 - x1) / sz); i++) { const n = hash((s.bx1 ?? s.x1) * 3 + i), px = x1 + (i + 0.3 + n * 0.4) * sz; if (n < 0.45) continue; ctx.fillStyle = lin(ctx, 0, y, 0, y + th, [[0, 'rgba(0,0,0,0.35)'], [1, 'rgba(0,0,0,0)']]); ctx.fillRect(px, y + sz * 0.06, sz * (0.08 + n * 0.1), th * (0.6 + n * 0.5)); }
+  // argollas de hierro donde se enganchan las cadenas
+  for (const cx of [s.x1 + 0.4, s.x2 - 0.4]) { const px = X(v, cx); ctx.fillStyle = lin(ctx, px - sz * 0.14, 0, px + sz * 0.14, 0, [[0, '#2a2a32'], [0.5, '#8a8d9a'], [1, '#26262e']]); ctx.beginPath(); ctx.roundRect(px - sz * 0.14, y - sz * 0.14, sz * 0.28, sz * 0.1, sz * 0.03); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = Math.max(1, sz * 0.03); ctx.stroke(); }
+  if (s.mv) { // engranaje de bronce de las que se mueven
+    for (const bx of [x1 + v.s * 0.45, x2 - v.s * 0.45]) { const cy = y + th * 0.5, r = v.s * 0.13; ctx.fillStyle = '#b07a2a'; ctx.beginPath(); for (let i = 0; i < 16; i++) { const a = i * TAU / 16, rr = i % 2 ? r : r * 1.3; ctx.lineTo(bx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } ctx.closePath(); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = '#3a2610'; ctx.beginPath(); ctx.arc(bx, cy, r * 0.4, 0, TAU); ctx.fill(); }
+  }
 }
 // Los pozos de líquido (ácido, lava, sangre o fuego), con olas, burbujas y resplandor.
 const PIT_COLORS: Record<string, [string, string, string]> = { acid: ['#b8ff5a', '#2fa52f', '#0a3a12'], lava: ['#ffd36b', '#ff6a14', '#5a1205'], blood: ['#ff6b6b', '#b0101c', '#3a0206'], fire: ['#fff1a8', '#ff7a1a', '#4a0a02'] };
@@ -487,7 +600,7 @@ function drawCrate(ctx: CanvasRenderingContext2D, c: Crate, v: View, t: number) 
     for (let i = 0; i < 4; i++) { ctx.fillStyle = i % 2 ? '#e9e2d0' : '#b3121b'; ctx.beginPath(); ctx.moveTo(0, cy - s * 0.75); ctx.arc(0, cy, s * 1.0, Math.PI + i * Math.PI / 4, Math.PI + (i + 1) * Math.PI / 4); ctx.closePath(); ctx.fill(); }
     ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, cy, s * 1.0, Math.PI, TAU); ctx.closePath(); ctx.stroke();
   }
-  if (c.landed) glow(ctx, 0, -sz / 2, s * 1.3, c.kind === 'heart' ? 'rgba(255,70,90,0.35)' : c.kind === 'garlic' ? 'rgba(220,255,220,0.35)' : c.kind === 'fire' || c.kind === 'bullets' ? 'rgba(255,120,40,0.4)' : 'rgba(255,210,120,0.35)', 0.6 + 0.4 * Math.sin(t * 5));
+  if (c.landed) glow(ctx, 0, -sz / 2, s * 1.3, c.kind === 'heart' ? 'rgba(255,70,90,0.35)' : c.kind === 'garlic' ? 'rgba(220,255,220,0.35)' : c.kind === 'armor' ? 'rgba(200,170,255,0.45)' : c.kind === 'fire' || c.kind === 'bullets' ? 'rgba(255,120,40,0.4)' : 'rgba(255,210,120,0.35)', 0.6 + 0.4 * Math.sin(t * 5));
   ctx.fillStyle = lin(ctx, -sz / 2, 0, sz / 2, 0, [[0, '#7a4a24'], [0.5, '#a8703c'], [1, '#6b3f1d']]); ctx.fillRect(-sz / 2, -sz, sz, sz);
   ctx.strokeStyle = '#4a2c14'; ctx.lineWidth = Math.max(1, s * 0.04); for (let i = 1; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-sz / 2, -sz + sz * i / 3); ctx.lineTo(sz / 2, -sz + sz * i / 3); ctx.stroke(); }
   ctx.strokeStyle = '#5a3818'; ctx.lineWidth = Math.max(2, s * 0.09); ctx.beginPath(); ctx.moveTo(-sz / 2, -sz); ctx.lineTo(sz / 2, 0); ctx.stroke();
@@ -495,7 +608,7 @@ function drawCrate(ctx: CanvasRenderingContext2D, c: Crate, v: View, t: number) 
   // el ícono de lo que trae
   ctx.save(); ctx.translate(0, -sz / 2); const k = s / 40;
   ctx.fillStyle = 'rgba(20,10,4,0.55)'; ctx.beginPath(); ctx.arc(0, 0, sz * 0.32, 0, TAU); ctx.fill();
-  if (c.kind !== 'heart') drawWeaponIcon(ctx, c.kind === 'bolts' ? 'crossbow' : c.kind === 'fire' ? 'firesword' : c.kind === 'bullets' ? 'pistol' : 'garlic', sz * 0.62, t);
+  if (c.kind !== 'heart') drawWeaponIcon(ctx, c.kind === 'armor' ? c.armor ?? 'ice' : c.kind === 'bolts' ? 'crossbow' : c.kind === 'fire' ? 'firesword' : c.kind === 'bullets' ? 'pistol' : 'garlic', sz * 0.62, t);
   else { ctx.scale(k, k); ctx.fillStyle = '#ff3b4f'; ctx.beginPath(); ctx.moveTo(0, 8); ctx.bezierCurveTo(-14, -2, -8, -14, 0, -6); ctx.bezierCurveTo(8, -14, 14, -2, 0, 8); ctx.fill(); }
   ctx.restore();
   ctx.restore();
@@ -577,6 +690,53 @@ function drawBulletW(ctx: CanvasRenderingContext2D, b: Bullet, v: View) {
   ctx.fillStyle = '#fff4c0'; ctx.beginPath(); ctx.arc(x, y, v.s * 0.13, 0, TAU); ctx.fill();
   ctx.restore();
 }
+// El rayo de hielo (un cristal que vuela con estela) y la bola verde (con su gota de estela).
+function drawOrbW(ctx: CanvasRenderingContext2D, o: Orb, v: View, t: number) {
+  const x = X(v, o.x), y = Y(v, o.y), a = Math.atan2(-o.vy, o.vx);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const col = o.kind === 'ice' ? '120,210,255' : '140,255,60';
+  ctx.strokeStyle = lin(ctx, x - Math.cos(a) * v.s * 1.6, y - Math.sin(a) * v.s * 1.6, x, y, [[0, `rgba(${col},0)`], [1, `rgba(${col},0.8)`]]); ctx.lineWidth = v.s * 0.2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x - Math.cos(a) * v.s * 1.6, y - Math.sin(a) * v.s * 1.6); ctx.lineTo(x, y); ctx.stroke();
+  ctx.restore();
+  ctx.save(); ctx.translate(x, y); ctx.scale(v.s, v.s);
+  if (o.kind === 'ice') { ctx.rotate(a); ctx.translate(-0.3, 0); drawIceCrystal(ctx, t, 0.75); } else drawVenomBall(ctx, 0.2, t);
+  ctx.restore();
+}
+function drawShardW(ctx: CanvasRenderingContext2D, b: Shard, v: View) {
+  const x = X(v, b.x), y = Y(v, b.y), r = b.s * v.s;
+  ctx.save(); ctx.globalAlpha = b.t > 2 ? Math.max(0, 1 - (b.t - 2) / 0.6) : 1; ctx.translate(x, y); ctx.rotate(b.a);
+  ctx.fillStyle = lin(ctx, -r, -r, r, r, [[0, 'rgba(240,252,255,0.95)'], [0.5, 'rgba(140,210,250,0.85)'], [1, 'rgba(50,120,200,0.9)']]);
+  ctx.beginPath(); ctx.moveTo(-r, r * 0.4); ctx.lineTo(-r * 0.2, -r); ctx.lineTo(r, -r * 0.1); ctx.lineTo(r * 0.3, r * 0.7); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = Math.max(1, r * 0.12); ctx.stroke();
+  ctx.restore();
+}
+// Un dibujo teñido entero de un color (el vampiro congelado, el que se pone verde o el que se hace luz): se dibuja
+// aparte en un lienzo chico y se le pinta el color encima solo donde hay dibujo.
+let TMP: HTMLCanvasElement | null = null;
+function tinted(ctx: CanvasRenderingContext2D, bx: number, by: number, bw: number, bh: number, color: string, a: number, draw: (c: CanvasRenderingContext2D) => void) {
+  const m = ctx.getTransform(), sx = Math.abs(m.a) || 1, sy = Math.abs(m.d) || 1, W2 = Math.ceil(bw * sx), H2 = Math.ceil(bh * sy);
+  if (W2 < 1 || H2 < 1 || W2 > 4000 || H2 > 4000) { draw(ctx); return; }
+  if (!TMP) TMP = document.createElement('canvas');
+  if (TMP.width < W2) TMP.width = W2; if (TMP.height < H2) TMP.height = H2;
+  const c = TMP.getContext('2d'); if (!c) { draw(ctx); return; }
+  c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W2, H2);
+  c.setTransform(sx, 0, 0, sy, -bx * sx, -by * sy); draw(c);
+  c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-atop'; c.globalAlpha = a; c.fillStyle = color; c.fillRect(0, 0, W2, H2); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+  ctx.drawImage(TMP, 0, 0, W2, H2, bx, by, bw, bh);
+}
+// El vampiro congelado: azul hielo, con el bloque de hielo alrededor y brillitos.
+function frozenVamp(ctx: CanvasRenderingContext2D, vp: Vamp, v: View, t: number, k: number, left: number) {
+  const B = BODY[vp.kind], x = X(v, vp.x), y = Y(v, vp.y), w = v.s * (B.w + 1.2), h = v.s * (B.h + 1.2);
+  tinted(ctx, x - w / 2, y - h, w, h + v.s * 0.4, 'rgb(150,215,255)', 0.5, c => { c.save(); c.translate(x, y); c.scale(k * vp.face, k); drawVampK(c, vp, t); c.restore(); });
+  const bw = v.s * (B.w + 0.5), bh = v.s * (B.h + 0.35), shake = left < 0.25 ? Math.sin(t * 80) * v.s * 0.04 : 0;
+  ctx.save(); ctx.translate(shake, 0);
+  ctx.fillStyle = 'rgba(170,225,255,0.28)'; ctx.strokeStyle = 'rgba(230,248,255,0.85)'; ctx.lineWidth = Math.max(1.5, v.s * 0.05);
+  ctx.beginPath(); ctx.moveTo(x - bw / 2, y); ctx.lineTo(x - bw / 2 - v.s * 0.1, y - bh * 0.6); ctx.lineTo(x - bw * 0.3, y - bh); ctx.lineTo(x + bw * 0.25, y - bh - v.s * 0.1); ctx.lineTo(x + bw / 2 + v.s * 0.08, y - bh * 0.55); ctx.lineTo(x + bw / 2, y); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = Math.max(1, v.s * 0.03); ctx.beginPath(); ctx.moveTo(x - bw * 0.3, y - bh * 0.8); ctx.lineTo(x - bw * 0.1, y - bh * 0.3); ctx.moveTo(x + bw * 0.2, y - bh * 0.9); ctx.lineTo(x + bw * 0.3, y - bh * 0.6); ctx.stroke();
+  if (left < FREEZE_T * 0.5) { ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.moveTo(x - bw * 0.1, y - bh); ctx.lineTo(x, y - bh * 0.6); ctx.lineTo(x - bw * 0.15, y - bh * 0.35); ctx.lineTo(x + bw * 0.05, y); ctx.stroke(); } // se raja antes de romperse
+  ctx.globalCompositeOperation = 'lighter'; for (let i = 0; i < 3; i++) { const sx = x + (hash(vp.id + i) - 0.5) * bw, sy = y - bh * hash(vp.id * 3 + i), tw = 0.5 + 0.5 * Math.sin(t * 6 + i * 2); glow(ctx, sx, sy, v.s * 0.25 * tw, 'rgba(255,255,255,0.9)'); }
+  ctx.restore();
+}
 // Los efectos de las armas: la onda de ajo, los rayos de la cruz, la ola de fuego y los estallidos.
 function drawFxW(ctx: CanvasRenderingContext2D, f: Fx, v: View, g: Game, t: number) {
   if (f.t < 0) return;
@@ -602,6 +762,29 @@ function drawFxW(ctx: CanvasRenderingContext2D, f: Fx, v: View, g: Game, t: numb
     ctx.globalCompositeOperation = 'lighter';
     for (const [w, c] of [[v.s * 1.1, `rgba(255,60,10,${0.45 * fade})`], [v.s * 0.55, `rgba(255,150,40,${0.75 * fade})`], [v.s * 0.2, `rgba(255,240,170,${fade})`]] as const) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(cx, cy, r, a0, a1); ctx.stroke(); }
     for (let i = 0; i < 14; i++) { const a = a0 + (a1 - a0) * (i / 13), fx = cx + Math.cos(a) * r, fy = cy + Math.sin(a) * r, fl = v.s * (0.3 + hash(i + f.seed * 9) * 0.4) * fade; ctx.fillStyle = `rgba(255,${120 + i * 6},40,${0.8 * fade})`; ctx.beginPath(); ctx.moveTo(fx - fl * 0.4, fy); ctx.quadraticCurveTo(fx, fy - fl * 2.2, fx + fl * 0.4, fy); ctx.fill(); }
+  } else if (f.kind === 'ray') { // el rayo de la cruz dorada: una franja de luz que cruza la pantalla, con la cruz al principio
+    const x0 = X(v, f.x), y = Y(v, f.y), len = v.s * f.r * Math.min(1, k * 5), x1 = x0 + f.face * len, w = v.s * 1.6 * (k < 0.2 ? 1 : fade);
+    ctx.globalCompositeOperation = 'lighter';
+    for (const [ww, c] of [[w, `rgba(255,190,60,${0.35 * fade})`], [w * 0.55, `rgba(255,230,140,${0.7 * fade})`], [w * 0.2, `rgba(255,255,240,${fade})`]] as const) { ctx.strokeStyle = c; ctx.lineWidth = ww; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke(); }
+    for (let i = 0; i < 12; i++) { const px = x0 + f.face * len * hash(i + f.seed * 7 + Math.floor(t * 20)), py = y + (hash(i * 3 + f.seed) - 0.5) * w * 0.9; ctx.fillStyle = `rgba(255,250,210,${fade})`; ctx.beginPath(); ctx.arc(px, py, v.s * 0.06, 0, TAU); ctx.fill(); }
+    glow(ctx, x0, y, v.s * 1.8, `rgba(255,220,120,${0.9 * fade})`);
+    ctx.strokeStyle = `rgba(255,255,230,${fade})`; ctx.lineWidth = v.s * 0.12; ctx.beginPath(); ctx.moveTo(x0, y - v.s * 0.9); ctx.lineTo(x0, y + v.s * 0.9); ctx.moveTo(x0 - v.s * 0.5, y - v.s * 0.3); ctx.lineTo(x0 + v.s * 0.5, y - v.s * 0.3); ctx.stroke(); // la cruz de luz
+  } else if (f.kind === 'nova') { // la explosión violeta: anillo, rayitos y un destello
+    const x = X(v, f.x), y = Y(v, f.y), r = v.s * f.r * (0.3 + 0.7 * Math.sqrt(k));
+    ctx.globalCompositeOperation = 'lighter';
+    glow(ctx, x, y, r * 1.3, `rgba(190,80,255,${0.8 * fade})`);
+    ctx.strokeStyle = `rgba(230,170,255,${fade})`; ctx.lineWidth = Math.max(2, v.s * 0.16 * fade); ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+    for (let i = 0; i < 8; i++) { const a = i * TAU / 8 + f.seed * 6; ctx.strokeStyle = `rgba(245,215,255,${fade})`; ctx.lineWidth = Math.max(1, v.s * 0.05); ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r * 0.3, y + Math.sin(a) * r * 0.3); ctx.lineTo(x + Math.cos(a + 0.2) * r * 0.65, y + Math.sin(a + 0.2) * r * 0.65); ctx.lineTo(x + Math.cos(a) * r * 1.05, y + Math.sin(a) * r * 1.05); ctx.stroke(); }
+    ctx.fillStyle = `rgba(255,240,255,${fade})`; ctx.beginPath(); ctx.arc(x, y, r * 0.25 * fade, 0, TAU); ctx.fill();
+  } else if (f.kind === 'frost') { // el golpe de hielo: anillo celeste y cristales que salen
+    const x = X(v, f.x), y = Y(v, f.y), r = v.s * f.r * (0.4 + 0.6 * Math.sqrt(k));
+    ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, y, r * 1.3, `rgba(120,210,255,${0.75 * fade})`);
+    ctx.strokeStyle = `rgba(220,245,255,${fade})`; ctx.lineWidth = Math.max(1.5, v.s * 0.08); ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+    for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + f.seed; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r * 0.4, y + Math.sin(a) * r * 0.4); ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); ctx.stroke(); }
+  } else if (f.kind === 'splat') { // la bola verde que revienta
+    const x = X(v, f.x), y = Y(v, f.y), r = v.s * f.r * (0.4 + 0.6 * Math.sqrt(k));
+    ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, y, r * 1.4, `rgba(130,255,60,${0.8 * fade})`);
+    for (let i = 0; i < 9; i++) { const a = i * TAU / 9 + f.seed * 5, d = r * (0.6 + hash(i + f.seed) * 0.5); ctx.fillStyle = `rgba(170,255,90,${fade})`; ctx.beginPath(); ctx.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, v.s * 0.09 * fade + 1, 0, TAU); ctx.fill(); }
   } else { // estallido de fuego de la bala
     const x = X(v, f.x), y = Y(v, f.y), r = v.s * f.r * (0.4 + k);
     ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, y, r * 1.6, `rgba(255,140,40,${0.9 * fade})`);
@@ -735,9 +918,13 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   // vampiros
   for (const vp of g.vamps) {
     const k = CHAR_K * v.s * BODY[vp.kind].k; // (BODY.k ya incluye que los vampiros son más grandes)
-    ctx.save(); ctx.translate(X(v, vp.x), Y(v, vp.y)); ctx.scale(k * vp.face, k);
-    drawVampK(ctx, vp, t);
-    ctx.restore();
+    if (vp.frozen) frozenVamp(ctx, vp, v, t, k, vp.frozen);
+    else {
+      ctx.save(); ctx.translate(X(v, vp.x), Y(v, vp.y)); ctx.scale(k * vp.face, k);
+      drawVampK(ctx, vp, t);
+      ctx.restore();
+      if (vp.chill) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, X(v, vp.x), Y(v, vp.y + BODY[vp.kind].h * 0.5), v.s * BODY[vp.kind].h * 0.8, `rgba(120,200,255,${0.5 * Math.min(1, vp.chill)})`); ctx.restore(); }
+    }
     // la barrita de vida de los fuertes (cuando ya les pegaron)
     const hp = vp.hp ?? 1, max = vp.maxHp ?? 1;
     if (max > 1 && hp < max && !isBoss(vp.kind)) {
@@ -771,6 +958,8 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   for (const s of g.bolts) drawBoltW(ctx, s, v);
   for (const b of g.bombs) drawBombW(ctx, b, v, t);
   for (const b of g.bullets) drawBulletW(ctx, b, v);
+  for (const o of g.orbs) drawOrbW(ctx, o, v, t);
+  for (const b of g.shards) drawShardW(ctx, b, v);
   for (const f of g.fx) drawFxW(ctx, f, v, g, t);
   drawSparks(ctx, g, v);
   // los números de los golpes

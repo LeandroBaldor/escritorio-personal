@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp, CHAPTERS, hitObject, noteTap } from './vampyrium';
+import { GUARD_HP, FREEZE_T, HOLY_TARGETS, DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp, CHAPTERS, hitObject, noteTap } from './vampyrium';
 
 const idle = (): Input => ({ left: false, right: false, up: false, down: false });
 const run = (g: Game, seconds: number, input: Input = idle()) => { for (let t = 0; t < seconds; t += 1 / 60) step(g, input, 1 / 60); };
@@ -409,7 +409,7 @@ describe('Vampyrium: las armas', () => {
   const use = (g: Game, w: Weapon, secs = 0.6) => { chooseWeapon(g, w); g.player.cool = 0; pressAttack(g); run(g, secs); };
 
   it('cuánto le saca cada arma: espada 1, ballesta 3, ajo 5, cruz 10, espada de fuego 20, pistola 20', () => {
-    expect(WEAPON_DMG).toEqual({ sword: 1, crossbow: 3, garlic: 5, cross: 10, firesword: 20, pistol: 20 });
+    expect(WEAPON_DMG).toMatchObject({ sword: 1, crossbow: 3, garlic: 5, cross: 10, firesword: 20, pistol: 20, violet: 5, bone: 10 });
     for (const w of ['sword', 'crossbow', 'garlic', 'firesword', 'pistol'] as Weapon[]) {
       const g = quiet10(); g.player.x = 3; g.player.face = 1;
       const v = put(g, 'dracula', 5); v.special = 1e9; v.hp = 50; // Drácula aguanta 50: así se ve el daño de un golpe
@@ -469,10 +469,10 @@ describe('Vampyrium: las armas', () => {
 
 describe('Vampyrium: las armas aparecen nivel a nivel', () => {
   it('ballesta en el 2, ajo en el 3, cruz en el 4, espada de fuego en el 5 y pistola en el 6', () => {
-    expect(WEAPON_LEVEL).toEqual({ sword: 1, crossbow: 2, garlic: 3, cross: 4, firesword: 5, pistol: 6 });
+    expect(WEAPON_LEVEL).toEqual({ sword: 1, crossbow: 2, garlic: 3, cross: 4, firesword: 5, pistol: 6, ice: 5, holy: 6, venom: 7, violet: 8, guard: 9, bone: 10 });
     for (let n = 1; n <= 10; n++) {
       const g = newGame(3, n);
-      for (const w of WEAPONS) {
+      for (const w of WEAPONS.filter(q => q !== 'guard')) { // (la protectora no se agarra: se pone encima)
         chooseWeapon(g, w);
         expect(g.weapon === w, `nivel ${n} ${w}`).toBe(n >= WEAPON_LEVEL[w]);
         chooseWeapon(g, 'sword');
@@ -637,5 +637,52 @@ describe('Vampyrium: los ataques especiales de Demian', () => {
   it('sin combinación, Espacio es el tajo de siempre', () => {
     const g = quiet(); pressAttack(g);
     expect(takeEvents(g).map(e => e.type)).toContain('slash');
+  });
+});
+
+describe('Vampyrium: las armaduras (desde el nivel 5)', () => {
+  const at = () => { const g = newGame(7, 4); g.level = 10; g.spawnT = 1e9; g.crateT = 1e9; g.vamps = []; g.objects = []; g.player.inv = 1e9; g.player.x = 5; return g; };
+  const put = (g: Game, kind: VampKind, x: number) => { const v = makeVamp(g, kind, { x, y: GROUND_Y, onGround: true, surface: SURFACES.find(s => s.ground && s.x1 <= x && s.x2 >= x) ?? null, face: -1, cool: 9, speed: 0 }); g.vamps.push(v); return v; };
+  it('aparece una armadura nueva en cada nivel del 5 al 10', () => {
+    const g = newGame(1, 5);
+    chooseWeapon(g, 'ice'); expect(g.weapon).toBe('ice');
+    chooseWeapon(g, 'holy'); expect(g.weapon).toBe('ice'); // la dorada recién en el 6
+  });
+  it('hielo: congela al vampiro y después se hace pedazos', () => {
+    const g = at(); chooseWeapon(g, 'ice'); const v = put(g, 'giant', 8);
+    pressAttack(g); run(g, 0.3);
+    expect(v.frozen).toBeGreaterThan(0); expect(g.vamps).toContain(v);
+    run(g, FREEZE_T + 0.3);
+    expect(g.vamps).not.toContain(v); expect(g.total).toBe(1); expect(g.shards.length).toBeGreaterThan(0);
+  });
+  it('dorada: el rayo mata a varios vampiros en fila', () => {
+    const g = at(); chooseWeapon(g, 'holy'); for (let i = 0; i < 8; i++) put(g, 'walker', 6.5 + i * 0.9);
+    pressAttack(g); run(g, 0.2);
+    expect(g.total).toBe(HOLY_TARGETS);
+  });
+  it('verde: la bola derrite al vampiro (en un charco)', () => {
+    const g = at(); chooseWeapon(g, 'venom'); const v = put(g, 'giant', 7.5);
+    pressAttack(g); run(g, 0.6);
+    expect(g.vamps).not.toContain(v); expect(g.corpses.some(c => c.how === 'venom')).toBe(true);
+  });
+  it('violeta: saca 5 por tajo y explota en violeta', () => {
+    const g = at(); chooseWeapon(g, 'violet'); const v = put(g, 'giant', 6.5);
+    pressAttack(g); run(g, 0.3);
+    expect(v.hp).toBe(1); expect(g.fx.some(f => f.kind === 'nova')).toBe(true);
+  });
+  it('huesos: el martillo saca 10 y dura 10 golpes', () => {
+    const g = at(); chooseWeapon(g, 'bone'); const v = put(g, 'wolf', 6.5);
+    pressAttack(g); run(g, 0.3);
+    expect(v.hp).toBe(4);
+    for (let i = 0; i < 9; i++) { g.vamps = []; run(g, 0.7); pressAttack(g); }
+    expect(g.ammo.bone).toBe(0); expect(g.weapon).toBe('sword');
+  });
+  it('protectora: aguanta 50 de ataques de vampiros y no cambia el arma', () => {
+    const g = at(); chooseWeapon(g, 'pistol'); chooseWeapon(g, 'guard');
+    expect(g.weapon).toBe('pistol'); expect(g.guardHp).toBe(GUARD_HP);
+    g.player.inv = 0; const v = put(g, 'wolf', 5.6); v.cool = 0; v.face = -1;
+    let hp = g.player.hp;
+    for (let i = 0; i < 600 && g.guardHp > 0; i++) { g.player.inv = 0; run(g, 1 / 60); hp = g.player.hp; if (g.guardHp > 0) expect(hp).toBe(100); }
+    void hp; expect(g.guardHp).toBeLessThan(GUARD_HP);
   });
 });

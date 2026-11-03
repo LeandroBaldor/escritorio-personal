@@ -1825,3 +1825,30 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 @media(max-height:760px) and (min-width:981px){.vamp-hub-weapons .vamp-hub-note{display:none}.vamp-hub-hero canvas{height:min(40vh,290px)!important}.vamp-hub-story .vamp-hub-note{font-size:.78rem!important}.vamp-hub-grid{gap:.4rem}}
 @media(max-width:980px){.vamp-hub-grid{grid-template-columns:1fr 1fr;grid-template-areas:"hero story" "keys keys" "rivals rivals" "weapons weapons" "play play"}.vamp-hub-weapons ul{grid-template-columns:repeat(3,minmax(0,1fr))}.vamp-hub-play .vamp-levels{grid-template-columns:repeat(5,minmax(0,1fr))}}
 @media(max-width:620px){.vamp-hub-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"hero" "story" "keys" "rivals" "weapons" "play"}.vamp-hub-hero canvas{height:240px!important}.vamp-hub-play{grid-template-columns:1fr}.vamp-hub-weapons ul{grid-template-columns:repeat(2,minmax(0,1fr))}.vamp-hub-rivals ul{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}}
+/* Vampyrium: las armaduras (12 armas en el menú, el arsenal y el panel) */
+@media(min-width:981px){
+  .vamp-hub-weapons ul{grid-template-columns:repeat(12,minmax(0,1fr));gap:.3rem}
+  .vamp-hub-weapons li{flex-direction:column;text-align:center;gap:.05rem;padding:.25rem .15rem .3rem}
+  .vamp-hub-weapons li>div{align-items:center}
+  .vamp-hub-weapons b{font-size:.74rem;line-height:1.05}
+  .vamp-hub-weapons small{font-size:.6rem;white-space:normal}
+  .vamp-hub-weapons canvas,.vamp-hub-weapons i{width:38px!important;height:38px!important}
+  .vamp-hub-weapons em{font-size:.55rem;top:-.55rem}
+}
+.vamp-hub-weapons li.vamp-hub-armor{border-color:#6d28d9;background:linear-gradient(#150a24,#060309)}
+.vamp-hub-weapons li.vamp-hub-armor small{color:#c4b5fd}
+.vamp-arsenal .ds-grid{grid-template-columns:repeat(6,70px);gap:7px}
+.vamp-arsenal .ds-slot{width:70px;height:70px}
+@media(max-width:800px){.vamp-arsenal .ds-grid{grid-template-columns:repeat(6,46px);gap:4px}.vamp-arsenal .ds-slot{width:46px;height:46px}.vamp-arsenal .ds-slot canvas{width:40px!important;height:40px!important}}
+.vamp-armors{display:flex;flex-wrap:wrap;gap:.2rem;justify-content:center;margin-top:.3rem}
+.vamp-armors span{display:inline-flex;align-items:center;gap:.1rem;padding:.05rem .25rem;border-radius:6px;background:#1a0d22;border:1px solid #4c1d95;font-size:.8rem}
+.vamp-armors b{font-size:.7rem;color:#fde68a}
+.vamp-armors .vamp-now{box-shadow:0 0 0 2px #a78bfa;background:#3b0764}
+.vamp-armors .vamp-empty{opacity:.45}
+.vamp-guard{display:grid;gap:.15rem;text-align:center;font-weight:800;color:#fde68a}
+.vamp-guard em{font-style:normal;font-size:.75rem}
+@media(max-width:800px),(orientation:portrait) and (max-width:1100px){.vamp-armors span:not(.vamp-now){display:none}}
+@media(max-height:940px) and (min-width:981px){.vamp-hub-weapons .vamp-hub-note{display:none}.vamp-hub-weapons li{padding:.2rem .1rem}.vamp-hub-weapons canvas,.vamp-hub-weapons i{width:34px!important;height:34px!important}}
+@media(max-height:940px) and (min-width:981px){.vamp-hub-keys .vamp-keys{gap:.1rem}.vamp-hub-keys .vamp-keys li{font-size:.84rem;line-height:1.12}.vamp-hub-keys h4,.vamp-hub-keys .vamp-combos-title{margin:.2rem 0}.vamp-hub-rivals li{padding:.25rem .4rem .3rem;gap:.05rem}.vamp-hub-rivals canvas{width:50px!important;height:50px!important}.vamp-hub-story p{line-height:1.35}}
+@media(max-height:940px) and (min-width:981px){.vamp-hub-keys .vamp-keys kbd{padding:0 .3em;border-bottom-width:2px;font-size:.85em;line-height:1.3}.vamp-hub-keys .vamp-keys span{font-size:.7rem}.vamp-hub-box h3{margin-bottom:.15rem}}
+@media(max-height:820px) and (min-width:981px){.vamp-hub-grid{gap:.4rem}.vamp-hub-rivals small{display:none}}

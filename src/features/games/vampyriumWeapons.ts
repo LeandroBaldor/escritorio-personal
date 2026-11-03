@@ -153,6 +153,85 @@ export function drawFirePistol(ctx: CanvasRenderingContext2D, t = 0, flash = 0) 
   void t;
 }
 
+// ---------------------------------------------------------------- Las armas de las armaduras
+// Espada violeta (como la referencia): hoja roja que brilla, con los bordes ondulados como alas de murciélago y
+// una grieta de luz en el medio; guarda de plata con alas y gema roja, empuñadura enrollada roja y negra.
+export function drawBloodSword(ctx: CanvasRenderingContext2D, t = 0, heat = 0) {
+  const L = 1.7;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, L * 0.55, 0, 0.8 + heat * 0.5, '#ff2030', 0.45 + heat * 0.35 + 0.08 * Math.sin(t * 6)); ctx.restore();
+  // empuñadura enrollada y pomo de rombo
+  ctx.fillStyle = lg(ctx, 0, -0.06, 0, 0.06, [[0, '#d02a34'], [1, '#5a0810']]); ctx.fillRect(-0.32, -0.055, 0.4, 0.11); ctx.strokeStyle = INK; ctx.lineWidth = 0.015; ctx.strokeRect(-0.32, -0.055, 0.4, 0.11);
+  ctx.strokeStyle = '#3a3a42'; ctx.lineWidth = 0.03; for (let x = -0.3; x < 0.06; x += 0.07) { ctx.beginPath(); ctx.moveTo(x, -0.055); ctx.lineTo(x + 0.05, 0.055); ctx.stroke(); }
+  poly(ctx, [[-0.32, -0.07], [-0.36, 0], [-0.32, 0.07]], lg(ctx, -0.36, 0, -0.3, 0, SILVER), 0.012);
+  poly(ctx, [[-0.36, 0], [-0.46, -0.08], [-0.58, 0], [-0.46, 0.08]], lg(ctx, -0.58, 0, -0.36, 0, SILVER), 0.015); gemW(ctx, -0.47, 0, 0.035, 'silver', 0.3);
+  // la hoja: borde de abajo derecho y el de arriba con ondas (alas de murciélago), punta curva hacia arriba
+  const top: [number, number][] = [[0.14, -0.13]]; for (let i = 0; i < 5; i++) { const x = 0.2 + i * 0.27; top.push([x + 0.14, -0.2 - i * 0.01], [x + 0.24, -0.12]); }
+  const blade: [number, number][] = [...top, [L - 0.05, -0.22], [L + 0.22, -0.34], [L, 0.02], [L - 0.2, 0.1], [0.14, 0.12]];
+  poly(ctx, blade, lg(ctx, 0, -0.3, 0, 0.14, [[0, '#ffd0d0'], [0.25, '#ff4a4a'], [0.7, '#c0101e'], [1, '#6a0410']]), 0.028);
+  ctx.save(); ctx.beginPath(); blade.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.clip();
+  ctx.strokeStyle = 'rgba(255,230,230,0.8)'; ctx.lineWidth = 0.02; ctx.beginPath(); for (let i = 0; i < 5; i++) { const x = 0.2 + i * 0.27; ctx.moveTo(x + 0.02, -0.08); ctx.quadraticCurveTo(x + 0.12, -0.16, x + 0.22, -0.08); } ctx.stroke(); // el filo claro de cada onda
+  ctx.restore();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(255,${200 + heat * 50},140,0.95)`; ctx.lineWidth = 0.03; ctx.beginPath(); ctx.moveTo(0.25, 0.0); ctx.lineTo(0.55, -0.04); ctx.lineTo(0.7, 0.03); ctx.lineTo(1.0, -0.05); ctx.lineTo(1.15, 0.02); ctx.lineTo(1.45, -0.08); ctx.stroke(); ctx.restore(); // la grieta de luz
+  // la guarda: alas de plata con borde rojo y la gema en un rombo
+  for (const s of [-1, 1]) poly(ctx, [[0.12, s * 0.05], [0.0, s * 0.22], [0.16, s * 0.4], [0.02, s * 0.36], [-0.08, s * 0.44], [-0.1, s * 0.22], [-0.04, s * 0.08]], lg(ctx, -0.1, 0, 0.16, 0, SILVER), 0.018);
+  poly(ctx, [[0.04, -0.14], [0.17, 0], [0.04, 0.14], [-0.09, 0]], lg(ctx, -0.09, 0, 0.17, 0, SILVER), 0.018); gemW(ctx, 0.04, 0, 0.06, 'silver', 0.4);
+}
+// Martillo de huesos (como la referencia): mango de hueso con vendas rojas y punta filosa; la cabeza es una calavera
+// con colmillos, rodeada de cuchillas de hueso y sujeta con dos bandas de hierro con remaches. (+x = hacia la cabeza)
+export function drawBoneHammer(ctx: CanvasRenderingContext2D, t = 0) {
+  const BONE: [number, string][] = [[0, '#fbf3df'], [0.5, '#e2cfa6'], [1, '#9c8660']], L = 1.05;
+  // mango de hueso con vértebras y vendas
+  ctx.fillStyle = lg(ctx, 0, -0.06, 0, 0.06, BONE); ctx.beginPath(); ctx.roundRect(-0.36, -0.055, L + 0.3, 0.11, 0.04); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 0.018; ctx.stroke();
+  for (let x = -0.05; x < 0.5; x += 0.08) { ctx.fillStyle = lg(ctx, 0, -0.07, 0, 0.07, [[0, '#ff5a50'], [1, '#7a0a0a']]); ctx.fillRect(x, -0.07, 0.05, 0.14); ctx.strokeStyle = INK; ctx.lineWidth = 0.01; ctx.strokeRect(x, -0.07, 0.05, 0.14); }
+  for (const x of [0.62, 0.74]) { ctx.fillStyle = lg(ctx, 0, -0.08, 0, 0.08, BONE); ctx.beginPath(); ctx.ellipse(x, 0, 0.04, 0.08, 0, 0, TAU); ctx.fill(); ctx.stroke(); }
+  poly(ctx, [[-0.36, -0.07], [-0.36, 0.07], [-0.56, 0]], lg(ctx, -0.56, 0, -0.36, 0, BONE), 0.018); // la punta de abajo
+  // la cabeza: cuchillas de hueso alrededor
+  ctx.save(); ctx.translate(L, 0);
+  for (let i = 0; i < 9; i++) { const a = -Math.PI / 2 + (i - 4) * 0.36, r0 = 0.32, r1 = 0.56 + (i % 2) * 0.08; poly(ctx, [[Math.cos(a - 0.14) * r0 + 0.1, Math.sin(a - 0.14) * r0 * 1.3], [Math.cos(a) * r1 + 0.1, Math.sin(a) * r1 * 1.25], [Math.cos(a + 0.14) * r0 + 0.1, Math.sin(a + 0.14) * r0 * 1.3]], lg(ctx, -0.3, -0.5, 0.3, 0.5, BONE), 0.018); }
+  for (const s of [-1, 1]) for (let i = 0; i < 3; i++) poly(ctx, [[0.0 + i * 0.12, s * 0.4], [0.05 + i * 0.12, s * 0.62], [0.14 + i * 0.12, s * 0.4]], lg(ctx, 0, 0, 0.2, 0, BONE), 0.015);
+  // el bloque (tambor) de hueso y la calavera al frente
+  ctx.fillStyle = lg(ctx, 0, -0.42, 0, 0.42, BONE); ctx.beginPath(); ctx.roundRect(-0.22, -0.42, 0.62, 0.84, 0.12); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 0.024; ctx.stroke();
+  for (const x of [-0.12, 0.3]) { ctx.fillStyle = lg(ctx, 0, -0.46, 0, 0.46, [[0, '#7a7a84'], [0.5, '#3a3a42'], [1, '#222228']]); ctx.fillRect(x - 0.05, -0.46, 0.1, 0.92); ctx.strokeRect(x - 0.05, -0.46, 0.1, 0.92); ctx.fillStyle = '#c9ccd6'; for (const y of [-0.32, 0, 0.32]) { ctx.beginPath(); ctx.arc(x, y, 0.022, 0, TAU); ctx.fill(); } }
+  ctx.save(); ctx.translate(0.09, 0); // calavera de frente con colmillos
+  ctx.fillStyle = lg(ctx, 0, -0.26, 0, 0.26, BONE); ctx.beginPath(); ctx.moveTo(-0.15, 0.06); ctx.quadraticCurveTo(-0.18, -0.28, 0, -0.28); ctx.quadraticCurveTo(0.18, -0.28, 0.15, 0.06); ctx.lineTo(0.1, 0.2); ctx.lineTo(-0.1, 0.2); ctx.closePath(); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 0.018; ctx.stroke();
+  ctx.fillStyle = '#1a0a06'; for (const x of [-0.07, 0.07]) { ctx.beginPath(); ctx.ellipse(x, -0.08, 0.05, 0.06, 0, 0, TAU); ctx.fill(); }
+  ctx.beginPath(); ctx.moveTo(0, 0.0); ctx.lineTo(-0.025, 0.05); ctx.lineTo(0.025, 0.05); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#f6ecd4'; for (let i = 0; i < 5; i++) { const x = -0.09 + i * 0.045; ctx.beginPath(); ctx.moveTo(x - 0.02, 0.1); ctx.lineTo(x, 0.17 + (i % 2) * 0.04); ctx.lineTo(x + 0.02, 0.1); ctx.closePath(); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 0.008; ctx.stroke(); }
+  ctx.strokeStyle = '#d0141e'; ctx.lineWidth = 0.025; ctx.beginPath(); ctx.moveTo(-0.08, -0.22); ctx.lineTo(0.04, -0.18); ctx.moveTo(0.0, -0.26); ctx.lineTo(-0.02, -0.14); ctx.stroke(); // la cruz roja pintada
+  ctx.restore();
+  ctx.restore();
+  void t;
+}
+// Cristal de hielo (en la mano de la armadura de hielo): tres puntas celestes que brillan.
+export function drawIceCrystal(ctx: CanvasRenderingContext2D, t = 0, size = 1) {
+  ctx.save(); ctx.scale(size, size);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0.25, 0, 0.55, '#7fd8ff', 0.5 + 0.15 * Math.sin(t * 5)); ctx.restore();
+  for (const [a, l, w] of [[-0.5, 0.42, 0.08], [0.45, 0.4, 0.08], [0, 0.62, 0.11]] as const) {
+    ctx.save(); ctx.rotate(a);
+    poly(ctx, [[0, -w], [l * 0.75, -w * 0.9], [l, 0], [l * 0.75, w * 0.9], [0, w]], lg(ctx, 0, -w, 0, w, [[0, '#f2fbff'], [0.45, '#8fd6ff'], [1, '#2a6fc0']]), 0.018);
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.moveTo(0.04, -w * 0.3); ctx.lineTo(l * 0.8, -w * 0.2); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+// La bola verde (en la mano y la que vuela): fuego verde que gira, con brillo.
+export function drawVenomBall(ctx: CanvasRenderingContext2D, r: number, t = 0) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0, 0, r * 2.6, '#8cff3a', 0.7); ctx.restore();
+  const g = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r); g.addColorStop(0, '#f4ffd0'); g.addColorStop(0.4, '#9cff3a'); g.addColorStop(1, '#1f7a0a');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill(); ctx.strokeStyle = '#0d3a04'; ctx.lineWidth = r * 0.12; ctx.stroke();
+  ctx.strokeStyle = 'rgba(240,255,200,0.75)'; ctx.lineWidth = r * 0.14; ctx.lineCap = 'round';
+  for (let i = 0; i < 3; i++) { const a = t * 6 + i * TAU / 3; ctx.beginPath(); ctx.arc(0, 0, r * 0.62, a, a + 1.1); ctx.stroke(); }
+}
+// El escudo de la armadura protectora (para los íconos): escudo blanco con borde dorado y la cruz roja.
+export function drawGuardShield(ctx: CanvasRenderingContext2D, t = 0) {
+  const sh = () => { ctx.beginPath(); ctx.moveTo(0, -0.5); ctx.quadraticCurveTo(0.3, -0.38, 0.42, -0.42); ctx.quadraticCurveTo(0.46, 0.15, 0, 0.55); ctx.quadraticCurveTo(-0.46, 0.15, -0.42, -0.42); ctx.quadraticCurveTo(-0.3, -0.38, 0, -0.5); ctx.closePath(); };
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0, 0, 0.8, '#ffd870', 0.35 + 0.1 * Math.sin(t * 3)); ctx.restore();
+  sh(); ctx.fillStyle = lg(ctx, -0.4, -0.5, 0.4, 0.5, GOLD); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 0.03; ctx.stroke();
+  ctx.save(); ctx.scale(0.82, 0.82); sh(); ctx.fillStyle = lg(ctx, -0.4, -0.5, 0.4, 0.5, [[0, '#ffffff'], [0.6, '#e8e4dc'], [1, '#b9b3a8']]); ctx.fill(); ctx.restore();
+  ctx.fillStyle = '#c4121e'; ctx.fillRect(-0.06, -0.34, 0.12, 0.62); ctx.fillRect(-0.26, -0.14, 0.52, 0.12);
+  spec(ctx, -0.18, -0.25, 0.08, 0.04, -0.6, 0.7);
+}
+
 // ---------------------------------------------------------------- Íconos (para el cartel de las armas y el panel)
 // Dibuja el arma centrada en (0, 0) cabiendo en un cuadrado de lado `size` (píxeles).
 export function drawWeaponIcon(ctx: CanvasRenderingContext2D, w: string, size: number, t = 0, drawSword?: (ctx: CanvasRenderingContext2D) => void) {
@@ -164,6 +243,12 @@ export function drawWeaponIcon(ctx: CanvasRenderingContext2D, w: string, size: n
     case 'cross': ctx.scale(size / 1.25, size / 1.25); ctx.translate(0, 0.42); ctx.rotate(-Math.PI / 2); drawHolyCross(ctx, t, 0.5); break;
     case 'firesword': ctx.scale(size / 2.4, size / 2.4); ctx.rotate(-0.78); ctx.translate(-0.62, 0); drawFireSword(ctx, t, 0.3); break;
     case 'pistol': ctx.scale(size / 1.0, size / 1.0); ctx.translate(-0.22, -0.06); drawFirePistol(ctx, t); break;
+    case 'ice': ctx.scale(size / 1.1, size / 1.1); ctx.rotate(-Math.PI / 2); ctx.translate(-0.3, 0); drawIceCrystal(ctx, t); break;
+    case 'holy': ctx.scale(size / 1.25, size / 1.25); ctx.translate(0, 0.42); ctx.rotate(-Math.PI / 2); drawHolyCross(ctx, t, 0.8); break;
+    case 'venom': drawVenomBall(ctx, size * 0.28, t); break;
+    case 'violet': ctx.scale(size / 2.3, size / 2.3); ctx.rotate(-0.78); ctx.translate(-0.62, 0); drawBloodSword(ctx, t, 0.3); break;
+    case 'guard': ctx.scale(size / 1.2, size / 1.2); drawGuardShield(ctx, t); break;
+    case 'bone': ctx.scale(size / 2.1, size / 2.1); ctx.rotate(-0.85); ctx.translate(-0.5, 0); drawBoneHammer(ctx, t); break;
   }
   ctx.restore();
 }
