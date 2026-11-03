@@ -161,7 +161,7 @@ export function Games() {
       </li>
       <li>
         <Link onClick={playStart} className="game-card game-card--vamp" to="/juegos/vampyrium">
-          <span className="game-card-cover"><Cover src={vampCover} /><b className="game-card-wip">🚧 En construcción</b></span>
+          <span className="game-card-cover"><Cover src={vampCover} /></span>
           <span className="game-card-text">
             <strong>Vampyrium</strong>
             <span>🧛 Sos un cazador de vampiros en el puente de un castillo maldito: espada, estacas y una cruz sagrada contra vampiros que caminan, trepan del vacío y vuelan en picada.</span>
