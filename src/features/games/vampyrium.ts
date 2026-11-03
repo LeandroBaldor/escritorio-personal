@@ -91,11 +91,12 @@ export interface Player {
 export type VampKind = 'walker' | 'flyer' | 'giant' | 'mage' | 'hammer' | 'warrior' | 'wolf' | 'dracula' | 'dragon';
 export const VAMP_KINDS: VampKind[] = ['walker', 'flyer', 'giant', 'mage', 'hammer', 'warrior', 'wolf', 'dracula', 'dragon'];
 // Cuántos golpes del cazador aguanta cada uno (= cuántas veces más fuerte que un vampiro normal) y cuánta vida le saca al cazador.
-export const STRENGTH: Record<VampKind, number> = { walker: 1, flyer: 1, giant: 3, mage: 4, hammer: 5, warrior: 6, wolf: 7, dracula: 50, dragon: 50 };
+export const STRENGTH: Record<VampKind, number> = { walker: 2, flyer: 2, giant: 6, mage: 8, hammer: 10, warrior: 12, wolf: 14, dracula: 100, dragon: 100 }; // (el doble de vida que al principio)
+export const BOSS_HP = STRENGTH.dracula;
 export const DAMAGE: Record<VampKind, number> = { walker: 1, flyer: 1, giant: 3, mage: 4, hammer: 5, warrior: 6, wolf: 7, dracula: 10, dragon: 15 };
 export const VAMP_NAME: Record<VampKind, string> = { walker: 'Vampiro', flyer: 'Vampiro volador', giant: 'Vampiro gigante', mage: 'Vampiro mago', hammer: 'Vampiro martillo', warrior: 'Vampiro guerrero', wolf: 'Hombre lobo', dracula: 'Drácula', dragon: 'Drácula dragón' };
 // El tamaño de cada uno (caja para los golpes) y la escala del dibujo.
-export const VAMP_BIG = 1.25; // los vampiros más grandes (dibujo y caja de golpes)
+export const VAMP_BIG = 1.12; // los vampiros más grandes (dibujo y caja de golpes)
 const BODY0: Record<VampKind, { w: number; h: number; k: number }> = {
   walker: { w: 0.8, h: 1.8, k: 1 }, flyer: { w: 0.8, h: 1.4, k: 1 }, giant: { w: 1.3, h: 2.6, k: 1.42 }, mage: { w: 0.8, h: 1.9, k: 1.03 },
   hammer: { w: 0.95, h: 2.0, k: 1.1 }, warrior: { w: 0.95, h: 2.0, k: 1.08 }, wolf: { w: 1.7, h: 1.8, k: 1.3 }, dracula: { w: 1.0, h: 2.5, k: 1.32 }, dragon: { w: 4.8, h: 3.7, k: 1.35 },
@@ -430,9 +431,9 @@ export function hitVamp(g: Game, v: Vamp, dmg: number, how: KillHow, fromX: numb
   pop(g, v.x, y2 + 0.2, `−${dmg}`, false);
   bleed(g, v.x, (y1 + y2) / 2, 16 + dmg * 3);
   if (!isBoss(v.kind)) { // sale despedido para atrás (los más pesados, menos)
-    const push = STRENGTH[v.kind] >= 5 ? 2.5 : 5;
+    const push = STRENGTH[v.kind] >= 10 ? 2.5 : 5;
     v.vx = (v.x >= fromX ? 1 : -1) * push;
-    if (STRENGTH[v.kind] < 5 && v.state !== 'cast') { v.state = flies(v.kind) ? v.state : 'walk'; v.cool = Math.max(v.cool, 0.4); }
+    if (STRENGTH[v.kind] < 10 && v.state !== 'cast') { v.state = flies(v.kind) ? v.state : 'walk'; v.cool = Math.max(v.cool, 0.4); }
   }
   emit(g, { type: 'vampHit', kind: v.kind, hp: v.hp });
 }
@@ -452,7 +453,7 @@ function kill(g: Game, v: Vamp, how: KillHow) {
   if (how === 'void') { g.voidKills++; return; }
   if (how === 'trap') { g.trapKills++; return; }
   g.kills[v.kind]++; g.total++;
-  if (v.kind === 'dragon') { g.bossDeadT = 0; g.shots = []; emit(g, { type: 'bossDead' }); return; }
+  if (v.kind === 'dragon') { g.bossDeadT = 0; g.shots = []; g.door.open = true; g.door.t = 0; emit(g, { type: 'bossDead' }); return; }
   g.combo.n = g.combo.t > 0 ? g.combo.n + 1 : 1; g.combo.t = 2.4; g.combo.best = Math.max(g.combo.best, g.combo.n);
   if (g.combo.n >= 2) emit(g, { type: 'combo', n: g.combo.n });
   if (how !== 'cross') chargeCross(g);
@@ -506,7 +507,7 @@ function spawn(g: Game) {
 }
 
 // El ataque de cada uno de los que caminan: alcance, cuándo pega, cuánto dura y cuánto espera después.
-const ATTACK: Partial<Record<VampKind, { reach: number; at: number; dur: number; rest: number }>> = {
+export const ATTACK: Partial<Record<VampKind, { reach: number; at: number; dur: number; rest: number }>> = {
   walker: { reach: 1.0, at: 0.36, dur: 0.7, rest: 0.6 }, giant: { reach: 1.6, at: 0.55, dur: 1.0, rest: 1.0 }, mage: { reach: 1.2, at: 0.36, dur: 0.7, rest: 1.0 },
   hammer: { reach: 2.0, at: 0.72, dur: 1.2, rest: 1.1 }, warrior: { reach: 1.75, at: 0.38, dur: 0.75, rest: 0.8 }, wolf: { reach: 1.5, at: 0.22, dur: 0.5, rest: 0.6 },
   dracula: { reach: 1.8, at: 0.32, dur: 0.65, rest: 0.5 },
@@ -998,7 +999,13 @@ export function step(g: Game, input: Input, dt: number) {
   const p = g.player;
   if (g.phase === 'dead') { if (g.phaseT > 1.6) { g.phase = 'over'; emit(g, { type: 'over' }); } updateRemains(g, dt); return; }
   if (g.phase === 'over' || g.phase === 'won') return;
-  if (g.phase === 'cleared') { updateRemains(g, dt); p.x += dt * 2; p.walkT += dt * 2; if (g.phaseT > 2.4) { g.phase = 'won'; emit(g, { type: 'won' }); } return; }
+  if (g.phase === 'cleared') { // la reja ya subió: Demian camina hasta el medio de la puerta y entra (la reja baja detrás)
+    updateRemains(g, dt); p.face = 1; p.vx = 0;
+    const mid = (DOOR.x1 + DOOR.x2) / 2;
+    if (p.x < mid) { p.x = Math.min(mid, p.x + dt * 2.6); p.walkT += dt * 2.4; }
+      if (g.phaseT > 2.6) { g.phase = 'won'; emit(g, { type: 'won' }); }
+    return;
+  }
 
   // El cazador
   p.inv = Math.max(0, p.inv - dt); p.cool = Math.max(0, p.cool - dt); p.dropT -= dt; p.coyote -= dt; p.hurtT = Math.max(0, p.hurtT - dt); p.landT = Math.max(0, p.landT - dt); p.spinT = Math.max(0, p.spinT - dt);

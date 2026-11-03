@@ -1193,12 +1193,12 @@ test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de
   await levels.nth(2).click();
   await expect(page.getByRole('button', { name: 'Jugar · Nivel 3' })).toBeVisible();
   await levels.nth(1).click();
-  await page.getByRole('button', { name: 'Jugar · Nivel 2' }).click();
-  // El cartel del nivel con el objetivo (en el nivel 2 aparece la ballesta)
-  await expect(page.getByRole('heading', { name: 'Las cloacas' })).toBeVisible();
-  await expect(page.getByText('Arma nueva')).toBeVisible();
+  // Todo está en el menú: la historia, la meta, los rivales con su vida y las armas (en el nivel 2 aparece la ballesta)
+  await expect(page.getByText('Las cloacas', { exact: false }).first()).toBeVisible();
   await expect(page.getByText('Juntá 20 estrellas doradas', { exact: false })).toBeVisible(); // la meta del nivel 2
-  await page.getByRole('button', { name: /A cazar/ }).click();
+  await expect(page.getByRole('region', { name: 'Rivales' })).toContainText('Vampiro gigante');
+  await expect(page.getByRole('region', { name: 'Armas disponibles' })).toContainText('Nueva');
+  await page.getByRole('button', { name: 'Jugar · Nivel 2' }).click(); // y se juega directo, sin otro cartel
   await expect(page.getByTestId('vamp-total')).toContainText('/20');
   await expect(page.getByTestId('vamp-time')).not.toHaveText('0:00', { timeout: 5000 });
   // la barra de vida de arriba: 100 puntos

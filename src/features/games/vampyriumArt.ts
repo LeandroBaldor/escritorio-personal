@@ -81,7 +81,7 @@ export function drawBone(ctx: CanvasRenderingContext2D, b: Bone, v: View) {
 }
 // El vampiro se vuelve esqueleto: la carne se desvanece, el esqueleto brilla y arde entero como una antorcha
 // (como la gente que se prende fuego en "El piso es de lava"), grita y al segundo revienta.
-export const CHAR_K = 1.05; // metros del personaje → unidades del mundo
+export const CHAR_K = 0.88; // metros del personaje → unidades del mundo
 export function drawCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t: number, g?: Game) {
   const B = BODY[c.kind], k = CHAR_K * v.s * B.k, f = Math.min(1, c.t / BURN_AT), burn = Math.max(0, Math.min(1, (c.t - BURN_AT) / (BLOW_AT - BURN_AT)));
   const fly = c.kind === 'flyer', dragon = c.kind === 'dragon';
@@ -231,6 +231,25 @@ function drawPits(ctx: CanvasRenderingContext2D, v: View, t: number) {
   }
 }
 // El hueco de la puerta (oscuro o con luz si está abierta) y la reja que sube.
+// La reja de hierro de la puerta: open 0 = cerrada, 1 = arriba del todo (sube con cadenas y baja de golpe).
+function drawGate(ctx: CanvasRenderingContext2D, v: View, open: number) {
+  const x1 = X(v, DOOR.x1), x2 = X(v, DOOR.x2), y0 = Y(v, DOOR.y), top = Y(v, DOOR.y + DOOR.h), mid = (x1 + x2) / 2, r = (x2 - x1) / 2;
+  const path = () => { ctx.moveTo(x1, y0); ctx.lineTo(x1, top + r); ctx.quadraticCurveTo(x1, top - r * 0.4, mid, top - r); ctx.quadraticCurveTo(x2, top - r * 0.4, x2, top + r); ctx.lineTo(x2, y0); ctx.closePath(); };
+  const lift = open * (y0 - top + r);
+  ctx.save(); ctx.beginPath(); path(); ctx.clip();
+  ctx.strokeStyle = '#1b1a20'; ctx.lineWidth = Math.max(2, v.s * 0.09);
+  for (let i = 1; i < 6; i++) { const x = x1 + (x2 - x1) * i / 6; ctx.beginPath(); ctx.moveTo(x, top - r - lift); ctx.lineTo(x, y0 - lift); ctx.stroke(); }
+  for (let j = 1; j < 5; j++) { const y = top + (y0 - top) * j / 5 - lift; ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke(); }
+  ctx.fillStyle = '#9aa0ad'; for (let i = 1; i < 6; i++) { const x = x1 + (x2 - x1) * i / 6; ctx.beginPath(); ctx.moveTo(x - v.s * 0.07, y0 - lift); ctx.lineTo(x, y0 - lift + v.s * 0.18); ctx.lineTo(x + v.s * 0.07, y0 - lift); ctx.fill(); }
+  ctx.restore();
+  if (open > 0 && open < 1) { ctx.strokeStyle = '#3a3640'; ctx.lineWidth = Math.max(1.5, v.s * 0.05); ctx.setLineDash([v.s * 0.12, v.s * 0.08]); for (const x of [x1 + (x2 - x1) * 0.2, x2 - (x2 - x1) * 0.2]) { ctx.beginPath(); ctx.moveTo(x, top - r - v.s * 0.6); ctx.lineTo(x, top - r - lift + v.s * 0.1); ctx.stroke(); } ctx.setLineDash([]); } // las cadenas que la suben
+}
+// Al ganar: la reja termina de subir, Demian entra hacia la luz y la reja baja detrás de él.
+function clearedGate(g: Game) {
+  if (g.phase !== 'cleared' && g.phase !== 'won') return 1;
+  const k = g.phase === 'won' ? 1 : Math.max(0, Math.min(1, (g.phaseT - 1.9) / 0.5));
+  return 1 - k * k;
+}
 function drawDoor(ctx: CanvasRenderingContext2D, g: Game, v: View, t: number) {
   const x1 = X(v, DOOR.x1), x2 = X(v, DOOR.x2), y0 = Y(v, DOOR.y), top = Y(v, DOOR.y + DOOR.h), mid = (x1 + x2) / 2, r = (x2 - x1) / 2;
   const path = () => { ctx.moveTo(x1, y0); ctx.lineTo(x1, top + r); ctx.quadraticCurveTo(x1, top - r * 0.4, mid, top - r); ctx.quadraticCurveTo(x2, top - r * 0.4, x2, top + r); ctx.lineTo(x2, y0); ctx.closePath(); };
@@ -238,13 +257,8 @@ function drawDoor(ctx: CanvasRenderingContext2D, g: Game, v: View, t: number) {
   ctx.save(); ctx.beginPath(); path(); ctx.clip();
   ctx.fillStyle = open > 0 ? lin(ctx, 0, top, 0, y0, [[0, '#ffe2a0'], [1, '#ff9a3c']]) : '#0a080e'; ctx.fillRect(x1, top - r, x2 - x1, y0 - top + r);
   if (open > 0) glow(ctx, mid, (top + y0) / 2, v.s * 3, `rgba(255,220,140,${0.5 + 0.2 * Math.sin(t * 4)})`);
-  // reja de hierro: sube cuando se abre
-  const lift = open * (y0 - top + r);
-  ctx.strokeStyle = '#1b1a20'; ctx.lineWidth = Math.max(2, v.s * 0.09);
-  for (let i = 1; i < 6; i++) { const x = x1 + (x2 - x1) * i / 6; ctx.beginPath(); ctx.moveTo(x, top - r - lift); ctx.lineTo(x, y0 - lift); ctx.stroke(); }
-  for (let j = 1; j < 5; j++) { const y = top + (y0 - top) * j / 5 - lift; ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke(); }
-  ctx.fillStyle = '#9aa0ad'; for (let i = 1; i < 6; i++) { const x = x1 + (x2 - x1) * i / 6; ctx.beginPath(); ctx.moveTo(x - v.s * 0.07, y0 - lift); ctx.lineTo(x, y0 - lift + v.s * 0.18); ctx.lineTo(x + v.s * 0.07, y0 - lift); ctx.fill(); }
   ctx.restore();
+  if (g.phase !== 'cleared' && g.phase !== 'won') drawGate(ctx, v, open); // (al ganar, la reja se dibuja delante de Demian)
   ctx.beginPath(); path(); ctx.lineWidth = Math.max(3, v.s * 0.1); ctx.strokeStyle = INK; ctx.stroke();
   // cartel arriba: calavera (cerrada) o flecha "SALIDA" (abierta)
   const sy = top - r - v.s * 0.55;
@@ -744,9 +758,13 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   if (g.phase !== 'dead' || g.phaseT < 0.2) {
     const blink = p.inv > 0 && Math.floor(p.inv * 12) % 2 === 0;
     ctx.save(); ctx.globalAlpha = blink ? 0.35 : 1; ctx.translate(X(v, p.x), Y(v, p.y)); const k = CHAR_K * v.s; ctx.scale(k * p.face, k);
-    if (g.phase === 'cleared') ctx.globalAlpha = Math.max(0, 1 - g.phaseT / 1.6);
+    if (g.phase === 'cleared' || g.phase === 'won') { // entra por la puerta: se aleja (más chico) y se pierde en la luz
+      const k = Math.max(0, Math.min(1, (g.phaseT - 0.9) / 1.3)), sc = 1 - 0.3 * k;
+      ctx.scale(sc, sc); ctx.globalAlpha = g.phase === 'won' ? 0 : Math.max(0, 1 - k * 1.05);
+    }
     drawHunterK(ctx, p, g, t); ctx.restore();
   }
+  if (g.phase === 'cleared' || g.phase === 'won') drawGate(ctx, v, clearedGate(g));
   if (g.boomer) { const bm = g.boomer; ctx.save(); ctx.translate(X(v, bm.x), Y(v, bm.y)); const k = CHAR_K * v.s; ctx.scale(k, k); ctx.rotate(-bm.t * 22 * Math.sign(bm.vx || 1)); // la espada que gira
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(255,220,220,0.45)'; ctx.lineWidth = 0.22; ctx.beginPath(); ctx.arc(0, 0, 0.85, 0, Math.PI * 1.4); ctx.stroke(); ctx.restore();
     sword(ctx, [0, 0.6], Math.PI); ctx.restore(); }

@@ -6,7 +6,7 @@
 // La luz principal viene de arriba a la izquierda (la luna) y una luz roja por detrás (el fuego del castillo).
 import { darken, grain, lighten } from './gravityMonsters';
 import { vampEye } from './vampyriumChars';
-import type { Vamp } from './vampyrium';
+import { ATTACK, type Vamp } from './vampyrium';
 
 type Pt = [number, number];
 const TAU = Math.PI * 2;
@@ -118,11 +118,26 @@ function solve2(p: Pose2, d: Dims): Body {
   return { hip, neck, spine, side, hp, sh, knee: knee as [Pt, Pt], foot: foot as [Pt, Pt], elbow: elbow as [Pt, Pt], hand: hand as [Pt, Pt] };
 }
 // Los pies: parado firme (un pie adelante), caminando (paso con el pie que se levanta) o en el aire (recogidos).
-function stance(v: Vamp, t: number, o: { wide?: number; crouch?: number; lean?: number } = {}): Pick<Pose2, 'lean' | 'crouch' | 'bob' | 'head' | 'feet'> {
+function stance(v: Vamp, t: number, o: { wide?: number; crouch?: number; lean?: number; lift?: number } = {}): Pick<Pose2, 'lean' | 'crouch' | 'bob' | 'head' | 'feet'> {
   const s = Math.sin, wd = o.wide ?? 1, br = s(t * 2.2 + v.id), lean = o.lean ?? 0.06;
   if (!v.onGround) return { lean: lean + 0.08, crouch: 0.05, bob: 0, head: 0, feet: [[-0.25, -0.3], [0.2, -0.38]] };
-  if (Math.abs(v.vx) > 0.3) { const w = v.walkT * 3.0; return { lean: lean + 0.07, crouch: (o.crouch ?? 0.06) + 0.02, bob: -Math.abs(s(w)) * 0.03, head: 0.05, feet: [[0.0 - 0.28 * s(w) * wd, -Math.max(0, -Math.cos(w)) * 0.13], [0.04 + 0.28 * s(w) * wd, -Math.max(0, Math.cos(w)) * 0.13]] }; }
+  if (Math.abs(v.vx) > 0.3) { const w = v.walkT * 3.0; return { lean: lean + 0.07, crouch: (o.crouch ?? 0.06) + 0.02, bob: -Math.abs(s(w)) * 0.03, head: 0.05, feet: [[0.0 - 0.28 * s(w) * wd, -Math.max(0, -Math.cos(w)) * (o.lift ?? 0.13)], [0.04 + 0.28 * s(w) * wd, -Math.max(0, Math.cos(w)) * (o.lift ?? 0.13)]] }; }
   return { lean, crouch: (o.crouch ?? 0.06) + br * 0.006, bob: 0, head: 0.04, feet: [[-0.22 * wd, 0], [0.26 * wd, 0]] };
+}
+// Los brazos del ataque: suben por arriba de la cabeza y bajan de golpe hacia adelante (un zarpazo de arriba hacia
+// abajo, justo cuando pega); en el aire, los brazos suben de abajo hacia arriba.
+const ease = (k: number) => { const c = Math.max(0, Math.min(1, k)); return c * c * (3 - 2 * c); };
+const lerpPt = (a: Pt, b: Pt, k: number): Pt => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+function swipeArms(v: Vamp, base: [Pt, Pt], o: { up?: [Pt, Pt]; hit?: [Pt, Pt] } = {}): [Pt, Pt] {
+  const up: [Pt, Pt] = o.up ?? [[0.02, -0.6], [0.24, -0.62]], hit: [Pt, Pt] = o.hit ?? [[0.42, 0.34], [0.56, 0.26]];
+  if (v.state === 'claw') {
+    const a = ATTACK[v.kind] ?? { at: 0.36, dur: 0.7 }, w0 = Math.max(0.1, a.at - 0.13), t = v.t;
+    if (t < w0) { const k = ease(t / w0); return [lerpPt(base[0], up[0], k), lerpPt(base[1], up[1], k)]; } // levanta las garras
+    if (t < a.at + 0.03) { const k = ease((t - w0) / (a.at + 0.03 - w0)); return [lerpPt(up[0], hit[0], k), lerpPt(up[1], hit[1], k)]; } // ¡zarpazo!
+    const k = ease((t - a.at - 0.03) / Math.max(0.1, a.dur - a.at - 0.03)); return [lerpPt(hit[0], base[0], k), lerpPt(hit[1], base[1], k)];
+  }
+  if (!v.onGround && v.kind !== 'flyer') { const k = ease(Math.min(1, 0.35 + Math.max(0, -v.vy) * 0.08 + (v.vy > 0 ? 1 - Math.min(1, v.vy / 14) : 0.65))); return [lerpPt(base[0], [-0.16, -0.56], k), lerpPt(base[1], [0.26, -0.58], k)]; } // saltando: brazos arriba
+  return base;
 }
 const vec = (a: Pt, b: Pt): Pt => { const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; };
 // Un puño cerrado que agarra un palo (mango, báculo, empuñadura): los dedos dan la vuelta por delante del palo.
@@ -438,8 +453,8 @@ function coatTorso2(ctx: CanvasRenderingContext2D, b: Body, t: number, o: { coat
 // ---------------------------------------------------------------- Vampiro (como la lámina)
 function drawWalker2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const st = stance(v, t, { lean: 0.02, crouch: 0.13, wide: 1.55 }), br = Math.sin(t * 2.4 + v.id) * 0.02;
-  const up = v.state === 'claw' ? (v.t < 0.36 ? Math.min(1, v.t / 0.25) : Math.max(0, 1 - (v.t - 0.36) * 7)) : 0;
-  const r: Pose2 = { ...st, hands: [[-0.24 + up * 0.55, 0.56 - up * 0.7 + br], [0.3 + up * 0.2, 0.54 - up * 0.8 - br]] }, b = solve2(r, { ...HUMAN, shW: 0.2 });
+  const up = v.state === 'claw' ? 1 : 0;
+  const r: Pose2 = { ...st, hands: swipeArms(v, [[-0.24, 0.56 + br], [0.3, 0.54 - br]]) }, b = solve2(r, { ...HUMAN, shW: 0.2 });
   shadowOn(ctx, v, 0.6);
   cape2(ctx, b, t + v.id, { len: 1.2, flare: 1.1 });
   leg2(ctx, b, 0); leg2(ctx, b, 1);
@@ -535,7 +550,7 @@ function batWing2(ctx: CanvasRenderingContext2D, root: Pt, side: number, flap: n
 }
 function drawFlyer2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const diving = v.state === 'dive', flap = diving ? 0.8 : Math.sin(v.walkT * 9 + v.id), bob = Math.sin(v.walkT * 9 + v.id + 1) * 0.04, kick = Math.sin(v.walkT * 4.5 + v.id) * 0.04;
-  const r: Pose2 = { lean: diving ? 0.55 : 0.3, crouch: 0.12, bob, head: 0, feet: [[-0.5 + kick, -0.02 + bob], [0.18 - kick, -0.32 + bob]], hands: diving ? [[0.4, 0.2], [0.55, 0.0]] : [[-0.38, 0.38], [0.5, 0.3]] };
+  const r: Pose2 = { lean: diving ? 0.55 : 0.3, crouch: 0.12, bob, head: 0, feet: [[-0.5 + kick, -0.02 + bob], [0.18 - kick, -0.32 + bob]], hands: diving ? (v.t < 0.25 ? [[0.0, -0.55], [0.2, -0.58]] : [[0.45, 0.32], [0.6, 0.2]]) as [Pt, Pt] : [[-0.38, 0.38], [0.5, 0.3]] };
   const b = solve2(r, { ...HUMAN, shW: 0.17 });
   ctx.save(); ctx.translate(0, 0.32); // a la misma altura que el volador de antes
   const blade = add(b.neck, b.spine, -0.12);
@@ -570,9 +585,13 @@ function drawFlyer2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
 
 // ---------------------------------------------------------------- Vampiro gigante
 function drawGiant2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
-  const st = stance(v, t, { lean: 0.04, crouch: 0.15, wide: 1.5 }), br = Math.sin(t * 2.4 + v.id) * 0.02, sk = '#a29eae';
-  let hands: [Pt, Pt] = [[0.0, 0.55 + br], [0.5, 0.24 - br]];
-  if (v.state === 'claw') { const at = v.t, k = Math.min(1, at / 0.45), hit = Math.min(1, Math.max(0, (at - 0.45) / 0.15)); hands = at < 0.45 ? [[0.18, 0.55], [0.42 - k * 0.5, 0.22 - k * 0.3]] : [[0.2, 0.5], [-0.08 + hit * 0.75, -0.08 + hit * 0.25]]; }
+  const st = stance(v, t, { lean: 0.04, crouch: 0.15, wide: 1.5, lift: 0.24 }), br = Math.sin(t * 2.4 + v.id) * 0.02, sk = '#a29eae';
+  // la caminata pesada: pisa fuerte (el cuerpo baja en cada paso), se balancea de lado a lado y los brazos van y vienen
+  const moving = v.onGround && Math.abs(v.vx) > 0.3, gw = v.walkT * 3.0;
+  if (moving) { st.bob = -Math.abs(Math.sin(gw)) * 0.1 + 0.03; st.lean = 0.1 + Math.sin(gw) * 0.07; st.crouch += 0.04; }
+  const sw = moving ? Math.sin(gw) * 0.22 : 0;
+  let hands: [Pt, Pt] = [[0.0 - sw, 0.55 + br + Math.abs(sw) * 0.1], [0.5 + sw, 0.24 - br]];
+  hands = swipeArms(v, hands, { up: [[-0.04, -0.72], [0.16, -0.74]], hit: [[0.6, 0.36], [0.74, 0.3]] }); // los dos puños juntos, de arriba hacia abajo
   const r: Pose2 = { ...st, hands }, b = solve2(r, { ...BRUTE, shW: 0.33 });
   shadowOn(ctx, v, 0.75);
   ctx.save(); ctx.scale(1.22, 1.22); // tan alto como el gigante de antes
@@ -615,7 +634,7 @@ function drawGiant2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
 function drawMage2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const cast = v.state === 'cast' || v.state === 'claw' ? Math.min(1, v.t / 0.4) : 0, br = Math.sin(t * 2 + v.id);
   const st = stance(v, t, { lean: 0.03, crouch: 0.05, wide: 1.0 });
-  const r: Pose2 = { ...st, hands: [[-0.22, 0.54 + br * 0.01], [0.3 + cast * 0.18, 0.32 - cast * 0.32]] }, b = solve2(r, { ...HUMAN, shW: 0.19 }); // el brazo izquierdo cuelga; al atacar apunta el báculo
+  const r: Pose2 = { ...st, hands: [swipeArms(v, [[-0.22, 0.54 + br * 0.01], [0, 0]])[0], [0.3 + cast * 0.18, 0.32 - cast * 0.32]] }, b = solve2(r, { ...HUMAN, shW: 0.19 }); // el brazo izquierdo cuelga; al atacar apunta el báculo
   shadowOn(ctx, v, 0.6);
   cape2(ctx, b, t + v.id, { len: 1.32, flare: 1.15, collar: false });
   // la túnica: negra con paneles rojos, voluta dorada en el borde y el faldón rojo del medio
@@ -695,8 +714,9 @@ function hammer2(ctx: CanvasRenderingContext2D, g0: Pt, d: Pt, t: number) {
 }
 function drawHammer2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const st0 = stance(v, t, { lean: 0.04, crouch: 0.15, wide: 1.5 }), swing = v.state === 'claw' ? Math.min(1, v.t / 0.5) : 0, br = Math.sin(t * 2.2 + v.id) * 0.03;
-  const hAng = 2.36 - swing * 1.5 + br, d = dirv(hAng), hipY = -(HUMAN.thigh + HUMAN.shin) * (1 - st0.crouch);
-  const g0: Pt = [0.12 + swing * 0.15, hipY - 0.26 - swing * 0.1], g1 = add(g0, d, 0.34); // la mano derecha abajo (el brazo cruza el pecho), la izquierda arriba del palo // una mano abajo del mango, la otra más arriba (como la referencia)
+  const air = v.onGround ? 0 : 1;
+  const hAng = 2.36 - swing * 1.5 + br + air * 0.6, d = dirv(hAng), hipY = -(HUMAN.thigh + HUMAN.shin) * (1 - st0.crouch);
+  const g0: Pt = [0.12 + swing * 0.15, hipY - 0.26 - swing * 0.1 - air * 0.35], g1 = add(g0, d, 0.34); // la mano derecha abajo (el brazo cruza el pecho), la izquierda arriba del palo // una mano abajo del mango, la otra más arriba (como la referencia)
   const r: Pose2 = { ...st0, hands: [g0, g1], abs: [true, true], elbows: [1, -1] }, b = solve2(r, { ...HUMAN, shW: 0.23 });
   shadowOn(ctx, v, 0.65);
   cape2(ctx, b, t + v.id, { len: 1.12, flare: 1.15, outer: '#8e0b17', inner: '#6a0810', collar: false });
@@ -733,7 +753,8 @@ function shield2(ctx: CanvasRenderingContext2D, c: Pt, tilt: number) {
 function drawWarrior2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const st = stance(v, t, { lean: 0.03, crouch: 0.15, wide: 1.55 }), br = Math.sin(t * 2.4 + v.id) * 0.02;
   const slash = v.state === 'claw' ? (v.t < 0.25 ? v.t / 0.25 : Math.max(0, 1 - (v.t - 0.25) * 4)) : 0;
-  const r: Pose2 = { ...st, hands: [[-0.14, 0.4 + br], [0.44 + slash * 0.1, 0.28 - slash * 0.5]] }, b = solve2(r, { ...HUMAN, shW: 0.21 });
+  const air = v.onGround ? 0 : 1;
+  const r: Pose2 = { ...st, hands: [[-0.14 + air * 0.06, 0.4 + br - air * 0.45], [0.44 + slash * 0.1, 0.28 - slash * 0.5 - air * 0.55]] }, b = solve2(r, { ...HUMAN, shW: 0.21 });
   shadowOn(ctx, v, 0.65);
   cape2(ctx, b, t + v.id, { len: 1.12, flare: 1.2, outer: '#8e0b17', inner: '#6a0810', collar: false });
   plateLeg2(ctx, b, 0, 1.08); plateLeg2(ctx, b, 1, 1.08);
@@ -771,7 +792,7 @@ function wolfHead(ctx: CanvasRenderingContext2D, t: number, open: number) {
 // Hombre lobo en cuatro patas (como la lámina): lomo peludo, cabeza baja gruñendo, brazaletes rojos con pinches, la faja roja con la calavera.
 function drawWolf2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const s = Math.sin, moving = v.onGround && Math.abs(v.vx) > 0.5, w = v.walkT * 4, leap = v.state === 'leap' || !v.onGround;
-  const swipe = v.state === 'claw' ? (v.t < 0.22 ? v.t / 0.22 : Math.max(0, 1 - (v.t - 0.22) * 3.5)) : 0;
+  const swipe = v.state === 'claw' ? (v.t < 0.16 ? v.t / 0.16 : Math.max(0, 1 - (v.t - 0.16) * 3.5)) : 0;
   const br = s(t * 3 + v.id), bob = moving ? Math.abs(s(w)) * 0.04 : br * 0.01;
   shadowOn(ctx, v, 0.95);
   ctx.save(); ctx.translate(0, -bob - 0.22); ctx.scale(0.7, 1); // de tres cuartos, girado hacia el frente como los vampiros
@@ -786,7 +807,10 @@ function drawWolf2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
     let top: Pt, mid1: Pt, low: Pt, paw: Pt;
     if (front) { top = [0.5 + ox, -0.72]; mid1 = [0.4 + ox + sw * 0.5, -0.32 - lift]; low = [0.5 + ox + sw, 0.0 - lift]; paw = [0.52 + ox + sw, 0.17 - lift * 0.6]; }
     else { top = [-0.62 + ox, -0.72]; mid1 = [-0.28 + ox + sw * 0.5, -0.34 - lift]; low = [-0.52 + ox + sw, 0.0 - lift]; paw = [-0.44 + ox + sw, 0.17 - lift * 0.6]; }
-    if (front && !back && swipe > 0) { mid1 = [0.6, -0.6 - swipe * 0.15]; low = [0.85, -0.55 + swipe * 0.2]; paw = [0.9, -0.45 + swipe * 0.3]; }
+    if (front && !back && v.state === 'claw') { // el zarpazo: levanta la pata bien alto y la baja de golpe sobre el cazador
+      const tt = v.t, y = tt < 0.16 ? -0.05 - ease(tt / 0.16) * 1.6 : tt < 0.26 ? -1.65 + ease((tt - 0.16) / 0.1) * 1.63 : -0.02;
+      mid1 = [0.75, -0.75 + Math.min(0, y + 0.6) * 0.45]; low = [1.0, y - 0.16]; paw = [1.12, y];
+    }
     furForm(ctx, tubePts(top, mid1, front ? [0.55, 0.46, 0.27] : [0.7, 0.55, 0.27], 0.1), WFUR, lerp(top, mid1, 0.4), 0.25, 0.05, (front ? 3 : 5) + (back ? 1 : 0), back);
     tube(ctx, mid1, low, [0.28, 0.24, 0.18], dk(WSKIN, back, 0.3), { bulge: 0.1, rim: back ? 0 : 1, tex: 0.45, lw: 1.3 });
     tube(ctx, low, paw, [0.15, 0.14], dk(WSKIN, back, 0.3), { rim: back ? 0 : 1, tex: 0.45, lw: 1.3 });
@@ -837,7 +861,7 @@ function drawDracula2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const st = stance(v, t, { lean: 0.0, crouch: 0.04, wide: 0.95 }), br = Math.sin(t * 2.2 + v.id) * 0.015;
   let hands: [Pt, Pt] = [[-0.22, 0.55 + br], [0.28, 0.55 - br]];
   if (v.state === 'cast') { const k = Math.min(1, v.t / 0.5); hands = [[-0.35, 0.1 - 0.4 * k], [0.4, -0.2 - 0.3 * k]]; }
-  if (v.state === 'claw') { const up = v.t < 0.32 ? Math.min(1, v.t / 0.25) : Math.max(0, 1 - (v.t - 0.32) * 5); hands = [[0.3, 0.4 - up * 0.4], [0.45, -0.1 - up * 0.3]]; }
+  if (v.state !== 'cast') hands = swipeArms(v, hands);
   const r: Pose2 = { ...st, hands }, b = solve2(r, { ...HUMAN, spine: 0.64, shW: 0.21 });
   const CR = '#b0101c';
   shadowOn(ctx, v, 0.6);

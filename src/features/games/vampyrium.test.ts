@@ -299,8 +299,8 @@ describe('Vampyrium: los vampiros de cada nivel y los puntos', () => {
     newGame(1, 1);
   });
 
-  it('cada vampiro aguanta tantos golpes como veces es más fuerte (gigante 3, mago 4, martillo 5, guerrero 6, lobo 7)', () => {
-    expect(STRENGTH).toMatchObject({ walker: 1, flyer: 1, giant: 3, mage: 4, hammer: 5, warrior: 6, wolf: 7, dracula: 50, dragon: 50 });
+  it('cada vampiro aguanta el doble de golpes que veces es más fuerte (gigante 6, mago 8, martillo 10, guerrero 12, lobo 14)', () => {
+    expect(STRENGTH).toMatchObject({ walker: 2, flyer: 2, giant: 6, mage: 8, hammer: 10, warrior: 12, wolf: 14, dracula: 100, dragon: 100 });
     for (const kind of ['walker', 'giant', 'mage', 'hammer', 'warrior', 'wolf'] as VampKind[]) {
       const g = quietAt(6); g.player.x = 4; g.player.face = 1; g.player.inv = 1e9;
       const v = ground(g, kind, 5.4);
@@ -367,13 +367,13 @@ describe('Vampyrium: los vampiros de cada nivel y los puntos', () => {
     newGame(1, 1);
   });
 
-  it('nivel 10: solo Drácula; con 50 golpes se convierte en dragón y con 50 más se gana', () => {
+  it('nivel 10: solo Drácula; con 100 golpes se convierte en dragón y con 100 más se gana', () => {
     const g = newGame(9, 10); g.crateT = 1e9; g.player.inv = 1e9;
     expect(g.vamps.map(v => v.kind)).toEqual(['dracula']);
     run(g, 3);
     expect(g.vamps.every(v => v.kind === 'dracula' || v.kind === 'dragon')).toBe(true);
     const drac = g.vamps[0];
-    for (let i = 0; i < 49; i++) hitVamp(g, drac, 1, 'sword', 0);
+    for (let i = 0; i < 99; i++) hitVamp(g, drac, 1, 'sword', 0);
     expect(drac.hp).toBe(1);
     hitVamp(g, drac, 1, 'sword', 0);
     expect(g.vamps.length).toBe(0);
@@ -382,8 +382,8 @@ describe('Vampyrium: los vampiros de cada nivel y los puntos', () => {
     run(g, 2.6);
     const dragon = g.vamps.find(v => v.kind === 'dragon')!;
     expect(dragon).toBeTruthy();
-    expect(dragon.hp).toBe(50);
-    for (let i = 0; i < 50; i++) hitVamp(g, dragon, 1, 'sword', 0);
+    expect(dragon.hp).toBe(100);
+    for (let i = 0; i < 100; i++) hitVamp(g, dragon, 1, 'sword', 0);
     expect(g.vamps.length).toBe(0);
     run(g, 3.2);
     expect(['cleared', 'won']).toContain(g.phase);
@@ -424,9 +424,8 @@ describe('Vampyrium: las armas', () => {
     const near = [put(g, 'hammer', 7), put(g, 'hammer', 8.5), put(g, 'hammer', 10)], far = put(g, 'hammer', 15);
     g.bombs.push({ x: 8.5, y: GROUND_Y + 0.05, vx: 0, vy: 0, t: 0, landed: 0, a: 0 });
     run(g, 0.6);
-    for (const v of near) expect(g.vamps).not.toContain(v); // martillo: 5 de vida → la onda los mata
-    expect(far.hp).toBe(5);
-    expect(g.total).toBe(3);
+    for (const v of near) expect(v.hp).toBe(5); // martillo: 10 de vida → la onda le saca 5
+    expect(far.hp).toBe(10);
     expect(GARLIC_R).toBe(3);
     newGame(1, 1);
   });
@@ -435,7 +434,7 @@ describe('Vampyrium: las armas', () => {
     const g = quiet10(); g.player.x = 3; g.player.face = 1;
     const a = put(g, 'giant', 5), b = put(g, 'giant', 8.8);
     use(g, 'sword', 0.4);
-    expect(a.hp).toBe(2); expect(b.hp).toBe(3); // la común no llega al de lejos
+    expect(a.hp).toBe(5); expect(b.hp).toBe(6); // la común no llega al de lejos
     use(g, 'firesword', 0.4);
     expect(g.vamps).not.toContain(a); expect(g.vamps).not.toContain(b);
     newGame(1, 1);
@@ -449,7 +448,7 @@ describe('Vampyrium: las armas', () => {
     const g2 = quiet10(); g2.player.x = 3; g2.player.face = 1;
     const c = put(g2, 'wolf', 3 + PISTOL_RANGE + 2);
     use(g2, 'pistol', 1);
-    expect(c.hp).toBe(7); // más lejos de 10 metros no llega
+    expect(c.hp).toBe(14); // más lejos de 10 metros no llega
     newGame(1, 1);
   });
 

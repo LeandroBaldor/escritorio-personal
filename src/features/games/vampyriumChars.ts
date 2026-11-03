@@ -50,7 +50,10 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
   const armsFor = (base: [number, number][]): [number, number][] => aim ? [[1.35 + ak, 0.35], [1.5 + ak + br0 * 0.02, 0.1]] : held === 'garlic' ? [[1.0, 1.15], [1.15, 1.0]] : held === 'cross' ? [[0.2, 1.2], [2.25 + br0 * 0.03, 0.55]] : base;
   const bladeFor = (b: number) => aim ? -0.08 : held === 'cross' ? 0.05 : held === 'garlic' ? 0 : b;
   if (!p.onGround) {
-    if (p.vy > 2 && !aim && held !== 'garlic' && held !== 'cross') return { bob: 0, lean: 0.05, crouch: 0, head: -0.05, legs: [[-0.3, 1.2], [0.9, 1.6]], arms: [[-0.9, 0.5], [2.2, 0.4]], blade: 0.3 };
+    if (!aim && held !== 'garlic' && held !== 'cross') { // al saltar los brazos suben de abajo hacia arriba (y quedan arriba al caer)
+      const k = p.vy > 0 ? Math.min(1, Math.max(0, 1 - p.vy / 16)) * 0.8 + 0.2 : 1, e = k * k * (3 - 2 * k);
+      return { bob: 0, lean: 0.05, crouch: 0, head: -0.05, legs: p.vy > 2 ? [[-0.3, 1.2], [0.9, 1.6]] : [[-0.45, 0.6], [0.5, 0.9]], arms: [[0.2 + e * 2.5, 0.5 - e * 0.25], [0.4 + e * 2.15, 0.6 - e * 0.3]], blade: 0.3 };
+    }
     return { bob: 0, lean: 0.1, crouch: 0, head: 0.05, legs: [[-0.45, 0.6], [0.5, 0.9]], arms: armsFor([[-1.2, 0.4], [1.6, 0.7]]), blade: bladeFor(0.9) };
   }
   if (run) {

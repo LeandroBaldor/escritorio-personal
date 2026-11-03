@@ -30,7 +30,20 @@ const G = (x1: number, x2: number): Surface => ({ x1, x2, y: GY, ground: true })
 const P = (x1: number, x2: number, y: number, mv?: Move): Surface => ({ x1, x2, y, ground: false, mv });
 const T = (kind: TrapKind, style: string, x: number, x2: number, y: number, period: number, offset: number, len = 0, amp = 0, top?: number): Trap => ({ kind, style, x, x2, y, period, offset, len, amp, top });
 const gapsOf = (s: Surface[]) => { const g = s.filter(q => q.ground).sort((a, b) => a.x1 - b.x1), out: [number, number][] = []; for (let i = 0; i + 1 < g.length; i++) if (g[i + 1].x1 > g[i].x2) out.push([g[i].x2, g[i + 1].x1]); return out; };
+// Más lugares arriba para escalar: repisas altas a los costados (y = 12,8), solo donde se llega de un salto desde
+// una plataforma de abajo (a 9-11 de alto y a menos de 2,6 de distancia) y no hay ya algo a esa altura.
+function withHighLedges(surfaces: Surface[], traps: Trap[]): Surface[] {
+  const out = [...surfaces];
+  for (const [x1, x2] of [[1.8, 5.8], [0.8, 3.8], [5.6, 8.8], [8.2, 11.6], [17.2, 20.6], [22.2, 26.2], [20.6, 23.6], [24.8, 27.6]] as const) {
+    const busy = out.some(q => !q.ground && q.y >= 11.6 && q.x1 < x2 + 1.2 && q.x2 > x1 - 1.2);
+    const from = out.some(q => !q.ground && !q.mv && ((q.y >= 8.6 && q.y <= 11.4 && q.x1 < x2 + 2.6 && q.x2 > x1 - 2.6) || (q.y >= 12 && q.y <= 13.6 && q.x1 < x2 + 3.4 && q.x2 > x1 - 3.4)));
+    const hit = traps.some(t => (t.kind === 'pendulum' || t.kind === 'crusher' || t.kind === 'drip') && t.x + Math.abs(t.amp) * (t.len || 1) > x1 - 0.6 && t.x - Math.abs(t.amp) * (t.len || 1) < x2 + 0.6); // (lejos de lo que cae o se balancea)
+    if (!busy && from && !hit) out.push(P(x1, x2, 12.8));
+  }
+  return out;
+}
 function level(n: number, name: string, tagline: string, bg: string, surfaces: Surface[], traps: Trap[], look: { pit: PitStyle; stone: [number, number, number]; cap: string; crop?: number; speed?: number }): LevelDef {
+  surfaces = withHighLedges(surfaces, traps);
   return { n, name, tagline, bg, crop: look.crop ?? 0.74, surfaces, gaps: gapsOf(surfaces), traps, pit: look.pit, stone: look.stone, cap: look.cap, speed: look.speed ?? 1 + (n - 1) * 0.04 };
 }
 
@@ -130,5 +143,5 @@ export const CHAPTERS: Record<number, Chapter> = {
     goalText: 'Sobreviví 120 segundos hasta la medianoche.' },
   10: { stage: 'La prueba suprema', goal: { type: 'boss', n: 1 },
     story: 'Al fin, el salón del trono. Drácula espera sentado, sonriendo. Es el último combate: si Demian lo vence, volverá a casa con la paz que le robaron. Si cae, la noche será eterna.',
-    goalText: 'Vencé a Drácula: 50 golpes, y después 50 más a su forma de dragón.' },
+    goalText: 'Vencé a Drácula: 100 golpes, y después 100 más a su forma de dragón.' },
 };
