@@ -416,7 +416,9 @@ export function drawHunterK(ctx: CanvasRenderingContext2D, p: Player, g: Game, t
 }
 function drawHunterBody(ctx: CanvasRenderingContext2D, p: Player, g: Game, t: number, pose: Pose, held: Weapon, gold: boolean) {
   ctx.save();
-  if (p.spinT > 0) { const k = 1 - p.spinT / 0.42; ctx.translate(0, -0.95); ctx.rotate(k * TAU); ctx.translate(0, 0.95); } // vuelta en el aire del doble salto
+  if (p.spinT > 0) { const k = 1 - p.spinT / (p.special?.kind === 'spin' ? 0.45 : 0.42); ctx.translate(0, -0.95); ctx.rotate(k * TAU); ctx.translate(0, 0.95); } // vuelta en el aire del doble salto (y el giro especial)
+  if (p.special?.kind === 'whirl') ctx.scale(Math.cos(p.special.t / 0.45 * TAU), 1); // el torbellino: gira sobre sí mismo
+  if (p.special?.kind === 'dash') { ctx.translate(0, -0.1); ctx.rotate(0.35); } // la estocada: el cuerpo tirado hacia adelante
   if (p.landT > 0) ctx.scale(1 + p.landT * 0.6, 1 - p.landT * 0.8);
   const hip: Pt = [0, -0.7 + pose.bob + pose.crouch * 0.4], neck: Pt = [Math.sin(pose.lean) * 0.52, hip[1] - Math.cos(pose.lean) * 0.52];
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; if (p.onGround) { ctx.beginPath(); ctx.ellipse(0, 0.02, 0.5, 0.08, 0, 0, TAU); ctx.fill(); }
@@ -427,7 +429,7 @@ function drawHunterBody(ctx: CanvasRenderingContext2D, p: Player, g: Game, t: nu
   if (!backUp) armDraw(ctx, hip, pose, 0, HUNTER, 'none'); // el brazo derecho va adelante del pecho (como en Kombat Football), así se ve
   pauldron(ctx, shoulderAt(hip, pose, 0), pose.arms[0][0], true);
   legDraw(ctx, hip, pose, 1, HUNTER);
-  const item: Weapon | 'none' = held === 'sword' && !(p.attackT >= 0 && p.attackWeapon !== 'sword') ? 'sword' : 'none';
+  const item: Weapon | 'none' = held === 'sword' && !g.boomer && !(p.attackT >= 0 && p.attackWeapon !== 'sword') ? 'sword' : 'none'; // (sin espada mientras vuela el bumerán)
   const hold = (hand: Pt, ang: number) => holdWeapon(ctx, p.attackT >= 0 ? p.attackWeapon : held, hand, ang, p, t);
   const frontUp = handOf(hip, pose, 1)[1] < neck[1] + 0.05;
   // la estela del tajo

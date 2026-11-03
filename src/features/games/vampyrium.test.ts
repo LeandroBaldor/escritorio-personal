@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp, CHAPTERS, hitObject } from './vampyrium';
+import { DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp, CHAPTERS, hitObject, noteTap } from './vampyrium';
 
 const idle = (): Input => ({ left: false, right: false, up: false, down: false });
 const run = (g: Game, seconds: number, input: Input = idle()) => { for (let t = 0; t < seconds; t += 1 / 60) step(g, input, 1 / 60); };
@@ -594,5 +594,49 @@ describe('Vampyrium: cada nivel tiene su meta (el viaje del héroe)', () => {
     run(g, 0.1); expect(g.door.open).toBe(false);
     g.kills.warrior = 8; run(g, 0.1); expect(g.door.open).toBe(true);
     newGame(1, 1);
+  });
+});
+
+describe('Vampyrium: los ataques especiales de Demian', () => {
+  const put = (g: Game, kind: VampKind, x: number) => { const v = makeVamp(g, kind, { x, y: GROUND_Y, onGround: true, surface: SURFACES.find(s => s.ground && s.x1 <= x && s.x2 >= x) ?? null, face: -1, cool: 9, speed: 0 }); g.vamps.push(v); return v; };
+  const specials = (g: Game) => takeEvents(g).filter(e => e.type === 'special').map(e => (e as { kind: string }).kind);
+  it('adelante, adelante + Espacio: la estocada atraviesa al vampiro', () => {
+    const g = quiet(); const p = g.player; p.face = 1; const x0 = p.x;
+    const v = put(g, 'giant', x0 + 3);
+    noteTap(g, 1); g.real += 0.1; noteTap(g, 1); pressAttack(g);
+    expect(specials(g)).toEqual(['dash']);
+    run(g, 0.3);
+    expect(p.x).toBeGreaterThan(x0 + 4); // pasó para el otro lado
+    expect(v.hp ?? 0).toBeLessThan(STRENGTH.giant);
+  });
+  it('adelante, atrás + Espacio: el torbellino corta a los dos lados', () => {
+    const g = quiet(); const p = g.player; p.face = 1;
+    const a = walker(g, p.x + 1.6), b = walker(g, p.x - 1.6);
+    noteTap(g, 1); g.real += 0.1; noteTap(g, -1); pressAttack(g);
+    expect(specials(g)).toEqual(['whirl']);
+    run(g, 0.5);
+    expect(g.vamps.includes(a) || g.vamps.includes(b)).toBe(false);
+  });
+  it('atrás, atrás + Espacio: la espada va hacia adelante y vuelve', () => {
+    const g = quiet(); const p = g.player; p.face = 1;
+    const v = walker(g, p.x + 6);
+    noteTap(g, -1); g.real += 0.1; noteTap(g, -1); pressAttack(g);
+    expect(specials(g)).toEqual(['throw']);
+    expect(g.boomer?.vx).toBeGreaterThan(0); // hacia donde miraba antes
+    run(g, 2.5);
+    expect(g.vamps.includes(v)).toBe(false);
+    expect(g.boomer).toBeNull(); // volvió a la mano
+  });
+  it('doble salto + Espacio: el giro en el aire (una vez por salto)', () => {
+    const g = quiet(); const p = g.player;
+    const jump = { ...idle(), up: true };
+    step(g, jump, 1 / 60); run(g, 0.15); step(g, jump, 1 / 60); run(g, 0.05);
+    expect(p.jumps).toBe(2);
+    pressAttack(g); expect(specials(g)).toEqual(['spin']);
+    run(g, 0.5); pressAttack(g); expect(specials(g)).toEqual([]);
+  });
+  it('sin combinación, Espacio es el tajo de siempre', () => {
+    const g = quiet(); pressAttack(g);
+    expect(takeEvents(g).map(e => e.type)).toContain('slash');
   });
 });

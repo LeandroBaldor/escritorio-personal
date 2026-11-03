@@ -73,10 +73,20 @@ export const START_X = 2.6;
 
 export interface Input { left: boolean; right: boolean; up: boolean; down: boolean; attack?: boolean } // attack: Espacio apretado (mantenido 3 s abre las armas)
 export const HOLD_MENU = 3;
+// Los ataques especiales de Demian (con la espada):
+//  · spin:  doble salto + Espacio → una vuelta entera en el aire que corta todo alrededor.
+//  · dash:  adelante, adelante + Espacio → atraviesa a los vampiros con una estocada rapidísima.
+//  · whirl: adelante, atrás + Espacio → un giro horizontal que corta a los dos lados.
+//  · throw: atrás, atrás + Espacio → tira la espada hacia adelante y vuelve como un bumerán.
+export type SpecialKind = 'spin' | 'dash' | 'whirl' | 'throw';
+export interface Special { kind: SpecialKind; t: number; dir: 1 | -1; hits: Set<number> }
+export interface Boomer { x: number; y: number; vx: number; t: number; back: boolean; hits: Set<number>; x0: number }
+export const SPECIAL_TIME: Record<SpecialKind, number> = { spin: 0.45, dash: 0.24, whirl: 0.45, throw: 0.25 };
+export const SPECIAL_DMG = 2, DASH_SPEED = 26, SPIN_R = 2.6, WHIRL_R = 2.9, BOOMER_RANGE = 8, BOOMER_SPEED = 18;
 export interface Player {
   x: number; y: number; vx: number; vy: number; face: 1 | -1; onGround: boolean; surface: Surface | null; jumps: number;
   hp: number; inv: number; attackT: number; attackWeapon: Weapon; hitIds: Set<number>; cool: number; walkT: number;
-  dropT: number; coyote: number; safeX: number; prevUp: boolean; prevDown: boolean; hurtT: number; landT: number; spinT: number; aim: -1 | 0 | 1; // spinT: la vuelta en el aire del doble salto; aim: apunta arriba (1), adelante (0) o abajo (-1)
+  dropT: number; coyote: number; safeX: number; prevUp: boolean; prevDown: boolean; hurtT: number; landT: number; spinT: number; aim: -1 | 0 | 1; prevL: boolean; prevR: boolean; special: Special | null; // spinT: la vuelta en el aire del doble salto; aim: apunta arriba (1), adelante (0) o abajo (-1)
 }
 export type VampKind = 'walker' | 'flyer' | 'giant' | 'mage' | 'hammer' | 'warrior' | 'wolf' | 'dracula' | 'dragon';
 export const VAMP_KINDS: VampKind[] = ['walker', 'flyer', 'giant', 'mage', 'hammer', 'warrior', 'wolf', 'dracula', 'dragon'];
@@ -85,10 +95,12 @@ export const STRENGTH: Record<VampKind, number> = { walker: 1, flyer: 1, giant: 
 export const DAMAGE: Record<VampKind, number> = { walker: 1, flyer: 1, giant: 3, mage: 4, hammer: 5, warrior: 6, wolf: 7, dracula: 10, dragon: 15 };
 export const VAMP_NAME: Record<VampKind, string> = { walker: 'Vampiro', flyer: 'Vampiro volador', giant: 'Vampiro gigante', mage: 'Vampiro mago', hammer: 'Vampiro martillo', warrior: 'Vampiro guerrero', wolf: 'Hombre lobo', dracula: 'Drácula', dragon: 'Drácula dragón' };
 // El tamaño de cada uno (caja para los golpes) y la escala del dibujo.
-export const BODY: Record<VampKind, { w: number; h: number; k: number }> = {
+export const VAMP_BIG = 1.25; // los vampiros más grandes (dibujo y caja de golpes)
+const BODY0: Record<VampKind, { w: number; h: number; k: number }> = {
   walker: { w: 0.8, h: 1.8, k: 1 }, flyer: { w: 0.8, h: 1.4, k: 1 }, giant: { w: 1.3, h: 2.6, k: 1.42 }, mage: { w: 0.8, h: 1.9, k: 1.03 },
   hammer: { w: 0.95, h: 2.0, k: 1.1 }, warrior: { w: 0.95, h: 2.0, k: 1.08 }, wolf: { w: 1.7, h: 1.8, k: 1.3 }, dracula: { w: 1.0, h: 2.5, k: 1.32 }, dragon: { w: 4.8, h: 3.7, k: 1.35 },
 };
+export const BODY = Object.fromEntries(Object.entries(BODY0).map(([k, b]) => [k, { w: b.w * VAMP_BIG, h: b.h * VAMP_BIG, k: b.k * VAMP_BIG }])) as Record<VampKind, { w: number; h: number; k: number }>;
 const SPECIALS: VampKind[] = ['giant', 'mage', 'hammer', 'warrior', 'wolf'];
 // Qué vampiros salen en cada nivel: 1 normales y voladores; 2 + gigante; 3 + mago; 4 + martillo; 5 + guerrero; 6 + hombre lobo;
 // 7 a 9 como el nivel 5; 10 solo Drácula.
@@ -112,8 +124,8 @@ export type Hop = 'same' | 'gap' | 'up' | 'down';
 export interface Nav { t: number; kind: Hop; to: Surface | null; tx: number }
 // Caja que ocupa (para los golpes del cazador y las trampas).
 export function vampBox(v: Vamp): [number, number, number, number] {
-  if (v.kind === 'flyer') return [v.x - 0.4, v.x + 0.4, v.y - 0.6, v.y + 0.8];
-  if (v.kind === 'dragon') return [v.x - 2.4, v.x + 2.4, v.y - 1.6, v.y + 2.1];
+  if (v.kind === 'flyer') return [v.x - 0.5, v.x + 0.5, v.y - 0.75, v.y + 1.0];
+  if (v.kind === 'dragon') return [v.x - 3.0, v.x + 3.0, v.y - 2.0, v.y + 2.6];
   const b = BODY[v.kind]; return [v.x - b.w / 2, v.x + b.w / 2, v.y, v.y + b.h];
 }
 // Lo que tiran: la bola de fuego del mago, los murciélagos de Drácula y el fuego del dragón.
@@ -146,7 +158,7 @@ export type GameEvent =
   | { type: 'hurt'; hp: number; dmg: number } | { type: 'vampHit'; kind: VampKind; hp: number } | { type: 'block' } | { type: 'slam' } | { type: 'cast' } | { type: 'bats' } | { type: 'breath' } | { type: 'mist' }
   | { type: 'collect'; kind: Item['kind']; n: number; of: number } | { type: 'break'; kind: Breakable['kind']; n: number; of: number } | { type: 'objHit' } | { type: 'transform' } | { type: 'dragon' } | { type: 'bossDead' } | { type: 'howl'; kind: VampKind } | { type: 'spawn'; kind: VampKind } | { type: 'fall'; hp: number } | { type: 'jump'; double: boolean } | { type: 'land' } | { type: 'step' }
   | { type: 'crate' } | { type: 'pickup'; kind: CrateKind; amount: number } | { type: 'door' } | { type: 'spikes' } | { type: 'fire' }
-  | { type: 'swing' } | { type: 'thunder'; near: number } | { type: 'combo'; n: number } | { type: 'holy'; count: number } | { type: 'wave'; n: number } | { type: 'bloodMoon' }
+  | { type: 'swing' } | { type: 'special'; kind: SpecialKind } | { type: 'catch' } | { type: 'thunder'; near: number } | { type: 'combo'; n: number } | { type: 'holy'; count: number } | { type: 'wave'; n: number } | { type: 'bloodMoon' }
   | { type: 'menu'; open: boolean } | { type: 'choose'; weapon: Weapon } | { type: 'hiss'; x: number } | { type: 'dive' } | { type: 'emerge' }
   | { type: 'vampFall' } | { type: 'burn' } | { type: 'vampHurt'; x: number; trap?: TrapKind } | { type: 'cleared' } | { type: 'over' } | { type: 'won' } | { type: 'powerReady' };
 
@@ -163,6 +175,7 @@ export interface Game {
   weapon: Weapon; ammo: Record<Weapon, number>; menu: { sel: number; t: number }; lastTap: number; holdT: number;
   combo: { n: number; t: number; best: number }; power: number; holyT: number; garlicT: number;
   door: { open: boolean; t: number }; spawnT: number; crateT: number; nextId: number; wave: number; bloodMoon: boolean;
+  taps: { d: 1 | -1; t: number; f: 1 | -1 }[]; boomer: Boomer | null; // las flechas tocadas (para los especiales) y la espada que vuelve
   storm: Storm | null; // la tormenta de lluvia y rayos (nivel 9)
   flash: number; shake: number; events: GameEvent[]; rand: () => number; stats: { slashes: number; throws: number; hits: number; crates: number; falls: number };
 }
@@ -173,7 +186,7 @@ export function mulberry(seed: number) {
 }
 
 export function newPlayer(): Player {
-  return { x: START_X, y: GROUND_Y, vx: 0, vy: 0, face: 1, onGround: true, surface: groundL(), jumps: 0, hp: MAX_HP, inv: 0, attackT: -1, attackWeapon: 'sword', hitIds: new Set(), cool: 0, walkT: 0, dropT: 0, coyote: 0, safeX: START_X, prevUp: false, prevDown: false, hurtT: 0, landT: 0, spinT: 0, aim: 0 };
+  return { x: START_X, y: GROUND_Y, vx: 0, vy: 0, face: 1, onGround: true, surface: groundL(), jumps: 0, hp: MAX_HP, inv: 0, attackT: -1, attackWeapon: 'sword', hitIds: new Set(), cool: 0, walkT: 0, dropT: 0, coyote: 0, safeX: START_X, prevUp: false, prevDown: false, hurtT: 0, landT: 0, spinT: 0, aim: 0, prevL: false, prevR: false, special: null };
 }
 export function newGame(seed = Math.floor(Math.random() * 1e9), level = 1): Game {
   loadLevel(level);
@@ -182,6 +195,7 @@ export function newGame(seed = Math.floor(Math.random() * 1e9), level = 1): Game
     kills: Object.fromEntries(VAMP_KINDS.map(k => [k, 0])) as Record<VampKind, number>, total: 0, shots: [], pops: [], transformT: 0, bossDeadT: -1, bossHits: 0, voidKills: 0, trapKills: 0, weapon: 'sword', ammo: { ...START_AMMO }, menu: { sel: 0, t: 0 }, lastTap: -9, holdT: 0,
     combo: { n: 0, t: 0, best: 0 }, power: 0, holyT: 0, garlicT: 0, goal: CHAPTERS[LV.def.n]?.goal ?? { type: 'kill', n: GOAL }, progress: 0, items: [], objects: [], itemT: 2, door: { open: false, t: 0 }, spawnT: 1.6, crateT: 9, nextId: 1, wave: 1, bloodMoon: false,
     flash: 0, shake: 0, events: [], rand: mulberry(seed), stats: { slashes: 0, throws: 0, hits: 0, crates: 0, falls: 0 },
+    taps: [], boomer: null,
     storm: LV.def.n === STORM_LEVEL ? { next: 2.5, t: 99, x: W / 2, near: 0.5, seed: 0 } : null,
   };
   if (g.goal.type === 'break') placeBreakables(g, g.goal.n, g.goal.obj);
@@ -302,9 +316,69 @@ export function chooseWeapon(g: Game, w: Weapon) {
   g.weapon = w; emit(g, { type: 'choose', weapon: w });
   if (g.phase === 'menu') { g.phase = 'play'; emit(g, { type: 'menu', open: false }); }
 }
+// ¿Qué especial pide la combinación de flechas recién tocada? (las dos últimas, rápidas, y Espacio enseguida)
+function comboSpecial(g: Game): { kind: SpecialKind; dir: 1 | -1 } | null {
+  const p = g.player;
+  if (!p.onGround && p.jumps === 2) return { kind: 'spin', dir: p.face }; // (una vez por salto)
+  const [a, b] = g.taps.slice(-2);
+  if (!a || !b || g.real - b.t > 0.4 || b.t - a.t > 0.45) return null;
+  const f = a.f; // para dónde miraba antes de la combinación
+  if (a.d === f && b.d === f) return { kind: 'dash', dir: f };
+  if (a.d === f && b.d === -f) return { kind: 'whirl', dir: f };
+  if (a.d === -f && b.d === -f) return { kind: 'throw', dir: f };
+  return null;
+}
+// Una flecha tocada (desde el teclado, al instante: así la combinación funciona aunque Espacio llegue en el mismo cuadro).
+export function noteTap(g: Game, d: 1 | -1) {
+  const p = g.player; g.taps.push({ d, t: g.real, f: p.face }); if (g.taps.length > 3) g.taps.shift();
+  if (d > 0) p.prevR = true; else p.prevL = true;
+}
+function startSpecial(g: Game, kind: SpecialKind, dir: 1 | -1) {
+  const p = g.player;
+  if (kind === 'throw' && g.boomer) return false; // la espada todavía no volvió
+  g.taps = [];
+  p.special = { kind, t: 0, dir, hits: new Set() }; p.face = dir; p.attackT = -1; p.cool = SPECIAL_TIME[kind] + 0.08; g.stats.slashes++;
+  if (kind === 'spin') { p.spinT = SPECIAL_TIME.spin; p.vy = Math.max(p.vy, 4); p.jumps = 3; }
+  if (kind === 'dash') { p.inv = Math.max(p.inv, SPECIAL_TIME.dash + 0.1); }
+  if (kind === 'throw') { p.attackT = 0; p.attackWeapon = 'sword'; p.hitIds = new Set(); }
+  if (kind === 'throw') g.boomer = { x: p.x + dir * 0.6, y: p.y + 1.25, vx: dir * BOOMER_SPEED, t: 0, back: false, hits: new Set(), x0: p.x };
+  emit(g, { type: 'special', kind });
+  return true;
+}
+// El corte de un especial: todos los vampiros (y ataúdes y tiros) dentro de la caja, una vez cada uno.
+function specialHit(g: Game, hits: Set<number>, x1: number, x2: number, y1: number, y2: number) {
+  const p = g.player;
+  for (const v of [...g.vamps]) { if (hits.has(v.id)) continue; const [a, b, c, d] = vampBox(v); if (b > x1 && a < x2 && d > y1 && c < y2) { hits.add(v.id); g.stats.hits++; hitVamp(g, v, WEAPON_DMG.sword * SPECIAL_DMG, 'sword', p.x); } }
+  for (const o of [...g.objects]) if (!hits.has(o.id) && o.x + 0.6 > x1 && o.x - 0.6 < x2 && o.y + 2 > y1 && o.y < y2) { hits.add(o.id); hitObject(g, o, WEAPON_DMG.sword * SPECIAL_DMG); }
+  for (const s of [...g.shots]) if (s.kind !== 'flame' && s.x > x1 && s.x < x2 && s.y > y1 && s.y < y2) g.shots.splice(g.shots.indexOf(s), 1);
+}
+function updateSpecial(g: Game, dt: number) {
+  const p = g.player, sp = p.special;
+  if (sp) {
+    sp.t += dt;
+    const cy = p.y + 1.0;
+    if (sp.kind === 'spin') specialHit(g, sp.hits, p.x - SPIN_R, p.x + SPIN_R, cy - SPIN_R, cy + SPIN_R);
+    else if (sp.kind === 'whirl') specialHit(g, sp.hits, p.x - WHIRL_R, p.x + WHIRL_R, p.y - 0.2, p.y + 2.4);
+    else if (sp.kind === 'dash') { const x0 = p.x; p.vx = sp.dir * DASH_SPEED; specialHit(g, sp.hits, Math.min(x0, x0 + sp.dir * 1.6) - 0.4, Math.max(x0, x0 + sp.dir * 1.6) + 0.4, p.y - 0.2, p.y + 2.4); }
+    if (sp.t >= SPECIAL_TIME[sp.kind]) { if (sp.kind === 'dash') p.vx = sp.dir * SPEED * 0.4; p.special = null; }
+  }
+  const bm = g.boomer;
+  if (bm) { // la espada que gira hacia adelante y vuelve a la mano
+    bm.t += dt;
+    if (!bm.back && Math.abs(bm.x - bm.x0) >= BOOMER_RANGE) { bm.back = true; bm.hits = new Set(); }
+    if (bm.back) { const tx = p.x, ty = p.y + 1.25, dx = tx - bm.x, dy = ty - bm.y, d = Math.hypot(dx, dy) || 1; bm.x += dx / d * BOOMER_SPEED * dt; bm.y += dy / d * BOOMER_SPEED * dt; if (d < 0.5 || bm.t > 3) { g.boomer = null; emit(g, { type: 'catch' }); return; } }
+    else bm.x += bm.vx * dt;
+    if (bm.x < -1 || bm.x > W + 1) { bm.back = true; bm.hits = new Set(); }
+    specialHit(g, bm.hits, bm.x - 0.7, bm.x + 0.7, bm.y - 0.7, bm.y + 0.7);
+  }
+}
+
 export function attack(g: Game) {
   const p = g.player;
-  if (p.cool > 0 || g.phase !== 'play') return;
+  if (g.phase !== 'play') return;
+  if (g.weapon === 'sword' && !p.special && p.cool <= 0.15) { const c = comboSpecial(g); if (c && startSpecial(g, c.kind, c.dir)) return; }
+  if (p.cool > 0) return;
+  if (g.weapon === 'sword' && g.boomer) return; // sin espada en la mano hasta que vuelva
   if (g.ammo[g.weapon] <= 0) { emit(g, { type: 'empty', weapon: g.weapon }); g.weapon = 'sword'; }
   const w = g.weapon;
   if (w === 'cross') { stormCross(g); return; }
@@ -930,10 +1004,13 @@ export function step(g: Game, input: Input, dt: number) {
   p.inv = Math.max(0, p.inv - dt); p.cool = Math.max(0, p.cool - dt); p.dropT -= dt; p.coyote -= dt; p.hurtT = Math.max(0, p.hurtT - dt); p.landT = Math.max(0, p.landT - dt); p.spinT = Math.max(0, p.spinT - dt);
   if (p.attackT >= 0) { p.attackT += dt; if (p.attackT > 0.3) p.attackT = -1; }
   const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-  if (dir) p.face = dir as 1 | -1;
+  // las flechas tocadas (para los ataques especiales): cada toque nuevo, con hacia dónde miraba antes
+  for (const [on, prev, d] of [[input.right, p.prevR, 1], [input.left, p.prevL, -1]] as const) if (on && !prev) { g.taps.push({ d: d as 1 | -1, t: g.real, f: p.face }); if (g.taps.length > 3) g.taps.shift(); }
+  p.prevR = input.right; p.prevL = input.left;
+  if (dir && !p.special) p.face = dir as 1 | -1;
   const slow = p.attackT >= 0 && p.onGround && p.attackWeapon === 'sword' ? 0.45 : 1;
-  const ctrl = p.hurtT > 0 ? 0 : p.onGround ? 14 : 6;
-  p.vx += (dir * SPEED * slow - p.vx) * Math.min(1, dt * ctrl);
+  const ctrl = p.hurtT > 0 || p.special?.kind === 'dash' ? 0 : p.onGround ? 14 : 6;
+  p.vx += (dir * SPEED * slow * (p.special?.kind === 'whirl' ? 0.3 : 1) - p.vx) * Math.min(1, dt * ctrl);
   const aiming = !!input.attack && AIMED.includes(g.weapon); // con Espacio apretado las flechas apuntan (no saltan ni bajan)
   const prevAim = p.aim;
   p.aim = AIMED.includes(g.weapon) ? (input.up ? 1 : input.down ? -1 : 0) : 0;
@@ -964,6 +1041,7 @@ export function step(g: Game, input: Input, dt: number) {
   // La puerta abierta: entra y pasa de nivel.
   if (g.door.open && g.door.t > 0.8 && p.x > DOOR.x1 + 0.3 && p.y < DOOR.y + 1) { g.phase = 'cleared'; g.phaseT = 0; emit(g, { type: 'cleared' }); return; }
 
+  updateSpecial(g, dt);
   // El golpe de la espada (o la ola de la espada de fuego): todo lo que está adelante del cazador.
   if (p.attackT >= 0.04 && p.attackT <= 0.22 && (p.attackWeapon === 'sword' || p.attackWeapon === 'firesword')) {
     const fire = p.attackWeapon === 'firesword', reach = fire ? FIRE_REACH : SWORD_REACH, hgt = fire ? FIRE_H : SWORD_H;

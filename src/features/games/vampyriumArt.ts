@@ -1,10 +1,10 @@
 // El dibujo de Vampyrium. El mundo va en unidades (vampyrium.ts) y acá se pasa a píxeles: `s` píxeles por unidad,
 // el borde de abajo de la pantalla es y = 0. Los personajes están en vampyriumChars.ts (al estilo de Kombat
 // Football); acá el escenario, las trampas, las cajas, los huesos, la sangre y las chispas.
-import { bodyFire, drawHunterK, drawSkeletonK } from './vampyriumChars';
+import { bodyFire, drawHunterK, drawSkeletonK, sword } from './vampyriumChars';
 import { drawShotK, drawVampK } from './vampyriumMonsters';
 import { setVampTexture } from './vampyriumVamps';
-import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm } from './vampyrium';
+import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyrium';
 import { drawBolt, drawGarlicBomb, drawWeaponIcon } from './vampyriumWeapons';
 
 const TAU = Math.PI * 2;
@@ -661,6 +661,26 @@ function drawRain(ctx: CanvasRenderingContext2D, v: View, w: number, h: number, 
   ctx.restore();
 }
 
+// Los efectos de los ataques especiales de Demian: el círculo del giro, la estela de la estocada y el remolino.
+function drawSpecialFx(ctx: CanvasRenderingContext2D, g: Game, v: View) {
+  const sp = g.player.special, p = g.player; if (!sp) return;
+  const k = Math.min(1, sp.t / SPECIAL_TIME[sp.kind]), fade = 1 - k, cx = X(v, p.x), cy = Y(v, p.y + 1.0);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+  if (sp.kind === 'spin' || sp.kind === 'whirl') {
+    const R = (sp.kind === 'spin' ? SPIN_R : WHIRL_R) * v.s * 0.85, a0 = -Math.PI / 2 + k * Math.PI * 2 * (sp.kind === 'spin' ? -sp.dir : 1);
+    for (const [w, c] of [[0.5, `rgba(255,255,255,${0.35 * fade})`], [0.2, `rgba(255,70,80,${0.8 * fade})`], [0.08, `rgba(255,230,230,${0.9 * fade})`]] as const) {
+      ctx.strokeStyle = c; ctx.lineWidth = v.s * w; ctx.beginPath();
+      if (sp.kind === 'spin') ctx.arc(cx, cy, R, a0 - 2.4, a0); else ctx.ellipse(cx, cy + v.s * 0.2, R, R * 0.28, 0, a0 - 2.6, a0);
+      ctx.stroke();
+    }
+  } else if (sp.kind === 'dash') {
+    for (let i = 0; i < 6; i++) { const y = Y(v, p.y + 0.4 + i * 0.3), len = v.s * (2.5 + (i % 3)) * fade; ctx.strokeStyle = `rgba(255,${120 + i * 20},${120 + i * 20},${0.55 * fade})`; ctx.lineWidth = v.s * 0.08; ctx.beginPath(); ctx.moveTo(cx - sp.dir * v.s * 0.3, y); ctx.lineTo(cx - sp.dir * (v.s * 0.3 + len), y); ctx.stroke(); }
+    glow(ctx, cx + sp.dir * v.s * 1.2, cy, v.s * 1.4, `rgba(255,60,70,${0.5 * fade})`);
+  }
+  ctx.restore();
+
+}
+
 // ---------------------------------------------------------------- Todo junto
 export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: number, t: number) {
   setVampTexture(false);
@@ -700,7 +720,7 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   for (const c of g.corpses) drawCorpse(ctx, c, v, t, g);
   // vampiros
   for (const vp of g.vamps) {
-    const k = CHAR_K * v.s * BODY[vp.kind].k;
+    const k = CHAR_K * v.s * BODY[vp.kind].k; // (BODY.k ya incluye que los vampiros son más grandes)
     ctx.save(); ctx.translate(X(v, vp.x), Y(v, vp.y)); ctx.scale(k * vp.face, k);
     drawVampK(ctx, vp, t);
     ctx.restore();
@@ -719,6 +739,7 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   // el ajo: un halo verde blanco que los espanta
   const p = g.player;
   if (g.garlicT > 0) glow(ctx, X(v, p.x), Y(v, p.y + 1), v.s * 4.5, `rgba(210,255,200,${0.25 * Math.min(1, g.garlicT)})`);
+  drawSpecialFx(ctx, g, v);
   // el cazador (parpadea mientras es invulnerable)
   if (g.phase !== 'dead' || g.phaseT < 0.2) {
     const blink = p.inv > 0 && Math.floor(p.inv * 12) % 2 === 0;
@@ -726,6 +747,9 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
     if (g.phase === 'cleared') ctx.globalAlpha = Math.max(0, 1 - g.phaseT / 1.6);
     drawHunterK(ctx, p, g, t); ctx.restore();
   }
+  if (g.boomer) { const bm = g.boomer; ctx.save(); ctx.translate(X(v, bm.x), Y(v, bm.y)); const k = CHAR_K * v.s; ctx.scale(k, k); ctx.rotate(-bm.t * 22 * Math.sign(bm.vx || 1)); // la espada que gira
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(255,220,220,0.45)'; ctx.lineWidth = 0.22; ctx.beginPath(); ctx.arc(0, 0, 0.85, 0, Math.PI * 1.4); ctx.stroke(); ctx.restore();
+    sword(ctx, [0, 0.6], Math.PI); ctx.restore(); }
   for (const s of g.bolts) drawBoltW(ctx, s, v);
   for (const b of g.bombs) drawBombW(ctx, b, v, t);
   for (const b of g.bullets) drawBulletW(ctx, b, v);

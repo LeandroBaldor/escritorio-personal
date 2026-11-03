@@ -6,7 +6,7 @@ import { TouchGrips } from './TouchGrips';
 import { GamePad } from './GamePad';
 import { pixelRatio, useFitScreen } from './fitScreen';
 import { EndBanner } from './EndBanner';
-import { BODY, CHAPTERS, goalProgress, DAMAGE, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, WEAPON_NAME, chooseWeapon, closeMenu, formatVampTime, menuMove, newGame, pressAttack, step, takeEvents, type Game, type Input, type Weapon } from './vampyrium';
+import { BODY, CHAPTERS, goalProgress, DAMAGE, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, WEAPON_NAME, chooseWeapon, closeMenu, formatVampTime, menuMove, newGame, noteTap, pressAttack, step, takeEvents, type Game, type Input, type Weapon } from './vampyrium';
 import { drawGame, drawPortrait, drawSwordIcon, setBackdrop } from './vampyriumArt';
 import { drawWeaponIcon } from './vampyriumWeapons';
 import { setNoGrain } from './gravityMonsters';
@@ -60,6 +60,9 @@ function ArtCanvas({ w, h, draw }: { w: number; h: number; draw: (ctx: CanvasRen
   }, [w, h]);
   return <canvas ref={ref} style={{ width: w, height: h }} aria-hidden="true" />;
 }
+
+// Los nombres de los ataques especiales de Demian (aparecen en grande al hacerlos).
+const SPECIAL_NAME = { spin: '🌀 ¡Giro en el aire!', dash: '⚡ ¡Estocada relámpago!', whirl: '🌪️ ¡Torbellino!', throw: '🗡️ ¡Espada bumerán!' } as const;
 
 // Enfoca el botón (para jugar con el teclado) sin mover el cartel: así no queda cortado arriba.
 const focusNoScroll = (el: HTMLButtonElement | null) => { el?.focus({ preventScroll: true }); };
@@ -168,6 +171,8 @@ export function Vampyrium() {
           case 'powerReady': playVampBell(0.2); setToast({ text: '✝ ¡+1 cruz! Elegila en las armas (tecla 4)', id: now, big: true }); break;
           case 'wave': setToast({ text: `Oleada ${e.n}: vienen más vampiros 🦇`, id: now }); break;
           case 'thunder': playThunder(e.near); break;
+          case 'special': playVampSword(); playVampSwing(); if (e.kind !== 'dash') playVampSword(); setToast({ text: SPECIAL_NAME[e.kind], id: now, big: true }); break;
+          case 'catch': playVampSword(); break;
           case 'bloodMoon': playThunder(1); setToast({ text: '🌕 ¡LUNA DE SANGRE! Los vampiros se ponen más rápidos', id: now, big: true, bad: true }); break;
           case 'menu': playVampMenu(e.open); break;
           case 'choose': playVampButton(); setToast({ text: `${ICON[e.weapon]} ${WEAPON_NAME[e.weapon]}`, id: now }); break;
@@ -230,7 +235,8 @@ export function Vampyrium() {
       }
       if (/^[1-6]$/.test(e.key)) { const w = WEAPONS[Number(e.key) - 1]; if (g.ammo[w] > 0) chooseWeapon(g, w); return; }
       const k = keys[e.key]; if (!k) return;
-      e.preventDefault(); input.current[k] = true;
+      e.preventDefault(); if (!e.repeat && (k === 'left' || k === 'right') && !input.current[k] && g.phase === 'play') noteTap(g, k === 'right' ? 1 : -1); // para los ataques especiales
+      input.current[k] = true;
     };
     const up = (e: KeyboardEvent) => { if (e.key === ' ' || e.code === 'Space') input.current.attack = false; const k = keys[e.key]; if (k) input.current[k] = false; };
     const blur = () => { input.current = { left: false, right: false, up: false, down: false }; };
@@ -354,6 +360,10 @@ export function Vampyrium() {
               <li><span><kbd>↓</kbd></span>Bajar de una plataforma</li>
               <li><span><kbd>Espacio</kbd></span>Atacar con el arma que tenés</li>
               <li><span><kbd>↑</kbd>/<kbd>↓</kbd>+<kbd>Espacio</kbd></span>Con la ballesta, la pistola o el ajo: disparar hacia arriba o hacia abajo</li>
+              <li><span><kbd>↑</kbd><kbd>↑</kbd>+<kbd>Espacio</kbd></span>Especial: giro de 360° en el aire</li>
+              <li><span><kbd>→</kbd><kbd>→</kbd>+<kbd>Espacio</kbd></span>Especial: estocada que atraviesa al vampiro</li>
+              <li><span><kbd>→</kbd><kbd>←</kbd>+<kbd>Espacio</kbd></span>Especial: torbellino (giro horizontal)</li>
+              <li><span><kbd>←</kbd><kbd>←</kbd>+<kbd>Espacio</kbd></span>Especial: tira la espada y vuelve</li>
               <li><span><kbd>Espacio</kbd> 3 s</span>Abrir el arsenal de armas</li>
               <li><span><kbd>1</kbd>–<kbd>6</kbd></span>Cambiar de arma</li>
               <li><span><kbd>P</kbd></span>Pausa</li>
