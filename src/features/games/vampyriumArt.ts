@@ -4,7 +4,7 @@
 import { bodyFire, drawHunterK, drawSkeletonK, sword } from './vampyriumChars';
 import { drawShotK, drawVampK } from './vampyriumMonsters';
 import { setVampTexture } from './vampyriumVamps';
-import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Orb, type Shard, MELT_T, PUDDLE_T, DUST_T, FREEZE_T, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyrium';
+import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, CAM_MAX, WORLD_H, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Orb, type Shard, MELT_T, PUDDLE_T, DUST_T, FREEZE_T, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyrium';
 import { drawBolt, drawGarlicBomb, drawIceCrystal, drawVenomBall, drawWeaponIcon } from './vampyriumWeapons';
 
 const TAU = Math.PI * 2;
@@ -12,9 +12,9 @@ const INK = '#07060a';
 export interface View { s: number; ox: number; oy: number; w: number; h: number }
 const X = (v: View, x: number) => v.ox + x * v.s;
 const Y = (v: View, y: number) => v.oy - y * v.s;
-export function viewFor(w: number, h: number): View {
+export function viewFor(w: number, h: number, camY = 0): View {
   const s = Math.min(w / W, h / H);
-  return { s, ox: (w - W * s) / 2, oy: h, w, h };
+  return { s, ox: (w - W * s) / 2, oy: h + camY * s, w, h };
 }
 const hash = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
@@ -68,7 +68,7 @@ function pelvis(ctx: CanvasRenderingContext2D) { blob(ctx, '#f1ead8', 2.2, () =>
 function spine(ctx: CanvasRenderingContext2D) { for (let i = 0; i < 5; i++) blob(ctx, '#f1ead8', 1.6, () => ctx.roundRect(-3.5, -12 + i * 5, 7, 4, 1.5)); }
 function jaw(ctx: CanvasRenderingContext2D) { blob(ctx, '#ece3cf', 2, () => { ctx.moveTo(-9, -2); ctx.lineTo(9, -2); ctx.lineTo(6, 5); ctx.lineTo(-6, 5); ctx.closePath(); }); ctx.fillStyle = '#fff'; for (let i = -2; i <= 2; i++) ctx.fillRect(i * 3 - 1, -4, 2, 2.5); }
 export function drawBone(ctx: CanvasRenderingContext2D, b: Bone, v: View) {
-  const k = PLAYER_H * 1.3 * v.s / 100, fade = Math.min(1, (3.4 - b.t) / 0.6);
+  const k = PLAYER_H * 1.3 * v.s / 100 * (b.s ?? 1), fade = Math.min(1, (3.4 - b.t) / 0.6);
   ctx.save(); ctx.globalAlpha = Math.max(0, fade); ctx.translate(X(v, b.x), Y(v, b.y)); ctx.scale(k, k); ctx.rotate(b.a);
   if (b.kind === 'skull') skull(ctx, b.t < 1.2 ? '#ff3a2a' : '#2a1e1a');
   else if (b.kind === 'jaw') jaw(ctx);
@@ -103,7 +103,7 @@ export function drawCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t:
   }
   if (!dragon) {
     ctx.save(); ctx.globalAlpha = f; ctx.translate(0, fly ? 0.4 : 0);
-    drawSkeletonK(ctx, false, t, 1);
+    drawSkeletonK(ctx, false, t, 1, c.kind);
     if (burn > 0) { ctx.globalAlpha = 0.55 * burn; ctx.fillStyle = '#1a0a02'; ctx.beginPath(); ctx.ellipse(0.02, -1.0, 0.45, 1.05, 0, 0, TAU); ctx.globalCompositeOperation = 'source-atop'; ctx.fill(); }
     ctx.restore();
   }
@@ -250,15 +250,21 @@ function capStones(ctx: CanvasRenderingContext2D, x1: number, x2: number, top: n
   if (TINT) { ctx.globalCompositeOperation = 'color'; ctx.globalAlpha = 0.22; ctx.fillStyle = rgb(TINT, 1.2); ctx.fillRect(x1, top, x2 - x1, hgt); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; }
   ctx.restore();
 }
-function paintStatic(ctx: CanvasRenderingContext2D, v: View) {
-  // el fondo pintado (más oscuro para que se lean los pisos y los personajes)
+// El fondo pintado (más oscuro para que se lean los pisos y los personajes): se mueve más despacio que el
+// escenario cuando la cámara sube (paralaje), así alcanza para todo el alto.
+const PARALLAX = 0.45;
+function paintBackdrop(ctx: CanvasRenderingContext2D, v: View, camY: number) {
+  const base = viewFor(v.w, v.h), dh = Y(base, GROUND_Y) + v.s * 0.6, off = camY * v.s * PARALLAX;
   if (backdrop && backdropReady) {
     // sin la franja de abajo de la imagen (sus puentes pintados se confundían con los pisos de verdad)
-    const iw = backdrop.naturalWidth, ih = backdrop.naturalHeight * LV.def.crop, dh = Y(v, GROUND_Y) + v.s * 0.6, k = Math.max(v.w / iw, dh / ih);
-    ctx.drawImage(backdrop, 0, 0, iw, ih, (v.w - iw * k) / 2, dh - ih * k, iw * k, ih * k);
-    ctx.fillStyle = '#05040a'; ctx.fillRect(0, dh, v.w, v.h - dh);
+    const iw = backdrop.naturalWidth, ih = backdrop.naturalHeight * LV.def.crop, k = Math.max(v.w / iw, (dh + CAM_MAX * v.s * PARALLAX) / ih), top = dh - ih * k + off;
+    if (top > 0) { ctx.fillStyle = lin(ctx, 0, 0, 0, top + 2, [[0, '#04030a'], [1, '#0c0a18']]); ctx.fillRect(0, 0, v.w, top + 2); }
+    ctx.drawImage(backdrop, 0, 0, iw, ih, (v.w - iw * k) / 2, top, iw * k, ih * k);
+    ctx.fillStyle = '#05040a'; ctx.fillRect(0, dh + off, v.w, v.h);
   } else { ctx.fillStyle = lin(ctx, 0, 0, 0, v.h, [[0, '#0d1430'], [1, '#2a2440']]); ctx.fillRect(0, 0, v.w, v.h); }
   ctx.fillStyle = lin(ctx, 0, 0, 0, v.h, [[0, 'rgba(6,8,22,0.25)'], [0.6, 'rgba(6,6,16,0.35)'], [1, 'rgba(4,2,8,0.55)']]); ctx.fillRect(0, 0, v.w, v.h);
+}
+function paintStatic(ctx: CanvasRenderingContext2D, v: View) {
   // los huecos: el vacío con niebla (o una fosa); los líquidos se dibujan en cada cuadro
   for (const [a, b] of GAPS) {
     const x1 = X(v, a), x2 = X(v, b), pit = LV.def.pit;
@@ -272,19 +278,15 @@ function paintStatic(ctx: CanvasRenderingContext2D, v: View) {
     }
   }
   // el suelo de piedra (extendido a los costados de la pantalla)
-  const gTop = Y(v, GROUND_Y), bw = v.s * 1.1, bh = v.s * 0.55;
+  const n = LV.def.n, BLK: Record<number, [number, number]> = { 1: [1.1, 0.55], 2: [0.8, 0.45], 3: [1.4, 0.7], 4: [0.7, 0.7], 5: [1.6, 0.5], 6: [0.9, 0.42], 7: [1.3, 0.8], 8: [0.95, 0.5], 9: [1.2, 0.6], 10: [1.0, 1.0] };
+  const gTop = Y(v, GROUND_Y), bw = v.s * BLK[n][0], bh = v.s * BLK[n][1];
   for (const s of SURFACES.filter(q => q.ground)) {
     const x1 = s.x1 <= 0 ? 0 : X(v, s.x1), x2 = s.x2 >= W ? v.w : X(v, s.x2);
-    stoneBlocks(ctx, x1, gTop, x2 - x1, v.h - gTop, bw, bh, s.x1 * 13 + LV.def.n * 7, LV.def.stone, { moss: true, deep: v.h - gTop });
-    // arcos de puente debajo: el hueco oscuro con las dovelas alrededor
-    if (s.x2 - s.x1 > 5) for (let ax = s.x1 + 1.6; ax < s.x2 - 1.2; ax += 3.2) {
-      const cx = X(v, ax + 0.8), top = gTop + v.s * 0.95, r = v.s * 0.72;
-      const hole = () => { ctx.beginPath(); ctx.moveTo(cx - r, v.h); ctx.lineTo(cx - r, top + r); ctx.arc(cx, top + r, r, Math.PI, 0); ctx.lineTo(cx + r, v.h); ctx.closePath(); };
-      for (let k = 0; k <= 8; k++) { const a = Math.PI + k * Math.PI / 8, a2 = a + Math.PI / 8 * 0.92, R = r + v.s * 0.26; ctx.beginPath(); ctx.arc(cx, top + r, R, a - 0.03, Math.min(a2, TAU)); ctx.arc(cx, top + r, r, Math.min(a2, TAU), a - 0.03, true); ctx.closePath(); ctx.fillStyle = rgb(LV.def.stone, 1.3 - hash(k + ax) * 0.25); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1; ctx.stroke(); }
-      hole(); ctx.fillStyle = lin(ctx, 0, top, 0, v.h, [[0, 'rgba(14,10,22,0.92)'], [1, 'rgba(2,2,6,0.98)']]); ctx.fill();
-      ctx.save(); hole(); ctx.clip(); glow(ctx, cx, top + r * 0.4, r * 1.2, TINT ? rgb(TINT, 0.6, 0.35) : 'rgba(60,70,120,0.3)'); ctx.restore(); // un poco de luz del otro lado
-    }
+    stoneBlocks(ctx, x1, gTop, x2 - x1, v.h - gTop, bw, bh, s.x1 * 13 + n * 7, LV.def.stone, { moss: true, deep: v.h - gTop });
+    groundDecor(ctx, v, s, x1, x2, gTop);
     capStones(ctx, x1, x2, gTop - v.s * 0.08, v.s * 0.4, v.s, s.x1 * 7 + LV.def.n);
+    if (n === 10) { ctx.fillStyle = lin(ctx, 0, gTop - v.s * 0.12, 0, gTop + v.s * 0.05, [[0, '#d0283a'], [1, '#6a0812']]); ctx.fillRect(x1, gTop - v.s * 0.12, x2 - x1, v.s * 0.16); ctx.fillStyle = '#e2b04a'; ctx.fillRect(x1, gTop + v.s * 0.02, x2 - x1, v.s * 0.04); } // la alfombra roja del trono
+    if (n === 8 || n === 9) for (let gx = x1; gx < x2; gx += v.s * 0.18) { const hgt = v.s * (0.12 + hash(gx * 0.37) * 0.22); ctx.strokeStyle = n === 8 ? '#3f6a30' : '#4a5a3a'; ctx.lineWidth = Math.max(1, v.s * 0.04); ctx.beginPath(); ctx.moveTo(gx, gTop - v.s * 0.06); ctx.quadraticCurveTo(gx + v.s * 0.05, gTop - hgt * 0.6, gx + v.s * (hash(gx) - 0.5) * 0.2, gTop - v.s * 0.06 - hgt); ctx.stroke(); } // pasto
     ctx.strokeStyle = INK; ctx.lineWidth = Math.max(2, v.s * 0.06); ctx.strokeRect(x1, gTop - v.s * 0.08, x2 - x1, v.h);
   }
   // niebla baja del color del fondo, para que el piso se funda con la pintura
@@ -294,6 +296,63 @@ function paintStatic(ctx: CanvasRenderingContext2D, v: View) {
   const dx1 = X(v, DOOR.x1 - 0.35), dx2 = Math.max(X(v, DOOR.x2 + 0.35), v.w), dTop = Y(v, DOOR.y + DOOR.h + 0.9);
   stoneBlocks(ctx, dx1, dTop, dx2 - dx1, gTop - dTop, v.s * 0.7, v.s * 0.45, 99, [58, 52, 60]);
   ctx.strokeStyle = INK; ctx.lineWidth = Math.max(2, v.s * 0.06); ctx.strokeRect(dx1, dTop, dx2 - dx1, gTop - dTop);
+}
+// Hasta dónde sube una cadena: hasta la plataforma que tenga encima (le pasa por abajo) o hasta arriba de todo.
+function chainTop(x: number, y: number) {
+  let top = WORLD_H + 2;
+  for (const q of SURFACES) if (!q.ground && !q.mv && q.y > y + 0.3 && q.y < top && x > q.x1 - 0.1 && x < q.x2 + 0.1) top = q.y;
+  return top;
+}
+// Lo que tiene el frente del piso en cada nivel (así no se repite): el puente con arcos, las rejillas de las
+// cloacas, las grietas de lava de la fragua, los nichos de la catedral, las placas de hierro con remaches, las
+// calaveras del osario, las venas de fuego del infierno, la baranda del jardín, la tierra con raíces del
+// cementerio y el mármol con la alfombra roja del trono.
+function groundDecor(ctx: CanvasRenderingContext2D, v: View, s: Surface, x1: number, x2: number, gTop: number) {
+  const n = LV.def.n, sz = v.s, w = x2 - x1, cells = Math.max(1, Math.floor(w / (sz * 3.4)));
+  ctx.save(); ctx.beginPath(); ctx.rect(x1, gTop, w, v.h - gTop); ctx.clip();
+  const each = (f: (cx: number, i: number) => void) => { for (let i = 0; i < cells; i++) f(x1 + w * (i + 0.5) / cells + (hash(s.x1 + i * 7) - 0.5) * sz * 0.8, i); };
+  if (n === 1) each(cx => { // arcos del puente (bajos y anchos)
+    const top = gTop + sz * 1.0, r = sz * 0.85;
+    for (let k = 0; k <= 8; k++) { const a = Math.PI + k * Math.PI / 8, a2 = a + Math.PI / 8 * 0.92, R = r + sz * 0.26; ctx.beginPath(); ctx.arc(cx, top + r, R, a - 0.03, Math.min(a2, TAU)); ctx.arc(cx, top + r, r, Math.min(a2, TAU), a - 0.03, true); ctx.closePath(); ctx.fillStyle = rgb(LV.def.stone, 1.3 - hash(k + cx) * 0.25); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1; ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(cx - r, v.h); ctx.lineTo(cx - r, top + r); ctx.arc(cx, top + r, r, Math.PI, 0); ctx.lineTo(cx + r, v.h); ctx.closePath(); ctx.fillStyle = lin(ctx, 0, top, 0, v.h, [[0, 'rgba(14,10,22,0.85)'], [1, 'rgba(2,2,6,0.95)']]); ctx.fill();
+  });
+  if (n === 2) each((cx, i) => { // rejilla redonda de desagüe con limo verde que chorrea
+    const cy = gTop + sz * (1.2 + (i % 2) * 0.5), r = sz * 0.45;
+    ctx.fillStyle = '#0a0f08'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#4a4e44'; ctx.lineWidth = Math.max(2, sz * 0.09); ctx.stroke(); ctx.lineWidth = Math.max(1.5, sz * 0.06); for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(cx + k * r * 0.35, cy - Math.sqrt(r * r - (k * r * 0.35) ** 2)); ctx.lineTo(cx + k * r * 0.35, cy + Math.sqrt(r * r - (k * r * 0.35) ** 2)); ctx.stroke(); }
+    ctx.fillStyle = lin(ctx, 0, cy, 0, cy + sz * 1.6, [[0, 'rgba(140,230,60,0.75)'], [1, 'rgba(60,140,30,0)']]); ctx.beginPath(); ctx.moveTo(cx - r * 0.5, cy + r * 0.6); ctx.quadraticCurveTo(cx, cy + sz * 1.8, cx + r * 0.5, cy + r * 0.6); ctx.fill();
+  });
+  if (n === 3 || n === 7) { // grietas con lava que brilla
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < cells * 2; i++) { const cx = x1 + w * hash(s.x1 + i * 3.3), cy = gTop + sz * (0.6 + hash(i * 1.7) * 2.2); ctx.strokeStyle = n === 3 ? 'rgba(255,120,30,0.85)' : 'rgba(255,70,20,0.9)'; ctx.lineWidth = Math.max(1.5, sz * 0.06); ctx.beginPath(); ctx.moveTo(cx, cy); for (let k = 1; k < 5; k++) ctx.lineTo(cx + (hash(i + k) - 0.5) * sz * 1.2 * k * 0.4, cy + k * sz * 0.3); ctx.stroke(); glow(ctx, cx, cy + sz * 0.5, sz * 0.9, 'rgba(255,90,20,0.35)'); }
+    ctx.restore();
+  }
+  if (n === 4) each(cx => { // nicho gótico (poco hondo) con una vela
+    const top = gTop + sz * 0.8, hw = sz * 0.38, hh = sz * 1.5;
+    ctx.fillStyle = 'rgba(10,8,18,0.7)'; ctx.beginPath(); ctx.moveTo(cx - hw, top + hh); ctx.lineTo(cx - hw, top + hw); ctx.quadraticCurveTo(cx - hw, top, cx, top - hw * 0.6); ctx.quadraticCurveTo(cx + hw, top, cx + hw, top + hw); ctx.lineTo(cx + hw, top + hh); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = rgb(LV.def.stone, 1.6); ctx.lineWidth = Math.max(2, sz * 0.08); ctx.stroke();
+    ctx.fillStyle = '#efe6cf'; ctx.fillRect(cx - sz * 0.05, top + hh - sz * 0.45, sz * 0.1, sz * 0.4); glow(ctx, cx, top + hh - sz * 0.5, sz * 0.5, 'rgba(255,200,110,0.55)');
+  });
+  if (n === 5) { // placas de hierro con remaches
+    const ph = sz * 0.9; for (let y = gTop + sz * 0.4; y < gTop + sz * 3; y += ph * 1.6) { ctx.fillStyle = lin(ctx, 0, y, 0, y + ph, [[0, '#5a5560'], [0.5, '#3a363f'], [1, '#26232a']]); ctx.fillRect(x1, y, w, ph); ctx.fillStyle = 'rgba(120,30,20,0.35)'; for (let k = 0; k < cells * 3; k++) ctx.fillRect(x1 + w * hash(k + y), y + ph * 0.2, sz * 0.3, ph * 0.7); ctx.fillStyle = '#9a96a0'; for (let x = x1 + sz * 0.3; x < x2; x += sz * 0.8) for (const yy of [y + ph * 0.2, y + ph * 0.8]) { ctx.beginPath(); ctx.arc(x, yy, sz * 0.06, 0, TAU); ctx.fill(); } }
+  }
+  if (n === 6) for (let i = 0; i < cells * 4; i++) { const cx = x1 + w * hash(s.x1 * 2 + i * 1.9), cy = gTop + sz * (0.7 + hash(i * 2.9) * 2.4); ctx.save(); ctx.translate(cx, cy); const k = sz / 40 * 0.9; ctx.scale(k, k); ctx.rotate((hash(i) - 0.5) * 0.6); skull(ctx, '#1a0e0a'); ctx.restore(); } // calaveras en la pared
+  if (n === 8) { // baranda de piedra con columnitas y rosas
+    const top = gTop + sz * 0.45; ctx.fillStyle = rgb(LV.def.stone, 1.5); ctx.fillRect(x1, top, w, sz * 0.18);
+    for (let x = x1 + sz * 0.3; x < x2; x += sz * 0.55) { ctx.fillStyle = lin(ctx, x - sz * 0.12, 0, x + sz * 0.12, 0, [[0, rgb(LV.def.stone, 0.9)], [0.5, rgb(LV.def.stone, 1.6)], [1, rgb(LV.def.stone, 0.8)]]); ctx.beginPath(); ctx.ellipse(x, top + sz * 0.6, sz * 0.12, sz * 0.4, 0, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = rgb(LV.def.stone, 1.4); ctx.fillRect(x1, top + sz * 1.0, w, sz * 0.15);
+    for (let i = 0; i < cells * 3; i++) { const rx = x1 + w * hash(i * 5.1 + s.x1), ry = top + sz * (1.25 + hash(i) * 0.3); ctx.fillStyle = '#2a4a22'; ctx.beginPath(); ctx.ellipse(rx, ry, sz * 0.35, sz * 0.18, 0, 0, TAU); ctx.fill(); ctx.fillStyle = '#b3121b'; for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(rx + (k - 1) * sz * 0.18, ry - sz * 0.05, sz * 0.08, 0, TAU); ctx.fill(); } }
+  }
+  if (n === 9) { // tierra oscura con raíces y piedras
+    ctx.fillStyle = lin(ctx, 0, gTop, 0, v.h, [[0, 'rgba(50,36,26,0.75)'], [1, 'rgba(14,10,8,0.95)']]); ctx.fillRect(x1, gTop + sz * 0.3, w, v.h);
+    ctx.strokeStyle = 'rgba(90,64,40,0.8)'; ctx.lineWidth = Math.max(1.5, sz * 0.05); for (let i = 0; i < cells * 4; i++) { const rx = x1 + w * hash(i * 3.7 + s.x1); ctx.beginPath(); ctx.moveTo(rx, gTop + sz * 0.3); ctx.bezierCurveTo(rx + sz * 0.4, gTop + sz, rx - sz * 0.3, gTop + sz * 1.6, rx + sz * (hash(i) - 0.5), gTop + sz * 2.4); ctx.stroke(); }
+    for (let i = 0; i < cells * 5; i++) { ctx.fillStyle = `rgba(${90 + hash(i) * 40},${85 + hash(i) * 30},80,0.9)`; ctx.beginPath(); ctx.ellipse(x1 + w * hash(i * 2.3 + 1), gTop + sz * (0.8 + hash(i * 4.1) * 2.2), sz * 0.16, sz * 0.1, hash(i) * 3, 0, TAU); ctx.fill(); }
+  }
+  if (n === 10) { // mármol pulido con vetas y el borde dorado
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = Math.max(1, sz * 0.03); for (let i = 0; i < cells * 3; i++) { const rx = x1 + w * hash(i * 1.3); ctx.beginPath(); ctx.moveTo(rx, gTop + sz * 0.3); ctx.bezierCurveTo(rx + sz, gTop + sz, rx - sz, gTop + sz * 2, rx + sz * 0.5, gTop + sz * 3); ctx.stroke(); }
+    ctx.fillStyle = '#c9a24a'; ctx.fillRect(x1, gTop + sz * 0.38, w, sz * 0.07);
+  }
+  ctx.restore();
 }
 // Una cadena de hierro con eslabones de metal (alternados de frente y de canto) y su brillo.
 function ironChain(ctx: CanvasRenderingContext2D, v: View, x: number, yTop: number, yBot: number) {
@@ -308,7 +367,7 @@ function ironChain(ctx: CanvasRenderingContext2D, v: View, x: number, yTop: numb
 // Plataforma: losa de piedra tallada colgada con cadenas, con ménsulas debajo y argollas de hierro.
 function drawPlatform(ctx: CanvasRenderingContext2D, v: View, s: Surface) {
   const x1 = X(v, s.x1), x2 = X(v, s.x2), y = Y(v, s.y), th = v.s * 0.6, sz = v.s, st = LV.def.stone;
-  for (const cx of [s.x1 + 0.4, s.x2 - 0.4]) ironChain(ctx, v, X(v, cx), 0, y - v.s * 0.06); // cadenas hacia arriba (hasta el techo)
+  for (const cx of [s.x1 + 0.4, s.x2 - 0.4]) ironChain(ctx, v, X(v, cx), Math.max(0, Y(v, chainTop(cx, s.y)) + v.s * 0.55), y - v.s * 0.06); // cadenas hacia arriba (hasta la plataforma de arriba o el techo)
   // sombra que tira la losa sobre el fondo
   ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.roundRect(x1 + sz * 0.15, y + th * 0.4, x2 - x1, th * 0.9, sz * 0.2); ctx.fill();
   // ménsulas de piedra escalonadas debajo de cada punta
@@ -349,11 +408,16 @@ function drawGate(ctx: CanvasRenderingContext2D, v: View, open: number) {
   const x1 = X(v, DOOR.x1), x2 = X(v, DOOR.x2), y0 = Y(v, DOOR.y), top = Y(v, DOOR.y + DOOR.h), mid = (x1 + x2) / 2, r = (x2 - x1) / 2;
   const path = () => { ctx.moveTo(x1, y0); ctx.lineTo(x1, top + r); ctx.quadraticCurveTo(x1, top - r * 0.4, mid, top - r); ctx.quadraticCurveTo(x2, top - r * 0.4, x2, top + r); ctx.lineTo(x2, y0); ctx.closePath(); };
   const lift = open * (y0 - top + r);
+  // la reja (rastrillo): barrotes gruesos de hierro con punta abajo, travesaños con remaches; sube metiéndose en el muro
   ctx.save(); ctx.beginPath(); path(); ctx.clip();
-  ctx.strokeStyle = '#1b1a20'; ctx.lineWidth = Math.max(2, v.s * 0.09);
-  for (let i = 1; i < 6; i++) { const x = x1 + (x2 - x1) * i / 6; ctx.beginPath(); ctx.moveTo(x, top - r - lift); ctx.lineTo(x, y0 - lift); ctx.stroke(); }
-  for (let j = 1; j < 5; j++) { const y = top + (y0 - top) * j / 5 - lift; ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke(); }
-  ctx.fillStyle = '#9aa0ad'; for (let i = 1; i < 6; i++) { const x = x1 + (x2 - x1) * i / 6; ctx.beginPath(); ctx.moveTo(x - v.s * 0.07, y0 - lift); ctx.lineTo(x, y0 - lift + v.s * 0.18); ctx.lineTo(x + v.s * 0.07, y0 - lift); ctx.fill(); }
+  const bar = Math.max(2.5, v.s * 0.13);
+  for (let j = 1; j < 5; j++) { const y = top + (y0 - top) * j / 5 - lift; ctx.fillStyle = lin(ctx, 0, y - bar / 2, 0, y + bar / 2, [[0, '#6a6e7a'], [0.5, '#2a2a32'], [1, '#15151a']]); ctx.fillRect(x1, y - bar / 2, x2 - x1, bar); }
+  for (let i = 1; i < 6; i++) {
+    const x = x1 + (x2 - x1) * i / 6;
+    ctx.fillStyle = lin(ctx, x - bar / 2, 0, x + bar / 2, 0, [[0, '#15151a'], [0.4, '#7a7e8a'], [1, '#1c1c22']]); ctx.fillRect(x - bar / 2, top - r - lift - v.s * 3, bar, y0 - top + r + v.s * 3);
+    ctx.fillStyle = '#8a8e9a'; ctx.beginPath(); ctx.moveTo(x - bar * 0.7, y0 - lift); ctx.lineTo(x, y0 - lift + v.s * 0.28); ctx.lineTo(x + bar * 0.7, y0 - lift); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 1; ctx.stroke();
+    for (let j = 1; j < 5; j++) { const y = top + (y0 - top) * j / 5 - lift; ctx.fillStyle = '#b9bdc9'; ctx.beginPath(); ctx.arc(x, y, bar * 0.28, 0, TAU); ctx.fill(); }
+  }
   ctx.restore();
   if (open > 0 && open < 1) { ctx.strokeStyle = '#3a3640'; ctx.lineWidth = Math.max(1.5, v.s * 0.05); ctx.setLineDash([v.s * 0.12, v.s * 0.08]); for (const x of [x1 + (x2 - x1) * 0.2, x2 - (x2 - x1) * 0.2]) { ctx.beginPath(); ctx.moveTo(x, top - r - v.s * 0.6); ctx.lineTo(x, top - r - lift + v.s * 0.1); ctx.stroke(); } ctx.setLineDash([]); } // las cadenas que la suben
 }
@@ -382,15 +446,43 @@ function drawDoor(ctx: CanvasRenderingContext2D, g: Game, v: View, t: number) {
     ctx.fillStyle = '#c9c2b5'; ctx.fillText(`🔒 ${left}${g.goal.type === 'survive' ? 's' : ''} ${icon}`, mid - v.s * 0.2, sy);
   }
 }
-function flame(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, t: number, seed: number) {
-  const f = 0.85 + 0.15 * Math.sin(t * 13 + seed) + 0.1 * Math.sin(t * 29 + seed * 2);
-  glow(ctx, x, y - size * 0.6, size * 3.2, 'rgba(255,140,40,0.35)');
-  for (const [k, col] of [[1, '#ff5a14'], [0.72, '#ffa424'], [0.42, '#fff1a8']] as const) {
-    const hgt = size * 1.9 * f * k, wd = size * 0.62 * k;
-    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x - wd, y);
-    ctx.quadraticCurveTo(x - wd * 1.1, y - hgt * 0.5, x + Math.sin(t * 9 + seed) * wd * 0.4, y - hgt);
-    ctx.quadraticCurveTo(x + wd * 1.1, y - hgt * 0.5, x + wd, y); ctx.closePath(); ctx.fill();
+// Fuego de verdad: muchas lenguas de llama que nacen abajo (blancas y amarillas), suben, se mueven con el aire,
+// se ponen naranjas y rojas, se achican y se apagan; con el corazón brillante abajo, chispas que vuelan y un poco de
+// humo arriba. Todo sale del tiempo (no guarda nada), así cada fuego titila distinto.
+type Pal = [number, number, number][];
+const FIRE_PAL: Record<string, Pal> = {
+  fire: [[255, 248, 215], [255, 196, 70], [255, 108, 22], [190, 32, 8]],
+  hell: [[255, 236, 190], [255, 140, 36], [235, 54, 10], [130, 8, 4]],
+  lava: [[255, 240, 170], [255, 160, 40], [230, 70, 10], [120, 20, 4]],
+};
+const rgba3 = (c: [number, number, number], a: number) => `rgba(${c[0]},${c[1]},${c[2]},${Math.max(0, Math.min(1, a))})`;
+function fireBody(ctx: CanvasRenderingContext2D, x: number, base: number, hgt: number, wid: number, t: number, seed: number, n = 22, pal: Pal = FIRE_PAL.fire, smoke = true) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  glow(ctx, x, base - hgt * 0.35, Math.max(hgt * 0.8, wid * 1.6), rgba3(pal[2], 0.3));
+  n = Math.min(36, Math.max(n, Math.round(hgt / wid * 6)));
+  if (hgt > wid * 2) { // la forma de la columna (llama larga que ondula) debajo de las lenguas
+    const bg = ctx.createLinearGradient(0, base, 0, base - hgt); bg.addColorStop(0, rgba3(pal[0], 0.8)); bg.addColorStop(0.3, rgba3(pal[1], 0.65)); bg.addColorStop(0.7, rgba3(pal[2], 0.45)); bg.addColorStop(1, rgba3(pal[3], 0));
+    ctx.fillStyle = bg; ctx.beginPath(); ctx.moveTo(x - wid * 0.55, base);
+    for (let j = 1; j <= 10; j++) { const q = j / 10; ctx.lineTo(x - wid * 0.55 * (1 - q * 0.75) + Math.sin(t * 9 + j * 1.3 + seed) * wid * 0.18 * q, base - hgt * q); }
+    for (let j = 10; j >= 1; j--) { const q = j / 10; ctx.lineTo(x + wid * 0.55 * (1 - q * 0.75) + Math.sin(t * 8 + j * 1.7 + seed) * wid * 0.18 * q, base - hgt * q); }
+    ctx.lineTo(x + wid * 0.55, base); ctx.closePath(); ctx.fill();
   }
+  for (let i = 0; i < n; i++) {
+    const r = hash(seed * 13.1 + i * 1.37), k = (t * (1.3 + r * 1.3) + r) % 1, y = base - k * hgt;
+    const sway = Math.sin(t * 7 + i * 1.7 + k * 5) * wid * 0.22 * k + (hash(i + seed * 3.3) - 0.5) * wid * 0.55 * (1 - k * 0.5);
+    const size = wid * (0.62 - (hgt > wid * 2 ? 0.3 : 0.45) * k) * (0.7 + 0.6 * hash(i * 3 + seed));
+    const c = k < 0.1 ? pal[0] : k < 0.35 ? pal[1] : k < 0.68 ? pal[2] : pal[3], a = Math.min(1, k * 10) * Math.pow(1 - k, 0.6) * 0.55;
+    const g = ctx.createRadialGradient(x + sway, y, 0, x + sway, y, size * 1.1); g.addColorStop(0, rgba3(c, a)); g.addColorStop(0.6, rgba3(c, a * 0.5)); g.addColorStop(1, rgba3(c, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x + sway, y - size * 0.45, size * 0.6, size * 1.6, Math.sin(t * 5 + i) * 0.15, 0, TAU); ctx.fill();
+  }
+  const cg = ctx.createRadialGradient(x, base - hgt * 0.1, 0, x, base - hgt * 0.1, wid * 0.7); cg.addColorStop(0, rgba3(pal[0], 0.6)); cg.addColorStop(0.5, rgba3(pal[1], 0.3)); cg.addColorStop(1, rgba3(pal[1], 0));
+  ctx.fillStyle = cg; ctx.beginPath(); ctx.ellipse(x, base - hgt * 0.12, wid * 0.55, Math.max(wid * 0.5, hgt * 0.22), 0, 0, TAU); ctx.fill(); // el corazón del fuego
+  for (let i = 0; i < 7; i++) { const k = (t * (0.7 + hash(i) * 0.5) + hash(i + seed * 3)) % 1, ex = x + Math.sin(t * 3 + i * 2) * wid * 0.9 * k + (hash(i * 7 + seed) - 0.5) * wid, ey = base - hgt * (0.25 + k * 1.15); ctx.fillStyle = rgba3(pal[1], (1 - k) * 0.95); ctx.fillRect(ex, ey, Math.max(1, wid * 0.05), Math.max(1, wid * 0.05)); } // chispas
+  ctx.restore();
+  if (smoke && hgt > wid) { const sy = base - hgt * 1.05, sg = ctx.createRadialGradient(x, sy, 0, x, sy, wid * 1.2); sg.addColorStop(0, 'rgba(30,24,22,0.22)'); sg.addColorStop(1, 'rgba(30,24,22,0)'); ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(x + Math.sin(t * 2 + seed) * wid * 0.3, sy, wid * 1.1, wid * 0.8, 0, 0, TAU); ctx.fill(); } // humo
+}
+function flame(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, t: number, seed: number) {
+  fireBody(ctx, x, y + size * 0.1, size * 2.4, size * 1.25, t, seed, 6, FIRE_PAL.fire, false);
 }
 // Antorchas en las plataformas y el suelo (decoración, con fuego animado).
 // Antorchas: una al principio del suelo y una en cada plataforma quieta, salteando.
@@ -464,6 +556,7 @@ function drawPendulum(ctx: CanvasRenderingContext2D, tr: Trap, st: ReturnType<ty
   }
   ctx.fillStyle = '#26242c'; ctx.beginPath(); ctx.arc(0, 0, v.s * 0.16, 0, TAU); ctx.fill();
   ctx.restore();
+  for (const cx of [tr.x - 0.6, tr.x + 0.6]) ironChain(ctx, v, X(v, cx), Math.max(0, Y(v, chainTop(cx, tr.y))), py);
   ctx.fillStyle = '#3a2a1e'; ctx.fillRect(px - v.s * 0.8, py - v.s * 0.1, v.s * 1.6, v.s * 0.35); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(px - v.s * 0.8, py - v.s * 0.1, v.s * 1.6, v.s * 0.35);
 }
 const FIRE_COL: Record<string, [string, string, string, string]> = { brazier: ['rgba(255,80,20,0.9)', 'rgba(255,170,40,0.9)', 'rgba(255,245,180,0.95)', 'rgba(255,120,30,0.5)'], hellfire: ['rgba(255,40,10,0.92)', 'rgba(255,140,30,0.92)', 'rgba(255,240,160,0.95)', 'rgba(255,80,20,0.6)'], lava: ['rgba(200,40,5,0.95)', 'rgba(255,120,20,0.95)', 'rgba(255,220,120,0.95)', 'rgba(255,100,20,0.5)'], acid: ['rgba(40,160,30,0.9)', 'rgba(140,255,80,0.9)', 'rgba(230,255,200,0.9)', 'rgba(120,255,80,0.45)'], blood: ['rgba(110,0,10,0.95)', 'rgba(200,20,30,0.95)', 'rgba(255,120,120,0.9)', 'rgba(220,20,40,0.4)'] };
@@ -479,7 +572,8 @@ function drawColumn(ctx: CanvasRenderingContext2D, tr: Trap, st: ReturnType<type
   if (st.warn) for (let i = 0; i < 5; i++) { const k = (t * 2 + i / 5) % 1; ctx.fillStyle = col[1]; ctx.globalAlpha = 1 - k; ctx.beginPath(); ctx.arc(x + Math.sin(i * 9 + t * 5) * s * 0.35, base - s * (0.2 + k * 1.2), s * (liquid ? 0.09 : 0.05), 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }
   if (st.on <= 0) return;
   const hgt = tr.len * st.on * s;
-  ctx.save(); if (!liquid) ctx.globalCompositeOperation = 'lighter';
+  if (!liquid) { fireBody(ctx, x, base, hgt, s * (style === 'brazier' ? 0.75 : 0.95), t, tr.x * 7 + tr.offset, 30, style === 'hellfire' ? FIRE_PAL.hell : FIRE_PAL.fire); return; }
+  ctx.save();
   glow(ctx, x, base - hgt * 0.5, hgt * 0.7, col[3]);
   for (const [k, c] of [[1, col[0]], [0.7, col[1]], [0.4, col[2]]] as const) {
     const wd = s * (liquid ? 0.6 : 0.55) * k;
@@ -487,6 +581,12 @@ function drawColumn(ctx: CanvasRenderingContext2D, tr: Trap, st: ReturnType<type
     for (let j = 0; j <= 6; j++) { const yy = base - hgt * (liquid ? 1 : k) * j / 6, ww = wd * (liquid ? 0.9 + 0.15 * Math.sin(t * 14 + j) : (1 - j / 7) * (1 + 0.25 * Math.sin(t * 20 + j * 2))); ctx.lineTo(x - ww, yy); }
     for (let j = 6; j >= 0; j--) { const yy = base - hgt * (liquid ? 1 : k) * j / 6, ww = wd * (liquid ? 0.9 + 0.15 * Math.sin(t * 17 + j) : (1 - j / 7) * (1 + 0.25 * Math.sin(t * 17 + j * 3))); ctx.lineTo(x + ww, yy); }
     ctx.closePath(); ctx.fill();
+  }
+  if (liquid) { // vetas que suben por la columna y la espuma de arriba
+    ctx.save(); ctx.beginPath(); ctx.rect(x - s * 0.6, base - hgt, s * 1.2, hgt); ctx.clip();
+    for (let i = 0; i < 6; i++) { const k = (t * 2.2 + i / 6) % 1, sx = x + (hash(i + tr.x) - 0.5) * s * 0.7; ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = Math.max(1, s * 0.05); ctx.beginPath(); ctx.moveTo(sx, base - hgt * k); ctx.lineTo(sx + Math.sin(t * 9 + i) * s * 0.05, base - hgt * k - s * 0.6); ctx.stroke(); }
+    ctx.restore();
+    for (let i = 0; i < 7; i++) { ctx.fillStyle = col[2]; ctx.beginPath(); ctx.arc(x + (i - 3) * s * 0.17, base - hgt + Math.sin(t * 12 + i * 2) * s * 0.08, s * (0.14 + 0.05 * Math.sin(t * 9 + i)), 0, TAU); ctx.fill(); }
   }
   if (liquid) for (let i = 0; i < 8; i++) { const k = (t * 1.6 + i / 8) % 1, a = i * 0.8; ctx.fillStyle = col[1]; ctx.beginPath(); ctx.arc(x + Math.cos(a) * s * (0.4 + k * 1.2), base - hgt - Math.sin(k * Math.PI) * s * 0.8 + k * s * 1.4, s * 0.1 * (1 - k * 0.5), 0, TAU); ctx.fill(); } // salpica arriba
   ctx.restore();
@@ -561,15 +661,9 @@ function drawJet(ctx: CanvasRenderingContext2D, tr: Trap, st: ReturnType<typeof 
     ctx.fillStyle = '#26242c'; ctx.fillRect(-s * 0.35, -s * 0.35, s * 0.35, s * 0.7); ctx.fillStyle = '#3e3c46'; ctx.fillRect(0, -s * 0.22, s * 0.4, s * 0.44); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(0, -s * 0.22, s * 0.4, s * 0.44);
   }
   if (st.warn) for (let i = 0; i < 4; i++) { const k = (t * 3 + i / 4) % 1; ctx.fillStyle = `rgba(255,170,60,${1 - k})`; ctx.beginPath(); ctx.arc(s * (0.45 + k * 0.6), Math.sin(i * 7 + t * 9) * s * 0.15, s * 0.05, 0, TAU); ctx.fill(); }
-  if (st.on > 0) {
+  if (st.on > 0) { // el fuego sale para adelante (el mismo fuego, acostado)
     const L = st.reach * s;
-    ctx.globalCompositeOperation = 'lighter'; glow(ctx, s * 0.4 + L * 0.5, 0, L * 0.6, 'rgba(255,110,30,0.5)');
-    for (const [k, c] of [[1, 'rgba(255,70,20,0.9)'], [0.65, 'rgba(255,170,40,0.9)'], [0.35, 'rgba(255,245,180,0.95)']] as const) {
-      const hh = s * 0.42 * k; ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(s * 0.4, -hh * 0.5);
-      for (let j = 0; j <= 6; j++) { const xx = s * 0.4 + L * k * j / 6; ctx.lineTo(xx, -hh * (0.5 + j * 0.12) * (1 + 0.2 * Math.sin(t * 22 + j))); }
-      for (let j = 6; j >= 0; j--) { const xx = s * 0.4 + L * k * j / 6; ctx.lineTo(xx, hh * (0.5 + j * 0.12) * (1 + 0.2 * Math.sin(t * 19 + j))); }
-      ctx.closePath(); ctx.fill();
-    }
+    ctx.save(); ctx.translate(s * 0.4, 0); ctx.rotate(Math.PI / 2); fireBody(ctx, 0, 0, L, s * 0.55, t, tr.x * 5 + tr.offset, 26, tr.style === 'gargoyle' ? FIRE_PAL.hell : FIRE_PAL.fire, false); ctx.restore();
   }
   ctx.restore();
 }
@@ -881,17 +975,19 @@ function drawSpecialFx(ctx: CanvasRenderingContext2D, g: Game, v: View) {
 // ---------------------------------------------------------------- Todo junto
 export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: number, t: number) {
   setVampTexture(false);
-  const v = viewFor(w, h);
-  const key = `${w}x${h}:${LV.def.n}:${backdropReady}`;
+  const v = viewFor(w, h, g.camY);
+  // los pisos, las plataformas quietas y la puerta: en un lienzo alto (todo el escenario) que se dibuja una vez
+  const ch = Math.ceil(h + CAM_MAX * v.s) + 2, key = `${w}x${h}:${LV.def.n}:${backdropReady}:${!!TINT}`;
   if (!staticCache || staticCache.key !== key) {
     const c = staticCache?.canvas ?? document.createElement('canvas');
-    c.width = w; c.height = h; const sc = c.getContext('2d');
-    if (sc) paintStatic(sc, v);
+    c.width = w; c.height = ch; const sc = c.getContext('2d');
+    if (sc) { sc.clearRect(0, 0, w, ch); paintStatic(sc, { ...viewFor(w, h), oy: ch, h: ch }); }
     staticCache = { key, canvas: c };
   }
   ctx.save();
   if (g.shake > 0) ctx.translate((Math.random() - 0.5) * g.shake * v.s * 0.4, (Math.random() - 0.5) * g.shake * v.s * 0.4);
-  ctx.drawImage(staticCache.canvas, 0, 0);
+  paintBackdrop(ctx, v, g.camY);
+  ctx.drawImage(staticCache.canvas, 0, h - ch + g.camY * v.s);
   // luna de sangre: todo se tiñe de rojo
   if (g.bloodMoon) { ctx.fillStyle = `rgba(150,0,20,${0.16 + 0.04 * Math.sin(t)})`; ctx.fillRect(0, 0, w, h); }
   // relámpago cada tanto
@@ -943,13 +1039,20 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   drawSpecialFx(ctx, g, v);
   // el cazador (parpadea mientras es invulnerable)
   if (g.phase !== 'dead' || g.phaseT < 0.2) {
-    const blink = p.inv > 0 && Math.floor(p.inv * 12) % 2 === 0;
-    ctx.save(); ctx.globalAlpha = blink ? 0.35 : 1; ctx.translate(X(v, p.x), Y(v, p.y)); const k = CHAR_K * v.s; ctx.scale(k * p.face, k);
-    if (g.phase === 'cleared' || g.phase === 'won') { // entra por la puerta: se aleja (más chico) y se pierde en la luz
-      const k = Math.max(0, Math.min(1, (g.phaseT - 0.9) / 1.3)), sc = 1 - 0.3 * k;
-      ctx.scale(sc, sc); ctx.globalAlpha = g.phase === 'won' ? 0 : Math.max(0, 1 - k * 1.05);
+    const blink = p.inv > 0 && Math.floor(p.inv * 12) % 2 === 0, k = CHAR_K * v.s;
+    const enter = g.phase === 'cleared' || g.phase === 'won' ? Math.max(0, Math.min(1, (g.phaseT - 0.7) / 1.3)) : 0;
+    if (enter > 0) { // entra al castillo: queda adentro del hueco de la puerta (el marco de piedra lo tapa), se aleja por el pasillo
+      if (g.phase !== 'won') {   // (más chico, un poco más arriba y cada vez más oscuro)
+        const x1 = X(v, DOOR.x1), x2 = X(v, DOOR.x2), y0 = Y(v, DOOR.y), top = Y(v, DOOR.y + DOOR.h), mid = (x1 + x2) / 2, r = (x2 - x1) / 2;
+        ctx.save(); ctx.beginPath(); ctx.moveTo(x1, y0); ctx.lineTo(x1, top + r); ctx.quadraticCurveTo(x1, top - r * 0.4, mid, top - r); ctx.quadraticCurveTo(x2, top - r * 0.4, x2, top + r); ctx.lineTo(x2, y0); ctx.closePath(); ctx.clip();
+        const sc = 1 - 0.45 * enter, px = X(v, p.x), py = Y(v, p.y) - v.s * 0.35 * enter, bw = v.s * 2.4, bh = v.s * 2.8;
+        tinted(ctx, px - bw / 2, py - bh, bw, bh + v.s * 0.2, '#000', Math.min(0.85, enter * 0.8), c => { c.save(); c.translate(px, py); c.scale(k * p.face * sc, k * sc); drawHunterK(c, p, g, t); c.restore(); });
+        ctx.restore();
+      }
+    } else {
+      ctx.save(); ctx.globalAlpha = blink ? 0.35 : 1; ctx.translate(X(v, p.x), Y(v, p.y)); ctx.scale(k * p.face, k);
+      drawHunterK(ctx, p, g, t); ctx.restore();
     }
-    drawHunterK(ctx, p, g, t); ctx.restore();
   }
   if (g.phase === 'cleared' || g.phase === 'won') drawGate(ctx, v, clearedGate(g));
   if (g.boomer) { const bm = g.boomer; ctx.save(); ctx.translate(X(v, bm.x), Y(v, bm.y)); const k = CHAR_K * v.s; ctx.scale(k, k); ctx.rotate(-bm.t * 22 * Math.sign(bm.vx || 1)); // la espada que gira

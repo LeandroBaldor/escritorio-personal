@@ -26,7 +26,7 @@ export interface LevelDef {
   pit: PitStyle; stone: [number, number, number]; cap: string; speed: number;
 }
 
-const GY = 3.2, TOP = 16.3;
+const GY = 3.2, TOP = 16.3, TOPD = 25.4; // TOP: de dónde cuelgan los péndulos; TOPD: de dónde caen las gotas (arriba de todo)
 const G = (x1: number, x2: number): Surface => ({ x1, x2, y: GY, ground: true });
 const P = (x1: number, x2: number, y: number, mv?: Move): Surface => ({ x1, x2, y, ground: false, mv });
 const T = (kind: TrapKind, style: string, x: number, x2: number, y: number, period: number, offset: number, len = 0, amp = 0, top?: number): Trap => ({ kind, style, x, x2, y, period, offset, len, amp, top });
@@ -43,8 +43,35 @@ function withHighLedges(surfaces: Surface[], traps: Trap[]): Surface[] {
   }
   return out;
 }
+// El escenario sigue para arriba (hasta y = 25,5): tres pisos más de plataformas (a 16,2, 19,4 y 22,6), distintas
+// en cada nivel, solo donde se llega de un salto desde la de abajo y lejos de los péndulos, gotas y aplastadores;
+// arriba también hay trampas: pinches (del estilo del nivel) y una sierra que recorre una plataforma.
+const UP_TIERS = [16.2, 19.4, 22.6];
+const SPIKE_STYLE: Record<number, string> = { 6: 'bone', 8: 'thorn', 9: 'hands' };
+function withUpperFloors(n: number, surfaces: Surface[], traps: Trap[]): [Surface[], Trap[]] {
+  const out = [...surfaces], added: Surface[] = [];
+  const blocked = (x1: number, x2: number) => traps.some(t => (t.kind === 'pendulum' && t.x > x1 - 1.8 && t.x < x2 + 1.8) || (t.kind === 'drip' && t.x > x1 - 0.9 && t.x < x2 + 0.9) || (t.kind === 'crusher' && t.x > x1 - 1.3 && t.x < x2 + 1.3));
+  let moving = n % 2 === 0;
+  UP_TIERS.forEach((y, ti) => {
+    for (let x = 0.6 + (n * 3.7 + ti * 5.3) % 4.4, i = 0; x < 25.6; i++) {
+      const w = 3 + ((n * 7 + ti * 3 + i * 5) % 4) * 0.5, x1 = x, x2 = Math.min(27.4, x + w);
+      const reach = out.some(q => !q.ground && q.y < y - 1.2 && q.y >= y - 3.7 && q.x1 < x2 + 2.3 && q.x2 > x1 - 2.3);
+      if (reach && !blocked(x1, x2) && x2 - x1 > 2.4) {
+        const mv = moving && ti === 1 ? { dx: 1.5, dy: 0, period: 6.5, phase: n } : undefined; if (mv) moving = false;
+        const q = P(x1, x2, y, mv); out.push(q); if (!mv) added.push(q);
+      }
+      x = x2 + 2.1 + ((n + ti + i) % 3) * 1.2;
+    }
+  });
+  const extra: Trap[] = [];
+  const a = added[(n * 3) % Math.max(1, added.length)], b = added[(n * 3 + 2) % Math.max(1, added.length)];
+  if (a) { const m = (a.x1 + a.x2) / 2; extra.push(T('spikes', SPIKE_STYLE[n] ?? 'iron', m - 0.8, m + 0.8, a.y, 3.2 + (n % 3) * 0.3, n * 0.37)); }
+  if (b && b !== a && b.x2 - b.x1 > 3) extra.push(T('saw', 'iron', b.x1 + 0.5, b.x2 - 0.5, b.y, 3.4 + (n % 2) * 0.6, n * 0.5));
+  return [out, [...traps, ...extra]];
+}
 function level(n: number, name: string, tagline: string, bg: string, surfaces: Surface[], traps: Trap[], look: { pit: PitStyle; stone: [number, number, number]; cap: string; crop?: number; speed?: number }): LevelDef {
   surfaces = withHighLedges(surfaces, traps);
+  [surfaces, traps] = withUpperFloors(n, surfaces, traps);
   return { n, name, tagline, bg, crop: look.crop ?? 0.74, surfaces, gaps: gapsOf(surfaces), traps, pit: look.pit, stone: look.stone, cap: look.cap, speed: look.speed ?? 1 + (n - 1) * 0.04 };
 }
 
@@ -55,7 +82,7 @@ export const LEVELS: LevelDef[] = [
     { pit: 'void', stone: [44, 40, 48], cap: '#8a6a52', speed: 1 }),
   level(2, 'Las cloacas', 'Debajo del castillo corre un río de ácido verde. Del techo gotea veneno y el agua escupe chorros que queman.', 'fondo-nivel-2',
     [G(0, 6.6), G(8, 14.8), G(17.6, 21.6), G(23.4, 28), P(1.5, 5.5, 6.6), P(10, 14, 6.6), P(16, 20.5, 6.8, { dx: 0, dy: 1.3, period: 5 }), P(4.5, 8.5, 9.9), P(19.6, 24, 10.2), P(11.2, 15.8, 13), P(23.4, 26.4, 6.6)],
-    [T('drip', 'acid', 5.8, 5.8, GY, 2.6, 0, 0, 0, TOP), T('drip', 'acid', 12.6, 12.6, GY, 3.1, 1.2, 0, 0, TOP), T('drip', 'acid', 20.2, 20.2, GY, 2.3, 0.6, 0, 0, TOP),
+    [T('drip', 'acid', 5.8, 5.8, GY, 2.6, 0, 0, 0, TOPD), T('drip', 'acid', 12.6, 12.6, GY, 3.1, 1.2, 0, 0, TOPD), T('drip', 'acid', 20.2, 20.2, GY, 2.3, 0.6, 0, 0, TOPD),
       T('fire', 'acid', 16.2, 16.2, 0.6, 5, 2.5, 6.4), T('fire', 'acid', 7.3, 7.3, 0.6, 5.6, 0.4, 5.8), T('spikes', 'iron', 24.4, 25.8, GY, 3.2, 1.1)],
     { pit: 'acid', stone: [40, 52, 42], cap: '#5f7a4a' }),
   level(3, 'La fragua de las jaulas', 'Un río de lava cruza la fragua. Las sierras no paran de girar y las jaulas caen sobre los distraídos.', 'fondo-nivel-3',
@@ -75,13 +102,13 @@ export const LEVELS: LevelDef[] = [
     { pit: 'void', stone: [56, 40, 42], cap: '#8a5a52' }),
   level(6, 'El osario', 'Miles de huesos forman las paredes. Las calaveras caen del techo y los pozos están llenos de lanzas de hueso.', 'fondo-nivel-6',
     [G(0, 7.4), G(8.6, 17.4), G(20.2, 28), P(1.6, 5.8, 6.6), P(10.8, 16.2, 6.6), P(21.6, 26, 6.6), P(6, 10.4, 9.9, { dx: 0, dy: 1.1, period: 4.6 }), P(17, 21.8, 9.9), P(11, 16, 13)],
-    [T('spikes', 'bone', 12.4, 14.4, 6.6, 3.3, 0.8), T('spikes', 'bone', 22.2, 23.8, GY, 3, 2), T('drip', 'skull', 4.8, 4.8, GY, 3.2, 0, 0, 0, TOP), T('drip', 'skull', 14.6, 14.6, GY, 2.8, 1.4, 0, 0, TOP),
-      T('drip', 'skull', 24.6, 24.6, GY, 3.6, 2.2, 0, 0, TOP), T('pendulum', 'cage', 19.2, 19.2, TOP, 4.4, 0.6, 6.4, 0.7)],
+    [T('spikes', 'bone', 12.4, 14.4, 6.6, 3.3, 0.8), T('spikes', 'bone', 22.2, 23.8, GY, 3, 2), T('drip', 'skull', 4.8, 4.8, GY, 3.2, 0, 0, 0, TOPD), T('drip', 'skull', 14.6, 14.6, GY, 2.8, 1.4, 0, 0, TOPD),
+      T('drip', 'skull', 24.6, 24.6, GY, 3.6, 2.2, 0, 0, TOPD), T('pendulum', 'cage', 19.2, 19.2, TOP, 4.4, 0.6, 6.4, 0.7)],
     { pit: 'bones', stone: [92, 80, 62], cap: '#d6c39a' }),
   level(7, 'Las puertas del infierno', 'El castillo arde. De los pozos salen columnas de fuego, llueven bolas de fuego y una araña de pinches espera.', 'fondo-nivel-7',
     [G(0, 7.9), G(9.6, 13.4), G(16.2, 20.2), G(21.4, 28), P(1.6, 5.6, 6.6), P(8.6, 12.8, 6.6), P(15.4, 20.2, 6.6, { dx: 1.4, dy: 0, period: 5.5 }), P(22.4, 26.4, 6.6), P(4.4, 9, 9.9), P(18.6, 23.2, 9.9), P(11, 16.4, 12.8)],
     [T('fire', 'hellfire', 8.75, 8.75, 0.6, 3.8, 0, 7.2), T('fire', 'hellfire', 14.8, 14.8, 0.6, 3.8, 1.3, 7.2), T('fire', 'hellfire', 20.8, 20.8, 0.6, 3.8, 2.5, 7.2),
-      T('drip', 'fireball', 3.6, 3.6, GY, 2.4, 0.3, 0, 0, TOP), T('drip', 'fireball', 11.8, 11.8, GY, 2.9, 1.6, 0, 0, TOP), T('drip', 'fireball', 24.8, 24.8, GY, 2.6, 0.9, 0, 0, TOP),
+      T('drip', 'fireball', 3.6, 3.6, GY, 2.4, 0.3, 0, 0, TOPD), T('drip', 'fireball', 11.8, 11.8, GY, 2.9, 1.6, 0, 0, TOPD), T('drip', 'fireball', 24.8, 24.8, GY, 2.6, 0.9, 0, 0, TOPD),
       T('crusher', 'spikeblock', 17.8, 17.8, GY, 4.6, 1.2, 0.9, 0, 12.2)],
     { pit: 'fire', stone: [64, 34, 26], cap: '#c2552a' }),
   level(8, 'El jardín de la luna roja', 'Entre las rosas del jardín corre una fuente de sangre. Las espinas brotan del piso y las gárgolas escupen fuego.', 'fondo-nivel-8',
@@ -144,5 +171,5 @@ export const CHAPTERS: Record<number, Chapter> = {
     goalText: 'Sobreviví 120 segundos hasta la medianoche.' },
   10: { stage: 'La prueba suprema', goal: { type: 'boss', n: 1 },
     story: 'Al fin, el salón del trono. Drácula espera sentado, sonriendo. Es el último combate: si Demian lo vence, volverá a casa con la paz que le robaron. Si cae, la noche será eterna.',
-    goalText: 'Vencé a Drácula: 100 golpes, y después 100 más a su forma de dragón.' },
+    goalText: 'Vencé a Drácula: 200 golpes, y después 200 más a su forma de dragón.' },
 };

@@ -1852,3 +1852,23 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 @media(max-height:940px) and (min-width:981px){.vamp-hub-keys .vamp-keys{gap:.1rem}.vamp-hub-keys .vamp-keys li{font-size:.84rem;line-height:1.12}.vamp-hub-keys h4,.vamp-hub-keys .vamp-combos-title{margin:.2rem 0}.vamp-hub-rivals li{padding:.25rem .4rem .3rem;gap:.05rem}.vamp-hub-rivals canvas{width:50px!important;height:50px!important}.vamp-hub-story p{line-height:1.35}}
 @media(max-height:940px) and (min-width:981px){.vamp-hub-keys .vamp-keys kbd{padding:0 .3em;border-bottom-width:2px;font-size:.85em;line-height:1.3}.vamp-hub-keys .vamp-keys span{font-size:.7rem}.vamp-hub-box h3{margin-bottom:.15rem}}
 @media(max-height:820px) and (min-width:981px){.vamp-hub-grid{gap:.4rem}.vamp-hub-rivals small{display:none}}
+/* Vampyrium: el cartel de los vampiros y las armas (después de Jugar) */
+.vamp-intro2{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:.8rem;background:radial-gradient(circle at 50% 40%,#2a0a10cc,#050206f2);overflow:auto}
+.vamp-intro2-card{width:min(980px,100%);max-height:100%;overflow:auto;padding:1rem 1.2rem 1.2rem;border:3px solid #7f1d1d;border-radius:14px;background:linear-gradient(#170609f2,#070304f7);box-shadow:0 0 0 2px #000,0 0 40px #b91c1c66;text-align:center}
+.vamp-intro2-lv{margin:0;color:#fca5a5;font-weight:900;letter-spacing:.12em;text-transform:uppercase;font-size:.85rem}
+.vamp-intro2 h2{margin:.35rem 0 .5rem;font-family:'UnifrakturCook','Pirata One',serif;color:#fde68a;font-size:1.6rem}
+.vamp-intro2-grid{list-style:none;margin:0 0 .6rem;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:.6rem}
+.vamp-intro2-grid li{position:relative;width:132px;display:flex;flex-direction:column;align-items:center;gap:.2rem;padding:.5rem .4rem .55rem;border:2px solid #b45309;border-radius:6px;background:linear-gradient(#22090c,#0a0405);box-shadow:inset 0 0 14px #000}
+.vamp-intro2-grid li b{color:#fecaca;font-size:.95rem;line-height:1.1}
+.vamp-intro2-grid li em{position:absolute;top:-.6rem;left:50%;transform:translateX(-50%);padding:.05rem .45rem;border-radius:999px;background:#fde68a;color:#3b0a0a;font-style:normal;font-weight:900;font-size:.66rem;white-space:nowrap;text-transform:uppercase}
+.vamp-intro2-grid li.vamp-hub-new{border-color:#fde68a;box-shadow:inset 0 0 14px #000,0 0 14px #fde68a66}
+.vamp-intro2-weapons li{width:104px}
+.vamp-intro2-weapons li b{font-size:.78rem}
+.vamp-intro2-weapons li.vamp-hub-armor{border-color:#7c3aed;background:linear-gradient(#170a26,#060309)}
+.vamp-intro2 .vamp-hub-go{margin-top:.3rem}
+@media(max-width:620px){.vamp-intro2-grid li{width:104px}.vamp-intro2-weapons li{width:84px}.vamp-intro2 h2{font-size:1.25rem}}
+.vamp-intro2 h2{font:400 1.7rem/1.1 "Vamp Gothic",Georgia,serif;color:#e8c77a}
+.vamp-intro2-weapons{gap:.45rem}
+.vamp-intro2-weapons li{width:92px;padding:.4rem .25rem .45rem}
+.vamp-intro2-grid canvas{border:0!important;background:none!important;box-shadow:none!important}
+.vamp-intro2-grid li em{right:auto;width:max-content}

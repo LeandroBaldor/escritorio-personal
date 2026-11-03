@@ -6,7 +6,9 @@
 // (y salen trepando del vacío) y vampiros voladores que se tiran en picada. Espada (ilimitada) y estacas (se
 // tiran; caen cajas del cielo con más). Con 50 vampiros muertos se abre la puerta de la derecha.
 
-export const W = 28, H = 15.75;
+export const W = 28, H = 15.75; // H: lo que entra en la pantalla de alto
+export const WORLD_H = 25.5; // el escenario sigue para arriba (la cámara acompaña al cazador)
+export const CAM_MAX = WORLD_H - H;
 export const GROUND_Y = 3.2;
 export const GOAL = 50;
 export const MAX_HP = 100; // la barra de vida del cazador
@@ -107,7 +109,7 @@ export interface Player {
 export type VampKind = 'walker' | 'flyer' | 'giant' | 'mage' | 'hammer' | 'warrior' | 'wolf' | 'dracula' | 'dragon';
 export const VAMP_KINDS: VampKind[] = ['walker', 'flyer', 'giant', 'mage', 'hammer', 'warrior', 'wolf', 'dracula', 'dragon'];
 // Cuántos golpes del cazador aguanta cada uno (= cuántas veces más fuerte que un vampiro normal) y cuánta vida le saca al cazador.
-export const STRENGTH: Record<VampKind, number> = { walker: 2, flyer: 2, giant: 6, mage: 8, hammer: 10, warrior: 12, wolf: 14, dracula: 100, dragon: 100 }; // (el doble de vida que al principio)
+export const STRENGTH: Record<VampKind, number> = { walker: 4, flyer: 4, giant: 12, mage: 16, hammer: 20, warrior: 24, wolf: 28, dracula: 200, dragon: 200 }; // (el doble de vida que al principio)
 export const BOSS_HP = STRENGTH.dracula;
 export const DAMAGE: Record<VampKind, number> = { walker: 1, flyer: 1, giant: 3, mage: 4, hammer: 5, warrior: 6, wolf: 7, dracula: 10, dragon: 15 };
 export const VAMP_NAME: Record<VampKind, string> = { walker: 'Vampiro', flyer: 'Vampiro volador', giant: 'Vampiro gigante', mage: 'Vampiro mago', hammer: 'Vampiro martillo', warrior: 'Vampiro guerrero', wolf: 'Hombre lobo', dracula: 'Drácula', dragon: 'Drácula dragón' };
@@ -157,7 +159,7 @@ export interface Pop { x: number; y: number; t: number; text: string; bad: boole
 export type KillHow = 'sword' | 'bolt' | 'bomb' | 'cross' | 'fire' | 'bullet' | 'trap' | 'void' | 'crate' | 'ice' | 'venom' | 'violet' | 'holy';
 export interface Corpse { id: number; kind: VampKind; x: number; y: number; face: 1 | -1; t: number; how: KillHow }
 export type BoneKind = 'skull' | 'jaw' | 'ribs' | 'pelvis' | 'arm' | 'leg' | 'spine';
-export interface Bone { kind: BoneKind; x: number; y: number; vx: number; vy: number; a: number; va: number; t: number; rest: boolean }
+export interface Bone { kind: BoneKind; x: number; y: number; vx: number; vy: number; a: number; va: number; t: number; rest: boolean; s?: number } // s: el tamaño (los del gigante, más grandes)
 export interface Spark { x: number; y: number; vx: number; vy: number; t: number; life: number; hue: number }
 // Sangre que salpica: gotas que vuelan y quedan como manchas en el piso.
 export interface Drop { x: number; y: number; vx: number; vy: number; r: number; t: number; stuck: boolean }
@@ -195,6 +197,7 @@ export interface Game {
   goal: Goal; progress: number; items: Item[]; objects: Breakable[]; itemT: number;
   kills: Record<VampKind, number>; total: number; shots: Shot[]; pops: Pop[]; transformT: number; bossDeadT: number; bossHits: number; voidKills: number; trapKills: number;
   weapon: Weapon; ammo: Record<Weapon, number>; menu: { sel: number; t: number }; lastTap: number; holdT: number;
+  camY: number; // la cámara: cuánto subió (0 = el piso abajo de todo)
   guardHp: number; orbs: Orb[]; shards: Shard[]; // el escudo de la armadura protectora, las bolas de hielo y verdes, los pedazos de hielo
   combo: { n: number; t: number; best: number }; power: number; holyT: number; garlicT: number;
   door: { open: boolean; t: number }; spawnT: number; crateT: number; nextId: number; wave: number; bloodMoon: boolean;
@@ -218,7 +221,7 @@ export function newGame(seed = Math.floor(Math.random() * 1e9), level = 1): Game
     kills: Object.fromEntries(VAMP_KINDS.map(k => [k, 0])) as Record<VampKind, number>, total: 0, shots: [], pops: [], transformT: 0, bossDeadT: -1, bossHits: 0, voidKills: 0, trapKills: 0, weapon: 'sword', ammo: { ...START_AMMO }, menu: { sel: 0, t: 0 }, lastTap: -9, holdT: 0,
     combo: { n: 0, t: 0, best: 0 }, power: 0, holyT: 0, garlicT: 0, goal: CHAPTERS[LV.def.n]?.goal ?? { type: 'kill', n: GOAL }, progress: 0, items: [], objects: [], itemT: 2, door: { open: false, t: 0 }, spawnT: 1.6, crateT: 9, nextId: 1, wave: 1, bloodMoon: false,
     flash: 0, shake: 0, events: [], rand: mulberry(seed), stats: { slashes: 0, throws: 0, hits: 0, crates: 0, falls: 0 },
-    taps: [], boomer: null, guardHp: 0, orbs: [], shards: [],
+    taps: [], boomer: null, guardHp: 0, orbs: [], shards: [], camY: 0,
     storm: LV.def.n === STORM_LEVEL ? { next: 2.5, t: 99, x: W / 2, near: 0.5, seed: 0 } : null,
   };
   if (g.goal.type === 'break') placeBreakables(g, g.goal.n, g.goal.obj);
@@ -489,9 +492,9 @@ export function hitVamp(g: Game, v: Vamp, dmg: number, how: KillHow, fromX: numb
   pop(g, v.x, y2 + 0.2, `−${dmg}`, false);
   bleed(g, v.x, (y1 + y2) / 2, 16 + dmg * 3);
   if (!isBoss(v.kind)) { // sale despedido para atrás (los más pesados, menos)
-    const push = STRENGTH[v.kind] >= 10 ? 2.5 : 5;
+    const push = STRENGTH[v.kind] >= 20 ? 2.5 : 5;
     v.vx = (v.x >= fromX ? 1 : -1) * push;
-    if (STRENGTH[v.kind] < 10 && v.state !== 'cast') { v.state = flies(v.kind) ? v.state : 'walk'; v.cool = Math.max(v.cool, 0.4); }
+    if (STRENGTH[v.kind] < 20 && v.state !== 'cast') { v.state = flies(v.kind) ? v.state : 'walk'; v.cool = Math.max(v.cool, 0.4); }
   }
   emit(g, { type: 'vampHit', kind: v.kind, hp: v.hp });
 }
@@ -557,7 +560,15 @@ function spawn(g: Game) {
   const flyerChance = hunt === 'flyer' ? 0.7 : count('flyer') < count('walker') ? 1 : count('flyer') > count('walker') ? 0 : 0.5; // (en el jardín salen más voladores)
   if (r() < flyerChance) {
     const left = r() < 0.5;
-    g.vamps.push(makeVamp(g, 'flyer', { x: left ? -1 : W + 1, y: H - 2 - r() * 3, face: left ? 1 : -1, state: 'hover', speed: (3.2 + r() * 1.2) * speedK, cool: 2 + r() * 2 }));
+    g.vamps.push(makeVamp(g, 'flyer', { x: left ? -1 : W + 1, y: Math.min(WORLD_H - 2, g.camY + H - 2 - r() * 3), face: left ? 1 : -1, state: 'hover', speed: (3.2 + r() * 1.2) * speedK, cool: 2 + r() * 2 }));
+    return;
+  }
+  const p = g.player, high = SURFACES.filter(q => !q.ground && !q.mv && q.x2 - q.x1 > 2 && Math.abs(q.y - p.y) < 4.5 && Math.abs((q.x1 + q.x2) / 2 - p.x) > 5);
+  if (p.y > 9 && high.length && r() < 0.7) { // el cazador está arriba: aparece uno en una plataforma de su altura (de entre la niebla)
+    const q = high[Math.floor(r() * high.length)], x = p.x < (q.x1 + q.x2) / 2 ? q.x2 - 0.7 : q.x1 + 0.7;
+    g.vamps.push(makeVamp(g, 'walker', { x, y: q.y, onGround: true, surface: q, face: p.x > x ? 1 : -1, speed: (2.3 + r() * 1.1) * speedK, cool: 1 + r() }));
+    for (let i = 0; i < 18; i++) { const a = r() * Math.PI * 2; g.sparks.push({ x, y: q.y + 1, vx: Math.cos(a) * 3, vy: Math.sin(a) * 3 + 1, t: 0, life: 0.5, hue: 280 }); }
+    emit(g, { type: 'emerge' });
     return;
   }
   const from = r();
@@ -812,7 +823,7 @@ function updateFlyer(g: Game, v: Vamp, dt: number) {
   const scared = g.garlicT > 0 && Math.hypot(p.x - v.x, p.y - v.y) < 5;
   if (v.state === 'hover' || scared) {
     const side = v.x < p.x ? -1 : 1;
-    const tx = scared ? v.x + side * 4 : p.x + side * 3.2, ty = Math.min(H - 1.6, p.y + 4.2 + Math.sin(v.t * 1.7) * 0.8);
+    const tx = scared ? v.x + side * 4 : p.x + side * 3.2, ty = Math.min(WORLD_H - 1.6, p.y + 4.2 + Math.sin(v.t * 1.7) * 0.8);
     v.vx += ((tx - v.x) * 1.6 - v.vx) * Math.min(1, dt * 2.5);
     v.vy += ((ty - v.y) * 1.6 - v.vy) * Math.min(1, dt * 2.5);
     const sp = Math.hypot(v.vx, v.vy); if (sp > v.speed) { v.vx *= v.speed / sp; v.vy *= v.speed / sp; }
@@ -829,7 +840,7 @@ function updateFlyer(g: Game, v: Vamp, dt: number) {
     if (v.t > 0.9) { v.state = 'hover'; v.cool = 2.2 + r() * 2.2; }
   }
   v.x += v.vx * dt; v.y += v.vy * dt;
-  v.y = Math.max(GROUND_Y + 0.3, Math.min(H + 1, v.y));
+  v.y = Math.max(GROUND_Y + 0.3, Math.min(WORLD_H + 1, v.y));
   if (v.state === 'hover') v.x = Math.max(-1.5, Math.min(W + 1.5, v.x));
 }
 
@@ -939,7 +950,7 @@ function updateGoal(g: Game, dt: number) {
     g.itemT -= dt;
     if (g.itemT <= 0 && g.items.length < 3) {
       const spots = SURFACES.filter(s => s.x2 - s.x1 > 1.6 && !s.mv), s = spots[Math.floor(g.rand() * spots.length)];
-      g.items.push({ id: g.nextId++, kind: goal.item, x: Math.min(DOOR.x1 - 1, Math.max(1, s.x1 + 0.6 + g.rand() * (s.x2 - s.x1 - 1.2))), y: H + 1, vy: goal.item === 'soul' ? -1.6 : -2.6, landed: false, t: 0 });
+      g.items.push({ id: g.nextId++, kind: goal.item, x: Math.min(DOOR.x1 - 1, Math.max(1, s.x1 + 0.6 + g.rand() * (s.x2 - s.x1 - 1.2))), y: Math.min(WORLD_H + 1, g.camY + H + 1), vy: goal.item === 'soul' ? -1.6 : -2.6, landed: false, t: 0 });
       g.itemT = 2 + g.rand() * 1.4;
     }
   }
@@ -971,7 +982,7 @@ function dropCrate(g: Game) {
   const s = spots[Math.floor(r() * spots.length)];
   const x = s.x1 + 0.8 + r() * (s.x2 - s.x1 - 1.6);
   const armors = ARMORS.filter(w => weaponUnlocked(g, w)), armor = kind === 'armor' ? armors[Math.floor(r() * armors.length)] : undefined; // la caja de armadura trae carga de una de las que ya aparecieron
-  g.crates.push({ id: g.nextId++, kind, armor, x: Math.min(W - 2, x), y: H + 1.5, vy: -2.6, landed: false, t: 0, surface: null });
+  g.crates.push({ id: g.nextId++, kind, armor, x: Math.min(W - 2, x), y: Math.min(WORLD_H + 1.5, Math.max(s.y + 4, g.camY + H + 1.5)), vy: -2.6, landed: false, t: 0, surface: null });
 }
 function updateCrates(g: Game, dt: number) {
   const p = g.player;
@@ -1014,7 +1025,7 @@ function updateRemains(g: Game, dt: number) {
       const hs: Record<BoneKind, number> = { skull: 1.55, jaw: 1.35, ribs: 1.05, spine: 0.9, pelvis: 0.7, arm: 1.1, leg: 0.4 };
       for (let n = 0; n < big; n++) for (const k of BONES) {
         const a = (r() - 0.5) * 3.4 + Math.PI / 2, sp = 11 + r() * 13;
-        g.bones.push({ kind: k, x: c.x + (r() - 0.5) * 0.4, y: c.y + fly + hs[k], vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 3, a: r() * 6, va: (r() - 0.5) * 30, t: 0, rest: false });
+        g.bones.push({ kind: k, x: c.x + (r() - 0.5) * 0.4, y: c.y + fly + hs[k], vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 3, a: r() * 6, va: (r() - 0.5) * 30, t: 0, rest: false, s: BODY[c.kind].k / VAMP_BIG });
       }
       for (let i = 0; i < 110 * big; i++) { const a = r() * Math.PI * 1.15 - 0.08, sp = 2 + r() * 15; g.drops.push({ x: c.x + (r() - 0.5) * 0.6, y: c.y + fly + 0.5 + r() * 1.4, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 0.05 + r() * 0.14, t: 0, stuck: false }); } // mucha sangre
       g.shake = Math.max(g.shake, 0.55); g.flash = Math.max(g.flash, 0.25);
@@ -1062,7 +1073,7 @@ function armorRemains(g: Game, c: Corpse, dt: number) {
     if (c.t >= DUST_T) g.corpses.splice(g.corpses.indexOf(c), 1);
   } else if (c.how === 'violet' && c.t >= NOVA_AT) {
     g.corpses.splice(g.corpses.indexOf(c), 1);
-    for (let n = 0; n < big; n++) for (const k of BONES) { const a = (r() - 0.5) * 3.4 + Math.PI / 2, sp = 11 + r() * 13; g.bones.push({ kind: k, x: c.x + (r() - 0.5) * 0.4, y: c.y + fly + 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 3, a: r() * 6, va: (r() - 0.5) * 30, t: 0, rest: false }); }
+    for (let n = 0; n < big; n++) for (const k of BONES) { const a = (r() - 0.5) * 3.4 + Math.PI / 2, sp = 11 + r() * 13; g.bones.push({ kind: k, x: c.x + (r() - 0.5) * 0.4, y: c.y + fly + 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 3, a: r() * 6, va: (r() - 0.5) * 30, t: 0, rest: false, s: BODY[c.kind].k / VAMP_BIG }); }
     for (let i = 0; i < 50 * big; i++) { const a = r() * Math.PI * 2, sp = 3 + r() * 12; g.sparks.push({ x: c.x, y: c.y + fly + 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 2, t: 0, life: 0.5 + r() * 0.6, hue: 270 + r() * 40 }); }
     g.fx.push({ kind: 'nova', x: c.x, y: c.y + fly + 1, t: 0, life: 0.6, r: 2.6 * big, face: 1, seed: r() });
     g.shake = Math.max(g.shake, 0.6); g.flash = Math.max(g.flash, 0.2);
@@ -1080,8 +1091,13 @@ function updateShards(g: Game, dt: number) {
   }
 }
 
+// La cámara sube y baja con el cazador (lo deja un poco más abajo del medio de la pantalla).
+export function updateCamera(g: Game, dt: number) {
+  const target = Math.max(0, Math.min(CAM_MAX, g.player.y - 5.2));
+  g.camY += (target - g.camY) * Math.min(1, dt * 5);
+}
 // ---------------------------------------------------------------- Un paso del juego
-export function aliveCap(g: Game) { return g.door.open ? 2 : Math.min(8, 3 + Math.floor(g.total / 8)); }
+export function aliveCap(g: Game) { return g.door.open ? 2 : Math.min(5, 2 + Math.floor(g.total / 12)); } // (pocos a la vez: si no, se amontonan)
 
 // La tormenta: cada tanto cae un rayo (un fogonazo que ilumina todo) y después suena el trueno.
 function updateStorm(g: Game, dt: number) {
@@ -1112,6 +1128,7 @@ export function step(g: Game, input: Input, dt: number) {
     updateRemains(g, dt); p.face = 1; p.vx = 0;
     const mid = (DOOR.x1 + DOOR.x2) / 2;
     if (p.x < mid) { p.x = Math.min(mid, p.x + dt * 2.6); p.walkT += dt * 2.4; }
+    updateCamera(g, dt);
       if (g.phaseT > 2.6) { g.phase = 'won'; emit(g, { type: 'won' }); }
     return;
   }
@@ -1204,7 +1221,7 @@ export function step(g: Game, input: Input, dt: number) {
     const ob = g.objects.find(o => Math.abs(o.x - b.x) < 0.6 && b.y > o.y && b.y < o.y + 2);
     if (ob) { hitObject(g, ob, WEAPON_DMG.pistol); g.bullets.splice(g.bullets.indexOf(b), 1); g.fx.push({ kind: 'burst', x: b.x, y: b.y, t: 0, life: 0.35, r: 1, face: 1, seed: g.rand() }); continue; }
     const v = hitBy(b.x, b.y, 0.2);
-    const done = Math.hypot(b.x - b.x0, b.y - b.y0) > PISTOL_RANGE || b.x < -1 || b.x > W + 1 || b.y > H + 1 || (b.vy < 0 && !!surfaceUnder(b.x, 0.05, b.y - b.vy * dt, b.y, false));
+    const done = Math.hypot(b.x - b.x0, b.y - b.y0) > PISTOL_RANGE || b.x < -1 || b.x > W + 1 || b.y > WORLD_H + 1 || (b.vy < 0 && !!surfaceUnder(b.x, 0.05, b.y - b.vy * dt, b.y, false));
     if (v || done) {
       g.bullets.splice(g.bullets.indexOf(b), 1);
       g.fx.push({ kind: 'burst', x: b.x, y: b.y, t: 0, life: 0.35, r: v ? 1.1 : 0.6, face: 1, seed: g.rand() });
@@ -1217,7 +1234,7 @@ export function step(g: Game, input: Input, dt: number) {
     const prev = o.y; o.x += o.vx * dt; o.y += o.vy * dt;
     const ob = g.objects.find(q => Math.abs(q.x - o.x) < 0.6 && o.y > q.y && o.y < q.y + 2);
     const v = ob ? undefined : hitBy(o.x, o.y, 0.2);
-    const done = o.t > 2.5 || o.x < -1 || o.x > W + 1 || o.y < -2 || o.y > H + 2 || (o.vy < 0 && !!surfaceUnder(o.x, 0.05, prev, o.y, false));
+    const done = o.t > 2.5 || o.x < -1 || o.x > W + 1 || o.y < -2 || o.y > WORLD_H + 2 || (o.vy < 0 && !!surfaceUnder(o.x, 0.05, prev, o.y, false));
     if (!ob && !v && !done) continue;
     g.orbs.splice(g.orbs.indexOf(o), 1);
     g.fx.push({ kind: o.kind === 'ice' ? 'frost' : 'splat', x: o.x, y: o.y, t: 0, life: 0.45, r: v ? 1.2 : 0.7, face: 1, seed: g.rand() });
@@ -1293,12 +1310,13 @@ export function step(g: Game, input: Input, dt: number) {
   if (g.bossDeadT >= 0) { g.bossDeadT += dt; if (g.bossDeadT > 3) { g.phase = 'cleared'; g.phaseT = 0; emit(g, { type: 'cleared' }); return; } }
 
   updateGoal(g, dt);
+  updateCamera(g, dt);
 
   // Aparecen vampiros y caen cajas
   g.spawnT -= dt;
   if (g.spawnT <= 0) {
     if (g.vamps.length < aliveCap(g)) spawn(g);
-    g.spawnT = Math.max(0.8, 2.5 - g.total * 0.03) * (g.bloodMoon ? 0.8 : 1) * (0.7 + g.rand() * 0.6);
+    g.spawnT = Math.max(1.3, 3.2 - g.total * 0.025) * (g.bloodMoon ? 0.8 : 1) * (0.7 + g.rand() * 0.6);
   }
   g.crateT -= dt;
   if (g.crateT <= 0) { dropCrate(g); g.crateT = 11 + g.rand() * 5; }

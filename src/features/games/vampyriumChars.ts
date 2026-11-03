@@ -644,23 +644,151 @@ export function boneSeg(ctx: CanvasRenderingContext2D, a: Pt, b: Pt, w: number) 
   segment(ctx, a, b, w, w * 0.85, '#efe6d0', 0.5);
   for (const p of [a, b]) shade(ctx, () => { ctx.arc(p[0] - w * 0.25, p[1], w * 0.42, 0, TAU); ctx.moveTo(p[0] + w * 0.67, p[1]); ctx.arc(p[0] + w * 0.25, p[1], w * 0.42, 0, TAU); }, '#f4ecd8', { x: p[0], y: p[1] - w * 0.2, r: w, lw: 0.5 });
 }
-export function drawSkeletonK(ctx: CanvasRenderingContext2D, flyer: boolean, t: number, eyes: number) {
-  const hip: Pt = [0, flyer ? -0.25 : -0.72];
-  // piernas, pelvis, columna y costillas, brazos y cráneo (con colmillos)
-  for (const s of [-1, 1]) { const k: Pt = [hip[0] + s * 0.13, hip[1] + 0.36], f: Pt = [hip[0] + s * 0.18, hip[1] + 0.72]; boneSeg(ctx, [hip[0] + s * 0.1, hip[1]], k, 0.09); boneSeg(ctx, k, f, 0.08); }
-  shade(ctx, () => { ctx.moveTo(-0.22, hip[1] - 0.08); ctx.quadraticCurveTo(0, hip[1] - 0.18, 0.22, hip[1] - 0.08); ctx.lineTo(0.14, hip[1] + 0.1); ctx.lineTo(0.03, hip[1] + 0.05); ctx.lineTo(-0.03, hip[1] + 0.05); ctx.lineTo(-0.14, hip[1] + 0.1); ctx.closePath(); }, '#efe6d0', { r: 0.25, lw: 0.6 });
-  for (let i = 0; i < 6; i++) shade(ctx, () => ctx.roundRect(-0.045, hip[1] - 0.14 - i * 0.075, 0.09, 0.06, 0.02), '#efe6d0', { r: 0.06, lw: 0.4 });
-  ctx.lineCap = 'round';
-  for (let i = 0; i < 4; i++) { const y = hip[1] - 0.25 - i * 0.075, r = 0.22 - i * 0.015; ctx.strokeStyle = '#2a2018'; ctx.lineWidth = 0.06; ctx.beginPath(); ctx.ellipse(0, y, r, 0.07, 0, Math.PI, TAU); ctx.stroke(); ctx.strokeStyle = '#f1e8d2'; ctx.lineWidth = 0.035; ctx.stroke(); }
-  const sh = hip[1] - 0.52, wob = Math.sin(t * 40) * 0.2;
-  for (const s of [-1, 1]) { const e: Pt = [s * 0.32, sh + 0.2], hnd: Pt = [s * 0.42 + 0.05, sh + 0.42 + (s > 0 ? wob * 0.2 : 0)]; boneSeg(ctx, [s * 0.22, sh], e, 0.075); boneSeg(ctx, e, hnd, 0.065); }
-  ctx.save(); ctx.translate(0.05, sh - 0.42); ctx.scale(1.15, 1.15);
-  shade(ctx, () => { ctx.moveTo(-0.32, 0.05); ctx.quadraticCurveTo(-0.36, -0.4, 0.02, -0.42); ctx.quadraticCurveTo(0.38, -0.4, 0.34, 0.05); ctx.lineTo(0.22, 0.2); ctx.lineTo(-0.2, 0.2); ctx.closePath(); }, '#f4ecd8', { x: -0.05, y: -0.2, r: 0.5, hi: 0.3, tex: 0.3, lw: 1 });
-  for (const ex of [-0.12, 0.14]) { ctx.fillStyle = '#1a0e0a'; ctx.beginPath(); ctx.ellipse(ex, -0.06, 0.1, 0.11, 0, 0, TAU); ctx.fill(); if (eyes > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, ex, -0.06, 0.2, '#ff3a1a', eyes); ctx.restore(); ctx.fillStyle = '#ff5a2a'; ctx.beginPath(); ctx.arc(ex, -0.06, 0.04, 0, TAU); ctx.fill(); } }
-  ctx.fillStyle = '#1a0e0a'; ctx.beginPath(); ctx.moveTo(0.02, 0.03); ctx.lineTo(-0.03, 0.11); ctx.lineTo(0.07, 0.11); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#fff'; for (let i = -2; i <= 2; i++) ctx.fillRect(i * 0.07 - 0.025, 0.19, 0.05, 0.07);
-  ctx.beginPath(); ctx.moveTo(-0.14, 0.19); ctx.lineTo(-0.11, 0.33); ctx.lineTo(-0.08, 0.19); ctx.moveTo(0.1, 0.19); ctx.lineTo(0.13, 0.33); ctx.lineTo(0.16, 0.19); ctx.fill(); // colmillos
+// El esqueleto que queda cuando el vampiro se quema: huesos de verdad (cráneo con mandíbula, columna con vértebras,
+// costillas, esternón, clavículas, pelvis, fémur, tibia y peroné, húmero, radio y cúbito, manos y pies con
+// falanges), con el tamaño y la forma de cada uno: el gigante ancho y de huesos gruesos, el volador con los huesos
+// de las alas y el hombre lobo en cuatro patas con hocico y cola.
+const B_LT = '#f3ead2', B_MD = '#d2c09a', B_DK = '#8d7650', B_INK = '#24170c';
+function boneShaft(ctx: CanvasRenderingContext2D, a: Pt, b: Pt, w: number) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, n: Pt = [-dy / l, dx / l];
+  const g = ctx.createLinearGradient(a[0] + n[0] * w, a[1] + n[1] * w, a[0] - n[0] * w, a[1] - n[1] * w); g.addColorStop(0, B_LT); g.addColorStop(0.55, B_MD); g.addColorStop(1, B_DK);
+  const m = 0.42; // la diáfisis más finita que las puntas
+  ctx.beginPath(); ctx.moveTo(a[0] + n[0] * w * 0.7, a[1] + n[1] * w * 0.7);
+  ctx.quadraticCurveTo((a[0] + b[0]) / 2 + n[0] * w * m, (a[1] + b[1]) / 2 + n[1] * w * m, b[0] + n[0] * w * 0.7, b[1] + n[1] * w * 0.7);
+  ctx.lineTo(b[0] - n[0] * w * 0.7, b[1] - n[1] * w * 0.7);
+  ctx.quadraticCurveTo((a[0] + b[0]) / 2 - n[0] * w * m, (a[1] + b[1]) / 2 - n[1] * w * m, a[0] - n[0] * w * 0.7, a[1] - n[1] * w * 0.7); ctx.closePath();
+  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = B_INK; ctx.lineWidth = w * 0.22; ctx.stroke();
+  for (const [p, d] of [[a, 1], [b, -1]] as const) { // las cabezas del hueso (dos bultitos)
+    for (const sgn of [-1, 1]) { ctx.beginPath(); ctx.arc(p[0] + n[0] * w * 0.42 * sgn + dx / l * w * 0.15 * d, p[1] + n[1] * w * 0.42 * sgn + dy / l * w * 0.15 * d, w * 0.5, 0, TAU); ctx.fillStyle = g; ctx.fill(); ctx.stroke(); }
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = w * 0.14; ctx.beginPath(); ctx.moveTo(a[0] + n[0] * w * 0.3 + dx * 0.15, a[1] + n[1] * w * 0.3 + dy * 0.15); ctx.lineTo(a[0] + n[0] * w * 0.25 + dx * 0.8, a[1] + n[1] * w * 0.25 + dy * 0.8); ctx.stroke(); // brillo
+}
+function vertebra(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, a = 0) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+  ctx.fillStyle = B_MD; ctx.strokeStyle = B_INK; ctx.lineWidth = h * 0.18;
+  ctx.beginPath(); ctx.moveTo(-w * 1.1, 0); ctx.lineTo(-w * 0.4, -h * 0.25); ctx.lineTo(w * 0.4, -h * 0.25); ctx.lineTo(w * 1.1, 0); ctx.lineTo(w * 0.4, h * 0.2); ctx.lineTo(-w * 0.4, h * 0.2); ctx.closePath(); ctx.fill(); ctx.stroke(); // apófisis
+  const g = ctx.createLinearGradient(0, -h / 2, 0, h / 2); g.addColorStop(0, B_LT); g.addColorStop(1, B_DK);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, h * 0.3); ctx.fill(); ctx.stroke();
   ctx.restore();
+}
+function boneHand(ctx: CanvasRenderingContext2D, wrist: Pt, dir: Pt, size: number, wob: number) {
+  ctx.fillStyle = B_MD; ctx.strokeStyle = B_INK; ctx.lineWidth = size * 0.08;
+  ctx.beginPath(); ctx.ellipse(wrist[0] + dir[0] * size * 0.25, wrist[1] + dir[1] * size * 0.25, size * 0.22, size * 0.16, Math.atan2(dir[1], dir[0]), 0, TAU); ctx.fill(); ctx.stroke(); // los huesitos de la muñeca
+  ctx.lineCap = 'round';
+  for (let f = 0; f < 4; f++) {
+    const sp = (f - 1.5) * 0.28 + wob * 0.3, d: Pt = [dir[0] * Math.cos(sp) - dir[1] * Math.sin(sp), dir[0] * Math.sin(sp) + dir[1] * Math.cos(sp)];
+    let p: Pt = [wrist[0] + dir[0] * size * 0.38, wrist[1] + dir[1] * size * 0.38];
+    for (let k = 0; k < 3; k++) { const l = size * (0.32 - k * 0.07), q: Pt = [p[0] + d[0] * l, p[1] + d[1] * l]; ctx.strokeStyle = B_INK; ctx.lineWidth = size * 0.13; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke(); ctx.strokeStyle = k === 2 ? '#fff7e6' : B_LT; ctx.lineWidth = size * 0.07; ctx.stroke(); p = q; }
+  }
+}
+function boneSkull(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number, eyes: number, snout = 0) {
+  const jaw = 0.04 + Math.abs(Math.sin(t * 22)) * 0.1; // la mandíbula que castañetea
+  ctx.save(); ctx.translate(x, y); ctx.scale(r, r);
+  const g = ctx.createRadialGradient(-0.25, -0.35, 0.1, 0, 0, 1.1); g.addColorStop(0, '#fffaf0'); g.addColorStop(0.5, B_LT); g.addColorStop(1, B_DK);
+  // la mandíbula (atrás, abierta)
+  ctx.save(); ctx.translate(-0.1, 0.35); ctx.rotate(jaw);
+  ctx.beginPath(); ctx.moveTo(-0.35, -0.1); ctx.lineTo(-0.3, 0.35); ctx.quadraticCurveTo(0.2, 0.5, 0.62 + snout, 0.32); ctx.lineTo(0.62 + snout, 0.15); ctx.lineTo(0.1, 0.18); ctx.lineTo(-0.1, -0.1); ctx.closePath();
+  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = B_INK; ctx.lineWidth = 0.07; ctx.stroke();
+  ctx.fillStyle = '#fffaf0'; for (let i = 0; i < 6; i++) { const tx = 0.12 + i * (0.08 + snout * 0.08); ctx.beginPath(); ctx.moveTo(tx, 0.17); ctx.lineTo(tx + 0.03, (i === 4 ? 0.0 : 0.08)); ctx.lineTo(tx + 0.06, 0.17); ctx.closePath(); ctx.fill(); ctx.lineWidth = 0.025; ctx.stroke(); }
+  ctx.restore();
+  // el cráneo: bóveda, pómulo y maxilar (con hocico largo si es lobo)
+  ctx.beginPath(); ctx.moveTo(-0.62, 0.1); ctx.bezierCurveTo(-0.75, -0.75, 0.55, -0.95, 0.62, -0.2); ctx.lineTo(0.66 + snout, 0.1 - snout * 0.15); ctx.quadraticCurveTo(0.72 + snout, 0.35, 0.6 + snout, 0.42); ctx.lineTo(0.05, 0.45); ctx.lineTo(-0.2, 0.3); ctx.quadraticCurveTo(-0.5, 0.35, -0.62, 0.1); ctx.closePath();
+  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = B_INK; ctx.lineWidth = 0.07; ctx.stroke();
+  ctx.strokeStyle = 'rgba(80,55,25,0.55)'; ctx.lineWidth = 0.03; ctx.beginPath(); ctx.moveTo(-0.3, -0.62); ctx.quadraticCurveTo(-0.15, -0.45, -0.28, -0.3); ctx.moveTo(0.05, 0.05); ctx.quadraticCurveTo(-0.15, 0.12, -0.35, 0.05); ctx.stroke(); // suturas y el arco del pómulo
+  // las órbitas hondas, con el brillo rojo de los ojos
+  for (const [ex, ey, er] of [[0.28, -0.12, 0.2], [-0.02, -0.1, 0.13]] as const) {
+    const og = ctx.createRadialGradient(ex, ey, 0.02, ex, ey, er); og.addColorStop(0, '#000'); og.addColorStop(1, '#3a2614');
+    ctx.fillStyle = og; ctx.beginPath(); ctx.ellipse(ex, ey, er * 0.85, er, 0.2, 0, TAU); ctx.fill(); ctx.strokeStyle = B_INK; ctx.lineWidth = 0.04; ctx.stroke();
+    if (eyes > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, ex, ey, er * 1.6, '#ff3a1a', 0.75 * eyes); ctx.fillStyle = '#ffd0a0'; ctx.beginPath(); ctx.arc(ex + 0.02, ey, er * 0.22, 0, TAU); ctx.fill(); ctx.restore(); }
+  }
+  ctx.fillStyle = '#120a04'; ctx.beginPath(); ctx.moveTo(0.48 + snout, 0.08); ctx.lineTo(0.42 + snout, 0.24); ctx.lineTo(0.56 + snout, 0.24); ctx.closePath(); ctx.fill(); // la nariz
+  ctx.fillStyle = '#fffaf0'; ctx.strokeStyle = B_INK; ctx.lineWidth = 0.025;
+  for (let i = 0; i < 6; i++) { const tx = 0.08 + i * (0.08 + snout * 0.08), fang = i === 4; ctx.beginPath(); ctx.moveTo(tx, 0.42); ctx.lineTo(tx + 0.03, fang ? 0.68 : 0.52); ctx.lineTo(tx + 0.06, 0.42); ctx.closePath(); ctx.fill(); ctx.stroke(); } // dientes y colmillos
+  ctx.restore();
+}
+function ribCage(ctx: CanvasRenderingContext2D, cx: number, top: number, w: number, h: number, n = 7, horizontal = false) {
+  ctx.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const k = i / (n - 1), y = top + k * h * 0.8, rw = w * (0.75 + Math.sin(Math.min(1, k * 1.4) * Math.PI * 0.6) * 0.35), drop = h * (0.12 + k * 0.08);
+    for (const sgn of [-1, 1]) {
+      const path = () => { ctx.beginPath(); if (horizontal) { ctx.moveTo(cx + (k - 0.5) * w * 1.6, top); ctx.quadraticCurveTo(cx + (k - 0.5) * w * 1.6 + 0.1, top + h * 0.6, cx + (k - 0.5) * w * 1.4, top + h * (0.95 - Math.abs(k - 0.5) * 0.5)); } else { ctx.moveTo(cx, y); ctx.bezierCurveTo(cx + sgn * rw * 0.7, y - drop * 0.6, cx + sgn * rw, y + drop * 0.5, cx + sgn * rw * 0.55, y + drop * 1.4); } };
+      path(); ctx.strokeStyle = B_INK; ctx.lineWidth = w * 0.11; ctx.stroke(); path(); ctx.strokeStyle = B_MD; ctx.lineWidth = w * 0.07; ctx.stroke(); path(); ctx.strokeStyle = 'rgba(255,250,235,0.7)'; ctx.lineWidth = w * 0.025; ctx.stroke();
+      if (horizontal) break;
+    }
+  }
+  if (!horizontal) { ctx.fillStyle = B_LT; ctx.strokeStyle = B_INK; ctx.lineWidth = w * 0.03; ctx.beginPath(); ctx.roundRect(cx - w * 0.06, top - h * 0.04, w * 0.12, h * 0.72, w * 0.05); ctx.fill(); ctx.stroke(); } // el esternón
+}
+export function drawSkeletonK(ctx: CanvasRenderingContext2D, flyer: boolean, t: number, eyes: number, kind: string = flyer ? 'flyer' : 'walker') {
+  const wob = Math.sin(t * 40) * 0.2;
+  if (kind === 'wolf') { // en cuatro patas: columna horizontal, costillas colgando, hocico largo y cola
+    ctx.save(); ctx.scale(0.6, 0.9); try { wolfSkeleton(ctx, t, eyes, wob); } finally { ctx.restore(); }
+    return;
+  }
+  humanSkeleton(ctx, flyer, t, eyes, kind, wob);
+}
+function wolfSkeleton(ctx: CanvasRenderingContext2D, t: number, eyes: number, wob: number) {
+  {
+    const sy = -1.0;
+    for (let i = 0; i < 9; i++) { const k = i / 8, x = -1.55 - k * 0.55, y = sy - 0.1 - Math.sin(k * 1.6) * 0.55; vertebra(ctx, x, y, 0.09 - k * 0.04, 0.07 - k * 0.025, -0.6); } // la cola
+    for (const [hx, back] of [[-0.75, true], [0.55, true], [-0.6, false], [0.7, false]] as const) { // las patas (las de atrás más oscuras)
+      ctx.save(); if (back) ctx.globalAlpha = 0.75;
+      const hip: Pt = [hx, sy + 0.05], kn: Pt = hx < 0 ? [hx + 0.22, sy + 0.5] : [hx - 0.05, sy + 0.48], an: Pt = hx < 0 ? [hx - 0.08, sy + 0.82] : [hx + 0.02, sy + 0.88], ft: Pt = [an[0] + 0.05, 0];
+      boneShaft(ctx, hip, kn, 0.12); boneShaft(ctx, kn, an, 0.09); boneShaft(ctx, an, ft, 0.07); boneHand(ctx, ft, [1, 0], 0.32, wob);
+      ctx.restore();
+    }
+    ribCage(ctx, -0.1, sy + 0.05, 0.75, 0.75, 9, true);
+    for (let i = 0; i < 14; i++) vertebra(ctx, -1.5 + i * 0.16, sy - 0.02 - Math.sin(i / 13 * Math.PI) * 0.12, 0.14, 0.11);
+    // la pelvis y los omóplatos
+    ctx.fillStyle = B_MD; ctx.strokeStyle = B_INK; ctx.lineWidth = 0.03; ctx.beginPath(); ctx.ellipse(-0.8, sy + 0.02, 0.32, 0.16, -0.3, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0.62, sy - 0.05, 0.12, 0.3, 0.4, 0, TAU); ctx.fill(); ctx.stroke();
+    for (let i = 0; i < 4; i++) vertebra(ctx, 0.95 + i * 0.12, sy - 0.15 - i * 0.1, 0.12, 0.1, -0.7); // el cuello
+    boneSkull(ctx, 1.4, sy - 0.45, 0.34, t, eyes, 0.55);
+  }
+}
+function humanSkeleton(ctx: CanvasRenderingContext2D, flyer: boolean, t: number, eyes: number, kind: string, wob: number) {
+  // humanoide: más ancho y de huesos más gruesos el gigante
+  const big = kind === 'giant' ? 1.45 : kind === 'hammer' || kind === 'warrior' ? 1.12 : kind === 'dracula' ? 1.05 : 1, W = big, th = Math.sqrt(big);
+  const hipY = flyer ? -0.5 : -0.98, shY = hipY - 0.66, neckY = shY - 0.08;
+  if (kind === 'flyer') for (const sgn of [-1, 1]) { // los huesos de las alas (como dedos larguísimos)
+    const root: Pt = [sgn * 0.25, shY + 0.05], el: Pt = [sgn * 0.75, shY - 0.35], wr: Pt = [sgn * 1.15, shY - 0.2];
+    ctx.save(); ctx.globalAlpha = 0.85; boneShaft(ctx, root, el, 0.06); boneShaft(ctx, el, wr, 0.05);
+    for (let f = 0; f < 4; f++) { const a = -0.9 + f * 0.55; boneShaft(ctx, wr, [wr[0] + sgn * Math.cos(a) * 0.7, wr[1] + Math.sin(a) * 0.7 + 0.2], 0.03); } ctx.restore();
+  }
+  // las piernas: fémur, rótula, tibia y peroné, y el pie
+  for (const sgn of [-1, 1]) {
+    const back = sgn < 0; ctx.save(); if (back) ctx.globalAlpha = 0.8;
+    const hp: Pt = [sgn * 0.13 * W, hipY + 0.04], kn: Pt = [sgn * 0.14 * W + 0.02, hipY + (flyer ? 0.25 : 0.5)], an: Pt = [sgn * 0.15 * W, flyer ? hipY + 0.5 : -0.08];
+    boneShaft(ctx, hp, kn, 0.085 * th);
+    boneShaft(ctx, [kn[0] - 0.035, kn[1]], [an[0] - 0.03, an[1]], 0.035 * th); // peroné
+    boneShaft(ctx, [kn[0] + 0.02, kn[1]], [an[0] + 0.015, an[1]], 0.066 * th); // tibia
+    ctx.fillStyle = B_LT; ctx.strokeStyle = B_INK; ctx.lineWidth = 0.015; ctx.beginPath(); ctx.ellipse(kn[0] + 0.05, kn[1] - 0.02, 0.04 * th, 0.055 * th, 0, 0, TAU); ctx.fill(); ctx.stroke(); // rótula
+    if (!flyer) { ctx.fillStyle = B_MD; ctx.beginPath(); ctx.ellipse(an[0] + 0.02, an[1] + 0.03, 0.08 * th, 0.05, 0, 0, TAU); ctx.fill(); ctx.stroke(); boneHand(ctx, [an[0] + 0.05, an[1] + 0.05], [1, 0.12], 0.3 * th, 0); }
+    ctx.restore();
+  }
+  // la pelvis: las dos alas del hueso ilíaco con sus agujeros y el sacro
+  ctx.save(); ctx.translate(0, hipY); ctx.scale(W, 1);
+  const pg = ctx.createLinearGradient(0, -0.16, 0, 0.12); pg.addColorStop(0, B_LT); pg.addColorStop(1, B_DK);
+  ctx.beginPath(); ctx.moveTo(0, -0.04); ctx.bezierCurveTo(-0.12, -0.2, -0.3, -0.2, -0.27, -0.04); ctx.quadraticCurveTo(-0.25, 0.08, -0.12, 0.12); ctx.lineTo(0, 0.08); ctx.lineTo(0.12, 0.12); ctx.quadraticCurveTo(0.25, 0.08, 0.27, -0.04); ctx.bezierCurveTo(0.3, -0.2, 0.12, -0.2, 0, -0.04); ctx.closePath();
+  ctx.fillStyle = pg; ctx.fill(); ctx.strokeStyle = B_INK; ctx.lineWidth = 0.02; ctx.stroke();
+  ctx.fillStyle = '#1a0e06'; for (const sgn of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sgn * 0.13, 0.05, 0.045, 0.035, 0, 0, TAU); ctx.fill(); }
+  ctx.restore();
+  // la columna (lumbar) y el tórax
+  for (let i = 0; i < 4; i++) vertebra(ctx, 0, hipY - 0.1 - i * 0.065, 0.075 * th, 0.05);
+  ribCage(ctx, 0, shY + 0.07, 0.24 * W, 0.42, 7);
+  for (let i = 0; i < 3; i++) vertebra(ctx, 0.01, neckY - i * 0.055, 0.06 * th, 0.042); // el cuello
+  // clavículas y brazos (húmero, radio y cúbito, la mano con falanges que tiembla)
+  for (const sgn of [-1, 1]) {
+    const back = sgn < 0; ctx.save(); if (back) ctx.globalAlpha = 0.85;
+    const sh: Pt = [sgn * 0.27 * W, shY + 0.02], el: Pt = [sgn * 0.33 * W, shY + 0.34], wr: Pt = [sgn * 0.36 * W + 0.06, shY + 0.62 + (sgn > 0 ? wob * 0.15 : 0)];
+    boneShaft(ctx, [0.02, shY - 0.02], sh, 0.035 * th);
+    boneShaft(ctx, sh, el, 0.07 * th);
+    boneShaft(ctx, [el[0] - 0.025, el[1]], [wr[0] - 0.025, wr[1]], 0.035 * th); boneShaft(ctx, [el[0] + 0.02, el[1]], [wr[0] + 0.02, wr[1]], 0.04 * th);
+    boneHand(ctx, wr, [0.25 * sgn, 1], 0.26 * th, wob);
+    ctx.restore();
+  }
+  const skR = 0.27 * (big > 1.3 ? 1.1 : 1);
+  boneSkull(ctx, 0.04, neckY - 0.16 - skR * 0.5, skR, t, eyes);
+  if (kind === 'giant') for (const sgn of [-1, 1]) { ctx.fillStyle = B_LT; ctx.strokeStyle = B_INK; ctx.lineWidth = 0.02; ctx.beginPath(); ctx.moveTo(0.04 + sgn * 0.12, neckY - 0.42); ctx.quadraticCurveTo(0.04 + sgn * 0.3, neckY - 0.55, 0.04 + sgn * 0.26, neckY - 0.72); ctx.quadraticCurveTo(0.04 + sgn * 0.2, neckY - 0.52, 0.04 + sgn * 0.04, neckY - 0.46); ctx.closePath(); ctx.fill(); ctx.stroke(); } // los cuernitos
 }
 // Llamas que le salen de todo el cuerpo (como la gente que se prende fuego en "El piso es de lava").
 export function bodyFire(ctx: CanvasRenderingContext2D, hgt: number, wid: number, k: number, t: number, seed: number) {

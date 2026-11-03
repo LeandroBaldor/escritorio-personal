@@ -35,7 +35,7 @@ const SHORT: Record<Weapon, string> = { sword: 'Espada', crossbow: 'Ballesta', g
 const KIND_ICON: Record<VampKind, string> = { walker: '🧛', flyer: '🦇', giant: '👹', mage: '🔮', hammer: '🔨', warrior: '🛡️', wolf: '🐺', dracula: '🧛‍♂️', dragon: '🐉' };
 // El enemigo nuevo de cada nivel (el que se presenta en el cartel del nivel).
 const newcomerOf = (level: number): VampKind | null => level >= LEVEL_COUNT ? 'dracula' : level >= 2 && level <= 6 ? rosterOf(level).at(-1)! : null;
-const SPAWN_TEXT: Partial<Record<VampKind, string>> = { giant: '👹 ¡Un vampiro gigante! Aguanta 3 golpes', mage: '🔮 ¡Un vampiro mago! Tira bolas de fuego (cortalas con la espada)', hammer: '🔨 ¡Vampiro martillo! Cuidado cuando lo levanta', warrior: '🛡️ ¡Vampiro guerrero! Su escudo ataja las estacas', wolf: '🐺 ¡Un hombre lobo! Salta encima tuyo' };
+const SPAWN_TEXT: Partial<Record<VampKind, string>> = { giant: '👹 ¡Un vampiro gigante! Aguanta 12 golpes', mage: '🔮 ¡Un vampiro mago! Tira bolas de fuego (cortalas con la espada)', hammer: '🔨 ¡Vampiro martillo! Cuidado cuando lo levanta', warrior: '🛡️ ¡Vampiro guerrero! Su escudo ataja las estacas', wolf: '🐺 ¡Un hombre lobo! Salta encima tuyo' };
 
 const INFO: Record<Weapon, { text: string; stats: [string, string][] }> = {
   sword: { text: 'Hoja de plata bendecida. Corta en arco a los vampiros que tenés adelante, en el piso o en el aire.', stats: [['Daño', '1 de vida'], ['Alcance', '2,6 m adelante'], ['Cantidad', 'Ilimitada']] },
@@ -121,9 +121,14 @@ export function Vampyrium() {
     gameRef.current = newGame(undefined, n); seenRef.current = new Set();
     input.current = { left: false, right: false, up: false, down: false };
     setHud(hudOf(gameRef.current));
-    setToast({ text: `🎯 ${CHAPTERS[n].goalText}`, id: performance.now() });
-    playVampBell(0.25);
-    setStatus('playing'); // toda la información está en el menú: se juega directo
+    setStatus('intro'); // primero el cartel con los vampiros del nivel y las armas
+  }, []);
+  // Del cartel al juego: arranca con la meta arriba.
+  const begin = useCallback(() => {
+    if (statusRef.current !== 'intro') return;
+    playVampMenuButton(); playVampBell(0.25);
+    setToast({ text: `🎯 ${CHAPTERS[gameRef.current.level].goalText}`, id: performance.now() });
+    setStatus('playing');
   }, []);
 
   // El bucle del juego
@@ -152,12 +157,12 @@ export function Vampyrium() {
           case 'crossReady': break;
           case 'stakeHit': playVampStakeHit(); break;
           case 'empty': setToast({ text: e.weapon === 'cross' ? '✝ No tenés cruces: se cargan matando 10 vampiros' : `Sin munición de ${WEAPON_NAME[e.weapon].toLowerCase()}: vuelve la espada 🗡️ (buscá cajas que caen del cielo)`, id: now, bad: true }); break;
-          case 'kill': playVampDeath(); if (STRENGTH[e.kind] >= 6) playVampDeep(0.65, 0.7); break;
+          case 'kill': playVampDeath(); if (STRENGTH[e.kind] >= 12) playVampDeep(0.65, 0.7); break;
           case 'vampHurt': playVampVoice(0.5); break;
           case 'bones': playVampExplosion(); playVampBones(); break;
           case 'hurt': playVampHurt(); break;
           case 'fall': playVampFall(); setToast({ text: '¡Te caíste al vacío! −10 de vida', id: now, bad: true }); break;
-          case 'vampHit': if (STRENGTH[e.kind] >= 6) playVampDeep(isBoss(e.kind) ? 0.6 : 0.75, 0.5); playVampStakeHit(); break;
+          case 'vampHit': if (STRENGTH[e.kind] >= 12) playVampDeep(isBoss(e.kind) ? 0.6 : 0.75, 0.5); playVampStakeHit(); break;
           case 'block': playVampStakeHit(); setToast({ text: '🛡️ ¡Lo atajó con el escudo! Usá la espada (o tirale cuando ataca)', id: now }); break;
           case 'slam': playVampHammer(); break;
           case 'cast': playVampStaff(); break;
@@ -239,6 +244,7 @@ export function Vampyrium() {
         if (e.key === 'Escape' && g.phase === 'menu') { closeMenu(g); return; }
         playVampMenuButton(); setStatus(s === 'playing' ? 'paused' : 'playing'); return;
       }
+      if (s === 'intro' && (e.key === 'Enter' || e.key === ' ' || e.code === 'Space')) { e.preventDefault(); begin(); return; }
       if (s !== 'playing') return;
       if (g.phase === 'menu') {
         if (e.key.startsWith('Arrow')) { e.preventDefault(); playVampButton(); menuMove(g, e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 1); return; }
@@ -255,7 +261,7 @@ export function Vampyrium() {
     const blur = () => { input.current = { left: false, right: false, up: false, down: false }; };
     window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', blur);
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', blur); };
-  }, []);
+  }, [begin]);
   useEffect(() => { const previous = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = previous; }; }, []);
 
   const hold = (k: keyof Input) => ({
@@ -323,6 +329,29 @@ export function Vampyrium() {
             </div>
           </div>
           <p className="ds-keys">← → elegir · Espacio confirmar · Esc cerrar</p>
+        </div>}
+        {status === 'intro' && <div className="vamp-intro2" role="dialog" aria-labelledby="vamp-intro-title">
+          <div className="vamp-intro2-card">
+            <p className="vamp-intro2-lv">Nivel {level} · {def.name}</p>
+            <h2 id="vamp-intro-title">Los vampiros de este nivel</h2>
+            <ul className="vamp-intro2-grid" aria-label="Vampiros del nivel">
+              {(finalLevel ? ['dracula', 'dragon'] as VampKind[] : roster).map(k => <li key={k} className={k === newcomer ? 'vamp-hub-new' : ''}>
+                <ArtCanvas w={110} h={110} draw={(ctx, t) => drawPortrait(ctx, k, gameRef.current, k === 'dragon' ? 68 : k === 'wolf' ? 52 : 54, k === 'dragon' ? 90 : 106, k === 'dragon' ? 15 : k === 'wolf' ? 38 : k === 'giant' ? 36 : 42, t)} />
+                <b>{VAMP_NAME[k]}</b>
+                <span className="vamp-hub-hp">❤ {STRENGTH[k]} de vida</span>
+                {k === newcomer && <em>Nuevo</em>}
+              </li>)}
+            </ul>
+            <h2>Tus armas{newWeapons.length > 0 && ' (y las nuevas)'}</h2>
+            <ul className="vamp-intro2-grid vamp-intro2-weapons" aria-label="Armas del nivel">
+              {WEAPONS.filter(w => WEAPON_LEVEL[w] <= level).map(w => <li key={w} className={`${newWeapons.includes(w) ? 'vamp-hub-new' : ''}${isArmor(w) ? ' vamp-hub-armor' : ''}`}>
+                <ArtCanvas w={64} h={64} draw={(ctx, t) => { ctx.translate(32, 32); drawWeaponIcon(ctx, w, 56, t, drawSwordIcon); }} />
+                <b>{isArmor(w) ? WEAPON_NAME[w] : SHORT[w]}</b>
+                {newWeapons.includes(w) && <em>Nueva</em>}
+              </li>)}
+            </ul>
+            <button type="button" className="vamp-hub-go" ref={focusNoScroll} onClick={begin}>⚔️ ¡A cazar!</button>
+          </div>
         </div>}
         {status === 'ready' && <div className="vamp-hub" role="dialog" aria-labelledby="vamp-message" style={{ backgroundImage: `linear-gradient(#0a0508ee, #0a0508f5), url(${fondoOf(def.bg)})` }}>
           <div className="vamp-hub-top">

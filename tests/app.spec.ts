@@ -1198,7 +1198,12 @@ test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de
   await expect(page.getByText('Juntá 20 estrellas doradas', { exact: false })).toBeVisible(); // la meta del nivel 2
   await expect(page.getByRole('region', { name: 'Rivales' })).toContainText('Vampiro gigante');
   await expect(page.getByRole('region', { name: 'Armas disponibles' })).toContainText('Nueva');
-  await page.getByRole('button', { name: 'Jugar · Nivel 2' }).click(); // y se juega directo, sin otro cartel
+  await page.getByRole('button', { name: 'Jugar · Nivel 2' }).click();
+  // después, el cartel con los vampiros del nivel (con su vida) y las armas (la ballesta es nueva)
+  await expect(page.getByRole('list', { name: 'Vampiros del nivel' })).toContainText('Vampiro gigante');
+  await expect(page.getByRole('list', { name: 'Vampiros del nivel' })).toContainText('de vida');
+  await expect(page.getByRole('list', { name: 'Armas del nivel' })).toContainText('Ballesta');
+  await page.getByRole('button', { name: /A cazar/ }).click();
   await expect(page.getByTestId('vamp-total')).toContainText('/20');
   await expect(page.getByTestId('vamp-time')).not.toHaveText('0:00', { timeout: 5000 });
   // la barra de vida de arriba: 100 puntos
