@@ -601,27 +601,34 @@ function drawFlyer2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
 
 // ---------------------------------------------------------------- Vampiro gigante
 function drawGiant2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
-  const st = stance(v, t, { lean: 0.06, crouch: 0.12, wide: 1.05, lift: 0.2 }), br = Math.sin(t * 2.4 + v.id) * 0.02, sk = '#a29eae'; // (de perfil: pasos naturales, no abierto de piernas)
-  // la caminata pesada: pisa fuerte (el cuerpo baja en cada paso), se balancea de lado a lado y los brazos van y vienen
-  const moving = v.onGround && Math.abs(v.vx) > 0.3, gw = v.walkT * 3.0;
-  if (moving) { st.bob = -Math.abs(Math.sin(gw)) * 0.08 + 0.02; st.lean = 0.12 + Math.abs(Math.sin(gw)) * 0.04; st.crouch += 0.03; }
-  const sw = moving ? Math.sin(gw) * 0.3 : 0;
-  let hands: [Pt, Pt] = [[0.02 + sw, 0.6 + br - Math.abs(sw) * 0.12], [0.14 - sw, 0.58 - br - Math.abs(sw) * 0.12]]; // los brazos cuelgan a los costados y se balancean al revés que las piernas
+  const st = stance(v, t, { lean: 0.06, crouch: 0.12, wide: 1.05, lift: 0.2 }), br = Math.sin(t * 2.4 + v.id) * 0.02, sk = '#a29eae';
+  // la caminata: la misma que Demian (muslo y canilla con los mismos ángulos, el pie que se levanta y pasa adelante,
+  // los brazos que van y vienen al revés que las piernas, el cuerpo que sube y baja), con las medidas del gigante
+  const moving = v.onGround && Math.abs(v.vx) > 0.3, gw = v.walkT * 1.4, sn = Math.sin(gw);
+  let hands: [Pt, Pt] = [[0.02, 0.6 + br], [0.14, 0.58 - br]];
+  if (moving) {
+    st.bob = Math.abs(sn) * 0.06; st.lean = 0.16; st.crouch = 0.08;
+    const L = BRUTE.thigh + BRUTE.shin, hip: Pt = [0, -L * (1 - st.crouch) + st.bob];
+    const legs: [number, number][] = [[-0.6 * sn, 0.15 + 0.85 * Math.max(0, -Math.cos(gw))], [0.6 * sn, 0.15 + 0.85 * Math.max(0, Math.cos(gw))]]; // (como Demian, un poco más corto: es pesado)
+    st.feet = legs.map(([ta, kb]) => { const k = add(hip, dirv(ta), BRUTE.thigh), f = add(k, dirv(ta - kb), BRUTE.shin); return [f[0], Math.min(0, f[1])] as Pt; }) as [Pt, Pt];
+    const arms: [number, number][] = [[0.75 * sn, 0.3 + Math.max(0, sn) * 0.5], [-0.75 * sn, 0.3 + Math.max(0, -sn) * 0.5]]; // (el brazo que va adelante dobla el codo)
+    hands = arms.map(([ua, eb]) => add(add([0, 0], dirv(ua), BRUTE.upper), dirv(ua + eb), BRUTE.fore)) as [Pt, Pt];
+  }
   hands = swipeArms(v, hands, { up: [[-0.04, -0.72], [0.16, -0.74]], hit: [[0.6, 0.36], [0.74, 0.3]], walk: false }); // los dos puños juntos, de arriba hacia abajo
-  const r: Pose2 = { ...st, hands }, b = solve2(r, { ...BRUTE, shW: 0.16 }); // hombros juntos: el cuerpo de perfil
+  const r: Pose2 = { ...st, hands }, b = solve2(r, { ...BRUTE, shW: 0.1 }); // hombros y cadera juntos: el cuerpo de perfil
   shadowOn(ctx, v, 0.75);
   ctx.save(); ctx.scale(1.22, 1.22); // tan alto como el gigante de antes
   const leg = (i: number) => { leg2(ctx, b, i, '#2a2630', 1.45, true, '#1a171e'); };
   leg(0); leg(1);
-  ctx.save(); ctx.translate(b.hip[0], b.hip[1]); ctx.rotate(Math.atan2(b.spine[0], -b.spine[1])); ctx.translate(0.05, 0); ctx.scale(BROAD * 0.66, 1); // de perfil (más angosto, con el pecho para adelante)
+  ctx.save(); ctx.translate(b.hip[0], b.hip[1]); ctx.rotate(Math.atan2(b.spine[0], -b.spine[1])); ctx.translate(0.07, 0); ctx.scale(BROAD * 0.5, 1); // de perfil (más angosto, con el pecho para adelante)
   const torso = () => shapePath(ctx, [[-0.25, 0.04], [-0.29, -0.25], [-0.38, -0.56], [-0.25, -0.72], [0.27, -0.72], [0.38, -0.56], [0.3, -0.25], [0.24, 0.04]]);
   form(ctx, torso, sk, [0, -0.4], 0.55, { tex: 0.4, lw: 1.4 });
   ctx.save(); ctx.beginPath(); torso(); ctx.clip();
   ctx.strokeStyle = 'rgba(60,40,80,0.5)'; ctx.lineWidth = 0.018; ctx.beginPath(); for (const sx of [-1, 1]) { ctx.moveTo(0.0, -0.6); ctx.quadraticCurveTo(sx * 0.18, -0.38, sx * 0.33, -0.52); } ctx.moveTo(0, -0.4); ctx.lineTo(0, -0.05); for (const y of [-0.28, -0.17, -0.07]) { ctx.moveTo(-0.12, y); ctx.quadraticCurveTo(0, y + 0.02, 0.12, y); } ctx.stroke();
   for (const [a, b2] of [[[-0.3, -0.72], [0.3, -0.08]]] as [Pt, Pt][]) { tube(ctx, a, b2, [0.08, 0.08], LEATHER, { rim: 0, ao: 0, tex: 0.5, lw: 1.1 }); }
   ctx.restore();
-  form(ctx, () => ctx.arc(0.0, -0.4, 0.075, 0, TAU), '#c68f2c', [0, -0.4], 0.08, { hi: 0.6, lw: 1.2 }); gem(ctx, 0.0, -0.4, 0.05, t, '#c68f2c');
-  const loin = () => shapePath(ctx, [[-0.12, 0.0], [0.15, 0.0], [0.17, 0.3, 1], [0.1, 0.24, 1], [0.06, 0.42, 1], [0.0, 0.3, 1], [-0.06, 0.46, 1], [-0.1, 0.28, 1], [-0.16, 0.34, 1]]);
+  form(ctx, () => ctx.arc(0.14, -0.42, 0.075, 0, TAU), '#c68f2c', [0.14, -0.42], 0.08, { hi: 0.6, lw: 1.2 }); gem(ctx, 0.14, -0.42, 0.05, t, '#c68f2c'); // (el broche, del lado del pecho que se ve)
+  const loin = () => shapePath(ctx, [[-0.02, 0.0], [0.24, 0.0], [0.17, 0.3, 1], [0.1, 0.24, 1], [0.06, 0.42, 1], [0.0, 0.3, 1], [-0.06, 0.46, 1], [-0.1, 0.28, 1], [-0.16, 0.34, 1]]);
   form(ctx, loin, RED, [0, 0.2], 0.3, { tex: 0.45, lw: 1.2 }); // el taparrabos rojo roto
   for (const sx of [-1, 1]) form(ctx, () => shapePath(ctx, [[sx * 0.2, 0.0], [sx * 0.26, 0.0], [sx * 0.3, 0.22, 1], [sx * 0.24, 0.16, 1]]), REDD, [sx * 0.24, 0.1], 0.15, { lw: 1 });
   belt2(ctx, -0.03, -0.25, 0.25);

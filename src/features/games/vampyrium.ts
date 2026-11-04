@@ -12,7 +12,7 @@ export const CAM_MAX = WORLD_H - H;
 export const GROUND_Y = 3.2;
 export const GOAL = 50;
 export const MAX_HP = 100; // la barra de vida del cazador
-export const TRAP_DMG = 10, FALL_DMG = 10, HEART_HP = 25;
+export const TRAP_DMG = 5, FALL_DMG = 10, HEART_HP = 25; // (las trampas sacan la mitad que antes)
 export const POWER_MAX = 10; // vampiros para cargar una cruz
 export const PLAYER_W = 0.8, PLAYER_H = 1.9;
 const GRAV = 36, SPEED = 7, JUMP = 16.2, JUMP2 = 14, FALL_MAX = 24;
@@ -524,7 +524,7 @@ function kill(g: Game, v: Vamp, how: KillHow) {
   if (g.total >= 35 && !g.bloodMoon) { g.bloodMoon = true; emit(g, { type: 'bloodMoon' }); }
 }
 
-// Le sacan vida al cazador (cada vampiro según su fuerza; trampas y caídas, 10).
+// Le sacan vida al cazador (cada vampiro según su fuerza; las trampas 5 y las caídas 10).
 function hurt(g: Game, fromX: number, dmg = 1, byVamp = true) {
   const p = g.player;
   if (p.inv > 0 || g.phase !== 'play') return;
