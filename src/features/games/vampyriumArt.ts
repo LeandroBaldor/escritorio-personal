@@ -252,7 +252,7 @@ function capStones(ctx: CanvasRenderingContext2D, x1: number, x2: number, top: n
 }
 // El fondo pintado (más oscuro para que se lean los pisos y los personajes): se mueve más despacio que el
 // escenario cuando la cámara sube (paralaje), así alcanza para todo el alto.
-const PARALLAX = 0.3;
+const PARALLAX = 0.2;
 function paintBackdrop(ctx: CanvasRenderingContext2D, v: View, camY: number) {
   const base = viewFor(v.w, v.h), dh = Y(base, GROUND_Y) + v.s * 0.6, off = camY * v.s * PARALLAX;
   if (backdrop && backdropReady) {
@@ -623,7 +623,7 @@ function drawRoller(ctx: CanvasRenderingContext2D, st: ReturnType<typeof trapSta
 }
 function drawCrusher(ctx: CanvasRenderingContext2D, tr: Trap, st: ReturnType<typeof trapState>, v: View, t: number) {
   const x = X(v, tr.x) + (st.warn ? Math.sin(t * 70) * v.s * 0.05 : 0), b = Y(v, st.bottom), hw = tr.len * v.s, style = tr.style ?? 'spikeblock';
-  chainTo(ctx, v, x, 0, b - v.s * (style === 'chandelier' ? 0.9 : 1.1));
+  { const top = chainTop(tr.x, tr.top ?? 12); chainTo(ctx, v, x, Math.max(0, Y(v, top) + (top < WORLD_H - 0.4 ? v.s * 0.62 : 0)), b - v.s * (style === 'chandelier' ? 0.9 : 1.1)); } // cuelga de la plataforma de arriba (o del techo)
   if (st.warn) glow(ctx, X(v, tr.x), Y(v, tr.y), v.s * 1.4, 'rgba(255,60,40,0.3)'); // la sombra donde va a caer
   ctx.save(); ctx.translate(x, b);
   if (style === 'chandelier') { // araña de velas con pinches abajo

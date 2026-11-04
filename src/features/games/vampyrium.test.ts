@@ -616,12 +616,12 @@ describe('Vampyrium: los ataques especiales de Demian', () => {
     run(g, 0.5);
     expect(g.vamps.includes(a) || g.vamps.includes(b)).toBe(false);
   });
-  it('atrás, atrás + Espacio: la espada va hacia adelante y vuelve', () => {
+  it('atrás, atrás + Espacio (según para dónde mira): la espada va hacia adelante y vuelve', () => {
     const g = quiet(); const p = g.player; p.face = 1;
     const v = walker(g, p.x + 6);
-    noteTap(g, -1); g.real += 0.1; noteTap(g, -1); pressAttack(g);
+    noteTap(g, -1); g.real += 0.1; noteTap(g, 1); pressAttack(g); // mira a la derecha: ← (atrás, se da vuelta) y → (atrás otra vez)
     expect(specials(g)).toEqual(['throw']);
-    expect(g.boomer?.vx).toBeGreaterThan(0); // hacia donde miraba antes
+    expect(g.boomer?.vx).toBeGreaterThan(0); // hacia donde quedó mirando
     run(g, 2.5);
     expect(g.vamps.includes(v)).toBe(false);
     expect(g.boomer).toBeNull(); // volvió a la mano

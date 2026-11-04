@@ -7,7 +7,7 @@
 // tiran; caen cajas del cielo con más). Con 50 vampiros muertos se abre la puerta de la derecha.
 
 export const W = 28, H = 15.75; // H: lo que entra en la pantalla de alto
-export const WORLD_H = 32; // el escenario sigue para arriba (la cámara acompaña al cazador)
+export const WORLD_H = 48; // el escenario sigue para arriba (la cámara acompaña al cazador)
 export const CAM_MAX = WORLD_H - H;
 export const GROUND_Y = 3.2;
 export const GOAL = 50;
@@ -182,8 +182,8 @@ export type GameEvent =
   | { type: 'kill'; kind: VampKind; how: KillHow; x: number; y: number } | { type: 'bones'; x: number; y: number }
   | { type: 'hurt'; hp: number; dmg: number } | { type: 'vampHit'; kind: VampKind; hp: number } | { type: 'block' } | { type: 'slam' } | { type: 'cast' } | { type: 'bats' } | { type: 'breath' } | { type: 'mist' }
   | { type: 'collect'; kind: Item['kind']; n: number; of: number } | { type: 'break'; kind: Breakable['kind']; n: number; of: number } | { type: 'objHit' } | { type: 'transform' } | { type: 'dragon' } | { type: 'bossDead' } | { type: 'howl'; kind: VampKind } | { type: 'spawn'; kind: VampKind } | { type: 'fall'; hp: number } | { type: 'jump'; double: boolean } | { type: 'land' } | { type: 'step' }
-  | { type: 'crate' } | { type: 'pickup'; kind: CrateKind; amount: number; weapon?: Weapon } | { type: 'guard'; on: boolean } | { type: 'guardHit'; left: number } | { type: 'freeze' } | { type: 'shatter' } | { type: 'melt' } | { type: 'nova' } | { type: 'door' } | { type: 'spikes' } | { type: 'fire' }
-  | { type: 'swing' } | { type: 'special'; kind: SpecialKind } | { type: 'catch' } | { type: 'thunder'; near: number } | { type: 'combo'; n: number } | { type: 'holy'; count: number } | { type: 'wave'; n: number } | { type: 'bloodMoon' }
+  | { type: 'crate' } | { type: 'pickup'; kind: CrateKind; amount: number; weapon?: Weapon } | { type: 'guard'; on: boolean } | { type: 'guardHit'; left: number } | { type: 'freeze' } | { type: 'shatter' } | { type: 'melt' } | { type: 'nova' } | { type: 'door' } | { type: 'spikes'; x: number; y: number } | { type: 'fire'; x: number; y: number }
+  | { type: 'swing'; x: number; y: number } | { type: 'special'; kind: SpecialKind } | { type: 'catch' } | { type: 'thunder'; near: number } | { type: 'combo'; n: number } | { type: 'holy'; count: number } | { type: 'wave'; n: number } | { type: 'bloodMoon' }
   | { type: 'menu'; open: boolean } | { type: 'choose'; weapon: Weapon } | { type: 'hiss'; x: number } | { type: 'dive' } | { type: 'emerge' }
   | { type: 'vampFall' } | { type: 'burn' } | { type: 'vampHurt'; x: number; trap?: TrapKind } | { type: 'cleared' } | { type: 'over' } | { type: 'won' } | { type: 'powerReady' };
 
@@ -357,12 +357,13 @@ function comboSpecial(g: Game): { kind: SpecialKind; dir: 1 | -1 } | null {
   const f = a.f; // para dónde miraba antes de la combinación
   if (a.d === f && b.d === f) return { kind: 'dash', dir: f };
   if (a.d === f && b.d === -f) return { kind: 'whirl', dir: f };
-  if (a.d === -f && b.d === -f) return { kind: 'throw', dir: f };
+  if (a.d === -a.f && b.d === -b.f) return { kind: 'throw', dir: b.d }; // atrás + atrás según para dónde mira en cada toque (al darse vuelta, el segundo atrás es para el otro lado)
   return null;
 }
 // Una flecha tocada (desde el teclado, al instante: así la combinación funciona aunque Espacio llegue en el mismo cuadro).
 export function noteTap(g: Game, d: 1 | -1) {
   const p = g.player; g.taps.push({ d, t: g.real, f: p.face }); if (g.taps.length > 3) g.taps.shift();
+  if (!p.special && g.phase === 'play') p.face = d; // se da vuelta al toque (así el próximo toque sabe para dónde mira)
   if (d > 0) p.prevR = true; else p.prevL = true;
 }
 function startSpecial(g: Game, kind: SpecialKind, dir: 1 | -1) {
@@ -1290,9 +1291,9 @@ export function step(g: Game, input: Input, dt: number) {
   // Trampas contra el cazador
   for (const t of TRAPS) {
     const st = trapState(t, g.time), prevSt = trapState(t, g.time - dt);
-    if (t.kind === 'spikes' && st.on > 0 && prevSt.on === 0) emit(g, { type: 'spikes' });
-    if (t.kind === 'fire' && st.on > 0 && prevSt.on === 0) emit(g, { type: 'fire' });
-    if (t.kind === 'pendulum' && Math.sign(st.a) !== Math.sign(prevSt.a)) emit(g, { type: 'swing' });
+    if (t.kind === 'spikes' && st.on > 0 && prevSt.on === 0) emit(g, { type: 'spikes', x: t.x, y: t.y });
+    if ((t.kind === 'fire' || t.kind === 'jet') && st.on > 0 && prevSt.on === 0) emit(g, { type: 'fire', x: t.x, y: t.y });
+    if (t.kind === 'pendulum' && Math.sign(st.a) !== Math.sign(prevSt.a)) emit(g, { type: 'swing', x: st.tipX, y: st.tipY });
     if (trapHits(t, g.time, p.x - 0.32, p.x + 0.32, p.y, p.y + PLAYER_H)) hurt(g, t.kind === 'pendulum' ? st.tipX - (st.a > prevSt.a ? 1 : -1) : t.x, TRAP_DMG, false); // el péndulo empuja para donde va
   }
   updateShots(g, dt);

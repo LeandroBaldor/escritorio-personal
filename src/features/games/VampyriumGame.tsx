@@ -15,7 +15,7 @@ const FONDOS = import.meta.glob('./assets/vampyrium/fondo-nivel-*.webp', { eager
 const fondoOf = (bg: string) => FONDOS[`./assets/vampyrium/${bg}.webp`];
 import {
   playGameOver, playKfPickup, playThunder, playVampBell, playVampBones, playVampCombo, playVampCrate, playVampDeath, playVampDive,
-  playVampFall, playVampHurt, playVampMenu, playVampSpikes, playVampStakeHit, playVampSwing, playVampThrow, playDoor,
+  playVampFall, playVampHurt, playVampMenu, playVampSpikes, playVampStakeHit, playVampSwing, playVampTrapFire, playVampPendulum, playVampThrow, playDoor,
   playWinFanfare, playVampButton, playVampMenuButton, setVampMenuMusic, playVampCrossbow, playVampGarlicBomb, playVampPistol, playVampDeep, playVampHammer, playVampStaff, playVampFlame, setVampAmbient, setVampWings, preloadVampSounds, playVampStep, playVampVoice, playVampCross, playVampSword, playVampJumpSound, playVampBurn, playVampExplosion,
 } from './sounds';
 
@@ -147,6 +147,8 @@ export function Vampyrium() {
       let left = dt; while (left > 0) { const d = Math.min(1 / 60, left); step(g, input.current, d); left -= d; }
       ambT -= dt; if (ambT <= 0) { ambT = 1; setVampAmbient(true, g.level); } // el fondo del nivel arranca apenas termina de cargar
       bellT -= dt; if (bellT <= 0 && g.phase === 'play') { playVampBell(0.12); bellT = 18 + Math.random() * 10; }
+      // las trampas suenan más fuerte cuanto más cerca del cazador (las de lejos, apenas)
+      const near = (x: number, y: number) => Math.max(0.08, 1 - Math.hypot(x - g.player.x, (y - g.player.y) * 1.3) / 16);
       for (const e of takeEvents(g)) {
         switch (e.type) {
           case 'slash': playVampSword(); break;
@@ -187,9 +189,9 @@ export function Vampyrium() {
           case 'collect': playKfPickup(); setToast({ text: `${e.kind === 'star' ? '⭐ Estrella dorada' : '👻 Alma liberada'} ${e.n}/${e.of}`, id: now }); break;
           case 'break': playVampExplosion(); setToast({ text: e.kind === 'cage' ? `⛓ ¡Prisionero libre! ${e.n}/${e.of}` : `⚰ Ataúd destruido ${e.n}/${e.of} ¡salió un vampiro!`, id: now, big: e.n === e.of }); break;
           case 'objHit': playVampStakeHit(); break;
-          case 'spikes': playVampSpikes(); break;
-          case 'fire': playVampBurn(); break;
-          case 'swing': playVampSwing(); break;
+          case 'spikes': playVampSpikes(near(e.x, e.y)); break;
+          case 'fire': playVampTrapFire(near(e.x, e.y)); break;
+          case 'swing': playVampPendulum(near(e.x, e.y) * 0.9); break;
           case 'combo': playVampCombo(e.n); break;
           case 'holy': playVampCross(); playThunder(0.8); setToast({ text: e.count ? `✝ ¡TORMENTA SAGRADA! ${e.count} vampiros hechos polvo` : '✝ ¡TORMENTA SAGRADA!', id: now, big: true }); break;
           case 'powerReady': playVampBell(0.2); setToast({ text: '✝ ¡+1 cruz! Elegila manteniendo Espacio', id: now, big: true }); break;
@@ -392,7 +394,7 @@ export function Vampyrium() {
                 <li><span><kbd>↑</kbd><kbd>↑</kbd>+<kbd>Espacio</kbd></span>🌀 Giro de 360° en el aire</li>
                 <li><span><kbd>→</kbd><kbd>→</kbd>+<kbd>Espacio</kbd></span>⚡ Estocada que atraviesa</li>
                 <li><span><kbd>→</kbd><kbd>←</kbd>+<kbd>Espacio</kbd></span>🌪️ Torbellino</li>
-                <li><span><kbd>←</kbd><kbd>←</kbd>+<kbd>Espacio</kbd></span>🗡️ Espada bumerán</li>
+                <li><span><kbd>←</kbd><kbd>→</kbd>+<kbd>Espacio</kbd></span>🗡️ Espada bumerán (atrás y atrás)</li>
               </ul>
             </section>
             <section className="vamp-hub-box vamp-hub-rivals" aria-label="Rivales">
@@ -438,7 +440,7 @@ export function Vampyrium() {
               <EndBanner win={false} id="vamp-message" />
               <p>Mataste <strong>{result.total}</strong> {result.total === 1 ? 'vampiro' : 'vampiros'} en {formatVampTime(result.time)}.{result.newRecord && ' ¡Nuevo récord!'}</p>
               <button type="button" onClick={() => start(level)} autoFocus>Jugar de nuevo</button>
-              <button type="button" className="vamp-ghost" onClick={() => { playVampMenuButton(); setStatus('ready'); }}>Elegir nivel</button>
+              <button type="button" className="vamp-ghost" onClick={() => { playVampMenuButton(); setStatus('ready'); }}>Volver al Menú</button>
             </>}
             {status === 'won' && <>
               <EndBanner win id="vamp-message" />
@@ -451,7 +453,7 @@ export function Vampyrium() {
               {result.newRecord && <p>¡Nuevo récord!</p>}
               {level < LEVEL_COUNT && <p className="runner-tip">Sigue: Nivel {level + 1} · {LEVELS[level].name}</p>}
               {level < LEVEL_COUNT ? <button type="button" onClick={() => { playVampMenuButton(); setLevel(level + 1); gameRef.current = newGame(undefined, level + 1); setHud(hudOf(gameRef.current)); setStatus('ready'); }} autoFocus>Siguiente nivel ▶</button> : <button type="button" onClick={() => start(1)} autoFocus>Jugar de nuevo</button>}
-              <button type="button" className="vamp-ghost" onClick={() => { playVampMenuButton(); setStatus('ready'); }}>Elegir nivel</button>
+              <button type="button" className="vamp-ghost" onClick={() => { playVampMenuButton(); setStatus('ready'); }}>Volver al Menú</button>
             </>}
           </div>
         </div>}

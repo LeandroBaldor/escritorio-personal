@@ -1506,7 +1506,10 @@ export function playVampHoly() {
 }
 export function playVampCombo(n: number) { const c = running(); if (!c) return; const t = c.currentTime, f = 520 * Math.pow(1.12, Math.min(8, n)); tone(c, 'square', f, f, t, 0.1, 0.06); tone(c, 'square', f * 1.5, f * 1.5, t + 0.08, 0.14, 0.06); }
 export function playVampMenu(open: boolean) { const c = running(); if (!c) return; const t = c.currentTime; tone(c, 'triangle', open ? 440 : 660, open ? 660 : 440, t, 0.12, 0.12); burst(c, 'bandpass', 3000, t, 0.06, 0.15); }
-export function playVampSpikes() { const c = running(); if (!c) return; const t = c.currentTime; for (let i = 0; i < 3; i++) tone(c, 'square', 1200 - i * 200, 400, t + i * 0.02, 0.08, 0.06); burst(c, 'highpass', 4000, t, 0.12, 0.25); }
+// Las trampas: los pinches que salen, el fuego que se prende y el péndulo que pasa (más fuerte cuanto más cerca).
+export function playVampSpikes(volume = 0.9) { vampOnce('pinches', volume, 0.12); }
+export function playVampTrapFire(volume = 0.9) { vampOnce('trampa-fuego', volume, 0.25); }
+export function playVampPendulum(volume = 0.8) { vampOnce('pendulo', volume, 0.1); }
 export function playVampSwing() { const c = running(); if (!c) return; burst(c, 'bandpass', 500, c.currentTime, 0.5, 0.18); }
 // La campana de la iglesia (suena cada tanto y cuando se abre la puerta).
 export function playVampBell(volume = 0.25) {

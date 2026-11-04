@@ -43,24 +43,43 @@ function withHighLedges(surfaces: Surface[], traps: Trap[]): Surface[] {
   }
   return out;
 }
-// El escenario sigue para arriba (hasta y = 32): cinco pisos más de plataformas (de 16,2 a 29), distintas
+// El escenario sigue para arriba (hasta y = 48): diez pisos más de plataformas (de 16,2 a 45), de tamaños distintos y
 // en cada nivel, solo donde se llega de un salto desde la de abajo y lejos de los péndulos, gotas y aplastadores;
 // arriba también hay trampas: pinches (del estilo del nivel) y una sierra que recorre una plataforma.
-const UP_TIERS = [16.2, 19.4, 22.6, 25.8, 29.0];
+const UP_TIERS = [16.2, 19.4, 22.6, 25.8, 29.0, 32.2, 35.4, 38.6, 41.8, 45.0];
 const SPIKE_STYLE: Record<number, string> = { 6: 'bone', 8: 'thorn', 9: 'hands' };
 function withUpperFloors(n: number, surfaces: Surface[], traps: Trap[]): [Surface[], Trap[]] {
   const out = [...surfaces], added: Surface[] = [];
-  const blocked = (x1: number, x2: number) => traps.some(t => (t.kind === 'pendulum' && t.x > x1 - 1.8 && t.x < x2 + 1.8) || (t.kind === 'drip' && t.x > x1 - 0.9 && t.x < x2 + 0.9) || (t.kind === 'crusher' && t.x > x1 - 1.3 && t.x < x2 + 1.3));
-  let moving = n % 2 === 0;
+  const blocked = (x1: number, x2: number, y = 16.2) => traps.some(t => (t.kind === 'pendulum' && y < 19 && t.x > x1 - 1.8 && t.x < x2 + 1.8) || (t.kind === 'drip' && t.x > x1 - 0.9 && t.x < x2 + 0.9) || (t.kind === 'crusher' && y < 19 && t.x > x1 - 1.3 && t.x < x2 + 1.3)); // (los péndulos y aplastadores solo molestan cerca de donde cuelgan)
+  let moving = 2;
+  const h = (k: number) => { const x = Math.sin(k * 127.1 + n * 311.7) * 43758.5453; return x - Math.floor(x); };
+  const statics = () => out.filter(q => !q.ground && !q.mv);
+  // si no hay nada alto de donde arrancar, una repisa arriba de la plataforma más alta
+  if (!statics().some(q => q.y >= 12 && q.y < 15.5)) {
+    const top = statics().sort((a, b) => b.y - a.y)[0];
+    for (const x1 of [top.x1, top.x2 - 3, top.x1 - 2, top.x2 - 1]) if (x1 > 0.5 && x1 + 3 < 27.5 && !blocked(x1, x1 + 3)) { out.push(P(x1, x1 + 3, Math.min(top.y + 3.2, 14.2))); break; }
+  }
   UP_TIERS.forEach((y, ti) => {
-    for (let x = 0.6 + (n * 3.7 + ti * 5.3) % 4.4, i = 0; x < 25.6; i++) {
-      const w = 3 + ((n * 7 + ti * 3 + i * 5) % 4) * 0.5, x1 = x, x2 = Math.min(27.4, x + w);
-      const reach = out.some(q => !q.ground && q.y < y - 1.2 && q.y >= y - 3.7 && q.x1 < x2 + 2.3 && q.x2 > x1 - 2.3);
-      if (reach && !blocked(x1, x2) && x2 - x1 > 2.4) {
-        const mv = moving && ti === 1 ? { dx: 1.5, dy: 0, period: 6.5, phase: n } : undefined; if (mv) moving = false;
-        const q = P(x1, x2, y, mv); out.push(q); if (!mv) added.push(q);
-      }
-      x = x2 + 2.1 + ((n + ti + i) % 3) * 1.2;
+    // cada piso nuevo sale de los de abajo: corrido a un costado (o justo arriba), con largos distintos
+    const prev = out.filter(q => !q.ground && q.y < y - 1.2 && q.y >= y - 3.7), tier: [number, number][] = [];
+    const cands: [number, number][] = [];
+    prev.forEach((q, k) => { const c = (q.x1 + q.x2) / 2; for (const d of [-1, 1, 0]) cands.push([c + d * (2.6 + h(ti * 13 + k * 7 + d) * 1.6), 2.2 + Math.floor(h(ti * 5 + k * 3 + d * 9) * 7) * 0.6]); });
+    cands.sort((a, b) => h(a[0] * 3.1 + ti) - h(b[0] * 3.1 + ti)); // (un orden distinto en cada nivel)
+    for (const [cx, w] of cands) {
+      if (tier.length >= 4) break;
+      const x1 = Math.max(0.6, Math.min(27.4 - w, cx - w / 2)), x2 = x1 + w;
+      if (tier.some(([a, b]) => x1 < b + 1.5 && x2 > a - 1.5) || blocked(x1, x2, y)) continue;
+      if (!prev.some(q => q.x1 < x2 + 2.3 && q.x2 > x1 - 2.3)) continue;
+      tier.push([x1, x2]);
+      const mv = moving > 0 && (ti === 1 + (n % 2) || ti === 6 + (n % 3)) && w < 4.5 ? { dx: 1.4, dy: 0, period: 6 + (ti % 3), phase: n + ti } : undefined; if (mv) moving--;
+      const q = P(x1, x2, y, mv); out.push(q); if (!mv) added.push(q);
+    }
+    // y se estira para los costados: plataformas a la misma altura, a un salto (2 m de hueco) de las que ya están
+    for (let k = 0; tier.length < 4 && k < 40; k++) {
+      const [a1, a2] = tier[k % Math.max(1, tier.length)] ?? [13, 13], side = (k + n + ti + Math.floor(k / 2)) % 2 ? 1 : -1, w = 2.2 + Math.floor(h(ti * 7 + k * 11) * 7) * 0.6 - (k > 20 ? 1 : 0), gap = 1.6 + (k % 5) * 0.45; // (hasta 3,4 m: se cruza de un salto)
+      const x1 = side > 0 ? a2 + gap : a1 - gap - w, x2 = x1 + w;
+      if (x1 < 0.6 || x2 > 27.4 || tier.some(([p1, p2]) => x1 < p2 + 1.5 && x2 > p1 - 1.5) || blocked(x1, x2, y)) continue;
+      tier.push([x1, x2]); const q = P(x1, x2, y); out.push(q); added.push(q);
     }
   });
   // trampas arriba: pinches, sierras y braseros de fuego repartidos por las plataformas nuevas (una de cada dos)
