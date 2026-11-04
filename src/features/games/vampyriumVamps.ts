@@ -86,7 +86,7 @@ function gem(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: 
 
 // ---------------------------------------------------------------- El esqueleto (todos los humanoides)
 interface Body { hip: Pt; neck: Pt; spine: Pt; side: Pt; hp: [Pt, Pt]; sh: [Pt, Pt]; knee: [Pt, Pt]; foot: [Pt, Pt]; elbow: [Pt, Pt]; hand: [Pt, Pt] }
-interface Dims { thigh: number; shin: number; spine: number; upper: number; fore: number; shW: number }
+interface Dims { thigh: number; shin: number; spine: number; upper: number; fore: number; shW: number; hipW?: number } // (shW negativo: el lado de atrás queda para adelante)
 const HUMAN: Dims = { thigh: 0.47, shin: 0.45, spine: 0.6, upper: 0.32, fore: 0.29, shW: 0.19 };
 
 
@@ -108,7 +108,7 @@ function solve2(p: Pose2, d: Dims): Body {
   const spine: Pt = [Math.sin(p.lean), -Math.cos(p.lean)], side: Pt = [Math.cos(p.lean), Math.sin(p.lean)];
   const neck = add(hip, spine, d.spine), k = d.shW / 0.19;
   const sh: [Pt, Pt] = [add(add(hip, spine, d.spine - 0.06), side, -d.shW), add(add(hip, spine, d.spine - 0.07), side, d.shW * 0.85)];
-  const hp: [Pt, Pt] = [add(hip, side, -0.09 * k), add(hip, side, 0.09 * k)];
+  const kh = d.hipW !== undefined ? d.hipW * BROAD / 0.19 : k, hp: [Pt, Pt] = [add(hip, side, -0.09 * kh), add(hip, side, 0.09 * kh)];
   const knee: Pt[] = [], foot: Pt[] = [], elbow: Pt[] = [], hand: Pt[] = [];
   for (let i = 0; i < 2; i++) {
     [knee[i], foot[i]] = ik(hp[i], p.feet[i], d.thigh, d.shin, -1);
@@ -609,13 +609,13 @@ function drawGiant2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   if (moving) {
     st.bob = Math.abs(sn) * 0.06; st.lean = 0.16; st.crouch = 0.08;
     const L = BRUTE.thigh + BRUTE.shin, hip: Pt = [0, -L * (1 - st.crouch) + st.bob];
-    const legs: [number, number][] = [[-0.6 * sn, 0.15 + 0.85 * Math.max(0, -Math.cos(gw))], [0.6 * sn, 0.15 + 0.85 * Math.max(0, Math.cos(gw))]]; // (como Demian, un poco más corto: es pesado)
+    const legs: [number, number][] = [[0.6 * sn, 0.15 + 0.85 * Math.max(0, Math.cos(gw))], [-0.6 * sn, 0.15 + 0.85 * Math.max(0, -Math.cos(gw))]]; // (como Demian, un poco más corto; arranca la pierna del lado hacia donde va)
     st.feet = legs.map(([ta, kb]) => { const k = add(hip, dirv(ta), BRUTE.thigh), f = add(k, dirv(ta - kb), BRUTE.shin); return [f[0], Math.min(0, f[1])] as Pt; }) as [Pt, Pt];
-    const arms: [number, number][] = [[0.75 * sn, 0.3 + Math.max(0, sn) * 0.5], [-0.75 * sn, 0.3 + Math.max(0, -sn) * 0.5]]; // (el brazo que va adelante dobla el codo)
+    const arms: [number, number][] = [[-0.75 * sn, 0.3 + Math.max(0, -sn) * 0.5], [0.75 * sn, 0.3 + Math.max(0, sn) * 0.5]]; // (al revés que las piernas; el que va adelante dobla el codo)
     hands = arms.map(([ua, eb]) => add(add([0, 0], dirv(ua), BRUTE.upper), dirv(ua + eb), BRUTE.fore)) as [Pt, Pt];
   }
   hands = swipeArms(v, hands, { up: [[-0.04, -0.72], [0.16, -0.74]], hit: [[0.6, 0.36], [0.74, 0.3]], walk: false }); // los dos puños juntos, de arriba hacia abajo
-  const r: Pose2 = { ...st, hands }, b = solve2(r, { ...BRUTE, shW: 0.1 }); // hombros y cadera juntos: el cuerpo de perfil
+  const r: Pose2 = { ...st, hands }, b = solve2(r, { ...BRUTE, shW: -0.2, hipW: -0.1 }); // hombros separados como el vampiro común; el brazo y la pierna del lado hacia donde va quedan atrás del cuerpo (se dibujan primero) y la cadera, de perfil
   shadowOn(ctx, v, 0.75);
   ctx.save(); ctx.scale(1.22, 1.22); // tan alto como el gigante de antes
   const leg = (i: number) => { leg2(ctx, b, i, '#2a2630', 1.45, true, '#1a171e'); };

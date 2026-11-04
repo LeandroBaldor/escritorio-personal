@@ -198,6 +198,7 @@ export interface Game {
   goal: Goal; progress: number; items: Item[]; objects: Breakable[]; itemT: number;
   kills: Record<VampKind, number>; total: number; shots: Shot[]; pops: Pop[]; transformT: number; bossDeadT: number; bossHits: number; voidKills: number; trapKills: number;
   weapon: Weapon; ammo: Record<Weapon, number>; menu: { sel: number; t: number }; lastTap: number; holdT: number;
+  immortal?: boolean; // modo test: no pierde vida
   camY: number; // la cámara: cuánto subió (0 = el piso abajo de todo)
   guardHp: number; orbs: Orb[]; shards: Shard[]; // el escudo de la armadura protectora, las bolas de hielo y verdes, los pedazos de hielo
   combo: { n: number; t: number; best: number }; power: number; holyT: number; garlicT: number;
@@ -536,7 +537,7 @@ function hurt(g: Game, fromX: number, dmg = 1, byVamp = true) {
     if (g.guardHp <= 0) emit(g, { type: 'guard', on: false });
     if (dmg <= 0) { p.inv = 0.6; p.vx = (p.x >= fromX ? 1 : -1) * 4; return; }
   }
-  p.hp = Math.max(0, p.hp - dmg); p.inv = 1.1; p.hurtT = 0.35; g.shake = Math.max(g.shake, Math.min(1, 0.3 + dmg * 0.04));
+  if (!g.immortal) p.hp = Math.max(0, p.hp - dmg); p.inv = 1.1; p.hurtT = 0.35; g.shake = Math.max(g.shake, Math.min(1, 0.3 + dmg * 0.04));
   p.vx = (p.x >= fromX ? 1 : -1) * (6 + Math.min(6, dmg * 0.5)); p.vy = 8 + Math.min(4, dmg * 0.3); p.onGround = false; p.surface = null;
   pop(g, p.x, p.y + PLAYER_H + 0.3, `−${dmg}`, true);
   emit(g, { type: 'hurt', hp: p.hp, dmg });
@@ -1169,7 +1170,7 @@ export function step(g: Game, input: Input, dt: number) {
   }
   // Se cayó al vacío: pierde 10 de vida y vuelve al último lugar firme.
   if (p.y < -2) {
-    p.hp = Math.max(0, p.hp - FALL_DMG); g.stats.falls++; pop(g, p.safeX, GROUND_Y + 2.5, `−${FALL_DMG}`, true); emit(g, { type: 'fall', hp: p.hp });
+    if (!g.immortal) p.hp = Math.max(0, p.hp - FALL_DMG); g.stats.falls++; pop(g, p.safeX, GROUND_Y + 2.5, `−${FALL_DMG}`, true); emit(g, { type: 'fall', hp: p.hp });
     if (p.hp <= 0) { g.phase = 'dead'; g.phaseT = 0; return; }
     Object.assign(p, { x: p.safeX, y: GROUND_Y + 2.5, vx: 0, vy: 0, onGround: false, surface: null, inv: 1.6, jumps: 1 });
   }

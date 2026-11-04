@@ -1190,10 +1190,11 @@ test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de
   // Los 10 niveles: solo se abren los que ya se ganaron (al principio, solo el 1)
   const levels = page.getByRole('group', { name: 'Elegir nivel' }).getByRole('button');
   await expect(levels).toHaveCount(10);
-  await expect(levels.nth(1)).toBeDisabled();
+  const testMode = await page.locator('[data-vamp-test]').count() > 0; // (en modo test están todos abiertos)
+  if (!testMode) await expect(levels.nth(1)).toBeDisabled();
   await page.evaluate(() => localStorage.setItem('escritorio-personal-juegos:vampyrium-nivel', '3')); // (como si hubiera ganado el 1 y el 2)
   await page.reload();
-  await expect(levels.nth(3)).toBeDisabled();
+  if (!testMode) await expect(levels.nth(3)).toBeDisabled();
   await levels.nth(2).click();
   await expect(page.getByRole('button', { name: 'Jugar · Nivel 3' })).toBeVisible();
   await levels.nth(1).click();

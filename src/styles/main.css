@@ -1901,3 +1901,4 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
   .vamp-hub-hero{min-height:0;overflow:hidden}
   .vamp-hub-hero canvas{height:auto!important;max-height:calc(100% - 4.5rem);width:auto!important;max-width:100%}
 }
+.vamp-test{margin-right:.6rem;padding:.1rem .55rem;border-radius:999px;background:#14532d;color:#bbf7d0;font-style:normal;font-weight:900;font-size:.8rem}

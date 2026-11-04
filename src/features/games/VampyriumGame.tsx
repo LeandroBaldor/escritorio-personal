@@ -6,7 +6,7 @@ import { TouchGrips } from './TouchGrips';
 import { GamePad } from './GamePad';
 import { pixelRatio, useFitScreen } from './fitScreen';
 import { EndBanner } from './EndBanner';
-import { BOSS_HP, CHAPTERS, goalProgress, DAMAGE, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, GUARD_HP, HOLY_TARGETS, isArmor, WEAPON_NAME, chooseWeapon, closeMenu, newPlayer, formatVampTime, menuMove, newGame, noteTap, pressAttack, step, takeEvents, type Game, type Input, type Weapon } from './vampyrium';
+import { BOSS_HP, CHAPTERS, goalProgress, DAMAGE, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, GUARD_HP, HOLY_TARGETS, isArmor, WEAPON_NAME, chooseWeapon, closeMenu, newPlayer, newGame, formatVampTime, menuMove, noteTap, pressAttack, step, takeEvents, type Game, type Input, type Weapon } from './vampyrium';
 import { drawGame, drawPortrait, drawSwordIcon, setBackdrop } from './vampyriumArt';
 import { drawWeaponIcon } from './vampyriumWeapons';
 import { setNoGrain } from './gravityMonsters';
@@ -22,6 +22,9 @@ import {
 const RECORD_KEY = 'escritorio-personal-juegos:vampyrium-record';
 export interface VampRecord { kills: number; time: number | null }
 export const readVampyriumRecord = (): VampRecord => { try { const r = JSON.parse(localStorage.getItem(RECORD_KEY) ?? 'null'); return { kills: Number(r?.kills) || 0, time: Number(r?.time) || null }; } catch { return { kills: 0, time: null }; } };
+// MODO TEST (para probar): todos los niveles abiertos y vida que no se acaba. Para desactivarlo, poner false.
+export const VAMP_TEST_MODE = true;
+const makeGame = (seed?: number, level?: number) => { const g = newGame(seed, level); g.immortal = VAMP_TEST_MODE; return g; };
 // Hasta qué nivel llegó (hay que ganar cada nivel para que se abra el siguiente).
 const PROGRESS_KEY = 'escritorio-personal-juegos:vampyrium-nivel';
 export const readVampyriumProgress = () => { try { return Math.max(1, Math.min(LEVEL_COUNT, Number(localStorage.getItem(PROGRESS_KEY)) || 1)); } catch { return 1; } };
@@ -82,12 +85,12 @@ export function Vampyrium() {
   const fit = useFitScreen();
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [firstGame] = useState(() => newGame());
+  const [firstGame] = useState(() => makeGame());
   const gameRef = useRef<Game>(firstGame);
   useEffect(() => { if (import.meta.env.DEV) (window as unknown as { __vampGame?: () => Game }).__vampGame = () => gameRef.current; }, []); // (para probar en desarrollo)
   const input = useRef<Input>({ left: false, right: false, up: false, down: false });
   const [status, setStatus] = useState<Status>('ready');
-  const [unlocked, setUnlocked] = useState(readVampyriumProgress);
+  const [unlocked, setUnlocked] = useState(() => VAMP_TEST_MODE ? LEVEL_COUNT : readVampyriumProgress());
   const [level, setLevel] = useState(() => readVampyriumProgress());
   const def = LEVELS[level - 1];
   const [hud, setHud] = useState<Hud>(() => hudOf(firstGame));
@@ -123,7 +126,7 @@ export function Vampyrium() {
   const start = useCallback((n: number) => {
     playVampMenuButton(); playVampBell(0.2); preloadVampSounds(n);
     setLevel(n);
-    gameRef.current = newGame(undefined, n); seenRef.current = new Set();
+    gameRef.current = makeGame(undefined, n); seenRef.current = new Set();
     input.current = { left: false, right: false, up: false, down: false };
     setHud(hudOf(gameRef.current));
     setStatus('intro'); // primero el cartel con los vampiros del nivel y las armas
@@ -219,7 +222,7 @@ export function Vampyrium() {
         const nextRec = { kills: Math.max(rec.kills, g.total), time: won ? Math.min(rec.time ?? Infinity, Math.ceil(g.time)) : rec.time };
         saveRecord(nextRec); setRecord(nextRec);
         setResult({ time: g.time, total: g.total, walker: g.kills.walker, flyer: g.kills.flyer, combo: g.combo.best, falls: g.stats.falls, newRecord });
-        if (won) { playWinFanfare(); saveProgress(g.level + 1); setUnlocked(readVampyriumProgress()); } else playGameOver();
+        if (won) { playWinFanfare(); saveProgress(g.level + 1); setUnlocked(VAMP_TEST_MODE ? LEVEL_COUNT : readVampyriumProgress()); } else playGameOver();
         setStatus(won ? 'won' : 'over');
         return;
       }
@@ -364,7 +367,7 @@ export function Vampyrium() {
           <div className="vamp-hub-top">
             <Link className="runner-back" to="/juegos">‹ Juegos</Link>
             <h2 id="vamp-message" className="vamp-title">VAMPYRIUM</h2>
-            <span className="vamp-hub-record">Récord <strong>{recordText}</strong></span>
+            <span className="vamp-hub-record">{VAMP_TEST_MODE && <em className="vamp-test" data-vamp-test>🧪 Modo test</em>} Récord <strong>{recordText}</strong></span>
           </div>
           <div className="vamp-hub-grid">
             <figure className="vamp-hub-hero" aria-label="Demian, el cazador">
@@ -422,7 +425,7 @@ export function Vampyrium() {
             </section>
             <div className="vamp-hub-play">
               <div className="vamp-levels" role="group" aria-label="Elegir nivel">
-                {LEVELS.map(l => <button type="button" key={l.n} disabled={l.n > unlocked} className={`${l.n === level ? 'vamp-lv-on' : ''}${l.n > unlocked ? ' vamp-lv-locked' : ''}`} aria-pressed={l.n === level} title={l.n > unlocked ? `${l.name}: ganá el nivel ${l.n - 1} para abrirlo` : l.name} onClick={() => { if (l.n > unlocked) return; playVampMenuButton(); setLevel(l.n); gameRef.current = newGame(undefined, l.n); setHud(hudOf(gameRef.current)); }}>
+                {LEVELS.map(l => <button type="button" key={l.n} disabled={l.n > unlocked} className={`${l.n === level ? 'vamp-lv-on' : ''}${l.n > unlocked ? ' vamp-lv-locked' : ''}`} aria-pressed={l.n === level} title={l.n > unlocked ? `${l.name}: ganá el nivel ${l.n - 1} para abrirlo` : l.name} onClick={() => { if (l.n > unlocked) return; playVampMenuButton(); setLevel(l.n); gameRef.current = makeGame(undefined, l.n); setHud(hudOf(gameRef.current)); }}>
                   <img src={fondoOf(l.bg)} alt="" loading="lazy" /><b>{l.n}</b><small>{l.name}</small>
                 </button>)}
               </div>
@@ -452,7 +455,7 @@ export function Vampyrium() {
               </ul>
               {result.newRecord && <p>¡Nuevo récord!</p>}
               {level < LEVEL_COUNT && <p className="runner-tip">Sigue: Nivel {level + 1} · {LEVELS[level].name}</p>}
-              {level < LEVEL_COUNT ? <button type="button" onClick={() => { playVampMenuButton(); setLevel(level + 1); gameRef.current = newGame(undefined, level + 1); setHud(hudOf(gameRef.current)); setStatus('ready'); }} autoFocus>Siguiente nivel ▶</button> : <button type="button" onClick={() => start(1)} autoFocus>Jugar de nuevo</button>}
+              {level < LEVEL_COUNT ? <button type="button" onClick={() => { playVampMenuButton(); setLevel(level + 1); gameRef.current = makeGame(undefined, level + 1); setHud(hudOf(gameRef.current)); setStatus('ready'); }} autoFocus>Siguiente nivel ▶</button> : <button type="button" onClick={() => start(1)} autoFocus>Jugar de nuevo</button>}
               <button type="button" className="vamp-ghost" onClick={() => { playVampMenuButton(); setStatus('ready'); }}>Volver al Menú</button>
             </>}
           </div>
