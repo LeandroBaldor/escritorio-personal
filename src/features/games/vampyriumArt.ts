@@ -4,7 +4,7 @@
 import { bodyFire, drawHunterK, drawSkeletonK, sword } from './vampyriumChars';
 import { drawShotK, drawVampK } from './vampyriumMonsters';
 import { setVampTexture } from './vampyriumVamps';
-import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, CAM_MAX, WORLD_H, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Orb, type Shard, MELT_T, PUDDLE_T, DUST_T, FREEZE_T, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyrium';
+import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, CAM_MAX, WORLD_H, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, hasDoor, ZAP_AT, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Orb, type Shard, MELT_T, PUDDLE_T, DUST_T, FREEZE_T, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyrium';
 import { drawBolt, drawGarlicBomb, drawIceCrystal, drawVenomBall, drawWeaponIcon } from './vampyriumWeapons';
 
 const TAU = Math.PI * 2;
@@ -254,15 +254,17 @@ function capStones(ctx: CanvasRenderingContext2D, x1: number, x2: number, top: n
 // escenario cuando la cámara sube (paralaje), así alcanza para todo el alto.
 const PARALLAX = 0.2;
 function paintBackdrop(ctx: CanvasRenderingContext2D, v: View, camY: number) {
-  const base = viewFor(v.w, v.h), dh = Y(base, GROUND_Y) + v.s * 0.6, off = camY * v.s * PARALLAX;
+  const base = viewFor(v.w, v.h), dh = Y(base, GROUND_Y) + v.s * 0.6;
   if (backdrop && backdropReady) {
     // sin la franja de abajo de la imagen (sus puentes pintados se confundían con los pisos de verdad)
-    const iw = backdrop.naturalWidth, ih = backdrop.naturalHeight * LV.def.crop, k = Math.max(v.w / iw, (dh + CAM_MAX * v.s * PARALLAX) / ih), top = dh - ih * k + off;
-    if (top > 0) { ctx.fillStyle = lin(ctx, 0, 0, 0, top + 2, [[0, '#04030a'], [1, '#0c0a18']]); ctx.fillRect(0, 0, v.w, top + 2); }
+    // La pintura entera a lo ancho (sin agrandarla de más): la franja de abajo queda alineada con el suelo
+    // (o, sin recorte, detrás del suelo). Al subir la cámara se corre solo lo que le sobra arriba.
+    const crop = LV.def.crop, bot = crop >= 1 ? v.h : dh, iw = backdrop.naturalWidth, ih = backdrop.naturalHeight * Math.min(1, crop);
+    const k = Math.max(v.w / iw, bot / ih), spare = ih * k - bot, sh = Math.min(spare, camY * v.s * PARALLAX), top = bot - ih * k + sh;
     ctx.drawImage(backdrop, 0, 0, iw, ih, (v.w - iw * k) / 2, top, iw * k, ih * k);
-    ctx.fillStyle = '#05040a'; ctx.fillRect(0, dh + off, v.w, v.h);
+    if (top + ih * k < v.h) { ctx.fillStyle = '#05040a'; ctx.fillRect(0, top + ih * k, v.w, v.h); }
   } else { ctx.fillStyle = lin(ctx, 0, 0, 0, v.h, [[0, '#0d1430'], [1, '#2a2440']]); ctx.fillRect(0, 0, v.w, v.h); }
-  ctx.fillStyle = lin(ctx, 0, 0, 0, v.h, [[0, 'rgba(6,8,22,0.25)'], [0.6, 'rgba(6,6,16,0.35)'], [1, 'rgba(4,2,8,0.55)']]); ctx.fillRect(0, 0, v.w, v.h);
+  ctx.fillStyle = lin(ctx, 0, 0, 0, v.h, [[0, 'rgba(6,8,22,0.12)'], [0.6, 'rgba(6,6,16,0.22)'], [1, 'rgba(4,2,8,0.45)']]); ctx.fillRect(0, 0, v.w, v.h);
 }
 function paintStatic(ctx: CanvasRenderingContext2D, v: View) {
   // los huecos: el vacío con niebla (o una fosa); los líquidos se dibujan en cada cuadro
@@ -296,7 +298,8 @@ function paintStatic(ctx: CanvasRenderingContext2D, v: View) {
     ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, by, v.w, v.s * 0.12); ctx.strokeStyle = INK; ctx.lineWidth = Math.max(2, v.s * 0.05); ctx.beginPath(); ctx.moveTo(0, by); ctx.lineTo(v.w, by); ctx.stroke();
   }
   for (const q of SURFACES) if (!q.ground && !q.mv) drawPlatform(ctx, v, q); // (las que se mueven, en cada cuadro)
-  // la puerta: arco gótico de piedra
+  // la puerta: arco gótico de piedra (el salón del trono no tiene)
+  if (!hasDoor()) return;
   const dx1 = X(v, DOOR.x1 - 0.35), dx2 = Math.max(X(v, DOOR.x2 + 0.35), v.w), dTop = Y(v, DOOR.y + DOOR.h + 0.9);
   stoneBlocks(ctx, dx1, dTop, dx2 - dx1, gTop - dTop, v.s * 0.7, v.s * 0.45, 99, [58, 52, 60]);
   ctx.strokeStyle = INK; ctx.lineWidth = Math.max(2, v.s * 0.06); ctx.strokeRect(dx1, dTop, dx2 - dx1, gTop - dTop);
@@ -437,6 +440,7 @@ function clearedGate(g: Game) {
   return 1 - k * k;
 }
 function drawDoor(ctx: CanvasRenderingContext2D, g: Game, v: View, t: number) {
+  if (!hasDoor()) return;
   const x1 = X(v, DOOR.x1), x2 = X(v, DOOR.x2), y0 = Y(v, DOOR.y), top = Y(v, DOOR.y + DOOR.h), mid = (x1 + x2) / 2, r = (x2 - x1) / 2;
   const path = () => { ctx.moveTo(x1, y0); ctx.lineTo(x1, top + r); ctx.quadraticCurveTo(x1, top - r * 0.4, mid, top - r); ctx.quadraticCurveTo(x2, top - r * 0.4, x2, top + r); ctx.lineTo(x2, y0); ctx.closePath(); };
   const open = g.door.open ? Math.min(1, g.door.t / 1.2) : 0;
@@ -860,6 +864,16 @@ function drawFxW(ctx: CanvasRenderingContext2D, f: Fx, v: View, g: Game, t: numb
     pts.push([x, y1]);
     for (const [w, c] of [[v.s * 0.5, `rgba(255,220,120,${0.35 * fade})`], [v.s * 0.2, `rgba(255,250,210,${0.8 * fade})`], [v.s * 0.07, `rgba(255,255,255,${fade})`]] as const) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.beginPath(); pts.forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.stroke(); }
     glow(ctx, x, y1, v.s * 1.6, `rgba(255,230,140,${0.8 * fade})`);
+  } else if (f.kind === 'redbolt') { // el rayo rojo de Drácula: grueso, con ramas, y un estallido en el piso
+    const x = X(v, f.x), y1 = Y(v, f.y), segs = 12, top = Math.min(0, y1 - v.h);
+    ctx.globalCompositeOperation = 'lighter';
+    const jag = (sd: number, x0: number, y0: number, x2: number, y2: number, n: number, amp: number) => { const pts: [number, number][] = [[x0, y0]]; for (let i = 1; i < n; i++) { const q = i / n; pts.push([x0 + (x2 - x0) * q + (hash(sd * 13 + i + Math.floor(t * 24)) - 0.5) * amp * (1 - q * 0.6), y0 + (y2 - y0) * q]); } pts.push([x2, y2]); return pts; };
+    const main = jag(f.seed, x + (hash(f.seed * 7) - 0.5) * v.s * 1.5, top, x, y1, segs, v.s * 1.3);
+    const stroke = (pts: [number, number][], w: number) => { for (const [ww, c] of [[w * 3, `rgba(255,20,40,${0.35 * fade})`], [w * 1.4, `rgba(255,70,80,${0.75 * fade})`], [w * 0.5, `rgba(255,225,225,${fade})`]] as const) { ctx.strokeStyle = c; ctx.lineWidth = ww; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.beginPath(); pts.forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.stroke(); } };
+    stroke(main, v.s * 0.16);
+    for (let b = 0; b < 3; b++) { const i = 3 + b * 3, [bx, by] = main[i], dir = hash(f.seed * 5 + b) < 0.5 ? -1 : 1; stroke(jag(f.seed + b * 3.3, bx, by, bx + dir * v.s * (1 + hash(b + f.seed) * 1.5), by + v.s * (1.2 + hash(b * 2 + f.seed) * 1.4), 5, v.s * 0.6), v.s * 0.06); } // las ramas
+    glow(ctx, x, y1, v.s * 2.4 * (0.6 + fade * 0.6), `rgba(255,40,50,${0.85 * fade})`);
+    ctx.fillStyle = `rgba(255,220,220,${fade})`; ctx.beginPath(); ctx.ellipse(x, y1, v.s * 0.9 * (1 + k), v.s * 0.18, 0, 0, TAU); ctx.fill();
   } else if (f.kind === 'wave') { // la ola de fuego de la espada: una media luna que sale hacia adelante
     const p = g.player, cx = X(v, p.x), cy = Y(v, f.y + 1.5), r = v.s * (1.2 + (f.r - 1.2) * Math.sqrt(k)), a0 = f.face > 0 ? -1.15 : Math.PI - 1.15, a1 = a0 + 2.3;
     ctx.globalCompositeOperation = 'lighter';
@@ -1041,6 +1055,16 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
     }
   }
   // bolas de fuego, murciélagos y el fuego del dragón
+  for (const z of g.zaps) if (z.t < ZAP_AT) { // dónde va a caer el rayo rojo: un círculo que late en el piso y chispas que suben
+    const q = Math.max(0, z.t) / ZAP_AT, x = X(v, z.x), y = Y(v, z.y), on = z.t >= 0 ? 1 : 0;
+    if (on) { ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const pulse = 0.6 + 0.4 * Math.sin(t * 30);
+      ctx.fillStyle = lin(ctx, 0, y - v.s * 4, 0, y, [[0, 'rgba(255,30,40,0)'], [1, `rgba(255,30,40,${0.25 * q})`]]); ctx.fillRect(x - v.s * 0.5, y - v.s * 4, v.s, v.s * 4);
+      ctx.strokeStyle = `rgba(255,60,70,${(0.4 + 0.5 * q) * pulse})`; ctx.lineWidth = Math.max(2, v.s * 0.08); ctx.beginPath(); ctx.ellipse(x, y, v.s * (1.2 - q * 0.35), v.s * 0.22, 0, 0, TAU); ctx.stroke();
+      glow(ctx, x, y, v.s * 1.1, `rgba(255,30,40,${0.4 * q})`);
+      for (let i = 0; i < 5; i++) { const h = ((t * 2.5 + i * 0.2) % 1), px = x + (hash(i * 3.7 + z.x) - 0.5) * v.s * 1.4; ctx.fillStyle = `rgba(255,120,120,${(1 - h) * q})`; ctx.fillRect(px, y - h * v.s * 2.5, Math.max(2, v.s * 0.06), Math.max(2, v.s * 0.06)); }
+      ctx.restore(); }
+  }
   for (const s of g.shots) { ctx.save(); ctx.translate(X(v, s.x), Y(v, s.y)); ctx.scale(v.s, v.s); drawShotK(ctx, s, t); ctx.restore(); }
   // el ajo: un halo verde blanco que los espanta
   const p = g.player;
@@ -1049,7 +1073,7 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   // el cazador (parpadea mientras es invulnerable)
   if (g.phase !== 'dead' || g.phaseT < 0.2) {
     const blink = p.inv > 0 && Math.floor(p.inv * 12) % 2 === 0, k = CHAR_K * v.s;
-    const enter = g.phase === 'cleared' || g.phase === 'won' ? Math.max(0, Math.min(1, (g.phaseT - 0.7) / 1.3)) : 0;
+    const enter = (g.phase === 'cleared' || g.phase === 'won') && hasDoor() ? Math.max(0, Math.min(1, (g.phaseT - 0.7) / 1.3)) : 0;
     if (enter > 0) { // entra al castillo: queda adentro del hueco de la puerta (el marco de piedra lo tapa), se aleja por el pasillo
       if (g.phase !== 'won') {   // (más chico, un poco más arriba y cada vez más oscuro)
         const x1 = X(v, DOOR.x1), x2 = X(v, DOOR.x2), y0 = Y(v, DOOR.y), top = Y(v, DOOR.y + DOOR.h), mid = (x1 + x2) / 2, r = (x2 - x1) / 2;
@@ -1063,7 +1087,7 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
       drawHunterK(ctx, p, g, t); ctx.restore();
     }
   }
-  if (g.phase === 'cleared' || g.phase === 'won') drawGate(ctx, v, clearedGate(g));
+  if ((g.phase === 'cleared' || g.phase === 'won') && hasDoor()) drawGate(ctx, v, clearedGate(g));
   if (g.boomer) { const bm = g.boomer; ctx.save(); ctx.translate(X(v, bm.x), Y(v, bm.y)); const k = CHAR_K * v.s; ctx.scale(k, k); ctx.rotate(-bm.t * 22 * Math.sign(bm.vx || 1)); // la espada que gira
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(255,220,220,0.45)'; ctx.lineWidth = 0.22; ctx.beginPath(); ctx.arc(0, 0, 0.85, 0, Math.PI * 1.4); ctx.stroke(); ctx.restore();
     sword(ctx, [0, 0.6], Math.PI); ctx.restore(); }

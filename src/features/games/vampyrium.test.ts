@@ -386,9 +386,28 @@ describe('Vampyrium: los vampiros de cada nivel y los puntos', () => {
     for (let i = 0; i < 200; i++) hitVamp(g, dragon, 1, 'sword', 0);
     expect(g.vamps.length).toBe(0);
     run(g, 3.2);
-    expect(['cleared', 'won']).toContain(g.phase);
-    run(g, 3);
-    expect(g.phase).toBe('won');
+    expect(g.phase).toBe('won'); // (en el salón del trono no hay puerta: se gana ahí mismo)
+    expect(g.door.open).toBe(false);
+    newGame(1, 1);
+  });
+
+  it('Drácula: el gancho de cerca tira al cazador por el aire y los rayos rojos caen donde marcaron', () => {
+    const g = newGame(9, 10); g.crateT = 1e9;
+    const d = g.vamps[0]; d.special = 1e9; d.cool = 1e9;
+    g.player.x = 10; d.x = 11.4; d.y = g.player.y; d.face = -1; d.state = 'claw'; d.t = 0; d.hit = false;
+    let up = 0; for (let i = 0; i < 40; i++) { step(g, idle(), 1 / 60); up = Math.max(up, g.player.vy); }
+    expect(MAX_HP - g.player.hp).toBe(DAMAGE.dracula);
+    expect(up).toBeGreaterThan(15);
+    expect(takeEvents(g).some(e => e.type === 'launch')).toBe(true);
+    run(g, 2.5);
+    const hp = g.player.hp; g.player.inv = 0; g.player.vx = 0;
+    d.x = 20; d.state = 'zap'; d.t = 0; d.hit = false;
+    run(g, 0.45);
+    expect(g.zaps.length).toBe(3);
+    expect(g.zaps[0].x).toBeCloseTo(g.player.x, 0);
+    run(g, 1.2);
+    expect(hp - g.player.hp).toBe(DAMAGE.dracula);
+    expect(takeEvents(g).filter(e => e.type === 'zap').length).toBe(3);
     newGame(1, 1);
   });
 

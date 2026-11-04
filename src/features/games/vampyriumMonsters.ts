@@ -603,18 +603,21 @@ export function drawVampK(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
 }
 // Lo que tiran (en unidades del mundo, ya trasladado al lugar del tiro): bola de fuego, murciélago o llama.
 export function drawShotK(ctx: CanvasRenderingContext2D, s: Shot, t: number) {
-  if (s.kind === 'bat') { ctx.save(); ctx.scale(Math.sign(s.vx) || 1, 1); drawBat(ctx, 0, 0, 0.55, t + s.t * 3 + s.x); ctx.restore(); return; }
+  if (s.kind === 'bat') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0, 0, 0.7, '#ff1030', 0.35); ctx.restore(); ctx.save(); ctx.scale(Math.sign(s.vx) || 1, 1); drawBat(ctx, 0, 0, 0.8, t + s.t * 3 + s.x); ctx.restore(); return; } // los murciélagos de Drácula (más grandes, con un halo rojo)
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   if (s.kind === 'orb') {
     const a = Math.atan2(s.vy, s.vx);
     for (let i = 0; i < 6; i++) { const k = i / 6; ctx.fillStyle = `rgba(255,${80 + i * 20},40,${0.5 * (1 - k)})`; ctx.beginPath(); ctx.arc(-Math.cos(a) * k * 0.9, Math.sin(a) * k * 0.9, 0.32 * (1 - k * 0.7), 0, TAU); ctx.fill(); }
     bloom(ctx, 0, 0, 0.9, '#ff3a1a', 0.7);
     ctx.fillStyle = '#fff1c0'; ctx.beginPath(); ctx.arc(0, 0, 0.14, 0, TAU); ctx.fill();
-  } else {
-    const k = Math.min(1, s.t / s.life), r = 0.25 + k * 0.45;
-    bloom(ctx, 0, 0, r * 2, '#ff6a1a', 0.5 * (1 - k));
-    ctx.fillStyle = k < 0.3 ? `rgba(255,240,170,${0.9 - k})` : k < 0.65 ? `rgba(255,150,40,${0.85 - k * 0.6})` : `rgba(220,40,20,${0.7 - k * 0.6})`;
-    ctx.beginPath(); ctx.arc(Math.sin(s.t * 30 + s.x) * 0.06, 0, r, 0, TAU); ctx.fill();
+  } else { // una lengua de fuego: blanca y amarilla al salir, naranja y roja después y al final humo
+    const k = Math.min(1, s.t / s.life), r = 0.28 + k * 0.5, a = Math.atan2(-s.vy, s.vx), fl = 1 + 0.18 * Math.sin(s.t * 47 + s.x * 9);
+    bloom(ctx, 0, 0, r * 2.2, '#ff5a10', 0.55 * (1 - k));
+    ctx.rotate(a);
+    for (const [w, c] of [[1, k < 0.5 ? `rgba(255,70,10,${0.75 - k * 0.6})` : `rgba(200,30,10,${0.7 - k * 0.65})`], [0.65, `rgba(255,${170 - k * 90},30,${0.85 - k * 0.8})`], [0.32, `rgba(255,250,210,${Math.max(0, 0.95 - k * 1.5)})`]] as const) {
+      const rr = r * w * fl; ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(rr, 0); ctx.quadraticCurveTo(rr * 0.6, -rr * 0.95, -rr * 0.3, -rr * 0.7); ctx.quadraticCurveTo(-rr * 2.4, -rr * 0.3 * Math.sin(s.t * 31), -rr * 2.6, 0); ctx.quadraticCurveTo(-rr * 2.4, rr * 0.3, -rr * 0.3, rr * 0.7); ctx.quadraticCurveTo(rr * 0.6, rr * 0.95, rr, 0); ctx.fill();
+    }
+    if (k > 0.55) { ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = `rgba(40,20,20,${(k - 0.55) * 0.7})`; ctx.beginPath(); ctx.arc(-r * 0.6, -r * 0.3, r * 0.8, 0, TAU); ctx.fill(); } // humo
   }
   ctx.restore();
 }

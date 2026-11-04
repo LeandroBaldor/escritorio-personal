@@ -1225,6 +1225,7 @@ test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de
   await expect(page.getByTestId('vamp-ammo')).toHaveText('19');
   await page.keyboard.press('p');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Volver al Menú' })).toBeVisible();
   const paused = await page.getByTestId('vamp-time').textContent();
   await page.waitForTimeout(1200);
   await expect(page.getByTestId('vamp-time')).toHaveText(paused ?? '');

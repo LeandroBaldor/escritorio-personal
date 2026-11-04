@@ -31,6 +31,11 @@ export const readVampyriumProgress = () => { try { return Math.max(1, Math.min(L
 const saveProgress = (n: number) => { try { localStorage.setItem(PROGRESS_KEY, String(Math.max(readVampyriumProgress(), Math.min(LEVEL_COUNT, n)))); } catch { /* sin almacenamiento */ } };
 const saveRecord = (r: VampRecord) => { try { localStorage.setItem(RECORD_KEY, JSON.stringify(r)); } catch { /* sin almacenamiento: dura esta partida */ } };
 
+// Un nombre en dos renglones: «Vampiro» arriba y el resto abajo (así no quedan pegados al borde de la tarjeta).
+function TwoLines({ text }: { text: string }) {
+  const [a, ...r] = text.split(' ');
+  return <>{a}{' '}<br />{r.length ? r.join(' ') : '\u00a0'}</>; // (con el espacio, el texto sigue siendo «Vampiro gigante»)
+}
 type Status = 'ready' | 'intro' | 'playing' | 'paused' | 'over' | 'won';
 interface Hud { time: number; walker: number; flyer: number; total: number; hp: number; kills: string; boss: string; goal: number; ammo: string; weapon: Weapon; power: number; menu: boolean; sel: number; combo: number; garlic: boolean; door: boolean; hold: number; guard: number }
 const bossOf = (g: Game) => { const b = g.vamps.find(v => isBoss(v.kind)); return b ? `${b.kind}:${Math.max(0, b.hp ?? 0)}` : g.transformT > 0 ? 'transform:0' : ''; };
@@ -177,6 +182,9 @@ export function Vampyrium() {
           case 'slam': playVampHammer(); break;
           case 'cast': playVampStaff(); break;
           case 'bats': playVampDive(); break;
+          case 'zapCast': playVampStaff(); playVampDeep(0.6, 0.5); break;
+          case 'zap': playThunder(0.85); break;
+          case 'launch': playVampSwing(); break;
           case 'breath': playVampFlame(); break;
           case 'mist': playVampDeep(0.6, 0.6); break;
           case 'howl': playVampDeep(0.55, 0.8); if (!seenRef.current.has(e.kind)) { seenRef.current.add(e.kind); setToast({ text: SPAWN_TEXT.wolf!, id: now, big: true, bad: true }); } break;
@@ -304,8 +312,8 @@ export function Vampyrium() {
         {(status === 'playing' || status === 'paused') && <div className={`vamp-life${hud.hp <= 25 ? ' vamp-life--low' : ''}`} aria-label={`Vida ${hud.hp} de ${MAX_HP}`}>
           <span>❤ Vida</span><i><b style={{ width: `${hud.hp / MAX_HP * 100}%` }} /></i><em data-testid="vamp-hp">{hud.hp}/{MAX_HP}</em>
         </div>}
-        {(status === 'playing' || status === 'paused') && bossKind && <div className={`vamp-boss${bossKind === 'transform' ? ' vamp-boss--transform' : ''}`} aria-label={bossKind === 'transform' ? 'Drácula se transforma' : `${VAMP_NAME[bossKind]}: ${bossHp} de 50`}>
-          <span>{bossKind === 'transform' ? '🐉 Drácula se transforma…' : `${KIND_ICON[bossKind]} ${VAMP_NAME[bossKind]}`}</span><i><b style={{ width: `${bossHp / BOSS_HP * 100}%` }} /></i><em data-testid="vamp-boss-hp">{bossHp}/50</em>
+        {(status === 'playing' || status === 'paused') && bossKind && <div className={`vamp-boss${bossKind === 'transform' ? ' vamp-boss--transform' : ''}`} aria-label={bossKind === 'transform' ? 'Drácula se transforma' : `${VAMP_NAME[bossKind]}: ${bossHp} de ${BOSS_HP}`}>
+          <span>{bossKind === 'transform' ? '🐉 Drácula se transforma…' : `${KIND_ICON[bossKind]} ${VAMP_NAME[bossKind]}`}</span><i><b style={{ width: `${bossHp / BOSS_HP * 100}%` }} /></i><em data-testid="vamp-boss-hp">{bossHp}/{BOSS_HP}</em>
         </div>}
         {status === 'playing' && toast && <div key={toast.id} className={`${toast.big ? 'trepa-record' : 'trepa-toast'}${toast.bad ? ' vamp-bad' : ''}`} role="status">{toast.text}</div>}
         {status === 'playing' && hud.combo >= 2 && <div key={`c${hud.combo}`} className="vamp-combo" aria-live="polite">COMBO ×{hud.combo}</div>}
@@ -347,7 +355,7 @@ export function Vampyrium() {
             <ul className="vamp-intro2-grid" aria-label="Vampiros del nivel">
               {(finalLevel ? ['dracula', 'dragon'] as VampKind[] : roster).map(k => <li key={k} className={k === newcomer ? 'vamp-hub-new' : ''}>
                 <ArtCanvas w={240} h={240} draw={(ctx, t) => drawPortrait(ctx, k, gameRef.current, k === 'dragon' ? 148 : k === 'wolf' ? 114 : 118, k === 'dragon' ? 196 : 232, k === 'dragon' ? 33 : k === 'wolf' ? 83 : k === 'giant' ? 78 : 92, t)} />
-                <b>{VAMP_NAME[k]}</b>
+                <b className="vamp-name2"><TwoLines text={VAMP_NAME[k]} /></b>
                 <span className="vamp-hub-hp">❤ {STRENGTH[k]} de vida</span>
                 {k === newcomer && <em>Nuevo</em>}
               </li>)}
@@ -379,7 +387,7 @@ export function Vampyrium() {
               <p className="vamp-chapter">Nivel {level}/{LEVEL_COUNT} · {def.name}</p>
               <p>{chapter.story}</p>
               <p className="vamp-goalline">🎯 {chapter.goalText}</p>
-              <p className="vamp-hub-note">{finalLevel ? 'Drácula te saca 10 de vida con las garras y el dragón 15 con el fuego. Esquivá sus murciélagos.' : 'Al cumplir la meta sube la reja de la puerta de la derecha. Caen cajas con munición y vida, y arriba hay repisas para escalar.'}</p>
+              <p className="vamp-hub-note">{finalLevel ? 'Drácula te saca 10 de vida con las garras y el dragón 15 con el fuego. Esquivá sus murciélagos, salí de los círculos rojos antes de que caiga el rayo y no te dejes agarrar de cerca: su gancho te tira por el aire.' : 'Al cumplir la meta sube la reja de la puerta de la derecha. Caen cajas con munición y vida, y arriba hay repisas para escalar.'}</p>
             </section>
             <section className="vamp-hub-box vamp-hub-keys" aria-label="Cómo se juega">
               <h3>Cómo se juega</h3>
@@ -405,7 +413,7 @@ export function Vampyrium() {
               <ul>
                 {(finalLevel ? ['dracula', 'dragon'] as VampKind[] : roster).map(k => <li key={k} className={k === newcomer ? 'vamp-hub-new' : ''}>
                   <ArtCanvas w={120} h={120} draw={(ctx, t) => drawPortrait(ctx, k, gameRef.current, k === 'dragon' ? 74 : k === 'wolf' ? 56 : 58, k === 'dragon' ? 98 : 116, k === 'dragon' ? 17 : k === 'wolf' ? 42 : k === 'giant' ? 40 : 46, t)} />
-                  <div><b>{VAMP_NAME[k]}</b>
+                  <div><b className="vamp-name2"><TwoLines text={VAMP_NAME[k]} /></b>
                   <span className="vamp-hub-hp" aria-label={`Vida ${STRENGTH[k]}`}>❤ {STRENGTH[k]} vida</span>
                   <small>Te saca {DAMAGE[k]}</small></div>
                   {k === newcomer && <em>Nuevo</em>}
@@ -437,7 +445,10 @@ export function Vampyrium() {
           <div className="trepa-overlay-card ds-frame">
             {status === 'paused' && <>
               <h2 id="vamp-message">Pausa</h2>
-              <button type="button" onClick={() => { playVampMenuButton(); setStatus('playing'); }} autoFocus>Seguir</button>
+              <div className="vamp-pause-btns">
+                <button type="button" onClick={() => { playVampMenuButton(); setStatus('playing'); }} autoFocus>Seguir</button>
+                <button type="button" className="vamp-ghost" onClick={() => { playVampMenuButton(); setStatus('ready'); }}>Volver al Menú</button>
+              </div>
             </>}
             {status === 'over' && <>
               <EndBanner win={false} id="vamp-message" />

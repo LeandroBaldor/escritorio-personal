@@ -87,6 +87,8 @@ function updateSurfaces(time: number) {
 }
 const DOOR_X1 = 26.7;
 export const DOOR = { x1: DOOR_X1, x2: 27.9, y: GROUND_Y, h: 3.2 };
+// En el salón del trono no hay puerta: al vencer al dragón se gana ahí mismo.
+export const hasDoor = () => LV.def.n !== 10;
 export const START_X = 2.6;
 
 
@@ -130,7 +132,7 @@ export function rosterOf(level: number): VampKind[] {
 }
 export const isBoss = (k: VampKind) => k === 'dracula' || k === 'dragon';
 export const flies = (k: VampKind) => k === 'flyer' || k === 'dragon';
-export type VampState = 'walk' | 'claw' | 'hover' | 'dive' | 'rise' | 'cast' | 'leap' | 'mist' | 'breath' | 'land';
+export type VampState = 'walk' | 'claw' | 'hover' | 'dive' | 'rise' | 'cast' | 'leap' | 'mist' | 'breath' | 'land' | 'zap';
 export interface Vamp {
   id: number; kind: VampKind; x: number; y: number; vx: number; vy: number; face: 1 | -1; state: VampState; t: number;
   onGround: boolean; surface: Surface | null; walkT: number; cool: number; speed: number; jumpT: number; dropT: number; hit: boolean;
@@ -150,6 +152,9 @@ export function vampBox(v: Vamp): [number, number, number, number] {
   const b = BODY[v.kind]; return [v.x - b.w / 2, v.x + b.w / 2, v.y, v.y + b.h];
 }
 // Lo que tiran: la bola de fuego del mago, los murciélagos de Drácula y el fuego del dragón.
+// Los rayos rojos de Drácula: primero marca el lugar (t < ZAP_AT) y después cae el rayo.
+export interface Zap { x: number; y: number; t: number }
+export const ZAP_AT = 0.65;
 export interface Shot { x: number; y: number; vx: number; vy: number; t: number; life: number; kind: 'orb' | 'bat' | 'flame'; dmg: number }
 // Los números que saltan con cada golpe.
 // Lo que cae del cielo para juntar (estrellas doradas, almas) y lo que hay que romper (jaulas, ataúdes).
@@ -169,7 +174,7 @@ export interface Bolt { x: number; y: number; vx: number; vy: number; t: number;
 export interface Bomb { x: number; y: number; vx: number; vy: number; t: number; landed: number; a: number } // bomba de ajo (landed: tiempo desde que tocó el piso)
 export interface Bullet { x: number; y: number; vx: number; vy: number; x0: number; y0: number; t: number } // la bala de fuego de la pistola
 // Efectos: la onda de la bomba, los rayos de la cruz, la ola de fuego de la espada y el estallido de la bala.
-export interface Fx { kind: 'blast' | 'bolt' | 'wave' | 'burst' | 'ray' | 'nova' | 'frost' | 'splat'; x: number; y: number; t: number; life: number; r: number; face: 1 | -1; seed: number }
+export interface Fx { kind: 'blast' | 'bolt' | 'redbolt' | 'wave' | 'burst' | 'ray' | 'nova' | 'frost' | 'splat'; x: number; y: number; t: number; life: number; r: number; face: 1 | -1; seed: number }
 export type CrateKind = 'bolts' | 'heart' | 'garlic' | 'fire' | 'bullets' | 'armor';
 // Las bolas de las armaduras: el rayo de hielo (derecho) y la bola verde (cae en curva).
 export interface Orb { kind: 'ice' | 'venom'; x: number; y: number; vx: number; vy: number; t: number }
@@ -180,7 +185,7 @@ export interface Crate { armor?: Weapon; id: number; kind: CrateKind; x: number;
 export type GameEvent =
   | { type: 'slash' } | { type: 'throw' } | { type: 'stakeHit' } | { type: 'empty'; weapon: Weapon } | { type: 'shoot'; weapon: Weapon } | { type: 'blast'; count: number } | { type: 'crossReady' }
   | { type: 'kill'; kind: VampKind; how: KillHow; x: number; y: number } | { type: 'bones'; x: number; y: number }
-  | { type: 'hurt'; hp: number; dmg: number } | { type: 'vampHit'; kind: VampKind; hp: number } | { type: 'block' } | { type: 'slam' } | { type: 'cast' } | { type: 'bats' } | { type: 'breath' } | { type: 'mist' }
+  | { type: 'hurt'; hp: number; dmg: number } | { type: 'vampHit'; kind: VampKind; hp: number } | { type: 'block' } | { type: 'slam' } | { type: 'cast' } | { type: 'bats' } | { type: 'zapCast' } | { type: 'zap'; x: number } | { type: 'launch' } | { type: 'breath' } | { type: 'mist' }
   | { type: 'collect'; kind: Item['kind']; n: number; of: number } | { type: 'break'; kind: Breakable['kind']; n: number; of: number } | { type: 'objHit' } | { type: 'transform' } | { type: 'dragon' } | { type: 'bossDead' } | { type: 'howl'; kind: VampKind } | { type: 'spawn'; kind: VampKind } | { type: 'fall'; hp: number } | { type: 'jump'; double: boolean } | { type: 'land' } | { type: 'step' }
   | { type: 'crate' } | { type: 'pickup'; kind: CrateKind; amount: number; weapon?: Weapon } | { type: 'guard'; on: boolean } | { type: 'guardHit'; left: number } | { type: 'freeze' } | { type: 'shatter' } | { type: 'melt' } | { type: 'nova' } | { type: 'door' } | { type: 'spikes'; x: number; y: number } | { type: 'fire'; x: number; y: number }
   | { type: 'swing'; x: number; y: number } | { type: 'special'; kind: SpecialKind } | { type: 'catch' } | { type: 'thunder'; near: number } | { type: 'combo'; n: number } | { type: 'holy'; count: number } | { type: 'wave'; n: number } | { type: 'bloodMoon' }
@@ -196,7 +201,7 @@ export interface Game {
   level: number; time: number; real: number; phase: Phase; phaseT: number;
   player: Player; vamps: Vamp[]; corpses: Corpse[]; bones: Bone[]; sparks: Spark[]; drops: Drop[]; bolts: Bolt[]; bombs: Bomb[]; bullets: Bullet[]; fx: Fx[]; crates: Crate[];
   goal: Goal; progress: number; items: Item[]; objects: Breakable[]; itemT: number;
-  kills: Record<VampKind, number>; total: number; shots: Shot[]; pops: Pop[]; transformT: number; bossDeadT: number; bossHits: number; voidKills: number; trapKills: number;
+  kills: Record<VampKind, number>; total: number; shots: Shot[]; zaps: Zap[]; pops: Pop[]; transformT: number; bossDeadT: number; bossHits: number; voidKills: number; trapKills: number;
   weapon: Weapon; ammo: Record<Weapon, number>; menu: { sel: number; t: number }; lastTap: number; holdT: number;
   immortal?: boolean; // modo test: no pierde vida
   camY: number; // la cámara: cuánto subió (0 = el piso abajo de todo)
@@ -220,7 +225,7 @@ export function newGame(seed = Math.floor(Math.random() * 1e9), level = 1): Game
   loadLevel(level);
   const g: Game = {
     level: LV.def.n, time: 0, real: 0, phase: 'play', phaseT: 0, player: newPlayer(), vamps: [], corpses: [], bones: [], sparks: [], drops: [], bolts: [], bombs: [], bullets: [], fx: [], crates: [],
-    kills: Object.fromEntries(VAMP_KINDS.map(k => [k, 0])) as Record<VampKind, number>, total: 0, shots: [], pops: [], transformT: 0, bossDeadT: -1, bossHits: 0, voidKills: 0, trapKills: 0, weapon: 'sword', ammo: { ...START_AMMO }, menu: { sel: 0, t: 0 }, lastTap: -9, holdT: 0,
+    kills: Object.fromEntries(VAMP_KINDS.map(k => [k, 0])) as Record<VampKind, number>, total: 0, shots: [], zaps: [], pops: [], transformT: 0, bossDeadT: -1, bossHits: 0, voidKills: 0, trapKills: 0, weapon: 'sword', ammo: { ...START_AMMO }, menu: { sel: 0, t: 0 }, lastTap: -9, holdT: 0,
     combo: { n: 0, t: 0, best: 0 }, power: 0, holyT: 0, garlicT: 0, goal: CHAPTERS[LV.def.n]?.goal ?? { type: 'kill', n: GOAL }, progress: 0, items: [], objects: [], itemT: 2, door: { open: false, t: 0 }, spawnT: 1.6, crateT: 9, nextId: 1, wave: 1, bloodMoon: false,
     flash: 0, shake: 0, events: [], rand: mulberry(seed), stats: { slashes: 0, throws: 0, hits: 0, crates: 0, falls: 0 },
     taps: [], boomer: null, guardHp: 0, orbs: [], shards: [], camY: 0,
@@ -506,7 +511,7 @@ function kill(g: Game, v: Vamp, how: KillHow) {
   const i = g.vamps.indexOf(v); if (i < 0) return;
   g.vamps.splice(i, 1);
   if (v.kind === 'dracula') { // Drácula no se muere: se convierte en dragón
-    g.transformT = 2.4; g.flash = 1; g.shake = 1; g.shots = [];
+    g.transformT = 2.4; g.flash = 1; g.shake = 1; g.shots = []; g.zaps = [];
     g.corpses.push({ id: v.id, kind: 'dracula', x: v.x, y: v.y, face: v.face, t: -9, how }); // (el cuerpo que se transforma)
     emit(g, { type: 'transform' });
     return;
@@ -517,7 +522,7 @@ function kill(g: Game, v: Vamp, how: KillHow) {
   if (how === 'void') { g.voidKills++; return; }
   if (how === 'trap') { g.trapKills++; return; }
   g.kills[v.kind]++; g.total++;
-  if (v.kind === 'dragon') { g.bossDeadT = 0; g.shots = []; g.door.open = true; g.door.t = 0; emit(g, { type: 'bossDead' }); return; }
+  if (v.kind === 'dragon') { g.bossDeadT = 0; g.shots = []; g.zaps = []; if (hasDoor()) { g.door.open = true; g.door.t = 0; } emit(g, { type: 'bossDead' }); return; }
   g.combo.n = g.combo.t > 0 ? g.combo.n + 1 : 1; g.combo.t = 2.4; g.combo.best = Math.max(g.combo.best, g.combo.n);
   if (g.combo.n >= 2) emit(g, { type: 'combo', n: g.combo.n });
   if (how !== 'cross') chargeCross(g);
@@ -721,7 +726,13 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
       v.hit = true;
       const front = Math.sign(dx) === v.face || Math.abs(dx) < 0.6, h = BODY[v.kind].h;
       if (v.kind === 'hammer') { g.shake = Math.max(g.shake, 0.6); emit(g, { type: 'slam' }); for (let i = 0; i < 14; i++) { const a = Math.PI * (0.15 + g.rand() * 0.7); g.sparks.push({ x: v.x + v.face * 1.6, y: v.y + 0.1, vx: Math.cos(a) * 6 * (g.rand() < 0.5 ? -1 : 1), vy: Math.sin(a) * 7, t: 0, life: 0.4 + g.rand() * 0.3, hue: 30 }); } }
-      if (front && Math.abs(dx) < atk.reach + 0.25 && dy > -1.4 && dy < h) hurt(g, v.x, DAMAGE[v.kind]);
+      if (front && Math.abs(dx) < atk.reach + 0.25 && dy > -1.4 && dy < h) {
+        const before = p.inv; hurt(g, v.x, DAMAGE[v.kind]);
+        if (boss && p.inv > before) { // el gancho de Drácula (de abajo hacia arriba): el cazador sale volando por el aire
+          p.vy = 21; p.vx = (p.x >= v.x ? 1 : -1) * 3.5; p.hurtT = 0.85; p.spinT = 0.8; p.onGround = false; p.surface = null; g.shake = Math.max(g.shake, 0.7);
+          emit(g, { type: 'launch' });
+        }
+      }
     }
     if (v.t >= atk.dur) { v.state = 'walk'; v.cool = atk.rest + r() * 0.5; }
   } else if (v.state === 'cast') { // el mago levanta el báculo y tira una bola de fuego; Drácula larga murciélagos
@@ -729,9 +740,16 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
     if (v.t >= 0.55 && !v.hit) {
       v.hit = true;
       if (v.kind === 'mage') { shoot(g, v.x + v.face * 0.9, v.y + 2.2, p.x, p.y + 1, 8.5, 'orb', DAMAGE.mage, 3); }
-      else { for (const k of [-0.35, 0, 0.35]) shoot(g, v.x + v.face * 0.6, v.y + 1.9, p.x, p.y + 1, 6.5, 'bat', DAMAGE.dracula, 3.2, k); emit(g, { type: 'bats' }); }
+      else { for (const k of [-0.5, -0.25, 0, 0.25, 0.5]) shoot(g, v.x + v.face * 0.7, v.y + 2.1, p.x, p.y + 1, 6 + Math.abs(k) * 2, 'bat', DAMAGE.dracula, 3.4, k); emit(g, { type: 'bats' }); }
     }
     if (v.t >= 0.95) { v.state = 'walk'; v.cool = (v.kind === 'mage' ? 2.4 : 1) + r() * 0.8; }
+  } else if (v.state === 'zap') { // Drácula levanta los brazos y llama tres rayos rojos: donde está el cazador y a los costados
+    v.vx *= Math.max(0, 1 - dt * 10); v.t += dt; v.face = dx >= 0 ? 1 : -1;
+    if (v.t >= 0.4 && !v.hit) {
+      v.hit = true;
+      [0, -2.3, 2.3].forEach((o, i) => { const [x, q] = standAt(Math.max(0.8, Math.min(W - 0.8, p.x + o + p.vx * 0.25)), p.y); g.zaps.push({ x, y: q.y, t: -i * 0.22 }); });
+    }
+    if (v.t >= 1.1) { v.state = 'walk'; v.cool = 0.8 + r() * 0.5; }
   } else if (v.state === 'leap') { // el hombre lobo salta encima del cazador
     v.t += dt;
     const [x1, x2, y1, y2] = vampBox(v);
@@ -795,7 +813,8 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
         else if (v.kind === 'wolf' && v.cool <= 0 && Math.abs(dx) > 2.2 && Math.abs(dx) < 5.5 && Math.abs(dy) < 2.5 && !trapAhead(g, v, Math.sign(dx), 1.8) && r() < dt * 3) { v.state = 'leap'; v.t = 0; v.hit = false; v.vy = 11.5; v.vx = Math.sign(dx) * Math.min(9.5, Math.abs(dx) * 2.2); v.onGround = false; v.surface = null; emit(g, { type: 'hiss', x: v.x }); }
         else if (boss && (v.special ?? 0) <= 0 && Math.abs(dx) > 2.5) { // Drácula: niebla de murciélagos o murciélagos que vuelan
           v.special = 4.5 + r() * 2; v.t = 0; v.hit = false;
-          if (r() < 0.5) { v.state = 'mist'; emit(g, { type: 'mist' }); } else { v.state = 'cast'; emit(g, { type: 'cast' }); }
+          const pick = r();
+          if (pick < 0.34) { v.state = 'mist'; emit(g, { type: 'mist' }); } else if (pick < 0.67) { v.state = 'cast'; emit(g, { type: 'cast' }); } else { v.state = 'zap'; emit(g, { type: 'zapCast' }); }
         }
       }
     } else {
@@ -867,7 +886,7 @@ function updateDragon(g: Game, v: Vamp, dt: number) {
     }
   } else if (v.state === 'breath') { // fuego por la boca hacia el cazador
     v.vx *= Math.max(0, 1 - dt * 3); v.vy *= Math.max(0, 1 - dt * 3); v.face = dx >= 0 ? 1 : -1;
-    if (v.t > 0.35 && v.t < 1.9 && Math.floor(v.t / 0.05) !== Math.floor((v.t - dt) / 0.05)) shoot(g, v.x + v.face * 2.7, v.y + 2.1, p.x, p.y + 0.9, 11, 'flame', DAMAGE.dragon, 1.1, (r() - 0.5) * 0.25);
+    if (v.t > 0.35 && v.t < 1.9 && Math.floor(v.t / 0.05) !== Math.floor((v.t - dt) / 0.05)) shoot(g, v.x + v.face * 1.7, v.y + 1.2, p.x, p.y + 0.9, 11, 'flame', DAMAGE.dragon, 1.1, (r() - 0.5) * 0.25);
     if (v.t > 2.2) { v.state = 'hover'; v.cool = 1.6 + r(); }
   } else if (v.state === 'dive') { // picada
     if (!v.hit && touching) { v.hit = true; hurt(g, v.x, DAMAGE.dragon); }
@@ -890,6 +909,20 @@ function updateDragon(g: Game, v: Vamp, dt: number) {
 }
 
 // Lo que tiran los vampiros: vuela, y si toca al cazador le saca vida.
+function updateZaps(g: Game, dt: number) {
+  const p = g.player;
+  for (const z of [...g.zaps]) {
+    const was = z.t; z.t += dt;
+    if (was < ZAP_AT && z.t >= ZAP_AT) { // ¡cae el rayo!
+      g.fx.push({ kind: 'redbolt', x: z.x, y: z.y, t: 0, life: 0.45, r: 0, face: 1, seed: g.rand() });
+      g.flash = Math.max(g.flash, 0.35); g.shake = Math.max(g.shake, 0.35);
+      for (let i = 0; i < 12; i++) { const a = Math.PI * (0.1 + g.rand() * 0.8); g.sparks.push({ x: z.x, y: z.y + 0.1, vx: Math.cos(a) * 7, vy: Math.sin(a) * 7, t: 0, life: 0.4, hue: 355 }); }
+      if (Math.abs(p.x - z.x) < 0.95 && p.y > z.y - 0.6 && p.y < z.y + 3.2) hurt(g, z.x, DAMAGE.dracula);
+      emit(g, { type: 'zap', x: z.x });
+    }
+    if (z.t > ZAP_AT + 0.1) g.zaps.splice(g.zaps.indexOf(z), 1);
+  }
+}
 function updateShots(g: Game, dt: number) {
   const p = g.player;
   for (const s of [...g.shots]) {
@@ -1159,7 +1192,7 @@ export function step(g: Game, input: Input, dt: number) {
   }
   if (downPress && p.onGround && p.surface && !p.surface.ground) { p.dropT = 0.28; p.onGround = false; p.surface = null; p.vy = -1; }
   const wasGround = p.onGround;
-  const landed = moveBody(p, dt, PLAYER_W / 2, 0.45, g.door.open ? W + 1 : DOOR.x1 - PLAYER_W / 2);
+  const landed = moveBody(p, dt, PLAYER_W / 2, 0.45, !hasDoor() ? W - PLAYER_W / 2 : g.door.open ? W + 1 : DOOR.x1 - PLAYER_W / 2);
   if (wasGround && !p.onGround && p.vy <= 0) { p.coyote = 0.1; p.jumps = 1; }
   if (landed) { p.jumps = 0; p.landT = 0.15; emit(g, { type: 'land' }); }
   if (p.onGround) {
@@ -1298,6 +1331,7 @@ export function step(g: Game, input: Input, dt: number) {
     if (trapHits(t, g.time, p.x - 0.32, p.x + 0.32, p.y, p.y + PLAYER_H)) hurt(g, t.kind === 'pendulum' ? st.tipX - (st.a > prevSt.a ? 1 : -1) : t.x, TRAP_DMG, false); // el péndulo empuja para donde va
   }
   updateShots(g, dt);
+  updateZaps(g, dt);
   for (const q of [...g.pops]) { q.t += dt; q.y += dt * 1.4; if (q.t > 1) g.pops.splice(g.pops.indexOf(q), 1); }
   // Drácula se convierte en dragón
   if (g.transformT > 0) {
@@ -1310,7 +1344,7 @@ export function step(g: Game, input: Input, dt: number) {
     }
   }
   // El dragón cayó: se gana el juego
-  if (g.bossDeadT >= 0) { g.bossDeadT += dt; if (g.bossDeadT > 3) { g.phase = 'cleared'; g.phaseT = 0; emit(g, { type: 'cleared' }); return; } }
+  if (g.bossDeadT >= 0) { g.bossDeadT += dt; if (g.bossDeadT > 3 && !hasDoor()) { g.phase = 'won'; g.phaseT = 0; emit(g, { type: 'won' }); return; } if (g.bossDeadT > 3) { g.phase = 'cleared'; g.phaseT = 0; emit(g, { type: 'cleared' }); return; } }
 
   updateGoal(g, dt);
   updateCamera(g, dt);

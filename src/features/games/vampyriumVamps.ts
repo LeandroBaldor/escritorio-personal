@@ -7,6 +7,7 @@
 import { darken, grain, lighten } from './gravityMonsters';
 import { vampEye } from './vampyriumChars';
 import { ATTACK, type Vamp } from './vampyrium';
+import dragonUrl from './assets/vampyrium/dragon.webp';
 
 type Pt = [number, number];
 const TAU = Math.PI * 2;
@@ -121,7 +122,7 @@ function solve2(p: Pose2, d: Dims): Body {
 function stance(v: Vamp, t: number, o: { wide?: number; crouch?: number; lean?: number; lift?: number } = {}): Pick<Pose2, 'lean' | 'crouch' | 'bob' | 'head' | 'feet'> {
   const s = Math.sin, wd = o.wide ?? 1, br = s(t * 2.2 + v.id), lean = o.lean ?? 0.06;
   if (!v.onGround) return { lean: lean + 0.08, crouch: 0.05, bob: 0, head: 0, feet: [[-0.25, -0.3], [0.2, -0.38]] };
-  if (Math.abs(v.vx) > 0.3) { const w = v.walkT * 3.0; return { lean: lean + 0.07, crouch: (o.crouch ?? 0.06) + 0.02, bob: -Math.abs(s(w)) * 0.03, head: 0.05, feet: [[0.0 - 0.28 * s(w) * wd, -Math.max(0, -Math.cos(w)) * (o.lift ?? 0.13)], [0.04 + 0.28 * s(w) * wd, -Math.max(0, Math.cos(w)) * (o.lift ?? 0.13)]] }; }
+  if (Math.abs(v.vx) > 0.3) { const w = v.walkT * 3.0; return { lean: lean + 0.07, crouch: (o.crouch ?? 0.06) + 0.02, bob: -Math.abs(s(w)) * 0.03, head: 0.05, feet: [[0.0 - 0.28 * s(w) * wd, -Math.max(0, -Math.cos(w)) * (o.lift ?? 0.17)], [0.04 + 0.28 * s(w) * wd, -Math.max(0, Math.cos(w)) * (o.lift ?? 0.17)]] }; }
   return { lean, crouch: (o.crouch ?? 0.06) + br * 0.006, bob: 0, head: 0.04, feet: [[-0.22 * wd, 0], [0.26 * wd, 0]] };
 }
 // Los brazos del ataque: suben por arriba de la cabeza y bajan de golpe hacia adelante (un zarpazo de arriba hacia
@@ -138,8 +139,8 @@ function swipeArms(v: Vamp, base: [Pt, Pt], o: { up?: [Pt, Pt]; hit?: [Pt, Pt]; 
   }
   if (!v.onGround && v.kind !== 'flyer') { const k = ease(Math.min(1, 0.35 + Math.max(0, -v.vy) * 0.08 + (v.vy > 0 ? 1 - Math.min(1, v.vy / 14) : 0.65))); return [lerpPt(base[0], [-0.16, -0.56], k), lerpPt(base[1], [0.26, -0.58], k)]; } // saltando: brazos arriba
   if (o.walk !== false && v.onGround && Math.abs(v.vx) > 0.3) { // caminando: los brazos se balancean al revés que las piernas (el de adelante sube un poco)
-    const w = v.walkT * 3.0, a = Math.sin(w) * 0.26;
-    return [[base[0][0] + a, base[0][1] - Math.abs(a) * 0.35 + (a > 0 ? -0.04 : 0)], [base[1][0] - a, base[1][1] - Math.abs(a) * 0.35 + (a < 0 ? -0.04 : 0)]];
+    const w = v.walkT * 3.0, a = Math.sin(w) * 0.34, fw = (q: number) => q > 0 ? q * 0.45 : -q * 0.12; // adelante sube (codo doblado), atrás apenas
+    return [[base[0][0] + a, base[0][1] - fw(a)], [base[1][0] - a, base[1][1] - fw(-a)]];
   }
   return base;
 }
@@ -473,10 +474,10 @@ function drawWalker2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const r: Pose2 = { ...st, hands: swipeArms(v, [[-0.24, 0.56 + br], [0.3, 0.54 - br]]) }, b = solve2(r, { ...HUMAN, shW: 0.2 });
   shadowOn(ctx, v, 0.6);
   cape2(ctx, b, t + v.id, { len: 1.2, flare: 1.1 });
+  arm2(ctx, b, 0, { curl: 0.5 }); // el brazo del lado de atrás: pasa por detrás del cuerpo
+  shoulderCap(ctx, add(b.sh[0], b.spine, 0.01), 0.95, true);
   leg2(ctx, b, 0); leg2(ctx, b, 1);
   coatTorso2(ctx, b, t);
-  arm2(ctx, b, 0, { curl: 0.5 });
-  shoulderCap(ctx, add(b.sh[0], b.spine, 0.01), 0.95);
   arm2(ctx, b, 1, { curl: 0.9 - up * 0.6 });
   shoulderCap(ctx, add(b.sh[1], b.spine, 0.01), 0.9);
   headAt(ctx, b, 0.02, 0.16, () => vampFace(ctx, t + v.id, { skin: SKIN, open: up > 0 ? 0.6 : 0.05, gaunt: 0.6 }));
@@ -577,6 +578,11 @@ function drawFlyer2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
     const sd = vec(kn, ft); tube(ctx, add(ft, sd, -0.08), ft, [0.075, 0.065], dk(SKIN, back, 0.3), { rim: 0, lw: 1.1 });
     wolfPaw(ctx, ft, back, SKIN, '#2a1418', ft[1] + 0.06, 0.95); // pie con garras, como el del lobo
     joint(ctx, kn, 0.065, back, '#5d5964', vec(kn, ft)); };
+  const arm = (i: number) => { const back = i === 0, sk = dk(SKIN, back, 0.25), fd = vec(b.elbow[i], b.hand[i]), fn: Pt = [fd[1], -fd[0]];
+    tube(ctx, b.sh[i], b.elbow[i], [0.15, 0.14, 0.1], sk, { bulge: 0.1, rim: back ? 0 : 1, lw: 1.2 }); tube(ctx, b.elbow[i], b.hand[i], [0.12, 0.115, 0.085], sk, { rim: back ? 0 : 1, lw: 1.2 });
+    const c0 = lerp(b.elbow[i], b.hand[i], 0.45), c1 = add(b.hand[i], fd, -0.02); trimmed(ctx, [add(c0, fn, 0.05), add(c1, fn, 0.055), add(c1, fn, -0.055), add(c0, fn, -0.05)].map(p => [p[0], p[1], 1] as [number, number, number]), RED, lerp(c0, c1, 0.5), 0.1, back, 0.012); // brazal rojo
+    clawHand(ctx, add(b.hand[i], fd, 0.02), Math.atan2(fd[0], fd[1]), SKIN, back, 0.3, '#1c1218', 1.3); };
+  arm(0); // (el de atrás, detrás del cuerpo)
   leg(0); leg(1);
   ctx.save(); ctx.translate(b.hip[0], b.hip[1]); ctx.rotate(Math.atan2(b.spine[0], -b.spine[1])); ctx.scale(BROAD, 1);
   const torso = () => shapePath(ctx, [[-0.12, 0.02], [-0.13, -0.3], [-0.19, -0.56], [-0.11, -0.65], [0.14, -0.65], [0.19, -0.56], [0.14, -0.3], [0.12, 0.02]]);
@@ -589,11 +595,6 @@ function drawFlyer2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   trimmed(ctx, [[-0.15, -0.06], [0.17, -0.06], [0.2, 0.12, 1], [0.05, 0.1], [0.03, 0.17, 1], [0.0, 0.1], [-0.17, 0.12, 1]], REDD, [0.02, 0.04], 0.2, false, 0.015); // el short rojo con borde dorado
   form(ctx, () => ctx.roundRect(-0.15, -0.075, 0.32, 0.055, 0.01), RED, [0, -0.05], 0.15, { rim: 0, lw: 1.1 }); trimmed(ctx, [[-0.01, -0.09, 1], [0.07, -0.09, 1], [0.07, -0.01, 1], [-0.01, -0.01, 1]], '#c68f2c', [0.03, -0.05], 0.05, false, 0.01, { hi: 0.6 });
   ctx.restore();
-  const arm = (i: number) => { const back = i === 0, sk = dk(SKIN, back, 0.25), fd = vec(b.elbow[i], b.hand[i]), fn: Pt = [fd[1], -fd[0]];
-    tube(ctx, b.sh[i], b.elbow[i], [0.15, 0.14, 0.1], sk, { bulge: 0.1, rim: back ? 0 : 1, lw: 1.2 }); tube(ctx, b.elbow[i], b.hand[i], [0.12, 0.115, 0.085], sk, { rim: back ? 0 : 1, lw: 1.2 });
-    const c0 = lerp(b.elbow[i], b.hand[i], 0.45), c1 = add(b.hand[i], fd, -0.02); trimmed(ctx, [add(c0, fn, 0.05), add(c1, fn, 0.055), add(c1, fn, -0.055), add(c0, fn, -0.05)].map(p => [p[0], p[1], 1] as [number, number, number]), RED, lerp(c0, c1, 0.5), 0.1, back, 0.012); // brazal rojo
-    clawHand(ctx, add(b.hand[i], fd, 0.02), Math.atan2(fd[0], fd[1]), SKIN, back, 0.3, '#1c1218', 1.3); };
-  arm(0);
   arm(1);
   headAt(ctx, b, -0.1, 0.155, () => vampFace(ctx, t + v.id, { skin: SKIN, open: 0.8, hair: 'wild', ear: 1.0, gaunt: 1.0 }));
   ctx.restore();
@@ -667,6 +668,11 @@ function drawMage2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const r: Pose2 = { ...st, hands: [swipeArms(v, [[-0.22, 0.54 + br * 0.01], [0, 0]])[0], [0.3 + cast * 0.18, 0.32 - cast * 0.32]] }, b = solve2(r, { ...HUMAN, shW: 0.19 }); // el brazo izquierdo cuelga; al atacar apunta el báculo
   shadowOn(ctx, v, 0.6);
   cape2(ctx, b, t + v.id, { len: 1.32, flare: 1.15, collar: false });
+  const sleeve = (i: number) => { const el = b.elbow[i], hd = b.hand[i], d = vec(el, hd), n: Pt = [d[1], -d[0]], back = i === 0, col = back ? dk(BLK, true, 0.3) : BLK; tube(ctx, b.sh[i], el, [0.15, 0.15, 0.14], col, { rim: back ? 0 : 1, tex: 0.35, lw: 1.3 });
+    const sl: (Pt | [number, number, number])[] = [add(el, n, 0.07), add(add(hd, d, -0.04), n, 0.15), [add(add(hd, d, 0.0), n, 0.17)[0], add(add(hd, d, 0.0), n, 0.17)[1], 1], [add(add(hd, d, 0.0), n, -0.12)[0], add(add(hd, d, 0.0), n, -0.12)[1], 1], add(el, n, -0.07)];
+    trimmed(ctx, sl, col, mid(el, hd), 0.25, back, 0.02, { tex: 0.35 });
+    const c0 = add(hd, d, -0.08); ctx.strokeStyle = back ? '#7a0c14' : RED; ctx.lineWidth = 0.04; ctx.beginPath(); ctx.moveTo(...add(c0, n, 0.14)); ctx.lineTo(...add(c0, n, -0.11)); ctx.stroke(); return d; };
+  { const d0 = sleeve(0), hd0 = b.hand[0]; clawHand(ctx, add(hd0, d0, 0.03), Math.atan2(d0[0], d0[1]), SKIN, true, 0.35, '#1c1218', 1.25); } // el brazo de atrás: detrás de la túnica
   // la túnica: negra con paneles rojos, voluta dorada en el borde y el faldón rojo del medio
   ctx.save(); ctx.translate(b.hip[0], b.hip[1]); ctx.rotate(Math.atan2(b.spine[0], -b.spine[1])); ctx.scale(BROAD, 1);
   const sway = Math.sin(t * 2 + v.id) * 0.02, hemY = -b.hip[1] - 0.04;
@@ -686,13 +692,6 @@ function drawMage2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   for (let k = 0; k < 4; k++) { const y = -0.48 + k * 0.1; ctx.strokeStyle = GOLDC; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.moveTo(-0.04, y); ctx.lineTo(0.1, y); ctx.stroke(); }
   ctx.restore();
   for (let i = 0; i < 2; i++) { const f = b.foot[i]; ctx.save(); ctx.translate(f[0] + (i ? 0.08 : -0.08), -0.02); form(ctx, () => shapePath(ctx, [[-0.05, -0.04], [0.12, -0.03], [0.19, 0.02, 1], [-0.06, 0.02, 1]]), dk('#16131a', i === 0), [0.05, 0], 0.1, { rim: 0, lw: 1.2 }); ctx.restore(); }
-  // la mano izquierda con la bola de fuego
-  const sleeve = (i: number) => { const el = b.elbow[i], hd = b.hand[i], d = vec(el, hd), n: Pt = [d[1], -d[0]]; tube(ctx, b.sh[i], el, [0.15, 0.15, 0.14], BLK, { rim: 1, tex: 0.35, lw: 1.3 });
-    const sl: (Pt | [number, number, number])[] = [add(el, n, 0.07), add(add(hd, d, -0.04), n, 0.15), [add(add(hd, d, 0.0), n, 0.17)[0], add(add(hd, d, 0.0), n, 0.17)[1], 1], [add(add(hd, d, 0.0), n, -0.12)[0], add(add(hd, d, 0.0), n, -0.12)[1], 1], add(el, n, -0.07)];
-    trimmed(ctx, sl, BLK, mid(el, hd), 0.25, false, 0.02, { tex: 0.35 });
-    const c0 = add(hd, d, -0.08); ctx.strokeStyle = RED; ctx.lineWidth = 0.04; ctx.beginPath(); ctx.moveTo(...add(c0, n, 0.14)); ctx.lineTo(...add(c0, n, -0.11)); ctx.stroke(); return d; };
-  const d0 = sleeve(0), hd0 = b.hand[0];
-  clawHand(ctx, add(hd0, d0, 0.03), Math.atan2(d0[0], d0[1]), SKIN, false, 0.35, '#1c1218', 1.25);
   sleeve(1); // el brazo derecho también va por debajo de la esclavina
   // capucha y esclavina de dos capas con borde dorado
   const nk = add(b.neck, b.spine, -0.02);
@@ -907,15 +906,16 @@ function drawDracula2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const st = stance(v, t, { lean: 0.0, crouch: 0.04, wide: 0.95 }), br = Math.sin(t * 2.2 + v.id) * 0.015;
   let hands: [Pt, Pt] = [[-0.22, 0.55 + br], [0.28, 0.55 - br]];
   if (v.state === 'cast') { const k = Math.min(1, v.t / 0.5); hands = [[-0.35, 0.1 - 0.4 * k], [0.4, -0.2 - 0.3 * k]]; }
-  if (v.state === 'claw') { // el zarpazo con todo el cuerpo (como el martillo): se echa para atrás con las garras arriba,
-    // se tira hacia adelante dando un paso y baja las dos garras de golpe, se queda un instante y vuelve
+  if (v.state === 'zap') { const k = ease(v.t / 0.35); hands = [lerpPt(hands[0], [-0.12, -0.72], k), lerpPt(hands[1], [0.2, -0.76], k)]; st.lean = -0.12 * k; } // los brazos bien arriba: llama a los rayos
+  if (v.state === 'claw') { // el gancho de abajo hacia arriba: se agacha con las garras abajo y atrás, se levanta de golpe
+    // dando un paso y sube las dos garras hasta arriba (el cazador sale volando), se queda un instante y vuelve
     const a = ATTACK.dracula ?? { at: 0.32, dur: 0.65 }, w0 = a.at - 0.1, tt = v.t;
     type K = { h: [Pt, Pt]; lean: number; crouch: number; step: number };
-    const idle: K = { h: hands, lean: st.lean, crouch: st.crouch, step: 0 }, up: K = { h: [[-0.3, -0.58], [-0.04, -0.66]], lean: -0.24, crouch: 0.0, step: 0 }, hit: K = { h: [[0.46, 0.32], [0.64, 0.2]], lean: 0.44, crouch: 0.17, step: 0.26 };
+    const idle: K = { h: hands, lean: st.lean, crouch: st.crouch, step: 0 }, up: K = { h: [[-0.4, 0.5], [-0.18, 0.58]], lean: 0.38, crouch: 0.24, step: 0 }, hit: K = { h: [[0.5, -0.5], [0.7, -0.58]], lean: -0.16, crouch: 0.0, step: 0.3 };
     const mix = (A: K, B: K, q: number): K => ({ h: [lerpPt(A.h[0], B.h[0], q), lerpPt(A.h[1], B.h[1], q)], lean: A.lean + (B.lean - A.lean) * q, crouch: A.crouch + (B.crouch - A.crouch) * q, step: A.step + (B.step - A.step) * q });
     const k = tt < w0 ? mix(idle, up, ease(tt / w0)) : tt < a.at + 0.02 ? mix(up, hit, ((tt - w0) / (a.at + 0.02 - w0)) ** 2) : tt < a.at + 0.14 ? hit : mix(hit, idle, ease((tt - a.at - 0.14) / Math.max(0.1, a.dur - a.at - 0.14)));
     hands = k.h; st.lean = k.lean; st.crouch = k.crouch; st.feet = [[st.feet[0][0] - k.step * 0.3, st.feet[0][1]], [st.feet[1][0] + k.step, st.feet[1][1]]];
-  } else if (v.state !== 'cast') hands = swipeArms(v, hands);
+  } else if (v.state !== 'cast' && v.state !== 'zap') hands = swipeArms(v, hands);
   const r: Pose2 = { ...st, hands }, b = solve2(r, { ...HUMAN, spine: 0.64, shW: 0.21 });
   const CR = '#b0101c';
   shadowOn(ctx, v, 0.6);
@@ -927,6 +927,8 @@ function drawDracula2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const locks = () => shapePath(ctx, [[hc[0] - 0.2, hc[1] - 0.05], [hc[0] - 0.36 + sway, hc[1] + 0.45], [hc[0] - 0.34 + sway, hc[1] + 0.95, 1], [hc[0] - 0.16 + sway, hc[1] + 0.82], [hc[0] - 0.02 + sway, hc[1] + 1.0, 1], [hc[0] + 0.12 + sway, hc[1] + 0.8], [hc[0] + 0.3 + sway, hc[1] + 0.92, 1], [hc[0] + 0.32, hc[1] + 0.4], [hc[0] + 0.2, hc[1] - 0.05]]);
   form(ctx, locks, '#c9c7d2', [hc[0], hc[1] + 0.2], 0.4, { hi: 0.4, lo: 0.5, tex: 0.3, lw: 1.2 });
   ctx.save(); ctx.beginPath(); locks(); ctx.clip(); for (let k = 0; k < 16; k++) curve(ctx, [hc[0] - 0.16 + k * 0.024, hc[1] - 0.05], [hc[0] - 0.24 + k * 0.035 + sway, hc[1] + 0.45], [hc[0] - 0.32 + k * 0.04 + sway, hc[1] + 0.95], 0.009, k % 2 ? 'rgba(60,60,80,0.4)' : 'rgba(255,255,255,0.5)'); ctx.restore();
+  const arm = (i: number) => { arm2(ctx, b, i, { sleeve: CR, cuff: BLK, curl: i ? 0.9 : 0.6, skin: DSKIN }); joint(ctx, b.elbow[i], 0.075, i === 0, '#5d5964', vec(b.elbow[i], b.hand[i]), BLK2, GOLDC, true); }; // con coderas con pinche
+  arm(0); // el brazo de atrás: por detrás del cuerpo
   leg2(ctx, b, 0); leg2(ctx, b, 1);
   for (const i of [0, 1]) joint(ctx, b.knee[i], 0.09, i === 0, '#5d5964', vec(b.knee[i], b.foot[i]), BLK2, GOLDC, true); // rodilleras con pinche
   // el saco largo carmesí: hasta los tobillos, abierto adelante, con ribetes dorados
@@ -943,19 +945,24 @@ function drawDracula2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   ctx.restore(); goldEdge(ctx, torso, 0.016);
   belt2(ctx, -0.05, -0.18, 0.18);
   ctx.restore();
-  const arm = (i: number) => { arm2(ctx, b, i, { sleeve: CR, cuff: BLK, curl: i ? 0.9 : 0.6, skin: DSKIN }); joint(ctx, b.elbow[i], 0.075, i === 0, '#5d5964', vec(b.elbow[i], b.hand[i]), BLK2, GOLDC, true); }; // con coderas con pinche
-  arm(0); arm(1); // los hombros quedan debajo de la esclavina
+  arm(1); // los hombros quedan debajo de la esclavina
   // la esclavina dorada y roja sobre los hombros con la gema grande
   const nk = add(b.neck, b.spine, -0.03);
   trimmed(ctx, [[nk[0] - 0.5, nk[1] + 0.26], [nk[0] - 0.44, nk[1] - 0.04], [nk[0], nk[1] - 0.09], [nk[0] + 0.42, nk[1] - 0.04], [nk[0] + 0.47, nk[1] + 0.24, 1], [nk[0] + 0.2, nk[1] + 0.15], [nk[0], nk[1] + 0.26, 1], [nk[0] - 0.24, nk[1] + 0.15], [nk[0] - 0.5, nk[1] + 0.26, 1]], CR, [nk[0], nk[1] + 0.06], 0.35, false, 0.022, { tex: 0.35 });
   for (const sx of [-1, 1]) { ctx.strokeStyle = GOLDC; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.arc(nk[0] + sx * 0.2, nk[1] + 0.06, 0.04, 0.5, 5.2); ctx.stroke(); }
   gem(ctx, nk[0] + 0.02, nk[1] + 0.03, 0.045, t, GOLDC);
   if (v.state === 'cast') for (const h of b.hand) glow(ctx, h[0], h[1], 0.5, '#ff1030', 0.6);
+  if (v.state === 'zap') { // electricidad roja entre las manos levantadas
+    const k = Math.min(1, v.t / 0.35); for (const h of b.hand) glow(ctx, h[0], h[1], 0.7 * k, '#ff1030', 0.8);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (k > 0.15) for (let j = 0; j < 3; j++) { const [a, c] = b.hand, seg = 6; for (const [w, col] of [[0.07, 'rgba(255,40,60,0.5)'], [0.022, 'rgba(255,230,230,0.95)']] as const) { ctx.strokeStyle = col; ctx.lineWidth = w * k; ctx.beginPath(); ctx.moveTo(a[0], a[1]); for (let i = 1; i < seg; i++) { const q = i / seg; ctx.lineTo(a[0] + (c[0] - a[0]) * q + Math.sin(t * 60 + i * 2.1 + j * 4) * 0.08, a[1] + (c[1] - a[1]) * q - Math.sin(q * Math.PI) * 0.25 + Math.cos(t * 55 + i * 3 + j) * 0.07); } ctx.lineTo(c[0], c[1]); ctx.stroke(); } }
+    ctx.restore();
+  }
   headAt(ctx, b, 0.02, 0.155, () => vampFace(ctx, t + v.id, { skin: DSKIN, open: v.state === 'claw' || v.state === 'cast' ? 0.5 : 0.04, hair: 'long', hairC: '#d2d0da', ear: 0.6, gaunt: 0.7 }));
 }
 
 // ---------------------------------------------------------------- Drácula dragón (parado en cuatro patas)
-function drawDragon2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
+function drawDragonVector(ctx: CanvasRenderingContext2D, v: Vamp, t: number) { // (el dibujo de antes: mientras carga la imagen)
   const s = Math.sin, flying = v.state !== 'land' && v.state !== 'walk', flap = flying ? s(v.walkT * 6 + v.id) : 0.1 + s(t * 2) * 0.04;
   const breath = v.state === 'breath' ? Math.min(1, v.t / 0.35) * (v.t > 1.9 ? Math.max(0, 1 - (v.t - 1.9) / 0.3) : 1) : 0;
   const SC = '#a8141e', SCD = '#5e0a12', CREAM = '#e6d2a8', HORNC = '#e8dcc2', GREYB = '#5a5260', bob = flying ? s(v.walkT * 6 + v.id + 1) * 0.05 : 0;
@@ -1030,16 +1037,71 @@ function drawDragon2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   ctx.restore();
   ctx.restore();
 }
-function wyvernWing2(ctx: CanvasRenderingContext2D, root: Pt, flap: number, back: boolean) {
+// ---------------------------------------------------------------- Drácula dragón (la imagen pintada)
+// La imagen del dragón (mira a la izquierda: se da vuelta) con las alas que aletean, los ojos que parpadean y el fuego.
+let DRAGON_IMG: HTMLImageElement | null = null;
+function dragonImg() {
+  if (!DRAGON_IMG && typeof Image !== 'undefined') { DRAGON_IMG = new Image(); DRAGON_IMG.src = dragonUrl; }
+  return DRAGON_IMG && DRAGON_IMG.complete && DRAGON_IMG.naturalWidth > 0 ? DRAGON_IMG : null;
+}
+dragonImg(); // (que empiece a cargar ya)
+const DSC = 3.35 / 1024; // unidades del personaje por píxel de la imagen original (1536 × 1024)
+const DP = (px: number, py: number): Pt => [(777.5 - px) * DSC - 0.3, -2.15 + py * DSC]; // un punto de la imagen original (ya dada vuelta)
+export const DRAGON_MOUTH = DP(300, 352);
+function dragonFire(ctx: CanvasRenderingContext2D, m: Pt, k: number, t: number) { // el chorro de fuego que sale de la boca
+  ctx.save(); ctx.translate(m[0], m[1]); ctx.rotate(0.32); ctx.globalCompositeOperation = 'lighter';
+  const L = 1.9 * k;
+  for (const [w, c0, c1, a] of [[0.55, '255,60,10', '120,0,0', 0.5], [0.34, '255,150,30', '255,40,10', 0.75], [0.16, '255,250,200', '255,170,40', 0.95]] as const) {
+    ctx.beginPath(); ctx.moveTo(0, -0.05);
+    for (let i = 0; i <= 10; i++) { const q = i / 10, x = q * L, hw = (0.05 + w * Math.sqrt(q)) * (1 + 0.15 * Math.sin(t * 40 + i * 1.7)); ctx.lineTo(x, -hw); }
+    for (let i = 10; i >= 0; i--) { const q = i / 10, x = q * L, hw = (0.05 + w * Math.sqrt(q)) * (1 + 0.15 * Math.sin(t * 37 + i * 2.3)); ctx.lineTo(x, hw); }
+    ctx.closePath(); const g = ctx.createLinearGradient(0, 0, L, 0); g.addColorStop(0, `rgba(${c0},${a})`); g.addColorStop(0.75, `rgba(${c1},${a * 0.7})`); g.addColorStop(1, `rgba(${c1},0)`); ctx.fillStyle = g; ctx.fill();
+  }
+  for (let i = 0; i < 9; i++) { const q = ((t * 3.2 + i * 0.37) % 1), x = q * L * 1.1, y = Math.sin(i * 7.3 + t * 9) * 0.3 * q; ctx.fillStyle = `rgba(255,${200 - q * 150},60,${(1 - q) * 0.9})`; ctx.beginPath(); ctx.arc(x, y, 0.05 + q * 0.07, 0, TAU); ctx.fill(); } // chispas
+  glow(ctx, 0, 0, 0.6, '#ffb030', 0.9);
+  ctx.restore();
+}
+function drawDragon2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
+  const img = dragonImg(); if (!img) { drawDragonVector(ctx, v, t); return; }
+  const s = Math.sin, flying = v.state !== 'land' && v.state !== 'walk', flap = flying ? s(v.walkT * 6 + v.id) : 0.15 + s(t * 2) * 0.05;
+  const breath = v.state === 'breath' ? Math.min(1, v.t / 0.35) * (v.t > 1.9 ? Math.max(0, 1 - (v.t - 1.9) / 0.3) : 1) : 0;
+  const bob = flying ? s(v.walkT * 6 + v.id + 1) * 0.06 : 0, root = DP(705, 392);
+  ctx.save(); ctx.translate(0, bob);
+  ctx.save(); ctx.translate(root[0] + 0.35, root[1] - 0.05); ctx.scale(-1.05, 1.3); wyvernWing2(ctx, [0, 0], flap, true, true); ctx.restore(); // el ala del otro lado
+  // el cuerpo: la imagen (respira un poco; al tirar fuego estira el cuello hacia adelante)
+  const br = 1 + s(t * 2.2 + v.id) * 0.012;
+  ctx.save(); ctx.translate(0, 1.2); ctx.rotate(-0.04 * breath); ctx.scale(-br, br); ctx.translate(0, -1.2);
+  ctx.drawImage(img, 0.3 - 777.5 * DSC, -2.15, 1536 * DSC, 1024 * DSC);
+  ctx.restore();
+  // los ojos encima de la imagen: amarillos con la pupila de víbora; cada tanto parpadean
+  ctx.save(); ctx.translate(0, 1.2); ctx.rotate(-0.04 * breath); ctx.scale(br, br); ctx.translate(0, -1.2);
+  const ec = DP(437, 231), rx = 36 * DSC, ry = 18 * DSC, ph = (t + v.id * 0.7) % 3.3, shut = v.flash ? 1 : ph < 0.09 ? ph / 0.09 : ph < 0.2 ? 1 - (ph - 0.09) / 0.11 : 0;
+  const almond = () => { ctx.beginPath(); ctx.ellipse(ec[0], ec[1], rx, ry, 0.19, 0, TAU); };
+  ctx.save(); almond(); ctx.clip();
+  { const g = ctx.createRadialGradient(ec[0] - 0.01, ec[1], 0, ec[0], ec[1], rx); g.addColorStop(0, '#fffbd0'); g.addColorStop(0.35, '#ffd21a'); g.addColorStop(0.8, '#e07a00'); g.addColorStop(1, '#8a2a00'); ctx.fillStyle = g; ctx.fillRect(ec[0] - rx, ec[1] - rx, rx * 2, rx * 2); }
+  ctx.fillStyle = '#140600'; ctx.beginPath(); ctx.ellipse(ec[0] + 0.012, ec[1], 0.016, ry * 0.95, 0.12, 0, TAU); ctx.fill(); // la pupila
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.ellipse(ec[0] - 0.035, ec[1] - 0.02, 0.022, 0.013, 0.2, 0, TAU); ctx.fill();
+  if (shut > 0) { const h = ry * 2.2 * shut; ctx.fillStyle = lin2(ctx, ec[1] - ry, ec[1] + ry, '#d8262c', '#7a0a10'); ctx.fillRect(ec[0] - rx * 1.2, ec[1] - ry * 1.2, rx * 2.4, h); ctx.strokeStyle = INK; ctx.lineWidth = 0.02; ctx.beginPath(); ctx.moveTo(ec[0] - rx * 1.2, ec[1] - ry * 1.2 + h); ctx.lineTo(ec[0] + rx * 1.2, ec[1] - ry * 1.2 + h); ctx.stroke(); } // el párpado
+  ctx.restore();
+  almond(); ctx.strokeStyle = INK; ctx.lineWidth = 0.022; ctx.stroke();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, ec[0], ec[1], 0.22, '#ffcc30', 0.35 * (1 - shut)); ctx.restore();
+  if (breath > 0) dragonFire(ctx, DRAGON_MOUTH, breath, t);
+  else { ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, DRAGON_MOUTH[0] - 0.1, DRAGON_MOUTH[1] - 0.05, 0.3 + 0.06 * s(t * 9), '#ff9a20', 0.55); ctx.restore(); } // las brasas de la boca
+  ctx.restore();
+  ctx.save(); ctx.translate(root[0] + 0.05, root[1] - 0.05); ctx.scale(0.95, 1.2); wyvernWing2(ctx, [0, 0], flap, false, true); ctx.restore(); // el ala de este lado (adelante)
+  ctx.restore();
+}
+const lin2 = (ctx: CanvasRenderingContext2D, y0: number, y1: number, a: string, b: string) => { const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, a); g.addColorStop(1, b); return g; };
+function wyvernWing2(ctx: CanvasRenderingContext2D, root: Pt, flap: number, back: boolean, gold = false) {
   ctx.save(); ctx.translate(root[0], root[1]); ctx.rotate(-flap * 0.25 + (back ? -0.25 : 0)); if (back) ctx.scale(0.85, 0.85);
   const elbow: Pt = [0.25, -0.75], wrist: Pt = [-0.05, -1.65], tips: Pt[] = [[-1.05, -1.95], [-1.65, -1.25], [-1.75, -0.45], [-1.2, 0.1], [-0.45, 0.3]];
   const mem = () => { ctx.moveTo(0, 0); ctx.lineTo(...elbow); ctx.lineTo(...wrist); ctx.lineTo(...tips[0]); for (let i = 1; i < tips.length; i++) { const a = tips[i - 1], b2 = tips[i]; ctx.quadraticCurveTo(...lerp(mid(a, b2), wrist, 0.18), b2[0], b2[1]); } ctx.quadraticCurveTo(-0.15, 0.25, 0.0, 0.15); ctx.closePath(); };
   ctx.beginPath(); mem(); const g = ctx.createLinearGradient(-0.2, -1.6, -1.5, 0.2); g.addColorStop(0, back ? '#8e0e18' : '#d42230'); g.addColorStop(0.6, back ? '#5a0810' : '#a8121e'); g.addColorStop(1, back ? '#3a0408' : '#6a0a12'); ctx.fillStyle = g; ctx.fill(); if (VAMP_TEX) grain(ctx, mem, 0.4);
   ctx.save(); ctx.beginPath(); mem(); ctx.clip(); ctx.strokeStyle = 'rgba(60,0,8,0.55)'; ctx.lineWidth = 0.012; for (let i = 0; i < tips.length - 1; i++) for (let k = 1; k < 6; k++) { const a = lerp(wrist, tips[i], k / 6), b2 = lerp(wrist, tips[i + 1], k / 6); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(...lerp(mid(a, b2), wrist, -0.1), b2[0], b2[1]); ctx.stroke(); } ctx.restore();
-  ctx.beginPath(); mem(); ctx.strokeStyle = INK; ctx.lineWidth = 0.025; ctx.stroke();
-  const bone = back ? '#2a2228' : '#3a3036';
-  tube(ctx, [0, 0], elbow, [0.2, 0.14], back ? '#5a0a12' : '#8e1018', { rim: back ? 0 : 1, tex: 0.4, lw: 1.3 }); tube(ctx, elbow, wrist, [0.13, 0.09], bone, { rim: back ? 0 : 1, tex: 0.4, lw: 1.3 });
-  for (const tp of tips.slice(0, 4)) tube(ctx, wrist, tp, [0.06, 0.025], bone, { rim: 0, ao: 0, lw: 1 });
+  ctx.beginPath(); mem(); ctx.strokeStyle = INK; ctx.lineWidth = gold ? 0.04 : 0.025; ctx.stroke();
+  const bone = gold ? (back ? '#8a6c34' : '#d8b25e') : back ? '#2a2228' : '#3a3036';
+  tube(ctx, [0, 0], elbow, [0.2, 0.14], back ? '#5a0a12' : gold ? '#c0141e' : '#8e1018', { rim: back ? 0 : 1, tex: 0.4, lw: gold ? 1.8 : 1.3 }); tube(ctx, elbow, wrist, [0.13, 0.09], bone, { rim: back ? 0 : 1, tex: 0.4, lw: gold ? 1.8 : 1.3 });
+  for (const tp of tips.slice(0, 4)) tube(ctx, wrist, tp, [0.06, 0.025], bone, { rim: 0, ao: 0, lw: gold ? 1.5 : 1 });
   form(ctx, () => shapePath(ctx, [[wrist[0] - 0.06, wrist[1] + 0.02], [wrist[0] + 0.02, wrist[1] - 0.22], [wrist[0] + 0.3, wrist[1] - 0.26, 1], [wrist[0] + 0.1, wrist[1] - 0.12], [wrist[0] + 0.08, wrist[1] + 0.03]]), back ? '#a08a5e' : '#e8cc8e', wrist, 0.15, { hi: 0.5, lw: 1.2 }); // la garra del ala
   ctx.restore();
 }
@@ -1057,7 +1119,8 @@ export function drawVampHD(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
     default: drawWalker2(ctx, v, t);
   }
   // los que atacan con las manos (garras): la estela del zarpazo
-  if (v.kind === 'walker' || v.kind === 'dracula') clawTrail(ctx, v);
+  if (v.kind === 'walker') clawTrail(ctx, v);
+  else if (v.kind === 'dracula') clawTrail(ctx, v, -0.3, -2.6, 0.9); // (el gancho: la estela sube)
   else if (v.kind === 'giant') clawTrail(ctx, v, -2.0, -0.3, 0.7);
   else if (v.kind === 'wolf') clawTrail(ctx, v, -1.6, -0.2, 0.9);
 }

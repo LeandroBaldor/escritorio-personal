@@ -1902,3 +1902,7 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
   .vamp-hub-hero canvas{height:auto!important;max-height:calc(100% - 4.5rem);width:auto!important;max-width:100%}
 }
 .vamp-test{margin-right:.6rem;padding:.1rem .55rem;border-radius:999px;background:#14532d;color:#bbf7d0;font-style:normal;font-weight:900;font-size:.8rem}
+.vamp-pause-btns{display:flex;flex-direction:column;align-items:center;gap:.2rem}
+.vamp-pause-btns .vamp-ghost{margin-left:0}
+.vamp-hub-rivals b.vamp-name2,.vamp-intro2 b.vamp-name2{white-space:normal;line-height:1.12;text-align:center}
+.vamp-hub-rivals li>div{align-items:center}
