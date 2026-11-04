@@ -1052,9 +1052,9 @@ dragonImg(); // (que empiece a cargar ya)
 const DSC = 3.35 / 1024; // unidades del personaje por píxel de la imagen original (1536 × 1024)
 const DP = (px: number, py: number): Pt => [(777.5 - px) * DSC - 0.3, -2.15 + py * DSC]; // un punto de la imagen original (ya dada vuelta)
 export const DRAGON_MOUTH = DP(300, 352);
-function dragonFire(ctx: CanvasRenderingContext2D, m: Pt, k: number, t: number) { // el chorro de fuego que sale de la boca
-  ctx.save(); ctx.translate(m[0], m[1]); ctx.rotate(0.32); ctx.globalCompositeOperation = 'lighter';
-  const L = 1.9 * k;
+function dragonFire(ctx: CanvasRenderingContext2D, m: Pt, k: number, t: number, aim = 0.32) { // el chorro de fuego que sale de la boca (hacia donde va el fuego)
+  ctx.save(); ctx.translate(m[0], m[1]); ctx.rotate(Math.max(-0.9, Math.min(1.2, aim))); ctx.globalCompositeOperation = 'lighter';
+  const L = 1.5 * k;
   for (const [w, c0, c1, a] of [[0.55, '255,60,10', '120,0,0', 0.5], [0.34, '255,150,30', '255,40,10', 0.75], [0.16, '255,250,200', '255,170,40', 0.95]] as const) {
     ctx.beginPath(); ctx.moveTo(0, -0.05);
     for (let i = 0; i <= 10; i++) { const q = i / 10, x = q * L, hw = (0.05 + w * Math.sqrt(q)) * (1 + 0.15 * Math.sin(t * 40 + i * 1.7)); ctx.lineTo(x, -hw); }
@@ -1074,7 +1074,7 @@ function drawDragon2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const flap = breath > 0 ? 1.0 + 0.7 * breath + 0.5 * s(t * 13) * breath : flying ? s(v.walkT * 6 + v.id) : 0.15 + s(t * 2) * 0.05;
   const bob = flying ? s(v.walkT * 6 + v.id + 1) * 0.06 : 0, root = DP(705, 392);
   ctx.save(); ctx.translate(0, bob);
-  ctx.save(); ctx.translate(root[0] + 0.35, root[1] - 0.05); ctx.scale(-1.05, 1.3); wyvernWing2(ctx, [0, 0], flap, true, true); ctx.restore(); // el ala del otro lado
+  ctx.save(); ctx.translate(root[0] + 0.4, root[1] - 0.05); ctx.scale(-1.45, 1.75); wyvernWing2(ctx, [0, 0], breath > 0 ? -0.4 + 0.25 * s(t * 13) : flap, true, true); ctx.restore(); // el ala del otro lado (grande)
   // el cuerpo: la imagen (respira un poco; al tirar fuego estira el cuello hacia adelante)
   const br = 1 + s(t * 2.2 + v.id) * 0.012;
   ctx.save(); ctx.translate(0, 1.2); ctx.rotate(-0.04 * breath); ctx.scale(-br, br); ctx.translate(0, -1.2);
@@ -1092,9 +1092,27 @@ function drawDragon2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   ctx.restore();
   almond(); ctx.strokeStyle = INK; ctx.lineWidth = 0.022; ctx.stroke();
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, ec[0], ec[1], 0.22, '#ffcc30', 0.35 * (1 - shut)); ctx.restore();
-  if (breath > 0) dragonFire(ctx, DRAGON_MOUTH, breath, t);
+  if (breath > 0) dragonFire(ctx, DRAGON_MOUTH, breath, t, v.aim);
   ctx.restore();
-  ctx.save(); ctx.translate(root[0] + 0.05, root[1] - 0.05); ctx.scale(0.95, 1.2); wyvernWing2(ctx, [0, 0], flap, false, true); ctx.restore(); // el ala de este lado (adelante)
+  ctx.save(); ctx.translate(root[0] + 0.05, root[1] - 0.05); ctx.scale(1.35, 1.65); wyvernWing2(ctx, [0, 0], flap, false, true); ctx.restore(); // el ala de este lado (adelante, grande)
+  dragonPauldron(ctx, [root[0] + 0.06, root[1] + 0.02], flap);
+  ctx.restore();
+}
+// La hombrera de armadura que tapa la unión del ala con el cuerpo: placas doradas con borde negro, ribete rojo, remaches y un pinche.
+function dragonPauldron(ctx: CanvasRenderingContext2D, c: Pt, flap: number) {
+  ctx.save(); ctx.translate(c[0], c[1]); ctx.rotate(-0.25 - flap * 0.06); ctx.scale(1.3, 1.3);
+  const GOLD_D = '#9a6e22', GOLD_L = '#ffe39a';
+  for (let i = 2; i >= 0; i--) { // tres placas, de atrás para adelante
+    const w = 0.42 - i * 0.06, y = i * 0.13, x = -i * 0.05;
+    const plate = () => { ctx.beginPath(); ctx.moveTo(x - w, y + 0.06); ctx.quadraticCurveTo(x - w * 0.9, y - 0.2, x, y - 0.24); ctx.quadraticCurveTo(x + w * 0.9, y - 0.2, x + w, y + 0.06); ctx.quadraticCurveTo(x, y + 0.13, x - w, y + 0.06); ctx.closePath(); };
+    plate(); const g = ctx.createLinearGradient(x, y - 0.24, x, y + 0.1); g.addColorStop(0, GOLD_L); g.addColorStop(0.45, '#e2b24a'); g.addColorStop(1, GOLD_D); ctx.fillStyle = g; ctx.fill();
+    ctx.lineWidth = 0.03; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.strokeStyle = '#b0101c'; ctx.lineWidth = 0.035; ctx.beginPath(); ctx.moveTo(x - w * 0.88, y + 0.03); ctx.quadraticCurveTo(x, y + 0.09, x + w * 0.88, y + 0.03); ctx.stroke(); // ribete rojo
+    for (const k of [-0.6, 0, 0.6]) { ctx.fillStyle = GOLD_L; ctx.strokeStyle = INK; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.arc(x + w * k, y - 0.07 + Math.abs(k) * 0.05, 0.026, 0, TAU); ctx.fill(); ctx.stroke(); } // remaches
+  }
+  ctx.beginPath(); ctx.moveTo(-0.07, -0.2); ctx.quadraticCurveTo(-0.02, -0.5, 0.1, -0.62); ctx.quadraticCurveTo(0.06, -0.42, 0.08, -0.2); ctx.closePath(); // el pinche de arriba
+  const sg = ctx.createLinearGradient(-0.05, -0.6, 0.08, -0.2); sg.addColorStop(0, '#fff2c4'); sg.addColorStop(1, '#c8962e'); ctx.fillStyle = sg; ctx.fill(); ctx.lineWidth = 0.025; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.ellipse(-0.12, -0.14, 0.12, 0.035, -0.3, 0, TAU); ctx.fill(); // el brillo
   ctx.restore();
 }
 const lin2 = (ctx: CanvasRenderingContext2D, y0: number, y1: number, a: string, b: string) => { const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, a); g.addColorStop(1, b); return g; };

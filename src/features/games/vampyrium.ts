@@ -136,7 +136,8 @@ export type VampState = 'walk' | 'claw' | 'hover' | 'dive' | 'rise' | 'cast' | '
 export interface Vamp {
   id: number; kind: VampKind; x: number; y: number; vx: number; vy: number; face: 1 | -1; state: VampState; t: number;
   onGround: boolean; surface: Surface | null; walkT: number; cool: number; speed: number; jumpT: number; dropT: number; hit: boolean;
-  hp?: number; maxHp?: number; flash?: number; // los fuertes aguantan varios golpes (flash: el destello blanco del golpe)
+  hp?: number; maxHp?: number; flash?: number; aim?: number; // (aim: hacia dónde escupe fuego el dragón)
+  // los fuertes aguantan varios golpes (flash: el destello blanco del golpe)
   hurtT?: number; // golpeado por una trampa: sangra y sale despedido, pero no muere
   special?: number; // Drácula y el dragón: cuenta para el próximo ataque especial
   frozen?: number; chill?: number; // congelado por la armadura de hielo (se rompe cuando llega a 0); chill: el frío en Drácula y el dragón
@@ -730,7 +731,9 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
       if (front && Math.abs(dx) < atk.reach + 0.25 && dy > -1.4 && dy < h) {
         const before = p.inv; hurt(g, v.x, DAMAGE[v.kind]);
         if (boss && p.inv > before) { // el gancho de Drácula (de abajo hacia arriba): el cazador sale volando por el aire
-          p.vy = 21; p.vx = (p.x >= v.x ? 1 : -1) * 3.5; p.hurtT = 0.85; p.spinT = 0.8; p.onGround = false; p.surface = null; g.shake = Math.max(g.shake, 0.7);
+          const away = p.x >= v.x ? 1 : -1;
+          p.vy = 17; p.vx = away * 11; p.hurtT = 1.0; p.spinT = 0.9; p.onGround = false; p.surface = null; g.shake = Math.max(g.shake, 0.9); // en diagonal y lejos
+          for (let i = 0; i < 90; i++) { const a = Math.PI / 2 - away * (0.2 + g.rand() * 1.1), sp = 3 + g.rand() * 13; g.drops.push({ x: p.x + (g.rand() - 0.5) * 0.4, y: p.y + 0.8 + g.rand() * 1.0, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 0.05 + g.rand() * 0.13, t: 0, stuck: false }); } // ¡mucha sangre!
           emit(g, { type: 'launch' });
         }
       }
@@ -887,7 +890,8 @@ function updateDragon(g: Game, v: Vamp, dt: number) {
     }
   } else if (v.state === 'breath') { // fuego por la boca hacia el cazador
     v.vx *= Math.max(0, 1 - dt * 3); v.vy *= Math.max(0, 1 - dt * 3); v.face = dx >= 0 ? 1 : -1;
-    if (v.t > 0.35 && v.t < 0.35 + DRAGON_FIRE_T && Math.floor(v.t / 0.05) !== Math.floor((v.t - dt) / 0.05)) shoot(g, v.x + v.face * 1.7, v.y + 1.2, p.x, p.y + 0.9, 11, 'flame', DAMAGE.dragon, 1.1, (r() - 0.5) * 0.25);
+    v.aim = Math.atan2(-(p.y + 0.9 - v.y - 1.2), Math.abs(p.x - v.x - v.face * 1.7)); // (para que el chorro de la boca vaya para el mismo lado que el fuego)
+    if (v.t > 0.35 && v.t < 0.35 + DRAGON_FIRE_T && Math.floor(v.t / 0.05) !== Math.floor((v.t - dt) / 0.05)) { shoot(g, v.x + v.face * 1.7, v.y + 1.2, p.x, p.y + 0.9, 11, 'flame', DAMAGE.dragon, 1.1, (r() - 0.5) * 0.06); }
     if (v.t > 0.35 + DRAGON_FIRE_T + 0.3) { v.state = 'hover'; v.cool = 1.6 + r(); } // (cada llamarada dura 3 segundos)
   } else if (v.state === 'dive') { // picada
     if (!v.hit && touching) { v.hit = true; hurt(g, v.x, DAMAGE.dragon); }
@@ -1012,7 +1016,7 @@ function updateGoal(g: Game, dt: number) {
 // ---------------------------------------------------------------- Cajas del cielo
 function dropCrate(g: Game) {
   // solo caen cajas de las armas que ya aparecieron (el ajo siempre: espanta a los vampiros)
-  const r = g.rand, pool = ([['bolts', 0.36, 'crossbow'], ['heart', 0.38, 'sword'], ['garlic', 0.16, 'sword'], ['fire', 0.14, 'firesword'], ['bullets', 0.14, 'pistol'], ['armor', 0.6, 'ice']] as const).filter(([, , w]) => weaponUnlocked(g, w));
+  const r = g.rand, pool = ([['bolts', 0.36, 'crossbow'], ['heart', 0.38, 'sword'], ['garlic', 0.16, 'sword'], ['fire', 0.14, 'firesword'], ['bullets', 0.14, 'pistol'], ['armor', 1.0, 'ice']] as const).filter(([, , w]) => weaponUnlocked(g, w));
   let roll = r() * pool.reduce((a, [, k]) => a + k, 0), kind: CrateKind = 'heart';
   for (const [k, wgt] of pool) { if (roll < wgt) { kind = k; break; } roll -= wgt; }
   const spots = SURFACES.filter(s => s.x2 - s.x1 > 2 && !s.mv);
@@ -1357,7 +1361,7 @@ export function step(g: Game, input: Input, dt: number) {
     g.spawnT = Math.max(1.3, 3.2 - g.total * 0.025) * (g.bloodMoon ? 0.8 : 1) * (0.7 + g.rand() * 0.6);
   }
   g.crateT -= dt;
-  if (g.crateT <= 0) { dropCrate(g); g.crateT = 8 + g.rand() * 4; /* (más seguido: más vidas y armaduras) */ }
+  if (g.crateT <= 0) { dropCrate(g); g.crateT = 6.5 + g.rand() * 3.5; /* (más seguido: más vidas y armaduras) */ }
   updateCrates(g, dt);
   updateRemains(g, dt);
 }
