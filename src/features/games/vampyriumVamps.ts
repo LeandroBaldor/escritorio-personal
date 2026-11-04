@@ -1071,10 +1071,13 @@ function drawDragon2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const s = Math.sin, flying = v.state !== 'land' && v.state !== 'walk';
   const breath = firing ? Math.min(1, v.t / 0.35) * Math.min(1, Math.max(0, (end + 0.1 - v.t) / 0.3)) : 0; // (el fuego se apaga antes de cerrar la boca)
   // al escupir fuego aletea fuerte con las alas hacia abajo (para quedarse quieto en el aire)
-  const flap = breath > 0 ? 1.0 + 0.7 * breath + 0.5 * s(t * 13) * breath : flying ? s(v.walkT * 6 + v.id) : 0.15 + s(t * 2) * 0.05;
+  const wp = breath > 0 ? t * 11 : flying ? v.walkT * 5.2 + v.id : t * 1.6, w = wp + 0.55 * s(wp); // (bajada rápida, subida lenta)
+  const amp = breath > 0 ? 0.5 : flying ? 1 : 0.15, dn = Math.cos(w) * (1 + 0.55 * Math.cos(wp)); // dn > 0: el ala baja
+  const flap = breath > 0 ? 1.0 + 0.7 * breath + 0.5 * s(w) * breath : s(w) * amp + (flying ? 0 : 0.15);
+  const wingM = { amp: 0.55, off: breath > 0 ? 0 : 0.3 * Math.min(1, amp * 2), spread: Math.max(0.6, Math.min(1, 0.82 + 0.2 * dn * Math.max(amp, 0.3))), bend: 0.32 * dn * Math.max(amp, 0.25) };
   const bob = flying ? s(v.walkT * 6 + v.id + 1) * 0.06 : 0, root = DP(705, 392);
   ctx.save(); ctx.translate(0, bob);
-  ctx.save(); ctx.translate(root[0] + 0.4, root[1] - 0.05); ctx.scale(-1.45, 1.75); wyvernWing2(ctx, [0, 0], breath > 0 ? -0.4 + 0.25 * s(t * 13) : flap, true, true); ctx.restore(); // el ala del otro lado (grande)
+  ctx.save(); ctx.translate(root[0] + 0.4, root[1] - 0.05); ctx.scale(-1.45, 1.75); wyvernWing2(ctx, [0, 0], breath > 0 ? -0.4 + 0.25 * s(w) : flap, true, true, wingM); ctx.restore(); // el ala del otro lado (grande)
   // el cuerpo: la imagen (respira un poco; al tirar fuego estira el cuello hacia adelante)
   const br = 1 + s(t * 2.2 + v.id) * 0.012;
   ctx.save(); ctx.translate(0, 1.2); ctx.rotate(-0.04 * breath); ctx.scale(-br, br); ctx.translate(0, -1.2);
@@ -1094,31 +1097,31 @@ function drawDragon2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, ec[0], ec[1], 0.22, '#ffcc30', 0.35 * (1 - shut)); ctx.restore();
   if (breath > 0) dragonFire(ctx, DRAGON_MOUTH, breath, t, v.aim);
   ctx.restore();
-  ctx.save(); ctx.translate(root[0] + 0.05, root[1] - 0.05); ctx.scale(1.35, 1.65); wyvernWing2(ctx, [0, 0], flap, false, true); ctx.restore(); // el ala de este lado (adelante, grande)
+  ctx.save(); ctx.translate(root[0] + 0.05, root[1] - 0.05); ctx.scale(1.35, 1.65); wyvernWing2(ctx, [0, 0], flap, false, true, wingM); ctx.restore(); // el ala de este lado (adelante, grande)
   dragonPauldron(ctx, [root[0] + 0.06, root[1] + 0.02], flap);
   ctx.restore();
 }
-// La hombrera de armadura que tapa la unión del ala con el cuerpo: placas doradas con borde negro, ribete rojo, remaches y un pinche.
+// La hombrera de armadura que tapa la unión del ala: chica y redondeada, dos placas doradas con borde negro, ribete rojo y remaches.
 function dragonPauldron(ctx: CanvasRenderingContext2D, c: Pt, flap: number) {
-  ctx.save(); ctx.translate(c[0], c[1]); ctx.rotate(-0.25 - flap * 0.06); ctx.scale(1.3, 1.3);
-  const GOLD_D = '#9a6e22', GOLD_L = '#ffe39a';
-  for (let i = 2; i >= 0; i--) { // tres placas, de atrás para adelante
-    const w = 0.42 - i * 0.06, y = i * 0.13, x = -i * 0.05;
-    const plate = () => { ctx.beginPath(); ctx.moveTo(x - w, y + 0.06); ctx.quadraticCurveTo(x - w * 0.9, y - 0.2, x, y - 0.24); ctx.quadraticCurveTo(x + w * 0.9, y - 0.2, x + w, y + 0.06); ctx.quadraticCurveTo(x, y + 0.13, x - w, y + 0.06); ctx.closePath(); };
-    plate(); const g = ctx.createLinearGradient(x, y - 0.24, x, y + 0.1); g.addColorStop(0, GOLD_L); g.addColorStop(0.45, '#e2b24a'); g.addColorStop(1, GOLD_D); ctx.fillStyle = g; ctx.fill();
+  ctx.save(); ctx.translate(c[0], c[1]); ctx.rotate(-0.2 - flap * 0.05); ctx.scale(0.8, 0.8);
+  for (let i = 1; i >= 0; i--) { // dos placas redondas, de atrás para adelante
+    const rx = 0.3 - i * 0.05, ry = 0.2 - i * 0.03, y = i * 0.13, x = -i * 0.04;
+    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, Math.PI, 0); ctx.quadraticCurveTo(x + rx * 0.9, y + ry * 0.55, x, y + ry * 0.6); ctx.quadraticCurveTo(x - rx * 0.9, y + ry * 0.55, x - rx, y); ctx.closePath();
+    const g = ctx.createRadialGradient(x - rx * 0.3, y - ry * 0.6, 0, x, y, rx * 1.3); g.addColorStop(0, '#fff2c0'); g.addColorStop(0.45, '#e2b24a'); g.addColorStop(1, '#8a6020'); ctx.fillStyle = g; ctx.fill();
     ctx.lineWidth = 0.03; ctx.strokeStyle = INK; ctx.stroke();
-    ctx.strokeStyle = '#b0101c'; ctx.lineWidth = 0.035; ctx.beginPath(); ctx.moveTo(x - w * 0.88, y + 0.03); ctx.quadraticCurveTo(x, y + 0.09, x + w * 0.88, y + 0.03); ctx.stroke(); // ribete rojo
-    for (const k of [-0.6, 0, 0.6]) { ctx.fillStyle = GOLD_L; ctx.strokeStyle = INK; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.arc(x + w * k, y - 0.07 + Math.abs(k) * 0.05, 0.026, 0, TAU); ctx.fill(); ctx.stroke(); } // remaches
+    ctx.strokeStyle = '#b0101c'; ctx.lineWidth = 0.032; ctx.beginPath(); ctx.ellipse(x, y, rx * 0.86, ry * 0.8, 0, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke(); // ribete rojo
+    for (const k of [-0.55, 0, 0.55]) { ctx.fillStyle = '#ffe9a8'; ctx.strokeStyle = INK; ctx.lineWidth = 0.01; ctx.beginPath(); ctx.arc(x + rx * k, y - ry * (0.55 - Math.abs(k) * 0.35), 0.022, 0, TAU); ctx.fill(); ctx.stroke(); } // remaches
   }
-  ctx.beginPath(); ctx.moveTo(-0.07, -0.2); ctx.quadraticCurveTo(-0.02, -0.5, 0.1, -0.62); ctx.quadraticCurveTo(0.06, -0.42, 0.08, -0.2); ctx.closePath(); // el pinche de arriba
-  const sg = ctx.createLinearGradient(-0.05, -0.6, 0.08, -0.2); sg.addColorStop(0, '#fff2c4'); sg.addColorStop(1, '#c8962e'); ctx.fillStyle = sg; ctx.fill(); ctx.lineWidth = 0.025; ctx.strokeStyle = INK; ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.ellipse(-0.12, -0.14, 0.12, 0.035, -0.3, 0, TAU); ctx.fill(); // el brillo
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.ellipse(-0.1, -0.11, 0.09, 0.03, -0.25, 0, TAU); ctx.fill(); // el brillo
   ctx.restore();
 }
 const lin2 = (ctx: CanvasRenderingContext2D, y0: number, y1: number, a: string, b: string) => { const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, a); g.addColorStop(1, b); return g; };
-function wyvernWing2(ctx: CanvasRenderingContext2D, root: Pt, flap: number, back: boolean, gold = false) {
-  ctx.save(); ctx.translate(root[0], root[1]); ctx.rotate(-flap * 0.25 + (back ? -0.25 : 0)); if (back) ctx.scale(0.85, 0.85);
-  const elbow: Pt = [0.25, -0.75], wrist: Pt = [-0.05, -1.65], tips: Pt[] = [[-1.05, -1.95], [-1.65, -1.25], [-1.75, -0.45], [-1.2, 0.1], [-0.45, 0.3]];
+// m: el movimiento del aleteo (amp: cuánto gira todo el ala; spread: 1 abierta, menos = plegada; bend: cuánto se atrasa la mano del ala).
+function wyvernWing2(ctx: CanvasRenderingContext2D, root: Pt, flap: number, back: boolean, gold = false, m: { amp?: number; spread?: number; bend?: number; off?: number } = {}) {
+  ctx.save(); ctx.translate(root[0], root[1]); ctx.rotate(-flap * (m.amp ?? 0.25) - (m.off ?? 0) + (back ? -0.25 : 0)); if (back) ctx.scale(0.85, 0.85);
+  const elbow: Pt = [0.25, -0.75], sp = m.spread ?? 1, bend = m.bend ?? 0;
+  const turn = (p: Pt): Pt => { const dx = p[0] - elbow[0], dy = p[1] - elbow[1], c = Math.cos(bend), sn = Math.sin(bend); return [elbow[0] + dx * c - dy * sn, elbow[1] + dx * sn + dy * c]; }; // la mano del ala gira en el codo
+  const wrist: Pt = turn([-0.05, -1.65]), tips: Pt[] = ([[-1.05, -1.95], [-1.65, -1.25], [-1.75, -0.45], [-1.2, 0.1], [-0.45, 0.3]] as Pt[]).map((q, i) => { const tq = i < 3 ? turn(q) : q, k = i < 3 ? sp : 0.5 + sp * 0.5; return [wrist[0] + (tq[0] - wrist[0]) * k, wrist[1] + (tq[1] - wrist[1]) * k] as Pt; }); // plegada: las puntas se acercan a la mano
   const mem = () => { ctx.moveTo(0, 0); ctx.lineTo(...elbow); ctx.lineTo(...wrist); ctx.lineTo(...tips[0]); for (let i = 1; i < tips.length; i++) { const a = tips[i - 1], b2 = tips[i]; ctx.quadraticCurveTo(...lerp(mid(a, b2), wrist, 0.18), b2[0], b2[1]); } ctx.quadraticCurveTo(-0.15, 0.25, 0.0, 0.15); ctx.closePath(); };
   ctx.beginPath(); mem(); const g = ctx.createLinearGradient(-0.2, -1.6, -1.5, 0.2); g.addColorStop(0, back ? '#8e0e18' : '#d42230'); g.addColorStop(0.6, back ? '#5a0810' : '#a8121e'); g.addColorStop(1, back ? '#3a0408' : '#6a0a12'); ctx.fillStyle = g; ctx.fill(); if (VAMP_TEX) grain(ctx, mem, 0.4);
   ctx.save(); ctx.beginPath(); mem(); ctx.clip(); ctx.strokeStyle = 'rgba(60,0,8,0.55)'; ctx.lineWidth = 0.012; for (let i = 0; i < tips.length - 1; i++) for (let k = 1; k < 6; k++) { const a = lerp(wrist, tips[i], k / 6), b2 = lerp(wrist, tips[i + 1], k / 6); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(...lerp(mid(a, b2), wrist, -0.1), b2[0], b2[1]); ctx.stroke(); } ctx.restore();
