@@ -1906,3 +1906,17 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .vamp-pause-btns .vamp-ghost{margin-left:0}
 .vamp-hub-rivals b.vamp-name2,.vamp-intro2 b.vamp-name2{white-space:normal;line-height:1.12;text-align:center}
 .vamp-hub-rivals li>div{align-items:center}
+/* el menú: Demian arriba a la izquierda, debajo los 10 niveles en cuadrados (5 y 5) y «Jugar» arriba a la derecha */
+.vamp-hub-top-right{justify-self:end;display:flex;align-items:center;gap:.9rem}
+.vamp-hub-top .vamp-hub-go{margin:0!important;padding:.6rem 1.3rem!important;font-size:1.05rem!important}
+.vamp-hub-grid{grid-template-areas:"hero story keys" "hero rivals rivals" "play weapons weapons"}
+.vamp-hub-hero{justify-content:flex-start}
+.vamp-hub-play{display:block;align-self:stretch}
+.vamp-hub-play .vamp-levels{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:.35rem;margin:0}
+.vamp-hub-play .vamp-levels button{aspect-ratio:1/1!important;height:auto!important}
+.vamp-hub-play .vamp-levels b{font-size:1.05rem}
+.vamp-hub-play .vamp-levels small{font-size:.55rem;padding:.1rem .2rem}
+@media(min-width:981px){.vamp-hub-grid{grid-template-rows:minmax(0,1fr) auto auto}}
+@media(max-width:980px){.vamp-hub-grid{grid-template-areas:"hero story" "play play" "keys keys" "rivals rivals" "weapons weapons"}.vamp-hub-play .vamp-levels{max-width:520px}}
+@media(max-width:620px){.vamp-hub-grid{grid-template-areas:"hero" "play" "story" "keys" "rivals" "weapons"}.vamp-hub-top{grid-template-columns:auto 1fr auto}.vamp-hub-top .vamp-hub-go{padding:.45rem .8rem!important;font-size:.9rem!important}.vamp-hub-play .vamp-levels{max-width:none}}
+@media(max-width:620px){.vamp-hub-top{gap:.4rem}.vamp-hub-top .runner-back{white-space:nowrap}.vamp-hub-top .vamp-title{font-size:1.55rem!important}.vamp-hub-top-right{gap:.3rem;min-width:0}.vamp-hub-top .vamp-hub-go{padding:.4rem .6rem!important;font-size:.82rem!important}}

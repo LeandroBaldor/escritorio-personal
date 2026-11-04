@@ -375,7 +375,10 @@ export function Vampyrium() {
           <div className="vamp-hub-top">
             <Link className="runner-back" to="/juegos">‹ Juegos</Link>
             <h2 id="vamp-message" className="vamp-title">VAMPYRIUM</h2>
-            <span className="vamp-hub-record">{VAMP_TEST_MODE && <em className="vamp-test" data-vamp-test>🧪 Modo test</em>} Récord <strong>{recordText}</strong></span>
+            <div className="vamp-hub-top-right">
+              <span className="vamp-hub-record">{VAMP_TEST_MODE && <em className="vamp-test" data-vamp-test>🧪 Modo test</em>} Récord <strong>{recordText}</strong></span>
+              <button type="button" className="vamp-hub-go" ref={focusNoScroll} onClick={() => start(level)}>⚔️ Jugar · Nivel {level}</button>
+            </div>
           </div>
           <div className="vamp-hub-grid">
             <figure className="vamp-hub-hero" aria-label="Demian, el cazador">
@@ -437,7 +440,6 @@ export function Vampyrium() {
                   <img src={fondoOf(l.bg)} alt="" loading="lazy" /><b>{l.n}</b><small>{l.name}</small>
                 </button>)}
               </div>
-              <button type="button" className="vamp-hub-go" ref={focusNoScroll} onClick={() => start(level)}>⚔️ Jugar · Nivel {level}</button>
             </div>
           </div>
         </div>}
