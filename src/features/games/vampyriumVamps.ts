@@ -6,8 +6,9 @@
 // La luz principal viene de arriba a la izquierda (la luna) y una luz roja por detrás (el fuego del castillo).
 import { darken, grain, lighten } from './gravityMonsters';
 import { vampEye } from './vampyriumChars';
-import { ATTACK, type Vamp } from './vampyrium';
+import { ATTACK, DRAGON_FIRE_T, type Vamp } from './vampyrium';
 import dragonUrl from './assets/vampyrium/dragon.webp';
+import dragonShutUrl from './assets/vampyrium/dragon-cerrado.webp';
 
 type Pt = [number, number];
 const TAU = Math.PI * 2;
@@ -1039,11 +1040,14 @@ function drawDragonVector(ctx: CanvasRenderingContext2D, v: Vamp, t: number) { /
 }
 // ---------------------------------------------------------------- Drácula dragón (la imagen pintada)
 // La imagen del dragón (mira a la izquierda: se da vuelta) con las alas que aletean, los ojos que parpadean y el fuego.
-let DRAGON_IMG: HTMLImageElement | null = null;
-function dragonImg() {
-  if (!DRAGON_IMG && typeof Image !== 'undefined') { DRAGON_IMG = new Image(); DRAGON_IMG.src = dragonUrl; }
-  return DRAGON_IMG && DRAGON_IMG.complete && DRAGON_IMG.naturalWidth > 0 ? DRAGON_IMG : null;
+// Dos imágenes: con la boca cerrada (vuela) y con la boca abierta (mientras escupe fuego).
+const DRAGON_IMGS: Record<'open' | 'shut', HTMLImageElement | null> = { open: null, shut: null };
+function dragonImg(which: 'open' | 'shut' = 'shut') {
+  if (typeof Image !== 'undefined') for (const [k, url] of [['open', dragonUrl], ['shut', dragonShutUrl]] as const) if (!DRAGON_IMGS[k]) { const im = new Image(); im.src = url; DRAGON_IMGS[k] = im; }
+  const im = DRAGON_IMGS[which];
+  return im && im.complete && im.naturalWidth > 0 ? im : null;
 }
+
 dragonImg(); // (que empiece a cargar ya)
 const DSC = 3.35 / 1024; // unidades del personaje por píxel de la imagen original (1536 × 1024)
 const DP = (px: number, py: number): Pt => [(777.5 - px) * DSC - 0.3, -2.15 + py * DSC]; // un punto de la imagen original (ya dada vuelta)
@@ -1062,9 +1066,12 @@ function dragonFire(ctx: CanvasRenderingContext2D, m: Pt, k: number, t: number) 
   ctx.restore();
 }
 function drawDragon2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
-  const img = dragonImg(); if (!img) { drawDragonVector(ctx, v, t); return; }
-  const s = Math.sin, flying = v.state !== 'land' && v.state !== 'walk', flap = flying ? s(v.walkT * 6 + v.id) : 0.15 + s(t * 2) * 0.05;
-  const breath = v.state === 'breath' ? Math.min(1, v.t / 0.35) * (v.t > 1.9 ? Math.max(0, 1 - (v.t - 1.9) / 0.3) : 1) : 0;
+  const end = 0.35 + DRAGON_FIRE_T, firing = v.state === 'breath' && v.t < end + 0.1; // (con la boca abierta solo mientras escupe fuego)
+  const img = dragonImg(firing ? 'open' : 'shut') ?? dragonImg(firing ? 'shut' : 'open'); if (!img) { drawDragonVector(ctx, v, t); return; }
+  const s = Math.sin, flying = v.state !== 'land' && v.state !== 'walk';
+  const breath = firing ? Math.min(1, v.t / 0.35) * Math.min(1, Math.max(0, (end + 0.1 - v.t) / 0.3)) : 0; // (el fuego se apaga antes de cerrar la boca)
+  // al escupir fuego aletea fuerte con las alas hacia abajo (para quedarse quieto en el aire)
+  const flap = breath > 0 ? 1.0 + 0.7 * breath + 0.5 * s(t * 13) * breath : flying ? s(v.walkT * 6 + v.id) : 0.15 + s(t * 2) * 0.05;
   const bob = flying ? s(v.walkT * 6 + v.id + 1) * 0.06 : 0, root = DP(705, 392);
   ctx.save(); ctx.translate(0, bob);
   ctx.save(); ctx.translate(root[0] + 0.35, root[1] - 0.05); ctx.scale(-1.05, 1.3); wyvernWing2(ctx, [0, 0], flap, true, true); ctx.restore(); // el ala del otro lado
@@ -1075,7 +1082,7 @@ function drawDragon2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   ctx.restore();
   // los ojos encima de la imagen: amarillos con la pupila de víbora; cada tanto parpadean
   ctx.save(); ctx.translate(0, 1.2); ctx.rotate(-0.04 * breath); ctx.scale(br, br); ctx.translate(0, -1.2);
-  const ec = DP(437, 231), rx = 36 * DSC, ry = 18 * DSC, ph = (t + v.id * 0.7) % 3.3, shut = v.flash ? 1 : ph < 0.09 ? ph / 0.09 : ph < 0.2 ? 1 - (ph - 0.09) / 0.11 : 0;
+  const ec = DP(437, firing ? 231 : 236), rx = 36 * DSC, ry = (firing ? 18 : 19) * DSC, ph = (t + v.id * 0.7) % 3.3, shut = v.flash ? 1 : ph < 0.09 ? ph / 0.09 : ph < 0.2 ? 1 - (ph - 0.09) / 0.11 : 0;
   const almond = () => { ctx.beginPath(); ctx.ellipse(ec[0], ec[1], rx, ry, 0.19, 0, TAU); };
   ctx.save(); almond(); ctx.clip();
   { const g = ctx.createRadialGradient(ec[0] - 0.01, ec[1], 0, ec[0], ec[1], rx); g.addColorStop(0, '#fffbd0'); g.addColorStop(0.35, '#ffd21a'); g.addColorStop(0.8, '#e07a00'); g.addColorStop(1, '#8a2a00'); ctx.fillStyle = g; ctx.fillRect(ec[0] - rx, ec[1] - rx, rx * 2, rx * 2); }
@@ -1086,7 +1093,6 @@ function drawDragon2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   almond(); ctx.strokeStyle = INK; ctx.lineWidth = 0.022; ctx.stroke();
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, ec[0], ec[1], 0.22, '#ffcc30', 0.35 * (1 - shut)); ctx.restore();
   if (breath > 0) dragonFire(ctx, DRAGON_MOUTH, breath, t);
-  else { ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, DRAGON_MOUTH[0] - 0.1, DRAGON_MOUTH[1] - 0.05, 0.3 + 0.06 * s(t * 9), '#ff9a20', 0.55); ctx.restore(); } // las brasas de la boca
   ctx.restore();
   ctx.save(); ctx.translate(root[0] + 0.05, root[1] - 0.05); ctx.scale(0.95, 1.2); wyvernWing2(ctx, [0, 0], flap, false, true); ctx.restore(); // el ala de este lado (adelante)
   ctx.restore();

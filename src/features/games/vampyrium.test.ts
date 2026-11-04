@@ -411,6 +411,17 @@ describe('Vampyrium: los vampiros de cada nivel y los puntos', () => {
     newGame(1, 1);
   });
 
+  it('cada llamarada del dragón dura 3 segundos', () => {
+    const g = newGame(9, 10); g.crateT = 1e9; g.vamps = []; g.player.inv = 1e9;
+    const d = makeVamp(g, 'dragon', { x: 14, y: GROUND_Y + 4, state: 'breath', t: 0, face: -1 }); g.vamps.push(d); g.player.x = 4;
+    run(g, 3.2);
+    expect(d.state).toBe('breath');
+    expect(g.shots.some(s => s.kind === 'flame' && s.t < 0.1)).toBe(true); // todavía sale fuego
+    run(g, 0.6);
+    expect(d.state).not.toBe('breath');
+    newGame(1, 1);
+  });
+
   it('el dragón escupe fuego que saca 15 de vida', () => {
     const g = newGame(9, 10); g.crateT = 1e9; g.vamps = [];
     g.vamps.push(makeVamp(g, 'dragon', { x: 10, y: GROUND_Y + 4, state: 'breath', t: 0, face: -1 }));

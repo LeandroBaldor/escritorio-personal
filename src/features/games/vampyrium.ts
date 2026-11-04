@@ -155,6 +155,7 @@ export function vampBox(v: Vamp): [number, number, number, number] {
 // Los rayos rojos de Drácula: primero marca el lugar (t < ZAP_AT) y después cae el rayo.
 export interface Zap { x: number; y: number; t: number }
 export const ZAP_AT = 0.65;
+export const DRAGON_FIRE_T = 3; // cada llamarada del dragón dura 3 segundos
 export interface Shot { x: number; y: number; vx: number; vy: number; t: number; life: number; kind: 'orb' | 'bat' | 'flame'; dmg: number }
 // Los números que saltan con cada golpe.
 // Lo que cae del cielo para juntar (estrellas doradas, almas) y lo que hay que romper (jaulas, ataúdes).
@@ -886,8 +887,8 @@ function updateDragon(g: Game, v: Vamp, dt: number) {
     }
   } else if (v.state === 'breath') { // fuego por la boca hacia el cazador
     v.vx *= Math.max(0, 1 - dt * 3); v.vy *= Math.max(0, 1 - dt * 3); v.face = dx >= 0 ? 1 : -1;
-    if (v.t > 0.35 && v.t < 1.9 && Math.floor(v.t / 0.05) !== Math.floor((v.t - dt) / 0.05)) shoot(g, v.x + v.face * 1.7, v.y + 1.2, p.x, p.y + 0.9, 11, 'flame', DAMAGE.dragon, 1.1, (r() - 0.5) * 0.25);
-    if (v.t > 2.2) { v.state = 'hover'; v.cool = 1.6 + r(); }
+    if (v.t > 0.35 && v.t < 0.35 + DRAGON_FIRE_T && Math.floor(v.t / 0.05) !== Math.floor((v.t - dt) / 0.05)) shoot(g, v.x + v.face * 1.7, v.y + 1.2, p.x, p.y + 0.9, 11, 'flame', DAMAGE.dragon, 1.1, (r() - 0.5) * 0.25);
+    if (v.t > 0.35 + DRAGON_FIRE_T + 0.3) { v.state = 'hover'; v.cool = 1.6 + r(); } // (cada llamarada dura 3 segundos)
   } else if (v.state === 'dive') { // picada
     if (!v.hit && touching) { v.hit = true; hurt(g, v.x, DAMAGE.dragon); }
     if (v.t > 1.0 || v.y < GROUND_Y + DRAGON_FEET + 0.1) { v.state = 'rise'; v.t = 0; }
