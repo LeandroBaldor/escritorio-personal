@@ -134,7 +134,8 @@ function stance(v: Vamp, t: number, o: { wide?: number; crouch?: number; lean?: 
   if (!v.onGround) return { lean: lean + 0.08, crouch: 0.05, bob: 0, head: 0, feet: [[-0.25, -0.3], [0.2, -0.38]] };
   const idle: [Pt, Pt] = [[-0.22 * wd, 0], [0.26 * wd, 0]], walk: [Pt, Pt] = [[-0.02, 0], [0.04, 0]];
   const feet = [0, 1].map(i => [lerpPt(idle[i], walk[i], g.k)[0] + g.dx[i], -g.lift[i]] as Pt) as [Pt, Pt];
-  return { lean: lean + g.k * 0.07 + g.sway * (o.sway ?? 0.015), crouch: (o.crouch ?? 0.06) + g.k * 0.02 + br * 0.006 * (1 - g.k), bob: g.bob, head: 0.04 + g.k * 0.01, feet, fa: g.fa };
+  return { lean: lean + g.k * 0.015 + g.sway * (o.sway ?? 0.015), // (camina derecho, como la referencia: casi sin inclinarse)
+    crouch: (o.crouch ?? 0.06) * (1 - 0.55 * g.k) + br * 0.006 * (1 - g.k), bob: g.bob, head: 0.04 + g.k * 0.01, feet, fa: g.fa };
 }
 // Los brazos del ataque: suben por arriba de la cabeza y bajan de golpe hacia adelante (un zarpazo de arriba hacia
 // abajo, justo cuando pega); en el aire, los brazos suben de abajo hacia arriba.
@@ -150,7 +151,7 @@ function swipeArms(v: Vamp, base: [Pt, Pt], o: { up?: [Pt, Pt]; hit?: [Pt, Pt]; 
   }
   if (!v.onGround && v.kind !== 'flyer') { const k = ease(Math.min(1, 0.35 + Math.max(0, -v.vy) * 0.08 + (v.vy > 0 ? 1 - Math.min(1, v.vy / 14) : 0.65))); return [lerpPt(base[0], [-0.16, -0.56], k), lerpPt(base[1], [0.26, -0.58], k)]; } // saltando: brazos arriba
   if (o.walk !== false && v.onGround && G?.v === v && G.g.k > 0.01) { // caminando: cada brazo va al revés que su pierna; el que va adelante dobla el codo (la mano sube), el de atrás queda casi derecho
-    const fw = (q: number) => q > 0 ? q * 0.5 : q * 0.08;
+    const fw = (q: number) => q > 0 ? q * 0.16 : -q * 0.05; // (el brazo casi derecho: la mano apenas sube adelante y atrás)
     return [0, 1].map(i => { const a = G!.g.arm[i] * G!.amp; return [base[i][0] + a, base[i][1] - fw(a)] as Pt; }) as [Pt, Pt];
   }
   return base;
@@ -481,7 +482,7 @@ function coatTorso2(ctx: CanvasRenderingContext2D, b: Body, t: number, o: { coat
 
 // ---------------------------------------------------------------- Vampiro (como la lámina)
 function drawWalker2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
-  const st = stance(v, t, { lean: 0.02, crouch: 0.13, wide: 1.55, S: 0.82, lift: 0.17, bob: 0.035, arm: 0.34 }), br = Math.sin(t * 2.4 + v.id) * 0.02; // (caminata ágil)
+  const st = stance(v, t, { lean: 0.02, crouch: 0.13, wide: 1.55, S: 0.95, lift: 0.12, bob: 0.03, arm: 0.3 }), br = Math.sin(t * 2.4 + v.id) * 0.02; // (caminata ágil)
   const up = v.state === 'claw' ? 1 : 0;
   const r: Pose2 = { ...st, hands: swipeArms(v, [[-0.24, 0.56 + br], [0.3, 0.54 - br]]) }, b = solve2(r, { ...HUMAN, shW: 0.2 });
   shadowOn(ctx, v, 0.6);
@@ -615,11 +616,11 @@ function drawFlyer2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
 // ---------------------------------------------------------------- Vampiro gigante
 function drawGiant2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   // pasos largos, lentos y pesados (el cuerpo baja más al apoyar y el torso se hamaca más), con el ciclo de 8 fases
-  const st = stance(v, t, { lean: 0.06, crouch: 0.12, wide: 1.05, S: 0.74, lift: 0.19, bob: 0.07, scale: 1.22, sway: 0.045 }), br = Math.sin(t * 2.4 + v.id) * 0.02, sk = '#a29eae';
+  const st = stance(v, t, { lean: 0.06, crouch: 0.12, wide: 1.05, S: 0.86, lift: 0.14, bob: 0.06, scale: 1.22, sway: 0.045 }), br = Math.sin(t * 2.4 + v.id) * 0.02, sk = '#a29eae';
   let hands: [Pt, Pt] = [[0.02, 0.6 + br], [0.14, 0.58 - br]];
   if (G?.v === v && G.g.k > 0.01 && v.onGround) { // los brazos al revés que las piernas: el que va adelante dobla el codo; el de atrás casi derecho
     const a = G.g.arm, k = G.g.k;
-    const arms: [number, number][] = [0, 1].map(i => [0.36 * a[i], 0.28 + Math.max(0, a[i]) * 0.3] as [number, number]);
+    const arms: [number, number][] = [0, 1].map(i => [0.38 * a[i], 0.15 + Math.max(0, a[i]) * 0.18] as [number, number]); // (casi derechos, colgando)
     const walkH = arms.map(([ua, eb]) => add(add([0, 0], dirv(ua), BRUTE.upper), dirv(ua + eb), BRUTE.fore)) as [Pt, Pt];
     hands = [lerpPt(hands[0], walkH[0], k), lerpPt(hands[1], walkH[1], k)];
   }
@@ -672,7 +673,7 @@ function drawGiant2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
 // ---------------------------------------------------------------- Vampiro mago
 function drawMage2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const cast = v.state === 'cast' || v.state === 'claw' ? Math.min(1, v.t / 0.4) : 0, br = Math.sin(t * 2 + v.id);
-  const st = stance(v, t, { lean: 0.03, crouch: 0.05, wide: 1.0, S: 0.52, lift: 0.09, bob: 0.016, arm: 0.22, sway: 0.008 }), sa = (G?.v === v ? G.g.arm[1] : 0) * 0.035; // (pasos cortos y suaves)
+  const st = stance(v, t, { lean: 0.03, crouch: 0.05, wide: 1.0, S: 0.6, lift: 0.09, bob: 0.016, arm: 0.22, sway: 0.008 }), sa = (G?.v === v ? G.g.arm[1] : 0) * 0.035; // (pasos cortos y suaves)
   const r: Pose2 = { ...st, hands: [swipeArms(v, [[-0.22, 0.54 + br * 0.01], [0, 0]])[0], [0.3 + cast * 0.18 + sa, 0.32 - cast * 0.32 - Math.abs(sa) * 0.3]] }, b = solve2(r, { ...HUMAN, shW: 0.19 }); // el brazo izquierdo cuelga; al atacar apunta el báculo
   shadowOn(ctx, v, 0.6);
   cape2(ctx, b, t + v.id, { len: 1.32, flare: 1.15, collar: false });
@@ -753,7 +754,7 @@ function drawHammer2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   // El martillo: lo lleva en alto apoyado en el hombro; para atacar lo sube bien atrás por arriba de la cabeza
   // (el cuerpo se tira para atrás), lo baja de golpe contra el piso (el cuerpo se dobla para adelante) y se queda
   // un instante con el martillo clavado antes de volver a levantarlo.
-  const st0 = stance(v, t, { lean: 0.04, crouch: 0.15, wide: 1.5, S: 0.7, lift: 0.14, bob: 0.055, sway: 0.03 }), br = Math.sin(t * 2.2 + v.id) * 0.03, air = v.onGround ? 0 : 1;
+  const st0 = stance(v, t, { lean: 0.04, crouch: 0.15, wide: 1.5, S: 0.8, lift: 0.12, bob: 0.05, sway: 0.03 }), br = Math.sin(t * 2.2 + v.id) * 0.03, air = v.onGround ? 0 : 1;
   const hipY = -(HUMAN.thigh + HUMAN.shin) * (1 - st0.crouch), walk = (G?.v === v ? G.g.arm[1] : 0) * 0.07; // (el martillo se hamaca con el paso)
   const idle = { ang: 2.75 + br + walk - air * 0.2, g: [0.14, hipY - 0.36 - air * 0.2] as Pt, lean: st0.lean, crouch: st0.crouch };
   const back = { ang: Math.PI + 0.75, g: [-0.12, hipY - 0.92] as Pt, lean: -0.3, crouch: 0.02 };
@@ -803,7 +804,7 @@ function shield2(ctx: CanvasRenderingContext2D, c: Pt, tilt: number) {
   ctx.restore();
 }
 function drawWarrior2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
-  const st = stance(v, t, { lean: 0.03, crouch: 0.15, wide: 1.55, S: 0.68, lift: 0.13, bob: 0.03, sway: 0.012 }), br = Math.sin(t * 2.4 + v.id) * 0.02, sa = (G?.v === v ? G.g.arm[1] : 0) * 0.045; // (caminata defensiva)
+  const st = stance(v, t, { lean: 0.03, crouch: 0.15, wide: 1.55, S: 0.8, lift: 0.12, bob: 0.03, sway: 0.012 }), br = Math.sin(t * 2.4 + v.id) * 0.02, sa = (G?.v === v ? G.g.arm[1] : 0) * 0.045; // (caminata defensiva)
   const slash = v.state === 'claw' ? (v.t < 0.25 ? v.t / 0.25 : Math.max(0, 1 - (v.t - 0.25) * 4)) : 0;
   const air = v.onGround ? 0 : 1;
   const r: Pose2 = { ...st, hands: [[-0.14 + air * 0.06, 0.4 + br - air * 0.45], [0.44 + slash * 0.1 + sa, 0.28 - slash * 0.5 - air * 0.55 - Math.abs(sa) * 0.3]] }, b = solve2(r, { ...HUMAN, shW: 0.21 });
@@ -914,7 +915,7 @@ function wolfPaw(ctx: CanvasRenderingContext2D, p: Pt, back: boolean, skin = WSK
 const DSKIN = '#c2acdb'; // la piel de Drácula: pálida, apenas violeta
 function drawDracula2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   if (v.state === 'mist') { const k = v.t < 0.75 ? v.t / 0.75 : Math.max(0, 1 - (v.t - 0.75) / 0.4); ctx.save(); ctx.globalAlpha = Math.max(0, 1 - k * 1.3); drawDracula2(ctx, { ...v, state: 'walk' }, t); ctx.restore(); return; }
-  const st = stance(v, t, { lean: 0.0, crouch: 0.04, wide: 0.95, S: 0.78, lift: 0.12, bob: 0.02, arm: 0.2, sway: 0.008 }), br = Math.sin(t * 2.2 + v.id) * 0.015;
+  const st = stance(v, t, { lean: 0.0, crouch: 0.04, wide: 0.95, S: 0.95, lift: 0.11, bob: 0.02, arm: 0.24, sway: 0.008 }), br = Math.sin(t * 2.2 + v.id) * 0.015;
   let hands: [Pt, Pt] = [[-0.22, 0.55 + br], [0.28, 0.55 - br]];
   if (v.state === 'cast') { const k = Math.min(1, v.t / 0.5); hands = [[-0.35, 0.1 - 0.4 * k], [0.4, -0.2 - 0.3 * k]]; }
   if (v.state === 'zap') { const k = ease(v.t / 0.35); hands = [lerpPt(hands[0], [-0.12, -0.72], k), lerpPt(hands[1], [0.2, -0.76], k)]; st.lean = -0.12 * k; } // los brazos bien arriba: llama a los rayos
