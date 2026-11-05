@@ -9,6 +9,7 @@
 //  · El vampiro volador: igual, con el pelo en punta, la boca abierta y dos alas de murciélago enormes.
 import { alpha, bloom, darken, lighten, segment, shade, spec } from './gravityMonsters';
 import type { Game, Player, Vamp, Weapon } from './vampyrium';
+import { gait, legAngles } from './vampyriumGait';
 import { drawBloodSword, drawBoneHammer, drawCrossbow, drawFirePistol, drawFireSword, drawGarlicBomb, drawHolyCross, drawIceCrystal, drawVenomBall } from './vampyriumWeapons';
 
 export const TAU = Math.PI * 2;
@@ -44,7 +45,7 @@ export const VAMP: Look = { armor: '#1c1820', dark: '#0f0c12', trim: '#d01624', 
 const ARMOR_W: Weapon[] = ['ice', 'holy', 'venom', 'violet', 'bone'];
 const AIM_W: Weapon[] = ['crossbow', 'pistol', 'ice', 'venom'], CROSS_W: Weapon[] = ['cross', 'holy'], SLASH_W: Weapon[] = ['sword', 'firesword', 'violet', 'bone'];
 function hunterPose(p: Player, t: number, held: Weapon): Pose {
-  const s = Math.sin, at = p.attackT, run = p.onGround && Math.abs(p.vx) > 0.6;
+  const s = Math.sin, at = p.attackT, run = p.onGround && Math.abs(p.vx) > 0.15;
   if (p.hurtT > 0) { const w = t * 30; return { bob: 0, lean: -0.35 + s(w) * 0.06, crouch: 0.1, head: -0.3, legs: [[-0.45, 0.5], [0.25, 0.7]], arms: [[-0.6, 0.9], [-0.9, 0.8]], blade: 0.6 }; }
   if (at >= 0) {
     if (AIM_W.includes(p.attackWeapon)) { // el disparo: retroceso
@@ -71,11 +72,17 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
     }
     return { bob: 0, lean: 0.1, crouch: 0, head: 0.05, legs: [[-0.45, 0.6], [0.5, 0.9]], arms: armsFor([[-1.2, 0.4], [1.6, 0.7]]), blade: bladeFor(0.9) };
   }
-  if (run) {
-    const w = p.walkT * 5.4;
-    return { bob: Math.abs(s(w)) * 0.06, lean: 0.2, crouch: 0, head: 0.05,
-      legs: [[-0.75 * s(w), 0.3 + 1.1 * Math.max(0, -Math.cos(w))], [0.75 * s(w), 0.3 + 1.1 * Math.max(0, Math.cos(w))]],
-      arms: armsFor([[0.9 * s(w), 1.4], [-0.6 * s(w) + 0.3, 1.5]]), blade: bladeFor(1.0) };
+  if (run) { // corre con el ciclo de 8 fases (con un instante en el aire entre paso y paso): el pie apoyado va para atrás
+    // con el piso (no patina), el otro pasa adelante subiendo la rodilla; los brazos al revés que las piernas
+    const g = gait(p.walkT * 7 / 2.4, Math.abs(p.vx), { S: 0.86, H: 0.26, K: 0.88, bob: 0.05, beta: 0.34, walkAt: 2.2 }), k = g.k;
+    const hipY = -0.7 + g.bob, legs = [0, 1].map(i => {
+      const hp: Pt = [i === 0 ? -0.11 : 0.11, hipY], foot: Pt = [hp[0] + 0.04 + g.dx[i], (i === 0 ? -0.03 : 0) - g.lift[i]];
+      const [ta, kb] = legAngles(hp, foot, 0.36, 0.35), idle = i === 0 ? [-0.45, 0.55] : [0.42, 0.6];
+      return [idle[0] + (ta - idle[0]) * k, idle[1] + (kb - idle[1]) * k] as [number, number];
+    });
+    const br = s(t * 3.2) * (1 - k);
+    return { bob: g.bob + br * 0.025, lean: 0.06 + k * (0.12 + g.sway * 0.02), crouch: 0.08 * (1 - k), head: 0.05,
+      legs, arms: armsFor([[-0.1 + (0.95 * g.arm[0] + 0.1) * k, 1.25 + 0.15 * k], [0.15 + (0.6 * g.arm[1] + 0.15) * k, 1.5]]), blade: bladeFor(1.45 - 0.45 * k) };
   }
   const br = s(t * 3.2); // guardia: el puño con la espada adelante, la hoja para arriba (como la cruz de la referencia)
   return { bob: br * 0.025, lean: 0.06, crouch: 0.08 + br * 0.02, head: 0.05, legs: [[-0.45, 0.55], [0.42, 0.6]], arms: armsFor([[-0.1 + br * 0.03, 1.25], [0.15 - br * 0.03, 1.5]]), blade: bladeFor(1.45) };

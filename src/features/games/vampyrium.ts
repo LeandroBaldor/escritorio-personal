@@ -1167,9 +1167,9 @@ export function step(g: Game, input: Input, dt: number) {
   if (g.phase === 'dead') { if (g.phaseT > 1.6) { g.phase = 'over'; emit(g, { type: 'over' }); } updateRemains(g, dt); return; }
   if (g.phase === 'over' || g.phase === 'won') return;
   if (g.phase === 'cleared') { // la reja ya subió: Demian camina hasta el medio de la puerta y entra (la reja baja detrás)
-    updateRemains(g, dt); p.face = 1; p.vx = 0;
+    updateRemains(g, dt); p.face = 1;
     const mid = (DOOR.x1 + DOOR.x2) / 2;
-    if (p.x < mid) { p.x = Math.min(mid, p.x + dt * 2.6); p.walkT += dt * 2.4; }
+    if (p.x < mid) { p.x = Math.min(mid, p.x + dt * 2.6); p.walkT += dt * 2.6 * 2.4 / SPEED; p.vx = 2.6; } else p.vx = 0; // (vx: para que se vea caminando, con el paso a la velocidad del piso)
     updateCamera(g, dt);
       if (g.phaseT > 2.6) { g.phase = 'won'; emit(g, { type: 'won' }); }
     return;
