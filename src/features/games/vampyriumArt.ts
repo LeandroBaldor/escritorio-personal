@@ -3,8 +3,8 @@
 // Football); acá el escenario, las trampas, las cajas, los huesos, la sangre y las chispas.
 import { bodyFire, drawHunterK, drawSkeletonK, sword } from './vampyriumChars';
 import { drawShotK, drawVampK } from './vampyriumMonsters';
-import { setVampTexture } from './vampyriumVamps';
-import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, CAM_MAX, WORLD_H, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, hasDoor, ZAP_AT, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Orb, type Shard, MELT_T, PUDDLE_T, DUST_T, FREEZE_T, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyrium';
+import { drawDragonDeathK, setVampTexture } from './vampyriumVamps';
+import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, CAM_MAX, WORLD_H, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, hasDoor, ZAP_AT, DD_BLAST, DD_BURN, DD_END, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Orb, type Shard, MELT_T, PUDDLE_T, DUST_T, FREEZE_T, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyrium';
 import { drawBolt, drawGarlicBomb, drawIceCrystal, drawVenomBall, drawWeaponIcon } from './vampyriumWeapons';
 
 const TAU = Math.PI * 2;
@@ -1035,6 +1035,13 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   for (const b of g.bones) drawBone(ctx, b, v);
   for (const c of g.corpses) drawCorpse(ctx, c, v, t, g);
   // vampiros
+  if (g.dragonDeath && g.dragonDeath.t < DD_BLAST) { // el dragón muriendo: quieto, se quema hasta los huesos (el fuego, encima)
+    const d = g.dragonDeath, k = CHAR_K * v.s * BODY.dragon.k, burn = Math.max(0, Math.min(1, (d.t - DD_BURN) / 0.7));
+    ctx.save(); ctx.translate(X(v, d.x), Y(v, d.y)); ctx.scale(k * d.face, k);
+    drawDragonDeathK(ctx, d, t, burn > 0 ? () => { for (const [i, [fx, fy, fs]] of ([[-0.9, -0.2, 1], [-0.1, -0.35, 1.1], [0.7, -0.2, 0.9], [1.3, -0.9, 0.8], [-1.6, -0.4, 0.8], [0.2, -1.4, 0.9], [-0.7, -1.9, 0.7]] as const).entries()) { ctx.save(); ctx.translate(fx, fy + 0.5); ctx.scale(fs, fs); bodyFire(ctx, 0.95, 1.1, Math.min(1, burn * (1.4 - i * 0.06)), t + i * 0.37, 7 + i); ctx.restore(); } } : undefined); // (varias llamas por todo el cuerpo; el esqueleto se ve encima)
+    ctx.restore();
+    if (d.t > DD_BLAST - 0.25) { const q = (d.t - DD_BLAST + 0.25) / 0.25; ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, X(v, d.x), Y(v, d.y + 0.2), v.s * 4 * q, `rgba(255,200,120,${q})`); ctx.restore(); } // a punto de explotar
+  }
   for (const vp of g.vamps) {
     const k = CHAR_K * v.s * BODY[vp.kind].k; // (BODY.k ya incluye que los vampiros son más grandes)
     if (vp.frozen) frozenVamp(ctx, vp, v, t, k, vp.frozen);
@@ -1120,6 +1127,27 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   const vg = ctx.createRadialGradient(w / 2, h * 0.5, Math.min(w, h) * 0.4, w / 2, h * 0.5, Math.max(w, h) * 0.75);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
   if (g.phase === 'dead') { ctx.fillStyle = `rgba(120,0,10,${Math.min(0.5, g.phaseT * 0.4)})`; ctx.fillRect(0, 0, w, h); }
+  if (g.dragonDeath && g.dragonDeath.t >= DD_BLAST) screenBlood(ctx, w, h, g.dragonDeath.t - DD_BLAST, DD_END - DD_BLAST);
+  ctx.restore();
+}
+// La sangre que salpica la pantalla cuando explota el dragón: manchas que aparecen de golpe, con gotitas alrededor y
+// chorreaduras que bajan despacio; al final se van apagando.
+function screenBlood(ctx: CanvasRenderingContext2D, w: number, h: number, k: number, life: number) {
+  const fade = Math.max(0, Math.min(1, (life - k) / 1.2)), u = Math.min(w, h), N = 20;
+  ctx.save(); ctx.globalAlpha = fade;
+  for (let i = 0; i < 26; i++) {
+    const at = hash(i * 7.7) * 0.25; if (k < at) continue;
+    const pop = Math.min(1, (k - at) / 0.08), x = hash(i * 3.1) * w, y = hash(i * 5.3 + 1) * h * 0.92, r = u * (0.03 + hash(i * 9.7) * 0.07) * pop;
+    const c = `rgba(${120 + Math.floor(hash(i) * 50)},0,${8 + Math.floor(hash(i * 2) * 12)},0.9)`;
+    ctx.fillStyle = c; ctx.beginPath();
+    const pts: [number, number][] = []; for (let a = 0; a < N; a++) { const ang = a / N * TAU, rr = r * (0.8 + 0.35 * hash(i * 13 + a) * (a % 3 === 0 ? 1.6 : 0.6)); pts.push([x + Math.cos(ang) * rr, y + Math.sin(ang) * rr]); }
+    for (let a = 0; a <= N; a++) { const m0 = pts[a % N], m1 = pts[(a + 1) % N], mx = (m0[0] + m1[0]) / 2, my = (m0[1] + m1[1]) / 2; if (a) ctx.quadraticCurveTo(m0[0], m0[1], mx, my); else ctx.moveTo(mx, my); } // (borde redondeado)
+    for (let a = 0; a < 0; a++) { const ang = 0, rr = 0; const px = x + Math.cos(ang) * rr, py = y + Math.sin(ang) * rr; if (a) ctx.lineTo(px, py); else ctx.moveTo(px, py); }
+    ctx.closePath(); ctx.fill();
+    for (let j = 0; j < 7; j++) { const ang = hash(i * 17 + j) * TAU, dd = r * (1.2 + hash(i * 19 + j) * 1.3); ctx.beginPath(); ctx.arc(x + Math.cos(ang) * dd, y + Math.sin(ang) * dd, r * (0.08 + hash(j + i) * 0.14), 0, TAU); ctx.fill(); } // gotitas
+    for (let j = 0; j < 2; j++) { const dx = x + (hash(i * 23 + j) - 0.5) * r, len = Math.min(r * 4, (k - at) * u * 0.05 * (0.5 + hash(i * 29 + j))), ww = r * 0.18; ctx.fillRect(dx - ww / 2, y, ww, len); ctx.beginPath(); ctx.arc(dx, y + len, ww * 0.8, 0, TAU); ctx.fill(); } // chorrea
+    ctx.fillStyle = 'rgba(255,190,190,0.25)'; ctx.beginPath(); ctx.ellipse(x - r * 0.3, y - r * 0.35, r * 0.25, r * 0.12, -0.5, 0, TAU); ctx.fill(); // el brillo
+  }
   ctx.restore();
 }
 // Para el cartel de las armas: el cazador o un vampiro sueltos en un lienzo (pies en x, y; size = píxeles por metro).

@@ -1537,6 +1537,7 @@ export function playVampStep() { vampStepN = 1 - vampStepN; if (!vampOnce(`paso-
 export function playVampVoice(volume = 0.6) { vampOnce('voz', volume, 0.45, 0.88 + Math.random() * 0.24); }
 export function playVampDeep(rate = 0.7, volume = 0.75) { vampOnce('voz', volume, 0.3, rate); } // voz grave (gigante, hombre lobo, Drácula)
 export function playVampHammer() { if (!vampOnce('martillo', 1, 0.1, 0.95 + Math.random() * 0.1)) playExplosion(); } // el martillo contra el piso
+export function playVampDraculaBlast() { vampOnce('explosion-dracula', 1, 0.3); } // el dragón explota
 export function playVampPunch() { vampOnce('golpe-persona', 1, 0.1); } // el golpe de Drácula que tira al cazador por el aire
 export function playVampStaff() { vampOnce('baculo', 0.8, 0.25, 0.95 + Math.random() * 0.1); } // el báculo del mago
 export function playVampFlame() { vampOnce('lanzallamas', 0.85, 0.3); } // el fuego del dragón

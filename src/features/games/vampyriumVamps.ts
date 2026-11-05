@@ -6,7 +6,7 @@
 // La luz principal viene de arriba a la izquierda (la luna) y una luz roja por detrás (el fuego del castillo).
 import { darken, grain, lighten } from './gravityMonsters';
 import { vampEye } from './vampyriumChars';
-import { ATTACK, BODY, DRAGON_FIRE_T, type Vamp } from './vampyrium';
+import { ATTACK, BODY, DD_BLAST, DD_BONES, DD_BURN, DRAGON_FIRE_T, type DragonDeath, type Vamp } from './vampyrium';
 import { gait, type Gait } from './vampyriumGait';
 import dragonUrl from './assets/vampyrium/dragon.webp';
 import dragonShutUrl from './assets/vampyrium/dragon-cerrado.webp';
@@ -1132,6 +1132,56 @@ function dragonPauldron(ctx: CanvasRenderingContext2D, c: Pt, flap: number) {
     for (const k of [-0.55, 0, 0.55]) { ctx.fillStyle = '#ffe9a8'; ctx.strokeStyle = INK; ctx.lineWidth = 0.01; ctx.beginPath(); ctx.arc(x + rx * k, y - ry * (0.55 - Math.abs(k) * 0.35), 0.022, 0, TAU); ctx.fill(); ctx.stroke(); } // remaches
   }
   ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.ellipse(-0.1, -0.11, 0.09, 0.03, -0.25, 0, TAU); ctx.fill(); // el brillo
+  ctx.restore();
+}
+// ---------------------------------------------------------------- La muerte del dragón
+// El esqueleto del dragón (en el lugar de la imagen): calavera con cuernos, cuello y columna con vértebras, costillas,
+// las patas, la cola y los huesos de las alas. Los ojos arden mientras se quema.
+function dragonSkeleton(ctx: CanvasRenderingContext2D, t: number, eyes: number) {
+  const BN = '#ecdfc4', BD = '#b8a47e', w = 0.075;
+  const bone = (pts: [number, number][], ww = w) => { const P = pts.map(([x, y]) => DP(x, y));
+    for (const [lw, c] of [[ww + 0.035, INK], [ww, BN]] as const) { ctx.strokeStyle = c; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); P.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke(); }
+    for (const p of P) { ctx.fillStyle = BN; ctx.strokeStyle = INK; ctx.lineWidth = 0.02; ctx.beginPath(); ctx.arc(p[0], p[1], ww * 0.75, 0, TAU); ctx.fill(); ctx.stroke(); } }; // (las articulaciones)
+  const knobs = (pts: [number, number][], n: number, r: number) => { for (let i = 0; i < pts.length - 1; i++) for (let k = 0; k < n; k++) { const a = DP(...pts[i]), b2 = DP(...pts[i + 1]), q = k / n, x = a[0] + (b2[0] - a[0]) * q, y = a[1] + (b2[1] - a[1]) * q, rr = r * (1 - i / pts.length * 0.6);
+    ctx.fillStyle = BN; ctx.strokeStyle = INK; ctx.lineWidth = 0.018; ctx.beginPath(); ctx.ellipse(x, y, rr, rr * 0.8, 0, 0, TAU); ctx.fill(); ctx.stroke(); ctx.fillStyle = BD; ctx.beginPath(); ctx.arc(x, y - rr * 0.6, rr * 0.35, 0, TAU); ctx.fill(); } };
+  // el ala (los huesos largos con los dedos)
+  for (const [ox, sc, a] of [[0.35, 0.9, 0.15], [0, 1, 0]] as const) { const r0 = DP(705, 392); ctx.save(); ctx.translate(r0[0] + ox, r0[1]); ctx.rotate(a); ctx.scale(sc, sc); ctx.globalAlpha *= ox ? 0.75 : 1;
+    const el: Pt = [0.35, -1.0], wr: Pt = [-0.05, -2.2]; for (const seg of [[[0, 0], el], [el, wr]] as Pt[][]) { for (const [lw, c] of [[0.11, INK], [0.075, BN]] as const) { ctx.strokeStyle = c; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(...seg[0]); ctx.lineTo(...seg[1]); ctx.stroke(); } }
+    for (const tp of [[-1.4, -2.6], [-2.2, -1.7], [-2.35, -0.6], [-1.6, 0.1]] as Pt[]) for (const [lw, c] of [[0.07, INK], [0.042, BN]] as const) { ctx.strokeStyle = c; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(...wr); ctx.lineTo(...tp); ctx.stroke(); }
+    ctx.restore(); }
+  bone([[950, 620], [860, 800], [790, 930], [740, 980]], 0.07); // la pata de atrás del otro lado
+  bone([[520, 470], [400, 440], [260, 470]], 0.065); // el brazo de adelante del otro lado
+  // la cola, la columna y el cuello con vértebras
+  const spine: [number, number][] = [[400, 330], [520, 400], [650, 460], [820, 440], [1000, 470], [1150, 560], [1300, 560], [1420, 450], [1450, 300], [1370, 150], [1260, 90]];
+  bone(spine, 0.05); knobs(spine, 3, 0.07);
+  for (let i = 0; i < 7; i++) { const x = 700 + i * 48, top = 448 - Math.sin(i / 6 * Math.PI) * 12, len = 150 + Math.sin(i / 6 * Math.PI) * 60; // las costillas
+    const a = DP(x, top), c = DP(x - 50, top + len * 0.6), b2 = DP(x - 10, top + len); for (const [lw, col] of [[0.075, INK], [0.045, BN]] as const) { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(...a); ctx.quadraticCurveTo(...c, ...b2); ctx.stroke(); } }
+  bone([[1060, 520], [1110, 600], [1000, 610]], 0.08); // la cadera
+  bone([[760, 470], [650, 620], [560, 720], [470, 700]]); // la pata de adelante
+  bone([[1060, 590], [1150, 760], [1100, 880], [1160, 975]]); // la pata de atrás
+  for (const [x, y] of [[470, 700], [1160, 975], [740, 980], [260, 470]] as [number, number][]) for (let k = -1; k <= 1; k++) { const p0 = DP(x, y), tip = DP(x - 40 + k * 25, y + 45); ctx.strokeStyle = INK; ctx.lineWidth = 0.05; ctx.beginPath(); ctx.moveTo(...p0); ctx.lineTo(...tip); ctx.stroke(); ctx.strokeStyle = BN; ctx.lineWidth = 0.028; ctx.stroke(); } // las garras
+  { const tip = DP(1260, 90), sp = DP(1180, 40); ctx.fillStyle = BN; ctx.strokeStyle = INK; ctx.lineWidth = 0.025; ctx.beginPath(); ctx.moveTo(...tip); ctx.lineTo(...sp); ctx.lineTo(...DP(1290, 150)); ctx.closePath(); ctx.fill(); ctx.stroke(); } // la punta de la cola
+  // la calavera: larga, con los cuernos, la mandíbula con dientes y el agujero del ojo
+  const sk: [number, number][] = [[230, 300], [270, 255], [340, 215], [420, 225], [470, 280], [450, 340], [360, 330], [260, 320]];
+  ctx.beginPath(); sk.map(([x, y]) => DP(x, y)).forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath();
+  ctx.fillStyle = BN; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 0.03; ctx.stroke();
+  for (const hn of [[[400, 220], [430, 120], [520, 40], [470, 140], [440, 230]], [[350, 215], [360, 140], [420, 70], [395, 150], [380, 220]]] as [number, number][][]) { ctx.beginPath(); hn.map(([x, y]) => DP(x, y)).forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fillStyle = BD; ctx.fill(); ctx.stroke(); } // cuernos
+  ctx.beginPath(); [[260, 330], [360, 345], [440, 360], [420, 400], [300, 380], [240, 340]].map(([x, y]) => DP(x, y)).forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fillStyle = BN; ctx.fill(); ctx.stroke(); // la mandíbula
+  ctx.fillStyle = '#fff8e8'; for (let k = 0; k < 6; k++) { const a = DP(255 + k * 30, 322), b2 = DP(265 + k * 30, 352); ctx.beginPath(); ctx.moveTo(a[0] - 0.02, a[1]); ctx.lineTo(b2[0], b2[1]); ctx.lineTo(a[0] + 0.02, a[1]); ctx.closePath(); ctx.fill(); ctx.stroke(); } // dientes
+  const ey = DP(395, 262); ctx.fillStyle = '#140608'; ctx.beginPath(); ctx.ellipse(ey[0], ey[1], 0.09, 0.06, 0.2, 0, TAU); ctx.fill();
+  if (eyes > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, ey[0], ey[1], 0.22, '#ff5a1a', eyes * (0.7 + 0.3 * Math.sin(t * 20))); ctx.restore(); }
+  const ns = DP(250, 275); ctx.fillStyle = '#140608'; ctx.beginPath(); ctx.ellipse(ns[0], ns[1], 0.035, 0.022, 0, 0, TAU); ctx.fill();
+}
+// El dragón muriendo (sin el fuego, que se dibuja encima): quieto, la carne se va oscureciendo y apagando y aparece el
+// esqueleto; tiembla cada vez más hasta que explota.
+export function drawDragonDeathK(ctx: CanvasRenderingContext2D, d: DragonDeath, t: number, fire?: () => void) {
+  if (d.t >= DD_BLAST) return;
+  const sk = Math.max(0, Math.min(1, (d.t - DD_BURN) / (DD_BONES - DD_BURN))), shake = sk * 0.06 * Math.sin(t * 80);
+  const fake = { id: 1, kind: 'dragon', x: 0, y: 0, vx: 0, vy: 0, face: 1, state: 'hover', t: 0, onGround: false, surface: null, walkT: d.walkT, cool: 0, speed: 0, jumpT: 0, dropT: 0, hit: false, flash: d.t < 0.15 ? 1 : 0 } as Vamp;
+  ctx.save(); ctx.translate(shake, 0);
+  ctx.save(); ctx.globalAlpha = Math.max(0, 1 - sk * 0.88); ctx.filter = sk > 0 ? `brightness(${1 - sk * 0.65}) saturate(${1 - sk * 0.5})` : 'none'; drawDragon2(ctx, fake, 0); ctx.restore(); // (la carne se quema)
+  fire?.();
+  if (sk > 0) { ctx.save(); ctx.globalAlpha = sk; dragonSkeleton(ctx, t, sk); ctx.restore(); }
   ctx.restore();
 }
 const lin2 = (ctx: CanvasRenderingContext2D, y0: number, y1: number, a: string, b: string) => { const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, a); g.addColorStop(1, b); return g; };

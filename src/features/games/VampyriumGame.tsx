@@ -16,7 +16,7 @@ const fondoOf = (bg: string) => FONDOS[`./assets/vampyrium/${bg}.webp`];
 import {
   playGameOver, playKfPickup, playThunder, playVampBell, playVampBones, playVampCombo, playVampCrate, playVampDeath, playVampDive,
   playVampFall, playVampHurt, playVampMenu, playVampSpikes, playVampStakeHit, playVampSwing, playVampTrapFire, playVampPendulum, playVampThrow, playDoor,
-  playWinFanfare, playVampButton, playVampMenuButton, setVampMenuMusic, playVampCrossbow, playVampGarlicBomb, playVampPistol, playVampDeep, playVampHammer, playVampStaff, playVampPunch, setVampAmbient, setVampWings, preloadVampSounds, playVampStep, playVampVoice, playVampCross, playVampSword, playVampJumpSound, playVampBurn, playVampExplosion, setVampDragon,
+  playWinFanfare, playVampButton, playVampMenuButton, setVampMenuMusic, playVampCrossbow, playVampGarlicBomb, playVampPistol, playVampDeep, playVampHammer, playVampStaff, playVampPunch, playVampDraculaBlast, setVampAmbient, setVampWings, preloadVampSounds, playVampStep, playVampVoice, playVampCross, playVampSword, playVampJumpSound, playVampBurn, playVampExplosion, setVampDragon,
 } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:vampyrium-record';
@@ -101,6 +101,7 @@ export function Vampyrium() {
   const [hud, setHud] = useState<Hud>(() => hudOf(firstGame));
   const [record, setRecord] = useState(readVampyriumRecord);
   const [result, setResult] = useState({ time: 0, total: 0, walker: 0, flyer: 0, combo: 0, falls: 0, newRecord: false });
+  const [killed, setKilled] = useState(false); // el cartel «¡Mataste a Drácula!»
   const [toast, setToast] = useState<{ text: string; id: number; big?: boolean; bad?: boolean } | null>(null);
   const statusRef = useRef(status);
   const seenRef = useRef(new Set<VampKind>());
@@ -131,7 +132,7 @@ export function Vampyrium() {
   const start = useCallback((n: number) => {
     playVampMenuButton(); playVampBell(0.2); preloadVampSounds(n);
     setLevel(n);
-    gameRef.current = makeGame(undefined, n); seenRef.current = new Set();
+    gameRef.current = makeGame(undefined, n); seenRef.current = new Set(); setKilled(false);
     input.current = { left: false, right: false, up: false, down: false };
     setHud(hudOf(gameRef.current));
     setStatus('intro'); // primero el cartel con los vampiros del nivel y las armas
@@ -191,7 +192,10 @@ export function Vampyrium() {
           case 'spawn': playVampDeep(0.75, 0.6); if (!seenRef.current.has(e.kind)) { seenRef.current.add(e.kind); setToast({ text: SPAWN_TEXT[e.kind] ?? VAMP_NAME[e.kind], id: now, big: true, bad: true }); } break;
           case 'transform': playThunder(1); playVampDeep(0.5, 1); setToast({ text: '🐉 ¡Drácula se convierte en dragón!', id: now, big: true, bad: true }); break;
           case 'dragon': playVampExplosion(); playVampDeep(0.45, 1); break;
-          case 'bossDead': playVampExplosion(); playThunder(1); setToast({ text: '🏆 ¡Venciste a Drácula!', id: now, big: true }); break;
+          case 'bossDead': playVampPunch(); setToast(null); break; // (el último golpe: el escenario se detiene)
+          case 'dragonBurn': playVampBurn(); break;
+          case 'dragonBlast': playVampDraculaBlast(); playVampPunch(); break;
+          case 'dracKilled': setKilled(true); break;
           case 'jump': playVampJumpSound(e.double); break;
           case 'step': playVampStep(); break;
           case 'crate': playVampCrate(); setToast({ text: '📦 ¡Cayó una caja del cielo!', id: now }); break;
@@ -317,6 +321,7 @@ export function Vampyrium() {
         {(status === 'playing' || status === 'paused') && bossKind && <div className={`vamp-boss${bossKind === 'transform' ? ' vamp-boss--transform' : ''}`} aria-label={bossKind === 'transform' ? 'Drácula se transforma' : `${VAMP_NAME[bossKind]}: ${bossHp} de ${BOSS_HP}`}>
           <span>{bossKind === 'transform' ? '🐉 Drácula se transforma…' : `${KIND_ICON[bossKind]} ${VAMP_NAME[bossKind]}`}</span><i><b style={{ width: `${bossHp / BOSS_HP * 100}%` }} /></i><em data-testid="vamp-boss-hp">{bossHp}/{BOSS_HP}</em>
         </div>}
+        {killed && (status === 'playing' || status === 'paused') && <div className="vamp-killed-wrap"><div className="vamp-killed" role="status">¡Mataste a Drácula!</div></div>}
         {status === 'playing' && toast && <div key={toast.id} className={`${toast.big ? 'trepa-record' : 'trepa-toast'}${toast.bad ? ' vamp-bad' : ''}`} role="status">{toast.text}</div>}
         {status === 'playing' && hud.combo >= 2 && <div key={`c${hud.combo}`} className="vamp-combo" aria-live="polite">COMBO ×{hud.combo}</div>}
         {status === 'playing' && hud.hold > 0 && !hud.menu && <div className="vamp-hold" role="status"><span>Mantené para abrir las armas</span><i><b style={{ width: `${hud.hold * 100}%` }} /></i></div>}

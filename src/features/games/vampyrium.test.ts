@@ -385,7 +385,14 @@ describe('Vampyrium: los vampiros de cada nivel y los puntos', () => {
     expect(dragon.hp).toBe(200);
     for (let i = 0; i < 200; i++) hitVamp(g, dragon, 1, 'sword', 0);
     expect(g.vamps.length).toBe(0);
-    run(g, 3.2);
+    expect(g.dragonDeath).toBeTruthy(); // el escenario se detiene: el dragón arde, se le ve el esqueleto y explota
+    const ev = () => takeEvents(g).map(e => e.type);
+    run(g, 3.3);
+    expect(g.phase).toBe('play');
+    const seen = ev();
+    expect(seen).toContain('dragonBurn'); expect(seen).toContain('dragonBlast'); expect(seen).toContain('dracKilled');
+    expect(g.bones.length).toBeGreaterThan(20);
+    run(g, 4);
     expect(g.phase).toBe('won'); // (en el salón del trono no hay puerta: se gana ahí mismo)
     expect(g.door.open).toBe(false);
     newGame(1, 1);
