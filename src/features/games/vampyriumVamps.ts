@@ -422,7 +422,8 @@ function arm2(ctx: CanvasRenderingContext2D, b: Body, i: number, o: { sleeve?: s
 // Capa: negra por fuera con borde dorado, roja por dentro, con el borde de abajo en puntas; el cuello alto rojo.
 function cape2(ctx: CanvasRenderingContext2D, b: Body, t: number, o: { len?: number; flare?: number; outer?: string; inner?: string; collar?: boolean; sway?: number } = {}) {
   const gs = G ? G.g.k * 0.08 + G.g.k * 0.03 * Math.sin(4 * Math.PI * (G.g.p - 0.15)) : 0; // caminando, la capa queda atrás y se hamaca un poco más tarde que el cuerpo
-  const len = o.len ?? 1.2, fl = (o.flare ?? 1) * 0.5 + Math.sin(t * 2) * 0.02 + (o.sway ?? 0) + gs, sl = add(b.sh[0], b.spine, 0.03), sr = add(b.sh[1], b.spine, 0.03), y1 = Math.max(sl[1], sr[1]) + len;
+  const len = o.len ?? 1.2, fl = (o.flare ?? 1) * 0.5 + Math.sin(t * 2) * 0.02 + (o.sway ?? 0) + gs, [s0, s1] = b.sh[0][0] <= b.sh[1][0] ? [b.sh[0], b.sh[1]] : [b.sh[1], b.sh[0]], sl = add(s0, b.spine, 0.03), sr = add(s1, b.spine, 0.03), // (el hombro de atrás y el de adelante, en la pantalla)
+    y1 = Math.max(sl[1], sr[1]) + len;
   const xl = sl[0] - fl, xr = sr[0] + fl * 0.55, n = 6;
   const hem: Pt[] = []; for (let k = 0; k <= n; k++) { const x = xl + (xr - xl) * k / n; hem.push([x, y1 + Math.sin(k / n * Math.PI) * 0.04 + (k % 2 ? -0.07 : 0)]); }
   const inner: (Pt | [number, number, number])[] = [[sl[0], sl[1]], [xl + 0.12, sl[1] + len * 0.45], ...hem.map(p => [p[0], p[1], 1] as [number, number, number]), [xr - 0.08, sr[1] + len * 0.45], [sr[0], sr[1]]];
@@ -484,7 +485,7 @@ function coatTorso2(ctx: CanvasRenderingContext2D, b: Body, t: number, o: { coat
 function drawWalker2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const st = stance(v, t, { lean: 0.02, crouch: 0.13, wide: 1.55, S: 0.95, lift: 0.12, bob: 0.03, arm: 0.3 }), br = Math.sin(t * 2.4 + v.id) * 0.02; // (caminata ágil)
   const up = v.state === 'claw' ? 1 : 0;
-  const r: Pose2 = { ...st, hands: swipeArms(v, [[-0.24, 0.56 + br], [0.3, 0.54 - br]]) }, b = solve2(r, { ...HUMAN, shW: 0.2 });
+  const r: Pose2 = { ...st, hands: swipeArms(v, [[-0.24, 0.56 + br], [0.3, 0.54 - br]]) }, b = solve2(r, { ...HUMAN, shW: -0.2, hipW: -0.12 }); // (como el gigante: el brazo y la pierna del lado de atrás quedan del lado hacia donde va, detrás del cuerpo)
   shadowOn(ctx, v, 0.6);
   cape2(ctx, b, t + v.id, { len: 1.2, flare: 1.1 });
   arm2(ctx, b, 0, { curl: 0.5 }); // el brazo del lado de atrás: pasa por detrás del cuerpo
@@ -674,7 +675,7 @@ function drawGiant2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
 function drawMage2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const cast = v.state === 'cast' || v.state === 'claw' ? Math.min(1, v.t / 0.4) : 0, br = Math.sin(t * 2 + v.id);
   const st = stance(v, t, { lean: 0.03, crouch: 0.05, wide: 1.0, S: 0.6, lift: 0.09, bob: 0.016, arm: 0.22, sway: 0.008 }), sa = (G?.v === v ? G.g.arm[1] : 0) * 0.035; // (pasos cortos y suaves)
-  const r: Pose2 = { ...st, hands: [swipeArms(v, [[-0.22, 0.54 + br * 0.01], [0, 0]])[0], [0.3 + cast * 0.18 + sa, 0.32 - cast * 0.32 - Math.abs(sa) * 0.3]] }, b = solve2(r, { ...HUMAN, shW: 0.19 }); // el brazo izquierdo cuelga; al atacar apunta el báculo
+  const r: Pose2 = { ...st, hands: [swipeArms(v, [[-0.22, 0.54 + br * 0.01], [0, 0]])[0], [0.62 + cast * 0.18 + sa, 0.32 - cast * 0.32 - Math.abs(sa) * 0.3]] }, b = solve2(r, { ...HUMAN, shW: -0.19, hipW: -0.12 }); // el brazo izquierdo cuelga; al atacar apunta el báculo
   shadowOn(ctx, v, 0.6);
   cape2(ctx, b, t + v.id, { len: 1.32, flare: 1.15, collar: false });
   const sleeve = (i: number) => { const el = b.elbow[i], hd = b.hand[i], d = vec(el, hd), n: Pt = [d[1], -d[0]], back = i === 0, col = back ? dk(BLK, true, 0.3) : BLK; tube(ctx, b.sh[i], el, [0.15, 0.15, 0.14], col, { rim: back ? 0 : 1, tex: 0.35, lw: 1.3 });
@@ -928,7 +929,7 @@ function drawDracula2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
     const k = tt < w0 ? mix(idle, up, ease(tt / w0)) : tt < a.at + 0.02 ? mix(up, hit, ((tt - w0) / (a.at + 0.02 - w0)) ** 2) : tt < a.at + 0.14 ? hit : mix(hit, idle, ease((tt - a.at - 0.14) / Math.max(0.1, a.dur - a.at - 0.14)));
     hands = k.h; st.lean = k.lean; st.crouch = k.crouch; st.feet = [[st.feet[0][0] - k.step * 0.3, st.feet[0][1]], [st.feet[1][0] + k.step, st.feet[1][1]]];
   } else if (v.state !== 'cast' && v.state !== 'zap') hands = swipeArms(v, hands);
-  const r: Pose2 = { ...st, hands }, b = solve2(r, { ...HUMAN, spine: 0.64, shW: 0.21 });
+  const r: Pose2 = { ...st, hands }, b = solve2(r, { ...HUMAN, spine: 0.64, shW: -0.21, hipW: -0.12 }); // (como el gigante: el brazo y la pierna del lado de atrás quedan del lado hacia donde va, detrás del cuerpo)
   const CR = '#b0101c';
   shadowOn(ctx, v, 0.6);
   // la capa enorme negra con borde dorado ondeado y forro rojo
