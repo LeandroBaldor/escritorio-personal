@@ -564,10 +564,13 @@ function drawHunterBody(ctx: CanvasRenderingContext2D, p: Player, g: Game, t: nu
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; if (p.onGround) { ctx.beginPath(); ctx.ellipse(0, 0.02, 0.5, 0.08, 0, 0, TAU); ctx.fill(); }
   if (su?.aura) suitAura(ctx, su.aura, t);
   cape(ctx, neck, HUNTER, t, Math.abs(p.vx), p.onGround ? 0 : 1, false);
-  legDraw(ctx, hip, pose, 0, HUNTER);
   const backUp = handOf(hip, pose, 0)[1] < neck[1] + 0.05;
+  // caminando o corriendo, el brazo del lado de atrás pasa por detrás del cuerpo (va al revés que su pierna)
+  const walkArm = p.onGround && Math.abs(p.vx) > 0.15 && p.attackT < 0 && !p.special && !backUp;
+  if (walkArm) armDraw(ctx, hip, pose, 0, HUNTER, 'none');
+  legDraw(ctx, hip, pose, 0, HUNTER);
   ctx.save(); ctx.translate(hip[0], hip[1]); ctx.rotate(pose.lean); hunterTorso(ctx); if (su) suitChest(ctx, su, t); ctx.restore();
-  if (!backUp) armDraw(ctx, hip, pose, 0, HUNTER, 'none'); // el brazo derecho va adelante del pecho (como en Kombat Football), así se ve
+  if (!backUp && !walkArm) armDraw(ctx, hip, pose, 0, HUNTER, 'none'); // el brazo derecho va adelante del pecho (como en Kombat Football), así se ve
   pauldron(ctx, shoulderAt(hip, pose, 0), pose.arms[0][0], true);
   if (su?.shoulder) suitShoulder(ctx, su, shoulderAt(hip, pose, 0), true, t);
   legDraw(ctx, hip, pose, 1, HUNTER);

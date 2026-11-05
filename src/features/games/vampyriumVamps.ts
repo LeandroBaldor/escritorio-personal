@@ -629,20 +629,6 @@ function drawGiant2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   shadowOn(ctx, v, 0.75);
   ctx.save(); ctx.scale(1.22, 1.22); // tan alto como el gigante de antes
   const leg = (i: number) => { leg2(ctx, b, i, '#2a2630', 1.45, true, '#1a171e'); };
-  leg(0); leg(1);
-  ctx.save(); ctx.translate(b.hip[0], b.hip[1]); ctx.rotate(Math.atan2(b.spine[0], -b.spine[1])); ctx.translate(0.07, 0); ctx.scale(BROAD * 0.5, 1); // de perfil (más angosto, con el pecho para adelante)
-  const torso = () => shapePath(ctx, [[-0.25, 0.04], [-0.29, -0.25], [-0.38, -0.56], [-0.25, -0.72], [0.27, -0.72], [0.38, -0.56], [0.3, -0.25], [0.24, 0.04]]);
-  form(ctx, torso, sk, [0, -0.4], 0.55, { tex: 0.4, lw: 1.4 });
-  ctx.save(); ctx.beginPath(); torso(); ctx.clip();
-  ctx.strokeStyle = 'rgba(60,40,80,0.5)'; ctx.lineWidth = 0.018; ctx.beginPath(); for (const sx of [-1, 1]) { ctx.moveTo(0.0, -0.6); ctx.quadraticCurveTo(sx * 0.18, -0.38, sx * 0.33, -0.52); } ctx.moveTo(0, -0.4); ctx.lineTo(0, -0.05); for (const y of [-0.28, -0.17, -0.07]) { ctx.moveTo(-0.12, y); ctx.quadraticCurveTo(0, y + 0.02, 0.12, y); } ctx.stroke();
-  for (const [a, b2] of [[[-0.3, -0.72], [0.3, -0.08]]] as [Pt, Pt][]) { tube(ctx, a, b2, [0.08, 0.08], LEATHER, { rim: 0, ao: 0, tex: 0.5, lw: 1.1 }); }
-  ctx.restore();
-  form(ctx, () => ctx.arc(0.14, -0.42, 0.075, 0, TAU), '#c68f2c', [0.14, -0.42], 0.08, { hi: 0.6, lw: 1.2 }); gem(ctx, 0.14, -0.42, 0.05, t, '#c68f2c'); // (el broche, del lado del pecho que se ve)
-  const loin = () => shapePath(ctx, [[-0.02, 0.0], [0.24, 0.0], [0.17, 0.3, 1], [0.1, 0.24, 1], [0.06, 0.42, 1], [0.0, 0.3, 1], [-0.06, 0.46, 1], [-0.1, 0.28, 1], [-0.16, 0.34, 1]]);
-  form(ctx, loin, RED, [0, 0.2], 0.3, { tex: 0.45, lw: 1.2 }); // el taparrabos rojo roto
-  for (const sx of [-1, 1]) form(ctx, () => shapePath(ctx, [[sx * 0.2, 0.0], [sx * 0.26, 0.0], [sx * 0.3, 0.22, 1], [sx * 0.24, 0.16, 1]]), REDD, [sx * 0.24, 0.1], 0.15, { lw: 1 });
-  belt2(ctx, -0.03, -0.25, 0.25);
-  ctx.restore();
   const arm = (i: number) => { const back = i === 0, c = dk(sk, back, 0.2), el = b.elbow[i], hd = b.hand[i], fd = vec(el, hd), fn: Pt = [fd[1], -fd[0]];
     tube(ctx, b.sh[i], el, [0.22, 0.24, 0.17], c, { bulge: 0.12, rim: back ? 0 : 1, tex: 0.35, lw: 1.3 });
     tube(ctx, el, hd, [0.18, 0.19, 0.15], c, { bulge: 0.1, rim: back ? 0 : 1, tex: 0.35, lw: 1.3 });
@@ -662,7 +648,21 @@ function drawGiant2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
       for (let k = 0; k < 4; k++) { const x = -0.05 + k * 0.033; form(ctx, () => shapePath(ctx, [[x - 0.016, 0.115], [x, 0.19, 1], [x + 0.016, 0.115]]), '#1a171e', [x, 0.14], 0.04, { hi: 0.6, rim: 0, ao: 0, lw: 0.8 }); }
       ctx.restore(); }
   };
-  arm(0);
+  arm(0); // el brazo del lado de atrás: detrás de las piernas y del torso
+  leg(0); leg(1);
+  ctx.save(); ctx.translate(b.hip[0], b.hip[1]); ctx.rotate(Math.atan2(b.spine[0], -b.spine[1])); ctx.translate(0.07, 0); ctx.scale(BROAD * 0.5, 1); // de perfil (más angosto, con el pecho para adelante)
+  const torso = () => shapePath(ctx, [[-0.25, 0.04], [-0.29, -0.25], [-0.38, -0.56], [-0.25, -0.72], [0.27, -0.72], [0.38, -0.56], [0.3, -0.25], [0.24, 0.04]]);
+  form(ctx, torso, sk, [0, -0.4], 0.55, { tex: 0.4, lw: 1.4 });
+  ctx.save(); ctx.beginPath(); torso(); ctx.clip();
+  ctx.strokeStyle = 'rgba(60,40,80,0.5)'; ctx.lineWidth = 0.018; ctx.beginPath(); for (const sx of [-1, 1]) { ctx.moveTo(0.0, -0.6); ctx.quadraticCurveTo(sx * 0.18, -0.38, sx * 0.33, -0.52); } ctx.moveTo(0, -0.4); ctx.lineTo(0, -0.05); for (const y of [-0.28, -0.17, -0.07]) { ctx.moveTo(-0.12, y); ctx.quadraticCurveTo(0, y + 0.02, 0.12, y); } ctx.stroke();
+  for (const [a, b2] of [[[-0.3, -0.72], [0.3, -0.08]]] as [Pt, Pt][]) { tube(ctx, a, b2, [0.08, 0.08], LEATHER, { rim: 0, ao: 0, tex: 0.5, lw: 1.1 }); }
+  ctx.restore();
+  form(ctx, () => ctx.arc(0.14, -0.42, 0.075, 0, TAU), '#c68f2c', [0.14, -0.42], 0.08, { hi: 0.6, lw: 1.2 }); gem(ctx, 0.14, -0.42, 0.05, t, '#c68f2c'); // (el broche, del lado del pecho que se ve)
+  const loin = () => shapePath(ctx, [[-0.02, 0.0], [0.24, 0.0], [0.17, 0.3, 1], [0.1, 0.24, 1], [0.06, 0.42, 1], [0.0, 0.3, 1], [-0.06, 0.46, 1], [-0.1, 0.28, 1], [-0.16, 0.34, 1]]);
+  form(ctx, loin, RED, [0, 0.2], 0.3, { tex: 0.45, lw: 1.2 }); // el taparrabos rojo roto
+  for (const sx of [-1, 1]) form(ctx, () => shapePath(ctx, [[sx * 0.2, 0.0], [sx * 0.26, 0.0], [sx * 0.3, 0.22, 1], [sx * 0.24, 0.16, 1]]), REDD, [sx * 0.24, 0.1], 0.15, { lw: 1 });
+  belt2(ctx, -0.03, -0.25, 0.25);
+  ctx.restore();
   spikedPad(ctx, add(b.sh[0], b.spine, 0.0), 0.85, 3, true);
   arm(1);
   spikedPad(ctx, add(b.sh[1], b.spine, 0.0), 1.0, 3);
