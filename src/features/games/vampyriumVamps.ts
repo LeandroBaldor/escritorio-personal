@@ -581,9 +581,16 @@ function batWing2(ctx: CanvasRenderingContext2D, root: Pt, side: number, flap: n
 }
 function drawFlyer2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const diving = v.state === 'dive', flap = diving ? 0.8 : Math.sin(v.walkT * 9 + v.id), bob = Math.sin(v.walkT * 9 + v.id + 1) * 0.04, kick = Math.sin(v.walkT * 4.5 + v.id) * 0.04;
-  const r: Pose2 = { lean: diving ? 0.55 : 0.3, crouch: 0.12, bob, head: 0, feet: [[-0.5 + kick, -0.02 + bob], [0.18 - kick, -0.32 + bob]], hands: diving ? (v.t < 0.25 ? [[0.0, -0.55], [0.2, -0.58]] : [[0.45, 0.32], [0.6, 0.2]]) as [Pt, Pt] : [[-0.38, 0.38], [0.5, 0.3]] };
+  // al atacar se tira de cabeza a morder: el cuerpo estirado como una flecha, los brazos y las piernas para atrás
+  // (pegados al cuerpo, con un poco de vaivén por el viento) y todo inclinado hacia donde baja
+  const dk2 = diving ? ease(v.t / 0.18) : 0, wob = Math.sin(t * 30 + v.id) * 0.03 * dk2;
+  const hover: Pose2 = { lean: 0.3, crouch: 0.12, bob, head: 0, feet: [[-0.5 + kick, -0.02 + bob], [0.18 - kick, -0.32 + bob]], hands: [[-0.38, 0.38], [0.5, 0.3]] };
+  const dive: Pose2 = { lean: 1.45, crouch: 0.12, bob: 0, head: 0, feet: [[-0.98, -0.62 + wob], [-0.92, -0.78 - wob]], hands: [[-0.6, -0.04 + wob], [-0.56, -0.13 - wob]] };
+  const mixP = (a: Pose2, c: Pose2, k: number): Pose2 => ({ ...a, lean: a.lean + (c.lean - a.lean) * k, bob: a.bob + (c.bob - a.bob) * k, feet: [lerpPt(a.feet[0], c.feet[0], k), lerpPt(a.feet[1], c.feet[1], k)], hands: [lerpPt(a.hands[0], c.hands[0], k), lerpPt(a.hands[1], c.hands[1], k)] });
+  const r = mixP(hover, dive, dk2);
   const b = solve2(r, { ...HUMAN, shW: 0.17 });
   ctx.save(); ctx.translate(0, 0.32); // a la misma altura que el volador de antes
+  if (dk2 > 0) { const a = Math.max(-0.3, Math.min(0.85, Math.atan2(-v.vy, Math.abs(v.vx) || 1e-3))); ctx.translate(0, -0.75); ctx.rotate(a * dk2 - 0.4 * dk2); ctx.translate(0, 0.75); } // apunta hacia donde baja
   const blade = add(b.neck, b.spine, -0.12);
   batWing2(ctx, add(blade, b.side, -0.05), -1, flap, 0.85); batWing2(ctx, add(blade, b.side, 0.08), 1, flap, 0.75);
   const leg = (i: number) => { const back = i === 0, kn = b.knee[i], ft = b.foot[i];
