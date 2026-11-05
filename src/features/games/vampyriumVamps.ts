@@ -606,14 +606,17 @@ function drawGiant2(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const st = stance(v, t, { lean: 0.06, crouch: 0.12, wide: 1.05, lift: 0.2 }), br = Math.sin(t * 2.4 + v.id) * 0.02, sk = '#a29eae';
   // la caminata: la misma que Demian (muslo y canilla con los mismos ángulos, el pie que se levanta y pasa adelante,
   // los brazos que van y vienen al revés que las piernas, el cuerpo que sube y baja), con las medidas del gigante
-  const moving = v.onGround && Math.abs(v.vx) > 0.3, gw = v.walkT * 1.4, sn = Math.sin(gw);
+  const moving = v.onGround && Math.abs(v.vx) > 0.3, gw = v.walkT * 2.5, sn = Math.sin(gw); // (2.5: el pie apoyado va para atrás a la misma velocidad que el piso)
   let hands: [Pt, Pt] = [[0.02, 0.6 + br], [0.14, 0.58 - br]];
   if (moving) {
-    st.bob = Math.abs(sn) * 0.06; st.lean = 0.16; st.crouch = 0.08;
+    st.bob = Math.abs(sn) * 0.07 - 0.02; st.lean = 0.12 + 0.03 * Math.abs(Math.cos(gw)); st.crouch = 0.08; // abajo al apoyar, arriba al pasar la pierna
     const L = BRUTE.thigh + BRUTE.shin, hip: Pt = [0, -L * (1 - st.crouch) + st.bob];
-    const legs: [number, number][] = [[0.6 * sn, 0.15 + 0.85 * Math.max(0, Math.cos(gw))], [-0.6 * sn, 0.15 + 0.85 * Math.max(0, -Math.cos(gw))]]; // (como Demian, un poco más corto; arranca la pierna del lado hacia donde va)
+    // como en los juegos 2D: la pierna que pasa adelante sube la rodilla (el muslo va adelante) y la canilla cuelga;
+    // la pierna apoyada queda casi derecha y empuja para atrás. Así el pie nunca patea para atrás.
+    const leg = (sw: number, c: number): [number, number] => [0.42 * sw + 0.32 * Math.max(0, c), 0.08 + 0.95 * Math.max(0, c) ** 1.2];
+    const legs: [number, number][] = [leg(sn, Math.cos(gw)), leg(-sn, -Math.cos(gw))]; // (como Demian, un poco más corto; arranca la pierna del lado hacia donde va)
     st.feet = legs.map(([ta, kb]) => { const k = add(hip, dirv(ta), BRUTE.thigh), f = add(k, dirv(ta - kb), BRUTE.shin); return [f[0], Math.min(0, f[1])] as Pt; }) as [Pt, Pt];
-    const arms: [number, number][] = [[-0.75 * sn, 0.3 + Math.max(0, -sn) * 0.5], [0.75 * sn, 0.3 + Math.max(0, sn) * 0.5]]; // (al revés que las piernas; el que va adelante dobla el codo)
+    const arms: [number, number][] = [[-0.42 * sn, 0.35 + Math.max(0, -sn) * 0.45], [0.42 * sn, 0.35 + Math.max(0, sn) * 0.45]]; // (al revés que las piernas; el que va adelante dobla el codo)
     hands = arms.map(([ua, eb]) => add(add([0, 0], dirv(ua), BRUTE.upper), dirv(ua + eb), BRUTE.fore)) as [Pt, Pt];
   }
   hands = swipeArms(v, hands, { up: [[-0.04, -0.72], [0.16, -0.74]], hit: [[0.6, 0.36], [0.74, 0.3]], walk: false }); // los dos puños juntos, de arriba hacia abajo

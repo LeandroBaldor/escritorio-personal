@@ -788,7 +788,8 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
       } else v.waitT = 0;
       if (v.onGround) {
         v.vx += (target - v.vx) * Math.min(1, dt * 8);
-        v.walkT += dt * Math.abs(v.vx);
+        if (Math.abs(v.vx) > 1 && Math.sign(v.vx) !== v.face) v.face = Math.sign(v.vx) as 1 | -1; // si se aleja, se da vuelta y camina para ese lado (no camina para atrás)
+        v.walkT += dt * v.vx * v.face; // (si retrocede un poquito, los pasos también van para atrás: los pies no patinan)
         const s = v.surface, mdir = Math.sign(v.vx) || dir, ahead = v.x + mdir * 0.7;
         // ¿Se termina el piso adelante? Si el plan es cruzar el hueco, salta; si no, espera en el borde (nunca se cae al vacío).
         if (s && s.ground && (ahead < s.x1 || ahead > s.x2) && ahead > 0.2 && ahead < W - 0.2) {
@@ -812,7 +813,7 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
         }
       }
       if (!scared && v.onGround) {
-        if (Math.abs(dx) < atk.reach && Math.abs(dy) < 1.3 && v.cool <= 0) { v.state = 'claw'; v.t = 0; v.hit = false; v.vx = 0; emit(g, { type: 'hiss', x: v.x }); }
+        if (Math.abs(dx) < atk.reach && Math.abs(dy) < 1.3 && v.cool <= 0) { v.state = 'claw'; v.t = 0; v.hit = false; v.vx = 0; v.face = (Math.sign(dx) || v.face) as 1 | -1; emit(g, { type: 'hiss', x: v.x }); }
         else if (v.kind === 'mage' && v.cool <= 0 && Math.abs(dx) < 11 && Math.abs(dy) < 4) { v.state = 'cast'; v.t = 0; v.hit = false; emit(g, { type: 'cast' }); }
         else if (v.kind === 'wolf' && v.cool <= 0 && Math.abs(dx) > 2.2 && Math.abs(dx) < 5.5 && Math.abs(dy) < 2.5 && !trapAhead(g, v, Math.sign(dx), 1.8) && r() < dt * 3) { v.state = 'leap'; v.t = 0; v.hit = false; v.vy = 11.5; v.vx = Math.sign(dx) * Math.min(9.5, Math.abs(dx) * 2.2); v.onGround = false; v.surface = null; emit(g, { type: 'hiss', x: v.x }); }
         else if (boss && (v.special ?? 0) <= 0 && Math.abs(dx) > 2.5) { // Drácula: niebla de murciélagos o murciélagos que vuelan
