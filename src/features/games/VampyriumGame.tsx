@@ -6,7 +6,7 @@ import { TouchGrips } from './TouchGrips';
 import { GamePad } from './GamePad';
 import { pixelRatio, useFitScreen } from './fitScreen';
 import { EndBanner } from './EndBanner';
-import { BOSS_HP, CHAPTERS, goalProgress, DAMAGE, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, GUARD_HP, HOLY_TARGETS, isArmor, WEAPON_NAME, chooseWeapon, closeMenu, newPlayer, newGame, formatVampTime, menuMove, noteTap, pressAttack, step, takeEvents, type Game, type Input, type Weapon } from './vampyrium';
+import { BOSS_HP, DRAGON_FIRE_T, CHAPTERS, goalProgress, DAMAGE, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, GUARD_HP, HOLY_TARGETS, isArmor, WEAPON_NAME, chooseWeapon, closeMenu, newPlayer, newGame, formatVampTime, menuMove, noteTap, pressAttack, step, takeEvents, type Game, type Input, type Weapon } from './vampyrium';
 import { drawGame, drawPortrait, drawSwordIcon, setBackdrop } from './vampyriumArt';
 import { drawWeaponIcon } from './vampyriumWeapons';
 import { setNoGrain } from './gravityMonsters';
@@ -16,7 +16,7 @@ const fondoOf = (bg: string) => FONDOS[`./assets/vampyrium/${bg}.webp`];
 import {
   playGameOver, playKfPickup, playThunder, playVampBell, playVampBones, playVampCombo, playVampCrate, playVampDeath, playVampDive,
   playVampFall, playVampHurt, playVampMenu, playVampSpikes, playVampStakeHit, playVampSwing, playVampTrapFire, playVampPendulum, playVampThrow, playDoor,
-  playWinFanfare, playVampButton, playVampMenuButton, setVampMenuMusic, playVampCrossbow, playVampGarlicBomb, playVampPistol, playVampDeep, playVampHammer, playVampStaff, playVampPunch, playVampFlame, setVampAmbient, setVampWings, preloadVampSounds, playVampStep, playVampVoice, playVampCross, playVampSword, playVampJumpSound, playVampBurn, playVampExplosion,
+  playWinFanfare, playVampButton, playVampMenuButton, setVampMenuMusic, playVampCrossbow, playVampGarlicBomb, playVampPistol, playVampDeep, playVampHammer, playVampStaff, playVampPunch, setVampAmbient, setVampWings, preloadVampSounds, playVampStep, playVampVoice, playVampCross, playVampSword, playVampJumpSound, playVampBurn, playVampExplosion, setVampDragon,
 } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:vampyrium-record';
@@ -185,7 +185,7 @@ export function Vampyrium() {
           case 'zapCast': playVampStaff(); playVampDeep(0.6, 0.5); break;
           case 'zap': playThunder(0.85); break;
           case 'launch': playVampPunch(); break;
-          case 'breath': playVampFlame(); break;
+          case 'breath': break; // (el rugido y el fuego del dragón suenan en vuelta mientras tiene la boca abierta)
           case 'mist': playVampDeep(0.6, 0.6); break;
           case 'howl': playVampDeep(0.55, 0.8); if (!seenRef.current.has(e.kind)) { seenRef.current.add(e.kind); setToast({ text: SPAWN_TEXT.wolf!, id: now, big: true, bad: true }); } break;
           case 'spawn': playVampDeep(0.75, 0.6); if (!seenRef.current.has(e.kind)) { seenRef.current.add(e.kind); setToast({ text: SPAWN_TEXT[e.kind] ?? VAMP_NAME[e.kind], id: now, big: true, bad: true }); } break;
@@ -221,6 +221,8 @@ export function Vampyrium() {
         }
       }
       setVampWings(g.phase === 'play' ? g.vamps.filter(v => v.kind === 'flyer').length * 0.3 : 0); // las alas de los voladores
+      { const d = g.phase === 'play' ? g.vamps.find(v => v.kind === 'dragon') : undefined, open = d?.state === 'breath' && d.t < 0.35 + DRAGON_FIRE_T + 0.1; // el dragón: boca cerrada o abierta, y las alas
+        setVampDragon(d ? (open ? 'open' : 'shut') : null, d ? (open ? 0.85 : d.state === 'land' || d.state === 'walk' ? 0.15 : 0.6) : 0); }
       paint();
       const next = hudOf(g);
       setHud(prev => sameHud(prev, next) ? prev : next);

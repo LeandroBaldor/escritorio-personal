@@ -1521,7 +1521,7 @@ const VAMP_S = import.meta.glob('./assets/sonidos/vamp-*.mp3', { eager: true, qu
 const vs = (name: string) => VAMP_S[`./assets/sonidos/vamp-${name}.mp3`];
 // Los fondos de cada nivel son pesados: se cargan recién cuando se juega ese nivel.
 export function preloadVampSounds(level = 0) {
-  for (const [k, url] of Object.entries(VAMP_S)) if ((!k.includes('/vamp-nivel-') && !k.includes('/vamp-lluvia-sangre') && !k.includes('/vamp-cuervos')) || k.endsWith(`/vamp-nivel-${level}.mp3`) || (level === 9 && k.includes('/vamp-lluvia-sangre')) || (level === 1 && k.includes('/vamp-cuervos'))) loadSample(url);
+  for (const [k, url] of Object.entries(VAMP_S)) if ((!k.includes('/vamp-nivel-') && !k.includes('/vamp-lluvia-sangre') && !k.includes('/vamp-cuervos') && !k.includes('/vamp-dragon')) || (level === 10 && k.includes('/vamp-dragon')) || k.endsWith(`/vamp-nivel-${level}.mp3`) || (level === 9 && k.includes('/vamp-lluvia-sangre')) || (level === 1 && k.includes('/vamp-cuervos'))) loadSample(url);
 }
 const vampLast: Record<string, number> = {};
 function vampOnce(name: string, volume: number, gap: number, rate = 1) { const c = running(); if (!c || c.currentTime - (vampLast[name] ?? -9) < gap) return true; vampLast[name] = c.currentTime; return playSample(vs(name), volume, 0, rate); }
@@ -1561,7 +1561,7 @@ function setVampLoop(name: string, level: number) {
     src.connect(gain).connect(out(c)); src.start(0, name.startsWith('musica') || name.startsWith('nivel') ? 0 : Math.random() * buffer.duration);
     l = vampLoops[name] = { src, gain };
   }
-  l.gain.gain.setTargetAtTime(Math.max(0, level), c.currentTime, name === 'alas' ? 0.15 : 0.6);
+  l.gain.gain.setTargetAtTime(Math.max(0, level), c.currentTime, name === 'alas' || name.startsWith('dragon') ? 0.12 : 0.6);
   if (level <= 0) { const dead = l; vampLoops[name] = null; try { dead.src.stop(c.currentTime + 2); } catch { /* ya paró */ } }
 }
 // La música del menú de Vampyrium (se llama seguido mientras está el menú: arranca apenas el navegador deja sonar).
@@ -1580,5 +1580,12 @@ export function setVampAmbient(on: boolean, level = 1) {
   setVampLoop(name, on ? (name === 'musica-1' ? 0.32 : 0.5) : 0);
   setVampLoop('cuervos', on && level === 1 ? 0.55 : 0);
   setVampLoop('lluvia-sangre', on && level === 9 ? 0.8 : 0);
-  if (!on) setVampLoop('alas', 0);
+  if (!on) { setVampLoop('alas', 0); setVampDragon(null); }
+}
+// El dragón: con la boca cerrada gruñe (dragon_1); con la boca abierta ruge y suena el fuego (dragon_2 + dragon_fire); las alas mientras vuela.
+export function setVampDragon(mouth: 'shut' | 'open' | null, wings = 0) {
+  setVampLoop('dragon-1', mouth === 'shut' ? 0.6 : 0);
+  setVampLoop('dragon-2', mouth === 'open' ? 0.75 : 0);
+  setVampLoop('dragon-fuego', mouth === 'open' ? 0.8 : 0);
+  setVampLoop('dragon-alas', mouth ? wings : 0);
 }
