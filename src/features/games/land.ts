@@ -3,8 +3,7 @@
 //
 // - Tres recursos: cristales azules, dorados y energía verde. Los trabajadores los juntan y los llevan
 //   a la base o a un depósito.
-// - Cinco construcciones por civilización: la base (hace trabajadores), el cuartel (soldados), el taller (las máquinas),
-//   la torre (defiende sola) y el depósito (más población y otro lugar para dejar lo juntado).
+// - Seis construcciones por civilización: base, cuartel, taller, torre, depósito y muros defensivos.
 // - Seis guerreros por civilización: trabajador, cuerpo a cuerpo, a distancia, especial (cura o hace daño en área),
 //   pesado (rompe edificios) y élite.
 // - Tres mejoras para todo el ejército (ataque, vida y velocidad), con tres niveles cada una.
@@ -12,6 +11,7 @@
 // - Se gana destruyendo todos los centros de mando rivales.
 import { CIVS, type CivId } from './landCivs';
 import { T, clearLine, findPath, generateTerrain, nearestWalkable, walkable, type MapSize, type Terrain } from './landMap';
+import { WALL_SIZE, wallAcross, wallNavigation, wallPoint } from './landWalls';
 
 // El tamaño del mundo es el del escenario de la partida (hay una sola partida a la vez).
 let MW = 2900, MH = 1800, TER: Terrain | null = null;
@@ -19,8 +19,8 @@ export type Owner = number; // 0: jugador; 1…9: civilizaciones controladas por
 export type ResKind = 'stone' | 'gem' | 'energy';
 export type Role = 'worker' | 'melee' | 'ranged' | 'special' | 'heavy' | 'elite';
 export const ROLES: Role[] = ['worker', 'melee', 'ranged', 'special', 'heavy', 'elite'];
-export type BKind = 'base' | 'barracks' | 'workshop' | 'tower' | 'depot';
-export const BKINDS: BKind[] = ['base', 'barracks', 'workshop', 'tower', 'depot'];
+export type BKind = 'base' | 'barracks' | 'workshop' | 'tower' | 'depot' | 'wall';
+export const BKINDS: BKind[] = ['base', 'barracks', 'workshop', 'tower', 'depot', 'wall'];
 export type Upgrade = 'attack' | 'armor' | 'speed';
 export const UPGRADES: Upgrade[] = ['attack', 'armor', 'speed'];
 export type Difficulty = 'veryEasy' | 'easy' | 'normal' | 'hard';
@@ -43,6 +43,7 @@ export const BUILD_STATS: Record<BKind, BuildStats> = {
   workshop: { hp: 1100, cost: { stone: 200, gem: 100 }, time: 24, size: 200, pop: 0, makes: ['heavy', 'elite'], needs: 'barracks' },
   tower: { hp: 700, cost: { stone: 100, gem: 50 }, time: 14, size: 132, pop: 0, makes: [], dmg: 16, range: 230, cool: 1.0 },
   depot: { hp: 500, cost: { stone: 100, gem: 0 }, time: 12, size: 150, pop: 8, makes: [] },
+  wall: { hp: 1400, cost: { stone: 35, gem: 0 }, time: 8, size: WALL_SIZE, pop: 0, makes: [] },
 };
 export const UPGRADE_COST = (lv: number): Cost => ({ stone: 100 * (lv + 1), gem: 60 * (lv + 1), energy: 16 * (lv + 1) });
 export const UPGRADE_TIME = 18, MAX_UPGRADE = 3, MAX_POP = 100, POWER_MAX = 100;
@@ -50,7 +51,7 @@ export const CARRY = 8, MINE_T = 1.6;
 
 export interface Unit {
   id: number; owner: Owner; role: Role; x: number; y: number; hp: number; maxHp: number; face: 1 | -1; path?: [number, number][]; pathFor?: [number, number]; pathT?: number;
-  order: Order; cool: number; atkT: number; walk: number; carry: number; carryKind: ResKind | null; mineT: number; dead: number; defensive?: boolean;
+  order: Order; cool: number; atkT: number; walk: number; carry: number; carryKind: ResKind | null; mineT: number; dead: number; defensive?: boolean; buildQueue?: number[];
 }
 export type Order =
   | { k: 'idle' } | { k: 'move'; x: number; y: number; attack?: boolean } | { k: 'attack'; id: number }
@@ -165,18 +166,29 @@ export function orderSmart(g: LandGame, ids: number[], x: number, y: number) {
 }
 // ¿Se puede poner una construcción ahí? (adentro del mapa y sin pisar otra ni los recursos)
 export function canPlace(g: LandGame, kind: BKind, x: number, y: number) {
+  if (kind === 'wall') ({ x, y } = wallPoint(x, y));
   const s = BUILD_STATS[kind].size;
   if (x < s / 2 + 10 || x > MW - s / 2 - 10 || y < s * 0.45 + 30 || y > MH - 20) return false;
   for (let px = x - s * 0.45; px <= x + s * 0.45; px += T / 2) for (let py = y - s * 0.3; py <= y + s * 0.12; py += T / 2) if (!walkable(g.terrain, px, py)) return false; // (no sobre el agua ni las rocas)
+  if (kind === 'wall') {
+    for (const dx of [-T/2,T/2]) for (const dy of [-T/2,T/2]) if (!walkable(g.terrain,x+dx,y+dy)) return false;
+    if (g.units.some(u => !u.dead && Math.abs(u.x-x)<WALL_SIZE/2 && Math.abs(u.y-y)<WALL_SIZE/2)) return false;
+  }
   if (g.buildings.some(b => !b.dead && Math.abs(b.x - x) < (BUILD_STATS[b.kind].size + s) * 0.5 && Math.abs(b.y - y) < (BUILD_STATS[b.kind].size + s) * 0.36)) return false;
   return !g.nodes.some(n => n.amount > 0 && Math.abs(n.x - x) < s * 0.5 + 18 && Math.abs(n.y - y) < s * 0.36 + 16);
 }
 export function placeBuilding(g: LandGame, owner: Owner, kind: BKind, x: number, y: number, workers: number[]): Building | null {
+  if (kind === 'wall') ({ x, y } = wallPoint(x, y));
+  const builders = g.units.filter(u => workers.includes(u.id) && u.owner === owner && u.role === 'worker' && !u.dead);
+  if (!builders.length) return null;
   const s = BUILD_STATS[kind], side = g.sides[owner];
   if (!canPay(side, s.cost) || !canPlace(g, kind, x, y) || (s.needs && !hasBuilt(g, owner, s.needs))) return null;
   pay(side, s.cost);
   const b = addBuilding(g, owner, kind, x, y);
-  for (const id of workers) { const u = g.units.find(q => q.id === id && q.role === 'worker'); if (u) u.order = { k: 'build', id: b.id }; }
+  for (const u of builders) {
+    if (kind === 'wall' && u.order.k === 'build') (u.buildQueue ??= []).push(b.id);
+    else { u.buildQueue = []; u.order = { k: 'build', id: b.id }; }
+  }
   return b;
 }
 export function train(g: LandGame, bid: number, role: Role): boolean {
@@ -252,19 +264,23 @@ function nearestFoe(g: LandGame, u: { x: number; y: number }, owner: Owner, r: n
 
 // ---------------------------------------------------------------- Un paso del juego
 export function stepLand(g: LandGame, dt: number) {
-  if (g.phase !== 'play') { for (const s of g.shots) s.t += dt; g.shots = g.shots.filter(s => s.t < s.life); return; }
+  if (g.phase !== 'play') { advanceDeaths(g,dt); for (const s of g.shots) s.t += dt; g.shots = g.shots.filter(s => s.t < s.life); return; }
+  TER = wallNavigation(g);
   g.t += dt;
   for (const side of g.sides) { side.buffT = Math.max(0, side.buffT - dt); side.power = Math.min(POWER_MAX, side.power + dt * 0.35); } // (se carga sola despacio, y rápido peleando)
   for (const b of g.buildings) if (!b.dead) stepBuilding(g, b, dt);
   for (const u of g.units) if (!u.dead) stepUnit(g, u, dt);
   separate(g, dt);
-  for (const u of g.units) if (u.dead) u.dead += dt;
-  for (const b of g.buildings) if (b.dead) b.dead += dt;
-  g.units = g.units.filter(u => !u.dead || u.dead < 1.2);
-  g.buildings = g.buildings.filter(b => !b.dead || b.dead < 2);
+  advanceDeaths(g,dt);
   g.nodes = g.nodes.filter(n => n.amount > 0);
   for (const s of g.shots) s.t += dt; g.shots = g.shots.filter(s => s.t < s.life);
   for (let owner = 1; owner < g.sides.length; owner++) stepAI(g, dt, owner);
+}
+function advanceDeaths(g: LandGame, dt: number) {
+  for (const u of g.units) if (u.dead) u.dead += dt;
+  for (const b of g.buildings) if (b.dead) b.dead += dt;
+  g.units = g.units.filter(u => !u.dead || u.dead < 2.4);
+  g.buildings = g.buildings.filter(b => !b.dead || b.dead < 2);
 }
 function stepBuilding(g: LandGame, b: Building, dt: number) {
   const s = BUILD_STATS[b.kind];
@@ -322,10 +338,11 @@ function moveTo(u: Unit, x: number, y: number, speed: number, dt: number, stop =
 function steer(g: LandGame, u: Unit, tx: number, ty: number, speed: number, dt: number, stop = 4) {
   if (dist(u, { x: tx, y: ty }) <= stop) { u.path = undefined; return true; }
   const fly = flies(g, u);
-  if (fly || clearLine(g.terrain, u.x, u.y, tx, ty)) { u.path = undefined; return moveTo(u, tx, ty, speed, dt, stop, fly); }
-  if (!u.path || !u.pathFor || Math.hypot(u.pathFor[0] - tx, u.pathFor[1] - ty) > T * 2 || g.t - (u.pathT ?? 0) > 3) { u.path = findPath(g.terrain, u.x, u.y, tx, ty); u.pathFor = [tx, ty]; u.pathT = g.t; }
+  const nav = TER ?? g.terrain;
+  if (fly || clearLine(nav, u.x, u.y, tx, ty)) { u.path = undefined; return moveTo(u, tx, ty, speed, dt, stop, fly); }
+  if (!u.path || !u.pathFor || Math.hypot(u.pathFor[0] - tx, u.pathFor[1] - ty) > T * 2 || g.t - (u.pathT ?? 0) > 3) { u.path = findPath(nav, u.x, u.y, tx, ty); u.pathFor = [tx, ty]; u.pathT = g.t; }
   if (!u.path.length) return false; // Un destino aislado nunca permite atravesar obstáculos.
-  while (u.path.length > 1 && (dist(u, { x: u.path[0][0], y: u.path[0][1] }) < 14 || clearLine(g.terrain, u.x, u.y, u.path[1][0], u.path[1][1]))) u.path.shift();
+  while (u.path.length > 1 && (dist(u, { x: u.path[0][0], y: u.path[0][1] }) < 14 || clearLine(nav, u.x, u.y, u.path[1][0], u.path[1][1]))) u.path.shift();
   moveTo(u, u.path[0][0], u.path[0][1], speed, dt, 2);
   return dist(u, { x: tx, y: ty }) <= stop;
 }
@@ -352,6 +369,10 @@ function stepUnit(g: LandGame, u: Unit, dt: number) {
     const t = findTarget(g, o.id);
     if (!t || (t.kind === 'u' ? t.u.owner : t.b.owner) === u.owner) { const pm = pendingMove.get(u.id); pendingMove.delete(u.id); u.order = pm ? { k: 'move', ...pm, attack: true } : { k: 'idle' }; return; }
     const p = tPos(t), reach = s.range + tReach(t), d = dist(u, p);
+    if (s.range <= 60 && !flies(g,u)) {
+      const wall = wallAcross(g,u,p);
+      if (wall && wall.id !== o.id) { u.order = {k:'attack',id:wall.id}; return; }
+    }
     if (u.defensive && !g.ais[u.owner - 1].attacking) {
       const home = g.buildings.find(b => b.owner === u.owner && b.kind === 'base' && !b.dead);
       if (home && dist(home, p) > 600) { u.order = { k: 'move', x: home.x, y: home.y + 100 }; return; }
@@ -390,11 +411,22 @@ function stepUnit(g: LandGame, u: Unit, dt: number) {
   }
   if (o.k === 'build') {
     const b = g.buildings.find(q => q.id === o.id && !q.dead);
-    if (!b || b.built >= 1) { u.order = { k: 'idle' }; const n = nearestNode(g, u, null); if (n && b) u.order = { k: 'gather', node: n.id }; return; }
+    if (!b || b.built >= 1) {
+      const next = u.buildQueue?.map(id => g.buildings.find(q => q.id === id && !q.dead && q.built < 1)).find(Boolean);
+      if (next) { u.buildQueue = u.buildQueue!.filter(id => id !== next.id); u.order = { k: 'build', id: next.id }; }
+      else { u.buildQueue = []; u.order = { k: 'idle' }; const n = nearestNode(g, u, null); if (n && b) u.order = { k: 'gather', node: n.id }; }
+      return;
+    }
     if (steer(g, u, b.x, b.y, s.speed, dt, BUILD_STATS[b.kind].size * 0.45)) {
       const bs = BUILD_STATS[b.kind], k = dt / (bs.time * (u.owner > 0 ? AI_SPEED[g.difficulty] : 1));
       b.built = Math.min(1, b.built + k); b.hp = Math.min(b.maxHp, b.hp + b.maxHp * 0.9 * k); u.atkT = (g.t % 0.6) < 0.3 ? 0.1 : -1;
-      if (b.built >= 1) { emit(g, { type: 'built', kind: b.kind, owner: b.owner }); }
+      if (b.built >= 1) {
+        if (b.kind === 'wall') {
+          TER = wallNavigation(g);
+          for (const q of g.units) if (!q.dead && !flies(g,q) && !walkable(TER,q.x,q.y)) { [q.x,q.y] = nearestWalkable(TER,q.x,q.y); q.path = undefined; }
+        }
+        emit(g, { type: 'built', kind: b.kind, owner: b.owner });
+      }
     }
   }
 }
@@ -405,7 +437,7 @@ function separate(g: LandGame, dt: number) {
   for (let i = 0; i < us.length; i++) for (let j = i + 1; j < us.length; j++) {
     const a = us[i], b = us[j], r = (ROLE_STATS[a.role].size + ROLE_STATS[b.role].size) * 0.28, dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
     if (d < r && d > 0.01) { const push = (r - d) * Math.min(1, dt * 6) * 0.5, nx = dx / d, ny = dy / d, ax = clampX(a.x - nx * push), ay = clampY(a.y - ny * push), bx = clampX(b.x + nx * push), by = clampY(b.y + ny * push);
-      if (flies(g, a) || walkable(g.terrain, ax, ay)) { a.x = ax; a.y = ay; } if (flies(g, b) || walkable(g.terrain, bx, by)) { b.x = bx; b.y = by; } } // (no los empuja al agua ni a las rocas)
+      if (flies(g, a) || walkable(TER ?? g.terrain, ax, ay)) { a.x = ax; a.y = ay; } if (flies(g, b) || walkable(TER ?? g.terrain, bx, by)) { b.x = bx; b.y = by; } } // (no los empuja al agua ni a las rocas)
   }
 }
 

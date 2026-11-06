@@ -3,6 +3,8 @@ import { BUILD_STATS, ROLE_STATS, ROLES, BKINDS, type BKind, type Building, type
 import { CIVS, CIV_IDS, type CivId } from './landCivs';
 import { drawAmbientTerrain, type TerrainRegion } from './landMapArt';
 import { drawWorldProp } from './landProps';
+import { drawWall } from './landWalls';
+import { drawDeath } from './landDeath';
 
 // Once recortes por civilización en hojas individuales de 4 × 3, con el último casillero vacío.
 const URLS = import.meta.glob('./assets/land/units-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
@@ -38,6 +40,7 @@ export function spritesReady() {
 }
 // Dibuja un recorte apoyado en (x, y) (el piso), de alto h (o de ancho w si es más ancho que alto).
 export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number, motion = 0) {
+  if (idx === 11) return drawWall(ctx,civ,x,y,Math.min(maxW ?? h,h*1.2),h);
   spritesReady();
   const image = SPRITES[civ], frame = FRAMES[civ]?.[idx]; if (!image || !frame) return false;
   const { sx, sy, sw, sh } = frame;
@@ -100,15 +103,18 @@ export function drawNode(ctx: CanvasRenderingContext2D, n: Node, t: number) {
 export function drawBuilding(ctx: CanvasRenderingContext2D, g: LandGame, b: Building, t: number, selected: boolean) {
   const s = BUILD_STATS[b.kind], civ = g.sides[b.owner].civ, w = s.size * 1.15, h = s.size * 0.95, fade = b.dead ? Math.max(0, 1 - b.dead / 1.6) : 1;
   ctx.save(); ctx.globalAlpha = fade;
+  if (b.built < 1) {
+    // El solar queda vacío hasta completar el trabajo; solo se señala su perímetro.
+    ctx.strokeStyle = selected ? '#fef08a' : CIVS[civ].color; ctx.lineWidth = 2; ctx.setLineDash([7,6]);
+    ctx.beginPath(); ctx.ellipse(b.x,b.y+4,w*.5,w*.17,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+    bar(ctx,b.x,b.y-24,w*.7,b.built,'#facc15');
+    ctx.font='bold 10px Orbitron, sans-serif';ctx.textAlign='center';ctx.fillStyle='#fff5c1';ctx.fillText(`${Math.floor(b.built*100)}%`,b.x,b.y-31);
+    ctx.restore();return;
+  }
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(b.x, b.y + 4, w * 0.48, w * 0.16, 0, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = selected ? '#fef08a' : TEAM[b.owner]; ctx.lineWidth = selected ? 3 : 2; ctx.globalAlpha = fade * (selected ? 1 : 0.7);
   ctx.beginPath(); ctx.ellipse(b.x, b.y + 4, w * 0.5, w * 0.17, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = fade;
-  if (b.built < 1) { // en obra: aparece de abajo hacia arriba, transparente, con andamios
-    ctx.save(); ctx.globalAlpha = fade * (0.45 + 0.4 * b.built); ctx.beginPath(); ctx.rect(b.x - w, b.y - h * 1.3 * b.built - 4, w * 2, h * 1.3 * b.built + 20); ctx.clip();
-    drawSprite(ctx, civ, bIdx(b.kind), b.x, b.y + 6, h, false, w); ctx.restore();
-    ctx.strokeStyle = '#c69a5a'; ctx.lineWidth = 2; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(b.x + i * w * 0.18, b.y); ctx.lineTo(b.x + i * w * 0.18, b.y - h * 0.75); ctx.stroke(); }
-    for (let j = 1; j <= 3; j++) { ctx.beginPath(); ctx.moveTo(b.x - w * 0.36, b.y - h * 0.22 * j); ctx.lineTo(b.x + w * 0.36, b.y - h * 0.22 * j); ctx.stroke(); }
-  } else {
+  {
     drawSprite(ctx, civ, bIdx(b.kind), b.x, b.y + 6, h, false, w);
     if (!b.dead) {
       // Balizas, vapor y actividad de producción sobre el edificio real.
@@ -139,6 +145,7 @@ function bar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, k: 
 // ---------------------------------------------------------------- Guerreros
 export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t: number, selected: boolean) {
   const s = ROLE_STATS[u.role], civ = g.sides[u.owner].civ, h = s.size, fade = u.dead ? Math.max(0, 1 - u.dead / 1.1) : 1;
+  if (u.dead) { drawDeath(ctx,civ,u,h); return; }
   const moving = u.order.k === 'move' || ((u.order.k === 'gather' || u.order.k === 'build' || u.order.k === 'attack') && u.atkT < 0 && Math.abs(Math.sin(u.walk * 0.12)) > 0.01);
   const bob = moving ? Math.abs(Math.sin(u.walk * 0.12)) * 1.6 : Math.sin(t * 2.4 + u.id) * 0.8;
   const lunge = u.atkT >= 0 ? Math.sin(Math.min(1, u.atkT / 0.3) * Math.PI) * 6 * u.face : 0;

@@ -8,12 +8,14 @@ import {
   BUILD_STATS, BKINDS, MAX_UPGRADE, POWER_MAX, ROLE_STATS, UPGRADES, UPGRADE_COST, UPGRADE_TIME, canPay, canPlace, cancelTrain, formatLandTime, hasBuilt, newLandGame, orderMove, orderSmart,
   placeBuilding, popCap, popUsed, research, stepLand, takeLandEvents, train, unitStats, castPower, type BKind, type Building, type Cost, type Difficulty, type LandGame, type Role, type Unit, type Upgrade,
 } from './land';
-import { BUILD_TEXT, CIVS, CIV_IDS, POWER_TEXT, roleText, type CivId } from './landCivs';
+import { BUILD_TEXT, CIVS, CIV_IDS, POWER_TEXT, attackText, roleText, type CivId } from './landCivs';
+import { wallPoint, wallsReady } from './landWalls';
 import { MAP_SIZES, THEMES, type MapSize } from './landMap';
 import { renderTerrain, terrainMaterialsReady, type TerrainRegion } from './landMapArt';
 import { bIdx, drawMinimap, drawSprite, drawWorld, roleIdx, spritesReady, type Cam } from './landArt';
 import { useFitScreen } from './fitScreen';
-import { playExplosion, playGameOver, playKnock, playLandButton, playRifleShot, playVampSword, playWinFanfare, preloadLandSounds, setLandMenuMusic } from './sounds';
+import { playExplosion, playGameOver, playKnock, playRifleShot, playVampSword, playWinFanfare } from './sounds';
+import { playLandButton, preloadLandSounds, setLandMenuMusic } from './landAudio';
 
 const LAMINAS = import.meta.glob('./assets/land/lamina-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
 const lamina = (c: CivId) => LAMINAS[`./assets/land/lamina-${c}.webp`];
@@ -81,7 +83,7 @@ export function LandOfWarriors() {
   const keys = useRef<Set<string>>(new Set());
   const lastToast = useRef<Record<string, number>>({});
 
-  useEffect(() => { spritesReady(); terrainMaterialsReady(); worldPropsReady(); }, []);
+  useEffect(() => { spritesReady(); terrainMaterialsReady(); worldPropsReady(); wallsReady(); }, []);
   // la música del menú: suena en la elección de civilización y en su lámina (los navegadores la dejan sonar después del primer toque)
   useEffect(() => { preloadLandSounds(); }, []);
   useEffect(() => {
@@ -102,7 +104,7 @@ export function LandOfWarriors() {
     setCiv(civ); setLoading(true);
     let attempts = 0;
     const prepare = () => {
-      if ((!spritesReady() || !terrainMaterialsReady() || !worldPropsReady()) && attempts++ < 160) { setTimeout(prepare, 50); return; }
+      if ((!spritesReady() || !terrainMaterialsReady() || !worldPropsReady() || !wallsReady()) && attempts++ < 160) { setTimeout(prepare, 50); return; }
       const available = CIV_IDS.filter(c => c !== civ), foes = enemies.map(e => {
         const selected = e !== 'random' && available.includes(e) ? e : available[Math.floor(Math.random() * available.length)];
         available.splice(available.indexOf(selected), 1); return selected;
@@ -177,9 +179,10 @@ export function LandOfWarriors() {
       drawWorld(ctx, g, mapImg.current, cam, now / 1000, selRef.current, cx => {
         const m = mouse.current, md = modeRef.current;
         if (md.k === 'place' && m.in) { // la construcción que se va a poner (verde si se puede, roja si no)
-          const ok = canPlace(g, md.kind, m.wx, m.wy), s = BUILD_STATS[md.kind];
-          cx.save(); cx.globalAlpha = 0.6; drawSprite(cx, g.sides[0].civ, bIdx(md.kind), m.wx, m.wy + 6, s.size * 0.95, false, s.size * 1.15);
-          cx.globalAlpha = 0.9; cx.strokeStyle = ok ? '#4ade80' : '#ef4444'; cx.lineWidth = 3; cx.beginPath(); cx.ellipse(m.wx, m.wy + 4, s.size * 0.55, s.size * 0.19, 0, 0, Math.PI * 2); cx.stroke(); cx.restore();
+          const p = md.kind === 'wall' ? wallPoint(m.wx,m.wy) : {x:m.wx,y:m.wy};
+          const ok = canPlace(g, md.kind, p.x, p.y), s = BUILD_STATS[md.kind];
+          cx.save(); cx.globalAlpha = 0.6; drawSprite(cx, g.sides[0].civ, bIdx(md.kind), p.x, p.y + 6, s.size * 0.95, false, s.size * 1.15);
+          cx.globalAlpha = 0.9; cx.strokeStyle = ok ? '#4ade80' : '#ef4444'; cx.lineWidth = 3; cx.beginPath(); cx.ellipse(p.x, p.y + 4, s.size * 0.55, s.size * 0.19, 0, 0, Math.PI * 2); cx.stroke(); cx.restore();
         }
         if (md.k === 'power' && m.in) { cx.save(); cx.strokeStyle = '#fbbf24'; cx.lineWidth = 3; cx.setLineDash([10, 8]); cx.beginPath(); cx.arc(m.wx, m.wy, 170, 0, Math.PI * 2); cx.stroke(); cx.restore(); }
         for (const id of selRef.current) { const b = g.buildings.find(q => q.id === id && q.owner === 0); if (b?.rally) { cx.save(); cx.strokeStyle = '#fef08a'; cx.setLineDash([6, 6]); cx.lineWidth = 2; cx.beginPath(); cx.moveTo(b.x, b.y); cx.lineTo(b.rally.x, b.rally.y); cx.stroke(); cx.fillStyle = '#fef08a'; cx.fillRect(b.rally.x - 2, b.rally.y - 22, 3, 22); cx.fillRect(b.rally.x, b.rally.y - 22, 12, 8); cx.restore(); } }
@@ -260,7 +263,7 @@ export function LandOfWarriors() {
     if (md.k === 'place') {
       const ws = myUnits([...selRef.current]).filter(u => u.role === 'worker').map(u => u.id);
       const b = placeBuilding(g, 0, md.kind, w.x, w.y, ws);
-      if (b) { playKnock(); if (!e.shiftKey) setMode({ k: 'none' }); } else say(!canPay(g.sides[0], BUILD_STATS[md.kind].cost) ? '💎 No te alcanzan los recursos' : '🚫 Ahí no se puede construir', 'place', 800);
+      if (b) { playKnock(); if (!e.shiftKey && md.kind !== 'wall') setMode({ k: 'none' }); } else say(!canPay(g.sides[0], BUILD_STATS[md.kind].cost) ? '💎 No te alcanzan los recursos' : '🚫 Ahí no se puede construir', 'place', 800);
       return;
     }
     if (md.k === 'power') { if (castPower(g, 0, w.x, w.y)) setMode({ k: 'none' }); return; }
@@ -333,11 +336,11 @@ export function LandOfWarriors() {
   // ---------------------------------------------------------------- Pantallas
   const viewD = CIVS[view];
   const sheetScreen = <div className="land-sheet" role="dialog" aria-label={`Lámina de ${viewD.name}`}>
-    <img src={lamina(view)} alt={`${viewD.name}: unidades, construcciones y máquinas`} />
+    <div className="land-sheet-scroll"><img src={lamina(view)} alt={`${viewD.name}: unidades, construcciones y máquinas`} /></div>
     {simple && <div className="land-simple" style={{ ['--civ' as string]: viewD.color }}>
       <h2>{viewD.name}</h2><p className="land-simple-style">{viewD.style}</p>
       <h3>Guerreros</h3>
-      <ul className="land-simple-units">{ROLE_ORDER.map(r => { const s = ROLE_STATS[r], m = { ...s, ...(viewD.mod[r] ?? {}) }; return <li key={r}><Sprite civ={view} idx={roleIdx(r)} w={64} h={64} /><div><b>{viewD.units[r]}</b><span>{roleText(view, r)}</span><small>❤ {m.hp} · ⚔ {m.dmg} · 🎯 {m.range > 60 ? 'lejos' : 'cerca'} · {costText(m.cost)}</small></div></li>; })}</ul>
+      <ul className="land-simple-units">{ROLE_ORDER.map(r => { const s = ROLE_STATS[r], mod = viewD.mod[r] ?? {}, m = { ...s, ...mod, cost: {...s.cost,...mod.cost} }; return <li key={r}><Sprite civ={view} idx={roleIdx(r)} w={96} h={108} /><div><b>{viewD.units[r]}</b><span>{roleText(view, r)}</span><strong className="land-attack-type">{attackText(view,r,m.range)}</strong><small>❤ {m.hp} · ⚔ {m.dmg} · {costText(m.cost)}</small></div></li>; })}</ul>
       <h3>Construcciones</h3>
       <ul className="land-simple-builds">{BKINDS.map(k => <li key={k}><Sprite civ={view} idx={bIdx(k)} w={70} h={56} /><div><b>{viewD.buildings[k]}</b><span>{BUILD_TEXT[k]}</span><small>{costText(BUILD_STATS[k].cost)}</small></div></li>)}</ul>
       <h3>Poder especial: {viewD.power.name}</h3><p>{POWER_TEXT[viewD.power.kind]} Se carga peleando.</p>
@@ -345,7 +348,7 @@ export function LandOfWarriors() {
     </div>}
     <div className="land-sheet-bar">
       <button type="button" className="land-ghost" onClick={() => { playLandButton(); setScreen('pick'); }}>‹ Volver</button>
-      <button type="button" className="land-ghost" onClick={() => { playLandButton(); setSimple(s => !s); }}>{simple ? 'Ver la lámina' : 'Ver resumen simple'}</button>
+      <button type="button" className="land-ghost" aria-pressed={simple} onClick={() => { playLandButton(); setSimple(s => !s); }}>{simple ? 'Infograma' : 'Resumen'}</button>
       <button type="button" className="land-go" onClick={() => { playLandButton(); setCiv(view); setScreen('scenario'); }}>Elegir escenario ▶</button>
     </div>
   </div>;
@@ -417,7 +420,7 @@ export function LandOfWarriors() {
         <button type="button" className="land-sq" title="Pausa" aria-label={screen === 'paused' ? 'Seguir' : 'Pausa'} onClick={() => setScreen(st => st === 'playing' ? 'paused' : 'playing')}><LandIcon kind="gear" /></button>
       </div>
       {toast && <div key={toast.id} className="land-toast" role="status">{toast.text}</div>}
-      {mode.k !== 'none' && <div className="land-mode">{mode.k === 'place' ? `Elegí dónde poner: ${CIVS[side.civ].buildings[mode.kind]}` : mode.k === 'power' ? 'Elegí dónde cae el poder' : 'Elegí a dónde atacar'} · <button type="button" onClick={() => { setMode({ k: 'none' }); }}>Cancelar</button></div>}
+      {mode.k !== 'none' && <div className="land-mode">{mode.k === 'place' ? `Elegí dónde poner: ${CIVS[side.civ].buildings[mode.kind]}${mode.kind === 'wall' ? ' · Clic para sumar tramos; Escape para terminar' : ''}` : mode.k === 'power' ? 'Elegí dónde cae el poder' : 'Elegí a dónde atacar'} · <button type="button" onClick={() => { setMode({ k: 'none' }); }}>Cancelar</button></div>}
       <div className="land-hud" style={{ ['--civ' as string]: CIVS[side.civ].color }}>
         <div className="land-crest" aria-hidden="true"><LandEagle /></div>
         <div className="land-gems" aria-hidden="true">{[0, 1, 2, 3, 4, 5].map(i => <i key={i} />)}</div>
