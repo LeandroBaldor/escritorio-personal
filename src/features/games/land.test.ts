@@ -9,9 +9,9 @@ const mine = (g: LandGame) => g.units.filter(u => u.owner === 0 && !u.dead);
 const base = (g: LandGame, o: 0 | 1) => g.buildings.find(b => b.owner === o && b.kind === 'base' && !b.dead)!;
 
 describe('Land of Warriors', () => {
-  it('las 10 civilizaciones tienen sus seis guerreros, cinco construcciones y un poder', () => {
+  it('las 10 civilizaciones tienen sus seis guerreros, seis construcciones y un poder', () => {
     expect(CIV_IDS).toHaveLength(10);
-    for (const c of CIV_IDS) { expect(Object.keys(CIVS[c].units)).toHaveLength(6); expect(Object.keys(CIVS[c].buildings)).toHaveLength(5); expect(CIVS[c].power.name).toBeTruthy(); }
+    for (const c of CIV_IDS) { expect(Object.keys(CIVS[c].units)).toHaveLength(6); expect(Object.keys(CIVS[c].buildings)).toHaveLength(6); expect(CIVS[c].power.name).toBeTruthy(); }
   });
   it('arranca con una base, cuatro trabajadores y cristales cerca', () => {
     const g = newLandGame('humano', 'orcos', 5, 'normal', 1);

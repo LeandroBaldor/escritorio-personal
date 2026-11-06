@@ -16,6 +16,8 @@ const files = [
   'docs/land-partida.png', 'docs/land-atlas.png',
   'tests/land7.spec.ts', 'scripts/prepare-land-world.mjs', 'docs/land-correcciones-7.md',
   'docs/land7-menu.png', 'docs/land7-paisajes.png',
+  'tests/land8.spec.ts', 'scripts/prepare-land-walls.mjs', 'docs/land-correcciones-8.md',
+  'docs/land8-infograma.png', 'docs/land8-resumen.png', 'docs/land8-muros.png',
 ];
 function collect(dir) {
   for (const entry of fs.readdirSync(path.join(source, dir), { withFileTypes: true })) {

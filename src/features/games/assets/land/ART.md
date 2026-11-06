@@ -15,3 +15,5 @@ node scripts/prepare-land-art.mjs /ruta/a/las/hojas-png
 El proceso usa Chromium de Playwright para generar WebP y normalizar la transparencia. No se necesita ese proceso durante la compilación ni mientras se juega. Las láminas de referencia y la hoja anterior `sprites.webp` se conservan para comparación.
 
 Correcciones 7: world-props.webp contiene doce objetos en una grilla 4x3 (árboles, rocas, ruinas, coral, cristales azules/dorados/verdes y juncos). liquids.webp contiene seis materiales en 3x2: agua dulce, pantano, ácido, lava, mar y hielo. scenes/scene-0.webp a scene-9.webp son paisajes a nivel del suelo de los diez escenarios. Se preparan con scripts/prepare-land-world.mjs a partir de las imágenes generadas con ImageGen. hud-frame.svg es un marco vectorial nativo de la interfaz.
+
+Correcciones 8: walls.webp es un atlas transparente 2x5 con diez tramos de muro, en el orden de CIV_IDS, generado con ImageGen y preparado por scripts/prepare-land-walls.mjs. menu-musica.mp3 y menu-musica-2.mp3 son las dos grabaciones suministradas por el usuario, sin recortes; se reproducen 1,1,2,2 en bucle. Detalles y prompt en docs/land-correcciones-8.md.
