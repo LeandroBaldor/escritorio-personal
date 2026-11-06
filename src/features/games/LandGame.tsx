@@ -9,7 +9,7 @@ import { MAP_SIZES, THEMES, type MapSize } from './landMap';
 import { renderTerrain } from './landMapArt';
 import { bIdx, drawMinimap, drawSprite, drawWorld, roleIdx, spritesReady, type Cam } from './landArt';
 import { useFitScreen } from './fitScreen';
-import { playExplosion, playGameOver, playKnock, playRifleShot, playVampMenuButton, playVampSword, playWinFanfare } from './sounds';
+import { playExplosion, playGameOver, playKnock, playLandButton, playRifleShot, playVampSword, playWinFanfare, preloadLandSounds, setLandMenuMusic } from './sounds';
 
 const LAMINAS = import.meta.glob('./assets/land/lamina-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
 const lamina = (c: CivId) => LAMINAS[`./assets/land/lamina-${c}.webp`];
@@ -80,6 +80,16 @@ export function LandOfWarriors() {
   const lastToast = useRef<Record<string, number>>({});
 
   useEffect(() => { spritesReady(); }, []);
+  // la música del menú: suena en la elección de civilización y en su lámina (los navegadores la dejan sonar después del primer toque)
+  useEffect(() => { preloadLandSounds(); }, []);
+  useEffect(() => {
+    const on = screen === 'pick' || screen === 'sheet';
+    setLandMenuMusic(on); if (!on) return;
+    const kick = () => setLandMenuMusic(true), id = setInterval(kick, 1500);
+    window.addEventListener('pointerdown', kick); window.addEventListener('keydown', kick);
+    return () => { clearInterval(id); window.removeEventListener('pointerdown', kick); window.removeEventListener('keydown', kick); };
+  }, [screen]);
+  useEffect(() => () => setLandMenuMusic(false), []);
   useEffect(() => { if (import.meta.env.DEV) (window as unknown as { __landGame?: () => LandGame | null; __landCam?: () => Cam }).__landGame = () => gRef.current; (window as unknown as { __landCam?: () => Cam }).__landCam = () => camRef.current; }, []); // (para probar en desarrollo)
   const say = useCallback((text: string, key = text, gap = 0) => { const now = performance.now(); if (gap && now - (lastToast.current[key] ?? -1e9) < gap) return; lastToast.current[key] = now; setToast({ text, id: now }); }, []);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(null), 2200); return () => clearTimeout(id); }, [toast]);
@@ -87,7 +97,7 @@ export function LandOfWarriors() {
 
   // ---------------------------------------------------------------- Empezar una partida
   const start = useCallback((civ: CivId) => {
-    playVampMenuButton(); setCiv(civ); setLoading(true);
+    playLandButton(); setCiv(civ); setLoading(true);
     setTimeout(() => { // (deja que aparezca el cartel antes de pintar el escenario)
       const foe = enemy === 'random' ? CIV_IDS.filter(c => c !== civ)[Math.floor(Math.random() * 9)] : enemy;
       const g = newLandGame(civ, foe, map, diff, Date.now(), size); gRef.current = g; setGame(g);
@@ -157,7 +167,7 @@ export function LandOfWarriors() {
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       const s = screenRef.current;
-      if ((e.key === 'p' || e.key === 'P') && (s === 'playing' || s === 'paused')) { playVampMenuButton(); setScreen(s === 'playing' ? 'paused' : 'playing'); return; }
+      if ((e.key === 'p' || e.key === 'P') && (s === 'playing' || s === 'paused')) { playLandButton(); setScreen(s === 'playing' ? 'paused' : 'playing'); return; }
       if (s === 'sheet' && e.key === 'Escape') { setScreen('pick'); return; }
       if (s !== 'playing') return;
       if (e.key === 'Escape') { if (modeRef.current.k !== 'none') setMode({ k: 'none' }); else setSelection([]); return; }
@@ -227,7 +237,7 @@ export function LandOfWarriors() {
     const w = toWorld(d.x0, d.y0), hit = pickAt(w.x, w.y), mineSel = myUnits([...selRef.current]).length > 0;
     const own = hit.u?.owner === 0 ? hit.u : hit.b?.owner === 0 ? hit.b : null;
     if (own && !(mineSel && hit.b && hit.b.built < 1)) {
-      playVampMenuButton();
+      playLandButton();
       const now = performance.now();
       if (hit.u && lastClick.current.id === own.id && now - lastClick.current.t < 350) { // doble click: todos los de ese tipo que se ven
         const c = camRef.current, role = hit.u.role;
@@ -278,8 +288,8 @@ export function LandOfWarriors() {
       <h3>Mejoras (en la base)</h3><p>⚔️ Ataque, 🛡️ Vida y 👟 Velocidad: tres niveles cada una, para todo tu ejército.</p>
     </div>}
     <div className="land-sheet-bar">
-      <button type="button" className="land-ghost" onClick={() => { playVampMenuButton(); setScreen('pick'); }}>‹ Volver</button>
-      <button type="button" className="land-ghost" onClick={() => { playVampMenuButton(); setSimple(s => !s); }}>{simple ? 'Ver la lámina' : 'Ver resumen simple'}</button>
+      <button type="button" className="land-ghost" onClick={() => { playLandButton(); setScreen('pick'); }}>‹ Volver</button>
+      <button type="button" className="land-ghost" onClick={() => { playLandButton(); setSimple(s => !s); }}>{simple ? 'Ver la lámina' : 'Ver resumen simple'}</button>
       <button type="button" className="land-go" onClick={() => start(view)}>⚔️ Iniciar</button>
     </div>
   </div>;
@@ -295,9 +305,9 @@ export function LandOfWarriors() {
         <span title="Población">👥 <b>{popUsed(g, 0)}/{popCap(g, 0)}</b></span>
         <span title="Tiempo">⏱ <b>{formatLandTime(g.t)}</b></span>
         <button type="button" className={`land-power${side.power >= POWER_MAX ? ' land-power--ready' : ''}`} disabled={side.power < POWER_MAX || screen !== 'playing'} title={POWER_TEXT[CIVS[side.civ].power.kind]}
-          onClick={() => { playVampMenuButton(); if (CIVS[side.civ].power.kind === 'strike') { setMode({ k: 'power' }); say('Elegí dónde cae el poder'); } else castPower(g, 0); }}>
+          onClick={() => { playLandButton(); if (CIVS[side.civ].power.kind === 'strike') { setMode({ k: 'power' }); say('Elegí dónde cae el poder'); } else castPower(g, 0); }}>
           <i style={{ width: `${side.power}%` }} /> <span>✨ {CIVS[side.civ].power.name}</span></button>
-        <button type="button" onClick={() => { playVampMenuButton(); setScreen(s => s === 'playing' ? 'paused' : 'playing'); }}>{screen === 'paused' ? 'Seguir' : 'Pausa'}</button>
+        <button type="button" onClick={() => { playLandButton(); setScreen(s => s === 'playing' ? 'paused' : 'playing'); }}>{screen === 'paused' ? 'Seguir' : 'Pausa'}</button>
       </div> : <span className="land-record">{Object.values(record).reduce((a, b) => a + b, 0) > 0 && <>Victorias <b>{Object.values(record).reduce((a, b) => a + b, 0)}</b></>}</span>}
     </div>
 
@@ -305,13 +315,13 @@ export function LandOfWarriors() {
       <div className="land-civmap">
         <img src={civsImg} alt="Las 10 civilizaciones" />
         {CIV_SPOTS.map(([c, x, y, w, h]) => <button type="button" key={c} aria-label={CIVS[c].name} title={CIVS[c].name} style={{ left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`, ['--civ' as string]: CIVS[c].color }}
-          onClick={() => { playVampMenuButton(); setView(c); setSimple(false); setScreen('sheet'); }}>{record[c] ? <em>🏆 {record[c]}</em> : null}</button>)}
+          onClick={() => { playLandButton(); setView(c); setSimple(false); setScreen('sheet'); }}>{record[c] ? <em>🏆 {record[c]}</em> : null}</button>)}
       </div>
       <div className="land-opts">
-        <label>Rival <select value={enemy} onChange={e => setEnemy(e.target.value as CivId | 'random')}><option value="random">Al azar</option>{CIV_IDS.map(c => <option key={c} value={c}>{CIVS[c].name}</option>)}</select></label>
-        <div className="land-chips" role="group" aria-label="Elegir escenario"><span>Escenario</span>{THEMES.map((m, i) => <button type="button" key={i} aria-pressed={map === i + 1} className={map === i + 1 ? 'on' : ''} onClick={() => setMap(i + 1)} title={m.text}>{m.name}</button>)}</div>
-        <div className="land-chips" role="group" aria-label="Tamaño del mapa"><span>Tamaño</span>{MAP_SIZES.map(([k, n]) => <button type="button" key={k} aria-pressed={size === k} className={size === k ? 'on' : ''} onClick={() => setSize(k)}>{n}</button>)}</div>
-        <div className="land-chips" role="group" aria-label="Dificultad"><span>Dificultad</span>{DIFF.map(([d, n]) => <button type="button" key={d} aria-pressed={diff === d} className={diff === d ? 'on' : ''} onClick={() => setDiff(d)}>{n}</button>)}</div>
+        <label>Rival <select value={enemy} onChange={e => { playLandButton(); setEnemy(e.target.value as CivId | 'random'); }}><option value="random">Al azar</option>{CIV_IDS.map(c => <option key={c} value={c}>{CIVS[c].name}</option>)}</select></label>
+        <div className="land-chips" role="group" aria-label="Elegir escenario"><span>Escenario</span>{THEMES.map((m, i) => <button type="button" key={i} aria-pressed={map === i + 1} className={map === i + 1 ? 'on' : ''} onClick={() => { playLandButton(); setMap(i + 1); }} title={m.text}>{m.name}</button>)}</div>
+        <div className="land-chips" role="group" aria-label="Tamaño del mapa"><span>Tamaño</span>{MAP_SIZES.map(([k, n]) => <button type="button" key={k} aria-pressed={size === k} className={size === k ? 'on' : ''} onClick={() => { playLandButton(); setSize(k); }}>{n}</button>)}</div>
+        <div className="land-chips" role="group" aria-label="Dificultad"><span>Dificultad</span>{DIFF.map(([d, n]) => <button type="button" key={d} aria-pressed={diff === d} className={diff === d ? 'on' : ''} onClick={() => { playLandButton(); setDiff(d); }}>{n}</button>)}</div>
       </div>
     </div>}
     {screen === 'sheet' && sheetScreen}
@@ -321,10 +331,10 @@ export function LandOfWarriors() {
       <canvas ref={canvasRef} className={mode.k === 'place' || mode.k === 'power' || mode.k === 'amove' ? 'land-aim' : ''} aria-label={`Partida en ${THEMES[g.terrain.theme].name}`} role="img"
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={() => { mouse.current.in = false; }} />
       {toast && <div key={toast.id} className="land-toast" role="status">{toast.text}</div>}
-      {mode.k !== 'none' && <div className="land-mode">{mode.k === 'place' ? `Elegí dónde poner: ${CIVS[side.civ].buildings[mode.kind]}` : mode.k === 'power' ? 'Elegí dónde cae el poder' : 'Elegí a dónde atacar'} · <button type="button" onClick={() => setMode({ k: 'none' })}>Cancelar</button></div>}
+      {mode.k !== 'none' && <div className="land-mode">{mode.k === 'place' ? `Elegí dónde poner: ${CIVS[side.civ].buildings[mode.kind]}` : mode.k === 'power' ? 'Elegí dónde cae el poder' : 'Elegí a dónde atacar'} · <button type="button" onClick={() => { playLandButton(); setMode({ k: 'none' }); }}>Cancelar</button></div>}
       <div className="land-hud" style={{ ['--civ' as string]: CIVS[side.civ].color }}>
         <div className="land-mini"><canvas ref={miniRef} width={220} height={124} onPointerDown={onMini} onPointerMove={onMini} aria-label="Mapa" />
-          <div className="land-quick"><button type="button" onClick={goBase} title="Ir a la base" aria-label="Ir a la base">🏰</button><button type="button" onClick={selectArmy} title="Elegir todo el ejército" aria-label="Elegir todo el ejército">⚔️</button><button type="button" onClick={selectIdle} title="Un trabajador sin hacer nada" aria-label="Un trabajador sin hacer nada">⛏️</button></div>
+          <div className="land-quick"><button type="button" onClick={() => { playLandButton(); goBase(); }} title="Ir a la base" aria-label="Ir a la base">🏰</button><button type="button" onClick={() => { playLandButton(); selectArmy(); }} title="Elegir todo el ejército" aria-label="Elegir todo el ejército">⚔️</button><button type="button" onClick={() => { playLandButton(); selectIdle(); }} title="Un trabajador sin hacer nada" aria-label="Un trabajador sin hacer nada">⛏️</button></div>
         </div>
         <div className="land-sel">{selUnits.length > 1 ? <ul className="land-group">{selUnits.slice(0, 18).map(u => <li key={u.id}><button type="button" onClick={() => setSelection([u.id])} title={CIVS[g.sides[u.owner].civ].units[u.role]}><Sprite civ={g.sides[u.owner].civ} idx={roleIdx(u.role)} w={44} h={44} /><i style={{ width: `${u.hp / u.maxHp * 100}%` }} /></button></li>)}{selUnits.length > 18 && <li className="land-more">+{selUnits.length - 18}</li>}</ul>
           : selUnits.length === 1 ? <UnitCard g={g} u={selUnits[0]} /> : selB ? <BuildingCard g={g} b={selB} />
@@ -334,18 +344,18 @@ export function LandOfWarriors() {
             const bs = BUILD_STATS[selB.kind], c = CIVS[side.civ];
             if (selB.built < 1) return <p className="land-cmd-note">En construcción: {Math.round(selB.built * 100)}%. Mandá trabajadores para que termine más rápido.</p>;
             return <>
-              {bs.makes.map(r => { const s = { ...ROLE_STATS[r], ...(c.mod[r] ?? {}) }, full = popUsed(g, 0) + s.pop > popCap(g, 0); return <button type="button" key={r} disabled={!canPay(side, s.cost) || full} title={`${c.units[r]}: ${roleText(side.civ, r)}${full ? ' (falta población: hacé un depósito)' : ''}`} onClick={() => { playVampMenuButton(); if (!train(g, selB.id, r)) say('No se puede ahora'); }}>
+              {bs.makes.map(r => { const s = { ...ROLE_STATS[r], ...(c.mod[r] ?? {}) }, full = popUsed(g, 0) + s.pop > popCap(g, 0); return <button type="button" key={r} disabled={!canPay(side, s.cost) || full} title={`${c.units[r]}: ${roleText(side.civ, r)}${full ? ' (falta población: hacé un depósito)' : ''}`} onClick={() => { playLandButton(); if (!train(g, selB.id, r)) say('No se puede ahora'); }}>
                 <Sprite civ={side.civ} idx={roleIdx(r)} w={40} h={40} /><b>{c.units[r]}</b><small>{costText(s.cost)}</small></button>; })}
-              {selB.kind === 'base' && UPGRADES.map(up => { const lv = side.up[up], cost = UPGRADE_COST(lv), busy = !!selB.research; return <button type="button" key={up} disabled={lv >= MAX_UPGRADE || busy || !canPay(side, cost)} onClick={() => { playVampMenuButton(); research(g, selB.id, up); }} title={`Mejora para todo el ejército (${UPGRADE_TIME} s)`}>
+              {selB.kind === 'base' && UPGRADES.map(up => { const lv = side.up[up], cost = UPGRADE_COST(lv), busy = !!selB.research; return <button type="button" key={up} disabled={lv >= MAX_UPGRADE || busy || !canPay(side, cost)} onClick={() => { playLandButton(); research(g, selB.id, up); }} title={`Mejora para todo el ejército (${UPGRADE_TIME} s)`}>
                 <span className="land-ic">{UP_ICON[up]}</span><b>{UP_NAME[up]} {lv >= MAX_UPGRADE ? 'máx.' : `${'I'.repeat(lv + 1)}`}</b><small>{lv >= MAX_UPGRADE ? '★★★' : costText(cost)}</small></button>; })}
               {selB.queue.length > 0 && <button type="button" className="land-cancel" onClick={() => cancelTrain(g, selB.id)}><span className="land-ic">✖</span><b>Cancelar</b><small>el último</small></button>}
               {bs.makes.length > 0 && <p className="land-cmd-note">Tocá el mapa para marcar a dónde van los nuevos.</p>}
             </>;
           }
-          if (workersSel) return <>{BKINDS.map(k => { const s = BUILD_STATS[k], needs = s.needs && !hasBuilt(g, 0, s.needs); return <button type="button" key={k} disabled={!canPay(side, s.cost) || !!needs} title={`${CIVS[side.civ].buildings[k]}: ${BUILD_TEXT[k]}`} onClick={() => { playVampMenuButton(); setMode({ k: 'place', kind: k }); }}>
+          if (workersSel) return <>{BKINDS.map(k => { const s = BUILD_STATS[k], needs = s.needs && !hasBuilt(g, 0, s.needs); return <button type="button" key={k} disabled={!canPay(side, s.cost) || !!needs} title={`${CIVS[side.civ].buildings[k]}: ${BUILD_TEXT[k]}`} onClick={() => { playLandButton(); setMode({ k: 'place', kind: k }); }}>
             <Sprite civ={side.civ} idx={bIdx(k)} w={44} h={36} /><b>{CIVS[side.civ].buildings[k]}</b><small>{needs ? `Necesita ${CIVS[side.civ].buildings[s.needs!]}` : costText(s.cost)}</small></button>; })}</>;
           if (mine.length) return <>
-            <button type="button" onClick={() => { playVampMenuButton(); setMode({ k: 'amove' }); }} title="Caminan y atacan a todo lo que encuentren en el camino"><span className="land-ic">⚔️</span><b>Atacar</b><small>a un lugar</small></button>
+            <button type="button" onClick={() => { playLandButton(); setMode({ k: 'amove' }); }} title="Caminan y atacan a todo lo que encuentren en el camino"><span className="land-ic">⚔️</span><b>Atacar</b><small>a un lugar</small></button>
             <button type="button" onClick={() => { for (const u of mine) u.order = { k: 'idle' }; }}><span className="land-ic">✋</span><b>Parar</b><small>&nbsp;</small></button>
           </>;
           return null;
@@ -356,13 +366,13 @@ export function LandOfWarriors() {
     {(screen === 'paused' || screen === 'won' || screen === 'lost') && g && side && <div className="land-overlay" role="dialog" aria-labelledby="land-msg">
       <div className="land-card">
         {screen === 'paused' && <><h2 id="land-msg">Pausa</h2>
-          <button type="button" className="land-go" onClick={() => setScreen('playing')} autoFocus>Seguir</button>
-          <button type="button" className="land-ghost" onClick={() => setScreen('pick')}>Volver al menú</button></>}
+          <button type="button" className="land-go" onClick={() => { playLandButton(); setScreen('playing'); }} autoFocus>Seguir</button>
+          <button type="button" className="land-ghost" onClick={() => { playLandButton(); setScreen('pick'); }}>Volver al menú</button></>}
         {screen !== 'paused' && <><h2 id="land-msg" className={screen === 'won' ? 'land-win' : 'land-lose'}>{screen === 'won' ? '¡Victoria!' : 'Derrota'}</h2>
           <p>{screen === 'won' ? `${CIVS[side.civ].name} destruyó la base de ${CIVS[g.sides[1].civ].name}.` : `${CIVS[g.sides[1].civ].name} destruyó tu base.`}</p>
           <ul className="land-stats"><li>Tiempo <b>{formatLandTime(g.t)}</b></li><li>Enemigos vencidos <b>{side.kills}</b></li><li>Perdidos <b>{side.lost}</b></li><li>Cristales juntados <b>{Math.round(side.gathered)}</b></li></ul>
           <button type="button" className="land-go" onClick={() => start(civ)} autoFocus>Jugar de nuevo</button>
-          <button type="button" className="land-ghost" onClick={() => setScreen('pick')}>Volver al menú</button></>}
+          <button type="button" className="land-ghost" onClick={() => { playLandButton(); setScreen('pick'); }}>Volver al menú</button></>}
       </div>
     </div>}
   </section>;

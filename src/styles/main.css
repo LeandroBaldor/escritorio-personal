@@ -2054,3 +2054,6 @@ body:has(.land) .mobile-nav{display:none}
 .land-chips span{color:#f5d68a;font-weight:800;margin-right:.2rem}
 .land-chips button{font:inherit;font-size:.8rem;padding:.3rem .6rem;border-radius:999px;border:1px solid #2c4a80;background:#0b1530;color:#dbe7ff;cursor:pointer}
 .land-chips .on{border-color:#facc15;background:#3a2c08;color:#fff3c4;box-shadow:0 0 10px #facc1566}
+/* Cartel "En construcción" sobre la portada de un juego que todavía se está armando (Land of Warriors). */
+.game-card-wip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-8deg);padding:.35rem 1rem;background:repeating-linear-gradient(-45deg,#facc15 0 14px,#111 14px 28px);border:3px solid #111;border-radius:6px;box-shadow:0 6px 16px #000a;white-space:nowrap;color:#111;font:900 clamp(.95rem,2.2vw,1.25rem)/1 Nunito,system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase;isolation:isolate;z-index:2}
+.game-card-wip::before{content:"";position:absolute;inset:4px;background:#facc15;border-radius:3px;z-index:-1}

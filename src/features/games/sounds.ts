@@ -1521,7 +1521,7 @@ const VAMP_S = import.meta.glob('./assets/sonidos/vamp-*.mp3', { eager: true, qu
 const vs = (name: string) => VAMP_S[`./assets/sonidos/vamp-${name}.mp3`];
 // Los fondos de cada nivel son pesados: se cargan recién cuando se juega ese nivel.
 export function preloadVampSounds(level = 0) {
-  for (const [k, url] of Object.entries(VAMP_S)) if ((!k.includes('/vamp-nivel-') && !k.includes('/vamp-lluvia-sangre') && !k.includes('/vamp-cuervos') && !k.includes('/vamp-dragon')) || (level === 10 && k.includes('/vamp-dragon')) || k.endsWith(`/vamp-nivel-${level}.mp3`) || (level === 9 && k.includes('/vamp-lluvia-sangre')) || (level === 1 && k.includes('/vamp-cuervos'))) loadSample(url);
+  for (const [k, url] of Object.entries(VAMP_S)) if ((!k.includes('/vamp-nivel-') && !k.includes('/vamp-land-') && !k.includes('/vamp-lluvia-sangre') && !k.includes('/vamp-cuervos') && !k.includes('/vamp-dragon')) || (level === 10 && k.includes('/vamp-dragon')) || k.endsWith(`/vamp-nivel-${level}.mp3`) || (level === 9 && k.includes('/vamp-lluvia-sangre')) || (level === 1 && k.includes('/vamp-cuervos'))) loadSample(url);
 }
 const vampLast: Record<string, number> = {};
 function vampOnce(name: string, volume: number, gap: number, rate = 1) { const c = running(); if (!c || c.currentTime - (vampLast[name] ?? -9) < gap) return true; vampLast[name] = c.currentTime; return playSample(vs(name), volume, 0, rate); }
@@ -1559,13 +1559,17 @@ function setVampLoop(name: string, level: number) {
     if (!(buffer instanceof AudioBuffer)) { loadSample(url); return; }
     const src = c.createBufferSource(), gain = c.createGain();
     src.buffer = buffer; src.loop = true; gain.gain.value = 0;
-    src.connect(gain).connect(out(c)); src.start(0, name.startsWith('musica') || name.startsWith('nivel') ? 0 : Math.random() * buffer.duration);
+    src.connect(gain).connect(out(c)); src.start(0, name.startsWith('musica') || name.startsWith('nivel') || name === 'land-musica' ? 0 : Math.random() * buffer.duration);
     l = vampLoops[name] = { src, gain };
   }
   l.gain.gain.setTargetAtTime(Math.max(0, level), c.currentTime, name === 'alas' || name.startsWith('dragon') ? 0.12 : 0.6);
   if (level <= 0) { const dead = l; vampLoops[name] = null; try { dead.src.stop(c.currentTime + 2); } catch { /* ya paró */ } }
 }
 // La música del menú de Vampyrium (se llama seguido mientras está el menú: arranca apenas el navegador deja sonar).
+// Land of Warriors: la música del menú (en vuelta) y el sonido de los botones.
+export function setLandMenuMusic(on: boolean) { setVampLoop('land-musica', on ? 0.5 : 0); }
+export function playLandButton() { if (!vampOnce('land-boton', 0.9, 0.04)) playVampButton(); }
+export function preloadLandSounds() { for (const n of ['land-musica', 'land-boton']) loadSample(vs(n)); }
 export function setVampMenuMusic(on: boolean) { setVampLoop('musica-menu', on ? 0.5 : 0); }
 // El sonido de elegir algo en los menús (niveles, botones y armas).
 export function playVampButton() { vampOnce('boton', 0.8, 0.06); }
