@@ -58,7 +58,7 @@ test('Land: civilizaciones, escala, exploración, selección y HUD', async ({ pa
   await page.mouse.wheel(0, -500);
   await expect.poll(async () => (await camera()).z).toBeGreaterThan(1.6);
   for (let i = 0; i < 20; i++) await page.mouse.wheel(0, 500);
-  await expect.poll(async () => (await camera()).z).toBe(1.6);
+  await expect.poll(async () => (await camera()).z).toBe(1.6 / 1.1);
   const mini = page.getByLabel('Mapa', { exact: true });
   const mb = (await mini.boundingBox())!;
   await page.mouse.click(mb.x + mb.width * .13, mb.y + mb.height * .76);

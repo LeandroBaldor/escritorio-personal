@@ -13,3 +13,5 @@ node scripts/prepare-land-art.mjs /ruta/a/las/hojas-png
 ```
 
 El proceso usa Chromium de Playwright para generar WebP y normalizar la transparencia. No se necesita ese proceso durante la compilación ni mientras se juega. Las láminas de referencia y la hoja anterior `sprites.webp` se conservan para comparación.
+
+Correcciones 7: world-props.webp contiene doce objetos en una grilla 4x3 (árboles, rocas, ruinas, coral, cristales azules/dorados/verdes y juncos). liquids.webp contiene seis materiales en 3x2: agua dulce, pantano, ácido, lava, mar y hielo. scenes/scene-0.webp a scene-9.webp son paisajes a nivel del suelo de los diez escenarios. Se preparan con scripts/prepare-land-world.mjs a partir de las imágenes generadas con ImageGen. hud-frame.svg es un marco vectorial nativo de la interfaz.

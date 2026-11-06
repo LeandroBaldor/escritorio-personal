@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240" viewBox="0 0 320 240">
+<defs><linearGradient id="gold" x2=".3" y2="1"><stop stop-color="#fff2a9"/><stop offset=".19" stop-color="#d8a744"/><stop offset=".43" stop-color="#765017"/><stop offset=".5" stop-color="#ffe39a"/><stop offset=".7" stop-color="#be8d35"/><stop offset="1" stop-color="#f8d478"/></linearGradient><linearGradient id="navy" x2="0" y2="1"><stop stop-color="#082f53"/><stop offset=".55" stop-color="#03172a"/><stop offset="1" stop-color="#010b16"/></linearGradient><linearGradient id="steel" x2="0" y2="1"><stop stop-color="#8cd5f4"/><stop offset=".4" stop-color="#165f87"/><stop offset="1" stop-color="#04253c"/></linearGradient></defs>
+<path d="M16 1H303L319 17V222L302 239H17L1 223V17Z" fill="#120d06" stroke="#080808" stroke-width="2"/>
+<path d="M17 4H302L316 18V221L301 236H18L4 222V18Z" fill="url(#gold)" stroke="#f6dc91" stroke-width="1"/>
+<path d="M19 8H300L312 20V219L299 232H20L8 220V20Z" fill="#07111c" stroke="#6b4518" stroke-width="2"/>
+<path d="M20 11H299L309 21V218L298 229H21L11 219V21Z" fill="url(#navy)" stroke="url(#steel)" stroke-width="2"/>
+<path d="M27 15H292M305 28V211M292 225H28M15 211V28" fill="none" stroke="#31a6da" stroke-width=".75" opacity=".8"/>
+<path d="m5 18 14-14M301 5l14 14M315 221l-14 14M19 235 5 221" stroke="#fff1ba" stroke-width="2"/>
+</svg>
