@@ -30,6 +30,8 @@ const UP_ICON: Record<Upgrade, string> = { attack: '⚔️', armor: '🛡️', s
 const DIFF: [Difficulty, string][] = [['easy', 'Fácil'], ['normal', 'Normal'], ['hard', 'Difícil']];
 const costText = (c: Cost) => `${c.stone ? `🔷${c.stone}` : ''}${c.gem ? ` 🔶${c.gem}` : ''}`.trim();
 type Screen = 'title' | 'pick' | 'sheet' | 'scenario' | 'playing' | 'paused' | 'won' | 'lost';
+const HUD_H = 214; // (el alto del menú de abajo)
+const minZoom = (g: LandGame, w: number, h: number) => Math.max(w / g.terrain.w, (h - HUD_H) / g.terrain.h);
 type Mode = { k: 'none' } | { k: 'place'; kind: BKind } | { k: 'power' } | { k: 'amove' };
 
 // Un dibujo chico de un guerrero o una construcción (de la hoja de recortes).
@@ -93,7 +95,7 @@ export function LandOfWarriors() {
   useEffect(() => () => setLandMenuMusic(false), []);
   useEffect(() => { if (import.meta.env.DEV) (window as unknown as { __landGame?: () => LandGame | null; __landCam?: () => Cam }).__landGame = () => gRef.current; (window as unknown as { __landCam?: () => Cam }).__landCam = () => camRef.current; }, []); // (para probar en desarrollo)
   const say = useCallback((text: string, key = text, gap = 0) => { const now = performance.now(); if (gap && now - (lastToast.current[key] ?? -1e9) < gap) return; lastToast.current[key] = now; setToast({ text, id: now }); }, []);
-  useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(null), 3600); return () => clearTimeout(id); }, [toast]);
+  useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(null), 5000); return () => clearTimeout(id); }, [toast]);
   const setSelection = useCallback((ids: number[]) => { selRef.current = new Set(ids); setSel(ids); }, []);
 
   // ---------------------------------------------------------------- Empezar una partida
@@ -104,7 +106,7 @@ export function LandOfWarriors() {
       const g = newLandGame(civ, foe, map, diff, Date.now(), size); gRef.current = g; setGame(g);
       mapImg.current = renderTerrain(g.terrain);
       const base = g.buildings.find(b => b.owner === 0)!;
-      camRef.current = { ...camRef.current, z: 1, x: base.x - 450, y: base.y - 380 };
+      camRef.current = { ...camRef.current, z: 2, x: base.x - 300, y: base.y - 200 };
       setSelection([]); setMode({ k: 'none' }); setLoading(false); setScreen('playing');
       setTimeout(() => say('Mandá a los trabajadores a juntar cristales y armá tu ejército. ¡Destruí la base enemiga!'), 300);
     }, 60);
@@ -145,7 +147,7 @@ export function LandOfWarriors() {
       const cam = camRef.current; cam.w = w; cam.h = h;
       if (screenRef.current === 'playing') {
         // la cámara: flechas / WASD y los bordes de la pantalla
-        const sp = 900 * dt / cam.z, ks = keys.current, m = mouse.current, edge = 18, panelTop = h - 196;
+        const sp = 1100 * dt / cam.z, ks = keys.current, m = mouse.current, edge = 22, panelTop = h - HUD_H;
         let dx = (ks.has('ArrowRight') || ks.has('d') ? 1 : 0) - (ks.has('ArrowLeft') || ks.has('a') ? 1 : 0), dy = (ks.has('ArrowDown') || ks.has('s') ? 1 : 0) - (ks.has('ArrowUp') || ks.has('w') ? 1 : 0);
         if (m.in && !drag.current) { if (m.x < edge) dx = -1; else if (m.x > w - edge) dx = 1; if (m.y < edge) dy = -1; else if (m.y > panelTop - 4 && m.y < panelTop + 6) dy = 1; }
         cam.x += dx * sp; cam.y += dy * sp;
@@ -165,7 +167,8 @@ export function LandOfWarriors() {
         // los elegidos que se murieron salen de la selección
         if ([...selRef.current].some(id => !g.units.some(u => u.id === id && !u.dead) && !g.buildings.some(b => b.id === id && !b.dead))) setSelection([...selRef.current].filter(id => g.units.some(u => u.id === id && !u.dead) || g.buildings.some(b => b.id === id && !b.dead)));
       } else stepLand(g, 0);
-      cam.x = Math.max(0, Math.min(g.terrain.w - w / cam.z, cam.x)); cam.y = Math.max(0, Math.min(g.terrain.h - (h - 120) / cam.z, cam.y));
+      cam.z = Math.max(cam.z, minZoom(g, w, h)); // (nunca se ve afuera del mapa)
+      cam.x = Math.max(0, Math.min(g.terrain.w - w / cam.z, cam.x)); cam.y = Math.max(0, Math.min(g.terrain.h - (h - HUD_H) / cam.z, cam.y));
       const ctx = c.getContext('2d')!; ctx.setTransform(k, 0, 0, k, 0, 0); ctx.clearRect(0, 0, w, h);
       drawWorld(ctx, g, mapImg.current, cam, now / 1000, selRef.current, cx => {
         const m = mouse.current, md = modeRef.current;
@@ -224,6 +227,7 @@ export function LandOfWarriors() {
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     const r = e.currentTarget.getBoundingClientRect(), k = r.width / e.currentTarget.clientWidth || 1, x = (e.clientX - r.left) / k, y = (e.clientY - r.top) / k, w = toWorld(x, y);
     const g = gRef.current!, md = modeRef.current;
+    if (e.button === 1) { e.preventDefault(); drag.current = { x0: x, y0: y, x1: x, y1: y, pan: true, id: e.pointerId, cx: camRef.current.x, cy: camRef.current.y }; return; } // (botón del medio: arrastra el mapa, como en Age of Empires)
     if (e.button === 2) { // click derecho: la orden (o cancelar lo que se estaba por hacer)
       if (md.k !== 'none') { setMode({ k: 'none' }); return; }
       command(w.x, w.y); return;
@@ -275,7 +279,7 @@ export function LandOfWarriors() {
     else setSelection([]);
   };
   const onWheel = (e: React.WheelEvent) => {
-    const c = camRef.current, old = c.z, z = Math.max(0.55, Math.min(1.5, c.z * (e.deltaY > 0 ? 0.9 : 1.1)));
+    const c = camRef.current, g = gRef.current, old = c.z, z = Math.max(g ? minZoom(g, c.w, c.h) : 0.6, Math.min(2.6, c.z * (e.deltaY > 0 ? 0.9 : 1.1)));
     const m = mouse.current; c.x += m.x / old - m.x / z; c.y += m.y / old - m.y / z; c.z = z;
   };
   const onMini = (e: RPointerEvent<HTMLCanvasElement>) => {
@@ -283,7 +287,7 @@ export function LandOfWarriors() {
     const g = gRef.current; if (!g) return;
     const r = e.currentTarget.getBoundingClientRect(), wx = (e.clientX - r.left) / r.width * g.terrain.w, wy = (e.clientY - r.top) / r.height * g.terrain.h, c = camRef.current;
     if (e.button === 2 && e.type === 'pointerdown') { command(wx, wy); return; }
-    c.x = wx - c.w / c.z / 2; c.y = wy - (c.h - 170) / c.z / 2;
+    c.x = wx - c.w / c.z / 2; c.y = wy - (c.h - HUD_H) / c.z / 2;
   };
 
   // ---------------------------------------------------------------- Lo que está elegido (para el menú de abajo)
@@ -319,20 +323,11 @@ export function LandOfWarriors() {
 
   const playing = screen === 'playing' || screen === 'paused' || screen === 'won' || screen === 'lost';
   return <section className="land" style={fit} aria-label="Land of Warriors" onContextMenu={e => e.preventDefault()}>
-    <div className="land-bar">
+    {!playing && <div className="land-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
-      <h1 className="land-logo">Land of Warriors</h1>
-      {playing && g && side ? <div className="land-res" aria-label="Recursos">
-        <span title="Piedras (cristales azules)">🔷 <b data-testid="land-stone">{Math.floor(side.stone)}</b></span>
-        <span title="Diamantes (cristales dorados)">🔶 <b data-testid="land-gem">{Math.floor(side.gem)}</b></span>
-        <span title="Población">👥 <b>{popUsed(g, 0)}/{popCap(g, 0)}</b></span>
-        <span title="Tiempo">⏱ <b>{formatLandTime(g.t)}</b></span>
-        <button type="button" className={`land-power${side.power >= POWER_MAX ? ' land-power--ready' : ''}`} disabled={side.power < POWER_MAX || screen !== 'playing'} title={POWER_TEXT[CIVS[side.civ].power.kind]}
-          onClick={() => { if (CIVS[side.civ].power.kind === 'strike') { setMode({ k: 'power' }); say('Elegí dónde cae el poder'); } else castPower(g, 0); }}>
-          <i style={{ width: `${side.power}%` }} /> <span>✨ {CIVS[side.civ].power.name}</span></button>
-        <button type="button" onClick={() => { setScreen(s => s === 'playing' ? 'paused' : 'playing'); }}>{screen === 'paused' ? 'Seguir' : 'Pausa'}</button>
-      </div> : <span className="land-record">{Object.values(record).reduce((a, b) => a + b, 0) > 0 && <>Victorias <b>{Object.values(record).reduce((a, b) => a + b, 0)}</b></>}</span>}
-    </div>
+      <h1 className="land-logo" aria-label="Land of Warriors">{screen === 'pick' || screen === 'sheet' ? 'Civilizaciones' : screen === 'scenario' ? 'Escenarios' : 'Land of Warriors'}</h1>
+      <span className="land-record">{Object.values(record).reduce((a, b) => a + b, 0) > 0 && <>Victorias <b>{Object.values(record).reduce((a, b) => a + b, 0)}</b></>}</span>
+    </div>}
 
     {screen === 'pick' && <div className="land-pick">
       <div className="land-civmap">
@@ -348,7 +343,7 @@ export function LandOfWarriors() {
       </div>
     </div>}
     {screen === 'title' && <div className="land-title" style={{ backgroundImage: `url(${posterImg})` }}>
-      <div className="land-title-text"><h2>Land of Warriors</h2><p>Diez civilizaciones. Una sola tierra.</p>
+      <div className="land-title-text"><h2 className="land-metal" data-text="Land of Warriors">Land of Warriors</h2><p>Diez civilizaciones. Una sola tierra.</p>
         <button type="button" className="land-go land-start" onClick={() => { playLandButton(); setScreen('pick'); }} autoFocus>⚔️ Iniciar</button></div>
     </div>}
     {screen === 'sheet' && sheetScreen}
@@ -366,47 +361,60 @@ export function LandOfWarriors() {
     {playing && g && side && <div className="land-stage" ref={stageRef} onWheel={onWheel}>
       <canvas ref={canvasRef} className={mode.k === 'place' || mode.k === 'power' || mode.k === 'amove' ? 'land-aim' : ''} aria-label={`Partida en ${THEMES[g.terrain.theme].name}`} role="img"
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={() => { mouse.current.in = false; }} />
+      <div className="land-top-left"><Link className="land-exit" to="/juegos" aria-label="Volver a Juegos">‹</Link><span>Escenario {g.map} — {THEMES[g.terrain.theme].name}</span></div>
+      <div className="land-top-right" aria-label="Recursos">
+        <span title="Piedras (cristales azules)"><i className="land-r-stone" />{' '}<b data-testid="land-stone">{Math.floor(side.stone)}</b></span>
+        <span title="Diamantes (cristales dorados)"><i className="land-r-gem" />{' '}<b data-testid="land-gem">{Math.floor(side.gem)}</b></span>
+        <span title="Población">👥 <b>{popUsed(g, 0)} / {popCap(g, 0)}</b></span>
+        <span title="Tiempo">⏱ <b>{formatLandTime(g.t)}</b></span>
+        <button type="button" className={`land-power${side.power >= POWER_MAX ? ' land-power--ready' : ''}`} disabled={side.power < POWER_MAX || screen !== 'playing'} title={`${CIVS[side.civ].power.name}: ${POWER_TEXT[CIVS[side.civ].power.kind]}`}
+          onClick={() => { if (CIVS[side.civ].power.kind === 'strike') { setMode({ k: 'power' }); say('Elegí dónde cae el poder'); } else castPower(g, 0); }}><i style={{ width: `${side.power}%` }} /><span>✨</span></button>
+        <button type="button" className="land-sq" title="Ayuda" aria-label="Ayuda" onClick={() => say('Tocá o arrastrá para elegir; tocá el mapa para dar órdenes. Mové la cámara con el mouse en los bordes, las flechas o arrastrando con el botón del medio.')}>?</button>
+        <button type="button" className="land-sq" title="Pausa" aria-label={screen === 'paused' ? 'Seguir' : 'Pausa'} onClick={() => setScreen(st => st === 'playing' ? 'paused' : 'playing')}>⚙</button>
+      </div>
       {toast && <div key={toast.id} className="land-toast" role="status">{toast.text}</div>}
       {mode.k !== 'none' && <div className="land-mode">{mode.k === 'place' ? `Elegí dónde poner: ${CIVS[side.civ].buildings[mode.kind]}` : mode.k === 'power' ? 'Elegí dónde cae el poder' : 'Elegí a dónde atacar'} · <button type="button" onClick={() => { setMode({ k: 'none' }); }}>Cancelar</button></div>}
       <div className="land-hud" style={{ ['--civ' as string]: CIVS[side.civ].color }}>
-        <div className="land-crest" aria-hidden="true"><span>{CIVS[side.civ].name}</span></div>
-        <div className="land-mini"><canvas ref={miniRef} width={220} height={150} onPointerDown={onMini} onPointerMove={onMini} aria-label="Mapa" />
+        <div className="land-crest" aria-hidden="true"><svg viewBox="0 0 120 52" width="120" height="52"><defs><linearGradient id="lwg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff4c2" /><stop offset=".45" stopColor="#f0c04a" /><stop offset="1" stopColor="#8a5a10" /></linearGradient></defs>
+          {[-1, 1].map(sx => <path key={sx} transform={`translate(60 0) scale(${sx} 1)`} d="M6 30 C18 14 34 8 54 6 C44 12 40 16 38 20 C46 18 52 18 56 20 C46 24 40 28 36 32 C42 32 46 33 50 36 C40 38 30 38 20 36 C14 35 10 33 6 30 Z" fill="url(#lwg)" stroke="#3a2406" strokeWidth="1.5" />)}
+          <path d="M60 10 L70 26 L60 46 L50 26 Z" fill="url(#lwg)" stroke="#3a2406" strokeWidth="1.5" /><circle cx="60" cy="26" r="6" fill={CIVS[side.civ].color} stroke="#3a2406" strokeWidth="1.5" /></svg></div>
+        <div className="land-gems" aria-hidden="true">{[0, 1, 2, 3, 4, 5].map(i => <i key={i} />)}</div>
+        <div className="land-mini"><div className="land-mini-map"><div className="land-tabs"><span>▦▦</span><span>((•))</span></div><canvas ref={miniRef} width={220} height={150} onPointerDown={onMini} onPointerMove={onMini} aria-label="Mapa" /></div>
           <div className="land-quick"><button type="button" onClick={goBase} title="Ir a la base" aria-label="Ir a la base">🏰</button><button type="button" onClick={selectArmy} title="Elegir todo el ejército" aria-label="Elegir todo el ejército">⚔️</button><button type="button" onClick={selectIdle} title="Un trabajador sin hacer nada" aria-label="Un trabajador sin hacer nada">⛏️</button></div>
         </div>
         <div className="land-sel">
-          <ul className="land-group">{(selUnits.length ? selUnits : selB ? [] : []).slice(0, 14).map(u => <li key={u.id}><button type="button" onClick={() => setSelection([u.id])} title={CIVS[g.sides[u.owner].civ].units[u.role]} className={u.owner === 0 ? '' : 'foe'}><Sprite civ={g.sides[u.owner].civ} idx={roleIdx(u.role)} w={58} h={58} /><i style={{ width: `${u.hp / u.maxHp * 100}%` }} /></button></li>)}
-            {selUnits.length > 14 && <li className="land-more">+{selUnits.length - 14}</li>}
+          <ul className="land-group">{selUnits.slice(0, 10).map(u => <li key={u.id}><button type="button" onClick={() => setSelection([u.id])} title={CIVS[g.sides[u.owner].civ].units[u.role]} className={u.owner === 0 ? '' : 'foe'}><Sprite civ={g.sides[u.owner].civ} idx={roleIdx(u.role)} w={62} h={62} /><i style={{ width: `${u.hp / u.maxHp * 100}%` }} /></button></li>)}
+            {selUnits.length > 10 && <li className="land-more">+{selUnits.length - 10}</li>}{selUnits.length > 0 && selUnits.length < 10 && Array.from({ length: 10 - selUnits.length }, (_, i) => <li key={'e' + i} className="land-slot" />)}
             {!selUnits.length && selB && <li className="land-group-b"><Sprite civ={g.sides[selB.owner].civ} idx={bIdx(selB.kind)} w={150} h={110} /></li>}
             {!selUnits.length && !selB && <li className="land-help"><span>Tocá a tus guerreros para elegirlos (o arrastrá un recuadro). Después tocá el mapa: caminan, juntan cristales o atacan.</span></li>}</ul>
           {selUnits.length ? <UnitCard g={g} u={selUnits[0]} n={selUnits.length} /> : selB ? <BuildingCard g={g} b={selB} /> : <div className="land-card-unit land-card-empty"><b>{CIVS[side.civ].name}</b><small>{CIVS[side.civ].style}</small></div>}
         </div>
         {/* eslint-disable-next-line react-hooks/refs -- (los botones solo usan las referencias al tocarlos, no al dibujarse) */}
         <div className="land-cmds">{(() => {
+          const pad = (els: React.ReactNode[]) => [...els, ...Array.from({ length: Math.max(0, 12 - els.filter(Boolean).length) }, (_, i) => <span key={'p' + i} className="land-slot" />)];
           const cmd = (key: string, icon: React.ReactNode, title: string, onClick: () => void, o: { disabled?: boolean; cost?: Cost; badge?: string } = {}) =>
             <button type="button" key={key} disabled={o.disabled} title={title} aria-label={title} onClick={onClick}>{icon}{o.badge && <em>{o.badge}</em>}{o.cost && <small>{costText(o.cost)}</small>}</button>;
           const ic = (t: string) => <span className="land-ic">{t}</span>;
           if (selB && selB.owner === 0) {
             const bs = BUILD_STATS[selB.kind], c = CIVS[side.civ];
             if (selB.built < 1) return <p className="land-cmd-note">En construcción: {Math.round(selB.built * 100)}%. Mandá trabajadores para que termine más rápido.</p>;
-            return <>
-              {bs.makes.map(r => { const st = { ...ROLE_STATS[r], ...(c.mod[r] ?? {}) }, full = popUsed(g, 0) + st.pop > popCap(g, 0);
-                return cmd(r, <Sprite civ={side.civ} idx={roleIdx(r)} w={46} h={46} />, `${c.units[r]}: ${roleText(side.civ, r)}${full ? ' (falta población: hacé un depósito)' : ''}`, () => { if (!train(g, selB.id, r)) say('No se puede ahora'); }, { disabled: !canPay(side, st.cost) || full, cost: st.cost }); })}
-              {selB.kind === 'base' && UPGRADES.map(up => { const lv = side.up[up], cost = UPGRADE_COST(lv);
-                return cmd(up, ic(UP_ICON[up]), `Mejorar ${UP_NAME[up]} de todo el ejército (nivel ${lv + 1}, ${UPGRADE_TIME} s)`, () => research(g, selB.id, up), { disabled: lv >= MAX_UPGRADE || !!selB.research || !canPay(side, cost), cost: lv >= MAX_UPGRADE ? undefined : cost, badge: lv >= MAX_UPGRADE ? 'MÁX' : 'I'.repeat(lv + 1) }); })}
-              {selB.queue.length > 0 && cmd('cancel', ic('✖'), 'Cancelar el último', () => cancelTrain(g, selB.id))}
-            </>;
+            return <>{pad([
+              ...bs.makes.map(r => { const st = { ...ROLE_STATS[r], ...(c.mod[r] ?? {}) }, full = popUsed(g, 0) + st.pop > popCap(g, 0);
+                return cmd(r, <Sprite civ={side.civ} idx={roleIdx(r)} w={46} h={46} />, `${c.units[r]}: ${roleText(side.civ, r)}${full ? ' (falta población: hacé un depósito)' : ''}`, () => { if (!train(g, selB.id, r)) say('No se puede ahora'); }, { disabled: !canPay(side, st.cost) || full, cost: st.cost }); }),
+              ...(selB.kind === 'base' ? UPGRADES.map(up => { const lv = side.up[up], cost = UPGRADE_COST(lv);
+                return cmd(up, ic(UP_ICON[up]), `Mejorar ${UP_NAME[up]} de todo el ejército (nivel ${lv + 1}, ${UPGRADE_TIME} s)`, () => research(g, selB.id, up), { disabled: lv >= MAX_UPGRADE || !!selB.research || !canPay(side, cost), cost: lv >= MAX_UPGRADE ? undefined : cost, badge: lv >= MAX_UPGRADE ? 'MÁX' : 'I'.repeat(lv + 1) }); }) : []),
+              selB.queue.length > 0 ? cmd('cancel', ic('✖'), 'Cancelar el último', () => cancelTrain(g, selB.id)) : null])}</>;
           }
-          if (workersSel) return <>{BKINDS.map(k => { const st = BUILD_STATS[k], needs = st.needs && !hasBuilt(g, 0, st.needs);
-            return cmd(k, <Sprite civ={side.civ} idx={bIdx(k)} w={54} h={44} />, `${CIVS[side.civ].buildings[k]}: ${BUILD_TEXT[k]}${needs ? ` (necesita ${CIVS[side.civ].buildings[st.needs!]})` : ''}`, () => setMode({ k: 'place', kind: k }), { disabled: !canPay(side, st.cost) || !!needs, cost: st.cost }); })}
-            {cmd('stop', ic('✋'), 'Parar', () => { for (const u of mine) u.order = { k: 'idle' }; })}</>;
-          if (mine.length) return <>
-            {cmd('amove', ic('🎯'), 'Atacar a un lugar: caminan y atacan a todo lo que encuentren', () => setMode({ k: 'amove' }))}
-            {cmd('move', ic('➡️'), 'Mover: tocá el mapa para que vayan', () => say('Tocá el mapa para que vayan ahí'))}
-            {cmd('stop', ic('⛔'), 'Parar', () => { for (const u of mine) u.order = { k: 'idle' }; })}
-            {cmd('all', ic('⚔️'), 'Elegir todo el ejército', () => selectArmy())}
-            {side.power >= POWER_MAX && cmd('power', ic('✨'), CIVS[side.civ].power.name, () => { if (CIVS[side.civ].power.kind === 'strike') setMode({ k: 'power' }); else castPower(g, 0); })}
-          </>;
-          return null;
+          if (workersSel) return <>{pad([...BKINDS.map(k => { const st = BUILD_STATS[k], needs = st.needs && !hasBuilt(g, 0, st.needs);
+            return cmd(k, <Sprite civ={side.civ} idx={bIdx(k)} w={54} h={44} />, `${CIVS[side.civ].buildings[k]}: ${BUILD_TEXT[k]}${needs ? ` (necesita ${CIVS[side.civ].buildings[st.needs!]})` : ''}`, () => setMode({ k: 'place', kind: k }), { disabled: !canPay(side, st.cost) || !!needs, cost: st.cost }); }),
+            cmd('stop', ic('✋'), 'Parar', () => { for (const u of mine) u.order = { k: 'idle' }; })])}</>;
+          if (mine.length) return <>{pad([
+            cmd('amove', ic('🎯'), 'Atacar a un lugar: caminan y atacan a todo lo que encuentren', () => setMode({ k: 'amove' })),
+            cmd('move', ic('➡️'), 'Mover: tocá el mapa para que vayan', () => say('Tocá el mapa para que vayan ahí')),
+            cmd('stop', ic('⛔'), 'Parar', () => { for (const u of mine) u.order = { k: 'idle' }; }),
+            cmd('all', ic('⚔️'), 'Elegir todo el ejército', () => selectArmy()),
+            side.power >= POWER_MAX ? cmd('power', ic('✨'), CIVS[side.civ].power.name, () => { if (CIVS[side.civ].power.kind === 'strike') setMode({ k: 'power' }); else castPower(g, 0); }) : null])}</>;
+          return <>{pad([])}</>;
         })()}</div>
       </div>
     </div>}
@@ -448,9 +456,9 @@ function MapThumb({ theme }: { theme: number }) {
   useEffect(() => {
     if (THUMBS[theme]) return;
     const id = setTimeout(() => {
-      const t = generateTerrain(theme, 'small', 4242 + theme), big = renderTerrain(t), c = document.createElement('canvas'); c.width = c.height = 300;
-      const side = Math.min(t.w, t.h), ctx = c.getContext('2d')!; ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(big, (t.w - side) / 2, (t.h - side) / 2, side, side, 0, 0, 300, 300);
+      const t = generateTerrain(theme, 'small', 4242 + theme), big = renderTerrain(t, 1), c = document.createElement('canvas'); c.width = c.height = 420;
+      const side = Math.min(t.w, t.h) * 0.72, ctx = c.getContext('2d')!; ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(big, (t.w - side) / 2, (t.h - side) / 2, side, side, 0, 0, 420, 420);
       THUMBS[theme] = c.toDataURL('image/jpeg', 0.85); setSrc(THUMBS[theme]);
     }, 30 + theme * 40);
     return () => clearTimeout(id);

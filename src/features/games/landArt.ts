@@ -116,8 +116,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, g: LandGame, map: HTMLC
   ctx.save(); ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
   const W = g.terrain.w, H = g.terrain.h;
   if (map) { // (solo el pedazo que se ve)
-    const sx = Math.max(0, cam.x), sy = Math.max(0, cam.y), sw = Math.min(W - sx, cam.w / cam.z + 2), sh = Math.min(H - sy, cam.h / cam.z + 2);
-    ctx.drawImage(map, sx, sy, sw, sh, sx, sy, sw, sh);
+    const k = map.width / W, sx = Math.max(0, cam.x), sy = Math.max(0, cam.y), sw = Math.min(W - sx, cam.w / cam.z + 2), sh = Math.min(H - sy, cam.h / cam.z + 2); // (k: el escenario está pintado con más resolución)
+    ctx.imageSmoothingQuality = 'high'; ctx.drawImage(map, sx * k, sy * k, sw * k, sh * k, sx, sy, sw, sh);
   } else { ctx.fillStyle = '#3a3226'; ctx.fillRect(0, 0, W, H); }
   const vx0 = cam.x - 200, vx1 = cam.x + cam.w / cam.z + 200, vy0 = cam.y - 200, vy1 = cam.y + cam.h / cam.z + 250, vis = (o: { x: number; y: number }) => o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1;
   for (const n of g.nodes) if (vis(n)) drawNode(ctx, n, t);

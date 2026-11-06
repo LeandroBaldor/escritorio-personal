@@ -2121,3 +2121,53 @@ body:has(.land) .mobile-nav{display:none}
 .land-cmd-note{grid-column:1/-1}
 .land-res>span{border-color:#c8a24a!important;background:linear-gradient(#13285a,#081430)!important}
 @media(max-width:1100px){.land-hud{grid-template-columns:210px minmax(0,1fr) 250px!important}.land-sel{grid-template-columns:1fr}.land-group{display:none!important}}
+/* (5) letras metálicas, póster, escenarios grandes y el menú de la partida como la referencia */
+.land-metal,.land-logo{background:linear-gradient(180deg,#ffffff 0%,#e9eef5 14%,#9aa4b2 30%,#f4f6fa 44%,#6b7482 52%,#c5ccd6 66%,#ffffff 78%,#7a8390 100%)!important;-webkit-background-clip:text!important;background-clip:text!important;color:transparent!important;-webkit-text-stroke:1px #2a2f38;filter:drop-shadow(0 1px 0 #fff8) drop-shadow(0 3px 0 #1a1d24) drop-shadow(0 6px 8px #000c)!important;letter-spacing:.07em}
+.land-title-text h2.land-metal{font-size:clamp(3.4rem,9vw,7.5rem)!important;-webkit-text-stroke:2px #1c2028}
+.land-title{background-size:cover!important;background-position:center top!important}
+.land-title::after{content:"";position:absolute;inset:auto 0 0 0;height:45%;background:linear-gradient(transparent,#05070cee);pointer-events:none}
+.land-title-text{position:relative;z-index:1}
+.land-scen-list{grid-template-columns:repeat(5,minmax(0,300px))!important;gap:1.1rem!important}
+.land-scen-list b{font-size:1.25rem!important}
+@media(max-width:1500px){.land-scen-list{grid-template-columns:repeat(5,minmax(0,1fr))!important}}
+@media(max-width:1000px){.land-scen-list{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+@keyframes land-toast{0%{opacity:0;transform:translate(-50%,-8px)}5%,92%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}
+.land-toast{animation-duration:5s!important;top:4rem!important;font-size:1.05rem}
+/* arriba del mapa */
+.land-top-left,.land-top-right{position:absolute;top:.5rem;z-index:4;display:flex;align-items:center;gap:.45rem}
+.land-top-left{left:.5rem;padding:.35rem 1.4rem .35rem .4rem;background:linear-gradient(#173068,#0a1a40);border:2px solid #d8b25a;border-radius:6px;clip-path:polygon(0 0,100% 0,calc(100% - 14px) 100%,0 100%);box-shadow:0 4px 12px #000a}
+.land-top-left span{font:400 1.25rem/1 "KF Menu",Georgia,serif;color:#ffe9a8;text-transform:uppercase;letter-spacing:.05em;text-shadow:0 2px 0 #000}
+.land-exit{display:grid;place-items:center;width:1.8rem;height:1.8rem;border:1px solid #d8b25a;border-radius:4px;background:#0a1a40;color:#ffe9a8;text-decoration:none;font-weight:900}
+.land-top-right{right:.5rem;padding:.3rem .45rem;background:linear-gradient(#173068,#0a1a40);border:2px solid #d8b25a;border-radius:6px;box-shadow:0 4px 12px #000a}
+.land-top-right>span{display:flex;align-items:center;gap:.35rem;padding:.15rem .6rem;border-right:1px solid #d8b25a55;color:#fff;font-weight:800}
+.land-top-right i.land-r-stone,.land-top-right i.land-r-gem{display:inline-block;width:14px;height:18px;clip-path:polygon(50% 0,100% 30%,80% 100%,20% 100%,0 30%);background:linear-gradient(135deg,#d7ecff,#3b82f6 55%,#1e3a8a)}
+.land-top-right i.land-r-gem{background:linear-gradient(135deg,#fff6c8,#f5b81a 55%,#9a5a00)}
+.land-top-right .land-power{min-width:4.2rem!important;height:2rem;padding:0 .4rem!important}
+.land-sq{width:2rem;height:2rem;display:grid;place-items:center;border:2px solid #d8b25a;border-radius:5px;background:linear-gradient(#1c3570,#0b1a3c);color:#ffe9a8;font:900 1rem system-ui;cursor:pointer}
+/* el menú de abajo */
+.land-hud{height:214px!important;grid-template-columns:330px minmax(0,1fr) 320px!important;padding:.75rem .6rem .5rem!important;border-top:4px solid #e2bc60!important;background:linear-gradient(#17336e,#0a1838 60%,#06102a)!important}
+.land-crest{top:-38px!important;padding:0!important;background:none!important;border:0!important;clip-path:none!important;filter:drop-shadow(0 3px 4px #000c)}
+.land-crest::before,.land-crest::after{content:none!important}
+.land-gems{position:absolute;left:0;right:0;top:-10px;display:flex;justify-content:space-around;padding:0 18%;pointer-events:none}
+.land-gems i{width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#bfe3ff,#2563eb 55%,#0b2a6e);border:2px solid #e2bc60;box-shadow:0 0 6px #3b82f6}
+.land-mini{display:flex!important;flex-direction:row!important;gap:.35rem!important;padding:.3rem!important}
+.land-mini-map{flex:1;min-width:0;display:flex;flex-direction:column;gap:.25rem}
+.land-tabs{display:flex;gap:.3rem}
+.land-tabs span{flex:1;text-align:center;padding:.1rem 0;border:1px solid #d8b25a;border-radius:4px;background:linear-gradient(#1c3570,#0b1a3c);color:#ffe9a8;font-weight:900;font-size:.75rem}
+.land-mini canvas{flex:1;width:100%!important;min-height:0}
+.land-quick{flex:0 0 48px!important;gap:.3rem!important}
+.land-quick button{border:2px solid #d8b25a!important;border-radius:6px!important;font-size:1.25rem!important}
+.land-sel{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)!important}
+.land-group{grid-template-columns:repeat(5,minmax(0,1fr))!important;grid-auto-rows:auto!important;gap:.3rem!important}
+.land-group li{aspect-ratio:1;min-width:0}
+.land-group button,.land-slot{width:100%!important;height:100%!important;display:grid;place-items:center}
+.land-group button{border:2px solid #22c55e!important;border-radius:5px!important;background:radial-gradient(circle at 50% 35%,#2a4a8e,#0a1630)!important;position:relative}
+.land-group li.land-slot,.land-cmds .land-slot{border:2px solid #24407a;border-radius:5px;background:#081430}
+.land-group button canvas{max-width:92%;max-height:92%}
+.land-portrait{flex:0 0 120px!important;height:120px!important}
+.land-cmds{grid-template-columns:repeat(4,1fr)!important;grid-template-rows:repeat(3,1fr)!important;grid-auto-rows:unset!important}
+.land-cmds button,.land-cmds .land-slot{aspect-ratio:auto!important;min-height:0}
+.land-cmds .land-slot{display:block}
+.land-cmds button{border:2px solid #e2bc60!important;background:radial-gradient(circle at 50% 30%,#2c55a8,#0c1c44)!important}
+@media(max-width:1200px){.land-hud{grid-template-columns:260px minmax(0,1fr) 260px!important}}
+.land-scen{padding-bottom:7rem!important}

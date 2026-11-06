@@ -93,9 +93,9 @@ describe('Land of Warriors', () => {
     expect(ai.filter(u => u.role !== 'worker').length + g.sides[0].lost).toBeGreaterThan(3);
     expect(g.ai.wave).toBeGreaterThan(0);
   });
-  it('los escenarios: cinco estilos y cuatro tamaños, siempre con camino entre las bases', () => {
-    expect(THEMES).toHaveLength(5); expect(MAP_SIZES.map(m => m[0])).toEqual(['small', 'medium', 'large', 'huge']);
-    for (let th = 0; th < 5; th++) for (const [size] of MAP_SIZES) for (const seed of [1, 77]) {
+  it('los escenarios: diez estilos y cuatro tamaños, siempre con camino entre las bases', () => {
+    expect(THEMES).toHaveLength(10); expect(MAP_SIZES.map(m => m[0])).toEqual(['small', 'medium', 'large', 'huge']);
+    for (let th = 0; th < 10; th++) for (const [size] of MAP_SIZES) for (const seed of [1, 77]) {
       const t = generateTerrain(th, size as MapSize, seed), [a, b] = t.bases.map(([c, r]) => [(c + 0.5) * 40, (r + 0.5) * 40]);
       expect(walkable(t, a[0], a[1])).toBe(true);
       const p = findPath(t, a[0], a[1], b[0], b[1]), end = p[p.length - 1];

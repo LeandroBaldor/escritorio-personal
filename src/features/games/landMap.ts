@@ -4,10 +4,10 @@
 export const T = 40; // el lado de cada casillero, en unidades del mundo
 export const GROUND = 0, LIQUID = 1, BLOCK = 2, BRIDGE = 3;
 export type MapSize = 'small' | 'medium' | 'large' | 'huge';
-export const MAP_SIZES: [MapSize, string, number, number][] = [['small', 'Chico', 2200, 1400], ['medium', 'Medio', 2900, 1800], ['large', 'Grande', 3700, 2300], ['huge', 'Muy grande', 4600, 2800]];
+export const MAP_SIZES: [MapSize, string, number, number][] = [['small', 'Chico', 3000, 1900], ['medium', 'Medio', 4000, 2500], ['large', 'Grande', 5200, 3200], ['huge', 'Muy grande', 6400, 3900]];
 export interface Theme {
   name: string; text: string; ground: [string, string, string]; path: string; liquid: [string, string, string]; shore: string; glow: string | null;
-  block: 'rock' | 'forest' | 'ruin' | 'mixed'; rock: [string, string]; leaf: [string, string, string]; decor: ('bush' | 'flower' | 'bone' | 'crystal' | 'pebble' | 'mushroom' | 'grass' | 'crack' | 'palm')[];
+  block: 'rock' | 'forest' | 'ruin' | 'mixed' | 'pine' | 'dead' | 'cactus' | 'coral'; rock: [string, string]; leaf: [string, string, string]; decor: ('bush' | 'flower' | 'bone' | 'crystal' | 'pebble' | 'mushroom' | 'grass' | 'crack' | 'palm' | 'snow' | 'reed' | 'leaves' | 'shell')[];
   lakes: number; river: number; blocks: number;
 }
 // Los cinco estilos (inspirados en las referencias): colores bien distintos del ejército para que los guerreros resalten.
@@ -17,6 +17,11 @@ export const THEMES: Theme[] = [
   { name: 'Tierras de Ceniza', text: 'Piedra gris quebrada, ruinas y ríos de lava.', ground: ['#4b4644', '#5a5452', '#3a3534'], path: '#6b625c', liquid: ['#ffd25a', '#ff6a12', '#8a1a02'], shore: '#1e1817', glow: '#ff7a1a', block: 'ruin', rock: ['#5a5350', '#2a2523'], leaf: ['#3a2e2a', '#4e3e38', '#221a18'], decor: ['bone', 'crack', 'pebble'], lakes: 0.4, river: 1, blocks: 0.6 },
   { name: 'Valle de Yldran', text: 'Pasto verde, árboles en flor, ríos y cascadas.', ground: ['#5e9a3a', '#73b244', '#4a7e2c'], path: '#c7aa72', liquid: ['#7ee8ff', '#2fa8e0', '#145e9a'], shore: '#7a6a4a', glow: null, block: 'forest', rock: ['#9a9a9a', '#585858'], leaf: ['#b34ac0', '#e07ae8', '#6a2478'], decor: ['flower', 'bush', 'grass', 'mushroom'], lakes: 0.5, river: 1, blocks: 0.7 },
   { name: 'Frontera de Acero', text: 'Tierra del cañón, mesetas de roca y un río abajo.', ground: ['#9a7a4e', '#ad8a58', '#836640'], path: '#c4a678', liquid: ['#6fd2ff', '#2b8fd0', '#123f6e'], shore: '#4a3626', glow: null, block: 'mixed', rock: ['#a0704a', '#5a3a22'], leaf: ['#2e5a2a', '#3f7a34', '#1a361a'], decor: ['pebble', 'grass', 'bush', 'crack'], lakes: 0.3, river: 1, blocks: 0.9 },
+  { name: 'Desierto de Ámbar', text: 'Dunas doradas, mesetas de roca, cactus y un oasis.', ground: ['#d6a85a', '#e4bb6e', '#c08f44'], path: '#ecd09a', liquid: ['#7ef0e0', '#22b4b0', '#0c6a74'], shore: '#9a7a3e', glow: null, block: 'cactus', rock: ['#b77a42', '#6e4220'], leaf: ['#4f8a3a', '#6fae4a', '#2e5a22'], decor: ['pebble', 'crack', 'bone', 'palm'], lakes: 0.35, river: 0, blocks: 0.7 },
+  { name: 'Glaciar Eterno', text: 'Nieve, pinos, hielo azul y ríos helados.', ground: ['#dfe8f0', '#eef4fa', '#c6d4e2'], path: '#b8c6d4', liquid: ['#bff4ff', '#5cc6ec', '#1f6aa0'], shore: '#9ab0c4', glow: null, block: 'pine', rock: ['#8a9ab0', '#4a5870'], leaf: ['#2a5a48', '#3c7a60', '#173828'], decor: ['snow', 'pebble', 'crystal'], lakes: 0.7, river: 1, blocks: 0.75 },
+  { name: 'Pantano Sombrío', text: 'Barro verde, agua estancada, árboles secos y hongos.', ground: ['#4a5a32', '#5a6a3c', '#3a4828'], path: '#6e6a44', liquid: ['#8ac070', '#4a7a3a', '#1e3a18'], shore: '#2e3a1e', glow: null, block: 'dead', rock: ['#5a5a48', '#2e2e22'], leaf: ['#3a4a2a', '#5a6a3a', '#1e2a16'], decor: ['mushroom', 'reed', 'grass', 'bone'], lakes: 1.1, river: 1, blocks: 0.6 },
+  { name: 'Bosque de Otoño', text: 'Hojas rojas y doradas, arroyos y piedras.', ground: ['#8a7a3a', '#9c8a44', '#76662e'], path: '#c9a46a', liquid: ['#8ad8ff', '#3a96d0', '#174e86'], shore: '#5a4626', glow: null, block: 'forest', rock: ['#9a8c7c', '#54483c'], leaf: ['#c2541e', '#f0a02a', '#7a2a12'], decor: ['leaves', 'bush', 'pebble', 'mushroom'], lakes: 0.45, river: 1, blocks: 0.8 },
+  { name: 'Arrecife Abisal', text: 'Arena del fondo del mar, corales y aguas profundas.', ground: ['#3c7a86', '#4a8c96', '#2e6470'], path: '#7ab0a8', liquid: ['#3ae0ff', '#1470b4', '#08244e'], shore: '#c8c09a', glow: '#3ae0ff', block: 'coral', rock: ['#5a7a88', '#2a3e4a'], leaf: ['#e04a9a', '#ff8ac8', '#8a1a5a'], decor: ['shell', 'crystal', 'pebble'], lakes: 0.9, river: 1, blocks: 0.55 },
 ];
 export interface Terrain { cols: number; rows: number; w: number; h: number; cells: Uint8Array; theme: number; seed: number; bases: [number, number][]; spots: [number, number][] }
 
@@ -61,7 +66,7 @@ export function generateTerrain(theme: number, size: MapSize, seed: number): Ter
     spots.push([c, r]); if (Math.hypot(cols - 1 - c - c, rows - 1 - r - r) > 4) spots.push([cols - 1 - c, rows - 1 - r]);
   }
   const clear = (c0: number, r0: number, rad: number) => { for (let r = r0 - rad; r <= r0 + rad; r++) for (let c = c0 - rad; c <= c0 + rad; c++) if (inside(c, r) && Math.hypot(c - c0, r - r0) <= rad) cells[idx(c, r)] = cells[idx(c, r)] === BRIDGE ? BRIDGE : GROUND; };
-  for (const [c, r] of bases) clear(c, r, 8);
+  for (const [c, r] of bases) clear(c, r, 10);
   for (const [c, r] of spots) clear(c, r, 4);
   // que siempre se pueda llegar: si una base o un lugar de cristales quedó encerrado, se abre un camino (con puente)
   const reach = () => { const seen = new Uint8Array(cols * rows), q = [idx(bases[0][0], bases[0][1])]; seen[q[0]] = 1;
