@@ -9,6 +9,7 @@ import invasionCover from './assets/portada-invasion.webp';
 import gravityCover from './assets/portada-gravedad.webp';
 import kombatCover from './assets/portada-kombat.webp';
 import vampCover from './assets/portada-vampyrium.webp';
+import landCover from './assets/portada-land.webp';
 import { CalculatorLink, CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { readRecord } from './BlockRunnerGame';
 import { formatTime, readTrepaRecord } from './TrepalunaGame';
@@ -19,6 +20,7 @@ import { formatInvasionTime, readInvasionRecord } from './InvasionGame';
 import { formatGravityTime, readGravityRecord } from './GravitySwapGame';
 import { readKombatRecord } from './KombatFootballGame';
 import { readVampyriumRecord } from './VampyriumGame';
+import { readLandRecord } from './LandGame';
 import { formatVampTime } from './vampyrium';
 import memeJigsaw from '../../assets/images/meme-jigsaw.jpg';
 
@@ -39,6 +41,7 @@ export function Games() {
   const gravity = readGravityRecord();
   const kombat = readKombatRecord();
   const vamp = readVampyriumRecord();
+  const landWins = Object.values(readLandRecord()).reduce((a, b) => a + b, 0);
   return <section className="games-page">
     <div className="section-title games-title">
       <div className="games-heading"><p className="eyebrow">Para cortar un rato</p><h1>MiniJuegos</h1><p className="games-byline">By YEYO</p></div>
@@ -169,6 +172,20 @@ export function Games() {
           </span>
           <span className="game-card-foot">
             {vamp.kills > 0 && <small><b>Récord</b>{vamp.time ? `🏆 en ${formatVampTime(vamp.time)}` : `${vamp.kills} vampiros`}</small>}
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
+        </Link>
+      </li>
+      <li>
+        <Link onClick={playStart} className="game-card game-card--land" to="/juegos/land">
+          <span className="game-card-cover"><Cover src={landCover} /></span>
+          <span className="game-card-text">
+            <strong>Land of Warriors</strong>
+            <span>⚔️ Estrategia en tiempo real: elegí una de 10 civilizaciones, juntá cristales, levantá tu base y armá un ejército de soldados, máquinas y bestias.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Destruí la base de la civilización rival antes de que ella destruya la tuya.</span>
+          </span>
+          <span className="game-card-foot">
+            {landWins > 0 && <small><b>Victorias</b>🏆 {landWins}</small>}
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
           </span>
         </Link>

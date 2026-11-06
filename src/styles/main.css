@@ -1925,3 +1925,118 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 @keyframes vamp-killed-in{0%{opacity:0;transform:translate(-50%,-50%) scale(2.4)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
 .vamp-killed-wrap{position:absolute;inset:0;z-index:6;pointer-events:none;background:radial-gradient(ellipse 55% 22% at 50% 38%,#000d,#0008 55%,transparent 80%);animation:vamp-killed-bg .5s ease-out both}
 @keyframes vamp-killed-bg{from{opacity:0}to{opacity:1}}
+/* ---------- Land of Warriors ---------- */
+.land{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;background:radial-gradient(ellipse at 50% 0%,#14213d,#05070c 70%);color:#e8eefc;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+.land-bar{display:flex;align-items:center;gap:1rem;padding:.45rem 1rem;background:linear-gradient(#0d1730,#070b16);border-bottom:2px solid #c8a24a;box-shadow:0 2px 14px #000a;flex:0 0 auto;z-index:3}
+.land .runner-back{color:#f5d68a}
+.land-logo{margin:0;font:400 1.7rem/1 "KF Menu",Georgia,serif;letter-spacing:.06em;text-transform:uppercase;background:linear-gradient(#fff7d6,#f0c45a 50%,#9a6a14);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 0 #000)}
+.land-record{margin-left:auto;color:#f5d68a}
+.land-res{margin-left:auto;display:flex;align-items:center;gap:.9rem;font-weight:800}
+.land-res>span{display:flex;gap:.3rem;align-items:center;padding:.2rem .6rem;border:1px solid #2c4a80;border-radius:6px;background:#0a1226}
+.land-res button,.land-ghost,.land-go{font:inherit;cursor:pointer;border-radius:6px}
+.land-res>button:last-child{padding:.35rem .9rem;background:#13254a;border:1px solid #c8a24a;color:#f5d68a;font-weight:800}
+.land-power{position:relative;overflow:hidden;min-width:13rem;padding:.35rem .7rem;border:1px solid #7c5cff;background:#140f2e;color:#d8ccff;font-weight:800}
+.land-power i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#4c1d95,#8b5cf6);opacity:.55}
+.land-power span{position:relative}
+.land-power--ready{border-color:#fde68a;color:#fff;box-shadow:0 0 14px #facc15aa;animation:land-pulse 1s ease-in-out infinite alternate}
+.land-power--ready i{background:linear-gradient(90deg,#b45309,#facc15)}
+.land-power:disabled:not(.land-power--ready){cursor:default}
+@keyframes land-pulse{to{box-shadow:0 0 26px #facc15}}
+.land-go{padding:.75rem 1.6rem;border:2px solid #f5d68a;background:linear-gradient(#2d5bd8,#13307a);color:#fff;font-weight:900;font-size:1.05rem;box-shadow:0 4px 0 #050b1f,0 0 16px #3b82f688}
+.land-go:hover{filter:brightness(1.15)}
+.land-ghost{padding:.6rem 1.2rem;border:1px solid #5a7ab8;background:#0b1530cc;color:#dbe7ff;font-weight:700}
+/* elegir civilización */
+.land-pick{flex:1;overflow:auto;padding:1rem 1.2rem 2rem;text-align:center}
+.land-pick h2,.land-setup h3{margin:.3rem 0;font:400 2rem/1.1 "KF Menu",Georgia,serif;color:#f5d68a;letter-spacing:.04em}
+.land-pick>p{margin:0 0 1rem;color:#9fb3da}
+.land-civs{list-style:none;margin:0 auto;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.8rem;max-width:1400px}
+.land-civs button{position:relative;width:100%;height:100%;display:flex;flex-direction:column;gap:.25rem;padding:0 0 .7rem;border:2px solid color-mix(in srgb,var(--civ) 70%,#000);border-radius:10px;overflow:hidden;background:linear-gradient(#0c1222,#05070c);color:#e8eefc;cursor:pointer;text-align:center;transition:transform .12s,box-shadow .12s}
+.land-civs button:hover{transform:translateY(-3px);box-shadow:0 0 20px color-mix(in srgb,var(--civ) 60%,transparent)}
+.land-civs img{width:100%;aspect-ratio:2/1;object-fit:cover;border-bottom:2px solid var(--civ)}
+.land-civs b{font:400 1.15rem/1.1 "KF Menu",Georgia,serif;color:var(--civ);filter:brightness(1.3);padding:0 .4rem}
+.land-civs small{font-size:.68rem;color:#c8a24a;text-transform:uppercase;letter-spacing:.04em;padding:0 .4rem}
+.land-civs span{font-size:.8rem;color:#b9c6e4;padding:0 .6rem;line-height:1.25}
+.land-civs em{position:absolute;top:.4rem;right:.4rem;font-style:normal;background:#000b;border-radius:999px;padding:.1rem .5rem;font-size:.8rem}
+/* la lámina a pantalla completa */
+.land-sheet{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;background:#000}
+.land-sheet>img{max-width:100%;max-height:calc(100% - 3.6rem);object-fit:contain;margin-bottom:3.4rem}
+.land-sheet-bar{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:.8rem;padding:.55rem;background:linear-gradient(transparent,#000e 40%)}
+.land-simple{position:absolute;inset:0 0 3.6rem;overflow:auto;padding:1rem clamp(1rem,4vw,3rem);background:#04070fef;text-align:left}
+.land-simple h2{margin:0;font:400 2.2rem/1 "KF Menu",Georgia,serif;color:var(--civ);filter:brightness(1.3)}
+.land-simple h3{margin:1rem 0 .4rem;font:400 1.3rem/1 "KF Menu",Georgia,serif;color:#f5d68a}
+.land-simple p{margin:.2rem 0;color:#c9d6f2;max-width:70ch}
+.land-simple-style{font-size:1.05rem}
+.land-simple ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.5rem}
+.land-simple li{display:flex;gap:.6rem;align-items:center;padding:.4rem .6rem;border:1px solid color-mix(in srgb,var(--civ) 50%,#000);border-radius:8px;background:#0a1020}
+.land-simple li div{display:flex;flex-direction:column;gap:.1rem}
+.land-simple li b{color:#fff}
+.land-simple li span{font-size:.85rem;color:#b9c6e4}
+.land-simple li small{font-size:.78rem;color:#f5d68a}
+/* preparar la partida */
+.land-setup{flex:1;overflow:auto;padding:1rem 1.5rem 2rem;display:flex;flex-direction:column;align-items:center;gap:.4rem}
+.land-setup-you{display:flex;align-items:center;gap:1rem;padding:.4rem 1rem .4rem .4rem;border:2px solid var(--civ);border-radius:10px;background:#0a1020}
+.land-setup-you img{width:180px;border-radius:6px}
+.land-setup-you div{display:flex;flex-direction:column;align-items:flex-start;gap:.2rem}
+.land-setup-you small{color:#9fb3da}
+.land-setup-you b{font:400 1.6rem/1 "KF Menu",Georgia,serif;color:var(--civ);filter:brightness(1.3)}
+.land-setup h3{font-size:1.4rem;margin-top:.7rem}
+.land-rivals,.land-maps,.land-diff{display:flex;flex-wrap:wrap;justify-content:center;gap:.5rem;max-width:1200px}
+.land-rivals button,.land-maps button,.land-diff button{display:flex;flex-direction:column;align-items:center;gap:.2rem;padding:.25rem;border:2px solid #24365e;border-radius:8px;background:#0a1020;color:#dbe7ff;cursor:pointer;font:inherit}
+.land-rivals button{width:104px}
+.land-rivals img{width:96px;aspect-ratio:2/1;object-fit:cover;border-radius:4px}
+.land-rivals small{font-size:.66rem;line-height:1.1}
+.land-q{width:96px;aspect-ratio:2/1;display:grid;place-items:center;font:900 1.8rem Georgia;color:#f5d68a;background:#14203d;border-radius:4px}
+.land-maps button{width:210px;padding:.3rem .3rem .5rem}
+.land-maps img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:4px}
+.land-maps b{color:#f5d68a}
+.land-maps small{font-size:.72rem;color:#9fb3da;line-height:1.2}
+.land-diff button{padding:.55rem 1.4rem;font-weight:800}
+.land-rivals .on,.land-maps .on,.land-diff .on{border-color:#facc15;box-shadow:0 0 12px #facc1588;background:#1a2442}
+.land-start{margin-top:1rem;font-size:1.3rem;padding:.9rem 2.6rem}
+/* la partida */
+.land-stage{position:relative;flex:1;min-height:0;overflow:hidden;background:#000}
+.land-stage>canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:default}
+.land-stage>canvas.land-aim{cursor:crosshair}
+.land-toast{position:absolute;top:.8rem;left:50%;transform:translateX(-50%);z-index:4;padding:.5rem 1.1rem;border:1px solid #c8a24a;border-radius:8px;background:#060b18e6;color:#fdf3d0;font-weight:800;pointer-events:none;animation:land-toast 2.2s ease both;white-space:nowrap}
+@keyframes land-toast{0%{opacity:0;transform:translate(-50%,-8px)}10%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}
+.land-mode{position:absolute;top:3.6rem;left:50%;transform:translateX(-50%);z-index:4;padding:.35rem .8rem;border-radius:8px;background:#3a2a05e6;border:1px solid #facc15;color:#fff3c4;font-weight:800}
+.land-mode button{margin-left:.4rem;font:inherit;padding:.1rem .6rem;border-radius:4px;border:1px solid #fde68a;background:#5c3d06;color:#fff;cursor:pointer}
+.land-hud{position:absolute;left:0;right:0;bottom:0;z-index:3;height:178px;display:grid;grid-template-columns:212px minmax(0,1fr) minmax(0,1.25fr);gap:.5rem;padding:.4rem .5rem;background:linear-gradient(#0e1a36f2,#060b18f8);border-top:3px solid #c8a24a;box-shadow:0 -6px 18px #000b}
+.land-hud>div{border:1px solid #2c4a80;border-radius:8px;background:#050a16cc;min-width:0;overflow:hidden}
+.land-mini{position:relative;display:flex;flex-direction:column;gap:.25rem;padding:.25rem}
+.land-mini canvas{width:100%;height:auto;aspect-ratio:220/124;border-radius:4px;cursor:pointer;touch-action:none}
+.land-quick{display:flex;gap:.25rem}
+.land-quick button{flex:1;padding:0;line-height:1.5;border:1px solid #2c4a80;border-radius:5px;background:#0d1a36;font-size:1rem;cursor:pointer}
+.land-sel{padding:.35rem;display:flex}
+.land-group{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.25rem;align-content:flex-start}
+.land-group button{position:relative;padding:0;border:1px solid #2c4a80;border-radius:5px;background:#0a1530;cursor:pointer}
+.land-group i{position:absolute;left:2px;bottom:2px;height:3px;background:#4ade80}
+.land-more{align-self:center;color:#9fb3da;font-weight:800}
+.land-card-unit{display:flex;gap:.6rem;align-items:center}
+.land-card-unit>div{display:flex;flex-direction:column;gap:.1rem;min-width:0}
+.land-card-unit b{font:400 1.25rem/1 "KF Menu",Georgia,serif;color:var(--civ);filter:brightness(1.35)}
+.land-card-unit small{color:#9fb3da;font-size:.75rem}
+.land-card-unit span{font-size:.82rem;color:#d4def5}
+.land-card-unit ul{list-style:none;margin:.2rem 0 0;padding:0;display:flex;flex-wrap:wrap;gap:.25rem .7rem;font-weight:800;font-size:.85rem}
+.land-help{display:flex;flex-direction:column;gap:.25rem;font-size:.85rem;color:#b9c6e4}
+.land-help b{font:400 1.25rem/1 "KF Menu",Georgia,serif;color:var(--civ);filter:brightness(1.35)}
+.land-cmds{padding:.35rem;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:min-content;gap:.3rem;align-content:start;overflow:auto!important}
+.land-cmds button{display:flex;flex-direction:column;align-items:center;gap:.05rem;padding:.15rem .2rem .25rem;border:1px solid #c8a24a99;border-radius:6px;background:linear-gradient(#17284f,#0b1530);color:#fff;cursor:pointer;font:inherit;min-width:0}
+.land-cmds button:hover:not(:disabled){border-color:#fde68a;filter:brightness(1.2)}
+.land-cmds button:disabled{opacity:.42;cursor:not-allowed}
+.land-cmds b{font-size:.68rem;line-height:1.05;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.land-cmds small{font-size:.66rem;color:#f5d68a;white-space:nowrap}
+.land-ic{font-size:1.5rem;line-height:40px;height:40px}
+.land-cmd-note{grid-column:1/-1;margin:.1rem 0;font-size:.78rem;color:#9fb3da}
+.land-overlay{position:absolute;inset:0;z-index:8;display:grid;place-items:center;background:#000a}
+.land-card{display:flex;flex-direction:column;align-items:center;gap:.6rem;min-width:min(420px,92%);padding:1.4rem 2rem;border:2px solid #c8a24a;border-radius:12px;background:radial-gradient(ellipse at 50% 0%,#1a2c5a,#070b16);box-shadow:0 20px 60px #000}
+.land-card h2{margin:0;font:400 2.6rem/1 "KF Menu",Georgia,serif;color:#f5d68a}
+.land-card .land-win{color:#facc15;text-shadow:0 0 18px #facc15aa}
+.land-card .land-lose{color:#f87171}
+.land-card p{margin:0;color:#c9d6f2;text-align:center}
+.land-stats{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:.3rem 1.4rem}
+.land-stats li{display:flex;justify-content:space-between;gap:.6rem;color:#9fb3da}
+.land-stats b{color:#fff}
+@media(max-width:1100px){.land-civs{grid-template-columns:repeat(3,minmax(0,1fr))}.land-hud{grid-template-columns:200px minmax(0,1fr) minmax(0,1.2fr)}.land-power{min-width:9rem}}
+@media(max-width:700px){.land-civs{grid-template-columns:repeat(2,minmax(0,1fr))}.land-logo{font-size:1.2rem}.land-res{gap:.3rem;font-size:.8rem}.land-res>span{padding:.1rem .3rem}.land-hud{height:auto;max-height:46%;grid-template-columns:1fr 1fr;grid-template-rows:auto auto}.land-cmds{grid-column:1/-1}.land-mini{grid-row:1}}
+body:has(.land) .mobile-nav{display:none}
