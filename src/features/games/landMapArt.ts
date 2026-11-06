@@ -31,10 +31,10 @@ export function renderTerrain(t: Terrain): HTMLCanvasElement {
   // (se pinta en un lienzo a un cuarto del tamaño y se agranda: así las orillas quedan suaves sin desenfocar mil veces)
   const Q = 0.25, lay = document.createElement('canvas'); lay.width = Math.ceil(t.w * Q); lay.height = Math.ceil(t.h * Q); const lc = lay.getContext('2d')!;
   const disc = (c: number, r: number, rad: number) => { lc.beginPath(); lc.arc((c + 0.5) * T * Q, (r + 0.5) * T * Q, rad * Q, 0, Math.PI * 2); lc.fill(); };
-  lc.fillStyle = th.shore; for (const [c, r] of liq) disc(c, r, T * 0.98);
-  lc.fillStyle = th.liquid[1]; for (const [c, r] of liq) disc(c, r, T * 0.76);
-  lc.fillStyle = th.liquid[2]; for (const [c, r] of liq) { let deep = 0; for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = at(c + dc, r + dr); if (k === LIQUID || k === BRIDGE) deep++; } if (deep >= 4) disc(c, r, T * 0.6); }
-  ctx.drawImage(lay, 0, 0, t.w, t.h);
+  lc.fillStyle = th.shore; for (const [c, r] of liq) disc(c, r, T * 1.18);
+  lc.fillStyle = th.liquid[1]; for (const [c, r] of liq) disc(c, r, T * 0.98);
+  lc.fillStyle = th.liquid[2]; for (const [c, r] of liq) { let deep = 0; for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = at(c + dc, r + dr); if (k === LIQUID || k === BRIDGE) deep++; } if (deep >= 4) disc(c, r, T * 0.8); }
+  ctx.save(); ctx.filter = 'blur(2px)'; ctx.drawImage(lay, 0, 0, t.w, t.h); ctx.restore(); // (orillas suaves)
   if (th.glow) { // el resplandor de la lava o del ácido
     lc.clearRect(0, 0, lay.width, lay.height); lc.fillStyle = th.glow; for (const [c, r] of liq) disc(c, r, T * 1.1);
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.22; ctx.filter = 'blur(8px)'; ctx.drawImage(lay, 0, 0, t.w, t.h); ctx.restore();

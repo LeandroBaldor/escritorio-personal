@@ -1238,13 +1238,15 @@ test('Land of Warriors: se elige civilización en la imagen, se ve su lámina, s
   await page.goto('/escritorio-personal/#/juegos');
   await page.getByRole('link', { name: /Land of Warriors/ }).click();
   await expect(page.getByRole('heading', { name: 'Land of Warriors', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: /Iniciar/ }).click(); // el póster
   await expect(page.getByRole('img', { name: 'Las 10 civilizaciones' })).toBeVisible();
-  await page.getByRole('group', { name: 'Elegir escenario' }).getByRole('button').first().click();
   await page.getByRole('group', { name: 'Dificultad' }).getByRole('button', { name: 'Fácil' }).click();
   await page.getByRole('button', { name: 'Clanes Enanos' }).click();
   await expect(page.getByRole('img', { name: /Clanes Enanos: unidades/ })).toBeVisible(); // la lámina a pantalla completa
   await page.getByRole('button', { name: 'Ver resumen simple' }).click();
   await expect(page.getByText('Muralla de Hierro', { exact: false }).first()).toBeVisible();
+  await page.getByRole('button', { name: /Elegir escenario/ }).click();
+  await page.getByRole('group', { name: 'Elegir escenario' }).getByRole('button').first().click();
   await page.getByRole('button', { name: /Iniciar/ }).click();
   await expect(page.getByTestId('land-stone')).toHaveText('300', { timeout: 15000 });
   await expect(page.getByRole('img', { name: /Partida en La Grieta Corrupta/ })).toBeVisible({ timeout: 15000 });

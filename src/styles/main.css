@@ -2057,3 +2057,67 @@ body:has(.land) .mobile-nav{display:none}
 /* Cartel "En construcción" sobre la portada de un juego que todavía se está armando (Land of Warriors). */
 .game-card-wip{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-8deg);padding:.35rem 1rem;background:repeating-linear-gradient(-45deg,#facc15 0 14px,#111 14px 28px);border:3px solid #111;border-radius:6px;box-shadow:0 6px 16px #000a;white-space:nowrap;color:#111;font:900 clamp(.95rem,2.2vw,1.25rem)/1 Nunito,system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase;isolation:isolate;z-index:2}
 .game-card-wip::before{content:"";position:absolute;inset:4px;background:#facc15;border-radius:3px;z-index:-1}
+/* Land of Warriors: el póster de entrada */
+.land-title{flex:1;position:relative;display:flex;align-items:flex-end;justify-content:center;background-size:cover;background-position:center 30%;padding-bottom:4vh}
+.land-title-text{display:flex;flex-direction:column;align-items:center;gap:.4rem;text-align:center}
+.land-title-text h2{margin:0;font:400 clamp(3rem,8vw,6.5rem)/0.95 "KF Menu",Georgia,serif;letter-spacing:.06em;text-transform:uppercase;background:linear-gradient(#fffbe8,#f5c84e 45%,#a05c10 80%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 4px 0 #1a0a00) drop-shadow(0 0 22px #ff8a2a99)}
+.land-title-text p{margin:0 0 .6rem;color:#ffe7b0;font-weight:800;letter-spacing:.3em;text-transform:uppercase;font-size:clamp(.8rem,1.4vw,1.05rem);text-shadow:0 2px 6px #000}
+/* elegir civilización: la imagen a la izquierda y las opciones a la derecha */
+.land-pick{flex-direction:row!important;align-items:center!important;justify-content:center;gap:1.2rem!important}
+.land-civmap{width:min(calc(100% - 300px),calc((100vh - 6rem) * 1.5))!important}
+.land-opts{flex:0 0 260px;flex-direction:column;align-items:stretch!important;justify-content:flex-start!important;gap:.8rem!important;padding:1rem;border:2px solid #c8a24a;border-radius:10px;background:linear-gradient(#0e1a36,#060b18);box-shadow:0 10px 30px #000a}
+.land-opts h2{margin:0;font:400 1.6rem/1.05 "KF Menu",Georgia,serif;color:#f5d68a}
+.land-opts>p{margin:-.4rem 0 .2rem;color:#9fb3da;font-size:.85rem}
+.land-opts label{flex-direction:column;align-items:stretch!important}
+.land-opts .land-chips{flex-direction:column;align-items:stretch}
+.land-opts .land-chips span{margin:0 0 .1rem}
+.land-opts .land-chips button{border-radius:6px;text-align:left;padding:.4rem .7rem}
+@media(max-width:900px){.land-pick{flex-direction:column!important}.land-civmap{width:100%!important}.land-opts{flex-basis:auto;width:100%}.land-opts .land-chips{flex-direction:row;flex-wrap:wrap}}
+/* elegir el escenario: fotos cuadradas */
+.land-scen{flex:1;overflow:auto;display:flex;flex-direction:column;align-items:center;gap:1rem;padding:1.2rem 1rem 5rem;position:relative}
+.land-scen h2{margin:0;font:400 2.2rem/1 "KF Menu",Georgia,serif;color:#f5d68a}
+.land-scen-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,220px));gap:1rem;justify-content:center;width:100%}
+.land-scen-list button{width:100%;display:flex;flex-direction:column;gap:.35rem;padding:.4rem .4rem .7rem;border:3px solid #24365e;border-radius:12px;background:#0a1020;color:#dbe7ff;cursor:pointer;font:inherit;text-align:center;transition:transform .12s}
+.land-scen-list button:hover{transform:translateY(-3px)}
+.land-scen-list img,.land-thumb-wait{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:#141c30}
+.land-thumb-wait{animation:land-pulse 1s infinite alternate}
+.land-scen-list b{font:400 1.15rem/1.1 "KF Menu",Georgia,serif;color:#f5d68a}
+.land-scen-list small{font-size:.78rem;color:#9fb3da;line-height:1.25}
+.land-scen-list .on{border-color:#facc15;box-shadow:0 0 18px #facc15aa;background:#1a2442}
+.land-scen-bar{position:fixed}
+@media(max-width:1100px){.land-scen-list{grid-template-columns:repeat(3,minmax(0,220px))}}
+@media(max-width:600px){.land-scen-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* el menú de la partida: como la referencia (marco azul con dorado, mapa, grupo, ficha y botones cuadrados) */
+.land-hud{height:196px!important;grid-template-columns:270px minmax(0,1fr) 300px!important;gap:.45rem!important;padding:.55rem .55rem .45rem!important;background:linear-gradient(#13285a,#081430)!important;border-top:3px solid #d8b25a!important;box-shadow:0 -2px 0 #6b4f16,0 -10px 24px #000c!important}
+.land-hud>div:not(.land-crest){border:2px solid #c8a24a!important;border-radius:6px!important;background:linear-gradient(#0a1838,#050c20)!important;box-shadow:inset 0 0 0 1px #4a3a12,inset 0 0 18px #0008}
+.land-crest{position:absolute;left:50%;top:-22px;transform:translateX(-50%);padding:.25rem 1.6rem;background:linear-gradient(#2a4a8e,#122452);border:2px solid #d8b25a;border-radius:0 0 14px 14px / 0 0 10px 10px;clip-path:polygon(0 0,100% 0,92% 100%,8% 100%);font:400 1rem/1.2 "KF Menu",Georgia,serif;color:#ffe9a8;letter-spacing:.06em;white-space:nowrap;text-shadow:0 1px 0 #000}
+.land-crest::before,.land-crest::after{content:"◆";color:#f5c84e;margin:0 .5rem}
+.land-mini{flex-direction:row!important;gap:.3rem!important}
+.land-mini canvas{flex:1;min-width:0;height:100%!important;aspect-ratio:auto!important;border:1px solid #6b5520}
+.land-quick{flex-direction:column;flex:0 0 40px}
+.land-quick button{flex:1;border:1px solid #c8a24a!important;background:linear-gradient(#1c3570,#0b1a3c)!important;font-size:1.15rem!important}
+.land-sel{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.4rem;padding:.35rem!important}
+.land-group{display:grid!important;grid-template-columns:repeat(auto-fill,64px);grid-auto-rows:64px;gap:.3rem!important;align-content:start;overflow:hidden}
+.land-group button{width:64px;height:64px;display:grid;place-items:center;border:2px solid #22c55e!important;background:radial-gradient(#1b3a6e,#0a1630)!important;border-radius:4px!important}
+.land-group button.foe{border-color:#ef4444!important}
+.land-group i{left:3px!important;right:auto;bottom:3px!important;height:4px!important;background:#4ade80!important;box-shadow:0 0 4px #4ade80}
+.land-group-b{grid-column:1/-1;grid-row:span 2;display:grid;place-items:center}
+.land-group .land-help{grid-column:1/-1;grid-row:span 2;font-size:.85rem;color:#b9c6e4;padding:.3rem}
+.land-card-unit{border-left:2px solid #c8a24a55;padding-left:.5rem;align-items:center}
+.land-portrait{flex:0 0 112px;height:112px;display:grid;place-items:center;border:2px solid #c8a24a;border-radius:6px;background:radial-gradient(circle at 50% 35%,#2a4a8e,#0a1630)}
+.land-card-unit b{font-size:1.35rem!important;color:#fff!important;filter:none!important}
+.land-card-unit small{color:#c9d6f2!important}
+.land-hp{position:relative;display:block;height:16px;margin:.25rem 0;border:1px solid #14532d;border-radius:3px;background:#06200f;overflow:hidden}
+.land-hp i{position:absolute;inset:0 auto 0 0;background:linear-gradient(#4ade80,#16a34a)}
+.land-hp em{position:relative;display:block;font-style:normal;font-size:.75rem;font-weight:900;line-height:14px;padding-left:.3rem;color:#fff;text-shadow:0 1px 1px #000}
+.land-card-unit ul{flex-direction:column;gap:.05rem!important;font-size:.82rem!important;color:#f5e6c4}
+.land-card-empty{flex-direction:column;align-items:flex-start;justify-content:center}
+.land-cmds{grid-template-columns:repeat(4,1fr)!important;grid-auto-rows:1fr;gap:.3rem!important;padding:.35rem!important}
+.land-cmds button{position:relative;aspect-ratio:1;justify-content:center!important;padding:0!important;border:2px solid #d8b25a!important;border-radius:6px!important;background:radial-gradient(circle at 50% 30%,#24448a,#0b1838)!important;box-shadow:inset 0 0 0 1px #6b4f16,0 2px 0 #000}
+.land-cmds button:hover:not(:disabled){filter:brightness(1.25);box-shadow:inset 0 0 0 1px #fde68a,0 0 10px #facc1588}
+.land-cmds small{position:absolute;left:1px;right:1px;bottom:1px;font-size:.58rem!important;line-height:1.1;background:#000a;border-radius:0 0 3px 3px;text-align:center}
+.land-cmds em{position:absolute;top:1px;right:3px;font-style:normal;font-weight:900;font-size:.62rem;color:#fde68a;text-shadow:0 1px 1px #000}
+.land-cmds .land-ic{font-size:1.7rem;line-height:1;height:auto}
+.land-cmd-note{grid-column:1/-1}
+.land-res>span{border-color:#c8a24a!important;background:linear-gradient(#13285a,#081430)!important}
+@media(max-width:1100px){.land-hud{grid-template-columns:210px minmax(0,1fr) 250px!important}.land-sel{grid-template-columns:1fr}.land-group{display:none!important}}
