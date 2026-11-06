@@ -23,7 +23,7 @@ const RECORD_KEY = 'escritorio-personal-juegos:vampyrium-record';
 export interface VampRecord { kills: number; time: number | null }
 export const readVampyriumRecord = (): VampRecord => { try { const r = JSON.parse(localStorage.getItem(RECORD_KEY) ?? 'null'); return { kills: Number(r?.kills) || 0, time: Number(r?.time) || null }; } catch { return { kills: 0, time: null }; } };
 // MODO TEST (para probar): todos los niveles abiertos y vida que no se acaba. Para desactivarlo, poner false.
-export const VAMP_TEST_MODE = true;
+export const VAMP_TEST_MODE = false;
 const makeGame = (seed?: number, level?: number) => { const g = newGame(seed, level); g.immortal = VAMP_TEST_MODE; return g; };
 // Hasta qué nivel llegó (hay que ganar cada nivel para que se abra el siguiente).
 const PROGRESS_KEY = 'escritorio-personal-juegos:vampyrium-nivel';
