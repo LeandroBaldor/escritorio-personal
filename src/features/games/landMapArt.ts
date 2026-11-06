@@ -1,5 +1,24 @@
 // Land of Warriors: el dibujo del escenario generado (se pinta una sola vez en un lienzo grande y después se copia).
 import { BLOCK, BRIDGE, LIQUID, T, THEMES, type Terrain, type Theme } from './landMap';
+import materialUrl from './assets/land/terrain-materials.webp';
+
+let MATERIALS: HTMLImageElement | null = null;
+const MATERIAL_TILES: HTMLCanvasElement[] = [];
+export function terrainMaterialsReady() {
+  if (!MATERIALS && typeof Image !== 'undefined') { MATERIALS = new Image(); MATERIALS.src = materialUrl; }
+  return !!MATERIALS && MATERIALS.complete && MATERIALS.naturalWidth > 0;
+}
+function materialTile(theme: number) {
+  if (!terrainMaterialsReady()) return null;
+  if (MATERIAL_TILES[theme]) return MATERIAL_TILES[theme];
+  const tile = document.createElement('canvas'); tile.width = tile.height = 512;
+  const ctx = tile.getContext('2d')!, image = MATERIALS!, w = image.naturalWidth / 5, h = image.naturalHeight / 2;
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 2; c++) {
+    ctx.save(); ctx.translate(c ? 512 : 0, r ? 512 : 0); ctx.scale(c ? -1 : 1, r ? -1 : 1);
+    ctx.drawImage(image, theme % 5 * w, Math.floor(theme / 5) * h, w, h, 0, 0, 256, 256); ctx.restore();
+  }
+  MATERIAL_TILES[theme] = tile; return tile;
+}
 
 function rng(seed: number) { let s = (seed % 2147483647) || 3; return () => (s = (s * 48271) % 2147483647) / 2147483647; }
 const hex = (c: string) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
@@ -7,10 +26,11 @@ const mix = (a: string, b: string, k: number) => { const A = hex(a), B = hex(b);
 const shade = (c: string, k: number) => { const A = hex(c); return `rgb(${A.map(v => Math.max(0, Math.min(255, Math.round(v * k)))).join(',')})`; };
 
 // RS: cuántos píxeles por unidad del mundo (más de 1: se ve nítido con la cámara cerca), sin pasarse de memoria.
-export const terrainScale = (t: Terrain) => Math.max(1, Math.min(2, Math.sqrt(26e6 / (t.w * t.h))));
-export function renderTerrain(t: Terrain, scale = terrainScale(t)): HTMLCanvasElement {
-  const cv = document.createElement('canvas'); cv.width = Math.round(t.w * scale); cv.height = Math.round(t.h * scale);
-  const ctx0 = cv.getContext('2d')!; ctx0.scale(scale, scale);
+export const terrainScale = (t: Terrain) => Math.min(1, Math.sqrt(6e6 / (t.w * t.h)));
+export interface TerrainRegion { x: number; y: number; w: number; h: number }
+export function renderTerrain(t: Terrain, scale = terrainScale(t), region?: TerrainRegion): HTMLCanvasElement {
+  const cv = document.createElement('canvas'); cv.width = Math.round((region?.w ?? t.w) * scale); cv.height = Math.round((region?.h ?? t.h) * scale);
+  const ctx0 = cv.getContext('2d')!; ctx0.scale(scale, scale); if (region) ctx0.translate(-region.x, -region.y);
   const ctx = ctx0, th = THEMES[t.theme], R = rng(t.seed * 7 + 1), { cols, rows, cells } = t;
   const at = (c: number, r: number) => c < 0 || r < 0 || c >= cols || r >= rows ? -1 : cells[r * cols + c];
   // 1) el piso: manchas de color suaves (un lienzo chico agrandado) y encima la textura
@@ -18,7 +38,12 @@ export function renderTerrain(t: Terrain, scale = terrainScale(t)): HTMLCanvasEl
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const k = R(); sc.fillStyle = k < 0.33 ? th.ground[0] : k < 0.66 ? mix(th.ground[0], th.ground[1], 0.6) : mix(th.ground[0], th.ground[2], 0.6); sc.fillRect(c, r, 1, 1); }
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(small, 0, 0, t.w, t.h);
   patches(ctx, t, th, R);
-  groundTexture(ctx, t, th, R);
+  const tile = materialTile(t.theme);
+  if (tile) {
+    ctx.save(); ctx.globalAlpha = 0.74; ctx.fillStyle = ctx.createPattern(tile, 'repeat')!;
+    ctx.fillRect(region?.x ?? 0, region?.y ?? 0, region?.w ?? t.w, region?.h ?? t.h); ctx.restore();
+  }
+  groundTexture(ctx, t, th, region);
   // 2) los caminos de tierra entre las bases y los cristales
   { // (en un lienzo chico: agrandado queda suave, sin desenfocar el lienzo grande)
     const q = 0.125, pc = document.createElement('canvas'); pc.width = Math.ceil(t.w * q); pc.height = Math.ceil(t.h * q); const p = pc.getContext('2d')!; p.scale(q, q);
@@ -37,7 +62,7 @@ export function renderTerrain(t: Terrain, scale = terrainScale(t)): HTMLCanvasEl
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const k = cells[r * cols + c]; if (k === LIQUID || k === BRIDGE) liq.push([c, r]); if (k === BRIDGE) bridges.push([c, r]); }
   // (se pinta en un lienzo a un cuarto del tamaño y se agranda: así las orillas quedan suaves sin desenfocar mil veces)
   const Q = 0.25, lay = document.createElement('canvas'); lay.width = Math.ceil(t.w * Q); lay.height = Math.ceil(t.h * Q); const lc = lay.getContext('2d')!;
-  const disc = (c: number, r: number, rad: number) => { lc.beginPath(); lc.arc((c + 0.5) * T * Q, (r + 0.5) * T * Q, rad * Q, 0, Math.PI * 2); lc.fill(); };
+  const disc = (c: number, r: number, rad: number) => { if (region && ((c + 0.5) * T < region.x - rad || (c + 0.5) * T > region.x + region.w + rad || (r + 0.5) * T < region.y - rad || (r + 0.5) * T > region.y + region.h + rad)) return; lc.beginPath(); lc.arc((c + 0.5) * T * Q, (r + 0.5) * T * Q, rad * Q, 0, Math.PI * 2); lc.fill(); };
   lc.fillStyle = th.shore; for (const [c, r] of liq) disc(c, r, T * 1.18);
   lc.fillStyle = th.liquid[1]; for (const [c, r] of liq) disc(c, r, T * 0.98);
   lc.fillStyle = th.liquid[2]; for (const [c, r] of liq) { let deep = 0; for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = at(c + dc, r + dr); if (k === LIQUID || k === BRIDGE) deep++; } if (deep >= 4) disc(c, r, T * 0.8); }
@@ -56,11 +81,13 @@ export function renderTerrain(t: Terrain, scale = terrainScale(t)): HTMLCanvasEl
   ctx.save();
   for (const [c, r] of liq) for (let i = 0; i < 2; i++) { // brillos y ondas
     const x = (c + R()) * T, y = (r + R()) * T, w = T * (0.3 + R() * 0.5);
+    if (region && (x < region.x - T || x > region.x + region.w + T || y < region.y - T || y > region.y + region.h + T)) continue;
     ctx.strokeStyle = th.glow ? 'rgba(255,240,180,0.55)' : 'rgba(255,255,255,0.45)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - w / 2, y); ctx.quadraticCurveTo(x, y - 4, x + w / 2, y); ctx.stroke();
   }
   ctx.restore();
   // 4) los puentes (tablones de madera o losas de piedra, según el estilo)
   for (const [c, r] of bridges) { // tablones (o losas) y las barandas arriba y abajo
+    if (region && (c * T < region.x - T || c * T > region.x + region.w + T || r * T < region.y - T || r * T > region.y + region.h + T)) continue;
     const x = c * T, y = r * T, stone = th.block === 'ruin' || th.block === 'rock';
     ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(x - 1, y + 8, T + 2, T);
     ctx.fillStyle = stone ? '#77706a' : '#9a6634'; ctx.fillRect(x - 1, y - 4, T + 2, T + 8);
@@ -70,37 +97,42 @@ export function renderTerrain(t: Terrain, scale = terrainScale(t)): HTMLCanvasEl
     for (const ry of [y - 6, y + T + 2]) { ctx.fillStyle = stone ? '#4e4743' : '#5a3418'; ctx.fillRect(x - 1, ry, T + 2, 5); ctx.fillRect(x + T / 2 - 3, ry - 6, 6, 11); }
   }
   // 5) los obstáculos y los adornos, de atrás para adelante (los de más abajo tapan a los de más arriba)
-  const things: { y: number; d: () => void }[] = [];
+  const things: { x: number; y: number; d: () => void }[] = [];
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (cells[r * cols + c] === BLOCK) {
     const x = (c + 0.5) * T + (R() - 0.5) * 10, y = (r + 0.5) * T + (R() - 0.5) * 10, kind = th.block === 'mixed' ? (R() < 0.6 ? 'rock' : 'forest') : th.block === 'cactus' || th.block === 'coral' ? (R() < 0.5 ? th.block : 'rock') : th.block === 'dead' ? (R() < 0.55 ? 'dead' : 'forest') : th.block, s = 0.85 + R() * 0.5, seed = R();
-    things.push({ y, d: () => kind === 'pine' ? pine(ctx, x, y + 12, s, th, seed) : kind === 'dead' ? deadTree(ctx, x, y + 12, s, th, seed) : kind === 'cactus' ? cactus(ctx, x, y + 12, s, th, seed) : kind === 'coral' ? coral(ctx, x, y + 10, s, th, seed) : kind === 'forest' ? tree(ctx, x, y + 12, s, th, seed) : kind === 'ruin' ? (seed < 0.35 ? pillar(ctx, x, y + 14, s, th) : rock(ctx, x, y + 10, s * 1.1, th, seed)) : rock(ctx, x, y + 10, s * 1.15, th, seed) });
+    things.push({ x, y, d: () => kind === 'pine' ? pine(ctx, x, y + 12, s, th, seed) : kind === 'dead' ? deadTree(ctx, x, y + 12, s, th, seed) : kind === 'cactus' ? cactus(ctx, x, y + 12, s, th, seed) : kind === 'coral' ? coral(ctx, x, y + 10, s, th, seed) : kind === 'forest' ? tree(ctx, x, y + 12, s, th, seed) : kind === 'ruin' ? (seed < 0.35 ? pillar(ctx, x, y + 14, s, th) : rock(ctx, x, y + 10, s * 1.1, th, seed)) : rock(ctx, x, y + 10, s * 1.15, th, seed) });
   }
   const nDecor = Math.round(cols * rows * 0.09);
   for (let i = 0; i < nDecor; i++) {
     const c = Math.floor(R() * cols), r = Math.floor(R() * rows); if (cells[r * cols + c] !== 0) continue;
     const x = (c + R()) * T, y = (r + R()) * T, d = th.decor[Math.floor(R() * th.decor.length)], seed = R();
-    things.push({ y: y - 30, d: () => decor(ctx, d, x, y, th, seed) });
+    things.push({ x, y: y - 30, d: () => decor(ctx, d, x, y, th, seed) });
   }
-  things.sort((a, b) => a.y - b.y); for (const o of things) o.d();
+  things.sort((a, b) => a.y - b.y); for (const o of things) if (!region || (o.y > region.y - 120 && o.y < region.y + region.h + 160 && o.x > region.x - 100 && o.x < region.x + region.w + 100)) o.d();
   // 6) luz: un poco más claro arriba a la izquierda y los bordes oscuros
   const lg = ctx.createLinearGradient(0, 0, t.w, t.h); lg.addColorStop(0, 'rgba(255,240,210,0.08)'); lg.addColorStop(1, 'rgba(0,0,20,0.12)'); ctx.fillStyle = lg; ctx.fillRect(0, 0, t.w, t.h);
   const vg = ctx.createRadialGradient(t.w / 2, t.h / 2, Math.min(t.w, t.h) * 0.45, t.w / 2, t.h / 2, Math.max(t.w, t.h) * 0.75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.35)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, t.w, t.h);
   return cv;
 }
 // La textura del piso: puntitos, piedritas, briznas o grietas según el estilo.
-function groundTexture(ctx: CanvasRenderingContext2D, t: Terrain, th: Theme, R: () => number) {
-  const n = Math.round(t.w * t.h / 260);
-  for (let i = 0; i < n; i++) {
-    const x = R() * t.w, y = R() * t.h, k = R();
-    if (th.decor.includes('grass') || th.block === 'forest') { // briznas de pasto
-      ctx.strokeStyle = k < 0.5 ? shade(th.ground[1], 1.18) : shade(th.ground[2], 0.85); ctx.lineWidth = 1.4; const h = 3 + R() * 5;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (R() - 0.5) * 3, y - h); ctx.stroke();
-    } else { ctx.fillStyle = k < 0.5 ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.16)'; ctx.fillRect(x, y, 1 + R() * 3, 1 + R() * 2); }
-  }
-  for (let i = 0; i < n / 30; i++) { // piedritas
-    const x = R() * t.w, y = R() * t.h, s = 2 + R() * 4;
-    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(x + 1, y + 1.5, s, s * 0.6, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = shade(th.ground[1], 1.25); ctx.beginPath(); ctx.ellipse(x, y, s, s * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+function groundTexture(ctx: CanvasRenderingContext2D, t: Terrain, th: Theme, region?: TerrainRegion) {
+  // Semilla por celda: la vista general y el primer plano comparten exactamente la misma textura.
+  const step = 18, x0 = Math.max(0, Math.floor((region?.x ?? 0) / step) - 1), y0 = Math.max(0, Math.floor((region?.y ?? 0) / step) - 1);
+  const x1 = Math.min(Math.ceil(t.w / step), Math.ceil(((region?.x ?? 0) + (region?.w ?? t.w)) / step) + 1);
+  const y1 = Math.min(Math.ceil(t.h / step), Math.ceil(((region?.y ?? 0) + (region?.h ?? t.h)) / step) + 1);
+  for (let cy = y0; cy < y1; cy++) for (let cx = x0; cx < x1; cx++) {
+    const R = rng(Math.abs(Math.imul(cx + 1, 73856093) ^ Math.imul(cy + 1, 19349663) ^ t.seed));
+    const x = (cx + R()) * step, y = (cy + R()) * step, k = R();
+    if (th.decor.includes('grass') || th.block === 'forest') {
+      ctx.strokeStyle = k < 0.5 ? shade(th.ground[1], 1.18) : shade(th.ground[2], 0.85); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (R() - 0.5) * 4, y - 3 - R() * 5); ctx.stroke();
+    } else {
+      ctx.fillStyle = k < 0.5 ? 'rgba(255,255,255,0.13)' : 'rgba(0,0,0,0.2)'; ctx.fillRect(x, y, 1 + R() * 3, 1 + R() * 2);
+    }
+    if (k > 0.9) {
+      const size = 1 + R() * 3; ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(x + 1, y + 2, size + 1, size);
+      ctx.fillStyle = shade(th.ground[1], 1.3); ctx.fillRect(x, y, size, size * 0.6);
+    }
   }
 }
 // Manchas grandes de otro tono (tierra, pasto alto, piedra) con borde irregular: el piso deja de ser parejo.
@@ -151,20 +183,30 @@ function rock(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th
   const pts: [number, number][] = []; for (let i = 0; i < 7; i++) { const a = Math.PI + i / 6 * Math.PI, rr = 0.75 + R() * 0.35; pts.push([x + Math.cos(a) * w * rr, y + Math.sin(a) * h * rr]); }
   ctx.beginPath(); ctx.moveTo(x - w, y); for (const p of pts) ctx.lineTo(p[0], p[1]); ctx.lineTo(x + w, y); ctx.closePath();
   const g = ctx.createLinearGradient(x - w, y - h, x + w * 0.6, y); g.addColorStop(0, shade(th.rock[0], 1.35)); g.addColorStop(0.5, th.rock[0]); g.addColorStop(1, th.rock[1]); ctx.fillStyle = g; ctx.fill();
+  ctx.save(); ctx.clip();
+  for (let i = 0; i < 65; i++) { const px = x + (R() - 0.5) * w * 2, py = y - R() * h; ctx.fillStyle = i % 2 ? 'rgba(255,240,218,0.16)' : 'rgba(15,12,12,0.22)'; ctx.fillRect(px, py, 0.5 + R() * 2.5, 0.5 + R() * 1.5); }
+  ctx.restore();
   ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 2; ctx.stroke();
   ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x - w * 0.2, y - h * 0.8); ctx.lineTo(x, y - h * 0.3); ctx.lineTo(x + w * 0.3, y); ctx.stroke(); // grieta
   ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.beginPath(); ctx.moveTo(x - w * 0.7, y - h * 0.3); ctx.lineTo(x - w * 0.35, y - h * 0.85); ctx.lineTo(x - w * 0.15, y - h * 0.7); ctx.lineTo(x - w * 0.5, y - h * 0.2); ctx.closePath(); ctx.fill(); // la cara con luz
 }
 function tree(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th: Theme, seed: number) {
-  const R = rng(Math.floor(seed * 1e6)), h = 46 * s, rad = 24 * s;
-  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(x + 6, y + 2, rad * 1.1, rad * 0.35, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#5a3a20'; ctx.fillRect(x - 4 * s, y - h * 0.55, 8 * s, h * 0.55); ctx.fillStyle = '#3a2412'; ctx.fillRect(x + 1 * s, y - h * 0.55, 3 * s, h * 0.55);
-  for (let i = 0; i < 6; i++) { // la copa: varias bolas, oscuras atrás y claras adelante
-    const ox = (R() - 0.5) * rad * 1.2, oy = -h * 0.6 - R() * rad * 0.9, rr = rad * (0.55 + R() * 0.35);
-    ctx.fillStyle = i < 3 ? th.leaf[2] : th.leaf[0]; ctx.beginPath(); ctx.arc(x + ox, y + oy, rr, 0, Math.PI * 2); ctx.fill();
+  const R = rng(Math.floor(seed * 1e6)), h = 68 * s, rad = 29 * s;
+  ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(x + 14 * s, y + 4 * s, rad * 1.25, rad * 0.4, -0.3, 0, Math.PI * 2); ctx.fill();
+  const bark = ctx.createLinearGradient(x - 5 * s, y, x + 5 * s, y); bark.addColorStop(0, '#8b6742'); bark.addColorStop(0.5, '#54391f'); bark.addColorStop(1, '#271d16');
+  ctx.strokeStyle = bark; ctx.lineWidth = 8 * s; ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x - 2 * s, y - h * 0.45, x + 2 * s, y - h); ctx.stroke();
+  for (let i = 0; i < 9; i++) {
+    const dx = (R() - 0.5) * rad * 1.5, dy = -h * (0.55 + R() * 0.4);
+    ctx.lineWidth = 2 * s; ctx.beginPath(); ctx.moveTo(x, y - h * 0.35); ctx.lineTo(x + dx, y + dy); ctx.stroke();
   }
-  ctx.fillStyle = th.leaf[1]; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(x - rad * 0.3 + (R() - 0.5) * rad * 0.6, y - h * 0.85 - R() * rad * 0.4, rad * 0.32, 0, Math.PI * 2); ctx.fill(); }
-  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y - h * 0.75, rad * 1.05, 0.2, Math.PI - 0.2); ctx.stroke();
+  for (let i = 0; i < 38; i++) {
+    const a = R() * Math.PI * 2, radius = Math.sqrt(R()), ox = Math.cos(a) * radius * rad, oy = Math.sin(a) * radius * rad * 0.7;
+    const rr = (4 + R() * 8) * s, px = x + ox, py = y - h * 0.79 + oy;
+    const leaf = ctx.createRadialGradient(px - rr * 0.4, py - rr * 0.4, 0, px, py, rr);
+    leaf.addColorStop(0, shade(th.leaf[1], 0.85 + R() * 0.3)); leaf.addColorStop(0.45, th.leaf[0]); leaf.addColorStop(1, th.leaf[2]);
+    ctx.fillStyle = leaf; ctx.beginPath(); ctx.arc(px, py, rr, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(230,245,160,0.18)'; for (let j = 0; j < 3; j++) ctx.fillRect(px + (R() - 0.5) * rr, py + (R() - 0.5) * rr, s, s * 1.6);
+  }
 }
 function pillar(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th: Theme) {
   const w = 14 * s, h = 64 * s;

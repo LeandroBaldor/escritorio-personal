@@ -1,3 +1,4 @@
+import './land.css';
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -6,32 +7,25 @@ import {
 } from './land';
 import { BUILD_TEXT, CIVS, CIV_IDS, POWER_TEXT, roleText, type CivId } from './landCivs';
 import { MAP_SIZES, THEMES, generateTerrain, type MapSize } from './landMap';
-import { renderTerrain } from './landMapArt';
+import { renderTerrain, terrainMaterialsReady, type TerrainRegion } from './landMapArt';
 import { bIdx, drawMinimap, drawSprite, drawWorld, roleIdx, spritesReady, type Cam } from './landArt';
 import { useFitScreen } from './fitScreen';
 import { playExplosion, playGameOver, playKnock, playLandButton, playRifleShot, playVampSword, playWinFanfare, preloadLandSounds, setLandMenuMusic } from './sounds';
 
 const LAMINAS = import.meta.glob('./assets/land/lamina-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
 const lamina = (c: CivId) => LAMINAS[`./assets/land/lamina-${c}.webp`];
-import civsImg from './assets/land/civilizaciones.webp';
 import posterImg from './assets/land/poster.webp';
-// Dónde está cada civilización en la imagen de las civilizaciones (en %: izquierda, arriba, ancho, alto).
-const CIV_SPOTS: [CivId, number, number, number, number][] = [
-  ['humano', 0.4, 6.1, 49.5, 16.2], ['orcos', 0.4, 23.1, 49.5, 17], ['enanos', 0.4, 41, 49.5, 16.2], ['sauriano', 0.4, 58.1, 49.5, 16.6], ['infernal', 0.4, 75.7, 49.5, 21],
-  ['zergano', 50.3, 6.1, 49.3, 16.2], ['elfos', 50.3, 23.1, 49.3, 17], ['nomuerta', 50.3, 41, 49.3, 16.2], ['mecanico', 50.3, 58.1, 49.3, 16.6], ['abisal', 50.3, 75.7, 49.3, 21],
-];
-
 const RECORD_KEY = 'escritorio-personal-juegos:land-victorias';
 export function readLandRecord(): Record<string, number> { try { return JSON.parse(localStorage.getItem(RECORD_KEY) ?? '{}') ?? {}; } catch { return {}; } }
 function saveWin(c: CivId) { try { const r = readLandRecord(); r[c] = (r[c] ?? 0) + 1; localStorage.setItem(RECORD_KEY, JSON.stringify(r)); } catch { /* sin almacenamiento */ } }
 const ROLE_ORDER: Role[] = ['worker', 'melee', 'ranged', 'special', 'heavy', 'elite'];
 const UP_NAME: Record<Upgrade, string> = { attack: 'Ataque', armor: 'Vida', speed: 'Velocidad' };
 const UP_ICON: Record<Upgrade, string> = { attack: '⚔️', armor: '🛡️', speed: '👟' };
-const DIFF: [Difficulty, string][] = [['easy', 'Fácil'], ['normal', 'Normal'], ['hard', 'Difícil']];
+const DIFF: [Difficulty, string][] = [['veryEasy', 'Muy fácil'], ['easy', 'Fácil'], ['normal', 'Normal'], ['hard', 'Difícil']];
 const costText = (c: Cost) => `${c.stone ? `🔷${c.stone}` : ''}${c.gem ? ` 🔶${c.gem}` : ''}`.trim();
 type Screen = 'title' | 'pick' | 'sheet' | 'scenario' | 'playing' | 'paused' | 'won' | 'lost';
 const HUD_H = 214; // (el alto del menú de abajo)
-const minZoom = (g: LandGame, w: number, h: number) => Math.max(w / g.terrain.w, (h - HUD_H) / g.terrain.h);
+const minZoom = (g: LandGame, w: number, h: number) => Math.max(1.6, w / g.terrain.w, (h - HUD_H) / g.terrain.h);
 type Mode = { k: 'none' } | { k: 'place'; kind: BKind } | { k: 'power' } | { k: 'amove' };
 
 // Un dibujo chico de un guerrero o una construcción (de la hoja de recortes).
@@ -75,6 +69,7 @@ export function LandOfWarriors() {
   const camRef = useRef<Cam>({ x: 0, y: 0, w: 1200, h: 700, z: 1 });
   const stageRef = useRef<HTMLDivElement>(null), canvasRef = useRef<HTMLCanvasElement>(null), miniRef = useRef<HTMLCanvasElement>(null);
   const mapImg = useRef<HTMLCanvasElement | null>(null);
+  const detailImg = useRef<(TerrainRegion & { canvas: HTMLCanvasElement }) | null>(null);
   const screenRef = useRef(screen);
   useEffect(() => { screenRef.current = screen; }, [screen]);
   const mouse = useRef({ x: 0, y: 0, in: false, wx: 0, wy: 0 });
@@ -82,7 +77,7 @@ export function LandOfWarriors() {
   const keys = useRef<Set<string>>(new Set());
   const lastToast = useRef<Record<string, number>>({});
 
-  useEffect(() => { spritesReady(); }, []);
+  useEffect(() => { spritesReady(); terrainMaterialsReady(); }, []);
   // la música del menú: suena en la elección de civilización y en su lámina (los navegadores la dejan sonar después del primer toque)
   useEffect(() => { preloadLandSounds(); }, []);
   useEffect(() => {
@@ -104,9 +99,9 @@ export function LandOfWarriors() {
     setTimeout(() => { // (deja que aparezca el cartel antes de pintar el escenario)
       const foe = enemy === 'random' ? CIV_IDS.filter(c => c !== civ)[Math.floor(Math.random() * 9)] : enemy;
       const g = newLandGame(civ, foe, map, diff, Date.now(), size); gRef.current = g; setGame(g);
-      mapImg.current = renderTerrain(g.terrain);
+      detailImg.current = null; mapImg.current = renderTerrain(g.terrain);
       const base = g.buildings.find(b => b.owner === 0)!;
-      camRef.current = { ...camRef.current, z: 2, x: base.x - 300, y: base.y - 200 };
+      camRef.current = { ...camRef.current, z: 1.6, x: base.x - 300, y: base.y - 200 };
       setSelection([]); setMode({ k: 'none' }); setLoading(false); setScreen('playing');
       setTimeout(() => say('Mandá a los trabajadores a juntar cristales y armá tu ejército. ¡Destruí la base enemiga!'), 300);
     }, 60);
@@ -179,7 +174,7 @@ export function LandOfWarriors() {
         }
         if (md.k === 'power' && m.in) { cx.save(); cx.strokeStyle = '#fbbf24'; cx.lineWidth = 3; cx.setLineDash([10, 8]); cx.beginPath(); cx.arc(m.wx, m.wy, 170, 0, Math.PI * 2); cx.stroke(); cx.restore(); }
         for (const id of selRef.current) { const b = g.buildings.find(q => q.id === id && q.owner === 0); if (b?.rally) { cx.save(); cx.strokeStyle = '#fef08a'; cx.setLineDash([6, 6]); cx.lineWidth = 2; cx.beginPath(); cx.moveTo(b.x, b.y); cx.lineTo(b.rally.x, b.rally.y); cx.stroke(); cx.fillStyle = '#fef08a'; cx.fillRect(b.rally.x - 2, b.rally.y - 22, 3, 22); cx.fillRect(b.rally.x, b.rally.y - 22, 12, 8); cx.restore(); } }
-      });
+      }, detailImg.current);
       const d = drag.current; if (d && !d.pan) { ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 1.5; ctx.fillStyle = 'rgba(74,222,128,0.12)'; const x = Math.min(d.x0, d.x1), y = Math.min(d.y0, d.y1); ctx.fillRect(x, y, Math.abs(d.x1 - d.x0), Math.abs(d.y1 - d.y0)); ctx.strokeRect(x, y, Math.abs(d.x1 - d.x0), Math.abs(d.y1 - d.y0)); }
       const mc = miniRef.current; if (mc) { const mctx = mc.getContext('2d'); if (mctx) drawMinimap(mctx, g, mapImg.current, mc.width, mc.height, cam); }
       if (now - hud > 160) { hud = now; setTick(x => x + 1); }
@@ -188,6 +183,24 @@ export function LandOfWarriors() {
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);
   }, [screen, say, setSelection]);
+
+  // Primer plano a resolución de pantalla; nunca se reserva una imagen gigante a zoom máximo.
+  useEffect(() => {
+    if (screen !== 'playing' && screen !== 'paused') return;
+    let previous = '', settled = false;
+    const id = setInterval(() => {
+      const g = gRef.current, c = camRef.current; if (!g) return;
+      const key = [Math.round(c.x), Math.round(c.y), c.z, c.w, c.h].join(':');
+      if (key !== previous) { previous = key; settled = false; return; }
+      if (settled) return; settled = true;
+      const old = detailImg.current, vw = c.w / c.z, vh = (c.h - HUD_H) / c.z;
+      if (old && old.x <= c.x && old.y <= c.y && old.x + old.w >= c.x + vw && old.y + old.h >= c.y + vh && old.canvas.width / old.w >= Math.min(3, c.z * (window.devicePixelRatio || 1)) - 0.1) return;
+      const region = { x: Math.max(0, c.x - 160), y: Math.max(0, c.y - 160), w: Math.min(g.terrain.w - Math.max(0, c.x - 160), vw + 320), h: Math.min(g.terrain.h - Math.max(0, c.y - 160), vh + 320) };
+      const scale = Math.min(3, c.z * (window.devicePixelRatio || 1), Math.sqrt(6e6 / (region.w * region.h)));
+      detailImg.current = { ...region, canvas: renderTerrain(g.terrain, scale, region) };
+    }, 180);
+    return () => clearInterval(id);
+  }, [screen]);
 
   // ---------------------------------------------------------------- Teclado
   useEffect(() => {
@@ -201,8 +214,10 @@ export function LandOfWarriors() {
       keys.current.add(e.key.length === 1 ? e.key.toLowerCase() : e.key);
     };
     const up = (e: KeyboardEvent) => { keys.current.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key); };
+    const blur = () => { keys.current.clear(); drag.current = null; mouse.current.in = false; };
+    window.addEventListener('blur', blur);
     window.addEventListener('keydown', down); window.addEventListener('keyup', up);
-    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
+    return () => { window.removeEventListener('blur', blur); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
   }, [setSelection]);
 
   // ---------------------------------------------------------------- El mouse (o el dedo) sobre el mapa
@@ -224,6 +239,7 @@ export function LandOfWarriors() {
   };
   const onDown = (e: RPointerEvent<HTMLCanvasElement>) => {
     if (screenRef.current !== 'playing') return;
+    if (e.button === 1) e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     const r = e.currentTarget.getBoundingClientRect(), k = r.width / e.currentTarget.clientWidth || 1, x = (e.clientX - r.left) / k, y = (e.clientY - r.top) / k, w = toWorld(x, y);
     const g = gRef.current!, md = modeRef.current;
@@ -240,7 +256,7 @@ export function LandOfWarriors() {
     }
     if (md.k === 'power') { if (castPower(g, 0, w.x, w.y)) setMode({ k: 'none' }); return; }
     if (md.k === 'amove') { orderMove(g, myUnits([...selRef.current]).map(u => u.id), w.x, w.y, true); setMode({ k: 'none' }); return; }
-    drag.current = { x0: x, y0: y, x1: x, y1: y, pan: e.pointerType === 'touch', id: e.pointerId, cx: camRef.current.x, cy: camRef.current.y };
+    drag.current = { x0: x, y0: y, x1: x, y1: y, pan: e.pointerType === 'touch' || !e.shiftKey, id: e.pointerId, cx: camRef.current.x, cy: camRef.current.y };
   };
   const onMove = (e: RPointerEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect(), k = r.width / e.currentTarget.clientWidth || 1, x = (e.clientX - r.left) / k, y = (e.clientY - r.top) / k, w = toWorld(x, y);
@@ -253,6 +269,7 @@ export function LandOfWarriors() {
   const onUp = (e: RPointerEvent<HTMLCanvasElement>) => {
     const d = drag.current; drag.current = null; if (!d || screenRef.current !== 'playing') return;
     const g = gRef.current!, moved = Math.hypot(d.x1 - d.x0, d.y1 - d.y0) > 8;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
     if (d.pan && moved) return;
     if (moved) { // recuadro: elige a tus guerreros de adentro (si hay soldados, solo los soldados)
       const a = toWorld(Math.min(d.x0, d.x1), Math.min(d.y0, d.y1)), b = toWorld(Math.max(d.x0, d.x1), Math.max(d.y0, d.y1));
@@ -279,11 +296,14 @@ export function LandOfWarriors() {
     else setSelection([]);
   };
   const onWheel = (e: React.WheelEvent) => {
-    const c = camRef.current, g = gRef.current, old = c.z, z = Math.max(g ? minZoom(g, c.w, c.h) : 0.6, Math.min(2.6, c.z * (e.deltaY > 0 ? 0.9 : 1.1)));
+    if (screenRef.current !== 'playing') return;
+    const c = camRef.current, g = gRef.current, old = c.z, z = Math.max(g ? minZoom(g, c.w, c.h) : 0.6, Math.min(2.8, c.z * (e.deltaY > 0 ? 0.9 : 1.1)));
     const m = mouse.current; c.x += m.x / old - m.x / z; c.y += m.y / old - m.y / z; c.z = z;
   };
   const onMini = (e: RPointerEvent<HTMLCanvasElement>) => {
+    if (screenRef.current !== 'playing') return;
     if (e.buttons === 0 && e.type !== 'pointerdown') return;
+    if (e.type === 'pointerdown') e.currentTarget.setPointerCapture(e.pointerId);
     const g = gRef.current; if (!g) return;
     const r = e.currentTarget.getBoundingClientRect(), wx = (e.clientX - r.left) / r.width * g.terrain.w, wy = (e.clientY - r.top) / r.height * g.terrain.h, c = camRef.current;
     if (e.button === 2 && e.type === 'pointerdown') { command(wx, wy); return; }
@@ -296,7 +316,7 @@ export function LandOfWarriors() {
   const selB = g && !selUnits.length ? sel.map(id => g.buildings.find(b => b.id === id && !b.dead)).find(Boolean) as Building | undefined : undefined;
   const mine = selUnits.filter(u => u.owner === 0), workersSel = mine.some(u => u.role === 'worker');
   const side = g?.sides[0];
-  const focus = (x: number, y: number) => { const c = camRef.current; c.x = x - c.w / c.z / 2; c.y = y - (c.h - 120) / c.z / 2; };
+  const focus = (x: number, y: number) => { const c = camRef.current; c.x = x - c.w / c.z / 2; c.y = y - (c.h - HUD_H) / c.z / 2; };
   const selectArmy = () => { if (!g) return; const a = g.units.filter(u => u.owner === 0 && !u.dead && u.role !== 'worker'); setSelection(a.map(u => u.id)); if (!a.length) say('Todavía no tenés soldados: hacé un cuartel'); };
   const selectIdle = () => { if (!g) return; const w = g.units.find(u => u.owner === 0 && !u.dead && u.role === 'worker' && u.order.k === 'idle'); if (w) { setSelection([w.id]); focus(w.x, w.y); } else say('No hay trabajadores sin hacer nada 👍'); };
   const goBase = () => { if (!g) return; const b = g.buildings.find(q => q.owner === 0 && q.kind === 'base' && !q.dead); if (b) { focus(b.x, b.y); setSelection([b.id]); } };
@@ -330,15 +350,15 @@ export function LandOfWarriors() {
     </div>}
 
     {screen === 'pick' && <div className="land-pick">
-      <div className="land-civmap">
-        <img src={civsImg} alt="Las 10 civilizaciones" />
-        {CIV_SPOTS.map(([c, x, y, w, h]) => <button type="button" key={c} aria-label={CIVS[c].name} title={CIVS[c].name} style={{ left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`, ['--civ' as string]: CIVS[c].color }}
-          onClick={() => { playLandButton(); setView(c); setSimple(false); setScreen('sheet'); }}>{record[c] ? <em>🏆 {record[c]}</em> : null}</button>)}
-      </div>
+      <div className="land-civ-list" aria-label="Las 10 civilizaciones">{CIV_IDS.map((c, i) => <button type="button" key={c} className="land-civ-choice" style={{ ['--civ' as string]: CIVS[c].color }} aria-label={CIVS[c].name}
+        onClick={() => { playLandButton(); setView(c); setSimple(false); setScreen('sheet'); }}>
+        <span className="land-civ-number">{String(i + 1).padStart(2, '0')}</span><Sprite civ={c} idx={roleIdx('elite')} w={150} h={138} />
+        <span className="land-civ-copy"><b>{CIVS[c].name}</b><small>{CIVS[c].motto}</small><span>{CIVS[c].style}</span></span>
+        <Sprite civ={c} idx={bIdx('base')} w={180} h={120} /><span className="land-civ-arrow">{record[c] ? '🏆 ' + record[c] : '↗'}</span>
+      </button>)}</div>
       <div className="land-opts">
-        <h2>Elegí tu civilización</h2><p>Tocá una para ver su lámina.</p>
         <label>Rival <select value={enemy} onChange={e => { playLandButton(); setEnemy(e.target.value as CivId | 'random'); }}><option value="random">Al azar</option>{CIV_IDS.map(c => <option key={c} value={c}>{CIVS[c].name}</option>)}</select></label>
-        <div className="land-chips" role="group" aria-label="Tamaño del mapa"><span>Tamaño</span>{MAP_SIZES.map(([k, n]) => <button type="button" key={k} aria-pressed={size === k} className={size === k ? 'on' : ''} onClick={() => { playLandButton(); setSize(k); }}>{n}</button>)}</div>
+
         <div className="land-chips" role="group" aria-label="Dificultad"><span>Dificultad</span>{DIFF.map(([d, n]) => <button type="button" key={d} aria-pressed={diff === d} className={diff === d ? 'on' : ''} onClick={() => { playLandButton(); setDiff(d); }}>{n}</button>)}</div>
       </div>
     </div>}
@@ -349,6 +369,7 @@ export function LandOfWarriors() {
     {screen === 'sheet' && sheetScreen}
     {screen === 'scenario' && <div className="land-scen">
       <h2>Elegí el escenario</h2>
+        <div className="land-chips" role="group" aria-label="Tamaño del mapa"><span>Tamaño</span>{MAP_SIZES.map(([k, n]) => <button type="button" key={k} aria-pressed={size === k} className={size === k ? 'on' : ''} onClick={() => { playLandButton(); setSize(k); }}>{n}<small>{MAP_SIZES.find(m => m[0] === k)![2].toLocaleString('es-AR')} × {MAP_SIZES.find(m => m[0] === k)![3].toLocaleString('es-AR')}</small></button>)}</div>
       <ul className="land-scen-list" role="group" aria-label="Elegir escenario">{THEMES.map((m, i) => <li key={i}><button type="button" aria-pressed={map === i + 1} className={map === i + 1 ? 'on' : ''} onClick={() => { playLandButton(); setMap(i + 1); }}>
         <MapThumb theme={i} /><b>{m.name}</b><small>{m.text}</small></button></li>)}</ul>
       <div className="land-sheet-bar land-scen-bar">
@@ -360,8 +381,15 @@ export function LandOfWarriors() {
 
     {playing && g && side && <div className="land-stage" ref={stageRef} onWheel={onWheel}>
       <canvas ref={canvasRef} className={mode.k === 'place' || mode.k === 'power' || mode.k === 'amove' ? 'land-aim' : ''} aria-label={`Partida en ${THEMES[g.terrain.theme].name}`} role="img"
-        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={() => { mouse.current.in = false; }} />
+        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} onPointerLeave={() => { mouse.current.in = false; }} />
       <div className="land-top-left"><Link className="land-exit" to="/juegos" aria-label="Volver a Juegos">‹</Link><span>Escenario {g.map} — {THEMES[g.terrain.theme].name}</span></div>
+      <aside className="land-intel" aria-label="Información de las civilizaciones">
+        {[0, 1].map(owner => { const c = CIVS[g.sides[owner].civ]; return <div className="land-intel-card" key={owner} style={{ ['--civ' as string]: c.color }}>
+          <header><Sprite civ={g.sides[owner].civ} idx={roleIdx('elite')} w={74} h={76} /><div><small>{owner === 0 ? 'TU CIVILIZACIÓN' : 'RIVAL'}</small><b>{c.name}</b></div></header>
+          <p>{c.style}</p><p><strong>Unidades</strong> {ROLE_ORDER.map(r => c.units[r]).join(' · ')}</p><p><strong>Construcciones</strong> {BKINDS.map(k => c.buildings[k]).join(' · ')}</p><p><strong>Poder</strong> {c.power.name}</p>
+        </div>; })}
+        <div className="land-intel-card land-intel-controls"><b>CONTROL TÁCTICO</b><p>Arrastrá para explorar</p><p>Shift + arrastre: seleccionar</p><p>Clic derecho: dar órdenes</p><p>Rueda: acercar · P: pausa</p></div>
+      </aside>
       <div className="land-top-right" aria-label="Recursos">
         <span title="Piedras (cristales azules)"><i className="land-r-stone" />{' '}<b data-testid="land-stone">{Math.floor(side.stone)}</b></span>
         <span title="Diamantes (cristales dorados)"><i className="land-r-gem" />{' '}<b data-testid="land-gem">{Math.floor(side.gem)}</b></span>
@@ -369,7 +397,7 @@ export function LandOfWarriors() {
         <span title="Tiempo">⏱ <b>{formatLandTime(g.t)}</b></span>
         <button type="button" className={`land-power${side.power >= POWER_MAX ? ' land-power--ready' : ''}`} disabled={side.power < POWER_MAX || screen !== 'playing'} title={`${CIVS[side.civ].power.name}: ${POWER_TEXT[CIVS[side.civ].power.kind]}`}
           onClick={() => { if (CIVS[side.civ].power.kind === 'strike') { setMode({ k: 'power' }); say('Elegí dónde cae el poder'); } else castPower(g, 0); }}><i style={{ width: `${side.power}%` }} /><span>✨</span></button>
-        <button type="button" className="land-sq" title="Ayuda" aria-label="Ayuda" onClick={() => say('Tocá o arrastrá para elegir; tocá el mapa para dar órdenes. Mové la cámara con el mouse en los bordes, las flechas o arrastrando con el botón del medio.')}>?</button>
+        <button type="button" className="land-sq" title="Ayuda" aria-label="Ayuda" onClick={() => say('Tocá para elegir; tocá el mapa para dar órdenes. Arrastrá con el botón izquierdo para explorar; Shift + arrastre selecciona grupos. Usá la rueda para acercarte y el botón derecho para dar órdenes.')}>?</button>
         <button type="button" className="land-sq" title="Pausa" aria-label={screen === 'paused' ? 'Seguir' : 'Pausa'} onClick={() => setScreen(st => st === 'playing' ? 'paused' : 'playing')}>⚙</button>
       </div>
       {toast && <div key={toast.id} className="land-toast" role="status">{toast.text}</div>}
@@ -386,7 +414,7 @@ export function LandOfWarriors() {
           <ul className="land-group">{selUnits.slice(0, 10).map(u => <li key={u.id}><button type="button" onClick={() => setSelection([u.id])} title={CIVS[g.sides[u.owner].civ].units[u.role]} className={u.owner === 0 ? '' : 'foe'}><Sprite civ={g.sides[u.owner].civ} idx={roleIdx(u.role)} w={62} h={62} /><i style={{ width: `${u.hp / u.maxHp * 100}%` }} /></button></li>)}
             {selUnits.length > 10 && <li className="land-more">+{selUnits.length - 10}</li>}{selUnits.length > 0 && selUnits.length < 10 && Array.from({ length: 10 - selUnits.length }, (_, i) => <li key={'e' + i} className="land-slot" />)}
             {!selUnits.length && selB && <li className="land-group-b"><Sprite civ={g.sides[selB.owner].civ} idx={bIdx(selB.kind)} w={150} h={110} /></li>}
-            {!selUnits.length && !selB && <li className="land-help"><span>Tocá a tus guerreros para elegirlos (o arrastrá un recuadro). Después tocá el mapa: caminan, juntan cristales o atacan.</span></li>}</ul>
+            {!selUnits.length && !selB && <li className="land-help"><span>Arrastrá el terreno para explorar. Clic: seleccionar. Shift + arrastre: seleccionar grupo. Clic derecho: mover, recolectar o atacar. Rueda: acercar.</span></li>}</ul>
           {selUnits.length ? <UnitCard g={g} u={selUnits[0]} n={selUnits.length} /> : selB ? <BuildingCard g={g} b={selB} /> : <div className="land-card-unit land-card-empty"><b>{CIVS[side.civ].name}</b><small>{CIVS[side.civ].style}</small></div>}
         </div>
         {/* eslint-disable-next-line react-hooks/refs -- (los botones solo usan las referencias al tocarlos, no al dibujarse) */}
@@ -456,9 +484,9 @@ function MapThumb({ theme }: { theme: number }) {
   useEffect(() => {
     if (THUMBS[theme]) return;
     const id = setTimeout(() => {
-      const t = generateTerrain(theme, 'small', 4242 + theme), big = renderTerrain(t, 1), c = document.createElement('canvas'); c.width = c.height = 420;
-      const side = Math.min(t.w, t.h) * 0.72, ctx = c.getContext('2d')!; ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(big, (t.w - side) / 2, (t.h - side) / 2, side, side, 0, 0, 420, 420);
+      const t = generateTerrain(theme, 'small', 4242 + theme), big = renderTerrain(t, 0.2), c = document.createElement('canvas'); c.width = c.height = 420;
+      const ctx = c.getContext('2d')!; ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(big, 0, 0, 420, 420);
       THUMBS[theme] = c.toDataURL('image/jpeg', 0.85); setSrc(THUMBS[theme]);
     }, 30 + theme * 40);
     return () => clearTimeout(id);

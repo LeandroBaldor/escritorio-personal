@@ -1,24 +1,55 @@
 // Land of Warriors: el dibujo del mapa, los recursos, las construcciones, los guerreros y los disparos.
 import { BUILD_STATS, ROLE_STATS, ROLES, BKINDS, type BKind, type Building, type LandGame, type Role, type Unit, type Node } from './land';
 import { CIVS, CIV_IDS, type CivId } from './landCivs';
-import spritesUrl from './assets/land/sprites.webp';
+import type { TerrainRegion } from './landMapArt';
 
-// La hoja con los recortes de las láminas: una fila por civilización (seis guerreros y cinco construcciones), celdas de 128.
-const CELL = 256; // (el doble de resolución: se ven nítidos aunque estén grandes)
-const META: Record<CivId, [number, number][]> = {"humano":[[240,216],[171,240],[224,240],[185,240],[240,116],[240,231],[240,128],[240,183],[240,167],[225,240],[240,174]],"zergano":[[240,159],[240,199],[223,240],[240,217],[240,124],[240,180],[240,130],[240,153],[240,183],[240,222],[240,161]],"elfos":[[226,240],[240,222],[219,240],[240,228],[240,203],[240,89],[240,149],[240,190],[240,188],[233,240],[240,191]],"enanos":[[240,183],[240,200],[240,197],[221,240],[240,152],[240,116],[240,154],[240,167],[240,159],[240,229],[240,131]],"nomuerta":[[208,240],[193,240],[204,240],[240,231],[240,218],[240,85],[240,150],[240,164],[240,161],[240,217],[240,181]],"sauriano":[[240,179],[240,170],[240,221],[240,193],[240,89],[240,86],[240,155],[240,154],[240,151],[240,207],[240,142]],"infernal":[[221,240],[240,231],[240,234],[240,168],[240,181],[240,123],[240,168],[240,175],[240,165],[224,240],[240,207]],"mecanico":[[240,213],[223,240],[237,240],[240,240],[240,104],[240,209],[240,154],[240,162],[240,156],[240,158],[240,128]],"orcos":[[240,229],[240,201],[240,189],[240,204],[240,148],[240,154],[240,134],[240,134],[240,139],[240,204],[240,132]],"abisal":[[240,211],[240,197],[240,129],[183,240],[240,94],[240,104],[240,158],[240,155],[240,172],[230,240],[240,152]]};
-let SPRITES: HTMLImageElement | null = null;
+// Once recortes por civilización en hojas individuales de 4 × 3, con el último casillero vacío.
+const URLS = import.meta.glob('./assets/land/units-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
+const SPRITES: Partial<Record<CivId, HTMLCanvasElement>> = {};
+const FRAMES: Partial<Record<CivId, { sx: number; sy: number; sw: number; sh: number }[]>> = {};
+let started = false;
 export function spritesReady() {
-  if (!SPRITES && typeof Image !== 'undefined') { SPRITES = new Image(); SPRITES.src = spritesUrl; }
-  return !!SPRITES && SPRITES.complete && SPRITES.naturalWidth > 0;
+  if (!started && typeof Image !== 'undefined') {
+    started = true;
+    for (const civ of CIV_IDS) {
+      const image = new Image();
+      image.onload = () => {
+        const cv = document.createElement('canvas'); cv.width = image.naturalWidth; cv.height = image.naturalHeight;
+        const ctx = cv.getContext('2d', { willReadFrequently: true })!; ctx.drawImage(image, 0, 0);
+        const pixels = ctx.getImageData(0, 0, cv.width, cv.height), data = pixels.data;
+        const frames = [];
+        for (let idx = 0; idx < 11; idx++) {
+          const col = idx % 4, row = Math.floor(idx / 4);
+          const x0 = Math.round(col * cv.width / 4), x1 = Math.round((col + 1) * cv.width / 4);
+          const y0 = Math.round(row * cv.height / 3), y1 = Math.round((row + 1) * cv.height / 3);
+          let left = x1, right = x0, top = y1, bottom = y0;
+          for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (data[(y * cv.width + x) * 4 + 3] > 32) {
+            left = Math.min(left, x); right = Math.max(right, x); top = Math.min(top, y); bottom = Math.max(bottom, y);
+          }
+          frames.push(right >= left && bottom >= top ? { sx: left, sy: top, sw: right - left + 1, sh: bottom - top + 1 } : { sx: x0, sy: y0, sw: x1 - x0, sh: y1 - y0 });
+        }
+        FRAMES[civ] = frames; SPRITES[civ] = cv;
+      };
+      image.src = URLS['./assets/land/units-' + civ + '.webp'];
+    }
+  }
+  return CIV_IDS.every(c => !!SPRITES[c]);
 }
 // Dibuja un recorte apoyado en (x, y) (el piso), de alto h (o de ancho w si es más ancho que alto).
-export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number) {
-  if (!spritesReady()) return false;
-  const row = CIV_IDS.indexOf(civ), [sw, sh] = META[civ][idx];
+export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number, motion = 0) {
+  spritesReady();
+  const image = SPRITES[civ], frame = FRAMES[civ]?.[idx]; if (!image || !frame) return false;
+  const { sx, sy, sw, sh } = frame;
   let k = h / sh; if (maxW && sw * k > maxW) k = maxW / sw;
-  const dw = sw * k, dh = sh * k, sx = idx * CELL + (CELL - sw) / 2, sy = row * CELL + CELL - 4 - sh;
+  const dw = sw * k, dh = sh * k;
   ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(SPRITES!, sx, sy, sw, sh, -dw / 2, -dh, dw, dh);
+  if (motion) {
+    const strips = 16;
+    for (let j = 0; j < strips; j++) {
+      const f = j / strips, sway = Math.sin(motion + f * 3) * Math.pow(f, 2) * dw * 0.025;
+      ctx.drawImage(image, sx, sy + sh * f, sw, sh / strips, -dw / 2 + sway, -dh + dh * f, dw, dh / strips + 0.15);
+    }
+  } else ctx.drawImage(image, sx, sy, sw, sh, -dw / 2, -dh, dw, dh);
   ctx.restore(); return true;
 }
 export const roleIdx = (r: Role) => ROLES.indexOf(r);
@@ -54,7 +85,22 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, g: LandGame, b: Buil
     drawSprite(ctx, civ, bIdx(b.kind), b.x, b.y + 6, h, false, w); ctx.restore();
     ctx.strokeStyle = '#c69a5a'; ctx.lineWidth = 2; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(b.x + i * w * 0.18, b.y); ctx.lineTo(b.x + i * w * 0.18, b.y - h * 0.75); ctx.stroke(); }
     for (let j = 1; j <= 3; j++) { ctx.beginPath(); ctx.moveTo(b.x - w * 0.36, b.y - h * 0.22 * j); ctx.lineTo(b.x + w * 0.36, b.y - h * 0.22 * j); ctx.stroke(); }
-  } else drawSprite(ctx, civ, bIdx(b.kind), b.x, b.y + 6, h, false, w);
+  } else {
+    drawSprite(ctx, civ, bIdx(b.kind), b.x, b.y + 6, h, false, w);
+    if (!b.dead) {
+      // Balizas, vapor y actividad de producción sobre el edificio real.
+      const active = b.queue.length > 0 || !!b.research;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = CIVS[civ].color; ctx.globalAlpha = 0.35 + Math.sin(t * (active ? 6 : 2) + b.id) * 0.2;
+      for (const dx of [-0.25, 0.25]) { ctx.beginPath(); ctx.arc(b.x + w * dx, b.y - h * 0.43, 2.5, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+      if (active || b.hp < b.maxHp * 0.45) for (let i = 0; i < 4; i++) {
+        const p = (t * 0.32 + i / 4 + b.id * 0.13) % 1;
+        ctx.fillStyle = 'rgba(175,192,210,' + (0.22 * (1 - p)) + ')'; ctx.beginPath();
+        ctx.arc(b.x + w * 0.2 + Math.sin(p * 4 + i) * 7, b.y - h * 0.8 - p * 35, 3 + p * 9, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
   if (b.dead) { // se derrumba: humo y fuego
     ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < 8; i++) { const a = i * 0.8 + b.id, r = 20 + b.dead * 40; ctx.fillStyle = `rgba(255,${120 + i * 10},40,${0.5 * fade})`; ctx.beginPath(); ctx.arc(b.x + Math.cos(a) * r, b.y - h * 0.4 + Math.sin(a) * r * 0.6, 18 * fade + 4, 0, Math.PI * 2); ctx.fill(); }
@@ -81,7 +127,7 @@ export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t:
   if (u.dead) { ctx.translate(u.x, u.y); ctx.rotate(u.face * Math.min(1.3, u.dead * 3)); ctx.translate(-u.x, -u.y); }
   const sq = moving ? 1 + Math.sin(u.walk * 0.22) * 0.03 : 1;
   ctx.translate(u.x + lunge, u.y - bob - fly); ctx.scale(1 / sq, sq);
-  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6)) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
+  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? u.walk * 0.16 : u.atkT >= 0 ? t * 15 : 0)) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
   ctx.restore();
   if (u.carry > 0 && !u.dead) crystal(ctx, u.x + u.face * -10, u.y - h * 0.7, 5, u.carryKind === 'gem' ? '#fff6c8' : '#d7ecff', u.carryKind === 'gem' ? '#f5b81a' : '#3b82f6', u.carryKind === 'gem' ? '#9a5a00' : '#1e3a8a');
   if (!u.dead && (u.hp < u.maxHp || selected)) bar(ctx, u.x, u.y - h - fly - 6, Math.max(26, h * 0.6), u.hp / u.maxHp, u.owner === 0 ? '#4ade80' : '#f87171');
@@ -112,13 +158,14 @@ export function drawShots(ctx: CanvasRenderingContext2D, g: LandGame) {
   ctx.restore();
 }
 // ---------------------------------------------------------------- Todo el cuadro
-export function drawWorld(ctx: CanvasRenderingContext2D, g: LandGame, map: HTMLCanvasElement | null, cam: Cam, t: number, sel: Set<number>, extra?: (ctx: CanvasRenderingContext2D) => void) {
+export function drawWorld(ctx: CanvasRenderingContext2D, g: LandGame, map: HTMLCanvasElement | null, cam: Cam, t: number, sel: Set<number>, extra?: (ctx: CanvasRenderingContext2D) => void, detail?: (TerrainRegion & { canvas: HTMLCanvasElement }) | null) {
   ctx.save(); ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
   const W = g.terrain.w, H = g.terrain.h;
   if (map) { // (solo el pedazo que se ve)
     const k = map.width / W, sx = Math.max(0, cam.x), sy = Math.max(0, cam.y), sw = Math.min(W - sx, cam.w / cam.z + 2), sh = Math.min(H - sy, cam.h / cam.z + 2); // (k: el escenario está pintado con más resolución)
     ctx.imageSmoothingQuality = 'high'; ctx.drawImage(map, sx * k, sy * k, sw * k, sh * k, sx, sy, sw, sh);
   } else { ctx.fillStyle = '#3a3226'; ctx.fillRect(0, 0, W, H); }
+  if (detail) ctx.drawImage(detail.canvas, detail.x, detail.y, detail.w, detail.h);
   const vx0 = cam.x - 200, vx1 = cam.x + cam.w / cam.z + 200, vy0 = cam.y - 200, vy1 = cam.y + cam.h / cam.z + 250, vis = (o: { x: number; y: number }) => o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1;
   for (const n of g.nodes) if (vis(n)) drawNode(ctx, n, t);
   // de atrás para adelante (los de más abajo tapan a los de más arriba)
@@ -140,5 +187,5 @@ export function drawMinimap(ctx: CanvasRenderingContext2D, g: LandGame, map: HTM
   for (const n of g.nodes) { ctx.fillStyle = n.kind === 'gem' ? '#fbbf24' : '#60a5fa'; ctx.fillRect(n.x * kx - 1, n.y * ky - 1, 2, 2); }
   for (const b of g.buildings) if (!b.dead) { const s = BUILD_STATS[b.kind].size * kx * 0.9; ctx.fillStyle = TEAM[b.owner]; ctx.fillRect(b.x * kx - s / 2, b.y * ky - s / 2, s, s); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(b.x * kx - s / 2, b.y * ky - s / 2, s, s); }
   for (const u of g.units) if (!u.dead) { ctx.fillStyle = TEAM[u.owner]; ctx.fillRect(u.x * kx - 1.5, u.y * ky - 1.5, 3, 3); }
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(cam.x * kx, cam.y * ky, cam.w / cam.z * kx, cam.h / cam.z * ky);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(cam.x * kx, cam.y * ky, cam.w / cam.z * kx, (cam.h - 214) / cam.z * ky);
 }
