@@ -1,11 +1,11 @@
 // Land of Warriors: el dibujo del mapa, los recursos, las construcciones, los guerreros y los disparos.
-import { BUILD_STATS, ROLE_STATS, ROLES, BKINDS, WORLD_H, WORLD_W, type BKind, type Building, type LandGame, type Role, type Unit, type Node } from './land';
+import { BUILD_STATS, ROLE_STATS, ROLES, BKINDS, type BKind, type Building, type LandGame, type Role, type Unit, type Node } from './land';
 import { CIVS, CIV_IDS, type CivId } from './landCivs';
 import spritesUrl from './assets/land/sprites.webp';
 
 // La hoja con los recortes de las láminas: una fila por civilización (seis guerreros y cinco construcciones), celdas de 128.
-const CELL = 128;
-const META: Record<CivId, [number, number][]> = {"humano": [[81, 73], [52, 73], [68, 73], [57, 74], [89, 43], [83, 80], [124, 66], [84, 64], [92, 64], [62, 66], [73, 53]], "zergano": [[74, 49], [81, 67], [67, 72], [84, 76], [93, 48], [104, 78], [124, 67], [102, 65], [101, 77], [66, 61], [91, 61]], "elfos": [[64, 68], [82, 76], [64, 70], [83, 79], [92, 78], [124, 46], [124, 77], [92, 73], [97, 76], [65, 67], [83, 66]], "enanos": [[76, 58], [72, 60], [67, 55], [70, 76], [68, 43], [85, 41], [120, 77], [99, 69], [107, 71], [63, 60], [95, 52]], "nomuerta": [[65, 75], [65, 81], [69, 81], [84, 81], [89, 81], [124, 44], [123, 77], [108, 74], [107, 70], [70, 72], [79, 77]], "sauriano": [[63, 51], [97, 78], [81, 75], [77, 79], [124, 48], [124, 55], [107, 71], [102, 64], [96, 69], [69, 78], [124, 54]], "infernal": [[56, 61], [70, 79], [68, 81], [80, 61], [91, 82], [124, 61], [111, 76], [115, 72], [105, 64], [64, 77], [72, 58]], "mecanico": [[52, 47], [53, 73], [61, 73], [62, 74], [124, 50], [92, 82], [105, 74], [112, 68], [105, 67], [94, 63], [97, 59]], "orcos": [[64, 66], [80, 72], [76, 70], [65, 75], [87, 63], [111, 78], [124, 76], [118, 60], [114, 59], [55, 77], [124, 69]], "abisal": [[71, 65], [79, 68], [90, 68], [52, 80], [124, 44], [124, 58], [111, 61], [106, 56], [102, 64], [55, 77], [93, 74]]};
+const CELL = 256; // (el doble de resolución: se ven nítidos aunque estén grandes)
+const META: Record<CivId, [number, number][]> = {"humano":[[240,216],[171,240],[224,240],[185,240],[240,116],[240,231],[240,128],[240,183],[240,167],[225,240],[240,174]],"zergano":[[240,159],[240,199],[223,240],[240,217],[240,124],[240,180],[240,130],[240,153],[240,183],[240,222],[240,161]],"elfos":[[226,240],[240,222],[219,240],[240,228],[240,203],[240,89],[240,149],[240,190],[240,188],[233,240],[240,191]],"enanos":[[240,183],[240,200],[240,197],[221,240],[240,152],[240,116],[240,154],[240,167],[240,159],[240,229],[240,131]],"nomuerta":[[208,240],[193,240],[204,240],[240,231],[240,218],[240,85],[240,150],[240,164],[240,161],[240,217],[240,181]],"sauriano":[[240,179],[240,170],[240,221],[240,193],[240,89],[240,86],[240,155],[240,154],[240,151],[240,207],[240,142]],"infernal":[[221,240],[240,231],[240,234],[240,168],[240,181],[240,123],[240,168],[240,175],[240,165],[224,240],[240,207]],"mecanico":[[240,213],[223,240],[237,240],[240,240],[240,104],[240,209],[240,154],[240,162],[240,156],[240,158],[240,128]],"orcos":[[240,229],[240,201],[240,189],[240,204],[240,148],[240,154],[240,134],[240,134],[240,139],[240,204],[240,132]],"abisal":[[240,211],[240,197],[240,129],[183,240],[240,94],[240,104],[240,158],[240,155],[240,172],[230,240],[240,152]]};
 let SPRITES: HTMLImageElement | null = null;
 export function spritesReady() {
   if (!SPRITES && typeof Image !== 'undefined') { SPRITES = new Image(); SPRITES.src = spritesUrl; }
@@ -16,8 +16,8 @@ export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: numbe
   if (!spritesReady()) return false;
   const row = CIV_IDS.indexOf(civ), [sw, sh] = META[civ][idx];
   let k = h / sh; if (maxW && sw * k > maxW) k = maxW / sw;
-  const dw = sw * k, dh = sh * k, sx = idx * CELL + (CELL - sw) / 2, sy = row * CELL + CELL - 2 - sh;
-  ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1);
+  const dw = sw * k, dh = sh * k, sx = idx * CELL + (CELL - sw) / 2, sy = row * CELL + CELL - 4 - sh;
+  ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(SPRITES!, sx, sy, sw, sh, -dw / 2, -dh, dw, dh);
   ctx.restore(); return true;
 }
@@ -34,10 +34,10 @@ function crystal(ctx: CanvasRenderingContext2D, x: number, y: number, s: number,
   ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.moveTo(x - s * 0.1, y - s * 1.4); ctx.lineTo(x + s * 0.12, y - s * 0.5); ctx.lineTo(x - s * 0.2, y - s * 0.4); ctx.closePath(); ctx.fill();
 }
 export function drawNode(ctx: CanvasRenderingContext2D, n: Node, t: number) {
-  const gem = n.kind === 'gem', k = Math.max(0.45, Math.min(1, n.amount / 700));
+  const gem = n.kind === 'gem', k = 1.7 * Math.max(0.5, Math.min(1, n.amount / 700)); // (grandes: se ven bien al lado de los guerreros)
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(n.x, n.y + 2, 24 * k, 8 * k, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.globalCompositeOperation = 'lighter'; const gl = ctx.createRadialGradient(n.x, n.y - 14, 0, n.x, n.y - 14, 34); gl.addColorStop(0, gem ? `rgba(255,200,60,${0.35 + 0.1 * Math.sin(t * 3 + n.id)})` : `rgba(80,150,255,${0.35 + 0.1 * Math.sin(t * 3 + n.id)})`); gl.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gl; ctx.fillRect(n.x - 40, n.y - 50, 80, 70); ctx.globalCompositeOperation = 'source-over';
+  ctx.globalCompositeOperation = 'lighter'; const gl = ctx.createRadialGradient(n.x, n.y - 20, 0, n.x, n.y - 20, 54); gl.addColorStop(0, gem ? `rgba(255,200,60,${0.35 + 0.1 * Math.sin(t * 3 + n.id)})` : `rgba(80,150,255,${0.35 + 0.1 * Math.sin(t * 3 + n.id)})`); gl.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gl; ctx.fillRect(n.x - 60, n.y - 70, 120, 100); ctx.globalCompositeOperation = 'source-over';
   const cs: [number, number, number][] = [[-12, 2, 9], [10, 3, 8], [0, -2, 13], [-5, 6, 6], [15, 7, 6]];
   for (const [dx, dy, s] of cs.slice(0, 2 + Math.round(k * 3))) crystal(ctx, n.x + dx * k, n.y + dy * k, s * k, gem ? '#fff6c8' : '#d7ecff', gem ? '#f5b81a' : '#3b82f6', gem ? '#9a5a00' : '#1e3a8a');
   ctx.restore();
@@ -112,9 +112,13 @@ export function drawShots(ctx: CanvasRenderingContext2D, g: LandGame) {
   ctx.restore();
 }
 // ---------------------------------------------------------------- Todo el cuadro
-export function drawWorld(ctx: CanvasRenderingContext2D, g: LandGame, map: HTMLImageElement | null, cam: Cam, t: number, sel: Set<number>, extra?: (ctx: CanvasRenderingContext2D) => void) {
+export function drawWorld(ctx: CanvasRenderingContext2D, g: LandGame, map: HTMLCanvasElement | null, cam: Cam, t: number, sel: Set<number>, extra?: (ctx: CanvasRenderingContext2D) => void) {
   ctx.save(); ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
-  if (map && map.complete && map.naturalWidth) ctx.drawImage(map, 0, 0, WORLD_W, WORLD_H); else { ctx.fillStyle = '#3a3226'; ctx.fillRect(0, 0, WORLD_W, WORLD_H); }
+  const W = g.terrain.w, H = g.terrain.h;
+  if (map) { // (solo el pedazo que se ve)
+    const sx = Math.max(0, cam.x), sy = Math.max(0, cam.y), sw = Math.min(W - sx, cam.w / cam.z + 2), sh = Math.min(H - sy, cam.h / cam.z + 2);
+    ctx.drawImage(map, sx, sy, sw, sh, sx, sy, sw, sh);
+  } else { ctx.fillStyle = '#3a3226'; ctx.fillRect(0, 0, W, H); }
   const vx0 = cam.x - 200, vx1 = cam.x + cam.w / cam.z + 200, vy0 = cam.y - 200, vy1 = cam.y + cam.h / cam.z + 250, vis = (o: { x: number; y: number }) => o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1;
   for (const n of g.nodes) if (vis(n)) drawNode(ctx, n, t);
   // de atrás para adelante (los de más abajo tapan a los de más arriba)
@@ -127,11 +131,12 @@ export function drawWorld(ctx: CanvasRenderingContext2D, g: LandGame, map: HTMLI
   ctx.restore();
 }
 // El mapa chico: el terreno, los recursos, las construcciones (cuadrados) y los guerreros (puntos) de cada uno.
-export function drawMinimap(ctx: CanvasRenderingContext2D, g: LandGame, map: HTMLImageElement | null, w: number, h: number, cam: Cam) {
+let MINI: { src: HTMLCanvasElement; c: HTMLCanvasElement } | null = null; // (el terreno achicado una sola vez)
+export function drawMinimap(ctx: CanvasRenderingContext2D, g: LandGame, map: HTMLCanvasElement | null, w: number, h: number, cam: Cam) {
   ctx.clearRect(0, 0, w, h);
-  if (map && map.complete && map.naturalWidth) ctx.drawImage(map, 0, 0, w, h); else { ctx.fillStyle = '#2a2a2a'; ctx.fillRect(0, 0, w, h); }
+  if (map) { if (!MINI || MINI.src !== map) { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d')!; x.imageSmoothingQuality = 'high'; x.drawImage(map, 0, 0, w, h); MINI = { src: map, c }; } ctx.drawImage(MINI.c, 0, 0); } else { ctx.fillStyle = '#2a2a2a'; ctx.fillRect(0, 0, w, h); }
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 0, w, h);
-  const kx = w / WORLD_W, ky = h / WORLD_H;
+  const kx = w / g.terrain.w, ky = h / g.terrain.h;
   for (const n of g.nodes) { ctx.fillStyle = n.kind === 'gem' ? '#fbbf24' : '#60a5fa'; ctx.fillRect(n.x * kx - 1, n.y * ky - 1, 2, 2); }
   for (const b of g.buildings) if (!b.dead) { const s = BUILD_STATS[b.kind].size * kx * 0.9; ctx.fillStyle = TEAM[b.owner]; ctx.fillRect(b.x * kx - s / 2, b.y * ky - s / 2, s, s); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(b.x * kx - s / 2, b.y * ky - s / 2, s, s); }
   for (const u of g.units) if (!u.dead) { ctx.fillStyle = TEAM[u.owner]; ctx.fillRect(u.x * kx - 1.5, u.y * ky - 1.5, 3, 3); }

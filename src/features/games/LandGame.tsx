@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  BUILD_STATS, BKINDS, MAX_UPGRADE, POWER_MAX, ROLE_STATS, UPGRADES, UPGRADE_COST, UPGRADE_TIME, WORLD_H, WORLD_W, canPay, canPlace, cancelTrain, formatLandTime, hasBuilt, newLandGame, orderMove, orderSmart,
+  BUILD_STATS, BKINDS, MAX_UPGRADE, POWER_MAX, ROLE_STATS, UPGRADES, UPGRADE_COST, UPGRADE_TIME, canPay, canPlace, cancelTrain, formatLandTime, hasBuilt, newLandGame, orderMove, orderSmart,
   placeBuilding, popCap, popUsed, research, stepLand, takeLandEvents, train, unitStats, castPower, type BKind, type Building, type Cost, type Difficulty, type LandGame, type Role, type Unit, type Upgrade,
 } from './land';
-import { BUILD_TEXT, CIVS, CIV_IDS, MAPS, POWER_TEXT, roleText, type CivId } from './landCivs';
+import { BUILD_TEXT, CIVS, CIV_IDS, POWER_TEXT, roleText, type CivId } from './landCivs';
+import { MAP_SIZES, THEMES, type MapSize } from './landMap';
+import { renderTerrain } from './landMapArt';
 import { bIdx, drawMinimap, drawSprite, drawWorld, roleIdx, spritesReady, type Cam } from './landArt';
 import { useFitScreen } from './fitScreen';
 import { playExplosion, playGameOver, playKnock, playRifleShot, playVampMenuButton, playVampSword, playWinFanfare } from './sounds';
 
 const LAMINAS = import.meta.glob('./assets/land/lamina-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
-const MAPAS = import.meta.glob('./assets/land/mapa-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
 const lamina = (c: CivId) => LAMINAS[`./assets/land/lamina-${c}.webp`];
-const mapa = (n: number) => MAPAS[`./assets/land/mapa-${n}.webp`];
 import civsImg from './assets/land/civilizaciones.webp';
 // Dónde está cada civilización en la imagen de las civilizaciones (en %: izquierda, arriba, ancho, alto).
 const CIV_SPOTS: [CivId, number, number, number, number][] = [
@@ -56,6 +56,8 @@ export function LandOfWarriors() {
   const [simple, setSimple] = useState(false);
   const [enemy, setEnemy] = useState<CivId | 'random'>('random');
   const [map, setMap] = useState(5);
+  const [size, setSize] = useState<MapSize>('medium');
+  const [loading, setLoading] = useState(false);
   const [diff, setDiff] = useState<Difficulty>('normal');
   const [record, setRecord] = useState(readLandRecord);
   const gRef = useRef<LandGame | null>(null);
@@ -67,9 +69,9 @@ export function LandOfWarriors() {
   const modeRef = useRef<Mode>(mode);
   useEffect(() => { modeRef.current = mode; }, [mode]);
   const [toast, setToast] = useState<{ text: string; id: number } | null>(null);
-  const camRef = useRef<Cam>({ x: 0, y: WORLD_H - 700, w: 1200, h: 700, z: 1 });
+  const camRef = useRef<Cam>({ x: 0, y: 0, w: 1200, h: 700, z: 1 });
   const stageRef = useRef<HTMLDivElement>(null), canvasRef = useRef<HTMLCanvasElement>(null), miniRef = useRef<HTMLCanvasElement>(null);
-  const mapImg = useRef<HTMLImageElement | null>(null);
+  const mapImg = useRef<HTMLCanvasElement | null>(null);
   const screenRef = useRef(screen);
   useEffect(() => { screenRef.current = screen; }, [screen]);
   const mouse = useRef({ x: 0, y: 0, in: false, wx: 0, wy: 0 });
@@ -85,15 +87,17 @@ export function LandOfWarriors() {
 
   // ---------------------------------------------------------------- Empezar una partida
   const start = useCallback((civ: CivId) => {
-    playVampMenuButton(); setCiv(civ);
-    const foe = enemy === 'random' ? CIV_IDS.filter(c => c !== civ)[Math.floor(Math.random() * 9)] : enemy;
-    const g = newLandGame(civ, foe, map, diff); gRef.current = g; setGame(g);
-    const img = new Image(); img.src = mapa(map); mapImg.current = img;
-    const base = g.buildings.find(b => b.owner === 0)!;
-    camRef.current = { ...camRef.current, z: 1, x: base.x - 450, y: base.y - 380 };
-    setSelection([]); setMode({ k: 'none' }); setScreen('playing');
-    setTimeout(() => say('Mandá a los trabajadores a juntar cristales y armá tu ejército. ¡Destruí la base enemiga!'), 300);
-  }, [enemy, map, diff, say, setSelection]);
+    playVampMenuButton(); setCiv(civ); setLoading(true);
+    setTimeout(() => { // (deja que aparezca el cartel antes de pintar el escenario)
+      const foe = enemy === 'random' ? CIV_IDS.filter(c => c !== civ)[Math.floor(Math.random() * 9)] : enemy;
+      const g = newLandGame(civ, foe, map, diff, Date.now(), size); gRef.current = g; setGame(g);
+      mapImg.current = renderTerrain(g.terrain);
+      const base = g.buildings.find(b => b.owner === 0)!;
+      camRef.current = { ...camRef.current, z: 1, x: base.x - 450, y: base.y - 380 };
+      setSelection([]); setMode({ k: 'none' }); setLoading(false); setScreen('playing');
+      setTimeout(() => say('Mandá a los trabajadores a juntar cristales y armá tu ejército. ¡Destruí la base enemiga!'), 300);
+    }, 60);
+  }, [enemy, map, diff, size, say, setSelection]);
 
   // ---------------------------------------------------------------- El cuadro (dibujo y paso del juego)
   useEffect(() => {
@@ -128,7 +132,7 @@ export function LandOfWarriors() {
         // los elegidos que se murieron salen de la selección
         if ([...selRef.current].some(id => !g.units.some(u => u.id === id && !u.dead) && !g.buildings.some(b => b.id === id && !b.dead))) setSelection([...selRef.current].filter(id => g.units.some(u => u.id === id && !u.dead) || g.buildings.some(b => b.id === id && !b.dead)));
       } else stepLand(g, 0);
-      cam.x = Math.max(0, Math.min(WORLD_W - w / cam.z, cam.x)); cam.y = Math.max(0, Math.min(WORLD_H - (h - 120) / cam.z, cam.y));
+      cam.x = Math.max(0, Math.min(g.terrain.w - w / cam.z, cam.x)); cam.y = Math.max(0, Math.min(g.terrain.h - (h - 120) / cam.z, cam.y));
       const ctx = c.getContext('2d')!; ctx.setTransform(k, 0, 0, k, 0, 0); ctx.clearRect(0, 0, w, h);
       drawWorld(ctx, g, mapImg.current, cam, now / 1000, selRef.current, cx => {
         const m = mouse.current, md = modeRef.current;
@@ -243,7 +247,8 @@ export function LandOfWarriors() {
   };
   const onMini = (e: RPointerEvent<HTMLCanvasElement>) => {
     if (e.buttons === 0 && e.type !== 'pointerdown') return;
-    const r = e.currentTarget.getBoundingClientRect(), wx = (e.clientX - r.left) / r.width * WORLD_W, wy = (e.clientY - r.top) / r.height * WORLD_H, c = camRef.current;
+    const g = gRef.current; if (!g) return;
+    const r = e.currentTarget.getBoundingClientRect(), wx = (e.clientX - r.left) / r.width * g.terrain.w, wy = (e.clientY - r.top) / r.height * g.terrain.h, c = camRef.current;
     if (e.button === 2 && e.type === 'pointerdown') { command(wx, wy); return; }
     c.x = wx - c.w / c.z / 2; c.y = wy - (c.h - 170) / c.z / 2;
   };
@@ -304,14 +309,16 @@ export function LandOfWarriors() {
       </div>
       <div className="land-opts">
         <label>Rival <select value={enemy} onChange={e => setEnemy(e.target.value as CivId | 'random')}><option value="random">Al azar</option>{CIV_IDS.map(c => <option key={c} value={c}>{CIVS[c].name}</option>)}</select></label>
-        <div className="land-chips" role="group" aria-label="Elegir escenario"><span>Escenario</span>{MAPS.map((m, i) => <button type="button" key={i} aria-pressed={map === i + 1} className={map === i + 1 ? 'on' : ''} onClick={() => setMap(i + 1)} title={m.text}>{m.name}</button>)}</div>
+        <div className="land-chips" role="group" aria-label="Elegir escenario"><span>Escenario</span>{THEMES.map((m, i) => <button type="button" key={i} aria-pressed={map === i + 1} className={map === i + 1 ? 'on' : ''} onClick={() => setMap(i + 1)} title={m.text}>{m.name}</button>)}</div>
+        <div className="land-chips" role="group" aria-label="Tamaño del mapa"><span>Tamaño</span>{MAP_SIZES.map(([k, n]) => <button type="button" key={k} aria-pressed={size === k} className={size === k ? 'on' : ''} onClick={() => setSize(k)}>{n}</button>)}</div>
         <div className="land-chips" role="group" aria-label="Dificultad"><span>Dificultad</span>{DIFF.map(([d, n]) => <button type="button" key={d} aria-pressed={diff === d} className={diff === d ? 'on' : ''} onClick={() => setDiff(d)}>{n}</button>)}</div>
       </div>
     </div>}
     {screen === 'sheet' && sheetScreen}
+    {loading && <div className="land-overlay" role="status"><div className="land-card"><h2>Armando el escenario…</h2></div></div>}
 
     {playing && g && side && <div className="land-stage" ref={stageRef} onWheel={onWheel}>
-      <canvas ref={canvasRef} className={mode.k === 'place' || mode.k === 'power' || mode.k === 'amove' ? 'land-aim' : ''} aria-label={`Partida en ${MAPS[g.map - 1].name}`} role="img"
+      <canvas ref={canvasRef} className={mode.k === 'place' || mode.k === 'power' || mode.k === 'amove' ? 'land-aim' : ''} aria-label={`Partida en ${THEMES[g.terrain.theme].name}`} role="img"
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={() => { mouse.current.in = false; }} />
       {toast && <div key={toast.id} className="land-toast" role="status">{toast.text}</div>}
       {mode.k !== 'none' && <div className="land-mode">{mode.k === 'place' ? `Elegí dónde poner: ${CIVS[side.civ].buildings[mode.kind]}` : mode.k === 'power' ? 'Elegí dónde cae el poder' : 'Elegí a dónde atacar'} · <button type="button" onClick={() => setMode({ k: 'none' })}>Cancelar</button></div>}

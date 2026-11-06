@@ -76,10 +76,3 @@ export const BUILD_TEXT: Record<BKind, string> = {
   tower: 'Defiende sola: le dispara a los enemigos que se acercan.',
   depot: 'Suma 8 de población y es otro lugar donde dejar lo juntado.',
 };
-export const MAPS = [
-  { name: 'La Grieta Corrupta', text: 'Una planta industrial tomada por el ácido y un portal que se abre.' },
-  { name: 'Archipiélago Esmeralda', text: 'Islas, manglares y templos entre ríos de agua turquesa.' },
-  { name: 'Tierras de Ceniza', text: 'Ruinas góticas entre ríos de lava y un volcán.' },
-  { name: 'Valle de Yldran', text: 'Bosques en flor, cascadas y puentes de piedra.' },
-  { name: 'Frontera de Acero', text: 'Un cañón con cascadas cruzado por puentes de metal.' },
-];

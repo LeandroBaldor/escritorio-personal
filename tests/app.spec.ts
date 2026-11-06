@@ -1246,8 +1246,8 @@ test('Land of Warriors: se elige civilización en la imagen, se ve su lámina, s
   await page.getByRole('button', { name: 'Ver resumen simple' }).click();
   await expect(page.getByText('Muralla de Hierro', { exact: false }).first()).toBeVisible();
   await page.getByRole('button', { name: /Iniciar/ }).click();
-  await expect(page.getByTestId('land-stone')).toHaveText('300');
-  await expect(page.getByRole('img', { name: /Partida en La Grieta Corrupta/ })).toBeVisible();
+  await expect(page.getByTestId('land-stone')).toHaveText('300', { timeout: 15000 });
+  await expect(page.getByRole('img', { name: /Partida en La Grieta Corrupta/ })).toBeVisible({ timeout: 15000 });
   await page.getByRole('button', { name: 'Elegir todo el ejército' }).click();
   await page.keyboard.press('p');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();

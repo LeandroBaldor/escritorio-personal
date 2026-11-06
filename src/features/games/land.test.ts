@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { BUILD_STATS, POWER_MAX, ROLE_STATS, addUnit, castPower, newLandGame, orderSmart, placeBuilding, popCap, popUsed, research, stepLand, takeLandEvents, train, type LandGame } from './land';
+import { BUILD_STATS, POWER_MAX, ROLE_STATS, addUnit, canPlace, castPower, newLandGame, orderMove, orderSmart, placeBuilding, popCap, popUsed, research, stepLand, takeLandEvents, train, type LandGame } from './land';
 import { CIVS, CIV_IDS } from './landCivs';
+import { MAP_SIZES, THEMES, findPath, generateTerrain, walkable, type MapSize } from './landMap';
+const spot = (g: LandGame, k: 'barracks' | 'workshop', x: number, y: number) => { for (let r = 200; r < 800; r += 40) for (let a = 0; a < 6.28; a += 0.4) { const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r * 0.7; if (canPlace(g, k, px, py)) return [px, py]; } return [x, y]; };
 
 const run = (g: LandGame, s: number) => { for (let t = 0; t < s; t += 0.05) stepLand(g, 0.05); };
 const mine = (g: LandGame) => g.units.filter(u => u.owner === 0 && !u.dead);
@@ -31,7 +33,7 @@ describe('Land of Warriors', () => {
   it('se construye un cuartel y entrena soldados (con población)', () => {
     const g = newLandGame('orcos', 'humano', 3, 'normal', 3); g.ai.t = 1e9; g.sides[0].stone = 2000; g.sides[0].gem = 2000;
     const b0 = base(g, 0), w = mine(g)[0];
-    const bar = placeBuilding(g, 0, 'barracks', b0.x + 300, b0.y - 120, [w.id]);
+    const [px, py] = spot(g, 'barracks', b0.x, b0.y), bar = placeBuilding(g, 0, 'barracks', px, py, [w.id]);
     expect(bar).toBeTruthy();
     run(g, BUILD_STATS.barracks.time + 6);
     expect(bar!.built).toBe(1);
@@ -49,7 +51,7 @@ describe('Land of Warriors', () => {
   });
   it('los soldados pelean solos y el que muere desaparece', () => {
     const g = newLandGame('humano', 'orcos', 3, 'normal', 5); g.ai.t = 1e9;
-    const a = addUnit(g, 0, 'elite', 1300, 700), b = addUnit(g, 1, 'melee', 1360, 700);
+    const [x0, y0] = g.terrain.bases[0].map(v => (v + 0.5) * 40), a = addUnit(g, 0, 'elite', x0 + 150, y0 - 150), b = addUnit(g, 1, 'melee', x0 + 210, y0 - 150);
     run(g, 8);
     expect(b.hp).toBeLessThanOrEqual(0);
     expect(a.hp).toBeGreaterThan(0);
@@ -57,7 +59,7 @@ describe('Land of Warriors', () => {
   });
   it('el especial que cura le devuelve vida a los suyos', () => {
     const g = newLandGame('elfos', 'orcos', 3, 'normal', 6); g.ai.t = 1e9;
-    const healer = addUnit(g, 0, 'special', 1300, 700), hurt = addUnit(g, 0, 'melee', 1360, 700); hurt.hp = 20;
+    const [x0, y0] = g.terrain.bases[0].map(v => (v + 0.5) * 40), healer = addUnit(g, 0, 'special', x0 + 150, y0 - 150), hurt = addUnit(g, 0, 'melee', x0 + 210, y0 - 150); hurt.hp = 20;
     run(g, 6);
     expect(hurt.hp).toBeGreaterThan(40);
     expect(healer.hp).toBeGreaterThan(0);
@@ -71,7 +73,7 @@ describe('Land of Warriors', () => {
   it('el poder especial: la explosión daña a los enemigos del lugar', () => {
     const g = newLandGame('humano', 'orcos', 3, 'normal', 8); g.ai.t = 1e9;
     const e = addUnit(g, 1, 'melee', 1300, 700); g.sides[0].power = POWER_MAX;
-    expect(castPower(g, 0, 1300, 700)).toBe(true);
+    expect(castPower(g, 0, e.x, e.y)).toBe(true);
     expect(e.hp).toBeLessThan(e.maxHp);
     expect(g.sides[0].power).toBe(0);
   });
@@ -90,5 +92,23 @@ describe('Land of Warriors', () => {
     expect(g.buildings.some(b => b.owner === 1 && b.kind === 'barracks' && b.built >= 1)).toBe(true);
     expect(ai.filter(u => u.role !== 'worker').length + g.sides[0].lost).toBeGreaterThan(3);
     expect(g.ai.wave).toBeGreaterThan(0);
+  });
+  it('los escenarios: cinco estilos y cuatro tamaños, siempre con camino entre las bases', () => {
+    expect(THEMES).toHaveLength(5); expect(MAP_SIZES.map(m => m[0])).toEqual(['small', 'medium', 'large', 'huge']);
+    for (let th = 0; th < 5; th++) for (const [size] of MAP_SIZES) for (const seed of [1, 77]) {
+      const t = generateTerrain(th, size as MapSize, seed), [a, b] = t.bases.map(([c, r]) => [(c + 0.5) * 40, (r + 0.5) * 40]);
+      expect(walkable(t, a[0], a[1])).toBe(true);
+      const p = findPath(t, a[0], a[1], b[0], b[1]), end = p[p.length - 1];
+      expect(Math.hypot(end[0] - b[0], end[1] - b[1])).toBeLessThan(5);
+    }
+    expect(generateTerrain(0, 'huge', 3).w).toBeGreaterThan(generateTerrain(0, 'small', 3).w * 1.8);
+  });
+  it('los guerreros no caminan por el agua ni las rocas: dan la vuelta', () => {
+    const g = newLandGame('humano', 'orcos', 2, 'normal', 12, 'large'); g.ai.t = 1e9;
+    const [x0, y0] = g.terrain.bases[0].map(v => (v + 0.5) * 40), [x1, y1] = g.terrain.bases[1].map(v => (v + 0.5) * 40);
+    const u = addUnit(g, 0, 'melee', x0 + 120, y0); orderMove(g, [u.id], x1 - 200, y1 + 200);
+    let wet = 0; for (let t = 0; t < 90 && u.order.k === 'move'; t += 0.05) { stepLand(g, 0.05); if (!walkable(g.terrain, u.x, u.y)) wet++; }
+    expect(wet).toBe(0);
+    expect(Math.hypot(u.x - (x1 - 200), u.y - (y1 + 200))).toBeLessThan(160);
   });
 });
