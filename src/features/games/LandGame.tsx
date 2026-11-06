@@ -10,11 +10,15 @@ import { useFitScreen } from './fitScreen';
 import { playExplosion, playGameOver, playKnock, playRifleShot, playVampMenuButton, playVampSword, playWinFanfare } from './sounds';
 
 const LAMINAS = import.meta.glob('./assets/land/lamina-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
-const RETRATOS = import.meta.glob('./assets/land/retrato-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
 const MAPAS = import.meta.glob('./assets/land/mapa-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
 const lamina = (c: CivId) => LAMINAS[`./assets/land/lamina-${c}.webp`];
-const retrato = (c: CivId) => RETRATOS[`./assets/land/retrato-${c}.webp`];
 const mapa = (n: number) => MAPAS[`./assets/land/mapa-${n}.webp`];
+import civsImg from './assets/land/civilizaciones.webp';
+// Dónde está cada civilización en la imagen de las civilizaciones (en %: izquierda, arriba, ancho, alto).
+const CIV_SPOTS: [CivId, number, number, number, number][] = [
+  ['humano', 0.4, 6.1, 49.5, 16.2], ['orcos', 0.4, 23.1, 49.5, 17], ['enanos', 0.4, 41, 49.5, 16.2], ['sauriano', 0.4, 58.1, 49.5, 16.6], ['infernal', 0.4, 75.7, 49.5, 21],
+  ['zergano', 50.3, 6.1, 49.3, 16.2], ['elfos', 50.3, 23.1, 49.3, 17], ['nomuerta', 50.3, 41, 49.3, 16.2], ['mecanico', 50.3, 58.1, 49.3, 16.6], ['abisal', 50.3, 75.7, 49.3, 21],
+];
 
 const RECORD_KEY = 'escritorio-personal-juegos:land-victorias';
 export function readLandRecord(): Record<string, number> { try { return JSON.parse(localStorage.getItem(RECORD_KEY) ?? '{}') ?? {}; } catch { return {}; } }
@@ -24,7 +28,7 @@ const UP_NAME: Record<Upgrade, string> = { attack: 'Ataque', armor: 'Vida', spee
 const UP_ICON: Record<Upgrade, string> = { attack: '⚔️', armor: '🛡️', speed: '👟' };
 const DIFF: [Difficulty, string][] = [['easy', 'Fácil'], ['normal', 'Normal'], ['hard', 'Difícil']];
 const costText = (c: Cost) => `${c.stone ? `🔷${c.stone}` : ''}${c.gem ? ` 🔶${c.gem}` : ''}`.trim();
-type Screen = 'pick' | 'sheet' | 'setup' | 'playing' | 'paused' | 'won' | 'lost';
+type Screen = 'pick' | 'sheet' | 'playing' | 'paused' | 'won' | 'lost';
 type Mode = { k: 'none' } | { k: 'place'; kind: BKind } | { k: 'power' } | { k: 'amove' };
 
 // Un dibujo chico de un guerrero o una construcción (de la hoja de recortes).
@@ -80,8 +84,8 @@ export function LandOfWarriors() {
   const setSelection = useCallback((ids: number[]) => { selRef.current = new Set(ids); setSel(ids); }, []);
 
   // ---------------------------------------------------------------- Empezar una partida
-  const start = useCallback(() => {
-    playVampMenuButton();
+  const start = useCallback((civ: CivId) => {
+    playVampMenuButton(); setCiv(civ);
     const foe = enemy === 'random' ? CIV_IDS.filter(c => c !== civ)[Math.floor(Math.random() * 9)] : enemy;
     const g = newLandGame(civ, foe, map, diff); gRef.current = g; setGame(g);
     const img = new Image(); img.src = mapa(map); mapImg.current = img;
@@ -89,7 +93,7 @@ export function LandOfWarriors() {
     camRef.current = { ...camRef.current, z: 1, x: base.x - 450, y: base.y - 380 };
     setSelection([]); setMode({ k: 'none' }); setScreen('playing');
     setTimeout(() => say('Mandá a los trabajadores a juntar cristales y armá tu ejército. ¡Destruí la base enemiga!'), 300);
-  }, [civ, enemy, map, diff, say, setSelection]);
+  }, [enemy, map, diff, say, setSelection]);
 
   // ---------------------------------------------------------------- El cuadro (dibujo y paso del juego)
   useEffect(() => {
@@ -256,7 +260,7 @@ export function LandOfWarriors() {
   const goBase = () => { if (!g) return; const b = g.buildings.find(q => q.owner === 0 && q.kind === 'base' && !q.dead); if (b) { focus(b.x, b.y); setSelection([b.id]); } };
 
   // ---------------------------------------------------------------- Pantallas
-  const civD = CIVS[civ], viewD = CIVS[view];
+  const viewD = CIVS[view];
   const sheetScreen = <div className="land-sheet" role="dialog" aria-label={`Lámina de ${viewD.name}`}>
     <img src={lamina(view)} alt={`${viewD.name}: unidades, construcciones y máquinas`} />
     {simple && <div className="land-simple" style={{ ['--civ' as string]: viewD.color }}>
@@ -271,7 +275,7 @@ export function LandOfWarriors() {
     <div className="land-sheet-bar">
       <button type="button" className="land-ghost" onClick={() => { playVampMenuButton(); setScreen('pick'); }}>‹ Volver</button>
       <button type="button" className="land-ghost" onClick={() => { playVampMenuButton(); setSimple(s => !s); }}>{simple ? 'Ver la lámina' : 'Ver resumen simple'}</button>
-      <button type="button" className="land-go" onClick={() => { playVampMenuButton(); setCiv(view); setScreen('setup'); }}>Elegir {viewD.name} ▶</button>
+      <button type="button" className="land-go" onClick={() => start(view)}>⚔️ Iniciar</button>
     </div>
   </div>;
 
@@ -293,26 +297,18 @@ export function LandOfWarriors() {
     </div>
 
     {screen === 'pick' && <div className="land-pick">
-      <h2>Elegí tu civilización</h2>
-      <p>Tocá una para ver su lámina a pantalla completa.</p>
-      <ul className="land-civs">{CIV_IDS.map(c => <li key={c}><button type="button" style={{ ['--civ' as string]: CIVS[c].color }} onClick={() => { playVampMenuButton(); setView(c); setSimple(false); setScreen('sheet'); }}>
-        <img src={retrato(c)} alt="" loading="lazy" /><b>{CIVS[c].name}</b><small>{CIVS[c].motto}</small><span>{CIVS[c].style}</span>{record[c] ? <em>🏆 {record[c]}</em> : null}
-      </button></li>)}</ul>
+      <div className="land-civmap">
+        <img src={civsImg} alt="Las 10 civilizaciones" />
+        {CIV_SPOTS.map(([c, x, y, w, h]) => <button type="button" key={c} aria-label={CIVS[c].name} title={CIVS[c].name} style={{ left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`, ['--civ' as string]: CIVS[c].color }}
+          onClick={() => { playVampMenuButton(); setView(c); setSimple(false); setScreen('sheet'); }}>{record[c] ? <em>🏆 {record[c]}</em> : null}</button>)}
+      </div>
+      <div className="land-opts">
+        <label>Rival <select value={enemy} onChange={e => setEnemy(e.target.value as CivId | 'random')}><option value="random">Al azar</option>{CIV_IDS.map(c => <option key={c} value={c}>{CIVS[c].name}</option>)}</select></label>
+        <div className="land-chips" role="group" aria-label="Elegir escenario"><span>Escenario</span>{MAPS.map((m, i) => <button type="button" key={i} aria-pressed={map === i + 1} className={map === i + 1 ? 'on' : ''} onClick={() => setMap(i + 1)} title={m.text}>{m.name}</button>)}</div>
+        <div className="land-chips" role="group" aria-label="Dificultad"><span>Dificultad</span>{DIFF.map(([d, n]) => <button type="button" key={d} aria-pressed={diff === d} className={diff === d ? 'on' : ''} onClick={() => setDiff(d)}>{n}</button>)}</div>
+      </div>
     </div>}
     {screen === 'sheet' && sheetScreen}
-    {screen === 'setup' && <div className="land-setup">
-      <div className="land-setup-you" style={{ ['--civ' as string]: civD.color }}><img src={retrato(civ)} alt="" /><div><small>Tu civilización</small><b>{civD.name}</b><button type="button" className="land-ghost" onClick={() => setScreen('pick')}>Cambiar</button></div></div>
-      <h3>Rival</h3>
-      <div className="land-rivals" role="group" aria-label="Elegir rival">
-        <button type="button" aria-pressed={enemy === 'random'} className={enemy === 'random' ? 'on' : ''} onClick={() => setEnemy('random')}><span className="land-q">?</span><small>Al azar</small></button>
-        {CIV_IDS.filter(c => c !== civ).map(c => <button type="button" key={c} aria-pressed={enemy === c} className={enemy === c ? 'on' : ''} onClick={() => setEnemy(c)}><img src={retrato(c)} alt="" loading="lazy" /><small>{CIVS[c].name}</small></button>)}
-      </div>
-      <h3>Escenario</h3>
-      <div className="land-maps" role="group" aria-label="Elegir escenario">{MAPS.map((m, i) => <button type="button" key={i} aria-pressed={map === i + 1} className={map === i + 1 ? 'on' : ''} onClick={() => setMap(i + 1)}><img src={mapa(i + 1)} alt="" loading="lazy" /><b>{m.name}</b><small>{m.text}</small></button>)}</div>
-      <h3>Dificultad</h3>
-      <div className="land-diff" role="group" aria-label="Dificultad">{DIFF.map(([d, n]) => <button type="button" key={d} aria-pressed={diff === d} className={diff === d ? 'on' : ''} onClick={() => setDiff(d)}>{n}</button>)}</div>
-      <button type="button" className="land-go land-start" onClick={start}>⚔️ ¡A la guerra!</button>
-    </div>}
 
     {playing && g && side && <div className="land-stage" ref={stageRef} onWheel={onWheel}>
       <canvas ref={canvasRef} className={mode.k === 'place' || mode.k === 'power' || mode.k === 'amove' ? 'land-aim' : ''} aria-label={`Partida en ${MAPS[g.map - 1].name}`} role="img"
@@ -354,12 +350,12 @@ export function LandOfWarriors() {
       <div className="land-card">
         {screen === 'paused' && <><h2 id="land-msg">Pausa</h2>
           <button type="button" className="land-go" onClick={() => setScreen('playing')} autoFocus>Seguir</button>
-          <button type="button" className="land-ghost" onClick={() => setScreen('setup')}>Volver al menú</button></>}
+          <button type="button" className="land-ghost" onClick={() => setScreen('pick')}>Volver al menú</button></>}
         {screen !== 'paused' && <><h2 id="land-msg" className={screen === 'won' ? 'land-win' : 'land-lose'}>{screen === 'won' ? '¡Victoria!' : 'Derrota'}</h2>
           <p>{screen === 'won' ? `${CIVS[side.civ].name} destruyó la base de ${CIVS[g.sides[1].civ].name}.` : `${CIVS[g.sides[1].civ].name} destruyó tu base.`}</p>
           <ul className="land-stats"><li>Tiempo <b>{formatLandTime(g.t)}</b></li><li>Enemigos vencidos <b>{side.kills}</b></li><li>Perdidos <b>{side.lost}</b></li><li>Cristales juntados <b>{Math.round(side.gathered)}</b></li></ul>
-          <button type="button" className="land-go" onClick={start} autoFocus>Jugar de nuevo</button>
-          <button type="button" className="land-ghost" onClick={() => setScreen('setup')}>Volver al menú</button></>}
+          <button type="button" className="land-go" onClick={() => start(civ)} autoFocus>Jugar de nuevo</button>
+          <button type="button" className="land-ghost" onClick={() => setScreen('pick')}>Volver al menú</button></>}
       </div>
     </div>}
   </section>;

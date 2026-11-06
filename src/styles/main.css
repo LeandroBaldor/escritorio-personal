@@ -2040,3 +2040,17 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 @media(max-width:1100px){.land-civs{grid-template-columns:repeat(3,minmax(0,1fr))}.land-hud{grid-template-columns:200px minmax(0,1fr) minmax(0,1.2fr)}.land-power{min-width:9rem}}
 @media(max-width:700px){.land-civs{grid-template-columns:repeat(2,minmax(0,1fr))}.land-logo{font-size:1.2rem}.land-res{gap:.3rem;font-size:.8rem}.land-res>span{padding:.1rem .3rem}.land-hud{height:auto;max-height:46%;grid-template-columns:1fr 1fr;grid-template-rows:auto auto}.land-cmds{grid-column:1/-1}.land-mini{grid-row:1}}
 body:has(.land) .mobile-nav{display:none}
+/* elegir civilización: la imagen de las 10 con cada panel para tocar */
+.land-pick{display:flex;flex-direction:column;align-items:center;gap:.6rem;padding:.6rem 1rem 1rem}
+.land-civmap{position:relative;width:min(100%,calc((100vh - 9.5rem) * 1.5));flex:0 0 auto;border-radius:10px;overflow:hidden;box-shadow:0 10px 40px #000c}
+.land-civmap img{display:block;width:100%;height:auto}
+.land-civmap button{position:absolute;padding:0;border:2px solid transparent;border-radius:8px;background:transparent;cursor:pointer;transition:border-color .12s,box-shadow .12s,background .12s}
+.land-civmap button:hover,.land-civmap button:focus-visible{border-color:var(--civ);box-shadow:inset 0 0 30px color-mix(in srgb,var(--civ) 45%,transparent),0 0 18px var(--civ);background:#ffffff0d;outline:none}
+.land-civmap em{position:absolute;right:.4rem;bottom:.4rem;font-style:normal;font-weight:800;background:#000c;border-radius:999px;padding:.1rem .5rem;font-size:.8rem}
+.land-opts{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:.5rem 1.2rem}
+.land-opts label{display:flex;align-items:center;gap:.4rem;color:#f5d68a;font-weight:800}
+.land-opts select{font:inherit;padding:.3rem .5rem;border-radius:6px;border:1px solid #c8a24a;background:#0b1530;color:#fff}
+.land-chips{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem}
+.land-chips span{color:#f5d68a;font-weight:800;margin-right:.2rem}
+.land-chips button{font:inherit;font-size:.8rem;padding:.3rem .6rem;border-radius:999px;border:1px solid #2c4a80;background:#0b1530;color:#dbe7ff;cursor:pointer}
+.land-chips .on{border-color:#facc15;background:#3a2c08;color:#fff3c4;box-shadow:0 0 10px #facc1566}

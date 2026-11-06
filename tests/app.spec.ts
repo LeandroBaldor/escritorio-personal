@@ -1234,19 +1234,18 @@ test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de
   await expect(page.getByText('cazador de vampiros', { exact: false })).toBeVisible();
 });
 
-test('Land of Warriors: se elige civilización con su lámina, se arma la partida, se juega y se pausa', async ({ page }) => {
+test('Land of Warriors: se elige civilización en la imagen, se ve su lámina, se inicia, se juega y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
   await page.getByRole('link', { name: /Land of Warriors/ }).click();
   await expect(page.getByRole('heading', { name: 'Land of Warriors', level: 1 })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Dominio Abisal/ })).toBeVisible();
-  await page.getByRole('button', { name: /Clanes Enanos/ }).click();
+  await expect(page.getByRole('img', { name: 'Las 10 civilizaciones' })).toBeVisible();
+  await page.getByRole('group', { name: 'Elegir escenario' }).getByRole('button').first().click();
+  await page.getByRole('group', { name: 'Dificultad' }).getByRole('button', { name: 'Fácil' }).click();
+  await page.getByRole('button', { name: 'Clanes Enanos' }).click();
   await expect(page.getByRole('img', { name: /Clanes Enanos: unidades/ })).toBeVisible(); // la lámina a pantalla completa
   await page.getByRole('button', { name: 'Ver resumen simple' }).click();
   await expect(page.getByText('Muralla de Hierro', { exact: false }).first()).toBeVisible();
-  await page.getByRole('button', { name: /Elegir Clanes Enanos/ }).click();
-  await page.getByRole('group', { name: 'Elegir escenario' }).getByRole('button').first().click();
-  await page.getByRole('group', { name: 'Dificultad' }).getByRole('button', { name: 'Fácil' }).click();
-  await page.getByRole('button', { name: /A la guerra/ }).click();
+  await page.getByRole('button', { name: /Iniciar/ }).click();
   await expect(page.getByTestId('land-stone')).toHaveText('300');
   await expect(page.getByRole('img', { name: /Partida en La Grieta Corrupta/ })).toBeVisible();
   await page.getByRole('button', { name: 'Elegir todo el ejército' }).click();
