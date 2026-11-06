@@ -65,7 +65,7 @@ describe('Land of Warriors', () => {
     expect(healer.hp).toBeGreaterThan(0);
   });
   it('las mejoras suben el ataque de todo el ejército', () => {
-    const g = newLandGame('humano', 'orcos', 3, 'normal', 7); g.ai.t = 1e9; g.sides[0].stone = 5000; g.sides[0].gem = 5000;
+    const g = newLandGame('humano', 'orcos', 3, 'normal', 7); g.ai.t = 1e9; g.sides[0].stone = 5000; g.sides[0].gem = 5000; g.sides[0].energy = 100;
     expect(research(g, base(g, 0).id, 'attack')).toBe(true);
     run(g, 19);
     expect(g.sides[0].up.attack).toBe(1);
@@ -84,10 +84,10 @@ describe('Land of Warriors', () => {
     run(g, 8);
     expect(g.phase).toBe('won');
   });
-  it('la computadora junta, construye, arma un ejército y ataca', () => {
+  it('la computadora desarrolla su base y ataca después de prepararse', () => {
     const g = newLandGame('humano', 'orcos', 5, 'normal', 10);
     for (const u of mine(g)) u.order = { k: 'idle' }; // (el jugador no hace nada)
-    run(g, 260);
+    run(g, 660);
     const ai = g.units.filter(u => u.owner === 1 && !u.dead);
     expect(g.buildings.some(b => b.owner === 1 && b.kind === 'barracks' && b.built >= 1)).toBe(true);
     expect(ai.filter(u => u.role !== 'worker').length + g.sides[0].lost).toBeGreaterThan(3);

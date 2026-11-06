@@ -1,7 +1,8 @@
 // Land of Warriors: el dibujo del mapa, los recursos, las construcciones, los guerreros y los disparos.
 import { BUILD_STATS, ROLE_STATS, ROLES, BKINDS, type BKind, type Building, type LandGame, type Role, type Unit, type Node } from './land';
 import { CIVS, CIV_IDS, type CivId } from './landCivs';
-import type { TerrainRegion } from './landMapArt';
+import { drawAmbientTerrain, type TerrainRegion } from './landMapArt';
+import { drawWorldProp } from './landProps';
 
 // Once recortes por civilización en hojas individuales de 4 × 3, con el último casillero vacío.
 const URLS = import.meta.glob('./assets/land/units-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
@@ -43,18 +44,35 @@ export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: numbe
   let k = h / sh; if (maxW && sw * k > maxW) k = maxW / sw;
   const dw = sw * k, dh = sh * k;
   ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  if (motion) {
-    const strips = 16;
-    for (let j = 0; j < strips; j++) {
-      const f = j / strips, sway = Math.sin(motion + f * 3) * Math.pow(f, 2) * dw * 0.025;
-      ctx.drawImage(image, sx, sy + sh * f, sw, sh / strips, -dw / 2 + sway, -dh + dh * f, dw, dh / strips + 0.15);
+  if (motion && idx < 6) {
+    const humanoid = idx < 4 && civ !== 'zergano' && civ !== 'abisal';
+    const piece = (fx: number, fy: number, fw: number, fh: number, px: number, py: number, angle: number, lift = 0) => {
+      ctx.save(); ctx.translate((px - 0.5) * dw, (py - 1) * dh + lift); ctx.rotate(angle);
+      ctx.drawImage(image, sx + sw * fx, sy + sh * fy, sw * fw, sh * fh, (fx - px) * dw, (fy - py) * dh, fw * dw, fh * dh + 0.25); ctx.restore();
+    };
+    if (humanoid) {
+      // Apoyo alternado de los pies, flexión de cadera y contrapeso de los brazos.
+      const phase = Math.sin(motion), stride = 0.15 * phase;
+      piece(0, .59, .5, .41, .28, .60, stride, -Math.max(0, -phase) * dh * .035);
+      piece(.5, .59, .5, .41, .70, .60, -stride, -Math.max(0, phase) * dh * .035);
+      piece(0, 0, 1, .2, .5, .5, -phase * .014);
+      piece(.2, .2, .6, .41, .5, .5, -phase * .014);
+      piece(0, .2, .2, .4, .23, .23, -stride * .5);
+      piece(.8, .2, .2, .4, .78, .23, stride * .5);
+    } else {
+      const strips = 24, mechanical = (civ === 'humano' || civ === 'mecanico' || civ === 'enanos') && idx === 4;
+      for (let j = 0; j < strips; j++) {
+        const f = j / strips, sway = Math.sin(motion + f * 4.5) * Math.pow(f, 2) * dw * (mechanical ? .007 : .035);
+        const rise = mechanical ? Math.sin(motion * 2) * .3 : Math.sin(motion + f * 5) * Math.max(0, f - .55) * dh * .025;
+        ctx.drawImage(image, sx, sy + sh * f, sw, sh / strips, -dw / 2 + sway, -dh + dh * f + rise, dw, dh / strips + .2);
+      }
     }
   } else ctx.drawImage(image, sx, sy, sw, sh, -dw / 2, -dh, dw, dh);
   ctx.restore(); return true;
 }
 export const roleIdx = (r: Role) => ROLES.indexOf(r);
 export const bIdx = (k: BKind) => 6 + BKINDS.indexOf(k);
-export const TEAM = ['#4ade80', '#f87171'];
+export const TEAM = ['#4ade80', '#f87171', '#a78bfa', '#38bdf8', '#fbbf24', '#fb923c', '#f472b6', '#2dd4bf', '#c084fc', '#e2e8f0'];
 
 export interface Cam { x: number; y: number; w: number; h: number; z: number } // (x, y: el mundo arriba a la izquierda; z: el zoom)
 // ---------------------------------------------------------------- Recursos
@@ -65,12 +83,17 @@ function crystal(ctx: CanvasRenderingContext2D, x: number, y: number, s: number,
   ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.moveTo(x - s * 0.1, y - s * 1.4); ctx.lineTo(x + s * 0.12, y - s * 0.5); ctx.lineTo(x - s * 0.2, y - s * 0.4); ctx.closePath(); ctx.fill();
 }
 export function drawNode(ctx: CanvasRenderingContext2D, n: Node, t: number) {
-  const gem = n.kind === 'gem', k = 1.7 * Math.max(0.5, Math.min(1, n.amount / 700)); // (grandes: se ven bien al lado de los guerreros)
+  const gem = n.kind === 'gem', energy = n.kind === 'energy', k = 1.7 * Math.max(0.5, Math.min(1, n.amount / 700)); // (grandes: se ven bien al lado de los guerreros)
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(n.x, n.y + 2, 24 * k, 8 * k, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.globalCompositeOperation = 'lighter'; const gl = ctx.createRadialGradient(n.x, n.y - 20, 0, n.x, n.y - 20, 54); gl.addColorStop(0, gem ? `rgba(255,200,60,${0.35 + 0.1 * Math.sin(t * 3 + n.id)})` : `rgba(80,150,255,${0.35 + 0.1 * Math.sin(t * 3 + n.id)})`); gl.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gl; ctx.fillRect(n.x - 60, n.y - 70, 120, 100); ctx.globalCompositeOperation = 'source-over';
+  ctx.globalCompositeOperation = 'lighter'; const gl = ctx.createRadialGradient(n.x, n.y - 20, 0, n.x, n.y - 20, 54); gl.addColorStop(0, energy ? `rgba(50,255,140,${0.35 + 0.1 * Math.sin(t * 3 + n.id)})` : gem ? `rgba(255,200,60,${0.35 + 0.1 * Math.sin(t * 3 + n.id)})` : `rgba(80,150,255,${0.35 + 0.1 * Math.sin(t * 3 + n.id)})`); gl.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gl; ctx.fillRect(n.x - 60, n.y - 70, 120, 100); ctx.globalCompositeOperation = 'source-over';
+  if (drawWorldProp(ctx, energy ? 10 : gem ? 9 : 8, n.x, n.y + 7, 57 * k, 75 * k)) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = energy ? '#8bffbb' : gem ? '#fff1b0' : '#b3e8ff';
+    for (let i = 0; i < 3; i++) { const p = (t * .22 + i / 3 + n.id * .13) % 1; ctx.globalAlpha = Math.sin(p * Math.PI) * .7; ctx.beginPath(); ctx.arc(n.x + Math.sin(i * 3 + n.id) * 20 * k, n.y - p * 65 * k, 1.5, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore(); ctx.restore(); return;
+  }
   const cs: [number, number, number][] = [[-12, 2, 9], [10, 3, 8], [0, -2, 13], [-5, 6, 6], [15, 7, 6]];
-  for (const [dx, dy, s] of cs.slice(0, 2 + Math.round(k * 3))) crystal(ctx, n.x + dx * k, n.y + dy * k, s * k, gem ? '#fff6c8' : '#d7ecff', gem ? '#f5b81a' : '#3b82f6', gem ? '#9a5a00' : '#1e3a8a');
+  for (const [dx, dy, s] of cs.slice(0, 2 + Math.round(k * 3))) crystal(ctx, n.x + dx * k, n.y + dy * k, s * k, energy ? '#baffd5' : gem ? '#fff6c8' : '#d7ecff', energy ? '#22d875' : gem ? '#f5b81a' : '#3b82f6', energy ? '#075a30' : gem ? '#9a5a00' : '#1e3a8a');
   ctx.restore();
 }
 // ---------------------------------------------------------------- Construcciones
@@ -117,7 +140,7 @@ function bar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, k: 
 export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t: number, selected: boolean) {
   const s = ROLE_STATS[u.role], civ = g.sides[u.owner].civ, h = s.size, fade = u.dead ? Math.max(0, 1 - u.dead / 1.1) : 1;
   const moving = u.order.k === 'move' || ((u.order.k === 'gather' || u.order.k === 'build' || u.order.k === 'attack') && u.atkT < 0 && Math.abs(Math.sin(u.walk * 0.12)) > 0.01);
-  const bob = moving ? Math.abs(Math.sin(u.walk * 0.11)) * 3 : Math.sin(t * 2.4 + u.id) * 0.8;
+  const bob = moving ? Math.abs(Math.sin(u.walk * 0.12)) * 1.6 : Math.sin(t * 2.4 + u.id) * 0.8;
   const lunge = u.atkT >= 0 ? Math.sin(Math.min(1, u.atkT / 0.3) * Math.PI) * 6 * u.face : 0;
   const flyer = u.role === 'elite' && (civ === 'elfos' || civ === 'nomuerta'), fly = flyer ? 26 + Math.sin(t * 3 + u.id) * 4 : 0;
   ctx.save(); ctx.globalAlpha = fade;
@@ -125,11 +148,11 @@ export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t:
   ctx.strokeStyle = selected ? '#fef08a' : TEAM[u.owner]; ctx.lineWidth = selected ? 2.5 : 1.6; ctx.globalAlpha = fade * (selected ? 1 : 0.75);
   ctx.beginPath(); ctx.ellipse(u.x, u.y + 2, h * 0.36, h * 0.12, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = fade;
   if (u.dead) { ctx.translate(u.x, u.y); ctx.rotate(u.face * Math.min(1.3, u.dead * 3)); ctx.translate(-u.x, -u.y); }
-  const sq = moving ? 1 + Math.sin(u.walk * 0.22) * 0.03 : 1;
+  const sq = moving ? 1 + Math.sin(u.walk * 0.24) * 0.009 : 1;
   ctx.translate(u.x + lunge, u.y - bob - fly); ctx.scale(1 / sq, sq);
   if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? u.walk * 0.16 : u.atkT >= 0 ? t * 15 : 0)) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
   ctx.restore();
-  if (u.carry > 0 && !u.dead) crystal(ctx, u.x + u.face * -10, u.y - h * 0.7, 5, u.carryKind === 'gem' ? '#fff6c8' : '#d7ecff', u.carryKind === 'gem' ? '#f5b81a' : '#3b82f6', u.carryKind === 'gem' ? '#9a5a00' : '#1e3a8a');
+  if (u.carry > 0 && !u.dead) crystal(ctx, u.x + u.face * -10, u.y - h * 0.7, 5, u.carryKind === 'energy' ? '#baffd5' : u.carryKind === 'gem' ? '#fff6c8' : '#d7ecff', u.carryKind === 'energy' ? '#22d875' : u.carryKind === 'gem' ? '#f5b81a' : '#3b82f6', u.carryKind === 'energy' ? '#075a30' : u.carryKind === 'gem' ? '#9a5a00' : '#1e3a8a');
   if (!u.dead && (u.hp < u.maxHp || selected)) bar(ctx, u.x, u.y - h - fly - 6, Math.max(26, h * 0.6), u.hp / u.maxHp, u.owner === 0 ? '#4ade80' : '#f87171');
 }
 // ---------------------------------------------------------------- Disparos, curaciones y explosiones
@@ -140,8 +163,9 @@ export function drawShots(ctx: CanvasRenderingContext2D, g: LandGame) {
     const k = s.t / s.life, col = CIVS[g.sides[s.owner].civ].color;
     if (s.kind === 'bolt' || s.kind === 'splash') {
       const x = s.x + (s.tx - s.x) * k, y = s.y + (s.ty - s.y) * k, px = s.x + (s.tx - s.x) * Math.max(0, k - 0.25), py = s.y + (s.ty - s.y) * Math.max(0, k - 0.25);
-      ctx.strokeStyle = col; ctx.lineWidth = s.kind === 'splash' ? 6 : 3; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(x, y); ctx.stroke();
-      ctx.strokeStyle = '#fff8e0'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = 11; ctx.globalAlpha = .65; ctx.strokeStyle = col; ctx.lineWidth = s.kind === 'splash' ? 8 : 5; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(x, y); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.lineWidth = 1.4; ctx.strokeStyle = '#f6ffff'; ctx.stroke(); ctx.restore();
+      const flash = Math.max(0, 1 - k * 4); if (flash) { ctx.save(); ctx.globalAlpha = flash; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(s.x, s.y, 6 + flash * 4, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
       if (s.kind === 'splash' && k > 0.85) { ctx.fillStyle = col + '88'; ctx.beginPath(); ctx.arc(s.tx, s.ty, 40, 0, Math.PI * 2); ctx.fill(); }
     } else if (s.kind === 'heal') {
       const x = s.x + (s.tx - s.x) * k, y = s.y + (s.ty - s.y) * k;
@@ -166,6 +190,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, g: LandGame, map: HTMLC
     ctx.imageSmoothingQuality = 'high'; ctx.drawImage(map, sx * k, sy * k, sw * k, sh * k, sx, sy, sw, sh);
   } else { ctx.fillStyle = '#3a3226'; ctx.fillRect(0, 0, W, H); }
   if (detail) ctx.drawImage(detail.canvas, detail.x, detail.y, detail.w, detail.h);
+  drawAmbientTerrain(ctx, g.terrain, cam, t);
   const vx0 = cam.x - 200, vx1 = cam.x + cam.w / cam.z + 200, vy0 = cam.y - 200, vy1 = cam.y + cam.h / cam.z + 250, vis = (o: { x: number; y: number }) => o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1;
   for (const n of g.nodes) if (vis(n)) drawNode(ctx, n, t);
   // de atrás para adelante (los de más abajo tapan a los de más arriba)
@@ -184,7 +209,7 @@ export function drawMinimap(ctx: CanvasRenderingContext2D, g: LandGame, map: HTM
   if (map) { if (!MINI || MINI.src !== map) { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d')!; x.imageSmoothingQuality = 'high'; x.drawImage(map, 0, 0, w, h); MINI = { src: map, c }; } ctx.drawImage(MINI.c, 0, 0); } else { ctx.fillStyle = '#2a2a2a'; ctx.fillRect(0, 0, w, h); }
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 0, w, h);
   const kx = w / g.terrain.w, ky = h / g.terrain.h;
-  for (const n of g.nodes) { ctx.fillStyle = n.kind === 'gem' ? '#fbbf24' : '#60a5fa'; ctx.fillRect(n.x * kx - 1, n.y * ky - 1, 2, 2); }
+  for (const n of g.nodes) { ctx.fillStyle = n.kind === 'energy' ? '#4ade80' : n.kind === 'gem' ? '#fbbf24' : '#60a5fa'; ctx.fillRect(n.x * kx - 1, n.y * ky - 1, 2, 2); }
   for (const b of g.buildings) if (!b.dead) { const s = BUILD_STATS[b.kind].size * kx * 0.9; ctx.fillStyle = TEAM[b.owner]; ctx.fillRect(b.x * kx - s / 2, b.y * ky - s / 2, s, s); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(b.x * kx - s / 2, b.y * ky - s / 2, s, s); }
   for (const u of g.units) if (!u.dead) { ctx.fillStyle = TEAM[u.owner]; ctx.fillRect(u.x * kx - 1.5, u.y * ky - 1.5, 3, 3); }
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(cam.x * kx, cam.y * ky, cam.w / cam.z * kx, (cam.h - 214) / cam.z * ky);

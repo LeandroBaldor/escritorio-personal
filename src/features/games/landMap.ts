@@ -35,7 +35,7 @@ function noise(seed: number) {
     return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf;
   };
 }
-export function generateTerrain(theme: number, size: MapSize, seed: number): Terrain {
+export function generateTerrain(theme: number, size: MapSize, seed: number, players = 2): Terrain {
   const [, , w, h] = MAP_SIZES.find(m => m[0] === size) ?? MAP_SIZES[1];
   const cols = Math.ceil(w / T), rows = Math.ceil(h / T), cells = new Uint8Array(cols * rows), th = THEMES[theme % THEMES.length];
   let s = (seed % 2147483647) || 11; const rand = () => (s = (s * 48271) % 2147483647) / 2147483647;
@@ -81,7 +81,10 @@ export function generateTerrain(theme: number, size: MapSize, seed: number): Ter
     cells[idx(c, r)] = wet ? LIQUID : blocked || detail > 0.96 + (1 - th.blocks) * 0.02 ? BLOCK : GROUND;
   }
   // las bases (el jugador abajo a la izquierda, la computadora arriba a la derecha) y los lugares de los cristales
-  const bases: [number, number][] = [[Math.round(cols * 0.13), Math.round(rows * 0.76)], [Math.round(cols * 0.87), Math.round(rows * 0.24)]];
+  const count = Math.max(2, Math.min(10, Math.floor(players)));
+  const bases: [number, number][] = count === 2 ? [[Math.round(cols * 0.13), Math.round(rows * 0.76)], [Math.round(cols * 0.87), Math.round(rows * 0.24)]] : Array.from({ length: count }, (_, i) => {
+    const a = 2.55 + i * Math.PI * 2 / count; return [Math.round(cols * (0.5 + Math.cos(a) * 0.39)), Math.round(rows * (0.5 + Math.sin(a) * 0.37))];
+  });
   const nSpots = size === 'small' ? 2 : size === 'medium' ? 3 : size === 'large' ? 5 : 7, spots: [number, number][] = [];
   for (let i = 0; i < nSpots; i++) { // en espejo respecto del centro (para que sea parejo)
     let c = 0, r = 0;
@@ -96,7 +99,7 @@ export function generateTerrain(theme: number, size: MapSize, seed: number): Ter
     while (q.length) { const k = q.pop()!, c = k % cols, r = (k - c) / cols; for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nc = c + dc, nr = r + dr; if (inside(nc, nr) && !seen[idx(nc, nr)] && (cells[idx(nc, nr)] === GROUND || cells[idx(nc, nr)] === BRIDGE)) { seen[idx(nc, nr)] = 1; q.push(idx(nc, nr)); } } }
     return seen; };
   let reachable = reach();
-  for (const target of [bases[1], ...spots]) {
+  for (const target of [...bases.slice(1), ...spots]) {
     if (reachable[idx(target[0], target[1])]) continue;
     let [c, r] = bases[0];
     while (c !== target[0] || r !== target[1]) {

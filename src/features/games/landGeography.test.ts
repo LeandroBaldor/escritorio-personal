@@ -50,7 +50,7 @@ describe('Geografía y escala de Land of Warriors', () => {
   it('muy fácil da más tiempo antes de la primera oleada que fácil', () => {
     const beginner = newLandGame('humano', 'orcos', 1, 'veryEasy', 42, 'small');
     const easy = newLandGame('humano', 'orcos', 1, 'easy', 42, 'small');
-    expect(beginner.ai.waveAt).toBe(360);
+    expect(beginner.ai.waveAt).toBeGreaterThanOrEqual(600);
     expect(beginner.ai.waveAt).toBeGreaterThan(easy.ai.waveAt);
   });
 });

@@ -1,0 +1,91 @@
+/* Geometría de MENU.png: columna de información completa y consola a su derecha. */
+.land.land-v7{--intel-w:clamp(238px,19.75vw,350px);font-family:var(--land-font)}
+.land.land-v7 *{font-family:var(--land-font)!important}
+.land.land-v7 .land-icon{display:block;width:30px;height:30px;flex:0 0 auto;color:#f8d36e;filter:drop-shadow(0 1px 1px #000)}
+.land.land-v7 .land-top-left{left:0;top:0;min-height:49px;padding:5px 28px 5px 8px;max-width:calc(100% - 620px);border:3px ridge #deb45d;border-radius:0;background:linear-gradient(110deg,#062d4d,#020c15);clip-path:polygon(18px 0,calc(100% - 22px) 0,100% 50%,calc(100% - 22px) 100%,18px 100%,0 calc(100% - 15px),0 15px)}
+.land.land-v7 .land-top-left span{font-size:clamp(.85rem,1.28vw,1.4rem);font-weight:700;letter-spacing:.015em;color:#ffe7a2}
+.land.land-v7 .land-top-right{top:4px;right:6px;height:38px;padding:1px 4px;gap:0;border:1px solid #8fbbd8;border-radius:2px;background:linear-gradient(#0a2030,#020b15);box-shadow:inset 0 0 0 2px #18364d,0 2px 5px #000}
+.land.land-v7 .land-top-right>span{height:30px;min-width:95px;justify-content:center;padding:2px 12px;font-size:.88rem;gap:8px;border-right:1px solid #53748d66}
+.land.land-v7 .land-top-right .land-icon{width:25px;height:25px;color:#c3d4de}
+.land.land-v7 .land-top-right i.land-r-stone,.land.land-v7 .land-top-right i.land-r-gem{width:22px;height:27px;clip-path:polygon(48% 0,67% 24%,87% 18%,100% 60%,72% 94%,32% 100%,0 62%,12% 27%,31% 41%);background:conic-gradient(from 35deg at 48% 40%,#b4efff,#3170db 20%,#85d8ff 33%,#123c9e 50%,#599ef0 66%,#e3fbff 75%,#2474d4);filter:drop-shadow(0 0 4px #1e90ff)}
+.land.land-v7 .land-top-right i.land-r-gem{background:conic-gradient(from 35deg at 48% 40%,#fff5b9,#d8900b 20%,#ffdd64 33%,#885012 50%,#eab63b 66%,#fff6d1 75%,#c07d09);filter:drop-shadow(0 0 4px #e6b43e)}
+.land.land-v7 .land-r-energy{display:inline-block;width:20px;height:26px;border:2px solid #a0e777;border-radius:6px/3px;background:linear-gradient(90deg,#1a4b18,#a7fd58 36%,#53b822 65%,#124219);box-shadow:inset 0 3px #d2ffa3,inset 0 -3px #162f0b,0 0 7px #71e32a55}
+.land.land-v7 .land-sq{width:36px;height:34px;margin-left:8px;border:2px ridge #d4b45c;border-radius:4px;background:linear-gradient(135deg,#194064,#04101c);color:#ffde83;font-size:22px}
+.land.land-v7 .land-intel{display:grid;left:0;top:58px;bottom:38px;width:var(--intel-w);padding:0 6px 0 0;grid-template-rows:minmax(215px,1fr) minmax(193px,.9fr) minmax(285px,1.45fr);gap:6px;overflow:hidden;background:linear-gradient(90deg,#06192b,#062239)}
+.land.land-v7 .land-intel-card{border:9px solid transparent!important;border-image:url('./assets/land/hud-frame.svg') 20 fill stretch!important;border-radius:0;box-shadow:none!important;padding:2px 7px 5px;background:transparent;overflow:hidden;font-size:clamp(.58rem,.72vw,.76rem);line-height:1.5}
+.land.land-v7 .land-intel-card header{position:relative;min-height:70px;margin:-2px -7px 5px;padding:3px 3px 3px 4px;overflow:hidden;border-bottom:1px solid #cda44e;background:linear-gradient(100deg,color-mix(in srgb,var(--civ) 38%,#092442),#05182b)}
+.land.land-v7 .land-civ-emblem{position:relative;display:grid;place-items:center;width:48px;height:58px;flex:0 0 48px;clip-path:polygon(0 0,100% 0,94% 72%,50% 100%,6% 72%);background:linear-gradient(110deg,#e5be5d,#05234a 8%,#154774 80%,#dcba5e 92%);border-top:2px solid #e8be5e}
+.land.land-v7 .land-civ-emblem .land-icon{width:37px;height:43px;color:#e8c76c}
+.land.land-v7 .land-intel-card header>div{position:relative;z-index:1;gap:3px;max-width:calc(100% - 112px)}
+.land.land-v7 .land-intel-card header b{font-size:clamp(.65rem,.85vw,.95rem);font-weight:800;line-height:1.45;text-shadow:0 2px 3px #000}
+.land.land-v7 .land-intel-card header small{font-size:.48rem;letter-spacing:.1em}
+.land.land-v7 .land-intel-card header>canvas{position:absolute;right:-6px;bottom:0;width:104px!important;height:90px!important}
+.land.land-v7 .land-intel-card p{position:relative;margin:3px 0;color:#e0e7ed;font-size:inherit;line-height:1.45;padding-left:10px}
+.land.land-v7 .land-intel-card p::before{content:'•';position:absolute;left:0;top:0;color:#ffd56e}
+.land.land-v7 .land-intel-card strong{color:#ffe8af;font-weight:700}
+.land.land-v7 .land-intel-controls{display:flex!important;flex-direction:column;padding:0 4px 4px}
+.land.land-v7 .land-intel-controls h3{display:flex;align-items:center;gap:4px;margin:0 -4px 3px;padding:1px 3px 5px;border-bottom:2px solid #caaa60;color:#dcefff;font-size:clamp(.64rem,.9vw,.96rem);font-weight:800;white-space:nowrap}
+.land.land-v7 .land-intel-controls h3 .land-icon{width:27px;height:27px}
+.land.land-v7 .land-intel-controls p.land-system{display:flex;align-items:center;gap:7px;flex:1;padding:3px 0;margin:0;border-bottom:1px solid #4c719269;font-size:clamp(.55rem,.65vw,.71rem);line-height:1.5}
+.land.land-v7 .land-system::before{display:none}
+.land.land-v7 .land-system .land-icon{width:25px;height:27px;color:#ccdae6}
+.land.land-v7 .land-system span{display:block;min-width:0}
+.land.land-v7 .land-match-time{font-size:.55rem;line-height:1.5;color:#8cabc0;text-align:right;padding-top:3px}
+.land.land-v7 .land-rival-inspector{display:flex;gap:3px;flex-wrap:wrap;margin-top:5px}
+.land.land-v7 .land-rival-inspector button{border:1px solid #a98b46;background:#081c30;color:#fff1bd;padding:2px 6px;cursor:pointer}
+.land.land-v7 .land-rival-inspector [aria-pressed=true]{background:#856321}
+.land.land-v7 .land-hud{left:var(--intel-w);right:0;height:214px!important;grid-template-columns:250px minmax(0,1fr) 268px!important;gap:5px!important;padding:13px 6px 6px!important;border-top:4px ridge #e5bd60!important;background:linear-gradient(#123958,#031c31 35%,#021120)!important;box-shadow:0 -4px 0 #254f6a,0 -7px 0 #e9c873,0 -10px 0 #523a12!important}
+.land.land-v7 .land-hud::before{content:'';position:absolute;pointer-events:none;left:0;right:0;top:-37px;height:30px;background:linear-gradient(#ffedaf,#a77b24 20%,#f4cf70 45%,#69480e 70%,#ecc975);clip-path:polygon(0 100%,0 55%,17% 55%,19% 100%,37% 100%,40% 0,59% 0,62% 100%,81% 100%,83% 50%,100% 50%,100% 100%)}
+.land.land-v7 .land-hud>div:not(.land-crest):not(.land-gems){border:9px solid transparent!important;border-image:url('./assets/land/hud-frame.svg') 20 fill stretch!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;min-width:0}
+.land.land-v7 .land-mini{margin-top:-56px;padding:1px!important;gap:6px!important;position:relative}
+.land.land-v7 .land-mini-map{gap:7px;min-height:0}
+.land.land-v7 .land-mini canvas{border:2px solid #81744a;width:100%!important;height:100%!important;object-fit:fill;min-height:0;flex:1}
+.land.land-v7 .land-tabs{gap:8px;flex:0 0 26px}
+.land.land-v7 .land-tabs span{display:grid;place-items:center;height:26px;padding:0;border:2px ridge #5bbae8;background:linear-gradient(#0a5b8a,#02182e);box-shadow:inset 0 0 0 1px #052c4d}
+.land.land-v7 .land-tabs .land-icon{height:22px;width:30px}
+.land.land-v7 .land-quick{flex:0 0 37px!important;gap:7px!important;padding-top:34px}
+.land.land-v7 .land-quick button{display:grid;place-items:center;padding:2px;border:2px ridge #c9ae5d!important;border-radius:4px!important;background:linear-gradient(135deg,#134c6b,#031729)!important}
+.land.land-v7 .land-quick .land-icon{height:25px;width:25px}
+.land.land-v7 .land-sel{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)!important;padding:6px!important;gap:12px}
+.land.land-v7 .land-group{gap:5px!important;padding:0!important;grid-template-rows:repeat(2,minmax(0,1fr));grid-template-columns:repeat(5,minmax(0,1fr))!important;align-content:center}
+.land.land-v7 .land-group button{border:2px solid #72d448!important;border-radius:3px!important;background:linear-gradient(#0b2c4b,#031421)!important;box-shadow:inset 0 0 0 1px #1b5b6c}
+.land.land-v7 .land-group li{max-height:76px;aspect-ratio:1}
+.land.land-v7 .land-group button canvas{max-width:100%;max-height:100%}
+.land.land-v7 .land-card-unit{padding-left:10px;border-left:2px solid #587c94;align-items:center;gap:9px}
+.land.land-v7 .land-portrait{display:grid;flex:0 0 106px!important;height:139px!important;border:2px ridge #bdc1ad;background:radial-gradient(at 50% 15%,#3d6f9c,#04172e 80%);border-radius:4px}
+.land.land-v7 .land-card-unit b{font-size:clamp(.7rem,.88vw,.95rem)!important;color:#e7f1fb!important;line-height:1.4}
+.land.land-v7 .land-card-unit small,.land.land-v7 .land-card-unit ul{font-size:clamp(.55rem,.69vw,.73rem)!important;line-height:1.5}
+.land.land-v7 .land-hp{height:16px;border:0;background:#071c17}
+.land.land-v7 .land-cmds{padding:3px!important;gap:7px!important}
+.land.land-v7 .land-cmds button{display:grid;place-items:center;padding:0!important;min-width:0;border:2px ridge #e0c16d!important;border-radius:4px!important;background:linear-gradient(135deg,#184a68,#041320 70%)!important;box-shadow:inset 0 0 0 1px #274e64,0 1px 0 #000}
+.land.land-v7 .land-cmds .land-icon{width:clamp(23px,2.5vw,40px);height:clamp(23px,2.5vw,40px);color:#ffdc6b}
+.land.land-v7 .land-cmds .land-command-inactive{opacity:.65;filter:none;cursor:default}
+.land.land-v7 .land-crest{left:50%;top:-43px!important;z-index:2}
+.land.land-v7 .land-crest svg{width:150px;height:65px}
+.land.land-v7 .land-gems{top:-10px;padding:0 17%;z-index:2}
+.land.land-v7 .land-gems i{width:17px;height:17px;background:radial-gradient(at 32% 22%,#e5faff,#2f97e5 35%,#12377c 70%);border:2px ridge #edcb72}
+.land.land-v7 .land-opts{max-height:calc(100vh - 100px);overflow:auto;gap:12px!important}
+.land.land-v7 .land-roster-note{font-size:.6rem;line-height:1.6;margin:0;color:#a8c3d7}
+.land.land-v7 .land-rival-selectors{display:flex;flex-direction:column;gap:10px}
+.land.land-v7 .land-rival-selectors label,.land.land-v7 .land-opts>label{font-size:.7rem;line-height:1.6}
+.land.land-v7 .land-rival-selectors select,.land.land-v7 .land-opts>label select{width:100%;font-size:.68rem;min-height:38px}
+.land.land-v7 .land-scen-list img{aspect-ratio:1.65;object-fit:cover}
+.land.land-v7 .land-help{font-size:.65rem!important;line-height:1.7}
+.land.land-v7 .land-intel-card header{display:grid;grid-template-columns:55px minmax(0,1fr) 91px;align-items:center;gap:3px}
+.land.land-v7 .land-intel-card header>div{grid-column:2;align-items:flex-start;max-width:none;width:100%;text-align:left}
+.land.land-v7 .land-intel-card header b{font-size:clamp(.65rem,.8vw,.86rem)}
+.land.land-v7 .land-intel-card:nth-child(2)>p{font-size:clamp(.55rem,.65vw,.69rem);line-height:1.35;margin:2px 0}
+.land.land-v7 .land-intel-card:nth-child(2)>p:nth-of-type(3){display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.land.land-v7 .land-intel-controls p.land-system{font-size:clamp(.55rem,.61vw,.67rem);line-height:1.4;padding:2px 0}
+.land.land-v7 .land-toast{left:calc(50% + var(--intel-w)/2);max-width:calc(100% - var(--intel-w) - 50px);top:64px!important;font-size:.72rem;line-height:1.7;padding:8px 14px}
+.land.land-v7 .land-intel-card header{grid-template-columns:73px minmax(0,1fr) 94px}
+.land.land-v7 .land-civ-emblem{justify-self:center}
+.land.land-v7 .land-intel-card header b span{display:block}
+.land.land-v7 .land-intel-card header>canvas{top:0;bottom:auto;height:76px!important}
+.land.land-v7 .land-intel-card:nth-child(2) header{min-height:62px}
+.land.land-v7 .land-intel-card:nth-child(2) header>canvas{height:68px!important}
+.land.land-v7 .land-intel-card header select{max-width:120px;width:100%;min-height:16px;padding:0;border:0;border-bottom:1px solid #bd9c55;background:#062542;color:#c3d6e9;font-size:.48rem;cursor:pointer}
+@media(max-width:1400px){.land.land-v7 .land-hud{grid-template-columns:210px minmax(0,1fr) 220px!important}.land.land-v7 .land-portrait{flex-basis:76px!important;height:118px!important}.land.land-v7 .land-top-right>span{min-width:78px;padding:2px 8px;font-size:.75rem}.land.land-v7 .land-top-left{max-width:calc(100% - 510px)}}
+@media(max-width:1100px){.land.land-v7{--intel-w:0px}.land.land-v7 .land-intel{display:none}.land.land-v7 .land-top-left{top:50px;max-width:calc(100% - 4px);min-height:38px}.land.land-v7 .land-top-left span{font-size:.8rem}.land.land-v7 .land-hud{grid-template-columns:200px minmax(0,1fr) 210px!important}.land.land-v7 .land-mini{margin-top:0}.land.land-v7 .land-quick{padding-top:30px}.land.land-v7 .land-sel{grid-template-columns:1fr!important}.land.land-v7 .land-card-unit{display:none}.land.land-v7 .land-group{grid-template-columns:repeat(5,minmax(0,1fr))!important}.land.land-v7 .land-hud::before{display:none}.land.land-v7 .land-crest{display:none}}
+@media(max-width:900px){.land.land-v7 .land-opts{max-height:none;overflow:visible}.land.land-v7 .land-rival-selectors{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));order:1}.land.land-v7 .land-roster-note{width:100%}}
+@media(max-width:600px){.land.land-v7 .land-hud{grid-template-columns:110px minmax(0,1fr) 116px!important;gap:1px!important;padding:4px 0!important}.land.land-v7 .land-hud>div:not(.land-crest):not(.land-gems){border-width:5px!important}.land.land-v7 .land-mini{gap:2px!important}.land.land-v7 .land-quick{flex-basis:23px!important;padding-top:28px;gap:3px!important}.land.land-v7 .land-quick .land-icon{width:19px;height:19px}.land.land-v7 .land-tabs{gap:2px;flex-basis:20px}.land.land-v7 .land-tabs span{height:20px}.land.land-v7 .land-tabs .land-icon{width:19px;height:17px}.land.land-v7 .land-sel{padding:2px!important}.land.land-v7 .land-group{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-template-rows:repeat(5,minmax(0,1fr));gap:2px!important}.land.land-v7 .land-group li{aspect-ratio:auto}.land.land-v7 .land-cmds{gap:3px!important;padding:1px!important}.land.land-v7 .land-cmds .land-icon{width:19px;height:22px}.land.land-v7 .land-top-right{left:3px;right:3px;justify-content:space-around}.land.land-v7 .land-top-right>span{min-width:0;padding:0 4px;font-size:.56rem;gap:3px}.land.land-v7 .land-top-right i.land-r-stone,.land.land-v7 .land-top-right i.land-r-gem{width:15px;height:21px}.land.land-v7 .land-top-right .land-r-energy{width:12px;height:19px}.land.land-v7 .land-top-right .land-icon{width:17px;height:18px}.land.land-v7 .land-sq{width:25px;height:28px;margin-left:4px;font-size:18px}.land.land-v7 .land-sq .land-icon{width:20px;height:20px}.land.land-v7 .land-top-left span{font-size:.56rem}.land.land-v7 .land-exit{height:22px;width:22px}.land.land-v7 .land-rival-selectors{grid-template-columns:1fr}.land.land-v7 .land-opts .land-chips{gap:4px}.land.land-v7 .land-chips button{font-size:.6rem}.land.land-v7 .land-scen-list small{font-size:.58rem}.land.land-v7 .land-title-text p{font-size:.6rem}}

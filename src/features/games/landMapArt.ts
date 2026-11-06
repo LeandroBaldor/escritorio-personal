@@ -1,12 +1,29 @@
 // Land of Warriors: el dibujo del escenario generado (se pinta una sola vez en un lienzo grande y después se copia).
 import { BLOCK, BRIDGE, LIQUID, T, THEMES, type Terrain, type Theme } from './landMap';
 import materialUrl from './assets/land/terrain-materials.webp';
+import { drawWorldProp } from './landProps';
 
+const WATER_URL = Object.values(import.meta.glob('./assets/land/liquids.webp', { eager: true, import: 'default' }))[0] as string | undefined;
+let WATER: HTMLImageElement | null = null;
+const WATER_TILES: HTMLCanvasElement[] = [];
 let MATERIALS: HTMLImageElement | null = null;
 const MATERIAL_TILES: HTMLCanvasElement[] = [];
 export function terrainMaterialsReady() {
   if (!MATERIALS && typeof Image !== 'undefined') { MATERIALS = new Image(); MATERIALS.src = materialUrl; }
-  return !!MATERIALS && MATERIALS.complete && MATERIALS.naturalWidth > 0;
+  if (!WATER && WATER_URL && typeof Image !== 'undefined') { WATER = new Image(); WATER.src = WATER_URL; }
+  return !!MATERIALS && MATERIALS.complete && MATERIALS.naturalWidth > 0 && (!WATER_URL || (!!WATER && WATER.complete && WATER.naturalWidth > 0));
+}
+function waterTile(theme: number) {
+  terrainMaterialsReady(); if (!WATER || !WATER.complete || !WATER.naturalWidth) return null;
+  const index = theme === 7 ? 1 : theme === 0 ? 2 : theme === 2 ? 3 : theme === 9 ? 4 : theme === 6 ? 5 : 0;
+  if (WATER_TILES[index]) return WATER_TILES[index];
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const ctx = c.getContext('2d')!, w = WATER.naturalWidth / 3, h = WATER.naturalHeight / 2;
+  for (let row = 0; row < 2; row++) for (let col = 0; col < 2; col++) {
+    ctx.save(); ctx.translate(col ? 512 : 0, row ? 512 : 0); ctx.scale(col ? -1 : 1, row ? -1 : 1);
+    ctx.drawImage(WATER, index % 3 * w, Math.floor(index / 3) * h, w, h, 0, 0, 256, 256); ctx.restore();
+  }
+  WATER_TILES[index] = c; return c;
 }
 function materialTile(theme: number) {
   if (!terrainMaterialsReady()) return null;
@@ -67,6 +84,17 @@ export function renderTerrain(t: Terrain, scale = terrainScale(t), region?: Terr
   lc.fillStyle = th.liquid[1]; for (const [c, r] of liq) disc(c, r, T * 0.98);
   lc.fillStyle = th.liquid[2]; for (const [c, r] of liq) { let deep = 0; for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = at(c + dc, r + dr); if (k === LIQUID || k === BRIDGE) deep++; } if (deep >= 4) disc(c, r, T * 0.8); }
   ctx.drawImage(lay, 0, 0, t.w, t.h); // (orillas suaves)
+  const fluid = waterTile(t.theme);
+  if (fluid) {
+    ctx.save(); ctx.beginPath();
+    for (const [c, r] of liq) {
+      const x = (c + .5) * T, y = (r + .5) * T;
+      if (region && (x < region.x - T || x > region.x + region.w + T || y < region.y - T || y > region.y + region.h + T)) continue;
+      ctx.moveTo(x + T * .9, y); ctx.arc(x, y, T * .9, 0, Math.PI * 2);
+    }
+    ctx.clip(); ctx.globalAlpha = .92; ctx.fillStyle = ctx.createPattern(fluid, 'repeat')!;
+    ctx.fillRect(region?.x ?? 0, region?.y ?? 0, region?.w ?? t.w, region?.h ?? t.h); ctx.restore();
+  }
   { // espuma en la orilla y reflejo del cielo
     lc.clearRect(0, 0, lay.width, lay.height); lc.fillStyle = '#fff'; for (const [c, r] of liq) disc(c, r, T * 1.02); lc.globalCompositeOperation = 'destination-out'; for (const [c, r] of liq) disc(c, r, T * 0.9); lc.globalCompositeOperation = 'source-over';
     ctx.save(); ctx.globalAlpha = th.glow ? 0.25 : 0.4; ctx.drawImage(lay, 0, 0, t.w, t.h); ctx.restore();
@@ -148,6 +176,7 @@ function patches(ctx: CanvasRenderingContext2D, t: Terrain, th: Theme, R: () => 
   ctx.drawImage(pc, 0, 0, t.w, t.h);
 }
 function pine(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th: Theme, seed: number) {
+  if (drawWorldProp(ctx, 1, x, y + 3, 100 * s, 70 * s, seed > .5)) return;
   const R = rng(Math.floor(seed * 1e6)), h = 70 * s, w = 26 * s;
   ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(x + 8, y + 2, w * 1.1, w * 0.35, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#4a3020'; ctx.fillRect(x - 3 * s, y - 12 * s, 6 * s, 12 * s);
@@ -157,6 +186,7 @@ function pine(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th
     if (th.ground[0] > '#c') { ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.moveTo(x - tw * 0.5, ty - h * 0.14); ctx.lineTo(x, ty - h * 0.36); ctx.lineTo(x + tw * 0.4, ty - h * 0.16); ctx.quadraticCurveTo(x, ty - h * 0.2 + R() * 4, x - tw * 0.5, ty - h * 0.14); ctx.fill(); } } // (nieve)
 }
 function deadTree(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th: Theme, seed: number) {
+  if (drawWorldProp(ctx, 3, x, y + 3, 98 * s, 100 * s, seed > .5)) return;
   const R = rng(Math.floor(seed * 1e6));
   ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(x + 6, y + 2, 20 * s, 6 * s, 0, 0, Math.PI * 2); ctx.fill();
   const branch = (bx: number, by: number, a: number, len: number, w: number, d: number) => { const ex = bx + Math.cos(a) * len, ey = by + Math.sin(a) * len; ctx.strokeStyle = shade(th.rock[1], 1.2); ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(ex, ey); ctx.stroke(); if (d > 0) { branch(ex, ey, a - 0.5 - R() * 0.3, len * 0.65, w * 0.6, d - 1); branch(ex, ey, a + 0.4 + R() * 0.3, len * 0.6, w * 0.6, d - 1); } };
@@ -171,6 +201,7 @@ function cactus(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, 
   stem(x + w * 2, y - h * 0.5, w * 0.7, ah * 0.8); ctx.fillRect(x, y - h * 0.57, w * 2, w * 0.9);
 }
 function coral(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th: Theme, seed: number) {
+  if (drawWorldProp(ctx, 7, x, y + 3, 58 * s, 80 * s, seed > .5)) return;
   const R = rng(Math.floor(seed * 1e6));
   ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(x + 4, y + 2, 22 * s, 7 * s, 0, 0, Math.PI * 2); ctx.fill();
   for (let i = 0; i < 6; i++) { const a = -Math.PI / 2 + (i - 2.5) * 0.32, len = (22 + R() * 18) * s, ex = x + Math.cos(a) * len, ey = y + Math.sin(a) * len;
@@ -178,6 +209,7 @@ function coral(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, t
     ctx.fillStyle = th.leaf[1]; ctx.beginPath(); ctx.arc(ex, ey, 4 * s, 0, Math.PI * 2); ctx.fill(); }
 }
 function rock(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th: Theme, seed: number) {
+  if (drawWorldProp(ctx, 4, x, y + 3, 47 * s, 82 * s, seed > .5)) return;
   const w = 30 * s, h = 34 * s, R = rng(Math.floor(seed * 1e6));
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(x + 4, y + 2, w * 0.95, h * 0.28, 0, 0, Math.PI * 2); ctx.fill();
   const pts: [number, number][] = []; for (let i = 0; i < 7; i++) { const a = Math.PI + i / 6 * Math.PI, rr = 0.75 + R() * 0.35; pts.push([x + Math.cos(a) * w * rr, y + Math.sin(a) * h * rr]); }
@@ -191,6 +223,8 @@ function rock(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th
   ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.beginPath(); ctx.moveTo(x - w * 0.7, y - h * 0.3); ctx.lineTo(x - w * 0.35, y - h * 0.85); ctx.lineTo(x - w * 0.15, y - h * 0.7); ctx.lineTo(x - w * 0.5, y - h * 0.2); ctx.closePath(); ctx.fill(); // la cara con luz
 }
 function tree(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th: Theme, seed: number) {
+  ctx.save(); if (th.leaf[0] === '#c2541e') ctx.filter = 'sepia(.85) saturate(1.3)';
+  const detailed = drawWorldProp(ctx, 0, x, y + 3, 90 * s, 95 * s, seed > .5); ctx.restore(); if (detailed) return;
   const R = rng(Math.floor(seed * 1e6)), h = 68 * s, rad = 29 * s;
   ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(x + 14 * s, y + 4 * s, rad * 1.25, rad * 0.4, -0.3, 0, Math.PI * 2); ctx.fill();
   const bark = ctx.createLinearGradient(x - 5 * s, y, x + 5 * s, y); bark.addColorStop(0, '#8b6742'); bark.addColorStop(0.5, '#54391f'); bark.addColorStop(1, '#271d16');
@@ -209,6 +243,7 @@ function tree(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th
   }
 }
 function pillar(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th: Theme) {
+  if (drawWorldProp(ctx, 6, x, y, 72 * s, 72 * s)) return;
   const w = 14 * s, h = 64 * s;
   ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(x + 8, y + 2, w * 1.6, w * 0.5, 0, 0, Math.PI * 2); ctx.fill();
   const g = ctx.createLinearGradient(x - w, 0, x + w, 0); g.addColorStop(0, shade(th.rock[0], 1.4)); g.addColorStop(0.6, th.rock[0]); g.addColorStop(1, th.rock[1]);
@@ -218,6 +253,11 @@ function pillar(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, 
   ctx.fillStyle = th.rock[1]; ctx.beginPath(); ctx.moveTo(x + w, y - h - 8 * s); ctx.lineTo(x + w * 0.2, y - h - 8 * s); ctx.lineTo(x + w, y - h + 10 * s); ctx.closePath(); ctx.fill(); // roto arriba
 }
 function decor(ctx: CanvasRenderingContext2D, d: Theme['decor'][number], x: number, y: number, th: Theme, seed: number) {
+  if (d === 'bush' && drawWorldProp(ctx, 0, x, y, 25, 33)) return;
+  if (d === 'pebble' && drawWorldProp(ctx, 4, x, y, 10, 18)) return;
+  if (d === 'grass' && drawWorldProp(ctx, 11, x, y, 14, 19)) return;
+  if (d === 'palm' && drawWorldProp(ctx, 2, x, y, 75, 80)) return;
+  if (d === 'reed' && drawWorldProp(ctx, 11, x, y, 35, 45)) return;
   const R = rng(Math.floor(seed * 1e6) + 5);
   if (d === 'bush') { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(x + 3, y + 2, 13, 4, 0, 0, Math.PI * 2); ctx.fill(); for (let i = 0; i < 4; i++) { ctx.fillStyle = i < 2 ? th.leaf[2] : th.leaf[0]; ctx.beginPath(); ctx.arc(x + (R() - 0.5) * 14, y - 5 - R() * 6, 6 + R() * 4, 0, Math.PI * 2); ctx.fill(); } }
   else if (d === 'flower') { for (let i = 0; i < 5; i++) { ctx.fillStyle = ['#ff7ac8', '#fff27a', '#ffffff', '#c58aff'][Math.floor(R() * 4)]; ctx.beginPath(); ctx.arc(x + (R() - 0.5) * 18, y + (R() - 0.5) * 10, 2.2, 0, Math.PI * 2); ctx.fill(); } }
@@ -232,4 +272,27 @@ function decor(ctx: CanvasRenderingContext2D, d: Theme['decor'][number], x: numb
   else if (d === 'leaves') { for (let i = 0; i < 6; i++) { ctx.fillStyle = th.leaf[Math.floor(R() * 3)]; ctx.save(); ctx.translate(x + (R() - 0.5) * 22, y + (R() - 0.5) * 12); ctx.rotate(R() * 6); ctx.beginPath(); ctx.ellipse(0, 0, 4, 2, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); } }
   else if (d === 'shell') { ctx.fillStyle = '#f2d8c0'; ctx.beginPath(); ctx.arc(x, y, 5, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#a0785a'; ctx.lineWidth = 1; for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + k * 2.3, y - 4.5); ctx.stroke(); } }
   else if (d === 'palm') { ctx.strokeStyle = '#7a5a30'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 6, y - 20, x + 2, y - 34); ctx.stroke(); ctx.strokeStyle = th.leaf[0]; ctx.lineWidth = 3.5; for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; ctx.beginPath(); ctx.moveTo(x + 2, y - 34); ctx.quadraticCurveTo(x + 2 + Math.cos(a) * 12, y - 40 + Math.sin(a) * 6, x + 2 + Math.cos(a) * 20, y - 30 + Math.sin(a) * 8); ctx.stroke(); } }
+}
+
+// Reflejos que avanzan sobre el agua, caústicas y deriva orgánica del humedal.
+export function drawAmbientTerrain(ctx: CanvasRenderingContext2D, t: Terrain, cam: { x: number; y: number; w: number; h: number; z: number }, time: number) {
+  const th = THEMES[t.theme], swamp = t.theme === 7;
+  const x0 = Math.max(0, Math.floor(cam.x / T)), x1 = Math.min(t.cols, Math.ceil((cam.x + cam.w / cam.z) / T));
+  const y0 = Math.max(0, Math.floor(cam.y / T)), y1 = Math.min(t.rows, Math.ceil((cam.y + cam.h / cam.z) / T));
+  ctx.save(); ctx.lineCap = 'round';
+  for (let r = y0; r < y1; r++) for (let c = x0; c < x1; c++) if (t.cells[r * t.cols + c] === LIQUID) {
+    const k = (Math.imul(c, 73856093) ^ Math.imul(r, 19349663) ^ t.seed) >>> 0, x = (c + .5) * T, y = (r + .5) * T;
+    const phase = time * (swamp ? .4 : .9) + k % 100;
+    ctx.save(); ctx.beginPath(); ctx.rect(c * T, r * T, T, T); ctx.clip();
+    const sheen = ctx.createLinearGradient(x - 22, y - 20, x + 22, y + 20);
+    sheen.addColorStop(0, 'rgba(255,255,255,0)'); sheen.addColorStop(.48 + Math.sin(phase) * .12, swamp ? 'rgba(175,195,130,.10)' : th.glow ? 'rgba(255,215,70,.22)' : 'rgba(160,222,250,.18)'); sheen.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = sheen; ctx.fillRect(c * T, r * T, T, T);
+    for (let i = 0; i < 3; i++) {
+      const yy = y - 16 + i * 12 + Math.sin(phase + i) * 2, xx = x + Math.sin(phase * .4 + i) * 5;
+      ctx.strokeStyle = swamp ? 'rgba(194,209,156,.18)' : 'rgba(218,245,255,.25)'; ctx.lineWidth = .6;
+      ctx.beginPath(); ctx.moveTo(xx - 12, yy); ctx.bezierCurveTo(xx - 3, yy - 2, xx + 3, yy + 2, xx + 12, yy); ctx.stroke();
+    }
+    if (swamp && k % 5 === 0) { ctx.fillStyle = 'rgba(65,93,32,.62)'; ctx.beginPath(); ctx.ellipse(x + Math.sin(phase * .2) * 3, y, 5, 2.7, -.4, 0, Math.PI * 1.8); ctx.fill(); }
+    ctx.restore();
+  }
+  ctx.restore();
 }
