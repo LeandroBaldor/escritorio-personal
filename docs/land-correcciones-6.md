@@ -22,7 +22,7 @@ node scripts/sync-land.mjs /ruta/al/otro/repositorio --check
 node scripts/sync-land.mjs /ruta/al/otro/repositorio
 ```
 
-El script sincroniza los archivos propios de Land, sus recursos y pruebas compartidas. Cada webapp conserva sus rutas, autenticación y resto de juegos. Para ejecutar las pruebas de interfaz de MiniJuegos, establecer `LAND_BASE=/MiniJuegos/`; para escritorio-personal el valor predeterminado es `/escritorio-personal/`.
+El script sincroniza los archivos propios de Land, sus recursos y pruebas compartidas. Cada webapp conserva sus rutas, autenticación y resto de juegos. Las pruebas de interfaz detectan la ruta de cada proyecto a partir de su package.json. LAND_BASE permite sobrescribirla cuando sea necesario.
 
 ## Vistas de revisión
 

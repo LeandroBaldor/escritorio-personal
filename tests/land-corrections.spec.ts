@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import type { LandGame } from '../src/features/games/land';
 import type { Cam } from '../src/features/games/landArt';
 
 interface LandDebugWindow extends Window { __landGame: () => LandGame; __landCam: () => Cam }
 
-const base = process.env.LAND_BASE ?? '/escritorio-personal/';
+const packageName = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).name;
+const base = process.env.LAND_BASE ?? (packageName === 'minijuegos' ? '/MiniJuegos/' : '/escritorio-personal/');
 test('Land: civilizaciones, escala, exploración, selección y HUD', async ({ page }, testInfo) => {
   test.setTimeout(90000);
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
