@@ -1239,8 +1239,8 @@ test('Land of Warriors: se elige civilización en la imagen, se ve su lámina, s
   await page.getByRole('link', { name: /Land of Warriors/ }).click();
   await expect(page.getByRole('heading', { name: 'Land of Warriors', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: /Iniciar/ }).click(); // el póster
-  await expect(page.getByRole('img', { name: 'Las 10 civilizaciones' })).toBeVisible();
-  await page.getByRole('group', { name: 'Dificultad' }).getByRole('button', { name: 'Fácil' }).click();
+  await expect(page.getByLabel('Las 10 civilizaciones')).toBeVisible();
+  await page.getByRole('group', { name: 'Dificultad' }).getByRole('button', { name: 'Fácil', exact: true }).click();
   await page.getByRole('button', { name: 'Clanes Enanos' }).click();
   await expect(page.getByRole('img', { name: /Clanes Enanos: unidades/ })).toBeVisible(); // la lámina a pantalla completa
   await page.getByRole('button', { name: 'Ver resumen simple' }).click();

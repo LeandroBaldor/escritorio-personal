@@ -1,0 +1,65 @@
+@font-face{font-family:"Land Orbitron";src:url("./fonts/orbitron.ttf") format("truetype");font-weight:400 900;font-display:swap}
+
+/* Acero cepillado, biseles dorados y paneles de mando azul oscuro. */
+.land{--land-font:"Land Orbitron","Segoe UI",sans-serif}
+.land .land-logo,.land .land-metal,.land .land-scen h2,.land .land-go,.land .land-ghost,.land .land-chips,.land .land-opts label{font-family:var(--land-font)!important;font-style:normal;letter-spacing:.065em}
+.land .land-title-text h2.land-metal,.land .land-logo{font-weight:900!important;background-image:repeating-linear-gradient(178deg,#ffffff16 0px,#00000018 1px,transparent 2px,transparent 4px),linear-gradient(180deg,#fff 0%,#d5e7f3 17%,#8b9da9 34%,#f4fbff 45%,#354554 49%,#8398a9 55%,#e7f6ff 72%,#8da4b5 85%,#e9f7ff 100%)!important;-webkit-text-stroke:1px #314456!important;paint-order:stroke fill;filter:drop-shadow(0 1px 0 #e4f3ff) drop-shadow(0 3px 0 #152432) drop-shadow(0 5px 0 #07111b) drop-shadow(0 8px 12px #000)!important}
+.land .land-title-text h2.land-metal{font-size:clamp(2.2rem,7vw,7rem)!important;line-height:1.15;max-width:95vw}
+.land .land-pick{flex:1;min-height:0;overflow:auto;align-items:flex-start!important;padding:1.2rem clamp(.75rem,3vw,3rem);gap:1.4rem!important}
+.land .land-civ-list{display:flex;flex-direction:column;gap:.85rem;width:min(100%,1100px);min-width:0}
+.land .land-civ-choice{position:relative;display:flex;align-items:center;gap:1rem;min-height:156px;flex-shrink:0;width:100%;padding:.4rem 1.1rem;border:1px solid color-mix(in srgb,var(--civ),#91b4ce 35%);border-left:4px solid var(--civ);border-radius:3px 20px 3px 3px;background:linear-gradient(110deg,color-mix(in srgb,var(--civ) 18%,#050c16),#0b1b2b 55%,#050b13);color:#d4dfeb;text-align:left;cursor:pointer;box-shadow:inset 0 1px #ffffff17,0 8px 20px #0004;transition:background .15s,box-shadow .15s}
+.land .land-civ-choice:hover,.land .land-civ-choice:focus-visible{outline:2px solid #eac76d;outline-offset:3px;background:linear-gradient(110deg,color-mix(in srgb,var(--civ) 32%,#050c16),#142940);box-shadow:0 0 24px color-mix(in srgb,var(--civ) 22%,transparent)}
+.land .land-civ-number{font:700 .8rem var(--land-font);color:#8398ad;align-self:flex-start;margin-top:.6rem}
+.land .land-civ-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:.5rem}
+.land .land-civ-copy b{font:800 clamp(1rem,1.7vw,1.65rem)/1.2 var(--land-font);text-transform:uppercase;color:#f1f8ff;text-shadow:0 2px 2px #000}
+.land .land-civ-copy small{color:color-mix(in srgb,var(--civ),#e5f4ff 50%);font-size:.8rem;letter-spacing:.09em}
+.land .land-civ-copy>span{font-size:.92rem;line-height:1.5;color:#a9bdd0}
+.land .land-civ-arrow{color:#eac76d;font-size:1.5rem}
+.land .land-opts{position:sticky;top:0;flex:0 0 250px;max-width:100%;border-color:#60788c;box-shadow:inset 0 1px #eff8ff26,0 12px 40px #0007}
+.land .land-chips button{font-family:var(--land-font);font-size:.75rem;min-height:38px}
+.land .land-scen>.land-chips{justify-content:center;padding:.75rem 1rem;border:1px solid #42566e;background:#08111d;border-radius:4px;gap:.6rem}
+.land .land-scen>.land-chips button{display:flex;flex-direction:column;gap:.3rem;border-radius:4px;padding:.6rem 1rem;min-width:125px}
+.land .land-chips button small{font:400 .7rem "Segoe UI",sans-serif;color:#a9c4d8}
+.land .land-scen-list b{font:700 .85rem/1.6 var(--land-font)!important}
+.land .land-scen-list img{aspect-ratio:1.5;image-rendering:auto}
+.land .land-top-left{max-width:calc(100% - 590px);min-height:42px;padding-right:1.5rem;background:linear-gradient(120deg,#122b43,#061320);border-color:#e6be63;box-shadow:inset 0 0 0 2px #162d48,0 3px 8px #0009}
+.land .land-top-left span{font:700 clamp(.7rem,1.05vw,1.1rem)/1.4 var(--land-font);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.land .land-top-right{height:42px;box-sizing:border-box;background:linear-gradient(#142c40,#040d17);border-color:#749bb7;border-width:1px}
+.land .land-top-right>span{padding:.1rem .45rem;font-size:.85rem}
+.land .land-intel{position:absolute;left:.5rem;top:64px;bottom:238px;width:clamp(205px,18vw,290px);z-index:2;display:flex;flex-direction:column;gap:.65rem;overflow:auto;scrollbar-width:thin;pointer-events:auto}
+.land .land-intel-card{padding:.65rem .75rem;border:2px solid #cba85f;border-radius:3px 12px 3px 3px;background:linear-gradient(120deg,#071827f5,#081222ed);box-shadow:inset 0 0 0 2px #1c405a,0 3px 12px #0008;font-size:.72rem;line-height:1.5}
+.land .land-intel-card header{display:flex;gap:.5rem;align-items:center;border-bottom:1px solid #d8b25a66;margin:-.5rem -.6rem .4rem;padding:0 .5rem;background:linear-gradient(90deg,color-mix(in srgb,var(--civ) 30%,#081222),#091529)}
+.land .land-intel-card header div{display:flex;flex-direction:column;gap:.3rem}
+.land .land-intel-card header small{font-size:.6rem;letter-spacing:.14em;color:#a1bad0}
+.land .land-intel-card b{font:700 .8rem/1.4 var(--land-font);color:#e7f4ff;text-transform:uppercase}
+.land .land-intel-card p{margin:.3rem 0;color:#c5d5e1}
+.land .land-intel-card strong{color:#efd58f;margin-right:.25rem}
+.land .land-intel-controls b{color:#edce80;font-size:.7rem}
+.land .land-hud{height:214px!important;max-height:none;grid-template-columns:270px minmax(0,1fr) 246px!important;grid-template-rows:1fr;box-sizing:border-box;border-top:5px ridge #e3c279!important;background:repeating-linear-gradient(115deg,#ffffff03 0 1px,transparent 1px 5px),linear-gradient(#153e5d,#081b31 30%,#030c18)!important;box-shadow:0 -3px 0 #6e501f,0 -8px 0 #153851,0 -10px 0 #7098ac,0 -14px 25px #000b!important}
+.land .land-hud>div:not(.land-crest):not(.land-gems){border:2px ridge #80b4ce!important;box-shadow:inset 0 0 0 2px #08263c,inset 0 0 0 3px #2a5671,inset 0 0 22px #000c!important;background:linear-gradient(#0c2237,#040d18)!important}
+.land .land-hud>.land-gems{border:0!important;background:none!important;box-shadow:none!important}
+.land .land-sel{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)!important;min-height:0;overflow:hidden}
+.land .land-group{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;grid-template-rows:repeat(2,minmax(0,1fr));grid-auto-rows:auto!important;align-items:center;align-content:center;min-height:0;margin:0!important;padding:.2rem!important}
+.land .land-group li{max-height:76px}
+.land .land-group button{overflow:hidden;box-shadow:inset 0 0 8px #1b4e6b}
+.land .land-card-unit{min-width:0;gap:.6rem}
+.land .land-card-unit b{font:700 .85rem/1.35 var(--land-font)!important}
+.land .land-card-unit small{font-size:.7rem}
+.land .land-card-unit ul{font-size:.7rem!important}
+.land .land-portrait{flex:0 0 84px!important;height:112px!important;overflow:hidden}
+.land .land-portrait canvas{max-width:100%}
+.land .land-cmds button{border:2px ridge #ecd28c!important;background:linear-gradient(135deg,#184261,#071423 65%)!important;color:#ffe28d;box-shadow:inset 0 0 0 1px #50768b,0 2px 2px #000}
+.land .land-stage>canvas{cursor:grab}
+.land .land-stage>canvas:active{cursor:grabbing}
+.land .land-stage>canvas.land-aim{cursor:crosshair}
+@media(max-width:1200px){.land .land-portrait{display:none}.land .land-hud{grid-template-columns:220px minmax(0,1fr) 210px!important}.land .land-intel{width:210px}}
+@media(max-width:950px){.land .land-intel{display:none}.land .land-top-left{top:3.5rem;max-width:calc(100% - 1rem)}.land .land-civ-choice>canvas:nth-last-child(2){display:none}.land .land-opts{flex-basis:210px}.land .land-hud{grid-template-columns:180px minmax(0,1fr) 180px!important}.land .land-sel{grid-template-columns:1fr!important}.land .land-card-unit{display:none}.land .land-help{font-size:.75rem}.land .land-scen-bar{position:sticky;bottom:-6rem;flex-shrink:0;width:100%;padding:1rem;background:#050c19f5}.land .land-scen{padding-bottom:6rem!important}}
+@media(max-width:900px){.land .land-opts{position:static;order:-1;flex:0 0 auto;width:100%;flex-direction:row;flex-wrap:wrap;padding:.7rem}.land .land-opts label{flex:1;min-width:140px}.land .land-opts .land-chips{flex:2}.land .land-civ-list{width:100%}.land .land-pick{align-items:stretch!important;flex-wrap:nowrap}}
+@media(max-width:600px){.land .land-hud{grid-template-columns:112px minmax(0,1fr) 110px!important;gap:.2rem!important;padding:.45rem .2rem!important}.land .land-mini{padding:.1rem!important;gap:.1rem!important}.land .land-quick{flex-basis:25px!important}.land .land-quick button{font-size:.8rem!important;min-width:0;padding:0}.land .land-cmds{gap:.15rem!important;padding:.15rem!important}.land .land-cmds .land-ic{font-size:1rem}.land .land-cmds button canvas{max-width:100%;height:auto}.land .land-cmds small{font-size:.4rem!important}.land .land-group{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-template-rows:repeat(5,minmax(0,1fr))}.land .land-group li{aspect-ratio:auto;height:100%}.land .land-group canvas{width:auto!important;height:26px!important}.land .land-top-right{left:.3rem;right:.3rem;gap:.2rem;justify-content:space-between}.land .land-top-right>span{font-size:.65rem;padding:.1rem .15rem}.land .land-top-right .land-power{min-width:30px!important}.land .land-sq{width:26px;height:28px}.land .land-top-left span{font-size:.65rem}.land .land-civ-choice{gap:.5rem;padding:.4rem .6rem;min-height:130px}.land .land-civ-choice>canvas{width:80px!important;height:auto!important}.land .land-civ-copy b{font-size:.8rem}.land .land-civ-copy small{font-size:.65rem}.land .land-civ-copy>span{font-size:.75rem}.land .land-civ-number{display:none}.land .land-logo{font-size:1rem!important}.land .land-bar{gap:.4rem;padding:.5rem}.land .land-record{display:none}.land .land-scen-list{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.5rem!important}.land .land-scen-list b{font-size:.65rem!important}.land .land-scen>.land-chips button{min-width:95px;padding:.45rem}.land .land-scen h2{font-size:1.2rem}.land .land-crest{display:none}}
+@media(max-height:700px){.land .land-intel-controls{display:none}.land .land-intel-card p{font-size:.65rem}.land .land-intel-card p:nth-last-child(2){display:none}}
+@media(prefers-reduced-motion:reduce){.land .land-civ-choice,.land .land-scen-list button{transition:none}}
+@media(max-width:900px){.land .land-pick{justify-content:flex-start!important}.land .land-civ-list{flex-shrink:0}}
+.land .land-cmds,.land .land-mini,.land .land-sel{grid-column:auto;grid-row:auto;min-height:0}
+.land .land-hud{grid-template-rows:minmax(0,1fr)}
+.land .land-sq{line-height:1;padding:0}
+.land .land-cmds button canvas{width:auto!important;height:auto!important;max-width:90%;max-height:80%;object-fit:contain}

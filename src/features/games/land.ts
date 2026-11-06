@@ -23,7 +23,7 @@ export type BKind = 'base' | 'barracks' | 'workshop' | 'tower' | 'depot';
 export const BKINDS: BKind[] = ['base', 'barracks', 'workshop', 'tower', 'depot'];
 export type Upgrade = 'attack' | 'armor' | 'speed';
 export const UPGRADES: Upgrade[] = ['attack', 'armor', 'speed'];
-export type Difficulty = 'easy' | 'normal' | 'hard';
+export type Difficulty = 'veryEasy' | 'easy' | 'normal' | 'hard';
 
 export interface Cost { stone: number; gem: number }
 export interface UnitStats { hp: number; dmg: number; range: number; speed: number; cool: number; sight: number; cost: Cost; time: number; pop: number; size: number; splash?: number; heal?: number; vsBuild?: number }
@@ -86,7 +86,7 @@ export function newLandGame(civ: CivId, enemy: CivId, map = 1, difficulty: Diffi
   let s = seed % 2147483647 || 7; const rand = () => (s = (s * 48271) % 2147483647) / 2147483647;
   const terrain = generateTerrain(map - 1, size, seed % 100000); MW = terrain.w; MH = terrain.h; TER = terrain;
   const side = (c: CivId): Side => ({ civ: c, stone: 300, gem: 100, up: { attack: 0, armor: 0, speed: 0 }, power: 0, buffT: 0, kills: 0, lost: 0, gathered: 0 });
-  const g: LandGame = { t: 0, units: [], buildings: [], nodes: [], shots: [], sides: [side(civ), side(enemy)], nextId: 1, map, terrain, difficulty, phase: 'play', events: [], ai: { t: 0, wave: 0, waveAt: difficulty === 'easy' ? 240 : difficulty === 'hard' ? 120 : 170, attacking: false }, rand };
+  const g: LandGame = { t: 0, units: [], buildings: [], nodes: [], shots: [], sides: [side(civ), side(enemy)], nextId: 1, map, terrain, difficulty, phase: 'play', events: [], ai: { t: 0, wave: 0, waveAt: difficulty === 'veryEasy' ? 360 : difficulty === 'easy' ? 240 : difficulty === 'hard' ? 120 : 170, attacking: false }, rand };
   terrain.bases.forEach(([c, r], o) => {
     const x = (c + 0.5) * T, y = (r + 0.5) * T, b = addBuilding(g, o as Owner, 'base', x, y); b.built = 1; b.hp = b.maxHp;
     const dir = o === 0 ? 1 : -1;
@@ -310,6 +310,7 @@ function steer(g: LandGame, u: Unit, tx: number, ty: number, speed: number, dt: 
   const fly = flies(g, u);
   if (fly || clearLine(g.terrain, u.x, u.y, tx, ty)) { u.path = undefined; return moveTo(u, tx, ty, speed, dt, stop, fly); }
   if (!u.path || !u.pathFor || Math.hypot(u.pathFor[0] - tx, u.pathFor[1] - ty) > T * 2 || g.t - (u.pathT ?? 0) > 3) { u.path = findPath(g.terrain, u.x, u.y, tx, ty); u.pathFor = [tx, ty]; u.pathT = g.t; }
+  if (!u.path.length) return false; // Un destino aislado nunca permite atravesar obstáculos.
   while (u.path.length > 1 && (dist(u, { x: u.path[0][0], y: u.path[0][1] }) < 14 || clearLine(g.terrain, u.x, u.y, u.path[1][0], u.path[1][1]))) u.path.shift();
   moveTo(u, u.path[0][0], u.path[0][1], speed, dt, 2);
   return dist(u, { x: tx, y: ty }) <= stop;
@@ -390,8 +391,8 @@ function separate(g: LandGame, dt: number) {
 }
 
 // ---------------------------------------------------------------- La computadora
-const AI_INCOME: Record<Difficulty, number> = { easy: 0.75, normal: 1, hard: 1.35 };
-const AI_SPEED: Record<Difficulty, number> = { easy: 1.3, normal: 1, hard: 0.8 }; // (tiempos de producción)
+const AI_INCOME: Record<Difficulty, number> = { veryEasy: 0.5, easy: 0.75, normal: 1, hard: 1.35 };
+const AI_SPEED: Record<Difficulty, number> = { veryEasy: 1.8, easy: 1.3, normal: 1, hard: 0.8 }; // (tiempos de producción)
 function stepAI(g: LandGame, dt: number) {
   const ai = g.ai; ai.t -= dt; if (ai.t > 0) return; ai.t = 1;
   const o: Owner = 1, side = g.sides[1], base = g.buildings.find(b => b.owner === o && b.kind === 'base' && !b.dead);
@@ -412,7 +413,7 @@ function stepAI(g: LandGame, dt: number) {
     if (popUsed(g, o) + 4 >= popCap(g, o) && popCap(g, o) < MAX_POP && canPay(side, BUILD_STATS.depot.cost)) place('depot');
     else if (!bs('barracks').length && g.t > 25 && canPay(side, BUILD_STATS.barracks.cost)) place('barracks');
     else if (bs('barracks').length && !bs('workshop').length && g.t > 140 && canPay(side, BUILD_STATS.workshop.cost)) place('workshop');
-    else if (bs('tower').length < (g.difficulty === 'easy' ? 1 : 2) && g.t > 90 && canPay(side, BUILD_STATS.tower.cost)) place('tower');
+    else if (bs('tower').length < (g.difficulty === 'veryEasy' ? 0 : g.difficulty === 'easy' ? 1 : 2) && g.t > 90 && canPay(side, BUILD_STATS.tower.cost)) place('tower');
     else if (bs('barracks').length < 2 && g.t > 260 && canPay(side, BUILD_STATS.barracks.cost)) place('barracks');
   }
   for (const b of bs('barracks')) if (b.queue.length < 2) { const r: Role = g.rand() < 0.45 ? 'melee' : g.rand() < 0.7 ? 'ranged' : 'special'; train(g, b.id, r); }
@@ -422,11 +423,11 @@ function stepAI(g: LandGame, dt: number) {
   const intruder = g.units.find(u => u.owner === 0 && !u.dead && dist(u, base) < 520);
   if (intruder) { for (const u of army) if (u.order.k !== 'attack') u.order = { k: 'attack', id: intruder.id }; }
   // las oleadas: cada vez con más soldados
-  const need = 4 + ai.wave * 3;
+  const need = (g.difficulty === 'veryEasy' ? 3 : 4) + ai.wave * 3;
   if (g.t >= ai.waveAt && army.length >= need) {
     const target = g.buildings.find(b => b.owner === 0 && b.kind === 'base' && !b.dead) ?? g.buildings.find(b => b.owner === 0 && !b.dead);
     if (target) orderMove(g, army.map(u => u.id), target.x, target.y, true);
-    ai.wave++; ai.waveAt = g.t + (g.difficulty === 'hard' ? 70 : g.difficulty === 'easy' ? 130 : 95);
+    ai.wave++; ai.waveAt = g.t + (g.difficulty === 'veryEasy' ? 190 : g.difficulty === 'hard' ? 70 : g.difficulty === 'easy' ? 130 : 95);
   }
   if (side.power >= POWER_MAX) { // usa su poder cuando le conviene
     const kind = CIVS[side.civ].power.kind, fight = army.some(u => u.order.k === 'attack');

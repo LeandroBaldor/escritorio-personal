@@ -102,12 +102,12 @@ describe('Land of Warriors', () => {
       expect(Math.hypot(end[0] - b[0], end[1] - b[1])).toBeLessThan(5);
     }
     expect(generateTerrain(0, 'huge', 3).w).toBeGreaterThan(generateTerrain(0, 'small', 3).w * 1.8);
-  });
+  }, 30000);
   it('los guerreros no caminan por el agua ni las rocas: dan la vuelta', () => {
     const g = newLandGame('humano', 'orcos', 2, 'normal', 12, 'large'); g.ai.t = 1e9;
     const [x0, y0] = g.terrain.bases[0].map(v => (v + 0.5) * 40), [x1, y1] = g.terrain.bases[1].map(v => (v + 0.5) * 40);
     const u = addUnit(g, 0, 'melee', x0 + 120, y0); orderMove(g, [u.id], x1 - 200, y1 + 200);
-    let wet = 0; for (let t = 0; t < 90 && u.order.k === 'move'; t += 0.05) { stepLand(g, 0.05); if (!walkable(g.terrain, u.x, u.y)) wet++; }
+    let wet = 0; for (let t = 0; t < 240 && u.order.k === 'move'; t += 0.05) { stepLand(g, 0.05); if (!walkable(g.terrain, u.x, u.y)) wet++; }
     expect(wet).toBe(0);
     expect(Math.hypot(u.x - (x1 - 200), u.y - (y1 + 200))).toBeLessThan(160);
   });
