@@ -1,11 +1,5 @@
 {
-  "missing": [
-    {
-      "civ": "humano",
-      "role": "heavy",
-      "name": "Tanque Bastión"
-    }
-  ],
+  "missing": [],
   "aliases": [
     {
       "source": "09_Sindicato_Mecanico/oron.mp3",
@@ -630,6 +624,92 @@
           "start": 1.938,
           "duration": 0.202,
           "rms": 0.14219
+        }
+      ]
+    },
+    {
+      "civ": "humano",
+      "role": "heavy",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "b1ce493bcc87d87720a804bbd58664dc39b20a6a8674f25af6a688f6ea18ccd7",
+      "file": "humano/heavy.mp3",
+      "source": "01_Imperio_Humano/tanque_bastion.mp3",
+      "duration": 10.083,
+      "peak": 0.98098,
+      "rms": 0.35058,
+      "phrases": [
+        {
+          "start": 0.175,
+          "duration": 1.85,
+          "rms": 0.36364
+        },
+        {
+          "start": 2.025,
+          "duration": 1.63,
+          "rms": 0.36217
+        },
+        {
+          "start": 3.655,
+          "duration": 1.92,
+          "rms": 0.36217
+        },
+        {
+          "start": 5.575,
+          "duration": 1.49,
+          "rms": 0.34433
+        },
+        {
+          "start": 7.065,
+          "duration": 1.53,
+          "rms": 0.3423
+        },
+        {
+          "start": 8.595,
+          "duration": 1.47,
+          "rms": 0.34313
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.198,
+          "duration": 0.202,
+          "rms": 0.33889
+        },
+        {
+          "start": 1.928,
+          "duration": 0.202,
+          "rms": 0.36507
+        },
+        {
+          "start": 4.188,
+          "duration": 0.202,
+          "rms": 0.36434
+        },
+        {
+          "start": 5.468,
+          "duration": 0.202,
+          "rms": 0.36205
+        },
+        {
+          "start": 6.618,
+          "duration": 0.202,
+          "rms": 0.34672
+        },
+        {
+          "start": 7.968,
+          "duration": 0.202,
+          "rms": 0.34913
+        },
+        {
+          "start": 8.548,
+          "duration": 0.202,
+          "rms": 0.34147
+        },
+        {
+          "start": 9.388,
+          "duration": 0.202,
+          "rms": 0.35127
         }
       ]
     },

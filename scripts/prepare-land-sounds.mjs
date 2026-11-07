@@ -9,7 +9,7 @@ import { chromium } from 'playwright';
 const source=process.argv[2];if(!source)throw new Error('Indicá la carpeta CIVILIZACIONES.');
 const output=fileURLToPath(new URL('../src/features/games/assets/land/voices/',import.meta.url));
 const factions=[
-  ['humano','01_Imperio_Humano',{worker:'ingeniero',melee:'recluta',ranged:'fusilero_pesado',special:'medico',elite:'exoelite'}],
+  ['humano','01_Imperio_Humano',{worker:'ingeniero',melee:'recluta',ranged:'fusilero_pesado',special:'medico',heavy:'tanque_bastion',elite:'exoelite'}],
   ['zergano','02_Enjambre_Zergano',{worker:'Larva_Obrera',melee:'Zangano_Guerrero',ranged:'Acechador',special:'Escupidor_Acido',heavy:'Coloso_Quitinoso',elite:'Reina_Colmena',acid:'acido'}],
   ['elfos','03_Elfos_de_Yldran',{worker:'sabio',melee:'espadachin_lunar',ranged:'arquera_del_viento',special:'druida',heavy:'guardian_arboreo',elite:'dragon_elfico'}],
   ['enanos','04_Clanes_Enanos',{worker:'minero',melee:'guerrero_enano',ranged:'arcabucero',special:'sacerdote_rúnico',heavy:'cañon_de_asedio',elite:'golem_de_acero'}],
@@ -58,13 +58,13 @@ try{
           const steps=hits.sort((a,b)=>a-b).map(i=>cue(i*.01-.012,i*.01+.19)).filter(c=>c.duration>.05);
           await decoder.close?.();return {duration:+buffer.duration.toFixed(3),peak:+peak.toFixed(5),rms:+Math.sqrt(total/data.length).toFixed(5),phrases,steps};
         },{raw:bytes.toString('base64'),melodic:civ==='elfos'});
-        const purpose=role==='acid'?'effect':civ==='humano'?(role==='elite'?(variant===1?'foot':'call'):(variant===0?'foot':'call')):civ==='elfos'&&role==='heavy'&&variant===0?'effect':civ==='enanos'&&files.length>1&&variant===0&&info.duration>8?'foot':'call';
+        const purpose=role==='acid'?'effect':civ==='humano'?(role==='heavy'?'call':role==='elite'?(variant===1?'foot':'call'):(variant===0?'foot':'call')):civ==='elfos'&&role==='heavy'&&variant===0?'effect':civ==='enanos'&&files.length>1&&variant===0&&info.duration>8?'foot':'call';
         fs.writeFileSync(path.join(output,name),bytes);clips.push({civ,role,variant,purpose,hash:createHash('sha256').update(bytes).digest('hex'),file:name,source:`${folder}/${file}`,...info});
         console.log(`${name}: ${info.duration}s; ${info.phrases.length} frases; ${info.steps.length} ataques cortos`);
       }
     }
   }
-  fs.writeFileSync(path.join(output,'cues.json'),JSON.stringify({missing:[{civ:'humano',role:'heavy',name:'Tanque Bastión'}],aliases:[{source:'09_Sindicato_Mecanico/oron.mp3',name:'Dron',civ:'mecanico',role:'worker'}],clips},null,2)+'\n');
+  fs.writeFileSync(path.join(output,'cues.json'),JSON.stringify({missing:[],aliases:[{source:'09_Sindicato_Mecanico/oron.mp3',name:'Dron',civ:'mecanico',role:'worker'}],clips},null,2)+'\n');
   const demos=[['pasos',[{file:'humano/worker.mp3',steps:true}]],['elfos',[{file:'elfos/worker.mp3'},{file:'elfos/ranged.mp3'},{file:'elfos/special.mp3'}]]];
   for(const [name,items] of demos){
     const entries=items.map(item=>{const clip=clips.find(c=>c.file===item.file);return {raw:fs.readFileSync(path.join(output,item.file)).toString('base64'),cues:item.steps?clip.steps.slice(0,8):clip.phrases.slice(0,1),steps:!!item.steps};});
@@ -82,5 +82,5 @@ try{
     },entries);
     fs.writeFileSync(fileURLToPath(new URL(`../docs/land-sonidos-${name}.wav`,import.meta.url)),Buffer.from(pcm,'base64'));
   }
-  console.log(`${clips.length} audios preparados; 10 civilizaciones; falta Tanque Bastión humano.`);
+  console.log(`${clips.length} audios preparados; 10 civilizaciones; 60 personajes con audio propio.`);
 }finally{await browser.close();}
