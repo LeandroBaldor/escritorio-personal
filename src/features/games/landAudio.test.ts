@@ -14,11 +14,11 @@ describe('Música de Land',()=>{
     vi.stubGlobal('Audio',FakeAudio);const {preloadLandSounds,setLandMenuMusic,playLandButton}=await import('./landAudio');preloadLandSounds();setLandMenuMusic(true);const music=FakeAudio.instances[0];music.currentTime=12;
     playLandButton();playLandButton();playLandButton();playLandButton();const buttons=FakeAudio.instances.slice(1);expect(buttons).toHaveLength(3);expect(buttons.every(p=>p.src.includes('menu-boton.mp3')&&!p.paused)).toBe(true);expect(music.currentTime).toBe(12);
   });
-  it('reproduce 1,1,2,2 en bucle sin reiniciar al cambiar de pantalla de menú',async()=>{
+  it('reproduce únicamente la nueva música en bucle sin reiniciar al cambiar de pantalla de menú',async()=>{
     vi.stubGlobal('Audio',FakeAudio);const {setLandMenuMusic}=await import('./landAudio');setLandMenuMusic(true);
     const p=FakeAudio.instances[0],first=p.src,played=[p.src];p.currentTime=15;setLandMenuMusic(true);expect(p.currentTime).toBe(15);
     for(let i=0;i<7;i++){p.ended();played.push(p.src);}
-    const second=played[2];expect(second).not.toBe(first);expect(played).toEqual([first,first,second,second,first,first,second,second]);
+    expect(first).toContain('menu-musica-3.mp3');expect(played).toEqual(Array(8).fill(first));expect(p.currentTime).toBe(0);
     setLandMenuMusic(false);expect(p.paused).toBe(true);expect(p.currentTime).toBe(0);expect(p.src).toBe(first);
     p.ended();expect(p.paused).toBe(true);
   });
