@@ -8,7 +8,7 @@ test('Land 8: infograma ancho, tipos de ataque, obra vacía y muro construible',
   test.setTimeout(90000);const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(base+'#/juegos');await page.getByRole('link',{name:/Land of Warriors/}).click();
   await page.getByRole('button',{name:/Iniciar/}).click();await page.getByRole('button',{name:'Imperio Humano',exact:true}).click();
-  const sheet=page.locator('.land-sheet-scroll'),picture=sheet.locator('img');await expect(picture).toBeVisible();
+  const sheet=page.locator('.land-sheet-scroll'),picture=sheet.locator('.land-infographic');await expect(picture).toBeVisible();
   const imgBox=(await picture.boundingBox())!,sheetBox=(await sheet.boundingBox())!;expect(Math.abs(imgBox.width-sheetBox.width)).toBeLessThan(20);
   await page.screenshot({path:info.outputPath('infograma.png')});
   await page.getByRole('button',{name:'Resumen',exact:true}).click();await expect(page.locator('.land-attack-type')).toHaveCount(6);

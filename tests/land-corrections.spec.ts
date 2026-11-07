@@ -70,9 +70,14 @@ test('Land: civilizaciones, escala, exploración, selección y HUD', async ({ pa
     return { x: u.x / g.terrain.w, y: u.y / g.terrain.h };
   });
   await page.mouse.click(mb.x + mb.width * worker.x, mb.y + mb.height * worker.y);
+  const point = await page.evaluate(() => {
+    const d = window as LandDebugWindow, u = d.__landGame().units.find(u => u.owner === 0 && u.role === 'worker')!, c = d.__landCam();
+    return { x: (u.x-c.x)*c.z, y: (u.y-c.y)*c.z };
+  });
+  const direction = testInfo.project.name === 'desktop' ? 1 : -1; // Comenzar fuera de la tarjeta ampliada.
   await page.keyboard.down('Shift');
-  await page.mouse.move(bounds.x + bounds.width * .22, bounds.y + 130);
-  await page.mouse.down(); await page.mouse.move(bounds.x + bounds.width * .9, bounds.y + bounds.height - 230, { steps: 8 }); await page.mouse.up();
+  await page.mouse.move(bounds.x + Math.max(5,Math.min(bounds.width-5,point.x+direction*70)), bounds.y + Math.max(100,point.y-110));
+  await page.mouse.down(); await page.mouse.move(bounds.x + Math.max(5,Math.min(bounds.width-5,point.x-direction*70)), bounds.y + Math.min(bounds.height-230,point.y+20), { steps: 8 }); await page.mouse.up();
   await page.keyboard.up('Shift');
   await page.screenshot({ path: testInfo.outputPath('seleccion.png') });
   await expect(page.locator('.land-group button')).not.toHaveCount(0);

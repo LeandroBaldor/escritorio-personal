@@ -177,7 +177,7 @@ export function Games() {
         </Link>
       </li>
       <li>
-        <Link onClick={playStart} className="game-card game-card--land" to="/juegos/land">
+        <Link className="game-card game-card--land" to="/juegos/land">
           <span className="game-card-cover"><Cover src={landCover} /><b className="game-card-wip">🚧 En construcción</b></span>
           <span className="game-card-text">
             <strong>Land of Warriors</strong>
