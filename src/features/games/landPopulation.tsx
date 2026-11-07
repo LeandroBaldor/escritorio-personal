@@ -1,0 +1,4 @@
+import {ROLES,popUsed,popCap,type LandGame} from './land';
+import {CIVS} from './landCivs';
+export function colonyPopulation(game:LandGame,owner=0){const units=game.units.filter(u=>u.owner===owner&&!u.dead);return {total:units.length,used:popUsed(game,owner),capacity:popCap(game,owner),groups:ROLES.map(role=>({role,name:CIVS[game.sides[owner].civ].units[role],count:units.filter(u=>u.role===role).length}))};}
+export function LandPopulation({game}:{game:LandGame}){const p=colonyPopulation(game);return <section className="land-population" aria-label="Composición de la aldea"><h4>COMPOSICIÓN DE LA ALDEA</h4><p>Población: <strong>{p.used} / {p.capacity}</strong> · {p.total} habitantes</p><dl>{p.groups.map(g=><div key={g.role}><dt>{g.name}</dt><dd>{g.count}</dd></div>)}</dl><small>Las unidades grandes ocupan más plazas de población.</small></section>;}

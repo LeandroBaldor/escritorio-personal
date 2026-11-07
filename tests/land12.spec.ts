@@ -14,8 +14,9 @@ test('Land 12: datos grandes, sonido de menú, radio humana y audio al explorar 
   });
   await page.goto(base+'#/juegos');await page.getByRole('link',{name:/Land of Warriors/}).click();await page.getByRole('button',{name:/Iniciar/}).click();
   await page.getByLabel('Civilización del rival 1',{exact:true}).selectOption('elfos');await page.getByRole('button',{name:'Imperio Humano',exact:true}).click();
+  await page.getByRole('button',{name:'Ver infograma',exact:true}).click();
   const stats=page.locator('.land-info-grid article>small');await expect(stats.first()).toHaveCSS('font-size','20px');await expect(stats.last()).toHaveCSS('font-size','20px');
-  await expect.poll(()=>page.evaluate(()=>(window as DebugWindow).__menuPlays.filter(s=>s.includes('menu-boton')).length)).toBe(3);
+  await expect.poll(()=>page.evaluate(()=>(window as DebugWindow).__menuPlays.filter(s=>s.includes('menu-boton')).length)).toBe(4);
   await page.screenshot({path:info.outputPath('datos-grandes.png')});
   await page.getByRole('button',{name:/Elegir escenario/}).click();await page.getByRole('button',{name:/Iniciar/}).click();await expect(page.getByTestId('land-energy')).toBeVisible({timeout:30000});
   await page.getByRole('button',{name:'Un trabajador sin hacer nada',exact:true}).click();

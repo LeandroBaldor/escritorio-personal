@@ -12,15 +12,15 @@ test('Land 7: lista de rivales, fotografías, energía y geometría del menú', 
   await page.goto(base + '#/juegos');
   await page.getByRole('link', { name: /Land of Warriors/ }).click();
   await page.getByRole('button', { name: /Iniciar/ }).click();
-  const count = page.getByLabel('Cantidad de civilizaciones', { exact: true });
-  await count.selectOption('4');
+  const count = page.getByLabel('Enemigos', { exact: true });
+  await count.selectOption('3');
   await expect(page.locator('.land-rival-selectors select')).toHaveCount(3);
   await page.getByLabel('Civilización del rival 1', { exact: true }).selectOption('orcos');
   await page.getByLabel('Civilización del rival 2', { exact: true }).selectOption('elfos');
   await page.getByLabel('Civilización del rival 3', { exact: true }).selectOption('zergano');
   await page.screenshot({ path: info.outputPath('seleccion-rivales.png') });
   await page.getByRole('button', { name: 'Imperio Humano', exact: true }).click();
-  await page.getByRole('button', { name: /Elegir escenario/ }).click();
+  await page.getByRole('button', { name: /Continuar/ }).click();
   await expect(page.locator('.land-scen-list img')).toHaveCount(10);
   await expect.poll(() => page.locator('.land-scen-list img').evaluateAll(images => images.filter(img => (img as HTMLImageElement).naturalWidth > 0 && (img as HTMLImageElement).src.includes('scene-')).length)).toBe(10);
   await page.screenshot({ path: info.outputPath('paisajes.png') });
@@ -42,7 +42,7 @@ test('Land 7: lista de rivales, fotografías, energía y geometría del menú', 
   if (info.project.name === 'desktop') {
     const hud = (await page.locator('.land-hud').boundingBox())!, sidebar = (await page.locator('.land-intel').boundingBox())!;
     expect(Math.abs(hud.x - sidebar.width)).toBeLessThan(3);
-    await expect(page.locator('.land-own-intel .land-intel-card')).toHaveCount(4);
+    await expect(page.locator('.land-own-intel .land-intel-card')).toHaveCount(3);
     await expect(page.getByRole('region',{name:'Comunicaciones del líder',exact:true})).toBeVisible();
     const art = await page.evaluate(async base => {
       const { drawSprite } = await import(base + 'src/features/games/landArt.ts'), { drawWorldProp } = await import(base + 'src/features/games/landProps.ts');

@@ -2,7 +2,8 @@ import './land.css';
 import './landHud.css';
 import './landInterface.css';
 import { BuildingSprite, Sprite } from './landSprite';
-import { LandInfographic } from './landInfographic';
+import { LandInfographic,LeaderPortrait } from './landInfographic';
+import {LandPopulation} from './landPopulation';
 import { LandTroops } from './landTroops';
 import {LandLeaderPanel} from './landLeaderPanel';
 import {LandLeaderReports,missingResources,readySoldiers,type LeaderMessage} from './landLeader';
@@ -372,15 +373,20 @@ export function LandOfWarriors() {
     </div>}
 
     {screen === 'pick' && <div className="land-pick">
-      <div className="land-civ-list" aria-label="Las 10 civilizaciones">{CIV_IDS.map((c, i) => <button type="button" key={c} className="land-civ-choice" style={{ ['--civ' as string]: CIVS[c].color }} aria-label={CIVS[c].name}
-        onClick={() => { setCiv(c); setEnemies(list => list.map(e => e === c ? 'random' : e)); setView(c); setSimple(false); setScreen('sheet'); }}>
+      <div className="land-civ-list" aria-label="Las 10 civilizaciones">{CIV_IDS.map((c, i) => <button type="button" key={c} className="land-civ-choice" style={{ ['--civ' as string]: CIVS[c].color }} aria-label={CIVS[c].name} aria-pressed={civ===c}
+        onClick={() => { setCiv(c); setEnemies(list => list.map(e => e === c ? 'random' : e)); setView(c); setSimple(false); }}>
         <span className="land-civ-number">{String(i + 1).padStart(2, '0')}</span><Sprite civ={c} idx={roleIdx('elite')} w={150} h={138} />
         <span className="land-civ-copy"><b>{CIVS[c].name}</b><small>{CIVS[c].motto}</small><span>{CIVS[c].style}</span></span>
         <Sprite civ={c} idx={bIdx('base')} w={180} h={120} /><span className="land-civ-arrow">{record[c] ? '🏆 ' + record[c] : '↗'}</span>
       </button>)}</div>
       <div className="land-opts">
-        <label>Cantidad de civilizaciones <select aria-label="Cantidad de civilizaciones" value={enemies.length + 1} onChange={e => { const n = Number(e.target.value) - 1; setEnemies(list => Array.from({ length: n }, (_, i) => list[i] ?? 'random')); }}>
-          {Array.from({ length: 9 }, (_, i) => <option key={i} value={i + 2}>{i + 2} civilizaciones</option>)}
+        <section className="land-chosen-civ" aria-label="Civilización elegida" style={{['--civ' as string]:CIVS[civ].color}}>
+          <div className="land-chosen-heading"><LeaderPortrait civ={civ}/><div><small>TU CIVILIZACIÓN</small><h2>{CIVS[civ].name}</h2><p>{CIVS[civ].motto}</p></div></div>
+          <p>{CIVS[civ].style}</p><div className="land-chosen-units">{ROLE_ORDER.map(r=><div key={r}><Sprite civ={civ} idx={roleIdx(r)} w={66} h={72}/><span>{CIVS[civ].units[r]}</span></div>)}</div>
+          <button type="button" className="land-ghost" onClick={()=>{setView(civ);setSimple(false);setScreen('sheet');}}>Ver infograma</button>
+        </section>
+        <label>Enemigos: <select aria-label="Enemigos" value={enemies.length} onChange={e => { const n = Number(e.target.value); setEnemies(list => Array.from({ length: n }, (_, i) => list[i] ?? 'random')); }}>
+          {Array.from({ length: 9 }, (_, i) => <option key={i} value={i + 1}>{i + 1} {i===0?'enemigo':'enemigos'}</option>)}
         </select></label>
         <p className="land-roster-note">Vos y {enemies.length} {enemies.length === 1 ? 'rival' : 'rivales'} · Todos contra todos</p>
         <div className="land-rival-selectors">{enemies.map((enemy, index) => <label key={index}>Rival {index + 1}<select aria-label={`Civilización del rival ${index + 1}`} value={enemy} onChange={e => { setEnemies(list => list.map((v, i) => i === index ? e.target.value as CivId | 'random' : v)); }}>
@@ -388,6 +394,7 @@ export function LandOfWarriors() {
         </select></label>)}</div>
 
         <div className="land-chips" role="group" aria-label="Dificultad"><span>Dificultad</span>{DIFF.map(([d, n]) => <button type="button" key={d} aria-pressed={diff === d} className={diff === d ? 'on' : ''} onClick={() => { setDiff(d); }}>{n}</button>)}</div>
+        <button type="button" className="land-go land-pick-continue" onClick={()=>setScreen('scenario')}>Continuar ▶</button>
       </div>
     </div>}
     {screen === 'title' && <div className="land-title" style={{ backgroundImage: `url(${posterImg})` }}>
@@ -401,7 +408,7 @@ export function LandOfWarriors() {
       <ul className="land-scen-list" role="group" aria-label="Elegir escenario">{THEMES.map((m, i) => <li key={i}><button type="button" aria-pressed={map === i + 1} className={map === i + 1 ? 'on' : ''} onClick={() => { setMap(i + 1); }}>
         <MapThumb theme={i} /><b>{m.name}</b><small>{m.text}</small></button></li>)}</ul>
       <div className="land-sheet-bar land-scen-bar">
-        <button type="button" className="land-ghost" onClick={() => { setScreen('sheet'); }}>‹ Volver</button>
+        <button type="button" className="land-ghost" onClick={() => { setScreen('pick'); }}>‹ Volver</button>
         <button type="button" className="land-go" onClick={() => { start(civ); }}>⚔️ Iniciar</button>
       </div>
     </div>}
@@ -418,16 +425,10 @@ export function LandOfWarriors() {
           <div className="land-leader-heading"><div><small>TU CIVILIZACIÓN</small><h2>{CIVS[side.civ].name}</h2><span>{CIVS[side.civ].motto}</span></div></div>
           <p>{CIVS[side.civ].style}</p>
         </section>
-        <section className="land-intel-card land-colony-card"><h3>TU ALDEA</h3>
-          <dl><div><dt>Trabajadores</dt><dd>{g.units.filter(u=>u.owner===0&&!u.dead&&u.role==='worker').length}</dd></div><div><dt>Ejército</dt><dd>{g.units.filter(u=>u.owner===0&&!u.dead&&u.role!=='worker').length}</dd></div><div><dt>Población</dt><dd>{popUsed(g,0)} / {popCap(g,0)}</dd></div></dl>
-          <p><strong>{CIVS[side.civ].power.name}</strong><br/>{POWER_TEXT[CIVS[side.civ].power.kind]}</p>
-          <details><summary>Economía y defensas</summary><p>Azules para construir; dorados para tropas avanzadas; verdes para mejoras y élite. Protegé la aldea con {CIVS[side.civ].buildings.wall} y {CIVS[side.civ].buildings.tower}.</p></details>
-          <time>Tiempo de partida {formatLandTime(g.t)}</time>
-        </section>
         <div className="land-intel-card land-troops-card"><LandTroops game={g} selected={sel} onSelect={units=>{setSelection(units.map(u=>u.id));focus(units[0].x,units[0].y);setMode({k:'none'});setCommsOpen(false);}}/></div>
         <LandLeaderPanel civ={side.civ} messages={leaderMessages} ready={readySoldiers(g)}/>
       </aside>
-      {previewKind && <section className="land-build-preview" aria-label="Vista ampliada de construcción"><div><small>{mode.k==='place'?'A CONSTRUIR':'ESTRUCTURA SELECCIONADA'}</small><h3>{CIVS[side.civ].buildings[previewKind]}</h3></div><BuildingSprite civ={side.civ} kind={previewKind} w={260} h={175}/><p>{BUILD_TEXT[previewKind]}</p><span>{costText(BUILD_STATS[previewKind].cost)} · {BUILD_STATS[previewKind].time} s</span></section>}
+      {previewKind && <section className={`land-build-preview${previewKind==='base'&&mode.k!=='place'?' land-base-preview':''}`} aria-label="Vista ampliada de construcción"><div><small>{mode.k==='place'?'A CONSTRUIR':'ESTRUCTURA SELECCIONADA'}</small><h3>{CIVS[side.civ].buildings[previewKind]}</h3></div><BuildingSprite civ={side.civ} kind={previewKind} w={260} h={175}/><p>{BUILD_TEXT[previewKind]}</p>{previewKind==='base'&&mode.k!=='place'?<LandPopulation game={g}/>:<span>{costText(BUILD_STATS[previewKind].cost)} · {BUILD_STATS[previewKind].time} s</span>}</section>}
       <div className="land-top-right" aria-label="Recursos">
         <span title="Diamantes (cristales dorados)"><i className="land-r-gem" /><b data-testid="land-gem">{Math.floor(side.gem)}</b></span>
         <span title="Minerales (cristales azules)"><i className="land-r-stone" /><b data-testid="land-stone">{Math.floor(side.stone)}</b></span>

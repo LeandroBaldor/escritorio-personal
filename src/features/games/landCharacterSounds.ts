@@ -2,7 +2,7 @@ import type { LandGame,LandEvent,Role } from './land';
 import type { CivId } from './landCivs';
 import type { Cam } from './landArt';
 import { CHARACTER_CLIPS,characterClips } from './landCharacterClips';
-import { footContact } from './landMotion';
+import {FOOTSTEP_CLIP,legCount,stepContact,stepVolume} from './landFootsteps';
 import { LandSoundOutput,type CharacterSoundOutput } from './landSoundOutput';
 import {COMBAT_CLIPS,weaponSound} from './landCombat';
 export class LandCharacterSounds {
@@ -15,7 +15,7 @@ export class LandCharacterSounds {
   private combatTimes=new Map<string,number>();
   private variant=new Map<string,number>();
   constructor(private output:CharacterSoundOutput=new LandSoundOutput()){}
-  start(civ:CivId){this.lastCall=-Infinity;this.lastAmbient=-Infinity;this.combatTimes.clear();this.output.unlock();void this.output.preload([...CHARACTER_CLIPS.filter(c=>c.civ===civ),...Object.values(COMBAT_CLIPS)]);}
+  start(civ:CivId){this.lastCall=-Infinity;this.lastAmbient=-Infinity;this.combatTimes.clear();this.output.unlock();void this.output.preload([...CHARACTER_CLIPS.filter(c=>c.civ===civ&&c.purpose!=='foot'),FOOTSTEP_CLIP,...Object.values(COMBAT_CLIPS)]);}
   setActive(on:boolean){this.active=on;this.serial++;this.lastContact.clear();this.audible.clear();if(on)this.output.unlock();else this.output.stop();}
   tick(g:LandGame,cam:Cam,selected:ReadonlySet<number>){
     if(!this.active)return;
@@ -25,13 +25,13 @@ export class LandCharacterSounds {
     const enemy=visible.find(u=>u.owner>0);
     if(enemy&&g.t-this.lastAmbient>=8&&g.t-this.lastCall>=1){this.lastAmbient=g.t;this.call(g.sides[enemy.owner].civ,enemy.role,g.t,((enemy.x-cam.x)*cam.z/cam.w-.5)*1.3,()=>this.audible.has(enemy.id)&&!enemy.dead);}
     for(const u of visible){
-      const contact=footContact(u.walk),old=this.lastContact.get(u.id);this.lastContact.set(u.id,contact);
+      const civ=g.sides[u.owner].civ,legs=legCount(civ,u.role);if(!legs)continue;
+      const contact=stepContact(u.walk,legs),old=this.lastContact.get(u.id);this.lastContact.set(u.id,contact);
       if(!u.moving||old===undefined||old===contact)continue;
-      const civ=g.sides[u.owner].civ,clips=characterClips(civ,u.role,'foot');if(!clips.length)continue;
-      const index=this.next(`${civ}:${u.role}:foot`),clip=clips[index%clips.length],cue=clip.steps[Math.floor(index/clips.length)%clip.steps.length];
-      void this.output.preload(clips);
+      const clip=FOOTSTEP_CLIP,index=this.next('shared:foot'),cue=clip.steps[index%clip.steps.length];
+      void this.output.preload([clip]);
       const px=(u.x-cam.x)*cam.z,pan=(px/cam.w-.5)*1.3;
-      this.output.play(clip,cue,.075,pan,'foot');
+      this.output.play(clip,cue,stepVolume(legs),pan,'foot');
     }
   }
   react(g:LandGame,ids:number[]){

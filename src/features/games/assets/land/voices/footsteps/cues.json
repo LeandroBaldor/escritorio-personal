@@ -1,0 +1,55 @@
+{
+  "civ": "humano",
+  "role": "worker",
+  "variant": 0,
+  "purpose": "foot",
+  "hash": "e86ad16451b381b481701c19f804f3db4d723ee85c97387a540c5c1a065bc4d3",
+  "file": "footsteps/steps.mp3",
+  "source": "SONIDOS/pasos.mp3",
+  "duration": 25.8,
+  "peak": 0.9697871208190918,
+  "rms": 0.14296,
+  "phrases": [],
+  "steps": [
+    {
+      "start": 5.032,
+      "duration": 0.15,
+      "rms": 0.14296
+    },
+    {
+      "start": 5.572,
+      "duration": 0.15,
+      "rms": 0.18803
+    },
+    {
+      "start": 7.682,
+      "duration": 0.15,
+      "rms": 0.10809
+    },
+    {
+      "start": 15.372,
+      "duration": 0.15,
+      "rms": 0.10431
+    },
+    {
+      "start": 15.952,
+      "duration": 0.15,
+      "rms": 0.09973
+    },
+    {
+      "start": 16.522,
+      "duration": 0.15,
+      "rms": 0.09575
+    },
+    {
+      "start": 18.202,
+      "duration": 0.15,
+      "rms": 0.11665
+    },
+    {
+      "start": 21.412,
+      "duration": 0.15,
+      "rms": 0.09392
+    }
+  ]
+}

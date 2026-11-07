@@ -4,7 +4,7 @@ import buttonSound from './assets/land/menu-boton.mp3';
 let audio: HTMLAudioElement | null = null, enabled = false;
 function player() {
   if (!audio && typeof Audio !== 'undefined') {
-    audio = new Audio(menuMusic); audio.preload = 'auto'; audio.volume = .5;
+    audio = new Audio(menuMusic); audio.preload = 'auto'; audio.volume = .6;
     audio.addEventListener('ended', () => {
       if (!enabled || !audio) return;
       audio.currentTime = 0;
