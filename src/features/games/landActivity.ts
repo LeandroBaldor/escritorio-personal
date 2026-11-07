@@ -1,7 +1,41 @@
 import { BUILD_STATS, type LandGame, type Unit } from './land';
 import { CIVS } from './landCivs';
+import type { Role } from './land';
 export type ActivityKind='idle'|'move'|'gather'|'build'|'attack';
 export interface TroopActivity {kind:ActivityKind;label:string;detail:string}
+export interface TroopGroup {key:string;role:Role;kind:ActivityKind;task:string;units:Unit[]}
+export function troopGroups(g:LandGame):TroopGroup[]{
+  const groups=new Map<string,TroopGroup>();
+  for(const u of g.units){
+    if(u.owner!==0||u.dead)continue;
+    const o=u.order,activity=troopActivity(g,u);let mission:string=activity.kind,task=activity.label;
+    if(o.k==='gather'){
+      const resource=u.carryKind??g.nodes.find(n=>n.id===o.node)?.kind;
+      mission=`gather:${resource??'resources'}`;
+      task=`Recolección de ${resource==='gem'?'oro':resource==='stone'?'cristales azules':resource==='energy'?'cristales verdes':'recursos'}`;
+    }else if(o.k==='build'){
+      const b=g.buildings.find(q=>q.id===o.id&&!q.dead&&q.built<1);
+      if(b){mission=`build:${b.kind}`;task=`Construcción de ${CIVS[g.sides[b.owner].civ].buildings[b.kind]}`;}
+    }else if(o.k==='attack'){mission=`attack:${activity.detail}`;task=`Combate · ${activity.detail.replace('Objetivo: ','')}`;}
+    else if(o.k==='move'){mission=`move:${!!o.attack}`;task=o.attack?'Avance de combate':'Marchando';}
+    const key=`${u.role}:${mission}`,group=groups.get(key);
+    if(group)group.units.push(u);else groups.set(key,{key,role:u.role,kind:activity.kind,task,units:[u]});
+  }
+  const rank={attack:0,build:1,gather:2,move:3,idle:4};
+  return [...groups.values()].sort((a,b)=>rank[a.kind]-rank[b.kind]||a.units[0].id-b.units[0].id);
+}
+export function troopGroupName(name:string,count:number){
+  if(count===1)return name;
+  const words=name.split(' ');let complement=false;
+  return words.map(word=>{
+    if(['de','del'].includes(word.toLowerCase()))complement=true;
+    if(complement||['Bastión','T-Rex'].includes(word))return word;
+    if(/ón$/.test(word))return word.slice(0,-2)+'ones';
+    if(/án$/.test(word))return word.slice(0,-2)+'anes';
+    if(/ín$/.test(word))return word.slice(0,-2)+'ines';
+    return word+(/[aeiouáéíóú]$/i.test(word)?'s':'es');
+  }).join(' ');
+}
 export function troopActivity(g:LandGame,u:Unit):TroopActivity{
   const o=u.order;
   if(o.k==='idle')return {kind:'idle',label:'En espera',detail:'Lista para recibir órdenes'};

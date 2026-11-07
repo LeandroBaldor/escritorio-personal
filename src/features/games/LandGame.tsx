@@ -402,7 +402,7 @@ export function LandOfWarriors() {
           <details><summary>Economía y defensas</summary><p>Azules para construir; dorados para tropas avanzadas; verdes para mejoras y élite. Protegé la aldea con {CIVS[side.civ].buildings.wall} y {CIVS[side.civ].buildings.tower}.</p></details>
           <time>Tiempo de partida {formatLandTime(g.t)}</time>
         </section>
-        <div className="land-intel-card land-troops-card"><LandTroops game={g} selected={sel} onSelect={u=>{setSelection([u.id]);focus(u.x,u.y);setMode({k:'none'});setCommsOpen(false);}}/></div>
+        <div className="land-intel-card land-troops-card"><LandTroops game={g} selected={sel} onSelect={units=>{setSelection(units.map(u=>u.id));focus(units[0].x,units[0].y);setMode({k:'none'});setCommsOpen(false);}}/></div>
       </aside>
       {previewKind && <section className="land-build-preview" aria-label="Vista ampliada de construcción"><div><small>{mode.k==='place'?'A CONSTRUIR':'ESTRUCTURA SELECCIONADA'}</small><h3>{CIVS[side.civ].buildings[previewKind]}</h3></div><Sprite civ={side.civ} idx={bIdx(previewKind)} w={260} h={175}/><p>{BUILD_TEXT[previewKind]}</p><span>{costText(BUILD_STATS[previewKind].cost)} · {BUILD_STATS[previewKind].time} s</span></section>}
       <div className="land-top-right" aria-label="Recursos">

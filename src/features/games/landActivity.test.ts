@@ -1,6 +1,6 @@
 import { describe,expect,it } from 'vitest';
 import { addBuilding,addUnit,newLandGame } from './land';
-import { troopActivity } from './landActivity';
+import { troopActivity,troopGroups,troopGroupName } from './landActivity';
 import { THEMES } from './landMap';
 describe('Actividad de las tropas',()=>{
   it('distingue espera, marcha y combate con el nombre real del objetivo',()=>{
@@ -18,4 +18,17 @@ describe('Actividad de las tropas',()=>{
     expect(troopActivity(g,u)).toMatchObject({label:'Construyendo',detail:'Cuartel · 50%'});u.x=900;expect(troopActivity(g,u).label).toBe('Yendo a la obra');
   });
   it('ningún escenario genera huesos como decoración',()=>{for(const theme of THEMES)expect(theme.decor).not.toContain('bone');});
+  it('agrupa ingenieros por recurso aunque estén buscando, extrayendo o transportando',()=>{
+    const g=newLandGame('humano','orcos',1,'normal',9,'small'),home=g.units[0];addUnit(g,0,'worker',home.x+20,home.y);
+    const workers=g.units.filter(u=>u.owner===0),gold=g.nodes.find(n=>n.kind==='gem')!,blue=g.nodes.find(n=>n.kind==='stone')!;
+    workers.forEach((u,i)=>{u.order={k:'gather',node:i<2?gold.id:blue.id};});workers[0].carry=8;workers[0].carryKind='gem';
+    expect(troopGroups(g).map(b=>[b.units.length,b.task])).toEqual([[2,'Recolección de oro'],[3,'Recolección de cristales azules']]);
+    workers[2].dead=.1;expect(troopGroups(g).map(b=>b.units.length)).toEqual([2,2]);
+    expect(troopGroupName('Ingeniero',2)).toBe('Ingenieros');expect(troopGroupName('Fusilero Pesado',3)).toBe('Fusileros Pesados');
+  });
+  it('separa los tipos de tropas y las tareas, y agrupa obras equivalentes',()=>{
+    const g=newLandGame('humano','orcos',1,'normal',9,'small'),workers=g.units.filter(u=>u.owner===0),b=addBuilding(g,0,'barracks',400,400);
+    workers[0].order={k:'build',id:b.id};workers[1].order={k:'build',id:b.id};addUnit(g,0,'ranged',500,500);
+    expect(troopGroups(g).map(b=>[b.role,b.units.length,b.task])).toEqual([['worker',2,'Construcción de Cuartel'],['worker',2,'En espera'],['ranged',1,'En espera']]);
+  });
 });
