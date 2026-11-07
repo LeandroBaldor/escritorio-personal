@@ -47,6 +47,10 @@
 .land-troop-health>i{display:block;height:100%;background:linear-gradient(90deg,#388b6c,#8bd6a8)}
 .land-troops>footer{flex-shrink:0;padding:8px;color:#7e9fb6;border-top:1px solid #294b64;font:11px/1.5 Arial,sans-serif!important;text-align:center}
 .land.land-v9 .land-troops-empty{padding:14px;margin:0;font-size:13px;color:#a4bdcf}
+.land.land-v9 .land-troop-summary{padding:11px 8px;min-height:78px;gap:10px}
+.land.land-v9 .land-troop-summary .land-troop-copy>b{font:600 14px/1.5 Arial,sans-serif!important;color:#eaf4fc}
+.land.land-v9 .land-troop-summary .land-troop-status{font-size:13px;line-height:1.5;align-items:flex-start;margin-top:4px}
+.land-troop-summary .land-troop-status i{margin-top:7px}
 .land.land-v9 .land-build-preview{position:absolute;top:66px;left:calc(var(--intel-w) + 12px);width:290px;max-height:calc(100% - 330px);overflow:auto;z-index:11;padding:14px;background:linear-gradient(#123553f5,#06172af5);border:2px solid #c5a762;border-radius:8px;box-shadow:0 7px 24px #0008;text-align:center;pointer-events:auto}
 .land-build-preview small{font-size:9px;letter-spacing:.13em;color:#9dc9e9}
 .land-build-preview h3{font-size:15px;line-height:1.5;color:#ffe8ad;margin:5px 0 8px}
