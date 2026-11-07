@@ -20,6 +20,7 @@ import { bIdx, drawMinimap, drawSprite, drawWorld, roleIdx, spritesReady, type C
 import { useFitScreen } from './fitScreen';
 import { playExplosion, playGameOver, playKnock, playRifleShot, playVampSword, playWinFanfare } from './sounds';
 import { playLandButton, preloadLandSounds, setLandMenuMusic } from './landAudio';
+import { LandCharacterSounds } from './landCharacterSounds';
 
 import posterImg from './assets/land/poster.webp';
 const RECORD_KEY = 'escritorio-personal-juegos:land-victorias';
@@ -66,9 +67,18 @@ export function LandOfWarriors() {
   const mouse = useRef({ x: 0, y: 0, in: false, wx: 0, wy: 0 });
   const drag = useRef<{ x0: number; y0: number; x1: number; y1: number; pan: boolean; id: number; cx: number; cy: number } | null>(null);
   const keys = useRef<Set<string>>(new Set());
+  const characterSounds=useRef<LandCharacterSounds|null>(null);
   const lastToast = useRef<Record<string, number>>({});
 
   useEffect(() => { spritesReady(); terrainMaterialsReady(); worldPropsReady(); wallsReady(); }, []);
+  useEffect(()=>{
+    const sounds=new LandCharacterSounds();characterSounds.current=sounds;
+    return ()=>{sounds.dispose();characterSounds.current=null;};
+  },[]);
+  useEffect(()=>{
+    const update=()=>characterSounds.current?.setActive(screen==='playing'&&!document.hidden);
+    update();document.addEventListener('visibilitychange',update);return ()=>document.removeEventListener('visibilitychange',update);
+  },[screen]);
   // la música del menú: suena en la elección de civilización y en su lámina (los navegadores la dejan sonar después del primer toque)
   useEffect(() => { preloadLandSounds(); }, []);
   useEffect(() => {
@@ -82,10 +92,11 @@ export function LandOfWarriors() {
   useEffect(() => { if (import.meta.env.DEV) (window as unknown as { __landGame?: () => LandGame | null; __landCam?: () => Cam }).__landGame = () => gRef.current; (window as unknown as { __landCam?: () => Cam }).__landCam = () => camRef.current; }, []); // (para probar en desarrollo)
   const say = useCallback((text: string, key = text, gap = 0) => { const now = performance.now(); if (gap && now - (lastToast.current[key] ?? -1e9) < gap) return; lastToast.current[key] = now; setToast({ text, id: now }); }, []);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(null), 5000); return () => clearTimeout(id); }, [toast]);
-  const setSelection = useCallback((ids: number[]) => { selRef.current = new Set(ids); setSel(ids); }, []);
+  const setSelection = useCallback((ids: number[]) => { if(gRef.current&&ids.some(id=>!selRef.current.has(id)))characterSounds.current?.react(gRef.current,ids);selRef.current = new Set(ids); setSel(ids); }, []);
 
   // ---------------------------------------------------------------- Empezar una partida
   const start = useCallback((civ: CivId) => {
+    characterSounds.current?.start(civ);
     setCiv(civ); setLoading(true);
     let attempts = 0;
     const prepare = () => {
@@ -145,8 +156,11 @@ export function LandOfWarriors() {
         cam.x += dx * sp; cam.y += dy * sp;
         stepLand(g, dt);
         for (const e of takeLandEvents(g)) {
+          const nearby=('x' in e)&&e.x>=cam.x-100&&e.x<=cam.x+w/cam.z+100&&e.y>=cam.y-100&&e.y<=cam.y+(h-HUD_H)/cam.z+100;
+          const customShot=(e.type==='hit'||e.type==='shot')&&nearby?characterSounds.current?.attack(g,e.owner,e.role):false;
+          if(e.type==='trained'&&e.owner===0)characterSounds.current?.call(g.sides[0].civ,e.role,g.t);
           if (e.type === 'hit' && Math.random() < 0.25) playVampSword();
-          else if (e.type === 'shot' && Math.random() < 0.18) playRifleShot();
+          else if (e.type === 'shot' && !customShot && Math.random() < 0.18) playRifleShot();
           else if (e.type === 'die' && e.building) playExplosion();
           else if (e.type === 'built' && e.owner === 0) { playKnock(); say(`🏗️ ${CIVS[g.sides[0].civ].buildings[e.kind]} terminado`); }
           else if (e.type === 'trained' && e.owner === 0 && e.role !== 'worker') say(`✅ ${CIVS[g.sides[0].civ].units[e.role]} listo`, 'trained', 2500);
@@ -156,6 +170,7 @@ export function LandOfWarriors() {
           else if (e.type === 'won') { playWinFanfare(); saveWin(g.sides[0].civ); setRecord(readLandRecord()); setScreen('won'); }
           else if (e.type === 'lost') { playGameOver(); setScreen('lost'); }
         }
+        characterSounds.current?.tick(g,cam,selRef.current);
         // los elegidos que se murieron salen de la selección
         if ([...selRef.current].some(id => !g.units.some(u => u.id === id && !u.dead) && !g.buildings.some(b => b.id === id && !b.dead))) setSelection([...selRef.current].filter(id => g.units.some(u => u.id === id && !u.dead) || g.buildings.some(b => b.id === id && !b.dead)));
       } else stepLand(g, 0);
@@ -235,6 +250,7 @@ export function LandOfWarriors() {
     if (!ids.length && b) { b.rally = { x: wx, y: wy }; say('🚩 Los nuevos van a ir ahí'); return; }
     if (!ids.length) return;
     const r = orderSmart(g, ids, wx, wy); if (r === 'attack') playVampSword();
+    characterSounds.current?.react(g,ids);
   };
   const onDown = (e: RPointerEvent<HTMLCanvasElement>) => {
     if (screenRef.current !== 'playing') return;

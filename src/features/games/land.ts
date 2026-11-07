@@ -55,7 +55,7 @@ export const CARRY = 8, MINE_T = 1.6;
 
 export interface Unit {
   id: number; owner: Owner; role: Role; x: number; y: number; hp: number; maxHp: number; face: 1 | -1; path?: [number, number][]; pathFor?: [number, number]; pathT?: number;
-  order: Order; cool: number; atkT: number; walk: number; carry: number; carryKind: ResKind | null; mineT: number; dead: number; defensive?: boolean; buildQueue?: number[];
+  order: Order; cool: number; atkT: number; walk: number; moving?: boolean; carry: number; carryKind: ResKind | null; mineT: number; dead: number; defensive?: boolean; buildQueue?: number[];
 }
 export type Order =
   | { k: 'idle' } | { k: 'move'; x: number; y: number; attack?: boolean } | { k: 'attack'; id: number }
@@ -329,14 +329,15 @@ function nearestDrop(g: LandGame, u: Unit) {
   return best;
 }
 function moveTo(u: Unit, x: number, y: number, speed: number, dt: number, stop = 4, fly = false) {
+  const beforeX=u.x,beforeY=u.y;
   const dx = x - u.x, dy = y - u.y, d = Math.hypot(dx, dy);
   if (d <= stop) return true;
   const st = Math.min(d, speed * dt), nx = clampX(u.x + dx / d * st), ny = clampY(u.y + dy / d * st);
   const ok = (a: number, b: number) => fly || !TER || walkable(TER, a, b);
   if (ok(nx, ny)) { u.x = nx; u.y = ny; } else if (ok(nx, u.y)) u.x = nx; else if (ok(u.x, ny)) u.y = ny; // (se desliza por la orilla)
-  u.walk += st;
+  const moved=Math.hypot(u.x-beforeX,u.y-beforeY);u.walk+=moved;if(moved>.001)u.moving=true;
   if (Math.abs(dx) > 2) u.face = dx > 0 ? 1 : -1;
-  return d - st <= stop;
+  return Math.hypot(x-u.x,y-u.y)<=stop;
 }
 // Ir hacia un lugar esquivando el agua y las rocas: en línea recta si se puede; si no, por el camino más corto.
 function steer(g: LandGame, u: Unit, tx: number, ty: number, speed: number, dt: number, stop = 4) {
@@ -351,6 +352,7 @@ function steer(g: LandGame, u: Unit, tx: number, ty: number, speed: number, dt: 
   return dist(u, { x: tx, y: ty }) <= stop;
 }
 function stepUnit(g: LandGame, u: Unit, dt: number) {
+  u.moving=false;
   const s = unitStats(g, u.owner, u.role); u.cool -= dt; if (u.atkT >= 0) { u.atkT += dt; if (u.atkT > 0.35) u.atkT = -1; }
   const o = u.order;
   // el especial que cura: si hay un amigo lastimado cerca, lo cura
