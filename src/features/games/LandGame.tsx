@@ -357,14 +357,14 @@ export function LandOfWarriors() {
       <h3>Mejoras (en la base)</h3><p>⚔️ Ataque, 🛡️ Vida y 👟 Velocidad: tres niveles cada una, para todo tu ejército.</p>
     </div>}
     <div className="land-sheet-bar">
-      <button type="button" className="land-ghost" onClick={() => { playLandButton(); setScreen('pick'); }}>‹ Volver</button>
-      <button type="button" className="land-ghost" aria-pressed={simple} onClick={() => { playLandButton(); setSimple(s => !s); }}>{simple ? 'Infograma' : 'Resumen'}</button>
-      <button type="button" className="land-go" onClick={() => { playLandButton(); setCiv(view); setScreen('scenario'); }}>Elegir escenario ▶</button>
+      <button type="button" className="land-ghost" onClick={() => { setScreen('pick'); }}>‹ Volver</button>
+      <button type="button" className="land-ghost" aria-pressed={simple} onClick={() => { setSimple(s => !s); }}>{simple ? 'Infograma' : 'Resumen'}</button>
+      <button type="button" className="land-go" onClick={() => { setCiv(view); setScreen('scenario'); }}>Elegir escenario ▶</button>
     </div>
   </div>;
 
   const playing = screen === 'playing' || screen === 'paused' || screen === 'won' || screen === 'lost';
-  return <section className="land land-v7 land-v9" style={fit} aria-label="Land of Warriors" onContextMenu={e => e.preventDefault()}>
+  return <section className="land land-v7 land-v9" style={fit} aria-label="Land of Warriors" onClickCapture={e=>{const target=(e.target as HTMLElement).closest('button,a,summary');if(target&&!target.hasAttribute('disabled'))playLandButton();}} onChangeCapture={e=>{if((e.target as HTMLElement).tagName==='SELECT')playLandButton();}} onContextMenu={e => e.preventDefault()}>
     {!playing && <div className="land-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1 className="land-logo" aria-label="Land of Warriors">{screen === 'pick' || screen === 'sheet' ? 'Civilizaciones' : screen === 'scenario' ? 'Escenarios' : 'Land of Warriors'}</h1>
@@ -373,36 +373,36 @@ export function LandOfWarriors() {
 
     {screen === 'pick' && <div className="land-pick">
       <div className="land-civ-list" aria-label="Las 10 civilizaciones">{CIV_IDS.map((c, i) => <button type="button" key={c} className="land-civ-choice" style={{ ['--civ' as string]: CIVS[c].color }} aria-label={CIVS[c].name}
-        onClick={() => { playLandButton(); setCiv(c); setEnemies(list => list.map(e => e === c ? 'random' : e)); setView(c); setSimple(false); setScreen('sheet'); }}>
+        onClick={() => { setCiv(c); setEnemies(list => list.map(e => e === c ? 'random' : e)); setView(c); setSimple(false); setScreen('sheet'); }}>
         <span className="land-civ-number">{String(i + 1).padStart(2, '0')}</span><Sprite civ={c} idx={roleIdx('elite')} w={150} h={138} />
         <span className="land-civ-copy"><b>{CIVS[c].name}</b><small>{CIVS[c].motto}</small><span>{CIVS[c].style}</span></span>
         <Sprite civ={c} idx={bIdx('base')} w={180} h={120} /><span className="land-civ-arrow">{record[c] ? '🏆 ' + record[c] : '↗'}</span>
       </button>)}</div>
       <div className="land-opts">
-        <label>Cantidad de civilizaciones <select aria-label="Cantidad de civilizaciones" value={enemies.length + 1} onChange={e => { playLandButton(); const n = Number(e.target.value) - 1; setEnemies(list => Array.from({ length: n }, (_, i) => list[i] ?? 'random')); }}>
+        <label>Cantidad de civilizaciones <select aria-label="Cantidad de civilizaciones" value={enemies.length + 1} onChange={e => { const n = Number(e.target.value) - 1; setEnemies(list => Array.from({ length: n }, (_, i) => list[i] ?? 'random')); }}>
           {Array.from({ length: 9 }, (_, i) => <option key={i} value={i + 2}>{i + 2} civilizaciones</option>)}
         </select></label>
         <p className="land-roster-note">Vos y {enemies.length} {enemies.length === 1 ? 'rival' : 'rivales'} · Todos contra todos</p>
-        <div className="land-rival-selectors">{enemies.map((enemy, index) => <label key={index}>Rival {index + 1}<select aria-label={`Civilización del rival ${index + 1}`} value={enemy} onChange={e => { playLandButton(); setEnemies(list => list.map((v, i) => i === index ? e.target.value as CivId | 'random' : v)); }}>
+        <div className="land-rival-selectors">{enemies.map((enemy, index) => <label key={index}>Rival {index + 1}<select aria-label={`Civilización del rival ${index + 1}`} value={enemy} onChange={e => { setEnemies(list => list.map((v, i) => i === index ? e.target.value as CivId | 'random' : v)); }}>
           <option value="random">Al azar</option>{CIV_IDS.filter(c => c !== civ && !enemies.some((other, i) => i !== index && other === c)).map(c => <option key={c} value={c}>{CIVS[c].name}</option>)}
         </select></label>)}</div>
 
-        <div className="land-chips" role="group" aria-label="Dificultad"><span>Dificultad</span>{DIFF.map(([d, n]) => <button type="button" key={d} aria-pressed={diff === d} className={diff === d ? 'on' : ''} onClick={() => { playLandButton(); setDiff(d); }}>{n}</button>)}</div>
+        <div className="land-chips" role="group" aria-label="Dificultad"><span>Dificultad</span>{DIFF.map(([d, n]) => <button type="button" key={d} aria-pressed={diff === d} className={diff === d ? 'on' : ''} onClick={() => { setDiff(d); }}>{n}</button>)}</div>
       </div>
     </div>}
     {screen === 'title' && <div className="land-title" style={{ backgroundImage: `url(${posterImg})` }}>
       <div className="land-title-text"><h2 className="land-metal" data-text="Land of Warriors">Land of Warriors</h2><p>Diez civilizaciones. Una sola tierra.</p>
-        <button type="button" className="land-go land-start" onClick={() => { playLandButton(); setScreen('pick'); }} autoFocus>⚔️ Iniciar</button></div>
+        <button type="button" className="land-go land-start" onClick={() => { setScreen('pick'); }} autoFocus>⚔️ Iniciar</button></div>
     </div>}
     {screen === 'sheet' && sheetScreen}
     {screen === 'scenario' && <div className="land-scen">
       <h2>Elegí el escenario</h2>
-        <div className="land-chips" role="group" aria-label="Tamaño del mapa"><span>Tamaño</span>{MAP_SIZES.map(([k, n]) => <button type="button" key={k} aria-pressed={size === k} className={size === k ? 'on' : ''} onClick={() => { playLandButton(); setSize(k); }}>{n}<small>{MAP_SIZES.find(m => m[0] === k)![2].toLocaleString('es-AR')} × {MAP_SIZES.find(m => m[0] === k)![3].toLocaleString('es-AR')}</small></button>)}</div>
-      <ul className="land-scen-list" role="group" aria-label="Elegir escenario">{THEMES.map((m, i) => <li key={i}><button type="button" aria-pressed={map === i + 1} className={map === i + 1 ? 'on' : ''} onClick={() => { playLandButton(); setMap(i + 1); }}>
+        <div className="land-chips" role="group" aria-label="Tamaño del mapa"><span>Tamaño</span>{MAP_SIZES.map(([k, n]) => <button type="button" key={k} aria-pressed={size === k} className={size === k ? 'on' : ''} onClick={() => { setSize(k); }}>{n}<small>{MAP_SIZES.find(m => m[0] === k)![2].toLocaleString('es-AR')} × {MAP_SIZES.find(m => m[0] === k)![3].toLocaleString('es-AR')}</small></button>)}</div>
+      <ul className="land-scen-list" role="group" aria-label="Elegir escenario">{THEMES.map((m, i) => <li key={i}><button type="button" aria-pressed={map === i + 1} className={map === i + 1 ? 'on' : ''} onClick={() => { setMap(i + 1); }}>
         <MapThumb theme={i} /><b>{m.name}</b><small>{m.text}</small></button></li>)}</ul>
       <div className="land-sheet-bar land-scen-bar">
-        <button type="button" className="land-ghost" onClick={() => { playLandButton(); setScreen('sheet'); }}>‹ Volver</button>
-        <button type="button" className="land-go" onClick={() => { playLandButton(); start(civ); }}>⚔️ Iniciar</button>
+        <button type="button" className="land-ghost" onClick={() => { setScreen('sheet'); }}>‹ Volver</button>
+        <button type="button" className="land-go" onClick={() => { start(civ); }}>⚔️ Iniciar</button>
       </div>
     </div>}
     {loading && <div className="land-overlay" role="status"><div className="land-card"><h2>Armando el escenario…</h2></div></div>}
