@@ -1,6 +1,6 @@
 # Sonidos de los personajes de Land of Warriors
 
-Se incorporan los 71 MP3 indicados por el usuario. Están representadas las diez civilizaciones y 59 de los 60 personajes actuales. Falta un audio propio de **Tanque Bastión**, del Imperio Humano. `oron.mp3` se asocia al **Dron** del Sindicato Mecánico. `acido.mp3` es un efecto adicional para el ataque del Escupidor Ácido zergano.
+Se incorporan los 72 MP3 indicados por el usuario. Están representadas las diez civilizaciones y los 60 personajes actuales, incluido **Tanque Bastión**, del Imperio Humano. Su sonido se reproduce al seleccionarlo, recibir órdenes o completar su entrenamiento. `oron.mp3` se asocia al **Dron** del Sindicato Mecánico. `acido.mp3` es un efecto adicional para el ataque del Escupidor Ácido zergano.
 
 ## Reproducción
 
@@ -19,7 +19,7 @@ Los MP3 completos se guardan en `src/features/games/assets/land/voices/<civiliza
 node scripts/prepare-land-sounds.mjs /ruta/a/CIVILIZACIONES
 ```
 
-El script valida y decodifica los 71 audios con Chromium, prepara los recortes y genera dos muestras WAV:
+El script valida y decodifica los 72 audios con Chromium, prepara los recortes y genera dos muestras WAV:
 
 - [Pasos humanos](land-sonidos-pasos.wav).
 - [Frases élficas](land-sonidos-elfos.wav).

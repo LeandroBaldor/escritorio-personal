@@ -13,10 +13,11 @@ class Output implements CharacterSoundOutput{
 const camera={x:0,y:0,w:1200,h:800,z:1};
 function fixture(){const g=newLandGame('humano','orcos',5,'normal',42,'small');g.units=[];g.ai.t=Infinity;const unit=addUnit(g,0,'worker',400,300),out=new Output(),sound=new LandCharacterSounds(out);sound.start('humano');sound.setActive(true);return {g,unit,out,sound};}
 describe('Audios de los personajes de Land',()=>{
-  it('incluye 71 archivos, las diez civilizaciones y 59 personajes con audio propio',()=>{
-    expect(CHARACTER_CLIPS).toHaveLength(71);expect(new Set(CHARACTER_CLIPS.map(c=>c.civ)).size).toBe(10);
-    expect(new Set(CHARACTER_CLIPS.filter(c=>c.role!=='acid').map(c=>c.civ+':'+c.role)).size).toBe(59);
-    expect(CHARACTER_SOUND_GAPS).toEqual([{civ:'humano',role:'heavy',name:'Tanque Bastión'}]);
+  it('incluye 72 archivos, las diez civilizaciones y 60 personajes con audio propio',()=>{
+    expect(CHARACTER_CLIPS).toHaveLength(72);expect(new Set(CHARACTER_CLIPS.map(c=>c.civ)).size).toBe(10);
+    expect(new Set(CHARACTER_CLIPS.filter(c=>c.role!=='acid').map(c=>c.civ+':'+c.role)).size).toBe(60);
+    expect(CHARACTER_SOUND_GAPS).toEqual([]);
+    expect(CHARACTER_CLIPS.find(c=>c.civ==='humano'&&c.role==='heavy')?.purpose).toBe('call');
     expect(CHARACTER_CLIPS.find(c=>c.civ==='mecanico'&&c.role==='worker')?.source).toContain('oron.mp3');
   });
   it('todos los fragmentos están dentro del audio y los elfos conservan frases melódicas de hasta cuatro segundos',()=>{
