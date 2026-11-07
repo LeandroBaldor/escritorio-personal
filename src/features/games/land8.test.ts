@@ -46,9 +46,10 @@ describe('Land revisión 8',()=>{
     const u=addUnit(g,0,'worker',440,440);expect(placeBuilding(g,0,'wall',440,440,[u.id])).toBeNull();
   });
   it('distingue sangre verde, sangre de la especie y explosiones mecánicas',()=>{
-    expect(deathStyle('humano','ranged')).toEqual({fire:false,color:'#4de35b'});
-    expect(deathStyle('elfos','melee').color).toBe('#4de35b');
-    expect(deathStyle('abisal','heavy')).toEqual({fire:false,color:'#06b6d4'});
+    expect(deathStyle('humano','ranged')).toEqual({fire:false,color:'#d92132'});
+    expect(deathStyle('elfos','melee').color).toBe('#d92132');
+    expect(deathStyle('enanos','melee').color).toBe('#d92132');
+    expect(deathStyle('abisal','heavy')).toEqual({fire:false,color:'#32bfd0'});
     expect(deathStyle('mecanico','worker').fire).toBe(true);expect(deathStyle('humano','heavy').fire).toBe(true);
   });
   it('explica la distancia real del ataque y la función de apoyo',()=>{

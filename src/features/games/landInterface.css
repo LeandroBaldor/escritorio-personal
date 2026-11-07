@@ -1,4 +1,4 @@
-/* Revisión 9: informe legible y actividad de tropas. */
+/* Informe legible, actividad de tropas y canal del líder. */
 .land-building-sprite{display:inline-block;position:relative;vertical-align:middle;max-width:100%;flex-shrink:0;pointer-events:none}
 .land.land-v9 .land-cmds .land-building-sprite{display:flex;align-items:center;justify-content:center;width:100%!important;max-width:54px;height:calc(100% - 10px)!important;max-height:44px;min-height:0;flex:1 1 auto;overflow:hidden}
 .land.land-v9 .land-cmds .land-building-sprite>canvas{width:100%!important;height:100%!important;max-width:100%;max-height:100%;object-fit:contain}
@@ -86,3 +86,19 @@
 @media(max-width:1200px){.land-info-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:1100px){.land.land-v9{--intel-w:0px}.land.land-v9 .land-own-intel{display:none;top:94px;bottom:222px;width:min(360px,calc(100% - 12px));left:6px;background:#05182bf5;z-index:30;grid-template-rows:auto auto minmax(300px,1fr);overflow:auto;padding:0}.land.land-v9 .land-own-intel.land-intel-open{display:grid}.land-intel-toggle{display:block;position:absolute;left:8px;bottom:224px;z-index:31;padding:9px 12px;border:1px solid #d1b578;border-radius:5px;color:#fff2cd;background:#0a2945;font-size:10px}.land.land-v9 .land-intel-open{bottom:265px}.land-intel-close{display:block;float:right;position:relative;z-index:1;background:#102d47;color:white;border:1px solid #658aa7;border-radius:4px;font-size:22px;line-height:1}.land.land-v9 .land-build-preview{left:auto;right:8px;top:100px;width:220px;max-height:calc(100% - 340px)}.land.land-v9 .land-build-preview>canvas{max-height:115px;width:auto!important}.land.land-v9 .land-build-preview p{font-size:12px}}
 @media(max-width:600px){.land.land-v9 .land-infographic{padding:14px}.land-info-header{gap:12px}.land-info-header .land-leader-portrait{width:90px;height:110px;flex-basis:90px}.land-info-header h2{font-size:19px}.land.land-v9 .land-info-header p{font-size:13px!important}.land-info-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.land-info-grid article{padding:12px 8px}.land-info-grid h4{font-size:11px}.land.land-v9 .land-info-grid p{font-size:13px!important}.land-info-footer{grid-template-columns:1fr;gap:0}.land.land-v9 .land-own-intel{top:90px}.land.land-v9 .land-build-preview{width:185px;padding:9px}.land-build-preview h3{font-size:12px}}
+.land.land-v9 .land-own-intel{grid-template-rows:auto auto minmax(180px,1fr) 246px}
+.land.land-v9 .land-leader-card .land-leader-portrait{width:64px;height:74px;flex-basis:64px}
+.land.land-v9 .land-leader-card>p,.land.land-v9 .land-own-intel .land-colony-card>p{display:none}
+.land.land-v9 .land-own-intel .land-troops-card{min-height:180px}
+.land.land-v9 .land-own-intel .land-command-card{display:flex;flex-direction:column;min-height:0;overflow:hidden;background:#061b30;padding:10px}
+.land-command-heading{display:flex;align-items:center;gap:10px;padding-bottom:9px;flex-shrink:0;border-bottom:1px solid #486982}
+.land-command-heading .land-leader-portrait{width:65px;height:72px;flex-basis:65px}
+.land-command-heading small{font-size:9px;color:#d8bd75;letter-spacing:.1em}
+.land.land-v9 .land-command-heading h3{margin:3px 0;font-size:12px;line-height:1.4}
+.land.land-v9 .land-command-heading span{font-size:13px;color:#9de7b1}
+.land-leader-log{min-height:0;flex:1;overflow:auto;overscroll-behavior:contain;scrollbar-color:#477493 #061b30;padding:8px 2px}
+.land-leader-log article{padding:7px 8px;margin:0 0 7px;border-left:2px solid #63b9df;background:#102c43;border-radius:0 4px 4px 0}
+.land-leader-log time{float:right;color:#7e9eb8;font:11px Arial,sans-serif!important}
+.land-leader-log b{color:#e2c77f;font:600 12px Arial,sans-serif!important}
+.land.land-v9 .land-own-intel .land-leader-log p{color:#edf5fc;font:14px/1.5 Arial,sans-serif!important;margin:5px 0 0}
+@media(max-width:1100px){.land.land-v9 .land-own-intel{grid-template-rows:auto auto minmax(180px,1fr) 280px}.land.land-v9 .land-own-intel .land-command-card{min-height:250px}}

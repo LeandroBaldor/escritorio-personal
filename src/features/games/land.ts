@@ -74,7 +74,7 @@ export interface LandGame {
   map: number; terrain: Terrain; difficulty: Difficulty; phase: 'play' | 'won' | 'lost'; events: LandEvent[]; ai: AIState; ais: AIState[];
   rand: () => number;
 }
-export type LandEvent = { type: 'hit'; role: Role; x: number; y: number; owner: Owner } | { type: 'shot'; role: Role; x: number; y: number; owner: Owner } | { type: 'die'; x: number; y: number; owner: Owner; building: boolean }
+export type LandEvent = { type: 'hit'; role: Role; x: number; y: number; owner: Owner } | { type: 'shot'; role: Role; x: number; y: number; owner: Owner } | { type: 'impact'; x:number;y:number;owner:Owner } | { type: 'die'; x: number; y: number; owner: Owner; building: boolean; by?:Owner }
   | { type: 'built'; kind: BKind; owner: Owner } | { type: 'trained'; role: Role; owner: Owner } | { type: 'upgraded'; up: Upgrade; owner: Owner } | { type: 'power'; owner: Owner } | { type: 'won' } | { type: 'lost' } | { type: 'attacked' };
 
 // ---------------------------------------------------------------- Los números de cada uno (con la civilización y las mejoras)
@@ -235,9 +235,10 @@ function damageUnit(g: LandGame, u: Unit, dmg: number, by: Owner) {
   if (side.buffT > 0 && CIVS[side.civ].power.kind === 'shield') dmg *= 0.5;
   u.hp -= dmg; g.sides[by].power = Math.min(POWER_MAX, g.sides[by].power + dmg * 0.02);
   if (u.owner === 0 && by > 0) emit(g, { type: 'attacked' });
-  if (u.hp <= 0 && !u.dead) { u.dead = 0.001; g.sides[by].kills++; side.lost++; g.sides[by].power = Math.min(POWER_MAX, g.sides[by].power + 3 + ROLE_STATS[u.role].pop * 2); emit(g, { type: 'die', x: u.x, y: u.y, owner: u.owner, building: false }); }
+  if (u.hp <= 0 && !u.dead) { u.dead = 0.001; g.sides[by].kills++; side.lost++; g.sides[by].power = Math.min(POWER_MAX, g.sides[by].power + 3 + ROLE_STATS[u.role].pop * 2); emit(g, { type: 'die', x: u.x, y: u.y, owner: u.owner, building: false,by }); }
 }
 function damageBuilding(g: LandGame, b: Building, dmg: number, by: Owner) {
+  emit(g,{type:'impact',x:b.x,y:b.y,owner:by});
   b.hp -= dmg; g.sides[by].power = Math.min(POWER_MAX, g.sides[by].power + dmg * 0.01);
   if (b.owner === 0 && by > 0) emit(g, { type: 'attacked' });
   if (b.hp <= 0 && !b.dead) {

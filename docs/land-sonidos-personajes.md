@@ -7,8 +7,8 @@ Se incorporan los 72 MP3 indicados por el usuario. Están representadas las diez
 - Los humanos usan recortes cortos de impactos para los pasos. Cada apoyo alternado del pie dispara un fragmento al alcanzar la misma fase de la animación. La fase depende de distancia realmente recorrida; quedarse quieto o bloqueado no genera pasos. Se conservan las variantes cortas para respuestas al seleccionar o dar órdenes. El exoélite usa su variante de marcha.
 - Los elfos responden con frases de hasta cuatro segundos, recortadas usando pausas y mínimos de energía, sin acelerar ni cambiar el tono. Se descartan las colas melódicas demasiado cortas y se aplican fundidos de entrada y salida.
 - Los personajes de las demás civilizaciones usan sus grabaciones al seleccionarlos, recibir una orden o completar su entrenamiento. Las variantes disponibles se alternan. Los clips largos se reproducen por fragmentos con fundidos.
-- El ácido zergano y el impacto del Guardián Arbóreo se reproducen en sus ataques.
-- Los pasos solo suenan dentro del área de cámara. Se limita la mezcla a tres pasos, una voz y dos efectos simultáneos. Pausar, salir o esconder la pestaña detiene los sonidos; los fragmentos pendientes no se reproducen después de salir.
+- Desde la revisión 11 los ataques usan los siete archivos compartidos `disparo_*`, según el arma; se conservan los efectos originales en el archivo de personajes. Los impactos en construcciones y las muertes usan las grabaciones específicas entregadas por el usuario.
+- Los pasos solo suenan dentro del área de cámara. Se limita la mezcla a tres pasos, una voz, cuatro efectos y dos muertes simultáneas. Pausar, salir o esconder la pestaña detiene los sonidos; los fragmentos pendientes no se reproducen después de salir.
 - Las grabaciones idénticas comparten el buffer de audio por SHA-256. Solo se precarga la civilización elegida; los demás sonidos se cargan cuando hacen falta. Los niveles se compensan por RMS y la salida tiene limitador.
 
 ## Archivos y preparación

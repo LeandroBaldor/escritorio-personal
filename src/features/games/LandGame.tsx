@@ -2,8 +2,10 @@ import './land.css';
 import './landHud.css';
 import './landInterface.css';
 import { BuildingSprite, Sprite } from './landSprite';
-import { LandInfographic, LeaderPortrait } from './landInfographic';
+import { LandInfographic } from './landInfographic';
 import { LandTroops } from './landTroops';
+import {LandLeaderPanel} from './landLeaderPanel';
+import {LandLeaderReports,missingResources,readySoldiers,type LeaderMessage} from './landLeader';
 import { LandIcon, LandEagle } from './LandIcon';
 import { worldPropsReady } from './landProps';
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
@@ -18,7 +20,7 @@ import { MAP_SIZES, THEMES, type MapSize } from './landMap';
 import { renderTerrain, terrainMaterialsReady, type TerrainRegion } from './landMapArt';
 import { bIdx, drawMinimap, drawSprite, drawWorld, roleIdx, spritesReady, type Cam } from './landArt';
 import { useFitScreen } from './fitScreen';
-import { playExplosion, playGameOver, playKnock, playRifleShot, playVampSword, playWinFanfare } from './sounds';
+import { playExplosion, playGameOver, playKnock, playVampSword, playWinFanfare } from './sounds';
 import { playLandButton, preloadLandSounds, setLandMenuMusic } from './landAudio';
 import { LandCharacterSounds } from './landCharacterSounds';
 
@@ -57,7 +59,9 @@ export function LandOfWarriors() {
   const [mode, setMode] = useState<Mode>({ k: 'none' });
   const modeRef = useRef<Mode>(mode);
   useEffect(() => { modeRef.current = mode; }, [mode]);
-  const [toast, setToast] = useState<{ text: string; id: number } | null>(null);
+  const [leaderMessages,setLeaderMessages]=useState<LeaderMessage[]>([]);
+  const leaderReports=useRef(new LandLeaderReports());
+  const messageId=useRef(0);
   const camRef = useRef<Cam>({ x: 0, y: 0, w: 1200, h: 700, z: 1 });
   const stageRef = useRef<HTMLDivElement>(null), canvasRef = useRef<HTMLCanvasElement>(null), miniRef = useRef<HTMLCanvasElement>(null);
   const mapImg = useRef<HTMLCanvasElement | null>(null);
@@ -90,8 +94,7 @@ export function LandOfWarriors() {
   }, [screen]);
   useEffect(() => () => setLandMenuMusic(false), []);
   useEffect(() => { if (import.meta.env.DEV) (window as unknown as { __landGame?: () => LandGame | null; __landCam?: () => Cam }).__landGame = () => gRef.current; (window as unknown as { __landCam?: () => Cam }).__landCam = () => camRef.current; }, []); // (para probar en desarrollo)
-  const say = useCallback((text: string, key = text, gap = 0) => { const now = performance.now(); if (gap && now - (lastToast.current[key] ?? -1e9) < gap) return; lastToast.current[key] = now; setToast({ text, id: now }); }, []);
-  useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(null), 5000); return () => clearTimeout(id); }, [toast]);
+  const say = useCallback((text: string, key = text, gap = 0) => { const now = performance.now(); if (gap && now - (lastToast.current[key] ?? -1e9) < gap) return; lastToast.current[key] = now; const message={text,id:++messageId.current,time:gRef.current?.t??0};setLeaderMessages(old=>[...old.slice(-19),message]); }, []);
   const setSelection = useCallback((ids: number[]) => { if(gRef.current&&ids.some(id=>!selRef.current.has(id)))characterSounds.current?.react(gRef.current,ids);selRef.current = new Set(ids); setSel(ids); }, []);
 
   // ---------------------------------------------------------------- Empezar una partida
@@ -106,6 +109,7 @@ export function LandOfWarriors() {
         available.splice(available.indexOf(selected), 1); return selected;
       });
       const g = newLandGame(civ, foes, map, diff, Date.now(), size); gRef.current = g; setGame(g);
+      leaderReports.current=new LandLeaderReports();lastToast.current={};setLeaderMessages([{id:++messageId.current,time:0,text:'Ya estamos en posición. Organicemos la recolección y preparemos nuestras defensas. Te informaré los movimientos enemigos y el resultado de cada enfrentamiento.'}]);
       detailImg.current = null; mapImg.current = renderTerrain(g.terrain);
       const base = g.buildings.find(b => b.owner === 0)!;
       camRef.current = { ...camRef.current, z: 1.6, x: base.x - 300, y: base.y - 200 };
@@ -157,20 +161,21 @@ export function LandOfWarriors() {
         stepLand(g, dt);
         for (const e of takeLandEvents(g)) {
           const nearby=('x' in e)&&e.x>=cam.x-100&&e.x<=cam.x+w/cam.z+100&&e.y>=cam.y-100&&e.y<=cam.y+(h-HUD_H)/cam.z+100;
-          const customShot=(e.type==='hit'||e.type==='shot')&&nearby?characterSounds.current?.attack(g,e.owner,e.role):false;
+          leaderReports.current.event(g,e);
+          if(nearby)characterSounds.current?.combat(g,e,'x' in e?((e.x-cam.x)*cam.z/w-.5)*1.3:0);
           if(e.type==='trained'&&e.owner===0)characterSounds.current?.call(g.sides[0].civ,e.role,g.t);
-          if (e.type === 'hit' && Math.random() < 0.25) playVampSword();
-          else if (e.type === 'shot' && !customShot && Math.random() < 0.18) playRifleShot();
+          if (e.type === 'hit' && nearby && Math.random() < 0.25) playVampSword();
           else if (e.type === 'die' && e.building) playExplosion();
           else if (e.type === 'built' && e.owner === 0) { playKnock(); say(`🏗️ ${CIVS[g.sides[0].civ].buildings[e.kind]} terminado`); }
           else if (e.type === 'trained' && e.owner === 0 && e.role !== 'worker') say(`✅ ${CIVS[g.sides[0].civ].units[e.role]} listo`, 'trained', 2500);
           else if (e.type === 'upgraded' && e.owner === 0) say(`⬆️ Mejora de ${UP_NAME[e.up]} lista (nivel ${g.sides[0].up[e.up]})`);
-          else if (e.type === 'power') { playExplosion(); say(e.owner === 0 ? `✨ ¡${CIVS[g.sides[0].civ].power.name}!` : `⚠️ El enemigo usó ${CIVS[g.sides[1].civ].power.name}`); }
+          else if (e.type === 'power') { playExplosion(); say(e.owner === 0 ? `✨ ¡${CIVS[g.sides[0].civ].power.name}!` : `⚠️ El enemigo usó ${CIVS[g.sides[e.owner].civ].power.name}`); }
           else if (e.type === 'attacked') say('⚠️ ¡Te están atacando!', 'attacked', 15000);
           else if (e.type === 'won') { playWinFanfare(); saveWin(g.sides[0].civ); setRecord(readLandRecord()); setScreen('won'); }
           else if (e.type === 'lost') { playGameOver(); setScreen('lost'); }
         }
         characterSounds.current?.tick(g,cam,selRef.current);
+        for(const text of leaderReports.current.tick(g))say(text);
         // los elegidos que se murieron salen de la selección
         if ([...selRef.current].some(id => !g.units.some(u => u.id === id && !u.dead) && !g.buildings.some(b => b.id === id && !b.dead))) setSelection([...selRef.current].filter(id => g.units.some(u => u.id === id && !u.dead) || g.buildings.some(b => b.id === id && !b.dead)));
       } else stepLand(g, 0);
@@ -266,7 +271,7 @@ export function LandOfWarriors() {
     if (md.k === 'place') {
       const ws = myUnits([...selRef.current]).filter(u => u.role === 'worker').map(u => u.id);
       const b = placeBuilding(g, 0, md.kind, w.x, w.y, ws);
-      if (b) { playKnock(); if (!e.shiftKey && md.kind !== 'wall') setMode({ k: 'none' }); } else say(!canPay(g.sides[0], BUILD_STATS[md.kind].cost) ? '💎 No te alcanzan los recursos' : '🚫 Ahí no se puede construir', 'place', 800);
+      if (b) { playKnock(); if (!e.shiftKey && md.kind !== 'wall') setMode({ k: 'none' }); } else say(missingResources(g,BUILD_STATS[md.kind].cost)||'🚫 Ahí no se puede construir', 'place', 800);
       return;
     }
     if (md.k === 'power') { if (castPower(g, 0, w.x, w.y)) setMode({ k: 'none' }); return; }
@@ -410,7 +415,7 @@ export function LandOfWarriors() {
       <aside className={`land-intel land-own-intel${commsOpen?' land-intel-open':''}`} aria-label="Tu civilización y tropas">
         <section className="land-intel-card land-leader-card" style={{['--civ' as string]:CIVS[side.civ].color}}>
           <button type="button" className="land-intel-close" aria-label="Cerrar panel de tropas" onClick={()=>setCommsOpen(false)}>×</button>
-          <div className="land-leader-heading"><LeaderPortrait civ={side.civ}/><div><small>TU LÍDER</small><h2>{CIVS[side.civ].name}</h2><span>{CIVS[side.civ].motto}</span></div></div>
+          <div className="land-leader-heading"><div><small>TU CIVILIZACIÓN</small><h2>{CIVS[side.civ].name}</h2><span>{CIVS[side.civ].motto}</span></div></div>
           <p>{CIVS[side.civ].style}</p>
         </section>
         <section className="land-intel-card land-colony-card"><h3>TU ALDEA</h3>
@@ -420,6 +425,7 @@ export function LandOfWarriors() {
           <time>Tiempo de partida {formatLandTime(g.t)}</time>
         </section>
         <div className="land-intel-card land-troops-card"><LandTroops game={g} selected={sel} onSelect={units=>{setSelection(units.map(u=>u.id));focus(units[0].x,units[0].y);setMode({k:'none'});setCommsOpen(false);}}/></div>
+        <LandLeaderPanel civ={side.civ} messages={leaderMessages} ready={readySoldiers(g)}/>
       </aside>
       {previewKind && <section className="land-build-preview" aria-label="Vista ampliada de construcción"><div><small>{mode.k==='place'?'A CONSTRUIR':'ESTRUCTURA SELECCIONADA'}</small><h3>{CIVS[side.civ].buildings[previewKind]}</h3></div><BuildingSprite civ={side.civ} kind={previewKind} w={260} h={175}/><p>{BUILD_TEXT[previewKind]}</p><span>{costText(BUILD_STATS[previewKind].cost)} · {BUILD_STATS[previewKind].time} s</span></section>}
       <div className="land-top-right" aria-label="Recursos">
@@ -430,7 +436,6 @@ export function LandOfWarriors() {
         <button type="button" className="land-sq" title="Ayuda" aria-label="Ayuda" onClick={() => say('Tocá para elegir; tocá el mapa para dar órdenes. Arrastrá con el botón izquierdo para explorar; Shift + arrastre selecciona grupos. Usá la rueda para acercarte y el botón derecho para dar órdenes.')}>?</button>
         <button type="button" className="land-sq" title="Pausa" aria-label={screen === 'paused' ? 'Seguir' : 'Pausa'} onClick={() => setScreen(st => st === 'playing' ? 'paused' : 'playing')}><LandIcon kind="gear" /></button>
       </div>
-      {toast && <div key={toast.id} className="land-toast" role="status">{toast.text}</div>}
       {mode.k !== 'none' && <div className="land-mode">{mode.k === 'place' ? `Elegí dónde poner: ${CIVS[side.civ].buildings[mode.kind]}${mode.kind === 'wall' ? ' · Clic para sumar tramos; Escape para terminar' : ''}` : mode.k === 'power' ? 'Elegí dónde cae el poder' : 'Elegí a dónde atacar'} · <button type="button" onClick={() => { setMode({ k: 'none' }); }}>Cancelar</button></div>}
       <div className="land-hud" style={{ ['--civ' as string]: CIVS[side.civ].color }}>
         <div className="land-crest" aria-hidden="true"><LandEagle /></div>
