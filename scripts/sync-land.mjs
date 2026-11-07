@@ -22,6 +22,8 @@ const files = [
   'docs/land9-informe.png', 'docs/land9-tropas.png', 'docs/land9-construccion.png',
   'tests/land10.spec.ts', 'docs/land-correcciones-10.md',
   'docs/land10-cuarteles.png', 'docs/land10-produccion.png',
+  'tests/land-sounds.spec.ts', 'scripts/prepare-land-sounds.mjs', 'docs/land-sonidos-personajes.md',
+  'docs/land-sonidos-pasos.wav', 'docs/land-sonidos-elfos.wav',
 ];
 function collect(dir) {
   for (const entry of fs.readdirSync(path.join(source, dir), { withFileTypes: true })) {

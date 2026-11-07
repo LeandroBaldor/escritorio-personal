@@ -5,6 +5,7 @@ import { drawAmbientTerrain, type TerrainRegion } from './landMapArt';
 import { drawWorldProp } from './landProps';
 import { drawWall } from './landWalls';
 import { drawDeath } from './landDeath';
+import { walkingPhase } from './landMotion';
 
 // Once recortes por civilización en hojas individuales de 4 × 3, con el último casillero vacío.
 const URLS = import.meta.glob('./assets/land/units-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
@@ -152,8 +153,8 @@ function bar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, k: 
 export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t: number, selected: boolean) {
   const s = ROLE_STATS[u.role], civ = g.sides[u.owner].civ, h = s.size, fade = u.dead ? Math.max(0, 1 - u.dead / 1.1) : 1;
   if (u.dead) { drawDeath(ctx,civ,u,h); return; }
-  const moving = u.order.k === 'move' || ((u.order.k === 'gather' || u.order.k === 'build' || u.order.k === 'attack') && u.atkT < 0 && Math.abs(Math.sin(u.walk * 0.12)) > 0.01);
-  const bob = moving ? Math.abs(Math.sin(u.walk * 0.12)) * 1.6 : Math.sin(t * 2.4 + u.id) * 0.8;
+  const moving=!!u.moving,phase=walkingPhase(u.walk);
+  const bob = moving ? Math.abs(Math.sin(phase)) * 1.6 : Math.sin(t * 2.4 + u.id) * 0.8;
   const lunge = u.atkT >= 0 ? Math.sin(Math.min(1, u.atkT / 0.3) * Math.PI) * 6 * u.face : 0;
   const flyer = u.role === 'elite' && (civ === 'elfos' || civ === 'nomuerta'), fly = flyer ? 26 + Math.sin(t * 3 + u.id) * 4 : 0;
   ctx.save(); ctx.globalAlpha = fade;
@@ -161,9 +162,9 @@ export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t:
   ctx.strokeStyle = selected ? '#fef08a' : TEAM[u.owner]; ctx.lineWidth = selected ? 2.5 : 1.6; ctx.globalAlpha = fade * (selected ? 1 : 0.75);
   ctx.beginPath(); ctx.ellipse(u.x, u.y + 2, h * 0.36, h * 0.12, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = fade;
   if (u.dead) { ctx.translate(u.x, u.y); ctx.rotate(u.face * Math.min(1.3, u.dead * 3)); ctx.translate(-u.x, -u.y); }
-  const sq = moving ? 1 + Math.sin(u.walk * 0.24) * 0.009 : 1;
+  const sq = moving ? 1 + Math.sin(phase*2) * 0.009 : 1;
   ctx.translate(u.x + lunge, u.y - bob - fly); ctx.scale(1 / sq, sq);
-  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? u.walk * 0.16 : u.atkT >= 0 ? t * 15 : 0)) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
+  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? phase : u.atkT >= 0 && civ!=='humano' ? t * 15 : 0)) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
   ctx.restore();
   if (u.carry > 0 && !u.dead) crystal(ctx, u.x + u.face * -10, u.y - h * 0.7, 5, u.carryKind === 'energy' ? '#baffd5' : u.carryKind === 'gem' ? '#fff6c8' : '#d7ecff', u.carryKind === 'energy' ? '#22d875' : u.carryKind === 'gem' ? '#f5b81a' : '#3b82f6', u.carryKind === 'energy' ? '#075a30' : u.carryKind === 'gem' ? '#9a5a00' : '#1e3a8a');
   if (!u.dead && (u.hp < u.maxHp || selected)) bar(ctx, u.x, u.y - h - fly - 6, Math.max(26, h * 0.6), u.hp / u.maxHp, u.owner === 0 ? '#4ade80' : '#f87171');

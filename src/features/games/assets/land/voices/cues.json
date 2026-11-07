@@ -1,0 +1,4845 @@
+{
+  "missing": [
+    {
+      "civ": "humano",
+      "role": "heavy",
+      "name": "Tanque Bastión"
+    }
+  ],
+  "aliases": [
+    {
+      "source": "09_Sindicato_Mecanico/oron.mp3",
+      "name": "Dron",
+      "civ": "mecanico",
+      "role": "worker"
+    }
+  ],
+  "clips": [
+    {
+      "civ": "humano",
+      "role": "worker",
+      "variant": 0,
+      "purpose": "foot",
+      "hash": "6fb758853771669adf42243e9b4964872ec4f82dc0e6aa31256d276e0f48fb4d",
+      "file": "humano/worker.mp3",
+      "source": "01_Imperio_Humano/ingeniero.mp3",
+      "duration": 25.872,
+      "peak": 0.77951,
+      "rms": 0.07375,
+      "phrases": [
+        {
+          "start": 0.015,
+          "duration": 1.56,
+          "rms": 0.07194
+        },
+        {
+          "start": 1.575,
+          "duration": 1.73,
+          "rms": 0.06935
+        },
+        {
+          "start": 3.305,
+          "duration": 1.83,
+          "rms": 0.07624
+        },
+        {
+          "start": 5.135,
+          "duration": 1.68,
+          "rms": 0.07929
+        },
+        {
+          "start": 6.815,
+          "duration": 1.77,
+          "rms": 0.06962
+        },
+        {
+          "start": 8.585,
+          "duration": 1.78,
+          "rms": 0.07428
+        },
+        {
+          "start": 10.365,
+          "duration": 1.78,
+          "rms": 0.07561
+        },
+        {
+          "start": 12.145,
+          "duration": 1.71,
+          "rms": 0.0739
+        },
+        {
+          "start": 13.855,
+          "duration": 1.79,
+          "rms": 0.06991
+        },
+        {
+          "start": 15.645,
+          "duration": 1.74,
+          "rms": 0.07506
+        },
+        {
+          "start": 17.385,
+          "duration": 1.82,
+          "rms": 0.07763
+        },
+        {
+          "start": 19.205,
+          "duration": 1.72,
+          "rms": 0.07097
+        }
+      ],
+      "steps": [
+        {
+          "start": 3.498,
+          "duration": 0.202,
+          "rms": 0.13566
+        },
+        {
+          "start": 9.938,
+          "duration": 0.202,
+          "rms": 0.14146
+        },
+        {
+          "start": 12.878,
+          "duration": 0.202,
+          "rms": 0.11441
+        },
+        {
+          "start": 14.758,
+          "duration": 0.202,
+          "rms": 0.07888
+        },
+        {
+          "start": 16.378,
+          "duration": 0.202,
+          "rms": 0.1362
+        },
+        {
+          "start": 21.198,
+          "duration": 0.202,
+          "rms": 0.08512
+        },
+        {
+          "start": 22.818,
+          "duration": 0.202,
+          "rms": 0.12831
+        },
+        {
+          "start": 24.628,
+          "duration": 0.202,
+          "rms": 0.13526
+        }
+      ]
+    },
+    {
+      "civ": "humano",
+      "role": "worker",
+      "variant": 1,
+      "purpose": "call",
+      "hash": "38afdcf6745413ec3a5489e535cb191c8f521e23847b756325b93c469e4f27e5",
+      "file": "humano/worker-2.mp3",
+      "source": "01_Imperio_Humano/ingeniero_1.mp3",
+      "duration": 0.768,
+      "peak": 0.90378,
+      "rms": 0.17025,
+      "phrases": [
+        {
+          "start": 0.055,
+          "duration": 0.6,
+          "rms": 0.1926
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.218,
+          "duration": 0.202,
+          "rms": 0.26794
+        },
+        {
+          "start": 0.438,
+          "duration": 0.202,
+          "rms": 0.15511
+        }
+      ]
+    },
+    {
+      "civ": "humano",
+      "role": "melee",
+      "variant": 0,
+      "purpose": "foot",
+      "hash": "6fb758853771669adf42243e9b4964872ec4f82dc0e6aa31256d276e0f48fb4d",
+      "file": "humano/melee.mp3",
+      "source": "01_Imperio_Humano/recluta.mp3",
+      "duration": 25.872,
+      "peak": 0.77951,
+      "rms": 0.07375,
+      "phrases": [
+        {
+          "start": 0.015,
+          "duration": 1.56,
+          "rms": 0.07194
+        },
+        {
+          "start": 1.575,
+          "duration": 1.73,
+          "rms": 0.06935
+        },
+        {
+          "start": 3.305,
+          "duration": 1.83,
+          "rms": 0.07624
+        },
+        {
+          "start": 5.135,
+          "duration": 1.68,
+          "rms": 0.07929
+        },
+        {
+          "start": 6.815,
+          "duration": 1.77,
+          "rms": 0.06962
+        },
+        {
+          "start": 8.585,
+          "duration": 1.78,
+          "rms": 0.07428
+        },
+        {
+          "start": 10.365,
+          "duration": 1.78,
+          "rms": 0.07561
+        },
+        {
+          "start": 12.145,
+          "duration": 1.71,
+          "rms": 0.0739
+        },
+        {
+          "start": 13.855,
+          "duration": 1.79,
+          "rms": 0.06991
+        },
+        {
+          "start": 15.645,
+          "duration": 1.74,
+          "rms": 0.07506
+        },
+        {
+          "start": 17.385,
+          "duration": 1.82,
+          "rms": 0.07763
+        },
+        {
+          "start": 19.205,
+          "duration": 1.72,
+          "rms": 0.07097
+        }
+      ],
+      "steps": [
+        {
+          "start": 3.498,
+          "duration": 0.202,
+          "rms": 0.13566
+        },
+        {
+          "start": 9.938,
+          "duration": 0.202,
+          "rms": 0.14146
+        },
+        {
+          "start": 12.878,
+          "duration": 0.202,
+          "rms": 0.11441
+        },
+        {
+          "start": 14.758,
+          "duration": 0.202,
+          "rms": 0.07888
+        },
+        {
+          "start": 16.378,
+          "duration": 0.202,
+          "rms": 0.1362
+        },
+        {
+          "start": 21.198,
+          "duration": 0.202,
+          "rms": 0.08512
+        },
+        {
+          "start": 22.818,
+          "duration": 0.202,
+          "rms": 0.12831
+        },
+        {
+          "start": 24.628,
+          "duration": 0.202,
+          "rms": 0.13526
+        }
+      ]
+    },
+    {
+      "civ": "humano",
+      "role": "melee",
+      "variant": 1,
+      "purpose": "call",
+      "hash": "6e24f159531181b413ad62b0315259bb85d5d03345d2121f604c6165ca1051f1",
+      "file": "humano/melee-2.mp3",
+      "source": "01_Imperio_Humano/recluta_1.mp3",
+      "duration": 1.752,
+      "peak": 0.86149,
+      "rms": 0.15366,
+      "phrases": [
+        {
+          "start": 0.035,
+          "duration": 0.66,
+          "rms": 0.1801
+        },
+        {
+          "start": 0.985,
+          "duration": 0.61,
+          "rms": 0.18048
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.108,
+          "duration": 0.202,
+          "rms": 0.19757
+        },
+        {
+          "start": 0.498,
+          "duration": 0.202,
+          "rms": 0.11968
+        },
+        {
+          "start": 1.048,
+          "duration": 0.202,
+          "rms": 0.17233
+        },
+        {
+          "start": 1.348,
+          "duration": 0.202,
+          "rms": 0.2336
+        }
+      ]
+    },
+    {
+      "civ": "humano",
+      "role": "ranged",
+      "variant": 0,
+      "purpose": "foot",
+      "hash": "6fb758853771669adf42243e9b4964872ec4f82dc0e6aa31256d276e0f48fb4d",
+      "file": "humano/ranged.mp3",
+      "source": "01_Imperio_Humano/fusilero_pesado.mp3",
+      "duration": 25.872,
+      "peak": 0.77951,
+      "rms": 0.07375,
+      "phrases": [
+        {
+          "start": 0.015,
+          "duration": 1.56,
+          "rms": 0.07194
+        },
+        {
+          "start": 1.575,
+          "duration": 1.73,
+          "rms": 0.06935
+        },
+        {
+          "start": 3.305,
+          "duration": 1.83,
+          "rms": 0.07624
+        },
+        {
+          "start": 5.135,
+          "duration": 1.68,
+          "rms": 0.07929
+        },
+        {
+          "start": 6.815,
+          "duration": 1.77,
+          "rms": 0.06962
+        },
+        {
+          "start": 8.585,
+          "duration": 1.78,
+          "rms": 0.07428
+        },
+        {
+          "start": 10.365,
+          "duration": 1.78,
+          "rms": 0.07561
+        },
+        {
+          "start": 12.145,
+          "duration": 1.71,
+          "rms": 0.0739
+        },
+        {
+          "start": 13.855,
+          "duration": 1.79,
+          "rms": 0.06991
+        },
+        {
+          "start": 15.645,
+          "duration": 1.74,
+          "rms": 0.07506
+        },
+        {
+          "start": 17.385,
+          "duration": 1.82,
+          "rms": 0.07763
+        },
+        {
+          "start": 19.205,
+          "duration": 1.72,
+          "rms": 0.07097
+        }
+      ],
+      "steps": [
+        {
+          "start": 3.498,
+          "duration": 0.202,
+          "rms": 0.13566
+        },
+        {
+          "start": 9.938,
+          "duration": 0.202,
+          "rms": 0.14146
+        },
+        {
+          "start": 12.878,
+          "duration": 0.202,
+          "rms": 0.11441
+        },
+        {
+          "start": 14.758,
+          "duration": 0.202,
+          "rms": 0.07888
+        },
+        {
+          "start": 16.378,
+          "duration": 0.202,
+          "rms": 0.1362
+        },
+        {
+          "start": 21.198,
+          "duration": 0.202,
+          "rms": 0.08512
+        },
+        {
+          "start": 22.818,
+          "duration": 0.202,
+          "rms": 0.12831
+        },
+        {
+          "start": 24.628,
+          "duration": 0.202,
+          "rms": 0.13526
+        }
+      ]
+    },
+    {
+      "civ": "humano",
+      "role": "ranged",
+      "variant": 1,
+      "purpose": "call",
+      "hash": "7c468f009a166517920db8104f2c818fe57232abe5250b85ce81653d2577b4aa",
+      "file": "humano/ranged-2.mp3",
+      "source": "01_Imperio_Humano/fusilero_pesado_1.mp3",
+      "duration": 1.149,
+      "peak": 0.99798,
+      "rms": 0.16422,
+      "phrases": [
+        {
+          "start": 0.065,
+          "duration": 0.91,
+          "rms": 0.18456
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.118,
+          "duration": 0.202,
+          "rms": 0.27213
+        },
+        {
+          "start": 0.358,
+          "duration": 0.202,
+          "rms": 0.23521
+        },
+        {
+          "start": 0.728,
+          "duration": 0.202,
+          "rms": 0.14179
+        },
+        {
+          "start": 0.918,
+          "duration": 0.202,
+          "rms": 0.03536
+        }
+      ]
+    },
+    {
+      "civ": "humano",
+      "role": "special",
+      "variant": 0,
+      "purpose": "foot",
+      "hash": "6fb758853771669adf42243e9b4964872ec4f82dc0e6aa31256d276e0f48fb4d",
+      "file": "humano/special.mp3",
+      "source": "01_Imperio_Humano/medico.mp3",
+      "duration": 25.872,
+      "peak": 0.77951,
+      "rms": 0.07375,
+      "phrases": [
+        {
+          "start": 0.015,
+          "duration": 1.56,
+          "rms": 0.07194
+        },
+        {
+          "start": 1.575,
+          "duration": 1.73,
+          "rms": 0.06935
+        },
+        {
+          "start": 3.305,
+          "duration": 1.83,
+          "rms": 0.07624
+        },
+        {
+          "start": 5.135,
+          "duration": 1.68,
+          "rms": 0.07929
+        },
+        {
+          "start": 6.815,
+          "duration": 1.77,
+          "rms": 0.06962
+        },
+        {
+          "start": 8.585,
+          "duration": 1.78,
+          "rms": 0.07428
+        },
+        {
+          "start": 10.365,
+          "duration": 1.78,
+          "rms": 0.07561
+        },
+        {
+          "start": 12.145,
+          "duration": 1.71,
+          "rms": 0.0739
+        },
+        {
+          "start": 13.855,
+          "duration": 1.79,
+          "rms": 0.06991
+        },
+        {
+          "start": 15.645,
+          "duration": 1.74,
+          "rms": 0.07506
+        },
+        {
+          "start": 17.385,
+          "duration": 1.82,
+          "rms": 0.07763
+        },
+        {
+          "start": 19.205,
+          "duration": 1.72,
+          "rms": 0.07097
+        }
+      ],
+      "steps": [
+        {
+          "start": 3.498,
+          "duration": 0.202,
+          "rms": 0.13566
+        },
+        {
+          "start": 9.938,
+          "duration": 0.202,
+          "rms": 0.14146
+        },
+        {
+          "start": 12.878,
+          "duration": 0.202,
+          "rms": 0.11441
+        },
+        {
+          "start": 14.758,
+          "duration": 0.202,
+          "rms": 0.07888
+        },
+        {
+          "start": 16.378,
+          "duration": 0.202,
+          "rms": 0.1362
+        },
+        {
+          "start": 21.198,
+          "duration": 0.202,
+          "rms": 0.08512
+        },
+        {
+          "start": 22.818,
+          "duration": 0.202,
+          "rms": 0.12831
+        },
+        {
+          "start": 24.628,
+          "duration": 0.202,
+          "rms": 0.13526
+        }
+      ]
+    },
+    {
+      "civ": "humano",
+      "role": "special",
+      "variant": 1,
+      "purpose": "call",
+      "hash": "6ecd5b5075d769cd1fe0d5d9f5e402c19b73dac46870e72d91be4c484e58c667",
+      "file": "humano/special-2.mp3",
+      "source": "01_Imperio_Humano/medico_1.mp3",
+      "duration": 4.127,
+      "peak": 0.54844,
+      "rms": 0.0955,
+      "phrases": [
+        {
+          "start": 1.075,
+          "duration": 1.23,
+          "rms": 0.17492
+        }
+      ],
+      "steps": [
+        {
+          "start": 1.238,
+          "duration": 0.202,
+          "rms": 0.21739
+        },
+        {
+          "start": 1.578,
+          "duration": 0.202,
+          "rms": 0.17602
+        },
+        {
+          "start": 1.938,
+          "duration": 0.202,
+          "rms": 0.14219
+        }
+      ]
+    },
+    {
+      "civ": "humano",
+      "role": "elite",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "d5dc01543c919ef0a022ff3fd73bd315f501919fee6069ae7c95163a1d37768e",
+      "file": "humano/elite.mp3",
+      "source": "01_Imperio_Humano/exoelite.mp3",
+      "duration": 2.769,
+      "peak": 1.02526,
+      "rms": 0.24354,
+      "phrases": [
+        {
+          "start": 0.055,
+          "duration": 0.51,
+          "rms": 0.32616
+        },
+        {
+          "start": 0.705,
+          "duration": 1.19,
+          "rms": 0.22949
+        },
+        {
+          "start": 2.045,
+          "duration": 0.6,
+          "rms": 0.27934
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.068,
+          "duration": 0.202,
+          "rms": 0.4934
+        },
+        {
+          "start": 0.258,
+          "duration": 0.202,
+          "rms": 0.16732
+        },
+        {
+          "start": 0.748,
+          "duration": 0.202,
+          "rms": 0.11182
+        },
+        {
+          "start": 1.238,
+          "duration": 0.202,
+          "rms": 0.17715
+        },
+        {
+          "start": 1.618,
+          "duration": 0.202,
+          "rms": 0.12003
+        },
+        {
+          "start": 2.098,
+          "duration": 0.202,
+          "rms": 0.4626
+        },
+        {
+          "start": 2.298,
+          "duration": 0.202,
+          "rms": 0.1148
+        }
+      ]
+    },
+    {
+      "civ": "humano",
+      "role": "elite",
+      "variant": 1,
+      "purpose": "foot",
+      "hash": "a2da4ec80031d8b620a1e72fc5f28df4cd1f4780d4c8e4a3d9880477c6775eb2",
+      "file": "humano/elite-2.mp3",
+      "source": "01_Imperio_Humano/exoelite_1.mp3",
+      "duration": 4.344,
+      "peak": 0.39929,
+      "rms": 0.05977,
+      "phrases": [
+        {
+          "start": 0.155,
+          "duration": 0.59,
+          "rms": 0.07283
+        },
+        {
+          "start": 1.105,
+          "duration": 0.59,
+          "rms": 0.09189
+        },
+        {
+          "start": 1.995,
+          "duration": 0.63,
+          "rms": 0.08763
+        },
+        {
+          "start": 3.035,
+          "duration": 0.56,
+          "rms": 0.06723
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.198,
+          "duration": 0.202,
+          "rms": 0.10226
+        },
+        {
+          "start": 0.428,
+          "duration": 0.202,
+          "rms": 0.06059
+        },
+        {
+          "start": 0.618,
+          "duration": 0.202,
+          "rms": 0.02632
+        },
+        {
+          "start": 1.128,
+          "duration": 0.202,
+          "rms": 0.1316
+        },
+        {
+          "start": 1.368,
+          "duration": 0.202,
+          "rms": 0.07456
+        },
+        {
+          "start": 2.198,
+          "duration": 0.202,
+          "rms": 0.09935
+        },
+        {
+          "start": 2.438,
+          "duration": 0.202,
+          "rms": 0.04524
+        },
+        {
+          "start": 3.128,
+          "duration": 0.202,
+          "rms": 0.08459
+        }
+      ]
+    },
+    {
+      "civ": "zergano",
+      "role": "worker",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "23ddb6fd38e3e4a81330b0294ac37621262589c02a3dc2ed48a2b02b3160cc97",
+      "file": "zergano/worker.mp3",
+      "source": "02_Enjambre_Zergano/Larva_Obrera.mp3",
+      "duration": 4.032,
+      "peak": 1.00053,
+      "rms": 0.13672,
+      "phrases": [
+        {
+          "start": 0,
+          "duration": 0.465,
+          "rms": 0.24465
+        },
+        {
+          "start": 1.305,
+          "duration": 0.66,
+          "rms": 0.2677
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.018,
+          "duration": 0.202,
+          "rms": 0.30764
+        },
+        {
+          "start": 0.388,
+          "duration": 0.202,
+          "rms": 0.06779
+        },
+        {
+          "start": 0.868,
+          "duration": 0.202,
+          "rms": 0.01627
+        },
+        {
+          "start": 1.318,
+          "duration": 0.202,
+          "rms": 0.17623
+        },
+        {
+          "start": 1.528,
+          "duration": 0.202,
+          "rms": 0.38946
+        },
+        {
+          "start": 1.838,
+          "duration": 0.202,
+          "rms": 0.11371
+        }
+      ]
+    },
+    {
+      "civ": "zergano",
+      "role": "melee",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "e07d3274a2df465875336e427efdaf143c37017b39208c5f5b017c77d0f9bad4",
+      "file": "zergano/melee.mp3",
+      "source": "02_Enjambre_Zergano/Zangano_Guerrero.mp3",
+      "duration": 1.032,
+      "peak": 0.83306,
+      "rms": 0.12809,
+      "phrases": [
+        {
+          "start": 0.005,
+          "duration": 1.01,
+          "rms": 0.12948
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.048,
+          "duration": 0.202,
+          "rms": 0.16626
+        },
+        {
+          "start": 0.308,
+          "duration": 0.202,
+          "rms": 0.16961
+        },
+        {
+          "start": 0.558,
+          "duration": 0.202,
+          "rms": 0.11969
+        },
+        {
+          "start": 0.938,
+          "duration": 0.094,
+          "rms": 0.03171
+        }
+      ]
+    },
+    {
+      "civ": "zergano",
+      "role": "ranged",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "25a8bfdf53f2e148d1874c6dd52eb17ccc7be4410ca249607825c61fa6371044",
+      "file": "zergano/ranged.mp3",
+      "source": "02_Enjambre_Zergano/Acechador.mp3",
+      "duration": 4.68,
+      "peak": 0.47781,
+      "rms": 0.04092,
+      "phrases": [
+        {
+          "start": 1.145,
+          "duration": 1.47,
+          "rms": 0.04765
+        },
+        {
+          "start": 2.615,
+          "duration": 1.62,
+          "rms": 0.05268
+        }
+      ],
+      "steps": [
+        {
+          "start": 1.308,
+          "duration": 0.202,
+          "rms": 0.06281
+        },
+        {
+          "start": 1.928,
+          "duration": 0.202,
+          "rms": 0.04222
+        },
+        {
+          "start": 2.148,
+          "duration": 0.202,
+          "rms": 0.06625
+        },
+        {
+          "start": 2.348,
+          "duration": 0.202,
+          "rms": 0.04903
+        },
+        {
+          "start": 2.878,
+          "duration": 0.202,
+          "rms": 0.08987
+        },
+        {
+          "start": 3.188,
+          "duration": 0.202,
+          "rms": 0.05509
+        },
+        {
+          "start": 3.508,
+          "duration": 0.202,
+          "rms": 0.03316
+        },
+        {
+          "start": 3.828,
+          "duration": 0.202,
+          "rms": 0.05376
+        }
+      ]
+    },
+    {
+      "civ": "zergano",
+      "role": "special",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "5a0f3d12ec512bf2abe12eb6c9319c4d6f747089bb54cb4428aa7004204e2eee",
+      "file": "zergano/special.mp3",
+      "source": "02_Enjambre_Zergano/Escupidor_Acido.mp3",
+      "duration": 2.821,
+      "peak": 0.4295,
+      "rms": 0.08127,
+      "phrases": [
+        {
+          "start": 0.215,
+          "duration": 2.08,
+          "rms": 0.09455
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.408,
+          "duration": 0.202,
+          "rms": 0.08003
+        },
+        {
+          "start": 0.638,
+          "duration": 0.202,
+          "rms": 0.15803
+        },
+        {
+          "start": 0.918,
+          "duration": 0.202,
+          "rms": 0.11363
+        },
+        {
+          "start": 1.158,
+          "duration": 0.202,
+          "rms": 0.0941
+        },
+        {
+          "start": 1.388,
+          "duration": 0.202,
+          "rms": 0.06554
+        },
+        {
+          "start": 1.658,
+          "duration": 0.202,
+          "rms": 0.10301
+        },
+        {
+          "start": 2.008,
+          "duration": 0.202,
+          "rms": 0.05745
+        }
+      ]
+    },
+    {
+      "civ": "zergano",
+      "role": "heavy",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "63efd45e91e172d56bd1ac0a446192d16a8a9cf50a8a59402f4935b811614e37",
+      "file": "zergano/heavy.mp3",
+      "source": "02_Enjambre_Zergano/Coloso_Quitinoso.mp3",
+      "duration": 10.944,
+      "peak": 1.01738,
+      "rms": 0.21308,
+      "phrases": [
+        {
+          "start": 0,
+          "duration": 1.715,
+          "rms": 0.24014
+        },
+        {
+          "start": 1.715,
+          "duration": 0.73,
+          "rms": 0.23129
+        },
+        {
+          "start": 2.595,
+          "duration": 1.26,
+          "rms": 0.14359
+        },
+        {
+          "start": 4.465,
+          "duration": 2.11,
+          "rms": 0.25044
+        },
+        {
+          "start": 7.055,
+          "duration": 2.08,
+          "rms": 0.1966
+        },
+        {
+          "start": 9.135,
+          "duration": 1.8,
+          "rms": 0.25569
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.368,
+          "duration": 0.202,
+          "rms": 0.28552
+        },
+        {
+          "start": 0.928,
+          "duration": 0.202,
+          "rms": 0.30319
+        },
+        {
+          "start": 1.958,
+          "duration": 0.202,
+          "rms": 0.28301
+        },
+        {
+          "start": 2.198,
+          "duration": 0.202,
+          "rms": 0.27054
+        },
+        {
+          "start": 4.668,
+          "duration": 0.202,
+          "rms": 0.28957
+        },
+        {
+          "start": 6.278,
+          "duration": 0.202,
+          "rms": 0.27837
+        },
+        {
+          "start": 8.578,
+          "duration": 0.202,
+          "rms": 0.27599
+        },
+        {
+          "start": 9.388,
+          "duration": 0.202,
+          "rms": 0.35316
+        }
+      ]
+    },
+    {
+      "civ": "zergano",
+      "role": "elite",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "10eff9ccde3f894adff8141021346c914e1e9308e224b2112ed6a6ff052adbdb",
+      "file": "zergano/elite.mp3",
+      "source": "02_Enjambre_Zergano/Reina_Colmena.mp3",
+      "duration": 5.52,
+      "peak": 0.78993,
+      "rms": 0.17028,
+      "phrases": [
+        {
+          "start": 0.185,
+          "duration": 1.89,
+          "rms": 0.18964
+        },
+        {
+          "start": 2.075,
+          "duration": 2,
+          "rms": 0.20916
+        },
+        {
+          "start": 4.075,
+          "duration": 0.6,
+          "rms": 0.08658
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.528,
+          "duration": 0.202,
+          "rms": 0.17361
+        },
+        {
+          "start": 0.928,
+          "duration": 0.202,
+          "rms": 0.21053
+        },
+        {
+          "start": 1.168,
+          "duration": 0.202,
+          "rms": 0.23178
+        },
+        {
+          "start": 1.578,
+          "duration": 0.202,
+          "rms": 0.22827
+        },
+        {
+          "start": 2.148,
+          "duration": 0.202,
+          "rms": 0.22397
+        },
+        {
+          "start": 3.228,
+          "duration": 0.202,
+          "rms": 0.20305
+        },
+        {
+          "start": 3.518,
+          "duration": 0.202,
+          "rms": 0.22583
+        },
+        {
+          "start": 3.788,
+          "duration": 0.202,
+          "rms": 0.18092
+        }
+      ]
+    },
+    {
+      "civ": "zergano",
+      "role": "acid",
+      "variant": 0,
+      "purpose": "effect",
+      "hash": "6edd5dcf249df943c8ea135b356417209484241d6c4c0645f100d6b8a25d32f4",
+      "file": "zergano/acid.mp3",
+      "source": "02_Enjambre_Zergano/acido.mp3",
+      "duration": 2.9,
+      "peak": 0.8815,
+      "rms": 0.16217,
+      "phrases": [
+        {
+          "start": 0.085,
+          "duration": 1.73,
+          "rms": 0.20992
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.298,
+          "duration": 0.202,
+          "rms": 0.27478
+        },
+        {
+          "start": 0.508,
+          "duration": 0.202,
+          "rms": 0.34158
+        },
+        {
+          "start": 0.728,
+          "duration": 0.202,
+          "rms": 0.26632
+        },
+        {
+          "start": 1.048,
+          "duration": 0.202,
+          "rms": 0.21778
+        },
+        {
+          "start": 1.258,
+          "duration": 0.202,
+          "rms": 0.11898
+        },
+        {
+          "start": 1.448,
+          "duration": 0.202,
+          "rms": 0.07887
+        }
+      ]
+    },
+    {
+      "civ": "elfos",
+      "role": "worker",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "1052d608783023f41d8ed7e3ac3acf017ae0c9816484b1acf5cd59ace60dba09",
+      "file": "elfos/worker.mp3",
+      "source": "03_Elfos_de_Yldran/sabio.mp3",
+      "duration": 5.184,
+      "peak": 0.88205,
+      "rms": 0.17797,
+      "phrases": [
+        {
+          "start": 0.435,
+          "duration": 3.91,
+          "rms": 0.2018
+        }
+      ],
+      "steps": [
+        {
+          "start": 1.818,
+          "duration": 0.202,
+          "rms": 0.16654
+        },
+        {
+          "start": 2.488,
+          "duration": 0.202,
+          "rms": 0.2354
+        },
+        {
+          "start": 2.848,
+          "duration": 0.202,
+          "rms": 0.28771
+        },
+        {
+          "start": 3.058,
+          "duration": 0.202,
+          "rms": 0.24453
+        },
+        {
+          "start": 3.328,
+          "duration": 0.202,
+          "rms": 0.26001
+        },
+        {
+          "start": 3.558,
+          "duration": 0.202,
+          "rms": 0.29747
+        },
+        {
+          "start": 3.868,
+          "duration": 0.202,
+          "rms": 0.27193
+        },
+        {
+          "start": 4.088,
+          "duration": 0.202,
+          "rms": 0.24055
+        }
+      ]
+    },
+    {
+      "civ": "elfos",
+      "role": "melee",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "b6e99307071814a015ffebd4e99fc9abae27cc3705be776fbc6d067deed1e4c4",
+      "file": "elfos/melee.mp3",
+      "source": "03_Elfos_de_Yldran/espadachin_lunar.mp3",
+      "duration": 5.184,
+      "peak": 0.90738,
+      "rms": 0.17766,
+      "phrases": [
+        {
+          "start": 0.385,
+          "duration": 3.9,
+          "rms": 0.20379
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.768,
+          "duration": 0.202,
+          "rms": 0.14805
+        },
+        {
+          "start": 1.038,
+          "duration": 0.202,
+          "rms": 0.2453
+        },
+        {
+          "start": 1.268,
+          "duration": 0.202,
+          "rms": 0.30822
+        },
+        {
+          "start": 1.598,
+          "duration": 0.202,
+          "rms": 0.29161
+        },
+        {
+          "start": 1.788,
+          "duration": 0.202,
+          "rms": 0.24525
+        },
+        {
+          "start": 2.028,
+          "duration": 0.202,
+          "rms": 0.25347
+        },
+        {
+          "start": 2.288,
+          "duration": 0.202,
+          "rms": 0.2735
+        },
+        {
+          "start": 3.458,
+          "duration": 0.202,
+          "rms": 0.13682
+        }
+      ]
+    },
+    {
+      "civ": "elfos",
+      "role": "ranged",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "f1ac46d8b4cf2f251f2dcbea599ae81e8c33d265389f57a81a4895030c1979bb",
+      "file": "elfos/ranged.mp3",
+      "source": "03_Elfos_de_Yldran/arquera_del_viento.mp3",
+      "duration": 30.024,
+      "peak": 0.92219,
+      "rms": 0.21326,
+      "phrases": [
+        {
+          "start": 0.055,
+          "duration": 3.18,
+          "rms": 0.17525
+        },
+        {
+          "start": 3.235,
+          "duration": 3.32,
+          "rms": 0.26292
+        },
+        {
+          "start": 6.555,
+          "duration": 3.65,
+          "rms": 0.1129
+        },
+        {
+          "start": 11.835,
+          "duration": 3.15,
+          "rms": 0.2048
+        },
+        {
+          "start": 14.985,
+          "duration": 2.89,
+          "rms": 0.26941
+        },
+        {
+          "start": 17.875,
+          "duration": 3.92,
+          "rms": 0.27172
+        },
+        {
+          "start": 21.795,
+          "duration": 2.97,
+          "rms": 0.21208
+        },
+        {
+          "start": 24.765,
+          "duration": 4,
+          "rms": 0.23143
+        }
+      ],
+      "steps": [
+        {
+          "start": 3.478,
+          "duration": 0.202,
+          "rms": 0.21398
+        },
+        {
+          "start": 16.548,
+          "duration": 0.202,
+          "rms": 0.23968
+        },
+        {
+          "start": 18.398,
+          "duration": 0.202,
+          "rms": 0.28434
+        },
+        {
+          "start": 19.658,
+          "duration": 0.202,
+          "rms": 0.23257
+        },
+        {
+          "start": 19.978,
+          "duration": 0.202,
+          "rms": 0.30333
+        },
+        {
+          "start": 21.388,
+          "duration": 0.202,
+          "rms": 0.16246
+        },
+        {
+          "start": 25.448,
+          "duration": 0.202,
+          "rms": 0.34095
+        },
+        {
+          "start": 25.678,
+          "duration": 0.202,
+          "rms": 0.36509
+        }
+      ]
+    },
+    {
+      "civ": "elfos",
+      "role": "special",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "06c522302aeda02725bd80994030b9fbd4a8f2add8231ec47e2a0a55cc2fd2e0",
+      "file": "elfos/special.mp3",
+      "source": "03_Elfos_de_Yldran/druida.mp3",
+      "duration": 22.831,
+      "peak": 0.50009,
+      "rms": 0.10504,
+      "phrases": [
+        {
+          "start": 0.165,
+          "duration": 3.63,
+          "rms": 0.11167
+        },
+        {
+          "start": 3.795,
+          "duration": 2.76,
+          "rms": 0.10234
+        },
+        {
+          "start": 6.555,
+          "duration": 3.32,
+          "rms": 0.10755
+        },
+        {
+          "start": 9.875,
+          "duration": 3.97,
+          "rms": 0.11619
+        },
+        {
+          "start": 13.845,
+          "duration": 3.97,
+          "rms": 0.11761
+        },
+        {
+          "start": 17.815,
+          "duration": 3.14,
+          "rms": 0.09899
+        }
+      ],
+      "steps": [
+        {
+          "start": 4.488,
+          "duration": 0.202,
+          "rms": 0.11984
+        },
+        {
+          "start": 8.368,
+          "duration": 0.202,
+          "rms": 0.11536
+        },
+        {
+          "start": 8.988,
+          "duration": 0.202,
+          "rms": 0.10757
+        },
+        {
+          "start": 11.998,
+          "duration": 0.202,
+          "rms": 0.11696
+        },
+        {
+          "start": 13.178,
+          "duration": 0.202,
+          "rms": 0.12743
+        },
+        {
+          "start": 14.998,
+          "duration": 0.202,
+          "rms": 0.11509
+        },
+        {
+          "start": 15.328,
+          "duration": 0.202,
+          "rms": 0.10922
+        },
+        {
+          "start": 18.858,
+          "duration": 0.202,
+          "rms": 0.15752
+        }
+      ]
+    },
+    {
+      "civ": "elfos",
+      "role": "heavy",
+      "variant": 0,
+      "purpose": "effect",
+      "hash": "21b044ac71798d5b2ed31947b2eb726d93cf18fdbf7a8c3d4b6be1aff57036f2",
+      "file": "elfos/heavy.mp3",
+      "source": "03_Elfos_de_Yldran/guardian_arboreo.mp3",
+      "duration": 3.814,
+      "peak": 1.26566,
+      "rms": 0.36608,
+      "phrases": [
+        {
+          "start": 0.625,
+          "duration": 0.41,
+          "rms": 0.48082
+        },
+        {
+          "start": 3.375,
+          "duration": 0.4,
+          "rms": 0.50263
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.088,
+          "duration": 0.202,
+          "rms": 0.56751
+        },
+        {
+          "start": 0.648,
+          "duration": 0.202,
+          "rms": 0.65358
+        },
+        {
+          "start": 0.908,
+          "duration": 0.202,
+          "rms": 0.16692
+        },
+        {
+          "start": 1.468,
+          "duration": 0.202,
+          "rms": 0.55297
+        },
+        {
+          "start": 2.238,
+          "duration": 0.202,
+          "rms": 0.67943
+        },
+        {
+          "start": 2.468,
+          "duration": 0.202,
+          "rms": 0.07737
+        },
+        {
+          "start": 2.828,
+          "duration": 0.202,
+          "rms": 0.66634
+        },
+        {
+          "start": 3.398,
+          "duration": 0.202,
+          "rms": 0.68077
+        }
+      ]
+    },
+    {
+      "civ": "elfos",
+      "role": "heavy",
+      "variant": 1,
+      "purpose": "call",
+      "hash": "d912e75da60310c9800d8f9fc2243ba668c7fe886565b68c2cc3ea92afa0bccd",
+      "file": "elfos/heavy-2.mp3",
+      "source": "03_Elfos_de_Yldran/guardian_arboreo_1.mp3",
+      "duration": 11.442,
+      "peak": 0.66512,
+      "rms": 0.14069,
+      "phrases": [
+        {
+          "start": 0.785,
+          "duration": 3.65,
+          "rms": 0.16765
+        },
+        {
+          "start": 4.435,
+          "duration": 3.73,
+          "rms": 0.15926
+        },
+        {
+          "start": 8.165,
+          "duration": 1.55,
+          "rms": 0.1373
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.878,
+          "duration": 0.202,
+          "rms": 0.13142
+        },
+        {
+          "start": 2.928,
+          "duration": 0.202,
+          "rms": 0.19374
+        },
+        {
+          "start": 3.798,
+          "duration": 0.202,
+          "rms": 0.20452
+        },
+        {
+          "start": 6.988,
+          "duration": 0.202,
+          "rms": 0.18819
+        },
+        {
+          "start": 7.348,
+          "duration": 0.202,
+          "rms": 0.21768
+        },
+        {
+          "start": 7.588,
+          "duration": 0.202,
+          "rms": 0.19793
+        },
+        {
+          "start": 8.148,
+          "duration": 0.202,
+          "rms": 0.1952
+        },
+        {
+          "start": 8.428,
+          "duration": 0.202,
+          "rms": 0.16615
+        }
+      ]
+    },
+    {
+      "civ": "elfos",
+      "role": "elite",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "1dfaf820a784b5e12e73209ffdff062b197bb05d83292e7b611f244945d61320",
+      "file": "elfos/elite.mp3",
+      "source": "03_Elfos_de_Yldran/dragon_elfico.mp3",
+      "duration": 10.71,
+      "peak": 0.75013,
+      "rms": 0.11076,
+      "phrases": [
+        {
+          "start": 0.185,
+          "duration": 3.79,
+          "rms": 0.13535
+        },
+        {
+          "start": 3.975,
+          "duration": 3.65,
+          "rms": 0.11744
+        },
+        {
+          "start": 7.625,
+          "duration": 2.37,
+          "rms": 0.06981
+        }
+      ],
+      "steps": [
+        {
+          "start": 1.148,
+          "duration": 0.202,
+          "rms": 0.10989
+        },
+        {
+          "start": 1.368,
+          "duration": 0.202,
+          "rms": 0.16599
+        },
+        {
+          "start": 2.128,
+          "duration": 0.202,
+          "rms": 0.1467
+        },
+        {
+          "start": 2.698,
+          "duration": 0.202,
+          "rms": 0.16349
+        },
+        {
+          "start": 3.308,
+          "duration": 0.202,
+          "rms": 0.17042
+        },
+        {
+          "start": 3.558,
+          "duration": 0.202,
+          "rms": 0.16897
+        },
+        {
+          "start": 4.378,
+          "duration": 0.202,
+          "rms": 0.14782
+        },
+        {
+          "start": 5.558,
+          "duration": 0.202,
+          "rms": 0.1431
+        }
+      ]
+    },
+    {
+      "civ": "enanos",
+      "role": "worker",
+      "variant": 0,
+      "purpose": "foot",
+      "hash": "fc011155bc52fdc41b972d8eaefab2a4d987b2654bb4c6bbd1bcd62ba8e3585f",
+      "file": "enanos/worker.mp3",
+      "source": "04_Clanes_Enanos/minero.mp3",
+      "duration": 10.815,
+      "peak": 0.97379,
+      "rms": 0.04325,
+      "phrases": [
+        {
+          "start": 0.055,
+          "duration": 1.81,
+          "rms": 0.04205
+        },
+        {
+          "start": 2.105,
+          "duration": 1.95,
+          "rms": 0.04233
+        },
+        {
+          "start": 4.055,
+          "duration": 1.74,
+          "rms": 0.04705
+        },
+        {
+          "start": 5.795,
+          "duration": 1.81,
+          "rms": 0.03399
+        },
+        {
+          "start": 7.605,
+          "duration": 2.03,
+          "rms": 0.05052
+        },
+        {
+          "start": 9.635,
+          "duration": 1.15,
+          "rms": 0.04542
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.078,
+          "duration": 0.202,
+          "rms": 0.06078
+        },
+        {
+          "start": 0.938,
+          "duration": 0.202,
+          "rms": 0.03608
+        },
+        {
+          "start": 1.708,
+          "duration": 0.202,
+          "rms": 0.06752
+        },
+        {
+          "start": 2.298,
+          "duration": 0.202,
+          "rms": 0.08162
+        },
+        {
+          "start": 6.508,
+          "duration": 0.202,
+          "rms": 0.06222
+        },
+        {
+          "start": 7.638,
+          "duration": 0.202,
+          "rms": 0.06719
+        },
+        {
+          "start": 8.698,
+          "duration": 0.202,
+          "rms": 0.09381
+        },
+        {
+          "start": 9.588,
+          "duration": 0.202,
+          "rms": 0.05319
+        }
+      ]
+    },
+    {
+      "civ": "enanos",
+      "role": "worker",
+      "variant": 1,
+      "purpose": "call",
+      "hash": "5d5461248bd72fdab54927337437eef0605a47b348515e9676dc022547f579cb",
+      "file": "enanos/worker-2.mp3",
+      "source": "04_Clanes_Enanos/minero_1.mp3",
+      "duration": 1.464,
+      "peak": 0.64499,
+      "rms": 0.12011,
+      "phrases": [
+        {
+          "start": 0.195,
+          "duration": 1.01,
+          "rms": 0.14454
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.258,
+          "duration": 0.202,
+          "rms": 0.24037
+        },
+        {
+          "start": 0.568,
+          "duration": 0.202,
+          "rms": 0.10034
+        },
+        {
+          "start": 0.798,
+          "duration": 0.202,
+          "rms": 0.1039
+        }
+      ]
+    },
+    {
+      "civ": "enanos",
+      "role": "melee",
+      "variant": 0,
+      "purpose": "foot",
+      "hash": "e86ad16451b381b481701c19f804f3db4d723ee85c97387a540c5c1a065bc4d3",
+      "file": "enanos/melee.mp3",
+      "source": "04_Clanes_Enanos/guerrero_enano.mp3",
+      "duration": 25.8,
+      "peak": 0.96979,
+      "rms": 0.09312,
+      "phrases": [
+        {
+          "start": 0,
+          "duration": 2.1,
+          "rms": 0.0915
+        }
+      ],
+      "steps": [
+        {
+          "start": 2.758,
+          "duration": 0.202,
+          "rms": 0.13547
+        },
+        {
+          "start": 3.328,
+          "duration": 0.202,
+          "rms": 0.13962
+        },
+        {
+          "start": 15.298,
+          "duration": 0.202,
+          "rms": 0.14098
+        },
+        {
+          "start": 15.878,
+          "duration": 0.202,
+          "rms": 0.13458
+        },
+        {
+          "start": 18.118,
+          "duration": 0.202,
+          "rms": 0.14697
+        },
+        {
+          "start": 18.658,
+          "duration": 0.202,
+          "rms": 0.17252
+        },
+        {
+          "start": 19.208,
+          "duration": 0.202,
+          "rms": 0.1656
+        },
+        {
+          "start": 20.758,
+          "duration": 0.202,
+          "rms": 0.13791
+        }
+      ]
+    },
+    {
+      "civ": "enanos",
+      "role": "melee",
+      "variant": 1,
+      "purpose": "call",
+      "hash": "2acac2a25df05c58194476c32b3d1a7d3a694d8311c8e05dd200ac84b6e56765",
+      "file": "enanos/melee-2.mp3",
+      "source": "04_Clanes_Enanos/guerrero_enano_1.mp3",
+      "duration": 3.816,
+      "peak": 0.92496,
+      "rms": 0.10169,
+      "phrases": [
+        {
+          "start": 0.145,
+          "duration": 0.54,
+          "rms": 0.05814
+        },
+        {
+          "start": 1.495,
+          "duration": 0.92,
+          "rms": 0.1042
+        },
+        {
+          "start": 2.705,
+          "duration": 0.68,
+          "rms": 0.20114
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.158,
+          "duration": 0.202,
+          "rms": 0.07193
+        },
+        {
+          "start": 0.348,
+          "duration": 0.202,
+          "rms": 0.04713
+        },
+        {
+          "start": 1.678,
+          "duration": 0.202,
+          "rms": 0.12375
+        },
+        {
+          "start": 2.058,
+          "duration": 0.202,
+          "rms": 0.14884
+        },
+        {
+          "start": 2.868,
+          "duration": 0.202,
+          "rms": 0.22027
+        },
+        {
+          "start": 3.058,
+          "duration": 0.202,
+          "rms": 0.26228
+        }
+      ]
+    },
+    {
+      "civ": "enanos",
+      "role": "ranged",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "86c55ea78d3016081ffb2be7fa31dd84c518300274b2a598744c3b53d9c8b01f",
+      "file": "enanos/ranged.mp3",
+      "source": "04_Clanes_Enanos/arcabucero.mp3",
+      "duration": 4.336,
+      "peak": 0.95114,
+      "rms": 0.08575,
+      "phrases": [
+        {
+          "start": 0,
+          "duration": 2.1,
+          "rms": 0.08433
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.598,
+          "duration": 0.202,
+          "rms": 0.16434
+        },
+        {
+          "start": 1.128,
+          "duration": 0.202,
+          "rms": 0.15324
+        },
+        {
+          "start": 1.698,
+          "duration": 0.202,
+          "rms": 0.15173
+        },
+        {
+          "start": 2.238,
+          "duration": 0.202,
+          "rms": 0.1488
+        },
+        {
+          "start": 2.748,
+          "duration": 0.202,
+          "rms": 0.15483
+        },
+        {
+          "start": 3.288,
+          "duration": 0.202,
+          "rms": 0.14043
+        },
+        {
+          "start": 3.848,
+          "duration": 0.202,
+          "rms": 0.13408
+        }
+      ]
+    },
+    {
+      "civ": "enanos",
+      "role": "ranged",
+      "variant": 1,
+      "purpose": "call",
+      "hash": "334154436c0fae9f08b7230eff05ae09744a43bdbd738fded13785c4f1024cba",
+      "file": "enanos/ranged-2.mp3",
+      "source": "04_Clanes_Enanos/arcabucero_1.mp3",
+      "duration": 1.872,
+      "peak": 0.36611,
+      "rms": 0.05844,
+      "phrases": [
+        {
+          "start": 0.205,
+          "duration": 0.97,
+          "rms": 0.08118
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.238,
+          "duration": 0.202,
+          "rms": 0.11579
+        },
+        {
+          "start": 0.658,
+          "duration": 0.202,
+          "rms": 0.10253
+        }
+      ]
+    },
+    {
+      "civ": "enanos",
+      "role": "special",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "421d9c46214984bdbe02c4b246f698092f0046f3502b3b2912439fa2525f91b0",
+      "file": "enanos/special.mp3",
+      "source": "04_Clanes_Enanos/sacerdote_rúnico.mp3",
+      "duration": 4.153,
+      "peak": 0.35066,
+      "rms": 0.0288,
+      "phrases": [
+        {
+          "start": 0.625,
+          "duration": 0.43,
+          "rms": 0.05755
+        },
+        {
+          "start": 1.395,
+          "duration": 0.48,
+          "rms": 0.03488
+        },
+        {
+          "start": 2.005,
+          "duration": 1.07,
+          "rms": 0.02322
+        },
+        {
+          "start": 3.235,
+          "duration": 0.86,
+          "rms": 0.02585
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.108,
+          "duration": 0.202,
+          "rms": 0.03492
+        },
+        {
+          "start": 0.848,
+          "duration": 0.202,
+          "rms": 0.04409
+        },
+        {
+          "start": 1.428,
+          "duration": 0.202,
+          "rms": 0.04425
+        },
+        {
+          "start": 1.728,
+          "duration": 0.202,
+          "rms": 0.01936
+        },
+        {
+          "start": 2.108,
+          "duration": 0.202,
+          "rms": 0.03721
+        },
+        {
+          "start": 2.618,
+          "duration": 0.202,
+          "rms": 0.02927
+        },
+        {
+          "start": 3.288,
+          "duration": 0.202,
+          "rms": 0.02915
+        },
+        {
+          "start": 3.888,
+          "duration": 0.202,
+          "rms": 0.03649
+        }
+      ]
+    },
+    {
+      "civ": "enanos",
+      "role": "special",
+      "variant": 1,
+      "purpose": "call",
+      "hash": "012ef08c71a5ab8b1f815a25ac5358fa697c05f8f36cc4a0ecb56af24b903e53",
+      "file": "enanos/special-2.mp3",
+      "source": "04_Clanes_Enanos/sacerdote_rúnico_1.mp3",
+      "duration": 22.224,
+      "peak": 0.38623,
+      "rms": 0.0151,
+      "phrases": [
+        {
+          "start": 1.225,
+          "duration": 1.63,
+          "rms": 0.02811
+        },
+        {
+          "start": 2.855,
+          "duration": 1.51,
+          "rms": 0.01913
+        },
+        {
+          "start": 4.705,
+          "duration": 0.56,
+          "rms": 0.01467
+        },
+        {
+          "start": 5.985,
+          "duration": 1.96,
+          "rms": 0.02063
+        },
+        {
+          "start": 7.945,
+          "duration": 1.09,
+          "rms": 0.01495
+        },
+        {
+          "start": 9.165,
+          "duration": 1.89,
+          "rms": 0.01855
+        },
+        {
+          "start": 11.425,
+          "duration": 1.47,
+          "rms": 0.01741
+        },
+        {
+          "start": 12.895,
+          "duration": 2.05,
+          "rms": 0.0191
+        }
+      ],
+      "steps": [
+        {
+          "start": 2.328,
+          "duration": 0.202,
+          "rms": 0.07168
+        },
+        {
+          "start": 5.088,
+          "duration": 0.202,
+          "rms": 0.01479
+        },
+        {
+          "start": 6.068,
+          "duration": 0.202,
+          "rms": 0.03535
+        },
+        {
+          "start": 9.238,
+          "duration": 0.202,
+          "rms": 0.02258
+        },
+        {
+          "start": 9.778,
+          "duration": 0.202,
+          "rms": 0.01442
+        },
+        {
+          "start": 12.228,
+          "duration": 0.202,
+          "rms": 0.02511
+        },
+        {
+          "start": 12.918,
+          "duration": 0.202,
+          "rms": 0.02449
+        },
+        {
+          "start": 14.268,
+          "duration": 0.202,
+          "rms": 0.01635
+        }
+      ]
+    },
+    {
+      "civ": "enanos",
+      "role": "heavy",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "b16a4c5a398226ff581467ef8358415d4c7eab67e24399856a79e6ee38d3c9cf",
+      "file": "enanos/heavy.mp3",
+      "source": "04_Clanes_Enanos/cañon_de_asedio.mp3",
+      "duration": 61.392,
+      "peak": 0.92249,
+      "rms": 0.07686,
+      "phrases": [
+        {
+          "start": 0.015,
+          "duration": 1.6,
+          "rms": 0.08532
+        },
+        {
+          "start": 1.615,
+          "duration": 1.97,
+          "rms": 0.08424
+        },
+        {
+          "start": 3.585,
+          "duration": 1.46,
+          "rms": 0.07413
+        },
+        {
+          "start": 5.045,
+          "duration": 1.8,
+          "rms": 0.06169
+        },
+        {
+          "start": 6.845,
+          "duration": 1.74,
+          "rms": 0.04911
+        },
+        {
+          "start": 8.585,
+          "duration": 1.85,
+          "rms": 0.0796
+        },
+        {
+          "start": 10.435,
+          "duration": 1.88,
+          "rms": 0.05971
+        },
+        {
+          "start": 12.315,
+          "duration": 1.81,
+          "rms": 0.06185
+        },
+        {
+          "start": 14.125,
+          "duration": 1.91,
+          "rms": 0.07396
+        },
+        {
+          "start": 16.035,
+          "duration": 1.96,
+          "rms": 0.09463
+        },
+        {
+          "start": 17.995,
+          "duration": 2.01,
+          "rms": 0.084
+        },
+        {
+          "start": 20.005,
+          "duration": 1.89,
+          "rms": 0.09129
+        }
+      ],
+      "steps": [
+        {
+          "start": 1.478,
+          "duration": 0.202,
+          "rms": 0.09088
+        },
+        {
+          "start": 15.958,
+          "duration": 0.202,
+          "rms": 0.15194
+        },
+        {
+          "start": 24.228,
+          "duration": 0.202,
+          "rms": 0.09595
+        },
+        {
+          "start": 29.108,
+          "duration": 0.202,
+          "rms": 0.12131
+        },
+        {
+          "start": 43.228,
+          "duration": 0.202,
+          "rms": 0.09139
+        },
+        {
+          "start": 48.108,
+          "duration": 0.202,
+          "rms": 0.11683
+        },
+        {
+          "start": 53.948,
+          "duration": 0.202,
+          "rms": 0.14679
+        },
+        {
+          "start": 55.458,
+          "duration": 0.202,
+          "rms": 0.13619
+        }
+      ]
+    },
+    {
+      "civ": "enanos",
+      "role": "elite",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "21c9f35b694fd40b4fcccd6b7db8878c77d2286a7fb64179e89bac1835c5e759",
+      "file": "enanos/elite.mp3",
+      "source": "04_Clanes_Enanos/golem_de_acero.mp3",
+      "duration": 0.549,
+      "peak": 0.91035,
+      "rms": 0.15181,
+      "phrases": [
+        {
+          "start": 0.045,
+          "duration": 0.35,
+          "rms": 0.18999
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.058,
+          "duration": 0.202,
+          "rms": 0.24404
+        },
+        {
+          "start": 0.258,
+          "duration": 0.202,
+          "rms": 0.05535
+        }
+      ]
+    },
+    {
+      "civ": "enanos",
+      "role": "elite",
+      "variant": 1,
+      "purpose": "call",
+      "hash": "3ebcb3475832bd1fc79ae7551de0cc7b2efe08abf5a91ec4878a250745e3696e",
+      "file": "enanos/elite-2.mp3",
+      "source": "04_Clanes_Enanos/golem_de_acero_1.mp3",
+      "duration": 1.437,
+      "peak": 0.52251,
+      "rms": 0.08652,
+      "phrases": [
+        {
+          "start": 0.015,
+          "duration": 1.16,
+          "rms": 0.09626
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.058,
+          "duration": 0.202,
+          "rms": 0.12439
+        },
+        {
+          "start": 0.348,
+          "duration": 0.202,
+          "rms": 0.14109
+        },
+        {
+          "start": 0.648,
+          "duration": 0.202,
+          "rms": 0.08519
+        },
+        {
+          "start": 0.898,
+          "duration": 0.202,
+          "rms": 0.04019
+        },
+        {
+          "start": 1.128,
+          "duration": 0.202,
+          "rms": 0.01246
+        }
+      ]
+    },
+    {
+      "civ": "nomuerta",
+      "role": "worker",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "7ea4ea5e86a2ce18e861a73a87fee6981a8e970c3d5bfc57b1328b923095634e",
+      "file": "nomuerta/worker.mp3",
+      "source": "05_Legion_No_Muerta/acolito.mp3",
+      "duration": 1.824,
+      "peak": 0.88607,
+      "rms": 0.09908,
+      "phrases": [
+        {
+          "start": 0.125,
+          "duration": 1.55,
+          "rms": 0.10745
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.238,
+          "duration": 0.202,
+          "rms": 0.19923
+        },
+        {
+          "start": 0.528,
+          "duration": 0.202,
+          "rms": 0.07324
+        },
+        {
+          "start": 0.828,
+          "duration": 0.202,
+          "rms": 0.06146
+        },
+        {
+          "start": 1.138,
+          "duration": 0.202,
+          "rms": 0.12425
+        }
+      ]
+    },
+    {
+      "civ": "nomuerta",
+      "role": "melee",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "12dde225e43912a4ad825be293e1bac38bc416721c7527950da88dfd5e064cb2",
+      "file": "nomuerta/melee.mp3",
+      "source": "05_Legion_No_Muerta/esqueleto_guerrero.mp3",
+      "duration": 10.188,
+      "peak": 0.74964,
+      "rms": 0.06128,
+      "phrases": [
+        {
+          "start": 0.865,
+          "duration": 1.65,
+          "rms": 0.08968
+        },
+        {
+          "start": 2.515,
+          "duration": 1.72,
+          "rms": 0.07515
+        },
+        {
+          "start": 4.795,
+          "duration": 1.64,
+          "rms": 0.06862
+        },
+        {
+          "start": 8.265,
+          "duration": 1.64,
+          "rms": 0.06688
+        }
+      ],
+      "steps": [
+        {
+          "start": 1.218,
+          "duration": 0.202,
+          "rms": 0.07986
+        },
+        {
+          "start": 1.418,
+          "duration": 0.202,
+          "rms": 0.17545
+        },
+        {
+          "start": 1.788,
+          "duration": 0.202,
+          "rms": 0.07503
+        },
+        {
+          "start": 2.038,
+          "duration": 0.202,
+          "rms": 0.09556
+        },
+        {
+          "start": 3.168,
+          "duration": 0.202,
+          "rms": 0.10805
+        },
+        {
+          "start": 4.118,
+          "duration": 0.202,
+          "rms": 0.04635
+        },
+        {
+          "start": 5.218,
+          "duration": 0.202,
+          "rms": 0.10687
+        },
+        {
+          "start": 9.418,
+          "duration": 0.202,
+          "rms": 0.13466
+        }
+      ]
+    },
+    {
+      "civ": "nomuerta",
+      "role": "ranged",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "4ce0cd6d104c7db80ee30e8d85669ac79e0091d7e7c1aa1cd8fa595d848f582a",
+      "file": "nomuerta/ranged.mp3",
+      "source": "05_Legion_No_Muerta/banshee.mp3",
+      "duration": 16.176,
+      "peak": 0.42097,
+      "rms": 0.02771,
+      "phrases": [
+        {
+          "start": 0.095,
+          "duration": 2.1,
+          "rms": 0.03448
+        },
+        {
+          "start": 2.195,
+          "duration": 1.96,
+          "rms": 0.02814
+        },
+        {
+          "start": 4.155,
+          "duration": 1.5,
+          "rms": 0.02509
+        },
+        {
+          "start": 5.655,
+          "duration": 1.58,
+          "rms": 0.02841
+        },
+        {
+          "start": 7.235,
+          "duration": 2.01,
+          "rms": 0.02326
+        },
+        {
+          "start": 9.245,
+          "duration": 1.48,
+          "rms": 0.0131
+        },
+        {
+          "start": 10.725,
+          "duration": 1.59,
+          "rms": 0.0175
+        },
+        {
+          "start": 12.315,
+          "duration": 2.01,
+          "rms": 0.03704
+        },
+        {
+          "start": 14.325,
+          "duration": 1.83,
+          "rms": 0.0292
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.788,
+          "duration": 0.202,
+          "rms": 0.05909
+        },
+        {
+          "start": 3.118,
+          "duration": 0.202,
+          "rms": 0.0231
+        },
+        {
+          "start": 4.178,
+          "duration": 0.202,
+          "rms": 0.03879
+        },
+        {
+          "start": 10.748,
+          "duration": 0.202,
+          "rms": 0.0198
+        },
+        {
+          "start": 12.908,
+          "duration": 0.202,
+          "rms": 0.05244
+        },
+        {
+          "start": 13.878,
+          "duration": 0.202,
+          "rms": 0.0369
+        },
+        {
+          "start": 14.508,
+          "duration": 0.202,
+          "rms": 0.02364
+        },
+        {
+          "start": 15.068,
+          "duration": 0.202,
+          "rms": 0.01676
+        }
+      ]
+    },
+    {
+      "civ": "nomuerta",
+      "role": "special",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "52f7a05ef32399ab47780de06629306081cb342d2adcdc7d6eaefecd5a64856e",
+      "file": "nomuerta/special.mp3",
+      "source": "05_Legion_No_Muerta/nigromante.mp3",
+      "duration": 10.475,
+      "peak": 1.02858,
+      "rms": 0.13041,
+      "phrases": [
+        {
+          "start": 0.145,
+          "duration": 1.65,
+          "rms": 0.11147
+        },
+        {
+          "start": 2.265,
+          "duration": 1.56,
+          "rms": 0.12681
+        },
+        {
+          "start": 3.825,
+          "duration": 0.84,
+          "rms": 0.14638
+        },
+        {
+          "start": 4.985,
+          "duration": 1.88,
+          "rms": 0.18864
+        },
+        {
+          "start": 6.865,
+          "duration": 1.65,
+          "rms": 0.16907
+        }
+      ],
+      "steps": [
+        {
+          "start": 3.478,
+          "duration": 0.202,
+          "rms": 0.20271
+        },
+        {
+          "start": 4.258,
+          "duration": 0.202,
+          "rms": 0.17926
+        },
+        {
+          "start": 6.078,
+          "duration": 0.202,
+          "rms": 0.14877
+        },
+        {
+          "start": 6.318,
+          "duration": 0.202,
+          "rms": 0.23181
+        },
+        {
+          "start": 6.508,
+          "duration": 0.202,
+          "rms": 0.28273
+        },
+        {
+          "start": 6.848,
+          "duration": 0.202,
+          "rms": 0.19354
+        },
+        {
+          "start": 7.418,
+          "duration": 0.202,
+          "rms": 0.22345
+        },
+        {
+          "start": 8.328,
+          "duration": 0.202,
+          "rms": 0.15711
+        }
+      ]
+    },
+    {
+      "civ": "nomuerta",
+      "role": "heavy",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "9c81427103b749bb9c5013ec77098dad67619252a0671a4b4a512f58163bd5d0",
+      "file": "nomuerta/heavy.mp3",
+      "source": "05_Legion_No_Muerta/abominacion.mp3",
+      "duration": 1.593,
+      "peak": 0.9493,
+      "rms": 0.22104,
+      "phrases": [
+        {
+          "start": 0.075,
+          "duration": 1.17,
+          "rms": 0.25794
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.138,
+          "duration": 0.202,
+          "rms": 0.30357
+        },
+        {
+          "start": 0.418,
+          "duration": 0.202,
+          "rms": 0.36617
+        },
+        {
+          "start": 0.708,
+          "duration": 0.202,
+          "rms": 0.22533
+        },
+        {
+          "start": 0.948,
+          "duration": 0.202,
+          "rms": 0.0754
+        }
+      ]
+    },
+    {
+      "civ": "nomuerta",
+      "role": "elite",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "fc31f46f56503766074809823de6489b89cefb66b6b1b2c4ff77c10dcd1ca8fe",
+      "file": "nomuerta/elite.mp3",
+      "source": "05_Legion_No_Muerta/dragon_espectral.mp3",
+      "duration": 8.098,
+      "peak": 1.0052,
+      "rms": 0.14969,
+      "phrases": [
+        {
+          "start": 0.105,
+          "duration": 2.07,
+          "rms": 0.25356
+        },
+        {
+          "start": 2.175,
+          "duration": 2.07,
+          "rms": 0.15229
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.128,
+          "duration": 0.202,
+          "rms": 0.17861
+        },
+        {
+          "start": 0.378,
+          "duration": 0.202,
+          "rms": 0.23055
+        },
+        {
+          "start": 0.638,
+          "duration": 0.202,
+          "rms": 0.25445
+        },
+        {
+          "start": 1.518,
+          "duration": 0.202,
+          "rms": 0.28067
+        },
+        {
+          "start": 1.948,
+          "duration": 0.202,
+          "rms": 0.26399
+        },
+        {
+          "start": 2.418,
+          "duration": 0.202,
+          "rms": 0.20259
+        },
+        {
+          "start": 2.748,
+          "duration": 0.202,
+          "rms": 0.16387
+        },
+        {
+          "start": 3.688,
+          "duration": 0.202,
+          "rms": 0.09767
+        }
+      ]
+    },
+    {
+      "civ": "sauriano",
+      "role": "worker",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "739038c345960b146555baab5a728b55729a63c0243d82b34433c73bedec7286",
+      "file": "sauriano/worker.mp3",
+      "source": "06_Imperio_Sauriano/saurling.mp3",
+      "duration": 2.232,
+      "peak": 0.74358,
+      "rms": 0.06489,
+      "phrases": [
+        {
+          "start": 0.375,
+          "duration": 1.03,
+          "rms": 0.09519
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.548,
+          "duration": 0.202,
+          "rms": 0.09744
+        },
+        {
+          "start": 0.918,
+          "duration": 0.202,
+          "rms": 0.11998
+        },
+        {
+          "start": 1.118,
+          "duration": 0.202,
+          "rms": 0.04756
+        }
+      ]
+    },
+    {
+      "civ": "sauriano",
+      "role": "melee",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "c658b27944aea56e96c30963d69ed9be2f009b4e7e579ca1e6a27787180b2c2c",
+      "file": "sauriano/melee.mp3",
+      "source": "06_Imperio_Sauriano/guerrero_saurino.mp3",
+      "duration": 3.72,
+      "peak": 1.00297,
+      "rms": 0.29524,
+      "phrases": [
+        {
+          "start": 0.175,
+          "duration": 2.11,
+          "rms": 0.39137
+        },
+        {
+          "start": 2.285,
+          "duration": 0.47,
+          "rms": 0.04442
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.308,
+          "duration": 0.202,
+          "rms": 0.51237
+        },
+        {
+          "start": 0.668,
+          "duration": 0.202,
+          "rms": 0.45302
+        },
+        {
+          "start": 0.938,
+          "duration": 0.202,
+          "rms": 0.39137
+        },
+        {
+          "start": 1.198,
+          "duration": 0.202,
+          "rms": 0.49755
+        },
+        {
+          "start": 1.448,
+          "duration": 0.202,
+          "rms": 0.47798
+        },
+        {
+          "start": 1.838,
+          "duration": 0.202,
+          "rms": 0.28305
+        },
+        {
+          "start": 2.068,
+          "duration": 0.202,
+          "rms": 0.07777
+        },
+        {
+          "start": 2.498,
+          "duration": 0.202,
+          "rms": 0.04075
+        }
+      ]
+    },
+    {
+      "civ": "sauriano",
+      "role": "ranged",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "f662b650c976d01852e9bf81dda4058c2405c08401b181ffd29e0bbe99059240",
+      "file": "sauriano/ranged.mp3",
+      "source": "06_Imperio_Sauriano/cazador_acechador.mp3",
+      "duration": 3.709,
+      "peak": 0.88286,
+      "rms": 0.20004,
+      "phrases": [
+        {
+          "start": 0.135,
+          "duration": 1.86,
+          "rms": 0.23377
+        },
+        {
+          "start": 1.995,
+          "duration": 1.41,
+          "rms": 0.18212
+        }
+      ],
+      "steps": [
+        {
+          "start": 1.038,
+          "duration": 0.202,
+          "rms": 0.24805
+        },
+        {
+          "start": 1.238,
+          "duration": 0.202,
+          "rms": 0.25035
+        },
+        {
+          "start": 1.528,
+          "duration": 0.202,
+          "rms": 0.27648
+        },
+        {
+          "start": 1.768,
+          "duration": 0.202,
+          "rms": 0.28263
+        },
+        {
+          "start": 2.178,
+          "duration": 0.202,
+          "rms": 0.20642
+        },
+        {
+          "start": 2.578,
+          "duration": 0.202,
+          "rms": 0.19268
+        },
+        {
+          "start": 2.778,
+          "duration": 0.202,
+          "rms": 0.151
+        },
+        {
+          "start": 2.968,
+          "duration": 0.202,
+          "rms": 0.10192
+        }
+      ]
+    },
+    {
+      "civ": "sauriano",
+      "role": "special",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "95dd3bd93ca2afaa47958d1af990ec598909ca93f3fa95591fffe3c688cb6a84",
+      "file": "sauriano/special.mp3",
+      "source": "06_Imperio_Sauriano/chaman_saurino.mp3",
+      "duration": 1.541,
+      "peak": 0.88276,
+      "rms": 0.17395,
+      "phrases": [
+        {
+          "start": 0.195,
+          "duration": 1.24,
+          "rms": 0.19392
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.358,
+          "duration": 0.202,
+          "rms": 0.21804
+        },
+        {
+          "start": 0.608,
+          "duration": 0.202,
+          "rms": 0.20509
+        },
+        {
+          "start": 0.818,
+          "duration": 0.202,
+          "rms": 0.21293
+        },
+        {
+          "start": 1.028,
+          "duration": 0.202,
+          "rms": 0.20386
+        },
+        {
+          "start": 1.218,
+          "duration": 0.202,
+          "rms": 0.12881
+        }
+      ]
+    },
+    {
+      "civ": "sauriano",
+      "role": "heavy",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "c658b27944aea56e96c30963d69ed9be2f009b4e7e579ca1e6a27787180b2c2c",
+      "file": "sauriano/heavy.mp3",
+      "source": "06_Imperio_Sauriano/triceratops_de_asalto.mp3",
+      "duration": 3.72,
+      "peak": 1.00297,
+      "rms": 0.29524,
+      "phrases": [
+        {
+          "start": 0.175,
+          "duration": 2.11,
+          "rms": 0.39137
+        },
+        {
+          "start": 2.285,
+          "duration": 0.47,
+          "rms": 0.04442
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.308,
+          "duration": 0.202,
+          "rms": 0.51237
+        },
+        {
+          "start": 0.668,
+          "duration": 0.202,
+          "rms": 0.45302
+        },
+        {
+          "start": 0.938,
+          "duration": 0.202,
+          "rms": 0.39137
+        },
+        {
+          "start": 1.198,
+          "duration": 0.202,
+          "rms": 0.49755
+        },
+        {
+          "start": 1.448,
+          "duration": 0.202,
+          "rms": 0.47798
+        },
+        {
+          "start": 1.838,
+          "duration": 0.202,
+          "rms": 0.28305
+        },
+        {
+          "start": 2.068,
+          "duration": 0.202,
+          "rms": 0.07777
+        },
+        {
+          "start": 2.498,
+          "duration": 0.202,
+          "rms": 0.04075
+        }
+      ]
+    },
+    {
+      "civ": "sauriano",
+      "role": "elite",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "8c7647656548f51d5ce6d72b5fb7e7fdaaedcab32a4697b5c7f2a54dc9cb74f2",
+      "file": "sauriano/elite.mp3",
+      "source": "06_Imperio_Sauriano/t-rex_primordial.mp3",
+      "duration": 14.04,
+      "peak": 0.93613,
+      "rms": 0.21591,
+      "phrases": [
+        {
+          "start": 1.215,
+          "duration": 1.47,
+          "rms": 0.23933
+        },
+        {
+          "start": 2.685,
+          "duration": 2.04,
+          "rms": 0.23737
+        },
+        {
+          "start": 4.725,
+          "duration": 1.9,
+          "rms": 0.19893
+        },
+        {
+          "start": 6.625,
+          "duration": 0.92,
+          "rms": 0.18365
+        },
+        {
+          "start": 8.205,
+          "duration": 1.77,
+          "rms": 0.2756
+        },
+        {
+          "start": 9.975,
+          "duration": 2.11,
+          "rms": 0.27046
+        },
+        {
+          "start": 12.085,
+          "duration": 1.53,
+          "rms": 0.19806
+        }
+      ],
+      "steps": [
+        {
+          "start": 1.558,
+          "duration": 0.202,
+          "rms": 0.38868
+        },
+        {
+          "start": 8.298,
+          "duration": 0.202,
+          "rms": 0.26896
+        },
+        {
+          "start": 9.098,
+          "duration": 0.202,
+          "rms": 0.2999
+        },
+        {
+          "start": 10.358,
+          "duration": 0.202,
+          "rms": 0.25489
+        },
+        {
+          "start": 10.548,
+          "duration": 0.202,
+          "rms": 0.29696
+        },
+        {
+          "start": 11.758,
+          "duration": 0.202,
+          "rms": 0.24976
+        },
+        {
+          "start": 11.948,
+          "duration": 0.202,
+          "rms": 0.24858
+        },
+        {
+          "start": 12.638,
+          "duration": 0.202,
+          "rms": 0.28574
+        }
+      ]
+    },
+    {
+      "civ": "infernal",
+      "role": "worker",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "81e41186d43e51e21b2ac86f39c102003dddf90f53c598472d591309006de1f1",
+      "file": "infernal/worker.mp3",
+      "source": "07_Legion_Infernal/diablillo.mp3",
+      "duration": 2.377,
+      "peak": 0.47774,
+      "rms": 0.05506,
+      "phrases": [
+        {
+          "start": 0.005,
+          "duration": 2.07,
+          "rms": 0.059
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.118,
+          "duration": 0.202,
+          "rms": 0.11022
+        },
+        {
+          "start": 0.378,
+          "duration": 0.202,
+          "rms": 0.07668
+        },
+        {
+          "start": 0.728,
+          "duration": 0.202,
+          "rms": 0.06335
+        },
+        {
+          "start": 0.958,
+          "duration": 0.202,
+          "rms": 0.05477
+        },
+        {
+          "start": 1.148,
+          "duration": 0.202,
+          "rms": 0.03693
+        },
+        {
+          "start": 1.518,
+          "duration": 0.202,
+          "rms": 0.03216
+        },
+        {
+          "start": 1.838,
+          "duration": 0.202,
+          "rms": 0.01594
+        }
+      ]
+    },
+    {
+      "civ": "infernal",
+      "role": "melee",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "5331a1bd8bc2454a242a1034241a1a336a9a7fc464aae97d579aaba5eedcdcd5",
+      "file": "infernal/melee.mp3",
+      "source": "07_Legion_Infernal/legionario_infernal.mp3",
+      "duration": 10.92,
+      "peak": 0.83413,
+      "rms": 0.11816,
+      "phrases": [
+        {
+          "start": 0,
+          "duration": 1.985,
+          "rms": 0.16207
+        },
+        {
+          "start": 1.985,
+          "duration": 1.56,
+          "rms": 0.1648
+        },
+        {
+          "start": 3.545,
+          "duration": 1.94,
+          "rms": 0.15667
+        },
+        {
+          "start": 5.485,
+          "duration": 1.83,
+          "rms": 0.07433
+        },
+        {
+          "start": 7.315,
+          "duration": 0.47,
+          "rms": 0.01683
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.018,
+          "duration": 0.202,
+          "rms": 0.15001
+        },
+        {
+          "start": 2.248,
+          "duration": 0.202,
+          "rms": 0.16765
+        },
+        {
+          "start": 3.788,
+          "duration": 0.202,
+          "rms": 0.15964
+        },
+        {
+          "start": 4.108,
+          "duration": 0.202,
+          "rms": 0.17204
+        },
+        {
+          "start": 4.758,
+          "duration": 0.202,
+          "rms": 0.16417
+        },
+        {
+          "start": 4.968,
+          "duration": 0.202,
+          "rms": 0.15217
+        },
+        {
+          "start": 5.248,
+          "duration": 0.202,
+          "rms": 0.14326
+        },
+        {
+          "start": 5.468,
+          "duration": 0.202,
+          "rms": 0.12897
+        }
+      ]
+    },
+    {
+      "civ": "infernal",
+      "role": "ranged",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "b906763376597ce59a5187de4a47ed99df4428e7ac5e67de801589d2b7a0efca",
+      "file": "infernal/ranged.mp3",
+      "source": "07_Legion_Infernal/hechicero_infernal.mp3",
+      "duration": 6.818,
+      "peak": 0.94551,
+      "rms": 0.09312,
+      "phrases": [
+        {
+          "start": 0.085,
+          "duration": 1.28,
+          "rms": 0.06862
+        },
+        {
+          "start": 2.015,
+          "duration": 1.48,
+          "rms": 0.09429
+        },
+        {
+          "start": 3.495,
+          "duration": 2.1,
+          "rms": 0.13687
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.418,
+          "duration": 0.202,
+          "rms": 0.06706
+        },
+        {
+          "start": 2.198,
+          "duration": 0.202,
+          "rms": 0.11173
+        },
+        {
+          "start": 2.468,
+          "duration": 0.202,
+          "rms": 0.10091
+        },
+        {
+          "start": 3.098,
+          "duration": 0.202,
+          "rms": 0.10972
+        },
+        {
+          "start": 3.578,
+          "duration": 0.202,
+          "rms": 0.14502
+        },
+        {
+          "start": 4.558,
+          "duration": 0.202,
+          "rms": 0.14271
+        },
+        {
+          "start": 4.858,
+          "duration": 0.202,
+          "rms": 0.18975
+        },
+        {
+          "start": 5.068,
+          "duration": 0.202,
+          "rms": 0.18436
+        }
+      ]
+    },
+    {
+      "civ": "infernal",
+      "role": "special",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "fb196fcd5b4be7e393cd7b8c321030fbc30792528059928c56861506491ad4e6",
+      "file": "infernal/special.mp3",
+      "source": "07_Legion_Infernal/sucubo.mp3",
+      "duration": 4.872,
+      "peak": 0.74788,
+      "rms": 0.06929,
+      "phrases": [
+        {
+          "start": 0.575,
+          "duration": 2.02,
+          "rms": 0.10515
+        },
+        {
+          "start": 2.595,
+          "duration": 0.84,
+          "rms": 0.03436
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.898,
+          "duration": 0.202,
+          "rms": 0.04608
+        },
+        {
+          "start": 1.208,
+          "duration": 0.202,
+          "rms": 0.08977
+        },
+        {
+          "start": 1.528,
+          "duration": 0.202,
+          "rms": 0.17594
+        },
+        {
+          "start": 1.718,
+          "duration": 0.202,
+          "rms": 0.11056
+        },
+        {
+          "start": 1.928,
+          "duration": 0.202,
+          "rms": 0.15807
+        },
+        {
+          "start": 2.168,
+          "duration": 0.202,
+          "rms": 0.0945
+        },
+        {
+          "start": 2.488,
+          "duration": 0.202,
+          "rms": 0.05801
+        },
+        {
+          "start": 3.008,
+          "duration": 0.202,
+          "rms": 0.03038
+        }
+      ]
+    },
+    {
+      "civ": "infernal",
+      "role": "heavy",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "c0efdba479f0694f59fd5725f95b8cce5180e65d1867985fac8d4f57b8bde74d",
+      "file": "infernal/heavy.mp3",
+      "source": "07_Legion_Infernal/bruto_del_caos.mp3",
+      "duration": 8.098,
+      "peak": 0.91104,
+      "rms": 0.10999,
+      "phrases": [
+        {
+          "start": 0.925,
+          "duration": 2.11,
+          "rms": 0.21538
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.988,
+          "duration": 0.202,
+          "rms": 0.26315
+        },
+        {
+          "start": 1.188,
+          "duration": 0.202,
+          "rms": 0.26465
+        },
+        {
+          "start": 1.408,
+          "duration": 0.202,
+          "rms": 0.3067
+        },
+        {
+          "start": 1.728,
+          "duration": 0.202,
+          "rms": 0.26011
+        },
+        {
+          "start": 2.028,
+          "duration": 0.202,
+          "rms": 0.20035
+        },
+        {
+          "start": 2.238,
+          "duration": 0.202,
+          "rms": 0.18683
+        },
+        {
+          "start": 2.448,
+          "duration": 0.202,
+          "rms": 0.1659
+        },
+        {
+          "start": 2.708,
+          "duration": 0.202,
+          "rms": 0.08983
+        }
+      ]
+    },
+    {
+      "civ": "infernal",
+      "role": "elite",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "45406ed4b506fb7f018f261d1cf5e792803ddee54bf3d4c025ed8ece99057842",
+      "file": "infernal/elite.mp3",
+      "source": "07_Legion_Infernal/señor_infernal.mp3",
+      "duration": 5.46,
+      "peak": 0.28136,
+      "rms": 0.03785,
+      "phrases": [
+        {
+          "start": 0.395,
+          "duration": 2.08,
+          "rms": 0.04886
+        },
+        {
+          "start": 2.845,
+          "duration": 1.58,
+          "rms": 0.04026
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.688,
+          "duration": 0.202,
+          "rms": 0.09406
+        },
+        {
+          "start": 1.728,
+          "duration": 0.202,
+          "rms": 0.05736
+        },
+        {
+          "start": 2.168,
+          "duration": 0.202,
+          "rms": 0.05391
+        },
+        {
+          "start": 2.618,
+          "duration": 0.202,
+          "rms": 0.02264
+        },
+        {
+          "start": 2.948,
+          "duration": 0.202,
+          "rms": 0.03719
+        },
+        {
+          "start": 3.388,
+          "duration": 0.202,
+          "rms": 0.05969
+        },
+        {
+          "start": 3.628,
+          "duration": 0.202,
+          "rms": 0.05445
+        },
+        {
+          "start": 3.828,
+          "duration": 0.202,
+          "rms": 0.04807
+        }
+      ]
+    },
+    {
+      "civ": "abisal",
+      "role": "worker",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "09a64f9d97d8f491296a34630956c3ba6d679ec9ea7b69e816ad7dea98972eb1",
+      "file": "abisal/worker.mp3",
+      "source": "08_Dominio_Abisal/siervo_abisal.mp3",
+      "duration": 22.073,
+      "peak": 0.46963,
+      "rms": 0.05213,
+      "phrases": [
+        {
+          "start": 0.085,
+          "duration": 1.84,
+          "rms": 0.0423
+        },
+        {
+          "start": 1.925,
+          "duration": 2.04,
+          "rms": 0.05723
+        },
+        {
+          "start": 3.965,
+          "duration": 1.76,
+          "rms": 0.04306
+        },
+        {
+          "start": 5.725,
+          "duration": 2.09,
+          "rms": 0.0516
+        },
+        {
+          "start": 7.815,
+          "duration": 1.68,
+          "rms": 0.04996
+        },
+        {
+          "start": 9.495,
+          "duration": 1.87,
+          "rms": 0.05109
+        },
+        {
+          "start": 11.365,
+          "duration": 1.97,
+          "rms": 0.05055
+        },
+        {
+          "start": 13.335,
+          "duration": 1.45,
+          "rms": 0.0518
+        },
+        {
+          "start": 14.785,
+          "duration": 1.92,
+          "rms": 0.0592
+        },
+        {
+          "start": 16.705,
+          "duration": 1.97,
+          "rms": 0.0553
+        },
+        {
+          "start": 18.675,
+          "duration": 1.99,
+          "rms": 0.05948
+        },
+        {
+          "start": 20.665,
+          "duration": 1.24,
+          "rms": 0.0522
+        }
+      ],
+      "steps": [
+        {
+          "start": 2.998,
+          "duration": 0.202,
+          "rms": 0.05101
+        },
+        {
+          "start": 7.398,
+          "duration": 0.202,
+          "rms": 0.07769
+        },
+        {
+          "start": 14.458,
+          "duration": 0.202,
+          "rms": 0.07237
+        },
+        {
+          "start": 14.868,
+          "duration": 0.202,
+          "rms": 0.07049
+        },
+        {
+          "start": 15.278,
+          "duration": 0.202,
+          "rms": 0.0682
+        },
+        {
+          "start": 18.138,
+          "duration": 0.202,
+          "rms": 0.07683
+        },
+        {
+          "start": 19.208,
+          "duration": 0.202,
+          "rms": 0.06985
+        },
+        {
+          "start": 20.468,
+          "duration": 0.202,
+          "rms": 0.0627
+        }
+      ]
+    },
+    {
+      "civ": "abisal",
+      "role": "melee",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "9c81427103b749bb9c5013ec77098dad67619252a0671a4b4a512f58163bd5d0",
+      "file": "abisal/melee.mp3",
+      "source": "08_Dominio_Abisal/guerrero_abisal.mp3",
+      "duration": 1.593,
+      "peak": 0.9493,
+      "rms": 0.22104,
+      "phrases": [
+        {
+          "start": 0.075,
+          "duration": 1.17,
+          "rms": 0.25794
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.138,
+          "duration": 0.202,
+          "rms": 0.30357
+        },
+        {
+          "start": 0.418,
+          "duration": 0.202,
+          "rms": 0.36617
+        },
+        {
+          "start": 0.708,
+          "duration": 0.202,
+          "rms": 0.22533
+        },
+        {
+          "start": 0.948,
+          "duration": 0.202,
+          "rms": 0.0754
+        }
+      ]
+    },
+    {
+      "civ": "abisal",
+      "role": "ranged",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "be5eabf3fb36d89f8bec80a02da2801dd1cca5414aaccb98df5a3bbfe39639c3",
+      "file": "abisal/ranged.mp3",
+      "source": "08_Dominio_Abisal/acosador_profundo.mp3",
+      "duration": 1.724,
+      "peak": 0.79895,
+      "rms": 0.1539,
+      "phrases": [
+        {
+          "start": 0.055,
+          "duration": 1.61,
+          "rms": 0.15925
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.088,
+          "duration": 0.202,
+          "rms": 0.22049
+        },
+        {
+          "start": 0.378,
+          "duration": 0.202,
+          "rms": 0.20017
+        },
+        {
+          "start": 0.728,
+          "duration": 0.202,
+          "rms": 0.16307
+        },
+        {
+          "start": 1.018,
+          "duration": 0.202,
+          "rms": 0.15316
+        },
+        {
+          "start": 1.228,
+          "duration": 0.202,
+          "rms": 0.12083
+        },
+        {
+          "start": 1.448,
+          "duration": 0.202,
+          "rms": 0.05735
+        }
+      ]
+    },
+    {
+      "civ": "abisal",
+      "role": "special",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "ed580a78b9eba6f0d03235b9552df501186ef7da231b65f539be629b0c33e063",
+      "file": "abisal/special.mp3",
+      "source": "08_Dominio_Abisal/medusa_psionica.mp3",
+      "duration": 11.337,
+      "peak": 0.84981,
+      "rms": 0.11782,
+      "phrases": [
+        {
+          "start": 1.405,
+          "duration": 1.97,
+          "rms": 0.16742
+        },
+        {
+          "start": 3.375,
+          "duration": 2.11,
+          "rms": 0.21631
+        },
+        {
+          "start": 5.485,
+          "duration": 1.33,
+          "rms": 0.04756
+        }
+      ],
+      "steps": [
+        {
+          "start": 2.668,
+          "duration": 0.202,
+          "rms": 0.20599
+        },
+        {
+          "start": 3.008,
+          "duration": 0.202,
+          "rms": 0.28689
+        },
+        {
+          "start": 3.358,
+          "duration": 0.202,
+          "rms": 0.30003
+        },
+        {
+          "start": 3.728,
+          "duration": 0.202,
+          "rms": 0.278
+        },
+        {
+          "start": 3.948,
+          "duration": 0.202,
+          "rms": 0.24335
+        },
+        {
+          "start": 4.188,
+          "duration": 0.202,
+          "rms": 0.24785
+        },
+        {
+          "start": 4.448,
+          "duration": 0.202,
+          "rms": 0.2298
+        },
+        {
+          "start": 5.058,
+          "duration": 0.202,
+          "rms": 0.11697
+        }
+      ]
+    },
+    {
+      "civ": "abisal",
+      "role": "heavy",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "ed580a78b9eba6f0d03235b9552df501186ef7da231b65f539be629b0c33e063",
+      "file": "abisal/heavy.mp3",
+      "source": "08_Dominio_Abisal/kraken_de_guerra.mp3",
+      "duration": 11.337,
+      "peak": 0.84981,
+      "rms": 0.11782,
+      "phrases": [
+        {
+          "start": 1.405,
+          "duration": 1.97,
+          "rms": 0.16742
+        },
+        {
+          "start": 3.375,
+          "duration": 2.11,
+          "rms": 0.21631
+        },
+        {
+          "start": 5.485,
+          "duration": 1.33,
+          "rms": 0.04756
+        }
+      ],
+      "steps": [
+        {
+          "start": 2.668,
+          "duration": 0.202,
+          "rms": 0.20599
+        },
+        {
+          "start": 3.008,
+          "duration": 0.202,
+          "rms": 0.28689
+        },
+        {
+          "start": 3.358,
+          "duration": 0.202,
+          "rms": 0.30003
+        },
+        {
+          "start": 3.728,
+          "duration": 0.202,
+          "rms": 0.278
+        },
+        {
+          "start": 3.948,
+          "duration": 0.202,
+          "rms": 0.24335
+        },
+        {
+          "start": 4.188,
+          "duration": 0.202,
+          "rms": 0.24785
+        },
+        {
+          "start": 4.448,
+          "duration": 0.202,
+          "rms": 0.2298
+        },
+        {
+          "start": 5.058,
+          "duration": 0.202,
+          "rms": 0.11697
+        }
+      ]
+    },
+    {
+      "civ": "abisal",
+      "role": "elite",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "cf16d8335dfc7fd7117fba8fda54c4400466da42a41e0d0ff5c630e7002b6399",
+      "file": "abisal/elite.mp3",
+      "source": "08_Dominio_Abisal/hidra_abisal.mp3",
+      "duration": 3.72,
+      "peak": 0.99939,
+      "rms": 0.16169,
+      "phrases": [
+        {
+          "start": 0.035,
+          "duration": 2.02,
+          "rms": 0.21509
+        },
+        {
+          "start": 2.055,
+          "duration": 1.13,
+          "rms": 0.05756
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.248,
+          "duration": 0.202,
+          "rms": 0.30227
+        },
+        {
+          "start": 0.578,
+          "duration": 0.202,
+          "rms": 0.23632
+        },
+        {
+          "start": 0.808,
+          "duration": 0.202,
+          "rms": 0.19363
+        },
+        {
+          "start": 1.058,
+          "duration": 0.202,
+          "rms": 0.22891
+        },
+        {
+          "start": 1.248,
+          "duration": 0.202,
+          "rms": 0.24164
+        },
+        {
+          "start": 1.468,
+          "duration": 0.202,
+          "rms": 0.21171
+        },
+        {
+          "start": 1.858,
+          "duration": 0.202,
+          "rms": 0.13199
+        },
+        {
+          "start": 2.168,
+          "duration": 0.202,
+          "rms": 0.0871
+        }
+      ]
+    },
+    {
+      "civ": "mecanico",
+      "role": "worker",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "e066c5d113c20c8986d35ff2946b1894a26ca361488f662518c36ab2e0d61815",
+      "file": "mecanico/worker.mp3",
+      "source": "09_Sindicato_Mecanico/oron.mp3",
+      "duration": 2.256,
+      "peak": 1.00013,
+      "rms": 0.14575,
+      "phrases": [
+        {
+          "start": 0.335,
+          "duration": 1.17,
+          "rms": 0.20223
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.748,
+          "duration": 0.202,
+          "rms": 0.291
+        },
+        {
+          "start": 0.938,
+          "duration": 0.202,
+          "rms": 0.17935
+        },
+        {
+          "start": 1.148,
+          "duration": 0.202,
+          "rms": 0.08959
+        }
+      ]
+    },
+    {
+      "civ": "mecanico",
+      "role": "melee",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "e453443bf5971e42f972b6df17f3d58f56571fd3b289f96f0b452f87bff1d917",
+      "file": "mecanico/melee.mp3",
+      "source": "09_Sindicato_Mecanico/infante_automata.mp3",
+      "duration": 1.68,
+      "peak": 1.00946,
+      "rms": 0.18387,
+      "phrases": [
+        {
+          "start": 0.135,
+          "duration": 1.14,
+          "rms": 0.22318
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.278,
+          "duration": 0.202,
+          "rms": 0.33686
+        },
+        {
+          "start": 0.478,
+          "duration": 0.202,
+          "rms": 0.33927
+        },
+        {
+          "start": 0.678,
+          "duration": 0.202,
+          "rms": 0.16895
+        },
+        {
+          "start": 0.878,
+          "duration": 0.202,
+          "rms": 0.14178
+        },
+        {
+          "start": 1.208,
+          "duration": 0.202,
+          "rms": 0.03153
+        }
+      ]
+    },
+    {
+      "civ": "mecanico",
+      "role": "ranged",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "d72340bb728aff677b1941b71d65542f811ea1ac9f5e10e4559670ce35e24891",
+      "file": "mecanico/ranged.mp3",
+      "source": "09_Sindicato_Mecanico/francotirador_laser.mp3",
+      "duration": 13.56,
+      "peak": 0.58037,
+      "rms": 0.04077,
+      "phrases": [
+        {
+          "start": 0.525,
+          "duration": 1.82,
+          "rms": 0.02909
+        },
+        {
+          "start": 2.475,
+          "duration": 0.73,
+          "rms": 0.03692
+        },
+        {
+          "start": 3.345,
+          "duration": 1.29,
+          "rms": 0.01817
+        },
+        {
+          "start": 5.065,
+          "duration": 2.11,
+          "rms": 0.05525
+        },
+        {
+          "start": 7.715,
+          "duration": 1.07,
+          "rms": 0.05766
+        },
+        {
+          "start": 9.115,
+          "duration": 0.44,
+          "rms": 0.01467
+        },
+        {
+          "start": 11.385,
+          "duration": 0.37,
+          "rms": 0.03728
+        },
+        {
+          "start": 11.935,
+          "duration": 0.56,
+          "rms": 0.12384
+        }
+      ],
+      "steps": [
+        {
+          "start": 5.248,
+          "duration": 0.202,
+          "rms": 0.06361
+        },
+        {
+          "start": 6.268,
+          "duration": 0.202,
+          "rms": 0.05977
+        },
+        {
+          "start": 6.508,
+          "duration": 0.202,
+          "rms": 0.07086
+        },
+        {
+          "start": 6.838,
+          "duration": 0.202,
+          "rms": 0.06008
+        },
+        {
+          "start": 7.868,
+          "duration": 0.202,
+          "rms": 0.05809
+        },
+        {
+          "start": 8.298,
+          "duration": 0.202,
+          "rms": 0.06568
+        },
+        {
+          "start": 8.528,
+          "duration": 0.202,
+          "rms": 0.05571
+        },
+        {
+          "start": 12.188,
+          "duration": 0.202,
+          "rms": 0.1344
+        }
+      ]
+    },
+    {
+      "civ": "mecanico",
+      "role": "special",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "564b86cdc2a2da32426ffb32c59f56f391617b27728d77683210f87ece728005",
+      "file": "mecanico/special.mp3",
+      "source": "09_Sindicato_Mecanico/ingeniero_mecanico.mp3",
+      "duration": 3.096,
+      "peak": 0.97535,
+      "rms": 0.13269,
+      "phrases": [
+        {
+          "start": 0.305,
+          "duration": 2.06,
+          "rms": 0.16264
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.438,
+          "duration": 0.202,
+          "rms": 0.2234
+        },
+        {
+          "start": 0.738,
+          "duration": 0.202,
+          "rms": 0.1671
+        },
+        {
+          "start": 0.998,
+          "duration": 0.202,
+          "rms": 0.25894
+        },
+        {
+          "start": 1.288,
+          "duration": 0.202,
+          "rms": 0.19446
+        },
+        {
+          "start": 1.518,
+          "duration": 0.202,
+          "rms": 0.14436
+        },
+        {
+          "start": 1.838,
+          "duration": 0.202,
+          "rms": 0.0845
+        },
+        {
+          "start": 2.148,
+          "duration": 0.202,
+          "rms": 0.03033
+        }
+      ]
+    },
+    {
+      "civ": "mecanico",
+      "role": "heavy",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "a4b39286f33082c24e5e213a348afa82b50fe49a3382da6c073f2f11383ab0b8",
+      "file": "mecanico/heavy.mp3",
+      "source": "09_Sindicato_Mecanico/tanque_pesado.mp3",
+      "duration": 9.48,
+      "peak": 0.91499,
+      "rms": 0.13983,
+      "phrases": [
+        {
+          "start": 0.015,
+          "duration": 1.96,
+          "rms": 0.14359
+        },
+        {
+          "start": 1.975,
+          "duration": 1.64,
+          "rms": 0.13683
+        },
+        {
+          "start": 3.615,
+          "duration": 1.81,
+          "rms": 0.14563
+        },
+        {
+          "start": 5.425,
+          "duration": 1.99,
+          "rms": 0.13903
+        },
+        {
+          "start": 7.415,
+          "duration": 2.06,
+          "rms": 0.13471
+        }
+      ],
+      "steps": [
+        {
+          "start": 3.068,
+          "duration": 0.202,
+          "rms": 0.16726
+        },
+        {
+          "start": 3.458,
+          "duration": 0.202,
+          "rms": 0.12385
+        },
+        {
+          "start": 4.338,
+          "duration": 0.202,
+          "rms": 0.14584
+        },
+        {
+          "start": 6.068,
+          "duration": 0.202,
+          "rms": 0.13427
+        },
+        {
+          "start": 7.918,
+          "duration": 0.202,
+          "rms": 0.14296
+        },
+        {
+          "start": 8.368,
+          "duration": 0.202,
+          "rms": 0.14506
+        },
+        {
+          "start": 8.648,
+          "duration": 0.202,
+          "rms": 0.14334
+        },
+        {
+          "start": 9.298,
+          "duration": 0.182,
+          "rms": 0.10002
+        }
+      ]
+    },
+    {
+      "civ": "mecanico",
+      "role": "elite",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "88d35117b2be8e42ed0ba22e92490c036efd2636dee6a1e325778c82940d3342",
+      "file": "mecanico/elite.mp3",
+      "source": "09_Sindicato_Mecanico/mech_de_asalto.mp3",
+      "duration": 38.112,
+      "peak": 0.43643,
+      "rms": 0.06688,
+      "phrases": [
+        {
+          "start": 0.385,
+          "duration": 1.96,
+          "rms": 0.07569
+        },
+        {
+          "start": 2.345,
+          "duration": 1.85,
+          "rms": 0.08203
+        },
+        {
+          "start": 4.195,
+          "duration": 2.01,
+          "rms": 0.06625
+        },
+        {
+          "start": 6.205,
+          "duration": 1,
+          "rms": 0.05723
+        },
+        {
+          "start": 7.435,
+          "duration": 2.08,
+          "rms": 0.06404
+        },
+        {
+          "start": 9.515,
+          "duration": 0.34,
+          "rms": 0.05487
+        },
+        {
+          "start": 10.035,
+          "duration": 1.62,
+          "rms": 0.07214
+        },
+        {
+          "start": 11.655,
+          "duration": 1.97,
+          "rms": 0.06931
+        },
+        {
+          "start": 13.625,
+          "duration": 1.74,
+          "rms": 0.0705
+        },
+        {
+          "start": 15.365,
+          "duration": 1.64,
+          "rms": 0.06006
+        },
+        {
+          "start": 17.005,
+          "duration": 1.92,
+          "rms": 0.061
+        },
+        {
+          "start": 18.925,
+          "duration": 1.72,
+          "rms": 0.06091
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.778,
+          "duration": 0.202,
+          "rms": 0.10032
+        },
+        {
+          "start": 3.278,
+          "duration": 0.202,
+          "rms": 0.08381
+        },
+        {
+          "start": 7.518,
+          "duration": 0.202,
+          "rms": 0.07569
+        },
+        {
+          "start": 12.458,
+          "duration": 0.202,
+          "rms": 0.08598
+        },
+        {
+          "start": 26.248,
+          "duration": 0.202,
+          "rms": 0.05796
+        },
+        {
+          "start": 26.578,
+          "duration": 0.202,
+          "rms": 0.08628
+        },
+        {
+          "start": 27.918,
+          "duration": 0.202,
+          "rms": 0.0911
+        },
+        {
+          "start": 31.938,
+          "duration": 0.202,
+          "rms": 0.07406
+        }
+      ]
+    },
+    {
+      "civ": "orcos",
+      "role": "worker",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "75d7fe3b80f8b01adcb24cc7f3ac348dbb106dcab8cc07db967c12ce04be61ba",
+      "file": "orcos/worker.mp3",
+      "source": "10_Clanes_Orcos/orco_peon.mp3",
+      "duration": 0.758,
+      "peak": 0.87634,
+      "rms": 0.13794,
+      "phrases": [
+        {
+          "start": 0.025,
+          "duration": 0.55,
+          "rms": 0.16188
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.168,
+          "duration": 0.202,
+          "rms": 0.23354
+        },
+        {
+          "start": 0.368,
+          "duration": 0.202,
+          "rms": 0.0701
+        }
+      ]
+    },
+    {
+      "civ": "orcos",
+      "role": "melee",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "d2b9ba9cddc3684db518b841c60ff3fb9df15ad3731295ca616f0b049205ec45",
+      "file": "orcos/melee.mp3",
+      "source": "10_Clanes_Orcos/guerrero_orco.mp3",
+      "duration": 3.971,
+      "peak": 1.03326,
+      "rms": 0.33347,
+      "phrases": [
+        {
+          "start": 0.075,
+          "duration": 1.64,
+          "rms": 0.27254
+        },
+        {
+          "start": 1.715,
+          "duration": 2.1,
+          "rms": 0.39017
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.668,
+          "duration": 0.202,
+          "rms": 0.3285
+        },
+        {
+          "start": 0.968,
+          "duration": 0.202,
+          "rms": 0.19624
+        },
+        {
+          "start": 1.698,
+          "duration": 0.202,
+          "rms": 0.52187
+        },
+        {
+          "start": 2.358,
+          "duration": 0.202,
+          "rms": 0.49367
+        },
+        {
+          "start": 2.558,
+          "duration": 0.202,
+          "rms": 0.2868
+        },
+        {
+          "start": 2.918,
+          "duration": 0.202,
+          "rms": 0.24329
+        },
+        {
+          "start": 3.238,
+          "duration": 0.202,
+          "rms": 0.54587
+        },
+        {
+          "start": 3.618,
+          "duration": 0.202,
+          "rms": 0.28477
+        }
+      ]
+    },
+    {
+      "civ": "orcos",
+      "role": "ranged",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "3b4ff74215c48b46874600e51414093dfb5058a1299083f0a968c1f4559c93c2",
+      "file": "orcos/ranged.mp3",
+      "source": "10_Clanes_Orcos/cazador_de_fieras.mp3",
+      "duration": 5.04,
+      "peak": 1.00331,
+      "rms": 0.10756,
+      "phrases": [
+        {
+          "start": 0,
+          "duration": 1.545,
+          "rms": 0.15462
+        },
+        {
+          "start": 1.545,
+          "duration": 2.04,
+          "rms": 0.0887
+        },
+        {
+          "start": 3.585,
+          "duration": 1.45,
+          "rms": 0.06056
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.148,
+          "duration": 0.202,
+          "rms": 0.23855
+        },
+        {
+          "start": 0.578,
+          "duration": 0.202,
+          "rms": 0.18208
+        },
+        {
+          "start": 1.338,
+          "duration": 0.202,
+          "rms": 0.08806
+        },
+        {
+          "start": 1.688,
+          "duration": 0.202,
+          "rms": 0.07898
+        },
+        {
+          "start": 1.978,
+          "duration": 0.202,
+          "rms": 0.0935
+        },
+        {
+          "start": 3.128,
+          "duration": 0.202,
+          "rms": 0.12868
+        },
+        {
+          "start": 3.488,
+          "duration": 0.202,
+          "rms": 0.09262
+        },
+        {
+          "start": 3.908,
+          "duration": 0.202,
+          "rms": 0.07074
+        }
+      ]
+    },
+    {
+      "civ": "orcos",
+      "role": "special",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "b939c478e15da7d8f67eab1c7857ce0ba96c1075d2bf6e57735d9132af16ec3f",
+      "file": "orcos/special.mp3",
+      "source": "10_Clanes_Orcos/brujo_orco.mp3",
+      "duration": 2.424,
+      "peak": 0.85755,
+      "rms": 0.06827,
+      "phrases": [
+        {
+          "start": 0.095,
+          "duration": 1.98,
+          "rms": 0.07519
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.328,
+          "duration": 0.202,
+          "rms": 0.05205
+        },
+        {
+          "start": 0.688,
+          "duration": 0.202,
+          "rms": 0.14054
+        },
+        {
+          "start": 0.898,
+          "duration": 0.202,
+          "rms": 0.06526
+        },
+        {
+          "start": 1.158,
+          "duration": 0.202,
+          "rms": 0.04849
+        },
+        {
+          "start": 1.518,
+          "duration": 0.202,
+          "rms": 0.10155
+        },
+        {
+          "start": 1.738,
+          "duration": 0.202,
+          "rms": 0.06625
+        },
+        {
+          "start": 1.948,
+          "duration": 0.202,
+          "rms": 0.03524
+        }
+      ]
+    },
+    {
+      "civ": "orcos",
+      "role": "heavy",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "66f13307edbc1cdf1752013becd39ffe25b397638aa1be5442d8fcb8471f69b6",
+      "file": "orcos/heavy.mp3",
+      "source": "10_Clanes_Orcos/trol_de_combate.mp3",
+      "duration": 36.676,
+      "peak": 0.71357,
+      "rms": 0.13363,
+      "phrases": [
+        {
+          "start": 0.485,
+          "duration": 1.42,
+          "rms": 0.21085
+        },
+        {
+          "start": 3.475,
+          "duration": 2.1,
+          "rms": 0.20457
+        },
+        {
+          "start": 7.515,
+          "duration": 2.11,
+          "rms": 0.18298
+        },
+        {
+          "start": 9.625,
+          "duration": 0.59,
+          "rms": 0.05541
+        },
+        {
+          "start": 12.595,
+          "duration": 1.45,
+          "rms": 0.19215
+        },
+        {
+          "start": 15.665,
+          "duration": 1.44,
+          "rms": 0.18128
+        },
+        {
+          "start": 18.795,
+          "duration": 1.48,
+          "rms": 0.164
+        },
+        {
+          "start": 22.015,
+          "duration": 2.04,
+          "rms": 0.19205
+        },
+        {
+          "start": 24.055,
+          "duration": 1.82,
+          "rms": 0.11022
+        },
+        {
+          "start": 27.525,
+          "duration": 1.69,
+          "rms": 0.24486
+        },
+        {
+          "start": 30.705,
+          "duration": 1.88,
+          "rms": 0.16401
+        },
+        {
+          "start": 32.585,
+          "duration": 0.4,
+          "rms": 0.10675
+        }
+      ],
+      "steps": [
+        {
+          "start": 3.788,
+          "duration": 0.202,
+          "rms": 0.33704
+        },
+        {
+          "start": 13.218,
+          "duration": 0.202,
+          "rms": 0.24483
+        },
+        {
+          "start": 19.858,
+          "duration": 0.202,
+          "rms": 0.14101
+        },
+        {
+          "start": 22.308,
+          "duration": 0.202,
+          "rms": 0.28361
+        },
+        {
+          "start": 22.498,
+          "duration": 0.202,
+          "rms": 0.23028
+        },
+        {
+          "start": 31.158,
+          "duration": 0.202,
+          "rms": 0.20568
+        },
+        {
+          "start": 31.888,
+          "duration": 0.202,
+          "rms": 0.15097
+        },
+        {
+          "start": 35.648,
+          "duration": 0.202,
+          "rms": 0.24881
+        }
+      ]
+    },
+    {
+      "civ": "orcos",
+      "role": "elite",
+      "variant": 0,
+      "purpose": "call",
+      "hash": "6a16cf2dbb42db652fa86790bf1a00bab8a8a77e69f48e17a298eeba7e78e3f4",
+      "file": "orcos/elite.mp3",
+      "source": "10_Clanes_Orcos/drakko_salvaje.mp3",
+      "duration": 5.068,
+      "peak": 0.94411,
+      "rms": 0.19416,
+      "phrases": [
+        {
+          "start": 0.085,
+          "duration": 1.96,
+          "rms": 0.23905
+        },
+        {
+          "start": 2.045,
+          "duration": 1.92,
+          "rms": 0.20285
+        }
+      ],
+      "steps": [
+        {
+          "start": 0.408,
+          "duration": 0.202,
+          "rms": 0.34754
+        },
+        {
+          "start": 0.778,
+          "duration": 0.202,
+          "rms": 0.33369
+        },
+        {
+          "start": 0.968,
+          "duration": 0.202,
+          "rms": 0.28626
+        },
+        {
+          "start": 1.198,
+          "duration": 0.202,
+          "rms": 0.23661
+        },
+        {
+          "start": 2.418,
+          "duration": 0.202,
+          "rms": 0.27231
+        },
+        {
+          "start": 2.668,
+          "duration": 0.202,
+          "rms": 0.18604
+        },
+        {
+          "start": 3.128,
+          "duration": 0.202,
+          "rms": 0.25108
+        },
+        {
+          "start": 3.518,
+          "duration": 0.202,
+          "rms": 0.16629
+        }
+      ]
+    }
+  ]
+}
