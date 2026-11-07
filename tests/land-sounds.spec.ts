@@ -14,7 +14,7 @@ test.beforeEach(async({page})=>{
 });
 async function openGame(page:import('@playwright/test').Page,civ:string){
   await page.goto(base+'#/juegos');await page.getByRole('link',{name:/Land of Warriors/}).click();await page.getByRole('button',{name:/Iniciar/}).click();
-  await page.getByRole('button',{name:civ,exact:true}).click();await page.getByRole('button',{name:/Elegir escenario/}).click();await page.getByRole('button',{name:/Iniciar/}).click();await expect(page.getByTestId('land-energy')).toBeVisible({timeout:30000});
+  await page.getByRole('button',{name:civ,exact:true}).click();await page.getByRole('button',{name:/Continuar/}).click();await page.getByRole('button',{name:/Iniciar/}).click();await expect(page.getByTestId('land-energy')).toBeVisible({timeout:30000});
 }
 test('humanos: pasos recortados al caminar y silencio al quedar quietos',async({page})=>{
   test.setTimeout(60000);await openGame(page,'Imperio Humano');

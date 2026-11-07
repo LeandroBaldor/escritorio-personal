@@ -9,6 +9,7 @@ test('Land 10: seis cuarteles, seis personajes exclusivos',async({page},info)=>{
   test.setTimeout(90000);const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(base+'#/juegos');await page.getByRole('link',{name:/Land of Warriors/}).click();await page.getByRole('button',{name:/Iniciar/}).click();
   await page.getByRole('button',{name:'Imperio Humano',exact:true}).click();
+  await page.getByRole('button',{name:'Ver infograma',exact:true}).click();
   const buildings=page.locator('.land-info-buildings article');await expect(buildings).toHaveCount(10);
   const recruits=['Ingeniero','Recluta','Fusilero Pesado','Médico','Tanque Bastión','Exoélite'];
   for(const unit of recruits)await expect(buildings.getByRole('heading',{name:`Cuartel ${unit}`,exact:true})).toBeVisible();

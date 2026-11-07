@@ -37,7 +37,7 @@ test('Land: civilizaciones, escala, exploración, selección y HUD', async ({ pa
   await page.getByRole('button', { name: 'Muy fácil', exact: true }).click();
   await page.screenshot({ path: testInfo.outputPath('civilizaciones.png') });
   await page.getByRole('button', { name: 'Imperio Humano', exact: true }).click();
-  await page.getByRole('button', { name: /Elegir escenario/ }).click();
+  await page.getByRole('button', { name: /Continuar/ }).click();
   const sizes = page.getByRole('group', { name: 'Tamaño del mapa' });
   await expect(sizes.getByRole('button')).toHaveCount(4);
   await sizes.getByRole('button', { name: /Muy grande/ }).click();
