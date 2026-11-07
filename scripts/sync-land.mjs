@@ -20,6 +20,8 @@ const files = [
   'docs/land8-infograma.png', 'docs/land8-resumen.png', 'docs/land8-muros.png',
   'tests/land9.spec.ts', 'docs/land-correcciones-9.md',
   'docs/land9-informe.png', 'docs/land9-tropas.png', 'docs/land9-construccion.png',
+  'tests/land10.spec.ts', 'docs/land-correcciones-10.md',
+  'docs/land10-cuarteles.png', 'docs/land10-produccion.png',
 ];
 function collect(dir) {
   for (const entry of fs.readdirSync(path.join(source, dir), { withFileTypes: true })) {

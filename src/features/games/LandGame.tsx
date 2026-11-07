@@ -1,7 +1,7 @@
 import './land.css';
 import './landHud.css';
 import './landInterface.css';
-import { Sprite } from './landSprite';
+import { BuildingSprite, Sprite } from './landSprite';
 import { LandInfographic, LeaderPortrait } from './landInfographic';
 import { LandTroops } from './landTroops';
 import { LandIcon, LandEagle } from './LandIcon';
@@ -116,10 +116,11 @@ export function LandOfWarriors() {
       else if (g.t > 30 && near('stone') < 900) hint('stone', '🔷 Hay pocos minerales cerca de tu base: buscá otra zona y construí un depósito ahí', 120000);
       else if (g.t > 30 && near('gem') < 300) hint('gem', '🔶 Se están acabando los diamantes cerca: buscá más en el mapa', 120000);
       else if (popUsed(g, 0) >= popCap(g, 0) && popCap(g, 0) < 100) hint('pop', `👥 Llegaste al límite de población: construí un ${civ.buildings.depot}`, 60000);
-      else if (g.t > 50 && !g.buildings.some(b => b.owner === 0 && b.kind === 'barracks') && side.stone >= 150) hint('barracks', `🏗️ Construí un ${civ.buildings.barracks} para entrenar soldados`, 70000);
+      else if (g.t > 35 && !g.buildings.some(b => b.owner === 0 && b.kind === 'workerBarracks') && side.stone >= 100) hint('workers', `🏗️ Construí ${civ.buildings.workerBarracks} para entrenar más trabajadores`, 70000);
+      else if (g.t > 50 && !g.buildings.some(b => b.owner === 0 && b.kind === 'barracks') && side.stone >= 150) hint('barracks', `🏗️ Construí ${civ.buildings.barracks}: entrena únicamente ${civ.units.melee}`, 70000);
       else if (g.t > 150 && army < 3 && g.ai.wave === 0 && g.t > g.ai.waveAt - 40) hint('army', '⚠️ El enemigo está armando un ejército: entrená soldados', 90000);
       else if (g.t > 200 && side.stone > 450 && side.gem > 250 && side.up.attack + side.up.armor + side.up.speed === 0) hint('upgrade', `⬆️ Mejorá la milicia: tocá tu ${civ.buildings.base} y elegí Ataque, Vida o Velocidad`, 150000);
-      else if (g.t > 240 && side.stone > 400 && side.gem > 200 && !g.buildings.some(b => b.owner === 0 && b.kind === 'workshop') && hasBuilt(g, 0, 'barracks')) hint('workshop', `🏭 Construí un ${civ.buildings.workshop}: hace las máquinas y la unidad élite`, 150000);
+      else if (g.t > 240 && side.stone > 400 && side.gem > 200 && !g.buildings.some(b => b.owner === 0 && b.kind === 'workshop') && hasBuilt(g, 0, 'barracks')) hint('workshop', `🏭 Construí ${civ.buildings.workshop}: entrena únicamente ${civ.units.heavy}`, 150000);
       else if (side.power >= POWER_MAX) hint('power', `✨ Tu poder ${civ.power.name} está listo (arriba a la derecha)`, 90000);
     }, 4000);
     return () => clearInterval(id);
@@ -330,7 +331,7 @@ export function LandOfWarriors() {
       <h3>Guerreros</h3>
       <ul className="land-simple-units">{ROLE_ORDER.map(r => { const s = ROLE_STATS[r], mod = viewD.mod[r] ?? {}, m = { ...s, ...mod, cost: {...s.cost,...mod.cost} }; return <li key={r}><Sprite civ={view} idx={roleIdx(r)} w={96} h={108} /><div><b>{viewD.units[r]}</b><span>{roleText(view, r)}</span><strong className="land-attack-type">{attackText(view,r,m.range)}</strong><small>❤ {m.hp} · ⚔ {m.dmg} · {costText(m.cost)}</small></div></li>; })}</ul>
       <h3>Construcciones</h3>
-      <ul className="land-simple-builds">{BKINDS.map(k => <li key={k}><Sprite civ={view} idx={bIdx(k)} w={70} h={56} /><div><b>{viewD.buildings[k]}</b><span>{BUILD_TEXT[k]}</span><small>{costText(BUILD_STATS[k].cost)}</small></div></li>)}</ul>
+      <ul className="land-simple-builds">{BKINDS.map(k => <li key={k}><BuildingSprite civ={view} kind={k} w={70} h={56} /><div><b>{viewD.buildings[k]}</b><span>{BUILD_TEXT[k]}</span><small>{costText(BUILD_STATS[k].cost)}</small></div></li>)}</ul>
       <h3>Poder especial: {viewD.power.name}</h3><p>{POWER_TEXT[viewD.power.kind]} Se carga peleando.</p>
       <h3>Mejoras (en la base)</h3><p>⚔️ Ataque, 🛡️ Vida y 👟 Velocidad: tres niveles cada una, para todo tu ejército.</p>
     </div>}
@@ -404,7 +405,7 @@ export function LandOfWarriors() {
         </section>
         <div className="land-intel-card land-troops-card"><LandTroops game={g} selected={sel} onSelect={units=>{setSelection(units.map(u=>u.id));focus(units[0].x,units[0].y);setMode({k:'none'});setCommsOpen(false);}}/></div>
       </aside>
-      {previewKind && <section className="land-build-preview" aria-label="Vista ampliada de construcción"><div><small>{mode.k==='place'?'A CONSTRUIR':'ESTRUCTURA SELECCIONADA'}</small><h3>{CIVS[side.civ].buildings[previewKind]}</h3></div><Sprite civ={side.civ} idx={bIdx(previewKind)} w={260} h={175}/><p>{BUILD_TEXT[previewKind]}</p><span>{costText(BUILD_STATS[previewKind].cost)} · {BUILD_STATS[previewKind].time} s</span></section>}
+      {previewKind && <section className="land-build-preview" aria-label="Vista ampliada de construcción"><div><small>{mode.k==='place'?'A CONSTRUIR':'ESTRUCTURA SELECCIONADA'}</small><h3>{CIVS[side.civ].buildings[previewKind]}</h3></div><BuildingSprite civ={side.civ} kind={previewKind} w={260} h={175}/><p>{BUILD_TEXT[previewKind]}</p><span>{costText(BUILD_STATS[previewKind].cost)} · {BUILD_STATS[previewKind].time} s</span></section>}
       <div className="land-top-right" aria-label="Recursos">
         <span title="Diamantes (cristales dorados)"><i className="land-r-gem" /><b data-testid="land-gem">{Math.floor(side.gem)}</b></span>
         <span title="Minerales (cristales azules)"><i className="land-r-stone" /><b data-testid="land-stone">{Math.floor(side.stone)}</b></span>
@@ -424,7 +425,7 @@ export function LandOfWarriors() {
         <div className="land-sel">
           <ul className="land-group">{selUnits.slice(0, 10).map(u => <li key={u.id}><button type="button" onClick={() => setSelection([u.id])} title={CIVS[g.sides[u.owner].civ].units[u.role]} className={u.owner === 0 ? '' : 'foe'}><Sprite civ={g.sides[u.owner].civ} idx={roleIdx(u.role)} w={62} h={62} /><i style={{ width: `${u.hp / u.maxHp * 100}%` }} /></button></li>)}
             {selUnits.length > 10 && <li className="land-more">+{selUnits.length - 10}</li>}{selUnits.length > 0 && selUnits.length < 10 && Array.from({ length: 10 - selUnits.length }, (_, i) => <li key={'e' + i} className="land-slot" />)}
-            {!selUnits.length && selB && <li className="land-group-b"><Sprite civ={g.sides[selB.owner].civ} idx={bIdx(selB.kind)} w={150} h={110} /></li>}
+            {!selUnits.length && selB && <li className="land-group-b"><BuildingSprite civ={g.sides[selB.owner].civ} kind={selB.kind} w={150} h={110} /></li>}
             {!selUnits.length && !selB && <li className="land-help"><span>Arrastrá el terreno para explorar. Clic: seleccionar. Shift + arrastre: seleccionar grupo. Clic derecho: mover, recolectar o atacar. Rueda: acercar.</span></li>}</ul>
           {selUnits.length ? <UnitCard g={g} u={selUnits[0]} n={selUnits.length} /> : selB ? <BuildingCard g={g} b={selB} /> : <div className="land-card-unit land-card-empty"><b>{CIVS[side.civ].name}</b><small>{CIVS[side.civ].style}</small></div>}
         </div>
@@ -445,7 +446,7 @@ export function LandOfWarriors() {
               selB.queue.length > 0 ? cmd('cancel', ic('✖'), 'Cancelar el último', () => cancelTrain(g, selB.id)) : null])}</>;
           }
           if (workersSel) return <>{pad([...BKINDS.map(k => { const st = BUILD_STATS[k], needs = st.needs && !hasBuilt(g, 0, st.needs);
-            return cmd(k, <Sprite civ={side.civ} idx={bIdx(k)} w={54} h={44} />, `${CIVS[side.civ].buildings[k]}: ${BUILD_TEXT[k]}${needs ? ` (necesita ${CIVS[side.civ].buildings[st.needs!]})` : ''}`, () => setMode({ k: 'place', kind: k }), { disabled: !canPay(side, st.cost) || !!needs, cost: st.cost }); }),
+            return cmd(k, <BuildingSprite civ={side.civ} kind={k} w={54} h={44} />, `${CIVS[side.civ].buildings[k]}: ${BUILD_TEXT[k]}${needs ? ` (necesita ${CIVS[side.civ].buildings[st.needs!]})` : ''}`, () => setMode({ k: 'place', kind: k }), { disabled: !canPay(side, st.cost) || !!needs, cost: st.cost }); }),
             cmd('stop', ic('✋'), 'Parar', () => { for (const u of mine) u.order = { k: 'idle' }; })])}</>;
           if (mine.length) return <>{pad([
             cmd('amove', ic('🎯'), 'Atacar a un lugar: caminan y atacan a todo lo que encuentren', () => setMode({ k: 'amove' })),

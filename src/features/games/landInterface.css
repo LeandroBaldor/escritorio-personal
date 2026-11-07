@@ -1,4 +1,15 @@
 /* Revisión 9: informe legible y actividad de tropas. */
+.land-building-sprite{display:inline-block;position:relative;vertical-align:middle;max-width:100%;flex-shrink:0;pointer-events:none}
+.land.land-v9 .land-cmds .land-building-sprite{display:flex;align-items:center;justify-content:center;width:100%!important;max-width:54px;height:calc(100% - 10px)!important;max-height:44px;min-height:0;flex:1 1 auto;overflow:hidden}
+.land.land-v9 .land-cmds .land-building-sprite>canvas{width:100%!important;height:100%!important;max-width:100%;max-height:100%;object-fit:contain}
+.land.land-v9 .land-cmds .land-recruit-badge{width:45%!important;height:65%!important;max-width:22px;max-height:26px}
+.land-recruit-badge{position:absolute;right:0;bottom:0;display:block;background:#071d33;border:1px solid #bca365;border-radius:3px;box-shadow:0 1px 5px #0009;overflow:hidden}
+.land-recruit-badge>canvas{display:block;width:100%!important;height:100%!important}
+.land.land-v9 .land-build-preview>.land-building-sprite{display:block;margin:0 auto}
+.land.land-v9 .land-build-preview>.land-building-sprite+ p{margin-top:12px}
+.land.land-v9 .land-info-buildings .land-info-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media(max-width:1200px){.land.land-v9 .land-info-buildings .land-info-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){.land.land-v9 .land-info-buildings .land-info-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.land.land-v9 .land-build-preview>.land-building-sprite{height:120px!important}.land.land-v9 .land-build-preview>.land-building-sprite>canvas{height:120px!important;width:auto!important;max-width:100%}}
 .land.land-v9{--intel-w:clamp(310px,21vw,370px)}
 .land.land-v9 .land-own-intel{display:grid;grid-template-rows:auto auto minmax(260px,1fr);top:58px;bottom:6px;padding:0 6px 0 0;gap:8px;overflow:auto;z-index:12}
 .land.land-v9 .land-own-intel .land-intel-card{padding:10px 12px;font-size:14px;line-height:1.5;overflow:visible}

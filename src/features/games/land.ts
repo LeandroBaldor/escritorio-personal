@@ -3,13 +3,13 @@
 //
 // - Tres recursos: cristales azules, dorados y energía verde. Los trabajadores los juntan y los llevan
 //   a la base o a un depósito.
-// - Seis construcciones por civilización: base, cuartel, taller, torre, depósito y muros defensivos.
+// - Seis cuarteles exclusivos, uno por personaje; base, torre, depósito y muros defensivos.
 // - Seis guerreros por civilización: trabajador, cuerpo a cuerpo, a distancia, especial (cura o hace daño en área),
 //   pesado (rompe edificios) y élite.
 // - Tres mejoras para todo el ejército (ataque, vida y velocidad), con tres niveles cada una.
 // - Un poder especial por civilización que se carga peleando.
 // - Se gana destruyendo todos los centros de mando rivales.
-import { CIVS, type CivId } from './landCivs';
+import { CIVS, TRAINING_KIND, type CivId } from './landCivs';
 import { T, clearLine, findPath, generateTerrain, nearestWalkable, walkable, type MapSize, type Terrain } from './landMap';
 import { WALL_SIZE, wallAcross, wallNavigation, wallPoint } from './landWalls';
 
@@ -19,8 +19,8 @@ export type Owner = number; // 0: jugador; 1…9: civilizaciones controladas por
 export type ResKind = 'stone' | 'gem' | 'energy';
 export type Role = 'worker' | 'melee' | 'ranged' | 'special' | 'heavy' | 'elite';
 export const ROLES: Role[] = ['worker', 'melee', 'ranged', 'special', 'heavy', 'elite'];
-export type BKind = 'base' | 'barracks' | 'workshop' | 'tower' | 'depot' | 'wall';
-export const BKINDS: BKind[] = ['base', 'barracks', 'workshop', 'tower', 'depot', 'wall'];
+export type BKind = 'base' | 'barracks' | 'workshop' | 'tower' | 'depot' | 'wall' | 'workerBarracks' | 'rangedBarracks' | 'specialBarracks' | 'eliteBarracks';
+export const BKINDS: BKind[] = ['base', 'workerBarracks', 'barracks', 'rangedBarracks', 'specialBarracks', 'workshop', 'eliteBarracks', 'tower', 'depot', 'wall'];
 export type Upgrade = 'attack' | 'armor' | 'speed';
 export const UPGRADES: Upgrade[] = ['attack', 'armor', 'speed'];
 export type Difficulty = 'veryEasy' | 'easy' | 'normal' | 'hard';
@@ -38,9 +38,13 @@ export const ROLE_STATS: Record<Role, UnitStats> = {
 };
 export interface BuildStats { hp: number; cost: Cost; time: number; size: number; pop: number; makes: Role[]; needs?: BKind; dmg?: number; range?: number; cool?: number }
 export const BUILD_STATS: Record<BKind, BuildStats> = {
-  base: { hp: 2200, cost: { stone: 400, gem: 0 }, time: 40, size: 240, pop: 10, makes: ['worker'] },
-  barracks: { hp: 1000, cost: { stone: 150, gem: 0 }, time: 18, size: 190, pop: 0, makes: ['melee', 'ranged', 'special'] },
-  workshop: { hp: 1100, cost: { stone: 200, gem: 100 }, time: 24, size: 200, pop: 0, makes: ['heavy', 'elite'], needs: 'barracks' },
+  base: { hp: 2200, cost: { stone: 400, gem: 0 }, time: 40, size: 240, pop: 10, makes: [] },
+  workerBarracks: { hp: 850, cost: { stone: 100, gem: 0 }, time: 14, size: 170, pop: 0, makes: ['worker'] },
+  barracks: { hp: 1000, cost: { stone: 150, gem: 0 }, time: 18, size: 190, pop: 0, makes: ['melee'] },
+  rangedBarracks: { hp: 1000, cost: { stone: 150, gem: 25 }, time: 20, size: 190, pop: 0, makes: ['ranged'], needs: 'barracks' },
+  specialBarracks: { hp: 1000, cost: { stone: 180, gem: 60 }, time: 22, size: 190, pop: 0, makes: ['special'], needs: 'rangedBarracks' },
+  workshop: { hp: 1100, cost: { stone: 200, gem: 100 }, time: 24, size: 200, pop: 0, makes: ['heavy'], needs: 'barracks' },
+  eliteBarracks: { hp: 1200, cost: { stone: 240, gem: 120 }, time: 28, size: 200, pop: 0, makes: ['elite'], needs: 'workshop' },
   tower: { hp: 700, cost: { stone: 100, gem: 50 }, time: 14, size: 132, pop: 0, makes: [], dmg: 16, range: 230, cool: 1.0 },
   depot: { hp: 500, cost: { stone: 100, gem: 0 }, time: 12, size: 150, pop: 8, makes: [] },
   wall: { hp: 1400, cost: { stone: 35, gem: 0 }, time: 8, size: WALL_SIZE, pop: 0, makes: [] },
@@ -455,7 +459,7 @@ function stepAI(g: LandGame, dt: number, o: Owner) {
     const i = workers.indexOf(w), kind: ResKind = i % 6 === 0 ? 'energy' : i % 3 === 0 ? 'gem' : 'stone';
     const n = nearestNode(g, w, kind) ?? nearestNode(g, w, null); if (n) w.order = { k: 'gather', node: n.id };
   }
-  if (workers.length < 10 && base.queue.length < 1 && side.stone >= 90) train(g, base.id, 'worker');
+  if (workers.length < 10 && side.stone >= 90) for (const b of bs('workerBarracks')) if (b.queue.length < 1) train(g,b.id,'worker');
   const place = (kind: BKind) => {
     if (!canPay(side, BUILD_STATS[kind].cost)) return;
     for (let tries = 0; tries < 48; tries++) {
@@ -466,19 +470,23 @@ function stepAI(g: LandGame, dt: number, o: Owner) {
   };
   const building = g.buildings.some(b => b.owner === o && !b.dead && b.built < 1);
   if (!building) {
-    if ((popUsed(g, o) + 4 >= popCap(g, o) || (!bs('depot').length && g.t > 65)) && popCap(g, o) < MAX_POP) place('depot');
+    if (!bs('workerBarracks').length) place('workerBarracks');
+    else if ((popUsed(g, o) + 4 >= popCap(g, o) || (!bs('depot').length && g.t > 65)) && popCap(g, o) < MAX_POP) place('depot');
     else if (!bs('barracks').length && g.t > 45) place('barracks');
-    else if (complete('barracks') && !bs('workshop').length && g.t > 150) place('workshop');
+    else if (complete('barracks') && !bs('rangedBarracks').length && g.t > 90) place('rangedBarracks');
+    else if (complete('rangedBarracks') && !bs('workshop').length && g.t > 150) place('workshop');
     else if (!bs('tower').length && g.t > 180) place('tower');
-    else if (bs('barracks').length < 2 && complete('workshop') && g.t > 330) place('barracks');
+    else if (complete('rangedBarracks') && !bs('specialBarracks').length && g.t > 240) place('specialBarracks');
+    else if (complete('workshop') && !bs('eliteBarracks').length && g.t > 330) place('eliteBarracks');
+    else if (bs('barracks').length < 2 && complete('eliteBarracks') && g.t > 420) place('barracks');
   }
-  const infrastructure = complete('barracks') && complete('workshop') && complete('depot') && complete('tower');
-  for (const b of [...bs('barracks'), ...bs('workshop')]) b.rally = { x: base.x, y: base.y + 140 };
+  const militaryKinds = ROLES.filter(r=>r!=='worker').map(r=>TRAINING_KIND[r]);
+  const infrastructure = Object.values(TRAINING_KIND).every(complete) && complete('depot') && complete('tower');
+  for (const kind of militaryKinds) for (const b of bs(kind)) b.rally = { x: base.x, y: base.y + 140 };
   const queued = g.buildings.filter(b => b.owner === o && !b.dead).reduce((n, b) => n + b.queue.filter(r => r !== 'worker').length, 0);
   const need = (g.difficulty === 'veryEasy' ? 8 : g.difficulty === 'easy' ? 10 : g.difficulty === 'hard' ? 14 : 12) + Math.min(12, ai.wave * 2);
   if (infrastructure && army.length + queued < need + 2) {
-    for (const b of bs('barracks')) if (b.built >= 1 && !b.queue.length) train(g, b.id, g.rand() < 0.5 ? 'melee' : 'ranged');
-    for (const b of bs('workshop')) if (b.built >= 1 && !b.queue.length) train(g, b.id, army.filter(u => u.role === 'heavy').length < 2 ? 'heavy' : 'elite');
+    for (const kind of militaryKinds) for (const b of bs(kind)) if (b.built >= 1 && !b.queue.length) train(g,b.id,BUILD_STATS[kind].makes[0]);
   }
   if (infrastructure && !base.research && side.up.attack === 0) research(g, base.id, 'attack');
   const intruder = g.units.find(u => u.owner !== o && !u.dead && dist(u, base) < 500);

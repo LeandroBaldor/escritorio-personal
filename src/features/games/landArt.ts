@@ -1,6 +1,6 @@
 // Land of Warriors: el dibujo del mapa, los recursos, las construcciones, los guerreros y los disparos.
-import { BUILD_STATS, ROLE_STATS, ROLES, BKINDS, type BKind, type Building, type LandGame, type Role, type Unit, type Node } from './land';
-import { CIVS, CIV_IDS, type CivId } from './landCivs';
+import { BUILD_STATS, ROLE_STATS, ROLES, type BKind, type Building, type LandGame, type Role, type Unit, type Node } from './land';
+import { CIVS, CIV_IDS, TRAINING_ROLE, type CivId } from './landCivs';
 import { drawAmbientTerrain, type TerrainRegion } from './landMapArt';
 import { drawWorldProp } from './landProps';
 import { drawWall } from './landWalls';
@@ -74,7 +74,7 @@ export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: numbe
   ctx.restore(); return true;
 }
 export const roleIdx = (r: Role) => ROLES.indexOf(r);
-export const bIdx = (k: BKind) => 6 + BKINDS.indexOf(k);
+export const bIdx = (k: BKind) => k==='base'?6:k==='tower'?9:k==='depot'||k==='workerBarracks'?10:k==='wall'?11:k==='workshop'||k==='eliteBarracks'?8:7;
 export const TEAM = ['#4ade80', '#f87171', '#a78bfa', '#38bdf8', '#fbbf24', '#fb923c', '#f472b6', '#2dd4bf', '#c084fc', '#e2e8f0'];
 
 export interface Cam { x: number; y: number; w: number; h: number; z: number } // (x, y: el mundo arriba a la izquierda; z: el zoom)
@@ -116,6 +116,12 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, g: LandGame, b: Buil
   ctx.beginPath(); ctx.ellipse(b.x, b.y + 4, w * 0.5, w * 0.17, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = fade;
   {
     drawSprite(ctx, civ, bIdx(b.kind), b.x, b.y + 6, h, false, w);
+    const recruit=TRAINING_ROLE[b.kind];
+    if(recruit&&!b.dead){
+      const bx=b.x+w*.33,by=b.y-h*.35;
+      ctx.fillStyle='#061a2f';ctx.fillRect(bx-19,by-39,38,43);ctx.strokeStyle=CIVS[civ].color;ctx.lineWidth=2;ctx.strokeRect(bx-19,by-39,38,43);
+      drawSprite(ctx,civ,roleIdx(recruit),bx,by+2,39,false,35);
+    }
     if (!b.dead) {
       // Balizas, vapor y actividad de producción sobre el edificio real.
       const active = b.queue.length > 0 || !!b.research;

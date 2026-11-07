@@ -18,7 +18,10 @@ export const POWER_TEXT: Record<PowerKind, string> = {
   heal: 'Cura por completo a todo tu ejército, esté donde esté.',
   shield: 'Durante 12 segundos tu ejército recibe la mitad del daño.',
 };
-export const CIVS: Record<CivId, Civ> = {
+export const TRAINING_KIND: Record<Role,BKind> = { worker:'workerBarracks',melee:'barracks',ranged:'rangedBarracks',special:'specialBarracks',heavy:'workshop',elite:'eliteBarracks' };
+export const TRAINING_ROLE = Object.fromEntries(Object.entries(TRAINING_KIND).map(([r,k])=>[k,r])) as Partial<Record<BKind,Role>>;
+type OriginalBuildings = 'base'|'barracks'|'workshop'|'tower'|'depot'|'wall';
+const CIV_DATA: Record<CivId,Omit<Civ,'buildings'>&{buildings:Record<OriginalBuildings,string>}> = {
   humano: { name: 'Imperio Humano', motto: 'Tecnología · Disciplina · Poder de fuego', color: '#3b82f6', style: 'Equilibrado: buenos tiradores, tanques fuertes y médicos que curan.',
     units: { worker: 'Ingeniero', melee: 'Recluta', ranged: 'Fusilero Pesado', special: 'Médico', heavy: 'Tanque Bastión', elite: 'Exoélite' },
     buildings: { base: 'Centro de Mando', barracks: 'Cuartel', workshop: 'Taller Mecánico', tower: 'Torre Orbital', depot: 'Depósito de Suministros', wall: 'Muralla de Acero' },
@@ -60,6 +63,11 @@ export const CIVS: Record<CivId, Civ> = {
     buildings: { base: 'Colonia Abisal', barracks: 'Criadero Sombrío', workshop: 'Vivero Mutante', tower: 'Torre Abisal', depot: 'Extractor de Esencia', wall: 'Barrera de Coral' },
     special: 'splash', power: { kind: 'strike', name: 'Maremoto' }, mod: { melee: { speed: 88 }, special: { range: 120, splash: 80 }, heavy: { range: 60 }, elite: { range: 160 } } },
 };
+export const CIVS = Object.fromEntries(CIV_IDS.map(id=>{
+  const c=CIV_DATA[id],buildings={...c.buildings};
+  for(const [role,kind] of Object.entries(TRAINING_KIND) as [Role,BKind][])Object.assign(buildings,{[kind]:`Cuartel ${c.units[role]}`});
+  return [id,{...c,buildings}];
+})) as Record<CivId,Civ>;
 export const ROLE_TEXT: Record<Role, string> = {
   worker: 'Recolecta minerales, diamantes y energía verde; levanta las construcciones.',
   melee: 'Soldado de primera línea.',
@@ -71,9 +79,13 @@ export const ROLE_TEXT: Record<Role, string> = {
 export const roleText = (c: CivId, r: Role) => r === 'special' ? (CIVS[c].special === 'heal' ? 'Cura a los suyos que estén lastimados.' : 'Ataque en área: daña a varios a la vez.') : r === 'melee' && (CIVS[c].mod.melee?.range ?? 0) > 60 ? 'Soldado básico con arma de fuego, de corto alcance.' : ROLE_TEXT[r];
 export const BUILD_TEXT: Record<BKind, string> = {
   wall: 'Bloquea el paso terrestre y protege la aldea. Se puede destruir; dejá un espacio como entrada. Cada tramo cuesta 35 minerales.',
-  base: 'Hace trabajadores, investiga las mejoras y recibe lo que juntan. Si la destruyen, perdés.',
-  barracks: 'Entrena a los soldados.',
-  workshop: 'Construye las máquinas y la unidad élite (necesita el cuartel).',
+  base: 'Investiga las mejoras y recibe recursos. Los personajes se entrenan en su cuartel exclusivo. Si la destruyen, perdés.',
+  workerBarracks: 'Entrena únicamente al trabajador de esta civilización.',
+  barracks: 'Entrena únicamente al personaje de primera línea de esta civilización.',
+  rangedBarracks: 'Entrena únicamente al tirador de esta civilización.',
+  specialBarracks: 'Entrena únicamente al personaje de apoyo de esta civilización.',
+  workshop: 'Entrena únicamente al personaje pesado de esta civilización.',
+  eliteBarracks: 'Entrena únicamente al personaje élite de esta civilización.',
   tower: 'Defiende sola: le dispara a los enemigos que se acercan.',
   depot: 'Suma 8 de población y es otro lugar donde dejar lo juntado.',
 };
