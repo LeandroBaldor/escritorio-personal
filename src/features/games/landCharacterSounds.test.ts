@@ -45,8 +45,8 @@ describe('Audios de los personajes de Land',()=>{
   it('usa las voces humanas cortas y no mezcla la caminata con la confirmación',async()=>{
     const {g,unit,out,sound}=fixture();sound.react(g,[unit.id]);await Promise.resolve();expect(out.played).toHaveLength(1);expect(out.played[0].clip.file).toBe('humano/worker-2.mp3');expect(out.played[0].channel).toBe('call');
   });
-  it('usa el ácido zergano en el disparo especial y respeta su intervalo',()=>{
-    const {g,out,sound}=fixture();g.sides[0].civ='zergano';expect(sound.attack(g,0,'special')).toBe(true);expect(out.played[0].clip.role).toBe('acid');expect(sound.attack(g,0,'special')).toBe(false);
+  it('usa el ácido compartido en el disparo zergano y respeta su intervalo',async()=>{
+    const {g,out,sound}=fixture();g.sides[0].civ='zergano';const event={type:'shot',owner:0,role:'special',x:400,y:300} as const;sound.combat(g,event);sound.combat(g,event);await Promise.resolve();expect(out.played).toHaveLength(1);expect(out.played[0].clip.file).toBe('combat/acid.mp3');
   });
   it('la distancia de caminata no aumenta cuando el personaje está quieto',()=>{
     const {g,unit}=fixture();g.terrain.cells.fill(GROUND);orderMove(g,[unit.id],unit.x+300,unit.y);const x=unit.x;stepLand(g,.1);expect(unit.walk).toBeCloseTo(unit.x-x);expect(unit.moving).toBe(true);

@@ -1,5 +1,5 @@
 import { characterClipUrl,type CharacterClip,type SoundCue } from './landCharacterClips';
-export type SoundChannel='foot'|'call'|'effect';
+export type SoundChannel='foot'|'call'|'effect'|'death';
 export interface CharacterSoundOutput {
   unlock():void;preload(clips:CharacterClip[]):Promise<void>;play(clip:CharacterClip,cue:SoundCue,volume:number,pan:number,channel:SoundChannel):boolean;stop():void;dispose():void;
 }
@@ -36,11 +36,11 @@ export class LandSoundOutput implements CharacterSoundOutput {
   }
   play(clip:CharacterClip,cue:SoundCue,volume:number,pan:number,channel:SoundChannel){
     const c=this.context,buffer=this.buffers.get(clip.hash);if(!c||c.state!=='running'||!buffer||this.disposed)return false;
-    const cap=channel==='foot'?3:channel==='call'?1:2;
+    const cap=channel==='foot'?3:channel==='call'?1:channel==='death'?2:4;
     if([...this.sources.values()].filter(k=>k===channel).length>=cap)return false;
     const length=Math.min(cue.duration,buffer.duration-cue.start);if(length<=.02)return false;
     const source=c.createBufferSource(),gain=c.createGain(),position=c.createStereoPanner();source.buffer=buffer;
-    const level=volume*Math.min(2,Math.max(.35,.12/Math.max(.015,cue.rms))),t=c.currentTime,fade=Math.min(channel==='foot'?.018:.12,length/3);
+    const level=volume*Math.min(2,Math.max(.35,.12/Math.max(.015,cue.rms))),t=c.currentTime,fade=Math.min(channel==='foot'?.018:channel==='effect'?.015:.12,length/3);
     gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(level,t+fade);gain.gain.setValueAtTime(level,t+length-fade);gain.gain.linearRampToValueAtTime(0,t+length);
     position.pan.value=Math.max(-.8,Math.min(.8,pan));source.connect(gain).connect(position).connect(this.master!);
     this.sources.set(source,channel);source.onended=()=>{this.sources.delete(source);source.disconnect();gain.disconnect();position.disconnect();};

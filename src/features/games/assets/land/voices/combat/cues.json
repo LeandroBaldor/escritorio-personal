@@ -1,0 +1,182 @@
+{
+  "acid": {
+    "civ": "humano",
+    "role": "acid",
+    "variant": 0,
+    "purpose": "effect",
+    "hash": "813de80621f0fb0d6c7ebb57199272c867d5d46723dcab85caca1a2139f30453",
+    "file": "combat/acid.mp3",
+    "source": "SONIDOS/disparo_acido.mp3",
+    "duration": 1.176,
+    "peak": 0.7738204002380371,
+    "rms": 0.12159,
+    "phrases": [
+      {
+        "start": 0.075,
+        "duration": 0.73,
+        "rms": 0.12159
+      }
+    ],
+    "steps": []
+  },
+  "machine": {
+    "civ": "humano",
+    "role": "acid",
+    "variant": 0,
+    "purpose": "effect",
+    "hash": "2df8c28cafb810f157f88f8bc200a83dac279990ee1092cb51c0844633686ad2",
+    "file": "combat/machine.mp3",
+    "source": "SONIDOS/disparo_ametralladora.mp3",
+    "duration": 9.168,
+    "peak": 1.0033434629440308,
+    "rms": 0.20874,
+    "phrases": [
+      {
+        "start": 0.015,
+        "duration": 0.61,
+        "rms": 0.20874
+      }
+    ],
+    "steps": []
+  },
+  "gun": {
+    "civ": "humano",
+    "role": "acid",
+    "variant": 0,
+    "purpose": "effect",
+    "hash": "f2119a6afe5f9b702651ebabdcaa7418cd69fb2fdd5ce035dc7c885336ef3d04",
+    "file": "combat/gun.mp3",
+    "source": "SONIDOS/disparo_arma.mp3",
+    "duration": 1.776,
+    "peak": 1.1840076446533203,
+    "rms": 0.40113,
+    "phrases": [
+      {
+        "start": 0.085,
+        "duration": 0.8,
+        "rms": 0.40113
+      }
+    ],
+    "steps": []
+  },
+  "cannon": {
+    "civ": "humano",
+    "role": "acid",
+    "variant": 0,
+    "purpose": "effect",
+    "hash": "6199a43c4d940637a2119ec9e9f8439ea1186503eb4a8aa8b72b8eae971c7883",
+    "file": "combat/cannon.mp3",
+    "source": "SONIDOS/disparo_cañon.mp3",
+    "duration": 5.04,
+    "peak": 1.0928690433502197,
+    "rms": 0.41493,
+    "phrases": [
+      {
+        "start": 0,
+        "duration": 1.295,
+        "rms": 0.41493
+      }
+    ],
+    "steps": []
+  },
+  "arrow": {
+    "civ": "humano",
+    "role": "acid",
+    "variant": 0,
+    "purpose": "effect",
+    "hash": "7270f40fc03cb64870f6905db36eeee2209c1eff1de8ca9bf2e7ff0aca21f9fb",
+    "file": "combat/arrow.mp3",
+    "source": "SONIDOS/disparo_flecha_lanza.mp3",
+    "duration": 0.648,
+    "peak": 0.8829483389854431,
+    "rms": 0.05767,
+    "phrases": [
+      {
+        "start": 0.055,
+        "duration": 0.593,
+        "rms": 0.05767
+      }
+    ],
+    "steps": []
+  },
+  "fire": {
+    "civ": "humano",
+    "role": "acid",
+    "variant": 0,
+    "purpose": "effect",
+    "hash": "42de6e27397a942bda71b98b9b564c6a4543ebe88473fac35c10e1335099a1b4",
+    "file": "combat/fire.mp3",
+    "source": "SONIDOS/disparo_fuego.mp3",
+    "duration": 5.042,
+    "peak": 0.9656264781951904,
+    "rms": 0.20336,
+    "phrases": [
+      {
+        "start": 1.005,
+        "duration": 0.76,
+        "rms": 0.20336
+      }
+    ],
+    "steps": []
+  },
+  "laser": {
+    "civ": "humano",
+    "role": "acid",
+    "variant": 0,
+    "purpose": "effect",
+    "hash": "6ed133f34d5149ec48241ed4d2a93744e646d0770a8463fa260b82ce123f5e93",
+    "file": "combat/laser.mp3",
+    "source": "SONIDOS/disparo_laser.mp3",
+    "duration": 2.376,
+    "peak": 0.925206184387207,
+    "rms": 0.11903,
+    "phrases": [
+      {
+        "start": 0.045,
+        "duration": 0.8,
+        "rms": 0.11903
+      }
+    ],
+    "steps": []
+  },
+  "building": {
+    "civ": "humano",
+    "role": "acid",
+    "variant": 0,
+    "purpose": "effect",
+    "hash": "0460b1bcbded77a77abfc097e123cbf49ada705317a9e0025247eb507c0601fd",
+    "file": "combat/building.mp3",
+    "source": "SONIDOS/golpe_construccion.mp3",
+    "duration": 1.384,
+    "peak": 0.8325557708740234,
+    "rms": 0.17088,
+    "phrases": [
+      {
+        "start": 0.035,
+        "duration": 0.8,
+        "rms": 0.17088
+      }
+    ],
+    "steps": []
+  },
+  "death": {
+    "civ": "humano",
+    "role": "acid",
+    "variant": 0,
+    "purpose": "effect",
+    "hash": "20b5872beb74a235da3c65860c0f8030ce81dfaaa5ea025c1d59340a5a4fea84",
+    "file": "combat/death.mp3",
+    "source": "SONIDOS/muere_personaje.mp3",
+    "duration": 1.848,
+    "peak": 0.6655423641204834,
+    "rms": 0.08367,
+    "phrases": [
+      {
+        "start": 0.295,
+        "duration": 1.553,
+        "rms": 0.08367
+      }
+    ],
+    "steps": []
+  }
+}

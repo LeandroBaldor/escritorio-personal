@@ -1,18 +1,19 @@
-import type { LandGame,Role } from './land';
+import type { LandGame,LandEvent,Role } from './land';
 import type { CivId } from './landCivs';
 import type { Cam } from './landArt';
 import { CHARACTER_CLIPS,characterClips } from './landCharacterClips';
 import { footContact } from './landMotion';
 import { LandSoundOutput,type CharacterSoundOutput } from './landSoundOutput';
+import {COMBAT_CLIPS,weaponSound} from './landCombat';
 export class LandCharacterSounds {
   private active=false;
   private serial=0;
   private lastContact=new Map<number,number>();
   private lastCall=-Infinity;
-  private lastEffect=-Infinity;
+  private combatTimes=new Map<string,number>();
   private variant=new Map<string,number>();
   constructor(private output:CharacterSoundOutput=new LandSoundOutput()){}
-  start(civ:CivId){this.output.unlock();void this.output.preload(CHARACTER_CLIPS.filter(c=>c.civ===civ));}
+  start(civ:CivId){this.lastCall=-Infinity;this.combatTimes.clear();this.output.unlock();void this.output.preload([...CHARACTER_CLIPS.filter(c=>c.civ===civ),...Object.values(COMBAT_CLIPS)]);}
   setActive(on:boolean){this.active=on;this.serial++;this.lastContact.clear();if(on)this.output.unlock();else this.output.stop();}
   tick(g:LandGame,cam:Cam,selected:ReadonlySet<number>){
     if(!this.active)return;
@@ -40,11 +41,15 @@ export class LandCharacterSounds {
     this.lastCall=time+Math.max(0,cue.duration-.75);this.output.unlock();
     void this.output.preload([clip]).then(()=>{if(this.active&&this.serial===serial)this.output.play(clip,cue,.45,0,'call');});
   }
-  attack(g:LandGame,owner:number,role:Role){
-    if(!this.active||g.t-this.lastEffect<.6)return false;
-    const civ=g.sides[owner].civ,clips=characterClips(civ,civ==='zergano'&&role==='special'?'acid':role,'effect');if(!clips.length)return false;
-    const clip=clips[this.next(`${civ}:${role}:effect`)%clips.length],cue=clip.phrases[0];void this.output.preload(clips);
-    const played=this.output.play(clip,{...cue,duration:Math.min(.65,cue.duration)},.4,0,'effect');if(played)this.lastEffect=g.t;return played;
+  combat(g:LandGame,event:LandEvent,pan=0){
+    if(!this.active)return;
+    const key=event.type==='shot'?weaponSound(g.sides[event.owner].civ,event.role):event.type==='impact'?'building':event.type==='die'&&!event.building?'death':null;
+    if(!key)return;
+    const gap=key==='death'?.22:key==='building'?.15:.09;
+    if(g.t-(this.combatTimes.get(key)??-Infinity)<gap)return;
+    this.combatTimes.set(key,g.t);const clip=COMBAT_CLIPS[key],serial=this.serial,time=g.t;
+    // Descartar un sonido que terminó de descargarse tarde o después de pausar.
+    void this.output.preload([clip]).then(()=>{if(this.active&&this.serial===serial&&g.t-time<.3)this.output.play(clip,clip.phrases[0],key==='death'?.55:.4,pan,key==='death'?'death':'effect');});
   }
   private next(key:string){const value=this.variant.get(key)??0;this.variant.set(key,value+1);return value;}
   dispose(){this.setActive(false);this.output.dispose();}
