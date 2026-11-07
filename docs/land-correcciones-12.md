@@ -1,0 +1,10 @@
+# Revisión 12: lectura, radio y animación
+
+- Los datos verdes de vida/daño y recursos del infograma pasan de 10 a 20 px. El resumen alternativo también amplía sus estadísticas. Los bloques permiten varias líneas en móvil.
+- Todos los botones, enlaces, desplegables y secciones plegables del menú usan `menu_boton.mp3`. La captura de eventos central evita reproducirlo dos veces por botón. Tres reproductores permiten clics sucesivos; no reinician la música.
+- El volumen de cada paso baja de 0,24 a 0,075 (aproximadamente 69 %). Conserva la sincronización con la distancia recorrida y los apoyos.
+- Las voces humanas pasan por un filtro de radio: corte inferior de 320 Hz, superior de 3200 Hz, saturación suave y compresión. Solo afecta a voces humanas, incluidos tanque y exotraje; no a pasos ni disparos. Los MP3 originales se conservan.
+- Las unidades rivales visibles emiten sus voces aunque estén quietas. Se carga la grabación correspondiente al entrar en cámara y se espacian las intervenciones al menos ocho segundos. Seleccionarlas también reproduce su voz. Se descartan las voces pendientes si la cámara sale de esa zona o se pausa. Los pasos de los rivales que tienen grabaciones de marcha usan el mismo sistema que los propios; el combate ya se escucha dentro de cámara.
+- La marcha ahora articula caderas/rodillas y hombros/codos, con contrapeso de brazos, elevación del pie que vuelve y balanceo del torso. Una malla continua en los bípedos evita separar las manos o las piernas al doblarlas. Se guardan hasta 192 poses para reutilizarlas. Los exotrajes y gólems caminan como bípedos; las orugas, criaturas y voladores tienen movimientos distintos. Atacar parado mueve los brazos sin hacer caminar las piernas.
+
+Verificación: pruebas de reserva de voces visibles, descarte al salir de cámara, volumen, periodicidad de articulaciones y MP3 de botones. Navegador en escritorio y móvil para tamaño real de texto, una reproducción por acción, filtros de radio y sonido de la civilización rival al explorar su zona.

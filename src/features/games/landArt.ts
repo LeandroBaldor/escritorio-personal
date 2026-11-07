@@ -5,7 +5,8 @@ import { drawAmbientTerrain, type TerrainRegion } from './landMapArt';
 import { drawWorldProp } from './landProps';
 import { drawWall } from './landWalls';
 import { drawDeath } from './landDeath';
-import { walkingPhase } from './landMotion';
+import { walkingPhase,motionKind } from './landMotion';
+import {drawRig} from './landRig';
 
 // Once recortes por civilización en hojas individuales de 4 × 3, con el último casillero vacío.
 const URLS = import.meta.glob('./assets/land/units-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
@@ -40,7 +41,7 @@ export function spritesReady() {
   return CIV_IDS.every(c => !!SPRITES[c]);
 }
 // Dibuja un recorte apoyado en (x, y) (el piso), de alto h (o de ancho w si es más ancho que alto).
-export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number, motion = 0) {
+export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number, motion = 0, attack = 0) {
   if (idx === 11) return drawWall(ctx,civ,x,y,Math.min(maxW ?? h,h*1.2),h);
   spritesReady();
   const image = SPRITES[civ], frame = FRAMES[civ]?.[idx]; if (!image || !frame) return false;
@@ -48,28 +49,31 @@ export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: numbe
   let k = h / sh; if (maxW && sw * k > maxW) k = maxW / sw;
   const dw = sw * k, dh = sh * k;
   ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  if (motion && idx < 6) {
-    const humanoid = idx < 4 && civ !== 'zergano' && civ !== 'abisal';
+  if ((motion || attack) && idx < 6) {
+    const kind=motionKind(civ,idx);
     const piece = (fx: number, fy: number, fw: number, fh: number, px: number, py: number, angle: number, lift = 0) => {
       ctx.save(); ctx.translate((px - 0.5) * dw, (py - 1) * dh + lift); ctx.rotate(angle);
       ctx.drawImage(image, sx + sw * fx, sy + sh * fy, sw * fw, sh * fh, (fx - px) * dw, (fy - py) * dh, fw * dw, fh * dh + 0.25); ctx.restore();
     };
-    if (humanoid) {
-      // Apoyo alternado de los pies, flexión de cadera y contrapeso de los brazos.
-      const phase = Math.sin(motion), stride = 0.15 * phase;
-      piece(0, .59, .5, .41, .28, .60, stride, -Math.max(0, -phase) * dh * .035);
-      piece(.5, .59, .5, .41, .70, .60, -stride, -Math.max(0, phase) * dh * .035);
-      piece(0, 0, 1, .2, .5, .5, -phase * .014);
-      piece(.2, .2, .6, .41, .5, .5, -phase * .014);
-      piece(0, .2, .2, .4, .23, .23, -stride * .5);
-      piece(.8, .2, .2, .4, .78, .23, stride * .5);
+    // Dos articulaciones por extremidad; los segmentos solapan un píxel para cerrar las uniones.
+    const chain=(fx:number,fw:number,top:number,joint:number,end:number,px:number,a:number,b:number,lift=0)=>{
+      ctx.save();ctx.translate((px-.5)*dw,(top-1)*dh-lift*dh);ctx.rotate(a);
+      ctx.drawImage(image,sx+sw*fx,sy+sh*top,sw*fw,sh*(joint-top), (fx-px)*dw,0,fw*dw,(joint-top)*dh+.7);
+      ctx.translate(0,(joint-top)*dh);ctx.rotate(b);
+      ctx.drawImage(image,sx+sw*fx,sy+sh*joint,sw*fw,sh*(end-joint),(fx-px)*dw,-.35,fw*dw,(end-joint)*dh+.7);ctx.restore();
+    };
+    if (kind==='biped') {
+      drawRig(ctx,image,frame,`${civ}:${idx}`,dw,dh,motion,attack);
+    } else if(kind==='treads') {
+      piece(0,0,1,1,.5,1,Math.sin(motion*2)*.004,Math.sin(motion*4)*.3);
+    } else if(kind==='fly') {
+      const flap=Math.sin(motion)*.10;
+      piece(0,0,.3,1,.30,.36,flap);piece(.7,0,.3,1,.70,.36,-flap);piece(.3,0,.4,1,.5,.6,0);
+    } else if(civ==='zergano'&&idx===0) {
+      for(let j=0;j<16;j++){const f=j/16;ctx.drawImage(image,sx+sw*f,sy,sw/16,sh,-dw/2+dw*f,-dh+Math.sin(motion+f*5)*dh*.018,dw/16+.3,dh);}
     } else {
-      const strips = 24, mechanical = (civ === 'humano' || civ === 'mecanico' || civ === 'enanos') && idx === 4;
-      for (let j = 0; j < strips; j++) {
-        const f = j / strips, sway = Math.sin(motion + f * 4.5) * Math.pow(f, 2) * dw * (mechanical ? .007 : .035);
-        const rise = mechanical ? Math.sin(motion * 2) * .3 : Math.sin(motion + f * 5) * Math.max(0, f - .55) * dh * .025;
-        ctx.drawImage(image, sx, sy + sh * f, sw, sh / strips, -dw / 2 + sway, -dh + dh * f + rise, dw, dh / strips + .2);
-      }
+      for(let leg=0;leg<4;leg++){const f=leg/4,p=motion+(leg%2)*Math.PI;chain(f,.25,.54,.79,1,f+.125,Math.sin(p)*.16,Math.max(0,-Math.cos(p))*.26,Math.max(0,-Math.cos(p))*.02);}
+      piece(0,0,1,.55,.5,.53,Math.sin(motion)*.012);
     }
   } else ctx.drawImage(image, sx, sy, sw, sh, -dw / 2, -dh, dw, dh);
   ctx.restore(); return true;
@@ -164,7 +168,7 @@ export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t:
   if (u.dead) { ctx.translate(u.x, u.y); ctx.rotate(u.face * Math.min(1.3, u.dead * 3)); ctx.translate(-u.x, -u.y); }
   const sq = moving ? 1 + Math.sin(phase*2) * 0.009 : 1;
   ctx.translate(u.x + lunge, u.y - bob - fly); ctx.scale(1 / sq, sq);
-  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? phase : u.atkT >= 0 && civ!=='humano' ? t * 15 : 0)) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
+  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? phase : 0,u.atkT>=0?Math.sin(Math.min(1,u.atkT/.3)*Math.PI):0)) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
   ctx.restore();
   if (u.carry > 0 && !u.dead) crystal(ctx, u.x + u.face * -10, u.y - h * 0.7, 5, u.carryKind === 'energy' ? '#baffd5' : u.carryKind === 'gem' ? '#fff6c8' : '#d7ecff', u.carryKind === 'energy' ? '#22d875' : u.carryKind === 'gem' ? '#f5b81a' : '#3b82f6', u.carryKind === 'energy' ? '#075a30' : u.carryKind === 'gem' ? '#9a5a00' : '#1e3a8a');
   if (!u.dead && (u.hp < u.maxHp || selected)) bar(ctx, u.x, u.y - h - fly - 6, Math.max(26, h * 0.6), u.hp / u.maxHp, u.owner === 0 ? '#4ade80' : '#f87171');

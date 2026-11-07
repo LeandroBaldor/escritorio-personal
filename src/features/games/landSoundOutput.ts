@@ -1,4 +1,5 @@
 import { characterClipUrl,type CharacterClip,type SoundCue } from './landCharacterClips';
+import {createSoldierRadio} from './landRadio';
 export type SoundChannel='foot'|'call'|'effect'|'death';
 export interface CharacterSoundOutput {
   unlock():void;preload(clips:CharacterClip[]):Promise<void>;play(clip:CharacterClip,cue:SoundCue,volume:number,pan:number,channel:SoundChannel):boolean;stop():void;dispose():void;
@@ -42,8 +43,10 @@ export class LandSoundOutput implements CharacterSoundOutput {
     const source=c.createBufferSource(),gain=c.createGain(),position=c.createStereoPanner();source.buffer=buffer;
     const level=volume*Math.min(2,Math.max(.35,.12/Math.max(.015,cue.rms))),t=c.currentTime,fade=Math.min(channel==='foot'?.018:channel==='effect'?.015:.12,length/3);
     gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(level,t+fade);gain.gain.setValueAtTime(level,t+length-fade);gain.gain.linearRampToValueAtTime(0,t+length);
-    position.pan.value=Math.max(-.8,Math.min(.8,pan));source.connect(gain).connect(position).connect(this.master!);
-    this.sources.set(source,channel);source.onended=()=>{this.sources.delete(source);source.disconnect();gain.disconnect();position.disconnect();};
+    const radio=channel==='call'&&clip.civ==='humano'?createSoldierRadio(c):null;
+    position.pan.value=Math.max(-.8,Math.min(.8,pan));source.connect(gain);if(radio){gain.connect(radio.input);radio.output.connect(position);}else gain.connect(position);position.connect(this.master!);
+    this.buffers.delete(clip.hash);this.buffers.set(clip.hash,buffer);
+    this.sources.set(source,channel);source.onended=()=>{this.sources.delete(source);source.disconnect();gain.disconnect();position.disconnect();radio?.dispose();};
     source.start(t,cue.start,length);return true;
   }
   stop(){for(const source of this.sources.keys()){try{source.stop();}catch{/* Ya terminó. */}}this.sources.clear();}

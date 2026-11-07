@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-vi.mock('./sounds',()=>({playKnock:vi.fn()}));
 class FakeAudio {
   static instances: FakeAudio[]=[];
   src:string;paused=true;currentTime=0;preload='';volume=1;ended:()=>void=()=>{};
@@ -11,6 +10,10 @@ class FakeAudio {
 }
 afterEach(()=>{vi.unstubAllGlobals();vi.resetModules();FakeAudio.instances=[];});
 describe('Música de Land',()=>{
+  it('reproduce el MP3 nuevo en cada botón y admite clics sucesivos sin reiniciar la música',async()=>{
+    vi.stubGlobal('Audio',FakeAudio);const {preloadLandSounds,setLandMenuMusic,playLandButton}=await import('./landAudio');preloadLandSounds();setLandMenuMusic(true);const music=FakeAudio.instances[0];music.currentTime=12;
+    playLandButton();playLandButton();playLandButton();playLandButton();const buttons=FakeAudio.instances.slice(1);expect(buttons).toHaveLength(3);expect(buttons.every(p=>p.src.includes('menu-boton.mp3')&&!p.paused)).toBe(true);expect(music.currentTime).toBe(12);
+  });
   it('reproduce 1,1,2,2 en bucle sin reiniciar al cambiar de pantalla de menú',async()=>{
     vi.stubGlobal('Audio',FakeAudio);const {setLandMenuMusic}=await import('./landAudio');setLandMenuMusic(true);
     const p=FakeAudio.instances[0],first=p.src,played=[p.src];p.currentTime=15;setLandMenuMusic(true);expect(p.currentTime).toBe(15);
