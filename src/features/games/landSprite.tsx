@@ -1,6 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { drawSprite } from './landArt';
-import type { CivId } from './landCivs';
+import { bIdx, drawSprite, roleIdx } from './landArt';
+import { TRAINING_ROLE, type CivId } from './landCivs';
+import type { BKind } from './land';
+export function BuildingSprite({civ,kind,w,h}:{civ:CivId;kind:BKind;w:number;h:number}){
+  const role=TRAINING_ROLE[kind],badge=Math.max(18,Math.min(44,w*.26));
+  return <span className="land-building-sprite" style={{width:w,height:h}} aria-hidden="true"><Sprite civ={civ} idx={bIdx(kind)} w={w} h={h}/>{role&&<span className="land-recruit-badge" style={{width:badge,height:badge*1.2}}><Sprite civ={civ} idx={roleIdx(role)} w={badge} h={badge*1.2}/></span>}</span>;
+}
 export function Sprite({ civ, idx, w, h, portrait = false }: { civ: CivId; idx: number; w: number; h: number; portrait?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {

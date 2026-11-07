@@ -15,7 +15,7 @@ describe('Actividad de las tropas',()=>{
   });
   it('muestra el edificio y su progreso mientras lo construyen',()=>{
     const g=newLandGame('humano','orcos',1,'normal',9,'small'),u=g.units[0],b=addBuilding(g,0,'barracks',400,400);b.built=.5;u.order={k:'build',id:b.id};u.x=400;u.y=400;
-    expect(troopActivity(g,u)).toMatchObject({label:'Construyendo',detail:'Cuartel · 50%'});u.x=900;expect(troopActivity(g,u).label).toBe('Yendo a la obra');
+    expect(troopActivity(g,u)).toMatchObject({label:'Construyendo',detail:'Cuartel Recluta · 50%'});u.x=900;expect(troopActivity(g,u).label).toBe('Yendo a la obra');
   });
   it('ningún escenario genera huesos como decoración',()=>{for(const theme of THEMES)expect(theme.decor).not.toContain('bone');});
   it('agrupa ingenieros por recurso aunque estén buscando, extrayendo o transportando',()=>{
@@ -29,6 +29,6 @@ describe('Actividad de las tropas',()=>{
   it('separa los tipos de tropas y las tareas, y agrupa obras equivalentes',()=>{
     const g=newLandGame('humano','orcos',1,'normal',9,'small'),workers=g.units.filter(u=>u.owner===0),b=addBuilding(g,0,'barracks',400,400);
     workers[0].order={k:'build',id:b.id};workers[1].order={k:'build',id:b.id};addUnit(g,0,'ranged',500,500);
-    expect(troopGroups(g).map(b=>[b.role,b.units.length,b.task])).toEqual([['worker',2,'Construcción de Cuartel'],['worker',2,'En espera'],['ranged',1,'En espera']]);
+    expect(troopGroups(g).map(b=>[b.role,b.units.length,b.task])).toEqual([['worker',2,'Construcción de Cuartel Recluta'],['worker',2,'En espera'],['ranged',1,'En espera']]);
   });
 });

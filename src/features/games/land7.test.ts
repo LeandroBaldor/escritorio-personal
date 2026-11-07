@@ -16,7 +16,7 @@ describe('Land: economía, rivales y preparación de la IA', () => {
     side.stone = side.gem = 5000;
     expect(research(g, base.id, 'attack')).toBe(false);
     side.energy = 16; expect(research(g, base.id, 'attack')).toBe(true); expect(side.energy).toBe(0);
-    const workshop = addBuilding(g, 0, 'workshop', base.x + 300, base.y); workshop.built = 1;
+    const workshop = addBuilding(g, 0, 'eliteBarracks', base.x + 300, base.y); workshop.built = 1;
     expect(train(g, workshop.id, 'elite')).toBe(false);
     side.energy = 40; expect(train(g, workshop.id, 'elite')).toBe(true); expect(side.energy).toBe(0);
     const stone = side.stone, gem = side.gem; cancelTrain(g, workshop.id);
@@ -55,7 +55,7 @@ describe('Land: economía, rivales y preparación de la IA', () => {
     for (let i = 0; i < 13; i++) addUnit(g, 1, i === 0 ? 'heavy' : 'melee', base.x + 100 + i * 10, base.y + 50);
     g.t = 181; stepLand(g, .05); expect(g.ai.wave).toBe(0);
     g.t = AI_PREPARE.normal + 1; g.ai.t = 0; stepLand(g, .05); expect(g.ai.wave).toBe(0);
-    for (const kind of ['depot', 'barracks', 'workshop', 'tower'] as const) { const b = addBuilding(g, 1, kind, base.x + 300, base.y - 200); b.built = 1; }
+    for (const kind of ['depot', 'workerBarracks', 'barracks', 'rangedBarracks', 'specialBarracks', 'workshop', 'eliteBarracks', 'tower'] as const) { const b = addBuilding(g, 1, kind, base.x + 300, base.y - 200); b.built = 1; }
     g.ai.t = 0; stepLand(g, .05); expect(g.ai.wave).toBe(1);
   });
   it('una ráfaga de tres trazadoras aplica una sola vez el daño del arma', () => {
