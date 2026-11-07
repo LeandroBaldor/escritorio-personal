@@ -10,7 +10,7 @@ const target = fs.realpathSync(path.resolve(targetArg));
 if (target === fs.realpathSync(source) || !fs.existsSync(path.join(target, 'src/features/games/LandGame.tsx'))) throw new Error('El destino debe ser el otro repositorio de MiniJuegos.');
 const check = process.argv.includes('--check');
 const files = [
-  ...fs.readdirSync(path.join(source, 'src/features/games')).filter(n => /^(?:LandGame\.tsx|LandIcon\.tsx|land.*\.(?:ts|css))$/.test(n)).map(n => 'src/features/games/' + n),
+  ...fs.readdirSync(path.join(source, 'src/features/games')).filter(n => /^(?:LandGame\.tsx|LandIcon\.tsx|land.*\.(?:tsx?|css))$/.test(n)).map(n => 'src/features/games/' + n),
   'src/features/games/fonts/orbitron.ttf', 'src/features/games/fonts/OFL-orbitron.txt',
   'tests/land-corrections.spec.ts', 'scripts/sync-land.mjs', 'scripts/prepare-land-art.mjs', 'docs/land-correcciones-6.md',
   'docs/land-partida.png', 'docs/land-atlas.png',
@@ -18,6 +18,8 @@ const files = [
   'docs/land7-menu.png', 'docs/land7-paisajes.png',
   'tests/land8.spec.ts', 'scripts/prepare-land-walls.mjs', 'docs/land-correcciones-8.md',
   'docs/land8-infograma.png', 'docs/land8-resumen.png', 'docs/land8-muros.png',
+  'tests/land9.spec.ts', 'docs/land-correcciones-9.md',
+  'docs/land9-informe.png', 'docs/land9-tropas.png', 'docs/land9-construccion.png',
 ];
 function collect(dir) {
   for (const entry of fs.readdirSync(path.join(source, dir), { withFileTypes: true })) {

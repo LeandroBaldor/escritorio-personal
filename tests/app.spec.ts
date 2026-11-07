@@ -1242,7 +1242,7 @@ test('Land of Warriors: se elige civilización en la imagen, se ve su lámina, s
   await expect(page.getByLabel('Las 10 civilizaciones')).toBeVisible();
   await page.getByRole('group', { name: 'Dificultad' }).getByRole('button', { name: 'Fácil', exact: true }).click();
   await page.getByRole('button', { name: 'Clanes Enanos' }).click();
-  await expect(page.getByRole('img', { name: /Clanes Enanos: unidades/ })).toBeVisible(); // la lámina a pantalla completa
+  await expect(page.getByRole('region', { name: /Clanes Enanos: unidades/ })).toBeVisible(); // el informe a pantalla completa
   await page.getByRole('button', { name: 'Resumen', exact: true }).click();
   await expect(page.getByText('Muralla de Hierro', { exact: false }).first()).toBeVisible();
   await page.getByRole('button', { name: /Elegir escenario/ }).click();

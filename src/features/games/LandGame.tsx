@@ -1,5 +1,9 @@
 import './land.css';
 import './landHud.css';
+import './landInterface.css';
+import { Sprite } from './landSprite';
+import { LandInfographic, LeaderPortrait } from './landInfographic';
+import { LandTroops } from './landTroops';
 import { LandIcon, LandEagle } from './LandIcon';
 import { worldPropsReady } from './landProps';
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
@@ -17,8 +21,6 @@ import { useFitScreen } from './fitScreen';
 import { playExplosion, playGameOver, playKnock, playRifleShot, playVampSword, playWinFanfare } from './sounds';
 import { playLandButton, preloadLandSounds, setLandMenuMusic } from './landAudio';
 
-const LAMINAS = import.meta.glob('./assets/land/lamina-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
-const lamina = (c: CivId) => LAMINAS[`./assets/land/lamina-${c}.webp`];
 import posterImg from './assets/land/poster.webp';
 const RECORD_KEY = 'escritorio-personal-juegos:land-victorias';
 export function readLandRecord(): Record<string, number> { try { return JSON.parse(localStorage.getItem(RECORD_KEY) ?? '{}') ?? {}; } catch { return {}; } }
@@ -33,23 +35,6 @@ const HUD_H = 214; // (el alto del menú de abajo)
 const minZoom = (g: LandGame, w: number, h: number) => Math.max(1.6 / 1.1, w / g.terrain.w, (h - HUD_H) / g.terrain.h);
 type Mode = { k: 'none' } | { k: 'place'; kind: BKind } | { k: 'power' } | { k: 'amove' };
 
-// Un dibujo chico de un guerrero o una construcción (de la hoja de recortes).
-function Sprite({ civ, idx, w, h, portrait = false }: { civ: CivId; idx: number; w: number; h: number; portrait?: boolean }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    let frame = 0;
-    const draw = () => {
-      const c = ref.current; if (!c) return;
-      const k = Math.min(2, window.devicePixelRatio || 1); c.width = w * k; c.height = h * k;
-      const ctx = c.getContext('2d'); if (!ctx) return;
-      ctx.setTransform(k, 0, 0, k, 0, 0); ctx.clearRect(0, 0, w, h);
-      if (!drawSprite(ctx, civ, idx, w / 2, portrait ? h * 2.45 : h - 2, portrait ? h * 2.45 : h - 4, false, portrait ? w * 2 : w - 4)) frame = requestAnimationFrame(draw);
-    };
-    draw(); return () => cancelAnimationFrame(frame);
-  }, [civ, idx, w, h, portrait]);
-  return <canvas ref={ref} style={{ width: w, height: h }} aria-hidden="true" />;
-}
-
 export function LandOfWarriors() {
   const fit = useFitScreen();
   const [screen, setScreen] = useState<Screen>('title');
@@ -57,7 +42,7 @@ export function LandOfWarriors() {
   const [view, setView] = useState<CivId>('humano'); // la lámina que se está mirando
   const [simple, setSimple] = useState(false);
   const [enemies, setEnemies] = useState<(CivId | 'random')[]>(['random']);
-  const [inspectedEnemy, setInspectedEnemy] = useState(1);
+  const [commsOpen, setCommsOpen] = useState(false);
   const [map, setMap] = useState(5);
   const [size, setSize] = useState<MapSize>('medium');
   const [loading, setLoading] = useState(false);
@@ -113,7 +98,7 @@ export function LandOfWarriors() {
       detailImg.current = null; mapImg.current = renderTerrain(g.terrain);
       const base = g.buildings.find(b => b.owner === 0)!;
       camRef.current = { ...camRef.current, z: 1.6, x: base.x - 300, y: base.y - 200 };
-      setInspectedEnemy(1); setSelection([]); setMode({ k: 'none' }); setLoading(false); setScreen('playing');
+      setCommsOpen(false); setSelection([]); setMode({ k: 'none' }); setLoading(false); setScreen('playing');
     };
     setTimeout(prepare, 60);
   }, [enemies, map, diff, size, setSelection]);
@@ -217,6 +202,7 @@ export function LandOfWarriors() {
   // ---------------------------------------------------------------- Teclado
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLElement && (e.target.closest('input,textarea,select') || e.target.isContentEditable)) { keys.current.clear(); return; }
       const s = screenRef.current;
       if ((e.key === 'p' || e.key === 'P') && (s === 'playing' || s === 'paused')) { playLandButton(); setScreen(s === 'playing' ? 'paused' : 'playing'); return; }
       if ((s === 'sheet' || s === 'scenario') && e.key === 'Escape') { setScreen(s === 'scenario' ? 'sheet' : 'pick'); return; }
@@ -308,6 +294,7 @@ export function LandOfWarriors() {
     else setSelection([]);
   };
   const onWheel = (e: React.WheelEvent) => {
+    if (!(e.target instanceof HTMLCanvasElement)) return;
     if (screenRef.current !== 'playing') return;
     const c = camRef.current, g = gRef.current, old = c.z, z = Math.max(g ? minZoom(g, c.w, c.h) : 0.6, Math.min(2.8, c.z * (e.deltaY > 0 ? 0.9 : 1.1)));
     const m = mouse.current; c.x += m.x / old - m.x / z; c.y += m.y / old - m.y / z; c.z = z;
@@ -328,6 +315,7 @@ export function LandOfWarriors() {
   const selB = g && !selUnits.length ? sel.map(id => g.buildings.find(b => b.id === id && !b.dead)).find(Boolean) as Building | undefined : undefined;
   const mine = selUnits.filter(u => u.owner === 0), workersSel = mine.some(u => u.role === 'worker');
   const side = g?.sides[0];
+  const previewKind = mode.k === 'place' ? mode.kind : selB?.owner === 0 ? selB.kind : undefined;
   const focus = (x: number, y: number) => { const c = camRef.current; c.x = x - c.w / c.z / 2; c.y = y - (c.h - HUD_H) / c.z / 2; };
   const selectArmy = () => { if (!g) return; const a = g.units.filter(u => u.owner === 0 && !u.dead && u.role !== 'worker'); setSelection(a.map(u => u.id)); if (!a.length) say('Todavía no tenés soldados: hacé un cuartel'); };
   const selectIdle = () => { if (!g) return; const w = g.units.find(u => u.owner === 0 && !u.dead && u.role === 'worker' && u.order.k === 'idle'); if (w) { setSelection([w.id]); focus(w.x, w.y); } else say('No hay trabajadores sin hacer nada 👍'); };
@@ -336,7 +324,7 @@ export function LandOfWarriors() {
   // ---------------------------------------------------------------- Pantallas
   const viewD = CIVS[view];
   const sheetScreen = <div className="land-sheet" role="dialog" aria-label={`Lámina de ${viewD.name}`}>
-    <div className="land-sheet-scroll"><img src={lamina(view)} alt={`${viewD.name}: unidades, construcciones y máquinas`} /></div>
+    <div className="land-sheet-scroll"><LandInfographic civ={view}/></div>
     {simple && <div className="land-simple" style={{ ['--civ' as string]: viewD.color }}>
       <h2>{viewD.name}</h2><p className="land-simple-style">{viewD.style}</p>
       <h3>Guerreros</h3>
@@ -354,7 +342,7 @@ export function LandOfWarriors() {
   </div>;
 
   const playing = screen === 'playing' || screen === 'paused' || screen === 'won' || screen === 'lost';
-  return <section className="land land-v7" style={fit} aria-label="Land of Warriors" onContextMenu={e => e.preventDefault()}>
+  return <section className="land land-v7 land-v9" style={fit} aria-label="Land of Warriors" onContextMenu={e => e.preventDefault()}>
     {!playing && <div className="land-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1 className="land-logo" aria-label="Land of Warriors">{screen === 'pick' || screen === 'sheet' ? 'Civilizaciones' : screen === 'scenario' ? 'Escenarios' : 'Land of Warriors'}</h1>
@@ -401,16 +389,22 @@ export function LandOfWarriors() {
       <canvas ref={canvasRef} className={mode.k === 'place' || mode.k === 'power' || mode.k === 'amove' ? 'land-aim' : ''} aria-label={`Partida en ${THEMES[g.terrain.theme].name}`} role="img"
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} onPointerLeave={() => { mouse.current.in = false; }} />
       <div className="land-top-left"><Link className="land-exit" to="/juegos" aria-label="Volver a Juegos">‹</Link><span>Escenario {g.map} — {THEMES[g.terrain.theme].name}</span></div>
-      <aside className="land-intel" aria-label="Información de las civilizaciones">
-        {[0, Math.min(inspectedEnemy, g.sides.length - 1)].map(owner => { const c = CIVS[g.sides[owner].civ]; return <div className="land-intel-card" key={owner} style={{ ['--civ' as string]: c.color }}>
-          <header><span className="land-civ-emblem"><LandIcon kind="shield" /></span><div><small>{owner === 0 ? 'TU CIVILIZACIÓN' : g.sides.length > 2 ? <select aria-label="Civilización rival para inspeccionar" value={inspectedEnemy} onChange={e => setInspectedEnemy(Number(e.target.value))}>{g.sides.slice(1).map((rival, i) => <option key={i} value={i + 1}>{CIVS[rival.civ].name}</option>)}</select> : 'RIVAL'}</small><b><span>{c.name.split(' ').slice(0, -1).join(' ')}</span><span>{c.name.split(' ').slice(-1)[0]}</span></b></div><Sprite civ={g.sides[owner].civ} idx={roleIdx('ranged')} w={104} h={76} portrait /></header>
-          <p><strong>Rol:</strong> {c.style}</p><p><strong>Unidades:</strong> {ROLE_ORDER.map(r => c.units[r]).join(' · ')}</p><p><strong>Edificios:</strong> {BKINDS.map(k => c.buildings[k]).join(' · ')}</p><p><strong>Extra:</strong> {c.power.name}</p>
-        </div>; })}
-        <div className="land-intel-card land-intel-controls"><h3><LandIcon kind="gear" /> SISTEMAS CLAVE DEL RTS</h3>
-          {[['layers', 'Recursos', 'Minerales azules, diamantes dorados y energía verde.'], ['base', 'Árbol tecnológico', 'Base, cuartel y taller para desarrollar tu civilización.'], ['move', 'Mejoras', 'La energía verde permite investigar ataque, vida y velocidad.'], ['blast', 'Poder de facción', CIVS[side.civ].power.name + ': se carga con el combate.'], ['radar', 'Exploración', 'Arrastrá para explorar. Shift + arrastre selecciona.'], ['shield', 'Defensas', 'Construí torres para proteger tu economía y tus pasos.'], ['people', 'Población', 'Aumentá el límite de unidades con depósitos.'], ['army', 'Rivales', 'Destruí todas las bases enemigas para ganar.']].map(([icon, title, text]) => <p className="land-system" key={title}><LandIcon kind={icon} /><span><strong>{title}:</strong> {text}</span></p>)}
-          <time className="land-match-time">Tiempo de partida {formatLandTime(g.t)}</time>
-        </div>
+      <button type="button" className="land-intel-toggle" aria-expanded={commsOpen} onClick={()=>setCommsOpen(open=>!open)}>Tropas y líder</button>
+      <aside className={`land-intel land-own-intel${commsOpen?' land-intel-open':''}`} aria-label="Tu civilización y tropas">
+        <section className="land-intel-card land-leader-card" style={{['--civ' as string]:CIVS[side.civ].color}}>
+          <button type="button" className="land-intel-close" aria-label="Cerrar panel de tropas" onClick={()=>setCommsOpen(false)}>×</button>
+          <div className="land-leader-heading"><LeaderPortrait civ={side.civ}/><div><small>TU LÍDER</small><h2>{CIVS[side.civ].name}</h2><span>{CIVS[side.civ].motto}</span></div></div>
+          <p>{CIVS[side.civ].style}</p>
+        </section>
+        <section className="land-intel-card land-colony-card"><h3>TU ALDEA</h3>
+          <dl><div><dt>Trabajadores</dt><dd>{g.units.filter(u=>u.owner===0&&!u.dead&&u.role==='worker').length}</dd></div><div><dt>Ejército</dt><dd>{g.units.filter(u=>u.owner===0&&!u.dead&&u.role!=='worker').length}</dd></div><div><dt>Población</dt><dd>{popUsed(g,0)} / {popCap(g,0)}</dd></div></dl>
+          <p><strong>{CIVS[side.civ].power.name}</strong><br/>{POWER_TEXT[CIVS[side.civ].power.kind]}</p>
+          <details><summary>Economía y defensas</summary><p>Azules para construir; dorados para tropas avanzadas; verdes para mejoras y élite. Protegé la aldea con {CIVS[side.civ].buildings.wall} y {CIVS[side.civ].buildings.tower}.</p></details>
+          <time>Tiempo de partida {formatLandTime(g.t)}</time>
+        </section>
+        <div className="land-intel-card land-troops-card"><LandTroops game={g} selected={sel} onSelect={u=>{setSelection([u.id]);focus(u.x,u.y);setMode({k:'none'});setCommsOpen(false);}}/></div>
       </aside>
+      {previewKind && <section className="land-build-preview" aria-label="Vista ampliada de construcción"><div><small>{mode.k==='place'?'A CONSTRUIR':'ESTRUCTURA SELECCIONADA'}</small><h3>{CIVS[side.civ].buildings[previewKind]}</h3></div><Sprite civ={side.civ} idx={bIdx(previewKind)} w={260} h={175}/><p>{BUILD_TEXT[previewKind]}</p><span>{costText(BUILD_STATS[previewKind].cost)} · {BUILD_STATS[previewKind].time} s</span></section>}
       <div className="land-top-right" aria-label="Recursos">
         <span title="Diamantes (cristales dorados)"><i className="land-r-gem" /><b data-testid="land-gem">{Math.floor(side.gem)}</b></span>
         <span title="Minerales (cristales azules)"><i className="land-r-stone" /><b data-testid="land-stone">{Math.floor(side.stone)}</b></span>

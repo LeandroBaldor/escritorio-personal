@@ -42,7 +42,7 @@ test('Land 7: lista de rivales, fotografías, energía y geometría del menú', 
   if (info.project.name === 'desktop') {
     const hud = (await page.locator('.land-hud').boundingBox())!, sidebar = (await page.locator('.land-intel').boundingBox())!;
     expect(Math.abs(hud.x - sidebar.width)).toBeLessThan(3);
-    await expect(page.locator('.land-intel-card')).toHaveCount(3);
+    await expect(page.locator('.land-own-intel .land-intel-card')).toHaveCount(3);
     const art = await page.evaluate(async base => {
       const { drawSprite } = await import(base + 'src/features/games/landArt.ts'), { drawWorldProp } = await import(base + 'src/features/games/landProps.ts');
       const c = document.createElement('canvas'); c.width = 800; c.height = 720; const ctx = c.getContext('2d')!;
