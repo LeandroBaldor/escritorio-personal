@@ -1,0 +1,66 @@
+/* Panel central legible: el doble de tamaño respecto del HUD anterior. */
+.land.land-v9 .land-hud{height:440px!important;grid-template-columns:160px minmax(0,1fr) 230px!important}
+.land.land-v9 .land-selection-inspector.land-inspector17{padding:6px 10px!important;gap:7px;line-height:1.15!important}
+.land.land-v9 .land-selection-inspector.land-inspector17 *{font-family:Arial,sans-serif!important;font-size:26px!important;line-height:1.15!important}
+.land.land-v9 .land-selection-inspector.land-inspector17 h3{font-size:32px!important;line-height:1.05!important}
+.land.land-v9 .land-selection-inspector.land-inspector17 small{font-size:22px!important}
+.land.land-v9 .land-selection-inspector.land-inspector17 header{gap:10px;margin:0 0 3px;padding-bottom:4px}
+.land.land-v9 .land-selection-inspector.land-inspector17 header>div:first-child{display:none}
+.land.land-v9 .land-selection-inspector.land-inspector17 header span{font-size:22px!important}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-base-tabs{gap:6px;margin:0}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-base-tabs button{font-size:24px!important;padding:5px 9px;min-width:0}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-base-report{gap:7px}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-structure-upgrades{gap:8px}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-structure-upgrades article{gap:5px;padding:7px}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-economy-summary p{font-size:24px!important;margin:2px 0}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-economy-summary table *{font-size:22px!important;padding:2px 5px}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-economy-summary table{margin:3px 0}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-attributes{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 12px}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-attributes *{font-size:22px!important;overflow-wrap:anywhere}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-attributes meter{height:7px;flex-basis:7px;margin-top:4px}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-unit-details{gap:5px 14px;flex-wrap:wrap}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-unit-details span{font-size:22px!important}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-evolution-gain,.land.land-v9 .land-selection-inspector.land-inspector17 .land-evolution-gain *{font-size:22px!important;padding:5px}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-next-tip{font-size:22px!important;max-height:none;padding:5px;margin:0}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-evolution-previews figcaption{font-size:20px!important}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-evolution-previews canvas{height:62px!important;max-height:62px}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-population-totals{gap:5px 18px;margin:0 0 8px}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-summary-tasks{gap:5px}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-summary-tasks article{padding:4px}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-unit-capacity{gap:4px 12px}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-more-button{background:#153c50;border:1px solid #93bbbd;color:#d1f3d8;border-radius:5px;padding:5px 9px;text-align:left;font-size:22px!important}
+.land.land-v9 .land-selection-inspector.land-inspector17:not(.land-show-more)>.land-evolution-gain,.land.land-v9 .land-selection-inspector.land-inspector17:not(.land-show-more)>.land-next-tip{display:none!important}
+.land.land-v9 .land-selection-inspector.land-inspector17.land-show-more>.land-attributes,.land.land-v9 .land-selection-inspector.land-inspector17.land-show-more>.land-evolution-previews,.land.land-v9 .land-selection-inspector.land-inspector17.land-show-more>.land-unit-details{display:none!important}
+.land.land-v9 .land-selection-inspector.land-inspector17 .land-tech-toggle{background:none;border:0;color:inherit;text-align:left;padding:0}
+@media(max-width:1400px){
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-structure-upgrades{grid-template-columns:1fr}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-structure-upgrades article[data-active=false]>span,.land.land-v9 .land-selection-inspector.land-inspector17 .land-structure-upgrades article[data-active=false]>small{display:none}
+}
+@media(max-width:1100px){.land.land-v9 .land-hud{grid-template-columns:110px minmax(0,1fr) 160px!important}.land.land-v9 .land-intel-toggle{bottom:450px}.land.land-v9 .land-own-intel{bottom:490px}}
+@media(max-width:650px){
+  .land.land-v9 .land-hud{grid-template-columns:62px minmax(0,1fr) 78px!important}
+  .land.land-v9 .land-selection-info{padding:3px!important}
+  .land.land-v9 .land-selection-inspector.land-inspector17{padding:2px!important;gap:3px}
+  .land.land-v9 .land-selection-inspector.land-inspector17 *{font-size:20px!important;line-height:1.1!important}
+  .land.land-v9 .land-selection-inspector.land-inspector17 h3{font-size:22px!important}
+  .land.land-v9 .land-selection-inspector.land-inspector17 small,.land.land-v9 .land-selection-inspector.land-inspector17 header span{font-size:18px!important}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-base-tabs{gap:3px;flex-wrap:wrap}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-base-tabs button{font-size:18px!important;padding:4px;flex:1 1 auto}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-structure-upgrades article{padding:4px;gap:3px}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-structure-upgrades article>b,.land.land-v9 .land-selection-inspector.land-inspector17 .land-structure-upgrades article>span{font-size:18px!important}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-structure-upgrades small{font-size:16px!important}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-structure-upgrades article[data-active=false]>span,.land.land-v9 .land-selection-inspector.land-inspector17 .land-structure-upgrades article[data-active=false]>small{display:none}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-more-button{font-size:18px!important}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-economy-summary p{font-size:18px!important}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-economy-summary table *{font-size:18px!important;padding:1px 2px}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-economy-summary small{font-size:16px!important}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-attributes{grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 8px}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-unit-details{gap:3px 10px}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-base-report{gap:5px}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-attributes *,.land.land-v9 .land-selection-inspector.land-inspector17 .land-unit-details span,.land.land-v9 .land-selection-inspector.land-inspector17 .land-next-tip,.land.land-v9 .land-selection-inspector.land-inspector17 .land-evolution-gain,.land.land-v9 .land-selection-inspector.land-inspector17 .land-evolution-gain *{font-size:18px!important}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-evolution-previews{gap:2px}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-evolution-previews figcaption{font-size:16px!important;overflow-wrap:anywhere}
+  .land.land-v9 .land-selection-inspector.land-inspector17 .land-evolution-previews canvas{height:44px!important;max-height:44px}
+  .land.land-v9 .land-mini .land-quick{flex-basis:20px!important}
+  .land.land-v9 .land-cmds .land-command-label{overflow-wrap:anywhere}
+}

@@ -1,1 +1,1 @@
-export const LAND_HUD_HEIGHT=320;
+export const LAND_HUD_HEIGHT=440;

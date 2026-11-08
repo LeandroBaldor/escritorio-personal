@@ -48,7 +48,7 @@ export function spritesReady() {
 }
 // Dibuja un recorte apoyado en (x, y) (el piso), de alto h (o de ancho w si es más ancho que alto).
 export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number, motion = 0, attack = 0,kneel=0,level=0,work=0):boolean {
-  if(idx===12)return drawFarm(ctx,civ,x,y,Math.min(maxW??h,h*1.7),h*.52);
+  if(idx===12)return drawFarm(ctx,civ,x,y,Math.min(maxW??h,h*1.7),h*.85);
   if(idx===13){const ok=drawSprite(ctx,civ,10,x,y,h,flip,maxW);if(ok)drawStorehouse(ctx,civ,x,y,Math.min(maxW??h,h*1.3),h);return ok;}
   if (idx === 11) return drawWall(ctx,civ,x,y,Math.min(maxW ?? h,h*1.2),h);
   spritesReady();
@@ -127,9 +127,9 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, g: LandGame, b: Buil
     ctx.font='bold 10px Orbitron, sans-serif';ctx.textAlign='center';ctx.fillStyle='#fff5c1';ctx.fillText(`${Math.floor(b.built*100)}%`,b.x,b.y-31);
     ctx.restore();return;
   }
-  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(b.x, b.y + 4, w * 0.48, w * 0.16, 0, 0, Math.PI * 2); ctx.fill();
+  if(b.kind!=='farm'){ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(b.x, b.y + 4, w * 0.48, w * 0.16, 0, 0, Math.PI * 2); ctx.fill();}
   ctx.strokeStyle = selected ? '#fef08a' : TEAM[b.owner]; ctx.lineWidth = selected ? 3 : 2; ctx.globalAlpha = fade * (selected ? 1 : 0.7);
-  ctx.beginPath(); ctx.ellipse(b.x, b.y + 4, w * 0.5, w * 0.17, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = fade;
+  ctx.beginPath(); ctx.ellipse(b.x, b.y + 4, w * 0.5, w * 0.17, 0, 0, Math.PI * 2); if(b.kind!=='farm'||selected)ctx.stroke(); ctx.globalAlpha = fade;
   {
     drawSprite(ctx, civ, bIdx(b.kind), b.x, b.y + 6, h, false, w);
     const recruit=TRAINING_ROLE[b.kind];
@@ -228,7 +228,8 @@ export function drawWorld(ctx: CanvasRenderingContext2D, g: LandGame, map: HTMLC
   for (const n of g.nodes) if (vis(n)) drawNode(ctx, n, t);
   // de atrás para adelante (los de más abajo tapan a los de más arriba)
   const all: ({ y: number; d: () => void })[] = [];
-  for (const b of g.buildings) if (vis(b)) all.push({ y: b.y, d: () => drawBuilding(ctx, g, b, t, sel.has(b.id)) });
+  for (const b of g.buildings) if (b.kind==='farm'&&vis(b)) drawBuilding(ctx,g,b,t,sel.has(b.id));
+  for (const b of g.buildings) if (b.kind!=='farm'&&vis(b)) all.push({ y: b.y, d: () => drawBuilding(ctx, g, b, t, sel.has(b.id)) });
   for (const u of g.units) if (vis(u)) all.push({ y: u.y, d: () => drawUnit(ctx, g, u, t, sel.has(u.id),sel.has(u.id)&&sel.size===1) });
   all.sort((a, b) => a.y - b.y); for (const o of all) o.d();
   drawShots(ctx, g);
