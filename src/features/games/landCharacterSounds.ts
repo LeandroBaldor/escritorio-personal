@@ -9,7 +9,7 @@ import {EVENT_CLIPS} from './landEventSounds';
 import {isBuildingBurning} from './landBuildingFire';
 import {extractingResource} from './landGatherPose';
 import {landHudHeight} from './landLayout';
-import {miningBeat} from './landAnimation';
+import {animationWalkDistance,miningBeat} from './landAnimation';
 export class LandCharacterSounds {
   private active=false;
   private serial=0;
@@ -42,7 +42,7 @@ export class LandCharacterSounds {
     if(enemy&&g.t-this.lastAmbient>=8&&g.t-this.lastCall>=1){this.lastAmbient=g.t;this.call(g.sides[enemy.owner].civ,enemy.role,g.t,((enemy.x-cam.x)*cam.z/cam.w-.5)*1.3,()=>this.audible.has(enemy.id)&&!enemy.dead);}
     for(const u of visible){
       const civ=g.sides[u.owner].civ,legs=audibleLegs(civ,u.role);if(!legs)continue;
-      const contact=stepContact(u.walk,legs),old=this.lastContact.get(u.id);this.lastContact.set(u.id,contact);
+      const contact=stepContact(animationWalkDistance(g,u),legs),old=this.lastContact.get(u.id);this.lastContact.set(u.id,contact);
       if(!u.moving||old===undefined||old===contact)continue;
       const clip=FOOTSTEP_CLIP,index=this.next('shared:foot'),cue=clip.steps[index%clip.steps.length];
       void this.output.preload([clip]);

@@ -16,8 +16,8 @@ describe('Cuarteles exclusivos por personaje',()=>{
         const resources={...g.sides[0]},queue=[...b.queue];expect(train(g,b.id,other)).toBe(false);expect(g.sides[0]).toEqual(resources);expect(b.queue).toEqual(queue);
       }
     }
-    for(const kind of ['base','tower','depot','wall'] as const)expect(BUILD_STATS[kind].makes).toEqual([]);
-    expect(train(g,base.id,'worker')).toBe(false);
+    for(const kind of ['tower','depot','wall'] as const)expect(BUILD_STATS[kind].makes).toEqual([]);
+    expect(BUILD_STATS.base.makes).toEqual(['worker']);expect(train(g,base.id,'worker')).toBe(true);
   });
   it('todos los edificios conservan un recorte válido del arte de su civilización',()=>{
     for(const kind of BKINDS)expect(bIdx(kind)).toBeGreaterThanOrEqual(6);

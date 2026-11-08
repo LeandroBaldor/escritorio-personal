@@ -1,3 +1,5 @@
+import {BASE_CAMERA_ZOOM,MIN_CAMERA_ZOOM,MAX_CAMERA_ZOOM,selectedInBox} from './landTactics';
+import {CivTraits} from './landCivTraits';
 import {ResourceIcon,LandCost,resourceCostText} from './landResource';
 import {LandReferenceFrame,LandReferenceCommandIcon} from './landReferenceFrame';
 import {LandSelectionStrip} from './landSelectionStrip';
@@ -12,6 +14,7 @@ import './landReadable.css';
 import './landReferenceHud.css';
 import './landVillageHud.css';
 import './landResourceHud.css';
+import './landTactics.css';
 import { BuildingSprite, Sprite } from './landSprite';
 import { LandInfographic,LeaderPortrait } from './landInfographic';
 import {LandInspector} from './landInspector';
@@ -27,7 +30,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointer
 import { Link } from 'react-router-dom';
 import {
   BUILD_STATS, BKINDS, POWER_MAX, ROLE_STATS, canPay, canPlace, cancelTrain, formatLandTime, hasBuilt, newLandGame, orderMove, orderSmart,
-  placeBuilding, popCap, popUsed, researchEvolution,researchInfrastructure, stepLand, takeLandEvents, train, unitStats, castPower, type BKind, type Building, type Cost, type Difficulty, type LandGame, type Role, type Unit,
+  placeBuilding, popCap, popUsed, researchEvolution,researchInfrastructure, trainingDuration, stepLand, takeLandEvents, train, unitStats, castPower, type BKind, type Building, type Cost, type Difficulty, type LandGame, type Role, type Unit,
 } from './land';
 import { BUILD_TEXT, CIVS, CIV_IDS, POWER_TEXT, TRAINING_ROLE, attackText, roleText, type CivId } from './landCivs';
 import { wallPoint, wallsReady } from './landWalls';
@@ -48,7 +51,7 @@ const DIFF: [Difficulty, string][] = [['veryEasy', 'Muy fácil'], ['easy', 'Fác
 const costText=resourceCostText;
 type Screen = LandScreen;
 const HUD_H = landHudHeight; // (el alto del menú de abajo)
-const minZoom = (g: LandGame, w: number, h: number) => Math.max(1.6 / 1.1, w / g.terrain.w, (h - HUD_H(w)) / g.terrain.h);
+const minZoom = (g: LandGame, w: number, h: number) => Math.max(MIN_CAMERA_ZOOM, w / g.terrain.w, (h - HUD_H(w)) / g.terrain.h);
 type Mode = { k: 'none' } | { k: 'place'; kind: BKind } | { k: 'power' } | { k: 'amove' };
 
 export function LandOfWarriors() {
@@ -87,7 +90,7 @@ export function LandOfWarriors() {
   const screenRef = useRef(screen);
   useEffect(() => { screenRef.current = screen; }, [screen]);
   const mouse = useRef({ x: 0, y: 0, in: false, wx: 0, wy: 0 });
-  const drag = useRef<{ x0: number; y0: number; x1: number; y1: number; pan: boolean; id: number; cx: number; cy: number } | null>(null);
+  const drag = useRef<{ x0: number; y0: number; x1: number; y1: number; pan: boolean; button?:number; id: number; cx: number; cy: number } | null>(null);
   const keys = useRef<Set<string>>(new Set());
   const characterSounds=useRef<LandCharacterSounds|null>(null);
   const lastToast = useRef<Record<string, number>>({});
@@ -132,7 +135,7 @@ export function LandOfWarriors() {
       leaderReports.current=new LandLeaderReports();lastToast.current={};setLeaderMessages([{id:++messageId.current,time:0,text:'Ya estamos en posición. Organicemos la recolección y preparemos nuestras defensas. Te informaré los movimientos enemigos y el resultado de cada enfrentamiento.'}]);
       detailImg.current = null; mapImg.current = renderTerrain(g.terrain);
       const base = g.buildings.find(b => b.owner === 0)!;
-      camRef.current = { ...camRef.current, z: 1.6, x: base.x - 300, y: base.y - 200 };
+      camRef.current = { ...camRef.current, z: BASE_CAMERA_ZOOM, x: base.x - 300, y: base.y - 200 };
       setCommsOpen(false); setSelection([]); setMode({ k: 'none' }); setLoading(false); setScreen('playing');
     };
     setTimeout(prepare, 60);
@@ -270,13 +273,13 @@ export function LandOfWarriors() {
     const b = [...g.buildings].reverse().find(q => !q.dead && Math.abs(q.x - wx) < BUILD_STATS[q.kind].size * 0.55 && wy < q.y + 12 && wy > q.y - BUILD_STATS[q.kind].size);
     return b ? { b } : {};
   };
-  const myUnits = (ids: number[]) => { const g = gRef.current!; return ids.map(id => g.units.find(u => u.id === id && u.owner === 0 && !u.dead)).filter(Boolean) as Unit[]; };
+  const myUnits = (ids: number[]) => { const g = gRef.current!; const set=new Set(ids);return g.units.filter(u=>set.has(u.id)&&u.owner===0&&!u.dead); };
   const command = (wx: number, wy: number) => {
     const g = gRef.current!, ids = myUnits([...selRef.current]).map(u => u.id);
     const b = g.buildings.find(q => selRef.current.has(q.id) && q.owner === 0);
     if (!ids.length && b) { b.rally = { x: wx, y: wy }; say('🚩 Los nuevos van a ir ahí'); return; }
     if (!ids.length) return;
-    const r = orderSmart(g, ids, wx, wy); if (r === 'attack') playVampSword();
+    const hit=pickAt(wx,wy),foe=hit.u&&hit.u.owner!==0?hit.u:hit.b&&hit.b.owner!==0?hit.b:null;const r = orderSmart(g, ids, foe?.x??wx, foe?.y??wy); if (r === 'attack') playVampSword();
     characterSounds.current?.react(g,ids);
   };
   const onDown = (e: RPointerEvent<HTMLCanvasElement>) => {
@@ -289,7 +292,7 @@ export function LandOfWarriors() {
     if (e.button === 1) { e.preventDefault(); drag.current = { x0: x, y0: y, x1: x, y1: y, pan: true, id: e.pointerId, cx: camRef.current.x, cy: camRef.current.y }; return; } // (botón del medio: arrastra el mapa, como en Age of Empires)
     if (e.button === 2) { // click derecho: la orden (o cancelar lo que se estaba por hacer)
       if (md.k !== 'none') { setMode({ k: 'none' }); return; }
-      command(w.x, w.y); return;
+      drag.current={x0:x,y0:y,x1:x,y1:y,pan:false,button:2,id:e.pointerId,cx:camRef.current.x,cy:camRef.current.y};return;
     }
     if (md.k === 'place') {
       const ws = myUnits([...selRef.current]).filter(u => u.role === 'worker').map(u => u.id);
@@ -303,7 +306,7 @@ export function LandOfWarriors() {
   };
   const onMove = (e: RPointerEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect(), k = r.width / e.currentTarget.clientWidth || 1, x = (e.clientX - r.left) / k, y = (e.clientY - r.top) / k, w = toWorld(x, y);
-    mouse.current = { x, y, in: true, wx: w.x, wy: w.y };
+    mouse.current = { x, y, in: true, wx: w.x, wy: w.y };const hit=pickAt(w.x,w.y);e.currentTarget.dataset.attack=screenRef.current==='playing'&&myUnits([...selRef.current]).length>0&&((hit.u?.owner??0)>0||(hit.b?.owner??0)>0)?'true':'false';
     const d = drag.current; if (!d) return;
     d.x1 = x; d.y1 = y;
     if (d.pan) { const c = camRef.current; c.x = d.cx - (x - d.x0) / c.z; c.y = d.cy - (y - d.y0) / c.z; }
@@ -316,11 +319,11 @@ export function LandOfWarriors() {
     if (d.pan && moved) return;
     if (moved) { // recuadro: elige a tus guerreros de adentro (si hay soldados, solo los soldados)
       const a = toWorld(Math.min(d.x0, d.x1), Math.min(d.y0, d.y1)), b = toWorld(Math.max(d.x0, d.x1), Math.max(d.y0, d.y1));
-      const inside = g.units.filter(u => u.owner === 0 && !u.dead && u.x >= a.x && u.x <= b.x && u.y >= a.y && u.y - unitStats(g,u.owner,u.role).size * 0.5 <= b.y);
-      const army = inside.filter(u => u.role !== 'worker'), pick = (army.length ? army : inside).map(u => u.id);
-      setSelection(e.shiftKey ? [...new Set([...selRef.current, ...pick])] : pick); setMode({ k: 'none' });
+      const pick=selectedInBox(g,a,b,u=>unitStats(g,u.owner,u.role).size);
+      setSelection(e.shiftKey||e.ctrlKey ? [...new Set([...selRef.current, ...pick])] : pick); setMode({ k: 'none' });
       return;
     }
+    if(d.button===2){const w=toWorld(d.x0,d.y0);command(w.x,w.y);return;}
     const w = toWorld(d.x0, d.y0), hit = pickAt(w.x, w.y), mineSel = myUnits([...selRef.current]).length > 0;
     const own = hit.u?.owner === 0 ? hit.u : hit.b?.owner === 0 ? hit.b : null;
     if (own && !(mineSel && hit.b && hit.b.built < 1)) {
@@ -341,7 +344,7 @@ export function LandOfWarriors() {
   const onWheel = (e: React.WheelEvent) => {
     if (!(e.target instanceof HTMLCanvasElement)) return;
     if (screenRef.current !== 'playing') return;
-    const c = camRef.current, g = gRef.current, old = c.z, z = Math.max(g ? minZoom(g, c.w, c.h) : 0.6, Math.min(2.8, c.z * (e.deltaY > 0 ? 0.9 : 1.1)));
+    const c = camRef.current, g = gRef.current, old = c.z, z = Math.max(g ? minZoom(g, c.w, c.h) : 0.6, Math.min(MAX_CAMERA_ZOOM, c.z * (e.deltaY > 0 ? 0.9 : 1.1)));
     const m = mouse.current; c.x += m.x / old - m.x / z; c.y += m.y / old - m.y / z; c.z = z;
   };
   const onMini = (e: RPointerEvent<HTMLCanvasElement>) => {
@@ -376,7 +379,7 @@ export function LandOfWarriors() {
       <h3>Construcciones</h3>
       <ul className="land-simple-builds">{BKINDS.map(k => <li key={k}><BuildingSprite civ={view} kind={k} w={70} h={56} /><div><b>{viewD.buildings[k]}</b><span>{BUILD_TEXT[k]}</span><small><LandCost cost={BUILD_STATS[k].cost}/></small></div></li>)}</ul>
       <h3>Poder especial: {viewD.power.name}</h3><p>{POWER_TEXT[viewD.power.kind]} Se carga peleando.</p>
-      <h3>Mejoras (en la base)</h3><p>⚔️ Ataque, 🛡️ Vida y 👟 Velocidad: tres niveles cada una, para todo tu ejército.</p>
+      <h3>Mejoras</h3><p>Cada personaje tiene cuatro niveles y evoluciona en su cuartel. El centro de mando mejora Producción y Fortificación. El entrenamiento inicial tarda 60 segundos.</p>
     </div>}
     <div className="land-sheet-bar">
       <button type="button" className="land-ghost" onClick={() => { setScreen('pick'); }}>‹ Volver</button>
@@ -403,7 +406,7 @@ export function LandOfWarriors() {
       <div className="land-opts">
         <section className="land-chosen-civ" aria-label="Civilización elegida" style={{['--civ' as string]:CIVS[civ].color}}>
           <div className="land-chosen-heading"><LeaderPortrait civ={civ}/><div><small>TU CIVILIZACIÓN</small><h2>{CIVS[civ].name}</h2><p>{CIVS[civ].motto}</p></div></div>
-          <p>{CIVS[civ].style}</p><div className="land-chosen-units">{ROLE_ORDER.map(r=><div key={r}><Sprite civ={civ} idx={roleIdx(r)} w={66} h={72}/><span>{CIVS[civ].units[r]}</span></div>)}</div>
+          <p>{CIVS[civ].style}</p><CivTraits civ={civ}/><div className="land-chosen-units">{ROLE_ORDER.map(r=><div key={r}><Sprite civ={civ} idx={roleIdx(r)} w={66} h={72}/><span>{CIVS[civ].units[r]}</span></div>)}</div>
           <button type="button" className="land-ghost" onClick={()=>{setView(civ);setSimple(false);setScreen('sheet');}}>¡VER!</button>
         </section>
         <label>Límite de población por civilización: <select aria-label="Límite de población" value={populationLimit} onChange={e=>setPopulationLimit(Number(e.target.value) as PopulationLimit)}>{POPULATION_LIMITS.map(n=><option key={n} value={n}>{n}</option>)}</select></label>
@@ -440,8 +443,8 @@ export function LandOfWarriors() {
 
     {playing && g && side && <div className="land-stage" ref={stageRef} onWheel={onWheel}>
       <canvas ref={canvasRef} className={mode.k === 'place' || mode.k === 'power' || mode.k === 'amove' ? 'land-aim' : ''} aria-label={`Partida en ${THEMES[g.terrain.theme].name}`} role="img"
-        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} onPointerLeave={() => { mouse.current.in = false; }} />
-      <div className="land-top-left"><button type="button" className="land-exit" aria-label="Volver a elegir civilización" onClick={()=>{keys.current.clear();mouse.current.in=false;drag.current=null;setSelection([]);setMode({k:'none'});setScreen('pick');}}>‹</button><span>Escenario {g.map} — {THEMES[g.terrain.theme].name}</span></div>
+        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} onPointerLeave={e => { mouse.current.in = false;e.currentTarget.dataset.attack='false'; }} />
+      <div className="land-top-left"><button type="button" className="land-exit" aria-label="Volver a elegir civilización" onClick={()=>{keys.current.clear();mouse.current.in=false;drag.current=null;setSelection([]);setMode({k:'none'});setScreen('pick');}}>‹</button><span>Escenario {g.map} — {THEMES[g.terrain.theme].name}</span><time className="land-match-time" aria-label="Tiempo de partida" data-testid="land-match-time">{formatLandTime(g.t)}</time></div>
       <button type="button" className="land-intel-toggle" aria-expanded={commsOpen} onClick={()=>setCommsOpen(open=>!open)}>Tropas y líder</button>
       <aside className={`land-intel land-own-intel${commsOpen?' land-intel-open':''}`} aria-label="Tu civilización y tropas">
         <section className="land-intel-card land-leader-card" style={{['--civ' as string]:CIVS[side.civ].color}}>
@@ -459,7 +462,7 @@ export function LandOfWarriors() {
         <span title="Piedras: necesarias para construir estructuras"><ResourceIcon kind="rock"/><b data-testid="land-rock">{Math.floor(side.rock)}</b></span>
         <span className={`land-food-reserve${side.food<=0?' land-food-empty':''}`} title={`${FOOD_NAMES[side.civ]}: ${Math.floor(side.food)} / ${FOOD_CAPACITY}. Consumo ${foodRate(g,0).toFixed(1)} por minuto. Las cosechas se entregan en el Almacén.`}><ResourceIcon kind="food"/><b data-testid="land-food">{foodPercent(g)}%</b><meter aria-label="Reserva de alimento" min={0} max={100} value={foodPercent(g)}/></span>
         <span title="Población"><LandIcon kind="people" /><b>{popUsed(g, 0)} / {popCap(g, 0)}</b></span>
-        <button type="button" className="land-sq" title="Ayuda" aria-label="Ayuda" onClick={() => say('Tocá para elegir; tocá el mapa para dar órdenes. Arrastrá con el botón izquierdo para explorar; Shift + arrastre selecciona grupos. Usá la rueda para acercarte y el botón derecho para dar órdenes.')}>?</button>
+        <button type="button" className="land-sq" title="Ayuda" aria-label="Ayuda" onClick={() => say('Tocá para elegir; tocá el mapa para dar órdenes. Arrastrá con el botón izquierdo para explorar; Shift + arrastre selecciona grupos. Usá la rueda para acercarte y el clic derecho breve para dar órdenes y arrastre derecho para seleccionar tropas.')}>?</button>
         <button type="button" className={`land-sq land-music-toggle${musicMuted?' land-music-muted':''}`} aria-label={musicMuted?'Activar música de la partida':'Silenciar música de la partida'} aria-pressed={musicMuted} title={musicMuted?'Música silenciada':'Silenciar música'} onClick={()=>setMusicMuted(muted=>!muted)}><span aria-hidden="true">♫</span></button>
         <button type="button" className="land-sq" title="Pausa" aria-label={screen === 'paused' ? 'Seguir' : 'Pausa'} onClick={() => setScreen(st => st === 'playing' ? 'paused' : 'playing')}><LandIcon kind="gear" /></button>
       </div>
@@ -488,7 +491,7 @@ export function LandOfWarriors() {
             if (selB.built < 1) return <p className="land-cmd-note">En construcción: {Math.round(selB.built * 100)}%. Mandá trabajadores para que termine más rápido.</p>;
             return <>{pad([
               ...bs.makes.map(r => { const st = unitStats(g, 0, r), full = popUsed(g, 0) + st.pop > popCap(g, 0);
-                return cmd(r, <Sprite civ={side.civ} idx={roleIdx(r)} level={evolutionLevel(g,0,r)} w={46} h={46} />, `${c.units[r]}: Entrena esta unidad. ${roleText(side.civ, r)} ${r==='worker'?'Puede recuperar las cosechas incluso sin alimento.':`Consume ${FOOD_WEIGHT[r]*10} de alimento al salir y ${(unitFoodRate(g,0,r)).toFixed(1)} por minuto.`}${full ? ' (falta población: hacé un depósito)' : ''}`, () => { if (!train(g, selB.id, r)) say('No se puede ahora'); }, { disabled: !canPay(side, st.cost) || full, cost: st.cost,label:'Entrenar Nivel '+evolutionLevel(g,0,r) }); }),
+                return cmd(r, <Sprite civ={side.civ} idx={roleIdx(r)} level={evolutionLevel(g,0,r)} w={46} h={46} />, `${c.units[r]}: Entrena esta unidad en ${Math.ceil(trainingDuration(g,0,r))} s. ${roleText(side.civ, r)} ${r==='worker'?'Puede recuperar las cosechas incluso sin alimento.':`Consume ${FOOD_WEIGHT[r]*10} de alimento al salir y ${(unitFoodRate(g,0,r)).toFixed(1)} por minuto.`}${full ? ' (falta población: hacé un depósito)' : ''}`, () => { if (!train(g, selB.id, r)) say('No se puede ahora'); }, { disabled: !canPay(side, st.cost) || full, cost: st.cost,label:'Entrenar Nivel '+evolutionLevel(g,0,r) }); }),
               ...evolutionCommands(selB),
               ...(selB.kind==='base'?STRUCTURE_UPGRADES.map(kind=>{const lv=side.infrastructure[kind],max=lv>=MAX_STRUCTURE_LEVEL,cost=structureUpgradeCost(kind,lv),busy=g.buildings.some(b=>b.owner===0&&!b.dead&&b.infrastructureResearch);return cmd(kind,<LandIcon kind={kind==='production'?'wrench':'shield'}/>,`Mejorar ${STRUCTURE_NAMES[kind]}: ${structureBenefit(kind,lv)} ${structureUpgradeTime(lv)} s.`,()=>researchInfrastructure(g,selB.id,kind),{disabled:max||busy||!canPay(side,cost),cost:max?undefined:cost,label:max?STRUCTURE_NAMES[kind]+' MAX':STRUCTURE_NAMES[kind],badge:lv+'/3'});}):[]),
               selB.queue.length > 0 ? cmd('cancel', ic('✖'), 'Cancelar el último', () => cancelTrain(g, selB.id)) : null])}</>;
