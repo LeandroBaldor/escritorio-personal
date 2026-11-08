@@ -21,6 +21,6 @@ describe('Cuarteles exclusivos por personaje',()=>{
   });
   it('todos los edificios conservan un recorte válido del arte de su civilización',()=>{
     for(const kind of BKINDS)expect(bIdx(kind)).toBeGreaterThanOrEqual(6);
-    for(const kind of BKINDS)expect(bIdx(kind)).toBeLessThanOrEqual(11);
+    for(const kind of BKINDS)expect(bIdx(kind)).toBeLessThanOrEqual(13);
   });
 });

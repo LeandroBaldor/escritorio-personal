@@ -64,7 +64,7 @@ const CIV_DATA: Record<CivId,Omit<Civ,'buildings'>&{buildings:Record<OriginalBui
     special: 'splash', power: { kind: 'strike', name: 'Maremoto' }, mod: { melee: { speed: 88 }, special: { range: 120, splash: 80 }, heavy: { range: 60 }, elite: { range: 160 } } },
 };
 export const CIVS = Object.fromEntries(CIV_IDS.map(id=>{
-  const c=CIV_DATA[id],buildings={...c.buildings};
+  const c=CIV_DATA[id],buildings={...c.buildings,farm:'Cosecha',storehouse:'Almacén'};
   for(const [role,kind] of Object.entries(TRAINING_KIND) as [Role,BKind][])Object.assign(buildings,{[kind]:`Cuartel ${c.units[role]}`});
   return [id,{...c,buildings}];
 })) as Record<CivId,Civ>;
@@ -79,7 +79,9 @@ export const ROLE_TEXT: Record<Role, string> = {
 export const roleText = (c: CivId, r: Role) => r === 'special' ? (CIVS[c].special === 'heal' ? 'Cura a los suyos que estén lastimados.' : 'Ataque en área: daña a varios a la vez.') : r === 'melee' && (CIVS[c].mod.melee?.range ?? 0) > 60 ? 'Soldado básico con arma de fuego, de corto alcance.' : ROLE_TEXT[r];
 export const BUILD_TEXT: Record<BKind, string> = {
   wall: 'Bloquea el paso terrestre y protege la aldea. Se puede destruir; dejá un espacio como entrada. Cada tramo cuesta 35 minerales.',
-  base: 'Investiga las mejoras y recibe recursos. Los personajes se entrenan en su cuartel exclusivo. Si la destruyen, perdés.',
+  base: 'Recibe minerales y piedras. Consultá acá el resumen de población. Los personajes se entrenan y evolucionan en su propio cuartel. Si la destruyen, perdés.',
+  farm: 'Parcela verde oscura. Un trabajador por cosecha: extrae alimento durante 60 segundos, lo lleva al Almacén y vuelve a empezar. Clic derecho para asignarlo.',
+  storehouse: 'Almacén de alimentos. Recibe las cosechas y recupera la reserva de comida. Construí uno cerca de tus parcelas.',
   workerBarracks: 'Entrena únicamente al trabajador de esta civilización.',
   barracks: 'Entrena únicamente al personaje de primera línea de esta civilización.',
   rangedBarracks: 'Entrena únicamente al tirador de esta civilización.',
