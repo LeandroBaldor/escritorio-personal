@@ -20,6 +20,8 @@ Las diez bases iniciales entrenan al recolector de su civilización. También se
 
 Las fortalezas y debilidades aparecen en la selección y el informe de la civilización y corresponden a estadísticas efectivas:
 
+Los radios de daño de área se adaptan al nuevo espacio entre tropas: un hechizo puede seguir golpeando a vecinos de su objetivo. Infernales y abisales conservan un área mayor que el resto. Esta interacción se verifica con enemigos separados, no superpuestos.
+
 | Civilización | Fortaleza | Contrapartida |
 |---|---|---|
 | Humanos | Tiradores resistentes, apoyo médico y tanques de alcance medio | Reclutas frágiles de cerca y tanques lentos |
