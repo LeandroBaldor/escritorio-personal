@@ -1,3 +1,5 @@
+import {unitAnimation,type UnitAnimation} from './landAnimation';
+import {drawNativeAnimation} from './landNativeAnimation';
 import {unitLabel} from './landBalance';
 // Land of Warriors: el dibujo del mapa, los recursos, las construcciones, los guerreros y los disparos.
 import {evolutionLevel,foodBlocked} from './landProvision';
@@ -12,7 +14,7 @@ import { drawDeath } from './landDeath';
 import { walkingPhase,motionKind } from './landMotion';
 import {drawRig} from './landRig';
 import {drawBuildingFire} from './landBuildingFire';
-import {LAND_HUD_HEIGHT} from './landLayout';
+import {landHudHeight} from './landLayout';
 
 // Once recortes por civilización en hojas individuales de 4 × 3, con el último casillero vacío.
 const URLS = import.meta.glob('./assets/land/units-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
@@ -46,8 +48,12 @@ export function spritesReady() {
   }
   const upgradedReady=evolutionsReady();return CIV_IDS.every(c => !!SPRITES[c])&&upgradedReady;
 }
+export function drawPortrait(ctx:CanvasRenderingContext2D,civ:CivId,idx:number,w:number,h:number,level=0){
+  spritesReady();let image=SPRITES[civ],frame=FRAMES[civ]?.[idx];if(!image||!frame)return false;if(level>0&&idx<6){const upgraded=evolvedSprite(civ,idx,level);if(!upgraded)return false;image=upgraded.image;frame=upgraded.frame;}
+  const biped=idx<6&&motionKind(civ,idx)==='biped',sx=frame.sx+frame.sw*(biped?.26:0),sy=frame.sy,sw=frame.sw*(biped?.64:1),sh=frame.sh*(biped?.40:1),k=biped?Math.max(w/sw,h/sh):Math.min(w/sw,h/sh);ctx.save();ctx.beginPath();ctx.rect(0,0,w,h);ctx.clip();ctx.imageSmoothingQuality='high';ctx.drawImage(image,sx,sy,sw,sh,(w-sw*k)/2,(h-sh*k)/2,sw*k,sh*k);ctx.restore();return true;
+}
 // Dibuja un recorte apoyado en (x, y) (el piso), de alto h (o de ancho w si es más ancho que alto).
-export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number, motion = 0, attack = 0,kneel=0,level=0,work=0):boolean {
+export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number, motion = 0, attack = 0,kneel=0,level=0,work=0,animation?:UnitAnimation):boolean {
   if(idx===12)return drawFarm(ctx,civ,x,y,Math.min(maxW??h,h*1.7),h*.85);
   if(idx===13){const ok=drawSprite(ctx,civ,10,x,y,h,flip,maxW);if(ok)drawStorehouse(ctx,civ,x,y,Math.min(maxW??h,h*1.3),h);return ok;}
   if (idx === 11) return drawWall(ctx,civ,x,y,Math.min(maxW ?? h,h*1.2),h);
@@ -58,6 +64,7 @@ export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: numbe
   let k = h / sh; if (maxW && sw * k > maxW) k = maxW / sw;
   const dw = sw * k, dh = sh * k;
   ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  if(animation&&idx<6&&drawNativeAnimation(ctx,civ,idx,level,animation,h,maxW??h*1.6)){ctx.restore();return true;}
   if ((motion || attack ||kneel) && idx < 6) {
     const kind=motionKind(civ,idx);
     if(kind!=='biped'&&kneel){ctx.transform(1,0,kneel*(.08+Math.sin(work)*.025),1-kneel*.20,0,0);ctx.translate(0,Math.sin(work)*kneel*dh*.012);}
@@ -180,9 +187,9 @@ export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t:
   if (u.dead) { ctx.translate(u.x, u.y); ctx.rotate(u.face * Math.min(1.3, u.dead * 3)); ctx.translate(-u.x, -u.y); }
   const sq = moving ? 1 + Math.sin(phase*2) * 0.009 : 1;
   ctx.translate(u.x + lunge, u.y - bob - fly); ctx.scale(1 / sq, sq);
-  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? phase : 0,u.atkT>=0?Math.sin(Math.min(1,u.atkT/.3)*Math.PI):0,u.kneel??0,evolutionLevel(g,u.owner,u.role),u.mineT*Math.PI*2/.8)) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
+  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? phase : 0,u.atkT>=0?Math.sin(Math.min(1,u.atkT/.3)*Math.PI):0,u.kneel??0,evolutionLevel(g,u.owner,u.role),u.mineT*Math.PI*2/.8,unitAnimation(g,u))) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
   ctx.restore();
-  ctx.save();ctx.font='bold 10px Arial';ctx.textAlign='center';const label=showName?unitLabel(g,u.owner,u.role):'N'+evolutionLevel(g,u.owner,u.role),lw=ctx.measureText(label).width+8,ly=u.y-h-fly-19;ctx.fillStyle='#061527e8';ctx.fillRect(u.x-lw/2,ly-10,lw,14);ctx.fillStyle=selected?'#ffdf8b':TEAM[u.owner];ctx.fillText(label,u.x,ly);ctx.restore();
+  if(selected&&showName){ctx.save();ctx.font='bold 10px Arial';ctx.textAlign='center';const label=unitLabel(g,u.owner,u.role),lw=ctx.measureText(label).width+8,ly=u.y-h-fly-19;ctx.fillStyle='#061527e8';ctx.fillRect(u.x-lw/2,ly-10,lw,14);ctx.fillStyle=selected?'#ffdf8b':TEAM[u.owner];ctx.fillText(label,u.x,ly);ctx.restore();}
   if(foodBlocked(g,u.owner,u.role)&&!u.dead){ctx.fillStyle='#ffcd87';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.fillText('SIN ALIMENTO',u.x,u.y-h-15);}
   if(u.carry>0&&!u.dead&&(u.carryKind==='food'||u.carryKind==='rock')){ctx.fillStyle=u.carryKind==='food'?'#77984c':'#8c9297';ctx.fillRect(u.x-8,u.y-h*.65,13,10);}
   else if (u.carry > 0 && !u.dead) crystal(ctx, u.x + u.face * -10, u.y - h * 0.7, 5, u.carryKind === 'energy' ? '#baffd5' : u.carryKind === 'gem' ? '#fff6c8' : '#d7ecff', u.carryKind === 'energy' ? '#22d875' : u.carryKind === 'gem' ? '#f5b81a' : '#3b82f6', u.carryKind === 'energy' ? '#075a30' : u.carryKind === 'gem' ? '#9a5a00' : '#1e3a8a');
@@ -230,7 +237,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, g: LandGame, map: HTMLC
   const all: ({ y: number; d: () => void })[] = [];
   for (const b of g.buildings) if (b.kind==='farm'&&vis(b)) drawBuilding(ctx,g,b,t,sel.has(b.id));
   for (const b of g.buildings) if (b.kind!=='farm'&&vis(b)) all.push({ y: b.y, d: () => drawBuilding(ctx, g, b, t, sel.has(b.id)) });
-  for (const u of g.units) if (vis(u)) all.push({ y: u.y, d: () => drawUnit(ctx, g, u, t, sel.has(u.id),sel.has(u.id)&&sel.size===1) });
+  for (const u of g.units) if (vis(u)) all.push({ y: u.y, d: () => drawUnit(ctx, g, u, t, sel.has(u.id),sel.size===1) });
   all.sort((a, b) => a.y - b.y); for (const o of all) o.d();
   drawShots(ctx, g);
   extra?.(ctx);
@@ -246,5 +253,5 @@ export function drawMinimap(ctx: CanvasRenderingContext2D, g: LandGame, map: HTM
   for (const n of g.nodes) { ctx.fillStyle = n.kind==='rock'?'#b8bbc0':n.kind === 'energy' ? '#4ade80' : n.kind === 'gem' ? '#fbbf24' : '#60a5fa'; ctx.fillRect(n.x * kx - 1, n.y * ky - 1, 2, 2); }
   for (const b of g.buildings) if (!b.dead) { const s = BUILD_STATS[b.kind].size * kx * 0.9; ctx.fillStyle = TEAM[b.owner]; ctx.fillRect(b.x * kx - s / 2, b.y * ky - s / 2, s, s); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(b.x * kx - s / 2, b.y * ky - s / 2, s, s); }
   for (const u of g.units) if (!u.dead) { ctx.fillStyle = TEAM[u.owner]; ctx.fillRect(u.x * kx - 1.5, u.y * ky - 1.5, 3, 3); }
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(cam.x * kx, cam.y * ky, cam.w / cam.z * kx, (cam.h - LAND_HUD_HEIGHT) / cam.z * ky);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(cam.x * kx, cam.y * ky, cam.w / cam.z * kx, (cam.h - landHudHeight(cam.w)) / cam.z * ky);
 }
