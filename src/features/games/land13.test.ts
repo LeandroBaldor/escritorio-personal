@@ -20,7 +20,7 @@ describe('Revisión 13: población y pasos orgánicos',()=>{
     expect(stepContact(136,2)).toBe(4);expect(stepContact(136,4)).toBe(8);expect(stepContact(136,6)).toBe(12);expect(stepVolume(6)).toBeLessThan(stepVolume(2));expect(stepVolume(2)).toBeLessThan(.075);
     expect(FOOTSTEP_CLIP.source).toBe('SONIDOS/pasos.mp3');expect(FOOTSTEP_CLIP.steps.length).toBeGreaterThan(1);for(const cue of FOOTSTEP_CLIP.steps){expect(cue.duration).toBeLessThanOrEqual(.151);expect(cue.start+cue.duration).toBeLessThanOrEqual(FOOTSTEP_CLIP.duration+.002);}
   });
-  it('los pasos nuevos se oyen también en criaturas de cuatro y seis patas pero nunca en robots',()=>{
-    for(const [civ,role,expected] of [['sauriano','heavy',1],['abisal','worker',1],['mecanico','worker',0],['humano','elite',0]] as const){const g=newLandGame(civ,'orcos',1,'normal',3,'small');g.units=[];const u=addUnit(g,0,role,300,300),out=new Output(),sounds=new LandCharacterSounds(out);sounds.start(civ);sounds.setActive(true);u.moving=true;sounds.tick(g,{x:0,y:0,w:1000,h:800,z:1},new Set());u.walk=34;sounds.tick(g,{x:0,y:0,w:1000,h:800,z:1},new Set());expect(out.feet).toBe(expected);}
+  it('desde la revisión 14 los pasos solo se oyen en humanos y elfos orgánicos',()=>{
+    for(const [civ,role,expected] of [['humano','worker',1],['elfos','worker',1],['sauriano','heavy',0],['abisal','worker',0],['mecanico','worker',0],['humano','elite',0]] as const){const g=newLandGame(civ,'orcos',1,'normal',3,'small');g.units=[];const u=addUnit(g,0,role,300,300),out=new Output(),sounds=new LandCharacterSounds(out);sounds.start(civ);sounds.setActive(true);u.moving=true;sounds.tick(g,{x:0,y:0,w:1000,h:800,z:1},new Set());u.walk=34;sounds.tick(g,{x:0,y:0,w:1000,h:800,z:1},new Set());expect(out.feet).toBe(expected);}
   });
 });

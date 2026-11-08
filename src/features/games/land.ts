@@ -12,6 +12,7 @@
 import { CIVS, TRAINING_KIND, type CivId } from './landCivs';
 import { T, clearLine, findPath, generateTerrain, nearestWalkable, walkable, type MapSize, type Terrain } from './landMap';
 import { WALL_SIZE, wallAcross, wallNavigation, wallPoint } from './landWalls';
+import {stepGatherPose} from './landGatherPose';
 
 // El tamaño del mundo es el del escenario de la partida (hay una sola partida a la vez).
 let MW = 2900, MH = 1800, TER: Terrain | null = null;
@@ -55,14 +56,14 @@ export const CARRY = 8, MINE_T = 1.6;
 
 export interface Unit {
   id: number; owner: Owner; role: Role; x: number; y: number; hp: number; maxHp: number; face: 1 | -1; path?: [number, number][]; pathFor?: [number, number]; pathT?: number;
-  order: Order; cool: number; atkT: number; walk: number; moving?: boolean; carry: number; carryKind: ResKind | null; mineT: number; dead: number; defensive?: boolean; buildQueue?: number[];
+  order: Order; cool: number; atkT: number; walk: number; moving?: boolean;kneel?:number; carry: number; carryKind: ResKind | null; mineT: number; dead: number; defensive?: boolean; buildQueue?: number[];
 }
 export type Order =
   | { k: 'idle' } | { k: 'move'; x: number; y: number; attack?: boolean } | { k: 'attack'; id: number }
   | { k: 'gather'; node: number } | { k: 'build'; id: number };
 export interface Building {
   id: number; owner: Owner; kind: BKind; x: number; y: number; hp: number; maxHp: number; built: number; // built: 0…1
-  queue: Role[]; qT: number; research: Upgrade | null; rT: number; rally: { x: number; y: number } | null; cool: number; dead: number;
+  queue: Role[]; qT: number; research: Upgrade | null; rT: number; rally: { x: number; y: number } | null; cool: number; dead: number;lastHitBy?:Owner;
 }
 export interface Node { id: number; kind: ResKind; x: number; y: number; amount: number }
 export interface Shot { x: number; y: number; tx: number; ty: number; t: number; life: number; owner: Owner; kind: 'bolt' | 'heal' | 'splash' | 'slash' | 'strike' }
@@ -75,7 +76,7 @@ export interface LandGame {
   rand: () => number;
 }
 export type LandEvent = { type: 'hit'; role: Role; x: number; y: number; owner: Owner } | { type: 'shot'; role: Role; x: number; y: number; owner: Owner } | { type: 'impact'; x:number;y:number;owner:Owner } | { type: 'die'; x: number; y: number; owner: Owner; building: boolean; by?:Owner }
-  | { type: 'built'; kind: BKind; owner: Owner } | { type: 'trained'; role: Role; owner: Owner } | { type: 'upgraded'; up: Upgrade; owner: Owner } | { type: 'power'; owner: Owner } | { type: 'won' } | { type: 'lost' } | { type: 'attacked' };
+  | { type: 'built'; kind: BKind; owner: Owner;x?:number;y?:number } | { type: 'trained'; role: Role; owner: Owner;x?:number;y?:number } | { type: 'upgraded'; up: Upgrade; owner: Owner } | { type: 'power'; owner: Owner } | { type: 'won' } | { type: 'lost' } | { type: 'attacked' };
 
 // ---------------------------------------------------------------- Los números de cada uno (con la civilización y las mejoras)
 export function unitStats(g: LandGame, owner: Owner, role: Role): UnitStats {
@@ -238,6 +239,7 @@ function damageUnit(g: LandGame, u: Unit, dmg: number, by: Owner) {
   if (u.hp <= 0 && !u.dead) { u.dead = 0.001; g.sides[by].kills++; side.lost++; g.sides[by].power = Math.min(POWER_MAX, g.sides[by].power + 3 + ROLE_STATS[u.role].pop * 2); emit(g, { type: 'die', x: u.x, y: u.y, owner: u.owner, building: false,by }); }
 }
 function damageBuilding(g: LandGame, b: Building, dmg: number, by: Owner) {
+  b.lastHitBy=by;
   emit(g,{type:'impact',x:b.x,y:b.y,owner:by});
   b.hp -= dmg; g.sides[by].power = Math.min(POWER_MAX, g.sides[by].power + dmg * 0.01);
   if (b.owner === 0 && by > 0) emit(g, { type: 'attacked' });
@@ -274,7 +276,7 @@ export function stepLand(g: LandGame, dt: number) {
   g.t += dt;
   for (const side of g.sides) { side.buffT = Math.max(0, side.buffT - dt); side.power = Math.min(POWER_MAX, side.power + dt * 0.35); } // (se carga sola despacio, y rápido peleando)
   for (const b of g.buildings) if (!b.dead) stepBuilding(g, b, dt);
-  for (const u of g.units) if (!u.dead) stepUnit(g, u, dt);
+  for (const u of g.units) if (!u.dead){stepUnit(g, u, dt);stepGatherPose(g,u,dt);}
   separate(g, dt);
   advanceDeaths(g,dt);
   g.nodes = g.nodes.filter(n => n.amount > 0);
@@ -299,7 +301,7 @@ function stepBuilding(g: LandGame, b: Building, dt: number) {
       u.defensive = b.owner > 0 && r !== 'worker';
       if (b.rally) { const n = g.nodes.find(q => dist(q, b.rally!) < 34); u.order = n && r === 'worker' ? { k: 'gather', node: n.id } : { k: 'move', x: b.rally.x, y: b.rally.y }; }
       else if (r === 'worker') { const n = nearestNode(g, u, null); if (n) u.order = { k: 'gather', node: n.id }; }
-      emit(g, { type: 'trained', role: r, owner: b.owner });
+      emit(g, { type: 'trained', role: r, owner: b.owner,x:b.x,y:b.y });
     }
   }
   if (b.research) {
@@ -432,7 +434,7 @@ function stepUnit(g: LandGame, u: Unit, dt: number) {
           TER = wallNavigation(g);
           for (const q of g.units) if (!q.dead && !flies(g,q) && !walkable(TER,q.x,q.y)) { [q.x,q.y] = nearestWalkable(TER,q.x,q.y); q.path = undefined; }
         }
-        emit(g, { type: 'built', kind: b.kind, owner: b.owner });
+        emit(g, { type: 'built', kind: b.kind, owner: b.owner,x:b.x,y:b.y });
       }
     }
   }

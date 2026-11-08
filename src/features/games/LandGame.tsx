@@ -4,6 +4,7 @@ import './landInterface.css';
 import { BuildingSprite, Sprite } from './landSprite';
 import { LandInfographic,LeaderPortrait } from './landInfographic';
 import {LandPopulation} from './landPopulation';
+import {previousLandMenu,type LandScreen} from './landNavigation';
 import { LandTroops } from './landTroops';
 import {LandLeaderPanel} from './landLeaderPanel';
 import {LandLeaderReports,missingResources,readySoldiers,type LeaderMessage} from './landLeader';
@@ -34,7 +35,7 @@ const UP_NAME: Record<Upgrade, string> = { attack: 'Ataque', armor: 'Vida', spee
 const UP_ICON: Record<Upgrade, string> = { attack: '⚔️', armor: '🛡️', speed: '👟' };
 const DIFF: [Difficulty, string][] = [['veryEasy', 'Muy fácil'], ['easy', 'Fácil'], ['normal', 'Normal'], ['hard', 'Difícil']];
 const costText = (c: Cost) => `${c.stone ? `🔷${c.stone}` : ''}${c.gem ? ` 🔶${c.gem}` : ''}${c.energy ? ` 🟢${c.energy}` : ''}`.trim();
-type Screen = 'title' | 'pick' | 'sheet' | 'scenario' | 'playing' | 'paused' | 'won' | 'lost';
+type Screen = LandScreen;
 const HUD_H = 214; // (el alto del menú de abajo)
 const minZoom = (g: LandGame, w: number, h: number) => Math.max(1.6 / 1.1, w / g.terrain.w, (h - HUD_H) / g.terrain.h);
 type Mode = { k: 'none' } | { k: 'place'; kind: BKind } | { k: 'power' } | { k: 'amove' };
@@ -42,6 +43,7 @@ type Mode = { k: 'none' } | { k: 'place'; kind: BKind } | { k: 'power' } | { k: 
 export function LandOfWarriors() {
   const fit = useFitScreen();
   const [screen, setScreen] = useState<Screen>('title');
+  const scenarioFrom=useRef<'pick'|'sheet'>('pick');
   const [civ, setCiv] = useState<CivId>('humano');
   const [view, setView] = useState<CivId>('humano'); // la lámina que se está mirando
   const [simple, setSimple] = useState(false);
@@ -161,13 +163,13 @@ export function LandOfWarriors() {
         cam.x += dx * sp; cam.y += dy * sp;
         stepLand(g, dt);
         for (const e of takeLandEvents(g)) {
-          const nearby=('x' in e)&&e.x>=cam.x-100&&e.x<=cam.x+w/cam.z+100&&e.y>=cam.y-100&&e.y<=cam.y+(h-HUD_H)/cam.z+100;
+          const nearby=('x' in e)&&e.x!==undefined&&e.y!==undefined&&e.x>=cam.x-100&&e.x<=cam.x+w/cam.z+100&&e.y>=cam.y-100&&e.y<=cam.y+(h-HUD_H)/cam.z+100;
           leaderReports.current.event(g,e);
-          if(nearby)characterSounds.current?.combat(g,e,'x' in e?((e.x-cam.x)*cam.z/w-.5)*1.3:0);
+          if(nearby)characterSounds.current?.combat(g,e,'x' in e&&e.x!==undefined?((e.x-cam.x)*cam.z/w-.5)*1.3:0);
           if(e.type==='trained'&&e.owner===0)characterSounds.current?.call(g.sides[0].civ,e.role,g.t);
-          if (e.type === 'hit' && nearby && Math.random() < 0.25) playVampSword();
-          else if (e.type === 'die' && e.building) playExplosion();
-          else if (e.type === 'built' && e.owner === 0) { playKnock(); say(`🏗️ ${CIVS[g.sides[0].civ].buildings[e.kind]} terminado`); }
+          if((e.type==='built'||e.type==='trained')&&(e.owner===0||nearby))characterSounds.current?.eventSound(g,e.type);
+          if (e.type === 'die' && e.building && nearby) playExplosion();
+          else if (e.type === 'built' && e.owner === 0) { say(`🏗️ ${CIVS[g.sides[0].civ].buildings[e.kind]} terminado`); }
           else if (e.type === 'trained' && e.owner === 0 && e.role !== 'worker') say(`✅ ${CIVS[g.sides[0].civ].units[e.role]} listo`, 'trained', 2500);
           else if (e.type === 'upgraded' && e.owner === 0) say(`⬆️ Mejora de ${UP_NAME[e.up]} lista (nivel ${g.sides[0].up[e.up]})`);
           else if (e.type === 'power') { playExplosion(); say(e.owner === 0 ? `✨ ¡${CIVS[g.sides[0].civ].power.name}!` : `⚠️ El enemigo usó ${CIVS[g.sides[e.owner].civ].power.name}`); }
@@ -227,7 +229,7 @@ export function LandOfWarriors() {
       if (e.target instanceof HTMLElement && (e.target.closest('input,textarea,select') || e.target.isContentEditable)) { keys.current.clear(); return; }
       const s = screenRef.current;
       if ((e.key === 'p' || e.key === 'P') && (s === 'playing' || s === 'paused')) { playLandButton(); setScreen(s === 'playing' ? 'paused' : 'playing'); return; }
-      if ((s === 'sheet' || s === 'scenario') && e.key === 'Escape') { setScreen(s === 'scenario' ? 'sheet' : 'pick'); return; }
+      if ((s === 'pick'||s === 'sheet' || s === 'scenario') && e.key === 'Escape') { setScreen(previousLandMenu(s,scenarioFrom.current)); return; }
       if (s !== 'playing') return;
       if (e.key === 'Escape') { if (modeRef.current.k !== 'none') setMode({ k: 'none' }); else setSelection([]); return; }
       if (e.key.startsWith('Arrow')) e.preventDefault();
@@ -360,14 +362,14 @@ export function LandOfWarriors() {
     <div className="land-sheet-bar">
       <button type="button" className="land-ghost" onClick={() => { setScreen('pick'); }}>‹ Volver</button>
       <button type="button" className="land-ghost" aria-pressed={simple} onClick={() => { setSimple(s => !s); }}>{simple ? 'Infograma' : 'Resumen'}</button>
-      <button type="button" className="land-go" onClick={() => { setCiv(view); setScreen('scenario'); }}>Elegir escenario ▶</button>
+      <button type="button" className="land-go" onClick={() => { setCiv(view);scenarioFrom.current='sheet'; setScreen('scenario'); }}>Elegir escenario ▶</button>
     </div>
   </div>;
 
   const playing = screen === 'playing' || screen === 'paused' || screen === 'won' || screen === 'lost';
   return <section className="land land-v7 land-v9" style={fit} aria-label="Land of Warriors" onClickCapture={e=>{const target=(e.target as HTMLElement).closest('button,a,summary');if(target&&!target.hasAttribute('disabled'))playLandButton();}} onChangeCapture={e=>{if((e.target as HTMLElement).tagName==='SELECT')playLandButton();}} onContextMenu={e => e.preventDefault()}>
     {!playing && <div className="land-bar">
-      <Link className="runner-back" to="/juegos">‹ Juegos</Link>
+      {screen==='title'?<Link className="runner-back" to="/juegos">‹ Juegos</Link>:<button type="button" className="runner-back land-menu-back" aria-label="Volver al menú anterior" onClick={()=>setScreen(previousLandMenu(screen,scenarioFrom.current))}>‹ Volver</button>}
       <h1 className="land-logo" aria-label="Land of Warriors">{screen === 'pick' || screen === 'sheet' ? 'Civilizaciones' : screen === 'scenario' ? 'Escenarios' : 'Land of Warriors'}</h1>
       <span className="land-record">{Object.values(record).reduce((a, b) => a + b, 0) > 0 && <>Victorias <b>{Object.values(record).reduce((a, b) => a + b, 0)}</b></>}</span>
     </div>}
@@ -375,7 +377,7 @@ export function LandOfWarriors() {
     {screen === 'pick' && <div className="land-pick">
       <div className="land-civ-list" aria-label="Las 10 civilizaciones">{CIV_IDS.map((c, i) => <button type="button" key={c} className="land-civ-choice" style={{ ['--civ' as string]: CIVS[c].color }} aria-label={CIVS[c].name} aria-pressed={civ===c}
         onClick={() => { setCiv(c); setEnemies(list => list.map(e => e === c ? 'random' : e)); setView(c); setSimple(false); }}>
-        <span className="land-civ-number">{String(i + 1).padStart(2, '0')}</span><Sprite civ={c} idx={roleIdx('elite')} w={150} h={138} />
+        <span className="land-civ-number">{String(i + 1).padStart(2, '0')}</span><span className="land-civ-face"><LeaderPortrait civ={c}/></span>
         <span className="land-civ-copy"><b>{CIVS[c].name}</b><small>{CIVS[c].motto}</small><span>{CIVS[c].style}</span></span>
         <Sprite civ={c} idx={bIdx('base')} w={180} h={120} /><span className="land-civ-arrow">{record[c] ? '🏆 ' + record[c] : '↗'}</span>
       </button>)}</div>
@@ -383,7 +385,7 @@ export function LandOfWarriors() {
         <section className="land-chosen-civ" aria-label="Civilización elegida" style={{['--civ' as string]:CIVS[civ].color}}>
           <div className="land-chosen-heading"><LeaderPortrait civ={civ}/><div><small>TU CIVILIZACIÓN</small><h2>{CIVS[civ].name}</h2><p>{CIVS[civ].motto}</p></div></div>
           <p>{CIVS[civ].style}</p><div className="land-chosen-units">{ROLE_ORDER.map(r=><div key={r}><Sprite civ={civ} idx={roleIdx(r)} w={66} h={72}/><span>{CIVS[civ].units[r]}</span></div>)}</div>
-          <button type="button" className="land-ghost" onClick={()=>{setView(civ);setSimple(false);setScreen('sheet');}}>Ver infograma</button>
+          <button type="button" className="land-ghost" onClick={()=>{setView(civ);setSimple(false);setScreen('sheet');}}>¡VER!</button>
         </section>
         <label>Enemigos: <select aria-label="Enemigos" value={enemies.length} onChange={e => { const n = Number(e.target.value); setEnemies(list => Array.from({ length: n }, (_, i) => list[i] ?? 'random')); }}>
           {Array.from({ length: 9 }, (_, i) => <option key={i} value={i + 1}>{i + 1} {i===0?'enemigo':'enemigos'}</option>)}
@@ -394,7 +396,7 @@ export function LandOfWarriors() {
         </select></label>)}</div>
 
         <div className="land-chips" role="group" aria-label="Dificultad"><span>Dificultad</span>{DIFF.map(([d, n]) => <button type="button" key={d} aria-pressed={diff === d} className={diff === d ? 'on' : ''} onClick={() => { setDiff(d); }}>{n}</button>)}</div>
-        <button type="button" className="land-go land-pick-continue" onClick={()=>setScreen('scenario')}>Continuar ▶</button>
+        <button type="button" className="land-go land-pick-continue" onClick={()=>{scenarioFrom.current='pick';setScreen('scenario');}}>Continuar ▶</button>
       </div>
     </div>}
     {screen === 'title' && <div className="land-title" style={{ backgroundImage: `url(${posterImg})` }}>
@@ -408,7 +410,7 @@ export function LandOfWarriors() {
       <ul className="land-scen-list" role="group" aria-label="Elegir escenario">{THEMES.map((m, i) => <li key={i}><button type="button" aria-pressed={map === i + 1} className={map === i + 1 ? 'on' : ''} onClick={() => { setMap(i + 1); }}>
         <MapThumb theme={i} /><b>{m.name}</b><small>{m.text}</small></button></li>)}</ul>
       <div className="land-sheet-bar land-scen-bar">
-        <button type="button" className="land-ghost" onClick={() => { setScreen('pick'); }}>‹ Volver</button>
+        <button type="button" className="land-ghost" onClick={() => { setScreen(previousLandMenu('scenario',scenarioFrom.current)); }}>‹ Volver</button>
         <button type="button" className="land-go" onClick={() => { start(civ); }}>⚔️ Iniciar</button>
       </div>
     </div>}
@@ -417,7 +419,7 @@ export function LandOfWarriors() {
     {playing && g && side && <div className="land-stage" ref={stageRef} onWheel={onWheel}>
       <canvas ref={canvasRef} className={mode.k === 'place' || mode.k === 'power' || mode.k === 'amove' ? 'land-aim' : ''} aria-label={`Partida en ${THEMES[g.terrain.theme].name}`} role="img"
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} onPointerLeave={() => { mouse.current.in = false; }} />
-      <div className="land-top-left"><Link className="land-exit" to="/juegos" aria-label="Volver a Juegos">‹</Link><span>Escenario {g.map} — {THEMES[g.terrain.theme].name}</span></div>
+      <div className="land-top-left"><button type="button" className="land-exit" aria-label="Volver al menú principal" onClick={()=>{keys.current.clear();mouse.current.in=false;drag.current=null;setScreen('title');}}>‹</button><span>Escenario {g.map} — {THEMES[g.terrain.theme].name}</span></div>
       <button type="button" className="land-intel-toggle" aria-expanded={commsOpen} onClick={()=>setCommsOpen(open=>!open)}>Tropas y líder</button>
       <aside className={`land-intel land-own-intel${commsOpen?' land-intel-open':''}`} aria-label="Tu civilización y tropas">
         <section className="land-intel-card land-leader-card" style={{['--civ' as string]:CIVS[side.civ].color}}>
@@ -485,12 +487,12 @@ export function LandOfWarriors() {
       <div className="land-card">
         {screen === 'paused' && <><h2 id="land-msg">Pausa</h2>
           <button type="button" className="land-go" onClick={() => { setScreen('playing'); }} autoFocus>Seguir</button>
-          <button type="button" className="land-ghost" onClick={() => { setScreen('pick'); }}>Volver al menú</button></>}
+          <button type="button" className="land-ghost" onClick={() => { setScreen('title'); }}>Volver al menú</button></>}
         {screen !== 'paused' && <><h2 id="land-msg" className={screen === 'won' ? 'land-win' : 'land-lose'}>{screen === 'won' ? '¡Victoria!' : 'Derrota'}</h2>
           <p>{screen === 'won' ? `${CIVS[side.civ].name} destruyó todas las bases rivales.` : 'Tu base fue destruida.'}</p>
           <ul className="land-stats"><li>Tiempo <b>{formatLandTime(g.t)}</b></li><li>Enemigos vencidos <b>{side.kills}</b></li><li>Perdidos <b>{side.lost}</b></li><li>Cristales juntados <b>{Math.round(side.gathered)}</b></li></ul>
           <button type="button" className="land-go" onClick={() => start(civ)} autoFocus>Jugar de nuevo</button>
-          <button type="button" className="land-ghost" onClick={() => { setScreen('pick'); }}>Volver al menú</button></>}
+          <button type="button" className="land-ghost" onClick={() => { setScreen('title'); }}>Volver al menú</button></>}
       </div>
     </div>}
   </section>;

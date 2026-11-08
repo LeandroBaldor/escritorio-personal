@@ -17,5 +17,6 @@ const LEGS:Record<CivId,Record<Role,number>>={
   abisal:{worker:6,melee:2,ranged:0,special:0,heavy:6,elite:0},
 };
 export const legCount=(civ:CivId,role:Role)=>LEGS[civ][role];
+export const audibleLegs=(civ:CivId,role:Role)=>(civ==='humano'||civ==='elfos')?legCount(civ,role):0;
 export const stepContact=(distance:number,legs:number)=>Math.floor(distance*Math.max(1,legs/2)/STEP_DISTANCE+.5);
-export const stepVolume=(legs:number)=>.055/Math.sqrt(Math.max(1,legs/2));
+export const stepVolume=(legs:number)=>.032/Math.sqrt(Math.max(1,legs/2));

@@ -7,6 +7,7 @@ import { drawWall } from './landWalls';
 import { drawDeath } from './landDeath';
 import { walkingPhase,motionKind } from './landMotion';
 import {drawRig} from './landRig';
+import {drawBuildingFire} from './landBuildingFire';
 
 // Once recortes por civilización en hojas individuales de 4 × 3, con el último casillero vacío.
 const URLS = import.meta.glob('./assets/land/units-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
@@ -41,7 +42,7 @@ export function spritesReady() {
   return CIV_IDS.every(c => !!SPRITES[c]);
 }
 // Dibuja un recorte apoyado en (x, y) (el piso), de alto h (o de ancho w si es más ancho que alto).
-export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number, motion = 0, attack = 0) {
+export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number, motion = 0, attack = 0,kneel=0) {
   if (idx === 11) return drawWall(ctx,civ,x,y,Math.min(maxW ?? h,h*1.2),h);
   spritesReady();
   const image = SPRITES[civ], frame = FRAMES[civ]?.[idx]; if (!image || !frame) return false;
@@ -49,7 +50,7 @@ export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: numbe
   let k = h / sh; if (maxW && sw * k > maxW) k = maxW / sw;
   const dw = sw * k, dh = sh * k;
   ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  if ((motion || attack) && idx < 6) {
+  if ((motion || attack ||kneel) && idx < 6) {
     const kind=motionKind(civ,idx);
     const piece = (fx: number, fy: number, fw: number, fh: number, px: number, py: number, angle: number, lift = 0) => {
       ctx.save(); ctx.translate((px - 0.5) * dw, (py - 1) * dh + lift); ctx.rotate(angle);
@@ -63,7 +64,7 @@ export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: numbe
       ctx.drawImage(image,sx+sw*fx,sy+sh*joint,sw*fw,sh*(end-joint),(fx-px)*dw,-.35,fw*dw,(end-joint)*dh+.7);ctx.restore();
     };
     if (kind==='biped') {
-      drawRig(ctx,image,frame,`${civ}:${idx}`,dw,dh,motion,attack);
+      drawRig(ctx,image,frame,`${civ}:${idx}`,dw,dh,motion,attack,kneel);
     } else if(kind==='treads') {
       piece(0,0,1,1,.5,1,Math.sin(motion*2)*.004,Math.sin(motion*4)*.3);
     } else if(kind==='fly') {
@@ -141,6 +142,7 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, g: LandGame, b: Buil
       }
     }
   }
+  drawBuildingFire(ctx,b,w,h,t);
   if (b.dead) { // se derrumba: humo y fuego
     ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < 8; i++) { const a = i * 0.8 + b.id, r = 20 + b.dead * 40; ctx.fillStyle = `rgba(255,${120 + i * 10},40,${0.5 * fade})`; ctx.beginPath(); ctx.arc(b.x + Math.cos(a) * r, b.y - h * 0.4 + Math.sin(a) * r * 0.6, 18 * fade + 4, 0, Math.PI * 2); ctx.fill(); }
@@ -168,7 +170,7 @@ export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t:
   if (u.dead) { ctx.translate(u.x, u.y); ctx.rotate(u.face * Math.min(1.3, u.dead * 3)); ctx.translate(-u.x, -u.y); }
   const sq = moving ? 1 + Math.sin(phase*2) * 0.009 : 1;
   ctx.translate(u.x + lunge, u.y - bob - fly); ctx.scale(1 / sq, sq);
-  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? phase : 0,u.atkT>=0?Math.sin(Math.min(1,u.atkT/.3)*Math.PI):0)) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
+  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? phase : 0,u.atkT>=0?Math.sin(Math.min(1,u.atkT/.3)*Math.PI):0,u.kneel??0)) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
   ctx.restore();
   if (u.carry > 0 && !u.dead) crystal(ctx, u.x + u.face * -10, u.y - h * 0.7, 5, u.carryKind === 'energy' ? '#baffd5' : u.carryKind === 'gem' ? '#fff6c8' : '#d7ecff', u.carryKind === 'energy' ? '#22d875' : u.carryKind === 'gem' ? '#f5b81a' : '#3b82f6', u.carryKind === 'energy' ? '#075a30' : u.carryKind === 'gem' ? '#9a5a00' : '#1e3a8a');
   if (!u.dead && (u.hp < u.maxHp || selected)) bar(ctx, u.x, u.y - h - fly - 6, Math.max(26, h * 0.6), u.hp / u.maxHp, u.owner === 0 ? '#4ade80' : '#f87171');

@@ -8,7 +8,7 @@ test('Land 9: informe, líder, actividad de tropas y construcción ampliada',asy
   test.setTimeout(90000);const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(base+'#/juegos');await page.getByRole('link',{name:/Land of Warriors/}).click();await page.getByRole('button',{name:/Iniciar/}).click();
   await page.getByRole('button',{name:'Imperio Humano',exact:true}).click();
-  await page.getByRole('button',{name:'Ver infograma',exact:true}).click();
+  await page.getByRole('button',{name:'¡VER!',exact:true}).click();
   await expect(page.locator('.land-info-grid article')).toHaveCount(16);await expect(page.getByRole('img',{name:'Líder de Imperio Humano',exact:true})).toBeVisible();
   await expect(page.locator('.land-infographic')).not.toContainText('VISTA EN EL JUEGO');await page.screenshot({path:info.outputPath('informe.png')});
   await page.getByRole('button',{name:/Elegir escenario/}).click();await page.getByRole('button',{name:/Iniciar/}).click();await expect(page.getByTestId('land-energy')).toBeVisible({timeout:30000});
