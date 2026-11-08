@@ -18,7 +18,9 @@ test('Land: civilizaciones, escala, exploración, selección y HUD', async ({ pa
   await expect.poll(() => civs.locator('canvas').evaluateAll(canvases => canvases.filter(canvas => {
     const c = canvas as HTMLCanvasElement, data = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
     return data.some((value, i) => i % 4 === 3 && value > 180);
-  }).length), { timeout: 20000 }).toBe(20);
+  }).length), { timeout: 20000 }).toBe(10);
+  const portraits=page.locator('.land-civ-face .land-leader-portrait');await expect(portraits).toHaveCount(10);
+  await portraits.evaluateAll(async elements=>{await Promise.all(elements.map(async el=>{const image=new Image(),source=getComputedStyle(el).backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1];if(!source)throw new Error('Falta el retrato del líder');image.src=source;await image.decode();}));});
   if (testInfo.project.name === 'desktop') {
     const atlas = await page.evaluate(async base => {
       const art = await import(`${base}src/features/games/landArt.ts`), { CIV_IDS, CIVS } = await import(`${base}src/features/games/landCivs.ts`);
