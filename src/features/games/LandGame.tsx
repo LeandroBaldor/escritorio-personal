@@ -1,3 +1,4 @@
+import {ResourceIcon,LandCost,resourceCostText} from './landResource';
 import {LandReferenceFrame,LandReferenceCommandIcon} from './landReferenceFrame';
 import {LandSelectionStrip} from './landSelectionStrip';
 import {nativeAnimationsReady} from './landNativeAnimation';
@@ -10,6 +11,7 @@ import './landInterface.css';
 import './landReadable.css';
 import './landReferenceHud.css';
 import './landVillageHud.css';
+import './landResourceHud.css';
 import { BuildingSprite, Sprite } from './landSprite';
 import { LandInfographic,LeaderPortrait } from './landInfographic';
 import {LandInspector} from './landInspector';
@@ -43,7 +45,7 @@ export function readLandRecord(): Record<string, number> { try { return JSON.par
 function saveWin(c: CivId) { try { const r = readLandRecord(); r[c] = (r[c] ?? 0) + 1; localStorage.setItem(RECORD_KEY, JSON.stringify(r)); } catch { /* sin almacenamiento */ } }
 const ROLE_ORDER: Role[] = ['worker', 'melee', 'ranged', 'special', 'heavy', 'elite'];
 const DIFF: [Difficulty, string][] = [['veryEasy', 'Muy fácil'], ['easy', 'Fácil'], ['normal', 'Normal'], ['hard', 'Difícil']];
-const costText = (c: Cost) => `${c.stone ? `🔷${c.stone}` : ''}${c.gem ? ` 🔶${c.gem}` : ''}${c.energy ? ` 🟢${c.energy}` : ''}${c.rock?` 🪨${c.rock}`:''}`.trim();
+const costText=resourceCostText;
 type Screen = LandScreen;
 const HUD_H = landHudHeight; // (el alto del menú de abajo)
 const minZoom = (g: LandGame, w: number, h: number) => Math.max(1.6 / 1.1, w / g.terrain.w, (h - HUD_H(w)) / g.terrain.h);
@@ -53,7 +55,7 @@ export function LandOfWarriors() {
   const fit = useFitScreen();
   const [screen, setScreen] = useState<Screen>('title');
   const [musicMuted,setMusicMuted]=useState(false);
-  const [commandHelp,setCommandHelp]=useState<string|null>(null);
+  const [commandHelp,setCommandHelp]=useState<{text:string;cost?:Cost}|null>(null);
   const scenarioFrom=useRef<'pick'|'sheet'>('pick');
   const [civ, setCiv] = useState<CivId>('humano');
   const [view, setView] = useState<CivId>('humano'); // la lámina que se está mirando
@@ -370,9 +372,9 @@ export function LandOfWarriors() {
     {simple && <div className="land-simple" style={{ ['--civ' as string]: viewD.color }}>
       <h2>{viewD.name}</h2><p className="land-simple-style">{viewD.style}</p>
       <h3>Guerreros</h3>
-      <ul className="land-simple-units">{ROLE_ORDER.map(r => { const s = ROLE_STATS[r], mod = viewD.mod[r] ?? {}, m = { ...s, ...mod, cost: affordableTrainingCost({...s.cost,...mod.cost}) }; return <li key={r}><Sprite civ={view} idx={roleIdx(r)} w={96} h={108} level={1}/><div><b>{viewD.units[r]} Nivel 1</b><span>{roleText(view, r)}</span><strong className="land-attack-type">{attackText(view,r,m.range)}</strong><small>❤ {Math.round(m.hp*LEVEL_HEALTH[1])} · ⚔ {m.dmg} · {costText(m.cost)}</small></div></li>; })}</ul>
+      <ul className="land-simple-units">{ROLE_ORDER.map(r => { const s = ROLE_STATS[r], mod = viewD.mod[r] ?? {}, m = { ...s, ...mod, cost: affordableTrainingCost({...s.cost,...mod.cost}) }; return <li key={r}><Sprite civ={view} idx={roleIdx(r)} w={96} h={108} level={1}/><div><b>{viewD.units[r]} Nivel 1</b><span>{roleText(view, r)}</span><strong className="land-attack-type">{attackText(view,r,m.range)}</strong><small>❤ {Math.round(m.hp*LEVEL_HEALTH[1])} · ⚔ {m.dmg} · <LandCost cost={m.cost}/></small></div></li>; })}</ul>
       <h3>Construcciones</h3>
-      <ul className="land-simple-builds">{BKINDS.map(k => <li key={k}><BuildingSprite civ={view} kind={k} w={70} h={56} /><div><b>{viewD.buildings[k]}</b><span>{BUILD_TEXT[k]}</span><small>{costText(BUILD_STATS[k].cost)}</small></div></li>)}</ul>
+      <ul className="land-simple-builds">{BKINDS.map(k => <li key={k}><BuildingSprite civ={view} kind={k} w={70} h={56} /><div><b>{viewD.buildings[k]}</b><span>{BUILD_TEXT[k]}</span><small><LandCost cost={BUILD_STATS[k].cost}/></small></div></li>)}</ul>
       <h3>Poder especial: {viewD.power.name}</h3><p>{POWER_TEXT[viewD.power.kind]} Se carga peleando.</p>
       <h3>Mejoras (en la base)</h3><p>⚔️ Ataque, 🛡️ Vida y 👟 Velocidad: tres niveles cada una, para todo tu ejército.</p>
     </div>}
@@ -451,11 +453,11 @@ export function LandOfWarriors() {
         <LandLeaderPanel civ={side.civ} messages={leaderMessages} ready={readySoldiers(g)}/>
       </aside>
       <div className="land-top-right" aria-label="Recursos">
-        <span title="Diamantes (cristales dorados)"><i className="land-r-gem" /><b data-testid="land-gem">{Math.floor(side.gem)}</b></span>
-        <span title="Minerales (cristales azules)"><i className="land-r-stone" /><b data-testid="land-stone">{Math.floor(side.stone)}</b></span>
-        <span title="Energía verde: mejoras y unidades de élite"><i className="land-r-energy" /><b data-testid="land-energy">{Math.floor(side.energy)}</b></span>
-        <span title="Piedras: necesarias para construir estructuras"><span aria-hidden="true">🪨</span><b data-testid="land-rock">{Math.floor(side.rock)}</b></span>
-        <span className={`land-food-reserve${side.food<=0?' land-food-empty':''}`} title={`${FOOD_NAMES[side.civ]}: ${Math.floor(side.food)} / ${FOOD_CAPACITY}. Consumo ${foodRate(g,0).toFixed(1)} por minuto. Las cosechas se entregan en el Almacén.`}><span aria-hidden="true">🌾</span><b data-testid="land-food">{foodPercent(g)}%</b><meter aria-label="Reserva de alimento" min={0} max={100} value={foodPercent(g)}/></span>
+        <span title="Diamantes (cristales dorados)"><ResourceIcon kind="gem"/><b data-testid="land-gem">{Math.floor(side.gem)}</b></span>
+        <span title="Minerales (cristales azules)"><ResourceIcon kind="stone"/><b data-testid="land-stone">{Math.floor(side.stone)}</b></span>
+        <span title="Energía verde: mejoras y unidades de élite"><ResourceIcon kind="energy"/><b data-testid="land-energy">{Math.floor(side.energy)}</b></span>
+        <span title="Piedras: necesarias para construir estructuras"><ResourceIcon kind="rock"/><b data-testid="land-rock">{Math.floor(side.rock)}</b></span>
+        <span className={`land-food-reserve${side.food<=0?' land-food-empty':''}`} title={`${FOOD_NAMES[side.civ]}: ${Math.floor(side.food)} / ${FOOD_CAPACITY}. Consumo ${foodRate(g,0).toFixed(1)} por minuto. Las cosechas se entregan en el Almacén.`}><ResourceIcon kind="food"/><b data-testid="land-food">{foodPercent(g)}%</b><meter aria-label="Reserva de alimento" min={0} max={100} value={foodPercent(g)}/></span>
         <span title="Población"><LandIcon kind="people" /><b>{popUsed(g, 0)} / {popCap(g, 0)}</b></span>
         <button type="button" className="land-sq" title="Ayuda" aria-label="Ayuda" onClick={() => say('Tocá para elegir; tocá el mapa para dar órdenes. Arrastrá con el botón izquierdo para explorar; Shift + arrastre selecciona grupos. Usá la rueda para acercarte y el botón derecho para dar órdenes.')}>?</button>
         <button type="button" className={`land-sq land-music-toggle${musicMuted?' land-music-muted':''}`} aria-label={musicMuted?'Activar música de la partida':'Silenciar música de la partida'} aria-pressed={musicMuted} title={musicMuted?'Música silenciada':'Silenciar música'} onClick={()=>setMusicMuted(muted=>!muted)}><span aria-hidden="true">♫</span></button>
@@ -473,11 +475,11 @@ export function LandOfWarriors() {
           <LandInspector game={g} unit={selUnits[0]} building={selB??undefined} count={selUnits.length} planned={mode.k==='place'?mode.kind:undefined} key={mode.k==='place'?mode.kind:selB?.id??selUnits[0]?.id??'none'}/>
         </div>
         {/* eslint-disable-next-line react-hooks/refs -- (los botones solo usan las referencias al tocarlos, no al dibujarse) */}
-        <div className={`land-cmds${selB||!workersSel?' land-commands-short':''}`} aria-label="Órdenes disponibles">{commandHelp&&<div id="land-order-help" role="tooltip" className="land-order-help">{commandHelp}</div>}{(() => {
+        <div className={`land-cmds${selB||!workersSel?' land-commands-short':''}`} aria-label="Órdenes disponibles">{commandHelp&&<div id="land-order-help" role="tooltip" className="land-order-help">{commandHelp.text}{commandHelp.cost&&<LandCost cost={commandHelp.cost}/>}</div>}{(() => {
           const pad = (els: React.ReactNode[]) => {const live=els.filter(Boolean);return [...live,...Array.from({length:Math.max(0,12-live.length)},(_,i)=><div className="land-command-cell land-command-empty" key={'empty'+i} aria-hidden="true" title="Sin orden disponible para esta selección"><LandReferenceCommandIcon index={live.length+i}/></div>)];};
           const cmd = (key: string, icon: React.ReactNode, title: string, onClick: () => void, o: { disabled?: boolean; cost?: Cost; badge?: string;label?:string } = {}) => {
             const info=title+(o.cost?' · Costo: '+costText(o.cost):'')+(o.disabled&&o.cost&&!canPay(side,o.cost)?' · '+missingResources(g,o.cost):''),label=o.label??(title.startsWith('Mejorar ')?`Mejorar ${title.split(' ')[1]}`:title.split(':')[0]);
-            return <div className="land-command-cell" key={key} onMouseEnter={()=>setCommandHelp(info)} onMouseLeave={()=>setCommandHelp(null)} onFocus={()=>setCommandHelp(info)} onBlur={()=>setCommandHelp(null)} tabIndex={o.disabled?0:undefined} aria-label={o.disabled?info:undefined}><button type="button" disabled={o.disabled} title={info} aria-label={title} aria-describedby={commandHelp===info?'land-order-help':undefined} onClick={()=>{setCommandHelp(null);onClick();}}>{icon}{({amove:0,move:1,stop:2,all:3,power:9} as Record<string,number>)[key]!==undefined&&<LandReferenceCommandIcon index={({amove:0,move:1,stop:2,all:3,power:9} as Record<string,number>)[key]}/>}<b className="land-command-label">{label}</b>{o.badge&&<em>{o.badge}</em>}{o.cost&&<small>{costText(o.cost)}</small>}</button></div>;
+            return <div className="land-command-cell" key={key} onMouseEnter={()=>setCommandHelp({text:title+(o.disabled&&o.cost&&!canPay(side,o.cost)?' · '+missingResources(g,o.cost):''),cost:o.cost})} onMouseLeave={()=>setCommandHelp(null)} onFocus={()=>setCommandHelp({text:title+(o.disabled&&o.cost&&!canPay(side,o.cost)?' · '+missingResources(g,o.cost):''),cost:o.cost})} onBlur={()=>setCommandHelp(null)} tabIndex={o.disabled?0:undefined} aria-label={o.disabled?info:undefined}><button type="button" disabled={o.disabled} title={info} aria-label={title} aria-describedby={commandHelp?.text.startsWith(title)?'land-order-help':undefined} onClick={()=>{setCommandHelp(null);onClick();}}>{icon}{({amove:0,move:1,stop:2,all:3,power:9} as Record<string,number>)[key]!==undefined&&<LandReferenceCommandIcon index={({amove:0,move:1,stop:2,all:3,power:9} as Record<string,number>)[key]}/>}<b className="land-command-label">{label}</b>{o.badge&&<em>{o.badge}</em>}{o.cost&&<small><LandCost cost={o.cost}/></small>}</button></div>;
           };
           const ic = (t: string) => <LandIcon kind={({ '🎯': 'target', '➡️': 'move', '⛔': 'stop', '⚔️': 'army', '✨': 'blast', '✋': 'stop', '✖': 'stop', '🛡️': 'shield', '👟': 'move' } as Record<string, string>)[t] ?? 'rifle'} />;
           const evolutionCommands=(b:Building)=>{const role=TRAINING_ROLE[b.kind];if(!role)return [];const level=evolutionLevel(g,b.owner,role),cost=evolutionCost(level,role),before=unitStats(g,b.owner,role),after=unitStats(g,b.owner,role,Math.min(4,level+1));return [cmd('evolve',<Sprite civ={side.civ} idx={roleIdx(role)} level={Math.min(4,level+1)} w={44} h={44}/>,`Evolucionar ${CIVS[side.civ].units[role]}: nivel ${Math.min(4,level+1)} de 4. Vida ${Math.round(before.hp)} a ${Math.round(after.hp)}. Da\u00f1o ${Math.round(before.dmg*10)/10} a ${Math.round(after.dmg*10)/10}. Mejora armadura, arma, velocidad y alcance; mantiene el costo de entrenamiento. ${evolutionTime(level)} s.`,()=>researchEvolution(g,b.id),{disabled:level>=MAX_EVOLUTION||!!b.evolving||!canPay(side,cost),cost:level>=MAX_EVOLUTION?undefined:cost,label:level>=MAX_EVOLUTION?'Nivel máximo':b.evolving?'Evolucionando':'Evolucionar',badge:level>=4?'MAX':String(level+1)})];};

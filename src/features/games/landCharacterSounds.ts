@@ -9,6 +9,7 @@ import {EVENT_CLIPS} from './landEventSounds';
 import {isBuildingBurning} from './landBuildingFire';
 import {extractingResource} from './landGatherPose';
 import {landHudHeight} from './landLayout';
+import {miningBeat} from './landAnimation';
 export class LandCharacterSounds {
   private active=false;
   private serial=0;
@@ -21,18 +22,19 @@ export class LandCharacterSounds {
   private lastFire=-Infinity;
   private digId:number|null=null;
   private lastDig=-Infinity;
+  private digBeat:number|null=null;
   private variant=new Map<string,number>();
   constructor(private output:CharacterSoundOutput=new LandSoundOutput()){}
   start(civ:CivId){this.lastCall=-Infinity;this.lastAmbient=-Infinity;this.combatTimes.clear();this.output.unlock();void this.output.preload([...CHARACTER_CLIPS.filter(c=>c.civ===civ&&c.purpose!=='foot'),FOOTSTEP_CLIP,...Object.values(COMBAT_CLIPS),...Object.values(EVENT_CLIPS)]);}
-  setActive(on:boolean){this.active=on;this.serial++;this.lastContact.clear();this.audible.clear();this.fireId=null;this.lastFire=-Infinity;this.digId=null;this.lastDig=-Infinity;if(on)this.output.unlock();else this.output.stop();}
+  setActive(on:boolean){this.active=on;this.serial++;this.lastContact.clear();this.audible.clear();this.fireId=null;this.lastFire=-Infinity;this.digId=null;this.digBeat=null;this.lastDig=-Infinity;if(on)this.output.unlock();else this.output.stop();}
   tick(g:LandGame,cam:Cam,selected:ReadonlySet<number>){
     if(!this.active)return;
     const visible=g.units.filter(u=>!u.dead&&u.x>=cam.x-100&&u.x<=cam.x+cam.w/cam.z+100&&u.y>=cam.y&&u.y<=cam.y+(cam.h-landHudHeight(cam.w))/cam.z+100);
     visible.sort((a,b)=>Number(selected.has(b.id))-Number(selected.has(a.id))||Math.abs(a.x-cam.x-cam.w/cam.z/2)-Math.abs(b.x-cam.x-cam.w/cam.z/2));
     const live=new Set(visible.map(u=>u.id));this.audible=live;for(const id of this.lastContact.keys())if(!live.has(id))this.lastContact.delete(id);
     const digging=visible.find(u=>extractingResource(g,u));
-    if((digging?.id??null)!==this.digId){this.digId=digging?.id??null;this.lastDig=-Infinity;this.output.stopChannel?.('dig');}
-    if(digging&&g.t-this.lastDig>=EVENT_CLIPS.dig.phrases[0].duration+.12){this.lastDig=g.t;const id=digging.id;this.eventSound(g,'dig',()=>this.digId===id&&extractingResource(g,digging));}
+    if((digging?.id??null)!==this.digId){this.digId=digging?.id??null;this.digBeat=null;this.lastDig=-Infinity;this.output.stopChannel?.('dig');}
+    if(digging){const beat=miningBeat(digging),old=this.digBeat;this.digBeat=beat;if((old===null?digging.mineT%.8>=.4:beat>old)&&g.t-this.lastDig>=.25){this.lastDig=g.t;const id=digging.id;this.eventSound(g,'dig',()=>this.digId===id&&extractingResource(g,digging));}}
     const burning=g.buildings.find(b=>isBuildingBurning(b)&&b.x>=cam.x-100&&b.x<=cam.x+cam.w/cam.z+100&&b.y>=cam.y&&b.y<=cam.y+(cam.h-landHudHeight(cam.w))/cam.z+100);
     if((burning?.id??null)!==this.fireId){this.fireId=burning?.id??null;this.lastFire=-Infinity;this.output.stopChannel?.('ambient');}
     if(burning&&g.t-this.lastFire>=EVENT_CLIPS.burn.phrases[0].duration+.06){this.lastFire=g.t;const id=burning.id;this.eventSound(g,'burn',()=>this.fireId===id&&isBuildingBurning(burning));}
@@ -59,7 +61,7 @@ export class LandCharacterSounds {
     this.lastCall=time+Math.max(0,cue.duration-.75);this.output.unlock();
     void this.output.preload([clip]).then(()=>{if(this.active&&this.serial===serial&&stillAudible())this.output.play(clip,cue,.72,pan,'call');});
   }
-  eventSound(g:LandGame,key:keyof typeof EVENT_CLIPS,stillAudible=()=>true){if(!this.active)return;const clip=EVENT_CLIPS[key],serial=this.serial,time=g.t;void this.output.preload([clip]).then(()=>{if(this.active&&this.serial===serial&&g.t-time<1&&stillAudible())this.output.play(clip,clip.phrases[0],key==='burn'?.17:key==='dig'?.16:.48,0,key==='burn'?'ambient':key==='dig'?'dig':'notice');});}
+  eventSound(g:LandGame,key:keyof typeof EVENT_CLIPS,stillAudible=()=>true){if(!this.active)return;const clip=EVENT_CLIPS[key],serial=this.serial,time=g.t;void this.output.preload([clip]).then(()=>{if(this.active&&this.serial===serial&&g.t-time<(key==='dig'?.12:1)&&stillAudible())this.output.play(clip,clip.phrases[0],key==='burn'?.17:key==='dig'?.16:.48,0,key==='burn'?'ambient':key==='dig'?'dig':'notice');});}
   combat(g:LandGame,event:LandEvent,pan=0){
     if(!this.active)return;
     const key=event.type==='spell'?'magic':event.type==='shot'?weaponSound(g.sides[event.owner].civ,event.role):event.type==='impact'?'building':event.type==='die'&&!event.building?'death':null;

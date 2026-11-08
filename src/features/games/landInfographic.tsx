@@ -1,3 +1,4 @@
+import {LandCost} from './landResource';
 import { BKINDS, BUILD_STATS, ROLES, ROLE_STATS } from './land';
 import { BUILD_TEXT, CIVS, POWER_TEXT, TRAINING_ROLE, attackText, type CivId } from './landCivs';
 import { roleIdx } from './landArt';
@@ -16,7 +17,7 @@ export function LandInfographic({civ}:{civ:CivId}){
     <section className="land-info-units"><h3>UNIDADES Y MÁQUINAS</h3><div className="land-info-grid">{ROLES.map(r=>{
       const s={...ROLE_STATS[r],...c.mod[r]};return <article key={r}><Sprite civ={civ} idx={roleIdx(r)} w={180} h={180} level={1}/><h4>{c.units[r]} Nivel 1</h4><p>{attackText(civ,r,s.range)}</p><small>Vida {Math.round(s.hp*LEVEL_HEALTH[1])} · Daño {Math.round(s.dmg*LEVEL_DAMAGE[1])}</small></article>;
     })}</div></section>
-    <section className="land-info-buildings"><h3>CUARTELES, CONSTRUCCIONES Y DEFENSAS</h3><div className="land-info-grid">{BKINDS.map(k=><article key={k}><BuildingSprite civ={civ} kind={k} w={190} h={150}/><h4>{c.buildings[k]}</h4><p>{TRAINING_ROLE[k]?`Entrena exclusivamente: ${c.units[TRAINING_ROLE[k]!]}.`:BUILD_TEXT[k]}</p><small>{BUILD_STATS[k].cost.stone} minerales{BUILD_STATS[k].cost.gem?` · ${BUILD_STATS[k].cost.gem} diamantes`:''}</small></article>)}</div></section>
+    <section className="land-info-buildings"><h3>CUARTELES, CONSTRUCCIONES Y DEFENSAS</h3><div className="land-info-grid">{BKINDS.map(k=><article key={k}><BuildingSprite civ={civ} kind={k} w={190} h={150}/><h4>{c.buildings[k]}</h4><p>{TRAINING_ROLE[k]?`Entrena exclusivamente: ${c.units[TRAINING_ROLE[k]!]}.`:BUILD_TEXT[k]}</p><small><LandCost cost={BUILD_STATS[k].cost}/></small></article>)}</div></section>
     <section className="land-info-footer"><article><h3>RECURSOS Y COMIDA</h3><p>Azules: entrenamiento y construcción. Dorados: tropas avanzadas. Verdes: evoluciones y élite. Piedras: estructuras y fortificación. Asigná trabajadores a cosechas de 60 s y entregá el alimento en el Almacén: sin comida, las tropas se detienen.</p></article><article><h3>{c.power.name}</h3><p>{POWER_TEXT[c.power.kind]}</p></article><article><h3>CUATRO NIVELES</h3><p>Cada personaje empieza en Nivel 1 y puede alcanzar el Nivel 4. Investigá las mejoras en su cuartel: benefician a las tropas actuales y futuras sin encarecer su entrenamiento. Desde la base mejorás Producción y Fortificación.</p></article></section>
   </section>;
 }

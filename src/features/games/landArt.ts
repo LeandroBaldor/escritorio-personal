@@ -167,6 +167,7 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, g: LandGame, b: Buil
   ctx.restore();
   if (!b.dead && (b.hp < b.maxHp || selected || b.built < 1)) bar(ctx, b.x, b.y - h - 10, w * 0.6, b.built < 1 ? b.built : b.hp / b.maxHp, b.built < 1 ? '#facc15' : b.owner === 0 ? '#4ade80' : '#f87171');
   if (!b.dead && b.queue.length) bar(ctx, b.x, b.y - h - 2, w * 0.6, b.qT / trainingDuration(g,b.owner,b.queue[0]), '#60a5fa');
+  if(!b.dead){ctx.save();ctx.font='600 8px Orbitron, sans-serif';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.lineJoin='round';ctx.lineWidth=2.5;ctx.strokeStyle='#04121de6';ctx.fillStyle=CIVS[civ].color;const name=CIVS[civ].buildings[b.kind],y=b.y-h-17;ctx.strokeText(name,b.x,y);ctx.fillText(name,b.x,y);ctx.restore();}
 }
 function bar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, k: number, c: string) {
   ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(x - w / 2 - 1, y - 1, w + 2, 6);

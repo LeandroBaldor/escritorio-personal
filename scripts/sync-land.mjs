@@ -10,6 +10,8 @@ const target = fs.realpathSync(path.resolve(targetArg));
 if (target === fs.realpathSync(source) || !fs.existsSync(path.join(target, 'src/features/games/LandGame.tsx'))) throw new Error('El destino debe ser el otro repositorio de MiniJuegos.');
 const check = process.argv.includes('--check');
 const files = [
+  'tests/land23.spec.ts', 'scripts/prepare-land-dig.mjs', 'docs/land-correcciones-23.md',
+  'docs/land23-resumen.png', 'docs/land23-soldados.png', 'docs/land23-costos.png',
   'tests/land22.spec.ts', 'docs/land-correcciones-22.md', 'docs/land22-aldea.png',
   'tests/land21.spec.ts', 'scripts/prepare-land-animation.mjs', 'docs/land-correcciones-21.md', 'docs/land21-prompts.json',
   'docs/land21-hud.png', 'docs/land21-animaciones.png', 'docs/land21-animaciones.webm',
