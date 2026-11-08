@@ -20,7 +20,7 @@ test('Land: civilizaciones, escala, exploración, selección y HUD', async ({ pa
     return data.some((value, i) => i % 4 === 3 && value > 180);
   }).length), { timeout: 20000 }).toBe(10);
   const portraits=page.locator('.land-civ-face .land-leader-portrait');await expect(portraits).toHaveCount(10);
-  await portraits.evaluateAll(async elements=>{await Promise.all(elements.map(async el=>{const image=new Image(),source=getComputedStyle(el).backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1];if(!source)throw new Error('Falta el retrato del líder');image.src=source;await image.decode();}));});
+  await portraits.evaluateAll(async elements=>{await Promise.all(elements.map(async el=>{const image=new Image(),source=el.querySelector('image')?.getAttribute('href');if(!source)throw new Error('Falta el retrato del líder');image.src=source;await image.decode();}));});
   if (testInfo.project.name === 'desktop') {
     const atlas = await page.evaluate(async base => {
       const art = await import(`${base}src/features/games/landArt.ts`), { CIV_IDS, CIVS } = await import(`${base}src/features/games/landCivs.ts`);
@@ -53,7 +53,7 @@ test('Land: civilizaciones, escala, exploración, selección y HUD', async ({ pa
   const camera = () => page.evaluate(() => ({ ...(window as LandDebugWindow).__landCam() }));
   const initial = await camera(); expect(initial.z).toBe(1.6);
   const bounds = (await world.boundingBox())!;
-  const x = bounds.x + bounds.width * .7, y = bounds.y + Math.min(220, (bounds.height - 214) * .6);
+  const x = bounds.x + bounds.width * .7, y = bounds.y + Math.min(220, (bounds.height - 280) * .6);
   await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x - 70, y - 30, { steps: 12 }); await page.mouse.up();
   const moved = await camera(); expect(moved.x).toBeGreaterThan(initial.x + 25);
   expect(moved.y).toBeGreaterThan(initial.y + 10);

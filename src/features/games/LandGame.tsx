@@ -3,7 +3,8 @@ import './landHud.css';
 import './landInterface.css';
 import { BuildingSprite, Sprite } from './landSprite';
 import { LandInfographic,LeaderPortrait } from './landInfographic';
-import {LandPopulation} from './landPopulation';
+import {LandInspector} from './landInspector';
+import {LAND_HUD_HEIGHT} from './landLayout';
 import {previousLandMenu,type LandScreen} from './landNavigation';
 import { LandTroops } from './landTroops';
 import {LandLeaderPanel} from './landLeaderPanel';
@@ -36,7 +37,7 @@ const UP_ICON: Record<Upgrade, string> = { attack: '⚔️', armor: '🛡️', s
 const DIFF: [Difficulty, string][] = [['veryEasy', 'Muy fácil'], ['easy', 'Fácil'], ['normal', 'Normal'], ['hard', 'Difícil']];
 const costText = (c: Cost) => `${c.stone ? `🔷${c.stone}` : ''}${c.gem ? ` 🔶${c.gem}` : ''}${c.energy ? ` 🟢${c.energy}` : ''}`.trim();
 type Screen = LandScreen;
-const HUD_H = 214; // (el alto del menú de abajo)
+const HUD_H = LAND_HUD_HEIGHT; // (el alto del menú de abajo)
 const minZoom = (g: LandGame, w: number, h: number) => Math.max(1.6 / 1.1, w / g.terrain.w, (h - HUD_H) / g.terrain.h);
 type Mode = { k: 'none' } | { k: 'place'; kind: BKind } | { k: 'power' } | { k: 'amove' };
 
@@ -44,6 +45,7 @@ export function LandOfWarriors() {
   const fit = useFitScreen();
   const [screen, setScreen] = useState<Screen>('title');
   const [musicMuted,setMusicMuted]=useState(false);
+  const [commandHelp,setCommandHelp]=useState<string|null>(null);
   const scenarioFrom=useRef<'pick'|'sheet'>('pick');
   const [civ, setCiv] = useState<CivId>('humano');
   const [view, setView] = useState<CivId>('humano'); // la lámina que se está mirando
@@ -264,6 +266,7 @@ export function LandOfWarriors() {
     characterSounds.current?.react(g,ids);
   };
   const onDown = (e: RPointerEvent<HTMLCanvasElement>) => {
+    setCommandHelp(null);
     if (screenRef.current !== 'playing') return;
     if (e.button === 1) e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -433,7 +436,7 @@ export function LandOfWarriors() {
         <div className="land-intel-card land-troops-card"><LandTroops game={g} selected={sel} onSelect={units=>{setSelection(units.map(u=>u.id));focus(units[0].x,units[0].y);setMode({k:'none'});setCommsOpen(false);}}/></div>
         <LandLeaderPanel civ={side.civ} messages={leaderMessages} ready={readySoldiers(g)}/>
       </aside>
-      {previewKind && <section className={`land-build-preview${previewKind==='base'&&mode.k!=='place'?' land-base-preview':''}`} aria-label="Vista ampliada de construcción"><div><small>{mode.k==='place'?'A CONSTRUIR':'ESTRUCTURA SELECCIONADA'}</small><h3>{CIVS[side.civ].buildings[previewKind]}</h3></div><BuildingSprite civ={side.civ} kind={previewKind} w={260} h={175}/><p>{BUILD_TEXT[previewKind]}</p>{previewKind==='base'&&mode.k!=='place'?<LandPopulation game={g}/>:<span>{costText(BUILD_STATS[previewKind].cost)} · {BUILD_STATS[previewKind].time} s</span>}</section>}
+      {previewKind && <section className={`land-build-preview${previewKind==='base'&&mode.k!=='place'?' land-base-preview':''}`} aria-label="Vista ampliada de construcción"><div><small>{mode.k==='place'?'A CONSTRUIR':'ESTRUCTURA SELECCIONADA'}</small><h3>{CIVS[side.civ].buildings[previewKind]}</h3></div><BuildingSprite civ={side.civ} kind={previewKind} w={260} h={175}/><p>{BUILD_TEXT[previewKind]}</p>{mode.k==='place'&&<span>{costText(BUILD_STATS[previewKind].cost)} · {BUILD_STATS[previewKind].time} s</span>}</section>}
       <div className="land-top-right" aria-label="Recursos">
         <span title="Diamantes (cristales dorados)"><i className="land-r-gem" /><b data-testid="land-gem">{Math.floor(side.gem)}</b></span>
         <span title="Minerales (cristales azules)"><i className="land-r-stone" /><b data-testid="land-stone">{Math.floor(side.stone)}</b></span>
@@ -450,27 +453,26 @@ export function LandOfWarriors() {
         <div className="land-mini"><div className="land-mini-map"><div className="land-tabs"><span><LandIcon kind="layers" /></span><span><LandIcon kind="radar" /></span></div><canvas ref={miniRef} width={220} height={150} onPointerDown={onMini} onPointerMove={onMini} aria-label="Mapa" /></div>
           <div className="land-quick"><button type="button" onClick={goBase} title="Ir a la base" aria-label="Ir a la base"><LandIcon kind="base" /></button><button type="button" onClick={selectArmy} title="Elegir todo el ejército" aria-label="Elegir todo el ejército"><LandIcon kind="army" /></button><button type="button" onClick={selectIdle} title="Un trabajador sin hacer nada" aria-label="Un trabajador sin hacer nada"><LandIcon kind="wrench" /></button></div>
         </div>
-        <div className="land-sel">
-          <ul className="land-group">{selUnits.slice(0, 10).map(u => <li key={u.id}><button type="button" onClick={() => setSelection([u.id])} title={CIVS[g.sides[u.owner].civ].units[u.role]} className={u.owner === 0 ? '' : 'foe'}><Sprite civ={g.sides[u.owner].civ} idx={roleIdx(u.role)} w={62} h={62} /><i style={{ width: `${u.hp / u.maxHp * 100}%` }} /></button></li>)}
-            {selUnits.length > 10 && <li className="land-more">+{selUnits.length - 10}</li>}{selUnits.length > 0 && selUnits.length < 10 && Array.from({ length: 10 - selUnits.length }, (_, i) => <li key={'e' + i} className="land-slot" />)}
-            {!selUnits.length && selB && <li className="land-group-b"><BuildingSprite civ={g.sides[selB.owner].civ} kind={selB.kind} w={150} h={110} /></li>}
-            {!selUnits.length && !selB && <li className="land-help"><span>Arrastrá el terreno para explorar. Clic: seleccionar. Shift + arrastre: seleccionar grupo. Clic derecho: mover, recolectar o atacar. Rueda: acercar.</span></li>}</ul>
-          {selUnits.length ? <UnitCard g={g} u={selUnits[0]} n={selUnits.length} /> : selB ? <BuildingCard g={g} b={selB} /> : <div className="land-card-unit land-card-empty"><b>{CIVS[side.civ].name}</b><small>{CIVS[side.civ].style}</small></div>}
+        <div className="land-sel land-selection-info">
+          {selUnits.length>0&&<ul className="land-group">{selUnits.map(u=><li key={u.id}><button type="button" onClick={()=>setSelection([u.id])} title={CIVS[g.sides[u.owner].civ].units[u.role]}><Sprite civ={g.sides[u.owner].civ} idx={roleIdx(u.role)} w={38} h={40}/><i style={{width:u.hp/u.maxHp*100+'%'}}/></button></li>)}</ul>}
+          <LandInspector game={g} unit={selUnits[0]} building={selB??undefined} count={selUnits.length}/>
         </div>
         {/* eslint-disable-next-line react-hooks/refs -- (los botones solo usan las referencias al tocarlos, no al dibujarse) */}
-        <div className="land-cmds">{(() => {
-          const pad = (els: React.ReactNode[]) => [...els, ...Array.from({ length: Math.max(0, 12 - els.filter(Boolean).length) }, (_, i) => <button type="button" key={'p' + i} className="land-slot land-command-inactive" disabled title="Seleccioná una unidad para habilitar esta orden"><LandIcon kind={['target', 'move', 'stop', 'army', 'rifle', 'shield', 'heal', 'wrench', 'rocket', 'blast', 'radar', 'layers'][(els.filter(Boolean).length + i) % 12]} /></button>)];
-          const cmd = (key: string, icon: React.ReactNode, title: string, onClick: () => void, o: { disabled?: boolean; cost?: Cost; badge?: string } = {}) =>
-            <button type="button" key={key} disabled={o.disabled} title={title} aria-label={title} onClick={onClick}>{icon}{o.badge && <em>{o.badge}</em>}{o.cost && <small>{costText(o.cost)}</small>}</button>;
+        <div className="land-cmds" aria-label="Órdenes disponibles">{commandHelp&&<div id="land-order-help" role="tooltip" className="land-order-help">{commandHelp}</div>}{(() => {
+          const pad = (els: React.ReactNode[]) => els.filter(Boolean);
+          const cmd = (key: string, icon: React.ReactNode, title: string, onClick: () => void, o: { disabled?: boolean; cost?: Cost; badge?: string;label?:string } = {}) => {
+            const info=title+(o.cost?' · Costo: '+costText(o.cost):'')+(o.disabled&&o.cost&&!canPay(side,o.cost)?' · '+missingResources(g,o.cost):''),label=o.label??(title.startsWith('Mejorar ')?`Mejorar ${title.split(' ')[1]}`:title.split(':')[0]);
+            return <div className="land-command-cell" key={key} onMouseEnter={()=>setCommandHelp(info)} onMouseLeave={()=>setCommandHelp(null)} onFocus={()=>setCommandHelp(info)} onBlur={()=>setCommandHelp(null)} tabIndex={o.disabled?0:undefined} aria-label={o.disabled?info:undefined}><button type="button" disabled={o.disabled} title={info} aria-label={title} aria-describedby={commandHelp===info?'land-order-help':undefined} onClick={()=>{setCommandHelp(info);onClick();}}>{icon}<b className="land-command-label">{label}</b>{o.badge&&<em>{o.badge}</em>}{o.cost&&<small>{costText(o.cost)}</small>}</button></div>;
+          };
           const ic = (t: string) => <LandIcon kind={({ '🎯': 'target', '➡️': 'move', '⛔': 'stop', '⚔️': 'army', '✨': 'blast', '✋': 'stop', '✖': 'stop', '🛡️': 'shield', '👟': 'move' } as Record<string, string>)[t] ?? 'rifle'} />;
           if (selB && selB.owner === 0) {
             const bs = BUILD_STATS[selB.kind], c = CIVS[side.civ];
             if (selB.built < 1) return <p className="land-cmd-note">En construcción: {Math.round(selB.built * 100)}%. Mandá trabajadores para que termine más rápido.</p>;
             return <>{pad([
               ...bs.makes.map(r => { const st = unitStats(g, 0, r), full = popUsed(g, 0) + st.pop > popCap(g, 0);
-                return cmd(r, <Sprite civ={side.civ} idx={roleIdx(r)} w={46} h={46} />, `${c.units[r]}: ${roleText(side.civ, r)}${full ? ' (falta población: hacé un depósito)' : ''}`, () => { if (!train(g, selB.id, r)) say('No se puede ahora'); }, { disabled: !canPay(side, st.cost) || full, cost: st.cost }); }),
+                return cmd(r, <Sprite civ={side.civ} idx={roleIdx(r)} w={46} h={46} />, `${c.units[r]}: Entrena esta unidad. ${roleText(side.civ, r)}${full ? ' (falta población: hacé un depósito)' : ''}`, () => { if (!train(g, selB.id, r)) say('No se puede ahora'); }, { disabled: !canPay(side, st.cost) || full, cost: st.cost,label:'Entrenar' }); }),
               ...(selB.kind === 'base' ? UPGRADES.map(up => { const lv = side.up[up], cost = UPGRADE_COST(lv);
-                return cmd(up, ic(UP_ICON[up]), `Mejorar ${UP_NAME[up]} de todo el ejército (nivel ${lv + 1}, ${UPGRADE_TIME} s)`, () => research(g, selB.id, up), { disabled: lv >= MAX_UPGRADE || !!selB.research || !canPay(side, cost), cost: lv >= MAX_UPGRADE ? undefined : cost, badge: lv >= MAX_UPGRADE ? 'MÁX' : 'I'.repeat(lv + 1) }); }) : []),
+                return cmd(up, ic(UP_ICON[up]), `Mejorar ${UP_NAME[up]} de todo el ejército (nivel ${Math.min(lv+1,MAX_UPGRADE)}, ${UPGRADE_TIME} s)${lv>=MAX_UPGRADE?' · Nivel máximo alcanzado':selB.research?' · Investigación en curso':''}`, () => research(g, selB.id, up), { disabled: lv >= MAX_UPGRADE || !!selB.research || !canPay(side, cost), cost: lv >= MAX_UPGRADE ? undefined : cost, badge: lv >= MAX_UPGRADE ? 'MÁX' : 'I'.repeat(lv + 1) }); }) : []),
               selB.queue.length > 0 ? cmd('cancel', ic('✖'), 'Cancelar el último', () => cancelTrain(g, selB.id)) : null])}</>;
           }
           if (workersSel) return <>{pad([...BKINDS.map(k => { const st = BUILD_STATS[k], needs = st.needs && !hasBuilt(g, 0, st.needs);
@@ -481,7 +483,7 @@ export function LandOfWarriors() {
             cmd('move', ic('➡️'), 'Mover: tocá el mapa para que vayan', () => say('Tocá el mapa para que vayan ahí')),
             cmd('stop', ic('⛔'), 'Parar', () => { for (const u of mine) u.order = { k: 'idle' }; }),
             cmd('all', ic('⚔️'), 'Elegir todo el ejército', () => selectArmy()),
-            side.power >= POWER_MAX ? cmd('power', ic('✨'), CIVS[side.civ].power.name, () => { if (CIVS[side.civ].power.kind === 'strike') setMode({ k: 'power' }); else castPower(g, 0); }) : null])}</>;
+            side.power >= POWER_MAX ? cmd('power', ic('✨'), CIVS[side.civ].power.name+': '+POWER_TEXT[CIVS[side.civ].power.kind], () => { if (CIVS[side.civ].power.kind === 'strike') setMode({ k: 'power' }); else castPower(g, 0); }) : null])}</>;
           return <>{pad([])}</>;
         })()}</div>
       </div>
@@ -503,21 +505,6 @@ export function LandOfWarriors() {
   </section>;
 }
 
-function UnitCard({ g, u, n }: { g: LandGame; u: Unit; n: number }) {
-  const civ = g.sides[u.owner].civ, s = unitStats(g, u.owner, u.role), c = CIVS[civ];
-  return <div className="land-card-unit"><div className="land-portrait"><Sprite civ={civ} idx={roleIdx(u.role)} w={104} h={132} portrait /></div>
-    <div><b>{c.units[u.role]}{n > 1 ? ` ×${n}` : ''}</b><small>{u.owner === 0 ? ROLE_KIND[u.role] : `Enemigo · ${c.name}`}</small>
-      <span className="land-hp"><i style={{ width: `${u.hp / u.maxHp * 100}%` }} /><em>💚 {Math.ceil(u.hp)} / {Math.round(u.maxHp)}</em></span>
-      <ul><li>⚔️ Daño: {Math.round(s.dmg)}</li><li>🛡️ Armadura: {g.sides[u.owner].up.armor}</li><li>🎯 Alcance: {Math.max(1, Math.round(s.range / 30))}</li></ul>
-      {u.carry > 0 && <small>Lleva {u.carry} {u.carryKind === 'energy' ? 'energía 🟢' : u.carryKind === 'gem' ? 'diamantes 🔶' : 'minerales 🔷'}</small>}</div></div>;
-}
-function BuildingCard({ g, b }: { g: LandGame; b: Building }) {
-  const civ = g.sides[b.owner].civ, c = CIVS[civ];
-  return <div className="land-card-unit"><div><b>{c.buildings[b.kind]}</b><small>{b.owner === 0 ? BUILD_TEXT[b.kind] : `Enemigo · ${c.name}`}</small>
-    <span className="land-hp"><i style={{ width: `${b.hp / b.maxHp * 100}%` }} /><em>💚 {Math.ceil(b.hp)} / {b.maxHp}</em></span>
-    <ul>{b.queue.length > 0 && <li>Haciendo: {c.units[b.queue[0]]} ({Math.round(b.qT / ROLE_STATS[b.queue[0]].time * 100)}%){b.queue.length > 1 ? ` +${b.queue.length - 1}` : ''}</li>}{b.research && <li>Mejora: {UP_NAME[b.research]} ({Math.round(b.rT / UPGRADE_TIME * 100)}%)</li>}</ul></div></div>;
-}
-const ROLE_KIND: Record<Role, string> = { worker: 'Trabajador', melee: 'Infantería · Principal', ranged: 'Infantería · A distancia', special: 'Apoyo', heavy: 'Máquina pesada', elite: 'Élite' };
 const SCENES = import.meta.glob('./assets/land/scenes/scene-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
 function MapThumb({ theme }: { theme: number }) {
   const src = SCENES['./assets/land/scenes/scene-' + theme + '.webp'];

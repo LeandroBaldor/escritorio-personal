@@ -139,6 +139,26 @@
     ],
     "steps": []
   },
+  "magic": {
+    "civ": "humano",
+    "role": "acid",
+    "variant": 0,
+    "purpose": "effect",
+    "hash": "c142011775f902156f7bf8219c48cc7a533500f46db5dc466f9a7d70fac9dc94",
+    "file": "combat/magic.mp3",
+    "source": "SONIDOS/disparo_magia.mp3",
+    "duration": 5.808,
+    "peak": 0.8935464024543762,
+    "rms": 0.07239,
+    "phrases": [
+      {
+        "start": 0.825,
+        "duration": 0.58,
+        "rms": 0.07239
+      }
+    ],
+    "steps": []
+  },
   "building": {
     "civ": "humano",
     "role": "acid",

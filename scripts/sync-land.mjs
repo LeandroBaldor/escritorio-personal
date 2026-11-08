@@ -29,6 +29,7 @@ const files = [
   'tests/land13.spec.ts', 'scripts/prepare-land-steps.mjs', 'docs/land-correcciones-13.md',
   'tests/land14.spec.ts', 'scripts/prepare-land-events.mjs', 'docs/land-correcciones-14.md',
   'tests/land15.spec.ts', 'docs/land-correcciones-15.md',
+  'tests/land16.spec.ts', 'scripts/prepare-land-portraits.mjs', 'docs/land-correcciones-16.md',
 ];
 function collect(dir) {
   for (const entry of fs.readdirSync(path.join(source, dir), { withFileTypes: true })) {
