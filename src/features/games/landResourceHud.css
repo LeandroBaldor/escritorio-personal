@@ -1,0 +1,41 @@
+.land .land-resource-icon{width:28px!important;height:28px!important;object-fit:contain;vertical-align:middle;flex:none}
+.land .land-resource-cost{display:inline-flex;flex-wrap:wrap;align-items:center;gap:3px 10px;vertical-align:middle}
+.land .land-resource-cost>span{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.land.land-v9 .land-hud.land-hud-native .land-cmds .land-order-help .land-resource-cost .land-resource-icon{width:26px!important;height:26px!important;max-height:none;max-width:none}
+.land.land-v9 .land-cmds .land-order-help .land-resource-cost>span{display:inline-flex;align-items:center;gap:5px;width:auto;height:auto}
+.land.land-v9 .land-cmds .land-order-help .land-resource-cost b{display:inline;position:static;font:600 15px Arial!important;color:#fff2c5}
+.land .land-resource-cost .land-resource-icon{width:24px!important;height:24px!important}
+.land .land-village-icons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:4px;min-height:0;flex:1}
+.land .land-village-icons>button{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr) auto;min-width:0;min-height:0;align-items:center;gap:1px 3px;padding:3px;border:1px solid #527889;border-radius:4px;background:linear-gradient(#153b50,#092334);color:#e4efee;text-align:center}
+.land .land-village-icons>button:hover,.land .land-village-icons>button:focus-visible{border-color:#e9cb72;background:#214b54;outline:1px solid #e9cb72}
+.land .land-village-icons>button>:first-child{grid-column:1/-1;justify-self:center}
+.land .land-village-icons>button>:first-child{border:1px solid #456c80;border-radius:3px;background:#071c2d;box-sizing:border-box}
+.land .land-village-icons>button>b{color:#ffe49b}
+.land .land-village-detail-heading{display:flex;align-items:center;justify-content:space-between;gap:4px;min-width:0}
+.land .land-village-detail-heading button{background:#173b4c;border:1px solid #527c87;color:#fff0bd;padding:1px 4px}
+.land .land-village-detail-heading nav{display:flex;gap:3px;align-items:center}
+.land .land-village-empty{color:#b5c8d3}
+@media(min-width:1101px){
+ .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-village-icons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px}
+ .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-village-icons>button{padding:2px 4px}
+ .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-village-icons>button>:first-child{width:clamp(20px,2.3cqw,34px)!important;height:clamp(20px,2.3cqw,34px)!important;max-height:100%}
+ .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-village-icons>button :is(b,span){font-size:clamp(11px,.95cqw,15px)!important;line-height:1!important}
+ .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-village-detail-heading{height:16px;flex:0 0 16px}
+ .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-village-detail-heading *{font-size:clamp(10px,.85cqw,13px)!important}
+ .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-village-detail-heading nav{flex:none;min-height:0}
+ .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-resource-cost .land-resource-icon{width:16px!important;height:16px!important}
+ .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-resource-cost{gap:1px 5px}
+ .land.land-v9 .land-hud-native .land-order-help .land-resource-cost{display:flex;margin-top:6px;color:#fff2c5}
+ .land.land-v9 .land-hud-native .land-order-help{bottom:calc(100% + 5cqw + 12px)}
+}
+@media(max-width:1100px){
+ .land.land-v9 .land-village-icons{min-height:160px}
+ .land.land-v9 .land-village-icons>button{display:flex;flex-direction:column;justify-content:center;gap:2px;padding:2px}
+ .land.land-v9 .land-village-icons>button span{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+ .land.land-v9 .land-hud .land-selection-inspector.land-inspector17 .land-village-icons>button :is(b,span){font:12px Arial!important}
+ .land.land-v9 .land-hud .land-selection-inspector.land-inspector17 .land-village-detail-heading *{font:12px Arial!important}
+ .land.land-v9 .land-cmds .land-resource-cost .land-resource-icon{width:12px!important;height:12px!important;max-height:none}
+ .land.land-v9 .land-cmds .land-resource-cost>span{gap:0}
+ .land.land-v9 .land-cmds .land-resource-cost{gap:1px}
+ .land.land-v9 .land-cmds .land-resource-cost b{font-size:7px!important}
+}

@@ -1,0 +1,14 @@
+import {describe,it,expect} from 'vitest';
+import {addUnit,newLandGame} from './land';
+import {villageMembers,villageDetails,VILLAGE_CATEGORIES} from './landVillageOverview';
+import {miningBeat} from './landAnimation';
+import {LandCharacterSounds} from './landCharacterSounds';
+import type {CharacterSoundOutput} from './landSoundOutput';
+function fixture(){const g=newLandGame('humano','orcos',1,'normal',8,'small');g.units=[];g.nodes=[{id:999,kind:'stone',x:420,y:300,amount:9999}];return g;}
+describe('Resumen de recursos y excavación sincronizada',()=>{
+ it('cuenta asignaciones, incluye transportistas y excluye rivales y bajas',()=>{const g=fixture();for(let i=0;i<3;i++){const u=addUnit(g,0,'worker',400,300);u.order={k:'gather',node:999};if(i===2){u.carry=8;u.carryKind='stone';}}addUnit(g,0,'worker',400,300);addUnit(g,0,'melee',400,300);const enemy=addUnit(g,1,'worker',400,300);enemy.order={k:'gather',node:999};const dead=addUnit(g,0,'worker',400,300);dead.dead=1;expect(villageMembers(g,0,'stone')).toHaveLength(3);expect(villageMembers(g,0,'army')).toHaveLength(1);expect(villageMembers(g,0,'other')).toHaveLength(1);expect(villageMembers(g,0,'all')).toHaveLength(5);expect(VILLAGE_CATEGORIES).toHaveLength(8);expect(villageMembers(g,0,'food')).toEqual([]);});
+ it('desglosa soldados por tipo con su nivel real de evolución',()=>{const g=fixture();addUnit(g,0,'melee',400,300);addUnit(g,0,'melee',400,300);addUnit(g,0,'heavy',400,300);g.sides[0].levels.melee=3;expect(villageDetails(g,0,'army')).toEqual([{name:'Recluta',count:2,label:'Nivel 3 / 4'},{name:'Tanque Bastión',count:1,label:'Nivel 1 / 4'}]);});
+ it('clasifica las cosechas y conserva los grupos por tarea al consultar todos',()=>{const g=fixture(),u=addUnit(g,0,'worker',400,300);u.order={k:'farm',id:100};addUnit(g,0,'worker',400,300);expect(villageMembers(g,0,'food')).toEqual([u]);expect(villageDetails(g,0,'all').map(x=>x.label)).toEqual(['Cosecha de alimentos','En espera']);});
+ it('el impacto coincide con la tercera pose de cada ciclo, sin repetirse por fotograma',async()=>{const g=fixture(),u=addUnit(g,0,'worker',400,300);u.order={k:'gather',node:999};let hits=0;const stopped:string[]=[];const output:CharacterSoundOutput={unlock(){},async preload(){},play(_c,_q,_v,_p,channel){if(channel==='dig')hits++;return true;},stopChannel(channel){stopped.push(channel);},stop(){},dispose(){}};const sound=new LandCharacterSounds(output),cam={x:0,y:0,w:1200,h:900,z:1};sound.setActive(true);
+ for(const t of [.1,.39,.4,.41,.79,1.19,1.2,1.21]){g.t=t;u.mineT=t;sound.tick(g,cam,new Set());await Promise.resolve();}expect(hits).toBe(2);expect(miningBeat({...u,mineT:.39})).toBe(0);expect(miningBeat({...u,mineT:.4})).toBe(1);u.moving=true;sound.tick(g,cam,new Set());expect(stopped).toContain('dig');sound.dispose();});
+});
