@@ -190,3 +190,5 @@
 
 .land.land-v9 .land-economy-summary p{font:12px/1.2 Arial,sans-serif!important;margin:2px 0}.land.land-v9 .land-economy-summary small{display:block;font:11px/1.25 Arial,sans-serif!important}.land.land-v9 .land-economy-summary table{font-size:11px;line-height:1.15;margin:3px 0}.land.land-v9 .land-economy-summary th,.land.land-v9 .land-economy-summary td{padding:2px 5px}
 @media(max-width:650px){.land.land-v9 .land-structure-upgrades article>b,.land.land-v9 .land-structure-upgrades article>span{font-size:9px!important;line-height:1.1!important}.land.land-v9 .land-structure-upgrades small{font-size:8px!important;line-height:1.15!important}.land.land-v9 .land-structure-upgrades article{gap:2px;padding:3px}.land.land-v9 .land-economy-summary p{font-size:9px!important;line-height:1.1!important}.land.land-v9 .land-economy-summary small{font-size:8px!important;line-height:1.1!important}.land.land-v9 .land-economy-summary table{font-size:9px;line-height:1}.land.land-v9 .land-economy-summary th,.land.land-v9 .land-economy-summary td{padding:1px 2px}}
+
+.land.land-v9 .land-economy-summary th,.land.land-v9 .land-economy-summary td{padding-top:1px;padding-bottom:1px}
