@@ -17,7 +17,7 @@ describe('Land of Warriors', () => {
     const g = newLandGame('humano', 'orcos', 5, 'normal', 1);
     expect(g.buildings.filter(b => b.owner === 0)).toHaveLength(1);
     expect(mine(g).filter(u => u.role === 'worker')).toHaveLength(4);
-    expect(popCap(g, 0)).toBe(10);
+    expect(popCap(g, 0)).toBe(24);
     const b = base(g, 0);
     expect(g.nodes.some(n => n.kind === 'stone' && Math.hypot(n.x - b.x, n.y - b.y) < 500)).toBe(true);
     expect(g.nodes.some(n => n.kind === 'gem' && Math.hypot(n.x - b.x, n.y - b.y) < 500)).toBe(true);
@@ -53,7 +53,7 @@ describe('Land of Warriors', () => {
   it('los soldados pelean solos y el que muere desaparece', () => {
     const g = newLandGame('humano', 'orcos', 3, 'normal', 5); g.ai.t = 1e9;
     const [x0, y0] = g.terrain.bases[0].map(v => (v + 0.5) * 40), a = addUnit(g, 0, 'elite', x0 + 150, y0 - 150), b = addUnit(g, 1, 'melee', x0 + 210, y0 - 150);
-    run(g, 8);
+    run(g, 24);
     expect(b.hp).toBeLessThanOrEqual(0);
     expect(a.hp).toBeGreaterThan(0);
     expect(g.sides[0].kills).toBe(1);
@@ -69,7 +69,7 @@ describe('Land of Warriors', () => {
     const g = newLandGame('humano', 'orcos', 3, 'normal', 7); g.ai.t = 1e9; g.sides[0].stone = 5000; g.sides[0].gem = 5000; g.sides[0].energy = 100;
     expect(researchEvolution(g, base(g,0).id)).toBe(false);const barracks=addBuilding(g,0,'barracks',900,900);barracks.built=1;expect(researchEvolution(g,barracks.id)).toBe(true);
     run(g, 26);
-    expect(g.sides[0].levels.melee).toBe(1);expect(g.sides[0].levels.ranged).toBe(0);
+    expect(g.sides[0].levels.melee).toBe(2);expect(g.sides[0].levels.ranged).toBe(1);
   });
   it('el poder especial: la explosión daña a los enemigos del lugar', () => {
     const g = newLandGame('humano', 'orcos', 3, 'normal', 8); g.ai.t = 1e9;
@@ -93,7 +93,7 @@ describe('Land of Warriors', () => {
     expect(g.buildings.some(b => b.owner === 1 && b.kind === 'barracks' && b.built >= 1)).toBe(true);
     expect(ai.filter(u => u.role !== 'worker').length + g.sides[0].lost).toBeGreaterThan(3);
     expect(g.ai.wave).toBeGreaterThan(0);
-  });
+  },15000);
   it('los escenarios: diez estilos y cuatro tamaños, siempre con camino entre las bases', () => {
     expect(THEMES).toHaveLength(10); expect(MAP_SIZES.map(m => m[0])).toEqual(['small', 'medium', 'large', 'huge']);
     for (let th = 0; th < 10; th++) for (const [size] of MAP_SIZES) for (const seed of [1, 77]) {

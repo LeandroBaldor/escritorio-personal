@@ -79,7 +79,7 @@ export const ROLE_TEXT: Record<Role, string> = {
 export const roleText = (c: CivId, r: Role) => r === 'special' ? (CIVS[c].special === 'heal' ? 'Cura a los suyos que estén lastimados.' : 'Ataque en área: daña a varios a la vez.') : r === 'melee' && (CIVS[c].mod.melee?.range ?? 0) > 60 ? 'Soldado básico con arma de fuego, de corto alcance.' : ROLE_TEXT[r];
 export const BUILD_TEXT: Record<BKind, string> = {
   wall: 'Bloquea el paso terrestre y protege la aldea. Se puede destruir; dejá un espacio como entrada. Cada tramo cuesta 35 minerales.',
-  base: 'Recibe minerales y piedras. Consultá acá el resumen de población. Los personajes se entrenan y evolucionan en su propio cuartel. Si la destruyen, perdés.',
+  base: 'Recibe minerales y piedras. Consultá la población e investigá Producción y Fortificación. Los personajes se entrenan y evolucionan en su propio cuartel. Si la destruyen, perdés.',
   farm: 'Parcela verde oscura. Un trabajador por cosecha: extrae alimento durante 60 segundos, lo lleva al Almacén y vuelve a empezar. Clic derecho para asignarlo.',
   storehouse: 'Almacén de alimentos. Recibe las cosechas y recupera la reserva de comida. Construí uno cerca de tus parcelas.',
   workerBarracks: 'Entrena únicamente al trabajador de esta civilización.',
@@ -89,7 +89,7 @@ export const BUILD_TEXT: Record<BKind, string> = {
   workshop: 'Entrena únicamente al personaje pesado de esta civilización.',
   eliteBarracks: 'Entrena únicamente al personaje élite de esta civilización.',
   tower: 'Defiende sola: le dispara a los enemigos que se acercan.',
-  depot: 'Suma 8 de población y es otro lugar donde dejar lo juntado.',
+  depot: 'Suma 20 de población y es otro lugar donde dejar lo juntado.',
 };
 export function attackText(c: CivId, r: Role, range: number) {
   const near = range <= 60;

@@ -1,3 +1,4 @@
+import {evolutionLevel} from './landBalance';
 import { useState } from 'react';
 import type { LandGame, Unit } from './land';
 import { CIVS } from './landCivs';
@@ -13,8 +14,8 @@ export function LandTroops({game,selected,onSelect}:{game:LandGame;selected:numb
     <div className="land-troops-filters" role="group" aria-label="Filtrar tropas">{([['all',`Todas ${own.length}`],['army',`Ejército ${army.length}`],['workers',`Trabajadores ${workers}`]] as const).map(([k,label])=><button type="button" key={k} aria-pressed={filter===k} onClick={()=>setFilter(k)}>{label}</button>)}</div>
     <div className="land-troops-list" role="list" aria-label="Resumen de tropas por tarea">{rows.map(group=>{const title=`${troopGroupName(CIVS[game.sides[0].civ].units[group.role],group.units.length)} (${group.units.length})`;return <div role="listitem" key={group.key}>
       <button type="button" className={`land-troop-row land-troop-summary land-activity-${group.kind}`} aria-pressed={group.units.every(u=>selected.includes(u.id))} onClick={()=>onSelect(group.units)} aria-label={`${title}: ${group.task}`}>
-        <Sprite civ={game.sides[0].civ} idx={roleIdx(group.role)} w={45} h={54}/>
-        <span className="land-troop-copy"><b>{title}:</b><span className="land-troop-status"><i/>{group.task}</span></span>
+        <Sprite civ={game.sides[0].civ} idx={roleIdx(group.role)} level={evolutionLevel(game,0,group.role)} w={45} h={54}/>
+        <span className="land-troop-copy"><b>{title}: <small>Nivel {evolutionLevel(game,0,group.role)}</small></b><span className="land-troop-status"><i/>{group.task}</span></span>
       </button>
     </div>;})}</div>
     {!rows.length&&<p className="land-troops-empty">{filter==='army'?'Todavía no hay soldados. Entrenalos en el cuartel.':'No hay unidades en esta categoría.'}</p>}

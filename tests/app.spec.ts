@@ -1249,7 +1249,7 @@ test('Land of Warriors: se elige civilización en la imagen, se ve su lámina, s
   await page.getByRole('button', { name: /Elegir escenario/ }).click();
   await page.getByRole('group', { name: 'Elegir escenario' }).getByRole('button').first().click();
   await page.getByRole('button', { name: /Iniciar/ }).click();
-  await expect(page.getByTestId('land-stone')).toHaveText('300', { timeout: 15000 });
+  await expect(page.getByTestId('land-stone')).toHaveText('500', { timeout: 15000 });
   await expect(page.getByRole('img', { name: /Partida en La Grieta Corrupta/ })).toBeVisible({ timeout: 15000 });
   await page.getByRole('button', { name: 'Elegir todo el ejército' }).click();
   await page.keyboard.press('p');

@@ -11,7 +11,7 @@ test('Land 14: flechas al menú anterior, retrato amplio y regreso al menú prin
   await page.getByRole('button',{name:'¡VER!',exact:true}).click();await expect(page.locator('.land-infographic')).toBeVisible();await previous.click();await expect(page.getByLabel('Enemigos',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:/Continuar/}).click();await previous.click();await expect(page.getByLabel('Enemigos',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'¡VER!',exact:true}).click();await page.getByRole('button',{name:/Elegir escenario/}).click();await previous.click();await expect(page.locator('.land-infographic')).toBeVisible();
-  await page.getByRole('button',{name:/Elegir escenario/}).click();await page.getByRole('button',{name:/Iniciar/}).click();await expect(page.getByTestId('land-energy')).toBeVisible({timeout:30000});await page.getByRole('button',{name:'Volver al menú principal',exact:true}).click();await expect(page.locator('.land-title')).toBeVisible();await expect(page.getByRole('link',{name:'‹ Juegos',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:/Elegir escenario/}).click();await page.getByRole('button',{name:/Iniciar/}).click();await expect(page.getByTestId('land-energy')).toBeVisible({timeout:30000});await page.getByRole('button',{name:'Volver a elegir civilización',exact:true}).click();await expect(page.locator('.land-pick')).toBeVisible();
 });
 test('Land 14: recolección de rodillas, incendio, avisos nuevos y mezcla priorizada',async({page},info)=>{
   test.setTimeout(90000);const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));

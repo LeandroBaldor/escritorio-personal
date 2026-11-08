@@ -1,8 +1,9 @@
+import {unitLabel} from './landBalance';
 // Land of Warriors: el dibujo del mapa, los recursos, las construcciones, los guerreros y los disparos.
 import {evolutionLevel,foodBlocked} from './landProvision';
 import {evolvedSprite,evolutionsReady} from './landEvolutionArt';
 import {drawFarm,drawStorehouse} from './landFarmArt';
-import { BUILD_STATS, unitStats, ROLE_STATS, ROLES, type BKind, type Building, type LandGame, type Role, type Unit, type Node } from './land';
+import { BUILD_STATS, trainingDuration, unitStats, ROLES, type BKind, type Building, type LandGame, type Role, type Unit, type Node } from './land';
 import { CIVS, CIV_IDS, TRAINING_ROLE, type CivId } from './landCivs';
 import { drawAmbientTerrain, type TerrainRegion } from './landMapArt';
 import { drawWorldProp } from './landProps';
@@ -134,11 +135,11 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, g: LandGame, b: Buil
     if(recruit&&!b.dead){
       const bx=b.x+w*.33,by=b.y-h*.35;
       ctx.fillStyle='#061a2f';ctx.fillRect(bx-19,by-39,38,43);ctx.strokeStyle=CIVS[civ].color;ctx.lineWidth=2;ctx.strokeRect(bx-19,by-39,38,43);
-      drawSprite(ctx,civ,roleIdx(recruit),bx,by+2,39,false,35);
+      drawSprite(ctx,civ,roleIdx(recruit),bx,by+2,39,false,35,0,0,0,evolutionLevel(g,b.owner,recruit));
     }
     if (!b.dead) {
       // Balizas, vapor y actividad de producción sobre el edificio real.
-      const active = b.queue.length > 0 || !!b.evolving;
+      const active = b.queue.length > 0 || !!b.evolving || !!b.infrastructureResearch;
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = CIVS[civ].color; ctx.globalAlpha = 0.35 + Math.sin(t * (active ? 6 : 2) + b.id) * 0.2;
       for (const dx of [-0.25, 0.25]) { ctx.beginPath(); ctx.arc(b.x + w * dx, b.y - h * 0.43, 2.5, 0, Math.PI * 2); ctx.fill(); }
@@ -157,14 +158,14 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, g: LandGame, b: Buil
   }
   ctx.restore();
   if (!b.dead && (b.hp < b.maxHp || selected || b.built < 1)) bar(ctx, b.x, b.y - h - 10, w * 0.6, b.built < 1 ? b.built : b.hp / b.maxHp, b.built < 1 ? '#facc15' : b.owner === 0 ? '#4ade80' : '#f87171');
-  if (!b.dead && b.queue.length) bar(ctx, b.x, b.y - h - 2, w * 0.6, b.qT / ROLE_STATS[b.queue[0]].time, '#60a5fa');
+  if (!b.dead && b.queue.length) bar(ctx, b.x, b.y - h - 2, w * 0.6, b.qT / trainingDuration(g,b.owner,b.queue[0]), '#60a5fa');
 }
 function bar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, k: number, c: string) {
   ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(x - w / 2 - 1, y - 1, w + 2, 6);
   ctx.fillStyle = c; ctx.fillRect(x - w / 2, y, w * Math.max(0, Math.min(1, k)), 4);
 }
 // ---------------------------------------------------------------- Guerreros
-export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t: number, selected: boolean) {
+export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t: number, selected: boolean,showName=selected) {
   const s = unitStats(g,u.owner,u.role), civ = g.sides[u.owner].civ, h = s.size, fade = u.dead ? Math.max(0, 1 - u.dead / 1.1) : 1;
   if (u.dead) { drawDeath(ctx,civ,u,h); return; }
   const moving=!!u.moving,phase=walkingPhase(u.walk);
@@ -180,6 +181,7 @@ export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t:
   ctx.translate(u.x + lunge, u.y - bob - fly); ctx.scale(1 / sq, sq);
   if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? phase : 0,u.atkT>=0?Math.sin(Math.min(1,u.atkT/.3)*Math.PI):0,u.kneel??0,evolutionLevel(g,u.owner,u.role))) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
   ctx.restore();
+  ctx.save();ctx.font='bold 10px Arial';ctx.textAlign='center';const label=showName?unitLabel(g,u.owner,u.role):'N'+evolutionLevel(g,u.owner,u.role),lw=ctx.measureText(label).width+8,ly=u.y-h-fly-19;ctx.fillStyle='#061527e8';ctx.fillRect(u.x-lw/2,ly-10,lw,14);ctx.fillStyle=selected?'#ffdf8b':TEAM[u.owner];ctx.fillText(label,u.x,ly);ctx.restore();
   if(foodBlocked(g,u.owner,u.role)&&!u.dead){ctx.fillStyle='#ffcd87';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.fillText('SIN ALIMENTO',u.x,u.y-h-15);}
   if(u.carry>0&&!u.dead&&(u.carryKind==='food'||u.carryKind==='rock')){ctx.fillStyle=u.carryKind==='food'?'#77984c':'#8c9297';ctx.fillRect(u.x-8,u.y-h*.65,13,10);}
   else if (u.carry > 0 && !u.dead) crystal(ctx, u.x + u.face * -10, u.y - h * 0.7, 5, u.carryKind === 'energy' ? '#baffd5' : u.carryKind === 'gem' ? '#fff6c8' : '#d7ecff', u.carryKind === 'energy' ? '#22d875' : u.carryKind === 'gem' ? '#f5b81a' : '#3b82f6', u.carryKind === 'energy' ? '#075a30' : u.carryKind === 'gem' ? '#9a5a00' : '#1e3a8a');
@@ -221,12 +223,12 @@ export function drawWorld(ctx: CanvasRenderingContext2D, g: LandGame, map: HTMLC
   } else { ctx.fillStyle = '#3a3226'; ctx.fillRect(0, 0, W, H); }
   if (detail) ctx.drawImage(detail.canvas, detail.x, detail.y, detail.w, detail.h);
   drawAmbientTerrain(ctx, g.terrain, cam, t);
-  const vx0 = cam.x - 200, vx1 = cam.x + cam.w / cam.z + 200, vy0 = cam.y - 200, vy1 = cam.y + cam.h / cam.z + 250, vis = (o: { x: number; y: number }) => o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1;
+  const vx0 = cam.x - 360, vx1 = cam.x + cam.w / cam.z + 200, vy0 = cam.y - 360, vy1 = cam.y + cam.h / cam.z + 380, vis = (o: { x: number; y: number }) => o.x > vx0 && o.x < vx1 && o.y > vy0 && o.y < vy1;
   for (const n of g.nodes) if (vis(n)) drawNode(ctx, n, t);
   // de atrás para adelante (los de más abajo tapan a los de más arriba)
   const all: ({ y: number; d: () => void })[] = [];
   for (const b of g.buildings) if (vis(b)) all.push({ y: b.y, d: () => drawBuilding(ctx, g, b, t, sel.has(b.id)) });
-  for (const u of g.units) if (vis(u)) all.push({ y: u.y, d: () => drawUnit(ctx, g, u, t, sel.has(u.id)) });
+  for (const u of g.units) if (vis(u)) all.push({ y: u.y, d: () => drawUnit(ctx, g, u, t, sel.has(u.id),sel.has(u.id)&&sel.size===1) });
   all.sort((a, b) => a.y - b.y); for (const o of all) o.d();
   drawShots(ctx, g);
   extra?.(ctx);
