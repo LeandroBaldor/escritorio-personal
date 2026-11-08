@@ -1,3 +1,5 @@
+import {LandUnitIndex} from './landSpatial';
+import {resolveLandOptions,mineralMultiplier,type LandOptions} from './landOptions';
 import {LEVEL_HEALTH,LEVEL_DAMAGE,LEVEL_SPEED,LEVEL_RANGE,LEVEL_CADENCE,levelIndex,unitScale,affordableTrainingCost,PRODUCTION_TIME,CONSTRUCTION_TIME,STRUCTURE_HEALTH,STRUCTURE_PROTECTION,MAX_STRUCTURE_LEVEL,structureUpgradeCost,structureUpgradeTime,type StructureUpgrade} from './landBalance';
 // Land of Warriors: un juego de estrategia en tiempo real (al estilo StarCraft, Warcraft o Age of Empires),
 // simplificado para que sea fácil de entender y divertido.
@@ -53,7 +55,7 @@ export const BUILD_STATS: Record<BKind, BuildStats> = {
   wall: { hp: 1400, cost: { stone: 35, gem: 0 }, time: 8, size: WALL_SIZE, pop: 0, makes: [] },
 };
 for(const kind of BKINDS)BUILD_STATS[kind].cost.rock=Math.ceil(BUILD_STATS[kind].cost.stone*.4);
-export const MAX_POP = 200, POWER_MAX = 100;
+export const MAX_POP = 3000, POWER_MAX = 100;
 export const CARRY = 14, MINE_T = 1.6;
 
 export interface Unit {
@@ -73,7 +75,7 @@ export interface Side { civ: CivId; rock:number; food:number; levels:Record<Role
 export interface AIState { t: number; wave: number; waveAt: number; attacking: boolean }
 export const AI_PREPARE: Record<Difficulty, number> = { veryEasy: 660, easy: 600, normal: 540, hard: 480 };
 export interface LandGame {
-  t: number; units: Unit[]; buildings: Building[]; nodes: Node[]; shots: Shot[]; sides: Side[]; nextId: number;
+  populationLimit:LandOptions['populationLimit'];mineralAbundance:LandOptions['mineralAbundance']; t: number; units: Unit[]; buildings: Building[]; nodes: Node[]; shots: Shot[]; sides: Side[]; nextId: number;
   map: number; terrain: Terrain; difficulty: Difficulty; phase: 'play' | 'won' | 'lost'; events: LandEvent[]; ai: AIState; ais: AIState[];
   rand: () => number;
 }
@@ -93,7 +95,7 @@ export const specialHeals = (civ: CivId) => CIVS[civ].special === 'heal';
 // ---------------------------------------------------------------- Armar una partida
 // El escenario se genera con la semilla: las bases quedan en esquinas opuestas y los cristales al lado de cada base y
 // en lugares parejos para los dos (en espejo).
-export function newLandGame(civ: CivId, enemy: CivId | CivId[], map = 1, difficulty: Difficulty = 'normal', seed = Date.now(), size: MapSize = 'medium'): LandGame {
+export function newLandGame(civ: CivId, enemy: CivId | CivId[], map = 1, difficulty: Difficulty = 'normal', seed = Date.now(), size: MapSize = 'medium', options:Partial<LandOptions>={}): LandGame {
   let s = seed % 2147483647 || 7; const rand = () => (s = (s * 48271) % 2147483647) / 2147483647;
   const enemies = (Array.isArray(enemy) ? enemy : [enemy]).slice(0, 9);
   if (!enemies.length) enemies.push(civ === 'orcos' ? 'humano' : 'orcos');
@@ -101,7 +103,7 @@ export function newLandGame(civ: CivId, enemy: CivId | CivId[], map = 1, difficu
   const terrain = generateTerrain(map - 1, size, seed % 100000, roster.length); MW = terrain.w; MH = terrain.h; TER = terrain;
   const side = (c: CivId): Side => ({ civ: c,rock:350,food:FOOD_CAPACITY,levels:{worker:1,melee:1,ranged:1,special:1,heavy:1,elite:1},infrastructure:{production:0,fortification:0}, stone: 500, gem: 200, energy: 0, power: 0, buffT: 0, kills: 0, lost: 0, gathered: 0 });
   const ais = enemies.map(() => ({ t: 0, wave: 0, waveAt: AI_PREPARE[difficulty], attacking: false }));
-  const g: LandGame = { t: 0, units: [], buildings: [], nodes: [], shots: [], sides: roster.map(side), nextId: 1, map, terrain, difficulty, phase: 'play', events: [], ai: ais[0], ais, rand };
+  const g: LandGame = { ...resolveLandOptions(options), t: 0, units: [], buildings: [], nodes: [], shots: [], sides: roster.map(side), nextId: 1, map, terrain, difficulty, phase: 'play', events: [], ai: ais[0], ais, rand };
   terrain.bases.forEach(([c, r], o) => {
     const x = (c + 0.5) * T, y = (r + 0.5) * T, b = addBuilding(g, o as Owner, 'base', x, y); b.built = 1; b.hp = b.maxHp;
     const dir = x < terrain.w / 2 ? 1 : -1;
@@ -132,7 +134,7 @@ export function addBuilding(g: LandGame, owner: Owner, kind: BKind, x: number, y
   const b: Building = { id: g.nextId++, owner, kind, x, y, hp: s.hp * 0.1, maxHp: s.hp, built: 0,infrastructureResearch:null, queue: [], qT: 0, rT: 0, rally: null, cool: 0, dead: 0 };
   g.buildings.push(b); return b;
 }
-function addNode(g: LandGame, kind: ResKind, x: number, y: number, amount: number) { g.nodes.push({ id: g.nextId++, kind, x: clampX(x), y: clampY(y), amount }); }
+function addNode(g: LandGame, kind: ResKind, x: number, y: number, amount: number) { g.nodes.push({ id: g.nextId++, kind, x: clampX(x), y: clampY(y), amount:Math.round(amount*mineralMultiplier(g.mineralAbundance)) }); }
 const clampX = (x: number) => Math.max(30, Math.min(MW - 30, x));
 const clampY = (y: number) => Math.max(40, Math.min(MH - 30, y));
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -147,7 +149,7 @@ export function popUsed(g: LandGame, o: Owner) {
   for (const b of g.buildings) if (b.owner === o && !b.dead) for (const r of b.queue) n += ROLE_STATS[r].pop;
   return n;
 }
-export function popCap(g: LandGame, o: Owner) { let n = 0; for (const b of g.buildings) if (b.owner === o && !b.dead && b.built >= 1) n += BUILD_STATS[b.kind].pop; return Math.min(MAX_POP, n); }
+export function popCap(g: LandGame, o: Owner) { let n = 0; for (const b of g.buildings) if (b.owner === o && !b.dead && b.built >= 1) n += BUILD_STATS[b.kind].pop; return Math.min(g.populationLimit, n); }
 export const hasBuilt = (g: LandGame, o: Owner, k: BKind) => g.buildings.some(b => b.owner === o && b.kind === k && !b.dead && b.built >= 1);
 
 // ---------------------------------------------------------------- Órdenes (las da el jugador y la computadora)
@@ -269,8 +271,10 @@ function damageBuilding(g: LandGame, b: Building, dmg: number, by: Owner) {
   }
 }
 type Target = { kind: 'u'; u: Unit } | { kind: 'b'; b: Building };
+const stepIndexes=new WeakMap<LandGame,LandUnitIndex>();
+function nearbyUnits(g:LandGame,p:{x:number;y:number},r:number){return stepIndexes.get(g)?.near(p.x,p.y,r)??g.units;}
 function findTarget(g: LandGame, id: number): Target | null {
-  const u = g.units.find(q => q.id === id && !q.dead); if (u) return { kind: 'u', u };
+  const u = stepIndexes.get(g)?.byId.get(id)??g.units.find(q => q.id === id && !q.dead); if (u&&!u.dead) return { kind: 'u', u };
   const b = g.buildings.find(q => q.id === id && !q.dead); return b ? { kind: 'b', b } : null;
 }
 const tPos = (t: Target) => t.kind === 'u' ? t.u : t.b;
@@ -278,7 +282,7 @@ const tReach = (g:LandGame,t: Target) => t.kind === 'u' ? unitStats(g,t.u.owner,
 // El enemigo más cercano a la vista (primero los soldados; los edificios si no hay soldados cerca).
 function nearestFoe(g: LandGame, u: { x: number; y: number }, owner: Owner, r: number): Target | null {
   let best: Target | null = null, bd = r;
-  for (const q of g.units) if (q.owner !== owner && !q.dead) { const d = dist(u, q); if (d < bd) { bd = d; best = { kind: 'u', u: q }; } }
+  for (const q of nearbyUnits(g,u,r)) if (q.owner !== owner && !q.dead) { const d = dist(u, q); if (d < bd) { bd = d; best = { kind: 'u', u: q }; } }
   if (best) return best;
   bd = r;
   for (const b of g.buildings) if (b.owner !== owner && !b.dead) { const d = dist(u, b) - BUILD_STATS[b.kind].size * 0.4; if (d < bd) { bd = d; best = { kind: 'b', b }; } }
@@ -292,7 +296,9 @@ export function stepLand(g: LandGame, dt: number) {
   g.t += dt;
   for (const side of g.sides) { side.food=Math.max(0,side.food-foodRate(g,g.sides.indexOf(side))*dt/60);side.buffT = Math.max(0, side.buffT - dt); side.power = Math.min(POWER_MAX, side.power + dt * 0.35); } // (se carga sola despacio, y rápido peleando)
   for (const b of g.buildings) if (!b.dead) stepBuilding(g, b, dt);
-  for (const u of g.units) if (!u.dead){stepUnit(g, u, dt);stepGatherPose(g,u,dt);}
+  const unitIndex=new LandUnitIndex(g.units);stepIndexes.set(g,unitIndex);
+  for (const u of g.units) if (!u.dead){stepUnit(g, u, dt);stepGatherPose(g,u,dt);unitIndex.move(u);}
+  stepIndexes.delete(g);
   separate(g, dt);
   advanceDeaths(g,dt);
   g.nodes = g.nodes.filter(n => n.amount > 0);
@@ -380,7 +386,7 @@ function stepUnit(g: LandGame, u: Unit, dt: number) {
   if(u.carryKind==='food'&&u.carry>0){stepFarm(g,u,-1,dt);return;}
   // el especial que cura: si hay un amigo lastimado cerca, lo cura
   if (s.heal && specialHeals(g.sides[u.owner].civ) && u.role === 'special' && (o.k === 'idle' || (o.k === 'move' && o.attack))) {
-    const hurt = g.units.filter(q => q.owner === u.owner && !q.dead && q !== u && q.hp < q.maxHp && dist(q, u) < s.sight).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+    const hurt = [...nearbyUnits(g,u,s.sight)].filter(q => q.owner === u.owner && !q.dead && q !== u && q.hp < q.maxHp && dist(q, u) < s.sight).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
     if (hurt) {
       if (dist(hurt, u) > s.range) steer(g, u, hurt.x, hurt.y, s.speed, dt, s.range * 0.9);
       else if (u.cool <= 0) { u.cool = s.cool; u.atkT = 0; hurt.hp = Math.min(hurt.maxHp, hurt.hp + s.heal); g.shots.push({ x: u.x, y: u.y - 30, tx: hurt.x, ty: hurt.y - 25, t: 0, life: 0.45, owner: u.owner, kind: 'heal' });if(['elfos','enanos','nomuerta','sauriano'].includes(g.sides[u.owner].civ))emit(g,{type:'spell',owner:u.owner,role:u.role,x:u.x,y:u.y}); }
@@ -414,7 +420,7 @@ function stepUnit(g: LandGame, u: Unit, dt: number) {
     const hit = (q: Target, k = 1) => q.kind === 'u' ? damageUnit(g, q.u, dmg * k, u.owner) : damageBuilding(g, q.b, dmg * k, u.owner);
     hit(t);
     const splash = u.role === 'special' && !specialHeals(g.sides[u.owner].civ) ? s.splash : u.role === 'heavy' || u.role === 'elite' ? s.splash : 0;
-    if (splash) for (const q of g.units) if (q.owner !== u.owner && !q.dead && q !== (t.kind === 'u' ? t.u : null) && dist(q, p) < splash) damageUnit(g, q, dmg * 0.5, u.owner);
+    if (splash) for (const q of nearbyUnits(g,p,splash)) if (q.owner !== u.owner && !q.dead && q !== (t.kind === 'u' ? t.u : null) && dist(q, p) < splash) damageUnit(g, q, dmg * 0.5, u.owner);
     g.shots.push(ranged ? { x: u.x + u.face * 14, y: u.y - s.size * 0.55, tx: p.x, ty: p.y - (t.kind === 'u' ? 20 : 40), t: 0, life: 0.28, owner: u.owner, kind: splash ? 'splash' : 'bolt' } : { x: p.x, y: p.y - 20, tx: p.x, ty: p.y, t: 0, life: 0.22, owner: u.owner, kind: 'slash' });
     if (ranged) { const shot = g.shots[g.shots.length - 1]; for (let i = 1; i < 3; i++) g.shots.push({ ...shot, t: -i * 0.065 }); }
     emit(g, { type: ranged ? 'shot' : 'hit', role: u.role, x: u.x, y: u.y, owner: u.owner });
@@ -520,7 +526,7 @@ function stepAI(g: LandGame, dt: number, o: Owner) {
     if (!bs('storehouse').length) place('storehouse');
     else if(bs('farm').length<Math.max(2,Math.ceil(foodRate(g,o)/45))&&complete('storehouse'))place('farm');
     else if (!bs('workerBarracks').length) place('workerBarracks');
-    else if ((popUsed(g, o) + 4 >= popCap(g, o) || (!bs('depot').length && g.t > 65)) && popCap(g, o) < MAX_POP) place('depot');
+    else if ((popUsed(g, o) + 4 >= popCap(g, o) || (!bs('depot').length && g.t > 65)) && popCap(g, o) < g.populationLimit) place('depot');
     else if (!bs('barracks').length && g.t > 45) place('barracks');
     else if (complete('barracks') && !bs('rangedBarracks').length && g.t > 90) place('rangedBarracks');
     else if (complete('rangedBarracks') && !bs('workshop').length && g.t > 150) place('workshop');
