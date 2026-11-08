@@ -145,3 +145,4 @@
 @media(max-width:1000px){.land.land-v9 .land-chosen-heading .land-leader-portrait{height:155px}.land.land-v9 .land-civ-face .land-leader-portrait{height:64px}}
 @media(max-width:650px){.land.land-v9 .land-civ-face .land-leader-portrait{height:46px}}
 .land.land-v9 button.land-exit{display:grid;place-items:center;padding:0;font-size:26px;line-height:1;cursor:pointer}
+.land.land-v9 .land-music-toggle{position:relative;font-size:20px!important}.land.land-v9 .land-music-muted{opacity:.75}.land.land-v9 .land-music-muted::after{content:'';position:absolute;width:80%;height:2px;background:#ff8c85;transform:rotate(-45deg);left:10%;top:50%}
