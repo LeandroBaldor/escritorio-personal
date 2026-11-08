@@ -23,7 +23,7 @@ import { renderTerrain, terrainMaterialsReady, type TerrainRegion } from './land
 import { bIdx, drawMinimap, drawSprite, drawWorld, roleIdx, spritesReady, type Cam } from './landArt';
 import { useFitScreen } from './fitScreen';
 import { playExplosion, playGameOver, playKnock, playVampSword, playWinFanfare } from './sounds';
-import { playLandButton, preloadLandSounds, setLandMenuMusic } from './landAudio';
+import { playLandButton, preloadLandSounds, setLandMenuMusic,setLandGameMusic,resetLandGameMusic } from './landAudio';
 import { LandCharacterSounds } from './landCharacterSounds';
 
 import posterImg from './assets/land/poster.webp';
@@ -43,6 +43,7 @@ type Mode = { k: 'none' } | { k: 'place'; kind: BKind } | { k: 'power' } | { k: 
 export function LandOfWarriors() {
   const fit = useFitScreen();
   const [screen, setScreen] = useState<Screen>('title');
+  const [musicMuted,setMusicMuted]=useState(false);
   const scenarioFrom=useRef<'pick'|'sheet'>('pick');
   const [civ, setCiv] = useState<CivId>('humano');
   const [view, setView] = useState<CivId>('humano'); // la lámina que se está mirando
@@ -95,13 +96,15 @@ export function LandOfWarriors() {
     window.addEventListener('pointerdown', kick); window.addEventListener('keydown', kick);
     return () => { clearInterval(id); window.removeEventListener('pointerdown', kick); window.removeEventListener('keydown', kick); };
   }, [screen]);
-  useEffect(() => () => setLandMenuMusic(false), []);
+  useEffect(()=>{if(screen!=='playing'&&screen!=='paused'){resetLandGameMusic();return;}const update=()=>setLandGameMusic(screen==='playing'&&!document.hidden,musicMuted);update();document.addEventListener('visibilitychange',update);const kick=()=>{if(screen==='playing'&&!document.hidden)setLandGameMusic(true,musicMuted);};window.addEventListener('pointerdown',kick);return()=>{document.removeEventListener('visibilitychange',update);window.removeEventListener('pointerdown',kick);setLandGameMusic(false,musicMuted);};},[screen,musicMuted]);
+  useEffect(() => () => {setLandMenuMusic(false);resetLandGameMusic();}, []);
   useEffect(() => { if (import.meta.env.DEV) (window as unknown as { __landGame?: () => LandGame | null; __landCam?: () => Cam }).__landGame = () => gRef.current; (window as unknown as { __landCam?: () => Cam }).__landCam = () => camRef.current; }, []); // (para probar en desarrollo)
   const say = useCallback((text: string, key = text, gap = 0) => { const now = performance.now(); if (gap && now - (lastToast.current[key] ?? -1e9) < gap) return; lastToast.current[key] = now; const message={text,id:++messageId.current,time:gRef.current?.t??0};setLeaderMessages(old=>[...old.slice(-19),message]); }, []);
   const setSelection = useCallback((ids: number[]) => { if(gRef.current&&ids.some(id=>!selRef.current.has(id)))characterSounds.current?.react(gRef.current,ids);selRef.current = new Set(ids); setSel(ids); }, []);
 
   // ---------------------------------------------------------------- Empezar una partida
   const start = useCallback((civ: CivId) => {
+    resetLandGameMusic();
     characterSounds.current?.start(civ);
     setCiv(civ); setLoading(true);
     let attempts = 0;
@@ -437,6 +440,7 @@ export function LandOfWarriors() {
         <span title="Energía verde: mejoras y unidades de élite"><i className="land-r-energy" /><b data-testid="land-energy">{Math.floor(side.energy)}</b></span>
         <span title="Población"><LandIcon kind="people" /><b>{popUsed(g, 0)} / {popCap(g, 0)}</b></span>
         <button type="button" className="land-sq" title="Ayuda" aria-label="Ayuda" onClick={() => say('Tocá para elegir; tocá el mapa para dar órdenes. Arrastrá con el botón izquierdo para explorar; Shift + arrastre selecciona grupos. Usá la rueda para acercarte y el botón derecho para dar órdenes.')}>?</button>
+        <button type="button" className={`land-sq land-music-toggle${musicMuted?' land-music-muted':''}`} aria-label={musicMuted?'Activar música de la partida':'Silenciar música de la partida'} aria-pressed={musicMuted} title={musicMuted?'Música silenciada':'Silenciar música'} onClick={()=>setMusicMuted(muted=>!muted)}><span aria-hidden="true">♫</span></button>
         <button type="button" className="land-sq" title="Pausa" aria-label={screen === 'paused' ? 'Seguir' : 'Pausa'} onClick={() => setScreen(st => st === 'playing' ? 'paused' : 'playing')}><LandIcon kind="gear" /></button>
       </div>
       {mode.k !== 'none' && <div className="land-mode">{mode.k === 'place' ? `Elegí dónde poner: ${CIVS[side.civ].buildings[mode.kind]}${mode.kind === 'wall' ? ' · Clic para sumar tramos; Escape para terminar' : ''}` : mode.k === 'power' ? 'Elegí dónde cae el poder' : 'Elegí a dónde atacar'} · <button type="button" onClick={() => { setMode({ k: 'none' }); }}>Cancelar</button></div>}
@@ -487,6 +491,7 @@ export function LandOfWarriors() {
       <div className="land-card">
         {screen === 'paused' && <><h2 id="land-msg">Pausa</h2>
           <button type="button" className="land-go" onClick={() => { setScreen('playing'); }} autoFocus>Seguir</button>
+          <button type="button" className="land-ghost" aria-pressed={musicMuted} onClick={()=>setMusicMuted(muted=>!muted)}>{musicMuted?'Activar música':'Silenciar música'}</button>
           <button type="button" className="land-ghost" onClick={() => { setScreen('title'); }}>Volver al menú</button></>}
         {screen !== 'paused' && <><h2 id="land-msg" className={screen === 'won' ? 'land-win' : 'land-lose'}>{screen === 'won' ? '¡Victoria!' : 'Derrota'}</h2>
           <p>{screen === 'won' ? `${CIVS[side.civ].name} destruyó todas las bases rivales.` : 'Tu base fue destruida.'}</p>

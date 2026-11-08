@@ -58,5 +58,25 @@
       }
     ],
     "steps": []
+  },
+  "dig": {
+    "civ": "humano",
+    "role": "acid",
+    "variant": 0,
+    "purpose": "effect",
+    "hash": "4a223be96ff495729623f09cb72b43fbb4c334677d337c7b458a218b594c23be",
+    "file": "events/dig.mp3",
+    "source": "SONIDOS/excavacion.mp3",
+    "duration": 5.094,
+    "peak": 0.7872905731201172,
+    "rms": 0.01779314241846746,
+    "phrases": [
+      {
+        "start": 0.168,
+        "duration": 0.9,
+        "rms": 0.01779314241846746
+      }
+    ],
+    "steps": []
   }
 }

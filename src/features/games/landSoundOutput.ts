@@ -1,6 +1,7 @@
 import { characterClipUrl,type CharacterClip,type SoundCue } from './landCharacterClips';
 import {createSoldierRadio} from './landRadio';
-export type SoundChannel='foot'|'call'|'effect'|'death'|'ambient'|'notice';
+import {duckLandGameMusic} from './landAudio';
+export type SoundChannel='foot'|'call'|'effect'|'death'|'ambient'|'notice'|'dig';
 export interface CharacterSoundOutput {
   unlock():void;preload(clips:CharacterClip[]):Promise<void>;play(clip:CharacterClip,cue:SoundCue,volume:number,pan:number,channel:SoundChannel):boolean;stopChannel?(channel:SoundChannel):void;stop():void;dispose():void;
 }
@@ -17,7 +18,7 @@ export class LandSoundOutput implements CharacterSoundOutput {
     try{
       if(!this.context){
         this.context=new AudioContext();const limiter=this.context.createDynamicsCompressor();limiter.threshold.value=-12;limiter.ratio.value=8;limiter.connect(this.context.destination);this.master=limiter;
-        for(const channel of ['foot','call','effect','death','ambient','notice'] as const){const bus=this.context.createGain();if(channel==='foot'){const low=this.context.createBiquadFilter(),high=this.context.createBiquadFilter();low.type='lowpass';low.frequency.value=1700;high.type='highpass';high.frequency.value=100;bus.connect(high).connect(low).connect(limiter);}else bus.connect(limiter);this.buses.set(channel,bus);}
+        for(const channel of ['foot','call','effect','death','ambient','notice','dig'] as const){const bus=this.context.createGain();if(channel==='foot'){const low=this.context.createBiquadFilter(),high=this.context.createBiquadFilter();low.type='lowpass';low.frequency.value=1700;high.type='highpass';high.frequency.value=100;bus.connect(high).connect(low).connect(limiter);}else bus.connect(limiter);this.buses.set(channel,bus);}
       }
       if(this.context.state!=='running')void this.context.resume().catch(()=>{});
     }catch{/* El juego sigue funcionando si no hay salida de audio. */}
@@ -52,7 +53,7 @@ export class LandSoundOutput implements CharacterSoundOutput {
     this.sources.set(source,channel);this.mix();source.onended=()=>{this.sources.delete(source);source.disconnect();gain.disconnect();position.disconnect();radio?.dispose();this.mix();};
     radio?.start(t);source.start(t,cue.start,length);return true;
   }
-  private mix(){const c=this.context;if(!c||c.state==='closed')return;const channels=[...this.sources.values()],voice=channels.includes('call'),notice=channels.includes('notice');for(const [channel,bus] of this.buses){const level=channel==='call'?1:channel==='notice'?(voice?.65:1):(voice||notice)?(channel==='death'?.5:.28):channel==='ambient'?.65:1;bus.gain.cancelScheduledValues(c.currentTime);bus.gain.setTargetAtTime(level,c.currentTime,.07);}}
+  private mix(){const c=this.context;if(!c||c.state==='closed')return;const channels=[...this.sources.values()],voice=channels.includes('call'),notice=channels.includes('notice');duckLandGameMusic(voice||notice);for(const [channel,bus] of this.buses){const level=channel==='call'?1:channel==='notice'?(voice?.65:1):(voice||notice)?(channel==='death'?.5:.28):channel==='ambient'?.65:1;bus.gain.cancelScheduledValues(c.currentTime);bus.gain.setTargetAtTime(level,c.currentTime,.07);}}
   stopChannel(channel:SoundChannel){for(const [source,current] of this.sources)if(current===channel){try{source.stop();}catch{/* Ya terminó. */}this.sources.delete(source);}this.mix();}
   stop(){for(const source of this.sources.keys()){try{source.stop();}catch{/* Ya terminó. */}}this.sources.clear();this.mix();}
   dispose(){this.disposed=true;this.stop();this.buffers.clear();this.pending.clear();if(this.context)void this.context.close().catch(()=>{});this.context=null;this.master=null;}
