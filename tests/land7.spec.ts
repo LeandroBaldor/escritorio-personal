@@ -30,6 +30,7 @@ test('Land 7: lista de rivales, fotografías, energía y geometría del menú', 
   const factions = await page.evaluate(() => (window as LandDebug).__landGame().sides.map(s => s.civ));
   expect(factions).toEqual(['humano', 'orcos', 'elfos', 'zergano']);
   await page.getByRole('button', { name: 'Ir a la base', exact: true }).click();
+  await page.getByRole('button', { name: 'Un trabajador sin hacer nada', exact: true }).click();
   const point = await page.evaluate(() => {
     const d = window as LandDebug, u = d.__landGame().units.find(u => u.owner === 0 && u.role === 'worker')!, c = d.__landCam();
     return { x: (u.x - c.x) * c.z, y: (u.y - 30 - c.y) * c.z };
