@@ -25,8 +25,8 @@ test('Land 10: seis cuarteles, seis personajes exclusivos',async({page},info)=>{
       g.sides[0].stone=g.sides[0].gem=g.sides[0].energy=5000;
       if(i===0)for(let j=0;j<6;j++)addBuilding(g,0,'depot',home.x,home.y-j*80).built=1;
       const b=addBuilding(g,0,kind,home.x+650+i*230,home.y-250);b.built=1;b.hp=b.maxHp;
-      const c=w.__landCam();c.x=b.x-c.w*(mobile ? .25 : .72)/c.z;c.y=b.y-310/c.z;
-      return {id:b.id,x:c.w*(mobile ? .25 : .72),y:270,role:(await import(base+'src/features/games/land.ts')).BUILD_STATS[kind].makes[0]};
+      const c=w.__landCam(),{LAND_HUD_HEIGHT}=await import(base+'src/features/games/landLayout.ts'),anchor=Math.min(220,(c.h-LAND_HUD_HEIGHT)*.65);c.x=b.x-c.w*(mobile ? .25 : .72)/c.z;c.y=b.y-anchor/c.z;
+      return {id:b.id,x:c.w*(mobile ? .25 : .72),y:anchor-30,role:(await import(base+'src/features/games/land.ts')).BUILD_STATS[kind].makes[0]};
     },{base,kind,i,mobile:info.project.name==='mobile'});
     const stage=(await page.locator('.land-stage>canvas').boundingBox())!;await page.mouse.click(stage.x+fixture.x,stage.y+fixture.y);
     await expect(page.locator('.land-selection-inspector h3')).toHaveText(`Cuartel ${recruits[i]}`);
