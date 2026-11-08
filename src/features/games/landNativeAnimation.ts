@@ -1,3 +1,5 @@
+import {drawRig} from './landRig';
+import {motionKind,stopMotionPhase} from './landMotion';
 import type {CivId} from './landCivs';
 import {animationFrame,type UnitAnimation} from './landAnimation';
 type Sheet={image:HTMLImageElement;cw:number;ch:number;rows:{top:number;bottom:number;width:number}[]};
@@ -17,4 +19,4 @@ export function nativeFrame(civ:CivId,roleIndex:number,level:number,animation:Un
   const sheet=request(civ,gathering?'collect':'battle');if(!sheet)return null;
   const row=gathering?Math.min(3,Math.max(0,level-1)):roleIndex,offset=animation.action==='harvest'||animation.action==='attack'?4:0,index=offset+animationFrame(animation.phase,4,animation.action!=='attack');return {sheet,row,index,gathering};
 }
-export function drawNativeAnimation(ctx:CanvasRenderingContext2D,civ:CivId,roleIndex:number,level:number,animation:UnitAnimation,h:number,maxW:number){const frame=nativeFrame(civ,roleIndex,level,animation);if(!frame)return false;const {sheet,row,index,gathering}=frame,b=sheet.rows[row],height=h*(gathering?.78:1),scale=Math.min(height/Math.max(1,b.bottom-b.top),maxW/Math.max(1,b.width));ctx.drawImage(sheet.image,index*sheet.cw,row*sheet.ch,sheet.cw,sheet.ch,-sheet.cw*scale/2,-b.bottom*scale,sheet.cw*scale,sheet.ch*scale);return true;}
+export function drawNativeAnimation(ctx:CanvasRenderingContext2D,civ:CivId,roleIndex:number,level:number,animation:UnitAnimation,h:number,maxW:number){const frame=nativeFrame(civ,roleIndex,level,animation);if(!frame)return false;const {sheet,row,index,gathering}=frame,b=sheet.rows[row],height=h*(gathering?.78:1),scale=Math.min(height/Math.max(1,b.bottom-b.top),maxW/Math.max(1,b.width));if(animation.action==='walk'){const phase=stopMotionPhase(animation.phase*Math.PI*2),kind=civ==='zergano'&&roleIndex===0?'larva':motionKind(civ,roleIndex);drawRig(ctx,sheet.image,{sx:index*sheet.cw,sy:row*sheet.ch+b.top,sw:sheet.cw,sh:b.bottom-b.top},civ+':native:'+roleIndex+':'+index,sheet.cw*scale,(b.bottom-b.top)*scale,phase,0,0,0,index*Math.PI/2,kind);}else ctx.drawImage(sheet.image,index*sheet.cw,row*sheet.ch,sheet.cw,sheet.ch,-sheet.cw*scale/2,-b.bottom*scale,sheet.cw*scale,sheet.ch*scale);return true;}

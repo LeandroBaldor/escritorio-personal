@@ -1,4 +1,4 @@
-import {unitAnimation,type UnitAnimation} from './landAnimation';
+import {animationWalkDistance,unitAnimation,type UnitAnimation} from './landAnimation';
 import {drawNativeAnimation} from './landNativeAnimation';
 import {unitLabel} from './landBalance';
 // Land of Warriors: el dibujo del mapa, los recursos, las construcciones, los guerreros y los disparos.
@@ -11,7 +11,7 @@ import { drawAmbientTerrain, type TerrainRegion } from './landMapArt';
 import { drawWorldProp } from './landProps';
 import { drawWall } from './landWalls';
 import { drawDeath } from './landDeath';
-import { walkingPhase,motionKind } from './landMotion';
+import { walkingPhase,motionKind,stopMotionPhase } from './landMotion';
 import {drawRig} from './landRig';
 import {drawBuildingFire} from './landBuildingFire';
 import {landHudHeight} from './landLayout';
@@ -65,6 +65,7 @@ export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: numbe
   const dw = sw * k, dh = sh * k;
   ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   if(animation&&idx<6&&drawNativeAnimation(ctx,civ,idx,level,animation,h,maxW??h*1.6)){ctx.restore();return true;}
+  if(motion&&!attack&&!kneel&&idx<6){const kind=civ==='zergano'&&idx===0?'larva':motionKind(civ,idx);drawRig(ctx,image,frame,`${civ}:${idx}:${level}`,dw,dh,stopMotionPhase(motion),0,0,0,undefined,kind);ctx.restore();return true;}
   if ((motion || attack ||kneel) && idx < 6) {
     const kind=motionKind(civ,idx);
     if(kind!=='biped'&&kneel){ctx.transform(1,0,kneel*(.08+Math.sin(work)*.025),1-kneel*.20,0,0);ctx.translate(0,Math.sin(work)*kneel*dh*.012);}
@@ -177,10 +178,11 @@ function bar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, k: 
 export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t: number, selected: boolean,showName=selected) {
   const s = unitStats(g,u.owner,u.role), civ = g.sides[u.owner].civ, h = s.size, fade = u.dead ? Math.max(0, 1 - u.dead / 1.1) : 1;
   if (u.dead) { drawDeath(ctx,civ,u,h); return; }
-  const moving=!!u.moving,phase=walkingPhase(u.walk);
-  const bob = moving ? Math.abs(Math.sin(phase)) * 1.6 : Math.sin(t * 2.4 + u.id) * 0.8;
-  const lunge = u.atkT >= 0 ? Math.sin(Math.min(1, u.atkT / 0.3) * Math.PI) * 6 * u.face : 0;
-  const flyer = u.role === 'elite' && (civ === 'elfos' || civ === 'nomuerta'), fly = flyer ? 26 + Math.sin(t * 3 + u.id) * 4 : 0;
+  const moving=!!u.moving,phase=stopMotionPhase(walkingPhase(animationWalkDistance(g,u)));
+  const poseTime=Math.floor(t*12)/12,attackTime=u.atkT>=0?Math.floor(u.atkT/.35*12)/12*.35:-1;
+  const bob = moving ? Math.abs(Math.sin(phase)) * 1.6 : Math.sin(poseTime * 2.4 + u.id) * 0.8;
+  const lunge = u.atkT >= 0 ? Math.sin(Math.min(1, attackTime / 0.3) * Math.PI) * 6 * u.face : 0;
+  const flyer = u.role === 'elite' && (civ === 'elfos' || civ === 'nomuerta'), fly = flyer ? 26 + Math.sin(poseTime * 3 + u.id) * 4 : 0;
   ctx.save(); ctx.globalAlpha = fade;
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(u.x, u.y + 2, h * 0.34, h * 0.11, 0, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = selected ? '#fef08a' : TEAM[u.owner]; ctx.lineWidth = selected ? 2.5 : 1.6; ctx.globalAlpha = fade * (selected ? 1 : 0.75);

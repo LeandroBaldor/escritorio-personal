@@ -1,3 +1,4 @@
+import {CivTraits} from './landCivTraits';
 import {LandCost} from './landResource';
 import { BKINDS, BUILD_STATS, ROLES, ROLE_STATS } from './land';
 import { BUILD_TEXT, CIVS, POWER_TEXT, TRAINING_ROLE, attackText, type CivId } from './landCivs';
@@ -13,7 +14,7 @@ export function LeaderPortrait({civ}:{civ:CivId}) {
 export function LandInfographic({civ}:{civ:CivId}){
   const c=CIVS[civ];
   return <section className="land-infographic" aria-label={`${c.name}: unidades, construcciones y máquinas`} style={{['--civ' as string]:c.color}}>
-    <header className="land-info-header"><LeaderPortrait civ={civ}/><div><small>INFORME DE CIVILIZACIÓN</small><h2>{c.name}</h2><p>{c.motto}</p><p>{c.style}</p></div></header>
+    <header className="land-info-header"><LeaderPortrait civ={civ}/><div><small>INFORME DE CIVILIZACIÓN</small><h2>{c.name}</h2><p>{c.motto}</p><p>{c.style}</p><CivTraits civ={civ}/></div></header>
     <section className="land-info-units"><h3>UNIDADES Y MÁQUINAS</h3><div className="land-info-grid">{ROLES.map(r=>{
       const s={...ROLE_STATS[r],...c.mod[r]};return <article key={r}><Sprite civ={civ} idx={roleIdx(r)} w={180} h={180} level={1}/><h4>{c.units[r]} Nivel 1</h4><p>{attackText(civ,r,s.range)}</p><small>Vida {Math.round(s.hp*LEVEL_HEALTH[1])} · Daño {Math.round(s.dmg*LEVEL_DAMAGE[1])}</small></article>;
     })}</div></section>
