@@ -4,6 +4,7 @@ import {unitLabel,STRUCTURE_UPGRADES,STRUCTURE_NAMES,MAX_STRUCTURE_LEVEL,structu
 import './land.css';
 import './landHud.css';
 import './landInterface.css';
+import './landReadable.css';
 import { BuildingSprite, Sprite } from './landSprite';
 import { LandInfographic,LeaderPortrait } from './landInfographic';
 import {LandInspector} from './landInspector';

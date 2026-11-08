@@ -80,7 +80,7 @@ export const roleText = (c: CivId, r: Role) => r === 'special' ? (CIVS[c].specia
 export const BUILD_TEXT: Record<BKind, string> = {
   wall: 'Bloquea el paso terrestre y protege la aldea. Se puede destruir; dejá un espacio como entrada. Cada tramo cuesta 35 minerales.',
   base: 'Recibe minerales y piedras. Consultá la población e investigá Producción y Fortificación. Los personajes se entrenan y evolucionan en su propio cuartel. Si la destruyen, perdés.',
-  farm: 'Parcela verde oscura. Un trabajador por cosecha: extrae alimento durante 60 segundos, lo lleva al Almacén y vuelve a empezar. Clic derecho para asignarlo.',
+  farm: 'Frutos verdes que brotan del suelo. Se puede caminar por encima. Un trabajador por cosecha: recolecta durante 60 segundos y lleva los frutos al Almacén. Clic derecho para asignarlo.',
   storehouse: 'Almacén de alimentos. Recibe las cosechas y recupera la reserva de comida. Construí uno cerca de tus parcelas.',
   workerBarracks: 'Entrena únicamente al trabajador de esta civilización.',
   barracks: 'Entrena únicamente al personaje de primera línea de esta civilización.',
