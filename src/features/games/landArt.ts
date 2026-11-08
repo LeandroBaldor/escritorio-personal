@@ -47,7 +47,7 @@ export function spritesReady() {
   const upgradedReady=evolutionsReady();return CIV_IDS.every(c => !!SPRITES[c])&&upgradedReady;
 }
 // Dibuja un recorte apoyado en (x, y) (el piso), de alto h (o de ancho w si es más ancho que alto).
-export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number, motion = 0, attack = 0,kneel=0,level=0):boolean {
+export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number, motion = 0, attack = 0,kneel=0,level=0,work=0):boolean {
   if(idx===12)return drawFarm(ctx,civ,x,y,Math.min(maxW??h,h*1.7),h*.52);
   if(idx===13){const ok=drawSprite(ctx,civ,10,x,y,h,flip,maxW);if(ok)drawStorehouse(ctx,civ,x,y,Math.min(maxW??h,h*1.3),h);return ok;}
   if (idx === 11) return drawWall(ctx,civ,x,y,Math.min(maxW ?? h,h*1.2),h);
@@ -60,6 +60,7 @@ export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: numbe
   ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   if ((motion || attack ||kneel) && idx < 6) {
     const kind=motionKind(civ,idx);
+    if(kind!=='biped'&&kneel){ctx.transform(1,0,kneel*(.08+Math.sin(work)*.025),1-kneel*.20,0,0);ctx.translate(0,Math.sin(work)*kneel*dh*.012);}
     const piece = (fx: number, fy: number, fw: number, fh: number, px: number, py: number, angle: number, lift = 0) => {
       ctx.save(); ctx.translate((px - 0.5) * dw, (py - 1) * dh + lift); ctx.rotate(angle);
       ctx.drawImage(image, sx + sw * fx, sy + sh * fy, sw * fw, sh * fh, (fx - px) * dw, (fy - py) * dh, fw * dw, fh * dh + 0.25); ctx.restore();
@@ -72,7 +73,7 @@ export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: numbe
       ctx.drawImage(image,sx+sw*fx,sy+sh*joint,sw*fw,sh*(end-joint),(fx-px)*dw,-.35,fw*dw,(end-joint)*dh+.7);ctx.restore();
     };
     if (kind==='biped') {
-      drawRig(ctx,image,frame,`${civ}:${idx}:${level}`,dw,dh,motion,attack,kneel);
+      drawRig(ctx,image,frame,`${civ}:${idx}:${level}`,dw,dh,motion,attack,kneel,work);
     } else if(kind==='treads') {
       piece(0,0,1,1,.5,1,Math.sin(motion*2)*.004,Math.sin(motion*4)*.3);
     } else if(kind==='fly') {
@@ -179,7 +180,7 @@ export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t:
   if (u.dead) { ctx.translate(u.x, u.y); ctx.rotate(u.face * Math.min(1.3, u.dead * 3)); ctx.translate(-u.x, -u.y); }
   const sq = moving ? 1 + Math.sin(phase*2) * 0.009 : 1;
   ctx.translate(u.x + lunge, u.y - bob - fly); ctx.scale(1 / sq, sq);
-  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? phase : 0,u.atkT>=0?Math.sin(Math.min(1,u.atkT/.3)*Math.PI):0,u.kneel??0,evolutionLevel(g,u.owner,u.role))) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
+  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? phase : 0,u.atkT>=0?Math.sin(Math.min(1,u.atkT/.3)*Math.PI):0,u.kneel??0,evolutionLevel(g,u.owner,u.role),u.mineT*Math.PI*2/.8)) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
   ctx.restore();
   ctx.save();ctx.font='bold 10px Arial';ctx.textAlign='center';const label=showName?unitLabel(g,u.owner,u.role):'N'+evolutionLevel(g,u.owner,u.role),lw=ctx.measureText(label).width+8,ly=u.y-h-fly-19;ctx.fillStyle='#061527e8';ctx.fillRect(u.x-lw/2,ly-10,lw,14);ctx.fillStyle=selected?'#ffdf8b':TEAM[u.owner];ctx.fillText(label,u.x,ly);ctx.restore();
   if(foodBlocked(g,u.owner,u.role)&&!u.dead){ctx.fillStyle='#ffcd87';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.fillText('SIN ALIMENTO',u.x,u.y-h-15);}

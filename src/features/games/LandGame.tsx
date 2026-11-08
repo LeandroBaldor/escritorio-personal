@@ -1,3 +1,4 @@
+import {mineralMultiplier,DEFAULT_LAND_OPTIONS,POPULATION_LIMITS,MINERAL_OPTIONS,type PopulationLimit,type MineralAbundance} from './landOptions';
 import {affordableTrainingCost,LEVEL_HEALTH} from './landBalance';
 import {unitLabel,STRUCTURE_UPGRADES,STRUCTURE_NAMES,MAX_STRUCTURE_LEVEL,structureUpgradeCost,structureUpgradeTime,structureBenefit} from './landBalance';
 import './land.css';
@@ -17,7 +18,7 @@ import { worldPropsReady } from './landProps';
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  BUILD_STATS, BKINDS, MAX_POP, POWER_MAX, ROLE_STATS, canPay, canPlace, cancelTrain, formatLandTime, hasBuilt, newLandGame, orderMove, orderSmart,
+  BUILD_STATS, BKINDS, POWER_MAX, ROLE_STATS, canPay, canPlace, cancelTrain, formatLandTime, hasBuilt, newLandGame, orderMove, orderSmart,
   placeBuilding, popCap, popUsed, researchEvolution,researchInfrastructure, stepLand, takeLandEvents, train, unitStats, castPower, type BKind, type Building, type Cost, type Difficulty, type LandGame, type Role, type Unit,
 } from './land';
 import { BUILD_TEXT, CIVS, CIV_IDS, POWER_TEXT, TRAINING_ROLE, attackText, roleText, type CivId } from './landCivs';
@@ -54,6 +55,8 @@ export function LandOfWarriors() {
   const [enemies, setEnemies] = useState<(CivId | 'random')[]>(['random']);
   const [commsOpen, setCommsOpen] = useState(false);
   const [map, setMap] = useState(5);
+  const [populationLimit,setPopulationLimit]=useState<PopulationLimit>(DEFAULT_LAND_OPTIONS.populationLimit);
+  const [mineralAbundance,setMineralAbundance]=useState<MineralAbundance>(DEFAULT_LAND_OPTIONS.mineralAbundance);
   const [size, setSize] = useState<MapSize>('medium');
   const [loading, setLoading] = useState(false);
   const [diff, setDiff] = useState<Difficulty>('normal');
@@ -117,7 +120,7 @@ export function LandOfWarriors() {
         const selected = e !== 'random' && available.includes(e) ? e : available[Math.floor(Math.random() * available.length)];
         available.splice(available.indexOf(selected), 1); return selected;
       });
-      const g = newLandGame(civ, foes, map, diff, Date.now(), size); gRef.current = g; setGame(g);
+      const g = newLandGame(civ, foes, map, diff, Date.now(), size,{populationLimit,mineralAbundance}); gRef.current = g; setGame(g);
       leaderReports.current=new LandLeaderReports();lastToast.current={};setLeaderMessages([{id:++messageId.current,time:0,text:'Ya estamos en posición. Organicemos la recolección y preparemos nuestras defensas. Te informaré los movimientos enemigos y el resultado de cada enfrentamiento.'}]);
       detailImg.current = null; mapImg.current = renderTerrain(g.terrain);
       const base = g.buildings.find(b => b.owner === 0)!;
@@ -125,7 +128,7 @@ export function LandOfWarriors() {
       setCommsOpen(false); setSelection([]); setMode({ k: 'none' }); setLoading(false); setScreen('playing');
     };
     setTimeout(prepare, 60);
-  }, [enemies, map, diff, size, setSelection]);
+  }, [enemies, map, diff, size, populationLimit, mineralAbundance, setSelection]);
 
   // ---------------------------------------------------------------- Carteles que guían al jugador (solo cuando hace falta, y cada uno de vez en cuando)
   useEffect(() => {
@@ -141,7 +144,7 @@ export function LandOfWarriors() {
       else if (g.t > 20 && idle >= 2) hint('idle', `⛏️ Tenés ${idle} trabajadores sin hacer nada: asigná algunos a piedras y cosechas, y otros a cristales`, 45000);
       else if (g.t > 30 && near('stone') < 900) hint('stone', '🔷 Hay pocos minerales cerca de tu base: buscá otra zona y construí un depósito ahí', 120000);
       else if (g.t > 30 && near('gem') < 300) hint('gem', '🔶 Se están acabando los diamantes cerca: buscá más en el mapa', 120000);
-      else if (popUsed(g, 0) >= popCap(g, 0) && popCap(g, 0) < MAX_POP) hint('pop', `👥 Llegaste al límite de población: construí un ${civ.buildings.depot}`, 60000);
+      else if (popUsed(g, 0) >= popCap(g, 0) && popCap(g, 0) < g.populationLimit) hint('pop', `👥 Llegaste al límite de población: construí un ${civ.buildings.depot}`, 60000);
       else if (g.t > 35 && !g.buildings.some(b => b.owner === 0 && b.kind === 'workerBarracks') && side.stone >= 100) hint('workers', `🏗️ Construí ${civ.buildings.workerBarracks} para entrenar más trabajadores`, 70000);
       else if (g.t > 50 && !g.buildings.some(b => b.owner === 0 && b.kind === 'barracks') && side.stone >= 150) hint('barracks', `🏗️ Construí ${civ.buildings.barracks}: entrena únicamente ${civ.units.melee}`, 70000);
       else if (g.t > 150 && army < 3 && g.ai.wave === 0 && g.t > g.ai.waveAt - 40) hint('army', '⚠️ El enemigo está armando un ejército: entrená soldados', 90000);
@@ -395,6 +398,8 @@ export function LandOfWarriors() {
           <p>{CIVS[civ].style}</p><div className="land-chosen-units">{ROLE_ORDER.map(r=><div key={r}><Sprite civ={civ} idx={roleIdx(r)} w={66} h={72}/><span>{CIVS[civ].units[r]}</span></div>)}</div>
           <button type="button" className="land-ghost" onClick={()=>{setView(civ);setSimple(false);setScreen('sheet');}}>¡VER!</button>
         </section>
+        <label>Límite de población por civilización: <select aria-label="Límite de población" value={populationLimit} onChange={e=>setPopulationLimit(Number(e.target.value) as PopulationLimit)}>{POPULATION_LIMITS.map(n=><option key={n} value={n}>{n}</option>)}</select></label>
+        <small>Construí depósitos para ampliar las plazas hasta el límite elegido.</small>
         <label>Enemigos: <select aria-label="Enemigos" value={enemies.length} onChange={e => { const n = Number(e.target.value); setEnemies(list => Array.from({ length: n }, (_, i) => list[i] ?? 'random')); }}>
           {Array.from({ length: 9 }, (_, i) => <option key={i} value={i + 1}>{i + 1} {i===0?'enemigo':'enemigos'}</option>)}
         </select></label>
@@ -414,6 +419,7 @@ export function LandOfWarriors() {
     {screen === 'sheet' && sheetScreen}
     {screen === 'scenario' && <div className="land-scen">
       <h2>Elegí el escenario</h2>
+      <label className="land-mineral-options">Cantidad de minerales: <select aria-label="Cantidad de minerales" value={mineralAbundance} onChange={e=>setMineralAbundance(e.target.value as MineralAbundance)}>{MINERAL_OPTIONS.map(([key,label])=><option key={key} value={key}>{label}</option>)}</select><small>Reservas por yacimiento: {mineralMultiplier(mineralAbundance)*100}% · cristales azules, dorados, verdes y piedras. Igual para todas las civilizaciones.</small></label>
         <div className="land-chips" role="group" aria-label="Tamaño del mapa"><span>Tamaño</span>{MAP_SIZES.map(([k, n]) => <button type="button" key={k} aria-pressed={size === k} className={size === k ? 'on' : ''} onClick={() => { setSize(k); }}>{n}<small>{MAP_SIZES.find(m => m[0] === k)![2].toLocaleString('es-AR')} × {MAP_SIZES.find(m => m[0] === k)![3].toLocaleString('es-AR')}</small></button>)}</div>
       <ul className="land-scen-list" role="group" aria-label="Elegir escenario">{THEMES.map((m, i) => <li key={i}><button type="button" aria-pressed={map === i + 1} className={map === i + 1 ? 'on' : ''} onClick={() => { setMap(i + 1); }}>
         <MapThumb theme={i} /><b>{m.name}</b><small>{m.text}</small></button></li>)}</ul>
