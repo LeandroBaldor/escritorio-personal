@@ -1,0 +1,43 @@
+/* La base usa dos ventanas separadas: actividades a la izquierda, ficha y totales a la derecha. */
+.land.land-v9 .land-summary-tasks article{min-width:0;box-sizing:border-box}
+.land.land-v9 .land-summary-tasks article :is(b,span){min-width:0;white-space:normal;overflow-wrap:anywhere}
+.land.land-v9 .land-base-population nav{display:flex;align-items:center;justify-content:space-between;gap:6px}
+@media(min-width:1101px){
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17:has(.land-base-report){font-size:clamp(12px,1.05cqw,16px)!important;background:transparent!important}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17:has(.land-base-report)>header{position:absolute;left:58.2%;top:0;width:41.8%;height:100%;margin:0!important;box-sizing:border-box;background:#041b2c}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17:has(.land-base-report)>header>div:first-child{left:0;top:0;width:34%;height:100%}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17:has(.land-base-report)>header>div:last-child{margin-left:36%!important;width:64%;padding:2px 3px}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17:has(.land-base-report) h3{font-size:inherit!important;overflow-wrap:anywhere}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17>.land-base-report{position:static;margin:0!important;width:56%;height:100%;display:flex;flex-direction:column;gap:4px;font:inherit!important;background:#041b2c;padding:3px 5px;box-sizing:border-box}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-base-tabs{flex:0 0 auto;display:flex;flex-wrap:nowrap;gap:4px;margin:0;min-height:21px}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-base-tabs button{padding:2px 5px;min-width:0;flex:1;white-space:nowrap}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-base-population{position:static;display:flex;flex-direction:column;gap:4px;flex:1;min-height:0}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-population-totals{position:absolute;left:73.7%;top:37%;width:26%;display:flex;flex-direction:column;flex-wrap:nowrap;gap:5px;margin:0;padding:0 3px;box-sizing:border-box}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-population-totals>*{display:block;white-space:normal;overflow-wrap:anywhere}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-summary-tasks{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(2,minmax(0,1fr));gap:4px;flex:1;min-height:0}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-summary-tasks article{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.3fr);align-items:center;gap:8px;padding:3px 6px;border:1px solid #355b6b;border-left:3px solid #80d8af;border-radius:3px;background:#102f42}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-summary-tasks article b{color:#fff0c2}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-summary-tasks article span{color:#b8ead2}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-base-population nav{flex:0 0 18px;min-height:18px}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-base-population nav button{padding:0 8px;line-height:1!important;background:#173b4c;border:1px solid #527c87;color:#fff0bd}
+  .land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-infrastructure-progress{position:absolute;left:73.7%;bottom:0;width:26%;margin:0!important;padding:2px!important;box-sizing:border-box}
+}
+@media(min-width:1101px){
+.land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17>.land-base-report{padding:0;gap:2px}
+.land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-base-population{gap:2px}
+.land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-summary-tasks{gap:2px}
+.land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-summary-tasks article{padding:1px 4px;gap:5px}
+.land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-population-totals{top:31%;gap:2px}
+}
+@media(min-width:1101px){
+.land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17:has(.land-base-report)>header{z-index:0}
+.land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-population-totals{z-index:1}
+.land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17:has(.land-base-report) *{font-family:Arial,sans-serif!important}
+}
+@media(min-width:1101px){
+.land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-structure-upgrades{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px}
+.land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-structure-upgrades article{display:contents}
+.land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-structure-upgrades article>button{order:0;padding:3px;background:#173b4c;border:1px solid #527c87;min-width:0}
+.land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-structure-upgrades article>:not(button){order:1;grid-column:1/-1;padding:2px 4px;background:#102f42;white-space:normal;overflow-wrap:anywhere}
+.land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-structure-upgrades article[data-active=false]>:not(button),.land.land-v9 .land-hud.land-hud-native .land-selection-inspector.land-inspector17 .land-structure-upgrades>small{display:none!important}
+}
