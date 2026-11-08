@@ -75,7 +75,7 @@ export interface LandGame {
   map: number; terrain: Terrain; difficulty: Difficulty; phase: 'play' | 'won' | 'lost'; events: LandEvent[]; ai: AIState; ais: AIState[];
   rand: () => number;
 }
-export type LandEvent = { type: 'hit'; role: Role; x: number; y: number; owner: Owner } | { type: 'shot'; role: Role; x: number; y: number; owner: Owner } | { type: 'impact'; x:number;y:number;owner:Owner } | { type: 'die'; x: number; y: number; owner: Owner; building: boolean; by?:Owner }
+export type LandEvent = { type: 'hit'; role: Role; x: number; y: number; owner: Owner } | { type: 'shot'|'spell'; role: Role; x: number; y: number; owner: Owner } | { type: 'impact'; x:number;y:number;owner:Owner } | { type: 'die'; x: number; y: number; owner: Owner; building: boolean; by?:Owner }
   | { type: 'built'; kind: BKind; owner: Owner;x?:number;y?:number } | { type: 'trained'; role: Role; owner: Owner;x?:number;y?:number } | { type: 'upgraded'; up: Upgrade; owner: Owner } | { type: 'power'; owner: Owner } | { type: 'won' } | { type: 'lost' } | { type: 'attacked' };
 
 // ---------------------------------------------------------------- Los números de cada uno (con la civilización y las mejoras)
@@ -363,7 +363,7 @@ function stepUnit(g: LandGame, u: Unit, dt: number) {
     const hurt = g.units.filter(q => q.owner === u.owner && !q.dead && q !== u && q.hp < q.maxHp && dist(q, u) < s.sight).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
     if (hurt) {
       if (dist(hurt, u) > s.range) steer(g, u, hurt.x, hurt.y, s.speed, dt, s.range * 0.9);
-      else if (u.cool <= 0) { u.cool = s.cool; u.atkT = 0; hurt.hp = Math.min(hurt.maxHp, hurt.hp + s.heal * (1 + 0.15 * g.sides[u.owner].up.attack)); g.shots.push({ x: u.x, y: u.y - 30, tx: hurt.x, ty: hurt.y - 25, t: 0, life: 0.45, owner: u.owner, kind: 'heal' }); }
+      else if (u.cool <= 0) { u.cool = s.cool; u.atkT = 0; hurt.hp = Math.min(hurt.maxHp, hurt.hp + s.heal * (1 + 0.15 * g.sides[u.owner].up.attack)); g.shots.push({ x: u.x, y: u.y - 30, tx: hurt.x, ty: hurt.y - 25, t: 0, life: 0.45, owner: u.owner, kind: 'heal' });if(['elfos','enanos','nomuerta','sauriano'].includes(g.sides[u.owner].civ))emit(g,{type:'spell',owner:u.owner,role:u.role,x:u.x,y:u.y}); }
       return;
     }
   }

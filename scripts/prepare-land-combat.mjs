@@ -6,7 +6,7 @@ import {createHash} from 'node:crypto';
 import {chromium} from 'playwright';
 const source=process.argv[2];if(!source)throw new Error('Indicá la carpeta SONIDOS.');
 const output=fileURLToPath(new URL('../src/features/games/assets/land/voices/combat/',import.meta.url));
-const names={acid:'disparo_acido',machine:'disparo_ametralladora',gun:'disparo_arma',cannon:'disparo_cañon',arrow:'disparo_flecha_lanza',fire:'disparo_fuego',laser:'disparo_laser',building:'golpe_construccion',death:'muere_personaje'};
+const names={acid:'disparo_acido',machine:'disparo_ametralladora',gun:'disparo_arma',cannon:'disparo_cañon',arrow:'disparo_flecha_lanza',fire:'disparo_fuego',laser:'disparo_laser',magic:'disparo_magia',building:'golpe_construccion',death:'muere_personaje'};
 fs.mkdirSync(output,{recursive:true});const browser=await chromium.launch();const clips={};
 try{
   const page=await browser.newPage();

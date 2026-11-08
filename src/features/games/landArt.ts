@@ -8,6 +8,7 @@ import { drawDeath } from './landDeath';
 import { walkingPhase,motionKind } from './landMotion';
 import {drawRig} from './landRig';
 import {drawBuildingFire} from './landBuildingFire';
+import {LAND_HUD_HEIGHT} from './landLayout';
 
 // Once recortes por civilización en hojas individuales de 4 × 3, con el último casillero vacío.
 const URLS = import.meta.glob('./assets/land/units-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
@@ -232,5 +233,5 @@ export function drawMinimap(ctx: CanvasRenderingContext2D, g: LandGame, map: HTM
   for (const n of g.nodes) { ctx.fillStyle = n.kind === 'energy' ? '#4ade80' : n.kind === 'gem' ? '#fbbf24' : '#60a5fa'; ctx.fillRect(n.x * kx - 1, n.y * ky - 1, 2, 2); }
   for (const b of g.buildings) if (!b.dead) { const s = BUILD_STATS[b.kind].size * kx * 0.9; ctx.fillStyle = TEAM[b.owner]; ctx.fillRect(b.x * kx - s / 2, b.y * ky - s / 2, s, s); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(b.x * kx - s / 2, b.y * ky - s / 2, s, s); }
   for (const u of g.units) if (!u.dead) { ctx.fillStyle = TEAM[u.owner]; ctx.fillRect(u.x * kx - 1.5, u.y * ky - 1.5, 3, 3); }
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(cam.x * kx, cam.y * ky, cam.w / cam.z * kx, (cam.h - 214) / cam.z * ky);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(cam.x * kx, cam.y * ky, cam.w / cam.z * kx, (cam.h - LAND_HUD_HEIGHT) / cam.z * ky);
 }

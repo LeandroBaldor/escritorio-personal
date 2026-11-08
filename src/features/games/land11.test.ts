@@ -36,8 +36,8 @@ describe('Revisión 11: líder y combate',()=>{
     expect(missingResources(g,{stone:100,gem:25,energy:16})).toBe('Nos faltan 90 cristales azules y 20 cristales dorados y 16 cristales verdes para completar esta orden.');
     g.t=16;expect(reports.tick(g).join(' ')).toContain('reservas de cristales azules');g.t=20;expect(reports.tick(g)).toEqual([]);
   });
-  it('incluye los nueve archivos y asigna cada arma de las diez civilizaciones',()=>{
-    expect(Object.keys(COMBAT_CLIPS)).toHaveLength(9);for(const civ of CIV_IDS)for(const role of ['melee','ranged','heavy','elite'] as const)expect(COMBAT_CLIPS[weaponSound(civ,role)]).toBeDefined();
+  it('incluye los diez archivos y asigna cada arma de las diez civilizaciones',()=>{
+    expect(Object.keys(COMBAT_CLIPS)).toHaveLength(10);for(const civ of CIV_IDS)for(const role of ['melee','ranged','heavy','elite'] as const)expect(COMBAT_CLIPS[weaponSound(civ,role)]).toBeDefined();
     expect(weaponSound('humano','heavy')).toBe('cannon');expect(weaponSound('humano','ranged')).toBe('machine');expect(weaponSound('elfos','ranged')).toBe('arrow');expect(weaponSound('mecanico','ranged')).toBe('laser');
     for(const clip of Object.values(COMBAT_CLIPS))for(const cue of clip.phrases){expect(cue.start+cue.duration).toBeLessThanOrEqual(clip.duration+.002);expect(cue.duration).toBeGreaterThan(0);}
   });

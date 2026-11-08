@@ -2,9 +2,11 @@ import { BKINDS, BUILD_STATS, ROLES, ROLE_STATS } from './land';
 import { BUILD_TEXT, CIVS, POWER_TEXT, TRAINING_ROLE, attackText, type CivId } from './landCivs';
 import { roleIdx } from './landArt';
 import { BuildingSprite, Sprite } from './landSprite';
-const LAMINAS=import.meta.glob('./assets/land/lamina-*.webp',{eager:true,import:'default'}) as Record<string,string>;
+import leaders1 from './assets/land/leaders-1.webp';
+import leaders2 from './assets/land/leaders-2.webp';
+const PORTRAITS:Record<CivId,[number,number]>={humano:[0,0],zergano:[0,1],elfos:[0,2],enanos:[0,3],nomuerta:[0,4],sauriano:[1,0],infernal:[1,1],mecanico:[1,2],orcos:[1,3],abisal:[1,4]};
 export function LeaderPortrait({civ}:{civ:CivId}) {
-  return <div className="land-leader-portrait" role="img" aria-label={`Líder de ${CIVS[civ].name}`} style={{backgroundImage:`url("${LAMINAS[`./assets/land/lamina-${civ}.webp`]}")`}}/>;
+  const [sheet,cell]=PORTRAITS[civ];return <div className="land-leader-portrait" role="img" aria-label={`Líder de ${CIVS[civ].name}`}><svg viewBox={`${cell%3*512} ${Math.floor(cell/3)*512} 512 512`} preserveAspectRatio="xMidYMid meet" aria-hidden="true"><image href={sheet?leaders2:leaders1} x="0" y="0" width="1536" height="1024"/></svg></div>;
 }
 export function LandInfographic({civ}:{civ:CivId}){
   const c=CIVS[civ];
