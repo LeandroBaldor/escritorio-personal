@@ -9,6 +9,7 @@ import './landHud.css';
 import './landInterface.css';
 import './landReadable.css';
 import './landReferenceHud.css';
+import './landVillageHud.css';
 import { BuildingSprite, Sprite } from './landSprite';
 import { LandInfographic,LeaderPortrait } from './landInfographic';
 import {LandInspector} from './landInspector';
