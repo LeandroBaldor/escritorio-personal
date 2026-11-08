@@ -2,6 +2,7 @@ import {walkPose} from './landMotion';
 type Point={x:number;y:number};
 type Frame={sx:number;sy:number;sw:number;sh:number};
 const cache=new Map<string,HTMLCanvasElement>();
+let cachePixels=0;
 const smooth=(a:number,b:number,v:number)=>{const t=Math.max(0,Math.min(1,(v-a)/(b-a)));return t*t*(3-2*t);};
 const mix=(a:Point,b:Point,t:number)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
 const rotate=(p:Point,pivot:Point,angle:number)=>({x:pivot.x+(p.x-pivot.x)*Math.cos(angle)-(p.y-pivot.y)*Math.sin(angle),y:pivot.y+(p.x-pivot.x)*Math.sin(angle)+(p.y-pivot.y)*Math.cos(angle)});
@@ -22,18 +23,18 @@ export function rigPoint(x:number,y:number,phase:number,walking:boolean,attack:n
   return result;
 }
 export function drawRig(ctx:CanvasRenderingContext2D,image:CanvasImageSource,frame:Frame,key:string,dw:number,dh:number,phase:number,attack:number,kneel=0,work=0){
-  const walking=phase!==0,step=walking?Math.round(phase*8/Math.PI):0,hit=Math.round(attack*6),crouch=Math.round(kneel*4),workStep=crouch?Math.round(work*4/Math.PI)%8:0,id=`${key}:${walking?((step%16)+16)%16:'idle'}:${hit}:${crouch}:${workStep}`;
+  const walking=phase!==0,step=walking?Math.round(phase*16/Math.PI):0,hit=Math.round(attack*12),crouch=Math.round(kneel*4),workStep=crouch?Math.round(work*4/Math.PI)%8:0,id=`${key}:${walking?((step%32)+32)%32:'idle'}:${hit}:${crouch}:${workStep}`;
   let pose=cache.get(id);
   if(!pose){
     const h=256,w=h*frame.sw/frame.sh,pad=Math.ceil(h*.16),canvas=document.createElement('canvas');canvas.width=Math.ceil(w+pad*2);canvas.height=h+pad*2;const c=canvas.getContext('2d')!;const cols=10,rows=18,points:Point[][]=[];
-    for(let j=0;j<=rows;j++){const row:Point[]=[];for(let i=0;i<=cols;i++){const p=rigPoint(i/cols,j/rows,step*Math.PI/8,walking,hit/6,crouch/4,workStep*Math.PI/4);row.push({x:p.x*w+pad,y:p.y*h+pad});}points.push(row);}
+    for(let j=0;j<=rows;j++){const row:Point[]=[];for(let i=0;i<=cols;i++){const p=rigPoint(i/cols,j/rows,step*Math.PI/16,walking,hit/12,crouch/4,workStep*Math.PI/4);row.push({x:p.x*w+pad,y:p.y*h+pad});}points.push(row);}
     const triangle=(uv:Point[],to:Point[])=>{
       const from=uv.map(p=>({x:p.x*frame.sw,y:p.y*frame.sh})),[a,b,d]=from,[p,q,r]=to;
       const det=(b.x-a.x)*(d.y-a.y)-(d.x-a.x)*(b.y-a.y),aa=((q.x-p.x)*(d.y-a.y)-(r.x-p.x)*(b.y-a.y))/det,bb=((q.y-p.y)*(d.y-a.y)-(r.y-p.y)*(b.y-a.y))/det,cc=((r.x-p.x)*(b.x-a.x)-(q.x-p.x)*(d.x-a.x))/det,dd=((r.y-p.y)*(b.x-a.x)-(q.y-p.y)*(d.x-a.x))/det;
       c.save();c.beginPath();const center={x:(p.x+q.x+r.x)/3,y:(p.y+q.y+r.y)/3};to.forEach((v,i)=>{const length=Math.hypot(v.x-center.x,v.y-center.y),x=v.x+(v.x-center.x)*.35/length,y=v.y+(v.y-center.y)*.35/length;if(i)c.lineTo(x,y);else c.moveTo(x,y);});c.closePath();c.clip();c.transform(aa,bb,cc,dd,p.x-aa*a.x-cc*a.y,p.y-bb*a.x-dd*a.y);c.drawImage(image,frame.sx,frame.sy,frame.sw,frame.sh,0,0,frame.sw,frame.sh);c.restore();
     };
     for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){const a={x:i/cols,y:j/rows},b={x:(i+1)/cols,y:j/rows},d={x:(i+1)/cols,y:(j+1)/rows},e={x:i/cols,y:(j+1)/rows};triangle([a,b,d],[points[j][i],points[j][i+1],points[j+1][i+1]]);triangle([a,d,e],[points[j][i],points[j+1][i+1],points[j+1][i]]);}
-    pose=canvas;if(cache.size>=192)cache.delete(cache.keys().next().value!);cache.set(id,pose);
+    pose=canvas;const budget=typeof window!=='undefined'&&window.innerWidth<1101?8e6:24e6;while(cache.size&&(cachePixels+canvas.width*canvas.height>budget||cache.size>=256)){const oldest=cache.keys().next().value!,removed=cache.get(oldest)!;cachePixels-=removed.width*removed.height;cache.delete(oldest);}cachePixels+=canvas.width*canvas.height;cache.set(id,pose);
   }else{cache.delete(id);cache.set(id,pose);}
   const k=dh/256,pad=Math.ceil(256*.16);ctx.drawImage(pose,-dw/2-pad*k,-dh-pad*k,pose.width*k,pose.height*k);
 }

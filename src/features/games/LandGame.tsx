@@ -1,15 +1,19 @@
+import {LandReferenceFrame,LandReferenceCommandIcon} from './landReferenceFrame';
+import {LandSelectionStrip} from './landSelectionStrip';
+import {nativeAnimationsReady} from './landNativeAnimation';
 import {mineralMultiplier,DEFAULT_LAND_OPTIONS,POPULATION_LIMITS,MINERAL_OPTIONS,type PopulationLimit,type MineralAbundance} from './landOptions';
 import {affordableTrainingCost,LEVEL_HEALTH} from './landBalance';
-import {unitLabel,STRUCTURE_UPGRADES,STRUCTURE_NAMES,MAX_STRUCTURE_LEVEL,structureUpgradeCost,structureUpgradeTime,structureBenefit} from './landBalance';
+import {STRUCTURE_UPGRADES,STRUCTURE_NAMES,MAX_STRUCTURE_LEVEL,structureUpgradeCost,structureUpgradeTime,structureBenefit} from './landBalance';
 import './land.css';
 import './landHud.css';
 import './landInterface.css';
 import './landReadable.css';
+import './landReferenceHud.css';
 import { BuildingSprite, Sprite } from './landSprite';
 import { LandInfographic,LeaderPortrait } from './landInfographic';
 import {LandInspector} from './landInspector';
 import {evolutionLevel,evolutionCost,evolutionTime,MAX_EVOLUTION,foodPercent,foodRate,FOOD_NAMES,FOOD_CAPACITY,FOOD_WEIGHT,unitFoodRate} from './landProvision';
-import {LAND_HUD_HEIGHT} from './landLayout';
+import {landHudHeight} from './landLayout';
 import {previousLandMenu,type LandScreen} from './landNavigation';
 import { LandTroops } from './landTroops';
 import {LandLeaderPanel} from './landLeaderPanel';
@@ -40,8 +44,8 @@ const ROLE_ORDER: Role[] = ['worker', 'melee', 'ranged', 'special', 'heavy', 'el
 const DIFF: [Difficulty, string][] = [['veryEasy', 'Muy fácil'], ['easy', 'Fácil'], ['normal', 'Normal'], ['hard', 'Difícil']];
 const costText = (c: Cost) => `${c.stone ? `🔷${c.stone}` : ''}${c.gem ? ` 🔶${c.gem}` : ''}${c.energy ? ` 🟢${c.energy}` : ''}${c.rock?` 🪨${c.rock}`:''}`.trim();
 type Screen = LandScreen;
-const HUD_H = LAND_HUD_HEIGHT; // (el alto del menú de abajo)
-const minZoom = (g: LandGame, w: number, h: number) => Math.max(1.6 / 1.1, w / g.terrain.w, (h - HUD_H) / g.terrain.h);
+const HUD_H = landHudHeight; // (el alto del menú de abajo)
+const minZoom = (g: LandGame, w: number, h: number) => Math.max(1.6 / 1.1, w / g.terrain.w, (h - HUD_H(w)) / g.terrain.h);
 type Mode = { k: 'none' } | { k: 'place'; kind: BKind } | { k: 'power' } | { k: 'amove' };
 
 export function LandOfWarriors() {
@@ -114,13 +118,13 @@ export function LandOfWarriors() {
     resetLandGameMusic();
     characterSounds.current?.start(civ);
     setCiv(civ); setLoading(true);
+    const available = CIV_IDS.filter(c => c !== civ), foes = enemies.map(e => {
+      const selected = e !== 'random' && available.includes(e) ? e : available[Math.floor(Math.random() * available.length)];
+      available.splice(available.indexOf(selected), 1); return selected;
+    });
     let attempts = 0;
     const prepare = () => {
-      if ((!spritesReady() || !terrainMaterialsReady() || !worldPropsReady() || !wallsReady()) && attempts++ < 160) { setTimeout(prepare, 50); return; }
-      const available = CIV_IDS.filter(c => c !== civ), foes = enemies.map(e => {
-        const selected = e !== 'random' && available.includes(e) ? e : available[Math.floor(Math.random() * available.length)];
-        available.splice(available.indexOf(selected), 1); return selected;
-      });
+      if ((!spritesReady() || !terrainMaterialsReady() || !worldPropsReady() || !wallsReady() || !nativeAnimationsReady([civ,...foes])) && attempts++ < 160) { setTimeout(prepare, 50); return; }
       const g = newLandGame(civ, foes, map, diff, Date.now(), size,{populationLimit,mineralAbundance}); gRef.current = g; setGame(g);
       leaderReports.current=new LandLeaderReports();lastToast.current={};setLeaderMessages([{id:++messageId.current,time:0,text:'Ya estamos en posición. Organicemos la recolección y preparemos nuestras defensas. Te informaré los movimientos enemigos y el resultado de cada enfrentamiento.'}]);
       detailImg.current = null; mapImg.current = renderTerrain(g.terrain);
@@ -168,13 +172,13 @@ export function LandOfWarriors() {
       const cam = camRef.current; cam.w = w; cam.h = h;
       if (screenRef.current === 'playing') {
         // la cámara: flechas / WASD y los bordes de la pantalla
-        const sp = 1100 * dt / cam.z, ks = keys.current, m = mouse.current, edge = 22, panelTop = h - HUD_H;
+        const sp = 1100 * dt / cam.z, ks = keys.current, m = mouse.current, edge = 22, panelTop = h - HUD_H(w);
         let dx = (ks.has('ArrowRight') || ks.has('d') ? 1 : 0) - (ks.has('ArrowLeft') || ks.has('a') ? 1 : 0), dy = (ks.has('ArrowDown') || ks.has('s') ? 1 : 0) - (ks.has('ArrowUp') || ks.has('w') ? 1 : 0);
         if (m.in && !drag.current) { if (m.x < edge) dx = -1; else if (m.x > w - edge) dx = 1; if (m.y < edge) dy = -1; else if (m.y > panelTop - 4 && m.y < panelTop + 6) dy = 1; }
         cam.x += dx * sp; cam.y += dy * sp;
         stepLand(g, dt);
         for (const e of takeLandEvents(g)) {
-          const nearby=('x' in e)&&e.x!==undefined&&e.y!==undefined&&e.x>=cam.x-100&&e.x<=cam.x+w/cam.z+100&&e.y>=cam.y-100&&e.y<=cam.y+(h-HUD_H)/cam.z+100;
+          const nearby=('x' in e)&&e.x!==undefined&&e.y!==undefined&&e.x>=cam.x-100&&e.x<=cam.x+w/cam.z+100&&e.y>=cam.y-100&&e.y<=cam.y+(h-HUD_H(w))/cam.z+100;
           leaderReports.current.event(g,e);
           if(nearby)characterSounds.current?.combat(g,e,'x' in e&&e.x!==undefined?((e.x-cam.x)*cam.z/w-.5)*1.3:0);
           if(e.type==='trained'&&e.owner===0)characterSounds.current?.call(g.sides[0].civ,e.role,g.t);
@@ -195,7 +199,7 @@ export function LandOfWarriors() {
         if ([...selRef.current].some(id => !g.units.some(u => u.id === id && !u.dead) && !g.buildings.some(b => b.id === id && !b.dead))) setSelection([...selRef.current].filter(id => g.units.some(u => u.id === id && !u.dead) || g.buildings.some(b => b.id === id && !b.dead)));
       } else stepLand(g, 0);
       cam.z = Math.max(cam.z, minZoom(g, w, h)); // (nunca se ve afuera del mapa)
-      cam.x = Math.max(0, Math.min(g.terrain.w - w / cam.z, cam.x)); cam.y = Math.max(0, Math.min(g.terrain.h - (h - HUD_H) / cam.z, cam.y));
+      cam.x = Math.max(0, Math.min(g.terrain.w - w / cam.z, cam.x)); cam.y = Math.max(0, Math.min(g.terrain.h - (h - HUD_H(w)) / cam.z, cam.y));
       const ctx = c.getContext('2d')!; ctx.setTransform(k, 0, 0, k, 0, 0); ctx.clearRect(0, 0, w, h);
       drawWorld(ctx, g, mapImg.current, cam, now / 1000, selRef.current, cx => {
         const m = mouse.current, md = modeRef.current;
@@ -226,7 +230,7 @@ export function LandOfWarriors() {
       const key = [Math.round(c.x), Math.round(c.y), c.z, c.w, c.h].join(':');
       if (key !== previous) { previous = key; settled = false; return; }
       if (settled) return; settled = true;
-      const old = detailImg.current, vw = c.w / c.z, vh = (c.h - HUD_H) / c.z;
+      const old = detailImg.current, vw = c.w / c.z, vh = (c.h - HUD_H(c.w)) / c.z;
       if (old && old.x <= c.x && old.y <= c.y && old.x + old.w >= c.x + vw && old.y + old.h >= c.y + vh && old.canvas.width / old.w >= Math.min(3, c.z * (window.devicePixelRatio || 1)) - 0.1) return;
       const region = { x: Math.max(0, c.x - 160), y: Math.max(0, c.y - 160), w: Math.min(g.terrain.w - Math.max(0, c.x - 160), vw + 320), h: Math.min(g.terrain.h - Math.max(0, c.y - 160), vh + 320) };
       const scale = Math.min(3, c.z * (window.devicePixelRatio || 1), Math.sqrt(6e6 / (region.w * region.h)));
@@ -344,7 +348,7 @@ export function LandOfWarriors() {
     const g = gRef.current; if (!g) return;
     const r = e.currentTarget.getBoundingClientRect(), wx = (e.clientX - r.left) / r.width * g.terrain.w, wy = (e.clientY - r.top) / r.height * g.terrain.h, c = camRef.current;
     if (e.button === 2 && e.type === 'pointerdown') { command(wx, wy); return; }
-    c.x = wx - c.w / c.z / 2; c.y = wy - (c.h - HUD_H) / c.z / 2;
+    c.x = wx - c.w / c.z / 2; c.y = wy - (c.h - HUD_H(c.w)) / c.z / 2;
   };
 
   // ---------------------------------------------------------------- Lo que está elegido (para el menú de abajo)
@@ -353,7 +357,7 @@ export function LandOfWarriors() {
   const selB = g && !selUnits.length ? sel.map(id => g.buildings.find(b => b.id === id && !b.dead)).find(Boolean) as Building | undefined : undefined;
   const mine = selUnits.filter(u => u.owner === 0), workersSel = mine.some(u => u.role === 'worker');
   const side = g?.sides[0];
-  const focus = (x: number, y: number) => { const c = camRef.current; c.x = x - c.w / c.z / 2; c.y = y - (c.h - HUD_H) / c.z / 2; };
+  const focus = (x: number, y: number) => { const c = camRef.current; c.x = x - c.w / c.z / 2; c.y = y - (c.h - HUD_H(c.w)) / c.z / 2; };
   const selectArmy = () => { if (!g) return; const a = g.units.filter(u => u.owner === 0 && !u.dead && u.role !== 'worker'); setSelection(a.map(u => u.id)); if (!a.length) say('Todavía no tenés soldados: hacé un cuartel'); };
   const selectIdle = () => { if (!g) return; const w = g.units.find(u => u.owner === 0 && !u.dead && u.role === 'worker' && u.order.k === 'idle'); if (w) { setSelection([w.id]); focus(w.x, w.y); } else say('No hay trabajadores sin hacer nada 👍'); };
   const goBase = () => { if (!g) return; const b = g.buildings.find(q => q.owner === 0 && q.kind === 'base' && !q.dead); if (b) { focus(b.x, b.y); setSelection([b.id]); } };
@@ -457,22 +461,22 @@ export function LandOfWarriors() {
         <button type="button" className="land-sq" title="Pausa" aria-label={screen === 'paused' ? 'Seguir' : 'Pausa'} onClick={() => setScreen(st => st === 'playing' ? 'paused' : 'playing')}><LandIcon kind="gear" /></button>
       </div>
       {mode.k !== 'none' && <div className="land-mode">{mode.k === 'place' ? `Elegí dónde poner: ${CIVS[side.civ].buildings[mode.kind]}${mode.kind === 'wall' ? ' · Clic para sumar tramos; Escape para terminar' : ''}` : mode.k === 'power' ? 'Elegí dónde cae el poder' : 'Elegí a dónde atacar'} · <button type="button" onClick={() => { setMode({ k: 'none' }); }}>Cancelar</button></div>}
-      <div className="land-hud" style={{ ['--civ' as string]: CIVS[side.civ].color }}>
-        <div className="land-crest" aria-hidden="true"><LandEagle /></div>
+      <div className="land-hud land-hud-native" style={{ ['--civ' as string]: CIVS[side.civ].color }}>
+        <LandReferenceFrame/><div className="land-crest" aria-hidden="true"><LandEagle /></div>
         <div className="land-gems" aria-hidden="true">{[0, 1, 2, 3, 4, 5].map(i => <i key={i} />)}</div>
         <div className="land-mini"><div className="land-mini-map"><div className="land-tabs"><span><LandIcon kind="layers" /></span><span><LandIcon kind="radar" /></span></div><canvas ref={miniRef} width={220} height={150} onPointerDown={onMini} onPointerMove={onMini} aria-label="Mapa" /></div>
           <div className="land-quick"><button type="button" onClick={goBase} title="Ir a la base" aria-label="Ir a la base"><LandIcon kind="base" /></button><button type="button" onClick={selectArmy} title="Elegir todo el ejército" aria-label="Elegir todo el ejército"><LandIcon kind="army" /></button><button type="button" onClick={selectIdle} title="Un trabajador sin hacer nada" aria-label="Un trabajador sin hacer nada"><LandIcon kind="wrench" /></button></div>
         </div>
         <div className="land-sel land-selection-info">
-          {selUnits.length>0&&<ul className="land-group">{selUnits.map(u=><li key={u.id}><button type="button" onClick={()=>setSelection([u.id])} title={unitLabel(g,u.owner,u.role)}><Sprite civ={g.sides[u.owner].civ} idx={roleIdx(u.role)} level={evolutionLevel(g,u.owner,u.role)} w={38} h={40}/><i style={{width:u.hp/u.maxHp*100+'%'}}/></button></li>)}</ul>}
+          <LandSelectionStrip game={g} units={selUnits} onSelect={setSelection}/>
           <LandInspector game={g} unit={selUnits[0]} building={selB??undefined} count={selUnits.length} planned={mode.k==='place'?mode.kind:undefined} key={mode.k==='place'?mode.kind:selB?.id??selUnits[0]?.id??'none'}/>
         </div>
         {/* eslint-disable-next-line react-hooks/refs -- (los botones solo usan las referencias al tocarlos, no al dibujarse) */}
         <div className={`land-cmds${selB||!workersSel?' land-commands-short':''}`} aria-label="Órdenes disponibles">{commandHelp&&<div id="land-order-help" role="tooltip" className="land-order-help">{commandHelp}</div>}{(() => {
-          const pad = (els: React.ReactNode[]) => els.filter(Boolean);
+          const pad = (els: React.ReactNode[]) => {const live=els.filter(Boolean);return [...live,...Array.from({length:Math.max(0,12-live.length)},(_,i)=><div className="land-command-cell land-command-empty" key={'empty'+i} aria-hidden="true" title="Sin orden disponible para esta selección"><LandReferenceCommandIcon index={live.length+i}/></div>)];};
           const cmd = (key: string, icon: React.ReactNode, title: string, onClick: () => void, o: { disabled?: boolean; cost?: Cost; badge?: string;label?:string } = {}) => {
             const info=title+(o.cost?' · Costo: '+costText(o.cost):'')+(o.disabled&&o.cost&&!canPay(side,o.cost)?' · '+missingResources(g,o.cost):''),label=o.label??(title.startsWith('Mejorar ')?`Mejorar ${title.split(' ')[1]}`:title.split(':')[0]);
-            return <div className="land-command-cell" key={key} onMouseEnter={()=>setCommandHelp(info)} onMouseLeave={()=>setCommandHelp(null)} onFocus={()=>setCommandHelp(info)} onBlur={()=>setCommandHelp(null)} tabIndex={o.disabled?0:undefined} aria-label={o.disabled?info:undefined}><button type="button" disabled={o.disabled} title={info} aria-label={title} aria-describedby={commandHelp===info?'land-order-help':undefined} onClick={()=>{setCommandHelp(null);onClick();}}>{icon}<b className="land-command-label">{label}</b>{o.badge&&<em>{o.badge}</em>}{o.cost&&<small>{costText(o.cost)}</small>}</button></div>;
+            return <div className="land-command-cell" key={key} onMouseEnter={()=>setCommandHelp(info)} onMouseLeave={()=>setCommandHelp(null)} onFocus={()=>setCommandHelp(info)} onBlur={()=>setCommandHelp(null)} tabIndex={o.disabled?0:undefined} aria-label={o.disabled?info:undefined}><button type="button" disabled={o.disabled} title={info} aria-label={title} aria-describedby={commandHelp===info?'land-order-help':undefined} onClick={()=>{setCommandHelp(null);onClick();}}>{icon}{({amove:0,move:1,stop:2,all:3,power:9} as Record<string,number>)[key]!==undefined&&<LandReferenceCommandIcon index={({amove:0,move:1,stop:2,all:3,power:9} as Record<string,number>)[key]}/>}<b className="land-command-label">{label}</b>{o.badge&&<em>{o.badge}</em>}{o.cost&&<small>{costText(o.cost)}</small>}</button></div>;
           };
           const ic = (t: string) => <LandIcon kind={({ '🎯': 'target', '➡️': 'move', '⛔': 'stop', '⚔️': 'army', '✨': 'blast', '✋': 'stop', '✖': 'stop', '🛡️': 'shield', '👟': 'move' } as Record<string, string>)[t] ?? 'rifle'} />;
           const evolutionCommands=(b:Building)=>{const role=TRAINING_ROLE[b.kind];if(!role)return [];const level=evolutionLevel(g,b.owner,role),cost=evolutionCost(level,role),before=unitStats(g,b.owner,role),after=unitStats(g,b.owner,role,Math.min(4,level+1));return [cmd('evolve',<Sprite civ={side.civ} idx={roleIdx(role)} level={Math.min(4,level+1)} w={44} h={44}/>,`Evolucionar ${CIVS[side.civ].units[role]}: nivel ${Math.min(4,level+1)} de 4. Vida ${Math.round(before.hp)} a ${Math.round(after.hp)}. Da\u00f1o ${Math.round(before.dmg*10)/10} a ${Math.round(after.dmg*10)/10}. Mejora armadura, arma, velocidad y alcance; mantiene el costo de entrenamiento. ${evolutionTime(level)} s.`,()=>researchEvolution(g,b.id),{disabled:level>=MAX_EVOLUTION||!!b.evolving||!canPay(side,cost),cost:level>=MAX_EVOLUTION?undefined:cost,label:level>=MAX_EVOLUTION?'Nivel máximo':b.evolving?'Evolucionando':'Evolucionar',badge:level>=4?'MAX':String(level+1)})];};

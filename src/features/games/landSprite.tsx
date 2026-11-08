@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { bIdx, drawSprite, roleIdx } from './landArt';
+import { bIdx, drawSprite,drawPortrait, roleIdx } from './landArt';
 import { TRAINING_ROLE, type CivId } from './landCivs';
 import type { BKind } from './land';
 export function BuildingSprite({civ,kind,w,h}:{civ:CivId;kind:BKind;w:number;h:number}){
@@ -15,7 +15,7 @@ export function Sprite({ civ, idx, w, h, portrait = false,level=0 }: { civ: CivI
       const k = Math.min(2, window.devicePixelRatio || 1); c.width = w * k; c.height = h * k;
       const ctx = c.getContext('2d'); if (!ctx) return;
       ctx.setTransform(k, 0, 0, k, 0, 0); ctx.clearRect(0, 0, w, h);
-      if (!drawSprite(ctx, civ, idx, w / 2, portrait ? h * 2.45 : h - 2, portrait ? h * 2.45 : h - 4, false, portrait ? w * 2 : w - 4,0,0,0,level)) frame = requestAnimationFrame(draw);
+      if (!(portrait?drawPortrait(ctx,civ,idx,w,h,level):drawSprite(ctx,civ,idx,w/2,h-2,h-4,false,w-4,0,0,0,level))) frame = requestAnimationFrame(draw);
     };
     draw(); return () => cancelAnimationFrame(frame);
   }, [civ, idx, w, h, portrait,level]);
