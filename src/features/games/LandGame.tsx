@@ -1,10 +1,12 @@
+import {affordableTrainingCost,LEVEL_HEALTH} from './landBalance';
+import {unitLabel,STRUCTURE_UPGRADES,STRUCTURE_NAMES,MAX_STRUCTURE_LEVEL,structureUpgradeCost,structureUpgradeTime,structureBenefit} from './landBalance';
 import './land.css';
 import './landHud.css';
 import './landInterface.css';
 import { BuildingSprite, Sprite } from './landSprite';
 import { LandInfographic,LeaderPortrait } from './landInfographic';
 import {LandInspector} from './landInspector';
-import {evolutionLevel,evolutionCost,evolutionTime,MAX_EVOLUTION,foodPercent,foodRate,FOOD_NAMES,FOOD_CAPACITY,FOOD_WEIGHT} from './landProvision';
+import {evolutionLevel,evolutionCost,evolutionTime,MAX_EVOLUTION,foodPercent,foodRate,FOOD_NAMES,FOOD_CAPACITY,FOOD_WEIGHT,unitFoodRate} from './landProvision';
 import {LAND_HUD_HEIGHT} from './landLayout';
 import {previousLandMenu,type LandScreen} from './landNavigation';
 import { LandTroops } from './landTroops';
@@ -15,8 +17,8 @@ import { worldPropsReady } from './landProps';
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  BUILD_STATS, BKINDS, POWER_MAX, ROLE_STATS, canPay, canPlace, cancelTrain, formatLandTime, hasBuilt, newLandGame, orderMove, orderSmart,
-  placeBuilding, popCap, popUsed, researchEvolution, stepLand, takeLandEvents, train, unitStats, castPower, type BKind, type Building, type Cost, type Difficulty, type LandGame, type Role, type Unit,
+  BUILD_STATS, BKINDS, MAX_POP, POWER_MAX, ROLE_STATS, canPay, canPlace, cancelTrain, formatLandTime, hasBuilt, newLandGame, orderMove, orderSmart,
+  placeBuilding, popCap, popUsed, researchEvolution,researchInfrastructure, stepLand, takeLandEvents, train, unitStats, castPower, type BKind, type Building, type Cost, type Difficulty, type LandGame, type Role, type Unit,
 } from './land';
 import { BUILD_TEXT, CIVS, CIV_IDS, POWER_TEXT, TRAINING_ROLE, attackText, roleText, type CivId } from './landCivs';
 import { wallPoint, wallsReady } from './landWalls';
@@ -139,7 +141,7 @@ export function LandOfWarriors() {
       else if (g.t > 20 && idle >= 2) hint('idle', `⛏️ Tenés ${idle} trabajadores sin hacer nada: asigná algunos a piedras y cosechas, y otros a cristales`, 45000);
       else if (g.t > 30 && near('stone') < 900) hint('stone', '🔷 Hay pocos minerales cerca de tu base: buscá otra zona y construí un depósito ahí', 120000);
       else if (g.t > 30 && near('gem') < 300) hint('gem', '🔶 Se están acabando los diamantes cerca: buscá más en el mapa', 120000);
-      else if (popUsed(g, 0) >= popCap(g, 0) && popCap(g, 0) < 100) hint('pop', `👥 Llegaste al límite de población: construí un ${civ.buildings.depot}`, 60000);
+      else if (popUsed(g, 0) >= popCap(g, 0) && popCap(g, 0) < MAX_POP) hint('pop', `👥 Llegaste al límite de población: construí un ${civ.buildings.depot}`, 60000);
       else if (g.t > 35 && !g.buildings.some(b => b.owner === 0 && b.kind === 'workerBarracks') && side.stone >= 100) hint('workers', `🏗️ Construí ${civ.buildings.workerBarracks} para entrenar más trabajadores`, 70000);
       else if (g.t > 50 && !g.buildings.some(b => b.owner === 0 && b.kind === 'barracks') && side.stone >= 150) hint('barracks', `🏗️ Construí ${civ.buildings.barracks}: entrena únicamente ${civ.units.melee}`, 70000);
       else if (g.t > 150 && army < 3 && g.ai.wave === 0 && g.t > g.ai.waveAt - 40) hint('army', '⚠️ El enemigo está armando un ejército: entrená soldados', 90000);
@@ -176,6 +178,7 @@ export function LandOfWarriors() {
           if (e.type === 'die' && e.building && nearby) playExplosion();
           else if (e.type === 'built' && e.owner === 0) { say(`🏗️ ${CIVS[g.sides[0].civ].buildings[e.kind]} terminado`); }
           else if (e.type === 'trained' && e.owner === 0 && e.role !== 'worker') say(`✅ ${CIVS[g.sides[0].civ].units[e.role]} listo`, 'trained', 2500);
+          else if(e.type==='infrastructure'&&e.owner===0)say(STRUCTURE_NAMES[e.kind]+' de construcciones: nivel '+e.level);
           else if(e.type==='upgraded'&&e.owner===0)say('Nueva evolución: '+(e.role?CIVS[g.sides[0].civ].units[e.role]:'')+' nivel '+e.level);
           else if (e.type === 'power') { playExplosion(); say(e.owner === 0 ? `✨ ¡${CIVS[g.sides[0].civ].power.name}!` : `⚠️ El enemigo usó ${CIVS[g.sides[e.owner].civ].power.name}`); }
           else if (e.type === 'attacked') say('⚠️ ¡Te están atacando!', 'attacked', 15000);
@@ -302,7 +305,7 @@ export function LandOfWarriors() {
     if (d.pan && moved) return;
     if (moved) { // recuadro: elige a tus guerreros de adentro (si hay soldados, solo los soldados)
       const a = toWorld(Math.min(d.x0, d.x1), Math.min(d.y0, d.y1)), b = toWorld(Math.max(d.x0, d.x1), Math.max(d.y0, d.y1));
-      const inside = g.units.filter(u => u.owner === 0 && !u.dead && u.x >= a.x && u.x <= b.x && u.y >= a.y && u.y - ROLE_STATS[u.role].size * 0.5 <= b.y);
+      const inside = g.units.filter(u => u.owner === 0 && !u.dead && u.x >= a.x && u.x <= b.x && u.y >= a.y && u.y - unitStats(g,u.owner,u.role).size * 0.5 <= b.y);
       const army = inside.filter(u => u.role !== 'worker'), pick = (army.length ? army : inside).map(u => u.id);
       setSelection(e.shiftKey ? [...new Set([...selRef.current, ...pick])] : pick); setMode({ k: 'none' });
       return;
@@ -358,7 +361,7 @@ export function LandOfWarriors() {
     {simple && <div className="land-simple" style={{ ['--civ' as string]: viewD.color }}>
       <h2>{viewD.name}</h2><p className="land-simple-style">{viewD.style}</p>
       <h3>Guerreros</h3>
-      <ul className="land-simple-units">{ROLE_ORDER.map(r => { const s = ROLE_STATS[r], mod = viewD.mod[r] ?? {}, m = { ...s, ...mod, cost: {...s.cost,...mod.cost} }; return <li key={r}><Sprite civ={view} idx={roleIdx(r)} w={96} h={108} /><div><b>{viewD.units[r]}</b><span>{roleText(view, r)}</span><strong className="land-attack-type">{attackText(view,r,m.range)}</strong><small>❤ {m.hp} · ⚔ {m.dmg} · {costText(m.cost)}</small></div></li>; })}</ul>
+      <ul className="land-simple-units">{ROLE_ORDER.map(r => { const s = ROLE_STATS[r], mod = viewD.mod[r] ?? {}, m = { ...s, ...mod, cost: affordableTrainingCost({...s.cost,...mod.cost}) }; return <li key={r}><Sprite civ={view} idx={roleIdx(r)} w={96} h={108} level={1}/><div><b>{viewD.units[r]} Nivel 1</b><span>{roleText(view, r)}</span><strong className="land-attack-type">{attackText(view,r,m.range)}</strong><small>❤ {Math.round(m.hp*LEVEL_HEALTH[1])} · ⚔ {m.dmg} · {costText(m.cost)}</small></div></li>; })}</ul>
       <h3>Construcciones</h3>
       <ul className="land-simple-builds">{BKINDS.map(k => <li key={k}><BuildingSprite civ={view} kind={k} w={70} h={56} /><div><b>{viewD.buildings[k]}</b><span>{BUILD_TEXT[k]}</span><small>{costText(BUILD_STATS[k].cost)}</small></div></li>)}</ul>
       <h3>Poder especial: {viewD.power.name}</h3><p>{POWER_TEXT[viewD.power.kind]} Se carga peleando.</p>
@@ -424,7 +427,7 @@ export function LandOfWarriors() {
     {playing && g && side && <div className="land-stage" ref={stageRef} onWheel={onWheel}>
       <canvas ref={canvasRef} className={mode.k === 'place' || mode.k === 'power' || mode.k === 'amove' ? 'land-aim' : ''} aria-label={`Partida en ${THEMES[g.terrain.theme].name}`} role="img"
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} onPointerLeave={() => { mouse.current.in = false; }} />
-      <div className="land-top-left"><button type="button" className="land-exit" aria-label="Volver al menú principal" onClick={()=>{keys.current.clear();mouse.current.in=false;drag.current=null;setScreen('title');}}>‹</button><span>Escenario {g.map} — {THEMES[g.terrain.theme].name}</span></div>
+      <div className="land-top-left"><button type="button" className="land-exit" aria-label="Volver a elegir civilización" onClick={()=>{keys.current.clear();mouse.current.in=false;drag.current=null;setSelection([]);setMode({k:'none'});setScreen('pick');}}>‹</button><span>Escenario {g.map} — {THEMES[g.terrain.theme].name}</span></div>
       <button type="button" className="land-intel-toggle" aria-expanded={commsOpen} onClick={()=>setCommsOpen(open=>!open)}>Tropas y líder</button>
       <aside className={`land-intel land-own-intel${commsOpen?' land-intel-open':''}`} aria-label="Tu civilización y tropas">
         <section className="land-intel-card land-leader-card" style={{['--civ' as string]:CIVS[side.civ].color}}>
@@ -454,7 +457,7 @@ export function LandOfWarriors() {
           <div className="land-quick"><button type="button" onClick={goBase} title="Ir a la base" aria-label="Ir a la base"><LandIcon kind="base" /></button><button type="button" onClick={selectArmy} title="Elegir todo el ejército" aria-label="Elegir todo el ejército"><LandIcon kind="army" /></button><button type="button" onClick={selectIdle} title="Un trabajador sin hacer nada" aria-label="Un trabajador sin hacer nada"><LandIcon kind="wrench" /></button></div>
         </div>
         <div className="land-sel land-selection-info">
-          {selUnits.length>0&&<ul className="land-group">{selUnits.map(u=><li key={u.id}><button type="button" onClick={()=>setSelection([u.id])} title={CIVS[g.sides[u.owner].civ].units[u.role]}><Sprite civ={g.sides[u.owner].civ} idx={roleIdx(u.role)} level={evolutionLevel(g,u.owner,u.role)} w={38} h={40}/><i style={{width:u.hp/u.maxHp*100+'%'}}/></button></li>)}</ul>}
+          {selUnits.length>0&&<ul className="land-group">{selUnits.map(u=><li key={u.id}><button type="button" onClick={()=>setSelection([u.id])} title={unitLabel(g,u.owner,u.role)}><Sprite civ={g.sides[u.owner].civ} idx={roleIdx(u.role)} level={evolutionLevel(g,u.owner,u.role)} w={38} h={40}/><i style={{width:u.hp/u.maxHp*100+'%'}}/></button></li>)}</ul>}
           <LandInspector game={g} unit={selUnits[0]} building={selB??undefined} count={selUnits.length} planned={mode.k==='place'?mode.kind:undefined} key={mode.k==='place'?mode.kind:selB?.id??selUnits[0]?.id??'none'}/>
         </div>
         {/* eslint-disable-next-line react-hooks/refs -- (los botones solo usan las referencias al tocarlos, no al dibujarse) */}
@@ -465,14 +468,15 @@ export function LandOfWarriors() {
             return <div className="land-command-cell" key={key} onMouseEnter={()=>setCommandHelp(info)} onMouseLeave={()=>setCommandHelp(null)} onFocus={()=>setCommandHelp(info)} onBlur={()=>setCommandHelp(null)} tabIndex={o.disabled?0:undefined} aria-label={o.disabled?info:undefined}><button type="button" disabled={o.disabled} title={info} aria-label={title} aria-describedby={commandHelp===info?'land-order-help':undefined} onClick={()=>{setCommandHelp(null);onClick();}}>{icon}<b className="land-command-label">{label}</b>{o.badge&&<em>{o.badge}</em>}{o.cost&&<small>{costText(o.cost)}</small>}</button></div>;
           };
           const ic = (t: string) => <LandIcon kind={({ '🎯': 'target', '➡️': 'move', '⛔': 'stop', '⚔️': 'army', '✨': 'blast', '✋': 'stop', '✖': 'stop', '🛡️': 'shield', '👟': 'move' } as Record<string, string>)[t] ?? 'rifle'} />;
-          const evolutionCommands=(b:Building)=>{const role=TRAINING_ROLE[b.kind];if(!role)return [];const level=evolutionLevel(g,b.owner,role),cost=evolutionCost(level);return [cmd('evolve',<Sprite civ={side.civ} idx={roleIdx(role)} level={Math.min(4,level+1)} w={44} h={44}/>,`Evolucionar ${CIVS[side.civ].units[role]}: nivel ${Math.min(4,level+1)} de 4. Mejora armadura, arma, resistencia, velocidad y alcance. ${evolutionTime(level)} s.`,()=>researchEvolution(g,b.id),{disabled:level>=MAX_EVOLUTION||!!b.evolving||!canPay(side,cost),cost:level>=MAX_EVOLUTION?undefined:cost,label:level>=MAX_EVOLUTION?'Nivel máximo':b.evolving?'Evolucionando':'Evolucionar',badge:level>=4?'MAX':String(level+1)})];};
+          const evolutionCommands=(b:Building)=>{const role=TRAINING_ROLE[b.kind];if(!role)return [];const level=evolutionLevel(g,b.owner,role),cost=evolutionCost(level,role),before=unitStats(g,b.owner,role),after=unitStats(g,b.owner,role,Math.min(4,level+1));return [cmd('evolve',<Sprite civ={side.civ} idx={roleIdx(role)} level={Math.min(4,level+1)} w={44} h={44}/>,`Evolucionar ${CIVS[side.civ].units[role]}: nivel ${Math.min(4,level+1)} de 4. Vida ${Math.round(before.hp)} a ${Math.round(after.hp)}. Da\u00f1o ${Math.round(before.dmg*10)/10} a ${Math.round(after.dmg*10)/10}. Mejora armadura, arma, velocidad y alcance; mantiene el costo de entrenamiento. ${evolutionTime(level)} s.`,()=>researchEvolution(g,b.id),{disabled:level>=MAX_EVOLUTION||!!b.evolving||!canPay(side,cost),cost:level>=MAX_EVOLUTION?undefined:cost,label:level>=MAX_EVOLUTION?'Nivel máximo':b.evolving?'Evolucionando':'Evolucionar',badge:level>=4?'MAX':String(level+1)})];};
           if (selB && selB.owner === 0) {
             const bs = BUILD_STATS[selB.kind], c = CIVS[side.civ];
             if (selB.built < 1) return <p className="land-cmd-note">En construcción: {Math.round(selB.built * 100)}%. Mandá trabajadores para que termine más rápido.</p>;
             return <>{pad([
               ...bs.makes.map(r => { const st = unitStats(g, 0, r), full = popUsed(g, 0) + st.pop > popCap(g, 0);
-                return cmd(r, <Sprite civ={side.civ} idx={roleIdx(r)} level={evolutionLevel(g,0,r)} w={46} h={46} />, `${c.units[r]}: Entrena esta unidad. ${roleText(side.civ, r)} ${r==='worker'?'Puede recuperar las cosechas incluso sin alimento.':`Consume ${FOOD_WEIGHT[r]*10} de alimento al salir y ${(FOOD_WEIGHT[r]*(1+evolutionLevel(g,0,r)*.15)).toFixed(1)} por minuto.`}${full ? ' (falta población: hacé un depósito)' : ''}`, () => { if (!train(g, selB.id, r)) say('No se puede ahora'); }, { disabled: !canPay(side, st.cost) || full, cost: st.cost,label:'Entrenar' }); }),
+                return cmd(r, <Sprite civ={side.civ} idx={roleIdx(r)} level={evolutionLevel(g,0,r)} w={46} h={46} />, `${c.units[r]}: Entrena esta unidad. ${roleText(side.civ, r)} ${r==='worker'?'Puede recuperar las cosechas incluso sin alimento.':`Consume ${FOOD_WEIGHT[r]*10} de alimento al salir y ${(unitFoodRate(g,0,r)).toFixed(1)} por minuto.`}${full ? ' (falta población: hacé un depósito)' : ''}`, () => { if (!train(g, selB.id, r)) say('No se puede ahora'); }, { disabled: !canPay(side, st.cost) || full, cost: st.cost,label:'Entrenar Nivel '+evolutionLevel(g,0,r) }); }),
               ...evolutionCommands(selB),
+              ...(selB.kind==='base'?STRUCTURE_UPGRADES.map(kind=>{const lv=side.infrastructure[kind],max=lv>=MAX_STRUCTURE_LEVEL,cost=structureUpgradeCost(kind,lv),busy=g.buildings.some(b=>b.owner===0&&!b.dead&&b.infrastructureResearch);return cmd(kind,<LandIcon kind={kind==='production'?'wrench':'shield'}/>,`Mejorar ${STRUCTURE_NAMES[kind]}: ${structureBenefit(kind,lv)} ${structureUpgradeTime(lv)} s.`,()=>researchInfrastructure(g,selB.id,kind),{disabled:max||busy||!canPay(side,cost),cost:max?undefined:cost,label:max?STRUCTURE_NAMES[kind]+' MAX':STRUCTURE_NAMES[kind],badge:lv+'/3'});}):[]),
               selB.queue.length > 0 ? cmd('cancel', ic('✖'), 'Cancelar el último', () => cancelTrain(g, selB.id)) : null])}</>;
           }
           if (workersSel) return <>{pad([...BKINDS.map(k => { const st = BUILD_STATS[k], needs = st.needs && !hasBuilt(g, 0, st.needs);

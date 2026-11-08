@@ -15,12 +15,12 @@ describe('Land: economía, rivales y preparación de la IA', () => {
     const g = newLandGame('humano', 'orcos', 1, 'normal', 42), side = g.sides[0], base = g.buildings.find(b => b.owner === 0)!;
     side.stone = side.gem = 5000;
     expect(researchEvolution(g, base.id)).toBe(false);
-    const barracks=addBuilding(g,0,'barracks',base.x+500,base.y);barracks.built=1;side.energy = 16; expect(researchEvolution(g, barracks.id)).toBe(true); expect(side.energy).toBe(0);
+    const barracks=addBuilding(g,0,'barracks',base.x+500,base.y);barracks.built=1;side.levels.melee=2;side.energy = 25; expect(researchEvolution(g, barracks.id)).toBe(true); expect(side.energy).toBe(0);
     const workshop = addBuilding(g, 0, 'eliteBarracks', base.x + 300, base.y); workshop.built = 1;
     expect(train(g, workshop.id, 'elite')).toBe(false);
-    side.energy = 40; expect(train(g, workshop.id, 'elite')).toBe(true); expect(side.energy).toBe(0);
+    side.energy = 25; expect(train(g, workshop.id, 'elite')).toBe(true); expect(side.energy).toBe(0);
     const stone = side.stone, gem = side.gem; cancelTrain(g, workshop.id);
-    expect(side.energy).toBe(40); expect(side.stone).toBeGreaterThan(stone); expect(side.gem).toBeGreaterThan(gem);
+    expect(side.energy).toBe(25); expect(side.stone).toBeGreaterThan(stone); expect(side.gem).toBeGreaterThan(gem);
   });
   it('crea economías y bases independientes para varias civilizaciones', () => {
     const g = newLandGame('humano', ['orcos', 'elfos', 'nomuerta'], 5, 'normal', 42);
@@ -52,7 +52,7 @@ describe('Land: economía, rivales y preparación de la IA', () => {
   it('exige preparación e infraestructura antes de atacar, incluso con tropas disponibles', () => {
     const g = newLandGame('humano', 'orcos', 5, 'normal', 42), base = g.buildings.find(b => b.owner === 1)!;
     for (let i = 0; i < 8; i++) addUnit(g, 1, 'worker', base.x + 70, base.y);
-    for (let i = 0; i < 13; i++) addUnit(g, 1, i === 0 ? 'heavy' : 'melee', base.x + 100 + i * 10, base.y + 50);
+    for (let i = 0; i < 25; i++) addUnit(g, 1, i === 0 ? 'heavy' : 'melee', base.x + 100 + i * 10, base.y + 50);
     g.t = 181; stepLand(g, .05); expect(g.ai.wave).toBe(0);
     g.t = AI_PREPARE.normal + 1; g.ai.t = 0; stepLand(g, .05); expect(g.ai.wave).toBe(0);
     for (const kind of ['depot', 'workerBarracks', 'barracks', 'rangedBarracks', 'specialBarracks', 'workshop', 'eliteBarracks', 'tower'] as const) { const b = addBuilding(g, 1, kind, base.x + 300, base.y - 200); b.built = 1; }
