@@ -89,7 +89,7 @@ export function unitStats(g: LandGame, owner: Owner, role: Role,levelOverride?:n
   const s: UnitStats = { ...base, ...mod, cost: { ...base.cost, ...mod.cost } };
   const level=levelIndex(levelOverride??evolutionLevel(g,owner,role));
   const buff = side.buffT > 0 && civ.power.kind === 'rage' ? 1.5 : 1;
-  return {...s,time:UNIT_TRAINING_SECONDS,cost:affordableTrainingCost(s.cost),dmg:s.dmg*LEVEL_DAMAGE[level]*buff,hp:s.hp*LEVEL_HEALTH[level],cool:s.cool/LEVEL_CADENCE[level],heal:s.heal?s.heal*LEVEL_DAMAGE[level]:undefined,size:s.size*unitScale(side.civ,role,level),range:s.range*LEVEL_RANGE[level],speed:s.speed*LEVEL_SPEED[level]*(buff>1?1.25:1)};
+  return {...s,time:UNIT_TRAINING_SECONDS,splash:s.splash?Math.max(s.splash*2,s.size*.8):undefined,cost:affordableTrainingCost(s.cost),dmg:s.dmg*LEVEL_DAMAGE[level]*buff,hp:s.hp*LEVEL_HEALTH[level],cool:s.cool/LEVEL_CADENCE[level],heal:s.heal?s.heal*LEVEL_DAMAGE[level]:undefined,size:s.size*unitScale(side.civ,role,level),range:s.range*LEVEL_RANGE[level],speed:s.speed*LEVEL_SPEED[level]*(buff>1?1.25:1)};
 }
 export const specialHeals = (civ: CivId) => CIVS[civ].special === 'heal';
 
