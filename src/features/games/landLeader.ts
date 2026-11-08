@@ -1,11 +1,12 @@
 import {CIVS} from './landCivs';
+import {foodBlocked} from './landProvision';
 import {type Cost,type LandEvent,type LandGame} from './land';
 export interface LeaderMessage {id:number;time:number;text:string}
 export function missingResources(g:LandGame,cost:Cost){
-  const s=g.sides[0],missing=([['stone','cristales azules'],['gem','cristales dorados'],['energy','cristales verdes']] as const).filter(([k])=>s[k]<(cost[k]??0)).map(([k,name])=>`${Math.ceil((cost[k]??0)-s[k])} ${name}`);
+  const s=g.sides[0],missing=([['stone','cristales azules'],['gem','cristales dorados'],['energy','cristales verdes'],['rock','piedras']] as const).filter(([k])=>s[k]<(cost[k]??0)).map(([k,name])=>`${Math.ceil((cost[k]??0)-s[k])} ${name}`);
   return missing.length?`Nos faltan ${missing.join(' y ')} para completar esta orden.`:'';
 }
-export function readySoldiers(g:LandGame){return g.units.filter(u=>u.owner===0&&!u.dead&&u.role!=='worker'&&!(u.role==='special'&&CIVS[g.sides[0].civ].special==='heal')).length;}
+export function readySoldiers(g:LandGame){return g.units.filter(u=>u.owner===0&&!u.dead&&u.role!=='worker'&&!foodBlocked(g,u.owner,u.role)&&!(u.role==='special'&&CIVS[g.sides[0].civ].special==='heal')).length;}
 export class LandLeaderReports{
   private warned=new Map<number,number>();
   private battle:{last:number;report:number;own:number;foes:number;dirty:boolean}|null=null;
@@ -32,7 +33,7 @@ export class LandLeaderReports{
     }
     const ids=new Set(g.units.filter(u=>!u.dead).map(u=>u.id));for(const id of this.warned.keys())if(!ids.has(id))this.warned.delete(id);
     if(g.t>15&&g.t-this.economyAt>=60){
-      const s=g.sides[0],low=[s.stone<50?'cristales azules':null,s.gem<25?'cristales dorados':null,s.energy<16?'cristales verdes':null].filter(Boolean);
+      const s=g.sides[0],low=[s.stone<50?'cristales azules':null,s.gem<25?'cristales dorados':null,s.energy<16?'cristales verdes':null,s.rock<30?'piedras':null,s.food<100?'alimentos: asigná trabajadores a cosechas y construí un Almacén':null].filter(Boolean);
       if(low.length){messages.push(`Nuestras reservas de ${low.join(', ')} son bajas. Necesitamos enviar trabajadores a recolectar.`);this.economyAt=g.t;}
     }
     const b=this.battle;if(b){const ended=g.t-b.last>=12||g.phase!=='play';if((b.dirty&&g.t-b.report>=4)||ended){messages.push(`${ended?'Terminó el enfrentamiento':'Balance del ataque'}: ${b.own} bajas propias y ${b.foes} bajas enemigas. Tenemos ${readySoldiers(g)} soldados listos para luchar.`);b.report=g.t;b.dirty=false;}if(ended)this.battle=null;}

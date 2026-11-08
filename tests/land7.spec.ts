@@ -38,7 +38,7 @@ test('Land 7: lista de rivales, fotografías, energía y geometría del menú', 
   if (info.project.name === 'mobile') await page.getByRole('button', { name: 'Un trabajador sin hacer nada', exact: true }).click();
   else await page.mouse.dblclick(world.x + point.x, world.y + point.y);
   await expect(page.locator('.land-group button')).not.toHaveCount(0);
-  await expect(page.locator('.land-cmds .land-icon')).not.toHaveCount(0);
+  await expect(page.locator('.land-cmds .land-command-label')).not.toHaveCount(0);
   if (info.project.name === 'desktop') {
     const hud = (await page.locator('.land-hud').boundingBox())!, sidebar = (await page.locator('.land-intel').boundingBox())!;
     expect(Math.abs(hud.x - sidebar.width)).toBeLessThan(3);

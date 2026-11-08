@@ -30,6 +30,8 @@ const files = [
   'tests/land14.spec.ts', 'scripts/prepare-land-events.mjs', 'docs/land-correcciones-14.md',
   'tests/land15.spec.ts', 'docs/land-correcciones-15.md',
   'tests/land16.spec.ts', 'scripts/prepare-land-portraits.mjs', 'docs/land-correcciones-16.md',
+  'tests/land17.spec.ts', 'scripts/prepare-land-evolutions.mjs', 'docs/land-correcciones-17.md', 'docs/land17-prompts.json',
+  'docs/land17-cuartel.png', 'docs/land17-cosecha.png', 'docs/land17-evoluciones.png',
 ];
 function collect(dir) {
   for (const entry of fs.readdirSync(path.join(source, dir), { withFileTypes: true })) {

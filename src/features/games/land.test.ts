@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUILD_STATS, POWER_MAX, ROLE_STATS, addUnit, canPlace, castPower, newLandGame, orderMove, orderSmart, placeBuilding, popCap, popUsed, research, stepLand, takeLandEvents, train, type LandGame } from './land';
+import { BUILD_STATS, POWER_MAX, ROLE_STATS, addBuilding, addUnit, canPlace, castPower, newLandGame, orderMove, orderSmart, placeBuilding, popCap, popUsed, researchEvolution, stepLand, takeLandEvents, train, type LandGame } from './land';
 import { CIVS, CIV_IDS } from './landCivs';
 import { MAP_SIZES, THEMES, findPath, generateTerrain, walkable, type MapSize } from './landMap';
 const spot = (g: LandGame, k: 'barracks' | 'workshop', x: number, y: number) => { for (let r = 200; r < 800; r += 40) for (let a = 0; a < 6.28; a += 0.4) { const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r * 0.7; if (canPlace(g, k, px, py)) return [px, py]; } return [x, y]; };
@@ -9,9 +9,9 @@ const mine = (g: LandGame) => g.units.filter(u => u.owner === 0 && !u.dead);
 const base = (g: LandGame, o: 0 | 1) => g.buildings.find(b => b.owner === o && b.kind === 'base' && !b.dead)!;
 
 describe('Land of Warriors', () => {
-  it('las 10 civilizaciones tienen sus seis guerreros, diez construcciones y un poder', () => {
+  it('las 10 civilizaciones tienen sus seis guerreros, doce construcciones y un poder', () => {
     expect(CIV_IDS).toHaveLength(10);
-    for (const c of CIV_IDS) { expect(Object.keys(CIVS[c].units)).toHaveLength(6); expect(Object.keys(CIVS[c].buildings)).toHaveLength(10); expect(CIVS[c].power.name).toBeTruthy(); }
+    for (const c of CIV_IDS) { expect(Object.keys(CIVS[c].units)).toHaveLength(6); expect(Object.keys(CIVS[c].buildings)).toHaveLength(12); expect(CIVS[c].power.name).toBeTruthy(); }
   });
   it('arranca con una base, cuatro trabajadores y cristales cerca', () => {
     const g = newLandGame('humano', 'orcos', 5, 'normal', 1);
@@ -65,11 +65,11 @@ describe('Land of Warriors', () => {
     expect(hurt.hp).toBeGreaterThan(40);
     expect(healer.hp).toBeGreaterThan(0);
   });
-  it('las mejoras suben el ataque de todo el ejército', () => {
+  it('las evoluciones benefician solamente al personaje del cuartel', () => {
     const g = newLandGame('humano', 'orcos', 3, 'normal', 7); g.ai.t = 1e9; g.sides[0].stone = 5000; g.sides[0].gem = 5000; g.sides[0].energy = 100;
-    expect(research(g, base(g, 0).id, 'attack')).toBe(true);
-    run(g, 19);
-    expect(g.sides[0].up.attack).toBe(1);
+    expect(researchEvolution(g, base(g,0).id)).toBe(false);const barracks=addBuilding(g,0,'barracks',900,900);barracks.built=1;expect(researchEvolution(g,barracks.id)).toBe(true);
+    run(g, 26);
+    expect(g.sides[0].levels.melee).toBe(1);expect(g.sides[0].levels.ranged).toBe(0);
   });
   it('el poder especial: la explosión daña a los enemigos del lugar', () => {
     const g = newLandGame('humano', 'orcos', 3, 'normal', 8); g.ai.t = 1e9;
@@ -88,7 +88,7 @@ describe('Land of Warriors', () => {
   it('la computadora desarrolla su base y ataca después de prepararse', () => {
     const g = newLandGame('humano', 'orcos', 5, 'normal', 10);
     for (const u of mine(g)) u.order = { k: 'idle' }; // (el jugador no hace nada)
-    run(g, 660);
+    run(g, 1000);
     const ai = g.units.filter(u => u.owner === 1 && !u.dead);
     expect(g.buildings.some(b => b.owner === 1 && b.kind === 'barracks' && b.built >= 1)).toBe(true);
     expect(ai.filter(u => u.role !== 'worker').length + g.sides[0].lost).toBeGreaterThan(3);

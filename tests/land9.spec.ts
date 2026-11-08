@@ -9,7 +9,7 @@ test('Land 9: informe, líder, actividad de tropas y construcción ampliada',asy
   await page.goto(base+'#/juegos');await page.getByRole('link',{name:/Land of Warriors/}).click();await page.getByRole('button',{name:/Iniciar/}).click();
   await page.getByRole('button',{name:'Imperio Humano',exact:true}).click();
   await page.getByRole('button',{name:'¡VER!',exact:true}).click();
-  await expect(page.locator('.land-info-grid article')).toHaveCount(16);await expect(page.getByRole('img',{name:'Líder de Imperio Humano',exact:true})).toBeVisible();
+  await expect(page.locator('.land-info-grid article')).toHaveCount(18);await expect(page.getByRole('img',{name:'Líder de Imperio Humano',exact:true})).toBeVisible();
   await expect(page.locator('.land-infographic')).not.toContainText('VISTA EN EL JUEGO');await page.screenshot({path:info.outputPath('informe.png')});
   await page.getByRole('button',{name:/Elegir escenario/}).click();await page.getByRole('button',{name:/Iniciar/}).click();await expect(page.getByTestId('land-energy')).toBeVisible({timeout:30000});
   const open=async()=>{if(info.project.name==='mobile')await page.getByRole('button',{name:'Tropas y líder',exact:true}).click();};await open();
@@ -23,8 +23,8 @@ test('Land 9: informe, líder, actividad de tropas y construcción ampliada',asy
   await expect(page.locator('.land-troop-row')).toHaveAttribute('aria-pressed','true');
   await page.getByRole('button',{name:'Trabajadores 4',exact:true}).click();await expect(page.locator('.land-troop-row')).toHaveCount(1);
   await page.locator('.land-troop-row').first().click();
-  await page.getByRole('button',{name:/Cuartel Recluta: Entrena/}).click();await expect(page.getByRole('region',{name:'Vista ampliada de construcción',exact:true})).toContainText('Cuartel');
-  const preview=(await page.locator('.land-build-preview').boundingBox())!;expect(preview.width).toBeGreaterThan(180);
+  await page.getByRole('button',{name:/Cuartel Recluta: Entrena/}).click();await expect(page.getByRole('region',{name:'Información de selección',exact:true})).toContainText('Cuartel');
+  const preview=(await page.locator('.land-selection-inspector').boundingBox())!;expect(preview.width).toBeGreaterThan(120);
   await page.screenshot({path:info.outputPath('construccion.png')});await page.locator('.land-mode').getByRole('button',{name:'Cancelar',exact:true}).click();
   await open();await page.evaluate(async base=>{
     const {addUnit}=await import(base+'src/features/games/land.ts');const g=(window as DebugWindow).__landGame(),w=g.units.find(u=>u.owner===0&&u.role==='worker')!;

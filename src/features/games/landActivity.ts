@@ -1,5 +1,6 @@
 import { BUILD_STATS, type LandGame, type Unit } from './land';
 import { CIVS } from './landCivs';
+import {foodBlocked,FOOD_NAMES} from './landProvision';
 import type { Role } from './land';
 export type ActivityKind='idle'|'move'|'gather'|'build'|'attack';
 export interface TroopActivity {kind:ActivityKind;label:string;detail:string}
@@ -12,7 +13,8 @@ export function troopGroups(g:LandGame):TroopGroup[]{
     if(o.k==='gather'){
       const resource=u.carryKind??g.nodes.find(n=>n.id===o.node)?.kind;
       mission=`gather:${resource??'resources'}`;
-      task=`Recolección de ${resource==='gem'?'oro':resource==='stone'?'cristales azules':resource==='energy'?'cristales verdes':'recursos'}`;
+      task=`Recolección de ${resource==='gem'?'oro':resource==='stone'?'cristales azules':resource==='energy'?'cristales verdes':resource==='rock'?'piedras':'recursos'}`;
+    }else if(o.k==='farm'){mission='farm';task='Cultivo y entrega de alimentos';
     }else if(o.k==='build'){
       const b=g.buildings.find(q=>q.id===o.id&&!q.dead&&q.built<1);
       if(b){mission=`build:${b.kind}`;task=`Construcción de ${CIVS[g.sides[b.owner].civ].buildings[b.kind]}`;}
@@ -38,6 +40,8 @@ export function troopGroupName(name:string,count:number){
 }
 export function troopActivity(g:LandGame,u:Unit):TroopActivity{
   const o=u.order;
+  if(foodBlocked(g,u.owner,u.role))return {kind:'idle',label:'Sin alimento',detail:'Esperando una entrega en el Almacén'};
+  if(o.k==='farm')return {kind:'gather',label:'Cultivando alimentos',detail:FOOD_NAMES[g.sides[u.owner].civ]};
   if(o.k==='idle')return {kind:'idle',label:'En espera',detail:'Lista para recibir órdenes'};
   if(o.k==='move')return {kind:'move',label:o.attack?'Avanzando en combate':'Marchando',detail:'En camino al destino señalado'};
   if(o.k==='attack'){
@@ -52,7 +56,7 @@ export function troopActivity(g:LandGame,u:Unit):TroopActivity{
     return {kind:'build',label:close?'Construyendo':'Yendo a la obra',detail:`${CIVS[g.sides[b.owner].civ].buildings[b.kind]} · ${Math.floor(b.built*100)}%`};
   }
   const node=g.nodes.find(n=>n.id===o.node),kind=u.carryKind??node?.kind;
-  const resource=kind==='energy'?'cristales verdes':kind==='gem'?'cristales dorados':kind==='stone'?'cristales azules':'recursos';
+  const resource=kind==='energy'?'cristales verdes':kind==='gem'?'cristales dorados':kind==='stone'?'cristales azules':kind==='rock'?'piedras':'recursos';
   if(u.carry>0)return {kind:'gather',label:'Transportando recursos',detail:`${u.carry} ${resource} hacia un depósito`};
   const close=node&&Math.hypot(u.x-node.x,u.y-node.y)<=28;
   return {kind:'gather',label:close?'Recolectando':'Buscando recursos',detail:resource.charAt(0).toUpperCase()+resource.slice(1)};

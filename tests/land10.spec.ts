@@ -10,13 +10,13 @@ test('Land 10: seis cuarteles, seis personajes exclusivos',async({page},info)=>{
   await page.goto(base+'#/juegos');await page.getByRole('link',{name:/Land of Warriors/}).click();await page.getByRole('button',{name:/Iniciar/}).click();
   await page.getByRole('button',{name:'Imperio Humano',exact:true}).click();
   await page.getByRole('button',{name:'¡VER!',exact:true}).click();
-  const buildings=page.locator('.land-info-buildings article');await expect(buildings).toHaveCount(10);
+  const buildings=page.locator('.land-info-buildings article');await expect(buildings).toHaveCount(12);
   const recruits=['Ingeniero','Recluta','Fusilero Pesado','Médico','Tanque Bastión','Exoélite'];
   for(const unit of recruits)await expect(buildings.getByRole('heading',{name:`Cuartel ${unit}`,exact:true})).toBeVisible();
   await page.locator('.land-info-buildings').scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('cuarteles-informe.png')});
   await page.getByRole('button',{name:/Elegir escenario/}).click();await page.getByRole('button',{name:/Iniciar/}).click();await expect(page.getByTestId('land-energy')).toBeVisible({timeout:30000});
   await page.getByRole('button',{name:'Un trabajador sin hacer nada',exact:true}).click();
-  await page.getByRole('button',{name:/^Cuartel Ingeniero:/}).click();await expect(page.locator('.land-build-preview h3')).toHaveText('Cuartel Ingeniero');
+  await page.getByRole('button',{name:/^Cuartel Ingeniero:/}).click();await expect(page.locator('.land-selection-inspector h3')).toContainText('Cuartel Ingeniero');
   await page.locator('.land-mode').getByRole('button',{name:'Cancelar',exact:true}).click();
   const kinds:BKind[]=['workerBarracks','barracks','rangedBarracks','specialBarracks','workshop','eliteBarracks'];
   for(const [i,kind] of kinds.entries()){
@@ -29,7 +29,7 @@ test('Land 10: seis cuarteles, seis personajes exclusivos',async({page},info)=>{
       return {id:b.id,x:c.w*(mobile ? .25 : .72),y:270,role:(await import(base+'src/features/games/land.ts')).BUILD_STATS[kind].makes[0]};
     },{base,kind,i,mobile:info.project.name==='mobile'});
     const stage=(await page.locator('.land-stage>canvas').boundingBox())!;await page.mouse.click(stage.x+fixture.x,stage.y+fixture.y);
-    await expect(page.locator('.land-build-preview h3')).toHaveText(`Cuartel ${recruits[i]}`);
+    await expect(page.locator('.land-selection-inspector h3')).toHaveText(`Cuartel ${recruits[i]}`);
     const trainButtons=page.locator('.land-cmds').getByRole('button',{name:/^(Ingeniero|Recluta|Fusilero Pesado|Médico|Tanque Bastión|Exoélite):/});
     await expect(trainButtons).toHaveCount(1);await expect(trainButtons).toHaveAttribute('aria-label',new RegExp(`^${recruits[i]}:`));
     await trainButtons.click();await trainButtons.click();

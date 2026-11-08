@@ -1,5 +1,8 @@
 // Land of Warriors: el dibujo del mapa, los recursos, las construcciones, los guerreros y los disparos.
-import { BUILD_STATS, ROLE_STATS, ROLES, type BKind, type Building, type LandGame, type Role, type Unit, type Node } from './land';
+import {evolutionLevel,foodBlocked} from './landProvision';
+import {evolvedSprite,evolutionsReady} from './landEvolutionArt';
+import {drawFarm,drawStorehouse} from './landFarmArt';
+import { BUILD_STATS, unitStats, ROLE_STATS, ROLES, type BKind, type Building, type LandGame, type Role, type Unit, type Node } from './land';
 import { CIVS, CIV_IDS, TRAINING_ROLE, type CivId } from './landCivs';
 import { drawAmbientTerrain, type TerrainRegion } from './landMapArt';
 import { drawWorldProp } from './landProps';
@@ -40,13 +43,16 @@ export function spritesReady() {
       image.src = URLS['./assets/land/units-' + civ + '.webp'];
     }
   }
-  return CIV_IDS.every(c => !!SPRITES[c]);
+  const upgradedReady=evolutionsReady();return CIV_IDS.every(c => !!SPRITES[c])&&upgradedReady;
 }
 // Dibuja un recorte apoyado en (x, y) (el piso), de alto h (o de ancho w si es más ancho que alto).
-export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number, motion = 0, attack = 0,kneel=0) {
+export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number, motion = 0, attack = 0,kneel=0,level=0):boolean {
+  if(idx===12)return drawFarm(ctx,civ,x,y,Math.min(maxW??h,h*1.7),h*.52);
+  if(idx===13){const ok=drawSprite(ctx,civ,10,x,y,h,flip,maxW);if(ok)drawStorehouse(ctx,civ,x,y,Math.min(maxW??h,h*1.3),h);return ok;}
   if (idx === 11) return drawWall(ctx,civ,x,y,Math.min(maxW ?? h,h*1.2),h);
   spritesReady();
-  const image = SPRITES[civ], frame = FRAMES[civ]?.[idx]; if (!image || !frame) return false;
+  let image = SPRITES[civ], frame = FRAMES[civ]?.[idx]; if (!image || !frame) return false;
+  if(level>0&&idx<6){const upgraded=evolvedSprite(civ,idx,level);if(!upgraded)return false;image=upgraded.image;frame=upgraded.frame;}
   const { sx, sy, sw, sh } = frame;
   let k = h / sh; if (maxW && sw * k > maxW) k = maxW / sw;
   const dw = sw * k, dh = sh * k;
@@ -65,7 +71,7 @@ export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: numbe
       ctx.drawImage(image,sx+sw*fx,sy+sh*joint,sw*fw,sh*(end-joint),(fx-px)*dw,-.35,fw*dw,(end-joint)*dh+.7);ctx.restore();
     };
     if (kind==='biped') {
-      drawRig(ctx,image,frame,`${civ}:${idx}`,dw,dh,motion,attack,kneel);
+      drawRig(ctx,image,frame,`${civ}:${idx}:${level}`,dw,dh,motion,attack,kneel);
     } else if(kind==='treads') {
       piece(0,0,1,1,.5,1,Math.sin(motion*2)*.004,Math.sin(motion*4)*.3);
     } else if(kind==='fly') {
@@ -81,7 +87,7 @@ export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: numbe
   ctx.restore(); return true;
 }
 export const roleIdx = (r: Role) => ROLES.indexOf(r);
-export const bIdx = (k: BKind) => k==='base'?6:k==='tower'?9:k==='depot'||k==='workerBarracks'?10:k==='wall'?11:k==='workshop'||k==='eliteBarracks'?8:7;
+export const bIdx = (k: BKind) => k==='farm'?12:k==='storehouse'?13:k==='base'?6:k==='tower'?9:k==='depot'||k==='workerBarracks'?10:k==='wall'?11:k==='workshop'||k==='eliteBarracks'?8:7;
 export const TEAM = ['#4ade80', '#f87171', '#a78bfa', '#38bdf8', '#fbbf24', '#fb923c', '#f472b6', '#2dd4bf', '#c084fc', '#e2e8f0'];
 
 export interface Cam { x: number; y: number; w: number; h: number; z: number } // (x, y: el mundo arriba a la izquierda; z: el zoom)
@@ -93,6 +99,7 @@ function crystal(ctx: CanvasRenderingContext2D, x: number, y: number, s: number,
   ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.moveTo(x - s * 0.1, y - s * 1.4); ctx.lineTo(x + s * 0.12, y - s * 0.5); ctx.lineTo(x - s * 0.2, y - s * 0.4); ctx.closePath(); ctx.fill();
 }
 export function drawNode(ctx: CanvasRenderingContext2D, n: Node, t: number) {
+  if(n.kind==='rock'){ctx.save();ctx.fillStyle='#323b40';ctx.beginPath();ctx.ellipse(n.x,n.y+3,28,10,0,0,Math.PI*2);ctx.fill();if(!drawWorldProp(ctx,4,n.x,n.y,55,70)){ctx.fillStyle='#778087';ctx.beginPath();ctx.moveTo(n.x-24,n.y);ctx.lineTo(n.x-17,n.y-28);ctx.lineTo(n.x+4,n.y-42);ctx.lineTo(n.x+27,n.y-18);ctx.lineTo(n.x+20,n.y+3);ctx.closePath();ctx.fill();ctx.strokeStyle='#b3b8bc';ctx.stroke();}ctx.restore();return;}
   const gem = n.kind === 'gem', energy = n.kind === 'energy', k = 1.7 * Math.max(0.5, Math.min(1, n.amount / 700)); // (grandes: se ven bien al lado de los guerreros)
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(n.x, n.y + 2, 24 * k, 8 * k, 0, 0, Math.PI * 2); ctx.fill();
@@ -131,7 +138,7 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, g: LandGame, b: Buil
     }
     if (!b.dead) {
       // Balizas, vapor y actividad de producción sobre el edificio real.
-      const active = b.queue.length > 0 || !!b.research;
+      const active = b.queue.length > 0 || !!b.evolving;
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = CIVS[civ].color; ctx.globalAlpha = 0.35 + Math.sin(t * (active ? 6 : 2) + b.id) * 0.2;
       for (const dx of [-0.25, 0.25]) { ctx.beginPath(); ctx.arc(b.x + w * dx, b.y - h * 0.43, 2.5, 0, Math.PI * 2); ctx.fill(); }
@@ -158,7 +165,7 @@ function bar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, k: 
 }
 // ---------------------------------------------------------------- Guerreros
 export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t: number, selected: boolean) {
-  const s = ROLE_STATS[u.role], civ = g.sides[u.owner].civ, h = s.size, fade = u.dead ? Math.max(0, 1 - u.dead / 1.1) : 1;
+  const s = unitStats(g,u.owner,u.role), civ = g.sides[u.owner].civ, h = s.size, fade = u.dead ? Math.max(0, 1 - u.dead / 1.1) : 1;
   if (u.dead) { drawDeath(ctx,civ,u,h); return; }
   const moving=!!u.moving,phase=walkingPhase(u.walk);
   const bob = moving ? Math.abs(Math.sin(phase)) * 1.6 : Math.sin(t * 2.4 + u.id) * 0.8;
@@ -171,9 +178,11 @@ export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t:
   if (u.dead) { ctx.translate(u.x, u.y); ctx.rotate(u.face * Math.min(1.3, u.dead * 3)); ctx.translate(-u.x, -u.y); }
   const sq = moving ? 1 + Math.sin(phase*2) * 0.009 : 1;
   ctx.translate(u.x + lunge, u.y - bob - fly); ctx.scale(1 / sq, sq);
-  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? phase : 0,u.atkT>=0?Math.sin(Math.min(1,u.atkT/.3)*Math.PI):0,u.kneel??0)) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
+  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? phase : 0,u.atkT>=0?Math.sin(Math.min(1,u.atkT/.3)*Math.PI):0,u.kneel??0,evolutionLevel(g,u.owner,u.role))) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
   ctx.restore();
-  if (u.carry > 0 && !u.dead) crystal(ctx, u.x + u.face * -10, u.y - h * 0.7, 5, u.carryKind === 'energy' ? '#baffd5' : u.carryKind === 'gem' ? '#fff6c8' : '#d7ecff', u.carryKind === 'energy' ? '#22d875' : u.carryKind === 'gem' ? '#f5b81a' : '#3b82f6', u.carryKind === 'energy' ? '#075a30' : u.carryKind === 'gem' ? '#9a5a00' : '#1e3a8a');
+  if(foodBlocked(g,u.owner,u.role)&&!u.dead){ctx.fillStyle='#ffcd87';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.fillText('SIN ALIMENTO',u.x,u.y-h-15);}
+  if(u.carry>0&&!u.dead&&(u.carryKind==='food'||u.carryKind==='rock')){ctx.fillStyle=u.carryKind==='food'?'#77984c':'#8c9297';ctx.fillRect(u.x-8,u.y-h*.65,13,10);}
+  else if (u.carry > 0 && !u.dead) crystal(ctx, u.x + u.face * -10, u.y - h * 0.7, 5, u.carryKind === 'energy' ? '#baffd5' : u.carryKind === 'gem' ? '#fff6c8' : '#d7ecff', u.carryKind === 'energy' ? '#22d875' : u.carryKind === 'gem' ? '#f5b81a' : '#3b82f6', u.carryKind === 'energy' ? '#075a30' : u.carryKind === 'gem' ? '#9a5a00' : '#1e3a8a');
   if (!u.dead && (u.hp < u.maxHp || selected)) bar(ctx, u.x, u.y - h - fly - 6, Math.max(26, h * 0.6), u.hp / u.maxHp, u.owner === 0 ? '#4ade80' : '#f87171');
 }
 // ---------------------------------------------------------------- Disparos, curaciones y explosiones
@@ -230,7 +239,7 @@ export function drawMinimap(ctx: CanvasRenderingContext2D, g: LandGame, map: HTM
   if (map) { if (!MINI || MINI.src !== map) { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d')!; x.imageSmoothingQuality = 'high'; x.drawImage(map, 0, 0, w, h); MINI = { src: map, c }; } ctx.drawImage(MINI.c, 0, 0); } else { ctx.fillStyle = '#2a2a2a'; ctx.fillRect(0, 0, w, h); }
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 0, w, h);
   const kx = w / g.terrain.w, ky = h / g.terrain.h;
-  for (const n of g.nodes) { ctx.fillStyle = n.kind === 'energy' ? '#4ade80' : n.kind === 'gem' ? '#fbbf24' : '#60a5fa'; ctx.fillRect(n.x * kx - 1, n.y * ky - 1, 2, 2); }
+  for (const n of g.nodes) { ctx.fillStyle = n.kind==='rock'?'#b8bbc0':n.kind === 'energy' ? '#4ade80' : n.kind === 'gem' ? '#fbbf24' : '#60a5fa'; ctx.fillRect(n.x * kx - 1, n.y * ky - 1, 2, 2); }
   for (const b of g.buildings) if (!b.dead) { const s = BUILD_STATS[b.kind].size * kx * 0.9; ctx.fillStyle = TEAM[b.owner]; ctx.fillRect(b.x * kx - s / 2, b.y * ky - s / 2, s, s); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(b.x * kx - s / 2, b.y * ky - s / 2, s, s); }
   for (const u of g.units) if (!u.dead) { ctx.fillStyle = TEAM[u.owner]; ctx.fillRect(u.x * kx - 1.5, u.y * ky - 1.5, 3, 3); }
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(cam.x * kx, cam.y * ky, cam.w / cam.z * kx, (cam.h - LAND_HUD_HEIGHT) / cam.z * ky);
