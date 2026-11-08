@@ -131,3 +131,17 @@
 .land.land-v9 .land-pick .land-opts>.land-chips{display:grid;grid-template-columns:1fr 1fr;gap:7px;width:100%;flex:none}
 .land.land-v9 .land-pick .land-opts>.land-chips>span{grid-column:1/-1}.land.land-v9 .land-pick .land-opts>.land-chips>button{min-height:38px;min-width:0;font-size:12px}
 .land.land-v9 .land-base-preview>.land-building-sprite{height:130px!important}.land.land-v9 .land-base-preview>.land-building-sprite>canvas{height:130px!important;width:auto!important;max-width:100%}
+/* Revisión 14: retratos completos y navegación interna. */
+.land.land-v9 .land-menu-back{border:1px solid #517694;background:#0a2138;border-radius:5px;padding:8px 14px;color:#f6d895;font:14px Orbitron,sans-serif;cursor:pointer}
+.land.land-v9 .land-chosen-heading{align-items:center;text-align:left;gap:22px}.land.land-v9 .land-chosen-heading .land-leader-portrait{width:200px;height:200px;flex-basis:200px;background-size:760% auto;background-position:0 0;border-width:3px}
+.land.land-v9 .land-chosen-heading h2{font-size:24px}.land.land-v9 .land-chosen-civ>.land-ghost{font-size:18px;padding:10px 25px;color:#ffedb4}
+.land.land-v9 .land-civ-choice{min-height:148px}.land-civ-face{display:block;flex:0 0 112px}.land.land-v9 .land-civ-face .land-leader-portrait{width:108px;height:118px;background-size:760% auto;background-position:0 0}
+@media(max-width:1000px){.land.land-v9 .land-chosen-heading{flex-wrap:wrap;gap:12px}.land.land-v9 .land-chosen-heading .land-leader-portrait{width:180px;height:180px;flex-basis:180px}.land-civ-face{flex-basis:80px}.land.land-v9 .land-civ-face .land-leader-portrait{width:76px;height:88px}}
+@media(max-width:650px){.land.land-v9 .land-civ-choice{min-height:112px}.land-civ-face{flex-basis:58px}.land.land-v9 .land-civ-face .land-leader-portrait{width:54px;height:68px}.land.land-v9 .land-chosen-heading .land-leader-portrait{width:180px;height:180px;flex-basis:180px}.land.land-v9 .land-chosen-heading h2{font-size:20px}}
+.land.land-v9>.land-bar{position:relative;z-index:45;flex-shrink:0;background:#071326}
+.land.land-v9 .land-sheet{top:58px}
+.land.land-v9 .land-chosen-heading .land-leader-portrait{height:170px}
+.land.land-v9 .land-civ-face .land-leader-portrait{height:90px}
+@media(max-width:1000px){.land.land-v9 .land-chosen-heading .land-leader-portrait{height:155px}.land.land-v9 .land-civ-face .land-leader-portrait{height:64px}}
+@media(max-width:650px){.land.land-v9 .land-civ-face .land-leader-portrait{height:46px}}
+.land.land-v9 button.land-exit{display:grid;place-items:center;padding:0;font-size:26px;line-height:1;cursor:pointer}

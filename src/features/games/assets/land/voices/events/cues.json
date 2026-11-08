@@ -1,0 +1,62 @@
+{
+  "burn": {
+    "civ": "humano",
+    "role": "acid",
+    "variant": 0,
+    "purpose": "effect",
+    "hash": "2cec041030bf7e783e531a921f51be7a7bd9900a2b8783511e58d76ee8bc7e22",
+    "file": "events/burn.mp3",
+    "source": "SONIDOS/fire.mp3",
+    "duration": 60.024,
+    "peak": 0.7796200513839722,
+    "rms": 0.19968033345355762,
+    "phrases": [
+      {
+        "start": 0,
+        "duration": 2.4,
+        "rms": 0.19968033345355762
+      }
+    ],
+    "steps": []
+  },
+  "built": {
+    "civ": "humano",
+    "role": "acid",
+    "variant": 0,
+    "purpose": "effect",
+    "hash": "e7dce50ba39da6004a264a54fd9b34fdcbe12fd4e6adc2f86263f3159771ae36",
+    "file": "events/built.mp3",
+    "source": "SONIDOS/construcción.mp3",
+    "duration": 4.488,
+    "peak": 0.9496238231658936,
+    "rms": 0.08670365944478306,
+    "phrases": [
+      {
+        "start": 0.228,
+        "duration": 3.5,
+        "rms": 0.08670365944478306
+      }
+    ],
+    "steps": []
+  },
+  "trained": {
+    "civ": "humano",
+    "role": "acid",
+    "variant": 0,
+    "purpose": "effect",
+    "hash": "6ea2874935e56596e14c113c0eaae1b869befbee9147714a8becf482253260df",
+    "file": "events/trained.mp3",
+    "source": "SONIDOS/personaje_creado.mp3",
+    "duration": 0.912,
+    "peak": 0.43462225794792175,
+    "rms": 0.04149194118257905,
+    "phrases": [
+      {
+        "start": 0.027,
+        "duration": 0.885,
+        "rms": 0.04149194118257905
+      }
+    ],
+    "steps": []
+  }
+}
