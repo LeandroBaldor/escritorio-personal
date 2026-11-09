@@ -1,9 +1,7 @@
-import {ROLE_STATS,ROLES,unitStats,type LandGame,type Role,type ResKind,type Building} from './land';
-import {CIVS,CIV_IDS,TRAINING_KIND} from './landCivs';
-import {LEVEL_HEALTH,LEVEL_DAMAGE,evolutionCost,evolutionTime,structureUpgradeCost,structureUpgradeTime,STRUCTURE_UPGRADES} from './landBalance';
-const references=CIV_IDS.flatMap(civ=>ROLES.map(role=>{const s={...ROLE_STATS[role],...CIVS[civ].mod[role]};return {hp:s.hp*LEVEL_HEALTH[4],power:Math.max(s.dmg,s.heal??0)*LEVEL_DAMAGE[4],force:s.dmg*(s.vsBuild??1)*(role==='worker'?.3:1)*LEVEL_DAMAGE[4]};}));
-export const SCORE_REFERENCE={resistance:Math.max(...references.map(s=>s.hp)),power:Math.max(...references.map(s=>s.power)),force:Math.max(...references.map(s=>s.force))};
-export function unitScores(game:LandGame,owner:number,role:Role){const s=unitStats(game,owner,role),score=(value:number,max:number)=>Math.max(0,Math.min(100,Math.round(value/max*100)));return {resistance:score(s.hp,SCORE_REFERENCE.resistance),power:score(Math.max(s.dmg,s.heal??0),SCORE_REFERENCE.power),force:score(s.dmg*(s.vsBuild??1)*(role==='worker'?.3:1),SCORE_REFERENCE.force)};}
+import {ROLES,unitStats,type LandGame,type Role,type ResKind,type Building} from './land';
+import {TRAINING_KIND} from './landCivs';
+import {evolutionCost,evolutionTime,structureUpgradeCost,structureUpgradeTime,STRUCTURE_UPGRADES} from './landBalance';
+export function unitScores(game:LandGame,owner:number,role:Role){const s=unitStats(game,owner,role),max=unitStats(game,owner,role,4),score=(value:number,limit:number)=>Math.max(0,Math.min(100,Math.round(value/limit*100)));return {resistance:score(s.hp,max.hp),power:score(Math.max(s.dmg,s.heal??0),Math.max(max.dmg,max.heal??0)),force:score(s.dmg*(s.vsBuild??1)*(role==='worker'?.3:1),max.dmg*(max.vsBuild??1)*(role==='worker'?.3:1))};}
 export function barracksMembers(game:LandGame,building:Building){return game.units.filter(u=>!u.dead&&u.owner===building.owner&&u.trainedAt===building.id);}
 export function villageRoster(game:LandGame,owner=0){return ROLES.map(role=>({role,level:game.sides[owner].levels[role],units:game.units.filter(u=>!u.dead&&u.owner===owner&&u.role===role)}));}
 export function resourceImprovement(game:LandGame,owner:number,kind:ResKind|'food'){

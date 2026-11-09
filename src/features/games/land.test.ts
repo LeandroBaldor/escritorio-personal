@@ -68,7 +68,7 @@ describe('Land of Warriors', () => {
   it('las evoluciones benefician solamente al personaje del cuartel', () => {
     const g = newLandGame('humano', 'orcos', 3, 'normal', 7); g.ai.t = 1e9; g.sides[0].stone = 5000; g.sides[0].gem = 5000; g.sides[0].energy = 100;
     expect(researchEvolution(g, base(g,0).id)).toBe(false);const barracks=addBuilding(g,0,'barracks',900,900);barracks.built=1;expect(researchEvolution(g,barracks.id)).toBe(true);
-    run(g, 26);
+    run(g, 180.1);
     expect(g.sides[0].levels.melee).toBe(2);expect(g.sides[0].levels.ranged).toBe(1);
   });
   it('el poder especial: la explosión daña a los enemigos del lugar', () => {

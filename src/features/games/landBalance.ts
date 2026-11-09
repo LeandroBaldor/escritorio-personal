@@ -1,23 +1,25 @@
 import {CIVS,type CivId} from './landCivs';
 import type {Cost,LandGame,Role} from './land';
 export const MAX_EVOLUTION=4;
-export const LEVEL_HEALTH=[0,2.4,4,6.2,8.5];
-export const LEVEL_DAMAGE=[0,1,1.4,2,2.8];
+export const LEVEL_CAPACITY=[0,13,26,51,100];
+export const LEVEL_HEALTH=LEVEL_CAPACITY.map(points=>points/13*2.4);
+export const LEVEL_DAMAGE=LEVEL_CAPACITY.map(points=>points/13);
 export const LEVEL_SPEED=[0,1,1.06,1.12,1.18];
 export const LEVEL_RANGE=[0,1,1.06,1.12,1.18];
 export const LEVEL_CADENCE=[0,1,1.05,1.1,1.16];
 export const levelIndex=(level:number)=>Math.max(1,Math.min(4,Math.floor(level)));
+export const levelCapacity=(level:number)=>LEVEL_CAPACITY[levelIndex(level)];
 export function unitScale(civ:CivId,role:Role,level:number){
   const giant=!['humano','elfos','enanos'].includes(civ)||civ==='elfos'&&(role==='heavy'||role==='elite')||civ==='enanos'&&role==='elite';
   return (giant?[0,1,1.3,1.7,2.15]:[0,1,1.07,1.16,1.28])[levelIndex(level)];
 }
 export function evolutionCost(level:number,role:Role='melee'):Required<Cost>{
-  const base=[{stone:100,gem:50,energy:0,rock:20},{stone:180,gem:100,energy:25,rock:40},{stone:300,gem:180,energy:60,rock:70}][Math.min(2,Math.max(0,level-1))];
+  const base=[{stone:100,gem:50,energy:10,rock:20},{stone:180,gem:100,energy:25,rock:40},{stone:300,gem:180,energy:60,rock:70}][Math.min(2,Math.max(0,level-1))];
   const factor=({worker:.65,melee:1,ranged:1,special:1.1,heavy:1.3,elite:1.5} as const)[role];
   const round=(n:number)=>Math.ceil(n*factor/5)*5;
-  return {stone:round(base.stone),gem:round(base.gem),energy:round(base.energy),rock:round(base.rock)};
+  return {stone:round(base.stone),gem:round(base.gem),energy:round(base.energy)*3,rock:round(base.rock)};
 }
-export const evolutionTime=(level:number)=>[0,20,30,40,40][levelIndex(level)];
+export const evolutionTime=(level:number)=>[0,180,180,180,180][levelIndex(level)];
 export const evolutionLevel=(g:LandGame,owner:number,role:Role)=>levelIndex(g.sides[owner].levels[role]);
 export const unitLabel=(g:LandGame,owner:number,role:Role)=>`${CIVS[g.sides[owner].civ].units[role]} Nivel ${evolutionLevel(g,owner,role)}`;
 export const EVOLUTION_NAMES=['','Inicial','Veterano','Campeón','Ascendido'];
