@@ -6,20 +6,19 @@ const run = (m: SoccerMatch, s: number, ev: SEvent[] = []) => { for (let t = 0; 
 const toPlay = (m: SoccerMatch) => { run(m, m.introLen + 0.05); expect(m.phase).toBe('play'); };
 
 describe('Kombat Football 5 contra 5', () => {
-  it('cada equipo tiene cinco: arquero, dos defensores y dos delanteros (el capitán es el elegido)', () => {
+  it('cada equipo tiene cinco iguales (el luchador elegido): arquero, dos defensores y dos delanteros', () => {
     const m = newSoccer('industrial', ['frost', 'thunder'], [null, 0.5], seeded(1));
     expect(m.players).toHaveLength(10);
     for (const t of [0, 1] as const) {
       const mine = m.players.filter(p => p.team === t);
       expect(mine.map(p => p.role)).toEqual(['gk', 'def', 'def', 'fwd', 'fwd']);
-      expect(mine.some(p => p.char === (t === 0 ? 'frost' : 'thunder'))).toBe(true);
+      expect(mine.every(p => p.char === (t === 0 ? 'frost' : 'thunder'))).toBe(true);
     }
-    expect(new Set(m.players.map(p => p.char)).size).toBe(10); // todos distintos
   });
-  it('arranca con el saque del medio: el capitán del que saca tiene la pelota', () => {
+  it('arranca con el saque del medio: un delantero del que saca tiene la pelota', () => {
     const m = newSoccer('industrial', ['frost', 'thunder'], [null, 0.5], seeded(2));
     toPlay(m);
-    expect(carrier(m)?.char).toBe(m.teams[m.kickoffTeam].captain);
+    expect(carrier(m)?.team).toBe(m.kickoffTeam); expect(carrier(m)?.role).toBe('fwd');
   });
   it('un tiro fuerte y derecho al arco vacío es gol', () => {
     const m = newSoccer('industrial', ['frost', 'thunder'], [null, null], seeded(3)); toPlay(m);
@@ -45,15 +44,41 @@ describe('Kombat Football 5 contra 5', () => {
     expect(m.teams[0].goals).toBe(1); // …y la curva la mete
     void z0;
   });
-  it('el poder al que tiene la pelota lo deja duro y la pelota queda suelta', () => {
+  it('el poder revienta al que le pega (sangre y huesos), suelta la pelota y después vuelve a entrar', () => {
     const m = newSoccer('industrial', ['inferno', 'thunder'], [null, null], seeded(5)); toPlay(m);
     const c = carrier(m)!, shooter = m.players.find(q => q.team !== c.team && q.role === 'def')!;
-    shooter.x = c.x - 6; shooter.z = c.z; m.teams[shooter.team].castT = 0;
-    expect(castPower(m, shooter)).toBe(true);
+    c.x = L / 2; c.z = ZC; shooter.x = c.x - 6 * attackDir(m, c.team); shooter.z = c.z; m.teams[shooter.team].castT = 0;
+    expect(castPower(m, shooter, [Math.sign(c.x - shooter.x), 0])).toBe(true);
     const ev = run(m, 0.8);
-    expect(ev.some(e => e.type === 'hit')).toBe(true);
-    expect(c.stun > 0 || c.stunKind !== 'none' || m.ball.owner !== c.id).toBe(true);
+    expect(ev.some(e => e.type === 'explode')).toBe(true);
+    expect(c.gone).toBe(true); expect(m.ball.owner).not.toBe(c.id);
+    expect(m.gore.gibs.length).toBeGreaterThan(5); expect(m.gore.stains.length).toBeGreaterThan(3);
     expect(castPower(m, shooter)).toBe(false); // tiene que recargar
+    run(m, 4);
+    expect(c.gone).toBe(false);
+  });
+  it('los poderes salen con la combinación de cada luchador (adelante, adelante + PODER)', () => {
+    const m = newSoccer('industrial', ['inferno', 'thunder'], [null, null], seeded(15)); toPlay(m);
+    m.teams[0].castT = 0;
+    const me = m.players[m.teams[0].active], dir = attackDir(m, 0), fwdKey = dir > 0 ? 'right' : 'left';
+    const tap = (k: 'right' | 'left' | 'power' | 'up') => { const a = noSInput(); a[k] = true; stepSoccer(m, [a, noSInput()], 1 / 60); stepSoccer(m, [noSInput(), noSInput()], 1 / 60); };
+    const ev: SEvent[] = [];
+    tap('power'); ev.push(...takeSoccerEvents(m));
+    expect(ev.some(e => e.type === 'comboMiss')).toBe(true); // sin la combinación no sale
+    expect(me.cdPow).toBe(0);
+    tap(fwdKey); tap(fwdKey); tap('power'); ev.push(...takeSoccerEvents(m));
+    expect(ev.some(e => e.type === 'ability')).toBe(true);
+  });
+  it('poder al que tiene la pelota dentro del área: penal', () => {
+    const m = newSoccer('industrial', ['inferno', 'thunder'], [null, null], seeded(16)); toPlay(m);
+    const c = carrier(m)!, dir = attackDir(m, c.team), gx = dir > 0 ? L : 0, shooter = m.players.find(q => q.team !== c.team && q.role === 'def')!;
+    c.x = gx - dir * 3; c.z = ZC; shooter.x = c.x - dir * 5; shooter.z = ZC + 2; m.teams[shooter.team].castT = 0;
+    castPower(m, shooter, [dir, -0.3]);
+    const ev = run(m, 0.6);
+    expect(ev.some(e => e.type === 'penalty' && e.side === c.team)).toBe(true);
+    expect(m.phase).toBe('penalty');
+    run(m, 10);
+    expect(['play', 'goal', 'intro']).toContain(m.phase); // patearon el penal (si no patea, a los 8 s patea solo)
   });
   it('los pases llegan a un compañero', () => {
     const m = newSoccer('industrial', ['frost', 'thunder'], [null, null], seeded(6)); toPlay(m);
@@ -82,6 +107,14 @@ describe('Kombat Football 5 contra 5', () => {
     expect(goals).toBeGreaterThan(3); // se hacen goles
     expect(own).toBeLessThanOrEqual(1);
   });
+  it('el arquero con la pelota la saca: pase con X o para arriba con ESPACIO', () => {
+    const m = newSoccer('industrial', ['frost', 'thunder'], [null, null], seeded(17)); toPlay(m);
+    const gk = m.players.find(q => q.team === 0 && q.role === 'gk')!; m.ball.owner = gk.id; gk.hold = 0;
+    stepSoccer(m, [noSInput(), noSInput()], 1 / 60);
+    expect(m.teams[0].active).toBe(gk.id);
+    const a = noSInput(); a.kick = true; stepSoccer(m, [a, noSInput()], 1 / 60);
+    expect(m.ball.owner).toBeNull(); expect(m.ball.vy).toBeGreaterThan(5);
+  });
   it('con la barra llena sale el FATAL GOAL y entra', () => {
     const m = newSoccer('industrial', ['frost', 'thunder'], [null, null], seeded(8)); toPlay(m);
     const c = carrier(m)!; m.teams[c.team].power = POWER_MAX;
@@ -90,6 +123,7 @@ describe('Kombat Football 5 contra 5', () => {
     expect(m.phase).toBe('fatal');
     const ev = run(m, 4);
     expect(ev.some(e => e.type === 'goal' && e.fatal)).toBe(true);
+    expect(ev.some(e => e.type === 'explode' && e.keeper)).toBe(true); // el arquero revienta
   });
   void GW;
 });

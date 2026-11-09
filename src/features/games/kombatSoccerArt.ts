@@ -2,9 +2,9 @@
 // que sigue la pelota a lo largo de la cancha y gira un poquito cuando se acerca a un arco. Atrás, el fondo pintado
 // de cada escenario (el mismo de siempre); adelante, la cancha con las franjas del pasto y las líneas, del color
 // del escenario, los carteles que la rodean, los arcos con red, los luchadores, el árbitro, la pelota y los poderes.
-import { CHARS, POWER_MAX, SIZE, heightOf, type StageId } from './kombat';
+import { CHARS, POWER_MAX, SIZE, heightOf, type Element, type StageId } from './kombat';
 import { BR, D, GD, GH, GW, L, ZC, AREA_W, AREA_X, CHARGE_TIME, type Player, type Proj, type SFx, type SoccerMatch } from './kombatSoccer';
-import { THEMES, drawBallSprite } from './kombatArt';
+import { THEMES, drawBallSprite, drawGib, drawScreenBlood, type View } from './kombatArt';
 import { drawFighterLit, drawRefLit, LOOKS } from './kombatFighters';
 import { alpha, bloom, darken, lighten } from './gravityMonsters';
 import { backdropFloor, backdropImage, backdropReady, gradeScenery, paintScenery } from './kombatScenery';
@@ -183,9 +183,26 @@ function drawBall(ctx: CanvasRenderingContext2D, m: SoccerMatch, v: SView) {
     ctx.restore();
   }
   const [x, y, s] = project(v, b.x, b.y, b.z);
-  if (b.fatal) bloom(ctx, x, y, BR * s * 5, glow, 0.8);
+  if (b.fatal) { bloom(ctx, x, y, BR * s * 5, glow, 0.8); fatalAura(ctx, x, y, BR * s * 1.25, b.fx === 'none' ? 'fire' : b.fx, m.time, b.vx < 0 ? -1 : 1); }
   const kind = b.fx === 'fire' ? 'fire' : b.fx === 'ice' ? 'ice' : b.fx === 'toxic' ? 'toxic' : b.fx === 'dark' ? 'void' : 'normal';
   drawBallSprite(ctx, x, y, BR * s * (b.fatal ? 1.25 : 1), b.roll, kind, b.fx === 'volt' ? 'volt' : b.fx === 'fire' ? 'fire' : 'none', m.time);
+}
+// La pelota del FATAL: fuego, electricidad, hielo, energía oscura, ácido o lava según el luchador.
+function fatalAura(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, el: Element, t: number, dir: number) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  if (el === 'fire' || el === 'rock') { // llamas que salen para atrás
+    for (let k = 0; k < 10; k++) { const a = Math.PI * (dir > 0 ? 1 : 0) + (k - 4.5) * 0.22, l = r * (2.2 + Math.sin(t * 30 + k * 2) * 0.7);
+      ctx.fillStyle = k % 2 ? (el === 'rock' ? 'rgba(251,146,60,0.65)' : 'rgba(253,224,71,0.7)') : 'rgba(239,68,68,0.6)';
+      ctx.beginPath(); ctx.moveTo(x + Math.cos(a - 0.5) * r, y + Math.sin(a - 0.5) * r); ctx.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l * 0.7 - r * 0.3); ctx.lineTo(x + Math.cos(a + 0.5) * r, y + Math.sin(a + 0.5) * r); ctx.fill(); }
+  } else if (el === 'volt') { // rayos que saltan alrededor
+    ctx.strokeStyle = '#fef08a'; ctx.lineWidth = Math.max(1.5, r * 0.12);
+    for (let k = 0; k < 6; k++) { let a = t * 40 + k * 1.7, px = x + Math.cos(a) * r, py = y + Math.sin(a) * r; ctx.beginPath(); ctx.moveTo(px, py); for (let j = 0; j < 4; j++) { a += Math.sin(t * 90 + k * 7 + j) * 0.9; px += Math.cos(a) * r * 0.7; py += Math.sin(a) * r * 0.7; ctx.lineTo(px, py); } ctx.stroke(); }
+  } else { // energía: anillos que laten (hielo celeste, oscuridad violeta, ácido verde)
+    const c = el === 'ice' ? '#bae6fd' : el === 'dark' ? '#e879f9' : '#86efac';
+    for (let k = 0; k < 3; k++) { const ph = (t * 3 + k / 3) % 1; ctx.strokeStyle = alpha(c, 0.8 * (1 - ph)); ctx.lineWidth = Math.max(1.5, r * 0.15); ctx.beginPath(); ctx.arc(x, y, r * (1 + ph * 1.8), 0, TAU); ctx.stroke(); }
+    bloom(ctx, x, y, r * 3, c, 0.6);
+  }
+  ctx.restore();
 }
 function drawShadow(ctx: CanvasRenderingContext2D, v: SView, x: number, z: number, r: number, a: number) {
   const [px, py, s] = project(v, x, 0, z); ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.beginPath(); ctx.ellipse(px, py, r * s, r * s * 0.5, 0, 0, TAU); ctx.fill();
@@ -230,15 +247,18 @@ function drawFx(ctx: CanvasRenderingContext2D, v: SView, e: SFx) {
 }
 
 // ---------------------------------------------------------------- Todo junto
-export interface DrawOpts { activeIds?: number[]; human?: [boolean, boolean] }
+export interface DrawOpts { activeIds?: number[]; noBackdrop?: boolean } // noBackdrop: el fondo va en otra capa (siempre en alta calidad)
 export function drawSoccer(ctx: CanvasRenderingContext2D, m: SoccerMatch, w: number, h: number, opts: DrawOpts = {}) {
   const v = soccerView(w, h, m.cam.x, m.cam.z), stage = m.stage, rim = THEMES[stage].light;
   ctx.save();
   if (m.shake > 0) ctx.translate((Math.random() - 0.5) * m.shake * 10, (Math.random() - 0.5) * m.shake * 10);
+  if (!opts.noBackdrop) drawBackdrop(ctx, v, stage);
   drawScene(ctx, v, stage, m.time, m);
+  drawStains(ctx, v, m);
   // en el piso: el aro de cada equipo debajo de cada uno (amarillo: el que manejás) y la sombra de la pelota
   const act = new Set(opts.activeIds ?? []);
   for (const p of m.players) {
+    if (p.gone) continue;
     const [px, py, s] = project(v, p.x, 0, p.z), r = 0.62 * Math.sqrt(SIZE[p.char]) * s, on = act.has(p.id);
     ctx.lineWidth = Math.max(1.5, s * (on ? 0.11 : 0.06));
     ctx.strokeStyle = on ? (p.team === 0 ? '#facc15' : '#fb923c') : alpha(TEAM_C[p.team], 0.85);
@@ -249,12 +269,14 @@ export function drawSoccer(ctx: CanvasRenderingContext2D, m: SoccerMatch, w: num
   // lo que tiene altura, de atrás para adelante
   type Item = { z: number; draw: () => void };
   const items: Item[] = [];
-  for (const p of m.players) items.push({ z: p.z, draw: () => drawPlayer(ctx, v, m, p, rim, act.has(p.id)) });
+  for (const p of m.players) if (!p.gone && !(p.inv > 0 && Math.sin(m.time * 40) < 0)) items.push({ z: p.z, draw: () => drawPlayer(ctx, v, m, p, rim, act.has(p.id)) });
+  for (const g of m.gore.gibs) items.push({ z: g.z, draw: () => { const [x, y, s] = project(v, g.x, g.y, g.z), a = Math.min(1, (9 - g.life) / 1.5); ctx.save(); ctx.globalAlpha = a; ctx.translate(x, y); ctx.scale(s * 2.1, s * 2.1); ctx.rotate(g.a); drawGib(ctx, g.kind, g.c); ctx.restore(); } });
   const r = m.ref; items.push({ z: r.z, draw: () => { const [x, y, s] = project(v, r.x, 0, r.z); drawRefLit(ctx, r, m.time + 0.7, x, y, s, rim); } });
   items.push({ z: b.z + 0.01, draw: () => drawBall(ctx, m, v) });
   for (const left of [true, false]) { const gx = left ? 0 : L; items.push({ z: ZC + GW / 2, draw: () => post(ctx, v, [gx, 0, ZC + GW / 2], [gx, GH, ZC + GW / 2], null) }); }
   items.sort((a, c) => a.z - c.z);
   for (const it of items) it.draw();
+  ctx.fillStyle = '#b10f1c'; for (const d of m.gore.drops) { const [x, y, s] = project(v, d.x, d.y, d.z); ctx.beginPath(); ctx.arc(x, y, Math.max(1.2, d.r * s), 0, TAU); ctx.fill(); }
   for (const s of m.projs) drawProj(ctx, v, m, s);
   for (const e of m.fx) drawFx(ctx, v, e);
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -273,14 +295,30 @@ export function drawSoccer(ctx: CanvasRenderingContext2D, m: SoccerMatch, w: num
   if (m.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${m.flash * 0.4})`; ctx.fillRect(0, 0, w, h); }
   const vg = ctx.createRadialGradient(w / 2, h * 0.6, Math.min(w, h) * 0.4, w / 2, h * 0.6, Math.max(w, h) * 0.78); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.4)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
+  if (m.screenBlood.length) drawScreenBlood(ctx, m.screenBlood, { w, h } as View);
   ctx.restore();
 }
 // El fondo, los carteles, la cancha y lo de atrás de los arcos (también para las miniaturas).
-function drawScene(ctx: CanvasRenderingContext2D, v: SView, stage: StageId, t: number, m: SoccerMatch | null) {
+function drawBackdrop(ctx: CanvasRenderingContext2D, v: SView, stage: StageId) {
   const [, yb0] = P(v, -6, 1.05, -0.7), [, yb1] = P(v, L + 6, 1.05, -0.7), ground = Math.max(yb0, yb1) + 6;
   const bg = backdrop(stage, v.w, v.h, ground);
   if (bg) { const off = -((v.tx - L / 2) / L) * v.w * PARALLAX - v.w * PARALLAX / 2; ctx.drawImage(bg, off, 0); }
   else { ctx.fillStyle = THEMES[stage].sky[1]; ctx.fillRect(0, 0, v.w, ground); }
+}
+// La capa del fondo sola (en otro lienzo, con toda la resolución de la pantalla, así nunca pierde calidad).
+export function drawSoccerBackdrop(ctx: CanvasRenderingContext2D, m: SoccerMatch, w: number, h: number) {
+  ctx.clearRect(0, 0, w, h); drawBackdrop(ctx, soccerView(w, h, m.cam.x, m.cam.z), m.stage);
+}
+// Las manchas de sangre en el pasto.
+function drawStains(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch) {
+  for (const st of m.gore.stains) {
+    const [x, y, s] = project(v, st.x, 0, st.z), a = st.t < 30 ? 0.85 : Math.max(0, 0.85 * (1 - (st.t - 30) / 10)), r = st.r * s * Math.min(1, st.t * 8 + 0.3);
+    ctx.fillStyle = `rgba(110,4,10,${a})`; ctx.beginPath();
+    for (let k = 0; k < 9; k++) { const ang = k / 9 * TAU, rr = r * (0.7 + ((Math.sin(st.seed * 7 + k * 3.1) + 1) / 2) * 0.5); ctx.lineTo(x + Math.cos(ang) * rr, y + Math.sin(ang) * rr * 0.5); }
+    ctx.closePath(); ctx.fill();
+  }
+}
+function drawScene(ctx: CanvasRenderingContext2D, v: SView, stage: StageId, t: number, m: SoccerMatch | null) {
   drawPitch(ctx, v, stage);
   drawBoards(ctx, v, stage, t);
   for (const left of [true, false]) {
@@ -312,5 +350,5 @@ function drawPlayer(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch, p: 
 // Miniatura del escenario (para elegirlo).
 export function drawSoccerThumb(ctx: CanvasRenderingContext2D, stage: StageId, w: number, h: number) {
   const v = { ...soccerView(w, h, L / 2, ZC), F: h * 1.25, dist: 44, cy: h * 0.74, tx: L / 2, tz: ZC, cyw: 1, syw: 0 }; // (de lejos: se ve más fondo)
-  drawScene(ctx, v, stage, 0, null);
+  drawBackdrop(ctx, v, stage); drawScene(ctx, v, stage, 0, null);
 }
