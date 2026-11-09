@@ -61,7 +61,7 @@ export const CARRY = 14, MINE_T = 1.6;
 
 export interface Unit {
   id: number; owner: Owner; role: Role; x: number; y: number; hp: number; maxHp: number; face: 1 | -1; path?: [number, number][]; pathFor?: [number, number]; pathT?: number;
-  order: Order; cool: number; atkT: number; walk: number; moving?: boolean;kneel?:number; carry: number; carryKind: ResKind | 'food' | null; mineT: number; dead: number; defensive?: boolean; buildQueue?: number[];
+  order: Order; cool: number; atkT: number; walk: number; moving?: boolean;kneel?:number; carry: number; carryKind: ResKind | 'food' | null; mineT: number; dead: number; defensive?: boolean; buildQueue?: number[];trainedAt?:number;
 }
 export type Order =
   | { k: 'idle' } | { k: 'move'; x: number; y: number; attack?: boolean } | { k: 'attack'; id: number }
@@ -323,6 +323,7 @@ function stepBuilding(g: LandGame, b: Building, dt: number) {
       b.queue.shift(); b.qT = 0;g.sides[b.owner].food=Math.max(0,g.sides[b.owner].food-FOOD_WEIGHT[r]*10);
       const ang = g.rand() * Math.PI, [sx, sy] = nearestWalkable(g.terrain, b.x + Math.cos(ang) * s.size * 0.55, b.y + s.size * 0.3 + Math.sin(ang) * 20), u = addUnit(g, b.owner, r, sx, sy);
       u.defensive = b.owner > 0 && r !== 'worker';
+      u.trainedAt=b.id;
       if (b.rally) { const n = g.nodes.find(q => dist(q, b.rally!) < 34); u.order = n && r === 'worker' ? { k: 'gather', node: n.id } : { k: 'move', x: b.rally.x, y: b.rally.y }; }
       else if (r === 'worker') { const n = nearestNode(g, u, null); if (n) u.order = { k: 'gather', node: n.id }; }
       emit(g, { type: 'trained', role: r, owner: b.owner,x:b.x,y:b.y });

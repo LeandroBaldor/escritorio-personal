@@ -1,3 +1,4 @@
+import {drawMetalBridge} from './landMetalBridge';
 // Land of Warriors: el dibujo del escenario generado (se pinta una sola vez en un lienzo grande y después se copia).
 import { BLOCK, BRIDGE, LIQUID, T, THEMES, type Terrain, type Theme } from './landMap';
 import materialUrl from './assets/land/terrain-materials.webp';
@@ -118,18 +119,7 @@ export function renderTerrain(t: Terrain, scale = terrainScale(t), region?: Terr
   ctx.restore();
   drawBiomeLiquid(ctx,t,region);
   // 4) los puentes (tablones de madera o losas de piedra, según el estilo)
-  for (const [c, r] of bridges) { // tablones (o losas) y las barandas arriba y abajo
-    if (region && (c * T < region.x - T || c * T > region.x + region.w + T || r * T < region.y - T || r * T > region.y + region.h + T)) continue;
-    const x = c * T, y = r * T, stone = th.block === 'ruin' || th.block === 'rock';
-    ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(x - 1, y + 8, T + 2, T);
-    ctx.fillStyle = stone ? '#77706a' : '#9a6634'; ctx.fillRect(x - 1, y - 4, T + 2, T + 8);
-    ctx.strokeStyle = stone ? '#3c3633' : '#4a2e14'; ctx.lineWidth = 2;
-    for (let k = 0; k <= 4; k++) { ctx.beginPath(); ctx.moveTo(x + k * T / 4, y - 4); ctx.lineTo(x + k * T / 4, y + T + 4); ctx.stroke(); }
-    ctx.fillStyle = stone ? 'rgba(255,255,255,0.14)' : 'rgba(255,220,160,0.2)'; for (let k = 0; k < 4; k++) ctx.fillRect(x + k * T / 4 + 2, y - 4, 3, T + 8);
-    for (const ry of [y - 6, y + T + 2]) { ctx.fillStyle = stone ? '#4e4743' : '#5a3418'; ctx.fillRect(x - 1, ry, T + 2, 5); ctx.fillRect(x + T / 2 - 3, ry - 6, 6, 11); }
-    for(let i=0;i<4;i++){const px=x+i*T/4+4;ctx.strokeStyle=stone?'#ddd2b15a':'#e4bb7055';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(px,y+3);ctx.quadraticCurveTo(px+3,y+T*.5,px+1,y+T-2);ctx.stroke();ctx.fillStyle='#202329';for(const py of [y+2,y+T-2]){ctx.beginPath();ctx.arc(px+2,py,1.2,0,Math.PI*2);ctx.fill();}}
-    if(t.theme===6){ctx.fillStyle='#eefaffb0';ctx.fillRect(x,y-7,T,3);}else if([1,3,7,8].includes(t.theme)){ctx.fillStyle='#72904a88';ctx.fillRect(x+3,y+T+1,T*.6,2);}
-  }
+  for(const [c,r] of bridges){if(region&&(c*T<region.x-T||c*T>region.x+region.w+T||r*T<region.y-T||r*T>region.y+region.h+T))continue;drawMetalBridge(ctx,c*T,r*T,t.theme,[at(c,r-1),at(c+1,r),at(c,r+1),at(c-1,r)]);}
   // 5) los obstáculos y los adornos, de atrás para adelante (los de más abajo tapan a los de más arriba)
   const things: { x: number; y: number; d: () => void }[] = [];
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (cells[r * cols + c] === BLOCK) {
