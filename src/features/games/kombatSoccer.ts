@@ -62,7 +62,8 @@ export interface SoccerMatch {
   winner: 0 | 1 | null; lastGoal: { side: 0 | 1; fatal: boolean } | null; events: SEvent[]; shake: number; flash: number; rand: () => number;
   projs: Proj[]; fx: SFx[]; particles: SParticle[]; trail: [number, number, number][]; cam: { x: number; z: number };
   fatal: { team: 0 | 1; shooter: number } | null; netHit: { left: boolean; t: number } | null; shots: number; stillT: number;
-  gore: SGore; screenBlood: ScreenBlood[]; penalty: { team: 0 | 1; shooter: number; ready: boolean } | null;
+  gore: SGore; screenBlood: ScreenBlood[]; penKick: number; // (el tiro del penal: si el arquero adivinó, la agarra)
+  penalty: { team: 0 | 1; shooter: number; ready: boolean; pick: -1 | 0 | 1 } | null; // pick: adonde ya decidió tirarse el arquero
 }
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -142,7 +143,7 @@ export function newSoccer(stage: StageId, captains: [CharId, CharId], levels: [n
     teams: [0, 1].map(t => ({ captain: captains[t], goals: 0, power: 0, level: levels[t], active: t * 5 + 3, castT: 0, aiCastT: 4, switchT: 0, atkCd: [1, 2, 3, 4] })) as [Team, Team],
     phase: 'intro', phaseT: 0, introLen: 2.6, time: 0, half: 1, clock: HALF_TIME, extra: false, extraT: 0, kickoffTeam: kick, firstKick: kick,
     winner: null, lastGoal: null, events: [], shake: 0, flash: 0, rand, projs: [], fx: [], particles: [], trail: [], cam: { x: L / 2, z: ZC },
-    fatal: null, netHit: null, shots: 0, stillT: 0, gore: { drops: [], gibs: [], stains: [] }, screenBlood: [], penalty: null,
+    fatal: null, netHit: null, shots: 0, stillT: 0, gore: { drops: [], gibs: [], stains: [] }, screenBlood: [], penalty: null, penKick: -1,
   };
   resetKickoff(m, kick);
   return m;
@@ -391,10 +392,10 @@ function launchFrom(m: SoccerMatch, p: Player) {
 }
 // El tiro al arco: apunta a un palo (el que está lejos del arquero, o el que se eligió con ↑/↓); con efecto
 // arranca abierto y la curva lo mete en ese palo. Cuanto más cargado, más fuerte (y si se pasa, se va alto).
-export function shoot(m: SoccerMatch, p: Player, charge: number, side: -1 | 0 | 1, wild = 1) {
+export function shoot(m: SoccerMatch, p: Player, charge: number, side: -1 | 0 | 1, wild = 1, center = false) {
   const b = m.ball, gx = oppGoalX(m, p.team), gk = m.players.find(q => q.team !== p.team && q.role === 'gk')!;
   release(m, p);
-  const sz = side !== 0 ? side : (gk.z < ZC ? 1 : -1), zt = ZC + sz * GW * 0.34;
+  const sz = side !== 0 ? side : (gk.z < ZC ? 1 : -1), zt = center && side === 0 ? ZC : ZC + sz * GW * 0.34; // (center: el penal al medio)
   const S = (15 + 15 * charge) * strengthOf(p.char), dx = gx - b.x, dz = zt - b.z, d = Math.max(1, hyp(dx, dz)), T = d / S;
   const px = -dz / d, pz = dx / d; // perpendicular a la dirección del tiro
   const spin = side !== 0 ? side * Math.sign(pz || 1) : 0;
@@ -636,7 +637,7 @@ function updateGore(m: SoccerMatch, dt: number) {
 function startPenalty(m: SoccerMatch, team: 0 | 1) {
   m.phase = 'penalty'; m.phaseT = 0; m.projs = [];
   const shooter = m.players.filter(q => q.team === team && q.role === 'fwd' && !q.gone)[0] ?? m.players.find(q => q.team === team && q.role !== 'gk' && !q.gone)!;
-  m.penalty = { team, shooter: shooter.id, ready: false };
+  m.penalty = { team, shooter: shooter.id, ready: false, pick: ([-1, 0, 1] as const)[Math.floor(m.rand() * 3)] }; // el arquero decide apenas se cobra
   emit(m, { type: 'penalty', side: team }); emit(m, { type: 'whistle', kind: 'half' });
 }
 const SPOT = 4.6;
@@ -667,11 +668,16 @@ function penaltyStep(m: SoccerMatch, inputs: [SInput, SInput], dt: number) {
   if (i) {
     m.teams[sh.team].active = sh.id;
     if (i.kick && !sh.prevIn.kick) { sh.chargeOn = true; sh.charge = 0; }
-    if (sh.chargeOn) { if (i.kick) sh.charge = Math.min(CHARGE_TIME, sh.charge + dt); else { sh.chargeOn = false; shoot(m, sh, Math.max(0.25, sh.charge / CHARGE_TIME), i.up ? -1 : i.down ? 1 : 0, 0.6); } }
+    if (sh.chargeOn) { if (i.kick) sh.charge = Math.min(CHARGE_TIME, sh.charge + dt); else { sh.chargeOn = false; shoot(m, sh, Math.max(0.25, sh.charge / CHARGE_TIME), i.up ? -1 : i.down ? 1 : 0, 0.5, true); } }
     sh.prevIn = { ...i };
-  } else if (m.phaseT > 1.3) shoot(m, sh, 0.45 + m.rand() * 0.35, m.rand() < 0.5 ? -1 : 1, 0.8);
-  if (m.phaseT > 8 && m.ball.owner === sh.id) shoot(m, sh, 0.5, 0); // (si no patea, patea solo)
-  for (const p of m.players) { if (p.role === 'gk' && p.team !== pen.team) keeper(m, p, dt); else { p.run = 0; p.tx = p.x; p.tz = p.z; } }
+  } else if (m.phaseT > 1.3) shoot(m, sh, 0.45 + m.rand() * 0.35, ([-1, 0, 1] as const)[Math.floor(m.rand() * 3)], 0.5, true);
+  if (m.phaseT > 8 && m.ball.owner === sh.id) shoot(m, sh, 0.5, 0, 0.5, true); // (si no patea, patea solo)
+  for (const p of m.players) { p.run = 0; p.tx = p.x; p.tz = p.z; } // (todos quietos; el arquero espera en la línea)
+  if (m.ball.owner === null) { // patearon: el arquero se tira adonde había decidido (derecha, medio o izquierda)
+    const gk = m.players.find(q => q.role === 'gk' && q.team !== pen.team)!, zt = ZC + pen.pick * GW * 0.34;
+    gk.savedShot = m.ball.shot; gk.save = true; m.penKick = m.ball.shot; gk.aimZ = zt; gk.aimT = 0.9;
+    if (pen.pick !== 0) { gk.dive = 0.6; gk.diveVz = (zt - gk.z) / 0.32; gk.diveVx = 0; }
+  }
   for (const p of m.players) moveP(m, p, dt);
   if (m.ball.owner === null) { m.phase = 'play'; m.phaseT = 0; m.penalty = null; }
   else carry(m, dt);
@@ -753,7 +759,7 @@ function moveBall(m: SoccerMatch, dt: number) {
 // Pegada al pie, adelante del que la lleva.
 function carry(m: SoccerMatch, dt: number) {
   const b = m.ball, p = m.players[b.owner!];
-  if (p.role === 'gk') { b.x = p.x + p.facing * 0.35; b.z = p.z + 0.15; b.y = hOf(p) * 0.45; b.vx = p.vx; b.vz = p.vz; b.vy = 0; return; }
+  if (p.role === 'gk') { b.x = p.x + p.facing * 0.35; b.z = p.z + 0.15; b.y = hOf(p) * 0.45; b.vx = p.vx; b.vz = p.vz; b.vy = 0; p.hold += dt; return; } // (cuenta el tiempo: a los segundos la saca)
   const off = 0.45 + radiusOf(p) + Math.abs(Math.sin(m.time * 9)) * 0.08, sp = hyp(p.vx, p.vz);
   const nx = clamp(p.x + p.bdx * off, BR, L - BR), nz = clamp(p.z + p.bdz * off, BR, D - BR);
   b.vx = (nx - b.x) / Math.max(dt, 1e-3); b.vz = (nz - b.z) / Math.max(dt, 1e-3);
@@ -849,7 +855,7 @@ function keeperTouch(m: SoccerMatch, p: Player, d: number) {
   if (d > reach || b.y > h * 1.2 + (diving ? 0.4 : 0)) return false;
   if (diving && !p.save && d > 0.45) return false; // se tiró pero no llegó
   if (b.last === p.team && sp < 6) { b.owner = p.id; b.last = p.team; b.lastId = p.id; b.receiver = null; p.hold = 0; return true; } // un pase atrás de un compañero
-  const lv = levelOf(m, p.team), catchP = clamp(1.25 - sp / 26 + lv * 0.1, 0.25, 0.97);
+  const lv = levelOf(m, p.team), catchP = b.shot === m.penKick ? 1 : clamp(1.25 - sp / 26 + lv * 0.1, 0.25, 0.97);
   if (m.rand() < catchP) { b.owner = p.id; b.last = p.team; b.lastId = p.id; b.receiver = null; b.spin = 0; b.fx = 'none'; p.hold = 0; p.protect = 9; }
   else { // la rechaza al costado
     const side = Math.sign(b.z - ZC) || (m.rand() < 0.5 ? -1 : 1), out = attackDir(m, p.team);

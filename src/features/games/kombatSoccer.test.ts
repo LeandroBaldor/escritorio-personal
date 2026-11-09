@@ -142,6 +142,31 @@ describe('Kombat Football 5 contra 5', () => {
     expect(goals).toBeGreaterThan(3); // se hacen goles
     expect(own).toBeLessThanOrEqual(1);
   }, 15000); // Cuatro partidos simulados: dar margen a los equipos de CI.
+  it('el arquero de la máquina con la pelota no se queda quieto: la pasa o la tira para arriba', () => {
+    for (const seed of [41, 42, 43, 44]) {
+      const m = newSoccer('industrial', ['frost', 'thunder'], [null, 0.5], seeded(seed)); toPlay(m);
+      const gk = m.players.find(q => q.team === 1 && q.role === 'gk')!; m.ball.owner = gk.id; gk.hold = 0;
+      for (let t = 0; t < 2 && m.ball.owner === gk.id; t += 1 / 60) stepSoccer(m, [noSInput(), noSInput()], 1 / 60);
+      expect(m.ball.owner).not.toBe(gk.id);
+    }
+  });
+  it('penal: el arquero decide apenas se cobra (derecha, medio o izquierda); si adivina la ataja, si no es gol', () => {
+    const res: string[] = [];
+    for (const [pick, side] of [[1, 1], [-1, -1], [0, 0], [1, -1], [-1, 1], [0, 1]] as const) {
+      const m = newSoccer('industrial', ['frost', 'thunder'], [0.5, 0.5], seeded(50 + pick * 3 + side)); toPlay(m);
+      const c = carrier(m)!, dir = attackDir(m, c.team), gx = dir > 0 ? L : 0, sh = m.players.find(q => q.team !== c.team && q.role === 'def')!;
+      c.x = gx - dir * 3; c.z = ZC; sh.x = c.x - dir * 5; sh.z = ZC + 2; m.teams[sh.team].atkCd = [0, 0, 0, 0];
+      castAttack(m, sh, 2, [dir, -0.3]); run(m, 0.5);
+      expect(m.phase).toBe('penalty'); expect([-1, 0, 1]).toContain(m.penalty!.pick);
+      m.penalty!.pick = pick; run(m, 1.7);
+      const shooter = m.players[m.penalty!.shooter]; shoot(m, shooter, 0.6, side, 0, true);
+      const ev = run(m, 2.5);
+      const first = ev.find(e => e.type === 'goal' || e.type === 'save'); // (lo que pasa con el tiro del penal)
+      res.push(first?.type === 'goal' ? 'gol' : 'atajó');
+    }
+    expect(res.slice(0, 3)).toEqual(['atajó', 'atajó', 'atajó']);
+    expect(res.slice(3)).toEqual(['gol', 'gol', 'gol']);
+  });
   it('el arquero con la pelota la saca: pase con X o para arriba con ESPACIO', () => {
     const m = newSoccer('industrial', ['frost', 'thunder'], [null, null], seeded(17)); toPlay(m);
     const gk = m.players.find(q => q.team === 0 && q.role === 'gk')!; m.ball.owner = gk.id; gk.hold = 0;

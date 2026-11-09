@@ -318,7 +318,7 @@ export function KombatFootball() {
           case 'goal': playKfGoal(); shout(e.fatal ? '☠ FATAL GOAL ☠' : e.own ? '¡GOL EN CONTRA!' : '¡GOL!', e.fatal ? 'fatal' : 'goal', `${CHARS[e.scorer].name} · ${m.teams[0].goals} - ${m.teams[1].goals}`, 2400); break;
           case 'save': playKfBlock(); shout('¡ATAJADA!', 'block', undefined, 900); break;
           case 'explode': playExplosion(); playKfHit(1); if (e.keeper && m.ball.fatal) shout('¡EL ARQUERO REVENTÓ!', 'fatal', undefined, 1400); break;
-          case 'penalty': playRefWhistle('kickoff'); shout('¡PENAL!', 'goal', human(e.side) ? 'ESPACIO para patear (mantenelo para más fuerza) · ↑ o ↓ para elegir el palo' : 'Poder al que tenía la pelota en el área', 2600); break;
+          case 'penalty': playRefWhistle('kickoff'); shout('¡PENAL!', 'goal', human(e.side) ? 'ESPACIO para patear (mantenelo para más fuerza) · con ↑ o ↓ elegís el palo, sin flecha va al medio' : 'Poder al que tenía la pelota en el área', 2600); break;
           case 'notReady': if (human(e.side) && comboT <= 0) { comboT = 1.5; shout('Recargando…', 'info', `${ATTACKS[m.players[m.teams[e.side].active].char][e.level - 1].name} todavía no está listo`, 1100); } break;
           case 'header': playKfBall(0.7, 0.9); if (human(e.side)) shout('¡CABEZAZO!', 'info', undefined, 700); break;
           case 'unlock':
