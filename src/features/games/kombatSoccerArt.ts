@@ -66,7 +66,10 @@ function backdrop(stage: StageId, w: number, h: number, ground: number): HTMLCan
   const c = document.createElement('canvas'); c.width = Math.max(1, W); c.height = Math.max(1, Math.round(ground + 4));
   const g = c.getContext('2d'); if (!g) { bgCache.set(key, null); return null; }
   if (bgCache.size > 10) bgCache.clear();
-  if (!paintFitted(g, stage, W, ground)) { paintScenery(g, stage, W, ground + 4, ground, ground / 9); gradeScenery(c, stage); }
+  if (!paintFitted(g, stage, W, ground)) { // mientras carga la imagen: el dibujado (y si falla, el cielo del escenario)
+    try { paintScenery(g, stage, W, Math.max(ground + 4, h), ground, Math.max(8, ground / 9)); gradeScenery(c, stage); }
+    catch { const sky = THEMES[stage].sky, gr = g.createLinearGradient(0, 0, 0, ground); gr.addColorStop(0, sky[0]); gr.addColorStop(0.6, sky[1]); gr.addColorStop(1, sky[2]); g.fillStyle = gr; g.fillRect(0, 0, W, ground + 4); }
+  }
   bgCache.set(key, c);
   return c;
 }
@@ -183,9 +186,31 @@ function drawBall(ctx: CanvasRenderingContext2D, m: SoccerMatch, v: SView) {
     ctx.restore();
   }
   const [x, y, s] = project(v, b.x, b.y, b.z);
+  if (b.comet && !b.fatal) cometTail(ctx, v, m, x, y, s);
   if (b.fatal) { bloom(ctx, x, y, BR * s * 5, glow, 0.8); fatalAura(ctx, x, y, BR * s * 1.25, b.fx === 'none' ? 'fire' : b.fx, m.time, b.vx < 0 ? -1 : 1); }
   const kind = b.fx === 'fire' ? 'fire' : b.fx === 'ice' ? 'ice' : b.fx === 'toxic' ? 'toxic' : b.fx === 'dark' ? 'void' : 'normal';
   drawBallSprite(ctx, x, y, BR * s * (b.fatal ? 1.25 : 1), b.roll, kind, b.fx === 'volt' ? 'volt' : b.fx === 'fire' ? 'fire' : 'none', m.time);
+}
+// El tiro bien cargado: la pelota sale como un cometa, con una cola de fuego larga atrás.
+function cometTail(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch, x: number, y: number, s: number) {
+  const b = m.ball, r = BR * s, pts: [number, number][] = [[x, y], ...m.trail.map(p => { const q = project(v, ...p); return [q[0], q[1]] as [number, number]; })];
+  if (pts.length < 2) { const [bx, by] = P(v, b.x - b.vx * 0.12, b.y, b.z - b.vz * 0.12); pts.push([bx, by]); }
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const n = pts.length;
+  for (const [w, col, a] of [[2.6, '#dc2626', 0.35], [1.8, '#f97316', 0.55], [1.0, '#fde047', 0.8], [0.45, '#fffbeb', 0.9]] as const) {
+    for (let i = 1; i < n; i++) {
+      const k = 1 - (i - 1) / n, j = Math.sin(m.time * 40 + i * 1.7) * r * 0.25 * (1 - k);
+      ctx.strokeStyle = alpha(col, a * k); ctx.lineWidth = Math.max(1, r * w * k);
+      ctx.beginPath(); ctx.moveTo(pts[i - 1][0], pts[i - 1][1]); ctx.lineTo(pts[i][0] + j, pts[i][1] - Math.abs(j) * 0.6); ctx.stroke();
+    }
+  }
+  // lenguas de fuego alrededor de la pelota, hacia atrás
+  const [tx, ty] = pts[1], back = Math.atan2(ty - y, tx - x);
+  for (let k = 0; k < 9; k++) { const a = back + (k - 4) * 0.28, l = r * (2 + Math.sin(m.time * 33 + k * 2.3) * 0.6);
+    ctx.fillStyle = k % 2 ? 'rgba(253,224,71,0.75)' : 'rgba(249,115,22,0.7)';
+    ctx.beginPath(); ctx.moveTo(x + Math.cos(a - 1.2) * r, y + Math.sin(a - 1.2) * r); ctx.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); ctx.lineTo(x + Math.cos(a + 1.2) * r, y + Math.sin(a + 1.2) * r); ctx.fill(); }
+  bloom(ctx, x, y, r * 4, '#fb923c', 0.75);
+  ctx.restore();
 }
 // La pelota del FATAL: fuego, electricidad, hielo, energía oscura, ácido o lava según el luchador.
 function fatalAura(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, el: Element, t: number, dir: number) {
