@@ -39,7 +39,7 @@ export interface Player extends Fighter {
   gone: boolean; // reventado por un poder: vuelve a entrar en unos segundos (p.stun cuenta el tiempo)
 }
 export type BallFx = 'none' | Element;
-export interface SBall { x: number; y: number; z: number; vx: number; vy: number; vz: number; spin: number; roll: number; owner: number | null; last: 0 | 1 | null; lastId: number | null; fx: BallFx; fatal: boolean; receiver: number | null; shot: number; shooter: 0 | 1 | null }
+export interface SBall { x: number; y: number; z: number; vx: number; vy: number; vz: number; spin: number; roll: number; owner: number | null; last: 0 | 1 | null; lastId: number | null; fx: BallFx; fatal: boolean; comet?: boolean; receiver: number | null; shot: number; shooter: 0 | 1 | null }
 export interface Proj { team: 0 | 1; from: number; target: number | null; el: Element; ability: Ability; x: number; y: number; z: number; vx: number; vz: number; t: number; life: number; done: boolean }
 export interface SFx { kind: 'bolt' | 'boom' | 'ring'; x: number; y: number; z: number; x2: number; y2: number; z2: number; t: number; life: number; color: string }
 export interface SParticle { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; size: number; color: string; kind: 'spark' | 'smoke' | 'shard' }
@@ -265,6 +265,7 @@ function control(m: SoccerMatch, p: Player, i: SInput, dt: number) {
   let dx = (i.right ? 1 : 0) - (i.left ? 1 : 0), dz = (i.down ? 1 : 0) - (i.up ? 1 : 0);
   const n = hyp(dx, dz); if (n > 0) { dx /= n; dz /= n; }
   p.tx = p.x + dx * 3; p.tz = p.z + dz * 3; p.run = n > 0 ? 1 : 0;
+  if (n === 0 && m.ball.receiver === p.id) { p.tx = m.ball.x; p.tz = m.ball.z; p.run = hyp(m.ball.x - p.x, m.ball.z - p.z) < 6 ? 0.55 : 0.8; } // sin flechas: va a recibir el pase
   // las flechas que se van apretando (para las combinaciones de los poderes)
   const fwd = attackDir(m, p.team);
   for (const [k, d] of [['right', fwd > 0 ? 'F' : 'B'], ['left', fwd > 0 ? 'B' : 'F'], ['up', 'U'], ['down', 'D']] as [keyof SInput, Dir][]) if (pressed(p, i, k)) { p.taps.push({ d, t: m.time }); if (p.taps.length > 6) p.taps.shift(); }
@@ -357,7 +358,7 @@ function bump(m: SoccerMatch) {
 
 // ---------------------------------------------------------------- Patear, pasar, robar
 function release(m: SoccerMatch, p: Player) {
-  const b = m.ball; b.owner = null; b.last = p.team; b.lastId = p.id; b.receiver = null; b.fatal = false; b.fx = 'none';
+  const b = m.ball; b.owner = null; b.last = p.team; b.lastId = p.id; b.receiver = null; b.fatal = false; b.fx = 'none'; b.comet = false;
   p.noTouch = 0.3; p.kickT = 0.3; p.hold = 0; p.chargeOn = false; p.charge = 0;
   b.x = p.x + p.bdx * 0.7; b.z = p.z + p.bdz * 0.7; b.y = BR;
 }
@@ -382,7 +383,7 @@ export function shoot(m: SoccerMatch, p: Player, charge: number, side: -1 | 0 | 
   const n = hyp(ax, az), ht = Math.min(GH - 0.5, 0.45 + charge * 1.3 + m.rand() * 0.4);
   b.vx = ax / n * S; b.vz = az / n * S;
   b.vy = clamp((ht - BR) / T + 0.5 * G * T * 0.8, 1.2, 8.5) + (charge > 0.92 ? m.rand() * 2.6 : 0);
-  b.spin = spin; b.fx = charge > 0.75 ? CHARS[p.char].element : 'none'; b.shot = ++m.shots; b.shooter = p.team;
+  b.spin = spin; b.comet = charge >= 0.7; b.fx = b.comet ? 'fire' : 'none'; b.shot = ++m.shots; b.shooter = p.team; // (bien cargado: sale como un cometa de fuego)
   launchFrom(m, p); gain(m, p.team, 3);
   emit(m, { type: 'kick', power: charge });
 }
@@ -394,32 +395,47 @@ export function punt(m: SoccerMatch, p: Player, dir: [number, number] | null) {
   b.vx = dx / n * 17; b.vz = dz / n * 17; b.vy = 11; b.y = 1.2; launchFrom(m, p); p.protect = 0;
   emit(m, { type: 'kick', power: 0.8 });
 }
-// Pase: al compañero hacia donde apuntan las flechas (o al mejor ubicado), adelantado a donde va a estar.
+// Pase: al compañero hacia donde apuntan las flechas (o al mejor ubicado) y a los pies: la pelota va por el piso
+// derecho a él (se acomoda si se mueve) y él va a buscarla.
 export function pass(m: SoccerMatch, p: Player, dir: [number, number] | null) {
   const mates = m.players.filter(q => q.team === p.team && q !== p && !stunned(q) && !q.gone);
   let best: Player | null = null, bs = -1e9;
   for (const q of mates) {
-    const dx = q.x - p.x, dz = q.z - p.z, d = hyp(dx, dz); if (d < 2) continue;
+    const dx = q.x - p.x, dz = q.z - p.z, d = hyp(dx, dz); if (d < 1.5) continue;
     let s: number;
-    if (dir) { const c = (dx * dir[0] + dz * dir[1]) / d; if (c < 0.35) continue; s = c * 3 - d / 25; }
-    else s = (rel(m, p.team, q.x) - rel(m, p.team, p.x)) / 8 - d / 30 - (q.role === 'gk' ? 2.5 : 0);
-    s -= laneRisk(m, p, q) * 1.6 + pressure(m, q) * 0.4;
+    if (dir) { const c = (dx * dir[0] + dz * dir[1]) / d; if (c < 0.3) continue; s = c * 4 - d / 30 - laneRisk(m, p, q) * 0.6 - pressure(m, q) * 0.2; }
+    else { const c = (dx * p.bdx + dz * p.bdz) / d; s = (rel(m, p.team, q.x) - rel(m, p.team, p.x)) / 8 - d / 30 - (q.role === 'gk' ? 2.5 : 0) + c * 1.2 - laneRisk(m, p, q) * 1.6 - pressure(m, q) * 0.4; }
     if (s > bs) { bs = s; best = q; }
   }
   const b = m.ball;
   if (!best) { // nadie hacia allá: la toca para adelante en esa dirección
-    release(m, p); const [dx, dz] = dir ?? [attackDir(m, p.team), 0]; b.vx = dx * 13; b.vz = dz * 13; b.vy = 1; launchFrom(m, p); emit(m, { type: 'pass' }); return;
+    release(m, p); const [dx, dz] = dir ?? [attackDir(m, p.team), 0]; b.vx = dx * 13; b.vz = dz * 13; b.vy = 0; launchFrom(m, p); emit(m, { type: 'pass' }); return;
   }
-  const d0 = hyp(best.x - p.x, best.z - p.z), S = clamp(7 + d0 * 0.85, 10, 21), T = d0 / S;
-  const tx = clamp(best.x + best.vx * T * 0.8, 1, L - 1), tz = clamp(best.z + best.vz * T * 0.8, 1, D - 1);
+  const d0 = hyp(best.x - p.x, best.z - p.z), S = clamp(9 + d0 * 0.95, 12, 25), T = d0 / S;
+  const lead = isHuman(m, best.team) ? 0.25 : 0.6; // (el de la persona frena y la espera)
+  const tx = clamp(best.x + best.vx * T * lead, 1, L - 1), tz = clamp(best.z + best.vz * T * lead, 1, D - 1);
   release(m, p);
   const dx = tx - b.x, dz = tz - b.z, d = Math.max(0.5, hyp(dx, dz));
-  const lob = laneRisk(m, p, best) > 0.5 && d > 7;
-  const s2 = lob ? S * 0.82 : S;
-  b.vx = dx / d * s2; b.vz = dz / d * s2; b.vy = lob ? 0.5 * G * (d / s2) * 0.85 : 1.1;
+  const lob = laneRisk(m, p, best) > 0.75 && d > 8; // muy tapado: por arriba
+  const s2 = lob ? S * 0.8 : S;
+  b.vx = dx / d * s2; b.vz = dz / d * s2; b.vy = lob ? 0.5 * G * (d / s2) * 0.92 : 0;
   b.receiver = best.id; best.tx = tx; best.tz = tz;
   launchFrom(m, p); gain(m, p.team, 1);
   emit(m, { type: 'pass' });
+}
+// La pelota de un pase se acomoda hacia los pies del compañero (aunque él se mueva) y no se frena antes de llegar.
+function passAssist(m: SoccerMatch, dt: number) {
+  const b = m.ball; if (b.receiver === null || b.owner !== null) return;
+  const r = m.players[b.receiver];
+  if (r.gone || r.stun > 0) { b.receiver = null; return; }
+  if (b.y > 1.3 && b.vy > -2) return; // (un globo: recién cuando baja)
+  const dx = r.x + r.vx * 0.15 - b.x, dz = r.z + r.vz * 0.15 - b.z, d = hyp(dx, dz), sp = hyp(b.vx, b.vz);
+  if (d < 0.3 || sp < 0.1) return;
+  const want = Math.atan2(dz, dx), cur = Math.atan2(b.vz, b.vx); let da = want - cur;
+  while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
+  if (Math.abs(da) > 1.9) return; // (ya la pasó)
+  const a = cur + clamp(da, -5 * dt, 5 * dt), v = Math.max(sp, Math.min(8, d * 2.4));
+  b.vx = Math.cos(a) * v; b.vz = Math.sin(a) * v;
 }
 // qué tan tapado está el pase (rivales cerca de la línea)
 function laneRisk(m: SoccerMatch, a: Player, q: Player) {
@@ -635,8 +651,11 @@ function moveBall(m: SoccerMatch, dt: number) {
   if (b.y < BR) { b.y = BR; if (b.vy < -2.6) { emit(m, { type: 'bounce', power: Math.min(1, -b.vy / 14) }); b.vy = -b.vy * 0.5; b.vx *= 0.92; b.vz *= 0.92; } else b.vy = 0; }
   if (b.fatal && sp < 12) b.fatal = false;
   if (b.fatal && m.rand() < 0.7) { const el = b.fx, c = el === 'fire' ? '#fb923c' : el === 'volt' ? '#fde047' : el === 'ice' ? '#bae6fd' : el === 'toxic' ? '#4ade80' : el === 'dark' ? '#e879f9' : '#fbbf24'; burst(m, b.x, b.y, b.z, 2, c, 'spark', 2.5); }
-  if (b.receiver !== null && sp < 3) b.receiver = null;
-  if (sp > 11 && m.phase === 'play') { m.trail.unshift([b.x, b.y, b.z]); if (m.trail.length > 12) m.trail.pop(); } else if (m.trail.length) m.trail.pop();
+  if (b.receiver !== null && sp < 1) b.receiver = null;
+  passAssist(m, dt);
+  if (b.comet && sp < 9) { b.comet = false; if (!b.fatal) b.fx = 'none'; }
+  if (b.comet && m.rand() < 0.8) burst(m, b.x - b.vx * 0.02, b.y, b.z - b.vz * 0.02, 2, m.rand() < 0.5 ? '#fb923c' : '#fde047', 'spark', 2);
+  if (sp > 11 && m.phase === 'play') { m.trail.unshift([b.x, b.y, b.z]); if (m.trail.length > (b.comet || b.fatal ? 26 : 12)) m.trail.pop(); } else if (m.trail.length) m.trail.pop();
   walls(m);
   if (m.phase === 'play') { checkGoal(m); touches(m); }
 }
@@ -716,9 +735,10 @@ function touches(m: SoccerMatch) {
   }
   if (!best) return;
   const p = best, relv = hyp(b.vx - p.vx, b.vz - p.vz), h = heightOf(p);
-  if (b.y < 1.05 || relv < 7) { // la controla
-    if (relv < 17 || m.rand() < 0.4) {
-      b.owner = p.id; b.receiver = null; b.spin = 0; b.fatal = false; b.fx = 'none'; b.last = p.team; b.lastId = p.id; p.hold = 0; p.protect = 0.25;
+  const mine = b.receiver === p.id; // (el pase era para él: la recibe siempre)
+  if (b.y < 1.05 || relv < 7 || mine) { // la controla
+    if (relv < 17 || mine || m.rand() < 0.4) {
+      b.owner = p.id; b.receiver = null; b.spin = 0; b.fatal = false; b.fx = 'none'; b.comet = false; b.last = p.team; b.lastId = p.id; p.hold = 0; p.protect = 0.25;
       const dx = b.x - p.x, dz = b.z - p.z, d = hyp(dx, dz); if (d > 0.1) { p.bdx = dx / d; p.bdz = dz / d; }
       if (relv > 8) emit(m, { type: 'control' });
     } else { b.vx = b.vx * -0.25 + p.vx; b.vz = b.vz * -0.25 + p.vz; b.vy = 2; p.noTouch = 0.3; b.last = p.team; b.lastId = p.id; emit(m, { type: 'bounce', power: 0.5 }); }
@@ -802,7 +822,7 @@ function brain(m: SoccerMatch, p: Player, dt: number) {
     [tx, tz] = home(p.role === 'fwd' ? 7 : 5);
     if (p.role === 'fwd') { tx = clamp(rel(m, p.team, Math.max(rel(m, p.team, c.x) + 5, p.hx + 6)), 2, L - 2); }
     if (hyp(tx - c.x, tz - c.z) < 5) tz += tz > c.z ? 3 : -3;
-    if (b.receiver === p.id) { tx = p.tx; tz = p.tz; }
+    if (b.receiver === p.id) { tx = b.x; tz = b.z; } // va a buscar el pase
     run = 0.85;
   } else if (c) { // defendemos
     const mates = m.players.filter(q => q.team === p.team && q.role !== 'gk' && !q.gone).sort((a, q) => hyp(a.x - c.x, a.z - c.z) - hyp(q.x - c.x, q.z - c.z));
