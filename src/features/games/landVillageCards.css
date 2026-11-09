@@ -65,13 +65,15 @@
 .land.land-v9 .land-barracks-details .land-barracks-total{font-size:11px!important}
 .land.land-v9 .land-troops-roster .land-troops-heading{padding:9px 8px}
 .land.land-v9 .land-roster-columns,.land.land-v9 .land-troop-row.land-roster-row{display:grid;grid-template-columns:minmax(0,1fr) 42px 32px;gap:4px;align-items:center}
-.land.land-v9 .land-roster-columns{padding:4px 8px;color:#87a9bd;font:11px Arial,sans-serif}
+.land.land-v9 .land-roster-columns{position:sticky;top:0;z-index:1;box-sizing:border-box;padding:4px 6px;color:#87a9bd;background:#092237;font:11px Arial,sans-serif}
 .land.land-v9 .land-roster-columns>span{font-size:11px!important}
 .land.land-v9 .land-roster-columns>span:not(:first-child){text-align:center}
 .land.land-v9 .land-troops-roster .land-troops-list{display:flex;flex-direction:column;gap:3px;overflow:auto;min-height:0;padding:0 6px;flex:1}
+.land.land-v9 .land-roster-scroll{flex:1;min-height:0;overflow:auto;padding:0 6px;scrollbar-gutter:stable;scrollbar-color:#416a88 #071b2c}
+.land.land-v9 .land-roster-scroll .land-troops-list{overflow:visible;padding:0;flex:none}
 .land.land-v9 .land-troop-row.land-roster-row{min-height:26px;width:100%;margin:0;padding:4px 5px;border:1px solid #345469;border-radius:3px;background:#102e43;text-align:left;color:#e6eef3}
 .land.land-v9 .land-roster-row :is(b,span,strong){font:12px/1.15 Arial,sans-serif!important;min-width:0;overflow-wrap:anywhere}
-.land.land-v9 .land-roster-row>span,.land.land-v9 .land-roster-row>strong{text-align:center}
+.land.land-v9 .land-roster-row>span,.land.land-v9 .land-roster-row>strong{margin:0;text-align:center}
 .land.land-v9 .land-roster-row:disabled{opacity:.65;cursor:default}
 .land.land-v9 .land-roster-row[aria-pressed=true]{border-color:#d7ce87;background:#254448}
 .land.land-v9 .land-troops-roster>footer{padding:5px;font:11px Arial,sans-serif!important}
