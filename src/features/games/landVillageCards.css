@@ -76,7 +76,6 @@
 .land.land-v9 .land-roster-row[aria-pressed=true]{border-color:#d7ce87;background:#254448}
 .land.land-v9 .land-troops-roster>footer{padding:5px;font:11px Arial,sans-serif!important}
 @media(min-width:1101px){
- .land.land-v9 .land-hud.land-hud-native:has(.land-command-panel){height:max(580px,calc((100vw - 330px)*.30))!important}
  .land.land-v9 .land-hud-native .land-selection-info:has(.land-command-panel) .land-selection-roster{display:none!important}
  .land.land-v9 .land-hud-native .land-selection-inspector.land-command-panel{position:absolute;left:22.1%;top:34%;width:54.2%;height:58.5%;z-index:2;grid-template-columns:55.7% minmax(0,1fr);gap:2.5%;padding:0!important;overflow:hidden}
  .land.land-v9 .land-own-intel{grid-template-rows:auto minmax(285px,.8fr) minmax(320px,1.2fr)}

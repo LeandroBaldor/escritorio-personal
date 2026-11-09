@@ -1,0 +1,66 @@
+/* MENU.png: 1342 × 261. Selection changes the contents, never the frame size. */
+@media(min-width:1101px){
+ .land.land-v9 .land-hud.land-hud-native{height:auto!important;aspect-ratio:1342/261;min-height:0!important}
+ .land.land-v9 .land-command-panel>.land-base-report{padding:0 3px;gap:2px;overflow:auto;scrollbar-width:thin}
+ .land.land-v9 .land-command-panel .land-base-tabs button{padding:1px;font-size:clamp(10px,.95cqw,13px)}
+ .land.land-v9 .land-command-panel .land-population-totals{display:none}
+ .land.land-v9 .land-command-panel .land-base-population{gap:2px}
+ .land.land-v9 .land-command-panel .land-village-icons{grid-template-rows:repeat(2,minmax(0,1fr));grid-auto-rows:auto;gap:2px}
+ .land.land-v9 .land-command-panel .land-village-icons>button{aspect-ratio:auto;padding:1px;gap:1px}
+ .land.land-v9 .land-command-panel .land-village-icons>button>:first-child{width:clamp(14px,1.6cqw,22px)!important;height:clamp(14px,1.6cqw,22px)!important}
+ .land.land-v9 .land-command-panel .land-village-icons :is(b,span){font-size:clamp(10px,.9cqw,12px)!important}
+ .land.land-v9 .land-command-panel .land-village-detail-heading{min-height:16px}
+ .land.land-v9 .land-command-panel .land-summary-tasks{gap:2px}
+ .land.land-v9 .land-command-panel .land-summary-tasks article{padding:2px 4px;gap:1px}
+ .land.land-v9 .land-command-panel .land-summary-tasks :is(b,span){font-size:clamp(10px,.95cqw,13px)!important}
+ .land.land-v9 .land-command-panel .land-census{padding:0 3px;gap:2px;overflow:auto;scrollbar-width:thin}
+ .land.land-v9 .land-census>header{min-height:0;padding:0 0 2px;gap:3px;flex-shrink:0}
+ .land.land-v9 .land-census>header>.land-building-sprite{flex-basis:17%;width:17%!important;height:3.6cqw!important}
+ .land.land-v9 .land-census>header>div{display:grid!important;grid-template-columns:1fr 1fr;gap:1px 4px}
+ .land.land-v9 .land-command-panel .land-census h3{grid-column:1/-1;font-size:clamp(11px,1cqw,14px)}
+ .land.land-v9 .land-command-panel .land-census :is(span,b){font-size:clamp(10px,.85cqw,12px)!important}
+ .land.land-v9 .land-census-list{display:grid;grid-template-columns:1fr 1fr;gap:2px;flex:1}
+ .land.land-v9 .land-census-list>div{min-height:0;padding:1px 3px;gap:2px}
+ .land.land-v9 .land-census .land-training-queue{flex-shrink:0;margin:0;padding:0}
+ .land.land-v9 .land-census .land-training-queue progress{height:3px;margin:0}
+ .land.land-v9 .land-command-panel .land-training-queue :is(span,b){font-size:10px!important}
+ .land.land-v9 .land-command-panel .land-inventory-grid{grid-auto-rows:auto;gap:2px;grid-template-rows:repeat(2,minmax(0,1fr))}
+ .land.land-v9 .land-command-panel .land-inventory-grid article{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:2px;padding:2px}
+ .land.land-v9 .land-command-panel .land-inventory-grid .land-building-sprite{width:24px!important;height:24px!important}
+ .land.land-v9 .land-command-panel .land-inventory-grid :is(span,b){font-size:clamp(10px,.85cqw,12px)!important}
+ .land.land-v9 .land-command-panel .land-inventory-pages{min-height:14px}
+ .land.land-v9 .land-command-panel .land-tech-selectors button{padding:1px;font-size:10px}
+ .land.land-v9 .land-command-panel .land-tech-cost{min-height:0;gap:1px;flex-direction:row;flex-wrap:wrap}
+ .land.land-v9 .land-command-panel .land-tech-cost :is(span,b,small){font-size:10px!important}
+ .land.land-v9 .land-command-panel .land-resource-cards{grid-template-rows:repeat(2,minmax(0,1fr));grid-auto-rows:auto;flex:1;gap:2px}
+ .land.land-v9 .land-command-panel .land-resource-cards article{display:grid;grid-template-columns:18px minmax(0,1fr);gap:1px 3px;padding:2px}
+ .land.land-v9 .land-command-panel .land-resource-cards .land-resource-icon{width:18px!important;height:18px!important;grid-row:1/3}
+ .land.land-v9 .land-command-panel .land-resource-cards :is(b,span,small){font-size:clamp(9px,.8cqw,12px)!important}
+ .land.land-v9 .land-command-panel .land-resource-cards :is(small,progress){grid-column:1/-1;margin:0}
+ .land.land-v9 .land-barracks-sheet{padding:0 3px;gap:1px;overflow:auto;scrollbar-width:thin}
+ .land.land-v9 .land-barracks-sheet>header{margin:0;flex-shrink:0}
+ .land.land-v9 .land-barracks-sheet h3{font-size:clamp(11px,1.1cqw,15px)}
+ .land.land-v9 .land-barracks-sheet>header>span{font-size:clamp(10px,.8cqw,12px)}
+ .land.land-v9 .land-barracks-body{grid-template-columns:25% minmax(0,1fr);gap:4px;flex:1}
+ .land.land-v9 .land-barracks-details{gap:1px;justify-content:center}
+ .land.land-v9 .land-barracks-details h4{display:none}
+ .land.land-v9 .land-barracks-details :is(.land-barracks-count,.land-barracks-total){font-size:clamp(10px,.85cqw,12px)!important}
+ .land.land-v9 .land-barracks-level{font-size:10px;gap:0}
+ .land.land-v9 .land-barracks-level>div{height:3px}
+ .land.land-v9 .land-score-attributes{grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;margin:1px 0 0}
+ .land.land-v9 .land-score-attributes>div{display:flex;flex-direction:column;gap:0;border:0;min-width:0}
+ .land.land-v9 .land-score-attributes :is(dt,dd){font-size:clamp(9px,.78cqw,11px)}
+ .land.land-v9 .land-score-attributes meter{height:3px}
+ .land.land-v9 .land-barracks-sheet>footer{min-height:14px;margin:0;flex-shrink:0}
+ .land.land-v9 .land-barracks-sheet>footer button{padding:0 3px;font-size:10px}
+ .land.land-v9 .land-barracks-panel .land-evolution-previews{grid-template-columns:repeat(4,minmax(0,1fr));gap:1px}
+ .land.land-v9 .land-barracks-panel .land-evolution-previews canvas{max-height:22px}
+ .land.land-v9 .land-barracks-panel .land-evolution-previews figcaption{font-size:9px}
+ .land.land-v9 .land-training-cards{padding:0 3px;gap:4px}
+ .land.land-v9 .land-training-cards>header{margin:0;flex-shrink:0;gap:1px}
+ .land.land-v9 .land-training-cards ol{gap:2px;flex:1;grid-template-rows:minmax(0,1fr);grid-auto-rows:auto;align-items:center}
+ .land.land-v9 .land-training-cards li{height:clamp(30px,4cqw,64px);width:clamp(30px,4cqw,64px);max-width:100%;max-height:none}
+ .land.land-v9 .land-training-cards nav{min-height:14px;margin:0;flex-shrink:0}
+ .land.land-v9 .land-training-cards nav button{font-size:14px}
+ .land.land-v9 .land-training-cards time{font-size:10px}
+}

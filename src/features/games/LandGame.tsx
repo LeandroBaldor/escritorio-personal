@@ -17,6 +17,7 @@ import './landResourceHud.css';
 import './landTactics.css';
 import './landBarracks.css';
 import './landVillageCards.css';
+import './landCompactHud.css';
 import { BuildingSprite, Sprite } from './landSprite';
 import { LandInfographic,LeaderPortrait } from './landInfographic';
 import {LandInspector} from './landInspector';
