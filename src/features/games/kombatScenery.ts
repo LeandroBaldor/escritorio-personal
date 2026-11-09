@@ -33,6 +33,8 @@ function bgImage(stage: StageId): HTMLImageElement | null {
 }
 export function preloadBackdrops(stages: StageId[]) { for (const st of stages) bgImage(st); }
 export function backdropReady(stage: StageId) { return !!bgImage(stage); }
+export function backdropImage(stage: StageId) { return bgImage(stage); } // (la imagen pintada, si ya cargó)
+export const backdropFloor = (stage: StageId) => FLOOR_Y[stage];
 // avisa cuando termina de cargar algún fondo (para volver a dibujar las miniaturas)
 export function onBackdropLoad(fn: () => void) { readyFns.add(fn); return () => { readyFns.delete(fn); }; }
 // cómo queda la imagen en la pantalla: escala k y corrimiento (dx, dy)
