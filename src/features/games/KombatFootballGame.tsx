@@ -6,10 +6,11 @@ import { Link } from 'react-router-dom';
 import { CHARS, CHAR_IDS, HALF_TIME, POWER_MAX, STAGES, STATS, TOURNAMENT, type CharId, type StageId } from './kombat';
 import { ATTACKS, LEVEL_CD, attackDir, isHuman as humanTeam, newSoccer, noSInput, soccerClock, stepSoccer, takeSoccerEvents, type SInput, type SoccerMatch } from './kombatSoccer';
 import { drawSoccer, drawSoccerBackdrop, drawSoccerThumb } from './kombatSoccerArt';
-import { brokenWallURL, vortexURL } from './kombatArt';
+import { vortexURL } from './kombatArt';
 import { drawFighterCard, drawPortrait, setLowFx } from './kombatFighters';
 import { setNoGrain } from './gravityMonsters';
-import { spaceURL } from './kombatSpace';
+import spaceBg from './assets/fondos/kf-espacio.webp'; // (el espacio de la selección, ya pintado: antes se dibujaba al abrir y trababa el menú)
+import menuBg from './assets/fondos/kf-menu.webp';
 import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
   playExplosion, playGameOver, playKfBlock, playKfBall, playKfButton, playKfElectric, playKfEnergy, playKfFatal, playKfFinality, playKfFire, playKfThunder, playKfGoal, playKfGoldenRound, playKfVsSentence, playKfHit, playKfKickoffVoice, playKfName, playKfSelectVoice, playKfPickup, playKfPost, playKfPower,
@@ -212,7 +213,7 @@ export function KombatFootball() {
     m.introLen = 0.3;
     matchRef.current = m;
     let frame = 0, last = performance.now();
-    const tick = (now: number) => { const dt = Math.min(0.05, (now - last) / 1000); last = now; stepSoccer(m, [noSInput(), noSInput()], dt); takeSoccerEvents(m); if (m.clock < 5 && !m.extra) m.clock = HALF_TIME; if (screenRef.current !== 'select' && screenRef.current !== 'ladder') paint(); frame = requestAnimationFrame(tick); }; // tapado por la selección: no se dibuja
+    const tick = (now: number) => { const dt = Math.min(0.05, (now - last) / 1000); last = now; stepSoccer(m, [noSInput(), noSInput()], dt); takeSoccerEvents(m); if (m.clock < 5 && !m.extra) m.clock = HALF_TIME; if (screenRef.current !== 'select' && screenRef.current !== 'ladder' && screenRef.current !== 'menu') paint(); /* (detrás del menú no se ve) */ frame = requestAnimationFrame(tick); }; // tapado por la selección: no se dibuja
     frame = requestAnimationFrame(tick);
     const observer = new ResizeObserver(paint); if (stageRef.current) observer.observe(stageRef.current);
     return () => { cancelAnimationFrame(frame); observer.disconnect(); };
@@ -269,7 +270,7 @@ export function KombatFootball() {
   }, [screen, cursor, cols, narrow, stage, pick, p1, p2, mode, round, begin, chooseChar]);
 
   // La música del menú: suena mientras se elige y se corta cuando aparece el escenario del partido.
-  useEffect(() => { preloadKombatUi(); preloadBackdrops(STAGES.map(st => st.id)); const id = window.setTimeout(() => spaceURL(), 700); return () => window.clearTimeout(id); }, []); // el espacio de la selección se pinta antes de que haga falta
+  useEffect(() => { preloadKombatUi(); preloadBackdrops(STAGES.map(st => st.id)); const img = new Image(); img.src = spaceBg; }, []); // (el espacio de la selección se baja antes de que haga falta)
   useEffect(() => {
     setKfMusic(menuish);
     if (!menuish) return;
@@ -480,7 +481,7 @@ export function KombatFootball() {
           <button type="button" onClick={() => setScreen('howto')} autoFocus>¡A pelear! ▶</button>
         </div>
       </div>}
-      {screen === 'vs' && <div className="kf-select kf-versus" role="dialog" aria-labelledby="kf-title" style={{ backgroundImage: `linear-gradient(90deg, ${CHARS[p1].color}38, #0000 38%, #0000 62%, ${CHARS[p2].color}38), radial-gradient(ellipse at 50% 50%, #0000 30%, #000000c0 100%), url(${spaceURL() ?? ''})`, backgroundSize: 'auto, auto, cover', backgroundPosition: 'center', backgroundColor: '#03020c' }}>
+      {screen === 'vs' && <div className="kf-select kf-versus" role="dialog" aria-labelledby="kf-title" style={{ backgroundImage: `linear-gradient(90deg, ${CHARS[p1].color}38, #0000 38%, #0000 62%, ${CHARS[p2].color}38), radial-gradient(ellipse at 50% 50%, #0000 30%, #000000c0 100%), url(${spaceBg})`, backgroundSize: 'auto, auto, cover', backgroundPosition: 'center', backgroundColor: '#03020c' }}>
         <h2 id="kf-title" className="sr-only">{CHARS[p1].name} contra {CHARS[p2].name}</h2>
         <div className="kf-versus-row">
           {([0, 1] as const).map(side => { const id = side === 0 ? p1 : p2, h = narrow ? Math.min(250, vp.h * 0.36, (vp.w - 50) / 2 / 0.76) : Math.min(560, vp.h * 0.62); return <div key={side} className={`kf-versus-side kf-versus-side--${side + 1}`} style={{ ['--kf-c' as string]: CHARS[id].color }}>
@@ -497,7 +498,7 @@ export function KombatFootball() {
           <button type="button" onClick={() => setScreen('stage')} autoFocus>Seleccionar escenario ▶</button>
         </div>
       </div>}
-      {selecting && <div className="kf-select" role="dialog" aria-labelledby="kf-title" style={{ backgroundImage: `radial-gradient(ellipse at 50% 45%, #0000 55%, #00000080 100%), url(${spaceURL() ?? ''})`, backgroundSize: 'auto, cover', backgroundPosition: 'center', backgroundColor: '#03020c' }}>
+      {selecting && <div className="kf-select" role="dialog" aria-labelledby="kf-title" style={{ backgroundImage: `radial-gradient(ellipse at 50% 45%, #0000 55%, #00000080 100%), url(${spaceBg})`, backgroundSize: 'auto, cover', backgroundPosition: 'center', backgroundColor: '#03020c' }}>
         <h2 id="kf-title">{mode === 'versus' ? `JUGADOR ${pick + 1}: ELEGÍ TU LUCHADOR` : pick === 0 ? 'ELEGÍ TU LUCHADOR' : 'ELEGÍ AL RIVAL'}</h2>
         <div className="kf-select-row">
           <div className={`kf-pick kf-pick--1${pick === 0 ? ' kf-pick--active' : ''}`} style={{ ['--kf-c' as string]: CHARS[pick === 0 ? shown : p1].color }}>
@@ -531,11 +532,11 @@ export function KombatFootball() {
         </div>
         <p className="kf-hint">Flechas para moverte · ENTER para elegir · o tocá la cara (dos veces para elegir)</p>
       </div>}
-      {screen !== 'playing' && !selecting && screen !== 'vs' && <div className={`runner-overlay kf-overlay${screen === 'menu' ? ' kf-menu-wall' : ''}`} role="dialog" aria-labelledby="kf-title" style={screen === 'menu' ? { backgroundImage: `radial-gradient(ellipse at 50% 45%, #0000 40%, #000000b3 100%), url(${brokenWallURL() ?? ''})`, backgroundSize: 'auto, cover', backgroundPosition: 'center', backgroundColor: '#151614' } : undefined}>
+      {screen !== 'playing' && !selecting && screen !== 'vs' && <div className={`runner-overlay kf-overlay${screen === 'menu' ? ' kf-menu-wall' : ''}`} role="dialog" aria-labelledby="kf-title" style={screen === 'menu' ? { backgroundImage: `radial-gradient(ellipse at 50% 45%, #0000 40%, #000000b3 100%), url(${menuBg})`, backgroundSize: 'auto, cover', backgroundPosition: 'center', backgroundColor: '#1a0503' } : undefined}>
         <div>
           {screen === 'menu' && <>
             <h2 id="kf-title" className="kf-logo">KOMBAT<br /><span>FOOTBALL</span></h2>
-            <p>Fútbol 5 contra 5 con poderes: elegí tu luchador (tu equipo son cinco iguales) y tirale tu poder a los rivales con su combinación: revientan en sangre. Tiros con efecto, penales y el FATAL GOAL. Dos tiempos de 1:30 y gol de oro si empatan.</p>
+            <p>Fútbol 5 contra 5 con poderes: elegí tu luchador (tu equipo son cinco iguales) y tirale sus ataques a los rivales con la C (de una a cuatro veces): revientan en sangre. Tiros con efecto, penales y el FATAL GOAL. Dos tiempos de 1:30 y gol de oro si empatan.</p>
             <div className="kf-modes">
               <button type="button" onClick={() => { playKfSelectVoice(); setMode('cpu'); setPick(0); setCursor(CHAR_IDS.indexOf(p1)); setScreen('select'); }} autoFocus>Contra la máquina</button>
               <button type="button" onClick={() => { playKfSelectVoice(); setMode('versus'); setPick(0); setCursor(CHAR_IDS.indexOf(p1)); setScreen('select'); }}>2 jugadores</button>
