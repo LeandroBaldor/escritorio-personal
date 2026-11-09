@@ -8,7 +8,7 @@
 // barra del equipo llena sale el FATAL GOAL. Sin trampas: el escenario es la cancha y nada más.
 // Medidas en metros: x a lo largo (0 = arco izquierdo, L = arco derecho), z a lo ancho (0 = el lado de atrás,
 // D = el de adelante, cerca de la cámara) e y para arriba.
-import { CHARS, CHAR_IDS, FATAL_CINE, HALF_TIME, POWER_MAX, SIZE, STATS, heightOf, type Ability, type CharId, type Element, type Fighter, type Person, type StageId, type StunKind } from './kombat';
+import { CHARS, FATAL_CINE, HALF_TIME, POWER_MAX, SIZE, STATS, heightOf, type Ability, type CharId, type Element, type Fighter, type GibKind, type Person, type ScreenBlood, type StageId, type StunKind } from './kombat';
 
 export const L = 42; // largo de la cancha
 export const D = 22; // ancho
@@ -26,7 +26,7 @@ const G = 24; // gravedad de la pelota (pesada: arcade)
 const CORNER = 1.6; // las esquinas están cortadas en diagonal (la pelota no se queda trabada ahí)
 
 export type Role = 'gk' | 'def' | 'fwd';
-export interface SInput { left: boolean; right: boolean; up: boolean; down: boolean; kick: boolean; pass: boolean; power: boolean }
+export interface SInput { left: boolean; right: boolean; up: boolean; down: boolean; kick: boolean; pass: boolean; power: boolean; direct?: boolean } // direct: el botón de poder de la pantalla táctil (sin combinación)
 export const noSInput = (): SInput => ({ left: false, right: false, up: false, down: false, kick: false, pass: false, power: false });
 
 export interface Player extends Fighter {
@@ -36,19 +36,24 @@ export interface Player extends Fighter {
   cdPow: number; castT: number; slide: number; sdx: number; sdz: number; noTouch: number; protect: number; tackleCd: number; slow: number;
   dive: number; diveVz: number; diveVx: number; save: boolean; savedShot: number; aimZ: number; aimT: number;
   hold: number; chargeOn: boolean; aiT: number; tx: number; tz: number; run: number; prevIn: SInput;
+  gone: boolean; // reventado por un poder: vuelve a entrar en unos segundos (p.stun cuenta el tiempo)
 }
 export type BallFx = 'none' | Element;
 export interface SBall { x: number; y: number; z: number; vx: number; vy: number; vz: number; spin: number; roll: number; owner: number | null; last: 0 | 1 | null; lastId: number | null; fx: BallFx; fatal: boolean; receiver: number | null; shot: number; shooter: 0 | 1 | null }
 export interface Proj { team: 0 | 1; from: number; target: number | null; el: Element; ability: Ability; x: number; y: number; z: number; vx: number; vz: number; t: number; life: number; done: boolean }
 export interface SFx { kind: 'bolt' | 'boom' | 'ring'; x: number; y: number; z: number; x2: number; y2: number; z2: number; t: number; life: number; color: string }
 export interface SParticle { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; size: number; color: string; kind: 'spark' | 'smoke' | 'shard' }
-export interface Team { captain: CharId; goals: number; power: number; level: number | null; active: number; castT: number; switchT: number }
+export interface Team { captain: CharId; goals: number; power: number; level: number | null; active: number; castT: number; aiCastT: number; switchT: number }
 export interface Ref extends Person { z: number; vz: number }
-export type SPhase = 'intro' | 'play' | 'goal' | 'fatal' | 'halftime' | 'end';
+export type SPhase = 'intro' | 'play' | 'goal' | 'fatal' | 'halftime' | 'end' | 'penalty';
 export type SEvent =
   | { type: 'kick'; power: number } | { type: 'pass' } | { type: 'hit'; kind: StunKind } | { type: 'tackle'; ok: boolean } | { type: 'goal'; side: 0 | 1; fatal: boolean; scorer: CharId; own: boolean }
   | { type: 'bounce'; power: number } | { type: 'post' } | { type: 'ability'; side: 0 | 1; char: CharId } | { type: 'fatal'; side: 0 | 1; char: CharId } | { type: 'save'; side: 0 | 1 }
-  | { type: 'whistle'; kind: 'kickoff' | 'half' | 'end'; start?: 1 | 2 } | { type: 'halftime' } | { type: 'extra' } | { type: 'header'; side: 0 | 1 } | { type: 'unlock'; side: 0 | 1 } | { type: 'control' };
+  | { type: 'whistle'; kind: 'kickoff' | 'half' | 'end'; start?: 1 | 2 } | { type: 'halftime' } | { type: 'extra' } | { type: 'header'; side: 0 | 1 } | { type: 'unlock'; side: 0 | 1 } | { type: 'control' }
+  | { type: 'explode'; side: 0 | 1; char: CharId; keeper: boolean } | { type: 'penalty'; side: 0 | 1 } | { type: 'comboMiss'; side: 0 | 1 };
+// La sangre y los huesos del que revienta: gotas que vuelan y manchan la cancha donde caen, y los pedazos del
+// esqueleto que rebotan.
+export interface SGore { drops: { x: number; y: number; z: number; vx: number; vy: number; vz: number; r: number }[]; gibs: { x: number; y: number; z: number; vx: number; vy: number; vz: number; a: number; va: number; kind: GibKind; life: number; c: string }[]; stains: { x: number; z: number; r: number; t: number; seed: number }[] }
 
 export interface SoccerMatch {
   stage: StageId; players: Player[]; ball: SBall; ref: Ref; teams: [Team, Team];
@@ -56,6 +61,7 @@ export interface SoccerMatch {
   winner: 0 | 1 | null; lastGoal: { side: 0 | 1; fatal: boolean } | null; events: SEvent[]; shake: number; flash: number; rand: () => number;
   projs: Proj[]; fx: SFx[]; particles: SParticle[]; trail: [number, number, number][]; cam: { x: number; z: number };
   fatal: { team: 0 | 1; shooter: number } | null; netHit: { left: boolean; t: number } | null; shots: number; stillT: number;
+  gore: SGore; screenBlood: ScreenBlood[]; penalty: { team: 0 | 1; shooter: number; ready: boolean } | null;
 }
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -78,6 +84,16 @@ export const carrier = (m: SoccerMatch) => m.ball.owner === null ? null : m.play
 const stunned = (p: Player) => p.stun > 0;
 const levelOf = (m: SoccerMatch, team: 0 | 1) => m.teams[team].level ?? 0.65;
 
+// ---------------------------------------------------------------- Las combinaciones de los poderes
+// Cada luchador tiene la suya (como en los juegos de pelea) + PODER. F = adelante (hacia el arco rival),
+// B = atrás (hacia el arco propio), U = arriba, D = abajo.
+export type Dir = 'F' | 'B' | 'U' | 'D';
+export const COMBOS: Record<CharId, Dir[]> = {
+  cometa: ['U', 'U'], inferno: ['F', 'F'], frost: ['D', 'F'], thunder: ['B', 'F'], shadow: ['F', 'B'], shadowRed: ['B', 'B'], orbot: ['F', 'D'], orbotBlue: ['F', 'U'],
+  bruto: ['D', 'D'], brutoRed: ['B', 'F', 'F'], aguila: ['U', 'F'], aguilaBlack: ['U', 'B'], espectro: ['B', 'U'], toxic: ['D', 'B'], magma: ['D', 'U'], cyber: ['F', 'F', 'F'],
+};
+const COMBO_GAP = 0.5; // segundos como mucho entre flecha y flecha (y hasta el PODER)
+
 // ---------------------------------------------------------------- Armar el partido
 function newPlayer(id: number, team: 0 | 1, char: CharId, role: Role, hx: number, hz: number): Player {
   return {
@@ -85,32 +101,24 @@ function newPlayer(id: number, team: 0 | 1, char: CharId, role: Role, hx: number
     kickT: 0, kickKind: 'normal', kickHit: false, slideT: 0, charge: 0, kickPow: 1, jumps: 0, headT: 0, stun: 0, stunKind: 'none', poison: 0, inv: 0, stamina: 100, power: 0, cd: 0,
     abilityT: 0, abilityHit: false, burst: 0, burstT: 0, powers: {}, prev: { left: false, right: false, up: false, down: false, kick: false, ability: false }, taps: [], goals: 0, restT: 0,
     id, team, role, z: hz, vz: 0, hx, hz, bdx: 1, bdz: 0, cdPow: 0, castT: 0, slide: 0, sdx: 0, sdz: 0, noTouch: 0, protect: 0, tackleCd: 0, slow: 0,
-    dive: 0, diveVz: 0, diveVx: 0, save: false, savedShot: -1, aimZ: ZC, aimT: 0, hold: 0, chargeOn: false, aiT: 0, tx: 0, tz: 0, run: 0, prevIn: noSInput(),
+    dive: 0, diveVz: 0, diveVx: 0, save: false, savedShot: -1, aimZ: ZC, aimT: 0, hold: 0, chargeOn: false, aiT: 0, tx: 0, tz: 0, run: 0, prevIn: noSInput(), gone: false,
   };
 }
 // La formación (desde el arco propio, atacando para +x): arquero, dos defensores y dos delanteros.
 const FORMATION: [Role, number, number][] = [['gk', 1.4, ZC], ['def', 9, D * 0.3], ['def', 9, D * 0.7], ['fwd', 17.5, D * 0.36], ['fwd', 17.5, D * 0.64]];
 
-// Los compañeros: los demás luchadores, repartidos (el más grandote de cada equipo va al arco).
-export function teamOf(captains: [CharId, CharId], rand: () => number): [CharId[], CharId[]] {
-  const pool = CHAR_IDS.filter(c => c !== captains[0] && c !== captains[1]);
-  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-  const pick = (cap: CharId, mates: CharId[]) => { const gk = [...mates].sort((a, b) => SIZE[b] - SIZE[a])[0]; return [gk, ...mates.filter(c => c !== gk).slice(0, 2), cap, ...mates.filter(c => c !== gk).slice(2, 3)]; };
-  return [pick(captains[0], pool.slice(0, 4)), pick(captains[1], pool.slice(4, 8))];
-}
-
 export function newSoccer(stage: StageId, captains: [CharId, CharId], levels: [number | null, number | null], rand: () => number = Math.random): SoccerMatch {
-  const squads = teamOf(captains, rand), players: Player[] = [];
-  for (const team of [0, 1] as const) squads[team].forEach((c, i) => players.push(newPlayer(players.length, team, c, FORMATION[i][0], FORMATION[i][1], FORMATION[i][2])));
+  const players: Player[] = []; // cada equipo: cinco iguales (el luchador elegido)
+  for (const team of [0, 1] as const) FORMATION.forEach(([role, hx, hz]) => players.push(newPlayer(players.length, team, captains[team], role, hx, hz)));
   const kick: 0 | 1 = rand() < 0.5 ? 0 : 1;
   const m: SoccerMatch = {
     stage, players,
     ball: { x: L / 2, y: BR, z: ZC, vx: 0, vy: 0, vz: 0, spin: 0, roll: 0, owner: null, last: null, lastId: null, fx: 'none', fatal: false, receiver: null, shot: 0, shooter: null },
     ref: { x: L / 2 - 4, y: 0, z: 2, vx: 0, vy: 0, vz: 0, facing: 1, ground: true, action: 'idle', actionT: 0, stun: 0, stunKind: 'none', away: 0 },
-    teams: [0, 1].map(t => ({ captain: captains[t], goals: 0, power: 0, level: levels[t], active: players.find(p => p.team === t && p.char === captains[t])!.id, castT: 3, switchT: 0 })) as [Team, Team],
+    teams: [0, 1].map(t => ({ captain: captains[t], goals: 0, power: 0, level: levels[t], active: t * 5 + 3, castT: 2, aiCastT: 4, switchT: 0 })) as [Team, Team],
     phase: 'intro', phaseT: 0, introLen: 2.6, time: 0, half: 1, clock: HALF_TIME, extra: false, extraT: 0, kickoffTeam: kick, firstKick: kick,
     winner: null, lastGoal: null, events: [], shake: 0, flash: 0, rand, projs: [], fx: [], particles: [], trail: [], cam: { x: L / 2, z: ZC },
-    fatal: null, netHit: null, shots: 0, stillT: 0,
+    fatal: null, netHit: null, shots: 0, stillT: 0, gore: { drops: [], gibs: [], stains: [] }, screenBlood: [], penalty: null,
   };
   resetKickoff(m, kick);
   return m;
@@ -122,16 +130,17 @@ function resetKickoff(m: SoccerMatch, team: 0 | 1) {
   const b = m.ball; Object.assign(b, { x: L / 2, y: BR, z: ZC, vx: 0, vy: 0, vz: 0, spin: 0, owner: null, last: null, lastId: null, fx: 'none', fatal: false, receiver: null, shooter: null });
   for (const p of m.players) {
     let rx = p.hx, z = p.hz;
-    if (p.role === 'fwd') rx = p.team === team ? (p.char === m.teams[team].captain ? L / 2 - 0.9 : L / 2 - 4) : L / 2 - 6.5;
-    if (p.role === 'fwd' && p.team === team && p.char === m.teams[team].captain) z = ZC;
-    Object.assign(p, { x: rel(m, p.team, rx), z, vx: 0, vz: 0, y: 0, stun: 0, stunKind: 'none', slide: 0, dive: 0, kickT: 0, charge: 0, chargeOn: false, noTouch: 0, hold: 0, action: 'idle', actionT: 0, facing: attackDir(m, p.team) });
+    const k = p.id === team * 5 + 3;
+    if (p.role === 'fwd') rx = p.team === team ? (k ? L / 2 - 0.9 : L / 2 - 4) : L / 2 - 6.5;
+    if (k) z = ZC;
+    Object.assign(p, { gone: false, inv: 0, x: rel(m, p.team, rx), z, vx: 0, vz: 0, y: 0, stun: 0, stunKind: 'none', slide: 0, dive: 0, kickT: 0, charge: 0, chargeOn: false, noTouch: 0, hold: 0, action: 'idle', actionT: 0, facing: attackDir(m, p.team) });
     p.bdx = attackDir(m, p.team); p.bdz = 0;
   }
-  m.projs = []; m.trail = []; m.fatal = null; m.stillT = 0;
+  m.projs = []; m.trail = []; m.fatal = null; m.stillT = 0; m.penalty = null;
   m.teams[team].active = kicker(m, team).id;
   m.ref.x = L / 2 - 3; m.ref.z = 1.6;
 }
-const kicker = (m: SoccerMatch, team: 0 | 1) => m.players.find(p => p.team === team && p.char === m.teams[team].captain)!;
+const kicker = (m: SoccerMatch, team: 0 | 1) => m.players[team * 5 + 3]; // (el primer delantero)
 
 // ---------------------------------------------------------------- El paso del partido
 export function stepSoccer(m: SoccerMatch, inputs: [SInput, SInput], dt: number) {
@@ -169,7 +178,9 @@ export function stepSoccer(m: SoccerMatch, inputs: [SInput, SInput], dt: number)
       for (const p of m.players) settle(m, p, dt, m.winner === null ? 'idle' : p.team === m.winner ? 'celebrate' : 'sad');
       break;
     case 'play': play(m, inputs, dt); break;
+    case 'penalty': penaltyStep(m, inputs, dt); break;
   }
+  updateGore(m, dt);
   updateRef(m, dt);
   updateFx(m, dt);
   // la cámara sigue a la pelota (en el FATAL, al que tira)
@@ -194,24 +205,35 @@ function play(m: SoccerMatch, inputs: [SInput, SInput], dt: number) {
     m.clock -= dt;
     if (m.clock <= 0) { m.clock = 0; endOfHalf(m); return; }
   }
-  for (const t of [0, 1] as const) { const T = m.teams[t]; T.castT = Math.max(0, T.castT - dt); T.switchT = Math.max(0, T.switchT - dt); if (isHuman(m, t)) chooseActive(m, t); }
+  tickPlayers(m, dt);
   for (const p of m.players) {
-    for (const k of ['cdPow', 'castT', 'noTouch', 'protect', 'tackleCd', 'slow', 'kickT', 'aimT'] as const) p[k] = Math.max(0, p[k] - dt);
-    if (p.stun > 0) { p.stun -= dt; if (p.stun <= 0) { p.stun = 0; p.stunKind = 'none'; } }
-  }
-  for (const p of m.players) {
-    const human = isHuman(m, p.team) && m.teams[p.team].active === p.id && p.role !== 'gk';
+    if (p.gone) continue;
+    const human = isHuman(m, p.team) && m.teams[p.team].active === p.id;
     if (human) control(m, p, inputs[p.team], dt);
     else if (p.role === 'gk') keeper(m, p, dt);
     else brain(m, p, dt);
   }
-  for (const p of m.players) moveP(m, p, dt);
+  for (const p of m.players) if (!p.gone) moveP(m, p, dt);
   bump(m);
   for (let k = 0; k < 2; k++) moveBall(m, dt / 2);
   updateProjs(m, dt);
   // si la pelota está quieta mucho tiempo sin nadie cerca (no debería pasar), la levanta el más cercano
   const b = m.ball;
   if (b.owner === null && hyp(b.vx, b.vz) < 0.4) m.stillT += dt; else m.stillT = 0;
+}
+
+function tickPlayers(m: SoccerMatch, dt: number) {
+  for (const t of [0, 1] as const) { const T = m.teams[t]; T.castT = Math.max(0, T.castT - dt); T.aiCastT = Math.max(0, T.aiCastT - dt); T.switchT = Math.max(0, T.switchT - dt); if (isHuman(m, t)) chooseActive(m, t); }
+  for (const p of m.players) {
+    for (const k of ['cdPow', 'castT', 'noTouch', 'protect', 'tackleCd', 'slow', 'kickT', 'aimT', 'inv'] as const) p[k] = Math.max(0, p[k] - dt);
+    if (p.stun > 0) { p.stun -= dt; if (p.stun <= 0) { p.stun = 0; p.stunKind = 'none'; if (p.gone) respawn(m, p); } }
+  }
+}
+// Vuelve a entrar el que reventó: en su lugar de la formación, titilando un ratito (no le pueden pegar).
+function respawn(m: SoccerMatch, p: Player) {
+  p.gone = false; p.inv = 1.6; p.x = rel(m, p.team, p.role === 'gk' ? 1.2 : Math.max(3, p.hx - 4)); p.z = p.hz; p.vx = 0; p.vz = 0; p.y = 0; p.slide = 0; p.dive = 0;
+  p.facing = attackDir(m, p.team); p.action = 'idle'; p.actionT = 0;
+  burst(m, p.x, 1.2, p.z, 18, CHARS[p.char].glow, 'spark', 5);
 }
 
 function endOfHalf(m: SoccerMatch) {
@@ -227,12 +249,13 @@ function endOfHalf(m: SoccerMatch) {
 // (cambia solo, como en los FIFA). Con la pelota en el aire hacia un compañero (un pase), ese compañero.
 function chooseActive(m: SoccerMatch, team: 0 | 1) {
   const T = m.teams[team], b = m.ball, c = carrier(m);
-  if (c && c.team === team && c.role !== 'gk') { T.active = c.id; return; }
-  if (b.receiver !== null && m.players[b.receiver].team === team && m.players[b.receiver].role !== 'gk') { T.active = b.receiver; return; }
-  if (T.switchT > 0) return;
-  const cur = m.players[T.active], tx = c ? c.x : b.x, tz = c ? c.z : b.z;
-  let best = cur, bd = cur.chargeOn ? 0 : hyp(cur.x - tx, cur.z - tz) - 2.2; // (para que no cambie a cada rato)
-  for (const p of m.players) if (p.team === team && p.role !== 'gk' && p !== cur) { const d = hyp(p.x - tx, p.z - tz); if (d < bd) { bd = d; best = p; } }
+  if (c && c.team === team) { T.active = c.id; return; } // (el arquero también, cuando la tiene: la saca con un pase o para arriba)
+  if (b.receiver !== null && m.players[b.receiver].team === team && m.players[b.receiver].role !== 'gk' && !m.players[b.receiver].gone) { T.active = b.receiver; return; }
+  const cur = m.players[T.active];
+  if (T.switchT > 0 && !cur.gone && cur.role !== 'gk') return;
+  const tx = c ? c.x : b.x, tz = c ? c.z : b.z;
+  let best = cur, bd = cur.gone || cur.role === 'gk' ? 1e9 : cur.chargeOn ? 0 : hyp(cur.x - tx, cur.z - tz) - 2.2; // (para que no cambie a cada rato)
+  for (const p of m.players) if (p.team === team && p.role !== 'gk' && p !== cur && !p.gone) { const d = hyp(p.x - tx, p.z - tz); if (d < bd) { bd = d; best = p; } }
   if (best !== cur) { T.active = best.id; T.switchT = 0.35; }
 }
 
@@ -242,6 +265,19 @@ function control(m: SoccerMatch, p: Player, i: SInput, dt: number) {
   let dx = (i.right ? 1 : 0) - (i.left ? 1 : 0), dz = (i.down ? 1 : 0) - (i.up ? 1 : 0);
   const n = hyp(dx, dz); if (n > 0) { dx /= n; dz /= n; }
   p.tx = p.x + dx * 3; p.tz = p.z + dz * 3; p.run = n > 0 ? 1 : 0;
+  // las flechas que se van apretando (para las combinaciones de los poderes)
+  const fwd = attackDir(m, p.team);
+  for (const [k, d] of [['right', fwd > 0 ? 'F' : 'B'], ['left', fwd > 0 ? 'B' : 'F'], ['up', 'U'], ['down', 'D']] as [keyof SInput, Dir][]) if (pressed(p, i, k)) { p.taps.push({ d, t: m.time }); if (p.taps.length > 6) p.taps.shift(); }
+  if (p.role === 'gk') { // el arquero con la pelota: pase con X, para arriba bien lejos con ESPACIO
+    if (has) {
+      const gx = ownGoalX(m, p.team); p.tx = clamp(p.tx, Math.min(gx, gx + fwd * AREA_X), Math.max(gx, gx + fwd * AREA_X)); p.tz = clamp(p.tz, ZC - AREA_W / 2, ZC + AREA_W / 2);
+      if (pressed(p, i, 'pass')) pass(m, p, n > 0 ? [dx, dz] : null);
+      else if (pressed(p, i, 'kick')) punt(m, p, n > 0 ? [dx, dz] : null);
+      else if (p.hold > 6) pass(m, p, null);
+    }
+    p.prevIn = { ...i };
+    return;
+  }
   if (!stunned(p) && p.slide <= 0) {
     // patear: con la pelota carga el tiro (al soltar sale); sin la pelota, barrida o quite
     if (pressed(p, i, 'kick')) { if (has) { p.chargeOn = true; p.charge = 0; } else tackle(m, p, dx, dz); }
@@ -250,13 +286,25 @@ function control(m: SoccerMatch, p: Player, i: SInput, dt: number) {
       else { p.chargeOn = false; if (m.ball.owner === p.id) shoot(m, p, p.charge / CHARGE_TIME, i.up ? -1 : i.down ? 1 : 0); p.charge = 0; }
     }
     if (pressed(p, i, 'pass')) { if (has) { p.chargeOn = false; p.charge = 0; pass(m, p, n > 0 ? [dx, dz] : null); } else switchPlayer(m, p.team); }
-    if (pressed(p, i, 'power')) { if (has && m.teams[p.team].power >= POWER_MAX) startFatal(m, p); else castPower(m, p); }
+    if (pressed(p, i, 'power')) {
+      if (has && m.teams[p.team].power >= POWER_MAX) startFatal(m, p);
+      else if (i.direct || comboDone(m, p)) castPower(m, p, n > 0 ? [dx, dz] : null);
+      else emit(m, { type: 'comboMiss', side: p.team });
+      p.taps = [];
+    }
   }
   p.prevIn = { ...i };
 }
+// ¿Las últimas flechas son la combinación de su luchador (seguidas, sin pausas largas)?
+export function comboDone(m: SoccerMatch, p: Player) {
+  const want = COMBOS[p.char], taps = p.taps.slice(-want.length);
+  if (taps.length < want.length || m.time - taps[taps.length - 1].t > COMBO_GAP) return false;
+  for (let k = 0; k < want.length; k++) { if (taps[k].d !== want[k]) return false; if (k > 0 && taps[k].t - taps[k - 1].t > COMBO_GAP) return false; }
+  return true;
+}
 function switchPlayer(m: SoccerMatch, team: 0 | 1) {
   const T = m.teams[team], b = m.ball, cur = m.players[T.active];
-  const list = m.players.filter(p => p.team === team && p.role !== 'gk' && p !== cur).sort((a, c) => hyp(a.x - b.x, a.z - b.z) - hyp(c.x - b.x, c.z - b.z));
+  const list = m.players.filter(p => p.team === team && p.role !== 'gk' && p !== cur && !p.gone).sort((a, c) => hyp(a.x - b.x, a.z - b.z) - hyp(c.x - b.x, c.z - b.z));
   if (list[0]) { T.active = list[0].id; T.switchT = 0.8; list[0].prevIn = { ...cur.prevIn }; }
 }
 
@@ -301,7 +349,8 @@ function cornerPush(p: { x: number; z: number; vx: number; vz: number }, r: numb
 function bump(m: SoccerMatch) {
   const P = m.players;
   for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) {
-    const a = P[i], b = P[j], rr = radiusOf(a) + radiusOf(b), dx = b.x - a.x, dz = b.z - a.z, d = hyp(dx, dz);
+    const a = P[i], b = P[j]; if (a.gone || b.gone) continue;
+    const rr = radiusOf(a) + radiusOf(b), dx = b.x - a.x, dz = b.z - a.z, d = hyp(dx, dz);
     if (d > 0.001 && d < rr) { const k = (rr - d) / d * 0.5; a.x -= dx * k; a.z -= dz * k; b.x += dx * k; b.z += dz * k; }
   }
 }
@@ -337,9 +386,17 @@ export function shoot(m: SoccerMatch, p: Player, charge: number, side: -1 | 0 | 
   launchFrom(m, p); gain(m, p.team, 3);
   emit(m, { type: 'kick', power: charge });
 }
+// El arquero la tira para arriba, bien lejos (hacia donde apunta o para adelante).
+export function punt(m: SoccerMatch, p: Player, dir: [number, number] | null) {
+  const b = m.ball, fwd = attackDir(m, p.team);
+  let [dx, dz] = dir ?? [fwd, 0]; if (dx * fwd < 0.2) { dx = fwd * 0.8; dz = Math.sign(dz) * 0.6; }
+  const n = hyp(dx, dz); release(m, p);
+  b.vx = dx / n * 17; b.vz = dz / n * 17; b.vy = 11; b.y = 1.2; launchFrom(m, p); p.protect = 0;
+  emit(m, { type: 'kick', power: 0.8 });
+}
 // Pase: al compañero hacia donde apuntan las flechas (o al mejor ubicado), adelantado a donde va a estar.
 export function pass(m: SoccerMatch, p: Player, dir: [number, number] | null) {
-  const mates = m.players.filter(q => q.team === p.team && q !== p && !stunned(q));
+  const mates = m.players.filter(q => q.team === p.team && q !== p && !stunned(q) && !q.gone);
   let best: Player | null = null, bs = -1e9;
   for (const q of mates) {
     const dx = q.x - p.x, dz = q.z - p.z, d = hyp(dx, dz); if (d < 2) continue;
@@ -367,13 +424,13 @@ export function pass(m: SoccerMatch, p: Player, dir: [number, number] | null) {
 // qué tan tapado está el pase (rivales cerca de la línea)
 function laneRisk(m: SoccerMatch, a: Player, q: Player) {
   let risk = 0; const dx = q.x - a.x, dz = q.z - a.z, d2 = dx * dx + dz * dz;
-  for (const o of m.players) if (o.team !== a.team) {
+  for (const o of m.players) if (o.team !== a.team && !o.gone) {
     const t = clamp(((o.x - a.x) * dx + (o.z - a.z) * dz) / d2, 0, 1), cx = a.x + dx * t, cz = a.z + dz * t, dd = hyp(o.x - cx, o.z - cz);
     if (t > 0.08 && t < 0.95 && dd < 1.6) risk = Math.max(risk, 1 - dd / 1.6);
   }
   return risk;
 }
-const pressure = (m: SoccerMatch, q: Player) => { let r = 0; for (const o of m.players) if (o.team !== q.team) r = Math.max(r, 1 - hyp(o.x - q.x, o.z - q.z) / 4); return r; };
+const pressure = (m: SoccerMatch, q: Player) => { let r = 0; for (const o of m.players) if (o.team !== q.team && !o.gone) r = Math.max(r, 1 - hyp(o.x - q.x, o.z - q.z) / 4); return r; };
 // Quite (cerca del que tiene la pelota) o barrida (corriendo).
 export function tackle(m: SoccerMatch, p: Player, dx = 0, dz = 0) {
   if (p.tackleCd > 0) return;
@@ -408,50 +465,135 @@ const gain = (m: SoccerMatch, team: 0 | 1, n: number) => { const T = m.teams[tea
 const INSTANT: Ability[] = ['lightning', 'beam', 'laserCut'];
 export const STUN_OF: Record<Element, [StunKind, number]> = { fire: ['burn', 1.3], ice: ['freeze', 1.6], volt: ['zap', 1.2], dark: ['hit', 1.25], toxic: ['poison', 1.3], rock: ['hit', 1.5] };
 export const powerReady = (p: Player) => p.cdPow <= 0;
-export function castPower(m: SoccerMatch, p: Player) {
-  if (p.cdPow > 0 || stunned(p) || m.teams[p.team].castT > 0) return false;
-  const def = CHARS[p.char], c = carrier(m);
-  let target: Player | null = c && c.team !== p.team && hyp(c.x - p.x, c.z - p.z) < 24 ? c : null;
-  if (!target) { let bd = 18; for (const q of m.players) if (q.team !== p.team && q.role !== 'gk' && q.stun <= 0) { const d = hyp(q.x - p.x, q.z - p.z); if (d < bd) { bd = d; target = q; } } }
+export function castPower(m: SoccerMatch, p: Player, aim: [number, number] | null = null) {
+  if (p.cdPow > 0 || stunned(p) || p.gone || m.teams[p.team].castT > 0) return false;
+  const def = CHARS[p.char], target = pickTarget(m, p, aim);
   p.cdPow = POWER_CD + def.cd; p.castT = 0.35; m.teams[p.team].castT = Math.max(m.teams[p.team].castT, TEAM_CD);
   emit(m, { type: 'ability', side: p.team, char: p.char });
-  const hy = heightOf(p) * 0.55;
+  const hy = heightOf(p) * 0.55, [ax, az] = aim ?? [p.facing, 0];
   if (INSTANT.includes(def.ability)) {
-    const tx = target ? target.x : p.x + p.facing * 10, tz = target ? target.z : p.z;
+    const tx = target ? target.x : p.x + ax * 10, tz = target ? target.z : p.z + az * 10;
     m.fx.push({ kind: 'bolt', x: p.x, y: hy, z: p.z, x2: tx, y2: target ? heightOf(target) * 0.55 : hy, z2: tz, t: 0, life: 0.35, color: def.glow });
-    if (target && hyp(target.x - p.x, target.z - p.z) < 22) hitBy(m, target, p);
+    if (target) hitBy(m, target, p);
   } else {
-    const tx = target ? target.x : p.x + p.facing * 10, tz = target ? target.z : p.z, d = hyp(tx - p.x, tz - p.z) || 1;
+    const tx = target ? target.x : p.x + ax * 10, tz = target ? target.z : p.z + az * 10, d = hyp(tx - p.x, tz - p.z) || 1;
     m.projs.push({ team: p.team, from: p.id, target: target?.id ?? null, el: def.element, ability: def.ability, x: p.x, y: hy, z: p.z, vx: (tx - p.x) / d * 22, vz: (tz - p.z) / d * 22, t: 0, life: 1.6, done: false });
   }
   return true;
 }
-function hitBy(m: SoccerMatch, q: Player, by: Player) {
-  const el = CHARS[by.char].element, [kind, time] = STUN_OF[el], b = m.ball;
-  if (b.owner === q.id) { // la pelota queda suelta
-    b.owner = null; const a = m.rand() * Math.PI * 2, nearOwn = Math.abs(q.x - ownGoalX(m, q.team)) < 12; // (cerca de su arco, cae para el lado de la cancha)
-    b.vx = nearOwn ? attackDir(m, q.team) * (2.5 + m.rand() * 2) : Math.cos(a) * 4 + q.vx * 0.3; b.vz = Math.sin(a) * 4 + q.vz * 0.3; b.vy = 4.5;
-    if (q.role === 'gk') { b.x = q.x + attackDir(m, q.team) * 0.8; b.y = 1; } b.last = q.team; b.lastId = q.id; b.receiver = null; q.noTouch = 0.8;
+// ¿A quién le tira? Al rival más a mano hacia donde apunta (o hacia donde mira); el que tiene la pelota suma.
+const hittable = (m: SoccerMatch, q: Player) => !q.gone && q.inv <= 0 && (q.role !== 'gk' || m.ball.owner === q.id);
+function pickTarget(m: SoccerMatch, p: Player, aim: [number, number] | null) {
+  const [ax, az] = aim ?? [p.facing, 0];
+  let best: Player | null = null, bs = 1e9;
+  for (const q of m.players) if (q.team !== p.team && hittable(m, q)) {
+    const dx = q.x - p.x, dz = q.z - p.z, d = hyp(dx, dz); if (d > 20) continue;
+    const cos = (dx * ax + dz * az) / (d || 1), s = d - cos * 7 - (m.ball.owner === q.id ? 3 : 0);
+    if (cos > -0.2 && s < bs) { bs = s; best = q; }
   }
-  q.stun = Math.max(q.stun, time); q.stunKind = kind; q.chargeOn = false; q.charge = 0; q.slide = 0; q.dive = 0;
-  if (kind === 'poison') q.slow = 4;
-  const dx = q.x - by.x, dz = q.z - by.z, d = hyp(dx, dz) || 1; q.vx = dx / d * 4; q.vz = dz / d * 4;
+  return best;
+}
+// Le pega el poder: revienta en sangre y los huesos salen volando (vuelve a entrar en unos segundos). Si tenía
+// la pelota dentro del área del rival, es penal.
+function hitBy(m: SoccerMatch, q: Player, by: Player) {
+  const b = m.ball, had = b.owner === q.id;
+  const inArea = had && q.role !== 'gk' && Math.abs(q.x - oppGoalX(m, q.team)) < AREA_X && Math.abs(q.z - ZC) < AREA_W / 2;
   m.fx.push({ kind: 'boom', x: q.x, y: heightOf(q) * 0.5, z: q.z, x2: 0, y2: 0, z2: 0, t: 0, life: 0.5, color: CHARS[by.char].glow });
   burst(m, q.x, heightOf(q) * 0.5, q.z, 14, CHARS[by.char].color, 'spark', 6);
-  m.shake = Math.max(m.shake, 0.35);
+  explode(m, q, CHARS[by.char].element);
   gain(m, by.team, 4);
-  emit(m, { type: 'hit', kind });
+  emit(m, { type: 'hit', kind: STUN_OF[CHARS[by.char].element][0] });
+  if (inArea && m.phase === 'play') startPenalty(m, q.team);
 }
+export function explode(m: SoccerMatch, q: Player, el: Element | null = null, screen = false) {
+  const b = m.ball, h = heightOf(q), G2 = m.gore;
+  if (b.owner === q.id) { // la pelota queda suelta (cerca de su arco, cae para el lado de la cancha)
+    b.owner = null; const a = m.rand() * Math.PI * 2, nearOwn = Math.abs(q.x - ownGoalX(m, q.team)) < 12;
+    b.vx = nearOwn ? attackDir(m, q.team) * (2.5 + m.rand() * 2) : Math.cos(a) * 4; b.vz = Math.sin(a) * 4; b.vy = 4.5; b.y = Math.max(b.y, 0.8);
+    b.last = q.team; b.lastId = q.id; b.receiver = null;
+  }
+  for (let i = 0; i < 46; i++) { const a = m.rand() * Math.PI * 2, sp = 2 + m.rand() * 8; G2.drops.push({ x: q.x, y: h * (0.3 + m.rand() * 0.6), z: q.z, vx: Math.cos(a) * sp, vy: 3 + m.rand() * 9, vz: Math.sin(a) * sp * 0.8, r: 0.05 + m.rand() * 0.09 }); }
+  const kinds: GibKind[] = ['skull', 'ribs', 'pelvis', 'jaw', 'bone', 'bone', 'bone', 'bone', 'chunk', 'chunk', 'plate', 'plate'];
+  for (const kind of kinds) { const a = m.rand() * Math.PI * 2, sp = 2.5 + m.rand() * 6; G2.gibs.push({ x: q.x, y: h * (0.3 + m.rand() * 0.5), z: q.z, vx: Math.cos(a) * sp, vy: 4 + m.rand() * 7, vz: Math.sin(a) * sp * 0.8, a: m.rand() * 6, va: (m.rand() - 0.5) * 18, kind, life: 0, c: CHARS[q.char].color }); }
+  if (G2.drops.length > 500) G2.drops.splice(0, G2.drops.length - 500);
+  if (G2.gibs.length > 90) G2.gibs.splice(0, G2.gibs.length - 90);
+  G2.stains.push({ x: q.x, z: q.z, r: 0.9 + m.rand() * 0.4, t: 0, seed: m.rand() * 100 });
+  if (el) burst(m, q.x, h * 0.5, q.z, 10, el === 'fire' ? '#fb923c' : el === 'volt' ? '#fde047' : el === 'ice' ? '#bae6fd' : el === 'toxic' ? '#4ade80' : el === 'dark' ? '#c084fc' : '#fbbf24', 'spark', 7);
+  if (screen) for (let k = 0; k < 4; k++) m.screenBlood.push({ x: 0.15 + m.rand() * 0.7, y: 0.2 + m.rand() * 0.5, r: 0.05 + m.rand() * 0.07, t: -k * 0.05, seed: m.rand() * 100, drips: 3 + Math.floor(m.rand() * 4) });
+  q.gone = true; q.stun = q.role === 'gk' ? 2.4 : 3.2; q.stunKind = 'hit'; q.chargeOn = false; q.charge = 0; q.slide = 0; q.dive = 0; q.vx = 0; q.vz = 0;
+  m.shake = Math.max(m.shake, 0.7); m.flash = Math.max(m.flash, 0.25);
+  emit(m, { type: 'explode', side: q.team, char: q.char, keeper: q.role === 'gk' });
+}
+function updateGore(m: SoccerMatch, dt: number) {
+  const G2 = m.gore;
+  for (const d of G2.drops) { d.vy -= 20 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt; if (d.y <= 0) { d.y = -1; if (G2.stains.length < 400) G2.stains.push({ x: d.x, z: d.z, r: d.r * (1.4 + m.rand()), t: 0, seed: m.rand() * 100 }); } }
+  G2.drops = G2.drops.filter(d => d.y > -1);
+  for (const g of G2.gibs) {
+    g.life += dt;
+    if (g.y > 0.05 || g.vy > 0) { g.vy -= 20 * dt; g.y += g.vy * dt; g.a += g.va * dt; }
+    if (g.y <= 0.05) { g.y = 0.05; if (g.vy < -2) { g.vy = -g.vy * 0.35; g.va *= 0.6; } else { g.vy = 0; g.va *= 0.9; } g.vx *= 1 - dt * 3; g.vz *= 1 - dt * 3; }
+    g.x = clamp(g.x + g.vx * dt, -1, L + 1); g.z = clamp(g.z + g.vz * dt, -0.5, D + 0.5);
+  }
+  G2.gibs = G2.gibs.filter(g => g.life < 9);
+  for (const st of G2.stains) st.t += dt; G2.stains = G2.stains.filter(st => st.t < 40);
+  for (const sb of m.screenBlood) sb.t += dt; m.screenBlood = m.screenBlood.filter(sb => sb.t < 5);
+}
+// ---------------------------------------------------------------- Penal
+function startPenalty(m: SoccerMatch, team: 0 | 1) {
+  m.phase = 'penalty'; m.phaseT = 0; m.projs = [];
+  const shooter = m.players.filter(q => q.team === team && q.role === 'fwd' && !q.gone)[0] ?? m.players.find(q => q.team === team && q.role !== 'gk' && !q.gone)!;
+  m.penalty = { team, shooter: shooter.id, ready: false };
+  emit(m, { type: 'penalty', side: team }); emit(m, { type: 'whistle', kind: 'half' });
+}
+const SPOT = 4.6;
+function penaltyStep(m: SoccerMatch, inputs: [SInput, SInput], dt: number) {
+  const pen = m.penalty!, sh = m.players[pen.shooter], gx = oppGoalX(m, pen.team), out = gx === 0 ? 1 : -1;
+  tickPlayersQuiet(m, dt);
+  if (!pen.ready) {
+    for (const p of m.players) if (!p.gone) settle(m, p, dt, 'idle');
+    moveBall(m, dt);
+    if (m.phaseT > 1.6) { // todos a su lugar: la pelota en el punto, el arquero en la línea, los demás afuera del área
+      pen.ready = true;
+      for (const p of m.players) if (p.gone) { p.gone = false; p.stun = 0; p.inv = 1; }
+      let k = 0;
+      for (const p of m.players) {
+        Object.assign(p, { vx: 0, vz: 0, y: 0, stun: 0, slide: 0, dive: 0, chargeOn: false, charge: 0, action: 'idle' });
+        if (p === sh) { p.x = gx + out * (SPOT + 1.1); p.z = ZC; p.facing = -out as 1 | -1; }
+        else if (p.role === 'gk' && p.team !== pen.team) { p.x = gx + out * 0.8; p.z = ZC; p.savedShot = -1; p.aimT = 0; }
+        else if (p.role === 'gk') { p.x = rel(m, p.team, 1.4); p.z = ZC; }
+        else { p.x = gx + out * (AREA_X + 2 + (k % 2) * 2); p.z = ZC - 6 + k * 3.4; k++; }
+      }
+      const b = m.ball; Object.assign(b, { x: gx + out * SPOT, z: ZC, y: BR, vx: 0, vy: 0, vz: 0, spin: 0, owner: sh.id, last: sh.team, lastId: sh.id, fatal: false, fx: 'none', receiver: null });
+      sh.bdx = -out; sh.bdz = 0; sh.hold = 0; m.phaseT = 0;
+    }
+    return;
+  }
+  // el que patea: la persona (carga con ESPACIO y elige el palo con ↑/↓) o la máquina
+  const i = isHuman(m, sh.team) ? inputs[sh.team] : null;
+  if (i) {
+    m.teams[sh.team].active = sh.id;
+    if (i.kick && !sh.prevIn.kick) { sh.chargeOn = true; sh.charge = 0; }
+    if (sh.chargeOn) { if (i.kick) sh.charge = Math.min(CHARGE_TIME, sh.charge + dt); else { sh.chargeOn = false; shoot(m, sh, Math.max(0.25, sh.charge / CHARGE_TIME), i.up ? -1 : i.down ? 1 : 0, 0.6); } }
+    sh.prevIn = { ...i };
+  } else if (m.phaseT > 1.3) shoot(m, sh, 0.45 + m.rand() * 0.35, m.rand() < 0.5 ? -1 : 1, 0.8);
+  if (m.phaseT > 8 && m.ball.owner === sh.id) shoot(m, sh, 0.5, 0); // (si no patea, patea solo)
+  for (const p of m.players) { if (p.role === 'gk' && p.team !== pen.team) keeper(m, p, dt); else { p.run = 0; p.tx = p.x; p.tz = p.z; } }
+  for (const p of m.players) moveP(m, p, dt);
+  if (m.ball.owner === null) { m.phase = 'play'; m.phaseT = 0; m.penalty = null; }
+  else carry(m, dt);
+}
+function tickPlayersQuiet(m: SoccerMatch, dt: number) { for (const p of m.players) for (const k of ['noTouch', 'kickT', 'aimT', 'inv', 'castT'] as const) p[k] = Math.max(0, p[k] - dt); }
 function updateProjs(m: SoccerMatch, dt: number) {
   for (const s of m.projs) {
     s.t += dt;
     const tg = s.target !== null ? m.players[s.target] : null;
-    if (tg && tg.stun <= 0) { // lo persigue (doblando de a poco)
+    if (tg && hittable(m, tg)) { // lo persigue (doblando de a poco)
       const dx = tg.x - s.x, dz = tg.z - s.z, d = hyp(dx, dz) || 1, sp = hyp(s.vx, s.vz), k = Math.min(1, dt * 7);
       s.vx += (dx / d * sp - s.vx) * k; s.vz += (dz / d * sp - s.vz) * k;
     }
     s.x += s.vx * dt; s.z += s.vz * dt;
-    for (const q of m.players) if (q.team !== s.team && q.stun <= 0 && (q.role !== 'gk' || m.ball.owner === q.id) && hyp(q.x - s.x, q.z - s.z) < 0.6 + radiusOf(q)) { hitBy(m, q, m.players[s.from]); s.done = true; break; }
+    for (const q of m.players) if (q.team !== s.team && hittable(m, q) && hyp(q.x - s.x, q.z - s.z) < 0.6 + radiusOf(q)) { hitBy(m, q, m.players[s.from]); s.done = true; break; }
+    if (s.done && m.phase !== 'play') break;
     if (s.t > s.life || s.x < -1 || s.x > L + 1 || s.z < -1 || s.z > D + 1) { s.done = true; m.fx.push({ kind: 'ring', x: s.x, y: s.y, z: s.z, x2: 0, y2: 0, z2: 0, t: 0, life: 0.35, color: CHARS[m.players[s.from].char].glow }); }
   }
   m.projs = m.projs.filter(s => !s.done);
@@ -468,8 +610,9 @@ export function startFatal(m: SoccerMatch, p: Player) {
 function launchFatal(m: SoccerMatch) {
   const f = m.fatal!, p = m.players[f.shooter], b = m.ball, gx = oppGoalX(m, p.team), gk = m.players.find(q => q.team !== p.team && q.role === 'gk')!;
   release(m, p);
-  const zt = ZC + (gk.z < ZC ? 1 : -1) * GW * 0.3, dx = gx - b.x, dz = zt - b.z, d = hyp(dx, dz) || 1, S = 30, T = d / S;
-  b.vx = dx / d * S; b.vz = dz / d * S; b.vy = clamp((1.3 - BR) / T + 0.5 * G * T, 1, 9); b.spin = 0;
+  // derecho al arquero (revienta) y adentro del arco
+  const tx = gx, zt = gk.gone ? ZC : clamp(gk.z, ZC - GW / 2 + 0.6, ZC + GW / 2 - 0.6), dx = tx - b.x, dz = zt - b.z, d = hyp(dx, dz) || 1, S = 26, T = d / S;
+  b.vx = dx / d * S; b.vz = dz / d * S; b.vy = clamp((1.2 - BR) / T + 0.5 * G * T, 1, 9); b.spin = 0;
   b.fatal = true; b.fx = CHARS[p.char].element; b.shot = ++m.shots; b.shooter = p.team; launchFrom(m, p);
   m.phase = 'play'; m.phaseT = 0; m.shake = 1; m.flash = 0.8;
   emit(m, { type: 'kick', power: 1.3 });
@@ -491,6 +634,7 @@ function moveBall(m: SoccerMatch, dt: number) {
   b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt; b.roll += sp * dt / BR;
   if (b.y < BR) { b.y = BR; if (b.vy < -2.6) { emit(m, { type: 'bounce', power: Math.min(1, -b.vy / 14) }); b.vy = -b.vy * 0.5; b.vx *= 0.92; b.vz *= 0.92; } else b.vy = 0; }
   if (b.fatal && sp < 12) b.fatal = false;
+  if (b.fatal && m.rand() < 0.7) { const el = b.fx, c = el === 'fire' ? '#fb923c' : el === 'volt' ? '#fde047' : el === 'ice' ? '#bae6fd' : el === 'toxic' ? '#4ade80' : el === 'dark' ? '#e879f9' : '#fbbf24'; burst(m, b.x, b.y, b.z, 2, c, 'spark', 2.5); }
   if (b.receiver !== null && sp < 3) b.receiver = null;
   if (sp > 11 && m.phase === 'play') { m.trail.unshift([b.x, b.y, b.z]); if (m.trail.length > 12) m.trail.pop(); } else if (m.trail.length) m.trail.pop();
   walls(m);
@@ -559,9 +703,10 @@ function touches(m: SoccerMatch) {
   const b = m.ball, sp = hyp(b.vx, b.vz);
   let best: Player | null = null, bd = 1e9;
   for (const p of m.players) {
-    if (p.noTouch > 0 || p.stun > 0 || p.slide > 0) continue;
+    if (p.gone || p.noTouch > 0 || p.stun > 0 || p.slide > 0) continue;
     const d = hyp(p.x - b.x, p.z - b.z), h = heightOf(p);
-    if (b.fatal) { // el FATAL arrasa con el que se cruza
+    if (b.fatal) { // el FATAL arrasa con el que se cruza; el arquero revienta en sangre
+      if (p.team !== b.shooter && p.role === 'gk' && d < radiusOf(p) + BR + 0.6 && b.y < h * 1.2) { explode(m, p, b.fx === 'none' ? null : b.fx, true); m.shake = 1.4; continue; }
       if (p.team !== b.shooter && d < radiusOf(p) + BR && b.y < h) { p.stun = 1.6; p.stunKind = 'burn'; p.dive = 0; p.vx = b.vx * 0.3; p.vz = b.vz * 0.3; m.shake = 0.8; emit(m, { type: 'hit', kind: 'burn' }); burst(m, p.x, h * 0.5, p.z, 16, '#fb923c', 'spark', 7); }
       continue;
     }
@@ -611,13 +756,13 @@ function keeper(m: SoccerMatch, p: Player, dt: number) {
   if (p.dive > 0 || stunned(p)) { p.run = 0; return; }
   if (b.owner === p.id) { // la tiene: la pasa
     p.run = 0; p.tx = p.x; p.tz = p.z;
-    if (p.hold > 0.9) { p.protect = 0; pass(m, p, null); }
+    if (p.hold > 0.9) { p.protect = 0; if (m.rand() < 0.35) punt(m, p, null); else pass(m, p, null); } // la saca: un pase o para arriba
     return;
   }
   let tx = gx + out * 1.1, tz = ZC + clamp((b.z - ZC) * 0.5, -GW / 2 + 0.5, GW / 2 - 0.5);
   const free = b.owner === null, dBall = hyp(b.x - gx, b.z - ZC);
   if (free && dBall < 7.5 && Math.abs(b.z - ZC) < AREA_W / 2 && hyp(b.vx, b.vz) < 9 && b.last !== null) { // sale a buscarla
-    const near = Math.min(...m.players.filter(q => q.team !== p.team).map(q => hyp(q.x - b.x, q.z - b.z)));
+    const near = Math.min(99, ...m.players.filter(q => q.team !== p.team && !q.gone).map(q => hyp(q.x - b.x, q.z - b.z)));
     if (hyp(p.x - b.x, p.z - b.z) < near * 1.4) { tx = b.x; tz = b.z; }
   }
   // un tiro que viene al arco: decide si se tira
@@ -660,7 +805,7 @@ function brain(m: SoccerMatch, p: Player, dt: number) {
     if (b.receiver === p.id) { tx = p.tx; tz = p.tz; }
     run = 0.85;
   } else if (c) { // defendemos
-    const mates = m.players.filter(q => q.team === p.team && q.role !== 'gk').sort((a, q) => hyp(a.x - c.x, a.z - c.z) - hyp(q.x - c.x, q.z - c.z));
+    const mates = m.players.filter(q => q.team === p.team && q.role !== 'gk' && !q.gone).sort((a, q) => hyp(a.x - c.x, a.z - c.z) - hyp(q.x - c.x, q.z - c.z));
     const rank = mates.indexOf(p), humanActive = isHuman(m, p.team) ? m.players[m.teams[p.team].active] : null;
     const presser = humanActive && mates[0] === humanActive ? mates[1] : mates[0];
     if (p === presser || (rank === 0 && !humanActive)) {
@@ -670,11 +815,8 @@ function brain(m: SoccerMatch, p: Player, dt: number) {
     } else if (rank <= 1 || (humanActive && rank === 2 && mates[1] === presser)) { // cubre: entre la pelota y el arco
       const gx = ownGoalX(m, p.team); tx = c.x + (gx - c.x) * 0.38; tz = c.z + (ZC - c.z) * 0.38;
     } else { [tx, tz] = home(-3); }
-    if (cpu && p.cdPow <= 0 && m.teams[p.team].castT <= 0 && hyp(c.x - p.x, c.z - p.z) < 17 && p.aiT <= 0) {
-      p.aiT = 0.3; if (m.rand() < 0.1 + 0.25 * lv) { castPower(m, p); m.teams[p.team].castT = 12 - lv * 5; }
-    }
   } else { // pelota suelta: el más cercano de cada equipo va a buscarla
-    const mates = m.players.filter(q => q.team === p.team && q.role !== 'gk');
+    const mates = m.players.filter(q => q.team === p.team && q.role !== 'gk' && !q.gone);
     const eta = (q: Player) => hyp(q.x - b.x, q.z - b.z) / speedOf(q.char);
     const humanActive = isHuman(m, p.team) ? m.teams[p.team].active : -1;
     const first = mates.filter(q => q.id !== humanActive).sort((a, q) => eta(a) - eta(q))[0];
@@ -683,19 +825,30 @@ function brain(m: SoccerMatch, p: Player, dt: number) {
     else { [tx, tz] = home(b.last === p.team ? 3 : -1); run = 0.8; }
   }
   p.tx = tx; p.tz = tz; p.run = hyp(tx - p.x, tz - p.z) > 0.4 ? run : 0;
+  aiCast(m, p, lv, cpu);
+}
+// Los de la máquina (y los compañeros) también se tiran poderes: al que tiene la pelota o a cualquier rival cerca.
+function aiCast(m: SoccerMatch, p: Player, lv: number, cpu: boolean) {
+  const T = m.teams[p.team];
+  if (p.cdPow > 0 || T.aiCastT > 0 || T.castT > 0 || p.castT > 0 || m.phase !== 'play') return;
+  if (m.rand() > (cpu ? 0.02 + 0.03 * lv : 0.015)) return; // (cada tanto, no todos a la vez)
+  const t = pickTarget(m, p, null) ?? pickTarget(m, p, [-p.facing, 0]);
+  if (!t || hyp(t.x - p.x, t.z - p.z) > 15) return;
+  const dx = t.x - p.x, dz = t.z - p.z, d = hyp(dx, dz) || 1;
+  if (castPower(m, p, [dx / d, dz / d])) T.aiCastT = cpu ? 7 - lv * 3 : 9;
 }
 // ¿hay un rival (que no sea el arquero) tapando el tiro?
 function shotLaneBlocked(m: SoccerMatch, p: Player, gx: number) {
   const dx = gx - p.x, dz = ZC - p.z, d2 = dx * dx + dz * dz;
-  return m.players.some(o => { if (o.team === p.team || o.role === 'gk') return false; const t = ((o.x - p.x) * dx + (o.z - p.z) * dz) / d2; if (t < 0.03 || t > 0.9) return false; return hyp(o.x - (p.x + dx * t), o.z - (p.z + dz * t)) < 1.3; });
+  return m.players.some(o => { if (o.team === p.team || o.role === 'gk' || o.gone) return false; const t = ((o.x - p.x) * dx + (o.z - p.z) * dz) / d2; if (t < 0.03 || t > 0.9) return false; return hyp(o.x - (p.x + dx * t), o.z - (p.z + dz * t)) < 1.3; });
 }
 function carrierAI(m: SoccerMatch, p: Player, lv: number, cpu: boolean) {
   const gx = oppGoalX(m, p.team), dir = attackDir(m, p.team), dg = hyp(gx - p.x, ZC - p.z);
   let near: Player | null = null, nd = 1e9;
-  for (const o of m.players) if (o.team !== p.team && o.role !== 'gk') { const d = hyp(o.x - p.x, o.z - p.z); if (d < nd) { nd = d; near = o; } }
+  for (const o of m.players) if (o.team !== p.team && o.role !== 'gk' && !o.gone) { const d = hyp(o.x - p.x, o.z - p.z); if (d < nd) { nd = d; near = o; } }
   const front = !!near && (near.x - p.x) * dir > -0.5;
   if (p.hold < -5 && p.aiT <= 0) { // el saque del medio: la toca para atrás, a un defensor
-    const back = m.players.filter(q => q.team === p.team && q.role === 'def').sort((a, q) => hyp(a.x - p.x, a.z - p.z) - hyp(q.x - p.x, q.z - p.z))[0];
+    const back = m.players.filter(q => q.team === p.team && q.role === 'def' && !q.gone).sort((a, q) => hyp(a.x - p.x, a.z - p.z) - hyp(q.x - p.x, q.z - p.z))[0];
     if (back) { pass(m, p, [back.x - p.x, back.z - p.z].map(v => v / (hyp(back.x - p.x, back.z - p.z) || 1)) as [number, number]); return; }
   }
   if (p.aiT <= 0) {
@@ -708,7 +861,7 @@ function carrierAI(m: SoccerMatch, p: Player, lv: number, cpu: boolean) {
     }
     if (nd < 2.6 && front && p.hold > 0.25 && m.rand() < (cpu ? 0.35 + 0.35 * lv : 0.6)) { pass(m, p, null); return; }
     if (p.hold > 1.4 && m.rand() < 0.25) {
-      const ahead = m.players.some(q => q.team === p.team && q !== p && q.role !== 'gk' && (q.x - p.x) * dir > 4 && laneRisk(m, p, q) < 0.4);
+      const ahead = m.players.some(q => q.team === p.team && q !== p && q.role !== 'gk' && !q.gone && (q.x - p.x) * dir > 4 && laneRisk(m, p, q) < 0.4);
       if (ahead) { pass(m, p, null); return; }
     }
   }

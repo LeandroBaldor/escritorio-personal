@@ -4,15 +4,15 @@ import { GamePad } from './GamePad';
 import { fitViewport, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
 import { CHARS, CHAR_IDS, HALF_TIME, POWER_MAX, STAGES, STATS, TOURNAMENT, type CharId, type StageId } from './kombat';
-import { POWER_CD, attackDir, isHuman as humanTeam, newSoccer, noSInput, soccerClock, stepSoccer, takeSoccerEvents, type SInput, type SoccerMatch } from './kombatSoccer';
-import { drawSoccer, drawSoccerThumb } from './kombatSoccerArt';
+import { COMBOS, POWER_CD, attackDir, isHuman as humanTeam, newSoccer, noSInput, soccerClock, stepSoccer, takeSoccerEvents, type SInput, type SoccerMatch } from './kombatSoccer';
+import { drawSoccer, drawSoccerBackdrop, drawSoccerThumb } from './kombatSoccerArt';
 import { brokenWallURL, vortexURL } from './kombatArt';
 import { drawFighterCard, drawPortrait, setLowFx } from './kombatFighters';
 import { setNoGrain } from './gravityMonsters';
 import { spaceURL } from './kombatSpace';
 import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
-  playGameOver, playKfBlock, playKfBall, playKfButton, playKfElectric, playKfEnergy, playKfFatal, playKfFinality, playKfFire, playKfThunder, playKfGoal, playKfGoldenRound, playKfVsSentence, playKfHit, playKfKickoffVoice, playKfName, playKfSelectVoice, playKfPickup, playKfPost, playKfPower,
+  playExplosion, playGameOver, playKfBlock, playKfBall, playKfButton, playKfElectric, playKfEnergy, playKfFatal, playKfFinality, playKfFire, playKfThunder, playKfGoal, playKfGoldenRound, playKfVsSentence, playKfHit, playKfKickoffVoice, playKfName, playKfSelectVoice, playKfPickup, playKfPost, playKfPower,
   playRefWhistle, playStart, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
 } from './sounds';
 import { EndBanner } from './EndBanner';
@@ -58,6 +58,11 @@ const hudOf = (m: SoccerMatch): Hud => ({
   }) as [Side, Side],
   intro: m.phase === 'intro' && m.half === 1 && !m.extra && m.time < 2.4,
 });
+// La combinación del poder de un luchador, con las teclas de ese jugador (F = hacia el arco rival).
+const comboKeys = (mode: Mode, side: 0 | 1, char: CharId, dir: 1 | -1) => {
+  const j1 = mode === 'versus' && side === 0, k = { F: dir > 0 ? (j1 ? 'D' : '→') : (j1 ? 'A' : '←'), B: dir > 0 ? (j1 ? 'A' : '←') : (j1 ? 'D' : '→'), U: j1 ? 'W' : '↑', D: j1 ? 'S' : '↓' };
+  return [...COMBOS[char].map(d => k[d]), helpFor(mode, side).power];
+};
 const activeIds = (m: SoccerMatch) => ([0, 1] as const).filter(t => humanTeam(m, t)).map(t => m.teams[t].active);
 const QUALITY = [1, 0.82, 0.68, 0.55]; // escalones de resolución del partido
 const sameHud = (a: Hud, b: Hud) => JSON.stringify(a) === JSON.stringify(b);
@@ -140,8 +145,11 @@ export function KombatFootball() {
   const fit = useFitScreen(); // celulares y tablets en horizontal: igual que en la computadora, más chico
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const bgRef = useRef<HTMLCanvasElement>(null); // el fondo, en su propio lienzo: siempre con toda la calidad
+  const bgKey = useRef('');
   const matchRef = useRef<SoccerMatch | null>(null);
   const inputs = useRef<[SInput, SInput]>([noSInput(), noSInput()]);
+  const latch = useRef<[Partial<SInput>, Partial<SInput>]>([{}, {}]); // teclas tocadas muy rápido (entre dos cuadros): cuentan igual
   const [screen, setScreen] = useState<Screen>('menu');
   const [mode, setMode] = useState<Mode>('cpu');
   const [p1, setP1] = useState<CharId>('cometa');
@@ -173,6 +181,8 @@ export function KombatFootball() {
 
   // Calidad del dibujo: si los cuadros tardan mucho (celular lento) baja un escalón; si sobra, vuelve a subir.
   const quality = useRef(0);
+  const backdropTick = useRef(0); // (cuando termina de cargar un fondo, se vuelve a pintar)
+  useEffect(() => onBackdropLoad(() => { backdropTick.current++; }), []);
   const paint = useCallback(() => {
     const el = stageRef.current, canvas = canvasRef.current, m = matchRef.current;
     if (!el || !canvas || !m) return;
@@ -183,8 +193,16 @@ export function KombatFootball() {
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     const low = touch || quality.current > 0; setLowFx(low); setNoGrain(low);
     const ctx = canvas.getContext('2d'); if (!ctx) return;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    drawSoccer(ctx, m, w, h, { activeIds: screenRef.current === 'playing' || screenRef.current === 'paused' ? activeIds(m) : [] });
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, w, h);
+    drawSoccer(ctx, m, w, h, { activeIds: screenRef.current === 'playing' || screenRef.current === 'paused' ? activeIds(m) : [], noBackdrop: true });
+    const bg = bgRef.current;
+    if (bg) { // (con la resolución de la pantalla aunque el partido baje la calidad)
+      const kb = Math.min(pixelRatio(2), 2560 / Math.max(1, el.clientWidth), 1500 / Math.max(1, el.clientHeight)), bw = Math.round(el.clientWidth * kb), bh = Math.round(el.clientHeight * kb);
+      if (bg.width !== bw || bg.height !== bh) { bg.width = bw; bg.height = bh; bgKey.current = ''; }
+      const key = `${m.stage}|${Math.round(m.cam.x * 8)}|${Math.round(m.cam.z * 8)}|${backdropTick.current}`;
+      const bctx = bg.getContext('2d');
+      if (bctx && key !== bgKey.current) { bgKey.current = key; bctx.setTransform(1, 0, 0, 1, 0, 0); drawSoccerBackdrop(bctx, m, bw, bh); }
+    }
     setNoGrain(false); // (los otros juegos sí la usan)
   }, []);
 
@@ -269,7 +287,7 @@ export function KombatFootball() {
     if (screen !== 'playing') { setCrowd(0); return; }
     setCrowd(0.6);
     let slow = 1 / 60, checkT = 0;
-    let frame = 0, last = performance.now(), acc = 0, bounceT = 0, bannerId = 0, lastBolt = -1;
+    let frame = 0, last = performance.now(), acc = 0, bounceT = 0, bannerId = 0, lastBolt = -1, comboT = 0;
     const human = (side: 0 | 1) => modeRef.current === 'versus' || side === 0;
     const tick = (now: number) => {
       const m = matchRef.current; if (!m) return;
@@ -280,9 +298,14 @@ export function KombatFootball() {
         if (slow > 1 / 45 && quality.current < QUALITY.length - 1) { quality.current++; checkT = 0; }
         else if (slow < 1 / 57 && quality.current > 0 && checkT > 6) { quality.current--; checkT = 0; }
       }
-      for (let n = 0; acc >= 1 / 60 && n < 6; n++) { acc -= 1 / 60; stepSoccer(m, inputs.current, 1 / 60); }
+      for (let n = 0; acc >= 1 / 60 && n < 6; n++) {
+        acc -= 1 / 60;
+        const [a, b] = inputs.current, [la, lb] = latch.current;
+        stepSoccer(m, n === 0 ? [{ ...a, ...la }, { ...b, ...lb }] : inputs.current, 1 / 60);
+        if (n === 0) latch.current = [{}, {}];
+      }
       if (acc > 1 / 60) acc = 0;
-      bounceT -= dt;
+      bounceT -= dt; comboT -= dt;
       if (m.stage === 'storm') { const k = Math.floor(m.time / 4.2); if (k !== lastBolt) { if (lastBolt >= 0) playKfThunder(0.6, 0.15); lastBolt = k; } } // los relámpagos del fondo con su trueno
       for (const e of takeSoccerEvents(m)) {
         switch (e.type) {
@@ -297,6 +320,9 @@ export function KombatFootball() {
           case 'fatal': playKfFatal(); playKfFinality(); shout('FATAL GOAL', 'fatal', `${CHARS[e.char].name}: ${CHARS[e.char].fatalName}`, 1700); break;
           case 'goal': playKfGoal(); shout(e.fatal ? '☠ FATAL GOAL ☠' : e.own ? '¡GOL EN CONTRA!' : '¡GOL!', e.fatal ? 'fatal' : 'goal', `${CHARS[e.scorer].name} · ${m.teams[0].goals} - ${m.teams[1].goals}`, 2400); break;
           case 'save': playKfBlock(); shout('¡ATAJADA!', 'block', undefined, 900); break;
+          case 'explode': playExplosion(); playKfHit(1); if (e.keeper && m.ball.fatal) shout('¡EL ARQUERO REVENTÓ!', 'fatal', undefined, 1400); break;
+          case 'penalty': playRefWhistle('kickoff'); shout('¡PENAL!', 'goal', human(e.side) ? 'ESPACIO para patear (mantenelo para más fuerza) · ↑ o ↓ para elegir el palo' : 'Poder al que tenía la pelota en el área', 2600); break;
+          case 'comboMiss': if (human(e.side) && comboT <= 0) { comboT = 2.5; const T = m.teams[e.side], a = m.players[T.active]; shout('Combinación del poder', 'info', comboKeys(modeRef.current, e.side, a.char, attackDir(m, e.side)).join(' '), 1800); } break;
           case 'header': playKfBall(0.7, 0.9); if (human(e.side)) shout('¡CABEZAZO!', 'info', undefined, 700); break;
           case 'unlock':
             if (human(e.side)) { playKfPickup(); playKfEnergy(0.8); const id = ++bannerId; setBanner({ id, side: e.side, dir: attackDir(m, e.side) }); setTimeout(() => setBanner(b => b && b.id === id ? null : b), 4000); }
@@ -342,7 +368,7 @@ export function KombatFootball() {
       const hit = map(e.code);
       if (!hit || s !== 'playing') return;
       e.preventDefault();
-      inputs.current[hit[0]][hit[1]] = true;
+      inputs.current[hit[0]][hit[1]] = true; latch.current[hit[0]][hit[1]] = true;
     };
     const up = (e: KeyboardEvent) => { const hit = map(e.code); if (hit) inputs.current[hit[0]][hit[1]] = false; };
     window.addEventListener('keydown', down); window.addEventListener('keyup', up);
@@ -351,8 +377,8 @@ export function KombatFootball() {
   useEffect(() => { const prev = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = prev; }; }, []);
 
   const hold = (key: Key) => ({
-    onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); inputs.current[0][key] = true; },
-    onPointerUp: () => { inputs.current[0][key] = false; },
+    onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); inputs.current[0][key] = true; if (key === 'power') inputs.current[0].direct = true; },
+    onPointerUp: () => { inputs.current[0][key] = false; if (key === 'power') inputs.current[0].direct = false; },
     onPointerLeave: () => { inputs.current[0][key] = false; },
     onPointerCancel: () => { inputs.current[0][key] = false; },
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
@@ -373,7 +399,7 @@ export function KombatFootball() {
         </div>
         <div className="kf-sub">
           <span className={`kf-power${s?.fatal ? ' kf-power--full' : ''}`} title="Poder: lleno habilita el FATAL GOAL"><u style={{ width: `${power}%` }} /><em>{s?.fatal ? 'FATAL ☠' : 'PODER'}</em></span>
-          {s && s.active !== chars[i] && <em className="kf-pw">{CHARS[s.active].name}</em>}
+
         </div>
       </div>
     </div>;
@@ -382,12 +408,13 @@ export function KombatFootball() {
   const howto = (side: 0 | 1) => { const c = CHARS[chars[side]], k = helpFor(mode, side); return <div className="kf-howto-card" style={{ ['--kf-c' as string]: c.color }}>
     <div className="kf-howto-head"><Portrait char={chars[side]} size={56} square mirror={side === 1} /><div><b>{c.name}</b><small>{mode === 'versus' ? `Jugador ${side + 1}` : 'Vos'} · capitán de 5</small></div></div>
     <ul>
-      <li><Keys keys={k.move} /> correr para todos lados (manejás al que tiene el aro amarillo; cambia solo al más cercano a la pelota)</li>
+      <li><Keys keys={k.move} /> correr para todos lados. Tu equipo son cinco {c.name}; manejás al del aro amarillo (cambia solo al más cercano a la pelota)</li>
       <li><Keys keys={[k.kick]} /> <b>tirar al arco:</b> mantenelo para cargar el tiro y soltalo. Si al soltar apretás {mode === 'versus' && side === 0 ? 'W o S' : '↑ o ↓'}, la pelota sale <b>con efecto</b> y dobla hacia ese palo.</li>
       <li><Keys keys={[k.pass]} /> <b>pasar</b> al compañero hacia donde apuntás (sin la pelota: cambiar de jugador)</li>
       <li><Keys keys={[k.kick]} /> sin la pelota: <b>quite</b> si estás pegado al rival, <b>barrida</b> si venís corriendo</li>
-      <li className="kf-howto-ab"><Keys keys={[k.power]} /> <b>PODER:</b> cada luchador tira el suyo al rival que tiene la pelota (lo deja duro y la pelota queda suelta). Se recarga solo.</li>
-      <li className="kf-howto-fatal"><Keys keys={[k.power]} /> con la barra del equipo llena <b>y la pelota</b>: <b>FATAL GOAL</b> ({c.fatalName}), un tiro que no se puede atajar.</li>
+      <li className="kf-howto-ab"><Keys keys={comboKeys(mode, side, chars[side], 1)} /> <b>PODER ({c.abilityName}):</b> esta combinación (→ es hacia el arco rival) se lo tira al rival que tengas adelante, tenga o no la pelota: <b>revienta en sangre</b> y vuelve a entrar en unos segundos. Si le pegás al que tiene la pelota adentro de tu área, es <b>penal</b>.</li>
+      <li><b>Arquero con la pelota:</b> <Keys keys={[k.pass]} /> se la pasa a un compañero · <Keys keys={[k.kick]} /> la tira para arriba, bien lejos</li>
+      <li className="kf-howto-fatal"><Keys keys={[k.power]} /> con la barra del equipo llena <b>y la pelota</b>: <b>FATAL GOAL</b> ({c.fatalName}): la pelota sale envuelta en su poder, revienta al arquero y entra.</li>
     </ul>
   </div>; };
 
@@ -413,6 +440,7 @@ export function KombatFootball() {
       {playing && <button type="button" onClick={() => setScreen(s => s === 'playing' ? 'paused' : 'playing')}>{screen === 'playing' ? 'Pausa' : 'Seguir'}</button>}
     </div>
     <div className="runner-stage kf-stage" ref={stageRef}>
+      <canvas ref={bgRef} className="kf-bg" aria-hidden="true" />
       <canvas ref={canvasRef} role="img" aria-label="Cancha de Kombat Football" />
       {playing && hud && <div className="kf-hud">
         {sideBar(0)}
@@ -425,7 +453,7 @@ export function KombatFootball() {
         </div>
           <div className="kf-specials" data-testid="kf-specials">
             {([0, 1] as const).map(i => { const c = CHARS[chars[i]], sd = hud.sides[i]; return <span key={i} className={`kf-special kf-special--${i}${sd?.ready ? ' kf-ready' : ''}`} style={{ ['--kf-c' as string]: c.color }} title={c.abilityText}>
-              <b>✦ {CHARS[sd?.active ?? chars[i]].abilityName}{sd && !sd.ready ? '…' : ''}</b>{isHuman(i) && <small>{helpFor(mode, i).power}</small>}
+              <b>✦ {CHARS[sd?.active ?? chars[i]].abilityName}{sd && !sd.ready ? '…' : ''}</b>{isHuman(i) && <small>{comboKeys(mode, i, chars[i], sd?.dir ?? 1).join(' ')}</small>}
             </span>; })}
           </div>
         </div>
@@ -508,7 +536,7 @@ export function KombatFootball() {
         <div>
           {screen === 'menu' && <>
             <h2 id="kf-title" className="kf-logo">KOMBAT<br /><span>FOOTBALL</span></h2>
-            <p>Fútbol 5 contra 5 con poderes: elegí tu capitán, armá el equipo con los demás luchadores y tirale tu poder al que tiene la pelota. Tiros con efecto, barridas y el FATAL GOAL. Dos tiempos de 1:30 y gol de oro si empatan.</p>
+            <p>Fútbol 5 contra 5 con poderes: elegí tu luchador (tu equipo son cinco iguales) y tirale tu poder a los rivales con su combinación: revientan en sangre. Tiros con efecto, penales y el FATAL GOAL. Dos tiempos de 1:30 y gol de oro si empatan.</p>
             <div className="kf-modes">
               <button type="button" onClick={() => { playKfSelectVoice(); setMode('cpu'); setPick(0); setCursor(CHAR_IDS.indexOf(p1)); setScreen('select'); }} autoFocus>Contra la máquina</button>
               <button type="button" onClick={() => { playKfSelectVoice(); setMode('versus'); setPick(0); setCursor(CHAR_IDS.indexOf(p1)); setScreen('select'); }}>2 jugadores</button>

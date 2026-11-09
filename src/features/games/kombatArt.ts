@@ -897,7 +897,7 @@ function drawStains(ctx: CanvasRenderingContext2D, m: Match, v: View) {
   }
   ctx.globalAlpha = 1;
 }
-function drawGib(ctx: CanvasRenderingContext2D, kind: GibKind, c = '#9ca3af') {
+export function drawGib(ctx: CanvasRenderingContext2D, kind: GibKind, c = '#9ca3af') {
   const bone = (x0: number, y0: number, x1: number, y1: number, w: number) => { ctx.strokeStyle = BONE; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); for (const [px, py] of [[x0, y0], [x1, y1]]) { ctx.fillStyle = BONE; ctx.beginPath(); ctx.arc(px, py - w * 0.4, w * 0.75, 0, TAU); ctx.arc(px, py + w * 0.4, w * 0.75, 0, TAU); ctx.fill(); } };
   switch (kind) {
     case 'plate': { // un pedazo de armadura del color del luchador, abollado y con sangre
@@ -1042,7 +1042,7 @@ function drawFighterStrike(ctx: CanvasRenderingContext2D, st: Strike, m: Match, 
 }
 // La sangre en la cámara: cada mancha aparece de golpe, es irregular y brillante, tiene gotitas alrededor y
 // chorrea hacia abajo de a poco; a los segundos se va borrando.
-function drawScreenBlood(ctx: CanvasRenderingContext2D, list: ScreenBlood[], v: View) {
+export function drawScreenBlood(ctx: CanvasRenderingContext2D, list: ScreenBlood[], v: View) {
   const U = Math.min(v.w, v.h * 1.7);
   ctx.save();
   for (const b of list) {
