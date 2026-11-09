@@ -15,6 +15,7 @@ import './landReferenceHud.css';
 import './landVillageHud.css';
 import './landResourceHud.css';
 import './landTactics.css';
+import './landBarracks.css';
 import { BuildingSprite, Sprite } from './landSprite';
 import { LandInfographic,LeaderPortrait } from './landInfographic';
 import {LandInspector} from './landInspector';
@@ -469,7 +470,7 @@ export function LandOfWarriors() {
       </div>
       {mode.k !== 'none' && <div className="land-mode">{mode.k === 'place' ? `Elegí dónde poner: ${CIVS[side.civ].buildings[mode.kind]}${mode.kind === 'wall' ? ' · Clic para sumar tramos; Escape para terminar' : ''}` : mode.k === 'power' ? 'Elegí dónde cae el poder' : 'Elegí a dónde atacar'} · <button type="button" onClick={() => { setMode({ k: 'none' }); }}>Cancelar</button></div>}
       <div className="land-hud land-hud-native" style={{ ['--civ' as string]: CIVS[side.civ].color }}>
-        <LandReferenceFrame/><div className="land-crest" aria-hidden="true"><LandEagle /></div>
+        <LandReferenceFrame production={!!selB&&selB.kind!=='base'&&!!TRAINING_ROLE[selB.kind]&&selB.built>=1}/><div className="land-crest" aria-hidden="true"><LandEagle /></div>
         <div className="land-gems" aria-hidden="true">{[0, 1, 2, 3, 4, 5].map(i => <i key={i} />)}</div>
         <div className="land-mini"><div className="land-mini-map"><div className="land-tabs"><span><LandIcon kind="layers" /></span><span><LandIcon kind="radar" /></span></div><canvas ref={miniRef} width={220} height={150} onPointerDown={onMini} onPointerMove={onMini} aria-label="Mapa" /></div>
           <div className="land-quick"><button type="button" onClick={goBase} title="Ir a la base" aria-label="Ir a la base"><LandIcon kind="base" /></button><button type="button" onClick={selectArmy} title="Elegir todo el ejército" aria-label="Elegir todo el ejército"><LandIcon kind="army" /></button><button type="button" onClick={selectIdle} title="Un trabajador sin hacer nada" aria-label="Un trabajador sin hacer nada"><LandIcon kind="wrench" /></button></div>

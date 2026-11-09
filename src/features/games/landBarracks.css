@@ -1,0 +1,69 @@
+/* Ficha de producción aislada de las reglas de las fichas de soldados. */
+.land.land-v9 .land-selection-inspector.land-barracks-panel{display:grid!important;grid-template-columns:minmax(0,1.32fr) minmax(0,1fr);gap:14px;min-width:0;min-height:0;padding:6px;box-sizing:border-box;color:#e3eff6;background:#041b2c;font:13px/1.25 Arial,sans-serif}
+.land.land-v9 .land-barracks-panel *{box-sizing:border-box}
+.land.land-v9 .land-barracks-panel :is(dt,dd,span,b,button,h4,time,figcaption){font-family:Arial,sans-serif!important;line-height:1.15!important}
+.land.land-v9 .land-barracks-sheet{display:flex;flex-direction:column;min-width:0;min-height:0}
+.land.land-v9 .land-barracks-sheet>header{display:block;margin:0 0 5px;padding:0;border:0;min-height:0}
+.land.land-v9 .land-barracks-sheet h3{margin:0;color:#fff0bf;font:600 16px/1.2 Arial,sans-serif;overflow-wrap:anywhere}
+.land.land-v9 .land-barracks-sheet>header>span{font:12px/1.3 Arial,sans-serif;color:#b6cddd}
+.land.land-v9 .land-barracks-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:8px;flex:1;min-height:0}
+.land.land-v9 .land-barracks-art{display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;background:radial-gradient(ellipse,#28506b70,transparent 70%)}
+.land.land-v9 .land-barracks-art .land-building-sprite{display:block;position:relative;width:100%!important;height:100%!important;max-height:166px}
+.land.land-v9 .land-barracks-art .land-building-sprite>canvas{width:100%!important;height:100%!important;object-fit:contain}
+.land.land-v9 .land-barracks-art .land-recruit-badge{display:none}
+.land.land-v9 .land-barracks-details{min-width:0;min-height:0;display:flex;flex-direction:column;gap:4px}
+.land.land-v9 .land-barracks-details h4{margin:0;font:600 14px/1.2 Arial,sans-serif;color:#d6edf8;overflow-wrap:anywhere}
+.land.land-v9 .land-barracks-count{font-size:13px;color:#d6e5a9}
+.land.land-v9 .land-barracks-level{display:flex;flex-wrap:wrap;gap:2px;justify-content:space-between;font:12px Arial,sans-serif}
+.land.land-v9 .land-barracks-level>div{flex-basis:100%;height:4px;background:#132b39;border-radius:2px;overflow:hidden}
+.land.land-v9 .land-barracks-level i{display:block;height:100%;background:#a6dc6a}
+.land.land-v9 .land-barracks-attributes{display:grid;gap:3px;margin:2px 0 0;font:12px/1.2 Arial,sans-serif}
+.land.land-v9 .land-barracks-attributes>div{display:flex;justify-content:space-between;gap:6px;border-bottom:1px solid #34506455}
+.land.land-v9 .land-barracks-attributes dt{color:#a4c4d6}
+.land.land-v9 .land-barracks-attributes dd{margin:0;font-weight:600;color:#f3e8be;white-space:nowrap}
+.land.land-v9 .land-barracks-sheet>footer{display:flex;justify-content:space-between;align-items:center;gap:5px;margin-top:5px;min-height:22px;font:11px Arial,sans-serif}
+.land.land-v9 .land-barracks-sheet>footer button{border:1px solid #4c7788;background:#133248;color:#e1edc6;border-radius:3px;padding:3px 6px;font:12px Arial,sans-serif}
+.land.land-v9 .land-barracks-panel .land-evolution-previews{display:grid;grid-template-columns:1fr 1fr;gap:3px;min-height:0;flex:1;margin:0}
+.land.land-v9 .land-barracks-panel .land-evolution-previews figure{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;min-width:0;margin:0;padding:0;border:1px solid #365666}
+.land.land-v9 .land-barracks-panel .land-evolution-previews figure.on{border-color:#a6dc6a}
+.land.land-v9 .land-barracks-panel .land-evolution-previews canvas{max-width:100%;max-height:42px;object-fit:contain;min-height:0}
+.land.land-v9 .land-barracks-panel .land-evolution-previews figcaption{font:11px/1.1 Arial,sans-serif}
+.land.land-v9 .land-training-cards{display:flex;flex-direction:column;min-width:0;min-height:0;background:#041b2c}
+.land.land-v9 .land-training-cards>header{display:flex;justify-content:space-between;gap:5px;flex-wrap:wrap;margin:0 0 6px;padding:0;border:0;font:12px/1.2 Arial,sans-serif}
+.land.land-v9 .land-training-cards>header b{color:#dcecf4}
+.land.land-v9 .land-training-cards>header>span{color:#9edbfa}
+.land.land-v9 .land-training-cards ol{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:max-content;gap:6px;align-content:start;flex:0 0 auto;min-height:0;margin:0;padding:0}
+.land.land-v9 .land-training-cards li{position:relative;aspect-ratio:1;width:100%;max-width:80px;justify-self:center;min-width:0;min-height:0;overflow:hidden;border:1px solid #45667d;border-radius:4px;background:linear-gradient(#103349,#05131e);isolation:isolate}
+.land.land-v9 .land-training-cards li[data-active=true]{border-color:#85dfff;box-shadow:inset 0 0 8px #65c6e533}
+.land.land-v9 .land-training-cards li canvas{display:block;width:100%!important;height:100%!important;object-fit:contain;padding:2px 2px 13px}
+.land.land-v9 .land-queue-position{position:absolute;left:3px;top:2px;z-index:1;color:#e5dcb3;background:#041623b3;font:11px Arial,sans-serif}
+.land.land-v9 .land-training-cards time{position:absolute;bottom:6px;left:0;right:0;text-align:center;color:#d9f4ff;background:#04101bd9;font:11px/1.1 Arial,sans-serif}
+.land.land-v9 .land-training-cards progress{position:absolute;bottom:0;left:0;width:100%;height:5px;border:0;border-radius:0;appearance:none;background:#173446;accent-color:#78d5ff}
+.land.land-v9 .land-barracks-panel .land-training-cards :is(span,b){font-size:11px!important;line-height:1.2}
+.land-training-cards progress::-webkit-progress-bar{background:#173446}.land-training-cards progress::-webkit-progress-value{background:#78d5ff}.land-training-cards progress::-moz-progress-bar{background:#78d5ff}
+.land.land-v9 .land-training-cards nav{display:flex;align-items:center;justify-content:space-between;gap:5px;min-height:22px;margin-top:5px;font:11px Arial,sans-serif}
+.land.land-v9 .land-training-cards nav button{padding:0 8px;border:1px solid #3f667c;border-radius:3px;background:#133248;color:#d6efff;font:18px/1 Arial,sans-serif}
+.land.land-v9 .land-training-cards nav button:disabled{opacity:.35}
+.land.land-v9 .land-queue-empty{margin:auto 0;color:#91afbf;font:13px/1.5 Arial,sans-serif}
+@media(min-width:1101px){
+ .land.land-v9 .land-hud.land-hud-native:has(.land-barracks-panel){height:max(350px,calc((100vw - 330px)*.24))!important}
+ .land.land-v9 .land-hud-native .land-selection-roster:has(~.land-barracks-panel){display:none!important}
+ .land.land-v9 .land-hud-native .land-selection-inspector.land-barracks-panel{position:absolute;left:22.1%;top:34%;width:54.2%;height:58.5%;z-index:2;display:grid!important;grid-template-columns:55.7% minmax(0,1fr);gap:2.5%;padding:0!important;background:transparent;overflow:hidden}
+ .land.land-v9 .land-barracks-sheet{background:#041b2c;padding:3px 5px}
+ .land.land-v9 .land-training-cards{padding:3px 5px}
+}
+@media(max-width:1100px){
+ .land.land-v9:has(.land-barracks-panel) .land-intel-toggle{bottom:398px}
+ .land.land-v9:has(.land-barracks-panel) .land-own-intel{bottom:430px}
+ .land.land-v9 .land-hud:has(.land-barracks-panel){height:390px!important}
+ .land.land-v9 .land-selection-info:has(.land-barracks-panel){overflow:hidden!important;display:block!important}
+ .land.land-v9 .land-selection-info:has(.land-barracks-panel) .land-selection-roster{display:none!important}
+ .land.land-v9 .land-barracks-panel{height:100%;gap:8px;grid-template-columns:minmax(0,1fr) minmax(0,.85fr)}
+ .land.land-v9 .land-barracks-body{display:flex;flex-direction:column;gap:4px}
+ .land.land-v9 .land-barracks-art{height:85px;flex:0 0 85px}
+ .land.land-v9 .land-barracks-details{flex:1}
+ .land.land-v9 .land-training-cards ol{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .land.land-v9 .land-barracks-sheet h3{font-size:14px}
+ .land.land-v9 .land-barracks-sheet>header>span{font-size:11px}
+ .land.land-v9 .land-barracks-sheet>footer{flex-wrap:wrap}
+}

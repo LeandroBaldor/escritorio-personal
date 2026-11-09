@@ -9,6 +9,7 @@ import {FOOD_NAMES,unitFoodRate,FOOD_CAPACITY,MAX_EVOLUTION,evolutionCost,evolut
 import {Sprite,BuildingSprite} from './landSprite';
 import {roleIdx} from './landArt';
 import {LandTrainingQueue} from './landTrainingQueue';
+import {LandBarracksPanel} from './landBarracksPanel';
 
 export function LandInspector({game,unit,building,count,planned}:{game:LandGame;unit?:Unit;building?:Building;count:number;planned?:BKind}){
   const [more,setMore]=useState(false);
@@ -17,6 +18,7 @@ export function LandInspector({game,unit,building,count,planned}:{game:LandGame;
   const title=planned?`A construir: ${c.buildings[planned]}`:unit?unitLabel(game,owner,unit.role):building?c.buildings[building.kind]:'Seleccioná una unidad o construcción';
   const p=role?improvementProgress(game,owner,role):null,s=role?unitStats(game,owner,role):null,max=role?unitStats(game,owner,role,MAX_EVOLUTION):null;
   const attrs=s&&max?[{label:'Resistencia',value:s.hp,max:max.hp,unit:'PV'},{label:'Ataque',value:s.dmg,max:max.dmg,unit:'daño'},{label:'Velocidad',value:s.speed,max:max.speed,unit:'u/s'},{label:'Distancia',value:s.range,max:max.range,unit:'u'},{label:'Fuerza',value:s.dmg*(s.vsBuild??1)*(role==='worker'?.3:1),max:max.dmg*(max.vsBuild??1)*(role==='worker'?.3:1),unit:'daño'},{label:'Cadencia',value:1/s.cool,max:1/max.cool,unit:'/s'}]:[];
+  if(building&&building.built>=1&&building.kind!=='base'&&role&&!unit&&!planned)return <LandBarracksPanel key={building.id} game={game} building={building} role={role}/>;
   return <section className={`land-selection-inspector land-card-unit land-inspector17${more?' land-show-more':''}${building||planned?' land-building-info':''}`} aria-label="Información de selección">
     <header><div>{unit&&!planned?<Sprite civ={civ} idx={roleIdx(unit.role)} level={level} w={108} h={148} portrait/>:kind?<BuildingSprite civ={civ} kind={kind} w={76} h={54}/>:null}</div><div><h3>{title}{unit&&count>1?` ×${count}`:''}</h3><span>{owner>0?`Rival · ${c.name} · `:''}{!planned&&(unit||building)?`Vida ${Math.ceil(unit?.hp??building!.hp)} / ${Math.ceil(unit?.maxHp??building!.maxHp)}`:''}</span></div></header>
     {planned?<><p>{BUILD_TEXT[planned]}</p><p>Construcción: {buildingStats(game,owner,planned).time} s · <LandCost cost={BUILD_STATS[planned].cost}/></p></>:building&&building.built<1?<><p>Construcción: {Math.floor(building.built*100)}% · Asigná trabajadores para terminarla.</p><progress max={1} value={building.built}/></>:building?.kind==='base'?<LandBasePanel game={game} building={building}/>:role&&s&&p?<>
