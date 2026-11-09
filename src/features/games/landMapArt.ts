@@ -2,6 +2,7 @@
 import { BLOCK, BRIDGE, LIQUID, T, THEMES, type Terrain, type Theme } from './landMap';
 import materialUrl from './assets/land/terrain-materials.webp';
 import { drawWorldProp } from './landProps';
+import {BIOME_PROPS,drawBiomeGround,drawBiomeLiquid} from './landBiomeDetails';
 
 const WATER_URL = Object.values(import.meta.glob('./assets/land/liquids.webp', { eager: true, import: 'default' }))[0] as string | undefined;
 let WATER: HTMLImageElement | null = null;
@@ -16,14 +17,15 @@ export function terrainMaterialsReady() {
 function waterTile(theme: number) {
   terrainMaterialsReady(); if (!WATER || !WATER.complete || !WATER.naturalWidth) return null;
   const index = theme === 7 ? 1 : theme === 0 ? 2 : theme === 2 ? 3 : theme === 9 ? 4 : theme === 6 ? 5 : 0;
-  if (WATER_TILES[index]) return WATER_TILES[index];
+  if (WATER_TILES[theme]) return WATER_TILES[theme];
   const c = document.createElement('canvas'); c.width = c.height = 512;
   const ctx = c.getContext('2d')!, w = WATER.naturalWidth / 3, h = WATER.naturalHeight / 2;
   for (let row = 0; row < 2; row++) for (let col = 0; col < 2; col++) {
     ctx.save(); ctx.translate(col ? 512 : 0, row ? 512 : 0); ctx.scale(col ? -1 : 1, row ? -1 : 1);
     ctx.drawImage(WATER, index % 3 * w, Math.floor(index / 3) * h, w, h, 0, 0, 256, 256); ctx.restore();
   }
-  WATER_TILES[index] = c; return c;
+  ctx.globalCompositeOperation='color';ctx.globalAlpha=.75;ctx.fillStyle=THEMES[theme].liquid[1];ctx.fillRect(0,0,512,512);ctx.globalCompositeOperation='multiply';ctx.globalAlpha=.22;ctx.fillStyle=THEMES[theme].liquid[1];ctx.fillRect(0,0,512,512);ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
+  WATER_TILES[theme] = c; return c;
 }
 function materialTile(theme: number) {
   if (!terrainMaterialsReady()) return null;
@@ -61,6 +63,7 @@ export function renderTerrain(t: Terrain, scale = terrainScale(t), region?: Terr
     ctx.fillRect(region?.x ?? 0, region?.y ?? 0, region?.w ?? t.w, region?.h ?? t.h); ctx.restore();
   }
   groundTexture(ctx, t, th, region);
+  drawBiomeGround(ctx,t,region);
   // 2) los caminos de tierra entre las bases y los cristales
   { // (en un lienzo chico: agrandado queda suave, sin desenfocar el lienzo grande)
     const q = 0.125, pc = document.createElement('canvas'); pc.width = Math.ceil(t.w * q); pc.height = Math.ceil(t.h * q); const p = pc.getContext('2d')!; p.scale(q, q);
@@ -92,11 +95,11 @@ export function renderTerrain(t: Terrain, scale = terrainScale(t), region?: Terr
       if (region && (x < region.x - T || x > region.x + region.w + T || y < region.y - T || y > region.y + region.h + T)) continue;
       ctx.moveTo(x + T * .9, y); ctx.arc(x, y, T * .9, 0, Math.PI * 2);
     }
-    ctx.clip(); ctx.globalAlpha = .92; ctx.fillStyle = ctx.createPattern(fluid, 'repeat')!;
+    ctx.clip(); ctx.globalAlpha = .74; ctx.fillStyle = ctx.createPattern(fluid, 'repeat')!;
     ctx.fillRect(region?.x ?? 0, region?.y ?? 0, region?.w ?? t.w, region?.h ?? t.h); ctx.restore();
   }
   { // espuma en la orilla y reflejo del cielo
-    lc.clearRect(0, 0, lay.width, lay.height); lc.fillStyle = '#fff'; for (const [c, r] of liq) disc(c, r, T * 1.02); lc.globalCompositeOperation = 'destination-out'; for (const [c, r] of liq) disc(c, r, T * 0.9); lc.globalCompositeOperation = 'source-over';
+    lc.clearRect(0, 0, lay.width, lay.height); lc.fillStyle = th.glow?th.liquid[0]:'#e0f5ed'; for (const [c, r] of liq) disc(c, r, T * 1.02); lc.globalCompositeOperation = 'destination-out'; for (const [c, r] of liq) disc(c, r, T * 0.9); lc.globalCompositeOperation = 'source-over';
     ctx.save(); ctx.globalAlpha = th.glow ? 0.25 : 0.4; ctx.drawImage(lay, 0, 0, t.w, t.h); ctx.restore();
     const sky = ctx.createLinearGradient(0, 0, t.w, t.h); sky.addColorStop(0, 'rgba(255,255,255,0.10)'); sky.addColorStop(1, 'rgba(255,255,255,0)');
     lc.clearRect(0, 0, lay.width, lay.height); lc.fillStyle = '#fff'; for (const [c, r] of liq) disc(c, r, T * 0.9);
@@ -110,9 +113,10 @@ export function renderTerrain(t: Terrain, scale = terrainScale(t), region?: Terr
   for (const [c, r] of liq) for (let i = 0; i < 2; i++) { // brillos y ondas
     const x = (c + R()) * T, y = (r + R()) * T, w = T * (0.3 + R() * 0.5);
     if (region && (x < region.x - T || x > region.x + region.w + T || y < region.y - T || y > region.y + region.h + T)) continue;
-    ctx.strokeStyle = th.glow ? 'rgba(255,240,180,0.55)' : 'rgba(255,255,255,0.45)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - w / 2, y); ctx.quadraticCurveTo(x, y - 4, x + w / 2, y); ctx.stroke();
+    ctx.strokeStyle = th.glow ? 'rgba(255,240,180,0.25)' : 'rgba(255,255,255,0.16)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - w / 2, y); ctx.quadraticCurveTo(x, y - 4, x + w / 2, y); ctx.stroke();
   }
   ctx.restore();
+  drawBiomeLiquid(ctx,t,region);
   // 4) los puentes (tablones de madera o losas de piedra, según el estilo)
   for (const [c, r] of bridges) { // tablones (o losas) y las barandas arriba y abajo
     if (region && (c * T < region.x - T || c * T > region.x + region.w + T || r * T < region.y - T || r * T > region.y + region.h + T)) continue;
@@ -123,6 +127,8 @@ export function renderTerrain(t: Terrain, scale = terrainScale(t), region?: Terr
     for (let k = 0; k <= 4; k++) { ctx.beginPath(); ctx.moveTo(x + k * T / 4, y - 4); ctx.lineTo(x + k * T / 4, y + T + 4); ctx.stroke(); }
     ctx.fillStyle = stone ? 'rgba(255,255,255,0.14)' : 'rgba(255,220,160,0.2)'; for (let k = 0; k < 4; k++) ctx.fillRect(x + k * T / 4 + 2, y - 4, 3, T + 8);
     for (const ry of [y - 6, y + T + 2]) { ctx.fillStyle = stone ? '#4e4743' : '#5a3418'; ctx.fillRect(x - 1, ry, T + 2, 5); ctx.fillRect(x + T / 2 - 3, ry - 6, 6, 11); }
+    for(let i=0;i<4;i++){const px=x+i*T/4+4;ctx.strokeStyle=stone?'#ddd2b15a':'#e4bb7055';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(px,y+3);ctx.quadraticCurveTo(px+3,y+T*.5,px+1,y+T-2);ctx.stroke();ctx.fillStyle='#202329';for(const py of [y+2,y+T-2]){ctx.beginPath();ctx.arc(px+2,py,1.2,0,Math.PI*2);ctx.fill();}}
+    if(t.theme===6){ctx.fillStyle='#eefaffb0';ctx.fillRect(x,y-7,T,3);}else if([1,3,7,8].includes(t.theme)){ctx.fillStyle='#72904a88';ctx.fillRect(x+3,y+T+1,T*.6,2);}
   }
   // 5) los obstáculos y los adornos, de atrás para adelante (los de más abajo tapan a los de más arriba)
   const things: { x: number; y: number; d: () => void }[] = [];
@@ -176,7 +182,7 @@ function patches(ctx: CanvasRenderingContext2D, t: Terrain, th: Theme, R: () => 
   ctx.drawImage(pc, 0, 0, t.w, t.h);
 }
 function pine(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th: Theme, seed: number) {
-  if (drawWorldProp(ctx, 1, x, y + 3, 100 * s, 70 * s, seed > .5)) return;
+  if (drawWorldProp(ctx, 1, x, y + 3, 100 * s, 70 * s, seed > .5, BIOME_PROPS[THEMES.indexOf(th)].tree)) return;
   const R = rng(Math.floor(seed * 1e6)), h = 70 * s, w = 26 * s;
   ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(x + 8, y + 2, w * 1.1, w * 0.35, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#4a3020'; ctx.fillRect(x - 3 * s, y - 12 * s, 6 * s, 12 * s);
@@ -186,22 +192,22 @@ function pine(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th
     if (th.ground[0] > '#c') { ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.moveTo(x - tw * 0.5, ty - h * 0.14); ctx.lineTo(x, ty - h * 0.36); ctx.lineTo(x + tw * 0.4, ty - h * 0.16); ctx.quadraticCurveTo(x, ty - h * 0.2 + R() * 4, x - tw * 0.5, ty - h * 0.14); ctx.fill(); } } // (nieve)
 }
 function deadTree(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th: Theme, seed: number) {
-  if (drawWorldProp(ctx, 3, x, y + 3, 98 * s, 100 * s, seed > .5)) return;
+  if (drawWorldProp(ctx, 3, x, y + 3, 98 * s, 100 * s, seed > .5, BIOME_PROPS[THEMES.indexOf(th)].tree)) return;
   const R = rng(Math.floor(seed * 1e6));
   ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(x + 6, y + 2, 20 * s, 6 * s, 0, 0, Math.PI * 2); ctx.fill();
   const branch = (bx: number, by: number, a: number, len: number, w: number, d: number) => { const ex = bx + Math.cos(a) * len, ey = by + Math.sin(a) * len; ctx.strokeStyle = shade(th.rock[1], 1.2); ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(ex, ey); ctx.stroke(); if (d > 0) { branch(ex, ey, a - 0.5 - R() * 0.3, len * 0.65, w * 0.6, d - 1); branch(ex, ey, a + 0.4 + R() * 0.3, len * 0.6, w * 0.6, d - 1); } };
   branch(x, y, -Math.PI / 2 + (R() - 0.5) * 0.2, 34 * s, 7 * s, 3);
 }
 function cactus(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th: Theme, seed: number) {
-  const R = rng(Math.floor(seed * 1e6)), h = 50 * s, w = 9 * s;
+  const R = rng(Math.floor(seed * 1e6)), h = (53+seed*19) * s, w = 4.5 * s;
   ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(x + 6, y + 2, 16 * s, 5 * s, 0, 0, Math.PI * 2); ctx.fill();
-  const stem = (sx: number, sy: number, sw: number, sh: number) => { const g = ctx.createLinearGradient(sx - sw, 0, sx + sw, 0); g.addColorStop(0, th.leaf[1]); g.addColorStop(0.6, th.leaf[0]); g.addColorStop(1, th.leaf[2]); ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(sx - sw, sy - sh, sw * 2, sh, sw); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1.2; ctx.stroke(); };
+  const stem = (sx: number, sy: number, sw: number, sh: number) => { const g = ctx.createLinearGradient(sx - sw, 0, sx + sw, 0); g.addColorStop(0, '#b7bd7b');g.addColorStop(.23,th.leaf[1]);g.addColorStop(.6,th.leaf[0]);g.addColorStop(1,th.leaf[2]);ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(sx-sw,sy);ctx.bezierCurveTo(sx-sw*.9,sy-sh*.5,sx-sw*1.2,sy-sh,sx,sy-sh);ctx.bezierCurveTo(sx+sw*1.1,sy-sh,sx+sw*.8,sy-sh*.4,sx+sw,sy);ctx.closePath();ctx.fill();ctx.strokeStyle='#1f382b80';ctx.lineWidth=.6;ctx.stroke();for(let rib=-1;rib<=1;rib++){ctx.strokeStyle=rib===-1?'#d8d29870':'#1b422980';ctx.lineWidth=.5;ctx.beginPath();ctx.moveTo(sx+rib*sw*.5,sy-2);ctx.quadraticCurveTo(sx+rib*sw*.6,sy-sh*.5,sx+rib*sw*.35,sy-sh+2);ctx.stroke();}for(let i=0;i<sh/4;i++){const py=sy-i*4;ctx.strokeStyle='#e1d9a966';ctx.lineWidth=.5;ctx.beginPath();ctx.moveTo(sx-sw,py);ctx.lineTo(sx-sw-1.5*s,py-1);ctx.moveTo(sx+sw,py-1);ctx.lineTo(sx+sw+1.5*s,py-2);ctx.stroke();} };
   stem(x, y, w, h); const ah = h * (0.35 + R() * 0.2);
   stem(x - w * 2, y - h * 0.35, w * 0.7, ah); ctx.fillStyle = th.leaf[0]; ctx.fillRect(x - w * 2, y - h * 0.42, w * 2, w * 0.9);
   stem(x + w * 2, y - h * 0.5, w * 0.7, ah * 0.8); ctx.fillRect(x, y - h * 0.57, w * 2, w * 0.9);
 }
 function coral(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th: Theme, seed: number) {
-  if (drawWorldProp(ctx, 7, x, y + 3, 58 * s, 80 * s, seed > .5)) return;
+  if (drawWorldProp(ctx, 7, x, y + 3, 58 * s, 80 * s, seed > .5, BIOME_PROPS[THEMES.indexOf(th)].tree)) return;
   const R = rng(Math.floor(seed * 1e6));
   ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(x + 4, y + 2, 22 * s, 7 * s, 0, 0, Math.PI * 2); ctx.fill();
   for (let i = 0; i < 6; i++) { const a = -Math.PI / 2 + (i - 2.5) * 0.32, len = (22 + R() * 18) * s, ex = x + Math.cos(a) * len, ey = y + Math.sin(a) * len;
@@ -209,7 +215,7 @@ function coral(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, t
     ctx.fillStyle = th.leaf[1]; ctx.beginPath(); ctx.arc(ex, ey, 4 * s, 0, Math.PI * 2); ctx.fill(); }
 }
 function rock(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th: Theme, seed: number) {
-  if (drawWorldProp(ctx, 4, x, y + 3, 47 * s, 82 * s, seed > .5)) return;
+  if (drawWorldProp(ctx, 4, x, y + 3, 47 * s, 82 * s, seed > .5, BIOME_PROPS[THEMES.indexOf(th)].rock)) return;
   const w = 30 * s, h = 34 * s, R = rng(Math.floor(seed * 1e6));
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(x + 4, y + 2, w * 0.95, h * 0.28, 0, 0, Math.PI * 2); ctx.fill();
   const pts: [number, number][] = []; for (let i = 0; i < 7; i++) { const a = Math.PI + i / 6 * Math.PI, rr = 0.75 + R() * 0.35; pts.push([x + Math.cos(a) * w * rr, y + Math.sin(a) * h * rr]); }
@@ -223,8 +229,8 @@ function rock(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th
   ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.beginPath(); ctx.moveTo(x - w * 0.7, y - h * 0.3); ctx.lineTo(x - w * 0.35, y - h * 0.85); ctx.lineTo(x - w * 0.15, y - h * 0.7); ctx.lineTo(x - w * 0.5, y - h * 0.2); ctx.closePath(); ctx.fill(); // la cara con luz
 }
 function tree(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th: Theme, seed: number) {
-  ctx.save(); if (th.leaf[0] === '#c2541e') ctx.filter = 'sepia(.85) saturate(1.3)';
-  const detailed = drawWorldProp(ctx, 0, x, y + 3, 90 * s, 95 * s, seed > .5); ctx.restore(); if (detailed) return;
+  ctx.save();
+  const detailed = drawWorldProp(ctx, 0, x, y + 3, 90 * s, 95 * s, seed > .5, BIOME_PROPS[THEMES.indexOf(th)].tree); ctx.restore(); if (detailed) return;
   const R = rng(Math.floor(seed * 1e6)), h = 68 * s, rad = 29 * s;
   ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(x + 14 * s, y + 4 * s, rad * 1.25, rad * 0.4, -0.3, 0, Math.PI * 2); ctx.fill();
   const bark = ctx.createLinearGradient(x - 5 * s, y, x + 5 * s, y); bark.addColorStop(0, '#8b6742'); bark.addColorStop(0.5, '#54391f'); bark.addColorStop(1, '#271d16');
@@ -243,7 +249,7 @@ function tree(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th
   }
 }
 function pillar(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, th: Theme) {
-  if (drawWorldProp(ctx, 6, x, y, 72 * s, 72 * s)) return;
+  if (drawWorldProp(ctx, 6, x, y, 72 * s, 72 * s, false, BIOME_PROPS[THEMES.indexOf(th)].rock)) return;
   const w = 14 * s, h = 64 * s;
   ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(x + 8, y + 2, w * 1.6, w * 0.5, 0, 0, Math.PI * 2); ctx.fill();
   const g = ctx.createLinearGradient(x - w, 0, x + w, 0); g.addColorStop(0, shade(th.rock[0], 1.4)); g.addColorStop(0.6, th.rock[0]); g.addColorStop(1, th.rock[1]);
@@ -253,11 +259,11 @@ function pillar(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, 
   ctx.fillStyle = th.rock[1]; ctx.beginPath(); ctx.moveTo(x + w, y - h - 8 * s); ctx.lineTo(x + w * 0.2, y - h - 8 * s); ctx.lineTo(x + w, y - h + 10 * s); ctx.closePath(); ctx.fill(); // roto arriba
 }
 function decor(ctx: CanvasRenderingContext2D, d: Theme['decor'][number], x: number, y: number, th: Theme, seed: number) {
-  if (d === 'bush' && drawWorldProp(ctx, 0, x, y, 25, 33)) return;
-  if (d === 'pebble' && drawWorldProp(ctx, 4, x, y, 10, 18)) return;
-  if (d === 'grass' && drawWorldProp(ctx, 11, x, y, 14, 19)) return;
-  if (d === 'palm' && drawWorldProp(ctx, 2, x, y, 75, 80)) return;
-  if (d === 'reed' && drawWorldProp(ctx, 11, x, y, 35, 45)) return;
+  if (d === 'bush' && drawWorldProp(ctx, 0, x, y, 25, 33, false, BIOME_PROPS[THEMES.indexOf(th)].tree)) return;
+  if (d === 'pebble' && drawWorldProp(ctx, 4, x, y, 10, 18, false, BIOME_PROPS[THEMES.indexOf(th)].rock)) return;
+  if (d === 'grass' && drawWorldProp(ctx, 11, x, y, 14, 19, false, BIOME_PROPS[THEMES.indexOf(th)].tree)) return;
+  if (d === 'palm' && drawWorldProp(ctx, 2, x, y, 75, 80, false, BIOME_PROPS[THEMES.indexOf(th)].tree)) return;
+  if (d === 'reed' && drawWorldProp(ctx, 11, x, y, 35, 45, false, BIOME_PROPS[THEMES.indexOf(th)].tree)) return;
   const R = rng(Math.floor(seed * 1e6) + 5);
   if (d === 'bush') { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(x + 3, y + 2, 13, 4, 0, 0, Math.PI * 2); ctx.fill(); for (let i = 0; i < 4; i++) { ctx.fillStyle = i < 2 ? th.leaf[2] : th.leaf[0]; ctx.beginPath(); ctx.arc(x + (R() - 0.5) * 14, y - 5 - R() * 6, 6 + R() * 4, 0, Math.PI * 2); ctx.fill(); } }
   else if (d === 'flower') { for (let i = 0; i < 5; i++) { ctx.fillStyle = ['#ff7ac8', '#fff27a', '#ffffff', '#c58aff'][Math.floor(R() * 4)]; ctx.beginPath(); ctx.arc(x + (R() - 0.5) * 18, y + (R() - 0.5) * 10, 2.2, 0, Math.PI * 2); ctx.fill(); } }
@@ -285,13 +291,15 @@ export function drawAmbientTerrain(ctx: CanvasRenderingContext2D, t: Terrain, ca
     ctx.save(); ctx.beginPath(); ctx.rect(c * T, r * T, T, T); ctx.clip();
     const sheen = ctx.createLinearGradient(x - 22, y - 20, x + 22, y + 20);
     sheen.addColorStop(0, 'rgba(255,255,255,0)'); sheen.addColorStop(.48 + Math.sin(phase) * .12, swamp ? 'rgba(175,195,130,.10)' : th.glow ? 'rgba(255,215,70,.22)' : 'rgba(160,222,250,.18)'); sheen.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = sheen; ctx.fillRect(c * T, r * T, T, T);
-    for (let i = 0; i < 3; i++) {
-      const yy = y - 16 + i * 12 + Math.sin(phase + i) * 2, xx = x + Math.sin(phase * .4 + i) * 5;
-      ctx.strokeStyle = swamp ? 'rgba(194,209,156,.18)' : 'rgba(218,245,255,.25)'; ctx.lineWidth = .6;
+    for (let i = 0; i < (k%3===0?2:0); i++) {
+      const yy = y - 12 + i * 12 + Math.sin(phase + i) * 2+k%9, xx = x + Math.sin(phase * .4 + i) * 5+k%17-8;
+      ctx.strokeStyle = swamp ? 'rgba(194,209,156,.18)' : t.theme===2?'rgba(255,170,45,.5)':t.theme===0?'rgba(181,255,93,.35)':'rgba(218,245,255,.25)'; ctx.lineWidth = t.theme===2?1.2:.6;
       ctx.beginPath(); ctx.moveTo(xx - 12, yy); ctx.bezierCurveTo(xx - 3, yy - 2, xx + 3, yy + 2, xx + 12, yy); ctx.stroke();
     }
     if (swamp && k % 5 === 0) { ctx.fillStyle = 'rgba(65,93,32,.62)'; ctx.beginPath(); ctx.ellipse(x + Math.sin(phase * .2) * 3, y, 5, 2.7, -.4, 0, Math.PI * 1.8); ctx.fill(); }
+    if((t.theme===0||t.theme===2)&&k%4===0){const p=(time*.32+k%17)%1;ctx.strokeStyle=t.theme===2?`rgba(255,210,90,${(1-p)*.55})`:`rgba(188,255,90,${(1-p)*.45})`;ctx.lineWidth=1.2;ctx.beginPath();ctx.ellipse(x+Math.sin(k)*7,y+3,2+p*7,1+p*3,0,0,Math.PI*2);ctx.stroke();}
     ctx.restore();
+    if((t.theme===0||t.theme===2||t.theme===7)&&k%11===0){const p=(time*.14+k%29)%1;ctx.fillStyle=t.theme===0?`rgba(159,201,102,${(1-p)*.12})`:t.theme===2?`rgba(167,150,143,${(1-p)*.14})`:`rgba(164,182,145,${(1-p)*.07})`;ctx.beginPath();ctx.ellipse(x+Math.sin(phase*.2)*9,y-p*38,5+p*15,3+p*8,0,0,Math.PI*2);ctx.fill();}
   }
   ctx.restore();
 }

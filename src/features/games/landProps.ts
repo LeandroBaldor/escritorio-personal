@@ -23,9 +23,12 @@ export function worldPropsReady() {
   }
   return frames.length === 12;
 }
-export function drawWorldProp(ctx: CanvasRenderingContext2D, index: number, x: number, y: number, height: number, maxWidth = height * 1.5, flip = false) {
+const styledProps=new Map<string,HTMLCanvasElement>();
+export function drawWorldProp(ctx: CanvasRenderingContext2D, index: number, x: number, y: number, height: number, maxWidth = height * 1.5, flip = false,filter='none') {
   if (!worldPropsReady()) return false;
   const f = frames[index], k = Math.min(height / f.h, maxWidth / f.w);
   ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1); ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(image!, f.x, f.y, f.w, f.h, -f.w * k / 2, -f.h * k, f.w * k, f.h * k); ctx.restore(); return true;
+  if(filter==='none')ctx.drawImage(image!, f.x, f.y, f.w, f.h, -f.w * k / 2, -f.h * k, f.w * k, f.h * k);
+  else {const key=index+':'+filter;let tile=styledProps.get(key);if(!tile){tile=document.createElement('canvas');const scale=Math.min(1,256/Math.max(f.w,f.h));tile.width=Math.ceil(f.w*scale);tile.height=Math.ceil(f.h*scale);const p=tile.getContext('2d')!;p.filter=filter;p.drawImage(image!,f.x,f.y,f.w,f.h,0,0,tile.width,tile.height);if(styledProps.size>=40)styledProps.delete(styledProps.keys().next().value!);styledProps.set(key,tile);}ctx.drawImage(tile,-f.w*k/2,-f.h*k,f.w*k,f.h*k);}
+  ctx.restore(); return true;
 }

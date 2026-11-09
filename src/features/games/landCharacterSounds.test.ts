@@ -20,10 +20,10 @@ describe('Audios de los personajes de Land',()=>{
     expect(CHARACTER_CLIPS.find(c=>c.civ==='humano'&&c.role==='heavy')?.purpose).toBe('call');
     expect(CHARACTER_CLIPS.find(c=>c.civ==='mecanico'&&c.role==='worker')?.source).toContain('oron.mp3');
   });
-  it('todos los fragmentos están dentro del audio y los elfos conservan frases melódicas de hasta cuatro segundos',()=>{
+  it('todos los fragmentos están dentro del audio y los elfos usan frases cortas de la nueva grabación',()=>{
     for(const clip of CHARACTER_CLIPS){for(const cue of [...clip.phrases,...clip.steps]){expect(cue.start).toBeGreaterThanOrEqual(0);expect(cue.duration).toBeGreaterThan(0);expect(cue.start+cue.duration).toBeLessThanOrEqual(clip.duration+.002);expect(cue.rms).toBeGreaterThanOrEqual(0);}}
-    const elven=CHARACTER_CLIPS.filter(c=>c.civ==='elfos'&&c.purpose==='call');expect(elven.some(c=>c.phrases.some(p=>p.duration>3))).toBe(true);
-    expect(elven.every(c=>c.phrases.every(p=>p.duration<=4.03))).toBe(true);
+    const elven=CHARACTER_CLIPS.filter(c=>c.civ==='elfos'&&c.purpose==='call');expect(elven.every(c=>c.file==='elfos/voice.mp3')).toBe(true);
+    expect(elven.every(c=>c.phrases.every(p=>p.duration>=.6&&p.duration<=1.7))).toBe(true);
   });
   it('reutiliza la grabación idéntica de pasos humanos por su hash',()=>{
     const clips=CHARACTER_CLIPS.filter(c=>c.civ==='humano'&&c.purpose==='foot'&&c.role!=='elite');expect(clips).toHaveLength(4);expect(new Set(clips.map(c=>c.hash)).size).toBe(1);

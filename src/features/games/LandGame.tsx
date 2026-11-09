@@ -93,6 +93,7 @@ export function LandOfWarriors() {
   const drag = useRef<{ x0: number; y0: number; x1: number; y1: number; pan: boolean; button?:number; id: number; cx: number; cy: number } | null>(null);
   const keys = useRef<Set<string>>(new Set());
   const characterSounds=useRef<LandCharacterSounds|null>(null);
+  const leaderWriting=useCallback((on:boolean)=>characterSounds.current?.leaderWriting(on),[]);
   const lastToast = useRef<Record<string, number>>({});
 
   useEffect(() => { spritesReady(); terrainMaterialsReady(); worldPropsReady(); wallsReady(); }, []);
@@ -453,7 +454,7 @@ export function LandOfWarriors() {
           <p>{CIVS[side.civ].style}</p>
         </section>
         <div className="land-intel-card land-troops-card"><LandTroops game={g} selected={sel} onSelect={units=>{setSelection(units.map(u=>u.id));focus(units[0].x,units[0].y);setMode({k:'none'});setCommsOpen(false);}}/></div>
-        <LandLeaderPanel civ={side.civ} messages={leaderMessages} ready={readySoldiers(g)}/>
+        <LandLeaderPanel civ={side.civ} messages={leaderMessages} ready={readySoldiers(g)} onWriting={leaderWriting}/>
       </aside>
       <div className="land-top-right" aria-label="Recursos">
         <span title="Diamantes (cristales dorados)"><ResourceIcon kind="gem"/><b data-testid="land-gem">{Math.floor(side.gem)}</b></span>
@@ -491,7 +492,7 @@ export function LandOfWarriors() {
             if (selB.built < 1) return <p className="land-cmd-note">En construcción: {Math.round(selB.built * 100)}%. Mandá trabajadores para que termine más rápido.</p>;
             return <>{pad([
               ...bs.makes.map(r => { const st = unitStats(g, 0, r), full = popUsed(g, 0) + st.pop > popCap(g, 0);
-                return cmd(r, <Sprite civ={side.civ} idx={roleIdx(r)} level={evolutionLevel(g,0,r)} w={46} h={46} />, `${c.units[r]}: Entrena esta unidad en ${Math.ceil(trainingDuration(g,0,r))} s. ${roleText(side.civ, r)} ${r==='worker'?'Puede recuperar las cosechas incluso sin alimento.':`Consume ${FOOD_WEIGHT[r]*10} de alimento al salir y ${(unitFoodRate(g,0,r)).toFixed(1)} por minuto.`}${full ? ' (falta población: hacé un depósito)' : ''}`, () => { if (!train(g, selB.id, r)) say('No se puede ahora'); }, { disabled: !canPay(side, st.cost) || full, cost: st.cost,label:'Entrenar Nivel '+evolutionLevel(g,0,r) }); }),
+                return cmd(r, <Sprite civ={side.civ} idx={roleIdx(r)} level={evolutionLevel(g,0,r)} w={46} h={46} />, `${c.units[r]}: Entrena esta unidad en ${Math.ceil(trainingDuration(g,0,r))} s. Cada clic agrega otra unidad a la fila. ${roleText(side.civ, r)} ${r==='worker'?'Puede recuperar las cosechas incluso sin alimento.':`Consume ${FOOD_WEIGHT[r]*10} de alimento al salir y ${(unitFoodRate(g,0,r)).toFixed(1)} por minuto.`}${full ? ' (falta población: hacé un depósito)' : ''}`, () => { if (!train(g, selB.id, r)) say('No se puede ahora'); }, { disabled: !canPay(side, st.cost) || full, cost: st.cost,badge:selB.queue.length?String(selB.queue.length):undefined,label:'Entrenar Nivel '+evolutionLevel(g,0,r) }); }),
               ...evolutionCommands(selB),
               ...(selB.kind==='base'?STRUCTURE_UPGRADES.map(kind=>{const lv=side.infrastructure[kind],max=lv>=MAX_STRUCTURE_LEVEL,cost=structureUpgradeCost(kind,lv),busy=g.buildings.some(b=>b.owner===0&&!b.dead&&b.infrastructureResearch);return cmd(kind,<LandIcon kind={kind==='production'?'wrench':'shield'}/>,`Mejorar ${STRUCTURE_NAMES[kind]}: ${structureBenefit(kind,lv)} ${structureUpgradeTime(lv)} s.`,()=>researchInfrastructure(g,selB.id,kind),{disabled:max||busy||!canPay(side,cost),cost:max?undefined:cost,label:max?STRUCTURE_NAMES[kind]+' MAX':STRUCTURE_NAMES[kind],badge:lv+'/3'});}):[]),
               selB.queue.length > 0 ? cmd('cancel', ic('✖'), 'Cancelar el último', () => cancelTrain(g, selB.id)) : null])}</>;

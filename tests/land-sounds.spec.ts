@@ -32,7 +32,7 @@ test('humanos: pasos recortados al caminar y silencio al quedar quietos',async({
 });
 test('elfos: frase melódica con recorte y se detiene al pausar',async({page})=>{
   test.setTimeout(60000);await openGame(page,'Elfos de Yldran');await page.getByRole('button',{name:'Un trabajador sin hacer nada',exact:true}).click();
-  await expect.poll(()=>page.evaluate(()=>(window as SoundWindow).__landClips.some(c=>c.duration>1.2&&c.duration<=4.03)),{timeout:15000}).toBe(true);
+  await expect.poll(()=>page.evaluate(()=>(window as SoundWindow).__landClips.some(c=>c.duration>=.6&&c.duration<=1.7)),{timeout:15000}).toBe(true);
   const before=await page.evaluate(()=>(window as SoundWindow).__landStops);await page.keyboard.press('p');await expect(page.getByRole('heading',{name:'Pausa',exact:true})).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>(window as SoundWindow).__landStops)).toBeGreaterThan(before);
   const count=await page.evaluate(()=>(window as SoundWindow).__landClips.length);await page.waitForTimeout(700);expect(await page.evaluate(()=>(window as SoundWindow).__landClips.length)).toBe(count);
