@@ -9,6 +9,7 @@ export function walkPose(phase:number,strength=1){
   return {left:limb(phase),right:limb(phase+Math.PI),torso:-Math.sin(phase)*.022*strength};
 }
 export function motionKind(civ:string,idx:number){
+  if((civ==='infernal'||civ==='sauriano')&&idx===5)return 'biped';
   if((civ==='humano'||civ==='mecanico'||civ==='enanos')&&idx===4)return 'treads';
   if((civ==='elfos'||civ==='nomuerta')&&idx===5||civ==='nomuerta'&&idx===2)return 'fly';
   if(civ==='zergano'||civ==='abisal'||idx>=4&&!(idx===5&&(civ==='humano'||civ==='mecanico'||civ==='enanos'))&&!(idx===4&&(civ==='orcos'||civ==='infernal'||civ==='nomuerta'||civ==='elfos')))return 'crawl';

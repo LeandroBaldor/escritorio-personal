@@ -1,6 +1,6 @@
 import {animationWalkDistance,unitAnimation,type UnitAnimation} from './landAnimation';
 import {drawNativeAnimation} from './landNativeAnimation';
-import {directionalSpritesReady,drawBackDirection} from './landDirectionArt';
+import {directionalSpritesReady,drawDirectionalUnit} from './landDirectionArt';
 import {unitLabel} from './landBalance';
 // Land of Warriors: el dibujo del mapa, los recursos, las construcciones, los guerreros y los disparos.
 import {evolutionLevel,foodBlocked} from './landProvision';
@@ -65,7 +65,7 @@ export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: numbe
   let k = h / sh; if (maxW && sw * k > maxW) k = maxW / sw;
   const dw = sw * k, dh = sh * k;
   ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  if(animation&&idx<6&&animation.facing==='back'&&(animation.action==='walk'||animation.action==='idle')&&drawBackDirection(ctx,civ,idx,level,animation,h,maxW??h*1.6)){ctx.restore();return true;}
+  if(animation&&idx<6&&(animation.action==='walk'||animation.action==='idle')&&drawDirectionalUnit(ctx,civ,idx,level,animation,h,maxW??h*1.6)){ctx.restore();return true;}
   if(animation&&idx<6&&!(animation.facing==='front'&&animation.action==='walk')&&drawNativeAnimation(ctx,civ,idx,level,animation,h,maxW??h*1.6)){ctx.restore();return true;}
   if(motion&&!attack&&!kneel&&idx<6){const kind=civ==='zergano'&&idx===0?'larva':motionKind(civ,idx);drawRig(ctx,image,frame,`${civ}:${idx}:${level}`,dw,dh,stopMotionPhase(motion),0,0,0,undefined,kind);ctx.restore();return true;}
   if ((motion || attack ||kneel) && idx < 6) {

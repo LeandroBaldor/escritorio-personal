@@ -15,7 +15,7 @@ describe('Land: economía, rivales y preparación de la IA', () => {
     const g = newLandGame('humano', 'orcos', 1, 'normal', 42), side = g.sides[0], base = g.buildings.find(b => b.owner === 0)!;
     side.stone = side.gem = 5000;
     expect(researchEvolution(g, base.id)).toBe(false);
-    const barracks=addBuilding(g,0,'barracks',base.x+500,base.y);barracks.built=1;side.levels.melee=2;side.energy = 25; expect(researchEvolution(g, barracks.id)).toBe(true); expect(side.energy).toBe(0);
+    const barracks=addBuilding(g,0,'barracks',base.x+500,base.y);barracks.built=1;side.levels.melee=2;side.energy = 75; expect(researchEvolution(g, barracks.id)).toBe(true); expect(side.energy).toBe(0);
     const workshop = addBuilding(g, 0, 'eliteBarracks', base.x + 300, base.y); workshop.built = 1;
     expect(train(g, workshop.id, 'elite')).toBe(false);
     side.energy = 25; expect(train(g, workshop.id, 'elite')).toBe(true); expect(side.energy).toBe(0);

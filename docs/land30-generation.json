@@ -1,0 +1,52 @@
+[
+  {
+    "civ": "humano",
+    "path": "C:\\Users\\T-800\\.codex\\generated_images\\01a1b200-a7ee-70f3-aa3a-49727bfae1c8\\exec-34d3e418-db55-4cb4-9b35-5af29a2888a0.png",
+    "reference": "src/features/games/assets/land/evolutions-humano.webp"
+  },
+  {
+    "civ": "zergano",
+    "path": "C:\\Users\\T-800\\.codex\\generated_images\\01a1b200-a7ee-70f3-aa3a-49727bfae1c8\\exec-496429fb-37cb-4464-96e7-1beb2161b87d.png",
+    "reference": "src/features/games/assets/land/evolutions-zergano.webp"
+  },
+  {
+    "civ": "elfos",
+    "path": "C:\\Users\\T-800\\.codex\\generated_images\\01a1b200-a7ee-70f3-aa3a-49727bfae1c8\\exec-00550e27-1a83-4c9f-a1d8-45c30bb3899c.png",
+    "reference": "src/features/games/assets/land/evolutions-elfos.webp"
+  },
+  {
+    "civ": "enanos",
+    "path": "C:\\Users\\T-800\\.codex\\generated_images\\01a1b200-a7ee-70f3-aa3a-49727bfae1c8\\exec-3005b609-bc3d-4709-a482-b0a5c5b5e590.png",
+    "reference": "src/features/games/assets/land/evolutions-enanos.webp"
+  },
+  {
+    "civ": "nomuerta",
+    "path": "C:\\Users\\T-800\\.codex\\generated_images\\01a1b200-a7ee-70f3-aa3a-49727bfae1c8\\exec-ed8576f3-2693-4a8f-bf20-62b097d16fcc.png",
+    "reference": "src/features/games/assets/land/evolutions-nomuerta.webp"
+  },
+  {
+    "civ": "sauriano",
+    "path": "C:\\Users\\T-800\\.codex\\generated_images\\01a1b200-a7ee-70f3-aa3a-49727bfae1c8\\exec-d5d0968a-0ccc-4f7d-9953-c343c980dd38.png",
+    "reference": "src/features/games/assets/land/evolutions-sauriano.webp"
+  },
+  {
+    "civ": "infernal",
+    "path": "C:\\Users\\T-800\\.codex\\generated_images\\01a1b200-a7ee-70f3-aa3a-49727bfae1c8\\exec-a152db66-45af-4e9c-a577-df1281d11d41.png",
+    "reference": "src/features/games/assets/land/evolutions-infernal.webp"
+  },
+  {
+    "civ": "mecanico",
+    "path": "C:\\Users\\T-800\\.codex\\generated_images\\01a1b200-a7ee-70f3-aa3a-49727bfae1c8\\exec-c067d988-9132-4889-a933-11609e735e3c.png",
+    "reference": "src/features/games/assets/land/evolutions-mecanico.webp"
+  },
+  {
+    "civ": "orcos",
+    "path": "C:\\Users\\T-800\\.codex\\generated_images\\01a1b200-a7ee-70f3-aa3a-49727bfae1c8\\exec-af85852c-b9b8-4f83-a70d-625b68188608.png",
+    "reference": "src/features/games/assets/land/evolutions-orcos.webp"
+  },
+  {
+    "civ": "abisal",
+    "path": "C:\\Users\\T-800\\.codex\\generated_images\\01a1b200-a7ee-70f3-aa3a-49727bfae1c8\\exec-1a068371-d0c5-4c9f-a07e-d5d3a22550c4.png",
+    "reference": "src/features/games/assets/land/evolutions-abisal.webp"
+  }
+]
