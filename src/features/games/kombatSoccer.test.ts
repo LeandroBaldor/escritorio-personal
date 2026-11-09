@@ -106,7 +106,7 @@ describe('Kombat Football 5 contra 5', () => {
     expect(maxStill).toBeLessThan(4);
     expect(goals).toBeGreaterThan(3); // se hacen goles
     expect(own).toBeLessThanOrEqual(1);
-  });
+  }, 15000); // Cuatro partidos simulados: dar margen a los equipos de CI.
   it('el arquero con la pelota la saca: pase con X o para arriba con ESPACIO', () => {
     const m = newSoccer('industrial', ['frost', 'thunder'], [null, null], seeded(17)); toPlay(m);
     const gk = m.players.find(q => q.team === 0 && q.role === 'gk')!; m.ball.owner = gk.id; gk.hold = 0;

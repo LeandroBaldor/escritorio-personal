@@ -66,7 +66,8 @@ test('Land: civilizaciones, escala, exploración, selección y HUD', async ({ pa
   await page.mouse.click(mb.x + mb.width * .13, mb.y + mb.height * .76);
   await expect.poll(async () => (await camera()).x).toBeLessThan(1800);
   await page.getByRole('button', { name: 'Ir a la base', exact: true }).click();
-  await expect(page.locator('.land-card-unit').filter({ hasText: 'Centro de Mando' })).toHaveCount(1);
+  await expect(page.getByRole('region', { name: 'Información de selección', exact: true }).filter({ hasText: 'Centro de Mando' })).toHaveCount(1);
+  await page.keyboard.press('Escape');
   const worker = await page.evaluate(() => {
     const g = (window as LandDebugWindow).__landGame(), u = g.units.find((u) => u.owner === 0 && u.role === 'worker');
     return { x: u.x / g.terrain.w, y: u.y / g.terrain.h };
