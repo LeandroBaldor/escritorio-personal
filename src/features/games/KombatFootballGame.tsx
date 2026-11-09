@@ -37,16 +37,16 @@ const tournamentOrder = (you: CharId) => LADDER.filter(c => c !== you);
 function tournamentRival(you: CharId, n: number): CharId { return tournamentOrder(you)[Math.min(n, TOURNAMENT - 1)]; }
 const tournamentLevel = (n: number) => 0.2 + n * 0.055;
 
-// Teclas (por la tecla física): un jugador con las flechas (o WASD), ESPACIO para patear, X para pasar y C para
-// el poder; dos jugadores: J1 con WASD + ESPACIO / Q / E y J2 con las flechas + ENTER / SHIFT / CTRL derechos.
+// Teclas (por la tecla física): un jugador con las flechas (o WASD), V para patear (dos veces sin la pelota: barrida),
+// X para pasar y C para los ataques; dos jugadores: J1 con WASD + V / Q / E y J2 con las flechas + ENTER / SHIFT / CTRL.
 type Key = 'left' | 'right' | 'up' | 'down' | 'kick' | 'pass' | 'power';
-const KEYS_SOLO: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Space: 'kick', KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyX: 'pass', KeyK: 'pass', KeyC: 'power', KeyL: 'power', KeyZ: 'power' };
-const KEYS_P1: Record<string, Key> = { KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', Space: 'kick', KeyQ: 'pass', KeyE: 'power' };
+const KEYS_SOLO: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', KeyV: 'kick', Space: 'kick', KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyX: 'pass', KeyK: 'pass', KeyC: 'power', KeyL: 'power', KeyZ: 'power' };
+const KEYS_P1: Record<string, Key> = { KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyV: 'kick', Space: 'kick', KeyQ: 'pass', KeyE: 'power' };
 const KEYS_P2: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'kick', NumpadEnter: 'kick', ShiftRight: 'pass', ControlRight: 'power', Numpad1: 'kick', Numpad2: 'pass', Numpad3: 'power' };
 interface KeyHelp { move: string[]; kick: string; pass: string; power: string }
 const helpFor = (mode: Mode, side: 0 | 1): KeyHelp => mode === 'versus'
-  ? side === 0 ? { move: ['W', 'A', 'S', 'D'], kick: 'ESPACIO', pass: 'Q', power: 'E' } : { move: ['↑', '←', '↓', '→'], kick: 'ENTER', pass: 'SHIFT der.', power: 'CTRL der.' }
-  : { move: ['↑', '←', '↓', '→'], kick: 'ESPACIO', pass: 'X', power: 'C' };
+  ? side === 0 ? { move: ['W', 'A', 'S', 'D'], kick: 'V', pass: 'Q', power: 'E' } : { move: ['↑', '←', '↓', '→'], kick: 'ENTER', pass: 'SHIFT der.', power: 'CTRL der.' }
+  : { move: ['↑', '←', '↓', '→'], kick: 'V', pass: 'X', power: 'C' };
 
 interface Side { stamina: number; power: number; ready: boolean; fatal: boolean; dir: 1 | -1; active: CharId; atk: number[] } // atk: cuánto le falta a cada ataque (0 = listo)
 interface Hud { score: [number, number]; clock: string; half: string; extra: boolean; sides: [Side, Side]; intro: boolean }
@@ -318,7 +318,7 @@ export function KombatFootball() {
           case 'goal': playKfGoal(); shout(e.fatal ? '☠ FATAL GOAL ☠' : e.own ? '¡GOL EN CONTRA!' : '¡GOL!', e.fatal ? 'fatal' : 'goal', `${CHARS[e.scorer].name} · ${m.teams[0].goals} - ${m.teams[1].goals}`, 2400); break;
           case 'save': playKfBlock(); shout('¡ATAJADA!', 'block', undefined, 900); break;
           case 'explode': playExplosion(); playKfHit(1); if (e.keeper && m.ball.fatal) shout('¡EL ARQUERO REVENTÓ!', 'fatal', undefined, 1400); break;
-          case 'penalty': playRefWhistle('kickoff'); shout('¡PENAL!', 'goal', human(e.side) ? 'ESPACIO para patear (mantenelo para más fuerza) · con ↑ o ↓ elegís el palo, sin flecha va al medio' : 'Poder al que tenía la pelota en el área', 2600); break;
+          case 'penalty': playRefWhistle('kickoff'); shout('¡PENAL!', 'goal', human(e.side) ? `${helpFor(modeRef.current, e.side).kick} para patear (mantenelo para más fuerza) · con ↑ o ↓ elegís el palo, sin flecha va al medio` : 'Poder al que tenía la pelota en el área', 2600); break;
           case 'notReady': if (human(e.side) && comboT <= 0) { comboT = 1.5; shout('Recargando…', 'info', `${ATTACKS[m.players[m.teams[e.side].active].char][e.level - 1].name} todavía no está listo`, 1100); } break;
           case 'header': playKfBall(0.7, 0.9); if (human(e.side)) shout('¡CABEZAZO!', 'info', undefined, 700); break;
           case 'unlock':
@@ -408,7 +408,7 @@ export function KombatFootball() {
       <li><Keys keys={k.move} /> correr para todos lados. Tu equipo son cinco {c.name}; manejás al del aro amarillo (cambia solo al más cercano a la pelota)</li>
       <li><Keys keys={[k.kick]} /> <b>tirar al arco:</b> mantenelo para cargar el tiro y soltalo. Si al soltar apretás {mode === 'versus' && side === 0 ? 'W o S' : '↑ o ↓'}, la pelota sale <b>con efecto</b> y dobla hacia ese palo.</li>
       <li><Keys keys={[k.pass]} /> <b>pasar</b> al compañero hacia donde apuntás (sin la pelota: cambiar de jugador)</li>
-      <li><Keys keys={[k.kick]} /> sin la pelota: <b>quite</b> si estás pegado al rival, <b>barrida</b> si venís corriendo</li>
+      <li><Keys keys={[k.kick]} /> sin la pelota: <b>quite</b> si estás pegado al rival · <Keys keys={[k.kick, k.kick]} /> dos veces: <b>barrida</b> para sacarle la pelota</li>
       <li className="kf-howto-ab"><b>ATAQUES</b> (al rival que tengas adelante, tenga o no la pelota; cada uno se recarga aparte):
         <ol className="kf-atks">{ATTACKS[chars[side]].map((a, k) => <li key={a.name}><Keys keys={tapKeys(mode, side, k + 1)} /> <b>{a.name}</b>{k === 0 ? ' — lo voltea y suelta la pelota' : k === 1 ? ' — lo revienta en sangre' : k === 2 ? ' — revienta a varios' : ' — el más fuerte: revienta a todos los de la zona'}</li>)}</ol>
         Los reventados vuelven a entrar en unos segundos. Si le pegás al que tiene la pelota adentro de tu área, es <b>penal</b>.</li>

@@ -85,6 +85,16 @@ describe('Kombat Football 5 contra 5', () => {
       expect(gone).toBeLessThanOrEqual(2);
     }
   });
+  it('sin la pelota: V una vez no se tira; V dos veces seguidas, barrida', () => {
+    const m = newSoccer('industrial', ['frost', 'thunder'], [null, null], seeded(70)); toPlay(m);
+    const me = m.players[4]; m.ball.owner = m.players[8].id; // (la tiene un rival lejos)
+    for (const q of m.players) if (q !== me) q.stun = 9;
+    m.teams[0].active = me.id; m.teams[0].switchT = 9; me.x = 5; me.z = 3;
+    const v = () => { const a = noSInput(); a.kick = true; stepSoccer(m, [a, noSInput()], 1 / 60); stepSoccer(m, [noSInput(), noSInput()], 1 / 60); };
+    v(); expect(me.slide).toBe(0);
+    for (let t = 0; t < 0.5; t += 1 / 60) stepSoccer(m, [noSInput(), noSInput()], 1 / 60);
+    v(); v(); expect(me.slide).toBeGreaterThan(0);
+  });
   it('el ataque principal (C) voltea al rival y le hace soltar la pelota (sin reventarlo)', () => {
     const m = newSoccer('industrial', ['inferno', 'thunder'], [null, null], seeded(18)); toPlay(m);
     const c = carrier(m)!, shooter = m.players.find(q => q.team !== c.team && q.role === 'def')!;

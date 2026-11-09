@@ -36,7 +36,7 @@ export interface Player extends Fighter {
   cdPow: number; castT: number; slide: number; sdx: number; sdz: number; noTouch: number; protect: number; tackleCd: number; slow: number;
   dive: number; diveVz: number; diveVx: number; save: boolean; savedShot: number; aimZ: number; aimT: number;
   hold: number; chargeOn: boolean; aiT: number; tx: number; tz: number; run: number; prevIn: SInput;
-  cTaps: number; cTimer: number; dash: number; dashX: number; dashZ: number; dashHit: number[]; dashShape: AtkShape | null; dashLevel: number; dashCast: number;
+  cTaps: number; cTimer: number; dash: number; dashX: number; dashZ: number; dashHit: number[]; dashShape: AtkShape | null; dashLevel: number; dashCast: number; kTimer: number;
   gone: boolean; // reventado por un poder: vuelve a entrar en unos segundos (p.stun cuenta el tiempo)
 }
 export type BallFx = 'none' | Element;
@@ -127,7 +127,7 @@ function newPlayer(id: number, team: 0 | 1, char: CharId, role: Role, hx: number
     kickT: 0, kickKind: 'normal', kickHit: false, slideT: 0, charge: 0, kickPow: 1, jumps: 0, headT: 0, stun: 0, stunKind: 'none', poison: 0, inv: 0, stamina: 100, power: 0, cd: 0,
     abilityT: 0, abilityHit: false, burst: 0, burstT: 0, powers: {}, prev: { left: false, right: false, up: false, down: false, kick: false, ability: false }, taps: [], goals: 0, restT: 0,
     id, team, role, z: hz, vz: 0, hx, hz, bdx: 1, bdz: 0, cdPow: 0, castT: 0, slide: 0, sdx: 0, sdz: 0, noTouch: 0, protect: 0, tackleCd: 0, slow: 0,
-    dive: 0, diveVz: 0, diveVx: 0, save: false, savedShot: -1, aimZ: ZC, aimT: 0, hold: 0, chargeOn: false, aiT: 0, tx: 0, tz: 0, run: 0, prevIn: noSInput(), gone: false, cTaps: 0, cTimer: 0, dash: 0, dashX: 0, dashZ: 0, dashHit: [], dashShape: null, dashLevel: 1, dashCast: 0,
+    dive: 0, diveVz: 0, diveVx: 0, save: false, savedShot: -1, aimZ: ZC, aimT: 0, hold: 0, chargeOn: false, aiT: 0, tx: 0, tz: 0, run: 0, prevIn: noSInput(), gone: false, cTaps: 0, cTimer: 0, dash: 0, dashX: 0, dashZ: 0, dashHit: [], dashShape: null, dashLevel: 1, dashCast: 0, kTimer: 0,
   };
 }
 // La formación (desde el arco propio, atacando para +x): arquero, dos defensores y dos delanteros.
@@ -305,7 +305,13 @@ function control(m: SoccerMatch, p: Player, i: SInput, dt: number) {
   }
   if (!stunned(p) && p.slide <= 0) {
     // patear: con la pelota carga el tiro (al soltar sale); sin la pelota, barrida o quite
-    if (pressed(p, i, 'kick')) { if (has) { p.chargeOn = true; p.charge = 0; } else tackle(m, p, dx, dz); }
+    // V (patear): con la pelota carga el tiro; sin la pelota, una vez = quite (si está pegado al rival), dos veces seguidas = barrida
+    if (pressed(p, i, 'kick')) {
+      if (has) { p.chargeOn = true; p.charge = 0; p.kTimer = 0; }
+      else if (p.kTimer > 0) { p.kTimer = 0; tackle(m, p, dx, dz, true); }
+      else { p.kTimer = TAP_GAP; tackle(m, p, dx, dz, false); }
+    }
+    if (p.kTimer > 0) p.kTimer = Math.max(0, p.kTimer - dt);
     if (p.chargeOn) {
       if (i.kick) p.charge = Math.min(CHARGE_TIME, p.charge + dt);
       else { p.chargeOn = false; if (m.ball.owner === p.id) shoot(m, p, p.charge / CHARGE_TIME, i.up ? -1 : i.down ? 1 : 0); p.charge = 0; }
@@ -472,8 +478,9 @@ function laneRisk(m: SoccerMatch, a: Player, q: Player) {
 }
 const pressure = (m: SoccerMatch, q: Player) => { let r = 0; for (const o of m.players) if (o.team !== q.team && !o.gone) r = Math.max(r, 1 - hyp(o.x - q.x, o.z - q.z) / 4); return r; };
 // Quite (cerca del que tiene la pelota) o barrida (corriendo).
-export function tackle(m: SoccerMatch, p: Player, dx = 0, dz = 0) {
-  if (p.tackleCd > 0) return;
+export function tackle(m: SoccerMatch, p: Player, dx = 0, dz = 0, slide = true) {
+  if (p.tackleCd > 0 && !slide) return;
+  if (slide && p.slide > 0) return;
   const c = carrier(m);
   if (c && c.team !== p.team && c.role !== 'gk' && hyp(c.x - p.x, c.z - p.z) < 1.7 + radiusOf(c)) {
     p.tackleCd = 0.55;
@@ -483,6 +490,7 @@ export function tackle(m: SoccerMatch, p: Player, dx = 0, dz = 0) {
     emit(m, { type: 'tackle', ok });
     return;
   }
+  if (!slide) return; // (la barrida sale con dos toques)
   const sp = hyp(p.vx, p.vz);
   if (dx === 0 && dz === 0) { if (sp > 1) { dx = p.vx / sp; dz = p.vz / sp; } else { const bx = m.ball.x - p.x, bz = m.ball.z - p.z, bd = hyp(bx, bz) || 1; dx = bx / bd; dz = bz / bd; } }
   p.slide = 0.55; p.sdx = dx; p.sdz = dz; p.tackleCd = 1.1;
