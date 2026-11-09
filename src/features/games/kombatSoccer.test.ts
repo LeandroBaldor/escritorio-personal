@@ -89,6 +89,29 @@ describe('Kombat Football 5 contra 5', () => {
     expect(got?.team).toBe(c.team);
     expect(got).not.toBe(c);
   });
+  it('el pase hacia un compañero le llega a los pies (aunque esté quieto o se esté moviendo)', () => {
+    for (const seed of [31, 32, 33, 34, 35, 36]) {
+      const m = newSoccer('industrial', ['frost', 'thunder'], [null, 0.5], seeded(seed)); toPlay(m);
+      for (const q of m.players) if (q.team === 1) { q.stun = 9; q.x = L / 2; q.z = 0.5; }
+      const me = m.players[3], mate = m.players[seed % 2 ? 1 : 4];
+      me.x = 15; me.z = 8; mate.x = 15 + (seed % 3) * 5 - 2; mate.z = 8 + 6 + (seed % 2) * 4; m.ball.owner = me.id; stepSoccer(m, [noSInput(), noSInput()], 1 / 60);
+      m.ball.owner = me.id; me.x = 15; me.z = 8;
+      for (const q of m.players) if (q.team === 0 && q !== me && q !== mate && q.role !== 'gk') { q.x = 35; q.z = 2; }
+      if (seed > 33) { mate.vx = 3; mate.vz = -2; } // (uno que se mueve)
+      const dx = mate.x - me.x, dz = mate.z - me.z, d = Math.hypot(dx, dz);
+      pass(m, me, [dx / d, dz / d]);
+      let got = null as ReturnType<typeof carrier>;
+      for (let t = 0; t < 2.5 && !got; t += 1 / 60) { stepSoccer(m, [noSInput(), noSInput()], 1 / 60); got = carrier(m); }
+      expect(got?.id).toBe(mate.id);
+    }
+  });
+  it('el tiro bien cargado sale como un cometa de fuego', () => {
+    const m = newSoccer('industrial', ['frost', 'thunder'], [null, null], seeded(37)); toPlay(m);
+    const c = carrier(m)!; shoot(m, c, 0.95, 0);
+    expect(m.ball.comet).toBe(true); expect(m.ball.fx).toBe('fire');
+    const m2 = newSoccer('industrial', ['frost', 'thunder'], [null, null], seeded(38)); toPlay(m2);
+    shoot(m2, carrier(m2)!, 0.3, 0); expect(m2.ball.comet).toBe(false);
+  });
   it('la pelota nunca sale de la cancha ni se queda trabada, y casi no hay goles en contra', () => {
     let goals = 0, own = 0, maxStill = 0;
     for (const seed of [11, 12, 13, 14]) {
