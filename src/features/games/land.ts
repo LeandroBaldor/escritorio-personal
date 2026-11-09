@@ -208,7 +208,7 @@ export function placeBuilding(g: LandGame, owner: Owner, kind: BKind, x: number,
   return b;
 }
 export function train(g: LandGame, bid: number, role: Role): boolean {
-  const b = g.buildings.find(q => q.id === bid); if (!b || b.dead || b.built < 1 || !BUILD_STATS[b.kind].makes.includes(role) || b.queue.length >= 5) return false;
+  const b = g.buildings.find(q => q.id === bid); if (!b || b.dead || b.built < 1 || !BUILD_STATS[b.kind].makes.includes(role)) return false;
   const side = g.sides[b.owner], s = unitStats(g, b.owner, role);
   if (!canPay(side, s.cost) || popUsed(g, b.owner) + s.pop > popCap(g, b.owner)) return false;
   pay(side, s.cost); b.queue.push(role); if (b.queue.length === 1) b.qT = 0;

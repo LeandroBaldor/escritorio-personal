@@ -24,11 +24,15 @@ export class LandCharacterSounds {
   private lastDig=-Infinity;
   private digBeat:number|null=null;
   private variant=new Map<string,number>();
+  private leaderTyping=false;
+  private lastLeader=-Infinity;
+  leaderWriting(on:boolean){this.leaderTyping=on;if(!on)this.output.stopChannel?.('leader');else {this.lastLeader=-Infinity;this.output.unlock();void this.output.preload([EVENT_CLIPS.leader]);}}
   constructor(private output:CharacterSoundOutput=new LandSoundOutput()){}
   start(civ:CivId){this.lastCall=-Infinity;this.lastAmbient=-Infinity;this.combatTimes.clear();this.output.unlock();void this.output.preload([...CHARACTER_CLIPS.filter(c=>c.civ===civ&&c.purpose!=='foot'),FOOTSTEP_CLIP,...Object.values(COMBAT_CLIPS),...Object.values(EVENT_CLIPS)]);}
   setActive(on:boolean){this.active=on;this.serial++;this.lastContact.clear();this.audible.clear();this.fireId=null;this.lastFire=-Infinity;this.digId=null;this.digBeat=null;this.lastDig=-Infinity;if(on)this.output.unlock();else this.output.stop();}
   tick(g:LandGame,cam:Cam,selected:ReadonlySet<number>){
     if(!this.active)return;
+    if(this.leaderTyping&&g.t-this.lastLeader>=EVENT_CLIPS.leader.phrases[0].duration+.12){this.lastLeader=g.t;const serial=this.serial;void this.output.preload([EVENT_CLIPS.leader]).then(()=>{if(this.active&&this.leaderTyping&&serial===this.serial)this.output.play(EVENT_CLIPS.leader,EVENT_CLIPS.leader.phrases[0],.22,0,'leader');});}
     const visible=g.units.filter(u=>!u.dead&&u.x>=cam.x-100&&u.x<=cam.x+cam.w/cam.z+100&&u.y>=cam.y&&u.y<=cam.y+(cam.h-landHudHeight(cam.w))/cam.z+100);
     visible.sort((a,b)=>Number(selected.has(b.id))-Number(selected.has(a.id))||Math.abs(a.x-cam.x-cam.w/cam.z/2)-Math.abs(b.x-cam.x-cam.w/cam.z/2));
     const live=new Set(visible.map(u=>u.id));this.audible=live;for(const id of this.lastContact.keys())if(!live.has(id))this.lastContact.delete(id);
@@ -59,7 +63,7 @@ export class LandCharacterSounds {
     const clips=characterClips(civ,role,'call');if(!clips.length)return;
     const index=this.next(`${civ}:${role}:call`),clip=clips[index%clips.length],cue=clip.phrases[Math.floor(index/clips.length)%clip.phrases.length],serial=this.serial;
     this.lastCall=time+Math.max(0,cue.duration-.75);this.output.unlock();
-    void this.output.preload([clip]).then(()=>{if(this.active&&this.serial===serial&&stillAudible())this.output.play(clip,cue,.72,pan,'call');});
+    void this.output.preload([clip]).then(()=>{if(this.active&&this.serial===serial&&stillAudible())this.output.play(clip,cue,.45,pan,'call');});
   }
   eventSound(g:LandGame,key:keyof typeof EVENT_CLIPS,stillAudible=()=>true){if(!this.active)return;const clip=EVENT_CLIPS[key],serial=this.serial,time=g.t;void this.output.preload([clip]).then(()=>{if(this.active&&this.serial===serial&&g.t-time<(key==='dig'?.12:1)&&stillAudible())this.output.play(clip,clip.phrases[0],key==='burn'?.17:key==='dig'?.16:.48,0,key==='burn'?'ambient':key==='dig'?'dig':'notice');});}
   combat(g:LandGame,event:LandEvent,pan=0){

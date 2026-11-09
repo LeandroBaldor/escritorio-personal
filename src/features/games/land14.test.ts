@@ -29,8 +29,8 @@ describe('Revisión 14: navegación, fuego, voces y recolección',()=>{
     const g=fixture(),out=new Output(),sounds=new LandCharacterSounds(out);sounds.start('humano');sounds.setActive(true);sounds.eventSound(g,'built');sounds.eventSound(g,'trained');await Promise.resolve();expect(out.played.map(p=>p.file)).toEqual(['events/built.mp3','events/trained.mp3']);
     sounds.eventSound(g,'built');sounds.setActive(false);await Promise.resolve();expect(out.played).toHaveLength(2);expect(EVENT_CLIPS.built.source).toContain('construcción.mp3');expect(EVENT_CLIPS.trained.source).toContain('personaje_creado.mp3');
   });
-  it('sube la voz y limita los pasos suaves a humanos y elfos orgánicos',async()=>{
-    const out=new Output(),sounds=new LandCharacterSounds(out);sounds.start('humano');sounds.setActive(true);sounds.call('humano','worker',0);await Promise.resolve();expect(out.played[0].volume).toBeGreaterThan(.6);
+  it('reduce la voz y limita los pasos suaves a humanos y elfos orgánicos',async()=>{
+    const out=new Output(),sounds=new LandCharacterSounds(out);sounds.start('humano');sounds.setActive(true);sounds.call('humano','worker',0);await Promise.resolve();expect(out.played[0].volume).toBeCloseTo(.45);
     expect(audibleLegs('humano','worker')).toBe(2);expect(audibleLegs('elfos','worker')).toBe(2);expect(audibleLegs('humano','elite')).toBe(0);expect(audibleLegs('enanos','worker')).toBe(0);expect(audibleLegs('orcos','worker')).toBe(0);expect(stepVolume(2)).toBeLessThan(.04);
   });
   it('arrodilla a las cinco civilizaciones solo al recolectar junto a un recurso y se levanta para caminar',()=>{

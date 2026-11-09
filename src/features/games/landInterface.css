@@ -166,6 +166,28 @@
 @media(max-width:1000px){.land.land-v9 .land-civ-face{flex-basis:85px}.land.land-v9 .land-civ-face .land-leader-portrait{width:80px;height:80px!important}}
 @media(max-width:650px){.land.land-v9 .land-chosen-heading .land-leader-portrait{width:220px;height:220px!important;flex-basis:220px}.land.land-v9 .land-civ-face{flex-basis:75px}.land.land-v9 .land-civ-face .land-leader-portrait{width:70px;height:70px!important}}
 .land.land-v9 .land-hud{grid-template-rows:minmax(0,1fr)!important;max-height:none!important}.land.land-v9 .land-cmds{grid-column:auto!important;grid-row:auto!important;overflow:visible!important}.land.land-v9 .land-mini{grid-row:auto!important}.land-order-help{pointer-events:none}.land.land-v9 .land-leader-portrait{padding:3px}
+
+/* Canal del líder: retrato cuadrado y terminal con contraste constante. */
+.land.land-v9 .land-own-intel .land-command-card{background:#020604;min-height:390px;border-color:#3f815b}
+.land.land-v9 .land-command-heading{align-items:center;gap:12px;border-color:#244735}
+.land.land-v9 .land-command-heading .land-leader-portrait{width:108px;height:108px!important;flex-basis:108px;border-color:#60a97c}
+.land.land-v9 .land-command-heading>div:last-child{min-width:0}
+.land.land-v9 .land-command-heading h3{font-size:13px;overflow-wrap:anywhere}
+.land.land-v9 .land-command-heading small{color:#7ceca5}
+.land.land-v9 .land-leader-log{background:#000;scrollbar-color:#37784b #000}
+.land.land-v9 .land-leader-log article{background:#000;border-color:#1c743c;border-radius:0}
+.land.land-v9 .land-leader-log time{color:#78b88c;font-family:Consolas,'Courier New',monospace!important}
+.land.land-v9 .land-leader-log b{color:#64e891;font-family:Consolas,'Courier New',monospace!important}
+.land.land-v9 .land-own-intel .land-leader-log p{color:#7dff9e;font:15px/1.5 Consolas,'Courier New',monospace!important;overflow-wrap:anywhere}
+.land-terminal-caret{animation:land-caret 1s steps(2,start) infinite}
+@keyframes land-caret{50%{opacity:0}}
+.land.land-v9 .land-training-queue{padding:5px 8px;border:1px solid #417382;background:#04121e;flex-shrink:0}
+.land.land-v9 .land-training-queue>div{display:flex;justify-content:space-between;gap:8px;font-size:13px}
+.land.land-v9 .land-training-queue progress{display:block;width:100%;height:5px;margin:3px 0;accent-color:#7ed7ff}
+.land.land-v9 .land-training-queue ol{display:flex;gap:4px;flex-wrap:wrap;list-style:none;margin:0;padding:0}
+.land.land-v9 .land-training-queue li{font-size:11px;background:#102c3c;padding:2px 5px;border-radius:3px}
+@media(max-width:650px){.land.land-v9 .land-command-heading .land-leader-portrait{width:96px;height:96px!important;flex-basis:96px}.land.land-v9 .land-training-queue ol{display:none}}
+@media(prefers-reduced-motion:reduce){.land-terminal-caret{animation:none}}
 .land.land-v9 .land-cmds .land-command-cell>button{min-width:0;overflow:hidden}.land.land-v9 .land-cmds .land-command-label{white-space:normal!important;text-overflow:clip!important;max-width:100%}.land.land-v9 .land-cmds small{max-width:100%;white-space:normal!important;overflow-wrap:anywhere}.land.land-v9 .land-hud>*{min-width:0}
 /* Revisión 17: selección compacta, sin ventanas sobre el escenario. */
 .land.land-v9 .land-inspector17{overflow:hidden!important;padding:2px 5px!important;display:flex!important;flex-direction:column;gap:4px;font:12px/1.25 Arial,sans-serif!important}.land.land-v9 .land-inspector17 header{flex:0 0 auto;min-height:34px;gap:8px;margin:0;padding:0 0 3px}.land.land-v9 .land-inspector17 header>div:first-child{height:40px;width:60px;overflow:hidden}.land.land-v9 .land-inspector17 header canvas{max-height:40px;max-width:60px;object-fit:contain}.land.land-v9 .land-inspector17 h3{font-size:14px;margin:0}.land.land-v9 .land-inspector17 p,.land.land-v9 .land-inspector17 span,.land.land-v9 .land-inspector17 b{font-size:12px!important;line-height:1.25!important;margin:0}.land.land-v9 .land-inspector17 small{font:11px/1.25 Arial,sans-serif!important;color:#9db8ca}.land.land-v9 .land-inspector17 .land-next-tip{padding:4px 6px;font-size:11px!important;line-height:1.25!important;margin:0}

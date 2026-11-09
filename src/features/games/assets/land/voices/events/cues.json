@@ -78,5 +78,25 @@
       }
     ],
     "steps": []
+  },
+  "leader": {
+    "civ": "humano",
+    "role": "worker",
+    "variant": 0,
+    "purpose": "effect",
+    "hash": "0fd0c207377c2b9bcd0fc266a5956ae813f2a509ec805bdecc029e9eda31e586",
+    "file": "events/leader.mp3",
+    "source": "SONIDOS/lider_radio.mp3",
+    "duration": 0.384,
+    "peak": 0.66725,
+    "rms": 0.12607,
+    "phrases": [
+      {
+        "start": 0,
+        "duration": 0.384,
+        "rms": 0.12607
+      }
+    ],
+    "steps": []
   }
 }

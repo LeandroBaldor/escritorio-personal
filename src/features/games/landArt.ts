@@ -4,7 +4,7 @@ import {unitLabel} from './landBalance';
 // Land of Warriors: el dibujo del mapa, los recursos, las construcciones, los guerreros y los disparos.
 import {evolutionLevel,foodBlocked} from './landProvision';
 import {evolvedSprite,evolutionsReady} from './landEvolutionArt';
-import {drawFarm,drawStorehouse} from './landFarmArt';
+import {drawFarm} from './landFarmArt';
 import { BUILD_STATS, trainingDuration, unitStats, ROLES, type BKind, type Building, type LandGame, type Role, type Unit, type Node } from './land';
 import { CIVS, CIV_IDS, TRAINING_ROLE, type CivId } from './landCivs';
 import { drawAmbientTerrain, type TerrainRegion } from './landMapArt';
@@ -55,7 +55,7 @@ export function drawPortrait(ctx:CanvasRenderingContext2D,civ:CivId,idx:number,w
 // Dibuja un recorte apoyado en (x, y) (el piso), de alto h (o de ancho w si es más ancho que alto).
 export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number, motion = 0, attack = 0,kneel=0,level=0,work=0,animation?:UnitAnimation):boolean {
   if(idx===12)return drawFarm(ctx,civ,x,y,Math.min(maxW??h,h*1.7),h*.85);
-  if(idx===13){const ok=drawSprite(ctx,civ,10,x,y,h,flip,maxW);if(ok)drawStorehouse(ctx,civ,x,y,Math.min(maxW??h,h*1.3),h);return ok;}
+  if(idx===13)return drawSprite(ctx,civ,10,x,y,h,flip,maxW);
   if (idx === 11) return drawWall(ctx,civ,x,y,Math.min(maxW ?? h,h*1.2),h);
   spritesReady();
   let image = SPRITES[civ], frame = FRAMES[civ]?.[idx]; if (!image || !frame) return false;
@@ -168,7 +168,7 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, g: LandGame, b: Buil
   ctx.restore();
   if (!b.dead && (b.hp < b.maxHp || selected || b.built < 1)) bar(ctx, b.x, b.y - h - 10, w * 0.6, b.built < 1 ? b.built : b.hp / b.maxHp, b.built < 1 ? '#facc15' : b.owner === 0 ? '#4ade80' : '#f87171');
   if (!b.dead && b.queue.length) bar(ctx, b.x, b.y - h - 2, w * 0.6, b.qT / trainingDuration(g,b.owner,b.queue[0]), '#60a5fa');
-  if(!b.dead){ctx.save();ctx.font='600 8px Orbitron, sans-serif';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.lineJoin='round';ctx.lineWidth=2.5;ctx.strokeStyle='#04121de6';ctx.fillStyle=CIVS[civ].color;const name=CIVS[civ].buildings[b.kind],y=b.y-h-17;ctx.strokeText(name,b.x,y);ctx.fillText(name,b.x,y);ctx.restore();}
+  if(!b.dead){ctx.save();ctx.font='600 11px Orbitron, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';const name=CIVS[civ].buildings[b.kind],y=b.y-h-23,lw=ctx.measureText(name).width+16;ctx.fillStyle='#000e';ctx.fillRect(b.x-lw/2,y-10,lw,20);ctx.strokeStyle=CIVS[civ].color;ctx.globalAlpha=.65;ctx.lineWidth=.8;ctx.strokeRect(b.x-lw/2,y-10,lw,20);ctx.globalAlpha=1;ctx.fillStyle=CIVS[civ].color;ctx.fillText(name,b.x,y);ctx.restore();}
 }
 function bar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, k: number, c: string) {
   ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(x - w / 2 - 1, y - 1, w + 2, 6);

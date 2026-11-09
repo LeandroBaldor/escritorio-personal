@@ -2,12 +2,13 @@ import {LandCost} from './landResource';
 import {useState} from 'react';
 import {LandBasePanel} from './landBasePanel';
 import {unitLabel,costDescription} from './landBalance';
-import {BUILD_STATS,buildingStats,trainingDuration,unitStats,type LandGame,type Unit,type Building,type BKind} from './land';
+import {BUILD_STATS,buildingStats,unitStats,type LandGame,type Unit,type Building,type BKind} from './land';
 import {CIVS,TRAINING_ROLE,TRAINING_KIND,BUILD_TEXT,attackText} from './landCivs';
 import {improvementProgress,unitImprovementTip,buildingAdvice} from './landInspection';
 import {FOOD_NAMES,unitFoodRate,FOOD_CAPACITY,MAX_EVOLUTION,evolutionCost,evolutionLevel,evolutionTime,EVOLUTION_NAMES,foodBlocked,foodRate,HARVEST_TIME} from './landProvision';
 import {Sprite,BuildingSprite} from './landSprite';
 import {roleIdx} from './landArt';
+import {LandTrainingQueue} from './landTrainingQueue';
 
 export function LandInspector({game,unit,building,count,planned}:{game:LandGame;unit?:Unit;building?:Building;count:number;planned?:BKind}){
   const [more,setMore]=useState(false);
@@ -25,7 +26,7 @@ export function LandInspector({game,unit,building,count,planned}:{game:LandGame;
       <button type="button" className="land-more-button" aria-expanded={more} onClick={()=>setMore(v=>!v)}>{more?'Ver estado':'Ver mejoras'}</button>
       <div className="land-evolution-gain">{level<4?(()=>{const next=unitStats(game,owner,role,level+1);return <>Próximo nivel: Vida {Math.round(s.hp)} → {Math.round(next.hp)} · Daño {Math.round(s.dmg*10)/10} → {Math.round(next.dmg*10)/10} · Velocidad {Math.round(s.speed)} → {Math.round(next.speed)}</>;})():<>Nivel máximo: listo para formar tu ejército.</>}</div>
       {building?.evolving?<p className="land-next-tip">Evolucionando a nivel {level+1}: {Math.min(100,Math.floor(building.rT/evolutionTime(level)*100))}%</p>:<p className="land-next-tip" title={unitImprovementTip(game,role,owner)}>{level===4?'Evolución máxima. Asegurá sus alimentos.':building?`Próxima: ${EVOLUTION_NAMES[level+1]}. Evolucioná desde las órdenes.`:`Evolucioná en ${c.buildings[TRAINING_KIND[role]]}.`}</p>}
-      {building&&building.queue.length>0&&<small>Entrenando: {Math.min(100,Math.round(building.qT/trainingDuration(game,owner,building.queue[0])*100))}%</small>}
     </>:kind?<><p>{BUILD_TEXT[kind]}</p>{kind==='farm'?<div className="land-farm-details"><b>{FOOD_NAMES[civ]}</b><span>Trabajadores: {game.units.filter(u=>!u.dead&&u.order.k==='farm'&&u.order.id===building?.id).length} / 1</span><span>Cosecha: {Math.floor((game.units.find(u=>!u.dead&&u.order.k==='farm'&&u.order.id===building?.id)?.mineT??0)/HARVEST_TIME*100)}% · 60 s por ciclo</span></div>:kind==='storehouse'?<p>Reserva: {Math.floor(game.sides[owner].food)} / {FOOD_CAPACITY} · Consumo: {foodRate(game,owner).toFixed(1)} / min · {FOOD_NAMES[civ]}</p>:<p>{buildingAdvice(game,kind)} · Población aportada: {BUILD_STATS[kind].pop}</p>}</>:<p>Elegí una unidad, estructura o construcción para consultar sus atributos, tareas y próximos pasos.</p>}
+    {building&&<LandTrainingQueue game={game} building={building}/>}
   </section>;
 }

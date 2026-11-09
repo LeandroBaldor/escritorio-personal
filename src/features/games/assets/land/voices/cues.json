@@ -1287,304 +1287,380 @@
       "role": "worker",
       "variant": 0,
       "purpose": "call",
-      "hash": "1052d608783023f41d8ed7e3ac3acf017ae0c9816484b1acf5cd59ace60dba09",
-      "file": "elfos/worker.mp3",
-      "source": "03_Elfos_de_Yldran/sabio.mp3",
-      "duration": 5.184,
-      "peak": 0.88205,
-      "rms": 0.17797,
+      "hash": "3d3e1eaab30d51b82a2c9ab59065aec4f0298e4d7511408d1124d980dfcad83b",
+      "file": "elfos/voice.mp3",
+      "source": "CIVILIZACIONES/03_Elfos_de_Yldran/voz_elfos.mp3",
+      "duration": 24.648,
+      "peak": 0.3566,
+      "rms": 0.03267,
       "phrases": [
         {
-          "start": 0.435,
-          "duration": 3.91,
-          "rms": 0.2018
+          "start": 0.58,
+          "duration": 1.18,
+          "rms": 0.02418
+        },
+        {
+          "start": 1.79,
+          "duration": 0.92,
+          "rms": 0.0251
+        },
+        {
+          "start": 2.74,
+          "duration": 0.97,
+          "rms": 0.02651
+        },
+        {
+          "start": 3.74,
+          "duration": 1.38,
+          "rms": 0.02048
+        },
+        {
+          "start": 5.15,
+          "duration": 1.32,
+          "rms": 0.05206
+        },
+        {
+          "start": 6.5,
+          "duration": 1.17,
+          "rms": 0.02619
+        },
+        {
+          "start": 7.71,
+          "duration": 1.57,
+          "rms": 0.03063
+        },
+        {
+          "start": 9.31,
+          "duration": 1.27,
+          "rms": 0.01963
+        },
+        {
+          "start": 10.62,
+          "duration": 0.74,
+          "rms": 0.07026
+        },
+        {
+          "start": 11.39,
+          "duration": 1.36,
+          "rms": 0.03601
+        },
+        {
+          "start": 12.78,
+          "duration": 0.72,
+          "rms": 0.02938
+        },
+        {
+          "start": 13.55,
+          "duration": 0.91,
+          "rms": 0.03718
+        },
+        {
+          "start": 14.49,
+          "duration": 1.03,
+          "rms": 0.03263
+        },
+        {
+          "start": 15.55,
+          "duration": 1.04,
+          "rms": 0.02461
+        },
+        {
+          "start": 16.65,
+          "duration": 1,
+          "rms": 0.04092
+        },
+        {
+          "start": 17.68,
+          "duration": 1.05,
+          "rms": 0.02298
         }
       ],
-      "steps": [
-        {
-          "start": 1.818,
-          "duration": 0.202,
-          "rms": 0.16654
-        },
-        {
-          "start": 2.488,
-          "duration": 0.202,
-          "rms": 0.2354
-        },
-        {
-          "start": 2.848,
-          "duration": 0.202,
-          "rms": 0.28771
-        },
-        {
-          "start": 3.058,
-          "duration": 0.202,
-          "rms": 0.24453
-        },
-        {
-          "start": 3.328,
-          "duration": 0.202,
-          "rms": 0.26001
-        },
-        {
-          "start": 3.558,
-          "duration": 0.202,
-          "rms": 0.29747
-        },
-        {
-          "start": 3.868,
-          "duration": 0.202,
-          "rms": 0.27193
-        },
-        {
-          "start": 4.088,
-          "duration": 0.202,
-          "rms": 0.24055
-        }
-      ]
+      "steps": []
     },
     {
       "civ": "elfos",
       "role": "melee",
       "variant": 0,
       "purpose": "call",
-      "hash": "b6e99307071814a015ffebd4e99fc9abae27cc3705be776fbc6d067deed1e4c4",
-      "file": "elfos/melee.mp3",
-      "source": "03_Elfos_de_Yldran/espadachin_lunar.mp3",
-      "duration": 5.184,
-      "peak": 0.90738,
-      "rms": 0.17766,
+      "hash": "3d3e1eaab30d51b82a2c9ab59065aec4f0298e4d7511408d1124d980dfcad83b",
+      "file": "elfos/voice.mp3",
+      "source": "CIVILIZACIONES/03_Elfos_de_Yldran/voz_elfos.mp3",
+      "duration": 24.648,
+      "peak": 0.3566,
+      "rms": 0.03267,
       "phrases": [
         {
-          "start": 0.385,
-          "duration": 3.9,
-          "rms": 0.20379
+          "start": 0.58,
+          "duration": 1.18,
+          "rms": 0.02418
+        },
+        {
+          "start": 1.79,
+          "duration": 0.92,
+          "rms": 0.0251
+        },
+        {
+          "start": 2.74,
+          "duration": 0.97,
+          "rms": 0.02651
+        },
+        {
+          "start": 3.74,
+          "duration": 1.38,
+          "rms": 0.02048
+        },
+        {
+          "start": 5.15,
+          "duration": 1.32,
+          "rms": 0.05206
+        },
+        {
+          "start": 6.5,
+          "duration": 1.17,
+          "rms": 0.02619
+        },
+        {
+          "start": 7.71,
+          "duration": 1.57,
+          "rms": 0.03063
+        },
+        {
+          "start": 9.31,
+          "duration": 1.27,
+          "rms": 0.01963
+        },
+        {
+          "start": 10.62,
+          "duration": 0.74,
+          "rms": 0.07026
+        },
+        {
+          "start": 11.39,
+          "duration": 1.36,
+          "rms": 0.03601
+        },
+        {
+          "start": 12.78,
+          "duration": 0.72,
+          "rms": 0.02938
+        },
+        {
+          "start": 13.55,
+          "duration": 0.91,
+          "rms": 0.03718
+        },
+        {
+          "start": 14.49,
+          "duration": 1.03,
+          "rms": 0.03263
+        },
+        {
+          "start": 15.55,
+          "duration": 1.04,
+          "rms": 0.02461
+        },
+        {
+          "start": 16.65,
+          "duration": 1,
+          "rms": 0.04092
+        },
+        {
+          "start": 17.68,
+          "duration": 1.05,
+          "rms": 0.02298
         }
       ],
-      "steps": [
-        {
-          "start": 0.768,
-          "duration": 0.202,
-          "rms": 0.14805
-        },
-        {
-          "start": 1.038,
-          "duration": 0.202,
-          "rms": 0.2453
-        },
-        {
-          "start": 1.268,
-          "duration": 0.202,
-          "rms": 0.30822
-        },
-        {
-          "start": 1.598,
-          "duration": 0.202,
-          "rms": 0.29161
-        },
-        {
-          "start": 1.788,
-          "duration": 0.202,
-          "rms": 0.24525
-        },
-        {
-          "start": 2.028,
-          "duration": 0.202,
-          "rms": 0.25347
-        },
-        {
-          "start": 2.288,
-          "duration": 0.202,
-          "rms": 0.2735
-        },
-        {
-          "start": 3.458,
-          "duration": 0.202,
-          "rms": 0.13682
-        }
-      ]
+      "steps": []
     },
     {
       "civ": "elfos",
       "role": "ranged",
       "variant": 0,
       "purpose": "call",
-      "hash": "f1ac46d8b4cf2f251f2dcbea599ae81e8c33d265389f57a81a4895030c1979bb",
-      "file": "elfos/ranged.mp3",
-      "source": "03_Elfos_de_Yldran/arquera_del_viento.mp3",
-      "duration": 30.024,
-      "peak": 0.92219,
-      "rms": 0.21326,
+      "hash": "3d3e1eaab30d51b82a2c9ab59065aec4f0298e4d7511408d1124d980dfcad83b",
+      "file": "elfos/voice.mp3",
+      "source": "CIVILIZACIONES/03_Elfos_de_Yldran/voz_elfos.mp3",
+      "duration": 24.648,
+      "peak": 0.3566,
+      "rms": 0.03267,
       "phrases": [
         {
-          "start": 0.055,
-          "duration": 3.18,
-          "rms": 0.17525
+          "start": 0.58,
+          "duration": 1.18,
+          "rms": 0.02418
         },
         {
-          "start": 3.235,
-          "duration": 3.32,
-          "rms": 0.26292
+          "start": 1.79,
+          "duration": 0.92,
+          "rms": 0.0251
         },
         {
-          "start": 6.555,
-          "duration": 3.65,
-          "rms": 0.1129
+          "start": 2.74,
+          "duration": 0.97,
+          "rms": 0.02651
         },
         {
-          "start": 11.835,
-          "duration": 3.15,
-          "rms": 0.2048
+          "start": 3.74,
+          "duration": 1.38,
+          "rms": 0.02048
         },
         {
-          "start": 14.985,
-          "duration": 2.89,
-          "rms": 0.26941
+          "start": 5.15,
+          "duration": 1.32,
+          "rms": 0.05206
         },
         {
-          "start": 17.875,
-          "duration": 3.92,
-          "rms": 0.27172
+          "start": 6.5,
+          "duration": 1.17,
+          "rms": 0.02619
         },
         {
-          "start": 21.795,
-          "duration": 2.97,
-          "rms": 0.21208
+          "start": 7.71,
+          "duration": 1.57,
+          "rms": 0.03063
         },
         {
-          "start": 24.765,
-          "duration": 4,
-          "rms": 0.23143
+          "start": 9.31,
+          "duration": 1.27,
+          "rms": 0.01963
+        },
+        {
+          "start": 10.62,
+          "duration": 0.74,
+          "rms": 0.07026
+        },
+        {
+          "start": 11.39,
+          "duration": 1.36,
+          "rms": 0.03601
+        },
+        {
+          "start": 12.78,
+          "duration": 0.72,
+          "rms": 0.02938
+        },
+        {
+          "start": 13.55,
+          "duration": 0.91,
+          "rms": 0.03718
+        },
+        {
+          "start": 14.49,
+          "duration": 1.03,
+          "rms": 0.03263
+        },
+        {
+          "start": 15.55,
+          "duration": 1.04,
+          "rms": 0.02461
+        },
+        {
+          "start": 16.65,
+          "duration": 1,
+          "rms": 0.04092
+        },
+        {
+          "start": 17.68,
+          "duration": 1.05,
+          "rms": 0.02298
         }
       ],
-      "steps": [
-        {
-          "start": 3.478,
-          "duration": 0.202,
-          "rms": 0.21398
-        },
-        {
-          "start": 16.548,
-          "duration": 0.202,
-          "rms": 0.23968
-        },
-        {
-          "start": 18.398,
-          "duration": 0.202,
-          "rms": 0.28434
-        },
-        {
-          "start": 19.658,
-          "duration": 0.202,
-          "rms": 0.23257
-        },
-        {
-          "start": 19.978,
-          "duration": 0.202,
-          "rms": 0.30333
-        },
-        {
-          "start": 21.388,
-          "duration": 0.202,
-          "rms": 0.16246
-        },
-        {
-          "start": 25.448,
-          "duration": 0.202,
-          "rms": 0.34095
-        },
-        {
-          "start": 25.678,
-          "duration": 0.202,
-          "rms": 0.36509
-        }
-      ]
+      "steps": []
     },
     {
       "civ": "elfos",
       "role": "special",
       "variant": 0,
       "purpose": "call",
-      "hash": "06c522302aeda02725bd80994030b9fbd4a8f2add8231ec47e2a0a55cc2fd2e0",
-      "file": "elfos/special.mp3",
-      "source": "03_Elfos_de_Yldran/druida.mp3",
-      "duration": 22.831,
-      "peak": 0.50009,
-      "rms": 0.10504,
+      "hash": "3d3e1eaab30d51b82a2c9ab59065aec4f0298e4d7511408d1124d980dfcad83b",
+      "file": "elfos/voice.mp3",
+      "source": "CIVILIZACIONES/03_Elfos_de_Yldran/voz_elfos.mp3",
+      "duration": 24.648,
+      "peak": 0.3566,
+      "rms": 0.03267,
       "phrases": [
         {
-          "start": 0.165,
-          "duration": 3.63,
-          "rms": 0.11167
+          "start": 0.58,
+          "duration": 1.18,
+          "rms": 0.02418
         },
         {
-          "start": 3.795,
-          "duration": 2.76,
-          "rms": 0.10234
+          "start": 1.79,
+          "duration": 0.92,
+          "rms": 0.0251
         },
         {
-          "start": 6.555,
-          "duration": 3.32,
-          "rms": 0.10755
+          "start": 2.74,
+          "duration": 0.97,
+          "rms": 0.02651
         },
         {
-          "start": 9.875,
-          "duration": 3.97,
-          "rms": 0.11619
+          "start": 3.74,
+          "duration": 1.38,
+          "rms": 0.02048
         },
         {
-          "start": 13.845,
-          "duration": 3.97,
-          "rms": 0.11761
+          "start": 5.15,
+          "duration": 1.32,
+          "rms": 0.05206
         },
         {
-          "start": 17.815,
-          "duration": 3.14,
-          "rms": 0.09899
+          "start": 6.5,
+          "duration": 1.17,
+          "rms": 0.02619
+        },
+        {
+          "start": 7.71,
+          "duration": 1.57,
+          "rms": 0.03063
+        },
+        {
+          "start": 9.31,
+          "duration": 1.27,
+          "rms": 0.01963
+        },
+        {
+          "start": 10.62,
+          "duration": 0.74,
+          "rms": 0.07026
+        },
+        {
+          "start": 11.39,
+          "duration": 1.36,
+          "rms": 0.03601
+        },
+        {
+          "start": 12.78,
+          "duration": 0.72,
+          "rms": 0.02938
+        },
+        {
+          "start": 13.55,
+          "duration": 0.91,
+          "rms": 0.03718
+        },
+        {
+          "start": 14.49,
+          "duration": 1.03,
+          "rms": 0.03263
+        },
+        {
+          "start": 15.55,
+          "duration": 1.04,
+          "rms": 0.02461
+        },
+        {
+          "start": 16.65,
+          "duration": 1,
+          "rms": 0.04092
+        },
+        {
+          "start": 17.68,
+          "duration": 1.05,
+          "rms": 0.02298
         }
       ],
-      "steps": [
-        {
-          "start": 4.488,
-          "duration": 0.202,
-          "rms": 0.11984
-        },
-        {
-          "start": 8.368,
-          "duration": 0.202,
-          "rms": 0.11536
-        },
-        {
-          "start": 8.988,
-          "duration": 0.202,
-          "rms": 0.10757
-        },
-        {
-          "start": 11.998,
-          "duration": 0.202,
-          "rms": 0.11696
-        },
-        {
-          "start": 13.178,
-          "duration": 0.202,
-          "rms": 0.12743
-        },
-        {
-          "start": 14.998,
-          "duration": 0.202,
-          "rms": 0.11509
-        },
-        {
-          "start": 15.328,
-          "duration": 0.202,
-          "rms": 0.10922
-        },
-        {
-          "start": 18.858,
-          "duration": 0.202,
-          "rms": 0.15752
-        }
-      ]
+      "steps": []
     },
     {
       "civ": "elfos",
@@ -1657,142 +1733,190 @@
       "role": "heavy",
       "variant": 1,
       "purpose": "call",
-      "hash": "d912e75da60310c9800d8f9fc2243ba668c7fe886565b68c2cc3ea92afa0bccd",
-      "file": "elfos/heavy-2.mp3",
-      "source": "03_Elfos_de_Yldran/guardian_arboreo_1.mp3",
-      "duration": 11.442,
-      "peak": 0.66512,
-      "rms": 0.14069,
+      "hash": "3d3e1eaab30d51b82a2c9ab59065aec4f0298e4d7511408d1124d980dfcad83b",
+      "file": "elfos/voice.mp3",
+      "source": "CIVILIZACIONES/03_Elfos_de_Yldran/voz_elfos.mp3",
+      "duration": 24.648,
+      "peak": 0.3566,
+      "rms": 0.03267,
       "phrases": [
         {
-          "start": 0.785,
-          "duration": 3.65,
-          "rms": 0.16765
+          "start": 0.58,
+          "duration": 1.18,
+          "rms": 0.02418
         },
         {
-          "start": 4.435,
-          "duration": 3.73,
-          "rms": 0.15926
+          "start": 1.79,
+          "duration": 0.92,
+          "rms": 0.0251
         },
         {
-          "start": 8.165,
-          "duration": 1.55,
-          "rms": 0.1373
+          "start": 2.74,
+          "duration": 0.97,
+          "rms": 0.02651
+        },
+        {
+          "start": 3.74,
+          "duration": 1.38,
+          "rms": 0.02048
+        },
+        {
+          "start": 5.15,
+          "duration": 1.32,
+          "rms": 0.05206
+        },
+        {
+          "start": 6.5,
+          "duration": 1.17,
+          "rms": 0.02619
+        },
+        {
+          "start": 7.71,
+          "duration": 1.57,
+          "rms": 0.03063
+        },
+        {
+          "start": 9.31,
+          "duration": 1.27,
+          "rms": 0.01963
+        },
+        {
+          "start": 10.62,
+          "duration": 0.74,
+          "rms": 0.07026
+        },
+        {
+          "start": 11.39,
+          "duration": 1.36,
+          "rms": 0.03601
+        },
+        {
+          "start": 12.78,
+          "duration": 0.72,
+          "rms": 0.02938
+        },
+        {
+          "start": 13.55,
+          "duration": 0.91,
+          "rms": 0.03718
+        },
+        {
+          "start": 14.49,
+          "duration": 1.03,
+          "rms": 0.03263
+        },
+        {
+          "start": 15.55,
+          "duration": 1.04,
+          "rms": 0.02461
+        },
+        {
+          "start": 16.65,
+          "duration": 1,
+          "rms": 0.04092
+        },
+        {
+          "start": 17.68,
+          "duration": 1.05,
+          "rms": 0.02298
         }
       ],
-      "steps": [
-        {
-          "start": 0.878,
-          "duration": 0.202,
-          "rms": 0.13142
-        },
-        {
-          "start": 2.928,
-          "duration": 0.202,
-          "rms": 0.19374
-        },
-        {
-          "start": 3.798,
-          "duration": 0.202,
-          "rms": 0.20452
-        },
-        {
-          "start": 6.988,
-          "duration": 0.202,
-          "rms": 0.18819
-        },
-        {
-          "start": 7.348,
-          "duration": 0.202,
-          "rms": 0.21768
-        },
-        {
-          "start": 7.588,
-          "duration": 0.202,
-          "rms": 0.19793
-        },
-        {
-          "start": 8.148,
-          "duration": 0.202,
-          "rms": 0.1952
-        },
-        {
-          "start": 8.428,
-          "duration": 0.202,
-          "rms": 0.16615
-        }
-      ]
+      "steps": []
     },
     {
       "civ": "elfos",
       "role": "elite",
       "variant": 0,
       "purpose": "call",
-      "hash": "1dfaf820a784b5e12e73209ffdff062b197bb05d83292e7b611f244945d61320",
-      "file": "elfos/elite.mp3",
-      "source": "03_Elfos_de_Yldran/dragon_elfico.mp3",
-      "duration": 10.71,
-      "peak": 0.75013,
-      "rms": 0.11076,
+      "hash": "3d3e1eaab30d51b82a2c9ab59065aec4f0298e4d7511408d1124d980dfcad83b",
+      "file": "elfos/voice.mp3",
+      "source": "CIVILIZACIONES/03_Elfos_de_Yldran/voz_elfos.mp3",
+      "duration": 24.648,
+      "peak": 0.3566,
+      "rms": 0.03267,
       "phrases": [
         {
-          "start": 0.185,
-          "duration": 3.79,
-          "rms": 0.13535
+          "start": 0.58,
+          "duration": 1.18,
+          "rms": 0.02418
         },
         {
-          "start": 3.975,
-          "duration": 3.65,
-          "rms": 0.11744
+          "start": 1.79,
+          "duration": 0.92,
+          "rms": 0.0251
         },
         {
-          "start": 7.625,
-          "duration": 2.37,
-          "rms": 0.06981
+          "start": 2.74,
+          "duration": 0.97,
+          "rms": 0.02651
+        },
+        {
+          "start": 3.74,
+          "duration": 1.38,
+          "rms": 0.02048
+        },
+        {
+          "start": 5.15,
+          "duration": 1.32,
+          "rms": 0.05206
+        },
+        {
+          "start": 6.5,
+          "duration": 1.17,
+          "rms": 0.02619
+        },
+        {
+          "start": 7.71,
+          "duration": 1.57,
+          "rms": 0.03063
+        },
+        {
+          "start": 9.31,
+          "duration": 1.27,
+          "rms": 0.01963
+        },
+        {
+          "start": 10.62,
+          "duration": 0.74,
+          "rms": 0.07026
+        },
+        {
+          "start": 11.39,
+          "duration": 1.36,
+          "rms": 0.03601
+        },
+        {
+          "start": 12.78,
+          "duration": 0.72,
+          "rms": 0.02938
+        },
+        {
+          "start": 13.55,
+          "duration": 0.91,
+          "rms": 0.03718
+        },
+        {
+          "start": 14.49,
+          "duration": 1.03,
+          "rms": 0.03263
+        },
+        {
+          "start": 15.55,
+          "duration": 1.04,
+          "rms": 0.02461
+        },
+        {
+          "start": 16.65,
+          "duration": 1,
+          "rms": 0.04092
+        },
+        {
+          "start": 17.68,
+          "duration": 1.05,
+          "rms": 0.02298
         }
       ],
-      "steps": [
-        {
-          "start": 1.148,
-          "duration": 0.202,
-          "rms": 0.10989
-        },
-        {
-          "start": 1.368,
-          "duration": 0.202,
-          "rms": 0.16599
-        },
-        {
-          "start": 2.128,
-          "duration": 0.202,
-          "rms": 0.1467
-        },
-        {
-          "start": 2.698,
-          "duration": 0.202,
-          "rms": 0.16349
-        },
-        {
-          "start": 3.308,
-          "duration": 0.202,
-          "rms": 0.17042
-        },
-        {
-          "start": 3.558,
-          "duration": 0.202,
-          "rms": 0.16897
-        },
-        {
-          "start": 4.378,
-          "duration": 0.202,
-          "rms": 0.14782
-        },
-        {
-          "start": 5.558,
-          "duration": 0.202,
-          "rms": 0.1431
-        }
-      ]
+      "steps": []
     },
     {
       "civ": "enanos",

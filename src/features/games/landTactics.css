@@ -6,3 +6,10 @@
 .land.land-v9 .land-civ-traits p{margin:0!important;font:14px/1.4 Arial,sans-serif!important;color:#cce9e7}
 .land.land-v9 .land-civ-traits p:last-child{color:#efc7ad}
 @media(max-width:650px){.land.land-v9 .land-match-time{font-size:11px;padding:2px 5px}.land.land-v9 .land-top-left span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.land.land-v9 .land-top-left{display:flex}.land.land-v9 .land-civ-traits p{font-size:13px!important}}
+@media(min-width:1101px){
+ .land.land-v9 .land-own-intel{grid-template-rows:auto minmax(170px,.65fr) minmax(0,1.35fr)}
+ .land.land-v9 .land-own-intel .land-command-card{min-height:0;background:#020604!important}
+ .land.land-v9 .land-hud.land-hud-native .land-selection-inspector:has(.land-base-report)>.land-training-queue{position:absolute;left:58.2%;bottom:0;width:41.8%!important;margin-left:0!important;box-sizing:border-box;padding:3px 5px;background:#020f1c;z-index:2}
+ .land.land-v9 .land-selection-inspector:has(.land-base-report)>.land-training-queue ol{display:none}
+ .land.land-v9 .land-selection-inspector:has(>.land-training-queue):not(:has(.land-base-report)) :is(.land-next-tip,.land-evolution-gain){display:none}
+}
