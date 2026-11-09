@@ -45,6 +45,7 @@ import { bIdx, drawMinimap, drawSprite, drawWorld, roleIdx, spritesReady, type C
 import { useFitScreen,fitViewport } from './fitScreen';
 import { playExplosion, playGameOver, playKnock, playVampSword, playWinFanfare } from './sounds';
 import { playLandButton, preloadLandSounds, setLandMenuMusic,setLandGameMusic,resetLandGameMusic } from './landAudio';
+import {setLandAmbience,resetLandAmbience} from './landAmbience';
 import { LandCharacterSounds } from './landCharacterSounds';
 
 import posterImg from './assets/land/poster.webp';
@@ -120,7 +121,8 @@ export function LandOfWarriors() {
     return () => { clearInterval(id); window.removeEventListener('pointerdown', kick); window.removeEventListener('keydown', kick); };
   }, [screen]);
   useEffect(()=>{if(screen!=='playing'&&screen!=='paused'){resetLandGameMusic();return;}const update=()=>setLandGameMusic(screen==='playing'&&!document.hidden,musicMuted);update();document.addEventListener('visibilitychange',update);const kick=()=>{if(screen==='playing'&&!document.hidden)setLandGameMusic(true,musicMuted);};window.addEventListener('pointerdown',kick);return()=>{document.removeEventListener('visibilitychange',update);window.removeEventListener('pointerdown',kick);setLandGameMusic(false,musicMuted);};},[screen,musicMuted]);
-  useEffect(() => () => {setLandMenuMusic(false);resetLandGameMusic();}, []);
+  useEffect(()=>{if(screen!=='playing'&&screen!=='paused'){resetLandAmbience();return;}const update=()=>setLandAmbience(gRef.current?.map??map,screen==='playing'&&!document.hidden);update();document.addEventListener('visibilitychange',update);window.addEventListener('pointerdown',update);return()=>{document.removeEventListener('visibilitychange',update);window.removeEventListener('pointerdown',update);setLandAmbience(map,false);};},[screen,map]);
+  useEffect(() => () => {setLandMenuMusic(false);resetLandGameMusic();resetLandAmbience();}, []);
   useEffect(() => { if (import.meta.env.DEV) (window as unknown as { __landGame?: () => LandGame | null; __landCam?: () => Cam }).__landGame = () => gRef.current; (window as unknown as { __landCam?: () => Cam }).__landCam = () => camRef.current; }, []); // (para probar en desarrollo)
   const say = useCallback((text: string, key = text, gap = 0) => { const now = performance.now(); if (gap && now - (lastToast.current[key] ?? -1e9) < gap) return; lastToast.current[key] = now; const message={text,id:++messageId.current,time:gRef.current?.t??0};setLeaderMessages(old=>[...old.slice(-19),message]); }, []);
   const setSelection = useCallback((ids: number[]) => { if(gRef.current&&ids.some(id=>!selRef.current.has(id)))characterSounds.current?.react(gRef.current,ids);selRef.current = new Set(ids); setSel(ids); }, []);

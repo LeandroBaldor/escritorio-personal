@@ -18,9 +18,9 @@ describe('Land: economía, rivales y preparación de la IA', () => {
     const barracks=addBuilding(g,0,'barracks',base.x+500,base.y);barracks.built=1;side.levels.melee=2;side.energy = 75; expect(researchEvolution(g, barracks.id)).toBe(true); expect(side.energy).toBe(0);
     const workshop = addBuilding(g, 0, 'eliteBarracks', base.x + 300, base.y); workshop.built = 1;
     expect(train(g, workshop.id, 'elite')).toBe(false);
-    side.energy = 25; expect(train(g, workshop.id, 'elite')).toBe(true); expect(side.energy).toBe(0);
+    side.energy = 75; expect(train(g, workshop.id, 'elite')).toBe(true); expect(side.energy).toBe(0);
     const stone = side.stone, gem = side.gem; cancelTrain(g, workshop.id);
-    expect(side.energy).toBe(25); expect(side.stone).toBeGreaterThan(stone); expect(side.gem).toBeGreaterThan(gem);
+    expect(side.energy).toBe(75); expect(side.stone).toBeGreaterThan(stone); expect(side.gem).toBeGreaterThan(gem);
   });
   it('crea economías y bases independientes para varias civilizaciones', () => {
     const g = newLandGame('humano', ['orcos', 'elfos', 'nomuerta'], 5, 'normal', 42);

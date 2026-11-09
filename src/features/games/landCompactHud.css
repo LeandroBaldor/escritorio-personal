@@ -64,3 +64,6 @@
  .land.land-v9 .land-training-cards nav button{font-size:14px}
  .land.land-v9 .land-training-cards time{font-size:10px}
 }
+/* La fila avanza desde la izquierda: sin columnas vacías entre los encargos. */
+.land.land-v9 .land-training-cards ol{display:flex;gap:0;align-items:flex-start;justify-content:flex-start}
+.land.land-v9 .land-training-cards li{flex:0 0 auto;width:min(clamp(30px,4cqw,64px),33.333%);height:auto;max-width:none;aspect-ratio:1;justify-self:start}

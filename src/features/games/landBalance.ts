@@ -23,7 +23,7 @@ export const evolutionTime=(level:number)=>[0,180,180,180,180][levelIndex(level)
 export const evolutionLevel=(g:LandGame,owner:number,role:Role)=>levelIndex(g.sides[owner].levels[role]);
 export const unitLabel=(g:LandGame,owner:number,role:Role)=>`${CIVS[g.sides[owner].civ].units[role]} Nivel ${evolutionLevel(g,owner,role)}`;
 export const EVOLUTION_NAMES=['','Inicial','Veterano','Campeón','Ascendido'];
-export const affordableTrainingCost=(cost:Cost):Cost=>({stone:Math.ceil(cost.stone*.6/5)*5,gem:Math.ceil(cost.gem*.6/5)*5,energy:Math.ceil((cost.energy??0)*.6/5)*5});
+export const affordableTrainingCost=(cost:Cost):Cost=>({stone:Math.ceil(cost.stone*.6/5)*15,gem:Math.ceil(cost.gem*.6/5)*15,energy:Math.ceil((cost.energy??0)*.6/5)*15});
 export const costDescription=(c:Cost)=>[c.stone?`${c.stone} azules`:'',c.gem?`${c.gem} dorados`:'',c.energy?`${c.energy} verdes`:'',c.rock?`${c.rock} piedras`:''].filter(Boolean).join(' · ');
 export type StructureUpgrade='production'|'fortification';
 export const STRUCTURE_UPGRADES:StructureUpgrade[]=['production','fortification'];
