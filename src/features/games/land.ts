@@ -18,6 +18,8 @@ import { CIVS, TRAINING_KIND, TRAINING_ROLE, type CivId } from './landCivs';
 import { T, clearLine, findPath, generateTerrain, nearestWalkable, walkable, type MapSize, type Terrain } from './landMap';
 import { WALL_SIZE, wallAcross, wallNavigation, wallPoint } from './landWalls';
 import {stepGatherPose} from './landGatherPose';
+import {LAND_DIFFICULTY} from './landDifficulty';
+import {landResourceAt} from './landWorkCursor';
 
 // El tamaño del mundo es el del escenario de la partida (hay una sola partida a la vez).
 let MW = 2900, MH = 1800, TER: Terrain | null = null;
@@ -60,7 +62,7 @@ export const MAX_POP = 3000, POWER_MAX = 100;
 export const CARRY = 14, MINE_T = 1.6;
 
 export interface Unit {
-  id: number; owner: Owner; role: Role; x: number; y: number; hp: number; maxHp: number; face: 1 | -1; path?: [number, number][]; pathFor?: [number, number]; pathT?: number;
+  id: number; owner: Owner; role: Role; x: number; y: number; hp: number; maxHp: number; face: 1 | -1; heading?:'front'|'back'|'side'; path?: [number, number][]; pathFor?: [number, number]; pathT?: number;
   order: Order; cool: number; atkT: number; walk: number; moving?: boolean;kneel?:number; carry: number; carryKind: ResKind | 'food' | null; mineT: number; dead: number; defensive?: boolean; buildQueue?: number[];trainedAt?:number;
 }
 export type Order =
@@ -74,7 +76,7 @@ export interface Node { id: number; kind: ResKind; x: number; y: number; amount:
 export interface Shot { x: number; y: number; tx: number; ty: number; t: number; life: number; owner: Owner; kind: 'bolt' | 'heal' | 'splash' | 'slash' | 'strike' }
 export interface Side { civ: CivId; rock:number; food:number; levels:Record<Role,number>; infrastructure:Record<StructureUpgrade,number>; stone: number; gem: number; energy: number; power: number; buffT: number; kills: number; lost: number; gathered: number }
 export interface AIState { t: number; wave: number; waveAt: number; attacking: boolean }
-export const AI_PREPARE: Record<Difficulty, number> = { veryEasy: 660, easy: 600, normal: 540, hard: 480 };
+export const AI_PREPARE: Record<Difficulty, number> = Object.fromEntries(Object.entries(LAND_DIFFICULTY).map(([k,v])=>[k,v.prepare])) as Record<Difficulty,number>;
 export interface LandGame {
   populationLimit:LandOptions['populationLimit'];mineralAbundance:LandOptions['mineralAbundance']; t: number; units: Unit[]; buildings: Building[]; nodes: Node[]; shots: Shot[]; sides: Side[]; nextId: number;
   map: number; terrain: Terrain; difficulty: Difficulty; phase: 'play' | 'won' | 'lost'; events: LandEvent[]; ai: AIState; ais: AIState[];
@@ -164,7 +166,7 @@ export function orderSmart(g: LandGame, ids: number[], x: number, y: number) {
   const owner = g.units.find(u => ids.includes(u.id))?.owner ?? 0;
   const foeU = g.units.find(u => u.owner !== owner && !u.dead && dist(u, { x, y }) < unitStats(g,u.owner,u.role).size * 0.5 + 8);
   const foeB = g.buildings.find(b => b.owner !== owner && !b.dead && Math.abs(b.x - x) < BUILD_STATS[b.kind].size * 0.5 && Math.abs(b.y - y) < BUILD_STATS[b.kind].size * 0.4);
-  const node = g.nodes.find(n => n.amount > 0 && dist(n, { x, y }) < 34);
+  const node = landResourceAt(g,x,y);
   const mine = g.buildings.find(b => b.owner === owner && !b.dead && b.built < 1 && Math.abs(b.x - x) < BUILD_STATS[b.kind].size * 0.5 && Math.abs(b.y - y) < BUILD_STATS[b.kind].size * 0.4);
   const farm=g.buildings.find(b=>b.owner===owner&&!b.dead&&b.built>=1&&b.kind==='farm'&&dist(b,{x,y})<65);
   const target = foeU ?? foeB;
@@ -364,7 +366,7 @@ function moveTo(u: Unit, x: number, y: number, speed: number, dt: number, stop =
   const st = Math.min(d, speed * dt), nx = clampX(u.x + dx / d * st), ny = clampY(u.y + dy / d * st);
   const ok = (a: number, b: number) => fly || !TER || walkable(TER, a, b);
   if (ok(nx, ny)) { u.x = nx; u.y = ny; } else if (ok(nx, u.y)) u.x = nx; else if (ok(u.x, ny)) u.y = ny; // (se desliza por la orilla)
-  const moved=Math.hypot(u.x-beforeX,u.y-beforeY);u.walk+=moved;if(moved>.001)u.moving=true;
+  const moved=Math.hypot(u.x-beforeX,u.y-beforeY);u.walk+=moved;if(moved>.001){u.moving=true;const mx=u.x-beforeX,my=u.y-beforeY;u.heading=Math.abs(my)>Math.abs(mx)*.55?(my<0?'back':'front'):'side';}
   if (Math.abs(dx) > 2) u.face = dx > 0 ? 1 : -1;
   return Math.hypot(x-u.x,y-u.y)<=stop;
 }
@@ -386,7 +388,7 @@ function stepUnit(g: LandGame, u: Unit, dt: number) {
   const o = u.order;
   if(foodBlocked(g,u.owner,u.role)){u.atkT=-1;return;}
   if(o.k==='farm'){stepFarm(g,u,o.id,dt);return;}
-  if(u.carryKind==='food'&&u.carry>0){stepFarm(g,u,-1,dt);return;}
+  if(u.carryKind==='food'&&u.carry>0&&(o.k==='idle'||o.k==='gather')){stepFarm(g,u,-1,dt);return;}
   // el especial que cura: si hay un amigo lastimado cerca, lo cura
   if (s.heal && specialHeals(g.sides[u.owner].civ) && u.role === 'special' && (o.k === 'idle' || (o.k === 'move' && o.attack))) {
     const hurt = [...nearbyUnits(g,u,s.sight)].filter(q => q.owner === u.owner && !q.dead && q !== u && q.hp < q.maxHp && dist(q, u) < s.sight).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
@@ -433,7 +435,7 @@ function stepUnit(g: LandGame, u: Unit, dt: number) {
     if (u.carry > 0) { // Entrega también una veta parcial antes de cambiar de recurso.
       const d = nearestDrop(g, u); if (!d) return;
       if (steer(g, u, d.x, d.y, s.speed, dt, BUILD_STATS[d.kind].size * 0.45)) {
-        const side = g.sides[u.owner], k = u.owner > 0 ? AI_INCOME[g.difficulty] : 1;
+        const side = g.sides[u.owner], k = u.owner > 0 ? LAND_DIFFICULTY[g.difficulty].income : 1;
         side[u.carryKind ?? 'stone'] += Math.round(u.carry * k);
         side.gathered += u.carry; u.carry = 0; u.carryKind = null;
       }
@@ -457,7 +459,7 @@ function stepUnit(g: LandGame, u: Unit, dt: number) {
       return;
     }
     if (steer(g, u, b.x, b.y, s.speed, dt, BUILD_STATS[b.kind].size * 0.45)) {
-      const bs = buildingStats(g,b.owner,b.kind), k = dt / (bs.time * (u.owner > 0 ? AI_SPEED[g.difficulty] : 1));
+      const bs = buildingStats(g,b.owner,b.kind), k = dt / (bs.time * (u.owner > 0 ? LAND_DIFFICULTY[g.difficulty].construction : 1));
       b.built = Math.min(1, b.built + k); b.hp = Math.min(b.maxHp, b.hp + b.maxHp * 0.9 * k); u.atkT = (g.t % 0.6) < 0.3 ? 0.1 : -1;
       if (b.built >= 1) {
         if (b.kind === 'wall') {
@@ -474,7 +476,7 @@ function stepFarm(g:LandGame,u:Unit,id:number,dt:number){
  if(u.carry>0){
    const kind=u.carryKind==='food'?'storehouse':null;
    const drop=g.buildings.filter(b=>b.owner===u.owner&&!b.dead&&b.built>=1&&(kind?b.kind===kind:b.kind==='base'||b.kind==='depot')).sort((a,b)=>dist(a,u)-dist(b,u))[0];
-   if(!drop)return;
+   if(!drop){u.atkT=-1;return;}
    if(steer(g,u,drop.x,drop.y,s.speed,dt,BUILD_STATS[drop.kind].size*.45)){
      const side=g.sides[u.owner];if(u.carryKind==='food')side.food=Math.min(FOOD_CAPACITY,side.food+u.carry);else side[u.carryKind??'stone']+=u.carry;
      u.carry=0;u.carryKind=null;
@@ -499,10 +501,8 @@ function separate(g:LandGame,dt:number){
 }
 
 // ---------------------------------------------------------------- La computadora
-const AI_INCOME: Record<Difficulty, number> = { veryEasy: 0.5, easy: 0.75, normal: 1, hard: 1.35 };
-const AI_SPEED: Record<Difficulty, number> = { veryEasy: 1.8, easy: 1.3, normal: 1, hard: 0.8 }; // (tiempos de producción)
 function stepAI(g: LandGame, dt: number, o: Owner) {
-  const ai = g.ais[o - 1]; ai.t -= dt; if (ai.t > 0) return; ai.t = 1;
+  const profile=LAND_DIFFICULTY[g.difficulty],ai = g.ais[o - 1]; ai.t -= dt; if (ai.t > 0) return; ai.t = profile.think;
   const side = g.sides[o], base = g.buildings.find(b => b.owner === o && b.kind === 'base' && !b.dead);
   if (!base) return;
   const mine = g.units.filter(u => u.owner === o && !u.dead), workers = mine.filter(u => u.role === 'worker'), army = mine.filter(u => u.role !== 'worker');
@@ -515,7 +515,7 @@ function stepAI(g: LandGame, dt: number, o: Owner) {
     if(current?.kind===kind&&current.amount>0)continue;
     const n = nearestNode(g, w, kind) ?? nearestNode(g, w, null); if (n) w.order = { k: 'gather', node: n.id };
   }
-  if (workers.length+g.buildings.filter(b=>b.owner===o&&!b.dead).reduce((n,b)=>n+b.queue.filter(r=>r==='worker').length,0) < 14 && side.stone >= 90) for (const b of [base,...bs('workerBarracks')]) if (b.queue.length < 1) train(g,b.id,'worker');
+  for(const b of [base,...bs('workerBarracks')])if(workers.length+g.buildings.filter(b=>b.owner===o&&!b.dead).reduce((n,b)=>n+b.queue.filter(r=>r==='worker').length,0)<profile.workers&&!b.queue.length)train(g,b.id,'worker');
   const place = (kind: BKind) => {
     if (!canPay(side, BUILD_STATS[kind].cost)) return;
     for (let tries = 0; tries < 48; tries++) {
@@ -539,24 +539,24 @@ function stepAI(g: LandGame, dt: number, o: Owner) {
     else if (bs('barracks').length < 2 && complete('eliteBarracks') && g.t > 420) place('barracks');
   }
   const militaryKinds = ROLES.filter(r=>r!=='worker').map(r=>TRAINING_KIND[r]);
-  const infrastructure = Object.values(TRAINING_KIND).every(complete) && complete('depot') && complete('tower');
+  const infrastructure = (['workerBarracks','barracks','rangedBarracks','workshop','depot','tower','storehouse','farm'] as BKind[]).every(complete);
   for (const kind of militaryKinds) for (const b of bs(kind)) b.rally = { x: base.x, y: base.y + 140 };
   const queued = g.buildings.filter(b => b.owner === o && !b.dead).reduce((n, b) => n + b.queue.filter(r => r !== 'worker').length, 0);
-  const need = (g.difficulty === 'veryEasy' ? 16 : g.difficulty === 'easy' ? 20 : g.difficulty === 'hard' ? 30 : 24) + Math.min(12, ai.wave * 2);
-  if (infrastructure && army.length + queued < need + 2) {
+  const need = profile.army + Math.min(12, ai.wave * 2);
+  if (complete('barracks') && complete('storehouse') && complete('farm') && army.length + queued < need + 2) {
     const heavyReady=army.some(u=>u.role==='heavy'||u.role==='elite')||g.buildings.some(b=>b.owner===o&&!b.dead&&b.queue.some(r=>r==='heavy'||r==='elite'));
-    const priorities=heavyReady?['workshop','eliteBarracks','specialBarracks','rangedBarracks','barracks'] as BKind[]:['workshop'] as BKind[];
+    const priorities=heavyReady||!complete('workshop')?['barracks','rangedBarracks','workshop','specialBarracks','eliteBarracks'] as BKind[]:['workshop'] as BKind[];
     for (const kind of priorities) for (const b of bs(kind)) if (b.built >= 1 && !b.queue.length) train(g,b.id,BUILD_STATS[kind].makes[0]);
   }
-  if(infrastructure&&army.length>=12&&g.rand()<.1){const tech:StructureUpgrade=side.infrastructure.production<=side.infrastructure.fortification?'production':'fortification';researchInfrastructure(g,base.id,tech);}
-  if(infrastructure&&army.length>=12)for(const kind of militaryKinds){const b=bs(kind).find(q=>q.built>=1&&!q.evolving);if(b&&g.rand()<.15)researchEvolution(g,b.id);}
+  if(infrastructure&&army.length>=8&&g.rand()<.1){const tech:StructureUpgrade=side.infrastructure.production<=side.infrastructure.fortification?'production':'fortification';if(side.infrastructure[tech]<profile.structureLevel)researchInfrastructure(g,base.id,tech);}
+  if(infrastructure&&army.length>=8)for(const kind of militaryKinds){const role=TRAINING_ROLE[kind]!,b=bs(kind).find(q=>q.built>=1&&!q.evolving);if(b&&evolutionLevel(g,o,role)<profile.unitLevel&&g.rand()<.15)researchEvolution(g,b.id);}
   for(const farm of bs('farm').filter(b=>b.built>=1)){if(!workers.some(w=>w.order.k==='farm'&&w.order.id===farm.id)){const w=workers.find(w=>w.order.k!=='build'&&w.order.k!=='farm');if(w)assignFarm(g,w.id,farm.id);}}
   const intruder = g.units.find(u => u.owner !== o && !u.dead && dist(u, base) < 500);
   if (intruder) { for (const u of army) if (u.order.k !== 'attack') u.order = { k: 'attack', id: intruder.id }; }
   // La ofensiva depende de economía, tecnología y tropas; nunca sale a los tres minutos.
-  if (!intruder && g.t >= ai.waveAt && infrastructure && workers.length >= 8 && army.length >= need && army.some(u => u.role === 'heavy' || u.role === 'elite')) {
+  if (!intruder && g.t >= ai.waveAt && infrastructure && workers.length >= Math.min(8,profile.workers) && army.length >= need && army.some(u => u.role === 'heavy' || u.role === 'elite')) {
     const target = g.buildings.filter(b => b.owner !== o && b.kind === 'base' && !b.dead).sort((a, b) => dist(a, base) - dist(b, base))[0];
-    if (target) { orderMove(g, army.map(u => u.id), target.x, target.y, true); ai.wave++; ai.attacking = true; ai.waveAt = g.t + (g.difficulty === 'hard' ? 150 : 210); }
+    if (target) { orderMove(g, army.map(u => u.id), target.x, target.y, true); ai.wave++; ai.attacking = true; ai.waveAt = g.t + profile.reinforce; }
   }
   if (side.power >= POWER_MAX && army.some(u => u.order.k === 'attack')) {
     if (CIVS[side.civ].power.kind === 'strike') { const foe = g.units.find(u => u.owner !== o && !u.dead && army.some(a => dist(a, u) < 300)); if (foe) castPower(g, o, foe.x, foe.y); }

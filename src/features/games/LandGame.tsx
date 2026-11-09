@@ -1,4 +1,6 @@
-import {BASE_CAMERA_ZOOM,MIN_CAMERA_ZOOM,MAX_CAMERA_ZOOM,selectedInBox} from './landTactics';
+import {MIN_CAMERA_ZOOM,MAX_CAMERA_ZOOM,selectedInBox} from './landTactics';
+import {LAND_DIFFICULTY} from './landDifficulty';
+import {landWorkCursor} from './landWorkCursor';
 import {CivTraits} from './landCivTraits';
 import {ResourceIcon,LandCost,resourceCostText} from './landResource';
 import {LandReferenceFrame,LandReferenceCommandIcon} from './landReferenceFrame';
@@ -40,7 +42,7 @@ import { wallPoint, wallsReady } from './landWalls';
 import { MAP_SIZES, THEMES, type MapSize } from './landMap';
 import { renderTerrain, terrainMaterialsReady, type TerrainRegion } from './landMapArt';
 import { bIdx, drawMinimap, drawSprite, drawWorld, roleIdx, spritesReady, type Cam } from './landArt';
-import { useFitScreen } from './fitScreen';
+import { useFitScreen,fitViewport } from './fitScreen';
 import { playExplosion, playGameOver, playKnock, playVampSword, playWinFanfare } from './sounds';
 import { playLandButton, preloadLandSounds, setLandMenuMusic,setLandGameMusic,resetLandGameMusic } from './landAudio';
 import { LandCharacterSounds } from './landCharacterSounds';
@@ -139,7 +141,8 @@ export function LandOfWarriors() {
       leaderReports.current=new LandLeaderReports();lastToast.current={};setLeaderMessages([{id:++messageId.current,time:0,text:'Ya estamos en posición. Organicemos la recolección y preparemos nuestras defensas. Te informaré los movimientos enemigos y el resultado de cada enfrentamiento.'}]);
       detailImg.current = null; mapImg.current = renderTerrain(g.terrain);
       const base = g.buildings.find(b => b.owner === 0)!;
-      camRef.current = { ...camRef.current, z: BASE_CAMERA_ZOOM, x: base.x - 300, y: base.y - 200 };
+      const camera={...camRef.current,...fitViewport()},z=minZoom(g,camera.w,camera.h);
+      camRef.current = { ...camera, z, x: base.x - camera.w/(2*z), y: base.y - (camera.h-HUD_H(camera.w))/(2*z) };
       setCommsOpen(false); setSelection([]); setMode({ k: 'none' }); setLoading(false); setScreen('playing');
     };
     setTimeout(prepare, 60);
@@ -154,7 +157,8 @@ export function LandOfWarriors() {
       const near = (kind: 'stone' | 'gem') => g.nodes.filter(n => n.kind === kind && drops.some(d => Math.hypot(d.x - n.x, d.y - n.y) < 600)).reduce((a, n) => a + n.amount, 0);
       const idle = mine.filter(u => u.role === 'worker' && u.order.k === 'idle').length, army = mine.filter(u => u.role !== 'worker').length;
       const hint = (key: string, text: string, gap = 90000) => say(text, key, gap);
-      if(side.food<=0)hint('nofood','Las tropas están detenidas por falta de alimento. Asigná trabajadores a las cosechas y entregá la producción en el Almacén.',30000);
+      if(mine.some(u=>u.order.k==='farm'||u.carryKind==='food')&&!g.buildings.some(b=>b.owner===0&&!b.dead&&b.built>=1&&b.kind==='storehouse'))hint('storehouse','Los cosechadores necesitan un Almacén terminado para entregar el alimento. Podés moverlos o asignarles otra tarea mientras lo construís.',30000);
+      else if(side.food<=0)hint('nofood','Las tropas están detenidas por falta de alimento. Asigná trabajadores a las cosechas y entregá la producción en el Almacén.',30000);
       else if(side.food<100)hint('food','Queda menos del 20% de alimento. Prepará más cosechas y acercá el Almacén.',60000);
       else if (g.t > 20 && idle >= 2) hint('idle', `⛏️ Tenés ${idle} trabajadores sin hacer nada: asigná algunos a piedras y cosechas, y otros a cristales`, 45000);
       else if (g.t > 30 && near('stone') < 900) hint('stone', '🔷 Hay pocos minerales cerca de tu base: buscá otra zona y construí un depósito ahí', 120000);
@@ -310,7 +314,7 @@ export function LandOfWarriors() {
   };
   const onMove = (e: RPointerEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect(), k = r.width / e.currentTarget.clientWidth || 1, x = (e.clientX - r.left) / k, y = (e.clientY - r.top) / k, w = toWorld(x, y);
-    mouse.current = { x, y, in: true, wx: w.x, wy: w.y };const hit=pickAt(w.x,w.y);e.currentTarget.dataset.attack=screenRef.current==='playing'&&myUnits([...selRef.current]).length>0&&((hit.u?.owner??0)>0||(hit.b?.owner??0)>0)?'true':'false';
+    mouse.current = { x, y, in: true, wx: w.x, wy: w.y };const hit=pickAt(w.x,w.y),units=myUnits([...selRef.current]),attack=screenRef.current==='playing'&&units.length>0&&((hit.u?.owner??0)>0||(hit.b?.owner??0)>0);e.currentTarget.dataset.attack=attack?'true':'false';e.currentTarget.dataset.work=screenRef.current==='playing'&&modeRef.current.k==='none'&&!attack?landWorkCursor(gRef.current!,units,w.x,w.y):'';
     const d = drag.current; if (!d) return;
     d.x1 = x; d.y1 = y;
     if (d.pan) { const c = camRef.current; c.x = d.cx - (x - d.x0) / c.z; c.y = d.cy - (y - d.y0) / c.z; }
@@ -424,6 +428,7 @@ export function LandOfWarriors() {
         </select></label>)}</div>
 
         <div className="land-chips" role="group" aria-label="Dificultad"><span>Dificultad</span>{DIFF.map(([d, n]) => <button type="button" key={d} aria-pressed={diff === d} className={diff === d ? 'on' : ''} onClick={() => { setDiff(d); }}>{n}</button>)}</div>
+        <p className="land-difficulty-description" aria-live="polite">{LAND_DIFFICULTY[diff].description} Solo ataca cuando su base y sus tropas están preparadas.</p>
         <button type="button" className="land-go land-pick-continue" onClick={()=>{scenarioFrom.current='pick';setScreen('scenario');}}>Continuar ▶</button>
       </div>
     </div>}
@@ -447,7 +452,7 @@ export function LandOfWarriors() {
 
     {playing && g && side && <div className="land-stage" ref={stageRef} onWheel={onWheel}>
       <canvas ref={canvasRef} className={mode.k === 'place' || mode.k === 'power' || mode.k === 'amove' ? 'land-aim' : ''} aria-label={`Partida en ${THEMES[g.terrain.theme].name}`} role="img"
-        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} onPointerLeave={e => { mouse.current.in = false;e.currentTarget.dataset.attack='false'; }} />
+        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} onPointerLeave={e => { mouse.current.in = false;e.currentTarget.dataset.attack='false';e.currentTarget.dataset.work=''; }} />
       <div className="land-top-left"><button type="button" className="land-exit" aria-label="Volver a elegir civilización" onClick={()=>{keys.current.clear();mouse.current.in=false;drag.current=null;setSelection([]);setMode({k:'none'});setScreen('pick');}}>‹</button><span>Escenario {g.map} — {THEMES[g.terrain.theme].name}</span><time className="land-match-time" aria-label="Tiempo de partida" data-testid="land-match-time">{formatLandTime(g.t)}</time></div>
       <button type="button" className="land-intel-toggle" aria-expanded={commsOpen} onClick={()=>setCommsOpen(open=>!open)}>Tropas y líder</button>
       <aside className={`land-intel land-own-intel${commsOpen?' land-intel-open':''}`} aria-label="Tu civilización y tropas">

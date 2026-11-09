@@ -1,5 +1,6 @@
 import {animationWalkDistance,unitAnimation,type UnitAnimation} from './landAnimation';
 import {drawNativeAnimation} from './landNativeAnimation';
+import {directionalSpritesReady,drawBackDirection} from './landDirectionArt';
 import {unitLabel} from './landBalance';
 // Land of Warriors: el dibujo del mapa, los recursos, las construcciones, los guerreros y los disparos.
 import {evolutionLevel,foodBlocked} from './landProvision';
@@ -46,7 +47,7 @@ export function spritesReady() {
       image.src = URLS['./assets/land/units-' + civ + '.webp'];
     }
   }
-  const upgradedReady=evolutionsReady();return CIV_IDS.every(c => !!SPRITES[c])&&upgradedReady;
+  const upgradedReady=evolutionsReady(),directionsReady=directionalSpritesReady();return CIV_IDS.every(c => !!SPRITES[c])&&upgradedReady&&directionsReady;
 }
 export function drawPortrait(ctx:CanvasRenderingContext2D,civ:CivId,idx:number,w:number,h:number,level=0){
   spritesReady();let image=SPRITES[civ],frame=FRAMES[civ]?.[idx];if(!image||!frame)return false;if(level>0&&idx<6){const upgraded=evolvedSprite(civ,idx,level);if(!upgraded)return false;image=upgraded.image;frame=upgraded.frame;}
@@ -64,7 +65,8 @@ export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: numbe
   let k = h / sh; if (maxW && sw * k > maxW) k = maxW / sw;
   const dw = sw * k, dh = sh * k;
   ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  if(animation&&idx<6&&drawNativeAnimation(ctx,civ,idx,level,animation,h,maxW??h*1.6)){ctx.restore();return true;}
+  if(animation&&idx<6&&animation.facing==='back'&&(animation.action==='walk'||animation.action==='idle')&&drawBackDirection(ctx,civ,idx,level,animation,h,maxW??h*1.6)){ctx.restore();return true;}
+  if(animation&&idx<6&&!(animation.facing==='front'&&animation.action==='walk')&&drawNativeAnimation(ctx,civ,idx,level,animation,h,maxW??h*1.6)){ctx.restore();return true;}
   if(motion&&!attack&&!kneel&&idx<6){const kind=civ==='zergano'&&idx===0?'larva':motionKind(civ,idx);drawRig(ctx,image,frame,`${civ}:${idx}:${level}`,dw,dh,stopMotionPhase(motion),0,0,0,undefined,kind);ctx.restore();return true;}
   if ((motion || attack ||kneel) && idx < 6) {
     const kind=motionKind(civ,idx);
@@ -190,7 +192,7 @@ export function drawUnit(ctx: CanvasRenderingContext2D, g: LandGame, u: Unit, t:
   if (u.dead) { ctx.translate(u.x, u.y); ctx.rotate(u.face * Math.min(1.3, u.dead * 3)); ctx.translate(-u.x, -u.y); }
   const sq = moving ? 1 + Math.sin(phase*2) * 0.009 : 1;
   ctx.translate(u.x + lunge, u.y - bob - fly); ctx.scale(1 / sq, sq);
-  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, u.face < 0, h * 1.6, moving ? phase : 0,u.atkT>=0?Math.sin(Math.min(1,u.atkT/.3)*Math.PI):0,u.kneel??0,evolutionLevel(g,u.owner,u.role),u.mineT*Math.PI*2/.8,unitAnimation(g,u))) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
+  if (!drawSprite(ctx, civ, roleIdx(u.role), 0, 0, h, (!u.heading||u.heading==='side')&&u.face < 0, h * 1.6, moving ? phase : 0,u.atkT>=0?Math.sin(Math.min(1,u.atkT/.3)*Math.PI):0,u.kneel??0,evolutionLevel(g,u.owner,u.role),u.mineT*Math.PI*2/.8,unitAnimation(g,u))) { ctx.fillStyle = CIVS[civ].color; ctx.fillRect(-10, -h * 0.8, 20, h * 0.8); }
   ctx.restore();
   if(selected&&showName){ctx.save();ctx.font='bold 10px Arial';ctx.textAlign='center';const label=unitLabel(g,u.owner,u.role),lw=ctx.measureText(label).width+8,ly=u.y-h-fly-19;ctx.fillStyle='#061527e8';ctx.fillRect(u.x-lw/2,ly-10,lw,14);ctx.fillStyle=selected?'#ffdf8b':TEAM[u.owner];ctx.fillText(label,u.x,ly);ctx.restore();}
   if(foodBlocked(g,u.owner,u.role)&&!u.dead){ctx.fillStyle='#ffcd87';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.fillText('SIN ALIMENTO',u.x,u.y-h-15);}

@@ -66,7 +66,7 @@
 .land.land-v9 .land-troops-roster .land-troops-heading{padding:9px 8px}
 .land.land-v9 .land-roster-columns,.land.land-v9 .land-troop-row.land-roster-row{display:grid;grid-template-columns:minmax(0,1fr) 42px 32px;gap:4px;align-items:center}
 .land.land-v9 .land-roster-columns{position:sticky;top:0;z-index:1;box-sizing:border-box;padding:4px 6px;color:#87a9bd;background:#092237;font:11px Arial,sans-serif}
-.land.land-v9 .land-roster-columns>span{font-size:11px!important}
+.land.land-v9 .land-roster-columns>span{box-sizing:border-box;margin:0;font:12px/1.15 Arial,sans-serif!important}
 .land.land-v9 .land-roster-columns>span:not(:first-child){text-align:center}
 .land.land-v9 .land-troops-roster .land-troops-list{display:flex;flex-direction:column;gap:3px;overflow:auto;min-height:0;padding:0 6px;flex:1}
 .land.land-v9 .land-roster-scroll{flex:1;min-height:0;overflow:auto;padding:0 6px;scrollbar-gutter:stable;scrollbar-color:#416a88 #071b2c}
