@@ -543,8 +543,8 @@ function stepAI(g: LandGame, dt: number, o: Owner) {
   for (const kind of militaryKinds) for (const b of bs(kind)) b.rally = { x: base.x, y: base.y + 140 };
   const queued = g.buildings.filter(b => b.owner === o && !b.dead).reduce((n, b) => n + b.queue.filter(r => r !== 'worker').length, 0);
   const need = profile.army + Math.min(12, ai.wave * 2);
-  if (complete('barracks') && complete('storehouse') && complete('farm') && army.length + queued < need + 2) {
-    const heavyReady=army.some(u=>u.role==='heavy'||u.role==='elite')||g.buildings.some(b=>b.owner===o&&!b.dead&&b.queue.some(r=>r==='heavy'||r==='elite'));
+  const heavyReady=army.some(u=>u.role==='heavy'||u.role==='elite')||g.buildings.some(b=>b.owner===o&&!b.dead&&b.queue.some(r=>r==='heavy'||r==='elite'));
+  if (complete('barracks') && complete('storehouse') && complete('farm') && (army.length + queued < need + 2 || !heavyReady&&complete('workshop'))) {
     const priorities=heavyReady||!complete('workshop')?['barracks','rangedBarracks','workshop','specialBarracks','eliteBarracks'] as BKind[]:['workshop'] as BKind[];
     for (const kind of priorities) for (const b of bs(kind)) if (b.built >= 1 && !b.queue.length) train(g,b.id,BUILD_STATS[kind].makes[0]);
   }

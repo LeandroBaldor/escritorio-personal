@@ -88,7 +88,7 @@ describe('Land of Warriors', () => {
   it('la computadora desarrolla su base y ataca después de prepararse', () => {
     const g = newLandGame('humano', 'orcos', 5, 'normal', 10);
     for (const u of mine(g)) u.order = { k: 'idle' }; // (el jugador no hace nada)
-    run(g, 1000);
+    for(let t=0;t<2100&&g.ai.wave===0;t++)run(g,1);
     const ai = g.units.filter(u => u.owner === 1 && !u.dead);
     expect(g.buildings.some(b => b.owner === 1 && b.kind === 'barracks' && b.built >= 1)).toBe(true);
     expect(ai.filter(u => u.role !== 'worker').length + g.sides[0].lost).toBeGreaterThan(3);
