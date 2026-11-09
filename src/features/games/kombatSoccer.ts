@@ -36,12 +36,12 @@ export interface Player extends Fighter {
   cdPow: number; castT: number; slide: number; sdx: number; sdz: number; noTouch: number; protect: number; tackleCd: number; slow: number;
   dive: number; diveVz: number; diveVx: number; save: boolean; savedShot: number; aimZ: number; aimT: number;
   hold: number; chargeOn: boolean; aiT: number; tx: number; tz: number; run: number; prevIn: SInput;
-  cTaps: number; cTimer: number; dash: number; dashX: number; dashZ: number; dashHit: number[]; dashShape: AtkShape | null; dashLevel: number;
+  cTaps: number; cTimer: number; dash: number; dashX: number; dashZ: number; dashHit: number[]; dashShape: AtkShape | null; dashLevel: number; dashCast: number;
   gone: boolean; // reventado por un poder: vuelve a entrar en unos segundos (p.stun cuenta el tiempo)
 }
 export type BallFx = 'none' | Element;
 export interface SBall { x: number; y: number; z: number; vx: number; vy: number; vz: number; spin: number; roll: number; owner: number | null; last: 0 | 1 | null; lastId: number | null; fx: BallFx; fatal: boolean; comet?: boolean; receiver: number | null; shot: number; shooter: 0 | 1 | null }
-export interface Proj { kind: 'shot' | 'wave' | 'sky'; shape: AtkShape; level: number; big: boolean; team: 0 | 1; from: number; target: number | null; el: Element; x: number; y: number; z: number; vx: number; vz: number; t: number; life: number; done: boolean; hit: number[]; w: number }
+export interface Proj { cast: number; kind: 'shot' | 'wave' | 'sky'; shape: AtkShape; level: number; big: boolean; team: 0 | 1; from: number; target: number | null; el: Element; x: number; y: number; z: number; vx: number; vz: number; t: number; life: number; done: boolean; hit: number[]; w: number }
 export interface SFx { kind: 'bolt' | 'boom' | 'ring' | 'beam' | 'nova'; x: number; y: number; z: number; x2: number; y2: number; z2: number; t: number; life: number; color: string }
 export interface SParticle { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; size: number; color: string; kind: 'spark' | 'smoke' | 'shard' }
 export interface Team { captain: CharId; goals: number; power: number; level: number | null; active: number; castT: number; aiCastT: number; switchT: number; atkCd: [number, number, number, number] }
@@ -61,7 +61,8 @@ export interface SoccerMatch {
   phase: SPhase; phaseT: number; introLen: number; time: number; half: 1 | 2; clock: number; extra: boolean; extraT: number; kickoffTeam: 0 | 1; firstKick: 0 | 1;
   winner: 0 | 1 | null; lastGoal: { side: 0 | 1; fatal: boolean } | null; events: SEvent[]; shake: number; flash: number; rand: () => number;
   projs: Proj[]; fx: SFx[]; particles: SParticle[]; trail: [number, number, number][]; cam: { x: number; z: number };
-  fatal: { team: 0 | 1; shooter: number } | null; netHit: { left: boolean; t: number } | null; shots: number; stillT: number;
+  fatal: { team: 0 | 1; shooter: number } | null; casts: number; kills: Record<number, number>; // (cuántos reventó cada ataque)
+  netHit: { left: boolean; t: number } | null; shots: number; stillT: number;
   gore: SGore; screenBlood: ScreenBlood[]; penKick: number; // (el tiro del penal: si el arquero adivinó, la agarra)
   penalty: { team: 0 | 1; shooter: number; ready: boolean; pick: -1 | 0 | 1 } | null; // pick: adonde ya decidió tirarse el arquero
 }
@@ -78,7 +79,7 @@ export const attackDir = (m: SoccerMatch, team: 0 | 1): 1 | -1 => defendsLeft(m,
 const ownGoalX = (m: SoccerMatch, team: 0 | 1) => defendsLeft(m, team) ? 0 : L;
 const oppGoalX = (m: SoccerMatch, team: 0 | 1) => defendsLeft(m, team) ? L : 0;
 const rel = (m: SoccerMatch, team: 0 | 1, x: number) => defendsLeft(m, team) ? x : L - x; // (medido desde su arco; sirve de ida y de vuelta)
-const speedOf = (c: CharId) => 7.2 * (0.72 + STATS[c].speed / 100 * 0.5);
+const speedOf = (c: CharId) => 6.1 * (0.72 + STATS[c].speed / 100 * 0.5); // (un poco más lentos)
 const strengthOf = (c: CharId) => 0.75 + STATS[c].strength / 100 * 0.45;
 export const PLAYER_SCALE = 0.75; // los jugadores, un 25% más chicos (la cancha parece más grande)
 export const hOf = (p: Player) => heightOf(p) * PLAYER_SCALE;
@@ -99,21 +100,21 @@ export type AtkShape = 'fire' | 'ice' | 'plasma' | 'shuriken' | 'bomb' | 'feathe
 export interface Attack { name: string; type: AtkType; shape: AtkShape; n?: number; big?: boolean; r?: number }
 const A = (name: string, type: AtkType, shape: AtkShape, o: Partial<Attack> = {}): Attack => ({ name, type, shape, ...o });
 export const ATTACKS: Record<CharId, [Attack, Attack, Attack, Attack]> = {
-  cometa: [A('Disparo de escarcha', 'shot', 'ice'), A('Cometa helado', 'dash', 'ice'), A('Lluvia de granizo', 'sky', 'hail', { n: 3 }), A('Supernova helada', 'nova', 'ice', { r: 9 })],
+  cometa: [A('Disparo de escarcha', 'shot', 'ice'), A('Cometa helado', 'dash', 'ice'), A('Lluvia de granizo', 'sky', 'hail', { n: 3 }), A('Supernova helada', 'nova', 'ice', { r: 6.5 })],
   inferno: [A('Bola de fuego', 'shot', 'fire'), A('Gran bola de fuego', 'shot', 'fire', { big: true }), A('Muro de fuego', 'wave', 'fire'), A('Lluvia de meteoros', 'sky', 'meteor', { n: 5 })],
-  frost: [A('Esquirla de hielo', 'shot', 'ice'), A('Lanza de hielo', 'beam', 'ice'), A('Avalancha', 'wave', 'ice', { big: true }), A('Era de hielo', 'nova', 'ice', { r: 10 })],
+  frost: [A('Esquirla de hielo', 'shot', 'ice'), A('Lanza de hielo', 'beam', 'ice'), A('Avalancha', 'wave', 'ice', { big: true }), A('Era de hielo', 'nova', 'ice', { r: 6.5 })],
   thunder: [A('Chispa', 'bolt', 'bolt'), A('Rayo', 'bolt', 'bolt', { big: true }), A('Cadena eléctrica', 'bolt', 'bolt', { n: 3 }), A('Tormenta eléctrica', 'sky', 'bolt', { n: 5 })],
   shadow: [A('Estrella ninja', 'shot', 'shuriken'), A('Estrella gigante', 'shot', 'shuriken', { big: true }), A('Abanico de estrellas', 'shot', 'shuriken', { n: 3 }), A('Danza de las sombras', 'dash', 'skull', { big: true })],
-  shadowRed: [A('Estrella explosiva', 'shot', 'bomb'), A('Bomba de fuego', 'shot', 'bomb', { big: true }), A('Racimo de bombas', 'sky', 'bomb', { n: 3 }), A('Gran explosión', 'nova', 'fire', { r: 9 })],
+  shadowRed: [A('Estrella explosiva', 'shot', 'bomb'), A('Bomba de fuego', 'shot', 'bomb', { big: true }), A('Racimo de bombas', 'sky', 'bomb', { n: 3 }), A('Gran explosión', 'nova', 'fire', { r: 6.5 })],
   orbot: [A('Disparo tóxico', 'shot', 'plasma'), A('Misil tóxico', 'shot', 'missile', { big: true }), A('Ametralladora', 'shot', 'plasma', { n: 3 }), A('Bombardeo', 'sky', 'missile', { n: 5 })],
   orbotBlue: [A('Disparo de energía', 'shot', 'plasma'), A('Rayo de energía', 'beam', 'laser'), A('Ondas de choque', 'wave', 'plasma'), A('Cañón de plasma', 'beam', 'laser', { big: true })],
-  bruto: [A('Piedrazo', 'shot', 'rock'), A('Roca gigante', 'shot', 'rock', { big: true }), A('Golpe terrestre', 'wave', 'rock', { big: true }), A('Terremoto', 'nova', 'rock', { r: 11 })],
-  brutoRed: [A('Puño de fuego', 'shot', 'fire'), A('Embestida', 'dash', 'fire', { big: true }), A('Pisotón de lava', 'nova', 'fire', { r: 7.5 }), A('Volcán', 'sky', 'meteor', { n: 5 })],
+  bruto: [A('Piedrazo', 'shot', 'rock'), A('Roca gigante', 'shot', 'rock', { big: true }), A('Golpe terrestre', 'wave', 'rock', { big: true }), A('Terremoto', 'nova', 'rock', { r: 6.5 })],
+  brutoRed: [A('Puño de fuego', 'shot', 'fire'), A('Embestida', 'dash', 'fire', { big: true }), A('Pisotón de lava', 'nova', 'fire', { r: 5 }), A('Volcán', 'sky', 'meteor', { n: 5 })],
   aguila: [A('Pluma dorada', 'shot', 'feather'), A('Picada', 'dash', 'bolt'), A('Abanico dorado', 'shot', 'feather', { n: 3 }), A('Rayos del cielo', 'sky', 'bolt', { n: 4 })],
-  aguilaBlack: [A('Pluma envenenada', 'shot', 'feather'), A('Pluma maldita', 'shot', 'feather', { big: true }), A('Abanico venenoso', 'shot', 'feather', { n: 3 }), A('Noche eterna', 'nova', 'skull', { r: 10 })],
-  espectro: [A('Orbe fantasma', 'shot', 'skull'), A('Atravesar', 'dash', 'skull'), A('Almas en pena', 'shot', 'skull', { n: 3 }), A('Grito del más allá', 'nova', 'skull', { r: 10 })],
+  aguilaBlack: [A('Pluma envenenada', 'shot', 'feather'), A('Pluma maldita', 'shot', 'feather', { big: true }), A('Abanico venenoso', 'shot', 'feather', { n: 3 }), A('Noche eterna', 'nova', 'skull', { r: 6.5 })],
+  espectro: [A('Orbe fantasma', 'shot', 'skull'), A('Atravesar', 'dash', 'skull'), A('Almas en pena', 'shot', 'skull', { n: 3 }), A('Grito del más allá', 'nova', 'skull', { r: 6.5 })],
   toxic: [A('Burbuja tóxica', 'shot', 'bubble'), A('Escupitajo ácido', 'shot', 'bubble', { big: true }), A('Ola tóxica', 'wave', 'bubble', { big: true }), A('Lluvia ácida', 'sky', 'bubble', { n: 5 })],
-  magma: [A('Bola de lava', 'shot', 'rock'), A('Picos de magma', 'wave', 'spike'), A('Géiseres de lava', 'sky', 'meteor', { n: 3 }), A('Erupción', 'nova', 'fire', { r: 10 })],
+  magma: [A('Bola de lava', 'shot', 'rock'), A('Picos de magma', 'wave', 'spike'), A('Géiseres de lava', 'sky', 'meteor', { n: 3 }), A('Erupción', 'nova', 'fire', { r: 6.5 })],
   cyber: [A('Corte láser', 'shot', 'blade'), A('Láser', 'beam', 'laser'), A('Tajos cruzados', 'shot', 'blade', { n: 3 }), A('Lluvia de láseres', 'sky', 'laser', { n: 5 })],
 };
 export const LEVEL_CD = [2.2, 4.5, 7.5, 11]; // recarga de cada ataque (por equipo)
@@ -126,7 +127,7 @@ function newPlayer(id: number, team: 0 | 1, char: CharId, role: Role, hx: number
     kickT: 0, kickKind: 'normal', kickHit: false, slideT: 0, charge: 0, kickPow: 1, jumps: 0, headT: 0, stun: 0, stunKind: 'none', poison: 0, inv: 0, stamina: 100, power: 0, cd: 0,
     abilityT: 0, abilityHit: false, burst: 0, burstT: 0, powers: {}, prev: { left: false, right: false, up: false, down: false, kick: false, ability: false }, taps: [], goals: 0, restT: 0,
     id, team, role, z: hz, vz: 0, hx, hz, bdx: 1, bdz: 0, cdPow: 0, castT: 0, slide: 0, sdx: 0, sdz: 0, noTouch: 0, protect: 0, tackleCd: 0, slow: 0,
-    dive: 0, diveVz: 0, diveVx: 0, save: false, savedShot: -1, aimZ: ZC, aimT: 0, hold: 0, chargeOn: false, aiT: 0, tx: 0, tz: 0, run: 0, prevIn: noSInput(), gone: false, cTaps: 0, cTimer: 0, dash: 0, dashX: 0, dashZ: 0, dashHit: [], dashShape: null, dashLevel: 1,
+    dive: 0, diveVz: 0, diveVx: 0, save: false, savedShot: -1, aimZ: ZC, aimT: 0, hold: 0, chargeOn: false, aiT: 0, tx: 0, tz: 0, run: 0, prevIn: noSInput(), gone: false, cTaps: 0, cTimer: 0, dash: 0, dashX: 0, dashZ: 0, dashHit: [], dashShape: null, dashLevel: 1, dashCast: 0,
   };
 }
 // La formación (desde el arco propio, atacando para +x): arquero, dos defensores y dos delanteros.
@@ -143,7 +144,7 @@ export function newSoccer(stage: StageId, captains: [CharId, CharId], levels: [n
     teams: [0, 1].map(t => ({ captain: captains[t], goals: 0, power: 0, level: levels[t], active: t * 5 + 3, castT: 0, aiCastT: 4, switchT: 0, atkCd: [1, 2, 3, 4] })) as [Team, Team],
     phase: 'intro', phaseT: 0, introLen: 2.6, time: 0, half: 1, clock: HALF_TIME, extra: false, extraT: 0, kickoffTeam: kick, firstKick: kick,
     winner: null, lastGoal: null, events: [], shake: 0, flash: 0, rand, projs: [], fx: [], particles: [], trail: [], cam: { x: L / 2, z: ZC },
-    fatal: null, netHit: null, shots: 0, stillT: 0, gore: { drops: [], gibs: [], stains: [] }, screenBlood: [], penalty: null, penKick: -1,
+    fatal: null, netHit: null, shots: 0, stillT: 0, casts: 0, kills: {}, gore: { drops: [], gibs: [], stains: [] }, screenBlood: [], penalty: null, penKick: -1,
   };
   resetKickoff(m, kick);
   return m;
@@ -161,7 +162,7 @@ function resetKickoff(m: SoccerMatch, team: 0 | 1) {
     Object.assign(p, { gone: false, inv: 0, x: rel(m, p.team, rx), z, vx: 0, vz: 0, y: 0, stun: 0, stunKind: 'none', slide: 0, dive: 0, kickT: 0, charge: 0, chargeOn: false, noTouch: 0, hold: 0, action: 'idle', actionT: 0, facing: attackDir(m, p.team) });
     p.bdx = attackDir(m, p.team); p.bdz = 0;
   }
-  m.projs = []; m.trail = []; m.fatal = null; m.stillT = 0; m.penalty = null;
+  m.projs = []; m.trail = []; m.fatal = null; m.stillT = 0; m.penalty = null; m.kills = {};
   m.teams[team].active = kicker(m, team).id;
   m.ref.x = L / 2 - 3; m.ref.z = 1.6;
 }
@@ -332,7 +333,7 @@ function moveP(m: SoccerMatch, p: Player, dt: number) {
     p.dash -= dt; p.vx = p.dashX * 17; p.vz = p.dashZ * 17; p.x += p.vx * dt; p.z += p.vz * dt; p.y = Math.sin(Math.max(0, p.dash) / 0.5 * Math.PI) * 0.6;
     if (Math.abs(p.dashX) > 0.2) p.facing = p.dashX > 0 ? 1 : -1;
     setAction(p, 'special', dt);
-    for (const q of m.players) if (q.team !== p.team && !p.dashHit.includes(q.id) && hittable(m, q) && hyp(q.x - p.x, q.z - p.z) < radiusOf(p) + radiusOf(q) + 0.7) { p.dashHit.push(q.id); hitBy(m, q, p, p.dashLevel); }
+    for (const q of m.players) if (q.team !== p.team && !p.dashHit.includes(q.id) && hittable(m, q) && hyp(q.x - p.x, q.z - p.z) < radiusOf(p) + radiusOf(q) + 0.7) { p.dashHit.push(q.id); hitBy(m, q, p, p.dashLevel, p.dashCast); }
     if (m.rand() < 0.8) burst(m, p.x, hOf(p) * 0.5, p.z, 2, CHARS[p.char].glow, 'spark', 2);
     if (p.dash <= 0) { p.dash = 0; p.y = 0; p.vx *= 0.3; p.vz *= 0.3; }
   } else if (p.dive > 0) { // el arquero volando
@@ -496,7 +497,8 @@ function slideHits(m: SoccerMatch, p: Player) {
     b.vx = p.sdx * 9 + b.vx * 0.2; b.vz = p.sdz * 9 + b.vz * 0.2; b.vy = 1.5; b.last = p.team; b.lastId = p.id; b.receiver = null; p.noTouch = 0.25;
   }
 }
-const gain = (m: SoccerMatch, team: 0 | 1, n: number) => { const T = m.teams[team], was = T.power; T.power = Math.min(POWER_MAX, T.power + n); if (was < POWER_MAX && T.power >= POWER_MAX) emit(m, { type: 'unlock', side: team }); };
+export const POWER_RATE = 0.3; // la barra del FATAL se llena despacio (una o dos veces por partido)
+const gain = (m: SoccerMatch, team: 0 | 1, n: number) => { const T = m.teams[team], was = T.power; T.power = Math.min(POWER_MAX, T.power + n * POWER_RATE); if (was < POWER_MAX && T.power >= POWER_MAX) emit(m, { type: 'unlock', side: team }); };
 
 // ---------------------------------------------------------------- Los poderes
 export const STUN_OF: Record<Element, [StunKind, number]> = { fire: ['burn', 1.3], ice: ['freeze', 1.6], volt: ['zap', 1.2], dark: ['hit', 1.25], toxic: ['poison', 1.3], rock: ['hit', 1.5] };
@@ -511,14 +513,14 @@ export function castAttack(m: SoccerMatch, p: Player, level: number, aim: [numbe
   const T = m.teams[p.team];
   if (stunned(p) || p.gone || p.dash > 0 || !attackReady(m, p.team, level)) return false;
   const def = CHARS[p.char], atk = ATTACKS[p.char][level - 1], n = atk.n ?? 1;
-  const targets = pickTargets(m, p, aim, n), first = targets[0] ?? null;
+  const targets = pickTargets(m, p, aim, n), first = targets[0] ?? null, cast = ++m.casts;
   T.atkCd[level - 1] = LEVEL_CD[level - 1]; p.castT = 0.4;
   emit(m, { type: 'ability', side: p.team, char: p.char, level });
   const hy = hOf(p) * 0.55;
   let [ax, az] = aim ?? [p.facing, 0];
   if (first && (!aim || atk.type !== 'dash')) { const dx = first.x - p.x, dz = first.z - p.z, d = hyp(dx, dz) || 1; [ax, az] = [dx / d, dz / d]; }
   const mk = (kind: Proj['kind'], x: number, y: number, z: number, vx: number, vz: number, target: number | null, life: number, w = 1): Proj =>
-    ({ kind, shape: atk.shape, level, big: !!atk.big, team: p.team, from: p.id, target, el: def.element, x, y, z, vx, vz, t: 0, life, done: false, hit: [], w });
+    ({ cast, kind, shape: atk.shape, level, big: !!atk.big, team: p.team, from: p.id, target, el: def.element, x, y, z, vx, vz, t: 0, life, done: false, hit: [], w });
   switch (atk.type) {
     case 'shot': {
       const list = targets.length ? targets : [null];
@@ -532,13 +534,13 @@ export function castAttack(m: SoccerMatch, p: Player, level: number, aim: [numbe
     case 'bolt': {
       let from: [number, number, number] = [p.x, hy, p.z];
       if (!targets.length) m.fx.push({ kind: 'bolt', x: p.x, y: hy, z: p.z, x2: p.x + ax * 9, y2: hy, z2: p.z + az * 9, t: 0, life: 0.35, color: def.glow });
-      for (const q of targets) { const to: [number, number, number] = [q.x, hOf(q) * 0.55, q.z]; m.fx.push({ kind: 'bolt', x: from[0], y: from[1], z: from[2], x2: to[0], y2: to[1], z2: to[2], t: 0, life: atk.big ? 0.5 : 0.35, color: def.glow }); hitBy(m, q, p, level); from = to; }
+      for (const q of targets) { const to: [number, number, number] = [q.x, hOf(q) * 0.55, q.z]; m.fx.push({ kind: 'bolt', x: from[0], y: from[1], z: from[2], x2: to[0], y2: to[1], z2: to[2], t: 0, life: atk.big ? 0.5 : 0.35, color: def.glow }); hitBy(m, q, p, level, cast); from = to; }
       break;
     }
     case 'beam': {
       const len = 22, w = atk.big ? 1.7 : 0.9;
       m.fx.push({ kind: 'beam', x: p.x + ax * 0.5, y: hy, z: p.z + az * 0.5, x2: p.x + ax * len, y2: hy, z2: p.z + az * len, t: 0, life: atk.big ? 0.7 : 0.45, color: def.glow });
-      for (const q of m.players) if (q.team !== p.team && hittable(m, q)) { const t = (q.x - p.x) * ax + (q.z - p.z) * az; if (t > 0 && t < len && Math.abs(-(q.x - p.x) * az + (q.z - p.z) * ax) < w + radiusOf(q)) hitBy(m, q, p, level); }
+      for (const q of m.players) if (q.team !== p.team && hittable(m, q)) { const t = (q.x - p.x) * ax + (q.z - p.z) * az; if (t > 0 && t < len && Math.abs(-(q.x - p.x) * az + (q.z - p.z) * ax) < w + radiusOf(q)) hitBy(m, q, p, level, cast); }
       break;
     }
     case 'wave': m.projs.push(mk('wave', p.x + ax * 0.8, 0.2, p.z + az * 0.8, ax * 15, az * 15, null, 1.25, atk.big ? 2.2 : 1.6)); break;
@@ -546,7 +548,7 @@ export function castAttack(m: SoccerMatch, p: Player, level: number, aim: [numbe
       const r = atk.r ?? 6;
       m.fx.push({ kind: 'nova', x: p.x, y: 0.3, z: p.z, x2: r, y2: 0, z2: 0, t: 0, life: 0.95, color: def.glow });
       for (let k = 0; k < 36; k++) { const a = k / 36 * Math.PI * 2, rr = r * (0.3 + m.rand() * 0.7); burst(m, p.x + Math.cos(a) * rr, 0.2, p.z + Math.sin(a) * rr, 1, k % 2 ? def.glow : def.color, 'spark', 6); }
-      for (const q of m.players) if (q.team !== p.team && hittable(m, q) && hyp(q.x - p.x, q.z - p.z) < r) hitBy(m, q, p, level);
+      for (const q of m.players) if (q.team !== p.team && hittable(m, q) && hyp(q.x - p.x, q.z - p.z) < r) hitBy(m, q, p, level, cast);
       m.shake = Math.max(m.shake, 0.6);
       break;
     }
@@ -560,7 +562,7 @@ export function castAttack(m: SoccerMatch, p: Player, level: number, aim: [numbe
       break;
     }
     case 'dash': {
-      p.dash = 0.5; p.dashX = ax; p.dashZ = az; p.dashHit = []; p.dashShape = atk.shape; p.dashLevel = level; p.inv = Math.max(p.inv, 0.5);
+      p.dash = 0.5; p.dashX = ax; p.dashZ = az; p.dashHit = []; p.dashShape = atk.shape; p.dashLevel = level; p.dashCast = cast; p.inv = Math.max(p.inv, 0.5);
       break;
     }
   }
@@ -579,8 +581,13 @@ function pickTargets(m: SoccerMatch, p: Player, aim: [number, number] | null, n:
 const hittable = (m: SoccerMatch, q: Player) => !q.gone && q.inv <= 0 && (q.role !== 'gk' || m.ball.owner === q.id);
 // Le pega el poder: revienta en sangre y los huesos salen volando (vuelve a entrar en unos segundos). Si tenía
 // la pelota dentro del área del rival, es penal.
-function hitBy(m: SoccerMatch, q: Player, by: Player, level = 2) {
+// Cuántos puede reventar cada ataque como mucho (los demás que agarra quedan volteados): ninguno mata a todo el equipo.
+export const KILL_CAP = [0, 1, 2, 2];
+function hitBy(m: SoccerMatch, q: Player, by: Player, level = 2, cast = -1) {
   if (!hittable(m, q)) return;
+  const downs = m.players.filter(o => o.team === q.team && o.role !== 'gk' && o.gone).length; // (nunca quedan menos de dos de campo)
+  if (level >= 2 && ((m.kills[cast] ?? 0) >= KILL_CAP[level - 1] || downs >= 2)) level = 1;
+  if (level >= 2) m.kills[cast] = (m.kills[cast] ?? 0) + 1;
   const b = m.ball, had = b.owner === q.id;
   const inArea = had && q.role !== 'gk' && Math.abs(q.x - oppGoalX(m, q.team)) < AREA_X && Math.abs(q.z - ZC) < AREA_W / 2;
   m.fx.push({ kind: 'boom', x: q.x, y: hOf(q) * 0.5, z: q.z, x2: 0, y2: 0, z2: 0, t: 0, life: 0.5, color: CHARS[by.char].glow });
@@ -694,7 +701,7 @@ function updateProjs(m: SoccerMatch, dt: number) {
         s.done = true;
         m.fx.push({ kind: 'boom', x: s.x, y: 0.3, z: s.z, x2: 0, y2: 0, z2: 0, t: 0, life: 0.55, color: CHARS[by.char].glow });
         burst(m, s.x, 0.3, s.z, 16, CHARS[by.char].color, 'spark', 7); m.shake = Math.max(m.shake, 0.45);
-        for (const q of m.players) if (q.team !== s.team && hittable(m, q) && hyp(q.x - s.x, q.z - s.z) < s.w + radiusOf(q)) hitBy(m, q, by, s.level);
+        for (const q of m.players) if (q.team !== s.team && hittable(m, q) && hyp(q.x - s.x, q.z - s.z) < s.w + radiusOf(q)) hitBy(m, q, by, s.level, s.cast);
       }
       continue;
     }
@@ -705,8 +712,8 @@ function updateProjs(m: SoccerMatch, dt: number) {
     s.x += s.vx * dt; s.z += s.vz * dt;
     if (s.kind === 'wave') { // la onda arrasa con todos los que pasa
       if (m.rand() < 0.9) burst(m, s.x + (m.rand() - 0.5) * s.w, 0.1, s.z + (m.rand() - 0.5) * s.w, 1, CHARS[by.char].color, 'spark', 3);
-      for (const q of m.players) if (q.team !== s.team && !s.hit.includes(q.id) && hittable(m, q) && hyp(q.x - s.x, q.z - s.z) < s.w + radiusOf(q)) { s.hit.push(q.id); hitBy(m, q, by, s.level); }
-    } else for (const q of m.players) if (q.team !== s.team && hittable(m, q) && hyp(q.x - s.x, q.z - s.z) < (s.big ? 0.9 : 0.6) + radiusOf(q)) { hitBy(m, q, by, s.level); s.done = true; break; }
+      for (const q of m.players) if (q.team !== s.team && !s.hit.includes(q.id) && hittable(m, q) && hyp(q.x - s.x, q.z - s.z) < s.w + radiusOf(q)) { s.hit.push(q.id); hitBy(m, q, by, s.level, s.cast); }
+    } else for (const q of m.players) if (q.team !== s.team && hittable(m, q) && hyp(q.x - s.x, q.z - s.z) < (s.big ? 0.9 : 0.6) + radiusOf(q)) { hitBy(m, q, by, s.level, s.cast); s.done = true; break; }
     if (s.done && m.phase !== 'play') break;
     if (!s.done && (s.t > s.life || s.x < -1 || s.x > L + 1 || s.z < -1 || s.z > D + 1)) { s.done = true; m.fx.push({ kind: 'ring', x: s.x, y: s.y, z: s.z, x2: 0, y2: 0, z2: 0, t: 0, life: 0.35, color: CHARS[by.char].glow }); }
   }

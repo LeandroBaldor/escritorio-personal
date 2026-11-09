@@ -74,6 +74,17 @@ describe('Kombat Football 5 contra 5', () => {
     expect(m.teams[0].atkCd[3]).toBeGreaterThan(LEVEL_CD[3] - 1); expect(m.teams[0].atkCd[2]).toBeGreaterThan(0);
     for (const id of Object.keys(ATTACKS) as (keyof typeof ATTACKS)[]) expect(ATTACKS[id]).toHaveLength(4);
   });
+  it('ningún ataque revienta a todo el equipo rival (como mucho dos; los demás quedan volteados)', () => {
+    for (const ch of ['frost', 'bruto', 'thunder', 'inferno'] as const) {
+      const m = newSoccer('industrial', [ch, 'cyber'], [null, null], seeded(60)); toPlay(m);
+      m.ball.owner = null; m.ball.x = 2; m.ball.z = 2;
+      const me = m.players[3]; me.x = 20; me.z = 11;
+      m.players.filter(q => q.team === 1 && q.role !== 'gk').forEach((q, k) => { q.x = 22 + (k % 2) * 1.2; q.z = 9.5 + k; });
+      m.teams[0].atkCd = [0, 0, 0, 0]; castAttack(m, me, 4, [1, 0]); run(m, 1.6);
+      const gone = m.players.filter(q => q.team === 1 && q.gone).length;
+      expect(gone).toBeLessThanOrEqual(2);
+    }
+  });
   it('el ataque principal (C) voltea al rival y le hace soltar la pelota (sin reventarlo)', () => {
     const m = newSoccer('industrial', ['inferno', 'thunder'], [null, null], seeded(18)); toPlay(m);
     const c = carrier(m)!, shooter = m.players.find(q => q.team !== c.team && q.role === 'def')!;
