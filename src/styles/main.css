@@ -2171,3 +2171,13 @@ body:has(.land) .mobile-nav{display:none}
 .land-cmds button{border:2px solid #e2bc60!important;background:radial-gradient(circle at 50% 30%,#2c55a8,#0c1c44)!important}
 @media(max-width:1200px){.land-hud{grid-template-columns:260px minmax(0,1fr) 260px!important}}
 .land-scen{padding-bottom:7rem!important}
+/* Kombat Football: los cuatro ataques (C, C C, C C C, C C C C) con su recarga */
+.kf-atkbar{display:flex!important;gap:.25rem;padding:.15rem .25rem!important}
+.kf-atkbar i{position:relative;display:flex;flex-direction:column;align-items:center;min-width:3.6rem;padding:.1rem .3rem;border-radius:.35rem;background:#0b1020cc;border:1px solid color-mix(in srgb,var(--kf-c) 60%,transparent);font-style:normal;overflow:hidden;opacity:.55}
+.kf-atkbar i::before{content:"";position:absolute;inset:0;transform-origin:left;transform:scaleX(calc(1 - var(--kf-cd)));background:color-mix(in srgb,var(--kf-c) 35%,transparent);z-index:0}
+.kf-atkbar i.kf-ready{opacity:1;box-shadow:0 0 8px color-mix(in srgb,var(--kf-c) 70%,transparent)}
+.kf-atkbar i b,.kf-atkbar i small{position:relative;z-index:1;line-height:1.1}
+.kf-atkbar i b{color:var(--kf-c);font-size:.62rem;letter-spacing:-.05em}
+.kf-atkbar i small{font-size:.55rem;color:#e5e7eb;max-width:5.4rem;overflow:hidden;text-overflow:ellipsis}
+.kf-atks{margin:.3rem 0 .3rem 1rem;padding:0;display:grid;gap:.2rem}
+@media(max-width:700px){.kf-atkbar i small{display:none}.kf-atkbar i{min-width:2rem}}

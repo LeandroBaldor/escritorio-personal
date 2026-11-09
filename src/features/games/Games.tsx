@@ -153,7 +153,7 @@ export function Games() {
           <Cover src={kombatCover} />
           <span className="game-card-text">
             <strong>Kombat Football</strong>
-            <span>☠️ Fútbol 1 contra 1 al estilo Mortal Kombat: patadas, poderes de fuego, hielo, veneno, rayo y oscuridad, y escenarios llenos de peligros.</span>
+            <span>☠️ Fútbol 5 contra 5 al estilo Mortal Kombat: pases, tiros con efecto y cuatro ataques por luchador que revientan a los rivales en sangre.</span>
             <span className="game-card-win"><b>Cómo se gana:</b> Meté más goles que el rival en dos tiempos de 1:30 (si empatan, gol de oro). Con la barra llena tirá el FATAL GOAL. En el torneo, subí la escalera ganándole a los 15 rivales, uno por uno.</span>
           </span>
           <span className="game-card-foot">

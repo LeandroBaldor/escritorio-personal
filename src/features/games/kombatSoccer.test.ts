@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BR, D, GH, GW, L, ZC, attackDir, carrier, castPower, newSoccer, noSInput, pass, shoot, stepSoccer, takeSoccerEvents, type SoccerMatch, type SEvent } from './kombatSoccer';
+import { ATTACKS, BR, D, GH, GW, L, LEVEL_CD, ZC, attackDir, carrier, castAttack, castPower, newSoccer, noSInput, pass, shoot, stepSoccer, takeSoccerEvents, type SoccerMatch, type SEvent } from './kombatSoccer';
 import { CHAR_IDS, POWER_MAX, seeded } from './kombat';
 
 const run = (m: SoccerMatch, s: number, ev: SEvent[] = []) => { for (let t = 0; t < s; t += 1 / 60) { stepSoccer(m, [noSInput(), noSInput()], 1 / 60); ev.push(...takeSoccerEvents(m)); } return ev; };
@@ -48,32 +48,44 @@ describe('Kombat Football 5 contra 5', () => {
     const m = newSoccer('industrial', ['inferno', 'thunder'], [null, null], seeded(5)); toPlay(m);
     const c = carrier(m)!, shooter = m.players.find(q => q.team !== c.team && q.role === 'def')!;
     c.x = L / 2; c.z = ZC; shooter.x = c.x - 6 * attackDir(m, c.team); shooter.z = c.z; m.teams[shooter.team].castT = 0;
-    expect(castPower(m, shooter, [Math.sign(c.x - shooter.x), 0])).toBe(true);
+    m.teams[shooter.team].atkCd = [0, 0, 0, 0];
+    expect(castAttack(m, shooter, 2, [Math.sign(c.x - shooter.x), 0])).toBe(true);
     const ev = run(m, 0.8);
     expect(ev.some(e => e.type === 'explode')).toBe(true);
     expect(c.gone).toBe(true); expect(m.ball.owner).not.toBe(c.id);
     expect(m.gore.gibs.length).toBeGreaterThan(5); expect(m.gore.stains.length).toBeGreaterThan(3);
-    expect(castPower(m, shooter)).toBe(false); // tiene que recargar
+    expect(castAttack(m, shooter, 2)).toBe(false); // tiene que recargar
     run(m, 4);
     expect(c.gone).toBe(false);
   });
-  it('los poderes salen con la combinación de cada luchador (adelante, adelante + PODER)', () => {
+  it('C una, dos, tres o cuatro veces: cuatro ataques distintos (cada uno se recarga aparte)', () => {
     const m = newSoccer('industrial', ['inferno', 'thunder'], [null, null], seeded(15)); toPlay(m);
-    m.teams[0].castT = 0;
-    const me = m.players[m.teams[0].active], dir = attackDir(m, 0), fwdKey = dir > 0 ? 'right' : 'left';
-    const tap = (k: 'right' | 'left' | 'power' | 'up') => { const a = noSInput(); a[k] = true; stepSoccer(m, [a, noSInput()], 1 / 60); stepSoccer(m, [noSInput(), noSInput()], 1 / 60); };
-    const ev: SEvent[] = [];
-    tap('power'); ev.push(...takeSoccerEvents(m));
-    expect(ev.some(e => e.type === 'comboMiss')).toBe(true); // sin la combinación no sale
-    expect(me.cdPow).toBe(0);
-    tap(fwdKey); tap(fwdKey); tap('power'); ev.push(...takeSoccerEvents(m));
-    expect(ev.some(e => e.type === 'ability')).toBe(true);
+    m.teams[0].atkCd = [0, 0, 0, 0];
+    const tap = () => { const a = noSInput(); a.power = true; stepSoccer(m, [a, noSInput()], 1 / 60); stepSoccer(m, [noSInput(), noSInput()], 1 / 60); stepSoccer(m, [noSInput(), noSInput()], 1 / 60); };
+    const levels: number[] = [];
+    for (const n of [1, 2, 3, 4]) {
+      if (carrier(m)?.team === 0) m.ball.owner = null; // (con la pelota y la barra llena sería FATAL)
+      for (let k = 0; k < n; k++) tap();
+      for (let t = 0; t < 0.5; t += 1 / 60) stepSoccer(m, [noSInput(), noSInput()], 1 / 60);
+      for (const e of takeSoccerEvents(m)) if (e.type === 'ability' && e.side === 0) levels.push(e.level);
+      m.players.forEach(p => { p.stun = 0; p.gone = false; p.inv = 0; p.dash = 0; });
+    }
+    expect(levels).toEqual([1, 2, 3, 4]);
+    expect(m.teams[0].atkCd[3]).toBeGreaterThan(LEVEL_CD[3] - 1); expect(m.teams[0].atkCd[2]).toBeGreaterThan(0);
+    for (const id of Object.keys(ATTACKS) as (keyof typeof ATTACKS)[]) expect(ATTACKS[id]).toHaveLength(4);
+  });
+  it('el ataque principal (C) voltea al rival y le hace soltar la pelota (sin reventarlo)', () => {
+    const m = newSoccer('industrial', ['inferno', 'thunder'], [null, null], seeded(18)); toPlay(m);
+    const c = carrier(m)!, shooter = m.players.find(q => q.team !== c.team && q.role === 'def')!;
+    c.x = L / 2; c.z = ZC; shooter.x = c.x - 6 * attackDir(m, c.team); shooter.z = c.z; m.teams[shooter.team].atkCd = [0, 0, 0, 0];
+    castPower(m, shooter, [Math.sign(c.x - shooter.x), 0]); run(m, 0.6);
+    expect(c.gone).toBe(false); expect(c.stun > 0 || m.ball.owner !== c.id).toBe(true); expect(m.ball.owner).not.toBe(c.id);
   });
   it('poder al que tiene la pelota dentro del área: penal', () => {
     const m = newSoccer('industrial', ['inferno', 'thunder'], [null, null], seeded(16)); toPlay(m);
     const c = carrier(m)!, dir = attackDir(m, c.team), gx = dir > 0 ? L : 0, shooter = m.players.find(q => q.team !== c.team && q.role === 'def')!;
-    c.x = gx - dir * 3; c.z = ZC; shooter.x = c.x - dir * 5; shooter.z = ZC + 2; m.teams[shooter.team].castT = 0;
-    castPower(m, shooter, [dir, -0.3]);
+    c.x = gx - dir * 3; c.z = ZC; shooter.x = c.x - dir * 5; shooter.z = ZC + 2; m.teams[shooter.team].atkCd = [0, 0, 0, 0];
+    castAttack(m, shooter, 2, [dir, -0.3]);
     const ev = run(m, 0.6);
     expect(ev.some(e => e.type === 'penalty' && e.side === c.team)).toBe(true);
     expect(m.phase).toBe('penalty');

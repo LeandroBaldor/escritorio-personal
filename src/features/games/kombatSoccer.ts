@@ -8,7 +8,7 @@
 // barra del equipo llena sale el FATAL GOAL. Sin trampas: el escenario es la cancha y nada más.
 // Medidas en metros: x a lo largo (0 = arco izquierdo, L = arco derecho), z a lo ancho (0 = el lado de atrás,
 // D = el de adelante, cerca de la cámara) e y para arriba.
-import { CHARS, FATAL_CINE, HALF_TIME, POWER_MAX, SIZE, STATS, heightOf, type Ability, type CharId, type Element, type Fighter, type GibKind, type Person, type ScreenBlood, type StageId, type StunKind } from './kombat';
+import { CHARS, FATAL_CINE, HALF_TIME, POWER_MAX, SIZE, STATS, heightOf, type CharId, type Element, type Fighter, type GibKind, type Person, type ScreenBlood, type StageId, type StunKind } from './kombat';
 
 export const L = 42; // largo de la cancha
 export const D = 22; // ancho
@@ -36,21 +36,22 @@ export interface Player extends Fighter {
   cdPow: number; castT: number; slide: number; sdx: number; sdz: number; noTouch: number; protect: number; tackleCd: number; slow: number;
   dive: number; diveVz: number; diveVx: number; save: boolean; savedShot: number; aimZ: number; aimT: number;
   hold: number; chargeOn: boolean; aiT: number; tx: number; tz: number; run: number; prevIn: SInput;
+  cTaps: number; cTimer: number; dash: number; dashX: number; dashZ: number; dashHit: number[]; dashShape: AtkShape | null; dashLevel: number;
   gone: boolean; // reventado por un poder: vuelve a entrar en unos segundos (p.stun cuenta el tiempo)
 }
 export type BallFx = 'none' | Element;
 export interface SBall { x: number; y: number; z: number; vx: number; vy: number; vz: number; spin: number; roll: number; owner: number | null; last: 0 | 1 | null; lastId: number | null; fx: BallFx; fatal: boolean; comet?: boolean; receiver: number | null; shot: number; shooter: 0 | 1 | null }
-export interface Proj { team: 0 | 1; from: number; target: number | null; el: Element; ability: Ability; x: number; y: number; z: number; vx: number; vz: number; t: number; life: number; done: boolean }
-export interface SFx { kind: 'bolt' | 'boom' | 'ring'; x: number; y: number; z: number; x2: number; y2: number; z2: number; t: number; life: number; color: string }
+export interface Proj { kind: 'shot' | 'wave' | 'sky'; shape: AtkShape; level: number; big: boolean; team: 0 | 1; from: number; target: number | null; el: Element; x: number; y: number; z: number; vx: number; vz: number; t: number; life: number; done: boolean; hit: number[]; w: number }
+export interface SFx { kind: 'bolt' | 'boom' | 'ring' | 'beam' | 'nova'; x: number; y: number; z: number; x2: number; y2: number; z2: number; t: number; life: number; color: string }
 export interface SParticle { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; size: number; color: string; kind: 'spark' | 'smoke' | 'shard' }
-export interface Team { captain: CharId; goals: number; power: number; level: number | null; active: number; castT: number; aiCastT: number; switchT: number }
+export interface Team { captain: CharId; goals: number; power: number; level: number | null; active: number; castT: number; aiCastT: number; switchT: number; atkCd: [number, number, number, number] }
 export interface Ref extends Person { z: number; vz: number }
 export type SPhase = 'intro' | 'play' | 'goal' | 'fatal' | 'halftime' | 'end' | 'penalty';
 export type SEvent =
   | { type: 'kick'; power: number } | { type: 'pass' } | { type: 'hit'; kind: StunKind } | { type: 'tackle'; ok: boolean } | { type: 'goal'; side: 0 | 1; fatal: boolean; scorer: CharId; own: boolean }
-  | { type: 'bounce'; power: number } | { type: 'post' } | { type: 'ability'; side: 0 | 1; char: CharId } | { type: 'fatal'; side: 0 | 1; char: CharId } | { type: 'save'; side: 0 | 1 }
+  | { type: 'bounce'; power: number } | { type: 'post' } | { type: 'ability'; side: 0 | 1; char: CharId; level: number } | { type: 'fatal'; side: 0 | 1; char: CharId } | { type: 'save'; side: 0 | 1 }
   | { type: 'whistle'; kind: 'kickoff' | 'half' | 'end'; start?: 1 | 2 } | { type: 'halftime' } | { type: 'extra' } | { type: 'header'; side: 0 | 1 } | { type: 'unlock'; side: 0 | 1 } | { type: 'control' }
-  | { type: 'explode'; side: 0 | 1; char: CharId; keeper: boolean } | { type: 'penalty'; side: 0 | 1 } | { type: 'comboMiss'; side: 0 | 1 };
+  | { type: 'explode'; side: 0 | 1; char: CharId; keeper: boolean } | { type: 'penalty'; side: 0 | 1 } | { type: 'notReady'; side: 0 | 1; level: number };
 // La sangre y los huesos del que revienta: gotas que vuelan y manchan la cancha donde caen, y los pedazos del
 // esqueleto que rebotan.
 export interface SGore { drops: { x: number; y: number; z: number; vx: number; vy: number; vz: number; r: number }[]; gibs: { x: number; y: number; z: number; vx: number; vy: number; vz: number; a: number; va: number; kind: GibKind; life: number; c: string }[]; stains: { x: number; z: number; r: number; t: number; seed: number }[] }
@@ -78,21 +79,44 @@ const oppGoalX = (m: SoccerMatch, team: 0 | 1) => defendsLeft(m, team) ? L : 0;
 const rel = (m: SoccerMatch, team: 0 | 1, x: number) => defendsLeft(m, team) ? x : L - x; // (medido desde su arco; sirve de ida y de vuelta)
 const speedOf = (c: CharId) => 7.2 * (0.72 + STATS[c].speed / 100 * 0.5);
 const strengthOf = (c: CharId) => 0.75 + STATS[c].strength / 100 * 0.45;
-const radiusOf = (p: Player) => 0.38 * Math.min(1.25, SIZE[p.char]);
+export const PLAYER_SCALE = 0.75; // los jugadores, un 25% más chicos (la cancha parece más grande)
+export const hOf = (p: Player) => heightOf(p) * PLAYER_SCALE;
+const radiusOf = (p: Player) => 0.38 * Math.min(1.25, SIZE[p.char]) * PLAYER_SCALE;
 export const isHuman = (m: SoccerMatch, team: 0 | 1) => m.teams[team].level === null;
 export const carrier = (m: SoccerMatch) => m.ball.owner === null ? null : m.players[m.ball.owner];
 const stunned = (p: Player) => p.stun > 0;
 const levelOf = (m: SoccerMatch, team: 0 | 1) => m.teams[team].level ?? 0.65;
 
-// ---------------------------------------------------------------- Las combinaciones de los poderes
-// Cada luchador tiene la suya (como en los juegos de pelea) + PODER. F = adelante (hacia el arco rival),
-// B = atrás (hacia el arco propio), U = arriba, D = abajo.
-export type Dir = 'F' | 'B' | 'U' | 'D';
-export const COMBOS: Record<CharId, Dir[]> = {
-  cometa: ['U', 'U'], inferno: ['F', 'F'], frost: ['D', 'F'], thunder: ['B', 'F'], shadow: ['F', 'B'], shadowRed: ['B', 'B'], orbot: ['F', 'D'], orbotBlue: ['F', 'U'],
-  bruto: ['D', 'D'], brutoRed: ['B', 'F', 'F'], aguila: ['U', 'F'], aguilaBlack: ['U', 'B'], espectro: ['B', 'U'], toxic: ['D', 'B'], magma: ['D', 'U'], cyber: ['F', 'F', 'F'],
+// ---------------------------------------------------------------- Los cuatro ataques de cada luchador
+// C una vez: el ataque principal (voltea al rival y le hace soltar la pelota). C dos, tres y cuatro veces: ataques
+// cada vez más fuertes (revientan en sangre: a uno, a varios, a todos los de una zona). Cada uno se recarga aparte.
+//  · shot: proyectiles que persiguen (n: a cuántos) · bolt: rayo instantáneo (encadenado si n > 1)
+//  · beam: rayo recto que atraviesa a todos · wave: onda por el piso que avanza · nova: explosión alrededor
+//  · sky: cae del cielo sobre los rivales (n) · dash: el luchador sale disparado y arrasa con lo que encuentra
+export type AtkType = 'shot' | 'bolt' | 'beam' | 'wave' | 'nova' | 'sky' | 'dash';
+export type AtkShape = 'fire' | 'ice' | 'plasma' | 'shuriken' | 'bomb' | 'feather' | 'bubble' | 'rock' | 'skull' | 'blade' | 'bolt' | 'laser' | 'spike' | 'missile' | 'meteor' | 'hail';
+export interface Attack { name: string; type: AtkType; shape: AtkShape; n?: number; big?: boolean; r?: number }
+const A = (name: string, type: AtkType, shape: AtkShape, o: Partial<Attack> = {}): Attack => ({ name, type, shape, ...o });
+export const ATTACKS: Record<CharId, [Attack, Attack, Attack, Attack]> = {
+  cometa: [A('Disparo de escarcha', 'shot', 'ice'), A('Cometa helado', 'dash', 'ice'), A('Lluvia de granizo', 'sky', 'hail', { n: 3 }), A('Supernova helada', 'nova', 'ice', { r: 9 })],
+  inferno: [A('Bola de fuego', 'shot', 'fire'), A('Gran bola de fuego', 'shot', 'fire', { big: true }), A('Muro de fuego', 'wave', 'fire'), A('Lluvia de meteoros', 'sky', 'meteor', { n: 5 })],
+  frost: [A('Esquirla de hielo', 'shot', 'ice'), A('Lanza de hielo', 'beam', 'ice'), A('Avalancha', 'wave', 'ice', { big: true }), A('Era de hielo', 'nova', 'ice', { r: 10 })],
+  thunder: [A('Chispa', 'bolt', 'bolt'), A('Rayo', 'bolt', 'bolt', { big: true }), A('Cadena eléctrica', 'bolt', 'bolt', { n: 3 }), A('Tormenta eléctrica', 'sky', 'bolt', { n: 5 })],
+  shadow: [A('Estrella ninja', 'shot', 'shuriken'), A('Estrella gigante', 'shot', 'shuriken', { big: true }), A('Abanico de estrellas', 'shot', 'shuriken', { n: 3 }), A('Danza de las sombras', 'dash', 'skull', { big: true })],
+  shadowRed: [A('Estrella explosiva', 'shot', 'bomb'), A('Bomba de fuego', 'shot', 'bomb', { big: true }), A('Racimo de bombas', 'sky', 'bomb', { n: 3 }), A('Gran explosión', 'nova', 'fire', { r: 9 })],
+  orbot: [A('Disparo tóxico', 'shot', 'plasma'), A('Misil tóxico', 'shot', 'missile', { big: true }), A('Ametralladora', 'shot', 'plasma', { n: 3 }), A('Bombardeo', 'sky', 'missile', { n: 5 })],
+  orbotBlue: [A('Disparo de energía', 'shot', 'plasma'), A('Rayo de energía', 'beam', 'laser'), A('Ondas de choque', 'wave', 'plasma'), A('Cañón de plasma', 'beam', 'laser', { big: true })],
+  bruto: [A('Piedrazo', 'shot', 'rock'), A('Roca gigante', 'shot', 'rock', { big: true }), A('Golpe terrestre', 'wave', 'rock', { big: true }), A('Terremoto', 'nova', 'rock', { r: 11 })],
+  brutoRed: [A('Puño de fuego', 'shot', 'fire'), A('Embestida', 'dash', 'fire', { big: true }), A('Pisotón de lava', 'nova', 'fire', { r: 7.5 }), A('Volcán', 'sky', 'meteor', { n: 5 })],
+  aguila: [A('Pluma dorada', 'shot', 'feather'), A('Picada', 'dash', 'bolt'), A('Abanico dorado', 'shot', 'feather', { n: 3 }), A('Rayos del cielo', 'sky', 'bolt', { n: 4 })],
+  aguilaBlack: [A('Pluma envenenada', 'shot', 'feather'), A('Pluma maldita', 'shot', 'feather', { big: true }), A('Abanico venenoso', 'shot', 'feather', { n: 3 }), A('Noche eterna', 'nova', 'skull', { r: 10 })],
+  espectro: [A('Orbe fantasma', 'shot', 'skull'), A('Atravesar', 'dash', 'skull'), A('Almas en pena', 'shot', 'skull', { n: 3 }), A('Grito del más allá', 'nova', 'skull', { r: 10 })],
+  toxic: [A('Burbuja tóxica', 'shot', 'bubble'), A('Escupitajo ácido', 'shot', 'bubble', { big: true }), A('Ola tóxica', 'wave', 'bubble', { big: true }), A('Lluvia ácida', 'sky', 'bubble', { n: 5 })],
+  magma: [A('Bola de lava', 'shot', 'rock'), A('Picos de magma', 'wave', 'spike'), A('Géiseres de lava', 'sky', 'meteor', { n: 3 }), A('Erupción', 'nova', 'fire', { r: 10 })],
+  cyber: [A('Corte láser', 'shot', 'blade'), A('Láser', 'beam', 'laser'), A('Tajos cruzados', 'shot', 'blade', { n: 3 }), A('Lluvia de láseres', 'sky', 'laser', { n: 5 })],
 };
-const COMBO_GAP = 0.5; // segundos como mucho entre flecha y flecha (y hasta el PODER)
+export const LEVEL_CD = [2.2, 4.5, 7.5, 11]; // recarga de cada ataque (por equipo)
+const TAP_GAP = 0.3; // segundos para la siguiente C (si no, sale el ataque con las C que se apretaron)
 
 // ---------------------------------------------------------------- Armar el partido
 function newPlayer(id: number, team: 0 | 1, char: CharId, role: Role, hx: number, hz: number): Player {
@@ -101,7 +125,7 @@ function newPlayer(id: number, team: 0 | 1, char: CharId, role: Role, hx: number
     kickT: 0, kickKind: 'normal', kickHit: false, slideT: 0, charge: 0, kickPow: 1, jumps: 0, headT: 0, stun: 0, stunKind: 'none', poison: 0, inv: 0, stamina: 100, power: 0, cd: 0,
     abilityT: 0, abilityHit: false, burst: 0, burstT: 0, powers: {}, prev: { left: false, right: false, up: false, down: false, kick: false, ability: false }, taps: [], goals: 0, restT: 0,
     id, team, role, z: hz, vz: 0, hx, hz, bdx: 1, bdz: 0, cdPow: 0, castT: 0, slide: 0, sdx: 0, sdz: 0, noTouch: 0, protect: 0, tackleCd: 0, slow: 0,
-    dive: 0, diveVz: 0, diveVx: 0, save: false, savedShot: -1, aimZ: ZC, aimT: 0, hold: 0, chargeOn: false, aiT: 0, tx: 0, tz: 0, run: 0, prevIn: noSInput(), gone: false,
+    dive: 0, diveVz: 0, diveVx: 0, save: false, savedShot: -1, aimZ: ZC, aimT: 0, hold: 0, chargeOn: false, aiT: 0, tx: 0, tz: 0, run: 0, prevIn: noSInput(), gone: false, cTaps: 0, cTimer: 0, dash: 0, dashX: 0, dashZ: 0, dashHit: [], dashShape: null, dashLevel: 1,
   };
 }
 // La formación (desde el arco propio, atacando para +x): arquero, dos defensores y dos delanteros.
@@ -115,7 +139,7 @@ export function newSoccer(stage: StageId, captains: [CharId, CharId], levels: [n
     stage, players,
     ball: { x: L / 2, y: BR, z: ZC, vx: 0, vy: 0, vz: 0, spin: 0, roll: 0, owner: null, last: null, lastId: null, fx: 'none', fatal: false, receiver: null, shot: 0, shooter: null },
     ref: { x: L / 2 - 4, y: 0, z: 2, vx: 0, vy: 0, vz: 0, facing: 1, ground: true, action: 'idle', actionT: 0, stun: 0, stunKind: 'none', away: 0 },
-    teams: [0, 1].map(t => ({ captain: captains[t], goals: 0, power: 0, level: levels[t], active: t * 5 + 3, castT: 2, aiCastT: 4, switchT: 0 })) as [Team, Team],
+    teams: [0, 1].map(t => ({ captain: captains[t], goals: 0, power: 0, level: levels[t], active: t * 5 + 3, castT: 0, aiCastT: 4, switchT: 0, atkCd: [1, 2, 3, 4] })) as [Team, Team],
     phase: 'intro', phaseT: 0, introLen: 2.6, time: 0, half: 1, clock: HALF_TIME, extra: false, extraT: 0, kickoffTeam: kick, firstKick: kick,
     winner: null, lastGoal: null, events: [], shake: 0, flash: 0, rand, projs: [], fx: [], particles: [], trail: [], cam: { x: L / 2, z: ZC },
     fatal: null, netHit: null, shots: 0, stillT: 0, gore: { drops: [], gibs: [], stains: [] }, screenBlood: [], penalty: null,
@@ -223,7 +247,7 @@ function play(m: SoccerMatch, inputs: [SInput, SInput], dt: number) {
 }
 
 function tickPlayers(m: SoccerMatch, dt: number) {
-  for (const t of [0, 1] as const) { const T = m.teams[t]; T.castT = Math.max(0, T.castT - dt); T.aiCastT = Math.max(0, T.aiCastT - dt); T.switchT = Math.max(0, T.switchT - dt); if (isHuman(m, t)) chooseActive(m, t); }
+  for (const t of [0, 1] as const) { const T = m.teams[t]; T.castT = Math.max(0, T.castT - dt); T.aiCastT = Math.max(0, T.aiCastT - dt); T.switchT = Math.max(0, T.switchT - dt); for (let k = 0; k < 4; k++) T.atkCd[k] = Math.max(0, T.atkCd[k] - dt); if (isHuman(m, t)) chooseActive(m, t); }
   for (const p of m.players) {
     for (const k of ['cdPow', 'castT', 'noTouch', 'protect', 'tackleCd', 'slow', 'kickT', 'aimT', 'inv'] as const) p[k] = Math.max(0, p[k] - dt);
     if (p.stun > 0) { p.stun -= dt; if (p.stun <= 0) { p.stun = 0; p.stunKind = 'none'; if (p.gone) respawn(m, p); } }
@@ -266,9 +290,7 @@ function control(m: SoccerMatch, p: Player, i: SInput, dt: number) {
   const n = hyp(dx, dz); if (n > 0) { dx /= n; dz /= n; }
   p.tx = p.x + dx * 3; p.tz = p.z + dz * 3; p.run = n > 0 ? 1 : 0;
   if (n === 0 && m.ball.receiver === p.id) { p.tx = m.ball.x; p.tz = m.ball.z; p.run = hyp(m.ball.x - p.x, m.ball.z - p.z) < 6 ? 0.55 : 0.8; } // sin flechas: va a recibir el pase
-  // las flechas que se van apretando (para las combinaciones de los poderes)
   const fwd = attackDir(m, p.team);
-  for (const [k, d] of [['right', fwd > 0 ? 'F' : 'B'], ['left', fwd > 0 ? 'B' : 'F'], ['up', 'U'], ['down', 'D']] as [keyof SInput, Dir][]) if (pressed(p, i, k)) { p.taps.push({ d, t: m.time }); if (p.taps.length > 6) p.taps.shift(); }
   if (p.role === 'gk') { // el arquero con la pelota: pase con X, para arriba bien lejos con ESPACIO
     if (has) {
       const gx = ownGoalX(m, p.team); p.tx = clamp(p.tx, Math.min(gx, gx + fwd * AREA_X), Math.max(gx, gx + fwd * AREA_X)); p.tz = clamp(p.tz, ZC - AREA_W / 2, ZC + AREA_W / 2);
@@ -287,21 +309,14 @@ function control(m: SoccerMatch, p: Player, i: SInput, dt: number) {
       else { p.chargeOn = false; if (m.ball.owner === p.id) shoot(m, p, p.charge / CHARGE_TIME, i.up ? -1 : i.down ? 1 : 0); p.charge = 0; }
     }
     if (pressed(p, i, 'pass')) { if (has) { p.chargeOn = false; p.charge = 0; pass(m, p, n > 0 ? [dx, dz] : null); } else switchPlayer(m, p.team); }
+    // C: una, dos, tres o cuatro veces seguidas (con la pelota y la barra llena: FATAL GOAL)
     if (pressed(p, i, 'power')) {
-      if (has && m.teams[p.team].power >= POWER_MAX) startFatal(m, p);
-      else if (i.direct || comboDone(m, p)) castPower(m, p, n > 0 ? [dx, dz] : null);
-      else emit(m, { type: 'comboMiss', side: p.team });
-      p.taps = [];
+      if (has && m.teams[p.team].power >= POWER_MAX) { startFatal(m, p); p.cTaps = 0; }
+      else { p.cTaps++; p.cTimer = TAP_GAP; }
     }
+    if (p.cTaps > 0) { p.cTimer -= dt; if (p.cTimer <= 0 || p.cTaps >= 4) { castLevel(m, p, Math.min(4, p.cTaps), n > 0 ? [dx, dz] : null); p.cTaps = 0; } }
   }
   p.prevIn = { ...i };
-}
-// ¿Las últimas flechas son la combinación de su luchador (seguidas, sin pausas largas)?
-export function comboDone(m: SoccerMatch, p: Player) {
-  const want = COMBOS[p.char], taps = p.taps.slice(-want.length);
-  if (taps.length < want.length || m.time - taps[taps.length - 1].t > COMBO_GAP) return false;
-  for (let k = 0; k < want.length; k++) { if (taps[k].d !== want[k]) return false; if (k > 0 && taps[k].t - taps[k - 1].t > COMBO_GAP) return false; }
-  return true;
 }
 function switchPlayer(m: SoccerMatch, team: 0 | 1) {
   const T = m.teams[team], b = m.ball, cur = m.players[T.active];
@@ -312,7 +327,14 @@ function switchPlayer(m: SoccerMatch, team: 0 | 1) {
 // ---------------------------------------------------------------- Moverse
 function moveP(m: SoccerMatch, p: Player, dt: number) {
   const r = radiusOf(p);
-  if (p.dive > 0) { // el arquero volando
+  if (p.dash > 0) { // sale disparado (ataque): arrasa con los rivales que encuentra
+    p.dash -= dt; p.vx = p.dashX * 17; p.vz = p.dashZ * 17; p.x += p.vx * dt; p.z += p.vz * dt; p.y = Math.sin(Math.max(0, p.dash) / 0.5 * Math.PI) * 0.6;
+    if (Math.abs(p.dashX) > 0.2) p.facing = p.dashX > 0 ? 1 : -1;
+    setAction(p, 'special', dt);
+    for (const q of m.players) if (q.team !== p.team && !p.dashHit.includes(q.id) && hittable(m, q) && hyp(q.x - p.x, q.z - p.z) < radiusOf(p) + radiusOf(q) + 0.7) { p.dashHit.push(q.id); hitBy(m, q, p, p.dashLevel); }
+    if (m.rand() < 0.8) burst(m, p.x, hOf(p) * 0.5, p.z, 2, CHARS[p.char].glow, 'spark', 2);
+    if (p.dash <= 0) { p.dash = 0; p.y = 0; p.vx *= 0.3; p.vz *= 0.3; }
+  } else if (p.dive > 0) { // el arquero volando
     p.dive -= dt; const k = 1 - Math.max(0, p.dive) / 0.6;
     p.x += p.diveVx * dt; p.z += p.diveVz * dt; p.diveVz *= 1 - dt * 1.5; p.y = Math.sin(Math.min(1, k) * Math.PI) * 0.7;
     if (p.dive <= 0) { p.y = 0; p.stun = Math.max(p.stun, 0.3); p.stunKind = 'none'; } // (queda en el piso un ratito)
@@ -476,53 +498,109 @@ function slideHits(m: SoccerMatch, p: Player) {
 const gain = (m: SoccerMatch, team: 0 | 1, n: number) => { const T = m.teams[team], was = T.power; T.power = Math.min(POWER_MAX, T.power + n); if (was < POWER_MAX && T.power >= POWER_MAX) emit(m, { type: 'unlock', side: team }); };
 
 // ---------------------------------------------------------------- Los poderes
-// Cada luchador tira el suyo al rival que tiene la pelota (o al más cercano): los rayos, el láser y el tajo
-// pegan al instante; lo demás vuela (bolas de fuego, estrellas, plumas, burbujas, rocas) y lo persigue.
-const INSTANT: Ability[] = ['lightning', 'beam', 'laserCut'];
 export const STUN_OF: Record<Element, [StunKind, number]> = { fire: ['burn', 1.3], ice: ['freeze', 1.6], volt: ['zap', 1.2], dark: ['hit', 1.25], toxic: ['poison', 1.3], rock: ['hit', 1.5] };
-export const powerReady = (p: Player) => p.cdPow <= 0;
-export function castPower(m: SoccerMatch, p: Player, aim: [number, number] | null = null) {
-  if (p.cdPow > 0 || stunned(p) || p.gone || m.teams[p.team].castT > 0) return false;
-  const def = CHARS[p.char], target = pickTarget(m, p, aim);
-  p.cdPow = POWER_CD + def.cd; p.castT = 0.35; m.teams[p.team].castT = Math.max(m.teams[p.team].castT, TEAM_CD);
-  emit(m, { type: 'ability', side: p.team, char: p.char });
-  const hy = heightOf(p) * 0.55, [ax, az] = aim ?? [p.facing, 0];
-  if (INSTANT.includes(def.ability)) {
-    const tx = target ? target.x : p.x + ax * 10, tz = target ? target.z : p.z + az * 10;
-    m.fx.push({ kind: 'bolt', x: p.x, y: hy, z: p.z, x2: tx, y2: target ? heightOf(target) * 0.55 : hy, z2: tz, t: 0, life: 0.35, color: def.glow });
-    if (target) hitBy(m, target, p);
-  } else {
-    const tx = target ? target.x : p.x + ax * 10, tz = target ? target.z : p.z + az * 10, d = hyp(tx - p.x, tz - p.z) || 1;
-    m.projs.push({ team: p.team, from: p.id, target: target?.id ?? null, el: def.element, ability: def.ability, x: p.x, y: hy, z: p.z, vx: (tx - p.x) / d * 22, vz: (tz - p.z) / d * 22, t: 0, life: 1.6, done: false });
+export const attackReady = (m: SoccerMatch, team: 0 | 1, level: number) => m.teams[team].atkCd[level - 1] <= 0;
+// Si el que pidió no está listo, sale el más fuerte de los que sí (de los de abajo).
+function castLevel(m: SoccerMatch, p: Player, level: number, aim: [number, number] | null) {
+  for (let lv = level; lv >= 1; lv--) if (attackReady(m, p.team, lv)) { castAttack(m, p, lv, aim); return; }
+  emit(m, { type: 'notReady', side: p.team, level });
+}
+export function castPower(m: SoccerMatch, p: Player, aim: [number, number] | null = null) { return castAttack(m, p, 1, aim); }
+export function castAttack(m: SoccerMatch, p: Player, level: number, aim: [number, number] | null = null) {
+  const T = m.teams[p.team];
+  if (stunned(p) || p.gone || p.dash > 0 || !attackReady(m, p.team, level)) return false;
+  const def = CHARS[p.char], atk = ATTACKS[p.char][level - 1], n = atk.n ?? 1;
+  const targets = pickTargets(m, p, aim, n), first = targets[0] ?? null;
+  T.atkCd[level - 1] = LEVEL_CD[level - 1]; p.castT = 0.4;
+  emit(m, { type: 'ability', side: p.team, char: p.char, level });
+  const hy = hOf(p) * 0.55;
+  let [ax, az] = aim ?? [p.facing, 0];
+  if (first && (!aim || atk.type !== 'dash')) { const dx = first.x - p.x, dz = first.z - p.z, d = hyp(dx, dz) || 1; [ax, az] = [dx / d, dz / d]; }
+  const mk = (kind: Proj['kind'], x: number, y: number, z: number, vx: number, vz: number, target: number | null, life: number, w = 1): Proj =>
+    ({ kind, shape: atk.shape, level, big: !!atk.big, team: p.team, from: p.id, target, el: def.element, x, y, z, vx, vz, t: 0, life, done: false, hit: [], w });
+  switch (atk.type) {
+    case 'shot': {
+      const list = targets.length ? targets : [null];
+      for (let k = 0; k < Math.max(n, 1); k++) {
+        const tg = list[k % list.length], spread = (k - (n - 1) / 2) * 0.35, ca = Math.cos(spread), sa = Math.sin(spread);
+        const vx = (ax * ca - az * sa) * (atk.big ? 18 : 22), vz = (ax * sa + az * ca) * (atk.big ? 18 : 22);
+        m.projs.push(mk('shot', p.x + ax * 0.5, hy, p.z + az * 0.5, vx, vz, tg?.id ?? null, 1.7, atk.big ? 1.6 : 1));
+      }
+      break;
+    }
+    case 'bolt': {
+      let from: [number, number, number] = [p.x, hy, p.z];
+      if (!targets.length) m.fx.push({ kind: 'bolt', x: p.x, y: hy, z: p.z, x2: p.x + ax * 9, y2: hy, z2: p.z + az * 9, t: 0, life: 0.35, color: def.glow });
+      for (const q of targets) { const to: [number, number, number] = [q.x, hOf(q) * 0.55, q.z]; m.fx.push({ kind: 'bolt', x: from[0], y: from[1], z: from[2], x2: to[0], y2: to[1], z2: to[2], t: 0, life: atk.big ? 0.5 : 0.35, color: def.glow }); hitBy(m, q, p, level); from = to; }
+      break;
+    }
+    case 'beam': {
+      const len = 22, w = atk.big ? 1.7 : 0.9;
+      m.fx.push({ kind: 'beam', x: p.x + ax * 0.5, y: hy, z: p.z + az * 0.5, x2: p.x + ax * len, y2: hy, z2: p.z + az * len, t: 0, life: atk.big ? 0.7 : 0.45, color: def.glow });
+      for (const q of m.players) if (q.team !== p.team && hittable(m, q)) { const t = (q.x - p.x) * ax + (q.z - p.z) * az; if (t > 0 && t < len && Math.abs(-(q.x - p.x) * az + (q.z - p.z) * ax) < w + radiusOf(q)) hitBy(m, q, p, level); }
+      break;
+    }
+    case 'wave': m.projs.push(mk('wave', p.x + ax * 0.8, 0.2, p.z + az * 0.8, ax * 15, az * 15, null, 1.25, atk.big ? 2.2 : 1.6)); break;
+    case 'nova': {
+      const r = atk.r ?? 6;
+      m.fx.push({ kind: 'nova', x: p.x, y: 0.3, z: p.z, x2: r, y2: 0, z2: 0, t: 0, life: 0.95, color: def.glow });
+      for (let k = 0; k < 36; k++) { const a = k / 36 * Math.PI * 2, rr = r * (0.3 + m.rand() * 0.7); burst(m, p.x + Math.cos(a) * rr, 0.2, p.z + Math.sin(a) * rr, 1, k % 2 ? def.glow : def.color, 'spark', 6); }
+      for (const q of m.players) if (q.team !== p.team && hittable(m, q) && hyp(q.x - p.x, q.z - p.z) < r) hitBy(m, q, p, level);
+      m.shake = Math.max(m.shake, 0.6);
+      break;
+    }
+    case 'sky': {
+      const list = targets.length ? targets : [null];
+      for (let k = 0; k < n; k++) {
+        const tg = list[k % list.length], ox = tg ? 0 : ax * (6 + k * 2), oz = tg ? 0 : az * (6 + k * 2);
+        const x = tg ? tg.x : p.x + ox, z = tg ? tg.z : p.z + oz;
+        m.projs.push(mk('sky', x + (k >= list.length ? (m.rand() - 0.5) * 3 : 0), 14, z + (k >= list.length ? (m.rand() - 0.5) * 3 : 0), 0, 0, tg?.id ?? null, 0.75 + k * 0.08, atk.shape === 'meteor' || atk.shape === 'bomb' ? 2 : 1.5));
+      }
+      break;
+    }
+    case 'dash': {
+      p.dash = 0.5; p.dashX = ax; p.dashZ = az; p.dashHit = []; p.dashShape = atk.shape; p.dashLevel = level; p.inv = Math.max(p.inv, 0.5);
+      break;
+    }
   }
   return true;
 }
-// ¿A quién le tira? Al rival más a mano hacia donde apunta (o hacia donde mira); el que tiene la pelota suma.
-const hittable = (m: SoccerMatch, q: Player) => !q.gone && q.inv <= 0 && (q.role !== 'gk' || m.ball.owner === q.id);
-function pickTarget(m: SoccerMatch, p: Player, aim: [number, number] | null) {
-  const [ax, az] = aim ?? [p.facing, 0];
-  let best: Player | null = null, bs = 1e9;
+// ¿A quiénes les tira? A los rivales más a mano hacia donde apunta (o hacia donde mira); el que tiene la pelota suma.
+function pickTargets(m: SoccerMatch, p: Player, aim: [number, number] | null, n: number) {
+  const [ax, az] = aim ?? [p.facing, 0], list: [number, Player][] = [];
   for (const q of m.players) if (q.team !== p.team && hittable(m, q)) {
-    const dx = q.x - p.x, dz = q.z - p.z, d = hyp(dx, dz); if (d > 20) continue;
-    const cos = (dx * ax + dz * az) / (d || 1), s = d - cos * 7 - (m.ball.owner === q.id ? 3 : 0);
-    if (cos > -0.2 && s < bs) { bs = s; best = q; }
+    const dx = q.x - p.x, dz = q.z - p.z, d = hyp(dx, dz); if (d > 22) continue;
+    const cos = (dx * ax + dz * az) / (d || 1);
+    if (cos > -0.2 || !aim) list.push([d - cos * 7 - (m.ball.owner === q.id ? 3 : 0), q]);
   }
-  return best;
+  return list.sort((a, b) => a[0] - b[0]).slice(0, n).map(e => e[1]);
 }
+const hittable = (m: SoccerMatch, q: Player) => !q.gone && q.inv <= 0 && (q.role !== 'gk' || m.ball.owner === q.id);
 // Le pega el poder: revienta en sangre y los huesos salen volando (vuelve a entrar en unos segundos). Si tenía
 // la pelota dentro del área del rival, es penal.
-function hitBy(m: SoccerMatch, q: Player, by: Player) {
+function hitBy(m: SoccerMatch, q: Player, by: Player, level = 2) {
+  if (!hittable(m, q)) return;
   const b = m.ball, had = b.owner === q.id;
   const inArea = had && q.role !== 'gk' && Math.abs(q.x - oppGoalX(m, q.team)) < AREA_X && Math.abs(q.z - ZC) < AREA_W / 2;
-  m.fx.push({ kind: 'boom', x: q.x, y: heightOf(q) * 0.5, z: q.z, x2: 0, y2: 0, z2: 0, t: 0, life: 0.5, color: CHARS[by.char].glow });
-  burst(m, q.x, heightOf(q) * 0.5, q.z, 14, CHARS[by.char].color, 'spark', 6);
-  explode(m, q, CHARS[by.char].element);
-  gain(m, by.team, 4);
+  m.fx.push({ kind: 'boom', x: q.x, y: hOf(q) * 0.5, z: q.z, x2: 0, y2: 0, z2: 0, t: 0, life: 0.5, color: CHARS[by.char].glow });
+  burst(m, q.x, hOf(q) * 0.5, q.z, 14, CHARS[by.char].color, 'spark', 6);
+  if (level <= 1) knock(m, q, by); else explode(m, q, CHARS[by.char].element);
+  gain(m, by.team, 2 + level);
   emit(m, { type: 'hit', kind: STUN_OF[CHARS[by.char].element][0] });
   if (inArea && m.phase === 'play') startPenalty(m, q.team);
 }
+// El ataque principal (C una vez): lo voltea un ratito, suelta la pelota y salpica un poco de sangre.
+function knock(m: SoccerMatch, q: Player, by: Player) {
+  const b = m.ball;
+  if (b.owner === q.id) { b.owner = null; const nearOwn = Math.abs(q.x - ownGoalX(m, q.team)) < 12, a = m.rand() * Math.PI * 2; b.vx = nearOwn ? attackDir(m, q.team) * 3 : Math.cos(a) * 4; b.vz = Math.sin(a) * 4; b.vy = 4; b.last = q.team; b.lastId = q.id; b.receiver = null; q.noTouch = 0.8; }
+  const [kind] = STUN_OF[CHARS[by.char].element];
+  q.stun = Math.max(q.stun, 1.3); q.stunKind = kind; q.chargeOn = false; q.charge = 0; q.slide = 0; q.dive = 0; q.cTaps = 0;
+  const dx = q.x - by.x, dz = q.z - by.z, d = hyp(dx, dz) || 1; q.vx = dx / d * 5; q.vz = dz / d * 5;
+  for (let i = 0; i < 12; i++) { const a = m.rand() * Math.PI * 2, sp = 1 + m.rand() * 3; m.gore.drops.push({ x: q.x, y: hOf(q) * 0.6, z: q.z, vx: Math.cos(a) * sp, vy: 2 + m.rand() * 4, vz: Math.sin(a) * sp, r: 0.04 + m.rand() * 0.05 }); }
+  m.shake = Math.max(m.shake, 0.3);
+}
 export function explode(m: SoccerMatch, q: Player, el: Element | null = null, screen = false) {
-  const b = m.ball, h = heightOf(q), G2 = m.gore;
+  const b = m.ball, h = hOf(q), G2 = m.gore;
   if (b.owner === q.id) { // la pelota queda suelta (cerca de su arco, cae para el lado de la cancha)
     b.owner = null; const a = m.rand() * Math.PI * 2, nearOwn = Math.abs(q.x - ownGoalX(m, q.team)) < 12;
     b.vx = nearOwn ? attackDir(m, q.team) * (2.5 + m.rand() * 2) : Math.cos(a) * 4; b.vz = Math.sin(a) * 4; b.vy = 4.5; b.y = Math.max(b.y, 0.8);
@@ -602,19 +680,32 @@ function tickPlayersQuiet(m: SoccerMatch, dt: number) { for (const p of m.player
 function updateProjs(m: SoccerMatch, dt: number) {
   for (const s of m.projs) {
     s.t += dt;
-    const tg = s.target !== null ? m.players[s.target] : null;
-    if (tg && hittable(m, tg)) { // lo persigue (doblando de a poco)
+    const by = m.players[s.from], tg = s.target !== null ? m.players[s.target] : null;
+    if (s.kind === 'sky') { // cae del cielo: sigue al rival un rato y después se clava
+      if (tg && hittable(m, tg) && s.t < s.life * 0.55) { s.x += (tg.x - s.x) * Math.min(1, dt * 8); s.z += (tg.z - s.z) * Math.min(1, dt * 8); }
+      s.y = 14 * Math.max(0, 1 - s.t / s.life);
+      if (s.t >= s.life) {
+        s.done = true;
+        m.fx.push({ kind: 'boom', x: s.x, y: 0.3, z: s.z, x2: 0, y2: 0, z2: 0, t: 0, life: 0.55, color: CHARS[by.char].glow });
+        burst(m, s.x, 0.3, s.z, 16, CHARS[by.char].color, 'spark', 7); m.shake = Math.max(m.shake, 0.45);
+        for (const q of m.players) if (q.team !== s.team && hittable(m, q) && hyp(q.x - s.x, q.z - s.z) < s.w + radiusOf(q)) hitBy(m, q, by, s.level);
+      }
+      continue;
+    }
+    if (s.kind === 'shot' && tg && hittable(m, tg)) { // lo persigue (doblando de a poco)
       const dx = tg.x - s.x, dz = tg.z - s.z, d = hyp(dx, dz) || 1, sp = hyp(s.vx, s.vz), k = Math.min(1, dt * 7);
       s.vx += (dx / d * sp - s.vx) * k; s.vz += (dz / d * sp - s.vz) * k;
     }
     s.x += s.vx * dt; s.z += s.vz * dt;
-    for (const q of m.players) if (q.team !== s.team && hittable(m, q) && hyp(q.x - s.x, q.z - s.z) < 0.6 + radiusOf(q)) { hitBy(m, q, m.players[s.from]); s.done = true; break; }
+    if (s.kind === 'wave') { // la onda arrasa con todos los que pasa
+      if (m.rand() < 0.9) burst(m, s.x + (m.rand() - 0.5) * s.w, 0.1, s.z + (m.rand() - 0.5) * s.w, 1, CHARS[by.char].color, 'spark', 3);
+      for (const q of m.players) if (q.team !== s.team && !s.hit.includes(q.id) && hittable(m, q) && hyp(q.x - s.x, q.z - s.z) < s.w + radiusOf(q)) { s.hit.push(q.id); hitBy(m, q, by, s.level); }
+    } else for (const q of m.players) if (q.team !== s.team && hittable(m, q) && hyp(q.x - s.x, q.z - s.z) < (s.big ? 0.9 : 0.6) + radiusOf(q)) { hitBy(m, q, by, s.level); s.done = true; break; }
     if (s.done && m.phase !== 'play') break;
-    if (s.t > s.life || s.x < -1 || s.x > L + 1 || s.z < -1 || s.z > D + 1) { s.done = true; m.fx.push({ kind: 'ring', x: s.x, y: s.y, z: s.z, x2: 0, y2: 0, z2: 0, t: 0, life: 0.35, color: CHARS[m.players[s.from].char].glow }); }
+    if (!s.done && (s.t > s.life || s.x < -1 || s.x > L + 1 || s.z < -1 || s.z > D + 1)) { s.done = true; m.fx.push({ kind: 'ring', x: s.x, y: s.y, z: s.z, x2: 0, y2: 0, z2: 0, t: 0, life: 0.35, color: CHARS[by.char].glow }); }
   }
   m.projs = m.projs.filter(s => !s.done);
 }
-
 // ---------------------------------------------------------------- FATAL GOAL
 export function startFatal(m: SoccerMatch, p: Player) {
   if (m.teams[p.team].power < POWER_MAX || m.ball.owner !== p.id) return false;
@@ -662,7 +753,7 @@ function moveBall(m: SoccerMatch, dt: number) {
 // Pegada al pie, adelante del que la lleva.
 function carry(m: SoccerMatch, dt: number) {
   const b = m.ball, p = m.players[b.owner!];
-  if (p.role === 'gk') { b.x = p.x + p.facing * 0.35; b.z = p.z + 0.15; b.y = heightOf(p) * 0.45; b.vx = p.vx; b.vz = p.vz; b.vy = 0; return; }
+  if (p.role === 'gk') { b.x = p.x + p.facing * 0.35; b.z = p.z + 0.15; b.y = hOf(p) * 0.45; b.vx = p.vx; b.vz = p.vz; b.vy = 0; return; }
   const off = 0.45 + radiusOf(p) + Math.abs(Math.sin(m.time * 9)) * 0.08, sp = hyp(p.vx, p.vz);
   const nx = clamp(p.x + p.bdx * off, BR, L - BR), nz = clamp(p.z + p.bdz * off, BR, D - BR);
   b.vx = (nx - b.x) / Math.max(dt, 1e-3); b.vz = (nz - b.z) / Math.max(dt, 1e-3);
@@ -723,7 +814,7 @@ function touches(m: SoccerMatch) {
   let best: Player | null = null, bd = 1e9;
   for (const p of m.players) {
     if (p.gone || p.noTouch > 0 || p.stun > 0 || p.slide > 0) continue;
-    const d = hyp(p.x - b.x, p.z - b.z), h = heightOf(p);
+    const d = hyp(p.x - b.x, p.z - b.z), h = hOf(p);
     if (b.fatal) { // el FATAL arrasa con el que se cruza; el arquero revienta en sangre
       if (p.team !== b.shooter && p.role === 'gk' && d < radiusOf(p) + BR + 0.6 && b.y < h * 1.2) { explode(m, p, b.fx === 'none' ? null : b.fx, true); m.shake = 1.4; continue; }
       if (p.team !== b.shooter && d < radiusOf(p) + BR && b.y < h) { p.stun = 1.6; p.stunKind = 'burn'; p.dive = 0; p.vx = b.vx * 0.3; p.vz = b.vz * 0.3; m.shake = 0.8; emit(m, { type: 'hit', kind: 'burn' }); burst(m, p.x, h * 0.5, p.z, 16, '#fb923c', 'spark', 7); }
@@ -734,7 +825,7 @@ function touches(m: SoccerMatch) {
     if (d < reach && b.y < h * 1.05 && d < bd) { bd = d; best = p; }
   }
   if (!best) return;
-  const p = best, relv = hyp(b.vx - p.vx, b.vz - p.vz), h = heightOf(p);
+  const p = best, relv = hyp(b.vx - p.vx, b.vz - p.vz), h = hOf(p);
   const mine = b.receiver === p.id; // (el pase era para él: la recibe siempre)
   if (b.y < 1.05 || relv < 7 || mine) { // la controla
     if (relv < 17 || mine || m.rand() < 0.4) {
@@ -753,7 +844,7 @@ function touches(m: SoccerMatch) {
   } else { b.vy = Math.abs(b.vy) * 0.3 + 1; b.vx = b.vx * 0.3 + p.vx; b.vz = b.vz * 0.3 + p.vz; p.noTouch = 0.2; b.last = p.team; b.lastId = p.id; } // de pecho: le cae adelante
 }
 function keeperTouch(m: SoccerMatch, p: Player, d: number) {
-  const b = m.ball, h = heightOf(p), sp = hyp(b.vx, b.vz), diving = p.dive > 0;
+  const b = m.ball, h = hOf(p), sp = hyp(b.vx, b.vz), diving = p.dive > 0;
   const reach = (diving ? 1.5 : 0.8) + radiusOf(p);
   if (d > reach || b.y > h * 1.2 + (diving ? 0.4 : 0)) return false;
   if (diving && !p.save && d > 0.45) return false; // se tiró pero no llegó
@@ -795,7 +886,7 @@ function keeper(m: SoccerMatch, p: Player, dt: number) {
       const onTarget = Math.abs(zp - ZC) < GW / 2 + 0.3 && yp < GH + 0.3;
       if (onTarget && !b.fatal) {
         const prob = clamp(1.2 - (sp - 14) / 45 - Math.abs(dz) * 0.07 + (lv - 0.5) * 0.35 - (b.spin !== 0 ? 0.08 : 0), 0.15, 0.95);
-        p.save = Math.abs(dz) < 0.6 && yp < heightOf(p) ? true : m.rand() < prob; p.aimZ = clamp(zp, ZC - GW / 2 - 0.3, ZC + GW / 2 + 0.3); p.aimT = t + 0.3;
+        p.save = Math.abs(dz) < 0.6 && yp < hOf(p) ? true : m.rand() < prob; p.aimZ = clamp(zp, ZC - GW / 2 - 0.3, ZC + GW / 2 + 0.3); p.aimT = t + 0.3;
       }
     }
   }
@@ -850,12 +941,17 @@ function brain(m: SoccerMatch, p: Player, dt: number) {
 // Los de la máquina (y los compañeros) también se tiran poderes: al que tiene la pelota o a cualquier rival cerca.
 function aiCast(m: SoccerMatch, p: Player, lv: number, cpu: boolean) {
   const T = m.teams[p.team];
-  if (p.cdPow > 0 || T.aiCastT > 0 || T.castT > 0 || p.castT > 0 || m.phase !== 'play') return;
+  if (T.aiCastT > 0 || p.castT > 0 || m.phase !== 'play' || p.dash > 0) return;
   if (m.rand() > (cpu ? 0.02 + 0.03 * lv : 0.015)) return; // (cada tanto, no todos a la vez)
-  const t = pickTarget(m, p, null) ?? pickTarget(m, p, [-p.facing, 0]);
+  const t = pickTargets(m, p, null, 1)[0];
   if (!t || hyp(t.x - p.x, t.z - p.z) > 15) return;
+  // elige el ataque: los fuertes cuando están listos (más seguido si la máquina es difícil)
+  const ready = [1, 2, 3, 4].filter(l => attackReady(m, p.team, l));
+  if (!ready.length) return;
+  let level = ready[0];
+  for (const l of ready) if (m.rand() < (cpu ? 0.25 + lv * 0.35 : 0.35)) level = l;
   const dx = t.x - p.x, dz = t.z - p.z, d = hyp(dx, dz) || 1;
-  if (castPower(m, p, [dx / d, dz / d])) T.aiCastT = cpu ? 7 - lv * 3 : 9;
+  if (castAttack(m, p, level, [dx / d, dz / d])) T.aiCastT = cpu ? 6 - lv * 2.5 : 8;
 }
 // ¿hay un rival (que no sea el arquero) tapando el tiro?
 function shotLaneBlocked(m: SoccerMatch, p: Player, gx: number) {
