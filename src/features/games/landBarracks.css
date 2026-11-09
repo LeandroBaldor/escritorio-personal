@@ -46,7 +46,6 @@
 .land.land-v9 .land-training-cards nav button:disabled{opacity:.35}
 .land.land-v9 .land-queue-empty{margin:auto 0;color:#91afbf;font:13px/1.5 Arial,sans-serif}
 @media(min-width:1101px){
- .land.land-v9 .land-hud.land-hud-native:has(.land-barracks-panel){height:max(380px,calc((100vw - 330px)*.24))!important}
  .land.land-v9 .land-hud-native .land-selection-roster:has(~.land-barracks-panel){display:none!important}
  .land.land-v9 .land-hud-native .land-selection-inspector.land-barracks-panel{position:absolute;left:22.1%;top:34%;width:54.2%;height:58.5%;z-index:2;display:grid!important;grid-template-columns:55.7% minmax(0,1fr);gap:2.5%;padding:0!important;background:transparent;overflow:hidden}
  .land.land-v9 .land-barracks-sheet{background:#041b2c;padding:3px 5px}

@@ -18,6 +18,6 @@ test('Land: actividades agrupadas y texto dentro de cada ventana del HUD',async(
     const civs=await page.evaluate(async base=>(await import(base+'src/features/games/landCivs.ts')).CIV_IDS,base);
     for(const civ of civs){const label=await page.evaluate(async({base,civ})=>{const {CIVS}=await import(base+'src/features/games/landCivs.ts'),{troopGroupName}=await import(base+'src/features/games/landActivity.ts');(window as Debug).__landGame().sides[0].civ=civ;return troopGroupName(CIVS[civ].units.worker,3);},{base,civ});await expect(pop.locator('article').first()).toContainText(label);expect(await pop.locator('article').evaluateAll(els=>els.every(el=>el.scrollHeight<=el.clientHeight+1&&el.scrollWidth<=el.clientWidth+1))).toBe(true);}
     await page.evaluate(()=>(window as Debug).__landGame().sides[0].civ='humano');await expect(pop.locator('article').first()).toContainText('Ingenieros');
-    if(width>1100){const totals=pop.locator('.land-population-totals');await expect.poll(()=>totals.evaluate(el=>{const r=el.getBoundingClientRect(),front=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return !!front&&el.contains(front);})).toBe(true);}
+    if(width>1100){const totals=panel.locator('.land-census header b');await expect.poll(()=>totals.evaluate(el=>{const r=el.getBoundingClientRect(),front=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return !!front&&el.contains(front);})).toBe(true);}
     await page.screenshot({path:info.outputPath('aldea-'+width+'.png')});}
 });
