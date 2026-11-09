@@ -41,7 +41,10 @@ export function troopGroupName(name:string,count:number){
 export function troopActivity(g:LandGame,u:Unit):TroopActivity{
   const o=u.order;
   if(foodBlocked(g,u.owner,u.role))return {kind:'idle',label:'Sin alimento',detail:'Esperando una entrega en el Almacén'};
-  if(o.k==='farm')return {kind:'gather',label:'Cultivando alimentos',detail:FOOD_NAMES[g.sides[u.owner].civ]};
+  if(o.k==='farm'){
+    const store=g.buildings.some(b=>b.owner===u.owner&&!b.dead&&b.built>=1&&b.kind==='storehouse');
+    return {kind:'gather',label:u.carryKind==='food'?(store?'Entregando alimentos':'Esperando Almacén'):u.moving?'Yendo a la cosecha':'Cultivando alimentos',detail:u.carryKind==='food'&&!store?'Construí un Almacén. Podés dar otra orden al trabajador.':FOOD_NAMES[g.sides[u.owner].civ]};
+  }
   if(o.k==='idle')return {kind:'idle',label:'En espera',detail:'Lista para recibir órdenes'};
   if(o.k==='move')return {kind:'move',label:o.attack?'Avanzando en combate':'Marchando',detail:'En camino al destino señalado'};
   if(o.k==='attack'){

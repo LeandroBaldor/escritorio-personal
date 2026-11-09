@@ -51,7 +51,7 @@ test('Land: civilizaciones, escala, exploración, selección y HUD', async ({ pa
   await expect(world).toBeVisible({ timeout: 30000 });
   await expect.poll(() => page.evaluate(() => (window as LandDebugWindow).__landGame?.()?.terrain.w)).toBe(12800);
   const camera = () => page.evaluate(() => ({ ...(window as LandDebugWindow).__landCam() }));
-  const initial = await camera(); expect(initial.z).toBe(1.6/1.2);
+  const initial = await camera(); expect(initial.z).toBe((1.6/1.1)/1.2);
   const bounds = (await world.boundingBox())!;
   const x = bounds.x + bounds.width * .7, y = bounds.y + Math.min(220, (bounds.height - 320) * .6);
   await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x - 70, y - 30, { steps: 12 }); await page.mouse.up();
