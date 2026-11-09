@@ -8,4 +8,4 @@ Se muestran seis casillas por página, con navegación para recorrer toda la col
 
 El HUD gana altura solamente al seleccionar un cuartel, y el marco omite el antiguo recuadro de retrato que cruzaba la cola. El componente está aislado de las reglas anteriores de las fichas de soldados. Se aplica a todos los tipos de cuartel y civilizaciones, incluidas las larvas obreras.
 
-Validación: ficha de Larva Obrera con ocho personajes y nueve encargos; barras de 60 s, paginación, salida de una unidad y reinicio de la siguiente barra; separación y casillas cuadradas en escritorio, móvil, 1102 px y 1920 px. Se comprueban también los seis cuarteles humanos y las cuatro evoluciones. Captura: `land26-cuartel-larva.png`.
+Validación: ficha de Larva Obrera con ocho personajes y nueve encargos; barras de 60 s, paginación, salida de una unidad y reinicio de la siguiente barra; separación y casillas cuadradas en escritorio, móvil, 1102, 1440, 1500 y 1920 px. Se comprueban también los seis cuarteles humanos y las cuatro evoluciones. Captura: `land26-cuartel-larva.png`.
