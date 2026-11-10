@@ -57,6 +57,8 @@ export interface VMatch {
   stage: StageId; kind: BallKind; players: [VPlayer, VPlayer]; ball: VBall; ref: Person;
   phase: VPhase; phaseT: number; time: number; score: [number, number]; server: 0 | 1; lastTeam: 0 | 1 | null; touches: number; lastPoint: 0 | 1 | null; why: string;
   winner: 0 | 1 | null; events: VEvent[]; rand: () => number; particles: VParticle[]; trail: [number, number][]; shake: number; wind: number; serveT: number; servedOver: boolean;
+  // de qué lado de la red está la pelota: los tres toques son solo mientras está de tu lado (al pasar, se cuentan de nuevo)
+  ballSide: 0 | 1;
 }
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -84,7 +86,7 @@ export function newVoley(stage: StageId, chars: [CharId, CharId], levels: [numbe
     ball: { x: 0, y: 0, vx: 0, vy: 0, r: BALLS[kind].r, roll: 0, held: true, t: 0, zig: 0 },
     ref: { x: NET_X, y: 0, vx: 0, vy: 0, facing: 1, ground: true, action: 'idle', actionT: 0, stun: 0, stunKind: 'none', away: 0 },
     phase: 'intro', phaseT: 0, time: 0, score: [0, 0], server: rand() < 0.5 ? 0 : 1, lastTeam: null, touches: 0, lastPoint: null, why: '',
-    winner: null, events: [], rand, particles: [], trail: [], shake: 0, wind: 0, serveT: 0, servedOver: false,
+    winner: null, events: [], rand, particles: [], trail: [], shake: 0, wind: 0, serveT: 0, servedOver: false, ballSide: 0,
   };
   setupServe(m);
   return m;
@@ -94,7 +96,7 @@ function setupServe(m: VMatch) {
   const s = m.players[m.server], o = m.players[1 - m.server];
   s.x = m.server === 0 ? -1.4 : COURT + 1.4; o.x = m.server === 0 ? 12 : 4;
   for (const p of m.players) { p.y = 0; p.vx = 0; p.vy = 0; p.ground = true; p.facing = dirOf(p.team); p.plan = 'none'; p.tx = p.x; p.slow = 0; p.hitBuf = 0; p.setBuf = 0; }
-  m.lastTeam = null; m.touches = 0; m.trail = []; m.serveT = 0; m.servedOver = false;
+  m.lastTeam = null; m.touches = 0; m.trail = []; m.serveT = 0; m.servedOver = false; m.ballSide = m.server;
   const b = m.ball; b.held = true; b.vx = 0; b.vy = 0; b.t = 0; b.r = BALLS[m.kind].r;
   m.wind = m.kind === 'arena' ? (m.rand() < 0.5 ? -1 : 1) * (1 + m.rand()) : 0;
   holdBall(m);
@@ -207,9 +209,18 @@ function moveBall(m: VMatch, dt: number, dead = false) {
   if (b.x > X1 + 1 && b.vx > 0) { b.x = X1 + 1; b.vx = -b.vx * 0.4; }
   if (dead) { if (b.y < b.r) { b.y = b.r; b.vy = Math.abs(b.vy) * 0.35; b.vx *= 0.7; } return; }
   if (!m.servedOver && (m.lastTeam === 0 ? b.x > NET_X : b.x < NET_X)) m.servedOver = true;
+  crossNet(m);
   touches(m);
   if (b.y <= b.r) land(m);
 }
+// Cuando la pelota pasa del todo al otro lado de la red, ese lado empieza a contar sus tres toques desde cero.
+function crossNet(m: VMatch) {
+  const b = m.ball, side: 0 | 1 | null = b.x < NET_X - b.r ? 0 : b.x > NET_X + b.r ? 1 : null;
+  if (side === null || side === m.ballSide) return;
+  m.ballSide = side; m.touches = 0;
+}
+// Cuántos toques lleva el equipo de ese lado (0 si la pelota no está de su lado).
+export const touchesOf = (m: VMatch, team: 0 | 1) => (m.ballSide === team && m.lastTeam === team ? m.touches : 0);
 // La red: rebota en la faja de arriba o en la malla.
 function net(m: VMatch) {
   const b = m.ball, r = b.r;
@@ -228,14 +239,14 @@ function touches(m: VMatch) {
     const h = hOf(p), hx = p.x + p.facing * 0.15, top = p.y + h + 0.35, bot = p.y + h * 0.25;
     const cy = clamp(b.y, bot, top), dist = Math.hypot(b.x - hx, b.y - cy);
     if (dist > b.r + 0.5 + rOf(p) * 0.4) continue;
-    if ((p.team === 0 ? b.x > NET_X + 0.2 : b.x < NET_X - 0.2)) continue; // (del otro lado de la red no se toca)
+    if (m.ballSide !== p.team || (p.team === 0 ? b.x > NET_X : b.x < NET_X)) continue; // (solo se toca de tu lado de la red)
     hitBall(m, p);
     return;
   }
 }
 function hitBall(m: VMatch, p: VPlayer) {
   const b = m.ball, d = dirOf(p.team), sp = BALLS[m.kind].speed;
-  const n = m.lastTeam === p.team ? m.touches + 1 : 1;
+  const n = m.lastTeam === p.team && m.ballSide === p.team ? m.touches + 1 : 1; // (los toques de este lado)
   m.lastTeam = p.team; m.touches = n; p.touchCd = 0.32; p.kickT = 0.28;
   if (n > MAX_TOUCHES) { point(m, p.team === 0 ? 1 : 0, 'touches'); return; }
   const ai = !isHuman(p), toNet = Math.abs(p.x - NET_X);

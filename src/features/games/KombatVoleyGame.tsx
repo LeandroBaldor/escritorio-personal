@@ -4,7 +4,7 @@ import { GamePad } from './GamePad';
 import { fitViewport, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
 import { CHARS, CHAR_IDS, STAGES, STATS, type CharId, type StageId } from './kombat';
-import { BALLS, SET_POINTS, STAGE_BALL, newVoley, noVInput, stepVoley, takeVoleyEvents, type VInput, type VMatch } from './kombatVoley';
+import { BALLS, SET_POINTS, STAGE_BALL, newVoley, noVInput, stepVoley, takeVoleyEvents, touchesOf, type VInput, type VMatch } from './kombatVoley';
 import { drawVoley, drawVoleyBackdrop, drawVoleyThumb, noteNetHit } from './kombatVoleyArt';
 import { vortexURL } from './kombatArt';
 import { drawFighterCard, drawPortrait, setLowFx } from './kombatFighters';
@@ -47,9 +47,9 @@ function drawCup(you: CharId): Cup {
 type Key = keyof VInput;
 const KEYS: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', Space: 'up', KeyV: 'hit', KeyX: 'set', KeyK: 'set', KeyJ: 'hit' };
 
-interface Hud { score: [number, number]; server: 0 | 1; touches: number; team: 0 | 1 | null; serving: boolean; intro: boolean; setPoint: boolean }
+interface Hud { score: [number, number]; server: 0 | 1; touches: [number, number]; serving: boolean; intro: boolean; setPoint: boolean }
 const hudOf = (m: VMatch): Hud => ({
-  score: [m.score[0], m.score[1]], server: m.server, touches: m.touches, team: m.lastTeam, serving: m.phase === 'serve', intro: m.phase === 'intro' && m.time < 2.4,
+  score: [m.score[0], m.score[1]], server: m.server, touches: [touchesOf(m, 0), touchesOf(m, 1)], serving: m.phase === 'serve', intro: m.phase === 'intro' && m.time < 2.4,
   setPoint: Math.max(...m.score) >= SET_POINTS - 1 && m.score[0] !== m.score[1],
 });
 const sameHud = (a: Hud, b: Hud) => JSON.stringify(a) === JSON.stringify(b);
@@ -339,7 +339,7 @@ export function KombatVoley() {
   const chars: [CharId, CharId] = screen === 'playing' || screen === 'paused' || screen === 'result' || screen === 'champion' ? fighting : [p1, mode === 'world' ? cup.rivals[round] : p2];
   const curStage: StageId = mode === 'world' ? cup.stages[round] : stage;
   const sideBar = (i: 0 | 1) => {
-    const c = CHARS[chars[i]], serving = hud?.server === i, touches = hud && hud.team === i ? hud.touches : 0;
+    const c = CHARS[chars[i]], serving = hud?.server === i, touches = hud ? hud.touches[i] : 0;
     return <div className={`kf-side kf-side--${i}`} data-testid={`kf-side-${i}`}>
       <Portrait char={chars[i]} size={64} mirror={i === 1} square />
       <div className="kf-bars">

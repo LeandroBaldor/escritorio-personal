@@ -2,7 +2,7 @@
 // adelante la cancha de vóley sobre la plataforma, con sus líneas, la red con sus postes, el árbitro en su silla,
 // los dos luchadores y la pelota del estadio con su efecto (fuego, rayos, burbujas, pétalos…).
 import { CHARS, type StageId } from './kombat';
-import { BALLS, BR, COURT, NET_H, NET_X, P_SCALE, type BallKind, type VMatch } from './kombatVoley';
+import { BALLS, BR, COURT, MAX_TOUCHES, NET_H, NET_X, P_SCALE, hOf, touchesOf, type BallKind, type VMatch } from './kombatVoley';
 import { THEMES } from './kombatArt';
 import { PITCH } from './kombatSoccerArt';
 import { drawFighterLit, drawRefLit } from './kombatFighters';
@@ -170,6 +170,15 @@ export function drawVoley(ctx: CanvasRenderingContext2D, m: VMatch, w: number, h
     drawFighterLit(ctx, p, m.time + p.team * 0.4, { power: 0, frozen: p.slow > 0, poison: false, burn: false, zap: false, shield: false, speed: false, aura: null }, X(v, p.x), Y(v, p.y), v.s * P_SCALE, rim);
   }
   drawNet(ctx, v, m, true);
+  // los toques que lleva cada uno mientras la pelota está de su lado (1/3, 2/3, 3/3)
+  if (m.phase === 'rally') for (const p of m.players) {
+    const n = touchesOf(m, p.team); if (n <= 0) continue;
+    const x = X(v, p.x), y = Y(v, p.y + hOf(p)) - v.s * 0.55, r = Math.max(9, v.s * 0.3);
+    ctx.fillStyle = n >= MAX_TOUCHES ? '#dc2626' : '#111827cc'; ctx.strokeStyle = n >= MAX_TOUCHES ? '#fecaca' : '#facc15'; ctx.lineWidth = Math.max(1.5, r * 0.14);
+    ctx.beginPath(); ctx.roundRect(x - r * 1.35, y - r * 0.75, r * 2.7, r * 1.5, r * 0.6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = `800 ${Math.round(r * 1.05)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(`${n}/${MAX_TOUCHES}`, x, y + r * 0.05);
+  }
   // la pelota
   if (!b.held || m.phase !== 'end') {
     drawBallFx(ctx, v, m);
