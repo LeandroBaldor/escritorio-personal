@@ -1,3 +1,4 @@
+import { readVampyium2Record } from './Vampyium2Game';
 import factoryCover from './assets/factory/cover.webp';
 import { Link } from 'react-router-dom';
 import { playStart } from './sounds';
@@ -45,6 +46,7 @@ export function Games() {
   const kombat = readKombatRecord();
   const voley = readVoleyRecord();
   const vamp = readVampyriumRecord();
+  const vamp2 = readVampyium2Record();
   const landWins = Object.values(readLandRecord()).reduce((a, b) => a + b, 0);
   return <section className="games-page">
     <div className="section-title games-title">
@@ -191,6 +193,20 @@ export function Games() {
           </span>
           <span className="game-card-foot">
             {vamp.kills > 0 && <small><b>Récord</b>{vamp.time ? `🏆 en ${formatVampTime(vamp.time)}` : `${vamp.kills} vampiros`}</small>}
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
+        </Link>
+      </li>
+      <li>
+        <Link onClick={playStart} className="game-card game-card--vamp game-card--vamp2" to="/juegos/vampyium2">
+          <span className="game-card-cover"><Cover src={vampCover} /></span>
+          <span className="game-card-text">
+            <strong>Vampyium 2</strong>
+            <span>Una cacería gótica: personajes de proporciones humanas, acero marcado y cuero envejecido. Diez capítulos, doce armas y un castillo que guarda a Drácula.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Matá 50 vampiros sin quedarte sin vida y cruzá la puerta que se abre a la derecha. Cuidado con los huecos al vacío y las trampas.</span>
+          </span>
+          <span className="game-card-foot">
+            {vamp2.kills > 0 && <small><b>Récord</b>{vamp2.time ? `🏆 en ${formatVampTime(vamp2.time)}` : `${vamp2.kills} vampiros`}</small>}
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
           </span>
         </Link>
