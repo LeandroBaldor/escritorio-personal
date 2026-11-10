@@ -49,6 +49,10 @@ export function Games() {
       <SectionObjects large><DeskLink /><NotebookLink /><CalculatorLink /><CalendarLink /></SectionObjects>
     </div>
     <ul className="games-list">
+      <li><Link onClick={playStart} className="game-card" to="/juegos/fabrica">
+        <svg viewBox="0 0 160 100" aria-hidden="true"><defs><linearGradient id="factory-cover" x2="0" y2="1"><stop stopColor="#34434d"/><stop offset="1" stopColor="#111820"/></linearGradient></defs><rect width="160" height="100" fill="url(#factory-cover)"/><g fill="#546574" stroke="#aab8c3"><path d="M10 0h12v100H10zM138 0h12v100h-12z"/><path d="M18 76h66v7H18zM82 42h58v7H82zM32 13h60v7H32z"/></g><g fill="#fbbf24"><path d="M18 77h66v2H18zM82 43h58v2H82zM32 14h60v2H32z"/></g><g transform="translate(66 32)"><circle cy="-8" r="6" fill="#edc49e"/><path d="M-7-12q0-11 14 0z" fill="#3b82f6"/><path d="M-8 0h16v19H-8z" fill="#1d4ed8"/><path d="M-8 6h16v5H-8z" fill="#facc15"/><path d="M-8 19h16v8H-8z" fill="#111827"/><path d="M-5 27v8m10-8v8" stroke="#edc49e" strokeWidth="4"/><g fill="#a3e635" opacity=".6"><circle cy="44" r="6"/><circle cx="-7" cy="53" r="8"/><circle cx="8" cy="57" r="9"/></g></g><path d="M0 100l8-14 8 14 8-14 8 14 8-14 8 14 8-14 8 14 8-14 8 14 8-14 8 14 8-14 8 14 8-14 8 14 8-14 8 14 8-14 8 14" fill="#c7d2da"/></svg>
+        <span className="game-card-text"><strong>Fábrica de Pedos</strong><span>Diez fábricas gigantes, comida y un único motor: ¡tus pedos! Escapá de los pinches entre engranajes, láseres y fuego.</span><span className="game-card-win"><b>Cómo se gana:</b> Escalá los 10 niveles y llegá a la salida de la fábrica orbital.</span></span><span className="game-card-foot"><span className="game-card-play" aria-hidden="true">Jugar ▶</span></span>
+      </Link></li>
       <li>
         <Link onClick={playStart} className="game-card" to="/juegos/bloques">
           <Cover src={blocksCover} />
