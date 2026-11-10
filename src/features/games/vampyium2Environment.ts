@@ -170,11 +170,12 @@ export function realisticHeldWeapon(ctx: CanvasRenderingContext2D, weapon: Weapo
   if ((weapon === 'garlic' || weapon === 'venom') && attackT > .1 && attackT < .3) return true;
   const index = WEAPON_SPRITE[weapon], aspect = assetAspect('weapons', index);
   const sword = ['sword', 'firesword', 'violet', 'bone'].includes(weapon);
-  const w = sword ? weapon === 'bone' ? 1.55 : 1.65 : weapon === 'crossbow' ? .9 : weapon === 'pistol' ? .6 : .38;
+  const w = sword ? weapon === 'bone' ? 1.55 : weapon === 'violet' ? 1.12 : 1.05 : weapon === 'crossbow' ? .9 : weapon === 'pistol' ? .6 : .38;
   const h = w / aspect;
   ctx.save(); ctx.translate(hand[0], hand[1]);
   if (sword || weapon === 'crossbow' || weapon === 'pistol') ctx.rotate(Math.PI / 2 - angle);
-  drawAsset(ctx, 'weapons', index, -w * (sword ? .22 : .25), -h * .5, w, h);
+  const gripAt = weapon === 'bone' ? .23 : sword ? .135 : .25;
+  drawAsset(ctx, 'weapons', index, -w * gripAt, -h * .5, w, h);
   if (weapon === 'firesword') {
     ctx.save(); ctx.translate(w * .5, 0); ctx.rotate(-Math.PI / 2);
     fireLight(ctx, 0, 0, .16, .66, t, .3); ctx.restore();

@@ -1,5 +1,7 @@
 # Vampyium 2 — rediseño de arte
 
+Último ajuste: tamaño visual de todos los personajes multiplicado por tres durante la partida. Los retratos mantienen la escala de sus tarjetas. Se separaron las capas de los brazos para que el torso no oculte el antebrazo; la mano rodea la empuñadura y las espadas pasan de 1,65 a 1,05 unidades (1,12 en la variante violeta). Se adaptaron también los recortes de congelación, muerte y entrada por la puerta a la escala nueva.
+
 El rediseño utiliza las referencias aportadas por el usuario y el enfoque de recursos rasterizados de Land of Warriors. Se conservan los diez niveles, la física, los controles, la progresión y las doce armas del juego. Vampyrium permanece independiente.
 
 ## Arte integrado

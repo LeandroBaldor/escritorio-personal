@@ -70,7 +70,7 @@ function pelvis(ctx: CanvasRenderingContext2D) { blob(ctx, '#f1ead8', 2.2, () =>
 function spine(ctx: CanvasRenderingContext2D) { for (let i = 0; i < 5; i++) blob(ctx, '#f1ead8', 1.6, () => ctx.roundRect(-3.5, -12 + i * 5, 7, 4, 1.5)); }
 function jaw(ctx: CanvasRenderingContext2D) { blob(ctx, '#ece3cf', 2, () => { ctx.moveTo(-9, -2); ctx.lineTo(9, -2); ctx.lineTo(6, 5); ctx.lineTo(-6, 5); ctx.closePath(); }); ctx.fillStyle = '#fff'; for (let i = -2; i <= 2; i++) ctx.fillRect(i * 3 - 1, -4, 2, 2.5); }
 export function drawBone(ctx: CanvasRenderingContext2D, b: Bone, v: View) {
-  const k = PLAYER_H * 1.3 * v.s / 100 * (b.s ?? 1), fade = Math.min(1, (3.4 - b.t) / 0.6);
+  const k = PLAYER_H * 1.3 * v.s * CHARACTER_SCALE / 100 * (b.s ?? 1), fade = Math.min(1, (3.4 - b.t) / 0.6);
   ctx.save(); ctx.globalAlpha = Math.max(0, fade); ctx.translate(X(v, b.x), Y(v, b.y)); ctx.scale(k, k); ctx.rotate(b.a);
   if (b.kind === 'skull') skull(ctx, b.t < 1.2 ? '#ff3a2a' : '#2a1e1a');
   else if (b.kind === 'jaw') jaw(ctx);
@@ -83,7 +83,8 @@ export function drawBone(ctx: CanvasRenderingContext2D, b: Bone, v: View) {
 }
 // El vampiro se vuelve esqueleto: la carne se desvanece, el esqueleto brilla y arde entero como una antorcha
 // (como la gente que se prende fuego en "El piso es de lava"), grita y al segundo revienta.
-export const CHAR_K = 0.88; // metros del personaje → unidades del mundo
+export const CHARACTER_SCALE = 3;
+export const CHAR_K = 0.88 * CHARACTER_SCALE; // escala visual de los personajes durante la partida
 export function drawCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t: number, g?: Game) {
   const B = BODY[c.kind], k = CHAR_K * v.s * B.k, f = Math.min(1, c.t / BURN_AT), burn = Math.max(0, Math.min(1, (c.t - BURN_AT) / (BLOW_AT - BURN_AT)));
   const fly = c.kind === 'flyer', dragon = c.kind === 'dragon';
@@ -121,7 +122,7 @@ export function drawCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t:
 // Los que mató una armadura: congelado (un instante antes de romperse), derritiéndose en verde, haciéndose luz o
 // a punto de explotar en violeta.
 function armorCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t: number, k: number, fake: Vamp) {
-  const B = BODY[c.kind], x = X(v, c.x), y = Y(v, c.y) + (c.kind === 'flyer' ? -v.s * 0.6 : 0), w = v.s * (B.w + 1.4), h = v.s * (B.h + 1.4);
+  const B = BODY[c.kind], x = X(v, c.x), y = Y(v, c.y) + (c.kind === 'flyer' ? -v.s * 0.6 : 0), w = v.s * (B.w + 1.4) * CHARACTER_SCALE, h = v.s * (B.h + 1.4) * CHARACTER_SCALE;
   const body = (sy = 1, sx = 1) => (cc: CanvasRenderingContext2D) => { cc.save(); cc.translate(x, y); cc.scale(k * c.face * sx, k * sy); drawVampK(cc, fake, t); cc.restore(); };
   if (c.how === 'ice') { tinted(ctx, x - w / 2, y - h, w, h + v.s * 0.4, 'rgb(170,225,255)', 0.7, body()); return; }
   if (c.how === 'violet') { tinted(ctx, x - w / 2, y - h, w, h + v.s * 0.4, 'rgb(200,110,255)', 0.4 + c.t * 3, body()); ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, y - v.s * B.h * 0.5, v.s * 1.6, 'rgba(200,100,255,0.7)'); ctx.restore(); return; }
@@ -883,9 +884,9 @@ function tinted(ctx: CanvasRenderingContext2D, bx: number, by: number, bw: numbe
 }
 // El vampiro congelado: azul hielo, con el bloque de hielo alrededor y brillitos.
 function frozenVamp(ctx: CanvasRenderingContext2D, vp: Vamp, v: View, t: number, k: number, left: number) {
-  const B = BODY[vp.kind], x = X(v, vp.x), y = Y(v, vp.y), w = v.s * (B.w + 1.2), h = v.s * (B.h + 1.2);
+  const B = BODY[vp.kind], x = X(v, vp.x), y = Y(v, vp.y), w = v.s * (B.w + 1.2) * CHARACTER_SCALE, h = v.s * (B.h + 1.2) * CHARACTER_SCALE;
   tinted(ctx, x - w / 2, y - h, w, h + v.s * 0.4, 'rgb(150,215,255)', 0.5, c => { c.save(); c.translate(x, y); c.scale(k * vp.face, k); drawVampK(c, vp, t); c.restore(); });
-  const bw = v.s * (B.w + 0.5), bh = v.s * (B.h + 0.35), shake = left < 0.25 ? Math.sin(t * 80) * v.s * 0.04 : 0;
+  const bw = v.s * (B.w + 0.5) * CHARACTER_SCALE, bh = v.s * (B.h + 0.35) * CHARACTER_SCALE, shake = left < 0.25 ? Math.sin(t * 80) * v.s * 0.04 : 0;
   ctx.save(); ctx.translate(shake, 0);
   ctx.fillStyle = 'rgba(170,225,255,0.28)'; ctx.strokeStyle = 'rgba(230,248,255,0.85)'; ctx.lineWidth = Math.max(1.5, v.s * 0.05);
   ctx.beginPath(); ctx.moveTo(x - bw / 2, y); ctx.lineTo(x - bw / 2 - v.s * 0.1, y - bh * 0.6); ctx.lineTo(x - bw * 0.3, y - bh); ctx.lineTo(x + bw * 0.25, y - bh - v.s * 0.1); ctx.lineTo(x + bw / 2 + v.s * 0.08, y - bh * 0.55); ctx.lineTo(x + bw / 2, y); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -1116,7 +1117,7 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
     // la barrita de vida de los fuertes (cuando ya les pegaron)
     const hp = vp.hp ?? 1, max = vp.maxHp ?? 1;
     if (max > 1 && hp < max && !isBoss(vp.kind)) {
-      const bw = v.s * 1.1, bh = Math.max(4, v.s * 0.13), bx = X(v, vp.x) - bw / 2, by = Y(v, vp.y + BODY[vp.kind].h + 0.35);
+      const bw = v.s * 1.1, bh = Math.max(4, v.s * 0.13), bx = X(v, vp.x) - bw / 2, by = Y(v, vp.y + BODY[vp.kind].h * CHARACTER_SCALE + 0.35);
       ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
       ctx.fillStyle = '#3a0408'; ctx.fillRect(bx, by, bw, bh);
       ctx.fillStyle = lin(ctx, 0, by, 0, by + bh, [[0, '#ff6070'], [1, '#b0101c']]); ctx.fillRect(bx, by, bw * hp / max, bh);
@@ -1147,7 +1148,7 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
       if (g.phase !== 'won') {   // (más chico, un poco más arriba y cada vez más oscuro)
         const x1 = X(v, DOOR.x1), x2 = X(v, DOOR.x2), y0 = Y(v, DOOR.y), top = Y(v, DOOR.y + DOOR.h), mid = (x1 + x2) / 2, r = (x2 - x1) / 2;
         ctx.save(); ctx.beginPath(); ctx.moveTo(x1, y0); ctx.lineTo(x1, top + r); ctx.quadraticCurveTo(x1, top - r * 0.4, mid, top - r); ctx.quadraticCurveTo(x2, top - r * 0.4, x2, top + r); ctx.lineTo(x2, y0); ctx.closePath(); ctx.clip();
-        const sc = 1 - 0.45 * enter, px = X(v, p.x), py = Y(v, p.y) - v.s * 0.35 * enter, bw = v.s * 2.4, bh = v.s * 2.8;
+        const sc = 1 - (1 - .55 / CHARACTER_SCALE) * enter, px = X(v, p.x), py = Y(v, p.y) - v.s * 0.35 * enter, bw = v.s * 2.4 * CHARACTER_SCALE, bh = v.s * 2.8 * CHARACTER_SCALE;
         tinted(ctx, px - bw / 2, py - bh, bw, bh + v.s * 0.2, '#000', Math.min(0.85, enter * 0.8), c => { c.save(); c.translate(px, py); c.scale(k * p.face * sc, k * sc); drawHunterK(c, p, g, t); c.restore(); });
         ctx.restore();
       }

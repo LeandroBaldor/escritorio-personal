@@ -71,7 +71,7 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
   if (p.special?.kind === 'dash') { ctx.translate(.12, -.06); ctx.rotate(.2); }
   const hip: Pt = [pose.lean * .08, -.92 + pose.bob * .45 + pose.crouch * .3 + (p.landT > 0 ? p.landT * .32 : 0)];
   const neck: Pt = [hip[0] + Math.sin(pose.lean) * .61, hip[1] - Math.cos(pose.lean) * .61];
-  const shoulders: Pt[] = [[neck[0] - .18, neck[1] + .085], [neck[0] + .17, neck[1] + .09]];
+  const shoulders: Pt[] = [[neck[0] - .245, neck[1] + .085], [neck[0] + .185, neck[1] + .09]];
   const feet: Pt[] = [], knees: Pt[] = [];
   for (let i = 0; i < 2; i++) {
     const origin: Pt = [hip[0] + (i ? .09 : -.09), hip[1] + .03];
@@ -99,16 +99,26 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
     const bootAngle = p.onGround && Math.abs(p.vx) < .15 && p.attackT < 0 ? 0 : -(pose.legs[i][0] - pose.legs[i][1]) * .3;
     part(ctx, 8, [feet[i][0] + .045, feet[i][1] + .015], .29, .18, bootAngle); ctx.restore();
   };
-  const arm = (i: number, weapon: boolean) => {
+  const arm = (i: number, layer: 'upper' | 'forearm' | 'all') => {
     const [a, b] = pose.arms[i], elbow = add(shoulders[i], a, .34), hand = add(elbow, a + b, .32);
-    ctx.save(); if (!i) ctx.globalAlpha *= .84;
-    limb(ctx, 3, shoulders[i], elbow, .17); limb(ctx, 4, elbow, hand, .15);
-    part(ctx, 9, shoulders[i], .25, .18, -a * .15);
-    if (weapon) paintWeapon(hand, a + b + pose.blade);
-    else if (g.guardHp > 0) drawAsset(ctx, 'weapons', 10, hand[0] - .2, hand[1] - .23, .4, .58);
-    part(ctx, 5, hand, .13, .14, -(a + b)); ctx.restore();
+    const grip = add(hand, a + b, .035);
+    ctx.save(); if (!i) ctx.globalAlpha *= .94;
+    if (layer !== 'forearm') {
+      limb(ctx, 3, shoulders[i], elbow, .185);
+      part(ctx, 9, shoulders[i], .25, .18, -a * .15);
+    }
+    if (layer !== 'upper') {
+      limb(ctx, 4, elbow, hand, .16);
+      // Wrist/cuff overlaps the vambrace. The fingers cover the handle, not the guard.
+      part(ctx, 5, grip, .125, .15, -(a + b));
+      if (i === 1) paintWeapon(grip, a + b + pose.blade);
+      else if (g.guardHp > 0) drawAsset(ctx, 'weapons', 10, grip[0] - .2, grip[1] - .23, .4, .58);
+      ctx.save(); ctx.beginPath(); ctx.ellipse(grip[0], grip[1], .047, .052, -(a + b), 0, Math.PI * 2); ctx.clip();
+      part(ctx, 5, grip, .125, .15, -(a + b)); ctx.restore();
+    }
+    ctx.restore();
   };
-  leg(0); arm(0, false);
+  leg(0); arm(0, 'upper');
   let torso = 1;
   if (g.weapon === 'ice') torso = 14;
   if (g.weapon === 'bone') torso = 15;
@@ -119,7 +129,8 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
   part(ctx, 0, head, .275, .32, pose.head * .4);
   const helmet = g.guardHp > 0 ? 12 : g.weapon === 'holy' || g.weapon === 'cross' ? 11 : g.weapon === 'bone' ? 13 : -1;
   if (helmet >= 0) part(ctx, helmet, [head[0], head[1] - .008], .30, .34, pose.head * .4);
-  arm(1, true);
+  // The rear upper arm stays behind the chest; its forearm and hand cross in front.
+  arm(0, 'forearm'); arm(1, 'all');
   if (p.attackT > .025 && p.attackT < .18 && ['sword', 'firesword', 'violet', 'bone'].includes(p.attackWeapon)) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= Math.sin(p.attackT / .18 * Math.PI) * .32;
     ctx.strokeStyle = p.attackWeapon === 'firesword' ? '#efb778' : p.attackWeapon === 'violet' ? '#c6a2c7' : '#c7d6d9';
