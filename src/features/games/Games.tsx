@@ -211,7 +211,7 @@ export function Games() {
       </li>
       <li><Link onClick={playStart} className="game-card" to="/juegos/fabrica">
         <Cover src={factoryCover} />
-        <span className="game-card-text"><strong>Fábrica de Pedos</strong><span>Diez fábricas gigantes, comida y un único motor: ¡tus pedos! Escapá de los pinches entre engranajes, láseres y fuego.</span><span className="game-card-win"><b>Cómo se gana:</b> Escalá los 10 niveles y llegá a la salida de la fábrica orbital.</span></span><span className="game-card-foot"><span className="game-card-play" aria-hidden="true">Jugar ▶</span></span>
+        <span className="game-card-text"><strong>Fábrica de Pedos</strong><span>Diez laberintos metálicos, comida y un único motor: ¡tus pedos! Elegí tu camino antes de que te alcancen los pinches.</span><span className="game-card-win"><b>Cómo se gana:</b> Escalá los 10 niveles y llegá a la salida de la fábrica orbital.</span></span><span className="game-card-foot"><span className="game-card-play" aria-hidden="true">Jugar ▶</span></span>
       </Link></li>
     </ul>
   </section>;

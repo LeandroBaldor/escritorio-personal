@@ -1,18 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { FACTORIES, FACTORY_HEIGHT, FACTORY_TOP, FOODS, newFactoryGame, stepFactory } from './fartFactory';
-import { MAZE_GAP, mazeFloorSegments, mazeLaneX, mazeOpenings } from './factoryMaze';
+import { FACTORIES, FACTORY_HEIGHT, FACTORY_TOP, FOODS, factoryPoints, newFactoryGame, stepFactory } from './fartFactory';
+import { MAZE_TIERS_PER_LEVEL, MAZE_STRUCTURES, mazeGap, mazeFloorSegments, mazeLaneX, mazeOpenings } from './factoryMaze';
 import { factoryView } from './factoryScene';
 import { FACTORY_FART_SOUNDS } from './factorySound';
 const idle = { left: false, right: false, boost: false };
 describe('Fábrica de Pedos: laberinto frontal', () => {
-  it('gives all ten factories different connected layouts with two openings per tier', () => {
-    const signatures = FACTORIES.map((_, level) => Array.from({ length: 5 }, (_, tier) => mazeOpenings(level, tier + 1).join(',')).join('|'));
+  it('gives all ten factories longer, visibly different connected structures', () => {
+    expect(FACTORY_HEIGHT).toBe(2016); expect(MAZE_TIERS_PER_LEVEL).toBe(7);
+    expect(new Set(MAZE_STRUCTURES.map(s => s.name)).size).toBe(10);
+    const signatures = FACTORIES.map((_, level) => Array.from({ length: MAZE_TIERS_PER_LEVEL }, (_, tier) => mazeOpenings(level, tier + 1).join(',')).join('|'));
     expect(new Set(signatures).size).toBe(10);
-    for (let level = 0; level < 10; level++) for (let tier = 1; tier <= 5; tier++) {
+    const game = newFactoryGame();
+    const solidCounts = FACTORIES.map((_, level) => new Set(game.platforms.filter(p => p.solid && p.y > level * FACTORY_HEIGHT && p.y <= (level + 1) * FACTORY_HEIGHT).map(p => p.row)).size);
+    expect(new Set(solidCounts).size).toBeGreaterThanOrEqual(4);
+    for (let level = 0; level < 10; level++) for (let tier = 1; tier <= MAZE_TIERS_PER_LEVEL; tier++) {
       const openings = mazeOpenings(level, tier), segments = mazeFloorSegments(level, tier);
-      expect(new Set(openings).size).toBe(2);
-      expect(segments.reduce((sum, p) => sum + p.w, 0) + MAZE_GAP * 2).toBe(1600);
-      for (const lane of openings) expect(segments.some(p => Math.abs(mazeLaneX(lane) - p.x) < p.w / 2)).toBe(false);
+      expect(new Set(openings).size).toBeGreaterThanOrEqual(2);
+      expect(segments.reduce((sum, p) => sum + p.w, 0) + mazeGap(level) * openings.length).toBe(1600);
+      for (const lane of openings) expect(segments.some(p => Math.abs(mazeLaneX(lane, level) - p.x) < p.w / 2)).toBe(false);
     }
   });
   it('removes the dense traps and limits bombs to one per factory after the first', () => {
@@ -82,7 +87,7 @@ describe('Fábrica de Pedos: laberinto frontal', () => {
     expect(g.gas.length).toBeGreaterThan(2); const y = g.gas[0].y;
     for (let i = 0; i < 20; i++) stepFactory(g, idle, 1 / 120);
     expect(g.gas[0].y).toBeLessThan(y); expect(g.y).toBeGreaterThan(g.gas[0].y);
-    for (let i = 0; i < 240; i++) stepFactory(g, idle, 1 / 120);
+    for (let i = 0; i < 265; i++) stepFactory(g, idle, 1 / 120);
     expect(g.gas).toHaveLength(0);
   });
   it('keeps the continuously rising floor visible on phones and monitors', () => {
@@ -95,7 +100,32 @@ describe('Fábrica de Pedos: laberinto frontal', () => {
   });
   it('restarts at a safe checkpoint and only wins at the tenth exit', () => {
     for (let level = 0; level < 10; level++) { const g = newFactoryGame(level); g.state = 'playing'; stepFactory(g, idle, 1 / 120); expect(g.state).toBe('playing'); expect(g.y).toBe(level * FACTORY_HEIGHT); }
-    const g = newFactoryGame(9); g.state = 'playing'; g.x = mazeLaneX(mazeOpenings(9, 5)[0]); g.y = FACTORY_TOP - 1; g.vy = 200;
+    const g = newFactoryGame(9); g.state = 'playing'; g.x = mazeLaneX(mazeOpenings(9, MAZE_TIERS_PER_LEVEL)[0], 9); g.y = FACTORY_TOP - 1; g.vy = 200;
     stepFactory(g, idle, 1 / 120); expect(g.state).toBe('won');
+  });
+  it('leans smoothly toward travel direction on the ground and relaxes when stopped', () => {
+    const g = newFactoryGame(); g.state = 'playing';
+    for (let i = 0; i < 30; i++) stepFactory(g, { ...idle, right: true }, 1 / 120);
+    expect(g.lean).toBeGreaterThan(0.08);
+    for (let i = 0; i < 60; i++) stepFactory(g, { ...idle, left: true }, 1 / 120);
+    expect(g.lean).toBeLessThan(-0.08);
+    for (let i = 0; i < 70; i++) stepFactory(g, idle, 1 / 120);
+    expect(Math.abs(g.lean)).toBeLessThan(0.01);
+  });
+  it('drops poop only on long fart recordings and emits one impact when it reaches rising spikes', () => {
+    const short = newFactoryGame(); short.state = 'playing';
+    stepFactory(short, { ...idle, boost: true }, 1 / 120); expect(short.drops).toHaveLength(0);
+    const g = newFactoryGame(); g.state = 'playing'; g.food = 2; g.platforms[0].eaten = true; g.x = mazeLaneX(1);
+    stepFactory(g, { ...idle, boost: true }, 1 / 120); expect(g.drops).toHaveLength(1); expect(g.events.some(e => e.type === 'splat')).toBe(false);
+    let impacts = 0;
+    for (let i = 0; i < 240; i++) { stepFactory(g, idle, 1 / 120); impacts += g.events.filter(e => e.type === 'splat').length; }
+    expect(impacts).toBe(1); expect(g.drops).toHaveLength(0);
+  });
+  it('announces each reached level once without losing the boost event and scores maximum ascent', () => {
+    const g = newFactoryGame(); g.state = 'playing'; g.x = mazeLaneX(mazeOpenings(0, MAZE_TIERS_PER_LEVEL)[0]); g.y = FACTORY_HEIGHT - 1; g.ground = null;
+    stepFactory(g, { ...idle, boost: true }, 1 / 120);
+    expect(g.noticeLevel).toBe(1); expect(g.levelNotice).toBe(3.5); expect(g.events.map(e => e.type)).toEqual(['boost', 'level']);
+    const points = factoryPoints(g); g.y = FACTORY_HEIGHT - 20;
+    stepFactory(g, idle, 1 / 120); expect(g.levelNotice).toBeLessThan(3.5); expect(g.events.some(e => e.type === 'level')).toBe(false); expect(factoryPoints(g)).toBe(points);
   });
 });

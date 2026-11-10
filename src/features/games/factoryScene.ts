@@ -1,24 +1,16 @@
-import { FACTORIES, FACTORY_WIDTH, FOODS, factoryLevel, hazardActive, hazardDirection, platformX, type FactoryGame } from './fartFactory';
+import { FACTORIES, FACTORY_WIDTH, FACTORY_HEIGHT, FACTORY_TOP, FOODS, factoryLevel, hazardActive, hazardDirection, platformX, type FactoryGame } from './fartFactory';
+import { MAZE_ROWS_PER_LEVEL } from './factoryMaze';
 import { factoryMetal as metal, factoryEllipse as ellipse, factoryGear as gear } from './factoryArt';
 import backgroundsUrl from './assets/factory/backgrounds.webp';
 import heroUrl from './assets/factory/hero.webp';
 import foodsUrl from './assets/factory/foods.webp';
 
 let backgrounds: HTMLImageElement | null = null, hero: HTMLImageElement | null = null, foods: HTMLImageElement | null = null;
-const heroFrames: HTMLCanvasElement[] = [];
-let menuHero: HTMLCanvasElement | null = null;
 const metalTiles = new Map<number, HTMLCanvasElement>();
+let gasLayer: HTMLCanvasElement | null = null;
 export async function loadFactoryArt() {
   const load = async (url: string) => { const image = new Image(); image.src = url; await image.decode(); return image; };
   [backgrounds, hero, foods] = await Promise.all([load(backgroundsUrl), load(heroUrl), load(foodsUrl)]);
-  heroFrames.length = 0;
-  for (let i = 0; i < 8; i++) {
-    const frame = document.createElement('canvas'); frame.width = 72; frame.height = 72;
-    frame.getContext('2d')!.drawImage(hero, i % 4 * hero.width / 4, Math.floor(i / 4) * hero.height / 2, hero.width / 4, hero.height / 2, 0, 0, 72, 72);
-    heroFrames.push(frame);
-  }
-  menuHero = document.createElement('canvas'); menuHero.width = 144; menuHero.height = 144;
-  menuHero.getContext('2d')!.drawImage(hero, 0, 0, hero.width / 4, hero.height / 2, 0, 0, 144, 144);
 }
 function mazeMetal(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, level: number) {
   let tile = metalTiles.get(level);
@@ -57,8 +49,9 @@ function drawHero(c: CanvasRenderingContext2D, g: FactoryGame, y: number) {
   else if (g.landing > 0) frame = 7;
   else if (Math.abs(g.vx) > 30) frame = Math.floor(g.time * 9) % 2 + 1;
   ellipse(c, g.x, y + 2, 23, 5, '#0008');
-  c.save(); c.translate(g.x, y); c.rotate(g.ground === null ? g.vx / 400 * 0.055 : 0);
-  c.imageSmoothingEnabled = false; c.drawImage(heroFrames[frame], -61, -121, 122, 122); c.restore();
+  c.save(); c.translate(g.x, y); c.rotate(g.lean); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+  const sw = hero.width / 4, sh = hero.height / 2;
+  c.drawImage(hero, frame % 4 * sw, Math.floor(frame / 4) * sh, sw, sh, -61, -121, 122, 122); c.restore();
 }
 export function drawFactoryMenu(c: CanvasRenderingContext2D, width: number, height: number, time: number) {
   c.fillStyle = '#0f1a26'; c.fillRect(0, 0, width, height);
@@ -70,7 +63,7 @@ export function drawFactoryMenu(c: CanvasRenderingContext2D, width: number, heig
   const x = width < 600 ? width * 0.76 : width * 0.75, y = height * 0.84;
   const size = Math.min(height * 0.64, width < 600 ? width * 0.57 : width * 0.4);
   mazeMetal(c, x - size * 0.72, y + 3, size * 1.44, 32, 1);
-  if (menuHero) { ellipse(c, x, y, size * 0.23, size * 0.035, '#0009'); c.save(); c.imageSmoothingEnabled = false; c.drawImage(menuHero, x - size / 2, y - size + Math.sin(time * 1.7) * 2, size, size); c.restore(); }
+  if (hero) { ellipse(c, x, y, size * 0.23, size * 0.035, '#0009'); c.save(); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; c.drawImage(hero, 0, 0, hero.width / 4, hero.height / 2, x - size / 2, y - size + Math.sin(time * 1.7) * 2, size, size); c.restore(); }
   for (let i = 0; i < 30; i++) ellipse(c, (i * 191 + time * 4) % width, (i * 97 + time * 8) % height, 1, 1, '#d9f1ff55');
 }
 function drawFood(c: CanvasRenderingContext2D, x: number, y: number, index: number, time: number) {
@@ -99,7 +92,7 @@ export function drawFactory(c: CanvasRenderingContext2D, g: FactoryGame, width: 
   c.fillStyle = theme.wall; c.fillRect(0, 0, width, height);
   c.save(); c.scale(v.scale, v.scale); c.translate(-v.left, 0);
   const sy = (y: number) => v.h - (y - v.bottom);
-  const tile = 780;
+  const tile = FACTORY_HEIGHT / 3;
   for (let row = Math.floor(v.bottom / tile); row <= Math.ceil((v.bottom + v.h) / tile); row++) {
     const level = factoryLevel(Math.max(0, row * tile + tile / 2)), yy = sy((row + 1) * tile);
     if (backgrounds) {
@@ -127,7 +120,7 @@ export function drawFactory(c: CanvasRenderingContext2D, g: FactoryGame, width: 
   for (let i = 0; i < 35; i++) { const x = (i * 173 + Math.sin(g.time * 0.3 + i) * 20) % FACTORY_WIDTH, y = (i * 97 + g.time * (4 + i % 4)) % v.h; ellipse(c, x, y, 0.8, 0.8, '#f4e4c733'); }
   for (const p of g.platforms) {
     const y = sy(p.y), x = platformX(p, g.time); if (y < -90 || y > v.h + 60 || x + p.w / 2 < v.left || x - p.w / 2 > v.left + v.w) continue;
-    if (p.row % 10 === 0) { c.fillStyle = theme.color; c.font = 'bold 17px monospace'; c.textAlign = 'center'; c.fillText(p.row === 100 ? 'SALIDA · 10 FÁBRICAS COMPLETADAS' : `SECTOR ${p.row / 10 + 1} · ${FACTORIES[factoryLevel(p.y)].name.toUpperCase()}`, 800, y + 46); c.textAlign = 'left'; }
+    if (p.checkpoint || p.y === FACTORY_TOP) { c.fillStyle = theme.color; c.font = 'bold 17px monospace'; c.textAlign = 'center'; c.fillText(p.y === FACTORY_TOP ? 'SALIDA · 10 FÁBRICAS COMPLETADAS' : `SECTOR ${p.row / MAZE_ROWS_PER_LEVEL + 1} · ${FACTORIES[factoryLevel(p.y)].name.toUpperCase()}`, 800, y + 46); c.textAlign = 'left'; }
     mazeMetal(c, x - p.w / 2, y, p.w, p.solid ? 22 : 16, factoryLevel(p.y));
     c.save(); c.beginPath(); c.rect(x - p.w / 2, y + 3, p.w, 5); c.clip();
     for (let k = -p.w / 2; k < p.w / 2; k += 20) { c.fillStyle = '#edbd36'; c.beginPath(); c.moveTo(x + k, y + 3); c.lineTo(x + k + 10, y + 3); c.lineTo(x + k + 4, y + 8); c.lineTo(x + k - 6, y + 8); c.fill(); } c.restore();
@@ -170,12 +163,25 @@ export function drawFactory(c: CanvasRenderingContext2D, g: FactoryGame, width: 
     if (h.kind === 'door') { metal(c, h.x - 55, y - 80, 110, 12); const amount = active ? 130 : 20 + Math.sin((g.time + h.phase) * 3) * 5; metal(c, h.x - 52, y - 68, 104, amount, '#7c756b'); for (let k = 8; k < amount; k += 12) { c.fillStyle = '#090f1744'; c.fillRect(h.x - 50, y - 68 + k, 100, 2); } c.fillStyle = active ? '#f87171' : '#4ade80'; c.fillRect(h.x - 25, y - 76, 50, 4); }
   }
   const py = sy(g.y);
+  gasLayer ??= document.createElement('canvas');
+  if (gasLayer.width !== Math.ceil(width) || gasLayer.height !== Math.ceil(height)) { gasLayer.width = Math.ceil(width); gasLayer.height = Math.ceil(height); }
+  const gasContext = gasLayer.getContext('2d')!;
+  gasContext.setTransform(1, 0, 0, 1, 0, 0); gasContext.clearRect(0, 0, gasLayer.width, gasLayer.height);
+  gasContext.setTransform(v.scale, 0, 0, v.scale, -v.left * v.scale, 0);
   for (const puff of g.gas) {
     if (puff.age < 0) continue;
-    const f = puff.age / 1.35, x = puff.x + Math.sin(puff.seed * 2.3 + f * 5) * f * 22, y = sy(puff.y), radius = 13 + f * 44;
-    const opacity = Math.min(1, puff.age * 14) * (1 - f);
-    const gas = c.createRadialGradient(x, y, 0, x, y, radius); gas.addColorStop(0, `rgba(126,226,76,${opacity * 0.22})`); gas.addColorStop(0.45, `rgba(98,195,64,${opacity * 0.14})`); gas.addColorStop(1, 'rgba(85,170,55,0)');
-    c.fillStyle = gas; c.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    const f = puff.age / 1.65, x = puff.x + Math.sin(puff.seed * 2.3 + f * 5) * f * 38, y = sy(puff.y), radius = 20 + f * 70;
+    const opacity = Math.min(1, puff.age * 16) * (1 - f);
+    const gas = gasContext.createRadialGradient(x, y, 0, x, y, radius); gas.addColorStop(0, `rgba(124,244,61,${opacity * 0.27})`); gas.addColorStop(0.45, `rgba(85,215,52,${opacity * 0.18})`); gas.addColorStop(1, 'rgba(73,190,45,0)');
+    gasContext.fillStyle = gas; gasContext.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  }
+  // Keep the entire plume translucent, even when several impulses overlap.
+  c.save(); c.globalAlpha = 0.65; c.drawImage(gasLayer, v.left, 0, v.w, v.h); c.restore();
+  for (const drop of g.drops) {
+    c.save(); c.translate(drop.x, sy(drop.y));
+    if (drop.hit) { c.globalAlpha = drop.splash / 0.5; c.scale(1.7, 0.35); }
+    else c.rotate(Math.sin(drop.age * 9) * 0.16);
+    c.font = '34px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('💩', 0, 0); c.restore();
   }
   drawHero(c, g, py); floorSpikes(c, sy(g.spikes), g.time, v.left, v.w); c.restore();
 }
