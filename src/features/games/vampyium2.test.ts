@@ -12,6 +12,15 @@ const walker = (g: Game, x: number, extra: Partial<Vamp> = {}): Vamp => {
 const killsOf = (g: Game) => takeEvents(g).filter(e => e.type === 'kill');
 
 describe('Vampyium2', () => {
+  it('flexiona antes de despegar y consume un único salto al completar el impulso', () => {
+    const g = quiet();
+    step(g, { ...idle(), up: true }, 1 / 60);
+    expect(g.player.onGround).toBe(true); expect(g.player.jumpPrep).toBeGreaterThan(0);
+    expect(takeEvents(g).some(e => e.type === 'jump')).toBe(false);
+    run(g, .05); expect(g.player.onGround).toBe(true);
+    run(g, .06); expect(g.player.onGround).toBe(false); expect(g.player.vy).toBeGreaterThan(0);
+    expect(g.player.jumps).toBe(1); expect(takeEvents(g).filter(e => e.type === 'jump')).toHaveLength(1);
+  });
   it('el cazador camina con las flechas, salta y hace doble salto en el aire', () => {
     const g = quiet(), x0 = g.player.x;
     run(g, 0.5, { ...idle(), right: true });

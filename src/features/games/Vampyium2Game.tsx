@@ -1,5 +1,6 @@
 import './vampyium2.css';
 import { waitForRealisticArt } from './vampyium2Sprites';
+import { Vampyium2Decision } from './Vampyium2Decision';
 // Vampyium2: el componente (pantalla, teclado, panel de la derecha y carteles). La lógica está en vampyrium.ts
 // y el dibujo en vampyriumArt.ts.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -25,7 +26,7 @@ const RECORD_KEY = 'escritorio-personal-juegos:vampyium2-record';
 export interface VampRecord { kills: number; time: number | null }
 export const readVampyium2Record = (): VampRecord => { try { const r = JSON.parse(localStorage.getItem(RECORD_KEY) ?? 'null'); return { kills: Number(r?.kills) || 0, time: Number(r?.time) || null }; } catch { return { kills: 0, time: null }; } };
 // MODO TEST (para probar): todos los niveles abiertos y vida que no se acaba. Para desactivarlo, poner false.
-export const VAMP_TEST_MODE = false;
+export const VAMP_TEST_MODE = true;
 const makeGame = (seed?: number, level?: number) => { const g = newGame(seed, level); g.immortal = VAMP_TEST_MODE; return g; };
 // Hasta qué nivel llegó (hay que ganar cada nivel para que se abra el siguiente).
 const PROGRESS_KEY = 'escritorio-personal-juegos:vampyium2-nivel';
@@ -319,14 +320,15 @@ export function Vampyium2() {
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
       <h1 className="vamp-logo">Vampyium 2</h1>
+      {status !== 'ready' && <span className="vamp-build-status">En construcción</span>}
       <div className="runner-scores"><span>Récord <strong>{recordText}</strong></span></div>
       {(status === 'playing' || status === 'paused') && <button type="button" onClick={() => { playVampMenuButton(); setStatus(s => s === 'playing' ? 'paused' : 'playing'); }}>{status === 'playing' ? 'Pausa' : 'Seguir'}</button>}
     </div>
     <div className="trepa-main">
       <div className="runner-stage" ref={stageRef}>
         <canvas ref={canvasRef} role="img" aria-label={`Nivel ${level}: ${def.name}`} />
-        {(status === 'playing' || status === 'paused') && <div className={`vamp-life${hud.hp <= 25 ? ' vamp-life--low' : ''}`} aria-label={`Vida ${hud.hp} de ${MAX_HP}`}>
-          <span> Vida</span><i><b style={{ width: `${hud.hp / MAX_HP * 100}%` }} /></i><em data-testid="vamp-hp">{hud.hp}/{MAX_HP}</em>
+        {(status === 'playing' || status === 'paused') && <div className={`vamp-life${hud.hp <= 25 ? ' vamp-life--low' : ''}`} aria-label={VAMP_TEST_MODE ? 'Vida ilimitada' : `Vida ${hud.hp} de ${MAX_HP}`}>
+          <span>{VAMP_TEST_MODE ? 'Vida ilimitada' : 'Vida'}</span><i><b style={{ width: `${hud.hp / MAX_HP * 100}%` }} /></i><em data-testid="vamp-hp" data-current-hp={hud.hp}>{VAMP_TEST_MODE ? '∞' : `${hud.hp}/${MAX_HP}`}</em>
         </div>}
         {(status === 'playing' || status === 'paused') && bossKind && <div className={`vamp-boss${bossKind === 'transform' ? ' vamp-boss--transform' : ''}`} aria-label={bossKind === 'transform' ? 'Drácula se transforma' : `${VAMP_NAME[bossKind]}: ${bossHp} de ${BOSS_HP}`}>
           <span>{bossKind === 'transform' ? ' Drácula se transforma…' : `${KIND_ICON[bossKind]} ${VAMP_NAME[bossKind]}`}</span><i><b style={{ width: `${bossHp / BOSS_HP * 100}%` }} /></i><em data-testid="vamp-boss-hp">{bossHp}/{BOSS_HP}</em>
@@ -393,14 +395,15 @@ export function Vampyium2() {
             <Link className="runner-back" to="/juegos">‹ Juegos</Link>
             <h2 id="vamp-message" className="vamp-title">VAMPYIUM 2</h2>
             <div className="vamp-hub-top-right">
-              <span className="vamp-hub-record">{VAMP_TEST_MODE && <em className="vamp-test" data-vamp-test> Modo test</em>} Récord <strong>{recordText}</strong></span>
+              <span className="vamp-build-status">En construcción</span>
+              <span className="vamp-hub-record">{VAMP_TEST_MODE && <em className="vamp-test" data-vamp-test>Vida ilimitada · 10 niveles</em>} Récord <strong>{recordText}</strong></span>
               <button type="button" className="vamp-hub-go" ref={focusNoScroll} disabled={!artReady} onClick={() => start(level)}>Jugar · Nivel {level}</button>
             </div>
           </div>
           <div className="vamp-hub-grid">
             <figure className="vamp-hub-hero" aria-label="Demian, el cazador">
               <ArtCanvas w={330} h={500} draw={(ctx, t) => drawPortrait(ctx, 'hunter', { ...gameRef.current, player: newPlayer(), weapon: 'sword', guardHp: 0, boomer: null }, 160, 482, 172, t)} />
-              <figcaption><b>Demian</b><span> {MAX_HP} de vida</span></figcaption>
+              <figcaption><b>Demian</b><span>Vida ilimitada · ∞</span></figcaption>
             </figure>
             <section className="vamp-hub-box vamp-hub-story" aria-label="La historia de Demian">
               <h3>La historia de Demian</h3>
@@ -461,20 +464,10 @@ export function Vampyium2() {
           </div>
         </div>}
         {status !== 'playing' && status !== 'intro' && status !== 'ready' && <div className="runner-overlay vamp-overlay" role="dialog" aria-labelledby="vamp-message">
-          <div className="trepa-overlay-card ds-frame">
-            {status === 'paused' && <>
-              <h2 id="vamp-message">Pausa</h2>
-              <div className="vamp-pause-btns">
-                <button type="button" onClick={() => { playVampMenuButton(); setStatus('playing'); }} autoFocus>Seguir</button>
-                <button type="button" className="vamp-ghost" onClick={() => { playVampMenuButton(); setStatus('ready'); }}>Volver al Menú</button>
-              </div>
-            </>}
-            {status === 'over' && <>
-              <EndBanner win={false} id="vamp-message" />
-              <p>Mataste <strong>{result.total}</strong> {result.total === 1 ? 'vampiro' : 'vampiros'} en {formatVampTime(result.time)}.{result.newRecord && ' ¡Nuevo récord!'}</p>
-              <button type="button" onClick={() => start(level)} autoFocus>Jugar de nuevo</button>
-              <button type="button" className="vamp-ghost" onClick={() => { playVampMenuButton(); setStatus('ready'); }}>Volver al Menú</button>
-            </>}
+          <div className={`trepa-overlay-card ds-frame${status === 'paused' || status === 'over' ? ' vamp-decision-frame' : ''}`}>
+            {(status === 'paused' || status === 'over') && <Vampyium2Decision defeated={status === 'over'}
+              onContinue={() => { playVampMenuButton(); setStatus('playing'); }} onRetry={() => start(level)}
+              onMenu={() => { playVampMenuButton(); setStatus('ready'); }} />}
             {status === 'won' && <>
               <EndBanner win id="vamp-message" />
               <p className="end-reason">{level === LEVEL_COUNT ? '¡Terminaste los 10 niveles! Demian llegó hasta Drácula.' : `¡Nivel ${level} superado! ${def.name} quedó atrás.`}</p>
@@ -502,7 +495,7 @@ export function Vampyium2() {
           <i className="vamp-bar"><b style={{ width: `${Math.min(100, hud.goal / goal.n * 100)}%` }} /></i>
           {roster.map((k, i) => <p key={k} className="vamp-count" title={`Aguanta ${STRENGTH[k]} ${STRENGTH[k] === 1 ? 'golpe' : 'golpes'} y saca ${DAMAGE[k]} de vida`}>{KIND_ICON[k]} {k === 'walker' ? 'Vampiros' : k === 'flyer' ? 'Voladores' : VAMP_NAME[k]}: <b data-testid={k === 'walker' ? 'vamp-walkers' : k === 'flyer' ? 'vamp-flyers' : undefined}>{killsOf[i] ?? 0}</b></p>)}
         </div>}
-        <div className="trepa-stat vamp-hpstat" aria-label={`Vida: ${hud.hp}`}><span>Vida</span><strong>{hud.hp}<small>/{MAX_HP}</small></strong><i className="vamp-bar vamp-bar--hp"><b style={{ width: `${hud.hp / MAX_HP * 100}%` }} /></i></div>
+        <div className="trepa-stat vamp-hpstat" aria-label="Vida ilimitada"><span>Vida ilimitada</span><strong>∞</strong><i className="vamp-bar vamp-bar--hp"><b style={{ width: '100%' }} /></i></div>
         <div className="trepa-stat vamp-weapons"><span>Armas</span>
           <ul>
             {WEAPONS.filter(w => WEAPON_LEVEL[w] <= level && !isArmor(w)).map(w => <li key={w} className={hud.weapon === w ? 'vamp-now' : ammoOf(w) === 0 ? 'vamp-empty' : ''} title={`${WEAPON_NAME[w]}: ${WEAPON_DMG[w]} de daño`}>{ICON[w]} {WEAPON_NAME[w]} {w === 'sword' ? <b>∞</b> : <><b data-testid={w === 'crossbow' ? 'vamp-ammo' : undefined}>{ammoOf(w)}</b><small>/{MAX_AMMO[w]}</small></>}</li>)}

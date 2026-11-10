@@ -107,6 +107,7 @@ export const SPECIAL_DMG = 2, DASH_SPEED = 26, SPIN_R = 2.6, WHIRL_R = 2.9, BOOM
 export interface Player {
   x: number; y: number; vx: number; vy: number; face: 1 | -1; onGround: boolean; surface: Surface | null; jumps: number;
   hp: number; inv: number; attackT: number; attackWeapon: Weapon; hitIds: Set<number>; cool: number; walkT: number;
+  jumpPrep?: number; takeoffT?: number;
   dropT: number; coyote: number; safeX: number; prevUp: boolean; prevDown: boolean; hurtT: number; landT: number; spinT: number; aim: -1 | 0 | 1; prevL: boolean; prevR: boolean; special: Special | null; // spinT: la vuelta en el aire del doble salto; aim: apunta arriba (1), adelante (0) o abajo (-1)
 }
 export type VampKind = 'walker' | 'flyer' | 'giant' | 'mage' | 'hammer' | 'warrior' | 'wolf' | 'dracula' | 'dragon';
@@ -139,6 +140,7 @@ export interface Vamp {
   hp?: number; maxHp?: number; flash?: number; aim?: number; // (aim: hacia dónde escupe fuego el dragón)
   // los fuertes aguantan varios golpes (flash: el destello blanco del golpe)
   hurtT?: number; // golpeado por una trampa: sangra y sale despedido, pero no muere
+  landT?: number;
   special?: number; // Drácula y el dragón: cuenta para el próximo ataque especial
   frozen?: number; chill?: number; // congelado por la armadura de hielo (se rompe cuando llega a 0); chill: el frío en Drácula y el dragón
   nav?: Nav; stuckT?: number; bestD?: number; unstuck?: number; waitT?: number; braveT?: number; // cómo se mueve por el nivel (ver navigate)
@@ -836,7 +838,8 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
   }
   const was = v.onGround;
   moveBody(v, dt, VAMP_W / 2, -1.2, W + 1.2);
-  if (!was && v.onGround) v.walkT = 0;
+  v.landT = Math.max(0, (v.landT ?? 0) - dt);
+  if (!was && v.onGround) { v.walkT = 0; v.landT = .14; }
   // Si cae en un hueco, salta y sale (saltan bien: nunca se caen al vacío).
   if (v.y < GROUND_Y - 0.9 && v.vy < 0) {
     // sale del lado del hueco que queda para el cazador
@@ -1220,8 +1223,17 @@ export function step(g: Game, input: Input, dt: number) {
   if (aiming && p.aim !== 0 && prevAim !== p.aim) attack(g); // Espacio apretado y después ↑ o ↓: dispara para ese lado
   const upPress = input.up && !p.prevUp && !aiming, downPress = input.down && !p.prevDown && !aiming;
   p.prevUp = input.up; p.prevDown = input.down;
-  if (upPress) {
-    if (p.onGround || p.coyote > 0) { p.vy = JUMP; p.jumps = 1; p.onGround = false; p.surface = null; p.coyote = 0; emit(g, { type: 'jump', double: false }); }
+  p.takeoffT = Math.max(0, (p.takeoffT ?? 0) - dt);
+  const preparing = (p.jumpPrep ?? 0) > 0;
+  if (preparing) {
+    p.jumpPrep = Math.max(0, (p.jumpPrep ?? 0) - dt);
+    if (p.jumpPrep === 0 && (p.onGround || p.coyote > 0)) {
+      p.vy = JUMP; p.jumps = 1; p.onGround = false; p.surface = null; p.coyote = 0; p.takeoffT = .12;
+      emit(g, { type: 'jump', double: false });
+    }
+  }
+  if (upPress && !preparing) {
+    if (p.onGround || p.coyote > 0) { p.jumpPrep = .09; }
     else if (p.jumps < 2) { p.vy = JUMP2; p.jumps = 2; p.spinT = 0.42; emit(g, { type: 'jump', double: true }); }
   }
   if (downPress && p.onGround && p.surface && !p.surface.ground) { p.dropT = 0.28; p.onGround = false; p.surface = null; p.vy = -1; }

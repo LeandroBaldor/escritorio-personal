@@ -1,6 +1,7 @@
 import { wear } from './vampyium2Materials';
 import { drawRealisticHunter, atlasReady, drawAsset } from './vampyium2Sprites';
 import { realisticHeldWeapon, fireLight } from './vampyium2Environment';
+import { VAMP_VISUAL_SCALE } from './vampyium2Motion';
 // Los personajes de Vampyium2 dibujados como los luchadores de Kombat Football: el mismo esqueleto (cadera,
 // pecho inclinado, muslo y canilla, brazo y antebrazo), las mismas poses animadas (guardia que respira, carrera,
 // salto, golpe, aturdido) y el mismo sombreado con volumen; con brazos y piernas más gruesos. En metros, con los
@@ -49,6 +50,14 @@ const ARMOR_W: Weapon[] = ['ice', 'holy', 'venom', 'violet', 'bone'];
 const AIM_W: Weapon[] = ['crossbow', 'pistol', 'ice', 'venom'], CROSS_W: Weapon[] = ['cross', 'holy'], SLASH_W: Weapon[] = ['sword', 'firesword', 'violet', 'bone'];
 function hunterPose(p: Player, t: number, held: Weapon): Pose {
   const s = Math.sin, at = p.attackT, run = p.onGround && Math.abs(p.vx) > 0.15;
+  if ((p.jumpPrep ?? 0) > 0) {
+    const k = Math.sin((1 - (p.jumpPrep ?? 0) / .09) * Math.PI / 2);
+    return { bob: 0, lean: .12 + k * .1, crouch: .12 + k * .58, head: -.06, legs: [[-.4, .9], [.45, 1]], arms: [[-.3 - k * .4, .65], [.4, 1.5]], blade: 1.05 };
+  }
+  if (!p.onGround && (p.takeoffT ?? 0) > 0 && at < 0) {
+    const k = 1 - (p.takeoffT ?? 0) / .12;
+    return { bob: 0, lean: .13 - k * .08, crouch: 0, head: -.03, legs: [[-.12 - k * .18, .10 + k * 1.1], [.15 + k * .75, .12 + k * 1.48]], arms: [[.1 + .5 * k, .7], [.5 + .45 * k, 1.2]], blade: 1.1 };
+  }
   if (p.hurtT > 0) { const w = t * 30; return { bob: 0, lean: -0.35 + s(w) * 0.06, crouch: 0.1, head: -0.3, legs: [[-0.45, 0.5], [0.25, 0.7]], arms: [[-0.6, 0.9], [-0.9, 0.8]], blade: 0.6 }; }
   if (at >= 0) {
     if (AIM_W.includes(p.attackWeapon)) { // el disparo: retroceso
@@ -77,7 +86,7 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
   }
   if (run) { // corre con el ciclo de 8 fases (con un instante en el aire entre paso y paso): el pie apoyado va para atrás
     // con el piso (no patina), el otro pasa adelante subiendo la rodilla; los brazos al revés que las piernas
-    const g = gait(p.walkT * 7 / 2.4, Math.abs(p.vx), { S: 0.86, H: 0.26, K: 0.88, bob: 0.05, beta: 0.34, walkAt: 2.2 }), k = g.k;
+    const g = gait(p.walkT * 7 / 2.4, Math.abs(p.vx), { S: 0.86, H: 0.26, K: 0.88 * VAMP_VISUAL_SCALE, bob: 0.05, beta: 0.34, walkAt: 2.2 }), k = g.k;
     const hipY = -0.7 + g.bob, legs = [0, 1].map(i => {
       const hp: Pt = [i === 0 ? -0.11 : 0.11, hipY], foot: Pt = [hp[0] + 0.04 + g.dx[i], (i === 0 ? -0.03 : 0) - g.lift[i]];
       const [ta, kb] = legAngles(hp, foot, 0.36, 0.35), idle = i === 0 ? [-0.45, 0.55] : [0.42, 0.6];
@@ -88,7 +97,7 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
       legs, arms: armsFor([[-0.1 + (0.95 * g.arm[0] + 0.1) * k, 1.25 + 0.15 * k], [0.15 + (0.6 * g.arm[1] + 0.15) * k, 1.5]]), blade: bladeFor(1.45 - 0.45 * k) };
   }
   const br = s(t * 3.2); // guardia: el puño con la espada adelante, la hoja para arriba (como la cruz de la referencia)
-  return { bob: br * 0.025, lean: 0.06, crouch: 0.08 + br * 0.02, head: 0.05, legs: [[-0.45, 0.55], [0.42, 0.6]], arms: armsFor([[-0.1 + br * 0.03, 1.25], [0.15 - br * 0.03, 1.5]]), blade: bladeFor(1.45) };
+  return { bob: br * 0.012, lean: 0.09, crouch: 0.13 + br * 0.012, head: 0.01, legs: [[-0.4, 0.65], [0.4, 0.7]], arms: armsFor([[.30 + br * .02, 1.65], [.55 - br * .02, 1.40]]), blade: bladeFor(1.14) };
 }
 export function walkerPose(v: Vamp, t: number): Pose {
   const s = Math.sin;
@@ -403,7 +412,7 @@ function goldHelmet(ctx: CanvasRenderingContext2D) {
   spec(ctx, -0.18, -0.42, 0.12, 0.05, -0.5, 0.7);
 }
 export function drawHunterK(ctx: CanvasRenderingContext2D, p: Player, g: Game, t: number) {
-  const held = g.weapon, pose = hunterPose({ ...p, walkT: Math.floor(p.walkT * 14) / 14 }, Math.floor(t * 12) / 12, held);
+  const held = g.weapon, pose = hunterPose(p, t, held);
   if (drawRealisticHunter(ctx, p, g, pose, t, (hand, angle) => {
     if (held === 'sword') { if (!g.boomer) sword(ctx, hand, angle); }
     else holdWeapon(ctx, p.attackT >= 0 ? p.attackWeapon : held, hand, angle, p, t);

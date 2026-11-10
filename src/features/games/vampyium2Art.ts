@@ -8,6 +8,7 @@ import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H,
 import { drawBolt, drawGarlicBomb, drawIceCrystal, drawVenomBall, drawWeaponIcon } from './vampyium2Weapons';
 import { artRevision, atlasReady, drawAsset } from './vampyium2Sprites';
 import { texturedStrip, realisticChain, drawRealisticTrap, fireLight, drawRealisticImpact, drawRealisticPits } from './vampyium2Environment';
+import { VAMP_VISUAL_SCALE } from './vampyium2Motion';
 
 const TAU = Math.PI * 2;
 const INK = '#07060a';
@@ -83,7 +84,7 @@ export function drawBone(ctx: CanvasRenderingContext2D, b: Bone, v: View) {
 }
 // El vampiro se vuelve esqueleto: la carne se desvanece, el esqueleto brilla y arde entero como una antorcha
 // (como la gente que se prende fuego en "El piso es de lava"), grita y al segundo revienta.
-export const CHARACTER_SCALE = 3;
+export const CHARACTER_SCALE = VAMP_VISUAL_SCALE;
 export const CHAR_K = 0.88 * CHARACTER_SCALE; // escala visual de los personajes durante la partida
 export function drawCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t: number, g?: Game) {
   const B = BODY[c.kind], k = CHAR_K * v.s * B.k, f = Math.min(1, c.t / BURN_AT), burn = Math.max(0, Math.min(1, (c.t - BURN_AT) / (BLOW_AT - BURN_AT)));

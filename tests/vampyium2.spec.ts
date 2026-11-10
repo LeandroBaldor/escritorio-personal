@@ -11,7 +11,7 @@ test('Vampyium 2: entrada independiente, controles y pausa', async ({ page }, te
   await page.screenshot({ path: `docs/vampyium2-menu-${testInfo.project.name}.png`, fullPage: true });
   await page.getByRole('button', { name: /Jugar.*Nivel 1/ }).click();
   await page.keyboard.press('Enter');
-  await expect(page.getByTestId('vamp-hp')).toHaveText('100/100');
+  await expect(page.getByTestId('vamp-hp')).toHaveText('∞');
   await page.keyboard.down('ArrowRight');
   await page.waitForTimeout(180);
   await page.keyboard.press('ArrowUp');
