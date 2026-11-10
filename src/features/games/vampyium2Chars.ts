@@ -2,6 +2,7 @@ import { wear } from './vampyium2Materials';
 import { drawRealisticHunter, atlasReady, drawAsset } from './vampyium2Sprites';
 import { realisticHeldWeapon, fireLight } from './vampyium2Environment';
 import { VAMP_VISUAL_SCALE } from './vampyium2Motion';
+import { demianSwordPose } from './vampyium2Demian';
 // Los personajes de Vampyium2 dibujados como los luchadores de Kombat Football: el mismo esqueleto (cadera,
 // pecho inclinado, muslo y canilla, brazo y antebrazo), las mismas poses animadas (guardia que respira, carrera,
 // salto, golpe, aturdido) y el mismo sombreado con volumen; con brazos y piernas más gruesos. En metros, con los
@@ -40,7 +41,7 @@ const metal = (c: string) => { const i = SUIT ? METAL_KEYS.indexOf(c) : -1; retu
 let LIMB = 0.88; // brazos y piernas más gruesos que en Kombat Football
 export const setLimb = (k: number) => { LIMB = k; };
 
-export interface Pose { bob: number; lean: number; crouch: number; head: number; legs: [number, number][]; arms: [number, number][]; blade: number }
+export interface Pose { bob: number; lean: number; crouch: number; head: number; legs: [number, number][]; arms: [number, number][]; blade: number; feet?: [Pt, Pt]; hipOffset?: Pt; weaponBehind?: boolean; relaxedHand?: boolean }
 export interface Look { armor: string; dark: string; trim: string; strap: string; boot: string; cape: string; capeD: string; skin: string; sleeve: string }
 export const HUNTER: Look = { armor: '#2a2a32', dark: '#16161b', trim: '#b9bdc9', strap: '#7a4526', boot: '#17171c', cape: '#572127', capeD: '#1e0d13', skin: '#ba9c86', sleeve: '#1d1d23' };
 export const VAMP: Look = { armor: '#1c1820', dark: '#0f0c12', trim: '#d01624', strap: '#5e3520', boot: '#121015', cape: '#c8121e', capeD: '#4a050b', skin: '#a7aaa0', sleeve: '#16131a' };
@@ -59,6 +60,7 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
     return { bob: 0, lean: .13 - k * .08, crouch: 0, head: -.03, legs: [[-.12 - k * .18, .10 + k * 1.1], [.15 + k * .75, .12 + k * 1.48]], arms: [[.1 + .5 * k, .7], [.5 + .45 * k, 1.2]], blade: 1.1 };
   }
   if (p.hurtT > 0) { const w = t * 30; return { bob: 0, lean: -0.35 + s(w) * 0.06, crouch: 0.1, head: -0.3, legs: [[-0.45, 0.5], [0.25, 0.7]], arms: [[-0.6, 0.9], [-0.9, 0.8]], blade: 0.6 }; }
+  if (p.onGround && !p.special && (at >= 0 ? p.attackWeapon === 'sword' : held === 'sword')) return demianSwordPose(p, t);
   if (at >= 0) {
     if (AIM_W.includes(p.attackWeapon)) { // el disparo: retroceso
       const k = Math.max(0, 1 - at / 0.2);

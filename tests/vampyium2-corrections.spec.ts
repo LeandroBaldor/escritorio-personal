@@ -64,7 +64,7 @@ test('la caminata articula piernas y brazos en 24 fases conservando el diseño',
       const hashes = new Set();
       for (let phase = 0; phase < 24; phase++) {
         c.clearRect(0, 0, 300, 340);
-        const distance = phase / 24 * (.88 * motion.VAMP_VISUAL_SCALE) * logic.BODY[kind].k * .5 / .62;
+        const distance = phase / 24 * (.88 * motion.VAMP_VISUAL_SCALE) * logic.BODY[kind].k * motion.VAMP_STEP_LENGTH / motion.VAMP_STANCE;
         const v = logic.makeVamp(g, kind, { onGround: true, state: 'walk', vx: 2, walkT: distance });
         c.save(); c.translate(150, 320); c.scale(132, 132); art.drawRealisticEnemy(c, v, phase / 24); c.restore();
         const pixels = c.getImageData(0, 110, 300, 230).data;

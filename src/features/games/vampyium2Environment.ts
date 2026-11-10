@@ -166,6 +166,11 @@ export function realisticWeaponIcon(ctx: CanvasRenderingContext2D, weapon: Weapo
 }
 
 export function realisticHeldWeapon(ctx: CanvasRenderingContext2D, weapon: Weapon, hand: [number, number], angle: number, attackT = -1, t = 0) {
+  if (weapon === 'sword' && atlasReady('hunter')) {
+    const w = 1.16, h = w / assetAspect('hunter', 18);
+    ctx.save(); ctx.translate(...hand); ctx.rotate(Math.PI / 2 - angle);
+    drawAsset(ctx, 'hunter', 18, -w * .18, -h / 2, w, h); ctx.restore(); return true;
+  }
   if (!atlasReady('weapons')) return false;
   if ((weapon === 'garlic' || weapon === 'venom') && attackT > .1 && attackT < .3) return true;
   const index = WEAPON_SPRITE[weapon], aspect = assetAspect('weapons', index);
