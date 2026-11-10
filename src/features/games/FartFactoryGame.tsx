@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FACTORIES, FACTORY_HEIGHT, FOODS, factoryLevel, newFactoryGame, stepFactory } from './fartFactory';
-import { drawFactory, loadFactoryArt } from './factoryScene';
+import { drawFactory, drawFactoryMenu, loadFactoryArt } from './factoryScene';
 import { FactorySound } from './factorySound';
 import './fartFactory.css';
 
@@ -20,6 +20,7 @@ export function FartFactory() {
   const [fullscreen, setFullscreen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const release = () => { input.current = emptyInput(); };
+  const leave = () => { sounds.current?.stop(); if (document.fullscreenElement) void document.exitFullscreen().catch(() => {}); };
   const pause = (value: boolean) => { pausedRef.current = value; setPaused(value); release(); if (value) sounds.current?.stop(); else sounds.current?.unlock(); };
   const start = (retry = false) => {
     game.current = newFactoryGame(retry ? factoryLevel(game.current.highest) : 0);
@@ -65,6 +66,7 @@ export function FartFactory() {
         while (accumulator >= 1 / 120) {
           stepFactory(g, input.current, 1 / 120);
           if (g.event === 'boost') sounds.current?.play(g.boostFood);
+          else if (g.event === 'bomb') sounds.current?.explode();
           g.event = ''; accumulator -= 1 / 120;
         }
       } else accumulator = 0;
@@ -74,7 +76,7 @@ export function FartFactory() {
         const rect = el.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
         const w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
         if (el.width !== w || el.height !== h) { el.width = w; el.height = h; }
-        const c = el.getContext('2d'); if (c) { c.setTransform(dpr, 0, 0, dpr, 0, 0); drawFactory(c, g, rect.width, rect.height); }
+        const c = el.getContext('2d'); if (c) { c.setTransform(dpr, 0, 0, dpr, 0, 0); if (g.state === 'ready') drawFactoryMenu(c, rect.width, rect.height, now / 1000); else drawFactory(c, g, rect.width, rect.height); }
       }
       const completed = g.state === 'won' ? 10 : Math.min(9, Math.floor(g.highest / FACTORY_HEIGHT));
       if (completed > lastRecord.current) { lastRecord.current = completed; setBest(completed); try { localStorage.setItem(RECORD, String(completed)); } catch { /* Optional browser storage. */ } }
@@ -94,17 +96,29 @@ export function FartFactory() {
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
   });
   const food = FOODS[hud.food], theme = FACTORIES[hud.level], overlay = hud.state !== 'playing' || paused;
-  return <section className="factory-game" style={{ '--factory-accent': theme.color } as React.CSSProperties} aria-label="Fábrica de Pedos">
+  return <section className={`factory-game${hud.state === 'ready' ? ' factory-game--menu' : ''}`} style={{ '--factory-accent': theme.color } as React.CSSProperties} aria-label="Fábrica de Pedos">
     <div className="factory-stage">
       <canvas ref={canvas} tabIndex={0} aria-label="Fábrica vertical: flechas para elegir camino y Espacio para impulsarse" />
-      <div className="factory-toolbar"><Link to="/juegos" aria-label="Volver a MiniJuegos">← MiniJuegos</Link><strong>FÁBRICA <span>DE PEDOS</span></strong><div>
+      <div className="factory-toolbar"><Link to="/juegos" onClick={leave} aria-label="Volver a MiniJuegos">← MiniJuegos</Link><strong>FÁBRICA <span>DE PEDOS</span></strong><div>
         <button onClick={() => { mutedRef.current = !mutedRef.current; setMuted(mutedRef.current); sounds.current?.mute(mutedRef.current); canvas.current?.focus(); }} aria-label={muted ? 'Activar sonido' : 'Silenciar'}>{muted ? '♫ ×' : '♫'}</button>
         <button onClick={toggleFullscreen} aria-label={fullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}>⛶</button>
         <button disabled={hud.state !== 'playing'} onClick={() => { pause(!pausedRef.current); if (!pausedRef.current) canvas.current?.focus(); }}>{paused ? 'Seguir' : 'Pausa'}</button>
       </div></div>
       <div className="factory-hud"><div className="factory-energy"><b>ENERGÍA DE PEDOS</b><div role="progressbar" aria-label="Energía de pedos" aria-valuenow={Math.round(hud.energy)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${hud.energy}%` }} /></div><small>{Math.round(hud.energy)}% · {food.icon} {food.name} · {food.effect}</small></div><div className="factory-sector"><b>NIVEL {hud.level + 1}<span>/10</span></b><small>{theme.name}</small><div className="factory-levels" aria-label={`${hud.completed} niveles completados`}>{FACTORIES.map((f, i) => <i key={f.name} className={i < hud.completed ? 'done' : i === hud.level ? 'active' : ''} />)}</div></div></div>
       {!overlay && <div className="factory-route-hint">← Elegí tu camino →<small>Comé para recargar · Espacio / ↑ para dar gas</small></div>}
-      {overlay && <div className="factory-overlay"><div className="factory-dialog" role="dialog" aria-modal="true" aria-label={paused ? 'Juego en pausa' : hud.state === 'ready' ? 'Cómo jugar' : hud.reason}>
+      {hud.state === 'ready' && <div className="factory-main-menu" role="dialog" aria-modal="true" aria-label="Menú principal">
+        <div className="factory-menu-sidebar"><p className="factory-kicker">MINIJUEGOS · BY YEYO</p><h1>FÁBRICA<span>DE PEDOS</span><i aria-hidden="true">≋</i></h1><p className="factory-menu-tagline">Encontrá tu camino.<br />Escapá a pura presión.</p>
+          <nav aria-label="Menú del juego"><button className="factory-primary" disabled={art !== 'ready'} onClick={() => start()}>{art === 'loading' ? 'Cargando…' : art === 'error' ? 'No se pudo cargar' : 'Jugar'}</button>
+            <button className="factory-guide-toggle" aria-expanded={showGuide} onClick={() => setShowGuide(!showGuide)}>{showGuide ? 'Ocultar alimentos' : 'Alimentos y controles'}</button>
+            <button onClick={toggleFullscreen}>Pantalla completa</button><button onClick={() => { mutedRef.current = !mutedRef.current; setMuted(mutedRef.current); sounds.current?.mute(mutedRef.current); }}>Sonido: {muted ? 'desactivado' : 'activado'}</button>
+            <Link to="/juegos" className="factory-menu-exit" onClick={leave} aria-label="Salir del juego">Salir <span>↗</span></Link>
+          </nav>
+          {art === 'error' && <button onClick={() => { setArt('loading'); sounds.current?.dispose(); sounds.current = new FactorySound(); void Promise.all([loadFactoryArt(), sounds.current.prepare()]).then(() => setArt('ready')).catch(() => setArt('error')); }}>Reintentar carga</button>}
+          <small>Récord: {best}/10 fábricas</small>
+        </div><div className="factory-menu-caption"><b>10 LABERINTOS INDUSTRIALES</b><span>Buscá las aberturas. Elegí otro corredor.<br />El piso de pinches no espera.</span></div>
+        {showGuide && <div className="factory-menu-guide"><button onClick={() => setShowGuide(false)} aria-label="Cerrar alimentos y controles">×</button><h2>Comé. Elegí. Despegá.</h2><p>← → / A D: mover · Espacio / ↑: pedo · P: pausa.<br />Las paredes son sólidas: subí por los huecos entre corredores. Si activás una bomba, alejate antes de que llegue a cero.</p><div className="factory-foods">{FOODS.map(f => <span key={f.name}>{f.icon}<b>{f.name}</b><small>{f.effect} · +{f.energy}%</small></span>)}</div></div>}
+      </div>}
+      {overlay && hud.state !== 'ready' && <div className="factory-overlay"><div className="factory-dialog" role="dialog" aria-modal="true" aria-label={paused ? 'Juego en pausa' : hud.reason}>
         <p className="factory-kicker">{paused ? 'TOMATE UN RESPIRO' : hud.state === 'won' ? 'MISIÓN CUMPLIDA' : hud.state === 'dead' ? 'VOLVÉ A DARLE GAS' : 'DIEZ FÁBRICAS · CINCO CAMINOS · UN MOTOR'}</p>
         <h1>{paused ? 'Pausa' : hud.state === 'ready' ? 'Un escape a pura presión.' : hud.state === 'won' ? '¡Diez de diez!' : '¡Otra oportunidad!'}</h1>
         <p>{paused ? 'La fábrica te espera. Podés consultar los alimentos antes de seguir.' : hud.state === 'ready' ? 'Elegí tu camino, comé y usá tus pedos para escalar. El piso de pinches sube sin parar. Ganás al salir de la décima fábrica.' : hud.reason}</p>
@@ -114,6 +128,7 @@ export function FartFactory() {
         <button className="factory-guide-toggle" aria-expanded={showGuide} onClick={() => setShowGuide(!showGuide)}>{showGuide ? 'Ocultar alimentos' : 'Ver los 10 alimentos y sus impulsos'}</button>
         {showGuide && <div className="factory-foods">{FOODS.map(f => <span key={f.name}>{f.icon}<b>{f.name}</b><small>{f.effect} · recarga +{f.energy}% · consume {f.cost}%</small></span>)}</div>}
         {hud.state === 'dead' && <button onClick={() => start()}>Empezar desde el nivel 1</button>}
+        <Link className="factory-exit" to="/juegos" onClick={leave}>Salir del juego</Link>
         <small>Récord: {best}/10 fábricas · P: pausa · Controles táctiles en pantalla</small>
       </div></div>}
       {!overlay && <div className="factory-touch" aria-label="Controles táctiles"><div><button aria-label="Mover a la izquierda" {...hold('left')}>◀</button><button aria-label="Mover a la derecha" {...hold('right')}>▶</button></div><button className="factory-boost" aria-label="Impulsarse con un pedo" {...hold('boost')}>💨<span>GAS</span></button></div>}

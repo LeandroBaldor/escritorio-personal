@@ -8,6 +8,7 @@ import sound7 from './assets/factory/fart-7.mp3';
 import sound8 from './assets/factory/fart-8.mp3';
 import sound9 from './assets/factory/fart-9.mp3';
 import sound10 from './assets/factory/fart-10.mp3';
+import explosion from './assets/sonidos/bomba.mp3';
 
 // Index matches FOODS: every meal always uses the same supplied recording.
 export const FACTORY_FART_SOUNDS = [sound1, sound2, sound3, sound4, sound5, sound6, sound7, sound8, sound9, sound10];
@@ -21,13 +22,14 @@ export class FactorySound {
     if (this.loading) return this.loading;
     if (!window.AudioContext) return Promise.resolve();
     const context = new AudioContext(); this.context = context;
-    this.loading = Promise.all(FACTORY_FART_SOUNDS.map(async url => {
+    this.loading = Promise.all([...FACTORY_FART_SOUNDS, explosion].map(async url => {
       const response = await fetch(url); if (!response.ok) throw new Error('No se pudo cargar un sonido.');
       return context.decodeAudioData(await response.arrayBuffer());
     })).then(buffers => { this.buffers = buffers; });
     return this.loading;
   }
   unlock() { if (this.context?.state === 'suspended') void this.context.resume().catch(() => {}); }
+  explode() { this.play(10); }
   play(food: number) {
     const context = this.context, buffer = this.buffers[food];
     if (this.muted || !context || !buffer || context.state !== 'running') return;

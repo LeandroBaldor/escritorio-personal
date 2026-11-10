@@ -18,9 +18,13 @@ test('Factory: menu, gas energy, pause and return', async ({ page }) => {
   await expect(page.locator('a[href="#/juegos/fabrica"] image')).toHaveAttribute('href', /cover\.webp/);
   await page.locator('a[href="#/juegos/fabrica"]').click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('link', { name: 'Salir del juego', exact: true }).click();
+  await expect(page.locator('.factory-game')).toHaveCount(0);
+  await expect(page.locator('.games-list')).toBeVisible();
+  await page.locator('a[href="#/juegos/fabrica"]').click();
   await page.locator('.factory-guide-toggle').click();
   await expect(page.locator('.factory-foods > span')).toHaveCount(10);
-  await page.locator('.factory-guide-toggle').click();
+  await page.getByRole('button', { name: 'Cerrar alimentos y controles' }).click();
   await page.locator('.factory-primary').click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(sounds.size).toBe(10);
