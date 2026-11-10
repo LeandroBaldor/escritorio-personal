@@ -9,6 +9,7 @@ import terminatorCover from './assets/terminator-portada.webp';
 import invasionCover from './assets/portada-invasion.webp';
 import gravityCover from './assets/portada-gravedad.webp';
 import kombatCover from './assets/portada-kombat.webp';
+import voleyCover from './assets/portada-voley.webp';
 import vampCover from './assets/portada-vampyrium.webp';
 import landCover from './assets/portada-land.webp';
 import { CalculatorLink, CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
@@ -20,6 +21,7 @@ import { formatSharkTime, readSharkRecord } from './SharkCity';
 import { formatInvasionTime, readInvasionRecord } from './InvasionGame';
 import { formatGravityTime, readGravityRecord } from './GravitySwapGame';
 import { readKombatRecord } from './KombatFootballGame';
+import { readVoleyRecord } from './KombatVoleyGame';
 import { readVampyriumRecord } from './VampyriumGame';
 import { readLandRecord } from './LandGame';
 import { formatVampTime } from './vampyrium';
@@ -41,6 +43,7 @@ export function Games() {
   const invasion = readInvasionRecord();
   const gravity = readGravityRecord();
   const kombat = readKombatRecord();
+  const voley = readVoleyRecord();
   const vamp = readVampyriumRecord();
   const landWins = Object.values(readLandRecord()).reduce((a, b) => a + b, 0);
   return <section className="games-page">
@@ -160,6 +163,20 @@ export function Games() {
           </span>
           <span className="game-card-foot">
             {kombat.wins + kombat.losses > 0 && <small><b>Récord</b>{kombat.cups ? `🏆 ${kombat.cups} · ` : ''}{kombat.wins}G {kombat.losses}P</small>}
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
+        </Link>
+      </li>
+      <li>
+        <Link onClick={playStart} className="game-card game-card--kf" to="/juegos/voley">
+          <Cover src={voleyCover} />
+          <span className="game-card-text">
+            <strong>Kombat Voley</strong>
+            <span>🏐 Vóley uno contra uno con los luchadores de Kombat: remates saltando en la red y 16 estadios, cada uno con su pelota (meteorito, bomba, rayo…).</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Un solo set a 25 con dos puntos de diferencia. Punto si la pelota pica en la cancha rival, si el rival la tira afuera o la toca más de tres veces. En el mundial ganá octavos, cuartos, semifinal y final.</span>
+          </span>
+          <span className="game-card-foot">
+            {voley.wins + voley.losses > 0 && <small><b>Récord</b>{voley.cups ? `🏆 ${voley.cups} · ` : ''}{voley.wins}G {voley.losses}P</small>}
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
           </span>
         </Link>

@@ -1183,6 +1183,40 @@ test('Kombat Football torneo: la escalera de rivales como en Mortal Kombat', asy
   await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
 });
 
+test('Kombat Voley: amistoso con rival y estadio elegidos, se saca y se pausa; el mundial con octavos', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/juegos');
+  await page.getByRole('link', { name: /Kombat Voley/ }).click();
+  await expect(page.getByRole('heading', { name: 'Kombat Voley', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: 'Amistoso' }).click();
+  const mine = page.getByRole('group', { name: 'Tu jugador' }).getByRole('button', { name: 'FROST' });
+  await mine.click(); await mine.click();
+  const rival = page.getByRole('group', { name: 'Rival' }).getByRole('button', { name: 'THUNDER' });
+  await rival.click(); await rival.click();
+  await expect(page.getByTestId('kv-vs-1')).toHaveText('FROST');
+  await expect(page.getByTestId('kv-vs-2')).toHaveText('THUNDER');
+  await page.getByRole('button', { name: 'Elegir el estadio ▶' }).click();
+  await expect(page.getByRole('group', { name: 'Estadio' }).getByRole('button')).toHaveCount(16);
+  await page.getByRole('button', { name: /Planeta Volcánico/ }).click();
+  await page.getByRole('button', { name: 'Siguiente ▶' }).click();
+  await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
+  await page.getByRole('button', { name: '¡A jugar!' }).click();
+  await expect(page.getByTestId('kv-score')).toHaveText('0 - 0');
+  await expect(page.getByTestId('kf-side-0')).toContainText('FROST');
+  await expect(page.getByTestId('kf-side-1')).toContainText('THUNDER');
+  await expect(page.getByText('Meteorito').first()).toBeVisible();
+  await page.waitForTimeout(3000); await page.keyboard.press('v');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
+  await page.getByRole('button', { name: 'Abandonar' }).click();
+  await page.getByRole('button', { name: 'Mundial' }).click();
+  const me = page.getByRole('group', { name: 'Tu jugador' }).getByRole('button', { name: 'FROST' });
+  await me.click(); // (ya estaba marcado: un toque lo elige)
+  await expect(page.getByRole('heading', { name: 'MUNDIAL DE KOMBAT VOLEY' })).toBeVisible();
+  await expect(page.getByTestId('kv-ladder-next')).toContainText('Octavos de final');
+  await page.getByRole('button', { name: '¡A jugar! ▶' }).click();
+  await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
+});
+
 test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de armas y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
   await page.getByRole('link', { name: /Vampyrium/ }).click();
