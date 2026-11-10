@@ -1,5 +1,7 @@
 # Vampyium 2
 
+Actualización de arte: el rediseño con atlas texturizados y animación por poses se documenta en [vampyium2-realismo.md](vampyium2-realismo.md). Las notas siguientes describen la primera versión del clon.
+
 Versión independiente de Vampyrium en `#/juegos/vampyium2`, disponible en la lista de juegos de Escritorio Personal y MiniJuegos. El original conserva su ruta, sus diseños y sus partidas. El nuevo juego utiliza claves propias de progreso y récord (`vampyium2-nivel`, `vampyium2-record`).
 
 Se conservan los diez niveles, doce armas, armaduras, enemigos, jefes, trampas, sonidos y controles. La lógica está clonada para que futuras modificaciones de la secuela no alteren las reglas del original. Los recursos de fondo y sonido existentes se comparten.

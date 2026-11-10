@@ -6,6 +6,8 @@
 //  · Espada de fuego: hoja enorme de bordes de plata ondulados y el centro de lava, guarda de alas con calavera.
 //  · Pistola de fuego: pistola antigua dorada con la culata roja y el murciélago en el costado.
 import { bloom, darken, lighten, shade, spec } from './gravityMonsters';
+import { realisticWeaponIcon } from './vampyium2Environment';
+import type { Weapon } from './vampyium2';
 
 const TAU = Math.PI * 2, INK = '#0b0709';
 const lg = (ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, stops: [number, string][]) => { const g = ctx.createLinearGradient(x0, y0, x1, y1); for (const [k, c] of stops) g.addColorStop(k, c); return g; };
@@ -235,6 +237,7 @@ export function drawGuardShield(ctx: CanvasRenderingContext2D, t = 0) {
 // ---------------------------------------------------------------- Íconos (para el cartel de las armas y el panel)
 // Dibuja el arma centrada en (0, 0) cabiendo en un cuadrado de lado `size` (píxeles).
 export function drawWeaponIcon(ctx: CanvasRenderingContext2D, w: string, size: number, t = 0, drawSword?: (ctx: CanvasRenderingContext2D) => void) {
+  if (realisticWeaponIcon(ctx, w as Weapon, size)) return;
   ctx.save();
   switch (w) {
     case 'sword': ctx.rotate(0.75); ctx.translate(0, size * 0.3); if (drawSword) { ctx.scale(size / 56, size / 56); drawSword(ctx); } break;

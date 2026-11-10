@@ -15,6 +15,7 @@ import {
 } from './vampyium2Chars';
 import type { Shot, Vamp } from './vampyium2';
 import { drawVampHD } from './vampyium2Vamps';
+import { drawRealisticEnemy, drawAsset, atlasReady } from './vampyium2Sprites';
 
 const INK = '#0b0709';
 const GIANT: Look = { armor: '#1d1a21', dark: '#17141b', trim: '#c41a26', strap: '#6a3b22', boot: '#141217', cape: '#c0121c', capeD: '#3a0408', skin: '#a08eae', sleeve: '#a08eae' };
@@ -599,10 +600,14 @@ export function drawDragonK(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
 // ---------------------------------------------------------------- Todos
 // Los vampiros con el diseño nuevo (vampyriumVamps): más grandes, de tres cuartos, negro con dorado y rojo.
 export function drawVampK(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
-  hitFlash(ctx, v, c => drawVampHD(c, v, t));
+  hitFlash(ctx, v, c => { if (!drawRealisticEnemy(c, v, t)) drawVampHD(c, v, t); });
 }
 // Lo que tiran (en unidades del mundo, ya trasladado al lugar del tiro): bola de fuego, murciélago o llama.
 export function drawShotK(ctx: CanvasRenderingContext2D, s: Shot, t: number) {
+  if (s.kind !== 'bat' && atlasReady('details')) {
+    ctx.save(); ctx.rotate(Math.atan2(-s.vy, s.vx));
+    drawAsset(ctx, 'details', 15, -1, -.28, 1.4, .56); ctx.restore(); return;
+  }
   if (s.kind === 'bat') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0, 0, 0.7, '#ff1030', 0.35); ctx.restore(); ctx.save(); ctx.scale(Math.sign(s.vx) || 1, 1); drawBat(ctx, 0, 0, 0.8, t + s.t * 3 + s.x); ctx.restore(); return; } // los murciélagos de Drácula (más grandes, con un halo rojo)
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   if (s.kind === 'orb') {

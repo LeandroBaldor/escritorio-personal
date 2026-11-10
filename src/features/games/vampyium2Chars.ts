@@ -1,4 +1,6 @@
 import { wear } from './vampyium2Materials';
+import { drawRealisticHunter, atlasReady, drawAsset } from './vampyium2Sprites';
+import { realisticHeldWeapon, fireLight } from './vampyium2Environment';
 // Los personajes de Vampyium2 dibujados como los luchadores de Kombat Football: el mismo esqueleto (cadera,
 // pecho inclinado, muslo y canilla, brazo y antebrazo), las mismas poses animadas (guardia que respira, carrera,
 // salto, golpe, aturdido) y el mismo sombreado con volumen; con brazos y piernas más gruesos. En metros, con los
@@ -162,6 +164,7 @@ export function claw(ctx: CanvasRenderingContext2D, hand: Pt, ang: number, back:
   ctx.restore();
 }
 export function sword(ctx: CanvasRenderingContext2D, hand: Pt, ang: number) {
+  if (realisticHeldWeapon(ctx, 'sword', hand, ang)) return;
   const d = dirv(ang), b0 = add(hand, d, 0.13), b1 = add(hand, d, 1.5), n: Pt = [d[1], -d[0]];
   segment(ctx, add(hand, d, -0.17), add(hand, d, 0.06), 0.085, 0.085, '#3a2414', 0.4); // empuñadura
   { const pm = add(hand, d, -0.2); shade(ctx, () => ctx.arc(pm[0], pm[1], 0.065, 0, TAU), '#d6a032', { x: pm[0], y: pm[1], r: 0.06, lw: 0.5 }); } // pomo
@@ -374,6 +377,7 @@ export function vampTorso(ctx: CanvasRenderingContext2D, t: number) {
 // ---------------------------------------------------------------- Personajes completos
 // Dibuja el arma en la mano (dirección del brazo: ang, con la convención de dirv).
 function holdWeapon(ctx: CanvasRenderingContext2D, w: Weapon, hand: Pt, ang: number, p: Player, t: number) {
+  if (realisticHeldWeapon(ctx, w, hand, ang, p.attackT, t)) return;
   if (w === 'sword') return;
   ctx.save(); ctx.translate(hand[0], hand[1]); ctx.rotate(Math.PI / 2 - ang);
   const shot = p.attackT >= 0 && p.attackWeapon === w ? p.attackT : -1;
@@ -399,7 +403,11 @@ function goldHelmet(ctx: CanvasRenderingContext2D) {
   spec(ctx, -0.18, -0.42, 0.12, 0.05, -0.5, 0.7);
 }
 export function drawHunterK(ctx: CanvasRenderingContext2D, p: Player, g: Game, t: number) {
-  const held = g.weapon, pose = hunterPose(p, t, held);
+  const held = g.weapon, pose = hunterPose({ ...p, walkT: Math.floor(p.walkT * 14) / 14 }, Math.floor(t * 12) / 12, held);
+  if (drawRealisticHunter(ctx, p, g, pose, t, (hand, angle) => {
+    if (held === 'sword') { if (!g.boomer) sword(ctx, hand, angle); }
+    else holdWeapon(ctx, p.attackT >= 0 ? p.attackWeapon : held, hand, angle, p, t);
+  })) return;
   const now = p.attackT >= 0 ? p.attackWeapon : held;
   const suit = (ARMOR_W.includes(now) ? SUITS[now] : g.guardHp > 0 ? SUITS.guardOn : undefined) ?? SUITS[now] ?? SUITS[held] ?? null; // (con la protectora puesta y otra armadura en la mano, se ve esa armadura y la burbuja dorada)
   const saved = { ...HUNTER };
@@ -692,6 +700,11 @@ function ribCage(ctx: CanvasRenderingContext2D, cx: number, top: number, w: numb
   if (!horizontal) { ctx.fillStyle = B_LT; ctx.strokeStyle = B_INK; ctx.lineWidth = w * 0.03; ctx.beginPath(); ctx.roundRect(cx - w * 0.06, top - h * 0.04, w * 0.12, h * 0.72, w * 0.05); ctx.fill(); ctx.stroke(); } // el esternón
 }
 export function drawSkeletonK(ctx: CanvasRenderingContext2D, flyer: boolean, t: number, eyes: number, kind: string = flyer ? 'flyer' : 'walker') {
+  if (atlasReady('details')) {
+    const index = kind === 'dragon' ? 5 : kind === 'wolf' ? 4 : flyer || kind === 'flyer' ? 3 : 2;
+    ctx.save(); ctx.rotate(Math.sin(Math.floor(t * 12) * .9) * .035);
+    drawAsset(ctx, 'details', index, kind === 'dragon' ? -2.2 : -.45, -2, kind === 'dragon' ? 4.4 : .9, 2); ctx.restore(); return;
+  }
   const wob = Math.sin(t * 40) * 0.2;
   if (kind === 'wolf') { // en cuatro patas: columna horizontal, costillas colgando, hocico largo y cola
     ctx.save(); ctx.scale(0.6, 0.9); try { wolfSkeleton(ctx, t, eyes, wob); } finally { ctx.restore(); }
@@ -765,6 +778,7 @@ function humanSkeleton(ctx: CanvasRenderingContext2D, flyer: boolean, t: number,
 }
 // Llamas que le salen de todo el cuerpo (como la gente que se prende fuego en "El piso es de lava").
 export function bodyFire(ctx: CanvasRenderingContext2D, hgt: number, wid: number, k: number, t: number, seed: number) {
+  if (fireLight(ctx, 0, 0, wid * 1.3, hgt * (1 + k * .5), t, seed)) return;
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   const g = ctx.createRadialGradient(0, -hgt * 0.55, 0, 0, -hgt * 0.55, hgt * (1.2 + k));
   g.addColorStop(0, `rgba(255,150,40,${0.5 + 0.2 * Math.sin(t * 20 + seed)})`); g.addColorStop(1, 'rgba(255,150,40,0)');

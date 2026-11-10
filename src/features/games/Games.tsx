@@ -1,4 +1,5 @@
 import { readVampyium2Record } from './Vampyium2Game';
+import vamp2Cover from './assets/vampyium2/cover.webp';
 import factoryCover from './assets/factory/cover.webp';
 import { Link } from 'react-router-dom';
 import { playStart } from './sounds';
@@ -199,7 +200,7 @@ export function Games() {
       </li>
       <li>
         <Link onClick={playStart} className="game-card game-card--vamp game-card--vamp2" to="/juegos/vampyium2">
-          <span className="game-card-cover"><Cover src={vampCover} /></span>
+          <span className="game-card-cover"><Cover src={vamp2Cover} /></span>
           <span className="game-card-text">
             <strong>Vampyium 2</strong>
             <span>Una cacería gótica: personajes de proporciones humanas, acero marcado y cuero envejecido. Diez capítulos, doce armas y un castillo que guarda a Drácula.</span>

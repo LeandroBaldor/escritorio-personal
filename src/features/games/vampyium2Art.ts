@@ -6,6 +6,8 @@ import { drawShotK, drawVampK } from './vampyium2Monsters';
 import { drawDragonDeathK, setVampTexture } from './vampyium2Vamps';
 import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, CAM_MAX, WORLD_H, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, hasDoor, ZAP_AT, DD_BLAST, DD_BURN, DD_END, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Orb, type Shard, MELT_T, PUDDLE_T, DUST_T, FREEZE_T, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyium2';
 import { drawBolt, drawGarlicBomb, drawIceCrystal, drawVenomBall, drawWeaponIcon } from './vampyium2Weapons';
+import { artRevision, atlasReady, drawAsset } from './vampyium2Sprites';
+import { texturedStrip, realisticChain, drawRealisticTrap, fireLight, drawRealisticImpact, drawRealisticPits } from './vampyium2Environment';
 
 const TAU = Math.PI * 2;
 const INK = '#07060a';
@@ -161,7 +163,7 @@ let backdrop: HTMLImageElement | null = null;
 let backdropReady = false;
 export function setBackdrop(url: string, onLoad?: () => void) {
   if (typeof Image === 'undefined') return;
-  if (backdrop && backdrop.src.endsWith(url)) return;
+  if (backdrop && backdrop.src.endsWith(url)) { if (backdropReady) onLoad?.(); return; }
   backdrop = new Image(); backdropReady = false;
   backdrop.onload = () => { backdropReady = true; TINT = tintOf(backdrop!); staticCache = null; onLoad?.(); };
   backdrop.src = url;
@@ -287,6 +289,7 @@ function paintStatic(ctx: CanvasRenderingContext2D, v: View) {
     stoneBlocks(ctx, x1, gTop, x2 - x1, v.h - gTop, bw, bh, s.x1 * 13 + n * 7, LV.def.stone, { moss: true, deep: v.h - gTop });
     groundDecor(ctx, v, s, x1, x2, gTop);
     capStones(ctx, x1, x2, gTop - v.s * 0.08, v.s * 0.4, v.s, s.x1 * 7 + LV.def.n);
+    texturedStrip(ctx, 1, x1, gTop, x2 - x1, Math.max(v.s * 1.6, v.h - gTop));
     if (n === 10) { ctx.fillStyle = lin(ctx, 0, gTop - v.s * 0.12, 0, gTop + v.s * 0.05, [[0, '#d0283a'], [1, '#6a0812']]); ctx.fillRect(x1, gTop - v.s * 0.12, x2 - x1, v.s * 0.16); ctx.fillStyle = '#e2b04a'; ctx.fillRect(x1, gTop + v.s * 0.02, x2 - x1, v.s * 0.04); } // la alfombra roja del trono
     if (n === 8 || n === 9) for (let gx = x1; gx < x2; gx += v.s * 0.18) { const hgt = v.s * (0.12 + hash(gx * 0.37) * 0.22); ctx.strokeStyle = n === 8 ? '#3f6a30' : '#4a5a3a'; ctx.lineWidth = Math.max(1, v.s * 0.04); ctx.beginPath(); ctx.moveTo(gx, gTop - v.s * 0.06); ctx.quadraticCurveTo(gx + v.s * 0.05, gTop - hgt * 0.6, gx + v.s * (hash(gx) - 0.5) * 0.2, gTop - v.s * 0.06 - hgt); ctx.stroke(); } // pasto
     ctx.strokeStyle = INK; ctx.lineWidth = Math.max(2, v.s * 0.06); ctx.strokeRect(x1, gTop - v.s * 0.08, x2 - x1, v.h);
@@ -300,6 +303,7 @@ function paintStatic(ctx: CanvasRenderingContext2D, v: View) {
   for (const q of SURFACES) if (!q.ground && !q.mv) drawPlatform(ctx, v, q); // (las que se mueven, en cada cuadro)
   // la puerta: arco gótico de piedra (el salón del trono no tiene)
   if (!hasDoor()) return;
+  if (atlasReady('details')) return;
   const dx1 = X(v, DOOR.x1 - 0.35), dx2 = Math.max(X(v, DOOR.x2 + 0.35), v.w), dTop = Y(v, DOOR.y + DOOR.h + 0.9);
   stoneBlocks(ctx, dx1, dTop, dx2 - dx1, gTop - dTop, v.s * 0.7, v.s * 0.45, 99, [58, 52, 60]);
   ctx.strokeStyle = INK; ctx.lineWidth = Math.max(2, v.s * 0.06); ctx.strokeRect(dx1, dTop, dx2 - dx1, gTop - dTop);
@@ -363,6 +367,7 @@ function groundDecor(ctx: CanvasRenderingContext2D, v: View, s: Surface, x1: num
 }
 // Una cadena de hierro con eslabones de metal (alternados de frente y de canto) y su brillo.
 function ironChain(ctx: CanvasRenderingContext2D, v: View, x: number, yTop: number, yBot: number) {
+  if (realisticChain(ctx, x, yTop, yBot, v.s * .14)) return;
   const s = v.s, step = s * 0.3;
   for (let cy = yBot, i = 0; cy > yTop; cy -= step, i++) {
     if (i % 2) { ctx.fillStyle = '#17161c'; ctx.fillRect(x - s * 0.025, cy - s * 0.3, s * 0.05, s * 0.3); ctx.fillStyle = 'rgba(200,205,220,0.35)'; ctx.fillRect(x - s * 0.01, cy - s * 0.27, Math.max(1, s * 0.015), s * 0.22); continue; }
@@ -380,6 +385,7 @@ function drawPlatform(ctx: CanvasRenderingContext2D, v: View, s: Surface) {
     ctx.fillStyle = lin(ctx, px - v.s * 0.16, 0, px + v.s * 0.16, 0, [[0, '#26262e'], [0.5, '#7a7d8a'], [1, '#202028']]); ctx.beginPath(); ctx.roundRect(px - v.s * 0.17, ty - v.s * 0.06, v.s * 0.34, v.s * 0.12, v.s * 0.03); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = Math.max(1, v.s * 0.03); ctx.stroke();
     ctx.lineWidth = Math.max(1.5, v.s * 0.05); ctx.strokeStyle = '#5c5e6c'; ctx.beginPath(); ctx.arc(px, ty + v.s * 0.1, v.s * 0.07, 0, TAU); ctx.stroke(); // la argolla
   }
+  if (texturedStrip(ctx, LV.def.n === 3 || LV.def.n === 7 ? 3 : LV.def.n >= 8 ? 0 : 2, x1, y, x2 - x1, th * 1.65)) return;
   // sombra que tira la losa sobre el fondo
   ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.roundRect(x1 + sz * 0.15, y + th * 0.4, x2 - x1, th * 0.9, sz * 0.2); ctx.fill();
   // ménsulas de piedra escalonadas debajo de cada punta
@@ -402,6 +408,7 @@ function drawPlatform(ctx: CanvasRenderingContext2D, v: View, s: Surface) {
 // Los pozos de líquido (ácido, lava, sangre o fuego), con olas, burbujas y resplandor.
 const PIT_COLORS: Record<string, [string, string, string]> = { acid: ['#b8ff5a', '#2fa52f', '#0a3a12'], lava: ['#ffd36b', '#ff6a14', '#5a1205'], blood: ['#ff6b6b', '#b0101c', '#3a0206'], fire: ['#fff1a8', '#ff7a1a', '#4a0a02'] };
 function drawPits(ctx: CanvasRenderingContext2D, v: View, t: number) {
+  if (drawRealisticPits(ctx, v, t)) return;
   const c = PIT_COLORS[LV.def.pit]; if (!c) return;
   for (const [a, b] of GAPS) {
     const x1 = X(v, a), x2 = X(v, b), top = Y(v, 1.4);
@@ -418,6 +425,11 @@ function drawPits(ctx: CanvasRenderingContext2D, v: View, t: number) {
 // La reja de hierro de la puerta: open 0 = cerrada, 1 = arriba del todo (sube con cadenas y baja de golpe).
 function drawGate(ctx: CanvasRenderingContext2D, v: View, open: number) {
   const x1 = X(v, DOOR.x1), x2 = X(v, DOOR.x2), y0 = Y(v, DOOR.y), top = Y(v, DOOR.y + DOOR.h), mid = (x1 + x2) / 2, r = (x2 - x1) / 2;
+  if (atlasReady('details')) {
+    ctx.save(); ctx.beginPath(); ctx.rect(x1, top, x2 - x1, y0 - top); ctx.clip();
+    drawAsset(ctx, 'details', 1, x1, top - open * (y0 - top + v.s * .3), x2 - x1, y0 - top);
+    ctx.restore(); return;
+  }
   const path = () => { ctx.moveTo(x1, y0); ctx.lineTo(x1, top + r); ctx.quadraticCurveTo(x1, top - r * 0.4, mid, top - r); ctx.quadraticCurveTo(x2, top - r * 0.4, x2, top + r); ctx.lineTo(x2, y0); ctx.closePath(); };
   const lift = open * (y0 - top + r);
   // la reja (rastrillo): barrotes gruesos de hierro con punta abajo, travesaños con remaches; sube metiéndose en el muro
@@ -441,6 +453,13 @@ function clearedGate(g: Game) {
 }
 function drawDoor(ctx: CanvasRenderingContext2D, g: Game, v: View, t: number) {
   if (!hasDoor()) return;
+  if (atlasReady('details')) {
+    const cx = X(v, (DOOR.x1 + DOOR.x2) / 2), y = Y(v, DOOR.y), open = g.door.open ? Math.min(1, g.door.t / 1.2) : 0;
+    if (open > 0) glow(ctx, cx, y - v.s * 1.5, v.s * 2, `rgba(215,179,111,${open * .3})`);
+    drawAsset(ctx, 'details', 0, cx - v.s * .95, y - v.s * 4, v.s * 1.9, v.s * 4);
+    if (g.phase !== 'cleared' && g.phase !== 'won') drawGate(ctx, v, open);
+    return;
+  }
   const x1 = X(v, DOOR.x1), x2 = X(v, DOOR.x2), y0 = Y(v, DOOR.y), top = Y(v, DOOR.y + DOOR.h), mid = (x1 + x2) / 2, r = (x2 - x1) / 2;
   const path = () => { ctx.moveTo(x1, y0); ctx.lineTo(x1, top + r); ctx.quadraticCurveTo(x1, top - r * 0.4, mid, top - r); ctx.quadraticCurveTo(x2, top - r * 0.4, x2, top + r); ctx.lineTo(x2, y0); ctx.closePath(); };
   const open = g.door.open ? Math.min(1, g.door.t / 1.2) : 0;
@@ -470,6 +489,7 @@ const FIRE_PAL: Record<string, Pal> = {
 };
 const rgba3 = (c: [number, number, number], a: number) => `rgba(${c[0]},${c[1]},${c[2]},${Math.max(0, Math.min(1, a))})`;
 function fireBody(ctx: CanvasRenderingContext2D, x: number, base: number, hgt: number, wid: number, t: number, seed: number, n = 22, pal: Pal = FIRE_PAL.fire, smoke = true) {
+  if (fireLight(ctx, x, base, wid * 1.65, hgt, t, seed)) return;
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   glow(ctx, x, base - hgt * 0.35, Math.max(hgt * 0.8, wid * 1.6), rgba3(pal[2], 0.3));
   n = Math.min(36, Math.max(n, Math.round(hgt / wid * 6)));
@@ -503,6 +523,10 @@ const torches = (): [number, number][] => [[1.2, GROUND_Y], ...SURFACES.filter(q
 function drawTorches(ctx: CanvasRenderingContext2D, v: View, t: number) {
   torches().forEach(([x, y], i) => {
     const px = X(v, x), py = Y(v, y), s = v.s;
+    if (atlasReady('props')) {
+      drawAsset(ctx, 'props', 14, px - s * .22, py - s * 1.16, s * .44, s * 1.12);
+      fireLight(ctx, px, py - s * .94, s * .44, s * .72, t, i * 3.1); return;
+    }
     ctx.fillStyle = '#1e1c22'; ctx.strokeStyle = INK; ctx.lineWidth = Math.max(1.5, s * 0.05);
     ctx.beginPath(); ctx.moveTo(px - s * 0.05, py); ctx.lineTo(px - s * 0.05, py - s * 0.9); ctx.lineTo(px + s * 0.05, py - s * 0.9); ctx.lineTo(px + s * 0.05, py); ctx.fill();
     ctx.beginPath(); ctx.moveTo(px - s * 0.28, py - s * 0.9); ctx.lineTo(px + s * 0.28, py - s * 0.9); ctx.lineTo(px + s * 0.16, py - s * 1.12); ctx.lineTo(px - s * 0.16, py - s * 1.12); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -683,6 +707,7 @@ function drawJet(ctx: CanvasRenderingContext2D, tr: Trap, st: ReturnType<typeof 
 function drawTraps(ctx: CanvasRenderingContext2D, g: Game, v: View, t: number) {
   for (const tr of TRAPS) {
     const st = trapState(tr, g.time);
+    if (drawRealisticTrap(ctx, tr, st, v, t)) continue;
     switch (tr.kind) {
       case 'spikes': drawSpikes(ctx, tr, st, v, t); break;
       case 'pendulum': drawPendulum(ctx, tr, st, v); break;
@@ -698,6 +723,11 @@ function drawTraps(ctx: CanvasRenderingContext2D, g: Game, v: View, t: number) {
 
 // ---------------------------------------------------------------- Cajas y estacas
 function drawCrate(ctx: CanvasRenderingContext2D, c: Crate, v: View, t: number) {
+  if (atlasReady('props')) {
+    const sz = v.s * .95;
+    ctx.save(); ctx.translate(X(v, c.x), Y(v, c.y)); ctx.rotate(c.landed ? 0 : Math.sin(c.t * 2.2) * .07);
+    drawAsset(ctx, 'props', 8, -sz / 2, -sz, sz, sz); ctx.restore(); return;
+  }
   const s = v.s, x = X(v, c.x), y = Y(v, c.y), sz = s * 0.95, sway = c.landed ? 0 : Math.sin(c.t * 2.2) * 0.12;
   const blink = c.landed && c.t > 13 ? (Math.sin(c.t * 18) > 0 ? 0.35 : 1) : 1;
   ctx.save(); ctx.globalAlpha = blink; ctx.translate(x, y); ctx.rotate(sway);
@@ -722,6 +752,10 @@ function drawCrate(ctx: CanvasRenderingContext2D, c: Crate, v: View, t: number) 
 }
 // Lo que cae del cielo para juntar: la estrella dorada (gira y brilla) o el alma (llama azul con carita que flota).
 function drawItem(ctx: CanvasRenderingContext2D, it: Item, v: View, t: number) {
+  if (atlasReady('details')) {
+    const size = v.s * (it.kind === 'star' ? .65 : .9), x = X(v, it.x), y = Y(v, it.y + .55 + Math.sin(t * 3 + it.id) * .08);
+    drawAsset(ctx, 'details', it.kind === 'star' ? 8 : 9, x - size / 2, y - size / 2, size, size); return;
+  }
   const s = v.s, x = X(v, it.x), y = Y(v, it.y + 0.55 + (it.landed ? Math.sin(t * 3 + it.id) * 0.1 : 0));
   const fade = it.landed && it.t > 11 ? (Math.floor(it.t * 8) % 2 ? 0.4 : 1) : 1; // titila antes de desaparecer
   ctx.save(); ctx.globalAlpha = fade; ctx.translate(x, y);
@@ -744,6 +778,13 @@ function drawItem(ctx: CanvasRenderingContext2D, it: Item, v: View, t: number) {
 }
 // Las jaulas con prisioneros (nivel 3) y los ataúdes de huesos de los vampiros antiguos (nivel 6). Con cada golpe se rajan.
 function drawBreakable(ctx: CanvasRenderingContext2D, o: Breakable, v: View, t: number) {
+  if (atlasReady('props')) {
+    const size = v.s * (o.kind === 'cage' ? 1.25 : .95), height = v.s * 1.8;
+    const x = X(v, o.x) + (o.flash > 0 ? Math.sin(t * 90) * v.s * .04 : 0), y = Y(v, o.y);
+    drawAsset(ctx, 'props', o.kind === 'cage' ? 10 : 9, x - size / 2, y - height, size, height);
+    if (o.hp < o.maxHp) { ctx.fillStyle = '#341d1b'; ctx.fillRect(x - size / 2, y - height - 6, size, 2); ctx.fillStyle = '#a68c67'; ctx.fillRect(x - size / 2, y - height - 6, size * o.hp / o.maxHp, 2); }
+    return;
+  }
   const s = v.s, x = X(v, o.x) + (o.flash > 0 ? Math.sin(t * 90) * s * 0.06 : 0), y = Y(v, o.y), dmg = 1 - o.hp / o.maxHp;
   ctx.save(); ctx.translate(x, y);
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.6, s * 0.1, 0, 0, TAU); ctx.fill();
@@ -778,12 +819,21 @@ function drawBreakable(ctx: CanvasRenderingContext2D, o: Breakable, v: View, t: 
 }
 // La flecha de la ballesta (y clavada en el piso, que se desvanece).
 function drawBoltW(ctx: CanvasRenderingContext2D, s: Bolt, v: View) {
+  if (atlasReady('details')) {
+    ctx.save(); ctx.translate(X(v, s.x), Y(v, s.y)); ctx.rotate(Math.atan2(-s.vy, s.vx));
+    if (s.stuck) ctx.globalAlpha *= .55;
+    drawAsset(ctx, 'details', 10, -v.s * .4, -v.s * .045, v.s * .8, v.s * .09); ctx.restore(); return;
+  }
   ctx.save(); ctx.globalAlpha = s.stuck ? Math.max(0, 1 - s.t / 1.2) : 1; ctx.translate(X(v, s.x), Y(v, s.y)); ctx.rotate(s.stuck ? 0.5 * Math.sign(s.vx) : Math.atan2(-s.vy, s.vx)); if (s.vx < 0 && s.stuck) ctx.scale(-1, 1); ctx.scale(v.s, v.s);
   if (!s.stuck) { ctx.strokeStyle = 'rgba(255,90,70,0.35)'; ctx.lineWidth = 0.06; ctx.beginPath(); ctx.moveTo(-1.6, 0); ctx.lineTo(-0.6, 0); ctx.stroke(); }
   drawBolt(ctx, 0.2, 0, 0.9);
   ctx.restore();
 }
 function drawBombW(ctx: CanvasRenderingContext2D, b: Bomb, v: View, t: number) {
+  if (atlasReady('weapons')) {
+    ctx.save(); ctx.translate(X(v, b.x), Y(v, b.y + .3)); ctx.rotate(b.landed < 0 ? b.a : 0);
+    drawAsset(ctx, 'weapons', 2, -v.s * .25, -v.s * .28, v.s * .5, v.s * .56); ctx.restore(); return;
+  }
   ctx.save(); ctx.translate(X(v, b.x), Y(v, b.y + 0.3)); ctx.rotate(b.landed < 0 ? b.a : 0);
   if (b.landed >= 0 && Math.floor(b.landed * 16) % 2) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, 0, 0, v.s * 0.9, 'rgba(255,255,200,0.6)'); ctx.restore(); } // titila antes de explotar
   drawGarlicBomb(ctx, v.s * 0.3, t);
@@ -846,6 +896,7 @@ function frozenVamp(ctx: CanvasRenderingContext2D, vp: Vamp, v: View, t: number,
 }
 // Los efectos de las armas: la onda de ajo, los rayos de la cruz, la ola de fuego y los estallidos.
 function drawFxW(ctx: CanvasRenderingContext2D, f: Fx, v: View, g: Game, t: number) {
+  if (drawRealisticImpact(ctx, f, v)) return;
   if (f.t < 0) return;
   const k = Math.min(1, f.t / f.life), fade = 1 - k;
   ctx.save();
@@ -1000,7 +1051,7 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   setVampTexture(false);
   const v = viewFor(w, h, g.camY);
   // los pisos, las plataformas quietas y la puerta: en un lienzo alto (todo el escenario) que se dibuja una vez
-  const ch = Math.ceil(h + CAM_MAX * v.s) + 2, key = `${w}x${h}:${LV.def.n}:${backdropReady}:${!!TINT}`;
+  const ch = Math.ceil(h + CAM_MAX * v.s) + 2, key = `${w}x${h}:${LV.def.n}:${backdropReady}:${!!TINT}:${artRevision()}`;
   if (!staticCache || staticCache.key !== key) {
     const c = staticCache?.canvas ?? document.createElement('canvas');
     c.width = w; c.height = ch; const sc = c.getContext('2d');

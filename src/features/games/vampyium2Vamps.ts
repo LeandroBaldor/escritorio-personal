@@ -1,4 +1,5 @@
 import { wear } from './vampyium2Materials';
+import { drawRealisticEnemy, atlasReady, drawAsset } from './vampyium2Sprites';
 // Los vampiros de Vampyium2 con el diseño de la lámina de referencia: de tres cuartos mirando a la derecha (como
 // el cazador), musculosos, cabeza grande con colmillos y ojos rojos; negro con ribetes dorados y rojo carmesí;
 // rodillas y codos con rodilleras y coderas en punta. Las poses salen de cinemática inversa: los pies en el piso y
@@ -1180,6 +1181,12 @@ export function drawDragonDeathK(ctx: CanvasRenderingContext2D, d: DragonDeath, 
   if (d.t >= DD_BLAST) return;
   const sk = Math.max(0, Math.min(1, (d.t - DD_BURN) / (DD_BONES - DD_BURN))), shake = sk * 0.06 * Math.sin(t * 80);
   const fake = { id: 1, kind: 'dragon', x: 0, y: 0, vx: 0, vy: 0, face: 1, state: 'hover', t: 0, onGround: false, surface: null, walkT: d.walkT, cool: 0, speed: 0, jumpT: 0, dropT: 0, hit: false, flash: d.t < 0.15 ? 1 : 0 } as Vamp;
+  if (atlasReady('enemies-b') && atlasReady('details')) {
+    ctx.save(); ctx.translate(shake, 0); ctx.globalAlpha *= 1 - sk;
+    drawRealisticEnemy(ctx, fake, t); ctx.restore(); fire?.();
+    if (sk > 0) { ctx.save(); ctx.globalAlpha *= sk; drawAsset(ctx, 'details', 5, -2.5, -1.4, 5, 2.6); ctx.restore(); }
+    return;
+  }
   ctx.save(); ctx.translate(shake, 0);
   ctx.save(); ctx.globalAlpha = Math.max(0, 1 - sk * 0.88); ctx.filter = sk > 0 ? `brightness(${1 - sk * 0.65}) saturate(${1 - sk * 0.5})` : 'none'; drawDragon2(ctx, fake, 0); ctx.restore(); // (la carne se quema)
   fire?.();

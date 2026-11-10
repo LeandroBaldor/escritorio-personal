@@ -7,6 +7,7 @@ test('Vampyium 2: entrada independiente, controles y pausa', async ({ page }, te
   await expect(page.locator('a[href="#/juegos/vampyrium"]')).toBeVisible();
   await page.locator('a[href="#/juegos/vampyium2"]').click();
   await expect(page.getByRole('heading', { name: 'VAMPYIUM 2', exact: true })).toBeVisible();
+  await expect(page.locator('.vamp2')).toHaveAttribute('data-realistic-art', 'ready');
   await page.screenshot({ path: `docs/vampyium2-menu-${testInfo.project.name}.png`, fullPage: true });
   await page.getByRole('button', { name: /Jugar.*Nivel 1/ }).click();
   await page.keyboard.press('Enter');

@@ -26,3 +26,17 @@
 .game-card--vamp2 .game-card-cover { filter: saturate(.48) contrast(1.12); position: relative; }
 .game-card--vamp2 .game-card-cover::after { content: 'II'; position: absolute; inset: auto 12px 8px auto; font: 64px/1 Georgia, serif; color: #e1ceb0; text-shadow: 0 2px 12px #000; }
 .game-card--vamp2 .game-card-text strong { color: #dfd0b5; font-family: Georgia, serif; letter-spacing: .06em; }
+.vamp2 .vamp-hub-rivals canvas { width: 80px !important; height: 80px !important; }
+.vamp2 .vamp-hub-hp { background: #34272a; border-radius: 2px; font-family: system-ui, sans-serif; font-size: .72rem; color: #c9bca6; }
+.vamp2 .vamp-life, .vamp2 .vamp-boss { font-family: system-ui, sans-serif !important; letter-spacing: .04em; font-weight: 500; border: 1px solid #78674d; box-shadow: 0 3px 16px #0008; }
+.vamp2 .vamp-life span { font-family: system-ui, sans-serif !important; font-size: .7rem; }
+.vamp2 .trepa-stat, .vamp2 .vamp-side>div { border-radius: 2px !important; border: 1px solid #443e35; background: #11171ddf !important; box-shadow: none; }
+.vamp2 .trepa-stat strong { font-family: Georgia, serif; font-weight: 400; color: #d7c6a5 !important; }
+.vamp2 .vamp-count, .vamp2 .trepa-stat>span { font-family: system-ui, sans-serif; font-size: .72rem; font-weight: 400; color: #b1b4b3; }
+.vamp2 .vamp-count b { color: #d6c6a5; }
+.vamp2 .trepa-toast, .vamp2 .trepa-record { font-family: Georgia, serif; font-size: 1.1rem; font-weight: 400; color: #dfd2b8; background: #11161ee8; border: 1px solid #89734c; border-radius: 2px; text-shadow: none; box-shadow: 0 7px 30px #0008; }
+.vamp2 .runner-bar button, .vamp2 .vamp-side button { background: linear-gradient(#332830,#181b21); border: 1px solid #6b5944; border-radius: 2px; color: #dccdb3; }
+.vamp2 .vamp-hub-locked i { color: #827c70; font: 1.2rem Georgia, serif; }
+.vamp2 .vamp-art-loading { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #cbb99a; background: radial-gradient(ellipse at center, #1b2530, #080c12); }
+.vamp2 .vamp-art-loading strong { font: 2rem Georgia, serif; letter-spacing: .12em; }
+.vamp2 .vamp-art-loading p { font: .9rem system-ui, sans-serif; color: #a4a9ab; }
