@@ -42,5 +42,5 @@ test('Factory: menu, gas energy, pause and return', async ({ page }) => {
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('link', { name: 'Volver a MiniJuegos' }).click();
-  await expect(page.locator('.games-list > li')).toHaveCount(11);
+  await expect(page.locator('.games-list > li')).toHaveCount(12);
 });
