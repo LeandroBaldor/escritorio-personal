@@ -6,7 +6,7 @@ import { drawShotK, drawVampK } from './vampyium2Monsters';
 import { drawDragonDeathK, setVampTexture } from './vampyium2Vamps';
 import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, CAM_MAX, WORLD_H, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, hasDoor, ZAP_AT, DD_BLAST, DD_BURN, DD_END, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Orb, type Shard, MELT_T, PUDDLE_T, DUST_T, FREEZE_T, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyium2';
 import { drawBolt, drawGarlicBomb, drawIceCrystal, drawVenomBall, drawWeaponIcon } from './vampyium2Weapons';
-import { artRevision, atlasReady, drawAsset } from './vampyium2Sprites';
+import { artRevision, assetAspect, atlasReady, drawAsset } from './vampyium2Sprites';
 import { texturedStrip, realisticChain, drawRealisticTrap, fireLight, drawRealisticImpact, drawRealisticPits } from './vampyium2Environment';
 import { VAMP_VISUAL_SCALE } from './vampyium2Motion';
 
@@ -73,7 +73,16 @@ function jaw(ctx: CanvasRenderingContext2D) { blob(ctx, '#ece3cf', 2, () => { ct
 export function drawBone(ctx: CanvasRenderingContext2D, b: Bone, v: View) {
   const k = PLAYER_H * 1.3 * v.s * CHARACTER_SCALE / 100 * (b.s ?? 1), fade = Math.min(1, (3.4 - b.t) / 0.6);
   ctx.save(); ctx.globalAlpha = Math.max(0, fade); ctx.translate(X(v, b.x), Y(v, b.y)); ctx.scale(k, k); ctx.rotate(b.a);
-  if (b.kind === 'skull') skull(ctx, b.t < 1.2 ? '#ff3a2a' : '#2a1e1a');
+  if (atlasReady('anatomy')) {
+    const row = b.source === 'wolf' ? 1 : b.source === 'dragon' ? 2 : 0;
+    const col = ['skull', 'jaw', 'ribs', 'pelvis', 'arm', 'leg', 'spine'].indexOf(b.kind);
+    const id = row * 7 + col;
+    const size = b.kind === 'ribs' ? 27 : b.kind === 'leg' ? 26 : b.kind === 'arm' ? 21 : b.kind === 'spine' ? 23 : b.kind === 'pelvis' ? 21 : b.kind === 'skull' ? 21 : 15;
+    const aspect = assetAspect('anatomy', id);
+    const w = aspect >= 1 ? size : size * aspect, h = aspect >= 1 ? size / aspect : size;
+    drawAsset(ctx, 'anatomy', id, -w / 2, -h / 2, w, h);
+  }
+  else if (b.kind === 'skull') skull(ctx, b.t < 1.2 ? '#ff3a2a' : '#2a1e1a');
   else if (b.kind === 'jaw') jaw(ctx);
   else if (b.kind === 'ribs') ribs(ctx);
   else if (b.kind === 'spine') spine(ctx);

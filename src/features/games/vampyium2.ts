@@ -173,7 +173,7 @@ export interface Pop { x: number; y: number; t: number; text: string; bad: boole
 export type KillHow = 'sword' | 'bolt' | 'bomb' | 'cross' | 'fire' | 'bullet' | 'trap' | 'void' | 'crate' | 'ice' | 'venom' | 'violet' | 'holy';
 export interface Corpse { id: number; kind: VampKind; x: number; y: number; face: 1 | -1; t: number; how: KillHow }
 export type BoneKind = 'skull' | 'jaw' | 'ribs' | 'pelvis' | 'arm' | 'leg' | 'spine';
-export interface Bone { kind: BoneKind; x: number; y: number; vx: number; vy: number; a: number; va: number; t: number; rest: boolean; s?: number } // s: el tamaño (los del gigante, más grandes)
+export interface Bone { kind: BoneKind; x: number; y: number; vx: number; vy: number; a: number; va: number; t: number; rest: boolean; s?: number; source?: VampKind } // source selects anatomically matching remains.
 export interface Spark { x: number; y: number; vx: number; vy: number; t: number; life: number; hue: number }
 // Sangre que salpica: gotas que vuelan y quedan como manchas en el piso.
 export interface Drop { x: number; y: number; vx: number; vy: number; r: number; t: number; stuck: boolean }
@@ -1069,7 +1069,7 @@ function updateDragonDeath(g: Game, dt: number) {
   }
   if (was < DD_BURN && d.t >= DD_BURN) emit(g, { type: 'dragonBurn' });
   if (was < DD_BLAST && d.t >= DD_BLAST) { // ¡explota! los huesos para todos lados y mucha sangre
-    for (let n = 0; n < 5; n++) for (const k of BONES) { const a = r() * Math.PI * 2, sp = 10 + r() * 20; g.bones.push({ kind: k, x: d.x + (r() - 0.5) * 2.4, y: cy + (r() - 0.5) * 1.6, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 4, a: r() * 6, va: (r() - 0.5) * 34, t: 0, rest: false, s: 1.5 + r() * 0.9 }); }
+    for (let n = 0; n < 5; n++) for (const k of BONES) { const a = r() * Math.PI * 2, sp = 10 + r() * 20; g.bones.push({ kind: k, x: d.x + (r() - 0.5) * 2.4, y: cy + (r() - 0.5) * 1.6, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 4, a: r() * 6, va: (r() - 0.5) * 34, t: 0, rest: false, source: 'dragon', s: 1.5 + r() * 0.9 }); }
     for (let i = 0; i < 520; i++) { const a = r() * Math.PI * 2, sp = 3 + r() * 22; g.drops.push({ x: d.x + (r() - 0.5) * 1.6, y: cy + (r() - 0.5) * 1.4, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 3, r: 0.06 + r() * 0.18, t: 0, stuck: false }); }
     for (let i = 0; i < 70; i++) { const a = r() * Math.PI * 2, sp = 4 + r() * 14; g.sparks.push({ x: d.x, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, t: 0, life: 0.6 + r() * 0.7, hue: r() < 0.4 ? 0 : 25 + r() * 30 }); }
     g.flash = 0.6; g.shake = 1.2;
@@ -1097,7 +1097,7 @@ function updateRemains(g: Game, dt: number) {
       const hs: Record<BoneKind, number> = { skull: 1.55, jaw: 1.35, ribs: 1.05, spine: 0.9, pelvis: 0.7, arm: 1.1, leg: 0.4 };
       for (let n = 0; n < big; n++) for (const k of BONES) {
         const a = (r() - 0.5) * 3.4 + Math.PI / 2, sp = 11 + r() * 13;
-        g.bones.push({ kind: k, x: c.x + (r() - 0.5) * 0.4, y: c.y + fly + hs[k], vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 3, a: r() * 6, va: (r() - 0.5) * 30, t: 0, rest: false, s: BODY[c.kind].k / VAMP_BIG });
+        g.bones.push({ kind: k, x: c.x + (r() - 0.5) * 0.4, y: c.y + fly + hs[k], vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 3, a: r() * 6, va: (r() - 0.5) * 30, t: 0, rest: false, source: c.kind, s: BODY[c.kind].k / VAMP_BIG });
       }
       for (let i = 0; i < 110 * big; i++) { const a = r() * Math.PI * 1.15 - 0.08, sp = 2 + r() * 15; g.drops.push({ x: c.x + (r() - 0.5) * 0.6, y: c.y + fly + 0.5 + r() * 1.4, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 0.05 + r() * 0.14, t: 0, stuck: false }); } // mucha sangre
       g.shake = Math.max(g.shake, 0.55); g.flash = Math.max(g.flash, 0.25);
@@ -1145,7 +1145,7 @@ function armorRemains(g: Game, c: Corpse, dt: number) {
     if (c.t >= DUST_T) g.corpses.splice(g.corpses.indexOf(c), 1);
   } else if (c.how === 'violet' && c.t >= NOVA_AT) {
     g.corpses.splice(g.corpses.indexOf(c), 1);
-    for (let n = 0; n < big; n++) for (const k of BONES) { const a = (r() - 0.5) * 3.4 + Math.PI / 2, sp = 11 + r() * 13; g.bones.push({ kind: k, x: c.x + (r() - 0.5) * 0.4, y: c.y + fly + 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 3, a: r() * 6, va: (r() - 0.5) * 30, t: 0, rest: false, s: BODY[c.kind].k / VAMP_BIG }); }
+    for (let n = 0; n < big; n++) for (const k of BONES) { const a = (r() - 0.5) * 3.4 + Math.PI / 2, sp = 11 + r() * 13; g.bones.push({ kind: k, x: c.x + (r() - 0.5) * 0.4, y: c.y + fly + 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 3, a: r() * 6, va: (r() - 0.5) * 30, t: 0, rest: false, source: c.kind, s: BODY[c.kind].k / VAMP_BIG }); }
     for (let i = 0; i < 50 * big; i++) { const a = r() * Math.PI * 2, sp = 3 + r() * 12; g.sparks.push({ x: c.x, y: c.y + fly + 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 2, t: 0, life: 0.5 + r() * 0.6, hue: 270 + r() * 40 }); }
     g.fx.push({ kind: 'nova', x: c.x, y: c.y + fly + 1, t: 0, life: 0.6, r: 2.6 * big, face: 1, seed: r() });
     g.shake = Math.max(g.shake, 0.6); g.flash = Math.max(g.flash, 0.2);

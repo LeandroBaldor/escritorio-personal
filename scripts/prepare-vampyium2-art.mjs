@@ -14,7 +14,7 @@ const atlas = {};
 try {
   const page = await browser.newPage();
   for (const entry of entries) {
-    const result = await page.evaluate(async ({ raw, cols, rows, loose, opaque }) => {
+    const result = await page.evaluate(async ({ raw, cols, rows, loose, opaque, rowCuts, columnCuts }) => {
       const image = new Image(); image.src = 'data:image/png;base64,' + raw; await image.decode();
       const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height;
       const ctx = canvas.getContext('2d', { willReadFrequently: true }); ctx.drawImage(image, 0, 0);
@@ -25,12 +25,14 @@ try {
       if (!opaque && alphaRatio < .12) return { error: 'No genuine transparency', alphaRatio };
       const frames = [];
       for (let row = 0; row < rows; row++) {
+        const rowTop = rowCuts?.[row] ?? Math.round(row * canvas.height / rows);
+        const rowBottom = rowCuts?.[row + 1] ?? Math.round((row + 1) * canvas.height / rows);
         let spans = [];
         if (loose) {
           let start = -1, last = -1;
           for (let x = 0; x < canvas.width; x++) {
             let count = 0;
-            for (let y = Math.round(row * canvas.height / rows); y < Math.round((row + 1) * canvas.height / rows); y++) if (pixels[(y * canvas.width + x) * 4 + 3] > 100) count++;
+            for (let y = rowTop; y < rowBottom; y++) if (pixels[(y * canvas.width + x) * 4 + 3] > 100) count++;
             if (count > 3) { if (start < 0) start = x; last = x; }
             else if (start >= 0 && x - last > 5) { spans.push([start, last + 1]); start = -1; }
           }
@@ -43,8 +45,9 @@ try {
           }
         }
         for (let col = 0; col < cols; col++) {
-        const x0 = spans.length === cols ? spans[col][0] : Math.round(col * canvas.width / cols), x1 = spans.length === cols ? spans[col][1] : Math.round((col + 1) * canvas.width / cols);
-        const y0 = Math.round(row * canvas.height / rows), y1 = Math.round((row + 1) * canvas.height / rows);
+        const x0 = columnCuts?.[col] ?? (spans.length === cols ? spans[col][0] : Math.round(col * canvas.width / cols));
+        const x1 = columnCuts?.[col + 1] ?? (spans.length === cols ? spans[col][1] : Math.round((col + 1) * canvas.width / cols));
+        const y0 = rowTop, y1 = rowBottom;
         let left = x1, top = y1, right = x0, bottom = y0, count = 0;
         for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
           if (pixels[(y * canvas.width + x) * 4 + 3] < 48) continue;

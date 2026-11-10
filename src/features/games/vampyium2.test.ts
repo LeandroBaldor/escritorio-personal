@@ -401,6 +401,7 @@ describe('Vampyium2: los vampiros de cada nivel y los puntos', () => {
     const seen = ev();
     expect(seen).toContain('dragonBurn'); expect(seen).toContain('dragonBlast'); expect(seen).toContain('dracKilled');
     expect(g.bones.length).toBeGreaterThan(20);
+    expect(g.bones.every(b => b.source === 'dragon')).toBe(true);
     run(g, 4);
     expect(g.phase).toBe('won'); // (en el salón del trono no hay puerta: se gana ahí mismo)
     expect(g.door.open).toBe(false);

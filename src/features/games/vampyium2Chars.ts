@@ -97,7 +97,7 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
       legs, arms: armsFor([[-0.1 + (0.95 * g.arm[0] + 0.1) * k, 1.25 + 0.15 * k], [0.15 + (0.6 * g.arm[1] + 0.15) * k, 1.5]]), blade: bladeFor(1.45 - 0.45 * k) };
   }
   const br = s(t * 3.2); // guardia: el puño con la espada adelante, la hoja para arriba (como la cruz de la referencia)
-  return { bob: br * 0.012, lean: 0.09, crouch: 0.13 + br * 0.012, head: 0.01, legs: [[-0.4, 0.65], [0.4, 0.7]], arms: armsFor([[.30 + br * .02, 1.65], [.55 - br * .02, 1.40]]), blade: bladeFor(1.14) };
+  return { bob: br * .009, lean: .10, crouch: .24 + br * .012, head: .01, legs: [[-.45, .75], [.45, .8]], arms: armsFor([[-.95 + br * .018, 1.65], [.90 - br * .018, .65]]), blade: bladeFor(1.55) };
 }
 export function walkerPose(v: Vamp, t: number): Pose {
   const s = Math.sin;
