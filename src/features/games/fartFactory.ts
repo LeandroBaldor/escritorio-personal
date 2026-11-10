@@ -1,6 +1,6 @@
 export const FACTORY_HEIGHT = 1440;
 export const FACTORY_TOP = FACTORY_HEIGHT * 10;
-export const FACTORY_WIDTH = 640;
+export const FACTORY_WIDTH = 1600;
 export const FACTORIES = [
   { name: 'Fundición de hierro', color: '#fb923c', wall: '#30251f', motif: 'furnace' },
   { name: 'Central de vapor', color: '#e2e8f0', wall: '#263742', motif: 'steam' },
@@ -16,73 +16,105 @@ export const FACTORIES = [
 export const FOODS = [
   { name: 'Pizza', icon: '🍕', energy: 35, impulse: 640, cost: 20, color: '#fbbf24', effect: 'Equilibrado' },
   { name: 'Porotos', icon: '🫘', energy: 48, impulse: 740, cost: 28, color: '#a3e635', effect: 'Explosivo' },
-  { name: 'Frutas', icon: '🍎', energy: 30, impulse: 590, cost: 15, color: '#fb7185', effect: 'Preciso' },
+  { name: 'Manzana', icon: '🍎', energy: 30, impulse: 610, cost: 15, color: '#fb7185', effect: 'Preciso' },
   { name: 'Fideos', icon: '🍝', energy: 42, impulse: 680, cost: 23, color: '#fdba74', effect: 'Prolongado' },
+  { name: 'Hamburguesa', icon: '🍔', energy: 44, impulse: 700, cost: 25, color: '#d9a35b', effect: 'Contundente' },
+  { name: 'Brócoli', icon: '🥦', energy: 38, impulse: 660, cost: 19, color: '#65a30d', effect: 'Vegetal' },
+  { name: 'Banana', icon: '🍌', energy: 32, impulse: 625, cost: 16, color: '#fde047', effect: 'Ágil' },
+  { name: 'Tacos', icon: '🌮', energy: 46, impulse: 720, cost: 27, color: '#f97316', effect: 'Picante' },
+  { name: 'Huevo', icon: '🥚', energy: 36, impulse: 650, cost: 18, color: '#fef3c7', effect: 'Concentrado' },
+  { name: 'Guiso de lentejas', icon: '🥘', energy: 50, impulse: 760, cost: 30, color: '#b45309', effect: 'Turbina' },
 ] as const;
-export type FactoryPlatform = { id: number; x: number; y: number; w: number; moving: boolean; food: number; eaten: boolean };
+export type FactoryPlatform = { id: number; row: number; lane: number; x: number; y: number; w: number; moving: boolean; food: number; eaten: boolean };
 export type FactoryHazard = { kind: 'gear' | 'laser' | 'door' | 'fire' | 'spikes'; x: number; y: number; phase: number };
 export type FactoryGame = {
   x: number; y: number; vx: number; vy: number; time: number; energy: number; food: number;
-  highest: number; spikes: number; ground: number | null; cooldown: number; puff: number;
+  highest: number; spikes: number; ground: number | null; cooldown: number; puff: number; boostFood: number; landing: number;
   state: 'ready' | 'playing' | 'dead' | 'won'; reason: string;
   platforms: FactoryPlatform[]; hazards: FactoryHazard[]; event: 'boost' | 'eat' | 'level' | '';
 };
 export const factoryLevel = (height: number) => Math.min(9, Math.max(0, Math.floor(height / FACTORY_HEIGHT)));
 export function platformX(p: FactoryPlatform, time: number) { return p.x + (p.moving ? Math.sin(time * 1.1 + p.id) * 38 : 0); }
 export function hazardActive(h: FactoryHazard, time: number) { return (time + h.phase) % 4.8 > 1.8; }
+export function hazardDirection(h: FactoryHazard) { return h.phase % 2 > 1 ? -1 : 1; }
+export function hitsFactoryHazard(g: FactoryGame, h: FactoryHazard) {
+  const left = g.x - 18, right = g.x + 18, bottom = g.y + 5, top = g.y + 105;
+  if (h.kind === 'gear') {
+    const dx = h.x - Math.max(left, Math.min(right, h.x)), dy = h.y - Math.max(bottom, Math.min(top, h.y));
+    return Math.hypot(dx, dy) < 42;
+  }
+  const box = (x1: number, x2: number, y1: number, y2: number) => right > x1 && left < x2 && top > y1 && bottom < y2;
+  if (h.kind === 'spikes') return box(h.x - 40, h.x + 40, h.y - 8, h.y + 15);
+  if (!hazardActive(h, g.time)) return false;
+  if (h.kind === 'door') return box(h.x - 52, h.x + 52, h.y - 62, h.y + 68);
+  const end = h.x + hazardDirection(h) * 128, radius = h.kind === 'fire' ? 24 : 4;
+  return box(Math.min(h.x, end), Math.max(h.x, end), h.y - radius, h.y + radius);
+}
 export function newFactoryGame(level = 0): FactoryGame {
   const platforms: FactoryPlatform[] = [];
   const hazards: FactoryHazard[] = [];
   for (let i = 0; i <= 100; i++) {
     const floor = Math.min(9, Math.floor(i / 10));
-    platforms.push({ id: i, x: i % 10 === 0 ? 320 : [130, 260, 390, 260][i % 4], y: i * 144, w: i % 10 === 0 ? 220 : 134 - floor * 2, moving: i % 4 === 2, food: i % 4, eaten: false });
-    if (i > 0 && i < 100) hazards.push({ kind: (['gear', 'laser', 'door', 'fire', 'spikes'] as const)[i % 5], x: i % 2 ? 70 : 570, y: i * 144 + 65, phase: i * 0.7 });
+    const checkpoint = i % 10 === 0;
+    for (const lane of checkpoint ? [2] : [0, 1, 2, 3, 4]) {
+      platforms.push({ id: platforms.length, row: i, lane, x: checkpoint ? 800 : 180 + lane * 310 + Math.sin(i * 0.8 + lane) * 32,
+        y: i * 144, w: checkpoint ? 1400 : 170 - floor * 3, moving: !checkpoint && (i + lane) % 5 === 2,
+        food: checkpoint ? floor : (i + lane * 3) % FOODS.length, eaten: false });
+    }
+    if (i > 0 && i < 100) for (const lane of [0, 1, 2, 3]) {
+      const kind = (['gear', 'laser', 'door', 'fire', 'spikes'] as const)[(i + lane) % 5];
+      // Traps occupy the gaps between routes; each row has a route around them.
+      hazards.push({ kind, x: 335 + lane * 310, y: i * 144 + 65, phase: i * 0.7 + lane });
+    }
   }
-  return { x: 320, y: level * FACTORY_HEIGHT, vx: 0, vy: 0, time: 0, energy: 100, food: 0, highest: level * FACTORY_HEIGHT, spikes: level * FACTORY_HEIGHT - 230, ground: level * 10, cooldown: 0, puff: 0, state: 'ready', reason: '', platforms, hazards, event: '' };
+  return { x: 800, y: level * FACTORY_HEIGHT, vx: 0, vy: 0, time: 0, energy: 100, food: 0, highest: level * FACTORY_HEIGHT, spikes: level * FACTORY_HEIGHT - 95,
+    ground: platforms.findIndex(p => p.row === level * 10), cooldown: 0, puff: 0, boostFood: 0, landing: 0, state: 'ready', reason: '', platforms, hazards, event: '' };
 }
 export function stepFactory(g: FactoryGame, input: { left: boolean; right: boolean; boost: boolean }, dt: number) {
   if (g.state !== 'playing') return;
   g.event = '';
   dt = Math.min(dt, 1 / 30);
-  g.time += dt; g.cooldown = Math.max(0, g.cooldown - dt); g.puff = Math.max(0, g.puff - dt);
+  g.time += dt; g.cooldown = Math.max(0, g.cooldown - dt); g.puff = Math.max(0, g.puff - dt); g.landing = Math.max(0, g.landing - dt);
   const oldLevel = factoryLevel(g.highest);
   const oldY = g.y;
   if (g.ground !== null) {
     const p = g.platforms[g.ground];
     g.x += platformX(p, g.time) - platformX(p, g.time - dt);
   }
-  g.vx = (Number(input.right) - Number(input.left)) * 245;
-  g.x = Math.max(28, Math.min(612, g.x + g.vx * dt));
+  const targetVx = (Number(input.right) - Number(input.left)) * 400;
+  g.vx += (targetVx - g.vx) * Math.min(1, dt * (g.ground !== null ? 22 : 12));
+  g.x = Math.max(28, Math.min(FACTORY_WIDTH - 28, g.x + g.vx * dt));
+  if (g.ground !== null) {
+    const p = g.platforms[g.ground];
+    if (!p.eaten && Math.abs(g.x - platformX(p, g.time)) < 37) {
+      p.eaten = true; g.food = p.food; g.energy = Math.min(100, g.energy + FOODS[p.food].energy); g.event = 'eat';
+    }
+  }
   if (input.boost && g.cooldown === 0 && g.energy >= FOODS[g.food].cost) {
     const food = FOODS[g.food];
-    g.energy -= food.cost; g.vy = food.impulse; g.ground = null; g.cooldown = 0.34; g.puff = 0.32; g.event = 'boost';
+    g.energy -= food.cost; g.boostFood = g.food; g.vy = food.impulse; g.ground = null; g.cooldown = 0.42; g.puff = 0.65; g.event = 'boost';
   }
   g.vy -= 980 * dt;
   g.y += g.vy * dt;
   g.ground = null;
-  if (g.vy <= 0) for (const p of g.platforms) {
+  if (g.vy <= 0) for (let i = g.platforms.length - 1; i >= 0; i--) {
+    const p = g.platforms[i];
     if (oldY >= p.y && g.y <= p.y && Math.abs(g.x - platformX(p, g.time)) < p.w / 2 + 12) {
+      if (oldY > p.y + 1) g.landing = 0.14;
       g.y = p.y; g.vy = 0; g.ground = p.id; break;
     }
   }
   for (const p of g.platforms) if (!p.eaten && Math.abs(g.y - p.y) < 65 && Math.abs(g.x - platformX(p, g.time)) < 37) {
-    p.eaten = true; g.food = p.food; g.energy = Math.min(100, g.energy + FOODS[p.food].energy); g.event = 'eat';
+    p.eaten = true; g.food = p.food; g.energy = Math.min(100, g.energy + FOODS[p.food].energy); if (!g.event) g.event = 'eat';
   }
   g.highest = Math.max(g.highest, g.y);
   if (factoryLevel(g.highest) > oldLevel) g.event = 'level';
-  if (g.time > 5) g.spikes += (22 + factoryLevel(g.highest) * 1.8) * dt;
-  // The pursuing floor stays within sight, without teleporting onto the player.
-  g.spikes = Math.max(g.spikes, g.highest - 650);
+  // Continuous pursuit from the first frame; catch-up is speed-limited, never a teleport.
+  g.spikes += (24 + factoryLevel(g.highest) * 1.8 + Math.max(0, g.highest - g.spikes - 360) * 1.6) * dt;
   const die = (reason: string) => { g.state = 'dead'; g.reason = reason; };
-  if (g.y < g.spikes + 14) die('¡Te alcanzó el piso de pinches!');
+  if (g.y < g.spikes + 25) die('¡Te alcanzó el piso de pinches!');
   for (const h of g.hazards) {
-    const active = hazardActive(h, g.time);
-    const dx = Math.abs(g.x - h.x), dy = Math.abs(g.y + 30 - h.y);
-    if (h.kind === 'gear' && Math.hypot(dx, dy) < 58) die('¡Cuidado con los engranajes!');
-    if (h.kind === 'spikes' && dx < 52 && dy < 29) die('¡Esos pinches no eran una plataforma!');
-    if (active && h.kind === 'laser' && dx < 155 && dy < 23) die('¡Te alcanzó un láser!');
-    if (active && h.kind === 'fire' && dx < 140 && dy < 34) die('¡Te alcanzó el lanzallamas!');
-    if (active && h.kind === 'door' && dx < 68 && dy < 72) die('¡Te atrapó una compuerta!');
+    if (hitsFactoryHazard(g, h)) { die({ gear: '¡Cuidado con los engranajes!', spikes: '¡Esos pinches no eran una plataforma!', laser: '¡Te alcanzó un láser!', fire: '¡Te alcanzó el lanzallamas!', door: '¡Te atrapó una compuerta!' }[h.kind]); break; }
   }
   if (g.state === 'playing' && g.y >= FACTORY_TOP) { g.state = 'won'; g.reason = '¡Escapaste de las 10 fábricas!'; }
 }
