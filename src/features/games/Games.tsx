@@ -176,7 +176,7 @@ export function Games() {
           <span className="game-card-text">
             <strong>Kombat Voley</strong>
             <span>🏐 Vóley uno contra uno con los luchadores de Kombat: remates saltando en la red y 16 estadios, cada uno con su pelota (meteorito, bomba, rayo…).</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Un solo set a 25 con dos puntos de diferencia. Punto si la pelota pica en la cancha rival, si el rival la tira afuera o la toca más de tres veces. En el mundial ganá octavos, cuartos, semifinal y final.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Un solo set a 15 con dos puntos de diferencia. Punto si la pelota pica en la cancha rival, si el rival la tira afuera o la toca más de tres veces. En el mundial ganá octavos, cuartos, semifinal y final.</span>
           </span>
           <span className="game-card-foot">
             {voley.wins + voley.losses > 0 && <small><b>Récord</b>{voley.cups ? `🏆 ${voley.cups} · ` : ''}{voley.wins}G {voley.losses}P</small>}

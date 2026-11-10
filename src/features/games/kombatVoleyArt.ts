@@ -179,6 +179,17 @@ export function drawVoley(ctx: CanvasRenderingContext2D, m: VMatch, w: number, h
     ctx.fillStyle = '#fff'; ctx.font = `800 ${Math.round(r * 1.05)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(`${n}/${MAX_TOUCHES}`, x, y + r * 0.05);
   }
+  // la barra de carga del golpe (mientras la persona mantiene V): corto → largo
+  for (const p of m.players) {
+    if (p.level !== null || p.hold < 0 || (m.phase !== 'rally' && m.phase !== 'serve')) continue;
+    const w = Math.max(64, v.s * 2), hh = Math.max(7, v.s * 0.17), x = X(v, p.x) - w / 2, y = Y(v, p.y + hOf(p)) - v.s * (touchesOf(m, p.team) > 0 ? 1.15 : 0.6);
+    ctx.fillStyle = '#000000b0'; ctx.fillRect(x - 2, y - 2, w + 4, hh + 4);
+    const gr = ctx.createLinearGradient(x, 0, x + w, 0); gr.addColorStop(0, '#22c55e'); gr.addColorStop(0.55, '#facc15'); gr.addColorStop(1, '#ef4444');
+    ctx.fillStyle = gr; ctx.fillRect(x, y, w * p.pow, hh);
+    ctx.fillStyle = '#ffffff99'; for (const k of [0.25, 0.5, 0.75]) ctx.fillRect(x + w * k - 0.5, y, 1, hh);
+    ctx.fillStyle = '#fff'; ctx.font = `800 ${Math.round(hh * 1.1)}px system-ui, sans-serif`; ctx.textBaseline = 'bottom';
+    ctx.textAlign = 'left'; ctx.fillText('CORTO', x, y - 3); ctx.textAlign = 'right'; ctx.fillText('LARGO', x + w, y - 3);
+  }
   // la pelota
   if (!b.held || m.phase !== 'end') {
     drawBallFx(ctx, v, m);

@@ -20,7 +20,7 @@ import { EndBanner } from './EndBanner';
 import { Fireworks } from './Fireworks';
 
 // Kombat Voley: vóley uno contra uno con los luchadores de Kombat Football. Mismo menú, misma selección y mismos
-// sonidos; el partido es un set a 25 visto de costado. Modos: amistoso (elegís contra quién) y mundial (octavos,
+// sonidos; el partido es un set a 15 visto de costado. Modos: amistoso (elegís contra quién) y mundial (octavos,
 // cuartos, semifinal y final).
 
 // ---------------------------------------------------------------- Récords (en el navegador)
@@ -357,8 +357,8 @@ export function KombatVoley() {
       <li><Keys keys={['←', '→']} /> moverte · <Keys keys={['↑']} /> o <Keys keys={['ESPACIO']} /> <b>saltar</b></li>
       <li>Si la pelota te toca sin apretar nada, <b>la recibís</b>: sube en tu cancha (en el tercer toque pasa sola al otro lado).</li>
       <li><Keys keys={['X']} /> <b>levantar</b>: la pelota sube alto cerca de la red, para rematarla.</li>
-      <li><Keys keys={['V']} /> <b>golpear</b>: la pasás al otro lado (con → más fuerte y baja, con ← más alta). <b>Saltando junto a la red: REMATE</b>.</li>
-      <li><Keys keys={['V']} /> cuando te toca sacar: <b>saque</b>.</li>
+      <li><Keys keys={['V']} /> <b>golpear</b>: la pasás al otro lado. <b>Más tiempo apretada = más largo</b> (toquecito: junto a la red). Con → más fuerte, con ← globo. <b>Saltando junto a la red: REMATE</b>.</li>
+      <li><Keys keys={['V']} /> <b>saque</b>: mantenela para cargarlo y soltala.</li>
     </ul>
   </div>; };
 
@@ -400,7 +400,7 @@ export function KombatVoley() {
         <div className="kf-vs-mid"><strong>VS</strong><small>{stageName}</small></div>
         <div className="kf-vs-side" style={{ ['--kf-c' as string]: CHARS[chars[1]].color }}><FighterCard char={chars[1]} w={150} h={190} mirror /><b>{CHARS[chars[1]].name}</b></div>
       </div>}
-      {playing && hud?.serving && hud.server === 0 && <p className="kv-serve-hint">Tu saque: <Keys keys={['V']} /></p>}
+      {playing && hud?.serving && hud.server === 0 && <p className="kv-serve-hint">Tu saque: mantené <Keys keys={['V']} /> (más tiempo = más al fondo) y soltá</p>}
       {playing && <p className="kf-rotate">📱 Girá el celular para ver la cancha más grande</p>}
       <div className="kf-shouts" aria-live="assertive">
         {shouts.map(s => <div key={s.id} className={`kf-shout kf-shout--${s.kind}`} role="status">{s.text}{s.sub && <small>{s.sub}</small>}</div>)}
@@ -525,6 +525,6 @@ export function KombatVoley() {
         </div>
       </div>}
     </div>
-    {playing && <GamePad className="kf-pad" action={{ hold: hold('hit'), label: 'Golpear' }} actionLabel="🏐" dirs={{ left: { hold: hold('left'), aria: 'Izquierda' }, right: { hold: hold('right'), aria: 'Derecha' }, up: { hold: hold('up'), aria: 'Saltar' }, down: { hold: hold('down'), aria: 'Abajo' } }} extra={<button type="button" className="kf-cast" aria-label="Levantar" {...hold('set')}>⇧</button>} />}
+    {screen === 'playing' && <GamePad className="kf-pad" action={{ hold: hold('hit'), label: 'Golpear' }} actionLabel="🏐" dirs={{ left: { hold: hold('left'), aria: 'Izquierda' }, right: { hold: hold('right'), aria: 'Derecha' }, up: { hold: hold('up'), aria: 'Saltar' }, down: { hold: hold('down'), aria: 'Abajo' } }} extra={<button type="button" className="kf-cast" aria-label="Levantar" {...hold('set')}>⇧</button>} />}
   </section>;
 }

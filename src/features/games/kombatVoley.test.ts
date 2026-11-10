@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BALLS, COURT, MAX_TOUCHES, NET_X, SET_POINTS, STAGE_BALL, newVoley, noVInput, touchesOf, stepVoley, takeVoleyEvents, type VEvent, type VMatch } from './kombatVoley';
+import { BALLS, COURT, MAX_TOUCHES, NET_X, SET_POINTS, STAGE_BALL, CHARGE_T, newVoley, noVInput, predictLanding, touchesOf, stepVoley, takeVoleyEvents, type VEvent, type VMatch } from './kombatVoley';
 import { CHAR_IDS, STAGES, seeded } from './kombat';
 
 const run = (m: VMatch, s: number, ev: VEvent[] = []) => { for (let t = 0; t < s && m.phase !== 'end'; t += 1 / 60) { stepVoley(m, [noVInput(), noVInput()], 1 / 60); ev.push(...takeVoleyEvents(m)); } return ev; };
@@ -11,7 +11,8 @@ describe('Kombat Voley', () => {
     expect(new Set(kinds).size).toBe(16);
     for (const k of kinds) expect(BALLS[k].name).toBeTruthy();
   });
-  it('un partido entre máquinas termina en un set a 25 con dos de diferencia', () => {
+  it('un partido entre máquinas termina en un set a 15 con dos de diferencia', () => {
+    expect(SET_POINTS).toBe(15);
     for (const seed of [1, 2, 3]) {
       const m = newVoley('industrial', [CHAR_IDS[seed], CHAR_IDS[seed + 5]], [0.6, 0.6], seeded(seed));
       const ev = run(m, 900);
@@ -65,6 +66,25 @@ describe('Kombat Voley', () => {
     const b2 = m2.ball; b2.held = false; b2.x = NET_X + 0.15; b2.y = 2.4; b2.vx = 0; b2.vy = 0; m2.players[0].x = NET_X - 0.5; m2.players[1].x = COURT;
     const ev2: VEvent[] = []; for (let t = 0; t < 0.15; t += 1 / 60) { stepVoley(m2, [noVInput(), noVInput()], 1 / 60); ev2.push(...takeVoleyEvents(m2)); }
     expect(ev2.some(e => e.type === 'touch' && e.side === 0)).toBe(false);
+  });
+  it('cuanto más tiempo mantenés V, más largo va el golpe (corto = junto a la red, largo = al fondo)', () => {
+    const land = (short: boolean) => {
+      const m = newVoley('industrial', ['frost', 'thunder'], [null, null], seeded(11));
+      run(m, 2.6); m.phase = 'rally'; m.ballSide = 0; m.lastTeam = 1; m.touches = 0;
+      const b = m.ball, p = m.players[0]; m.players[1].x = COURT + 3; p.x = 4; b.held = false; b.x = 4.1; b.y = 9; b.vx = 0; b.vy = 0;
+      const v = noVInput(); v.hit = true; let hit = false;
+      for (let t = 0; t < 3 && !hit; t += 1 / 60) {
+        const press = short ? b.y < 4.3 : true; // (un toquecito justo cuando llega, o apretada desde mucho antes)
+        stepVoley(m, [press ? v : noVInput(), noVInput()], 1 / 60);
+        hit = takeVoleyEvents(m).some(e => e.type === 'touch');
+      }
+      expect(hit).toBe(true);
+      return predictLanding(m).x;
+    };
+    const short = land(true), long = land(false);
+    expect(Math.sqrt(2 * 6.5 / 13)).toBeGreaterThan(CHARGE_T); // (la pelota tarda más que la carga completa)
+    expect(short).toBeGreaterThan(NET_X); expect(short).toBeLessThan(NET_X + 3);
+    expect(long).toBeGreaterThan(NET_X + 5.5); expect(long).toBeLessThanOrEqual(COURT);
   });
   it('la persona: sin tocar nada la recibe (sube en su cancha); con V la pasa al otro lado', () => {
     const m = newVoley('industrial', ['frost', 'thunder'], [null, null], seeded(7));
