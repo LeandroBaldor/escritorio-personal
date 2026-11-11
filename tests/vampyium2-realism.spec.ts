@@ -3,9 +3,9 @@ import fs from 'node:fs';
 
 test('arte realista: todos los atlas, estados de enemigos y diez escenarios', async ({ page }, testInfo) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
-  await page.goto('/escritorio-personal/#/juegos/vampyium2');
+  await page.goto('/MiniJuegos/#/juegos/vampyium2');
   const result = await page.evaluate(async () => {
-    const base = '/escritorio-personal/src/features/games/';
+    const base = '/MiniJuegos/src/features/games/';
     const sprites = await import(/* @vite-ignore */ base + 'vampyium2Sprites.ts');
     const logic = await import(/* @vite-ignore */ base + 'vampyium2.ts');
     const art = await import(/* @vite-ignore */ base + 'vampyium2Art.ts');
@@ -75,9 +75,9 @@ test('arte realista: todos los atlas, estados de enemigos y diez escenarios', as
     }
     return { status: sprites.realisticArtStatus(), states, aimed, gallery, levels: levels.toDataURL('image/png').split(',')[1] };
   });
-  expect(result.status).toHaveLength(14); // (+ la cara de Demian)
+  expect(result.status).toHaveLength(15); // (+ la cara de Demian y las piezas del dragón volando)
   expect(result.status.every((s: { ready: boolean }) => s.ready)).toBe(true);
-  expect(result.status.reduce((n: number, s: { frames: number }) => n + s.frames, 0)).toBe(269);
+  expect(result.status.reduce((n: number, s: { frames: number }) => n + s.frames, 0)).toBe(277);
   expect(result.states).toBe(528);
   expect(result.aimed).toBe(15);
   expect(errors).toEqual([]);

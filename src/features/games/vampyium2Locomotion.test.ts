@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BODY, makeVamp, newGame, newPlayer, type VampKind } from './vampyium2';
-import { VAMP_BOOT, VAMP_STANCE, VAMP_STEP_LENGTH, VAMP_VISUAL_SCALE, vampireRigPose } from './vampyium2Motion';
+import { ATTACK, BODY, DRAGON_MOUTH, makeVamp, newGame, newPlayer, type VampKind } from './vampyium2';
+import { DRAGON, DRAGON_DRAW, DRAGON_WING_DOWN, dragonWing, VAMP_BOOT, VAMP_STANCE, VAMP_STEP_LENGTH, VAMP_VISUAL_SCALE, vampireAttackMotion, vampireRigPose } from './vampyium2Motion';
 import { demianSwordPose } from './vampyium2Demian';
 import { humanWalk, jointTransform, walkingArm, walkingDepth } from './vampyium2Gait';
 
@@ -143,5 +143,42 @@ describe('standing still means still', () => {
       expect(b.hip[1]).toBeCloseTo(a.hip[1], 6);
       expect(b.legs[0].knee[0]).toBeCloseTo(a.legs[0].knee[0], 6); expect(b.legs[1].knee[1]).toBeCloseTo(a.legs[1].knee[1], 6);
     }
+  });
+});
+
+describe('attack timing (anticipation → acceleration → impact → follow-through → recovery)', () => {
+  it('the blow lands exactly when the game applies the hit, speeding up into it, and settles back to rest', () => {
+    const g = newGame(1, 1);
+    for (const kind of ['walker', 'giant', 'hammer', 'warrior', 'wolf', 'dracula'] as VampKind[]) {
+      const at = ATTACK[kind]!.at, dur = ATTACK[kind]!.dur, m = (t: number) => vampireAttackMotion(makeVamp(g, kind, { state: 'claw', t }));
+      expect(m(at * .6).windup).toBeGreaterThan(.95); // fully loaded, held a moment before the swing
+      expect(m(at).extension).toBeGreaterThan(.999); // impact
+      const early = m(at * .73).extension - m(at * .67).extension, late = m(at).extension - m(at * .94).extension;
+      expect(late).toBeGreaterThan(early); // accelerates into the hit
+      expect(m(at + .08).extension).toBeGreaterThan(1); // follows through past the target
+      expect(m(dur).extension).toBeLessThan(.02); expect(m(dur).windup).toBeLessThan(.02); // back to rest
+      expect(at * .34 * 60).toBeGreaterThanOrEqual(4); // the swing itself is drawn over at least 4 frames
+      let prev = m(0); for (let t = 1 / 60; t <= dur; t += 1 / 60) { const q = m(t); expect(Math.max(Math.abs(q.extension - prev.extension), Math.abs(q.windup - prev.windup))).toBeLessThan(.4); prev = q; } // no jumps between frames
+    }
+  });
+});
+
+describe('Drácula dragón flight', () => {
+  it('the wing beat is a seamless loop that goes from fully up to fully down', () => {
+    expect(dragonWing(0)).toBeCloseTo(dragonWing(1), 6);
+    const samples = Array.from({ length: 200 }, (_, i) => dragonWing(i / 200));
+    expect(Math.min(...samples)).toBeCloseTo(0, 3); expect(Math.max(...samples)).toBeCloseTo(1, 3);
+    for (let i = 1; i < samples.length; i++) expect(Math.abs(samples[i] - samples[i - 1])).toBeLessThan(.05);
+  });
+  it('fully down, both wing tips point downwards (not just level)', () => {
+    const tip = (root: number[], t: number[], a: number) => { const x = t[0] - root[0], y = t[1] - root[1]; return [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)]; };
+    const near = tip(DRAGON.rootNear, [8, 8], -DRAGON_WING_DOWN.near), far = tip(DRAGON.rootFar, [226, 14], DRAGON_WING_DOWN.far);
+    expect(near[1]).toBeGreaterThan(Math.abs(near[0]) * .5); expect(far[1]).toBeGreaterThan(Math.abs(far[0]) * .5);
+  });
+  it('the fire comes out of the drawn mouth', () => {
+    const k = .88 * VAMP_VISUAL_SCALE * BODY.dragon.k;
+    const mx = (DRAGON_DRAW.x + (DRAGON.mouth[0] - DRAGON.center[0]) * DRAGON_DRAW.scale) * k;
+    const my = -(DRAGON_DRAW.y + (DRAGON.mouth[1] - DRAGON.center[1]) * DRAGON_DRAW.scale) * k;
+    expect(Math.abs(mx - DRAGON_MOUTH.x)).toBeLessThan(.25); expect(Math.abs(my - DRAGON_MOUTH.y)).toBeLessThan(.25);
   });
 });

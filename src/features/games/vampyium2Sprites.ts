@@ -3,7 +3,7 @@ import type { Game, Player, Vamp, Weapon } from './vampyium2';
 import type { Pose, Pt } from './vampyium2Chars';
 import { ATTACK } from './vampyium2';
 import { humanWalk, jointTransform, legAngles, walkingArm, walkingDepth } from './vampyium2Gait';
-import { vampireRigPose, VAMP_BOOT, VAMP_VISUAL_SCALE } from './vampyium2Motion';
+import { DRAGON, DRAGON_DRAW, DRAGON_WING_DOWN, dragonWing, ease01, vampireRigPose, VAMP_BOOT, VAMP_VISUAL_SCALE } from './vampyium2Motion';
 
 type Frame = { x: number; y: number; w: number; h: number };
 type Atlas = { cols: number; rows: number; width: number; height: number; frames: Frame[] };
@@ -350,7 +350,10 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
   const { cycle: g, prepare, airborne, action, breath, hip, neck, lean, legs } = vampireRigPose(v, .88 * VAMP_VISUAL_SCALE, t);
   const { windup, extension } = action;
   const heavy = v.kind === 'giant', wolf = v.kind === 'wolf';
-  const walkProfile = !airborne && !action.active && (v.walking ?? Math.abs(v.vx) > .15);
+  // Standing (three quarters) ↔ walking (profile) is a BLEND, not a switch: shoulders, torso width and crop move
+  // continuously; only the drawing order of the arms flips, at the middle of the blend.
+  const pk = airborne ? 0 : v.walkK ?? (!action.active && Math.abs(v.vx) > .15 ? 1 : 0);
+  const walkProfile = pk > .5;
   const paint = (id: number, center: Pt, w: number, h: number, angle = 0, cropLeft = 0) => {
     ctx.save(); ctx.translate(...center); ctx.rotate(angle);
     drawAsset(ctx, atlas, base + id, -w / 2, -h / 2, w, h, undefined, cropLeft); ctx.restore();
@@ -393,12 +396,12 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
   // right shoulder (near the camera); the left shoulder is on the far side, behind the chest. So the right arm
   // (index 1, the one that carries the weapon) hangs from that armhole IN FRONT of the torso and the left arm
   // (index 0) hangs from the far shoulder BEHIND it. Walking in profile both shoulders are almost together.
-  const torsoW = (heavy ? .65 : wolf ? .59 : .51) * (walkProfile ? .76 : 1) + breath;
+  const torsoW = (heavy ? .65 : wolf ? .59 : .51) * (1 - .24 * pk) + breath;
   const carryKind = ['mage', 'hammer', 'warrior'].includes(v.kind);
   // Where along the weapon the fist closes (fraction from its top) and how long it is.
   const GRIP: Record<string, { at: number; len: number }> = { mage: { at: .3, len: 1.55 }, hammer: { at: .74, len: 1.2 }, warrior: { at: .865, len: 1.15 } };
   const armPose = (i: number) => {
-    const lateral = walkProfile ? (i ? -.045 : .045) : (i ? -1 : 1) * torsoW * .37;
+    const lateral = (i ? -1 : 1) * (torsoW * .37 * (1 - pk) + .045 * pk);
     const shoulder: Pt = [neck[0] + lateral * Math.cos(lean) - .115 * Math.sin(lean),
       neck[1] + lateral * Math.sin(lean) + .115 * Math.cos(lean)];
     const carry = i === 1 && carryKind;
@@ -481,7 +484,7 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
   // Both fists on the hammer: the second arm crosses in front of the chest to reach the handle.
   const depth = walkProfile ? walkingDepth(g) : v.kind === 'hammer' && action.active ? { back: [], front: [0, 1] } : { back: [0], front: [1] };
   leg(0); for (const side of depth.back) arm(side); leg(1);
-  paint(1, [hip[0] + Math.sin(lean) * .30, hip[1] - Math.cos(lean) * .28], torsoW, .73, lean, walkProfile ? .24 : 0);
+  paint(1, [hip[0] + Math.sin(lean) * .30, hip[1] - Math.cos(lean) * .28], torsoW, .73, lean, .24 * pk);
   if (v.kind === 'warrior') { // the shield is strapped to the far (left) forearm and covers the chest from the front
     const sp = armPose(0); paint(8, [sp.hand[0] + .06, sp.hand[1] - .06], .42, .62, lean * .5);
   }
@@ -544,7 +547,56 @@ export function enemyFrame(v: Vamp, t: number) {
   if (Math.abs(v.vx) > .15 || v.walkT > 0 && v.speed === 0) return [1, 0, 2, 0][((Math.floor(v.walkT * 3) % 4) + 4) % 4];
   return 0;
 }
+// ---- Drácula dragón: always in the air, with articulated wings -------------------------------------------------
+// The painted flying dragon is cut into pieces in its own pixel space (255 × 223): body (with the legs hanging),
+// tail, head (closed / open mouth) and each wing split at the wrist. The flight cycle never stops — attacks are a
+// separate layer (head aim, mouth, fire glow) on top of it:
+// WINGS UP → DOWNSTROKE → LEVEL → FULLY DOWN → UPSTROKE → LEVEL → UP → loop.
+// outline of each piece inside its cell (x, y, w, h)
+const DRAGON_PIECE_BOX = [[10, 65, 190, 146], [34, 10, 103, 103], [0, 0, 105, 95], [129, 18, 71, 85], [145, 3, 91, 64], [9, 127, 74, 84], [177, 76, 64, 51], [180, 74, 70, 54]];
+function drawDragonFlight(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
+  if (!atlasReady('dragon-flight')) return false;
+  const img = images['dragon-flight'], cell = (i: number) => META['dragon-flight'].frames[i];
+  // (each piece is drawn only inside its own outline: the rest of the 255 × 223 cell is transparent)
+  const piece = (i: number) => { const f = cell(i), [bx, by, bw, bh] = DRAGON_PIECE_BOX[i]; ctx.drawImage(img, f.x + bx, f.y + by, bw, bh, bx, by, bw, bh); };
+  const around = (pivot: Pt, angle: number, draw: () => void) => { ctx.save(); ctx.translate(...pivot); ctx.rotate(angle); ctx.translate(-pivot[0], -pivot[1]); draw(); ctx.restore(); };
+  const diving = v.state === 'dive', breath = v.state === 'breath', rising = v.state === 'rise' || v.state === 'land';
+  const rate = diving ? .9 : rising ? 2.1 : 1.45; // beats per second (faster when climbing or hovering low)
+  const phase = t * rate + v.id * .37;
+  const w = diving ? .12 + .08 * dragonWing(phase) : dragonWing(phase);
+  const lag = diving ? 0 : (dragonWing(phase) - dragonWing(phase - .07)) * 2.4; // the outer wing trails the beat (membrane follow-through)
+  const p01 = ((phase % 1) + 1) % 1;
+  const bob = diving ? 0 : -Math.sin(p01 * Math.PI * 2) * 4.5; // lifts on the downstroke, sinks on the upstroke (pixels)
+  // attack layer: ANTICIPATION (head pulls back, fire gathers) → mouth opens → fire → mouth closes; wings keep beating
+  const charge = breath ? ease01(v.t / .35) : 0, fire = breath && v.t > .3 && v.t < 2.25;
+  const aimUp = breath ? Math.max(-.6, Math.min(.5, v.aim ?? 0)) : 0;
+  const headRot = Math.sin((p01 - .15) * Math.PI * 2) * .035 - aimUp * .55 * charge - (breath && v.t < .35 ? .12 * Math.sin(charge * Math.PI) : 0);
+  const pitch = diving ? Math.max(-.2, Math.min(.85, Math.atan2(-v.vy, Math.abs(v.vx) || .001))) : Math.sin(p01 * Math.PI * 2 + .6) * .025;
+  ctx.save();
+  if (v.state === 'mist') ctx.globalAlpha *= .3 + .15 * Math.sin(t * 7);
+  ctx.translate(DRAGON_DRAW.x, DRAGON_DRAW.y); ctx.scale(DRAGON_DRAW.scale, DRAGON_DRAW.scale); ctx.rotate(pitch);
+  ctx.translate(-DRAGON.center[0], -DRAGON.center[1] + bob);
+  const wingNear = -w * DRAGON_WING_DOWN.near, wingFar = w * DRAGON_WING_DOWN.far;
+  // far wing (behind the body): inner segment from the shoulder, outer segment from the wrist
+  around(DRAGON.rootFar, wingFar, () => { around(DRAGON.jointFar, -lag * .9, () => piece(4)); piece(3); });
+  around(DRAGON.tail, Math.sin((p01 - .3) * Math.PI * 2) * .07 + Math.sin(t * 1.3 + v.id) * .04, () => piece(5));
+  piece(0);
+  around(DRAGON.head, headRot, () => {
+    piece(fire ? 7 : 6);
+    if (charge > 0) { // the fire gathering in the throat, then pouring out of the mouth
+      const m = DRAGON.mouth, r = 10 + charge * 16;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const gl = ctx.createRadialGradient(m[0], m[1], 0, m[0], m[1], r);
+      gl.addColorStop(0, `rgba(255,230,170,${.85 * charge})`); gl.addColorStop(.4, `rgba(255,120,30,${.6 * charge})`); gl.addColorStop(1, 'rgba(255,60,0,0)');
+      ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(m[0], m[1], r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+  });
+  // near wing (in front)
+  around(DRAGON.rootNear, wingNear, () => { piece(1); around(DRAGON.jointNear, lag, () => piece(2)); });
+  ctx.restore(); return true;
+}
 export function drawRealisticEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
+  if (v.kind === 'dragon' && drawDragonFlight(ctx, v, t)) return true;
   if (drawArticulatedEnemy(ctx, v, t)) return true;
   const [name, row] = enemyRows[v.kind]; if (!atlasReady(name)) return false;
   const atlas = META[name], idle = atlas.frames[row * 6];

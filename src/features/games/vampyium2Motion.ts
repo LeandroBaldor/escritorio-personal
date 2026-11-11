@@ -4,15 +4,20 @@ import { ATTACK, BODY, type Vamp } from './vampyium2';
 export const VAMP_VISUAL_SCALE = 2.25;
 export const VAMP_STEP_LENGTH = .58, VAMP_STANCE = .62;
 const ease = (x: number) => { const k = Math.max(0, Math.min(1, x)); return k * k * (3 - 2 * k); };
+const accel = (x: number) => { const k = Math.max(0, Math.min(1, x)); return k * k * (1.6 - .6 * k); }; // speeds up into the hit
 export function vampireAttackMotion(v: Vamp) {
   const melee = v.state === 'claw', casting = v.state === 'cast' || v.state === 'zap';
   if (!melee && !casting) return { active: false, windup: 0, extension: 0, recovery: 0 };
   const at = melee ? ATTACK[v.kind]?.at ?? .36 : v.state === 'zap' ? .4 : .55;
   const duration = melee ? ATTACK[v.kind]?.dur ?? .7 : v.state === 'zap' ? 1.1 : .95;
-  const load = ease(v.t / (at * .72));
-  const release = ease((v.t - at * .72) / (at * .28));
-  const recovery = ease((v.t - at) / (duration - at));
-  return { active: true, windup: load * (1 - release), extension: release * (1 - recovery), recovery };
+  // QUIETO → ANTICIPACIÓN (carga, que se sostiene un instante arriba) → ACELERACIÓN (cada vez más rápido hasta el
+  // impacto, exactamente en `at`, el mismo instante en que la lógica aplica el golpe) → IMPACTO con un pequeño
+  // seguimiento (el brazo pasa un poco de largo y vuelve) → RECUPERACIÓN suave → QUIETO.
+  const load = ease(v.t / (at * .52));
+  const release = accel((v.t - at * .66) / (at * .34) + 1e-9); // (+1e-9: exactly 1 at the impact instant)
+  const recovery = ease((v.t - at - .08) / Math.max(.1, duration - at - .08));
+  const follow = Math.sin(Math.max(0, Math.min(1, (v.t - at) / .16)) * Math.PI) * .12;
+  return { active: true, windup: load * (1 - release), extension: release * (1 - recovery) + follow * (1 - recovery), recovery };
 }
 export function vampireMotion(v: Vamp, modelScale: number) {
   const prepare = v.onGround && v.nav && ['up', 'gap'].includes(v.nav.kind)
@@ -66,3 +71,15 @@ export function vampireRigPose(v: Vamp, modelScale: number, time: number) {
   });
   return { ...motion, action, breath, hip, neck, lean, legs };
 }
+
+export const DRAGON = { w: 255, h: 223, rootNear: [121, 100] as Pt, rootFar: [139, 96] as Pt, jointNear: [62.2, 52.2] as Pt, jointFar: [184.2, 53.4] as Pt,
+  tail: [74, 134] as Pt, head: [183, 104] as Pt, center: [128, 118] as Pt, mouth: [240, 108] as Pt };
+export const DRAGON_DRAW = { scale: .0185, x: 0, y: -1.05 }; // pixels → body units, and where the body centre sits
+export const ease01 = (x: number) => { const k = Math.max(0, Math.min(1, x)); return k * k * (3 - 2 * k); };
+// 0 = wings up (as painted) … 1 = wings fully down. The downstroke (the push) takes 45% of the beat.
+export function dragonWing(phase: number) {
+  const p = ((phase % 1) + 1) % 1;
+  return p < .45 ? ease01(p / .45) : 1 - ease01((p - .45) / .55);
+}
+// How far each wing turns from 'up' (as painted) to 'fully down' (radians; near wing counter-clockwise).
+export const DRAGON_WING_DOWN = { near: 1.75, far: 1.7 };

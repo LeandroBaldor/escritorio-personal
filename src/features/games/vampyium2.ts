@@ -146,6 +146,7 @@ export interface Vamp {
   landT?: number;
   turnT?: number; // (un instante después de darse vuelta, no se vuelve a dar vuelta)
   walking?: boolean; // se dibuja caminando de perfil (con margen: no alterna parado/caminando a cada cuadro)
+  walkK?: number; // 0 parado de tres cuartos … 1 caminando de perfil (para pasar de una a otra sin saltos)
   special?: number; // Drácula y el dragón: cuenta para el próximo ataque especial
   frozen?: number; chill?: number; // congelado por la armadura de hielo (se rompe cuando llega a 0); chill: el frío en Drácula y el dragón
   nav?: Nav; stuckT?: number; bestD?: number; unstuck?: number; waitT?: number; braveT?: number; // cómo se mueve por el nivel (ver navigate)
@@ -876,6 +877,7 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
   moveBody(v, dt, VAMP_W / 2, -1.2, W + 1.2);
   v.landT = Math.max(0, (v.landT ?? 0) - dt); v.turnT = Math.max(0, (v.turnT ?? 0) - dt);
   v.walking = v.onGround && Math.abs(v.vx) > (v.walking ? 0.15 : 0.7);
+  v.walkK = (v.walkK ?? 0) + ((v.walking ? 1 : 0) - (v.walkK ?? 0)) * Math.min(1, dt * 9); // (mezcla suave entre parado y caminando, ~0,15 s)
   if (!was && v.onGround) { v.walkT = 0; v.landT = .14; }
   // Si cae en un hueco, salta y sale (saltan bien: nunca se caen al vacío).
   if (v.y < GROUND_Y - 0.9 && v.vy < 0) {
@@ -918,6 +920,10 @@ function updateFlyer(g: Game, v: Vamp, dt: number) {
 // El dragón: vuela a un costado del cazador, escupe fuego, se tira en picada y a veces baja a pisotear.
 // (Su posición y es el centro del cuerpo; las patas tocan el piso cuando y = piso + 1.25.)
 export const DRAGON_FEET = 1.75;
+// El dragón nunca se apoya: cuando baja queda flotando a esta altura extra, aleteando (las patas colgando).
+export const DRAGON_HOVER = 0.9;
+// La boca del dragón volando (el dibujo de vampyium2Sprites: DRAGON + DRAGON_DRAW), de donde sale el fuego.
+export const DRAGON_MOUTH = { x: 6.8, y: 4.05 };
 function updateDragon(g: Game, v: Vamp, dt: number) {
   const p = g.player, r = g.rand;
   v.t += dt; v.cool -= dt; v.walkT += dt; v.flash = Math.max(0, (v.flash ?? 0) - dt);
@@ -935,8 +941,8 @@ function updateDragon(g: Game, v: Vamp, dt: number) {
     }
   } else if (v.state === 'breath') { // fuego por la boca hacia el cazador
     v.vx *= Math.max(0, 1 - dt * 3); v.vy *= Math.max(0, 1 - dt * 3); v.face = dx >= 0 ? 1 : -1;
-    v.aim = Math.atan2(-(p.y + 0.9 - v.y - 1.2), Math.abs(p.x - v.x - v.face * 1.7)); // (para que el chorro de la boca vaya para el mismo lado que el fuego)
-    if (v.t > 0.35 && v.t < 0.35 + DRAGON_FIRE_T && Math.floor(v.t / 0.05) !== Math.floor((v.t - dt) / 0.05)) { shoot(g, v.x + v.face * 1.7, v.y + 1.2, p.x, p.y + 0.9, 11, 'flame', DAMAGE.dragon, 1.1, (r() - 0.5) * 0.06); }
+    v.aim = Math.atan2(-(p.y + 0.9 - v.y - DRAGON_MOUTH.y), Math.abs(p.x - v.x - v.face * DRAGON_MOUTH.x) || 0.01); // (para que el chorro de la boca vaya para el mismo lado que el fuego)
+    if (v.t > 0.35 && v.t < 0.35 + DRAGON_FIRE_T && Math.floor(v.t / 0.05) !== Math.floor((v.t - dt) / 0.05)) { shoot(g, v.x + v.face * DRAGON_MOUTH.x, v.y + DRAGON_MOUTH.y, p.x, p.y + 0.9, 11, 'flame', DAMAGE.dragon, 1.1, (r() - 0.5) * 0.06); }
     if (v.t > 0.35 + DRAGON_FIRE_T + 0.3) { v.state = 'hover'; v.cool = 1.6 + r(); } // (cada llamarada dura 3 segundos)
   } else if (v.state === 'dive') { // picada
     if (!v.hit && touching) { v.hit = true; hurt(g, v.x, DAMAGE.dragon); }
@@ -944,8 +950,8 @@ function updateDragon(g: Game, v: Vamp, dt: number) {
   } else if (v.state === 'rise') {
     v.vy += (5 - v.vy) * Math.min(1, dt * 3); v.vx *= Math.max(0, 1 - dt * 2);
     if (v.t > 1) { v.state = 'hover'; v.cool = 1.4 + r() * 1.2; }
-  } else if (v.state === 'land') { // baja al piso y pisotea dos veces (ahí es cuando más fácil se le pega)
-    const [lx, q] = standAt(v.x, GROUND_Y), gy = q.y + DRAGON_FEET;
+  } else if (v.state === 'land') { // baja casi al piso (nunca se apoya: sigue aleteando) y da dos aletazos fuertes (ahí es cuando más fácil se le pega)
+    const [lx, q] = standAt(v.x, GROUND_Y), gy = q.y + DRAGON_FEET + DRAGON_HOVER;
     v.vx += ((lx - v.x) * 2 - v.vx) * Math.min(1, dt * 3);
     if (v.y > gy + 0.05) v.vy = Math.max(-9, (gy - v.y) * 4); else { v.y = gy; v.vy = 0; }
     v.face = dx >= 0 ? 1 : -1;

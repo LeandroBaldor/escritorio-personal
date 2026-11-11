@@ -7,17 +7,20 @@ const smooth = (x: number) => { const k = Math.max(0, Math.min(1, x)); return k 
 const mix = (a: number, b: number, t: number) => a + (b - a) * t;
 export function demianSwordPose(p: Player): Pose {
   const active = p.attackT >= 0;
-  // Shoulder carry -> lift -> horizontal thrust -> visible hold -> return to the shoulder.
-  const extension = active ? smooth(p.attackT / .05) * (1 - smooth((p.attackT - .21) / .09)) : 0;
+  // Shoulder carry -> lift -> horizontal thrust (speeding up: the blade is fully out when the hit window opens,
+  // at 0.04 s) -> a small follow-through past the target -> visible hold -> eased return to the shoulder.
+  const at = p.attackT, drive = Math.max(0, Math.min(1, at / .04 + 1e-9));
+  const follow = active ? Math.sin(Math.max(0, Math.min(1, (at - .04) / .12)) * Math.PI) * .07 : 0;
+  const extension = active ? (drive * drive * (1.6 - .6 * drive) + follow) * (1 - smooth((at - .21) / .09)) : 0;
   const running = p.onGround && Math.abs(p.vx) > .15;
   const cycle = humanWalk(p.walkT * 7 / 2.4, Math.abs(p.vx), .88 * VAMP_VISUAL_SCALE, true);
   const freeArm = running && !active ? walkingArm(cycle, 0, .34, .32) : [-.06, .16];
-  const frontA = mix(.70, 1.40, extension), frontB = mix(2.50, .18, extension);
+  const frontA = mix(.70, 1.40, extension), frontB = mix(2.50, .18, Math.min(1, extension)) - Math.max(0, extension - 1) * 1.2; // (follow-through: the arm reaches, the elbow opens)
   const lowered = running && !active ? cycle.k : 0;
   const carryArm = walkingArm(cycle, 1, .34, .32);
   const rightA = mix(frontA, carryArm[0], lowered), rightB = mix(frontB, carryArm[1], lowered);
   // Unwrap the angle through the overhead arc, avoiding a sweep through the torso.
-  const swordAngle = mix(mix(-Math.PI / 2 - .06, -Math.PI * 1.5, extension), .75, lowered);
+  const swordAngle = mix(mix(-Math.PI / 2 - .06, -Math.PI * 1.5, Math.min(1, extension)), .75, lowered); // (the blade stays level in the follow-through)
   const feet: [Pt, Pt] = [[mix(-.15, -.48, extension), -.06], [mix(.17, .44, extension), -.06]]; // standing straight, then the lunge
   return {
     bob: running && !active ? cycle.bob : 0, // standing still: the hips do not move, so the knees stay put
