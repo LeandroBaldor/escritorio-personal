@@ -146,14 +146,16 @@ function limb(ctx: CanvasRenderingContext2D, id: number, start: Pt, end: Pt, wid
   ctx.restore();
 }
 type WeaponPainter = (hand: Pt, angle: number) => void;
-// The photo head is drawn about 35% larger than the old painted head (crown to neck).
-export const DEMIAN_FACE = { h: .5, w: .5 * 380 / 535 };
+// The photo head (crown to neck stub), a little larger than the old painted head but in proportion with the body.
+export const DEMIAN_FACE = { h: .41, w: .41 * 380 / 535 };
+// Demian is drawn as tall as a normal vampire (the vampires' art is 12% bigger than the hunter's).
+export const DEMIAN_SCALE = 1.07;
 
 // Input-driven articulated poses keep hands, weapon and shoulder plates attached throughout each action.
 export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Pose, t: number, paintWeapon: WeaponPainter) {
   if (!atlasReady('hunter')) return false;
   const rt = t;
-  ctx.save();
+  ctx.save(); ctx.scale(DEMIAN_SCALE, DEMIAN_SCALE);
   if (p.spinT > 0) { ctx.translate(0, -1); ctx.rotate((1 - p.spinT / .45) * Math.PI * 2); ctx.translate(0, 1); }
   // The 360° turn never squashes the body: he faces the other way for the back half of the turn.
   if (p.special?.kind === 'whirl') { const turn = p.special.t / .45; whirlTrail(ctx, turn); if (Math.cos(turn * Math.PI * 2) < 0) ctx.scale(-1, 1); }
@@ -259,12 +261,12 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
   part(ctx, 2, [hip[0], hip[1] + .10], .51 - profile * .12, .37, pose.lean * .4);
   // Demian's face (photo cutout, bigger than the painted head). The neck stub tucks into the gorget.
   const headTilt = pose.head * .4;
-  const head: Pt = [neck[0] + .05, neck[1] - .2];
+  const head: Pt = [neck[0] + .045, neck[1] - .17];
   ctx.save(); ctx.translate(neck[0] + .01, neck[1] + .05); ctx.rotate(headTilt);
   if (!drawAsset(ctx, 'demian-face', 0, -DEMIAN_FACE.w * .34, -DEMIAN_FACE.h, DEMIAN_FACE.w, DEMIAN_FACE.h)) part(ctx, 0, [.025, -.2], .316, .368);
   ctx.restore();
   const helmet = g.guardHp > 0 ? 12 : g.weapon === 'holy' || g.weapon === 'cross' ? 11 : g.weapon === 'bone' ? 13 : -1;
-  if (helmet >= 0) part(ctx, helmet, [head[0] + .01, head[1] - .045], .45, .51, headTilt);
+  if (helmet >= 0) part(ctx, helmet, [head[0] + .005, head[1] - .03], .38, .43, headTilt);
   for (const side of depth.front) arm(side, 'all');
   if (p.attackT > .025 && p.attackT < .18 && ['firesword', 'violet', 'bone'].includes(p.attackWeapon)) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= Math.sin(p.attackT / .18 * Math.PI) * .32;
@@ -342,38 +344,77 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
     jointArmor(ctx, knee, origin, ankle, heavy ? .22 : .19, 'iron', [1, 0]);
     ctx.restore();
   };
-  const arm = (i: number, layer: 'all' | 'upper' | 'forearm' = 'all') => {
-    const lateral = (i ? 1 : -1) * (walkProfile ? .045 : heavy ? .205 : wolf ? .18 : .155);
-    const shoulder: Pt = [neck[0] + lateral * Math.cos(lean) - .11 * Math.sin(lean),
-      neck[1] + lateral * Math.sin(lean) + .11 * Math.cos(lean)];
-    const carry = i === 1 && ['mage', 'hammer', 'warrior'].includes(v.kind);
-    const walkArm = walkingArm(g, i, .31, .30, carry ? 1.05 : .18);
-    let a = airborne ? (i ? .55 : -.50) : walkArm[0] - prepare * .35;
-    let b = walkArm[1];
+  // The painted torsos are turned three quarters towards the hunter: the open armhole on the viewer's LEFT is the
+  // right shoulder (near the camera); the left shoulder is on the far side, behind the chest. So the right arm
+  // (index 1, the one that carries the weapon) hangs from that armhole IN FRONT of the torso and the left arm
+  // (index 0) hangs from the far shoulder BEHIND it. Walking in profile both shoulders are almost together.
+  const torsoW = (heavy ? .65 : wolf ? .59 : .51) * (walkProfile ? .76 : 1) + breath;
+  const carryKind = ['mage', 'hammer', 'warrior'].includes(v.kind);
+  // Where along the weapon the fist closes (fraction from its top) and how long it is.
+  const GRIP: Record<string, { at: number; len: number }> = { mage: { at: .42, len: 1.55 }, hammer: { at: .74, len: 1.2 }, warrior: { at: .865, len: 1.15 } };
+  const armPose = (i: number) => {
+    const lateral = walkProfile ? (i ? -.045 : .045) : (i ? -1 : 1) * torsoW * .37;
+    const shoulder: Pt = [neck[0] + lateral * Math.cos(lean) - .115 * Math.sin(lean),
+      neck[1] + lateral * Math.sin(lean) + .115 * Math.cos(lean)];
+    const carry = i === 1 && carryKind;
+    let a: number, b: number;
+    // Carrying: the mage leans on the staff like a walking stick (forearm level, staff upright, foot on the floor);
+    // the hammer and the sword hang low and forward from a relaxed arm, so they never cover the face.
+    const stick = v.kind === 'mage';
+    if (carry) { a = (stick ? .45 : .22) + g.arm[i] * .14 - prepare * .2; b = stick ? .9 : .3; }
+    else { const w = walkingArm(g, i, .31, .30, .18); a = w[0] - prepare * .35; b = w[1]; }
+    if (airborne) { a = i ? .45 : -.4; b = carry && stick ? 1.1 : .4; }
+    let weaponAngle = !carry ? 0 : stick ? .12 + g.arm[i] * .05 : v.kind === 'hammer' ? 2.55 : 2.25; // (0 = upright, + leans forward)
     if (action.active) {
-      const casting = v.state !== 'claw';
-      a = casting ? .25 + windup * 1.4 + extension * (v.state === 'zap' ? 2.5 : 1.1)
-        : i ? .18 - windup * (v.kind === 'hammer' ? 2.55 : .95) + extension * 1.35
-          : -.12 - windup * .42 + extension * .8;
-      b = casting ? .45 + windup * .35 : .55 + windup * .75 - extension * .50;
+      const rest = Math.max(0, 1 - windup - extension);
+      if (v.state !== 'claw') { // casting: both hands forward, the staff raised in front
+        a = a * rest + (.35 + windup * 1.1 + extension * (v.state === 'zap' ? 2.2 : 1.05)) * (1 - rest);
+        b = b * rest + (.6 - extension * .25) * (1 - rest);
+        weaponAngle = Math.PI / 2 - (a + b) - .15;
+      } else if (i === 1) {
+        // An overhead blow, as in fighting games: the arm rises in FRONT up over the head with the elbow bent (the
+        // weapon hangs behind the shoulder), then chops down and forward; the weapon sweeps over the top in one arc.
+        const up = carry ? 2.75 : 2.5, hit = carry ? 1.05 : 1.4;
+        a = a * rest + up * windup + hit * extension;
+        b = b * rest + (carry ? 1.85 : .9) * windup + (carry ? .2 : .1) * extension;
+        const wUp = v.kind === 'warrior' ? -1.9 : -2.35, wHit = v.kind === 'hammer' ? 1.75 : 1.6;
+        weaponAngle = weaponAngle * rest + wUp * windup + wHit * extension;
+      } else { // the free arm balances the blow
+        a = a * rest + (-.45) * windup + .55 * extension;
+        b = b * rest + .7 * windup + .35 * extension;
+      }
     }
     const elbow = add(shoulder, a, .31), hand = add(elbow, a + b, .30);
-    ctx.save(); if (walkProfile ? g.arm[i] < 0 : !i) ctx.globalAlpha *= .88;
-    if (layer !== 'forearm') { bone(2, shoulder, elbow, heavy ? .25 : .19); jointArmor(ctx, shoulder, add(shoulder, a - 2.4, .3), elbow, heavy ? .36 : .29, 'iron', [-.3, -1]); }
-    if (layer !== 'upper') { bone(3, elbow, add(hand, a + b, .065), heavy ? .23 : .17, .035); jointArmor(ctx, elbow, shoulder, hand, heavy ? .19 : .16, 'iron', [-1, 0]); }
-    if (carry && layer !== 'upper') {
-      const height = v.kind === 'mage' ? 1.65 : v.kind === 'hammer' ? 1.15 : 1.10;
-      const width = height * assetAspect(atlas, base + 7);
-      ctx.save(); ctx.translate(...hand);
-      ctx.rotate(-.08 - windup * (v.kind === 'hammer' ? .65 : .35) + extension * (v.kind === 'mage' ? .15 : 1.2));
-      paint(7, [.02, -height * .32], width, height); ctx.restore();
-    }
-    if (!i && v.kind === 'warrior' && layer !== 'upper') paint(8, [hand[0] - .04, hand[1] - .04], .40, .59);
+    return { shoulder, elbow, hand, a, b, carry, weaponAngle };
+  };
+  const far = (i: number) => walkProfile ? g.arm[i] < 0 : i === 0;
+  const weapon = (pose: ReturnType<typeof armPose>) => {
+    const gp = GRIP[v.kind], height = gp.len, width = height * assetAspect(atlas, base + 7);
+    ctx.save(); ctx.translate(...pose.hand); ctx.rotate(pose.weaponAngle);
+    paint(7, [0, (.5 - gp.at) * height], width, height); ctx.restore();
+  };
+  const pauldron = (shoulder: Pt, a: number, mirror: boolean) => {
+    const v2 = ironVariant(16); if (!v2) return;
+    const h = heavy ? .34 : wolf ? .27 : .27, w = h * v2.width / v2.height;
+    ctx.save(); ctx.translate(shoulder[0], shoulder[1] - h * .08); ctx.rotate(-a * .35); if (mirror) ctx.scale(-1, 1);
+    ctx.drawImage(v2, -w * .42, -h * .32, w, h); ctx.restore();
+  };
+  const arm = (i: number) => {
+    const pose = armPose(i), { shoulder, elbow, hand, a, b, carry } = pose;
+    ctx.save(); if (far(i)) ctx.globalAlpha *= .9;
+    bone(2, shoulder, elbow, heavy ? .25 : .19);
+    pauldron(shoulder, a, !walkProfile && i === 0);
+    if (carry) weapon(pose); // behind the forearm: the fingers close over the handle
+    bone(3, elbow, add(hand, a + b, .065), heavy ? .23 : .17, .035);
+    jointArmor(ctx, elbow, shoulder, hand, heavy ? .19 : .16, 'iron', [-1, 0]);
     ctx.restore();
   };
   const depth = walkProfile ? walkingDepth(g) : { back: [0], front: [1] };
   leg(0); for (const side of depth.back) arm(side); leg(1);
-  paint(1, [hip[0] + Math.sin(lean) * .30, hip[1] - Math.cos(lean) * .28], (heavy ? .65 : wolf ? .59 : .51) * (walkProfile ? .76 : 1) + breath, .73, lean, walkProfile ? .24 : 0);
+  paint(1, [hip[0] + Math.sin(lean) * .30, hip[1] - Math.cos(lean) * .28], torsoW, .73, lean, walkProfile ? .24 : 0);
+  if (v.kind === 'warrior') { // the shield is strapped to the far (left) forearm and covers the chest from the front
+    const sp = armPose(0); paint(8, [sp.hand[0] + .1, sp.hand[1] - .1], .42, .62, lean * .5);
+  }
   if (!drawEnemyHead(ctx, v.kind, [neck[0] + .02, neck[1]], -lean * .25 + g.sway * .008))
     paint(0, [neck[0] + .045, neck[1] - .14], wolf ? .39 : heavy ? .34 : .30, wolf ? .34 : .35, -lean * .25);
   for (const side of depth.front) arm(side);
