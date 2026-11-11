@@ -127,8 +127,10 @@ export function Vampyium2() {
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     setNoGrain(touch); // (en celulares sin la textura: es lo más lento)
-    drawGame(ctx, gameRef.current, w, h, performance.now() / 1000);
-    setNoGrain(false);
+    // Un error de dibujo no puede cortar el bucle del juego (si no, la pantalla queda congelada): se saltea ese cuadro.
+    try { drawGame(ctx, gameRef.current, w, h, performance.now() / 1000); }
+    catch (err) { ctx.setTransform(1, 0, 0, 1, 0, 0); if (import.meta.env.DEV) console.error(err); }
+    finally { setNoGrain(false); }
   }, []);
 
   useLayoutEffect(() => { setBackdrop(fondoOf(def.bg), () => paint()); paint(); }, [def, paint]);

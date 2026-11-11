@@ -60,3 +60,26 @@ test('todos los enemigos, armas y movimientos se pueden dibujar sin errores', as
   });
   expect(result).toBe(172);
 });
+
+test('la partida se sigue dibujando con huesos en llamas fuera de la pantalla (no se cuelga)', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/juegos/vampyium2');
+  await expect(page.locator('.vamp2')).toHaveAttribute('data-realistic-art', 'ready');
+  const frames = await page.evaluate(async () => {
+    const base = '/escritorio-personal/src/features/games/';
+    const logic = await import(/* @vite-ignore */ base + 'vampyium2.ts');
+    const art = await import(/* @vite-ignore */ base + 'vampyium2Art.ts');
+    const c = document.createElement('canvas'); c.width = 1200; c.height = 700; const ctx = c.getContext('2d')!;
+    let drawn = 0;
+    for (const lv of [1, 5, 10]) {
+      const g = logic.newGame(3, lv); g.immortal = true;
+      for (let f = 0; f < 60 * 12; f++) {
+        logic.step(g, { left: false, right: f % 240 < 140, up: f % 90 === 0, down: false }, 1 / 60);
+        if (f % 20 === 0) logic.pressAttack(g); logic.takeEvents(g);
+        if (f === 30) g.bones.push({ kind: 'skull', x: -2, y: -3, vx: 0, vy: 0, a: 0, va: 0, t: .2, source: 'walker' } as never);
+        if (f % 10 === 0) { art.drawGame(ctx, g, 1200, 700, f / 60 - 5); drawn++; }
+      }
+    }
+    return drawn;
+  });
+  expect(frames).toBe(216);
+});

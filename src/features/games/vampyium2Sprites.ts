@@ -522,7 +522,8 @@ export function drawRealisticEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: nu
 const softFire = new Map<number, HTMLCanvasElement>();
 function softFireFrame(index: number) {
   if (softFire.has(index)) return softFire.get(index)!;
-  const f = META.effects.frames[index], canvas = document.createElement('canvas'); canvas.width = f.w; canvas.height = f.h;
+  const f = META.effects.frames[index]; if (!f) return null;
+  const canvas = document.createElement('canvas'); canvas.width = f.w; canvas.height = f.h;
   const c = canvas.getContext('2d'); if (!c) return null;
   c.drawImage(images.effects, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
   c.globalCompositeOperation = 'destination-in';
@@ -535,8 +536,9 @@ function softFireFrame(index: number) {
   softFire.set(index, canvas); return canvas;
 }
 export function drawRealisticFire(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, t: number, seed: number) {
-  const frame = Math.floor(t * 14 + seed * 3) % 8;
-  if (!atlasReady('effects')) return false;
+  // (the clock and the seed can be negative, e.g. bones that fell off the bottom: keep the frame in 0…7)
+  const n = Math.floor(t * 14 + seed * 3), frame = Number.isFinite(n) ? ((n % 8) + 8) % 8 : 0;
+  if (!atlasReady('effects') || !META.effects?.frames[frame]) return false;
   const soft = softFireFrame(frame);
   if (!soft) return drawAsset(ctx, 'effects', frame, x - w / 2, y - h, w, h);
   ctx.drawImage(soft, x - w / 2, y - h, w, h); return true;
