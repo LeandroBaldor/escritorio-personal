@@ -221,10 +221,12 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
   // The 360° turn never squashes the body: he faces the other way for the back half of the turn.
   if (p.special?.kind === 'whirl') { const turn = p.special.t / .45; whirlTrail(ctx, turn); if (Math.cos(turn * Math.PI * 2) < 0) ctx.scale(-1, 1); }
   if (p.special?.kind === 'dash') dashTrail(ctx, p.special.t / .24);
-  const walkProfile = p.onGround && Math.abs(p.vx) > .15 && p.attackT < 0 && !p.special && !(p.jumpPrep && p.jumpPrep > 0);
-  const profile = inertia(owner, 'profile', t, [walkProfile ? Math.min(1, Math.abs(p.vx) / 1.4) : 0], 8)[0];
+  // Demian is ALWAYS drawn at 45° (three quarters), standing, walking, running and attacking — never in profile.
+  // Facing left is the same drawing mirrored. (`walking` only changes how the arms are layered and the hip bob.)
+  const walking = p.onGround && Math.abs(p.vx) > .15 && p.attackT < 0 && !p.special && !(p.jumpPrep && p.jumpPrep > 0);
+  const profile = 0;
   const hipSpread = .075 - profile * .045;
-  const hip: Pt = inertiaPt(owner, 'hip', t, [pose.lean * .08 + (pose.hipOffset?.[0] ?? 0), -.965 + pose.bob * (walkProfile ? 1 : .45) + pose.crouch * .3 + (pose.hipOffset?.[1] ?? 0) + (p.landT > 0 ? p.landT * .32 : 0)], 1.2 + .3 * Math.abs(p.vx));
+  const hip: Pt = inertiaPt(owner, 'hip', t, [pose.lean * .08 + (pose.hipOffset?.[0] ?? 0), -.965 + pose.bob * (walking ? 1 : .45) + pose.crouch * .3 + (pose.hipOffset?.[1] ?? 0) + (p.landT > 0 ? p.landT * .32 : 0)], 1.2 + .3 * Math.abs(p.vx));
   const neck: Pt = [hip[0] + Math.sin(pose.lean) * .62, hip[1] - Math.cos(pose.lean) * .62];
   const shoulders: Pt[] = [-1, 1].map(side => { const x = side * (.2 - profile * .15); return [neck[0] + x * Math.cos(pose.lean) - .09 * Math.sin(pose.lean),
     neck[1] + x * Math.sin(pose.lean) + .09 * Math.cos(pose.lean)]; });
@@ -295,7 +297,7 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
   const arm = (i: number, layer: 'upper' | 'forearm' | 'all') => {
     const [a, b] = pose.arms[i], elbow = add(shoulders[i], a, .31), hand = add(elbow, a + b, .30);
     const grip = add(hand, a + b, .035);
-    ctx.save(); if (walkProfile ? i === 1 : !i) ctx.globalAlpha *= .88;
+    ctx.save(); if (walking ? i === 1 : !i) ctx.globalAlpha *= .88;
     if (layer !== 'forearm') {
       limb(ctx, 3, shoulders[i], elbow, .205);
       // Separate anatomical left/right plates: dome above, overlapping lames towards the elbow.
@@ -318,11 +320,11 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
   };
   leg(0);
   // Standing (and aiming), the free arm hangs IN FRONT of the body: the torso is turned three quarters, so the left
-  // shoulder is the near one. Only the sword thrust swings it back behind the body. Walking in profile, the arms
+  // shoulder is the near one. Only the sword thrust swings it back behind the body. Walking (still at 45°), the arms
   // pass in front or behind with the step.
   const freeArmBack = p.attackT >= 0 && ['sword', 'firesword', 'violet', 'bone'].includes(p.attackWeapon) || !!p.special;
-  // Walking in profile the depth is fixed too: the free arm (near) in front, the sword arm (far) behind the torso.
-  const depth = walkProfile ? { back: [1], front: [0] }
+  // Walking the depth is fixed too: the free arm (near) in front, the sword arm (far) behind the torso.
+  const depth = walking ? { back: [1], front: [0] }
     : freeArmBack ? { back: [0], front: [1] } : { back: [] as number[], front: [0, 1] };
   for (const side of depth.back) arm(side, 'all');
   if (pose.weaponBehind) {
@@ -331,7 +333,7 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
   }
   const torso = decor?.key === 'ice' ? 14 : decor?.key === 'bone' ? 15 : 1;
   part(ctx, torso, [hip[0] + Math.sin(pose.lean) * .33, hip[1] - Math.cos(pose.lean) * .33], .58 - profile * .15, .72, pose.lean, decor ? undefined : ARMOR_TONE[g.weapon], profile * .28);
-  if (!walkProfile) part(ctx, 9, [shoulders[0][0], shoulders[0][1] + .025], .27, .25, -pose.arms[0][0] * .12);
+  if (!walking) part(ctx, 9, [shoulders[0][0], shoulders[0][1] + .025], .27, .25, -pose.arms[0][0] * .12);
   leg(1);
   part(ctx, 2, [hip[0], hip[1] + .10], .45 - profile * .1, .35, pose.lean * .4);
   // Demian's face (photo cutout, bigger than the painted head). The neck stub tucks into the gorget.
@@ -401,9 +403,9 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
     });
   })();
   const heavy = v.kind === 'giant', wolf = v.kind === 'wolf';
-  // Standing (three quarters) ↔ walking (profile) is a BLEND, not a switch: shoulders, torso width and crop move
-  // continuously; the drawing order of the arms never flips (far arm behind, near arm in front).
-  const pk = inertia(v, 'profile', t, [airborne ? 0 : v.walkK ?? (!action.active && Math.abs(v.vx) > .15 ? 1 : 0)], 6)[0];
+  // Every enemy is ALWAYS drawn at 45° (three quarters): standing, walking and attacking — never in profile. Facing
+  // left is the same drawing mirrored (so the far arm stays the far arm); the order of the arms never flips.
+  const pk = 0; // (how far towards profile the torso turns: always 0 = three quarters)
   const paint = (id: number, center: Pt, w: number, h: number, angle = 0, cropLeft = 0) => {
     ctx.save(); ctx.translate(...center); ctx.rotate(angle);
     drawAsset(ctx, atlas, base + id, -w / 2, -h / 2, w, h, undefined, cropLeft); ctx.restore();
