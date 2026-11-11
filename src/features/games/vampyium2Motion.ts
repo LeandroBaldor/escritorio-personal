@@ -1,4 +1,4 @@
-import { gait, legAngles, type Pt } from './vampyium2Gait';
+import { humanWalk, legAngles, type Pt } from './vampyium2Gait';
 import { ATTACK, BODY, type Vamp } from './vampyium2';
 
 export const VAMP_VISUAL_SCALE = 2.25;
@@ -17,20 +17,7 @@ export function vampireAttackMotion(v: Vamp) {
 export function vampireMotion(v: Vamp, modelScale: number) {
   const prepare = v.onGround && v.nav && ['up', 'gap'].includes(v.nav.kind)
     ? Math.max(0, Math.min(1, (1.15 - Math.abs(v.nav.tx - v.x)) / .8)) : 0;
-  const cycle = gait(v.walkT, v.onGround ? Math.abs(v.vx) : 0,
-    { S: VAMP_STEP_LENGTH, H: .125, K: modelScale * BODY[v.kind].k, bob: .026, beta: VAMP_STANCE });
-  for (let i = 0; i < 2; i++) {
-    const q = cycle.ph[i];
-    if (q < VAMP_STANCE) {
-      const u = q / VAMP_STANCE;
-      cycle.lift[i] = 0;
-      cycle.fa[i] = (-.18 * (1 - ease(u / .16)) + .42 * ease((u - .76) / .24)) * cycle.k;
-    } else {
-      const u = (q - VAMP_STANCE) / (1 - VAMP_STANCE);
-      cycle.lift[i] = .125 * Math.pow(Math.sin(Math.PI * u), 1.3) * cycle.k;
-      cycle.fa[i] = (.42 * (1 - ease(u / .45)) - .18 * ease((u - .62) / .38)) * cycle.k;
-    }
-  }
+  const cycle = humanWalk(v.walkT, v.onGround ? Math.abs(v.vx) : 0, modelScale * BODY[v.kind].k);
   return { cycle, prepare, airborne: !v.onGround };
 }
 

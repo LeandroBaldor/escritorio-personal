@@ -2,7 +2,7 @@ import metadata from './assets/vampyium2/atlas.json';
 import type { Game, Player, Vamp, Weapon } from './vampyium2';
 import type { Pose, Pt } from './vampyium2Chars';
 import { ATTACK } from './vampyium2';
-import { gait, legAngles } from './vampyium2Gait';
+import { humanWalk, jointTransform, legAngles } from './vampyium2Gait';
 import { vampireRigPose, VAMP_BOOT, VAMP_VISUAL_SCALE } from './vampyium2Motion';
 
 type Frame = { x: number; y: number; w: number; h: number };
@@ -64,8 +64,16 @@ function part(ctx: CanvasRenderingContext2D, id: number, center: Pt, w: number, 
   drawAsset(ctx, 'hunter', id, -w / 2, -h / 2, w, h, tint); ctx.restore();
 }
 function limb(ctx: CanvasRenderingContext2D, id: number, start: Pt, end: Pt, width: number) {
-  const dx = end[0] - start[0], dy = end[1] - start[1], length = Math.hypot(dx, dy);
-  part(ctx, id, [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2], width, length + .065, -Math.atan2(dx, dy));
+  // The painted upper arm and thigh are oblique. Their bone axes are NOT the image's vertical axis.
+  const anchors: Record<number, [Pt, Pt]> = {
+    3: [[.70, .12], [.30, .85]], 4: [[.60, .12], [.23, .91]],
+    6: [[.55, .13], [.62, .87]], 7: [[.57, .12], [.45, .92]],
+  };
+  const [proximal, distal] = anchors[id];
+  const m = jointTransform(start, end, proximal, distal, assetAspect('hunter', id), width);
+  ctx.save(); ctx.translate(...start); ctx.rotate(m.angle);
+  drawAsset(ctx, 'hunter', id, -proximal[0] * m.width, -proximal[1] * m.height, m.width, m.height);
+  ctx.restore();
 }
 type WeaponPainter = (hand: Pt, angle: number) => void;
 
@@ -79,7 +87,9 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
   if (p.special?.kind === 'dash') { ctx.translate(.12, -.06); ctx.rotate(.2); }
   const hip: Pt = [pose.lean * .08 + (pose.hipOffset?.[0] ?? 0), -.92 + pose.bob * .45 + pose.crouch * .3 + (pose.hipOffset?.[1] ?? 0) + (p.landT > 0 ? p.landT * .32 : 0)];
   const neck: Pt = [hip[0] + Math.sin(pose.lean) * .61, hip[1] - Math.cos(pose.lean) * .61];
-  const shoulders: Pt[] = [[neck[0] - .29, neck[1] + .085], [neck[0] + .24, neck[1] + .09]];
+  const shoulders: Pt[] = [-.25, .25].map(x => [neck[0] + x * Math.cos(pose.lean) - .09 * Math.sin(pose.lean),
+    neck[1] + x * Math.sin(pose.lean) + .09 * Math.cos(pose.lean)]);
+  const cycle = humanWalk(p.walkT * 7 / 2.4, Math.abs(p.vx), .88 * VAMP_VISUAL_SCALE);
   const feet: Pt[] = [], knees: Pt[] = [];
   for (let i = 0; i < 2; i++) {
     const origin: Pt = [hip[0] + (i ? .09 : -.09), hip[1] + .03];
@@ -88,11 +98,12 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
   }
   const moving = p.onGround && Math.abs(p.vx) > .15 && !p.special && !(p.jumpPrep && p.jumpPrep > 0);
   if (moving) {
-    const cycle = gait(p.walkT * 7 / 2.4, Math.abs(p.vx), { S: .86, H: .26, K: .88 * VAMP_VISUAL_SCALE, bob: .05, beta: .34, walkAt: 2.2 });
     for (let i = 0; i < 2; i++) {
       const origin: Pt = [hip[0] + (i ? .09 : -.09), hip[1]];
-      feet[i] = [origin[0] + cycle.dx[i], -.10 - cycle.lift[i]];
-      const [angle] = legAngles(origin, feet[i], .46, .45); knees[i] = add(origin, angle, .46);
+      const angle = cycle.fa[i], pivot = angle >= 0 ? .19 : -.08;
+      const bottom = Math.max(-.08 * Math.sin(angle), .19 * Math.sin(angle)) + .09 * Math.cos(angle);
+      feet[i] = [(i ? .09 : -.09) + cycle.dx[i] + pivot - (pivot * Math.cos(angle) - .09 * Math.sin(angle)), -bottom - cycle.lift[i]];
+      const [thighAngle] = legAngles(origin, feet[i], .46, .45); knees[i] = add(origin, thighAngle, .46);
     }
   }
   if (p.onGround && (Math.abs(p.vx) < .15 || (p.jumpPrep ?? 0) > 0) && p.attackT < 0 && !p.special) {
@@ -113,14 +124,16 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
   const floor = p.onGround && (!moving || !!pose.feet) ? Math.max(...feet.map(f => f[1])) + .105 : 0;
   ctx.translate(0, -floor);
   const wind = Math.min(.25, Math.abs(p.vx) * .025) + (p.onGround ? 0 : .12);
-  ctx.save(); ctx.translate(neck[0] - .12, neck[1] + .02); ctx.rotate(.03 + wind + Math.sin(rt * 5) * .025);
-  drawAsset(ctx, 'hunter', 10, -.54 - wind, -.05, .7 + wind, 1.48); ctx.restore();
+  ctx.save(); ctx.translate(neck[0] - .08, neck[1] + .025); ctx.rotate(.03 + wind + Math.sin(rt * 5) * .025);
+  // The upper gathering is at 45% of this cutout, attached at the collar/upper back.
+  drawAsset(ctx, 'hunter', 10, -(.7 + wind) * .45, -.035, .7 + wind, 1.48); ctx.restore();
   const leg = (i: number) => {
     ctx.save(); if (!i) ctx.globalAlpha *= .83;
     limb(ctx, 6, [hip[0] + (i ? .09 : -.09), hip[1]], knees[i], .25);
     limb(ctx, 7, knees[i], feet[i], .205);
-    const bootAngle = pose.feet || p.onGround && Math.abs(p.vx) < .15 && p.attackT < 0 ? 0 : -(pose.legs[i][0] - pose.legs[i][1]) * .3;
-    part(ctx, 8, [feet[i][0] + .045, feet[i][1] + .015], .29, .18, bootAngle); ctx.restore();
+    const bootAngle = moving && !pose.feet ? cycle.fa[i] : pose.feet || p.onGround && Math.abs(p.vx) < .15 && p.attackT < 0 ? 0 : -(pose.legs[i][0] - pose.legs[i][1]) * .3;
+    ctx.save(); ctx.translate(...feet[i]); ctx.rotate(bootAngle);
+    drawAsset(ctx, 'hunter', 8, -.08, -.12, .27, .21); ctx.restore(); ctx.restore();
   };
   const arm = (i: number, layer: 'upper' | 'forearm' | 'all') => {
     const [a, b] = pose.arms[i], elbow = add(shoulders[i], a, .34), hand = add(elbow, a + b, .32);
@@ -146,6 +159,7 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
     ctx.restore();
   };
   leg(0);
+  arm(0, 'all');
   if (pose.weaponBehind) {
     const [a, b] = pose.arms[1], elbow = add(shoulders[1], a, .34), hand = add(elbow, a + b, .32);
     paintWeapon(add(hand, a + b, .035), a + b + pose.blade);
@@ -153,15 +167,16 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
   let torso = 1;
   if (g.weapon === 'ice') torso = 14;
   if (g.weapon === 'bone') torso = 15;
-  part(ctx, torso, [hip[0] + pose.lean * .17, hip[1] - .29], .62, .65, pose.lean, ARMOR_TONE[g.weapon]);
-  part(ctx, 2, [hip[0], hip[1] + .10], .51, .37, pose.lean * .4);
+  part(ctx, torso, [hip[0] + Math.sin(pose.lean) * .33, hip[1] - Math.cos(pose.lean) * .33], .69, .73, pose.lean, ARMOR_TONE[g.weapon]);
+  part(ctx, 9, [shoulders[0][0], shoulders[0][1] + .025], .31, .29, -pose.arms[0][0] * .12);
   leg(1);
+  part(ctx, 2, [hip[0], hip[1] + .10], .51, .37, pose.lean * .4);
   const head: Pt = [neck[0] + .035, neck[1] - .15];
   part(ctx, 0, head, .316, .368, pose.head * .4);
   const helmet = g.guardHp > 0 ? 12 : g.weapon === 'holy' || g.weapon === 'cross' ? 11 : g.weapon === 'bone' ? 13 : -1;
   if (helmet >= 0) part(ctx, helmet, [head[0], head[1] - .008], .345, .391, pose.head * .4);
-  // Both complete arms stay visible in front of the cuirass throughout the guard and attacks.
-  arm(0, 'all'); arm(1, 'all');
+  // The far arm passes behind the cuirass; the sword arm stays in front.
+  arm(1, 'all');
   if (p.attackT > .025 && p.attackT < .18 && ['firesword', 'violet', 'bone'].includes(p.attackWeapon)) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= Math.sin(p.attackT / .18 * Math.PI) * .32;
     ctx.strokeStyle = p.attackWeapon === 'firesword' ? '#efb778' : p.attackWeapon === 'violet' ? '#c6a2c7' : '#c7d6d9';
@@ -204,6 +219,14 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
     drawAsset(ctx, atlas, base + id, -w / 2, -h / 2, w, h); ctx.restore();
   };
   const bone = (id: number, a: Pt, b: Pt, width: number, extra = .05) => {
+    if (id === 2 || id === 3) {
+      const proximal: Pt = id === 2 ? [.53, .10] : [.37, .06];
+      const distal: Pt = id === 2 ? [.48, .91] : [.60, .85];
+      const m = jointTransform(a, b, proximal, distal, assetAspect(atlas, base + id), width);
+      ctx.save(); ctx.translate(...a); ctx.rotate(m.angle);
+      drawAsset(ctx, atlas, base + id, -proximal[0] * m.width, -proximal[1] * m.height, m.width, m.height);
+      ctx.restore(); return;
+    }
     paint(id, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], width,
       Math.hypot(b[0] - a[0], b[1] - a[1]) + extra, -Math.atan2(b[0] - a[0], b[1] - a[1]));
   };
@@ -226,17 +249,13 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
     } else bone(5, knee, ankle, heavy ? .27 : .235, .05);
     ctx.restore();
   };
-  leg(0); leg(1);
-  paint(1, [hip[0] + Math.sin(lean) * .30, hip[1] - Math.cos(lean) * .28], (heavy ? .65 : wolf ? .59 : .51) + breath, .73, lean);
-  if (!drawEnemyHead(ctx, v.kind, [neck[0] + .02, neck[1]], -lean * .25 + g.sway * .008))
-    paint(0, [neck[0] + .045, neck[1] - .14], wolf ? .39 : heavy ? .34 : .30, wolf ? .34 : .35, -lean * .25);
-  for (let i = 0; i < 2; i++) {
+  const arm = (i: number) => {
     const lateral = (i ? 1 : -1) * (heavy ? .205 : wolf ? .18 : .155);
     const shoulder: Pt = [neck[0] + lateral * Math.cos(lean) - .11 * Math.sin(lean),
       neck[1] + lateral * Math.sin(lean) + .11 * Math.cos(lean)];
     const carry = i === 1 && ['mage', 'hammer', 'warrior'].includes(v.kind);
     let a = airborne ? (i ? .55 : -.50) : (carry ? .12 : g.arm[i] * .42) - prepare * .35;
-    let b = carry ? 1.05 : .25 + Math.max(0, g.arm[i]) * .30;
+    let b = carry ? 1.05 : .16 + Math.max(0, -Math.cos(2 * Math.PI * (g.ph[i] - .10))) * .18 * g.k;
     if (action.active) {
       const casting = v.state !== 'claw';
       a = casting ? .25 + windup * 1.4 + extension * (v.state === 'zap' ? 2.5 : 1.1)
@@ -257,7 +276,12 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
     }
     if (!i && v.kind === 'warrior') paint(8, [hand[0] - .04, hand[1] - .04], .40, .59);
     ctx.restore();
-  }
+  };
+  leg(0); arm(0); leg(1);
+  paint(1, [hip[0] + Math.sin(lean) * .30, hip[1] - Math.cos(lean) * .28], (heavy ? .65 : wolf ? .59 : .51) + breath, .73, lean);
+  if (!drawEnemyHead(ctx, v.kind, [neck[0] + .02, neck[1]], -lean * .25 + g.sway * .008))
+    paint(0, [neck[0] + .045, neck[1] - .14], wolf ? .39 : heavy ? .34 : .30, wolf ? .34 : .35, -lean * .25);
+  arm(1);
   ctx.restore(); return true;
 }
 export function enemyFrame(v: Vamp, t: number) {
@@ -302,3 +326,4 @@ export function drawRealisticFire(ctx: CanvasRenderingContext2D, x: number, y: n
   return drawAsset(ctx, 'effects', frame, x - w / 2, y - h, w, h);
 }
 export const ARMOR_TONE: Partial<Record<Weapon, string>> = { ice: '#84bace', holy: '#b9a06a', venom: '#677d55', violet: '#8a708e', guard: '#c2ba9d', bone: '#a69a80' };
+

@@ -14,7 +14,7 @@ import { demianSwordPose } from './vampyium2Demian';
 //  · El vampiro volador: igual, con el pelo en punta, la boca abierta y dos alas de murciélago enormes.
 import { alpha, bloom, darken, lighten, segment, shade, spec } from './vampyium2Materials';
 import type { Game, Player, Vamp, Weapon } from './vampyium2';
-import { gait, legAngles } from './vampyium2Gait';
+import { humanWalk, legAngles } from './vampyium2Gait';
 import { drawBloodSword, drawBoneHammer, drawCrossbow, drawFirePistol, drawFireSword, drawGarlicBomb, drawHolyCross, drawIceCrystal, drawVenomBall } from './vampyium2Weapons';
 
 export const TAU = Math.PI * 2;
@@ -51,12 +51,20 @@ const ARMOR_W: Weapon[] = ['ice', 'holy', 'venom', 'violet', 'bone'];
 const AIM_W: Weapon[] = ['crossbow', 'pistol', 'ice', 'venom'], CROSS_W: Weapon[] = ['cross', 'holy'], SLASH_W: Weapon[] = ['sword', 'firesword', 'violet', 'bone'];
 function hunterPose(p: Player, t: number, held: Weapon): Pose {
   const s = Math.sin, at = p.attackT, run = p.onGround && Math.abs(p.vx) > 0.15;
+  const shoulderSword = held === 'sword' && at < 0;
   if ((p.jumpPrep ?? 0) > 0) {
     const k = Math.sin((1 - (p.jumpPrep ?? 0) / .09) * Math.PI / 2);
+    if (shoulderSword) return { ...demianSwordPose(p, t), feet: undefined, bob: 0,
+      lean: .06 + k * .10, crouch: .10 + k * .44,
+      arms: [[-.12 - k * .35, .22 + k * .2], [.70, 2.50]] };
     return { bob: 0, lean: .12 + k * .1, crouch: .12 + k * .58, head: -.06, legs: [[-.4, .9], [.45, 1]], arms: [[-.3 - k * .4, .65], [.4, 1.5]], blade: 1.05 };
   }
   if (!p.onGround && (p.takeoffT ?? 0) > 0 && at < 0) {
     const k = 1 - (p.takeoffT ?? 0) / .12;
+    if (shoulderSword) return { ...demianSwordPose(p, t), feet: undefined, bob: 0,
+      hipOffset: [0, 0], lean: .12 - k * .04,
+      legs: [[-.12 - k * .16, .12 + k * .65], [.14 + k * .28, .12 + k * .9]],
+      arms: [[-.32 + k * .58, .40], [.70, 2.50]] };
     return { bob: 0, lean: .13 - k * .08, crouch: 0, head: -.03, legs: [[-.12 - k * .18, .10 + k * 1.1], [.15 + k * .75, .12 + k * 1.48]], arms: [[.1 + .5 * k, .7], [.5 + .45 * k, 1.2]], blade: 1.1 };
   }
   if (p.hurtT > 0) { const w = t * 30; return { bob: 0, lean: -0.35 + s(w) * 0.06, crouch: 0.1, head: -0.3, legs: [[-0.45, 0.5], [0.25, 0.7]], arms: [[-0.6, 0.9], [-0.9, 0.8]], blade: 0.6 }; }
@@ -80,6 +88,12 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
   const armsFor = (base: [number, number][]): [number, number][] => aim ? [[1.35 + ak, 0.35], [1.5 + ak + br0 * 0.02, 0.1]] : held === 'garlic' ? [[1.0, 1.15], [1.15, 1.0]] : cross ? [[0.2, 1.2], [2.25 + br0 * 0.03, 0.55]] : base;
   const bladeFor = (b: number) => aim ? -0.08 : cross ? 0.05 : held === 'garlic' ? 0 : b;
   if (!p.onGround) {
+    if (shoulderSword) {
+      const tuck = Math.max(0, Math.min(1, (p.vy + 5) / 12));
+      return { ...demianSwordPose(p, t), feet: undefined, hipOffset: [0, 0], bob: 0,
+        lean: .06, legs: [[-.20, .22 + tuck * .55], [.22 + tuck * .20, .28 + tuck * .72]],
+        arms: [[.24 - tuck * .16, .35], [.70, 2.50]] };
+    }
     if (!aim && held !== 'garlic' && !cross) { // al saltar los brazos suben de abajo hacia arriba (y quedan arriba al caer)
       const k = p.vy > 0 ? Math.min(1, Math.max(0, 1 - p.vy / 16)) * 0.8 + 0.2 : 1, e = k * k * (3 - 2 * k);
       return { bob: 0, lean: 0.05, crouch: 0, head: -0.05, legs: p.vy > 2 ? [[-0.3, 1.2], [0.9, 1.6]] : [[-0.45, 0.6], [0.5, 0.9]], arms: [[0.2 + e * 2.5, 0.5 - e * 0.25], [0.4 + e * 2.15, 0.6 - e * 0.3]], blade: 0.3 };
@@ -88,7 +102,7 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
   }
   if (run) { // corre con el ciclo de 8 fases (con un instante en el aire entre paso y paso): el pie apoyado va para atrás
     // con el piso (no patina), el otro pasa adelante subiendo la rodilla; los brazos al revés que las piernas
-    const g = gait(p.walkT * 7 / 2.4, Math.abs(p.vx), { S: 0.86, H: 0.26, K: 0.88 * VAMP_VISUAL_SCALE, bob: 0.05, beta: 0.34, walkAt: 2.2 }), k = g.k;
+    const g = humanWalk(p.walkT * 7 / 2.4, Math.abs(p.vx), .88 * VAMP_VISUAL_SCALE), k = g.k;
     const hipY = -0.7 + g.bob, legs = [0, 1].map(i => {
       const hp: Pt = [i === 0 ? -0.11 : 0.11, hipY], foot: Pt = [hp[0] + 0.04 + g.dx[i], (i === 0 ? -0.03 : 0) - g.lift[i]];
       const [ta, kb] = legAngles(hp, foot, 0.36, 0.35), idle = i === 0 ? [-0.45, 0.55] : [0.42, 0.6];
@@ -96,7 +110,7 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
     });
     const br = s(t * 3.2) * (1 - k);
     return { bob: g.bob + br * 0.025, lean: 0.06 + k * (0.12 + g.sway * 0.02), crouch: 0.08 * (1 - k), head: 0.05,
-      legs, arms: armsFor([[-0.1 + (0.95 * g.arm[0] + 0.1) * k, 1.25 + 0.15 * k], [0.15 + (0.6 * g.arm[1] + 0.15) * k, 1.5]]), blade: bladeFor(1.45 - 0.45 * k) };
+      legs, arms: armsFor([[g.arm[0] * .38, .16 + Math.max(0, g.arm[0]) * .16], [g.arm[1] * .38, .25]]), blade: bladeFor(1.45 - 0.45 * k) };
   }
   const br = s(t * 3.2); // guardia: el puño con la espada adelante, la hoja para arriba (como la cruz de la referencia)
   return { bob: br * .009, lean: .10, crouch: .24 + br * .012, head: .01, legs: [[-.45, .75], [.45, .8]], arms: armsFor([[-.95 + br * .018, 1.65], [.90 - br * .018, .65]]), blade: bladeFor(1.55) };

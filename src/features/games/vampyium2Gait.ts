@@ -70,3 +70,32 @@ export function legAngles(hip: Pt, foot: Pt, l1: number, l2: number): [number, n
   const g = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + l2 * l2 - d * d) / (2 * l1 * l2))));
   return [base + a, Math.PI - g];
 }
+
+// One human contact sequence for hero and enemies; distance, not a timer, drives the feet.
+export function humanWalk(distance: number, speed: number, scale: number) {
+  const beta = .62;
+  const cycle = gait(distance, speed, { S: .58, H: .125, K: scale, beta, bob: .026 });
+  for (let i = 0; i < 2; i++) {
+    const q = cycle.ph[i];
+    if (q < beta) {
+      const u = q / beta;
+      cycle.lift[i] = 0;
+      cycle.fa[i] = (-.18 * (1 - smooth(u / .16)) + .42 * smooth((u - .76) / .24)) * cycle.k;
+    } else {
+      const u = (q - beta) / (1 - beta);
+      cycle.lift[i] = .125 * Math.pow(Math.sin(Math.PI * u), 1.3) * cycle.k;
+      cycle.fa[i] = (.42 * (1 - smooth(u / .45)) - .18 * smooth((u - .62) / .38)) * cycle.k;
+    }
+    // Opposite the ipsilateral foot, with a small lag at the elbow.
+    cycle.arm[i] = -Math.cos(2 * Math.PI * (q - .06)) * cycle.k;
+  }
+  return cycle;
+}
+
+// Map the painted bone's actual joint centers to the rig, instead of its bounding box.
+export function jointTransform(start: Pt, end: Pt, proximal: Pt, distal: Pt, aspect: number, width: number) {
+  const sx = (distal[0] - proximal[0]) * width, sy = (distal[1] - proximal[1]) * width / aspect;
+  const dx = end[0] - start[0], dy = end[1] - start[1];
+  const scale = Math.hypot(dx, dy) / Math.hypot(sx, sy);
+  return { angle: Math.atan2(dy, dx) - Math.atan2(sy, sx), width: width * scale, height: width / aspect * scale };
+}

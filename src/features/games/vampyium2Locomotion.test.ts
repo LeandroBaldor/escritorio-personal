@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BODY, makeVamp, newGame, newPlayer, type VampKind } from './vampyium2';
 import { VAMP_BOOT, VAMP_STANCE, VAMP_STEP_LENGTH, VAMP_VISUAL_SCALE, vampireRigPose } from './vampyium2Motion';
 import { demianSwordPose } from './vampyium2Demian';
+import { humanWalk, jointTransform } from './vampyium2Gait';
 
 const kinds: VampKind[] = ['walker', 'giant', 'mage', 'hammer', 'warrior', 'wolf', 'dracula'];
 describe('walking contact from the supplied side-view reference', () => {
@@ -30,6 +31,36 @@ describe('walking contact from the supplied side-view reference', () => {
   });
 });
 describe('Demian reference poses', () => {
+  it('keeps the sword arm fixed relative to the shoulders while the free arm counter-swings', () => {
+    const p = { ...newPlayer(), onGround: true, vx: 3 };
+    const base = demianSwordPose(p, 0);
+    const angles: number[] = [];
+    for (let i = 0; i < 80; i++) {
+      const q = demianSwordPose({ ...p, walkT: i * .025 }, i * .1);
+      expect(q.arms[1]).toEqual(base.arms[1]);
+      expect(q.blade).toEqual(base.blade);
+      angles.push(q.arms[0][0]);
+    }
+    expect(Math.max(...angles) - Math.min(...angles)).toBeGreaterThan(.7);
+  });
+  it('aligns both painted joint centers, including an oblique upper arm, without bending the texture', () => {
+    const a: [number, number] = [.7, .12], b: [number, number] = [.3, .85];
+    for (const end of [[.4, .3], [-.2, .5], [.1, -.4]] as [number, number][]) {
+      const m = jointTransform([0, 0], end, a, b, .64, .245);
+      const x = (b[0] - a[0]) * m.width, y = (b[1] - a[1]) * m.height;
+      expect(x * Math.cos(m.angle) - y * Math.sin(m.angle)).toBeCloseTo(end[0], 10);
+      expect(x * Math.sin(m.angle) + y * Math.cos(m.angle)).toBeCloseTo(end[1], 10);
+      expect(m.width / m.height).toBeCloseTo(.64, 10);
+    }
+  });
+  it('uses alternating support and opposite arm swing throughout a complete human step', () => {
+    for (let i = 0; i < 100; i++) {
+      const c = humanWalk(i / 100 * (.58 / .62), 3, 1);
+      expect(c.arm[0] + c.arm[1]).toBeCloseTo(0, 10);
+      expect(c.ph.some(q => q < .62)).toBe(true);
+      for (let j = 0; j < 2; j++) if (c.ph[j] < .62) expect(c.lift[j]).toBe(0);
+    }
+  });
   it('carries the sword behind the head, holds a horizontal thrust in the damage window and returns continuously', () => {
     const p = newPlayer(); p.onGround = true; p.vx = 0;
     const idle = demianSwordPose(p, 0);
