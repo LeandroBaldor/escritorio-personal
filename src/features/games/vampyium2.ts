@@ -146,7 +146,8 @@ export interface Vamp {
   landT?: number;
   turnT?: number; // (un instante después de darse vuelta, no se vuelve a dar vuelta)
   walking?: boolean; // se dibuja caminando de perfil (con margen: no alterna parado/caminando a cada cuadro)
-  walkK?: number; // 0 parado de tres cuartos … 1 caminando de perfil (para pasar de una a otra sin saltos)
+  walkK?: number;
+  firing?: boolean; // el dragón tiene la boca abierta tirando fuego // 0 parado de tres cuartos … 1 caminando de perfil (para pasar de una a otra sin saltos)
   special?: number; // Drácula y el dragón: cuenta para el próximo ataque especial
   frozen?: number; chill?: number; // congelado por la armadura de hielo (se rompe cuando llega a 0); chill: el frío en Drácula y el dragón
   nav?: Nav; stuckT?: number; bestD?: number; unstuck?: number; waitT?: number; braveT?: number; // cómo se mueve por el nivel (ver navigate)
@@ -922,44 +923,56 @@ function updateFlyer(g: Game, v: Vamp, dt: number) {
 export const DRAGON_FEET = 1.75;
 // El dragón nunca se apoya: cuando baja queda flotando a esta altura extra, aleteando (las patas colgando).
 export const DRAGON_HOVER = 0.9;
-// La boca del dragón volando (el dibujo de vampyium2Sprites: DRAGON + DRAGON_DRAW), de donde sale el fuego.
-export const DRAGON_MOUTH = { x: 6.8, y: 4.05 };
+// Geometría del dragón volando, en píxeles de su dibujo (255 × 223; vampyium2Sprites lo arma con estas medidas).
+export const DRAGON = { w: 255, h: 223, rootNear: [121, 100] as [number, number], rootFar: [139, 96] as [number, number], jointNear: [62.2, 52.2] as [number, number], jointFar: [184.2, 53.4] as [number, number],
+  tail: [74, 134] as [number, number], head: [183, 104] as [number, number], center: [128, 118] as [number, number], mouth: [240, 108] as [number, number] };
+export const DRAGON_DRAW = { scale: .0185, x: 0, y: -1.05 }; // píxeles → unidades del cuerpo, y dónde queda el centro
+const DRAGON_K = 0.88 * 2.25 * 1.35; // (escala del dibujo en el mundo: CHAR_K × BODY.dragon.k)
+// Cuánto puede girar la cabeza (radianes; positivo = hacia abajo). Fuera de ese cono el dragón no tira: se acomoda.
+export const DRAGON_AIM = { min: -0.4, max: 0.95 };
+const MOUTH_BASE = Math.atan2(DRAGON.mouth[1] - DRAGON.head[1], DRAGON.mouth[0] - DRAGON.head[0]);
+const MOUTH_R = Math.hypot(DRAGON.mouth[0] - DRAGON.head[0], DRAGON.mouth[1] - DRAGON.head[1]) * DRAGON_DRAW.scale * DRAGON_K;
+const dragonPivot = (v: Vamp) => ({ x: v.x + v.face * (DRAGON_DRAW.x + (DRAGON.head[0] - DRAGON.center[0]) * DRAGON_DRAW.scale) * DRAGON_K, y: v.y - (DRAGON_DRAW.y + (DRAGON.head[1] - DRAGON.center[1]) * DRAGON_DRAW.scale) * DRAGON_K });
+// La boca con la cabeza girada `rot`: dónde está en el mundo y hacia dónde apunta (el fuego sale en esa dirección).
+export function dragonMouth(v: Vamp, rot = v.aim ?? 0) {
+  const c = dragonPivot(v), a = MOUTH_BASE + rot;
+  return { x: c.x + v.face * Math.cos(a) * MOUTH_R, y: c.y - Math.sin(a) * MOUTH_R, dx: v.face * Math.cos(a), dy: -Math.sin(a) };
+}
+// El giro de cabeza que hace falta para que la boca apunte al cazador (sin límite: después se compara con el cono).
+export function dragonAimAt(v: Vamp, tx: number, ty: number) {
+  const c = dragonPivot(v); return Math.atan2(c.y - ty, v.face * (tx - c.x)) - MOUTH_BASE;
+}
+export const DRAGON_MOUTH = { x: 6.8, y: 4.05 }; // (boca con la cabeza derecha, relativa al dragón)
 function updateDragon(g: Game, v: Vamp, dt: number) {
   const p = g.player, r = g.rand;
   v.t += dt; v.cool -= dt; v.walkT += dt; v.flash = Math.max(0, (v.flash ?? 0) - dt);
-  const dx = p.x - v.x, [x1, x2, y1, y2] = vampBox(v);
-  const touching = x2 > p.x - 0.3 && x1 < p.x + 0.3 && y1 < p.y + PLAYER_H && y2 > p.y;
-  if (v.state === 'hover') {
-    const side = v.x < p.x ? -1 : 1, tx = Math.max(3, Math.min(W - 3, p.x + side * 6)), ty = Math.min(H - 3.5, Math.max(GROUND_Y + 3.6, p.y + 3.6)) + Math.sin(v.t * 2) * 0.4;
-    v.vx += ((tx - v.x) * 1.4 - v.vx) * Math.min(1, dt * 2); v.vy += ((ty - v.y) * 1.6 - v.vy) * Math.min(1, dt * 2.5);
-    v.face = dx >= 0 ? 1 : -1;
-    if (v.cool <= 0) {
-      const roll = r(); v.t = 0; v.hit = false;
-      if (roll < 0.5) { v.state = 'breath'; emit(g, { type: 'breath' }); }
-      else if (roll < 0.75) { v.state = 'dive'; const ax = p.x - v.x, ay = p.y + 1 - v.y, L = Math.hypot(ax, ay) || 1; v.vx = ax / L * 12; v.vy = ay / L * 12; emit(g, { type: 'dive' }); }
-      else { v.state = 'land'; }
+  const dx = p.x - v.x;
+  // Siempre volando y tirando fuego: se pone ADELANTE y arriba del cazador, a una distancia en la que la boca lo puede
+  // apuntar (nunca contra la pared del lado del cazador: ahí tendría que tirar para atrás), gira la cabeza hacia él y
+  // tira solo cuando la boca lo apunta de verdad. Mientras tira se sigue acomodando despacio.
+  // (la boca está ~6,8 por delante del centro: parado a 11,5 la boca queda a ~5 del cazador, apuntando en diagonal)
+  const STAND = 11.5;
+  let side: 1 | -1 = v.x < p.x ? -1 : 1, tx = p.x + side * STAND;
+  if (tx < 3.2 || tx > W - 3.2) { side = (-side) as 1 | -1; tx = p.x + side * STAND; }
+  tx = Math.max(3.2, Math.min(W - 3.2, tx));
+  const ty = Math.min(H - 3.5, Math.max(GROUND_Y + 3.6, p.y + 4.2)) + Math.sin(v.t * 1.7) * 0.3;
+  const gain = v.state === 'breath' ? 0.45 : 1;
+  v.vx += ((tx - v.x) * 1.4 - v.vx) * Math.min(1, dt * 2 * gain); v.vy += ((ty - v.y) * 1.6 - v.vy) * Math.min(1, dt * 2.5 * gain);
+  if (Math.abs(dx) > 0.6) v.face = dx >= 0 ? 1 : -1;
+  const want = dragonAimAt(v, p.x, p.y + 0.9), rot = Math.max(DRAGON_AIM.min, Math.min(DRAGON_AIM.max, want));
+  v.aim = (v.aim ?? 0) + (rot - (v.aim ?? 0)) * Math.min(1, dt * 6); // (la cabeza gira, no salta)
+  const onTarget = Math.abs(want - v.aim) < 0.14 && v.face * dx > 1.5;
+  v.firing = false;
+  if (v.state !== 'breath') {
+    v.state = 'hover';
+    if (v.cool <= 0) { v.state = 'breath'; v.t = 0; v.hit = false; emit(g, { type: 'breath' }); }
+  } else { // fuego por la boca hacia el cazador: prepara (0,35 s) y tira 3 segundos
+    v.firing = v.t > 0.35 && v.t < 0.35 + DRAGON_FIRE_T && onTarget;
+    if (v.firing && Math.floor(v.t / 0.05) !== Math.floor((v.t - dt) / 0.05)) {
+      const m = dragonMouth(v); shoot(g, m.x, m.y, m.x + m.dx * 10, m.y + m.dy * 10, 11, 'flame', DAMAGE.dragon, 1.1, (r() - 0.5) * 0.06);
     }
-  } else if (v.state === 'breath') { // fuego por la boca hacia el cazador
-    v.vx *= Math.max(0, 1 - dt * 3); v.vy *= Math.max(0, 1 - dt * 3); v.face = dx >= 0 ? 1 : -1;
-    v.aim = Math.atan2(-(p.y + 0.9 - v.y - DRAGON_MOUTH.y), Math.abs(p.x - v.x - v.face * DRAGON_MOUTH.x) || 0.01); // (para que el chorro de la boca vaya para el mismo lado que el fuego)
-    if (v.t > 0.35 && v.t < 0.35 + DRAGON_FIRE_T && Math.floor(v.t / 0.05) !== Math.floor((v.t - dt) / 0.05)) { shoot(g, v.x + v.face * DRAGON_MOUTH.x, v.y + DRAGON_MOUTH.y, p.x, p.y + 0.9, 11, 'flame', DAMAGE.dragon, 1.1, (r() - 0.5) * 0.06); }
-    if (v.t > 0.35 + DRAGON_FIRE_T + 0.3) { v.state = 'hover'; v.cool = 1.6 + r(); } // (cada llamarada dura 3 segundos)
-  } else if (v.state === 'dive') { // picada
-    if (!v.hit && touching) { v.hit = true; hurt(g, v.x, DAMAGE.dragon); }
-    if (v.t > 1.0 || v.y < GROUND_Y + DRAGON_FEET + 0.1) { v.state = 'rise'; v.t = 0; }
-  } else if (v.state === 'rise') {
-    v.vy += (5 - v.vy) * Math.min(1, dt * 3); v.vx *= Math.max(0, 1 - dt * 2);
-    if (v.t > 1) { v.state = 'hover'; v.cool = 1.4 + r() * 1.2; }
-  } else if (v.state === 'land') { // baja casi al piso (nunca se apoya: sigue aleteando) y da dos aletazos fuertes (ahí es cuando más fácil se le pega)
-    const [lx, q] = standAt(v.x, GROUND_Y), gy = q.y + DRAGON_FEET + DRAGON_HOVER;
-    v.vx += ((lx - v.x) * 2 - v.vx) * Math.min(1, dt * 3);
-    if (v.y > gy + 0.05) v.vy = Math.max(-9, (gy - v.y) * 4); else { v.y = gy; v.vy = 0; }
-    v.face = dx >= 0 ? 1 : -1;
-    const stomp = (k: number) => v.t >= k && v.t - dt < k;
-    if (stomp(1.2) || stomp(2.2)) { g.shake = Math.max(g.shake, 0.8); emit(g, { type: 'slam' }); if (Math.abs(dx) < 3.6 && p.y < gy + 0.5) hurt(g, v.x, DAMAGE.dragon); }
-    if (v.t > 3.2) { v.state = 'rise'; v.t = 0; }
+    if (v.t > 0.35 + DRAGON_FIRE_T + 0.3) { v.state = 'hover'; v.cool = 0.9 + r() * 0.6; } // (cada llamarada dura 3 segundos)
   }
-  if (v.state !== 'dive' && v.state !== 'land' && !v.hit && touching && v.state !== 'breath') { /* rozarlo volando no lastima */ }
   v.x += v.vx * dt; v.y += v.vy * dt;
   v.x = Math.max(2.4, Math.min(W - 2.4, v.x)); v.y = Math.max(GROUND_Y + DRAGON_FEET - 0.05, Math.min(H - 2, v.y));
 }
@@ -1170,12 +1183,13 @@ function updateRemains(g: Game, dt: number) {
 // Cómo terminan los que mató una armadura (en vez de quemarse y reventar en huesos):
 //  hielo: se hace pedazos de hielo · verde: se pone verde y se derrite en un charco · dorada: se deshace en luz
 //  violeta: explota en violeta (y vuelan los huesos)
+export const ICE_SHATTER_T = 1.7; // (lo que tardan en caer y derretirse los pedazos de la estatua de hielo)
 export const SHATTER_AT = 0.06, MELT_T = 1.5, PUDDLE_T = 3.2, DUST_T = 0.75, NOVA_AT = 0.14;
 function armorRemains(g: Game, c: Corpse, dt: number) {
   const r = g.rand, B = BODY[c.kind], fly = c.kind === 'flyer' ? -0.6 : 0, big = Math.max(1, Math.round(B.k));
-  if (c.how === 'ice' && c.t >= SHATTER_AT) {
-    g.corpses.splice(g.corpses.indexOf(c), 1);
-    for (let i = 0; i < 16 * big; i++) { const a = r() * Math.PI, sp = 4 + r() * 10; g.shards.push({ x: c.x + (r() - 0.5) * B.w, y: c.y + fly + 0.2 + r() * B.h, vx: Math.cos(a) * sp * (r() < 0.5 ? -1 : 1), vy: Math.sin(a) * sp, a: r() * 6, va: (r() - 0.5) * 24, t: 0, s: 0.07 + r() * 0.13 * big, rest: false }); }
+  if (c.how === 'ice' && c.t >= ICE_SHATTER_T) g.corpses.splice(g.corpses.indexOf(c), 1); // (los pedazos de la estatua ya se derritieron)
+  else if (c.how === 'ice' && c.t >= SHATTER_AT && c.t - dt < SHATTER_AT) {
+    for (let i = 0; i < 5 * big; i++) { const a = r() * Math.PI, sp = 4 + r() * 10; g.shards.push({ x: c.x + (r() - 0.5) * B.w, y: c.y + fly + 0.2 + r() * B.h, vx: Math.cos(a) * sp * (r() < 0.5 ? -1 : 1), vy: Math.sin(a) * sp, a: r() * 6, va: (r() - 0.5) * 24, t: 0, s: 0.07 + r() * 0.13 * big, rest: false }); }
     for (let i = 0; i < 30; i++) { const a = r() * Math.PI * 2, sp = 2 + r() * 8; g.sparks.push({ x: c.x, y: c.y + fly + 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 2, t: 0, life: 0.5 + r() * 0.4, hue: 190 + r() * 20 }); }
     g.fx.push({ kind: 'frost', x: c.x, y: c.y + fly + 1, t: 0, life: 0.5, r: 1.8, face: 1, seed: r() }); g.shake = Math.max(g.shake, 0.4);
     emit(g, { type: 'shatter' });

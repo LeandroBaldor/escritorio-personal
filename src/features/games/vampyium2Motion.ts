@@ -1,5 +1,6 @@
 import { humanWalk, legAngles, type Pt } from './vampyium2Gait';
-import { ATTACK, BODY, type Vamp } from './vampyium2';
+import { ATTACK, BODY, DRAGON, DRAGON_DRAW, type Vamp } from './vampyium2';
+export { DRAGON, DRAGON_DRAW };
 
 export const VAMP_VISUAL_SCALE = 2.25;
 export const VAMP_STEP_LENGTH = .58, VAMP_STANCE = .62;
@@ -72,9 +73,6 @@ export function vampireRigPose(v: Vamp, modelScale: number, time: number) {
   return { ...motion, action, breath, hip, neck, lean, legs };
 }
 
-export const DRAGON = { w: 255, h: 223, rootNear: [121, 100] as Pt, rootFar: [139, 96] as Pt, jointNear: [62.2, 52.2] as Pt, jointFar: [184.2, 53.4] as Pt,
-  tail: [74, 134] as Pt, head: [183, 104] as Pt, center: [128, 118] as Pt, mouth: [240, 108] as Pt };
-export const DRAGON_DRAW = { scale: .0185, x: 0, y: -1.05 }; // pixels → body units, and where the body centre sits
 export const ease01 = (x: number) => { const k = Math.max(0, Math.min(1, x)); return k * k * (3 - 2 * k); };
 // 0 = wings up (as painted) … 1 = wings fully down. The downstroke (the push) takes 45% of the beat.
 export function dragonWing(phase: number) {

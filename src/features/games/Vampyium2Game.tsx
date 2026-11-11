@@ -10,7 +10,7 @@ import { GamePad } from './GamePad';
 import { pixelRatio, useFitScreen } from './fitScreen';
 import { EndBanner } from './EndBanner';
 import { BOSS_HP, DRAGON_FIRE_T, CHAPTERS, goalProgress, DAMAGE, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, GUARD_HP, HOLY_TARGETS, isArmor, WEAPON_NAME, chooseWeapon, closeMenu, newPlayer, newGame, formatVampTime, menuMove, noteTap, pressAttack, SPECIAL_KEYS, triggerSpecial, step, takeEvents, type Game, type Input, type Weapon } from './vampyium2';
-import { drawGame, drawPortrait, drawSwordIcon, setBackdrop } from './vampyium2Art';
+import { drawDefeatPortrait, drawGame, drawPortrait, drawStandingHunter, drawSwordIcon, setBackdrop } from './vampyium2Art';
 import { drawWeaponIcon } from './vampyium2Weapons';
 import { setNoGrain } from './gravityMonsters';
 // Los fondos de los 10 niveles (fondo-nivel-N.webp)
@@ -345,7 +345,7 @@ export function Vampyium2() {
           <div className="ds-plate"><span className="vamp-paused"> Juego en pausa</span><h2>Arsenal del cazador</h2></div>
           <div className="ds-body">
             <div className="ds-hero">
-              <ArtCanvas w={220} h={310} draw={(ctx, t) => { const g = gameRef.current, w = WEAPONS[g.menu.sel]; drawPortrait(ctx, 'hunter', isArmor(w) && w !== g.weapon ? { ...g, weapon: w === 'guard' ? g.weapon : w, guardHp: w === 'guard' ? GUARD_HP : g.guardHp } : g, 96, 302, 136, t); }} />
+              <ArtCanvas w={220} h={310} draw={(ctx, t) => { const g = gameRef.current, w = WEAPONS[g.menu.sel]; /* parado como en el menú inicial, con el arma o la armadura elegida */ drawStandingHunter(ctx, g, w === 'guard' ? 'sword' : w, w === 'guard' ? GUARD_HP : 0, w === 'crossbow' || w === 'pistol' ? 72 : w === 'garlic' || w === 'cross' ? 92 : 104, 302, 100, t); }} />
               <b>Cazador</b>
               <div className="ds-bar ds-bar--hp" aria-label={`Vida ${hud.hp} de ${MAX_HP}`}><i style={{ width: `${hud.hp / MAX_HP * 100}%` }} /><span>Vida {hud.hp}/{MAX_HP}</span></div>
 {level >= WEAPON_LEVEL.cross &&               <div className="ds-bar ds-bar--holy" aria-label={`Cruz ${hud.power} de ${POWER_MAX}`}><i style={{ width: `${hud.power / POWER_MAX * 100}%` }} /><span>Cruz {hud.power}/{POWER_MAX}</span></div>}
@@ -469,7 +469,7 @@ export function Vampyium2() {
         </div>}
         {status !== 'playing' && status !== 'intro' && status !== 'ready' && <div className="runner-overlay vamp-overlay" role="dialog" aria-labelledby="vamp-message">
           <div className={`trepa-overlay-card ds-frame${status === 'paused' || status === 'over' ? ' vamp-decision-frame' : ''}`}>
-            {(status === 'paused' || status === 'over') && <Vampyium2Decision defeated={status === 'over'}
+            {(status === 'paused' || status === 'over') && <Vampyium2Decision defeated={status === 'over'} portrait={status === 'over' ? <ArtCanvas w={200} h={300} draw={(ctx, t) => drawDefeatPortrait(ctx, gameRef.current, 200, 300, t)} /> : null}
               onContinue={() => { playVampMenuButton(); setStatus('playing'); }} onRetry={() => start(level)}
               onMenu={() => { playVampMenuButton(); setStatus('ready'); }} />}
             {status === 'won' && <>

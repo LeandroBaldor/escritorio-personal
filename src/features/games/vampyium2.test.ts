@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AMMO_PICKUP, GUARD_HP, FREEZE_T, HOLY_TARGETS, DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp, CHAPTERS, hitObject, noteTap, triggerSpecial, SPECIAL_KEYS, DASH_PIERCE, MAGE_HAND, BODY } from './vampyium2';
+import { AMMO_PICKUP, GUARD_HP, FREEZE_T, HOLY_TARGETS, DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp, CHAPTERS, hitObject, noteTap, triggerSpecial, SPECIAL_KEYS, DASH_PIERCE, MAGE_HAND, BODY, dragonMouth, W } from './vampyium2';
 
 const idle = (): Input => ({ left: false, right: false, up: false, down: false });
 const run = (g: Game, seconds: number, input: Input = idle()) => { for (let t = 0; t < seconds; t += 1 / 60) step(g, input, 1 / 60); };
@@ -439,6 +439,33 @@ describe('Vampyium2: los vampiros de cada nivel y los puntos', () => {
     newGame(1, 1);
   });
 
+  it('el dragón nunca baja al piso ni se tira en picada: siempre vuela y tira fuego', () => {
+    const g = newGame(9, 10); g.crateT = 1e9; g.vamps = []; g.player.inv = 1e9; g.immortal = true;
+    const d = makeVamp(g, 'dragon', { x: 14, y: GROUND_Y + 4, state: 'hover', t: 0, face: -1, cool: 0.5 }); g.vamps.push(d);
+    const seen = new Set<string>(), shots = new Set<object>();
+    for (let i = 0; i < 60 * 20; i++) { g.player.x = 4 + (i % 600) / 600 * (W - 8); step(g, idle(), 1 / 60); seen.add(d.state); for (const s of g.shots) if (s.kind === 'flame') shots.add(s); }
+    const flames = shots.size;
+    expect([...seen].every(s => s === 'hover' || s === 'breath')).toBe(true);
+    expect(d.y).toBeGreaterThan(GROUND_Y + 3);
+    expect(flames).toBeGreaterThan(50);
+  });
+  for (const px of [3, 26]) it(`con el cazador contra la pared (x=${px}) el fuego sale de la boca, hacia adelante y hacia él`, () => {
+    const g = newGame(9, 10); g.crateT = 1e9; g.vamps = []; g.player.inv = 1e9; g.immortal = true; g.player.x = Math.min(px, W - 3);
+    const d = makeVamp(g, 'dragon', { x: px < 10 ? 6 : W - 5, y: GROUND_Y + 4, state: 'hover', t: 0, face: px < 10 ? -1 : 1, cool: 0 }); g.vamps.push(d);
+    let checked = 0; const seen = new Set<object>();
+    for (let i = 0; i < 60 * 6; i++) {
+      step(g, idle(), 1 / 60);
+      for (const s of g.shots) if (s.kind === 'flame' && !seen.has(s)) {
+        seen.add(s); const m = dragonMouth(d);
+        expect(Math.hypot(s.x - s.vx * s.t - m.x, s.y - s.vy * s.t - m.y)).toBeLessThan(.4); // sale de la boca
+        expect(Math.sign(s.vx)).toBe(d.face); // hacia adelante, nunca para atrás
+        const toP = Math.atan2(g.player.y + 0.9 - s.y, g.player.x - s.x), dir = Math.atan2(s.vy, s.vx);
+        expect(Math.abs(Math.atan2(Math.sin(toP - dir), Math.cos(toP - dir)))).toBeLessThan(.3); // hacia el cazador
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(10);
+  });
   it('el dragón escupe fuego que saca 15 de vida', () => {
     const g = newGame(9, 10); g.crateT = 1e9; g.vamps = [];
     g.vamps.push(makeVamp(g, 'dragon', { x: 10, y: GROUND_Y + 4, state: 'breath', t: 0, face: -1 }));

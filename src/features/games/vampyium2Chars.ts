@@ -92,7 +92,12 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
   // con la ballesta o la pistola apunta adelante; la bomba la lleva con las dos manos; la cruz, en alto
   const aim = AIM_W.includes(held), cross = CROSS_W.includes(held), br0 = s(t * 3.2);
   const ak = p.aim * 0.7; // apunta arriba o abajo
-  const armsFor = (base: [number, number][]): [number, number][] => aim ? [[1.35 + ak, 0.35], [1.5 + ak + br0 * 0.02, 0.1]] : held === 'garlic' ? [[1.0, 1.15], [1.15, 1.0]] : cross ? [[0.2, 1.2], [2.25 + br0 * 0.03, 0.55]] : base;
+  // (the free arm — index 0, in front of the body — must stay visible: with the crossbow it supports the stock from
+  // below; with the pistol or the garlic bomb it hangs relaxed in front, the elbow slightly bent)
+  const freeHang: [number, number] = [0.12 + br0 * 0.01, 0.32];
+  const armsFor = (base: [number, number][]): [number, number][] => aim
+    ? [held === 'crossbow' ? [1.15 + ak * 0.8, 0.45] : freeHang, [1.5 + ak + br0 * 0.02, 0.1]]
+    : held === 'garlic' ? [freeHang, [1.15, 1.0]] : cross ? [[0.2, 1.2], [2.25 + br0 * 0.03, 0.55]] : base;
   const bladeFor = (b: number) => aim ? -0.08 : cross ? 0.05 : held === 'garlic' ? 0 : b;
   if (!p.onGround) {
     if (shoulderSword) {

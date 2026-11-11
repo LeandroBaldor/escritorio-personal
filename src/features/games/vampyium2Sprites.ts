@@ -296,8 +296,12 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
     ctx.restore();
   };
   leg(0);
+  // Standing (and aiming), the free arm hangs IN FRONT of the body: the torso is turned three quarters, so the left
+  // shoulder is the near one. Only the sword thrust swings it back behind the body. Walking in profile, the arms
+  // pass in front or behind with the step.
+  const freeArmBack = p.attackT >= 0 && ['sword', 'firesword', 'violet', 'bone'].includes(p.attackWeapon) || !!p.special;
   const depth = walkProfile ? walkingDepth(cycle)
-    : { back: [0], front: [1] };
+    : freeArmBack ? { back: [0], front: [1] } : { back: [] as number[], front: [0, 1] };
   for (const side of depth.back) arm(side, 'all');
   if (pose.weaponBehind) {
     const [a, b] = pose.arms[1], elbow = add(shoulders[1], a, .31), hand = add(elbow, a + b, .30);
@@ -316,6 +320,17 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
   ctx.restore();
   const helmet = decor?.key === 'guard' ? 12 : decor?.key === 'holy' ? 11 : decor?.key === 'bone' ? 13 : -1;
   if (helmet >= 0) part(ctx, helmet, [head[0] + .005, head[1] - .015], .33, .375, headTilt);
+  if (helmet === 12) { // the protective armour's hood: Demian's face inside the opening, in the hood's shadow
+    ctx.save(); ctx.translate(head[0] + .005, head[1] - .015); ctx.rotate(headTilt);
+    const W = .33, H = .375, cx = W * .17, cy = H * .03, rx = W * .2, ry = H * .245;
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, -.12, 0, Math.PI * 2); ctx.clip();
+    const fw = DEMIAN_FACE.w * .62, fh = DEMIAN_FACE.h * .62;
+    drawAsset(ctx, 'demian-face', 0, cx - fw * .48, cy - fh * .5, fw, fh);
+    const shade = ctx.createRadialGradient(cx + rx * .35, cy + ry * .15, rx * .2, cx, cy, Math.max(rx, ry) * 1.15);
+    shade.addColorStop(0, 'rgba(10,6,4,0)'); shade.addColorStop(.6, 'rgba(10,6,4,.25)'); shade.addColorStop(1, 'rgba(10,6,4,.85)');
+    ctx.fillStyle = shade; ctx.fillRect(cx - rx, cy - ry, rx * 2, ry * 2);
+    ctx.restore();
+  }
   for (const side of depth.front) arm(side, 'all');
   if (p.attackT > .025 && p.attackT < .18 && ['firesword', 'violet', 'bone'].includes(p.attackWeapon)) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= Math.sin(p.attackT / .18 * Math.PI) * .32;
@@ -553,12 +568,26 @@ export function enemyFrame(v: Vamp, t: number) {
 // separate layer (head aim, mouth, fire glow) on top of it:
 // WINGS UP → DOWNSTROKE → LEVEL → FULLY DOWN → UPSTROKE → LEVEL → UP → loop.
 // outline of each piece inside its cell (x, y, w, h)
-const DRAGON_PIECE_BOX = [[10, 65, 190, 146], [34, 10, 103, 103], [0, 0, 105, 95], [129, 18, 71, 85], [145, 3, 91, 64], [9, 127, 74, 84], [177, 76, 64, 51], [180, 74, 70, 54]];
+// outline of each piece inside its cell (x, y, w, h), in the 4× pixels of the sheet
+const DRAGON_PIECE_BOX = [[48, 260, 749, 584], [135, 39, 410, 409], [0, 0, 403, 377], [515, 78, 284, 330], [581, 23, 358, 245], [48, 513, 279, 329], [710, 306, 249, 195], [721, 296, 279, 216]];
+const DRAGON_SHEET = 4; // the sheet is the painted dragon rebuilt at 4× (Real-ESRGAN): sharp at any screen size
+// A crest of the dragon's own horns (cut from its head) at a wing root: they sweep up and back, and follow the wing a little.
+const HORNS: [number, number, number, number][] = [[-2.62, .62, -9, 8], [-2.98, 1.1, 2, -1], [-2.8, .86, -4, 3], [-3.15, .74, 8, 4]]; // angle, size, dx, dy (back to front)
+function dragonHorns(ctx: CanvasRenderingContext2D, root: Pt, size: number, follow: number) {
+  if (!atlasReady('dragon-horn')) return;
+  const f = META['dragon-horn'].frames[0], img = images['dragon-horn'], L = 30 * size;
+  for (const [a, k, ox, oy] of HORNS) {
+    ctx.save(); ctx.translate(root[0] + ox, root[1] + oy - 2); ctx.rotate(a + follow - Math.PI + .45);
+    // the horn image runs from its base (right) to its tip (left): base at the origin, thickened a little
+    const w = L * k, h = w * f.h / f.w * 2.4;
+    ctx.drawImage(img, f.x, f.y, f.w, f.h, -w * .95, -h * .82, w, h); ctx.restore();
+  }
+}
 function drawDragonFlight(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   if (!atlasReady('dragon-flight')) return false;
   const img = images['dragon-flight'], cell = (i: number) => META['dragon-flight'].frames[i];
   // (each piece is drawn only inside its own outline: the rest of the 255 × 223 cell is transparent)
-  const piece = (i: number) => { const f = cell(i), [bx, by, bw, bh] = DRAGON_PIECE_BOX[i]; ctx.drawImage(img, f.x + bx, f.y + by, bw, bh, bx, by, bw, bh); };
+  const piece = (i: number) => { const f = cell(i), [bx, by, bw, bh] = DRAGON_PIECE_BOX[i], q = DRAGON_SHEET; ctx.drawImage(img, f.x + bx, f.y + by, bw, bh, bx / q, by / q, bw / q, bh / q); };
   const around = (pivot: Pt, angle: number, draw: () => void) => { ctx.save(); ctx.translate(...pivot); ctx.rotate(angle); ctx.translate(-pivot[0], -pivot[1]); draw(); ctx.restore(); };
   const diving = v.state === 'dive', breath = v.state === 'breath', rising = v.state === 'rise' || v.state === 'land';
   const rate = diving ? .9 : rising ? 2.1 : 1.45; // beats per second (faster when climbing or hovering low)
@@ -566,12 +595,12 @@ function drawDragonFlight(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   const w = diving ? .12 + .08 * dragonWing(phase) : dragonWing(phase);
   const lag = diving ? 0 : (dragonWing(phase) - dragonWing(phase - .07)) * 2.4; // the outer wing trails the beat (membrane follow-through)
   const p01 = ((phase % 1) + 1) % 1;
-  const bob = diving ? 0 : -Math.sin(p01 * Math.PI * 2) * 4.5; // lifts on the downstroke, sinks on the upstroke (pixels)
-  // attack layer: ANTICIPATION (head pulls back, fire gathers) → mouth opens → fire → mouth closes; wings keep beating
-  const charge = breath ? ease01(v.t / .35) : 0, fire = breath && v.t > .3 && v.t < 2.25;
-  const aimUp = breath ? Math.max(-.6, Math.min(.5, v.aim ?? 0)) : 0;
-  const headRot = Math.sin((p01 - .15) * Math.PI * 2) * .035 - aimUp * .55 * charge - (breath && v.t < .35 ? .12 * Math.sin(charge * Math.PI) : 0);
-  const pitch = diving ? Math.max(-.2, Math.min(.85, Math.atan2(-v.vy, Math.abs(v.vx) || .001))) : Math.sin(p01 * Math.PI * 2 + .6) * .025;
+  const bob = diving ? 0 : -Math.sin(p01 * Math.PI * 2) * (breath ? 1.5 : 4.5); // lifts on the downstroke, sinks on the upstroke (pixels)
+  // attack layer: the head turns to aim the mouth at the hunter (v.aim, from the game logic: the fire leaves along
+  // the same line), the fire gathers in the throat, the jaw opens ONLY while it is breathing fire, then closes
+  const charge = breath ? ease01(v.t / .35) : 0, fire = !!v.firing;
+  const headRot = (v.aim ?? 0) + Math.sin((p01 - .15) * Math.PI * 2) * (breath ? .012 : .035);
+  const pitch = diving ? Math.max(-.2, Math.min(.85, Math.atan2(-v.vy, Math.abs(v.vx) || .001))) : Math.sin(p01 * Math.PI * 2 + .6) * (breath ? .01 : .025);
   ctx.save();
   if (v.state === 'mist') ctx.globalAlpha *= .3 + .15 * Math.sin(t * 7);
   ctx.translate(DRAGON_DRAW.x, DRAGON_DRAW.y); ctx.scale(DRAGON_DRAW.scale, DRAGON_DRAW.scale); ctx.rotate(pitch);
@@ -583,16 +612,18 @@ function drawDragonFlight(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   piece(0);
   around(DRAGON.head, headRot, () => {
     piece(fire ? 7 : 6);
-    if (charge > 0) { // the fire gathering in the throat, then pouring out of the mouth
-      const m = DRAGON.mouth, r = 10 + charge * 16;
+    if (charge > 0 && (fire || v.t < .4)) { // the fire gathering in the throat, then pouring out of the mouth
+      const m = DRAGON.mouth, r = (fire ? 12 : 6) + charge * (fire ? 14 : 6);
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       const gl = ctx.createRadialGradient(m[0], m[1], 0, m[0], m[1], r);
       gl.addColorStop(0, `rgba(255,230,170,${.85 * charge})`); gl.addColorStop(.4, `rgba(255,120,30,${.6 * charge})`); gl.addColorStop(1, 'rgba(255,60,0,0)');
       ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(m[0], m[1], r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     }
   });
+  dragonHorns(ctx, DRAGON.rootFar, .8, wingFar * .25);
   // near wing (in front)
   around(DRAGON.rootNear, wingNear, () => { piece(1); around(DRAGON.jointNear, lag, () => piece(2)); });
+  dragonHorns(ctx, DRAGON.rootNear, 1, wingNear * .25); // a crest of horns over the wing root (hides where the wing joins)
   ctx.restore(); return true;
 }
 export function drawRealisticEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {

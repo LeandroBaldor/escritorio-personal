@@ -1,10 +1,12 @@
 // El dibujo de Vampyium2. El mundo va en unidades (vampyrium.ts) y acá se pasa a píxeles: `s` píxeles por unidad,
 // el borde de abajo de la pantalla es y = 0. Los personajes están en vampyriumChars.ts (al estilo de Kombat
 // Football); acá el escenario, las trampas, las cajas, los huesos, la sangre y las chispas.
+import { drawFrozenVamp, drawIceShatter } from './vampyium2Ice';
 import { bodyFire, drawHunterK, drawSkeletonK, sword } from './vampyium2Chars';
 import { drawShotK, drawVampK } from './vampyium2Monsters';
 import { drawDragonDeathK, setVampTexture } from './vampyium2Vamps';
-import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, CAM_MAX, WORLD_H, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, hasDoor, ZAP_AT, DD_BLAST, DD_BURN, DD_END, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Orb, type Shard, MELT_T, PUDDLE_T, DUST_T, FREEZE_T, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyium2';
+import { newPlayer, type Weapon } from './vampyium2';
+import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, CAM_MAX, WORLD_H, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, hasDoor, ZAP_AT, DD_BLAST, DD_BURN, DD_END, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Orb, type Shard, MELT_T, PUDDLE_T, DUST_T, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyium2';
 import { drawBolt, drawGarlicBomb, drawIceCrystal, drawVenomBall, drawWeaponIcon } from './vampyium2Weapons';
 import { artRevision, assetAspect, atlasReady, drawAsset } from './vampyium2Sprites';
 import { texturedStrip, realisticChain, drawRealisticTrap, fireLight, drawRealisticImpact, drawRealisticPits } from './vampyium2Environment';
@@ -134,7 +136,7 @@ export function drawCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t:
 function armorCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t: number, k: number, fake: Vamp) {
   const B = BODY[c.kind], x = X(v, c.x), y = Y(v, c.y) + (c.kind === 'flyer' ? -v.s * 0.6 : 0), w = v.s * (B.w + 1.4) * CHARACTER_SCALE, h = v.s * (B.h + 1.4) * CHARACTER_SCALE;
   const body = (sy = 1, sx = 1) => (cc: CanvasRenderingContext2D) => { cc.save(); cc.translate(x, y); cc.scale(k * c.face * sx, k * sy); drawVampK(cc, fake, t); cc.restore(); };
-  if (c.how === 'ice') { tinted(ctx, x - w / 2, y - h, w, h + v.s * 0.4, 'rgb(170,225,255)', 0.7, body()); return; }
+  if (c.how === 'ice') { drawIceShatter(ctx, c, X(v, c.x), Y(v, c.y), k, cc => drawVampK(cc, fake, t)); return; } // la estatua estalla en pedazos
   if (c.how === 'violet') { tinted(ctx, x - w / 2, y - h, w, h + v.s * 0.4, 'rgb(200,110,255)', 0.4 + c.t * 3, body()); ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, y - v.s * B.h * 0.5, v.s * 1.6, 'rgba(200,100,255,0.7)'); ctx.restore(); return; }
   if (c.how === 'holy') { // se pone blanco dorado y se deshace hacia arriba
     const q = Math.min(1, c.t / DUST_T);
@@ -892,18 +894,10 @@ function tinted(ctx: CanvasRenderingContext2D, bx: number, by: number, bw: numbe
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-atop'; c.globalAlpha = a; c.fillStyle = color; c.fillRect(0, 0, W2, H2); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
   ctx.drawImage(TMP, 0, 0, W2, H2, bx, by, bw, bh);
 }
-// El vampiro congelado: azul hielo, con el bloque de hielo alrededor y brillitos.
+// El vampiro congelado: él mismo hecho una estatua de hielo (vampyium2Ice), sin bloque alrededor.
 function frozenVamp(ctx: CanvasRenderingContext2D, vp: Vamp, v: View, t: number, k: number, left: number) {
-  const B = BODY[vp.kind], x = X(v, vp.x), y = Y(v, vp.y), w = v.s * (B.w + 1.2) * CHARACTER_SCALE, h = v.s * (B.h + 1.2) * CHARACTER_SCALE;
-  tinted(ctx, x - w / 2, y - h, w, h + v.s * 0.4, 'rgb(150,215,255)', 0.5, c => { c.save(); c.translate(x, y); c.scale(k * vp.face, k); drawVampK(c, vp, t); c.restore(); });
-  const bw = v.s * (B.w + 0.5) * CHARACTER_SCALE, bh = v.s * (B.h + 0.35) * CHARACTER_SCALE, shake = left < 0.25 ? Math.sin(t * 80) * v.s * 0.04 : 0;
-  ctx.save(); ctx.translate(shake, 0);
-  ctx.fillStyle = 'rgba(170,225,255,0.28)'; ctx.strokeStyle = 'rgba(230,248,255,0.85)'; ctx.lineWidth = Math.max(1.5, v.s * 0.05);
-  ctx.beginPath(); ctx.moveTo(x - bw / 2, y); ctx.lineTo(x - bw / 2 - v.s * 0.1, y - bh * 0.6); ctx.lineTo(x - bw * 0.3, y - bh); ctx.lineTo(x + bw * 0.25, y - bh - v.s * 0.1); ctx.lineTo(x + bw / 2 + v.s * 0.08, y - bh * 0.55); ctx.lineTo(x + bw / 2, y); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = Math.max(1, v.s * 0.03); ctx.beginPath(); ctx.moveTo(x - bw * 0.3, y - bh * 0.8); ctx.lineTo(x - bw * 0.1, y - bh * 0.3); ctx.moveTo(x + bw * 0.2, y - bh * 0.9); ctx.lineTo(x + bw * 0.3, y - bh * 0.6); ctx.stroke();
-  if (left < FREEZE_T * 0.5) { ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.moveTo(x - bw * 0.1, y - bh); ctx.lineTo(x, y - bh * 0.6); ctx.lineTo(x - bw * 0.15, y - bh * 0.35); ctx.lineTo(x + bw * 0.05, y); ctx.stroke(); } // se raja antes de romperse
-  ctx.globalCompositeOperation = 'lighter'; for (let i = 0; i < 3; i++) { const sx = x + (hash(vp.id + i) - 0.5) * bw, sy = y - bh * hash(vp.id * 3 + i), tw = 0.5 + 0.5 * Math.sin(t * 6 + i * 2); glow(ctx, sx, sy, v.s * 0.25 * tw, 'rgba(255,255,255,0.9)'); }
-  ctx.restore();
+  const pose: Vamp = { ...vp, face: 1 };
+  drawFrozenVamp(ctx, vp, X(v, vp.x), Y(v, vp.y), k, left, t, c => drawVampK(c, pose, t));
 }
 // Los efectos de las armas: la onda de ajo, los rayos de la cruz, la ola de fuego y los estallidos.
 function drawFxW(ctx: CanvasRenderingContext2D, f: Fx, v: View, g: Game, t: number) {
@@ -1230,5 +1224,44 @@ export function drawPortrait(ctx: CanvasRenderingContext2D, who: 'hunter' | Vamp
   if (who === 'hunter') drawHunterK(ctx, g.player, g, t);
   else { const fake: Vamp = { id: 1, kind: who, x: 0, y: 0, vx: 0, vy: 0, face: 1, state: who === 'flyer' || who === 'dragon' ? 'hover' : 'walk', t: 0, onGround: who !== 'flyer' && who !== 'dragon', surface: null, walkT: t, cool: 0, speed: 0, jumpT: 0, dropT: 0, hit: false }; drawVampK(ctx, fake, t); }
   ctx.restore();
+}
+// Demian standing as in the main menu, with any weapon or armour (newPlayer: never the pose of the moment in the game).
+export function drawStandingHunter(ctx: CanvasRenderingContext2D, g: Game, weapon: Weapon, guardHp: number, x: number, y: number, size: number, t: number) {
+  drawPortrait(ctx, 'hunter', { ...g, player: newPlayer(), weapon, guardHp, boomer: null }, x, y, size, t);
+}
+// Defeat: the menu's Demian, stained with blood, in a frame splattered and dripping with blood.
+function splat(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, seed: number, dir = Math.PI / 2) {
+  const dark = '#5e0309', mid = '#9d0b17';
+  ctx.fillStyle = mid; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  for (let i = 0; i < 9; i++) { // lobes and thrown drops, mostly along `dir`
+    const a = dir + (hash(seed + i) - .5) * 3.2, d = r * (.7 + hash(seed * 3 + i) * 1.9), rr = r * (.12 + hash(seed * 5 + i) * .38);
+    ctx.fillStyle = i % 3 ? mid : dark; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * d, y + Math.sin(a) * d, rr * 1.4, rr, a, 0, TAU); ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(255,120,120,.25)'; ctx.beginPath(); ctx.arc(x - r * .3, y - r * .3, r * .3, 0, TAU); ctx.fill();
+}
+function drip(ctx: CanvasRenderingContext2D, x: number, y: number, len: number, w: number) {
+  const g = ctx.createLinearGradient(x, y, x, y + len); g.addColorStop(0, '#8a0914'); g.addColorStop(1, '#5a0308');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x - w, y); ctx.lineTo(x - w * .55, y + len); ctx.arc(x, y + len, w * .9, Math.PI, 0, true); ctx.lineTo(x + w, y); ctx.closePath(); ctx.fill();
+}
+export function drawDefeatPortrait(ctx: CanvasRenderingContext2D, g: Game, w: number, h: number, t: number) {
+  // the frame (dark red, like the menu's), behind
+  const bg = ctx.createRadialGradient(w / 2, h * .62, 10, w / 2, h * .62, h * .7); bg.addColorStop(0, '#4a0b12'); bg.addColorStop(1, '#0b0507');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+  // Demian on his own layer, so the blood only stains him
+  const k = ctx.getTransform().a || 1, layer = document.createElement('canvas'); layer.width = Math.ceil(w * k); layer.height = Math.ceil(h * k);
+  const c = layer.getContext('2d');
+  if (c) {
+    c.scale(k, k); drawStandingHunter(c, g, 'sword', 0, w * .485, h * .965, h * .344, t);
+    c.globalCompositeOperation = 'source-atop';
+    const marks: [number, number, number][] = [[.56, .32, .016], [.45, .44, .021], [.58, .53, .013], [.42, .64, .017], [.55, .77, .012], [.5, .23, .01]];
+    marks.forEach(([mx, my, mr], i) => splat(c, w * mx, h * my, h * mr, 40 + i * 7));
+    for (let i = 0; i < 5; i++) drip(c, w * (.42 + hash(i * 9) * .2), h * (.33 + hash(i * 4) * .3), h * (.025 + hash(i * 2) * .045), h * .0035);
+    c.fillStyle = 'rgba(80,0,6,.1)'; c.fillRect(0, 0, w, h); // a darker, bloodier tone over all of him
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(layer, 0, 0); ctx.restore();
+  }
+  // blood on the frame: splatters at the corners and drips running down from the top edge
+  splat(ctx, w * .07, h * .05, h * .028, 3, .8); splat(ctx, w * .94, h * .07, h * .022, 11, 2.3); splat(ctx, w * .08, h * .92, h * .02, 19, -.7); splat(ctx, w * .91, h * .95, h * .026, 23, -2.4);
+  for (let i = 0; i < 9; i++) { const grow = Math.min(1, .55 + .45 * Math.sin(t * .35 + i) ** 2); drip(ctx, w * (.05 + hash(i + 3) * .9), 0, h * (.04 + hash(i * 7) * .16) * grow, h * (.004 + hash(i * 5) * .004)); }
+  ctx.strokeStyle = '#7f1d1d'; ctx.lineWidth = 3; ctx.strokeRect(1.5, 1.5, w - 3, h - 3);
 }
 export { drawSword as drawSwordIcon, drawStakeItem as drawStakeIcon };

@@ -2193,3 +2193,4 @@ body:has(.land) .mobile-nav{display:none}
 .kv-touches i.on{background:#facc15;border-color:#fff;box-shadow:0 0 8px #facc15}
 .kv-serve-hint{position:absolute;left:50%;bottom:22%;transform:translateX(-50%);margin:0;padding:.35rem .9rem;border-radius:999px;background:#000b;color:#fff;font-weight:800;pointer-events:none;animation:kv-blink 1s ease-in-out infinite alternate}
 @keyframes kv-blink{from{opacity:.55}to{opacity:1}}
+.vamp-defeat-portrait{margin:.2rem auto .6rem;display:flex;justify-content:center}.vamp-defeat-portrait canvas{border-radius:8px;box-shadow:0 0 0 3px #000,0 0 26px #b91c1c66;max-height:38vh;width:auto!important}
