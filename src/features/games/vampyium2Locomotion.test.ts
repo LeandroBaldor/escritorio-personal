@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ATTACK, BODY, DRAGON_MOUTH, makeVamp, newGame, newPlayer, type VampKind } from './vampyium2';
 import { DRAGON, DRAGON_DRAW, DRAGON_WING_DOWN, dragonWing, VAMP_BOOT, VAMP_STANCE, VAMP_STEP_LENGTH, VAMP_VISUAL_SCALE, vampireAttackMotion, vampireRigPose } from './vampyium2Motion';
-import { demianSwordPose } from './vampyium2Demian';
+import { demianSwordPose, demianWalk } from './vampyium2Demian';
 import { humanWalk, jointTransform, walkingArm, walkingDepth } from './vampyium2Gait';
 
 const kinds: VampKind[] = ['walker', 'giant', 'mage', 'hammer', 'warrior', 'wolf', 'dracula'];
@@ -66,7 +66,7 @@ describe('Demian reference poses', () => {
     const angles: number[][] = [[], []];
     for (let i = 0; i < 80; i++) {
       const walkT = i * .025, q = demianSwordPose({ ...p, walkT });
-      const c = humanWalk(walkT * 7 / 2.4, 3, .88 * VAMP_VISUAL_SCALE, true);
+      const c = demianWalk({ walkT, vx: 3 });
       expect(q.weaponBehind).toBe(false);
       for (const side of [0, 1]) {
         const [a, b] = q.arms[side];

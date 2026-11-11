@@ -52,6 +52,10 @@ export function vampireRigPose(v: Vamp, modelScale: number, time: number) {
   const lean = (v.kind === 'wolf' ? .12 : .025) + motion.prepare * .12
     + (motion.airborne ? .08 : 0) - windup * st.back + extension * st.lunge + g.sway * .012;
   const neck: Pt = [hip[0] + Math.sin(lean) * .62, hip[1] - Math.cos(lean) * .62];
+  // Opening the attack stance and closing it again are STEPS, not slides: the foot that moves lifts in a small arc
+  // (the front foot going in and coming back; the rear foot also steps back under the hips at the end).
+  const arc = Math.sin(Math.PI * engaged);
+  const stepLift = [action.recovery > 0 ? arc * .05 : 0, arc * .08];
   const legs = [0, 1].map(i => {
     const origin: Pt = [hip[0] + (i ? .055 : -.055), hip[1]];
     const footAngle = motion.airborne ? (i ? -.12 : .20) : g.fa[i];
@@ -65,7 +69,7 @@ export function vampireRigPose(v: Vamp, modelScale: number, time: number) {
     const x = walkX + (attackX - walkX) * engaged + rollOffset;
     const ankle: Pt = motion.airborne
       ? [origin[0] + (i ? .24 : -.18), -.19 - (v.vy > 0 ? .19 : .08) * (i ? 1 : .6)]
-      : [x, -soleBottom - g.lift[i]];
+      : [x, -soleBottom - g.lift[i] - stepLift[i]];
     const [a] = legAngles(origin, ankle, .46, .44);
     const knee: Pt = [origin[0] + Math.sin(a) * .46, origin[1] + Math.cos(a) * .46];
     return { origin, knee, ankle, footAngle, soleBottom, contact: !motion.airborne && g.ph[i] < g.stance };

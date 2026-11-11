@@ -1,8 +1,7 @@
 import { wear } from './vampyium2Materials';
 import { drawRealisticHunter, atlasReady, drawAsset } from './vampyium2Sprites';
 import { realisticHeldWeapon, fireLight } from './vampyium2Environment';
-import { VAMP_VISUAL_SCALE } from './vampyium2Motion';
-import { demianSwordPose } from './vampyium2Demian';
+import { demianSwordPose, demianWalk } from './vampyium2Demian';
 // Los personajes de Vampyium2 dibujados como los luchadores de Kombat Football: el mismo esqueleto (cadera,
 // pecho inclinado, muslo y canilla, brazo y antebrazo), las mismas poses animadas (guardia que respira, carrera,
 // salto, golpe, aturdido) y el mismo sombreado con volumen; con brazos y piernas más gruesos. En metros, con los
@@ -14,7 +13,7 @@ import { demianSwordPose } from './vampyium2Demian';
 //  · El vampiro volador: igual, con el pelo en punta, la boca abierta y dos alas de murciélago enormes.
 import { alpha, bloom, darken, lighten, segment, shade, spec } from './vampyium2Materials';
 import type { Game, Player, Vamp, Weapon } from './vampyium2';
-import { humanWalk, legAngles, walkingArm } from './vampyium2Gait';
+import { legAngles, walkingArm } from './vampyium2Gait';
 import { drawBloodSword, drawBoneHammer, drawCrossbow, drawFirePistol, drawFireSword, drawGarlicBomb, drawHolyCross, drawIceCrystal, drawVenomBall } from './vampyium2Weapons';
 
 export const TAU = Math.PI * 2;
@@ -114,7 +113,7 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
   }
   if (run) { // corre con el ciclo de 8 fases (con un instante en el aire entre paso y paso): el pie apoyado va para atrás
     // con el piso (no patina), el otro pasa adelante subiendo la rodilla; los brazos al revés que las piernas
-    const g = humanWalk(p.walkT * 7 / 2.4, Math.abs(p.vx), .88 * VAMP_VISUAL_SCALE, true), k = g.k;
+    const g = demianWalk(p), k = g.k;
     const hipY = -0.7 + g.bob, legs = [0, 1].map(i => {
       const hp: Pt = [i === 0 ? -0.11 : 0.11, hipY], foot: Pt = [hp[0] + 0.04 + g.dx[i], (i === 0 ? -0.03 : 0) - g.lift[i]];
       const [ta, kb] = legAngles(hp, foot, 0.36, 0.35), idle = i === 0 ? [-0.45, 0.55] : [0.42, 0.6];

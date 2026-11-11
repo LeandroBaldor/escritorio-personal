@@ -2,7 +2,9 @@ import metadata from './assets/vampyium2/atlas.json';
 import type { Game, Player, Vamp, Weapon } from './vampyium2';
 import type { Pose, Pt } from './vampyium2Chars';
 import { ATTACK } from './vampyium2';
-import { humanWalk, jointTransform, legAngles, walkingArm, walkingDepth } from './vampyium2Gait';
+import { jointTransform, legAngles, walkingArm, walkingDepth } from './vampyium2Gait';
+import { DEMIAN_SCALE, demianWalk } from './vampyium2Demian';
+import { inertia, inertiaPt, turnScale } from './vampyium2Inertia';
 import { DRAGON, DRAGON_DRAW, DRAGON_WING_DOWN, dragonWing, ease01, vampireRigPose, VAMP_BOOT, VAMP_VISUAL_SCALE } from './vampyium2Motion';
 
 type Frame = { x: number; y: number; w: number; h: number };
@@ -193,8 +195,7 @@ function limb(ctx: CanvasRenderingContext2D, id: number, start: Pt, end: Pt, wid
 type WeaponPainter = (hand: Pt, angle: number) => void;
 // The photo head (crown to neck stub), a little larger than the old painted head but in proportion with the body.
 export const DEMIAN_FACE = { h: .35, w: .35 * 380 / 535 };
-// Demian is drawn as tall as a normal vampire (the vampires' art is 12% bigger than the hunter's).
-export const DEMIAN_SCALE = 1.095;
+export { DEMIAN_SCALE };
 
 // Input-driven articulated poses keep hands, weapon and shoulder plates attached throughout each action.
 export interface HunterDecor { key: string }
@@ -205,20 +206,30 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
 }
 function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Pose, t: number, paintWeapon: WeaponPainter, decor: HunterDecor | null) {
   const rt = t;
+  // Pose inertia (vampyium2Inertia): the same Demian keeps his history even when the caller hands a copy of him.
+  const owner = (g as Partial<Game>).player ?? p;
+  const posV = 3 + 2.5 * Math.abs(p.vx) / 1.98; // the fastest a joint moves normally (drawing units per second)
+  {
+    const [lean, a0, b0, a1, b1, blade] = inertia(owner, 'pose', t,
+      [pose.lean, pose.arms[0][0], pose.arms[0][1], pose.arms[1][0], pose.arms[1][1], pose.blade],
+      p.attackT >= 0 && p.attackT < .25 || p.special ? 30 : 9, true); // (strikes stay fast; changes of pose glide)
+    pose = { ...pose, lean, blade, arms: [[a0, b0], [a1, b1]] };
+  }
   ctx.save(); ctx.scale(DEMIAN_SCALE, DEMIAN_SCALE);
+  { const turn = turnScale(owner, p.face, t); if (turn !== 1) ctx.scale(turn, 1); } // a 2–3 frame turnaround
   if (p.spinT > 0) spinLegTrail(ctx, 1 - p.spinT / .45);
   if (p.spinT > 0) { ctx.translate(0, -1); ctx.rotate((1 - p.spinT / .45) * Math.PI * 2); ctx.translate(0, 1); }
   // The 360° turn never squashes the body: he faces the other way for the back half of the turn.
   if (p.special?.kind === 'whirl') { const turn = p.special.t / .45; whirlTrail(ctx, turn); if (Math.cos(turn * Math.PI * 2) < 0) ctx.scale(-1, 1); }
   if (p.special?.kind === 'dash') dashTrail(ctx, p.special.t / .24);
   const walkProfile = p.onGround && Math.abs(p.vx) > .15 && p.attackT < 0 && !p.special && !(p.jumpPrep && p.jumpPrep > 0);
-  const profile = walkProfile ? Math.min(1, Math.abs(p.vx) / 1.4) : 0;
+  const profile = inertia(owner, 'profile', t, [walkProfile ? Math.min(1, Math.abs(p.vx) / 1.4) : 0], 8)[0];
   const hipSpread = .075 - profile * .045;
-  const hip: Pt = [pose.lean * .08 + (pose.hipOffset?.[0] ?? 0), -.965 + pose.bob * (walkProfile ? 1 : .45) + pose.crouch * .3 + (pose.hipOffset?.[1] ?? 0) + (p.landT > 0 ? p.landT * .32 : 0)];
+  const hip: Pt = inertiaPt(owner, 'hip', t, [pose.lean * .08 + (pose.hipOffset?.[0] ?? 0), -.965 + pose.bob * (walkProfile ? 1 : .45) + pose.crouch * .3 + (pose.hipOffset?.[1] ?? 0) + (p.landT > 0 ? p.landT * .32 : 0)], 1.2 + .3 * Math.abs(p.vx));
   const neck: Pt = [hip[0] + Math.sin(pose.lean) * .62, hip[1] - Math.cos(pose.lean) * .62];
   const shoulders: Pt[] = [-1, 1].map(side => { const x = side * (.2 - profile * .15); return [neck[0] + x * Math.cos(pose.lean) - .09 * Math.sin(pose.lean),
     neck[1] + x * Math.sin(pose.lean) + .09 * Math.cos(pose.lean)]; });
-  const cycle = humanWalk(p.walkT * 7 / 2.4, Math.abs(p.vx), .88 * VAMP_VISUAL_SCALE, true);
+  const cycle = demianWalk(p);
   const feet: Pt[] = [], knees: Pt[] = [];
   for (let i = 0; i < 2; i++) {
     const origin: Pt = [hip[0] + (i ? hipSpread : -hipSpread), hip[1] + .03];
@@ -249,13 +260,24 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
     const [angle] = legAngles(origin, feet[i], .46, .45);
     knees[i] = add(origin, angle, .46);
   }
+  // Between poses (standing, walking, attacking, in the air) knees and feet glide instead of jumping in one frame.
+  {
+    const r = inertia(owner, 'feet', t, [...feet[0], ...feet[1]], posV);
+    for (let i = 0; i < 2; i++) { // the knee follows the foot (inverse kinematics: always forward, real bone lengths)
+      const origin: Pt = [hip[0] + (i ? hipSpread : -hipSpread), hip[1]];
+      feet[i] = [r[i * 2], r[i * 2 + 1]];
+      knees[i] = add(origin, legAngles(origin, feet[i], .46, .45)[0], .46);
+    }
+  }
   // Bones never stretch: if a target foot is out of reach, the shin stops at its real length.
   for (let i = 0; i < 2; i++) {
     const dx = feet[i][0] - knees[i][0], dy = feet[i][1] - knees[i][1], d = Math.hypot(dx, dy) || 1;
     feet[i] = [knees[i][0] + dx / d * .45, knees[i][1] + dy / d * .45];
   }
   // Anchor the supporting boot to the same collision surface, without changing the player's world position.
-  const floor = p.onGround && (!moving || !!pose.feet) ? Math.max(...feet.map(f => f[1])) + .105 : 0;
+  const floor = inertia(owner, 'floor', t, [p.onGround && (!moving || !!pose.feet) ? Math.max(...feet.map(f => f[1])) + .105 : 0], .6)[0];
+  const bootAngles = inertia(owner, 'boots', t, [0, 1].map(i => moving && !pose.feet ? cycle.fa[i]
+    : pose.feet || p.onGround && Math.abs(p.vx) < .15 && p.attackT < 0 ? 0 : -(pose.legs[i][0] - pose.legs[i][1]) * .3), 14, true);
   ctx.translate(0, -floor);
   const wind = Math.min(.25, Math.abs(p.vx) * .025) + (p.onGround ? 0 : .12);
   ctx.save(); ctx.translate(neck[0] - .08, neck[1] + .025); ctx.rotate(.03 + wind + Math.sin(rt * 5) * .025);
@@ -265,7 +287,7 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
     ctx.save(); if (!i) ctx.globalAlpha *= .83;
     limb(ctx, 6, [hip[0] + (i ? hipSpread : -hipSpread), hip[1]], knees[i], .215);
     limb(ctx, 7, knees[i], feet[i], .18);
-    const bootAngle = moving && !pose.feet ? cycle.fa[i] : pose.feet || p.onGround && Math.abs(p.vx) < .15 && p.attackT < 0 ? 0 : -(pose.legs[i][0] - pose.legs[i][1]) * .3;
+    const bootAngle = bootAngles[i];
     ctx.save(); ctx.translate(...feet[i]); ctx.rotate(bootAngle);
     hunterPiece(ctx, 8, -.07, -.105, .24, .185); ctx.restore();
     jointArmor(ctx, knees[i], [hip[0] + (i ? hipSpread : -hipSpread), hip[1]], feet[i], .2, 'gilt', [1, 0]);
@@ -362,12 +384,26 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
   const rig = rigRows[v.kind];
   if (!rig || !atlasReady(rig[0]) || !['walk', 'leap', 'rise', 'claw', 'cast', 'zap'].includes(v.state)) return false;
   const [atlas, row, cols] = rig, base = row * cols;
-  const { cycle: g, prepare, airborne, action, breath, hip, neck, lean, legs } = vampireRigPose(v, .88 * VAMP_VISUAL_SCALE, t);
+  const raw = vampireRigPose(v, .88 * VAMP_VISUAL_SCALE, t);
+  const { cycle: g, prepare, airborne, action, breath } = raw;
   const { windup, extension } = action;
+  // Pose inertia (vampyium2Inertia): changing between walking, attacking and jumping never pops a joint in one frame.
+  const posV = 3 + 2.5 * Math.abs(v.vx) / 2;
+  const hip = inertiaPt(v, 'hip', t, raw.hip, 1.2 + .4 * Math.abs(v.vx)), lean = inertia(v, 'lean', t, [raw.lean], 6)[0];
+  const neck: Pt = [hip[0] + Math.sin(lean) * .62, hip[1] - Math.cos(lean) * .62];
+  const legs = (() => {
+    const r = inertia(v, 'ankles', t, raw.legs.flatMap(l => l.ankle), posV);
+    const fa = inertia(v, 'footAngles', t, raw.legs.map(l => l.footAngle), 14, true);
+    return raw.legs.map((l, i) => { // the knee follows the ankle (inverse kinematics: always forward, real bone lengths)
+      const origin: Pt = [hip[0] + (i ? .055 : -.055), hip[1]], ankle: Pt = [r[i * 2], r[i * 2 + 1]];
+      const [a] = legAngles(origin, ankle, .46, .44);
+      return { ...l, origin, knee: [origin[0] + Math.sin(a) * .46, origin[1] + Math.cos(a) * .46] as Pt, ankle, footAngle: fa[i] };
+    });
+  })();
   const heavy = v.kind === 'giant', wolf = v.kind === 'wolf';
   // Standing (three quarters) ↔ walking (profile) is a BLEND, not a switch: shoulders, torso width and crop move
   // continuously; only the drawing order of the arms flips, at the middle of the blend.
-  const pk = airborne ? 0 : v.walkK ?? (!action.active && Math.abs(v.vx) > .15 ? 1 : 0);
+  const pk = inertia(v, 'profile', t, [airborne ? 0 : v.walkK ?? (!action.active && Math.abs(v.vx) > .15 ? 1 : 0)], 6)[0];
   const walkProfile = pk > .5;
   const paint = (id: number, center: Pt, w: number, h: number, angle = 0, cropLeft = 0) => {
     ctx.save(); ctx.translate(...center); ctx.rotate(angle);
@@ -386,6 +422,7 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
       Math.hypot(b[0] - a[0], b[1] - a[1]) + extra, -Math.atan2(b[0] - a[0], b[1] - a[1]));
   };
   ctx.save();
+  { const turn = turnScale(v, v.face, t); if (turn !== 1) ctx.scale(turn, 1); } // a 2–3 frame turnaround
   if ((v.hurtT ?? 0) > 0) ctx.rotate(-.06);
   const cloakH = wolf ? .43 : 1.48;
   paint(6, [neck[0] - .20, neck[1] + cloakH / 2], wolf ? .57 : .75,
@@ -446,13 +483,15 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
         // An overhead blow, as in fighting games: the arm rises in FRONT up over the head with the elbow bent (the
         // weapon hangs behind the shoulder), then chops down and forward; the weapon sweeps over the top in one arc.
         const hammer = v.kind === 'hammer';
-        a = mix3(a, carry ? 2.75 : 2.5, hammer ? .8 : carry ? 1.05 : 1.4);
-        b = mix3(b, carry ? 1.85 : .9, hammer ? .12 : carry ? .2 : .1);
+        // (the hammer goes up BEHIND the head, hands high and the elbow open: the arms never cross the face)
+        a = mix3(a, hammer ? 2.95 : carry ? 2.75 : 2.5, hammer ? .8 : carry ? 1.05 : 1.4);
+        b = mix3(b, hammer ? .75 : carry ? 1.85 : .9, hammer ? .12 : carry ? .2 : .1);
         weaponAngle = mix3(weaponAngle, v.kind === 'warrior' ? -1.9 : -2.35, hammer ? 2.45 : 1.6); // the hammer ends on the floor
       } else if (v.kind !== 'hammer') { // the free arm balances the blow (the hammer's is solved below: both hands on the handle)
         a = mix3(a, -.45, .9); b = mix3(b, .7, .3);
       }
     }
+    [a, b, weaponAngle] = inertia(v, 'arm' + i, t, [a, b, weaponAngle], action.active && extension > .05 ? 20 : 10, true);
     const elbow = add(shoulder, a, .31), hand = add(elbow, a + b, .30);
     return { shoulder, elbow, hand, a, b, carry, weaponAngle };
   };
@@ -470,7 +509,7 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
     const lead = armPose(1), up: Pt = [Math.sin(lead.weaponAngle), -Math.cos(lead.weaponAngle)];
     const target: Pt = [lead.hand[0] - up[0] * .2, lead.hand[1] - up[1] * .2];
     const [ia, ib] = armIK(pose.shoulder, target), k = Math.min(1, (windup + extension) * 2.5);
-    const a = pose.a + (ia - pose.a) * k, b = pose.b + (ib - pose.b) * k;
+    const [a, b] = inertia(v, 'grip0', t, [pose.a + (ia - pose.a) * k, pose.b + (ib - pose.b) * k], 20, true);
     const elbow = add(pose.shoulder, a, .31);
     return { ...pose, a, b, elbow, hand: add(elbow, a + b, .30) };
   };
