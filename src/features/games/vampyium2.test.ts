@@ -717,6 +717,17 @@ describe('Vampyium2: los ataques especiales de Demian', () => {
     expect(orb!.x).toBeLessThan(m.x - MAGE_HAND.sx * k); // adelante, hacia Demian
     expect(orb!.vx).toBeLessThan(0);
   });
+  it('justo debajo del cazador el vampiro no cambia de lado a cada cuadro (no tiembla)', () => {
+    const g = quiet(); const p = g.player;
+    const v = walker(g, p.x - 0.1, { cool: 99 }); let flips = 0, last = v.face;
+    for (let i = 0; i < 90; i++) { p.x += (i % 2 ? 0.2 : -0.2); step(g, idle(), 1 / 60); if (v.face !== last) { flips++; last = v.face; } }
+    expect(flips).toBeLessThanOrEqual(4);
+  });
+  it('en el aire el vampiro mira siempre hacia donde salta', () => {
+    const g = quiet(); const p = g.player;
+    const v = walker(g, p.x + 3, {}); v.onGround = false; v.surface = null; v.y += 2; v.vy = 8; v.vx = 5; v.face = 1;
+    for (let i = 0; i < 20; i++) { step(g, idle(), 1 / 60); if (!v.onGround && Math.abs(v.vx) > 0.6) expect(v.face).toBe(Math.sign(v.vx)); }
+  });
   it('sin combinación, Espacio es el tajo de siempre', () => {
     const g = quiet(); pressAttack(g);
     expect(takeEvents(g).map(e => e.type)).toContain('slash');

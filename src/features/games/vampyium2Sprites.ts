@@ -350,7 +350,7 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
   const { cycle: g, prepare, airborne, action, breath, hip, neck, lean, legs } = vampireRigPose(v, .88 * VAMP_VISUAL_SCALE, t);
   const { windup, extension } = action;
   const heavy = v.kind === 'giant', wolf = v.kind === 'wolf';
-  const walkProfile = !airborne && !action.active && Math.abs(v.vx) > .15;
+  const walkProfile = !airborne && !action.active && (v.walking ?? Math.abs(v.vx) > .15);
   const paint = (id: number, center: Pt, w: number, h: number, angle = 0, cropLeft = 0) => {
     ctx.save(); ctx.translate(...center); ctx.rotate(angle);
     drawAsset(ctx, atlas, base + id, -w / 2, -h / 2, w, h, undefined, cropLeft); ctx.restore();

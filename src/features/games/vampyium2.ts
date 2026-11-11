@@ -128,6 +128,8 @@ export const BODY = Object.fromEntries(Object.entries(BODY0).map(([k, b]) => [k,
 const SPECIALS: VampKind[] = ['giant', 'mage', 'hammer', 'warrior', 'wolf'];
 // Qué vampiros salen en cada nivel: 1 normales y voladores; 2 + gigante; 3 + mago; 4 + martillo; 5 + guerrero; 6 + hombre lobo;
 // 7 a 9 todos (con el hombre lobo); 10 solo Drácula.
+// Darse vuelta lleva un instante: así no cambia de lado varias veces por segundo (se veía como un temblor).
+function turn(v: Vamp, to: 1 | -1) { if (to !== v.face && (v.turnT ?? 0) <= 0) { v.face = to; v.turnT = 0.28; } }
 export function rosterOf(level: number): VampKind[] {
   if (level >= 10) return ['dracula'];
   return ['walker', 'flyer', ...SPECIALS.slice(0, level >= 7 ? 5 : level - 1)]; // (7 a 9: todos, con el hombre lobo)
@@ -142,6 +144,8 @@ export interface Vamp {
   // los fuertes aguantan varios golpes (flash: el destello blanco del golpe)
   hurtT?: number; // golpeado por una trampa: sangra y sale despedido, pero no muere
   landT?: number;
+  turnT?: number; // (un instante después de darse vuelta, no se vuelve a dar vuelta)
+  walking?: boolean; // se dibuja caminando de perfil (con margen: no alterna parado/caminando a cada cuadro)
   special?: number; // Drácula y el dragón: cuenta para el próximo ataque especial
   frozen?: number; chill?: number; // congelado por la armadura de hielo (se rompe cuando llega a 0); chill: el frío en Drácula y el dragón
   nav?: Nav; stuckT?: number; bestD?: number; unstuck?: number; waitT?: number; braveT?: number; // cómo se mueve por el nivel (ver navigate)
@@ -771,7 +775,7 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
     }
     if (v.t >= atk.dur) { v.state = 'walk'; v.cool = atk.rest + r() * 0.5; }
   } else if (v.state === 'cast') { // el mago levanta el báculo y tira una bola de fuego; Drácula larga murciélagos
-    v.vx *= Math.max(0, 1 - dt * 10); v.t += dt; v.face = dx >= 0 ? 1 : -1;
+    v.vx *= Math.max(0, 1 - dt * 10); v.t += dt; if (Math.abs(dx) > 0.45) turn(v, dx >= 0 ? 1 : -1);
     // El mago deja el báculo quieto y APUNTA con la otra mano a Demian: la bola sale de esa mano.
     const k = MAGE_HAND.k * BODY.mage.k;
     if (v.kind === 'mage') v.aim = Math.max(-0.9, Math.min(0.9, Math.atan2(p.y + 1 - (v.y + MAGE_HAND.sy * k), Math.abs(dx) || 0.01)));
@@ -782,27 +786,31 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
     }
     if (v.t >= 0.95) { v.state = 'walk'; v.cool = (v.kind === 'mage' ? 2.4 : 1) + r() * 0.8; }
   } else if (v.state === 'zap') { // Drácula levanta los brazos y llama tres rayos rojos: donde está el cazador y a los costados
-    v.vx *= Math.max(0, 1 - dt * 10); v.t += dt; v.face = dx >= 0 ? 1 : -1;
+    v.vx *= Math.max(0, 1 - dt * 10); v.t += dt; if (Math.abs(dx) > 0.45) turn(v, dx >= 0 ? 1 : -1);
     if (v.t >= 0.4 && !v.hit) {
       v.hit = true;
       [0, -2.3, 2.3].forEach((o, i) => { const [x, q] = standAt(Math.max(0.8, Math.min(W - 0.8, p.x + o + p.vx * 0.25)), p.y); g.zaps.push({ x, y: q.y, t: -i * 0.22 }); });
     }
     if (v.t >= 1.1) { v.state = 'walk'; v.cool = 0.8 + r() * 0.5; }
   } else if (v.state === 'leap') { // el hombre lobo salta encima del cazador
-    v.t += dt;
+    v.t += dt; if (Math.abs(v.vx) > 0.6) v.face = Math.sign(v.vx) as 1 | -1; // mira hacia donde salta
     const [x1, x2, y1, y2] = vampBox(v);
     if (!v.hit && x2 > p.x - 0.3 && x1 < p.x + 0.3 && y1 < p.y + PLAYER_H && y2 > p.y) { v.hit = true; hurt(g, v.x, DAMAGE.wolf); }
     if (v.onGround && v.t > 0.2) { v.state = 'walk'; v.cool = 0.5 + r() * 0.4; v.vx *= 0.3; }
   } else {
     // Hacia dónde ir: si el cazador está en otro piso, el plan dice a qué plataforma saltar (o bajar) y desde dónde.
     const nav = navigate(g, v);
-    let dir = nav.kind === 'same' ? (Math.sign(dx) || v.face) : (Math.sign(nav.tx - v.x) || v.face);
+    // Justo encima o debajo del cazador no cambia de lado a cada cuadro (eso era el temblor): mantiene hacia dónde mira.
+    const close = nav.kind === 'same' && Math.abs(dx) < 0.45;
+    let dir = nav.kind === 'same' ? (close ? v.face : Math.sign(dx) || v.face) : (Math.sign(nav.tx - v.x) || v.face);
     if (scared) dir = -Math.sign(dx) || 1; // el ajo: se escapa
     // el mago se queda lejos (a 5 o 6 metros) para tirar sus bolas de fuego
     let want = 1;
     if (v.kind === 'mage' && !scared && nav.kind === 'same') { const d = Math.abs(dx); want = d < 4.2 ? -1 : d < 6.5 ? 0 : 1; }
     if (nav.kind !== 'same' && !scared && Math.abs(nav.tx - v.x) < 0.3) want = 0; // llegó al lugar del salto
-    v.face = (nav.kind === 'same' || scared ? (scared ? dir : Math.sign(dx) || v.face) : dir) as 1 | -1;
+    if (close && !scared) want = 0;
+    if (v.onGround) turn(v, dir as 1 | -1);
+    else if (Math.abs(v.vx) > 0.6) v.face = Math.sign(v.vx) as 1 | -1; // en el aire mira siempre hacia donde salta
     let target = dir * v.speed * (scared ? 1.3 : 1) * want;
     if (v.onGround) {
       // Las trampas: mira un poco adelante; si va a lastimarlo, las salta (las bajas) o espera a que pasen.
@@ -822,7 +830,7 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
       } else v.waitT = 0;
       if (v.onGround) {
         v.vx += (target - v.vx) * Math.min(1, dt * 8);
-        if (Math.abs(v.vx) > 1 && Math.sign(v.vx) !== v.face) v.face = Math.sign(v.vx) as 1 | -1; // si se aleja, se da vuelta y camina para ese lado (no camina para atrás)
+        if (Math.abs(v.vx) > 1 && Math.sign(v.vx) !== v.face) turn(v, Math.sign(v.vx) as 1 | -1); // si se aleja, se da vuelta y camina para ese lado (no camina para atrás)
         v.walkT += dt * v.vx * v.face; // (si retrocede un poquito, los pasos también van para atrás: los pies no patinan)
         const s = v.surface, mdir = Math.sign(v.vx) || dir, ahead = v.x + mdir * 0.7;
         // ¿Se termina el piso adelante? Si el plan es cruzar el hueco, salta; si no, espera en el borde (nunca se cae al vacío).
@@ -866,7 +874,8 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
   }
   const was = v.onGround;
   moveBody(v, dt, VAMP_W / 2, -1.2, W + 1.2);
-  v.landT = Math.max(0, (v.landT ?? 0) - dt);
+  v.landT = Math.max(0, (v.landT ?? 0) - dt); v.turnT = Math.max(0, (v.turnT ?? 0) - dt);
+  v.walking = v.onGround && Math.abs(v.vx) > (v.walking ? 0.15 : 0.7);
   if (!was && v.onGround) { v.walkT = 0; v.landT = .14; }
   // Si cae en un hueco, salta y sale (saltan bien: nunca se caen al vacío).
   if (v.y < GROUND_Y - 0.9 && v.vy < 0) {

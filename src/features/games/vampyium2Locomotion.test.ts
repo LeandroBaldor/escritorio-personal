@@ -65,7 +65,7 @@ describe('Demian reference poses', () => {
     const p = { ...newPlayer(), onGround: true, vx: 3 };
     const angles: number[][] = [[], []];
     for (let i = 0; i < 80; i++) {
-      const walkT = i * .025, q = demianSwordPose({ ...p, walkT }, i * .1);
+      const walkT = i * .025, q = demianSwordPose({ ...p, walkT });
       const c = humanWalk(walkT * 7 / 2.4, 3, .88 * VAMP_VISUAL_SCALE, true);
       expect(q.weaponBehind).toBe(false);
       for (const side of [0, 1]) {
@@ -116,15 +116,32 @@ describe('Demian reference poses', () => {
   });
   it('carries the sword behind the head, holds a horizontal thrust in the damage window and returns continuously', () => {
     const p = newPlayer(); p.onGround = true; p.vx = 0;
-    const idle = demianSwordPose(p, 0);
-    const weapon = (at: number) => { const q = demianSwordPose({ ...p, attackT: at }, 0); return q.arms[1][0] + q.arms[1][1] + q.blade; };
+    const idle = demianSwordPose(p);
+    const weapon = (at: number) => { const q = demianSwordPose({ ...p, attackT: at }); return q.arms[1][0] + q.arms[1][1] + q.blade; };
     expect(idle.weaponBehind).toBe(true);
     expect(Math.cos(Math.PI / 2 - weapon(-1))).toBeLessThan(-.99);
     expect(Math.cos(Math.PI / 2 - weapon(.04))).toBeGreaterThan(.9);
     for (const at of [.05, .09, .13, .20]) expect(Math.cos(Math.PI / 2 - weapon(at))).toBeCloseTo(1, 8);
-    expect(demianSwordPose({ ...p, attackT: .13 }, 0).feet![0][0]).toBeLessThan(idle.feet![0][0]);
+    expect(demianSwordPose({ ...p, attackT: .13 }).feet![0][0]).toBeLessThan(idle.feet![0][0]);
     expect(weapon(.30)).toBeCloseTo(weapon(-1), 8);
     expect(weapon(.00001)).toBeCloseTo(weapon(-1), 5);
-    expect(demianSwordPose({ ...p, vx: 3 }, 0).feet).toBeUndefined();
+    expect(demianSwordPose({ ...p, vx: 3 }).feet).toBeUndefined();
+  });
+});
+
+describe('standing still means still', () => {
+  it('Demian parado: la cadera no sube ni baja (las rodillas no se mueven)', () => {
+    const p = newPlayer();
+    expect(demianSwordPose(p).bob).toBe(0);
+    expect(demianSwordPose(p).hipOffset?.[1] ?? 0).toBe(0);
+  });
+  it('un vampiro parado tiene la cadera y las rodillas fijas en el tiempo', () => {
+    const g = newGame(1, 1);
+    for (const kind of ['walker', 'giant', 'warrior', 'wolf'] as VampKind[]) {
+      const v = makeVamp(g, kind, { vx: 0, onGround: true, state: 'walk' });
+      const a = vampireRigPose(v, 1, 0.3), b = vampireRigPose(v, 1, 1.7);
+      expect(b.hip[1]).toBeCloseTo(a.hip[1], 6);
+      expect(b.legs[0].knee[0]).toBeCloseTo(a.legs[0].knee[0], 6); expect(b.legs[1].knee[1]).toBeCloseTo(a.legs[1].knee[1], 6);
+    }
   });
 });

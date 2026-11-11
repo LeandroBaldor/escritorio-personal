@@ -54,14 +54,14 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
   const shoulderSword = held === 'sword' && at < 0;
   if ((p.jumpPrep ?? 0) > 0) {
     const k = Math.sin((1 - (p.jumpPrep ?? 0) / .09) * Math.PI / 2);
-    if (shoulderSword) return { ...demianSwordPose({ ...p, vx: 0 }, t), feet: undefined, bob: 0,
+    if (shoulderSword) return { ...demianSwordPose({ ...p, vx: 0 }), feet: undefined, bob: 0,
       lean: .06 + k * .10, crouch: .10 + k * .44,
       arms: [[-.12 - k * .35, .22 + k * .2], [.70, 2.50]] };
     return { bob: 0, lean: .12 + k * .1, crouch: .12 + k * .58, head: -.06, legs: [[-.4, .9], [.45, 1]], arms: [[-.3 - k * .4, .65], [.4, 1.5]], blade: 1.05 };
   }
   if (!p.onGround && (p.takeoffT ?? 0) > 0 && at < 0) {
     const k = 1 - (p.takeoffT ?? 0) / .12;
-    if (shoulderSword) return { ...demianSwordPose(p, t), feet: undefined, bob: 0,
+    if (shoulderSword) return { ...demianSwordPose(p), feet: undefined, bob: 0,
       hipOffset: [0, 0], lean: .12 - k * .04,
       legs: [[-.12 - k * .16, .12 + k * .65], [.14 + k * .28, .12 + k * .9]],
       arms: [[-.32 + k * .58, .40], [.70, 2.50]] };
@@ -70,12 +70,12 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
   if (p.hurtT > 0) { const w = t * 30; return { bob: 0, lean: -0.35 + s(w) * 0.06, crouch: 0.1, head: -0.3, legs: [[-0.45, 0.5], [0.25, 0.7]], arms: [[-0.6, 0.9], [-0.9, 0.8]], blade: 0.6 }; }
   // C (turn) and V (thrust): the sword stays out horizontally, in a wide, low stance, with real bone lengths.
   if (p.special && (p.special.kind === 'whirl' || p.special.kind === 'dash') && held === 'sword') {
-    const thrust = demianSwordPose({ ...p, vx: 0, onGround: true, attackT: .12 }, t);
+    const thrust = demianSwordPose({ ...p, vx: 0, onGround: true, attackT: .12 });
     return p.special.kind === 'dash'
       ? { ...thrust, lean: .34, hipOffset: [.16, .16], feet: [[-.62, -.06], [.5, -.06]] }
       : { ...thrust, lean: .05, hipOffset: [0, .1], feet: [[-.4, -.06], [.36, -.06]] };
   }
-  if (p.onGround && !p.special && (at >= 0 ? p.attackWeapon === 'sword' : held === 'sword')) return demianSwordPose(p, t);
+  if (p.onGround && !p.special && (at >= 0 ? p.attackWeapon === 'sword' : held === 'sword')) return demianSwordPose(p);
   if (at >= 0) {
     if (AIM_W.includes(p.attackWeapon)) { // el disparo: retroceso
       const k = Math.max(0, 1 - at / 0.2);
@@ -97,7 +97,7 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
   if (!p.onGround) {
     if (shoulderSword) {
       const tuck = Math.max(0, Math.min(1, (p.vy + 5) / 12));
-      return { ...demianSwordPose(p, t), feet: undefined, hipOffset: [0, 0], bob: 0,
+      return { ...demianSwordPose(p), feet: undefined, hipOffset: [0, 0], bob: 0,
         lean: .06, legs: [[-.20, .22 + tuck * .55], [.22 + tuck * .20, .28 + tuck * .72]],
         arms: [[.24 - tuck * .16, .35], [.70, 2.50]] };
     }
@@ -120,7 +120,8 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
       legs, arms: armsFor([walkingArm(g, 0, .34, .32), walkingArm(g, 1, .34, .32)]), blade: bladeFor(1.45 - 0.45 * k) };
   }
   const br = s(t * 3.2); // guardia: el puño con la espada adelante, la hoja para arriba (como la cruz de la referencia)
-  return { bob: br * .009, lean: .10, crouch: .24 + br * .012, head: .01, legs: [[-.45, .75], [.45, .8]], arms: armsFor([[-.95 + br * .018, 1.65], [.90 - br * .018, .65]]), blade: bladeFor(1.55) };
+  return { bob: 0, lean: .10, crouch: .24, // (standing: hips still, the knees do not pump)
+    head: .01, legs: [[-.45, .75], [.45, .8]], arms: armsFor([[-.95 + br * .018, 1.65], [.90 - br * .018, .65]]), blade: bladeFor(1.55) };
 }
 export function walkerPose(v: Vamp, t: number): Pose {
   const s = Math.sin;

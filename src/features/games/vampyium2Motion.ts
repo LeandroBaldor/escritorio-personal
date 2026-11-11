@@ -42,7 +42,7 @@ export function vampireRigPose(v: Vamp, modelScale: number, time: number) {
   const engaged = action.active ? ease(Math.min(1, (windup + extension) * 1.6)) : 0;
   const weightShift = -windup * st.shift * .55 + extension * st.shift;
   const crouch = motion.prepare * .15 + (v.landT ?? 0) / .14 * .10 + windup * st.load + extension * st.drive;
-  const hip: Pt = [g.sway * .009 + weightShift, -.965 + g.bob + crouch + breath];
+  const hip: Pt = [g.sway * .009 + weightShift, -.965 + g.bob + crouch]; // (breathing moves the chest, never the hips: standing knees stay still)
   const lean = (v.kind === 'wolf' ? .12 : .025) + motion.prepare * .12
     + (motion.airborne ? .08 : 0) - windup * st.back + extension * st.lunge + g.sway * .012;
   const neck: Pt = [hip[0] + Math.sin(lean) * .62, hip[1] - Math.cos(lean) * .62];
