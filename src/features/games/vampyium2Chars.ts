@@ -54,7 +54,7 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
   const shoulderSword = held === 'sword' && at < 0;
   if ((p.jumpPrep ?? 0) > 0) {
     const k = Math.sin((1 - (p.jumpPrep ?? 0) / .09) * Math.PI / 2);
-    if (shoulderSword) return { ...demianSwordPose(p, t), feet: undefined, bob: 0,
+    if (shoulderSword) return { ...demianSwordPose({ ...p, vx: 0 }, t), feet: undefined, bob: 0,
       lean: .06 + k * .10, crouch: .10 + k * .44,
       arms: [[-.12 - k * .35, .22 + k * .2], [.70, 2.50]] };
     return { bob: 0, lean: .12 + k * .1, crouch: .12 + k * .58, head: -.06, legs: [[-.4, .9], [.45, 1]], arms: [[-.3 - k * .4, .65], [.4, 1.5]], blade: 1.05 };
@@ -102,7 +102,7 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
   }
   if (run) { // corre con el ciclo de 8 fases (con un instante en el aire entre paso y paso): el pie apoyado va para atrás
     // con el piso (no patina), el otro pasa adelante subiendo la rodilla; los brazos al revés que las piernas
-    const g = humanWalk(p.walkT * 7 / 2.4, Math.abs(p.vx), .88 * VAMP_VISUAL_SCALE), k = g.k;
+    const g = humanWalk(p.walkT * 7 / 2.4, Math.abs(p.vx), .88 * VAMP_VISUAL_SCALE, true), k = g.k;
     const hipY = -0.7 + g.bob, legs = [0, 1].map(i => {
       const hp: Pt = [i === 0 ? -0.11 : 0.11, hipY], foot: Pt = [hp[0] + 0.04 + g.dx[i], (i === 0 ? -0.03 : 0) - g.lift[i]];
       const [ta, kb] = legAngles(hp, foot, 0.36, 0.35), idle = i === 0 ? [-0.45, 0.55] : [0.42, 0.6];

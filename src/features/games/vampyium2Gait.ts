@@ -17,6 +17,7 @@ export interface GaitOpts {
   walkAt?: number; // velocidad (mundo) a la que ya camina del todo; más despacio se mezcla con estar parado
 }
 export interface Gait {
+  stance: number;
   k: number; // 0 parado … 1 caminando (para que arranque y frene suave)
   p: number; // la fase del ciclo (0…1)
   ph: [number, number]; // la fase de cada pie
@@ -54,7 +55,7 @@ export function gait(dist: number, speed: number, o: GaitOpts): Gait {
   }
   const bob = (o.bob ?? 0.03) * (0.5 + 0.5 * Math.cos(4 * Math.PI * (p - 0.08)));
   return {
-    k, p, ph,
+    stance: beta, k, p, ph,
     dx: [dx[0] * k, dx[1] * k], lift: [lift[0] * k, lift[1] * k], fa: [fa[0] * k, fa[1] * k],
     arm: [arm[0] * k, arm[1] * k], bob: bob * k, sway: Math.sin(4 * Math.PI * p) * k,
   };
@@ -72,9 +73,12 @@ export function legAngles(hip: Pt, foot: Pt, l1: number, l2: number): [number, n
 }
 
 // One human contact sequence for hero and enemies; distance, not a timer, drives the feet.
-export function humanWalk(distance: number, speed: number, scale: number) {
-  const beta = .62;
-  const cycle = gait(distance, speed, { S: .58, H: .125, K: scale, beta, bob: .026 });
+export function humanWalk(distance: number, speed: number, scale: number, allowRun = false) {
+  // At game speed the hero was taking over seven tiny steps/second. Keep planted-foot
+  // velocity, but introduce a flight phase at running speed instead of spinning the walk faster.
+  const run = allowRun ? smooth((speed / scale - 1.7) / 1.8) : 0;
+  const beta = .62 - run * .32, height = .125 + run * .07;
+  const cycle = gait(distance, speed, { S: .58, H: height, K: scale, beta, bob: .026 + run * .014 });
   for (let i = 0; i < 2; i++) {
     const q = cycle.ph[i];
     if (q < beta) {
@@ -83,7 +87,7 @@ export function humanWalk(distance: number, speed: number, scale: number) {
       cycle.fa[i] = (-.18 * (1 - smooth(u / .16)) + .42 * smooth((u - .76) / .24)) * cycle.k;
     } else {
       const u = (q - beta) / (1 - beta);
-      cycle.lift[i] = .125 * Math.pow(Math.sin(Math.PI * u), 1.3) * cycle.k;
+      cycle.lift[i] = height * Math.pow(Math.sin(Math.PI * u), 1.3) * cycle.k;
       cycle.fa[i] = (.42 * (1 - smooth(u / .45)) - .18 * smooth((u - .62) / .38)) * cycle.k;
     }
     // Derive the arm from this SAME side's actual foot displacement, not a separate clock.
@@ -98,10 +102,18 @@ export function walkingArm(cycle: Gait, side: number, upper = .31, lower = .30, 
   const b = bend + Math.max(0, cycle.arm[side]) * .10;
   // Solve the shoulder angle for the HAND, accounting for the elbow's forward bend.
   // Simply counter-swinging the upper arm can leave the hand moving with its leg.
-  const x = cycle.arm[side] * .245;
+  const x = cycle.arm[side] * .30;
   const forward = upper + lower * Math.cos(b), offset = lower * Math.sin(b);
   const a = Math.asin(x / Math.hypot(forward, offset)) - Math.atan2(offset, forward);
   return [a, b];
+}
+
+// Whole arms change occlusion at the passing pose. Never split one moving arm across the chest.
+// Index 0 is anatomical left, 1 is anatomical right, for BOTH legs and arms.
+export function walkingDepth(cycle: Gait) {
+  const front = [0, 1].filter(side => cycle.arm[side] >= 0);
+  const back = [0, 1].filter(side => !front.includes(side));
+  return { front, back };
 }
 
 // Map the painted bone's actual joint centers to the rig, instead of its bounding box.

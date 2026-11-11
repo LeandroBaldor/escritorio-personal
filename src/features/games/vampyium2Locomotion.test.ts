@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BODY, makeVamp, newGame, newPlayer, type VampKind } from './vampyium2';
 import { VAMP_BOOT, VAMP_STANCE, VAMP_STEP_LENGTH, VAMP_VISUAL_SCALE, vampireRigPose } from './vampyium2Motion';
 import { demianSwordPose } from './vampyium2Demian';
-import { humanWalk, jointTransform, walkingArm } from './vampyium2Gait';
+import { humanWalk, jointTransform, walkingArm, walkingDepth } from './vampyium2Gait';
 
 const kinds: VampKind[] = ['walker', 'giant', 'mage', 'hammer', 'warrior', 'wolf', 'dracula'];
 describe('walking contact from the supplied side-view reference', () => {
@@ -31,17 +31,50 @@ describe('walking contact from the supplied side-view reference', () => {
   });
 });
 describe('Demian reference poses', () => {
-  it('keeps the sword arm fixed relative to the shoulders while the free arm counter-swings', () => {
-    const p = { ...newPlayer(), onGround: true, vx: 3 };
-    const base = demianSwordPose(p, 0);
-    const angles: number[] = [];
-    for (let i = 0; i < 80; i++) {
-      const q = demianSwordPose({ ...p, walkT: i * .025 }, i * .1);
-      expect(q.arms[1]).toEqual(base.arms[1]);
-      expect(q.blade).toEqual(base.blade);
-      angles.push(q.arms[0][0]);
+  it('keeps normal-speed walking but avoids seven tiny steps per second at actual player speed', () => {
+    const K = .88 * VAMP_VISUAL_SCALE;
+    expect(humanWalk(0, 3, K, true).stance).toBe(.62);
+    const fast = humanWalk(0, 7, K, true);
+    const stepsPerSecond = 2 * 7 * fast.stance / (K * .58);
+    expect(stepsPerSecond).toBeLessThan(3.8);
+    expect(fast.stance).toBeLessThan(.5);
+    for (let i = 0; i < 100; i++) {
+      const distance = i / 100 * K * .58 / fast.stance;
+      const c = humanWalk(distance, 7, K, true);
+      for (const side of [0, 1]) {
+        const [a, b] = walkingArm(c, side, .34, .32);
+        expect((Math.sin(a) * .34 + Math.sin(a + b) * .32) * c.dx[side]).toBeLessThanOrEqual(1e-10);
+      }
     }
-    expect(Math.max(...angles) - Math.min(...angles)).toBeGreaterThan(.7);
+  });
+  it('puts the entire same-side arm behind the chest when its leg leads, then swaps both arms', () => {
+    for (let frame = 0; frame < 64; frame++) {
+      const c = humanWalk(frame / 64 * .58 / .62, 3, 1);
+      const depth = walkingDepth(c);
+      for (const side of [0, 1]) {
+        expect(depth.back.includes(side)).toBe(c.dx[side] > 0);
+        expect(depth.front.includes(side)).toBe(c.dx[side] <= 0);
+      }
+    }
+    const first = walkingDepth(humanWalk(0, 3, 1));
+    const second = walkingDepth(humanWalk(.5 * .58 / .62, 3, 1));
+    expect(first).toEqual({ back: [1], front: [0] });
+    expect(second).toEqual({ back: [0], front: [1] });
+  });
+  it('lowers the sword while walking and counter-swings BOTH hands against their own legs', () => {
+    const p = { ...newPlayer(), onGround: true, vx: 3 };
+    const angles: number[][] = [[], []];
+    for (let i = 0; i < 80; i++) {
+      const walkT = i * .025, q = demianSwordPose({ ...p, walkT }, i * .1);
+      const c = humanWalk(walkT * 7 / 2.4, 3, .88 * VAMP_VISUAL_SCALE, true);
+      expect(q.weaponBehind).toBe(false);
+      for (const side of [0, 1]) {
+        const [a, b] = q.arms[side];
+        expect((Math.sin(a) * .34 + Math.sin(a + b) * .32) * c.dx[side]).toBeLessThanOrEqual(1e-10);
+        angles[side].push(a);
+      }
+    }
+    for (const arm of angles) expect(Math.max(...arm) - Math.min(...arm)).toBeGreaterThan(.7);
   });
   it('aligns both painted joint centers, including an oblique upper arm, without bending the texture', () => {
     const a: [number, number] = [.7, .12], b: [number, number] = [.3, .85];

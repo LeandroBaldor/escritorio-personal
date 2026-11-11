@@ -17,7 +17,7 @@ export function vampireAttackMotion(v: Vamp) {
 export function vampireMotion(v: Vamp, modelScale: number) {
   const prepare = v.onGround && v.nav && ['up', 'gap'].includes(v.nav.kind)
     ? Math.max(0, Math.min(1, (1.15 - Math.abs(v.nav.tx - v.x)) / .8)) : 0;
-  const cycle = humanWalk(v.walkT, v.onGround ? Math.abs(v.vx) : 0, modelScale * BODY[v.kind].k);
+  const cycle = humanWalk(v.walkT, v.onGround ? Math.abs(v.vx) : 0, modelScale * BODY[v.kind].k, true);
   return { cycle, prepare, airborne: !v.onGround };
 }
 
@@ -47,7 +47,7 @@ export function vampireRigPose(v: Vamp, modelScale: number, time: number) {
       : [x, -soleBottom - g.lift[i]];
     const [a] = legAngles(origin, ankle, .46, .44);
     const knee: Pt = [origin[0] + Math.sin(a) * .46, origin[1] + Math.cos(a) * .46];
-    return { origin, knee, ankle, footAngle, soleBottom, contact: !motion.airborne && g.ph[i] < VAMP_STANCE };
+    return { origin, knee, ankle, footAngle, soleBottom, contact: !motion.airborne && g.ph[i] < g.stance };
   });
   return { ...motion, action, breath, hip, neck, lean, legs };
 }
