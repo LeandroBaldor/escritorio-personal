@@ -3,9 +3,9 @@ import fs from 'node:fs';
 
 test('arte realista: todos los atlas, estados de enemigos y diez escenarios', async ({ page }, testInfo) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
-  await page.goto('/MiniJuegos/#/juegos/vampyium2');
+  await page.goto('/escritorio-personal/#/juegos/vampyium2');
   const result = await page.evaluate(async () => {
-    const base = '/MiniJuegos/src/features/games/';
+    const base = '/escritorio-personal/src/features/games/';
     const sprites = await import(/* @vite-ignore */ base + 'vampyium2Sprites.ts');
     const logic = await import(/* @vite-ignore */ base + 'vampyium2.ts');
     const art = await import(/* @vite-ignore */ base + 'vampyium2Art.ts');
