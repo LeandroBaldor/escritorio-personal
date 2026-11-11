@@ -442,21 +442,13 @@ export function suitOf(g: Game): SuitKey | null {
   if (w === 'cross') return 'holy';
   return g.guardHp > 0 ? 'guard' : null;
 }
-// Vampyrium's suit details (aura, shoulder pieces, chest emblem, venom crown), drawn on the realistic Demian.
-export interface SuitDecor { key: SuitKey; aura: (ctx: CanvasRenderingContext2D) => void; shoulder: (ctx: CanvasRenderingContext2D, at: Pt, back: boolean) => void; chest: (ctx: CanvasRenderingContext2D) => void; crown: (ctx: CanvasRenderingContext2D) => void }
-function suitDecor(g: Game, t: number): SuitDecor | null {
-  const key = suitOf(g); if (!key) return null;
-  const su = SUITS[key === 'guard' ? 'guardOn' : key]!;
-  return {
-    key,
-    aura: c => { if (su.aura) suitAura(c, su.aura, t); },
-    shoulder: (c, at, back) => { if (su.shoulder) suitShoulder(c, su, at, back, t); },
-    chest: c => { if (key === 'violet' || key === 'venom' || key === 'guard') suitChest(c, su, t); },
-    crown: c => { if (su.head === 'crown') venomCrown(c, t); },
-  };
-}
-export function drawHunterK(ctx: CanvasRenderingContext2D, p: Player, g: Game, t: number) {
-  const held = g.weapon, pose = hunterPose(p, t, held);
+// The realistic Demian wears the suit as recoloured armour pieces (plus the suit's helmet), with no extra effects.
+function suitDecor(g: Game): { key: SuitKey } | null { const key = suitOf(g); return key ? { key } : null; }
+export function drawHunterK(ctx: CanvasRenderingContext2D, p0: Player, g: Game, t: number) {
+  // With an armour on, Demian moves exactly as with his first armour: the same sword poses, walk, jump and thrust.
+  const armour = (['ice', 'holy', 'venom', 'violet', 'bone'] as Weapon[]).includes(g.weapon);
+  const p = armour ? { ...p0, attackWeapon: (p0.attackT >= 0 ? 'sword' : p0.attackWeapon) as Weapon } : p0;
+  const held: Weapon = armour ? 'sword' : g.weapon, pose = hunterPose(p, t, held);
   if (p.spinT > 0 && !p.onGround) { // the somersault: knees tuck to the chest in the middle of the turn, then open to land
     const k = Math.sin(Math.min(1, Math.max(0, 1 - p.spinT / .45)) * Math.PI), tuck: [number, number][] = [[1.35, 2.25], [1.15, 2.1]];
     pose.legs = pose.legs.map(([a, b], i) => [a + (tuck[i][0] - a) * k, b + (tuck[i][1] - b) * k] as [number, number]);
@@ -464,7 +456,7 @@ export function drawHunterK(ctx: CanvasRenderingContext2D, p: Player, g: Game, t
   if (drawRealisticHunter(ctx, p, g, pose, t, (hand, angle) => {
     if (held === 'sword') { if (!g.boomer) sword(ctx, hand, angle); }
     else holdWeapon(ctx, p.attackT >= 0 ? p.attackWeapon : held, hand, angle, p, t);
-  }, suitDecor(g, t))) return;
+  }, suitDecor(g))) return;
   const now = p.attackT >= 0 ? p.attackWeapon : held;
   const suit = (ARMOR_W.includes(now) ? SUITS[now] : g.guardHp > 0 ? SUITS.guardOn : undefined) ?? SUITS[now] ?? SUITS[held] ?? null; // (con la protectora puesta y otra armadura en la mano, se ve esa armadura y la burbuja dorada)
   const saved = { ...HUNTER };

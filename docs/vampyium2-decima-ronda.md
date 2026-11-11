@@ -12,3 +12,9 @@
    - Protectora: blanca con oro, capucha blanca y burbuja dorada.
    - Huesos: oscura con capa roja, yelmo de calavera y calaveras en los hombros.
 7. Drácula un 25% más chico.
+
+## Ajuste: armaduras realistas y mismos movimientos
+
+- Sin efectos agregados (auras, rayos, escarcha, corona dibujada, gemas y calaveras dibujadas, anillo del escudo).
+- Colores de metal reales sobre las mismas piezas pintadas, conservando sus detalles: acero azulado (hielo), oro (dorada), acero ennegrecido con adornos verdes (verde), acero violeta (violeta), acero blanco con oro (protectora), acero oscuro con adornos de hueso (huesos). Cascos pintados: dorado, capucha y calavera.
+- Con cualquier armadura Demian se mueve igual que con la primera: espada al hombro, caminata, salto y estocada.

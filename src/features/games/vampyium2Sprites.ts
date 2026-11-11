@@ -132,13 +132,13 @@ export function jointArmor(ctx: CanvasRenderingContext2D, joint: Pt, upper: Pt, 
 // Each painted piece is recoloured by what its pixel is: silver plate, gold trim or red cloth, through the suit's
 // dark → mid → light ramp. Same pieces, same joints and poses: only the armour changes.
 type Ramp = [string, string, string];
-const SUIT_RAMPS: Record<string, { metal: Ramp; trim: Ramp; cloth: Ramp }> = {
-  ice: { metal: ['#0f1f40', '#3a78cc', '#e6f4ff'], trim: ['#5a6a80', '#c9d3e2', '#ffffff'], cloth: ['#081634', '#2f6ad0', '#9cc4ff'] },
-  holy: { metal: ['#4a2e06', '#d4a020', '#fff3c4'], trim: ['#6a4a10', '#ffe9a0', '#ffffff'], cloth: ['#3a0608', '#b3121b', '#f06a6a'] },
-  venom: { metal: ['#060707', '#25282c', '#9aa2ab'], trim: ['#1e5a0a', '#8ef03a', '#e6ffc0'], cloth: ['#0e3005', '#5ac81e', '#c6ff6a'] },
-  violet: { metal: ['#0c0812', '#3a2850', '#d9c2ea'], trim: ['#3a1c5a', '#c07cf0', '#f3dcff'], cloth: ['#22063a', '#8a28c8', '#e0a8ff'] },
-  guard: { metal: ['#7a756c', '#e9e5de', '#ffffff'], trim: ['#7a4a10', '#e2a72e', '#fff0b0'], cloth: ['#8a857c', '#ece8e1', '#ffffff'] },
-  bone: { metal: ['#0e0a08', '#2a1f1a', '#8a7a5c'], trim: ['#8a7a5c', '#e6d7b8', '#fff4dc'], cloth: ['#2a0504', '#a8201a', '#e06050'] },
+const SUIT_RAMPS: Record<string, { metal: Ramp; trim: Ramp; cloth: Ramp }> = { // real metals, not flat colours
+  ice: { metal: ['#121c2c', '#5f7fa8', '#e8f1fa'], trim: ['#6a7888', '#cfd8e2', '#ffffff'], cloth: ['#0e1a33', '#2a4f8a', '#8fb0dc'] },
+  holy: { metal: ['#3a2608', '#b8892a', '#fbe7a8'], trim: ['#5a3c10', '#e9c35a', '#fff6d0'], cloth: ['#3a0608', '#9c1a1e', '#e06a62'] },
+  venom: { metal: ['#08090a', '#30363a', '#a9b3b8'], trim: ['#163a12', '#5f9a3a', '#cfe8b0'], cloth: ['#0c2410', '#2f6a2a', '#9ccc80'] },
+  violet: { metal: ['#100c16', '#4a3c5e', '#ddd2ea'], trim: ['#3a2650', '#9a7ac0', '#efe2ff'], cloth: ['#1e0a2e', '#5a2a86', '#c8a0e8'] },
+  guard: { metal: ['#6a665e', '#d8d4cc', '#ffffff'], trim: ['#6a4a14', '#d4a540', '#fff0b8'], cloth: ['#7a756c', '#e2ded6', '#ffffff'] },
+  bone: { metal: ['#0c0a09', '#2e2925', '#9a9086'], trim: ['#7a6a50', '#d8c8a4', '#fff4dc'], cloth: ['#2a0504', '#8e1c18', '#d8584a'] },
 };
 const KEEP_COLOURS = new Set([0, 13, 18]); // the old head, the skull helmet (already bone) and the sword
 const step01 = (a: number, b: number, x: number) => { const k = Math.max(0, Math.min(1, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
@@ -160,7 +160,7 @@ function suitVariant(key: string, index: number) {
       // soft weights (no speckles): the warm silver has r−b ≈ 20…50, the gold ≈ 75…115, the red velvet r−g ≈ 70+
       const cloth = step01(55, 85, r - g), trim = (1 - cloth) * step01(58, 95, r - b), metalW = 1 - cloth - trim;
       const at = (ramp: number[][], c: number) => { const k = l < .5 ? l / .5 : (l - .5) / .5, a0 = ramp[l < .5 ? 0 : 1], a1 = ramp[l < .5 ? 1 : 2]; return a0[c] + (a1[c] - a0[c]) * k; };
-      for (let c = 0; c < 3; c++) d[i + c] = at(R.metal, c) * metalW + at(R.trim, c) * trim + at(R.cloth, c) * cloth;
+      for (let c = 0; c < 3; c++) d[i + c] = (at(R.metal, c) * metalW + at(R.trim, c) * trim + at(R.cloth, c) * cloth) * .88 + d[i + c] * .12; // (a little of the original paint)
     }
     c.putImageData(data, 0, 0);
   } catch { /* (sin acceso a los píxeles: queda el original) */ }
@@ -197,7 +197,7 @@ export const DEMIAN_FACE = { h: .35, w: .35 * 380 / 535 };
 export const DEMIAN_SCALE = 1.095;
 
 // Input-driven articulated poses keep hands, weapon and shoulder plates attached throughout each action.
-export interface HunterDecor { key: string; aura: (ctx: CanvasRenderingContext2D) => void; shoulder: (ctx: CanvasRenderingContext2D, at: Pt, back: boolean) => void; chest: (ctx: CanvasRenderingContext2D) => void; crown: (ctx: CanvasRenderingContext2D) => void }
+export interface HunterDecor { key: string }
 export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Pose, t: number, paintWeapon: WeaponPainter, decor: HunterDecor | null = null) {
   if (!atlasReady('hunter')) return false;
   wornSuit = decor?.key ?? null;
@@ -257,7 +257,6 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
   // Anchor the supporting boot to the same collision surface, without changing the player's world position.
   const floor = p.onGround && (!moving || !!pose.feet) ? Math.max(...feet.map(f => f[1])) + .105 : 0;
   ctx.translate(0, -floor);
-  if (decor) { ctx.save(); ctx.globalAlpha *= .6; ctx.translate(0, -.1); ctx.scale(.8, .85); decor.aura(ctx); ctx.restore(); } // the suit's aura, behind everything
   const wind = Math.min(.25, Math.abs(p.vx) * .025) + (p.onGround ? 0 : .12);
   ctx.save(); ctx.translate(neck[0] - .08, neck[1] + .025); ctx.rotate(.03 + wind + Math.sin(rt * 5) * .025);
   // The upper gathering is at 45% of this cutout, attached at the collar/upper back.
@@ -284,7 +283,7 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
     if (layer !== 'upper') {
       limb(ctx, 4, elbow, hand, .17);
       jointArmor(ctx, elbow, shoulders[i], hand, .16, 'gilt', [-1, 0]);
-      const bladeGrip = i === 1 && ['sword', 'firesword', 'violet', 'bone'].includes(p.attackT >= 0 ? p.attackWeapon : g.weapon);
+      const bladeGrip = i === 1 && (!!decor || ['sword', 'firesword', 'violet', 'bone'].includes(p.attackT >= 0 ? p.attackWeapon : g.weapon));
       const weaponAngle = a + b + pose.blade;
       if (i === 1 && !pose.weaponBehind) paintWeapon(grip, weaponAngle);
       else if (!i && g.guardHp > 0) drawAsset(ctx, 'weapons', 10, grip[0] - .2, grip[1] - .23, .4, .58);
@@ -306,7 +305,6 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
   }
   const torso = decor?.key === 'ice' ? 14 : decor?.key === 'bone' ? 15 : 1;
   part(ctx, torso, [hip[0] + Math.sin(pose.lean) * .33, hip[1] - Math.cos(pose.lean) * .33], .58 - profile * .15, .72, pose.lean, decor ? undefined : ARMOR_TONE[g.weapon], profile * .28);
-  if (decor) { ctx.save(); ctx.translate(hip[0], hip[1]); ctx.rotate(pose.lean); ctx.scale(.85, .85); decor.chest(ctx); ctx.restore(); }
   if (!walkProfile) part(ctx, 9, [shoulders[0][0], shoulders[0][1] + .025], .27, .25, -pose.arms[0][0] * .12);
   leg(1);
   part(ctx, 2, [hip[0], hip[1] + .10], .45 - profile * .1, .35, pose.lean * .4);
@@ -318,17 +316,11 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
   ctx.restore();
   const helmet = decor?.key === 'guard' ? 12 : decor?.key === 'holy' ? 11 : decor?.key === 'bone' ? 13 : -1;
   if (helmet >= 0) part(ctx, helmet, [head[0] + .005, head[1] - .015], .33, .375, headTilt);
-  if (decor?.key === 'venom') { ctx.save(); ctx.translate(head[0] - .01, head[1] - .07); ctx.rotate(headTilt); ctx.scale(.36, .4); decor.crown(ctx); ctx.restore(); }
   for (const side of depth.front) arm(side, 'all');
-  if (decor) for (const side of [0, 1]) { ctx.save(); ctx.translate(...shoulders[side]); ctx.scale(.55, .55); decor.shoulder(ctx, [0, .02], side === 0 && !walkProfile); ctx.restore(); }
   if (p.attackT > .025 && p.attackT < .18 && ['firesword', 'violet', 'bone'].includes(p.attackWeapon)) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= Math.sin(p.attackT / .18 * Math.PI) * .32;
     ctx.strokeStyle = p.attackWeapon === 'firesword' ? '#efb778' : p.attackWeapon === 'violet' ? '#c6a2c7' : '#c7d6d9';
     ctx.lineWidth = .027; ctx.beginPath(); ctx.arc(shoulders[1][0], shoulders[1][1], 1.35, -.9, .45); ctx.stroke(); ctx.restore();
-  }
-  if (g.guardHp > 0) {
-    ctx.strokeStyle = `rgba(225,196,131,${.15 + g.guardHp / 180})`; ctx.lineWidth = .012;
-    ctx.beginPath(); ctx.ellipse(0, -.93, .67, 1.03, 0, 0, Math.PI * 2); ctx.stroke();
   }
   ctx.restore(); return true;
 }
