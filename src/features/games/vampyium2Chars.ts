@@ -14,7 +14,7 @@ import { demianSwordPose } from './vampyium2Demian';
 //  · El vampiro volador: igual, con el pelo en punta, la boca abierta y dos alas de murciélago enormes.
 import { alpha, bloom, darken, lighten, segment, shade, spec } from './vampyium2Materials';
 import type { Game, Player, Vamp, Weapon } from './vampyium2';
-import { humanWalk, legAngles } from './vampyium2Gait';
+import { humanWalk, legAngles, walkingArm } from './vampyium2Gait';
 import { drawBloodSword, drawBoneHammer, drawCrossbow, drawFirePistol, drawFireSword, drawGarlicBomb, drawHolyCross, drawIceCrystal, drawVenomBall } from './vampyium2Weapons';
 
 export const TAU = Math.PI * 2;
@@ -110,7 +110,7 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
     });
     const br = s(t * 3.2) * (1 - k);
     return { bob: g.bob + br * 0.025, lean: 0.06 + k * (0.12 + g.sway * 0.02), crouch: 0.08 * (1 - k), head: 0.05,
-      legs, arms: armsFor([[g.arm[0] * .38, .16 + Math.max(0, g.arm[0]) * .16], [g.arm[1] * .38, .25]]), blade: bladeFor(1.45 - 0.45 * k) };
+      legs, arms: armsFor([walkingArm(g, 0, .34, .32), walkingArm(g, 1, .34, .32)]), blade: bladeFor(1.45 - 0.45 * k) };
   }
   const br = s(t * 3.2); // guardia: el puño con la espada adelante, la hoja para arriba (como la cruz de la referencia)
   return { bob: br * .009, lean: .10, crouch: .24 + br * .012, head: .01, legs: [[-.45, .75], [.45, .8]], arms: armsFor([[-.95 + br * .018, 1.65], [.90 - br * .018, .65]]), blade: bladeFor(1.55) };

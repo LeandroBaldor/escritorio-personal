@@ -86,10 +86,22 @@ export function humanWalk(distance: number, speed: number, scale: number) {
       cycle.lift[i] = .125 * Math.pow(Math.sin(Math.PI * u), 1.3) * cycle.k;
       cycle.fa[i] = (.42 * (1 - smooth(u / .45)) - .18 * smooth((u - .62) / .38)) * cycle.k;
     }
-    // Opposite the ipsilateral foot, with a small lag at the elbow.
-    cycle.arm[i] = -Math.cos(2 * Math.PI * (q - .06)) * cycle.k;
+    // Derive the arm from this SAME side's actual foot displacement, not a separate clock.
+    // This preserves the opposition at contact, passing and toe-off, including slow steps.
+    const reach = cycle.dx[i] / .29;
+    cycle.arm[i] = -Math.sign(reach) * smooth(Math.abs(reach));
   }
   return cycle;
+}
+
+export function walkingArm(cycle: Gait, side: number, upper = .31, lower = .30, bend = .18): [number, number] {
+  const b = bend + Math.max(0, cycle.arm[side]) * .10;
+  // Solve the shoulder angle for the HAND, accounting for the elbow's forward bend.
+  // Simply counter-swinging the upper arm can leave the hand moving with its leg.
+  const x = cycle.arm[side] * .245;
+  const forward = upper + lower * Math.cos(b), offset = lower * Math.sin(b);
+  const a = Math.asin(x / Math.hypot(forward, offset)) - Math.atan2(offset, forward);
+  return [a, b];
 }
 
 // Map the painted bone's actual joint centers to the rig, instead of its bounding box.

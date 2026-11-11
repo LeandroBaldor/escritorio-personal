@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BODY, makeVamp, newGame, newPlayer, type VampKind } from './vampyium2';
 import { VAMP_BOOT, VAMP_STANCE, VAMP_STEP_LENGTH, VAMP_VISUAL_SCALE, vampireRigPose } from './vampyium2Motion';
 import { demianSwordPose } from './vampyium2Demian';
-import { humanWalk, jointTransform } from './vampyium2Gait';
+import { humanWalk, jointTransform, walkingArm } from './vampyium2Gait';
 
 const kinds: VampKind[] = ['walker', 'giant', 'mage', 'hammer', 'warrior', 'wolf', 'dracula'];
 describe('walking contact from the supplied side-view reference', () => {
@@ -56,9 +56,29 @@ describe('Demian reference poses', () => {
   it('uses alternating support and opposite arm swing throughout a complete human step', () => {
     for (let i = 0; i < 100; i++) {
       const c = humanWalk(i / 100 * (.58 / .62), 3, 1);
-      expect(c.arm[0] + c.arm[1]).toBeCloseTo(0, 10);
+      for (let side = 0; side < 2; side++) {
+        const [a, b] = walkingArm(c, side);
+        const handX = Math.sin(a) * .31 + Math.sin(a + b) * .30;
+        expect(handX * c.dx[side]).toBeLessThanOrEqual(1e-10);
+        // Mirroring the complete rig must preserve opposition when walking left.
+        expect((-handX) * (-c.dx[side])).toBeLessThanOrEqual(1e-10);
+      }
       expect(c.ph.some(q => q < .62)).toBe(true);
       for (let j = 0; j < 2; j++) if (c.ph[j] < .62) expect(c.lift[j]).toBe(0);
+    }
+  });
+  it('right leg forward means right hand back and left hand forward; the next step reverses it', () => {
+    for (const phase of [0, .5]) {
+      const c = humanWalk(phase * .58 / .62, 3, 1);
+      const hands = [0, 1].map(side => {
+        const [a, b] = walkingArm(c, side);
+        return Math.sin(a) * .31 + Math.sin(a + b) * .30;
+      });
+      const rightForward = phase === 0;
+      expect(c.dx[1] > 0).toBe(rightForward);
+      expect(c.dx[0] < 0).toBe(rightForward);
+      expect(hands[1] < 0).toBe(rightForward);
+      expect(hands[0] > 0).toBe(rightForward);
     }
   });
   it('carries the sword behind the head, holds a horizontal thrust in the damage window and returns continuously', () => {
