@@ -147,9 +147,9 @@ function limb(ctx: CanvasRenderingContext2D, id: number, start: Pt, end: Pt, wid
 }
 type WeaponPainter = (hand: Pt, angle: number) => void;
 // The photo head (crown to neck stub), a little larger than the old painted head but in proportion with the body.
-export const DEMIAN_FACE = { h: .41, w: .41 * 380 / 535 };
+export const DEMIAN_FACE = { h: .35, w: .35 * 380 / 535 };
 // Demian is drawn as tall as a normal vampire (the vampires' art is 12% bigger than the hunter's).
-export const DEMIAN_SCALE = 1.07;
+export const DEMIAN_SCALE = 1.095;
 
 // Input-driven articulated poses keep hands, weapon and shoulder plates attached throughout each action.
 export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Pose, t: number, paintWeapon: WeaponPainter) {
@@ -162,10 +162,10 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
   if (p.special?.kind === 'dash') dashTrail(ctx, p.special.t / .24);
   const walkProfile = p.onGround && Math.abs(p.vx) > .15 && p.attackT < 0 && !p.special && !(p.jumpPrep && p.jumpPrep > 0);
   const profile = walkProfile ? Math.min(1, Math.abs(p.vx) / 1.4) : 0;
-  const hipSpread = .09 - profile * .055;
-  const hip: Pt = [pose.lean * .08 + (pose.hipOffset?.[0] ?? 0), -.92 + pose.bob * (walkProfile ? 1 : .45) + pose.crouch * .3 + (pose.hipOffset?.[1] ?? 0) + (p.landT > 0 ? p.landT * .32 : 0)];
-  const neck: Pt = [hip[0] + Math.sin(pose.lean) * .61, hip[1] - Math.cos(pose.lean) * .61];
-  const shoulders: Pt[] = [-1, 1].map(side => { const x = side * (.25 - profile * .19); return [neck[0] + x * Math.cos(pose.lean) - .09 * Math.sin(pose.lean),
+  const hipSpread = .075 - profile * .045;
+  const hip: Pt = [pose.lean * .08 + (pose.hipOffset?.[0] ?? 0), -.965 + pose.bob * (walkProfile ? 1 : .45) + pose.crouch * .3 + (pose.hipOffset?.[1] ?? 0) + (p.landT > 0 ? p.landT * .32 : 0)];
+  const neck: Pt = [hip[0] + Math.sin(pose.lean) * .62, hip[1] - Math.cos(pose.lean) * .62];
+  const shoulders: Pt[] = [-1, 1].map(side => { const x = side * (.2 - profile * .15); return [neck[0] + x * Math.cos(pose.lean) - .09 * Math.sin(pose.lean),
     neck[1] + x * Math.sin(pose.lean) + .09 * Math.cos(pose.lean)]; });
   const cycle = humanWalk(p.walkT * 7 / 2.4, Math.abs(p.vx), .88 * VAMP_VISUAL_SCALE, true);
   const feet: Pt[] = [], knees: Pt[] = [];
@@ -187,7 +187,7 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
   if (p.onGround && (Math.abs(p.vx) < .15 || (p.jumpPrep ?? 0) > 0) && p.attackT < 0 && !p.special) {
     for (let i = 0; i < 2; i++) {
       const origin: Pt = [hip[0] + (i ? .09 : -.09), hip[1] + .03];
-      feet[i] = [hip[0] + (i ? .40 : -.35), -.04];
+      feet[i] = [hip[0] + (i ? .17 : -.15), -.04]; // standing: legs straight under the hips
       const [angle] = legAngles(origin, feet[i], .46, .45);
       knees[i] = add(origin, angle, .46);
     }
@@ -209,28 +209,28 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
   const wind = Math.min(.25, Math.abs(p.vx) * .025) + (p.onGround ? 0 : .12);
   ctx.save(); ctx.translate(neck[0] - .08, neck[1] + .025); ctx.rotate(.03 + wind + Math.sin(rt * 5) * .025);
   // The upper gathering is at 45% of this cutout, attached at the collar/upper back.
-  drawAsset(ctx, 'hunter', 10, -(.7 + wind) * .45, -.035, .7 + wind, 1.48); ctx.restore();
+  drawAsset(ctx, 'hunter', 10, -(.62 + wind) * .45, -.035, .62 + wind, 1.45); ctx.restore();
   const leg = (i: number) => {
     ctx.save(); if (!i) ctx.globalAlpha *= .83;
-    limb(ctx, 6, [hip[0] + (i ? hipSpread : -hipSpread), hip[1]], knees[i], .25);
-    limb(ctx, 7, knees[i], feet[i], .205);
+    limb(ctx, 6, [hip[0] + (i ? hipSpread : -hipSpread), hip[1]], knees[i], .215);
+    limb(ctx, 7, knees[i], feet[i], .18);
     const bootAngle = moving && !pose.feet ? cycle.fa[i] : pose.feet || p.onGround && Math.abs(p.vx) < .15 && p.attackT < 0 ? 0 : -(pose.legs[i][0] - pose.legs[i][1]) * .3;
     ctx.save(); ctx.translate(...feet[i]); ctx.rotate(bootAngle);
-    drawAsset(ctx, 'hunter', 8, -.08, -.12, .27, .21); ctx.restore();
+    drawAsset(ctx, 'hunter', 8, -.07, -.105, .24, .185); ctx.restore();
     jointArmor(ctx, knees[i], [hip[0] + (i ? hipSpread : -hipSpread), hip[1]], feet[i], .2, 'gilt', [1, 0]);
     ctx.restore();
   };
   const arm = (i: number, layer: 'upper' | 'forearm' | 'all') => {
-    const [a, b] = pose.arms[i], elbow = add(shoulders[i], a, .34), hand = add(elbow, a + b, .32);
+    const [a, b] = pose.arms[i], elbow = add(shoulders[i], a, .31), hand = add(elbow, a + b, .30);
     const grip = add(hand, a + b, .035);
     ctx.save(); if (walkProfile ? cycle.arm[i] < 0 : !i) ctx.globalAlpha *= .88;
     if (layer !== 'forearm') {
-      limb(ctx, 3, shoulders[i], elbow, .245);
+      limb(ctx, 3, shoulders[i], elbow, .205);
       // Separate anatomical left/right plates: dome above, overlapping lames towards the elbow.
-      part(ctx, i ? 16 : 9, [shoulders[i][0], shoulders[i][1] + .025], .31, .29, -a * .12);
+      part(ctx, i ? 16 : 9, [shoulders[i][0], shoulders[i][1] + .025], .27, .25, -a * .12);
     }
     if (layer !== 'upper') {
-      limb(ctx, 4, elbow, hand, .20);
+      limb(ctx, 4, elbow, hand, .17);
       jointArmor(ctx, elbow, shoulders[i], hand, .16, 'gilt', [-1, 0]);
       const bladeGrip = i === 1 && ['sword', 'firesword', 'violet', 'bone'].includes(p.attackT >= 0 ? p.attackWeapon : g.weapon);
       const weaponAngle = a + b + pose.blade;
@@ -239,7 +239,7 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
       // The handle passes behind all curled fingers; the wrist bends independently of the blade.
       const thrustGrip = bladeGrip && Math.abs(Math.cos(Math.PI / 2 - weaponAngle)) > .8 && p.attackT >= 0;
       const handId = !i && pose.relaxedHand ? 19 : bladeGrip && !thrustGrip ? 17 : 5;
-      part(ctx, handId, grip, bladeGrip ? .175 : .15, bladeGrip ? .19 : .17,
+      part(ctx, handId, grip, bladeGrip ? .155 : .135, bladeGrip ? .17 : .15,
         bladeGrip && !thrustGrip ? Math.PI - weaponAngle : -(a + b));
     }
     ctx.restore();
@@ -249,24 +249,24 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
     : { back: [0], front: [1] };
   for (const side of depth.back) arm(side, 'all');
   if (pose.weaponBehind) {
-    const [a, b] = pose.arms[1], elbow = add(shoulders[1], a, .34), hand = add(elbow, a + b, .32);
+    const [a, b] = pose.arms[1], elbow = add(shoulders[1], a, .31), hand = add(elbow, a + b, .30);
     paintWeapon(add(hand, a + b, .035), a + b + pose.blade);
   }
   let torso = 1;
   if (g.weapon === 'ice') torso = 14;
   if (g.weapon === 'bone') torso = 15;
-  part(ctx, torso, [hip[0] + Math.sin(pose.lean) * .33, hip[1] - Math.cos(pose.lean) * .33], .69 - profile * .19, .73, pose.lean, ARMOR_TONE[g.weapon], profile * .28);
-  if (!walkProfile) part(ctx, 9, [shoulders[0][0], shoulders[0][1] + .025], .31, .29, -pose.arms[0][0] * .12);
+  part(ctx, torso, [hip[0] + Math.sin(pose.lean) * .33, hip[1] - Math.cos(pose.lean) * .33], .58 - profile * .15, .72, pose.lean, ARMOR_TONE[g.weapon], profile * .28);
+  if (!walkProfile) part(ctx, 9, [shoulders[0][0], shoulders[0][1] + .025], .27, .25, -pose.arms[0][0] * .12);
   leg(1);
-  part(ctx, 2, [hip[0], hip[1] + .10], .51 - profile * .12, .37, pose.lean * .4);
+  part(ctx, 2, [hip[0], hip[1] + .10], .45 - profile * .1, .35, pose.lean * .4);
   // Demian's face (photo cutout, bigger than the painted head). The neck stub tucks into the gorget.
   const headTilt = pose.head * .4;
-  const head: Pt = [neck[0] + .045, neck[1] - .17];
+  const head: Pt = [neck[0] + .04, neck[1] - .145];
   ctx.save(); ctx.translate(neck[0] + .01, neck[1] + .05); ctx.rotate(headTilt);
   if (!drawAsset(ctx, 'demian-face', 0, -DEMIAN_FACE.w * .34, -DEMIAN_FACE.h, DEMIAN_FACE.w, DEMIAN_FACE.h)) part(ctx, 0, [.025, -.2], .316, .368);
   ctx.restore();
   const helmet = g.guardHp > 0 ? 12 : g.weapon === 'holy' || g.weapon === 'cross' ? 11 : g.weapon === 'bone' ? 13 : -1;
-  if (helmet >= 0) part(ctx, helmet, [head[0] + .005, head[1] - .03], .38, .43, headTilt);
+  if (helmet >= 0) part(ctx, helmet, [head[0] + .005, head[1] - .015], .33, .375, headTilt);
   for (const side of depth.front) arm(side, 'all');
   if (p.attackT > .025 && p.attackT < .18 && ['firesword', 'violet', 'bone'].includes(p.attackWeapon)) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= Math.sin(p.attackT / .18 * Math.PI) * .32;
@@ -351,7 +351,7 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
   const torsoW = (heavy ? .65 : wolf ? .59 : .51) * (walkProfile ? .76 : 1) + breath;
   const carryKind = ['mage', 'hammer', 'warrior'].includes(v.kind);
   // Where along the weapon the fist closes (fraction from its top) and how long it is.
-  const GRIP: Record<string, { at: number; len: number }> = { mage: { at: .42, len: 1.55 }, hammer: { at: .74, len: 1.2 }, warrior: { at: .865, len: 1.15 } };
+  const GRIP: Record<string, { at: number; len: number }> = { mage: { at: .3, len: 1.55 }, hammer: { at: .74, len: 1.2 }, warrior: { at: .865, len: 1.15 } };
   const armPose = (i: number) => {
     const lateral = walkProfile ? (i ? -.045 : .045) : (i ? -1 : 1) * torsoW * .37;
     const shoulder: Pt = [neck[0] + lateral * Math.cos(lean) - .115 * Math.sin(lean),
@@ -362,30 +362,54 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
     // the hammer and the sword hang low and forward from a relaxed arm, so they never cover the face.
     const stick = v.kind === 'mage';
     if (carry) { a = (stick ? .45 : .22) + g.arm[i] * .14 - prepare * .2; b = stick ? .9 : .3; }
+    else if (v.kind === 'warrior' && i === 0) { a = .35 + g.arm[i] * .05; b = 1.05; } // the shield arm, close to the chest
     else { const w = walkingArm(g, i, .31, .30, .18); a = w[0] - prepare * .35; b = w[1]; }
     if (airborne) { a = i ? .45 : -.4; b = carry && stick ? 1.1 : .4; }
     let weaponAngle = !carry ? 0 : stick ? .12 + g.arm[i] * .05 : v.kind === 'hammer' ? 2.55 : 2.25; // (0 = upright, + leans forward)
     if (action.active) {
-      const rest = Math.max(0, 1 - windup - extension);
-      if (v.state !== 'claw') { // casting: both hands forward, the staff raised in front
-        a = a * rest + (.35 + windup * 1.1 + extension * (v.state === 'zap' ? 2.2 : 1.05)) * (1 - rest);
-        b = b * rest + (.6 - extension * .25) * (1 - rest);
-        weaponAngle = Math.PI / 2 - (a + b) - .15;
+      const rest = Math.max(0, 1 - windup - extension), mix3 = (r: number, w: number, e: number) => r * rest + w * windup + e * extension;
+      const mage = v.kind === 'mage', giant = v.kind === 'giant', shieldArm = v.kind === 'warrior' && i === 0;
+      if (mage) {
+        // The staff stays still in its hand; the free hand pulls back to the chest, then points at Demian.
+        if (i === 0) { const aimA = Math.PI / 2 + (v.aim ?? 0); a = mix3(a, .55, aimA); b = mix3(b, 1.7, .06); }
+      } else if (v.state !== 'claw') { // Drácula: both arms up to call the bats or the lightning
+        a = mix3(a, .35 + 1.1, v.state === 'zap' ? 2.6 : 1.5); b = mix3(b, .6, .3);
+      } else if (shieldArm) {
+        // the shield stays fixed against the body: it does not move with the blow
+      } else if (giant) {
+        // Both arms rise straight over the head, then come down together in a double-fisted smash.
+        a = mix3(a, 2.85 - i * .12, .8 + i * .1); b = mix3(b, .35, .2);
       } else if (i === 1) {
         // An overhead blow, as in fighting games: the arm rises in FRONT up over the head with the elbow bent (the
         // weapon hangs behind the shoulder), then chops down and forward; the weapon sweeps over the top in one arc.
-        const up = carry ? 2.75 : 2.5, hit = carry ? 1.05 : 1.4;
-        a = a * rest + up * windup + hit * extension;
-        b = b * rest + (carry ? 1.85 : .9) * windup + (carry ? .2 : .1) * extension;
-        const wUp = v.kind === 'warrior' ? -1.9 : -2.35, wHit = v.kind === 'hammer' ? 1.75 : 1.6;
-        weaponAngle = weaponAngle * rest + wUp * windup + wHit * extension;
-      } else { // the free arm balances the blow
-        a = a * rest + (-.45) * windup + .55 * extension;
-        b = b * rest + .7 * windup + .35 * extension;
+        const hammer = v.kind === 'hammer';
+        a = mix3(a, carry ? 2.75 : 2.5, hammer ? .8 : carry ? 1.05 : 1.4);
+        b = mix3(b, carry ? 1.85 : .9, hammer ? .12 : carry ? .2 : .1);
+        weaponAngle = mix3(weaponAngle, v.kind === 'warrior' ? -1.9 : -2.35, hammer ? 2.45 : 1.6); // the hammer ends on the floor
+      } else if (v.kind !== 'hammer') { // the free arm balances the blow (the hammer's is solved below: both hands on the handle)
+        a = mix3(a, -.45, .9); b = mix3(b, .7, .3);
       }
     }
     const elbow = add(shoulder, a, .31), hand = add(elbow, a + b, .30);
     return { shoulder, elbow, hand, a, b, carry, weaponAngle };
+  };
+  // Two-bone IK for an arm (elbow bends down/back): the angles that put the hand on `target`.
+  const armIK = (shoulder: Pt, target: Pt): [number, number] => {
+    const dx = target[0] - shoulder[0], dy = target[1] - shoulder[1], d = Math.max(.02, Math.min(Math.hypot(dx, dy), .609));
+    const base = Math.atan2(dx, dy), al = Math.acos(Math.max(-1, Math.min(1, (.31 * .31 + d * d - .3 * .3) / (2 * .31 * d))));
+    const ga = Math.acos(Math.max(-1, Math.min(1, (.31 * .31 + .3 * .3 - d * d) / (2 * .31 * .3))));
+    return [base - al, Math.PI - ga];
+  };
+  const poseOf = (i: number) => {
+    const pose = armPose(i);
+    if (v.kind !== 'hammer' || i !== 0 || !action.active) return pose;
+    // The giant hammer is gripped with BOTH hands: the second fist closes lower on the handle.
+    const lead = armPose(1), up: Pt = [Math.sin(lead.weaponAngle), -Math.cos(lead.weaponAngle)];
+    const target: Pt = [lead.hand[0] - up[0] * .2, lead.hand[1] - up[1] * .2];
+    const [ia, ib] = armIK(pose.shoulder, target), k = Math.min(1, (windup + extension) * 2.5);
+    const a = pose.a + (ia - pose.a) * k, b = pose.b + (ib - pose.b) * k;
+    const elbow = add(pose.shoulder, a, .31);
+    return { ...pose, a, b, elbow, hand: add(elbow, a + b, .30) };
   };
   const far = (i: number) => walkProfile ? g.arm[i] < 0 : i === 0;
   const weapon = (pose: ReturnType<typeof armPose>) => {
@@ -400,7 +424,7 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
     ctx.drawImage(v2, -w * .42, -h * .32, w, h); ctx.restore();
   };
   const arm = (i: number) => {
-    const pose = armPose(i), { shoulder, elbow, hand, a, b, carry } = pose;
+    const pose = poseOf(i), { shoulder, elbow, hand, a, b, carry } = pose;
     ctx.save(); if (far(i)) ctx.globalAlpha *= .9;
     bone(2, shoulder, elbow, heavy ? .25 : .19);
     pauldron(shoulder, a, !walkProfile && i === 0);
@@ -409,15 +433,23 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
     jointArmor(ctx, elbow, shoulder, hand, heavy ? .19 : .16, 'iron', [-1, 0]);
     ctx.restore();
   };
-  const depth = walkProfile ? walkingDepth(g) : { back: [0], front: [1] };
+  // Both fists on the hammer: the second arm crosses in front of the chest to reach the handle.
+  const depth = walkProfile ? walkingDepth(g) : v.kind === 'hammer' && action.active ? { back: [], front: [0, 1] } : { back: [0], front: [1] };
   leg(0); for (const side of depth.back) arm(side); leg(1);
   paint(1, [hip[0] + Math.sin(lean) * .30, hip[1] - Math.cos(lean) * .28], torsoW, .73, lean, walkProfile ? .24 : 0);
   if (v.kind === 'warrior') { // the shield is strapped to the far (left) forearm and covers the chest from the front
-    const sp = armPose(0); paint(8, [sp.hand[0] + .1, sp.hand[1] - .1], .42, .62, lean * .5);
+    const sp = armPose(0); paint(8, [sp.hand[0] + .06, sp.hand[1] - .06], .42, .62, lean * .5);
   }
   if (!drawEnemyHead(ctx, v.kind, [neck[0] + .02, neck[1]], -lean * .25 + g.sway * .008))
     paint(0, [neck[0] + .045, neck[1] - .14], wolf ? .39 : heavy ? .34 : .30, wolf ? .34 : .35, -lean * .25);
   for (const side of depth.front) arm(side);
+  if (v.kind === 'mage' && action.active && extension > .05) { // the power gathers in the pointing hand
+    const h = poseOf(0).hand, r = .16 + extension * .18;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const glow = ctx.createRadialGradient(h[0], h[1], 0, h[0], h[1], r);
+    glow.addColorStop(0, `rgba(255,220,200,${.9 * extension})`); glow.addColorStop(.35, `rgba(255,60,50,${.7 * extension})`); glow.addColorStop(1, 'rgba(160,0,20,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(h[0], h[1], r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
   ctx.restore(); return true;
 }
 // A silver sweep around the waist while Demian turns 360°, so the turn reads without squashing him.

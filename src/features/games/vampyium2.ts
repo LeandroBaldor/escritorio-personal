@@ -622,6 +622,8 @@ function spawn(g: Game) {
 }
 
 // El ataque de cada uno de los que caminan: alcance, cuándo pega, cuánto dura y cuánto espera después.
+// La mano del mago que apunta (en unidades del dibujo: hombro y largo del brazo; k = escala del dibujo).
+export const MAGE_HAND = { k: 0.88 * 2.25, sx: 0.19, sy: 1.47, reach: 0.62 };
 export const ATTACK: Partial<Record<VampKind, { reach: number; at: number; dur: number; rest: number }>> = {
   walker: { reach: 1.0, at: 0.36, dur: 0.7, rest: 0.6 }, giant: { reach: 1.6, at: 0.55, dur: 1.0, rest: 1.0 }, mage: { reach: 1.2, at: 0.36, dur: 0.7, rest: 1.0 },
   hammer: { reach: 2.0, at: 0.72, dur: 1.2, rest: 1.1 }, warrior: { reach: 1.75, at: 0.38, dur: 0.75, rest: 0.8 }, wolf: { reach: 1.5, at: 0.22, dur: 0.5, rest: 0.6 },
@@ -769,9 +771,12 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
     if (v.t >= atk.dur) { v.state = 'walk'; v.cool = atk.rest + r() * 0.5; }
   } else if (v.state === 'cast') { // el mago levanta el báculo y tira una bola de fuego; Drácula larga murciélagos
     v.vx *= Math.max(0, 1 - dt * 10); v.t += dt; v.face = dx >= 0 ? 1 : -1;
+    // El mago deja el báculo quieto y APUNTA con la otra mano a Demian: la bola sale de esa mano.
+    const k = MAGE_HAND.k * BODY.mage.k;
+    if (v.kind === 'mage') v.aim = Math.max(-0.9, Math.min(0.9, Math.atan2(p.y + 1 - (v.y + MAGE_HAND.sy * k), Math.abs(dx) || 0.01)));
     if (v.t >= 0.55 && !v.hit) {
       v.hit = true;
-      if (v.kind === 'mage') { shoot(g, v.x + v.face * 0.9, v.y + 2.2, p.x, p.y + 1, 8.5, 'orb', DAMAGE.mage, 3); }
+      if (v.kind === 'mage') { const a = v.aim ?? 0; shoot(g, v.x + v.face * (MAGE_HAND.sx + MAGE_HAND.reach * Math.cos(a)) * k, v.y + (MAGE_HAND.sy + MAGE_HAND.reach * Math.sin(a)) * k, p.x, p.y + 1, 8.5, 'orb', DAMAGE.mage, 3); }
       else { for (const k of [-0.5, -0.25, 0, 0.25, 0.5]) shoot(g, v.x + v.face * 0.7, v.y + 2.1, p.x, p.y + 1, 6 + Math.abs(k) * 2, 'bat', DAMAGE.dracula, 3.4, k); emit(g, { type: 'bats' }); }
     }
     if (v.t >= 0.95) { v.state = 'walk'; v.cool = (v.kind === 'mage' ? 2.4 : 1) + r() * 0.8; }

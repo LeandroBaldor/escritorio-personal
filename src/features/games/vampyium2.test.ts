@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AMMO_PICKUP, GUARD_HP, FREEZE_T, HOLY_TARGETS, DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp, CHAPTERS, hitObject, noteTap, triggerSpecial, SPECIAL_KEYS, DASH_PIERCE } from './vampyium2';
+import { AMMO_PICKUP, GUARD_HP, FREEZE_T, HOLY_TARGETS, DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp, CHAPTERS, hitObject, noteTap, triggerSpecial, SPECIAL_KEYS, DASH_PIERCE, MAGE_HAND, BODY } from './vampyium2';
 
 const idle = (): Input => ({ left: false, right: false, up: false, down: false });
 const run = (g: Game, seconds: number, input: Input = idle()) => { for (let t = 0; t < seconds; t += 1 / 60) step(g, input, 1 / 60); };
@@ -706,6 +706,16 @@ describe('Vampyium2: los ataques especiales de Demian', () => {
     run(g, 1.2);
     expect(takeEvents(g).some(e => e.type === 'hurt')).toBe(true);
     expect(g.drops.length).toBeGreaterThan(before + 10);
+  });
+  it('el mago apunta a Demian y la bola sale de la mano que apunta', () => {
+    const g = quiet(); const p = g.player;
+    const m = makeVamp(g, 'mage', { x: p.x + 6, y: GROUND_Y, onGround: true, surface: SURFACES.find(s => s.ground && s.x1 <= p.x + 6 && s.x2 >= p.x + 6) ?? null, face: -1, cool: 9, speed: 0, state: 'cast', t: 0 });
+    g.vamps.push(m); run(g, 0.6);
+    const orb = g.shots.find(s => s.kind === 'orb'); expect(orb).toBeTruthy();
+    const k = MAGE_HAND.k * BODY.mage.k;
+    expect(m.aim).toBeLessThan(0); // Demian está más abajo: apunta hacia abajo
+    expect(orb!.x).toBeLessThan(m.x - MAGE_HAND.sx * k); // adelante, hacia Demian
+    expect(orb!.vx).toBeLessThan(0);
   });
   it('sin combinación, Espacio es el tajo de siempre', () => {
     const g = quiet(); pressAttack(g);

@@ -21,17 +21,30 @@ export function vampireMotion(v: Vamp, modelScale: number) {
   return { cycle, prepare, airborne: !v.onGround };
 }
 
+// How each vampire loads and delivers its attack (lean back/forward, crouch while loading/striking, hip shift, stance).
+export const ATTACK_STYLE: Partial<Record<Vamp['kind'], { back: number; lunge: number; load: number; drive: number; shift: number; front: number; rear: number }>> = {
+  walker: { back: .16, lunge: .30, load: .06, drive: .10, shift: .16, front: .34, rear: .26 },
+  dracula: { back: .14, lunge: .28, load: .05, drive: .09, shift: .15, front: .32, rear: .25 },
+  wolf: { back: .18, lunge: .36, load: .12, drive: .12, shift: .2, front: .38, rear: .28 },
+  giant: { back: .22, lunge: .34, load: -.02, drive: .2, shift: .12, front: .3, rear: .3 }, // rises with both arms up, then drops into the smash
+  hammer: { back: .2, lunge: .42, load: .04, drive: .26, shift: .14, front: .36, rear: .32 },
+  warrior: { back: .12, lunge: .3, load: .07, drive: .1, shift: .17, front: .36, rear: .26 },
+  mage: { back: .04, lunge: .1, load: .03, drive: .03, shift: .06, front: .22, rear: .2 }, // stands firm and points
+};
 // A separate ankle and boot keep the supporting sole fixed while the knee and heel move.
 export const VAMP_BOOT = { left: -.09, right: .21, bottom: .09, top: -.045, width: .30, height: .135 };
 export function vampireRigPose(v: Vamp, modelScale: number, time: number) {
   const motion = vampireMotion(v, modelScale), g = motion.cycle;
   const action = vampireAttackMotion(v), { windup, extension } = action;
   const breath = Math.sin(time * 2.6 + v.id * .7) * .004;
-  const weightShift = -windup * .09 + extension * .16;
-  const crouch = motion.prepare * .15 + (v.landT ?? 0) / .14 * .10 + windup * .12 + extension * .08;
+  // Each attack takes its own impulse: weight back and down while loading, then forward into the blow.
+  const st = ATTACK_STYLE[v.kind] ?? ATTACK_STYLE.walker!;
+  const engaged = action.active ? ease(Math.min(1, (windup + extension) * 1.6)) : 0;
+  const weightShift = -windup * st.shift * .55 + extension * st.shift;
+  const crouch = motion.prepare * .15 + (v.landT ?? 0) / .14 * .10 + windup * st.load + extension * st.drive;
   const hip: Pt = [g.sway * .009 + weightShift, -.965 + g.bob + crouch + breath];
   const lean = (v.kind === 'wolf' ? .12 : .025) + motion.prepare * .12
-    + (motion.airborne ? .08 : 0) - windup * .14 + extension * .23 + g.sway * .012;
+    + (motion.airborne ? .08 : 0) - windup * st.back + extension * st.lunge + g.sway * .012;
   const neck: Pt = [hip[0] + Math.sin(lean) * .62, hip[1] - Math.cos(lean) * .62];
   const legs = [0, 1].map(i => {
     const origin: Pt = [hip[0] + (i ? .055 : -.055), hip[1]];
@@ -40,8 +53,10 @@ export function vampireRigPose(v: Vamp, modelScale: number, time: number) {
       + VAMP_BOOT.bottom * Math.cos(footAngle);
     const groundPivot = footAngle >= 0 ? VAMP_BOOT.right : VAMP_BOOT.left;
     const rollOffset = groundPivot - (groundPivot * Math.cos(footAngle) - VAMP_BOOT.bottom * Math.sin(footAngle));
-    const x = (action.active ? (i ? .27 : -.25)
-      : (i ? .055 : -.055) + (i ? .13 : -.13) * (1 - g.k) + g.dx[i]) + rollOffset;
+    // Standing: legs straight under the hips. Attacking: the stance opens smoothly (no pop), front foot forward.
+    const walkX = (i ? .055 : -.055) + (i ? .085 : -.085) * (1 - g.k) + g.dx[i];
+    const total = windup + extension, attackX = i ? (windup * .16 + extension * st.front) / Math.max(.001, total) : -st.rear;
+    const x = walkX + (attackX - walkX) * engaged + rollOffset;
     const ankle: Pt = motion.airborne
       ? [origin[0] + (i ? .24 : -.18), -.19 - (v.vy > 0 ? .19 : .08) * (i ? 1 : .6)]
       : [x, -soleBottom - g.lift[i]];

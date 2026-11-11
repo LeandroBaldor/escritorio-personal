@@ -19,11 +19,11 @@ export function demianSwordPose(p: Player, time: number): Pose {
   const rightA = mix(frontA, carryArm[0], lowered), rightB = mix(frontB, carryArm[1], lowered);
   // Unwrap the angle through the overhead arc, avoiding a sweep through the torso.
   const swordAngle = mix(mix(-Math.PI / 2 - .06, -Math.PI * 1.5, extension), .75, lowered);
-  const feet: [Pt, Pt] = [[mix(-.23, -.48, extension), -.06], [mix(.23, .44, extension), -.06]];
+  const feet: [Pt, Pt] = [[mix(-.15, -.48, extension), -.06], [mix(.17, .44, extension), -.06]]; // standing straight, then the lunge
   return {
     bob: running && !active ? cycle.bob : breath,
     lean: mix(.015 + (running ? cycle.sway * .012 : 0), .24, extension), crouch: 0, head: -.08 * extension,
-    hipOffset: [extension * .13, mix(-.015, .12, extension)],
+    hipOffset: [extension * .13, mix(0, .12, extension)],
     feet: running || !p.onGround ? undefined : feet,
     weaponBehind: extension < .35 && !lowered,
     relaxedHand: !active,
