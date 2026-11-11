@@ -118,18 +118,19 @@ export const BOSS_HP = STRENGTH.dracula;
 export const DAMAGE: Record<VampKind, number> = { walker: 1, flyer: 1, giant: 3, mage: 4, hammer: 5, warrior: 6, wolf: 7, dracula: 10, dragon: 15 };
 export const VAMP_NAME: Record<VampKind, string> = { walker: 'Vampiro', flyer: 'Vampiro volador', giant: 'Vampiro gigante', mage: 'Vampiro mago', hammer: 'Vampiro martillo', warrior: 'Vampiro guerrero', wolf: 'Hombre lobo', dracula: 'Drácula', dragon: 'Drácula dragón' };
 // El tamaño de cada uno (caja para los golpes) y la escala del dibujo.
-export const VAMP_BIG = 1.12; // los vampiros más grandes (dibujo y caja de golpes)
+export const VAMP_BIG = 1.12 * 1.1; // (+10%)
+const DRAC_K = 0.75 / 1.1; // Drácula: 25% más chico que antes (aunque los demás crecieron 10%) // los vampiros más grandes (dibujo y caja de golpes)
 const BODY0: Record<VampKind, { w: number; h: number; k: number }> = {
   walker: { w: 0.8, h: 1.8, k: 1 }, flyer: { w: 0.8, h: 1.4, k: 1 }, giant: { w: 1.3, h: 2.6, k: 1.42 }, mage: { w: 0.8, h: 1.9, k: 1.03 },
-  hammer: { w: 0.95, h: 2.0, k: 1.1 }, warrior: { w: 0.95, h: 2.0, k: 1.08 }, wolf: { w: 1.7, h: 1.8, k: 1.3 }, dracula: { w: 1.25, h: 3.12, k: 1.65 }, dragon: { w: 4.8, h: 3.7, k: 1.35 },
+  hammer: { w: 0.95, h: 2.0, k: 1.1 }, warrior: { w: 0.95, h: 2.0, k: 1.08 }, wolf: { w: 1.7, h: 1.8, k: 1.3 }, dracula: { w: 1.25 * DRAC_K, h: 3.12 * DRAC_K, k: 1.65 * DRAC_K }, dragon: { w: 4.8, h: 3.7, k: 1.35 },
 };
 export const BODY = Object.fromEntries(Object.entries(BODY0).map(([k, b]) => [k, { w: b.w * VAMP_BIG, h: b.h * VAMP_BIG, k: b.k * VAMP_BIG }])) as Record<VampKind, { w: number; h: number; k: number }>;
 const SPECIALS: VampKind[] = ['giant', 'mage', 'hammer', 'warrior', 'wolf'];
 // Qué vampiros salen en cada nivel: 1 normales y voladores; 2 + gigante; 3 + mago; 4 + martillo; 5 + guerrero; 6 + hombre lobo;
-// 7 a 9 como el nivel 5; 10 solo Drácula.
+// 7 a 9 todos (con el hombre lobo); 10 solo Drácula.
 export function rosterOf(level: number): VampKind[] {
   if (level >= 10) return ['dracula'];
-  return ['walker', 'flyer', ...SPECIALS.slice(0, level >= 7 ? 4 : level - 1)];
+  return ['walker', 'flyer', ...SPECIALS.slice(0, level >= 7 ? 5 : level - 1)]; // (7 a 9: todos, con el hombre lobo)
 }
 export const isBoss = (k: VampKind) => k === 'dracula' || k === 'dragon';
 export const flies = (k: VampKind) => k === 'flyer' || k === 'dragon';

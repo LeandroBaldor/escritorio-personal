@@ -285,14 +285,14 @@ describe('Vampyium2: los vampiros de cada nivel y los puntos', () => {
     expect(newGame(1).player.hp).toBe(100);
   });
 
-  it('cada nivel suma un vampiro nuevo; del 7 al 9 como el 5; el 10 es solo Drácula', () => {
+  it('cada nivel suma un vampiro nuevo; del 7 al 9 todos, con el hombre lobo; el 10 es solo Drácula', () => {
     expect(rosterOf(1)).toEqual(['walker', 'flyer']);
     expect(rosterOf(2)).toEqual(['walker', 'flyer', 'giant']);
     expect(rosterOf(3)).toEqual(['walker', 'flyer', 'giant', 'mage']);
     expect(rosterOf(4)).toEqual(['walker', 'flyer', 'giant', 'mage', 'hammer']);
     expect(rosterOf(5)).toEqual(['walker', 'flyer', 'giant', 'mage', 'hammer', 'warrior']);
     expect(rosterOf(6)).toEqual(['walker', 'flyer', 'giant', 'mage', 'hammer', 'warrior', 'wolf']);
-    for (const n of [7, 8, 9]) expect(rosterOf(n)).toEqual(rosterOf(5));
+    for (const n of [7, 8, 9]) expect(rosterOf(n)).toEqual(rosterOf(6));
     expect(rosterOf(10)).toEqual(['dracula']);
     newGame(1, 1);
   });
