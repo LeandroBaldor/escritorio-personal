@@ -6,10 +6,10 @@
 // - el movimiento normal (hasta una velocidad máxima) pasa igual, sin retraso (así el pie apoyado no patina);
 // - lo que excede esa velocidad (un salto de pose) se guarda como una diferencia que se apaga sola en ~0,1 s.
 // El resultado es continuo: nunca hay saltos de un cuadro, y entre poses el cuerpo se mueve con una curva suave.
-// También da la vuelta de 2–3 cuadros cuando el personaje cambia de dirección.
+// Al cambiar de dirección el personaje se da vuelta en el acto (espejo instantáneo, nunca se angosta).
 
 interface Channel { last: number; prev: number[]; off: number[]; offV: number[]; tv: number[]; outV: number[]; out: number[] }
-interface Owner { ch: Map<string, Channel>; face?: number; turnAt?: number; turnLast?: number }
+interface Owner { ch: Map<string, Channel> }
 const owners = new WeakMap<object, Owner>();
 const ownerOf = (o: object) => { let r = owners.get(o); if (!r) { r = { ch: new Map() }; owners.set(o, r); } return r; };
 const wrap = (a: number) => a - Math.round(a / (Math.PI * 2)) * Math.PI * 2;
@@ -60,24 +60,4 @@ export function inertia(owner: object | null | undefined, key: string, t: number
 /** A point version of `inertia`. */
 export function inertiaPt(owner: object | null | undefined, key: string, t: number, p: [number, number], vmax: number): [number, number] {
   const r = inertia(owner, key, t, p, vmax); return [r[0], r[1]];
-}
-
-/**
- * The turnaround: when the character changes direction, instead of a mirror flip in one frame its width narrows,
- * flips and opens again over ~0.12 s. Returns the horizontal scale to apply on top of the normal (new) facing.
- */
-export const TURN_TIME = .12;
-export function turnScale(owner: object | null | undefined, face: number, t: number): number {
-  if (!owner) return 1;
-  const o = ownerOf(owner);
-  if (o.turnLast !== undefined && (t < o.turnLast || t - o.turnLast > .25)) { o.face = face; o.turnAt = undefined; }
-  o.turnLast = t;
-  if (o.face === undefined) { o.face = face; return 1; }
-  if (face !== o.face) { o.face = face; o.turnAt = t; }
-  if (o.turnAt === undefined) return 1;
-  const u = (t - o.turnAt) / TURN_TIME;
-  if (u >= 1) { o.turnAt = undefined; return 1; }
-  // −1 (still drawn the old way) → narrows → flips → opens to +1. Never zero width (no paper-thin frame).
-  const e = u * u * (3 - 2 * u);
-  return e < .5 ? -(1 - e * 1.4) : .3 + (e - .5) * 1.4;
 }

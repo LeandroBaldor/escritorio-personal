@@ -101,6 +101,7 @@ export function drawCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t:
   const B = BODY[c.kind], k = CHAR_K * v.s * B.k, f = Math.min(1, c.t / BURN_AT), burn = Math.max(0, Math.min(1, (c.t - BURN_AT) / (BLOW_AT - BURN_AT)));
   const fly = c.kind === 'flyer', dragon = c.kind === 'dragon';
   const fake: Vamp = { id: c.id, kind: c.kind, x: 0, y: 0, vx: 0, vy: 0, face: 1, state: c.kind === 'dragon' ? 'hover' : 'claw', t: 0.4, onGround: !fly && !dragon, surface: null, walkT: 0, cool: 0, speed: 0, jumpT: 0, dropT: 0, hit: false };
+  if (c.kind === 'wolf') { fake.state = 'walk'; fake.collapse = Math.min(1, c.t / 0.35); } // (the werewolf drops on all fours to the floor, never stands up)
   if (c.kind === 'dracula') { // se está convirtiendo en dragón: tiembla, se pone rojo, lo rodean murciélagos y crece
     const q = g ? 1 - Math.max(0, g.transformT) / 2.4 : 0;
     ctx.save(); ctx.translate(X(v, c.x) + Math.sin(t * 70) * v.s * 0.06 * q, Y(v, c.y)); ctx.scale(k * c.face * (1 + q * 0.6), k * (1 + q * 0.6));

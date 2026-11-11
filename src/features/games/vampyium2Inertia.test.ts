@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inertia, turnScale } from './vampyium2Inertia';
+import { inertia } from './vampyium2Inertia';
 
 const run = (targets: number[], vmax: number, angles = false) => {
   const owner = {}, out: number[] = [];
@@ -23,13 +23,5 @@ describe('Vampyium2 pose inertia', () => {
   it('blends angles the short way round', () => {
     const out = run([3.1, 3.1, -3.1, -3.1, -3.1], 2, true);
     for (const v of out) expect(Math.abs(Math.abs(v) - 3.1)).toBeLessThan(.1);
-  });
-  it('turns around over a few frames instead of a mirror flip, then draws normally', () => {
-    const owner = {}, scales: number[] = [];
-    for (let f = 0; f < 12; f++) scales.push(turnScale(owner, f < 2 ? 1 : -1, 5 + f / 60));
-    expect(scales[2]).toBeCloseTo(-1, 5); // the frame it turns, it is still drawn the old way
-    expect(scales.slice(3, 9).some(s => Math.abs(s) < .6)).toBe(true);
-    expect(scales.every(s => Math.abs(s) >= .29)).toBe(true); // never paper thin
-    expect(scales[11]).toBe(1);
   });
 });

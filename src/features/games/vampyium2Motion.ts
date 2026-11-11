@@ -85,3 +85,65 @@ export function dragonWing(phase: number) {
 }
 // How far each wing turns from 'up' (as painted) to 'fully down' (radians; near wing counter-clockwise).
 export const DRAGON_WING_DOWN = { near: 1.75, far: 1.7 };
+
+// ---- Hombre lobo: siempre en cuatro patas ------------------------------------------------------------------------
+// The werewolf is a quadruped in every state: standing, walking, running, chasing, attacking, hurt and dying.
+// Torso near horizontal (hips at the back, shoulders at the front), front legs = arms planted under the shoulders
+// (elbow back), hind legs flexed under the hips (knee forward). The four feet follow the same distance-driven cycle
+// (so no paw slides): hind legs half a cycle apart, each front leg a quarter cycle after its hind leg (a walk), half
+// a cycle when it runs (a gallop-like trot, diagonal pairs). Attacks are a lunge: it crouches, springs forward, the
+// near front paw swipes and the jaws open; it never stands up.
+export const WOLF_QUAD = { hipY: -.68, spine: .62, upper: .31, lower: .30, paw: .065, thigh: .46, shin: .44 };
+export interface QuadLeg { origin: Pt; knee: Pt; ankle: Pt; footAngle: number }
+export interface QuadArm { shoulder: Pt; target: Pt; planted: boolean }
+const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
+export function wolfQuadPose(v: Vamp, modelScale: number, time: number) {
+  const Q = WOLF_QUAD, K = modelScale * BODY.wolf.k, speed = v.onGround ? Math.abs(v.vx) : 0;
+  const airborne = !v.onGround, collapse = Math.max(0, Math.min(1, v.collapse ?? 0));
+  // chasing at full speed reads as a run: the phase still comes from distance, so the paws stay planted
+  const hind = humanWalk(v.walkT, speed * 1.8, K, true);
+  const run = Math.max(0, Math.min(1, (.62 - hind.stance) / .32));
+  const shift = (.25 + .25 * run) * K * .58 / hind.stance;
+  const fore = humanWalk(v.walkT + shift, speed * 1.8, K, true);
+  const action = vampireAttackMotion(v), { windup, extension } = action;
+  const breath = Math.sin(time * 2.6 + v.id * .7) * .006;
+  const hurt = (v.hurtT ?? 0) > 0 ? .08 : 0, land = (v.landT ?? 0) / .14 * .08;
+  const crouch = windup * .07 + hurt + land - extension * .02;
+  const lunge = extension * .20 - windup * .06;
+  let hip: Pt = [-.30 + lunge, Q.hipY + hind.bob * .8 + crouch];
+  let lean = Math.PI / 2 - .10 + run * Math.sin(hind.p * Math.PI * 4) * .05 + windup * .05 - extension * .04; // (spine: ~horizontal, shoulders a bit lower)
+  if (airborne) { lean = Math.PI / 2 - .08 - Math.max(-.25, Math.min(.25, v.vy * .025)); hip = [-.30, Q.hipY + .04]; }
+  if (collapse > 0) { hip = [lerp(hip[0], -.36, collapse), lerp(hip[1], -.30, collapse)]; lean = lerp(lean, Math.PI / 2 + .04, collapse); }
+  const neck: Pt = [hip[0] + Math.sin(lean) * Q.spine, hip[1] - Math.cos(lean) * Q.spine];
+  const shoulderBase: Pt = [neck[0] - Math.sin(lean) * .10 + Math.cos(lean) * .10, neck[1] + Math.cos(lean) * .10 + Math.sin(lean) * .09]; // (low on the chest: the front leg reaches the floor)
+  // Hind legs (index 0 far, 1 near) — the same foot/ankle model as the bipeds.
+  const legs: QuadLeg[] = [0, 1].map(i => {
+    const origin: Pt = [hip[0] + (i ? .04 : -.04), hip[1]];
+    let ankle: Pt, footAngle = hind.fa[i];
+    if (airborne) { ankle = [origin[0] - .46 - i * .06, origin[1] + .40]; footAngle = .5; } // stretched back
+    else ankle = [-.30 + (i ? .03 : -.03) + hind.dx[i] - (1 - hind.k) * (i ? -.04 : .04), -.09 - hind.lift[i]];
+    if (collapse > 0) { ankle = [lerp(ankle[0], origin[0] - .55 - i * .05, collapse), lerp(ankle[1], -.07, collapse)]; footAngle *= 1 - collapse; }
+    const [a] = legAngles(origin, ankle, Q.thigh, Q.shin);
+    return { origin, knee: [origin[0] + Math.sin(a) * Q.thigh, origin[1] + Math.cos(a) * Q.thigh] as Pt, ankle, footAngle };
+  });
+  // Front legs: the paw target; the elbow comes from inverse kinematics (bending back) when drawn.
+  const arms: QuadArm[] = [0, 1].map(i => {
+    const shoulder: Pt = [shoulderBase[0] + (i ? .03 : -.03), shoulderBase[1] + (i ? .01 : -.01)];
+    const baseX = .30 + (i ? .03 : -.03) + .02; // where the paw stands, under the shoulder
+    let target: Pt = [baseX + fore.dx[i], -fore.lift[i]], planted = !airborne && fore.ph[i] < fore.stance;
+    if (action.active && i === 1) { // the near paw: drawn back and up while it loads, then a swipe forward at the face
+      const up: Pt = [shoulder[0] - .02, shoulder[1] + .30], hit: Pt = [shoulder[0] + .52, shoulder[1] + .18];
+      const rest = Math.max(0, 1 - windup - extension);
+      target = [target[0] * rest + up[0] * windup + hit[0] * extension, target[1] * rest + up[1] * windup + hit[1] * extension];
+      planted = false;
+    }
+    if (airborne) { target = [shoulder[0] + .42 + i * .05, shoulder[1] + .36]; planted = false; } // reaching forward
+    if (collapse > 0) { target = [lerp(target[0], shoulder[0] + .50 + i * .04, collapse), lerp(target[1], -.04, collapse)]; }
+    return { shoulder, target, planted };
+  });
+  // Head: in front of the shoulders, looking ahead; it reaches forward and down for the bite.
+  const bite = action.active ? Math.max(0, Math.min(1, extension * 1.4 - windup * .2)) : airborne ? .9 : 0;
+  const head: Pt = [neck[0] + .05 + extension * .10, neck[1] + .02 + extension * .04 + collapse * .30];
+  const headAngle = .10 - extension * .10 + windup * .08 + collapse * .45 + ((v.hurtT ?? 0) > 0 ? .12 : 0);
+  return { hip, neck, lean, legs, arms, head, headAngle, bite, breath, action, cycle: hind, airborne, collapse };
+}

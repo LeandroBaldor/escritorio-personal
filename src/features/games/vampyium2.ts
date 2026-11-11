@@ -149,6 +149,7 @@ export interface Vamp {
   walkK?: number;
   firing?: boolean; // el dragón tiene la boca abierta tirando fuego // 0 parado de tres cuartos … 1 caminando de perfil (para pasar de una a otra sin saltos)
   special?: number; // Drácula y el dragón: cuenta para el próximo ataque especial
+  collapse?: number; // (solo para dibujar: 0…1 el cuerpo que se desploma al morir, el hombre lobo en cuatro patas)
   frozen?: number; chill?: number; // congelado por la armadura de hielo (se rompe cuando llega a 0); chill: el frío en Drácula y el dragón
   nav?: Nav; stuckT?: number; bestD?: number; unstuck?: number; waitT?: number; braveT?: number; // cómo se mueve por el nivel (ver navigate)
 }
@@ -564,7 +565,7 @@ function kill(g: Game, v: Vamp, how: KillHow) {
 }
 
 // Le sacan vida al cazador (cada vampiro según su fuerza; las trampas 5 y las caídas 10).
-function hurt(g: Game, fromX: number, dmg = 1, byVamp = true) {
+function hurt(g: Game, fromX: number, dmg = 1, byVamp = true, at?: [number, number]) { // (at: where it touched him, for the blood)
   const p = g.player;
   if (p.inv > 0 || g.phase !== 'play') return;
   if (byVamp && g.guardHp > 0) { // la armadura protectora se lleva el golpe del vampiro
@@ -578,10 +579,18 @@ function hurt(g: Game, fromX: number, dmg = 1, byVamp = true) {
   if (!g.immortal) p.hp = Math.max(0, p.hp - dmg); p.inv = 1.1; p.hurtT = 0.35; g.shake = Math.max(g.shake, Math.min(1, 0.3 + dmg * 0.04));
   p.vx = (p.x >= fromX ? 1 : -1) * (6 + Math.min(6, dmg * 0.5)); p.vy = 8 + Math.min(4, dmg * 0.3); p.onGround = false; p.surface = null;
   pop(g, p.x, p.y + PLAYER_H + 0.3, `−${dmg}`, true);
-  // Sangre: gotas que salpican desde el lado del golpe y una mancha que se abre sobre el cuerpo.
-  const away = p.x >= fromX ? 1 : -1;
-  for (let i = 0; i < 14 + Math.min(16, dmg * 2); i++) { const a = (away > 0 ? 0 : Math.PI) + (g.rand() - 0.35) * 1.5 * away, sp = 2.5 + g.rand() * 7; g.drops.push({ x: p.x - away * 0.15, y: p.y + 1.1 + g.rand() * 0.5, vx: Math.cos(a) * sp, vy: Math.abs(Math.sin(a)) * sp + 1.5, r: 0.045 + g.rand() * 0.08, t: 0, stuck: false }); }
-  g.fx.push({ kind: 'blood', x: p.x - away * 0.1, y: p.y + 1.25, t: 0, life: 0.5, r: 0.75 + Math.min(0.5, dmg * 0.05), face: away, seed: g.rand() });
+  // Sangre (solo se ve: no cambia el daño): gotas que salpican desde el punto del golpe, para el lado al que lo empuja,
+  // y manchas que se abren sobre el cuerpo. Las trampas hacen sangrar mucho más, desde donde lo tocaron.
+  const away = p.x >= fromX ? 1 : -1, trap = !byVamp;
+  const hx = at ? at[0] : p.x - away * 0.15, hy = at ? at[1] : p.y + 1.1;
+  const n = trap ? 70 + Math.min(40, dmg * 4) : 34 + Math.min(30, dmg * 3);
+  for (let i = 0; i < n; i++) {
+    const a = (away > 0 ? 0 : Math.PI) + (g.rand() - 0.35) * (trap ? 2.2 : 1.5) * away, sp = 2.5 + g.rand() * (trap ? 10 : 8);
+    g.drops.push({ x: hx + (g.rand() - 0.5) * 0.2, y: hy + (g.rand() - 0.3) * (at ? 0.3 : 0.6), vx: Math.cos(a) * sp, vy: Math.abs(Math.sin(a)) * sp + 1.5, r: 0.045 + g.rand() * (trap ? 0.11 : 0.09), t: 0, stuck: false });
+  }
+  g.fx.push({ kind: 'blood', x: hx + away * 0.05, y: hy + 0.15, t: 0, life: trap ? 0.85 : 0.6, r: (trap ? 1.0 : 0.85) + Math.min(0.5, dmg * 0.05), face: away, seed: g.rand() });
+  g.fx.push({ kind: 'blood', x: p.x + away * 0.05, y: p.y + 1.0 + g.rand() * 0.4, t: -0.06, life: trap ? 0.75 : 0.5, r: 0.6 + Math.min(0.4, dmg * 0.04), face: away, seed: g.rand() });
+  if (trap) g.fx.push({ kind: 'blood', x: hx - away * 0.1, y: hy, t: -0.14, life: 0.7, r: 0.8, face: -away as 1 | -1, seed: g.rand() });
   emit(g, { type: 'hurt', hp: p.hp, dmg });
   if (p.hp <= 0) { g.phase = 'dead'; g.phaseT = 0; }
 }
@@ -1431,7 +1440,12 @@ export function step(g: Game, input: Input, dt: number) {
     if (t.kind === 'spikes' && st.on > 0 && prevSt.on === 0) emit(g, { type: 'spikes', x: t.x, y: t.y });
     if ((t.kind === 'fire' || t.kind === 'jet') && st.on > 0 && prevSt.on === 0) emit(g, { type: 'fire', x: t.x, y: t.y });
     if (t.kind === 'pendulum' && Math.sign(st.a) !== Math.sign(prevSt.a)) emit(g, { type: 'swing', x: st.tipX, y: st.tipY });
-    if (trapHits(t, g.time, p.x - 0.32, p.x + 0.32, p.y, p.y + PLAYER_H)) hurt(g, t.kind === 'pendulum' ? st.tipX - (st.a > prevSt.a ? 1 : -1) : t.x, TRAP_DMG, false); // el péndulo empuja para donde va
+    if (trapHits(t, g.time, p.x - 0.32, p.x + 0.32, p.y, p.y + PLAYER_H)) {
+      // where the trap touched him (only for the blood): the pendulum's blade, the centre of a saw, roller or flame, the spikes at his feet
+      const tx = t.kind === 'pendulum' ? st.tipX : st.cx || t.x, ty = t.kind === 'pendulum' ? st.tipY : t.kind === 'spikes' ? p.y + 0.25 : st.cy || p.y + 1.0;
+      const at: [number, number] = [Math.max(p.x - 0.3, Math.min(p.x + 0.3, tx)), Math.max(p.y + 0.15, Math.min(p.y + PLAYER_H - 0.25, ty))];
+      hurt(g, t.kind === 'pendulum' ? st.tipX - (st.a > prevSt.a ? 1 : -1) : t.x, TRAP_DMG, false, at); // el péndulo empuja para donde va
+    }
   }
   updateShots(g, dt);
   updateZaps(g, dt);
