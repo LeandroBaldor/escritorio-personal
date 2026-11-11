@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AMMO_PICKUP, GUARD_HP, FREEZE_T, HOLY_TARGETS, DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp, CHAPTERS, hitObject, noteTap } from './vampyium2';
+import { AMMO_PICKUP, GUARD_HP, FREEZE_T, HOLY_TARGETS, DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp, CHAPTERS, hitObject, noteTap, triggerSpecial, SPECIAL_KEYS, DASH_PIERCE } from './vampyium2';
 
 const idle = (): Input => ({ left: false, right: false, up: false, down: false });
 const run = (g: Game, seconds: number, input: Input = idle()) => { for (let t = 0; t < seconds; t += 1 / 60) step(g, input, 1 / 60); };
@@ -680,6 +680,32 @@ describe('Vampyium2: los ataques especiales de Demian', () => {
     expect(p.jumps).toBe(2);
     pressAttack(g); expect(specials(g)).toEqual(['spin']);
     run(g, 0.5); pressAttack(g); expect(specials(g)).toEqual([]);
+  });
+  it('las teclas X, C y V hacen la espada bumerán, el giro de 360° y la estocada', () => {
+    expect(SPECIAL_KEYS).toEqual({ x: 'throw', c: 'whirl', v: 'dash' });
+    for (const [key, kind] of Object.entries(SPECIAL_KEYS)) {
+      const g = quiet(); g.player.face = 1;
+      expect(triggerSpecial(g, SPECIAL_KEYS[key])).toBe(true);
+      expect(specials(g)).toEqual([kind]);
+    }
+  });
+  it('con la ballesta en la mano, X vuelve a agarrar la espada y la tira', () => {
+    const g = quiet(); chooseWeapon(g, 'crossbow'); takeEvents(g);
+    expect(triggerSpecial(g, 'throw')).toBe(true); expect(g.weapon).toBe('sword'); expect(g.boomer).not.toBeNull();
+  });
+  it(`V atraviesa como máximo ${DASH_PIERCE} vampiros`, () => {
+    const g = quiet(); const p = g.player; p.face = 1;
+    const row = [1.2, 1.9, 2.6, 3.3, 4.0].map(dx => walker(g, p.x + dx, { hp: 99 }));
+    triggerSpecial(g, 'dash'); run(g, 0.3);
+    expect(row.filter(v => (v.hp ?? 0) < 99)).toHaveLength(DASH_PIERCE);
+    expect(row.slice(0, DASH_PIERCE).every(v => (v.hp ?? 0) < 99)).toBe(true); // los más cercanos
+  });
+  it('cuando lastiman a Demian sale sangre', () => {
+    const g = quiet(); const before = g.drops.length;
+    walker(g, g.player.x + 0.3, { state: 'claw', t: 0, cool: 0, hit: false });
+    run(g, 1.2);
+    expect(takeEvents(g).some(e => e.type === 'hurt')).toBe(true);
+    expect(g.drops.length).toBeGreaterThan(before + 10);
   });
   it('sin combinación, Espacio es el tajo de siempre', () => {
     const g = quiet(); pressAttack(g);

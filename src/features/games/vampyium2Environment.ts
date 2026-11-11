@@ -26,12 +26,15 @@ export function fireLight(ctx: CanvasRenderingContext2D, x: number, y: number, w
   if (!atlasReady('effects') || w <= 0 || h <= 0) return false;
   glow(ctx, x, y - h * .3, Math.max(w * 1.8, h * .7), `rgba(230,108,33,${.14 + .025 * Math.sin(t * 11 + seed)})`);
   drawRealisticFire(ctx, x, y, w, h, t, seed);
-  // Point-like embers move continuously while the photographed flame steps at 14 fps.
+  // Small round embers rise continuously while the photographed flame steps at 14 fps. Their size follows the
+  // flame (never a fixed pixel minimum: inside a scaled character that turned into big orange squares).
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < 5; i++) {
-    const k = ((t * (.37 + i * .04) + i * .21 + seed) % 1 + 1) % 1;
-    ctx.fillStyle = `rgba(255,180,85,${(1 - k) * .65})`;
-    ctx.fillRect(x + Math.sin(t * 2 + i * 4) * w * .3 * k, y - h * (.25 + k), Math.max(.7, w * .018), Math.max(1, w * .025));
+  for (let i = 0; i < 6; i++) {
+    const k = ((t * (.37 + i * .04) + i * .21 + seed) % 1 + 1) % 1, r = w * (.014 + (i % 3) * .005) * (1 - k * .6);
+    const ex = x + Math.sin(t * 2 + i * 4) * w * .3 * k, ey = y - h * (.25 + k);
+    const ember = ctx.createRadialGradient(ex, ey, 0, ex, ey, r * 2.2);
+    ember.addColorStop(0, `rgba(255,214,140,${(1 - k) * .8})`); ember.addColorStop(1, 'rgba(255,120,40,0)');
+    ctx.fillStyle = ember; ctx.beginPath(); ctx.arc(ex, ey, r * 2.2, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore(); return true;
 }
@@ -118,7 +121,7 @@ export function drawRealisticTrap(ctx: CanvasRenderingContext2D, tr: Trap, st: T
 
 export function drawRealisticImpact(ctx: CanvasRenderingContext2D, fx: Fx, v: View) {
   if (!atlasReady('effects') || fx.t < 0) return false;
-  const rows: Partial<Record<Fx['kind'], number>> = { blast: 1, burst: 1, nova: 2, splat: 2, frost: 3 };
+  const rows: Partial<Record<Fx['kind'], number>> = { blast: 1, burst: 1, nova: 2, splat: 2, frost: 3, blood: 2 };
   const row = rows[fx.kind]; if (row === undefined) return false;
   const k = Math.min(.999, fx.t / fx.life), index = row * 8 + Math.floor(k * 8), size = Math.max(.6, fx.r * 2) * v.s;
   const x = X(v, fx.x), y = Y(v, fx.y);

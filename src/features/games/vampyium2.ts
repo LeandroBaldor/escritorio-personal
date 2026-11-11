@@ -100,10 +100,10 @@ export const HOLD_MENU = 2;
 //  · whirl: adelante, atrás + Espacio → un giro horizontal que corta a los dos lados.
 //  · throw: atrás, atrás + Espacio → tira la espada hacia adelante y vuelve como un bumerán.
 export type SpecialKind = 'spin' | 'dash' | 'whirl' | 'throw';
-export interface Special { kind: SpecialKind; t: number; dir: 1 | -1; hits: Set<number> }
+export interface Special { kind: SpecialKind; t: number; dir: 1 | -1; hits: Set<number>; pierced?: number }
 export interface Boomer { x: number; y: number; vx: number; t: number; back: boolean; hits: Set<number>; x0: number }
 export const SPECIAL_TIME: Record<SpecialKind, number> = { spin: 0.45, dash: 0.24, whirl: 0.45, throw: 0.25 };
-export const SPECIAL_DMG = 2, DASH_SPEED = 26, SPIN_R = 2.6, WHIRL_R = 2.9, BOOMER_RANGE = 8, BOOMER_SPEED = 18;
+export const SPECIAL_DMG = 2, DASH_PIERCE = 3, DASH_SPEED = 26, SPIN_R = 2.6, WHIRL_R = 2.9, BOOMER_RANGE = 8, BOOMER_SPEED = 18;
 export interface Player {
   x: number; y: number; vx: number; vy: number; face: 1 | -1; onGround: boolean; surface: Surface | null; jumps: number;
   hp: number; inv: number; attackT: number; attackWeapon: Weapon; hitIds: Set<number>; cool: number; walkT: number;
@@ -182,7 +182,7 @@ export interface Bolt { x: number; y: number; vx: number; vy: number; t: number;
 export interface Bomb { x: number; y: number; vx: number; vy: number; t: number; landed: number; a: number } // bomba de ajo (landed: tiempo desde que tocó el piso)
 export interface Bullet { x: number; y: number; vx: number; vy: number; x0: number; y0: number; t: number } // la bala de fuego de la pistola
 // Efectos: la onda de la bomba, los rayos de la cruz, la ola de fuego de la espada y el estallido de la bala.
-export interface Fx { kind: 'blast' | 'bolt' | 'redbolt' | 'wave' | 'burst' | 'ray' | 'nova' | 'frost' | 'splat'; x: number; y: number; t: number; life: number; r: number; face: 1 | -1; seed: number }
+export interface Fx { kind: 'blast' | 'bolt' | 'redbolt' | 'wave' | 'burst' | 'ray' | 'nova' | 'frost' | 'splat' | 'blood'; x: number; y: number; t: number; life: number; r: number; face: 1 | -1; seed: number }
 export type CrateKind = 'bolts' | 'heart' | 'garlic' | 'fire' | 'bullets' | 'armor';
 // Las bolas de las armaduras: el rayo de hielo (derecho) y la bola verde (cae en curva).
 export interface Orb { kind: 'ice' | 'venom'; x: number; y: number; vx: number; vy: number; t: number }
@@ -392,10 +392,28 @@ function startSpecial(g: Game, kind: SpecialKind, dir: 1 | -1) {
   emit(g, { type: 'special', kind });
   return true;
 }
-// El corte de un especial: todos los vampiros (y ataúdes y tiros) dentro de la caja, una vez cada uno.
-function specialHit(g: Game, hits: Set<number>, x1: number, x2: number, y1: number, y2: number) {
+// Teclas directas de los ataques de Demian: X espada bumerán, C giro de 360° sobre su eje, V estocada que atraviesa 3.
+// Son ataques de espada: si tenía otra arma en la mano, vuelve a agarrar la espada.
+export const SPECIAL_KEYS: Record<string, SpecialKind> = { x: 'throw', c: 'whirl', v: 'dash' };
+export function triggerSpecial(g: Game, kind: SpecialKind) {
   const p = g.player;
-  for (const v of [...g.vamps]) { if (hits.has(v.id)) continue; const [a, b, c, d] = vampBox(v); if (b > x1 && a < x2 && d > y1 && c < y2) { hits.add(v.id); g.stats.hits++; hitVamp(g, v, WEAPON_DMG.sword * SPECIAL_DMG, 'sword', p.x); } }
+  if (g.phase !== 'play' || p.special || p.cool > 0.15 || (g.player.hp <= 0)) return false;
+  if (kind === 'throw' && g.boomer) return false;
+  if (g.weapon !== 'sword' && !isArmor(g.weapon)) { g.weapon = 'sword'; emit(g, { type: 'choose', weapon: 'sword' }); }
+  else if (g.weapon !== 'sword') return false; // con una armadura puesta se usan sus propios ataques
+  return startSpecial(g, kind, p.face);
+}
+// El corte de un especial: todos los vampiros (y ataúdes y tiros) dentro de la caja, una vez cada uno.
+function specialHit(g: Game, hits: Set<number>, x1: number, x2: number, y1: number, y2: number, sp?: Special) {
+  const p = g.player;
+  // The V dash goes THROUGH at most DASH_PIERCE vampires (nearest first); after that it only moves.
+  const inBox = g.vamps.filter(v => { if (hits.has(v.id)) return false; const [a, b, c, d] = vampBox(v); return b > x1 && a < x2 && d > y1 && c < y2; })
+    .sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x));
+  for (const v of inBox) {
+    if (sp?.kind === 'dash' && (sp.pierced ?? 0) >= DASH_PIERCE) break;
+    hits.add(v.id); g.stats.hits++; if (sp?.kind === 'dash') sp.pierced = (sp.pierced ?? 0) + 1;
+    hitVamp(g, v, WEAPON_DMG.sword * SPECIAL_DMG, 'sword', p.x);
+  }
   for (const o of [...g.objects]) if (!hits.has(o.id) && o.x + 0.6 > x1 && o.x - 0.6 < x2 && o.y + 2 > y1 && o.y < y2) { hits.add(o.id); hitObject(g, o, WEAPON_DMG.sword * SPECIAL_DMG); }
   for (const s of [...g.shots]) if (s.kind !== 'flame' && s.x > x1 && s.x < x2 && s.y > y1 && s.y < y2) g.shots.splice(g.shots.indexOf(s), 1);
 }
@@ -406,7 +424,7 @@ function updateSpecial(g: Game, dt: number) {
     const cy = p.y + 1.0;
     if (sp.kind === 'spin') specialHit(g, sp.hits, p.x - SPIN_R, p.x + SPIN_R, cy - SPIN_R, cy + SPIN_R);
     else if (sp.kind === 'whirl') specialHit(g, sp.hits, p.x - WHIRL_R, p.x + WHIRL_R, p.y - 0.2, p.y + 2.4);
-    else if (sp.kind === 'dash') { const x0 = p.x; p.vx = sp.dir * DASH_SPEED; specialHit(g, sp.hits, Math.min(x0, x0 + sp.dir * 1.6) - 0.4, Math.max(x0, x0 + sp.dir * 1.6) + 0.4, p.y - 0.2, p.y + 2.4); }
+    else if (sp.kind === 'dash') { const x0 = p.x; p.vx = sp.dir * DASH_SPEED; specialHit(g, sp.hits, Math.min(x0, x0 + sp.dir * 1.6) - 0.4, Math.max(x0, x0 + sp.dir * 1.6) + 0.4, p.y - 0.2, p.y + 2.4, sp); }
     if (sp.t >= SPECIAL_TIME[sp.kind]) { if (sp.kind === 'dash') p.vx = sp.dir * SPEED * 0.4; p.special = null; }
   }
   const bm = g.boomer;
@@ -553,6 +571,10 @@ function hurt(g: Game, fromX: number, dmg = 1, byVamp = true) {
   if (!g.immortal) p.hp = Math.max(0, p.hp - dmg); p.inv = 1.1; p.hurtT = 0.35; g.shake = Math.max(g.shake, Math.min(1, 0.3 + dmg * 0.04));
   p.vx = (p.x >= fromX ? 1 : -1) * (6 + Math.min(6, dmg * 0.5)); p.vy = 8 + Math.min(4, dmg * 0.3); p.onGround = false; p.surface = null;
   pop(g, p.x, p.y + PLAYER_H + 0.3, `−${dmg}`, true);
+  // Sangre: gotas que salpican desde el lado del golpe y una mancha que se abre sobre el cuerpo.
+  const away = p.x >= fromX ? 1 : -1;
+  for (let i = 0; i < 14 + Math.min(16, dmg * 2); i++) { const a = (away > 0 ? 0 : Math.PI) + (g.rand() - 0.35) * 1.5 * away, sp = 2.5 + g.rand() * 7; g.drops.push({ x: p.x - away * 0.15, y: p.y + 1.1 + g.rand() * 0.5, vx: Math.cos(a) * sp, vy: Math.abs(Math.sin(a)) * sp + 1.5, r: 0.045 + g.rand() * 0.08, t: 0, stuck: false }); }
+  g.fx.push({ kind: 'blood', x: p.x - away * 0.1, y: p.y + 1.25, t: 0, life: 0.5, r: 0.75 + Math.min(0.5, dmg * 0.05), face: away, seed: g.rand() });
   emit(g, { type: 'hurt', hp: p.hp, dmg });
   if (p.hp <= 0) { g.phase = 'dead'; g.phaseT = 0; }
 }

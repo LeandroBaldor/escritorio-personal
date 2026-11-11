@@ -9,7 +9,7 @@ import { TouchGrips } from './TouchGrips';
 import { GamePad } from './GamePad';
 import { pixelRatio, useFitScreen } from './fitScreen';
 import { EndBanner } from './EndBanner';
-import { BOSS_HP, DRAGON_FIRE_T, CHAPTERS, goalProgress, DAMAGE, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, GUARD_HP, HOLY_TARGETS, isArmor, WEAPON_NAME, chooseWeapon, closeMenu, newPlayer, newGame, formatVampTime, menuMove, noteTap, pressAttack, step, takeEvents, type Game, type Input, type Weapon } from './vampyium2';
+import { BOSS_HP, DRAGON_FIRE_T, CHAPTERS, goalProgress, DAMAGE, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, GUARD_HP, HOLY_TARGETS, isArmor, WEAPON_NAME, chooseWeapon, closeMenu, newPlayer, newGame, formatVampTime, menuMove, noteTap, pressAttack, SPECIAL_KEYS, triggerSpecial, step, takeEvents, type Game, type Input, type Weapon } from './vampyium2';
 import { drawGame, drawPortrait, drawSwordIcon, setBackdrop } from './vampyium2Art';
 import { drawWeaponIcon } from './vampyium2Weapons';
 import { setNoGrain } from './gravityMonsters';
@@ -84,7 +84,7 @@ function ArtCanvas({ w, h, draw }: { w: number; h: number; draw: (ctx: CanvasRen
 }
 
 // Los nombres de los ataques especiales de Demian (aparecen en grande al hacerlos).
-const SPECIAL_NAME = { spin: ' ¡Giro en el aire!', dash: ' ¡Estocada relámpago!', whirl: ' ¡Torbellino!', throw: ' ¡Espada bumerán!' } as const;
+const SPECIAL_NAME = { spin: ' ¡Vuelta en el aire!', dash: ' ¡Estocada relámpago!', whirl: ' ¡Giro de 360°!', throw: ' ¡Espada bumerán!' } as const;
 
 // Enfoca el botón (para jugar con el teclado) sin mover el cartel: así no queda cortado arriba.
 const focusNoScroll = (el: HTMLButtonElement | null) => { el?.focus({ preventScroll: true }); };
@@ -269,7 +269,7 @@ export function Vampyium2() {
   }, [status]);
   useEffect(() => () => setVampMenuMusic(false), []);
 
-  // Teclado: flechas para moverse y saltar, Espacio ataca (dos veces rápido: las armas), C la cruz, P pausa.
+  // Teclado: flechas para moverse y saltar, Espacio ataca, X espada bumerán, C giro de 360°, V estocada, P pausa.
   useEffect(() => {
     const keys: Record<string, keyof Input> = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down' };
     const down = (e: KeyboardEvent) => {
@@ -287,6 +287,8 @@ export function Vampyium2() {
         e.preventDefault(); input.current.attack = true; if (e.repeat) return;
         pressAttack(g); return;
       }
+      const special = SPECIAL_KEYS[e.key.toLowerCase()];
+      if (special && g.phase === 'play') { e.preventDefault(); if (!e.repeat) triggerSpecial(g, special); return; }
       const k = keys[e.key]; if (!k) return;
       e.preventDefault(); if (!e.repeat && (k === 'left' || k === 'right') && !input.current[k] && g.phase === 'play') noteTap(g, k === 'right' ? 1 : -1); // para los ataques especiales
       input.current[k] = true;
@@ -418,17 +420,17 @@ export function Vampyium2() {
                 <li><span><kbd>←</kbd><kbd>→</kbd></span>Moverse</li>
                 <li><span><kbd>↑</kbd></span>Saltar · otra vez en el aire: doble salto</li>
                 <li><span><kbd>↓</kbd></span>Bajar de una plataforma</li>
-                <li><span><kbd>Espacio</kbd></span>Atacar con el arma que tenés</li>
+                <li><span><kbd>Espacio</kbd></span>Golpe normal de espada (o el arma que tenés)</li>
+                <li><span><kbd>X</kbd></span>Tira la espada hacia adelante y vuelve</li>
+                <li><span><kbd>C</kbd></span>Giro de 360° sobre su eje</li>
+                <li><span><kbd>V</kbd></span>Estocada: atraviesa hasta 3 vampiros</li>
                 <li><span><kbd>Espacio</kbd> 2 s</span>Mantenerla: cambiar de arma</li>
                 <li><span><kbd>↑</kbd>/<kbd>↓</kbd>+<kbd>Espacio</kbd></span>Tirar arriba o abajo</li>
                 <li><span><kbd>P</kbd></span>Pausa</li>
               </ul>
-              <h4>Combinaciones (con la espada)</h4>
+              <h4>Combinación (con la espada)</h4>
               <ul className="vamp-keys vamp-combos">
-                <li><span><kbd>↑</kbd><kbd>↑</kbd>+<kbd>Espacio</kbd></span> Giro de 360° en el aire</li>
-                <li><span><kbd>→</kbd><kbd>→</kbd>+<kbd>Espacio</kbd></span> Estocada que atraviesa</li>
-                <li><span><kbd>→</kbd><kbd>←</kbd>+<kbd>Espacio</kbd></span> Torbellino</li>
-                <li><span><kbd>←</kbd><kbd>→</kbd>+<kbd>Espacio</kbd></span> Espada bumerán (atrás y atrás)</li>
+                <li><span><kbd>↑</kbd><kbd>↑</kbd>+<kbd>Espacio</kbd></span> Vuelta en el aire</li>
               </ul>
             </section>
             <section className="vamp-hub-box vamp-hub-rivals" aria-label="Rivales">
@@ -515,6 +517,8 @@ export function Vampyium2() {
       </aside>
     </div>
     <GamePad action={{ hold: attackTap, label: 'Atacar' }}
+      extra={<>{(['x', 'c', 'v'] as const).map(key => <button key={key} type="button" className="kf-cast vamp-special-btn" aria-label={key === 'x' ? 'Espada bumerán (X)' : key === 'c' ? 'Giro de 360° (C)' : 'Estocada (V)'}
+        onPointerDown={e => { e.preventDefault(); if (statusRef.current === 'playing') triggerSpecial(gameRef.current, SPECIAL_KEYS[key]); }} onContextMenu={noMenu}>{key.toUpperCase()}</button>)}</>}
       dirs={{ left: { hold: hold('left'), aria: 'Izquierda' }, right: { hold: hold('right'), aria: 'Derecha' }, up: { hold: hold('up'), aria: 'Saltar' }, down: { hold: hold('down'), aria: 'Bajar' } }} />
   </section>;
 }

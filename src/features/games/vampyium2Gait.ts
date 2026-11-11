@@ -53,7 +53,9 @@ export function gait(dist: number, speed: number, o: GaitOpts): Gait {
     }
     arm[i] = -Math.cos(2 * Math.PI * (q - 0.06)); // al revés que la pierna (y apenas atrasado: no es rígido)
   }
-  const bob = (o.bob ?? 0.03) * (0.5 + 0.5 * Math.cos(4 * Math.PI * (p - 0.08)));
+  // Richard Williams' walk: CONTACT (mid height) → DOWN (lowest, the front knee takes the weight) → PASSING (mid)
+  // → UP (highest, pushing off the back toe) → next CONTACT. Each step is half a cycle.
+  const bob = (o.bob ?? 0.03) * (0.5 + 0.5 * Math.cos(4 * Math.PI * (p - 0.125)));
   return {
     stance: beta, k, p, ph,
     dx: [dx[0] * k, dx[1] * k], lift: [lift[0] * k, lift[1] * k], fa: [fa[0] * k, fa[1] * k],
@@ -78,7 +80,7 @@ export function humanWalk(distance: number, speed: number, scale: number, allowR
   // velocity, but introduce a flight phase at running speed instead of spinning the walk faster.
   const run = allowRun ? smooth((speed / scale - 1.7) / 1.8) : 0;
   const beta = .62 - run * .32, height = .125 + run * .07;
-  const cycle = gait(distance, speed, { S: .58, H: height, K: scale, beta, bob: .026 + run * .014 });
+  const cycle = gait(distance, speed, { S: .58, H: height, K: scale, beta, bob: .032 + run * .014 });
   for (let i = 0; i < 2; i++) {
     const q = cycle.ph[i];
     if (q < beta) {

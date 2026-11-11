@@ -57,6 +57,76 @@ export function drawAsset(ctx: CanvasRenderingContext2D, name: string, index: nu
 export function assetAspect(name: string, index: number) {
   const frame = META[name]?.frames[index]; return frame ? frame.w / frame.h : 1;
 }
+// A copy of an atlas cell without the stray bits of the neighbouring drawings (keeps the body and big pieces).
+const cleanFrames = new Map<string, HTMLCanvasElement | null>();
+function cleanFrame(name: string, index: number) {
+  const key = `${name}:${index}`;
+  if (cleanFrames.has(key)) return cleanFrames.get(key)!;
+  const f = META[name]?.frames[index]; if (!f || !atlasReady(name)) return null;
+  const canvas = document.createElement('canvas'); canvas.width = f.w; canvas.height = f.h;
+  const c = canvas.getContext('2d', { willReadFrequently: true }); if (!c) { cleanFrames.set(key, null); return null; }
+  c.drawImage(images[name], f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+  try {
+    const data = c.getImageData(0, 0, f.w, f.h), d = data.data, n = f.w * f.h, label = new Int32Array(n), sizes: number[] = [0];
+    for (let start = 0; start < n; start++) {
+      if (label[start] || d[start * 4 + 3] < 24) continue;
+      const id = sizes.length, stack = [start]; label[start] = id; let size = 0;
+      while (stack.length) {
+        const q = stack.pop()!; size++;
+        const x = q % f.w, y = (q - x) / f.w;
+        for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+          if (nx < 0 || ny < 0 || nx >= f.w || ny >= f.h) continue;
+          const r = ny * f.w + nx; if (!label[r] && d[r * 4 + 3] >= 24) { label[r] = id; stack.push(r); }
+        }
+      }
+      sizes.push(size);
+    }
+    const keep = Math.max(...sizes) * .1;
+    for (let i = 0; i < n; i++) if (d[i * 4 + 3] > 0 && (!label[i] || sizes[label[i]] < keep)) {
+      // faint pixels next to a kept piece stay (antialiasing); the rest goes
+      const x = i % f.w, near = [i - 1, i + 1, i - f.w, i + f.w].some(r => r >= 0 && r < n && Math.abs((r % f.w) - x) <= 1 && label[r] && sizes[label[r]] >= keep);
+      if (!near) d[i * 4 + 3] = 0;
+    }
+    c.putImageData(data, 0, 0);
+  } catch { /* (sin acceso a los píxeles: queda el original) */ }
+  cleanFrames.set(key, canvas); return canvas;
+}
+// A darkened, bronze-trimmed copy of a painted hunter piece, for the vampires' armor (computed once per piece).
+const ironVariants = new Map<string, HTMLCanvasElement | null>();
+function ironVariant(index: number) {
+  const key = `hunter:${index}`;
+  if (ironVariants.has(key)) return ironVariants.get(key)!;
+  const f = META.hunter?.frames[index]; if (!f || !atlasReady('hunter')) return null;
+  const canvas = document.createElement('canvas'); canvas.width = f.w; canvas.height = f.h;
+  const c = canvas.getContext('2d', { willReadFrequently: true }); if (!c) { ironVariants.set(key, null); return null; }
+  c.drawImage(images.hunter, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+  try {
+    const data = c.getImageData(0, 0, f.w, f.h), d = data.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i], g = d[i + 1], b = d[i + 2], lum = .3 * r + .59 * g + .11 * b, gold = Math.max(0, r - b) / 255;
+      d[i] = lum * (.42 + gold * .35) + 8; d[i + 1] = lum * (.40 + gold * .22) + 6; d[i + 2] = lum * (.40 + gold * .02) + 6;
+    }
+    c.putImageData(data, 0, 0);
+  } catch { /* (sin acceso a los píxeles: queda el original) */ }
+  ironVariants.set(key, canvas); return canvas;
+}
+// Armor over a joint (knee or elbow cop, shoulder plate): the painted lamé plate, on the outside of the bend,
+// with its lames running down the lower bone. It covers the seam between the two cutouts while the limb bends.
+export type Metal = 'gilt' | 'iron';
+export function jointArmor(ctx: CanvasRenderingContext2D, joint: Pt, upper: Pt, lower: Pt, size: number, metal: Metal, fallback: Pt = [1, 0], index = 16) {
+  if (!atlasReady('hunter')) return;
+  const unit = (v: Pt): Pt => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
+  const ua = unit([upper[0] - joint[0], upper[1] - joint[1]]), ub = unit([lower[0] - joint[0], lower[1] - joint[1]]);
+  let out: Pt = [-(ua[0] + ub[0]), -(ua[1] + ub[1])];
+  out = Math.hypot(out[0], out[1]) < .08 ? fallback : unit(out);
+  const angle = -Math.atan2(ub[0], ub[1]); // local +y runs down the lower bone
+  const side = Math.sign(out[0] * Math.cos(angle) + out[1] * Math.sin(angle)) || 1;
+  const f = META.hunter.frames[index], w = size * f.w / f.h, h = size;
+  ctx.save(); ctx.translate(joint[0] + out[0] * size * .2, joint[1] + out[1] * size * .2); ctx.rotate(angle); ctx.scale(-side, 1);
+  if (metal === 'iron') { const v = ironVariant(index); if (v) ctx.drawImage(v, -w * .5, -h * .38, w, h); }
+  else drawAsset(ctx, 'hunter', index, -w * .5, -h * .38, w, h);
+  ctx.restore();
+}
 
 const add = (a: Pt, angle: number, l: number): Pt => [a[0] + Math.sin(angle) * l, a[1] + Math.cos(angle) * l];
 function part(ctx: CanvasRenderingContext2D, id: number, center: Pt, w: number, h: number, angle = 0, tint?: string, cropLeft = 0) {
@@ -76,6 +146,8 @@ function limb(ctx: CanvasRenderingContext2D, id: number, start: Pt, end: Pt, wid
   ctx.restore();
 }
 type WeaponPainter = (hand: Pt, angle: number) => void;
+// The photo head is drawn about 35% larger than the old painted head (crown to neck).
+export const DEMIAN_FACE = { h: .5, w: .5 * 380 / 535 };
 
 // Input-driven articulated poses keep hands, weapon and shoulder plates attached throughout each action.
 export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Pose, t: number, paintWeapon: WeaponPainter) {
@@ -83,8 +155,9 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
   const rt = t;
   ctx.save();
   if (p.spinT > 0) { ctx.translate(0, -1); ctx.rotate((1 - p.spinT / .45) * Math.PI * 2); ctx.translate(0, 1); }
-  if (p.special?.kind === 'whirl') ctx.scale(Math.cos(p.special.t / .45 * Math.PI * 2), 1);
-  if (p.special?.kind === 'dash') { ctx.translate(.12, -.06); ctx.rotate(.2); }
+  // The 360° turn never squashes the body: he faces the other way for the back half of the turn.
+  if (p.special?.kind === 'whirl') { const turn = p.special.t / .45; whirlTrail(ctx, turn); if (Math.cos(turn * Math.PI * 2) < 0) ctx.scale(-1, 1); }
+  if (p.special?.kind === 'dash') dashTrail(ctx, p.special.t / .24);
   const walkProfile = p.onGround && Math.abs(p.vx) > .15 && p.attackT < 0 && !p.special && !(p.jumpPrep && p.jumpPrep > 0);
   const profile = walkProfile ? Math.min(1, Math.abs(p.vx) / 1.4) : 0;
   const hipSpread = .09 - profile * .055;
@@ -123,6 +196,11 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
     const [angle] = legAngles(origin, feet[i], .46, .45);
     knees[i] = add(origin, angle, .46);
   }
+  // Bones never stretch: if a target foot is out of reach, the shin stops at its real length.
+  for (let i = 0; i < 2; i++) {
+    const dx = feet[i][0] - knees[i][0], dy = feet[i][1] - knees[i][1], d = Math.hypot(dx, dy) || 1;
+    feet[i] = [knees[i][0] + dx / d * .45, knees[i][1] + dy / d * .45];
+  }
   // Anchor the supporting boot to the same collision surface, without changing the player's world position.
   const floor = p.onGround && (!moving || !!pose.feet) ? Math.max(...feet.map(f => f[1])) + .105 : 0;
   ctx.translate(0, -floor);
@@ -136,7 +214,9 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
     limb(ctx, 7, knees[i], feet[i], .205);
     const bootAngle = moving && !pose.feet ? cycle.fa[i] : pose.feet || p.onGround && Math.abs(p.vx) < .15 && p.attackT < 0 ? 0 : -(pose.legs[i][0] - pose.legs[i][1]) * .3;
     ctx.save(); ctx.translate(...feet[i]); ctx.rotate(bootAngle);
-    drawAsset(ctx, 'hunter', 8, -.08, -.12, .27, .21); ctx.restore(); ctx.restore();
+    drawAsset(ctx, 'hunter', 8, -.08, -.12, .27, .21); ctx.restore();
+    jointArmor(ctx, knees[i], [hip[0] + (i ? hipSpread : -hipSpread), hip[1]], feet[i], .2, 'gilt', [1, 0]);
+    ctx.restore();
   };
   const arm = (i: number, layer: 'upper' | 'forearm' | 'all') => {
     const [a, b] = pose.arms[i], elbow = add(shoulders[i], a, .34), hand = add(elbow, a + b, .32);
@@ -149,6 +229,7 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
     }
     if (layer !== 'upper') {
       limb(ctx, 4, elbow, hand, .20);
+      jointArmor(ctx, elbow, shoulders[i], hand, .16, 'gilt', [-1, 0]);
       const bladeGrip = i === 1 && ['sword', 'firesword', 'violet', 'bone'].includes(p.attackT >= 0 ? p.attackWeapon : g.weapon);
       const weaponAngle = a + b + pose.blade;
       if (i === 1 && !pose.weaponBehind) paintWeapon(grip, weaponAngle);
@@ -176,10 +257,14 @@ export function drawRealisticHunter(ctx: CanvasRenderingContext2D, p: Player, g:
   if (!walkProfile) part(ctx, 9, [shoulders[0][0], shoulders[0][1] + .025], .31, .29, -pose.arms[0][0] * .12);
   leg(1);
   part(ctx, 2, [hip[0], hip[1] + .10], .51 - profile * .12, .37, pose.lean * .4);
-  const head: Pt = [neck[0] + .035, neck[1] - .15];
-  part(ctx, 0, head, .316, .368, pose.head * .4);
+  // Demian's face (photo cutout, bigger than the painted head). The neck stub tucks into the gorget.
+  const headTilt = pose.head * .4;
+  const head: Pt = [neck[0] + .05, neck[1] - .2];
+  ctx.save(); ctx.translate(neck[0] + .01, neck[1] + .05); ctx.rotate(headTilt);
+  if (!drawAsset(ctx, 'demian-face', 0, -DEMIAN_FACE.w * .34, -DEMIAN_FACE.h, DEMIAN_FACE.w, DEMIAN_FACE.h)) part(ctx, 0, [.025, -.2], .316, .368);
+  ctx.restore();
   const helmet = g.guardHp > 0 ? 12 : g.weapon === 'holy' || g.weapon === 'cross' ? 11 : g.weapon === 'bone' ? 13 : -1;
-  if (helmet >= 0) part(ctx, helmet, [head[0], head[1] - .008], .345, .391, pose.head * .4);
+  if (helmet >= 0) part(ctx, helmet, [head[0] + .01, head[1] - .045], .45, .51, headTilt);
   for (const side of depth.front) arm(side, 'all');
   if (p.attackT > .025 && p.attackT < .18 && ['firesword', 'violet', 'bone'].includes(p.attackWeapon)) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= Math.sin(p.attackT / .18 * Math.PI) * .32;
@@ -241,7 +326,9 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
   paint(6, [neck[0] - .20, neck[1] + cloakH / 2], wolf ? .57 : .75,
     cloakH, .08 + Math.sin(t * 5 + g.p * Math.PI * 2) * .035 + g.k * .08);
   const leg = (i: number) => {
-    const { origin, knee, ankle, footAngle } = legs[i];
+    const { origin, knee, footAngle } = legs[i];
+    let { ankle } = legs[i];
+    { const dx = ankle[0] - knee[0], dy = ankle[1] - knee[1], d = Math.hypot(dx, dy) || 1; ankle = [knee[0] + dx / d * .44, knee[1] + dy / d * .44]; } // (no stretching)
     ctx.save(); if (!i) ctx.globalAlpha *= .96;
     bone(4, origin, knee, heavy ? .25 : .205);
     if (atlasReady('enemy-legs')) {
@@ -252,6 +339,7 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
       ctx.save(); ctx.translate(...ankle); ctx.rotate(footAngle);
       drawAsset(ctx, 'enemy-legs', id + 7, VAMP_BOOT.left, VAMP_BOOT.top, VAMP_BOOT.width, VAMP_BOOT.height); ctx.restore();
     } else bone(5, knee, ankle, heavy ? .27 : .235, .05);
+    jointArmor(ctx, knee, origin, ankle, heavy ? .22 : .19, 'iron', [1, 0]);
     ctx.restore();
   };
   const arm = (i: number, layer: 'all' | 'upper' | 'forearm' = 'all') => {
@@ -271,8 +359,8 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
     }
     const elbow = add(shoulder, a, .31), hand = add(elbow, a + b, .30);
     ctx.save(); if (walkProfile ? g.arm[i] < 0 : !i) ctx.globalAlpha *= .88;
-    if (layer !== 'forearm') bone(2, shoulder, elbow, heavy ? .25 : .19);
-    if (layer !== 'upper') bone(3, elbow, add(hand, a + b, .065), heavy ? .23 : .17, .035);
+    if (layer !== 'forearm') { bone(2, shoulder, elbow, heavy ? .25 : .19); jointArmor(ctx, shoulder, add(shoulder, a - 2.4, .3), elbow, heavy ? .36 : .29, 'iron', [-.3, -1]); }
+    if (layer !== 'upper') { bone(3, elbow, add(hand, a + b, .065), heavy ? .23 : .17, .035); jointArmor(ctx, elbow, shoulder, hand, heavy ? .19 : .16, 'iron', [-1, 0]); }
     if (carry && layer !== 'upper') {
       const height = v.kind === 'mage' ? 1.65 : v.kind === 'hammer' ? 1.15 : 1.10;
       const width = height * assetAspect(atlas, base + 7);
@@ -291,6 +379,27 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
   for (const side of depth.front) arm(side);
   ctx.restore(); return true;
 }
+// A silver sweep around the waist while Demian turns 360°, so the turn reads without squashing him.
+function whirlTrail(ctx: CanvasRenderingContext2D, turn: number) {
+  const k = Math.sin(Math.min(1, turn) * Math.PI);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 3; i++) {
+    const a0 = turn * Math.PI * 2 - .2 - i * .55, a1 = a0 + 1.6;
+    ctx.strokeStyle = `rgba(225,235,245,${(.42 - i * .12) * k})`; ctx.lineWidth = .07 - i * .015;
+    ctx.beginPath(); ctx.ellipse(0, -1.05, 1.25, .32, 0, a0, a1); ctx.stroke();
+  }
+  ctx.restore();
+}
+// Speed streaks behind the thrust.
+function dashTrail(ctx: CanvasRenderingContext2D, k: number) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 5; i++) {
+    const y = -.5 - i * .26, l = .9 + (i % 2) * .5;
+    ctx.strokeStyle = `rgba(230,225,210,${.32 * (1 - k)})`; ctx.lineWidth = .025;
+    ctx.beginPath(); ctx.moveTo(-.35, y); ctx.lineTo(-.35 - l, y); ctx.stroke();
+  }
+  ctx.restore();
+}
 export function enemyFrame(v: Vamp, t: number) {
   if (v.state === 'cast') return v.t < .55 ? 4 : 5;
   if (v.state === 'breath') return v.t < .35 ? 4 : 5;
@@ -306,7 +415,9 @@ export function drawRealisticEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: nu
   const [name, row] = enemyRows[v.kind]; if (!atlasReady(name)) return false;
   const atlas = META[name], idle = atlas.frames[row * 6];
   const articulated = !['flyer', 'dragon'].includes(v.kind) && ['walk', 'leap', 'rise'].includes(v.state);
-  const frameIndex = articulated ? 0 : enemyFrame(v, t);
+  // The flyer holds one gliding pose; it only animates when it stretches and dives at the hunter.
+  const flyer = v.kind === 'flyer', diving = flyer && v.state === 'dive';
+  const frameIndex = articulated ? 0 : flyer ? (diving ? (v.t < .14 ? 5 : 3) : v.state === 'claw' ? 4 : 0) : enemyFrame(v, t);
   const f = atlas.frames[row * 6 + frameIndex];
   const cellW = atlas.width / 6, cellH = atlas.height / atlas.rows;
   const sy = (v.kind === 'dragon' ? 2.6 : v.kind === 'flyer' ? 1.95 : 2.05) / idle.h;
@@ -315,11 +426,17 @@ export function drawRealisticEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: nu
   ctx.save();
   if ((v.hurtT ?? 0) > 0) ctx.rotate(-.06);
   if (v.state === 'mist') ctx.globalAlpha *= .3 + .15 * Math.sin(t * 7);
-  const bob = v.state === 'hover' ? Math.sin(t * 4 + v.id) * .035 : 0;
+  const bob = v.state === 'hover' ? Math.sin(t * (flyer ? 1.6 : 4) + v.id) * (flyer ? .05 : .035) : 0;
   ctx.translate(0, bob + (v.kind === 'flyer' ? .65 : v.kind === 'dragon' ? 1.1 : 0));
+  if (diving) { // nose along the dive line, towards the hunter (the body is not stretched, it rotates)
+    const into = Math.min(1, v.t / .14), pitch = Math.max(-.25, Math.min(1.05, Math.atan2(-v.vy, Math.abs(v.vx) || .001)));
+    ctx.translate(0, -1); ctx.rotate(pitch * into); ctx.translate(0, 1);
+  }
   const x = (f.x - Math.floor((f.x + f.w / 2) / cellW) * cellW - cellW / 2) * sx;
   const y = (f.y - row * cellH - baseline) * sy;
-  ctx.drawImage(images[name], f.x, f.y, f.w, f.h, x, y, f.w * sx, f.h * sy);
+  const clean = flyer ? cleanFrame(name, row * 6 + frameIndex) : null;
+  if (clean) ctx.drawImage(clean, x, y, f.w * sx, f.h * sy);
+  else ctx.drawImage(images[name], f.x, f.y, f.w, f.h, x, y, f.w * sx, f.h * sy);
   if (v.kind === 'flyer') {
     const anchors = [[.56, .205], [.59, .25], [.58, .26], [.78, .51], [.63, .34], [.72, .40]];
     const [ax, ay] = anchors[frameIndex];
@@ -328,9 +445,28 @@ export function drawRealisticEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: nu
   ctx.restore(); return true;
 }
 
+// The photographed flames, with their cell edges feathered: no straight cut where the smoke reached the border.
+const softFire = new Map<number, HTMLCanvasElement>();
+function softFireFrame(index: number) {
+  if (softFire.has(index)) return softFire.get(index)!;
+  const f = META.effects.frames[index], canvas = document.createElement('canvas'); canvas.width = f.w; canvas.height = f.h;
+  const c = canvas.getContext('2d'); if (!c) return null;
+  c.drawImage(images.effects, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+  c.globalCompositeOperation = 'destination-in';
+  const across = c.createLinearGradient(0, 0, f.w, 0);
+  across.addColorStop(0, 'rgba(0,0,0,0)'); across.addColorStop(.22, '#000'); across.addColorStop(.78, '#000'); across.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = across; c.fillRect(0, 0, f.w, f.h);
+  const down = c.createLinearGradient(0, 0, 0, f.h);
+  down.addColorStop(0, 'rgba(0,0,0,0)'); down.addColorStop(.25, '#000'); down.addColorStop(1, '#000');
+  c.fillStyle = down; c.fillRect(0, 0, f.w, f.h);
+  softFire.set(index, canvas); return canvas;
+}
 export function drawRealisticFire(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, t: number, seed: number) {
   const frame = Math.floor(t * 14 + seed * 3) % 8;
-  return drawAsset(ctx, 'effects', frame, x - w / 2, y - h, w, h);
+  if (!atlasReady('effects')) return false;
+  const soft = softFireFrame(frame);
+  if (!soft) return drawAsset(ctx, 'effects', frame, x - w / 2, y - h, w, h);
+  ctx.drawImage(soft, x - w / 2, y - h, w, h); return true;
 }
 export const ARMOR_TONE: Partial<Record<Weapon, string>> = { ice: '#84bace', holy: '#b9a06a', venom: '#677d55', violet: '#8a708e', guard: '#c2ba9d', bone: '#a69a80' };
 

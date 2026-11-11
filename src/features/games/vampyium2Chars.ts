@@ -68,6 +68,13 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
     return { bob: 0, lean: .13 - k * .08, crouch: 0, head: -.03, legs: [[-.12 - k * .18, .10 + k * 1.1], [.15 + k * .75, .12 + k * 1.48]], arms: [[.1 + .5 * k, .7], [.5 + .45 * k, 1.2]], blade: 1.1 };
   }
   if (p.hurtT > 0) { const w = t * 30; return { bob: 0, lean: -0.35 + s(w) * 0.06, crouch: 0.1, head: -0.3, legs: [[-0.45, 0.5], [0.25, 0.7]], arms: [[-0.6, 0.9], [-0.9, 0.8]], blade: 0.6 }; }
+  // C (turn) and V (thrust): the sword stays out horizontally, in a wide, low stance, with real bone lengths.
+  if (p.special && (p.special.kind === 'whirl' || p.special.kind === 'dash') && held === 'sword') {
+    const thrust = demianSwordPose({ ...p, vx: 0, onGround: true, attackT: .12 }, t);
+    return p.special.kind === 'dash'
+      ? { ...thrust, lean: .34, hipOffset: [.16, .16], feet: [[-.62, -.06], [.5, -.06]] }
+      : { ...thrust, lean: .05, hipOffset: [0, .1], feet: [[-.4, -.06], [.36, -.06]] };
+  }
   if (p.onGround && !p.special && (at >= 0 ? p.attackWeapon === 'sword' : held === 'sword')) return demianSwordPose(p, t);
   if (at >= 0) {
     if (AIM_W.includes(p.attackWeapon)) { // el disparo: retroceso

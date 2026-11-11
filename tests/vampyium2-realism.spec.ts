@@ -75,9 +75,9 @@ test('arte realista: todos los atlas, estados de enemigos y diez escenarios', as
     }
     return { status: sprites.realisticArtStatus(), states, aimed, gallery, levels: levels.toDataURL('image/png').split(',')[1] };
   });
-  expect(result.status).toHaveLength(13);
+  expect(result.status).toHaveLength(14); // (+ la cara de Demian)
   expect(result.status.every((s: { ready: boolean }) => s.ready)).toBe(true);
-  expect(result.status.reduce((n: number, s: { frames: number }) => n + s.frames, 0)).toBe(268);
+  expect(result.status.reduce((n: number, s: { frames: number }) => n + s.frames, 0)).toBe(269);
   expect(result.states).toBe(528);
   expect(result.aimed).toBe(15);
   expect(errors).toEqual([]);

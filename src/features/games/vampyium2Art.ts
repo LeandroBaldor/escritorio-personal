@@ -116,8 +116,8 @@ export function drawCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t:
   }
   if (!dragon) {
     ctx.save(); ctx.globalAlpha = f; ctx.translate(0, fly ? 0.4 : 0);
+    ctx.globalAlpha = f * (1 - burn * 0.35); // se va consumiendo en el fuego (sin manchas encima)
     drawSkeletonK(ctx, false, t, 1, c.kind);
-    if (burn > 0) { ctx.globalAlpha = 0.55 * burn; ctx.fillStyle = '#1a0a02'; ctx.beginPath(); ctx.ellipse(0.02, -1.0, 0.45, 1.05, 0, 0, TAU); ctx.globalCompositeOperation = 'source-atop'; ctx.fill(); }
     ctx.restore();
   }
   if (burn > 0) {
