@@ -85,8 +85,10 @@ export function dragonWing(phase: number) {
   const p = ((phase % 1) + 1) % 1;
   return p < .45 ? ease01(p / .45) : 1 - ease01((p - .45) / .55);
 }
-// How far each wing turns from 'up' (as painted) to 'fully down' (radians; near wing counter-clockwise).
-export const DRAGON_WING_DOWN = { near: 1.75, far: 1.7 };
+// The wings turn from 'up' (DRAGON_WING_UP, a little above the painted wing) to 'fully down' (−DRAGON_WING_DOWN,
+// the fingers pointing at the ground), about the shoulder (radians, clockwise positive: up raises the wing).
+export const DRAGON_WING_UP = .3;
+export const DRAGON_WING_DOWN = { near: 1.45, far: 1.35 };
 
 // ---- Hombre lobo: siempre en cuatro patas ------------------------------------------------------------------------
 // The werewolf is a quadruped in every state: standing, walking, running, chasing, attacking, hurt and dying.

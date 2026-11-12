@@ -172,7 +172,8 @@ describe('Drácula dragón flight', () => {
   });
   it('fully down, both wing tips point downwards (not just level)', () => {
     const tip = (root: number[], t: number[], a: number) => { const x = t[0] - root[0], y = t[1] - root[1]; return [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)]; };
-    const near = tip(DRAGON.rootNear, [8, 8], -DRAGON_WING_DOWN.near), far = tip(DRAGON.rootFar, [226, 14], DRAGON_WING_DOWN.far);
+    // (the wing tips, in the body's pixels, with the wings as painted: near wing full size, far wing at DRAGON.wing.far)
+    const near = tip(DRAGON.rootNear, [32, 12], -DRAGON_WING_DOWN.near), far = tip(DRAGON.rootFar, [306, 30], -DRAGON_WING_DOWN.far);
     expect(near[1]).toBeGreaterThan(Math.abs(near[0]) * .5); expect(far[1]).toBeGreaterThan(Math.abs(far[0]) * .5);
   });
   it('the fire comes out of the drawn mouth', () => {

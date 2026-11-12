@@ -932,24 +932,42 @@ function updateFlyer(g: Game, v: Vamp, dt: number) {
 export const DRAGON_FEET = 1.75;
 // El dragón nunca se apoya: cuando baja queda flotando a esta altura extra, aleteando (las patas colgando).
 export const DRAGON_HOVER = 0.9;
-// Geometría del dragón volando, en píxeles de su dibujo (255 × 223; vampyium2Sprites lo arma con estas medidas).
-export const DRAGON = { w: 255, h: 223, rootNear: [121, 100] as [number, number], rootFar: [139, 96] as [number, number], jointNear: [62.2, 52.2] as [number, number], jointFar: [184.2, 53.4] as [number, number],
-  tail: [74, 134] as [number, number], head: [183, 104] as [number, number], center: [128, 118] as [number, number], mouth: [240, 108] as [number, number] };
-export const DRAGON_DRAW = { scale: .0185, x: 0, y: -1.05 }; // píxeles → unidades del cuerpo, y dónde queda el centro
+// Geometría del dragón volando, en píxeles de su dibujo (el cuerpo mide 1945 × 809 y mira a la derecha; vampyium2Sprites
+// lo arma con estas medidas): el cuerpo, la cola (gira desde la cadera), la cabeza (gira desde el cuello; con la boca
+// cerrada o abierta) y las dos alas (cada una gira desde el hombro, y la membrana desde la muñeca).
+export const DRAGON = { w: 1945, h: 809, rootNear: [1305, 215] as [number, number], rootFar: [1350, 196] as [number, number],
+  tail: [545, 330] as [number, number], head: [1615, 330] as [number, number], center: [1000, 380] as [number, number], mouth: [1880, 400] as [number, number],
+  // cada pieza recortada: dónde queda su esquina en el dibujo (cuerpo, cola, cabeza, cabeza con la boca abierta, brazo del ala, membrana)
+  offsets: [[64, 0], [0, 180], [1445, 0], [1445, 0], [944, 30], [10, 0]] as [number, number][],
+  // el ala (en sus propios píxeles, ya a la escala del cuerpo): la raíz en el hombro y la muñeca
+  wing: { w: 1312, h: 656, root: [1290, 455] as [number, number], wrist: [1009, 152] as [number, number], far: .82 } };
+export const DRAGON_DRAW = { scale: .002347, x: 0, y: -1.277 }; // píxeles → unidades del cuerpo, y dónde queda el centro
 const DRAGON_K = 0.88 * 2.25 * BODY.dragon.k; // (escala del dibujo en el mundo: CHAR_K × BODY.dragon.k — con el +23% de los vampiros: si no, el fuego salía del pecho)
 // Cuánto puede girar la cabeza (radianes; positivo = hacia abajo). Fuera de ese cono el dragón no tira: se acomoda.
 export const DRAGON_AIM = { min: -0.4, max: 0.95 };
+// Para apuntar, una parte del giro la hace la cabeza (desde el cuello) y el resto todo el cuerpo (se inclina).
+export const DRAGON_HEAD_SHARE = 0.45;
 const MOUTH_BASE = Math.atan2(DRAGON.mouth[1] - DRAGON.head[1], DRAGON.mouth[0] - DRAGON.head[0]);
-const MOUTH_R = Math.hypot(DRAGON.mouth[0] - DRAGON.head[0], DRAGON.mouth[1] - DRAGON.head[1]) * DRAGON_DRAW.scale * DRAGON_K;
-const dragonPivot = (v: Vamp) => ({ x: v.x + v.face * (DRAGON_DRAW.x + (DRAGON.head[0] - DRAGON.center[0]) * DRAGON_DRAW.scale) * DRAGON_K, y: v.y - (DRAGON_DRAW.y + (DRAGON.head[1] - DRAGON.center[1]) * DRAGON_DRAW.scale) * DRAGON_K });
+const rotPx = (p: [number, number], c: [number, number], a: number): [number, number] => { const x = p[0] - c[0], y = p[1] - c[1]; return [c[0] + x * Math.cos(a) - y * Math.sin(a), c[1] + x * Math.sin(a) + y * Math.cos(a)]; };
+const toWorld = (v: Vamp, p: [number, number]) => ({ x: v.x + v.face * (DRAGON_DRAW.x + (p[0] - DRAGON.center[0]) * DRAGON_DRAW.scale) * DRAGON_K, y: v.y - (DRAGON_DRAW.y + (p[1] - DRAGON.center[1]) * DRAGON_DRAW.scale) * DRAGON_K });
+/** Where the mouth is drawn with an aim `rot`: the head turns part of it from the neck, the whole body the rest. */
+export function dragonMouthPx(rot: number) {
+  const head = rotPx(DRAGON.head, DRAGON.center, rot * (1 - DRAGON_HEAD_SHARE));
+  const mouth0 = rotPx(DRAGON.mouth, DRAGON.center, rot * (1 - DRAGON_HEAD_SHARE));
+  return rotPx(mouth0, head, rot * DRAGON_HEAD_SHARE);
+}
 // La boca con la cabeza girada `rot`: dónde está en el mundo y hacia dónde apunta (el fuego sale en esa dirección).
 export function dragonMouth(v: Vamp, rot = v.aim ?? 0) {
-  const c = dragonPivot(v), a = MOUTH_BASE + rot;
-  return { x: c.x + v.face * Math.cos(a) * MOUTH_R, y: c.y - Math.sin(a) * MOUTH_R, dx: v.face * Math.cos(a), dy: -Math.sin(a) };
+  const m = toWorld(v, dragonMouthPx(rot)), a = MOUTH_BASE + rot;
+  return { x: m.x, y: m.y, dx: v.face * Math.cos(a), dy: -Math.sin(a) };
 }
-// El giro de cabeza que hace falta para que la boca apunte al cazador (sin límite: después se compara con el cono).
+// El giro que hace falta para que la boca apunte al cazador (sin límite: después se compara con el cono).
 export function dragonAimAt(v: Vamp, tx: number, ty: number) {
-  const c = dragonPivot(v); return Math.atan2(c.y - ty, v.face * (tx - c.x)) - MOUTH_BASE;
+  // the mouth moves as the body turns, so the turn is solved: the line out of the mouth must pass through the target
+  const miss = (rot: number) => { const m = toWorld(v, dragonMouthPx(rot)); const a = Math.atan2(m.y - ty, v.face * (tx - m.x)) - MOUTH_BASE - rot; return Math.atan2(Math.sin(a), Math.cos(a)); };
+  let lo = -1.6, hi = 2.2, flo = miss(lo);
+  for (let i = 0; i < 28; i++) { const mid = (lo + hi) / 2, fm = miss(mid); if (Math.sign(fm) === Math.sign(flo)) { lo = mid; flo = fm; } else hi = mid; }
+  return (lo + hi) / 2;
 }
 export const DRAGON_MOUTH = { x: 6.8, y: 4.05 }; // (boca con la cabeza derecha, relativa al dragón)
 function updateDragon(g: Game, v: Vamp, dt: number) {

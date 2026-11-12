@@ -1,11 +1,11 @@
 import metadata from './assets/vampyium2/atlas.json';
 import type { Game, Player, Vamp, Weapon } from './vampyium2';
 import type { Pose, Pt } from './vampyium2Chars';
-import { ATTACK } from './vampyium2';
+import { ATTACK, DRAGON_HEAD_SHARE } from './vampyium2';
 import { jointTransform, legAngles, walkingArm } from './vampyium2Gait';
 import { DEMIAN_SCALE, demianWalk } from './vampyium2Demian';
 import { inertia, inertiaPt } from './vampyium2Inertia';
-import { DRAGON, DRAGON_DRAW, DRAGON_WING_DOWN, dragonWing, ease01, vampireRigPose, VAMP_BOOT, VAMP_VISUAL_SCALE, WOLF_QUAD, wolfQuadPose } from './vampyium2Motion';
+import { DRAGON, DRAGON_DRAW, DRAGON_WING_DOWN, DRAGON_WING_UP, dragonWing, ease01, vampireRigPose, VAMP_BOOT, VAMP_VISUAL_SCALE, WOLF_QUAD, wolfQuadPose } from './vampyium2Motion';
 
 type Frame = { x: number; y: number; w: number; h: number };
 type Atlas = { cols: number; rows: number; width: number; height: number; frames: Frame[] };
@@ -694,67 +694,64 @@ export function enemyFrame(v: Vamp, t: number) {
   return 0;
 }
 // ---- Drácula dragón: always in the air, with articulated wings -------------------------------------------------
-// The painted flying dragon is cut into pieces in its own pixel space (255 × 223): body (with the legs hanging),
-// tail, head (closed / open mouth) and each wing split at the wrist. The flight cycle never stops — attacks are a
-// separate layer (head aim, mouth, fire glow) on top of it:
-// WINGS UP → DOWNSTROKE → LEVEL → FULLY DOWN → UPSTROKE → LEVEL → UP → loop.
-// outline of each piece inside its cell (x, y, w, h)
-// outline of each piece inside its cell (x, y, w, h), in the 4× pixels of the sheet
-const DRAGON_PIECE_BOX = [[48, 260, 749, 584], [135, 39, 410, 409], [0, 0, 403, 377], [515, 78, 284, 330], [581, 23, 358, 245], [48, 513, 279, 329], [710, 306, 249, 195], [721, 296, 279, 216]];
-const DRAGON_SHEET = 4; // the sheet is the painted dragon rebuilt at 4× (Real-ESRGAN): sharp at any screen size
-// A crest of the dragon's own horns (cut from its head) at a wing root: they sweep up and back, and follow the wing a little.
-const HORNS: [number, number, number, number][] = [[-2.62, .62, -9, 8], [-2.98, 1.1, 2, -1], [-2.8, .86, -4, 3], [-3.15, .74, 8, 4]]; // angle, size, dx, dy (back to front)
-function dragonHorns(ctx: CanvasRenderingContext2D, root: Pt, size: number, follow: number) {
-  if (!atlasReady('dragon-horn')) return;
-  const f = META['dragon-horn'].frames[0], img = images['dragon-horn'], L = 30 * size;
-  for (const [a, k, ox, oy] of HORNS) {
-    ctx.save(); ctx.translate(root[0] + ox, root[1] + oy - 2); ctx.rotate(a + follow - Math.PI + .45);
-    // the horn image runs from its base (right) to its tip (left): base at the origin, thickened a little
-    const w = L * k, h = w * f.h / f.w * 2.4;
-    ctx.drawImage(img, f.x, f.y, f.w, f.h, -w * .95, -h * .82, w, h); ctx.restore();
+// The dragon is drawn from the high-resolution pieces in dragon-rig (cut from the painted dragon, all in the body's
+// pixel space, 1945 × 809, facing right): body (with the legs), tail (sways from the hips), head with the mouth
+// closed or open (turns from the neck), and each wing split at the wrist — the arm turns about the shoulder and the
+// membrane about the wrist, trailing the beat. The flight cycle never stops; attacks are a separate layer on top:
+// WINGS UP → DOWNSTROKE (the push) → FULLY DOWN → UPSTROKE → UP → loop. To aim the fire the head turns part of the
+// way and the whole body leans the rest (the game logic computes the mouth the same way: dragonMouthPx).
+const farDragonPieces = new Map<number, HTMLCanvasElement | null>();
+function farDragonPiece(i: number) { // a darker copy of one dragon piece (the far wing), made once
+  if (!farDragonPieces.has(i)) {
+    const f = META['dragon-rig'].frames[i], c = document.createElement('canvas'); c.width = f.w; c.height = f.h;
+    const x = c.getContext('2d'); if (x) { x.drawImage(images['dragon-rig'], f.x, f.y, f.w, f.h, 0, 0, f.w, f.h); }
+    farDragonPieces.set(i, x ? shadedCopy(c) : null);
   }
+  return farDragonPieces.get(i);
 }
 function drawDragonFlight(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
-  if (!atlasReady('dragon-flight')) return false;
-  const img = images['dragon-flight'], cell = (i: number) => META['dragon-flight'].frames[i];
-  // (each piece is drawn only inside its own outline: the rest of the 255 × 223 cell is transparent)
-  const piece = (i: number) => { const f = cell(i), [bx, by, bw, bh] = DRAGON_PIECE_BOX[i], q = DRAGON_SHEET; ctx.drawImage(img, f.x + bx, f.y + by, bw, bh, bx / q, by / q, bw / q, bh / q); };
+  if (!atlasReady('dragon-rig')) return false;
+  const img = images['dragon-rig'], frames = META['dragon-rig'].frames, O = DRAGON.offsets, WG = DRAGON.wing;
+  const piece = (i: number, far = false) => {
+    const f = frames[i];
+    if (far) { const c = farDragonPiece(i); if (c) { ctx.drawImage(c, O[i][0], O[i][1]); return; } }
+    ctx.drawImage(img, f.x, f.y, f.w, f.h, O[i][0], O[i][1], f.w, f.h);
+  };
   const around = (pivot: Pt, angle: number, draw: () => void) => { ctx.save(); ctx.translate(...pivot); ctx.rotate(angle); ctx.translate(-pivot[0], -pivot[1]); draw(); ctx.restore(); };
   const diving = v.state === 'dive', breath = v.state === 'breath', rising = v.state === 'rise' || v.state === 'land';
-  const rate = diving ? .9 : rising ? 2.1 : 1.45; // beats per second (faster when climbing or hovering low)
-  const phase = t * rate + v.id * .37;
-  const w = diving ? .12 + .08 * dragonWing(phase) : dragonWing(phase);
-  const lag = diving ? 0 : (dragonWing(phase) - dragonWing(phase - .07)) * 2.4; // the outer wing trails the beat (membrane follow-through)
+  const rate = diving ? .9 : rising ? 2.1 : 1.35; // beats per second (faster when climbing or hovering low)
+  const phase = t * rate + v.id * .37, w = diving ? .15 + .1 * dragonWing(phase) : dragonWing(phase);
+  const lag = diving ? 0 : (dragonWing(phase) - dragonWing(phase - .07)) * .9; // the membrane trails the arm
   const p01 = ((phase % 1) + 1) % 1;
-  const bob = diving ? 0 : -Math.sin(p01 * Math.PI * 2) * (breath ? 1.5 : 4.5); // lifts on the downstroke, sinks on the upstroke (pixels)
-  // attack layer: the head turns to aim the mouth at the hunter (v.aim, from the game logic: the fire leaves along
-  // the same line), the fire gathers in the throat, the jaw opens ONLY while it is breathing fire, then closes
+  const bob = diving ? 0 : -Math.sin(p01 * Math.PI * 2) * (breath ? 6 : 18); // lifts on the downstroke (pixels)
   const charge = breath ? ease01(v.t / .35) : 0, fire = !!v.firing;
-  const headRot = (v.aim ?? 0) + Math.sin((p01 - .15) * Math.PI * 2) * (breath ? .012 : .035);
-  const pitch = diving ? Math.max(-.2, Math.min(.85, Math.atan2(-v.vy, Math.abs(v.vx) || .001))) : Math.sin(p01 * Math.PI * 2 + .6) * (breath ? .01 : .025);
+  const aim = (v.aim ?? 0) + Math.sin((p01 - .15) * Math.PI * 2) * (breath ? .006 : .02);
+  const headRot = aim * DRAGON_HEAD_SHARE, bodyRot = aim * (1 - DRAGON_HEAD_SHARE);
+  const pitch = diving ? Math.max(-.2, Math.min(.85, Math.atan2(-v.vy, Math.abs(v.vx) || .001))) : bodyRot;
+  const wingAngle = (down: number) => DRAGON_WING_UP + (-down - DRAGON_WING_UP) * w;
+  const wing = (root: Pt, angle: number, size: number, far: boolean) => { // the wing frame's root sits on the shoulder
+    ctx.save(); ctx.translate(...root); ctx.rotate(angle); ctx.scale(size, size); ctx.translate(-WG.root[0], -WG.root[1]);
+    around(WG.wrist, -lag, () => piece(5, far)); piece(4, far); ctx.restore();
+  };
   ctx.save();
   if (v.state === 'mist') ctx.globalAlpha *= .3 + .15 * Math.sin(t * 7);
   ctx.translate(DRAGON_DRAW.x, DRAGON_DRAW.y); ctx.scale(DRAGON_DRAW.scale, DRAGON_DRAW.scale); ctx.rotate(pitch);
   ctx.translate(-DRAGON.center[0], -DRAGON.center[1] + bob);
-  const wingNear = -w * DRAGON_WING_DOWN.near, wingFar = w * DRAGON_WING_DOWN.far;
-  // far wing (behind the body): inner segment from the shoulder, outer segment from the wrist
-  around(DRAGON.rootFar, wingFar, () => { around(DRAGON.jointFar, -lag * .9, () => piece(4)); piece(3); });
-  around(DRAGON.tail, Math.sin((p01 - .3) * Math.PI * 2) * .07 + Math.sin(t * 1.3 + v.id) * .04, () => piece(5));
+  // far wing, behind everything (a little smaller and darker: it is on the far side)
+  wing(DRAGON.rootFar, wingAngle(DRAGON_WING_DOWN.far) - .08, WG.far, true);
+  around(DRAGON.tail, Math.sin((p01 - .3) * Math.PI * 2) * .035 + Math.sin(t * 1.3 + v.id) * .025, () => piece(1));
   piece(0);
   around(DRAGON.head, headRot, () => {
-    piece(fire ? 7 : 6);
+    piece(fire ? 3 : 2);
     if (charge > 0 && (fire || v.t < .4)) { // the fire gathering in the throat, then pouring out of the mouth
-      const m = DRAGON.mouth, r = (fire ? 12 : 6) + charge * (fire ? 14 : 6);
+      const m = DRAGON.mouth, r = (fire ? 70 : 34) + charge * (fire ? 80 : 34);
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       const gl = ctx.createRadialGradient(m[0], m[1], 0, m[0], m[1], r);
       gl.addColorStop(0, `rgba(255,230,170,${.85 * charge})`); gl.addColorStop(.4, `rgba(255,120,30,${.6 * charge})`); gl.addColorStop(1, 'rgba(255,60,0,0)');
       ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(m[0], m[1], r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     }
   });
-  dragonHorns(ctx, DRAGON.rootFar, .8, wingFar * .25);
-  // near wing (in front)
-  around(DRAGON.rootNear, wingNear, () => { piece(1); around(DRAGON.jointNear, lag, () => piece(2)); });
-  dragonHorns(ctx, DRAGON.rootNear, 1, wingNear * .25); // a crest of horns over the wing root (hides where the wing joins)
+  wing(DRAGON.rootNear, wingAngle(DRAGON_WING_DOWN.near), 1, false); // near wing, in front
   ctx.restore(); return true;
 }
 // ---- Vampiro volador: the body stays still; only the wings beat --------------------------------------------------
