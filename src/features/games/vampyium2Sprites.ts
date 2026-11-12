@@ -340,7 +340,8 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
   // Standing (and aiming), the free arm hangs IN FRONT of the body: the torso is turned three quarters, so the left
   // shoulder is the near one. Only the sword thrust swings it back behind the body. Walking (still at 45°), the arms
   // pass in front or behind with the step.
-  const freeArmBack = p.attackT >= 0 && ['sword', 'firesword', 'violet', 'bone'].includes(p.attackWeapon) || !!p.special;
+  // (in a sword attack the free arm stretches out back on the NEAR side, so it stays in front of the body: visible)
+  const freeArmBack = !!p.special;
   // Walking the depth is fixed too: the free arm (near) in front, the sword arm (far) behind the torso.
   const depth = walking ? { back: [1], front: [0] }
     : freeArmBack ? { back: [0], front: [1] } : { back: [] as number[], front: [0, 1] };
@@ -357,7 +358,7 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
   // Demian's face (photo cutout, bigger than the painted head). The neck stub tucks into the gorget.
   const headTilt = pose.head * .4;
   const head: Pt = [neck[0] + .04, neck[1] - .145];
-  ctx.save(); ctx.translate(neck[0] + .01, neck[1] + .05); ctx.rotate(headTilt);
+  ctx.save(); ctx.translate(neck[0] - .012, neck[1] + .062); ctx.rotate(headTilt); // (centred over the 45° chest, the neck down in the gorget)
   if (!drawAsset(ctx, 'demian-face', 0, -DEMIAN_FACE.w * .34, -DEMIAN_FACE.h, DEMIAN_FACE.w, DEMIAN_FACE.h)) part(ctx, 0, [.025, -.2], .316, .368);
   ctx.restore();
   const helmet = decor?.key === 'guard' ? 12 : decor?.key === 'holy' ? 11 : decor?.key === 'bone' ? 13 : -1;
@@ -396,6 +397,12 @@ function drawEnemyHead(ctx: CanvasRenderingContext2D, kind: string, neck: Pt, an
   const index = enemyPartIndex[kind], h = kind === 'giant' ? .34 : kind === 'wolf' ? .35 : kind === 'mage' || kind === 'dracula' ? .34 : .32;
   const w = h * assetAspect('heads', index);
   ctx.save(); ctx.translate(...neck); ctx.rotate(angle);
+  if (kind === 'giant') { // (the giant's painted head has a flap of nape hanging behind it: the head sits a bit forward
+    // and lower on its huge neck, and that flap is trimmed off so nothing sticks out behind the shoulders)
+    ctx.translate(.035, .018);
+    ctx.beginPath(); ctx.moveTo(-w / 2, -h); ctx.lineTo(w / 2, -h); ctx.lineTo(w / 2, h * .2); ctx.lineTo(-w * .18, h * .2);
+    ctx.lineTo(-w * .2, -h * .04); ctx.lineTo(-w * .33, -h * .55); ctx.lineTo(-w / 2, -h * .7); ctx.closePath(); ctx.clip();
+  }
   drawAsset(ctx, 'heads', index, -w / 2, -h * .87, w, h); ctx.restore(); return true;
 }
 // Rigid painted cutouts follow the original distance-driven foot contacts and inverse kinematics.
@@ -472,7 +479,7 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
   const carryKind = ['mage', 'hammer', 'warrior'].includes(v.kind);
   const FAR = 0, NEAR = 1, strike = carryKind ? FAR : NEAR; // (the arm that delivers the blow: the weapon's, or the near claw)
   // Where along the weapon the fist closes (fraction from its top) and how long it is.
-  const GRIP: Record<string, { at: number; len: number }> = { mage: { at: .3, len: 1.55 }, hammer: { at: .74, len: 1.2 }, warrior: { at: .865, len: 1.15 } };
+  const GRIP: Record<string, { at: number; len: number }> = { mage: { at: .3, len: 1.36 }, hammer: { at: .74, len: 1.2 }, warrior: { at: .865, len: 1.15 } };
   const armPose = (i: number) => {
     const lateral = (i ? -1 : 1) * (torsoW * .37 * (1 - pk) + .045 * pk);
     const shoulder: Pt = [neck[0] + lateral * Math.cos(lean) - .115 * Math.sin(lean),
@@ -536,7 +543,8 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
   };
   const far = (i: number) => i === FAR;
   const weapon = (pose: ReturnType<typeof armPose>) => {
-    const gp = GRIP[v.kind], height = gp.len, width = height * assetAspect(atlas, base + 7);
+    // (the mage's staff is drawn slimmer and a bit shorter than painted)
+    const gp = GRIP[v.kind], height = gp.len, width = height * assetAspect(atlas, base + 7) * (v.kind === 'mage' ? .68 : 1);
     ctx.save(); ctx.translate(...pose.hand); ctx.rotate(pose.weaponAngle);
     paint(7, [0, (.5 - gp.at) * height], width, height); ctx.restore();
   };

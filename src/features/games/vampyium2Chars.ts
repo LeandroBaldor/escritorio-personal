@@ -78,15 +78,17 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
   if (at >= 0) {
     if (AIM_W.includes(p.attackWeapon)) { // el disparo: retroceso
       const k = Math.max(0, 1 - at / 0.2);
-      const ak = p.aim * 0.7; return { bob: 0, lean: -0.05 - k * 0.15, crouch: 0.1, head: 0.02 - ak * 0.15, legs: p.onGround ? [[-0.55, 0.45], [0.55, 0.6]] : [[-0.4, 1.1], [0.7, 1.3]], arms: [[1.35 + ak + k * 0.2, 0.35], [1.5 + ak + k * 0.35, 0.1 + k * 0.2]], blade: -0.08 - k * 0.3 };
+      // (the near, free arm is not hidden behind the crossbow or the pistol: it swings out back, almost straight)
+      const ak = p.aim * 0.7; return { bob: 0, lean: -0.05 - k * 0.15, crouch: 0.1, head: 0.02 - ak * 0.15, legs: p.onGround ? [[-0.55, 0.45], [0.55, 0.6]] : [[-0.4, 1.1], [0.7, 1.3]], arms: [[-1.05 - k * 0.15, 0.18], [1.5 + ak + k * 0.35, 0.1 + k * 0.2]], blade: -0.08 - k * 0.3 };
     }
     if (CROSS_W.includes(p.attackWeapon)) { const k = Math.min(1, at / 0.12); return { bob: 0, lean: -0.1, crouch: 0.05, head: -0.25 * k, legs: p.onGround ? [[-0.5, 0.5], [0.5, 0.6]] : [[-0.4, 1.1], [0.7, 1.3]], arms: [[1.2, 0.8], [2.4 + k * 0.6, 0.4 - k * 0.3]], blade: 0.0 }; }
     if (SLASH_W.includes(p.attackWeapon)) { // tajo: la espada baja desde atrás de la cabeza hacia adelante, con estocada
       const k = Math.min(1, at / 0.14), e = 1 - (1 - k) * (1 - k);
-      return { bob: 0, lean: -0.15 + e * 0.45, crouch: 0.1, head: 0.1 * e, legs: p.onGround ? [[-0.65, 0.35], [0.7, 0.75]] : [[-0.4, 1.1], [0.7, 1.3]], arms: [[-0.5 - e * 0.4, 0.7], [3.0 - e * 2.15, 0.25 - e * 0.15]], blade: 0.15 };
+      // (the other arm stretches out back as the blade comes down: the weight goes into the blow)
+      return { bob: 0, lean: -0.15 + e * 0.45, crouch: 0.1, head: 0.1 * e, legs: p.onGround ? [[-0.65, 0.35], [0.7, 0.75]] : [[-0.4, 1.1], [0.7, 1.3]], arms: [[-0.5 - e * 0.75, 0.6 - e * 0.45], [3.0 - e * 2.15, 0.25 - e * 0.15]], blade: 0.15 };
     }
-    const k = Math.min(1, at / 0.12); // tira la bomba
-    return { bob: 0, lean: -0.2 + k * 0.4, crouch: 0.06, head: 0, legs: p.onGround ? [[-0.55, 0.4], [0.55, 0.6]] : [[-0.4, 1.1], [0.7, 1.3]], arms: [[-0.6, 0.6], [2.8 - k * 1.3, 1.0 - k * 0.9]], blade: 0.3 };
+    const k = Math.min(1, at / 0.12); // tira la bomba (el otro brazo se estira atrás, para el impulso)
+    return { bob: 0, lean: -0.2 + k * 0.4, crouch: 0.06, head: 0, legs: p.onGround ? [[-0.55, 0.4], [0.55, 0.6]] : [[-0.4, 1.1], [0.7, 1.3]], arms: [[-0.7 - k * 0.45, 0.45 - k * 0.3], [2.8 - k * 1.3, 1.0 - k * 0.9]], blade: 0.3 };
   }
   // con la ballesta o la pistola apunta adelante; la bomba la lleva con las dos manos; la cruz, en alto
   const aim = AIM_W.includes(held), cross = CROSS_W.includes(held), br0 = s(t * 3.2);
@@ -449,17 +451,58 @@ export function suitOf(g: Game): SuitKey | null {
 }
 // The realistic Demian wears the suit as recoloured armour pieces (plus the suit's helmet), with no extra effects.
 function suitDecor(g: Game): { key: SuitKey } | null { const key = suitOf(g); return key ? { key } : null; }
+// The fire sword, held like the sword: the painted blade wrapped in fire — flames rising all along it behind the
+// steel (so the blade still reads), a hot glow over it, and more fire while it strikes.
+function drawBurningSword(ctx: CanvasRenderingContext2D, hand: Pt, angle: number, attackT: number, t: number) {
+  const d: Pt = [Math.sin(angle), Math.cos(angle)], heat = attackT >= 0 ? 1 : 0; // (along the blade, as it is drawn)
+  for (let i = 0; i < 10; i++) { // a sheet of flames licking up from the blade (they always rise, whatever its angle)
+    const at = add(hand, d, .24 + i * .085), tip = 1 - i / 12;
+    fireLight(ctx, at[0], at[1] + .03, (.1 + (i % 2) * .03 + heat * .03) * tip, (.3 + ((i * 7) % 4) * .06 + heat * .14) * tip, t, i * 1.7);
+  }
+  if (!realisticHeldWeapon(ctx, 'firesword', hand, angle, attackT, t)) { // (the painted blade still loading: the drawn one)
+    ctx.save(); ctx.translate(hand[0], hand[1]); ctx.rotate(Math.PI / 2 - angle); ctx.scale(.95, .95); drawFireSword(ctx, t, heat); ctx.restore();
+  }
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 4; i++) { // the steel glowing hot
+    const at = add(hand, d, .3 + i * .17), r = .13 + heat * .04;
+    const gr = ctx.createRadialGradient(at[0], at[1], 0, at[0], at[1], r);
+    gr.addColorStop(0, `rgba(255,150,50,${.16 + heat * .1 + .03 * Math.sin(t * 9 + i)})`); gr.addColorStop(1, 'rgba(255,60,10,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(at[0], at[1], r, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
+// The golden cross, held like the sword: a slender gold shaft as long as the blade, with a short crossbar.
+function drawGoldenCross(ctx: CanvasRenderingContext2D, hand: Pt, angle: number) {
+  ctx.save(); ctx.translate(...hand); ctx.rotate(Math.PI - angle); // local −y runs along the shaft (the blade's direction)
+  const gold = (x0: number, y0: number, x1: number, y1: number) => { const g = ctx.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, '#fff3c2'); g.addColorStop(.35, '#e8b84a'); g.addColorStop(.7, '#a87418'); g.addColorStop(1, '#5e3c08'); return g; };
+  const w = .045, top = -1.12, bottom = .2, barY = -.78, barW = .3;
+  ctx.fillStyle = gold(-w, 0, w, 0); ctx.strokeStyle = '#4a2e06'; ctx.lineWidth = .012;
+  ctx.beginPath(); ctx.rect(-w / 2, top, w, bottom - top); ctx.fill(); ctx.stroke(); // the shaft
+  ctx.fillStyle = gold(0, barY - w, 0, barY + w);
+  ctx.beginPath(); ctx.rect(-barW, barY - w / 2, barW * 2, w); ctx.fill(); ctx.stroke(); // the crossbar
+  ctx.fillStyle = '#ffe9a0';
+  for (const [x, y] of [[0, top], [-barW, barY], [barW, barY], [0, bottom]] as const) { ctx.beginPath(); ctx.arc(x, y, .034, 0, TAU); ctx.fill(); ctx.stroke(); }
+  ctx.fillStyle = '#c0182a'; ctx.beginPath(); ctx.arc(0, barY, .03, 0, TAU); ctx.fill(); // a ruby where the arms meet
+  ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(0, barY, 0, 0, barY, .45);
+  g.addColorStop(0, 'rgba(255,220,120,.28)'); g.addColorStop(1, 'rgba(255,200,80,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, barY, .45, 0, TAU); ctx.fill();
+  ctx.restore();
+}
 export function drawHunterK(ctx: CanvasRenderingContext2D, p0: Player, g: Game, t: number) {
   // With an armour on, Demian moves exactly as with his first armour: the same sword poses, walk, jump and thrust.
+  // The fire sword and the golden cross are carried and swung EXACTLY like the sword (same carry on the shoulder,
+  // same walk, same thrust): only what is in the hand changes.
   const armour = (['ice', 'holy', 'venom', 'violet', 'bone'] as Weapon[]).includes(g.weapon);
-  const p = armour ? { ...p0, attackWeapon: (p0.attackT >= 0 ? 'sword' : p0.attackWeapon) as Weapon } : p0;
-  const held: Weapon = armour ? 'sword' : g.weapon, pose = hunterPose(p, t, held);
+  const swordLike = armour || g.weapon === 'firesword' || g.weapon === 'cross';
+  const p = swordLike ? { ...p0, attackWeapon: (p0.attackT >= 0 ? 'sword' : p0.attackWeapon) as Weapon } : p0;
+  const held: Weapon = swordLike ? 'sword' : g.weapon, pose = hunterPose(p, t, held);
   if (p.spinT > 0 && !p.onGround) { // the somersault: knees tuck to the chest in the middle of the turn, then open to land
     const k = Math.sin(Math.min(1, Math.max(0, 1 - p.spinT / .45)) * Math.PI), tuck: [number, number][] = [[1.35, 2.25], [1.15, 2.1]];
     pose.legs = pose.legs.map(([a, b], i) => [a + (tuck[i][0] - a) * k, b + (tuck[i][1] - b) * k] as [number, number]);
   }
   if (drawRealisticHunter(ctx, p, g, pose, t, (hand, angle) => {
-    if (held === 'sword') { if (!g.boomer) sword(ctx, hand, angle); }
+    if (g.weapon === 'firesword') drawBurningSword(ctx, hand, angle, p.attackT, t);
+    else if (g.weapon === 'cross') drawGoldenCross(ctx, hand, angle);
+    else if (held === 'sword') { if (!g.boomer) sword(ctx, hand, angle); }
     else holdWeapon(ctx, p.attackT >= 0 ? p.attackWeapon : held, hand, angle, p, t);
   }, suitDecor(g))) return;
   const now = p.attackT >= 0 ? p.attackWeapon : held;

@@ -936,7 +936,7 @@ export const DRAGON_HOVER = 0.9;
 export const DRAGON = { w: 255, h: 223, rootNear: [121, 100] as [number, number], rootFar: [139, 96] as [number, number], jointNear: [62.2, 52.2] as [number, number], jointFar: [184.2, 53.4] as [number, number],
   tail: [74, 134] as [number, number], head: [183, 104] as [number, number], center: [128, 118] as [number, number], mouth: [240, 108] as [number, number] };
 export const DRAGON_DRAW = { scale: .0185, x: 0, y: -1.05 }; // píxeles → unidades del cuerpo, y dónde queda el centro
-const DRAGON_K = 0.88 * 2.25 * 1.35; // (escala del dibujo en el mundo: CHAR_K × BODY.dragon.k)
+const DRAGON_K = 0.88 * 2.25 * BODY.dragon.k; // (escala del dibujo en el mundo: CHAR_K × BODY.dragon.k — con el +23% de los vampiros: si no, el fuego salía del pecho)
 // Cuánto puede girar la cabeza (radianes; positivo = hacia abajo). Fuera de ese cono el dragón no tira: se acomoda.
 export const DRAGON_AIM = { min: -0.4, max: 0.95 };
 const MOUTH_BASE = Math.atan2(DRAGON.mouth[1] - DRAGON.head[1], DRAGON.mouth[0] - DRAGON.head[0]);

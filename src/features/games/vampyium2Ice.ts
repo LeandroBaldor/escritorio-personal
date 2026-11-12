@@ -1,6 +1,6 @@
 // Vampyium2: the ice armour's frozen vampire and its shattering.
-// The vampire itself turns into an ice statue (its own painted drawing, recoloured as ice, with frost, bright edges and
-// cracks: no block around it) and, when it breaks, that same statue bursts into pieces that fly everywhere.
+// The vampire is frozen INSIDE ice: its own body, half see-through and tinted sky blue, in a crust of translucent ice
+// (frost, bright edges, cracks); when it breaks, that same statue bursts into pieces of ice that fly everywhere.
 import { ICE_SHATTER_T, type Corpse, type Vamp } from './vampyium2';
 
 const RES = 110; // pixels per body unit in the cached statue
@@ -10,40 +10,57 @@ type DrawBody = (ctx: CanvasRenderingContext2D) => void;
 
 const hash = (n: number) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
 
-// The ice statue of one vampire (computed once, when it freezes; the corpse reuses it to shatter).
+// The ice statue of one vampire (computed once, when it freezes; the corpse reuses it to shatter): the vampire's own
+// body, still recognisable through the ice — its colours cooled and half see-through — inside a pale sky-blue crust of
+// ice a little bigger than its silhouette, with frost, bright edges, cracks and a sheen.
 export function iceStatue(id: number, drawBody: DrawBody) {
   if (statues.has(id)) return statues.get(id)!;
   const w = Math.ceil((BOX.x1 - BOX.x0) * RES), h = Math.ceil((BOX.y1 - BOX.y0) * RES);
   const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
   const c = canvas.getContext('2d', { willReadFrequently: true }); if (!c) { statues.set(id, null); return null; }
-  c.setTransform(RES, 0, 0, RES, -BOX.x0 * RES, -BOX.y0 * RES); drawBody(c); c.setTransform(1, 0, 0, 1, 0, 0);
+  const body = document.createElement('canvas'); body.width = w; body.height = h;
+  const b = body.getContext('2d', { willReadFrequently: true }); if (!b) { statues.set(id, null); return null; }
+  b.setTransform(RES, 0, 0, RES, -BOX.x0 * RES, -BOX.y0 * RES); drawBody(b); b.setTransform(1, 0, 0, 1, 0, 0);
+  // 1) the ice crust: the silhouette grown a few pixels all round, filled with translucent sky-blue ice
+  const grow = Math.max(4, Math.round(RES * .05));
+  for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; c.drawImage(body, Math.cos(a) * grow, Math.sin(a) * grow); }
+  c.globalCompositeOperation = 'source-in';
+  const crust = c.createLinearGradient(0, 0, w * .6, h);
+  crust.addColorStop(0, 'rgba(225,246,255,.62)'); crust.addColorStop(.5, 'rgba(150,212,245,.48)'); crust.addColorStop(1, 'rgba(110,185,235,.55)');
+  c.fillStyle = crust; c.fillRect(0, 0, w, h); c.globalCompositeOperation = 'source-over';
+  // 2) the body inside, cooled towards sky blue and half transparent (you see it is frozen IN the ice)
   try {
-    const data = c.getImageData(0, 0, w, h), d = data.data;
+    const data = b.getImageData(0, 0, w, h), d = data.data;
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4, a = d[i + 3]; if (!a) continue;
-      const l = (.3 * d[i] + .59 * d[i + 1] + .11 * d[i + 2]) / 255;
-      // the painted detail survives as ice: dark → deep blue, light → white, with a little frosty noise
-      const n = (hash(x * 3.1 + y * 7.7) - .5) * .12, k = Math.max(0, Math.min(1, l * 1.35 + .12 + n));
-      // bright rim where the silhouette ends (light catching the edge of the ice)
-      const edge = x > 1 && y > 1 && x < w - 2 && y < h - 2 ? Math.max(0, a - Math.min(d[i - 4 * 2 + 3], d[i + 4 * 2 + 3], d[i - w * 8 + 3], d[i + w * 8 + 3])) / 255 : 0;
-      const e = Math.min(1, edge * 1.3);
-      d[i] = (24 + 200 * k) * (1 - e) + 235 * e; d[i + 1] = (62 + 180 * k) * (1 - e) + 248 * e; d[i + 2] = (110 + 145 * k) * (1 - e) + 255 * e;
-      d[i + 3] = Math.min(255, a * .96);
+      const l = (.3 * d[i] + .59 * d[i + 1] + .11 * d[i + 2]) / 255, n = (hash(x * 3.1 + y * 7.7) - .5) * 18;
+      const ice = .42; // how much of the colour is ice
+      d[i] = d[i] * (1 - ice) + (120 + 120 * l) * ice + n;
+      d[i + 1] = d[i + 1] * (1 - ice) + (190 + 60 * l) * ice + n;
+      d[i + 2] = d[i + 2] * (1 - ice) + (235 + 20 * l) * ice + n;
+      d[i + 3] = a * .78;
     }
-    c.putImageData(data, 0, 0);
+    b.putImageData(data, 0, 0);
   } catch { /* (sin acceso a los píxeles: queda el dibujo) */ }
-  // cracks running through the ice (only on the statue)
+  c.drawImage(body, 0, 0);
+  // 3) light on the ice: bright rims, cracks, a sheen and frost (only on the statue)
   c.globalCompositeOperation = 'source-atop'; c.lineCap = 'round';
-  for (let k = 0; k < 6; k++) {
+  c.strokeStyle = 'rgba(235,250,255,.55)'; c.lineWidth = 2;
+  for (let k = 0; k < 7; k++) {
     let x = w * (.3 + hash(id * 5 + k) * .4), y = h * (.15 + hash(id * 9 + k) * .6);
-    c.strokeStyle = `rgba(255,255,255,${.35 + hash(k + id) * .3})`; c.lineWidth = 1 + hash(k * 3 + id) * 1.4;
+    c.strokeStyle = `rgba(255,255,255,${.4 + hash(k + id) * .35})`; c.lineWidth = 1 + hash(k * 3 + id) * 1.6;
     c.beginPath(); c.moveTo(x, y);
     for (let s = 0; s < 5; s++) { x += (hash(id + k * 11 + s) - .5) * w * .18; y += h * (.03 + hash(id * 2 + k + s * 3) * .07); c.lineTo(x, y); }
     c.stroke();
   }
   const sheen = c.createLinearGradient(0, 0, w, h);
-  sheen.addColorStop(0, 'rgba(255,255,255,.18)'); sheen.addColorStop(.45, 'rgba(255,255,255,0)'); sheen.addColorStop(.55, 'rgba(255,255,255,.12)'); sheen.addColorStop(1, 'rgba(160,210,255,0)');
-  c.fillStyle = sheen; c.fillRect(0, 0, w, h); c.globalCompositeOperation = 'source-over';
+  sheen.addColorStop(0, 'rgba(255,255,255,.26)'); sheen.addColorStop(.42, 'rgba(255,255,255,0)'); sheen.addColorStop(.52, 'rgba(230,248,255,.2)'); sheen.addColorStop(.6, 'rgba(255,255,255,0)'); sheen.addColorStop(1, 'rgba(140,205,250,.12)');
+  c.fillStyle = sheen; c.fillRect(0, 0, w, h);
+  for (let k = 0; k < 140; k++) { // frost speckles
+    c.fillStyle = `rgba(255,255,255,${.25 + hash(id + k * 1.7) * .4})`;
+    c.fillRect(hash(id * 3 + k) * w, hash(id * 7 + k * 2) * h, 1.5, 1.5);
+  }
+  c.globalCompositeOperation = 'source-over';
   statues.set(id, canvas); return canvas;
 }
 export function forgetStatue(id: number) { statues.delete(id); }
@@ -96,6 +113,23 @@ export function drawIceShatter(ctx: CanvasRenderingContext2D, c: Corpse, x: numb
     ctx.beginPath(); quad.forEach(([qx, qy], n) => { const wx = BOX.x0 + qx * toWorld, wy = BOX.y0 + qy * toWorld; if (n) ctx.lineTo(wx, wy); else ctx.moveTo(wx, wy); }); ctx.closePath();
     ctx.clip();
     ctx.drawImage(s, BOX.x0, BOX.y0, W * toWorld, H * toWorld);
+    ctx.restore();
+  }
+  // the ice explodes: a cold flash and a spray of small glittering sky-blue shards
+  if (t < .25) {
+    const f = 1 - t / .25, r = .6 + t * 9;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(0, -1.1, 0, 0, -1.1, r); g.addColorStop(0, `rgba(230,250,255,${.55 * f})`); g.addColorStop(.6, `rgba(150,215,255,${.25 * f})`); g.addColorStop(1, 'rgba(150,215,255,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, -1.1, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+  for (let n = 0; n < 28; n++) {
+    const seed = c.id * 37 + n, a = hash(seed) * Math.PI * 2, sp = 5 + hash(seed + 1) * 7;
+    const px = Math.cos(a) * sp * t, py = -1.1 + Math.sin(a) * sp * t - 3 * t + 14 * t * t;
+    if (py > .05) continue;
+    const sz = .05 + hash(seed + 2) * .08, rot = hash(seed + 3) * 6 + t * 12;
+    ctx.save(); ctx.translate(px, py); ctx.rotate(rot);
+    ctx.fillStyle = `rgba(${200 + hash(seed + 4) * 55},240,255,.85)`; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = .012;
+    ctx.beginPath(); ctx.moveTo(0, -sz); ctx.lineTo(sz * .55, sz * .6); ctx.lineTo(-sz * .5, sz * .45); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.restore();
   }
   ctx.restore(); return true;

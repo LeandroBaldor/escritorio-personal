@@ -37,7 +37,8 @@ export function demianSwordPose(p: Player): Pose {
     weaponBehind: extension < .35 && !lowered,
     relaxedHand: !active,
     legs: [[-.16, .18], [.16, .18]],
-    arms: [[mix(freeArm[0], -.65, extension), mix(freeArm[1], .70, extension)],
+    // the free arm swings out BACK, almost straight, against the thrust (it puts the weight into the blow)
+    arms: [[mix(freeArm[0], -1.25, Math.min(1, extension)), mix(freeArm[1], .12, Math.min(1, extension))],
       [rightA, rightB]],
     blade: swordAngle - rightA - rightB,
   };
