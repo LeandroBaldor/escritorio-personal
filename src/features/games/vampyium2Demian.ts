@@ -7,10 +7,10 @@ import { VAMP_VISUAL_SCALE } from './vampyium2Motion';
 export const DEMIAN_SCALE = 1.095;
 // One world unit of floor per this many units of Demian's drawing: the planted foot moves exactly with the floor.
 export const DEMIAN_STRIDE_K = .88 * VAMP_VISUAL_SCALE * DEMIAN_SCALE;
-// Demian walks like the vampires: always one foot on the floor (no running flight), with a step 25% longer so that at
-// his speed he takes long, planted steps instead of many little ones, and a soft rise and fall of the hips.
-export const DEMIAN_STRIDE = 1.25;
-export const demianWalk = (p: Pick<Player, 'walkT' | 'vx'>) => humanWalk(p.walkT * 7 / 2.4, Math.abs(p.vx), DEMIAN_STRIDE_K, false, DEMIAN_STRIDE, 1.15);
+// Demian walks like the vampires: always one foot on the floor, the same long, planted step at about the same pace
+// (~2.7 steps a second at his walking speed, WALK_SPEED), with a soft rise and fall of the hips.
+export const DEMIAN_STRIDE = 1.3;
+export const demianWalk = (p: Pick<Player, 'walkT' | 'vx'>) => humanWalk(p.walkT * 7 / 2.4, Math.abs(p.vx), DEMIAN_STRIDE_K, false, DEMIAN_STRIDE, 1);
 // How far the torso leans towards where he walks (radians, ~7°), with the head lifting a little to look ahead.
 export const DEMIAN_WALK_LEAN = .12;
 const smooth = (x: number) => { const k = Math.max(0, Math.min(1, x)); return k * k * (3 - 2 * k); };

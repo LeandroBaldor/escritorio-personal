@@ -1038,7 +1038,7 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
 
 test('Trepaluna: se abre desde Juegos, corre el tiempo, muestra la altura y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(13);
+  await expect(page.locator('.games-list > li')).toHaveCount(12);
   await page.getByRole('link', { name: /Trepaluna/ }).click();
   await expect(page.getByRole('heading', { name: 'Trepaluna', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
@@ -1217,9 +1217,8 @@ test('Kombat Voley: amistoso con rival y estadio elegidos, se saca y se pausa; e
   await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
 });
 
-test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de armas y se pausa', async ({ page }) => {
-  await page.goto('/escritorio-personal/#/juegos');
-  await page.getByRole('link', { name: /Vampyrium/ }).click();
+test('Vampyrium (el viejo, fuera de la lista pero guardado): se abre por su dirección, corre el tiempo, ataca, abre el cartel de armas y se pausa', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/juegos/vampyrium');
   await expect(page.getByRole('heading', { name: 'Vampyrium', level: 1 })).toBeVisible();
   // Los 10 niveles: solo se abren los que ya se ganaron (al principio, solo el 1)
   const levels = page.getByRole('group', { name: 'Elegir nivel' }).getByRole('button');
@@ -1265,7 +1264,7 @@ test('Vampyrium: se abre desde Juegos, corre el tiempo, ataca, abre el cartel de
   await expect(page.getByTestId('vamp-time')).toHaveText(paused ?? '');
   await page.getByRole('button', { name: 'Seguir' }).first().click();
   await page.getByRole('link', { name: '‹ Juegos' }).click();
-  await expect(page.getByText('cazador de vampiros', { exact: false })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'MiniJuegos', level: 1 })).toBeVisible();
 });
 
 test('Land of Warriors: se elige civilización en la imagen, se ve su lámina, se inicia, se juega y se pausa', async ({ page }) => {

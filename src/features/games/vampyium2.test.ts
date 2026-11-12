@@ -24,7 +24,7 @@ describe('Vampyium2', () => {
   it('el cazador camina con las flechas, salta y hace doble salto en el aire', () => {
     const g = quiet(), x0 = g.player.x;
     run(g, 0.5, { ...idle(), right: true });
-    expect(g.player.x).toBeGreaterThan(x0 + 2);
+    expect(g.player.x).toBeGreaterThan(x0 + 1.4); // (camina a WALK_SPEED: el paso largo y tranquilo de los vampiros);
     expect(g.player.face).toBe(1);
     step(g, { ...idle(), up: true }, 1 / 60);
     run(g, 0.2);

@@ -211,6 +211,8 @@ function shadedCopy(src: HTMLCanvasElement) {
 }
 
 // The photo head (crown to neck stub), a little larger than the old painted head but in proportion with the body.
+// The head sits on the vertical centre line of the three-quarter chest (over the gold cross of the breastplate).
+const DEMIAN_HEAD_DX = .055;
 export const DEMIAN_FACE = { h: .35, w: .35 * 380 / 535 };
 export { DEMIAN_SCALE };
 
@@ -352,7 +354,7 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
   }
   const torso = decor?.key === 'ice' ? 14 : decor?.key === 'bone' ? 15 : 1;
   if (!(decor?.key === 'guard' || decor?.key === 'holy' || decor?.key === 'bone')) { // the bare neck, drawn under the gorget
-    ctx.save(); ctx.translate(neck[0] - .012, neck[1] + .02); ctx.rotate(pose.head * .2);
+    ctx.save(); ctx.translate(neck[0] + DEMIAN_HEAD_DX, neck[1] + .02); ctx.rotate(pose.head * .2);
     const top = -.03, bottom = .09, back = -.042, front = .03;
     const skin = ctx.createLinearGradient(back, 0, front + .01, 0);
     skin.addColorStop(0, '#4a2f24'); skin.addColorStop(.35, '#946450'); skin.addColorStop(.7, '#a2705a'); skin.addColorStop(1, '#5c3a2c');
@@ -372,9 +374,9 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
   // is tilted back a little so the chin is lifted off the armour.
   const helmet = decor?.key === 'guard' ? 12 : decor?.key === 'holy' ? 11 : decor?.key === 'bone' ? 13 : -1;
   const headTilt = pose.head * .4;
-  const head: Pt = [neck[0] + .04, neck[1] - .145];
+  const head: Pt = [neck[0] + .04 + DEMIAN_HEAD_DX + .012, neck[1] - .145];
   const bare = helmet < 0, lift = bare ? .042 : 0;
-  ctx.save(); ctx.translate(neck[0] - .012, neck[1] + .062 - lift);
+  ctx.save(); ctx.translate(neck[0] + DEMIAN_HEAD_DX, neck[1] + .062 - lift);
   ctx.rotate(headTilt - (bare ? .15 : 0)); // (centred over the 45° chest; the chin up, off the gorget)
   if (!drawAsset(ctx, 'demian-face', 0, -DEMIAN_FACE.w * .34, -DEMIAN_FACE.h, DEMIAN_FACE.w, DEMIAN_FACE.h)) part(ctx, 0, [.025, -.2], .316, .368);
   ctx.restore();

@@ -16,6 +16,9 @@ export const TRAP_DMG = 5, FALL_DMG = 10, HEART_HP = 25; // (las trampas sacan l
 export const POWER_MAX = 10; // vampiros para cargar una cruz
 export const PLAYER_W = 0.8, PLAYER_H = 1.9;
 const GRAV = 36, SPEED = 7, JUMP = 16.2, JUMP2 = 14, FALL_MAX = 24;
+// Caminando por el piso Demian va más despacio que en el aire: a esta velocidad da el paso largo y tranquilo de los
+// vampiros (a 7 tenía que dar más de 5 pasitos por segundo). En el aire sigue a SPEED, así los saltos llegan igual de lejos.
+export const WALK_SPEED = 3.6;
 const VAMP_W = 0.8;
 
 // ---------------------------------------------------------------- Las armas
@@ -1300,7 +1303,7 @@ export function step(g: Game, input: Input, dt: number) {
   if (dir && !p.special) p.face = dir as 1 | -1;
   const slow = p.attackT >= 0 && p.onGround && p.attackWeapon === 'sword' ? 0.45 : 1;
   const ctrl = p.hurtT > 0 || p.special?.kind === 'dash' ? 0 : p.onGround ? 14 : 6;
-  p.vx += (dir * SPEED * slow * (p.special?.kind === 'whirl' ? 0.3 : 1) - p.vx) * Math.min(1, dt * ctrl);
+  p.vx += (dir * (p.onGround ? WALK_SPEED : SPEED) * slow * (p.special?.kind === 'whirl' ? 0.3 : 1) - p.vx) * Math.min(1, dt * ctrl);
   const aiming = !!input.attack && AIMED.includes(g.weapon); // con Espacio apretado las flechas apuntan (no saltan ni bajan)
   const prevAim = p.aim;
   p.aim = AIMED.includes(g.weapon) ? (input.up ? 1 : input.down ? -1 : 0) : 0;

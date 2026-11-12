@@ -318,13 +318,12 @@ export function Vampyium2() {
   const goalLabel = goal.type === 'kill' ? 'Vampiros' : goal.type === 'collect' ? (goal.item === 'star' ? ' Estrellas' : ' Almas') : goal.type === 'break' ? (goal.obj === 'cage' ? ' Jaulas' : ' Ataúdes') : goal.type === 'survive' ? ' Resistí' : goal.type === 'hunt' ? (goal.kind === 'warrior' ? ' Guerreros' : ' Voladores') : 'Drácula';
   const recordText = record.time ? ` ${formatVampTime(record.time)}` : `${record.kills} `;
 
-  return <section className="runner trepa vamp vamp2" style={fit} aria-label="Vampyium 2" data-realistic-art={artReady ? 'ready' : 'loading'}>
-    {!artReady && <div className="vamp-art-loading" role="status"><strong>Vampyium 2</strong><p>{artError ? 'No pudimos cargar los diseños.' : 'Preparando personajes y escenarios…'}</p>{artError && <button type="button" onClick={() => window.location.reload()}>Volver a cargar</button>}</div>}
+  return <section className="runner trepa vamp vamp2" style={fit} aria-label="Vampyrium" data-realistic-art={artReady ? 'ready' : 'loading'}>
+    {!artReady && <div className="vamp-art-loading" role="status"><strong>Vampyrium</strong><p>{artError ? 'No pudimos cargar los diseños.' : 'Preparando personajes y escenarios…'}</p>{artError && <button type="button" onClick={() => window.location.reload()}>Volver a cargar</button>}</div>}
     <TouchGrips actionLabel={hud.menu ? 'Elegir' : 'Atacar'} />
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
-      <h1 className="vamp-logo">Vampyium 2</h1>
-      {status !== 'ready' && <span className="vamp-build-status">En construcción</span>}
+      <h1 className="vamp-logo">Vampyrium</h1>
       <div className="runner-scores"><span>Récord <strong>{recordText}</strong></span></div>
       {(status === 'playing' || status === 'paused') && <button type="button" onClick={() => { playVampMenuButton(); setStatus(s => s === 'playing' ? 'paused' : 'playing'); }}>{status === 'playing' ? 'Pausa' : 'Seguir'}</button>}
     </div>
@@ -397,9 +396,8 @@ export function Vampyium2() {
         {status === 'ready' && <div className="vamp-hub" role="dialog" aria-labelledby="vamp-message" style={{ backgroundImage: `linear-gradient(110deg, #080d14e8, #10141be0), url(${fondoOf(def.bg)})` }}>
           <div className="vamp-hub-top">
             <Link className="runner-back" to="/juegos">‹ Juegos</Link>
-            <h2 id="vamp-message" className="vamp-title">VAMPYIUM 2</h2>
+            <h2 id="vamp-message" className="vamp-title">VAMPYRIUM</h2>
             <div className="vamp-hub-top-right">
-              <span className="vamp-build-status">En construcción</span>
               <span className="vamp-hub-record">{VAMP_TEST_MODE && <em className="vamp-test" data-vamp-test>Vida ilimitada · 10 niveles</em>} Récord <strong>{recordText}</strong></span>
               <button type="button" className="vamp-hub-go" ref={focusNoScroll} disabled={!artReady} onClick={() => start(level)}>Jugar · Nivel {level}</button>
             </div>

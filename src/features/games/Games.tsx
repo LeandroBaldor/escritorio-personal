@@ -12,7 +12,6 @@ import invasionCover from './assets/portada-invasion.webp';
 import gravityCover from './assets/portada-gravedad.webp';
 import kombatCover from './assets/portada-kombat.webp';
 import voleyCover from './assets/portada-voley.webp';
-import vampCover from './assets/portada-vampyrium.webp';
 import landCover from './assets/portada-land.webp';
 import { CalculatorLink, CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { readRecord } from './BlockRunnerGame';
@@ -24,7 +23,6 @@ import { formatInvasionTime, readInvasionRecord } from './InvasionGame';
 import { formatGravityTime, readGravityRecord } from './GravitySwapGame';
 import { readKombatRecord } from './KombatFootballGame';
 import { readVoleyRecord } from './KombatVoleyGame';
-import { readVampyriumRecord } from './VampyriumGame';
 import { readLandRecord } from './LandGame';
 import { formatVampTime } from './vampyrium';
 import memeJigsaw from '../../assets/images/meme-jigsaw.jpg';
@@ -46,7 +44,6 @@ export function Games() {
   const gravity = readGravityRecord();
   const kombat = readKombatRecord();
   const voley = readVoleyRecord();
-  const vamp = readVampyriumRecord();
   const vamp2 = readVampyium2Record();
   const landWins = Object.values(readLandRecord()).reduce((a, b) => a + b, 0);
   return <section className="games-page">
@@ -185,24 +182,10 @@ export function Games() {
         </Link>
       </li>
       <li>
-        <Link onClick={playStart} className="game-card game-card--vamp" to="/juegos/vampyrium">
-          <span className="game-card-cover"><Cover src={vampCover} /></span>
+        <Link onClick={playStart} className="game-card game-card--vamp game-card--vamp2" to="/juegos/vampyium2">
+          <span className="game-card-cover"><Cover src={vamp2Cover} /></span>
           <span className="game-card-text">
             <strong>Vampyrium</strong>
-            <span>🧛 Sos un cazador de vampiros en el puente de un castillo maldito: espada, estacas y una cruz sagrada contra vampiros que caminan, trepan del vacío y vuelan en picada.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Matá 50 vampiros sin quedarte sin vida y cruzá la puerta que se abre a la derecha. Cuidado con los huecos al vacío y las trampas.</span>
-          </span>
-          <span className="game-card-foot">
-            {vamp.kills > 0 && <small><b>Récord</b>{vamp.time ? `🏆 en ${formatVampTime(vamp.time)}` : `${vamp.kills} vampiros`}</small>}
-            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
-          </span>
-        </Link>
-      </li>
-      <li>
-        <Link onClick={playStart} className="game-card game-card--vamp game-card--vamp2" to="/juegos/vampyium2">
-          <span className="game-card-cover"><Cover src={vamp2Cover} /><b className="game-card-wip">En construcción</b></span>
-          <span className="game-card-text">
-            <strong>Vampyium 2</strong>
             <span>Una cacería gótica: personajes de proporciones humanas, acero marcado y cuero envejecido. Diez capítulos, doce armas y un castillo que guarda a Drácula.</span>
             <span className="game-card-win"><b>Cómo se gana:</b> Matá 50 vampiros sin quedarte sin vida y cruzá la puerta que se abre a la derecha. Cuidado con los huecos al vacío y las trampas.</span>
           </span>

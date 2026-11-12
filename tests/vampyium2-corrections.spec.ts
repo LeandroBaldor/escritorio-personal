@@ -4,7 +4,7 @@ import fs from 'node:fs';
 test('práctica: construcción, diez niveles, vida ilimitada y carteles', async ({ page }, testInfo) => {
   await page.goto('/escritorio-personal/#/juegos/vampyium2');
   await expect(page.locator('.vamp2')).toHaveAttribute('data-realistic-art', 'ready');
-  await expect(page.getByText('En construcción', { exact: true })).toBeVisible();
+  await expect(page.getByText('En construcción', { exact: true })).toHaveCount(0);
   const levels = page.getByRole('group', { name: 'Elegir nivel' }).getByRole('button');
   await expect(levels).toHaveCount(10);
   for (const button of await levels.all()) await expect(button).toBeEnabled();
