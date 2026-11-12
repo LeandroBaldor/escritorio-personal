@@ -221,7 +221,7 @@ export type GameEvent =
   | { type: 'collect'; kind: Item['kind']; n: number; of: number } | { type: 'break'; kind: Breakable['kind']; n: number; of: number } | { type: 'objHit' } | { type: 'transform' } | { type: 'dragon' } | { type: 'bossDead' } | { type: 'howl'; kind: VampKind } | { type: 'spawn'; kind: VampKind } | { type: 'fall'; hp: number } | { type: 'jump'; double: boolean } | { type: 'land' } | { type: 'step' }
   | { type: 'crate' } | { type: 'pickup'; kind: CrateKind; amount: number; weapon?: Weapon } | { type: 'guard'; on: boolean } | { type: 'guardHit'; left: number } | { type: 'freeze' } | { type: 'shatter' } | { type: 'melt' } | { type: 'nova' } | { type: 'door' } | { type: 'spikes'; x: number; y: number } | { type: 'fire'; x: number; y: number }
   | { type: 'swing'; x: number; y: number } | { type: 'special'; kind: SpecialKind } | { type: 'catch' } | { type: 'thunder'; near: number } | { type: 'combo'; n: number } | { type: 'holy'; count: number } | { type: 'wave'; n: number } | { type: 'bloodMoon' }
-  | { type: 'menu'; open: boolean } | { type: 'choose'; weapon: Weapon } | { type: 'hiss'; x: number } | { type: 'dive' } | { type: 'emerge' }
+  | { type: 'menu'; open: boolean } | { type: 'choose'; weapon: Weapon } | { type: 'hiss'; x: number; wolf?: boolean } | { type: 'dive' } | { type: 'emerge' }
   | { type: 'vampFall' } | { type: 'burn' } | { type: 'vampHurt'; x: number; trap?: TrapKind } | { type: 'cleared' } | { type: 'over' } | { type: 'won' } | { type: 'powerReady' };
 
 // Un rayo de la tormenta: t = segundos desde que cayó, x = dónde (en metros), near = qué tan cerca (0 lejos, 1 encima).
@@ -504,7 +504,7 @@ export function attack(g: Game) {
     emit(g, { type: 'shoot', weapon: w });
   } else if (w === 'crossbow') { p.cool = 0.45; g.stats.throws++; g.bolts.push({ x: mx, y: my, vx: p.face * 26 * mdx, vy: 26 * mdy, t: 0, stuck: false, hits: [], show: back / 26 }); emit(g, { type: 'shoot', weapon: w }); }
   else if (w === 'ice') { p.cool = 0.42; g.stats.throws++; g.orbs.push({ kind: 'ice', x: hx + p.face * 0.5 * ca, y: hy + 0.5 * sa, vx: p.face * 20 * ca, vy: 20 * sa, t: 0 }); emit(g, { type: 'shoot', weapon: w }); }
-  else if (w === 'venom') { p.cool = 0.4; g.stats.throws++; g.orbs.push({ kind: 'venom', x: hx, y: hy + 0.1, vx: p.face * (p.aim > 0 ? 9 : p.aim < 0 ? 12 : 13) + p.vx * 0.3, vy: p.aim > 0 ? 12 : p.aim < 0 ? -2 : 4.5, t: 0 }); emit(g, { type: 'shoot', weapon: w }); }
+  else if (w === 'venom') { p.cool = 0.4; g.stats.throws++; g.orbs.push({ kind: 'venom', x: hx + p.face * 0.5 * ca, y: hy + 0.5 * sa, vx: p.face * 20 * ca, vy: 20 * sa, t: 0 }); emit(g, { type: 'shoot', weapon: w }); } // (derecho, cruza todo el escenario)
   else if (w === 'holy') { p.cool = 0.6; g.stats.throws++; holyRay(g); emit(g, { type: 'shoot', weapon: w }); }
   else if (w === 'violet') { p.cool = 0.32; g.stats.slashes++; emit(g, { type: 'shoot', weapon: w }); }
   else if (w === 'bone') { p.cool = 0.55; g.stats.slashes++; g.shake = Math.max(g.shake, 0.3); emit(g, { type: 'shoot', weapon: w }); }
@@ -801,7 +801,7 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
   if (v.state === 'mist') { // Drácula se hace niebla de murciélagos y aparece atrás del cazador
     v.t += dt;
     if (v.t >= 0.75 && !v.hit) { v.hit = true; const [x, q] = standAt(p.x - p.face * 2.4, p.y); v.x = x; v.y = q.y; v.surface = q; v.onGround = true; v.vx = 0; v.vy = 0; v.face = p.x > v.x ? 1 : -1; }
-    if (v.t >= 1.15) { v.state = 'claw'; v.t = 0; v.hit = false; emit(g, { type: 'hiss', x: v.x }); }
+    if (v.t >= 1.15) { v.state = 'claw'; v.t = 0; v.hit = false; emit(g, { type: 'hiss', x: v.x, wolf: v.kind === 'wolf' }); }
     return;
   }
   if (v.state === 'claw') {
@@ -903,9 +903,9 @@ function updateWalker(g: Game, v: Vamp, dt: number) {
         }
       }
       if (!scared && v.onGround) {
-        if (Math.abs(dx) < atk.reach && Math.abs(dy) < 1.3 && v.cool <= 0) { v.state = 'claw'; v.t = 0; v.hit = false; v.vx = 0; v.face = (Math.sign(dx) || v.face) as 1 | -1; emit(g, { type: 'hiss', x: v.x }); }
+        if (Math.abs(dx) < atk.reach && Math.abs(dy) < 1.3 && v.cool <= 0) { v.state = 'claw'; v.t = 0; v.hit = false; v.vx = 0; v.face = (Math.sign(dx) || v.face) as 1 | -1; emit(g, { type: 'hiss', x: v.x, wolf: v.kind === 'wolf' }); }
         else if (v.kind === 'mage' && v.cool <= 0 && Math.abs(dx) < 11 && Math.abs(dy) < 4) { v.state = 'cast'; v.t = 0; v.hit = false; emit(g, { type: 'cast' }); }
-        else if (v.kind === 'wolf' && v.cool <= 0 && Math.abs(dx) > 2.2 && Math.abs(dx) < 5.5 && Math.abs(dy) < 2.5 && !trapAhead(g, v, Math.sign(dx), 1.8) && r() < dt * 3) { v.state = 'leap'; v.t = 0; v.hit = false; v.vy = 11.5; v.vx = Math.sign(dx) * Math.min(9.5, Math.abs(dx) * 2.2); v.onGround = false; v.surface = null; emit(g, { type: 'hiss', x: v.x }); }
+        else if (v.kind === 'wolf' && v.cool <= 0 && Math.abs(dx) > 2.2 && Math.abs(dx) < 5.5 && Math.abs(dy) < 2.5 && !trapAhead(g, v, Math.sign(dx), 1.8) && r() < dt * 3) { v.state = 'leap'; v.t = 0; v.hit = false; v.vy = 11.5; v.vx = Math.sign(dx) * Math.min(9.5, Math.abs(dx) * 2.2); v.onGround = false; v.surface = null; emit(g, { type: 'hiss', x: v.x, wolf: true }); }
         else if (boss && (v.special ?? 0) <= 0 && Math.abs(dx) > 2.5) { // Drácula: niebla de murciélagos o murciélagos que vuelan
           v.special = 4.5 + r() * 2; v.t = 0; v.hit = false;
           const pick = r();
@@ -1433,7 +1433,7 @@ export function step(g: Game, input: Input, dt: number) {
   }
   // El rayo de hielo y las bolas verdes: le pegan al primer vampiro que tocan
   for (const o of [...g.orbs]) {
-    o.t += dt; if (o.kind === 'venom') o.vy -= 18 * dt;
+    o.t += dt;
     const prev = o.y; o.x += o.vx * dt; o.y += o.vy * dt;
     const ob = g.objects.find(q => Math.abs(q.x - o.x) < 0.6 && o.y > q.y && o.y < q.y + 2);
     const v = ob ? undefined : hitBy(o.x, o.y, 0.2);

@@ -19,7 +19,7 @@ const fondoOf = (bg: string) => FONDOS[`./assets/vampyrium/${bg}.webp`];
 import {
   playGameOver, playKfPickup, playThunder, playVampBell, playVampBones, playVampCombo, playVampCrate, playVampDeath, playVampDive,
   playVampFall, playVampHurt, playVampMenu, playVampSpikes, playVampStakeHit, playVampSwing, playVampTrapFire, playVampPendulum, playVampThrow, playDoor,
-  playWinFanfare, playVampButton, playVampMenuButton, setVampMenuMusic, playVampCrossbow, playVampGarlicBomb, playVampPistol, playVampDeep, playVampHammer, playVampStaff, playVampPunch, playVampDraculaBlast, setVampAmbient, setVampWings, preloadVampSounds, playVampStep, playVampVoice, playVampCross, playVampSword, playVampJumpSound, playVampBurn, playVampExplosion, setVampDragon,
+  playWinFanfare, playVampButton, playVampMenuButton, setVampMenuMusic, playVampCrossbow, playVampGarlicBomb, playVampPistol, playVampDeep, playVampHammer, playVampStaff, playVampPunch, playVampDraculaBlast, setVampAmbient, setVampWings, preloadVampSounds, playVampStep, playVampVoice, playVampCross, playVampSword, playVampJumpSound, playVampBurn, playVampExplosion, setVampDragon, playVampWolf, playVampAcid,
 } from './sounds';
 
 const RECORD_KEY = 'escritorio-personal-juegos:vampyium2-record';
@@ -61,7 +61,7 @@ const INFO: Record<Weapon, { text: string; stats: [string, string][] }> = {
   pistol: { text: 'Dispara una bala de fuego grande que cruza todo el escenario y revienta al primer vampiro que toca.', stats: [['Daño', `${WEAPON_DMG.pistol} a uno`], ['Alcance', 'Toda la pantalla'], ['Cantidad', '']] },
   ice: { text: 'Armadura de Hielo: tira un rayo helado que congela al vampiro y a los pocos segundos lo hace pedazos (si le pegás mientras está congelado, se rompe al instante).', stats: [['Daño', 'Congela y rompe'], ['Alcance', 'Toda la pantalla, al primero'], ['Cantidad', '']] },
   holy: { text: `Armadura Dorada: la cruz larga un rayo de luz hacia adelante que atraviesa y mata hasta ${HOLY_TARGETS} vampiros en fila.`, stats: [['Daño', `Mata a ${HOLY_TARGETS}`], ['Alcance', '16 m en línea recta'], ['Cantidad', '']] },
-  venom: { text: 'Armadura Verde: tira bolas verdes que caen en curva; el vampiro que toca se pone verde y se derrite en el piso.', stats: [['Daño', 'Lo derrite'], ['Alcance', 'Tiro en curva'], ['Cantidad', '']] },
+  venom: { text: 'Armadura Verde: tira bolas de ácido que cruzan todo el escenario; el vampiro que toca se pone verde y se derrite en el piso.', stats: [['Daño', 'Lo derrite'], ['Alcance', 'Toda la pantalla'], ['Cantidad', '']] },
   violet: { text: `Armadura Violeta: una espada poderosa que saca ${WEAPON_DMG.violet} de vida en cada tajo y hace explotar al vampiro en violeta.`, stats: [['Daño', `${WEAPON_DMG.violet} a cada uno`], ['Alcance', '3 m adelante'], ['Cantidad', '']] },
   guard: { text: `Armadura Protectora: un escudo que aguanta ${GUARD_HP} puntos de ataques de los vampiros (las trampas sí lastiman). Se suma al arma que tengas en la mano.`, stats: [['Escudo', `${GUARD_HP} de vida`], ['Arma', 'La que tenías'], ['Cantidad', '']] },
   bone: { text: `Armadura de Huesos: un martillo enorme que saca ${WEAPON_DMG.bone} de vida de un golpe. Dura 50 golpes.`, stats: [['Daño', `${WEAPON_DMG.bone} a cada uno`], ['Alcance', '2,9 m adelante'], ['Cantidad', '']] },
@@ -179,7 +179,7 @@ export function Vampyium2() {
           case 'guardHit': playVampStakeHit(); break;
           case 'freeze': playVampStakeHit(); break;
           case 'shatter': playVampExplosion(); playVampBones(); break;
-          case 'melt': playVampBurn(); break;
+          case 'melt': playVampAcid(); break;
           case 'nova': playVampExplosion(); break;
           case 'blast': playVampGarlicBomb(); if (e.count >= 3) setToast({ text: ` ¡La onda de ajo alcanzó a ${e.count} vampiros!`, id: now }); break;
           case 'crossReady': break;
@@ -200,7 +200,7 @@ export function Vampyium2() {
           case 'launch': playVampPunch(); break;
           case 'breath': break; // (el rugido y el fuego del dragón suenan en vuelta mientras tiene la boca abierta)
           case 'mist': playVampDeep(0.6, 0.6); break;
-          case 'howl': playVampDeep(0.55, 0.8); if (!seenRef.current.has(e.kind)) { seenRef.current.add(e.kind); setToast({ text: SPAWN_TEXT.wolf!, id: now, big: true, bad: true }); } break;
+          case 'howl': playVampWolf(); if (!seenRef.current.has(e.kind)) { seenRef.current.add(e.kind); setToast({ text: SPAWN_TEXT.wolf!, id: now, big: true, bad: true }); } break;
           case 'spawn': playVampDeep(0.75, 0.6); if (!seenRef.current.has(e.kind)) { seenRef.current.add(e.kind); setToast({ text: SPAWN_TEXT[e.kind] ?? VAMP_NAME[e.kind], id: now, big: true, bad: true }); } break;
           case 'transform': playThunder(1); playVampDeep(0.5, 1); setToast({ text: ' ¡Drácula se convierte en dragón!', id: now, big: true, bad: true }); break;
           case 'dragon': playVampExplosion(); playVampDeep(0.45, 1); break;
@@ -229,7 +229,7 @@ export function Vampyium2() {
           case 'bloodMoon': playThunder(1); setToast({ text: ' ¡LUNA DE SANGRE! Los vampiros se ponen más rápidos', id: now, big: true, bad: true }); break;
           case 'menu': playVampMenu(e.open); break;
           case 'choose': playVampButton(); setToast({ text: `${ICON[e.weapon]} ${WEAPON_NAME[e.weapon]}`, id: now, big: isArmor(e.weapon) }); break;
-          case 'hiss': playVampVoice(0.65); break;
+          case 'hiss': if (e.wolf) playVampWolf(0.75); else playVampVoice(0.65); break;
           case 'dive': playVampDive(); break;
           case 'burn': playVampBurn(); break;
           case 'emerge': playVampVoice(0.45); break;

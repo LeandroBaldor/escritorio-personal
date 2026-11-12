@@ -197,7 +197,7 @@ export function Games() {
       </li>
       <li>
         <Link className="game-card game-card--land" to="/juegos/land">
-          <span className="game-card-cover"><Cover src={landCover} /><b className="game-card-wip">🚧 En construcción</b></span>
+          <span className="game-card-cover"><Cover src={landCover} /></span>
           <span className="game-card-text">
             <strong>Land of Warriors</strong>
             <span>⚔️ Estrategia en tiempo real: elegí una de 10 civilizaciones, juntá cristales, levantá tu base y armá un ejército de soldados, máquinas y bestias.</span>
