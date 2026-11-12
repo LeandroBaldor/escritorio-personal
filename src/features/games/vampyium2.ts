@@ -935,12 +935,12 @@ export const DRAGON_HOVER = 0.9;
 // Geometría del dragón volando, en píxeles de su dibujo (el cuerpo mide 1945 × 809 y mira a la derecha; vampyium2Sprites
 // lo arma con estas medidas): el cuerpo, la cola (gira desde la cadera), la cabeza (gira desde el cuello; con la boca
 // cerrada o abierta) y las dos alas (cada una gira desde el hombro, y la membrana desde la muñeca).
-export const DRAGON = { w: 1945, h: 809, rootNear: [1305, 215] as [number, number], rootFar: [1350, 196] as [number, number],
+export const DRAGON = { w: 1945, h: 809, rootNear: [1305, 215] as [number, number], rootFar: [1420, 170] as [number, number],
   tail: [545, 330] as [number, number], head: [1615, 330] as [number, number], center: [1000, 380] as [number, number], mouth: [1880, 400] as [number, number],
   // cada pieza recortada: dónde queda su esquina en el dibujo (cuerpo, cola, cabeza, cabeza con la boca abierta, brazo del ala, membrana)
   offsets: [[64, 0], [0, 180], [1445, 0], [1445, 0], [944, 30], [10, 0]] as [number, number][],
   // el ala (en sus propios píxeles, ya a la escala del cuerpo): la raíz en el hombro y la muñeca
-  wing: { w: 1312, h: 656, root: [1290, 455] as [number, number], wrist: [1009, 152] as [number, number], far: .82 } };
+  wing: { w: 1312, h: 656, root: [1290, 455] as [number, number], wrist: [1009, 152] as [number, number], far: .9 } };
 export const DRAGON_DRAW = { scale: .002347, x: 0, y: -1.277 }; // píxeles → unidades del cuerpo, y dónde queda el centro
 const DRAGON_K = 0.88 * 2.25 * BODY.dragon.k; // (escala del dibujo en el mundo: CHAR_K × BODY.dragon.k — con el +23% de los vampiros: si no, el fuego salía del pecho)
 // Cuánto puede girar la cabeza (radianes; positivo = hacia abajo). Fuera de ese cono el dragón no tira: se acomoda.

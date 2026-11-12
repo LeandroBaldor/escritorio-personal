@@ -351,17 +351,33 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
     paintWeapon(add(hand, a + b, .035), a + b + pose.blade);
   }
   const torso = decor?.key === 'ice' ? 14 : decor?.key === 'bone' ? 15 : 1;
+  if (!(decor?.key === 'guard' || decor?.key === 'holy' || decor?.key === 'bone')) { // the bare neck, drawn under the gorget
+    ctx.save(); ctx.translate(neck[0] - .012, neck[1] + .02); ctx.rotate(pose.head * .2);
+    const top = -.03, bottom = .09, back = -.042, front = .03;
+    const skin = ctx.createLinearGradient(back, 0, front + .01, 0);
+    skin.addColorStop(0, '#4a2f24'); skin.addColorStop(.35, '#946450'); skin.addColorStop(.7, '#a2705a'); skin.addColorStop(1, '#5c3a2c');
+    ctx.fillStyle = skin; ctx.beginPath();
+    ctx.moveTo(back + .006, top); ctx.quadraticCurveTo(.0, top - .008, front, top + .004); // (the top hides under the jaw)
+    ctx.quadraticCurveTo(front - .006, (top + bottom) / 2, front + .008, bottom);
+    ctx.lineTo(back - .006, bottom); ctx.quadraticCurveTo(back - .004, (top + bottom) / 2, back + .006, top); ctx.closePath(); ctx.fill();
+    const jaw = ctx.createLinearGradient(0, top, 0, top + .05);
+    jaw.addColorStop(0, 'rgba(28,14,8,.7)'); jaw.addColorStop(1, 'rgba(28,14,8,0)'); ctx.fillStyle = jaw; ctx.fill();
+    ctx.restore();
+  }
   part(ctx, torso, [hip[0] + Math.sin(pose.lean) * .33, hip[1] - Math.cos(pose.lean) * .33], .58 - profile * .15, .72, pose.lean, decor ? undefined : ARMOR_TONE[g.weapon], profile * .28);
   if (!walking) part(ctx, 9, [shoulders[0][0], shoulders[0][1] + .025], .27, .25, -pose.arms[0][0] * .12);
   leg(0); // the near leg, over the far one and the torso
   part(ctx, 2, [hip[0], hip[1] + .10], .45 - profile * .1, .35, pose.lean * .4);
-  // Demian's face (photo cutout, bigger than the painted head). The neck stub tucks into the gorget.
+  // Demian's face (photo cutout, bigger than the painted head) on a short neck that rises out of the gorget; the head
+  // is tilted back a little so the chin is lifted off the armour.
+  const helmet = decor?.key === 'guard' ? 12 : decor?.key === 'holy' ? 11 : decor?.key === 'bone' ? 13 : -1;
   const headTilt = pose.head * .4;
   const head: Pt = [neck[0] + .04, neck[1] - .145];
-  ctx.save(); ctx.translate(neck[0] - .012, neck[1] + .062); ctx.rotate(headTilt); // (centred over the 45° chest, the neck down in the gorget)
+  const bare = helmet < 0, lift = bare ? .042 : 0;
+  ctx.save(); ctx.translate(neck[0] - .012, neck[1] + .062 - lift);
+  ctx.rotate(headTilt - (bare ? .15 : 0)); // (centred over the 45° chest; the chin up, off the gorget)
   if (!drawAsset(ctx, 'demian-face', 0, -DEMIAN_FACE.w * .34, -DEMIAN_FACE.h, DEMIAN_FACE.w, DEMIAN_FACE.h)) part(ctx, 0, [.025, -.2], .316, .368);
   ctx.restore();
-  const helmet = decor?.key === 'guard' ? 12 : decor?.key === 'holy' ? 11 : decor?.key === 'bone' ? 13 : -1;
   if (helmet >= 0) part(ctx, helmet, [head[0] + .005, head[1] - .015], .33, .375, headTilt);
   if (helmet === 12) { // the protective armour's hood: Demian's face inside the opening, in the hood's shadow
     ctx.save(); ctx.translate(head[0] + .005, head[1] - .015); ctx.rotate(headTilt);
@@ -737,8 +753,9 @@ function drawDragonFlight(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   if (v.state === 'mist') ctx.globalAlpha *= .3 + .15 * Math.sin(t * 7);
   ctx.translate(DRAGON_DRAW.x, DRAGON_DRAW.y); ctx.scale(DRAGON_DRAW.scale, DRAGON_DRAW.scale); ctx.rotate(pitch);
   ctx.translate(-DRAGON.center[0], -DRAGON.center[1] + bob);
-  // far wing, behind everything (a little smaller and darker: it is on the far side)
-  wing(DRAGON.rootFar, wingAngle(DRAGON_WING_DOWN.far) - .08, WG.far, true);
+  // far wing, behind everything: the same wing on the far shoulder (a bit smaller and darker), opened a little wider
+  // than the near one so it shows above the back instead of hiding behind it
+  wing(DRAGON.rootFar, wingAngle(DRAGON_WING_DOWN.far) + .32, WG.far, true);
   around(DRAGON.tail, Math.sin((p01 - .3) * Math.PI * 2) * .035 + Math.sin(t * 1.3 + v.id) * .025, () => piece(1));
   piece(0);
   around(DRAGON.head, headRot, () => {

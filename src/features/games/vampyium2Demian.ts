@@ -7,7 +7,12 @@ import { VAMP_VISUAL_SCALE } from './vampyium2Motion';
 export const DEMIAN_SCALE = 1.095;
 // One world unit of floor per this many units of Demian's drawing: the planted foot moves exactly with the floor.
 export const DEMIAN_STRIDE_K = .88 * VAMP_VISUAL_SCALE * DEMIAN_SCALE;
-export const demianWalk = (p: Pick<Player, 'walkT' | 'vx'>) => humanWalk(p.walkT * 7 / 2.4, Math.abs(p.vx), DEMIAN_STRIDE_K, true);
+// Demian walks like the vampires: always one foot on the floor (no running flight), with a step 25% longer so that at
+// his speed he takes long, planted steps instead of many little ones, and a soft rise and fall of the hips.
+export const DEMIAN_STRIDE = 1.25;
+export const demianWalk = (p: Pick<Player, 'walkT' | 'vx'>) => humanWalk(p.walkT * 7 / 2.4, Math.abs(p.vx), DEMIAN_STRIDE_K, false, DEMIAN_STRIDE, 1.15);
+// How far the torso leans towards where he walks (radians, ~7°), with the head lifting a little to look ahead.
+export const DEMIAN_WALK_LEAN = .12;
 const smooth = (x: number) => { const k = Math.max(0, Math.min(1, x)); return k * k * (3 - 2 * k); };
 const mix = (a: number, b: number, t: number) => a + (b - a) * t;
 export function demianSwordPose(p: Player): Pose {
@@ -22,7 +27,7 @@ export function demianSwordPose(p: Player): Pose {
   const freeArm = running && !active ? walkingArm(cycle, 0, .34, .32) : [-.06, .16];
   const frontA = mix(.70, 1.40, extension), frontB = mix(2.50, .18, Math.min(1, extension)) - Math.max(0, extension - 1) * 1.2; // (follow-through: the arm reaches, the elbow opens)
   const lowered = running && !active ? cycle.k : 0;
-  const carryArm = walkingArm(cycle, 1, .34, .32);
+  const carryArm = walkingArm({ ...cycle, arm: [cycle.arm[0], cycle.arm[1] * .55] }, 1, .34, .32); // (the sword swings less)
   const rightA = mix(frontA, carryArm[0], lowered), rightB = mix(frontB, carryArm[1], lowered);
   // Unwrap the angle through the overhead arc, avoiding a sweep through the torso.
   const swordAngle = mix(mix(-Math.PI / 2 - .06, -Math.PI * 1.5, Math.min(1, extension)), .75, lowered); // (the blade stays level in the follow-through)
@@ -31,7 +36,8 @@ export function demianSwordPose(p: Player): Pose {
   const feet: [Pt, Pt] = [[mix(-.15, -.48, extension), -.06], [mix(.17, .44, extension), -.06 - stepUp]]; // standing straight, then the lunge
   return {
     bob: running && !active ? cycle.bob : 0, // standing still: the hips do not move, so the knees stay put
-    lean: mix(.015 + (running ? cycle.sway * .012 : 0), .24, extension), crouch: 0, head: -.08 * extension,
+    lean: mix(.015 + (running && !active ? cycle.k * DEMIAN_WALK_LEAN + cycle.sway * .01 : 0), .24, extension), crouch: 0,
+    head: -.08 * extension - (running && !active ? cycle.k * DEMIAN_WALK_LEAN * .9 : 0),
     hipOffset: [extension * .13, mix(0, .12, extension)],
     feet: running || !p.onGround ? undefined : feet,
     weaponBehind: extension < .35 && !lowered,

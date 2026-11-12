@@ -74,7 +74,9 @@ describe('Demian reference poses', () => {
         angles[side].push(a);
       }
     }
-    for (const arm of angles) expect(Math.max(...arm) - Math.min(...arm)).toBeGreaterThan(.7);
+    // the free arm swings fully; the sword arm swings less (so the blade does not distract)
+    expect(Math.max(...angles[0]) - Math.min(...angles[0])).toBeGreaterThan(.7);
+    expect(Math.max(...angles[1]) - Math.min(...angles[1])).toBeGreaterThan(.35);
   });
   it('aligns both painted joint centers, including an oblique upper arm, without bending the texture', () => {
     const a: [number, number] = [.7, .12], b: [number, number] = [.3, .85];

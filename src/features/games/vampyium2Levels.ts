@@ -92,9 +92,11 @@ function withUpperFloors(n: number, surfaces: Surface[], traps: Trap[]): [Surfac
   });
   return [out, [...traps, ...extra]];
 }
-function level(n: number, name: string, tagline: string, bg: string, surfaces: Surface[], traps: Trap[], look: { pit: PitStyle; stone: [number, number, number]; cap: string; crop?: number; speed?: number }): LevelDef {
+function level(n: number, name: string, tagline: string, bg: string, surfaces: Surface[], traps: Trap[], look: { pit: PitStyle; stone: [number, number, number]; cap: string; crop?: number; speed?: number; noTraps?: boolean }): LevelDef {
   surfaces = withHighLedges(surfaces, traps);
   [surfaces, traps] = withUpperFloors(n, surfaces, traps);
+  // (El salón del trono de Drácula queda igual —los mismos pisos y plataformas— pero sin ninguna trampa.)
+  if (look.noTraps) traps = [];
   return { n, name, tagline, bg, crop: look.crop ?? 0.74, surfaces, gaps: gapsOf(surfaces), traps, pit: look.pit, stone: look.stone, cap: look.cap, speed: look.speed ?? 1 + (n - 1) * 0.04 };
 }
 
@@ -144,11 +146,11 @@ export const LEVELS: LevelDef[] = [
     [T('spikes', 'hands', 3.8, 5.4, GY, 3.4, 0), T('spikes', 'hands', 14.4, 16, GY, 3.4, 1.2), T('spikes', 'hands', 23.8, 25.2, GY, 3.4, 2.3),
       T('pendulum', 'scythe', 11.2, 11.2, TOP, 4, 0.4, 7.6, 0.85), T('crusher', 'tomb', 18.6, 18.6, GY, 5, 2, 0.75, 0, 11.8)],
     { pit: 'grave', stone: [50, 50, 54], cap: '#6e6a66', crop: 0.8 }),
-  level(10, 'El salón del trono', 'Drácula te espera en su trono. Su guardia es la peor: arañas de velas, hachas, sierras, fuego y una fuente de sangre.', 'fondo-nivel-10',
+  level(10, 'El salón del trono', 'Drácula te espera en su trono. Acá no hay trampas: solo él.', 'fondo-nivel-10',
     [G(0, 12.4), G(15.6, 28), P(1.6, 6, 6.6), P(7.4, 11.8, 9.9), P(10.8, 17.2, 6.6, { dx: 0, dy: 1.2, period: 4.8 }), P(16.2, 20.6, 9.9), P(21.4, 26.2, 6.6), P(11.8, 16.2, 13.2)],
     [T('crusher', 'chandelier', 4, 4, GY, 5.2, 0, 0.9, 0, 12.2), T('crusher', 'chandelier', 23.6, 23.6, GY, 5.2, 2.6, 0.9, 0, 12.2), T('pendulum', 'axe', 14, 14, TOP, 3.6, 0.8, 8.2, 0.8),
       T('saw', 'iron', 16.4, 21.4, GY, 3.8, 1), T('fire', 'blood', 14, 14, 0.6, 4.6, 2, 7.2), T('jet', 'gargoyle', 7.4, 7.4, 9.9, 4.4, 1.8, 4.4, 1)],
-    { pit: 'blood', stone: [52, 40, 44], cap: '#8a5050', crop: 1 }),
+    { pit: 'blood', stone: [52, 40, 44], cap: '#8a5050', crop: 1, noTraps: true }),
 ];
 export const LEVEL_COUNT = LEVELS.length;
 

@@ -1,7 +1,7 @@
 import { wear } from './vampyium2Materials';
 import { drawRealisticHunter, atlasReady, drawAsset } from './vampyium2Sprites';
 import { realisticHeldWeapon, fireLight } from './vampyium2Environment';
-import { demianSwordPose, demianWalk } from './vampyium2Demian';
+import { DEMIAN_WALK_LEAN, demianSwordPose, demianWalk } from './vampyium2Demian';
 // Los personajes de Vampyium2 dibujados como los luchadores de Kombat Football: el mismo esqueleto (cadera,
 // pecho inclinado, muslo y canilla, brazo y antebrazo), las mismas poses animadas (guardia que respira, carrera,
 // salto, golpe, aturdido) y el mismo sombreado con volumen; con brazos y piernas más gruesos. En metros, con los
@@ -122,8 +122,8 @@ function hunterPose(p: Player, t: number, held: Weapon): Pose {
       return [idle[0] + (ta - idle[0]) * k, idle[1] + (kb - idle[1]) * k] as [number, number];
     });
     const br = s(t * 3.2) * (1 - k);
-    return { bob: g.bob + br * 0.025, lean: 0.06 + k * (0.12 + g.sway * 0.02), crouch: 0.08 * (1 - k), head: 0.05,
-      legs, arms: armsFor([walkingArm(g, 0, .34, .32), walkingArm(g, 1, .34, .32)]), blade: bladeFor(1.45 - 0.45 * k) };
+    return { bob: g.bob + br * 0.025, lean: 0.06 + k * (DEMIAN_WALK_LEAN + g.sway * 0.015), crouch: 0.08 * (1 - k), head: 0.05 - k * DEMIAN_WALK_LEAN * .9,
+      legs, arms: armsFor([walkingArm(g, 0, .34, .32), walkingArm({ ...g, arm: [g.arm[0], g.arm[1] * .55] }, 1, .34, .32)]), blade: bladeFor(1.45 - 0.45 * k) };
   }
   const br = s(t * 3.2); // guardia: el puño con la espada adelante, la hoja para arriba (como la cruz de la referencia)
   return { bob: 0, lean: .10, crouch: .24, // (standing: hips still, the knees do not pump)

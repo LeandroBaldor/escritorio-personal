@@ -227,7 +227,7 @@ describe('Vampyium2', () => {
 });
 
 describe('Vampyium2: los 10 niveles', () => {
-  it('hay 10 niveles, cada uno con su fondo, suelo a los dos lados y trampas distintas', () => {
+  it('hay 10 niveles, cada uno con su fondo, suelo a los dos lados y trampas distintas (el de Drácula, sin trampas)', () => {
     expect(LEVEL_COUNT).toBe(10);
     const kinds = new Set<string>();
     for (const def of LEVELS) {
@@ -236,10 +236,11 @@ describe('Vampyium2: los 10 niveles', () => {
       expect(def.bg).toBe(`fondo-nivel-${def.n}`);
       expect(SURFACES.some(s => s.ground && s.x1 <= 0.01)).toBe(true);
       expect(SURFACES.some(s => s.ground && s.x2 >= 27.9)).toBe(true);
+      if (def.n === 10) { expect(TRAPS.length).toBe(0); continue; } // el salón del trono de Drácula: sin trampas
       expect(TRAPS.length).toBeGreaterThanOrEqual(3);
       kinds.add(TRAPS.map(t => `${t.kind}:${t.style ?? ''}`).sort().join(','));
     }
-    expect(kinds.size).toBe(10); // ningún nivel repite las mismas trampas
+    expect(kinds.size).toBe(9); // ningún nivel repite las mismas trampas
     newGame(1, 1);
   });
 

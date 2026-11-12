@@ -75,12 +75,12 @@ export function legAngles(hip: Pt, foot: Pt, l1: number, l2: number): [number, n
 }
 
 // One human contact sequence for hero and enemies; distance, not a timer, drives the feet.
-export function humanWalk(distance: number, speed: number, scale: number, allowRun = false) {
+export function humanWalk(distance: number, speed: number, scale: number, allowRun = false, stride = 1, bobK = 1) {
   // At game speed the hero was taking over seven tiny steps/second. Keep planted-foot
   // velocity, but introduce a flight phase at running speed instead of spinning the walk faster.
   const run = allowRun ? smooth((speed / scale - 1.7) / 1.8) : 0;
   const beta = .62 - run * .32, height = .125 + run * .07;
-  const cycle = gait(distance, speed, { S: .58, H: height, K: scale, beta, bob: .032 + run * .014 });
+  const cycle = gait(distance, speed, { S: .58 * stride, H: height, K: scale, beta, bob: (.032 + run * .014) * bobK });
   for (let i = 0; i < 2; i++) {
     const q = cycle.ph[i];
     if (q < beta) {
