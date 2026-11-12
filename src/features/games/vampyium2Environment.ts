@@ -122,30 +122,53 @@ export function drawRealisticTrap(ctx: CanvasRenderingContext2D, tr: Trap, st: T
 
 // The garlic bomb: a burst and then a big cloud of garlic gas — pale yellow-green puffs that billow out past the blast
 // radius, roll upwards and thin out slowly (only a look: the damage radius is GARLIC_R, as before).
+// The garlic bomb blowing up: a white flash, a ball of fire that boils up and burns out, flying embers and a
+// shock ring, and a thick gray smoke cloud that keeps growing, rolls upwards and darkens until it thins away.
 function drawGarlicGas(ctx: CanvasRenderingContext2D, fx: Fx, v: View) {
-  const k = Math.min(1, fx.t / fx.life), x = X(v, fx.x), y = Y(v, fx.y), R = fx.r * v.s;
-  const grow = 1 - (1 - Math.min(1, k * 2.6)) ** 3, fade = k < .55 ? 1 : 1 - (k - .55) / .45;
+  const k = Math.min(1, fx.t / fx.life), x = X(v, fx.x), y = Y(v, fx.y), R = fx.r * v.s, T = Math.PI * 2;
+  const puff = (px: number, py: number, pr: number, c: string, a0: number, a1: number) => {
+    const g = ctx.createRadialGradient(px, py, 0, px, py, pr); g.addColorStop(0, `rgba(${c},${a0})`); g.addColorStop(.55, `rgba(${c},${a1})`); g.addColorStop(1, `rgba(${c},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, pr, 0, T); ctx.fill();
+  };
   ctx.save();
-  if (k < .18) { // the flash of the burst
-    const f = 1 - k / .18, r = R * (.35 + .8 * (k / .18));
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(255,255,235,${.95 * f})`); g.addColorStop(.5, `rgba(235,255,180,${.6 * f})`); g.addColorStop(1, 'rgba(200,240,140,0)');
-    ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
-  }
-  for (let i = 0; i < 46; i++) { // the gas: overlapping soft puffs
+  // 1. the smoke, behind the fire: gray puffs that grow and rise, lit orange from below while the fire burns
+  const smokeIn = Math.min(1, k / .12), smokeOut = k < .6 ? 1 : 1 - (k - .6) / .4, fire = Math.max(0, 1 - k / .42);
+  for (let i = 0; i < 40; i++) {
     const h1 = hash(fx.seed * 31 + i), h2 = hash(fx.seed * 17 + i * 3.1), h3 = hash(fx.seed * 7 + i * 5.3);
-    const a = h1 * Math.PI * 2, dist = (.15 + .95 * Math.sqrt(h2)) * R * 1.35 * grow;
-    const px = x + Math.cos(a) * dist + Math.sin(fx.t * 1.3 + i) * R * .05;
-    const py = y + Math.sin(a) * dist * .62 - fx.t * R * (.12 + .25 * h3); // (it rolls upwards)
-    const pr = R * (.22 + .3 * h3) * (.55 + .7 * grow);
-    const tint = h1 < .5 ? [214, 232, 150] : h1 < .8 ? [236, 240, 205] : [176, 205, 120];
-    const g = ctx.createRadialGradient(px, py, 0, px, py, pr);
-    g.addColorStop(0, `rgba(${tint[0]},${tint[1]},${tint[2]},${.34 * fade})`); g.addColorStop(.6, `rgba(${tint[0]},${tint[1]},${tint[2]},${.16 * fade})`); g.addColorStop(1, `rgba(${tint[0]},${tint[1]},${tint[2]},0)`);
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill();
+    const a = h1 * T, spread = (.25 + .85 * Math.sqrt(h2)) * R * (.45 + .75 * Math.min(1, k * 2.2));
+    const rise = fx.t * R * (.35 + .45 * h3) + k * k * R * .5;
+    const px = x + Math.cos(a) * spread * 1.15 + Math.sin(fx.t * 1.1 + i) * R * .06, py = y + Math.sin(a) * spread * .55 - rise - R * .15;
+    const pr = R * (.26 + .26 * h3) * (.6 + 1.1 * Math.min(1, k * 1.6));
+    const gray = Math.round(58 + 62 * h1 - 25 * k), al = (.6 + .3 * h2) * smokeIn * smokeOut;
+    puff(px, py, pr, `${gray},${gray - 2},${gray - 4}`, al, al * .75);
+    puff(px - pr * .25, py - pr * .3, pr * .45, `${gray + 35},${gray + 33},${gray + 30}`, al * .45, al * .2); // (the lit top of each billow)
+    if (fire > 0 && h3 < .6) { ctx.globalCompositeOperation = 'lighter'; puff(px, py + pr * .3, pr * .8, '255,110,30', .22 * fire, .08 * fire); ctx.globalCompositeOperation = 'source-over'; }
   }
-  for (let i = 0; i < 12; i++) { // cloves flung out of the cloud
-    const a = i * .52 + fx.seed * 6, rr = R * 1.2 * Math.min(1, k * 2.2), q = Math.max(0, 1 - k * 1.8);
-    if (q <= 0) break;
-    ctx.fillStyle = `rgba(245,240,226,${q})`; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * rr, y + Math.sin(a) * rr * .8 + k * k * R * .5, v.s * .09, v.s * .055, a, 0, Math.PI * 2); ctx.fill();
+  // 2. the fireball: hot puffs that boil outwards and upwards, white-yellow in the core, orange and red outside
+  if (fire > 0) {
+    ctx.globalCompositeOperation = 'lighter';
+    const grow = 1 - (1 - Math.min(1, k / .2)) ** 3;
+    for (let i = 0; i < 34; i++) {
+      const h1 = hash(fx.seed * 13 + i * 1.7), h2 = hash(fx.seed * 29 + i * 2.3), h3 = hash(fx.seed * 3 + i * 4.1);
+      const a = h1 * T, d = Math.sqrt(h2) * R * .85 * grow;
+      const px = x + Math.cos(a) * d * 1.1, py = y + Math.sin(a) * d * .7 - fx.t * R * (.6 + .5 * h3) - R * .1;
+      const pr = R * (.2 + .25 * h3) * (.5 + .8 * grow) * (.6 + .4 * fire);
+      const hot = (1 - Math.min(1, d / (R * .85 + 1))) * (.4 + .6 * fire);
+      if (hot > .55) { ctx.globalCompositeOperation = 'lighter'; puff(px, py, pr * .8, '255,190,80', .5 * fire, .2 * fire); }
+      else { ctx.globalCompositeOperation = 'source-over'; puff(px, py, pr, hot > .3 ? '255,120,25' : '190,45,12', .85 * fire, .55 * fire); }
+    }
+    ctx.globalCompositeOperation = 'lighter'; puff(x, y - R * .15 - fx.t * R * .5, R * .55 * (.5 + .5 * Math.min(1, k / .1)), '255,215,120', .7 * fire * fire, .25 * fire * fire); // (the hot core)
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  // 3. the flash and the shock ring
+  if (k < .14) { ctx.globalCompositeOperation = 'lighter'; const f = 1 - k / .14; puff(x, y - R * .1, R * (.35 + .6 * (k / .14)), '255,240,200', .8 * f, .3 * f); ctx.globalCompositeOperation = 'source-over'; }
+  if (k < .3) { const q = k / .3; ctx.strokeStyle = `rgba(255,220,170,${.45 * (1 - q)})`; ctx.lineWidth = Math.max(1, R * .07 * (1 - q)); ctx.beginPath(); ctx.ellipse(x, y, R * (.3 + 1.6 * q), R * (.12 + .5 * q), 0, 0, T); ctx.stroke(); }
+  // 4. embers and burning bits of garlic flung out, falling, fading
+  for (let i = 0; i < 22; i++) {
+    const h1 = hash(fx.seed * 5 + i * 7.7), h2 = hash(fx.seed * 11 + i * 2.9), life = .35 + .35 * h2; if (k > life) continue;
+    const q = k / life, a = -Math.PI * (.08 + .84 * h1), sp = R * (1.4 + 1.4 * h2);
+    const px = x + Math.cos(a) * sp * q, py = y + Math.sin(a) * sp * q * .9 + q * q * R * 1.2;
+    ctx.globalCompositeOperation = 'lighter'; puff(px, py, v.s * (.12 + .08 * h2) * (1 - q * .5), i % 3 ? '255,170,60' : '255,240,200', .95 * (1 - q), .5 * (1 - q)); ctx.globalCompositeOperation = 'source-over';
   }
   ctx.restore(); return true;
 }

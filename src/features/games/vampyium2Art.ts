@@ -7,7 +7,7 @@ import { drawShotK, drawVampK } from './vampyium2Monsters';
 import { drawDragonDeathK, setVampTexture } from './vampyium2Vamps';
 import { newPlayer, type Weapon } from './vampyium2';
 import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, CAM_MAX, WORLD_H, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, hasDoor, ZAP_AT, DD_BLAST, DD_BURN, DD_END, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Orb, type Shard, MELT_T, PUDDLE_T, DUST_T, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyium2';
-import { drawBolt, drawGarlicBomb, drawIceCrystal, drawVenomBall, drawWeaponIcon } from './vampyium2Weapons';
+import { drawGarlicBomb, drawIceCrystal, drawVenomBall, drawWeaponIcon } from './vampyium2Weapons';
 import { artRevision, assetAspect, atlasReady, drawAsset } from './vampyium2Sprites';
 import { texturedStrip, realisticChain, drawRealisticTrap, fireLight, drawRealisticImpact, drawRealisticPits } from './vampyium2Environment';
 import { VAMP_VISUAL_SCALE } from './vampyium2Motion';
@@ -101,7 +101,6 @@ export function drawCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t:
   const B = BODY[c.kind], k = CHAR_K * v.s * B.k, f = Math.min(1, c.t / BURN_AT), burn = Math.max(0, Math.min(1, (c.t - BURN_AT) / (BLOW_AT - BURN_AT)));
   const fly = c.kind === 'flyer', dragon = c.kind === 'dragon';
   const fake: Vamp = { id: c.id, kind: c.kind, x: 0, y: 0, vx: 0, vy: 0, face: 1, state: c.kind === 'dragon' ? 'hover' : 'claw', t: 0.4, onGround: !fly && !dragon, surface: null, walkT: 0, cool: 0, speed: 0, jumpT: 0, dropT: 0, hit: false };
-  if (c.kind === 'wolf') { fake.state = 'walk'; fake.collapse = Math.min(1, c.t / 0.35); } // (the werewolf drops on all fours to the floor, never stands up)
   if (c.kind === 'dracula') { // se está convirtiendo en dragón: tiembla, se pone rojo, lo rodean murciélagos y crece
     const q = g ? 1 - Math.max(0, g.transformT) / 2.4 : 0;
     ctx.save(); ctx.translate(X(v, c.x) + Math.sin(t * 70) * v.s * 0.06 * q, Y(v, c.y)); ctx.scale(k * c.face * (1 + q * 0.6), k * (1 + q * 0.6));
@@ -144,17 +143,75 @@ function armorCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t: numbe
     ctx.save(); ctx.globalAlpha = 1 - q; tinted(ctx, x - w / 2, y - h, w, h + v.s * 0.4, 'rgb(255,236,170)', 0.85, body(1 + q * 0.15, 1 - q * 0.3)); ctx.restore();
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, y - v.s * B.h * 0.5, v.s * (1.2 + q), `rgba(255,230,140,${0.8 * (1 - q)})`); ctx.restore(); return;
   }
-  // verde: se pone verde, se aplasta y se ensancha hasta quedar en un charco que burbujea y se seca
+  // verde: se pone verde y se derrite hacia abajo — cada franja del cuerpo chorrea y se hunde a su ritmo (gotas largas),
+  // con burbujas de ácido que suben y revientan sobre el cuerpo, hasta quedar en un charco que burbujea, humea y se seca
   const q = Math.min(1, c.t / MELT_T), e = q * q, gone = c.t > MELT_T ? Math.min(1, (c.t - MELT_T) / (PUDDLE_T - MELT_T)) : 0;
-  if (q < 1) tinted(ctx, x - w, y - h, w * 2, h + v.s * 0.4, 'rgb(120,240,60)', Math.min(0.85, 0.3 + c.t * 2), body(1 - e * 0.92, 1 + e * 0.9));
-  const pw = v.s * (B.w * 0.4 + 1.3 * q), ph = v.s * 0.14 * q;
+  const bw = w * 1.4, bh = h + v.s * 0.4, bx = x - bw / 2, by = y - h, hb = v.s * B.h * CHARACTER_SCALE;
+  if (q < 1) {
+    if (!MELT) MELT = document.createElement('canvas');
+    const W2 = Math.ceil(bw), H2 = Math.ceil(bh);
+    if (W2 > 0 && H2 > 0 && W2 < 4000 && H2 < 4000) {
+      if (MELT.width < W2) MELT.width = W2; if (MELT.height < H2) MELT.height = H2;
+      const mc = MELT.getContext('2d');
+      if (mc) {
+        mc.setTransform(1, 0, 0, 1, 0, 0); mc.clearRect(0, 0, MELT.width, MELT.height); mc.translate(-bx, -by);
+        tinted(mc, bx, by, bw, bh, 'rgb(120,240,60)', Math.min(0.68, 0.25 + q * 0.6), body(1 - e * 0.2, 1 + e * 0.18));
+        mc.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.save(); ctx.beginPath(); ctx.rect(bx - 2, by - v.s, bw + 4, h + v.s * 1.04); ctx.clip(); // (lo que se hunde bajo el piso no se ve)
+        const N = 70, cw = W2 / N, s0 = c.id * 1.7, left = 1 - Math.min(1, ((q - 0.1) / 0.9) ** 2); // (how much of the body still stands)
+        for (let n = 0; n < N; n++) { // (each thin strip sinks at a smoothly varying pace: long drips, never blocks)
+          const u = n / N, wave = 0.5 + 0.28 * Math.sin(u * 9 + s0) + 0.16 * Math.sin(u * 23 + s0 * 2.3) + 0.06 * Math.sin(u * 51 + s0 * 3.1);
+          const lag = Math.max(0, Math.min(1, (q - (1 - wave) * 0.2) / 0.8)), ease = lag * lag;
+          const drop = hb * 1.05 * ease, stretch = 1 + ease * (0.08 + 0.3 * wave);
+          ctx.drawImage(MELT, n * cw, 0, cw + 0.6, H2, bx + n * cw, by + drop, cw + 0.6, H2 * stretch);
+        }
+        ctx.restore();
+        // gotas de ácido que chorrean por el cuerpo hasta el charco
+        for (let n = 0; n < 9; n++) {
+          const r = hash(c.id * 11 + n), ph = (c.t * (0.9 + r) + r) % 1, dx = (hash(c.id * 5 + n * 2.7) - 0.5) * w * 0.3, top = y - hb * left * (0.25 + 0.6 * hash(n + c.id)), len = v.s * (0.25 + 0.45 * r) * (0.4 + q);
+          const dy = top + (y - top) * ph, a = (1 - q * 0.6) * 0.9;
+          ctx.fillStyle = lin(ctx, 0, dy - len, 0, dy, [[0, 'rgba(120,230,50,0)'], [1, `rgba(150,255,70,${a})`]]); ctx.fillRect(x + dx - v.s * 0.025, dy - len, v.s * 0.05, len);
+          ctx.fillStyle = `rgba(170,255,90,${a})`; ctx.beginPath(); ctx.ellipse(x + dx, dy, v.s * 0.045, v.s * 0.065, 0, 0, TAU); ctx.fill();
+        }
+        // burbujas de ácido sobre el cuerpo: crecen, suben un poco y revientan (un anillo)
+        for (let n = 0; n < 14; n++) {
+          const r = hash(c.id * 13 + n * 3.3), life = 0.35 + 0.35 * r, bt = ((c.t + r * 2) % life) / life;
+          const bxp = x + (hash(c.id + n * 7.1) - 0.5) * w * 0.36, byp = y - hb * left * (0.08 + 0.85 * hash(c.id * 2 + n * 4.4)) - bt * v.s * 0.12;
+          const rr = v.s * (0.035 + 0.06 * r) * (bt < 0.85 ? 0.4 + bt * 0.7 : 1);
+          bubble(ctx, bxp, byp, rr, bt, 1 - q * 0.5);
+        }
+      }
+    }
+  }
+  const pw = v.s * (B.w * 0.4 + 1.0 * q), ph = v.s * 0.14 * q;
   ctx.save(); ctx.globalAlpha = 1 - gone;
   ctx.fillStyle = lin(ctx, 0, y - ph, 0, y + ph, [[0, '#c8ff70'], [0.5, '#5ad21e'], [1, '#1f6a0a']]); ctx.beginPath(); ctx.ellipse(x, y, pw, ph + 1, 0, 0, TAU); ctx.fill();
   ctx.strokeStyle = 'rgba(10,40,4,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
-  for (let i = 0; i < 4; i++) { const bt = (t * 1.3 + i * 0.27 + hash(c.id + i)) % 1, bx = x + (hash(c.id * 2 + i) - 0.5) * pw * 1.4; ctx.fillStyle = `rgba(220,255,160,${(1 - bt) * 0.9})`; ctx.beginPath(); ctx.arc(bx, y - ph * 0.3 - bt * v.s * 0.3, v.s * 0.05 * (0.5 + bt), 0, TAU); ctx.fill(); }
+  for (let i = 0; i < 9; i++) { // burbujas del charco
+    const r = hash(c.id * 2 + i), life = 0.5 + 0.5 * r, bt = ((t + r * 3) % life) / life, bxp = x + (hash(c.id * 5 + i) - 0.5) * pw * 1.5;
+    bubble(ctx, bxp, y - ph * 0.2, v.s * (0.04 + 0.07 * r) * (bt < 0.85 ? 0.4 + bt * 0.7 : 1), bt, 1);
+  }
+  for (let i = 0; i < 4; i++) { // humo del ácido
+    const st = (t * 0.5 + i * 0.25 + hash(c.id + i * 9)) % 1, sxp = x + (hash(c.id * 3 + i) - 0.5) * pw;
+    ctx.fillStyle = `rgba(170,230,120,${0.18 * (1 - st) * Math.min(1, q * 2)})`; ctx.beginPath(); ctx.arc(sxp + Math.sin(st * 6 + i) * v.s * 0.1, y - st * v.s * 1.3, v.s * (0.12 + 0.25 * st), 0, TAU); ctx.fill();
+  }
   ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, y, pw * 1.2, 'rgba(120,255,60,0.35)');
   ctx.restore();
 }
+// Una burbuja de ácido: verde translúcida con brillo; al final (bt > .85) revienta en un anillo y salpica.
+function bubble(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, bt: number, a: number) {
+  if (r < 0.6 || a <= 0) return;
+  if (bt < 0.85) {
+    ctx.fillStyle = `rgba(150,255,80,${0.45 * a})`; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = `rgba(30,90,10,${0.7 * a})`; ctx.lineWidth = Math.max(1, r * 0.18); ctx.stroke();
+    ctx.fillStyle = `rgba(245,255,220,${0.85 * a})`; ctx.beginPath(); ctx.arc(x - r * 0.35, y - r * 0.35, r * 0.28, 0, TAU); ctx.fill();
+  } else {
+    const p = (bt - 0.85) / 0.15;
+    ctx.strokeStyle = `rgba(200,255,140,${(1 - p) * 0.9 * a})`; ctx.lineWidth = Math.max(1, r * 0.15); ctx.beginPath(); ctx.arc(x, y, r * (1 + p * 0.8), 0, TAU); ctx.stroke();
+    ctx.fillStyle = `rgba(190,255,120,${(1 - p) * a})`; for (let k = 0; k < 4; k++) { const an = k * 1.57 + 0.6; ctx.beginPath(); ctx.arc(x + Math.cos(an) * r * (1 + p * 1.6), y + Math.sin(an) * r * (1 + p * 1.6) - p * r, r * 0.16, 0, TAU); ctx.fill(); }
+  }
+}
+let MELT: HTMLCanvasElement | null = null;
 export function drawBlood(ctx: CanvasRenderingContext2D, g: Game, v: View) {
   for (const d of g.drops) {
     const x = X(v, d.x), y = Y(v, d.y), r = Math.max(1.2, d.r * v.s);
@@ -832,15 +889,24 @@ function drawBreakable(ctx: CanvasRenderingContext2D, o: Breakable, v: View, t: 
   if (o.hp < o.maxHp) { const bw = s * 1.0, bh = Math.max(4, s * 0.12), bx = X(v, o.x) - bw / 2, by = Y(v, o.y + 2.4); ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4); ctx.fillStyle = '#e8c77a'; ctx.fillRect(bx, by, bw * o.hp / o.maxHp, bh); }
 }
 // La flecha de la ballesta (y clavada en el piso, que se desvanece).
+// The crossbow bolt: a big wooden stake (sharpened point with an iron tip, red fletching) with a motion streak.
 function drawBoltW(ctx: CanvasRenderingContext2D, s: Bolt, v: View) {
-  if (atlasReady('details')) {
-    ctx.save(); ctx.translate(X(v, s.x), Y(v, s.y)); ctx.rotate(Math.atan2(-s.vy, s.vx));
-    if (s.stuck) ctx.globalAlpha *= .55;
-    drawAsset(ctx, 'details', 10, -v.s * .4, -v.s * .045, v.s * .8, v.s * .09); ctx.restore(); return;
-  }
-  ctx.save(); ctx.globalAlpha = s.stuck ? Math.max(0, 1 - s.t / 1.2) : 1; ctx.translate(X(v, s.x), Y(v, s.y)); ctx.rotate(s.stuck ? 0.5 * Math.sign(s.vx) : Math.atan2(-s.vy, s.vx)); if (s.vx < 0 && s.stuck) ctx.scale(-1, 1); ctx.scale(v.s, v.s);
-  if (!s.stuck) { ctx.strokeStyle = 'rgba(255,90,70,0.35)'; ctx.lineWidth = 0.06; ctx.beginPath(); ctx.moveTo(-1.6, 0); ctx.lineTo(-0.6, 0); ctx.stroke(); }
-  drawBolt(ctx, 0.2, 0, 0.9);
+  ctx.save(); ctx.translate(X(v, s.x), Y(v, s.y)); ctx.rotate(Math.atan2(-s.vy, s.vx)); ctx.scale(v.s, v.s);
+  if (s.stuck) ctx.globalAlpha *= Math.max(0, 1 - s.t / 1.2);
+  else { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const st = ctx.createLinearGradient(-3.2, 0, -.6, 0); st.addColorStop(0, 'rgba(255,220,190,0)'); st.addColorStop(1, 'rgba(255,220,190,.32)'); ctx.fillStyle = st; ctx.beginPath(); ctx.moveTo(-3.2, -.03); ctx.lineTo(-.6, -.11); ctx.lineTo(-.6, .11); ctx.lineTo(-3.2, .03); ctx.fill(); ctx.restore(); }
+  const L = 2.2, T = .14, tail = -L * .55, tip = L * .45;
+  // fletching (three red vanes)
+  for (const sy of [-1, 1]) { ctx.fillStyle = sy < 0 ? '#9c1c18' : '#6e110f'; ctx.beginPath(); ctx.moveTo(tail + .05, sy * T * .6); ctx.lineTo(tail + .42, sy * T * .7); ctx.lineTo(tail + .18, sy * (T + .2)); ctx.lineTo(tail - .08, sy * (T + .22)); ctx.closePath(); ctx.fill(); }
+  // the shaft: carved wood, light on top, dark below
+  const wg = ctx.createLinearGradient(0, -T, 0, T); wg.addColorStop(0, '#d9b07a'); wg.addColorStop(.45, '#a8763f'); wg.addColorStop(1, '#4e3016');
+  ctx.fillStyle = wg; ctx.beginPath(); ctx.moveTo(tail, -T * .85); ctx.lineTo(tip - .42, -T); ctx.lineTo(tip - .42, T); ctx.lineTo(tail, T * .85); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(60,35,15,.55)'; ctx.lineWidth = .018; for (const k of [-.4, .15, .5]) { ctx.beginPath(); ctx.moveTo(tail + .1, k * T); ctx.lineTo(tip - .5, k * T * 1.05); ctx.stroke(); }
+  ctx.fillStyle = '#3a2a1c'; for (const bx of [tail + .5, tip - .55]) ctx.fillRect(bx, -T * 1.08, .07, T * 2.16); // bindings
+  // sharpened point and its iron tip
+  const pg = ctx.createLinearGradient(0, -T, 0, T); pg.addColorStop(0, '#e6c48f'); pg.addColorStop(1, '#6b4421');
+  ctx.fillStyle = pg; ctx.beginPath(); ctx.moveTo(tip - .42, -T); ctx.lineTo(tip - .08, -T * .3); ctx.lineTo(tip - .08, T * .3); ctx.lineTo(tip - .42, T); ctx.closePath(); ctx.fill();
+  const ig = ctx.createLinearGradient(0, -T * .4, 0, T * .4); ig.addColorStop(0, '#f2f2f4'); ig.addColorStop(.5, '#9a9ca4'); ig.addColorStop(1, '#3c3e46');
+  ctx.fillStyle = ig; ctx.beginPath(); ctx.moveTo(tip - .14, -T * .42); ctx.lineTo(tip + .12, 0); ctx.lineTo(tip - .14, T * .42); ctx.closePath(); ctx.fill();
   ctx.restore();
 }
 function drawBombW(ctx: CanvasRenderingContext2D, b: Bomb, v: View, t: number) {
@@ -853,12 +919,17 @@ function drawBombW(ctx: CanvasRenderingContext2D, b: Bomb, v: View, t: number) {
   drawGarlicBomb(ctx, v.s * 0.3, t);
   ctx.restore();
 }
+// The fire bullet of the pistol: a big fireball with a flickering flame tail, along where it flies.
 function drawBulletW(ctx: CanvasRenderingContext2D, b: Bullet, v: View) {
-  const x = X(v, b.x), y = Y(v, b.y), d = Math.sign(b.vx);
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  ctx.strokeStyle = lin(ctx, x - d * v.s * 2, y, x, y, [[0, 'rgba(255,80,20,0)'], [1, 'rgba(255,160,60,0.85)']]); ctx.lineWidth = v.s * 0.18; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x - d * v.s * 2, y); ctx.lineTo(x, y); ctx.stroke();
-  glow(ctx, x, y, v.s * 0.8, 'rgba(255,130,30,0.8)');
-  ctx.fillStyle = '#fff4c0'; ctx.beginPath(); ctx.arc(x, y, v.s * 0.13, 0, TAU); ctx.fill();
+  const x = X(v, b.x), y = Y(v, b.y), a = Math.atan2(-b.vy, b.vx), S = v.s;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.globalCompositeOperation = 'lighter';
+  const tr = ctx.createLinearGradient(-S * 3.6, 0, 0, 0); tr.addColorStop(0, 'rgba(255,60,10,0)'); tr.addColorStop(.6, 'rgba(255,110,25,.55)'); tr.addColorStop(1, 'rgba(255,190,80,.95)');
+  ctx.fillStyle = tr; ctx.beginPath(); ctx.moveTo(-S * 3.6, 0); ctx.quadraticCurveTo(-S * 1.4, -S * .42, 0, -S * .36); ctx.lineTo(0, S * .36); ctx.quadraticCurveTo(-S * 1.4, S * .42, -S * 3.6, 0); ctx.fill();
+  for (let k = 0; k < 7; k++) { const ph = b.t * 30 + k * 2.1, px = -S * (.3 + k * .38), py = Math.sin(ph) * S * .16, r = S * (.34 - k * .04); // flame tongues
+    ctx.fillStyle = `rgba(255,${120 + k * 12},${30 + k * 6},${.5 - k * .06})`; ctx.beginPath(); ctx.arc(px, py, Math.max(1, r), 0, TAU); ctx.fill(); }
+  glow(ctx, 0, 0, S * 1.6, 'rgba(255,120,30,0.75)');
+  glow(ctx, 0, 0, S * .7, 'rgba(255,210,120,0.9)');
+  ctx.fillStyle = '#fff6d0'; ctx.beginPath(); ctx.arc(0, 0, S * .26, 0, TAU); ctx.fill();
   ctx.restore();
 }
 // El rayo de hielo (un cristal que vuela con estela) y la bola verde (con su gota de estela).
@@ -1166,9 +1237,9 @@ export function drawGame(ctx: CanvasRenderingContext2D, g: Game, w: number, h: n
   if (g.boomer) { const bm = g.boomer; ctx.save(); ctx.translate(X(v, bm.x), Y(v, bm.y)); const k = CHAR_K * v.s; ctx.scale(k, k); ctx.rotate(-bm.t * 22 * Math.sign(bm.vx || 1)); // la espada que gira
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(255,220,220,0.45)'; ctx.lineWidth = 0.22; ctx.beginPath(); ctx.arc(0, 0, 0.85, 0, Math.PI * 1.4); ctx.stroke(); ctx.restore();
     sword(ctx, [0, 0.6], Math.PI); ctx.restore(); }
-  for (const s of g.bolts) drawBoltW(ctx, s, v);
+  for (const s of g.bolts) if (s.stuck || s.t >= (s.show ?? 0)) drawBoltW(ctx, s, v);
   for (const b of g.bombs) drawBombW(ctx, b, v, t);
-  for (const b of g.bullets) drawBulletW(ctx, b, v);
+  for (const b of g.bullets) if (b.t >= (b.show ?? 0)) drawBulletW(ctx, b, v);
   for (const o of g.orbs) drawOrbW(ctx, o, v, t);
   for (const b of g.shards) drawShardW(ctx, b, v);
   for (const f of g.fx) drawFxW(ctx, f, v, g, t);

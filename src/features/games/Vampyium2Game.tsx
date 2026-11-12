@@ -9,7 +9,7 @@ import { TouchGrips } from './TouchGrips';
 import { GamePad } from './GamePad';
 import { pixelRatio, useFitScreen } from './fitScreen';
 import { EndBanner } from './EndBanner';
-import { BOSS_HP, DRAGON_FIRE_T, CHAPTERS, goalProgress, DAMAGE, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, PISTOL_RANGE, BOLT_PIERCE, CROSS_TARGETS, GUARD_HP, HOLY_TARGETS, isArmor, WEAPON_NAME, chooseWeapon, closeMenu, newPlayer, newGame, formatVampTime, menuMove, noteTap, pressAttack, SPECIAL_KEYS, triggerSpecial, step, takeEvents, type Game, type Input, type Weapon } from './vampyium2';
+import { BOSS_HP, DRAGON_FIRE_T, CHAPTERS, goalProgress, DAMAGE, HOLD_MENU, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, VAMP_NAME, isBoss, rosterOf, type VampKind, MAX_AMMO, POWER_MAX, WEAPONS, WEAPON_DMG, WEAPON_LEVEL, GARLIC_R, BOLT_PIERCE, CROSS_TARGETS, GUARD_HP, HOLY_TARGETS, isArmor, WEAPON_NAME, chooseWeapon, closeMenu, newPlayer, newGame, formatVampTime, menuMove, menuMoveRow, noteTap, pressAttack, SPECIAL_KEYS, triggerSpecial, step, takeEvents, type Game, type Input, type Weapon } from './vampyium2';
 import { drawDefeatPortrait, drawGame, drawPortrait, drawStandingHunter, drawSwordIcon, setBackdrop } from './vampyium2Art';
 import { drawWeaponIcon } from './vampyium2Weapons';
 import { setNoGrain } from './gravityMonsters';
@@ -58,7 +58,7 @@ const INFO: Record<Weapon, { text: string; stats: [string, string][] }> = {
   garlic: { text: `Se tira, rebota y explota: la onda de ajo lastima a todos los que estén a ${GARLIC_R} metros (unos 7 vampiros en fila) y espanta a los demás.`, stats: [['Daño', `${WEAPON_DMG.garlic} a cada uno`], ['Alcance', `Onda de ${GARLIC_R} m a la redonda`], ['Cantidad', '']] },
   cross: { text: `Una tormenta de rayos sagrados cae sobre los ${CROSS_TARGETS} vampiros más cercanos. Con la cruz en la mano te ponés la armadura dorada. Se carga matando ${POWER_MAX} vampiros.`, stats: [['Daño', `${WEAPON_DMG.cross} a cada uno`], ['Alcance', `${CROSS_TARGETS} vampiros a la vista`], ['Cantidad', '']] },
   firesword: { text: 'Una espada enorme de lava. Cada tajo larga una ola de fuego 5 veces más grande que la de la espada común; también corta el fuego del dragón.', stats: [['Daño', `${WEAPON_DMG.firesword} a cada uno`], ['Alcance', '6,5 m adelante y 5,4 de alto'], ['Cantidad', '']] },
-  pistol: { text: `Dispara una bala de fuego que revienta al primer vampiro que toca, hasta ${PISTOL_RANGE} metros (unos 10 vampiros).`, stats: [['Daño', `${WEAPON_DMG.pistol} a uno`], ['Alcance', `${PISTOL_RANGE} m`], ['Cantidad', '']] },
+  pistol: { text: 'Dispara una bala de fuego grande que cruza todo el escenario y revienta al primer vampiro que toca.', stats: [['Daño', `${WEAPON_DMG.pistol} a uno`], ['Alcance', 'Toda la pantalla'], ['Cantidad', '']] },
   ice: { text: 'Armadura de Hielo: tira un rayo helado que congela al vampiro y a los pocos segundos lo hace pedazos (si le pegás mientras está congelado, se rompe al instante).', stats: [['Daño', 'Congela y rompe'], ['Alcance', 'Toda la pantalla, al primero'], ['Cantidad', '']] },
   holy: { text: `Armadura Dorada: la cruz larga un rayo de luz hacia adelante que atraviesa y mata hasta ${HOLY_TARGETS} vampiros en fila.`, stats: [['Daño', `Mata a ${HOLY_TARGETS}`], ['Alcance', '16 m en línea recta'], ['Cantidad', '']] },
   venom: { text: 'Armadura Verde: tira bolas verdes que caen en curva; el vampiro que toca se pone verde y se derrite en el piso.', stats: [['Daño', 'Lo derrite'], ['Alcance', 'Tiro en curva'], ['Cantidad', '']] },
@@ -283,7 +283,11 @@ export function Vampyium2() {
       if (s === 'intro' && (e.key === 'Enter' || e.key === ' ' || e.code === 'Space')) { e.preventDefault(); begin(); return; }
       if (s !== 'playing') return;
       if (g.phase === 'menu') {
-        if (e.key.startsWith('Arrow')) { e.preventDefault(); playVampButton(); menuMove(g, e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 1); return; }
+        if (e.key.startsWith('Arrow')) { // izquierda/derecha: de a una; arriba/abajo: de fila en la grilla
+          e.preventDefault(); playVampButton();
+          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') menuMoveRow(g, e.key === 'ArrowUp' ? -1 : 1); else menuMove(g, e.key === 'ArrowLeft' ? -1 : 1);
+          return;
+        }
       }
       if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault(); input.current.attack = true; if (e.repeat) return;

@@ -21,12 +21,14 @@ export function iceStatue(id: number, drawBody: DrawBody) {
   const body = document.createElement('canvas'); body.width = w; body.height = h;
   const b = body.getContext('2d', { willReadFrequently: true }); if (!b) { statues.set(id, null); return null; }
   b.setTransform(RES, 0, 0, RES, -BOX.x0 * RES, -BOX.y0 * RES); drawBody(b); b.setTransform(1, 0, 0, 1, 0, 0);
-  // 1) the ice crust: the silhouette grown a few pixels all round, filled with translucent sky-blue ice
-  const grow = Math.max(4, Math.round(RES * .05));
-  for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; c.drawImage(body, Math.cos(a) * grow, Math.sin(a) * grow); }
+  // 1) the ice: a thick, faceted shell grown well beyond the silhouette (angular, like a block of ice), filled
+  // with sky-blue ice — the vampire is INSIDE it
+  const grow = Math.max(6, Math.round(RES * .13));
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + .2, r = grow * (.75 + .5 * hash(id * 13 + k)); c.drawImage(body, Math.cos(a) * r, Math.sin(a) * r * .8); }
+  for (let k = 0; k < 8; k++) { const a = (k + .5) / 8 * Math.PI * 2 + .2; c.drawImage(body, Math.cos(a) * grow * .55, Math.sin(a) * grow * .5); }
   c.globalCompositeOperation = 'source-in';
   const crust = c.createLinearGradient(0, 0, w * .6, h);
-  crust.addColorStop(0, 'rgba(225,246,255,.62)'); crust.addColorStop(.5, 'rgba(150,212,245,.48)'); crust.addColorStop(1, 'rgba(110,185,235,.55)');
+  crust.addColorStop(0, 'rgba(225,246,255,.72)'); crust.addColorStop(.5, 'rgba(150,212,245,.6)'); crust.addColorStop(1, 'rgba(105,180,232,.68)');
   c.fillStyle = crust; c.fillRect(0, 0, w, h); c.globalCompositeOperation = 'source-over';
   // 2) the body inside, cooled towards sky blue and half transparent (you see it is frozen IN the ice)
   try {
@@ -34,15 +36,19 @@ export function iceStatue(id: number, drawBody: DrawBody) {
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4, a = d[i + 3]; if (!a) continue;
       const l = (.3 * d[i] + .59 * d[i + 1] + .11 * d[i + 2]) / 255, n = (hash(x * 3.1 + y * 7.7) - .5) * 18;
-      const ice = .42; // how much of the colour is ice
+      const ice = .5; // how much of the colour is ice
       d[i] = d[i] * (1 - ice) + (120 + 120 * l) * ice + n;
       d[i + 1] = d[i + 1] * (1 - ice) + (190 + 60 * l) * ice + n;
       d[i + 2] = d[i + 2] * (1 - ice) + (235 + 20 * l) * ice + n;
-      d[i + 3] = a * .78;
+      d[i + 3] = a * .62;
     }
     b.putImageData(data, 0, 0);
   } catch { /* (sin acceso a los píxeles: queda el dibujo) */ }
   c.drawImage(body, 0, 0);
+  // the ice in front of the body: a frosted veil, so the vampire is only faintly seen through it
+  c.globalCompositeOperation = 'source-atop';
+  const veil = c.createLinearGradient(0, 0, 0, h); veil.addColorStop(0, 'rgba(225,245,255,.42)'); veil.addColorStop(1, 'rgba(160,214,245,.34)');
+  c.fillStyle = veil; c.fillRect(0, 0, w, h);
   // 3) light on the ice: bright rims, cracks, a sheen and frost (only on the statue)
   c.globalCompositeOperation = 'source-atop'; c.lineCap = 'round';
   c.strokeStyle = 'rgba(235,250,255,.55)'; c.lineWidth = 2;

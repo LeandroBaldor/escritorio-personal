@@ -5,7 +5,7 @@ import { ATTACK, DRAGON_HEAD_SHARE } from './vampyium2';
 import { jointTransform, legAngles, walkingArm } from './vampyium2Gait';
 import { DEMIAN_SCALE, demianWalk } from './vampyium2Demian';
 import { inertia, inertiaPt } from './vampyium2Inertia';
-import { DRAGON, DRAGON_DRAW, DRAGON_WING_DOWN, DRAGON_WING_UP, dragonWing, ease01, vampireRigPose, VAMP_BOOT, VAMP_VISUAL_SCALE, WOLF_QUAD, wolfQuadPose } from './vampyium2Motion';
+import { DRAGON, DRAGON_DRAW, DRAGON_WING_DOWN, DRAGON_WING_UP, dragonWing, ease01, vampireRigPose, VAMP_BOOT, VAMP_VISUAL_SCALE } from './vampyium2Motion';
 
 type Frame = { x: number; y: number; w: number; h: number };
 type Atlas = { cols: number; rows: number; width: number; height: number; frames: Frame[] };
@@ -329,7 +329,7 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
         || p.attackT < 0 && (g.weapon === 'crossbow' || g.weapon === 'pistol')); // (carried on the shoulder: the fist round the stock)
       const weaponAngle = a + b + pose.blade;
       if (i === 1 && !pose.weaponBehind) paintWeapon(grip, weaponAngle);
-      else if (!i && g.guardHp > 0) drawAsset(ctx, 'weapons', 10, grip[0] - .2, grip[1] - .23, .4, .58);
+      else if (!i && g.guardHp > 0) drawAsset(ctx, 'weapons', 10, grip[0] - .3, grip[1] - .345, .6, .87); // (the shield of the protective armor, 50% bigger)
       // The handle passes behind all curled fingers; the wrist bends independently of the blade.
       const thrustGrip = bladeGrip && Math.abs(Math.cos(Math.PI / 2 - weaponAngle)) > .8 && p.attackT >= 0;
       const handId = !i && pose.relaxedHand ? 19 : bladeGrip && !thrustGrip ? 17 : 5;
@@ -466,7 +466,6 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
     paint(id, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], width,
       Math.hypot(b[0] - a[0], b[1] - a[1]) + extra, -Math.atan2(b[0] - a[0], b[1] - a[1]));
   };
-  if (wolf) { drawWolfQuadruped(ctx, v, t, paint, bone); return true; }
   ctx.save();
   if ((v.hurtT ?? 0) > 0) ctx.rotate(-.06);
   const cloakH = wolf ? .43 : 1.48;
@@ -602,68 +601,6 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
     ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(h[0], h[1], r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
   }
   ctx.restore(); return true;
-}
-// The werewolf on all fours (pose: vampyium2Motion → wolfQuadPose). Same painted pieces as before — torso, upper
-// arms and forearms with the claws (the front legs), thighs, shins and paws (the hind legs), head — only the pose
-// changes. Far legs are drawn behind the torso, near legs in front; the far side never swaps when it turns.
-type Painter = (id: number, center: Pt, w: number, h: number, angle?: number, cropLeft?: number) => void;
-type BonePainter = (id: number, a: Pt, b: Pt, width: number, extra?: number) => void;
-function drawWolfQuadruped(ctx: CanvasRenderingContext2D, v: Vamp, t: number, paint: Painter, bone: BonePainter) {
-  const Q = WOLF_QUAD, raw = wolfQuadPose(v, .88 * VAMP_VISUAL_SCALE, t);
-  const posV = 3 + 2.5 * Math.abs(v.vx) / 2.6;
-  const hip = inertiaPt(v, 'qhip', t, raw.hip, 1.5 + .4 * Math.abs(v.vx)), lean = inertia(v, 'qlean', t, [raw.lean], 5)[0];
-  const neck: Pt = [hip[0] + Math.sin(lean) * Q.spine, hip[1] - Math.cos(lean) * Q.spine];
-  const dShoulder: Pt = [neck[0] - raw.neck[0], neck[1] - raw.neck[1]]; // (the shoulders ride on the smoothed spine)
-  const ankles = inertia(v, 'qankles', t, raw.legs.flatMap(l => l.ankle), posV);
-  const paws = inertia(v, 'qpaws', t, raw.arms.flatMap(a => a.target), posV);
-  const footAngles = inertia(v, 'qfeet', t, raw.legs.map(l => l.footAngle), 14, true);
-  const [hx, hy, ha, bite] = inertia(v, 'qhead', t, [...raw.head, raw.headAngle, raw.bite], 4);
-  const armIK = (shoulder: Pt, target: Pt): [Pt, Pt] => { // elbow bends BACK (a front leg)
-    const dx = target[0] - shoulder[0], dy = target[1] - shoulder[1], L = Q.upper + Q.lower + Q.paw;
-    const d = Math.max(.05, Math.min(Math.hypot(dx, dy), L - 1e-3)), base = Math.atan2(dx, dy);
-    const u = Q.upper, w = Q.lower + Q.paw;
-    const al = Math.acos(Math.max(-1, Math.min(1, (u * u + d * d - w * w) / (2 * u * d))));
-    const elbow = add(shoulder, base - al, u);
-    const dir = Math.atan2(target[0] - elbow[0], target[1] - elbow[1]);
-    return [elbow, add(elbow, dir, Q.lower)];
-  };
-  const hind = (i: number) => {
-    const origin: Pt = [hip[0] + (i ? .04 : -.04), hip[1]], ankle0: Pt = [ankles[i * 2], ankles[i * 2 + 1]];
-    const [a] = legAngles(origin, ankle0, Q.thigh, Q.shin);
-    const knee = add(origin, a, Q.thigh);
-    const dx = ankle0[0] - knee[0], dy = ankle0[1] - knee[1], dd = Math.hypot(dx, dy) || 1;
-    const ankle: Pt = [knee[0] + dx / dd * Q.shin, knee[1] + dy / dd * Q.shin]; // (no stretching)
-    ctx.save();
-    bone(4, origin, knee, .205);
-    if (atlasReady('enemy-legs')) {
-      const id = enemyPartIndex.wolf, length = Math.hypot(ankle[0] - knee[0], ankle[1] - knee[1]);
-      ctx.save(); ctx.translate(...knee); ctx.rotate(-Math.atan2(ankle[0] - knee[0], ankle[1] - knee[1]));
-      drawAsset(ctx, 'enemy-legs', id, -.08, -.025, .16, length + .05); ctx.restore();
-      ctx.save(); ctx.translate(...ankle); ctx.rotate(footAngles[i]);
-      drawAsset(ctx, 'enemy-legs', id + 7, VAMP_BOOT.left, VAMP_BOOT.top, VAMP_BOOT.width, VAMP_BOOT.height); ctx.restore();
-    } else bone(5, knee, ankle, .235, .05);
-    jointArmor(ctx, knee, origin, ankle, .19, 'iron', [1, 0]);
-    ctx.restore();
-  };
-  const fore = (i: number) => {
-    const s0 = raw.arms[i].shoulder, shoulder: Pt = [s0[0] + dShoulder[0], s0[1] + dShoulder[1]];
-    const [elbow, hand] = armIK(shoulder, [paws[i * 2], paws[i * 2 + 1]]);
-    const a = Math.atan2(elbow[0] - shoulder[0], elbow[1] - shoulder[1]), ab = Math.atan2(hand[0] - elbow[0], hand[1] - elbow[1]);
-    bone(2, shoulder, elbow, .19);
-    bone(3, elbow, add(hand, ab, Q.paw), .17, .035);
-    jointArmor(ctx, elbow, shoulder, hand, .16, 'iron', [-1, 0]);
-    return a;
-  };
-  ctx.save();
-  if ((v.hurtT ?? 0) > 0) ctx.rotate(-.04);
-  { const prev = shading; shading = true; hind(0); fore(0); shading = prev; } // the far side, behind the body (darker)
-  paint(1, [hip[0] + Math.sin(lean) * .30, hip[1] - Math.cos(lean) * .30], .59 + raw.breath, .73, lean);
-  hind(1); fore(1);
-  // the head looks ahead; for the bite it swaps (blended) to the open-jawed head
-  const baseA = bite < .5 ? 1 : 1 - (bite - .5) * 2, openA = Math.min(1, bite * 2); // (no see-through double head)
-  if (baseA > .02) { ctx.save(); ctx.globalAlpha *= baseA; if (!drawEnemyHead(ctx, 'wolf', [hx, hy], ha)) paint(0, [hx + .045, hy - .14], .39, .34, ha); ctx.restore(); }
-  if (openA > .02) { ctx.save(); ctx.globalAlpha *= openA; ctx.translate(hx, hy); ctx.rotate(ha); paint(0, [.07, -.15], .42, .37); ctx.restore(); }
-  ctx.restore();
 }
 // The somersault (360° in the air): the boots leave a bright arc behind them, along the circle they travel.
 function spinLegTrail(ctx: CanvasRenderingContext2D, turn: number) {

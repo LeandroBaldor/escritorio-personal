@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AMMO_PICKUP, GUARD_HP, FREEZE_T, HOLY_TARGETS, DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, PISTOL_RANGE, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, step, takeEvents, trapState, type Game, type Input, type Vamp, CHAPTERS, hitObject, noteTap, triggerSpecial, SPECIAL_KEYS, DASH_PIERCE, MAGE_HAND, BODY, dragonMouth, W } from './vampyium2';
+import { AMMO_PICKUP, GUARD_HP, FREEZE_T, HOLY_TARGETS, DAMAGE, DOOR, FALL_DMG, GAPS, GOAL, GROUND_Y, LEVELS, LEVEL_COUNT, MAX_HP, STRENGTH, SURFACES, VAMP_KINDS, hitVamp, makeVamp, rosterOf, type VampKind, POWER_MAX, START_AMMO, WEAPON_DMG, WEAPON_LEVEL, WEAPONS, GARLIC_R, MAX_AMMO, TRAPS, castHoly, chooseWeapon, type Weapon, newGame, pressAttack, menuMove, menuMoveRow, step, takeEvents, trapState, type Game, type Input, type Vamp, CHAPTERS, hitObject, noteTap, triggerSpecial, SPECIAL_KEYS, DASH_PIERCE, MAGE_HAND, BODY, dragonMouth, W } from './vampyium2';
 
 const idle = (): Input => ({ left: false, right: false, up: false, down: false });
 const run = (g: Game, seconds: number, input: Input = idle()) => { for (let t = 0; t < seconds; t += 1 / 60) step(g, input, 1 / 60); };
@@ -515,15 +515,15 @@ describe('Vampyium2: las armas', () => {
     newGame(1, 1);
   });
 
-  it('la pistola de fuego: le pega al primero que toca, hasta 10 metros', () => {
+  it('la pistola de fuego: le pega al primero que toca, en todo el escenario', () => {
     const g = quiet10(); g.player.x = 3; g.player.face = 1;
     const a = put(g, 'giant', 12), b = put(g, 'giant', 13.5);
     use(g, 'pistol', 1);
     expect(g.vamps).not.toContain(a); expect(g.vamps).toContain(b);
     const g2 = quiet10(); g2.player.x = 3; g2.player.face = 1;
-    const c = put(g2, 'giant', 3 + PISTOL_RANGE + 2);
-    use(g2, 'pistol', 1);
-    expect(c.hp).toBe(12); // más lejos de 10 metros no llega
+    const c = put(g2, 'giant', 21);
+    use(g2, 'pistol', 2);
+    expect(g2.vamps).not.toContain(c); // cruza todo el escenario
     newGame(1, 1);
   });
 
@@ -566,6 +566,17 @@ describe('Vampyium2: las armas aparecen nivel a nivel', () => {
     expect(g.crates.every(c => c.kind === 'heart' || c.kind === 'garlic')).toBe(true);
     const g3 = newGame(3, 3); g3.phase = 'menu'; g3.menu.sel = 2; menuMove(g3, 1);
     expect(g3.menu.sel).toBe(0); // del ajo vuelve a la espada (la cruz todavía no)
+    newGame(1, 1);
+  });
+
+  it('en el cartel de armas ↑ y ↓ cambian de fila (6 por fila) y no se traban', () => {
+    const g = newGame(3, LEVEL_COUNT); g.phase = 'menu'; g.menu.sel = 1;
+    menuMoveRow(g, 1); expect(g.menu.sel).toBe(7);
+    menuMoveRow(g, 1); expect(g.menu.sel).toBe(7); // (no hay más filas)
+    menuMoveRow(g, -1); expect(g.menu.sel).toBe(1);
+    menuMoveRow(g, -1); expect(g.menu.sel).toBe(1);
+    const g1 = newGame(3, 1); g1.phase = 'menu'; g1.menu.sel = 0; menuMoveRow(g1, 1);
+    expect(g1.menu.sel).toBe(0); // (bloqueadas: se queda)
     newGame(1, 1);
   });
 });
