@@ -56,15 +56,17 @@ export function vampireRigPose(v: Vamp, modelScale: number, time: number) {
   // (the front foot going in and coming back; the rear foot also steps back under the hips at the end).
   const arc = Math.sin(Math.PI * engaged);
   const stepLift = [action.recovery > 0 ? arc * .05 : 0, arc * .08];
+  // Leg 0 is the FAR leg (on the far side of the three-quarter body, like arm 0) and leg 1 the NEAR one: each leg
+  // pairs with the arm of its own side, so the arms swing against their own legs (right arm with left leg).
   const legs = [0, 1].map(i => {
-    const origin: Pt = [hip[0] + (i ? .055 : -.055), hip[1]];
+    const origin: Pt = [hip[0] + (i ? -.055 : .055), hip[1]];
     const footAngle = motion.airborne ? (i ? -.12 : .20) : g.fa[i];
     const soleBottom = Math.max(VAMP_BOOT.left * Math.sin(footAngle), VAMP_BOOT.right * Math.sin(footAngle))
       + VAMP_BOOT.bottom * Math.cos(footAngle);
     const groundPivot = footAngle >= 0 ? VAMP_BOOT.right : VAMP_BOOT.left;
     const rollOffset = groundPivot - (groundPivot * Math.cos(footAngle) - VAMP_BOOT.bottom * Math.sin(footAngle));
     // Standing: legs straight under the hips. Attacking: the stance opens smoothly (no pop), front foot forward.
-    const walkX = (i ? .055 : -.055) + (i ? .085 : -.085) * (1 - g.k) + g.dx[i];
+    const walkX = (i ? -.055 : .055) + (i ? -.085 : .085) * (1 - g.k) + g.dx[i];
     const total = windup + extension, attackX = i ? (windup * .16 + extension * st.front) / Math.max(.001, total) : -st.rear;
     const x = walkX + (attackX - walkX) * engaged + rollOffset;
     const ankle: Pt = motion.airborne

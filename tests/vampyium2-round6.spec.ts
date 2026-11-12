@@ -86,10 +86,11 @@ test('ciclo completo: brazos enteros detras y delante del torso, ocho personajes
     for (let i = 0; i < 8; i++) { draw(i / 8, 7); fc.drawImage(canvas, 0, 80, 225, 430, i * 225, 0, 225, 430); }
     return { contact, opposite, traces, heroTraces, frames, fast: fast.toDataURL('image/png').split(',')[1] };
   }, info.project.name === 'desktop');
-  // Upper arm + forearm behind chest, then the OTHER whole arm in front, for every enemy/direction.
-  for (const trace of result.traces) expect(trace).toEqual([2, 3, 1, 2, 3]);
+  // The far arm is drawn behind the chest from a darker cached copy (the far side of the body), so the atlas
+  // only sees the chest and then the near whole arm in front, for every enemy/direction.
+  for (const trace of result.traces) expect(trace).toEqual([1, 2, 3]);
   expect(result.traces.length).toBeGreaterThanOrEqual(28);
-  for (const trace of result.heroTraces) expect(trace).toEqual([3, 4, 1, 3, 4]);
+  for (const trace of result.heroTraces) expect(trace).toEqual([1, 3, 4]);
   expect(result.heroTraces.length).toBeGreaterThanOrEqual(4);
   if (info.project.name === 'desktop') {
     fs.writeFileSync('docs/vampyium2-round6-contact.png', Buffer.from(result.contact, 'base64'));

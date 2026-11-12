@@ -42,6 +42,7 @@ export function realisticArtStatus() {
 }
 export function drawAsset(ctx: CanvasRenderingContext2D, name: string, index: number, x: number, y: number, w: number, h: number, tint?: string, cropLeft = 0) {
   if (!atlasReady(name) || !META[name]?.frames[index] || w <= 0 || h <= 0) return false;
+  if (shading && !tint) tint = '#000'; // (the far side of the body: the cached copy 24% darker)
   const f = META[name].frames[index];
   let source: HTMLImageElement | HTMLCanvasElement = images[name];
   if (tint) {
@@ -125,7 +126,7 @@ export function jointArmor(ctx: CanvasRenderingContext2D, joint: Pt, upper: Pt, 
   const side = Math.sign(out[0] * Math.cos(angle) + out[1] * Math.sin(angle)) || 1;
   const f = META.hunter.frames[index], w = size * f.w / f.h, h = size;
   ctx.save(); ctx.translate(joint[0] + out[0] * size * .2, joint[1] + out[1] * size * .2); ctx.rotate(angle); ctx.scale(-side, 1);
-  if (metal === 'iron') { const v = ironVariant(index); if (v) ctx.drawImage(v, -w * .5, -h * .38, w, h); }
+  if (metal === 'iron') { const v = ironVariant(index); if (v) ctx.drawImage(shading ? shadedCopy(v) : v, -w * .5, -h * .38, w, h); }
   else hunterPiece(ctx, index, -w * .5, -h * .38, w, h);
   ctx.restore();
 }
@@ -172,7 +173,7 @@ let wornSuit: string | null = null; // the armour of the hunter being drawn righ
 function hunterPiece(ctx: CanvasRenderingContext2D, id: number, x: number, y: number, w: number, h: number, tint?: string, cropLeft = 0) {
   const v = wornSuit && !KEEP_COLOURS.has(id) ? suitVariant(wornSuit, id) : null;
   if (!v) return drawAsset(ctx, 'hunter', id, x, y, w, h, tint, cropLeft);
-  ctx.drawImage(v, v.width * cropLeft, 0, v.width * (1 - cropLeft), v.height, x, y, w, h); return true;
+  ctx.drawImage(shading ? shadedCopy(v) : v, v.width * cropLeft, 0, v.width * (1 - cropLeft), v.height, x, y, w, h); return true;
 }
 
 const add = (a: Pt, angle: number, l: number): Pt => [a[0] + Math.sin(angle) * l, a[1] + Math.cos(angle) * l];
@@ -193,6 +194,22 @@ function limb(ctx: CanvasRenderingContext2D, id: number, start: Pt, end: Pt, wid
   ctx.restore();
 }
 type WeaponPainter = (hand: Pt, angle: number) => void;
+// The limbs on the far side of the body (behind the torso, away from the camera) are drawn a little darker, so the
+// near arm and leg read clearer and better defined. Cheap: each painted piece gets a cached darker copy (no filters).
+let shading = false;
+const SHADE = .24; // how much darker the far side is
+const shadedCopies = new WeakMap<CanvasImageSource, HTMLCanvasElement>();
+function shadedCopy(src: HTMLCanvasElement) {
+  let c = shadedCopies.get(src);
+  if (!c) {
+    c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const x = c.getContext('2d')!; x.drawImage(src, 0, 0);
+    x.globalCompositeOperation = 'source-atop'; x.globalAlpha = SHADE; x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
+    shadedCopies.set(src, c);
+  }
+  return c;
+}
+
 // The photo head (crown to neck stub), a little larger than the old painted head but in proportion with the body.
 export const DEMIAN_FACE = { h: .35, w: .35 * 380 / 535 };
 export { DEMIAN_SCALE };
@@ -285,19 +302,19 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
   // The upper gathering is at 45% of this cutout, attached at the collar/upper back.
   hunterPiece(ctx, 10, -(.62 + wind) * .45, -.035, .62 + wind, 1.45); ctx.restore();
   const leg = (i: number) => {
-    ctx.save(); if (!i) ctx.globalAlpha *= .83;
+    const prevShade = shading; shading = i === 1; ctx.save(); // (leg 1 is the far one; leg 0, the near one, is drawn on top)
     limb(ctx, 6, [hip[0] + (i ? hipSpread : -hipSpread), hip[1]], knees[i], .215);
     limb(ctx, 7, knees[i], feet[i], .18);
     const bootAngle = bootAngles[i];
     ctx.save(); ctx.translate(...feet[i]); ctx.rotate(bootAngle);
     hunterPiece(ctx, 8, -.07, -.105, .24, .185); ctx.restore();
     jointArmor(ctx, knees[i], [hip[0] + (i ? hipSpread : -hipSpread), hip[1]], feet[i], .2, 'gilt', [1, 0]);
-    ctx.restore();
+    ctx.restore(); shading = prevShade;
   };
   const arm = (i: number, layer: 'upper' | 'forearm' | 'all') => {
     const [a, b] = pose.arms[i], elbow = add(shoulders[i], a, .31), hand = add(elbow, a + b, .30);
     const grip = add(hand, a + b, .035);
-    ctx.save(); if (walking ? i === 1 : !i) ctx.globalAlpha *= .88;
+    const prevShade = shading; shading = depth.back.includes(i); ctx.save();
     if (layer !== 'forearm') {
       limb(ctx, 3, shoulders[i], elbow, .205);
       // Separate anatomical left/right plates: dome above, overlapping lames towards the elbow.
@@ -313,12 +330,13 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
       // The handle passes behind all curled fingers; the wrist bends independently of the blade.
       const thrustGrip = bladeGrip && Math.abs(Math.cos(Math.PI / 2 - weaponAngle)) > .8 && p.attackT >= 0;
       const handId = !i && pose.relaxedHand ? 19 : bladeGrip && !thrustGrip ? 17 : 5;
-      part(ctx, handId, grip, bladeGrip ? .155 : .135, bladeGrip ? .17 : .15,
+      if (handId === 19) part(ctx, 19, add(hand, a + b, .085), .155, .2, -(a + b)); // the relaxed open hand, cuff on the wrist
+      else part(ctx, handId, grip, bladeGrip ? .155 : .135, bladeGrip ? .17 : .15,
         bladeGrip && !thrustGrip ? Math.PI - weaponAngle : -(a + b));
     }
-    ctx.restore();
+    ctx.restore(); shading = prevShade;
   };
-  leg(0);
+  leg(1); // the far leg, behind the body
   // Standing (and aiming), the free arm hangs IN FRONT of the body: the torso is turned three quarters, so the left
   // shoulder is the near one. Only the sword thrust swings it back behind the body. Walking (still at 45°), the arms
   // pass in front or behind with the step.
@@ -334,7 +352,7 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
   const torso = decor?.key === 'ice' ? 14 : decor?.key === 'bone' ? 15 : 1;
   part(ctx, torso, [hip[0] + Math.sin(pose.lean) * .33, hip[1] - Math.cos(pose.lean) * .33], .58 - profile * .15, .72, pose.lean, decor ? undefined : ARMOR_TONE[g.weapon], profile * .28);
   if (!walking) part(ctx, 9, [shoulders[0][0], shoulders[0][1] + .025], .27, .25, -pose.arms[0][0] * .12);
-  leg(1);
+  leg(0); // the near leg, over the far one and the torso
   part(ctx, 2, [hip[0], hip[1] + .10], .45 - profile * .1, .35, pose.lean * .4);
   // Demian's face (photo cutout, bigger than the painted head). The neck stub tucks into the gorget.
   const headTilt = pose.head * .4;
@@ -397,7 +415,7 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
     const r = inertia(v, 'ankles', t, raw.legs.flatMap(l => l.ankle), posV);
     const fa = inertia(v, 'footAngles', t, raw.legs.map(l => l.footAngle), 14, true);
     return raw.legs.map((l, i) => { // the knee follows the ankle (inverse kinematics: always forward, real bone lengths)
-      const origin: Pt = [hip[0] + (i ? .055 : -.055), hip[1]], ankle: Pt = [r[i * 2], r[i * 2 + 1]];
+      const origin: Pt = [hip[0] + (i ? -.055 : .055), hip[1]], ankle: Pt = [r[i * 2], r[i * 2 + 1]];
       const [a] = legAngles(origin, ankle, .46, .44);
       return { ...l, origin, knee: [origin[0] + Math.sin(a) * .46, origin[1] + Math.cos(a) * .46] as Pt, ankle, footAngle: fa[i] };
     });
@@ -432,7 +450,7 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
     const { origin, knee, footAngle } = legs[i];
     let { ankle } = legs[i];
     { const dx = ankle[0] - knee[0], dy = ankle[1] - knee[1], d = Math.hypot(dx, dy) || 1; ankle = [knee[0] + dx / d * .44, knee[1] + dy / d * .44]; } // (no stretching)
-    ctx.save(); if (!i) ctx.globalAlpha *= .96;
+    const prevShade = shading; shading = i === 0; ctx.save(); // (leg 0 is the far one, behind; leg 1 the near one, on top)
     bone(4, origin, knee, heavy ? .25 : .205);
     if (atlasReady('enemy-legs')) {
       const id = enemyPartIndex[v.kind], length = Math.hypot(ankle[0] - knee[0], ankle[1] - knee[1]);
@@ -443,7 +461,7 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
       drawAsset(ctx, 'enemy-legs', id + 7, VAMP_BOOT.left, VAMP_BOOT.top, VAMP_BOOT.width, VAMP_BOOT.height); ctx.restore();
     } else bone(5, knee, ankle, heavy ? .27 : .235, .05);
     jointArmor(ctx, knee, origin, ankle, heavy ? .22 : .19, 'iron', [1, 0]);
-    ctx.restore();
+    ctx.restore(); shading = prevShade;
   };
   // The painted torsos are turned three quarters towards the hunter: the open armhole on the viewer's LEFT is the
   // shoulder near the camera; the other shoulder is on the far side, behind the chest. Index 1 is the NEAR arm (always
@@ -526,17 +544,17 @@ function drawArticulatedEnemy(ctx: CanvasRenderingContext2D, v: Vamp, t: number)
     const v2 = ironVariant(16); if (!v2) return;
     const h = heavy ? .34 : wolf ? .27 : .27, w = h * v2.width / v2.height;
     ctx.save(); ctx.translate(shoulder[0], shoulder[1] - h * .08); ctx.rotate(-a * .35); if (mirror) ctx.scale(-1, 1);
-    ctx.drawImage(v2, -w * .42, -h * .32, w, h); ctx.restore();
+    ctx.drawImage(shading ? shadedCopy(v2) : v2, -w * .42, -h * .32, w, h); ctx.restore();
   };
   const arm = (i: number) => {
     const pose = poseOf(i), { shoulder, elbow, hand, a, b, carry } = pose;
-    ctx.save(); if (far(i)) ctx.globalAlpha *= .9;
+    const prevShade = shading; shading = far(i); ctx.save();
     bone(2, shoulder, elbow, heavy ? .25 : .19);
     pauldron(shoulder, a, i === FAR);
     if (carry) weapon(pose); // behind the forearm: the fingers close over the handle
     bone(3, elbow, add(hand, a + b, .065), heavy ? .23 : .17, .035);
     jointArmor(ctx, elbow, shoulder, hand, heavy ? .19 : .16, 'iron', [-1, 0]);
-    ctx.restore();
+    ctx.restore(); shading = prevShade;
   };
   // Depth never flips: the far arm (and what it holds) behind the torso, the near arm in front — standing, walking,
   // attacking, facing either way. (With the hammer the near arm crosses in front of the chest to the handle.)
@@ -611,7 +629,7 @@ function drawWolfQuadruped(ctx: CanvasRenderingContext2D, v: Vamp, t: number, pa
   };
   ctx.save();
   if ((v.hurtT ?? 0) > 0) ctx.rotate(-.04);
-  ctx.save(); ctx.globalAlpha *= .92; hind(0); fore(0); ctx.restore(); // the far side, behind the body
+  { const prev = shading; shading = true; hind(0); fore(0); shading = prev; } // the far side, behind the body (darker)
   paint(1, [hip[0] + Math.sin(lean) * .30, hip[1] - Math.cos(lean) * .30], .59 + raw.breath, .73, lean);
   hind(1); fore(1);
   // the head looks ahead; for the bite it swaps (blended) to the open-jawed head
@@ -733,10 +751,15 @@ function drawDragonFlight(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
 }
 // ---- Vampiro volador: the body stays still; only the wings beat --------------------------------------------------
 // The hovering drawing (enemies-a, row 1, frame 0) is cut into the body and each wing (flyer-rig, same pixel space,
-// 226 × 229). Each wing turns about its root behind the shoulder: UP → DOWNSTROKE (the push, 45% of the beat) →
-// clearly DOWN → back UP, in a loop, both wings together and mirrored. Head, torso, arms and legs never move with it.
-export const FLYER_RIG = { w: 226, h: 229, rootFar: [97, 47] as Pt, rootNear: [142, 40] as Pt, up: .85, down: -.55, beat: 2.1 }; // (angles of the far wing; the near one mirrors it)
+// 226 × 229), and each wing again at the wrist — as Drácula's dragon wings: the inner part (the arm) turns about the
+// root behind the shoulder, the outer part (fingers and membrane) about the wrist, trailing the beat (follow-through).
+// UP → DOWNSTROKE (the push, 45% of the beat) → clearly DOWN → back UP, in a loop, both wings together and mirrored.
+// Head, torso, arms and legs never move with it.
+export const FLYER_RIG = { w: 226, h: 229, rootFar: [97, 47] as Pt, rootNear: [142, 40] as Pt, wristFar: [81, 34] as Pt, wristNear: [156, 32] as Pt,
+  up: .85, down: -.55, beat: 1.8 }; // (angles of the far wing; the near one mirrors it)
 export function flyerWing(v: Pick<Vamp, 'id'>, t: number) { return dragonWing(t * FLYER_RIG.beat + v.id * .37); } // 0 up … 1 down
+/** How far the outer wing trails the arm (radians), the same follow-through as the dragon's wings. */
+export function flyerWingLag(v: Pick<Vamp, 'id'>, t: number) { const p = t * FLYER_RIG.beat + v.id * .37; return (dragonWing(p) - dragonWing(p - .07)) * 1.1; }
 const FLYER_MOUTH = { hinge: [170, 220] as Pt, line: 251 }; // in the flyer head's own pixels (heads, index 7: 362 × 438)
 /** The flyer's head with the jaw open `open` (0…1): a bite, fangs out. */
 function drawFlyerHead(ctx: CanvasRenderingContext2D, neck: Pt, angle: number, open: number) {
@@ -784,14 +807,18 @@ function drawFlyer(ctx: CanvasRenderingContext2D, v: Vamp, t: number) {
   }
   if (diveK < 1) { // HOVER: the rig — wings beating, body still
     ctx.save(); ctx.globalAlpha *= 1 - diveK;
-    const [x0, y0] = place(idle), w = FLYER_RIG.w * s, h = FLYER_RIG.h * s, beat = flyerWing(v, t);
+    const [x0, y0] = place(idle), w = FLYER_RIG.w * s, h = FLYER_RIG.h * s, beat = flyerWing(v, t), lag = flyerWingLag(v, t);
     const a = FLYER_RIG.up + (FLYER_RIG.down - FLYER_RIG.up) * beat;
-    const wing = (index: number, root: Pt, angle: number) => {
-      const rx = x0 + root[0] * s, ry = y0 + root[1] * s;
-      ctx.save(); ctx.translate(rx, ry); ctx.rotate(angle); ctx.translate(-rx, -ry);
-      drawAsset(ctx, 'flyer-rig', index, x0, y0, w, h); ctx.restore();
+    const around = (pivot: Pt, angle: number, draw: () => void) => {
+      const px = x0 + pivot[0] * s, py = y0 + pivot[1] * s;
+      ctx.save(); ctx.translate(px, py); ctx.rotate(angle); ctx.translate(-px, -py); draw(); ctx.restore();
     };
-    wing(1, FLYER_RIG.rootFar, a); wing(2, FLYER_RIG.rootNear, -a); // (both behind the body, from the back)
+    const wing = (inner: number, root: Pt, wrist: Pt, angle: number, trail: number) => around(root, angle, () => {
+      around(wrist, trail, () => drawAsset(ctx, 'flyer-rig', inner + 1, x0, y0, w, h)); // fingers and membrane
+      drawAsset(ctx, 'flyer-rig', inner, x0, y0, w, h); // the arm, over the membrane's edge
+    });
+    // (both behind the body, from the back; the outer part lags the way the arm just moved)
+    wing(1, FLYER_RIG.rootFar, FLYER_RIG.wristFar, a, lag); wing(3, FLYER_RIG.rootNear, FLYER_RIG.wristNear, -a, -lag);
     drawAsset(ctx, 'flyer-rig', 0, x0, y0, w, h);
     drawEnemyHead(ctx, 'flyer', anchor(.56, .205), 0);
     ctx.restore();
