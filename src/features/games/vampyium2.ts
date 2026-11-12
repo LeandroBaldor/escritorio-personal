@@ -1248,7 +1248,7 @@ function updateRemains(g: Game, dt: number) {
 //  hielo: se hace pedazos de hielo · verde: se pone verde y se derrite en un charco · dorada: se deshace en luz
 //  violeta: explota en violeta (y vuelan los huesos)
 export const ICE_SHATTER_T = 1.7; // (lo que tardan en caer y derretirse los pedazos de la estatua de hielo)
-export const SHATTER_AT = 0.06, MELT_T = 1.5, PUDDLE_T = 3.2, DUST_T = 0.75, NOVA_AT = 0.14;
+export const SHATTER_AT = 0.06, MELT_T = 1.5, PUDDLE_T = 3.2, DUST_T = 0.75, NOVA_AT = 0.9; // (el violeta: se achica durante 0,9 s y explota)
 function armorRemains(g: Game, c: Corpse, dt: number) {
   const r = g.rand, B = BODY[c.kind], fly = c.kind === 'flyer' ? -0.6 : 0, big = Math.max(1, Math.round(B.k));
   if (c.how === 'ice' && c.t >= ICE_SHATTER_T) g.corpses.splice(g.corpses.indexOf(c), 1); // (los pedazos de la estatua ya se derritieron)
@@ -1266,9 +1266,9 @@ function armorRemains(g: Game, c: Corpse, dt: number) {
     if (c.t >= DUST_T) g.corpses.splice(g.corpses.indexOf(c), 1);
   } else if (c.how === 'violet' && c.t >= NOVA_AT) {
     g.corpses.splice(g.corpses.indexOf(c), 1);
-    for (let n = 0; n < big; n++) for (const k of BONES) { const a = (r() - 0.5) * 3.4 + Math.PI / 2, sp = 11 + r() * 13; g.bones.push({ kind: k, x: c.x + (r() - 0.5) * 0.4, y: c.y + fly + 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 3, a: r() * 6, va: (r() - 0.5) * 30, t: 0, rest: false, source: c.kind, s: BODY[c.kind].k / VAMP_BIG }); }
-    for (let i = 0; i < 50 * big; i++) { const a = r() * Math.PI * 2, sp = 3 + r() * 12; g.sparks.push({ x: c.x, y: c.y + fly + 1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 2, t: 0, life: 0.5 + r() * 0.6, hue: 270 + r() * 40 }); }
-    g.fx.push({ kind: 'nova', x: c.x, y: c.y + fly + 1, t: 0, life: 0.6, r: 2.6 * big, face: 1, seed: r() });
+    for (let n = 0; n < big; n++) for (const k of BONES) { const a = (r() - 0.5) * 3.4 + Math.PI / 2, sp = 11 + r() * 13; g.bones.push({ kind: k, x: c.x + (r() - 0.5) * 0.4, y: c.y + fly + BODY[c.kind].h * 1.1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 3, a: r() * 6, va: (r() - 0.5) * 30, t: 0, rest: false, source: c.kind, s: BODY[c.kind].k / VAMP_BIG }); }
+    for (let i = 0; i < 50 * big; i++) { const a = r() * Math.PI * 2, sp = 3 + r() * 12; g.sparks.push({ x: c.x, y: c.y + fly + BODY[c.kind].h * 1.1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 2, t: 0, life: 0.5 + r() * 0.6, hue: 270 + r() * 40 }); }
+    g.fx.push({ kind: 'nova', x: c.x, y: c.y + fly + BODY[c.kind].h * 1.1, t: 0, life: 0.6, r: 2.6 * big, face: 1, seed: r() });
     g.shake = Math.max(g.shake, 0.6); g.flash = Math.max(g.flash, 0.2);
     emit(g, { type: 'bones', x: c.x, y: c.y });
   }

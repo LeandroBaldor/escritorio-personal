@@ -6,7 +6,7 @@ import { bodyFire, drawHunterK, drawSkeletonK, sword } from './vampyium2Chars';
 import { drawShotK, drawVampK } from './vampyium2Monsters';
 import { drawDragonDeathK, setVampTexture } from './vampyium2Vamps';
 import { newPlayer, type Weapon } from './vampyium2';
-import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, CAM_MAX, WORLD_H, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, hasDoor, ZAP_AT, DD_BLAST, DD_BURN, DD_END, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Orb, type Shard, MELT_T, PUDDLE_T, DUST_T, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyium2';
+import { BODY, goalProgress, type Breakable, type Item, DOOR, GAPS, GROUND_Y, H, LV, CAM_MAX, WORLD_H, PLAYER_H, isBoss, ROLL_R, SAW_R, SURFACES, TRAPS, W, trapState, type Surface, type Trap, hasDoor, ZAP_AT, DD_BLAST, DD_BURN, DD_END, BURN_AT, BLOW_AT, type Bone, type Corpse, type Crate, type Game, type Bolt, type Orb, type Shard, MELT_T, PUDDLE_T, DUST_T, NOVA_AT, type Bomb, type Bullet, type Fx, type Vamp, type VampKind, type Storm, SPECIAL_TIME, SPIN_R, WHIRL_R } from './vampyium2';
 import { drawGarlicBomb, drawIceCrystal, drawVenomBall, drawWeaponIcon } from './vampyium2Weapons';
 import { artRevision, assetAspect, atlasReady, drawAsset } from './vampyium2Sprites';
 import { texturedStrip, realisticChain, drawRealisticTrap, fireLight, drawRealisticImpact, drawRealisticPits } from './vampyium2Environment';
@@ -137,7 +137,15 @@ function armorCorpse(ctx: CanvasRenderingContext2D, c: Corpse, v: View, t: numbe
   const B = BODY[c.kind], x = X(v, c.x), y = Y(v, c.y) + (c.kind === 'flyer' ? -v.s * 0.6 : 0), w = v.s * (B.w + 1.4) * CHARACTER_SCALE, h = v.s * (B.h + 1.4) * CHARACTER_SCALE;
   const body = (sy = 1, sx = 1) => (cc: CanvasRenderingContext2D) => { cc.save(); cc.translate(x, y); cc.scale(k * c.face * sx, k * sy); drawVampK(cc, fake, t); cc.restore(); };
   if (c.how === 'ice') { drawIceShatter(ctx, c, X(v, c.x), Y(v, c.y), k, cc => drawVampK(cc, fake, t)); return; } // la estatua estalla en pedazos
-  if (c.how === 'violet') { tinted(ctx, x - w / 2, y - h, w, h + v.s * 0.4, 'rgb(200,110,255)', 0.4 + c.t * 3, body()); ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, y - v.s * B.h * 0.5, v.s * 1.6, 'rgba(200,100,255,0.7)'); ctx.restore(); return; }
+  if (c.how === 'violet') { // se pone violeta y se va achicando (hacia su centro, temblando) hasta un 5%; ahí explota
+    const q = Math.min(1, c.t / NOVA_AT), e = q * q * (3 - 2 * q), sc = 1 - 0.95 * e, hb = v.s * B.h * CHARACTER_SCALE, cy = y - hb * 0.5;
+    const jx = Math.sin(t * 70 + c.id) * v.s * 0.05 * e, jy = Math.cos(t * 83 + c.id) * v.s * 0.04 * e;
+    tinted(ctx, x - w / 2, y - h, w, h + v.s * 0.4, 'rgb(200,110,255)', Math.min(0.9, 0.45 + q * 0.6), cc => { cc.save(); cc.translate(x + jx, cy + jy); cc.scale(sc, sc); cc.translate(0, hb * 0.5); cc.scale(k * c.face, k); drawVampK(cc, fake, t); cc.restore(); });
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    glow(ctx, x + jx, cy + jy, v.s * (0.6 + 1.6 * sc), `rgba(200,100,255,${0.45 + 0.4 * e})`);
+    if (e > 0.5) glow(ctx, x + jx, cy + jy, v.s * 0.5, `rgba(250,220,255,${(e - 0.5) * 1.6})`); // (el núcleo a punto de reventar)
+    ctx.restore(); return;
+  }
   if (c.how === 'holy') { // se pone blanco dorado y se deshace hacia arriba
     const q = Math.min(1, c.t / DUST_T);
     ctx.save(); ctx.globalAlpha = 1 - q; tinted(ctx, x - w / 2, y - h, w, h + v.s * 0.4, 'rgb(255,236,170)', 0.85, body(1 + q * 0.15, 1 - q * 0.3)); ctx.restore();
@@ -891,7 +899,7 @@ function drawBreakable(ctx: CanvasRenderingContext2D, o: Breakable, v: View, t: 
 // La flecha de la ballesta (y clavada en el piso, que se desvanece).
 // The crossbow bolt: a big wooden stake (sharpened point with an iron tip, red fletching) with a motion streak.
 function drawBoltW(ctx: CanvasRenderingContext2D, s: Bolt, v: View) {
-  ctx.save(); ctx.translate(X(v, s.x), Y(v, s.y)); ctx.rotate(Math.atan2(-s.vy, s.vx)); ctx.scale(v.s, v.s);
+  ctx.save(); ctx.translate(X(v, s.x), Y(v, s.y)); ctx.rotate(Math.atan2(-s.vy, s.vx)); ctx.scale(v.s * .5, v.s * .5); // (la estaca, a la mitad del tamaño de la corrección 15)
   if (s.stuck) ctx.globalAlpha *= Math.max(0, 1 - s.t / 1.2);
   else { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const st = ctx.createLinearGradient(-3.2, 0, -.6, 0); st.addColorStop(0, 'rgba(255,220,190,0)'); st.addColorStop(1, 'rgba(255,220,190,.32)'); ctx.fillStyle = st; ctx.beginPath(); ctx.moveTo(-3.2, -.03); ctx.lineTo(-.6, -.11); ctx.lineTo(-.6, .11); ctx.lineTo(-3.2, .03); ctx.fill(); ctx.restore(); }
   const L = 2.2, T = .14, tail = -L * .55, tip = L * .45;

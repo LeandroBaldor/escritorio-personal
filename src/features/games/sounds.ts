@@ -1545,7 +1545,7 @@ export function playVampCrossbow() { if (!vampOnce('ballesta', 0.9, 0.05, 0.95 +
 export function playVampGarlicBomb() { if (!vampOnce('bomba-ajo', 1, 0.08, 0.95 + Math.random() * 0.1)) playExplosion(); } // la bomba de ajo que explota
 export function playVampPistol() { if (!vampOnce('pistola', 0.9, 0.05, 0.95 + Math.random() * 0.1)) playVampThrow(); } // la pistola de fuego
 // El hombre lobo (la grabación del usuario): cuando aparece y cuando salta a atacar (no se encima: cada 3,5 s como mucho).
-export function playVampWolf(volume = 1) { if (!vampOnce('hombre-lobo', volume, 3.5, 0.97 + Math.random() * 0.06)) playVampDeep(0.55, 0.8); }
+export function playVampWolf(volume = 1.5) { if (!vampOnce('hombre-lobo', volume, 3.5, 0.97 + Math.random() * 0.06)) playVampDeep(0.55, 0.8); }
 // El vampiro que se derrite con el ácido de la armadura verde.
 export function playVampAcid() { if (!vampOnce('acido', 1, 0.15, 0.95 + Math.random() * 0.1)) playVampBurn(); }
 export function playVampCross() { if (!vampOnce('rayos-cruz', 1, 0.3)) playVampHoly(); }

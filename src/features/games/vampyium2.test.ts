@@ -629,9 +629,9 @@ describe('Vampyium2: apuntar arriba y abajo', () => {
 
 describe('Vampyium2: cada nivel tiene su meta (el viaje del héroe)', () => {
   const fresh = (n: number) => { const g = newGame(4, n); g.spawnT = 1e9; g.crateT = 1e9; g.player.inv = 1e9; g.player.hp = 1e9; return g; };
-  it('las metas: 50 vampiros, 20 estrellas, 6 jaulas, 100 s, 8 guerreros, 6 ataúdes, 15 almas, 20 voladores, 120 s y Drácula', () => {
+  it('las metas: 50 vampiros, 20 estrellas, 6 jaulas, 100 s, 8 guerreros, 6 ataúdes, 15 almas, 20 voladores, 300 s y Drácula', () => {
     expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => { const g = CHAPTERS[n].goal; return `${g.type}:${g.n}`; }))
-      .toEqual(['kill:50', 'collect:20', 'break:6', 'survive:100', 'hunt:8', 'break:6', 'collect:15', 'hunt:20', 'survive:120', 'boss:1']);
+      .toEqual(['kill:50', 'collect:20', 'break:6', 'survive:100', 'hunt:8', 'break:6', 'collect:15', 'hunt:20', 'survive:300', 'boss:1']);
     for (let n = 1; n <= 10; n++) expect(CHAPTERS[n].story.length).toBeGreaterThan(80);
     newGame(1, 1);
   });

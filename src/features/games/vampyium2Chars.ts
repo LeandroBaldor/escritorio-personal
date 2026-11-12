@@ -455,13 +455,19 @@ function suitDecor(g: Game): { key: SuitKey } | null { const key = suitOf(g); re
 // steel (so the blade still reads), a hot glow over it, and more fire while it strikes.
 function drawBurningSword(ctx: CanvasRenderingContext2D, hand: Pt, angle: number, attackT: number, t: number) {
   const d: Pt = [Math.sin(angle), Math.cos(angle)], heat = attackT >= 0 ? 1 : 0; // (along the blade, as it is drawn)
-  for (let i = 0; i < 10; i++) { // a sheet of flames licking up from the blade (they always rise, whatever its angle)
-    const at = add(hand, d, .24 + i * .085), tip = 1 - i / 12;
-    fireLight(ctx, at[0], at[1] + .03, (.1 + (i % 2) * .03 + heat * .03) * tip, (.3 + ((i * 7) % 4) * .06 + heat * .14) * tip, t, i * 1.7);
-  }
+  // flames along BOTH edges of the blade (they always rise, whatever its angle): the back edge's sheet behind the
+  // steel, the front edge's over it
+  const nrm: Pt = [d[1], -d[0]], edge = (side: number, seed: number, scale: number) => {
+    for (let i = 0; i < 10; i++) {
+      const at = add(add(hand, d, .24 + i * .085), nrm, side * .055), tip = 1 - i / 12;
+      fireLight(ctx, at[0], at[1] + .03, (.1 + ((i + seed) % 2) * .03 + heat * .03) * tip * scale, (.3 + (((i + seed) * 7) % 4) * .06 + heat * .14) * tip * scale, t, i * 1.7 + seed);
+    }
+  };
+  edge(-1, 3, 1);
   if (!realisticHeldWeapon(ctx, 'firesword', hand, angle, attackT, t)) { // (the painted blade still loading: the drawn one)
     ctx.save(); ctx.translate(hand[0], hand[1]); ctx.rotate(Math.PI / 2 - angle); ctx.scale(.95, .95); drawFireSword(ctx, t, heat); ctx.restore();
   }
+  edge(1, 0, .85);
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (let i = 0; i < 4; i++) { // the steel glowing hot
     const at = add(hand, d, .3 + i * .17), r = .13 + heat * .04;

@@ -229,7 +229,7 @@ export function Vampyium2() {
           case 'bloodMoon': playThunder(1); setToast({ text: ' ¡LUNA DE SANGRE! Los vampiros se ponen más rápidos', id: now, big: true, bad: true }); break;
           case 'menu': playVampMenu(e.open); break;
           case 'choose': playVampButton(); setToast({ text: `${ICON[e.weapon]} ${WEAPON_NAME[e.weapon]}`, id: now, big: isArmor(e.weapon) }); break;
-          case 'hiss': if (e.wolf) playVampWolf(0.75); else playVampVoice(0.65); break;
+          case 'hiss': if (e.wolf) playVampWolf(1.3); else playVampVoice(0.65); break;
           case 'dive': playVampDive(); break;
           case 'burn': playVampBurn(); break;
           case 'emerge': playVampVoice(0.45); break;
