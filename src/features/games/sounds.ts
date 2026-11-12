@@ -1524,7 +1524,7 @@ export function preloadVampSounds(level = 0) {
   for (const [k, url] of Object.entries(VAMP_S)) if ((!k.includes('/vamp-nivel-') && !k.includes('/vamp-land-') && !k.includes('/vamp-lluvia-sangre') && !k.includes('/vamp-cuervos') && !k.includes('/vamp-dragon')) || (level === 10 && k.includes('/vamp-dragon')) || k.endsWith(`/vamp-nivel-${level}.mp3`) || (level === 9 && k.includes('/vamp-lluvia-sangre')) || (level === 1 && k.includes('/vamp-cuervos'))) loadSample(url);
 }
 const vampLast: Record<string, number> = {};
-function vampOnce(name: string, volume: number, gap: number, rate = 1) { const c = running(); if (!c || c.currentTime - (vampLast[name] ?? -9) < gap) return true; vampLast[name] = c.currentTime; return playSample(vs(name), volume, 0, rate); }
+function vampOnce(name: string, volume: number, gap: number, rate = 1, file = name) { const c = running(); if (!c || c.currentTime - (vampLast[name] ?? -9) < gap) return true; vampLast[name] = c.currentTime; return playSample(vs(file), volume, 0, rate); }
 // El tajo de la espada (la grabación, un poquito distinta cada vez; mientras carga, el sintetizado).
 export function playVampSword() { if (!vampOnce('espada', 1, 0.05, 0.94 + Math.random() * 0.12)) playVampSlash(); }
 export function playVampJumpSound(double: boolean) { if (!vampOnce('salto', double ? 0.55 : 0.75, 0.05, double ? 1.12 : 1)) playJump(double ? 0.22 : 0.3); }
@@ -1544,8 +1544,12 @@ export function playVampFlame() { vampOnce('lanzallamas', 0.85, 0.3); } // el fu
 export function playVampCrossbow() { if (!vampOnce('ballesta', 0.9, 0.05, 0.95 + Math.random() * 0.1)) playVampThrow(); } // la ballesta
 export function playVampGarlicBomb() { if (!vampOnce('bomba-ajo', 1, 0.08, 0.95 + Math.random() * 0.1)) playExplosion(); } // la bomba de ajo que explota
 export function playVampPistol() { if (!vampOnce('pistola', 0.9, 0.05, 0.95 + Math.random() * 0.1)) playVampThrow(); } // la pistola de fuego
-// El hombre lobo (la grabación del usuario): cuando aparece y cuando salta a atacar (no se encima: cada 3,5 s como mucho).
-export function playVampWolf(volume = 1.5) { if (!vampOnce('hombre-lobo', volume, 3.5, 0.97 + Math.random() * 0.06)) playVampDeep(0.55, 0.8); }
+// El hombre lobo (la grabación del usuario, hombre_lobo_2, cortada en partes): cuando aparece, el aullido; cuando salta o
+// ataca, uno de sus 6 gruñidos al azar (no se encima: un gruñido cada 1,6 s como mucho).
+export function playVampWolf(volume = 1.3, howl = false) {
+  const name = howl ? 'hombre-lobo-aullido' : `hombre-lobo-${1 + Math.floor(Math.random() * 6)}`;
+  if (!vampOnce(howl ? 'hombre-lobo-aullido' : 'hombre-lobo', volume, howl ? 3 : 1.6, 0.97 + Math.random() * 0.06, name)) playVampDeep(0.55, 0.8);
+}
 // El vampiro que se derrite con el ácido de la armadura verde.
 export function playVampAcid() { if (!vampOnce('acido', 1, 0.15, 0.95 + Math.random() * 0.1)) playVampBurn(); }
 export function playVampCross() { if (!vampOnce('rayos-cruz', 1, 0.3)) playVampHoly(); }

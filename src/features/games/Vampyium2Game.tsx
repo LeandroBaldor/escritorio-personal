@@ -200,7 +200,7 @@ export function Vampyium2() {
           case 'launch': playVampPunch(); break;
           case 'breath': break; // (el rugido y el fuego del dragón suenan en vuelta mientras tiene la boca abierta)
           case 'mist': playVampDeep(0.6, 0.6); break;
-          case 'howl': playVampWolf(); if (!seenRef.current.has(e.kind)) { seenRef.current.add(e.kind); setToast({ text: SPAWN_TEXT.wolf!, id: now, big: true, bad: true }); } break;
+          case 'howl': playVampWolf(1.3, true); if (!seenRef.current.has(e.kind)) { seenRef.current.add(e.kind); setToast({ text: SPAWN_TEXT.wolf!, id: now, big: true, bad: true }); } break;
           case 'spawn': playVampDeep(0.75, 0.6); if (!seenRef.current.has(e.kind)) { seenRef.current.add(e.kind); setToast({ text: SPAWN_TEXT[e.kind] ?? VAMP_NAME[e.kind], id: now, big: true, bad: true }); } break;
           case 'transform': playThunder(1); playVampDeep(0.5, 1); setToast({ text: ' ¡Drácula se convierte en dragón!', id: now, big: true, bad: true }); break;
           case 'dragon': playVampExplosion(); playVampDeep(0.45, 1); break;
