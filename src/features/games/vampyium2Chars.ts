@@ -471,30 +471,39 @@ function drawBurningSword(ctx: CanvasRenderingContext2D, hand: Pt, angle: number
   }
   ctx.restore();
 }
-// The golden cross, held like the sword: a slender gold shaft as long as the blade, with a short crossbar.
+// The golden cross, held like the sword: the gold and red relic (cross-relic, painted), upright from the hand along
+// the blade's direction, the hand on the lower shaft; a soft golden glow around it.
 function drawGoldenCross(ctx: CanvasRenderingContext2D, hand: Pt, angle: number) {
   ctx.save(); ctx.translate(...hand); ctx.rotate(Math.PI - angle); // local −y runs along the shaft (the blade's direction)
-  const gold = (x0: number, y0: number, x1: number, y1: number) => { const g = ctx.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, '#fff3c2'); g.addColorStop(.35, '#e8b84a'); g.addColorStop(.7, '#a87418'); g.addColorStop(1, '#5e3c08'); return g; };
-  const w = .045, top = -1.12, bottom = .2, barY = -.78, barW = .3;
-  ctx.fillStyle = gold(-w, 0, w, 0); ctx.strokeStyle = '#4a2e06'; ctx.lineWidth = .012;
-  ctx.beginPath(); ctx.rect(-w / 2, top, w, bottom - top); ctx.fill(); ctx.stroke(); // the shaft
-  ctx.fillStyle = gold(0, barY - w, 0, barY + w);
-  ctx.beginPath(); ctx.rect(-barW, barY - w / 2, barW * 2, w); ctx.fill(); ctx.stroke(); // the crossbar
-  ctx.fillStyle = '#ffe9a0';
-  for (const [x, y] of [[0, top], [-barW, barY], [barW, barY], [0, bottom]] as const) { ctx.beginPath(); ctx.arc(x, y, .034, 0, TAU); ctx.fill(); ctx.stroke(); }
-  ctx.fillStyle = '#c0182a'; ctx.beginPath(); ctx.arc(0, barY, .03, 0, TAU); ctx.fill(); // a ruby where the arms meet
-  ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(0, barY, 0, 0, barY, .45);
-  g.addColorStop(0, 'rgba(255,220,120,.28)'); g.addColorStop(1, 'rgba(255,200,80,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, barY, .45, 0, TAU); ctx.fill();
+  const h = 1.3, w = h * 327 / 560, grip = .2; // (the hand holds the shaft just above the bottom knob)
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; const gl = ctx.createRadialGradient(0, -h * .62, 0, 0, -h * .62, .55);
+  gl.addColorStop(0, 'rgba(255,215,110,.16)'); gl.addColorStop(1, 'rgba(255,200,80,0)'); ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(0, -h * .62, .55, 0, TAU); ctx.fill(); ctx.restore();
+  if (!drawAsset(ctx, 'cross-relic', 0, -w / 2, -h + grip, w, h)) {
+    ctx.fillStyle = '#d9a83a'; ctx.fillRect(-.03, -h + grip, .06, h); ctx.fillRect(-w * .45, -h + grip + h * .25, w * .9, .06);
+  }
   ctx.restore();
 }
 export function drawHunterK(ctx: CanvasRenderingContext2D, p0: Player, g: Game, t: number) {
   // With an armour on, Demian moves exactly as with his first armour: the same sword poses, walk, jump and thrust.
   // The fire sword and the golden cross are carried and swung EXACTLY like the sword (same carry on the shoulder,
   // same walk, same thrust): only what is in the hand changes.
+  // The crossbow, the garlic bomb and the fire pistol are also CARRIED like the sword (on the shoulder, the same walk);
+  // only when they shoot or throw do they use their own aim. The cross is raised overhead to strike.
   const armour = (['ice', 'holy', 'venom', 'violet', 'bone'] as Weapon[]).includes(g.weapon);
   const swordLike = armour || g.weapon === 'firesword' || g.weapon === 'cross';
-  const p = swordLike ? { ...p0, attackWeapon: (p0.attackT >= 0 ? 'sword' : p0.attackWeapon) as Weapon } : p0;
-  const held: Weapon = swordLike ? 'sword' : g.weapon, pose = hunterPose(p, t, held);
+  const ranged = g.weapon === 'crossbow' || g.weapon === 'garlic' || g.weapon === 'pistol';
+  const shooting = ranged && p0.attackT >= 0 && p0.attackWeapon === g.weapon;
+  const raising = g.weapon === 'cross' && p0.attackT >= 0 && p0.attackWeapon === 'cross';
+  const p = raising ? { ...p0, attackT: -1 } : swordLike ? { ...p0, attackWeapon: (p0.attackT >= 0 ? 'sword' : p0.attackWeapon) as Weapon } : p0;
+  const held: Weapon = swordLike || (ranged && !shooting) ? 'sword' : g.weapon, pose = hunterPose(p, t, held);
+  if (raising) { // the cross goes up: the arm stretched overhead, the cross upright above him; the other arm back
+    const at = p0.attackT, k = Math.min(1, at / .08) * (at > .22 ? Math.max(0, 1 - (at - .22) / .08) : 1), e = k * k * (3 - 2 * k);
+    const mix = (a: number, b: number) => a + (b - a) * e;
+    const turn = (a: number, b: number) => { const d = Math.atan2(Math.sin(b - a), Math.cos(b - a)); return a + d * e; }; // (the short way round: up, never down past the hip)
+    const up = turn(pose.arms[1][0], 2.95), carried = pose.arms[1][0] + pose.arms[1][1] + pose.blade;
+    pose.arms = [[mix(pose.arms[0][0], -1.2), mix(pose.arms[0][1], .14)], [up, mix(pose.arms[1][1], .12)]];
+    pose.blade = turn(carried, Math.PI) - pose.arms[1][0] - pose.arms[1][1]; // the cross itself turns upright pose.lean = mix(pose.lean, -.04); pose.head = mix(pose.head, -.12);
+  }
   if (p.spinT > 0 && !p.onGround) { // the somersault: knees tuck to the chest in the middle of the turn, then open to land
     const k = Math.sin(Math.min(1, Math.max(0, 1 - p.spinT / .45)) * Math.PI), tuck: [number, number][] = [[1.35, 2.25], [1.15, 2.1]];
     pose.legs = pose.legs.map(([a, b], i) => [a + (tuck[i][0] - a) * k, b + (tuck[i][1] - b) * k] as [number, number]);
@@ -502,6 +511,7 @@ export function drawHunterK(ctx: CanvasRenderingContext2D, p0: Player, g: Game, 
   if (drawRealisticHunter(ctx, p, g, pose, t, (hand, angle) => {
     if (g.weapon === 'firesword') drawBurningSword(ctx, hand, angle, p.attackT, t);
     else if (g.weapon === 'cross') drawGoldenCross(ctx, hand, angle);
+    else if (ranged) holdWeapon(ctx, g.weapon, hand, angle, p0, t); // (on the shoulder like the sword, or aiming)
     else if (held === 'sword') { if (!g.boomer) sword(ctx, hand, angle); }
     else holdWeapon(ctx, p.attackT >= 0 ? p.attackWeapon : held, hand, angle, p, t);
   }, suitDecor(g))) return;

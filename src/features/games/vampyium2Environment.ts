@@ -2,6 +2,7 @@ import { atlasReady, drawAsset, drawRealisticFire, assetAspect } from './vampyiu
 import { SAW_R, ROLL_R, GAPS, LV, type Trap, type TrapGeo, type Fx, type Weapon } from './vampyium2';
 import type { View } from './vampyium2Art';
 
+const hash = (n: number) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
 const X = (v: View, x: number) => v.ox + x * v.s;
 const Y = (v: View, y: number) => v.oy - y * v.s;
 export function texturedStrip(ctx: CanvasRenderingContext2D, index: number, x: number, y: number, w: number, h: number) {
@@ -119,9 +120,40 @@ export function drawRealisticTrap(ctx: CanvasRenderingContext2D, tr: Trap, st: T
   }
 }
 
+// The garlic bomb: a burst and then a big cloud of garlic gas — pale yellow-green puffs that billow out past the blast
+// radius, roll upwards and thin out slowly (only a look: the damage radius is GARLIC_R, as before).
+function drawGarlicGas(ctx: CanvasRenderingContext2D, fx: Fx, v: View) {
+  const k = Math.min(1, fx.t / fx.life), x = X(v, fx.x), y = Y(v, fx.y), R = fx.r * v.s;
+  const grow = 1 - (1 - Math.min(1, k * 2.6)) ** 3, fade = k < .55 ? 1 : 1 - (k - .55) / .45;
+  ctx.save();
+  if (k < .18) { // the flash of the burst
+    const f = 1 - k / .18, r = R * (.35 + .8 * (k / .18));
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(255,255,235,${.95 * f})`); g.addColorStop(.5, `rgba(235,255,180,${.6 * f})`); g.addColorStop(1, 'rgba(200,240,140,0)');
+    ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
+  }
+  for (let i = 0; i < 46; i++) { // the gas: overlapping soft puffs
+    const h1 = hash(fx.seed * 31 + i), h2 = hash(fx.seed * 17 + i * 3.1), h3 = hash(fx.seed * 7 + i * 5.3);
+    const a = h1 * Math.PI * 2, dist = (.15 + .95 * Math.sqrt(h2)) * R * 1.35 * grow;
+    const px = x + Math.cos(a) * dist + Math.sin(fx.t * 1.3 + i) * R * .05;
+    const py = y + Math.sin(a) * dist * .62 - fx.t * R * (.12 + .25 * h3); // (it rolls upwards)
+    const pr = R * (.22 + .3 * h3) * (.55 + .7 * grow);
+    const tint = h1 < .5 ? [214, 232, 150] : h1 < .8 ? [236, 240, 205] : [176, 205, 120];
+    const g = ctx.createRadialGradient(px, py, 0, px, py, pr);
+    g.addColorStop(0, `rgba(${tint[0]},${tint[1]},${tint[2]},${.34 * fade})`); g.addColorStop(.6, `rgba(${tint[0]},${tint[1]},${tint[2]},${.16 * fade})`); g.addColorStop(1, `rgba(${tint[0]},${tint[1]},${tint[2]},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill();
+  }
+  for (let i = 0; i < 12; i++) { // cloves flung out of the cloud
+    const a = i * .52 + fx.seed * 6, rr = R * 1.2 * Math.min(1, k * 2.2), q = Math.max(0, 1 - k * 1.8);
+    if (q <= 0) break;
+    ctx.fillStyle = `rgba(245,240,226,${q})`; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * rr, y + Math.sin(a) * rr * .8 + k * k * R * .5, v.s * .09, v.s * .055, a, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore(); return true;
+}
+
 export function drawRealisticImpact(ctx: CanvasRenderingContext2D, fx: Fx, v: View) {
+  if (fx.kind === 'blast' && fx.t >= 0) return drawGarlicGas(ctx, fx, v);
   if (!atlasReady('effects') || fx.t < 0) return false;
-  const rows: Partial<Record<Fx['kind'], number>> = { blast: 1, burst: 1, nova: 2, splat: 2, frost: 3, blood: 2 };
+  const rows: Partial<Record<Fx['kind'], number>> = { burst: 1, nova: 2, splat: 2, frost: 3, blood: 2 };
   const row = rows[fx.kind]; if (row === undefined) return false;
   const k = Math.min(.999, fx.t / fx.life), index = row * 8 + Math.floor(k * 8), size = Math.max(.6, fx.r * 2) * v.s;
   const x = X(v, fx.x), y = Y(v, fx.y);

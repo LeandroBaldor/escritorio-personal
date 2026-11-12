@@ -325,7 +325,8 @@ function paintHunter(ctx: CanvasRenderingContext2D, p: Player, g: Game, pose: Po
     if (layer !== 'upper') {
       limb(ctx, 4, elbow, hand, .17);
       jointArmor(ctx, elbow, shoulders[i], hand, .16, 'gilt', [-1, 0]);
-      const bladeGrip = i === 1 && (!!decor || ['sword', 'firesword', 'violet', 'bone'].includes(p.attackT >= 0 ? p.attackWeapon : g.weapon));
+      const bladeGrip = i === 1 && (!!decor || ['sword', 'firesword', 'violet', 'bone', 'cross'].includes(p.attackT >= 0 ? p.attackWeapon : g.weapon)
+        || p.attackT < 0 && (g.weapon === 'crossbow' || g.weapon === 'pistol')); // (carried on the shoulder: the fist round the stock)
       const weaponAngle = a + b + pose.blade;
       if (i === 1 && !pose.weaponBehind) paintWeapon(grip, weaponAngle);
       else if (!i && g.guardHp > 0) drawAsset(ctx, 'weapons', 10, grip[0] - .2, grip[1] - .23, .4, .58);

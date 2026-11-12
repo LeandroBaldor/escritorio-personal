@@ -24,7 +24,6 @@
 .vamp2 .ds-slot { border-radius: 2px; background: #171c22; border-color: #62543f; }
 .game-card--vamp2 { border-color: #887654; background: linear-gradient(145deg, #21252b, #10141b); color: #d8d0c0; }
 .game-card--vamp2 .game-card-cover { filter: saturate(.48) contrast(1.12); position: relative; }
-.game-card--vamp2 .game-card-cover::after { content: 'II'; position: absolute; inset: auto 12px 8px auto; font: 64px/1 Georgia, serif; color: #e1ceb0; text-shadow: 0 2px 12px #000; }
 .game-card--vamp2 .game-card-text strong { color: #dfd0b5; font-family: Georgia, serif; letter-spacing: .06em; }
 .vamp2 .vamp-hub-rivals canvas { width: 80px !important; height: 80px !important; }
 .vamp2 .vamp-hub-hp { background: #34272a; border-radius: 2px; font-family: system-ui, sans-serif; font-size: .72rem; color: #c9bca6; }

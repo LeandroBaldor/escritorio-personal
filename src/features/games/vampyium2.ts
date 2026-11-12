@@ -1429,7 +1429,7 @@ export function step(g: Game, input: Input, dt: number) {
         if (v.state !== 'mist' && Math.hypot(nx - b.x, ny - cy) <= GARLIC_R) { count++; hitVamp(g, v, WEAPON_DMG.garlic, 'bomb', b.x); }
       }
       for (const o of [...g.objects]) if (Math.hypot(o.x - b.x, Math.max(o.y, Math.min(o.y + 2, cy)) - cy) <= GARLIC_R) hitObject(g, o, WEAPON_DMG.garlic);
-      g.fx.push({ kind: 'blast', x: b.x, y: cy, t: 0, life: 0.6, r: GARLIC_R, face: 1, seed: g.rand() });
+      g.fx.push({ kind: 'blast', x: b.x, y: cy, t: 0, life: 1.7, r: GARLIC_R, face: 1, seed: g.rand() }); // (solo se ve: una nube de gas que dura más)
       g.garlicT = Math.max(g.garlicT, 2); g.shake = Math.max(g.shake, 0.6); g.flash = Math.max(g.flash, 0.2);
       for (let i = 0; i < 30; i++) { const a = g.rand() * Math.PI * 2, sp = 3 + g.rand() * 9; g.sparks.push({ x: b.x, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp + 2, t: 0, life: 0.4 + g.rand() * 0.4, hue: g.rand() < 0.5 ? 90 : 45 }); }
       emit(g, { type: 'blast', count });
