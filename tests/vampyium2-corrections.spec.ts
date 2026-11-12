@@ -1,22 +1,23 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 
-test('práctica: construcción, diez niveles, vida ilimitada y carteles', async ({ page }, testInfo) => {
+test('diez niveles (se desbloquean ganando), vida normal y carteles', async ({ page }, testInfo) => {
   await page.goto('/escritorio-personal/#/juegos/vampyium2');
   await expect(page.locator('.vamp2')).toHaveAttribute('data-realistic-art', 'ready');
   await expect(page.getByText('En construcción', { exact: true })).toHaveCount(0);
   const levels = page.getByRole('group', { name: 'Elegir nivel' }).getByRole('button');
   await expect(levels).toHaveCount(10);
+  await expect(levels.first()).toBeEnabled(); // (sin vida ilimitada: solo el 1 está abierto al empezar)
+  for (const button of (await levels.all()).slice(1)) await expect(button).toBeDisabled();
+  await page.evaluate(() => localStorage.setItem('escritorio-personal-juegos:vampyium2-nivel', '10')); // (como si hubiera ganado los 9 primeros)
+  await page.reload(); await expect(page.locator('.vamp2')).toHaveAttribute('data-realistic-art', 'ready');
   for (const button of await levels.all()) await expect(button).toBeEnabled();
   await levels.last().click();
   await page.getByRole('button', { name: /Jugar.*Nivel 10/ }).click(); await page.keyboard.press('Enter');
-  await expect(page.getByTestId('vamp-hp')).toHaveText('∞');
+  await expect(page.getByTestId('vamp-hp')).toHaveText('100/100');
   await page.keyboard.press('p');
   await page.getByRole('dialog').getByRole('button', { name: 'Volver al Menú' }).click();
   await levels.first().click(); await page.getByRole('button', { name: /Jugar.*Nivel 1$/ }).click(); await page.keyboard.press('Enter');
-  // Cross the first gap without jumping: immortal mode must preserve real HP after the fall.
-  await page.keyboard.down('ArrowRight'); await page.waitForTimeout(950); await page.keyboard.up('ArrowRight');
-  await page.waitForTimeout(2200);
   await expect(page.getByTestId('vamp-hp')).toHaveAttribute('data-current-hp', '100');
   await page.keyboard.press('p');
   const dialog = page.getByRole('dialog');

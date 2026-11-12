@@ -26,7 +26,7 @@ const RECORD_KEY = 'escritorio-personal-juegos:vampyium2-record';
 export interface VampRecord { kills: number; time: number | null }
 export const readVampyium2Record = (): VampRecord => { try { const r = JSON.parse(localStorage.getItem(RECORD_KEY) ?? 'null'); return { kills: Number(r?.kills) || 0, time: Number(r?.time) || null }; } catch { return { kills: 0, time: null }; } };
 // MODO TEST (para probar): todos los niveles abiertos y vida que no se acaba. Para desactivarlo, poner false.
-export const VAMP_TEST_MODE = true;
+export const VAMP_TEST_MODE = false; // (true: vida ilimitada y los 10 niveles abiertos, para probar)
 const makeGame = (seed?: number, level?: number) => { const g = newGame(seed, level); g.immortal = VAMP_TEST_MODE; return g; };
 // Hasta qué nivel llegó (hay que ganar cada nivel para que se abra el siguiente).
 const PROGRESS_KEY = 'escritorio-personal-juegos:vampyium2-nivel';
@@ -409,7 +409,7 @@ export function Vampyium2() {
           <div className="vamp-hub-grid">
             <figure className="vamp-hub-hero" aria-label="Demian, el cazador">
               <ArtCanvas w={330} h={500} draw={(ctx, t) => drawPortrait(ctx, 'hunter', { ...gameRef.current, player: newPlayer(), weapon: 'sword', guardHp: 0, boomer: null }, 160, 482, 172, t)} />
-              <figcaption><b>Demian</b><span>Vida ilimitada · ∞</span></figcaption>
+              <figcaption><b>Demian</b><span>{VAMP_TEST_MODE ? 'Vida ilimitada · ∞' : `Vida ${MAX_HP}`}</span></figcaption>
             </figure>
             <section className="vamp-hub-box vamp-hub-story" aria-label="La historia de Demian">
               <h3>La historia de Demian</h3>
@@ -501,7 +501,7 @@ export function Vampyium2() {
           <i className="vamp-bar"><b style={{ width: `${Math.min(100, hud.goal / goal.n * 100)}%` }} /></i>
           {roster.map((k, i) => <p key={k} className="vamp-count" title={`Aguanta ${STRENGTH[k]} ${STRENGTH[k] === 1 ? 'golpe' : 'golpes'} y saca ${DAMAGE[k]} de vida`}>{KIND_ICON[k]} {k === 'walker' ? 'Vampiros' : k === 'flyer' ? 'Voladores' : VAMP_NAME[k]}: <b data-testid={k === 'walker' ? 'vamp-walkers' : k === 'flyer' ? 'vamp-flyers' : undefined}>{killsOf[i] ?? 0}</b></p>)}
         </div>}
-        <div className="trepa-stat vamp-hpstat" aria-label="Vida ilimitada"><span>Vida ilimitada</span><strong>∞</strong><i className="vamp-bar vamp-bar--hp"><b style={{ width: '100%' }} /></i></div>
+        <div className="trepa-stat vamp-hpstat" aria-label={VAMP_TEST_MODE ? 'Vida ilimitada' : `Vida ${hud.hp} de ${MAX_HP}`}><span>{VAMP_TEST_MODE ? 'Vida ilimitada' : 'Vida'}</span><strong>{VAMP_TEST_MODE ? '∞' : hud.hp}</strong><i className="vamp-bar vamp-bar--hp"><b style={{ width: `${VAMP_TEST_MODE ? 100 : hud.hp / MAX_HP * 100}%` }} /></i></div>
         <div className="trepa-stat vamp-weapons"><span>Armas</span>
           <ul>
             {WEAPONS.filter(w => WEAPON_LEVEL[w] <= level && !isArmor(w)).map(w => <li key={w} className={hud.weapon === w ? 'vamp-now' : ammoOf(w) === 0 ? 'vamp-empty' : ''} title={`${WEAPON_NAME[w]}: ${WEAPON_DMG[w]} de daño`}>{ICON[w]} {WEAPON_NAME[w]} {w === 'sword' ? <b>∞</b> : <><b data-testid={w === 'crossbow' ? 'vamp-ammo' : undefined}>{ammoOf(w)}</b><small>/{MAX_AMMO[w]}</small></>}</li>)}
