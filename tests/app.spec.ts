@@ -1232,11 +1232,10 @@ test('Kombat Penales: amistoso (la máquina elige antes), 2 jugadores (primero e
   await page.getByRole('button', { name: /Planeta Volcánico/ }).click();
   await page.getByRole('button', { name: 'Siguiente ▶' }).click();
   await page.getByRole('button', { name: '¡A patear!' }).click();
-  await expect(page.getByTestId('kp-score')).toHaveText('0 - 0');
-  await expect(page.getByTestId('kp-stage-label')).toHaveText('PENAL 1 DE 5');
+  await expect(page.getByTestId('kp-score')).toHaveText('0 : 0');
+  await expect(page.getByTestId('kp-aim')).toHaveCount(0); // sin el cartel de elegir
   await expect(page.getByTestId('kp-aim-title')).toContainText('Elegí dónde patear', { timeout: 8000 });
-  await expect(page.getByTestId('kp-aim')).toContainText('La máquina ya eligió');
-  await expect(page.getByTestId('kp-aim').getByRole('button')).toHaveCount(6);
+  await expect(page.getByTestId('kp-aim-title')).toContainText('La máquina ya eligió');
   await expect(page.getByTestId('kp-fx')).toContainText('Fuego');
   await page.keyboard.press('ArrowUp'); // ↑ = arriba al medio
   await expect(page.getByTestId('kp-dots-0')).toHaveAttribute('aria-label', /en 1 penales/, { timeout: 10000 });
@@ -1251,9 +1250,9 @@ test('Kombat Penales: amistoso (la máquina elige antes), 2 jugadores (primero e
   await page.getByRole('button', { name: 'Siguiente ▶' }).click();
   await page.getByRole('button', { name: '¡A patear!' }).click();
   await expect(page.getByTestId('kp-aim-title')).toContainText('JUGADOR 2 · CYBER: 🧤', { timeout: 8000 });
-  await page.getByTestId('kp-zone-4').click();
+  await page.keyboard.press('ArrowDown');
   await expect(page.getByTestId('kp-aim-title')).toContainText('JUGADOR 1 · TOXIC: ⚽');
-  await page.getByTestId('kp-zone-4').click(); // mismo lugar: ataja
+  await page.keyboard.press('ArrowDown'); // mismo lugar: ataja
   await expect(page.getByTestId('kp-dots-0')).toHaveAttribute('aria-label', '0 goles en 1 penales', { timeout: 10000 });
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Abandonar' }).click();

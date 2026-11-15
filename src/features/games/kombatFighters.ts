@@ -70,7 +70,11 @@ function poseOf(f: Fighter, t: number): Pose {
   if (a === 'fatal') return { bob: s(t * 20) * 0.02, lean: -0.2, crouch: 0.1, head: -0.25, legs: [[-0.55, 0.5], [0.5, 0.5]], arms: [[2.6, 0.3], [2.4, 0.3]] };
   if (a === 'celebrate') { const w = t * 9, p0 = Math.max(0, Math.sin(w)), p1 = Math.max(0, Math.sin(w + Math.PI)); return { bob: Math.abs(s(t * 4.5)) * 0.06, lean: -0.12, crouch: 0, head: -0.32, legs: [[-0.25, 0.35], [0.3, 0.55]], arms: [[3.4 + p0 * 0.25, 0.08 - p0 * 1.2], [2.5 - p1 * 0.25, 0.1 + p1 * 1.2]], reach: 1.3, shrug: 0.07 }; } // festejo: agita los dos puños arriba, alternados, con los hombros arriba
   if (a === 'keeper') { const br = s(t * 4.2); return { bob: br * 0.02, lean: 0.22, crouch: 0.3 + br * 0.03, head: -0.05, legs: [[-0.6, 0.9], [0.55, 0.9]], arms: [[1.2 + br * 0.1, 0.9], [1.35 - br * 0.1, 0.8]] }; } // el arquero esperando: agachado, piernas abiertas y los brazos adelante
-  if (a === 'dive') return { bob: 0, lean: -0.05, crouch: 0, head: -0.2, legs: [[-0.18, 0.15], [0.2, 0.35]], arms: [[3.0, 0.05], [2.85, 0.08]], reach: 1.15 }; // estirado volando: los dos brazos extendidos para arriba
+  if (a === 'gather') { const k = Math.min(1, Math.max(0, f.actionT)); return { bob: 0, lean: 0.22 + k * 0.2, crouch: 0.3 + k * 0.4, head: 0.05 - k * 0.15, legs: [[-0.6 - k * 0.15, 0.9 + k * 0.6], [0.55 + k * 0.15, 0.9 + k * 0.6]], arms: [[1.2 - k * 0.9, 0.9 - k * 0.5], [1.35 - k * 0.95, 0.8 - k * 0.45]] }; } // el arquero se agacha antes de saltar (actionT: cuánto), los brazos van para atrás
+  if (a === 'dive') { // volando: actionT 0 → 1 (despega empujando con las piernas, después se estira con los brazos arriba) y las piernas siguen moviéndose
+    const k = Math.min(1, Math.max(0, f.actionT)), sw = Math.sin(t * 11) * 0.09 * k;
+    return { bob: 0, lean: -0.05 * k, crouch: 0.15 * (1 - k), head: -0.25 * k, legs: [[-0.6 + 0.42 * k + sw, 1.1 - 0.9 * k], [0.55 - 0.3 * k - sw, 1.2 - 0.75 * k + Math.abs(sw)]], arms: [[1.3 + 1.7 * k, 0.6 - 0.55 * k], [1.5 + 1.35 * k + sw * 0.5, 0.5 - 0.42 * k]], reach: 1 + 0.15 * k };
+  }
   if (a === 'save') return { bob: 0, lean: 0.35, crouch: 0.45, head: 0.15, legs: [[-0.7, 1.2], [0.6, 1.2]], arms: [[1.05, 0.15], [1.2, 0.12]], reach: 1.1 }; // abajo al medio: se agacha con los brazos estirados adelante
   if (a === 'sad') return { bob: 0, lean: 0.35, crouch: 0.25, head: 0.4, legs: [[-0.3, 0.9], [0.4, 1.1]], arms: [[2.6, 2.4], [2.7, 2.5]] };
   if (a === 'stun') {

@@ -2227,24 +2227,31 @@ body:has(.land) .mobile-nav{display:none}
 .kv-note{position:absolute;left:50%;transform:translateX(-50%);color:#cbd5e1;font:700 .62rem/1.2 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;text-align:center;white-space:nowrap}
 @media (max-width:700px){.kv-seed,.kv-score{font-size:.62rem}.kv-col{font-size:.58rem}.kv-note{font-size:.5rem}}
 
-/* Kombat Penales: los 6 lugares del arco para elegir (arriba a la izquierda) y los penales de cada uno */
-.kp-aim{position:absolute;left:.7rem;top:5.4rem;z-index:3;display:grid;gap:.3rem;max-width:min(27rem,40%);padding:.55rem .65rem .65rem;border-radius:12px;background:#000c;box-shadow:0 0 0 2px #facc1588,0 8px 24px #000a;color:#fff;font-family:Nunito,system-ui,sans-serif}
-.kp-aim--keeper{box-shadow:0 0 0 2px #38bdf888,0 8px 24px #000a}
-.kp-aim b{font:900 clamp(.85rem,1.6vw,1.1rem)/1.15 system-ui,sans-serif;color:#fde047}
-.kp-aim--keeper b{color:#7dd3fc}
-.kp-aim small{color:#cbd5e1;font-weight:700;font-size:.78rem}
-.kp-zones{display:grid;grid-template-columns:repeat(3,1fr);gap:.3rem;margin-top:.15rem}
-.kp-zone{display:flex;align-items:center;gap:.35rem;min-height:2.6rem;padding:.3rem .45rem;border:2px solid #ffffff40;border-radius:9px;background:#1e293bcc;color:#fff;font:800 .72rem/1.1 system-ui,sans-serif;text-align:left;cursor:pointer}
-.kp-zone i{font-style:normal;font-size:1.3rem;line-height:1}
-.kp-zone--on,.kp-zone:hover,.kp-zone:focus-visible{border-color:#facc15;background:#854d0ecc;box-shadow:0 0 12px #facc1588}
-.kp-aim--keeper .kp-zone--on,.kp-aim--keeper .kp-zone:hover{border-color:#38bdf8;background:#075985cc;box-shadow:0 0 12px #38bdf888}
-.kp-dots{display:inline-flex;gap:.2rem;flex-wrap:wrap}
-.kp-dot{display:grid;place-items:center;width:1.05rem;height:1.05rem;border-radius:50%;border:2px solid #fff8;background:#0007;color:#fff;font:900 .62rem/1 system-ui,sans-serif;font-style:normal}
-.kp-dot--goal{background:#16a34a;border-color:#bbf7d0;box-shadow:0 0 8px #22c55e}
-.kp-dot--miss{background:#b91c1c;border-color:#fecaca;box-shadow:0 0 8px #ef4444}
+/* Kombat Penales: el marcador de arriba (como la referencia del usuario): barra blanca con los nombres, el
+   resultado en rojo al medio, el cuadrado con cada personaje a la izquierda de su nombre y abajo los penales */
+.kp-board{position:absolute;left:50%;top:.45rem;z-index:3;transform:translateX(-50%);width:min(44rem,94%);display:grid;gap:.18rem;pointer-events:none;font-family:Nunito,system-ui,sans-serif}
+.kp-board-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:2.7rem;border-radius:.55rem;background:linear-gradient(180deg,#ffffff 0%,#f4f4f5 45%,#d4d4d8 55%,#e4e4e7 100%);box-shadow:inset 0 0 0 2px #fff,0 0 0 3px #3f3f46,0 0 0 4px #18181b,0 6px 14px #000a}
+.kp-board-side{display:flex;align-items:center;gap:.5rem;min-width:0;padding:0 .7rem}
+.kp-board-side--0{justify-content:flex-end}
+.kp-board-side b{overflow:hidden;color:#18181b;font:900 clamp(.9rem,2vw,1.35rem)/1 system-ui,sans-serif;white-space:nowrap;text-overflow:ellipsis}
+.kp-board-face{flex:none;display:grid;width:2.35rem;height:2.35rem;border-radius:.3rem;overflow:hidden;box-shadow:0 0 0 2px #18181b,0 0 0 3px var(--kf-c,#888)}
+.kp-board-face canvas{width:100%!important;height:100%!important}
+.kp-board-role{flex:none;font-style:normal;font-size:1rem;line-height:1}
+.kp-board-score{min-width:6.5rem;height:3rem;margin:0 -.1rem;display:grid;place-items:center;border-radius:.45rem;background:linear-gradient(180deg,#ff6b4a 0%,#f43f1e 40%,#c81e0a 60%,#e2341a 100%);box-shadow:inset 0 2px 0 #ffffff70,0 0 0 2px #7f1d1d,0 4px 10px #0009;color:#fff;font:900 clamp(1.4rem,3vw,2rem)/1 system-ui,sans-serif;letter-spacing:.06em;text-shadow:0 2px 0 #7f1d1d}
+.kp-board-dots{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:.5rem}
+.kp-dots{display:flex;gap:.35rem;padding:.3rem .55rem;border-radius:.35rem;background:linear-gradient(180deg,#27272a,#09090b);box-shadow:0 0 0 2px #52525b,0 4px 10px #0009}
+.kp-board-dots .kp-dots{justify-content:space-around}
+.kp-board-side--now b{animation:kp-now .7s ease-in-out infinite alternate}
+@keyframes kp-now{from{color:#18181b}to{color:#dc2626;text-shadow:0 0 8px #fca5a5}}
+.kp-dot{width:1.3rem;height:1.3rem;border-radius:50%;background:radial-gradient(circle at 35% 30%,#52525b,#09090b 70%);box-shadow:inset 0 0 0 2px #71717a,0 1px 0 #000}
+.kp-dot--goal{background:radial-gradient(circle at 35% 30%,#bbf7d0,#22c55e 45%,#14532d 100%);box-shadow:inset 0 0 0 2px #86efac,0 0 10px #22c55e}
+.kp-dot--miss{background:radial-gradient(circle at 35% 30%,#fecaca,#ef4444 45%,#7f1d1d 100%);box-shadow:inset 0 0 0 2px #fca5a5,0 0 10px #ef4444}
+.kp-fx{padding:.15rem .6rem;border-radius:999px;background:#000b;color:#fff;font:800 .72rem/1.2 system-ui,sans-serif;white-space:nowrap;box-shadow:0 0 0 2px #fff4}
+.kp-fx--fuego{box-shadow:0 0 0 2px #f97316,0 0 12px #f97316aa}.kp-fx--electricidad{box-shadow:0 0 0 2px #38bdf8,0 0 12px #38bdf8aa}.kp-fx--viento{box-shadow:0 0 0 2px #e2e8f0,0 0 12px #e2e8f0aa}.kp-fx--radiacion{box-shadow:0 0 0 2px #84cc16,0 0 12px #84cc16aa}.kp-fx--laser{box-shadow:0 0 0 2px #ef4444,0 0 12px #ef4444aa}
 .kp canvas[role="img"]{cursor:crosshair}
-@media(max-width:700px){.kp-aim{top:3.6rem;left:.3rem;max-width:62%;padding:.35rem}.kp-zone span{display:none}.kp-zone{justify-content:center;min-height:2.2rem}.kp-dot{width:.8rem;height:.8rem;font-size:.5rem}}
-
+@media(max-width:700px){.kp-board{top:.25rem}.kp-board-top{height:2rem}.kp-board-score{min-width:4.2rem;height:2.3rem}.kp-board-face{width:1.6rem;height:1.6rem}.kp-board-side{gap:.3rem;padding:0 .35rem}.kp-dot{width:.85rem;height:.85rem}.kp-dots{gap:.2rem;padding:.2rem .35rem}.kp-fx{font-size:.55rem}}
+/* Kombat Penales: en el menú, la pelota de fútbol (la del juego) en lugar de la de vóley */
+.kv.kp .kf-modes button::before{background:url("../features/games/assets/penales/pelota.webp") center/contain no-repeat!important;border-radius:50%;box-shadow:0 0 0 2px #000,0 0 14px #fde68a!important}
 /* Kombat Penales: el cartel del gol y el efecto de la pelota de la ronda */
 .kp-goal{position:absolute;left:30%;top:34%;z-index:4;display:grid;justify-items:center;gap:.2rem;transform:translate(-50%,-50%);pointer-events:none;animation:kp-goal-in .5s cubic-bezier(.2,1.7,.4,1) both,kp-goal-out .35s ease-in 1.95s forwards}
 .kp-goal b{padding:.15em .55em .2em;border-radius:.3em;background:linear-gradient(180deg,#16a34a,#14532d);box-shadow:0 0 0 .12em #fde047,0 0 0 .22em #14532d,0 .35em 1.2em #000c,0 0 2.2em #22c55e88;color:#fef9c3;font:400 clamp(1.7rem,5.6vw,4.4rem)/1 "KF Menu",Impact,sans-serif;letter-spacing:.04em;text-shadow:0 .06em 0 #713f12,0 0 .4em #facc15;white-space:nowrap;animation:kp-goal-shake .14s linear .5s 5}
@@ -2252,6 +2259,5 @@ body:has(.land) .mobile-nav{display:none}
 @keyframes kp-goal-in{from{transform:translate(-50%,-50%) scale(.2) rotate(-8deg);opacity:0}to{transform:translate(-50%,-50%) scale(1) rotate(0);opacity:1}}
 @keyframes kp-goal-out{to{transform:translate(-50%,-50%) scale(1.25);opacity:0}}
 @keyframes kp-goal-shake{0%,100%{transform:translate(0,0)}25%{transform:translate(3px,-2px) rotate(1deg)}75%{transform:translate(-3px,2px) rotate(-1deg)}}
-.kp-fx{justify-self:center;margin-top:.3rem;padding:.2rem .7rem;border-radius:999px;background:#000b;color:#fff;font:800 .78rem/1.2 system-ui,sans-serif;box-shadow:0 0 0 2px #fff4}
-.kp-fx--fuego{box-shadow:0 0 0 2px #f97316,0 0 12px #f97316aa}.kp-fx--electricidad{box-shadow:0 0 0 2px #38bdf8,0 0 12px #38bdf8aa}.kp-fx--viento{box-shadow:0 0 0 2px #e2e8f0,0 0 12px #e2e8f0aa}.kp-fx--radiacion{box-shadow:0 0 0 2px #84cc16,0 0 12px #84cc16aa}.kp-fx--laser{box-shadow:0 0 0 2px #ef4444,0 0 12px #ef4444aa}
-@media(max-width:700px){.kp-fx{font-size:.6rem}}
+.kp-menu-ball{display:block;width:clamp(52px,9vh,86px);height:auto;margin:-.2rem auto .4rem;border-radius:50%;filter:drop-shadow(0 6px 10px #000c) drop-shadow(0 0 14px #fde68a66);animation:kp-ball-spin 6s linear infinite}
+@keyframes kp-ball-spin{to{transform:rotate(360deg)}}

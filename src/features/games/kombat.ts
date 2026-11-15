@@ -136,7 +136,7 @@ export type Cast = 'ability' | 'fatal';
 export interface Input { left: boolean; right: boolean; up: boolean; down: boolean; kick: boolean; ability: boolean; cast?: Cast | null }
 export const noInput = (): Input => ({ left: false, right: false, up: false, down: false, kick: false, ability: false, cast: null });
 
-export type Action = 'idle' | 'run' | 'jump' | 'charge' | 'kick' | 'header' | 'slide' | 'block' | 'stun' | 'special' | 'celebrate' | 'sad' | 'fatal' | 'tired' | 'keeper' | 'dive' | 'save'; // (keeper, dive y save: el arquero de Kombat Penales)
+export type Action = 'idle' | 'run' | 'jump' | 'charge' | 'kick' | 'header' | 'slide' | 'block' | 'stun' | 'special' | 'celebrate' | 'sad' | 'fatal' | 'tired' | 'keeper' | 'gather' | 'dive' | 'save'; // (keeper, dive y save: el arquero de Kombat Penales)
 export type StunKind = 'hit' | 'freeze' | 'poison' | 'burn' | 'zap' | 'none';
 export interface Fighter {
   side: 0 | 1; char: CharId;

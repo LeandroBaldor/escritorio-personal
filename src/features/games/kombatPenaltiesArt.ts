@@ -182,33 +182,44 @@ function kickerState(m: PenMatch, side: 0 | 1) {
 export const kickerBody = (char: CharId) => ({ x: KICK_AT[0], y: KICK_AT[1], h: 2.3 * SIZE[char] * FPX });
 // A dónde va el arquero: si ataja, al lugar del tiro (se acomoda en el aire); si no, a donde eligió.
 function keeperGoal(m: PenMatch): Zone | null { const k = m.kick; return k ? (k.outcome === 'save' ? k.shot : k.dive) : null; }
-interface KeeperPose { x: number; y: number; rot: number; hipY: number; action: 'keeper' | 'dive' | 'save' | 'celebrate' | 'sad' | 'idle' }
+interface KeeperPose { x: number; y: number; rot: number; hipY: number; action: 'keeper' | 'gather' | 'dive' | 'save' | 'celebrate' | 'sad' | 'idle'; prog: number }
+const ANTIC = 0.26; // cuánto antes se agacha para saltar
+const easeInOut = (k: number) => { const x = clamp01(k); return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; };
 function keeperState(m: PenMatch, char: CharId): KeeperPose {
   const S = FPX * BODY_SCALE * SIZE[char], hip = 0.66 * S, k = m.kick, z = keeperGoal(m);
-  const stand: KeeperPose = { x: KEEPER[0], y: KEEPER[1], rot: 0, hipY: hip, action: 'keeper' };
-  if (!k || z === null || k.t < T.dive) return stand;
-  const col = colOf(z), row = rowOf(z), target = zonePoint(z), p = ease((k.t - T.dive) / T.diveDur);
+  const stand: KeeperPose = { x: KEEPER[0], y: KEEPER[1], rot: 0, hipY: hip, action: 'keeper', prog: 0 };
+  if (!k || z === null || k.t < T.dive - ANTIC) return stand;
+  const col = colOf(z), row = rowOf(z), side = col === 0 ? -1 : col === 2 ? 1 : 0, target = zonePoint(z);
+  // 1) se agacha y carga el peso para el lado al que se va a tirar
+  if (k.t < T.dive) { const e = Math.sin(((k.t - T.dive + ANTIC) / ANTIC) * Math.PI / 2); return { x: KEEPER[0] + side * S * 0.1 * e, y: KEEPER[1], rot: side * 0.1 * e, hipY: hip, action: 'gather', prog: e }; }
+  const d = (k.t - T.dive) / T.diveDur, p = ease(d), result = k.outcome === 'save' ? 'celebrate' as const : 'sad' as const;
   const front: P2 = [target[0] - DM[0] * 0.3, target[1] - DM[1] * 0.3];
-  if (col === 1) { // al medio: salta derecho para arriba o se agacha
-    if (row === 1) return { ...stand, action: 'save', hipY: hip * 0.75 };
-    const up = Math.sin(Math.PI * clamp01((k.t - T.dive) / 0.9)) * Math.max(0, KEEPER[1] - hip - S * 0.9 - front[1]);
-    const after = k.t > arriveAt() + 0.9;
-    return { x: KEEPER[0], y: KEEPER[1] - up, rot: 0, hipY: hip, action: after ? (k.outcome === 'save' ? 'celebrate' : 'sad') : 'dive' };
+  if (col === 1) { // al medio: salta derecho para arriba (o se tira abajo)
+    if (row === 1) return { ...stand, action: k.t > arriveAt() + 0.9 ? result : 'save', hipY: hip * 0.75, prog: 1 };
+    const jt = clamp01((k.t - T.dive) / 0.9), up = Math.sin(Math.PI * jt) * Math.max(0, KEEPER[1] - hip - S * 0.9 - front[1]);
+    const landed = jt >= 1, sq = landed ? Math.max(0, 1 - (k.t - T.dive - 0.9) * 5) : 0; // al caer amortigua un poquito
+    return { x: KEEPER[0], y: KEEPER[1] - up, rot: Math.sin(jt * Math.PI) * 0.05, hipY: hip, action: landed && sq <= 0 ? (k.t > arriveAt() + 0.9 ? result : 'keeper') : landed ? 'gather' : 'dive', prog: landed ? sq : clamp01(jt * 2) };
   }
-  // al costado: vuela estirado hacia el lugar, con las manos adelante
+  // 2) vuela hacia el lugar: despega, sube en arco y el cuerpo va girando de a poco hasta quedar estirado
   const reach = 1.12 * S, base: P2 = [KEEPER[0], KEEPER[1] - hip];
   const dx = front[0] - base[0], dy = front[1] - base[1], dist = Math.hypot(dx, dy) || 1, rot = Math.atan2(dx, -dy);
   const hipTo: P2 = [front[0] - dx / dist * reach, front[1] - dy / dist * reach];
-  const hx = lerp(base[0], hipTo[0], p);
-  let hy = lerp(base[1], hipTo[1], p), r = rot * p;
-  // cae al piso, acostado de costado
-  const fall = ease((k.t - arriveAt() - 0.12) / 0.4); // (después de que llega la pelota)
-  const groundHere = lerp(KEEPER[1], G(col === 0 ? 0.12 : 0.88, 0.32)[1], p);
-  if (fall > 0) { hy = lerp(hy, groundHere - S * 0.28, fall); r = lerp(r, Math.sign(rot) * Math.PI / 2, fall); }
-  // se levanta y festeja (o se lamenta)
-  const rise = ease((k.t - arriveAt() - 1.0) / 0.35);
+  let hx = lerp(base[0], hipTo[0], p), hy = lerp(base[1], hipTo[1], p) - Math.sin(Math.PI * clamp01(d)) * S * (row === 0 ? 0.22 : 0.38), r = rot * easeInOut(d * 1.1);
+  // un estirón extra cuando llega la pelota
+  const stretch = Math.max(0, 1 - Math.abs(k.t - arriveAt()) * 6); hx += Math.sin(rot) * S * 0.06 * stretch; hy -= Math.cos(rot) * S * 0.06 * stretch;
+  // 3) cae al piso con la gravedad, rebota un poquito y se desliza
+  const groundHere = lerp(KEEPER[1], G(col === 0 ? 0.12 : 0.88, 0.32)[1], p), landT = arriveAt() + 0.08, fallDur = 0.38;
+  const f = clamp01((k.t - landT) / fallDur);
+  if (f > 0) {
+    const g = f * f, lieY = groundHere - S * 0.28;
+    hy = lerp(hy, lieY, g); r = lerp(r, side * (Math.PI / 2), easeInOut(f)) + side * 0.14 * Math.sin(f * Math.PI);
+    hx += side * S * 0.3 * ease(f);
+    if (f >= 1) { const tau = k.t - landT - fallDur; hy = lieY - Math.abs(Math.sin(tau * 13)) * S * 0.08 * Math.exp(-tau * 7); hx += side * S * 0.12 * (1 - Math.exp(-tau * 5)); }
+  }
+  // 4) se levanta y festeja (o se lamenta)
+  const rise = ease((k.t - arriveAt() - 1.05) / 0.4);
   if (rise > 0) { hy = lerp(hy, groundHere - hip, rise); r = lerp(r, 0, rise); }
-  return { x: hx, y: hy + hip, rot: r, hipY: hip, action: rise >= 1 ? (k.outcome === 'save' ? 'celebrate' : 'sad') : 'dive' };
+  return { x: hx, y: hy + hip, rot: r, hipY: hip, action: rise >= 1 ? result : rise > 0 ? 'gather' : 'dive', prog: rise > 0 ? 1 - rise : clamp01(d * 1.5) };
 }
 // Para la lógica: dónde explota el arquero (el piso debajo de la cadera y el alto del cuerpo).
 export function keeperBody(m: PenMatch, char: CharId) {
@@ -305,7 +316,7 @@ const NOFX = { power: 0, frozen: false, poison: false, burn: false, zap: false, 
 function drawKeeper(ctx: CanvasRenderingContext2D, m: PenMatch, char: CharId, rim: string) {
   if (m.kick?.kboom) return; // explotó
   const st = keeperState(m, char), f = idleFighter(char);
-  f.facing = -1; f.action = st.action; f.ground = st.rot === 0;
+  f.facing = -1; f.action = st.action; f.actionT = st.prog; f.ground = st.rot === 0;
   // sombra en el piso (queda abajo aunque vuele)
   const gy = m.kick ? Math.max(st.y, KEEPER[1]) : KEEPER[1], S = FPX * BODY_SCALE * SIZE[char];
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(st.x, Math.min(gy, st.y + 400), S * 0.5 + Math.abs(Math.sin(st.rot)) * S * 0.7, S * 0.09, 0.3, 0, TAU); ctx.fill();

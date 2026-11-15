@@ -136,7 +136,7 @@ export function stepPenalties(m: PenMatch, dt: number, kickPos: BodyAt, keeperPo
     if (k.t >= kickDuration()) {
       const w = shootoutWinner(m.kicks);
       if (w !== null) { m.winner = w; m.phase = 'end'; m.phaseT = 0; m.events.push({ type: 'end', winner: w }); }
-      else { m.turn++; m.phase = 'aim'; m.phaseT = 0; m.kick = null; m.events.push({ type: 'whistle' }); }
+      else { m.turn++; m.phase = 'aim'; m.phaseT = 0; m.kick = null; m.events.push({ type: 'whistle' }); m.gore = { gibs: [], drops: [], stains: [] }; m.sparks = []; m.screenBlood = []; } // (el siguiente penal empieza limpio)
     }
   }
   updateGore(m, dt);

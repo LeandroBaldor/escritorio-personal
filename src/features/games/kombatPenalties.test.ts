@@ -28,12 +28,14 @@ describe('Kombat Penales: la tanda', () => {
     const m = newPenalties('volcano', ['frost', 'thunder'], () => 0.5);
     m.phase = 'aim';
     startKick(m, 2, 2);
-    const ev: string[] = [];
-    for (let t = 0; t < kickDuration() + 0.2; t += 1 / 60) { stepPenalties(m, 1 / 60, () => ({ x: 0, y: 0, h: 368 })); ev.push(...takePenEvents(m).map(e => e.type)); }
+    const ev: string[] = []; let skull = false;
+    for (let t = 0; t < kickDuration() + 0.2; t += 1 / 60) { stepPenalties(m, 1 / 60, () => ({ x: 0, y: 0, h: 368 })); ev.push(...takePenEvents(m).map(e => e.type)); skull ||= m.gore.gibs.some(g => g.kind === 'skull'); }
     expect(m.kicks[0]).toEqual([false]);
     expect(ev).toEqual(expect.arrayContaining(['kick', 'save', 'boom', 'whistle']));
-    expect(m.gore.gibs.some(g => g.kind === 'skull')).toBe(true);
+    expect(skull).toBe(true);
     expect(m.turn).toBe(1);
+    // el siguiente penal empieza limpio: sin huesos, sangre ni manchas
+    expect(m.gore.gibs.length + m.gore.drops.length + m.gore.stains.length + m.screenBlood.length).toBe(0);
   });
   it('si es gol y el arquero se tiró para el otro lado, explota el arquero', () => {
     expect(keeperBlewIt(0, 5)).toBe(true); expect(keeperBlewIt(0, 3)).toBe(false); expect(keeperBlewIt(1, 0)).toBe(true);
