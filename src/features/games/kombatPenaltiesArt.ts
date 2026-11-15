@@ -248,14 +248,15 @@ function ballAt(k: PenKick | null, kt: number): BallPos {
     const fallY = Math.min(floor, back[1] + d[1] * 0.4 + 0.5 * 1800 * tt * tt);
     return { x: back[0] + d[0] * 0.3, y: fallY, r: BALL_R * 0.86, spin: kt * 24 * Math.exp(-tt * 3), inside: true, shadow: G(u, -0.75), alpha: 1 };
   }
-  // atajada: sale rebotando para el costado
-  const vx = col === 0 ? -620 : col === 2 ? 620 : (rowOf(k.shot) === 0 ? 120 : -260), vy = rowOf(k.shot) === 0 ? -900 : -520;
-  const gy = KEEPER[1] + 40 - BALL_R;
-  let y = end[1] + vy * a + 0.5 * 2400 * a * a;
-  if (y > gy) y = gy - Math.abs(Math.sin(a * 6)) * 40 * Math.exp(-a * 2);
-  return { x: end[0] + vx * a, y, r: BALL_R * 0.86, spin: kt * 24, inside: false, shadow: [end[0] + vx * a, gy + BALL_R], alpha: clamp01(2.2 - a * 1.2) };
+  // atajada: rebota hacia adelante (hacia el que pateó), pica unas veces en la cancha y queda ahí
+  const g0 = G(u, 0.3), h0 = Math.max(0, g0[1] - end[1]), tw = Math.hypot(DM[0], DM[1]);
+  const dir: P2 = [-DM[0] / tw + (0.5 - u) * 0.5, -DM[1] / tw], dl = Math.hypot(dir[0], dir[1]);
+  const dist = 560 * (1 - Math.exp(-1.7 * a)) / 1.7; // se va frenando (unos 2 m adelante del arco)
+  const gx = g0[0] + dir[0] / dl * dist, gy = g0[1] + dir[1] / dl * dist;
+  let z = h0, vz = rowOf(k.shot) === 0 ? 120 : 380;
+  for (let tt = 0; tt < a; tt += 1 / 120) { vz -= 2400 / 120; z += vz / 120; if (z <= 0) { z = 0; vz = Math.abs(vz) * 0.5; if (vz < 60) vz = 0; } }
+  return { x: gx, y: gy - z - BALL_R * 0.86, r: BALL_R * 0.86, spin: kt * 24 * Math.exp(-a * 1.2), inside: false, shadow: [gx, gy], alpha: 1 };
 }
-
 // El efecto de la pelota (va detrás): una estela de puntos tomados de dónde estuvo la pelota hace un ratito.
 const jit = (n: number, t: number) => Math.sin(n * 12.9898 + Math.floor(t * 30) * 78.233) * 0.5 + Math.sin(n * 3.1 + t * 47) * 0.5;
 function drawBallFx(ctx: CanvasRenderingContext2D, m: PenMatch, b: BallPos) {

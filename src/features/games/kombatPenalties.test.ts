@@ -49,6 +49,11 @@ describe('Kombat Penales: la tanda', () => {
   it('la pelota cambia de efecto en cada ronda y vuelve a empezar después del quinto', () => {
     expect([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(fxOfTurn)).toEqual(['fuego', 'fuego', 'electricidad', 'electricidad', 'viento', 'viento', 'radiacion', 'radiacion', 'laser', 'laser', 'fuego', 'fuego']);
   });
+  it('el mundial de penales sortea los rivales al azar', () => {
+    const firsts = new Set<string>();
+    for (let i = 0; i < 20; i++) { const c = newCup('frost', Math.random, true); firsts.add(c.rounds[0].map(m => m.a + m.b).join()); expect(c.rounds[0].flatMap(m => [m.a, m.b]).sort()).toHaveLength(16); }
+    expect(firsts.size).toBeGreaterThan(10);
+  });
   it('el mundial simula resultados de penales sin empates', () => {
     for (let i = 0; i < 50; i++) { const [a, b] = penaltyScore(Math.random); expect(a).toBeGreaterThan(b); }
     const cup = finishRound(newCup('frost', () => 0.3), 0, [5, 4], Math.random, penaltyScore);

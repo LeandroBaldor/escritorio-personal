@@ -2252,12 +2252,5 @@ body:has(.land) .mobile-nav{display:none}
 @media(max-width:700px){.kp-board{top:.25rem}.kp-board-top{height:2rem}.kp-board-score{min-width:4.2rem;height:2.3rem}.kp-board-face{width:1.6rem;height:1.6rem}.kp-board-side{gap:.3rem;padding:0 .35rem}.kp-dot{width:.85rem;height:.85rem}.kp-dots{gap:.2rem;padding:.2rem .35rem}.kp-fx{font-size:.55rem}}
 /* Kombat Penales: en el menú, la pelota de fútbol (la del juego) en lugar de la de vóley */
 .kv.kp .kf-modes button::before{background:url("../features/games/assets/penales/pelota.webp") center/contain no-repeat!important;border-radius:50%;box-shadow:0 0 0 2px #000,0 0 14px #fde68a!important}
-/* Kombat Penales: el cartel del gol y el efecto de la pelota de la ronda */
-.kp-goal{position:absolute;left:30%;top:34%;z-index:4;display:grid;justify-items:center;gap:.2rem;transform:translate(-50%,-50%);pointer-events:none;animation:kp-goal-in .5s cubic-bezier(.2,1.7,.4,1) both,kp-goal-out .35s ease-in 1.95s forwards}
-.kp-goal b{padding:.15em .55em .2em;border-radius:.3em;background:linear-gradient(180deg,#16a34a,#14532d);box-shadow:0 0 0 .12em #fde047,0 0 0 .22em #14532d,0 .35em 1.2em #000c,0 0 2.2em #22c55e88;color:#fef9c3;font:400 clamp(1.7rem,5.6vw,4.4rem)/1 "KF Menu",Impact,sans-serif;letter-spacing:.04em;text-shadow:0 .06em 0 #713f12,0 0 .4em #facc15;white-space:nowrap;animation:kp-goal-shake .14s linear .5s 5}
-.kp-goal small{padding:.25rem .8rem;border-radius:999px;background:#000c;color:#fde68a;font:800 clamp(.85rem,2vw,1.2rem)/1.2 system-ui,sans-serif}
-@keyframes kp-goal-in{from{transform:translate(-50%,-50%) scale(.2) rotate(-8deg);opacity:0}to{transform:translate(-50%,-50%) scale(1) rotate(0);opacity:1}}
-@keyframes kp-goal-out{to{transform:translate(-50%,-50%) scale(1.25);opacity:0}}
-@keyframes kp-goal-shake{0%,100%{transform:translate(0,0)}25%{transform:translate(3px,-2px) rotate(1deg)}75%{transform:translate(-3px,2px) rotate(-1deg)}}
 .kp-menu-ball{display:block;width:clamp(52px,9vh,86px);height:auto;margin:-.2rem auto .4rem;border-radius:50%;filter:drop-shadow(0 6px 10px #000c) drop-shadow(0 0 14px #fde68a66);animation:kp-ball-spin 6s linear infinite}
 @keyframes kp-ball-spin{to{transform:rotate(360deg)}}

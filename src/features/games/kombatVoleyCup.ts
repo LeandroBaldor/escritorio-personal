@@ -21,8 +21,9 @@ export interface Cup {
 const power = (c: CharId) => STATS[c].speed + STATS[c].strength + STATS[c].jump;
 export const cupWinner = (m: CupMatch): CharId | null => (m.sa === null || m.sb === null ? null : m.sa > m.sb ? m.a : m.b);
 
-export function newCup(you: CharId, rand: () => number = Math.random): Cup {
-  const ranked = [...CHAR_IDS].map(c => [c, power(c) + rand() * 30] as const).sort((x, y) => y[1] - x[1]).map(x => x[0]);
+// (shuffled: el cuadro se sortea al azar, sin mirar las estadísticas; lo usa Kombat Penales)
+export function newCup(you: CharId, rand: () => number = Math.random, shuffled = false): Cup {
+  const ranked = [...CHAR_IDS].map(c => [c, shuffled ? rand() : power(c) + rand() * 30] as const).sort((x, y) => y[1] - x[1]).map(x => x[0]);
   const seed = Object.fromEntries(ranked.map((c, i) => [c, i + 1])) as Record<CharId, number>;
   const slots = SLOT_SEEDS.map(s => ranked[s - 1]);
   const first: CupMatch[] = [];
