@@ -18,6 +18,7 @@ import penPelotaUrl from './assets/sonidos/pen-pelota.mp3';
 import penAtajaUrl from './assets/sonidos/pen-arquero-ataja.mp3';
 import penRedUrl from './assets/sonidos/pen-red.mp3';
 import penBoomUrl from './assets/sonidos/pen-explosion-sangre.mp3';
+import penBoomBodyUrl from './assets/sonidos/pen-explosion-jugador.mp3';
 import hinchadaUrl from './assets/sonidos/hinchada.mp3';
 import patadaUrl from './assets/sonidos/patada.mp3';
 import trueno1Url from './assets/sonidos/trueno-1.mp3';
@@ -1611,10 +1612,10 @@ export function setVampDragon(mouth: 'shut' | 'open' | null, wings = 0) {
 // ---------- Kombat Penales (sonidos que pasó el usuario) ----------
 // Los pasos mientras corre a la pelota, la patada, la atajada del arquero y la pelota pegando en la red.
 // Mientras el archivo carga, suena el sintetizado de Kombat Football.
-export function preloadPenaltySounds() { for (const url of [penPasosUrl, penPelotaUrl, penAtajaUrl, penRedUrl, penBoomUrl]) loadSample(url); }
-export function playPenSteps() { playSample(penPasosUrl, 0.35, 0, 1.35); } // (bajito)
-export function playPenKick() { if (!playSample(penPelotaUrl, 1)) playKfBall(1.3, 0.85); }
+export function preloadPenaltySounds() { for (const url of [penPasosUrl, penPelotaUrl, penAtajaUrl, penRedUrl, penBoomUrl, penBoomBodyUrl]) loadSample(url); }
+export function playPenSteps() { playSample(penPasosUrl, 0.15, 0, 1.35); } // (bien bajito)
+export function playPenKick() { if (!playSample(penPelotaUrl, 1.6)) playKfBall(1.3, 0.85); }
 export function playPenSave() { if (!playSample(penAtajaUrl, 1)) playKfBall(1, 0.6); }
 export function playPenNet() { playSample(penRedUrl, 1, 0.08); }
-// La explosión con sangre (explosion_sangre.mp3 del usuario; mientras carga, la de Kombat Football).
-export function playPenExplosion() { if (!playSample(penBoomUrl, 1)) playExplosion(); }
+// La explosión: explosion_sangre.mp3 y explosion_jugador.mp3 del usuario juntas (mientras cargan, la de Kombat Football).
+export function playPenExplosion() { const a = playSample(penBoomUrl, 1), b = playSample(penBoomBodyUrl, 0.85); if (!a && !b) playExplosion(); } // (las dos juntas: la sangre y el jugador)

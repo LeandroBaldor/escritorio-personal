@@ -128,13 +128,30 @@ export function drawPenBackdrop(ctx: CanvasRenderingContext2D, stage: StageId, w
 // ---------------------------------------------------------------- La red que se mueve
 // La red se dibuja en una grilla de triángulos; cada punto se corre según qué tan cerca está de donde pegó la pelota
 // (hacia el fondo, con un rebote que se va apagando). El marco va encima, quieto.
-const NX = 26, NY = 14, SX0 = 140, SY0 = 0, SW = 1420, SH = 890;
+const NX = 40, NY = 22, SX0 = 140, SY0 = 0, SW = 1420, SH = 890;
+// Donde la red está atada al arco: ahí no se mueve (y se suelta de a poco al alejarse). Los palos y el travesaño
+// de adelante sostienen fuerte; los caños del piso y los de atrás, un poco menos (así igual se hunde en el medio).
+const ANCHORS: [P2, P2, number][] = [
+  [[258, 30], [258, 590], 170], [[262, 70], [1218, 330], 170], [[1218, 320], [1218, 860], 170], // palos y travesaño
+  [[258, 575], [490, 500], 80], [[490, 500], [1510, 755], 80], [[1218, 850], [1510, 755], 80], // caños del piso
+  [[455, 150], [490, 500], 85], [[1355, 280], [1510, 755], 85], [[440, 20], [1355, 280], 95], [[262, 50], [440, 20], 95], [[1218, 320], [1355, 280], 95], // caños de atrás y de arriba
+];
+function anchorK(x: number, y: number) {
+  let k = 1;
+  for (const [a, b, r] of ANCHORS) {
+    const vx = b[0] - a[0], vy = b[1] - a[1], q = Math.max(0, Math.min(1, ((x - a[0]) * vx + (y - a[1]) * vy) / (vx * vx + vy * vy)));
+    const d = Math.hypot(x - a[0] - vx * q, y - a[1] - vy * q), e = Math.min(1, d / r);
+    k = Math.min(k, e * e * (3 - 2 * e));
+  }
+  return k;
+}
 function netDisp(x: number, y: number, hit: P2, t: number): P2 {
   const dx = x - hit[0], dy = y - hit[1], f = Math.exp(-(dx * dx + dy * dy) / (2 * 300 * 300));
   const a = (300 * Math.exp(-2.2 * t) * Math.cos(10 * t) + 70 * Math.exp(-1.1 * t)) * f; // empuje fuerte que rebota + lo que queda colgando
   const ripple = 34 * Math.exp(-2 * t) * Math.sin(Math.hypot(dx, dy) / 45 - t * 16) * Math.exp(-(dx * dx + dy * dy) / (2 * 420 * 420));
   const n = Math.hypot(DEPTH[0], DEPTH[1]), ux = DEPTH[0] / n, uy = DEPTH[1] / n;
-  return [ux * (a + ripple) + 0, uy * (a + ripple) + Math.abs(a) * 0.35 + ripple * 0.4];
+  const k = anchorK(x, y);
+  return [k * ux * (a + ripple), k * (uy * (a + ripple) + Math.abs(a) * 0.35 + ripple * 0.4)];
 }
 function drawNet(ctx: CanvasRenderingContext2D, im: HTMLImageElement, hit: P2 | null, t: number) {
   if (!hit || t > 3) { ctx.drawImage(im, 0, 0); return; }
