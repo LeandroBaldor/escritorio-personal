@@ -249,9 +249,9 @@ function ballAt(k: PenKick | null, kt: number): BallPos {
     return { x: back[0] + d[0] * 0.3, y: fallY, r: BALL_R * 0.86, spin: kt * 24 * Math.exp(-tt * 3), inside: true, shadow: G(u, -0.75), alpha: 1 };
   }
   // atajada: rebota hacia adelante (hacia el que pateó), pica unas veces en la cancha y queda ahí
-  const g0 = G(u, 0.3), h0 = Math.max(0, g0[1] - end[1]), tw = Math.hypot(DM[0], DM[1]);
-  const dir: P2 = [-DM[0] / tw + (0.5 - u) * 0.5, -DM[1] / tw], dl = Math.hypot(dir[0], dir[1]);
-  const dist = 560 * (1 - Math.exp(-1.7 * a)) / 1.7; // se va frenando (unos 2 m adelante del arco)
+  const g0 = G(u, 0.3), h0 = Math.max(0, g0[1] - end[1]);
+  const dir: P2 = [-1, 0.22], dl = Math.hypot(dir[0], dir[1]); // hacia la izquierda de la cancha (para el lado del que pateó)
+  const dist = 1100 * (1 - Math.exp(-1.5 * a)) / 1.5; // se va frenando (unos 4 m a la izquierda de donde atajó)
   const gx = g0[0] + dir[0] / dl * dist, gy = g0[1] + dir[1] / dl * dist;
   let z = h0, vz = rowOf(k.shot) === 0 ? 120 : 380;
   for (let tt = 0; tt < a; tt += 1 / 120) { vz -= 2400 / 120; z += vz / 120; if (z <= 0) { z = 0; vz = Math.abs(vz) * 0.5; if (vz < 60) vz = 0; } }

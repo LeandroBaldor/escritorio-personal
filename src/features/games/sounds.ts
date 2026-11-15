@@ -13,6 +13,10 @@ import gameOverUrl from './assets/sonidos/game-over.mp3';
 import ganasteUrl from './assets/sonidos/ganaste.mp3';
 import jugarUrl from './assets/sonidos/jugar.mp3';
 import golUrl from './assets/sonidos/gol.mp3';
+import penPasosUrl from './assets/sonidos/pen-pasos.mp3';
+import penPelotaUrl from './assets/sonidos/pen-pelota.mp3';
+import penAtajaUrl from './assets/sonidos/pen-arquero-ataja.mp3';
+import penRedUrl from './assets/sonidos/pen-red.mp3';
 import hinchadaUrl from './assets/sonidos/hinchada.mp3';
 import patadaUrl from './assets/sonidos/patada.mp3';
 import trueno1Url from './assets/sonidos/trueno-1.mp3';
@@ -1602,3 +1606,12 @@ export function setVampDragon(mouth: 'shut' | 'open' | null, wings = 0) {
   setVampLoop('dragon-fuego', mouth === 'open' ? 0.8 : 0);
   setVampLoop('dragon-alas', mouth ? wings : 0);
 }
+
+// ---------- Kombat Penales (sonidos que pasó el usuario) ----------
+// Los pasos mientras corre a la pelota, la patada, la atajada del arquero y la pelota pegando en la red.
+// Mientras el archivo carga, suena el sintetizado de Kombat Football.
+export function preloadPenaltySounds() { for (const url of [penPasosUrl, penPelotaUrl, penAtajaUrl, penRedUrl]) loadSample(url); }
+export function playPenSteps() { playSample(penPasosUrl, 0.9, 0, 1.35); }
+export function playPenKick() { if (!playSample(penPelotaUrl, 1)) playKfBall(1.3, 0.85); }
+export function playPenSave() { if (!playSample(penAtajaUrl, 1)) playKfBall(1, 0.6); }
+export function playPenNet() { playSample(penRedUrl, 1, 0.08); }

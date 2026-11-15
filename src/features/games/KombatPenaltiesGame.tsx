@@ -15,8 +15,8 @@ import menuBg from './assets/fondos/kf-menu.webp';
 import menuBall from './assets/penales/pelota.webp';
 import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
-  playExplosion, playGameOver, playKfBall, playKfButton, playKfGoal, playKfName, playKfSelectVoice, playKfVsSentence,
-  playRefWhistle, playStart, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
+  playExplosion, playGameOver, playKfButton, playKfGoal, playKfName, playKfSelectVoice, playKfVsSentence,
+  playPenKick, playPenNet, playPenSave, playPenSteps, playRefWhistle, playStart, preloadPenaltySounds, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 import { Fireworks } from './Fireworks';
@@ -251,7 +251,7 @@ export function KombatPenalties() {
   }, []);
 
   const begin = useCallback((n = round) => {
-    playStart(); preloadKombatSounds(); preloadPenaltyArt();
+    playStart(); preloadKombatSounds(); preloadPenaltySounds(); preloadPenaltyArt();
     const st = mode === 'world' ? cup.stages[n] : stage, rival = mode === 'world' ? rivalOf(cup, n) : p2;
     reachRef.current = mode === 'world' ? roundReach(n) : DIFFICULTY[difficulty].reach;
     const m = newPenalties(st, [p1, rival]);
@@ -274,6 +274,7 @@ export function KombatPenalties() {
     // el arquero de la máquina llega según la dificultad; el de una persona, siempre igual
     const cpuKeeps = modeRef.current !== 'two' && shooterOf(m.turn) === 0;
     startKick(m, shot, dive, cpuKeeps ? reachRef.current : HUMAN_REACH);
+    playPenSteps(); // corre a la pelota
     setAim(null);
   }, []);
   // las flechas a la izquierda o a la derecha: una vez abajo, dos veces seguidas arriba
@@ -351,12 +352,12 @@ export function KombatPenalties() {
       for (const e of takePenEvents(m)) {
         switch (e.type) {
           case 'whistle': playRefWhistle('penalty'); setupTurn(m); break;
-          case 'kick': playKfBall(1.3, 0.85); break;
+          case 'kick': playPenKick(); break;
           case 'goal': {
-            playKfGoal(); setCrowd(1); setTimeout(() => { if (screenRef.current === 'playing') setCrowd(0.55); }, 1800);
+            playPenNet(); playKfGoal(); setCrowd(1); setTimeout(() => { if (screenRef.current === 'playing') setCrowd(0.55); }, 1800);
             break;
           }
-          case 'save': playKfBall(1, 0.6); break;
+          case 'save': playPenSave(); break;
           case 'boom': playExplosion(); break;
           case 'end': playRefWhistle('end'); break;
           case 'post': break;
@@ -420,7 +421,8 @@ export function KombatPenalties() {
   const chars: [CharId, CharId] = screen === 'playing' || screen === 'paused' || screen === 'result' || screen === 'champion' ? fighting : [p1, mode === 'world' ? rivalOf(cup, round) : p2];
   const curStage: StageId = mode === 'world' ? cup.stages[round] : stage;
   const label = (i: 0 | 1) => two ? `JUGADOR ${i + 1}` : i === 0 ? 'VOS' : 'CPU';
-  const total = hud ? Math.max(REGULATION, hud.kicks[0].length, hud.kicks[1].length) : REGULATION;
+  // los círculos: de a 5; si empatan los 5, se vacían para los penales siguientes (y otra vez cada 5)
+  const block = hud ? Math.floor(Math.floor(hud.turn / 2) / REGULATION) * REGULATION : 0, shownKicks = (i: 0 | 1) => hud ? hud.kicks[i].slice(block, block + REGULATION) : [];
   const shooterNow: 0 | 1 = hud ? shooterOf(hud.turn) : 0;
   // Un lado del marcador: el cuadrado con el personaje, el nombre (con ⚽ si patea o 🧤 si ataja) y abajo sus penales.
   const boardName = (i: 0 | 1) => <div className={`kp-board-side kp-board-side--${i}${aim && aim.side === i && screen === 'playing' ? ' kp-board-side--now' : ''}`} data-testid={`kp-side-${i}`}>
@@ -474,9 +476,9 @@ export function KombatPenalties() {
           {boardName(1)}
         </div>
         <div className="kp-board-dots">
-          <KickDots kicks={hud.kicks[0]} total={total} testId="kp-dots-0" />
+          <KickDots kicks={shownKicks(0)} total={REGULATION} testId="kp-dots-0" />
           <span className={`kp-fx kp-fx--${fxOfTurn(hud.turn)}`} data-testid="kp-fx">{hud.sudden ? 'MUERTE SÚBITA · ' : ''}{BALL_FX_NAMES[fxOfTurn(hud.turn)]}</span>
-          <KickDots kicks={hud.kicks[1]} total={total} testId="kp-dots-1" />
+          <KickDots kicks={shownKicks(1)} total={REGULATION} testId="kp-dots-1" />
         </div>
       </div>}
       {playing && aim && <p className="sr-only" data-testid="kp-aim-title">{aimTitle} · {aimSub}</p>}
