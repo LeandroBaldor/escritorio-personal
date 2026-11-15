@@ -5,12 +5,12 @@
 // desde la izquierda y el arquero espera en la línea, mirándolo. La red se deforma cuando entra la pelota (el marco
 // queda quieto encima) y si el arquero ataja, el que pateó explota en pedazos de esqueleto y sangre.
 import { type CharId, type StageId } from './kombat';
-import { T, arriveAt, colOf, rowOf, type PenMatch, type Zone } from './kombatPenalties';
+import { T, arriveAt, colOf, fxOfTurn, rowOf, type BallFx, type PenKick, type PenMatch, type Zone } from './kombatPenalties';
 import { THEMES, drawGib, drawScreenBlood, type View } from './kombatArt';
 import { PITCH } from './kombatSoccerArt';
 import { BODY_SCALE, LOOKS, drawFighterLit, idleFighter, setLowFx } from './kombatFighters';
 import { alpha, bloom, darken, lighten } from './gravityMonsters';
-import { paintBackdrop } from './kombatScenery';
+import { backdropFloor, backdropImage } from './kombatScenery';
 import { SIZE } from './kombat';
 import netUrl from './assets/penales/arco-red.webp';
 import frameUrl from './assets/penales/arco-marco.webp';
@@ -19,13 +19,15 @@ import ballUrl from './assets/penales/pelota.webp';
 const TAU = Math.PI * 2;
 type P2 = [number, number];
 export const PX_M = 160; // píxeles por metro (de alto)
+const FPX = PX_M * 0.78; // los luchadores, un poco más chicos que la escala del arco
 // La boca del arco (bordes de adentro de los palos y del travesaño) y la profundidad (del frente al fondo de la red).
 const FL: P2 = [290, 560], FR: P2 = [1185, 838], TL: P2 = [290, 102], TR: P2 = [1185, 352];
 const DEPTH: P2 = [232, -75];
 const DM: P2 = [155, -50]; // un metro hacia el fondo
 const GOAL_M = 6; // ancho del arco en metros
-export const HORIZON = 330; // donde termina la cancha y empieza el fondo pintado
-const BOUNDS = { x0: -780, x1: 1580, y0: -250, y1: 1130 }; // (arriba queda lugar para el marcador)
+export const HORIZON = 360; // donde empieza la cancha (se funde con el fondo pintado hasta FADE)
+const FADE = 540;
+const BOUNDS = { x0: -880, x1: 1580, y0: -250, y1: 1130 }; // (arriba queda lugar para el marcador)
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 const lerp2 = (a: P2, b: P2, k: number): P2 => [lerp(a[0], b[0], k), lerp(a[1], b[1], k)];
 // Un punto del piso: u a lo largo de la línea del arco (0 = palo izquierdo, 1 = palo derecho), d metros hacia el que patea.
@@ -36,8 +38,8 @@ const ZONE_U = [0.17, 0.5, 0.83], ZONE_V = [0.74, 0.2];
 export const zonePoint = (z: Zone): P2 => mouth(ZONE_U[colOf(z)], ZONE_V[rowOf(z)]);
 export const SPOT = G(0.5, 6);
 const KEEPER = G(0.5, 0.32);
-const KICK_AT: P2 = [SPOT[0] - 108, SPOT[1] - 6];
-const START: P2 = [SPOT[0] - 430, SPOT[1] + 40];
+const KICK_AT: P2 = [SPOT[0] - 86, SPOT[1] - 6];
+const START: P2 = [SPOT[0] - 590, SPOT[1] + 75]; // espera bien lejos de la pelota
 const BALL_R = 36;
 const BACK_K = 0.5; // hasta dónde entra la pelota (más hondo, el palo de adelante la taparía)
 
@@ -63,21 +65,22 @@ export function onPenaltyArtLoad(f: () => void) { listeners.add(f); return () =>
 
 // ---------------------------------------------------------------- La cancha (va en la capa del fondo)
 function path(ctx: CanvasRenderingContext2D, pts: P2[], closed = true) { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); if (closed) ctx.closePath(); }
-const hash = (n: number) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
 function drawField(ctx: CanvasRenderingContext2D, stage: StageId, xa: number, xb: number, yb: number) {
-  const P = PITCH[stage];
+  const P = PITCH[stage], im = backdropImage(stage), fy = backdropFloor(stage);
   ctx.save(); ctx.beginPath(); ctx.rect(xa, HORIZON, xb - xa, yb - HORIZON); ctx.clip();
   ctx.fillStyle = P.surround; ctx.fillRect(xa, HORIZON, xb - xa, yb - HORIZON);
-  // franjas paralelas a la línea del arco
-  const stripeB = lighten(P.b, 0.07);
+  // el piso del mismo fondo pintado (su textura: piedra, metal, arena, hielo…), estirado sobre la cancha
+  if (im) { ctx.imageSmoothingQuality = 'high'; ctx.drawImage(im, 0, fy + 8, im.naturalWidth, im.naturalHeight - fy - 8, xa, HORIZON, xb - xa, yb - HORIZON); }
+  // franjas paralelas a la línea del arco, transparentes (se ve el piso del fondo debajo)
+  ctx.globalAlpha = 0.38;
+  const stripeB = lighten(P.b, 0.1);
   for (let i = -14; i < 18; i++) { ctx.fillStyle = i % 2 ? P.a : stripeB; path(ctx, [G(-8, i * 1.2), G(9, i * 1.2), G(9, (i + 1) * 1.2), G(-8, (i + 1) * 1.2)]); ctx.fill(); }
-  // textura (pasto, arena, roca, hielo…): puntitos claros y oscuros
-  for (let n = 0; n < 900; n++) { const x = xa + hash(n * 1.7) * (xb - xa), y = HORIZON + hash(n * 3.3) * (yb - HORIZON), r = 1.5 + hash(n * 5.1) * 3.5; ctx.fillStyle = n % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)'; ctx.fillRect(x, y, r * 2, r); }
+  ctx.globalAlpha = 1;
   // profundidad: más oscuro hacia el fondo
-  const g = ctx.createLinearGradient(0, HORIZON, 0, yb); g.addColorStop(0, 'rgba(0,0,0,0.45)'); g.addColorStop(0.35, 'rgba(0,0,0,0.1)'); g.addColorStop(0.7, 'rgba(255,255,255,0.04)'); g.addColorStop(1, 'rgba(0,0,0,0.18)');
+  const g = ctx.createLinearGradient(0, HORIZON, 0, yb); g.addColorStop(0, 'rgba(0,0,0,0.3)'); g.addColorStop(0.35, 'rgba(0,0,0,0.06)'); g.addColorStop(0.7, 'rgba(255,255,255,0.03)'); g.addColorStop(1, 'rgba(0,0,0,0.2)');
   ctx.fillStyle = g; ctx.fillRect(xa, HORIZON, xb - xa, yb - HORIZON);
   // las líneas: la del arco, el área chica, el área grande, el punto del penal y la medialuna
-  ctx.strokeStyle = alpha(P.line, 0.88); ctx.lineWidth = 7; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.strokeStyle = alpha(P.line, 0.9); ctx.lineWidth = 7; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   const u = (m: number) => 0.5 + m / GOAL_M; // metros desde el medio del arco → u
   path(ctx, [G(-8, 0), G(9, 0)], false); ctx.stroke();
   path(ctx, [G(u(-5.5), 0), G(u(-5.5), 2.4), G(u(5.5), 2.4), G(u(5.5), 0)], false); ctx.stroke();
@@ -85,21 +88,10 @@ function drawField(ctx: CanvasRenderingContext2D, stage: StageId, xa: number, xb
   const arc: P2[] = []; for (let k = 0; k <= 40; k++) { const a = -0.95 + 1.9 * k / 40, d = 6 + Math.cos(a) * 3.6; if (d >= 8.2) arc.push(G(u(Math.sin(a) * 3.6), d)); }
   if (arc.length > 1) { path(ctx, arc, false); ctx.stroke(); }
   ctx.fillStyle = alpha(P.line, 0.9); ctx.beginPath(); ctx.ellipse(SPOT[0], SPOT[1], 15, 8, 0.3, 0, TAU); ctx.fill();
-  // brillo de las líneas (de noche)
-  ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = alpha(P.line, 0.1); ctx.lineWidth = 22; path(ctx, [G(-8, 0), G(9, 0)], false); ctx.stroke();
+  ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = alpha(P.glow, 0.12); ctx.lineWidth = 22; path(ctx, [G(-8, 0), G(9, 0)], false); ctx.stroke();
   ctx.restore();
-  // los carteles en el fondo, donde termina la cancha
-  const bh = 52; ctx.fillStyle = P.board; ctx.fillRect(xa, HORIZON - bh, xb - xa, bh);
-  const gb = ctx.createLinearGradient(0, HORIZON - bh, 0, HORIZON); gb.addColorStop(0, 'rgba(255,255,255,0.16)'); gb.addColorStop(0.5, 'rgba(255,255,255,0)'); gb.addColorStop(1, 'rgba(0,0,0,0.35)');
-  ctx.fillStyle = gb; ctx.fillRect(xa, HORIZON - bh, xb - xa, bh);
-  ctx.fillStyle = P.glow; ctx.fillRect(xa, HORIZON - bh, xb - xa, 3); ctx.fillRect(xa, HORIZON - 3, xb - xa, 3);
-  ctx.font = '900 30px system-ui, sans-serif'; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-  for (let x = xa - ((xa % 520) + 520) % 520, n = 0; x < xb; x += 520, n++) {
-    ctx.fillStyle = n % 2 ? alpha(P.line, 0.9) : P.glow; ctx.fillText(n % 2 ? 'KOMBAT PENALES' : '★ KOMBAT ★', x + 30, HORIZON - bh / 2 + 1);
-  }
-  ctx.save(); ctx.globalCompositeOperation = 'lighter'; const gl = ctx.createLinearGradient(0, HORIZON - bh - 30, 0, HORIZON - bh + 10); gl.addColorStop(0, alpha(P.glow, 0)); gl.addColorStop(1, alpha(P.glow, 0.25)); ctx.fillStyle = gl; ctx.fillRect(xa, HORIZON - bh - 30, xb - xa, 40); ctx.restore();
   // la sombra del arco en el piso
-  ctx.fillStyle = 'rgba(0,0,0,0.28)'; path(ctx, [G(-0.02, 0), G(1.02, 0), G(1.02, -1.55), G(-0.02, -1.55)]); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.3)'; path(ctx, [G(-0.02, 0), G(1.02, 0), G(1.02, -1.55), G(-0.02, -1.55)]); ctx.fill();
 }
 const bgCache = new Map<string, HTMLCanvasElement>();
 // El fondo del estadio y la cancha, en su propia capa (se pinta una vez por estadio y tamaño).
@@ -109,13 +101,24 @@ export function drawPenBackdrop(ctx: CanvasRenderingContext2D, stage: StageId, w
   if (!c && typeof document !== 'undefined') {
     const cc = document.createElement('canvas'); cc.width = Math.max(1, w); cc.height = Math.max(1, h);
     const g = cc.getContext('2d'); if (!g) return;
-    const v = penView(w, h), ok = paintBackdrop(g, stage, w, h, toScreen(v, [0, HORIZON - 40])[1]);
-    if (!ok) { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, THEMES[stage].sky[0]); gr.addColorStop(1, THEMES[stage].sky[2]); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
-    g.save(); g.translate(v.ox, v.oy); g.scale(v.k, v.k);
-    const [xa] = toWorld(v, 0, 0), [xb, yb] = toWorld(v, w, h);
-    drawField(g, stage, xa - 10, xb + 10, yb + 10);
-    g.restore();
-    if (ok) { if (bgCache.size > 6) bgCache.clear(); bgCache.set(key, cc); }
+    const im = backdropImage(stage), v = penView(w, h);
+    // el fondo pintado completo, sin agrandarlo de más (cubre la pantalla y queda nítido)
+    if (im) { const kk = Math.max(w / im.naturalWidth, h / im.naturalHeight); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(im, (w - im.naturalWidth * kk) / 2, (h - im.naturalHeight * kk) / 2, im.naturalWidth * kk, im.naturalHeight * kk); }
+    else { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, THEMES[stage].sky[0]); gr.addColorStop(1, THEMES[stage].sky[2]); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
+    // la cancha va en otra capa y se funde con el fondo arriba (sin carteles que lo tapen)
+    const fc = document.createElement('canvas'); fc.width = cc.width; fc.height = cc.height;
+    const f = fc.getContext('2d');
+    if (f) {
+      f.save(); f.translate(v.ox, v.oy); f.scale(v.k, v.k);
+      const [xa] = toWorld(v, 0, 0), [xb, yb] = toWorld(v, w, h);
+      drawField(f, stage, xa - 10, xb + 10, yb + 10);
+      f.restore();
+      const y0 = toScreen(v, [0, HORIZON])[1], y1 = toScreen(v, [0, FADE])[1];
+      const m = f.createLinearGradient(0, y0, 0, y1); m.addColorStop(0, 'rgba(0,0,0,0)'); m.addColorStop(1, 'rgba(0,0,0,1)');
+      f.globalCompositeOperation = 'destination-in'; f.fillStyle = m; f.fillRect(0, 0, w, h);
+      g.globalAlpha = 0.94; g.drawImage(fc, 0, 0); g.globalAlpha = 1;
+    }
+    if (im) { if (bgCache.size > 6) bgCache.clear(); bgCache.set(key, cc); }
     c = cc;
   }
   ctx.clearRect(0, 0, w, h);
@@ -176,12 +179,12 @@ function kickerState(m: PenMatch, side: 0 | 1) {
   return { gone: false as const, x: KICK_AT[0], y: KICK_AT[1], action: (k.outcome === 'goal' ? 'celebrate' : 'sad') as 'celebrate' | 'sad', kickT: 0 };
 }
 // Para la lógica: dónde explota el que pateó (los pies y el alto del cuerpo, en px).
-export const kickerBody = (char: CharId) => ({ x: KICK_AT[0], y: KICK_AT[1], h: 2.3 * SIZE[char] * PX_M });
+export const kickerBody = (char: CharId) => ({ x: KICK_AT[0], y: KICK_AT[1], h: 2.3 * SIZE[char] * FPX });
 // A dónde va el arquero: si ataja, al lugar del tiro (se acomoda en el aire); si no, a donde eligió.
 function keeperGoal(m: PenMatch): Zone | null { const k = m.kick; return k ? (k.outcome === 'save' ? k.shot : k.dive) : null; }
 interface KeeperPose { x: number; y: number; rot: number; hipY: number; action: 'keeper' | 'dive' | 'save' | 'celebrate' | 'sad' | 'idle' }
 function keeperState(m: PenMatch, char: CharId): KeeperPose {
-  const S = PX_M * BODY_SCALE * SIZE[char], hip = 0.66 * S, k = m.kick, z = keeperGoal(m);
+  const S = FPX * BODY_SCALE * SIZE[char], hip = 0.66 * S, k = m.kick, z = keeperGoal(m);
   const stand: KeeperPose = { x: KEEPER[0], y: KEEPER[1], rot: 0, hipY: hip, action: 'keeper' };
   if (!k || z === null || k.t < T.dive) return stand;
   const col = colOf(z), row = rowOf(z), target = zonePoint(z), p = ease((k.t - T.dive) / T.diveDur);
@@ -207,34 +210,87 @@ function keeperState(m: PenMatch, char: CharId): KeeperPose {
   if (rise > 0) { hy = lerp(hy, groundHere - hip, rise); r = lerp(r, 0, rise); }
   return { x: hx, y: hy + hip, rot: r, hipY: hip, action: rise >= 1 ? (k.outcome === 'save' ? 'celebrate' : 'sad') : 'dive' };
 }
+// Para la lógica: dónde explota el arquero (el piso debajo de la cadera y el alto del cuerpo).
+export function keeperBody(m: PenMatch, char: CharId) {
+  const st = keeperState(m, char), hx = st.x + Math.sin(st.rot) * 0, hy = st.y - st.hipY, ground = Math.max(hy + st.hipY * 0.5, Math.min(st.y, KEEPER[1] + 60));
+  return { x: hx, y: ground, h: Math.max(st.hipY * 1.4, (ground - hy) * 2) };
+}
 // La pelota: en el punto, volando, en la red o rebotando. inside = ya pasó la línea (va detrás del marco).
-function ballState(m: PenMatch): { x: number; y: number; r: number; spin: number; inside: boolean; shadow: P2; alpha: number } {
-  const k = m.kick, rest = { x: SPOT[0], y: SPOT[1] - BALL_R, r: BALL_R, spin: 0, inside: false, shadow: SPOT, alpha: 1 };
-  if (!k || k.t < T.contact) return rest;
+type BallPos = { x: number; y: number; r: number; spin: number; inside: boolean; shadow: P2; alpha: number };
+const ballState = (m: PenMatch): BallPos => ballAt(m.kick, m.kick?.t ?? 0);
+function ballAt(k: PenKick | null, kt: number): BallPos {
+  const rest = { x: SPOT[0], y: SPOT[1] - BALL_R, r: BALL_R, spin: 0, inside: false, shadow: SPOT, alpha: 1 };
+  if (!k || kt < T.contact) return rest;
   const target = zonePoint(k.shot), col = colOf(k.shot), u = ZONE_U[col];
   const end: P2 = k.outcome === 'goal' ? target : [target[0] - DM[0] * 0.3, target[1] - DM[1] * 0.3];
-  const f = (k.t - T.contact) / T.flight;
+  const f = (kt - T.contact) / T.flight;
   if (f < 1) {
     const x = lerp(SPOT[0], end[0], f), y = lerp(SPOT[1] - BALL_R, end[1], f) - Math.sin(Math.PI * f) * (rowOf(k.shot) === 0 ? 70 : 30);
-    return { x, y, r: BALL_R * lerp(1, 0.86, f), spin: k.t * 24, inside: false, shadow: lerp2(SPOT, G(u, k.outcome === 'goal' ? 0 : 0.3), f), alpha: 1 };
+    return { x, y, r: BALL_R * lerp(1, 0.86, f), spin: kt * 24, inside: false, shadow: lerp2(SPOT, G(u, k.outcome === 'goal' ? 0 : 0.3), f), alpha: 1 };
   }
-  const a = k.t - arriveAt();
+  const a = kt - arriveAt();
   if (k.outcome === 'goal') {
     const back: P2 = [target[0] + DEPTH[0] * BACK_K, target[1] + DEPTH[1] * BACK_K];
-    if (a < 0.12) { const e = a / 0.12; return { x: lerp(target[0], back[0], e), y: lerp(target[1], back[1], e), r: BALL_R * 0.86, spin: k.t * 24, inside: true, shadow: lerp2(G(u, 0), G(u, -0.75), e), alpha: 1 }; }
+    if (a < 0.12) { const e = a / 0.12; return { x: lerp(target[0], back[0], e), y: lerp(target[1], back[1], e), r: BALL_R * 0.86, spin: kt * 24, inside: true, shadow: lerp2(G(u, 0), G(u, -0.75), e), alpha: 1 }; }
     // empuja la red y cae adentro del arco
     const d = netDisp(back[0], back[1], back, a - 0.12), floor = G(u, -0.75)[1] - BALL_R * 0.86, tt = a - 0.12;
     const fallY = Math.min(floor, back[1] + d[1] * 0.4 + 0.5 * 1800 * tt * tt);
-    return { x: back[0] + d[0] * 0.3, y: fallY, r: BALL_R * 0.86, spin: k.t * 24 * Math.exp(-tt * 3), inside: true, shadow: G(u, -0.75), alpha: 1 };
+    return { x: back[0] + d[0] * 0.3, y: fallY, r: BALL_R * 0.86, spin: kt * 24 * Math.exp(-tt * 3), inside: true, shadow: G(u, -0.75), alpha: 1 };
   }
   // atajada: sale rebotando para el costado
   const vx = col === 0 ? -620 : col === 2 ? 620 : (rowOf(k.shot) === 0 ? 120 : -260), vy = rowOf(k.shot) === 0 ? -900 : -520;
   const gy = KEEPER[1] + 40 - BALL_R;
   let y = end[1] + vy * a + 0.5 * 2400 * a * a;
   if (y > gy) y = gy - Math.abs(Math.sin(a * 6)) * 40 * Math.exp(-a * 2);
-  return { x: end[0] + vx * a, y, r: BALL_R * 0.86, spin: k.t * 24, inside: false, shadow: [end[0] + vx * a, gy + BALL_R], alpha: clamp01(2.2 - a * 1.2) };
+  return { x: end[0] + vx * a, y, r: BALL_R * 0.86, spin: kt * 24, inside: false, shadow: [end[0] + vx * a, gy + BALL_R], alpha: clamp01(2.2 - a * 1.2) };
 }
 
+// El efecto de la pelota (va detrás): una estela de puntos tomados de dónde estuvo la pelota hace un ratito.
+const jit = (n: number, t: number) => Math.sin(n * 12.9898 + Math.floor(t * 30) * 78.233) * 0.5 + Math.sin(n * 3.1 + t * 47) * 0.5;
+function drawBallFx(ctx: CanvasRenderingContext2D, m: PenMatch, b: BallPos) {
+  const k = m.kick, fx: BallFx = k?.fx ?? fxOfTurn(m.turn), t = m.time, r = b.r;
+  const flying = !!k && k.t >= T.contact && k.t < arriveAt() + 0.6;
+  const pts: P2[] = [[b.x, b.y]];
+  if (flying && k) for (let j = 1; j <= 16; j++) { const q = ballAt(k, Math.max(T.contact, k.t - j * 0.016)); pts.push([q.x, q.y]); }
+  const n = pts.length, fade = flying ? 1 : 0.55;
+  ctx.save(); ctx.globalAlpha = b.alpha; ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const line = (w: number, c: string, off?: (i: number) => P2) => { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); pts.forEach((p, i) => { const o = off ? off(i) : [0, 0]; if (i) ctx.lineTo(p[0] + o[0], p[1] + o[1]); else ctx.moveTo(p[0] + o[0], p[1] + o[1]); }); ctx.stroke(); };
+  switch (fx) {
+    case 'fuego': {
+      for (let i = n - 1; i >= 0; i--) { const q = 1 - i / n, [x, y] = pts[i], rr = r * (0.5 + q * 1.3) * (1 + jit(i, t) * 0.12); const g = ctx.createRadialGradient(x, y, 0, x, y, rr * 1.4); g.addColorStop(0, `rgba(255,250,210,${0.75 * q})`); g.addColorStop(0.35, `rgba(253,186,60,${0.55 * q})`); g.addColorStop(0.7, `rgba(239,68,30,${0.35 * q})`); g.addColorStop(1, 'rgba(120,20,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rr * 1.4, 0, TAU); ctx.fill(); }
+      for (let e = 0; e < 7; e++) { const ph = (t * 1.7 + e / 7) % 1, a = e * 2.4 + t, x = b.x + Math.cos(a) * r * (0.8 + ph), y = b.y - ph * r * 3 * fade - Math.sin(a) * r * 0.5; ctx.fillStyle = `rgba(253,224,71,${(1 - ph) * 0.85})`; ctx.fillRect(x - 3, y - 3, 6, 6); }
+      bloom(ctx, b.x, b.y, r * 3, '#f97316', 0.45 * fade); break;
+    }
+    case 'electricidad': {
+      if (n > 1) for (let s2 = 0; s2 < 3; s2++) { const off = (i: number): P2 => i === 0 ? [0, 0] : [jit(i + s2 * 7, t) * r * 0.9, jit(i * 2 + s2 * 3, t + 1) * r * 0.9]; line(r * 0.5, 'rgba(56,189,248,0.35)', off); line(r * 0.16, s2 ? 'rgba(254,240,138,0.95)' : 'rgba(255,255,255,0.95)', off); }
+      for (let a2 = 0; a2 < 4; a2++) { let ang = t * 23 + a2 * 1.57, x = b.x + Math.cos(ang) * r, y = b.y + Math.sin(ang) * r; ctx.strokeStyle = 'rgba(224,242,254,0.9)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, y); for (let j = 0; j < 3; j++) { ang += jit(a2 * 5 + j, t) * 1.4; x += Math.cos(ang) * r * 0.55; y += Math.sin(ang) * r * 0.55; ctx.lineTo(x, y); } ctx.stroke(); }
+      bloom(ctx, b.x, b.y, r * 3.2, '#38bdf8', 0.5 * fade); bloom(ctx, b.x, b.y, r * 1.6, '#fef08a', 0.35 * fade); break;
+    }
+    case 'viento': {
+      ctx.globalCompositeOperation = 'source-over';
+      if (n > 1) { line(r * 1.8, 'rgba(203,213,225,0.16)'); for (let h = 0; h < 4; h++) { line(7 - h, 'rgba(71,85,105,0.35)', i => { const a = i * 0.8 + t * 14 + h * 1.57, rr = r * (0.5 + i / n * 1.6); return [Math.cos(a) * rr * 0.45 + 2, Math.sin(a) * rr + 2]; }); line(6 - h, `rgba(248,250,252,${0.9 - h * 0.15})`, i => { const a = i * 0.8 + t * 14 + h * 1.57, rr = r * (0.5 + i / n * 1.6); return [Math.cos(a) * rr * 0.45, Math.sin(a) * rr]; }); } }
+      for (let w2 = 0; w2 < 4; w2++) { const a = t * 11 + w2 * 1.6; ctx.strokeStyle = `rgba(241,245,249,${0.85 * fade})`; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(b.x, b.y, r * (1.3 + w2 * 0.3), a, a + 1.8); ctx.stroke(); }
+      break;
+    }
+    case 'radiacion': {
+      if (n > 1) { line(r * 2.2, 'rgba(74,222,128,0.18)'); line(r * 1.1, 'rgba(132,204,22,0.35)'); line(r * 0.35, 'rgba(236,252,203,0.7)'); }
+      for (let p2 = 0; p2 < 12; p2++) { const i = p2 % n, [x, y] = pts[i], a = p2 * 2.39 + t * 3, d = r * (0.9 + (p2 % 3) * 0.5); ctx.fillStyle = `rgba(190,242,100,${0.8 * (1 - i / (n + 1))})`; ctx.beginPath(); ctx.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, 4, 0, TAU); ctx.fill(); }
+      const pulse = 0.5 + 0.5 * Math.sin(t * 9); ctx.strokeStyle = `rgba(163,230,53,${0.5 + pulse * 0.4})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(b.x, b.y, r * (1.3 + pulse * 0.25), 0, TAU); ctx.stroke();
+      // el trébol de la radiación girando alrededor
+      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(t * 2); ctx.fillStyle = 'rgba(217,249,157,0.35)';
+      for (let q = 0; q < 3; q++) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, r * 1.9, q * TAU / 3, q * TAU / 3 + 1.05); ctx.closePath(); ctx.fill(); }
+      ctx.restore();
+      bloom(ctx, b.x, b.y, r * 3.4, '#4ade80', 0.55 * fade); break;
+    }
+    case 'laser': {
+      const tail = pts[n - 1];
+      for (const [w, c] of [[r * 2.4, 'rgba(220,38,38,0.22)'], [r * 1.2, 'rgba(239,68,68,0.55)'], [r * 0.5, 'rgba(254,202,202,0.9)'], [r * 0.18, 'rgba(255,255,255,1)']] as const) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(tail[0], tail[1]); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+      ctx.strokeStyle = `rgba(248,113,113,${0.6 + 0.3 * Math.sin(t * 30)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(b.x, b.y, r * 1.2, 0, TAU); ctx.stroke();
+      bloom(ctx, b.x, b.y, r * 3, '#ef4444', 0.6 * fade); break;
+    }
+  }
+  ctx.restore();
+}
 // ---------------------------------------------------------------- Dibujo
 function drawBall(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, spin: number, a = 1) {
   const im = img('ball');
@@ -247,20 +303,21 @@ function drawBall(ctx: CanvasRenderingContext2D, x: number, y: number, r: number
 }
 const NOFX = { power: 0, frozen: false, poison: false, burn: false, zap: false, shield: false, speed: false, aura: null };
 function drawKeeper(ctx: CanvasRenderingContext2D, m: PenMatch, char: CharId, rim: string) {
+  if (m.kick?.kboom) return; // explotó
   const st = keeperState(m, char), f = idleFighter(char);
   f.facing = -1; f.action = st.action; f.ground = st.rot === 0;
   // sombra en el piso (queda abajo aunque vuele)
-  const gy = m.kick ? Math.max(st.y, KEEPER[1]) : KEEPER[1], S = PX_M * BODY_SCALE * SIZE[char];
+  const gy = m.kick ? Math.max(st.y, KEEPER[1]) : KEEPER[1], S = FPX * BODY_SCALE * SIZE[char];
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(st.x, Math.min(gy, st.y + 400), S * 0.5 + Math.abs(Math.sin(st.rot)) * S * 0.7, S * 0.09, 0.3, 0, TAU); ctx.fill();
   ctx.save(); ctx.translate(st.x, st.y - st.hipY); ctx.rotate(st.rot);
-  drawFighterLit(ctx, f, m.time + 0.4, NOFX, 0, st.hipY, PX_M, rim, true);
+  drawFighterLit(ctx, f, m.time + 0.4, NOFX, 0, st.hipY, FPX, rim, true);
   ctx.restore();
 }
 function drawKicker(ctx: CanvasRenderingContext2D, m: PenMatch, side: 0 | 1, char: CharId, rim: string) {
   const st = kickerState(m, side) ?? { gone: false, x: START[0], y: START[1], action: 'idle' as const, kickT: 0 };
   if (st.gone) return;
   const f = idleFighter(char); f.facing = 1; f.action = st.action; f.kickT = st.kickT; f.kickKind = 'normal';
-  drawFighterLit(ctx, f, m.time, NOFX, st.x, st.y, PX_M, rim);
+  drawFighterLit(ctx, f, m.time, NOFX, st.x, st.y, FPX, rim);
 }
 function drawGore(ctx: CanvasRenderingContext2D, m: PenMatch) {
   for (const st of m.gore.stains) {
@@ -271,7 +328,7 @@ function drawGore(ctx: CanvasRenderingContext2D, m: PenMatch) {
   }
 }
 function drawFlying(ctx: CanvasRenderingContext2D, m: PenMatch) {
-  const U = PX_M * 1.5;
+  const U = FPX * 1.6;
   for (const g of m.gore.gibs) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(g.x, g.y, 18, 6, 0, 0, TAU); ctx.fill(); }
   for (const g of m.gore.gibs) { ctx.save(); ctx.translate(g.x, g.y - g.z - 8); ctx.scale(U, U); ctx.rotate(g.a); drawGib(ctx, g.kind, g.c); ctx.restore(); }
   ctx.fillStyle = '#b10f1c';
@@ -279,17 +336,6 @@ function drawFlying(ctx: CanvasRenderingContext2D, m: PenMatch) {
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (const s of m.sparks) { const k = 1 - s.life / s.max; ctx.fillStyle = alpha(s.color, k); ctx.fillRect(s.x - s.size / 2, s.y - s.z - s.size / 2, s.size, s.size); }
   ctx.restore();
-}
-// Los 6 lugares del arco mientras se elige (el marcado, más grande).
-function drawTargets(ctx: CanvasRenderingContext2D, m: PenMatch, cursor: Zone | null, color: string) {
-  for (let z = 0 as Zone; z < 6; z = (z + 1) as Zone) {
-    const [x, y] = zonePoint(z), on = z === cursor, r = on ? 62 : 46, pulse = on ? 1 + Math.sin(m.time * 8) * 0.06 : 1;
-    ctx.save(); ctx.translate(x, y); ctx.scale(pulse, pulse * 0.92);
-    ctx.fillStyle = on ? alpha(color, 0.35) : 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
-    ctx.strokeStyle = on ? color : 'rgba(255,255,255,0.7)'; ctx.lineWidth = on ? 9 : 5; ctx.setLineDash(on ? [] : [14, 10]); ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
-    ctx.lineWidth = on ? 6 : 4; ctx.beginPath(); ctx.moveTo(-r * 0.45, 0); ctx.lineTo(r * 0.45, 0); ctx.moveTo(0, -r * 0.45); ctx.lineTo(0, r * 0.45); ctx.stroke();
-    ctx.restore();
-  }
 }
 export interface PenDrawOpts { cursor?: Zone | null; cursorColor?: string; showTargets?: boolean; netHit?: { at: P2; t: number } | null }
 export function drawPenalties(ctx: CanvasRenderingContext2D, m: PenMatch, w: number, h: number, opts: PenDrawOpts = {}) {
@@ -304,16 +350,15 @@ export function drawPenalties(ctx: CanvasRenderingContext2D, m: PenMatch, w: num
   let hit: P2 | null = null, ht = 0;
   if (k && k.outcome === 'goal' && k.t >= arriveAt() + 0.1) { const tg = zonePoint(k.shot); hit = [tg[0] + DEPTH[0] * BACK_K, tg[1] + DEPTH[1] * BACK_K]; ht = k.t - arriveAt() - 0.1; }
   if (net) drawNet(ctx, net, hit, ht);
-  if (b.inside) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(b.shadow[0], b.shadow[1], b.r * 1.1, b.r * 0.35, 0.3, 0, TAU); ctx.fill(); drawBall(ctx, b.x, b.y, b.r, b.spin); }
+  if (b.inside) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(b.shadow[0], b.shadow[1], b.r * 1.1, b.r * 0.35, 0.3, 0, TAU); ctx.fill(); drawBallFx(ctx, m, b); drawBall(ctx, b.x, b.y, b.r, b.spin); }
   if (frame) ctx.drawImage(frame, 0, 0);
   // el arquero, el que patea y la pelota (si todavía no entró)
   drawKeeper(ctx, m, m.chars[keeperSide], rim);
   drawKicker(ctx, m, shooter, m.chars[shooter], rim);
   if (!b.inside) {
     ctx.fillStyle = `rgba(0,0,0,${0.35 * b.alpha})`; ctx.beginPath(); ctx.ellipse(b.shadow[0], b.shadow[1], b.r * 1.1, b.r * 0.35, 0.3, 0, TAU); ctx.fill();
-    drawBall(ctx, b.x, b.y, b.r, b.spin, b.alpha);
+    drawBallFx(ctx, m, b); drawBall(ctx, b.x, b.y, b.r, b.spin, b.alpha);
   }
-  if (opts.showTargets) drawTargets(ctx, m, opts.cursor ?? null, opts.cursorColor ?? '#facc15');
   // el destello de la explosión
   if (k?.boom && k.t < arriveAt() + T.boom + 0.5) {
     const e = (k.t - arriveAt() - T.boom) / 0.5, c = kickerBody(m.chars[k.shooter]);

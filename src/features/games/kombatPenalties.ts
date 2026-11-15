@@ -52,7 +52,15 @@ export function cpuZone(rand: () => number): Zone {
 
 // ---------------------------------------------------------------- El estado del partido
 export type PenPhase = 'intro' | 'aim' | 'kick' | 'end';
-export interface PenKick { shooter: 0 | 1; shot: Zone; dive: Zone; outcome: 'goal' | 'save'; t: number; scored: boolean; boom: boolean; hit: boolean; sounded: boolean }
+// El efecto de la pelota: cambia en cada ronda de penales (fuego, electricidad, viento, radiación, láser rojo) y
+// vuelve a empezar después del quinto.
+export type BallFx = 'fuego' | 'electricidad' | 'viento' | 'radiacion' | 'laser';
+export const BALL_FX: BallFx[] = ['fuego', 'electricidad', 'viento', 'radiacion', 'laser'];
+export const BALL_FX_NAMES: Record<BallFx, string> = { fuego: '🔥 Fuego', electricidad: '⚡ Electricidad', viento: '🌪️ Viento', radiacion: '☢️ Radiación', laser: '🔴 Láser rojo' };
+export const fxOfTurn = (turn: number): BallFx => BALL_FX[Math.floor(turn / 2) % BALL_FX.length];
+// Si el arquero se tira para el otro lado (o se queda en el medio y la pelota va a un costado, o al revés) y es gol, explota.
+export const keeperBlewIt = (shot: Zone, dive: Zone) => colOf(shot) !== colOf(dive);
+export interface PenKick { shooter: 0 | 1; shot: Zone; dive: Zone; outcome: 'goal' | 'save'; t: number; scored: boolean; boom: boolean; kboom: boolean; hit: boolean; sounded: boolean; fx: BallFx }
 export interface Gib { x: number; y: number; z: number; vx: number; vy: number; vz: number; a: number; va: number; kind: GibKind; c: string; life: number }
 export interface Drop { x: number; y: number; z: number; vx: number; vy: number; vz: number; r: number }
 export interface Stain { x: number; y: number; r: number; seed: number; t: number }
@@ -68,7 +76,7 @@ export interface PenMatch {
   events: PenEvent[];
   rand: () => number;
 }
-export type PenEvent = { type: 'whistle' } | { type: 'kick' } | { type: 'goal'; side: 0 | 1 } | { type: 'save'; side: 0 | 1 } | { type: 'boom'; side: 0 | 1 } | { type: 'post' } | { type: 'end'; winner: 0 | 1 };
+export type PenEvent = { type: 'whistle' } | { type: 'kick' } | { type: 'goal'; side: 0 | 1 } | { type: 'save'; side: 0 | 1 } | { type: 'boom'; side: 0 | 1; keeper: boolean } | { type: 'post' } | { type: 'end'; winner: 0 | 1 };
 
 export function newPenalties(stage: StageId, chars: [CharId, CharId], rand: () => number = Math.random): PenMatch {
   return {
@@ -80,9 +88,9 @@ export const takePenEvents = (m: PenMatch) => { const e = m.events; m.events = [
 
 // Los tiempos de la animación de un penal (segundos desde que arranca la carrera).
 export const T = {
-  run: 0.75, // corre hasta la pelota
-  contact: 0.93, // le pega
-  dive: 0.86, // el arquero se tira (un poquito antes, como los de verdad)
+  run: 1.0, // corre hasta la pelota (sale de lejos)
+  contact: 1.18, // le pega
+  dive: 1.11, // el arquero se tira (un poquito antes, como los de verdad)
   diveDur: 0.45,
   flight: 0.42, // lo que tarda la pelota en llegar al arco
   boom: 0.4, // después de la atajada, explota el que pateó
@@ -94,14 +102,15 @@ export const kickDuration = () => arriveAt() + T.next + 0.25;
 // Arranca el penal con las dos elecciones.
 export function startKick(m: PenMatch, shot: Zone, dive: Zone, reach = 0.3) {
   const shooter = shooterOf(m.turn);
-  m.kick = { shooter, shot, dive, outcome: resolveKick(shot, dive, m.rand, reach), t: 0, scored: false, boom: false, hit: false, sounded: false };
+  m.kick = { shooter, shot, dive, outcome: resolveKick(shot, dive, m.rand, reach), t: 0, scored: false, boom: false, kboom: false, hit: false, sounded: false, fx: fxOfTurn(m.turn) };
   m.phase = 'kick'; m.phaseT = 0;
   m.screenBlood = [];
 }
 
 // Avanza el tiempo. La parte visual (dónde está cada uno) se calcula en el dibujo a partir de kick.t; acá van los
 // momentos que importan (el gol, la atajada, la explosión) y la física de los pedazos y la sangre.
-export function stepPenalties(m: PenMatch, dt: number, kickPos: (side: 0 | 1) => { x: number; y: number; h: number }) {
+type BodyAt = (side: 0 | 1) => { x: number; y: number; h: number };
+export function stepPenalties(m: PenMatch, dt: number, kickPos: BodyAt, keeperPos: BodyAt = kickPos) {
   m.time += dt; m.phaseT += dt;
   m.shake = Math.max(0, m.shake - dt * 2.2); m.flash = Math.max(0, m.flash - dt * 2);
   if (m.phase === 'intro' && m.phaseT > 1.6) { m.phase = 'aim'; m.phaseT = 0; m.events.push({ type: 'whistle' }); }
@@ -117,7 +126,12 @@ export function stepPenalties(m: PenMatch, dt: number, kickPos: (side: 0 | 1) =>
     }
     if (k.outcome === 'save' && !k.boom && k.t >= arriveAt() + T.boom) {
       k.boom = true; const p = kickPos(k.shooter); explode(m, p.x, p.y, p.h, m.chars[k.shooter]);
-      m.events.push({ type: 'boom', side: k.shooter });
+      m.events.push({ type: 'boom', side: k.shooter, keeper: false });
+    }
+    // el arquero que se tiró para el otro lado también explota
+    if (k.outcome === 'goal' && !k.kboom && keeperBlewIt(k.shot, k.dive) && k.t >= arriveAt() + T.boom + 0.1) {
+      const ks: 0 | 1 = k.shooter === 0 ? 1 : 0; k.kboom = true; const p = keeperPos(ks); explode(m, p.x, p.y, p.h, m.chars[ks]);
+      m.events.push({ type: 'boom', side: ks, keeper: true });
     }
     if (k.t >= kickDuration()) {
       const w = shootoutWinner(m.kicks);

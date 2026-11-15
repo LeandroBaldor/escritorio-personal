@@ -2244,3 +2244,14 @@ body:has(.land) .mobile-nav{display:none}
 .kp-dot--miss{background:#b91c1c;border-color:#fecaca;box-shadow:0 0 8px #ef4444}
 .kp canvas[role="img"]{cursor:crosshair}
 @media(max-width:700px){.kp-aim{top:3.6rem;left:.3rem;max-width:62%;padding:.35rem}.kp-zone span{display:none}.kp-zone{justify-content:center;min-height:2.2rem}.kp-dot{width:.8rem;height:.8rem;font-size:.5rem}}
+
+/* Kombat Penales: el cartel del gol y el efecto de la pelota de la ronda */
+.kp-goal{position:absolute;left:30%;top:34%;z-index:4;display:grid;justify-items:center;gap:.2rem;transform:translate(-50%,-50%);pointer-events:none;animation:kp-goal-in .5s cubic-bezier(.2,1.7,.4,1) both,kp-goal-out .35s ease-in 1.95s forwards}
+.kp-goal b{padding:.15em .55em .2em;border-radius:.3em;background:linear-gradient(180deg,#16a34a,#14532d);box-shadow:0 0 0 .12em #fde047,0 0 0 .22em #14532d,0 .35em 1.2em #000c,0 0 2.2em #22c55e88;color:#fef9c3;font:400 clamp(1.7rem,5.6vw,4.4rem)/1 "KF Menu",Impact,sans-serif;letter-spacing:.04em;text-shadow:0 .06em 0 #713f12,0 0 .4em #facc15;white-space:nowrap;animation:kp-goal-shake .14s linear .5s 5}
+.kp-goal small{padding:.25rem .8rem;border-radius:999px;background:#000c;color:#fde68a;font:800 clamp(.85rem,2vw,1.2rem)/1.2 system-ui,sans-serif}
+@keyframes kp-goal-in{from{transform:translate(-50%,-50%) scale(.2) rotate(-8deg);opacity:0}to{transform:translate(-50%,-50%) scale(1) rotate(0);opacity:1}}
+@keyframes kp-goal-out{to{transform:translate(-50%,-50%) scale(1.25);opacity:0}}
+@keyframes kp-goal-shake{0%,100%{transform:translate(0,0)}25%{transform:translate(3px,-2px) rotate(1deg)}75%{transform:translate(-3px,2px) rotate(-1deg)}}
+.kp-fx{justify-self:center;margin-top:.3rem;padding:.2rem .7rem;border-radius:999px;background:#000b;color:#fff;font:800 .78rem/1.2 system-ui,sans-serif;box-shadow:0 0 0 2px #fff4}
+.kp-fx--fuego{box-shadow:0 0 0 2px #f97316,0 0 12px #f97316aa}.kp-fx--electricidad{box-shadow:0 0 0 2px #38bdf8,0 0 12px #38bdf8aa}.kp-fx--viento{box-shadow:0 0 0 2px #e2e8f0,0 0 12px #e2e8f0aa}.kp-fx--radiacion{box-shadow:0 0 0 2px #84cc16,0 0 12px #84cc16aa}.kp-fx--laser{box-shadow:0 0 0 2px #ef4444,0 0 12px #ef4444aa}
+@media(max-width:700px){.kp-fx{font-size:.6rem}}

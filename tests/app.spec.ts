@@ -1237,7 +1237,8 @@ test('Kombat Penales: amistoso (la máquina elige antes), 2 jugadores (primero e
   await expect(page.getByTestId('kp-aim-title')).toContainText('Elegí dónde patear', { timeout: 8000 });
   await expect(page.getByTestId('kp-aim')).toContainText('La máquina ya eligió');
   await expect(page.getByTestId('kp-aim').getByRole('button')).toHaveCount(6);
-  await page.getByTestId('kp-zone-0').click();
+  await expect(page.getByTestId('kp-fx')).toContainText('Fuego');
+  await page.keyboard.press('ArrowUp'); // ↑ = arriba al medio
   await expect(page.getByTestId('kp-dots-0')).toHaveAttribute('aria-label', /en 1 penales/, { timeout: 10000 });
   await expect(page.getByTestId('kp-aim-title')).toContainText('Sos el arquero', { timeout: 10000 });
   await page.keyboard.press('Escape');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { kickDuration, newPenalties, penaltyScore, resolveKick, shootoutWinner, startKick, stepPenalties, suddenDeath, takePenEvents, type Kicks } from './kombatPenalties';
+import { fxOfTurn, keeperBlewIt, kickDuration, newPenalties, penaltyScore, resolveKick, shootoutWinner, startKick, stepPenalties, suddenDeath, takePenEvents, type Kicks } from './kombatPenalties';
 import { finishRound, newCup } from './kombatVoleyCup';
 
 const k = (a: string, b: string): Kicks => [[...a].map(c => c === 'G'), [...b].map(c => c === 'G')];
@@ -34,6 +34,18 @@ describe('Kombat Penales: la tanda', () => {
     expect(ev).toEqual(expect.arrayContaining(['kick', 'save', 'boom', 'whistle']));
     expect(m.gore.gibs.some(g => g.kind === 'skull')).toBe(true);
     expect(m.turn).toBe(1);
+  });
+  it('si es gol y el arquero se tiró para el otro lado, explota el arquero', () => {
+    expect(keeperBlewIt(0, 5)).toBe(true); expect(keeperBlewIt(0, 3)).toBe(false); expect(keeperBlewIt(1, 0)).toBe(true);
+    const m = newPenalties('ice', ['frost', 'thunder'], () => 0.5); m.phase = 'aim';
+    startKick(m, 0, 2);
+    const booms: boolean[] = [];
+    for (let t = 0; t < kickDuration() + 0.2; t += 1 / 60) { stepPenalties(m, 1 / 60, () => ({ x: 0, y: 0, h: 300 }), () => ({ x: 600, y: 700, h: 200 })); for (const e of takePenEvents(m)) if (e.type === 'boom') booms.push(e.keeper); }
+    expect(m.kicks[0]).toEqual([true]);
+    expect(booms).toEqual([true]);
+  });
+  it('la pelota cambia de efecto en cada ronda y vuelve a empezar después del quinto', () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(fxOfTurn)).toEqual(['fuego', 'fuego', 'electricidad', 'electricidad', 'viento', 'viento', 'radiacion', 'radiacion', 'laser', 'laser', 'fuego', 'fuego']);
   });
   it('el mundial simula resultados de penales sin empates', () => {
     for (let i = 0; i < 50; i++) { const [a, b] = penaltyScore(Math.random); expect(a).toBeGreaterThan(b); }

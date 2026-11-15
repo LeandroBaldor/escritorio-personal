@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom';
 import { fitViewport, pixelRatio, useFitScreen } from './fitScreen';
 import { CHARS, CHAR_IDS, STAGES, STATS, type CharId, type StageId } from './kombat';
 import {
-  REGULATION, ZONES, ZONE_ARROWS, ZONE_NAMES, colOf, cpuZone, newPenalties, rowOf, scoreOf, shooterOf, startKick, stepPenalties, suddenDeath, takePenEvents,
+  BALL_FX_NAMES, REGULATION, ZONES, ZONE_ARROWS, ZONE_NAMES, cpuZone, fxOfTurn, newPenalties, scoreOf, shooterOf, startKick, stepPenalties, suddenDeath, takePenEvents,
   penaltyScore, type PenMatch, type Zone,
 } from './kombatPenalties';
-import { drawPenBackdrop, drawPenThumb, drawPenalties, kickerBody, onPenaltyArtLoad, penView, preloadPenaltyArt, zoneAt } from './kombatPenaltiesArt';
+import { drawPenBackdrop, drawPenThumb, drawPenalties, keeperBody, kickerBody, onPenaltyArtLoad, penView, preloadPenaltyArt, zoneAt } from './kombatPenaltiesArt';
 import { CUP_ROUNDS, cupSlot, finishRound, newCup, yourMatch, type Cup } from './kombatVoleyCup';
 import { drawFighterCard, drawPortrait, setLowFx } from './kombatFighters';
 import { setNoGrain } from './gravityMonsters';
@@ -42,6 +42,9 @@ const roundReach = (n: number) => 0.18 + n * 0.1;
 const rivalOf = (cup: Cup, n: number): CharId => yourMatch(cup, n)?.rival ?? CHAR_IDS.find(c => c !== cup.you)!;
 const QUALITY = [1, 0.82, 0.68, 0.55];
 const ZONE_KEYS: Record<string, Zone> = { KeyQ: 0, KeyW: 1, KeyE: 2, KeyA: 3, KeyS: 4, KeyD: 5, Numpad7: 0, Numpad8: 1, Numpad9: 2, Numpad1: 3, Numpad2: 4, Numpad3: 5, Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4, Digit6: 5 };
+// Con las flechas: ↑ arriba al medio, ↓ abajo al medio; ← una vez abajo a la izquierda y dos veces (seguidas)
+// arriba a la izquierda; → igual a la derecha. DOUBLE_MS: cuánto se espera la segunda vez.
+const DOUBLE_MS = 380;
 interface Shout { id: number; text: string; sub?: string; kind: 'goal' | 'fatal' | 'info' | 'block' | 'extra' }
 // Quién tiene que elegir ahora: el arquero o el que patea (y de qué lado es).
 interface Aim { role: 'keeper' | 'shooter'; side: 0 | 1 }
@@ -178,6 +181,7 @@ export function KombatPenalties() {
   const [zoneCursor, setZoneCursor] = useState<Zone>(1);
   const zoneRef = useRef<Zone | null>(1);
   const [shouts, setShouts] = useState<Shout[]>([]);
+  const [goalBanner, setGoalBanner] = useState<{ id: number; sub: string } | null>(null);
   const [record, setRecord] = useState(readPenRecord);
   const [result, setResult] = useState<{ winner: 0 | 1; score: [number, number] } | null>(null);
   const [fighting, setFighting] = useState<[CharId, CharId]>(['cometa', 'inferno']);
@@ -210,9 +214,7 @@ export function KombatPenalties() {
     const low = touch || quality.current > 0; setLowFx(low); setNoGrain(low);
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, w, h);
-    const a = aimRef.current, showTargets = m.phase === 'aim' && !!a && screenRef.current === 'playing';
-    const color = a ? (a.role === 'keeper' ? '#38bdf8' : '#facc15') : '#facc15';
-    drawPenalties(ctx, m, w, h, { showTargets, cursor: showTargets ? zoneRef.current : null, cursorColor: color });
+    drawPenalties(ctx, m, w, h);
     const bg = bgRef.current;
     if (bg) { // el fondo y la cancha en su propia capa, siempre con toda la resolución
       const kb = Math.min(pixelRatio(2), 2560 / Math.max(1, el.clientWidth), 1500 / Math.max(1, el.clientHeight)), bw = Math.round(el.clientWidth * kb), bh = Math.round(el.clientHeight * kb);
@@ -254,7 +256,7 @@ export function KombatPenalties() {
     reachRef.current = mode === 'world' ? roundReach(n) : DIFFICULTY[difficulty].reach;
     const m = newPenalties(st, [p1, rival]);
     matchRef.current = m; setFighting([p1, rival]);
-    setHud({ kicks: [[], []], turn: 0, sudden: false }); setResult(null); setShouts([]); setAim(null); setIntro(true);
+    setHud({ kicks: [[], []], turn: 0, sudden: false }); setResult(null); setShouts([]); setGoalBanner(null); setAim(null); setIntro(true);
     const def = STAGES.find(s => s.id === st)!;
     setStageName(`${mode === 'world' ? `Mundial · ${ROUNDS[n]} · ` : ''}${def.name}`);
     setScreen('playing');
@@ -274,10 +276,15 @@ export function KombatPenalties() {
     startKick(m, shot, dive, cpuKeeps ? reachRef.current : HUMAN_REACH);
     setAim(null);
   }, [shout]);
-  const moveZone = useCallback((dc: number, dr: number) => {
-    const z = (zoneRef.current ?? 1) as Zone, c = Math.max(0, Math.min(2, colOf(z) + dc)), r = Math.max(0, Math.min(1, rowOf(z) + dr)), n = (r * 3 + c) as Zone;
-    zoneRef.current = n; setZoneCursor(n); playKfButton(0.35);
-  }, []);
+  // las flechas a la izquierda o a la derecha: una vez abajo, dos veces seguidas arriba
+  const tap = useRef<{ dir: 'left' | 'right'; timer: number } | null>(null);
+  const arrowSide = useCallback((dir: 'left' | 'right') => {
+    const low: Zone = dir === 'left' ? 3 : 5, high: Zone = dir === 'left' ? 0 : 2, prev = tap.current;
+    if (prev) { clearTimeout(prev.timer); tap.current = null; if (prev.dir === dir) { zoneRef.current = high; setZoneCursor(high); choose(high); return; } }
+    zoneRef.current = low; setZoneCursor(low); playKfButton(0.35);
+    tap.current = { dir, timer: window.setTimeout(() => { tap.current = null; choose(low); }, DOUBLE_MS) };
+  }, [choose]);
+  useEffect(() => () => { if (tap.current) clearTimeout(tap.current.timer); }, []);
 
   // ---------------------------------------------------------------- La selección (igual que en Kombat Football)
   const chooseChar = useCallback((idx: number) => {
@@ -338,7 +345,7 @@ export function KombatPenalties() {
         if (slow > 1 / 45 && quality.current < QUALITY.length - 1) { quality.current++; checkT = 0; }
         else if (slow < 1 / 57 && quality.current > 0 && checkT > 6) { quality.current--; checkT = 0; }
       }
-      stepPenalties(m, dt, side => kickerBody(m.chars[side]));
+      stepPenalties(m, dt, side => kickerBody(m.chars[side]), side => keeperBody(m, m.chars[side]));
       if (m.phase !== 'intro') setIntro(false);
       const k = m.kick;
       for (const e of takePenEvents(m)) {
@@ -347,10 +354,11 @@ export function KombatPenalties() {
           case 'kick': playKfBall(1.3, 0.85); break;
           case 'goal': {
             playKfGoal(); setCrowd(1); setTimeout(() => { if (screenRef.current === 'playing') setCrowd(0.55); }, 1800);
-            shout('¡GOOOL!', 'goal', `${CHARS[m.chars[e.side]].name} · ${scoreOf(m.kicks).join(' - ')}`, 1900); break;
+            const id = ++shoutId.current; setGoalBanner({ id, sub: `${CHARS[m.chars[e.side]].name} · ${scoreOf(m.kicks).join(' - ')}` });
+            setTimeout(() => setGoalBanner(g => g?.id === id ? null : g), 2300); break;
           }
           case 'save': playKfBall(1, 0.6); shout('¡ATAJÓ!', 'block', `${CHARS[m.chars[e.side]].name} se la sacó`, 1500); break;
-          case 'boom': playExplosion(); shout('💥 ¡EXPLOTÓ!', 'fatal', `${CHARS[m.chars[e.side]].name} erró el penal`, 1600); break;
+          case 'boom': playExplosion(); shout(e.keeper ? '💥 ¡EXPLOTÓ EL ARQUERO!' : '💥 ¡EXPLOTÓ!', 'fatal', e.keeper ? `${CHARS[m.chars[e.side]].name} se tiró para el otro lado` : `${CHARS[m.chars[e.side]].name} erró el penal`, 1600); break;
           case 'end': playRefWhistle('end'); break;
           case 'post': break;
         }
@@ -392,15 +400,16 @@ export function KombatPenalties() {
       if (s !== 'playing' || !aimRef.current) return;
       const z = ZONE_KEYS[e.code];
       if (z !== undefined) { e.preventDefault(); choose(z); return; }
-      if (e.code === 'ArrowLeft') { e.preventDefault(); moveZone(-1, 0); }
-      else if (e.code === 'ArrowRight') { e.preventDefault(); moveZone(1, 0); }
-      else if (e.code === 'ArrowUp') { e.preventDefault(); moveZone(0, -1); }
-      else if (e.code === 'ArrowDown') { e.preventDefault(); moveZone(0, 1); }
+      if (e.repeat) return;
+      if (e.code === 'ArrowLeft') { e.preventDefault(); arrowSide('left'); }
+      else if (e.code === 'ArrowRight') { e.preventDefault(); arrowSide('right'); }
+      else if (e.code === 'ArrowUp') { e.preventDefault(); if (tap.current) { clearTimeout(tap.current.timer); tap.current = null; } choose(1); }
+      else if (e.code === 'ArrowDown') { e.preventDefault(); if (tap.current) { clearTimeout(tap.current.timer); tap.current = null; } choose(4); }
       else if (e.code === 'Enter' || e.code === 'Space' || e.code === 'NumpadEnter') { e.preventDefault(); if (zoneRef.current !== null) choose(zoneRef.current); }
     };
     window.addEventListener('keydown', down);
     return () => window.removeEventListener('keydown', down);
-  }, [choose, moveZone]);
+  }, [choose, arrowSide]);
   useEffect(() => { const prev = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = prev; }; }, []);
   // Tocando o haciendo clic en el arco.
   const zoneFromEvent = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -431,11 +440,12 @@ export function KombatPenalties() {
     <div className="kf-howto-head"><Portrait char={chars[0]} size={56} square /><div><b>{CHARS[chars[0]].name}</b><small>{two ? 'Jugador 1 · patea primero' : 'Vos · pateás primero'}</small></div></div>
     <ul>
       <li>Hay <b>6 lugares</b>: tres arriba y tres abajo (a la <b>derecha del arquero</b>, <b>al medio</b> y a la <b>izquierda del arquero</b>).</li>
-      <li>Elegí tocando el lugar en el arco, con los botones de arriba, o con <Keys keys={['←', '→', '↑', '↓']} /> y <Keys keys={['ENTER']} /> (directo: <Keys keys={['Q']} /><Keys keys={['W']} /><Keys keys={['E']} /> arriba, <Keys keys={['A']} /><Keys keys={['S']} /><Keys keys={['D']} /> abajo).</li>
+      <li>Con las flechas: <Keys keys={['←', '←']} /> arriba a la izquierda · <Keys keys={['→', '→']} /> arriba a la derecha · <Keys keys={['←']} /> abajo a la izquierda · <Keys keys={['→']} /> abajo a la derecha · <Keys keys={['↑']} /> al medio arriba · <Keys keys={['↓']} /> al medio abajo. También tocando el arco o los botones de arriba.</li>
+      <li>La pelota cambia de efecto en cada ronda: fuego, electricidad, viento, radiación y láser rojo (y vuelve a empezar).</li>
       {two
         ? <li><b>Dos jugadores:</b> en cada penal elige <b>primero el arquero</b> (que el otro no mire) y <b>después el que patea</b>.</li>
         : <li>Cuando pateás, <b>la máquina ya eligió dónde tirarse</b>. Cuando ataja, elegís vos dónde te tirás.</li>}
-      <li>Si el arquero se tira al mismo lugar, <b>ataja</b> (y el que pateó <b>explota</b>). Si adivina el lado pero no la altura, a veces llega con la punta de los dedos.</li>
+      <li>Si el arquero se tira al mismo lugar, <b>ataja</b> (y el que pateó <b>explota</b>). Si adivina el lado pero no la altura, a veces llega con la punta de los dedos. Si se tira para el otro lado y es gol, <b>explota el arquero</b>.</li>
     </ul>
   </div>;
 
@@ -474,6 +484,7 @@ export function KombatPenalties() {
             </div>
             <small className={hud.sudden ? 'kf-golden' : ''} data-testid="kp-stage-label">{hud.sudden ? 'MUERTE SÚBITA' : `PENAL ${Math.min(REGULATION, Math.floor(hud.turn / 2) + 1)} DE ${REGULATION}`}</small>
           </div>
+          <span className={`kp-fx kp-fx--${fxOfTurn(hud.turn)}`} data-testid="kp-fx">Pelota: {BALL_FX_NAMES[fxOfTurn(hud.turn)]}</span>
         </div>
         {sideBar(1)}
       </div>}
@@ -491,6 +502,7 @@ export function KombatPenalties() {
         <div className="kf-vs-mid"><strong>VS</strong><small>{stageName}</small></div>
         <div className="kf-vs-side" style={{ ['--kf-c' as string]: CHARS[chars[1]].color }}><FighterCard char={chars[1]} w={150} h={190} mirror /><b>{CHARS[chars[1]].name}</b></div>
       </div>}
+      {playing && goalBanner && <div key={goalBanner.id} className="kp-goal" role="status" data-testid="kp-goal"><b>¡GOOOOOOL!!!</b><small>{goalBanner.sub}</small></div>}
       {playing && <p className="kf-rotate">📱 Girá el celular para ver el arco más grande</p>}
       <div className="kf-shouts" aria-live="assertive">
         {shouts.map(s => <div key={s.id} className={`kf-shout kf-shout--${s.kind}`} role="status">{s.text}{s.sub && <small>{s.sub}</small>}</div>)}
