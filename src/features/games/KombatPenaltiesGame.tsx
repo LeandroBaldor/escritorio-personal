@@ -177,6 +177,30 @@ function KickDots({ kicks, total, testId }: { kicks: boolean[]; total: number; t
   </span>;
 }
 
+// El cuadro del piedra, papel o tijera (borde rojo, fondo negro, los dos brazos frente a frente).
+function RpsBox({ rps, two, chars, onHand, onOrder }: { rps: Rps; two: boolean; chars: [CharId, CharId]; onHand: (h: Hand) => void; onOrder: (o: 'first' | 'second') => void }) {
+  const arm = (color: 'rojo' | 'azul', side: 0 | 1) => { const h = rps.hands[side]; const showHand = (rps.stage === 'anim' && rps.frame >= 5) || rps.stage === 'order'; return ARMS[color][showHand && h ? h : rps.stage === 'anim' && rps.frame % 2 === 1 ? 2 : 1]; };
+  const humanWinner = rps.stage === 'order' && rps.winner !== null && !rps.cpuOrder;
+  const title = rps.stage === 'pick'
+    ? (two ? `JUGADOR ${rps.picker + 1} · ${CHARS[chars[rps.picker]].name}: elegí (que no mire el otro)` : 'Piedra, papel o tijera: ¿quién elige?')
+    : rps.stage === 'anim' ? (rps.frame >= 5 ? (rpsWinner(rps.hands[0]!, rps.hands[1]!) === null ? '¡Empate! Otra vez…' : '¡Ya!') : ['Piedra…', 'papel…', 'o…', 'tijera…', '¡ya!'][Math.min(4, rps.frame)])
+    : rps.winner !== null ? `¡Ganó ${two ? `JUGADOR ${rps.winner + 1} · ` : ''}${CHARS[chars[rps.winner]].name}! ${rps.cpuOrder ? `Elige patear ${rps.cpuOrder === 'first' ? 'primero' : 'segundo'}` : '¿Patear primero o segundo?'}` : '';
+  return <div className={`kp-rps kp-rps--${rps.stage}`} role="dialog" aria-label="Piedra, papel o tijera" data-testid="kp-rps">
+    <b className="kp-rps-title" data-testid="kp-rps-title">{title}</b>
+    <div className="kp-rps-arms">
+      <figure className={rps.winner === 0 ? 'kp-rps-win' : rps.winner === 1 ? 'kp-rps-lose' : ''}><img key={`r${rps.frame}${rps.stage}`} src={arm('rojo', 0)} alt="" /><figcaption>{CHARS[chars[0]].name}{rps.stage === 'pick' && rps.hands[0] ? ' ✓' : ''}</figcaption></figure>
+      <figure className={rps.winner === 1 ? 'kp-rps-win' : rps.winner === 0 ? 'kp-rps-lose' : ''}><img key={`a${rps.frame}${rps.stage}`} src={arm('azul', 1)} alt="" /><figcaption>{CHARS[chars[1]].name}{rps.stage === 'pick' && (two ? rps.hands[1] : true) && rps.hands[1] ? ' ✓' : ''}</figcaption></figure>
+    </div>
+    <div className="kp-rps-buttons">{/* (siempre ocupa su lugar: así el cuadro no cambia de alto y los brazos no se mueven de sitio) */}
+      {rps.stage === 'pick' && (['piedra', 'papel', 'tijera'] as Hand[]).map((h, i) => <button key={h} type="button" data-testid={`kp-hand-${h}`} onClick={() => onHand(h)}>{HAND_NAMES[h]} <kbd>{['←', '↓', '→'][i]}</kbd></button>)}
+      {humanWinner && <>
+        <button type="button" data-testid="kp-order-first" onClick={() => onOrder('first')}>⚽ Patear primero <kbd>←</kbd></button>
+        <button type="button" data-testid="kp-order-second" onClick={() => onOrder('second')}>🧤 Patear segundo <kbd>→</kbd></button>
+      </>}
+    </div>
+  </div>;
+}
+
 export function KombatPenalties() {
   const fit = useFitScreen();
   const stageRef = useRef<HTMLDivElement>(null);
@@ -553,28 +577,7 @@ export function KombatPenalties() {
         </div>
       </div>}
       {playing && aim && <p className="sr-only" data-testid="kp-aim-title">{aimTitle} · {aimSub}</p>}
-      {playing && rps && (() => {
-        const arm = (color: 'rojo' | 'azul', side: 0 | 1) => { const h = rps.hands[side]; const showHand = (rps.stage === 'anim' && rps.frame >= 5) || rps.stage === 'order'; return ARMS[color][showHand && h ? h : rps.stage === 'anim' && rps.frame % 2 === 1 ? 2 : 1]; };
-        const humanWinner = rps.stage === 'order' && rps.winner !== null && !rps.cpuOrder;
-        const title = rps.stage === 'pick'
-          ? (two ? `JUGADOR ${rps.picker + 1} · ${CHARS[chars[rps.picker]].name}: elegí (que no mire el otro)` : 'Piedra, papel o tijera: ¿quién elige?')
-          : rps.stage === 'anim' ? (rps.frame >= 5 ? (rpsWinner(rps.hands[0]!, rps.hands[1]!) === null ? '¡Empate! Otra vez…' : '¡Ya!') : ['Piedra…', 'papel…', 'o…', 'tijera…', '¡ya!'][Math.min(4, rps.frame)])
-          : rps.winner !== null ? `¡Ganó ${two ? `JUGADOR ${rps.winner + 1} · ` : ''}${CHARS[chars[rps.winner]].name}! ${rps.cpuOrder ? `Elige patear ${rps.cpuOrder === 'first' ? 'primero' : 'segundo'}` : '¿Patear primero o segundo?'}` : '';
-        return <div className={`kp-rps kp-rps--${rps.stage}`} role="dialog" aria-label="Piedra, papel o tijera" data-testid="kp-rps">
-          <b className="kp-rps-title" data-testid="kp-rps-title">{title}</b>
-          <div className="kp-rps-arms">
-            <figure className={rps.winner === 0 ? 'kp-rps-win' : rps.winner === 1 ? 'kp-rps-lose' : ''}><img key={`r${rps.frame}${rps.stage}`} src={arm('rojo', 0)} alt="" /><figcaption>{CHARS[chars[0]].name}{rps.stage === 'pick' && rps.hands[0] ? ' ✓' : ''}</figcaption></figure>
-            <figure className={rps.winner === 1 ? 'kp-rps-win' : rps.winner === 0 ? 'kp-rps-lose' : ''}><img key={`a${rps.frame}${rps.stage}`} src={arm('azul', 1)} alt="" /><figcaption>{CHARS[chars[1]].name}{rps.stage === 'pick' && (two ? rps.hands[1] : true) && rps.hands[1] ? ' ✓' : ''}</figcaption></figure>
-          </div>
-          {rps.stage === 'pick' && <div className="kp-rps-buttons">
-            {(['piedra', 'papel', 'tijera'] as Hand[]).map((h, i) => <button key={h} type="button" data-testid={`kp-hand-${h}`} onClick={() => pickHand(h)}>{HAND_NAMES[h]} <kbd>{['←', '↓', '→'][i]}</kbd></button>)}
-          </div>}
-          {humanWinner && <div className="kp-rps-buttons">
-            <button type="button" data-testid="kp-order-first" onClick={() => chooseOrder('first')}>⚽ Patear primero <kbd>←</kbd></button>
-            <button type="button" data-testid="kp-order-second" onClick={() => chooseOrder('second')}>🧤 Patear segundo <kbd>→</kbd></button>
-          </div>}
-        </div>;
-      })()}
+      {playing && rps && <RpsBox rps={rps} two={two} chars={chars} onHand={pickHand} onOrder={chooseOrder} />}
       {playing && intro && <div className="kf-vs" aria-hidden="true">
         <div className="kf-vs-side" style={{ ['--kf-c' as string]: CHARS[chars[0]].color }}><FighterCard char={chars[0]} w={150} h={190} /><b>{CHARS[chars[0]].name}</b></div>
         <div className="kf-vs-mid"><strong>VS</strong><small>{stageName}</small></div>
