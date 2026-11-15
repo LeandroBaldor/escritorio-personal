@@ -15,8 +15,8 @@ import menuBg from './assets/fondos/kf-menu.webp';
 import menuBall from './assets/penales/pelota.webp';
 import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
-  playExplosion, playGameOver, playKfButton, playKfGoal, playKfName, playKfSelectVoice, playKfVsSentence,
-  playPenKick, playPenNet, playPenSave, playPenSteps, playRefWhistle, playStart, preloadPenaltySounds, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
+  playGameOver, playKfButton, playKfGoal, playKfName, playKfSelectVoice, playKfVsSentence,
+  playPenExplosion, playPenKick, playPenNet, playPenSave, playPenSteps, playRefWhistle, playStart, preloadPenaltySounds, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 import { Fireworks } from './Fireworks';
@@ -254,7 +254,7 @@ export function KombatPenalties() {
     playStart(); preloadKombatSounds(); preloadPenaltySounds(); preloadPenaltyArt();
     const st = mode === 'world' ? cup.stages[n] : stage, rival = mode === 'world' ? rivalOf(cup, n) : p2;
     reachRef.current = mode === 'world' ? roundReach(n) : DIFFICULTY[difficulty].reach;
-    const m = newPenalties(st, [p1, rival]);
+    const m = newPenalties(st, [p1, rival]); m.humans = [true, mode === 'two'];
     matchRef.current = m; setFighting([p1, rival]);
     setHud({ kicks: [[], []], turn: 0, sudden: false }); setResult(null); setShouts([]); setAim(null); setIntro(true);
     const def = STAGES.find(s => s.id === st)!;
@@ -358,7 +358,7 @@ export function KombatPenalties() {
             break;
           }
           case 'save': playPenSave(); break;
-          case 'boom': playExplosion(); break;
+          case 'boom': playPenExplosion(); break;
           case 'end': playRefWhistle('end'); break;
           case 'post': break;
         }

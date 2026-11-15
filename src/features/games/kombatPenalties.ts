@@ -73,6 +73,7 @@ export interface PenMatch {
   sparks: Spark[];
   screenBlood: { x: number; y: number; r: number; t: number; seed: number; drips: number }[];
   shake: number; flash: number;
+  humans: [boolean, boolean]; // de quién es cada lado (si explota el de una persona, la sangre tapa mucho más la pantalla)
   events: PenEvent[];
   rand: () => number;
 }
@@ -81,7 +82,7 @@ export type PenEvent = { type: 'whistle' } | { type: 'kick' } | { type: 'goal'; 
 export function newPenalties(stage: StageId, chars: [CharId, CharId], rand: () => number = Math.random): PenMatch {
   return {
     stage, chars, kicks: [[], []], turn: 0, phase: 'intro', phaseT: 0, time: 0, kick: null, winner: null,
-    gore: { gibs: [], drops: [], stains: [] }, sparks: [], screenBlood: [], shake: 0, flash: 0, events: [], rand,
+    gore: { gibs: [], drops: [], stains: [] }, sparks: [], screenBlood: [], shake: 0, flash: 0, humans: [true, false], events: [], rand,
   };
 }
 export const takePenEvents = (m: PenMatch) => { const e = m.events; m.events = []; return e; };
@@ -125,12 +126,12 @@ export function stepPenalties(m: PenMatch, dt: number, kickPos: BodyAt, keeperPo
       if (k.outcome === 'goal') m.shake = Math.max(m.shake, 0.35);
     }
     if (k.outcome === 'save' && !k.boom && k.t >= arriveAt() + T.boom) {
-      k.boom = true; const p = kickPos(k.shooter); explode(m, p.x, p.y, p.h, m.chars[k.shooter]);
+      k.boom = true; const p = kickPos(k.shooter); explode(m, p.x, p.y, p.h, m.chars[k.shooter], undefined, m.humans[k.shooter]);
       m.events.push({ type: 'boom', side: k.shooter, keeper: false });
     }
     // el arquero que se tiró para el otro lado también explota
     if (k.outcome === 'goal' && !k.kboom && keeperBlewIt(k.shot, k.dive) && k.t >= arriveAt() + T.boom + 0.1) {
-      const ks: 0 | 1 = k.shooter === 0 ? 1 : 0; k.kboom = true; const p = keeperPos(ks); explode(m, p.x, p.y, p.h, m.chars[ks]);
+      const ks: 0 | 1 = k.shooter === 0 ? 1 : 0; k.kboom = true; const p = keeperPos(ks); explode(m, p.x, p.y, p.h, m.chars[ks], undefined, m.humans[ks]);
       m.events.push({ type: 'boom', side: ks, keeper: true });
     }
     if (k.t >= kickDuration()) {
@@ -144,7 +145,7 @@ export function stepPenalties(m: PenMatch, dt: number, kickPos: BodyAt, keeperPo
 
 // ---------------------------------------------------------------- La explosión (en px del arco: x, y en el piso; z para arriba)
 const GRAV = 2300;
-export function explode(m: PenMatch, x: number, y: number, h: number, char: CharId, color = '#9ca3af') {
+export function explode(m: PenMatch, x: number, y: number, h: number, char: CharId, color = '#9ca3af', heavy = false) {
   const r = m.rand, G = m.gore;
   for (let i = 0; i < 110; i++) { const a = r() * Math.PI * 2, sp = 200 + r() * 900; G.drops.push({ x, y, z: h * (0.25 + r() * 0.65), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.55, vz: 300 + r() * 1100, r: 3 + r() * 7 }); }
   const kinds: GibKind[] = ['skull', 'jaw', 'ribs', 'ribs', 'pelvis', 'bone', 'bone', 'bone', 'bone', 'bone', 'bone', 'chunk', 'chunk', 'chunk', 'chunk', 'plate', 'plate', 'plate', 'plate'];
@@ -156,6 +157,8 @@ export function explode(m: PenMatch, x: number, y: number, h: number, char: Char
   for (let i = 0; i < 40; i++) { const a = r() * Math.PI * 2, sp = 300 + r() * 900; m.sparks.push({ x, y, z: h * 0.55, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.6, vz: (r() - 0.3) * 900, life: 0, max: 0.35 + r() * 0.4, color: cols[i % 4], size: 4 + r() * 8 }); }
   G.stains.push({ x, y, r: 70 + r() * 30, seed: r() * 100, t: 0 });
   for (let k = 0; k < 4; k++) m.screenBlood.push({ x: 0.08 + r() * 0.84, y: 0.2 + r() * 0.6, r: 0.016 + r() * 0.026, t: -k * 0.06, seed: r() * 100, drips: 3 + Math.floor(r() * 4) });
+  // si el que explota es el de la persona (perdió el penal): la pantalla queda salpicada de sangre por todos lados
+  if (heavy) for (let k = 0; k < 26; k++) m.screenBlood.push({ x: 0.03 + r() * 0.94, y: 0.05 + r() * 0.85, r: (k < 5 ? 0.05 : 0.022) + r() * (k < 5 ? 0.05 : 0.035), t: -0.05 - k * 0.025, seed: r() * 100, drips: 4 + Math.floor(r() * 6) });
   m.shake = 1.4; m.flash = 0.6;
   void char;
 }
