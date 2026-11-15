@@ -369,7 +369,7 @@ function drawFlying(ctx: CanvasRenderingContext2D, m: PenMatch) {
 export interface PenDrawOpts { cursor?: Zone | null; cursorColor?: string; showTargets?: boolean; netHit?: { at: P2; t: number } | null }
 export function drawPenalties(ctx: CanvasRenderingContext2D, m: PenMatch, w: number, h: number, opts: PenDrawOpts = {}) {
   const v = penView(w, h), rim = THEMES[m.stage].light, k = m.kick;
-  const shooter: 0 | 1 = k ? k.shooter : (m.turn % 2 === 0 ? 0 : 1), keeperSide: 0 | 1 = shooter === 0 ? 1 : 0;
+  const shooter: 0 | 1 = k ? k.shooter : ((m.turn + m.first) % 2 === 0 ? 0 : 1), keeperSide: 0 | 1 = shooter === 0 ? 1 : 0;
   ctx.save();
   if (m.shake > 0) ctx.translate((Math.random() - 0.5) * m.shake * 14, (Math.random() - 0.5) * m.shake * 14);
   ctx.translate(v.ox, v.oy); ctx.scale(v.k, v.k);

@@ -1217,29 +1217,35 @@ test('Kombat Voley: amistoso con rival y estadio elegidos, se saca y se pausa; e
   await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
 });
 
-test('Kombat Penales: amistoso (la máquina elige antes), 2 jugadores (primero el arquero) y el mundial', async ({ page }) => {
+test('Kombat Penales: amistoso (rival al azar, piedra papel o tijera), 2 jugadores (primero el que patea) y el mundial', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
   await page.getByRole('link', { name: /Kombat Penales/ }).click();
   await expect(page.getByRole('heading', { name: 'Kombat Penales', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Amistoso' }).click();
   const mine = page.getByRole('group', { name: 'Tu jugador' }).getByRole('button', { name: 'FROST' });
   await mine.click(); await mine.click();
-  const rival = page.getByRole('group', { name: 'Rival' }).getByRole('button', { name: 'THUNDER' });
-  await rival.click(); await rival.click();
+  // contra la máquina, el rival sale al azar: directo al VS
   await expect(page.getByTestId('kp-vs-1')).toHaveText('FROST');
+  await expect(page.getByTestId('kp-vs-2')).not.toHaveText('FROST');
   await page.getByRole('button', { name: 'Elegir el estadio ▶' }).click();
   await expect(page.getByRole('group', { name: 'Estadio' }).getByRole('button')).toHaveCount(16);
   await page.getByRole('button', { name: /Planeta Volcánico/ }).click();
   await page.getByRole('button', { name: 'Siguiente ▶' }).click();
   await page.getByRole('button', { name: '¡A patear!' }).click();
   await expect(page.getByTestId('kp-score')).toHaveText('0 : 0');
+  // piedra, papel o tijera hasta que alguien gane; si gano yo, pateo primero
+  await expect(page.getByTestId('kp-rps')).toBeVisible({ timeout: 15000 });
+  for (let i = 0; i < 25 && await page.getByTestId('kp-rps').isVisible(); i++) {
+    if (await page.getByTestId('kp-hand-piedra').isVisible()) await page.keyboard.press('ArrowLeft');
+    else if (await page.getByTestId('kp-order-first').isVisible()) await page.keyboard.press('ArrowLeft');
+    await page.waitForTimeout(700);
+  }
+  await expect(page.getByTestId('kp-rps')).toHaveCount(0, { timeout: 15000 });
   await expect(page.getByTestId('kp-aim')).toHaveCount(0); // sin el cartel de elegir
-  await expect(page.getByTestId('kp-aim-title')).toContainText('Elegí dónde patear', { timeout: 8000 });
-  await expect(page.getByTestId('kp-aim-title')).toContainText('La máquina ya eligió');
+  await expect(page.getByTestId('kp-aim-title')).toContainText('ya eligió', { timeout: 8000 });
   await expect(page.getByTestId('kp-fx')).toContainText('Fuego');
   await page.keyboard.press('ArrowUp'); // ↑ = arriba al medio
-  await expect(page.getByTestId('kp-dots-0')).toHaveAttribute('aria-label', /en 1 penales/, { timeout: 10000 });
-  await expect(page.getByTestId('kp-aim-title')).toContainText('Sos el arquero', { timeout: 10000 });
+  await expect(page.locator('.kp-dots[aria-label$="en 1 penales"]')).toHaveCount(1, { timeout: 10000 });
   await page.keyboard.press('Escape');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
   await page.getByRole('button', { name: 'Abandonar' }).click();
@@ -1249,11 +1255,19 @@ test('Kombat Penales: amistoso (la máquina elige antes), 2 jugadores (primero e
   await page.getByRole('button', { name: 'Elegir el estadio ▶' }).click();
   await page.getByRole('button', { name: 'Siguiente ▶' }).click();
   await page.getByRole('button', { name: '¡A patear!' }).click();
-  await expect(page.getByTestId('kp-aim-title')).toContainText('JUGADOR 2 · CYBER: 🧤', { timeout: 8000 });
+  // piedra, papel o tijera: primero uno y después el otro; papel le gana a piedra
+  await expect(page.getByTestId('kp-rps-title')).toContainText('JUGADOR 1 · TOXIC', { timeout: 15000 });
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.getByTestId('kp-rps-title')).toContainText('JUGADOR 2 · CYBER');
   await page.keyboard.press('ArrowDown');
-  await expect(page.getByTestId('kp-aim-title')).toContainText('JUGADOR 1 · TOXIC: ⚽');
+  await expect(page.getByTestId('kp-rps-title')).toContainText('¡Ganó JUGADOR 2', { timeout: 6000 });
+  await page.getByTestId('kp-order-first').click();
+  // en cada penal elige primero el que patea y después el arquero
+  await expect(page.getByTestId('kp-aim-title')).toContainText('JUGADOR 2 · CYBER: ⚽', { timeout: 8000 });
+  await page.keyboard.press('ArrowDown');
+  await expect(page.getByTestId('kp-aim-title')).toContainText('JUGADOR 1 · TOXIC: 🧤');
   await page.keyboard.press('ArrowDown'); // mismo lugar: ataja
-  await expect(page.getByTestId('kp-dots-0')).toHaveAttribute('aria-label', '0 goles en 1 penales', { timeout: 10000 });
+  await expect(page.getByTestId('kp-dots-1')).toHaveAttribute('aria-label', '0 goles en 1 penales', { timeout: 10000 });
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Abandonar' }).click();
   await page.getByRole('button', { name: 'Mundial' }).click();

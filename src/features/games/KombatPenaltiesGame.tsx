@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { fitViewport, pixelRatio, useFitScreen } from './fitScreen';
 import { CHARS, CHAR_IDS, STAGES, STATS, type CharId, type StageId } from './kombat';
 import {
-  BALL_FX_NAMES, REGULATION, cpuZone, fxOfTurn, newPenalties, scoreOf, shooterOf, startKick, stepPenalties, suddenDeath, takePenEvents,
+  BALL_FX_NAMES, REGULATION, beginShootout, cpuHand, cpuZone, rpsWinner, type Hand, fxOfTurn, newPenalties, scoreOf, shooterOf, startKick, stepPenalties, suddenDeath, takePenEvents,
   penaltyScore, type PenMatch, type Zone,
 } from './kombatPenalties';
 import { drawPenBackdrop, drawPenThumb, drawPenalties, keeperBody, kickerBody, onPenaltyArtLoad, penView, preloadPenaltyArt, zoneAt } from './kombatPenaltiesArt';
@@ -13,6 +13,16 @@ import { setNoGrain } from './gravityMonsters';
 import spaceBg from './assets/fondos/kf-espacio.webp';
 import menuBg from './assets/fondos/kf-menu.webp';
 import menuBall from './assets/penales/pelota.webp';
+import rojo1 from './assets/penales/ppt/rojo-1.webp';
+import rojo2 from './assets/penales/ppt/rojo-2.webp';
+import rojoPiedra from './assets/penales/ppt/rojo-piedra.webp';
+import rojoPapel from './assets/penales/ppt/rojo-papel.webp';
+import rojoTijera from './assets/penales/ppt/rojo-tijera.webp';
+import azul1 from './assets/penales/ppt/azul-1.webp';
+import azul2 from './assets/penales/ppt/azul-2.webp';
+import azulPiedra from './assets/penales/ppt/azul-piedra.webp';
+import azulPapel from './assets/penales/ppt/azul-papel.webp';
+import azulTijera from './assets/penales/ppt/azul-tijera.webp';
 import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
   playGameOver, playKfButton, playKfGoal, playKfName, playKfSelectVoice, playKfVsSentence,
@@ -49,7 +59,17 @@ const DOUBLE_MS = 380;
 interface Shout { id: number; text: string; sub?: string; kind: 'goal' | 'fatal' | 'info' | 'block' | 'extra' }
 // Quién tiene que elegir ahora: el arquero o el que patea (y de qué lado es).
 interface Aim { role: 'keeper' | 'shooter'; side: 0 | 1 }
-interface Hud { kicks: [boolean[], boolean[]]; turn: number; sudden: boolean }
+interface Hud { kicks: [boolean[], boolean[]]; turn: number; first: 0 | 1; sudden: boolean }
+// Piedra, papel o tijera antes de la tanda: los brazos del usuario (rojo, a la izquierda) y del rival (azul, a la derecha).
+// La animación: posición 1, 2, 1, 2, 1 y después la mano que eligió cada uno.
+const ARMS = {
+  rojo: { 1: rojo1, 2: rojo2, piedra: rojoPiedra, papel: rojoPapel, tijera: rojoTijera },
+  azul: { 1: azul1, 2: azul2, piedra: azulPiedra, papel: azulPapel, tijera: azulTijera },
+} as const;
+const RPS_STEP = 330; // ms entre posición y posición
+const HAND_NAMES: Record<Hand, string> = { piedra: '✊ Piedra', papel: '✋ Papel', tijera: '✌️ Tijera' };
+const HAND_KEYS: Record<string, Hand> = { ArrowLeft: 'piedra', ArrowDown: 'papel', ArrowRight: 'tijera' };
+interface Rps { stage: 'pick' | 'anim' | 'order'; picker: 0 | 1; hands: [Hand | null, Hand | null]; frame: number; winner: 0 | 1 | null; cpuOrder: 'first' | 'second' | null }
 
 function Portrait({ char, size, mirror = false, square = false }: { char: CharId; size: number; mirror?: boolean; square?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -242,13 +262,55 @@ export function KombatPenalties() {
   // Arranca cada penal: la máquina elige primero (escondido) y después le toca a la persona.
   const setupTurn = useCallback((m: PenMatch) => {
     picks.current = { shot: null, dive: null };
-    const shooter = shooterOf(m.turn), keeper: 0 | 1 = shooter === 0 ? 1 : 0;
+    const shooter = shooterOf(m.turn, m.first);
     let next: Aim;
-    if (modeRef.current === 'two') next = { role: 'keeper', side: keeper };
+    if (modeRef.current === 'two') next = { role: 'shooter', side: shooter }; // entre dos: primero el que patea, después el arquero
     else if (shooter === 0) { picks.current.dive = cpuZone(m.rand); next = { role: 'shooter', side: 0 }; }
     else { picks.current.shot = cpuZone(m.rand); next = { role: 'keeper', side: 0 }; }
     zoneRef.current = 1; setZoneCursor(1); setAim(next);
   }, []);
+
+  // ---------------------------------------------------------------- Piedra, papel o tijera
+  const [rps, setRpsState] = useState<Rps | null>(null);
+  const rpsRef = useRef<Rps | null>(null);
+  const setRps = useCallback((r: Rps | null) => { rpsRef.current = r; setRpsState(r); }, []);
+  const rpsTimers = useRef<number[]>([]);
+  const later = (ms: number, f: () => void) => { rpsTimers.current.push(window.setTimeout(f, ms)); };
+  const clearRps = useCallback(() => { rpsTimers.current.forEach(t => clearTimeout(t)); rpsTimers.current = []; rpsRef.current = null; setRpsState(null); }, []);
+  useEffect(() => () => { rpsTimers.current.forEach(t => clearTimeout(t)); }, []);
+  // Empieza (o vuelve a empezar si empataron): la máquina ya elige su mano al arrancar.
+  const startRps = useCallback(() => {
+    setRps({ stage: 'pick', picker: 0, hands: [null, modeRef.current === 'two' ? null : cpuHand(Math.random)], frame: 0, winner: null, cpuOrder: null });
+  }, [setRps]);
+  // Arranca la tanda: el que ganó eligió patear primero o segundo.
+  const finishOrder = useCallback((winner: 0 | 1, order: 'first' | 'second') => {
+    const m = matchRef.current; if (!m) return;
+    clearRps(); beginShootout(m, order === 'first' ? winner : winner === 0 ? 1 : 0);
+  }, [clearRps]);
+  const pickHand = useCallback((h: Hand) => {
+    const r = rpsRef.current; if (!r || r.stage !== 'pick' || screenRef.current !== 'playing') return;
+    playKfButton(0.7); // un solo sonido, sea cual sea la mano
+    const hands: [Hand | null, Hand | null] = [...r.hands];
+    hands[r.picker] = h;
+    if (modeRef.current === 'two' && r.picker === 0) { setRps({ ...r, hands, picker: 1 }); return; } // ahora elige el otro (sin mirar)
+    // la animación: 1, 2, 1, 2, 1 y la mano de cada uno
+    setRps({ ...r, hands, stage: 'anim', frame: 0 });
+    for (let f = 1; f <= 5; f++) later(f * RPS_STEP, () => { const cur = rpsRef.current; if (!cur) return; setRps({ ...cur, frame: f }); playKfButton(f === 5 ? 0.9 : 0.45); });
+    later(5 * RPS_STEP + 1400, () => {
+      const cur = rpsRef.current; if (!cur) return;
+      const w = rpsWinner(hands[0]!, hands[1]!);
+      if (w === null) { startRps(); return; } // empate: otra vez
+      const cpuWins = modeRef.current !== 'two' && w === 1;
+      const cpuOrder = cpuWins ? (Math.random() < 0.5 ? 'first' : 'second') : null;
+      setRps({ ...cur, stage: 'order', winner: w, cpuOrder });
+      if (cpuWins && cpuOrder) later(1600, () => finishOrder(1, cpuOrder));
+    });
+  }, [setRps, startRps, finishOrder]);
+
+  const chooseOrder = useCallback((o: 'first' | 'second') => {
+    const r = rpsRef.current; if (!r || r.stage !== 'order' || r.winner === null || r.cpuOrder) return;
+    playKfButton(0.7); finishOrder(r.winner, o);
+  }, [finishOrder]);
 
   const begin = useCallback((n = round) => {
     playStart(); preloadKombatSounds(); preloadPenaltySounds(); preloadPenaltyArt();
@@ -256,11 +318,11 @@ export function KombatPenalties() {
     reachRef.current = mode === 'world' ? roundReach(n) : DIFFICULTY[difficulty].reach;
     const m = newPenalties(st, [p1, rival]); m.humans = [true, mode === 'two'];
     matchRef.current = m; setFighting([p1, rival]);
-    setHud({ kicks: [[], []], turn: 0, sudden: false }); setResult(null); setShouts([]); setAim(null); setIntro(true);
+    setHud({ kicks: [[], []], turn: 0, first: 0, sudden: false }); setResult(null); setShouts([]); setAim(null); setIntro(true); clearRps();
     const def = STAGES.find(s => s.id === st)!;
     setStageName(`${mode === 'world' ? `Mundial · ${ROUNDS[n]} · ` : ''}${def.name}`);
     setScreen('playing');
-  }, [mode, stage, p1, p2, difficulty, round, cup]);
+  }, [mode, stage, p1, p2, difficulty, round, cup, clearRps]);
 
   // La elección de un lugar del arco (con el mouse, tocando, o con el teclado).
   const choose = useCallback((z: Zone) => {
@@ -268,11 +330,11 @@ export function KombatPenalties() {
     if (!m || !a || m.phase !== 'aim' || screenRef.current !== 'playing') return;
     playKfButton(0.7);
     if (a.role === 'keeper') picks.current.dive = z; else picks.current.shot = z;
-    if (modeRef.current === 'two' && a.role === 'keeper') { const s = shooterOf(m.turn); setAim({ role: 'shooter', side: s }); zoneRef.current = 1; setZoneCursor(1); return; }
+    if (modeRef.current === 'two' && a.role === 'shooter') { const kp: 0 | 1 = a.side === 0 ? 1 : 0; setAim({ role: 'keeper', side: kp }); zoneRef.current = 1; setZoneCursor(1); return; }
     const { shot, dive } = picks.current;
     if (shot === null || dive === null) return;
     // el arquero de la máquina llega según la dificultad; el de una persona, siempre igual
-    const cpuKeeps = modeRef.current !== 'two' && shooterOf(m.turn) === 0;
+    const cpuKeeps = modeRef.current !== 'two' && shooterOf(m.turn, m.first) === 0;
     startKick(m, shot, dive, cpuKeeps ? reachRef.current : HUMAN_REACH);
     playPenSteps(); // corre a la pelota
     setAim(null);
@@ -282,7 +344,7 @@ export function KombatPenalties() {
   const arrowSide = useCallback((dir: 'left' | 'right') => {
     const low: Zone = dir === 'left' ? 3 : 5, high: Zone = dir === 'left' ? 0 : 2, prev = tap.current;
     if (prev) { clearTimeout(prev.timer); tap.current = null; if (prev.dir === dir) { zoneRef.current = high; setZoneCursor(high); choose(high); return; } }
-    zoneRef.current = low; setZoneCursor(low); playKfButton(0.35);
+    zoneRef.current = low; setZoneCursor(low); // (sin sonido: entre dos, el otro no tiene que darse cuenta si fue una o dos veces)
     tap.current = { dir, timer: window.setTimeout(() => { tap.current = null; choose(low); }, DOUBLE_MS) };
   }, [choose]);
   useEffect(() => () => { if (tap.current) clearTimeout(tap.current.timer); }, []);
@@ -294,6 +356,7 @@ export function KombatPenalties() {
     if (pick === 0) {
       setP1(id);
       if (mode === 'world') { setCup(newCup(id, Math.random, true)); setRound(0); setReveal(0); setScreen('ladder'); return; }
+      if (mode === 'cpu') { const rival = CHAR_IDS.filter(c => c !== id)[Math.floor(Math.random() * 15)]; setP2(rival); setScreen('vs'); playKfVsSentence(id, rival); return; } // contra la máquina: el rival sale al azar
       setPick(1); const other = CHAR_IDS.indexOf(p2 === id ? CHAR_IDS[(idx + 1) % 16] : p2); setCursor(other); if (p2 === id) setP2(CHAR_IDS[other]);
     } else { setP2(id); setScreen('vs'); playKfVsSentence(p1, id); }
   }, [pick, mode, p1, p2]);
@@ -302,7 +365,7 @@ export function KombatPenalties() {
     if (screen !== 'select' && screen !== 'vs' && screen !== 'stage' && screen !== 'howto' && screen !== 'ladder') return;
     const down = (e: KeyboardEvent) => {
       const k = e.code;
-      if (screen === 'vs') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); setScreen('stage'); } else if (k === 'Escape' || k === 'Backspace') { setPick(1); setCursor(CHAR_IDS.indexOf(p2)); setScreen('select'); } return; }
+      if (screen === 'vs') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); setScreen('stage'); } else if (k === 'Escape' || k === 'Backspace') { if (mode === 'cpu') { setPick(0); setCursor(CHAR_IDS.indexOf(p1)); } else { setPick(1); setCursor(CHAR_IDS.indexOf(p2)); } setScreen('select'); } return; }
       if (screen === 'ladder') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); setScreen('howto'); } else if (k === 'Escape' || k === 'Backspace') setScreen('select'); return; }
       if (screen === 'howto') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); begin(mode === 'world' ? round : 0); } else if (k === 'Escape') setScreen(mode === 'world' ? 'ladder' : 'stage'); return; }
       const n = screen === 'select' ? 16 : STAGES.length, c = screen === 'select' ? cols : narrow ? 2 : 4;
@@ -348,6 +411,7 @@ export function KombatPenalties() {
       }
       stepPenalties(m, dt, side => kickerBody(m.chars[side]), side => keeperBody(m, m.chars[side]));
       if (m.phase !== 'intro') setIntro(false);
+      if (m.phase === 'rps' && !rpsRef.current) startRps();
       const k = m.kick;
       for (const e of takePenEvents(m)) {
         switch (e.type) {
@@ -365,7 +429,7 @@ export function KombatPenalties() {
       }
       paint();
       setHud(prev => {
-        const next: Hud = { kicks: [[...m.kicks[0]], [...m.kicks[1]]], turn: m.turn, sudden: suddenDeath(m.kicks) && !(k && !k.hit) };
+        const next: Hud = { kicks: [[...m.kicks[0]], [...m.kicks[1]]], turn: m.turn, first: m.first, sudden: suddenDeath(m.kicks) && !(k && !k.hit) };
         return prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
       });
       if (m.phase === 'end' && m.phaseT > 2.4 && m.winner !== null) {
@@ -389,7 +453,7 @@ export function KombatPenalties() {
     document.addEventListener('visibilitychange', hide);
     const observer = new ResizeObserver(paint); if (stageRef.current) observer.observe(stageRef.current);
     return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); observer.disconnect(); };
-  }, [screen, paint, shout, round, setupTurn]);
+  }, [screen, paint, shout, round, setupTurn, startRps]);
   useEffect(() => () => setCrowd(0), []);
 
   // Teclado de la tanda: flechas para marcar el lugar y ENTER para elegir (o Q W E / A S D directo).
@@ -397,6 +461,13 @@ export function KombatPenalties() {
     const down = (e: KeyboardEvent) => {
       const s = screenRef.current;
       if ((e.code === 'Escape' || e.code === 'KeyP') && (s === 'playing' || s === 'paused')) { setScreen(s === 'playing' ? 'paused' : 'playing'); return; }
+      const r = rpsRef.current;
+      if (s === 'playing' && r) {
+        if (e.repeat) return;
+        if (r.stage === 'pick' && HAND_KEYS[e.code]) { e.preventDefault(); pickHand(HAND_KEYS[e.code]); }
+        else if (r.stage === 'order' && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) { e.preventDefault(); chooseOrder(e.code === 'ArrowLeft' ? 'first' : 'second'); }
+        return;
+      }
       if (s !== 'playing' || !aimRef.current) return;
       const z = ZONE_KEYS[e.code];
       if (z !== undefined) { e.preventDefault(); choose(z); return; }
@@ -409,7 +480,7 @@ export function KombatPenalties() {
     };
     window.addEventListener('keydown', down);
     return () => window.removeEventListener('keydown', down);
-  }, [choose, arrowSide]);
+  }, [choose, arrowSide, pickHand, chooseOrder]);
   useEffect(() => { const prev = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = prev; }; }, []);
   // Tocando o haciendo clic en el arco.
   const zoneFromEvent = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -423,7 +494,7 @@ export function KombatPenalties() {
   const label = (i: 0 | 1) => two ? `JUGADOR ${i + 1}` : i === 0 ? 'VOS' : 'CPU';
   // los círculos: de a 5; si empatan los 5, se vacían para los penales siguientes (y otra vez cada 5)
   const block = hud ? Math.floor(Math.floor(hud.turn / 2) / REGULATION) * REGULATION : 0, shownKicks = (i: 0 | 1) => hud ? hud.kicks[i].slice(block, block + REGULATION) : [];
-  const shooterNow: 0 | 1 = hud ? shooterOf(hud.turn) : 0;
+  const shooterNow: 0 | 1 = hud ? shooterOf(hud.turn, hud.first) : 0;
   // Un lado del marcador: el cuadrado con el personaje, el nombre (con ⚽ si patea o 🧤 si ataja) y abajo sus penales.
   const boardName = (i: 0 | 1) => <div className={`kp-board-side kp-board-side--${i}${aim && aim.side === i && screen === 'playing' ? ' kp-board-side--now' : ''}`} data-testid={`kp-side-${i}`}>
     <span className="kp-board-face" style={{ ['--kf-c' as string]: CHARS[chars[i]].color }}><Portrait char={chars[i]} size={40} mirror={i === 1} square /></span>
@@ -437,8 +508,8 @@ export function KombatPenalties() {
       <li>Con las flechas: <Keys keys={['←', '←']} /> arriba a la izquierda · <Keys keys={['→', '→']} /> arriba a la derecha · <Keys keys={['←']} /> abajo a la izquierda · <Keys keys={['→']} /> abajo a la derecha · <Keys keys={['↑']} /> al medio arriba · <Keys keys={['↓']} /> al medio abajo. También tocando el lugar en el arco.</li>
       <li>La pelota cambia de efecto en cada ronda: fuego, electricidad, viento, radiación y láser rojo (y vuelve a empezar).</li>
       {two
-        ? <li><b>Dos jugadores:</b> en cada penal elige <b>primero el arquero</b> (que el otro no mire) y <b>después el que patea</b>.</li>
-        : <li>Cuando pateás, <b>la máquina ya eligió dónde tirarse</b>. Cuando ataja, elegís vos dónde te tirás.</li>}
+        ? <li><b>Dos jugadores:</b> antes de la tanda, piedra, papel o tijera (<Keys keys={['←']} /> piedra, <Keys keys={['↓']} /> papel, <Keys keys={['→']} /> tijera; primero uno y después el otro, sin mirar). El que gana elige patear primero o segundo. En cada penal elige <b>primero el que patea</b> y <b>después el arquero</b> (sin mirar).</li>
+        : <li>Antes de la tanda, piedra, papel o tijera contra la máquina (<Keys keys={['←']} /> piedra, <Keys keys={['↓']} /> papel, <Keys keys={['→']} /> tijera). El que gana elige patear primero o segundo. En cada penal <b>la máquina ya eligió</b> apenas suena el silbato.</li>}
       <li>Si el arquero se tira al mismo lugar, <b>ataja</b> (y el que pateó <b>explota</b>). Si adivina el lado pero no la altura, a veces llega con la punta de los dedos. Si se tira para el otro lado y es gol, <b>explota el arquero</b>.</li>
     </ul>
   </div>;
@@ -452,7 +523,7 @@ export function KombatPenalties() {
   const aimTitle = aim ? (two
     ? `${label(aim.side)} · ${CHARS[chars[aim.side]].name}: ${aim.role === 'keeper' ? '🧤 elegí dónde te tirás (que no mire el otro)' : '⚽ elegí dónde patear'}`
     : aim.role === 'shooter' ? '⚽ Elegí dónde patear' : '🧤 Sos el arquero: elegí dónde te tirás') : '';
-  const aimSub = aim ? (two ? (aim.role === 'keeper' ? 'Primero elige el arquero, después el que patea' : 'El arquero ya eligió 🤫') : aim.role === 'shooter' ? 'La máquina ya eligió dónde se tira 🤫' : `${CHARS[chars[1]].name} ya eligió dónde patea 🤫`) : '';
+  const aimSub = aim ? (two ? (aim.role === 'shooter' ? 'Primero elige el que patea, después el arquero' : 'El que patea ya eligió 🤫') : aim.role === 'shooter' ? 'La máquina ya eligió dónde se tira 🤫' : `${CHARS[chars[1]].name} ya eligió dónde patea 🤫`) : '';
   const winnerName = result ? CHARS[chars[result.winner]].name : '';
   return <section className="runner kf kv kp" style={fit} aria-label="Kombat Penales" onClickCapture={e => { if ((e.target as Element).closest('button, a')) playKfButton(); }}>
     <div className="runner-bar">
@@ -482,6 +553,28 @@ export function KombatPenalties() {
         </div>
       </div>}
       {playing && aim && <p className="sr-only" data-testid="kp-aim-title">{aimTitle} · {aimSub}</p>}
+      {playing && rps && (() => {
+        const arm = (color: 'rojo' | 'azul', side: 0 | 1) => { const h = rps.hands[side]; const showHand = (rps.stage === 'anim' && rps.frame >= 5) || rps.stage === 'order'; return ARMS[color][showHand && h ? h : rps.stage === 'anim' && rps.frame % 2 === 1 ? 2 : 1]; };
+        const humanWinner = rps.stage === 'order' && rps.winner !== null && !rps.cpuOrder;
+        const title = rps.stage === 'pick'
+          ? (two ? `JUGADOR ${rps.picker + 1} · ${CHARS[chars[rps.picker]].name}: elegí (que no mire el otro)` : 'Piedra, papel o tijera: ¿quién elige?')
+          : rps.stage === 'anim' ? (rps.frame >= 5 ? (rpsWinner(rps.hands[0]!, rps.hands[1]!) === null ? '¡Empate! Otra vez…' : '¡Ya!') : ['Piedra…', 'papel…', 'o…', 'tijera…', '¡ya!'][Math.min(4, rps.frame)])
+          : rps.winner !== null ? `¡Ganó ${two ? `JUGADOR ${rps.winner + 1} · ` : ''}${CHARS[chars[rps.winner]].name}! ${rps.cpuOrder ? `Elige patear ${rps.cpuOrder === 'first' ? 'primero' : 'segundo'}` : '¿Patear primero o segundo?'}` : '';
+        return <div className={`kp-rps kp-rps--${rps.stage}`} role="dialog" aria-label="Piedra, papel o tijera" data-testid="kp-rps">
+          <b className="kp-rps-title" data-testid="kp-rps-title">{title}</b>
+          <div className="kp-rps-arms">
+            <figure className={rps.winner === 0 ? 'kp-rps-win' : rps.winner === 1 ? 'kp-rps-lose' : ''}><img key={`r${rps.frame}${rps.stage}`} src={arm('rojo', 0)} alt="" /><figcaption>{CHARS[chars[0]].name}{rps.stage === 'pick' && rps.hands[0] ? ' ✓' : ''}</figcaption></figure>
+            <figure className={rps.winner === 1 ? 'kp-rps-win' : rps.winner === 0 ? 'kp-rps-lose' : ''}><img key={`a${rps.frame}${rps.stage}`} src={arm('azul', 1)} alt="" /><figcaption>{CHARS[chars[1]].name}{rps.stage === 'pick' && (two ? rps.hands[1] : true) && rps.hands[1] ? ' ✓' : ''}</figcaption></figure>
+          </div>
+          {rps.stage === 'pick' && <div className="kp-rps-buttons">
+            {(['piedra', 'papel', 'tijera'] as Hand[]).map((h, i) => <button key={h} type="button" data-testid={`kp-hand-${h}`} onClick={() => pickHand(h)}>{HAND_NAMES[h]} <kbd>{['←', '↓', '→'][i]}</kbd></button>)}
+          </div>}
+          {humanWinner && <div className="kp-rps-buttons">
+            <button type="button" data-testid="kp-order-first" onClick={() => chooseOrder('first')}>⚽ Patear primero <kbd>←</kbd></button>
+            <button type="button" data-testid="kp-order-second" onClick={() => chooseOrder('second')}>🧤 Patear segundo <kbd>→</kbd></button>
+          </div>}
+        </div>;
+      })()}
       {playing && intro && <div className="kf-vs" aria-hidden="true">
         <div className="kf-vs-side" style={{ ['--kf-c' as string]: CHARS[chars[0]].color }}><FighterCard char={chars[0]} w={150} h={190} /><b>{CHARS[chars[0]].name}</b></div>
         <div className="kf-vs-mid"><strong>VS</strong><small>{stageName}</small></div>
@@ -517,7 +610,7 @@ export function KombatPenalties() {
           <div className="kf-versus-mid" aria-hidden="true"><strong>VS</strong></div>
         </div>
         <div className="kf-actions">
-          <button type="button" className="kf-secondary" onClick={() => { setPick(1); setCursor(CHAR_IDS.indexOf(p2)); setScreen('select'); }}>‹ Volver</button>
+          <button type="button" className="kf-secondary" onClick={() => { if (mode === 'cpu') { setPick(0); setCursor(CHAR_IDS.indexOf(p1)); } else { setPick(1); setCursor(CHAR_IDS.indexOf(p2)); } setScreen('select'); }}>‹ Volver</button>
           <button type="button" onClick={() => setScreen('stage')} autoFocus>Elegir el estadio ▶</button>
         </div>
       </div>}

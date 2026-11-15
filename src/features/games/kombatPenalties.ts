@@ -20,8 +20,18 @@ export const ZONE_ARROWS: Record<Zone, string> = { 0: '↖', 1: '↑', 2: '↗',
 export type Kicks = [boolean[], boolean[]];
 const goalsOf = (k: boolean[]) => k.filter(Boolean).length;
 export const scoreOf = (k: Kicks): [number, number] => [goalsOf(k[0]), goalsOf(k[1])];
-// Quién patea en el turno n (empieza siempre el jugador 1).
-export const shooterOf = (n: number): 0 | 1 => (n % 2 === 0 ? 0 : 1);
+// Quién patea en el turno n (first: el que patea primero, lo elige el que gana el piedra, papel o tijera).
+export const shooterOf = (n: number, first: 0 | 1 = 0): 0 | 1 => ((n + first) % 2 === 0 ? 0 : 1);
+
+// ---------------------------------------------------------------- Piedra, papel o tijera (para ver quién elige si patea primero o segundo)
+export type Hand = 'piedra' | 'papel' | 'tijera';
+export const HANDS: Hand[] = ['piedra', 'papel', 'tijera'];
+// 0 o 1: quién ganó; null: empate (se vuelve a jugar).
+export function rpsWinner(a: Hand, b: Hand): 0 | 1 | null {
+  if (a === b) return null;
+  return (a === 'piedra' && b === 'tijera') || (a === 'tijera' && b === 'papel') || (a === 'papel' && b === 'piedra') ? 0 : 1;
+}
+export const cpuHand = (rand: () => number): Hand => HANDS[Math.min(2, Math.floor(rand() * 3))];
 // El ganador, si ya lo hay: en los 5 de cada uno, cuando uno ya no puede alcanzar al otro; después (muerte súbita),
 // cuando los dos patearon la misma cantidad y uno metió más.
 export function shootoutWinner(k: Kicks): 0 | 1 | null {
@@ -51,7 +61,7 @@ export function cpuZone(rand: () => number): Zone {
 }
 
 // ---------------------------------------------------------------- El estado del partido
-export type PenPhase = 'intro' | 'aim' | 'kick' | 'end';
+export type PenPhase = 'intro' | 'rps' | 'aim' | 'kick' | 'end'; // (rps: el piedra, papel o tijera antes de la tanda)
 // El efecto de la pelota: cambia en cada ronda de penales (fuego, electricidad, viento, radiación, láser rojo) y
 // vuelve a empezar después del quinto.
 export type BallFx = 'fuego' | 'electricidad' | 'viento' | 'radiacion' | 'laser';
@@ -67,7 +77,7 @@ export interface Stain { x: number; y: number; r: number; seed: number; t: numbe
 export interface Spark { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; color: string; size: number }
 export interface PenMatch {
   stage: StageId; chars: [CharId, CharId];
-  kicks: Kicks; turn: number; phase: PenPhase; phaseT: number; time: number;
+  kicks: Kicks; turn: number; first: 0 | 1; phase: PenPhase; phaseT: number; time: number;
   kick: PenKick | null; winner: 0 | 1 | null;
   gore: { gibs: Gib[]; drops: Drop[]; stains: Stain[] };
   sparks: Spark[];
@@ -81,10 +91,12 @@ export type PenEvent = { type: 'whistle' } | { type: 'kick' } | { type: 'goal'; 
 
 export function newPenalties(stage: StageId, chars: [CharId, CharId], rand: () => number = Math.random): PenMatch {
   return {
-    stage, chars, kicks: [[], []], turn: 0, phase: 'intro', phaseT: 0, time: 0, kick: null, winner: null,
+    stage, chars, kicks: [[], []], turn: 0, first: 0, phase: 'intro', phaseT: 0, time: 0, kick: null, winner: null,
     gore: { gibs: [], drops: [], stains: [] }, sparks: [], screenBlood: [], shake: 0, flash: 0, humans: [true, false], events: [], rand,
   };
 }
+// Después del piedra, papel o tijera: arranca la tanda (first patea primero) con el silbato.
+export function beginShootout(m: PenMatch, first: 0 | 1) { m.first = first; m.phase = 'aim'; m.phaseT = 0; m.events.push({ type: 'whistle' }); }
 export const takePenEvents = (m: PenMatch) => { const e = m.events; m.events = []; return e; };
 
 // Los tiempos de la animación de un penal (segundos desde que arranca la carrera).
@@ -102,7 +114,7 @@ export const kickDuration = () => arriveAt() + T.next + 0.25;
 
 // Arranca el penal con las dos elecciones.
 export function startKick(m: PenMatch, shot: Zone, dive: Zone, reach = 0.3) {
-  const shooter = shooterOf(m.turn);
+  const shooter = shooterOf(m.turn, m.first);
   m.kick = { shooter, shot, dive, outcome: resolveKick(shot, dive, m.rand, reach), t: 0, scored: false, boom: false, kboom: false, hit: false, sounded: false, fx: fxOfTurn(m.turn) };
   m.phase = 'kick'; m.phaseT = 0;
   m.screenBlood = [];
@@ -114,7 +126,7 @@ type BodyAt = (side: 0 | 1) => { x: number; y: number; h: number };
 export function stepPenalties(m: PenMatch, dt: number, kickPos: BodyAt, keeperPos: BodyAt = kickPos) {
   m.time += dt; m.phaseT += dt;
   m.shake = Math.max(0, m.shake - dt * 2.2); m.flash = Math.max(0, m.flash - dt * 2);
-  if (m.phase === 'intro' && m.phaseT > 1.6) { m.phase = 'aim'; m.phaseT = 0; m.events.push({ type: 'whistle' }); }
+  if (m.phase === 'intro' && m.phaseT > 1.6) { m.phase = 'rps'; m.phaseT = 0; }
   const k = m.kick;
   if (m.phase === 'kick' && k) {
     k.t += dt;
