@@ -12,6 +12,7 @@ import invasionCover from './assets/portada-invasion.webp';
 import gravityCover from './assets/portada-gravedad.webp';
 import kombatCover from './assets/portada-kombat.webp';
 import voleyCover from './assets/portada-voley.webp';
+import penalesCover from './assets/portada-penales.webp';
 import landCover from './assets/portada-land.webp';
 import { CalculatorLink, CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { readRecord } from './BlockRunnerGame';
@@ -23,6 +24,7 @@ import { formatInvasionTime, readInvasionRecord } from './InvasionGame';
 import { formatGravityTime, readGravityRecord } from './GravitySwapGame';
 import { readKombatRecord } from './KombatFootballGame';
 import { readVoleyRecord } from './KombatVoleyGame';
+import { readPenRecord } from './KombatPenaltiesGame';
 import { readLandRecord } from './LandGame';
 import { formatVampTime } from './vampyrium';
 import memeJigsaw from '../../assets/images/meme-jigsaw.jpg';
@@ -44,6 +46,7 @@ export function Games() {
   const gravity = readGravityRecord();
   const kombat = readKombatRecord();
   const voley = readVoleyRecord();
+  const penales = readPenRecord();
   const vamp2 = readVampyium2Record();
   const landWins = Object.values(readLandRecord()).reduce((a, b) => a + b, 0);
   return <section className="games-page">
@@ -177,6 +180,20 @@ export function Games() {
           </span>
           <span className="game-card-foot">
             {voley.wins + voley.losses > 0 && <small><b>Récord</b>{voley.cups ? `🏆 ${voley.cups} · ` : ''}{voley.wins}G {voley.losses}P</small>}
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
+        </Link>
+      </li>
+      <li>
+        <Link onClick={playStart} className="game-card game-card--kf" to="/juegos/penales">
+          <Cover src={penalesCover} />
+          <span className="game-card-text">
+            <strong>Kombat Penales</strong>
+            <span>⚽ Tanda de penales con los luchadores de Kombat: elegí uno de los 6 lugares del arco para patear o tirarte. Si el arquero ataja, el que pateó explota. Contra la máquina o entre dos.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Meté más penales que el rival en 5 tiros cada uno; si empatan, uno cada uno hasta que alguno erre. En el mundial ganá octavos, cuartos, semifinal y final.</span>
+          </span>
+          <span className="game-card-foot">
+            {penales.wins + penales.losses > 0 && <small><b>Récord</b>{penales.cups ? `🏆 ${penales.cups} · ` : ''}{penales.wins}G {penales.losses}P</small>}
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
           </span>
         </Link>

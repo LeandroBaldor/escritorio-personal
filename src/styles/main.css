@@ -2226,3 +2226,21 @@ body:has(.land) .mobile-nav{display:none}
 .kv-cup{position:absolute;transform:translateX(-50%);filter:drop-shadow(0 0 18px #f59e0b88) drop-shadow(0 6px 8px #000)}
 .kv-note{position:absolute;left:50%;transform:translateX(-50%);color:#cbd5e1;font:700 .62rem/1.2 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;text-align:center;white-space:nowrap}
 @media (max-width:700px){.kv-seed,.kv-score{font-size:.62rem}.kv-col{font-size:.58rem}.kv-note{font-size:.5rem}}
+
+/* Kombat Penales: los 6 lugares del arco para elegir (arriba a la izquierda) y los penales de cada uno */
+.kp-aim{position:absolute;left:.7rem;top:5.4rem;z-index:3;display:grid;gap:.3rem;max-width:min(27rem,40%);padding:.55rem .65rem .65rem;border-radius:12px;background:#000c;box-shadow:0 0 0 2px #facc1588,0 8px 24px #000a;color:#fff;font-family:Nunito,system-ui,sans-serif}
+.kp-aim--keeper{box-shadow:0 0 0 2px #38bdf888,0 8px 24px #000a}
+.kp-aim b{font:900 clamp(.85rem,1.6vw,1.1rem)/1.15 system-ui,sans-serif;color:#fde047}
+.kp-aim--keeper b{color:#7dd3fc}
+.kp-aim small{color:#cbd5e1;font-weight:700;font-size:.78rem}
+.kp-zones{display:grid;grid-template-columns:repeat(3,1fr);gap:.3rem;margin-top:.15rem}
+.kp-zone{display:flex;align-items:center;gap:.35rem;min-height:2.6rem;padding:.3rem .45rem;border:2px solid #ffffff40;border-radius:9px;background:#1e293bcc;color:#fff;font:800 .72rem/1.1 system-ui,sans-serif;text-align:left;cursor:pointer}
+.kp-zone i{font-style:normal;font-size:1.3rem;line-height:1}
+.kp-zone--on,.kp-zone:hover,.kp-zone:focus-visible{border-color:#facc15;background:#854d0ecc;box-shadow:0 0 12px #facc1588}
+.kp-aim--keeper .kp-zone--on,.kp-aim--keeper .kp-zone:hover{border-color:#38bdf8;background:#075985cc;box-shadow:0 0 12px #38bdf888}
+.kp-dots{display:inline-flex;gap:.2rem;flex-wrap:wrap}
+.kp-dot{display:grid;place-items:center;width:1.05rem;height:1.05rem;border-radius:50%;border:2px solid #fff8;background:#0007;color:#fff;font:900 .62rem/1 system-ui,sans-serif;font-style:normal}
+.kp-dot--goal{background:#16a34a;border-color:#bbf7d0;box-shadow:0 0 8px #22c55e}
+.kp-dot--miss{background:#b91c1c;border-color:#fecaca;box-shadow:0 0 8px #ef4444}
+.kp canvas[role="img"]{cursor:crosshair}
+@media(max-width:700px){.kp-aim{top:3.6rem;left:.3rem;max-width:62%;padding:.35rem}.kp-zone span{display:none}.kp-zone{justify-content:center;min-height:2.2rem}.kp-dot{width:.8rem;height:.8rem;font-size:.5rem}}

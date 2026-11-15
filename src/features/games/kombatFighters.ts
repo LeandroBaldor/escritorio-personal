@@ -69,6 +69,9 @@ function poseOf(f: Fighter, t: number): Pose {
   }
   if (a === 'fatal') return { bob: s(t * 20) * 0.02, lean: -0.2, crouch: 0.1, head: -0.25, legs: [[-0.55, 0.5], [0.5, 0.5]], arms: [[2.6, 0.3], [2.4, 0.3]] };
   if (a === 'celebrate') { const w = t * 9, p0 = Math.max(0, Math.sin(w)), p1 = Math.max(0, Math.sin(w + Math.PI)); return { bob: Math.abs(s(t * 4.5)) * 0.06, lean: -0.12, crouch: 0, head: -0.32, legs: [[-0.25, 0.35], [0.3, 0.55]], arms: [[3.4 + p0 * 0.25, 0.08 - p0 * 1.2], [2.5 - p1 * 0.25, 0.1 + p1 * 1.2]], reach: 1.3, shrug: 0.07 }; } // festejo: agita los dos puños arriba, alternados, con los hombros arriba
+  if (a === 'keeper') { const br = s(t * 4.2); return { bob: br * 0.02, lean: 0.22, crouch: 0.3 + br * 0.03, head: -0.05, legs: [[-0.6, 0.9], [0.55, 0.9]], arms: [[1.2 + br * 0.1, 0.9], [1.35 - br * 0.1, 0.8]] }; } // el arquero esperando: agachado, piernas abiertas y los brazos adelante
+  if (a === 'dive') return { bob: 0, lean: -0.05, crouch: 0, head: -0.2, legs: [[-0.18, 0.15], [0.2, 0.35]], arms: [[3.0, 0.05], [2.85, 0.08]], reach: 1.15 }; // estirado volando: los dos brazos extendidos para arriba
+  if (a === 'save') return { bob: 0, lean: 0.35, crouch: 0.45, head: 0.15, legs: [[-0.7, 1.2], [0.6, 1.2]], arms: [[1.05, 0.15], [1.2, 0.12]], reach: 1.1 }; // abajo al medio: se agacha con los brazos estirados adelante
   if (a === 'sad') return { bob: 0, lean: 0.35, crouch: 0.25, head: 0.4, legs: [[-0.3, 0.9], [0.4, 1.1]], arms: [[2.6, 2.4], [2.7, 2.5]] };
   if (a === 'stun') {
     if (f.stunKind === 'freeze') return { bob: 0, lean: 0.05, crouch: 0.05, head: 0, legs: [[-0.3, 0.4], [0.3, 0.4]], arms: [[0.8, 1.6], [1, 1.6]] };
@@ -460,12 +463,12 @@ let litA: HTMLCanvasElement | null = null, litB: HTMLCanvasElement | null = null
 let lowFx = false;
 export function setLowFx(on: boolean) { lowFx = on; }
 export const BODY_SCALE = PH / 1.85; // los luchadores miden PH (2,3 m); el dibujo está hecho para 1,85 m
-export function drawFighterLit(ctx: CanvasRenderingContext2D, f: Fighter, t: number, fx: FighterFx, x: number, y: number, s: number, rim: string) {
+export function drawFighterLit(ctx: CanvasRenderingContext2D, f: Fighter, t: number, fx: FighterFx, x: number, y: number, s: number, rim: string, noShadow = false) {
   const L = LOOKS[f.char], S = s * BODY_SCALE * SIZE[f.char], K = L.brute ? 1.32 : 1, mir = f.facing < 0 ? -1 : 1; // cada uno de su tamaño
   // sombra en el piso y aura (sin luz)
   ctx.save(); ctx.translate(x, y); ctx.scale(S, S);
   const sg = ctx.createRadialGradient(0, 0.02, 0, 0, 0.02, 0.6 * K); sg.addColorStop(0, 'rgba(0,0,0,0.55)'); sg.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(0, 0.02, 0.62 * K, 0.1, 0, 0, TAU); ctx.fill();
+  if (!noShadow) { ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(0, 0.02, 0.62 * K, 0.1, 0, 0, TAU); ctx.fill(); }
   if (fx.aura) { ctx.globalCompositeOperation = 'lighter'; for (let k = 0; k < 3; k++) { const g = ctx.createRadialGradient(0, -1, 0, 0, -1, 1.3 + k * 0.2 + Math.sin(t * 12 + k) * 0.05); g.addColorStop(0, alpha(fx.aura, 0.25)); g.addColorStop(1, alpha(fx.aura, 0)); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, -1, 0.9 + k * 0.1, 1.4 + k * 0.1, 0, 0, TAU); ctx.fill(); } }
   ctx.restore();
   litBlit(ctx, x, y, S, mir, rim, alpha(L.glow, 0.45 + fx.power * 0.35), 0.18 + fx.power * 0.2, c => drawFighterBody(c, f, t, { ...fx, aura: null, lit: true }));

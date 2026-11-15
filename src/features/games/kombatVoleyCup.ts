@@ -44,12 +44,13 @@ export function volleyScore(rand: () => number): [number, number] {
 }
 // Cierra la fase: anota el resultado del jugador (yours = [sus puntos, los del rival]), simula los otros partidos y
 // arma la fase siguiente con los que pasaron (o corona al campeón después de la final).
-export function finishRound(cup: Cup, round: number, yours: [number, number], rand: () => number = Math.random): Cup {
+// (score: cómo se simula el resultado de los otros partidos; por defecto, uno de vóley)
+export function finishRound(cup: Cup, round: number, yours: [number, number], rand: () => number = Math.random, score: (rand: () => number) => [number, number] = volleyScore): Cup {
   const next: Cup = { ...cup, rounds: cup.rounds.map(r => r.map(m => ({ ...m }))) };
   const list = next.rounds[round];
   for (const m of list) {
     if (m.a === cup.you || m.b === cup.you) { [m.sa, m.sb] = m.a === cup.you ? yours : [yours[1], yours[0]]; continue; }
-    const pa = 1 / (1 + Math.exp(-(power(m.a) - power(m.b)) / 45)), [w, l] = volleyScore(rand);
+    const pa = 1 / (1 + Math.exp(-(power(m.a) - power(m.b)) / 45)), [w, l] = score(rand);
     if (rand() < pa) { m.sa = w; m.sb = l; } else { m.sa = l; m.sb = w; }
   }
   const winners = list.map(m => cupWinner(m)!);

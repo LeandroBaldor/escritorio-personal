@@ -47,7 +47,7 @@ test('Factory: menu, gas energy, pause and return', async ({ page }) => {
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('link', { name: 'Volver a MiniJuegos' }).click();
-  await expect(page.locator('.games-list > li')).toHaveCount(12);
+  await expect(page.locator('.games-list > li')).toHaveCount(13);
 });
 
 test('Factory: losing shows level retry, score and return to the game menu', async ({ page }) => {

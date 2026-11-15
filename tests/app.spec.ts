@@ -1038,7 +1038,7 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
 
 test('Trepaluna: se abre desde Juegos, corre el tiempo, muestra la altura y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(12);
+  await expect(page.locator('.games-list > li')).toHaveCount(13);
   await page.getByRole('link', { name: /Trepaluna/ }).click();
   await expect(page.getByRole('heading', { name: 'Trepaluna', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
@@ -1214,6 +1214,54 @@ test('Kombat Voley: amistoso con rival y estadio elegidos, se saca y se pausa; e
   await expect(page.getByRole('heading', { name: 'MUNDIAL DE KOMBAT VOLEY' })).toBeVisible();
   await expect(page.getByTestId('kv-ladder-next')).toContainText('Octavos de final');
   await page.getByRole('button', { name: '¡A jugar! ▶' }).click();
+  await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
+});
+
+test('Kombat Penales: amistoso (la máquina elige antes), 2 jugadores (primero el arquero) y el mundial', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/juegos');
+  await page.getByRole('link', { name: /Kombat Penales/ }).click();
+  await expect(page.getByRole('heading', { name: 'Kombat Penales', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: 'Amistoso' }).click();
+  const mine = page.getByRole('group', { name: 'Tu jugador' }).getByRole('button', { name: 'FROST' });
+  await mine.click(); await mine.click();
+  const rival = page.getByRole('group', { name: 'Rival' }).getByRole('button', { name: 'THUNDER' });
+  await rival.click(); await rival.click();
+  await expect(page.getByTestId('kp-vs-1')).toHaveText('FROST');
+  await page.getByRole('button', { name: 'Elegir el estadio ▶' }).click();
+  await expect(page.getByRole('group', { name: 'Estadio' }).getByRole('button')).toHaveCount(16);
+  await page.getByRole('button', { name: /Planeta Volcánico/ }).click();
+  await page.getByRole('button', { name: 'Siguiente ▶' }).click();
+  await page.getByRole('button', { name: '¡A patear!' }).click();
+  await expect(page.getByTestId('kp-score')).toHaveText('0 - 0');
+  await expect(page.getByTestId('kp-stage-label')).toHaveText('PENAL 1 DE 5');
+  await expect(page.getByTestId('kp-aim-title')).toContainText('Elegí dónde patear', { timeout: 8000 });
+  await expect(page.getByTestId('kp-aim')).toContainText('La máquina ya eligió');
+  await expect(page.getByTestId('kp-aim').getByRole('button')).toHaveCount(6);
+  await page.getByTestId('kp-zone-0').click();
+  await expect(page.getByTestId('kp-dots-0')).toHaveAttribute('aria-label', /en 1 penales/, { timeout: 10000 });
+  await expect(page.getByTestId('kp-aim-title')).toContainText('Sos el arquero', { timeout: 10000 });
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
+  await page.getByRole('button', { name: 'Abandonar' }).click();
+  await page.getByRole('button', { name: '2 Jugadores' }).click();
+  const a = page.getByRole('group', { name: 'Tu jugador' }).getByRole('button', { name: 'TOXIC' }); await a.click(); await a.click();
+  const b = page.getByRole('group', { name: 'Rival' }).getByRole('button', { name: 'CYBER' }); await b.click(); await b.click();
+  await page.getByRole('button', { name: 'Elegir el estadio ▶' }).click();
+  await page.getByRole('button', { name: 'Siguiente ▶' }).click();
+  await page.getByRole('button', { name: '¡A patear!' }).click();
+  await expect(page.getByTestId('kp-aim-title')).toContainText('JUGADOR 2 · CYBER: 🧤', { timeout: 8000 });
+  await page.getByTestId('kp-zone-4').click();
+  await expect(page.getByTestId('kp-aim-title')).toContainText('JUGADOR 1 · TOXIC: ⚽');
+  await page.getByTestId('kp-zone-4').click(); // mismo lugar: ataja
+  await expect(page.getByTestId('kp-dots-0')).toHaveAttribute('aria-label', '0 goles en 1 penales', { timeout: 10000 });
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Abandonar' }).click();
+  await page.getByRole('button', { name: 'Mundial' }).click();
+  const me = page.getByRole('group', { name: 'Tu jugador' }).getByRole('button', { name: 'FROST' });
+  await me.click(); await me.click();
+  await expect(page.getByRole('heading', { name: 'MUNDIAL DE KOMBAT PENALES' })).toBeVisible();
+  await expect(page.getByTestId('kp-ladder-next')).toContainText('Octavos de final');
+  await page.getByRole('button', { name: '¡A patear! ▶' }).click();
   await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
 });
 
