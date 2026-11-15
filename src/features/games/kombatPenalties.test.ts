@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fxOfTurn, rpsWinner, shooterOf, keeperBlewIt, kickDuration, newPenalties, penaltyScore, resolveKick, shootoutWinner, startKick, stepPenalties, suddenDeath, takePenEvents, type Kicks } from './kombatPenalties';
+import { beginShootout, fxOfTurn, rpsWinner, shooterOf, keeperBlewIt, kickDuration, newPenalties, penaltyScore, resolveKick, shootoutWinner, startKick, stepPenalties, suddenDeath, takePenEvents, type Kicks } from './kombatPenalties';
 import { finishRound, newCup } from './kombatVoleyCup';
 
 const k = (a: string, b: string): Kicks => [[...a].map(c => c === 'G'), [...b].map(c => c === 'G')];
@@ -48,6 +48,14 @@ describe('Kombat Penales: la tanda', () => {
   });
   it('la pelota cambia de efecto en cada ronda y vuelve a empezar después del quinto', () => {
     expect([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(fxOfTurn)).toEqual(['fuego', 'fuego', 'electricidad', 'electricidad', 'viento', 'viento', 'radiacion', 'radiacion', 'laser', 'laser', 'fuego', 'fuego']);
+  });
+  it('la suerte del penal se sortea con el silbato, antes de que elija la persona', () => {
+    let n = 0; const seq = [0.1, 0.9, 0.9, 0.9];
+    const m = newPenalties('ice', ['frost', 'thunder'], () => seq[n++ % seq.length]);
+    beginShootout(m, 0);
+    expect(m.roll).toBe(0.1);
+    startKick(m, 0, 3, 0.3); // mismo lado, otra altura: con la suerte del silbato (0,1 < 0,3) llega con la punta de los dedos
+    expect(m.kick?.outcome).toBe('save');
   });
   it('piedra, papel o tijera y quién patea primero', () => {
     expect(rpsWinner('piedra', 'tijera')).toBe(0); expect(rpsWinner('tijera', 'papel')).toBe(0); expect(rpsWinner('papel', 'piedra')).toBe(0);

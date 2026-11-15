@@ -1218,6 +1218,7 @@ test('Kombat Voley: amistoso con rival y estadio elegidos, se saca y se pausa; e
 });
 
 test('Kombat Penales: amistoso (rival al azar, piedra papel o tijera), 2 jugadores (primero el que patea) y el mundial', async ({ page }) => {
+  test.setTimeout(90000); // (el piedra, papel o tijera puede empatar varias veces)
   await page.goto('/escritorio-personal/#/juegos');
   await page.getByRole('link', { name: /Kombat Penales/ }).click();
   await expect(page.getByRole('heading', { name: 'Kombat Penales', level: 1 })).toBeVisible();
@@ -1235,7 +1236,7 @@ test('Kombat Penales: amistoso (rival al azar, piedra papel o tijera), 2 jugador
   await expect(page.getByTestId('kp-score')).toHaveText('0 : 0');
   // piedra, papel o tijera hasta que alguien gane; si gano yo, pateo primero
   await expect(page.getByTestId('kp-rps')).toBeVisible({ timeout: 15000 });
-  for (let i = 0; i < 25 && await page.getByTestId('kp-rps').isVisible(); i++) {
+  for (const end = Date.now() + 60000; Date.now() < end && await page.getByTestId('kp-rps').isVisible();) {
     if (await page.getByTestId('kp-hand-piedra').isVisible()) await page.keyboard.press('ArrowLeft');
     else if (await page.getByTestId('kp-order-first').isVisible()) await page.keyboard.press('ArrowLeft');
     await page.waitForTimeout(700);
@@ -1251,7 +1252,8 @@ test('Kombat Penales: amistoso (rival al azar, piedra papel o tijera), 2 jugador
   await page.getByRole('button', { name: 'Abandonar' }).click();
   await page.getByRole('button', { name: '2 Jugadores' }).click();
   const a = page.getByRole('group', { name: 'Tu jugador' }).getByRole('button', { name: 'TOXIC' }); await a.click(); await a.click();
-  const b = page.getByRole('group', { name: 'Rival' }).getByRole('button', { name: 'CYBER' }); await b.click(); await b.click();
+  const b = page.getByRole('group', { name: 'Rival' }).getByRole('button', { name: 'CYBER' }); await b.click();
+  if (await b.isVisible()) await b.click(); // (si CYBER ya estaba marcado, el primer toque ya lo eligió)
   await page.getByRole('button', { name: 'Elegir el estadio ▶' }).click();
   await page.getByRole('button', { name: 'Siguiente ▶' }).click();
   await page.getByRole('button', { name: '¡A patear!' }).click();

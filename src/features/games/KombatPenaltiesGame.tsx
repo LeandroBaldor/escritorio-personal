@@ -26,7 +26,7 @@ import azulTijera from './assets/penales/ppt/azul-tijera.webp';
 import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
   playGameOver, playKfButton, playKfGoal, playKfName, playKfSelectVoice, playKfVsSentence,
-  playPenExplosion, playPenKick, playPenNet, playPenSave, playPenSteps, playRefWhistle, playStart, preloadPenaltySounds, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
+  playPenArm, playPenExplosion, playPenKick, playPenNet, playPenSave, playPenSteps, playRefWhistle, playStart, preloadPenaltySounds, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 import { Fireworks } from './Fireworks';
@@ -221,8 +221,10 @@ export function KombatPenalties() {
   const [reveal, setReveal] = useState(0);
   const [cup, setCup] = useState<Cup>(() => newCup('cometa'));
   const [hud, setHud] = useState<Hud | null>(null);
-  const [aim, setAim] = useState<Aim | null>(null);
-  const aimRef = useRef<Aim | null>(null); useEffect(() => { aimRef.current = aim; }, [aim]);
+  const [aim, setAimState] = useState<Aim | null>(null);
+  const aimRef = useRef<Aim | null>(null);
+  // (la referencia se actualiza en el momento: si alguien toca enseguida otra flecha, ya le toca al que sigue)
+  const setAim = useCallback((a: Aim | null) => { aimRef.current = a; setAimState(a); }, []);
   const [, setZoneCursor] = useState<Zone>(1);
   const zoneRef = useRef<Zone | null>(1);
   const [shouts, setShouts] = useState<Shout[]>([]);
@@ -292,7 +294,7 @@ export function KombatPenalties() {
     else if (shooter === 0) { picks.current.dive = cpuZone(m.rand); next = { role: 'shooter', side: 0 }; }
     else { picks.current.shot = cpuZone(m.rand); next = { role: 'keeper', side: 0 }; }
     zoneRef.current = 1; setZoneCursor(1); setAim(next);
-  }, []);
+  }, [setAim]);
 
   // ---------------------------------------------------------------- Piedra, papel o tijera
   const [rps, setRpsState] = useState<Rps | null>(null);
@@ -319,7 +321,7 @@ export function KombatPenalties() {
     if (modeRef.current === 'two' && r.picker === 0) { setRps({ ...r, hands, picker: 1 }); return; } // ahora elige el otro (sin mirar)
     // la animación: 1, 2, 1, 2, 1 y la mano de cada uno
     setRps({ ...r, hands, stage: 'anim', frame: 0 });
-    for (let f = 1; f <= 5; f++) later(f * RPS_STEP, () => { const cur = rpsRef.current; if (!cur) return; setRps({ ...cur, frame: f }); playKfButton(f === 5 ? 0.9 : 0.45); });
+    for (let f = 1; f <= 5; f++) later(f * RPS_STEP, () => { const cur = rpsRef.current; if (!cur) return; setRps({ ...cur, frame: f }); playPenArm(f === 5); });
     later(5 * RPS_STEP + 1400, () => {
       const cur = rpsRef.current; if (!cur) return;
       const w = rpsWinner(hands[0]!, hands[1]!);
@@ -346,7 +348,7 @@ export function KombatPenalties() {
     const def = STAGES.find(s => s.id === st)!;
     setStageName(`${mode === 'world' ? `Mundial · ${ROUNDS[n]} · ` : ''}${def.name}`);
     setScreen('playing');
-  }, [mode, stage, p1, p2, difficulty, round, cup, clearRps]);
+  }, [mode, stage, p1, p2, difficulty, round, cup, clearRps, setAim]);
 
   // La elección de un lugar del arco (con el mouse, tocando, o con el teclado).
   const choose = useCallback((z: Zone) => {
@@ -362,7 +364,7 @@ export function KombatPenalties() {
     startKick(m, shot, dive, cpuKeeps ? reachRef.current : HUMAN_REACH);
     playPenSteps(); // corre a la pelota
     setAim(null);
-  }, []);
+  }, [setAim]);
   // las flechas a la izquierda o a la derecha: una vez abajo, dos veces seguidas arriba
   const tap = useRef<{ dir: 'left' | 'right'; timer: number } | null>(null);
   const arrowSide = useCallback((dir: 'left' | 'right') => {
