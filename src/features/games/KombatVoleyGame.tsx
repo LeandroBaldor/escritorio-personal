@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { CHARS, CHAR_IDS, STAGES, STATS, type CharId, type StageId } from './kombat';
 import { BALLS, SET_POINTS, STAGE_BALL, newVoley, noVInput, stepVoley, takeVoleyEvents, touchesOf, type VInput, type VMatch } from './kombatVoley';
 import { drawVoley, drawVoleyBackdrop, drawVoleyThumb, noteNetHit } from './kombatVoleyArt';
-import { vortexURL } from './kombatArt';
+import { CUP_ROUNDS, cupSlot, finishRound, newCup, yourMatch, type Cup } from './kombatVoleyCup';
 import { drawFighterCard, drawPortrait, setLowFx } from './kombatFighters';
 import { setNoGrain } from './gravityMonsters';
 import spaceBg from './assets/fondos/kf-espacio.webp';
@@ -34,14 +34,10 @@ const saveRecord = (r: VoleyRecord) => { try { localStorage.setItem(RECORD_KEY, 
 type Mode = 'cpu' | 'world';
 type Screen = 'menu' | 'select' | 'vs' | 'ladder' | 'stage' | 'howto' | 'playing' | 'paused' | 'result' | 'champion';
 const DIFFICULTY = [{ name: 'Fácil', level: 0.25 }, { name: 'Normal', level: 0.55 }, { name: 'Difícil', level: 0.85 }];
-// El mundial: cuatro partidos (octavos, cuartos, semifinal y final), cada uno con un rival y un estadio sorteados.
-const ROUNDS = ['Octavos de final', 'Cuartos de final', 'Semifinal', 'Final'] as const;
+// El mundial: un cuadro de 16 (octavos, cuartos, semifinal y final); ver kombatVoleyCup.ts.
+const ROUNDS = CUP_ROUNDS;
 const roundLevel = (n: number) => 0.4 + n * 0.15;
-interface Cup { rivals: CharId[]; stages: StageId[] }
-function drawCup(you: CharId): Cup {
-  const pool = CHAR_IDS.filter(c => c !== you).sort(() => Math.random() - 0.5), st = STAGES.map(s => s.id).sort(() => Math.random() - 0.5);
-  return { rivals: pool.slice(0, 4), stages: st.slice(0, 4) };
-}
+const rivalOf = (cup: Cup, n: number): CharId => yourMatch(cup, n)?.rival ?? CHAR_IDS.find(c => c !== cup.you)!;
 
 // Teclas: flechas (o WASD) para moverse, ↑ (o ESPACIO) para saltar, V para golpear y X para levantar.
 type Key = keyof VInput;
@@ -87,21 +83,60 @@ function FighterCard({ char, w, h, mirror = false }: { char: CharId; w: number; 
   }, [char, w, h, mirror]);
   return <canvas ref={ref} style={{ width: w, height: h }} aria-hidden="true" />;
 }
-// El cuadro del mundial: los cuatro rivales en una columna (octavos abajo, la final arriba) y el luchador del
-// jugador al lado del que le toca.
-function Bracket({ you, cup, round, from, height }: { you: CharId; cup: Cup; round: number; from: number; height: number }) {
-  const [pos, setPos] = useState(from);
-  useEffect(() => { const id = window.setTimeout(() => setPos(round), 450); return () => window.clearTimeout(id); }, [round]);
-  const B = Math.max(48, Math.min(84, Math.floor(height / 5.4))), step = B + 10, total = 4 * step;
-  const block = (char: CharId, cls: string, mirror = false) => <div className={`kf-ladder-block ${cls}`} style={{ width: Math.round(B * 1.55), height: B }}><Portrait char={char} size={B - 12} mirror={mirror} square /></div>;
-  return <div className="kf-tower" style={{ height: total }}>
-    <div className="kf-tower-inner" style={{ height: total }}>
-      {cup.rivals.map((c, n) => <div key={c} className="kf-ladder-row" style={{ bottom: n * step }}>
-        {block(c, `${n < round ? 'kf-beaten' : ''}${n === round ? ' kf-current' : ''}${n === 3 ? ' kf-boss' : ''}`)}
-        <b className="kf-ladder-n">{ROUNDS[n].replace(' de final', '').toUpperCase()}</b>
-      </div>)}
-      <div className="kf-ladder-you" style={{ bottom: pos * step, left: -Math.round(B * 1.55 * 1.5) - 18 }}>{block(you, 'kf-you', true)}</div>
+// El cuadro del mundial, como el de un mundial de verdad: los 8 de la izquierda y los 8 de la derecha, que se van
+// juntando hacia la copa del centro. Cada partido jugado muestra los puntos; el camino del jugador va en dorado.
+// reveal = la fase que se acaba de completar (se dibujan sus líneas y aparecen los que pasaron).
+const Trophy = ({ size }: { size: number }) => <svg className="kv-trophy" width={size} height={size * 1.25} viewBox="0 0 100 125" aria-hidden="true">
+  <defs>
+    <linearGradient id="kv-gold" x1="0" x2="1"><stop offset="0" stopColor="#7c4a03" /><stop offset=".3" stopColor="#fde68a" /><stop offset=".55" stopColor="#f59e0b" /><stop offset="1" stopColor="#78350f" /></linearGradient>
+    <radialGradient id="kv-ballg" cx=".35" cy=".3" r=".8"><stop offset="0" stopColor="#fff" /><stop offset=".7" stopColor="#e2e8f0" /><stop offset="1" stopColor="#64748b" /></radialGradient>
+  </defs>
+  <circle cx="50" cy="20" r="17" fill="url(#kv-ballg)" stroke="#1e293b" strokeWidth="1.5" />
+  <path d="M50 20 C50 10 56 5 63 4 M50 20 C40 26 33 25 34 36 M50 20 C60 26 66 33 64 37" fill="none" stroke="#2563eb" strokeWidth="3" />
+  <path d="M22 38 H78 C78 62 66 74 56 78 V90 H44 V78 C34 74 22 62 22 38 Z" fill="url(#kv-gold)" stroke="#451a03" strokeWidth="1.5" />
+  <path d="M22 44 C8 44 8 62 26 64 M78 44 C92 44 92 62 74 64" fill="none" stroke="url(#kv-gold)" strokeWidth="5" />
+  <path d="M30 98 H70 L74 112 H26 Z" fill="url(#kv-gold)" stroke="#451a03" strokeWidth="1.5" />
+  <rect x="38" y="88" width="24" height="11" rx="2" fill="#92400e" />
+  <rect x="20" y="111" width="60" height="10" rx="2" fill="#1c1917" stroke="#a16207" strokeWidth="1.5" />
+  <text x="50" y="119" textAnchor="middle" fontSize="7.5" fontWeight="900" fill="#fcd34d" fontFamily="system-ui">KOMBAT VOLEY</text>
+  <path d="M34 44 C34 58 40 66 46 70" fill="none" stroke="#fff8" strokeWidth="3" strokeLinecap="round" />
+</svg>;
+function WorldBracket({ cup, round, reveal, width, height }: { cup: Cup; round: number; reveal: number; width: number; height: number }) {
+  const W = width, H = height, col = W / 10, S = Math.round(Math.max(26, Math.min(col * 0.74, (H / 8) * 0.78))), top = 22, ph = H - top;
+  const pos = (c: number, k: number) => {
+    const half = (16 >> c) / 2, left = k < half, j = left ? k : k - half;
+    return { x: left ? (c + 0.5) * col : W - (c + 0.5) * col, y: top + (j + 0.5) * ph / half, left };
+  };
+  const mine = yourMatch(cup, round), champ = cup.champion;
+  const lines: React.ReactNode[] = [], slots: React.ReactNode[] = [];
+  for (let c = 0; c < 4; c++) for (let k = 0; k < (16 >> c); k++) {
+    const p = pos(c, k), sl = cupSlot(cup, c, k), sgn = p.left ? 1 : -1, xin = p.x + sgn * S / 2;
+    // la línea hasta el lugar de la fase siguiente (o hasta la copa, desde la final)
+    const n = c < 3 ? pos(c + 1, Math.floor(k / 2)) : { x: W / 2, y: top + ph / 2 }, nS = c < 3 ? S : S * 1.3, xout = n.x - sgn * nS / 2, xm = (xin + xout) / 2;
+    const you = sl?.char === cup.you, fresh = c === reveal - 1 && sl?.won;
+    const color = sl?.won ? (you ? '#fbbf24' : '#e2e8f0') : sl?.lost ? '#33415588' : '#64748b88';
+    lines.push(<path key={`l${c}-${k}`} className={fresh ? 'kv-line-new' : undefined} d={`M${xin} ${p.y} H${xm} V${n.y} H${xout}`} fill="none" stroke={color} strokeWidth={sl?.won ? (you ? 4 : 3) : 2} strokeLinejoin="round" pathLength={1} />);
+    const current = !!mine && c === round && !champ && Math.floor(k / 2) === mine.index;
+    slots.push(<div key={`s${c}-${k}-${sl?.char ?? ''}`} data-testid={`kv-slot-${c}-${k}`} title={sl ? CHARS[sl.char].name : undefined}
+      className={`kv-slot${sl ? '' : ' kv-slot--empty'}${you ? ' kv-slot--you' : ''}${sl?.lost ? ' kv-slot--out' : ''}${current ? ' kv-slot--now' : ''}${c === reveal && c > 0 ? ' kv-slot--new' : ''}`}
+      style={{ left: p.x - S / 2, top: p.y - S / 2, width: S, height: S, ['--d' as string]: `${0.15 + (k % (8 >> c)) * 0.05}s` }}>
+      {sl ? <Portrait char={sl.char} size={S - 6} mirror={!p.left} square /> : <span>?</span>}
+      {c === 0 && sl && <i className="kv-seed" style={{ [p.left ? 'right' : 'left']: S + 4 }}>{cup.seed[sl.char]}</i>}
+      {sl && sl.score !== null && <b className={`kv-score${sl.won ? ' kv-score--won' : ''}`} style={{ [p.left ? 'left' : 'right']: S + 3 }}>{sl.score}</b>}
+    </div>);
+  }
+  const cS = Math.round(S * 1.3);
+  return <div className="kv-bracket" data-testid="kv-bracket" style={{ width: W, height: H }}>
+    {(['OCTAVOS', 'CUARTOS', 'SEMIS', 'FINAL'] as const).map((t, c) => <span key={t} className={`kv-col${c === round && !champ ? ' kv-col--now' : ''}`} style={{ left: (c + 0.5) * col, ['--w' as string]: `${col}px` }}>{t}</span>)}
+    {(['OCTAVOS', 'CUARTOS', 'SEMIS', 'FINAL'] as const).map((t, c) => <span key={`r${t}`} className={`kv-col${c === round && !champ ? ' kv-col--now' : ''}`} style={{ left: W - (c + 0.5) * col, ['--w' as string]: `${col}px` }}>{t}</span>)}
+    <svg className="kv-lines" width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">{lines}</svg>
+    {slots}
+    <div className="kv-cup" style={{ left: W / 2, top: top + ph / 2 - cS / 2 - Math.min(ph * 0.42, col * 2.3) - 4 }}><Trophy size={Math.min(ph * 0.34, col * 1.85)} /></div>
+    <div data-testid="kv-champion" className={`kv-slot kv-slot--champ${champ ? (champ === cup.you ? ' kv-slot--you' : '') : ' kv-slot--empty'}${reveal === 4 ? ' kv-slot--new' : ''}`} title={champ ? CHARS[champ].name : 'Campeón'}
+      style={{ left: W / 2 - cS / 2, top: top + ph / 2 - cS / 2, width: cS, height: cS, ['--d' as string]: '0.4s' }}>
+      {champ ? <Portrait char={champ} size={cS - 6} square /> : <span>🏆</span>}
     </div>
+    <small className="kv-note" style={{ top: top + ph / 2 + cS / 2 + 8 }}>{champ ? `CAMPEÓN: ${CHARS[champ].name}` : 'Orden por ranking (estadísticas)'}</small>
   </div>;
 }
 function StageThumb({ stage, w, h }: { stage: StageId; w: number; h: number }) {
@@ -136,8 +171,8 @@ export function KombatVoley() {
   const [stage, setStage] = useState<StageId>('industrial');
   const [difficulty, setDifficulty] = useState(1);
   const [round, setRound] = useState(0);
-  const [ladderFrom, setLadderFrom] = useState(0);
-  const [cup, setCup] = useState<Cup>(() => drawCup('cometa'));
+  const [reveal, setReveal] = useState(0);
+  const [cup, setCup] = useState<Cup>(() => newCup('cometa'));
   const [hud, setHud] = useState<Hud | null>(null);
   const [shouts, setShouts] = useState<Shout[]>([]);
   const [record, setRecord] = useState(readVoleyRecord);
@@ -194,7 +229,7 @@ export function KombatVoley() {
 
   const begin = useCallback((n = round) => {
     playStart(); preloadKombatSounds();
-    const st = mode === 'world' ? cup.stages[n] : stage, rival = mode === 'world' ? cup.rivals[n] : p2;
+    const st = mode === 'world' ? cup.stages[n] : stage, rival = mode === 'world' ? rivalOf(cup, n) : p2;
     const level = mode === 'world' ? roundLevel(n) : DIFFICULTY[difficulty].level;
     const m = newVoley(st, [p1, rival], [null, level]);
     matchRef.current = m; setFighting([p1, rival]);
@@ -211,7 +246,7 @@ export function KombatVoley() {
     playKfName(id, 0.12);
     if (pick === 0) {
       setP1(id);
-      if (mode === 'world') { setCup(drawCup(id)); setRound(0); setLadderFrom(0); setScreen('ladder'); return; }
+      if (mode === 'world') { setCup(newCup(id)); setRound(0); setReveal(0); setScreen('ladder'); return; }
       setPick(1); const other = CHAR_IDS.indexOf(p2 === id ? CHAR_IDS[(idx + 1) % 16] : p2); setCursor(other); if (p2 === id) setP2(CHAR_IDS[other]);
     } else { setP2(id); setScreen('vs'); playKfVsSentence(p1, id); }
   }, [pick, mode, p1, p2]);
@@ -296,7 +331,8 @@ export function KombatVoley() {
         const win = m.winner === 0, rec = readVoleyRecord();
         if (win) rec.wins++; else rec.losses++;
         let champion = false;
-        if (mode === 'world' && win && round + 1 >= ROUNDS.length) { rec.cups++; champion = true; }
+        if (mode === 'world' && win) { const sc: [number, number] = [m.score[0], m.score[1]]; setCup(c => finishRound(c, round, sc)); }
+        if (mode === 'world' && win && round + 1 >= ROUNDS.length) { rec.cups++; champion = true; setReveal(4); }
         saveRecord(rec); setRecord(rec);
         setResult({ winner: m.winner, score: [m.score[0], m.score[1]] });
         if (win) playWinFanfare(); else playGameOver();
@@ -336,7 +372,7 @@ export function KombatVoley() {
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
   });
 
-  const chars: [CharId, CharId] = screen === 'playing' || screen === 'paused' || screen === 'result' || screen === 'champion' ? fighting : [p1, mode === 'world' ? cup.rivals[round] : p2];
+  const chars: [CharId, CharId] = screen === 'playing' || screen === 'paused' || screen === 'result' || screen === 'champion' ? fighting : [p1, mode === 'world' ? rivalOf(cup, round) : p2];
   const curStage: StageId = mode === 'world' ? cup.stages[round] : stage;
   const sideBar = (i: 0 | 1) => {
     const c = CHARS[chars[i]], serving = hud?.server === i, touches = hud ? hud.touches[i] : 0;
@@ -405,13 +441,18 @@ export function KombatVoley() {
       <div className="kf-shouts" aria-live="assertive">
         {shouts.map(s => <div key={s.id} className={`kf-shout kf-shout--${s.kind}`} role="status">{s.text}{s.sub && <small>{s.sub}</small>}</div>)}
       </div>
-      {screen === 'ladder' && <div className="kf-select kf-ladder" role="dialog" aria-labelledby="kf-title" style={{ backgroundImage: `radial-gradient(ellipse at 50% 42%, #0000 40%, #000000b0 100%), url(${vortexURL() ?? ''})`, backgroundSize: 'auto, cover', backgroundPosition: 'center', backgroundColor: '#0b0518' }}>
-        <h2 id="kf-title">MUNDIAL DE KOMBAT VOLEY</h2>
-        <Bracket key={`${p1}-${round}`} you={p1} cup={cup} round={round} from={ladderFrom} height={Math.max(260, vp.h - 230)} />
-        <p className="kf-zone" data-testid="kv-ladder-next"><b>{ROUNDS[round]}</b> · <b>{CHARS[p1].name}</b> vs <b>{CHARS[cup.rivals[round]].name}</b> · {STAGES.find(s => s.id === cup.stages[round])!.name}</p>
+      {(screen === 'ladder' || screen === 'champion') && <div className="kf-select kv-world" role="dialog" aria-labelledby="kf-title">
+        {screen === 'champion' && <Fireworks />}
+        <h2 id="kf-title" className={screen === 'champion' ? 'end-banner end-banner--win' : undefined}>{screen === 'champion' ? '🏆 ¡CAMPEÓN DEL MUNDO!' : 'MUNDIAL DE KOMBAT VOLEY'}</h2>
+        <WorldBracket cup={cup} round={round} reveal={reveal} width={Math.max(300, Math.min(1180, vp.w - 24))} height={Math.max(250, Math.min(620, vp.h - (narrow ? 200 : 215)))} />
+        {screen === 'ladder'
+          ? <p className="kf-zone" data-testid="kv-ladder-next"><b>{ROUNDS[round]}</b> · <b>{CHARS[p1].name}</b> vs <b>{CHARS[rivalOf(cup, round)].name}</b> · {STAGES.find(s => s.id === cup.stages[round])!.name}</p>
+          : <p className="kf-zone">Ganaste octavos, cuartos, semifinal y la final con <b>{CHARS[cup.you].name}</b>.</p>}
         <div className="kf-actions">
-          <button type="button" className="kf-secondary" onClick={() => setScreen('select')}>‹ Volver</button>
-          <button type="button" onClick={() => setScreen('howto')} autoFocus>¡A jugar! ▶</button>
+          {screen === 'ladder'
+            ? <><button type="button" className="kf-secondary" onClick={() => setScreen(round === 0 ? 'select' : 'menu')}>{round === 0 ? '‹ Volver' : 'Abandonar'}</button>
+              <button type="button" onClick={() => setScreen('howto')} autoFocus>¡A jugar! ▶</button></>
+            : <button type="button" onClick={() => { setRound(0); setReveal(0); setScreen('menu'); }} autoFocus>VOLVER A JUGAR</button>}
         </div>
       </div>}
       {screen === 'vs' && <div className="kf-select kf-versus" role="dialog" aria-labelledby="kf-title" style={{ backgroundImage: `linear-gradient(90deg, ${CHARS[p1].color}38, #0000 38%, #0000 62%, ${CHARS[p2].color}38), radial-gradient(ellipse at 50% 50%, #0000 30%, #000000c0 100%), url(${spaceBg})`, backgroundSize: 'auto, auto, cover', backgroundPosition: 'center', backgroundColor: '#03020c' }}>
@@ -464,14 +505,14 @@ export function KombatVoley() {
         </div>
         <p className="kf-hint">Flechas para moverte · ENTER para elegir · o tocá la cara (dos veces para elegir)</p>
       </div>}
-      {screen !== 'playing' && !selecting && screen !== 'vs' && <div className={`runner-overlay kf-overlay${screen === 'menu' ? ' kf-menu-wall' : ''}`} role="dialog" aria-labelledby="kf-title" style={screen === 'menu' ? { backgroundImage: `radial-gradient(ellipse at 50% 45%, #0000 40%, #000000b3 100%), url(${menuBg})`, backgroundSize: 'auto, cover', backgroundPosition: 'center', backgroundColor: '#1a0503' } : undefined}>
+      {screen !== 'playing' && !selecting && screen !== 'vs' && screen !== 'ladder' && screen !== 'champion' && <div className={`runner-overlay kf-overlay${screen === 'menu' ? ' kf-menu-wall' : ''}`} role="dialog" aria-labelledby="kf-title" style={screen === 'menu' ? { backgroundImage: `radial-gradient(ellipse at 50% 45%, #0000 40%, #000000b3 100%), url(${menuBg})`, backgroundSize: 'auto, cover', backgroundPosition: 'center', backgroundColor: '#1a0503' } : undefined}>
         <div>
           {screen === 'menu' && <>
             <h2 id="kf-title" className="kf-logo">KOMBAT<br /><span>VOLEY</span></h2>
             <p>Vóley uno contra uno con los luchadores de Kombat Football: un set a {SET_POINTS} (con dos de diferencia), tres toques por lado y remates saltando junto a la red. 16 estadios, cada uno con su pelota: meteorito de fuego, bomba, rayo, fantasma, lunar…</p>
             <div className="kf-modes">
               <button type="button" onClick={() => { playKfSelectVoice(); setMode('cpu'); setPick(0); setCursor(CHAR_IDS.indexOf(p1)); setScreen('select'); }} autoFocus>Amistoso</button>
-              <button type="button" onClick={() => { playKfSelectVoice(); setMode('world'); setRound(0); setLadderFrom(0); setPick(0); setCursor(CHAR_IDS.indexOf(p1)); setScreen('select'); }}>Mundial</button>
+              <button type="button" onClick={() => { playKfSelectVoice(); setMode('world'); setRound(0); setReveal(0); setPick(0); setCursor(CHAR_IDS.indexOf(p1)); setScreen('select'); }}>Mundial</button>
             </div>
           </>}
           {screen === 'stage' && <>
@@ -512,15 +553,9 @@ export function KombatVoley() {
             <div className="kf-actions">
               <button type="button" className="kf-secondary" onClick={() => setScreen('menu')}>Menú</button>
               {mode === 'world' && result.winner === 0
-                ? <button type="button" onClick={() => { const n = round + 1; setLadderFrom(round); setRound(n); setScreen('ladder'); }} autoFocus>Siguiente partido ▶</button>
+                ? <button type="button" onClick={() => { const n = round + 1; setReveal(n); setRound(n); setScreen('ladder'); }} autoFocus>Ver el cuadro ▶</button>
                 : <button type="button" onClick={() => begin(round)} autoFocus>{mode === 'world' ? 'Reintentar el partido' : 'Revancha'}</button>}
             </div>
-          </>}
-          {screen === 'champion' && <>
-            <Fireworks />
-            <h2 id="kf-title" className="end-banner end-banner--win">🏆 ¡CAMPEÓN DEL MUNDO!</h2>
-            <p>Ganaste octavos, cuartos, semifinal y la final con {CHARS[chars[0]].name}.</p>
-            <div className="kf-actions"><button type="button" onClick={() => { setRound(0); setScreen('menu'); }} autoFocus>VOLVER A JUGAR</button></div>
           </>}
         </div>
       </div>}

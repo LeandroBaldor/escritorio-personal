@@ -2194,3 +2194,35 @@ body:has(.land) .mobile-nav{display:none}
 .kv-serve-hint{position:absolute;left:50%;bottom:22%;transform:translateX(-50%);margin:0;padding:.35rem .9rem;border-radius:999px;background:#000b;color:#fff;font-weight:800;pointer-events:none;animation:kv-blink 1s ease-in-out infinite alternate}
 @keyframes kv-blink{from{opacity:.55}to{opacity:1}}
 .vamp-defeat-portrait{margin:.2rem auto .6rem;display:flex;justify-content:center}.vamp-defeat-portrait canvas{border-radius:8px;box-shadow:0 0 0 3px #000,0 0 26px #b91c1c66;max-height:38vh;width:auto!important}
+
+/* Kombat Voley: el cuadro del mundial (16 luchadores, de octavos a la final, con la copa en el centro) */
+.kv-world{justify-items:center;align-content:safe center;gap:.5rem;background-color:#0a1030;background-image:radial-gradient(ellipse at 50% 45%,#2a3a9a55 0,#0000 60%),linear-gradient(#ffffff0d 1px,transparent 1px),linear-gradient(90deg,#ffffff0d 1px,transparent 1px);background-size:auto,28px 28px,28px 28px}
+.kv-world h2{margin:0}
+.kv-bracket{position:relative;flex:none}
+.kv-lines{position:absolute;inset:0;overflow:visible}
+.kv-lines path{transition:stroke .3s}
+.kv-line-new{stroke-dasharray:1;stroke-dashoffset:1;animation:kv-draw .9s .25s ease-out forwards}
+@keyframes kv-draw{to{stroke-dashoffset:0}}
+.kv-slot{position:absolute;display:grid;place-items:center;border-radius:4px;background:#f8fafc;box-shadow:0 0 0 2px #0f172a,0 4px 10px #000a}
+.kv-slot .kf-portrait{border-radius:2px}
+.kv-slot--empty{background:#1e293b99;box-shadow:inset 0 0 0 2px #64748b88;color:#94a3b8;font:900 1.1rem/1 Impact,sans-serif}
+.kv-slot--you{background:#fbbf24;box-shadow:0 0 0 2px #78350f,0 0 14px #fbbf24aa}
+.kv-slot--out .kf-portrait{filter:grayscale(1) brightness(.5)}
+.kv-slot--out{background:#64748b}
+.kv-slot--now{animation:kv-now 1s ease-in-out infinite alternate}
+@keyframes kv-now{from{box-shadow:0 0 0 2px #0f172a,0 0 0 0 #ef4444}to{box-shadow:0 0 0 2px #0f172a,0 0 0 5px #ef4444cc}}
+.kv-slot--you.kv-slot--now{animation-name:kv-now-you}
+@keyframes kv-now-you{from{box-shadow:0 0 0 2px #78350f,0 0 8px #fbbf24}to{box-shadow:0 0 0 2px #78350f,0 0 0 6px #fbbf24cc,0 0 22px #fbbf24}}
+.kv-slot--new{animation:kv-pop .55s var(--d,.2s) cubic-bezier(.3,1.6,.5,1) both}
+@keyframes kv-pop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.kv-slot--champ{border-radius:6px}
+.kv-slot--champ.kv-slot--empty{font-size:1.4rem}
+.kv-seed{position:absolute;top:50%;transform:translateY(-50%);min-width:1.45em;padding:.12em .2em;border-radius:3px;background:#f8fafc;color:#0f172a;font:900 .82rem/1 system-ui,sans-serif;font-style:normal;text-align:center;box-shadow:0 0 0 1.5px #0f172a}
+.kv-score{position:absolute;top:50%;transform:translateY(-50%);z-index:1;min-width:1.5em;padding:.14em .22em;border-radius:3px;background:#0f172a;color:#94a3b8;font:800 .78rem/1 system-ui,sans-serif;text-align:center;box-shadow:0 0 0 1px #334155}
+.kv-score--won{background:#16a34a;color:#fff;box-shadow:0 0 0 1px #bbf7d0}
+.kv-slot--you .kv-score--won{background:#f59e0b;color:#1c1917;box-shadow:0 0 0 1px #fef3c7}
+.kv-col{position:absolute;top:0;transform:translateX(-50%);width:var(--w);text-align:center;font:400 .78rem/1 "KF Menu",Impact,sans-serif;letter-spacing:.06em;color:#94a3b8;white-space:nowrap}
+.kv-col--now{color:#fbbf24;text-shadow:0 0 8px #f59e0b}
+.kv-cup{position:absolute;transform:translateX(-50%);filter:drop-shadow(0 0 18px #f59e0b88) drop-shadow(0 6px 8px #000)}
+.kv-note{position:absolute;left:50%;transform:translateX(-50%);color:#cbd5e1;font:700 .62rem/1.2 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;text-align:center;white-space:nowrap}
+@media (max-width:700px){.kv-seed,.kv-score{font-size:.62rem}.kv-col{font-size:.58rem}.kv-note{font-size:.5rem}}
