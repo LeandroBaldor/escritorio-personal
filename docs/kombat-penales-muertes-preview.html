@@ -1,28 +1,31 @@
 <!doctype html>
 <html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kombat Penales · corrección 11 · muertes</title>
+<title>Kombat Penales · corrección 12 · muertes</title>
 <style>
 body{margin:0;background:#101020;color:#eee;font:16px system-ui}main{max-width:1500px;margin:auto;padding:20px}h1{margin:0 0 10px}button,select{padding:10px;background:#302451;color:white;border:1px solid #8071a5;border-radius:6px}label{display:inline-block;margin:10px}#grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}article{background:#211b33;border-radius:10px;overflow:hidden}h2{font-size:17px;margin:12px}canvas{display:block;width:100%;height:auto}p{color:#c6bed8}input{vertical-align:middle}@media(max-width:700px){#grid{grid-template-columns:1fr}}
 </style><main><h1>Kombat Penales · siete muertes</h1>
-<p>Corrección 11: restos anatómicos, sangre con volumen, efectos más intensos y ácido que derrite hacia abajo. Cada tarjeta repite su muerte para facilitar la revisión.</p>
-<label>Víctima <select id="role"><option value="shooter">Quien patea</option><option value="keeper">Arquero</option></select></label>
+<p>Corrección 12: árbitro en todos los goles, ácido verde con charco grande, esqueleto de perfil, hielo progresivo, cabeza delante de los brazos y castigo final de la tanda.</p>
+<label>Víctima <select id="role"><option value="shooter">Quien patea</option><option value="keeper">Arquero</option><option value="finale">Perdedor de la tanda</option></select></label>
 <label>Luchador <select id="char"></select></label><button id="restart">Repetir</button>
 <label><input id="pause" type="checkbox"> Pausar</label><label>Velocidad <input id="speed" type="range" min="0.1" max="1" step="0.1" value="1"></label>
+<label>Escuchar <select id="sound"><option value="">Sin sonido</option><option value="head">Cabeza · cabeza.mp3</option><option value="ash">Cenizas · cenizas.mp3</option></select></label>
 <div id="grid"></div></main>
 <script type="module">
 import { DEATH_TYPES, newPenalties, startKick, stepPenalties, takePenEvents, kickDuration } from '../src/features/games/kombatPenalties.ts';
 import { drawPenBackdrop, drawPenalties, kickerBody, keeperBody, preloadPenaltyArt } from '../src/features/games/kombatPenaltiesArt.ts';
 import { CHAR_IDS, CHARS } from '../src/features/games/kombat.ts';
 import { preloadBackdrops } from '../src/features/games/kombatScenery.ts';
+import { unlockSounds, preloadPenaltySounds, playPenDeathStart, playPenExplosion } from '../src/features/games/sounds.ts';
 const names=['Explosión de sangre y restos','Fuego → esqueleto → explosión','Violeta → se achica → explosión','Ácido verde → derretimiento vertical','Congelación → pedazos de hielo','Cabeza gigante → cráneo anatómico','Cenizas → viento hacia la derecha'];
 const role=document.querySelector('#role'),char=document.querySelector('#char'),pause=document.querySelector('#pause'),speed=document.querySelector('#speed');
+const sound=document.querySelector('#sound');sound.onchange=()=>{unlockSounds();preloadPenaltySounds();reset();pause.checked=false};
 for(const id of CHAR_IDS){const o=document.createElement('option');o.value=id;o.textContent=CHARS[id].name??id;char.append(o)}
 const cards=DEATH_TYPES.map((type,i)=>{const article=document.createElement('article');article.innerHTML=`<h2>${i+1}. ${names[i]}</h2><canvas width="900" height="510"></canvas>`;document.querySelector('#grid').append(article);return{type,i,canvas:article.querySelector('canvas'),m:null}});
-function makeMatch(card){let first=true,seed=1701+card.i;const rand=()=>{if(first){first=false;return(card.i+0.1)/7}seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};const m=newPenalties('volcano',[char.value,char.value],rand);m.phase='aim';startKick(m,0,role.value==='keeper'?2:0);return m}
+function makeMatch(card){let first=true,seed=1701+card.i;const rand=()=>{if(first){first=false;return(card.i+0.1)/7}seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};const m=newPenalties('volcano',[char.value,char.value],rand);m.phase='aim';startKick(m,0,role.value==='keeper'?2:0);if(role.value==='finale'){m.phase='execution';m.phaseT=0;m.winner=1;m.finale={loser:0,fired:false};m.kicks=[[false,false,false,false,false],[true,true,true,true,true]];}return m}
 function reset(){for(const card of cards)card.m=makeMatch(card);}
 role.onchange=char.onchange=document.querySelector('#restart').onclick=reset;
 preloadPenaltyArt();preloadBackdrops(['volcano']);reset();let last=performance.now();
-function paint(now){const dt=Math.min(0.05,(now-last)/1000)*Number(speed.value);last=now;for(const card of cards){let m=card.m;if(!pause.checked){stepPenalties(m,dt,side=>kickerBody(m.chars[side]),side=>keeperBody(m,m.chars[side]));takePenEvents(m);if(m.phase==='aim')m=card.m=makeMatch(card);}
+function paint(now){const dt=Math.min(0.05,(now-last)/1000)*Number(speed.value);last=now;for(const card of cards){let m=card.m;if(!pause.checked){stepPenalties(m,dt,side=>kickerBody(m.chars[side]),side=>keeperBody(m,m.chars[side]));for(const e of takePenEvents(m)){if(sound.value===card.type){if(e.type==='deathStart')playPenDeathStart(e.death);if(e.type==='boom'&&e.death==='head')playPenExplosion();}}if(m.phase==='aim'||(m.phase==='end'&&m.phaseT>1.2))m=card.m=makeMatch(card);}
 const c=card.canvas,ctx=c.getContext('2d');drawPenBackdrop(ctx,m.stage,c.width,c.height);drawPenalties(ctx,m,c.width,c.height);}
 requestAnimationFrame(paint)}requestAnimationFrame(paint);
 // Inspección automatizada de cuadros reproducibles, sin alterar el juego.

@@ -61,28 +61,31 @@ export function cpuZone(rand: () => number): Zone {
 }
 
 // ---------------------------------------------------------------- El estado del partido
-export type PenPhase = 'intro' | 'rps' | 'aim' | 'kick' | 'end'; // (rps: el piedra, papel o tijera antes de la tanda)
+export type PenPhase = 'intro' | 'rps' | 'aim' | 'kick' | 'execution' | 'end';
 // El efecto de la pelota: cambia en cada ronda de penales (fuego, electricidad, viento, radiación, láser rojo) y
 // vuelve a empezar después del quinto.
 export type BallFx = 'fuego' | 'electricidad' | 'viento' | 'radiacion' | 'laser';
 export const BALL_FX: BallFx[] = ['fuego', 'electricidad', 'viento', 'radiacion', 'laser'];
 export const BALL_FX_NAMES: Record<BallFx, string> = { fuego: '🔥 Fuego', electricidad: '⚡ Electricidad', viento: '🌪️ Viento', radiacion: '☢️ Radiación', laser: '🔴 Láser rojo' };
 export const fxOfTurn = (turn: number): BallFx => BALL_FX[Math.floor(turn / 2) % BALL_FX.length];
-// Si el arquero se tira para el otro lado (o se queda en el medio y la pelota va a un costado, o al revés) y es gol, explota.
-export const keeperBlewIt = (shot: Zone, dive: Zone) => colOf(shot) !== colOf(dive);
+// Todo gol no atajado recibe el disparo, también cuando falla solamente la altura.
+export const keeperBlewIt = (shot: Zone, dive: Zone) => shot !== dive;
 export const DEATH_TYPES = ['explosion', 'fire', 'violet', 'acid', 'ice', 'head', 'ash'] as const;
 export type PenDeathType = typeof DEATH_TYPES[number];
 // Más anticipación y tiempo para leer cada transformación antes del estallido.
-export const DEATH_AT: Record<PenDeathType, number> = { explosion: 0, fire: 1.65, violet: 1.65, acid: 4.1, ice: 1.05, head: 2.05, ash: 2.65 };
+// Cabeza y cenizas duran lo mismo que las grabaciones del usuario, sin acelerar ni cortar los MP3.
+export const DEATH_AT: Record<PenDeathType, number> = { explosion: 0, fire: 1.9, violet: 1.65, acid: 5.8, ice: 1.7, head: 5.184, ash: 7.008 };
 export const HEAD_GROWTH = 4.2;
-export const ACID_MELT_T = 2.45;
+export const ACID_GREEN_T = 0.7, ACID_MELT_T = 3.15;
+export const FINAL_SHOT_AT = 0.95;
+export const freezeProgress = (t: number) => Math.min(1, Math.max(0, t / (DEATH_AT.ice * 0.8)));
 export function acidCollapse(t: number) {
-  const q = Math.min(1, Math.max(0, t / ACID_MELT_T)), fall = q * q * (3 - 2 * q);
+  const q = Math.min(1, Math.max(0, (t - ACID_GREEN_T) / (ACID_MELT_T - ACID_GREEN_T))), fall = q * q * (3 - 2 * q);
   return { q, height: Math.max(0.025, 1 - fall * 0.975), width: 1 - fall * 0.18 };
 }
 export interface PenDeath { type: PenDeathType; side: 0 | 1; keeper: boolean; at: number; clock: number; t: number; finished: boolean; x: number; y: number; h: number }
 export interface PenKick { shooter: 0 | 1; shot: Zone; dive: Zone; outcome: 'goal' | 'save'; t: number; scored: boolean; boom: boolean; kboom: boolean; hit: boolean; sounded: boolean; fx: BallFx }
-export interface Gib { x: number; y: number; z: number; vx: number; vy: number; vz: number; a: number; va: number; kind: GibKind; c: string; life: number; scale?: number }
+export interface Gib { x: number; y: number; z: number; vx: number; vy: number; vz: number; a: number; va: number; kind: GibKind; c: string; life: number; scale?: number; profile?: boolean }
 export interface Drop { x: number; y: number; z: number; vx: number; vy: number; vz: number; r: number }
 export interface Stain { x: number; y: number; r: number; seed: number; t: number }
 export interface Spark { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; color: string; size: number }
@@ -95,6 +98,7 @@ export interface PenMatch {
   gore: { gibs: Gib[]; drops: Drop[]; stains: Stain[] };
   sparks: Spark[];
   death: PenDeath | null;
+  finale: { loser: 0 | 1; fired: boolean } | null;
   lastDeath: PenDeathType | null;
   fragments: { kind: 'ice' | 'ash'; x: number; y: number; vx: number; vy: number; a: number; va: number; size: number; t: number; life: number }[];
   screenBlood: { x: number; y: number; r: number; t: number; seed: number; drips: number }[];
@@ -108,7 +112,7 @@ export type PenEvent = { type: 'whistle' } | { type: 'kick' } | { type: 'goal'; 
 export function newPenalties(stage: StageId, chars: [CharId, CharId], rand: () => number = Math.random): PenMatch {
   return {
     stage, chars, kicks: [[], []], turn: 0, first: 0, roll: 0.5, phase: 'intro', phaseT: 0, time: 0, kick: null, winner: null,
-    gore: { gibs: [], drops: [], stains: [] }, sparks: [], death: null, lastDeath: null, fragments: [], screenBlood: [], shake: 0, flash: 0, humans: [true, false], events: [], rand,
+    gore: { gibs: [], drops: [], stains: [] }, sparks: [], death: null, finale: null, lastDeath: null, fragments: [], screenBlood: [], shake: 0, flash: 0, humans: [true, false], events: [], rand,
   };
 }
 // Después del piedra, papel o tijera: arranca la tanda (first patea primero) con el silbato.
@@ -157,15 +161,29 @@ export function stepPenalties(m: PenMatch, dt: number, kickPos: BodyAt, keeperPo
     if (k.outcome === 'save' && !k.boom && k.t >= arriveAt() + T.boom) {
       k.boom = true; beginDeath(m, k.shooter, false, kickPos(k.shooter), arriveAt() + T.boom);
     }
-    // el arquero que se tiró para el otro lado también explota
+    // El fallo de altura también recibe el castigo del árbitro.
     if (k.outcome === 'goal' && !k.kboom && keeperBlewIt(k.shot, k.dive) && k.t >= arriveAt() + T.boom + 0.1) {
       const ks: 0 | 1 = k.shooter === 0 ? 1 : 0; k.kboom = true; beginDeath(m, ks, true, keeperPos(ks), arriveAt() + T.boom + 0.1);
     }
     updateDeath(m);
     if (k.t >= kickDuration(m.death?.type)) {
       const w = shootoutWinner(m.kicks);
-      if (w !== null) { m.winner = w; m.phase = 'end'; m.phaseT = 0; m.events.push({ type: 'end', winner: w }); }
+      if (w !== null) {
+        m.winner = w; m.phase = 'execution'; m.phaseT = 0;
+        m.finale = { loser: w === 0 ? 1 : 0, fired: false };
+        m.death = null; m.gore = { gibs: [], drops: [], stains: [] }; m.sparks = []; m.fragments = []; m.screenBlood = [];
+      }
       else { m.turn++; m.phase = 'aim'; m.phaseT = 0; m.kick = null; m.roll = m.rand(); m.events.push({ type: 'whistle' }); m.gore = { gibs: [], drops: [], stains: [] }; m.sparks = []; m.screenBlood = []; m.death = null; m.fragments = []; } // (el siguiente penal empieza limpio)
+    }
+  }
+  if (m.phase === 'execution' && m.finale) {
+    if (!m.finale.fired && m.phaseT >= FINAL_SHOT_AT) {
+      m.finale.fired = true;
+      beginDeath(m, m.finale.loser, false, kickPos(m.finale.loser), FINAL_SHOT_AT);
+    }
+    updateDeath(m);
+    if (m.death?.finished && m.phaseT >= FINAL_SHOT_AT + DEATH_AT[m.death.type] + 1.8) {
+      m.phase = 'end'; m.phaseT = 0; m.events.push({ type: 'end', winner: m.winner! });
     }
   }
   updateGore(m, dt);
@@ -180,7 +198,7 @@ function beginDeath(m: PenMatch, side: 0 | 1, keeper: boolean, p: { x: number; y
 }
 function updateDeath(m: PenMatch) {
   const d = m.death; if (!d || !m.kick) return;
-  const prev = d.t; d.t = Math.max(0, m.kick.t - d.at);
+  const prev = d.t; d.t = Math.max(0, (m.phase === 'execution' ? m.phaseT : m.kick.t) - d.at);
   if (d.finished) return;
   if (d.type === 'fire' && prev < 0.25 && d.t >= 0.25) m.events.push({ type: 'burn' });
   if (d.type === 'ash') {
@@ -194,14 +212,14 @@ function updateDeath(m: PenMatch) {
   d.finished = true;
   if (d.type === 'ice') {
     const r = m.rand;
-    for (let i = 0; i < 70; i++) m.fragments.push({ kind: 'ice', x: d.x + (r() - 0.5) * d.h * 0.5, y: d.y - r() * d.h, vx: (r() - 0.5) * 1400, vy: -180 - r() * 850, a: r() * 6, va: (r() - 0.5) * 24, size: d.h * (0.012 + r() * 0.08), t: 0, life: 1.75 });
+    for (let i = 0; i < 38; i++) m.fragments.push({ kind: 'ice', x: d.x + (r() - 0.5) * d.h * 0.5, y: d.y - r() * d.h, vx: (r() - 0.5) * 1200, vy: -180 - r() * 850, a: r() * 6, va: (r() - 0.5) * 15, size: d.h * (i < 18 ? 0.08 + r() * 0.09 : 0.02 + r() * 0.04), t: 0, life: 1.75 });
     m.shake = 0.85;
   } else if (d.type !== 'acid' && d.type !== 'ash') {
     explode(m, d.x, d.y, d.h, m.chars[d.side], undefined, m.humans[d.side]);
     if (d.type === 'head') {
       // drawGib skull: diámetro 0.4; cabeza original: diámetro 0.74 * 1.12.
       const skull = m.gore.gibs.find(g => g.kind === 'skull');
-      if (skull) skull.scale = (0.74 * 1.12 * HEAD_GROWTH * (2.3 / 1.85) * SIZE[m.chars[d.side]]) / (1.6 * 0.4);
+      if (skull) { skull.scale = (0.74 * 1.12 * HEAD_GROWTH * (2.3 / 1.85) * SIZE[m.chars[d.side]]) / (1.6 * 0.4); skull.profile = true; }
     }
     if (d.type === 'violet') for (const s of m.sparks) s.color = '#c86eff';
   }

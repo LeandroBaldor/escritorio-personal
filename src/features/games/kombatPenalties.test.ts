@@ -38,7 +38,7 @@ describe('Kombat Penales: la tanda', () => {
     expect(m.gore.gibs.length + m.gore.drops.length + m.gore.stains.length + m.screenBlood.length).toBe(0);
   });
   it('si es gol y el arquero se tiró para el otro lado, explota el arquero', () => {
-    expect(keeperBlewIt(0, 5)).toBe(true); expect(keeperBlewIt(0, 3)).toBe(false); expect(keeperBlewIt(1, 0)).toBe(true);
+    expect(keeperBlewIt(0, 5)).toBe(true); expect(keeperBlewIt(0, 3)).toBe(true); expect(keeperBlewIt(1, 0)).toBe(true);
     const m = newPenalties('ice', ['frost', 'thunder'], () => 0); m.phase = 'aim';
     startKick(m, 0, 2);
     const booms: boolean[] = [];

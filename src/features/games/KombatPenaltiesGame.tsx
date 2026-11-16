@@ -27,7 +27,7 @@ import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
   playGameOver, playKfButton, playKfGoal, playKfName, playKfSelectVoice, playKfVsSentence,
   playPenArm, playPenExplosion, playPenKick, playPenNet, playPenSave, playPenSteps, playRefWhistle, playStart, preloadPenaltySounds, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
-  playVampAcid, playVampBones, playVampBurn, playVampDeath, playVampExplosion, playVampStakeHit, playVampSword, playVampHiss,
+  playPenDeathStart, playVampBones, playVampBurn, playVampExplosion,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 import { Fireworks } from './Fireworks';
@@ -449,13 +449,7 @@ export function KombatPenalties() {
             break;
           }
           case 'save': playPenSave(); break;
-          case 'deathStart':
-            if (e.death === 'ice') playVampStakeHit();
-            else if (e.death === 'acid') playVampAcid();
-            else if (e.death === 'violet') { playVampDeath(); playVampSword(); }
-            else if (e.death === 'ash') playVampHiss();
-            else if (e.death !== 'explosion') playVampDeath();
-            break;
+          case 'deathStart': playPenDeathStart(e.death); break;
           case 'burn': playVampBurn(); break;
           case 'boom':
             if (e.death === 'explosion' || e.death === 'head') playPenExplosion();

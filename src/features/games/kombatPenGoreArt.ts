@@ -1,8 +1,52 @@
-import type { GibKind } from './kombat';
+import { SIZE, type Fighter, type GibKind } from './kombat';
+import { BODY_SCALE, fighterDeathPose } from './kombatFighters';
 import { boneShaft, ribCage } from './vampyriumChars';
 import type { PenMatch } from './kombatPenalties';
 
 const TAU = Math.PI * 2;
+export function drawPenSkullProfile(ctx: CanvasRenderingContext2D) {
+  ctx.save();
+  const contour = () => { ctx.beginPath(); ctx.moveTo(-0.16, 0.06); ctx.bezierCurveTo(-0.23, -0.04, -0.19, -0.21, -0.06, -0.22); ctx.bezierCurveTo(0.045, -0.235, 0.13, -0.18, 0.135, -0.09); ctx.lineTo(0.128, -0.055); ctx.lineTo(0.195, 0.013); ctx.lineTo(0.149, 0.032); ctx.lineTo(0.176, 0.066); ctx.lineTo(0.165, 0.12); ctx.lineTo(0.069, 0.134); ctx.lineTo(0.013, 0.081); ctx.lineTo(-0.09, 0.086); ctx.closePath(); };
+  const g = ctx.createRadialGradient(-0.09, -0.14, 0.01, 0.03, 0, 0.25); g.addColorStop(0, '#e9e1cd'); g.addColorStop(0.35, '#c0b297'); g.addColorStop(0.75, '#82735a'); g.addColorStop(1, '#3d3428');
+  contour(); ctx.fillStyle = g; ctx.fill();
+  ctx.save(); contour(); ctx.clip();
+  for (let i = 0; i < 90; i++) { const x = Math.sin(i * 6.71) * 0.2, y = -0.06 + Math.cos(i * 13.2) * 0.19; ctx.fillStyle = i % 3 ? 'rgba(71,51,32,0.2)' : 'rgba(249,239,210,0.25)'; ctx.beginPath(); ctx.ellipse(x, y, 0.001 + i % 4 * 0.0006, 0.0009, i, 0, TAU); ctx.fill(); }
+  const shade = ctx.createRadialGradient(0.008, 0.016, 0.003, -0.003, 0.02, 0.105); shade.addColorStop(0, 'rgba(24,20,15,0.85)'); shade.addColorStop(1, 'rgba(61,47,30,0)'); ctx.fillStyle = shade; ctx.fillRect(-0.15, -0.09, 0.32, 0.25); ctx.restore();
+  // Órbita de perfil, apertura nasal, arco cigomático y agujero del oído.
+  const orbit = ctx.createRadialGradient(0.09, -0.019, 0.004, 0.086, -0.018, 0.058); orbit.addColorStop(0, '#080806'); orbit.addColorStop(0.65, '#201c14'); orbit.addColorStop(1, '#65533a'); ctx.fillStyle = orbit;
+  ctx.beginPath(); ctx.moveTo(0.035, -0.038); ctx.quadraticCurveTo(0.077, -0.062, 0.125, -0.041); ctx.lineTo(0.14, -0.007); ctx.lineTo(0.099, 0.049); ctx.quadraticCurveTo(0.043, 0.04, 0.035, -0.038); ctx.fill();
+  ctx.fillStyle = '#292118'; ctx.beginPath(); ctx.moveTo(0.153, 0.015); ctx.lineTo(0.169, 0.043); ctx.lineTo(0.136, 0.05); ctx.closePath(); ctx.fill(); ctx.beginPath(); ctx.ellipse(-0.055, 0.055, 0.014, 0.019, 0.2, 0, TAU); ctx.fill();
+  ctx.strokeStyle = '#c7b99c'; ctx.lineWidth = 0.01; ctx.beginPath(); ctx.moveTo(-0.075, 0.035); ctx.quadraticCurveTo(-0.009, 0.079, 0.077, 0.041); ctx.stroke();
+  ctx.strokeStyle = 'rgba(66,48,30,0.6)'; ctx.lineWidth = 0.0022; ctx.beginPath(); for (let i = 0; i < 17; i++) ctx.lineTo(-0.075 + Math.sin(i * 1.9) * 0.004 + i * 0.003, -0.213 + i * 0.009); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-0.16, -0.09); ctx.lineTo(-0.117, -0.078); ctx.lineTo(-0.1, -0.085); ctx.lineTo(-0.065, -0.057); ctx.stroke();
+  const jaw = ctx.createLinearGradient(-0.06, 0.1, 0.16, 0.2); jaw.addColorStop(0, '#6c5c43'); jaw.addColorStop(0.45, '#b5a384'); jaw.addColorStop(1, '#60513c'); ctx.fillStyle = jaw;
+  ctx.beginPath(); ctx.moveTo(-0.058, 0.058); ctx.lineTo(-0.028, 0.177); ctx.quadraticCurveTo(0.054, 0.233, 0.161, 0.189); ctx.lineTo(0.176, 0.152); ctx.lineTo(0.054, 0.162); ctx.lineTo(-0.018, 0.074); ctx.closePath(); ctx.fill();
+  for (let i = 0; i < 8; i++) { const x = 0.033 + i * 0.017, shade = ctx.createLinearGradient(x, 0.11, x, 0.15); shade.addColorStop(0, '#e2d7bd'); shade.addColorStop(1, '#8d7d60'); ctx.fillStyle = shade; ctx.beginPath(); ctx.roundRect(x, 0.108, 0.014, 0.033 - i * 0.0008, 0.003); ctx.fill(); ctx.fillStyle = '#c7b99c'; ctx.beginPath(); ctx.roundRect(x + 0.001, 0.148, 0.013, 0.016, 0.002); ctx.fill(); }
+  ctx.restore();
+}
+
+export function drawPenProfileSkeleton(ctx: CanvasRenderingContext2D, f: Fighter, t: number, x: number, y: number, pixels: number) {
+  const pose = fighterDeathPose(f, t), s = pixels * BODY_SCALE * SIZE[f.char];
+  ctx.save(); ctx.translate(x, y); ctx.scale(s * f.facing, s);
+  for (const i of [0, 1]) {
+    ctx.save(); ctx.globalAlpha = i === 0 ? 0.63 : 1;
+    const [hip, knee, foot] = pose.legs[i], [shoulder, elbow, hand] = pose.arms[i];
+    boneShaft(ctx, hip, knee, 0.045); boneShaft(ctx, knee, foot, 0.032); boneShaft(ctx, foot, [foot[0] + 0.12, foot[1] + 0.025], 0.023);
+    boneShaft(ctx, shoulder, elbow, 0.035); boneShaft(ctx, elbow, hand, 0.025);
+    for (let j = 0; j < 4; j++) boneShaft(ctx, [hand[0] + j * 0.016, hand[1]], [hand[0] + 0.04 + j * 0.015, hand[1] + 0.06], 0.007);
+    ctx.restore();
+  }
+  ctx.save(); ctx.translate(pose.hip[0], pose.hip[1]); ctx.rotate(pose.lean);
+  boneShaft(ctx, [0, 0], [0, -0.49], 0.035);
+  for (let i = 0; i < 7; i++) { ctx.fillStyle = i % 2 ? '#b6a58a' : '#e5dac2'; ctx.beginPath(); ctx.roundRect(-0.037, -0.08 - i * 0.055, 0.074, 0.035, 0.009); ctx.fill(); }
+  ctx.save(); ctx.scale(0.72 * pose.k, 1); ribCage(ctx, 0.01, -0.43, 0.21, 0.31, 8); ctx.restore();
+  const pelvis = ctx.createLinearGradient(-0.11, -0.12, 0.11, 0.1); pelvis.addColorStop(0, '#e5dac2'); pelvis.addColorStop(0.55, '#baa889'); pelvis.addColorStop(1, '#756348'); ctx.fillStyle = pelvis;
+  ctx.beginPath(); ctx.moveTo(-0.1, -0.07); ctx.bezierCurveTo(-0.15, -0.19, 0.12, -0.18, 0.095, -0.025); ctx.lineTo(0.135, 0.065); ctx.quadraticCurveTo(0, 0.135, -0.075, 0.06); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#473725'; ctx.beginPath(); ctx.ellipse(0.026, 0.037, 0.034, 0.043, -0.25, 0, TAU); ctx.fill();
+  ctx.restore();
+  boneShaft(ctx, pose.neck, [pose.head[0], pose.head[1] + 0.13], 0.025);
+  ctx.save(); ctx.translate(pose.head[0], pose.head[1]); ctx.rotate(pose.headAngle); ctx.scale(1.25, 1.25); drawPenSkullProfile(ctx); ctx.restore();
+  ctx.restore();
+}
 function drawHumanSkull(ctx: CanvasRenderingContext2D) {
   ctx.save();
   const vault = () => { ctx.beginPath(); ctx.moveTo(-0.174, 0.015); ctx.bezierCurveTo(-0.23, -0.13, -0.145, -0.228, -0.025, -0.22); ctx.bezierCurveTo(0.115, -0.228, 0.205, -0.16, 0.193, -0.055); ctx.lineTo(0.174, 0.045); ctx.lineTo(0.119, 0.089); ctx.lineTo(0.092, 0.133); ctx.lineTo(-0.092, 0.13); ctx.lineTo(-0.118, 0.078); ctx.lineTo(-0.166, 0.049); ctx.closePath(); };
@@ -42,9 +86,9 @@ function drawHumanSkull(ctx: CanvasRenderingContext2D) {
   ctx.restore();
 }
 // Diámetro de referencia 0.4: conserva el tamaño máximo de la cabeza al salir el cráneo.
-export function drawPenGib(ctx: CanvasRenderingContext2D, kind: GibKind, color: string, seed: number) {
+export function drawPenGib(ctx: CanvasRenderingContext2D, kind: GibKind, color: string, seed: number, profile = false) {
   if (kind === 'skull') {
-    drawHumanSkull(ctx);
+    if (profile) drawPenSkullProfile(ctx); else drawHumanSkull(ctx);
     return;
   }
   if (kind === 'bone') { boneShaft(ctx, [-0.19, -0.03], [0.18, 0.025], 0.043); return; }

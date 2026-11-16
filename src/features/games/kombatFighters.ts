@@ -264,6 +264,14 @@ const EMBLEM: Record<Element, (ctx: CanvasRenderingContext2D, c: string, t: numb
   toxic: (ctx, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(0, 0, 0.07, 0, TAU); ctx.fill(); ctx.fillStyle = '#0d100c'; for (let k = 0; k < 3; k++) { const a = k * TAU / 3 - Math.PI / 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 0.065, a - 0.4, a + 0.4); ctx.fill(); } },
   rock: (ctx, c) => { ctx.fillStyle = c; ctx.beginPath(); for (let k = 0; k < 6; k++) { const a = k * TAU / 6; ctx.lineTo(Math.cos(a) * 0.075, Math.sin(a) * 0.075); } ctx.fill(); },
 };
+// Articulaciones del mismo perfil que usa el luchador, también para su esqueleto al arder.
+export function fighterDeathPose(f: Fighter, t: number) {
+  const p = poseOf(f, t), k = LOOKS[f.char].brute ? 1.32 : 1;
+  const hip: Pt = [0, -0.66 + p.bob + p.crouch * 0.4], neck: Pt = [Math.sin(p.lean) * 0.5, hip[1] - Math.cos(p.lean) * 0.5];
+  const legs = p.legs.map(([a, b], i) => { const h: Pt = [hip[0] + (i === 0 ? -0.1 : 0.1) * k, hip[1]], knee = add(h, dirv(a), 0.34); return [h, knee, add(knee, dirv(a - b), 0.34)]; });
+  const arms = p.arms.map(([a, b], i) => { const lx = (i === 0 ? -0.33 : 0.27) * k, ly = -0.42 + (i === 0 ? 0.02 : -0.04) - (p.shrug ?? 0), shoulder: Pt = [hip[0] + lx * Math.cos(p.lean) - ly * Math.sin(p.lean), hip[1] + lx * Math.sin(p.lean) + ly * Math.cos(p.lean)], elbow = add(shoulder, dirv(a), 0.3 * (p.reach ?? 1)); return [shoulder, elbow, add(elbow, dirv(a + b), 0.28 * (p.reach ?? 1))]; });
+  return { hip, neck, legs, arms, head: [neck[0] + 0.03, neck[1] - 0.37] as Pt, headAngle: p.head * 0.5, lean: p.lean, k };
+}
 export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: number, fx: FighterFx) {
   const L = LOOKS[f.char], p = poseOf(f, t), K = L.brute ? 1.32 : 1, ghost = L.extras.includes('ghost');
   const hipY = -0.66 + p.bob + p.crouch * 0.4, hip: Pt = [0, hipY];
@@ -424,12 +432,12 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
   const armUp = handAt(1)[1] < neck[1] + 0.05;
   if (!armUp) arm(1);
   pad(1);
-  ctx.save(); ctx.translate(neck[0] + 0.03, neck[1] - 0.37); ctx.rotate(p.head * 0.5);
-  ctx.scale(fx.headScale ?? 1, fx.headScale ?? 1);
-  drawHead(ctx, f.char, t, fx.power, f.action === 'celebrate' ? 'happy' : f.action === 'stun' || f.action === 'sad' || f.action === 'tired' ? 'hurt' : 'normal');
-  ctx.restore();
+  const head = () => { ctx.save(); ctx.translate(neck[0] + 0.03, neck[1] - 0.37); ctx.rotate(p.head * 0.5); ctx.scale(fx.headScale ?? 1, fx.headScale ?? 1); drawHead(ctx, f.char, t, fx.power, f.action === 'celebrate' ? 'happy' : f.action === 'stun' || f.action === 'sad' || f.action === 'tired' ? 'hurt' : 'normal'); ctx.restore(); };
+  const headInFront = (fx.headScale ?? 1) > 1;
+  if (!headInFront) head();
   if (up0) arm(0);
   if (armUp) arm(1);
+  if (headInFront) head();
   if (L.extras.includes('cracks')) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, 0, -0.9, 0.9, '#f97316', 0.15 + 0.08 * Math.sin(t * 3)); ctx.restore(); }
   if (ghost) {
     ctx.restore();

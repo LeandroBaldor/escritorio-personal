@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ACID_MELT_T, DEATH_AT, DEATH_TYPES, HEAD_GROWTH, acidCollapse, arriveAt, kickDuration, newPenalties, startKick, stepPenalties, takePenEvents } from './kombatPenalties';
+import { ACID_GREEN_T, ACID_MELT_T, DEATH_AT, DEATH_TYPES, HEAD_GROWTH, acidCollapse, arriveAt, freezeProgress, kickDuration, newPenalties, startKick, stepPenalties, takePenEvents, type Zone } from './kombatPenalties';
+import { penaltyRefTarget } from './kombatPenaltiesArt';
 import { SIZE } from './kombat';
 
 const body = () => ({ x: 100, y: 500, h: 300 });
@@ -13,8 +14,26 @@ describe('muertes de Kombat Penales', () => {
       expect(pose.height).toBeGreaterThan(0);
       previousHeight = pose.height;
     }
-    expect(acidCollapse(ACID_MELT_T / 2).height).toBeLessThan(0.6);
-    expect(acidCollapse(ACID_MELT_T / 2).width).toBeGreaterThan(0.85);
+    expect(acidCollapse(ACID_GREEN_T).height).toBe(1);
+    const middle = ACID_GREEN_T + (ACID_MELT_T - ACID_GREEN_T) / 2;
+    expect(acidCollapse(middle).height).toBeLessThan(0.6);
+    expect(acidCollapse(middle).width).toBeGreaterThan(0.85);
+  });
+  it('el hielo progresa desde los pies y queda completo antes de estallar en bloques grandes', () => {
+    expect(freezeProgress(0)).toBe(0); expect(freezeProgress(DEATH_AT.ice * 0.4)).toBeCloseTo(0.5);
+    expect(freezeProgress(DEATH_AT.ice * 0.85)).toBe(1);
+    const m = newPenalties('ice', ['frost', 'thunder'], () => 4.1 / 7); startKick(m, 0, 0);
+    for (let t = 0; t < 2 + DEATH_AT.ice + 0.05; t += 1 / 60) stepPenalties(m, 1 / 60, body);
+    expect(m.fragments.filter(f => f.kind === 'ice' && f.size >= 300 * 0.08).length).toBeGreaterThanOrEqual(18);
+  });
+  it('el árbitro tiene un blanco y un castigo en las 36 combinaciones, incluyendo el fallo de altura', () => {
+    for (let shot = 0; shot < 6; shot++) for (let dive = 0; dive < 6; dive++) {
+      const m = newPenalties('ice', ['frost', 'thunder'], () => 0); startKick(m, shot as Zone, dive as Zone, 0);
+      for (let t = 0; t < 2.2; t += 1 / 60) stepPenalties(m, 1 / 60, body);
+      expect(penaltyRefTarget(m)).not.toBeNull();
+      expect(m.death?.side).toBe(shot === dive ? 0 : 1);
+      expect(takePenEvents(m).filter(e => e.type === 'deathStart')).toHaveLength(1);
+    }
   });
   it('el reloj continúa después de explotar para que humo y ondas se desvanezcan', () => {
     const m = newPenalties('ice', ['frost', 'thunder'], () => 0);
@@ -57,11 +76,11 @@ describe('muertes de Kombat Penales', () => {
     }
     expect(deaths).toEqual(['explosion', 'fire', 'explosion']);
   });
-  it('el gol que pasa por la otra altura del mismo lado no mata al arquero', () => {
-    const m = newPenalties('ice', ['frost', 'thunder']); m.phase = 'aim'; m.roll = 0.9;
+  it('el gol que pasa por la otra altura del mismo lado también recibe el disparo', () => {
+    const m = newPenalties('ice', ['frost', 'thunder'], () => 0); m.phase = 'aim'; m.roll = 0.9;
     startKick(m, 0, 3);
-    for (let t = 0; t < 5; t += 1 / 60) stepPenalties(m, 1 / 60, body);
-    expect(m.lastDeath).toBeNull(); expect(m.kicks[0]).toEqual([true]);
+    for (let t = 0; t < 2.3; t += 1 / 60) stepPenalties(m, 1 / 60, body);
+    expect(m.death?.keeper).toBe(true); expect(m.kicks[0]).toEqual([true]);
   });
   it('la última muerte termina antes de anunciar al ganador', () => {
     const m = newPenalties('ice', ['frost', 'thunder'], () => 3.1 / 7);
@@ -70,6 +89,27 @@ describe('muertes de Kombat Penales', () => {
     for (let t = 0; t < arriveAt() + 0.5 + DEATH_AT.acid - 0.1; t += 1 / 60) stepPenalties(m, 1 / 60, body);
     expect(m.phase).toBe('kick'); expect(m.winner).toBeNull();
     for (let t = 0; t < 2; t += 1 / 60) stepPenalties(m, 1 / 60, body);
-    expect(m.phase).toBe('end'); expect(m.winner).toBe(0);
+    expect(m.phase).toBe('execution'); expect(m.winner).toBe(0); expect(m.finale?.loser).toBe(1);
+    let finalDeath = false, prematureEnd = false, endings = 0;
+    for (let t = 0; t < 20; t += 1 / 60) {
+      stepPenalties(m, 1 / 60, body);
+      finalDeath ||= !!m.finale && m.death?.side === 1;
+      for (const e of takePenEvents(m)) if (e.type === 'end') { endings++; prematureEnd ||= !m.death?.finished; }
+    }
+    expect(finalDeath).toBe(true); expect(prematureEnd).toBe(false); expect(endings).toBe(1); expect(m.phase).toBe('end');
   });
+  for (const winner of [0, 1] as const) for (const last of ['goal', 'save'] as const) {
+    it(`la ejecución final mata al perdedor con ganador ${winner}, último penal ${last}`, () => {
+      const m = newPenalties('ice', ['frost', 'thunder'], () => 0), loser = winner === 0 ? 1 : 0;
+      m.kicks[winner] = [true, true, true]; m.kicks[loser] = Array(last === 'goal' ? 3 : 2).fill(false);
+      m.turn = last === 'goal' ? (winner === 0 ? 6 : 7) : (loser === 0 ? 4 : 5);
+      startKick(m, 0, last === 'goal' ? 2 : 0);
+      let sawExecution = false, sawFinalDeath = false;
+      for (let t = 0; t < 25; t += 1 / 60) {
+        stepPenalties(m, 1 / 60, body); takePenEvents(m);
+        if (m.phase === 'execution') { sawExecution = true; expect(m.finale?.loser).toBe(loser); expect(penaltyRefTarget(m)).not.toBeNull(); if (m.death) { sawFinalDeath = true; expect(m.death.side).toBe(loser); } }
+      }
+      expect(sawExecution && sawFinalDeath).toBe(true); expect(m.phase).toBe('end'); expect(m.winner).toBe(winner);
+    });
+  }
 });

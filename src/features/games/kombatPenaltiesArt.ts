@@ -5,7 +5,7 @@
 // desde la izquierda y el arquero espera en la línea, mirándolo. La red se deforma cuando entra la pelota (el marco
 // queda quieto encima) y si el arquero ataja, el que pateó explota en pedazos de esqueleto y sangre.
 import { type CharId, type StageId } from './kombat';
-import { T, arriveAt, colOf, fxOfTurn, keeperBlewIt, rowOf, type BallFx, type PenKick, type PenMatch, type Zone } from './kombatPenalties';
+import { FINAL_SHOT_AT, T, arriveAt, colOf, fxOfTurn, keeperBlewIt, rowOf, type BallFx, type PenKick, type PenMatch, type Zone } from './kombatPenalties';
 import { THEMES } from './kombatArt';
 import { PITCH } from './kombatSoccerArt';
 import { BODY_SCALE, LOOKS, drawFighterLit, idleFighter, setLowFx } from './kombatFighters';
@@ -13,7 +13,7 @@ import { alpha, bloom, darken, lighten } from './gravityMonsters';
 import { backdropFloor, backdropImage } from './kombatScenery';
 import { SIZE } from './kombat';
 import { drawPenDeath, drawPenDeathAtmosphere } from './kombatPenDeathsArt';
-import { drawPenBlood, drawPenGib, drawPenScreenBlood } from './kombatPenGoreArt';
+import { drawPenBlood, drawPenGib, drawPenProfileSkeleton, drawPenScreenBlood } from './kombatPenGoreArt';
 import netUrl from './assets/penales/arco-red.webp';
 import frameUrl from './assets/penales/arco-marco.webp';
 import ballUrl from './assets/penales/pelota.webp';
@@ -339,7 +339,7 @@ function drawBall(ctx: CanvasRenderingContext2D, x: number, y: number, r: number
 const NOFX = { power: 0, frozen: false, poison: false, burn: false, zap: false, shield: false, speed: false, aura: null };
 function drawKeeper(ctx: CanvasRenderingContext2D, m: PenMatch, char: CharId, rim: string) {
   const death = m.death?.keeper ? m.death : null;
-  if (death?.finished || (m.kick?.kboom && !death)) return;
+  if ((death?.finished && death.type !== 'acid') || (m.kick?.kboom && !death)) return;
   const poseMatch = death && m.kick ? { ...m, kick: { ...m.kick, t: death.at } } : m;
   const st = keeperState(poseMatch, char), f = idleFighter(char);
   f.facing = -1; f.action = st.action; f.actionT = st.prog; f.ground = st.rot === 0;
@@ -355,18 +355,27 @@ function drawKeeper(ctx: CanvasRenderingContext2D, m: PenMatch, char: CharId, ri
   }
   ctx.save(); ctx.translate(st.x, st.y - st.hipY); ctx.rotate(st.rot);
   const body = (c: CanvasRenderingContext2D, headScale = 1) => drawFighterLit(c, f, (death?.clock ?? m.time) + 0.4, { ...NOFX, headScale }, 0, st.hipY, FPX, rim, true);
-  if (death) drawPenDeath(ctx, death, 0, st.hipY, 2.3 * SIZE[char] * FPX, body); else body(ctx);
+  if (death) drawPenDeath(ctx, death, 0, st.hipY, 2.3 * SIZE[char] * FPX, body, c => drawPenProfileSkeleton(c, f, death.clock + 0.4, 0, st.hipY, FPX)); else body(ctx);
   ctx.restore();
 }
 function drawKicker(ctx: CanvasRenderingContext2D, m: PenMatch, side: 0 | 1, char: CharId, rim: string) {
   const death = m.death && !m.death.keeper ? m.death : null;
-  if (death?.finished) return;
+  if (death?.finished && death.type !== 'acid') return;
   const poseMatch = death && m.kick ? { ...m, kick: { ...m.kick, t: death.at, boom: false } } : m;
   const st = kickerState(poseMatch, side) ?? { gone: false, x: START[0], y: START[1], action: 'idle' as const, kickT: 0 };
   if (st.gone) return;
   const f = idleFighter(char); f.facing = 1; f.action = st.action; f.kickT = st.kickT; f.kickKind = 'normal';
   const body = (c: CanvasRenderingContext2D, headScale = 1) => drawFighterLit(c, f, death?.clock ?? m.time, { ...NOFX, headScale }, st.x, st.y, FPX, rim, !!death);
-  if (death) drawPenDeath(ctx, death, st.x, st.y, 2.3 * SIZE[char] * FPX, body); else body(ctx);
+  if (death) drawPenDeath(ctx, death, st.x, st.y, 2.3 * SIZE[char] * FPX, body, c => drawPenProfileSkeleton(c, f, death.clock, st.x, st.y, FPX)); else body(ctx);
+}
+function drawShootoutFinale(ctx: CanvasRenderingContext2D, m: PenMatch, rim: string) {
+  const finale = m.finale; if (!finale || m.winner === null) return;
+  const winner = idleFighter(m.chars[m.winner]); winner.facing = -1; winner.action = 'celebrate';
+  drawFighterLit(ctx, winner, m.time, NOFX, KEEPER[0], KEEPER[1], FPX, rim);
+  const char = m.chars[finale.loser], f = idleFighter(char), p = kickerBody(char); f.facing = 1; f.action = 'sad';
+  const d = m.death, t = d?.clock ?? m.time;
+  const body = (c: CanvasRenderingContext2D, headScale = 1) => drawFighterLit(c, f, t, { ...NOFX, headScale }, p.x, p.y, FPX, rim, true);
+  if (d) drawPenDeath(ctx, d, p.x, p.y, p.h, body, c => drawPenProfileSkeleton(c, f, t, p.x, p.y, FPX)); else body(ctx);
 }
 function drawGore(ctx: CanvasRenderingContext2D, m: PenMatch) {
   for (const st of m.gore.stains) {
@@ -383,12 +392,15 @@ function drawFlying(ctx: CanvasRenderingContext2D, m: PenMatch) {
   if (m.death) drawPenDeathAtmosphere(ctx, m.death);
   for (const d of m.gore.drops) drawPenBlood(ctx, d.x, d.y - d.z, d.r, Math.atan2(d.vy - d.vz, d.vx), Math.hypot(d.vx, d.vy - d.vz));
   for (const g of m.gore.gibs) { ctx.fillStyle = `rgba(0,0,0,${0.25 / (1 + g.z / 300)})`; ctx.beginPath(); ctx.ellipse(g.x, g.y, 22 * (g.scale ?? 1), 7 * (g.scale ?? 1), 0, 0, TAU); ctx.fill(); }
-  for (const skulls of [false, true]) for (const g of m.gore.gibs) { if ((g.kind === 'skull') !== skulls) continue; ctx.save(); ctx.translate(g.x, g.y - g.z - 8); ctx.scale(U * (g.scale ?? 1), U * (g.scale ?? 1)); ctx.rotate(g.a); drawPenGib(ctx, g.kind, g.c, g.va); ctx.restore(); }
+  for (const skulls of [false, true]) for (const g of m.gore.gibs) { if ((g.kind === 'skull') !== skulls) continue; ctx.save(); ctx.translate(g.x, g.y - g.z - 8); ctx.scale(U * (g.scale ?? 1), U * (g.scale ?? 1)); ctx.rotate(g.a); drawPenGib(ctx, g.kind, g.c, g.va, g.profile); ctx.restore(); }
   for (const f of m.fragments) {
     ctx.save(); ctx.globalAlpha = Math.min(1, (f.life - f.t) / 0.35); ctx.translate(f.x, f.y); ctx.rotate(f.a);
     if (f.kind === 'ice') {
       const r = f.size, g = ctx.createLinearGradient(-r, -r, r, r); g.addColorStop(0, 'rgba(240,252,255,0.95)'); g.addColorStop(0.5, 'rgba(140,210,250,0.85)'); g.addColorStop(1, 'rgba(50,120,200,0.9)'); ctx.fillStyle = g;
-      ctx.beginPath(); ctx.moveTo(-r, r * 0.4); ctx.lineTo(-r * 0.2, -r); ctx.lineTo(r, -r * 0.1); ctx.lineTo(r * 0.3, r * 0.7); ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = Math.max(1, r * 0.12); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-r * 0.65, -r * 0.55); ctx.lineTo(r * 0.45, -r * 0.5); ctx.lineTo(r * 0.6, r * 0.5); ctx.lineTo(-r * 0.55, r * 0.65); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(226,247,255,0.9)'; ctx.beginPath(); ctx.moveTo(-r * 0.65, -r * 0.55); ctx.lineTo(-r * 0.3, -r * 0.9); ctx.lineTo(r * 0.8, -r * 0.8); ctx.lineTo(r * 0.45, -r * 0.5); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(43,109,166,0.8)'; ctx.beginPath(); ctx.moveTo(r * 0.45, -r * 0.5); ctx.lineTo(r * 0.8, -r * 0.8); ctx.lineTo(r * 0.95, r * 0.2); ctx.lineTo(r * 0.6, r * 0.5); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = Math.max(1, r * 0.045); ctx.beginPath(); ctx.moveTo(-r * 0.5, -r * 0.5); ctx.lineTo(r * 0.35, -r * 0.45); ctx.lineTo(r * 0.5, r * 0.4); ctx.moveTo(-r * 0.3, -r * 0.4); ctx.lineTo(0, 0); ctx.lineTo(-r * 0.2, r * 0.45); ctx.stroke();
     } else { ctx.fillStyle = f.size > 6 ? '#514a43' : '#b8b0a2'; ctx.beginPath(); ctx.moveTo(-f.size * 0.5, 0); ctx.lineTo(-f.size * 0.15, -f.size * 0.4); ctx.lineTo(f.size * 0.5, f.size * 0.1); ctx.lineTo(0, f.size * 0.3); ctx.closePath(); ctx.fill(); }
     ctx.restore();
   }
@@ -424,15 +436,16 @@ function refToWorld(p: RefPose, q: P2, turned: boolean): P2 {
 }
 const refMuzzle = (p: RefPose): P2 => refToWorld(p, REF_ART[p.who].muzzle, true);
 // A quién le dispara en este penal (si le dispara), desde cuándo y adónde apunta.
-function refTarget(m: PenMatch): { who: RefKey; t0: number; to: P2 } | null {
+export function penaltyRefTarget(m: PenMatch): { who: RefKey; t0: number; to: P2 } | null {
+  if (m.finale) { const c = kickerBody(m.chars[m.finale.loser]); return { who: 'ref2', t0: FINAL_SHOT_AT - SHOT, to: [c.x, c.y - c.h * 0.55] }; }
   const k = m.kick; if (!k || !k.hit) return null;
   if (k.outcome === 'save') { const c = kickerBody(m.chars[k.shooter]); return { who: 'ref2', t0: T.boom - SHOT, to: [c.x, c.y - c.h * 0.55] }; }
   if (!keeperBlewIt(k.shot, k.dive)) return null;
-  const ks: 0 | 1 = k.shooter === 0 ? 1 : 0, c = keeperBody(m, m.chars[ks]);
+  const ks: 0 | 1 = k.shooter === 0 ? 1 : 0, c = m.death?.keeper ? m.death : keeperBody(m, m.chars[ks]);
   return { who: 'ref1', t0: T.boom + 0.1 - SHOT, to: [c.x, c.y - c.h * 0.5] };
 }
 function refPose(m: PenMatch): { pose: RefPose; shot: { from: P2; to: P2; k: number } | null } {
-  const tg = refTarget(m), a = m.kick ? m.kick.t - arriveAt() : 0;
+  const tg = penaltyRefTarget(m), a = m.finale ? (m.phase === 'end' ? 99 : m.phaseT) : m.kick ? m.kick.t - arriveAt() : 0;
   if (!tg) return { pose: { who: 'ref1', flip: false, rot: 0, pivot: [REF_ART.ref1.hip, REF_ART.ref1.waist] }, shot: null };
   const art = REF_ART[tg.who], flip = tg.to[0] < REF[0];
   // el giro que hace que la línea del arma pase por la víctima (se ajusta unas veces porque la punta también se mueve)
@@ -502,6 +515,7 @@ export function drawPenalties(ctx: CanvasRenderingContext2D, m: PenMatch, w: num
   ctx.translate(v.ox, v.oy); ctx.scale(v.k, v.k);
   drawGore(ctx, m);
   const net = img('net'), frame = img('frame'), b = ballState(m);
+  if (m.finale) { b.inside = false; b.alpha = 0; }
   // la red (deformada si acaba de entrar la pelota), la pelota si está adentro, y el marco encima
   let hit: P2 | null = null, ht = 0;
   if (k && k.outcome === 'goal' && k.t >= arriveAt() + 0.1) { const tg = zonePoint(k.shot); hit = [tg[0] + DEPTH[0] * BACK_K, tg[1] + DEPTH[1] * BACK_K]; ht = k.t - arriveAt() - 0.1; }
@@ -510,14 +524,14 @@ export function drawPenalties(ctx: CanvasRenderingContext2D, m: PenMatch, w: num
   if (frame) ctx.drawImage(frame, 0, 0);
   // el arquero, el que patea y la pelota (si todavía no entró)
   drawReferee(ctx, m);
-  drawKeeper(ctx, m, m.chars[keeperSide], rim);
-  drawKicker(ctx, m, shooter, m.chars[shooter], rim);
+  if (m.finale) drawShootoutFinale(ctx, m, rim);
+  else { drawKeeper(ctx, m, m.chars[keeperSide], rim); drawKicker(ctx, m, shooter, m.chars[shooter], rim); }
   if (!b.inside) {
     ctx.fillStyle = `rgba(0,0,0,${0.35 * b.alpha})`; ctx.beginPath(); ctx.ellipse(b.shadow[0], b.shadow[1], b.r * 1.1, b.r * 0.35, 0.3, 0, TAU); ctx.fill();
     drawBallFx(ctx, m, b); drawBall(ctx, b.x, b.y, b.r, b.spin, b.alpha);
   }
   // el destello de la explosión
-  if (m.death?.type === 'explosion' && k?.boom && k.t < arriveAt() + T.boom + 0.5) {
+  if (!m.finale && m.death?.type === 'explosion' && k?.boom && k.t < arriveAt() + T.boom + 0.5) {
     const e = (k.t - arriveAt() - T.boom) / 0.5, c = kickerBody(m.chars[k.shooter]);
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, c.x, c.y - c.h * 0.55, 260 + e * 200, '#fb923c', 0.9 * (1 - e)); bloom(ctx, c.x, c.y - c.h * 0.55, 120, '#fff7d6', 0.9 * (1 - e)); ctx.restore();
   }
