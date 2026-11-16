@@ -72,9 +72,14 @@ export const fxOfTurn = (turn: number): BallFx => BALL_FX[Math.floor(turn / 2) %
 export const keeperBlewIt = (shot: Zone, dive: Zone) => colOf(shot) !== colOf(dive);
 export const DEATH_TYPES = ['explosion', 'fire', 'violet', 'acid', 'ice', 'head', 'ash'] as const;
 export type PenDeathType = typeof DEATH_TYPES[number];
-// Las duraciones del fuego, el ácido y el hielo son las de Vampyrium.
-export const DEATH_AT: Record<PenDeathType, number> = { explosion: 0, fire: 1.05, violet: 1.15, acid: 3.2, ice: 0.7, head: 1.6, ash: 2.1 };
-export const HEAD_GROWTH = 3.4;
+// Más anticipación y tiempo para leer cada transformación antes del estallido.
+export const DEATH_AT: Record<PenDeathType, number> = { explosion: 0, fire: 1.65, violet: 1.65, acid: 4.1, ice: 1.05, head: 2.05, ash: 2.65 };
+export const HEAD_GROWTH = 4.2;
+export const ACID_MELT_T = 2.45;
+export function acidCollapse(t: number) {
+  const q = Math.min(1, Math.max(0, t / ACID_MELT_T)), fall = q * q * (3 - 2 * q);
+  return { q, height: Math.max(0.025, 1 - fall * 0.975), width: 1 - fall * 0.18 };
+}
 export interface PenDeath { type: PenDeathType; side: 0 | 1; keeper: boolean; at: number; clock: number; t: number; finished: boolean; x: number; y: number; h: number }
 export interface PenKick { shooter: 0 | 1; shot: Zone; dive: Zone; outcome: 'goal' | 'save'; t: number; scored: boolean; boom: boolean; kboom: boolean; hit: boolean; sounded: boolean; fx: BallFx }
 export interface Gib { x: number; y: number; z: number; vx: number; vy: number; vz: number; a: number; va: number; kind: GibKind; c: string; life: number; scale?: number }
@@ -121,7 +126,7 @@ export const T = {
   next: 2.0, // pausa después de que se define el penal (antes del siguiente)
 };
 export const arriveAt = () => T.contact + T.flight;
-export const kickDuration = (death?: PenDeathType) => Math.max(arriveAt() + T.next + 0.25, death ? arriveAt() + T.boom + 0.1 + DEATH_AT[death] + 1.2 : 0);
+export const kickDuration = (death?: PenDeathType) => Math.max(arriveAt() + T.next + 0.25, death ? arriveAt() + T.boom + 0.1 + DEATH_AT[death] + 1.8 : 0);
 
 // Arranca el penal con las dos elecciones.
 export function startKick(m: PenMatch, shot: Zone, dive: Zone, reach = 0.3) {
@@ -174,22 +179,23 @@ function beginDeath(m: PenMatch, side: 0 | 1, keeper: boolean, p: { x: number; y
   m.events.push({ type: 'deathStart', death: type });
 }
 function updateDeath(m: PenMatch) {
-  const d = m.death; if (!d || !m.kick || d.finished) return;
+  const d = m.death; if (!d || !m.kick) return;
   const prev = d.t; d.t = Math.max(0, m.kick.t - d.at);
+  if (d.finished) return;
   if (d.type === 'fire' && prev < 0.25 && d.t >= 0.25) m.events.push({ type: 'burn' });
   if (d.type === 'ash') {
     // Emisión por intervalos: igual cantidad de cenizas a 30, 60 o 120 fps.
-    for (let i = Math.floor(prev * 100); i < Math.floor(Math.min(d.t, DEATH_AT.ash) * 100); i++) {
+    for (let i = Math.floor(prev * 220); i < Math.floor(Math.min(d.t, DEATH_AT.ash) * 220); i++) {
       const r = m.rand;
-      m.fragments.push({ kind: 'ash', x: d.x + (r() - 0.5) * d.h * 0.5, y: d.y - d.h * (1 - i / (DEATH_AT.ash * 100)), vx: 130 + r() * 220, vy: -35 - r() * 65, a: r() * 6, va: (r() - 0.5) * 5, size: 2 + r() * 5, t: 0, life: 1.1 });
+      m.fragments.push({ kind: 'ash', x: d.x + (r() - 0.5) * d.h * 0.65, y: d.y - d.h * (1 - i / (DEATH_AT.ash * 220)), vx: 170 + r() * 400, vy: -25 - r() * 110, a: r() * 6, va: (r() - 0.5) * 5, size: 1 + r() * 9, t: 0, life: 1.6 });
     }
   }
   if (d.t < DEATH_AT[d.type]) return;
   d.finished = true;
   if (d.type === 'ice') {
     const r = m.rand;
-    for (let i = 0; i < 32; i++) m.fragments.push({ kind: 'ice', x: d.x + (r() - 0.5) * d.h * 0.5, y: d.y - r() * d.h, vx: (r() - 0.5) * 950, vy: -150 - r() * 600, a: r() * 6, va: (r() - 0.5) * 24, size: d.h * (0.025 + r() * 0.065), t: 0, life: 1.15 });
-    m.shake = 0.5;
+    for (let i = 0; i < 70; i++) m.fragments.push({ kind: 'ice', x: d.x + (r() - 0.5) * d.h * 0.5, y: d.y - r() * d.h, vx: (r() - 0.5) * 1400, vy: -180 - r() * 850, a: r() * 6, va: (r() - 0.5) * 24, size: d.h * (0.012 + r() * 0.08), t: 0, life: 1.75 });
+    m.shake = 0.85;
   } else if (d.type !== 'acid' && d.type !== 'ash') {
     explode(m, d.x, d.y, d.h, m.chars[d.side], undefined, m.humans[d.side]);
     if (d.type === 'head') {
@@ -206,19 +212,20 @@ function updateDeath(m: PenMatch) {
 const GRAV = 2300;
 export function explode(m: PenMatch, x: number, y: number, h: number, char: CharId, color = '#9ca3af', heavy = false) {
   const r = m.rand, G = m.gore;
-  for (let i = 0; i < 110; i++) { const a = r() * Math.PI * 2, sp = 200 + r() * 900; G.drops.push({ x, y, z: h * (0.25 + r() * 0.65), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.55, vz: 300 + r() * 1100, r: 3 + r() * 7 }); }
+  for (let i = 0; i < 260; i++) { const a = r() * Math.PI * 2, sp = 140 + r() * 1250; G.drops.push({ x, y, z: h * (0.25 + r() * 0.65), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.55, vz: 300 + r() * 1400, r: 1.2 + Math.pow(r(), 2) * 8 }); }
   const kinds: GibKind[] = ['skull', 'jaw', 'ribs', 'ribs', 'pelvis', 'bone', 'bone', 'bone', 'bone', 'bone', 'bone', 'chunk', 'chunk', 'chunk', 'chunk', 'plate', 'plate', 'plate', 'plate'];
+  kinds.push('bone', 'bone', 'bone', 'bone', 'bone', 'bone', 'chunk', 'chunk', 'chunk', 'chunk', 'chunk', 'chunk', 'chunk', 'chunk');
   kinds.forEach((kind, i) => {
     const a = (i / kinds.length) * Math.PI * 2 + r() * 0.5, sp = 350 + r() * 750;
     G.gibs.push({ x, y, z: h * (kind === 'skull' || kind === 'jaw' ? 0.85 : kind === 'pelvis' ? 0.4 : 0.3 + r() * 0.5), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.55, vz: 500 + r() * 1000, a: r() * 6, va: (r() - 0.5) * 22, kind, c: color, life: 0 });
   });
   const cols = ['#fde68a', '#fb923c', '#ef4444', '#ffffff'];
-  for (let i = 0; i < 40; i++) { const a = r() * Math.PI * 2, sp = 300 + r() * 900; m.sparks.push({ x, y, z: h * 0.55, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.6, vz: (r() - 0.3) * 900, life: 0, max: 0.35 + r() * 0.4, color: cols[i % 4], size: 4 + r() * 8 }); }
-  G.stains.push({ x, y, r: 70 + r() * 30, seed: r() * 100, t: 0 });
+  for (let i = 0; i < 70; i++) { const a = r() * Math.PI * 2, sp = 300 + r() * 1100; m.sparks.push({ x, y, z: h * 0.55, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.6, vz: (r() - 0.3) * 900, life: 0, max: 0.45 + r() * 0.5, color: cols[i % 4], size: 2 + r() * 7 }); }
+  G.stains.push({ x, y, r: 100 + r() * 55, seed: r() * 100, t: 0 });
   for (let k = 0; k < 4; k++) m.screenBlood.push({ x: 0.08 + r() * 0.84, y: 0.2 + r() * 0.6, r: 0.016 + r() * 0.026, t: -k * 0.06, seed: r() * 100, drips: 3 + Math.floor(r() * 4) });
   // si el que explota es el de la persona (perdió el penal): la pantalla queda salpicada de sangre por todos lados
   if (heavy) for (let k = 0; k < 26; k++) m.screenBlood.push({ x: 0.03 + r() * 0.94, y: 0.05 + r() * 0.85, r: (k < 5 ? 0.05 : 0.022) + r() * (k < 5 ? 0.05 : 0.035), t: -0.05 - k * 0.025, seed: r() * 100, drips: 4 + Math.floor(r() * 6) });
-  m.shake = 1.4; m.flash = 0.6;
+  m.shake = 1.75; m.flash = 0.45;
   void char;
 }
 function updateGore(m: PenMatch, dt: number) {

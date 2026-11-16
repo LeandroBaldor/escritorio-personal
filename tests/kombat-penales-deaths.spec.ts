@@ -16,7 +16,7 @@ test('las siete muertes se dibujan para ambos roles y todos los luchadores', asy
     await page.selectOption('#role', role);
     for (const char of chars) {
       await page.selectOption('#char', char);
-      for (const t of [2.3, 2.9, 3.55, 4.4]) {
+      for (const t of [2.3, 3.2, 4.4, 5.4]) {
         await page.evaluate(t => (window as unknown as { penPreview: { seek(t: number): void } }).penPreview.seek(t), t);
         await page.evaluate(() => new Promise(requestAnimationFrame));
       }

@@ -1,9 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { DEATH_AT, DEATH_TYPES, HEAD_GROWTH, arriveAt, kickDuration, newPenalties, startKick, stepPenalties, takePenEvents } from './kombatPenalties';
+import { ACID_MELT_T, DEATH_AT, DEATH_TYPES, HEAD_GROWTH, acidCollapse, arriveAt, kickDuration, newPenalties, startKick, stepPenalties, takePenEvents } from './kombatPenalties';
 import { SIZE } from './kombat';
 
 const body = () => ({ x: 100, y: 500, h: 300 });
 describe('muertes de Kombat Penales', () => {
+  it('el ácido colapsa hacia el piso sin ensanchar horizontalmente el cuerpo', () => {
+    let previousHeight = 1;
+    for (let t = 0; t <= ACID_MELT_T + 0.2; t += 0.05) {
+      const pose = acidCollapse(t);
+      expect(pose.width).toBeLessThanOrEqual(1);
+      expect(pose.height).toBeLessThanOrEqual(previousHeight);
+      expect(pose.height).toBeGreaterThan(0);
+      previousHeight = pose.height;
+    }
+    expect(acidCollapse(ACID_MELT_T / 2).height).toBeLessThan(0.6);
+    expect(acidCollapse(ACID_MELT_T / 2).width).toBeGreaterThan(0.85);
+  });
+  it('el reloj continúa después de explotar para que humo y ondas se desvanezcan', () => {
+    const m = newPenalties('ice', ['frost', 'thunder'], () => 0);
+    startKick(m, 0, 0);
+    for (let t = 0; t < 3.1; t += 1 / 60) stepPenalties(m, 1 / 60, body);
+    expect(m.death?.finished).toBe(true);
+    expect(m.death?.t).toBeGreaterThan(1);
+    expect(m.phase).toBe('kick');
+  });
   for (const [i, type] of DEATH_TYPES.entries()) for (const keeper of [false, true]) {
     it(`${type}: víctima ${keeper ? 'arquero' : 'pateador'}, secuencia completa y limpieza`, () => {
       const m = newPenalties('ice', ['frost', 'thunder'], () => (i + 0.1) / DEATH_TYPES.length);

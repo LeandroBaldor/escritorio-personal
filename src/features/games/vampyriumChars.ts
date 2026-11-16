@@ -659,7 +659,7 @@ export function boneSeg(ctx: CanvasRenderingContext2D, a: Pt, b: Pt, w: number) 
 // falanges), con el tamaño y la forma de cada uno: el gigante ancho y de huesos gruesos, el volador con los huesos
 // de las alas y el hombre lobo en cuatro patas con hocico y cola.
 const B_LT = '#f3ead2', B_MD = '#d2c09a', B_DK = '#8d7650', B_INK = '#24170c';
-function boneShaft(ctx: CanvasRenderingContext2D, a: Pt, b: Pt, w: number) {
+export function boneShaft(ctx: CanvasRenderingContext2D, a: Pt, b: Pt, w: number) {
   const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, n: Pt = [-dy / l, dx / l];
   const g = ctx.createLinearGradient(a[0] + n[0] * w, a[1] + n[1] * w, a[0] - n[0] * w, a[1] - n[1] * w); g.addColorStop(0, B_LT); g.addColorStop(0.55, B_MD); g.addColorStop(1, B_DK);
   const m = 0.42; // la diáfisis más finita que las puntas
@@ -716,7 +716,7 @@ function boneSkull(ctx: CanvasRenderingContext2D, x: number, y: number, r: numbe
   for (let i = 0; i < 6; i++) { const tx = 0.08 + i * (0.08 + snout * 0.08), fang = i === 4; ctx.beginPath(); ctx.moveTo(tx, 0.42); ctx.lineTo(tx + 0.03, fang ? 0.68 : 0.52); ctx.lineTo(tx + 0.06, 0.42); ctx.closePath(); ctx.fill(); ctx.stroke(); } // dientes y colmillos
   ctx.restore();
 }
-function ribCage(ctx: CanvasRenderingContext2D, cx: number, top: number, w: number, h: number, n = 7, horizontal = false) {
+export function ribCage(ctx: CanvasRenderingContext2D, cx: number, top: number, w: number, h: number, n = 7, horizontal = false) {
   ctx.lineCap = 'round';
   for (let i = 0; i < n; i++) {
     const k = i / (n - 1), y = top + k * h * 0.8, rw = w * (0.75 + Math.sin(Math.min(1, k * 1.4) * Math.PI * 0.6) * 0.35), drop = h * (0.12 + k * 0.08);

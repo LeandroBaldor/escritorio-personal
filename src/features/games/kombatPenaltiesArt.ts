@@ -6,13 +6,14 @@
 // queda quieto encima) y si el arquero ataja, el que pateó explota en pedazos de esqueleto y sangre.
 import { type CharId, type StageId } from './kombat';
 import { T, arriveAt, colOf, fxOfTurn, keeperBlewIt, rowOf, type BallFx, type PenKick, type PenMatch, type Zone } from './kombatPenalties';
-import { THEMES, drawGib, drawScreenBlood, type View } from './kombatArt';
+import { THEMES } from './kombatArt';
 import { PITCH } from './kombatSoccerArt';
 import { BODY_SCALE, LOOKS, drawFighterLit, idleFighter, setLowFx } from './kombatFighters';
 import { alpha, bloom, darken, lighten } from './gravityMonsters';
 import { backdropFloor, backdropImage } from './kombatScenery';
 import { SIZE } from './kombat';
-import { drawPenDeath } from './kombatPenDeathsArt';
+import { drawPenDeath, drawPenDeathAtmosphere } from './kombatPenDeathsArt';
+import { drawPenBlood, drawPenGib, drawPenScreenBlood } from './kombatPenGoreArt';
 import netUrl from './assets/penales/arco-red.webp';
 import frameUrl from './assets/penales/arco-marco.webp';
 import ballUrl from './assets/penales/pelota.webp';
@@ -346,7 +347,9 @@ function drawKeeper(ctx: CanvasRenderingContext2D, m: PenMatch, char: CharId, ri
   const gy = m.kick ? Math.max(st.y, KEEPER[1]) : KEEPER[1], S = FPX * BODY_SCALE * SIZE[char];
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(st.x, Math.min(gy, st.y + 400), S * 0.5 + Math.abs(Math.sin(st.rot)) * S * 0.7, S * 0.09, 0.3, 0, TAU); ctx.fill();
   if (death?.type === 'acid' || death?.type === 'ash') {
-    const body = (c: CanvasRenderingContext2D) => { c.save(); c.translate(st.x, st.y - st.hipY); c.rotate(st.rot); drawFighterLit(c, f, death.clock + 0.4, NOFX, 0, st.hipY, FPX, rim, true); c.restore(); };
+    const rise = death.type === 'acid' ? easeInOut(death.t / 0.38) : 0;
+    if (rise > 0.5) { f.action = 'sad'; f.ground = true; }
+    const body = (c: CanvasRenderingContext2D) => { c.save(); c.translate(lerp(st.x, death.x, rise), lerp(st.y, death.y, rise) - st.hipY); c.rotate(st.rot * (1 - rise)); drawFighterLit(c, f, death.clock + 0.4, NOFX, 0, st.hipY, FPX, rim, true); c.restore(); };
     drawPenDeath(ctx, death, death.x, death.y, 2.3 * SIZE[char] * FPX, body);
     return;
   }
@@ -368,27 +371,29 @@ function drawKicker(ctx: CanvasRenderingContext2D, m: PenMatch, side: 0 | 1, cha
 function drawGore(ctx: CanvasRenderingContext2D, m: PenMatch) {
   for (const st of m.gore.stains) {
     const a = st.t < 25 ? 0.85 : Math.max(0, 0.85 * (1 - (st.t - 25) / 10)), r = st.r * Math.min(1, st.t * 8 + 0.3);
-    ctx.fillStyle = `rgba(110,4,10,${a})`; ctx.beginPath();
-    for (let k = 0; k < 9; k++) { const ang = k / 9 * TAU, rr = r * (0.7 + ((Math.sin(st.seed * 7 + k * 3.1) + 1) / 2) * 0.5); ctx.lineTo(st.x + Math.cos(ang) * rr, st.y + Math.sin(ang) * rr * 0.45); }
+    const g = ctx.createRadialGradient(st.x - r * 0.15, st.y - r * 0.1, 0, st.x, st.y, r * 1.2); g.addColorStop(0, `rgba(112,12,25,${a})`); g.addColorStop(0.55, `rgba(66,3,12,${a})`); g.addColorStop(1, `rgba(30,1,7,${a * 0.85})`);
+    ctx.fillStyle = g; ctx.beginPath();
+    for (let k = 0; k < 25; k++) { const ang = k / 25 * TAU, rr = r * (0.8 + Math.sin(st.seed * 7 + k * 3.1) * 0.17); ctx.lineTo(st.x + Math.cos(ang) * rr, st.y + Math.sin(ang) * rr * 0.4); }
     ctx.closePath(); ctx.fill();
+    if (r > 12) { ctx.strokeStyle = `rgba(185,71,81,${a * 0.22})`; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.ellipse(st.x - r * 0.13, st.y - r * 0.12, r * 0.45, r * 0.06, -0.1, Math.PI, TAU); ctx.stroke(); }
   }
 }
 function drawFlying(ctx: CanvasRenderingContext2D, m: PenMatch) {
   const U = FPX * 1.6;
-  for (const g of m.gore.gibs) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(g.x, g.y, 18, 6, 0, 0, TAU); ctx.fill(); }
-  for (const g of m.gore.gibs) { ctx.save(); ctx.translate(g.x, g.y - g.z - 8); ctx.scale(U * (g.scale ?? 1), U * (g.scale ?? 1)); ctx.rotate(g.a); drawGib(ctx, g.kind, g.c); ctx.restore(); }
+  if (m.death) drawPenDeathAtmosphere(ctx, m.death);
+  for (const d of m.gore.drops) drawPenBlood(ctx, d.x, d.y - d.z, d.r, Math.atan2(d.vy - d.vz, d.vx), Math.hypot(d.vx, d.vy - d.vz));
+  for (const g of m.gore.gibs) { ctx.fillStyle = `rgba(0,0,0,${0.25 / (1 + g.z / 300)})`; ctx.beginPath(); ctx.ellipse(g.x, g.y, 22 * (g.scale ?? 1), 7 * (g.scale ?? 1), 0, 0, TAU); ctx.fill(); }
+  for (const skulls of [false, true]) for (const g of m.gore.gibs) { if ((g.kind === 'skull') !== skulls) continue; ctx.save(); ctx.translate(g.x, g.y - g.z - 8); ctx.scale(U * (g.scale ?? 1), U * (g.scale ?? 1)); ctx.rotate(g.a); drawPenGib(ctx, g.kind, g.c, g.va); ctx.restore(); }
   for (const f of m.fragments) {
     ctx.save(); ctx.globalAlpha = Math.min(1, (f.life - f.t) / 0.35); ctx.translate(f.x, f.y); ctx.rotate(f.a);
     if (f.kind === 'ice') {
       const r = f.size, g = ctx.createLinearGradient(-r, -r, r, r); g.addColorStop(0, 'rgba(240,252,255,0.95)'); g.addColorStop(0.5, 'rgba(140,210,250,0.85)'); g.addColorStop(1, 'rgba(50,120,200,0.9)'); ctx.fillStyle = g;
       ctx.beginPath(); ctx.moveTo(-r, r * 0.4); ctx.lineTo(-r * 0.2, -r); ctx.lineTo(r, -r * 0.1); ctx.lineTo(r * 0.3, r * 0.7); ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = Math.max(1, r * 0.12); ctx.stroke();
-    } else { ctx.fillStyle = '#a8a29e'; ctx.fillRect(-f.size / 2, -f.size / 2, f.size, f.size * 0.6); }
+    } else { ctx.fillStyle = f.size > 6 ? '#514a43' : '#b8b0a2'; ctx.beginPath(); ctx.moveTo(-f.size * 0.5, 0); ctx.lineTo(-f.size * 0.15, -f.size * 0.4); ctx.lineTo(f.size * 0.5, f.size * 0.1); ctx.lineTo(0, f.size * 0.3); ctx.closePath(); ctx.fill(); }
     ctx.restore();
   }
-  ctx.fillStyle = '#b10f1c';
-  for (const d of m.gore.drops) { ctx.beginPath(); ctx.ellipse(d.x, d.y - d.z, d.r, d.r * 1.25, Math.atan2(-d.vz, d.vx) + Math.PI / 2, 0, TAU); ctx.fill(); }
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  for (const s of m.sparks) { const k = 1 - s.life / s.max; ctx.fillStyle = alpha(s.color, k); ctx.fillRect(s.x - s.size / 2, s.y - s.z - s.size / 2, s.size, s.size); }
+  for (const s of m.sparks) { const k = 1 - s.life / s.max; ctx.strokeStyle = alpha(s.color, k); ctx.lineWidth = Math.max(0.7, s.size * k * 0.4); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(s.x, s.y - s.z); ctx.lineTo(s.x - s.vx * 0.018, s.y - s.z - (s.vy - s.vz) * 0.018); ctx.stroke(); }
   ctx.restore();
 }
 // ---------------------------------------------------------------- El árbitro (dibujos del usuario)
@@ -520,7 +525,7 @@ export function drawPenalties(ctx: CanvasRenderingContext2D, m: PenMatch, w: num
   drawShot(ctx, m);
   ctx.restore();
   // la sangre en la pantalla, el flash y la viñeta
-  drawScreenBlood(ctx, m.screenBlood, { w, h } as View);
+  drawPenScreenBlood(ctx, m.screenBlood, w, h);
   if (m.flash > 0) { ctx.fillStyle = `rgba(255,240,220,${m.flash * 0.45})`; ctx.fillRect(0, 0, w, h); }
   const vg = ctx.createRadialGradient(w / 2, h * 0.55, Math.min(w, h) * 0.45, w / 2, h * 0.55, Math.max(w, h) * 0.8); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.32)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
