@@ -371,37 +371,76 @@ function drawFlying(ctx: CanvasRenderingContext2D, m: PenMatch) {
   ctx.restore();
 }
 // ---------------------------------------------------------------- El árbitro (dibujos del usuario)
-// Está parado al costado del arco, a la izquierda del palo. Si el arquero no ataja un gol tirándose para el otro lado,
-// le dispara al arquero (dibujo 1, apuntando a la derecha); si el arquero ataja, le dispara al que pateó (dibujo 2,
-// apuntando a la izquierda). El disparo es una línea roja corta que viaja hacia la víctima y ahí explota.
-const REF: P2 = [40, 560]; // los pies
-const REF_H = 2.25 * FPX, REF_W = REF_H * 520 / 585;
-// dónde está el cuerpo en cada dibujo (para que no se corra al cambiar) y la punta del arma (fracciones del dibujo)
-const REF_BODY = { ref1: 0.35, ref2: 0.65 }, REF_MUZZLE = { ref1: [0.96, 0.58], ref2: [0.04, 0.58] } as const;
-const refMuzzle = (k: 'ref1' | 'ref2'): P2 => [REF[0] - REF_BODY[k] * REF_W + REF_MUZZLE[k][0] * REF_W, REF[1] - REF_H + REF_MUZZLE[k][1] * REF_H];
+// Está parado afuera del área chica, a la izquierda del arco (donde lo marcó el usuario). Si el arquero no ataja un gol
+// tirándose para el otro lado, le dispara al arquero (dibujo 1); si el arquero ataja, le dispara al que pateó (dibujo 2).
+// Para apuntar bien se inclina desde la cintura (gira el torso, los brazos y el arma) hasta que el arma mira a la víctima;
+// si la víctima queda del otro lado al que mira el dibujo, el dibujo se da vuelta. El disparo es una línea roja corta.
+const REF: P2 = [-390, 425]; // los pies
+const REF_IW = 520, REF_IH = 585; // tamaño de los dibujos
+const REF_H = 2.25 * FPX, REF_S = REF_H / REF_IH, REF_W = REF_IW * REF_S;
+// En px del dibujo, como si mirara a la derecha (el dibujo 2 se toma espejado): el centro del cuerpo entre los pies,
+// la punta del arma, el ángulo del arma, la cintura (corte entre el torso y las piernas; gira desde hip) y desde qué x el arma baja más.
+type RefKey = 'ref1' | 'ref2';
+const REF_ART: Record<RefKey, { body: number; muzzle: P2; gun: number; waist: number; hip: number; front: number }> = {
+  ref1: { body: 182, muzzle: [500, 345], gun: Math.atan2(205, 355), waist: 330, hip: 190, front: 315 },
+  ref2: { body: 182, muzzle: [500, 350], gun: Math.atan2(200, 350), waist: 330, hip: 180, front: 300 },
+};
+const REF_MAX = 0.6; // lo más que se inclina (rad)
 const SHOT = 0.18; // lo que tarda el disparo en llegar
-// El disparo del momento (si hay): a quién, desde dónde, hasta dónde y cuánto recorrió.
-function refShot(m: PenMatch): { who: 'ref1' | 'ref2'; from: P2; to: P2; k: number } | null {
-  const k = m.kick; if (!k || !k.hit) return null;
-  const a = k.t - arriveAt();
-  if (k.outcome === 'save') {
-    const t0 = T.boom - SHOT; if (a < t0 || a > T.boom + 0.12) return null;
-    const c = kickerBody(m.chars[k.shooter]); return { who: 'ref2', from: refMuzzle('ref2'), to: [c.x, c.y - c.h * 0.55], k: (a - t0) / SHOT };
-  }
-  if (!keeperBlewIt(k.shot, k.dive)) return null;
-  const t0 = T.boom + 0.1 - SHOT; if (a < t0 || a > T.boom + 0.22) return null;
-  const ks: 0 | 1 = k.shooter === 0 ? 1 : 0, c = keeperBody(m, m.chars[ks]);
-  return { who: 'ref1', from: refMuzzle('ref1'), to: [c.x, c.y - c.h * 0.5], k: (a - t0) / SHOT };
+const AIM = 0.3; // cuánto antes del disparo empieza a apuntar
+interface RefPose { who: RefKey; flip: boolean; rot: number; pivot: P2 } // pivot en px del dibujo (mirando a la derecha)
+// De px del dibujo (mirando a la derecha) al mundo, con el torso girado rot alrededor de pivot.
+function refToWorld(p: RefPose, q: P2, turned: boolean): P2 {
+  let [x, y] = q;
+  if (turned) { const c = Math.cos(p.rot), s = Math.sin(p.rot), dx = x - p.pivot[0], dy = y - p.pivot[1]; x = p.pivot[0] + dx * c - dy * s; y = p.pivot[1] + dx * s + dy * c; }
+  const lx = (x - REF_ART[p.who].body) * REF_S;
+  return [REF[0] + (p.flip ? -lx : lx), REF[1] - REF_H + y * REF_S];
 }
+const refMuzzle = (p: RefPose): P2 => refToWorld(p, REF_ART[p.who].muzzle, true);
+// A quién le dispara en este penal (si le dispara), desde cuándo y adónde apunta.
+function refTarget(m: PenMatch): { who: RefKey; t0: number; to: P2 } | null {
+  const k = m.kick; if (!k || !k.hit) return null;
+  if (k.outcome === 'save') { const c = kickerBody(m.chars[k.shooter]); return { who: 'ref2', t0: T.boom - SHOT, to: [c.x, c.y - c.h * 0.55] }; }
+  if (!keeperBlewIt(k.shot, k.dive)) return null;
+  const ks: 0 | 1 = k.shooter === 0 ? 1 : 0, c = keeperBody(m, m.chars[ks]);
+  return { who: 'ref1', t0: T.boom + 0.1 - SHOT, to: [c.x, c.y - c.h * 0.5] };
+}
+function refPose(m: PenMatch): { pose: RefPose; shot: { from: P2; to: P2; k: number } | null } {
+  const tg = refTarget(m), a = m.kick ? m.kick.t - arriveAt() : 0;
+  if (!tg) return { pose: { who: 'ref1', flip: false, rot: 0, pivot: [REF_ART.ref1.hip, REF_ART.ref1.waist] }, shot: null };
+  const art = REF_ART[tg.who], flip = tg.to[0] < REF[0];
+  // el giro que hace que la línea del arma pase por la víctima (se ajusta unas veces porque la punta también se mueve)
+  let rot = 0; const pivot: P2 = [art.hip, art.waist];
+  for (let i = 0; i < 4; i++) {
+    const mz = refMuzzle({ who: tg.who, flip, rot, pivot }), dx = (tg.to[0] - mz[0]) * (flip ? -1 : 1), dy = tg.to[1] - mz[1];
+    rot = Math.max(-REF_MAX, Math.min(REF_MAX, Math.atan2(dy, dx) - art.gun));
+  }
+  const e = easeInOut((a - (tg.t0 - AIM)) / AIM);
+  const pose: RefPose = { who: tg.who, flip, rot: rot * e, pivot };
+  const k = (a - tg.t0) / SHOT, show = a >= tg.t0 && a <= tg.t0 + SHOT + 0.12;
+  return { pose, shot: show ? { from: refMuzzle(pose), to: tg.to, k } : null };
+}
+const refShot = (m: PenMatch) => refPose(m).shot;
 function drawReferee(ctx: CanvasRenderingContext2D, m: PenMatch) {
-  const k = m.kick, sh = refShot(m);
-  // apunta al que va a explotar desde un rato antes del disparo hasta un rato después
-  let who: 'ref1' | 'ref2' = 'ref1';
-  if (k?.hit && k.outcome === 'save') who = 'ref2';
-  const im = img(who);
-  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(REF[0] + (who === 'ref1' ? 0.1 : -0.1) * REF_W, REF[1] - 4, REF_W * 0.42, REF_W * 0.09, 0.3, 0, TAU); ctx.fill();
-  if (im) ctx.drawImage(im, REF[0] - REF_BODY[who] * REF_W, REF[1] - REF_H, REF_W, REF_H);
-  if (sh && sh.k < 0.35) { const [x, y] = sh.from; ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, y, 70, '#ff3b2f', 0.9 * (1 - sh.k / 0.35)); bloom(ctx, x, y, 26, '#fff1c4', 0.9 * (1 - sh.k / 0.35)); ctx.restore(); }
+  const { pose, shot } = refPose(m), im = img(pose.who); if (!im) return;
+  const art = REF_ART[pose.who];
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(REF[0], REF[1] - 4, REF_W * 0.42, REF_W * 0.09, 0.3, 0, TAU); ctx.fill();
+  ctx.save();
+  // se dibuja en px del dibujo mirando a la derecha (el dibujo 2 viene mirando a la izquierda: se espeja); flip da vuelta todo
+  const mirror = pose.who === 'ref2';
+  ctx.translate(REF[0], REF[1] - REF_H); ctx.scale(pose.flip ? -REF_S : REF_S, REF_S); ctx.translate(-art.body, 0);
+  const drawArt = () => { if (mirror) { ctx.save(); ctx.translate(REF_IW, 0); ctx.scale(-1, 1); ctx.drawImage(im, 0, 0); ctx.restore(); } else ctx.drawImage(im, 0, 0); };
+  const W = REF_IW, H = REF_IH, y = art.waist, gy = art.muzzle[1] + 60, gx = art.front + 15, px = pose.pivot[0], fill = y - 90;
+  // las piernas, quietas; y un poco de la cintura del lado que se levanta al inclinarse, para que no quede un hueco
+  ctx.save(); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(gx, y); ctx.lineTo(gx, gy); ctx.lineTo(W, gy); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+  if (pose.rot > 0) ctx.rect(0, fill, px, y - fill); else if (pose.rot < 0) ctx.rect(px, fill, gx - px, y - fill);
+  ctx.clip(); drawArt(); ctx.restore();
+  // torso, brazos y arma, girados desde la cintura, encima
+  ctx.save(); ctx.translate(px, pose.pivot[1]); ctx.rotate(pose.rot); ctx.translate(-px, -pose.pivot[1]);
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W, gy); ctx.lineTo(gx, gy); ctx.lineTo(gx, y + 6); ctx.lineTo(0, y + 6); ctx.closePath(); ctx.clip();
+  drawArt(); ctx.restore();
+  ctx.restore();
+  if (shot && shot.k < 0.35) { const [x, yy] = shot.from; ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, yy, 70, '#ff3b2f', 0.9 * (1 - shot.k / 0.35)); bloom(ctx, x, yy, 26, '#fff1c4', 0.9 * (1 - shot.k / 0.35)); ctx.restore(); }
 }
 function drawShot(ctx: CanvasRenderingContext2D, m: PenMatch) {
   const sh = refShot(m); if (!sh || sh.k > 1) return;
