@@ -5,7 +5,7 @@
 // desde la izquierda y el arquero espera en la línea, mirándolo. La red se deforma cuando entra la pelota (el marco
 // queda quieto encima) y si el arquero ataja, el que pateó explota en pedazos de esqueleto y sangre.
 import { type CharId, type StageId } from './kombat';
-import { T, arriveAt, colOf, fxOfTurn, rowOf, type BallFx, type PenKick, type PenMatch, type Zone } from './kombatPenalties';
+import { T, arriveAt, colOf, fxOfTurn, keeperBlewIt, rowOf, type BallFx, type PenKick, type PenMatch, type Zone } from './kombatPenalties';
 import { THEMES, drawGib, drawScreenBlood, type View } from './kombatArt';
 import { PITCH } from './kombatSoccerArt';
 import { BODY_SCALE, LOOKS, drawFighterLit, idleFighter, setLowFx } from './kombatFighters';
@@ -15,6 +15,8 @@ import { SIZE } from './kombat';
 import netUrl from './assets/penales/arco-red.webp';
 import frameUrl from './assets/penales/arco-marco.webp';
 import ballUrl from './assets/penales/pelota.webp';
+import ref1Url from './assets/penales/arbitro-1.webp';
+import ref2Url from './assets/penales/arbitro-2.webp';
 
 const TAU = Math.PI * 2;
 type P2 = [number, number];
@@ -53,14 +55,16 @@ export const toWorld = (v: PView, x: number, y: number): P2 => [(x - v.ox) / v.k
 export const toScreen = (v: PView, p: P2): P2 => [v.ox + p[0] * v.k, v.oy + p[1] * v.k];
 
 // ---------------------------------------------------------------- Las imágenes
-const imgs: Record<'net' | 'frame' | 'ball', HTMLImageElement | null> = { net: null, frame: null, ball: null };
+type ImgKey = 'net' | 'frame' | 'ball' | 'ref1' | 'ref2';
+const URLS: Record<ImgKey, string> = { net: netUrl, frame: frameUrl, ball: ballUrl, ref1: ref1Url, ref2: ref2Url };
+const imgs: Record<ImgKey, HTMLImageElement | null> = { net: null, frame: null, ball: null, ref1: null, ref2: null };
 const listeners = new Set<() => void>();
-function img(key: 'net' | 'frame' | 'ball') {
+function img(key: ImgKey) {
   if (typeof Image === 'undefined') return null;
-  if (!imgs[key]) { const i = new Image(); i.decoding = 'async'; i.onload = () => listeners.forEach(f => f()); i.src = key === 'net' ? netUrl : key === 'frame' ? frameUrl : ballUrl; imgs[key] = i; }
+  if (!imgs[key]) { const i = new Image(); i.decoding = 'async'; i.onload = () => listeners.forEach(f => f()); i.src = URLS[key]; imgs[key] = i; }
   const i = imgs[key]!; return i.complete && i.naturalWidth > 0 ? i : null;
 }
-export function preloadPenaltyArt() { img('net'); img('frame'); img('ball'); }
+export function preloadPenaltyArt() { (Object.keys(URLS) as ImgKey[]).forEach(img); }
 export function onPenaltyArtLoad(f: () => void) { listeners.add(f); return () => { listeners.delete(f); }; }
 
 // ---------------------------------------------------------------- La cancha (va en la capa del fondo)
@@ -366,6 +370,48 @@ function drawFlying(ctx: CanvasRenderingContext2D, m: PenMatch) {
   for (const s of m.sparks) { const k = 1 - s.life / s.max; ctx.fillStyle = alpha(s.color, k); ctx.fillRect(s.x - s.size / 2, s.y - s.z - s.size / 2, s.size, s.size); }
   ctx.restore();
 }
+// ---------------------------------------------------------------- El árbitro (dibujos del usuario)
+// Está parado al costado del arco, a la izquierda del palo. Si el arquero no ataja un gol tirándose para el otro lado,
+// le dispara al arquero (dibujo 1, apuntando a la derecha); si el arquero ataja, le dispara al que pateó (dibujo 2,
+// apuntando a la izquierda). El disparo es una línea roja corta que viaja hacia la víctima y ahí explota.
+const REF: P2 = [40, 560]; // los pies
+const REF_H = 2.25 * FPX, REF_W = REF_H * 520 / 585;
+// dónde está el cuerpo en cada dibujo (para que no se corra al cambiar) y la punta del arma (fracciones del dibujo)
+const REF_BODY = { ref1: 0.35, ref2: 0.65 }, REF_MUZZLE = { ref1: [0.96, 0.58], ref2: [0.04, 0.58] } as const;
+const refMuzzle = (k: 'ref1' | 'ref2'): P2 => [REF[0] - REF_BODY[k] * REF_W + REF_MUZZLE[k][0] * REF_W, REF[1] - REF_H + REF_MUZZLE[k][1] * REF_H];
+const SHOT = 0.18; // lo que tarda el disparo en llegar
+// El disparo del momento (si hay): a quién, desde dónde, hasta dónde y cuánto recorrió.
+function refShot(m: PenMatch): { who: 'ref1' | 'ref2'; from: P2; to: P2; k: number } | null {
+  const k = m.kick; if (!k || !k.hit) return null;
+  const a = k.t - arriveAt();
+  if (k.outcome === 'save') {
+    const t0 = T.boom - SHOT; if (a < t0 || a > T.boom + 0.12) return null;
+    const c = kickerBody(m.chars[k.shooter]); return { who: 'ref2', from: refMuzzle('ref2'), to: [c.x, c.y - c.h * 0.55], k: (a - t0) / SHOT };
+  }
+  if (!keeperBlewIt(k.shot, k.dive)) return null;
+  const t0 = T.boom + 0.1 - SHOT; if (a < t0 || a > T.boom + 0.22) return null;
+  const ks: 0 | 1 = k.shooter === 0 ? 1 : 0, c = keeperBody(m, m.chars[ks]);
+  return { who: 'ref1', from: refMuzzle('ref1'), to: [c.x, c.y - c.h * 0.5], k: (a - t0) / SHOT };
+}
+function drawReferee(ctx: CanvasRenderingContext2D, m: PenMatch) {
+  const k = m.kick, sh = refShot(m);
+  // apunta al que va a explotar desde un rato antes del disparo hasta un rato después
+  let who: 'ref1' | 'ref2' = 'ref1';
+  if (k?.hit && k.outcome === 'save') who = 'ref2';
+  const im = img(who);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(REF[0] + (who === 'ref1' ? 0.1 : -0.1) * REF_W, REF[1] - 4, REF_W * 0.42, REF_W * 0.09, 0.3, 0, TAU); ctx.fill();
+  if (im) ctx.drawImage(im, REF[0] - REF_BODY[who] * REF_W, REF[1] - REF_H, REF_W, REF_H);
+  if (sh && sh.k < 0.35) { const [x, y] = sh.from; ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, y, 70, '#ff3b2f', 0.9 * (1 - sh.k / 0.35)); bloom(ctx, x, y, 26, '#fff1c4', 0.9 * (1 - sh.k / 0.35)); ctx.restore(); }
+}
+function drawShot(ctx: CanvasRenderingContext2D, m: PenMatch) {
+  const sh = refShot(m); if (!sh || sh.k > 1) return;
+  const dx = sh.to[0] - sh.from[0], dy = sh.to[1] - sh.from[1], len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+  const hx = sh.from[0] + dx * Math.max(0, sh.k), hy = sh.from[1] + dy * Math.max(0, sh.k), L = 95;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+  for (const [w, c] of [[16, 'rgba(255,40,30,0.25)'], [8, 'rgba(255,50,40,0.75)'], [3, 'rgba(255,230,220,1)']] as const) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(hx - ux * L, hy - uy * L); ctx.lineTo(hx, hy); ctx.stroke(); }
+  bloom(ctx, hx, hy, 34, '#ff3b2f', 0.7);
+  ctx.restore();
+}
 export interface PenDrawOpts { cursor?: Zone | null; cursorColor?: string; showTargets?: boolean; netHit?: { at: P2; t: number } | null }
 export function drawPenalties(ctx: CanvasRenderingContext2D, m: PenMatch, w: number, h: number, opts: PenDrawOpts = {}) {
   const v = penView(w, h), rim = THEMES[m.stage].light, k = m.kick;
@@ -382,6 +428,7 @@ export function drawPenalties(ctx: CanvasRenderingContext2D, m: PenMatch, w: num
   if (b.inside) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(b.shadow[0], b.shadow[1], b.r * 1.1, b.r * 0.35, 0.3, 0, TAU); ctx.fill(); drawBallFx(ctx, m, b); drawBall(ctx, b.x, b.y, b.r, b.spin); }
   if (frame) ctx.drawImage(frame, 0, 0);
   // el arquero, el que patea y la pelota (si todavía no entró)
+  drawReferee(ctx, m);
   drawKeeper(ctx, m, m.chars[keeperSide], rim);
   drawKicker(ctx, m, shooter, m.chars[shooter], rim);
   if (!b.inside) {
@@ -394,6 +441,7 @@ export function drawPenalties(ctx: CanvasRenderingContext2D, m: PenMatch, w: num
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, c.x, c.y - c.h * 0.55, 260 + e * 200, '#fb923c', 0.9 * (1 - e)); bloom(ctx, c.x, c.y - c.h * 0.55, 120, '#fff7d6', 0.9 * (1 - e)); ctx.restore();
   }
   drawFlying(ctx, m);
+  drawShot(ctx, m);
   ctx.restore();
   // la sangre en la pantalla, el flash y la viñeta
   drawScreenBlood(ctx, m.screenBlood, { w, h } as View);
