@@ -255,7 +255,7 @@ export function drawHead(ctx: CanvasRenderingContext2D, char: CharId, t: number,
 }
 
 // ---------------------------------------------------------------- El cuerpo completo
-export interface FighterFx { power: number; frozen: boolean; poison: boolean; burn: boolean; zap: boolean; shield: boolean; speed: boolean; aura: string | null; lit?: boolean }
+export interface FighterFx { power: number; frozen: boolean; poison: boolean; burn: boolean; zap: boolean; shield: boolean; speed: boolean; aura: string | null; lit?: boolean; headScale?: number }
 const EMBLEM: Record<Element, (ctx: CanvasRenderingContext2D, c: string, t: number) => void> = {
   fire: (ctx, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(0, -0.09); ctx.quadraticCurveTo(0.08, -0.01, 0.04, 0.07); ctx.quadraticCurveTo(0, 0.02, -0.04, 0.07); ctx.quadraticCurveTo(-0.08, -0.01, 0, -0.09); ctx.fill(); },
   ice: (ctx, c) => { ctx.strokeStyle = c; ctx.lineWidth = 0.02; for (let k = 0; k < 3; k++) { const a = k * Math.PI / 3; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 0.08, Math.sin(a) * 0.08); ctx.lineTo(-Math.cos(a) * 0.08, -Math.sin(a) * 0.08); ctx.stroke(); } },
@@ -425,6 +425,7 @@ export function drawFighterBody(ctx: CanvasRenderingContext2D, f: Fighter, t: nu
   if (!armUp) arm(1);
   pad(1);
   ctx.save(); ctx.translate(neck[0] + 0.03, neck[1] - 0.37); ctx.rotate(p.head * 0.5);
+  ctx.scale(fx.headScale ?? 1, fx.headScale ?? 1);
   drawHead(ctx, f.char, t, fx.power, f.action === 'celebrate' ? 'happy' : f.action === 'stun' || f.action === 'sad' || f.action === 'tired' ? 'hurt' : 'normal');
   ctx.restore();
   if (up0) arm(0);
@@ -475,17 +476,17 @@ export function drawFighterLit(ctx: CanvasRenderingContext2D, f: Fighter, t: num
   if (!noShadow) { ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(0, 0.02, 0.62 * K, 0.1, 0, 0, TAU); ctx.fill(); }
   if (fx.aura) { ctx.globalCompositeOperation = 'lighter'; for (let k = 0; k < 3; k++) { const g = ctx.createRadialGradient(0, -1, 0, 0, -1, 1.3 + k * 0.2 + Math.sin(t * 12 + k) * 0.05); g.addColorStop(0, alpha(fx.aura, 0.25)); g.addColorStop(1, alpha(fx.aura, 0)); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, -1, 0.9 + k * 0.1, 1.4 + k * 0.1, 0, 0, TAU); ctx.fill(); } }
   ctx.restore();
-  litBlit(ctx, x, y, S, mir, rim, alpha(L.glow, 0.45 + fx.power * 0.35), 0.18 + fx.power * 0.2, c => drawFighterBody(c, f, t, { ...fx, aura: null, lit: true }));
+  litBlit(ctx, x, y, S, mir, rim, alpha(L.glow, 0.45 + fx.power * 0.35), 0.18 + fx.power * 0.2, c => drawFighterBody(c, f, t, { ...fx, aura: null, lit: true }), Math.max(0, ((fx.headScale ?? 1) - 1) * 0.65));
 }
 // Dibuja algo aparte (en metros, con los pies en 0,0) y le pone luz de escena: cálida de arriba adelante, sombra
 // abajo atrás, oclusión cerca del piso y un borde de luz del color "rim"; después va a la pantalla con un brillo.
-function litBlit(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, mir: number, rim: string, glow: string, glowK: number, draw: (c: CanvasRenderingContext2D) => void) {
+function litBlit(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, mir: number, rim: string, glow: string, glowK: number, draw: (c: CanvasRenderingContext2D) => void, margin = 0) {
   if (typeof document === 'undefined') return;
   const halo = () => { if (glowK > 0) { ctx.save(); ctx.translate(x, y - S * 1.05); ctx.scale(1, 1.55); const hg = ctx.createRadialGradient(0, 0, S * 0.2, 0, 0, S * (0.75 + glowK)); hg.addColorStop(0, glow); hg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = hg; ctx.fillRect(-S * 2, -S * 2, S * 4, S * 4); ctx.restore(); } };
   // celulares: directo a la pantalla, sin el lienzo aparte ni la luz de escena (es lo que más tarda por cuadro)
   if (lowFx) { halo(); ctx.save(); ctx.translate(x, y); ctx.scale(S * mir, S); draw(ctx); ctx.restore(); return; }
   const tr = ctx.getTransform(), res = Math.min(3, Math.max(1, Math.hypot(tr.a, tr.b)), 150 / Math.max(1, S)); // nítido en retina, pero con un tope (en pantallas enormes no se pone lento)
-  const ow = 4 * S, oh = 3.4 * S, bw = Math.ceil(ow * res), bh = Math.ceil(oh * res), ox = bw / 2, oy = Math.ceil(2.9 * S * res);
+  const ow = (4 + margin * 2) * S, oh = (3.4 + margin) * S, bw = Math.ceil(ow * res), bh = Math.ceil(oh * res), ox = bw / 2, oy = Math.ceil((2.9 + margin) * S * res);
   litA ??= document.createElement('canvas'); litB ??= document.createElement('canvas');
   for (const c of [litA, litB]) { if (c.width < bw) c.width = bw; if (c.height < bh) c.height = bh; }
   const a = litA.getContext('2d')!, b = litB.getContext('2d')!;

@@ -1614,7 +1614,7 @@ export function setVampDragon(mouth: 'shut' | 'open' | null, wings = 0) {
 // ---------- Kombat Penales (sonidos que pasó el usuario) ----------
 // Los pasos mientras corre a la pelota, la patada, la atajada del arquero y la pelota pegando en la red.
 // Mientras el archivo carga, suena el sintetizado de Kombat Football.
-export function preloadPenaltySounds() { for (const url of [penPasosUrl, penPelotaUrl, penAtajaUrl, penRedUrl, penBoomUrl, penBoomBodyUrl, penArmUrl, penArmEndUrl]) loadSample(url); }
+export function preloadPenaltySounds() { for (const url of [penPasosUrl, penPelotaUrl, penAtajaUrl, penRedUrl, penBoomUrl, penBoomBodyUrl, penArmUrl, penArmEndUrl, vs('fuego'), vs('explosion'), vs('acido'), vs('espada')]) loadSample(url); }
 export function playPenSteps() { playSample(penPasosUrl, 0.15, 0, 1.35); } // (bien bajito)
 export function playPenKick() { if (!playSample(penPelotaUrl, 1.6)) playKfBall(1.3, 0.85); }
 export function playPenSave() { if (!playSample(penAtajaUrl, 1)) playKfBall(1, 0.6); }

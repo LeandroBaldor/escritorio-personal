@@ -25,7 +25,7 @@ describe('Kombat Penales: la tanda', () => {
     expect(resolveKick(0, 3, () => 0.5, 0.3)).toBe('goal');
   });
   it('un penal atajado: se anota errado, el que pateó explota y pasa al siguiente', () => {
-    const m = newPenalties('volcano', ['frost', 'thunder'], () => 0.5);
+    const m = newPenalties('volcano', ['frost', 'thunder'], () => 0);
     m.phase = 'aim';
     startKick(m, 2, 2);
     const ev: string[] = []; let skull = false;
@@ -39,7 +39,7 @@ describe('Kombat Penales: la tanda', () => {
   });
   it('si es gol y el arquero se tiró para el otro lado, explota el arquero', () => {
     expect(keeperBlewIt(0, 5)).toBe(true); expect(keeperBlewIt(0, 3)).toBe(false); expect(keeperBlewIt(1, 0)).toBe(true);
-    const m = newPenalties('ice', ['frost', 'thunder'], () => 0.5); m.phase = 'aim';
+    const m = newPenalties('ice', ['frost', 'thunder'], () => 0); m.phase = 'aim';
     startKick(m, 0, 2);
     const booms: boolean[] = [];
     for (let t = 0; t < kickDuration() + 0.2; t += 1 / 60) { stepPenalties(m, 1 / 60, () => ({ x: 0, y: 0, h: 300 }), () => ({ x: 600, y: 700, h: 200 })); for (const e of takePenEvents(m)) if (e.type === 'boom') booms.push(e.keeper); }

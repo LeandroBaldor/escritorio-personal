@@ -3,7 +3,7 @@
 // cada uno hasta que uno erre. Hay 6 lugares en el arco: tres arriba y tres abajo (a la derecha del arquero, al medio
 // y a la izquierda del arquero). Si el arquero se tira al mismo lugar, ataja; si adivina el lado pero no la altura,
 // a veces llega con la punta de los dedos. Si ataja, el que pateó explota.
-import { type CharId, type GibKind, type StageId } from './kombat';
+import { SIZE, type CharId, type GibKind, type StageId } from './kombat';
 
 export const REGULATION = 5;
 export type Zone = 0 | 1 | 2 | 3 | 4 | 5; // fila * 3 + columna. Fila 0 = arriba. Columna 0 = derecha del arquero (izquierda de la pantalla)
@@ -70,8 +70,14 @@ export const BALL_FX_NAMES: Record<BallFx, string> = { fuego: '🔥 Fuego', elec
 export const fxOfTurn = (turn: number): BallFx => BALL_FX[Math.floor(turn / 2) % BALL_FX.length];
 // Si el arquero se tira para el otro lado (o se queda en el medio y la pelota va a un costado, o al revés) y es gol, explota.
 export const keeperBlewIt = (shot: Zone, dive: Zone) => colOf(shot) !== colOf(dive);
+export const DEATH_TYPES = ['explosion', 'fire', 'violet', 'acid', 'ice', 'head', 'ash'] as const;
+export type PenDeathType = typeof DEATH_TYPES[number];
+// Las duraciones del fuego, el ácido y el hielo son las de Vampyrium.
+export const DEATH_AT: Record<PenDeathType, number> = { explosion: 0, fire: 1.05, violet: 1.15, acid: 3.2, ice: 0.7, head: 1.6, ash: 2.1 };
+export const HEAD_GROWTH = 3.4;
+export interface PenDeath { type: PenDeathType; side: 0 | 1; keeper: boolean; at: number; clock: number; t: number; finished: boolean; x: number; y: number; h: number }
 export interface PenKick { shooter: 0 | 1; shot: Zone; dive: Zone; outcome: 'goal' | 'save'; t: number; scored: boolean; boom: boolean; kboom: boolean; hit: boolean; sounded: boolean; fx: BallFx }
-export interface Gib { x: number; y: number; z: number; vx: number; vy: number; vz: number; a: number; va: number; kind: GibKind; c: string; life: number }
+export interface Gib { x: number; y: number; z: number; vx: number; vy: number; vz: number; a: number; va: number; kind: GibKind; c: string; life: number; scale?: number }
 export interface Drop { x: number; y: number; z: number; vx: number; vy: number; vz: number; r: number }
 export interface Stain { x: number; y: number; r: number; seed: number; t: number }
 export interface Spark { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; color: string; size: number }
@@ -83,18 +89,21 @@ export interface PenMatch {
   kick: PenKick | null; winner: 0 | 1 | null;
   gore: { gibs: Gib[]; drops: Drop[]; stains: Stain[] };
   sparks: Spark[];
+  death: PenDeath | null;
+  lastDeath: PenDeathType | null;
+  fragments: { kind: 'ice' | 'ash'; x: number; y: number; vx: number; vy: number; a: number; va: number; size: number; t: number; life: number }[];
   screenBlood: { x: number; y: number; r: number; t: number; seed: number; drips: number }[];
   shake: number; flash: number;
   humans: [boolean, boolean]; // de quién es cada lado (si explota el de una persona, la sangre tapa mucho más la pantalla)
   events: PenEvent[];
   rand: () => number;
 }
-export type PenEvent = { type: 'whistle' } | { type: 'kick' } | { type: 'goal'; side: 0 | 1 } | { type: 'save'; side: 0 | 1 } | { type: 'boom'; side: 0 | 1; keeper: boolean } | { type: 'post' } | { type: 'end'; winner: 0 | 1 };
+export type PenEvent = { type: 'whistle' } | { type: 'kick' } | { type: 'goal'; side: 0 | 1 } | { type: 'save'; side: 0 | 1 } | { type: 'boom'; side: 0 | 1; keeper: boolean; death: PenDeathType } | { type: 'deathStart'; death: PenDeathType } | { type: 'burn' } | { type: 'post' } | { type: 'end'; winner: 0 | 1 };
 
 export function newPenalties(stage: StageId, chars: [CharId, CharId], rand: () => number = Math.random): PenMatch {
   return {
     stage, chars, kicks: [[], []], turn: 0, first: 0, roll: 0.5, phase: 'intro', phaseT: 0, time: 0, kick: null, winner: null,
-    gore: { gibs: [], drops: [], stains: [] }, sparks: [], screenBlood: [], shake: 0, flash: 0, humans: [true, false], events: [], rand,
+    gore: { gibs: [], drops: [], stains: [] }, sparks: [], death: null, lastDeath: null, fragments: [], screenBlood: [], shake: 0, flash: 0, humans: [true, false], events: [], rand,
   };
 }
 // Después del piedra, papel o tijera: arranca la tanda (first patea primero) con el silbato.
@@ -112,7 +121,7 @@ export const T = {
   next: 2.0, // pausa después de que se define el penal (antes del siguiente)
 };
 export const arriveAt = () => T.contact + T.flight;
-export const kickDuration = () => arriveAt() + T.next + 0.25;
+export const kickDuration = (death?: PenDeathType) => Math.max(arriveAt() + T.next + 0.25, death ? arriveAt() + T.boom + 0.1 + DEATH_AT[death] + 1.2 : 0);
 
 // Arranca el penal con las dos elecciones.
 export function startKick(m: PenMatch, shot: Zone, dive: Zone, reach = 0.3) {
@@ -120,6 +129,7 @@ export function startKick(m: PenMatch, shot: Zone, dive: Zone, reach = 0.3) {
   m.kick = { shooter, shot, dive, outcome: resolveKick(shot, dive, () => m.roll, reach), t: 0, scored: false, boom: false, kboom: false, hit: false, sounded: false, fx: fxOfTurn(m.turn) };
   m.phase = 'kick'; m.phaseT = 0;
   m.screenBlood = [];
+  m.death = null; m.fragments = [];
 }
 
 // Avanza el tiempo. La parte visual (dónde está cada uno) se calcula en el dibujo a partir de kick.t; acá van los
@@ -140,21 +150,56 @@ export function stepPenalties(m: PenMatch, dt: number, kickPos: BodyAt, keeperPo
       if (k.outcome === 'goal') m.shake = Math.max(m.shake, 0.35);
     }
     if (k.outcome === 'save' && !k.boom && k.t >= arriveAt() + T.boom) {
-      k.boom = true; const p = kickPos(k.shooter); explode(m, p.x, p.y, p.h, m.chars[k.shooter], undefined, m.humans[k.shooter]);
-      m.events.push({ type: 'boom', side: k.shooter, keeper: false });
+      k.boom = true; beginDeath(m, k.shooter, false, kickPos(k.shooter), arriveAt() + T.boom);
     }
     // el arquero que se tiró para el otro lado también explota
     if (k.outcome === 'goal' && !k.kboom && keeperBlewIt(k.shot, k.dive) && k.t >= arriveAt() + T.boom + 0.1) {
-      const ks: 0 | 1 = k.shooter === 0 ? 1 : 0; k.kboom = true; const p = keeperPos(ks); explode(m, p.x, p.y, p.h, m.chars[ks], undefined, m.humans[ks]);
-      m.events.push({ type: 'boom', side: ks, keeper: true });
+      const ks: 0 | 1 = k.shooter === 0 ? 1 : 0; k.kboom = true; beginDeath(m, ks, true, keeperPos(ks), arriveAt() + T.boom + 0.1);
     }
-    if (k.t >= kickDuration()) {
+    updateDeath(m);
+    if (k.t >= kickDuration(m.death?.type)) {
       const w = shootoutWinner(m.kicks);
       if (w !== null) { m.winner = w; m.phase = 'end'; m.phaseT = 0; m.events.push({ type: 'end', winner: w }); }
-      else { m.turn++; m.phase = 'aim'; m.phaseT = 0; m.kick = null; m.roll = m.rand(); m.events.push({ type: 'whistle' }); m.gore = { gibs: [], drops: [], stains: [] }; m.sparks = []; m.screenBlood = []; } // (el siguiente penal empieza limpio)
+      else { m.turn++; m.phase = 'aim'; m.phaseT = 0; m.kick = null; m.roll = m.rand(); m.events.push({ type: 'whistle' }); m.gore = { gibs: [], drops: [], stains: [] }; m.sparks = []; m.screenBlood = []; m.death = null; m.fragments = []; } // (el siguiente penal empieza limpio)
     }
   }
   updateGore(m, dt);
+}
+
+function beginDeath(m: PenMatch, side: 0 | 1, keeper: boolean, p: { x: number; y: number; h: number }, at: number) {
+  const choices = DEATH_TYPES.filter(type => type !== m.lastDeath);
+  const type = choices[Math.min(choices.length - 1, Math.floor(m.rand() * choices.length))];
+  m.lastDeath = type;
+  m.death = { type, side, keeper, at, clock: m.time, t: 0, finished: false, ...p };
+  m.events.push({ type: 'deathStart', death: type });
+}
+function updateDeath(m: PenMatch) {
+  const d = m.death; if (!d || !m.kick || d.finished) return;
+  const prev = d.t; d.t = Math.max(0, m.kick.t - d.at);
+  if (d.type === 'fire' && prev < 0.25 && d.t >= 0.25) m.events.push({ type: 'burn' });
+  if (d.type === 'ash') {
+    // Emisión por intervalos: igual cantidad de cenizas a 30, 60 o 120 fps.
+    for (let i = Math.floor(prev * 100); i < Math.floor(Math.min(d.t, DEATH_AT.ash) * 100); i++) {
+      const r = m.rand;
+      m.fragments.push({ kind: 'ash', x: d.x + (r() - 0.5) * d.h * 0.5, y: d.y - d.h * (1 - i / (DEATH_AT.ash * 100)), vx: 130 + r() * 220, vy: -35 - r() * 65, a: r() * 6, va: (r() - 0.5) * 5, size: 2 + r() * 5, t: 0, life: 1.1 });
+    }
+  }
+  if (d.t < DEATH_AT[d.type]) return;
+  d.finished = true;
+  if (d.type === 'ice') {
+    const r = m.rand;
+    for (let i = 0; i < 32; i++) m.fragments.push({ kind: 'ice', x: d.x + (r() - 0.5) * d.h * 0.5, y: d.y - r() * d.h, vx: (r() - 0.5) * 950, vy: -150 - r() * 600, a: r() * 6, va: (r() - 0.5) * 24, size: d.h * (0.025 + r() * 0.065), t: 0, life: 1.15 });
+    m.shake = 0.5;
+  } else if (d.type !== 'acid' && d.type !== 'ash') {
+    explode(m, d.x, d.y, d.h, m.chars[d.side], undefined, m.humans[d.side]);
+    if (d.type === 'head') {
+      // drawGib skull: diámetro 0.4; cabeza original: diámetro 0.74 * 1.12.
+      const skull = m.gore.gibs.find(g => g.kind === 'skull');
+      if (skull) skull.scale = (0.74 * 1.12 * HEAD_GROWTH * (2.3 / 1.85) * SIZE[m.chars[d.side]]) / (1.6 * 0.4);
+    }
+    if (d.type === 'violet') for (const s of m.sparks) s.color = '#c86eff';
+  }
+  m.events.push({ type: 'boom', side: d.side, keeper: d.keeper, death: d.type });
 }
 
 // ---------------------------------------------------------------- La explosión (en px del arco: x, y en el piso; z para arriba)
@@ -177,6 +222,8 @@ export function explode(m: PenMatch, x: number, y: number, h: number, char: Char
   void char;
 }
 function updateGore(m: PenMatch, dt: number) {
+  for (const f of m.fragments) { f.t += dt; if (f.kind === 'ice') f.vy += 900 * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.a += f.va * dt; }
+  m.fragments = m.fragments.filter(f => f.t < f.life);
   const G = m.gore;
   for (const d of G.drops) {
     d.vz -= GRAV * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt;

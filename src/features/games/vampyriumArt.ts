@@ -820,8 +820,8 @@ function drawShardW(ctx: CanvasRenderingContext2D, b: Shard, v: View) {
 // Un dibujo teñido entero de un color (el vampiro congelado, el que se pone verde o el que se hace luz): se dibuja
 // aparte en un lienzo chico y se le pinta el color encima solo donde hay dibujo.
 let TMP: HTMLCanvasElement | null = null;
-function tinted(ctx: CanvasRenderingContext2D, bx: number, by: number, bw: number, bh: number, color: string, a: number, draw: (c: CanvasRenderingContext2D) => void) {
-  const m = ctx.getTransform(), sx = Math.abs(m.a) || 1, sy = Math.abs(m.d) || 1, W2 = Math.ceil(bw * sx), H2 = Math.ceil(bh * sy);
+export function tinted(ctx: CanvasRenderingContext2D, bx: number, by: number, bw: number, bh: number, color: string, a: number, draw: (c: CanvasRenderingContext2D) => void) {
+  const m = ctx.getTransform(), sx = Math.hypot(m.a, m.b) || 1, sy = Math.hypot(m.c, m.d) || 1, W2 = Math.ceil(bw * sx), H2 = Math.ceil(bh * sy);
   if (W2 < 1 || H2 < 1 || W2 > 4000 || H2 > 4000) { draw(ctx); return; }
   if (!TMP) TMP = document.createElement('canvas');
   if (TMP.width < W2) TMP.width = W2; if (TMP.height < H2) TMP.height = H2;

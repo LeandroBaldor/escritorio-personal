@@ -12,6 +12,7 @@ import { BODY_SCALE, LOOKS, drawFighterLit, idleFighter, setLowFx } from './komb
 import { alpha, bloom, darken, lighten } from './gravityMonsters';
 import { backdropFloor, backdropImage } from './kombatScenery';
 import { SIZE } from './kombat';
+import { drawPenDeath } from './kombatPenDeathsArt';
 import netUrl from './assets/penales/arco-red.webp';
 import frameUrl from './assets/penales/arco-marco.webp';
 import ballUrl from './assets/penales/pelota.webp';
@@ -336,21 +337,33 @@ function drawBall(ctx: CanvasRenderingContext2D, x: number, y: number, r: number
 }
 const NOFX = { power: 0, frozen: false, poison: false, burn: false, zap: false, shield: false, speed: false, aura: null };
 function drawKeeper(ctx: CanvasRenderingContext2D, m: PenMatch, char: CharId, rim: string) {
-  if (m.kick?.kboom) return; // explotó
-  const st = keeperState(m, char), f = idleFighter(char);
+  const death = m.death?.keeper ? m.death : null;
+  if (death?.finished || (m.kick?.kboom && !death)) return;
+  const poseMatch = death && m.kick ? { ...m, kick: { ...m.kick, t: death.at } } : m;
+  const st = keeperState(poseMatch, char), f = idleFighter(char);
   f.facing = -1; f.action = st.action; f.actionT = st.prog; f.ground = st.rot === 0;
   // sombra en el piso (queda abajo aunque vuele)
   const gy = m.kick ? Math.max(st.y, KEEPER[1]) : KEEPER[1], S = FPX * BODY_SCALE * SIZE[char];
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(st.x, Math.min(gy, st.y + 400), S * 0.5 + Math.abs(Math.sin(st.rot)) * S * 0.7, S * 0.09, 0.3, 0, TAU); ctx.fill();
+  if (death?.type === 'acid' || death?.type === 'ash') {
+    const body = (c: CanvasRenderingContext2D) => { c.save(); c.translate(st.x, st.y - st.hipY); c.rotate(st.rot); drawFighterLit(c, f, death.clock + 0.4, NOFX, 0, st.hipY, FPX, rim, true); c.restore(); };
+    drawPenDeath(ctx, death, death.x, death.y, 2.3 * SIZE[char] * FPX, body);
+    return;
+  }
   ctx.save(); ctx.translate(st.x, st.y - st.hipY); ctx.rotate(st.rot);
-  drawFighterLit(ctx, f, m.time + 0.4, NOFX, 0, st.hipY, FPX, rim, true);
+  const body = (c: CanvasRenderingContext2D, headScale = 1) => drawFighterLit(c, f, (death?.clock ?? m.time) + 0.4, { ...NOFX, headScale }, 0, st.hipY, FPX, rim, true);
+  if (death) drawPenDeath(ctx, death, 0, st.hipY, 2.3 * SIZE[char] * FPX, body); else body(ctx);
   ctx.restore();
 }
 function drawKicker(ctx: CanvasRenderingContext2D, m: PenMatch, side: 0 | 1, char: CharId, rim: string) {
-  const st = kickerState(m, side) ?? { gone: false, x: START[0], y: START[1], action: 'idle' as const, kickT: 0 };
+  const death = m.death && !m.death.keeper ? m.death : null;
+  if (death?.finished) return;
+  const poseMatch = death && m.kick ? { ...m, kick: { ...m.kick, t: death.at, boom: false } } : m;
+  const st = kickerState(poseMatch, side) ?? { gone: false, x: START[0], y: START[1], action: 'idle' as const, kickT: 0 };
   if (st.gone) return;
   const f = idleFighter(char); f.facing = 1; f.action = st.action; f.kickT = st.kickT; f.kickKind = 'normal';
-  drawFighterLit(ctx, f, m.time, NOFX, st.x, st.y, FPX, rim);
+  const body = (c: CanvasRenderingContext2D, headScale = 1) => drawFighterLit(c, f, death?.clock ?? m.time, { ...NOFX, headScale }, st.x, st.y, FPX, rim, !!death);
+  if (death) drawPenDeath(ctx, death, st.x, st.y, 2.3 * SIZE[char] * FPX, body); else body(ctx);
 }
 function drawGore(ctx: CanvasRenderingContext2D, m: PenMatch) {
   for (const st of m.gore.stains) {
@@ -363,7 +376,15 @@ function drawGore(ctx: CanvasRenderingContext2D, m: PenMatch) {
 function drawFlying(ctx: CanvasRenderingContext2D, m: PenMatch) {
   const U = FPX * 1.6;
   for (const g of m.gore.gibs) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(g.x, g.y, 18, 6, 0, 0, TAU); ctx.fill(); }
-  for (const g of m.gore.gibs) { ctx.save(); ctx.translate(g.x, g.y - g.z - 8); ctx.scale(U, U); ctx.rotate(g.a); drawGib(ctx, g.kind, g.c); ctx.restore(); }
+  for (const g of m.gore.gibs) { ctx.save(); ctx.translate(g.x, g.y - g.z - 8); ctx.scale(U * (g.scale ?? 1), U * (g.scale ?? 1)); ctx.rotate(g.a); drawGib(ctx, g.kind, g.c); ctx.restore(); }
+  for (const f of m.fragments) {
+    ctx.save(); ctx.globalAlpha = Math.min(1, (f.life - f.t) / 0.35); ctx.translate(f.x, f.y); ctx.rotate(f.a);
+    if (f.kind === 'ice') {
+      const r = f.size, g = ctx.createLinearGradient(-r, -r, r, r); g.addColorStop(0, 'rgba(240,252,255,0.95)'); g.addColorStop(0.5, 'rgba(140,210,250,0.85)'); g.addColorStop(1, 'rgba(50,120,200,0.9)'); ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(-r, r * 0.4); ctx.lineTo(-r * 0.2, -r); ctx.lineTo(r, -r * 0.1); ctx.lineTo(r * 0.3, r * 0.7); ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = Math.max(1, r * 0.12); ctx.stroke();
+    } else { ctx.fillStyle = '#a8a29e'; ctx.fillRect(-f.size / 2, -f.size / 2, f.size, f.size * 0.6); }
+    ctx.restore();
+  }
   ctx.fillStyle = '#b10f1c';
   for (const d of m.gore.drops) { ctx.beginPath(); ctx.ellipse(d.x, d.y - d.z, d.r, d.r * 1.25, Math.atan2(-d.vz, d.vx) + Math.PI / 2, 0, TAU); ctx.fill(); }
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -491,7 +512,7 @@ export function drawPenalties(ctx: CanvasRenderingContext2D, m: PenMatch, w: num
     drawBallFx(ctx, m, b); drawBall(ctx, b.x, b.y, b.r, b.spin, b.alpha);
   }
   // el destello de la explosión
-  if (k?.boom && k.t < arriveAt() + T.boom + 0.5) {
+  if (m.death?.type === 'explosion' && k?.boom && k.t < arriveAt() + T.boom + 0.5) {
     const e = (k.t - arriveAt() - T.boom) / 0.5, c = kickerBody(m.chars[k.shooter]);
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, c.x, c.y - c.h * 0.55, 260 + e * 200, '#fb923c', 0.9 * (1 - e)); bloom(ctx, c.x, c.y - c.h * 0.55, 120, '#fff7d6', 0.9 * (1 - e)); ctx.restore();
   }

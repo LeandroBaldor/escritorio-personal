@@ -27,6 +27,7 @@ import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
   playGameOver, playKfButton, playKfGoal, playKfName, playKfSelectVoice, playKfVsSentence,
   playPenArm, playPenExplosion, playPenKick, playPenNet, playPenSave, playPenSteps, playRefWhistle, playStart, preloadPenaltySounds, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
+  playVampAcid, playVampBones, playVampBurn, playVampDeath, playVampExplosion, playVampStakeHit, playVampSword, playVampHiss,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 import { Fireworks } from './Fireworks';
@@ -448,7 +449,18 @@ export function KombatPenalties() {
             break;
           }
           case 'save': playPenSave(); break;
-          case 'boom': playPenExplosion(); break;
+          case 'deathStart':
+            if (e.death === 'ice') playVampStakeHit();
+            else if (e.death === 'acid') playVampAcid();
+            else if (e.death === 'violet') { playVampDeath(); playVampSword(); }
+            else if (e.death === 'ash') playVampHiss();
+            else if (e.death !== 'explosion') playVampDeath();
+            break;
+          case 'burn': playVampBurn(); break;
+          case 'boom':
+            if (e.death === 'explosion' || e.death === 'head') playPenExplosion();
+            else if (e.death !== 'acid' && e.death !== 'ash') { playVampExplosion(); playVampBones(); }
+            break;
           case 'end': playRefWhistle('end'); break;
           case 'post': break;
         }
