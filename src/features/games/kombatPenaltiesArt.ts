@@ -386,7 +386,7 @@ const REF_ART: Record<RefKey, { body: number; muzzle: P2; gun: number; waist: nu
   ref2: { body: 182, muzzle: [500, 350], gun: Math.atan2(200, 350), waist: 330, hip: 180, front: 300 },
 };
 const REF_MAX = 0.6; // lo más que se inclina (rad)
-const SHOT = 0.18; // lo que tarda el disparo en llegar
+const SHOT = 0.3; // lo que tarda el disparo en llegar
 const AIM = 0.3; // cuánto antes del disparo empieza a apuntar
 interface RefPose { who: RefKey; flip: boolean; rot: number; pivot: P2 } // pivot en px del dibujo (mirando a la derecha)
 // De px del dibujo (mirando a la derecha) al mundo, con el torso girado rot alrededor de pivot.
@@ -440,15 +440,31 @@ function drawReferee(ctx: CanvasRenderingContext2D, m: PenMatch) {
   ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W, gy); ctx.lineTo(gx, gy); ctx.lineTo(gx, y + 6); ctx.lineTo(0, y + 6); ctx.closePath(); ctx.clip();
   drawArt(); ctx.restore();
   ctx.restore();
-  if (shot && shot.k < 0.35) { const [x, yy] = shot.from; ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, yy, 70, '#ff3b2f', 0.9 * (1 - shot.k / 0.35)); bloom(ctx, x, yy, 26, '#fff1c4', 0.9 * (1 - shot.k / 0.35)); ctx.restore(); }
+  if (shot && shot.k < 0.5) { const [x, yy] = shot.from, f = 1 - Math.max(0, shot.k) / 0.5; ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, yy, 140, '#ff4d00', 0.9 * f); bloom(ctx, x, yy, 60, '#ffb020', 0.95 * f); bloom(ctx, x, yy, 24, '#fff6d0', f); ctx.restore(); }
 }
 function drawShot(ctx: CanvasRenderingContext2D, m: PenMatch) {
   const sh = refShot(m); if (!sh || sh.k > 1) return;
-  const dx = sh.to[0] - sh.from[0], dy = sh.to[1] - sh.from[1], len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
-  const hx = sh.from[0] + dx * Math.max(0, sh.k), hy = sh.from[1] + dy * Math.max(0, sh.k), L = 95;
-  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
-  for (const [w, c] of [[16, 'rgba(255,40,30,0.25)'], [8, 'rgba(255,50,40,0.75)'], [3, 'rgba(255,230,220,1)']] as const) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(hx - ux * L, hy - uy * L); ctx.lineTo(hx, hy); ctx.stroke(); }
-  bloom(ctx, hx, hy, 34, '#ff3b2f', 0.7);
+  // una bola de energía de fuego que viaja hacia la víctima, con una cola que tiembla y chispas que quedan atrás
+  const dx = sh.to[0] - sh.from[0], dy = sh.to[1] - sh.from[1], len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
+  const k = Math.max(0, sh.k), hx = sh.from[0] + dx * k, hy = sh.from[1] + dy * k, L = Math.min(230, len * k + 20), t = m.time;
+  const N = 14, pts: P2[] = [];
+  for (let i = 0; i <= N; i++) { const f = i / N, w = Math.sin(f * 9 - t * 40) * 7 * f * (1 - f * 0.4); pts.push([hx - ux * L * f + nx * w, hy - uy * L * f + ny * w]); }
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const layers: [number, string, string][] = [[46, 'rgba(255,60,0,0.32)', 'rgba(255,40,0,0)'], [26, 'rgba(255,120,10,0.8)', 'rgba(255,60,0,0)'], [12, 'rgba(255,210,60,1)', 'rgba(255,120,0,0)'], [5, 'rgba(255,255,230,1)', 'rgba(255,230,150,0)']];
+  for (const [w, c0, c1] of layers) {
+    const g = ctx.createLinearGradient(hx, hy, hx - ux * L, hy - uy * L); g.addColorStop(0, c0); g.addColorStop(1, c1);
+    ctx.strokeStyle = g; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const q of pts.slice(1)) ctx.lineTo(q[0], q[1]); ctx.stroke();
+  }
+  // chispas de fuego que se desprenden de la cola y suben un poco
+  for (let i = 0; i < 18; i++) {
+    const f = ((i * 0.618 + t * 3) % 1), r = (Math.sin(i * 12.9898) * 43758.5453) % 1, side = (r - 0.5) * 40 * f;
+    const x = hx - ux * L * 1.1 * f + nx * side, y = hy - uy * L * 1.1 * f + ny * side - f * 30, sz = (1 - f) * 7 + 2;
+    ctx.fillStyle = i % 3 === 0 ? `rgba(255,240,180,${1 - f})` : `rgba(255,${110 + (i % 4) * 30},20,${1 - f})`;
+    ctx.beginPath(); ctx.arc(x, y, sz, 0, TAU); ctx.fill();
+  }
+  // la cabeza: una bola de fuego que late
+  const pulse = 1 + Math.sin(t * 60) * 0.12;
+  bloom(ctx, hx, hy, 110 * pulse, '#ff4d00', 0.85); bloom(ctx, hx, hy, 55 * pulse, '#ffb020', 0.95); bloom(ctx, hx, hy, 24, '#fff6d0', 1);
   ctx.restore();
 }
 export interface PenDrawOpts { cursor?: Zone | null; cursorColor?: string; showTargets?: boolean; netHit?: { at: P2; t: number } | null }
