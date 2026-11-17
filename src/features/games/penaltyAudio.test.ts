@@ -61,6 +61,7 @@ describe('audio de Kombat Penales', () => {
   it('el pisotón mezcla el paso gigante y la explosión de sangre', () => {
     sounds.playPenStomp();
     expect(Audio.current.sources.map(s => s.buffer?.label)).toEqual([expect.stringContaining('pen-paso-gigante'), expect.stringContaining('pen-explosion-sangre')]);
+    expect(Audio.current.sources[0].start).toHaveBeenCalledWith(10, 0.2, 1.6);
   });
   it('mantiene las cenizas hasta terminar la animación y reanuda desde el mismo punto', () => {
     const audio = Audio.current;

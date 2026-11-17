@@ -1659,7 +1659,15 @@ export function playPenSave() { if (!playSample(penAtajaUrl, 1)) playKfBall(1, 0
 export function playPenNet() { playSample(penRedUrl, 1, 0.08); }
 // Todas las explosiones mezclan explosion_jugador.mp3 y explosion_sangre.mp3.
 export function playPenExplosion() { const a = playSample(penBoomUrl, 1), b = playSample(penBoomBodyUrl, 1); if (!a && !b) playExplosion(); }
-export function playPenStomp() { playSample(penGiantStepUrl, 1); playSample(penBoomBodyUrl, 1); }
+export function playPenStomp() {
+  const c = running(), buffer = samples.get(penGiantStepUrl);
+  // La pista de 16 s contiene varias pisadas: reproducir sólo el primer impacto y su cola.
+  if (c && buffer instanceof AudioBuffer) {
+    const src = c.createBufferSource(), gain = c.createGain(); src.buffer = buffer;
+    gain.gain.value = 1; src.connect(gain).connect(out(c)); src.start(c.currentTime, 0.2, 1.6);
+  } else loadSample(penGiantStepUrl);
+  playSample(penBoomBodyUrl, 1);
+}
 
 const penaltySceneVoices = new Map<string, { src: AudioBufferSourceNode; gain: GainNode }>();
 // Los bucles siguen la escena, se detienen al pausar y reanudan desde el reloj del juego.
