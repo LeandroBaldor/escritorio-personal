@@ -355,7 +355,7 @@ function drawKeeper(ctx: CanvasRenderingContext2D, m: PenMatch, char: CharId, ri
   }
   ctx.save(); ctx.translate(st.x, st.y - st.hipY); ctx.rotate(st.rot);
   const body = (c: CanvasRenderingContext2D, headScale = 1, silhouette = false) => { const fx = { ...NOFX, headScale }, t = (death?.clock ?? m.time) + 0.4; if (silhouette) drawFighterShape(c, f, t, fx, 0, st.hipY, FPX); else drawFighterLit(c, f, t, fx, 0, st.hipY, FPX, rim, true); };
-  if (death) drawPenDeath(ctx, death, 0, st.hipY, 2.3 * SIZE[char] * FPX, body, c => drawPenProfileSkeleton(c, f, death.clock + 0.4, 0, st.hipY, FPX)); else body(ctx);
+  if (death) drawPenDeath(ctx, death, 0, st.hipY, 2.3 * SIZE[char] * FPX, body, c => drawPenProfileSkeleton(c, f, death.clock + 0.4, 0, st.hipY, FPX), st.rot); else body(ctx);
   ctx.restore();
 }
 function drawKicker(ctx: CanvasRenderingContext2D, m: PenMatch, side: 0 | 1, char: CharId, rim: string) {

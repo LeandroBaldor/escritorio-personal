@@ -34,7 +34,7 @@ function flameRibbons(ctx: CanvasRenderingContext2D, t: number, intensity: numbe
 }
 
 // El mismo fuego, esqueleto, teñido y curva de ácido de Vampyrium, sobre el luchador de Penales.
-export function drawPenDeath(ctx: CanvasRenderingContext2D, d: PenDeath, x: number, y: number, h: number, body: (c: CanvasRenderingContext2D, headScale?: number, silhouette?: boolean) => void, skeleton?: (c: CanvasRenderingContext2D) => void) {
+export function drawPenDeath(ctx: CanvasRenderingContext2D, d: PenDeath, x: number, y: number, h: number, body: (c: CanvasRenderingContext2D, headScale?: number, silhouette?: boolean) => void, skeleton?: (c: CanvasRenderingContext2D) => void, bodyRotation = 0) {
   if (d.finished && d.type !== 'acid') return;
   const q = Math.min(1, d.t / DEATH_AT[d.type]), w = h * 1.8;
   const draw = (sy = 1, sx = 1) => (c: CanvasRenderingContext2D) => {
@@ -46,7 +46,8 @@ export function drawPenDeath(ctx: CanvasRenderingContext2D, d: PenDeath, x: numb
     case 'fire': {
       const f = Math.min(1, d.t / (BURN_AT * 1.8)), burn = Math.max(0, (d.t - BURN_AT) / (DEATH_AT.fire - BURN_AT));
       ctx.save(); ctx.globalAlpha = 1 - f; body(ctx); ctx.restore();
-      ctx.save(); ctx.translate(x, y); ctx.scale(h / 2.3, h / 2.3); ctx.globalAlpha = f;
+      // Las llamas siguen la vertical de la cancha aunque el arquero quede girado en el aire.
+      ctx.save(); ctx.translate(x, y - h * 0.5); ctx.rotate(-bodyRotation); ctx.translate(0, h * 0.5); ctx.scale(h / 2.3, h / 2.3); ctx.globalAlpha = f;
       if (burn > 0) {
         ctx.save(); ctx.globalAlpha = f * 0.2; bodyFire(ctx, 2.9, 1.25, Math.min(1, burn * 1.7), d.clock + d.t, d.side); ctx.restore();
         flameRibbons(ctx, d.clock + d.t, Math.min(1.4, burn * 2.2));
@@ -63,7 +64,6 @@ export function drawPenDeath(ctx: CanvasRenderingContext2D, d: PenDeath, x: numb
       tint('rgb(200,110,255)', 0.4 + q * 0.6, s, s);
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       const glow = ctx.createRadialGradient(x, y - h * 0.5 * s, 0, x, y - h * 0.5 * s, h * (0.2 + s * 0.5)); glow.addColorStop(0, `rgba(206,132,255,${0.2 + q * 0.5})`); glow.addColorStop(1, 'rgba(120,40,220,0)'); ctx.fillStyle = glow; ctx.fillRect(x - h, y - h * 1.4, h * 2, h * 1.8);
-      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 + d.t * 2, r = h * (0.18 + s * 0.6); ctx.strokeStyle = `rgba(219,177,255,${0.3 + q * 0.5})`; ctx.lineWidth = 1 + q * 2; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r, y - h * 0.5 * s + Math.sin(a) * r); ctx.lineTo(x + Math.cos(a + 0.17) * r * 0.5, y - h * 0.5 * s + Math.sin(a + 0.17) * r * 0.5); ctx.lineTo(x, y - h * 0.5 * s); ctx.stroke(); }
       ctx.restore(); break;
     }
     case 'acid': {
