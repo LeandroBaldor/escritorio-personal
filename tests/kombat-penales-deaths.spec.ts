@@ -29,13 +29,19 @@ test('las siete muertes se dibujan para ambos roles y todos los luchadores', asy
   expect(errors).toEqual([]);
 });
 
-test('la muerte del perdedor completa las siete variantes antes del resultado final', async ({ page }) => {
+test('el ovni ejecuta al perdedor antes del resultado final', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   const base = project.name === 'minijuegos' ? '/MiniJuegos/' : '/escritorio-personal/';
   await page.goto(`${base}docs/kombat-penales-muertes-preview.html`);
   await page.waitForFunction(() => 'penPreview' in window);
   await page.selectOption('#role', 'finale');
-  await page.evaluate(() => (window as unknown as { penPreview: { seek(t: number): void } }).penPreview.seek(1.2));
+  await page.evaluate(() => (window as unknown as { penPreview: { seek(t: number): void } }).penPreview.seek(2.5));
+  for (const t of [1.3, 2.1, 2.45, 4.8]) {
+    await page.evaluate(t => (window as unknown as { penPreview: { seek(t: number): void } }).penPreview.seek(t), t);
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+    await page.locator('canvas').first().screenshot({ path: test.info().outputPath(`ovni-${t}.png`) });
+  }
+  await page.evaluate(() => (window as unknown as { penPreview: { seek(t: number): void } }).penPreview.seek(2.5));
   const initial = await page.evaluate(() => (window as unknown as { penPreview: { cards: { m: { phase: string; death: { side: number }; winner: number } }[] } }).penPreview.cards.map(c => ({ phase: c.m.phase, victim: c.m.death.side, winner: c.m.winner })));
   expect(initial).toEqual(Array(7).fill({ phase: 'execution', victim: 0, winner: 1 }));
   await page.evaluate(() => (window as unknown as { penPreview: { seek(t: number): void } }).penPreview.seek(20));

@@ -78,7 +78,8 @@ export const DEATH_LENGTH = 5.2;
 export const DEATH_AT: Record<PenDeathType, number> = { explosion: 0, fire: 3.7, violet: 3.7, acid: 3.6, ice: 3.7, head: 4.1, ash: 4.2 };
 export const HEAD_GROWTH = 4.2;
 export const ACID_GREEN_T = 0.7, ACID_MELT_T = 3.15;
-export const FINAL_SHOT_AT = 0.95;
+export const FINAL_SHOT_AT = 2.25;
+export const FINAL_END_AT = 5.2;
 export const freezeProgress = (t: number) => Math.min(1, Math.max(0, t / (DEATH_AT.ice * 0.8)));
 export const ashFront = (t: number) => Math.min(1, Math.max(0, t / DEATH_AT.ash));
 export function acidCollapse(t: number) {
@@ -181,26 +182,26 @@ export function stepPenalties(m: PenMatch, dt: number, kickPos: BodyAt, keeperPo
   if (m.phase === 'execution' && m.finale) {
     if (!m.finale.fired && m.phaseT >= FINAL_SHOT_AT) {
       m.finale.fired = true;
-      beginDeath(m, m.finale.loser, false, kickPos(m.finale.loser), FINAL_SHOT_AT);
+      beginDeath(m, m.finale.loser, false, kickPos(m.finale.loser), FINAL_SHOT_AT, 'explosion');
     }
     updateDeath(m);
-    if (m.death?.finished && m.phaseT >= FINAL_SHOT_AT + DEATH_LENGTH) {
+    if (m.death?.finished && m.phaseT >= FINAL_END_AT) {
       m.phase = 'end'; m.phaseT = 0; m.events.push({ type: 'end', winner: m.winner! });
     }
   }
   updateGore(m, dt);
 }
 
-function beginDeath(m: PenMatch, side: 0 | 1, keeper: boolean, p: { x: number; y: number; h: number }, at: number) {
+function beginDeath(m: PenMatch, side: 0 | 1, keeper: boolean, p: { x: number; y: number; h: number }, at: number, forced?: PenDeathType) {
   const choices = DEATH_TYPES.filter(type => type !== m.lastDeath);
-  const type = choices[Math.min(choices.length - 1, Math.floor(m.rand() * choices.length))];
+  const type = forced ?? choices[Math.min(choices.length - 1, Math.floor(m.rand() * choices.length))];
   m.lastDeath = type;
   m.death = { type, side, keeper, at, clock: m.time, t: 0, finished: false, ...p };
   m.events.push({ type: 'deathStart', death: type });
 }
 function updateDeath(m: PenMatch) {
-  const d = m.death; if (!d || !m.kick) return;
-  const prev = d.t; d.t = Math.max(0, (m.phase === 'execution' ? m.phaseT : m.kick.t) - d.at);
+  const d = m.death; if (!d || (!m.kick && m.phase !== 'execution')) return;
+  const prev = d.t; d.t = Math.max(0, (m.phase === 'execution' ? m.phaseT : m.kick!.t) - d.at);
   if (d.finished) return;
   if (d.type === 'fire' && prev < 0.25 && d.t >= 0.25) m.events.push({ type: 'burn' });
   if (d.type === 'ash') {

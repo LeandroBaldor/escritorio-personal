@@ -125,7 +125,7 @@ describe('muertes de Kombat Penales', () => {
       let sawExecution = false, sawFinalDeath = false;
       for (let t = 0; t < 25; t += 1 / 60) {
         stepPenalties(m, 1 / 60, body); takePenEvents(m);
-        if (m.phase === 'execution') { sawExecution = true; expect(m.finale?.loser).toBe(loser); expect(penaltyRefTarget(m)).not.toBeNull(); if (m.death) { sawFinalDeath = true; expect(m.death.side).toBe(loser); } }
+        if (m.phase === 'execution') { sawExecution = true; expect(m.finale?.loser).toBe(loser); expect(penaltyRefTarget(m)).toBeNull(); if (m.death) { sawFinalDeath = true; expect(m.death.side).toBe(loser); expect(m.death.type).toBe('explosion'); } }
       }
       expect(sawExecution && sawFinalDeath).toBe(true); expect(m.phase).toBe('end'); expect(m.winner).toBe(winner);
     });

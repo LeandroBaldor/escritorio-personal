@@ -5,7 +5,7 @@
 // desde la izquierda y el arquero espera en la línea, mirándolo. La red se deforma cuando entra la pelota (el marco
 // queda quieto encima) y si el arquero ataja, el que pateó explota en pedazos de esqueleto y sangre.
 import { type CharId, type StageId } from './kombat';
-import { FINAL_SHOT_AT, T, arriveAt, colOf, fxOfTurn, keeperBlewIt, rowOf, type BallFx, type PenKick, type PenMatch, type Zone } from './kombatPenalties';
+import { T, arriveAt, colOf, fxOfTurn, keeperBlewIt, rowOf, type BallFx, type PenKick, type PenMatch, type Zone } from './kombatPenalties';
 import { THEMES } from './kombatArt';
 import { PITCH } from './kombatSoccerArt';
 import { BODY_SCALE, LOOKS, drawFighterLit, drawFighterShape, idleFighter, setLowFx } from './kombatFighters';
@@ -14,6 +14,7 @@ import { backdropFloor, backdropImage } from './kombatScenery';
 import { SIZE } from './kombat';
 import { drawPenDeath, drawPenDeathAtmosphere } from './kombatPenDeathsArt';
 import { drawPenBlood, drawPenGib, drawPenProfileSkeleton, drawPenScreenBlood } from './kombatPenGoreArt';
+import { drawPenUfo, preloadPenUfo } from './kombatPenUfo';
 import netUrl from './assets/penales/arco-red.webp';
 import frameUrl from './assets/penales/arco-marco.webp';
 import ballUrl from './assets/penales/pelota.webp';
@@ -66,7 +67,7 @@ function img(key: ImgKey) {
   if (!imgs[key]) { const i = new Image(); i.decoding = 'async'; i.onload = () => listeners.forEach(f => f()); i.src = URLS[key]; imgs[key] = i; }
   const i = imgs[key]!; return i.complete && i.naturalWidth > 0 ? i : null;
 }
-export function preloadPenaltyArt() { (Object.keys(URLS) as ImgKey[]).forEach(img); }
+export function preloadPenaltyArt() { preloadPenUfo(); (Object.keys(URLS) as ImgKey[]).forEach(img); }
 export function onPenaltyArtLoad(f: () => void) { listeners.add(f); return () => { listeners.delete(f); }; }
 
 // ---------------------------------------------------------------- La cancha (va en la capa del fondo)
@@ -438,7 +439,7 @@ function refToWorld(p: RefPose, q: P2, turned: boolean): P2 {
 const refMuzzle = (p: RefPose): P2 => refToWorld(p, REF_ART[p.who].muzzle, true);
 // A quién le dispara en este penal (si le dispara), desde cuándo y adónde apunta.
 export function penaltyRefTarget(m: PenMatch): { who: RefKey; t0: number; to: P2 } | null {
-  if (m.finale) { const c = kickerBody(m.chars[m.finale.loser]); return { who: 'ref2', t0: FINAL_SHOT_AT - SHOT, to: [c.x, c.y - c.h * 0.55] }; }
+  if (m.finale) return null;
   const k = m.kick; if (!k || !k.hit) return null;
   if (k.outcome === 'save') { const c = kickerBody(m.chars[k.shooter]); return { who: 'ref2', t0: T.boom - SHOT, to: [c.x, c.y - c.h * 0.55] }; }
   if (!keeperBlewIt(k.shot, k.dive)) return null;
@@ -538,6 +539,7 @@ export function drawPenalties(ctx: CanvasRenderingContext2D, m: PenMatch, w: num
   }
   drawFlying(ctx, m);
   drawShot(ctx, m);
+  if (m.finale && m.phase === 'execution') drawPenUfo(ctx, m.phaseT, kickerBody(m.chars[m.finale.loser]));
   ctx.restore();
   // la sangre en la pantalla, el flash y la viñeta
   drawPenScreenBlood(ctx, m.screenBlood, w, h);
