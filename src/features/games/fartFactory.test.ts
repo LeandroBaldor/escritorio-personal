@@ -6,7 +6,7 @@ import { FACTORY_FART_SOUNDS } from './factorySound';
 const idle = { left: false, right: false, boost: false };
 describe('Fábrica de Pedos: laberinto frontal', () => {
   it('gives all ten factories longer, visibly different connected structures', () => {
-    expect(FACTORY_HEIGHT).toBe(2016); expect(MAZE_TIERS_PER_LEVEL).toBe(7);
+    expect(FACTORY_HEIGHT).toBe(4032); expect(MAZE_TIERS_PER_LEVEL).toBe(14);
     expect(new Set(MAZE_STRUCTURES.map(s => s.name)).size).toBe(10);
     const signatures = FACTORIES.map((_, level) => Array.from({ length: MAZE_TIERS_PER_LEVEL }, (_, tier) => mazeOpenings(level, tier + 1).join(',')).join('|'));
     expect(new Set(signatures).size).toBe(10);
@@ -47,23 +47,28 @@ describe('Fábrica de Pedos: laberinto frontal', () => {
     g.walls = []; g.x = 800; g.y = 160; g.ground = null; g.vy = 600;
     stepFactory(g, idle, 1 / 30); expect(g.y).toBeLessThanOrEqual(161.01); expect(g.vy).toBe(0);
   });
-  for (const lane of [1, 3]) it(`can climb through the ${lane === 1 ? 'left' : 'right'} opening and land in the next corridor`, () => {
-    const g = newFactoryGame(); g.state = 'playing'; g.x = mazeLaneX(lane);
-    const ledge = g.platforms.find(p => p.row === 1 && p.lane === lane)!;
-    for (let frame = 0; frame < 240; frame++) {
-      stepFactory(g, { ...idle, boost: frame === 0 }, 1 / 120);
-      if (g.ground === ledge.id) break;
-    }
-    expect(g.ground).toBe(ledge.id);
-    const direction = lane === 1 ? 1 : -1;
-    let landed = false;
-    for (let frame = 0; frame < 260; frame++) {
-      const steer = g.y > 289 && Math.abs(g.x - mazeLaneX(lane)) < 133;
-      stepFactory(g, { boost: frame === 0, left: steer && direction < 0, right: steer && direction > 0 }, 1 / 120);
-      expect(g.state).toBe('playing');
-      if (g.ground !== null && g.platforms[g.ground].row === 2) { landed = true; break; }
-    }
-    expect(landed).toBe(true); expect(g.y).toBe(288);
+  for (const lane of [1, 3]) it('blocks the underside of floating platforms and leaves a bypass beside them', () => {
+    const g = newFactoryGame(); g.state = 'playing'; g.x = mazeLaneX(lane); g.platforms[0].eaten = true;
+    stepFactory(g, { ...idle, boost: true }, 1 / 120);
+    for (let i = 0; i < 25; i++) stepFactory(g, idle, 1 / 120);
+    expect(g.highest).toBeLessThanOrEqual(23.01);
+    const bypass = newFactoryGame(); bypass.state = 'playing'; bypass.x = mazeLaneX(lane) + 80;
+    stepFactory(bypass, { ...idle, boost: true }, 1 / 120);
+    for (let i = 0; i < 42; i++) stepFactory(bypass, idle, 1 / 120);
+    expect(bypass.highest).toBeGreaterThan(144);
+  });
+  it('freezes level one and the spikes during the countdown', () => {
+    const g = newFactoryGame(); g.state = 'playing'; g.countdown = 3.7;
+    for (let i = 0; i < 360; i++) stepFactory(g, { ...idle, right: true, boost: true }, 1 / 120);
+    expect(g.highest).toBe(0); expect(g.x).toBe(800); expect(g.spikes).toBe(-95); expect(g.energy).toBe(100);
+  });
+  it('requires energy for lateral propulsion and emits one death event', () => {
+    const g = newFactoryGame(); g.state = 'playing'; g.platforms[0].eaten = true; g.energy = 0;
+    for (let i = 0; i < 30; i++) stepFactory(g, { ...idle, right: true }, 1 / 120);
+    expect(g.x).toBe(800); g.energy = 100;
+    stepFactory(g, { ...idle, right: true }, 1 / 120); expect(g.events.some(e => e.type === 'boost')).toBe(true); expect(g.energy).toBeLessThan(100);
+    g.y = g.spikes; stepFactory(g, idle, 1 / 120); expect(g.events.filter(e => e.type === 'death')).toHaveLength(1);
+    stepFactory(g, idle, 1 / 120); expect(g.events).toHaveLength(0); expect(g.deathTime).toBeGreaterThan(0);
   });
   it('arms bombs only nearby, counts down and explodes only once', () => {
     const g = newFactoryGame(); g.state = 'playing';
@@ -116,10 +121,10 @@ describe('Fábrica de Pedos: laberinto frontal', () => {
     const short = newFactoryGame(); short.state = 'playing';
     stepFactory(short, { ...idle, boost: true }, 1 / 120); expect(short.drops).toHaveLength(0);
     const g = newFactoryGame(); g.state = 'playing'; g.food = 2; g.platforms[0].eaten = true; g.x = mazeLaneX(1);
-    stepFactory(g, { ...idle, boost: true }, 1 / 120); expect(g.drops).toHaveLength(1); expect(g.events.some(e => e.type === 'splat')).toBe(false);
+    stepFactory(g, { ...idle, boost: true }, 1 / 120); expect(g.drops).toHaveLength(6); expect(g.events.some(e => e.type === 'splat')).toBe(false);
     let impacts = 0;
     for (let i = 0; i < 240; i++) { stepFactory(g, idle, 1 / 120); impacts += g.events.filter(e => e.type === 'splat').length; }
-    expect(impacts).toBe(1); expect(g.drops).toHaveLength(0);
+    expect(impacts).toBe(6); expect(g.drops).toHaveLength(0);
   });
   it('announces each reached level once without losing the boost event and scores maximum ascent', () => {
     const g = newFactoryGame(); g.state = 'playing'; g.x = mazeLaneX(mazeOpenings(0, MAZE_TIERS_PER_LEVEL)[0]); g.y = FACTORY_HEIGHT - 1; g.ground = null;

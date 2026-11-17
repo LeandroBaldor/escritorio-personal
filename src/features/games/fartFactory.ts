@@ -31,12 +31,12 @@ export type FactoryPlatform = { id: number; row: number; lane: number; x: number
 export type FactoryBomb = { x: number; y: number; fuse: number; remaining: number | null; blast: number; spent: boolean; radius: number };
 export type FactoryGas = { x: number; y: number; age: number; vx: number; seed: number };
 export type FactoryDrop = { x: number; y: number; vx: number; vy: number; age: number; hit: boolean; splash: number };
-export type FactoryEvent = { type: 'boost' | 'eat' | 'level' | 'bomb' | 'splat'; food?: number };
+export type FactoryEvent = { type: 'boost' | 'eat' | 'level' | 'bomb' | 'splat' | 'death'; food?: number };
 export type FactoryHazard = { kind: 'gear' | 'laser' | 'door' | 'fire' | 'spikes'; x: number; y: number; phase: number };
 export type FactoryGame = {
   x: number; y: number; vx: number; vy: number; time: number; energy: number; food: number;
   highest: number; spikes: number; ground: number | null; cooldown: number; puff: number; boostFood: number; landing: number;
-  lean: number; levelNotice: number; noticeLevel: number; fartLengths: readonly number[]; drops: FactoryDrop[]; events: FactoryEvent[];
+  countdown: number; deathTime: number; thrust: number; lean: number; levelNotice: number; noticeLevel: number; fartLengths: readonly number[]; drops: FactoryDrop[]; events: FactoryEvent[];
   state: 'ready' | 'playing' | 'dead' | 'won'; reason: string;
   platforms: FactoryPlatform[]; hazards: FactoryHazard[]; walls: MazeWall[]; bombs: FactoryBomb[]; gas: FactoryGas[]; event: 'boost' | 'eat' | 'level' | 'bomb' | '';
 };
@@ -67,10 +67,10 @@ export function newFactoryGame(level = 0): FactoryGame {
   add(0, 800, 1600, 2, true, true); platforms[0].food = 0;
   for (let band = 0; band < MAZE_TIERS_PER_LEVEL * 10; band++) {
     const floor = Math.floor(band / MAZE_TIERS_PER_LEVEL), tier = band % MAZE_TIERS_PER_LEVEL + 1;
-    for (const lane of mazeOpenings(floor, tier)) add(band * 2 + 1, mazeLaneX(lane, floor), 116, lane, false);
+    for (const lane of mazeOpenings(floor, tier)) add(band * 2 + 1, mazeLaneX(lane, floor), 72, lane, false);
     if (mazeHasSolidFloor(floor, tier)) {
       for (const segment of mazeFloorSegments(floor, tier)) add(band * 2 + 2, segment.x, segment.w, Math.round((segment.x - 180) / 310), true);
-    } else for (let lane = 0; lane < 5; lane++) add(band * 2 + 2, mazeLaneX(lane, floor), 116, lane, false);
+    } else for (let lane = 0; lane < 5; lane++) add(band * 2 + 2, mazeLaneX(lane, floor), 72, lane, false);
     if ((band + 1) % MAZE_TIERS_PER_LEVEL === 0 && band < MAZE_TIERS_PER_LEVEL * 10 - 1) add(band * 2 + 2, 800, 170, 2, false, true);
   }
   const bombs: FactoryBomb[] = [];
@@ -82,15 +82,17 @@ export function newFactoryGame(level = 0): FactoryGame {
   }
   return { x: 800, y: level * FACTORY_HEIGHT, vx: 0, vy: 0, time: 0, energy: 100, food: 0, highest: level * FACTORY_HEIGHT, spikes: level * FACTORY_HEIGHT - 95,
     ground: platforms.findIndex(p => p.row === level * MAZE_ROWS_PER_LEVEL && p.checkpoint), cooldown: 0, puff: 0, boostFood: 0, landing: 0,
-    lean: 0, levelNotice: 0, noticeLevel: level, fartLengths: FACTORY_FART_LENGTHS, drops: [], events: [],
+    countdown: 0, deathTime: 0, thrust: 0, lean: 0, levelNotice: 0, noticeLevel: level, fartLengths: FACTORY_FART_LENGTHS, drops: [], events: [],
     state: 'ready', reason: '', platforms, hazards, walls: mazeWalls(), bombs, gas: [], event: '' };
 }
 export const factoryPoints = (g: FactoryGame) => Math.floor(Math.min(FACTORY_TOP, Math.max(0, g.highest)) / 10);
 export function stepFactory(g: FactoryGame, input: { left: boolean; right: boolean; boost: boolean }, dt: number) {
+  if (g.state === 'dead') { g.deathTime += Math.min(dt, 1 / 30); g.events = []; return; }
   if (g.state !== 'playing') return;
   g.event = '';
   g.events = [];
   dt = Math.min(dt, 1 / 30);
+  if (g.countdown > 0) { g.countdown = Math.max(0, g.countdown - dt); return; }
   g.time += dt; g.cooldown = Math.max(0, g.cooldown - dt); g.puff = Math.max(0, g.puff - dt); g.landing = Math.max(0, g.landing - dt);
   g.levelNotice = Math.max(0, g.levelNotice - dt);
   const oldLevel = factoryLevel(g.highest);
@@ -100,10 +102,12 @@ export function stepFactory(g: FactoryGame, input: { left: boolean; right: boole
     const p = g.platforms[g.ground];
     g.x += platformX(p, g.time) - platformX(p, g.time - dt);
   }
-  const targetVx = (Number(input.right) - Number(input.left)) * 400;
-  g.vx += (targetVx - g.vx) * Math.min(1, dt * (g.ground !== null ? 22 : 12));
+  const direction = Number(input.right) - Number(input.left);
+  // Lateral motion comes from directional gas impulses, never walking.
+  const side = direction !== 0;
+  g.vx *= Math.exp(-(g.ground !== null ? 9 : 1.8) * dt);
   g.x = Math.max(28, Math.min(FACTORY_WIDTH - 28, g.x + g.vx * dt));
-  const solids = [...g.walls, ...g.platforms.filter(p => p.solid).map(p => ({ x: p.x - p.w / 2, y: p.y - 22, w: p.w, h: 22 }))];
+  const solids = [...g.walls, ...g.platforms.map(p => ({ x: p.x - p.w / 2, y: p.y - (p.solid ? 22 : 16), w: p.w, h: p.solid ? 22 : 16 }))];
   for (const wall of solids) if (g.y + 104 > wall.y + 0.01 && g.y + 1 < wall.y + wall.h && g.x + 18 > wall.x && g.x - 18 < wall.x + wall.w) {
     if (oldX + 18 <= wall.x + 0.1) g.x = wall.x - 18;
     else if (oldX - 18 >= wall.x + wall.w - 0.1) g.x = wall.x + wall.w + 18;
@@ -113,15 +117,16 @@ export function stepFactory(g: FactoryGame, input: { left: boolean; right: boole
   if (g.ground !== null) {
     const p = g.platforms[g.ground];
     if (!p.eaten && Math.abs(g.x - platformX(p, g.time)) < 37) {
-      p.eaten = true; g.food = p.food; g.energy = Math.min(100, g.energy + FOODS[p.food].energy); g.event = 'eat';
+      p.eaten = true; g.food = p.food; g.energy = Math.min(100, g.energy + FOODS[p.food].energy); g.event = 'eat'; g.events.push({ type: 'eat', food: p.food });
     }
   }
-  if (input.boost && g.cooldown === 0 && g.energy >= FOODS[g.food].cost) {
+  if ((input.boost || side) && g.cooldown === 0 && g.energy >= FOODS[g.food].cost) {
     const food = FOODS[g.food];
-    g.energy -= food.cost; g.boostFood = g.food; g.vy = food.impulse; g.ground = null; g.cooldown = 0.42; g.puff = 0.65; g.event = 'boost';
+    g.thrust = direction; g.vx = direction * 410;
+    g.energy -= food.cost; g.boostFood = g.food; g.vy = input.boost || !side ? food.impulse : Math.max(g.vy, 160); g.ground = null; g.cooldown = side && !input.boost ? 0.55 : 0.42; g.puff = 0.65; g.event = 'boost';
     g.events.push({ type: 'boost', food: g.boostFood });
-    if (g.fartLengths[g.boostFood] >= LONG_FART_SECONDS) g.drops.push({ x: g.x, y: g.y + 42, vx: g.vx * 0.08, vy: -90, age: 0, hit: false, splash: 0 });
-    for (let i = 0; i < 7; i++) g.gas.push({ x: g.x + Math.sin(i * 2.4) * 14, y: g.y + 38, age: -i * 0.014, vx: -g.vx * 0.18 + Math.sin(i * 1.7) * 30, seed: i + g.time });
+    if (g.fartLengths[g.boostFood] >= LONG_FART_SECONDS) for (let i = 0; i < 6; i++) g.drops.push({ x: g.x + Math.sin(i * 2.4) * 12, y: g.y + 42 + i * 8, vx: g.vx * 0.08 + (i - 2.5) * 18, vy: -90 - i * 28, age: 0, hit: false, splash: 0 });
+    for (let i = 0; i < 7; i++) g.gas.push({ x: g.x + Math.sin(i * 2.4) * 14, y: g.y + 38, age: -i * 0.014, vx: -g.thrust * 180 - g.vx * 0.18 + Math.sin(i * 1.7) * 30, seed: i + g.time });
   }
   g.vy -= 980 * dt;
   g.y += g.vy * dt;
@@ -138,7 +143,7 @@ export function stepFactory(g: FactoryGame, input: { left: boolean; right: boole
     }
   }
   for (const p of g.platforms) if (!p.eaten && Math.abs(g.y - p.y) < 65 && Math.abs(g.x - platformX(p, g.time)) < 37) {
-    p.eaten = true; g.food = p.food; g.energy = Math.min(100, g.energy + FOODS[p.food].energy); if (!g.event) g.event = 'eat';
+    p.eaten = true; g.food = p.food; g.energy = Math.min(100, g.energy + FOODS[p.food].energy); if (!g.event) g.event = 'eat'; g.events.push({ type: 'eat', food: p.food });
   }
   g.highest = Math.max(g.highest, g.y);
   if (factoryLevel(g.highest) > oldLevel) {
@@ -147,7 +152,7 @@ export function stepFactory(g: FactoryGame, input: { left: boolean; right: boole
   // Continuous pursuit from the first frame; catch-up is speed-limited, never a teleport.
   g.spikes += (24 + factoryLevel(g.highest) * 1.8 + Math.max(0, g.highest - g.spikes - 360) * 1.6) * dt;
   if (g.puff > 0.12 && Math.floor(g.time * 36) !== Math.floor((g.time - dt) * 36)) {
-    g.gas.push({ x: g.x + Math.sin(g.time * 27) * 10, y: g.y + 40, age: 0, vx: -g.vx * 0.18 + Math.sin(g.time * 41) * 24, seed: g.time * 7 });
+    g.gas.push({ x: g.x + Math.sin(g.time * 27) * 10, y: g.y + 40, age: 0, vx: -g.thrust * 180 - g.vx * 0.18 + Math.sin(g.time * 41) * 24, seed: g.time * 7 });
   }
   for (const puff of g.gas) { puff.age += dt; puff.x += puff.vx * dt; puff.y -= (38 + Math.max(0, puff.age) * 35) * dt; }
   g.gas = g.gas.filter(puff => puff.age < 1.65);
@@ -167,7 +172,7 @@ export function stepFactory(g: FactoryGame, input: { left: boolean; right: boole
       if (bomb.remaining === 0) { bomb.spent = true; bomb.blast = 0.65; if (!g.event) g.event = 'bomb'; g.events.push({ type: 'bomb' }); }
     }
   }
-  const die = (reason: string) => { g.state = 'dead'; g.reason = reason; };
+  const die = (reason: string) => { if (g.state === 'dead') return; g.state = 'dead'; g.deathTime = 0; g.reason = reason; g.events.push({ type: 'death' }); };
   if (g.y < g.spikes + 25) die('¡Te alcanzó el piso de pinches!');
   for (const bomb of g.bombs) if (bomb.blast > 0 && Math.hypot(g.x - bomb.x, g.y + 50 - bomb.y) < bomb.radius) {
     // A steel wall between the character and the charge absorbs the blast.

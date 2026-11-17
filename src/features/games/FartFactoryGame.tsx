@@ -16,7 +16,7 @@ export function FartFactory() {
   const pausedRef = useRef(false), mutedRef = useRef(false);
   const [paused, setPaused] = useState(false), [muted, setMuted] = useState(false);
   const [art, setArt] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [hud, setHud] = useState({ energy: 100, level: 0, food: 0, state: 'ready', reason: '', completed: 0, points: 0, notice: 0, noticeLevel: 0 });
+  const [hud, setHud] = useState({ energy: 100, level: 0, food: 0, state: 'ready', reason: '', completed: 0, points: 0, notice: 0, noticeLevel: 0, countdown: 0, deathTime: 0 });
   const [best, setBest] = useState(readBest), lastRecord = useRef(best);
   const [fullscreen, setFullscreen] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
@@ -29,7 +29,7 @@ export function FartFactory() {
     setStarting(true); sounds.current?.stop(); await sounds.current?.unlock();
     if (generation !== startGeneration.current) return;
     game.current = newFactoryGame(level);
-    game.current.state = 'playing'; pause(false); setShowGuide(false);
+    game.current.state = 'playing'; game.current.countdown = 3.7; release(); pause(false); setShowGuide(false);
     game.current.fartLengths = sounds.current?.durations() ?? game.current.fartLengths;
     sounds.current?.stop(); sounds.current?.mute(mutedRef.current); sounds.current?.setPlaying(true);
     setStarting(false); canvas.current?.focus();
@@ -38,7 +38,7 @@ export function FartFactory() {
     startGeneration.current++; setStarting(false);
     sounds.current?.stop(); release(); pausedRef.current = false; setPaused(false); setShowGuide(false);
     game.current = newFactoryGame();
-    setHud({ energy: 100, level: 0, food: 0, state: 'ready', reason: '', completed: 0, points: 0, notice: 0, noticeLevel: 0 });
+    setHud({ energy: 100, level: 0, food: 0, state: 'ready', reason: '', completed: 0, points: 0, notice: 0, noticeLevel: 0, countdown: 0, deathTime: 0 });
   };
   const toggleFullscreen = async () => {
     try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); } catch { /* The canvas already fills browsers without Fullscreen API. */ }
@@ -75,7 +75,7 @@ export function FartFactory() {
     const draw = (now: number) => {
       const dt = previous ? Math.min(0.1, (now - previous) / 1000) : 0; previous = now;
       const g = game.current, before = g.state;
-      if (!pausedRef.current && g.state === 'playing') {
+      if (!pausedRef.current && (g.state === 'playing' || g.state === 'dead')) {
         accumulator += dt;
         while (accumulator >= 1 / 120) {
           stepFactory(g, input.current, 1 / 120);
@@ -83,12 +83,14 @@ export function FartFactory() {
             if (event.type === 'boost') sounds.current?.play(event.food ?? g.boostFood);
             else if (event.type === 'bomb') sounds.current?.explode();
             else if (event.type === 'splat') sounds.current?.impact();
+            else if (event.type === 'eat') sounds.current?.eat();
+            else if (event.type === 'death') sounds.current?.death();
           }
           g.events = [];
           g.event = ''; accumulator -= 1 / 120;
         }
       } else accumulator = 0;
-      if (before === 'playing' && g.state !== 'playing') { input.current = emptyInput(); sounds.current?.stop(); }
+      if (before === 'playing' && g.state !== 'playing') { input.current = emptyInput(); if (g.state !== 'dead') sounds.current?.stop(); }
       const el = canvas.current;
       if (el) {
         const rect = el.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -98,7 +100,7 @@ export function FartFactory() {
       }
       const completed = g.state === 'won' ? 10 : Math.min(9, Math.floor(g.highest / FACTORY_HEIGHT));
       if (completed > lastRecord.current) { lastRecord.current = completed; setBest(completed); try { localStorage.setItem(RECORD, String(completed)); } catch { /* Optional browser storage. */ } }
-      if (now - uiTime > 80) { setHud({ energy: g.energy, level: factoryLevel(g.highest), food: g.food, state: g.state, reason: g.reason, completed, points: factoryPoints(g), notice: g.levelNotice, noticeLevel: g.noticeLevel }); uiTime = now; }
+      if (now - uiTime > 80) { setHud({ energy: g.energy, level: factoryLevel(g.highest), food: g.food, state: g.state, reason: g.reason, completed, points: factoryPoints(g), notice: g.levelNotice, noticeLevel: g.noticeLevel, countdown: g.countdown, deathTime: g.deathTime }); uiTime = now; }
       frame = requestAnimationFrame(draw);
     };
     frame = requestAnimationFrame(draw);
@@ -123,10 +125,11 @@ export function FartFactory() {
         <button disabled={hud.state !== 'playing'} onClick={() => { pause(!pausedRef.current); if (!pausedRef.current) canvas.current?.focus(); }}>{paused ? 'Seguir' : 'Pausa'}</button>
       </div></div>
       <div className="factory-hud"><div className="factory-energy"><b>ENERGÍA DE PEDOS</b><div role="progressbar" aria-label="Energía de pedos" aria-valuenow={Math.round(hud.energy)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${hud.energy}%` }} /></div><small>{Math.round(hud.energy)}% · {food.icon} {food.name} · {food.effect}</small></div><div className="factory-sector"><b>NIVEL {hud.level + 1}<span>/10</span></b><small>{theme.name}</small><small className="factory-score">Puntos: {hud.points}</small><div className="factory-levels" aria-label={`${hud.completed} niveles completados`}>{FACTORIES.map((f, i) => <i key={f.name} className={i < hud.completed ? 'done' : i === hud.level ? 'active' : ''} />)}</div></div></div>
+      {hud.countdown > 0 && <div className="factory-countdown" role="status"><small>NIVEL {hud.level + 1}</small><strong>{hud.countdown > 0.7 ? Math.ceil(hud.countdown - 0.7) : 'GO!'}</strong></div>}
       {!overlay && hud.notice > 0 && <div className="factory-level-notice" role="status"><small>¡NIVEL {hud.noticeLevel} SUPERADO!</small><strong>NIVEL {hud.noticeLevel + 1} · {FACTORIES[hud.noticeLevel].name}</strong><span>{MAZE_STRUCTURES[hud.noticeLevel].name}</span></div>}
       {!overlay && <div className="factory-route-hint">← Elegí tu camino →<small>Comé para recargar · Espacio / ↑ para dar gas</small></div>}
       {hud.state === 'ready' && <div className="factory-main-menu" role="dialog" aria-modal="true" aria-label="Menú principal">
-        <div className="factory-menu-sidebar"><p className="factory-kicker">MINIJUEGOS · BY YEYO</p><h1>FÁBRICA<span>DE PEDOS</span><i aria-hidden="true">≋</i></h1><p className="factory-menu-tagline">Encontrá tu camino.<br />Escapá a pura presión.</p>
+        <div className="factory-menu-sidebar factory-result"><p className="factory-kicker">MINIJUEGOS · BY YEYO</p><h1>FÁBRICA<span>DE PEDOS</span><i aria-hidden="true">≋</i></h1><p className="factory-menu-tagline">Encontrá tu camino.<br />Escapá a pura presión.</p>
           <nav aria-label="Menú del juego"><button className="factory-primary" disabled={art !== 'ready' || starting} aria-busy={starting} onClick={() => start()}>{art === 'loading' ? 'Cargando…' : art === 'error' ? 'No se pudo cargar' : 'Jugar'}</button>
             <button className="factory-guide-toggle" aria-expanded={showGuide} onClick={() => setShowGuide(!showGuide)}>{showGuide ? 'Ocultar alimentos' : 'Alimentos y controles'}</button>
             <button onClick={toggleFullscreen}>Pantalla completa</button><button onClick={() => { mutedRef.current = !mutedRef.current; setMuted(mutedRef.current); sounds.current?.mute(mutedRef.current); }}>Sonido: {muted ? 'desactivado' : 'activado'}</button>
@@ -135,9 +138,9 @@ export function FartFactory() {
           {art === 'error' && <button onClick={() => { setArt('loading'); sounds.current?.dispose(); sounds.current = new FactorySound(); void Promise.all([loadFactoryArt(), sounds.current.prepare()]).then(() => setArt('ready')).catch(() => setArt('error')); }}>Reintentar carga</button>}
           <small>Récord: {best}/10 fábricas</small>
         </div><div className="factory-menu-caption"><b>10 LABERINTOS INDUSTRIALES</b><span>Buscá las aberturas. Elegí otro corredor.<br />El piso de pinches no espera.</span></div>
-        {showGuide && <div className="factory-menu-guide"><button onClick={() => setShowGuide(false)} aria-label="Cerrar alimentos y controles">×</button><h2>Comé. Elegí. Despegá.</h2><p>← → / A D: mover · Espacio / ↑: pedo · P: pausa.<br />Las paredes son sólidas: subí por los huecos entre corredores. Si activás una bomba, alejate antes de que llegue a cero.</p><div className="factory-foods">{FOODS.map(f => <span key={f.name}>{f.icon}<b>{f.name}</b><small>{f.effect} · +{f.energy}%</small></span>)}</div></div>}
+        {showGuide && <div className="factory-menu-guide"><button onClick={() => setShowGuide(false)} aria-label="Cerrar alimentos y controles">×</button><h2>Comé. Elegí. Despegá.</h2><p>← → / A D: pedo lateral · Espacio / ↑: pedo · P: pausa.<br />Las paredes son sólidas: subí por los huecos entre corredores. Si activás una bomba, alejate antes de que llegue a cero.</p><div className="factory-foods">{FOODS.map(f => <span key={f.name}>{f.icon}<b>{f.name}</b><small>{f.effect} · +{f.energy}%</small></span>)}</div></div>}
       </div>}
-      {hud.state === 'dead' && <div className="factory-overlay factory-loss-overlay"><div className="factory-result" role="dialog" aria-modal="true" aria-label="Fin del intento">
+      {hud.state === 'dead' && hud.deathTime > 1.35 && <div className="factory-overlay factory-loss-overlay"><div className="factory-result" role="dialog" aria-modal="true" aria-label="Fin del intento">
         <small>NIVEL {hud.level + 1}</small><h1>MENÚ</h1><p className="factory-result-reason">{hud.reason}</p>
         <button className="factory-primary" disabled={starting} aria-busy={starting} onClick={() => start(true)}>Volver a intentar Nivel {hud.level + 1}</button>
         <button className="factory-result-menu" onClick={backToMenu}>Volver al menú principal</button>

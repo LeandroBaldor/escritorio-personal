@@ -31,3 +31,19 @@ body:has(.factory-game){overflow:hidden}body:has(.factory-game) .mobile-nav{disp
 .factory-game .factory-result button{display:block;width:100%;padding:15px 11px;margin:13px 0;border:2px solid #c79fff;border-top-color:#ecd2ff;border-bottom-color:#572691;border-radius:10px;background:linear-gradient(#bf91f7,#9e67df 45%,#7b3ac5 55%,#6d32ae);box-shadow:inset 0 2px 0 #f6d5ff55,0 4px 0 #351967,0 6px 14px #07172c77;color:#fff;font-size:17px;font-weight:900;line-height:1.35;text-shadow:0 2px 2px #4c1a83;white-space:normal;backdrop-filter:none}.factory-game .factory-result button:hover{filter:brightness(1.12);border-color:#e4c7ff}.factory-result-score{font-size:25px;font-weight:900;font-variant-numeric:tabular-nums;color:#ffe4a7;margin:25px 0 0;text-shadow:0 2px 0 #17294f}
 @media(max-width:600px){.factory-game .factory-menu-sidebar nav button,.factory-game .factory-menu-exit{font-size:14px;padding:12px 8px;letter-spacing:.2px}.factory-level-notice{top:24%;width:90%;padding:15px}.factory-level-notice>strong{font-size:18px}.factory-result{padding:25px 18px}.factory-game .factory-result button{font-size:16px}}
 @media(max-height:550px){.factory-game .factory-menu-sidebar nav button,.factory-game .factory-menu-exit{font-size:14px;padding:7px 10px}.factory-menu-sidebar h1{font-size:31px}.factory-result{padding:14px 22px;max-height:95dvh;overflow:auto}.factory-result h1{font-size:29px;margin:6px 0 8px}.factory-result-reason{margin-bottom:12px;font-size:11px}.factory-game .factory-result button{font-size:14px;padding:10px;margin:10px 0}.factory-result-score{font-size:20px;margin-top:17px}.factory-level-notice{top:31%;padding:10px 20px}.factory-level-notice>strong{font-size:17px}}
+
+/* Shared blue panel and purple buttons for both menus. */
+.factory-main-menu{align-items:center;justify-content:center;background:#03091377;overflow:auto;padding:20px}
+.factory-main-menu .factory-menu-sidebar{width:min(440px,94vw);flex:none;padding:25px;max-height:94dvh;overflow:auto;backdrop-filter:none}
+.factory-main-menu .factory-menu-sidebar h1{transform:none;font-size:40px;margin:8px 0;text-shadow:0 3px 0 #0b2055}
+.factory-main-menu .factory-menu-sidebar h1>span{color:#fff;font-size:.7em;letter-spacing:2px}
+.factory-main-menu .factory-menu-sidebar h1>i,.factory-menu-caption,.factory-menu-tagline{display:none}
+.factory-main-menu .factory-menu-sidebar nav{margin:0;gap:0}
+.factory-main-menu .factory-menu-sidebar nav button,.factory-main-menu .factory-menu-exit{font-size:16px;text-align:center;justify-content:center;padding:11px;margin:7px 0;background:linear-gradient(#bf91f7,#9e67df 45%,#7b3ac5 55%,#6d32ae);color:white;border:2px solid #c79fff;border-radius:10px;box-shadow:0 4px 0 #351967;text-decoration:none;letter-spacing:0}
+.factory-main-menu .factory-menu-sidebar>small{margin:10px 0 0;padding:0}
+.factory-menu-guide{z-index:5;inset:5%;width:auto;transform:none;background:#102352fa}
+.factory-countdown{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;background:#020b1733;text-shadow:0 5px 25px #000}
+.factory-countdown small{font-size:24px;font-weight:900;color:white}.factory-countdown strong{font:900 clamp(90px,20vw,170px)/1.2 Impact,sans-serif;color:#bced7c}
+@media(max-height:550px){.factory-main-menu .factory-menu-sidebar{padding:12px 22px}.factory-main-menu .factory-menu-sidebar h1{font-size:26px}.factory-main-menu .factory-menu-sidebar nav button,.factory-main-menu .factory-menu-exit{font-size:13px;padding:6px;margin:5px 0}.factory-menu-sidebar .factory-kicker{margin:0}}
+
+.factory-game .factory-menu-sidebar .factory-primary{background:linear-gradient(#bf91f7,#9e67df 45%,#7b3ac5 55%,#6d32ae);color:#fff;border:2px solid #c79fff;box-shadow:0 4px 0 #351967}

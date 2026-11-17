@@ -47,11 +47,20 @@ function drawHero(c: CanvasRenderingContext2D, g: FactoryGame, y: number) {
   else if (g.puff > 0.25) frame = 4;
   else if (g.ground === null) frame = g.vy > 0 ? 5 : 6;
   else if (g.landing > 0) frame = 7;
-  else if (Math.abs(g.vx) > 30) frame = Math.floor(g.time * 9) % 2 + 1;
+  else if (Math.abs(g.vx) > 30) frame = 5;
   ellipse(c, g.x, y + 2, 23, 5, '#0008');
-  c.save(); c.translate(g.x, y); c.rotate(g.lean); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+  c.save(); c.translate(g.x, y); c.rotate(g.lean + g.thrust * Math.sin(Math.min(1, g.puff / 0.65) * Math.PI) * 0.16); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
   const sw = hero.width / 4, sh = hero.height / 2;
-  c.drawImage(hero, frame % 4 * sw, Math.floor(frame / 4) * sh, sw, sh, -61, -121, 122, 122); c.restore();
+  // Render torso and each arm separately for a braced, asymmetric lateral thrust.
+  if (g.puff > 0 && g.thrust !== 0) {
+    const pulse = Math.sin(g.puff / 0.65 * Math.PI), sx = frame % 4 * sw, sy = Math.floor(frame / 4) * sh;
+    c.drawImage(hero, sx + sw * .27, sy, sw * .46, sh, -28, -121, 56, 122);
+    for (const side of [-1, 1]) {
+      c.save(); c.translate(side * 21, -82); c.rotate(side * (.18 + pulse * .55) - g.thrust * .3);
+      c.drawImage(hero, sx + (side < 0 ? 0 : .73) * sw, sy, sw * .27, sh, side < 0 ? -40 : -1, -39, 41, 122); c.restore();
+    }
+  } else c.drawImage(hero, frame % 4 * sw, Math.floor(frame / 4) * sh, sw, sh, -61, -121, 122, 122);
+  c.restore();
 }
 export function drawFactoryMenu(c: CanvasRenderingContext2D, width: number, height: number, time: number) {
   c.fillStyle = '#0f1a26'; c.fillRect(0, 0, width, height);
@@ -120,7 +129,7 @@ export function drawFactory(c: CanvasRenderingContext2D, g: FactoryGame, width: 
   for (let i = 0; i < 35; i++) { const x = (i * 173 + Math.sin(g.time * 0.3 + i) * 20) % FACTORY_WIDTH, y = (i * 97 + g.time * (4 + i % 4)) % v.h; ellipse(c, x, y, 0.8, 0.8, '#f4e4c733'); }
   for (const p of g.platforms) {
     const y = sy(p.y), x = platformX(p, g.time); if (y < -90 || y > v.h + 60 || x + p.w / 2 < v.left || x - p.w / 2 > v.left + v.w) continue;
-    if (p.checkpoint || p.y === FACTORY_TOP) { c.fillStyle = theme.color; c.font = 'bold 17px monospace'; c.textAlign = 'center'; c.fillText(p.y === FACTORY_TOP ? 'SALIDA · 10 FÁBRICAS COMPLETADAS' : `SECTOR ${p.row / MAZE_ROWS_PER_LEVEL + 1} · ${FACTORIES[factoryLevel(p.y)].name.toUpperCase()}`, 800, y + 46); c.textAlign = 'left'; }
+    if (p.checkpoint || p.y === FACTORY_TOP) { c.fillStyle = theme.color; c.font = 'bold 17px monospace'; c.textAlign = 'center'; c.fillText(p.y === FACTORY_TOP ? 'SALIDA · 10 FÁBRICAS COMPLETADAS' : `NIVEL ${Math.min(10, p.row / MAZE_ROWS_PER_LEVEL + 1)} · ${FACTORIES[factoryLevel(p.y)].name.toUpperCase()}`, 800, y + 46); c.textAlign = 'left'; }
     mazeMetal(c, x - p.w / 2, y, p.w, p.solid ? 22 : 16, factoryLevel(p.y));
     c.save(); c.beginPath(); c.rect(x - p.w / 2, y + 3, p.w, 5); c.clip();
     for (let k = -p.w / 2; k < p.w / 2; k += 20) { c.fillStyle = '#edbd36'; c.beginPath(); c.moveTo(x + k, y + 3); c.lineTo(x + k + 10, y + 3); c.lineTo(x + k + 4, y + 8); c.lineTo(x + k - 6, y + 8); c.fill(); } c.restore();
@@ -183,5 +192,23 @@ export function drawFactory(c: CanvasRenderingContext2D, g: FactoryGame, width: 
     else c.rotate(Math.sin(drop.age * 9) * 0.16);
     c.font = '34px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('💩', 0, 0); c.restore();
   }
-  drawHero(c, g, py); floorSpikes(c, sy(g.spikes), g.time, v.left, v.w); c.restore();
+  if (g.state !== 'dead') drawHero(c, g, py);
+  else {
+    const t = g.deathTime;
+    for (let i = 0; i < 75; i++) {
+      const angle = i * 2.39996, speed = 75 + i % 11 * 22;
+      const x = g.x + Math.cos(angle) * speed * t, y = py - 48 + Math.sin(angle) * speed * t + 330 * t * t;
+      if (i % 9 === 0) { c.save(); c.translate(x, y); c.rotate(angle + t * 5); c.strokeStyle = '#e9dfc2'; c.lineWidth = 5; c.beginPath(); c.moveTo(-7, 0); c.lineTo(7, 0); c.stroke(); ellipse(c, -7, 0, 4, 4, '#f5ecd4'); ellipse(c, 7, 0, 4, 4, '#f5ecd4'); c.restore(); }
+      else ellipse(c, x, y, 3 + i % 5, 2 + i % 3, i % 2 ? '#ae172b' : '#710c20');
+    }
+  }
+  floorSpikes(c, sy(g.spikes), g.time, v.left, v.w); c.restore();
+  if (g.state === 'dead') {
+    c.save(); c.globalAlpha = Math.min(0.78, g.deathTime * 3);
+    for (let i = 0; i < 26; i++) {
+      const x = (i * 173.3 + 47) % width, y = (i * 97.7 + 13) % height;
+      ellipse(c, x, y, 8 + i % 7 * 5, 5 + i % 5 * 4, '#850e28bb');
+      c.fillStyle = '#850e2877'; c.fillRect(x - 2, y, 4, Math.min(80, g.deathTime * (13 + i % 8 * 6)));
+    } c.restore();
+  }
 }

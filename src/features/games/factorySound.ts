@@ -1,3 +1,6 @@
+import eatSound from './assets/factory/comer.mp3';
+import deathSound from './assets/factory/explosion_jugador.mp3';
+import bloodSound from './assets/factory/explosion_sangre.mp3';
 import sound1 from './assets/factory/fart-1.mp3';
 import sound2 from './assets/factory/fart-2.mp3';
 import sound3 from './assets/factory/fart-3.mp3';
@@ -28,7 +31,7 @@ export class FactorySound {
     if (this.loading) return this.loading;
     if (!window.AudioContext) return Promise.resolve();
     const context = new AudioContext(); this.context = context;
-    this.loading = Promise.all([...FACTORY_FART_SOUNDS, explosion, splat, ambience].map(async url => {
+    this.loading = Promise.all([...FACTORY_FART_SOUNDS, explosion, splat, ambience, eatSound, deathSound, bloodSound].map(async url => {
       const response = await fetch(url); if (!response.ok) throw new Error('No se pudo cargar un sonido.');
       return context.decodeAudioData(await response.arrayBuffer());
     })).then(buffers => { this.buffers = buffers; });
@@ -48,6 +51,8 @@ export class FactorySound {
     source.connect(gain); gain.connect(context.destination); this.ambient = source; this.ambientGain = gain; source.start();
   }
   private stopAmbient() { this.ambient?.stop(); this.ambient?.disconnect(); this.ambientGain?.disconnect(); this.ambient = null; this.ambientGain = null; }
+  eat() { this.play(13); }
+  death() { this.stop(); this.play(14); this.play(15); }
   explode() { this.play(10); }
   impact() { this.play(11); }
   play(food: number) {

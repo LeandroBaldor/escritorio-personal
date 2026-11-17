@@ -1,7 +1,7 @@
 export const MAZE_WIDTH = 1600;
 export const MAZE_TIER = 288;
 export const MAZE_GAP = 204;
-export const MAZE_TIERS_PER_LEVEL = 7;
+export const MAZE_TIERS_PER_LEVEL = 14;
 export const MAZE_ROWS_PER_LEVEL = MAZE_TIERS_PER_LEVEL * 2;
 export type MazeWall = { x: number; y: number; w: number; h: number };
 export const MAZE_STRUCTURES = [
@@ -17,13 +17,13 @@ export const MAZE_STRUCTURES = [
   { name: 'Muelles orbitales', gap: 216, lanes: [170, 480, 810, 1130, 1440], routes: [[0, 4], [0, 1, 3], [1, 2, 4], [0, 3], [1, 4], [0, 2, 3], [1, 4]] },
 ];
 export function mazeOpenings(level: number, tier: number) {
-  return [...MAZE_STRUCTURES[level].routes[(tier - 1) % MAZE_TIERS_PER_LEVEL]];
+  return [...MAZE_STRUCTURES[level].routes[(tier - 1) % 7]];
 }
 export const mazeLaneX = (lane: number, level = 0) => MAZE_STRUCTURES[level].lanes[lane];
-export const mazeGap = (level: number) => MAZE_STRUCTURES[level].gap;
+export const mazeGap = (level: number) => MAZE_STRUCTURES[level].gap + 40;
 // Open chambers replace entire walkways with stepping islands, changing each factory's silhouette.
 const openChambers = [[], [2, 4, 6], [], [1, 3, 5], [], [], [2, 5], [], [], [2, 3, 5, 6]];
-export const mazeHasSolidFloor = (level: number, tier: number) => !openChambers[level].includes(tier);
+export const mazeHasSolidFloor = (level: number, tier: number) => !openChambers[level].includes((tier - 1) % 7 + 1);
 export function mazeFloorSegments(level: number, tier: number) {
   const segments: { x: number; w: number }[] = [];
   let left = 0;
