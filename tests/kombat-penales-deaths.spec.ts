@@ -4,9 +4,12 @@ import { readFileSync } from 'node:fs';
 const project = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 test('la pierna gigante llega al piso y su recorte no tapa la cancha con un fondo', async ({ page }) => {
+  test.setTimeout(90_000); // Seis capturas de alta resolución en los runners compartidos.
   const base = project.name === 'minijuegos' ? '/MiniJuegos/' : '/escritorio-personal/';
   await page.goto(`${base}docs/kombat-penales-muertes-preview.html`);
   await page.waitForFunction(() => 'penPreview' in window);
+  // El recorrido de todos los luchadores se prueba aparte; aquí se renderiza sólo el pisotón.
+  await page.evaluate(() => (window as unknown as { penPreview: { cards: unknown[] } }).penPreview.cards.splice(0, 7));
   const alpha = await page.evaluate(async base => {
     const image = new Image(); image.src = `${base}src/features/games/assets/penales/botines-cutout.png`; await image.decode();
     const c = document.createElement('canvas'); c.width = image.naturalWidth; c.height = image.naturalHeight;
