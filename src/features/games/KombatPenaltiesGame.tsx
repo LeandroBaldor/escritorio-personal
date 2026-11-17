@@ -27,7 +27,7 @@ import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
   playGameOver, playKfButton, playKfGoal, playKfName, playKfSelectVoice, playKfVsSentence,
   playPenArm, playPenExplosion, playPenKick, playPenNet, playPenSave, playPenSteps, playRefWhistle, playStart, preloadPenaltySounds, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setPenMusic,
-  playPenDeathStart, playVampBurn, syncPenDeathAudio,
+  playPenDeathStart, playPenStomp, playVampBurn, syncPenDeathAudio, syncPenaltySceneAudio,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 import { Fireworks } from './Fireworks';
@@ -180,7 +180,7 @@ function KickDots({ kicks, total, testId }: { kicks: boolean[]; total: number; t
 
 // El cuadro del piedra, papel o tijera (borde rojo, fondo negro, los dos brazos frente a frente).
 function RpsBox({ rps, two, chars, onHand, onOrder }: { rps: Rps; two: boolean; chars: [CharId, CharId]; onHand: (h: Hand) => void; onOrder: (o: 'first' | 'second') => void }) {
-  const arm = (color: 'rojo' | 'azul', side: 0 | 1) => { const h = rps.hands[side]; const showHand = (rps.stage === 'anim' && rps.frame >= 5) || rps.stage === 'order'; return ARMS[color][showHand && h ? h : rps.stage === 'anim' && rps.frame % 2 === 1 ? 2 : 1]; };
+  const arm = (color: 'rojo' | 'azul', side: 0 | 1) => { const h = rps.hands[side]; const showHand = (rps.stage === 'anim' && rps.frame >= 5) || rps.stage === 'order'; return ARMS[color][showHand && h ? h : 1]; };
   const humanWinner = rps.stage === 'order' && rps.winner !== null && !rps.cpuOrder;
   const title = rps.stage === 'pick'
     ? (two ? `JUGADOR ${rps.picker + 1} · ${CHARS[chars[rps.picker]].name}: elegí (que no mire el otro)` : 'Piedra, papel o tijera: ¿quién elige?')
@@ -189,8 +189,8 @@ function RpsBox({ rps, two, chars, onHand, onOrder }: { rps: Rps; two: boolean; 
   return <div className={`kp-rps kp-rps--${rps.stage}`} role="dialog" aria-label="Piedra, papel o tijera" data-testid="kp-rps">
     <b className="kp-rps-title" data-testid="kp-rps-title">{title}</b>
     <div className="kp-rps-arms">
-      <figure className={rps.winner === 0 ? 'kp-rps-win' : rps.winner === 1 ? 'kp-rps-lose' : ''}><img key={`r${rps.frame}${rps.stage}`} src={arm('rojo', 0)} alt="" /><figcaption>{CHARS[chars[0]].name}{rps.stage === 'pick' && rps.hands[0] ? ' ✓' : ''}</figcaption></figure>
-      <figure className={rps.winner === 1 ? 'kp-rps-win' : rps.winner === 0 ? 'kp-rps-lose' : ''}><img key={`a${rps.frame}${rps.stage}`} src={arm('azul', 1)} alt="" /><figcaption>{CHARS[chars[1]].name}{rps.stage === 'pick' && (two ? rps.hands[1] : true) && rps.hands[1] ? ' ✓' : ''}</figcaption></figure>
+      <figure className={rps.winner === 0 ? 'kp-rps-win' : rps.winner === 1 ? 'kp-rps-lose' : ''}><img src={arm('rojo', 0)} alt="" /><figcaption>{CHARS[chars[0]].name}{rps.stage === 'pick' && rps.hands[0] ? ' ✓' : ''}</figcaption></figure>
+      <figure className={rps.winner === 1 ? 'kp-rps-win' : rps.winner === 0 ? 'kp-rps-lose' : ''}><img src={arm('azul', 1)} alt="" /><figcaption>{CHARS[chars[1]].name}{rps.stage === 'pick' && (two ? rps.hands[1] : true) && rps.hands[1] ? ' ✓' : ''}</figcaption></figure>
     </div>
     <div className="kp-rps-buttons">{/* (siempre ocupa su lugar: así el cuadro no cambia de alto y los brazos no se mueven de sitio) */}
       {rps.stage === 'pick' && (['piedra', 'papel', 'tijera'] as Hand[]).map((h, i) => <button key={h} type="button" data-testid={`kp-hand-${h}`} onClick={() => onHand(h)}>{HAND_NAMES[h]} <kbd>{['←', '↓', '→'][i]}</kbd></button>)}
@@ -422,7 +422,7 @@ export function KombatPenalties() {
     window.addEventListener('pointerdown', first, { once: true }); window.addEventListener('keydown', first, { once: true });
     return () => { window.removeEventListener('pointerdown', first); window.removeEventListener('keydown', first); };
   }, [menuish]);
-  useEffect(() => () => { setPenMusic(false); syncPenDeathAudio(null); }, []);
+  useEffect(() => () => { setPenMusic(false); syncPenDeathAudio(null); syncPenaltySceneAudio(null); }, []);
 
   // ---------------------------------------------------------------- La tanda
   useEffect(() => {
@@ -453,7 +453,8 @@ export function KombatPenalties() {
           case 'deathStart': playPenDeathStart(e.death); break;
           case 'burn': playVampBurn(); break;
           case 'boom':
-            if (e.death !== 'acid' && e.death !== 'ash') playPenExplosion();
+            if (e.death === 'stomp') playPenStomp();
+            else if (e.death !== 'acid' && e.death !== 'ash') playPenExplosion();
             break;
           case 'end': playRefWhistle('end'); break;
           case 'post': break;
@@ -485,7 +486,7 @@ export function KombatPenalties() {
     const hide = () => { if (document.hidden) setScreen('paused'); };
     document.addEventListener('visibilitychange', hide);
     const observer = new ResizeObserver(paint); if (stageRef.current) observer.observe(stageRef.current);
-    return () => { cancelAnimationFrame(frame); syncPenDeathAudio(null); document.removeEventListener('visibilitychange', hide); observer.disconnect(); };
+    return () => { cancelAnimationFrame(frame); syncPenDeathAudio(null); syncPenaltySceneAudio(null); document.removeEventListener('visibilitychange', hide); observer.disconnect(); };
   }, [screen, paint, shout, round, setupTurn, startRps]);
   useEffect(() => () => setCrowd(0), []);
 

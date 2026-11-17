@@ -35,10 +35,33 @@ beforeAll(async () => {
   await vi.waitFor(() => expect(Audio.current.decoded.length).toBeGreaterThanOrEqual(14));
 }, 30_000);
 beforeEach(() => { Audio.current.currentTime = 10; Audio.current.state = 'running'; Audio.current.sources = []; });
-afterEach(() => { sounds?.syncPenDeathAudio(null); sounds?.setKfMusic(false); });
+afterEach(() => { sounds?.syncPenDeathAudio(null); sounds?.syncPenaltySceneAudio(null); sounds?.setKfMusic(false); });
 afterAll(() => vi.unstubAllGlobals());
 
 describe('audio de Kombat Penales', () => {
+  it('sincroniza vuelo y disparo del ovni y detiene ambos al pausar', () => {
+    const audio = Audio.current;
+    sounds.syncPenaltySceneAudio(0.4);
+    expect(audio.sources[0].buffer?.label).toContain('pen-ovni.mp3');
+    sounds.syncPenaltySceneAudio(1.8);
+    expect(audio.sources[1].buffer?.label).toContain('pen-ovni-dispara');
+    expect(audio.sources[1].start).toHaveBeenCalledWith(10, 0.25);
+    sounds.syncPenaltySceneAudio(3);
+    expect(audio.sources[1].stop).toHaveBeenCalledOnce(); expect(audio.sources[0].stop).not.toHaveBeenCalled();
+    sounds.syncPenaltySceneAudio(null); expect(audio.sources[0].stop).toHaveBeenCalledOnce();
+    sounds.syncPenaltySceneAudio(3.5); expect(audio.sources[2].start).toHaveBeenCalledWith(10, 3.5);
+    sounds.syncPenaltySceneAudio(5.2); expect(audio.sources[2].stop).toHaveBeenCalledOnce();
+  });
+  it('los fuegos artificiales suenan mientras está visible la celebración y se liberan al salir', () => {
+    sounds.syncPenaltySceneAudio(null, true);
+    const source = Audio.current.sources[0]; expect(source.buffer?.label).toContain('pen-fuegos-artificiales'); expect(source.loop).toBe(true);
+    sounds.syncPenaltySceneAudio(null, true); expect(Audio.current.sources).toHaveLength(1);
+    Audio.current.state = 'suspended'; sounds.syncPenaltySceneAudio(null); expect(source.stop).toHaveBeenCalledOnce();
+  });
+  it('el pisotón mezcla el paso gigante y la explosión de sangre', () => {
+    sounds.playPenStomp();
+    expect(Audio.current.sources.map(s => s.buffer?.label)).toEqual([expect.stringContaining('pen-paso-gigante'), expect.stringContaining('pen-explosion-sangre')]);
+  });
   it('mantiene las cenizas hasta terminar la animación y reanuda desde el mismo punto', () => {
     const audio = Audio.current;
     sounds.syncPenDeathAudio('ash', 1.2);

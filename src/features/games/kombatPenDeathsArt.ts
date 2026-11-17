@@ -24,11 +24,23 @@ function frozenSilhouette(ctx: CanvasRenderingContext2D, x: number, y: number, h
 }
 
 function flameRibbons(ctx: CanvasRenderingContext2D, t: number, intensity: number) {
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < 17; i++) {
-    const phase = (t * 1.7 + i * 0.618) % 1, x = Math.sin(i * 9.2) * 0.48, base = -0.1 - (i % 4) * 0.35, height = (0.65 + phase * 1.7) * intensity, width = (0.045 + (i % 3) * 0.028) * (1 - phase * 0.45), sway = Math.sin(t * 9 + i * 3.7) * 0.25;
-    const g = ctx.createLinearGradient(x, base, x + sway, base - height); g.addColorStop(0, 'rgba(255,225,148,0.65)'); g.addColorStop(0.35, 'rgba(255,137,36,0.52)'); g.addColorStop(0.75, 'rgba(215,49,12,0.3)'); g.addColorStop(1, 'rgba(100,15,5,0)'); ctx.fillStyle = g;
-    ctx.beginPath(); ctx.moveTo(x - width, base); ctx.bezierCurveTo(x + sway - width * 2, base - height * 0.4, x - sway, base - height * 0.65, x + sway, base - height); ctx.bezierCurveTo(x + sway * 0.5, base - height * 0.55, x + width + sway, base - height * 0.35, x + width, base); ctx.closePath(); ctx.fill();
+  ctx.save();
+  // Lenguas calientes con bordes rojos, centro amarillo y turbulencia ascendente.
+  for (let i = 0; i < 28; i++) {
+    const life = (t * (1.05 + i % 4 * 0.13) + i * 0.618) % 1;
+    const x = Math.sin(i * 9.2) * 0.46, base = -0.08 - i % 5 * 0.39 - life * 0.4;
+    const height = (0.48 + life * 1.2) * intensity;
+    const width = (0.065 + i % 3 * 0.025) * (1 - life * 0.55);
+    const sway = Math.sin(t * 6.7 + i * 3.7) * 0.1 + Math.sin(t * 11.1 + i) * 0.055;
+    const alpha = Math.sin(life * Math.PI) * 0.8;
+    const g = ctx.createLinearGradient(x, base, x + sway, base - height);
+    g.addColorStop(0, 'rgba(255,250,195,0.92)'); g.addColorStop(0.2, 'rgba(255,207,64,0.9)'); g.addColorStop(0.55, 'rgba(255,111,13,0.78)'); g.addColorStop(0.85, 'rgba(181,35,7,0.4)'); g.addColorStop(1, 'rgba(75,12,5,0)');
+    ctx.globalAlpha = alpha; ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(x - width, base);
+    ctx.bezierCurveTo(x - width * 1.6 + sway, base - height * 0.35, x - sway * 0.7, base - height * 0.7, x + sway, base - height);
+    ctx.bezierCurveTo(x + sway * 0.25, base - height * 0.62, x + width + sway, base - height * 0.32, x + width, base); ctx.closePath(); ctx.fill();
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = alpha * 0.35; ctx.fillStyle = '#fff1b5';
+    ctx.beginPath(); ctx.ellipse(x, base - height * 0.14, width * 0.42, height * 0.21, sway * 0.15, 0, Math.PI * 2); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
   }
   ctx.restore();
 }
@@ -43,13 +55,14 @@ export function drawPenDeath(ctx: CanvasRenderingContext2D, d: PenDeath, x: numb
   const tint = (color: string, a: number, sy = 1, sx = 1) => tinted(ctx, x - w / 2, y - h * 1.4, w, h * 1.6, color, Math.min(1, a), draw(sy, sx));
   switch (d.type) {
     case 'explosion': return;
+    case 'stomp': { const squash = Math.max(0, Math.min(1, (d.t - 2.35) / 0.25)); draw(1 - squash * 0.98, 1 + squash * 0.35)(ctx); break; }
     case 'fire': {
       const f = Math.min(1, d.t / (BURN_AT * 1.8)), burn = Math.max(0, (d.t - BURN_AT) / (DEATH_AT.fire - BURN_AT));
       ctx.save(); ctx.globalAlpha = 1 - f; body(ctx); ctx.restore();
       // Las llamas siguen la vertical de la cancha aunque el arquero quede girado en el aire.
       ctx.save(); ctx.translate(x, y - h * 0.5); ctx.rotate(-bodyRotation); ctx.translate(0, h * 0.5); ctx.scale(h / 2.3, h / 2.3); ctx.globalAlpha = f;
       if (burn > 0) {
-        ctx.save(); ctx.globalAlpha = f * 0.2; bodyFire(ctx, 2.9, 1.25, Math.min(1, burn * 1.7), d.clock + d.t, d.side); ctx.restore();
+        ctx.save(); ctx.globalAlpha = f * 0.12; bodyFire(ctx, 2.9, 1.25, Math.min(1, burn * 1.7), d.clock + d.t, d.side); ctx.restore();
         flameRibbons(ctx, d.clock + d.t, Math.min(1.4, burn * 2.2));
       }
       // Brasas finas que recorren el cuerpo y ascienden: el esqueleto permanece legible entre las llamas.

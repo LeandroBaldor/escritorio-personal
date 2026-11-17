@@ -2273,3 +2273,10 @@ body:has(.land) .mobile-nav{display:none}
 .kp-rps-buttons kbd{margin-left:.3rem;padding:0 .35rem;border-radius:.25rem;background:#000;color:#fde68a;font:800 .8em/1.4 system-ui,sans-serif}
 @keyframes kp-arm{from{transform:translateY(-6%) rotate(-2deg)}to{transform:none}}
 @media(max-width:700px){.kp-rps{padding:.4rem .5rem .6rem;gap:.3rem}.kp-rps-arms img{max-height:38vh}}
+
+/* Penales: balanceo continuo desde el codo, sin reiniciar la imagen en cada golpe. */
+.kp-rps--anim .kp-rps-arms img{animation:kp-rps-swing .66s cubic-bezier(.45,0,.25,1) 2.5 both;will-change:transform}
+.kp-rps-arms figure:first-child{--kp-arm-dir:1}
+.kp-rps-arms figure:last-child{--kp-arm-dir:-1}
+.kp-rps--order .kp-rps-arms img{transition:transform .22s ease-out;transform:translateY(2%)}
+@keyframes kp-rps-swing{0%,100%{transform:rotate(calc(var(--kp-arm-dir)*-7deg)) translateY(-2%)}45%{transform:rotate(calc(var(--kp-arm-dir)*12deg)) translateY(7%)}60%{transform:rotate(calc(var(--kp-arm-dir)*10deg)) translateY(6%)}}

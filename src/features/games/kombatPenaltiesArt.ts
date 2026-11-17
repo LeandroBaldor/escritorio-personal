@@ -15,6 +15,7 @@ import { SIZE } from './kombat';
 import { drawPenDeath, drawPenDeathAtmosphere } from './kombatPenDeathsArt';
 import { drawPenBlood, drawPenGib, drawPenProfileSkeleton, drawPenScreenBlood } from './kombatPenGoreArt';
 import { drawPenUfo, preloadPenUfo } from './kombatPenUfo';
+import { drawPenStomp, preloadPenStomp } from './kombatPenStomp';
 import netUrl from './assets/penales/arco-red.webp';
 import frameUrl from './assets/penales/arco-marco.webp';
 import ballUrl from './assets/penales/pelota.webp';
@@ -67,7 +68,7 @@ function img(key: ImgKey) {
   if (!imgs[key]) { const i = new Image(); i.decoding = 'async'; i.onload = () => listeners.forEach(f => f()); i.src = URLS[key]; imgs[key] = i; }
   const i = imgs[key]!; return i.complete && i.naturalWidth > 0 ? i : null;
 }
-export function preloadPenaltyArt() { preloadPenUfo(); (Object.keys(URLS) as ImgKey[]).forEach(img); }
+export function preloadPenaltyArt() { preloadPenUfo(); preloadPenStomp(); (Object.keys(URLS) as ImgKey[]).forEach(img); }
 export function onPenaltyArtLoad(f: () => void) { listeners.add(f); return () => { listeners.delete(f); }; }
 
 // ---------------------------------------------------------------- La cancha (va en la capa del fondo)
@@ -347,8 +348,8 @@ function drawKeeper(ctx: CanvasRenderingContext2D, m: PenMatch, char: CharId, ri
   // sombra en el piso (queda abajo aunque vuele)
   const gy = m.kick ? Math.max(st.y, KEEPER[1]) : KEEPER[1], S = FPX * BODY_SCALE * SIZE[char];
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(st.x, Math.min(gy, st.y + 400), S * 0.5 + Math.abs(Math.sin(st.rot)) * S * 0.7, S * 0.09, 0.3, 0, TAU); ctx.fill();
-  if (death?.type === 'acid') {
-    const rise = death.type === 'acid' ? easeInOut(death.t / 0.38) : 0;
+  if (death?.type === 'acid' || death?.type === 'stomp') {
+    const rise = easeInOut(death.t / 0.38);
     if (rise > 0.5) { f.action = 'sad'; f.ground = true; }
     const body = (c: CanvasRenderingContext2D) => { c.save(); c.translate(lerp(st.x, death.x, rise), lerp(st.y, death.y, rise) - st.hipY); c.rotate(st.rot * (1 - rise)); drawFighterLit(c, f, death.clock + 0.4, NOFX, 0, st.hipY, FPX, rim, true); c.restore(); };
     drawPenDeath(ctx, death, death.x, death.y, 2.3 * SIZE[char] * FPX, body);
@@ -390,6 +391,7 @@ function drawGore(ctx: CanvasRenderingContext2D, m: PenMatch) {
 }
 function drawFlying(ctx: CanvasRenderingContext2D, m: PenMatch) {
   const U = FPX * 1.6;
+  if (m.death?.type === 'stomp') drawPenStomp(ctx, m.death);
   if (m.death) drawPenDeathAtmosphere(ctx, m.death);
   for (const d of m.gore.drops) drawPenBlood(ctx, d.x, d.y - d.z, d.r, Math.atan2(d.vy - d.vz, d.vx), Math.hypot(d.vx, d.vy - d.vz));
   for (const g of m.gore.gibs) { ctx.fillStyle = `rgba(0,0,0,${0.25 / (1 + g.z / 300)})`; ctx.beginPath(); ctx.ellipse(g.x, g.y, 22 * (g.scale ?? 1), 7 * (g.scale ?? 1), 0, 0, TAU); ctx.fill(); }

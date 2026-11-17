@@ -25,6 +25,11 @@ import penHeadUrl from './assets/sonidos/pen-cabeza.mp3';
 import penAshUrl from './assets/sonidos/pen-cenizas.mp3';
 import penElectricUrl from './assets/sonidos/pen-electricidad.mp3';
 import penFreezeUrl from './assets/sonidos/pen-congelamiento.mp3';
+import penUfoUrl from './assets/sonidos/pen-ovni.mp3';
+import penUfoShotUrl from './assets/sonidos/pen-ovni-dispara.mp3';
+import penFireworksUrl from './assets/sonidos/pen-fuegos-artificiales.mp3';
+import penGiantStepUrl from './assets/sonidos/pen-paso-gigante.mp3';
+import { FINAL_END_AT, FINAL_SHOT_AT } from './kombatPenalties';
 import { DEATH_AT, DEATH_LENGTH, type PenDeathType } from './kombatPenalties';
 import hinchadaUrl from './assets/sonidos/hinchada.mp3';
 import patadaUrl from './assets/sonidos/patada.mp3';
@@ -1621,7 +1626,7 @@ export function setVampDragon(mouth: 'shut' | 'open' | null, wings = 0) {
 // ---------- Kombat Penales (sonidos que pasó el usuario) ----------
 // Los pasos mientras corre a la pelota, la patada, la atajada del arquero y la pelota pegando en la red.
 // Mientras el archivo carga, suena el sintetizado de Kombat Football.
-export function preloadPenaltySounds() { for (const url of [penPasosUrl, penPelotaUrl, penAtajaUrl, penRedUrl, penBoomUrl, penBoomBodyUrl, penArmUrl, penArmEndUrl, penHeadUrl, penAshUrl, penElectricUrl, penFreezeUrl, vs('fuego'), vs('acido')]) loadSample(url); }
+export function preloadPenaltySounds() { for (const url of [penUfoUrl, penUfoShotUrl, penFireworksUrl, penGiantStepUrl, penPasosUrl, penPelotaUrl, penAtajaUrl, penRedUrl, penBoomUrl, penBoomBodyUrl, penArmUrl, penArmEndUrl, penHeadUrl, penAshUrl, penElectricUrl, penFreezeUrl, vs('fuego'), vs('acido')]) loadSample(url); }
 let penVoice: { src: AudioBufferSourceNode; gain: GainNode; type: PenDeathType } | null = null;
 // Sigue el reloj de la animación, incluyendo el polvo final; al reanudar continúa desde el mismo punto.
 export function syncPenDeathAudio(type: PenDeathType | null, elapsed = 0) {
@@ -1644,7 +1649,7 @@ export function syncPenDeathAudio(type: PenDeathType | null, elapsed = 0) {
 export function playPenDeathStart(type: PenDeathType) {
   syncPenDeathAudio(type, 0);
   if (type === 'head') { if (!playSample(penHeadUrl, 1)) playVampDeath(); }
-  else if (type === 'ash' || type === 'ice' || type === 'violet') return;
+  else if (type === 'ash' || type === 'ice' || type === 'violet' || type === 'stomp') return;
   else if (type === 'acid') playVampAcid();
   else if (type !== 'explosion') playVampDeath();
 }
@@ -1654,5 +1659,32 @@ export function playPenSave() { if (!playSample(penAtajaUrl, 1)) playKfBall(1, 0
 export function playPenNet() { playSample(penRedUrl, 1, 0.08); }
 // Todas las explosiones mezclan explosion_jugador.mp3 y explosion_sangre.mp3.
 export function playPenExplosion() { const a = playSample(penBoomUrl, 1), b = playSample(penBoomBodyUrl, 1); if (!a && !b) playExplosion(); }
+export function playPenStomp() { playSample(penGiantStepUrl, 1); playSample(penBoomBodyUrl, 1); }
+
+const penaltySceneVoices = new Map<string, { src: AudioBufferSourceNode; gain: GainNode }>();
+// Los bucles siguen la escena, se detienen al pausar y reanudan desde el reloj del juego.
+export function syncPenaltySceneAudio(finaleTime: number | null, champion = false) {
+  const c = ctx; if (!c) return;
+  const active = new Map<string, { url: string; offset: number; volume: number }>();
+  if (finaleTime !== null && finaleTime < FINAL_END_AT) {
+    active.set('flight', { url: penUfoUrl, offset: finaleTime, volume: 0.75 });
+    if (finaleTime >= 1.55 && finaleTime < FINAL_SHOT_AT + 0.65) active.set('beam', { url: penUfoShotUrl, offset: finaleTime - 1.55, volume: 1 });
+  }
+  if (champion) active.set('fireworks', { url: penFireworksUrl, offset: 0, volume: 0.85 });
+  for (const [name, voice] of penaltySceneVoices) if (!active.has(name)) {
+    voice.gain.gain.cancelScheduledValues(c.currentTime); voice.gain.gain.setValueAtTime(0, c.currentTime);
+    try { voice.src.stop(c.currentTime); } catch { /* ya terminó */ }
+    penaltySceneVoices.delete(name);
+  }
+  if (!running()) return;
+  for (const [name, spec] of active) {
+    if (penaltySceneVoices.has(name)) continue;
+    const buffer = samples.get(spec.url); if (!(buffer instanceof AudioBuffer)) { loadSample(spec.url); continue; }
+    const src = c.createBufferSource(), gain = c.createGain();
+    src.buffer = buffer; src.loop = true; gain.gain.value = spec.volume;
+    src.connect(gain).connect(out(c)); penaltySceneVoices.set(name, { src, gain });
+    src.start(c.currentTime, spec.offset % buffer.duration);
+  }
+}
 // Los brazos del piedra, papel o tijera (T-800.mp3 del usuario): un tramo corto en cada movimiento y el final cuando muestran la mano.
 export function playPenArm(end = false) { if (!playSample(end ? penArmEndUrl : penArmUrl, 1)) playKfButton(end ? 0.9 : 0.45); }

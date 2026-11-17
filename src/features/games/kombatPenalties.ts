@@ -70,12 +70,12 @@ export const BALL_FX_NAMES: Record<BallFx, string> = { fuego: '🔥 Fuego', elec
 export const fxOfTurn = (turn: number): BallFx => BALL_FX[Math.floor(turn / 2) % BALL_FX.length];
 // Todo gol no atajado recibe el disparo, también cuando falla solamente la altura.
 export const keeperBlewIt = (shot: Zone, dive: Zone) => shot !== dive;
-export const DEATH_TYPES = ['explosion', 'fire', 'violet', 'acid', 'ice', 'head', 'ash'] as const;
+export const DEATH_TYPES = ['explosion', 'fire', 'violet', 'acid', 'ice', 'head', 'ash', 'stomp'] as const;
 export type PenDeathType = typeof DEATH_TYPES[number];
 // Más anticipación y tiempo para leer cada transformación antes del estallido.
 export const DEATH_LENGTH = 5.2;
 // Transformación y restos comparten una secuencia de aproximadamente cinco segundos.
-export const DEATH_AT: Record<PenDeathType, number> = { explosion: 0, fire: 3.7, violet: 3.7, acid: 3.6, ice: 3.7, head: 4.1, ash: 4.2 };
+export const DEATH_AT: Record<PenDeathType, number> = { explosion: 0, fire: 3.7, violet: 3.7, acid: 3.6, ice: 3.7, head: 4.1, ash: 4.2, stomp: 2.6 };
 export const HEAD_GROWTH = 4.2;
 export const ACID_GREEN_T = 0.7, ACID_MELT_T = 3.15;
 export const FINAL_SHOT_AT = 2.25;
@@ -215,7 +215,7 @@ function updateDeath(m: PenMatch) {
   d.finished = true;
   if (d.type === 'ice') {
     const r = m.rand;
-    for (let i = 0; i < 38; i++) m.fragments.push({ kind: 'ice', x: d.x + (r() - 0.5) * d.h * 0.5, y: d.y - r() * d.h, vx: (r() - 0.5) * 1200, vy: -180 - r() * 850, a: r() * 6, va: (r() - 0.5) * 15, size: d.h * (i < 18 ? 0.08 + r() * 0.09 : 0.02 + r() * 0.04), t: 0, life: 1.75 });
+    for (let i = 0; i < 24; i++) m.fragments.push({ kind: 'ice', x: d.x + (r() - 0.5) * d.h * 0.5, y: d.y - r() * d.h, vx: (r() - 0.5) * 1200, vy: -180 - r() * 850, a: r() * 6, va: (r() - 0.5) * 15, size: d.h * (i < 14 ? 0.16 + r() * 0.14 : 0.085 + r() * 0.075), t: 0, life: 2.1 });
     sprayBlood(m, d.x, d.y, d.h, 110);
     m.gore.stains.push({ x: d.x, y: d.y, r: 70 + r() * 30, seed: r() * 100, t: 0 });
     m.shake = 0.85;

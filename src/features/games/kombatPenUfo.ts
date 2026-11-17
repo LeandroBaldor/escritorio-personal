@@ -1,6 +1,7 @@
 import ufoUrl from './assets/penales/ovni.png';
 import { FINAL_END_AT, FINAL_SHOT_AT } from './kombatPenalties';
 
+export const UFO_WIDTH = 3.8;
 const TAU = Math.PI * 2;
 export const UFO_COLORS = ['#ff395a', '#ffb62e', '#b9ff40', '#37ffbf', '#29dcff', '#697bff', '#d65cff', '#ff69ce'] as const;
 // Cada lámpara conserva su identidad: el ángulo cambia, el orden de colores no.
@@ -77,7 +78,7 @@ function drawCraft(ctx: CanvasRenderingContext2D, t: number) {
 export function drawPenUfo(ctx: CanvasRenderingContext2D, t: number, target: { x: number; y: number; h: number }) {
   preloadPenUfo();
   const seq = ufoSequence(t); if (t >= FINAL_END_AT) return;
-  const width = target.h * 2.8, scale = width / 1536;
+  const width = target.h * UFO_WIDTH, scale = width / 1536;
   const x = target.x + (1 - seq.enter) * 650 + seq.leave * 500;
   const y = target.y - target.h * 2.15 - (1 - seq.enter) * 650 - seq.leave * 750 + Math.sin(t * 3.5) * 9;
   const nozzleY = y + (870 - 512) * scale, hitY = target.y - target.h * 0.5;

@@ -2,9 +2,23 @@ import { describe, expect, it } from 'vitest';
 import { ACID_GREEN_T, ACID_MELT_T, DEATH_AT, DEATH_LENGTH, DEATH_TYPES, HEAD_GROWTH, acidCollapse, ashFront, arriveAt, freezeProgress, kickDuration, newPenalties, startKick, stepPenalties, takePenEvents, type Zone } from './kombatPenalties';
 import { penaltyRefTarget } from './kombatPenaltiesArt';
 import { SIZE } from './kombat';
+import { stompHeight } from './kombatPenStomp';
 
 const body = () => ({ x: 100, y: 500, h: 300 });
 describe('muertes de Kombat Penales', () => {
+  it('el pie baja desde arriba, impacta en el piso y se levanta después', () => {
+    expect(stompHeight(0)).toBeGreaterThan(3);
+    expect(stompHeight(2)).toBeGreaterThan(stompHeight(2.4));
+    expect(stompHeight(DEATH_AT.stomp)).toBe(0); expect(stompHeight(3.4)).toBe(0);
+    expect(stompHeight(4.8)).toBeGreaterThan(2);
+  });
+  it('el hielo se rompe en bloques grandes con sangre', () => {
+    const m = newPenalties('ice', ['frost', 'thunder'], () => 4.1 / DEATH_TYPES.length);
+    startKick(m, 0, 0);
+    for (let t = 0; t < 6; t += 1 / 120) { stepPenalties(m, 1 / 120, body); if (m.fragments.length) break; }
+    expect(m.fragments.filter(f => f.size >= 300 * 0.16).length).toBeGreaterThanOrEqual(14);
+    expect(m.gore.drops.length).toBeGreaterThan(100);
+  });
   it('el ácido colapsa hacia el piso sin ensanchar horizontalmente el cuerpo', () => {
     let previousHeight = 1;
     for (let t = 0; t <= ACID_MELT_T + 0.2; t += 0.05) {
@@ -22,7 +36,7 @@ describe('muertes de Kombat Penales', () => {
   it('el hielo progresa desde los pies y queda completo antes de estallar en bloques grandes', () => {
     expect(freezeProgress(0)).toBe(0); expect(freezeProgress(DEATH_AT.ice * 0.4)).toBeCloseTo(0.5);
     expect(freezeProgress(DEATH_AT.ice * 0.85)).toBe(1);
-    const m = newPenalties('ice', ['frost', 'thunder'], () => 4.1 / 7); startKick(m, 0, 0);
+    const m = newPenalties('ice', ['frost', 'thunder'], () => 4.1 / DEATH_TYPES.length); startKick(m, 0, 0);
     for (let t = 0; t < 2 + DEATH_AT.ice + 0.05; t += 1 / 60) stepPenalties(m, 1 / 60, body);
     expect(m.fragments.filter(f => f.kind === 'ice' && f.size >= 300 * 0.08).length).toBeGreaterThanOrEqual(18);
   });
@@ -85,7 +99,7 @@ describe('muertes de Kombat Penales', () => {
     expect(m.death?.keeper).toBe(true); expect(m.kicks[0]).toEqual([true]);
   });
   it('la última muerte termina antes de anunciar al ganador', () => {
-    const m = newPenalties('ice', ['frost', 'thunder'], () => 3.1 / 7);
+    const m = newPenalties('ice', ['frost', 'thunder'], () => 3.1 / DEATH_TYPES.length);
     m.kicks = [[true, true, true], [false, false]]; m.turn = 5; m.phase = 'aim';
     startKick(m, 0, 0);
     for (let t = 0; t < arriveAt() + 0.5 + DEATH_AT.acid - 0.1; t += 1 / 60) stepPenalties(m, 1 / 60, body);
@@ -102,7 +116,7 @@ describe('muertes de Kombat Penales', () => {
   });
   it('las cenizas nacen en los pies y ascienden hasta la cabeza, manteniendo viento a la derecha', () => {
     expect(ashFront(0)).toBe(0); expect(ashFront(DEATH_AT.ash)).toBe(1);
-    const m = newPenalties('ice', ['frost', 'thunder'], () => 6.1 / 7); startKick(m, 0, 0);
+    const m = newPenalties('ice', ['frost', 'thunder'], () => 6.1 / DEATH_TYPES.length); startKick(m, 0, 0);
     for (let t = 0; t < 2.15; t += 1 / 60) stepPenalties(m, 1 / 60, body);
     const first = m.fragments.map(f => f.y); expect(first.length).toBeGreaterThan(0);
     expect(Math.min(...first)).toBeGreaterThan(450);
@@ -111,7 +125,7 @@ describe('muertes de Kombat Penales', () => {
     expect(m.fragments.every(f => f.vx > 0)).toBe(true);
   });
   for (const [i, type] of DEATH_TYPES.entries()) it(`${type}: la secuencia completa dura unos cinco segundos`, () => {
-    const m = newPenalties('ice', ['frost', 'thunder'], () => (i + 0.1) / 7); startKick(m, 0, 0);
+    const m = newPenalties('ice', ['frost', 'thunder'], () => (i + 0.1) / DEATH_TYPES.length); startKick(m, 0, 0);
     let started = -1, finished = -1;
     for (let t = 0; t < 10; t += 1 / 120) { stepPenalties(m, 1 / 120, body); if (m.death && started < 0) started = m.time; if (m.phase === 'aim' && started >= 0) { finished = m.time; break; } }
     expect(DEATH_LENGTH).toBeGreaterThanOrEqual(5); expect(finished - started).toBeGreaterThanOrEqual(5); expect(finished - started).toBeLessThan(5.3);
