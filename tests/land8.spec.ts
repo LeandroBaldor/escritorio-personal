@@ -19,6 +19,7 @@ test('Land 8: infograma ancho, tipos de ataque, obra vacía y muro construible',
   await page.getByRole('button',{name:'Infograma',exact:true}).click();await page.getByRole('button',{name:/Elegir escenario/}).click();
   await page.getByRole('button',{name:/Iniciar/}).click();await expect(page.getByTestId('land-stone')).toBeVisible({timeout:30000});
   await page.getByRole('button',{name:'Un trabajador sin hacer nada',exact:true}).click();
+  await page.getByRole('button',{name:'Más construcciones: cambiar de página',exact:true}).click();
   await expect(page.getByRole('button',{name:/Muralla de Acero: Bloquea/})).toBeEnabled();
   await page.getByRole('button',{name:/Muralla de Acero: Bloquea/}).click();await expect(page.locator('.land-mode')).toContainText('Muralla de Acero');
   await page.locator('.land-mode').getByRole('button',{name:'Cancelar',exact:true}).click();
