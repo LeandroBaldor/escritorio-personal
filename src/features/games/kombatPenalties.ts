@@ -80,6 +80,7 @@ export const HEAD_GROWTH = 4.2;
 export const ACID_GREEN_T = 0.7, ACID_MELT_T = 3.15;
 export const FINAL_SHOT_AT = 2.25;
 export const FINAL_END_AT = 5.2;
+export const STOMP_SCREAM_AT = DEATH_AT.stomp - 0.6;
 export const freezeProgress = (t: number) => Math.min(1, Math.max(0, t / (DEATH_AT.ice * 0.8)));
 export const ashFront = (t: number) => Math.min(1, Math.max(0, t / DEATH_AT.ash));
 export function acidCollapse(t: number) {
@@ -110,7 +111,7 @@ export interface PenMatch {
   events: PenEvent[];
   rand: () => number;
 }
-export type PenEvent = { type: 'whistle' } | { type: 'kick' } | { type: 'goal'; side: 0 | 1 } | { type: 'save'; side: 0 | 1 } | { type: 'boom'; side: 0 | 1; keeper: boolean; death: PenDeathType } | { type: 'deathStart'; death: PenDeathType } | { type: 'burn' } | { type: 'post' } | { type: 'end'; winner: 0 | 1 };
+export type PenEvent = { type: 'whistle' } | { type: 'kick' } | { type: 'goal'; side: 0 | 1 } | { type: 'save'; side: 0 | 1 } | { type: 'boom'; side: 0 | 1; keeper: boolean; death: PenDeathType } | { type: 'deathStart'; death: PenDeathType } | { type: 'scream' } | { type: 'burn' } | { type: 'post' } | { type: 'end'; winner: 0 | 1 };
 
 export function newPenalties(stage: StageId, chars: [CharId, CharId], rand: () => number = Math.random): PenMatch {
   return {
@@ -204,6 +205,7 @@ function updateDeath(m: PenMatch) {
   const prev = d.t; d.t = Math.max(0, (m.phase === 'execution' ? m.phaseT : m.kick!.t) - d.at);
   if (d.finished) return;
   if (d.type === 'fire' && prev < 0.25 && d.t >= 0.25) m.events.push({ type: 'burn' });
+  if (d.type === 'stomp' && prev < STOMP_SCREAM_AT && d.t >= STOMP_SCREAM_AT) m.events.push({ type: 'scream' });
   if (d.type === 'ash') {
     // Emisión por intervalos: igual cantidad de cenizas a 30, 60 o 120 fps.
     for (let i = Math.floor(prev * 220); i < Math.floor(Math.min(d.t, DEATH_AT.ash) * 220); i++) {
@@ -221,6 +223,11 @@ function updateDeath(m: PenMatch) {
     m.shake = 0.85;
   } else if (d.type !== 'acid' && d.type !== 'ash') {
     explode(m, d.x, d.y, d.h, m.chars[d.side], undefined, m.humans[d.side]);
+    if (d.type === 'stomp') {
+      sprayBlood(m, d.x, d.y, d.h, 520);
+      for (const drop of m.gore.drops) { drop.vx *= 1.3; drop.vy *= 1.3; drop.r *= 1.25; }
+      m.gore.stains.push({ x: d.x, y: d.y, r: 190 + m.rand() * 70, seed: m.rand() * 100, t: 0 });
+    }
     if (d.type === 'head') {
       // drawGib skull: diámetro 0.4; cabeza original: diámetro 0.74 * 1.12.
       const skull = m.gore.gibs.find(g => g.kind === 'skull');

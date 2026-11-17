@@ -2,10 +2,26 @@ import { describe, expect, it } from 'vitest';
 import { ACID_GREEN_T, ACID_MELT_T, DEATH_AT, DEATH_LENGTH, DEATH_TYPES, HEAD_GROWTH, acidCollapse, ashFront, arriveAt, freezeProgress, kickDuration, newPenalties, startKick, stepPenalties, takePenEvents, type Zone } from './kombatPenalties';
 import { penaltyRefTarget } from './kombatPenaltiesArt';
 import { SIZE } from './kombat';
-import { stompHeight } from './kombatPenStomp';
+import { opaqueStompAlpha, stompHeight } from './kombatPenStomp';
 
 const body = () => ({ x: 100, y: 500, h: 300 });
 describe('muertes de Kombat Penales', () => {
+  it('la pierna conserva el fondo transparente y hace opaco el interior del recorte', () => {
+    const data = new Uint8ClampedArray([50, 60, 70, 0, 50, 60, 70, 20, 50, 60, 70, 120, 50, 60, 70, 253]);
+    opaqueStompAlpha(data); expect([data[3], data[7], data[11], data[15]]).toEqual([0, 0, 255, 255]);
+  });
+  it('el pisotón emite un solo grito antes de impactar y triplica la sangre', () => {
+    const m = newPenalties('ice', ['frost', 'thunder'], () => 7.1 / DEATH_TYPES.length);
+    startKick(m, 0, 0); let screams = 0, sawImpact = false;
+    for (let t = 0; t < 7; t += 1 / 120) {
+      stepPenalties(m, 1 / 120, body);
+      for (const e of takePenEvents(m)) {
+        if (e.type === 'scream') { screams++; expect(m.death?.finished).toBe(false); }
+        if (e.type === 'boom') { sawImpact = true; expect(screams).toBe(1); expect(m.gore.drops.length).toBeGreaterThanOrEqual(750); }
+      }
+    }
+    expect(sawImpact).toBe(true); expect(screams).toBe(1);
+  });
   it('el pie baja desde arriba, impacta en el piso y se levanta después', () => {
     expect(stompHeight(0)).toBeGreaterThan(3);
     expect(stompHeight(2)).toBeGreaterThan(stompHeight(2.4));

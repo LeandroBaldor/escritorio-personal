@@ -2,9 +2,21 @@ import bootUrl from './assets/penales/botines-cutout.png';
 import { DEATH_AT, DEATH_LENGTH, type PenDeath } from './kombatPenalties';
 
 let boot: HTMLImageElement | null = null;
+let opaqueBoot: HTMLCanvasElement | null = null;
+export function opaqueStompAlpha(data: Uint8ClampedArray) {
+  for (let i = 3; i < data.length; i += 4) data[i] = data[i] >= 32 ? 255 : 0;
+}
 export function preloadPenStomp() {
   if (boot || typeof Image === 'undefined') return;
-  boot = new Image(); boot.src = bootUrl;
+  boot = new Image();
+  boot.onload = () => {
+    if (!boot) return;
+    const canvas = document.createElement('canvas'); canvas.width = boot.naturalWidth; canvas.height = boot.naturalHeight;
+    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    ctx.drawImage(boot, 0, 0); const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    opaqueStompAlpha(pixels.data); ctx.putImageData(pixels, 0, 0); opaqueBoot = canvas;
+  };
+  boot.src = bootUrl;
 }
 export function stompHeight(t: number) {
   const fall = Math.max(0, Math.min(1, (t - 0.8) / (DEATH_AT.stomp - 0.8)));
@@ -12,11 +24,11 @@ export function stompHeight(t: number) {
   return 3.6 * (1 - fall * fall * fall) + rise * rise * 4;
 }
 export function drawPenStomp(ctx: CanvasRenderingContext2D, d: PenDeath) {
-  preloadPenStomp(); if (!boot?.complete || !boot.naturalWidth) return;
+  preloadPenStomp(); if (!boot?.complete || !boot.naturalWidth || !opaqueBoot) return;
   const height = stompHeight(d.t), w = Math.max(d.h, 250) * 3.2, h = w * boot.naturalHeight / boot.naturalWidth;
   ctx.save(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = `rgba(0,0,0,${0.4 / (1 + height)})`; ctx.beginPath(); ctx.ellipse(d.x, d.y, w * 0.44 / (1 + height * 0.15), d.h * 0.14, 0, 0, Math.PI * 2); ctx.fill();
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(boot, d.x - w * 0.5, d.y - h - height * d.h + d.h * 0.04, w, h);
+  ctx.drawImage(opaqueBoot, d.x - w * 0.5, d.y - h - height * d.h + d.h * 0.04, w, h);
   ctx.restore();
 }

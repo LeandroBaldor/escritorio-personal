@@ -29,6 +29,7 @@ import penUfoUrl from './assets/sonidos/pen-ovni.mp3';
 import penUfoShotUrl from './assets/sonidos/pen-ovni-dispara.mp3';
 import penFireworksUrl from './assets/sonidos/pen-fuegos-artificiales.mp3';
 import penGiantStepUrl from './assets/sonidos/pen-paso-gigante.mp3';
+import penScreamUrl from './assets/sonidos/pen-grito.mp3';
 import { FINAL_END_AT, FINAL_SHOT_AT } from './kombatPenalties';
 import { DEATH_AT, DEATH_LENGTH, type PenDeathType } from './kombatPenalties';
 import hinchadaUrl from './assets/sonidos/hinchada.mp3';
@@ -1626,7 +1627,7 @@ export function setVampDragon(mouth: 'shut' | 'open' | null, wings = 0) {
 // ---------- Kombat Penales (sonidos que pasó el usuario) ----------
 // Los pasos mientras corre a la pelota, la patada, la atajada del arquero y la pelota pegando en la red.
 // Mientras el archivo carga, suena el sintetizado de Kombat Football.
-export function preloadPenaltySounds() { for (const url of [penUfoUrl, penUfoShotUrl, penFireworksUrl, penGiantStepUrl, penPasosUrl, penPelotaUrl, penAtajaUrl, penRedUrl, penBoomUrl, penBoomBodyUrl, penArmUrl, penArmEndUrl, penHeadUrl, penAshUrl, penElectricUrl, penFreezeUrl, vs('fuego'), vs('acido')]) loadSample(url); }
+export function preloadPenaltySounds() { for (const url of [penScreamUrl, penUfoUrl, penUfoShotUrl, penFireworksUrl, penGiantStepUrl, penPasosUrl, penPelotaUrl, penAtajaUrl, penRedUrl, penBoomUrl, penBoomBodyUrl, penArmUrl, penArmEndUrl, penHeadUrl, penAshUrl, penElectricUrl, penFreezeUrl, vs('fuego'), vs('acido')]) loadSample(url); }
 let penVoice: { src: AudioBufferSourceNode; gain: GainNode; type: PenDeathType } | null = null;
 // Sigue el reloj de la animación, incluyendo el polvo final; al reanudar continúa desde el mismo punto.
 export function syncPenDeathAudio(type: PenDeathType | null, elapsed = 0) {
@@ -1668,6 +1669,7 @@ export function playPenStomp() {
   } else loadSample(penGiantStepUrl);
   playSample(penBoomBodyUrl, 1);
 }
+export function playPenScream() { playSample(penScreamUrl, 1); }
 
 const penaltySceneVoices = new Map<string, { src: AudioBufferSourceNode; gain: GainNode }>();
 // Los bucles siguen la escena, se detienen al pausar y reanudan desde el reloj del juego.
@@ -1675,8 +1677,8 @@ export function syncPenaltySceneAudio(finaleTime: number | null, champion = fals
   const c = ctx; if (!c) return;
   const active = new Map<string, { url: string; offset: number; volume: number }>();
   if (finaleTime !== null && finaleTime < FINAL_END_AT) {
-    active.set('flight', { url: penUfoUrl, offset: finaleTime, volume: 0.75 });
-    if (finaleTime >= 1.55 && finaleTime < FINAL_SHOT_AT + 0.65) active.set('beam', { url: penUfoShotUrl, offset: finaleTime - 1.55, volume: 1 });
+    active.set('flight', { url: penUfoUrl, offset: finaleTime, volume: 1 });
+    if (finaleTime >= 0.8 && finaleTime < FINAL_SHOT_AT + 0.65) active.set('beam', { url: penUfoShotUrl, offset: finaleTime - 0.8, volume: 1 });
   }
   if (champion) active.set('fireworks', { url: penFireworksUrl, offset: 0, volume: 0.85 });
   for (const [name, voice] of penaltySceneVoices) if (!active.has(name)) {

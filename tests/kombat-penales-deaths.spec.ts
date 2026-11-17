@@ -17,6 +17,14 @@ test('la pierna gigante llega al piso y su recorte no tapa la cancha con un fond
     return [[0, 0], [0, 700], [1023, 700], [600, 700]].map(([x, y]) => ctx.getImageData(x, y, 1, 1).data[3]);
   }, base);
   expect(alpha.slice(0, 3)).toEqual([0, 0, 0]); expect(alpha[3]).toBeGreaterThanOrEqual(250);
+  const rendered = await page.evaluate(async base => {
+    const { drawPenStomp } = await import(/* @vite-ignore */ `${base}src/features/games/kombatPenStomp.ts`);
+    const c = document.createElement('canvas'); c.width = 1024; c.height = 1536;
+    const ctx = c.getContext('2d')!;
+    drawPenStomp(ctx, { type: 'stomp', t: 2.6, x: 512, y: 1500, h: 300 });
+    return [[600, 300], [700, 600], [600, 1100], [350, 1300]].map(([x, y]) => ctx.getImageData(Math.round(32 + x * 0.9375), Math.round(72 + y * 0.9375), 1, 1).data[3]);
+  }, base);
+  expect(rendered).toEqual([255, 255, 255, 255]);
   for (const role of ['shooter', 'keeper']) {
     await page.selectOption('#role', role);
     for (const t of [3.8, 4.7, 5.4]) {
@@ -99,14 +107,14 @@ test('el ovni ejecuta al perdedor antes del resultado final', async ({ page }) =
   expect(errors).toEqual([]);
 });
 
-test('los diez sonidos del usuario cargan y se decodifican completos', async ({ page }) => {
+test('los once sonidos del usuario cargan y se decodifican completos', async ({ page }) => {
   const base = project.name === 'minijuegos' ? '/MiniJuegos/' : '/escritorio-personal/';
   await page.goto(`${base}docs/kombat-penales-muertes-preview.html`);
   const durations = await page.evaluate(async base => {
     const audio = new AudioContext(), durations: number[] = [];
-    for (const name of ['cabeza', 'cenizas', 'electricidad', 'congelamiento', 'explosion-jugador', 'explosion-sangre', 'ovni', 'ovni-dispara', 'fuegos-artificiales', 'paso-gigante']) { const r = await fetch(`${base}src/features/games/assets/sonidos/pen-${name}.mp3`); if (!r.ok) throw new Error(`No carga ${name}`); const buffer = await audio.decodeAudioData(await r.arrayBuffer()); durations.push(buffer.duration); }
+    for (const name of ['cabeza', 'cenizas', 'electricidad', 'congelamiento', 'explosion-jugador', 'explosion-sangre', 'ovni', 'ovni-dispara', 'fuegos-artificiales', 'paso-gigante', 'grito']) { const r = await fetch(`${base}src/features/games/assets/sonidos/pen-${name}.mp3`); if (!r.ok) throw new Error(`No carga ${name}`); const buffer = await audio.decodeAudioData(await r.arrayBuffer()); durations.push(buffer.duration); }
     await audio.close(); return durations;
   }, base);
   expect(durations[0]).toBeCloseTo(5.184, 2); expect(durations[1]).toBeCloseTo(7.008, 2);
-  expect(durations).toHaveLength(10); expect(durations.every(t => t > 0)).toBe(true);
+  expect(durations).toHaveLength(11); expect(durations.every(t => t > 0)).toBe(true);
 });

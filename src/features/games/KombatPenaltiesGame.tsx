@@ -27,7 +27,7 @@ import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
   playGameOver, playKfButton, playKfGoal, playKfName, playKfSelectVoice, playKfVsSentence,
   playPenArm, playPenExplosion, playPenKick, playPenNet, playPenSave, playPenSteps, playRefWhistle, playStart, preloadPenaltySounds, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setPenMusic,
-  playPenDeathStart, playPenStomp, playVampBurn, syncPenDeathAudio, syncPenaltySceneAudio,
+  playPenDeathStart, playPenStomp, playPenScream, playVampBurn, syncPenDeathAudio, syncPenaltySceneAudio,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 import { Fireworks } from './Fireworks';
@@ -424,6 +424,13 @@ export function KombatPenalties() {
   }, [menuish]);
   useEffect(() => () => { setPenMusic(false); syncPenDeathAudio(null); syncPenaltySceneAudio(null); }, []);
 
+  useEffect(() => {
+    if (screen !== 'champion') return;
+    const tick = () => syncPenaltySceneAudio(null, true);
+    tick(); const timer = window.setInterval(tick, 100);
+    return () => { clearInterval(timer); syncPenaltySceneAudio(null); };
+  }, [screen]);
+
   // ---------------------------------------------------------------- La tanda
   useEffect(() => {
     if (screen !== 'playing') { setCrowd(0); return; }
@@ -452,6 +459,7 @@ export function KombatPenalties() {
           case 'save': playPenSave(); break;
           case 'deathStart': playPenDeathStart(e.death); break;
           case 'burn': playVampBurn(); break;
+          case 'scream': playPenScream(); break;
           case 'boom':
             if (e.death === 'stomp') playPenStomp();
             else if (e.death !== 'acid' && e.death !== 'ash') playPenExplosion();
@@ -461,6 +469,7 @@ export function KombatPenalties() {
         }
       }
       syncPenDeathAudio(m.death?.type ?? null, m.death?.t ?? 0);
+      syncPenaltySceneAudio(m.phase === 'execution' ? m.phaseT : null);
       paint();
       setHud(prev => {
         const next: Hud = { kicks: [[...m.kicks[0]], [...m.kicks[1]]], turn: m.turn, first: m.first, sudden: suddenDeath(m.kicks) && !(k && !k.hit) };

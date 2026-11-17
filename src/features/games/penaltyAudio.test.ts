@@ -39,11 +39,14 @@ afterEach(() => { sounds?.syncPenDeathAudio(null); sounds?.syncPenaltySceneAudio
 afterAll(() => vi.unstubAllGlobals());
 
 describe('audio de Kombat Penales', () => {
+  it('usa el archivo de grito del usuario', () => {
+    sounds.playPenScream(); expect(Audio.current.sources[0].buffer?.label).toContain('pen-grito');
+  });
   it('sincroniza vuelo y disparo del ovni y detiene ambos al pausar', () => {
     const audio = Audio.current;
     sounds.syncPenaltySceneAudio(0.4);
     expect(audio.sources[0].buffer?.label).toContain('pen-ovni.mp3');
-    sounds.syncPenaltySceneAudio(1.8);
+    sounds.syncPenaltySceneAudio(1.05);
     expect(audio.sources[1].buffer?.label).toContain('pen-ovni-dispara');
     expect(audio.sources[1].start).toHaveBeenCalledWith(10, 0.25);
     sounds.syncPenaltySceneAudio(3);
