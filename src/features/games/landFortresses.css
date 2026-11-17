@@ -1,0 +1,25 @@
+/* Cinco construcciones y navegación: nombres completos sin alterar la altura del HUD. */
+.land.land-v9 .land-hud .land-cmds.land-construction-commands{grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-template-rows:repeat(2,minmax(0,1fr))!important;gap:4px!important;z-index:4;background:#041b2c}
+.land.land-v9 .land-hud .land-cmds.land-construction-commands .land-command-label{display:block!important;font:600 clamp(10px,.9cqw,13px)/1 Arial,sans-serif!important;overflow-wrap:anywhere;word-break:normal;max-width:100%;margin:0;white-space:normal}
+.land.land-v9 .land-hud .land-cmds.land-construction-commands .land-command-cell>button{padding:1px!important;gap:1px;border:1px solid #d9b55e!important;border-radius:4px;background:linear-gradient(#163c54,#061e2e)}
+.land.land-v9 .land-hud .land-cmds.land-construction-commands .land-building-sprite{height:12px!important;width:24px!important;flex:0 0 12px}
+.land.land-v9 .land-hud .land-cmds.land-construction-commands .land-building-sprite>canvas{width:100%!important;height:100%!important;max-height:12px}
+.land.land-v9 .land-hud .land-cmds.land-construction-commands .land-recruit-badge{display:none}
+.land.land-v9 .land-hud .land-cmds.land-construction-commands small{display:none!important}
+.land.land-v9 .land-hud .land-cmds.land-construction-commands em{display:block!important;position:static;font:10px Arial!important}
+.land.land-v9 .land-barracks-sheet h3{font-size:clamp(12px,1.25cqw,19px);line-height:1.08;overflow-wrap:normal}
+.land.land-v9 .land-command-panel .land-inventory-grid article>b{font-size:clamp(11px,1cqw,16px)!important;line-height:1.08!important}
+@media(max-width:1100px){.land.land-v9 .land-hud .land-cmds.land-construction-commands .land-command-label{font-size:11px!important}.land.land-v9 .land-barracks-sheet h3{font-size:17px}}
+.land.land-v9 .land-hud .land-selection-inspector.land-fortress-panel{display:grid!important;grid-template-columns:24% minmax(0,1fr);gap:8px;padding:3px!important;overflow:hidden;color:#dfecf7;font:13px/1.15 Arial,sans-serif}
+.land-fortress-art{display:flex;align-items:center;justify-content:center;min-width:0}
+.land-fortress-art .land-building-sprite{max-width:100%;height:100%!important}
+.land-fortress-art canvas{width:100%!important;height:100%!important;object-fit:contain}
+.land-fortress-body{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px}
+.land.land-v9 .land-fortress-body h3{font:600 clamp(12px,1.15cqw,18px)/1.05 Arial!important;margin:0;color:#ffe7a5}
+.land-fortress-body dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:1px 0}
+.land-fortress-body dl>div{background:#15394a;border:1px solid #456b7b;padding:3px;min-width:0}
+.land-fortress-body dt{color:#9ac6d9;font-size:11px}.land-fortress-body dd{margin:0;color:#bcf4b9;font-size:14px}
+.land.land-v9 .land-fortress-body p{font:12px/1.1 Arial!important;margin:0;white-space:normal}
+.land-fortress-progress progress{width:100%;height:5px}
+@media(min-width:1101px){.land.land-v9 .land-hud-native .land-selection-roster:has(~.land-fortress-panel){display:none!important}.land.land-v9 .land-hud-native .land-selection-inspector.land-fortress-panel{position:absolute;left:22.1%;top:34%;width:54.2%;height:58.5%;z-index:2;background:#041b2c}}
+@media(max-width:650px){.land.land-v9 .land-hud .land-cmds.land-construction-commands{grid-template-columns:1fr!important;grid-template-rows:repeat(6,minmax(0,1fr))!important}.land.land-v9 .land-hud .land-cmds.land-construction-commands .land-command-label{font-size:12px!important}.land.land-v9 .land-hud .land-cmds.land-construction-commands .land-building-sprite{display:none}.land.land-v9 .land-hud .land-fortress-panel{grid-template-columns:1fr!important;grid-template-rows:95px minmax(0,1fr);gap:3px}.land-fortress-body dl{grid-template-columns:1fr 1fr}.land-fortress-body{justify-content:flex-start}.land.land-v9 .land-fortress-body h3{font-size:17px!important}.land-fortress-body dd{font-size:17px}}

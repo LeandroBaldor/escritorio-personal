@@ -11,11 +11,13 @@ import {roleIdx} from './landArt';
 import {LandTrainingQueue} from './landTrainingQueue';
 import {LandBarracksPanel} from './landBarracksPanel';
 import {LandCommandPanel} from './landCommandPanel';
+import {LandFortressPanel} from './LandFortressPanel';
 
 export function LandInspector({game,unit,building,count,planned}:{game:LandGame;unit?:Unit;building?:Building;count:number;planned?:BKind}){
   const [more,setMore]=useState(false);
   const owner=unit?.owner??building?.owner??0,civ=game.sides[owner].civ,c=CIVS[civ];
   const kind=planned??building?.kind,role=unit?.role??(kind?TRAINING_ROLE[kind]:undefined),level=role?evolutionLevel(game,owner,role):0;
+  if(!unit&&(kind==='castle'||kind==='energyTower'))return <LandFortressPanel game={game} kind={kind} building={planned?undefined:building}/>;
   const title=planned?`A construir: ${c.buildings[planned]}`:unit?unitLabel(game,owner,unit.role):building?c.buildings[building.kind]:'Seleccioná una unidad o construcción';
   const p=role?improvementProgress(game,owner,role):null,s=role?unitStats(game,owner,role):null,max=role?unitStats(game,owner,role,MAX_EVOLUTION):null;
   const attrs=s&&max?[{label:'Resistencia',value:s.hp,max:max.hp,unit:'PV'},{label:'Ataque',value:s.dmg,max:max.dmg,unit:'daño'},{label:'Velocidad',value:s.speed,max:max.speed,unit:'u/s'},{label:'Distancia',value:s.range,max:max.range,unit:'u'},{label:'Fuerza',value:s.dmg*(s.vsBuild??1)*(role==='worker'?.3:1),max:max.dmg*(max.vsBuild??1)*(role==='worker'?.3:1),unit:'daño'},{label:'Cadencia',value:1/s.cool,max:1/max.cool,unit:'/s'}]:[];

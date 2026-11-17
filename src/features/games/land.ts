@@ -27,8 +27,8 @@ export type Owner = number; // 0: jugador; 1…9: civilizaciones controladas por
 export type ResKind = 'stone' | 'gem' | 'energy' | 'rock';
 export type Role = 'worker' | 'melee' | 'ranged' | 'special' | 'heavy' | 'elite';
 export const ROLES: Role[] = ['worker', 'melee', 'ranged', 'special', 'heavy', 'elite'];
-export type BKind = 'base' | 'barracks' | 'workshop' | 'tower' | 'depot' | 'wall' | 'workerBarracks' | 'rangedBarracks' | 'specialBarracks' | 'eliteBarracks' | 'farm' | 'storehouse';
-export const BKINDS: BKind[] = ['base', 'workerBarracks', 'barracks', 'rangedBarracks', 'specialBarracks', 'workshop', 'eliteBarracks', 'tower', 'depot', 'wall', 'farm', 'storehouse'];
+export type BKind = 'base' | 'barracks' | 'workshop' | 'tower' | 'depot' | 'wall' | 'workerBarracks' | 'rangedBarracks' | 'specialBarracks' | 'eliteBarracks' | 'farm' | 'storehouse' | 'castle' | 'energyTower';
+export const BKINDS: BKind[] = ['base', 'workerBarracks', 'barracks', 'rangedBarracks', 'specialBarracks', 'workshop', 'eliteBarracks', 'tower', 'depot', 'wall', 'farm', 'storehouse', 'castle', 'energyTower'];
 export type Difficulty = 'veryEasy' | 'easy' | 'normal' | 'hard';
 
 export interface Cost { stone: number; gem: number; energy?: number; rock?:number }
@@ -42,8 +42,10 @@ export const ROLE_STATS: Record<Role, UnitStats> = {
   heavy: { hp: 380, dmg: 32, range: 180, speed: 50, cool: 2.2, sight: 270, cost: { stone: 160, gem: 100 }, time: 60, pop: 3, size: 122, splash: 55, vsBuild: 2.5 },
   elite: { hp: 760, dmg: 46, range: 70, speed: 62, cool: 1.5, sight: 280, cost: { stone: 280, gem: 200, energy: 40 }, time: 60, pop: 5, size: 150, splash: 40 },
 };
-export interface BuildStats { hp: number; cost: Cost; time: number; size: number; pop: number; makes: Role[]; needs?: BKind; dmg?: number; range?: number; cool?: number }
+export interface BuildStats { hp: number; cost: Cost; time: number; size: number; pop: number; makes: Role[]; needs?: BKind; dmg?: number; range?: number; cool?: number; unlockAt?:number }
 export const BUILD_STATS: Record<BKind, BuildStats> = {
+  castle: {hp:18000,cost:{stone:2000,gem:1200,energy:3000,rock:1200},time:120,size:460,pop:60,makes:[],dmg:120,range:520,cool:1.8,unlockAt:600,needs:'base'},
+  energyTower: {hp:6000,cost:{stone:600,gem:400,energy:1000,rock:400},time:60,size:180,pop:0,makes:[],dmg:55,range:400,cool:1,unlockAt:600,needs:'base'},
   base: { hp: 2200, cost: { stone: 400, gem: 0 }, time: 40, size: 240, pop: 24, makes: ['worker'] },
   workerBarracks: { hp: 850, cost: { stone: 100, gem: 0 }, time: 14, size: 170, pop: 0, makes: ['worker'] },
   barracks: { hp: 1000, cost: { stone: 150, gem: 0 }, time: 18, size: 190, pop: 0, makes: ['melee'] },
@@ -57,7 +59,7 @@ export const BUILD_STATS: Record<BKind, BuildStats> = {
   storehouse:{hp:850,cost:{stone:90,gem:0},time:18,size:160,pop:0,makes:[]},
   wall: { hp: 1400, cost: { stone: 35, gem: 0 }, time: 8, size: WALL_SIZE, pop: 0, makes: [] },
 };
-for(const kind of BKINDS)BUILD_STATS[kind].cost.rock=Math.ceil(BUILD_STATS[kind].cost.stone*.4);
+for(const kind of BKINDS)BUILD_STATS[kind].cost.rock??=Math.ceil(BUILD_STATS[kind].cost.stone*.4);
 export const MAX_POP = 3000, POWER_MAX = 100;
 export const CARRY = 14, MINE_T = 1.6;
 
@@ -184,6 +186,7 @@ export function orderSmart(g: LandGame, ids: number[], x: number, y: number) {
 }
 // ¿Se puede poner una construcción ahí? (adentro del mapa y sin pisar otra ni los recursos)
 export function canPlace(g: LandGame, kind: BKind, x: number, y: number) {
+  if(g.t<(BUILD_STATS[kind].unlockAt??0))return false;
   if (kind === 'wall') ({ x, y } = wallPoint(x, y));
   const s = BUILD_STATS[kind].size;
   if (x < s / 2 + 10 || x > MW - s / 2 - 10 || y < s * 0.45 + 30 || y > MH - 20) return false;
@@ -340,7 +343,7 @@ function stepBuilding(g: LandGame, b: Building, dt: number) {
       emit(g,{type:'upgraded',owner:b.owner,role,level:level+1});
     }
   }
-  if (b.kind === 'tower') { // la torre le tira al enemigo más cercano
+  if (b.kind === 'tower'||b.kind==='energyTower'||b.kind==='castle') { // defensas automáticas
     b.cool -= dt; const foe = nearestFoe(g, b, b.owner, s.range!);
     if (foe && foe.kind === 'u' && b.cool <= 0) {
       b.cool = s.cool!; const p = foe.u; g.shots.push({ x: b.x, y: b.y - s.size * 0.6, tx: p.x, ty: p.y - 20, t: 0, life: 0.25, owner: b.owner, kind: 'bolt' });
@@ -537,6 +540,8 @@ function stepAI(g: LandGame, dt: number, o: Owner) {
     else if (complete('rangedBarracks') && !bs('specialBarracks').length && g.t > 240) place('specialBarracks');
     else if (complete('workshop') && !bs('eliteBarracks').length && g.t > 330) place('eliteBarracks');
     else if (bs('barracks').length < 2 && complete('eliteBarracks') && g.t > 420) place('barracks');
+    else if(ai.wave>0&&g.t>=600&&!bs('energyTower').length)place('energyTower');
+    else if(ai.wave>0&&g.t>=600&&complete('energyTower')&&!bs('castle').length)place('castle');
   }
   const militaryKinds = ROLES.filter(r=>r!=='worker').map(r=>TRAINING_KIND[r]);
   const infrastructure = (['workerBarracks','barracks','rangedBarracks','workshop','depot','tower','storehouse','farm'] as BKind[]).every(complete);

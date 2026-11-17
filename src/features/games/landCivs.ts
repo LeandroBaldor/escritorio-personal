@@ -64,7 +64,7 @@ const CIV_DATA: Record<CivId,Omit<Civ,'buildings'>&{buildings:Record<OriginalBui
     special: 'splash', power: { kind: 'strike', name: 'Maremoto' }, mod: { melee: { speed: 88, hp:125 }, special: { range: 120, splash: 80, cool:1.65 }, heavy: { range: 60 }, elite: { range: 160 } } },
 };
 export const CIVS = Object.fromEntries(CIV_IDS.map(id=>{
-  const c=CIV_DATA[id],buildings={...c.buildings,farm:'Cosecha',storehouse:'Almacén'};
+  const c=CIV_DATA[id],buildings={...c.buildings,farm:'Cosecha',storehouse:'Almacén',castle:`Castillo · ${c.name}`,energyTower:`Torre de energía · ${c.name}`};
   for(const [role,kind] of Object.entries(TRAINING_KIND) as [Role,BKind][])Object.assign(buildings,{[kind]:`Cuartel ${c.units[role]}`});
   return [id,{...c,buildings}];
 })) as Record<CivId,Civ>;
@@ -78,6 +78,8 @@ export const ROLE_TEXT: Record<Role, string> = {
 };
 export const roleText = (c: CivId, r: Role) => r === 'special' ? (CIVS[c].special === 'heal' ? 'Cura a los suyos que estén lastimados.' : 'Ataque en área: daña a varios a la vez.') : r === 'melee' && (CIVS[c].mod.melee?.range ?? 0) > 60 ? 'Soldado básico con arma de fuego, de corto alcance.' : ROLE_TEXT[r];
 export const BUILD_TEXT: Record<BKind, string> = {
+  castle:'Fortaleza de gran resistencia: dispara energía, defiende a larga distancia y suma 60 de población. Disponible desde 10:00. Requiere una gran reserva de recursos.',
+  energyTower:'Defensa avanzada: dispara ráfagas de energía del color de tu civilización. Disponible desde 10:00. Gran resistencia y alcance.',
   wall: 'Bloquea el paso terrestre y protege la aldea. Se puede destruir; dejá un espacio como entrada. Cada tramo cuesta 35 minerales.',
   base: 'Entrena trabajadores desde el inicio. Recibe recursos e investiga Producción y Fortificación. Las evoluciones se investigan en cada cuartel. Si la destruyen, perdés.',
   farm: 'Frutos verdes que brotan del suelo. Se puede caminar por encima. Un trabajador por cosecha: recolecta durante 60 segundos y lleva los frutos al Almacén. Clic derecho para asignarlo.',

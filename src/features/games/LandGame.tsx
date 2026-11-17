@@ -20,6 +20,7 @@ import './landTactics.css';
 import './landBarracks.css';
 import './landVillageCards.css';
 import './landCompactHud.css';
+import './landFortresses.css';
 import { BuildingSprite, Sprite } from './landSprite';
 import { LandInfographic,LeaderPortrait } from './landInfographic';
 import {LandInspector} from './landInspector';
@@ -64,6 +65,7 @@ export function LandOfWarriors() {
   const fit = useFitScreen();
   const [screen, setScreen] = useState<Screen>('title');
   const [musicMuted,setMusicMuted]=useState(false);
+  const [constructionPage,setConstructionPage]=useState(0);
   const [commandHelp,setCommandHelp]=useState<{text:string;cost?:Cost}|null>(null);
   const scenarioFrom=useRef<'pick'|'sheet'>('pick');
   const [civ, setCiv] = useState<CivId>('humano');
@@ -479,7 +481,7 @@ export function LandOfWarriors() {
       </div>
       {mode.k !== 'none' && <div className="land-mode">{mode.k === 'place' ? `Elegí dónde poner: ${CIVS[side.civ].buildings[mode.kind]}${mode.kind === 'wall' ? ' · Clic para sumar tramos; Escape para terminar' : ''}` : mode.k === 'power' ? 'Elegí dónde cae el poder' : 'Elegí a dónde atacar'} · <button type="button" onClick={() => { setMode({ k: 'none' }); }}>Cancelar</button></div>}
       <div className="land-hud land-hud-native" style={{ ['--civ' as string]: CIVS[side.civ].color }}>
-        <LandReferenceFrame production={!!selB&&(selB.kind==='base'||!!TRAINING_ROLE[selB.kind])&&selB.built>=1}/><div className="land-crest" aria-hidden="true"><LandEagle /></div>
+        <LandReferenceFrame production={!!selB&&(selB.kind==='base'||selB.kind==='castle'||selB.kind==='energyTower'||!!TRAINING_ROLE[selB.kind])&&selB.built>=1||mode.k==='place'&&(mode.kind==='castle'||mode.kind==='energyTower')}/><div className="land-crest" aria-hidden="true"><LandEagle /></div>
         <div className="land-gems" aria-hidden="true">{[0, 1, 2, 3, 4, 5].map(i => <i key={i} />)}</div>
         <div className="land-mini"><div className="land-mini-map"><div className="land-tabs"><span><LandIcon kind="layers" /></span><span><LandIcon kind="radar" /></span></div><canvas ref={miniRef} width={220} height={150} onPointerDown={onMini} onPointerMove={onMini} aria-label="Mapa" /></div>
           <div className="land-quick"><button type="button" onClick={goBase} title="Ir a la base" aria-label="Ir a la base"><LandIcon kind="base" /></button><button type="button" onClick={selectArmy} title="Elegir todo el ejército" aria-label="Elegir todo el ejército"><LandIcon kind="army" /></button><button type="button" onClick={selectIdle} title="Un trabajador sin hacer nada" aria-label="Un trabajador sin hacer nada"><LandIcon kind="wrench" /></button></div>
@@ -489,8 +491,8 @@ export function LandOfWarriors() {
           <LandInspector game={g} unit={selUnits[0]} building={selB??undefined} count={selUnits.length} planned={mode.k==='place'?mode.kind:undefined} key={mode.k==='place'?mode.kind:selB?.id??selUnits[0]?.id??'none'}/>
         </div>
         {/* eslint-disable-next-line react-hooks/refs -- (los botones solo usan las referencias al tocarlos, no al dibujarse) */}
-        <div className={`land-cmds${selB||!workersSel?' land-commands-short':''}`} aria-label="Órdenes disponibles">{commandHelp&&<div id="land-order-help" role="tooltip" className="land-order-help">{commandHelp.text}{commandHelp.cost&&<LandCost cost={commandHelp.cost}/>}</div>}{(() => {
-          const pad = (els: React.ReactNode[]) => {const live=els.filter(Boolean);return [...live,...Array.from({length:Math.max(0,12-live.length)},(_,i)=><div className="land-command-cell land-command-empty" key={'empty'+i} aria-hidden="true" title="Sin orden disponible para esta selección"><LandReferenceCommandIcon index={live.length+i}/></div>)];};
+        <div className={`land-cmds${workersSel?' land-construction-commands':''}${selB||!workersSel?' land-commands-short':''}`} aria-label="Órdenes disponibles">{commandHelp&&<div id="land-order-help" role="tooltip" className="land-order-help">{commandHelp.text}{commandHelp.cost&&<LandCost cost={commandHelp.cost}/>}</div>}{(() => {
+          const pad = (els: React.ReactNode[]) => {const live=els.filter(Boolean),places=workersSel&&!selB?6:12;return [...live,...Array.from({length:Math.max(0,places-live.length)},(_,i)=><div className="land-command-cell land-command-empty" key={'empty'+i} aria-hidden="true" title="Sin orden disponible para esta selección"><LandReferenceCommandIcon index={live.length+i}/></div>)];};
           const cmd = (key: string, icon: React.ReactNode, title: string, onClick: () => void, o: { disabled?: boolean; cost?: Cost; badge?: string;label?:string } = {}) => {
             const info=title+(o.cost?' · Costo: '+costText(o.cost):'')+(o.disabled&&o.cost&&!canPay(side,o.cost)?' · '+missingResources(g,o.cost):''),label=o.label??(title.startsWith('Mejorar ')?`Mejorar ${title.split(' ')[1]}`:title.split(':')[0]);
             return <div className="land-command-cell" key={key} onMouseEnter={()=>setCommandHelp({text:title+(o.disabled&&o.cost&&!canPay(side,o.cost)?' · '+missingResources(g,o.cost):''),cost:o.cost})} onMouseLeave={()=>setCommandHelp(null)} onFocus={()=>setCommandHelp({text:title+(o.disabled&&o.cost&&!canPay(side,o.cost)?' · '+missingResources(g,o.cost):''),cost:o.cost})} onBlur={()=>setCommandHelp(null)} tabIndex={o.disabled?0:undefined} aria-label={o.disabled?info:undefined}><button type="button" disabled={o.disabled} title={info} aria-label={title} aria-describedby={commandHelp?.text.startsWith(title)?'land-order-help':undefined} onClick={()=>{setCommandHelp(null);onClick();}}>{icon}{({amove:0,move:1,stop:2,all:3,power:9} as Record<string,number>)[key]!==undefined&&<LandReferenceCommandIcon index={({amove:0,move:1,stop:2,all:3,power:9} as Record<string,number>)[key]}/>}<b className="land-command-label">{label}</b>{o.badge&&<em>{o.badge}</em>}{o.cost&&<small><LandCost cost={o.cost}/></small>}</button></div>;
@@ -507,8 +509,8 @@ export function LandOfWarriors() {
               ...(selB.kind==='base'?STRUCTURE_UPGRADES.map(kind=>{const lv=side.infrastructure[kind],max=lv>=MAX_STRUCTURE_LEVEL,cost=structureUpgradeCost(kind,lv),busy=g.buildings.some(b=>b.owner===0&&!b.dead&&b.infrastructureResearch);return cmd(kind,<LandIcon kind={kind==='production'?'wrench':'shield'}/>,`Mejorar ${STRUCTURE_NAMES[kind]}: ${structureBenefit(kind,lv)} ${structureUpgradeTime(lv)} s.`,()=>researchInfrastructure(g,selB.id,kind),{disabled:max||busy||!canPay(side,cost),cost:max?undefined:cost,label:max?STRUCTURE_NAMES[kind]+' MAX':STRUCTURE_NAMES[kind],badge:lv+'/3'});}):[]),
               selB.queue.length > 0 ? cmd('cancel', ic('✖'), 'Cancelar el último', () => cancelTrain(g, selB.id)) : null])}</>;
           }
-          if (workersSel) return <>{pad([...BKINDS.map(k => { const st = BUILD_STATS[k], needs = st.needs && !hasBuilt(g, 0, st.needs);
-            return cmd(k, <BuildingSprite civ={side.civ} kind={k} w={54} h={44} />, `${CIVS[side.civ].buildings[k]}: ${BUILD_TEXT[k]}${needs ? ` (necesita ${CIVS[side.civ].buildings[st.needs!]})` : ''}`, () => setMode({ k: 'place', kind: k }), { disabled: !canPay(side, st.cost) || !!needs, cost: st.cost }); })])}</>;
+          if (workersSel) return <>{pad([...BKINDS.slice(constructionPage*5,(constructionPage+1)*5).map(k => { const st = BUILD_STATS[k], needs = st.needs && !hasBuilt(g, 0, st.needs),wait=Math.max(0,(st.unlockAt??0)-g.t);
+            return cmd(k, <BuildingSprite civ={side.civ} kind={k} w={54} h={44} />, `${CIVS[side.civ].buildings[k]}: ${BUILD_TEXT[k]}${wait?` (disponible en ${formatLandTime(Math.ceil(wait))})`:''}${needs ? ` (necesita ${CIVS[side.civ].buildings[st.needs!]})` : ''}`, () => setMode({ k: 'place', kind: k }), { disabled: !canPay(side, st.cost) || !!needs||wait>0, cost: st.cost,label:k==='castle'?'Castillo':k==='energyTower'?'Torre de energía':undefined }); }),cmd('construction-page',ic('➡'),'Más construcciones: cambiar de página',()=>setConstructionPage(p=>(p+1)%Math.ceil(BKINDS.length/5)),{label:constructionPage===2?'Volver':'Más',badge:`${constructionPage+1}/${Math.ceil(BKINDS.length/5)}`})])}</>;
           if (mine.length) return <>{pad([
             cmd('amove', ic('🎯'), 'Atacar a un lugar: caminan y atacan a todo lo que encuentren', () => setMode({ k: 'amove' })),
             cmd('move', ic('➡️'), 'Mover: tocá el mapa para que vayan', () => say('Tocá el mapa para que vayan ahí')),

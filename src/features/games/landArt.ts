@@ -16,6 +16,7 @@ import { walkingPhase,motionKind,stopMotionPhase } from './landMotion';
 import {drawRig} from './landRig';
 import {drawBuildingFire} from './landBuildingFire';
 import {landHudHeight} from './landLayout';
+import {drawFortress,fortressesReady} from './landFortressArt';
 
 // Once recortes por civilización en hojas individuales de 4 × 3, con el último casillero vacío.
 const URLS = import.meta.glob('./assets/land/units-*.webp', { eager: true, import: 'default' }) as Record<string, string>;
@@ -47,7 +48,7 @@ export function spritesReady() {
       image.src = URLS['./assets/land/units-' + civ + '.webp'];
     }
   }
-  const upgradedReady=evolutionsReady(),directionsReady=directionalSpritesReady();return CIV_IDS.every(c => !!SPRITES[c])&&upgradedReady&&directionsReady;
+  const upgradedReady=evolutionsReady(),directionsReady=directionalSpritesReady(),fortsReady=fortressesReady();return CIV_IDS.every(c => !!SPRITES[c])&&upgradedReady&&directionsReady&&fortsReady;
 }
 export function drawPortrait(ctx:CanvasRenderingContext2D,civ:CivId,idx:number,w:number,h:number,level=0){
   spritesReady();let image=SPRITES[civ],frame=FRAMES[civ]?.[idx];if(!image||!frame)return false;if(level>0&&idx<6){const upgraded=evolvedSprite(civ,idx,level);if(!upgraded)return false;image=upgraded.image;frame=upgraded.frame;}
@@ -55,6 +56,7 @@ export function drawPortrait(ctx:CanvasRenderingContext2D,civ:CivId,idx:number,w
 }
 // Dibuja un recorte apoyado en (x, y) (el piso), de alto h (o de ancho w si es más ancho que alto).
 export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: number, x: number, y: number, h: number, flip = false, maxW?: number, motion = 0, attack = 0,kneel=0,level=0,work=0,animation?:UnitAnimation):boolean {
+  if(idx===14||idx===15)return drawFortress(ctx,civ,idx===14?'castle':'energyTower',x,y,h,maxW??h*1.6);
   if(idx===12)return drawFarm(ctx,civ,x,y,Math.min(maxW??h,h*1.7),h*.85);
   if(idx===13)return drawSprite(ctx,civ,10,x,y,h,flip,maxW);
   if (idx === 11) return drawWall(ctx,civ,x,y,Math.min(maxW ?? h,h*1.2),h);
@@ -99,7 +101,7 @@ export function drawSprite(ctx: CanvasRenderingContext2D, civ: CivId, idx: numbe
   ctx.restore(); return true;
 }
 export const roleIdx = (r: Role) => ROLES.indexOf(r);
-export const bIdx = (k: BKind) => k==='farm'?12:k==='storehouse'?13:k==='base'?6:k==='tower'?9:k==='depot'||k==='workerBarracks'?10:k==='wall'?11:k==='workshop'||k==='eliteBarracks'?8:7;
+export const bIdx = (k: BKind) => k==='castle'?14:k==='energyTower'?15:k==='farm'?12:k==='storehouse'?13:k==='base'?6:k==='tower'?9:k==='depot'||k==='workerBarracks'?10:k==='wall'?11:k==='workshop'||k==='eliteBarracks'?8:7;
 export const TEAM = ['#4ade80', '#f87171', '#a78bfa', '#38bdf8', '#fbbf24', '#fb923c', '#f472b6', '#2dd4bf', '#c084fc', '#e2e8f0'];
 
 export interface Cam { x: number; y: number; w: number; h: number; z: number } // (x, y: el mundo arriba a la izquierda; z: el zoom)
