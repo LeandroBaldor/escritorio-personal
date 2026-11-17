@@ -476,6 +476,11 @@ let litA: HTMLCanvasElement | null = null, litB: HTMLCanvasElement | null = null
 let lowFx = false;
 export function setLowFx(on: boolean) { lowFx = on; }
 export const BODY_SCALE = PH / 1.85; // los luchadores miden PH (2,3 m); el dibujo está hecho para 1,85 m
+// Silueta sin halo ni sombra: permite aplicar materiales siguiendo solo el contorno real.
+export function drawFighterShape(ctx: CanvasRenderingContext2D, f: Fighter, t: number, fx: FighterFx, x: number, y: number, pixels: number) {
+  const s = pixels * BODY_SCALE * SIZE[f.char];
+  ctx.save(); ctx.translate(x, y); ctx.scale(s * f.facing, s); drawFighterBody(ctx, f, t, { ...fx, lit: true, aura: null }); ctx.restore();
+}
 export function drawFighterLit(ctx: CanvasRenderingContext2D, f: Fighter, t: number, fx: FighterFx, x: number, y: number, s: number, rim: string, noShadow = false) {
   const L = LOOKS[f.char], S = s * BODY_SCALE * SIZE[f.char], K = L.brute ? 1.32 : 1, mir = f.facing < 0 ? -1 : 1; // cada uno de su tamaño
   // sombra en el piso y aura (sin luz)

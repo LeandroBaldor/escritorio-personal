@@ -17,13 +17,15 @@ import penPasosUrl from './assets/sonidos/pen-pasos.mp3';
 import penPelotaUrl from './assets/sonidos/pen-pelota.mp3';
 import penAtajaUrl from './assets/sonidos/pen-arquero-ataja.mp3';
 import penRedUrl from './assets/sonidos/pen-red.mp3';
-import penBoomUrl from './assets/sonidos/pen-explosion-dracula.mp3';
-import penBoomBodyUrl from './assets/sonidos/pen-persona-cae.mp3';
+import penBoomUrl from './assets/sonidos/pen-explosion-jugador.mp3';
+import penBoomBodyUrl from './assets/sonidos/pen-explosion-sangre.mp3';
 import penArmUrl from './assets/sonidos/pen-t800-mov.mp3';
 import penArmEndUrl from './assets/sonidos/pen-t800-fin.mp3';
 import penHeadUrl from './assets/sonidos/pen-cabeza.mp3';
 import penAshUrl from './assets/sonidos/pen-cenizas.mp3';
-import type { PenDeathType } from './kombatPenalties';
+import penElectricUrl from './assets/sonidos/pen-electricidad.mp3';
+import penFreezeUrl from './assets/sonidos/pen-congelamiento.mp3';
+import { DEATH_AT, DEATH_LENGTH, type PenDeathType } from './kombatPenalties';
 import hinchadaUrl from './assets/sonidos/hinchada.mp3';
 import patadaUrl from './assets/sonidos/patada.mp3';
 import trueno1Url from './assets/sonidos/trueno-1.mp3';
@@ -1411,14 +1413,15 @@ export function playKfYouDied() { playSample(kf('voz-you-died'), 1, 0.5); }
 export function playKfFinality() { playSample(kf('voz-finality'), 1, 0.15); }
 export function playKfSelectVoice() { unlockSounds(); whenRunning(() => { playSample(kf('voz-seleccionar'), 1, 0.1); }); }
 // La música del menú: en bucle mientras se elige; se corta (con un fundido corto) cuando arranca el partido.
-let kfMusic: { src: AudioBufferSourceNode; gain: GainNode } | null = null, musicWanted = false;
-export function setKfMusic(on: boolean) {
+let kfMusic: { src: AudioBufferSourceNode; gain: GainNode } | null = null, musicWanted = false, musicVolume = 0.15;
+export function setKfMusic(on: boolean, volume = 0.15) {
   musicWanted = on;
+  musicVolume = volume;
   if (!on) {
     if (kfMusic && ctx) { const m = kfMusic, t = ctx.currentTime; m.gain.gain.cancelScheduledValues(t); m.gain.gain.setTargetAtTime(0, t, 0.08); try { m.src.stop(t + 0.5); } catch { /* ya paró */ } }
     kfMusic = null; return;
   }
-  if (kfMusic) return;
+  if (kfMusic) { if (ctx) kfMusic.gain.gain.setTargetAtTime(musicVolume, ctx.currentTime, 0.3); return; }
   unlockSounds();
   const url = kf('musica');
   const go = () => whenRunning(c => {
@@ -1427,7 +1430,7 @@ export function setKfMusic(on: boolean) {
     if (!(buffer instanceof AudioBuffer)) { loadSample(url); setTimeout(go, 300); return; }
     const src = c.createBufferSource(), gain = c.createGain();
     src.buffer = buffer; src.loop = true; gain.gain.value = 0;
-    gain.gain.setTargetAtTime(0.15, c.currentTime, 0.3); // la música de fondo
+    gain.gain.setTargetAtTime(musicVolume, c.currentTime, 0.3);
     src.connect(gain).connect(out(c)); src.start();
     kfMusic = { src, gain };
   });
@@ -1435,6 +1438,7 @@ export function setKfMusic(on: boolean) {
 }
 // Si la página todavía no tuvo un clic o una tecla, el navegador no deja sonar nada: arranca con el primero.
 export function kfMusicNeedsGesture() { return !ctx || ctx.state !== 'running'; }
+export function setPenMusic(on: boolean) { setKfMusic(on, 0.15 * 1.5); }
 // Una piña / patada al cuerpo: golpe grave y seco con un chasquido.
 export function playKfHit(volume = 1) {
   const c = running(); if (!c) return;
@@ -1617,20 +1621,38 @@ export function setVampDragon(mouth: 'shut' | 'open' | null, wings = 0) {
 // ---------- Kombat Penales (sonidos que pasó el usuario) ----------
 // Los pasos mientras corre a la pelota, la patada, la atajada del arquero y la pelota pegando en la red.
 // Mientras el archivo carga, suena el sintetizado de Kombat Football.
-export function preloadPenaltySounds() { for (const url of [penPasosUrl, penPelotaUrl, penAtajaUrl, penRedUrl, penBoomUrl, penBoomBodyUrl, penArmUrl, penArmEndUrl, penHeadUrl, penAshUrl, vs('fuego'), vs('explosion'), vs('acido'), vs('espada')]) loadSample(url); }
+export function preloadPenaltySounds() { for (const url of [penPasosUrl, penPelotaUrl, penAtajaUrl, penRedUrl, penBoomUrl, penBoomBodyUrl, penArmUrl, penArmEndUrl, penHeadUrl, penAshUrl, penElectricUrl, penFreezeUrl, vs('fuego'), vs('acido')]) loadSample(url); }
+let penVoice: { src: AudioBufferSourceNode; gain: GainNode; type: PenDeathType } | null = null;
+// Sigue el reloj de la animación, incluyendo el polvo final; al reanudar continúa desde el mismo punto.
+export function syncPenDeathAudio(type: PenDeathType | null, elapsed = 0) {
+  const c = ctx; if (!c) return;
+  const url = type === 'ash' ? penAshUrl : type === 'violet' ? penElectricUrl : type === 'ice' ? penFreezeUrl : null;
+  const duration = type === 'ash' ? DEATH_LENGTH : type ? DEATH_AT[type] : 0;
+  if (penVoice && (!url || elapsed >= duration || penVoice.type !== type)) {
+    const old = penVoice; penVoice = null; old.gain.gain.cancelScheduledValues(c.currentTime);
+    if (c.state === 'running') old.gain.gain.setTargetAtTime(0, c.currentTime, 0.025); else old.gain.gain.setValueAtTime(0, c.currentTime);
+    try { old.src.stop(c.currentTime + (c.state === 'running' ? 0.1 : 0)); } catch { /* ya terminó */ }
+  }
+  if (!url || !type || elapsed >= duration) return;
+  if (!running()) return;
+  if (penVoice) { penVoice.gain.gain.setTargetAtTime(Math.min(1, (duration - elapsed) / 0.15), c.currentTime, 0.02); return; }
+  const buffer = samples.get(url); if (!(buffer instanceof AudioBuffer)) { loadSample(url); return; }
+  const src = c.createBufferSource(), gain = c.createGain();
+  src.buffer = buffer; src.loop = true; gain.gain.setValueAtTime(0, c.currentTime); gain.gain.linearRampToValueAtTime(1, c.currentTime + 0.03);
+  src.connect(gain).connect(out(c)); penVoice = { src, gain, type }; src.onended = () => { if (penVoice?.src === src) penVoice = null; }; src.start(c.currentTime, elapsed % buffer.duration);
+}
 export function playPenDeathStart(type: PenDeathType) {
+  syncPenDeathAudio(type, 0);
   if (type === 'head') { if (!playSample(penHeadUrl, 1)) playVampDeath(); }
-  else if (type === 'ash') { if (!playSample(penAshUrl, 1)) playVampHiss(); }
-  else if (type === 'ice') playVampStakeHit();
+  else if (type === 'ash' || type === 'ice' || type === 'violet') return;
   else if (type === 'acid') playVampAcid();
-  else if (type === 'violet') { playVampDeath(); playVampSword(); }
   else if (type !== 'explosion') playVampDeath();
 }
 export function playPenSteps() { playSample(penPasosUrl, 0.15, 0, 1.35); } // (bien bajito)
 export function playPenKick() { if (!playSample(penPelotaUrl, 1.6)) playKfBall(1.3, 0.85); }
 export function playPenSave() { if (!playSample(penAtajaUrl, 1)) playKfBall(1, 0.6); }
 export function playPenNet() { playSample(penRedUrl, 1, 0.08); }
-// La explosión: explosion_drácula.mp3 y persona_cae.mp3 del usuario juntas (mientras cargan, la de Kombat Football).
-export function playPenExplosion() { const a = playSample(penBoomUrl, 1), b = playSample(penBoomBodyUrl, 1.1); if (!a && !b) playExplosion(); } // (las dos juntas: la explosión y la persona que cae)
+// Todas las explosiones mezclan explosion_jugador.mp3 y explosion_sangre.mp3.
+export function playPenExplosion() { const a = playSample(penBoomUrl, 1), b = playSample(penBoomBodyUrl, 1); if (!a && !b) playExplosion(); }
 // Los brazos del piedra, papel o tijera (T-800.mp3 del usuario): un tramo corto en cada movimiento y el final cuando muestran la mano.
 export function playPenArm(end = false) { if (!playSample(end ? penArmEndUrl : penArmUrl, 1)) playKfButton(end ? 0.9 : 0.45); }

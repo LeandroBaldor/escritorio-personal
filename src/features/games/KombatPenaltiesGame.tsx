@@ -26,8 +26,8 @@ import azulTijera from './assets/penales/ppt/azul-tijera.webp';
 import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
   playGameOver, playKfButton, playKfGoal, playKfName, playKfSelectVoice, playKfVsSentence,
-  playPenArm, playPenExplosion, playPenKick, playPenNet, playPenSave, playPenSteps, playRefWhistle, playStart, preloadPenaltySounds, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
-  playPenDeathStart, playVampBones, playVampBurn, playVampExplosion,
+  playPenArm, playPenExplosion, playPenKick, playPenNet, playPenSave, playPenSteps, playRefWhistle, playStart, preloadPenaltySounds, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setPenMusic,
+  playPenDeathStart, playVampBurn, syncPenDeathAudio,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 import { Fireworks } from './Fireworks';
@@ -415,13 +415,13 @@ export function KombatPenalties() {
   // La música del menú.
   useEffect(() => { preloadKombatUi(); preloadPenaltyArt(); preloadBackdrops(STAGES.map(st => st.id)); const img = new Image(); img.src = spaceBg; }, []);
   useEffect(() => {
-    setKfMusic(menuish);
+    setPenMusic(menuish);
     if (!menuish) return;
-    const first = () => setKfMusic(true);
+    const first = () => setPenMusic(true);
     window.addEventListener('pointerdown', first, { once: true }); window.addEventListener('keydown', first, { once: true });
     return () => { window.removeEventListener('pointerdown', first); window.removeEventListener('keydown', first); };
   }, [menuish]);
-  useEffect(() => () => setKfMusic(false), []);
+  useEffect(() => () => { setPenMusic(false); syncPenDeathAudio(null); }, []);
 
   // ---------------------------------------------------------------- La tanda
   useEffect(() => {
@@ -452,13 +452,13 @@ export function KombatPenalties() {
           case 'deathStart': playPenDeathStart(e.death); break;
           case 'burn': playVampBurn(); break;
           case 'boom':
-            if (e.death === 'explosion' || e.death === 'head') playPenExplosion();
-            else if (e.death !== 'acid' && e.death !== 'ash') { playVampExplosion(); playVampBones(); }
+            if (e.death !== 'acid' && e.death !== 'ash') playPenExplosion();
             break;
           case 'end': playRefWhistle('end'); break;
           case 'post': break;
         }
       }
+      syncPenDeathAudio(m.death?.type ?? null, m.death?.t ?? 0);
       paint();
       setHud(prev => {
         const next: Hud = { kicks: [[...m.kicks[0]], [...m.kicks[1]]], turn: m.turn, first: m.first, sudden: suddenDeath(m.kicks) && !(k && !k.hit) };
@@ -484,7 +484,7 @@ export function KombatPenalties() {
     const hide = () => { if (document.hidden) setScreen('paused'); };
     document.addEventListener('visibilitychange', hide);
     const observer = new ResizeObserver(paint); if (stageRef.current) observer.observe(stageRef.current);
-    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); observer.disconnect(); };
+    return () => { cancelAnimationFrame(frame); syncPenDeathAudio(null); document.removeEventListener('visibilitychange', hide); observer.disconnect(); };
   }, [screen, paint, shout, round, setupTurn, startRps]);
   useEffect(() => () => setCrowd(0), []);
 

@@ -8,7 +8,7 @@ import { type CharId, type StageId } from './kombat';
 import { FINAL_SHOT_AT, T, arriveAt, colOf, fxOfTurn, keeperBlewIt, rowOf, type BallFx, type PenKick, type PenMatch, type Zone } from './kombatPenalties';
 import { THEMES } from './kombatArt';
 import { PITCH } from './kombatSoccerArt';
-import { BODY_SCALE, LOOKS, drawFighterLit, idleFighter, setLowFx } from './kombatFighters';
+import { BODY_SCALE, LOOKS, drawFighterLit, drawFighterShape, idleFighter, setLowFx } from './kombatFighters';
 import { alpha, bloom, darken, lighten } from './gravityMonsters';
 import { backdropFloor, backdropImage } from './kombatScenery';
 import { SIZE } from './kombat';
@@ -346,7 +346,7 @@ function drawKeeper(ctx: CanvasRenderingContext2D, m: PenMatch, char: CharId, ri
   // sombra en el piso (queda abajo aunque vuele)
   const gy = m.kick ? Math.max(st.y, KEEPER[1]) : KEEPER[1], S = FPX * BODY_SCALE * SIZE[char];
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(st.x, Math.min(gy, st.y + 400), S * 0.5 + Math.abs(Math.sin(st.rot)) * S * 0.7, S * 0.09, 0.3, 0, TAU); ctx.fill();
-  if (death?.type === 'acid' || death?.type === 'ash') {
+  if (death?.type === 'acid') {
     const rise = death.type === 'acid' ? easeInOut(death.t / 0.38) : 0;
     if (rise > 0.5) { f.action = 'sad'; f.ground = true; }
     const body = (c: CanvasRenderingContext2D) => { c.save(); c.translate(lerp(st.x, death.x, rise), lerp(st.y, death.y, rise) - st.hipY); c.rotate(st.rot * (1 - rise)); drawFighterLit(c, f, death.clock + 0.4, NOFX, 0, st.hipY, FPX, rim, true); c.restore(); };
@@ -354,7 +354,7 @@ function drawKeeper(ctx: CanvasRenderingContext2D, m: PenMatch, char: CharId, ri
     return;
   }
   ctx.save(); ctx.translate(st.x, st.y - st.hipY); ctx.rotate(st.rot);
-  const body = (c: CanvasRenderingContext2D, headScale = 1) => drawFighterLit(c, f, (death?.clock ?? m.time) + 0.4, { ...NOFX, headScale }, 0, st.hipY, FPX, rim, true);
+  const body = (c: CanvasRenderingContext2D, headScale = 1, silhouette = false) => { const fx = { ...NOFX, headScale }, t = (death?.clock ?? m.time) + 0.4; if (silhouette) drawFighterShape(c, f, t, fx, 0, st.hipY, FPX); else drawFighterLit(c, f, t, fx, 0, st.hipY, FPX, rim, true); };
   if (death) drawPenDeath(ctx, death, 0, st.hipY, 2.3 * SIZE[char] * FPX, body, c => drawPenProfileSkeleton(c, f, death.clock + 0.4, 0, st.hipY, FPX)); else body(ctx);
   ctx.restore();
 }
@@ -365,7 +365,7 @@ function drawKicker(ctx: CanvasRenderingContext2D, m: PenMatch, side: 0 | 1, cha
   const st = kickerState(poseMatch, side) ?? { gone: false, x: START[0], y: START[1], action: 'idle' as const, kickT: 0 };
   if (st.gone) return;
   const f = idleFighter(char); f.facing = 1; f.action = st.action; f.kickT = st.kickT; f.kickKind = 'normal';
-  const body = (c: CanvasRenderingContext2D, headScale = 1) => drawFighterLit(c, f, death?.clock ?? m.time, { ...NOFX, headScale }, st.x, st.y, FPX, rim, !!death);
+  const body = (c: CanvasRenderingContext2D, headScale = 1, silhouette = false) => { const fx = { ...NOFX, headScale }, t = death?.clock ?? m.time; if (silhouette) drawFighterShape(c, f, t, fx, st.x, st.y, FPX); else drawFighterLit(c, f, t, fx, st.x, st.y, FPX, rim, !!death); };
   if (death) drawPenDeath(ctx, death, st.x, st.y, 2.3 * SIZE[char] * FPX, body, c => drawPenProfileSkeleton(c, f, death.clock, st.x, st.y, FPX)); else body(ctx);
 }
 function drawShootoutFinale(ctx: CanvasRenderingContext2D, m: PenMatch, rim: string) {
@@ -374,7 +374,7 @@ function drawShootoutFinale(ctx: CanvasRenderingContext2D, m: PenMatch, rim: str
   drawFighterLit(ctx, winner, m.time, NOFX, KEEPER[0], KEEPER[1], FPX, rim);
   const char = m.chars[finale.loser], f = idleFighter(char), p = kickerBody(char); f.facing = 1; f.action = 'sad';
   const d = m.death, t = d?.clock ?? m.time;
-  const body = (c: CanvasRenderingContext2D, headScale = 1) => drawFighterLit(c, f, t, { ...NOFX, headScale }, p.x, p.y, FPX, rim, true);
+  const body = (c: CanvasRenderingContext2D, headScale = 1, silhouette = false) => { const fx = { ...NOFX, headScale }; if (silhouette) drawFighterShape(c, f, t, fx, p.x, p.y, FPX); else drawFighterLit(c, f, t, fx, p.x, p.y, FPX, rim, true); };
   if (d) drawPenDeath(ctx, d, p.x, p.y, p.h, body, c => drawPenProfileSkeleton(c, f, t, p.x, p.y, FPX)); else body(ctx);
 }
 function drawGore(ctx: CanvasRenderingContext2D, m: PenMatch) {
@@ -401,6 +401,7 @@ function drawFlying(ctx: CanvasRenderingContext2D, m: PenMatch) {
       ctx.fillStyle = 'rgba(226,247,255,0.9)'; ctx.beginPath(); ctx.moveTo(-r * 0.65, -r * 0.55); ctx.lineTo(-r * 0.3, -r * 0.9); ctx.lineTo(r * 0.8, -r * 0.8); ctx.lineTo(r * 0.45, -r * 0.5); ctx.closePath(); ctx.fill();
       ctx.fillStyle = 'rgba(43,109,166,0.8)'; ctx.beginPath(); ctx.moveTo(r * 0.45, -r * 0.5); ctx.lineTo(r * 0.8, -r * 0.8); ctx.lineTo(r * 0.95, r * 0.2); ctx.lineTo(r * 0.6, r * 0.5); ctx.closePath(); ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = Math.max(1, r * 0.045); ctx.beginPath(); ctx.moveTo(-r * 0.5, -r * 0.5); ctx.lineTo(r * 0.35, -r * 0.45); ctx.lineTo(r * 0.5, r * 0.4); ctx.moveTo(-r * 0.3, -r * 0.4); ctx.lineTo(0, 0); ctx.lineTo(-r * 0.2, r * 0.45); ctx.stroke();
+      if (f.size > 12) { ctx.strokeStyle = 'rgba(130,8,29,0.68)'; ctx.lineWidth = Math.max(1, r * 0.055); ctx.beginPath(); ctx.moveTo(-r * 0.3, -r * 0.25); ctx.lineTo(r * 0.1, r * 0.05); ctx.lineTo(0, r * 0.3); ctx.stroke(); }
     } else { ctx.fillStyle = f.size > 6 ? '#514a43' : '#b8b0a2'; ctx.beginPath(); ctx.moveTo(-f.size * 0.5, 0); ctx.lineTo(-f.size * 0.15, -f.size * 0.4); ctx.lineTo(f.size * 0.5, f.size * 0.1); ctx.lineTo(0, f.size * 0.3); ctx.closePath(); ctx.fill(); }
     ctx.restore();
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACID_GREEN_T, ACID_MELT_T, DEATH_AT, DEATH_TYPES, HEAD_GROWTH, acidCollapse, arriveAt, freezeProgress, kickDuration, newPenalties, startKick, stepPenalties, takePenEvents, type Zone } from './kombatPenalties';
+import { ACID_GREEN_T, ACID_MELT_T, DEATH_AT, DEATH_LENGTH, DEATH_TYPES, HEAD_GROWTH, acidCollapse, ashFront, arriveAt, freezeProgress, kickDuration, newPenalties, startKick, stepPenalties, takePenEvents, type Zone } from './kombatPenalties';
 import { penaltyRefTarget } from './kombatPenaltiesArt';
 import { SIZE } from './kombat';
 
@@ -58,7 +58,9 @@ describe('muertes de Kombat Penales', () => {
         sawRemains ||= m.gore.gibs.length > 0 || m.fragments.length > 0;
         for (const f of m.fragments) if (f.kind === 'ash') ashRight &&= f.vx > 0;
         skullScale = Math.max(skullScale, m.gore.gibs.find(g => g.kind === 'skull')?.scale ?? 0);
-        if (type === 'ice' || type === 'acid' || type === 'ash') expect(m.gore.gibs.length + m.gore.drops.length + m.screenBlood.length).toBe(0);
+        if (type === 'acid' || type === 'ash') expect(m.gore.gibs.length + m.gore.drops.length + m.screenBlood.length).toBe(0);
+        if (type === 'violet' && m.gore.gibs.length) { expect(m.gore.gibs.every(g => (g.scale ?? 1) < 0.3)).toBe(true); expect(m.gore.drops.length + m.gore.stains.length).toBeGreaterThan(0); }
+        if (type === 'ice' && m.fragments.length) expect(m.gore.drops.length + m.gore.stains.length).toBeGreaterThan(0);
       }
       expect(starts).toBe(1); expect(ends).toBe(1);
       expect(m.kicks[0]).toEqual([keeper]); expect(m.turn).toBe(1); expect(m.phase).toBe('aim');
@@ -72,7 +74,7 @@ describe('muertes de Kombat Penales', () => {
     const deaths: string[] = [];
     for (let n = 0; n < 3; n++) {
       startKick(m, 0, 0);
-      for (let t = 0; t < 7; t += 1 / 60) { stepPenalties(m, 1 / 60, body); for (const e of takePenEvents(m)) if (e.type === 'deathStart') deaths.push(e.death); }
+      for (let t = 0; t < kickDuration('explosion') + 0.1; t += 1 / 60) { stepPenalties(m, 1 / 60, body); for (const e of takePenEvents(m)) if (e.type === 'deathStart') deaths.push(e.death); }
     }
     expect(deaths).toEqual(['explosion', 'fire', 'explosion']);
   });
@@ -88,7 +90,7 @@ describe('muertes de Kombat Penales', () => {
     startKick(m, 0, 0);
     for (let t = 0; t < arriveAt() + 0.5 + DEATH_AT.acid - 0.1; t += 1 / 60) stepPenalties(m, 1 / 60, body);
     expect(m.phase).toBe('kick'); expect(m.winner).toBeNull();
-    for (let t = 0; t < 2; t += 1 / 60) stepPenalties(m, 1 / 60, body);
+    for (let t = 0; t < 10; t += 1 / 60) { stepPenalties(m, 1 / 60, body); if (m.finale) break; }
     expect(m.phase).toBe('execution'); expect(m.winner).toBe(0); expect(m.finale?.loser).toBe(1);
     let finalDeath = false, prematureEnd = false, endings = 0;
     for (let t = 0; t < 20; t += 1 / 60) {
@@ -97,6 +99,22 @@ describe('muertes de Kombat Penales', () => {
       for (const e of takePenEvents(m)) if (e.type === 'end') { endings++; prematureEnd ||= !m.death?.finished; }
     }
     expect(finalDeath).toBe(true); expect(prematureEnd).toBe(false); expect(endings).toBe(1); expect(m.phase).toBe('end');
+  });
+  it('las cenizas nacen en los pies y ascienden hasta la cabeza, manteniendo viento a la derecha', () => {
+    expect(ashFront(0)).toBe(0); expect(ashFront(DEATH_AT.ash)).toBe(1);
+    const m = newPenalties('ice', ['frost', 'thunder'], () => 6.1 / 7); startKick(m, 0, 0);
+    for (let t = 0; t < 2.15; t += 1 / 60) stepPenalties(m, 1 / 60, body);
+    const first = m.fragments.map(f => f.y); expect(first.length).toBeGreaterThan(0);
+    expect(Math.min(...first)).toBeGreaterThan(450);
+    for (let t = 0; t < DEATH_AT.ash * 0.8; t += 1 / 60) stepPenalties(m, 1 / 60, body);
+    expect(Math.max(...m.fragments.map(f => f.y))).toBeLessThan(Math.min(...first));
+    expect(m.fragments.every(f => f.vx > 0)).toBe(true);
+  });
+  for (const [i, type] of DEATH_TYPES.entries()) it(`${type}: la secuencia completa dura unos cinco segundos`, () => {
+    const m = newPenalties('ice', ['frost', 'thunder'], () => (i + 0.1) / 7); startKick(m, 0, 0);
+    let started = -1, finished = -1;
+    for (let t = 0; t < 10; t += 1 / 120) { stepPenalties(m, 1 / 120, body); if (m.death && started < 0) started = m.time; if (m.phase === 'aim' && started >= 0) { finished = m.time; break; } }
+    expect(DEATH_LENGTH).toBeGreaterThanOrEqual(5); expect(finished - started).toBeGreaterThanOrEqual(5); expect(finished - started).toBeLessThan(5.3);
   });
   for (const winner of [0, 1] as const) for (const last of ['goal', 'save'] as const) {
     it(`la ejecución final mata al perdedor con ganador ${winner}, último penal ${last}`, () => {

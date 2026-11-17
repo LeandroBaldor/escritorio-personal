@@ -73,12 +73,14 @@ export const keeperBlewIt = (shot: Zone, dive: Zone) => shot !== dive;
 export const DEATH_TYPES = ['explosion', 'fire', 'violet', 'acid', 'ice', 'head', 'ash'] as const;
 export type PenDeathType = typeof DEATH_TYPES[number];
 // Más anticipación y tiempo para leer cada transformación antes del estallido.
-// Cabeza y cenizas duran lo mismo que las grabaciones del usuario, sin acelerar ni cortar los MP3.
-export const DEATH_AT: Record<PenDeathType, number> = { explosion: 0, fire: 1.9, violet: 1.65, acid: 5.8, ice: 1.7, head: 5.184, ash: 7.008 };
+export const DEATH_LENGTH = 5.2;
+// Transformación y restos comparten una secuencia de aproximadamente cinco segundos.
+export const DEATH_AT: Record<PenDeathType, number> = { explosion: 0, fire: 3.7, violet: 3.7, acid: 3.6, ice: 3.7, head: 4.1, ash: 4.2 };
 export const HEAD_GROWTH = 4.2;
 export const ACID_GREEN_T = 0.7, ACID_MELT_T = 3.15;
 export const FINAL_SHOT_AT = 0.95;
 export const freezeProgress = (t: number) => Math.min(1, Math.max(0, t / (DEATH_AT.ice * 0.8)));
+export const ashFront = (t: number) => Math.min(1, Math.max(0, t / DEATH_AT.ash));
 export function acidCollapse(t: number) {
   const q = Math.min(1, Math.max(0, (t - ACID_GREEN_T) / (ACID_MELT_T - ACID_GREEN_T))), fall = q * q * (3 - 2 * q);
   return { q, height: Math.max(0.025, 1 - fall * 0.975), width: 1 - fall * 0.18 };
@@ -130,7 +132,7 @@ export const T = {
   next: 2.0, // pausa después de que se define el penal (antes del siguiente)
 };
 export const arriveAt = () => T.contact + T.flight;
-export const kickDuration = (death?: PenDeathType) => Math.max(arriveAt() + T.next + 0.25, death ? arriveAt() + T.boom + 0.1 + DEATH_AT[death] + 1.8 : 0);
+export const kickDuration = (death?: PenDeathType) => Math.max(arriveAt() + T.next + 0.25, death ? arriveAt() + T.boom + 0.1 + DEATH_LENGTH : 0);
 
 // Arranca el penal con las dos elecciones.
 export function startKick(m: PenMatch, shot: Zone, dive: Zone, reach = 0.3) {
@@ -166,7 +168,7 @@ export function stepPenalties(m: PenMatch, dt: number, kickPos: BodyAt, keeperPo
       const ks: 0 | 1 = k.shooter === 0 ? 1 : 0; k.kboom = true; beginDeath(m, ks, true, keeperPos(ks), arriveAt() + T.boom + 0.1);
     }
     updateDeath(m);
-    if (k.t >= kickDuration(m.death?.type)) {
+    if (k.t >= (m.death ? m.death.at + DEATH_LENGTH : kickDuration())) {
       const w = shootoutWinner(m.kicks);
       if (w !== null) {
         m.winner = w; m.phase = 'execution'; m.phaseT = 0;
@@ -182,7 +184,7 @@ export function stepPenalties(m: PenMatch, dt: number, kickPos: BodyAt, keeperPo
       beginDeath(m, m.finale.loser, false, kickPos(m.finale.loser), FINAL_SHOT_AT);
     }
     updateDeath(m);
-    if (m.death?.finished && m.phaseT >= FINAL_SHOT_AT + DEATH_AT[m.death.type] + 1.8) {
+    if (m.death?.finished && m.phaseT >= FINAL_SHOT_AT + DEATH_LENGTH) {
       m.phase = 'end'; m.phaseT = 0; m.events.push({ type: 'end', winner: m.winner! });
     }
   }
@@ -205,7 +207,7 @@ function updateDeath(m: PenMatch) {
     // Emisión por intervalos: igual cantidad de cenizas a 30, 60 o 120 fps.
     for (let i = Math.floor(prev * 220); i < Math.floor(Math.min(d.t, DEATH_AT.ash) * 220); i++) {
       const r = m.rand;
-      m.fragments.push({ kind: 'ash', x: d.x + (r() - 0.5) * d.h * 0.65, y: d.y - d.h * (1 - i / (DEATH_AT.ash * 220)), vx: 170 + r() * 400, vy: -25 - r() * 110, a: r() * 6, va: (r() - 0.5) * 5, size: 1 + r() * 9, t: 0, life: 1.6 });
+      m.fragments.push({ kind: 'ash', x: d.x + (r() - 0.5) * d.h * 0.65, y: d.y - d.h * ashFront(i / 220), vx: 170 + r() * 400, vy: -25 - r() * 110, a: r() * 6, va: (r() - 0.5) * 5, size: 1 + r() * 9, t: 0, life: 1 });
     }
   }
   if (d.t < DEATH_AT[d.type]) return;
@@ -213,6 +215,8 @@ function updateDeath(m: PenMatch) {
   if (d.type === 'ice') {
     const r = m.rand;
     for (let i = 0; i < 38; i++) m.fragments.push({ kind: 'ice', x: d.x + (r() - 0.5) * d.h * 0.5, y: d.y - r() * d.h, vx: (r() - 0.5) * 1200, vy: -180 - r() * 850, a: r() * 6, va: (r() - 0.5) * 15, size: d.h * (i < 18 ? 0.08 + r() * 0.09 : 0.02 + r() * 0.04), t: 0, life: 1.75 });
+    sprayBlood(m, d.x, d.y, d.h, 110);
+    m.gore.stains.push({ x: d.x, y: d.y, r: 70 + r() * 30, seed: r() * 100, t: 0 });
     m.shake = 0.85;
   } else if (d.type !== 'acid' && d.type !== 'ash') {
     explode(m, d.x, d.y, d.h, m.chars[d.side], undefined, m.humans[d.side]);
@@ -221,16 +225,23 @@ function updateDeath(m: PenMatch) {
       const skull = m.gore.gibs.find(g => g.kind === 'skull');
       if (skull) { skull.scale = (0.74 * 1.12 * HEAD_GROWTH * (2.3 / 1.85) * SIZE[m.chars[d.side]]) / (1.6 * 0.4); skull.profile = true; }
     }
-    if (d.type === 'violet') for (const s of m.sparks) s.color = '#c86eff';
+    if (d.type === 'violet') {
+      for (const g of m.gore.gibs) { g.scale = 0.24; g.vx *= 0.55; g.vy *= 0.55; g.vz *= 0.55; }
+      for (const s of m.sparks) s.color = '#c86eff';
+    }
   }
   m.events.push({ type: 'boom', side: d.side, keeper: d.keeper, death: d.type });
 }
 
 // ---------------------------------------------------------------- La explosión (en px del arco: x, y en el piso; z para arriba)
 const GRAV = 2300;
+function sprayBlood(m: PenMatch, x: number, y: number, h: number, count: number) {
+  const r = m.rand;
+  for (let i = 0; i < count; i++) { const a = r() * Math.PI * 2, sp = 140 + r() * 1250; m.gore.drops.push({ x, y, z: h * (0.25 + r() * 0.65), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.55, vz: 300 + r() * 1400, r: 1.2 + Math.pow(r(), 2) * 8 }); }
+}
 export function explode(m: PenMatch, x: number, y: number, h: number, char: CharId, color = '#9ca3af', heavy = false) {
   const r = m.rand, G = m.gore;
-  for (let i = 0; i < 260; i++) { const a = r() * Math.PI * 2, sp = 140 + r() * 1250; G.drops.push({ x, y, z: h * (0.25 + r() * 0.65), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.55, vz: 300 + r() * 1400, r: 1.2 + Math.pow(r(), 2) * 8 }); }
+  sprayBlood(m, x, y, h, 260);
   const kinds: GibKind[] = ['skull', 'jaw', 'ribs', 'ribs', 'pelvis', 'bone', 'bone', 'bone', 'bone', 'bone', 'bone', 'chunk', 'chunk', 'chunk', 'chunk', 'plate', 'plate', 'plate', 'plate'];
   kinds.push('bone', 'bone', 'bone', 'bone', 'bone', 'bone', 'chunk', 'chunk', 'chunk', 'chunk', 'chunk', 'chunk', 'chunk', 'chunk');
   kinds.forEach((kind, i) => {

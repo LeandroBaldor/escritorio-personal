@@ -1,7 +1,27 @@
 import { BURN_AT } from './vampyrium';
 import { bodyFire } from './vampyriumChars';
 import { tinted } from './vampyriumArt';
-import { ACID_GREEN_T, DEATH_AT, HEAD_GROWTH, acidCollapse, freezeProgress, type PenDeath } from './kombatPenalties';
+import { ACID_GREEN_T, DEATH_AT, DEATH_LENGTH, HEAD_GROWTH, acidCollapse, ashFront, freezeProgress, type PenDeath } from './kombatPenalties';
+
+let iceCanvas: HTMLCanvasElement | null = null;
+// El material helado conserva exactamente el alfa del luchador, incluidos casco, dedos y alas.
+function frozenSilhouette(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, q: number, body: (c: CanvasRenderingContext2D, headScale?: number, silhouette?: boolean) => void) {
+  const tr = ctx.getTransform(), s = Math.max(0.25, Math.min(3, Math.hypot(tr.a, tr.b))), bx = x - h, by = y - h * 1.45, bw = h * 2, bh = h * 1.7, W = Math.ceil(bw * s), H = Math.ceil(bh * s);
+  if (W < 1 || H < 1 || W > 4096 || H > 4096) { body(ctx); return; }
+  iceCanvas ??= document.createElement('canvas');
+  if (iceCanvas.width < W) iceCanvas.width = W; if (iceCanvas.height < H) iceCanvas.height = H;
+  const c = iceCanvas.getContext('2d'); if (!c) { body(ctx); return; }
+  c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, W, H);
+  c.setTransform(s, 0, 0, s, -bx * s, -by * s); body(c, 1, true);
+  c.globalCompositeOperation = 'source-atop';
+  const g = c.createLinearGradient(x - h * 0.4, y - h, x + h * 0.4, y); g.addColorStop(0, 'rgba(237,252,255,0.82)'); g.addColorStop(0.4, 'rgba(130,209,244,0.76)'); g.addColorStop(0.7, 'rgba(197,240,255,0.85)'); g.addColorStop(1, 'rgba(46,115,174,0.8)'); c.fillStyle = g; c.fillRect(bx, by, bw, bh);
+  for (let i = 0; i < 16; i++) {
+    const yy = y - h * (0.04 + i * 0.065), xx = x + Math.sin(i * 5.2) * h * 0.22;
+    c.strokeStyle = i % 3 ? 'rgba(247,255,255,0.85)' : 'rgba(41,99,152,0.7)'; c.lineWidth = q > 0.8 ? 2 : 0.8; c.beginPath(); c.moveTo(xx - h * 0.1, yy - h * 0.09); c.lineTo(xx, yy); c.lineTo(xx - h * 0.04, yy + h * 0.06); c.lineTo(xx + h * 0.12, yy + h * 0.13); c.stroke();
+  }
+  c.globalCompositeOperation = 'source-over';
+  ctx.save(); ctx.shadowColor = 'rgba(198,239,255,0.8)'; ctx.shadowBlur = h * 0.015; ctx.drawImage(iceCanvas, 0, 0, W, H, bx, by, bw, bh); ctx.restore();
+}
 
 function flameRibbons(ctx: CanvasRenderingContext2D, t: number, intensity: number) {
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -14,7 +34,7 @@ function flameRibbons(ctx: CanvasRenderingContext2D, t: number, intensity: numbe
 }
 
 // El mismo fuego, esqueleto, teñido y curva de ácido de Vampyrium, sobre el luchador de Penales.
-export function drawPenDeath(ctx: CanvasRenderingContext2D, d: PenDeath, x: number, y: number, h: number, body: (c: CanvasRenderingContext2D, headScale?: number) => void, skeleton?: (c: CanvasRenderingContext2D) => void) {
+export function drawPenDeath(ctx: CanvasRenderingContext2D, d: PenDeath, x: number, y: number, h: number, body: (c: CanvasRenderingContext2D, headScale?: number, silhouette?: boolean) => void, skeleton?: (c: CanvasRenderingContext2D) => void) {
   if (d.finished && d.type !== 'acid') return;
   const q = Math.min(1, d.t / DEATH_AT[d.type]), w = h * 1.8;
   const draw = (sy = 1, sx = 1) => (c: CanvasRenderingContext2D) => {
@@ -47,7 +67,7 @@ export function drawPenDeath(ctx: CanvasRenderingContext2D, d: PenDeath, x: numb
       ctx.restore(); break;
     }
     case 'acid': {
-      const melt = acidCollapse(d.t), gone = Math.min(1, Math.max(0, (d.t - (DEATH_AT.acid + 1.1)) / 0.7)), green = Math.min(1, d.t / ACID_GREEN_T);
+      const melt = acidCollapse(d.t), gone = Math.min(1, Math.max(0, (d.t - (DEATH_LENGTH - 0.6)) / 0.6)), green = Math.min(1, d.t / ACID_GREEN_T);
       if (melt.q < 1) tint('rgb(109,225,28)', green * 0.93, melt.height, melt.width);
       const pw = h * (0.06 + 1.03 * melt.q), ph = h * (0.015 + 0.13 * melt.q);
       ctx.save(); ctx.globalAlpha = 1 - gone;
@@ -70,16 +90,13 @@ export function drawPenDeath(ctx: CanvasRenderingContext2D, d: PenDeath, x: numb
       body(ctx);
       const frozen = freezeProgress(d.t);
       ctx.save(); ctx.beginPath(); ctx.rect(x - w, y - h * 1.18 * frozen, w * 2, h * 1.18 * frozen + h * 0.2); ctx.clip();
-      tint('rgb(150,215,255)', 0.7);
-      ctx.fillStyle = 'rgba(170,225,255,0.28)'; ctx.strokeStyle = 'rgba(230,248,255,0.85)'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(x - h * 0.3, y); ctx.lineTo(x - h * 0.35, y - h * 0.6); ctx.lineTo(x - h * 0.2, y - h); ctx.lineTo(x + h * 0.2, y - h * 1.05); ctx.lineTo(x + h * 0.35, y - h * 0.55); ctx.lineTo(x + h * 0.3, y); ctx.closePath(); ctx.fill(); ctx.stroke();
-      if (q > 0.3) for (let i = 0; i < 7; i++) { const yy = y - h * (0.1 + i * 0.13), xx = x + Math.sin(i * 5.2) * h * 0.19; ctx.lineWidth = q > 0.75 ? 2.7 : 1.2; ctx.beginPath(); ctx.moveTo(xx - h * 0.1, yy - h * 0.1); ctx.lineTo(xx, yy); ctx.lineTo(xx - h * 0.04, yy + h * 0.06); ctx.lineTo(xx + h * 0.12, yy + h * 0.14); ctx.stroke(); }
+      frozenSilhouette(ctx, x, y, h, q, body);
       ctx.restore(); break;
     }
     case 'head': ctx.save(); ctx.translate(Math.sin(d.t * 90) * h * 0.01 * q * q, 0); body(ctx, 1 + (HEAD_GROWTH - 1) * q * q); ctx.restore(); break;
     case 'ash': {
-      // La silueta desaparece de arriba hacia abajo; las cenizas se dibujan en coordenadas de cámara.
-      ctx.save(); ctx.beginPath(); ctx.moveTo(x - w, y + h * 0.2); for (let i = 0; i <= 35; i++) ctx.lineTo(x - w + i / 35 * w * 2, y - h * (1 - q) + Math.sin(i * 6.7) * h * 0.03); ctx.lineTo(x + w, y + h * 0.2); ctx.closePath(); ctx.clip();
+      // Desaparece desde los pies hasta el cráneo; el polvo sigue viajando a la derecha de cámara.
+      ctx.save(); ctx.beginPath(); ctx.moveTo(x - w, y - h * 1.4); ctx.lineTo(x + w, y - h * 1.4); for (let i = 35; i >= 0; i--) ctx.lineTo(x - w + i / 35 * w * 2, y - h * 1.18 * ashFront(d.t) + Math.sin(i * 6.7) * h * 0.025); ctx.closePath(); ctx.clip();
       tint('rgb(100,96,90)', 0.9); ctx.restore(); break;
     }
   }

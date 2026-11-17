@@ -29,7 +29,7 @@ describe('Kombat Penales: la tanda', () => {
     m.phase = 'aim';
     startKick(m, 2, 2);
     const ev: string[] = []; let skull = false;
-    for (let t = 0; t < kickDuration() + 0.2; t += 1 / 60) { stepPenalties(m, 1 / 60, () => ({ x: 0, y: 0, h: 368 })); ev.push(...takePenEvents(m).map(e => e.type)); skull ||= m.gore.gibs.some(g => g.kind === 'skull'); }
+    for (let t = 0; t < kickDuration('explosion') + 0.2; t += 1 / 60) { stepPenalties(m, 1 / 60, () => ({ x: 0, y: 0, h: 368 })); ev.push(...takePenEvents(m).map(e => e.type)); skull ||= m.gore.gibs.some(g => g.kind === 'skull'); }
     expect(m.kicks[0]).toEqual([false]);
     expect(ev).toEqual(expect.arrayContaining(['kick', 'save', 'boom', 'whistle']));
     expect(skull).toBe(true);
@@ -42,7 +42,7 @@ describe('Kombat Penales: la tanda', () => {
     const m = newPenalties('ice', ['frost', 'thunder'], () => 0); m.phase = 'aim';
     startKick(m, 0, 2);
     const booms: boolean[] = [];
-    for (let t = 0; t < kickDuration() + 0.2; t += 1 / 60) { stepPenalties(m, 1 / 60, () => ({ x: 0, y: 0, h: 300 }), () => ({ x: 600, y: 700, h: 200 })); for (const e of takePenEvents(m)) if (e.type === 'boom') booms.push(e.keeper); }
+    for (let t = 0; t < kickDuration('explosion') + 0.2; t += 1 / 60) { stepPenalties(m, 1 / 60, () => ({ x: 0, y: 0, h: 300 }), () => ({ x: 600, y: 700, h: 200 })); for (const e of takePenEvents(m)) if (e.type === 'boom') booms.push(e.keeper); }
     expect(m.kicks[0]).toEqual([true]);
     expect(booms).toEqual([true]);
   });
