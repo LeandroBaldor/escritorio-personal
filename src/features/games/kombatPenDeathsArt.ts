@@ -1,5 +1,5 @@
 import { BURN_AT } from './vampyrium';
-import { bodyFire } from './vampyriumChars';
+import { drawPenFire } from './kombatPenFire';
 import { tinted } from './vampyriumArt';
 import { ACID_GREEN_T, DEATH_AT, DEATH_LENGTH, HEAD_GROWTH, acidCollapse, ashFront, freezeProgress, type PenDeath } from './kombatPenalties';
 
@@ -23,27 +23,6 @@ function frozenSilhouette(ctx: CanvasRenderingContext2D, x: number, y: number, h
   ctx.save(); ctx.shadowColor = 'rgba(198,239,255,0.8)'; ctx.shadowBlur = h * 0.015; ctx.drawImage(iceCanvas, 0, 0, W, H, bx, by, bw, bh); ctx.restore();
 }
 
-function flameRibbons(ctx: CanvasRenderingContext2D, t: number, intensity: number) {
-  ctx.save();
-  // Lenguas calientes con bordes rojos, centro amarillo y turbulencia ascendente.
-  for (let i = 0; i < 28; i++) {
-    const life = (t * (1.05 + i % 4 * 0.13) + i * 0.618) % 1;
-    const x = Math.sin(i * 9.2) * 0.46, base = -0.08 - i % 5 * 0.39 - life * 0.4;
-    const height = (0.48 + life * 1.2) * intensity;
-    const width = (0.065 + i % 3 * 0.025) * (1 - life * 0.55);
-    const sway = Math.sin(t * 6.7 + i * 3.7) * 0.1 + Math.sin(t * 11.1 + i) * 0.055;
-    const alpha = Math.sin(life * Math.PI) * 0.8;
-    const g = ctx.createLinearGradient(x, base, x + sway, base - height);
-    g.addColorStop(0, 'rgba(255,250,195,0.92)'); g.addColorStop(0.2, 'rgba(255,207,64,0.9)'); g.addColorStop(0.55, 'rgba(255,111,13,0.78)'); g.addColorStop(0.85, 'rgba(181,35,7,0.4)'); g.addColorStop(1, 'rgba(75,12,5,0)');
-    ctx.globalAlpha = alpha; ctx.fillStyle = g;
-    ctx.beginPath(); ctx.moveTo(x - width, base);
-    ctx.bezierCurveTo(x - width * 1.6 + sway, base - height * 0.35, x - sway * 0.7, base - height * 0.7, x + sway, base - height);
-    ctx.bezierCurveTo(x + sway * 0.25, base - height * 0.62, x + width + sway, base - height * 0.32, x + width, base); ctx.closePath(); ctx.fill();
-    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = alpha * 0.35; ctx.fillStyle = '#fff1b5';
-    ctx.beginPath(); ctx.ellipse(x, base - height * 0.14, width * 0.42, height * 0.21, sway * 0.15, 0, Math.PI * 2); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
-  }
-  ctx.restore();
-}
 
 // El mismo fuego, esqueleto, teñido y curva de ácido de Vampyrium, sobre el luchador de Penales.
 export function drawPenDeath(ctx: CanvasRenderingContext2D, d: PenDeath, x: number, y: number, h: number, body: (c: CanvasRenderingContext2D, headScale?: number, silhouette?: boolean) => void, skeleton?: (c: CanvasRenderingContext2D) => void, bodyRotation = 0) {
@@ -59,17 +38,18 @@ export function drawPenDeath(ctx: CanvasRenderingContext2D, d: PenDeath, x: numb
     case 'fire': {
       const f = Math.min(1, d.t / (BURN_AT * 1.8)), burn = Math.max(0, (d.t - BURN_AT) / (DEATH_AT.fire - BURN_AT));
       ctx.save(); ctx.globalAlpha = 1 - f; body(ctx); ctx.restore();
+      if (skeleton) { ctx.save(); ctx.globalAlpha = f; skeleton(ctx); ctx.restore(); }
       // Las llamas siguen la vertical de la cancha aunque el arquero quede girado en el aire.
       ctx.save(); ctx.translate(x, y - h * 0.5); ctx.rotate(-bodyRotation); ctx.translate(0, h * 0.5); ctx.scale(h / 2.3, h / 2.3); ctx.globalAlpha = f;
       if (burn > 0) {
-        ctx.save(); ctx.globalAlpha = f * 0.12; bodyFire(ctx, 2.9, 1.25, Math.min(1, burn * 1.7), d.clock + d.t, d.side); ctx.restore();
-        flameRibbons(ctx, d.clock + d.t, Math.min(1.4, burn * 2.2));
+        ctx.save(); ctx.scale(1 + Math.abs(Math.sin(bodyRotation)) * 0.8, 1);
+        drawPenFire(ctx, d.clock + d.t, Math.min(1.4, burn * 2.2)); ctx.restore();
       }
       // Brasas finas que recorren el cuerpo y ascienden: el esqueleto permanece legible entre las llamas.
       ctx.globalCompositeOperation = 'lighter';
-      for (let i = 0; i < 24; i++) { const p = (d.t * 1.4 + i * 0.618) % 1; ctx.fillStyle = `rgba(255,${120 + i % 4 * 30},40,${(1 - p) * burn})`; ctx.beginPath(); ctx.ellipse(Math.sin(i * 13 + d.t * 4) * (0.25 + p * 0.5), -p * 3.5, 0.012 + (i % 3) * 0.009, 0.045, 0.2, 0, Math.PI * 2); ctx.fill(); }
+      for (let i = 0; i < 12; i++) { const p = (d.t * 1.4 + i * 0.618) % 1; ctx.fillStyle = `rgba(255,${120 + i % 4 * 30},40,${(1 - p) * burn})`; ctx.beginPath(); ctx.ellipse(Math.sin(i * 13 + d.t * 4) * (0.25 + p * 0.5), -p * 3.5, 0.012 + (i % 3) * 0.009, 0.045, 0.2, 0, Math.PI * 2); ctx.fill(); }
       ctx.restore();
-      if (skeleton) { ctx.save(); ctx.globalAlpha = f; skeleton(ctx); ctx.restore(); }
+
       break;
     }
     case 'violet': {

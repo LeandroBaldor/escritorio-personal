@@ -1677,7 +1677,7 @@ export function syncPenaltySceneAudio(finaleTime: number | null, champion = fals
   const c = ctx; if (!c) return;
   const active = new Map<string, { url: string; offset: number; volume: number }>();
   if (finaleTime !== null && finaleTime < FINAL_END_AT) {
-    active.set('flight', { url: penUfoUrl, offset: finaleTime, volume: 1 });
+    active.set('flight', { url: penUfoUrl, offset: finaleTime, volume: 2 });
     if (finaleTime >= 0.8 && finaleTime < FINAL_SHOT_AT + 0.65) active.set('beam', { url: penUfoShotUrl, offset: finaleTime - 0.8, volume: 1 });
   }
   if (champion) active.set('fireworks', { url: penFireworksUrl, offset: 0, volume: 0.85 });

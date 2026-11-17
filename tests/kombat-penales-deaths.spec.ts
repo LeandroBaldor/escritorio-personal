@@ -79,9 +79,10 @@ test('las ocho muertes se dibujan para ambos roles y todos los luchadores', asyn
       }
     }
     await page.selectOption('#char', 'frost');
-    await page.evaluate(() => (window as unknown as { penPreview: { seek(t: number): void } }).penPreview.seek(2.9));
+    await page.evaluate(() => (window as unknown as { penPreview: { seek(t: number): void } }).penPreview.seek(4.8));
     await page.evaluate(() => new Promise(requestAnimationFrame));
     await page.screenshot({ path: test.info().outputPath(`${role}.png`), fullPage: true });
+    await page.locator('canvas').nth(1).screenshot({ path: test.info().outputPath(`fire-${role}.png`) });
   }
   expect(errors).toEqual([]);
 });
