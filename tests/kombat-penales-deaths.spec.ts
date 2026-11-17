@@ -3,6 +3,31 @@ import { readFileSync } from 'node:fs';
 
 const project = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
+test('el casco del ovni permanece opaco incluso al retirarse', async ({ page }) => {
+  const base = project.name === 'minijuegos' ? '/MiniJuegos/' : '/escritorio-personal/';
+  await page.goto(`${base}docs/kombat-penales-muertes-preview.html`);
+  await page.waitForFunction(() => 'penPreview' in window);
+  const alpha = await page.evaluate(async base => {
+    const url = `${base}src/features/games/kombatPenUfo.ts`;
+    const { drawPenUfo, ufoSequence } = await import(/* @vite-ignore */ url);
+    const image = new Image(); image.src = `${base}src/features/games/assets/penales/ovni.png`; await image.decode();
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const canvas = document.createElement('canvas'); canvas.width = 1536; canvas.height = 1024;
+    const ctx = canvas.getContext('2d')!;
+    const result: number[] = [];
+    for (const t of [1.3, 4.6]) {
+      ctx.clearRect(0, 0, 1536, 1024);
+      const seq = ufoSequence(t), h = 1536 / 2.8;
+      const x = 768 - (1 - seq.enter) * 650 - seq.leave * 500;
+      const y = 512 + h * 2.15 + (1 - seq.enter) * 650 + seq.leave * 750 - Math.sin(t * 3.5) * 9;
+      drawPenUfo(ctx, t, { x, y, h });
+      for (const [px, py] of [[768, 760], [768, 800], [1100, 690]]) result.push(ctx.getImageData(px, py, 1, 1).data[3]);
+    }
+    return result;
+  }, base);
+  expect(alpha).toEqual(Array(6).fill(255));
+});
+
 test('las siete muertes se dibujan para ambos roles y todos los luchadores', async ({ page }) => {
   test.setTimeout(240_000);
   const errors: string[] = [];

@@ -13,6 +13,18 @@ export function ufoSequence(t: number) {
   return { enter: smooth(t / 1.15), beam: t < 1.55 || t > FINAL_SHOT_AT + 0.65 ? 0 : Math.min(smooth((t - 1.55) / 0.2), 1 - smooth((t - FINAL_SHOT_AT - 0.25) / 0.4)), leave: smooth((t - (FINAL_END_AT - 1.1)) / 1.1) };
 }
 
+// La silueta es continua en cada fila: nunca se perfora el interior oscuro.
+export function maskUfoSilhouette(data: Uint8ClampedArray, width: number, height: number) {
+  for (let y = 0; y < height; y++) {
+    let left = width, right = -1;
+    for (let x = 0; x < width; x++) {
+      const p = (y * width + x) * 4;
+      if (Math.max(data[p], data[p + 1], data[p + 2]) > 28) { left = Math.min(left, x); right = x; }
+    }
+    for (let x = 0; x < width; x++) data[(y * width + x) * 4 + 3] = x >= left && x <= right ? 255 : 0;
+  }
+}
+
 let image: HTMLImageElement | null = null;
 let sprite: HTMLCanvasElement | null = null;
 let platter: HTMLCanvasElement | null = null;
@@ -24,23 +36,9 @@ export function preloadPenUfo() {
     const canvas = document.createElement('canvas'); canvas.width = 1536; canvas.height = 1024;
     const c = canvas.getContext('2d'); if (!c || !image) return;
     c.drawImage(image, 0, 0);
-    // El PNG original tiene fondo negro. Sólo se vuelve transparente el negro conectado
-    // al borde: los negros del alien, la cabina y el casco metálico se conservan.
-    const pixels = c.getImageData(0, 0, canvas.width, canvas.height), data = pixels.data;
-    const seen = new Uint8Array(canvas.width * canvas.height), queue = new Int32Array(seen.length);
-    let head = 0, tail = 0;
-    const visit = (p: number) => {
-      if (seen[p]) return; seen[p] = 1;
-      const j = p * 4; if (Math.max(data[j], data[j + 1], data[j + 2]) > 28) return;
-      queue[tail++] = p;
-    };
-    for (let x = 0; x < canvas.width; x++) { visit(x); visit((canvas.height - 1) * canvas.width + x); }
-    for (let y = 0; y < canvas.height; y++) { visit(y * canvas.width); visit(y * canvas.width + canvas.width - 1); }
-    while (head < tail) {
-      const p = queue[head++], x = p % canvas.width, y = Math.floor(p / canvas.width); data[p * 4 + 3] = 0;
-      if (x) visit(p - 1); if (x < canvas.width - 1) visit(p + 1);
-      if (y) visit(p - canvas.width); if (y < canvas.height - 1) visit(p + canvas.width);
-    }
+    // Recortar por el contorno exterior conserva opacos todos los negros del casco.
+    const pixels = c.getImageData(0, 0, canvas.width, canvas.height);
+    maskUfoSilhouette(pixels.data, canvas.width, canvas.height);
     c.putImageData(pixels, 0, 0); sprite = canvas;
     // Textura del plato tomada de su mitad frontal, sin arrastrar al piloto al girar.
     platter = document.createElement('canvas'); platter.width = canvas.width; platter.height = canvas.height;
@@ -83,7 +81,7 @@ export function drawPenUfo(ctx: CanvasRenderingContext2D, t: number, target: { x
   const x = target.x + (1 - seq.enter) * 650 + seq.leave * 500;
   const y = target.y - target.h * 2.15 - (1 - seq.enter) * 650 - seq.leave * 750 + Math.sin(t * 3.5) * 9;
   const nozzleY = y + (870 - 512) * scale, hitY = target.y - target.h * 0.5;
-  ctx.save(); ctx.globalAlpha = 1 - seq.leave;
+  ctx.save(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   if (seq.beam > 0) {
     ctx.save(); ctx.globalAlpha *= seq.beam; ctx.globalCompositeOperation = 'lighter';
     const beam = ctx.createLinearGradient(x, nozzleY, target.x, target.y); beam.addColorStop(0, 'rgba(135,255,255,0.95)'); beam.addColorStop(0.5, 'rgba(30,221,255,0.5)'); beam.addColorStop(1, 'rgba(37,222,255,0.08)');

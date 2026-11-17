@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { FINAL_END_AT, FINAL_SHOT_AT, newPenalties, stepPenalties, takePenEvents } from './kombatPenalties';
-import { ufoLights, ufoSequence } from './kombatPenUfo';
+import { maskUfoSilhouette, ufoLights, ufoSequence } from './kombatPenUfo';
 
 describe('ejecución del ovni', () => {
+  it('elimina el fondo sin volver transparente el negro interior del casco', () => {
+    const data = new Uint8ClampedArray(7 * 2 * 4);
+    for (const x of [1, 5]) { data[x * 4] = 120; data[x * 4 + 3] = 255; }
+    maskUfoSilhouette(data, 7, 2);
+    expect(Array.from({ length: 7 }, (_, x) => data[x * 4 + 3])).toEqual([0, 255, 255, 255, 255, 255, 0]);
+    expect(Array.from({ length: 7 }, (_, x) => data[(7 + x) * 4 + 3])).toEqual(Array(7).fill(0));
+  });
   it('las luces conservan color, separación y orden durante una vuelta completa', () => {
     const initial = ufoLights(0);
     for (const t of [0.4, 1.1, 3.8, 8]) {

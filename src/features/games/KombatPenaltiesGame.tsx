@@ -256,7 +256,8 @@ export function KombatPenalties() {
     const el = stageRef.current, canvas = canvasRef.current, m = matchRef.current;
     if (!el || !canvas || !m) return;
     const touch = !!window.matchMedia?.('(pointer: coarse)').matches;
-    const k = Math.min(pixelRatio(touch ? 1.5 : 2), (touch ? 1280 : 1920) / Math.max(1, el.clientWidth), (touch ? 760 : 1100) / Math.max(1, el.clientHeight)) * QUALITY[quality.current], w = Math.round(el.clientWidth * k), h = Math.round(el.clientHeight * k);
+    const finale = m.phase === 'execution';
+    const k = finale ? Math.min(pixelRatio(2), 2560 / Math.max(1, el.clientWidth), 1500 / Math.max(1, el.clientHeight)) : Math.min(pixelRatio(touch ? 1.5 : 2), (touch ? 1280 : 1920) / Math.max(1, el.clientWidth), (touch ? 760 : 1100) / Math.max(1, el.clientHeight)) * QUALITY[quality.current], w = Math.round(el.clientWidth * k), h = Math.round(el.clientHeight * k);
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     const low = touch || quality.current > 0; setLowFx(low); setNoGrain(low);
     const ctx = canvas.getContext('2d'); if (!ctx) return;
