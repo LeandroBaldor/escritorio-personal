@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACID_DEATH, ACID_T, BR, D, GH, GW, L, METEOR_T, SHARK_LEN, UFO_T, ZC, attackDir, carrier, newSoccer, noSInput, pass, shoot, spawnHazard, stepSoccer, takeSoccerEvents, type SInput, type SoccerMatch, type SEvent } from './kombatSoccer';
+import { ACID_DEATH, ACID_T, BOMB_FIRST, BOMB_FUSE, BR, D, GH, GW, L, METEOR_T, SHARK_LEN, UFO_T, ZC, attackDir, carrier, newSoccer, noSInput, pass, shoot, spawnHazard, stepSoccer, takeSoccerEvents, type SInput, type SoccerMatch, type SEvent } from './kombatSoccer';
 import { CHAR_IDS, seeded } from './kombat';
 
 const run = (m: SoccerMatch, s: number, ev: SEvent[] = []) => { for (let t = 0; t < s; t += 1 / 60) { stepSoccer(m, [noSInput(), noSInput()], 1 / 60); ev.push(...takeSoccerEvents(m)); } return ev; };
@@ -53,16 +53,14 @@ describe('Kombat Football 5 contra 5', () => {
     press(m, 0, 'pass');
     expect(m.teams[0].active).toBe(near.id);
   });
-  it('con la barra espaciadora corre más rápido', () => {
-    const speed = (sprint: boolean) => {
-      const m = newSoccer('industrial', ['frost', 'thunder'], [null, null], seeded(71)); toPlay(m);
-      const me = m.players[3]; m.ball.owner = m.players[8].id; for (const q of m.players) if (q !== me) q.stun = 9;
-      m.teams[0].active = me.id; m.teams[0].switchT = 9; me.x = 10; me.z = 5;
-      const i = noSInput(); i.right = true; i.sprint = sprint;
-      for (let t = 0; t < 1; t += 1 / 60) stepSoccer(m, [i, noSInput()], 1 / 60);
-      return me.x - 10;
-    };
-    expect(speed(true)).toBeGreaterThan(speed(false) * 1.3);
+  it('los jugadores van más despacio (y no hay tecla para correr)', () => {
+    const m = newSoccer('industrial', ['frost', 'thunder'], [null, null], seeded(71)); toPlay(m);
+    const me = m.players[3]; m.ball.owner = m.players[8].id; for (const q of m.players) if (q !== me) q.stun = 9;
+    m.teams[0].active = me.id; m.teams[0].switchT = 9; me.x = 10; me.z = 5;
+    const i = noSInput(); i.right = true;
+    for (let t = 0; t < 1; t += 1 / 60) stepSoccer(m, [i, noSInput()], 1 / 60);
+    expect(me.x - 10).toBeLessThan(5.2); expect(me.x - 10).toBeGreaterThan(2.5);
+    expect('sprint' in noSInput()).toBe(false);
   });
   it('C le saca la pelota al rival: sale volando para arriba y explota en sangre y huesos', () => {
     const m = newSoccer('industrial', ['frost', 'thunder'], [null, null], seeded(72)); toPlay(m);
@@ -163,7 +161,7 @@ describe('Kombat Football 5 contra 5', () => {
   });
   // ------------------------------------------------ los peligros del escenario
   it('la cancha es más larga y los arcos más grandes', () => {
-    expect(L).toBeGreaterThanOrEqual(58); expect(L / D).toBeGreaterThan(2.5); // (bien horizontal)
+    expect(L).toBeGreaterThanOrEqual(95); expect(L / D).toBeGreaterThan(4); // (mucho más larga)
     expect(GW).toBeGreaterThanOrEqual(8); expect(GH).toBeGreaterThanOrEqual(3.3);
   });
   it('aparecen peligros solos durante el partido (de los cuatro tipos), de a uno por vez', () => {
@@ -242,5 +240,30 @@ describe('Kombat Football 5 contra 5', () => {
       run(m, METEOR_T + 0.1); if (!v.gone) saved++;
     }
     expect(saved).toBeGreaterThanOrEqual(4);
+  });
+  // ------------------------------------------------ la pelota bomba
+  it('la pelota bomba: aparece sola, cuenta para atrás y le explota encima al que la tiene', () => {
+    const m = newSoccer('industrial', ['frost', 'thunder'], [null, null], seeded(90)); toPlay(m, true);
+    m.bombT = 0.1; m.hazards = []; m.hazardT = 99;
+    const ev = run(m, 0.2);
+    expect(ev.some(e => e.type === 'bomb')).toBe(true); expect(m.bomb).not.toBeNull();
+    const c = m.players[3]; for (const q of m.players) q.stun = 99; c.stun = 0; m.ball.owner = c.id; c.x = 30; c.z = 11;
+    run(m, BOMB_FUSE - 1, ev);
+    expect(ev.filter(e => e.type === 'bombTick').length).toBeGreaterThanOrEqual(BOMB_FUSE - 3);
+    m.ball.owner = c.id; run(m, 1.2, ev);
+    expect(ev.some(e => e.type === 'bombBoom' && e.side === c.team)).toBe(true);
+    expect(c.gone).toBe(true); expect(m.bomb).toBeNull(); expect(m.blasts.length).toBe(1);
+    expect(BOMB_FIRST).toBeGreaterThan(10);
+  });
+  it('gol con la pelota bomba: vale doble y el arco vuela con el arquero', () => {
+    const m = newSoccer('industrial', ['frost', 'thunder'], [null, null], seeded(91)); toPlay(m);
+    const p = m.players.find(q => q.team === 0 && q.role === 'fwd')!;
+    for (const q of m.players) if (q !== p && q.role !== 'gk') q.stun = 99;
+    const dir = attackDir(m, 0); p.x = dir > 0 ? L - 12 : 12; p.z = ZC; m.ball.owner = p.id; stepSoccer(m, [noSInput(), noSInput()], 1 / 60);
+    m.bomb = 8; shoot(m, p, 1, 1); p.stun = 99;
+    const ev = run(m, 2);
+    expect(ev.find(e => e.type === 'goal')).toMatchObject({ side: 0, bomb: true });
+    expect(m.teams[0].goals).toBe(2);
+    expect(m.goalFx).not.toBeNull(); expect(ev.some(e => e.type === 'explode' && e.keeper)).toBe(true);
   });
 });

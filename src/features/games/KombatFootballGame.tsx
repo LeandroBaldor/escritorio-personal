@@ -13,7 +13,7 @@ import spaceBg from './assets/fondos/kf-espacio.webp'; // (el espacio de la sele
 import menuBg from './assets/fondos/kf-menu.webp';
 import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
-  playGameOver, playKfBlock, playKfBall, playKfButton, playKfElectric, playKfEnergy, playKfThunder, playKfGoal, playKfGoldenRound, playKfVsSentence, playKfHit, playKfKickoffVoice, playKfLaser, playKfMeteorFall, playKfMeteorImpact, playKfName, playKfSelectVoice, playKfPost, playPenExplosion, playVampAcid,
+  playGameOver, playKfBlock, playKfBall, playKfButton, playKfElectric, playKfEnergy, playKfThunder, playKfGoal, playKfGoldenRound, playKfVsSentence, playKfHit, playKfKickoffVoice, playKfLaser, playKfMeteorFall, playKfMeteorImpact, playKfName, playKfSelectVoice, playKfPost, playPenExplosion, playVampAcid, playBombBeep,
   playRefWhistle, playSharkBite, playSharkLeap, playUfoArrive, preloadKfHazardSounds, setKfRotor, playStart, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
 } from './sounds';
 import { EndBanner } from './EndBanner';
@@ -39,17 +39,16 @@ function tournamentRival(you: CharId, n: number): CharId { return tournamentOrde
 const tournamentLevel = (n: number) => 0.2 + n * 0.055;
 
 // Teclas (por la tecla física): un jugador con las flechas (o WASD), V para patear al arco (cuanto más se aprieta,
-// más fuerte), X para pasar (sin la pelota: cambiar al más cercano a la pelota), C para sacarle la pelota al rival
-// y la barra espaciadora para correr. Dos jugadores: J1 con WASD + V / Q / E / ESPACIO y J2 con las flechas +
-// ENTER / SHIFT der. / CTRL der. / 0 del teclado numérico.
-type Key = 'left' | 'right' | 'up' | 'down' | 'kick' | 'pass' | 'steal' | 'sprint';
-const KEYS_SOLO: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyV: 'kick', KeyX: 'pass', KeyK: 'pass', KeyC: 'steal', KeyL: 'steal', Space: 'sprint', ShiftLeft: 'sprint' };
-const KEYS_P1: Record<string, Key> = { KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyV: 'kick', KeyQ: 'pass', KeyE: 'steal', Space: 'sprint', ShiftLeft: 'sprint' };
-const KEYS_P2: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'kick', NumpadEnter: 'kick', ShiftRight: 'pass', ControlRight: 'steal', Numpad0: 'sprint', AltRight: 'sprint', Numpad1: 'kick', Numpad2: 'pass', Numpad3: 'steal' };
-interface KeyHelp { move: string[]; kick: string; pass: string; steal: string; sprint: string }
+// más fuerte), X para pasar (sin la pelota: cambiar al más cercano a la pelota) y C para sacarle la pelota al rival.
+// Dos jugadores: J1 con WASD + V / Q / E y J2 con las flechas + ENTER / SHIFT der. / CTRL der.
+type Key = 'left' | 'right' | 'up' | 'down' | 'kick' | 'pass' | 'steal';
+const KEYS_SOLO: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyV: 'kick', KeyX: 'pass', KeyK: 'pass', KeyC: 'steal', KeyL: 'steal' };
+const KEYS_P1: Record<string, Key> = { KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyV: 'kick', KeyQ: 'pass', KeyE: 'steal' };
+const KEYS_P2: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'kick', NumpadEnter: 'kick', ShiftRight: 'pass', ControlRight: 'steal', Numpad1: 'kick', Numpad2: 'pass', Numpad3: 'steal' };
+interface KeyHelp { move: string[]; kick: string; pass: string; steal: string }
 const helpFor = (mode: Mode, side: 0 | 1): KeyHelp => mode === 'versus'
-  ? side === 0 ? { move: ['W', 'A', 'S', 'D'], kick: 'V', pass: 'Q', steal: 'E', sprint: 'ESPACIO' } : { move: ['↑', '←', '↓', '→'], kick: 'ENTER', pass: 'SHIFT der.', steal: 'CTRL der.', sprint: '0 (num.)' }
-  : { move: ['↑', '←', '↓', '→'], kick: 'V', pass: 'X', steal: 'C', sprint: 'ESPACIO' };
+  ? side === 0 ? { move: ['W', 'A', 'S', 'D'], kick: 'V', pass: 'Q', steal: 'E' } : { move: ['↑', '←', '↓', '→'], kick: 'ENTER', pass: 'SHIFT der.', steal: 'CTRL der.' }
+  : { move: ['↑', '←', '↓', '→'], kick: 'V', pass: 'X', steal: 'C' };
 
 interface Side { dir: 1 | -1; active: CharId }
 interface Hud { score: [number, number]; clock: string; half: string; extra: boolean; sides: [Side, Side]; intro: boolean }
@@ -315,7 +314,7 @@ export function KombatFootball() {
           case 'tackle': if (e.ok) playKfBlock(); break;
           case 'bounce': if (bounceT <= 0 && e.power >= 0.08) { playKfBall(Math.min(0.8, 0.15 + e.power * 0.6), 1.12); bounceT = 0.08; } break;
           case 'post': playKfPost(); break;
-          case 'goal': playKfGoal(); shout(e.own ? '¡GOL EN CONTRA!' : '¡GOL!', 'goal', `${CHARS[e.scorer].name} · ${m.teams[0].goals} - ${m.teams[1].goals}`, 2400); break;
+          case 'goal': playKfGoal(); shout(e.bomb ? '💣 ¡GOL BOMBA! ×2' : e.own ? '¡GOL EN CONTRA!' : '¡GOL!', e.bomb ? 'fatal' : 'goal', `${CHARS[e.scorer].name} · ${m.teams[0].goals} - ${m.teams[1].goals}`, 2400); break;
           case 'save': playKfBlock(); shout('¡ATAJADA!', 'block', undefined, 900); break;
           case 'switch': playKfButton(0.35); break;
           case 'steal': playKfBlock(); playKfHit(0.8); break;
@@ -325,6 +324,9 @@ export function KombatFootball() {
           case 'dive': playSharkLeap(); break;
           case 'eaten': playSharkBite(human(e.side) ? 'player' : 'persona', 0.9); playKfHit(0.8); break;
           case 'acid': playVampAcid(); break;
+          case 'bomb': playBombBeep(3); playKfEnergy(0.7, 0.7); shout('💣 ¡PELOTA BOMBA!', 'fatal', 'Metela en el arco antes de que explote: el gol vale doble', 2200); break;
+          case 'bombTick': playBombBeep(e.n <= 3 ? e.n : 3); break;
+          case 'bombBoom': playKfMeteorImpact(); if (e.side !== null) shout('💥 ¡BOOM!', 'fatal', undefined, 1000); break;
           case 'beam': playKfLaser(); playKfElectric(0.7); break;
           case 'impact': playKfMeteorImpact(); break;
           case 'explode': playPenExplosion(); playKfHit(1); break;
@@ -408,7 +410,7 @@ export function KombatFootball() {
       <li><Keys keys={[k.kick]} /> <b>patear al arco:</b> cuanto más lo apretás, más fuerte sale (soltalo para patear). Si llenás la barra es <b>gol seguro</b>: el arquero no llega. Flojo, el arquero lo ataja. Si al soltar apretás {mode === 'versus' && side === 0 ? 'W o S' : '↑ o ↓'}, la pelota sale con efecto hacia ese palo.</li>
       <li><Keys keys={[k.pass]} /> <b>pasar</b> al compañero hacia donde apuntás · sin la pelota: <b>cambiar</b> al jugador más cercano a la pelota</li>
       <li><Keys keys={[k.steal]} /> <b>sacar la pelota:</b> el rival que la tiene sale volando para arriba y explota en sangre y huesos (si está un poco lejos, te tirás hacia él). ¡Ojo que la máquina también lo hace!</li>
-      <li><Keys keys={[k.sprint]} /> mantenela para <b>correr</b> más rápido</li>
+      <li className="kf-howto-fatal">💣 <b>PELOTA BOMBA:</b> cada tanto la pelota se convierte en una bomba con la mecha prendida y una cuenta regresiva. Al que la tenga cuando llega a cero, ¡le explota encima! Pero si la metés en el arco antes, el <b>gol vale doble</b> y el arco vuela por el aire con el arquero. Pensalo dos veces antes de robarla con la C.</li>
       <li><b>Arquero con la pelota:</b> <Keys keys={[k.pass]} /> se la pasa a un compañero · <Keys keys={[k.kick]} /> la tira para arriba, bien lejos</li>
       <li className="kf-howto-ab"><b>CUIDADO CON LA CANCHA</b> (le puede tocar a cualquiera, de los dos equipos):
         <ul className="kf-atks">
@@ -432,7 +434,6 @@ export function KombatFootball() {
     <TouchGrips actionLabel={screen === 'playing' ? '⚽' : 'Elegir'} extra={playing && mode !== 'versus' ? <>
       <button type="button" className="kf-cast" aria-label="Pasar" {...hold('pass')}>⇄</button>
       <button type="button" className="kf-cast" aria-label="Sacar la pelota" {...hold('steal')}>✊</button>
-      <button type="button" className="kf-cast" aria-label="Correr" {...hold('sprint')}>»</button>
     </> : undefined} />
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
@@ -530,7 +531,7 @@ export function KombatFootball() {
         <div>
           {screen === 'menu' && <>
             <h2 id="kf-title" className="kf-logo">KOMBAT<br /><span>FOOTBALL</span></h2>
-            <p>Fútbol 5 contra 5 en una cancha larga: elegí tu luchador (tu equipo son cinco iguales) y sobreviví a la cancha. Sacale la pelota al rival con la C (sale volando y explota), y cuidado con los tiburones voladores, los charcos de ácido, el ovni y los meteoritos. Con la barra del tiro llena es gol seguro. Dos tiempos de 1:30 y gol de oro si empatan.</p>
+            <p>Fútbol 5 contra 5 en una cancha larga: elegí tu luchador (tu equipo son cinco iguales) y sobreviví a la cancha. Sacale la pelota al rival con la C (sale volando y explota), cuidado con los tiburones voladores, los charcos de ácido, el ovni y los meteoritos, y con la PELOTA BOMBA: si te explota en los pies, volás; si la metés en el arco, el gol vale doble. Con la barra del tiro llena es gol seguro. Dos tiempos de 1:30 y gol de oro si empatan.</p>
             <div className="kf-modes">
               <button type="button" onClick={() => { playKfSelectVoice(); setMode('cpu'); setPick(0); setCursor(CHAR_IDS.indexOf(p1)); setScreen('select'); }} autoFocus>Contra la máquina</button>
               <button type="button" onClick={() => { playKfSelectVoice(); setMode('versus'); setPick(0); setCursor(CHAR_IDS.indexOf(p1)); setScreen('select'); }}>2 jugadores</button>
@@ -591,7 +592,6 @@ export function KombatFootball() {
     {playing && mode !== 'versus' && <GamePad className="kf-pad" action={{ hold: hold('kick'), label: 'Patear' }} actionLabel="⚽" dirs={{ left: { hold: hold('left'), aria: 'Izquierda' }, right: { hold: hold('right'), aria: 'Derecha' }, up: { hold: hold('up'), aria: 'Arriba' }, down: { hold: hold('down'), aria: 'Abajo' } }} extra={<>
       <button type="button" className="kf-cast" aria-label="Pasar" {...hold('pass')}>⇄</button>
       <button type="button" className="kf-cast" aria-label="Sacar la pelota" {...hold('steal')}>✊</button>
-      <button type="button" className="kf-cast" aria-label="Correr" {...hold('sprint')}>»</button>
     </>} />}
   </section>;
 }

@@ -92,7 +92,7 @@ function drawPitch(ctx: CanvasRenderingContext2D, v: SView, stage: StageId) {
   // alrededor de la cancha (debajo de los carteles)
   ctx.fillStyle = T.surround; poly(ctx, v, [[-9, 0, -1], [L + 9, 0, -1], [L + 9, 0, D + 14], [-9, 0, D + 14]]); ctx.fill();
   // las franjas del pasto
-  const n = 20;
+  const n = 32;
   const stripeB = lighten(T.b, 0.07);
   for (let i = 0; i < n; i++) { ctx.fillStyle = i % 2 ? T.a : stripeB; poly(ctx, v, [[L * i / n, 0, 0], [L * (i + 1) / n, 0, 0], [L * (i + 1) / n, 0, D], [L * i / n, 0, D]]); ctx.fill(); }
   // luz: más clara en el medio, más oscura lejos (profundidad)
@@ -151,6 +151,11 @@ function goalPts(left: boolean, bulge: number) {
   const gx = left ? 0 : L, out = left ? -1 : 1, bx = gx + out * (GD + bulge), hb = GH * 0.8, z0 = ZC - GW / 2, z1 = ZC + GW / 2;
   return { gx, bx, hb, z0, z1 };
 }
+// Gol con la pelota bomba: el arco vuela por el aire y vuelve a caer (rebota un poco).
+export function goalLift(m: SoccerMatch | null, left: boolean) {
+  const g = m?.goalFx; if (!g || g.left !== left) return 0;
+  const t = g.t; if (t < 1.6) return Math.max(0, 11 * t - 6.9 * t * t); const t2 = t - 1.6; return Math.max(0, 2.2 * t2 - 6.9 * t2 * t2);
+}
 function drawNet(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch | null, left: boolean) {
   const hit = m?.netHit && m.netHit.left === left ? m.netHit : null, bulge = hit ? Math.exp(-hit.t * 2.4) * (0.5 + 0.3 * Math.sin(hit.t * 24)) : 0;
   const { gx, bx, hb, z0, z1 } = goalPts(left, bulge);
@@ -160,6 +165,7 @@ function drawNet(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch | null,
     [[gx, GH, z0], [gx, GH, z1], [bx, hb, z1], [bx, hb, z0]], // techo
     [[gx, 0, z1], [bx, 0, z1], [bx, hb, z1], [gx, GH, z1]], // costado de adelante
   ];
+  const lift = goalLift(m, left); if (lift > 0) for (const f of faces) for (const q of f) q[1] += lift;
   for (const f of faces) { poly(ctx, v, f); ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fill(); }
   ctx.strokeStyle = 'rgba(240,245,255,0.42)'; ctx.lineWidth = 1;
   const mesh = (f: [number, number, number][], nu: number, nv: number) => {
@@ -191,7 +197,33 @@ function drawBall(ctx: CanvasRenderingContext2D, m: SoccerMatch, v: SView) {
   }
   const [x, y, s] = project(v, b.x, b.y, b.z);
   if (b.comet) cometTail(ctx, v, m, x, y, s * (b.full ? 1.5 : 1));
+  if (m.bomb !== null) { drawBomb(ctx, x, y, BR * s * 1.15, m.bomb, m.time); return; }
   drawBallSprite(ctx, x, y, BR * s, b.roll, b.fx === 'fire' ? 'fire' : 'normal', b.fx === 'fire' ? 'fire' : 'none', m.time);
+}
+// La pelota bomba: negra y brillante, con la mecha prendida (chispas) y la cuenta regresiva arriba (roja y más
+// grande en los últimos segundos; titila cada vez más rápido).
+function drawBomb(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, left: number, t: number) {
+  const urgent = left < 4, blink = Math.sin(t * (urgent ? 30 : 10)) > 0;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, y, r * 3.2, urgent ? '#ef4444' : '#f97316', urgent && blink ? 0.75 : 0.35); ctx.globalCompositeOperation = 'source-over';
+  const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.05, x, y, r); g.addColorStop(0, '#6b7280'); g.addColorStop(0.35, '#1f2937'); g.addColorStop(1, '#030712');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  if (urgent && blink) { ctx.fillStyle = 'rgba(239,68,68,0.35)'; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.ellipse(x - r * 0.35, y - r * 0.42, r * 0.25, r * 0.15, -0.6, 0, TAU); ctx.fill();
+  // el pico y la mecha (se acorta con el tiempo)
+  ctx.fillStyle = '#4b5563'; ctx.fillRect(x - r * 0.28, y - r * 1.12, r * 0.56, r * 0.3);
+  const fl = r * (0.3 + 0.9 * Math.min(1, left / 12)), fx = x + r * 0.25 + fl * 0.5, fy = y - r * 1.12 - fl * 0.8;
+  ctx.strokeStyle = '#a16207'; ctx.lineWidth = Math.max(1.5, r * 0.12); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y - r * 1.1); ctx.quadraticCurveTo(x + r * 0.1, fy + fl * 0.1, fx, fy); ctx.stroke();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 7; i++) { const a = t * 25 + i * 0.9, d = r * (0.15 + ((i * 37 + Math.floor(t * 30)) % 5) * 0.09); ctx.fillStyle = i % 2 ? '#fde047' : '#fb923c'; ctx.beginPath(); ctx.arc(fx + Math.cos(a) * d, fy + Math.sin(a) * d, Math.max(1, r * 0.07), 0, TAU); ctx.fill(); }
+  bloom(ctx, fx, fy, r * 0.9, '#fde047', 0.8);
+  ctx.globalCompositeOperation = 'source-over';
+  // la cuenta regresiva
+  const n = Math.max(1, Math.ceil(left)), size = Math.max(14, r * (urgent ? 3.2 : 2.2)) * (urgent ? 1 + 0.12 * Math.sin(t * 20) : 1);
+  ctx.font = `900 ${size}px Impact, "Arial Black", system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.lineWidth = Math.max(3, size * 0.14); ctx.strokeStyle = '#000'; ctx.strokeText(String(n), x, fy - r * 0.6);
+  ctx.fillStyle = urgent ? '#ef4444' : '#fde047'; ctx.fillText(String(n), x, fy - r * 0.6);
+  ctx.restore();
 }
 // El tiro bien cargado: la pelota sale como un cometa, con una cola de fuego larga atrás.
 function cometTail(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch, x: number, y: number, s: number) {
@@ -278,7 +310,7 @@ export function drawSoccer(ctx: CanvasRenderingContext2D, m: SoccerMatch, w: num
     if (hz.kind === 'shark') items.push({ z: hz.z + 0.02, draw: () => drawShark(ctx, PP, hz, m.time) });
     else if (hz.kind === 'meteor') items.push({ z: meteorPos(hz)[2], draw: () => drawMeteor(ctx, PP, hz, m.time) });
   }
-  for (const left of [true, false]) { const gx = left ? 0 : L; items.push({ z: ZC + GW / 2, draw: () => post(ctx, v, [gx, 0, ZC + GW / 2], [gx, GH, ZC + GW / 2], null) }); }
+  for (const left of [true, false]) { const gx = left ? 0 : L, lf = goalLift(m, left); items.push({ z: ZC + GW / 2, draw: () => post(ctx, v, [gx, lf, ZC + GW / 2], [gx, GH + lf, ZC + GW / 2], null) }); }
   items.sort((a, c) => a.z - c.z);
   for (const it of items) it.draw();
   ctx.fillStyle = '#b10f1c'; for (const d of m.gore.drops) { const [x, y, s] = project(v, d.x, d.y, d.z); ctx.beginPath(); ctx.arc(x, y, Math.max(1.2, d.r * s), 0, TAU); ctx.fill(); }
@@ -327,14 +359,15 @@ function drawScene(ctx: CanvasRenderingContext2D, v: SView, stage: StageId, t: n
   for (const left of [true, false]) {
     drawNet(ctx, v, m, left);
     const gx = left ? 0 : L, glow = m ? LOOKS[m.teams[defendsLeftTeam(m, left)].captain].glow : null;
-    post(ctx, v, [gx, 0, ZC - GW / 2], [gx, GH, ZC - GW / 2], null); // palo de atrás
-    post(ctx, v, [gx, GH, ZC - GW / 2], [gx, GH, ZC + GW / 2], glow); // travesaño
+    const lf = goalLift(m, left);
+    post(ctx, v, [gx, lf, ZC - GW / 2], [gx, GH + lf, ZC - GW / 2], null); // palo de atrás
+    post(ctx, v, [gx, GH + lf, ZC - GW / 2], [gx, GH + lf, ZC + GW / 2], glow); // travesaño
   }
 }
 const defendsLeftTeam = (m: SoccerMatch, left: boolean): 0 | 1 => ((m.half === 1) === left ? 0 : 1);
 function drawPlayer(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch, p: Player, rim: string, active: boolean) {
   const [x, y, s] = project(v, p.x, p.y, p.z);
-  const fx = { power: 0, frozen: false, poison: false, burn: false, zap: false, shield: false, speed: p.sprint && Math.hypot(p.vx, p.vz) > 6, aura: null };
+  const fx = { power: 0, frozen: false, poison: false, burn: false, zap: false, shield: false, speed: false, aura: null };
   const body = (c: CanvasRenderingContext2D) => drawFighterLit(c, p, m.time + p.id * 0.37, fx, x, y, s * PLAYER_SCALE, rim);
   if (p.fly) { // le sacaron la pelota: vuela para arriba dando vueltas (y explota arriba)
     drawShadow(ctx, v, p.x, p.z, 0.45 * PLAYER_SCALE, 0.3);
@@ -364,6 +397,6 @@ function drawPlayer(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch, p: 
 }
 // Miniatura del escenario (para elegirlo).
 export function drawSoccerThumb(ctx: CanvasRenderingContext2D, stage: StageId, w: number, h: number) {
-  const v = { ...soccerView(w, h, L / 2, ZC), F: h * 1.25, dist: 44, cy: h * 0.74, tx: L / 2, tz: ZC, cyw: 1, syw: 0 }; // (de lejos: se ve más fondo)
+  const v = { ...soccerView(w, h, L / 2, ZC), F: h * 1.25, dist: 62, cy: h * 0.72, tx: L / 2, tz: ZC, cyw: 1, syw: 0 }; // (de lejos: se ve más fondo)
   drawBackdrop(ctx, v, stage); drawScene(ctx, v, stage, 0, null);
 }
