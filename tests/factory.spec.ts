@@ -52,18 +52,19 @@ test('Factory: menu, gas energy, pause and return', async ({ page }) => {
 });
 
 test('Factory: losing shows level retry, score and return to the game menu', async ({ page }) => {
+  test.setTimeout(45000);
   await page.goto('/escritorio-personal/#/juegos/fabrica');
   await page.locator('.factory-primary').click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('.factory-countdown')).toHaveCount(0, { timeout: 6000 });
   await page.keyboard.down('Space'); await page.waitForTimeout(200); await page.keyboard.up('Space');
-  await expect(page.getByRole('dialog', { name: 'Fin del intento' })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole('dialog', { name: 'Fin del intento' })).toBeVisible({ timeout: 20000 });
   await expect(page.locator('.factory-result-score')).toHaveText(/^Puntos: [1-9]\d*$/);
   await page.getByRole('button', { name: 'Volver a intentar Nivel 1', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('.factory-score')).toHaveText('Puntos: 0');
   await expect(page.locator('.factory-countdown')).toHaveCount(0, { timeout: 6000 });
-  await expect(page.getByRole('dialog', { name: 'Fin del intento' })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole('dialog', { name: 'Fin del intento' })).toBeVisible({ timeout: 20000 });
   await page.getByRole('button', { name: 'Volver al menú principal', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Menú principal' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Salir del juego', exact: true })).toBeVisible();

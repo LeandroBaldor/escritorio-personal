@@ -36,7 +36,7 @@ export function factoryView(g: FactoryGame, width: number, height: number) {
   // Track the actual collision floor, and zoom out gradually enough to retain the player.
   const gap = Math.max(0, g.y - g.spikes);
   const topSafe = height < 550 ? 105 : 180;
-  const scale = Math.max(0.08, Math.min(1.05, width / 560, Math.max(0.6, height / 850), (height - 110 - topSafe) / (gap + 122)));
+  const scale = Math.max(0.08, Math.min(1.05, width / 560, Math.max(0.6, height / 850), (height - 110 - topSafe) / (gap + 146)));
   const w = width / scale, h = height / scale;
   return { scale, w, h, left: w > FACTORY_WIDTH ? (FACTORY_WIDTH - w) / 2 : Math.max(0, Math.min(FACTORY_WIDTH - w, g.x - w / 2)), bottom: g.spikes - 110 / scale };
 }
@@ -47,9 +47,9 @@ function drawHero(c: CanvasRenderingContext2D, g: FactoryGame, y: number) {
   else if (g.puff > 0.25) frame = 4;
   else if (g.ground === null) frame = g.vy > 0 ? 5 : 6;
   else if (g.landing > 0) frame = 7;
-  else if (Math.abs(g.vx) > 30) frame = 5;
+  else if (Math.abs(g.vx) > 30) frame = Math.floor(g.time * 9) % 2 + 1;
   ellipse(c, g.x, y + 2, 23, 5, '#0008');
-  c.save(); c.translate(g.x, y); c.rotate(g.lean + g.thrust * Math.sin(Math.min(1, g.puff / 0.65) * Math.PI) * 0.16); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+  c.save(); c.translate(g.x, y); c.scale(1.2, 1.2); c.rotate(g.lean + g.thrust * Math.sin(Math.min(1, g.puff / 0.65) * Math.PI) * 0.16); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
   const sw = hero.width / 4, sh = hero.height / 2;
   // Render torso and each arm separately for a braced, asymmetric lateral thrust.
   if (g.puff > 0 && g.thrust !== 0) {

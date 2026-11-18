@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FACTORIES, FACTORY_HEIGHT, FOODS, factoryLevel, factoryPoints, newFactoryGame, stepFactory } from './fartFactory';
+import { FACTORIES, FACTORY_HEIGHT, FOODS, factoryCountdownBeat, factoryLevel, factoryPoints, newFactoryGame, stepFactory } from './fartFactory';
 import { MAZE_STRUCTURES } from './factoryMaze';
 import { drawFactory, drawFactoryMenu, loadFactoryArt } from './factoryScene';
 import { FactorySound } from './factorySound';
@@ -31,7 +31,7 @@ export function FartFactory() {
     game.current = newFactoryGame(level);
     game.current.state = 'playing'; game.current.countdown = 3.7; release(); pause(false); setShowGuide(false);
     game.current.fartLengths = sounds.current?.durations() ?? game.current.fartLengths;
-    sounds.current?.stop(); sounds.current?.mute(mutedRef.current); sounds.current?.setPlaying(true);
+    sounds.current?.stop(); sounds.current?.mute(mutedRef.current); sounds.current?.setPlaying(true); sounds.current?.countdown(3);
     setStarting(false); canvas.current?.focus();
   };
   const backToMenu = () => {
@@ -83,6 +83,7 @@ export function FartFactory() {
             if (event.type === 'boost') sounds.current?.play(event.food ?? g.boostFood);
             else if (event.type === 'bomb') sounds.current?.explode();
             else if (event.type === 'splat') sounds.current?.impact();
+            else if (event.type === 'countdown') sounds.current?.countdown(event.beat ?? 0);
             else if (event.type === 'eat') sounds.current?.eat();
             else if (event.type === 'death') sounds.current?.death();
           }
@@ -125,7 +126,7 @@ export function FartFactory() {
         <button disabled={hud.state !== 'playing'} onClick={() => { pause(!pausedRef.current); if (!pausedRef.current) canvas.current?.focus(); }}>{paused ? 'Seguir' : 'Pausa'}</button>
       </div></div>
       <div className="factory-hud"><div className="factory-energy"><b>ENERGÍA DE PEDOS</b><div role="progressbar" aria-label="Energía de pedos" aria-valuenow={Math.round(hud.energy)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${hud.energy}%` }} /></div><small>{Math.round(hud.energy)}% · {food.icon} {food.name} · {food.effect}</small></div><div className="factory-sector"><b>NIVEL {hud.level + 1}<span>/10</span></b><small>{theme.name}</small><small className="factory-score">Puntos: {hud.points}</small><div className="factory-levels" aria-label={`${hud.completed} niveles completados`}>{FACTORIES.map((f, i) => <i key={f.name} className={i < hud.completed ? 'done' : i === hud.level ? 'active' : ''} />)}</div></div></div>
-      {hud.countdown > 0 && <div className="factory-countdown" role="status"><small>NIVEL {hud.level + 1}</small><strong>{hud.countdown > 0.7 ? Math.ceil(hud.countdown - 0.7) : 'GO!'}</strong></div>}
+      {hud.countdown > 0 && <div className="factory-countdown" role="status"><small>NIVEL {hud.level + 1}</small><strong>{factoryCountdownBeat(hud.countdown) || 'GO!'}</strong></div>}
       {!overlay && hud.notice > 0 && <div className="factory-level-notice" role="status"><small>¡NIVEL {hud.noticeLevel} SUPERADO!</small><strong>NIVEL {hud.noticeLevel + 1} · {FACTORIES[hud.noticeLevel].name}</strong><span>{MAZE_STRUCTURES[hud.noticeLevel].name}</span></div>}
       {!overlay && <div className="factory-route-hint">← Elegí tu camino →<small>Comé para recargar · Espacio / ↑ para dar gas</small></div>}
       {hud.state === 'ready' && <div className="factory-main-menu" role="dialog" aria-modal="true" aria-label="Menú principal">
@@ -138,7 +139,7 @@ export function FartFactory() {
           {art === 'error' && <button onClick={() => { setArt('loading'); sounds.current?.dispose(); sounds.current = new FactorySound(); void Promise.all([loadFactoryArt(), sounds.current.prepare()]).then(() => setArt('ready')).catch(() => setArt('error')); }}>Reintentar carga</button>}
           <small>Récord: {best}/10 fábricas</small>
         </div><div className="factory-menu-caption"><b>10 LABERINTOS INDUSTRIALES</b><span>Buscá las aberturas. Elegí otro corredor.<br />El piso de pinches no espera.</span></div>
-        {showGuide && <div className="factory-menu-guide"><button onClick={() => setShowGuide(false)} aria-label="Cerrar alimentos y controles">×</button><h2>Comé. Elegí. Despegá.</h2><p>← → / A D: pedo lateral · Espacio / ↑: pedo · P: pausa.<br />Las paredes son sólidas: subí por los huecos entre corredores. Si activás una bomba, alejate antes de que llegue a cero.</p><div className="factory-foods">{FOODS.map(f => <span key={f.name}>{f.icon}<b>{f.name}</b><small>{f.effect} · +{f.energy}%</small></span>)}</div></div>}
+        {showGuide && <div className="factory-menu-guide"><button onClick={() => setShowGuide(false)} aria-label="Cerrar alimentos y controles">×</button><h2>Comé. Elegí. Despegá.</h2><p>← → / A D: mover · Espacio / ↑: pedo e impulso extra · P: pausa.<br />Las paredes son sólidas: subí por los huecos entre corredores. Si activás una bomba, alejate antes de que llegue a cero.</p><div className="factory-foods">{FOODS.map(f => <span key={f.name}>{f.icon}<b>{f.name}</b><small>{f.effect} · +{f.energy}%</small></span>)}</div></div>}
       </div>}
       {hud.state === 'dead' && hud.deathTime > 1.35 && <div className="factory-overlay factory-loss-overlay"><div className="factory-result" role="dialog" aria-modal="true" aria-label="Fin del intento">
         <small>NIVEL {hud.level + 1}</small><h1>MENÚ</h1><p className="factory-result-reason">{hud.reason}</p>

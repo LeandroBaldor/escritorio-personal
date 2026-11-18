@@ -41,17 +41,17 @@ describe('Fábrica de Pedos: laberinto frontal', () => {
     g.energy = 0; stepFactory(g, { ...idle, boost: true }, 1 / 120); expect(g.y).toBe(0);
   });
   it('blocks movement through metal walls and solid ceilings', () => {
-    const g = newFactoryGame(); g.state = 'playing'; g.walls = [{ x: 820, y: 0, w: 28, h: 180 }];
+    const g = newFactoryGame(); g.state = 'playing'; g.x = 790; g.walls = [{ x: 820, y: 0, w: 28, h: 180 }];
     for (let i = 0; i < 30; i++) stepFactory(g, { ...idle, right: true }, 1 / 120);
-    expect(g.x).toBeLessThanOrEqual(802);
-    g.walls = []; g.x = 800; g.y = 160; g.ground = null; g.vy = 600;
-    stepFactory(g, idle, 1 / 30); expect(g.y).toBeLessThanOrEqual(161.01); expect(g.vy).toBe(0);
+    expect(g.x).toBeLessThanOrEqual(798);
+    g.walls = []; g.x = 800; g.y = 138; g.ground = null; g.vy = 600;
+    stepFactory(g, idle, 1 / 30); expect(g.y).toBeLessThanOrEqual(140.01); expect(g.vy).toBe(0);
   });
   for (const lane of [1, 3]) it('blocks the underside of floating platforms and leaves a bypass beside them', () => {
     const g = newFactoryGame(); g.state = 'playing'; g.x = mazeLaneX(lane); g.platforms[0].eaten = true;
     stepFactory(g, { ...idle, boost: true }, 1 / 120);
     for (let i = 0; i < 25; i++) stepFactory(g, idle, 1 / 120);
-    expect(g.highest).toBeLessThanOrEqual(23.01);
+    expect(g.highest).toBeLessThanOrEqual(2.01);
     const bypass = newFactoryGame(); bypass.state = 'playing'; bypass.x = mazeLaneX(lane) + 80;
     stepFactory(bypass, { ...idle, boost: true }, 1 / 120);
     for (let i = 0; i < 42; i++) stepFactory(bypass, idle, 1 / 120);
@@ -60,15 +60,22 @@ describe('Fábrica de Pedos: laberinto frontal', () => {
   it('freezes level one and the spikes during the countdown', () => {
     const g = newFactoryGame(); g.state = 'playing'; g.countdown = 3.7;
     for (let i = 0; i < 360; i++) stepFactory(g, { ...idle, right: true, boost: true }, 1 / 120);
-    expect(g.highest).toBe(0); expect(g.x).toBe(800); expect(g.spikes).toBe(-95); expect(g.energy).toBe(100);
+    expect(g.highest).toBe(0); expect(g.x).toBe(800); expect(g.spikes).toBe(-260); expect(g.energy).toBe(100);
   });
-  it('requires energy for lateral propulsion and emits one death event', () => {
+  it('walks without gas or energy and gains lateral speed with a fart', () => {
     const g = newFactoryGame(); g.state = 'playing'; g.platforms[0].eaten = true; g.energy = 0;
     for (let i = 0; i < 30; i++) stepFactory(g, { ...idle, right: true }, 1 / 120);
-    expect(g.x).toBe(800); g.energy = 100;
-    stepFactory(g, { ...idle, right: true }, 1 / 120); expect(g.events.some(e => e.type === 'boost')).toBe(true); expect(g.energy).toBeLessThan(100);
+    expect(g.x).toBeGreaterThan(850); expect(g.energy).toBe(0); expect(g.gas).toHaveLength(0); expect(g.events).toHaveLength(0);
+    const walkingSpeed = g.vx; g.energy = 100;
+    stepFactory(g, { ...idle, right: true, boost: true }, 1 / 120);
+    expect(g.vx).toBeGreaterThan(walkingSpeed * 1.5); expect(g.events.some(e => e.type === 'boost')).toBe(true); expect(g.energy).toBeLessThan(100);
     g.y = g.spikes; stepFactory(g, idle, 1 / 120); expect(g.events.filter(e => e.type === 'death')).toHaveLength(1);
     stepFactory(g, idle, 1 / 120); expect(g.events).toHaveLength(0); expect(g.deathTime).toBeGreaterThan(0);
+  });
+  it('starts every checkpoint safely above the rising spikes', () => {
+    for (let level = 0; level < 10; level++) {
+      const g = newFactoryGame(level); expect(g.y - g.spikes).toBe(260); expect(g.ground).not.toBeNull();
+    }
   });
   it('arms bombs only nearby, counts down and explodes only once', () => {
     const g = newFactoryGame(); g.state = 'playing';
@@ -133,4 +140,14 @@ describe('Fábrica de Pedos: laberinto frontal', () => {
     const points = factoryPoints(g); g.y = FACTORY_HEIGHT - 20;
     stepFactory(g, idle, 1 / 120); expect(g.levelNotice).toBeLessThan(3.5); expect(g.events.some(e => e.type === 'level')).toBe(false); expect(factoryPoints(g)).toBe(points);
   });
+  it('emits the countdown sounds once at the same boundaries as the displayed digits', () => {
+    const g = newFactoryGame(); g.state = 'playing'; g.countdown = 3.7;
+    const beats: number[] = [];
+    for (let i = 0; i < 444; i++) {
+      stepFactory(g, idle, 1 / 120);
+      for (const event of g.events) if (event.type === 'countdown') beats.push(event.beat!);
+    }
+    expect(beats).toEqual([2, 1, 0]); expect(g.highest).toBe(0); expect(g.energy).toBe(100);
+  });
+
 });
