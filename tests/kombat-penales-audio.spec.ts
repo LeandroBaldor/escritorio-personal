@@ -34,6 +34,20 @@ test('el juego real reproduce vuelo, carga del ovni y grito previo al pisotón',
   await page.getByRole('button', { name: /Elegir el estadio/ }).click();
   await page.getByRole('button', { name: /Siguiente/ }).click();
   await page.getByRole('button', { name: '¡A patear!' }).click();
+  await expect(page.locator('canvas.kp-referee-layer')).toHaveCount(1);
+  const refereeResolution = await page.locator('canvas.kp-referee-layer').evaluate(async (node, base) => {
+    const { pixelRatio } = await import(/* @vite-ignore */ `${base}src/features/games/fitScreen.ts`);
+    const c = node as HTMLCanvasElement, parent = c.parentElement!;
+    const ratio = Math.min(pixelRatio(3), 3840 / parent.clientWidth, 2160 / parent.clientHeight);
+    return { actual: [c.width, c.height], expected: [Math.round(parent.clientWidth * ratio), Math.round(parent.clientHeight * ratio)] };
+  }, base);
+  expect(refereeResolution.actual).toEqual(refereeResolution.expected);
+  await expect.poll(() => page.locator('canvas.kp-referee-layer').evaluate(node => {
+    const c = node as HTMLCanvasElement, data = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+    let count = 0; for (let i = 3; i < data.length; i += 4) if (data[i] > 200) count++;
+    return count;
+  })).toBeGreaterThan(500);
+  await page.locator('.runner-stage').screenshot({ path: test.info().outputPath('referee-native-resolution.png') });
   await page.waitForFunction(() => (window as unknown as { penDecoded: string[] }).penDecoded.some(s => s.includes('pen-grito')));
   await page.evaluate(() => {
     const state = window as unknown as { __kpMatch: () => { phase: string; phaseT: number; winner: number; finale: unknown; kick: unknown; death: unknown }; penAudioStarts: string[] };

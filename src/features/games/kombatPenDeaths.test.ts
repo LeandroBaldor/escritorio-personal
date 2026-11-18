@@ -1,11 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { ACID_GREEN_T, ACID_MELT_T, DEATH_AT, DEATH_LENGTH, DEATH_TYPES, HEAD_GROWTH, acidCollapse, ashFront, arriveAt, freezeProgress, kickDuration, newPenalties, startKick, stepPenalties, takePenEvents, type Zone } from './kombatPenalties';
-import { penaltyRefTarget } from './kombatPenaltiesArt';
-import { SIZE } from './kombat';
+import { kickerBody, penaltyRefTarget, refPose } from './kombatPenaltiesArt';
+import { CHAR_IDS, SIZE } from './kombat';
 import { opaqueStompAlpha, stompHeight } from './kombatPenStomp';
 
 const body = () => ({ x: 100, y: 500, h: 300 });
 describe('muertes de Kombat Penales', () => {
+  it('el eje del cañón pasa por el pateador para todos los luchadores', () => {
+    for (const char of CHAR_IDS) {
+      const m = newPenalties('ice', [char, 'thunder'], () => 0); startKick(m, 0, 0);
+      for (let i = 0; i < 111; i++) stepPenalties(m, 1 / 60, side => kickerBody(m.chars[side]));
+      const shot = refPose(m).shot; expect(shot).not.toBeNull();
+      if (!shot) continue;
+      const dx = shot.to[0] - shot.from[0], dy = shot.to[1] - shot.from[1], length = Math.hypot(dx, dy);
+      expect(Math.abs(dx * Math.sin(shot.angle) - dy * Math.cos(shot.angle)) / length).toBeLessThan(1e-6);
+      expect(dx * Math.cos(shot.angle) + dy * Math.sin(shot.angle)).toBeGreaterThan(0);
+    }
+  });
   it('la pierna conserva el fondo transparente y hace opaco el interior del recorte', () => {
     const data = new Uint8ClampedArray([50, 60, 70, 0, 50, 60, 70, 20, 50, 60, 70, 120, 50, 60, 70, 253]);
     opaqueStompAlpha(data); expect([data[3], data[7], data[11], data[15]]).toEqual([0, 0, 255, 255]);

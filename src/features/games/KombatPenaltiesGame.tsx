@@ -6,7 +6,7 @@ import {
   BALL_FX_NAMES, REGULATION, beginShootout, cpuHand, cpuZone, rpsWinner, type Hand, fxOfTurn, newPenalties, scoreOf, shooterOf, startKick, stepPenalties, suddenDeath, takePenEvents,
   penaltyScore, type PenMatch, type Zone,
 } from './kombatPenalties';
-import { drawPenBackdrop, drawPenThumb, drawPenalties, keeperBody, kickerBody, onPenaltyArtLoad, penView, preloadPenaltyArt, zoneAt } from './kombatPenaltiesArt';
+import { drawPenBackdrop, drawPenThumb, drawPenalties, drawPenaltyRefereeLayer, keeperBody, kickerBody, onPenaltyArtLoad, penView, preloadPenaltyArt, zoneAt } from './kombatPenaltiesArt';
 import { CUP_ROUNDS, cupSlot, finishRound, newCup, yourMatch, type Cup } from './kombatVoleyCup';
 import { drawFighterCard, drawPortrait, setLowFx } from './kombatFighters';
 import { setNoGrain } from './gravityMonsters';
@@ -207,6 +207,7 @@ export function KombatPenalties() {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bgRef = useRef<HTMLCanvasElement>(null);
+  const refereeRef = useRef<HTMLCanvasElement>(null);
   const bgKey = useRef('');
   const matchRef = useRef<PenMatch | null>(null);
   const picks = useRef<{ shot: Zone | null; dive: Zone | null }>({ shot: null, dive: null });
@@ -262,7 +263,14 @@ export function KombatPenalties() {
     const low = touch || quality.current > 0; setLowFx(low); setNoGrain(low);
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, w, h);
-    drawPenalties(ctx, m, w, h);
+    const referee = refereeRef.current;
+    drawPenalties(ctx, m, w, h, { referee: !referee });
+    if (referee) {
+      const ratio = Math.min(pixelRatio(3), 3840 / Math.max(1, el.clientWidth), 2160 / Math.max(1, el.clientHeight));
+      const rw = Math.round(el.clientWidth * ratio), rh = Math.round(el.clientHeight * ratio);
+      if (referee.width !== rw || referee.height !== rh) { referee.width = rw; referee.height = rh; }
+      const rctx = referee.getContext('2d'); if (rctx) drawPenaltyRefereeLayer(rctx, m, rw, rh);
+    }
     const bg = bgRef.current;
     if (bg) { // el fondo y la cancha en su propia capa, siempre con toda la resolución
       const kb = Math.min(pixelRatio(2), 2560 / Math.max(1, el.clientWidth), 1500 / Math.max(1, el.clientHeight)), bw = Math.round(el.clientWidth * kb), bh = Math.round(el.clientHeight * kb);
@@ -580,6 +588,7 @@ export function KombatPenalties() {
     </div>
     <div className="runner-stage kf-stage" ref={stageRef}>
       <canvas ref={bgRef} className="kf-bg" aria-hidden="true" />
+      <canvas ref={refereeRef} className="kp-referee-layer" aria-hidden="true" style={{ pointerEvents: 'none', boxShadow: 'none' }} />
       <canvas ref={canvasRef} role="img" aria-label="Arco de Kombat Penales"
         onPointerMove={e => { if (!aimRef.current) return; const z = zoneFromEvent(e); if (z !== null && z !== zoneRef.current) { zoneRef.current = z; setZoneCursor(z); } }}
         onPointerDown={e => { if (!aimRef.current) return; const z = zoneFromEvent(e); if (z !== null) { zoneRef.current = z; setZoneCursor(z); choose(z); } }} />
