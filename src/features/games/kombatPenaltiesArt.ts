@@ -19,8 +19,8 @@ import { drawPenStomp, preloadPenStomp } from './kombatPenStomp';
 import netUrl from './assets/penales/arco-red.webp';
 import frameUrl from './assets/penales/arco-marco.webp';
 import ballUrl from './assets/penales/pelota.webp';
-import ref1Url from './assets/penales/arbitro-1.webp';
-import ref2Url from './assets/penales/arbitro-2.webp';
+import ref1Url from './assets/penales/arbitro-nuevo-1.png';
+import ref2Url from './assets/penales/arbitro-nuevo-2.png';
 
 const TAU = Math.PI * 2;
 type P2 = [number, number];
@@ -416,16 +416,16 @@ function drawFlying(ctx: CanvasRenderingContext2D, m: PenMatch) {
 // Está parado afuera del área chica, a la izquierda del arco (donde lo marcó el usuario). Si el arquero no ataja un gol
 // tirándose para el otro lado, le dispara al arquero (dibujo 1); si el arquero ataja, le dispara al que pateó (dibujo 2).
 // Para apuntar bien se inclina desde la cintura (gira el torso, los brazos y el arma) hasta que el arma mira a la víctima;
-// si la víctima queda del otro lado al que mira el dibujo, el dibujo se da vuelta. El disparo es una línea roja corta.
+// si la víctima queda del otro lado al que mira el dibujo, el dibujo se da vuelta. Dispara una esfera de plasma verde.
 const REF: P2 = [-390, 425]; // los pies
-const REF_IW = 520, REF_IH = 585; // tamaño de los dibujos
-const REF_H = 2.25 * FPX, REF_S = REF_H / REF_IH, REF_W = REF_IW * REF_S;
+const REF_IW = 1199, REF_IH = 1312; // tamaño de los dibujos
+const REF_H = 2.25 * FPX * 1.5, REF_S = REF_H / REF_IH, REF_W = REF_IW * REF_S;
 // En px del dibujo, como si mirara a la derecha (el dibujo 2 se toma espejado): el centro del cuerpo entre los pies,
 // la punta del arma, el ángulo del arma, la cintura (corte entre el torso y las piernas; gira desde hip) y desde qué x el arma baja más.
 type RefKey = 'ref1' | 'ref2';
 const REF_ART: Record<RefKey, { body: number; muzzle: P2; gun: number; waist: number; hip: number; front: number }> = {
-  ref1: { body: 182, muzzle: [500, 345], gun: Math.atan2(205, 355), waist: 330, hip: 190, front: 315 },
-  ref2: { body: 182, muzzle: [500, 350], gun: Math.atan2(200, 350), waist: 330, hip: 180, front: 300 },
+  ref1: { body: 475, muzzle: [1090, 700], gun: Math.atan2(380, 660), waist: 730, hip: 450, front: 700 },
+  ref2: { body: 425, muzzle: [1090, 700], gun: Math.atan2(370, 660), waist: 730, hip: 400, front: 700 },
 };
 const REF_MAX = 0.6; // lo más que se inclina (rad)
 const SHOT = 0.3; // lo que tarda el disparo en llegar
@@ -472,28 +472,28 @@ function drawReferee(ctx: CanvasRenderingContext2D, m: PenMatch) {
   // se dibuja en px del dibujo mirando a la derecha (el dibujo 2 viene mirando a la izquierda: se espeja); flip da vuelta todo
   const mirror = pose.who === 'ref2';
   ctx.translate(REF[0], REF[1] - REF_H); ctx.scale(pose.flip ? -REF_S : REF_S, REF_S); ctx.translate(-art.body, 0);
-  const drawArt = () => { if (mirror) { ctx.save(); ctx.translate(REF_IW, 0); ctx.scale(-1, 1); ctx.drawImage(im, 0, 0); ctx.restore(); } else ctx.drawImage(im, 0, 0); };
-  const W = REF_IW, H = REF_IH, y = art.waist, gy = art.muzzle[1] + 60, gx = art.front + 15, px = pose.pivot[0], fill = y - 90;
+  const drawArt = () => { if (mirror) { ctx.save(); ctx.translate(REF_IW, 0); ctx.scale(-1, 1); ctx.drawImage(im, 0, 0, REF_IW, REF_IH); ctx.restore(); } else ctx.drawImage(im, 0, 0, REF_IW, REF_IH); };
+  const W = REF_IW, H = REF_IH, y = art.waist, gy = art.muzzle[1] + 135, gx = art.front + 35, px = pose.pivot[0], fill = y - 200;
   // las piernas, quietas; y un poco de la cintura del lado que se levanta al inclinarse, para que no quede un hueco
   ctx.save(); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(gx, y); ctx.lineTo(gx, gy); ctx.lineTo(W, gy); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
   if (pose.rot > 0) ctx.rect(0, fill, px, y - fill); else if (pose.rot < 0) ctx.rect(px, fill, gx - px, y - fill);
   ctx.clip(); drawArt(); ctx.restore();
   // torso, brazos y arma, girados desde la cintura, encima
   ctx.save(); ctx.translate(px, pose.pivot[1]); ctx.rotate(pose.rot); ctx.translate(-px, -pose.pivot[1]);
-  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W, gy); ctx.lineTo(gx, gy); ctx.lineTo(gx, y + 6); ctx.lineTo(0, y + 6); ctx.closePath(); ctx.clip();
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W, gy); ctx.lineTo(gx, gy); ctx.lineTo(gx, y + 14); ctx.lineTo(0, y + 14); ctx.closePath(); ctx.clip();
   drawArt(); ctx.restore();
   ctx.restore();
-  if (shot && shot.k < 0.5) { const [x, yy] = shot.from, f = 1 - Math.max(0, shot.k) / 0.5; ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, yy, 140, '#ff4d00', 0.9 * f); bloom(ctx, x, yy, 60, '#ffb020', 0.95 * f); bloom(ctx, x, yy, 24, '#fff6d0', f); ctx.restore(); }
+  if (shot && shot.k < 0.5) { const [x, yy] = shot.from, f = 1 - Math.max(0, shot.k) / 0.5; ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, yy, 220, '#63ff12', 0.9 * f); bloom(ctx, x, yy, 110, '#b5ff37', 0.95 * f); bloom(ctx, x, yy, 50, '#f5ffce', f); ctx.restore(); }
 }
 function drawShot(ctx: CanvasRenderingContext2D, m: PenMatch) {
   const sh = refShot(m); if (!sh || sh.k > 1) return;
-  // una bola de energía de fuego que viaja hacia la víctima, con una cola que tiembla y chispas que quedan atrás
+  // Esfera de plasma verde fluorescente, con núcleo brillante y una estela ancha.
   const dx = sh.to[0] - sh.from[0], dy = sh.to[1] - sh.from[1], len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
-  const k = Math.max(0, sh.k), hx = sh.from[0] + dx * k, hy = sh.from[1] + dy * k, L = Math.min(230, len * k + 20), t = m.time;
+  const k = Math.max(0, sh.k), hx = sh.from[0] + dx * k, hy = sh.from[1] + dy * k, L = Math.min(350, len * k + 40), t = m.time;
   const N = 14, pts: P2[] = [];
   for (let i = 0; i <= N; i++) { const f = i / N, w = Math.sin(f * 9 - t * 40) * 7 * f * (1 - f * 0.4); pts.push([hx - ux * L * f + nx * w, hy - uy * L * f + ny * w]); }
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  const layers: [number, string, string][] = [[46, 'rgba(255,60,0,0.32)', 'rgba(255,40,0,0)'], [26, 'rgba(255,120,10,0.8)', 'rgba(255,60,0,0)'], [12, 'rgba(255,210,60,1)', 'rgba(255,120,0,0)'], [5, 'rgba(255,255,230,1)', 'rgba(255,230,150,0)']];
+  const layers: [number, string, string][] = [[112, 'rgba(63,255,12,0.32)', 'rgba(40,255,0,0)'], [70, 'rgba(112,255,18,0.85)', 'rgba(70,255,0,0)'], [34, 'rgba(190,255,90,1)', 'rgba(90,255,10,0)'], [14, 'rgba(248,255,213,1)', 'rgba(180,255,90,0)']];
   for (const [w, c0, c1] of layers) {
     const g = ctx.createLinearGradient(hx, hy, hx - ux * L, hy - uy * L); g.addColorStop(0, c0); g.addColorStop(1, c1);
     ctx.strokeStyle = g; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const q of pts.slice(1)) ctx.lineTo(q[0], q[1]); ctx.stroke();
@@ -502,12 +502,16 @@ function drawShot(ctx: CanvasRenderingContext2D, m: PenMatch) {
   for (let i = 0; i < 18; i++) {
     const f = ((i * 0.618 + t * 3) % 1), r = (Math.sin(i * 12.9898) * 43758.5453) % 1, side = (r - 0.5) * 40 * f;
     const x = hx - ux * L * 1.1 * f + nx * side, y = hy - uy * L * 1.1 * f + ny * side - f * 30, sz = (1 - f) * 7 + 2;
-    ctx.fillStyle = i % 3 === 0 ? `rgba(255,240,180,${1 - f})` : `rgba(255,${110 + (i % 4) * 30},20,${1 - f})`;
+    ctx.fillStyle = i % 3 === 0 ? `rgba(235,255,180,${1 - f})` : `rgba(${90 + (i % 4) * 35},255,20,${1 - f})`;
     ctx.beginPath(); ctx.arc(x, y, sz, 0, TAU); ctx.fill();
   }
-  // la cabeza: una bola de fuego que late
+  // La esfera conserva un borde verde definido además del resplandor exterior.
   const pulse = 1 + Math.sin(t * 60) * 0.12;
-  bloom(ctx, hx, hy, 110 * pulse, '#ff4d00', 0.85); bloom(ctx, hx, hy, 55 * pulse, '#ffb020', 0.95); bloom(ctx, hx, hy, 24, '#fff6d0', 1);
+  bloom(ctx, hx, hy, 240 * pulse, '#55ff0a', 0.85); bloom(ctx, hx, hy, 115 * pulse, '#adff27', 0.95);
+  const orb = ctx.createRadialGradient(hx - 18, hy - 20, 3, hx, hy, 64 * pulse);
+  orb.addColorStop(0, '#ffffff'); orb.addColorStop(0.22, '#f1ffc1'); orb.addColorStop(0.6, '#b3ff24'); orb.addColorStop(0.88, '#42e600'); orb.addColorStop(1, 'rgba(38,189,0,0.1)');
+  ctx.fillStyle = orb; ctx.beginPath(); ctx.arc(hx, hy, 64 * pulse, 0, TAU); ctx.fill();
+  ctx.strokeStyle = 'rgba(196,255,77,0.9)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.ellipse(hx, hy, 78 * pulse, 27 * pulse, Math.atan2(dy, dx) + t * 9, 0, TAU); ctx.stroke();
   ctx.restore();
 }
 export interface PenDrawOpts { cursor?: Zone | null; cursorColor?: string; showTargets?: boolean; netHit?: { at: P2; t: number } | null }

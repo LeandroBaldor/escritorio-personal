@@ -94,12 +94,12 @@ describe('audio de Kombat Penales', () => {
     expect(Audio.current.sources.map(s => s.buffer?.label)).toEqual([expect.stringContaining('pen-electricidad'), expect.stringContaining('pen-congelamiento')]);
     expect(Audio.current.sources[0].stop).toHaveBeenCalledOnce();
   });
-  it('aumenta la música de Penales exactamente un 50% y conserva el volumen normal de los otros juegos', async () => {
+  it('conserva el nuevo volumen del menu de Penales y el volumen normal de otros juegos', async () => {
     sounds.setKfMusic(true);
     await vi.waitFor(() => expect(Audio.current.sources.length).toBe(1));
     const music = Audio.current.sources[0], gain = music.output!.gain;
     expect(gain.setTargetAtTime).toHaveBeenLastCalledWith(0.15, 10, 0.3);
-    sounds.setPenMusic(true); expect(gain.setTargetAtTime).toHaveBeenLastCalledWith(0.15 * 1.5, 10, 0.3);
+    sounds.setPenMusic(true); expect(gain.setTargetAtTime).toHaveBeenLastCalledWith(0.15 * 1.5 * 1.5, 10, 0.3);
     sounds.setKfMusic(true); expect(gain.setTargetAtTime).toHaveBeenLastCalledWith(0.15, 10, 0.3);
   });
 });

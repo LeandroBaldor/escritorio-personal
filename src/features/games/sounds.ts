@@ -1444,7 +1444,7 @@ export function setKfMusic(on: boolean, volume = 0.15) {
 }
 // Si la página todavía no tuvo un clic o una tecla, el navegador no deja sonar nada: arranca con el primero.
 export function kfMusicNeedsGesture() { return !ctx || ctx.state !== 'running'; }
-export function setPenMusic(on: boolean) { setKfMusic(on, 0.15 * 1.5); }
+export function setPenMusic(on: boolean) { setKfMusic(on, 0.15 * 1.5 * 1.5); }
 // Una piña / patada al cuerpo: golpe grave y seco con un chasquido.
 export function playKfHit(volume = 1) {
   const c = running(); if (!c) return;
