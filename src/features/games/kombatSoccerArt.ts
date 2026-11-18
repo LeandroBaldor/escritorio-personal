@@ -3,11 +3,13 @@
 // de cada escenario (el mismo de siempre); adelante, la cancha con las franjas del pasto y las líneas, del color
 // del escenario, los carteles que la rodean, los arcos con red, los luchadores, el árbitro, la pelota y los poderes.
 import { SIZE, type StageId } from './kombat';
-import { BR, D, GD, GH, GW, L, ZC, AREA_W, AREA_X, CHARGE_TIME, PLAYER_SCALE, hOf, type Player, type SFx, type SoccerMatch } from './kombatSoccer';
-import { drawHazardsGround, drawMeteor, drawShark, drawUfo, preloadHazardArt } from './kombatSoccerHazardsArt';
+import { BR, D, GD, GH, GW, L, ZC, AREA_W, AREA_X, CHARGE_TIME, FULL_CHARGE, PLAYER_SCALE, hOf, type Player, type SFx, type SoccerMatch } from './kombatSoccer';
+import { drawBlasts, drawHazardsGround, drawMeteor, drawShark, drawUfo, preloadHazardArt } from './kombatSoccerHazardsArt';
 import { meteorPos } from './kombatSoccer';
 import { THEMES, drawBallSprite, drawGib, drawScreenBlood, type View } from './kombatArt';
 import { drawFighterLit, drawRefLit, LOOKS } from './kombatFighters';
+import { drawPenDeath, drawPenDeathAtmosphere } from './kombatPenDeathsArt';
+import type { PenDeath } from './kombatPenalties';
 import { alpha, bloom, darken, lighten } from './gravityMonsters';
 import { backdropFloor, backdropImage, backdropReady, gradeScenery, paintScenery } from './kombatScenery';
 
@@ -188,7 +190,7 @@ function drawBall(ctx: CanvasRenderingContext2D, m: SoccerMatch, v: SView) {
     ctx.restore();
   }
   const [x, y, s] = project(v, b.x, b.y, b.z);
-  if (b.comet) cometTail(ctx, v, m, x, y, s);
+  if (b.comet) cometTail(ctx, v, m, x, y, s * (b.full ? 1.5 : 1));
   drawBallSprite(ctx, x, y, BR * s, b.roll, b.fx === 'fire' ? 'fire' : 'normal', b.fx === 'fire' ? 'fire' : 'none', m.time);
 }
 // El tiro bien cargado: la pelota sale como un cometa, con una cola de fuego larga atrás.
@@ -280,10 +282,18 @@ export function drawSoccer(ctx: CanvasRenderingContext2D, m: SoccerMatch, w: num
   items.sort((a, c) => a.z - c.z);
   for (const it of items) it.draw();
   ctx.fillStyle = '#b10f1c'; for (const d of m.gore.drops) { const [x, y, s] = project(v, d.x, d.y, d.z); ctx.beginPath(); ctx.arc(x, y, Math.max(1.2, d.r * s), 0, TAU); ctx.fill(); }
+  drawBlasts(ctx, PP, m, w, h); // (la explosión de los meteoritos)
   for (const hz of m.hazards) if (hz.kind === 'ufo') drawUfo(ctx, PP, hz, m.time); // (el ovni, arriba de todo)
   for (const e of m.fx) drawFx(ctx, v, e);
+  // el humo (bolas suaves) y las piedras (pedazos oscuros) van normales; las chispas, encendidas
+  for (const p of m.particles) {
+    if (p.kind === 'spark') continue;
+    const [x, y, s] = project(v, p.x, p.y, p.z), k = 1 - p.life / p.max;
+    if (p.kind === 'smoke') { const r = Math.max(2, p.size * s * (1 + (1 - k) * 1.2)); ctx.fillStyle = alpha(p.color, 0.5 * k); ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); }
+    else { const sz = Math.max(2, p.size * s); ctx.save(); ctx.translate(x, y); ctx.rotate(p.life * 9 + p.vx); ctx.fillStyle = alpha(p.color, Math.min(1, k * 2)); ctx.fillRect(-sz / 2, -sz / 2, sz, sz * 0.75); ctx.restore(); }
+  }
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  for (const p of m.particles) { const [x, y, s] = project(v, p.x, p.y, p.z), k = 1 - p.life / p.max; ctx.fillStyle = alpha(p.color, k); const sz = Math.max(1.5, p.size * s); ctx.fillRect(x - sz / 2, y - sz / 2, sz, sz); }
+  for (const p of m.particles) { if (p.kind !== 'spark') continue; const [x, y, s] = project(v, p.x, p.y, p.z), k = 1 - p.life / p.max; ctx.fillStyle = alpha(p.color, k); const sz = Math.max(1.5, p.size * s); ctx.fillRect(x - sz / 2, y - sz / 2, sz, sz); }
   ctx.restore();
   if (m.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${m.flash * 0.4})`; ctx.fillRect(0, 0, w, h); }
   const vg = ctx.createRadialGradient(w / 2, h * 0.6, Math.min(w, h) * 0.4, w / 2, h * 0.6, Math.max(w, h) * 0.78); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.4)');
@@ -324,11 +334,21 @@ function drawScene(ctx: CanvasRenderingContext2D, v: SView, stage: StageId, t: n
 const defendsLeftTeam = (m: SoccerMatch, left: boolean): 0 | 1 => ((m.half === 1) === left ? 0 : 1);
 function drawPlayer(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch, p: Player, rim: string, active: boolean) {
   const [x, y, s] = project(v, p.x, p.y, p.z);
-  if (p.y > 0.05) drawShadow(ctx, v, p.x, p.z, 0.32 * PLAYER_SCALE * 1.4, 0.3); // (saltando: la sombra queda en el piso)
-  drawFighterLit(ctx, p, m.time + p.id * 0.37, {
-    power: 0, frozen: false, poison: false, burn: p.burn > 0 || (p.stun > 0 && p.stunKind === 'burn'),
-    zap: false, shield: false, speed: false, aura: null,
-  }, x, y, s * PLAYER_SCALE, rim);
+  const fx = { power: 0, frozen: false, poison: false, burn: false, zap: false, shield: false, speed: p.sprint && Math.hypot(p.vx, p.vz) > 6, aura: null };
+  const body = (c: CanvasRenderingContext2D) => drawFighterLit(c, p, m.time + p.id * 0.37, fx, x, y, s * PLAYER_SCALE, rim);
+  if (p.fly) { // le sacaron la pelota: vuela para arriba dando vueltas (y explota arriba)
+    drawShadow(ctx, v, p.x, p.z, 0.45 * PLAYER_SCALE, 0.3);
+    const cy = y - hOf(p) * s * 0.5;
+    ctx.save(); ctx.translate(x, cy); ctx.rotate(p.y * 2.4 * p.facing); ctx.translate(-x, -cy); body(ctx); ctx.restore();
+    return;
+  }
+  if (p.acid > 0) { // pisó el ácido: la muerte con ácido de Kombat Penales
+    const h = 2.3 * Math.min(1.25, SIZE[p.char]) * s * PLAYER_SCALE;
+    const d: PenDeath = { type: 'acid', side: p.team, keeper: false, at: 0, clock: m.time, t: p.acid, finished: false, x, y, h };
+    drawPenDeath(ctx, d, x, y, h, body); drawPenDeathAtmosphere(ctx, d);
+    return;
+  }
+  body(ctx);
   const top = y - hOf(p) * s - 0.3 * s;
   if (active) { // la flechita arriba del que manejás
     const c = p.team === 0 ? '#facc15' : '#fb923c', a = s * 0.22, bob = Math.sin(m.time * 6) * s * 0.06;
@@ -337,7 +357,9 @@ function drawPlayer(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch, p: 
   if (p.chargeOn) { // la barra del tiro cargado
     const k = Math.min(1, p.charge / CHARGE_TIME), bw = s * 1.3, bh = Math.max(4, s * 0.14), bx = x - bw / 2, by = top - s * 0.55;
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
-    ctx.fillStyle = k > 0.9 ? '#ef4444' : k > 0.6 ? '#facc15' : '#22c55e'; ctx.fillRect(bx, by, bw * k, bh);
+    const full = k >= FULL_CHARGE;
+    ctx.fillStyle = full ? (Math.sin(m.time * 30) > 0 ? '#ef4444' : '#fde047') : k > 0.6 ? '#facc15' : '#22c55e'; ctx.fillRect(bx, by, bw * k, bh);
+    if (full) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, by + bh / 2, bw * 0.7, '#f97316', 0.6); ctx.restore(); ctx.font = `900 ${Math.max(9, s * 0.28)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeText('¡GOL SEGURO!', x, by - bh * 0.6); ctx.fillText('¡GOL SEGURO!', x, by - bh * 0.6); }
   }
 }
 // Miniatura del escenario (para elegirlo).

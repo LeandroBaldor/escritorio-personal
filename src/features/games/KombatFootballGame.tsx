@@ -13,8 +13,8 @@ import spaceBg from './assets/fondos/kf-espacio.webp'; // (el espacio de la sele
 import menuBg from './assets/fondos/kf-menu.webp';
 import { onBackdropLoad, preloadBackdrops } from './kombatScenery';
 import {
-  playExplosion, playGameOver, playKfBlock, playKfBall, playKfButton, playKfElectric, playKfEnergy, playKfFire, playKfThunder, playKfGoal, playKfGoldenRound, playKfVsSentence, playKfHit, playKfJump, playKfKickoffVoice, playKfLaser, playKfName, playKfSelectVoice, playKfPost,
-  playRefWhistle, playSharkBite, playSharkLeap, playUfoArrive, playStart, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
+  playGameOver, playKfBlock, playKfBall, playKfButton, playKfElectric, playKfEnergy, playKfThunder, playKfGoal, playKfGoldenRound, playKfVsSentence, playKfHit, playKfKickoffVoice, playKfLaser, playKfMeteorFall, playKfMeteorImpact, playKfName, playKfSelectVoice, playKfPost, playPenExplosion, playVampAcid,
+  playRefWhistle, playSharkBite, playSharkLeap, playUfoArrive, preloadKfHazardSounds, setKfRotor, playStart, playWinFanfare, preloadKombatSounds, preloadKombatUi, setCrowd, setKfMusic,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 import { Fireworks } from './Fireworks';
@@ -38,16 +38,18 @@ const tournamentOrder = (you: CharId) => LADDER.filter(c => c !== you);
 function tournamentRival(you: CharId, n: number): CharId { return tournamentOrder(you)[Math.min(n, TOURNAMENT - 1)]; }
 const tournamentLevel = (n: number) => 0.2 + n * 0.055;
 
-// Teclas (por la tecla física): un jugador con las flechas (o WASD), V para patear (dos veces sin la pelota: barrida),
-// X para pasar y C para saltar; dos jugadores: J1 con WASD + V / Q / E y J2 con las flechas + ENTER / SHIFT / CTRL.
-type Key = 'left' | 'right' | 'up' | 'down' | 'kick' | 'pass' | 'jump';
-const KEYS_SOLO: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', KeyV: 'kick', Space: 'kick', KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyX: 'pass', KeyK: 'pass', KeyC: 'jump', KeyL: 'jump', KeyZ: 'jump' };
-const KEYS_P1: Record<string, Key> = { KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyV: 'kick', Space: 'kick', KeyQ: 'pass', KeyE: 'jump' };
-const KEYS_P2: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'kick', NumpadEnter: 'kick', ShiftRight: 'pass', ControlRight: 'jump', Numpad1: 'kick', Numpad2: 'pass', Numpad3: 'jump' };
-interface KeyHelp { move: string[]; kick: string; pass: string; jump: string }
+// Teclas (por la tecla física): un jugador con las flechas (o WASD), V para patear al arco (cuanto más se aprieta,
+// más fuerte), X para pasar (sin la pelota: cambiar al más cercano a la pelota), C para sacarle la pelota al rival
+// y la barra espaciadora para correr. Dos jugadores: J1 con WASD + V / Q / E / ESPACIO y J2 con las flechas +
+// ENTER / SHIFT der. / CTRL der. / 0 del teclado numérico.
+type Key = 'left' | 'right' | 'up' | 'down' | 'kick' | 'pass' | 'steal' | 'sprint';
+const KEYS_SOLO: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyV: 'kick', KeyX: 'pass', KeyK: 'pass', KeyC: 'steal', KeyL: 'steal', Space: 'sprint', ShiftLeft: 'sprint' };
+const KEYS_P1: Record<string, Key> = { KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyV: 'kick', KeyQ: 'pass', KeyE: 'steal', Space: 'sprint', ShiftLeft: 'sprint' };
+const KEYS_P2: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'kick', NumpadEnter: 'kick', ShiftRight: 'pass', ControlRight: 'steal', Numpad0: 'sprint', AltRight: 'sprint', Numpad1: 'kick', Numpad2: 'pass', Numpad3: 'steal' };
+interface KeyHelp { move: string[]; kick: string; pass: string; steal: string; sprint: string }
 const helpFor = (mode: Mode, side: 0 | 1): KeyHelp => mode === 'versus'
-  ? side === 0 ? { move: ['W', 'A', 'S', 'D'], kick: 'V', pass: 'Q', jump: 'E' } : { move: ['↑', '←', '↓', '→'], kick: 'ENTER', pass: 'SHIFT der.', jump: 'CTRL der.' }
-  : { move: ['↑', '←', '↓', '→'], kick: 'V', pass: 'X', jump: 'C' };
+  ? side === 0 ? { move: ['W', 'A', 'S', 'D'], kick: 'V', pass: 'Q', steal: 'E', sprint: 'ESPACIO' } : { move: ['↑', '←', '↓', '→'], kick: 'ENTER', pass: 'SHIFT der.', steal: 'CTRL der.', sprint: '0 (num.)' }
+  : { move: ['↑', '←', '↓', '→'], kick: 'V', pass: 'X', steal: 'C', sprint: 'ESPACIO' };
 
 interface Side { dir: 1 | -1; active: CharId }
 interface Hud { score: [number, number]; clock: string; half: string; extra: boolean; sides: [Side, Side]; intro: boolean }
@@ -57,7 +59,7 @@ const hudOf = (m: SoccerMatch): Hud => ({
   intro: m.phase === 'intro' && m.half === 1 && !m.extra && m.time < 2.4,
 });
 // Lo que se anuncia cuando aparece cada peligro.
-const HAZARD_SHOUT: Record<HazardKind, string> = { shark: '🦈 ¡TIBURÓN!', lava: '🌋 ¡LAVA!', ufo: '🛸 ¡OVNI!', meteor: '☄️ ¡METEORITO!' };
+const HAZARD_SHOUT: Record<HazardKind, string> = { shark: '🦈 ¡TIBURÓN!', acid: '🟢 ¡ÁCIDO!', ufo: '🛸 ¡OVNI!', meteor: '☄️ ¡METEORITO!' };
 const activeIds = (m: SoccerMatch) => ([0, 1] as const).filter(t => humanTeam(m, t)).map(t => m.teams[t].active);
 const QUALITY = [1, 0.82, 0.68, 0.55]; // escalones de resolución del partido
 const sameHud = (a: Hud, b: Hud) => JSON.stringify(a) === JSON.stringify(b);
@@ -220,7 +222,7 @@ export function KombatFootball() {
   }, [menuish, demoStage, p1, p2, paint]);
 
   const begin = useCallback((n = round) => {
-    playStart(); preloadKombatSounds();
+    playStart(); preloadKombatSounds(); preloadKfHazardSounds();
     const st = mode === 'tournament' ? TOURNAMENT_STAGES[n] : stage;
     const rival = mode === 'tournament' ? tournamentRival(p1, n) : p2;
     const level = mode === 'tournament' ? tournamentLevel(n) : DIFFICULTY[difficulty].level;
@@ -307,7 +309,7 @@ export function KombatFootball() {
       if (m.stage === 'storm') { const k = Math.floor(m.time / 4.2); if (k !== lastBolt) { if (lastBolt >= 0) playKfThunder(0.6, 0.15); lastBolt = k; } } // los relámpagos del fondo con su trueno
       for (const e of takeSoccerEvents(m)) {
         switch (e.type) {
-          case 'kick': playKfBall(Math.min(1.3, 0.6 + e.power * 0.6)); break;
+          case 'kick': playKfBall(Math.min(1.3, 0.6 + e.power * 0.6)); if (e.full) playKfEnergy(0.7, 1.2); break;
           case 'pass': playKfBall(0.55, 1.15); break;
           case 'control': playKfBall(0.35, 1.3); break;
           case 'tackle': if (e.ok) playKfBlock(); break;
@@ -315,23 +317,24 @@ export function KombatFootball() {
           case 'post': playKfPost(); break;
           case 'goal': playKfGoal(); shout(e.own ? '¡GOL EN CONTRA!' : '¡GOL!', 'goal', `${CHARS[e.scorer].name} · ${m.teams[0].goals} - ${m.teams[1].goals}`, 2400); break;
           case 'save': playKfBlock(); shout('¡ATAJADA!', 'block', undefined, 900); break;
-          case 'jump': playKfJump(); break;
+          case 'switch': playKfButton(0.35); break;
+          case 'steal': playKfBlock(); playKfHit(0.8); break;
           case 'header': playKfBall(0.7, 0.9); if (human(e.side)) shout('¡CABEZAZO!', 'info', undefined, 700); break;
           // los peligros del escenario
-          case 'hazard': shout(HAZARD_SHOUT[e.kind], 'info', undefined, 1100); if (e.kind === 'ufo') playUfoArrive(); else if (e.kind === 'lava') playKfFire(0.5); else if (e.kind === 'meteor') playKfEnergy(0.6, 0.6); break;
+          case 'hazard': shout(HAZARD_SHOUT[e.kind], 'info', undefined, 1100); if (e.kind === 'ufo') playUfoArrive(); else if (e.kind === 'acid') playVampAcid(); else if (e.kind === 'meteor') playKfMeteorFall(1.8); break;
           case 'dive': playSharkLeap(); break;
           case 'eaten': playSharkBite(human(e.side) ? 'player' : 'persona', 0.9); playKfHit(0.8); break;
-          case 'burn': playKfFire(0.9); break;
-          case 'ash': playKfFire(0.6); playKfHit(0.6); break;
+          case 'acid': playVampAcid(); break;
           case 'beam': playKfLaser(); playKfElectric(0.7); break;
-          case 'impact': playExplosion(); playKfThunder(0.7); break;
-          case 'explode': playExplosion(); playKfHit(1); break;
+          case 'impact': playKfMeteorImpact(); break;
+          case 'explode': playPenExplosion(); playKfHit(1); break;
           case 'whistle': playRefWhistle(e.kind); if (e.kind === 'kickoff' && e.start) playKfKickoffVoice(e.start, 0.7); if (e.kind === 'kickoff' && m.teams[0].goals + m.teams[1].goals === 0 && !m.extra) shout(m.half === 1 ? '¡A JUGAR!' : 'SEGUNDO TIEMPO', 'extra', undefined, 1100); break;
           case 'halftime': { const d = -attackDir(m, 0); shout('ENTRETIEMPO', 'extra', `Cambio de lado: ${modeRef.current === 'versus' ? 'J1 ataca' : 'ahora atacás'} hacia la ${d > 0 ? 'derecha ▶' : '◀ izquierda'}`, 3000); break; }
           case 'extra': playRefWhistle('half'); playKfGoldenRound(); shout('TIEMPO EXTRA', 'extra', 'Gol de oro: el primero que mete gana', 2600); break;
         }
       }
       paint();
+      { const sh = m.hazards.find(h => h.kind === 'shark'); setKfRotor(sh ? Math.max(0.15, 1 - Math.abs(sh.x - m.cam.x) / 30) * (sh.stage === 1 ? 1 : 0.8) : 0); } // la hélice del tiburón
       const next = hudOf(m);
       setHud(prev => prev && sameHud(prev, next) ? prev : next);
       if (m.phase === 'end' && m.phaseT > 3.2 && m.winner !== null) { // (antes, festejan los que ganaron)
@@ -351,7 +354,7 @@ export function KombatFootball() {
     const hide = () => { if (document.hidden) setScreen('paused'); };
     document.addEventListener('visibilitychange', hide);
     const observer = new ResizeObserver(paint); if (stageRef.current) observer.observe(stageRef.current);
-    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); observer.disconnect(); };
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); observer.disconnect(); setKfRotor(0); };
   }, [screen, paint, shout, round]);
   useEffect(() => () => setCrowd(0), []);
 
@@ -402,19 +405,19 @@ export function KombatFootball() {
     <div className="kf-howto-head"><Portrait char={chars[side]} size={56} square mirror={side === 1} /><div><b>{c.name}</b><small>{mode === 'versus' ? `Jugador ${side + 1}` : 'Vos'} · capitán de 5</small></div></div>
     <ul>
       <li><Keys keys={k.move} /> correr para todos lados. Tu equipo son cinco {c.name}; manejás al del aro amarillo (cambia solo al más cercano a la pelota)</li>
-      <li><Keys keys={[k.kick]} /> <b>tirar al arco:</b> mantenelo para cargar el tiro y soltalo. Si al soltar apretás {mode === 'versus' && side === 0 ? 'W o S' : '↑ o ↓'}, la pelota sale <b>con efecto</b> y dobla hacia ese palo.</li>
-      <li><Keys keys={[k.pass]} /> <b>pasar</b> al compañero hacia donde apuntás (sin la pelota: cambiar de jugador)</li>
-      <li><Keys keys={[k.kick]} /> sin la pelota: <b>quite</b> si estás pegado al rival · <Keys keys={[k.kick, k.kick]} /> dos veces: <b>barrida</b> para sacarle la pelota</li>
-      <li><Keys keys={[k.jump]} /> <b>saltar</b> (con la pelota, salta con ella): para pasar por arriba de la lava y esquivar las barridas</li>
+      <li><Keys keys={[k.kick]} /> <b>patear al arco:</b> cuanto más lo apretás, más fuerte sale (soltalo para patear). Si llenás la barra es <b>gol seguro</b>: el arquero no llega. Flojo, el arquero lo ataja. Si al soltar apretás {mode === 'versus' && side === 0 ? 'W o S' : '↑ o ↓'}, la pelota sale con efecto hacia ese palo.</li>
+      <li><Keys keys={[k.pass]} /> <b>pasar</b> al compañero hacia donde apuntás · sin la pelota: <b>cambiar</b> al jugador más cercano a la pelota</li>
+      <li><Keys keys={[k.steal]} /> <b>sacar la pelota:</b> el rival que la tiene sale volando para arriba y explota en sangre y huesos (si está un poco lejos, te tirás hacia él). ¡Ojo que la máquina también lo hace!</li>
+      <li><Keys keys={[k.sprint]} /> mantenela para <b>correr</b> más rápido</li>
       <li><b>Arquero con la pelota:</b> <Keys keys={[k.pass]} /> se la pasa a un compañero · <Keys keys={[k.kick]} /> la tira para arriba, bien lejos</li>
-      <li className="kf-howto-ab"><b>CUIDADO CON LA CANCHA</b> (los jugadores no se pegan entre ellos: el peligro viene del escenario):
+      <li className="kf-howto-ab"><b>CUIDADO CON LA CANCHA</b> (le puede tocar a cualquiera, de los dos equipos):
         <ul className="kf-atks">
           <li>🦈 <b>Tiburones voladores:</b> persiguen a un jugador desde el aire y se tiran en picada. Corré para que no te coman.</li>
-          <li>🌋 <b>Lagos de lava:</b> aparecen de la nada (primero se agrieta el piso). Rodealos o saltalos: el que los pisa se prende fuego.</li>
+          <li>🟢 <b>Charcos de ácido:</b> aparecen de la nada (primero burbujea el piso). Rodealos: el que los pisa se derrite.</li>
           <li>🛸 <b>Ovni:</b> sigue a un jugador, se frena, marca el piso en celeste y dispara. Salí de la marca.</li>
           <li>☄️ <b>Meteoritos:</b> la marca roja avisa dónde caen. El que queda adentro explota.</li>
         </ul>
-        Los que mueren vuelven a entrar en unos segundos.</li>
+        Pasan de a uno por vez. Los que mueren vuelven a entrar en unos segundos.</li>
     </ul>
   </div>; };
 
@@ -428,7 +431,8 @@ export function KombatFootball() {
   return <section className="runner kf" style={fit} aria-label="Kombat Football" onClickCapture={e => { if ((e.target as Element).closest('button, a')) playKfButton(); }}>
     <TouchGrips actionLabel={screen === 'playing' ? '⚽' : 'Elegir'} extra={playing && mode !== 'versus' ? <>
       <button type="button" className="kf-cast" aria-label="Pasar" {...hold('pass')}>⇄</button>
-      <button type="button" className="kf-cast" aria-label="Saltar" {...hold('jump')}>⤒</button>
+      <button type="button" className="kf-cast" aria-label="Sacar la pelota" {...hold('steal')}>✊</button>
+      <button type="button" className="kf-cast" aria-label="Correr" {...hold('sprint')}>»</button>
     </> : undefined} />
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
@@ -526,7 +530,7 @@ export function KombatFootball() {
         <div>
           {screen === 'menu' && <>
             <h2 id="kf-title" className="kf-logo">KOMBAT<br /><span>FOOTBALL</span></h2>
-            <p>Fútbol 5 contra 5 en una cancha larga: elegí tu luchador (tu equipo son cinco iguales) y sobreviví a la cancha. Tiburones voladores, lagos de lava, un ovni que dispara y meteoritos que caen del cielo. Tiros con efecto y salto con la C. Dos tiempos de 1:30 y gol de oro si empatan.</p>
+            <p>Fútbol 5 contra 5 en una cancha larga: elegí tu luchador (tu equipo son cinco iguales) y sobreviví a la cancha. Sacale la pelota al rival con la C (sale volando y explota), y cuidado con los tiburones voladores, los charcos de ácido, el ovni y los meteoritos. Con la barra del tiro llena es gol seguro. Dos tiempos de 1:30 y gol de oro si empatan.</p>
             <div className="kf-modes">
               <button type="button" onClick={() => { playKfSelectVoice(); setMode('cpu'); setPick(0); setCursor(CHAR_IDS.indexOf(p1)); setScreen('select'); }} autoFocus>Contra la máquina</button>
               <button type="button" onClick={() => { playKfSelectVoice(); setMode('versus'); setPick(0); setCursor(CHAR_IDS.indexOf(p1)); setScreen('select'); }}>2 jugadores</button>
@@ -586,7 +590,8 @@ export function KombatFootball() {
     </div>
     {playing && mode !== 'versus' && <GamePad className="kf-pad" action={{ hold: hold('kick'), label: 'Patear' }} actionLabel="⚽" dirs={{ left: { hold: hold('left'), aria: 'Izquierda' }, right: { hold: hold('right'), aria: 'Derecha' }, up: { hold: hold('up'), aria: 'Arriba' }, down: { hold: hold('down'), aria: 'Abajo' } }} extra={<>
       <button type="button" className="kf-cast" aria-label="Pasar" {...hold('pass')}>⇄</button>
-      <button type="button" className="kf-cast" aria-label="Saltar" {...hold('jump')}>⤒</button>
+      <button type="button" className="kf-cast" aria-label="Sacar la pelota" {...hold('steal')}>✊</button>
+      <button type="button" className="kf-cast" aria-label="Correr" {...hold('sprint')}>»</button>
     </>} />}
   </section>;
 }

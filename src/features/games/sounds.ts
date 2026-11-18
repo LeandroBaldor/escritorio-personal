@@ -1698,3 +1698,39 @@ export function syncPenaltySceneAudio(finaleTime: number | null, champion = fals
 }
 // Los brazos del piedra, papel o tijera (T-800.mp3 del usuario): un tramo corto en cada movimiento y el final cuando muestran la mano.
 export function playPenArm(end = false) { if (!playSample(end ? penArmEndUrl : penArmUrl, 1)) playKfButton(end ? 0.9 : 0.45); }
+
+// ---------- Kombat Football: los peligros de la cancha ----------
+// La hélice del tiburón volador (la misma grabación del helicóptero de Ciudad Tiburón), en un loop que sube y
+// baja según haya un tiburón en la cancha (level 0 = no suena).
+let kfRotor: GainNode | null = null;
+export function setKfRotor(level: number) {
+  const c = ctx; if (!c) return;
+  if (!kfRotor) {
+    if (level <= 0) return;
+    const g = c.createGain(); g.gain.value = 0; g.connect(out(c)); kfRotor = g;
+    whenLoaded(helicopteroUrl, buffer => { const src = c.createBufferSource(); src.buffer = buffer; src.loop = true; src.connect(g); src.start(); });
+  }
+  kfRotor.gain.setTargetAtTime(Math.max(0, level) * 1.3, c.currentTime, level > 0 ? 0.12 : 0.25);
+}
+export function preloadKfHazardSounds() { for (const url of [helicopteroUrl, explosionUrl, bombaUrl, tiburonAtacaUrl]) loadSample(url); }
+// El meteorito que cae: un silbido que baja y un rugido de fuego que crece.
+export function playKfMeteorFall(length = 1.8) {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  tone(c, 'sine', 1900, 380, t, length, 0.12);
+  const roar = noiseSource(c, false), band = filter(c, 'bandpass', 500, 0.9), gain = c.createGain();
+  band.frequency.setValueAtTime(1600, t); band.frequency.exponentialRampToValueAtTime(260, t + length);
+  gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.6, t + length * 0.95); gain.gain.exponentialRampToValueAtTime(0.0001, t + length + 0.05);
+  roar.connect(band).connect(gain).connect(out(c)); roar.start(t); roar.stop(t + length + 0.1);
+}
+// El impacto: la explosión grabada, la bomba y un retumbo grave largo (fuerte).
+export function playKfMeteorImpact() {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  playSample(explosionUrl, 1.2); playSample(bombaUrl, 1, 0.04);
+  tone(c, 'sine', 70, 22, t, 1.6, 1.3);
+  const rumble = noiseSource(c, false), low = filter(c, 'lowpass', 400), gain = c.createGain();
+  gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(1, t + 0.05); gain.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);
+  rumble.connect(low).connect(gain).connect(out(c)); rumble.start(t); rumble.stop(t + 2.3);
+  for (let i = 0; i < 10; i++) burst(c, 'highpass', 2200, t + 0.15 + Math.random() * 0.9, 0.04, 0.18); // las piedras que caen
+}
