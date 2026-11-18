@@ -622,17 +622,33 @@ test('Gravity Swap: se abre desde Juegos, el escenario avanza, muestra las vidas
 
 test('Invasión: se abre desde Juegos, corre el tiempo, se dispara, se recarga y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.getByText('Los aliens ya están entre nosotros', { exact: false })).toBeVisible();
+  await expect(page.getByText('Defendé la ciudad de los grises', { exact: false })).toBeVisible();
   await page.getByRole('link', { name: /Invasión/ }).click();
   await expect(page.getByRole('heading', { name: 'Invasión', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
-  await expect(page.getByTestId('inv-time')).toHaveText(/^0:0\d$/);
-  await expect(page.getByTestId('inv-time')).not.toHaveText('0:00', { timeout: 15000 }); // el reloj corre (en las máquinas lentas, más despacio)
-  await expect(page.getByTestId('inv-kills')).toHaveText('0 / 20');
-  await expect(page.getByTestId('inv-lives')).toHaveAttribute('aria-label', '3 vidas');
-  await expect(page.getByTestId('inv-ammo')).toHaveAttribute('aria-label', '5 balas');
+  await expect(page.getByTestId('inv-time')).toHaveText(/^(10:00|9:5\d)$/);
+  await expect(page.getByTestId('inv-time')).toHaveText(/^9:5\d$/, { timeout: 15000 });
+  await expect(page.getByTestId('inv-humans')).toHaveText(/^[1-9]\d*$/);
+  await expect(page.getByTestId('inv-aliens')).toHaveText('12');
+  await expect(page.getByTestId('inv-score')).toHaveText('0');
+  await expect(page.getByTestId('inv-ammo')).toHaveText('5 / 5');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('inv-ammo')).toHaveText('4 / 5');
   await page.keyboard.press('Space');
-  await expect(page.getByTestId('inv-ammo')).toHaveAttribute('aria-label', '4 balas');
+  const armory = page.getByRole('dialog', { name: 'Seleccioná un arma' });
+  await expect(armory).toBeVisible();
+  const weapons = armory.locator('.inv-weapon-card strong');
+  await expect(weapons).toHaveText(['Rifle de francotirador', 'Ametralladora', 'Bazooka']);
+  await expect.poll(() => armory.locator('img').evaluateAll(images => images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
+  await expect(page.getByTestId('inv-ammo')).toHaveText('4 / 5');
+  await armory.getByRole('button', { name: /Ametralladora/ }).click();
+  await expect(page.getByTestId('inv-ammo')).toHaveText('24 / 24');
+  await page.getByRole('button', { name: /Arsenal/ }).click();
+  await expect(armory).toBeVisible();
+  await page.keyboard.press('3');
+  await expect(page.getByTestId('inv-ammo')).toHaveText('1 / 1');
+  await page.keyboard.press('1');
+  await expect(page.getByTestId('inv-ammo')).toHaveText('4 / 5');
   await expect(page.locator('button[aria-label="Mover la vista a la derecha"]')).toHaveCount(1); // en la compu está oculto: se usan las flechas
   await page.keyboard.press('p');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();

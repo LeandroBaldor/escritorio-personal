@@ -139,7 +139,19 @@ function drawRoomStatic(ctx: CanvasRenderingContext2D, room: Room, b: Building, 
     if (theme === 'kids') for (let i = 0; i < 12; i++) { ctx.fillStyle = hsl((hash(seed + i) * 360) | 0, 80, 70); ctx.font = font(900, s * 0.25); ctx.fillText('★', x(x1 + hash(seed + i * 3) * (x2 - x1)), y(y0 + 1.2 + hash(seed + i * 5) * 1.2)); }
     if (theme === 'studio') for (let yy = y0; yy < y1; yy += 0.22) for (let xx = x1 + ((yy * 9) % 2) * 0.22; xx < x2; xx += 0.44) { ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.strokeRect(x(xx), y(yy + 0.22), 0.44 * s, 0.22 * s); }
     if (theme === 'lobby') for (let xx = x1; xx < x2; xx += 1) rect('rgba(120,113,108,0.15)', xx, y0, 0.02, room.h);
-    if (theme === 'gym') { rect('rgba(186,230,253,0.35)', x1 + 0.3, y0 + 0.4, x2 - x1 - 0.6, 1.6); ctx.font = font(900, s * 0.5); ctx.fillStyle = 'rgba(30,41,59,0.5)'; ctx.textAlign = 'center'; ctx.fillText('NO PAIN NO GAIN', x((x1 + x2) / 2), y(y0 + 2.4)); }
+    if (theme === 'gym' || room.shop === 'gimnasio') {
+      const mirrorW = x2 - x1 - 0.6;
+      const mirror = ctx.createLinearGradient(x(x1), y(y0 + 1.9), x(x2), y(y0 + 0.6));
+      mirror.addColorStop(0, '#566773');
+      mirror.addColorStop(0.46, '#b8c7cc');
+      mirror.addColorStop(0.51, '#d7e0e1');
+      mirror.addColorStop(1, '#718591');
+      rect('#414950', x1 + 0.3, y0 + 0.56, mirrorW, 1.42);
+      rect(mirror, x1 + 0.34, y0 + 0.6, mirrorW - 0.08, 1.34);
+      for (let dx = 1.25; dx < mirrorW - 0.08; dx += 1.25) {
+        rect('#839398', x1 + 0.3 + dx, y0 + 0.6, 0.022, 1.34);
+      }
+    }
     // Ventanas: afuera, el cielo y otros edificios.
     for (const [a, c] of windowsOf(room, b)) {
       const wb = winBottom(room, b), wt = winTop(room);
@@ -201,6 +213,7 @@ function drawRoomStatic(ctx: CanvasRenderingContext2D, room: Room, b: Building, 
     for (let xx = x1; xx < x2 + 0.3; xx += 0.35) { ctx.beginPath(); ctx.moveTo(x(Math.min(x2, xx)), y(y0 + fd)); ctx.lineTo(x(Math.max(x1, Math.min(x2, xx - 0.12))), y(y0)); ctx.stroke(); }
   }
   rect('rgba(255,255,255,0.12)', x1, y0, x2 - x1, 0.02);
+  if (theme !== 'site') drawRoomFinishes(ctx, room, P, hue);
   // Muebles.
   for (const f of room.furniture) drawItem(ctx, f, room, P, hue);
   // Luz ambiente: un poco de sombra en las puntas.
@@ -212,6 +225,50 @@ function drawRoomStatic(ctx: CanvasRenderingContext2D, room: Room, b: Building, 
 
 // Cosas de la pared: enchufes, la llave de luz, una puerta, radiador o aire acondicionado, persianas.
 const FLOOR_D = 0.3; // lo que se ve de profundidad del piso
+function drawRoomFinishes(ctx: CanvasRenderingContext2D, room: Room, P: P, hue: number) {
+  const { x, y, s } = P, { x1, x2, seed, theme, shop } = room;
+  const ceiling = room.y + room.h, width = x2 - x1;
+  const gym = theme === 'gym' || shop === 'gimnasio';
+  const office = theme === 'office' || theme === 'lobby';
+  const cafe = shop === 'cafe' || shop === 'bar' || shop === 'pizzeria';
+  const rect = (color: string | CanvasGradient, left: number, bottom: number, w: number, h: number) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x(left), y(bottom + h), w * s, h * s);
+  };
+  const count = Math.ceil(width / (office ? 3.5 : 4.5));
+  for (let i = 0; i < count; i++) {
+    const cx = x1 + (i + 0.5) * width / count;
+    const drop = cafe ? 0.42 : 0.19;
+    const radius = Math.min(1.25, width / count / 2);
+    const light = ctx.createRadialGradient(x(cx), y(ceiling - drop), 0, x(cx), y(ceiling - drop), radius * s);
+    light.addColorStop(0, office || gym ? 'rgba(233,244,255,0.34)' : 'rgba(255,222,162,0.36)');
+    light.addColorStop(1, 'rgba(255,240,211,0)');
+    rect(light, cx - radius, ceiling - drop - radius, radius * 2, drop + radius);
+    rect('#41464a', cx - 0.018, ceiling - drop, 0.036, drop - 0.12);
+    const fixture = office || gym ? 0.92 : cafe ? 0.4 : 0.25;
+    rect('#505154', cx - fixture / 2, ceiling - drop, fixture, 0.09);
+    rect(office || gym ? '#eef6fa' : '#ffe2af', cx - fixture / 2 + 0.025, ceiling - drop - 0.028, fixture - 0.05, 0.032);
+  }
+
+  if (gym) {
+    // Juntas de caucho y marcas de las estaciones.
+    rect('#292e32', x1, room.y, width, 0.24);
+    for (let offset = 0.32; offset < width - 0.18; offset += 0.64) {
+      rect('#43494c', x1 + offset, room.y, 0.018, 0.24);
+    }
+    rect('#8e733c', x1 + 0.12, room.y + 0.14, width - 0.24, 0.025);
+  }
+  if (theme === 'living' || theme === 'bedroom' || theme === 'kids' || theme === 'dining') {
+    const rugW = Math.min(2.55, width - 0.6);
+    const left = x1 + (width - rugW) * (0.25 + hash(seed) * 0.5);
+    rect(hsl((hue + 140) % 360, 24, 34), left, room.y + 0.025, rugW, 0.22);
+    rect(hsl((hue + 145) % 360, 22, 61), left + 0.08, room.y + 0.052, rugW - 0.16, 0.165);
+    rect(hsl((hue + 140) % 360, 28, 43), left + 0.13, room.y + 0.073, rugW - 0.26, 0.115);
+    for (let offset = 0.22; offset < rugW - 0.15; offset += 0.19) {
+      rect('rgba(245,230,198,0.4)', left + offset, room.y + 0.105, 0.06, 0.047);
+    }
+  }
+}
 function drawWallDetails(ctx: CanvasRenderingContext2D, room: Room, b: Building, P: P, hue: number): { door: number; ac: boolean } {
   const { x, y, s } = P, x1 = room.x1, x2 = room.x2, y0 = room.y + FLOOR_D, y1 = room.y + room.h, seed = room.seed, theme = room.theme;
   const rect = (c: string | CanvasGradient, a: number, bY: number, w: number, h: number, r = 0) => { ctx.fillStyle = c; ctx.beginPath(); ctx.roundRect(x(a), y(bY + h), w * s, h * s, r * s); ctx.fill(); };
@@ -315,6 +372,12 @@ function drawItem(ctx: CanvasRenderingContext2D, f: Furniture, room: Room, P: P,
       rect(f.item === 'computerDesk' ? '#e5e7eb' : wood, x0, y0 + 0.72, w, 0.05); legs(x0, w, 0.72);
       if (f.item === 'computerDesk') { rect('#111827', x0 + w / 2 - 0.28, y0 + 0.85, 0.56, 0.36, 0.02); rect('#1e3a8a', x0 + w / 2 - 0.25, y0 + 0.88, 0.5, 0.3); rect('#374151', x0 + w / 2 - 0.03, y0 + 0.77, 0.06, 0.1); rect('#d1d5db', x0 + w / 2 - 0.2, y0 + 0.77, 0.4, 0.02); }
       else { rect('#facc15', x0 + 0.15, y0 + 0.77, 0.08, 0.3); rect('#fef9c3', x0 + 0.05, y0 + 1.05, 0.28, 0.1); rect('#e5e7eb', x0 + w * 0.5, y0 + 0.77, 0.3, 0.04); }
+      if (room.theme === 'office') {
+        rect('#d9d6cb', x0 + w - 0.29, y0 + 0.77, 0.22, 0.045);
+        rect('#ede9df', x0 + w - 0.27, y0 + 0.815, 0.18, 0.027);
+        rect('#63817e', x0 + 0.07, y0 + 0.77, 0.11, 0.12, 0.022);
+        rect('#2d373b', x0 + 0.09, y0 + 0.88, 0.072, 0.022);
+      }
       rect('#1f2937', x0 + w * 0.15, y0 + 0.42, 0.4, 0.06); rect('#1f2937', x0 + w * 0.32, y0, 0.05, 0.42); break;
     }
     case 'mirror': rect('#a16207', x0 + w / 2 - 0.3, y0 + 1, 0.6, 1.1, 0.25); { const m = ctx.createLinearGradient(x(x0), y(y0 + 2), x(x0 + w), y(y0 + 1)); m.addColorStop(0, '#e0f2fe'); m.addColorStop(0.5, '#94a3b8'); m.addColorStop(1, '#e0f2fe'); rect(m, x0 + w / 2 - 0.25, y0 + 1.05, 0.5, 1, 0.22); } break;
@@ -329,7 +392,23 @@ function drawItem(ctx: CanvasRenderingContext2D, f: Furniture, room: Room, P: P,
     case 'easel': ctx.strokeStyle = '#92400e'; ctx.lineWidth = Math.max(1.5, s * 0.05); ctx.beginPath(); ctx.moveTo(x(x0 + 0.15), y(y0)); ctx.lineTo(x(x0 + w / 2), y(y0 + 1.7)); ctx.lineTo(x(x0 + w - 0.15), y(y0)); ctx.stroke(); rect('#f8fafc', x0 + 0.1, y0 + 0.75, w - 0.2, 0.8); { const pa = ctx.createLinearGradient(x(x0), 0, x(x0 + w), 0); pa.addColorStop(0, '#f97316'); pa.addColorStop(0.5, '#38bdf8'); pa.addColorStop(1, '#a855f7'); rect(pa, x0 + 0.15, y0 + 0.8, w - 0.3, 0.7); } break;
     case 'piano': grad('#1c1917', '#0c0a09', x0, y0, w, 1.15, 0.04); rect('#f8fafc', x0 + 0.05, y0 + 0.72, w - 0.1, 0.12); for (let kx = x0 + 0.1; kx < x0 + w - 0.1; kx += 0.12) rect('#111', kx, y0 + 0.78, 0.05, 0.06); break;
     case 'washer': grad('#f8fafc', '#cbd5e1', x0, y0, w, 0.9, 0.05); circ('#334155', x0 + w / 2, y0 + 0.42, 0.28); circ('#60a5fa', x0 + w / 2, y0 + 0.42, 0.21); rect('#cbd5e1', x0 + 0.05, y0 + 0.8, w - 0.1, 0.06); break;
-    case 'counter': grad(room.shop === 'bar' ? '#7c2d12' : hsl(hue, 30, 45), room.shop === 'bar' ? '#451a03' : hsl(hue, 30, 30), x0, y0, w, 1.02, 0.02); rect(room.shop === 'bar' ? '#a16207' : '#e7e5e4', x0 - 0.05, y0 + 1, w + 0.1, 0.07); if (room.shop === 'kiosco' || room.shop === 'farmacia') rect('#111827', x0 + w - 0.5, y0 + 1.07, 0.35, 0.25, 0.03); break;
+    case 'counter': {
+      grad(hsl(hue, 24, 44), hsl(hue, 24, 25), x0, y0, w, 1.02, 0.02);
+      for (let dx = 0.1; dx < w - 0.12; dx += 0.15) rect('rgba(0,0,0,0.18)', x0 + dx, y0 + 0.1, 0.016, 0.88);
+      rect('#ded7c9', x0 - 0.05, y0 + 1, w + 0.1, 0.07);
+      rect('#252c31', x0 + w - 0.45, y0 + 1.07, 0.32, 0.2, 0.03);
+      rect('#86a8a5', x0 + w - 0.41, y0 + 1.19, 0.23, 0.045);
+      if (room.shop === 'cafe') {
+        grad('#dce5e7', '#697579', x0 + 0.17, y0 + 1.07, 0.77, 0.43, 0.04);
+        rect('#2e3539', x0 + 0.21, y0 + 1.15, 0.69, 0.18);
+        for (const dx of [0.35, 0.66]) {
+          rect('#adb7bc', x0 + dx, y0 + 1.27, 0.06, 0.07);
+          rect('#f4ece0', x0 + dx - 0.035, y0 + 1.09, 0.14, 0.1, 0.02);
+          rect('#f4ece0', x0 + dx - 0.035, y0 + 1.5, 0.14, 0.1, 0.02);
+        }
+      }
+      break;
+    }
     case 'stool': rect('#57534e', x0 + w / 2 - 0.03, y0, 0.06, 0.7); rect('#b91c1c', x0, y0 + 0.7, w, 0.07, 0.03); break;
     case 'oven': rect('#b45309', x0, y0, w, 1, 0.05); ctx.fillStyle = '#9a3412'; ctx.beginPath(); ctx.ellipse(x(x0 + w / 2), y(y0 + 1), w * 0.5 * s, 0.6 * s, 0, Math.PI, 0); ctx.fill(); ctx.fillStyle = '#1c1917'; ctx.beginPath(); ctx.ellipse(x(x0 + w / 2), y(y0 + 0.95), w * 0.25 * s, 0.3 * s, 0, Math.PI, 0); ctx.fill(); { const fire = ctx.createRadialGradient(x(x0 + w / 2), y(y0 + 1), 0, x(x0 + w / 2), y(y0 + 1), w * 0.3 * s); fire.addColorStop(0, '#fde047'); fire.addColorStop(1, 'rgba(234,88,12,0)'); ctx.fillStyle = fire; ctx.fillRect(x(x0), y(y0 + 1.4), w * s, 0.5 * s); } break;
     case 'barberChair': rect('#111827', x0 + w / 2 - 0.15, y0, 0.3, 0.1); rect('#9ca3af', x0 + w / 2 - 0.03, y0 + 0.1, 0.06, 0.35); rect('#b91c1c', x0 + 0.1, y0 + 0.45, w - 0.2, 0.12, 0.04); rect('#b91c1c', x0 + 0.1, y0 + 0.5, 0.15, 0.6, 0.05); break;
@@ -501,12 +580,25 @@ function drawStructure(ctx: CanvasRenderingContext2D, g: Invasion, b: Building, 
     ctx.font = font(900, s * 0.36); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.shadowColor = neon; ctx.shadowBlur = s * 0.25; ctx.fillStyle = neon; ctx.fillText(name, sx + sw / 2, sy + 0.26 * s); ctx.shadowBlur = 0;
     // Toldo.
-    const ay = Y(v, b.ground - 0.55), ah = 0.45 * s;
-    for (let i = 0, xx = b.x + 0.3; xx < b.x + b.w - 0.3; xx += 0.4, i++) { ctx.fillStyle = i % 2 ? '#f8fafc' : hsl(b.hue, 70, 42); ctx.beginPath(); ctx.moveTo(X(v, xx), ay - ah); ctx.lineTo(X(v, xx + 0.4), ay - ah); ctx.lineTo(X(v, xx + 0.46), ay); ctx.lineTo(X(v, xx + 0.06), ay); ctx.fill(); }
-  } else if (b.style === 'office' || b.style === 'hotel') {
-    ctx.fillStyle = '#0f172a'; ctx.fillRect(X(v, b.x + b.w / 2 - 2), Y(v, b.ground + 0.02), 4 * s, 0.45 * s);
-    ctx.fillStyle = '#e5e7eb'; ctx.font = font(900, s * 0.3); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(b.style === 'hotel' ? 'HOTEL' : `TORRE ${b.id + 1}`, X(v, b.x + b.w / 2), Y(v, b.ground + 0.25));
+    const ay = Y(v, b.ground - 0.83), ah = 0.25 * s;
+    const awningWidth = b.w - 0.6, panels = Math.ceil(awningWidth / 0.46);
+    for (let i = 0; i < panels; i++) {
+      const left = X(v, b.x + 0.3 + i * awningWidth / panels), panel = awningWidth / panels * s;
+      ctx.fillStyle = i % 2 ? '#e8e0d2' : hsl(b.hue, 42, 37);
+      ctx.beginPath(); ctx.moveTo(left, ay - ah); ctx.lineTo(left + panel, ay - ah);
+      ctx.lineTo(left + panel + 0.06 * s, ay); ctx.lineTo(left + 0.06 * s, ay); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.24)';
+    ctx.fillRect(X(v, b.x + 0.36), ay - 0.045 * s, awningWidth * s, 0.045 * s);
+  } else if (b.style !== 'construction') {
+    const usage = b.style === 'hotel' ? 'HOTEL' : b.style === 'office' || b.style === 'glass' ? 'OFICINAS' : 'DEPARTAMENTOS';
+    const label = `${usage}  ·  ${120 + b.id * 18}`;
+    const plaqueW = Math.min(b.w - 0.8, 4.6), left = X(v, b.x + (b.w - plaqueW) / 2);
+    const top = Y(v, b.ground - 0.08);
+    ctx.fillStyle = '#343c41'; ctx.fillRect(left, top, plaqueW * s, 0.48 * s);
+    ctx.fillStyle = '#8c8170'; ctx.fillRect(left, top, plaqueW * s, 0.04 * s);
+    ctx.fillStyle = '#eee7d9'; ctx.font = font(750, s * 0.25); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, X(v, b.x + b.w / 2), top + 0.25 * s, (plaqueW - 0.24) * s);
   }
   // Terraza.
   const ry = Y(v, b.top + 0.24);
@@ -563,6 +655,25 @@ function drawStreetBack(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   const near = ctx.createLinearGradient(0, Y(v, -3.8), 0, Y(v, -6)); near.addColorStop(0, '#78716c'); near.addColorStop(1, '#292524');
   ctx.fillStyle = near; ctx.fillRect(0, Y(v, -3.8), v.w, Math.max(0, v.h - Y(v, -3.8)));
   ctx.fillStyle = '#fde047'; for (let xx = Math.floor((v.cx - v.w / s) / 3) * 3; xx < v.cx + v.w / s; xx += 3) ctx.fillRect(X(v, xx), Y(v, ROAD_Y - 0.25), 1.6 * s, 0.07 * s);
+  for (let i = 0; i < g.buildings.length - 1; i += 3) {
+    const b = g.buildings[i], next = g.buildings[i + 1];
+    const xx = (b.x + b.w + next.x) / 2;
+    if (!visible(v, xx - 1.5, xx + 1.5, -3.8, 3)) continue;
+    ctx.fillStyle = '#39414a';
+    ctx.fillRect(X(v, xx - 1.25), Y(v, -0.43), 2.5 * s, 3.2 * s);
+    for (let stripe = 0; stripe < 5; stripe++) {
+      ctx.fillStyle = stripe % 2 ? '#b7b8ad' : '#d1cfc1';
+      ctx.fillRect(X(v, xx - 1.08 + stripe * 0.46), Y(v, -0.52), 0.25 * s, 3.04 * s);
+    }
+    ctx.fillStyle = '#484e4e';
+    ctx.fillRect(X(v, xx + 1.45), Y(v, 2.6), 0.075 * s, 2.6 * s);
+    ctx.fillStyle = '#355d74';
+    ctx.fillRect(X(v, xx + 1.15), Y(v, 2.72), 0.68 * s, 0.42 * s);
+    ctx.fillStyle = '#ecede5';
+    ctx.font = font(750, 0.16 * s);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('CRUCE', X(v, xx + 1.49), Y(v, 2.51));
+  }
   // Faroles (detrás de la gente).
   for (let xx = 6; xx < g.width; xx += 15) {
     if (!visible(v, xx - 2, xx + 2, -1, 6)) continue;
@@ -610,8 +721,20 @@ function drawTrees(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
     if (!visible(v, xx - 2, xx + 2, 0, 4.5)) continue;
     const px = X(v, xx);
     ctx.fillStyle = '#57534e'; ctx.fillRect(px - 0.5 * s, Y(v, 0.05), 1 * s, 0.25 * s);
-    ctx.fillStyle = '#78350f'; ctx.fillRect(px - 0.1 * s, Y(v, 2.2), 0.2 * s, 2.2 * s);
-    for (let i = 0; i < 6; i++) { ctx.fillStyle = mixColor(i % 2 ? '#15803d' : '#22c55e', '#44403c', ruin * 0.8); ctx.beginPath(); ctx.arc(px + Math.cos(i) * 0.7 * s + Math.sin(g.time + i) * 0.03 * s, Y(v, 3.1 + Math.sin(i * 2) * 0.5), 0.75 * s, 0, Math.PI * 2); ctx.fill(); }
+    ctx.strokeStyle = '#625043'; ctx.lineWidth = 0.16 * s;
+    ctx.beginPath(); ctx.moveTo(px, Y(v, 0)); ctx.quadraticCurveTo(px - 0.13 * s, Y(v, 1.1), px + 0.13 * s, Y(v, 2.95)); ctx.stroke();
+    ctx.lineWidth = 0.075 * s;
+    for (const d of [-1, 1]) {
+      ctx.beginPath(); ctx.moveTo(px, Y(v, 1.5)); ctx.quadraticCurveTo(px + d * 0.3 * s, Y(v, 2.2), px + d * 0.77 * s, Y(v, 2.8)); ctx.stroke();
+    }
+    for (let i = 0; i < 23; i++) {
+      const a = i * 2.4, distance = 0.95 * Math.sqrt(i / 23);
+      const rx = px + (Math.cos(a) * distance + Math.sin(g.time + i) * 0.025) * s;
+      const ry = Y(v, 3.15 + Math.sin(a) * distance * 0.78);
+      const radius = (0.25 + hash(xx + i) * 0.23) * s;
+      const leaf = hsl(103 + hash(i + xx * 7) * 26, 29 + (1 - ruin) * 17, 29 + Math.sin(a) * 8 - ruin * 12);
+      ctx.fillStyle = leaf; ctx.beginPath(); ctx.ellipse(rx, ry, radius, radius * 0.74, a, 0, Math.PI * 2); ctx.fill();
+    }
   }
 }
 
@@ -735,6 +858,20 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
   drawTrees(ctx, g, v);
   for (const c of g.cars) drawCar(ctx, c, v, g.time);
   for (const u of g.ufos) drawUfo(ctx, u, v, g.time);
+  for (const p of g.people) {
+    const shot = p.sabotage?.shot;
+    if (!shot || g.time - shot.time >= 0.16) continue;
+    const alpha = 1 - (g.time - shot.time) / 0.16;
+    ctx.beginPath();
+    ctx.moveTo(X(v, p.x + p.dir * 0.38), Y(v, p.y + 0.61));
+    ctx.lineTo(X(v, shot.x), Y(v, shot.y));
+    ctx.strokeStyle = `rgba(109,219,212,${alpha * 0.55})`;
+    ctx.lineWidth = Math.max(2, v.s * 0.055);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(224,255,249,${alpha})`;
+    ctx.lineWidth = Math.max(1, v.s * 0.018);
+    ctx.stroke();
+  }
   // Explosiones y partículas.
   for (const bl of g.blasts) {
     if (bl.t < 0) continue;

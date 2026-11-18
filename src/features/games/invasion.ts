@@ -1,16 +1,5 @@
-// Lógica de "Invasión": un francotirador mira una cuadra de la ciudad en corte (se ve qué pasa en cada
-// departamento) y tiene que matar a los aliens, que se hacen pasar por personas.
-//
-// - Los aliens se ven como personas, pero cada uno, cada 30 segundos (con su propio ritmo), muestra durante 5
-//   segundos su cara de alien gris. Además cada tanto hacen algo anormal (ver invasionAnomalies.ts): se quedan
-//   mirando fijo a la mira, hablan por un intercomunicador extraterrestre, caminan por las paredes y el techo.
-// - A los 3 minutos empieza a llover (nubes, relámpagos) y a los 5 llegan los ovnis.
-// - Quieren incendiar todo: prenden fuego con un encendedor, con un arma alienígena, o dejan cajas con
-//   explosivos (la gente también deja cajas, pero las de ellos tienen una lucecita roja que titila).
-// - Con el tiempo hay más aliens, la gente corre, y desde la mitad del juego llegan ovnis (a los que las
-//   balas no les hacen nada) que disparan contra la ciudad hasta destruirla del todo a los 10 minutos.
-// - Ganás cuando matás a 20 aliens. Tenés 3 vidas: cada persona a la que le disparás te saca una (y si se
-//   terminan los 10 minutos, también perdés).
+// Los grises atacan a los civiles, colocan explosivos y reciben refuerzos de los OVNIs.
+// Al final de los diez minutos, la población humana debe superar a los alienígenas.
 //
 // Todo se mide en "unidades" (una persona mide 1). El piso de la calle es y = 0 y hacia arriba es positivo.
 import { ANOMALIES, fitsPlace, shuffledAnomalies, type Anomaly } from './invasionAnomalies';
@@ -22,9 +11,15 @@ export const SIDEWALK_Y = 0, ROAD_Y = -1.6;
 export const UFO_FROM = 300; // a los 5 minutos llegan los ovnis
 export const RAIN_FROM = 180; // a los 3 minutos empieza a llover
 export const MAG = 5, BOLT_TIME = 0.75, RELOAD_TIME = 2.2;
-export const GOAL_KILLS = 20;
-export const LIVES = 3; // personas a las que se les puede disparar antes de perder
-export type Outcome = 'won' | 'civilian' | 'time';
+export type Outcome = 'won' | 'time';
+export const WEAPONS = {
+  rifle: { name: 'Rifle de francotirador', mag: MAG, cycle: BOLT_TIME, reload: RELOAD_TIME, zoom: 520, start: 58 },
+  machine: { name: 'Ametralladora', mag: 24, cycle: 0.115, reload: 1.9, zoom: 120, start: 43 },
+  bazooka: { name: 'Bazooka', mag: 1, cycle: 0.5, reload: 3.1, zoom: 85, start: 36 },
+} as const;
+export type Weapon = keyof typeof WEAPONS;
+export const ALIEN_POINTS = 100;
+export const BAZOOKA_RADIUS = 4.2;
 
 export type Style = 'brick' | 'stucco' | 'glass' | 'office' | 'construction' | 'old' | 'hotel';
 export type Theme = 'living' | 'kitchen' | 'bedroom' | 'bath' | 'office' | 'gym' | 'kids' | 'dining' | 'studio' | 'laundry' | 'shop' | 'site' | 'lobby';
@@ -47,7 +42,7 @@ export interface Room {
 export interface Building { id: number; x: number; w: number; floors: number; fh: number; ground: number; style: Style; hue: number; tone: number; top: number; roof: 'flat' | 'tank' | 'antenna' | 'garden' | 'sign'; rooms: number[]; sign?: string }
 export interface Look { skin: number; hair: number; hat: number; shirt: number; shirt2: number; pattern: number; pants: number; shoes: number; size: number; kid: boolean }
 export type SabotageKind = 'lighter' | 'ray' | 'box';
-export interface Sabotage { kind: SabotageKind; t0: number; x: number; done: boolean; carryUntil: number }
+export interface Sabotage { kind: SabotageKind; t0: number; x: number; done: boolean; carryUntil: number; shot?: { x: number; y: number; time: number } }
 export interface ActiveAnomaly { id: number; t0: number; until: number; seed: number }
 export interface Person {
   id: number; room: number; x: number; y: number; dir: 1 | -1; speed: number; act: Activity; actUntil: number; tx: number; moving: boolean;
@@ -57,14 +52,14 @@ export interface Person {
   stareUntil: number; nextStare: number; comm: { t0: number; until: number } | null; nextComm: number;
 }
 export interface Box { id: number; room: number; x: number; y: number; explosive: boolean; t0: number; explodeAt: number; defused: boolean; exploded: boolean; hit: boolean; kind: number }
-export interface Ufo { id: number; x: number; y: number; vx: number; t0: number; beam: { room: number; t0: number; until: number; x: number; y: number } | null; nextBeam: number; wobble: number }
+export interface Ufo { id: number; x: number; y: number; vx: number; t0: number; deployed: boolean; beam: { room: number; t0: number; until: number; x: number; y: number } | null; nextBeam: number; wobble: number }
 export interface Car { id: number; x: number; dir: 1 | -1; speed: number; hue: number; kind: 'car' | 'taxi' | 'bus' | 'van' | 'police'; lane: number }
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; kind: 'blood' | 'spark' | 'glass' | 'smoke' | 'debris' | 'ember' | 'goo' }
 export interface Decal { room: number; x: number; y: number; glass: boolean; t: number; goo?: boolean; blood?: boolean; size?: number }
 export interface Blast { x: number; y: number; t: number; size: number; green?: boolean; big?: boolean }
 export type InvasionEvent =
   | { type: 'shot'; x: number; y: number } | { type: 'kill'; x: number; y: number; head: boolean; anomaly: number | null }
-  | { type: 'civilian'; x: number; y: number; lives: number } | { type: 'bomb'; x: number; y: number } | { type: 'defused'; x: number; y: number } | { type: 'boxHit'; x: number; y: number }
+  | { type: 'civilian'; x: number; y: number } | { type: 'bomb'; x: number; y: number } | { type: 'defused'; x: number; y: number } | { type: 'boxHit'; x: number; y: number }
   | { type: 'ufoPing'; x: number; y: number } | { type: 'explosion'; x: number; y: number } | { type: 'fire'; x: number; y: number }
   | { type: 'laser'; x: number; y: number } | { type: 'ufoArrive' } | { type: 'moreAliens'; count: number } | { type: 'scream'; x: number; y: number }
   | { type: 'lighter'; x: number; y: number } | { type: 'ray'; x: number; y: number } | { type: 'glass'; x: number; y: number } | { type: 'miss'; x: number; y: number }
@@ -74,7 +69,7 @@ export interface Invasion {
   particles: Particle[]; decals: Decal[]; blasts: Blast[];
   time: number; kills: number; civilians: number; headshots: number; defused: number; shots: number; hits: number; over: boolean; outcome: Outcome | null;
   events: InvasionEvent[]; deck: number[]; deckPos: number; rand: () => number; nextId: number; seen: number[]; killedAnomalies: number[];
-  aliensWanted: number; told: { ufo: boolean; rain: boolean };
+  aliensWanted: number; ufosLaunched: number; told: { ufo: boolean; rain: boolean };
   aim: { x: number; y: number }; // dónde está apuntando la mira (los aliens se dan cuenta)
   lightning: { t: number; x: number } | null;
 }
@@ -214,7 +209,7 @@ export function newInvasion(seed?: number): Invasion {
   const g: Invasion = {
     ...city, people: [], boxes: [], ufos: [], cars: [], particles: [], decals: [], blasts: [],
     time: 0, kills: 0, civilians: 0, headshots: 0, defused: 0, shots: 0, hits: 0, over: false, outcome: null, events: [],
-    deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), told: { ufo: false, rain: false },
+    deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), ufosLaunched: 0, told: { ufo: false, rain: false },
     aim: { x: city.width / 2, y: 10 }, lightning: null,
   };
   // Gente en cada habitación (en las obras, albañiles; en los locales, el que atiende y algún cliente).
@@ -234,12 +229,15 @@ export function newInvasion(seed?: number): Invasion {
   return g;
 }
 
+export const aliveHumans = (g: Invasion) => g.people.filter(p => !p.alien && !p.dead && !p.gone).length;
 export const aliveAliens = (g: Invasion) => g.people.filter(p => p.alien && !p.dead && !p.gone).length;
-// Uno más de la gente (que no se ve en ese momento como alien) pasa a ser alien disfrazado.
 function convert(g: Invasion) {
   const options = g.people.filter(p => !p.alien && !p.dead && !p.gone && !p.look.kid);
   if (!options.length) return;
-  const p = pick(g.rand, options);
+  activateAlien(g, pick(g.rand, options));
+}
+
+function activateAlien(g: Invasion, p: Person) {
   p.alien = true;
   p.revealPhase = g.rand() * REVEAL_EVERY;
   p.nextAnomaly = g.time + between(g.rand, 2, 10);
@@ -251,7 +249,7 @@ function convert(g: Invasion) {
 export const revealed = (p: Person, t: number) => p.alien && !p.dead && ((t + p.revealPhase) % REVEAL_EVERY) < REVEAL_TIME;
 export const roomOf = (g: Invasion, p: Person) => p.room >= 0 ? g.rooms[p.room] : null;
 export const anomalyOf = (p: Person): Anomaly | null => p.anomaly ? ANOMALIES[p.anomaly.id] : null;
-// Cuántos aliens tiene que haber según el tiempo: arranca con 12 y llega uno más cada 20 segundos (hasta 40).
+// Nuevas conversiones programadas a lo largo de la partida.
 export const aliensAt = (t: number) => Math.min(40, 12 + Math.floor(t / 20));
 // Ovnis: desde los 5 minutos, van apareciendo de a uno cada 40 segundos (hasta 5).
 export const ufosAt = (t: number) => t < UFO_FROM ? 0 : Math.min(5, 1 + Math.floor((t - UFO_FROM) / 40));
@@ -297,12 +295,21 @@ export function step(g: Invasion, dt: number) {
   dt = Math.min(dt, 0.05);
   g.time += dt;
   const t = g.time;
-  if (t >= GAME_SECONDS) { g.over = true; g.outcome = 'time'; for (const room of g.rooms) { room.destroyed = 1; room.burnt = 1; } emit(g, { type: 'end' }); return; }
+  if (t >= GAME_SECONDS - 1e-8) {
+    g.time = GAME_SECONDS;
+    g.over = true;
+    g.outcome = aliveHumans(g) > aliveAliens(g) ? 'won' : 'time';
+    emit(g, { type: 'end' });
+    return;
+  }
 
   // Más aliens con el tiempo.
   const want = aliensAt(t);
-  if (want > g.aliensWanted) { g.aliensWanted = want; emit(g, { type: 'moreAliens', count: want }); }
-  if (aliveAliens(g) < g.aliensWanted) convert(g);
+  if (want > g.aliensWanted) {
+    for (let i = g.aliensWanted; i < want; i++) convert(g);
+    g.aliensWanted = want;
+    emit(g, { type: 'moreAliens', count: aliveAliens(g) });
+  }
 
   // Lluvia y relámpagos.
   if (t >= RAIN_FROM && !g.told.rain) { g.told.rain = true; emit(g, { type: 'rain' }); }
@@ -365,8 +372,8 @@ function stepPerson(g: Invasion, p: Person, dt: number) {
       p.stareUntil = t + between(r, 3, 5); p.nextStare = p.stareUntil + between(r, 4, 10); p.moving = false;
     }
     if (!busy() && t > p.nextComm) { p.comm = { t0: t, until: t + between(r, 4, 6.5) }; p.moving = false; emit(g, { type: 'comm', x: p.x, y: p.y + 0.8 }); }
-    if (!busy() && t > p.nextAnomaly) startAnomaly(g, p, room);
     if (!busy() && t > p.nextSabotage) startSabotage(g, p, room);
+    if (!busy() && t > p.nextAnomaly) startAnomaly(g, p, room);
     if (p.sabotage) { stepSabotage(g, p, room, dt); return; }
     if (t < p.stareUntil) { p.moving = false; p.dir = g.aim.x >= p.x ? 1 : -1; return; }
     if (p.comm) { p.moving = false; if (r() < dt * 2) p.talk = 0.5; return; }
@@ -467,7 +474,7 @@ function stepAnomaly(g: Invasion, p: Person, room: Room | null, dt: number) {
 // ---------- Sabotajes ----------
 function startSabotage(g: Invasion, p: Person, room: Room | null) {
   const r = g.rand;
-  const kind: SabotageKind = !room ? pick(r, ['ray', 'box', 'box'] as const) : pick(r, ['lighter', 'ray', 'box', 'box'] as const);
+  const kind: SabotageKind = r() < 0.62 ? 'ray' : room && r() < 0.35 ? 'lighter' : 'box';
   const lo = room ? room.x1 + 0.5 : p.x - 4, hi = room ? room.x2 - 0.5 : p.x + 4;
   // La bomba (una caja roja grande) la pasea un rato antes de dejarla.
   p.sabotage = { kind, t0: g.time, x: between(r, lo, hi), done: false, carryUntil: kind === 'box' ? g.time + between(r, 8, 15) : 0 };
@@ -492,9 +499,19 @@ function stepSabotage(g: Invasion, p: Person, room: Room | null, dt: number) {
   }
   if (s.kind === 'ray' && !s.done && k > 1.6) {
     s.done = true;
-    // Le apunta a su habitación o, desde la vereda, a un local de planta baja.
-    const target = room ?? g.rooms.find(o => o.floor === 0 && p.x >= o.x1 - 1 && p.x <= o.x2 + 1);
-    if (target) ignite(g, target, Math.max(target.x1 + 0.3, Math.min(target.x2 - 0.3, p.x + p.dir * 1.2)));
+    let victim: Person | undefined;
+    let distance = 9;
+    for (const candidate of g.people) {
+      if (candidate.alien || candidate.dead || candidate.gone || candidate.room !== p.room) continue;
+      const dx = Math.abs(candidate.x - p.x);
+      if (dx < distance) { distance = dx; victim = candidate; }
+    }
+    if (victim) {
+      p.dir = victim.x < p.x ? -1 : 1;
+      const target = hitbox(g, victim);
+      s.shot = { x: (target.x1 + target.x2) / 2, y: (target.y1 + target.y2) / 2, time: t };
+      defeatPerson(g, victim, false, false);
+    }
     emit(g, { type: 'ray', x: p.x, y: p.y + 0.6 });
   }
   if (s.kind === 'box' && !s.done && k > 1) { s.done = true; dropBox(g, p, room, true); }
@@ -543,8 +560,9 @@ function stepFires(g: Invasion, dt: number) {
 
 function stepUfos(g: Invasion, dt: number) {
   const r = g.rand, t = g.time;
-  if (g.ufos.length < ufosAt(t)) {
-    g.ufos.push({ id: g.nextId++, x: r() < 0.5 ? -10 : g.width + 10, y: between(r, CITY_TOP - 9, CITY_TOP - 2), vx: 0, t0: t, beam: null, nextBeam: t + between(r, 3, 6), wobble: r() * 10 });
+  if (g.ufosLaunched < ufosAt(t)) {
+    g.ufosLaunched++;
+    g.ufos.push({ id: g.nextId++, x: r() < 0.5 ? -10 : g.width + 10, y: between(r, CITY_TOP - 9, CITY_TOP - 2), vx: 0, t0: t, deployed: false, beam: null, nextBeam: t + between(r, 3, 6), wobble: r() * 10 });
     emit(g, { type: 'ufoArrive' });
   }
   const behind = ruinAt(t) - g.rooms.filter(o => o.destroyed).length / g.rooms.length; // cuánto les falta destruir
@@ -553,6 +571,15 @@ function stepUfos(g: Invasion, dt: number) {
     u.vx += ((goal - u.x) * 0.05 - u.vx) * Math.min(1, dt * 0.6);
     u.x += u.vx * dt;
     u.y += Math.sin(t * 0.8 + u.wobble) * 0.3 * dt;
+    if (!u.deployed && t - u.t0 > 12 && u.x >= 4 && u.x <= g.width - 4) {
+      u.deployed = true;
+      for (let i = 0; i < 7; i++) {
+        const gray = addPerson(g, -1, u.x + (i - 3) * 1.05, SIDEWALK_Y, 'walker');
+        activateAlien(g, gray);
+        gray.nextSabotage = t + between(r, 3, 7);
+      }
+      emit(g, { type: 'moreAliens', count: aliveAliens(g) });
+    }
     if (u.beam && t > u.beam.until) {
       const room = g.rooms[u.beam.room];
       destroyRoom(g, room);
@@ -649,10 +676,71 @@ export function hitbox(g: Invasion, p: Person) {
 // ---------- El disparo ----------
 // Pega en lo primero que encuentra en (x, y): la gente de la vereda (que está adelante), la de los
 // departamentos, una caja o un ovni. Si no, deja un agujero (y si es una ventana, la rompe).
-export function shoot(g: Invasion, x: number, y: number) {
+function defeatPerson(g: Invasion, p: Person, head: boolean, byPlayer: boolean) {
+  const box = hitbox(g, p), cx = (box.x1 + box.x2) / 2, cy = (box.y1 + box.y2) / 2;
+  p.dead = { t: g.time, alien: p.alien, head };
+  p.sabotage = null;
+  if (p.alien) {
+    // El alien explota en una nube verde (no queda el cuerpo, queda la mancha).
+    p.gone = true;
+    // Exagerada: una bola verde enorme, otra que llega un instante después, chorros de baba para todos
+    // lados y la pared salpicada.
+    g.blasts.push({ x: cx, y: cy, t: 0, size: 2.4, green: true }, { x: cx, y: cy + 0.3, t: -0.12, size: 1.6, green: true });
+    burst(g, cx, cy, 140, '#4ade80', 'goo', 8, 0.08);
+    burst(g, cx, cy, 60, '#a3e635', 'goo', 11, 0.05);
+    burst(g, cx, cy, 40, '#bef264', 'spark', 9, 0.05);
+    burst(g, cx, cy, 30, '#14532d', 'goo', 4, 0.13);
+    const room = roomOf(g, p);
+    addDecal(g, { room: p.room, x: cx, y: p.y + 0.02, glass: false, t: g.time, goo: true, size: 1.6 });
+    for (let i = 0; i < 9; i++) {
+      let sx = cx + between(g.rand, -2.4, 2.4), sy = cy + between(g.rand, -0.5, 1.6);
+      if (room) { sx = Math.max(room.x1 + 0.15, Math.min(room.x2 - 0.15, sx)); sy = Math.max(room.y + 0.2, Math.min(room.y + room.h - 0.15, sy)); }
+      addDecal(g, { room: p.room, x: sx, y: sy, glass: false, t: g.time, goo: true, size: between(g.rand, 0.5, 1.2) });
+    }
+    g.kills++; if (head) g.headshots++;
+    if (p.anomaly) g.killedAnomalies.push(p.anomaly.id);
+    emit(g, { type: 'kill', x: cx, y: cy, head, anomaly: p.anomaly?.id ?? null });
+  } else {
+    // Impacto rojo para las bajas humanas.
+    burst(g, cx, cy, head ? 90 : 70, '#b91c1c', 'blood', 5, 0.06);
+    burst(g, cx, cy, 40, '#7f1d1d', 'blood', 2.5, 0.09);
+    burst(g, cx, cy, 30, '#dc2626', 'blood', 8, 0.035);
+    const room = roomOf(g, p);
+    for (let i = 0; i < 6; i++) {
+      let sx = cx + between(g.rand, -1.2, 1.2) + p.dir * -0.4, sy = cy + between(g.rand, -0.4, 0.6);
+      if (room) { sx = Math.max(room.x1 + 0.15, Math.min(room.x2 - 0.15, sx)); sy = Math.max(room.y + 0.15, Math.min(room.y + room.h - 0.15, sy)); }
+      addDecal(g, { room: p.room, x: sx, y: sy, glass: false, t: g.time, blood: true, size: between(g.rand, 0.5, 1.1) });
+    }
+    addDecal(g, { room: p.room, x: p.x, y: p.y + 0.02, glass: false, t: g.time, blood: true, size: 1.4 });
+    p.gone = true;
+    if (byPlayer) g.civilians++;
+    emit(g, { type: 'civilian', x: cx, y: cy });
+  }
+  p.anomaly = null;
+  // Los que estaban cerca se asustan y corren.
+  for (const o of g.people) if (o !== p && !o.dead && !o.gone && o.room === p.room && Math.abs(o.x - p.x) < 8 && !o.alien) { o.panic = 5; o.talk = 1; }
+}
+
+export function shoot(g: Invasion, x: number, y: number, weapon: Weapon = 'rifle') {
   if (g.over) return 'none' as const;
   g.shots++;
   emit(g, { type: 'shot', x, y });
+  if (weapon === 'bazooka') {
+    const radius = BAZOOKA_RADIUS;
+    const targets = g.people.filter(p => !p.dead && !p.gone && Math.hypot(p.x - x, p.y + 0.5 - y) <= radius);
+    const ships = g.ufos.filter(u => Math.hypot(Math.max(0, Math.abs(u.x - x) - 5), Math.max(0, Math.abs(u.y - y) - 1.6)) <= radius);
+    const impact = (px: number, py: number, size: number) => {
+      g.blasts.push({ x: px, y: py, t: 0, size, big: true });
+      burst(g, px, py, 44, '#f59e0b', 'spark', 8, 0.09);
+      emit(g, { type: 'explosion', x: px, y: py });
+    };
+    impact(x, y, 5);
+    for (const u of ships) impact(u.x, u.y, 7);
+    g.ufos = g.ufos.filter(u => !ships.includes(u));
+    for (const p of targets) defeatPerson(g, p, false, true);
+    if (ships.length || targets.length) g.hits++;
+    return ships.length ? 'ufoDestroyed' : targets.some(p => p.alien) ? 'alien' : targets.length ? 'civilian' : 'blast';
+  }
   for (const u of g.ufos) if (Math.abs(x - u.x) < 6.4 && Math.abs(y - u.y) < 2.2) {
     burst(g, x, y, 12, '#a5f3fc', 'spark', 4, 0.05);
     emit(g, { type: 'ufoPing', x, y });
@@ -664,50 +752,8 @@ export function shoot(g: Invasion, x: number, y: number) {
     const box = hitbox(g, p);
     if (x < box.x1 || x > box.x2 || y < box.y1 || y > box.y2) continue;
     const head = Math.hypot(x - box.headX, y - box.headY) < PERSON_H * p.look.size * 0.17;
-    p.dead = { t: g.time, alien: p.alien, head };
-    p.sabotage = null;
+    defeatPerson(g, p, head, true);
     g.hits++;
-    if (p.alien) {
-      // El alien explota en una nube verde (no queda el cuerpo, queda la mancha).
-      const box = hitbox(g, p), cx = (box.x1 + box.x2) / 2, cy = (box.y1 + box.y2) / 2;
-      p.gone = true;
-      // Exagerada: una bola verde enorme, otra que llega un instante después, chorros de baba para todos
-      // lados y la pared salpicada.
-      g.blasts.push({ x: cx, y: cy, t: 0, size: 2.4, green: true }, { x: cx, y: cy + 0.3, t: -0.12, size: 1.6, green: true });
-      burst(g, cx, cy, 140, '#4ade80', 'goo', 8, 0.08);
-      burst(g, cx, cy, 60, '#a3e635', 'goo', 11, 0.05);
-      burst(g, cx, cy, 40, '#bef264', 'spark', 9, 0.05);
-      burst(g, cx, cy, 30, '#14532d', 'goo', 4, 0.13);
-      const room = roomOf(g, p);
-      addDecal(g, { room: p.room, x: cx, y: p.y + 0.02, glass: false, t: g.time, goo: true, size: 1.6 });
-      for (let i = 0; i < 9; i++) {
-        let sx = cx + between(g.rand, -2.4, 2.4), sy = cy + between(g.rand, -0.5, 1.6);
-        if (room) { sx = Math.max(room.x1 + 0.15, Math.min(room.x2 - 0.15, sx)); sy = Math.max(room.y + 0.2, Math.min(room.y + room.h - 0.15, sy)); }
-        addDecal(g, { room: p.room, x: sx, y: sy, glass: false, t: g.time, goo: true, size: between(g.rand, 0.5, 1.2) });
-      }
-      g.kills++; if (head) g.headshots++;
-      if (p.anomaly) g.killedAnomalies.push(p.anomaly.id);
-      emit(g, { type: 'kill', x: cx, y: cy, head, anomaly: p.anomaly?.id ?? null });
-      if (g.kills >= GOAL_KILLS) { g.over = true; g.outcome = 'won'; emit(g, { type: 'end' }); }
-    } else {
-      // Le diste a una persona: mucha sangre y perdés una vida (con 3, perdés).
-      burst(g, x, y, head ? 90 : 70, '#b91c1c', 'blood', 5, 0.06);
-      burst(g, x, y, 40, '#7f1d1d', 'blood', 2.5, 0.09);
-      burst(g, x, y, 30, '#dc2626', 'blood', 8, 0.035);
-      const room = roomOf(g, p);
-      for (let i = 0; i < 6; i++) {
-        let sx = x + between(g.rand, -1.2, 1.2) + p.dir * -0.4, sy = y + between(g.rand, -0.4, 0.6);
-        if (room) { sx = Math.max(room.x1 + 0.15, Math.min(room.x2 - 0.15, sx)); sy = Math.max(room.y + 0.15, Math.min(room.y + room.h - 0.15, sy)); }
-        addDecal(g, { room: p.room, x: sx, y: sy, glass: false, t: g.time, blood: true, size: between(g.rand, 0.5, 1.1) });
-      }
-      addDecal(g, { room: p.room, x: p.x, y: p.y + 0.02, glass: false, t: g.time, blood: true, size: 1.4 });
-      g.civilians++;
-      emit(g, { type: 'civilian', x, y, lives: LIVES - g.civilians });
-      if (g.civilians >= LIVES) { g.over = true; g.outcome = 'civilian'; emit(g, { type: 'end' }); }
-    }
-    p.anomaly = null;
-    // Los que estaban cerca se asustan y corren.
-    for (const o of alive) if (o !== p && o.room === p.room && Math.abs(o.x - p.x) < 8 && !o.alien) { o.panic = 5; o.talk = 1; }
     return p.alien ? 'alien' as const : 'civilian' as const;
   }
   for (const b of g.boxes) {

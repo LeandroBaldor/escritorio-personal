@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aliensAt, aliveAliens, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, GOAL_KILLS, LIVES, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt,
+  aliensAt, aliveAliens, aliveHumans, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt,
   type Invasion, type Person,
 } from './invasion';
 import { ANOMALIES, fitsPlace, shuffledAnomalies } from './invasionAnomalies';
@@ -112,14 +112,14 @@ describe('Invasión: la gente y los aliens', () => {
     expect(g.ufos.length).toBe(0);
     run(g, UFO_FROM + 15 - (RAIN_FROM + 90));
     expect(g.ufos.length).toBe(1);
-    expect(aliveAliens(g)).toBeGreaterThanOrEqual(aliensAt(UFO_FROM) - 1);
+    expect(aliveAliens(g)).toBeGreaterThan(0);
     run(g, 540 - g.time);
     const ruined = g.rooms.filter(r => r.destroyed).length / g.rooms.length;
     expect(ruined).toBeGreaterThan(ruinAt(g.time) * 0.6);
     run(g, 70);
     expect(g.over).toBe(true);
-    expect(g.outcome).toBe('time');
-    expect(g.rooms.every(r => r.destroyed)).toBe(true);
+    expect(g.time).toBe(GAME_SECONDS);
+    expect(g.outcome).toBe(aliveHumans(g) > aliveAliens(g) ? 'won' : 'time');
     expect(takeEvents(g).some(e => e.type === 'end')).toBe(true);
   }, 30000);
 });
@@ -201,50 +201,61 @@ describe('Invasión: el disparo', () => {
     expect(g.over).toBe(false);
   });
 
-  it('le disparás a una persona: mucha sangre y perdés una vida; con 3, perdés', () => {
+  it('counts civilian losses without ending the match early', () => {
     const g = newInvasion(9);
-    expect(LIVES).toBe(3);
-    const alien = g.people.find(p => p.alien)!;
-    for (let i = 1; i <= LIVES; i++) {
+    const before = aliveHumans(g);
+    for (let i = 0; i < 3; i++) {
       const human = g.people.find(p => !p.alien && !p.dead && !p.gone && p.room >= 0 && p.act !== 'flee' && clear(g, p))!;
-      const before = g.particles.filter(p => p.kind === 'blood').length;
       expect(shoot(g, ...aimAt(g, human))).toBe('civilian');
-      expect(g.particles.filter(p => p.kind === 'blood').length - before).toBeGreaterThan(100);
-      expect(g.decals.filter(d => d.blood).length).toBeGreaterThanOrEqual(i * 6);
-      expect(g.civilians).toBe(i);
-      const events = takeEvents(g);
-      expect(events.find(e => e.type === 'civilian')).toMatchObject({ lives: LIVES - i });
-      expect(g.over).toBe(i === LIVES);
-      expect(events.some(e => e.type === 'end')).toBe(i === LIVES);
+      expect(g.decals.some(d => d.blood)).toBe(true);
     }
-    expect(g.outcome).toBe('civilian');
-    expect(shoot(g, ...aimAt(g, alien))).toBe('none'); // ya terminó
+    expect(g.civilians).toBe(3);
+    expect(aliveHumans(g)).toBe(before - 3);
+    expect(g.over).toBe(false);
   });
 
-  it('con 20 aliens eliminados, ganás', () => {
-    const g = newInvasion(15);
-    expect(GOAL_KILLS).toBe(20);
-    for (let i = 0; i < GOAL_KILLS; i++) {
-      const alien = g.people.find(p => p.alien && !p.dead && !p.gone)!;
-      alien.anomaly = null;
-      // Si alguien se le cruza adelante, se va (acá solo importa que se pueda ganar).
-      const [ax, ay] = aimAt(g, alien);
-      for (const o of g.people) { const b = hitbox(g, o); if (o !== alien && ax >= b.x1 && ax <= b.x2 && ay >= b.y1 && ay <= b.y2) o.gone = true; }
+  it('ends only at ten minutes and requires a human majority', () => {
+    for (const surplus of [0, 1]) {
+      const g = newInvasion(15);
+      const human = g.people.find(p => !p.alien)!;
+      const alien = g.people.find(p => p.alien)!;
+      const secondHuman = g.people.find(p => !p.alien && p !== human)!;
+      g.people = surplus ? [human, alien, secondHuman] : [human, alien];
+      g.time = GAME_SECONDS - 0.05;
       expect(g.over).toBe(false);
-      expect(shoot(g, ...aimAt(g, alien))).toBe('alien');
-      step(g, 0.05); // llegan otros aliens a reemplazarlos
+      step(g, 0.05);
+      expect(g.outcome).toBe(surplus ? 'won' : 'time');
     }
-    expect(g.kills).toBe(GOAL_KILLS);
-    expect(g.over).toBe(true);
-    expect(g.outcome).toBe('won');
+  });
+
+  it('a gray shoots a nearby human with a red impact and earns the player no points', () => {
+    const g = newInvasion(15);
+    const gray = g.people.find(p => p.alien)!;
+    const human = g.people.find(p => !p.alien)!;
+    g.people = [gray, human];
+    Object.assign(gray, { x: 30, y: 0, room: -1, tx: 30, sabotage: { kind: 'ray', t0: 0, x: 30, done: false, carryUntil: 0 } });
+    Object.assign(human, { x: 31, y: 0, room: -1, tx: 31 });
+    g.time = 1.6;
+    step(g, 0.05);
+    expect(human.gone).toBe(true);
+    expect(gray.sabotage?.shot).toBeDefined();
+    expect(g.particles.some(p => p.kind === 'blood')).toBe(true);
+    expect(g.kills).toBe(0);
+    expect(g.civilians).toBe(0);
   });
 
   it('a los ovnis las balas no les hacen nada', () => {
     const g = newInvasion(10);
     run(g, UFO_FROM + 30);
     const u = g.ufos[0];
-    expect(shoot(g, u.x, u.y)).toBe('ufo');
+    expect(shoot(g, u.x, u.y, 'rifle')).toBe('ufo');
+    expect(shoot(g, u.x, u.y, 'machine')).toBe('ufo');
     expect(g.ufos).toHaveLength(1);
+    expect(shoot(g, u.x, u.y, 'bazooka')).toBe('ufoDestroyed');
+    expect(g.ufos).toHaveLength(0);
+    expect(g.blasts.some(b => b.big && b.x === u.x)).toBe(true);
+    step(g, 0.05);
+    expect(g.ufos).toHaveLength(0);
   });
 
   it('un tiro a una caja con explosivos la desactiva; a una caja común no le pasa nada', () => {

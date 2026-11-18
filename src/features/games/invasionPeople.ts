@@ -22,8 +22,8 @@ type Pt = [number, number];
 interface Skel { hip: Pt; neck: Pt; head: Pt; r: number; kneeF: Pt; kneeB: Pt; footF: Pt; footB: Pt; elbowF: Pt; elbowB: Pt; handF: Pt; handB: Pt }
 
 // El esqueleto de cada postura. `k` es la fase del paso (o del movimiento) y `H` la altura en píxeles.
-function skeleton(kind: Pose['kind'], H: number, k: number, opts: { armsOut?: boolean; longArms?: boolean; handF?: Pt; handB?: Pt; lean?: number }): Skel {
-  const r = H * 0.2;
+function skeleton(kind: Pose['kind'], H: number, k: number, opts: { armsOut?: boolean; longArms?: boolean; handF?: Pt; handB?: Pt; lean?: number }, alien: boolean): Skel {
+  const r = H * (alien ? 0.107 : 0.085);
   let hip: Pt = [0, -H * 0.31], neck: Pt = [0, -H * 0.6], head: Pt = [0, -H * 0.79];
   let kneeF: Pt = [H * 0.02, -H * 0.16], kneeB: Pt = [-H * 0.02, -H * 0.16], footF: Pt = [H * 0.05, 0], footB: Pt = [-H * 0.04, 0];
   let handF: Pt = [H * 0.09, -H * 0.33], handB: Pt = [-H * 0.06, -H * 0.34];
@@ -65,6 +65,17 @@ function skeleton(kind: Pose['kind'], H: number, k: number, opts: { armsOut?: bo
     default: {
       const b = Math.sin(k * 0.3) * H * 0.006; // respira
       neck = [0, -H * 0.6 + b]; head = [0, -H * 0.79 + b];
+    }
+  }
+  {
+    if (kind === 'crawl' || kind === 'squat' || kind === 'sit') {
+      head = [head[0], head[1] + H * 0.045];
+    } else {
+      hip = [hip[0], -H * 0.47];
+      kneeF = [kneeF[0], kneeF[1] - H * 0.075];
+      kneeB = [kneeB[0], kneeB[1] - H * 0.075];
+      neck = [neck[0], neck[1] - H * 0.2];
+      head = [head[0], head[1] - H * 0.11];
     }
   }
   if (opts.lean) { neck = [neck[0] + opts.lean * H, neck[1]]; head = [head[0] + opts.lean * H * 1.3, head[1]]; }
@@ -123,12 +134,19 @@ function drawHead(ctx: CanvasRenderingContext2D, o: Outfit, x: number, y: number
   if (o.alien || o.alienHead) { // cabeza de alien gris: un huevo grande, ojos negros almendrados
     const g = ctx.createRadialGradient(-R * 0.3, -R * 0.5, R * 0.2, 0, -R * 0.2, R * 1.5);
     g.addColorStop(0, '#d1d5db'); g.addColorStop(1, '#6b7280');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(f * R * 0.1, -R * 0.35, R * 1.05, R * 1.3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(-R * 0.93, -R * 0.28);
+    ctx.bezierCurveTo(-R * 1.03, -R * 1.57, R * 1.09, -R * 1.58, R * 1.01, -R * 0.28);
+    ctx.bezierCurveTo(R * 0.98, R * 0.3, R * 0.34, R * 0.93, f * R * 0.12, R * 0.97);
+    ctx.bezierCurveTo(-R * 0.3, R * 0.99, -R * 0.85, R * 0.35, -R * 0.93, -R * 0.28);
+    ctx.fill();
     ctx.fillStyle = h.eyes ?? '#05070a'; // mirándote fijo, los ojos le brillan verdes
     if (h.eyes) { ctx.shadowColor = h.eyes; ctx.shadowBlur = R * 0.8; }
     if (h.face === 'front') for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * R * 0.42, -R * 0.25, R * 0.3, R * 0.5, s * 0.5, 0, Math.PI * 2); ctx.fill(); }
     else { ctx.beginPath(); ctx.ellipse(f * R * 0.6, -R * 0.25, R * 0.28, R * 0.52, f * 0.5, 0, Math.PI * 2); ctx.fill(); }
     ctx.shadowBlur = 0;
+    line(ctx, '#626b71', R * 0.075, [f * R * 0.05, R * 0.61], [f * R * 0.38, R * 0.58]);
     ctx.fillStyle = 'rgba(255,255,255,0.7)'; dot(ctx, 'rgba(255,255,255,0.7)', f * R * 0.55, -R * 0.45, R * 0.08);
     ctx.restore();
     return;
@@ -140,8 +158,20 @@ function drawHead(ctx: CanvasRenderingContext2D, o: Outfit, x: number, y: number
   if (o.hat === 'long' && !front) { ctx.fillStyle = o.hair; ctx.beginPath(); ctx.roundRect(-ff * R * 1.05 - R * 0.55, -R * 0.2, R * 1.1, R * 2.1, R * 0.5); ctx.fill(); }
   const shade = ctx.createRadialGradient(ff * R * 0.3, -R * 0.35, R * 0.1, 0, 0, R * 1.15);
   shade.addColorStop(0, o.skin); shade.addColorStop(1, mixColor(o.skin, '#000000', 0.18));
-  if (!front) dot(ctx, o.skin, ff * R * 0.95, R * 0.15, R * 0.26); // nariz
-  ctx.fillStyle = shade; ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = shade;
+  ctx.beginPath();
+  ctx.moveTo(-R * 0.82, -R * 0.22);
+  ctx.bezierCurveTo(-R * 0.95, -R * 1.36, R * 0.94, -R * 1.36, R * 0.83, -R * 0.19);
+  ctx.bezierCurveTo(R * 0.88, R * 0.46, R * 0.49, R * 1.04, 0, R * 1.06);
+  ctx.bezierCurveTo(-R * 0.49, R * 1.04, -R * 0.88, R * 0.46, -R * 0.82, -R * 0.22);
+  ctx.fill();
+  if (!front) {
+    ctx.beginPath();
+    ctx.moveTo(ff * R * 0.71, -R * 0.19);
+    ctx.lineTo(ff * R * 1.02, R * 0.24);
+    ctx.quadraticCurveTo(ff * R * 0.98, R * 0.31, ff * R * 0.71, R * 0.28);
+    ctx.fill();
+  }
   if (h.scales) for (let i = 0; i < 9; i++) dot(ctx, 'rgba(74,222,128,0.75)', (hash(i) - 0.5) * R * 1.4, (hash(i + 4) - 0.3) * R, R * 0.09);
   const eye = h.eyes ?? '#111';
   const brow = mixColor(o.hair, '#000000', 0.2), detail = R > 5;
@@ -229,9 +259,9 @@ export function drawBody(ctx: CanvasRenderingContext2D, o: Outfit, kind: Pose['k
   ctx.scale(f * (opts.sx ?? 1), 1); // todo se dibuja mirando a la derecha y se da vuelta
   const lie = kind === 'lie' || kind === 'dead';
   if (lie) { ctx.translate(-H * 0.45, 0); ctx.rotate(-Math.PI / 2); ctx.translate(0, H * 0.12); }
-  const sk = skeleton(lie ? 'stand' : kind, H, k, opts);
+  const sk = skeleton(lie ? 'stand' : kind, H, k, opts, o.alien);
   if (kind === 'dead') { sk.handF = [H * 0.3, -H * 0.62]; sk.handB = [-H * 0.25, -H * 0.5]; sk.footF = [H * 0.18, 0]; sk.footB = [-H * 0.12, -H * 0.02]; sk.kneeF = [H * 0.1, -H * 0.16]; }
-  const limb = Math.max(1.5, H * (o.alien ? 0.06 : 0.09));
+  const limb = Math.max(1.5, H * (o.alien ? 0.06 : 0.066));
   const sleeve = o.alien ? o.skin : o.top === 'jacket' ? mixColor(o.shirt[0], '#000000', 0.15) : o.shirt[0];
   const detail = H > 40 && !o.alien;
   // Un brazo: manga (corta o larga, con puño), la piel, la mano con el pulgar y, a veces, el reloj.
@@ -255,24 +285,32 @@ export function drawBody(ctx: CanvasRenderingContext2D, o: Outfit, kind: Pose['k
   if (opts.prop && opts.propAt === 'back') drawProp(ctx, opts.prop, sk.handB[0], sk.handB[1], H, t, opts.propUpside);
   // Piernas.
   const legW = Math.max(2, H * (o.alien ? 0.07 : 0.11));
-  line(ctx, mixColor(o.pants, '#000000', 0.3), legW, sk.hip, sk.kneeB, sk.footB);
-  line(ctx, o.pants, legW, sk.hip, sk.kneeF, sk.footF);
+  const leg = (color: string, knee: Pt, foot: Pt) => {
+    line(ctx, color, legW, sk.hip, knee);
+    line(ctx, color, legW * (o.alien ? 1 : 0.76), knee, foot);
+  };
+  leg(mixColor(o.pants, '#000000', 0.3), sk.kneeB, sk.footB);
+  leg(o.pants, sk.kneeF, sk.footF);
   if (detail) for (const [hip, knee] of [[sk.hip, sk.kneeF]] as [Pt, Pt][]) line(ctx, 'rgba(0,0,0,0.12)', Math.max(1, legW * 0.15), [hip[0] + legW * 0.25, hip[1]], [knee[0] + legW * 0.25, knee[1]]); // costura
   for (const [fx, fy] of [sk.footB, sk.footF]) {
     ctx.fillStyle = o.shoes; ctx.beginPath(); ctx.ellipse(fx + H * 0.03, fy - H * 0.017, H * 0.075, H * 0.035, 0, 0, Math.PI * 2); ctx.fill();
     if (detail) { ctx.fillStyle = mixColor(o.shoes, o.shoes === '#f8fafc' ? '#000000' : '#ffffff', 0.35); ctx.fillRect(fx - H * 0.04, fy - H * 0.008, H * 0.145, H * 0.012); ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(fx, fy - H * 0.04, H * 0.04, H * 0.008); } // suela y cordones
   }
   // Torso: remera de tres franjas (o el cuerpo gris de un alien), un poco inclinado si corre o se agacha.
-  const tw = H * (o.alien ? 0.2 : 0.28), ang = Math.atan2(sk.neck[0] - sk.hip[0], sk.hip[1] - sk.neck[1]);
+  const tw = H * (o.alien ? 0.2 : 0.225), ang = Math.atan2(sk.neck[0] - sk.hip[0], sk.hip[1] - sk.neck[1]);
   const len = Math.hypot(sk.neck[0] - sk.hip[0], sk.neck[1] - sk.hip[1]) + H * 0.05;
   ctx.save(); ctx.translate(sk.hip[0], sk.hip[1] + H * 0.03); ctx.rotate(ang);
   ctx.beginPath(); ctx.roundRect(-tw / 2, -len, tw, len, tw * 0.35); ctx.save(); ctx.clip();
-  ctx.fillStyle = o.shirt[2]; ctx.fillRect(-tw, -len, tw * 2, len);
-  ctx.fillStyle = o.shirt[1]; ctx.fillRect(-tw, -len * 0.66, tw * 2, len * 0.34);
-  ctx.fillStyle = o.shirt[0]; ctx.fillRect(-tw, -len, tw * 2, len * 0.34);
+  const cloth = ctx.createLinearGradient(0, -len, 0, 0);
+  cloth.addColorStop(0, o.shirt[0]);
+  cloth.addColorStop(0.56, o.shirt[1]);
+  cloth.addColorStop(1, o.shirt[2]);
+  ctx.fillStyle = cloth; ctx.fillRect(-tw, -len, tw * 2, len);
   if (opts.vest) { ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.fillRect(-tw, -len * 0.42, tw * 2, len * 0.07); }
   if (detail) {
     const thin = Math.max(0.8, H * 0.008);
+    line(ctx, 'rgba(0,0,0,0.16)', thin, [-tw * 0.43, -len * 0.35], [-tw * 0.24, -len * 0.21], [-tw * 0.38, -len * 0.16]);
+    line(ctx, 'rgba(255,255,255,0.14)', thin, [-tw * 0.38, -len * 0.48], [-tw * 0.18, -len * 0.42]);
     if (o.top === 'shirt') { // camisa: tapa de botones, botones y bolsillo
       ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(tw * 0.28, -len, thin, len);
       for (let i = 1; i < 5; i++) dot(ctx, '#f8fafc', tw * 0.36, -len + i * len * 0.2, H * 0.009);
@@ -300,7 +338,7 @@ export function drawBody(ctx: CanvasRenderingContext2D, o: Outfit, kind: Pose['k
   if (detail && o.top === 'hoodie') { ctx.fillStyle = o.shirt[0]; ctx.beginPath(); ctx.ellipse(-tw * 0.45, -len + H * 0.03, tw * 0.3, H * 0.05, -0.3, 0, Math.PI * 2); ctx.fill(); } // capucha
   if (detail && o.top === 'shirt') { ctx.fillStyle = mixColor(o.shirt[0], '#ffffff', 0.25); ctx.beginPath(); ctx.moveTo(-tw * 0.1, -len + H * 0.01); ctx.lineTo(tw * 0.4, -len + H * 0.01); ctx.lineTo(tw * 0.25, -len + H * 0.06); ctx.fill(); } // cuello
   ctx.restore();
-  if (!o.alien) { const nk: Pt = [sk.neck[0], sk.neck[1]]; line(ctx, mixColor(o.skin, '#000000', 0.1), Math.max(1.5, H * 0.075), [nk[0], nk[1] + H * 0.01], [sk.head[0] * 0.6 + nk[0] * 0.4, sk.head[1] + sk.r * 0.7]); } // cuello
+  { const nk = sk.neck; line(ctx, mixColor(o.skin, '#000000', 0.1), Math.max(1.5, H * (o.alien ? 0.056 : 0.075)), [nk[0], nk[1] + H * 0.01], [sk.head[0] * 0.6 + nk[0] * 0.4, sk.head[1] + sk.r * 0.7]); } // cuello
   // Cabeza.
   const h = opts.head ?? {};
   const head: Pt = [sk.head[0], sk.head[1] - (h.neck ?? 0)];
@@ -476,7 +514,7 @@ export function drawPerson(ctx: CanvasRenderingContext2D, g: Invasion, p: Person
   const pose = poseOf(g, p), H = pose.h * s, a = anomalyOf(p), room = roomOf(g, p);
   // Donde está según la postura (en la cama, en la pared o en el techo).
   const sx = px + (pose.x - p.x) * s, sy = py - (pose.y - p.y) * s;
-  const reveal = revealed(p, t) && !p.dead, deadAlien = !!p.dead?.alien && t - p.dead.t > 0.25, isAlien = reveal || deadAlien;
+  const isAlien = p.alien;
   if (H < 16) { drawTiny(ctx, p, pose, sx, sy, H, isAlien, t); return; }
   const k = p.moving ? t * (pose.kind === 'run' ? 16 : 9) + p.id : t * 2 + p.id;
   const ak = a ? t - p.anomaly!.t0 : 0;
@@ -492,7 +530,11 @@ export function drawPerson(ctx: CanvasRenderingContext2D, g: Invasion, p: Person
   if (p.sabotage && !p.dead) {
     // La bomba la lleva con las dos manos (una caja roja grande); el encendedor y el arma, cuando se frena.
     if (p.sabotage.kind === 'box') { if (!p.sabotage.done) body = { ...body, prop: 'bomb', propAt: 'front', handF: [0.3, -0.5], handB: [0.24, -0.47] }; }
-    else if (!p.moving) body = { ...body, prop: p.sabotage.kind === 'lighter' ? 'lighter' : 'raygun' };
+    else if (!p.moving) {
+      body = p.sabotage.kind === 'ray'
+        ? { ...body, prop: 'raygun', propAt: 'front', handF: [0.29, -0.61] }
+        : { ...body, prop: 'lighter' };
+    }
   }
   // El intercomunicador extraterrestre, a la altura de la cara.
   if (p.comm && !p.dead) body = { ...body, prop: 'communicator', propAt: 'front', handF: [0.27, -0.78], handB: [0.18, -0.6] };
@@ -506,8 +548,8 @@ export function drawPerson(ctx: CanvasRenderingContext2D, g: Invasion, p: Person
   if (p.dog && !p.dead) drawDog(ctx, sx + p.dir * H * 0.55, sy, H * 0.45, p.dir, p.moving ? t * 12 : 0, false);
   if (body.handF) body.handF = [body.handF[0] * H, body.handF[1] * H];
   if (body.handB) body.handB = [body.handB[0] * H, body.handB[1] * H];
-  const outfit = deadAlien ? ALIEN : reveal ? { ...outfitOf(p, skin), skin: ALIEN.skin, alienHead: true } : outfitOf(p, skin);
-  body.vest = !deadAlien && p.job === 'worker';
+  const outfit = isAlien ? ALIEN : outfitOf(p, skin);
+  body.vest = !isAlien && p.job === 'worker';
   body.sx = pose.sx;
   if (isAlien && body.head) body.head = { ...body.head, face: front ? 'front' : undefined };
   const by = sy - pose.lift * s;
@@ -594,15 +636,15 @@ export function drawPerson(ctx: CanvasRenderingContext2D, g: Invasion, p: Person
 
 // Visto de muy lejos (el fondo de la mira): solo la silueta con los colores de la ropa.
 function drawTiny(ctx: CanvasRenderingContext2D, p: Person, pose: Pose, sx: number, sy: number, H: number, alien: boolean, t: number) {
-  const o = alien ? { ...outfitOf(p), skin: ALIEN.skin } : outfitOf(p), lie = pose.kind === 'lie' || pose.kind === 'dead';
+  const o = alien ? ALIEN : outfitOf(p), lie = pose.kind === 'lie' || pose.kind === 'dead';
   const y = sy - pose.lift * H;
   if (lie) { ctx.fillStyle = o.shirt[1]; ctx.fillRect(sx - H * 0.4, y - H * 0.18, H * 0.8, H * 0.16); dot(ctx, o.skin, sx + pose.dir * H * 0.45, y - H * 0.12, H * 0.12); return; }
   const h = pose.kind === 'sit' || pose.kind === 'squat' ? H * 0.75 : H, w = Math.max(1.5, H * 0.26);
   const swing = p.moving ? Math.sin(t * 9 + p.id) * H * 0.08 : 0;
   ctx.fillStyle = o.pants; ctx.fillRect(sx - w / 2 + swing * 0.3, y - h * 0.35, w * 0.45, h * 0.35); ctx.fillRect(sx - swing * 0.3, y - h * 0.35, w * 0.45, h * 0.35);
   ctx.fillStyle = o.shirt[1]; ctx.fillRect(sx - w / 2, y - h * 0.72, w, h * 0.4);
-  dot(ctx, o.skin, sx, y - h * 0.83, H * (alien ? 0.17 : 0.12));
-  if (!alien && o.hat !== 'bald') { ctx.fillStyle = o.hat === 'helmet' ? o.hatColor : o.hair; ctx.fillRect(sx - H * 0.12, y - h * 0.97, H * 0.24, H * 0.07); }
+  dot(ctx, o.skin, sx, y - h * 0.89, H * (alien ? 0.102 : 0.083));
+  if (!alien && o.hat !== 'bald') { ctx.fillStyle = o.hat === 'helmet' ? o.hatColor : o.hair; ctx.fillRect(sx - H * 0.07, y - h * 0.96, H * 0.14, H * 0.05); }
 }
 
 function bubble(ctx: CanvasRenderingContext2D, x: number, y: number, text: string, s: number, color?: string) {

@@ -20,7 +20,8 @@ import { formatTime, readTrepaRecord } from './TrepalunaGame';
 import { formatLavaTime, readLavaRecord } from './LavaFloor';
 import { readPaperRecord } from './PaperBallGame';
 import { formatSharkTime, readSharkRecord } from './SharkCity';
-import { formatInvasionTime, readInvasionRecord } from './InvasionGame';
+import { readInvasionRecord } from './InvasionGame';
+import { ALIEN_POINTS } from './invasion';
 import { formatGravityTime, readGravityRecord } from './GravitySwapGame';
 import { readKombatRecord } from './KombatFootballGame';
 import { readVoleyRecord } from './KombatVoleyGame';
@@ -133,11 +134,11 @@ export function Games() {
           <Cover src={invasionCover} />
           <span className="game-card-text">
             <strong>Invasión</strong>
-            <span>👽 Los aliens ya están entre nosotros, disfrazados de vecinos. Desde tu mira ves cada departamento de la cuadra: cada tanto uno deja ver su cara gris, camina por el techo o habla por un intercomunicador extraño. Quieren incendiarlo todo: a los 3 minutos se larga la tormenta y a los 5 llegan los ovnis a destruir la ciudad.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Eliminá a 20 aliens antes de que los ovnis arrasen la ciudad (10 minutos). Tenés 3 vidas: cada persona inocente a la que le disparás te saca una.</span>
+            <span>Defendé la ciudad de los grises con un rifle, una ametralladora y una bazooka.</span>
+            <span className="game-card-win"><b>Objetivo</b> Al cabo de diez minutos tienen que quedar más humanos que aliens.</span>
           </span>
           <span className="game-card-foot">
-            {invasion.kills > 0 && <small><b>Récord</b>{invasion.time ? `🏆 en ${formatInvasionTime(invasion.time)}` : `${invasion.kills} aliens`}</small>}
+            {invasion.kills > 0 && <small><b>Récord</b>{invasion.kills * ALIEN_POINTS} pts</small>}
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
           </span>
         </Link>

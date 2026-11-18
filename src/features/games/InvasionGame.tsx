@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { TouchGrips } from './TouchGrips';
 import { fitScale, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
-import { BOLT_TIME, CITY_TOP, GOAL_KILLS, LIVES, MAG, newInvasion, RELOAD_TIME, shoot, step, takeEvents, type Invasion as Game, type Outcome } from './invasion';
+import { ALIEN_POINTS, aliveAliens, aliveHumans, BAZOOKA_RADIUS, CITY_TOP, GAME_SECONDS, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import { drawMinimap, paintCity, type View } from './invasionArt';
 import { invasionLevels } from './invasionSound';
@@ -11,16 +11,29 @@ import {
   playRicochet, playRifleShot, playScream, playStart, playThunder, playUfoArrive, playWinFanfare, preloadInvasionSounds, setInvasionAmbient,
 } from './sounds';
 import { EndBanner } from './EndBanner';
+import rifleArt from './assets/invasion-rifle.png';
+import machineArt from './assets/invasion-ametralladora.png';
+import bazookaArt from './assets/invasion-bazooka.png';
 
 const RECORD_KEY = 'escritorio-personal-juegos:invasion-record';
-// Récord: el menor tiempo en eliminar a los 20 aliens (o, si todavía no se ganó nunca, la mayor cantidad de aliens).
+// El récord se sigue guardando por cantidad de bajas para conservar los datos de partidas anteriores.
 export interface InvasionRecord { kills: number; time?: number | null }
 export const readInvasionRecord = (): InvasionRecord => { try { const v = JSON.parse(localStorage.getItem(RECORD_KEY) ?? 'null'); return v && typeof v.kills === 'number' ? v : { kills: 0, time: null }; } catch { return { kills: 0, time: null }; } };
 const saveRecord = (value: InvasionRecord) => { try { localStorage.setItem(RECORD_KEY, JSON.stringify(value)); } catch { /* sin almacenamiento */ } };
 export const formatInvasionTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
-type Status = 'ready' | 'playing' | 'paused' | 'over';
-const MAX_ZOOM = 520, START_ZOOM = 58; // con todo el zoom, la cabeza de una persona llena la mira
+type Status = 'ready' | 'playing' | 'armory' | 'paused' | 'over';
+const START_ZOOM: number = WEAPONS.rifle.start;
+const weaponKeys: readonly Weapon[] = ['rifle', 'machine', 'bazooka'];
+const weaponArt: Record<Weapon, { image: string; role: string }> = {
+  rifle: { image: rifleArt, role: 'Zoom de largo alcance' },
+  machine: { image: machineArt, role: 'Fuego automático' },
+  bazooka: { image: bazookaArt, role: 'Explosión de área · Anti-OVNI' },
+};
+function createArsenal() {
+  const load = (weapon: Weapon) => ({ mag: Number(WEAPONS[weapon].mag), cycle: 0, reload: 0 });
+  return { rifle: load('rifle'), machine: load('machine'), bazooka: load('bazooka') };
+}
 const BREATH = 4; // segundos que se puede contener la respiración (Shift)
 const PAN = 26; // lo que se mueve la vista con las flechas (unidades por segundo)
 const TOUCH_SPEED = 1.35; // en el celular la mira se mueve un poco más que el dedo (se llega a todos lados sin soltar)
@@ -29,14 +42,13 @@ const EDGE = 0.1; // con la mira en el último 10 % de cada costado, la vista se
 const FLOOR_Y = -3.4, TOP_Y = CITY_TOP;
 
 const OUTCOME_TEXT: Record<Outcome, string> = {
-  won: `¡Eliminaste a los ${GOAL_KILLS} aliens y salvaste la ciudad! 👽`,
-  civilian: `¡Le disparaste a ${LIVES} personas! Perdiste.`,
-  time: 'Se terminaron los 10 minutos y la ciudad cayó.',
+  won: 'La ciudad resistió. Quedan más humanos que aliens.',
+  time: 'La invasión ganó. Los humanos perdieron la mayoría.',
 };
 
 // La mira: el círculo que agranda lo que hay abajo, con su aro, la sombra del borde, un brillo, la retícula
 // (líneas finas en el medio y gruesas afuera, con puntos para medir) y el punto rojo del centro.
-function drawScope(ctx: CanvasRenderingContext2D, cx: number, cy: number, R: number, zoom: number, t: number, kick: number) {
+function drawScope(ctx: CanvasRenderingContext2D, cx: number, cy: number, R: number, zoom: number, t: number, kick: number, weapon: Weapon) {
   ctx.save();
   const edge = ctx.createRadialGradient(cx, cy, R * 0.72, cx, cy, R);
   edge.addColorStop(0, 'rgba(0,0,0,0)'); edge.addColorStop(0.85, 'rgba(0,0,0,0.4)'); edge.addColorStop(1, 'rgba(0,0,0,0.92)');
@@ -49,12 +61,27 @@ function drawScope(ctx: CanvasRenderingContext2D, cx: number, cy: number, R: num
   ctx.fillStyle = glare; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
   // Retícula.
   const thin = Math.max(1, R * 0.004), thick = Math.max(3, R * 0.016), gap = R * 0.32;
-  ctx.fillStyle = 'rgba(5,5,5,0.92)';
-  ctx.fillRect(cx - R, cy - thick / 2, R - gap, thick); ctx.fillRect(cx + gap, cy - thick / 2, R - gap, thick);
-  ctx.fillRect(cx - thick / 2, cy + gap, thick, R - gap); ctx.fillRect(cx - thick / 2, cy - R, thick, R - gap);
-  ctx.fillRect(cx - gap, cy - thin / 2, gap * 2, thin); ctx.fillRect(cx - thin / 2, cy - gap, thin, gap * 2);
-  for (let i = 1; i <= 4; i++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { ctx.beginPath(); ctx.arc(cx + dx * i * gap / 5, cy + dy * i * gap / 5, Math.max(1.4, R * 0.008), 0, Math.PI * 2); ctx.fill(); }
-  for (let i = 1; i <= 3; i++) ctx.fillRect(cx - R * 0.02 * (4 - i), cy + gap * (0.25 + i * 0.18), R * 0.04 * (4 - i), thin);
+  if (weapon === 'rifle') {
+    ctx.fillStyle = 'rgba(5,5,5,0.92)';
+    ctx.fillRect(cx - R, cy - thick / 2, R - gap, thick); ctx.fillRect(cx + gap, cy - thick / 2, R - gap, thick);
+    ctx.fillRect(cx - thick / 2, cy + gap, thick, R - gap); ctx.fillRect(cx - thick / 2, cy - R, thick, R - gap);
+    ctx.fillRect(cx - gap, cy - thin / 2, gap * 2, thin); ctx.fillRect(cx - thin / 2, cy - gap, thin, gap * 2);
+    for (let i = 1; i <= 4; i++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { ctx.beginPath(); ctx.arc(cx + dx * i * gap / 5, cy + dy * i * gap / 5, Math.max(1.4, R * 0.008), 0, Math.PI * 2); ctx.fill(); }
+    for (let i = 1; i <= 3; i++) ctx.fillRect(cx - R * 0.02 * (4 - i), cy + gap * (0.25 + i * 0.18), R * 0.04 * (4 - i), thin);
+  } else {
+    const radius = weapon === 'bazooka' ? BAZOOKA_RADIUS * zoom : R * 0.16;
+    ctx.strokeStyle = weapon === 'bazooka' ? '#fed18c' : '#e1f0ed';
+    ctx.lineWidth = 1.5;
+    if (radius < R * 0.92) {
+      if (weapon === 'bazooka') ctx.setLineDash([5, 5]);
+      ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    for (const d of [-1, 1]) {
+      ctx.beginPath(); ctx.moveTo(cx + d * 8, cy); ctx.lineTo(cx + d * 18, cy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx, cy + d * 8); ctx.lineTo(cx, cy + d * 18); ctx.stroke();
+    }
+  }
   ctx.fillStyle = `rgba(239,68,68,${0.85 + Math.sin(t * 3) * 0.1})`; ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 6;
   ctx.beginPath(); ctx.arc(cx, cy, Math.max(1.8, R * 0.01), 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
   ctx.fillStyle = 'rgba(134,239,172,0.9)'; ctx.font = `800 ${Math.max(11, R * 0.06)}px ui-monospace, monospace`; ctx.textAlign = 'center';
@@ -75,18 +102,24 @@ export function Invasion() {
   const cam = useRef({ x: 60 });
   const mouse = useRef({ x: -1, y: -1 });
   const aim = useRef({ zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0 });
-  const gun = useRef({ mag: MAG, cycle: 0, reload: 0 });
+  const arsenal = useRef(createArsenal());
+  const selected = useRef<Weapon>('rifle');
+  const trigger = useRef(false);
+  const [weapon, setWeapon] = useState<Weapon>('rifle');
   const drag = useRef<{ x: number; y: number; id: number; moved: number; t: number } | null>(null);
   const fingers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ d: number; zoom: number } | null>(null);
   const keys = useRef(new Set<string>());
   const [status, setStatus] = useState<Status>('ready');
-  const [hud, setHud] = useState({ time: 0, kills: 0, lives: LIVES, mag: MAG, reloading: false, breath: 1 });
+  const [hud, setHud] = useState(() => ({ time: GAME_SECONDS, kills: 0, humans: aliveHumans(firstGame), aliens: aliveAliens(firstGame), mag: Number(WEAPONS.rifle.mag), reloading: false }));
   const [record, setRecord] = useState(readInvasionRecord);
   const [result, setResult] = useState({ outcome: 'time' as Outcome, kills: 0, time: 0, headshots: 0, shots: 0, hits: 0, defused: 0, newRecord: false, clues: [] as string[] });
   const [toast, setToast] = useState<{ text: string; id: number; big?: boolean; bad?: boolean } | null>(null);
   const statusRef = useRef(status);
-  useEffect(() => { statusRef.current = status; }, [status]);
+  useEffect(() => {
+    statusRef.current = status;
+    if (status !== 'playing') { trigger.current = false; keys.current.clear(); }
+  }, [status]);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), toast.big ? 2600 : 1800);
@@ -149,7 +182,7 @@ export function Invasion() {
       ctx.translate(p.mx - R, p.my - R);
       paintCity(ctx, g, { w: R * 2, h: R * 2, s: a.zoom, cx: p.x, cy: p.y, t: g.time, dpr }, touch ? 2 : 6); // (en celulares arma de a pocas habitaciones nuevas por cuadro)
       ctx.restore();
-      drawScope(ctx, p.mx, p.my, R, a.zoom, g.time, a.kick);
+      drawScope(ctx, p.mx, p.my, R, a.zoom, g.time, a.kick, selected.current);
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // Destello de la pantalla: verde si explotó un alien, rojo si le diste a una persona.
@@ -167,29 +200,45 @@ export function Invasion() {
 
   const setZoom = useCallback((z: number) => {
     const a = aim.current, stage = stageRef.current, min = stage ? stage.clientHeight / (TOP_Y - FLOOR_Y) * 2 : 20;
-    a.target = Math.max(min, Math.min(MAX_ZOOM, z));
+    a.target = Math.min(WEAPONS[selected.current].zoom, Math.max(min, z));
   }, []);
-  const zoomBy = useCallback((factor: number) => {
-    const a = aim.current, stage = stageRef.current, min = stage ? stage.clientHeight / (TOP_Y - FLOOR_Y) * 2 : 20;
-    a.target = Math.max(min, Math.min(MAX_ZOOM, a.target * factor));
-  }, []);
+  const zoomBy = useCallback((factor: number) => setZoom(aim.current.target * factor), [setZoom]);
+  const selectWeapon = useCallback((next: Weapon) => {
+    const current = statusRef.current;
+    if (current !== 'playing' && current !== 'armory') return;
+    if (next !== selected.current) {
+      selected.current = next;
+      setWeapon(next);
+      setZoom(WEAPONS[next].start);
+    }
+    if (current === 'armory') setStatus('playing');
+  }, [setZoom]);
 
   const fire = useCallback(() => {
     if (statusRef.current !== 'playing') return;
-    const g = gameRef.current, G = gun.current, stage = stageRef.current;
-    if (!stage || G.reload > 0 || G.cycle > 0) return;
-    if (G.mag <= 0) { playEmpty(); G.reload = RELOAD_TIME; playReload(); return; }
+    const g = gameRef.current, current = selected.current, G = arsenal.current[current], config = WEAPONS[current], stage = stageRef.current;
+    if (!stage || g.over || G.reload > 0 || G.cycle > 0) return;
+    if (G.mag <= 0) { playEmpty(); G.reload = config.reload; playReload(); return; }
     const p = target(stage.clientWidth, stage.clientHeight);
-    G.mag--; aim.current.kick = 1;
-    playRifleShot();
-    const hit = shoot(g, p.x, p.y);
-    if (hit === 'alien') { aim.current.shake = 1; aim.current.flash = 1; if (!g.over) setToast({ text: `¡Alien eliminado! ${g.kills} de ${GOAL_KILLS} 👽`, id: performance.now() }); }
-    if (hit === 'civilian') { aim.current.shake = 0.5; aim.current.flash = -1; if (!g.over) { const left = LIVES - g.civilians; setToast({ text: `¡Era una persona! ${left === 1 ? 'Te queda 1 vida' : `Te quedan ${left} vidas`} ❤️`, id: performance.now(), big: true, bad: true }); } }
-    if (hit === 'defused') setToast({ text: '¡Bomba desactivada! 💣', id: performance.now() });
-    if (hit === 'ufo') setToast({ text: 'Las balas no le hacen nada al ovni', id: performance.now(), bad: true });
-    if (G.mag > 0) { G.cycle = BOLT_TIME; playBolt(); } else { G.reload = RELOAD_TIME; playReload(); }
+    G.mag--;
+    aim.current.kick = current === 'machine' ? 0.33 : 1;
+    if (current !== 'bazooka') playRifleShot();
+    const hit = shoot(g, p.x, p.y, current);
+    if (hit === 'alien' || hit === 'ufoDestroyed' || hit === 'blast') { aim.current.shake = 1; aim.current.flash = 1; }
+    if (hit === 'ufoDestroyed') setToast({ text: 'OVNI derribado', id: performance.now() });
+    if (hit === 'civilian') { aim.current.flash = -1; setToast({ text: 'Baja civil', id: performance.now(), bad: true }); }
+    if (hit === 'defused') setToast({ text: 'Bomba desactivada', id: performance.now() });
+    if (hit === 'ufo') setToast({ text: 'Usá la bazooka para derribar el OVNI', id: performance.now() });
+    if (G.mag > 0) { G.cycle = config.cycle; if (current === 'rifle') playBolt(); }
+    else { G.reload = config.reload; playReload(); }
   }, [target]);
-  const reload = useCallback(() => { const G = gun.current; if (G.reload > 0 || G.mag === MAG || statusRef.current !== 'playing') return; G.reload = RELOAD_TIME; playReload(); }, []);
+
+  const reload = useCallback(() => {
+    const G = arsenal.current[selected.current], config = WEAPONS[selected.current];
+    if (G.reload > 0 || G.mag === config.mag || statusRef.current !== 'playing') return;
+    G.reload = config.reload;
+    playReload();
+  }, []);
 
   const start = useCallback(() => {
     playStart(); preloadInvasionSounds();
@@ -197,9 +246,12 @@ export function Invasion() {
     const g = gameRef.current;
     cam.current.x = g.width * (0.3 + Math.random() * 0.4);
     Object.assign(aim.current, { zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0 });
-    gun.current = { mag: MAG, cycle: 0, reload: 0 };
-    setHud({ time: 0, kills: 0, lives: LIVES, mag: MAG, reloading: false, breath: 1 });
-    setToast({ text: `Hay aliens disfrazados de personas: eliminá a ${GOAL_KILLS}. ¡Cuidado con la gente: tenés ${LIVES} vidas!`, id: performance.now(), big: true });
+    arsenal.current = createArsenal();
+    selected.current = 'rifle';
+    trigger.current = false;
+    setWeapon('rifle');
+    setHud({ time: GAME_SECONDS, kills: 0, humans: aliveHumans(g), aliens: aliveAliens(g), mag: WEAPONS.rifle.mag, reloading: false });
+    setToast({ text: 'Protegé a la población durante diez minutos.', id: performance.now(), big: true });
     setStatus('playing');
   }, []);
 
@@ -221,7 +273,7 @@ export function Invasion() {
     if (status !== 'playing') { setInvasionAmbient(null); return; }
     let frame = 0, last = performance.now(), soundAt = 0, talkAt = 0;
     const tick = (now: number) => {
-      const g = gameRef.current, a = aim.current, G = gun.current, stage = stageRef.current;
+      const g = gameRef.current, a = aim.current, G = arsenal.current[selected.current], stage = stageRef.current;
       const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
       last = now;
       step(g, dt);
@@ -239,13 +291,20 @@ export function Invasion() {
         const w = stage.clientWidth, mx = mouse.current.x / w;
         if (mx < EDGE) cam.current.x -= PAN * 1.4 * (1 - mx / EDGE) * dt; else if (mx > 1 - EDGE) cam.current.x += PAN * 1.4 * (1 - (1 - mx) / EDGE) * dt;
       }
-      if (G.cycle > 0) G.cycle = Math.max(0, G.cycle - dt);
-      if (G.reload > 0) { G.reload = Math.max(0, G.reload - dt); if (G.reload === 0) G.mag = MAG; }
+      for (const id of weaponKeys) {
+        const state = arsenal.current[id];
+        state.cycle = Math.max(0, state.cycle - dt);
+        if (state.reload > 0) {
+          state.reload = Math.max(0, state.reload - dt);
+          if (state.reload === 0) state.mag = WEAPONS[id].mag;
+        }
+      }
+      if (selected.current === 'machine' && trigger.current) fire();
       const p = stage ? target(stage.clientWidth, stage.clientHeight) : { x: 0, y: 0 };
       g.aim.x = p.x; g.aim.y = p.y; // los aliens se dan cuenta de dónde está la mira
       const near = (x: number, y: number) => Math.max(0, 1 - Math.hypot(x - p.x, y - p.y) / (600 / a.zoom));
       for (const e of takeEvents(g)) {
-        if (e.type === 'kill') { playGooBlast(); playAlienDeath(0.45); if (e.head && !g.over) setToast({ text: `¡Tiro a la cabeza! ${g.kills} de ${GOAL_KILLS} 👽`, id: now }); }
+        if (e.type === 'kill') { playGooBlast(); playAlienDeath(0.45); }
         if (e.type === 'civilian') playCivilianHit();
         if (e.type === 'glass') playGlass(0.8);
         if (e.type === 'ufoPing') playRicochet();
@@ -256,7 +315,7 @@ export function Invasion() {
         if (e.type === 'lighter') playLighter(near(e.x, e.y));
         if (e.type === 'ray') playRayGun(near(e.x, e.y));
         if (e.type === 'scream') playScream(near(e.x, e.y), 0.8 + Math.random() * 0.6);
-        if (e.type === 'ufoArrive') { playUfoArrive(); setToast({ text: g.ufos.length === 1 ? '¡Llegaron los ovnis! Las balas no les hacen nada 🛸' : `¡Otro ovni! Ya son ${g.ufos.length} 🛸`, id: now, big: g.ufos.length === 1 }); }
+        if (e.type === 'ufoArrive') { playUfoArrive(); setToast({ text: g.ufos.length === 1 ? 'Entraron los OVNIs. Usá la bazooka.' : `¡Otro ovni! Ya son ${g.ufos.length} 🛸`, id: now, big: g.ufos.length === 1 }); }
         if (e.type === 'comm') { playAlienComm(near(e.x, e.y) * 0.6); playAlienTalk(near(e.x, e.y)); }
         if (e.type === 'thunder') { playThunder(Math.max(0.35, 1 - Math.abs(e.x - p.x) / 120)); a.shake = Math.max(a.shake, 0.25); }
         if (e.type === 'rain') setToast({ text: '🌧️ Se largó una tormenta: llueve y hay relámpagos', id: now, big: true });
@@ -271,12 +330,12 @@ export function Invasion() {
         if (best) { playAlienTalk(1 - best.d / radius); best.who.talk = 1.6; talkAt = now + 2500 + Math.random() * 3500; } else talkAt = now + 800;
       }
       paint();
-      const shown = { time: Math.floor(g.time), kills: g.kills, lives: LIVES - g.civilians, mag: G.mag, reloading: G.reload > 0, breath: Math.round((a.breath / BREATH) * 10) / 10 };
+      const shown = { time: Math.ceil(GAME_SECONDS - g.time), kills: g.kills, humans: aliveHumans(g), aliens: aliveAliens(g), mag: G.mag, reloading: G.reload > 0 };
       setHud(prev => JSON.stringify(prev) === JSON.stringify(shown) ? prev : shown);
       if (g.over) {
         const outcome = g.outcome ?? 'time', rec = readInvasionRecord(), won = outcome === 'won';
-        const isNew = won ? rec.time === null || rec.time === undefined || g.time < rec.time : !rec.time && g.kills > rec.kills;
-        const next: InvasionRecord = { kills: Math.max(rec.kills, g.kills), time: won ? Math.min(rec.time ?? Infinity, g.time) : rec.time ?? null };
+        const isNew = g.kills > rec.kills;
+        const next: InvasionRecord = { kills: Math.max(rec.kills, g.kills) };
         saveRecord(next); setRecord(next);
         const clues = [...new Set(g.killedAnomalies)].slice(-8).map(id => ANOMALIES[id].text);
         setResult({ outcome, kills: g.kills, time: g.time, headshots: g.headshots, shots: g.shots, hits: g.hits, defused: g.defused, newRecord: isNew, clues });
@@ -291,30 +350,44 @@ export function Invasion() {
     const hide = () => { if (document.hidden) setStatus('paused'); };
     document.addEventListener('visibilitychange', hide);
     return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); };
-  }, [status, paint, target]);
+  }, [status, paint, target, fire]);
 
   // Mouse: la mira va adonde está el mouse, clic dispara y la ruedita hace zoom.
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
     const move = (e: MouseEvent) => { const r = stage.getBoundingClientRect(); const k = fitScale(); mouse.current = { x: (e.clientX - r.left) / k, y: (e.clientY - r.top) / k }; if (statusRef.current !== 'playing') paint(); };
-    const down = (e: MouseEvent) => { if (e.button === 0 && e.target === canvasRef.current) fire(); };
+    const down = (e: MouseEvent) => { if (e.button === 0 && e.target === canvasRef.current) { trigger.current = true; fire(); } };
+    const up = () => { trigger.current = false; };
+    window.addEventListener('mouseup', up);
+    window.addEventListener('blur', up);
     const wheel = (e: WheelEvent) => { if (statusRef.current !== 'playing') return; e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.18 : 1 / 1.18); };
     stage.addEventListener('mousemove', move);
     stage.addEventListener('mousedown', down);
     stage.addEventListener('wheel', wheel, { passive: false });
-    return () => { stage.removeEventListener('mousemove', move); stage.removeEventListener('mousedown', down); stage.removeEventListener('wheel', wheel); };
+    return () => { window.removeEventListener('mouseup', up); window.removeEventListener('blur', up); up(); stage.removeEventListener('mousemove', move); stage.removeEventListener('mousedown', down); stage.removeEventListener('wheel', wheel); };
   }, [fire, zoomBy, paint]);
 
   // Teclado: ← → (o A y D) mueven la vista, Shift contiene la respiración, R recarga, + y − zoom, P pausa.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if ((e.key === 'p' || e.key === 'P' || e.key === 'Escape') && (statusRef.current === 'playing' || statusRef.current === 'paused')) { setStatus(s => s === 'playing' ? 'paused' : 'playing'); return; }
-      if (statusRef.current !== 'playing') return;
+      const current = statusRef.current;
+      if ((e.code === 'Space' || e.key === ' ') && (current === 'playing' || current === 'armory')) {
+        e.preventDefault();
+        if (!e.repeat) setStatus(current === 'playing' ? 'armory' : 'playing');
+        return;
+      }
+      if (e.key === 'Escape' && current === 'armory') { setStatus('playing'); return; }
+      if ((e.key === 'p' || e.key === 'P' || e.key === 'Escape') && (current === 'playing' || current === 'paused')) { setStatus(s => s === 'playing' ? 'paused' : 'playing'); return; }
+      if ((current === 'playing' || current === 'armory') && /^[123]$/.test(e.key)) {
+        selectWeapon(weaponKeys[Number(e.key) - 1]);
+        return;
+      }
+      if (current !== 'playing') return;
       if (e.key === 'r' || e.key === 'R') reload();
       if (e.key === '+' || e.key === '=') zoomBy(1.3);
       if (e.key === '-') zoomBy(1 / 1.3);
-      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); fire(); }
+      if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); fire(); }
       if (e.key.startsWith('Arrow')) e.preventDefault();
       keys.current.add(e.key.length === 1 ? e.key.toLowerCase() : e.key);
     };
@@ -324,7 +397,7 @@ export function Invasion() {
     window.addEventListener('keyup', up);
     window.addEventListener('blur', blur);
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', blur); };
-  }, [fire, reload, zoomBy]);
+  }, [fire, reload, selectWeapon, zoomBy]);
 
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -363,7 +436,7 @@ export function Invasion() {
   // Botones ◀ ▶ del celular: mientras se mantienen apretados, la vista se mueve.
   const press = useCallback((key: string, on: boolean) => { if (on) keys.current.add(key); else keys.current.delete(key); }, []);
   const accuracy = result.shots ? Math.round((result.hits / result.shots) * 100) : 0;
-  const recordText = record.time ? `🏆 ${formatInvasionTime(record.time)}` : `${record.kills} 👽`;
+  const recordText = `${record.kills * ALIEN_POINTS} pts`;
 
   return <section className="runner trepa invasion" style={fit} aria-label="Invasión">
     <TouchGrips actionLabel={'Disparar'} />
@@ -375,23 +448,42 @@ export function Invasion() {
     </div>
     <div className="trepa-main">
       <div className="runner-stage inv-stage" ref={stageRef} {...touch}>
-        <canvas ref={canvasRef} role="img" aria-label="La ciudad vista con la mira del rifle" />
+        <canvas ref={canvasRef} role="img" aria-label="La ciudad vista desde el puesto de defensa" />
         <canvas ref={mapRef} className="inv-map" aria-hidden="true" />
         {status === 'playing' && <div className="inv-touch" aria-label="Moverse, zoom y recarga">
           <button type="button" aria-label="Mover la vista a la izquierda" onPointerDown={e => { e.preventDefault(); press('pad-left', true); }} onPointerUp={() => press('pad-left', false)} onPointerLeave={() => press('pad-left', false)} onPointerCancel={() => press('pad-left', false)} onContextMenu={e => e.preventDefault()}>◀</button>
           <button type="button" aria-label="Mover la vista a la derecha" onPointerDown={e => { e.preventDefault(); press('pad-right', true); }} onPointerUp={() => press('pad-right', false)} onPointerLeave={() => press('pad-right', false)} onPointerCancel={() => press('pad-right', false)} onContextMenu={e => e.preventDefault()}>▶</button>
           <button type="button" aria-label="Alejar la mira" onClick={() => zoomBy(1 / 1.35)}>−</button>
           <button type="button" aria-label="Acercar la mira" onClick={() => zoomBy(1.35)}>+</button>
-          <button type="button" aria-label="Recargar el rifle" onClick={reload}>⟳</button>
+          <button type="button" aria-label="Recargar el arma" onClick={reload}>⟳</button>
         </div>}
         {status === 'playing' && toast && <div key={toast.id} className={`trepa-toast inv-toast${toast.bad ? ' is-bad' : ''}${toast.big ? ' is-big' : ''}`} role="status">{toast.text}</div>}
         {status !== 'playing' && <div className="runner-overlay" role="dialog" aria-labelledby="inv-message">
-          <div className="inv-card">
+          <div className={`inv-card${status === 'ready' ? ' inv-command' : status === 'armory' ? ' inv-armory' : ''}`}>
             {status === 'ready' && <>
-              <h2 id="inv-message" className="inv-title">Invasión 👽</h2>
-              <p className="runner-keys"><kbd>←</kbd> <kbd>→</kbd> moverse por la cuadra · <kbd>Mouse</kbd> apuntar · <kbd>Clic</kbd> disparar · <kbd>Ruedita</kbd> zoom · <kbd>Shift</kbd> contener la respiración · <kbd>R</kbd> recargar · <kbd>P</kbd> pausa</p>
-              <p className="runner-tip">💡 La clave es descubrir quién es alien por sus comportamientos raros: dispararle a una persona te saca una vida.</p>
+              <h2 id="inv-message" className="inv-title">Invasión</h2>
+              <p className="inv-mission">Defendé la ciudad durante 10 minutos. La población humana debe superar a los alienígenas.</p>
+              <dl className="inv-controls">
+                <div><dt><kbd>Espacio</kbd></dt><dd>Abrir arsenal</dd></div>
+                <div><dt><kbd>Clic</kbd> <kbd>Enter</kbd></dt><dd>Disparar</dd></div>
+                <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Mover la vista</dd></div>
+                <div><dt><kbd>Ruedita</kbd></dt><dd>Zoom</dd></div>
+                <div><dt><kbd>R</kbd></dt><dd>Recargar</dd></div>
+                <div><dt><kbd>P</kbd></dt><dd>Pausa</dd></div>
+              </dl>
               <button type="button" onClick={start} autoFocus>Jugar</button>
+            </>}
+            {status === 'armory' && <>
+              <h2 id="inv-message">Seleccioná un arma</h2>
+              <div className="inv-weapon-grid">
+                {weaponKeys.map((id, i) => <button key={id} type="button" className="inv-weapon-card" aria-pressed={weapon === id} autoFocus={i === 0} onClick={() => selectWeapon(id)}>
+                  <kbd>{i + 1}</kbd>
+                  <img src={weaponArt[id].image} alt="" draggable={false} />
+                  <strong>{WEAPONS[id].name}</strong>
+                  <span>{weaponArt[id].role}</span>
+                </button>)}
+              </div>
+              <button type="button" className="inv-armory-back" onClick={() => setStatus('playing')}>Volver a la partida</button>
             </>}
             {status === 'paused' && <>
               <h2 id="inv-message">Pausa</h2>
@@ -400,7 +492,7 @@ export function Invasion() {
             {status === 'over' && <>
               <EndBanner win={result.outcome === 'won'} id="inv-message" />
               <p className="end-reason" data-testid="inv-outcome">{OUTCOME_TEXT[result.outcome]}</p>
-              <p>{result.outcome === 'won' ? <>Lo lograste en <strong>{formatInvasionTime(result.time)}</strong>.</> : <>Eliminaste <strong data-testid="inv-final">{result.kills}</strong> de {GOAL_KILLS} aliens.</>}{result.newRecord && ' ¡Nuevo récord!'}</p>
+              <p><strong data-testid="inv-final">{result.kills * ALIEN_POINTS} puntos</strong> ? {result.kills} aliens eliminados ? {hud.humans} humanos y {hud.aliens} aliens en pie.{result.newRecord && ' Nuevo récord.'}</p>
               <p>{result.headshots} tiros a la cabeza · {result.defused} bombas desactivadas · {accuracy}% de puntería</p>
               {result.clues.length > 0 && <div className="inv-clues"><p><strong>Lo raro que hacían los aliens que eliminaste:</strong></p><ul>{result.clues.map(c => <li key={c}>{c}</li>)}</ul></div>}
               <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
@@ -408,13 +500,14 @@ export function Invasion() {
           </div>
         </div>}
       </div>
-      <aside className="trepa-side inv-side" aria-label="Tiempo, aliens, vidas, balas y respiración">
-        <div className="trepa-stat"><span>Tiempo</span><strong data-testid="inv-time">{formatInvasionTime(hud.time)}</strong></div>
-        <div className="trepa-stat inv-kills"><span>Aliens</span><strong data-testid="inv-kills">{hud.kills} / {GOAL_KILLS}</strong></div>
-        <div className="trepa-stat inv-lives"><span>Vidas</span><strong data-testid="inv-lives" aria-label={`${hud.lives} vidas`}>{Array.from({ length: LIVES }, (_, i) => <i key={i} className={i < hud.lives ? 'is-full' : ''}>{i < hud.lives ? '❤️' : '🖤'}</i>)}</strong></div>
-        <div className="trepa-stat"><span>Récord</span><strong>{recordText}</strong></div>
-        <div className="trepa-stat inv-ammo"><span>{hud.reloading ? 'Recargando…' : 'Balas'}</span><strong data-testid="inv-ammo" aria-label={`${hud.mag} balas`}>{Array.from({ length: MAG }, (_, i) => <i key={i} className={i < hud.mag && !hud.reloading ? 'is-full' : ''} />)}</strong></div>
-        <div className="trepa-stat"><span>Respiración</span><strong className="inv-breath"><i style={{ width: `${hud.breath * 100}%` }} /></strong></div>
+      <aside className="trepa-side inv-side" aria-label="Marcador y armamento">
+        <div className="trepa-stat"><span>Tiempo restante</span><strong data-testid="inv-time">{formatInvasionTime(hud.time)}</strong></div>
+        <div className="trepa-stat"><span>Humanos</span><strong data-testid="inv-humans">{hud.humans}</strong></div>
+        <div className="trepa-stat inv-kills"><span>Aliens</span><strong data-testid="inv-aliens">{hud.aliens}</strong></div>
+        <div className="trepa-stat"><span>Puntos</span><strong data-testid="inv-score">{hud.kills * ALIEN_POINTS}</strong></div>
+        <button type="button" className="inv-armory-toggle" aria-haspopup="dialog" disabled={status !== 'playing'} onClick={() => setStatus('armory')}>Arsenal <span>{WEAPONS[weapon].name}</span></button>
+        <div className="trepa-stat"><span>{hud.reloading ? 'Recargando' : 'Munición'}</span><strong data-testid="inv-ammo">{hud.mag} / {WEAPONS[weapon].mag}</strong></div>
+        {status === 'playing' && <button type="button" className="inv-fire" onPointerDown={e => { if (e.button !== 0) return; e.currentTarget.setPointerCapture(e.pointerId); trigger.current = true; fire(); }} onLostPointerCapture={() => { trigger.current = false; }} onClick={e => { if (e.detail === 0) fire(); }}>Disparar</button>}
       </aside>
     </div>
   </section>;

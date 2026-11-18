@@ -1284,13 +1284,45 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .inv-touch{display:none;position:absolute;left:50%;bottom:10px;transform:translateX(-50%);gap:8px}
 .inv-touch button{width:52px;height:52px;border-radius:50%;background:#14532dcc;color:#bbf7d0;font:900 1.6rem/1 Nunito,system-ui,sans-serif;border:2px solid #22c55e}
 @media(pointer:coarse),(max-width:800px){.inv-touch{display:flex}}
-.inv-ammo strong{display:flex;gap:4px}
-.inv-lives strong{display:flex;gap:2px;font-size:1.1rem}
-.inv-lives i{font-style:normal}
-.inv-ammo i{width:8px;height:26px;border-radius:4px 4px 2px 2px;background:#3f3f46}
-.inv-ammo i.is-full{background:linear-gradient(180deg,#fde68a 0 30%,#b45309 30% 100%)}
-.inv-breath{display:block;width:100%;height:10px;background:#1f2937;border-radius:999px;overflow:hidden}
-.inv-breath i{display:block;height:100%;background:#38bdf8;transition:width .1s}
+.inv-side{overflow:auto;font-variant-numeric:tabular-nums}
+.inv-armory-toggle,.inv-fire{border:1px solid #54645f;border-radius:5px;padding:.42rem .35rem;background:#172825;color:#e3eae6;font:700 .76rem/1.25 system-ui,sans-serif;cursor:pointer;touch-action:none}
+.inv-armory-toggle{display:grid;gap:.2rem;text-align:left}
+.inv-armory-toggle span{color:#bad0c7;font-weight:500}
+.inv-armory-toggle:disabled{cursor:default}
+.invasion .runner-overlay>.inv-command,.invasion .runner-overlay>.inv-armory{
+  width:min(100%,48rem);padding:clamp(.75rem,3vw,2rem);border:1px solid #3b9d9d;border-radius:8px;
+  background:linear-gradient(110deg,#081721f5,#101b27fa),repeating-linear-gradient(0deg,transparent 0 3px,#7af5e61a 3px 4px);
+  box-shadow:0 0 0 5px #071018aa,0 20px 48px #03070dd9,inset 0 2px #7af5e655;
+  color:#e8f7f8;
+}
+.invasion .inv-command{text-align:left}
+.invasion .inv-command .inv-title{font:850 clamp(2.25rem,7vw,5rem)/.95 system-ui,sans-serif;letter-spacing:.075em;text-transform:uppercase;color:#ddfffc;text-shadow:0 0 24px #65efdf65}
+.invasion .inv-mission{max-width:48ch;margin:1rem 0;color:#b8ceda}
+.inv-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.4rem;margin:0 0 1rem}
+.inv-controls div{padding:.4rem .55rem;border-left:1px solid #3b777d;background:#1d39484d}
+.inv-controls dd{margin:.2rem 0 0;font-size:.75rem;color:#c3d7dd}
+.inv-controls kbd,.inv-weapon-card kbd{color:#a6fff3;font:700 .75rem ui-monospace,monospace}
+.invasion .inv-command>button,.invasion .inv-armory-back{border:1px solid #70e4d7;border-radius:5px;background:#90f2e4;color:#092a2b;box-shadow:none}
+.invasion .inv-armory h2{color:#dcfffb;font:750 clamp(1.15rem,3vw,2rem) system-ui,sans-serif}
+.inv-weapon-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem;margin:.75rem 0}
+.invasion .inv-weapon-card{
+  display:grid;grid-template-rows:auto 1fr auto auto;gap:.3rem;min-width:0;padding:.5rem;
+  border:1px solid #46656e;border-radius:5px;background:#10232e;color:#edf9ff;text-align:left;box-shadow:none;
+}
+.invasion .inv-weapon-card:hover,.invasion .inv-weapon-card[aria-pressed="true"]{border-color:#79eddf;background:#1b3c46}
+.invasion .inv-weapon-card:focus-visible{outline:2px solid #a6fff3;outline-offset:2px}
+.inv-weapon-card img{display:block;width:100%;height:clamp(48px,16vh,128px);object-fit:contain;border-radius:3px;background:radial-gradient(ellipse,#657c85,#273c48);padding:.25rem}
+.inv-weapon-card strong{font:750 clamp(.7rem,1.6vw,1rem)/1.2 system-ui,sans-serif;overflow-wrap:anywhere}
+.inv-weapon-card span{font:500 clamp(.65rem,1.3vw,.8rem)/1.2 system-ui,sans-serif;color:#b6cfda}
+.inv-fire{background:#395b50;min-height:36px}
+@media(max-width:800px){
+  .invasion .trepa-main{flex-direction:column}
+  .invasion .inv-side{position:static;display:grid;flex:none;grid-template-columns:repeat(5,minmax(0,1fr));gap:.2rem;padding:.25rem}
+  .invasion .inv-side .trepa-stat{padding:.22rem .1rem;text-align:center;min-width:0}
+  .invasion .inv-side .trepa-stat span{font-size:.63rem}
+  .inv-armory-toggle{grid-column:1 / span 4;grid-row:2;display:flex;align-items:center;gap:.5rem}
+  .inv-fire{grid-column:5;grid-row:2}
+}
 .inv-bad strong{color:#f87171}
 .inv-clues{text-align:left;max-height:30vh;overflow:auto}
 .inv-clues ul{margin:.3rem 0 .6rem;padding-left:1.2rem;color:#d1fae5}
