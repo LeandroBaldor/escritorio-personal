@@ -410,7 +410,6 @@ export function KombatPenalties() {
     if (pick === 0) {
       setP1(id);
       if (mode === 'world') { setPlayers(list => list.includes(id) ? list.filter(c => c !== id) : list.length < MAX_CUP_PLAYERS ? [...list, id] : list); return; } // (se agrega o se saca)
-      if (mode === 'cpu') { const rival = CHAR_IDS.filter(c => c !== id)[Math.floor(Math.random() * 15)]; setP2(rival); setScreen('vs'); playKfVsSentence(id, rival); return; } // contra la máquina: el rival sale al azar
       setPick(1); const other = CHAR_IDS.indexOf(p2 === id ? CHAR_IDS[(idx + 1) % 16] : p2); setCursor(other); if (p2 === id) setP2(CHAR_IDS[other]);
     } else { setP2(id); setScreen('vs'); playKfVsSentence(p1, id); }
   }, [pick, mode, p1, p2]);
@@ -424,7 +423,7 @@ export function KombatPenalties() {
     if (screen !== 'select' && screen !== 'vs' && screen !== 'stage' && screen !== 'howto' && screen !== 'ladder') return;
     const down = (e: KeyboardEvent) => {
       const k = e.code;
-      if (screen === 'vs') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); setScreen('stage'); } else if (k === 'Escape' || k === 'Backspace') { if (mode === 'cpu') { setPick(0); setCursor(CHAR_IDS.indexOf(p1)); } else { setPick(1); setCursor(CHAR_IDS.indexOf(p2)); } setScreen('select'); } return; }
+      if (screen === 'vs') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); setScreen('stage'); } else if (k === 'Escape' || k === 'Backspace') { setPick(1); setCursor(CHAR_IDS.indexOf(p2)); setScreen('select'); } return; }
       if (screen === 'ladder') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); setScreen(cupOut ? 'menu' : 'howto'); } else if ((k === 'Escape' || k === 'Backspace') && round === 0 && !cupOut) setScreen('select'); return; }
       if (screen === 'howto') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); begin(mode === 'world' ? round : 0); } else if (k === 'Escape') setScreen(mode === 'world' ? 'ladder' : 'stage'); return; }
       const n = screen === 'select' ? 16 : STAGES.length, c = screen === 'select' ? cols : narrow ? 2 : 4;
@@ -682,7 +681,7 @@ export function KombatPenalties() {
           <div className="kf-versus-mid" aria-hidden="true"><strong>VS</strong></div>
         </div>
         <div className="kf-actions">
-          <button type="button" className="kf-secondary" onClick={() => { if (mode === 'cpu') { setPick(0); setCursor(CHAR_IDS.indexOf(p1)); } else { setPick(1); setCursor(CHAR_IDS.indexOf(p2)); } setScreen('select'); }}>‹ Volver</button>
+          <button type="button" className="kf-secondary" onClick={() => { setPick(1); setCursor(CHAR_IDS.indexOf(p2)); setScreen('select'); }}>‹ Volver</button>
           <button type="button" onClick={() => setScreen('stage')} autoFocus>Elegir el estadio ▶</button>
         </div>
       </div>}

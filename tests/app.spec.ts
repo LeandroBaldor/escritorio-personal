@@ -1242,7 +1242,7 @@ test('Kombat Voley: amistoso con rival y estadio elegidos, se saca y se pausa; e
   await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
 });
 
-test('Kombat Penales: amistoso (rival al azar, piedra papel o tijera), 2 jugadores (primero el que patea) y el mundial', async ({ page }) => {
+test('Kombat Penales: amistoso (rival elegido, piedra papel o tijera), 2 jugadores (primero el que patea) y el mundial', async ({ page }) => {
   test.setTimeout(90000); // (el piedra, papel o tijera puede empatar varias veces)
   await page.goto('/escritorio-personal/#/juegos');
   await page.getByRole('link', { name: /Kombat Penales/ }).click();
@@ -1250,9 +1250,12 @@ test('Kombat Penales: amistoso (rival al azar, piedra papel o tijera), 2 jugador
   await page.getByRole('button', { name: 'Amistoso' }).click();
   const mine = page.getByRole('group', { name: 'Tu jugador' }).getByRole('button', { name: 'FROST' });
   await mine.click(); await mine.click();
-  // contra la máquina, el rival sale al azar: directo al VS
+  // contra la máquina, el usuario elige al rival
+  await expect(page.getByRole('heading', { name: 'ELEGÍ AL RIVAL' })).toBeVisible();
+  const rival = page.getByRole('group', { name: 'Rival' }).getByRole('button', { name: 'THUNDER' });
+  await rival.click(); if (await rival.isVisible()) await rival.click();
   await expect(page.getByTestId('kp-vs-1')).toHaveText('FROST');
-  await expect(page.getByTestId('kp-vs-2')).not.toHaveText('FROST');
+  await expect(page.getByTestId('kp-vs-2')).toHaveText('THUNDER');
   await page.getByRole('button', { name: 'Elegir el estadio ▶' }).click();
   await expect(page.getByRole('group', { name: 'Estadio' }).getByRole('button')).toHaveCount(16);
   await page.getByRole('button', { name: /Planeta Volcánico/ }).click();
