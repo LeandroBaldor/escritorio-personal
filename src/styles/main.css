@@ -2312,3 +2312,13 @@ body:has(.land) .mobile-nav{display:none}
 .kp-rps-arms figure:last-child{--kp-arm-dir:-1}
 .kp-rps--order .kp-rps-arms img{transition:transform .22s ease-out;transform:translateY(2%)}
 @keyframes kp-rps-swing{0%,100%{transform:rotate(calc(var(--kp-arm-dir)*-7deg)) translateY(-2%)}45%{transform:rotate(calc(var(--kp-arm-dir)*12deg)) translateY(7%)}60%{transform:rotate(calc(var(--kp-arm-dir)*10deg)) translateY(6%)}}
+/* Mundiales con varias personas (Kombat Voley y Kombat Penales): la lista de jugadores y su marca en el cuadro */
+.kv-players{opacity:1;display:flex;flex-direction:column;align-items:stretch;gap:.5rem;padding:.7rem;box-sizing:border-box}
+.kv-players>b{text-align:center;letter-spacing:.18em;color:#fbbf24!important}
+.kv-players ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.4rem}
+.kv-players li{display:flex;align-items:center;gap:.55rem;padding:.3rem .45rem;border-radius:6px;background:#0f172acc;box-shadow:inset 3px 0 0 var(--kf-c,#fbbf24)}
+.kv-players li span{display:flex;flex-direction:column;font-weight:900;line-height:1.1;color:#f8fafc}
+.kv-players li small{font-size:.66rem;letter-spacing:.14em;color:#fbbf24}
+.kv-players p{margin:auto 0;text-align:center;color:#cbd5e1;font-size:.9rem;line-height:1.35}
+.kv-players>small{text-align:center;margin-top:auto}
+.kv-seed--you{background:#fbbf24;color:#1c1917}

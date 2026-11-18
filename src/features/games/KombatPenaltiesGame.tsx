@@ -7,7 +7,7 @@ import {
   penaltyScore, type PenMatch, type Zone,
 } from './kombatPenalties';
 import { drawPenBackdrop, drawPenThumb, drawPenalties, drawPenaltyRefereeLayer, keeperBody, kickerBody, onPenaltyArtLoad, penView, preloadPenaltyArt, zoneAt } from './kombatPenaltiesArt';
-import { CUP_ROUNDS, cupSlot, finishRound, newCup, yourMatch, type Cup } from './kombatVoleyCup';
+import { CUP_ROUNDS, MAX_CUP_PLAYERS, advanceCup, cupSlot, isHuman, newCup, nextHumanMatch, playerNo, setMatchScore, type Cup } from './kombatVoleyCup';
 import { drawFighterCard, drawPortrait, setLowFx } from './kombatFighters';
 import { setNoGrain } from './gravityMonsters';
 import spaceBg from './assets/fondos/kf-espacio.webp';
@@ -51,7 +51,8 @@ const DIFFICULTY = [{ name: 'Fácil', reach: 0.12 }, { name: 'Normal', reach: 0.
 const HUMAN_REACH = 0.3;
 const ROUNDS = CUP_ROUNDS;
 const roundReach = (n: number) => 0.18 + n * 0.1;
-const rivalOf = (cup: Cup, n: number): CharId => yourMatch(cup, n)?.rival ?? CHAR_IDS.find(c => c !== cup.you)!;
+// El partido de personas que toca en el mundial (y los dos luchadores, la persona a la izquierda).
+const cupChars = (cup: Cup, n: number): [CharId, CharId] => nextHumanMatch(cup, n)?.chars ?? [cup.humans[0], CHAR_IDS.find(c => !isHuman(cup, c))!];
 const QUALITY = [1, 0.82, 0.68, 0.55];
 const ZONE_KEYS: Record<string, Zone> = { KeyQ: 0, KeyW: 1, KeyE: 2, KeyA: 3, KeyS: 4, KeyD: 5, Numpad7: 0, Numpad8: 1, Numpad9: 2, Numpad1: 3, Numpad2: 4, Numpad3: 5, Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4, Digit6: 5 };
 // Con las flechas: ↑ arriba al medio, ↓ abajo al medio; ← una vez abajo a la izquierda y dos veces (seguidas)
@@ -126,12 +127,12 @@ function WorldBracket({ cup, round, reveal, width, height }: { cup: Cup; round: 
     const half = (16 >> c) / 2, left = k < half, j = left ? k : k - half;
     return { x: left ? (c + 0.5) * col : W - (c + 0.5) * col, y: top + (j + 0.5) * ph / half, left };
   };
-  const mine = yourMatch(cup, round), champ = cup.champion;
+  const mine = nextHumanMatch(cup, round), champ = cup.champion;
   const lines: React.ReactNode[] = [], slots: React.ReactNode[] = [];
   for (let c = 0; c < 4; c++) for (let k = 0; k < (16 >> c); k++) {
     const p = pos(c, k), sl = cupSlot(cup, c, k), sgn = p.left ? 1 : -1, xin = p.x + sgn * S / 2;
     const n = c < 3 ? pos(c + 1, Math.floor(k / 2)) : { x: W / 2, y: top + ph / 2 }, nS = c < 3 ? S : S * 1.3, xout = n.x - sgn * nS / 2, xm = (xin + xout) / 2;
-    const you = sl?.char === cup.you, fresh = c === reveal - 1 && sl?.won;
+    const you = !!sl && isHuman(cup, sl.char), fresh = c === reveal - 1 && sl?.won;
     const color = sl?.won ? (you ? '#fbbf24' : '#e2e8f0') : sl?.lost ? '#33415588' : '#64748b88';
     lines.push(<path key={`l${c}-${k}`} className={fresh ? 'kv-line-new' : undefined} d={`M${xin} ${p.y} H${xm} V${n.y} H${xout}`} fill="none" stroke={color} strokeWidth={sl?.won ? (you ? 4 : 3) : 2} strokeLinejoin="round" pathLength={1} />);
     const current = !!mine && c === round && !champ && Math.floor(k / 2) === mine.index;
@@ -139,7 +140,7 @@ function WorldBracket({ cup, round, reveal, width, height }: { cup: Cup; round: 
       className={`kv-slot${sl ? '' : ' kv-slot--empty'}${you ? ' kv-slot--you' : ''}${sl?.lost ? ' kv-slot--out' : ''}${current ? ' kv-slot--now' : ''}${c === reveal && c > 0 ? ' kv-slot--new' : ''}`}
       style={{ left: p.x - S / 2, top: p.y - S / 2, width: S, height: S, ['--d' as string]: `${0.15 + (k % (8 >> c)) * 0.05}s` }}>
       {sl ? <Portrait char={sl.char} size={S - 6} mirror={!p.left} square /> : <span>?</span>}
-      {c === 0 && sl && <i className="kv-seed" style={{ [p.left ? 'right' : 'left']: S + 4 }}>{cup.seed[sl.char]}</i>}
+      {c === 0 && sl && you && cup.humans.length > 1 && <i className="kv-seed kv-seed--you" style={{ [p.left ? 'right' : 'left']: S + 4 }}>J{playerNo(cup, sl.char)}</i>}
       {sl && sl.score !== null && <b className={`kv-score${sl.won ? ' kv-score--won' : ''}`} style={{ [p.left ? 'left' : 'right']: S + 3 }}>{sl.score}</b>}
     </div>);
   }
@@ -150,11 +151,11 @@ function WorldBracket({ cup, round, reveal, width, height }: { cup: Cup; round: 
     <svg className="kv-lines" width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">{lines}</svg>
     {slots}
     <div className="kv-cup" style={{ left: W / 2, top: top + ph / 2 - cS / 2 - Math.min(ph * 0.42, col * 2.3) - 4 }}><Trophy size={Math.min(ph * 0.34, col * 1.85)} /></div>
-    <div data-testid="kp-champion" className={`kv-slot kv-slot--champ${champ ? (champ === cup.you ? ' kv-slot--you' : '') : ' kv-slot--empty'}${reveal === 4 ? ' kv-slot--new' : ''}`} title={champ ? CHARS[champ].name : 'Campeón'}
+    <div data-testid="kp-champion" className={`kv-slot kv-slot--champ${champ ? (isHuman(cup, champ) ? ' kv-slot--you' : '') : ' kv-slot--empty'}${reveal === 4 ? ' kv-slot--new' : ''}`} title={champ ? CHARS[champ].name : 'Campeón'}
       style={{ left: W / 2 - cS / 2, top: top + ph / 2 - cS / 2, width: cS, height: cS, ['--d' as string]: '0.4s' }}>
       {champ ? <Portrait char={champ} size={cS - 6} square /> : <span>🏆</span>}
     </div>
-    <small className="kv-note" style={{ top: top + ph / 2 + cS / 2 + 8 }}>{champ ? `CAMPEÓN: ${CHARS[champ].name}` : 'Rivales sorteados al azar'}</small>
+    <small className="kv-note" style={{ top: top + ph / 2 + cS / 2 + 8 }}>{champ ? `CAMPEÓN: ${CHARS[champ].name}` : 'Cruces sorteados al azar'}</small>
   </div>;
 }
 function StageThumb({ stage, w, h }: { stage: StageId; w: number; h: number }) {
@@ -179,13 +180,13 @@ function KickDots({ kicks, total, testId }: { kicks: boolean[]; total: number; t
 }
 
 // El cuadro del piedra, papel o tijera (borde rojo, fondo negro, los dos brazos frente a frente).
-function RpsBox({ rps, two, chars, onHand, onOrder }: { rps: Rps; two: boolean; chars: [CharId, CharId]; onHand: (h: Hand) => void; onOrder: (o: 'first' | 'second') => void }) {
+function RpsBox({ rps, two, chars, labels, onHand, onOrder }: { rps: Rps; two: boolean; chars: [CharId, CharId]; labels: [string, string]; onHand: (h: Hand) => void; onOrder: (o: 'first' | 'second') => void }) {
   const arm = (color: 'rojo' | 'azul', side: 0 | 1) => { const h = rps.hands[side]; const showHand = (rps.stage === 'anim' && rps.frame >= 5) || rps.stage === 'order'; return ARMS[color][showHand && h ? h : 1]; };
   const humanWinner = rps.stage === 'order' && rps.winner !== null && !rps.cpuOrder;
   const title = rps.stage === 'pick'
-    ? (two ? `JUGADOR ${rps.picker + 1} · ${CHARS[chars[rps.picker]].name}: elegí (que no mire el otro)` : 'Piedra, papel o tijera: ¿quién elige?')
+    ? (two ? `${labels[rps.picker]} · ${CHARS[chars[rps.picker]].name}: elegí (que no mire el otro)` : 'Piedra, papel o tijera: ¿quién elige?')
     : rps.stage === 'anim' ? (rps.frame >= 5 ? (rpsWinner(rps.hands[0]!, rps.hands[1]!) === null ? '¡Empate! Otra vez…' : '¡Ya!') : ['Piedra…', 'papel…', 'o…', 'tijera…', '¡ya!'][Math.min(4, rps.frame)])
-    : rps.winner !== null ? `¡Ganó ${two ? `JUGADOR ${rps.winner + 1} · ` : ''}${CHARS[chars[rps.winner]].name}! ${rps.cpuOrder ? `Elige patear ${rps.cpuOrder === 'first' ? 'primero' : 'segundo'}` : '¿Patear primero o segundo?'}` : '';
+    : rps.winner !== null ? `¡Ganó ${two ? `${labels[rps.winner]} · ` : ''}${CHARS[chars[rps.winner]].name}! ${rps.cpuOrder ? `Elige patear ${rps.cpuOrder === 'first' ? 'primero' : 'segundo'}` : '¿Patear primero o segundo?'}` : '';
   return <div className={`kp-rps kp-rps--${rps.stage}`} role="dialog" aria-label="Piedra, papel o tijera" data-testid="kp-rps">
     <b className="kp-rps-title" data-testid="kp-rps-title">{title}</b>
     <div className="kp-rps-arms">
@@ -202,6 +203,15 @@ function RpsBox({ rps, two, chars, onHand, onOrder }: { rps: Rps; two: boolean; 
   </div>;
 }
 
+// Las personas elegidas para el mundial (a la derecha de la selección).
+function CupPlayers({ players, w, h }: { players: CharId[]; w: number; h: number }) {
+  return <div className="kf-pick kf-pick--2 kv-players" style={{ width: w, minHeight: h }} data-testid="kp-cup-players">
+    <b>JUGADORES</b>
+    {players.length ? <ol>{players.map((c, i) => <li key={c} style={{ ['--kf-c' as string]: CHARS[c].color }}><Portrait char={c} size={Math.min(56, Math.floor(h / 5))} square /><span><small>JUGADOR {i + 1}</small>{CHARS[c].name}</span></li>)}</ol>
+      : <p>Elegí uno o más luchadores (hasta {MAX_CUP_PLAYERS}). Los demás los maneja la máquina.</p>}
+    <small>{players.length > 1 ? 'No se cruzan en octavos' : 'Cruces sorteados al azar'}</small>
+  </div>;
+}
 export function KombatPenalties() {
   const fit = useFitScreen();
   const stageRef = useRef<HTMLDivElement>(null);
@@ -222,6 +232,11 @@ export function KombatPenalties() {
   const [round, setRound] = useState(0);
   const [reveal, setReveal] = useState(0);
   const [cup, setCup] = useState<Cup>(() => newCup('cometa'));
+  const [players, setPlayers] = useState<CharId[]>([]); // las personas del mundial (en orden: jugador 1, 2…)
+  const [cupOut, setCupOut] = useState(false); // ya no queda ninguna persona en el mundial
+  const cupMatch = useRef<{ index: number; flipped: boolean } | null>(null);
+  const [pvp, setPvp] = useState(false); // el partido es entre dos personas
+  const pvpRef = useRef(false);
   const [hud, setHud] = useState<Hud | null>(null);
   const [aim, setAimState] = useState<Aim | null>(null);
   const aimRef = useRef<Aim | null>(null);
@@ -286,7 +301,7 @@ export function KombatPenalties() {
   const demoStage = screen === 'stage' || screen === 'howto' ? (mode === 'world' ? cup.stages[round] : stage) : 'industrial';
   useLayoutEffect(() => {
     if (!menuish) return;
-    const m = newPenalties(demoStage, [p1, mode === 'world' ? rivalOf(cup, round) : p2]); m.phase = 'aim';
+    const m = newPenalties(demoStage, mode === 'world' ? cupChars(cup, round) : [p1, p2]); m.phase = 'aim';
     matchRef.current = m;
     let frame = 0, last = performance.now();
     const tick = (now: number) => { const dt = Math.min(0.05, (now - last) / 1000); last = now; m.time += dt; if (screenRef.current === 'stage' || screenRef.current === 'howto' || screenRef.current === 'vs') paint(); frame = requestAnimationFrame(tick); };
@@ -300,7 +315,7 @@ export function KombatPenalties() {
     picks.current = { shot: null, dive: null };
     const shooter = shooterOf(m.turn, m.first);
     let next: Aim;
-    if (modeRef.current === 'two') next = { role: 'shooter', side: shooter }; // entre dos: primero el que patea, después el arquero
+    if (pvpRef.current) next = { role: 'shooter', side: shooter }; // entre dos: primero el que patea, después el arquero
     else if (shooter === 0) { picks.current.dive = cpuZone(m.rand); next = { role: 'shooter', side: 0 }; }
     else { picks.current.shot = cpuZone(m.rand); next = { role: 'keeper', side: 0 }; }
     zoneRef.current = 1; setZoneCursor(1); setAim(next);
@@ -316,7 +331,7 @@ export function KombatPenalties() {
   useEffect(() => () => { rpsTimers.current.forEach(t => clearTimeout(t)); }, []);
   // Empieza (o vuelve a empezar si empataron): la máquina ya elige su mano al arrancar.
   const startRps = useCallback(() => {
-    setRps({ stage: 'pick', picker: 0, hands: [null, modeRef.current === 'two' ? null : cpuHand(Math.random)], frame: 0, winner: null, cpuOrder: null });
+    setRps({ stage: 'pick', picker: 0, hands: [null, pvpRef.current ? null : cpuHand(Math.random)], frame: 0, winner: null, cpuOrder: null });
   }, [setRps]);
   // Arranca la tanda: el que ganó eligió patear primero o segundo.
   const finishOrder = useCallback((winner: 0 | 1, order: 'first' | 'second') => {
@@ -328,7 +343,7 @@ export function KombatPenalties() {
     playKfButton(0.7); // un solo sonido, sea cual sea la mano
     const hands: [Hand | null, Hand | null] = [...r.hands];
     hands[r.picker] = h;
-    if (modeRef.current === 'two' && r.picker === 0) { setRps({ ...r, hands, picker: 1 }); return; } // ahora elige el otro (sin mirar)
+    if (pvpRef.current && r.picker === 0) { setRps({ ...r, hands, picker: 1 }); return; } // ahora elige el otro (sin mirar)
     // la animación: 1, 2, 1, 2, 1 y la mano de cada uno
     setRps({ ...r, hands, stage: 'anim', frame: 0 });
     for (let f = 1; f <= 5; f++) later(f * RPS_STEP, () => { const cur = rpsRef.current; if (!cur) return; setRps({ ...cur, frame: f }); playPenArm(f === 5); });
@@ -336,7 +351,7 @@ export function KombatPenalties() {
       const cur = rpsRef.current; if (!cur) return;
       const w = rpsWinner(hands[0]!, hands[1]!);
       if (w === null) { startRps(); return; } // empate: otra vez
-      const cpuWins = modeRef.current !== 'two' && w === 1;
+      const cpuWins = !pvpRef.current && w === 1;
       const cpuOrder = cpuWins ? (Math.random() < 0.5 ? 'first' : 'second') : null;
       setRps({ ...cur, stage: 'order', winner: w, cpuOrder });
       if (cpuWins && cpuOrder) later(1600, () => finishOrder(1, cpuOrder));
@@ -350,10 +365,13 @@ export function KombatPenalties() {
 
   const begin = useCallback((n = round) => {
     playStart(); preloadKombatSounds(); preloadPenaltySounds(); preloadPenaltyArt();
-    const st = mode === 'world' ? cup.stages[n] : stage, rival = mode === 'world' ? rivalOf(cup, n) : p2;
+    const st = mode === 'world' ? cup.stages[n] : stage, cm = mode === 'world' ? nextHumanMatch(cup, n) : null;
+    const pair: [CharId, CharId] = cm ? cm.chars : [p1, p2], both = cm ? cm.humans[1] : mode === 'two';
+    cupMatch.current = cm ? { index: cm.index, flipped: cm.flipped } : null;
+    pvpRef.current = both; setPvp(both);
     reachRef.current = mode === 'world' ? roundReach(n) : DIFFICULTY[difficulty].reach;
-    const m = newPenalties(st, [p1, rival]); m.humans = [true, mode === 'two'];
-    matchRef.current = m; setFighting([p1, rival]);
+    const m = newPenalties(st, pair); m.humans = [true, both];
+    matchRef.current = m; setFighting(pair);
     setHud({ kicks: [[], []], turn: 0, first: 0, sudden: false }); setResult(null); setShouts([]); setAim(null); setIntro(true); clearRps();
     const def = STAGES.find(s => s.id === st)!;
     setStageName(`${mode === 'world' ? `Mundial · ${ROUNDS[n]} · ` : ''}${def.name}`);
@@ -366,11 +384,11 @@ export function KombatPenalties() {
     if (!m || !a || m.phase !== 'aim' || screenRef.current !== 'playing') return;
     playKfButton(0.7);
     if (a.role === 'keeper') picks.current.dive = z; else picks.current.shot = z;
-    if (modeRef.current === 'two' && a.role === 'shooter') { const kp: 0 | 1 = a.side === 0 ? 1 : 0; setAim({ role: 'keeper', side: kp }); zoneRef.current = 1; setZoneCursor(1); return; }
+    if (pvpRef.current && a.role === 'shooter') { const kp: 0 | 1 = a.side === 0 ? 1 : 0; setAim({ role: 'keeper', side: kp }); zoneRef.current = 1; setZoneCursor(1); return; }
     const { shot, dive } = picks.current;
     if (shot === null || dive === null) return;
     // el arquero de la máquina llega según la dificultad; el de una persona, siempre igual
-    const cpuKeeps = modeRef.current !== 'two' && shooterOf(m.turn, m.first) === 0;
+    const cpuKeeps = !pvpRef.current && shooterOf(m.turn, m.first) === 0;
     startKick(m, shot, dive, cpuKeeps ? reachRef.current : HUMAN_REACH);
     playPenSteps(); // corre a la pelota
     setAim(null);
@@ -391,18 +409,23 @@ export function KombatPenalties() {
     playKfName(id, 0.12);
     if (pick === 0) {
       setP1(id);
-      if (mode === 'world') { setCup(newCup(id, Math.random, true)); setRound(0); setReveal(0); setScreen('ladder'); return; }
+      if (mode === 'world') { setPlayers(list => list.includes(id) ? list.filter(c => c !== id) : list.length < MAX_CUP_PLAYERS ? [...list, id] : list); return; } // (se agrega o se saca)
       if (mode === 'cpu') { const rival = CHAR_IDS.filter(c => c !== id)[Math.floor(Math.random() * 15)]; setP2(rival); setScreen('vs'); playKfVsSentence(id, rival); return; } // contra la máquina: el rival sale al azar
       setPick(1); const other = CHAR_IDS.indexOf(p2 === id ? CHAR_IDS[(idx + 1) % 16] : p2); setCursor(other); if (p2 === id) setP2(CHAR_IDS[other]);
     } else { setP2(id); setScreen('vs'); playKfVsSentence(p1, id); }
   }, [pick, mode, p1, p2]);
+  // Arranca el mundial con las personas elegidas (si no eligió a nadie, con el luchador marcado).
+  const startCup = useCallback(() => {
+    const list = players.length ? players : [CHAR_IDS[cursor]];
+    setPlayers(list); setCup(newCup(list, Math.random, true)); setRound(0); setReveal(0); setCupOut(false); setScreen('ladder');
+  }, [players, cursor]);
   const cols = 4;
   useEffect(() => {
     if (screen !== 'select' && screen !== 'vs' && screen !== 'stage' && screen !== 'howto' && screen !== 'ladder') return;
     const down = (e: KeyboardEvent) => {
       const k = e.code;
       if (screen === 'vs') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); setScreen('stage'); } else if (k === 'Escape' || k === 'Backspace') { if (mode === 'cpu') { setPick(0); setCursor(CHAR_IDS.indexOf(p1)); } else { setPick(1); setCursor(CHAR_IDS.indexOf(p2)); } setScreen('select'); } return; }
-      if (screen === 'ladder') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); setScreen('howto'); } else if (k === 'Escape' || k === 'Backspace') setScreen('select'); return; }
+      if (screen === 'ladder') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); setScreen(cupOut ? 'menu' : 'howto'); } else if ((k === 'Escape' || k === 'Backspace') && round === 0 && !cupOut) setScreen('select'); return; }
       if (screen === 'howto') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); begin(mode === 'world' ? round : 0); } else if (k === 'Escape') setScreen(mode === 'world' ? 'ladder' : 'stage'); return; }
       const n = screen === 'select' ? 16 : STAGES.length, c = screen === 'select' ? cols : narrow ? 2 : 4;
       const cur = screen === 'select' ? cursor : STAGES.findIndex(s => s.id === stage);
@@ -419,7 +442,7 @@ export function KombatPenalties() {
     };
     window.addEventListener('keydown', down);
     return () => window.removeEventListener('keydown', down);
-  }, [screen, cursor, cols, narrow, stage, pick, p1, p2, mode, round, begin, chooseChar]);
+  }, [screen, cursor, cols, narrow, stage, pick, p1, p2, mode, round, begin, chooseChar, cupOut]);
 
   // La música del menú.
   useEffect(() => { preloadKombatUi(); preloadPenaltyArt(); preloadBackdrops(STAGES.map(st => st.id)); const img = new Image(); img.src = spaceBg; }, []);
@@ -484,17 +507,13 @@ export function KombatPenalties() {
         return prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
       });
       if (m.phase === 'end' && m.phaseT > 2.4 && m.winner !== null) {
-        const md = modeRef.current, win = m.winner === 0, sc = scoreOf(m.kicks), rec = readPenRecord();
-        let champion = false;
-        if (md !== 'two') {
-          if (win) rec.wins++; else rec.losses++;
-          if (md === 'world' && win) setCup(c => finishRound(c, round, sc, Math.random, penaltyScore));
-          if (md === 'world' && win && round + 1 >= ROUNDS.length) { rec.cups++; champion = true; setReveal(4); }
-          saveRecord(rec); setRecord(rec);
-        }
+        const md = modeRef.current, both = pvpRef.current, win = m.winner === 0, sc = scoreOf(m.kicks), rec = readPenRecord();
+        if (!both) { if (win) rec.wins++; else rec.losses++; saveRecord(rec); setRecord(rec); }
+        const cm = cupMatch.current; // en el mundial se anota el resultado (lo de las demás fases, con "Ver el cuadro")
+        if (md === 'world' && cm) setCup(c => setMatchScore(c, round, cm.index, cm.flipped ? [sc[1], sc[0]] : sc));
         setResult({ winner: m.winner, score: sc });
-        if (win || md === 'two') playWinFanfare(); else playGameOver();
-        setScreen(champion ? 'champion' : 'result');
+        if (win || both) playWinFanfare(); else playGameOver();
+        setScreen('result');
         return;
       }
       frame = requestAnimationFrame(tick);
@@ -539,10 +558,14 @@ export function KombatPenalties() {
     return zoneAt(penView(r.width, r.height), e.clientX - r.left, e.clientY - r.top);
   };
 
-  const two = mode === 'two';
-  const chars: [CharId, CharId] = screen === 'playing' || screen === 'paused' || screen === 'result' || screen === 'champion' ? fighting : [p1, mode === 'world' ? rivalOf(cup, round) : p2];
+  const inMatch = screen === 'playing' || screen === 'paused' || screen === 'result' || screen === 'champion';
+  const two = inMatch ? pvp : mode === 'two' || (mode === 'world' && !!nextHumanMatch(cup, round)?.humans[1]);
+  const chars: [CharId, CharId] = inMatch ? fighting : mode === 'world' ? cupChars(cup, round) : [p1, p2];
+  // en el mundial con varias personas, cada una es "JUGADOR n" (su número en el mundial)
+  const many = mode === 'world' && cup.humans.length > 1;
+  const who = (c: CharId) => many && isHuman(cup, c) ? `JUGADOR ${playerNo(cup, c)}` : '';
   const curStage: StageId = mode === 'world' ? cup.stages[round] : stage;
-  const label = (i: 0 | 1) => two ? `JUGADOR ${i + 1}` : i === 0 ? 'VOS' : 'CPU';
+  const label = (i: 0 | 1) => who(chars[i]) || (two ? `JUGADOR ${i + 1}` : i === 0 ? 'VOS' : 'CPU');
   // los círculos: de a 5; si empatan los 5, se vacían para los penales siguientes (y otra vez cada 5)
   const block = hud ? Math.floor(Math.floor(hud.turn / 2) / REGULATION) * REGULATION : 0, shownKicks = (i: 0 | 1) => hud ? hud.kicks[i].slice(block, block + REGULATION) : [];
   const shooterNow: 0 | 1 = hud ? shooterOf(hud.turn, hud.first) : 0;
@@ -553,7 +576,7 @@ export function KombatPenalties() {
     <i className="kp-board-role" aria-label={shooterNow === i ? 'patea' : 'ataja'}>{shooterNow === i ? '⚽' : '🧤'}</i>
   </div>;
   const howto = () => <div className="kf-howto-card" style={{ ['--kf-c' as string]: CHARS[chars[0]].color }}>
-    <div className="kf-howto-head"><Portrait char={chars[0]} size={56} square /><div><b>{CHARS[chars[0]].name}</b><small>{two ? 'Jugador 1 · patea primero' : 'Vos · pateás primero'}</small></div></div>
+    <div className="kf-howto-head"><Portrait char={chars[0]} size={56} square /><div><b>{CHARS[chars[0]].name}</b><small>{two ? `${label(0)[0]}${label(0).slice(1).toLowerCase()} · izquierda` : 'Vos · izquierda'}</small></div></div>
     <ul>
       <li>Hay <b>6 lugares</b>: tres arriba y tres abajo (a la <b>derecha del arquero</b>, <b>al medio</b> y a la <b>izquierda del arquero</b>).</li>
       <li>Con las flechas: <Keys keys={['←', '←']} /> arriba a la izquierda · <Keys keys={['→', '→']} /> arriba a la derecha · <Keys keys={['←']} /> abajo a la izquierda · <Keys keys={['→']} /> abajo a la derecha · <Keys keys={['↑']} /> al medio arriba · <Keys keys={['↓']} /> al medio abajo. También tocando el lugar en el arco.</li>
@@ -570,12 +593,29 @@ export function KombatPenalties() {
   const shown = selecting ? CHAR_IDS[cursor] : p1;
   const cell = narrow ? Math.max(56, Math.min(99, Math.floor((vp.w - 40) / 4))) : Math.max(70, Math.min(156, Math.floor((vp.h - 230) / 4)));
   const cardH = narrow ? 225 : Math.round(Math.min(375, cell * 4 * 0.98, Math.max(150, vp.h - 360))), cardW = Math.round(cardH * 0.76);
-  const pickTitle = (n: 0 | 1) => two ? `JUGADOR ${n + 1}` : n === 0 ? 'VOS' : 'CPU';
+  const pickTitle = (n: 0 | 1) => label(n);
   const aimTitle = aim ? (two
     ? `${label(aim.side)} · ${CHARS[chars[aim.side]].name}: ${aim.role === 'keeper' ? '🧤 elegí dónde te tirás (que no mire el otro)' : '⚽ elegí dónde patear'}`
     : aim.role === 'shooter' ? '⚽ Elegí dónde patear' : '🧤 Sos el arquero: elegí dónde te tirás') : '';
   const aimSub = aim ? (two ? (aim.role === 'shooter' ? 'Primero elige el que patea, después el arquero' : 'El que patea ya eligió 🤫') : aim.role === 'shooter' ? 'La máquina ya eligió dónde se tira 🤫' : `${CHARS[chars[1]].name} ya eligió dónde patea 🤫`) : '';
   const winnerName = result ? CHARS[chars[result.winner]].name : '';
+  const world = mode === 'world';
+  const cupName = (c: CharId) => isHuman(cup, c) ? (many ? `${who(c)} · ${CHARS[c].name}` : CHARS[c].name) : `${CHARS[c].name} (CPU)`;
+  const cupFresh = round === 0 && cup.rounds[0].every(m => m.sa === null); // todavía no se jugó ningún partido
+  // lo que pasó en el partido del mundial: el que gana pasa a la fase siguiente
+  const worldLine = result ? (() => {
+    const w = chars[result.winner], l = chars[1 - result.winner], next = round + 1 < ROUNDS.length ? ROUNDS[round + 1].toLowerCase() : null;
+    if (two) return `${label(result.winner)} ${next ? `pasa a ${next}` : 'gana la final'}; ${label(result.winner === 0 ? 1 : 0)} queda afuera.`;
+    if (result.winner === 0) return `${many ? `${who(w)} ganó` : '¡Ganaste'} ${ROUNDS[round].toLowerCase()}${many ? '' : '!'}${next ? ` ${many ? 'Pasa' : 'Pasás'} a ${next}.` : ''}`;
+    return `${many ? `${who(l)} quedó afuera` : 'Quedaste afuera'} en ${ROUNDS[round].toLowerCase()}.`;
+  })() : '';
+  // después de un partido del mundial: el que sigue de la misma fase, o se cierra la fase (o termina el mundial)
+  const continueCup = () => {
+    const a = advanceCup(cup, round, Math.random, penaltyScore);
+    setCup(a.cup); setRound(a.round); setReveal(a.reveal); setCupOut(a.done === 'out');
+    if (a.done === 'champion') { const rec = readPenRecord(); rec.cups++; saveRecord(rec); setRecord(rec); playWinFanfare(); }
+    setScreen(a.done === 'champion' ? 'champion' : 'ladder');
+  };
   return <section className="runner kf kv kp" style={fit} aria-label="Kombat Penales" onClickCapture={e => { if ((e.target as Element).closest('button, a')) playKfButton(); }}>
     <div className="runner-bar">
       <Link className="runner-back" to="/juegos">‹ Juegos</Link>
@@ -605,7 +645,7 @@ export function KombatPenalties() {
         </div>
       </div>}
       {playing && aim && <p className="sr-only" data-testid="kp-aim-title">{aimTitle} · {aimSub}</p>}
-      {playing && rps && <RpsBox rps={rps} two={two} chars={chars} onHand={pickHand} onOrder={chooseOrder} />}
+      {playing && rps && <RpsBox rps={rps} two={two} chars={chars} labels={[label(0), label(1)]} onHand={pickHand} onOrder={chooseOrder} />}
       {playing && intro && <div className="kf-vs" aria-hidden="true">
         <div className="kf-vs-side" style={{ ['--kf-c' as string]: CHARS[chars[0]].color }}><FighterCard char={chars[0]} w={150} h={190} /><b>{CHARS[chars[0]].name}</b></div>
         <div className="kf-vs-mid"><strong>VS</strong><small>{stageName}</small></div>
@@ -619,14 +659,15 @@ export function KombatPenalties() {
         {screen === 'champion' && <Fireworks />}
         <h2 id="kf-title" className={screen === 'champion' ? 'end-banner end-banner--win' : undefined}>{screen === 'champion' ? '🏆 ¡CAMPEÓN DEL MUNDO!' : 'MUNDIAL DE KOMBAT PENALES'}</h2>
         <WorldBracket cup={cup} round={round} reveal={reveal} width={Math.max(300, Math.min(1180, vp.w - 24))} height={Math.max(250, Math.min(620, vp.h - (narrow ? 200 : 215)))} />
-        {screen === 'ladder'
-          ? <p className="kf-zone" data-testid="kp-ladder-next"><b>{ROUNDS[round]}</b> · <b>{CHARS[p1].name}</b> vs <b>{CHARS[rivalOf(cup, round)].name}</b> · {STAGES.find(s => s.id === cup.stages[round])!.name}</p>
-          : <p className="kf-zone">Ganaste octavos, cuartos, semifinal y la final con <b>{CHARS[cup.you].name}</b>.</p>}
+        {screen === 'champion' && cup.champion
+          ? <p className="kf-zone">{many ? <>¡<b>{who(cup.champion)} · {CHARS[cup.champion].name}</b> ganó el mundial!</> : <>Ganaste octavos, cuartos, semifinal y la final con <b>{CHARS[cup.champion].name}</b>.</>}</p>
+          : cupOut ? <p className="kf-zone" data-testid="kp-ladder-next">{many ? 'Quedaron todos afuera' : 'Quedaste afuera'}. Campeón: <b>{cup.champion ? CHARS[cup.champion].name : ''}</b></p>
+          : <p className="kf-zone" data-testid="kp-ladder-next"><b>{ROUNDS[round]}</b> · <b>{cupName(chars[0])}</b> vs <b>{cupName(chars[1])}</b> · {STAGES.find(s => s.id === cup.stages[round])!.name}</p>}
         <div className="kf-actions">
-          {screen === 'ladder'
-            ? <><button type="button" className="kf-secondary" onClick={() => setScreen(round === 0 ? 'select' : 'menu')}>{round === 0 ? '‹ Volver' : 'Abandonar'}</button>
+          {screen === 'ladder' && !cupOut
+            ? <><button type="button" className="kf-secondary" onClick={() => setScreen(cupFresh ? 'select' : 'menu')}>{cupFresh ? '‹ Volver' : 'Abandonar'}</button>
               <button type="button" onClick={() => setScreen('howto')} autoFocus>¡A patear! ▶</button></>
-            : <button type="button" onClick={() => { setRound(0); setReveal(0); setScreen('menu'); }} autoFocus>VOLVER A JUGAR</button>}
+            : <button type="button" onClick={() => { setRound(0); setReveal(0); setCupOut(false); setScreen('menu'); }} autoFocus>VOLVER A JUGAR</button>}
         </div>
       </div>}
       {screen === 'vs' && <div className="kf-select kf-versus" role="dialog" aria-labelledby="kf-title" style={{ backgroundImage: `linear-gradient(90deg, ${CHARS[p1].color}38, #0000 38%, #0000 62%, ${CHARS[p2].color}38), radial-gradient(ellipse at 50% 50%, #0000 30%, #000000c0 100%), url(${spaceBg})`, backgroundSize: 'auto, auto, cover', backgroundPosition: 'center', backgroundColor: '#03020c' }}>
@@ -646,38 +687,41 @@ export function KombatPenalties() {
         </div>
       </div>}
       {selecting && <div className="kf-select" role="dialog" aria-labelledby="kf-title" style={{ backgroundImage: `radial-gradient(ellipse at 50% 45%, #0000 55%, #00000080 100%), url(${spaceBg})`, backgroundSize: 'auto, cover', backgroundPosition: 'center', backgroundColor: '#03020c' }}>
-        <h2 id="kf-title">{two ? `JUGADOR ${pick + 1}: ELEGÍ TU LUCHADOR` : pick === 0 ? 'ELEGÍ TU JUGADOR' : 'ELEGÍ AL RIVAL'}</h2>
+        <h2 id="kf-title">{world ? `MUNDIAL: ELEGÍ LOS JUGADORES (HASTA ${MAX_CUP_PLAYERS})` : two ? `JUGADOR ${pick + 1}: ELEGÍ TU LUCHADOR` : pick === 0 ? 'ELEGÍ TU JUGADOR' : 'ELEGÍ AL RIVAL'}</h2>
         <div className="kf-select-row">
           <div className={`kf-pick kf-pick--1${pick === 0 ? ' kf-pick--active' : ''}`} style={{ ['--kf-c' as string]: CHARS[pick === 0 ? shown : p1].color }}>
             <FighterCard char={pick === 0 ? shown : p1} w={cardW} h={cardH} />
             <b data-testid="kp-pick-1">{CHARS[pick === 0 ? shown : p1].name}</b>
-            <small>{pickTitle(0)}</small>
+            <small>{world ? `JUGADOR ${players.includes(shown) ? players.indexOf(shown) + 1 : Math.min(MAX_CUP_PLAYERS, players.length + 1)}` : pickTitle(0)}</small>
             <StatBars char={pick === 0 ? shown : p1} />
           </div>
-          <div className="kf-grid" role="group" aria-label={pick === 0 ? 'Tu jugador' : 'Rival'} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+          <div className="kf-grid" role="group" aria-label={world ? 'Jugadores del mundial' : pick === 0 ? 'Tu jugador' : 'Rival'} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
             {CHAR_IDS.map((id, i) => {
-              const sel1 = pick === 0 ? cursor === i : id === p1, sel2 = pick === 1 && cursor === i;
+              const sel1 = pick === 0 ? cursor === i : id === p1, sel2 = pick === 1 && cursor === i, jn = world ? players.indexOf(id) + 1 : 0;
               return <button key={id} type="button" className={`kf-cell${sel1 ? ' kf-cell--1' : ''}${sel2 ? ' kf-cell--2' : ''}`} aria-label={CHARS[id].name} aria-pressed={cursor === i}
                 onClick={() => { if (cursor === i) chooseChar(i); else { setCursor(i); playKfName(id); if (pick === 0) setP1(id); else setP2(id); } }}
                 onDoubleClick={() => chooseChar(i)}>
                 <Portrait char={id} size={cell} square />
-                {sel1 && <i className="kf-tag kf-tag--1">1</i>}{sel2 && <i className="kf-tag kf-tag--2">{two ? '2' : 'CPU'}</i>}
+                {world ? jn > 0 && <i className="kf-tag kf-tag--1" data-testid={`kp-player-${jn}`}>J{jn}</i> : <>{sel1 && <i className="kf-tag kf-tag--1">1</i>}{sel2 && <i className="kf-tag kf-tag--2">{two ? '2' : 'CPU'}</i>}</>}
               </button>;
             })}
           </div>
-          <div className={`kf-pick kf-pick--2${pick === 1 ? ' kf-pick--active' : ''}`} style={{ ['--kf-c' as string]: CHARS[pick === 1 ? CHAR_IDS[cursor] : p2].color }}>
+          {world ? <CupPlayers players={players} w={cardW} h={cardH} /> : <div className={`kf-pick kf-pick--2${pick === 1 ? ' kf-pick--active' : ''}`} style={{ ['--kf-c' as string]: CHARS[pick === 1 ? CHAR_IDS[cursor] : p2].color }}>
             {pick === 1 ? <FighterCard char={CHAR_IDS[cursor]} w={cardW} h={cardH} mirror /> : <div className="kf-pick-empty" style={{ width: cardW, height: cardH }}>?</div>}
             <b data-testid="kp-pick-2">{pick === 1 ? CHARS[CHAR_IDS[cursor]].name : '—'}</b>
             <small>{pickTitle(1)}</small>
             {pick === 1 && <StatBars char={CHAR_IDS[cursor]} right />}
-          </div>
+          </div>}
         </div>
         <div className="kf-actions">
           <button type="button" className="kf-secondary" onClick={() => { if (pick === 1) { setPick(0); setCursor(CHAR_IDS.indexOf(p1)); } else setScreen('menu'); }}>‹ Volver</button>
           {pick === 1 && <button type="button" className="kf-secondary" onClick={() => chooseChar(CHAR_IDS.indexOf(CHAR_IDS.filter(c => c !== p1)[Math.floor(Math.random() * 15)]))}>🎲 Al azar</button>}
-          <button type="button" onClick={() => chooseChar(cursor)}>Elegir {CHARS[CHAR_IDS[cursor]].name} ▶</button>
+          {world
+            ? <><button type="button" className="kf-secondary" data-testid="kp-toggle-player" disabled={!players.includes(CHAR_IDS[cursor]) && players.length >= MAX_CUP_PLAYERS} onClick={() => chooseChar(cursor)}>{players.includes(CHAR_IDS[cursor]) ? `Sacar a ${CHARS[CHAR_IDS[cursor]].name}` : `Agregar a ${CHARS[CHAR_IDS[cursor]].name}`}</button>
+              <button type="button" data-testid="kp-start-cup" onClick={startCup}>{players.length > 1 ? `Empezar el mundial (${players.length} jugadores) ▶` : 'Empezar el mundial ▶'}</button></>
+            : <button type="button" onClick={() => chooseChar(cursor)}>Elegir {CHARS[CHAR_IDS[cursor]].name} ▶</button>}
         </div>
-        <p className="kf-hint">Flechas para moverte · ENTER para elegir · o tocá la cara (dos veces para elegir)</p>
+        <p className="kf-hint">{world ? 'Flechas para moverte · ENTER agrega o saca al luchador · cada uno juega sus partidos contra la máquina (y entre ustedes desde cuartos)' : 'Flechas para moverte · ENTER para elegir · o tocá la cara (dos veces para elegir)'}</p>
       </div>}
       {screen !== 'playing' && !selecting && screen !== 'vs' && screen !== 'ladder' && screen !== 'champion' && <div className={`runner-overlay kf-overlay${screen === 'menu' ? ' kf-menu-wall' : ''}`} role="dialog" aria-labelledby="kf-title" style={screen === 'menu' ? { backgroundImage: `radial-gradient(ellipse at 50% 45%, #0000 40%, #000000b3 100%), url(${menuBg})`, backgroundSize: 'auto, cover', backgroundPosition: 'center', backgroundColor: '#1a0503' } : undefined}>
         <div>
@@ -725,12 +769,12 @@ export function KombatPenalties() {
           {screen === 'result' && result && <>
             {two ? <h2 id="kf-title" className="end-banner end-banner--win">¡GANÓ {winnerName}!</h2> : <EndBanner win={result.winner === 0} id="kf-title" />}
             <p className="kf-final" data-testid="kp-final">{CHARS[chars[0]].name} <b>{result.score[0]} - {result.score[1]}</b> {CHARS[chars[1]].name}</p>
-            {two && <p>Ganó el <b>jugador {result.winner + 1}</b> en los penales.</p>}
-            {mode === 'world' && <p>{result.winner === 0 ? `¡Ganaste ${ROUNDS[round].toLowerCase()}! Pasás a ${ROUNDS[round + 1].toLowerCase()}.` : `Quedaste afuera en ${ROUNDS[round].toLowerCase()}.`}</p>}
+            {two && <p>Ganó <b>{label(result.winner)}</b> en los penales.</p>}
+            {mode === 'world' && <p>{worldLine}</p>}
             <div className="kf-actions">
               <button type="button" className="kf-secondary" onClick={() => setScreen('menu')}>Menú</button>
               {mode === 'world'
-                ? result.winner === 0 && <button type="button" onClick={() => { const n = round + 1; setReveal(n); setRound(n); setScreen('ladder'); }} autoFocus>Ver el cuadro ▶</button>
+                ? <button type="button" onClick={continueCup} autoFocus>Ver el cuadro ▶</button>
                 : <button type="button" onClick={() => begin(round)} autoFocus>Revancha</button>}
             </div>
           </>}

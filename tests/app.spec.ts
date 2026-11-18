@@ -1225,10 +1225,18 @@ test('Kombat Voley: amistoso con rival y estadio elegidos, se saca y se pausa; e
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
   await page.getByRole('button', { name: 'Abandonar' }).click();
   await page.getByRole('button', { name: 'Mundial' }).click();
-  const me = page.getByRole('group', { name: 'Tu jugador' }).getByRole('button', { name: 'FROST' });
-  await me.click(); // (ya estaba marcado: un toque lo elige)
+  // el mundial: se pueden elegir varios jugadores (hasta 4); los cruces se sortean y no se cruzan en octavos
+  const cupGrid = page.getByRole('group', { name: 'Jugadores del mundial' });
+  await cupGrid.getByRole('button', { name: 'FROST' }).click(); // (ya estaba marcado: un toque lo agrega)
+  const second = cupGrid.getByRole('button', { name: 'THUNDER' }); await second.click(); await second.click();
+  await expect(page.getByTestId('kv-player-1')).toBeVisible();
+  await expect(page.getByTestId('kv-player-2')).toBeVisible();
+  await expect(page.getByTestId('kv-cup-players')).toContainText('THUNDER');
+  await page.getByTestId('kv-start-cup').click();
   await expect(page.getByRole('heading', { name: 'MUNDIAL DE KOMBAT VOLEY' })).toBeVisible();
   await expect(page.getByTestId('kv-ladder-next')).toContainText('Octavos de final');
+  await expect(page.getByTestId('kv-ladder-next')).toHaveText(/JUGADOR (1 · FROST|2 · THUNDER) vs/); // (primero el partido de más arriba del cuadro)
+  await expect(page.getByTestId('kv-ladder-next')).toContainText('(CPU)');
   await page.getByRole('button', { name: '¡A jugar! ▶' }).click();
   await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
 });
@@ -1289,10 +1297,16 @@ test('Kombat Penales: amistoso (rival al azar, piedra papel o tijera), 2 jugador
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Abandonar' }).click();
   await page.getByRole('button', { name: 'Mundial' }).click();
-  const me = page.getByRole('group', { name: 'Tu jugador' }).getByRole('button', { name: 'FROST' });
-  await me.click(); await me.click();
+  // el mundial: se pueden elegir varios jugadores (hasta 4); los cruces se sortean y no se cruzan en octavos
+  const cupGrid = page.getByRole('group', { name: 'Jugadores del mundial' });
+  const me = cupGrid.getByRole('button', { name: 'FROST' });
+  await me.click(); if (!(await page.getByTestId('kp-player-1').count())) await me.click();
+  const second = cupGrid.getByRole('button', { name: 'CYBER' }); await second.click(); await second.click();
+  await expect(page.getByTestId('kp-player-2')).toBeVisible();
+  await page.getByTestId('kp-start-cup').click();
   await expect(page.getByRole('heading', { name: 'MUNDIAL DE KOMBAT PENALES' })).toBeVisible();
   await expect(page.getByTestId('kp-ladder-next')).toContainText('Octavos de final');
+  await expect(page.getByTestId('kp-ladder-next')).toHaveText(/JUGADOR (1 · FROST|2 · CYBER) vs .*\(CPU\)/); // (primero el partido de más arriba del cuadro)
   await page.getByRole('button', { name: '¡A patear! ▶' }).click();
   await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
 });

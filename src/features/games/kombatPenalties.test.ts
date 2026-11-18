@@ -70,7 +70,7 @@ describe('Kombat Penales: la tanda', () => {
   });
   it('el mundial simula resultados de penales sin empates', () => {
     for (let i = 0; i < 50; i++) { const [a, b] = penaltyScore(Math.random); expect(a).toBeGreaterThan(b); }
-    const cup = finishRound(newCup('frost', () => 0.3), 0, [5, 4], Math.random, penaltyScore);
+    const cup = finishRound(newCup('frost', () => 0.3), 0, Math.random, penaltyScore);
     expect(cup.rounds[1]).toHaveLength(4);
     expect(cup.rounds[0].every(m => m.sa !== null && m.sa !== m.sb)).toBe(true);
   });

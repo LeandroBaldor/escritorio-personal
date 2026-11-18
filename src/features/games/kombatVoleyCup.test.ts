@@ -1,29 +1,53 @@
 import { describe, expect, it } from 'vitest';
 import { CHAR_IDS, seeded } from './kombat';
 import { SET_POINTS } from './kombatVoley';
-import { cupSlot, cupWinner, finishRound, newCup, volleyScore, yourMatch } from './kombatVoleyCup';
+import { advanceCup, cupSlot, cupWinner, humansIn, isHuman, newCup, nextHumanMatch, setMatchScore, volleyScore } from './kombatVoleyCup';
 
 describe('Mundial de Kombat Voley', () => {
-  it('arma un cuadro de 16 con los 16 luchadores, 1 contra 16, 8 contra 9…', () => {
+  it('arma un cuadro de 16 con los 16 luchadores y cruces al azar', () => {
     const cup = newCup('cometa', seeded(3));
     expect(cup.rounds[0]).toHaveLength(8);
     expect(new Set(cup.rounds[0].flatMap(m => [m.a, m.b]))).toEqual(new Set(CHAR_IDS));
-    expect(cup.rounds[0].map(m => [cup.seed[m.a], cup.seed[m.b]])).toEqual([[1, 16], [8, 9], [4, 13], [5, 12], [2, 15], [7, 10], [3, 14], [6, 11]]);
     expect(cup.stages).toHaveLength(4);
+    const orders = new Set([1, 2, 3, 4, 5].map(n => newCup('cometa', seeded(n)).rounds[0].map(m => m.a + m.b).join()));
+    expect(orders.size).toBeGreaterThan(1);
   });
-  it('cada fase anota el resultado del jugador, simula las demás y pasan los ganadores hasta el campeón', () => {
-    let cup = newCup('frost', seeded(5));
+  it('varias personas: nunca se cruzan en octavos', () => {
+    for (let n = 0; n < 60; n++) {
+      const cup = newCup(['cometa', 'frost', 'inferno', 'toxic'], seeded(n));
+      expect(cup.humans).toHaveLength(4);
+      for (const m of cup.rounds[0]) expect(isHuman(cup, m.a) && isHuman(cup, m.b)).toBe(false);
+      expect(new Set(cup.rounds[0].flatMap(m => [m.a, m.b]))).toEqual(new Set(CHAR_IDS));
+    }
+  });
+  it('se juegan los partidos de las personas de a uno y después se simulan los demás, hasta el campeón', () => {
+    let cup = newCup('frost', seeded(5)), round = 0;
     for (let r = 0; r < 4; r++) {
-      const mine = yourMatch(cup, r)!;
-      expect(mine.rival).not.toBe('frost');
-      cup = finishRound(cup, r, [15, 11], seeded(10 + r));
+      const mine = nextHumanMatch(cup, round)!;
+      expect(mine.chars[0]).toBe('frost'); expect(mine.chars[1]).not.toBe('frost');
+      cup = setMatchScore(cup, round, mine.index, mine.flipped ? [11, 15] : [15, 11]);
+      const adv = advanceCup(cup, round, seeded(10 + r));
+      cup = adv.cup;
       for (const m of cup.rounds[r]) { expect(cupWinner(m)).not.toBeNull(); expect(Math.max(m.sa!, m.sb!)).toBeGreaterThanOrEqual(SET_POINTS); expect(Math.abs(m.sa! - m.sb!)).toBeGreaterThanOrEqual(2); }
-      if (r < 3) { expect(cup.rounds[r + 1]).toHaveLength(4 >> r); expect(cup.rounds[r + 1].some(m => m.a === 'frost' || m.b === 'frost')).toBe(true); }
+      if (r < 3) { expect(adv.done).toBeNull(); expect(adv.round).toBe(r + 1); expect(cup.rounds[r + 1]).toHaveLength(4 >> r); round = adv.round; } else expect(adv.done).toBe('champion');
     }
     expect(cup.champion).toBe('frost');
     const s = cupSlot(cup, 3, 0)!, t = cupSlot(cup, 3, 1)!;
     expect([s.char, t.char]).toContain('frost');
     expect(s.won !== t.won).toBe(true);
+  });
+  it('con dos personas: si una pierde sigue la otra; si pierden todas se simula hasta el campeón', () => {
+    let cup = newCup(['frost', 'cometa'], seeded(7));
+    const first = nextHumanMatch(cup, 0)!;
+    cup = setMatchScore(cup, 0, first.index, first.flipped ? [15, 3] : [3, 15]); // la primera pierde
+    let adv = advanceCup(cup, 0, seeded(1));
+    expect(adv.round).toBe(0); expect(adv.done).toBeNull();
+    const second = nextHumanMatch(adv.cup, 0)!;
+    expect(second.index).not.toBe(first.index);
+    cup = setMatchScore(adv.cup, 0, second.index, second.flipped ? [15, 3] : [3, 15]); // la segunda también
+    adv = advanceCup(cup, 0, seeded(2));
+    expect(adv.done).toBe('out'); expect(adv.cup.champion).not.toBeNull(); expect(isHuman(adv.cup, adv.cup.champion!)).toBe(false);
+    expect(humansIn(adv.cup, 1)).toHaveLength(0);
   });
   it('los resultados simulados son de vóley a 15 con dos de diferencia', () => {
     const r = seeded(1);
