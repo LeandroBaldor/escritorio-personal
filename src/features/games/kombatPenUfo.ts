@@ -75,6 +75,17 @@ function drawCraft(ctx: CanvasRenderingContext2D, t: number) {
   }
 }
 
+// El ovni solo (para Kombat Football): centrado en (cx, cy) con `width` píxeles de ancho. Devuelve la altura en
+// pantalla del emisor (de donde sale el rayo), o null si la imagen todavía no cargó.
+export function drawUfoCraftAt(ctx: CanvasRenderingContext2D, t: number, cx: number, cy: number, width: number): number | null {
+  preloadPenUfo();
+  const scale = width / 1536;
+  if (!sprite) return null;
+  ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.translate(cx - width / 2, cy - 512 * scale); ctx.scale(scale, scale); drawCraft(ctx, t); ctx.restore();
+  return cy + (870 - 512) * scale;
+}
+
 export function drawPenUfo(ctx: CanvasRenderingContext2D, t: number, target: { x: number; y: number; h: number }) {
   preloadPenUfo();
   const seq = ufoSequence(t); if (t >= FINAL_END_AT) return;

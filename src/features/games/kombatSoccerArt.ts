@@ -2,8 +2,10 @@
 // que sigue la pelota a lo largo de la cancha y gira un poquito cuando se acerca a un arco. Atrás, el fondo pintado
 // de cada escenario (el mismo de siempre); adelante, la cancha con las franjas del pasto y las líneas, del color
 // del escenario, los carteles que la rodean, los arcos con red, los luchadores, el árbitro, la pelota y los poderes.
-import { CHARS, POWER_MAX, SIZE, type Element, type StageId } from './kombat';
-import { BR, D, GD, GH, GW, L, ZC, AREA_W, AREA_X, CHARGE_TIME, PLAYER_SCALE, hOf, type AtkShape, type Player, type Proj, type SFx, type SoccerMatch } from './kombatSoccer';
+import { SIZE, type StageId } from './kombat';
+import { BR, D, GD, GH, GW, L, ZC, AREA_W, AREA_X, CHARGE_TIME, PLAYER_SCALE, hOf, type Player, type SFx, type SoccerMatch } from './kombatSoccer';
+import { drawHazardsGround, drawMeteor, drawShark, drawUfo, preloadHazardArt } from './kombatSoccerHazardsArt';
+import { meteorPos } from './kombatSoccer';
 import { THEMES, drawBallSprite, drawGib, drawScreenBlood, type View } from './kombatArt';
 import { drawFighterLit, drawRefLit, LOOKS } from './kombatFighters';
 import { alpha, bloom, darken, lighten } from './gravityMonsters';
@@ -88,7 +90,7 @@ function drawPitch(ctx: CanvasRenderingContext2D, v: SView, stage: StageId) {
   // alrededor de la cancha (debajo de los carteles)
   ctx.fillStyle = T.surround; poly(ctx, v, [[-9, 0, -1], [L + 9, 0, -1], [L + 9, 0, D + 14], [-9, 0, D + 14]]); ctx.fill();
   // las franjas del pasto
-  const n = 14;
+  const n = 20;
   const stripeB = lighten(T.b, 0.07);
   for (let i = 0; i < n; i++) { ctx.fillStyle = i % 2 ? T.a : stripeB; poly(ctx, v, [[L * i / n, 0, 0], [L * (i + 1) / n, 0, 0], [L * (i + 1) / n, 0, D], [L * i / n, 0, D]]); ctx.fill(); }
   // luz: más clara en el medio, más oscura lejos (profundidad)
@@ -105,13 +107,13 @@ function drawPitch(ctx: CanvasRenderingContext2D, v: SView, stage: StageId) {
   };
   const arc = (cx: number, cz: number, r: number, a0: number, a1: number) => { const pts: [number, number][] = []; for (let k = 0; k <= 40; k++) { const a = a0 + (a1 - a0) * k / 40; pts.push([cx + Math.cos(a) * r, cz + Math.sin(a) * r]); } return pts; };
   line([[0, 0], [L, 0]]); line([[0, D], [L, D]]); line([[0, 0], [0, D]]); line([[L, 0], [L, D]]);
-  line([[L / 2, 0], [L / 2, D]]); line(arc(L / 2, ZC, 3.6, 0, TAU), true);
+  line([[L / 2, 0], [L / 2, D]]); line(arc(L / 2, ZC, 4.2, 0, TAU), true);
   for (const left of [true, false]) {
     const gx = left ? 0 : L, s = left ? 1 : -1;
     line([[gx, ZC - AREA_W / 2], [gx + s * AREA_X, ZC - AREA_W / 2], [gx + s * AREA_X, ZC + AREA_W / 2], [gx, ZC + AREA_W / 2]]);
-    line([[gx, ZC - GW / 2 - 1.2], [gx + s * 2.2, ZC - GW / 2 - 1.2], [gx + s * 2.2, ZC + GW / 2 + 1.2], [gx, ZC + GW / 2 + 1.2]]);
-    line(arc(gx + s * 4.6, ZC, 3.2, left ? -0.93 : Math.PI - 0.93, left ? 0.93 : Math.PI + 0.93).filter(([x]) => left ? x > AREA_X : x < L - AREA_X));
-    const [px, py, ps] = project(v, gx + s * 4.6, 0, ZC); ctx.fillStyle = alpha(T.line, 0.85); ctx.beginPath(); ctx.ellipse(px, py, 0.18 * ps, 0.1 * ps, 0, 0, TAU); ctx.fill();
+    line([[gx, ZC - GW / 2 - 1.4], [gx + s * 2.6, ZC - GW / 2 - 1.4], [gx + s * 2.6, ZC + GW / 2 + 1.4], [gx, ZC + GW / 2 + 1.4]]);
+    line(arc(gx + s * 5.4, ZC, 3.4, left ? -0.93 : Math.PI - 0.93, left ? 0.93 : Math.PI + 0.93).filter(([x]) => left ? x > AREA_X : x < L - AREA_X));
+    const [px, py, ps] = project(v, gx + s * 5.4, 0, ZC); ctx.fillStyle = alpha(T.line, 0.85); ctx.beginPath(); ctx.ellipse(px, py, 0.18 * ps, 0.1 * ps, 0, 0, TAU); ctx.fill();
   }
   const [cx, cy, cs] = project(v, L / 2, 0, ZC); ctx.fillStyle = alpha(T.line, 0.85); ctx.beginPath(); ctx.ellipse(cx, cy, 0.2 * cs, 0.11 * cs, 0, 0, TAU); ctx.fill();
   // brillo de las líneas (los escenarios de noche)
@@ -137,7 +139,7 @@ function drawBoards(ctx: CanvasRenderingContext2D, v: SView, stage: StageId, t: 
     ctx.fillStyle = alpha('#ffffff', 0.55 + 0.4 * lit); ctx.fillText(label, 50, 5.4);
     ctx.restore();
   };
-  const labels = ['KOMBAT FOOTBALL', 'FATAL GOAL', '⚡ PODER ⚡', 'KOMBAT FOOTBALL', '5 VS 5', 'GOL DE ORO'];
+  const labels = ['KOMBAT FOOTBALL', 'CUIDADO: LAVA', 'TIBURONES', 'KOMBAT FOOTBALL', 'METEORITOS', 'OVNIS', '5 VS 5', 'GOL DE ORO'];
   for (let x = -6, k = 0; x < L + 6; x += 6, k++) panel([x, zb], [x + 6, zb], k, labels[k % labels.length]);
   for (const left of [true, false]) { const x = left ? -GD - 1.4 : L + GD + 1.4; for (let z = zb, k = 0; z < D + 3; z += 6, k++) panel(left ? [x, z + 6] : [x, z], left ? [x, z] : [x, z + 6], k + 3, k % 2 ? 'KOMBAT' : 'FOOTBALL'); }
 }
@@ -176,20 +178,18 @@ function post(ctx: CanvasRenderingContext2D, v: SView, a: [number, number, numbe
   if (glow) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = alpha(glow, 0.35); ctx.lineWidth = w * 2.2; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); ctx.restore(); }
 }
 
-// ---------------------------------------------------------------- Pelota, poderes y efectos
+// ---------------------------------------------------------------- Pelota y efectos
 function drawBall(ctx: CanvasRenderingContext2D, m: SoccerMatch, v: SView) {
   const b = m.ball;
-  const glow = b.fatal ? CHARS[m.players[m.fatal?.shooter ?? 0]?.char ?? 'inferno'].glow : b.fx === 'fire' ? '#fb923c' : b.fx === 'ice' ? '#bae6fd' : b.fx === 'volt' ? '#fde047' : b.fx === 'toxic' ? '#4ade80' : b.fx === 'dark' ? '#c084fc' : b.fx === 'rock' ? '#fbbf24' : '#e0f2fe';
+  const glow = b.fx === 'fire' ? '#fb923c' : '#e0f2fe';
   if (m.trail.length > 2) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
-    for (let i = 1; i < m.trail.length; i++) { const k = 1 - i / m.trail.length, [x0, y0, s0] = project(v, ...m.trail[i - 1]), [x1, y1] = project(v, ...m.trail[i]); ctx.strokeStyle = alpha(glow, (b.fx !== 'none' || b.fatal ? 0.6 : 0.3) * k); ctx.lineWidth = BR * 2 * s0 * k * (b.fatal ? 1.8 : 1); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+    for (let i = 1; i < m.trail.length; i++) { const k = 1 - i / m.trail.length, [x0, y0, s0] = project(v, ...m.trail[i - 1]), [x1, y1] = project(v, ...m.trail[i]); ctx.strokeStyle = alpha(glow, (b.fx !== 'none' ? 0.6 : 0.3) * k); ctx.lineWidth = BR * 2 * s0 * k; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
     ctx.restore();
   }
   const [x, y, s] = project(v, b.x, b.y, b.z);
-  if (b.comet && !b.fatal) cometTail(ctx, v, m, x, y, s);
-  if (b.fatal) { bloom(ctx, x, y, BR * s * 5, glow, 0.8); fatalAura(ctx, x, y, BR * s * 1.25, b.fx === 'none' ? 'fire' : b.fx, m.time, b.vx < 0 ? -1 : 1); }
-  const kind = b.fx === 'fire' ? 'fire' : b.fx === 'ice' ? 'ice' : b.fx === 'toxic' ? 'toxic' : b.fx === 'dark' ? 'void' : 'normal';
-  drawBallSprite(ctx, x, y, BR * s * (b.fatal ? 1.25 : 1), b.roll, kind, b.fx === 'volt' ? 'volt' : b.fx === 'fire' ? 'fire' : 'none', m.time);
+  if (b.comet) cometTail(ctx, v, m, x, y, s);
+  drawBallSprite(ctx, x, y, BR * s, b.roll, b.fx === 'fire' ? 'fire' : 'normal', b.fx === 'fire' ? 'fire' : 'none', m.time);
 }
 // El tiro bien cargado: la pelota sale como un cometa, con una cola de fuego larga atrás.
 function cometTail(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch, x: number, y: number, s: number) {
@@ -212,100 +212,8 @@ function cometTail(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch, x: n
   bloom(ctx, x, y, r * 4, '#fb923c', 0.75);
   ctx.restore();
 }
-// La pelota del FATAL: fuego, electricidad, hielo, energía oscura, ácido o lava según el luchador.
-function fatalAura(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, el: Element, t: number, dir: number) {
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  if (el === 'fire' || el === 'rock') { // llamas que salen para atrás
-    for (let k = 0; k < 10; k++) { const a = Math.PI * (dir > 0 ? 1 : 0) + (k - 4.5) * 0.22, l = r * (2.2 + Math.sin(t * 30 + k * 2) * 0.7);
-      ctx.fillStyle = k % 2 ? (el === 'rock' ? 'rgba(251,146,60,0.65)' : 'rgba(253,224,71,0.7)') : 'rgba(239,68,68,0.6)';
-      ctx.beginPath(); ctx.moveTo(x + Math.cos(a - 0.5) * r, y + Math.sin(a - 0.5) * r); ctx.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l * 0.7 - r * 0.3); ctx.lineTo(x + Math.cos(a + 0.5) * r, y + Math.sin(a + 0.5) * r); ctx.fill(); }
-  } else if (el === 'volt') { // rayos que saltan alrededor
-    ctx.strokeStyle = '#fef08a'; ctx.lineWidth = Math.max(1.5, r * 0.12);
-    for (let k = 0; k < 6; k++) { let a = t * 40 + k * 1.7, px = x + Math.cos(a) * r, py = y + Math.sin(a) * r; ctx.beginPath(); ctx.moveTo(px, py); for (let j = 0; j < 4; j++) { a += Math.sin(t * 90 + k * 7 + j) * 0.9; px += Math.cos(a) * r * 0.7; py += Math.sin(a) * r * 0.7; ctx.lineTo(px, py); } ctx.stroke(); }
-  } else { // energía: anillos que laten (hielo celeste, oscuridad violeta, ácido verde)
-    const c = el === 'ice' ? '#bae6fd' : el === 'dark' ? '#e879f9' : '#86efac';
-    for (let k = 0; k < 3; k++) { const ph = (t * 3 + k / 3) % 1; ctx.strokeStyle = alpha(c, 0.8 * (1 - ph)); ctx.lineWidth = Math.max(1.5, r * 0.15); ctx.beginPath(); ctx.arc(x, y, r * (1 + ph * 1.8), 0, TAU); ctx.stroke(); }
-    bloom(ctx, x, y, r * 3, c, 0.6);
-  }
-  ctx.restore();
-}
 function drawShadow(ctx: CanvasRenderingContext2D, v: SView, x: number, z: number, r: number, a: number) {
   const [px, py, s] = project(v, x, 0, z); ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.beginPath(); ctx.ellipse(px, py, r * s, r * s * 0.5, 0, 0, TAU); ctx.fill();
-}
-// Un proyectil de ataque, según su forma (fuego, hielo, plasma, estrella ninja, bomba, pluma, burbuja, roca,
-// calavera, tajo láser, rayo, láser, pico, misil, meteorito, granizo).
-function shapeAt(ctx: CanvasRenderingContext2D, shape: AtkShape, r: number, c: { color: string; glow: string }, t: number, ang: number) {
-  const dot = (rr: number, g0: string, g1: string, g2: string) => { const g = ctx.createRadialGradient(-rr * 0.3, -rr * 0.3, 0, 0, 0, rr); g.addColorStop(0, g0); g.addColorStop(0.45, g1); g.addColorStop(1, g2); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rr, 0, TAU); ctx.fill(); };
-  switch (shape) {
-    case 'fire': case 'meteor': {
-      ctx.rotate(ang);
-      for (let k = 0; k < 7; k++) { const l = r * (2.2 + Math.sin(t * 30 + k * 2.1) * 0.6), a = Math.PI + (k - 3) * 0.3; ctx.fillStyle = k % 2 ? 'rgba(253,224,71,0.85)' : 'rgba(239,68,68,0.8)'; ctx.beginPath(); ctx.moveTo(Math.cos(a - 1.1) * r, Math.sin(a - 1.1) * r); ctx.lineTo(Math.cos(a) * l, Math.sin(a) * l); ctx.lineTo(Math.cos(a + 1.1) * r, Math.sin(a + 1.1) * r); ctx.fill(); }
-      if (shape === 'meteor') { ctx.fillStyle = '#44261a'; ctx.beginPath(); for (let k = 0; k < 8; k++) { const rr = r * (0.8 + ((k * 37) % 5) / 12); ctx.lineTo(Math.cos(k * TAU / 8) * rr, Math.sin(k * TAU / 8) * rr); } ctx.fill(); ctx.strokeStyle = '#fb923c'; ctx.lineWidth = 2; ctx.stroke(); }
-      else dot(r, '#fffbeb', '#fde047', '#f97316');
-      break;
-    }
-    case 'ice': case 'hail': {
-      ctx.rotate(ang + (shape === 'hail' ? t * 4 : 0)); ctx.fillStyle = '#e0f2fe'; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(r * 1.8, 0); ctx.lineTo(0, r * 0.6); ctx.lineTo(-r * 1.2, 0); ctx.lineTo(0, -r * 0.6); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.beginPath(); ctx.moveTo(r * 1.4, 0); ctx.lineTo(0, -r * 0.35); ctx.lineTo(-r * 0.4, 0); ctx.fill();
-      break;
-    }
-    case 'plasma': dot(r, '#ffffff', c.glow, c.color); ctx.strokeStyle = alpha(c.glow, 0.8); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, r * (1.3 + Math.sin(t * 25) * 0.15), 0, TAU); ctx.stroke(); break;
-    case 'shuriken': case 'bomb': {
-      ctx.rotate(t * 22); ctx.fillStyle = shape === 'bomb' ? '#ef4444' : '#d4d4d8'; ctx.beginPath();
-      for (let k = 0; k < 8; k++) { const rr = k % 2 ? r * 0.38 : r * 1.25; ctx.lineTo(Math.cos(k * TAU / 8) * rr, Math.sin(k * TAU / 8) * rr); }
-      ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#18181b'; ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.fillStyle = shape === 'bomb' ? '#fde047' : '#52525b'; ctx.beginPath(); ctx.arc(0, 0, r * 0.25, 0, TAU); ctx.fill();
-      break;
-    }
-    case 'feather': ctx.rotate(ang); ctx.fillStyle = c.color; ctx.strokeStyle = c.glow; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(r * 1.8, 0); ctx.quadraticCurveTo(0, -r * 0.8, -r * 1.6, 0); ctx.quadraticCurveTo(0, r * 0.8, r * 1.8, 0); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(r * 1.8, 0); ctx.lineTo(-r * 2.1, 0); ctx.stroke(); break;
-    case 'bubble': ctx.fillStyle = 'rgba(74,222,128,0.45)'; ctx.strokeStyle = '#bbf7d0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, r * 1.15, 0, TAU); ctx.fill(); ctx.stroke(); ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.arc(-r * 0.4, -r * 0.4, r * 0.25, 0, TAU); ctx.fill(); break;
-    case 'rock': case 'spike': ctx.rotate(t * 7); ctx.fillStyle = shape === 'spike' ? '#7c2d12' : '#78716c'; ctx.beginPath(); for (let k = 0; k < 7; k++) { const rr = r * (0.9 + ((k * 37) % 5) / 10); ctx.lineTo(Math.cos(k * TAU / 7) * rr, Math.sin(k * TAU / 7) * rr); } ctx.closePath(); ctx.fill(); ctx.strokeStyle = shape === 'spike' ? '#f97316' : '#44403c'; ctx.lineWidth = 2; ctx.stroke(); break;
-    case 'skull': {
-      dot(r * 1.3, alpha('#ffffff', 0.5), alpha(c.glow, 0.5), alpha(c.color, 0)); ctx.fillStyle = '#f1f5f9'; ctx.beginPath(); ctx.arc(0, -r * 0.1, r * 0.8, 0, TAU); ctx.fill(); ctx.fillRect(-r * 0.45, r * 0.3, r * 0.9, r * 0.45);
-      ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(-r * 0.3, -r * 0.1, r * 0.2, 0, TAU); ctx.arc(r * 0.3, -r * 0.1, r * 0.2, 0, TAU); ctx.fill();
-      break;
-    }
-    case 'blade': ctx.rotate(ang); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = r * 0.35; ctx.beginPath(); ctx.arc(-r * 0.6, 0, r * 1.6, -1.1, 1.1); ctx.stroke(); ctx.strokeStyle = alpha(c.glow, 0.8); ctx.lineWidth = r * 0.8; ctx.stroke(); break;
-    case 'missile': ctx.rotate(ang); ctx.fillStyle = '#e5e7eb'; ctx.beginPath(); ctx.moveTo(r * 1.6, 0); ctx.lineTo(r * 0.6, -r * 0.45); ctx.lineTo(-r * 1.2, -r * 0.45); ctx.lineTo(-r * 1.2, r * 0.45); ctx.lineTo(r * 0.6, r * 0.45); ctx.closePath(); ctx.fill(); ctx.fillStyle = c.color; ctx.fillRect(-r * 1.2, -r * 0.7, r * 0.5, r * 1.4); ctx.fillStyle = 'rgba(253,186,116,0.9)'; ctx.beginPath(); ctx.moveTo(-r * 1.2, -r * 0.3); ctx.lineTo(-r * (2 + Math.sin(t * 40) * 0.4), 0); ctx.lineTo(-r * 1.2, r * 0.3); ctx.fill(); break;
-    case 'bolt': case 'laser': dot(r, '#ffffff', c.glow, c.color); break;
-  }
-}
-function drawProj(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch, p: Proj) {
-  const c = CHARS[m.players[p.from].char], t = m.time, big = p.big ? 1.6 : 1;
-  if (p.kind === 'sky') { // la marca en el piso y lo que cae
-    const [gx, gy, gs] = project(v, p.x, 0, p.z), k = p.t / p.life, rr = p.w * gs;
-    ctx.save(); ctx.strokeStyle = alpha(c.glow, 0.5 + 0.4 * Math.sin(t * 20)); ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(gx, gy, rr * (1.2 - k * 0.4), rr * 0.5 * (1.2 - k * 0.4), 0, 0, TAU); ctx.stroke();
-    ctx.fillStyle = alpha(c.color, 0.15 + k * 0.25); ctx.fill(); ctx.restore();
-    const [x, y, s] = project(v, p.x, p.y, p.z), r = 0.45 * s * (p.shape === 'meteor' ? 1.5 : 1);
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    if (p.shape === 'bolt' || p.shape === 'laser') { // rayo/láser que baja del cielo
-      if (k > 0.75) { const [tx, ty] = P(v, p.x, 14, p.z); ctx.strokeStyle = alpha(c.glow, 0.9); ctx.lineWidth = s * 0.25; ctx.beginPath(); ctx.moveTo(tx, ty); for (let i = 1; i <= 8; i++) ctx.lineTo(tx + (gx - tx) * i / 8 + (p.shape === 'bolt' ? Math.sin(i * 9 + t * 70) * 14 : 0), ty + (gy - ty) * i / 8); ctx.stroke(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = s * 0.08; ctx.stroke(); }
-      ctx.restore(); return;
-    }
-    const [tx, ty] = P(v, p.x, p.y + 2.5, p.z); ctx.strokeStyle = alpha(c.glow, 0.5); ctx.lineWidth = r * 1.2; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
-    bloom(ctx, x, y, r * 3, c.color, 0.7); ctx.restore();
-    ctx.save(); ctx.translate(x, y); shapeAt(ctx, p.shape, r, c, t, Math.PI / 2); ctx.restore();
-    return;
-  }
-  if (p.kind === 'wave') { // la onda que avanza por el piso
-    const [x, y, s] = project(v, p.x, 0, p.z), w = p.w * s;
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    bloom(ctx, x, y, w * 1.6, c.color, 0.7);
-    for (let k = 0; k < 7; k++) { const ox = (Math.sin(k * 2.7 + t * 9) * 0.5) * w * 1.3, h = (0.6 + ((k * 37) % 5) / 6) * s * (p.shape === 'spike' || p.shape === 'rock' ? 1.3 : 0.9) * (1 + Math.sin(t * 25 + k) * 0.2);
-      ctx.fillStyle = k % 2 ? alpha(c.glow, 0.85) : alpha(c.color, 0.75);
-      ctx.beginPath(); ctx.moveTo(x + ox - s * 0.25, y); ctx.lineTo(x + ox, y - h); ctx.lineTo(x + ox + s * 0.25, y); ctx.fill(); }
-    ctx.strokeStyle = alpha(c.glow, 0.8); ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(x, y, w, w * 0.45, 0, 0, TAU); ctx.stroke();
-    ctx.restore(); return;
-  }
-  const [x, y, s] = project(v, p.x, p.y, p.z), r = 0.3 * s * big;
-  drawShadow(ctx, v, p.x, p.z, 0.3 * big, 0.3);
-  const [bx, by] = P(v, p.x - p.vx * 0.07, p.y, p.z - p.vz * 0.07), ang = Math.atan2(y - by, x - bx);
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  ctx.strokeStyle = alpha(c.glow, 0.5); ctx.lineWidth = r * 1.4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(x, y); ctx.stroke();
-  bloom(ctx, x, y, r * 3.2, c.color, 0.7);
-  ctx.restore();
-  ctx.save(); ctx.translate(x, y); shapeAt(ctx, p.shape, r, c, t, ang); ctx.restore();
 }
 function drawFx(ctx: CanvasRenderingContext2D, v: SView, e: SFx) {
   const k = e.t / e.life;
@@ -353,6 +261,10 @@ export function drawSoccer(ctx: CanvasRenderingContext2D, m: SoccerMatch, w: num
     if (on) { ctx.fillStyle = alpha(p.team === 0 ? '#facc15' : '#fb923c', 0.18); ctx.fill(); }
   }
   const b = m.ball; drawShadow(ctx, v, b.x, b.z, BR * 1.05, Math.max(0.12, 0.45 - b.y * 0.05));
+  // los peligros en el piso: la lava, las marcas del meteorito y del ovni, la sombra del tiburón, los cráteres
+  preloadHazardArt();
+  const PP = (x: number, y: number, z: number) => project(v, x, y, z);
+  drawHazardsGround(ctx, PP, m);
   // lo que tiene altura, de atrás para adelante
   type Item = { z: number; draw: () => void };
   const items: Item[] = [];
@@ -360,25 +272,19 @@ export function drawSoccer(ctx: CanvasRenderingContext2D, m: SoccerMatch, w: num
   for (const g of m.gore.gibs) items.push({ z: g.z, draw: () => { const [x, y, s] = project(v, g.x, g.y, g.z), a = Math.min(1, (9 - g.life) / 1.5); ctx.save(); ctx.globalAlpha = a; ctx.translate(x, y); ctx.scale(s * 1.7, s * 1.7); ctx.rotate(g.a); drawGib(ctx, g.kind, g.c); ctx.restore(); } });
   const r = m.ref; items.push({ z: r.z, draw: () => { const [x, y, s] = project(v, r.x, 0, r.z); drawRefLit(ctx, r, m.time + 0.7, x, y, s * PLAYER_SCALE, rim); } });
   items.push({ z: b.z + 0.01, draw: () => drawBall(ctx, m, v) });
+  for (const hz of m.hazards) {
+    if (hz.kind === 'shark') items.push({ z: hz.z + 0.02, draw: () => drawShark(ctx, PP, hz, m.time) });
+    else if (hz.kind === 'meteor') items.push({ z: meteorPos(hz)[2], draw: () => drawMeteor(ctx, PP, hz, m.time) });
+  }
   for (const left of [true, false]) { const gx = left ? 0 : L; items.push({ z: ZC + GW / 2, draw: () => post(ctx, v, [gx, 0, ZC + GW / 2], [gx, GH, ZC + GW / 2], null) }); }
   items.sort((a, c) => a.z - c.z);
   for (const it of items) it.draw();
   ctx.fillStyle = '#b10f1c'; for (const d of m.gore.drops) { const [x, y, s] = project(v, d.x, d.y, d.z); ctx.beginPath(); ctx.arc(x, y, Math.max(1.2, d.r * s), 0, TAU); ctx.fill(); }
-  for (const s of m.projs) drawProj(ctx, v, m, s);
+  for (const hz of m.hazards) if (hz.kind === 'ufo') drawUfo(ctx, PP, hz, m.time); // (el ovni, arriba de todo)
   for (const e of m.fx) drawFx(ctx, v, e);
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (const p of m.particles) { const [x, y, s] = project(v, p.x, p.y, p.z), k = 1 - p.life / p.max; ctx.fillStyle = alpha(p.color, k); const sz = Math.max(1.5, p.size * s); ctx.fillRect(x - sz / 2, y - sz / 2, sz, sz); }
   ctx.restore();
-  // FATAL GOAL: todo se oscurece y el que tira brilla
-  if (m.phase === 'fatal' && m.fatal) {
-    const k = Math.min(1, m.phaseT * 3), p = m.players[m.fatal.shooter], L2 = LOOKS[p.char], [x, y, s] = project(v, p.x, 0, p.z);
-    ctx.fillStyle = `rgba(0,0,0,${0.6 * k})`; ctx.fillRect(0, 0, w, h);
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, y - s, s * 4, L2.glow, 0.8 * k);
-    for (let i = 0; i < 14; i++) { const a = i * TAU / 14 + m.time * 2; ctx.strokeStyle = alpha(L2.glow, 0.5 * k); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * s, y - s + Math.sin(a) * s); ctx.lineTo(x + Math.cos(a) * s * (3.5 + Math.sin(m.time * 9 + i)), y - s + Math.sin(a) * s * (3.5 + Math.sin(m.time * 9 + i))); ctx.stroke(); }
-    ctx.restore();
-    drawFighterLit(ctx, p, m.time, { power: 1, frozen: false, poison: false, burn: false, zap: false, shield: false, speed: false, aura: L2.glow }, x, y - p.y * s, s * PLAYER_SCALE, L2.glow);
-    drawBall(ctx, m, v);
-  }
   if (m.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${m.flash * 0.4})`; ctx.fillRect(0, 0, w, h); }
   const vg = ctx.createRadialGradient(w / 2, h * 0.6, Math.min(w, h) * 0.4, w / 2, h * 0.6, Math.max(w, h) * 0.78); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.4)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
@@ -417,12 +323,12 @@ function drawScene(ctx: CanvasRenderingContext2D, v: SView, stage: StageId, t: n
 }
 const defendsLeftTeam = (m: SoccerMatch, left: boolean): 0 | 1 => ((m.half === 1) === left ? 0 : 1);
 function drawPlayer(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch, p: Player, rim: string, active: boolean) {
-  const [x, y, s] = project(v, p.x, p.y, p.z), T = m.teams[p.team];
+  const [x, y, s] = project(v, p.x, p.y, p.z);
+  if (p.y > 0.05) drawShadow(ctx, v, p.x, p.z, 0.32 * PLAYER_SCALE * 1.4, 0.3); // (saltando: la sombra queda en el piso)
   drawFighterLit(ctx, p, m.time + p.id * 0.37, {
-    power: T.power / POWER_MAX, frozen: p.stun > 0 && p.stunKind === 'freeze', poison: p.slow > 0 || (p.stun > 0 && p.stunKind === 'poison'), burn: p.stun > 0 && p.stunKind === 'burn',
-    zap: p.stun > 0 && p.stunKind === 'zap', shield: false, speed: false, aura: T.power >= POWER_MAX && m.ball.owner === p.id ? LOOKS[p.char].glow : null,
+    power: 0, frozen: false, poison: false, burn: p.burn > 0 || (p.stun > 0 && p.stunKind === 'burn'),
+    zap: false, shield: false, speed: false, aura: null,
   }, x, y, s * PLAYER_SCALE, rim);
-  if (p.dash > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, y - hOf(p) * s * 0.5, hOf(p) * s, CHARS[p.char].glow, 0.7); ctx.restore(); } // sale disparado
   const top = y - hOf(p) * s - 0.3 * s;
   if (active) { // la flechita arriba del que manejás
     const c = p.team === 0 ? '#facc15' : '#fb923c', a = s * 0.22, bob = Math.sin(m.time * 6) * s * 0.06;
@@ -433,7 +339,6 @@ function drawPlayer(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch, p: 
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
     ctx.fillStyle = k > 0.9 ? '#ef4444' : k > 0.6 ? '#facc15' : '#22c55e'; ctx.fillRect(bx, by, bw * k, bh);
   }
-  if (active && p.role !== 'gk' && m.teams[p.team].atkCd[0] <= 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, top + s * 0.4, s * 0.35, CHARS[p.char].glow, 0.35 + 0.2 * Math.sin(m.time * 8)); ctx.restore(); }
 }
 // Miniatura del escenario (para elegirlo).
 export function drawSoccerThumb(ctx: CanvasRenderingContext2D, stage: StageId, w: number, h: number) {

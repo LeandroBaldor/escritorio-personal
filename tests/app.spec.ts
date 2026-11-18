@@ -1169,6 +1169,7 @@ test('Kombat Football: se abre desde Juegos, se eligen los luchadores como en un
   await page.getByRole('button', { name: /Planeta Volcánico/ }).click();
   await page.getByRole('button', { name: 'Siguiente ▶' }).click();
   await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
+  await expect(page.getByText('Tiburones voladores:')).toBeVisible(); // (sin ataques: los peligros vienen de la cancha)
   await page.getByRole('button', { name: '¡A jugar!' }).click();
   await expect(page.getByTestId('kf-score')).toHaveText('0 - 0');
   await expect(page.getByTestId('kf-side-0')).toContainText('FROST');
