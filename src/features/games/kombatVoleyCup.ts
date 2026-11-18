@@ -7,7 +7,7 @@ import { SET_POINTS } from './kombatVoley';
 // (de a uno, en orden); los demás de cada fase se simulan cuando terminan los de las personas.
 
 export const CUP_ROUNDS = ['Octavos de final', 'Cuartos de final', 'Semifinal', 'Final'] as const;
-export const MAX_CUP_PLAYERS = 4;
+export const MAX_CUP_PLAYERS = 8; // (uno por partido de octavos: así nunca se cruzan dos personas en octavos)
 
 export interface CupMatch { a: CharId; b: CharId; sa: number | null; sb: number | null }
 export interface Cup {

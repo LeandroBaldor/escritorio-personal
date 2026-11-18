@@ -20,6 +20,15 @@ describe('Mundial de Kombat Voley', () => {
       expect(new Set(cup.rounds[0].flatMap(m => [m.a, m.b]))).toEqual(new Set(CHAR_IDS));
     }
   });
+  it('hasta 8 personas: una en cada partido de octavos', () => {
+    const eight = CHAR_IDS.slice(0, 8);
+    for (let n = 0; n < 30; n++) {
+      const cup = newCup(eight, seeded(n));
+      expect(cup.humans).toHaveLength(8);
+      for (const m of cup.rounds[0]) expect(Number(isHuman(cup, m.a)) + Number(isHuman(cup, m.b))).toBe(1);
+    }
+    expect(newCup(CHAR_IDS.slice(0, 10), seeded(1)).humans).toHaveLength(8);
+  });
   it('se juegan los partidos de las personas de a uno y después se simulan los demás, hasta el campeón', () => {
     let cup = newCup('frost', seeded(5)), round = 0;
     for (let r = 0; r < 4; r++) {

@@ -207,7 +207,7 @@ function RpsBox({ rps, two, chars, labels, onHand, onOrder }: { rps: Rps; two: b
 function CupPlayers({ players, w, h }: { players: CharId[]; w: number; h: number }) {
   return <div className="kf-pick kf-pick--2 kv-players" style={{ width: w, minHeight: h }} data-testid="kp-cup-players">
     <b>JUGADORES</b>
-    {players.length ? <ol>{players.map((c, i) => <li key={c} style={{ ['--kf-c' as string]: CHARS[c].color }}><Portrait char={c} size={Math.min(56, Math.floor(h / 5))} square /><span><small>JUGADOR {i + 1}</small>{CHARS[c].name}</span></li>)}</ol>
+    {players.length ? <ol>{players.map((c, i) => <li key={c} style={{ ['--kf-c' as string]: CHARS[c].color }}><Portrait char={c} size={Math.min(56, Math.floor(h / Math.max(5, players.length + 2)))} square /><span><small>JUGADOR {i + 1}</small>{CHARS[c].name}</span></li>)}</ol>
       : <p>Elegí uno o más luchadores (hasta {MAX_CUP_PLAYERS}). Los demás los maneja la máquina.</p>}
     <small>{players.length > 1 ? 'No se cruzan en octavos' : 'Cruces sorteados al azar'}</small>
   </div>;
@@ -692,7 +692,7 @@ export function KombatPenalties() {
           <div className={`kf-pick kf-pick--1${pick === 0 ? ' kf-pick--active' : ''}`} style={{ ['--kf-c' as string]: CHARS[pick === 0 ? shown : p1].color }}>
             <FighterCard char={pick === 0 ? shown : p1} w={cardW} h={cardH} />
             <b data-testid="kp-pick-1">{CHARS[pick === 0 ? shown : p1].name}</b>
-            <small>{world ? `JUGADOR ${players.includes(shown) ? players.indexOf(shown) + 1 : Math.min(MAX_CUP_PLAYERS, players.length + 1)}` : pickTitle(0)}</small>
+            <small>{world ? (players.includes(shown) ? `JUGADOR ${players.indexOf(shown) + 1}` : players.length < MAX_CUP_PLAYERS ? `JUGADOR ${players.length + 1}` : `YA SON ${MAX_CUP_PLAYERS}`) : pickTitle(0)}</small>
             <StatBars char={pick === 0 ? shown : p1} />
           </div>
           <div className="kf-grid" role="group" aria-label={world ? 'Jugadores del mundial' : pick === 0 ? 'Tu jugador' : 'Rival'} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
