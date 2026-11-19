@@ -1187,6 +1187,14 @@ test('Kombat Football: se abre desde Juegos, se eligen los luchadores como en un
   await expect(page.getByTestId('kf-clock')).toContainText('1T');
   await expect(page.getByTestId('kf-clock')).not.toHaveText('1T01:30', { timeout: 8000 });
   await page.keyboard.down('ArrowRight'); await page.waitForTimeout(600); await page.keyboard.press('z'); await page.keyboard.press('x'); await page.keyboard.press(' '); await page.keyboard.up('ArrowRight');
+  // ENTER: la táctica en pleno partido (se para el juego, se cambia y se aplica enseguida)
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('kf-midtactics')).toBeVisible();
+  await page.getByRole('group', { name: 'Formación en el partido' }).getByRole('button', { name: /1-4/ }).click();
+  await page.getByRole('group', { name: 'Modo en el partido' }).getByRole('button', { name: /Ofensivo/ }).click();
+  expect(await page.evaluate(() => { const m = (window as unknown as { __kfMatch: () => { teams: { formation: string; style: string }[] } }).__kfMatch(); return `${m.teams[0].formation} ${m.teams[0].style}`; })).toBe('1-4 off');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('kf-midtactics')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
   const paused = await page.getByTestId('kf-clock').textContent();

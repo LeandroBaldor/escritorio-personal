@@ -2,7 +2,7 @@
 // hélice de helicóptero), los charcos de ácido verde, el ovni (el de Kombat Penales) y los meteoritos (con la
 // explosión: bola de fuego, onda, humo y cráter). En el piso van las marcas que avisan (la sombra del tiburón, las
 // burbujas antes del ácido, el círculo rojo del meteorito, el celeste del ovni) y los cráteres.
-import { ACID_T, BLAST_T, METEOR_T, SHARK_LEN, UFO_T, meteorPos, type Hazard, type SoccerMatch } from './kombatSoccer';
+import { ACID_T, BLAST_T, BOOT_H, BOOT_T, METEOR_T, SHARK_LEN, UFO_T, meteorPos, type Hazard, type SoccerMatch } from './kombatSoccer';
 import { loadSharkSprites } from './sharkSprites';
 import { drawFlyerRig } from './sharkSkyline';
 import { drawUfoCraftAt } from './kombatPenUfo';
@@ -60,6 +60,10 @@ export function drawHazardsGround(ctx: CanvasRenderingContext2D, P: Proj, m: Soc
         const [x, y, s] = P(h.x, 0, h.z), r = h.r * s * 1.1, k = smooth(h.st / 0.8);
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = alpha('#67e8f9', 0.16 * k); ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.5, 0, 0, TAU); ctx.fill(); ctx.restore();
       } else if (h.stage === 1) drawTarget(ctx, P, h.tx, h.tz, h.r, Math.min(1, h.st / UFO_T.charge), '#22d3ee', t);
+    } else if (h.kind === 'boot') { // la sombra del botín: más grande y oscura cuanto más baja; al final, la marca roja
+      const [x, y, s] = P(h.x + 0.3, 0, h.z), k = 1 - Math.min(1, h.y / BOOT_H), rx = (1.6 + 1.6 * k) * s, a = h.stage >= 2 ? 0.45 : 0.12 + 0.5 * k;
+      ctx.save(); ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.beginPath(); ctx.ellipse(x, y, rx * 1.15, rx * 0.42, 0, 0, TAU); ctx.fill(); ctx.restore();
+      if (h.stage === 0 && h.st > BOOT_T.hunt * 0.55) drawTarget(ctx, P, h.x + 0.3, h.z, h.r, (h.st - BOOT_T.hunt * 0.55) / (BOOT_T.hunt * 0.45), '#ef4444', t);
     } else if (h.kind === 'shark' && h.stage < 2) { // la sombra del tiburón (más grande y oscura cuanto más bajo)
       const sp = Math.hypot(h.vx, h.vz) || 1, [x, y, s] = P(h.x, 0, h.z), k = 1 - Math.min(1, (h.y - 0.8) / 7);
       const [ax, ay] = P(h.x + h.vx / sp, 0, h.z + h.vz / sp), ang = Math.atan2(ay - y, ax - x);
@@ -220,4 +224,36 @@ export function drawUfo(ctx: CanvasRenderingContext2D, P: Proj, h: Hazard, t: nu
   // la carga del emisor
   const charge = h.stage === 1 ? smooth(h.st / UFO_T.charge) : h.stage === 2 ? 1 - smooth(h.st / UFO_T.beam) : 0;
   if (charge > 0) { const cy = ny ?? y + width * 0.2; ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(x, cy, 0, x, cy, width * 0.2); g.addColorStop(0, `rgba(200,255,255,${charge})`); g.addColorStop(1, 'rgba(0,220,255,0)'); ctx.fillStyle = g; ctx.fillRect(x - width * 0.2, cy - width * 0.2, width * 0.4, width * 0.4); ctx.restore(); }
+}
+
+// La pierna gigante: un botín negro con tapones y cordones, la media a rayas y la pierna que sube hasta afuera de
+// la pantalla. (x, y) es el medio de la suela; la punta mira para la derecha.
+export function drawBoot(ctx: CanvasRenderingContext2D, P: Proj, h: Hazard, t: number) {
+  const [x, y, s] = P(h.x, Math.max(0, h.y), h.z), wob = h.stage === 0 ? Math.sin(t * 5 + h.seed) * 0.04 : 0;
+  const K = 1.45; // (bien gigante)
+  ctx.save(); ctx.translate(x, y); ctx.scale(s * K, s * K); ctx.rotate(wob);
+  const top = -y / (s * K) - 2; // (hasta arriba de todo)
+  // la pierna (piel) y la media a rayas
+  const leg = ctx.createLinearGradient(-1.7, 0, 0.1, 0); leg.addColorStop(0, '#8d5a3b'); leg.addColorStop(0.45, '#c68a62'); leg.addColorStop(1, '#7a4a2e');
+  ctx.fillStyle = leg; ctx.beginPath(); ctx.moveTo(-1.55, -3.6); ctx.lineTo(-1.85, top); ctx.lineTo(0.35, top); ctx.lineTo(-0.15, -3.6); ctx.closePath(); ctx.fill();
+  const sock = ctx.createLinearGradient(-1.6, 0, -0.1, 0); sock.addColorStop(0, '#d4d4d8'); sock.addColorStop(0.5, '#ffffff'); sock.addColorStop(1, '#a1a1aa');
+  ctx.fillStyle = sock; ctx.beginPath(); ctx.moveTo(-1.5, -1.3); ctx.lineTo(-1.58, -3.75); ctx.lineTo(-0.12, -3.75); ctx.lineTo(-0.22, -1.3); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#dc2626'; for (const yy of [-3.45, -3.05]) { ctx.beginPath(); ctx.moveTo(-1.57, yy); ctx.lineTo(-0.13, yy); ctx.lineTo(-0.135, yy + 0.22); ctx.lineTo(-1.565, yy + 0.22); ctx.closePath(); ctx.fill(); }
+  // el botín
+  const up = ctx.createLinearGradient(0, -1.7, 0, 0); up.addColorStop(0, '#3f3f46'); up.addColorStop(0.5, '#18181b'); up.addColorStop(1, '#09090b');
+  ctx.fillStyle = up; ctx.beginPath();
+  ctx.moveTo(-1.62, -0.22); ctx.lineTo(-1.62, -1.25); ctx.quadraticCurveTo(-1.6, -1.62, -1.2, -1.62); ctx.lineTo(-0.2, -1.6);
+  ctx.quadraticCurveTo(0.35, -1.05, 1.35, -0.72); ctx.quadraticCurveTo(2.05, -0.55, 2.05, -0.3); ctx.lineTo(2, -0.22); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 0.05; ctx.stroke();
+  // la franja de color y el brillo
+  ctx.strokeStyle = '#f97316'; ctx.lineWidth = 0.16; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-1.35, -0.55); ctx.quadraticCurveTo(0.1, -0.35, 1.5, -0.62); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 0.07; ctx.beginPath(); ctx.moveTo(-1.45, -1.35); ctx.quadraticCurveTo(-1.4, -1.5, -1.1, -1.52); ctx.stroke();
+  // los cordones
+  ctx.strokeStyle = '#f4f4f5'; ctx.lineWidth = 0.06;
+  for (let i = 0; i < 5; i++) { const u = i / 4, ax = -0.3 + u * 1.1, ay = -1.48 + u * 0.62; ctx.beginPath(); ctx.moveTo(ax - 0.16, ay - 0.06); ctx.lineTo(ax + 0.16, ay + 0.1); ctx.moveTo(ax - 0.16, ay + 0.1); ctx.lineTo(ax + 0.16, ay - 0.06); ctx.stroke(); }
+  // la suela y los tapones
+  ctx.fillStyle = '#e4e4e7'; ctx.beginPath(); ctx.moveTo(-1.66, -0.26); ctx.lineTo(2.08, -0.26); ctx.quadraticCurveTo(2.1, -0.04, 1.85, -0.04); ctx.lineTo(-1.5, -0.04); ctx.quadraticCurveTo(-1.68, -0.06, -1.66, -0.26); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#a1a1aa'; for (const sx of [-1.3, -0.75, 0.35, 0.95, 1.55]) ctx.fillRect(sx - 0.09, -0.06, 0.18, 0.12);
+  ctx.restore();
+  if (h.stage === 2 && h.st < 0.25) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, y, s * 3, '#fde68a', 0.35 * (1 - h.st / 0.25)); ctx.restore(); }
 }

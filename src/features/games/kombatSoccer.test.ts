@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACID_DEATH, ACID_T, BOMB_FIRST, BOMB_FUSE, BR, SOCCER_HALF, footballScore, FORMATIONS, TEAM_N, paceOf, D, GH, GW, L, METEOR_T, SHARK_LEN, UFO_T, ZC, attackDir, carrier, newSoccer, noSInput, pass, autoPass, spaceSpot, CARRY_PACE, shoot, spawnHazard, stepSoccer, takeSoccerEvents, type SInput, type SoccerMatch, type SEvent } from './kombatSoccer';
+import { ACID_DEATH, ACID_T, BOMB_FIRST, BOMB_FUSE, BR, SOCCER_HALF, footballScore, FORMATIONS, TEAM_N, paceOf, D, GH, GW, L, METEOR_T, SHARK_LEN, UFO_T, ZC, attackDir, carrier, newSoccer, noSInput, pass, autoPass, spaceSpot, CARRY_PACE, CHARGE_TIME, speedOf, kickPowerOf, setTactics, alive, shoot, spawnHazard, stepSoccer, takeSoccerEvents, type SInput, type SoccerMatch, type SEvent } from './kombatSoccer';
 import { CHAR_IDS, seeded } from './kombat';
 
 const run = (m: SoccerMatch, s: number, ev: SEvent[] = []) => { for (let t = 0; t < s; t += 1 / 60) { stepSoccer(m, [noSInput(), noSInput()], 1 / 60); ev.push(...takeSoccerEvents(m)); } return ev; };
@@ -120,18 +120,63 @@ describe('Kombat Football 5 contra 5', () => {
     m2.teams[me2.team].active = me2.id; m2.teams[me2.team].switchT = 9; me2.x = c2.x - 4; me2.z = c2.z; c2.stun = 9; c2.protect = 0;
     press(m2, me2.team, 'steal'); expect(me2.slide).toBeGreaterThan(0);
   });
-  it('el arquero ataja los tiros flojos y no llega al tiro con la barra llena (gol)', () => {
+  it('el arquero ataja el tiro que va adonde está; el que va adonde no está, se tira pero es gol', () => {
     const res: string[] = [];
-    for (const [charge, side, seed] of [[0.4, 1, 80], [0.6, -1, 81], [0.85, 1, 82], [0.5, 0, 83], [1, 1, 84], [1, -1, 85], [1, 0, 86]] as const) {
+    // [carga, palo (0 = al medio, adonde está el arquero), semilla]
+    for (const [charge, side, seed] of [[0.4, 0, 80], [0.8, 0, 81], [1, 0, 82], [0.4, 1, 83], [0.7, -1, 84], [1, 1, 85], [1, -1, 86]] as const) {
       const m = newSoccer('industrial', ['frost', 'thunder'], [0.5, 0.5], seeded(seed)); toPlay(m);
-      const p = m.players.find(q => q.team === 0 && q.role === 'fwd')!;
+      const p = m.players.find(q => q.team === 0 && q.role === 'fwd')!, gk = m.players.find(q => q.team === 1 && q.role === 'gk')!;
       for (const q of m.players) if (q !== p && q.role !== 'gk') { q.stun = 99; q.z = 0.6; }
-      const dir = attackDir(m, 0); p.x = dir > 0 ? L - 14 : 14; p.z = ZC + 2; m.ball.owner = p.id; stepSoccer(m, [noSInput(), noSInput()], 1 / 60);
-      shoot(m, p, charge, side); p.stun = 99; // (después no juega más: solo cuenta ese tiro)
+      const dir = attackDir(m, 0); p.x = dir > 0 ? L - 14 : 14; p.z = ZC; gk.z = ZC; m.ball.owner = p.id; stepSoccer(m, [noSInput(), noSInput()], 1 / 60);
+      gk.z = ZC; shoot(m, p, charge, side as -1 | 0 | 1, 0, side === 0); p.stun = 99; // (después no juega más: solo cuenta ese tiro)
       const ev = run(m, 2.5);
       res.push(ev.some(e => e.type === 'goal' && e.side === 0) ? 'gol' : 'atajó');
     }
-    expect(res).toEqual(['atajó', 'atajó', 'atajó', 'atajó', 'gol', 'gol', 'gol']);
+    expect(res).toEqual(['atajó', 'atajó', 'atajó', 'gol', 'gol', 'gol', 'gol']);
+  });
+  it('la barra del tiro se llena rápido', () => { expect(CHARGE_TIME).toBeLessThan(0.5); });
+  it('los petizos corren más rápido y los grandotes patean mucho más fuerte', () => {
+    expect(speedOf('thunder')).toBeGreaterThan(speedOf('bruto') * 1.5);
+    expect(kickPowerOf('bruto')).toBeGreaterThan(kickPowerOf('thunder') * 1.7);
+    const shotSpeed = (c: 'bruto' | 'thunder') => {
+      const m = newSoccer('industrial', [c, 'frost'], [0.5, 0.5], seeded(5)); toPlay(m);
+      const p = m.players.find(q => q.team === 0 && q.role === 'fwd')!; m.ball.owner = p.id;
+      shoot(m, p, 1, 1, 0); return Math.hypot(m.ball.vx, m.ball.vz);
+    };
+    expect(shotSpeed('bruto')).toBeGreaterThan(shotSpeed('thunder') * 1.7);
+  });
+  it('cambiar la táctica en pleno partido: la formación y el modo nuevos se aplican enseguida', () => {
+    const m = newSoccer('industrial', ['frost', 'thunder'], [null, 0.5], seeded(12), { formations: ['3-2', '3-2'], styles: ['bal', 'bal'] }); toPlay(m);
+    for (let t = 0; t < 3; t += 1 / 60) stepSoccer(m, [noSInput(), noSInput()], 1 / 60);
+    setTactics(m, 0, '1-4', 'off');
+    const mine = m.players.filter(p => p.team === 0);
+    expect(mine.filter(p => p.role === 'gk').length).toBe(1);
+    expect(mine.filter(p => p.role === 'def').length).toBe(1);
+    expect(mine.filter(p => p.role === 'fwd').length).toBe(4);
+    expect(m.teams[0].formation).toBe('1-4'); expect(m.teams[0].style).toBe('off');
+    expect(new Set(mine.filter(p => p.role === 'fwd').map(p => p.hz.toFixed(2))).size).toBe(4); // (cada uno en su lugar)
+    setTactics(m, 0, '4-1', 'def');
+    expect(mine.filter(p => p.role === 'def').length).toBe(4);
+    for (let t = 0; t < 2; t += 1 / 60) stepSoccer(m, [noSInput(), noSInput()], 1 / 60); // (sigue andando)
+  });
+  it('la pierna gigante persigue al que tiene la pelota y lo pisa', () => {
+    const m = newSoccer('industrial', ['frost', 'thunder'], [0.5, 0.5], seeded(14)); toPlay(m);
+    const p = m.players.find(q => q.team === 0 && q.role === 'fwd')!;
+    for (const q of m.players) if (q !== p) { q.stun = 99; q.x = 2 + q.id; q.z = 0.6; }
+    p.x = L / 2; p.z = ZC; m.ball.owner = p.id;
+    const h = spawnHazard(m, 'boot')!;
+    expect(h.kind).toBe('boot');
+    const ev: SEvent[] = [];
+    for (let t = 0; t < 3 && alive(p); t += 1 / 60) { p.stun = 0; p.tx = p.x; p.tz = p.z; m.ball.owner = alive(p) ? p.id : null; stepSoccer(m, [noSInput(), noSInput()], 1 / 60); ev.push(...takeSoccerEvents(m)); }
+    expect(ev.some(e => e.type === 'stomp' && e.hit)).toBe(true);
+    expect(alive(p)).toBe(false);
+  });
+  it('la pelota deja un rastro (el aura) también cuando va despacio', () => {
+    const m = newSoccer('industrial', ['frost', 'thunder'], [0.5, 0.5], seeded(15)); toPlay(m, true);
+    for (const q of m.players) { q.stun = 99; q.x = 2 + q.id; q.z = 0.6; }
+    m.ball.owner = null; m.ball.x = L / 2; m.ball.z = ZC; m.ball.vx = 6; m.ball.vz = 0; m.ball.vy = 0; m.ball.y = BR;
+    for (let t = 0; t < 0.3; t += 1 / 60) stepSoccer(m, [noSInput(), noSInput()], 1 / 60);
+    expect(m.trail.length).toBeGreaterThan(5);
   });
   it('los pases llegan a un compañero', () => {
     const m = newSoccer('industrial', ['frost', 'thunder'], [null, null], seeded(6)); toPlay(m);
@@ -238,7 +283,7 @@ describe('Kombat Football 5 contra 5', () => {
     expect(L).toBeGreaterThanOrEqual(95); expect(L / D).toBeGreaterThan(4); // (mucho más larga)
     expect(GW).toBeGreaterThanOrEqual(8); expect(GH).toBeGreaterThanOrEqual(3.3);
   });
-  it('aparecen peligros solos durante el partido (de los cuatro tipos), de a uno por vez', () => {
+  it('aparecen peligros solos durante el partido (de los cinco tipos), de a uno por vez', () => {
     const kinds = new Set<string>();
     for (const seed of [21, 22, 23]) {
       const m = newSoccer('volcano', ['frost', 'thunder'], [0.6, 0.6], seeded(seed)); toPlay(m, true);
@@ -249,7 +294,7 @@ describe('Kombat Football 5 contra 5', () => {
       expect(ev.filter(e => e.type === 'hazard').length).toBeGreaterThan(5);
       expect(maxAtOnce).toBe(1); // de a uno por vez
     }
-    expect([...kinds].sort()).toEqual(['acid', 'meteor', 'shark', 'ufo']);
+    expect([...kinds].sort()).toEqual(['acid', 'boot', 'meteor', 'shark', 'ufo']);
   });
   const still = (m: SoccerMatch, keep: number) => { for (const q of m.players) if (q.id !== keep) { q.stun = 99; q.x = 2 + q.id; q.z = 0.6; } };
   it('el tiburón volador se tira en picada y se come al que no se mueve', () => {

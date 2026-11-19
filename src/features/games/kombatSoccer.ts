@@ -20,9 +20,9 @@ export const GD = 1.9; // hondo de la red
 export const BR = 0.42; // radio de la pelota (bien grande, como antes)
 export const AREA_X = 7; // el área grande: 7 m de hondo…
 export const AREA_W = 16.5; // …y 16,5 de ancho
-export const CHARGE_TIME = 1; // segundos para el tiro más fuerte
+export const CHARGE_TIME = 0.38; // segundos para el tiro más fuerte (la barra se llena rápido)
 export const SOCCER_HALF = 150; // cada tiempo dura 2:30 (dos tiempos; si empatan, penales)
-export const FULL_CHARGE = 0.95; // con la barra del tiro llena (o casi): el arquero no llega, es gol
+export const FULL_CHARGE = 0.95; // con la barra del tiro llena (o casi): sale a fondo y derecho al palo elegido
 export const STEAL_REACH = 1.9; // hasta dónde llega la C para sacarle la pelota al rival
 export const ACID_DEATH = 5.2; // lo que dura la muerte con ácido (la misma de Kombat Penales)
 const G = 24; // gravedad de la pelota (pesada: arcade)
@@ -78,6 +78,20 @@ export function formationSpots(f: FormationId): [Role, number, number][] {
   for (let i = 0; i < F.fwds; i++) out.push(['fwd', 38 - (F.fwds >= 3 ? 2 : 0), spread(F.fwds, i, F.fwds >= 4 ? 0.7 : F.fwds === 3 ? 0.56 : 0.3)]);
   return out;
 }
+// Cambiar la táctica en pleno partido (con ENTER): los de campo toman los lugares de la formación nueva (el que
+// estaba más atrás va a la defensa) y el modo cambia enseguida.
+export function setTactics(m: SoccerMatch, team: 0 | 1, formation: FormationId, style: Style) {
+  const T = m.teams[team]; T.formation = formation; T.style = style;
+  const spots = formationSpots(formation).filter(sp => sp[0] !== 'gk').sort((a, b) => a[1] - b[1] || a[2] - b[2]);
+  const field = m.players.filter(p => p.team === team && p.role !== 'gk').sort((a, b) => rel(m, team, a.x) - rel(m, team, b.x) || a.hz - b.hz);
+  // (los de cada línea, ordenados a lo ancho para que nadie cruce la cancha)
+  const out: [Player, [Role, number, number]][] = field.map((p, i) => [p, spots[i]]);
+  for (const role of ['def', 'fwd'] as const) {
+    const grp = out.filter(([, sp]) => sp[0] === role), zs = grp.map(([, sp]) => sp[2]).sort((a, b) => a - b);
+    grp.sort(([a], [b]) => a.z - b.z).forEach(([p], i) => { p.role = role; p.hx = grp[i][1][1]; p.hz = zs[i]; });
+  }
+  assignMarks(m);
+}
 export interface Ref extends Person { z: number; vz: number }
 export type SPhase = 'intro' | 'play' | 'goal' | 'halftime' | 'end';
 
@@ -90,6 +104,8 @@ export type SPhase = 'intro' | 'play' | 'goal' | 'halftime' | 'end';
 //   el que queda adentro de la marca explota.
 // · meteor: un meteorito cae del cielo (la marca roja avisa dónde) con una explosión fuerte que hace explotar al
 //   que agarra.
+// · boot: una pierna gigante con botín baja del cielo (su sombra persigue al que tiene la pelota) y lo pisa:
+//   queda aplastado contra el piso.
 // De a uno por vez: hasta que no termina uno no aparece el siguiente, y cada uno mata a uno solo.
 //
 // LA PELOTA BOMBA (la idea para que sea más divertido): cada tanto la pelota se convierte en una bomba con la
@@ -97,8 +113,8 @@ export type SPhase = 'intro' | 'play' | 'goal' | 'halftime' | 'end';
 // volando). Pero si entra en el arco antes de explotar, el gol vale DOBLE y el arco vuela por el aire con el
 // arquero. Así, sacarle la pelota al rival con la C es una decisión: robar una bomba que está por explotar es
 // suicida. Mientras hay bomba no aparecen otros peligros.
-export type HazardKind = 'shark' | 'acid' | 'ufo' | 'meteor';
-export const HAZARD_KINDS: HazardKind[] = ['shark', 'acid', 'ufo', 'meteor'];
+export type HazardKind = 'shark' | 'acid' | 'ufo' | 'meteor' | 'boot';
+export const HAZARD_KINDS: HazardKind[] = ['shark', 'acid', 'ufo', 'meteor', 'boot'];
 export interface Hazard {
   id: number; kind: HazardKind; stage: number; t: number; st: number; // st: el tiempo en la etapa
   x: number; y: number; z: number; vx: number; vy: number; vz: number;
@@ -107,6 +123,8 @@ export interface Hazard {
 }
 // Cuánto dura cada etapa.
 export const ACID_T = { warn: 1.1, hot: 8.5, cool: 1.2 };
+export const BOOT_T = { hunt: 1.6, stomp: 0.16, stay: 0.7, leave: 0.9 }; // la pierna gigante: busca, pisa, se queda, se va
+export const BOOT_H = 9; // desde qué altura baja
 export const UFO_T = { follow: 2.5, charge: 0.85, beam: 0.55, leave: 1.4 };
 export const METEOR_T = 1.8;
 export const SHARK_H = 2.9; // a qué altura vuela el tiburón antes de tirarse
@@ -125,7 +143,7 @@ export type SEvent =
   | { type: 'kick'; power: number; full?: boolean } | { type: 'pass'; space?: boolean; side?: 0 | 1 } | { type: 'autopass'; side: 0 | 1 } | { type: 'tackle'; ok: boolean } | { type: 'steal'; side: 0 | 1 } | { type: 'switch' } | { type: 'goal'; side: 0 | 1; scorer: CharId; own: boolean; bomb?: boolean }
   | { type: 'bounce'; power: number } | { type: 'post' } | { type: 'save'; side: 0 | 1 }
   | { type: 'whistle'; kind: 'kickoff' | 'half' | 'end'; start?: 1 | 2 } | { type: 'halftime' } | { type: 'penalties' } | { type: 'header'; side: 0 | 1 } | { type: 'control' }
-  | { type: 'explode'; side: 0 | 1; char: CharId; keeper: boolean } | { type: 'hazard'; kind: HazardKind } | { type: 'dive' } | { type: 'eaten'; side: 0 | 1; char: CharId }
+  | { type: 'explode'; side: 0 | 1; char: CharId; keeper: boolean } | { type: 'hazard'; kind: HazardKind } | { type: 'dive' } | { type: 'eaten'; side: 0 | 1; char: CharId } | { type: 'stomp'; hit: boolean }
   | { type: 'acid'; side: 0 | 1 } | { type: 'melted'; side: 0 | 1 } | { type: 'beam' } | { type: 'impact' };
 // La sangre y los huesos del que revienta: gotas que vuelan y manchan la cancha donde caen, y los pedazos del
 // esqueleto que rebotan.
@@ -159,8 +177,11 @@ export const attackDir = (m: SoccerMatch, team: 0 | 1): 1 | -1 => defendsLeft(m,
 const ownGoalX = (m: SoccerMatch, team: 0 | 1) => defendsLeft(m, team) ? 0 : L;
 const oppGoalX = (m: SoccerMatch, team: 0 | 1) => defendsLeft(m, team) ? L : 0;
 const rel = (m: SoccerMatch, team: 0 | 1, x: number) => defendsLeft(m, team) ? x : L - x; // (medido desde su arco; sirve de ida y de vuelta)
-const speedOf = (c: CharId) => 4.9 * (0.72 + STATS[c].speed / 100 * 0.5); // (más lentos, pedido del usuario)
+// los petizos corren mucho más que los grandotes (además de lo que corre cada uno)
+export const speedOf = (c: CharId) => 4.9 * (0.72 + STATS[c].speed / 100 * 0.5) / Math.pow(SIZE[c], 0.4);
 const strengthOf = (c: CharId) => 0.75 + STATS[c].strength / 100 * 0.45;
+// la fuerza del tiro al arco: los grandotes le pegan muchísimo más fuerte
+export const kickPowerOf = (c: CharId) => strengthOf(c) * Math.pow(SIZE[c], 0.75);
 export const PLAYER_SCALE = 0.75; // los jugadores, un 25% más chicos (la cancha parece más grande)
 export const hOf = (p: Player) => heightOf(p) * PLAYER_SCALE;
 export const radiusOf = (p: Player) => 0.38 * Math.min(1.25, SIZE[p.char]) * PLAYER_SCALE;
@@ -353,7 +374,7 @@ function chooseActive(m: SoccerMatch, team: 0 | 1) {
 }
 
 const pressed = (p: Player, i: SInput, k: keyof SInput) => i[k] && !p.prevIn[k];
-const alive = (p: Player) => !p.gone && !p.fly && p.acid <= 0;
+export const alive = (p: Player) => !p.gone && !p.fly && p.acid <= 0;
 function control(m: SoccerMatch, p: Player, i: SInput, dt: number) {
   const has = m.ball.owner === p.id;
   let dx = (i.right ? 1 : 0) - (i.left ? 1 : 0), dz = (i.down ? 1 : 0) - (i.up ? 1 : 0);
@@ -493,7 +514,7 @@ export function shoot(m: SoccerMatch, p: Player, charge: number, side: -1 | 0 | 
   const b = m.ball, gx = oppGoalX(m, p.team), gk = m.players.find(q => q.team !== p.team && q.role === 'gk')!;
   release(m, p);
   const sz = side !== 0 ? side : (gk.z < ZC ? 1 : -1), zt = center && side === 0 ? ZC : ZC + sz * GW * 0.34;
-  const S = (15 + 15 * charge) * strengthOf(p.char), dx = gx - b.x, dz = zt - b.z, d = Math.max(1, hyp(dx, dz)), T = d / S;
+  const S = (15 + 15 * charge) * kickPowerOf(p.char), dx = gx - b.x, dz = zt - b.z, d = Math.max(1, hyp(dx, dz)), T = d / S;
   const px = -dz / d, pz = dx / d; // perpendicular a la dirección del tiro
   const spin = side !== 0 ? side * Math.sign(pz || 1) : 0;
   const dev = 0.5 * 9 * spin * Math.min(1, S / 18) * T * T; // cuánto se va a abrir la curva
@@ -738,8 +759,8 @@ function closestIn(m: SoccerMatch, x: number, z: number, r: number, maxY = 2) {
 }
 export function spawnHazard(m: SoccerMatch, kind?: HazardKind): Hazard | null {
   if (!kind) { const opts = HAZARD_KINDS.filter(k => k !== m.lastHazard); kind = opts[Math.floor(m.rand() * opts.length)]; }
-  const v = kind === 'acid' ? null : pickVictim(m);
-  if (kind !== 'acid' && !v) return null;
+  const v = kind === 'acid' || kind === 'boot' ? null : pickVictim(m);
+  if (kind !== 'acid' && kind !== 'boot' && !v) return null;
   const h: Hazard = { id: ++m.hazardN, kind, stage: 0, t: 0, st: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, tx: 0, tz: 0, target: v?.id ?? null, r: 1, rz: 1, seed: m.rand() * 100, react: 0.25 + m.rand() * 0.9, caught: null, sharkType: 0, done: false };
   if (kind === 'shark') { // entra volando por el costado
     const side = v!.x < m.cam.x ? 1 : -1;
@@ -754,6 +775,8 @@ export function spawnHazard(m: SoccerMatch, kind?: HazardKind): Hazard | null {
     if (!ok) return null;
   } else if (kind === 'ufo') {
     h.x = v!.x; h.y = UFO_H + 9; h.z = v!.z; h.r = 1.45;
+  } else if (kind === 'boot') { // la pierna: arranca arriba del que tiene la pelota (o de la pelota)
+    const c = carrier(m), at = c ?? m.ball; h.target = null; h.x = at.x - 3; h.z = at.z; h.y = BOOT_H; h.r = 1.9; h.rz = 0.95; // (a quién va lo decide cada paso)
   } else { // meteorito: cerca del elegido (un poco adelante de donde corre)
     h.r = 2.2; h.tx = clamp(v!.x + v!.vx * 0.6 + (m.rand() - 0.5) * 2, 1, L - 1); h.tz = clamp(v!.z + v!.vz * 0.6 + (m.rand() - 0.5) * 2, 1, D - 1);
     const side = m.rand() < 0.5 ? -1 : 1; h.x = h.tx + side * 7; h.y = 10; h.z = h.tz - 2;
@@ -804,6 +827,7 @@ function updateHazards(m: SoccerMatch, dt: number) {
     if (h.kind === 'shark') sharkStep(m, h, dt);
     else if (h.kind === 'acid') acidStep(m, h);
     else if (h.kind === 'ufo') ufoStep(m, h, dt);
+    else if (h.kind === 'boot') bootStep(m, h, dt);
     else meteorStep(m, h);
   }
   m.hazards = m.hazards.filter(h => !h.done);
@@ -867,6 +891,49 @@ function ufoStep(m: SoccerMatch, h: Hazard, dt: number) {
   } else if (h.stage === 2) { if (h.st >= UFO_T.beam) next(h); }
   else { h.y += (4 + h.st * 14) * dt; h.x += 6 * dt; if (h.st >= UFO_T.leave) h.done = true; }
 }
+// La pierna gigante: la sombra del botín sigue al que tiene la pelota (un poco atrasada, así se puede escapar
+// soltándola o corriendo), baja de golpe y aplasta al que queda abajo (uno solo); se queda un ratito y se va.
+function bootStep(m: SoccerMatch, h: Hazard, dt: number) {
+  if (h.stage === 0) {
+    const c = carrier(m); let at = c && c.role !== 'gk' && canDie(c) ? c : null;
+    if (at && isEasy(m) && humanActive(m, at)) { // (en Fácil nunca va contra el de la persona: va al rival más cercano)
+      const b = m.ball; at = m.players.filter(q => q.team !== at!.team && q.role !== 'gk' && canDie(q)).sort((a, q) => hyp(a.x - b.x, a.z - b.z) - hyp(q.x - b.x, q.z - b.z))[0] ?? null;
+    }
+    h.target = at?.id ?? null;
+    const gx = at ? at.x + at.vx * 0.25 : m.ball.x, gz = at ? at.z + at.vz * 0.25 : m.ball.z;
+    const sp = isEasy(m) ? 4.2 : 6.5, dx = gx - h.x, dz = gz - h.z, d = hyp(dx, dz);
+    if (d > 0.01) { const k = Math.min(d, sp * dt); h.x += dx / d * k; h.z += dz / d * k; }
+    h.y = BOOT_H - (BOOT_H - 3.2) * smoothstep(h.st / BOOT_T.hunt); // va bajando
+    if (h.st >= BOOT_T.hunt) { next(h); h.tx = h.x; h.tz = h.z; }
+  } else if (h.stage === 1) { // ¡pisa!
+    h.y = 3.2 * (1 - h.st / BOOT_T.stomp);
+    if (h.st >= BOOT_T.stomp) {
+      h.y = 0; next(h);
+      const p = closestIn(m, h.x, h.z, h.r * 0.85, 1.5); if (p) squash(m, p);
+      const b = m.ball, bd = hyp(b.x - h.x, b.z - h.z);
+      if (b.owner === null && bd < 3.5) { const k2 = (3.5 - bd) / 3.5 * 9, nx = (b.x - h.x) / (bd || 1), nz = (b.z - h.z) / (bd || 1); b.vx += nx * k2; b.vz += nz * k2; b.vy = Math.max(b.vy, 4); b.receiver = null; }
+      for (const q of m.players) if (alive(q) && q !== p) { const d = hyp(q.x - h.x, q.z - h.z); if (d < 4) { const k = (4 - d) / 4 * 5, nx = (q.x - h.x) / (d || 1), nz = (q.z - h.z) / (d || 1); q.vx += nx * k; q.vz += nz * k; } }
+      for (let k = 0; k < 18; k++) { const a = m.rand() * Math.PI * 2, s2 = 1 + m.rand() * 3; m.particles.push({ x: h.x + Math.cos(a) * h.r, y: 0.2, z: h.z + Math.sin(a) * h.rz, vx: Math.cos(a) * s2, vy: 0.8 + m.rand() * 1.5, vz: Math.sin(a) * s2 * 0.6, life: 0, max: 1 + m.rand() * 0.8, size: 0.4 + m.rand() * 0.5, color: m.rand() < 0.5 ? '#a8a29e' : '#78716c', kind: 'smoke' }); } // el polvo
+      m.shake = Math.max(m.shake, 1.2);
+      emit(m, { type: 'stomp', hit: !!p });
+    }
+  } else if (h.stage === 2) { if (h.st >= BOOT_T.stay) next(h); }
+  else { h.y = (h.st / BOOT_T.leave) ** 1.6 * (BOOT_H + 2); if (h.st >= BOOT_T.leave) h.done = true; }
+}
+const smoothstep = (v: number) => { const q = clamp(v, 0, 1); return q * q * (3 - 2 * q); };
+// Aplastado por el botín: queda como una mancha (sangre para los costados) y desaparece.
+function squash(m: SoccerMatch, q: Player) {
+  dropBall(m, q);
+  const G2 = m.gore;
+  for (let i = 0; i < 60; i++) { const a = m.rand() * Math.PI * 2, sp = 3 + m.rand() * 8; G2.drops.push({ x: q.x, y: 0.15 + m.rand() * 0.3, z: q.z, vx: Math.cos(a) * sp, vy: 1 + m.rand() * 4, vz: Math.sin(a) * sp * 0.8, r: 0.05 + m.rand() * 0.09 }); }
+  const kinds: GibKind[] = ['skull', 'ribs', 'bone', 'bone', 'chunk', 'plate'];
+  for (const kind of kinds) { const a = m.rand() * Math.PI * 2, sp = 3 + m.rand() * 6; G2.gibs.push({ x: q.x, y: 0.2, z: q.z, vx: Math.cos(a) * sp, vy: 2 + m.rand() * 4, vz: Math.sin(a) * sp * 0.8, a: m.rand() * 6, va: (m.rand() - 0.5) * 18, kind, life: 0, c: CHARS[q.char].color }); }
+  trimGore(m);
+  G2.stains.push({ x: q.x, z: q.z, r: 1.3 + m.rand() * 0.4, t: 0, seed: m.rand() * 100 });
+  if (humanActive(m, q)) splatScreen(m);
+  goneFor(q);
+  emit(m, { type: 'explode', side: q.team, char: q.char, keeper: q.role === 'gk' });
+}
 // El meteorito: cae (la marca roja avisa) y explota fuerte: la bola de fuego, la onda, piedras que salen volando,
 // humo que sube y el cráter. Al que agarra (uno solo), lo hace explotar.
 function meteorStep(m: SoccerMatch, h: Hazard) {
@@ -914,6 +981,9 @@ function avoidHazards(m: SoccerMatch, p: Player) {
       const cx = h.kind === 'meteor' ? h.tx : h.stage === 1 ? h.tx : h.x, cz = h.kind === 'meteor' ? h.tz : h.stage === 1 ? h.tz : h.z;
       const d = hyp(p.x - cx, p.z - cz);
       if (h.st > h.react && d < h.r + 1.4) { const k = d || 1; p.tx = p.x + (p.x - cx) / k * 4; p.tz = p.z + (p.z - cz) / k * 4; if (d < 0.01) p.tz = p.z + 4; p.run = 1; }
+    } else if (h.kind === 'boot' && h.stage <= 1 && h.target !== p.id && h.st > h.react) { // los demás se apartan de la sombra
+      const d = hyp(p.x - h.x, p.z - h.z);
+      if (d < h.r + 1.6) { const k = d || 1; p.tx = p.x + (p.x - h.x) / k * 4; p.tz = p.z + (p.z - h.z) / k * 4; if (d < 0.01) p.tz = p.z + 4; p.run = 1; }
     } else if (h.kind === 'shark' && h.stage < 2 && (h.target === p.id || h.stage === 1)) {
       const d = hyp(p.x - h.x, p.z - h.z);
       if (d < 7 && h.t > 1 + h.react) { const sp = hyp(h.vx, h.vz) || 1, side = ((p.x - h.x) * -h.vz + (p.z - h.z) * h.vx) > 0 ? 1 : -1; p.tx = p.x - h.vz / sp * side * 4; p.tz = p.z + h.vx / sp * side * 4; p.run = 1; }
@@ -944,7 +1014,7 @@ function moveBall(m: SoccerMatch, dt: number) {
   if (b.comet && sp < 9) { b.comet = false; b.fx = 'none'; }
   if (b.full && sp < 9) b.full = false;
   if (b.comet && m.rand() < 0.8) burst(m, b.x - b.vx * 0.02, b.y, b.z - b.vz * 0.02, 2, m.rand() < 0.5 ? '#fb923c' : '#fde047', 'spark', 2);
-  if (sp > 11 && m.phase === 'play') { m.trail.unshift([b.x, b.y, b.z]); if (m.trail.length > (b.comet ? 26 : 12)) m.trail.pop(); } else if (m.trail.length) m.trail.pop();
+  if (sp > 3.5 && m.phase === 'play') { m.trail.unshift([b.x, b.y, b.z]); if (m.trail.length > (b.comet ? 26 : 16)) m.trail.pop(); } else if (m.trail.length) m.trail.pop(); // (el rastro: el aura de la pelota)
   walls(m);
   if (m.phase === 'play') { checkGoal(m); touches(m); }
 }
@@ -1046,10 +1116,11 @@ function touches(m: SoccerMatch) {
     emit(m, { type: 'header', side: p.team });
   } else { b.vy = Math.abs(b.vy) * 0.3 + 1; b.vx = b.vx * 0.3 + p.vx; b.vz = b.vz * 0.3 + p.vz; p.noTouch = 0.2; b.last = p.team; b.lastId = p.id; } // de pecho: le cae adelante
 }
-// El arquero: los tiros flojos (sin la barra llena) los agarra siempre; el tiro con la barra llena no lo toca: es gol.
+// El arquero: el tiro que va adonde está (o adonde llega dando un par de pasos) lo ataja; el que va adonde no
+// está, se tira pero no llega: es gol (lo decide `keeper` cuando ve venir el tiro: p.save).
 function keeperTouch(m: SoccerMatch, p: Player, d: number) {
   const b = m.ball, h = hOf(p), sp = hyp(b.vx, b.vz), diving = p.dive > 0;
-  if (b.full && b.shooter !== p.team) return false; // (el tiro con la barra llena le pasa: es gol)
+  if (b.shooter !== null && b.shooter !== p.team && b.shot === p.savedShot && !p.save) return false; // (se tiró, pero no llega: es gol)
   const reach = (diving ? 1.7 : 1) + radiusOf(p);
   if (d > reach || b.y > h * 1.35 + p.y + (diving ? 0.6 : 0)) return false;
   if (b.last === p.team && sp < 6) { b.owner = p.id; b.last = p.team; b.lastId = p.id; b.receiver = null; p.hold = 0; return true; } // un pase atrás de un compañero
@@ -1088,8 +1159,9 @@ function keeper(m: SoccerMatch, p: Player, dt: number) {
       const sp0 = Math.hypot(b.vx, b.vz), az = b.spin * 9 * Math.min(1, sp0 / 18) * (b.vx / sp0); // (la curva del efecto)
       const zp = b.z + b.vz * t + 0.5 * az * t * t, yp = b.y + b.vy * t - 0.5 * G * t * t;
       const onTarget = Math.abs(zp - ZC) < GW / 2 + 0.3 && yp < GH + 0.3;
-      if (onTarget) { // flojo: lo ataja seguro; con la barra llena: se tira pero no llega
-        p.save = !b.full; p.aimZ = clamp(zp, ZC - GW / 2 - 0.3, ZC + GW / 2 + 0.3); p.aimT = t + 0.3;
+      if (onTarget) { // va adonde está (o llega caminando): lo ataja; si no, se tira pero no llega
+        const reach = radiusOf(p) + 0.45 + speedOf(p.char) * 0.42 * Math.max(0, t - 0.35), jump = hOf(p) * 1.3 + 0.35;
+        p.save = Math.abs(zp - p.z) < reach && yp < jump; p.aimZ = clamp(zp, ZC - GW / 2 - 0.3, ZC + GW / 2 + 0.3); p.aimT = t + 0.3;
       }
     }
   }
@@ -1189,6 +1261,9 @@ function carrierAI(m: SoccerMatch, p: Player, lv: number, cpu: boolean) {
   let near: Player | null = null, nd = 1e9;
   for (const o of m.players) if (o.team !== p.team && o.role !== 'gk' && !o.gone) { const d = hyp(o.x - p.x, o.z - p.z); if (d < nd) { nd = d; near = o; } }
   const front = !!near && (near.x - p.x) * dir > -0.5;
+  // la pierna gigante lo persigue: se saca la pelota de encima (un pase o un autopase), a veces tarde
+  const boot = m.hazards.find(h => h.kind === 'boot' && h.stage === 0 && h.target === p.id);
+  if (boot && boot.st > BOOT_T.hunt * (0.45 + 0.4 * m.rand()) && p.aiT <= 0 && p.role !== 'gk') { p.aiT = 0.18; if (m.rand() < 0.5 + 0.4 * lv) { if (m.rand() < 0.6) pass(m, p, null); else autoPass(m, p, null); return; } }
   if (p.hold < -5 && p.aiT <= 0) { // el saque del medio: la toca para atrás, a un defensor
     const back = m.players.filter(q => q.team === p.team && q.role === 'def' && !q.gone).sort((a, q) => hyp(a.x - p.x, a.z - p.z) - hyp(q.x - p.x, q.z - p.z))[0];
     if (back) { pass(m, p, [back.x - p.x, back.z - p.z].map(v => v / (hyp(back.x - p.x, back.z - p.z) || 1)) as [number, number]); return; }

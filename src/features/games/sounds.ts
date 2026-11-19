@@ -1734,3 +1734,15 @@ export function playKfMeteorImpact() {
   rumble.connect(low).connect(gain).connect(out(c)); rumble.start(t); rumble.stop(t + 2.3);
   for (let i = 0; i < 10; i++) burst(c, 'highpass', 2200, t + 0.15 + Math.random() * 0.9, 0.04, 0.18); // las piedras que caen
 }
+// Kombat Football: la pierna gigante pisa (un golpe sordo y grave, el piso que tiembla y, si agarró a alguien, el
+// crujido).
+export function playKfStomp(hit: boolean) {
+  const c = running(); if (!c) return;
+  const t = c.currentTime;
+  tone(c, 'sine', 95, 28, t, 0.7, 1.4);
+  tone(c, 'triangle', 60, 30, t, 0.5, 0.6);
+  const rumble = noiseSource(c, false), low = filter(c, 'lowpass', 260), gain = c.createGain();
+  gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.9, t + 0.02); gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+  rumble.connect(low).connect(gain).connect(out(c)); rumble.start(t); rumble.stop(t + 1.2);
+  if (hit) for (let i = 0; i < 6; i++) burst(c, 'bandpass', 900 + Math.random() * 1400, t + 0.02 + i * 0.025, 0.05, 0.35); // el crujido
+}

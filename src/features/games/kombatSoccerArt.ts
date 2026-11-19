@@ -2,9 +2,9 @@
 // que sigue la pelota a lo largo de la cancha y gira un poquito cuando se acerca a un arco. Atrás, el fondo pintado
 // de cada escenario (el mismo de siempre); adelante, la cancha con las franjas del pasto y las líneas, del color
 // del escenario, los carteles que la rodean, los arcos con red, los luchadores, el árbitro, la pelota y los poderes.
-import { SIZE, type StageId } from './kombat';
+import { CHARS, SIZE, type StageId } from './kombat';
 import { BR, D, GD, GH, GW, L, ZC, AREA_W, AREA_X, CHARGE_TIME, FULL_CHARGE, PLAYER_SCALE, hOf, type Player, type SFx, type SoccerMatch } from './kombatSoccer';
-import { drawBlasts, drawHazardsGround, drawMeteor, drawShark, drawUfo, preloadHazardArt } from './kombatSoccerHazardsArt';
+import { drawBlasts, drawBoot, drawHazardsGround, drawMeteor, drawShark, drawUfo, preloadHazardArt } from './kombatSoccerHazardsArt';
 import { meteorPos } from './kombatSoccer';
 import { THEMES, drawBallSprite, drawGib, drawScreenBlood, type View } from './kombatArt';
 import { drawFighterLit, drawRefLit, LOOKS } from './kombatFighters';
@@ -189,13 +189,24 @@ function post(ctx: CanvasRenderingContext2D, v: SView, a: [number, number, numbe
 // ---------------------------------------------------------------- Pelota y efectos
 function drawBall(ctx: CanvasRenderingContext2D, m: SoccerMatch, v: SView) {
   const b = m.ball;
-  const glow = b.fx === 'fire' ? '#fb923c' : '#e0f2fe';
-  if (m.trail.length > 2) {
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
-    for (let i = 1; i < m.trail.length; i++) { const k = 1 - i / m.trail.length, [x0, y0, s0] = project(v, ...m.trail[i - 1]), [x1, y1] = project(v, ...m.trail[i]); ctx.strokeStyle = alpha(glow, (b.fx !== 'none' ? 0.6 : 0.3) * k); ctx.lineWidth = BR * 2 * s0 * k; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+  // el aura: un rastro de luz atrás de la pelota, del color del personaje que la tiene o la tocó último
+  const who = b.owner ?? b.lastId, ch = who !== null ? CHARS[m.players[who].char] : null;
+  const core = b.fx === 'fire' ? '#fb923c' : ch ? ch.color : '#e0f2fe', halo = b.fx === 'fire' ? '#fde047' : ch ? ch.glow : '#e0f2fe';
+  const [x, y, s] = project(v, b.x, b.y, b.z);
+  if (m.trail.length > 1 && m.bomb === null) {
+    const sp = Math.hypot(b.vx, b.vz, b.vy * 0.5), pow = Math.min(1, 0.35 + sp / 22); // (más rápido, más fuerte)
+    const pts = [[x, y, s] as [number, number, number], ...m.trail.map(q => project(v, ...q))];
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (const [col, wide, a0, add] of [[core, 4.4, 0.28, false], [core, 2.5, 0.55, false], [halo, 0.9, 0.5, true]] as [string, number, number, boolean][]) {
+      ctx.globalCompositeOperation = add ? 'lighter' : 'source-over'; // (el color, sin lavarse a blanco; el centro brilla)
+      for (let i = 1; i < pts.length; i++) {
+        const k = 1 - (i - 1) / (pts.length - 1), [x0, y0, s0] = pts[i - 1], [x1, y1] = pts[i];
+        ctx.strokeStyle = alpha(col, a0 * pow * k); ctx.lineWidth = Math.max(1, BR * wide * s0 * (0.35 + 0.65 * k)); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+      }
+    }
+    ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, y, BR * s * 3.2, core, 0.4 * pow);
     ctx.restore();
   }
-  const [x, y, s] = project(v, b.x, b.y, b.z);
   if (b.comet) cometTail(ctx, v, m, x, y, s * (b.full ? 1.5 : 1));
   if (m.bomb !== null) { drawBomb(ctx, x, y, BR * s * 1.15, m.bomb, m.time); return; }
   drawBallSprite(ctx, x, y, BR * s, b.roll, b.fx === 'fire' ? 'fire' : 'normal', b.fx === 'fire' ? 'fire' : 'none', m.time);
@@ -309,6 +320,7 @@ export function drawSoccer(ctx: CanvasRenderingContext2D, m: SoccerMatch, w: num
   for (const hz of m.hazards) {
     if (hz.kind === 'shark') items.push({ z: hz.z + 0.02, draw: () => drawShark(ctx, PP, hz, m.time) });
     else if (hz.kind === 'meteor') items.push({ z: meteorPos(hz)[2], draw: () => drawMeteor(ctx, PP, hz, m.time) });
+    else if (hz.kind === 'boot') items.push({ z: hz.z + 0.3, draw: () => drawBoot(ctx, PP, hz, m.time) });
   }
   for (const left of [true, false]) { const gx = left ? 0 : L, lf = goalLift(m, left); items.push({ z: ZC + GW / 2, draw: () => post(ctx, v, [gx, lf, ZC + GW / 2], [gx, GH + lf, ZC + GW / 2], null) }); }
   items.sort((a, c) => a.z - c.z);
@@ -392,7 +404,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, v: SView, m: SoccerMatch, p: 
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
     const full = k >= FULL_CHARGE;
     ctx.fillStyle = full ? (Math.sin(m.time * 30) > 0 ? '#ef4444' : '#fde047') : k > 0.6 ? '#facc15' : '#22c55e'; ctx.fillRect(bx, by, bw * k, bh);
-    if (full) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, by + bh / 2, bw * 0.7, '#f97316', 0.6); ctx.restore(); ctx.font = `900 ${Math.max(9, s * 0.28)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeText('¡GOL SEGURO!', x, by - bh * 0.6); ctx.fillText('¡GOL SEGURO!', x, by - bh * 0.6); }
+    if (full) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; bloom(ctx, x, by + bh / 2, bw * 0.7, '#f97316', 0.6); ctx.restore(); ctx.font = `900 ${Math.max(9, s * 0.28)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeText('¡A FONDO!', x, by - bh * 0.6); ctx.fillText('¡A FONDO!', x, by - bh * 0.6); }
   }
 }
 // Miniatura del escenario (para elegirlo).
