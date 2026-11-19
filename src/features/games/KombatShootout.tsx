@@ -254,7 +254,7 @@ export function KombatShootout({ stage, chars, two, reach, labels, paused, onEnd
   const aimSub = aim ? (two ? (aim.role === 'shooter' ? 'Primero elige el que patea, después el arquero' : 'El que patea ya eligió 🤫') : aim.role === 'shooter' ? 'La máquina ya eligió dónde se tira 🤫' : `${CHARS[chars[1]].name} ya eligió dónde patea 🤫`) : '';
   return <div className="kp kf-shootout" ref={boxRef} style={{ ...fill, zIndex: 4 }} data-testid="kf-shootout">
     <canvas ref={bgRef} aria-hidden="true" style={fill} />
-    <canvas ref={refereeRef} aria-hidden="true" style={{ ...fill, pointerEvents: 'none', zIndex: 2 }} />
+    <canvas ref={refereeRef} aria-hidden="true" style={{ ...fill, pointerEvents: 'none' }} /> {/* (el árbitro atrás, como en Kombat Penales: el ovni y los jugadores pasan por delante) */}
     <canvas ref={canvasRef} role="img" aria-label="Penales" style={{ ...fill, zIndex: 1 }}
       onPointerMove={e => { if (!aimRef.current) return; const z = zoneFromEvent(e); if (z !== null) zoneRef.current = z; }}
       onPointerDown={e => { if (!aimRef.current) return; const z = zoneFromEvent(e); if (z !== null) { zoneRef.current = z; choose(z); } }} />
