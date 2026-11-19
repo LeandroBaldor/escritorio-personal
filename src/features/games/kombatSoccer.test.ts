@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACID_DEATH, ACID_T, BOMB_FIRST, BOMB_FUSE, BR, FORMATIONS, TEAM_N, paceOf, D, GH, GW, L, METEOR_T, SHARK_LEN, UFO_T, ZC, attackDir, carrier, newSoccer, noSInput, pass, shoot, spawnHazard, stepSoccer, takeSoccerEvents, type SInput, type SoccerMatch, type SEvent } from './kombatSoccer';
+import { ACID_DEATH, ACID_T, BOMB_FIRST, BOMB_FUSE, BR, SOCCER_HALF, footballScore, FORMATIONS, TEAM_N, paceOf, D, GH, GW, L, METEOR_T, SHARK_LEN, UFO_T, ZC, attackDir, carrier, newSoccer, noSInput, pass, shoot, spawnHazard, stepSoccer, takeSoccerEvents, type SInput, type SoccerMatch, type SEvent } from './kombatSoccer';
 import { CHAR_IDS, seeded } from './kombat';
 
 const run = (m: SoccerMatch, s: number, ev: SEvent[] = []) => { for (let t = 0; t < s; t += 1 / 60) { stepSoccer(m, [noSInput(), noSInput()], 1 / 60); ev.push(...takeSoccerEvents(m)); } return ev; };
@@ -305,5 +305,23 @@ describe('Kombat Football 5 contra 5', () => {
     expect(ev.find(e => e.type === 'goal')).toMatchObject({ side: 0, bomb: true });
     expect(m.teams[0].goals).toBe(2);
     expect(m.goalFx).not.toBeNull(); expect(ev.some(e => e.type === 'explode' && e.keeper)).toBe(true);
+  });
+  // ------------------------------------------------ tiempos de 2:30 y penales si empatan
+  it('cada tiempo dura 2:30; si termina empatado no hay gol de oro: se define por penales', () => {
+    expect(SOCCER_HALF).toBe(150);
+    const m = newSoccer('industrial', ['frost', 'thunder'], [null, 0.5], seeded(95)); toPlay(m);
+    expect(m.clock).toBeCloseTo(150, 0);
+    m.half = 2; m.clock = 0.05; m.teams[0].goals = 1; m.teams[1].goals = 1;
+    const ev = run(m, 0.2);
+    expect(ev.some(e => e.type === 'penalties')).toBe(true);
+    expect(m.phase).toBe('end'); expect(m.penalties).toBe(true); expect(m.winner).toBeNull(); expect(m.extra).toBe(false);
+    // sin empate: gana el que hizo más goles
+    const m2 = newSoccer('industrial', ['frost', 'thunder'], [null, 0.5], seeded(96)); toPlay(m2);
+    m2.half = 2; m2.clock = 0.05; m2.teams[0].goals = 2; m2.teams[1].goals = 1;
+    run(m2, 0.2); expect(m2.winner).toBe(0); expect(m2.penalties).toBe(false);
+  });
+  it('el resultado simulado del mundial: sin empates y con goles de fútbol', () => {
+    const r = seeded(7);
+    for (let i = 0; i < 200; i++) { const [w, l] = footballScore(r); expect(w).toBeGreaterThan(l); expect(w).toBeLessThanOrEqual(4); expect(l).toBeGreaterThanOrEqual(0); }
   });
 });

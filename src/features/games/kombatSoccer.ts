@@ -9,7 +9,7 @@
 // ovni que le dispara a un jugador y meteoritos que caen y explotan. Los peligros pasan de a uno por vez.
 // Medidas en metros: x a lo largo (0 = arco izquierdo, L = arco derecho), z a lo ancho (0 = el lado de atrás,
 // D = el de adelante, cerca de la cámara) e y para arriba.
-import { CHARS, HALF_TIME, SIZE, STATS, heightOf, type CharId, type Element, type Fighter, type GibKind, type Person, type ScreenBlood, type StageId } from './kombat';
+import { CHARS, SIZE, STATS, heightOf, type CharId, type Element, type Fighter, type GibKind, type Person, type ScreenBlood, type StageId } from './kombat';
 
 export const L = 100; // largo de la cancha (antes 42 y 60: ahora mucho más larga; la cámara la recorre de punta a punta)
 export const D = 22; // ancho
@@ -21,6 +21,7 @@ export const BR = 0.42; // radio de la pelota (bien grande, como antes)
 export const AREA_X = 7; // el área grande: 7 m de hondo…
 export const AREA_W = 16.5; // …y 16,5 de ancho
 export const CHARGE_TIME = 1; // segundos para el tiro más fuerte
+export const SOCCER_HALF = 150; // cada tiempo dura 2:30 (dos tiempos; si empatan, penales)
 export const FULL_CHARGE = 0.95; // con la barra del tiro llena (o casi): el arquero no llega, es gol
 export const STEAL_REACH = 1.9; // hasta dónde llega la C para sacarle la pelota al rival
 export const ACID_DEATH = 5.2; // lo que dura la muerte con ácido (la misma de Kombat Penales)
@@ -120,7 +121,7 @@ export type SEvent =
   | { type: 'bomb' } | { type: 'bombTick'; n: number } | { type: 'bombBoom'; side: 0 | 1 | null }
   | { type: 'kick'; power: number; full?: boolean } | { type: 'pass' } | { type: 'tackle'; ok: boolean } | { type: 'steal'; side: 0 | 1 } | { type: 'switch' } | { type: 'goal'; side: 0 | 1; scorer: CharId; own: boolean; bomb?: boolean }
   | { type: 'bounce'; power: number } | { type: 'post' } | { type: 'save'; side: 0 | 1 }
-  | { type: 'whistle'; kind: 'kickoff' | 'half' | 'end'; start?: 1 | 2 } | { type: 'halftime' } | { type: 'extra' } | { type: 'header'; side: 0 | 1 } | { type: 'control' }
+  | { type: 'whistle'; kind: 'kickoff' | 'half' | 'end'; start?: 1 | 2 } | { type: 'halftime' } | { type: 'penalties' } | { type: 'header'; side: 0 | 1 } | { type: 'control' }
   | { type: 'explode'; side: 0 | 1; char: CharId; keeper: boolean } | { type: 'hazard'; kind: HazardKind } | { type: 'dive' } | { type: 'eaten'; side: 0 | 1; char: CharId }
   | { type: 'acid'; side: 0 | 1 } | { type: 'melted'; side: 0 | 1 } | { type: 'beam' } | { type: 'impact' };
 // La sangre y los huesos del que revienta: gotas que vuelan y manchan la cancha donde caen, y los pedazos del
@@ -129,7 +130,8 @@ export interface SGore { drops: { x: number; y: number; z: number; vx: number; v
 
 export interface SoccerMatch {
   stage: StageId; players: Player[]; ball: SBall; ref: Ref; teams: [Team, Team];
-  phase: SPhase; phaseT: number; introLen: number; time: number; half: 1 | 2; clock: number; extra: boolean; extraT: number; kickoffTeam: 0 | 1; firstKick: 0 | 1;
+  phase: SPhase; phaseT: number; introLen: number; time: number; half: 1 | 2; clock: number; extra: boolean; extraT: number; penalties: boolean; // penalties: terminó empatado (se define por penales)
+  kickoffTeam: 0 | 1; firstKick: 0 | 1;
   winner: 0 | 1 | null; lastGoal: { side: 0 | 1 } | null; events: SEvent[]; shake: number; flash: number; rand: () => number;
   fx: SFx[]; particles: SParticle[]; trail: [number, number, number][]; cam: { x: number; z: number };
   netHit: { left: boolean; t: number } | null; shots: number; stillT: number;
@@ -189,7 +191,7 @@ export function newSoccer(stage: StageId, captains: [CharId, CharId], levels: [n
     ball: { x: L / 2, y: BR, z: ZC, vx: 0, vy: 0, vz: 0, spin: 0, roll: 0, owner: null, last: null, lastId: null, fx: 'none', receiver: null, shot: 0, shooter: null },
     ref: { x: L / 2 - 4, y: 0, z: 2, vx: 0, vy: 0, vz: 0, facing: 1, ground: true, action: 'idle', actionT: 0, stun: 0, stunKind: 'none', away: 0 },
     teams: [0, 1].map(t => ({ captain: captains[t], goals: 0, level: levels[t], active: t * TEAM_N + 1, switchT: 0, formation: formations[t], style: styles[t] })) as [Team, Team],
-    phase: 'intro', phaseT: 0, introLen: 2.6, time: 0, half: 1, clock: HALF_TIME, extra: false, extraT: 0, kickoffTeam: kick, firstKick: kick,
+    phase: 'intro', phaseT: 0, introLen: 2.6, time: 0, half: 1, clock: SOCCER_HALF, extra: false, extraT: 0, penalties: false, kickoffTeam: kick, firstKick: kick,
     winner: null, lastGoal: null, events: [], shake: 0, flash: 0, rand, fx: [], particles: [], trail: [], cam: { x: L / 2, z: ZC },
     netHit: null, shots: 0, stillT: 0, marks: {}, gore: { drops: [], gibs: [], stains: [] }, screenBlood: [],
     hazards: [], hazardT: HAZARD_START, hazardN: 0, lastHazard: null, noHazards: false, scorch: [], blasts: [], bomb: null, bombT: BOMB_FIRST, goalFx: null,
@@ -249,7 +251,7 @@ export function stepSoccer(m: SoccerMatch, inputs: [SInput, SInput], dt: number)
     }
     case 'halftime':
       for (const p of m.players) settle(m, p, dt, 'idle');
-      if (m.phaseT > 3.4) { m.half = 2; m.clock = HALF_TIME; resetKickoff(m, m.firstKick === 0 ? 1 : 0); m.phase = 'intro'; m.phaseT = 0; m.introLen = 1.2; }
+      if (m.phaseT > 3.4) { m.half = 2; m.clock = SOCCER_HALF; resetKickoff(m, m.firstKick === 0 ? 1 : 0); m.phase = 'intro'; m.phaseT = 0; m.introLen = 1.2; }
       break;
     case 'end':
       for (const p of m.players) settle(m, p, dt, m.winner === null ? 'idle' : p.team === m.winner ? 'celebrate' : 'sad');
@@ -327,8 +329,9 @@ function endOfHalf(m: SoccerMatch) {
   const [a, b] = [m.teams[0].goals, m.teams[1].goals];
   emit(m, { type: 'whistle', kind: m.half === 1 ? 'half' : 'end' });
   if (m.half === 1) { m.phase = 'halftime'; m.phaseT = 0; m.hazards = []; emit(m, { type: 'halftime' }); return; }
-  if (a === b) { m.extra = true; m.extraT = 0; emit(m, { type: 'extra' }); return; } // gol de oro
-  m.winner = a > b ? 0 : 1; m.phase = 'end'; m.phaseT = 0; m.hazards = [];
+  m.phase = 'end'; m.phaseT = 0; m.hazards = []; m.bomb = null;
+  if (a === b) { m.penalties = true; emit(m, { type: 'penalties' }); return; } // empate: penales (la tanda de Kombat Penales; winner queda en null)
+  m.winner = a > b ? 0 : 1;
 }
 
 // ---------------------------------------------------------------- El que maneja la persona
@@ -1173,3 +1176,9 @@ function updateFx(m: SoccerMatch, dt: number) {
   m.particles = m.particles.filter(p => p.life < p.max);
 }
 export const soccerClock = (s: number) => `${String(Math.floor(Math.ceil(s) / 60)).padStart(2, '0')}:${String(Math.ceil(s) % 60).padStart(2, '0')}`;
+
+// Un resultado de fútbol para los partidos simulados del mundial (sin empate: [goles del que gana, del que pierde]).
+export function footballScore(rand: () => number): [number, number] {
+  const w = 1 + Math.floor(rand() * 4), l = Math.floor(rand() * w);
+  return [w, l];
+}

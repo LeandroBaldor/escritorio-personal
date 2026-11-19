@@ -9,7 +9,7 @@ import { SET_POINTS } from './kombatVoley';
 export const CUP_ROUNDS = ['Octavos de final', 'Cuartos de final', 'Semifinal', 'Final'] as const;
 export const MAX_CUP_PLAYERS = 8; // (uno por partido de octavos: así nunca se cruzan dos personas en octavos)
 
-export interface CupMatch { a: CharId; b: CharId; sa: number | null; sb: number | null }
+export interface CupMatch { a: CharId; b: CharId; sa: number | null; sb: number | null; pa?: number; pb?: number } // pa/pb: los penales (Kombat Football, si empataron)
 export interface Cup {
   humans: CharId[]; // los luchadores de las personas (el índice + 1 es el número de jugador)
   seed: Record<CharId, number>; // ranking 1..16 (por estadísticas; en Kombat Penales, al azar)
@@ -19,7 +19,7 @@ export interface Cup {
 }
 
 const power = (c: CharId) => STATS[c].speed + STATS[c].strength + STATS[c].jump;
-export const cupWinner = (m: CupMatch): CharId | null => (m.sa === null || m.sb === null ? null : m.sa > m.sb ? m.a : m.b);
+export const cupWinner = (m: CupMatch): CharId | null => (m.sa === null || m.sb === null ? null : m.sa === m.sb && m.pa !== undefined && m.pb !== undefined ? (m.pa > m.pb ? m.a : m.b) : m.sa > m.sb ? m.a : m.b);
 export const isHuman = (cup: Cup, c: CharId) => cup.humans.includes(c);
 export const playerNo = (cup: Cup, c: CharId) => cup.humans.indexOf(c) + 1; // 0 = la máquina
 const shuffle = <T,>(list: T[], rand: () => number) => list.map(x => [x, rand()] as const).sort((x, y) => x[1] - y[1]).map(x => x[0]);
@@ -51,8 +51,9 @@ export function nextHumanMatch(cup: Cup, round: number) {
 // Las personas que siguen en carrera en esa fase.
 export const humansIn = (cup: Cup, round: number) => (cup.rounds[round] ?? []).flatMap(m => [m.a, m.b]).filter(c => isHuman(cup, c));
 // Anota el resultado de un partido (score = [puntos de a, puntos de b]).
-export function setMatchScore(cup: Cup, round: number, index: number, score: [number, number]): Cup {
-  return { ...cup, rounds: cup.rounds.map((r, i) => i !== round ? r : r.map((m, j) => j !== index ? m : { ...m, sa: score[0], sb: score[1] })) };
+// (pens: el resultado de los penales, si empataron; lo usa Kombat Football)
+export function setMatchScore(cup: Cup, round: number, index: number, score: [number, number], pens?: [number, number]): Cup {
+  return { ...cup, rounds: cup.rounds.map((r, i) => i !== round ? r : r.map((m, j) => j !== index ? m : { ...m, sa: score[0], sb: score[1], ...(pens ? { pa: pens[0], pb: pens[1] } : {}) })) };
 }
 // Un resultado de vóley a un set: el ganador llega a 15 (o pasa al perdedor por dos si hubo empate en 14).
 export function volleyScore(rand: () => number): [number, number] {
@@ -94,6 +95,6 @@ export function advanceCup(cup: Cup, round: number, rand: () => number = Math.ra
 export function cupSlot(cup: Cup, c: number, k: number) {
   const m = cup.rounds[c]?.[Math.floor(k / 2)];
   if (!m) return null;
-  const side = k % 2, char = side ? m.b : m.a, score = side ? m.sb : m.sa, w = cupWinner(m);
-  return { char, score, won: w === char, lost: w !== null && w !== char };
+  const side = k % 2, char = side ? m.b : m.a, score = side ? m.sb : m.sa, w = cupWinner(m), pen = (side ? m.pb : m.pa) ?? null;
+  return { char, score, pen, won: w === char, lost: w !== null && w !== char };
 }

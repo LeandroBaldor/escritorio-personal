@@ -54,10 +54,10 @@ const roundReach = (n: number) => 0.18 + n * 0.1;
 // El partido de personas que toca en el mundial (y los dos luchadores, la persona a la izquierda).
 const cupChars = (cup: Cup, n: number): [CharId, CharId] => nextHumanMatch(cup, n)?.chars ?? [cup.humans[0], CHAR_IDS.find(c => !isHuman(cup, c))!];
 const QUALITY = [1, 0.82, 0.68, 0.55];
-const ZONE_KEYS: Record<string, Zone> = { KeyQ: 0, KeyW: 1, KeyE: 2, KeyA: 3, KeyS: 4, KeyD: 5, Numpad7: 0, Numpad8: 1, Numpad9: 2, Numpad1: 3, Numpad2: 4, Numpad3: 5, Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4, Digit6: 5 };
+export const ZONE_KEYS: Record<string, Zone> = { KeyQ: 0, KeyW: 1, KeyE: 2, KeyA: 3, KeyS: 4, KeyD: 5, Numpad7: 0, Numpad8: 1, Numpad9: 2, Numpad1: 3, Numpad2: 4, Numpad3: 5, Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4, Digit6: 5 };
 // Con las flechas: ↑ arriba al medio, ↓ abajo al medio; ← una vez abajo a la izquierda y dos veces (seguidas)
 // arriba a la izquierda; → igual a la derecha. DOUBLE_MS: cuánto se espera la segunda vez.
-const DOUBLE_MS = 380;
+export const DOUBLE_MS = 380;
 interface Shout { id: number; text: string; sub?: string; kind: 'goal' | 'fatal' | 'info' | 'block' | 'extra' }
 // Quién tiene que elegir ahora: el arquero o el que patea (y de qué lado es).
 interface Aim { role: 'keeper' | 'shooter'; side: 0 | 1 }
@@ -68,10 +68,10 @@ const ARMS = {
   rojo: { 1: rojo1, 2: rojo2, piedra: rojoPiedra, papel: rojoPapel, tijera: rojoTijera },
   azul: { 1: azul1, 2: azul2, piedra: azulPiedra, papel: azulPapel, tijera: azulTijera },
 } as const;
-const RPS_STEP = 330; // ms entre posición y posición
+export const RPS_STEP = 330; // ms entre posición y posición
 const HAND_NAMES: Record<Hand, string> = { piedra: '✊ Piedra', papel: '✋ Papel', tijera: '✌️ Tijera' };
-const HAND_KEYS: Record<string, Hand> = { ArrowLeft: 'piedra', ArrowDown: 'papel', ArrowRight: 'tijera' };
-interface Rps { stage: 'pick' | 'anim' | 'order'; picker: 0 | 1; hands: [Hand | null, Hand | null]; frame: number; winner: 0 | 1 | null; cpuOrder: 'first' | 'second' | null }
+export const HAND_KEYS: Record<string, Hand> = { ArrowLeft: 'piedra', ArrowDown: 'papel', ArrowRight: 'tijera' };
+export interface Rps { stage: 'pick' | 'anim' | 'order'; picker: 0 | 1; hands: [Hand | null, Hand | null]; frame: number; winner: 0 | 1 | null; cpuOrder: 'first' | 'second' | null }
 
 function Portrait({ char, size, mirror = false, square = false }: { char: CharId; size: number; mirror?: boolean; square?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -173,14 +173,14 @@ function StageThumb({ stage, w, h }: { stage: StageId; w: number; h: number }) {
 }
 const Keys = ({ keys }: { keys: string[] }) => <span className="kf-combo">{keys.map((k, i) => <span key={i}>{i > 0 && <i>+</i>}<kbd>{k}</kbd></span>)}</span>;
 // Los penales de cada uno: ✓ gol, ✗ errado, ○ los que faltan (5, o más en la muerte súbita).
-function KickDots({ kicks, total, testId }: { kicks: boolean[]; total: number; testId: string }) {
+export function KickDots({ kicks, total, testId }: { kicks: boolean[]; total: number; testId: string }) {
   return <span className="kp-dots" data-testid={testId} aria-label={`${kicks.filter(Boolean).length} goles en ${kicks.length} penales`}>
     {Array.from({ length: total }, (_, i) => <i key={i} className={i < kicks.length ? (kicks[i] ? 'kp-dot kp-dot--goal' : 'kp-dot kp-dot--miss') : 'kp-dot'} />)}
   </span>;
 }
 
 // El cuadro del piedra, papel o tijera (borde rojo, fondo negro, los dos brazos frente a frente).
-function RpsBox({ rps, two, chars, labels, onHand, onOrder }: { rps: Rps; two: boolean; chars: [CharId, CharId]; labels: [string, string]; onHand: (h: Hand) => void; onOrder: (o: 'first' | 'second') => void }) {
+export function RpsBox({ rps, two, chars, labels, onHand, onOrder }: { rps: Rps; two: boolean; chars: [CharId, CharId]; labels: [string, string]; onHand: (h: Hand) => void; onOrder: (o: 'first' | 'second') => void }) {
   const arm = (color: 'rojo' | 'azul', side: 0 | 1) => { const h = rps.hands[side]; const showHand = (rps.stage === 'anim' && rps.frame >= 5) || rps.stage === 'order'; return ARMS[color][showHand && h ? h : 1]; };
   const humanWinner = rps.stage === 'order' && rps.winner !== null && !rps.cpuOrder;
   const title = rps.stage === 'pick'

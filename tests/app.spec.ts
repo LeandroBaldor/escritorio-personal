@@ -1197,19 +1197,45 @@ test('Kombat Football: se abre desde Juegos, se eligen los luchadores como en un
   await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
 });
 
-test('Kombat Football torneo: la escalera de rivales como en Mortal Kombat', async ({ page }) => {
+test('Kombat Football mundial: el cuadro de octavos, la táctica y, si empatan, penales como en Kombat Penales', async ({ page }) => {
+  test.setTimeout(90000);
   await page.goto('/escritorio-personal/#/juegos');
   await page.getByRole('link', { name: /Kombat Football/ }).click();
-  await page.getByRole('button', { name: 'Torneo' }).click();
-  const mine = page.getByRole('group', { name: 'Tu luchador' }).getByRole('button', { name: 'FROST' });
+  await page.getByRole('button', { name: 'Mundial' }).click();
+  await expect(page.getByRole('heading', { name: /MUNDIAL: ELEGÍ LOS JUGADORES/ })).toBeVisible();
+  const mine = page.getByRole('group', { name: 'Jugadores del mundial' }).getByRole('button', { name: 'FROST' });
   await mine.click(); await mine.click();
-  await expect(page.getByRole('heading', { name: 'ELEGÍ TU DESTINO' })).toBeVisible();
-  await expect(page.getByTestId('kf-ladder-next')).toContainText('Partido 1 de 15');
-  await page.getByRole('button', { name: '¡A pelear! ▶' }).click();
+  await expect(page.getByTestId('kf-player-1')).toBeVisible();
+  await page.getByTestId('kf-start-cup').click();
+  await expect(page.getByRole('heading', { name: 'MUNDIAL DE KOMBAT FOOTBALL' })).toBeVisible();
+  await expect(page.getByTestId('kf-ladder-next')).toContainText('Octavos de final');
+  await expect(page.getByTestId('kf-bracket')).toBeVisible();
+  await page.getByRole('button', { name: '¡A jugar! ▶' }).click();
   await expect(page.getByRole('heading', { name: 'TU EQUIPO' })).toBeVisible();
-  await expect(page.getByRole('group', { name: 'Dificultad' })).toHaveCount(0); // (en el torneo la dificultad la pone la escalera)
+  await expect(page.getByRole('group', { name: 'Dificultad' })).toHaveCount(0); // (en el mundial la dificultad sube con cada fase)
   await page.getByRole('button', { name: 'Siguiente ▶' }).click();
   await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
+  await page.getByRole('button', { name: '¡A jugar!' }).click();
+  await expect(page.getByTestId('kf-round')).toHaveText('Octavos de final');
+  await expect(page.getByTestId('kf-clock')).toContainText('02:'); // (cada tiempo dura 2:30)
+  // termina empatado: penales (la tanda de Kombat Penales)
+  await page.evaluate(() => { const m = (window as unknown as { __kfMatch: () => { half: number; clock: number; teams: { goals: number }[] } }).__kfMatch(); m.half = 2; m.clock = 0.1; m.teams[0].goals = 1; m.teams[1].goals = 1; });
+  await expect(page.getByTestId('kf-shootout')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('kp-rps')).toBeVisible({ timeout: 15000 });
+  for (const end = Date.now() + 50000; Date.now() < end && await page.getByTestId('kp-rps').isVisible();) {
+    if (await page.getByTestId('kp-hand-piedra').isVisible()) await page.keyboard.press('ArrowLeft');
+    else if (await page.getByTestId('kp-order-first').isVisible()) await page.keyboard.press('ArrowLeft');
+    await page.waitForTimeout(700);
+  }
+  await expect(page.getByTestId('kf-pen-aim')).toContainText('ya eligió', { timeout: 10000 }); // la máquina ya eligió apenas sonó el silbato
+  await page.keyboard.press('ArrowUp');
+  await expect(page.locator('.kp-dots[aria-label$="en 1 penales"]')).toHaveCount(1, { timeout: 10000 });
+  // la tanda termina (gana el de la izquierda): resultado con los penales y se anota en el cuadro
+  await page.evaluate(() => { const m = (window as unknown as { __kfPens: () => { phase: string; phaseT: number; winner: number; kicks: boolean[][]; kick: unknown; death: unknown } }).__kfPens(); m.kicks = [[true, true, true], [false, false, false]]; m.kick = null; m.death = null; m.winner = 0; m.phase = 'end'; m.phaseT = 3; });
+  await expect(page.getByTestId('kf-final')).toContainText('1 - 1', { timeout: 10000 });
+  await expect(page.getByTestId('kf-final-pens')).toContainText('3 - 0');
+  await page.getByRole('button', { name: 'Ver el cuadro ▶' }).click();
+  await expect(page.getByTestId('kf-ladder-next')).toContainText('Cuartos de final');
 });
 
 test('Kombat Voley: amistoso con rival y estadio elegidos, se saca y se pausa; el mundial con octavos', async ({ page }) => {

@@ -62,4 +62,13 @@ describe('Mundial de Kombat Voley', () => {
     const r = seeded(1);
     for (let i = 0; i < 200; i++) { const [w, l] = volleyScore(r); expect(w - l).toBeGreaterThanOrEqual(2); expect(w >= SET_POINTS && (w === SET_POINTS || w - l === 2)).toBe(true); }
   });
+  it('Kombat Football: si empataron, pasa el que ganó los penales (y el cuadro los muestra)', () => {
+    const cup = newCup('frost', seeded(3));
+    const m0 = cup.rounds[0][0];
+    const c2 = setMatchScore(cup, 0, 0, [1, 1], [3, 4]);
+    expect(cupWinner(c2.rounds[0][0])).toBe(m0.b);
+    expect(cupSlot(c2, 0, 0)).toMatchObject({ score: 1, pen: 3, lost: true });
+    expect(cupSlot(c2, 0, 1)).toMatchObject({ score: 1, pen: 4, won: true });
+    expect(cupSlot(setMatchScore(cup, 0, 0, [2, 1]), 0, 0)).toMatchObject({ pen: null, won: true });
+  });
 });
