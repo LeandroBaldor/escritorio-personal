@@ -975,12 +975,6 @@ function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel>
       level.gain.value = 0.5; wobble(c, level.gain, 13, 0.25, 'square'); wobble(c, level.gain, 2.9, 0.15);
       sizzle.connect(hi).connect(level).connect(out); sizzle.start();
     }),
-    // Música (el bar, la radio): unos acordes con ritmo.
-    music: channel(0.3, out => {
-      const beat = c.createGain(); beat.gain.value = 0.25; wobble(c, beat.gain, 2.1, 0.25, 'square'); beat.connect(out);
-      for (const f of [196, 247, 294, 392]) { const o = osc(c, 'triangle', f); wobble(c, o.frequency, 0.26, f * 0.12, 'square'); o.connect(beat); o.start(); }
-      const bass = osc(c, 'sine', 98), bl = c.createGain(); bl.gain.value = 0.4; wobble(c, bass.frequency, 1.05, 24, 'square'); bass.connect(bl).connect(beat); bass.start();
-    }),
     // La obra: martillazos y una amoladora de fondo.
     work: channel(0.4, out => {
       const hit = noiseSource(c), band = filter(c, 'bandpass', 1500, 4), gate = c.createGain();
@@ -988,11 +982,6 @@ function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel>
       hit.connect(band).connect(gate).connect(out); hit.start();
       const grinder = osc(c, 'sawtooth', 2400), gl = c.createGain(); gl.gain.value = 0.02; wobble(c, gl.gain, 0.15, 0.02, 'square');
       grinder.connect(gl).connect(out); grinder.start();
-    }),
-    // El gimnasio: los pasos en la cinta y las pesas.
-    gym: channel(0.3, out => {
-      const thump = osc(c, 'sine', 70), gate = c.createGain(); gate.gain.value = 0.4; wobble(c, gate.gain, 2.8, 0.4, 'square');
-      thump.connect(gate).connect(out); thump.start();
     }),
     // Fuego: la grabación (mientras carga, un rugido con chisporroteo).
     fire: channel(0.8, out => recorded(c, fuegoUrl, 1.3, out, out => {
@@ -1008,12 +997,6 @@ function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel>
       const whine = osc(c, 'sine', 1900), wl = c.createGain(); wl.gain.value = 0.05; wobble(c, whine.frequency, 0.9, 220);
       whine.connect(wl).connect(out); whine.start();
     })),
-    // El tic-tac de una caja con explosivos.
-    tick: channel(0.35, out => {
-      const tk = osc(c, 'square', 2600), gate = c.createGain(); gate.gain.value = 0; wobble(c, gate.gain, 2, 0.5, 'square');
-      const hp = filter(c, 'highpass', 2000), short = c.createGain(); short.gain.value = 0.3; wobble(c, short.gain, 20, 0.3, 'square');
-      tk.connect(hp).connect(gate).connect(short).connect(out); tk.start();
-    }),
     // La lluvia: la grabación (mientras carga, un ruido suave y agudo).
     rain: channel(0.7, out => recorded(c, invLluviaUrl, 1, out, out => {
       const drops = noiseSource(c), hi = filter(c, 'highpass', 1800), level = c.createGain();

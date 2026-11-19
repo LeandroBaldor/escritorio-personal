@@ -2,12 +2,12 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { TouchGrips } from './TouchGrips';
 import { fitScale, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
-import { ALIEN_POINTS, aliveAliens, aliveHumans, BAZOOKA_RADIUS, CITY_TOP, GAME_SECONDS, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
+import { ALIEN_POINTS, ALIEN_TOTAL, aliveAliens, aliveHumans, BAZOOKA_RADIUS, CITY_TOP, GAME_SECONDS, HUMAN_TOTAL, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import { drawMinimap, paintCity, type View } from './invasionArt';
 import { invasionLevels } from './invasionSound';
 import {
-  playAlienComm, playAlienDeath, playAlienTalk, playBlast, playBolt, playCivilianHit, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playRadioBeep, playRayGun, playReload,
+  playAlienComm, playAlienDeath, playAlienTalk, playBlast, playBolt, playCivilianHit, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playRayGun, playReload,
   playRicochet, playRifleShot, playScream, playStart, playThunder, playUfoArrive, playWinFanfare, preloadInvasionSounds, setInvasionAmbient,
 } from './sounds';
 import { EndBanner } from './EndBanner';
@@ -271,7 +271,7 @@ export function Invasion() {
   // Bucle del juego.
   useEffect(() => {
     if (status !== 'playing') { setInvasionAmbient(null); return; }
-    let frame = 0, last = performance.now(), soundAt = 0, talkAt = 0;
+    let frame = 0, last = performance.now(), soundAt = 0, talkAt = 0, rayAt = 0;
     const tick = (now: number) => {
       const g = gameRef.current, a = aim.current, G = arsenal.current[selected.current], stage = stageRef.current;
       const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
@@ -310,16 +310,18 @@ export function Invasion() {
         if (e.type === 'ufoPing') playRicochet();
         if (e.type === 'defused') playDefuse();
         if (e.type === 'explosion') { const k = near(e.x, e.y); playBlast(Math.max(0.15, k)); a.shake = Math.max(a.shake, 0.3 + k * 1.2); }
-        if (e.type === 'bomb') { playRadioBeep(); setToast({ text: '📻 Radio: un alien dejó una bomba 💣 Buscá la caja con la luz roja y dispárale', id: now, bad: true }); }
+        if (e.type === 'bomb' && near(e.x, e.y) > 0.3) setToast({ text: 'Explosivo cercano. Buscá la caja con la luz roja.', id: now, bad: true });
         if (e.type === 'laser') playLaser(Math.max(0.2, near(e.x, e.y)));
         if (e.type === 'lighter') playLighter(near(e.x, e.y));
-        if (e.type === 'ray') playRayGun(near(e.x, e.y));
+        if (e.type === 'ray' && now >= rayAt) {
+          const level = near(e.x, e.y);
+          if (level > 0.1) { playRayGun(level); rayAt = now + 100; }
+        }
         if (e.type === 'scream') playScream(near(e.x, e.y), 0.8 + Math.random() * 0.6);
         if (e.type === 'ufoArrive') { playUfoArrive(); setToast({ text: g.ufos.length === 1 ? 'Entraron los OVNIs. Usá la bazooka.' : `¡Otro ovni! Ya son ${g.ufos.length} 🛸`, id: now, big: g.ufos.length === 1 }); }
         if (e.type === 'comm') { playAlienComm(near(e.x, e.y) * 0.6); playAlienTalk(near(e.x, e.y)); }
         if (e.type === 'thunder') { playThunder(Math.max(0.35, 1 - Math.abs(e.x - p.x) / 120)); a.shake = Math.max(a.shake, 0.25); }
         if (e.type === 'rain') setToast({ text: '🌧️ Se largó una tormenta: llueve y hay relámpagos', id: now, big: true });
-        if (e.type === 'moreAliens') { playRadioBeep(); setToast({ text: `📻 Radio: hay más aliens en la ciudad (${e.count})`, id: now }); }
       }
       if (now - soundAt > 100) { soundAt = now; setInvasionAmbient(invasionLevels(g, p.x, p.y, a.zoom)); }
       // Cada tanto habla (en su idioma) el alien más cercano a la mira: si escuchás esa voz, hay uno cerca.
@@ -501,10 +503,12 @@ export function Invasion() {
         </div>}
       </div>
       <aside className="trepa-side inv-side" aria-label="Marcador y armamento">
+        <h2 className="inv-panel-heading">Estado de la ciudad</h2>
         <div className="trepa-stat"><span>Tiempo restante</span><strong data-testid="inv-time">{formatInvasionTime(hud.time)}</strong></div>
-        <div className="trepa-stat"><span>Humanos</span><strong data-testid="inv-humans">{hud.humans}</strong></div>
-        <div className="trepa-stat inv-kills"><span>Aliens</span><strong data-testid="inv-aliens">{hud.aliens}</strong></div>
+        <div className="trepa-stat inv-population"><span>Humanos</span><strong><b data-testid="inv-humans">{hud.humans}</b><small> / {HUMAN_TOTAL}</small></strong><meter aria-label="Humanos vivos" min={0} max={HUMAN_TOTAL} value={hud.humans} /></div>
+        <div className="trepa-stat inv-population inv-kills"><span>Aliens</span><strong><b data-testid="inv-aliens">{hud.aliens}</b><small> / {ALIEN_TOTAL}</small></strong><meter aria-label="Aliens vivos" min={0} max={ALIEN_TOTAL} value={hud.aliens} /></div>
         <div className="trepa-stat"><span>Puntos</span><strong data-testid="inv-score">{hud.kills * ALIEN_POINTS}</strong></div>
+        <h2 className="inv-panel-heading">Armamento</h2>
         <button type="button" className="inv-armory-toggle" aria-haspopup="dialog" disabled={status !== 'playing'} onClick={() => setStatus('armory')}>Arsenal <span>{WEAPONS[weapon].name}</span></button>
         <div className="trepa-stat"><span>{hud.reloading ? 'Recargando' : 'Munición'}</span><strong data-testid="inv-ammo">{hud.mag} / {WEAPONS[weapon].mag}</strong></div>
         {status === 'playing' && <button type="button" className="inv-fire" onPointerDown={e => { if (e.button !== 0) return; e.currentTarget.setPointerCapture(e.pointerId); trigger.current = true; fire(); }} onLostPointerCapture={() => { trigger.current = false; }} onClick={e => { if (e.detail === 0) fire(); }}>Disparar</button>}

@@ -5,6 +5,8 @@
 import { ANOMALIES, fitsPlace, shuffledAnomalies, type Anomaly } from './invasionAnomalies';
 
 export const GAME_SECONDS = 600;
+export const HUMAN_TOTAL = 300;
+export const ALIEN_TOTAL = 300;
 export const REVEAL_EVERY = 30, REVEAL_TIME = 5;
 export const PERSON_H = 1, PERSON_W = 0.42;
 export const SIDEWALK_Y = 0, ROAD_Y = -1.6;
@@ -47,12 +49,12 @@ export interface ActiveAnomaly { id: number; t0: number; until: number; seed: nu
 export interface Person {
   id: number; room: number; x: number; y: number; dir: 1 | -1; speed: number; act: Activity; actUntil: number; tx: number; moving: boolean;
   look: Look; alien: boolean; revealPhase: number; anomaly: ActiveAnomaly | null; nextAnomaly: number; sabotage: Sabotage | null; nextSabotage: number;
-  dead: { t: number; alien: boolean; head: boolean } | null; panic: number; talk: number; gone: boolean; dog: boolean; jx: number; job: 'resident' | 'worker' | 'walker' | 'jogger';
+  dead: { t: number; alien: boolean; head: boolean } | null; panic: number; shelter?: { room: number; x: number }; talk: number; gone: boolean; dog: boolean; jx: number; job: 'resident' | 'worker' | 'walker' | 'jogger';
   // Aliens: se quedan mirando fijo a la mira y hablan por su intercomunicador.
   stareUntil: number; nextStare: number; comm: { t0: number; until: number } | null; nextComm: number;
 }
 export interface Box { id: number; room: number; x: number; y: number; explosive: boolean; t0: number; explodeAt: number; defused: boolean; exploded: boolean; hit: boolean; kind: number }
-export interface Ufo { id: number; x: number; y: number; vx: number; t0: number; deployed: boolean; beam: { room: number; t0: number; until: number; x: number; y: number } | null; nextBeam: number; wobble: number }
+export interface Ufo { id: number; x: number; y: number; vx: number; t0: number; beam: { room: number; t0: number; until: number; x: number; y: number } | null; nextBeam: number; wobble: number }
 export interface Car { id: number; x: number; dir: 1 | -1; speed: number; hue: number; kind: 'car' | 'taxi' | 'bus' | 'van' | 'police'; lane: number }
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; kind: 'blood' | 'spark' | 'glass' | 'smoke' | 'debris' | 'ember' | 'goo' }
 export interface Decal { room: number; x: number; y: number; glass: boolean; t: number; goo?: boolean; blood?: boolean; size?: number }
@@ -215,33 +217,35 @@ export function newInvasion(seed?: number): Invasion {
   // Gente en cada habitación (en las obras, albañiles; en los locales, el que atiende y algún cliente).
   for (const room of g.rooms) {
     const n = room.theme === 'shop' ? 2 + (rand() < 0.5 ? 1 : 0) : room.theme === 'site' ? (rand() < 0.7 ? 1 : 0) : room.theme === 'office' ? (rand() < 0.75 ? 1 : 0) + (rand() < 0.35 ? 1 : 0) : rand() < 0.5 ? 1 + (rand() < 0.25 ? 1 : 0) : 0;
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < n && g.people.length < HUMAN_TOTAL - 34; i++) {
       const spot = room.spots[i % room.spots.length];
       const p = addPerson(g, room.id, spot.x, room.y, room.theme === 'site' ? 'worker' : 'resident', room.theme === 'kids' && i === 0);
       p.act = spot.act; p.dir = spot.facing; p.actUntil = between(rand, 3, 14);
     }
   }
   // Gente en la vereda: paseando (algunos con perro), corriendo, hablando por teléfono.
-  for (let i = 0; i < 34; i++) addPerson(g, -1, between(rand, 1, g.width - 1), SIDEWALK_Y, i % 6 === 0 ? 'jogger' : 'walker');
+  while (g.people.length < HUMAN_TOTAL) {
+    addPerson(g, -1, between(rand, 1, g.width - 1), SIDEWALK_Y, g.people.length % 6 === 0 ? 'jogger' : 'walker');
+  }
   for (let i = 0; i < 9; i++) g.cars.push({ id: g.nextId++, x: between(rand, 0, g.width), dir: i % 2 ? 1 : -1, speed: between(rand, 5, 9), hue: Math.floor(rand() * 360), kind: pick(rand, ['car', 'car', 'taxi', 'bus', 'van', 'car'] as const), lane: i % 2 });
   for (const p of g.people) { p.nextAnomaly = between(rand, 3, 14); p.nextSabotage = between(rand, 45, 90); }
-  while (aliveAliens(g) < g.aliensWanted) convert(g);
+  for (let i = 0; i < g.aliensWanted; i++) spawnAlien(g, i);
   return g;
 }
 
 export const aliveHumans = (g: Invasion) => g.people.filter(p => !p.alien && !p.dead && !p.gone).length;
 export const aliveAliens = (g: Invasion) => g.people.filter(p => p.alien && !p.dead && !p.gone).length;
-function convert(g: Invasion) {
-  const options = g.people.filter(p => !p.alien && !p.dead && !p.gone && !p.look.kid);
-  if (!options.length) return;
-  activateAlien(g, pick(g.rand, options));
-}
-
-function activateAlien(g: Invasion, p: Person) {
+function spawnAlien(g: Invasion, index: number) {
+  const r = g.rand;
+  const rooms = index % 4 === 0 ? [] : g.rooms.filter(o => !o.destroyed && o.fire < 0.35 && o.theme !== 'site');
+  const room = rooms.length ? pick(r, rooms) : null;
+  const x = room ? between(r, room.x1 + 0.35, room.x2 - 0.35) : between(r, 1, g.width - 1);
+  const p = addPerson(g, room?.id ?? -1, x, room?.y ?? SIDEWALK_Y, room ? 'resident' : 'walker');
   p.alien = true;
+  p.dog = false;
   p.revealPhase = g.rand() * REVEAL_EVERY;
-  p.nextAnomaly = g.time + between(g.rand, 2, 10);
-  p.nextSabotage = Math.max(g.time + between(g.rand, 20, 50), 40);
+  p.nextAnomaly = g.time + between(g.rand, 10, 24);
+  p.nextSabotage = g.time + between(g.rand, 2, 11);
   p.nextComm = g.time + between(g.rand, 8, 30);
   p.nextStare = g.time + between(g.rand, 2, 8);
 }
@@ -249,8 +253,8 @@ function activateAlien(g: Invasion, p: Person) {
 export const revealed = (p: Person, t: number) => p.alien && !p.dead && ((t + p.revealPhase) % REVEAL_EVERY) < REVEAL_TIME;
 export const roomOf = (g: Invasion, p: Person) => p.room >= 0 ? g.rooms[p.room] : null;
 export const anomalyOf = (p: Person): Anomaly | null => p.anomaly ? ANOMALIES[p.anomaly.id] : null;
-// Nuevas conversiones programadas a lo largo de la partida.
-export const aliensAt = (t: number) => Math.min(40, 12 + Math.floor(t / 20));
+// Llegadas acumuladas, incluidas las bajas. La última oleada entra antes de terminar la partida.
+export const aliensAt = (t: number) => Math.min(ALIEN_TOTAL, 50 + 5 * Math.floor(t / 11));
 // Ovnis: desde los 5 minutos, van apareciendo de a uno cada 40 segundos (hasta 5).
 export const ufosAt = (t: number) => t < UFO_FROM ? 0 : Math.min(5, 1 + Math.floor((t - UFO_FROM) / 40));
 // Cuánto llueve (0 = nada, 1 = tormenta): empieza a los 3 minutos y en medio minuto ya es una tormenta.
@@ -306,7 +310,7 @@ export function step(g: Invasion, dt: number) {
   // Más aliens con el tiempo.
   const want = aliensAt(t);
   if (want > g.aliensWanted) {
-    for (let i = g.aliensWanted; i < want; i++) convert(g);
+    for (let i = g.aliensWanted; i < want; i++) spawnAlien(g, i);
     g.aliensWanted = want;
     emit(g, { type: 'moreAliens', count: aliveAliens(g) });
   }
@@ -347,15 +351,41 @@ function stepPerson(g: Invasion, p: Person, dt: number) {
   p.talk = Math.max(0, p.talk - dt);
   // Un ataque o un incendio cerca: la gente corre desesperada.
   const fireNear = room ? room.fire > 0.15 : false;
-  const panicCity = ruinAt(t) > 0 && !p.alien && r() < dt * 0.05;
+  const panicCity = t > 6 && !p.alien && !p.shelter && r() < dt * 0.035;
   if ((fireNear || panicCity) && !p.alien) p.panic = Math.max(p.panic, 6);
-  if (p.panic > 0) {
-    p.panic -= dt;
+  if (!p.alien && (p.panic > 0 || p.shelter)) {
+    p.panic = Math.max(0, p.panic - dt);
+    const reservedRoom = p.shelter && g.rooms[p.shelter.room];
+    if (reservedRoom && (reservedRoom.destroyed || reservedRoom.fire > 0.35)) p.shelter = undefined;
+    if (!p.shelter) {
+      let refuge = room && room.fire < 0.35 ? room : null;
+      if (!refuge && (!room || room.floor === 0)) {
+        refuge = g.rooms.reduce<Room | null>((best, candidate) => {
+          if (candidate.floor !== 0 || candidate.destroyed || candidate.fire > 0.25 || candidate.theme === 'site') return best;
+          const distance = (o: Room) => Math.abs((o.x1 + o.x2) / 2 - p.x);
+          return !best || distance(candidate) < distance(best) ? candidate : best;
+        }, null);
+      }
+      if (refuge) {
+        const inset = 0.35 + (p.id % 5) * 0.085;
+        p.shelter = { room: refuge.id, x: p.x > (refuge.x1 + refuge.x2) / 2 ? refuge.x1 + inset : refuge.x2 - inset };
+      }
+    }
+    const shelter = p.shelter;
+    if (shelter) {
+      p.tx = shelter.x;
+      if (Math.abs(p.tx - p.x) < 0.12) {
+        p.room = shelter.room;
+        p.y = g.rooms[shelter.room].y;
+        p.moving = false;
+        return;
+      }
+    }
     p.act = 'flee';
     const lo = room ? room.x1 + 0.3 : 0.5, hi = room ? room.x2 - 0.3 : g.width - 0.5;
-    if (Math.abs(p.tx - p.x) < 0.2 || p.tx < lo || p.tx > hi) p.tx = between(r, lo, hi);
+    if (!shelter && (Math.abs(p.tx - p.x) < 0.2 || p.tx < lo || p.tx > hi)) p.tx = between(r, lo, hi);
     move(p, 3.6, dt);
-    // Del departamento incendiado se escapan por la puerta (se van).
+    // El fuego de pisos altos puede alcanzar a quienes no tienen salida por la calle.
     if (room && room.fire > 0.7 && r() < dt * 0.2) p.gone = true;
     if (r() < dt * 0.15) { p.talk = 0.8; if (r() < 0.3) emit(g, { type: 'scream', x: p.x, y: p.y + 0.8 }); }
     return;
@@ -474,12 +504,19 @@ function stepAnomaly(g: Invasion, p: Person, room: Room | null, dt: number) {
 // ---------- Sabotajes ----------
 function startSabotage(g: Invasion, p: Person, room: Room | null) {
   const r = g.rand;
-  const kind: SabotageKind = r() < 0.62 ? 'ray' : room && r() < 0.35 ? 'lighter' : 'box';
+  const kind: SabotageKind = r() < 0.78 ? 'ray' : room && r() < 0.15 ? 'lighter' : 'box';
   const lo = room ? room.x1 + 0.5 : p.x - 4, hi = room ? room.x2 - 0.5 : p.x + 4;
   // La bomba (una caja roja grande) la pasea un rato antes de dejarla.
-  p.sabotage = { kind, t0: g.time, x: between(r, lo, hi), done: false, carryUntil: kind === 'box' ? g.time + between(r, 8, 15) : 0 };
+  p.sabotage = { kind, t0: g.time, x: kind === 'ray' ? p.x : between(r, lo, hi), done: false, carryUntil: kind === 'box' ? g.time + between(r, 8, 15) : 0 };
   p.tx = p.sabotage.x;
-  p.nextSabotage = g.time + between(r, 40, 80) * (1 - 0.6 * Math.min(1, g.time / GAME_SECONDS));
+  p.nextSabotage = g.time + between(r, 9, 20);
+  if (kind === 'ray') {
+    for (const human of g.people) {
+      if (!human.alien && !human.dead && !human.gone && human.room === p.room && Math.abs(human.x - p.x) < 5) {
+        human.panic = Math.max(human.panic, 6);
+      }
+    }
+  }
 }
 function stepSabotage(g: Invasion, p: Person, room: Room | null, dt: number) {
   const s = p.sabotage!, t = g.time;
@@ -504,6 +541,8 @@ function stepSabotage(g: Invasion, p: Person, room: Room | null, dt: number) {
     for (const candidate of g.people) {
       if (candidate.alien || candidate.dead || candidate.gone || candidate.room !== p.room) continue;
       const dx = Math.abs(candidate.x - p.x);
+      // Agacharse tras una pared o un mueble protege salvo que un gris se acerque.
+      if (candidate.shelter && !candidate.moving && dx > 0.72) continue;
       if (dx < distance) { distance = dx; victim = candidate; }
     }
     if (victim) {
@@ -511,6 +550,9 @@ function stepSabotage(g: Invasion, p: Person, room: Room | null, dt: number) {
       const target = hitbox(g, victim);
       s.shot = { x: (target.x1 + target.x2) / 2, y: (target.y1 + target.y2) / 2, time: t };
       defeatPerson(g, victim, false, false);
+    } else {
+      const x = Math.max(room?.x1 ?? 0, Math.min(room?.x2 ?? g.width, p.x + p.dir * 4));
+      s.shot = { x, y: p.y + 0.48, time: t };
     }
     emit(g, { type: 'ray', x: p.x, y: p.y + 0.6 });
   }
@@ -562,7 +604,7 @@ function stepUfos(g: Invasion, dt: number) {
   const r = g.rand, t = g.time;
   if (g.ufosLaunched < ufosAt(t)) {
     g.ufosLaunched++;
-    g.ufos.push({ id: g.nextId++, x: r() < 0.5 ? -10 : g.width + 10, y: between(r, CITY_TOP - 9, CITY_TOP - 2), vx: 0, t0: t, deployed: false, beam: null, nextBeam: t + between(r, 3, 6), wobble: r() * 10 });
+    g.ufos.push({ id: g.nextId++, x: r() < 0.5 ? -10 : g.width + 10, y: between(r, CITY_TOP - 9, CITY_TOP - 2), vx: 0, t0: t, beam: null, nextBeam: t + between(r, 3, 6), wobble: r() * 10 });
     emit(g, { type: 'ufoArrive' });
   }
   const behind = ruinAt(t) - g.rooms.filter(o => o.destroyed).length / g.rooms.length; // cuánto les falta destruir
@@ -571,15 +613,6 @@ function stepUfos(g: Invasion, dt: number) {
     u.vx += ((goal - u.x) * 0.05 - u.vx) * Math.min(1, dt * 0.6);
     u.x += u.vx * dt;
     u.y += Math.sin(t * 0.8 + u.wobble) * 0.3 * dt;
-    if (!u.deployed && t - u.t0 > 12 && u.x >= 4 && u.x <= g.width - 4) {
-      u.deployed = true;
-      for (let i = 0; i < 7; i++) {
-        const gray = addPerson(g, -1, u.x + (i - 3) * 1.05, SIDEWALK_Y, 'walker');
-        activateAlien(g, gray);
-        gray.nextSabotage = t + between(r, 3, 7);
-      }
-      emit(g, { type: 'moreAliens', count: aliveAliens(g) });
-    }
     if (u.beam && t > u.beam.until) {
       const room = g.rooms[u.beam.room];
       destroyRoom(g, room);
@@ -609,6 +642,7 @@ export function poseOf(g: Invasion, p: Person): Pose {
   const room = roomOf(g, p), h = PERSON_H * p.look.size;
   const base: Pose = { x: p.x, y: p.y, h, kind: 'stand', dir: p.dir, rot: 0, upside: false, lift: 0, sx: 1, wall: 0 };
   if (p.dead) return { ...base, kind: 'dead' };
+  if (p.shelter && !p.moving && Math.abs(p.shelter.x - p.x) < 0.12) return { ...base, kind: 'squat' };
   if (p.act === 'flee') return { ...base, kind: 'run' };
   if (p.alien && !p.sabotage && (g.time < p.stareUntil || p.comm)) return base; // parado, mirando fijo o hablando por el aparato
   const a = anomalyOf(p);
@@ -775,7 +809,7 @@ export function shoot(g: Invasion, x: number, y: number, weapon: Weapon = 'rifle
 // Para los sonidos: qué se escucha cerca de donde apunta la mira (gente hablando, la tele, la cocina…).
 export function nearby(g: Invasion, x: number, y: number, radius: number) {
   const near = (px: number, py: number) => Math.max(0, 1 - Math.hypot(px - x, (py - y) * 1.3) / radius);
-  const out = { voices: 0, tv: 0, kitchen: 0, music: 0, work: 0, gym: 0, fire: 0, ufo: 0, street: 0, birds: 0, dog: 0, tick: 0 };
+  const out = { voices: 0, tv: 0, kitchen: 0, work: 0, fire: 0, ufo: 0, street: 0, birds: 0, dog: 0 };
   for (const p of g.people) {
     if (p.dead || p.gone) continue;
     const k = near(p.x, p.y + 0.6);
@@ -784,13 +818,10 @@ export function nearby(g: Invasion, x: number, y: number, radius: number) {
     out.voices = Math.max(out.voices, p.talk > 0 ? k * (p.act === 'flee' ? 1 : 0.8) : k * 0.45);
     if (p.act === 'tv' && !p.moving) out.tv = Math.max(out.tv, k);
     if (p.act === 'cook' && !p.moving) out.kitchen = Math.max(out.kitchen, k);
-    if ((p.act === 'dance' || p.act === 'drink' || p.act === 'piano' || p.act === 'serve') && !p.moving) out.music = Math.max(out.music, k);
     if ((p.act === 'hammer' || p.act === 'carry') && !p.moving) out.work = Math.max(out.work, k);
-    if ((p.act === 'run' || p.act === 'lift') && !p.moving) out.gym = Math.max(out.gym, k);
     if (p.dog && p.room < 0) out.dog = Math.max(out.dog, k * 0.6);
   }
   for (const room of g.rooms) if (room.fire > 0.05) out.fire = Math.max(out.fire, near(room.fireAt, room.y + 0.6) * Math.min(1, room.fire * 2));
-  for (const b of g.boxes) if (b.explosive && !b.defused && !b.exploded) out.tick = Math.max(out.tick, near(b.x, b.y) * 0.7);
   // Los ovnis se escuchan fuerte y desde lejos (y algo en toda la ciudad mientras haya alguno).
   for (const u of g.ufos) out.ufo = Math.max(out.ufo, 0.35, 1 - Math.hypot(u.x - x, u.y - y) / (radius * 6));
   const calm = 1 - ruinAt(g.time);

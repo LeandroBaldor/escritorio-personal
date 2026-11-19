@@ -1284,7 +1284,30 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .inv-touch{display:none;position:absolute;left:50%;bottom:10px;transform:translateX(-50%);gap:8px}
 .inv-touch button{width:52px;height:52px;border-radius:50%;background:#14532dcc;color:#bbf7d0;font:900 1.6rem/1 Nunito,system-ui,sans-serif;border:2px solid #22c55e}
 @media(pointer:coarse),(max-width:800px){.inv-touch{display:flex}}
-.inv-side{overflow:auto;font-variant-numeric:tabular-nums}
+.invasion .inv-side{
+  flex-basis:clamp(155px,17vw,238px);gap:.38rem;overflow:auto;border:1px solid #527575;border-radius:7px;
+  background:radial-gradient(ellipse at 92% 18%,#27656399,transparent 64%),linear-gradient(150deg,#10292c,#08191d 72%);
+  box-shadow:inset 0 0 0 2px #102223,0 4px 16px #050c10a0;font-variant-numeric:tabular-nums;
+}
+.inv-panel-heading{
+  display:flex;align-items:center;gap:.5rem;margin:.42rem 0 .12rem;color:#e4f2f0;
+  font:700 .68rem/1.2 system-ui,sans-serif;letter-spacing:.09em;text-transform:uppercase;
+}
+.inv-panel-heading::before{content:"";width:1.65rem;height:2px;background:#50d2c3;box-shadow:0 0 8px #52bfb7}
+.invasion .inv-side .trepa-stat{
+  display:grid;grid-template-columns:1fr auto;align-items:center;gap:.3rem;padding:.42rem .5rem;
+  border:1px solid #56757755;border-radius:3px;background:linear-gradient(90deg,#4161645c,#29464c6e);
+}
+.invasion .inv-side .trepa-stat span{color:#d2e1e2;letter-spacing:.025em;text-transform:none;font:600 .72rem/1.2 system-ui,sans-serif}
+.invasion .inv-side .trepa-stat strong{color:#eef9f6;font:750 .94rem/1 ui-monospace,monospace;white-space:nowrap}
+.inv-population b{font-weight:750}
+.inv-population small{font-size:.72em;font-weight:400;color:#b4cdcb}
+.inv-population meter{grid-column:1/-1;width:100%;height:.32rem;appearance:none}
+.inv-population meter::-webkit-meter-bar{border:0;border-radius:2px;background:#142c30}
+.inv-population meter::-webkit-meter-optimum-value{background:#64d6c9}
+.inv-kills meter::-webkit-meter-optimum-value{background:#c9a486}
+.inv-population meter::-moz-meter-bar{background:#64d6c9}
+.inv-kills meter::-moz-meter-bar{background:#c9a486}
 .inv-armory-toggle,.inv-fire{border:1px solid #54645f;border-radius:5px;padding:.42rem .35rem;background:#172825;color:#e3eae6;font:700 .76rem/1.25 system-ui,sans-serif;cursor:pointer;touch-action:none}
 .inv-armory-toggle{display:grid;gap:.2rem;text-align:left}
 .inv-armory-toggle span{color:#bad0c7;font-weight:500}
@@ -1318,8 +1341,10 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 @media(max-width:800px){
   .invasion .trepa-main{flex-direction:column}
   .invasion .inv-side{position:static;display:grid;flex:none;grid-template-columns:repeat(5,minmax(0,1fr));gap:.2rem;padding:.25rem}
-  .invasion .inv-side .trepa-stat{padding:.22rem .1rem;text-align:center;min-width:0}
+  .invasion .inv-side .trepa-stat{grid-template-columns:minmax(0,1fr);padding:.22rem .1rem;text-align:center;min-width:0}
   .invasion .inv-side .trepa-stat span{font-size:.63rem}
+  .invasion .inv-side .trepa-stat strong{font-size:.76rem}
+  .inv-panel-heading{display:none}
   .inv-armory-toggle{grid-column:1 / span 4;grid-row:2;display:flex;align-items:center;gap:.5rem}
   .inv-fire{grid-column:5;grid-row:2}
 }

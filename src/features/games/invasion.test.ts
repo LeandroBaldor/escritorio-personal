@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aliensAt, aliveAliens, aliveHumans, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt,
+  aliensAt, aliveAliens, aliveHumans, ALIEN_TOTAL, HUMAN_TOTAL, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt,
   type Invasion, type Person,
 } from './invasion';
 import { ANOMALIES, fitsPlace, shuffledAnomalies } from './invasionAnomalies';
@@ -41,11 +41,12 @@ describe('Invasión: la ciudad', () => {
 });
 
 describe('Invasión: la gente y los aliens', () => {
-  it('hay mucha gente haciendo cosas distintas y arrancan 12 aliens disfrazados', () => {
+  it('hay mucha gente haciendo cosas distintas y arrancan 50 aliens y 300 humanos', () => {
     const g = newInvasion(1);
     expect(g.people.length).toBeGreaterThan(80);
     expect(new Set(g.people.map(p => p.act)).size).toBeGreaterThan(12);
-    expect(aliveAliens(g)).toBe(12);
+    expect(aliveAliens(g)).toBe(50);
+    expect(aliveHumans(g)).toBe(HUMAN_TOTAL);
     expect(g.people.filter(p => p.room < 0).length).toBeGreaterThan(20); // en la vereda
   });
 
@@ -96,8 +97,9 @@ describe('Invasión: la gente y los aliens', () => {
     expect(UFO_FROM).toBe(300);
     expect(rainAt(RAIN_FROM - 1)).toBe(0);
     expect(rainAt(RAIN_FROM + 60)).toBe(1);
-    expect(aliensAt(0)).toBe(12);
-    expect(aliensAt(400)).toBeGreaterThan(30);
+    expect(aliensAt(0)).toBe(50);
+    expect(aliensAt(400)).toBeGreaterThan(50);
+    expect(aliensAt(GAME_SECONDS - 1)).toBe(ALIEN_TOTAL);
     expect(ufosAt(UFO_FROM - 1)).toBe(0);
     expect(ufosAt(UFO_FROM + 1)).toBe(1);
     expect(ufosAt(GAME_SECONDS - 1)).toBeGreaterThan(3);
@@ -242,6 +244,21 @@ describe('Invasión: el disparo', () => {
     expect(g.particles.some(p => p.kind === 'blood')).toBe(true);
     expect(g.kills).toBe(0);
     expect(g.civilians).toBe(0);
+  });
+
+  it('civilians flee toward a refuge and crouch once they reach it', () => {
+    const g = newInvasion(15);
+    const human = g.people.find(p => !p.alien && p.room >= 0)!;
+    const room = g.rooms[human.room];
+    g.people = [human];
+    human.x = (room.x1 + room.x2) / 2;
+    human.panic = 6;
+    step(g, 0.05);
+    expect(poseOf(g, human).kind).toBe('run');
+    expect(human.shelter?.room).toBe(room.id);
+    run(g, 3);
+    expect(poseOf(g, human).kind).toBe('squat');
+    expect(aliveHumans(g)).toBe(1);
   });
 
   it('a los ovnis las balas no les hacen nada', () => {

@@ -629,7 +629,7 @@ test('Invasión: se abre desde Juegos, corre el tiempo, se dispara, se recarga y
   await expect(page.getByTestId('inv-time')).toHaveText(/^(10:00|9:5\d)$/);
   await expect(page.getByTestId('inv-time')).toHaveText(/^9:5\d$/, { timeout: 15000 });
   await expect(page.getByTestId('inv-humans')).toHaveText(/^[1-9]\d*$/);
-  await expect(page.getByTestId('inv-aliens')).toHaveText('12');
+  await expect(page.getByTestId('inv-aliens')).toHaveText('50');
   await expect(page.getByTestId('inv-score')).toHaveText('0');
   await expect(page.getByTestId('inv-ammo')).toHaveText('5 / 5');
   await page.keyboard.press('Enter');
