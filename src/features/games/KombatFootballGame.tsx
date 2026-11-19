@@ -4,7 +4,7 @@ import { GamePad } from './GamePad';
 import { fitViewport, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
 import { CHARS, CHAR_IDS, HALF_TIME, STAGES, STATS, TOURNAMENT, type CharId, type StageId } from './kombat';
-import { attackDir, isHuman as humanTeam, newSoccer, noSInput, soccerClock, spawnHazard, stepSoccer, takeSoccerEvents, type HazardKind, type SInput, type SoccerMatch } from './kombatSoccer';
+import { FORMATIONS, L as FIELD_L, D as FIELD_D, STYLES, attackDir, formationSpots, isHuman as humanTeam, newSoccer, noSInput, soccerClock, spawnHazard, stepSoccer, takeSoccerEvents, type FormationId, type HazardKind, type SInput, type SoccerMatch, type Style } from './kombatSoccer';
 import { drawSoccer, drawSoccerBackdrop, drawSoccerThumb } from './kombatSoccerArt';
 import { vortexURL } from './kombatArt';
 import { drawFighterCard, drawPortrait, setLowFx } from './kombatFighters';
@@ -28,8 +28,14 @@ export const readKombatRecord = (): KombatRecord => {
 const saveRecord = (r: KombatRecord) => { try { localStorage.setItem(RECORD_KEY, JSON.stringify(r)); } catch { /* sin almacenamiento */ } };
 
 type Mode = 'cpu' | 'versus' | 'tournament';
-type Screen = 'menu' | 'select' | 'vs' | 'ladder' | 'stage' | 'howto' | 'playing' | 'paused' | 'result' | 'champion';
-const DIFFICULTY = [{ name: 'Fácil', level: 0.2 }, { name: 'Normal', level: 0.55 }, { name: 'Difícil', level: 0.9 }];
+type Screen = 'menu' | 'select' | 'vs' | 'ladder' | 'stage' | 'tactics' | 'howto' | 'playing' | 'paused' | 'result' | 'champion';
+// Fácil: para aprender los botones (la máquina es lenta, no usa la C, casi nunca hace gol seguro y los peligros no
+// van contra tu jugador). Normal y Difícil, cada vez más rápida y más peligrosa.
+const DIFFICULTY = [
+  { name: 'Fácil', level: 0.2, desc: 'Para aprender los botones: la máquina es lenta y no te saca la pelota' },
+  { name: 'Normal', level: 0.55, desc: 'Un partido parejo' },
+  { name: 'Difícil', level: 0.9, desc: 'Rápida, te saca la pelota y patea con la barra llena' },
+];
 // El torneo: los 15 rivales en una columna (como la escalera de los juegos de pelea), de los más fáciles abajo al
 // jefe arriba; cada partido en un escenario distinto.
 const TOURNAMENT_STAGES: StageId[] = ['industrial', 'temple', 'ice', 'subway', 'factory', 'forest', 'desert', 'mines', 'ocean', 'storm', 'coliseum', 'volcano', 'sky', 'base', 'pit'];
@@ -80,6 +86,32 @@ function Portrait({ char, size, mirror = false, square = false }: { char: CharId
 // Las barras de velocidad, fuerza y salto (0 a 100). A la izquierda: nombre, barra y número; a la derecha (el
 // rival) al revés: número, barra y nombre, y la barra se llena desde la derecha.
 const STAT_ROWS = [['Velocidad', 'speed'], ['Fuerza', 'strength'], ['Salto', 'jump']] as const;
+// La miniatura de la formación: la cancha vista desde arriba (el equipo ataca hacia la derecha), con el arquero, los
+// defensores y los delanteros, y flechitas que muestran el modo (para adelante, para atrás o los dos).
+function FormationMini({ formation, style, color, testId }: { formation: FormationId; style: Style; color: string; testId?: string }) {
+  const W = 300, H = 132, pad = 6, sx = (x: number) => pad + x / FIELD_L * (W - pad * 2), sy = (z: number) => pad + z / FIELD_D * (H - pad * 2);
+  const spots = formationSpots(formation);
+  const arrow = (role: string) => style === 'off' ? 1 : style === 'def' ? -1 : role === 'fwd' ? 1 : -1;
+  return <svg className="kf-formation-mini" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Formación ${formation}`} data-testid={testId}>
+    {Array.from({ length: 10 }, (_, i) => <rect key={i} x={pad + i * (W - pad * 2) / 10} y={pad} width={(W - pad * 2) / 10} height={H - pad * 2} fill={i % 2 ? '#2f7d32' : '#358a38'} />)}
+    <g fill="none" stroke="#e8f5e9" strokeWidth="1.4" opacity="0.85">
+      <rect x={pad} y={pad} width={W - pad * 2} height={H - pad * 2} />
+      <line x1={W / 2} y1={pad} x2={W / 2} y2={H - pad} />
+      <circle cx={W / 2} cy={H / 2} r={(H - pad * 2) * 0.17} />
+      <rect x={pad} y={sy(FIELD_D / 2 - 8.25)} width={sx(7) - pad} height={sy(FIELD_D / 2 + 8.25) - sy(FIELD_D / 2 - 8.25)} />
+      <rect x={sx(FIELD_L - 7)} y={sy(FIELD_D / 2 - 8.25)} width={sx(7) - pad} height={sy(FIELD_D / 2 + 8.25) - sy(FIELD_D / 2 - 8.25)} />
+    </g>
+    <rect x={pad - 4} y={sy(FIELD_D / 2 - 4.3)} width="4" height={sy(FIELD_D / 2 + 4.3) - sy(FIELD_D / 2 - 4.3)} fill="#fff" />
+    <rect x={W - pad} y={sy(FIELD_D / 2 - 4.3)} width="4" height={sy(FIELD_D / 2 + 4.3) - sy(FIELD_D / 2 - 4.3)} fill="#fff" />
+    {spots.map(([role, x, z], i) => { const cx = sx(x), cy = sy(z), a = role === 'gk' ? 0 : arrow(role);
+      return <g key={i}>
+        {a !== 0 && <path d={`M${cx + a * 9} ${cy} l${a * 10} 0 m${-a * 4} -4 l${a * 4} 4 l${-a * 4} 4`} stroke="#fde047" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />}
+        <circle cx={cx} cy={cy} r="7" fill={role === 'gk' ? '#fde047' : color} stroke="#000" strokeWidth="1.5" />
+        <text x={cx} y={cy + 3} textAnchor="middle" fontSize={role === 'fwd' ? 6.5 : 8} fontWeight="900" fill="#000">{role === 'gk' ? 'A' : role === 'def' ? 'D' : 'DL'}</text>
+      </g>; })}
+  </svg>;
+}
+
 function StatBars({ char, right = false, testId }: { char: CharId; right?: boolean; testId?: string }) {
   return <><div className={`kf-stats${right ? ' kf-stats--r' : ''}`} data-testid={testId}>
     {STAT_ROWS.map(([label, k]) => { const v = STATS[char][k]; return <div key={k} className="kf-stat" aria-label={`${label} ${v}`}>
@@ -158,6 +190,8 @@ export function KombatFootball() {
   const [cursor, setCursor] = useState(0);
   const [stage, setStage] = useState<StageId>('industrial');
   const [difficulty, setDifficulty] = useState(1);
+  const [formations, setFormations] = useState<[FormationId, FormationId]>(['3-2', '3-2']);
+  const [styles, setStyles] = useState<[Style, Style]>(['bal', 'bal']);
   const [round, setRound] = useState(0);
   const [ladderFrom, setLadderFrom] = useState(0); // desde qué escalón sube el luchador en la escalera
   const [hud, setHud] = useState<Hud | null>(null);
@@ -225,14 +259,15 @@ export function KombatFootball() {
     const st = mode === 'tournament' ? TOURNAMENT_STAGES[n] : stage;
     const rival = mode === 'tournament' ? tournamentRival(p1, n) : p2;
     const level = mode === 'tournament' ? tournamentLevel(n) : DIFFICULTY[difficulty].level;
-    const m = newSoccer(st, [p1, rival], [null, mode === 'versus' ? null : level]);
+    const cpuF = FORMATIONS[Math.floor(Math.random() * FORMATIONS.length)].id, cpuS = STYLES[Math.floor(Math.random() * STYLES.length)].id; // (la máquina: al azar)
+    const m = newSoccer(st, [p1, rival], [null, mode === 'versus' ? null : level], Math.random, { formations: [formations[0], mode === 'versus' ? formations[1] : cpuF], styles: [styles[0], mode === 'versus' ? styles[1] : cpuS] });
     matchRef.current = m; setFighting([p1, rival]);
     inputs.current = [noSInput(), noSInput()];
     setHud(hudOf(m)); setResult(null); setShouts([]);
     const def = STAGES.find(s => s.id === st)!;
     setStageName(`${mode === 'tournament' ? `Torneo · Partido ${n + 1}/${TOURNAMENT} · ` : ''}${def.name}`);
     setScreen('playing');
-  }, [mode, stage, p1, p2, difficulty, round]);
+  }, [mode, stage, p1, p2, difficulty, round, formations, styles]);
 
   // ---------------------------------------------------------------- La selección (estilo juego de pelea)
   const chooseChar = useCallback((idx: number) => {
@@ -247,12 +282,13 @@ export function KombatFootball() {
   const cols = 4; // la grilla es un cuadrado de 4 × 4
   // teclado de las pantallas de elegir
   useEffect(() => {
-    if (screen !== 'select' && screen !== 'vs' && screen !== 'stage' && screen !== 'howto' && screen !== 'ladder') return;
+    if (screen !== 'select' && screen !== 'vs' && screen !== 'stage' && screen !== 'tactics' && screen !== 'howto' && screen !== 'ladder') return;
     const down = (e: KeyboardEvent) => {
       const k = e.code;
       if (screen === 'vs') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); setScreen('stage'); } else if (k === 'Escape' || k === 'Backspace') { setPick(1); setCursor(CHAR_IDS.indexOf(p2)); setScreen('select'); } return; }
-      if (screen === 'ladder') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); setScreen('howto'); } else if (k === 'Escape' || k === 'Backspace') setScreen('select'); return; }
-      if (screen === 'howto') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); begin(mode === 'tournament' ? round : 0); } else if (k === 'Escape') setScreen(mode === 'tournament' ? 'ladder' : 'stage'); return; }
+      if (screen === 'ladder') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); setScreen('tactics'); } else if (k === 'Escape' || k === 'Backspace') setScreen('select'); return; }
+      if (screen === 'howto') { if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); begin(mode === 'tournament' ? round : 0); } else if (k === 'Escape') setScreen('tactics'); return; }
+      if (screen === 'tactics') { if (k === 'Enter' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); setScreen('howto'); } else if (k === 'Escape' || k === 'Backspace') setScreen(mode === 'tournament' ? 'ladder' : 'stage'); return; }
       const n = screen === 'select' ? 16 : STAGES.length, c = screen === 'select' ? cols : narrow ? 2 : 4;
       const cur = screen === 'select' ? cursor : STAGES.findIndex(s => s.id === stage);
       let next: number;
@@ -260,7 +296,7 @@ export function KombatFootball() {
       else if (k === 'ArrowRight' || k === 'KeyD') next = (cur + 1) % n;
       else if (k === 'ArrowUp' || k === 'KeyW') next = (cur - c + n) % n;
       else if (k === 'ArrowDown' || k === 'KeyS') next = (cur + c) % n;
-      else if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); if (screen === 'select') chooseChar(cursor); else setScreen('howto'); return; }
+      else if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { e.preventDefault(); playKfButton(); if (screen === 'select') chooseChar(cursor); else setScreen('tactics'); return; }
       else if (k === 'Escape' || k === 'Backspace') { if (screen === 'stage') setScreen('vs'); else if (pick === 1) { setPick(0); setCursor(CHAR_IDS.indexOf(p1)); } else setScreen('menu'); return; }
       else return;
       e.preventDefault(); playKfButton(0.45);
@@ -404,9 +440,9 @@ export function KombatFootball() {
   };
 
   const howto = (side: 0 | 1) => { const c = CHARS[chars[side]], k = helpFor(mode, side); return <div className="kf-howto-card" style={{ ['--kf-c' as string]: c.color }}>
-    <div className="kf-howto-head"><Portrait char={chars[side]} size={56} square mirror={side === 1} /><div><b>{c.name}</b><small>{mode === 'versus' ? `Jugador ${side + 1}` : 'Vos'} · capitán de 5</small></div></div>
+    <div className="kf-howto-head"><Portrait char={chars[side]} size={56} square mirror={side === 1} /><div><b>{c.name}</b><small>{mode === 'versus' ? `Jugador ${side + 1}` : 'Vos'} · capitán de 6</small></div></div>
     <ul>
-      <li><Keys keys={k.move} /> correr para todos lados. Tu equipo son cinco {c.name}; manejás al del aro amarillo (cambia solo al más cercano a la pelota)</li>
+      <li><Keys keys={k.move} /> correr para todos lados. Tu equipo son seis {c.name} (el arquero y 5 jugadores); manejás al del aro amarillo (cambia solo al más cercano a la pelota)</li>
       <li><Keys keys={[k.kick]} /> <b>patear al arco:</b> cuanto más lo apretás, más fuerte sale (soltalo para patear). Si llenás la barra es <b>gol seguro</b>: el arquero no llega. Flojo, el arquero lo ataja. Si al soltar apretás {mode === 'versus' && side === 0 ? 'W o S' : '↑ o ↓'}, la pelota sale con efecto hacia ese palo.</li>
       <li><Keys keys={[k.pass]} /> <b>pasar</b> al compañero hacia donde apuntás · sin la pelota: <b>cambiar</b> al jugador más cercano a la pelota</li>
       <li><Keys keys={[k.steal]} /> <b>sacar la pelota:</b> el rival que la tiene sale volando para arriba y explota en sangre y huesos (si está un poco lejos, te tirás hacia él). ¡Ojo que la máquina también lo hace!</li>
@@ -474,7 +510,7 @@ export function KombatFootball() {
         <p className="kf-zone" data-testid="kf-ladder-next"><b>{CHARS[p1].name}</b> vs <b>{CHARS[tournamentRival(p1, round)].name}</b> · Partido {round + 1} de {TOURNAMENT} · {STAGES.find(s => s.id === TOURNAMENT_STAGES[round])!.name}</p>
         <div className="kf-actions">
           <button type="button" className="kf-secondary" onClick={() => setScreen('select')}>‹ Volver</button>
-          <button type="button" onClick={() => setScreen('howto')} autoFocus>¡A pelear! ▶</button>
+          <button type="button" onClick={() => setScreen('tactics')} autoFocus>¡A pelear! ▶</button>
         </div>
       </div>}
       {screen === 'vs' && <div className="kf-select kf-versus" role="dialog" aria-labelledby="kf-title" style={{ backgroundImage: `linear-gradient(90deg, ${CHARS[p1].color}38, #0000 38%, #0000 62%, ${CHARS[p2].color}38), radial-gradient(ellipse at 50% 50%, #0000 30%, #000000c0 100%), url(${spaceBg})`, backgroundSize: 'auto, auto, cover', backgroundPosition: 'center', backgroundColor: '#03020c' }}>
@@ -531,7 +567,7 @@ export function KombatFootball() {
         <div>
           {screen === 'menu' && <>
             <h2 id="kf-title" className="kf-logo">KOMBAT<br /><span>FOOTBALL</span></h2>
-            <p>Fútbol 5 contra 5 en una cancha larga: elegí tu luchador (tu equipo son cinco iguales) y sobreviví a la cancha. Sacale la pelota al rival con la C (sale volando y explota), cuidado con los tiburones voladores, los charcos de ácido, el ovni y los meteoritos, y con la PELOTA BOMBA: si te explota en los pies, volás; si la metés en el arco, el gol vale doble. Con la barra del tiro llena es gol seguro. Dos tiempos de 1:30 y gol de oro si empatan.</p>
+            <p>Fútbol 6 contra 6 (arquero + 5) en una cancha larga: elegí tu luchador (tu equipo son seis iguales), la formación y el modo de juego, y sobreviví a la cancha. Sacale la pelota al rival con la C (sale volando y explota), cuidado con los tiburones voladores, los charcos de ácido, el ovni y los meteoritos, y con la PELOTA BOMBA: si te explota en los pies, volás; si la metés en el arco, el gol vale doble. Con la barra del tiro llena es gol seguro. Dos tiempos de 1:30 y gol de oro si empatan.</p>
             <div className="kf-modes">
               <button type="button" onClick={() => { playKfSelectVoice(); setMode('cpu'); setPick(0); setCursor(CHAR_IDS.indexOf(p1)); setScreen('select'); }} autoFocus>Contra la máquina</button>
               <button type="button" onClick={() => { playKfSelectVoice(); setMode('versus'); setPick(0); setCursor(CHAR_IDS.indexOf(p1)); setScreen('select'); }}>2 jugadores</button>
@@ -541,14 +577,39 @@ export function KombatFootball() {
           {screen === 'stage' && <>
             <h2 id="kf-title" className="kf-title-mk">ELEGÍ EL ESCENARIO</h2>
             <div className="kf-stagegrid" role="group" aria-label="Escenario">
-              {STAGES.map(s => <button key={s.id} type="button" className={stage === s.id ? 'kf-chosen' : ''} aria-pressed={stage === s.id} onClick={() => { if (stage === s.id) setScreen('howto'); else setStage(s.id); }}>
+              {STAGES.map(s => <button key={s.id} type="button" className={stage === s.id ? 'kf-chosen' : ''} aria-pressed={stage === s.id} onClick={() => { if (stage === s.id) setScreen('tactics'); else setStage(s.id); }}>
                 <StageThumb stage={s.id} w={180} h={84} /><b>{s.name}</b>
               </button>)}
             </div>
-            {mode === 'cpu' && <div className="kf-diff" role="group" aria-label="Dificultad">{DIFFICULTY.map((d, i) => <button key={d.name} type="button" className={difficulty === i ? 'kf-chosen' : ''} aria-pressed={difficulty === i} onClick={() => setDifficulty(i)}>{d.name}</button>)}</div>}
             <div className="kf-actions">
               <button type="button" className="kf-secondary" onClick={() => setScreen('vs')}>‹ Volver</button>
-              <button type="button" onClick={() => setScreen('howto')}>Siguiente ▶</button>
+              <button type="button" onClick={() => setScreen('tactics')}>Siguiente ▶</button>
+            </div>
+          </>}
+          {screen === 'tactics' && <>
+            <h2 id="kf-title" className="kf-title-mk">{mode === 'versus' ? 'LOS EQUIPOS' : 'TU EQUIPO'}</h2>
+            <p className="kf-note">Seis de cada lado: el arquero y 5 jugadores. Elegí la formación y el modo de juego.</p>
+            <div className="kf-tactics">{(mode === 'versus' ? [0, 1] as const : [0] as const).map(t => <div key={t} className="kf-tactics-team" data-testid={`kf-tactics-${t}`}>
+              <b className="kf-tactics-name" style={{ color: CHARS[chars[t]].color }}>{CHARS[chars[t]].name}{mode === 'versus' ? ` · J${t + 1}` : ''}</b>
+              <FormationMini formation={formations[t]} style={styles[t]} color={CHARS[chars[t]].color} testId={`kf-mini-${t}`} />
+              <div className="kf-tactics-row" role="group" aria-label={`Formación${mode === 'versus' ? ` J${t + 1}` : ''}`}>
+                {FORMATIONS.map(f => <button key={f.id} type="button" className={formations[t] === f.id ? 'kf-chosen' : ''} aria-pressed={formations[t] === f.id} title={`Arquero + ${f.name}`} onClick={() => { playKfButton(0.45); setFormations(cur => (t === 0 ? [f.id, cur[1]] : [cur[0], f.id])); }}>
+                  <b>{f.defs}-{f.fwds}</b><small>{f.defs} def. · {f.fwds} del.</small>
+                </button>)}
+              </div>
+              <div className="kf-tactics-row" role="group" aria-label={`Modo${mode === 'versus' ? ` J${t + 1}` : ''}`}>
+                {STYLES.map(st => <button key={st.id} type="button" className={styles[t] === st.id ? 'kf-chosen' : ''} aria-pressed={styles[t] === st.id} onClick={() => { playKfButton(0.45); setStyles(cur => (t === 0 ? [st.id, cur[1]] : [cur[0], st.id])); }}>
+                  <b>{st.name}</b><small>{st.desc}</small>
+                </button>)}
+              </div>
+            </div>)}</div>
+            {mode === 'cpu' && <div className="kf-tactics-team kf-tactics-diff">
+              <b className="kf-tactics-name">Dificultad</b>
+              <div className="kf-tactics-row" role="group" aria-label="Dificultad">{DIFFICULTY.map((d, i) => <button key={d.name} type="button" className={difficulty === i ? 'kf-chosen' : ''} aria-pressed={difficulty === i} onClick={() => { playKfButton(0.45); setDifficulty(i); }}><b>{d.name}</b><small>{d.desc}</small></button>)}</div>
+            </div>}
+            <div className="kf-actions">
+              <button type="button" className="kf-secondary" onClick={() => setScreen(mode === 'tournament' ? 'ladder' : 'stage')}>‹ Volver</button>
+              <button type="button" onClick={() => setScreen('howto')} autoFocus>Siguiente ▶</button>
             </div>
           </>}
           {screen === 'howto' && <>
@@ -557,7 +618,7 @@ export function KombatFootball() {
             <div className="kf-howto">{howto(0)}{mode === 'versus' && howto(1)}</div>
             <p className="kf-note">La cancha es larga y está cerrada por carteles: la pelota rebota y nunca sale. Los peligros le pueden tocar a cualquiera, de los dos equipos.</p>
             <div className="kf-actions">
-              <button type="button" className="kf-secondary" onClick={() => setScreen(mode === 'tournament' ? 'ladder' : 'stage')}>‹ Volver</button>
+              <button type="button" className="kf-secondary" onClick={() => setScreen('tactics')}>‹ Volver</button>
               <button type="button" onClick={() => begin(mode === 'tournament' ? round : 0)} autoFocus>¡A jugar!</button>
             </div>
           </>}

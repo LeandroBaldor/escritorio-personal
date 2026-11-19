@@ -1168,6 +1168,15 @@ test('Kombat Football: se abre desde Juegos, se eligen los luchadores como en un
   await page.getByRole('button', { name: 'Seleccionar escenario ▶' }).click();
   await page.getByRole('button', { name: /Planeta Volcánico/ }).click();
   await page.getByRole('button', { name: 'Siguiente ▶' }).click();
+  // la táctica: formación (con la miniatura de la cancha), modo y dificultad
+  await expect(page.getByRole('heading', { name: 'TU EQUIPO' })).toBeVisible();
+  await expect(page.getByTestId('kf-mini-0')).toHaveAttribute('aria-label', 'Formación 3-2');
+  await page.getByRole('group', { name: 'Formación' }).getByRole('button', { name: /^4-1/ }).click();
+  await expect(page.getByTestId('kf-mini-0')).toHaveAttribute('aria-label', 'Formación 4-1');
+  await page.getByRole('group', { name: 'Modo' }).getByRole('button', { name: /^Ofensivo/ }).click();
+  await expect(page.getByRole('group', { name: 'Modo' }).getByRole('button', { name: /^Ofensivo/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('group', { name: 'Dificultad' }).getByRole('button', { name: /^Fácil/ }).click();
+  await page.getByRole('button', { name: 'Siguiente ▶' }).click();
   await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
   await expect(page.getByText('Tiburones voladores:')).toBeVisible(); // (sin ataques: los peligros vienen de la cancha)
   await page.getByRole('button', { name: '¡A jugar!' }).click();
@@ -1197,6 +1206,9 @@ test('Kombat Football torneo: la escalera de rivales como en Mortal Kombat', asy
   await expect(page.getByRole('heading', { name: 'ELEGÍ TU DESTINO' })).toBeVisible();
   await expect(page.getByTestId('kf-ladder-next')).toContainText('Partido 1 de 15');
   await page.getByRole('button', { name: '¡A pelear! ▶' }).click();
+  await expect(page.getByRole('heading', { name: 'TU EQUIPO' })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Dificultad' })).toHaveCount(0); // (en el torneo la dificultad la pone la escalera)
+  await page.getByRole('button', { name: 'Siguiente ▶' }).click();
   await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
 });
 

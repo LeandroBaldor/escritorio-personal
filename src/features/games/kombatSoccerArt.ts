@@ -141,7 +141,7 @@ function drawBoards(ctx: CanvasRenderingContext2D, v: SView, stage: StageId, t: 
     ctx.fillStyle = alpha('#ffffff', 0.55 + 0.4 * lit); ctx.fillText(label, 50, 5.4);
     ctx.restore();
   };
-  const labels = ['KOMBAT FOOTBALL', 'CUIDADO: LAVA', 'TIBURONES', 'KOMBAT FOOTBALL', 'METEORITOS', 'OVNIS', '5 VS 5', 'GOL DE ORO'];
+  const labels = ['KOMBAT FOOTBALL', 'CUIDADO: ÁCIDO', 'TIBURONES', 'KOMBAT FOOTBALL', 'PELOTA BOMBA', 'METEORITOS', 'OVNIS', '6 VS 6', 'GOL DE ORO'];
   for (let x = -6, k = 0; x < L + 6; x += 6, k++) panel([x, zb], [x + 6, zb], k, labels[k % labels.length]);
   for (const left of [true, false]) { const x = left ? -GD - 1.4 : L + GD + 1.4; for (let z = zb, k = 0; z < D + 3; z += 6, k++) panel(left ? [x, z + 6] : [x, z], left ? [x, z] : [x, z + 6], k + 3, k % 2 ? 'KOMBAT' : 'FOOTBALL'); }
 }

@@ -1,19 +1,59 @@
 import { describe, expect, it } from 'vitest';
-import { ACID_DEATH, ACID_T, BOMB_FIRST, BOMB_FUSE, BR, D, GH, GW, L, METEOR_T, SHARK_LEN, UFO_T, ZC, attackDir, carrier, newSoccer, noSInput, pass, shoot, spawnHazard, stepSoccer, takeSoccerEvents, type SInput, type SoccerMatch, type SEvent } from './kombatSoccer';
+import { ACID_DEATH, ACID_T, BOMB_FIRST, BOMB_FUSE, BR, FORMATIONS, TEAM_N, paceOf, D, GH, GW, L, METEOR_T, SHARK_LEN, UFO_T, ZC, attackDir, carrier, newSoccer, noSInput, pass, shoot, spawnHazard, stepSoccer, takeSoccerEvents, type SInput, type SoccerMatch, type SEvent } from './kombatSoccer';
 import { CHAR_IDS, seeded } from './kombat';
 
 const run = (m: SoccerMatch, s: number, ev: SEvent[] = []) => { for (let t = 0; t < s; t += 1 / 60) { stepSoccer(m, [noSInput(), noSInput()], 1 / 60); ev.push(...takeSoccerEvents(m)); } return ev; };
 const toPlay = (m: SoccerMatch, hazards = false) => { m.noHazards = !hazards; run(m, m.introLen + 0.05); expect(m.phase).toBe('play'); };
 
 describe('Kombat Football 5 contra 5', () => {
-  it('cada equipo tiene cinco iguales (el luchador elegido): arquero, dos defensores y dos delanteros', () => {
+  it('cada equipo tiene seis iguales (el luchador elegido): el arquero y 5 jugadores', () => {
     const m = newSoccer('industrial', ['frost', 'thunder'], [null, 0.5], seeded(1));
-    expect(m.players).toHaveLength(10);
+    expect(m.players).toHaveLength(12);
     for (const t of [0, 1] as const) {
       const mine = m.players.filter(p => p.team === t);
-      expect(mine.map(p => p.role)).toEqual(['gk', 'def', 'def', 'fwd', 'fwd']);
+      expect(mine.map(p => p.role)).toEqual(['gk', 'def', 'def', 'def', 'fwd', 'fwd']); // (3 + 2, la de siempre)
       expect(mine.every(p => p.char === (t === 0 ? 'frost' : 'thunder'))).toBe(true);
     }
+  });
+  it('las cuatro formaciones: arquero + defensores + delanteros (y en el saque saca un delantero)', () => {
+    for (const f of FORMATIONS) {
+      const m = newSoccer('industrial', ['frost', 'thunder'], [null, 0.5], seeded(3), { formations: [f.id, '3-2'], styles: ['bal', 'bal'] });
+      const mine = m.players.filter(p => p.team === 0);
+      expect(mine.filter(p => p.role === 'gk')).toHaveLength(1);
+      expect(mine.filter(p => p.role === 'def')).toHaveLength(f.defs);
+      expect(mine.filter(p => p.role === 'fwd')).toHaveLength(f.fwds);
+      expect(f.defs + f.fwds).toBe(TEAM_N - 1);
+      m.kickoffTeam = 0; toPlay(m); if (carrier(m)!.team === 0) expect(carrier(m)!.role).toBe('fwd');
+    }
+    expect(FORMATIONS.map(f => f.id)).toEqual(['3-2', '4-1', '2-3', '1-4']);
+  });
+  it('los modos: defensivo marca a los delanteros rivales con todos, equilibrado solo con los defensores, ofensivo no marca', () => {
+    const marksOf = (style: 'def' | 'bal' | 'off') => {
+      const m = newSoccer('industrial', ['frost', 'thunder'], [0.6, 0.6], seeded(4), { formations: ['3-2', '3-2'], styles: [style, 'bal'] });
+      toPlay(m);
+      const c = m.players.find(q => q.team === 1 && q.role === 'fwd')!; m.ball.owner = c.id; // la tiene el rival
+      stepSoccer(m, [noSInput(), noSInput()], 1 / 60);
+      return Object.entries(m.marks).map(([a, b]) => [m.players[+a], m.players[b]] as const).filter(([a]) => a.team === 0);
+    };
+    const d = marksOf('def'), b = marksOf('bal'), o = marksOf('off');
+    expect(d.length).toBeGreaterThanOrEqual(3); expect(d.some(([a]) => a.role === 'fwd')).toBe(true);
+    expect(b.length).toBeGreaterThanOrEqual(1); expect(b.every(([a, r]) => a.role === 'def' && r.role === 'fwd')).toBe(true);
+    expect(o).toHaveLength(0);
+  });
+  it('dificultad: en Fácil la máquina es más lenta, nunca usa la C y los peligros no van contra el que maneja la persona', () => {
+    const pace = (lv: number) => paceOf(newSoccer('industrial', ['frost', 'frost'], [null, lv], seeded(5)), 1);
+    expect(pace(0.2)).toBeLessThan(0.8); expect(pace(0.55)).toBeGreaterThan(pace(0.2)); expect(pace(0.9)).toBeGreaterThan(pace(0.55));
+    expect(paceOf(newSoccer('industrial', ['frost', 'frost'], [null, 0.2], seeded(5)), 0)).toBe(1); // (la persona, siempre igual)
+    let steals = 0, onMe = 0;
+    for (const seed of [41, 42]) {
+      const m = newSoccer('volcano', ['frost', 'thunder'], [null, 0.2], seeded(seed));
+      for (let t = 0; t < 90; t += 1 / 60) {
+        stepSoccer(m, [noSInput(), noSInput()], 1 / 60);
+        for (const e of takeSoccerEvents(m)) if (e.type === 'steal' && e.side === 1) steals++;
+        for (const h of m.hazards) if (h.target === m.teams[0].active && h.t < 0.02) onMe++;
+      }
+    }
+    expect(steals).toBe(0); expect(onMe).toBe(0);
   });
   it('arranca con el saque del medio: un delantero del que saca tiene la pelota', () => {
     const m = newSoccer('industrial', ['frost', 'thunder'], [null, 0.5], seeded(2));

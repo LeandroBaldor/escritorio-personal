@@ -1,4 +1,4 @@
-// Kombat Football 5 contra 5: fútbol de verdad, visto desde arriba en diagonal (como los FIFA viejos), con los
+// Kombat Football 6 contra 6 (arquero + 5): fútbol de verdad, visto desde arriba en diagonal (como los FIFA viejos), con los
 // luchadores de siempre. Cada equipo tiene un arquero y cuatro jugadores (dos defensores y dos delanteros); el
 // capitán es el luchador que se eligió. La cancha es larga (como en los FIFA de los 90: la cámara la recorre de
 // punta a punta) y está cerrada por carteles: la pelota rebota en ellos y nunca sale.
@@ -47,7 +47,33 @@ export type BallFx = 'none' | Element;
 export interface SBall { x: number; y: number; z: number; vx: number; vy: number; vz: number; spin: number; roll: number; owner: number | null; last: 0 | 1 | null; lastId: number | null; fx: BallFx; comet?: boolean; full?: boolean; receiver: number | null; shot: number; shooter: 0 | 1 | null } // full: el tiro con la barra llena (el arquero no llega)
 export interface SFx { kind: 'bolt' | 'boom' | 'ring' | 'beam' | 'nova'; x: number; y: number; z: number; x2: number; y2: number; z2: number; t: number; life: number; color: string }
 export interface SParticle { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; size: number; color: string; kind: 'spark' | 'smoke' | 'shard' }
-export interface Team { captain: CharId; goals: number; level: number | null; active: number; switchT: number }
+export interface Team { captain: CharId; goals: number; level: number | null; active: number; switchT: number; formation: FormationId; style: Style }
+// Cada equipo: el arquero y 5 jugadores, en una de cuatro formaciones (defensores-delanteros), y con un modo de
+// juego: defensivo (todos marcan a los delanteros rivales), equilibrado (los defensores marcan a los delanteros y
+// los delanteros buscan espacio) u ofensivo (todos buscan espacio para ir al arco contrario).
+export const TEAM_N = 6;
+export type FormationId = '3-2' | '4-1' | '2-3' | '1-4';
+export type Style = 'def' | 'bal' | 'off';
+export const FORMATIONS: { id: FormationId; name: string; defs: number; fwds: number }[] = [
+  { id: '3-2', name: '3 defensores + 2 delanteros', defs: 3, fwds: 2 },
+  { id: '4-1', name: '4 defensores + 1 delantero', defs: 4, fwds: 1 },
+  { id: '2-3', name: '2 defensores + 3 delanteros', defs: 2, fwds: 3 },
+  { id: '1-4', name: '1 defensor + 4 delanteros', defs: 1, fwds: 4 },
+];
+export const STYLES: { id: Style; name: string; desc: string }[] = [
+  { id: 'def', name: 'Defensivo', desc: 'Todos marcan a los delanteros rivales' },
+  { id: 'bal', name: 'Equilibrado', desc: 'Los defensores marcan; los delanteros buscan espacio' },
+  { id: 'off', name: 'Ofensivo', desc: 'Todos buscan espacio para ir al arco contrario' },
+];
+// Dónde se para cada uno (desde su arco, atacando para +x): el arquero, los defensores en una línea y los
+// delanteros en otra, repartidos a lo ancho.
+export function formationSpots(f: FormationId): [Role, number, number][] {
+  const F = FORMATIONS.find(q => q.id === f)!, spread = (n: number, i: number, w: number) => n === 1 ? ZC : ZC + (i / (n - 1) - 0.5) * D * w;
+  const out: [Role, number, number][] = [['gk', 1.5, ZC]];
+  for (let i = 0; i < F.defs; i++) out.push(['def', 18 - (F.defs >= 4 ? 1 : 0), spread(F.defs, i, F.defs >= 4 ? 0.66 : F.defs === 3 ? 0.52 : 0.36)]);
+  for (let i = 0; i < F.fwds; i++) out.push(['fwd', 38 - (F.fwds >= 3 ? 2 : 0), spread(F.fwds, i, F.fwds >= 4 ? 0.7 : F.fwds === 3 ? 0.56 : 0.3)]);
+  return out;
+}
 export interface Ref extends Person { z: number; vz: number }
 export type SPhase = 'intro' | 'play' | 'goal' | 'halftime' | 'end';
 
@@ -108,6 +134,7 @@ export interface SoccerMatch {
   fx: SFx[]; particles: SParticle[]; trail: [number, number, number][]; cam: { x: number; z: number };
   netHit: { left: boolean; t: number } | null; shots: number; stillT: number;
   gore: SGore; screenBlood: ScreenBlood[];
+  marks: Record<number, number>; // quién marca a quién (assignMarks)
   hazards: Hazard[]; hazardT: number; hazardN: number; lastHazard: HazardKind | null; noHazards: boolean; // noHazards: para las pruebas
   scorch: { x: number; z: number; r: number; t: number; seed: number }[]; // los cráteres de los meteoritos
   blasts: { x: number; z: number; t: number; seed: number }[]; // las explosiones de los meteoritos (bola de fuego, onda y humo)
@@ -136,6 +163,10 @@ export const isHuman = (m: SoccerMatch, team: 0 | 1) => m.teams[team].level === 
 export const carrier = (m: SoccerMatch) => m.ball.owner === null ? null : m.players[m.ball.owner];
 const stunned = (p: Player) => p.stun > 0;
 const levelOf = (m: SoccerMatch, team: 0 | 1) => m.teams[team].level ?? 0.65;
+// La dificultad (solo para la máquina): en Fácil (nivel 0,2) es bastante más lenta, nunca usa la C, casi nunca
+// carga la barra entera y los peligros no van contra el que maneja la persona: para aprender los botones tranquilo.
+export const isEasy = (m: SoccerMatch) => ([0, 1] as const).some(t => !isHuman(m, t) && levelOf(m, t) < 0.3);
+export const paceOf = (m: SoccerMatch, team: 0 | 1) => isHuman(m, team) ? 1 : 0.7 + 0.32 * levelOf(m, team);
 
 // ---------------------------------------------------------------- Armar el partido
 function newPlayer(id: number, team: 0 | 1, char: CharId, role: Role, hx: number, hz: number): Player {
@@ -147,21 +178,20 @@ function newPlayer(id: number, team: 0 | 1, char: CharId, role: Role, hx: number
     dive: 0, diveVz: 0, diveVx: 0, save: false, savedShot: -1, aimZ: ZC, aimT: 0, hold: 0, chargeOn: false, aiT: 0, tx: 0, tz: 0, run: 0, prevIn: noSInput(), gone: false, kTimer: 0, fly: false, vyF: 0, acid: 0,
   };
 }
-// La formación (desde el arco propio, atacando para +x): arquero, dos defensores y dos delanteros.
-const FORMATION: [Role, number, number][] = [['gk', 1.5, ZC], ['def', 20, D * 0.3], ['def', 20, D * 0.7], ['fwd', 40, D * 0.36], ['fwd', 40, D * 0.64]];
-
-export function newSoccer(stage: StageId, captains: [CharId, CharId], levels: [number | null, number | null], rand: () => number = Math.random): SoccerMatch {
-  const players: Player[] = []; // cada equipo: cinco iguales (el luchador elegido)
-  for (const team of [0, 1] as const) FORMATION.forEach(([role, hx, hz]) => players.push(newPlayer(players.length, team, captains[team], role, hx, hz)));
+export interface SoccerSetup { formations?: [FormationId, FormationId]; styles?: [Style, Style] }
+export function newSoccer(stage: StageId, captains: [CharId, CharId], levels: [number | null, number | null], rand: () => number = Math.random, setup: SoccerSetup = {}): SoccerMatch {
+  const formations = setup.formations ?? ['3-2', '3-2'], styles = setup.styles ?? ['bal', 'bal'];
+  const players: Player[] = []; // cada equipo: seis iguales (el luchador elegido): el arquero y 5 jugadores
+  for (const team of [0, 1] as const) formationSpots(formations[team]).forEach(([role, hx, hz]) => players.push(newPlayer(players.length, team, captains[team], role, hx, hz)));
   const kick: 0 | 1 = rand() < 0.5 ? 0 : 1;
   const m: SoccerMatch = {
     stage, players,
     ball: { x: L / 2, y: BR, z: ZC, vx: 0, vy: 0, vz: 0, spin: 0, roll: 0, owner: null, last: null, lastId: null, fx: 'none', receiver: null, shot: 0, shooter: null },
     ref: { x: L / 2 - 4, y: 0, z: 2, vx: 0, vy: 0, vz: 0, facing: 1, ground: true, action: 'idle', actionT: 0, stun: 0, stunKind: 'none', away: 0 },
-    teams: [0, 1].map(t => ({ captain: captains[t], goals: 0, level: levels[t], active: t * 5 + 3, switchT: 0 })) as [Team, Team],
+    teams: [0, 1].map(t => ({ captain: captains[t], goals: 0, level: levels[t], active: t * TEAM_N + 1, switchT: 0, formation: formations[t], style: styles[t] })) as [Team, Team],
     phase: 'intro', phaseT: 0, introLen: 2.6, time: 0, half: 1, clock: HALF_TIME, extra: false, extraT: 0, kickoffTeam: kick, firstKick: kick,
     winner: null, lastGoal: null, events: [], shake: 0, flash: 0, rand, fx: [], particles: [], trail: [], cam: { x: L / 2, z: ZC },
-    netHit: null, shots: 0, stillT: 0, gore: { drops: [], gibs: [], stains: [] }, screenBlood: [],
+    netHit: null, shots: 0, stillT: 0, marks: {}, gore: { drops: [], gibs: [], stains: [] }, screenBlood: [],
     hazards: [], hazardT: HAZARD_START, hazardN: 0, lastHazard: null, noHazards: false, scorch: [], blasts: [], bomb: null, bombT: BOMB_FIRST, goalFx: null,
   };
   resetKickoff(m, kick);
@@ -173,9 +203,10 @@ export function newSoccer(stage: StageId, captains: [CharId, CharId], levels: [n
 function resetKickoff(m: SoccerMatch, team: 0 | 1) {
   m.kickoffTeam = team;
   const b = m.ball; Object.assign(b, { x: L / 2, y: BR, z: ZC, vx: 0, vy: 0, vz: 0, spin: 0, owner: null, last: null, lastId: null, fx: 'none', receiver: null, shooter: null });
+  const kk = kicker(m, team).id;
   for (const p of m.players) {
     let rx = p.hx, z = p.hz;
-    const k = p.id === team * 5 + 3;
+    const k = p.id === kk;
     if (p.role === 'fwd') rx = p.team === team ? (k ? L / 2 - 0.9 : L / 2 - 4) : L / 2 - 6.5;
     if (k) z = ZC;
     Object.assign(p, { gone: false, inv: 0, x: rel(m, p.team, rx), z, vx: 0, vz: 0, y: 0, stun: 0, stunKind: 'none', slide: 0, dive: 0, kickT: 0, charge: 0, chargeOn: false, noTouch: 0, hold: 0, action: 'idle', actionT: 0, facing: attackDir(m, p.team), fly: false, vyF: 0, acid: 0 });
@@ -186,7 +217,8 @@ function resetKickoff(m: SoccerMatch, team: 0 | 1) {
   m.teams[team].active = kicker(m, team).id;
   m.ref.x = L / 2 - 3; m.ref.z = 1.6;
 }
-const kicker = (m: SoccerMatch, team: 0 | 1) => m.players[team * 5 + 3]; // (el primer delantero)
+// El que saca del medio: el delantero más cerca del centro a lo ancho.
+const kicker = (m: SoccerMatch, team: 0 | 1) => m.players.filter(p => p.team === team && p.role === 'fwd').sort((a, b) => Math.abs(a.hz - ZC) - Math.abs(b.hz - ZC) || a.id - b.id)[0];
 
 // ---------------------------------------------------------------- El paso del partido
 export function stepSoccer(m: SoccerMatch, inputs: [SInput, SInput], dt: number) {
@@ -253,6 +285,7 @@ function play(m: SoccerMatch, inputs: [SInput, SInput], dt: number) {
     if (m.clock <= 0) { m.clock = 0; endOfHalf(m); return; }
   }
   tickPlayers(m, dt);
+  assignMarks(m);
   for (const p of m.players) {
     if (p.gone || p.fly || p.acid > 0) continue;
     const human = isHuman(m, p.team) && m.teams[p.team].active === p.id;
@@ -400,7 +433,7 @@ function moveP(m: SoccerMatch, p: Player, dt: number) {
     let tvx = 0, tvz = 0;
     if (!stunned(p) && p.run > 0) {
       const dx = p.tx - p.x, dz = p.tz - p.z, d = hyp(dx, dz);
-      let v = speedOf(p.char) * p.run * (m.ball.owner === p.id ? 0.9 : 1) * (p.chargeOn ? 0.55 : 1);
+      let v = speedOf(p.char) * paceOf(m, p.team) * p.run * (m.ball.owner === p.id ? 0.9 : 1) * (p.chargeOn ? 0.55 : 1);
       if (d < 1.2) v *= d / 1.2; // llega frenando
       if (d > 0.05) { tvx = dx / d * v; tvz = dz / d * v; }
     }
@@ -428,7 +461,10 @@ function bump(m: SoccerMatch) {
   for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) {
     const a = P[i], b = P[j]; if (!alive(a) || !alive(b)) continue;
     const rr = radiusOf(a) + radiusOf(b), dx = b.x - a.x, dz = b.z - a.z, d = hyp(dx, dz);
-    if (d > 0.001 && d < rr) { const k = (rr - d) / d * 0.5; a.x -= dx * k; a.z -= dz * k; b.x += dx * k; b.z += dz * k; }
+    if (d > 0.001 && d < rr) { // (el que lleva la pelota empuja más: así no lo traban con el cuerpo)
+      const k = (rr - d) / d, own = m.ball.owner, ka = own === a.id ? 0.15 : own === b.id ? 0.85 : 0.5;
+      a.x -= dx * k * ka; a.z -= dz * k * ka; b.x += dx * k * (1 - ka); b.z += dz * k * (1 - ka);
+    }
   }
 }
 
@@ -481,7 +517,7 @@ export function pass(m: SoccerMatch, p: Player, dir: [number, number] | null) {
     const dx = q.x - p.x, dz = q.z - p.z, d = hyp(dx, dz); if (d < 1.5) continue;
     let s: number;
     if (dir) { const c = (dx * dir[0] + dz * dir[1]) / d; if (c < 0.3) continue; s = c * 4 - d / 30 - laneRisk(m, p, q) * 0.6 - pressure(m, q) * 0.2; }
-    else { const c = (dx * p.bdx + dz * p.bdz) / d; s = (rel(m, p.team, q.x) - rel(m, p.team, p.x)) / 8 - d / 30 - (q.role === 'gk' ? 2.5 : 0) + c * 1.2 - laneRisk(m, p, q) * 1.6 - pressure(m, q) * 0.4; }
+    else { const c = (dx * p.bdx + dz * p.bdz) / d; s = (rel(m, p.team, q.x) - rel(m, p.team, p.x)) / 4 - d / 30 - (q.role === 'gk' ? 2.5 : 0) + c * 1.2 - laneRisk(m, p, q) * 1.1 - pressure(m, q) * 0.25; }
     if (s > bs) { bs = s; best = q; }
   }
   const b = m.ball;
@@ -627,7 +663,7 @@ function updateGore(m: SoccerMatch, dt: number) {
 const canDie = (p: Player) => alive(p) && p.inv <= 0;
 // A quién va: a uno de campo al azar que se vea en la pantalla (cerca de la cámara; cada tanto, al arquero).
 function pickVictim(m: SoccerMatch): Player | null {
-  const seen = (p: Player) => Math.abs(p.x - m.cam.x) < 11;
+  const easy = isEasy(m), seen = (p: Player) => Math.abs(p.x - m.cam.x) < 11 && !(easy && humanActive(m, p)); // (en Fácil, nunca al de la persona)
   let list = m.players.filter(p => canDie(p) && p.role !== 'gk' && seen(p));
   if (m.rand() < 0.12 || !list.length) list = m.players.filter(p => canDie(p) && seen(p));
   if (!list.length) list = m.players.filter(canDie);
@@ -701,7 +737,7 @@ function updateHazards(m: SoccerMatch, dt: number) {
   bombStep(m, dt);
   if (m.phase === 'play' && !m.noHazards && m.bomb === null && !m.hazards.length && !m.players.some(p => p.acid > 0)) {
     m.hazardT -= dt;
-    if (m.hazardT <= 0) { m.hazardT = HAZARD_GAP[0] + m.rand() * (HAZARD_GAP[1] - HAZARD_GAP[0]); spawnHazard(m); }
+    if (m.hazardT <= 0) { m.hazardT = (HAZARD_GAP[0] + m.rand() * (HAZARD_GAP[1] - HAZARD_GAP[0])) * (isEasy(m) ? 1.8 : 1); spawnHazard(m); }
   }
   for (const h of m.hazards) {
     h.t += dt; h.st += dt;
@@ -928,6 +964,8 @@ function touches(m: SoccerMatch) {
     if (d < reach && b.y - p.y < h * 1.05 && b.y > p.y - 0.3 && d < bd) { bd = d; best = p; }
   }
   if (!best) return;
+  // un pase al compañero: el rival no siempre lo corta (así los pases llegan más seguido); el que maneja la persona sí
+  if (b.receiver !== null && best.team !== m.players[b.receiver].team && !humanActive(m, best) && m.rand() > 0.3 + 0.25 * levelOf(m, best.team)) { best.noTouch = 0.4; return; }
   const p = best, relv = hyp(b.vx - p.vx, b.vz - p.vz), h = hOf(p), by = b.y - p.y;
   const mine = b.receiver === p.id; // (el pase era para él: la recibe siempre)
   if (by < 1.05 || relv < 7 || mine) { // la controla
@@ -1005,41 +1043,78 @@ function keeper(m: SoccerMatch, p: Player, dt: number) {
 // Los de campo: con la pelota encara, pasa o tira; los compañeros se desmarcan; sin la pelota, el más cercano
 // presiona, otro cubre y el resto se acomoda.
 function brain(m: SoccerMatch, p: Player, dt: number) {
-  const b = m.ball, c = carrier(m), lv = levelOf(m, p.team), cpu = !isHuman(m, p.team);
+  const b = m.ball, c = carrier(m), lv = levelOf(m, p.team), cpu = !isHuman(m, p.team), style = m.teams[p.team].style;
   if (stunned(p) || p.slide > 0) { p.run = 0; return; }
   p.aiT -= dt;
   if (c === p) { carrierAI(m, p, lv, cpu); return; }
   const dir = attackDir(m, p.team), bxr = rel(m, p.team, b.x);
-  const home = (shift: number) => { const rx = clamp(p.hx + shift + (bxr - L / 2) * 0.7, 3, L - 4); return [rel(m, p.team, rx), p.hz + (b.z - ZC) * 0.25] as const; };
+  const home = (shift: number, follow = 0.7) => { const rx = clamp(p.hx + shift + (bxr - L / 2) * follow, 3, L - 4); return [rel(m, p.team, rx), p.hz + (b.z - ZC) * 0.25] as const; };
   let tx: number, tz: number, run = 1;
-  if (c && c.team === p.team) { // atacamos: a los espacios, adelante de la pelota
-    [tx, tz] = home(p.role === 'fwd' ? 7 : 5);
-    if (p.role === 'fwd') { tx = clamp(rel(m, p.team, Math.max(rel(m, p.team, c.x) + 6, p.hx + 6)), 2, L - 2); }
-    if (hyp(tx - c.x, tz - c.z) < 5) tz += tz > c.z ? 3 : -3;
+  if (c && c.team === p.team) { // atacamos
+    const space = () => { // a los espacios, adelante de la pelota y hacia el arco contrario
+      const deep = p.role === 'fwd' ? 10 : 7;
+      tx = clamp(rel(m, p.team, Math.min(L - 10, Math.max(rel(m, p.team, c.x) + deep, p.hx + 6))), 2, L - 2); tz = p.hz + (b.z - ZC) * 0.15;
+    };
+    if (style === 'off') space(); // ofensivo: todos buscan espacio
+    else if (style === 'def') [tx, tz] = home(p.role === 'fwd' ? 4 : 0, 0.55); // defensivo: los defensores atrás, los delanteros con cuidado
+    else if (p.role === 'fwd') space(); // equilibrado: los delanteros buscan espacio y los defensores acompañan
+    else [tx, tz] = home(5);
+    if (hyp(tx! - c.x, tz! - c.z) < 5) tz = tz! + (tz! > c.z ? 3 : -3);
     if (b.receiver === p.id) { tx = b.x; tz = b.z; } // va a buscar el pase
     run = 0.85;
   } else if (c) { // defendemos
-    const mates = m.players.filter(q => q.team === p.team && q.role !== 'gk' && !q.gone).sort((a, q) => hyp(a.x - c.x, a.z - c.z) - hyp(q.x - c.x, q.z - c.z));
-    const rank = mates.indexOf(p), humanActive = isHuman(m, p.team) ? m.players[m.teams[p.team].active] : null;
+    const mates = m.players.filter(q => q.team === p.team && q.role !== 'gk' && alive(q)).sort((a, q) => hyp(a.x - c.x, a.z - c.z) - hyp(q.x - c.x, q.z - c.z));
+    const humanActive = isHuman(m, p.team) ? m.players[m.teams[p.team].active] : null;
     const presser = humanActive && mates[0] === humanActive ? mates[1] : mates[0];
-    if (p === presser || (rank === 0 && !humanActive)) {
+    const mark = m.marks[p.id];
+    if (p === presser || (!humanActive && mates[0] === p) || (style === 'off' && mates[1] === p && !humanActive)) { // presiona al que tiene la pelota (en ofensivo, dos)
       tx = c.x + c.vx * 0.3 - dir * 0.6; tz = c.z + c.vz * 0.3;
       const d = hyp(c.x - p.x, c.z - p.z);
       if (m.bomb !== null && m.bomb < 4.5) { [tx, tz] = home(-3); } // (una bomba que está por explotar: mejor no robarla)
-      else if (d < STEAL_REACH + radiusOf(c) - 0.2 && p.tackleCd <= 0 && p.aiT <= 0 && c.protect <= 0) { p.aiT = 0.45; if (m.rand() < (cpu ? 0.06 + 0.12 * lv : 0.1)) steal(m, p); } // (la C de la máquina: le saca la pelota y lo hace explotar)
-    } else if (rank <= 1 || (humanActive && rank === 2 && mates[1] === presser)) { // cubre: entre la pelota y el arco
+      else if (d < STEAL_REACH + radiusOf(c) - 0.2 && p.tackleCd <= 0 && p.aiT <= 0 && c.protect <= 0) { p.aiT = 0.45; if (m.rand() < (cpu ? (lv < 0.3 ? 0 : 0.02 + 0.1 * lv) : 0.06)) steal(m, p); } // (la C de la máquina)
+    } else if (mark !== undefined && mark >= 0) { // marca a su delantero: pegado, entre él y el arco
+      const o = m.players[mark], gx = ownGoalX(m, p.team), dx = gx - o.x, dz = ZC - o.z, d = hyp(dx, dz) || 1;
+      tx = o.x + dx / d * 2.6; tz = o.z + dz / d * 2.6;
+    } else if (style === 'off' || (style === 'bal' && p.role === 'fwd')) { // se queda adelante, esperando el contraataque
+      [tx, tz] = home(style === 'off' ? 6 : 3);
+    } else { // cubre: entre la pelota y el arco
       const gx = ownGoalX(m, p.team); tx = c.x + (gx - c.x) * 0.38; tz = c.z + (ZC - c.z) * 0.38;
-    } else { [tx, tz] = home(-3); }
+    }
   } else { // pelota suelta: el más cercano de cada equipo va a buscarla
-    const mates = m.players.filter(q => q.team === p.team && q.role !== 'gk' && !q.gone);
+    const mates = m.players.filter(q => q.team === p.team && q.role !== 'gk' && alive(q));
     const eta = (q: Player) => hyp(q.x - b.x, q.z - b.z) / speedOf(q.char);
     const humanActive = isHuman(m, p.team) ? m.teams[p.team].active : -1;
     const first = mates.filter(q => q.id !== humanActive).sort((a, q) => eta(a) - eta(q))[0];
     const chase = b.receiver === p.id || (first === p && (humanActive < 0 || eta(p) < eta(m.players[humanActive]) * 0.7));
     if (chase) { const t = Math.min(1.1, eta(p)); tx = clamp(b.x + b.vx * t * 0.7, 0.5, L - 0.5); tz = clamp(b.z + b.vz * t * 0.7, 0.5, D - 0.5); }
-    else { [tx, tz] = home(b.last === p.team ? 3 : -1); run = 0.8; }
+    else { [tx, tz] = home(b.last === p.team ? (style === 'off' ? 6 : 3) : (style === 'def' ? -4 : -1)); run = 0.8; }
   }
-  p.tx = tx; p.tz = tz; p.run = hyp(tx - p.x, tz - p.z) > 0.4 ? run : 0;
+  p.tx = tx!; p.tz = tz!; p.run = hyp(tx! - p.x, tz! - p.z) > 0.4 ? run : 0;
+}
+// Las marcas: quién marca a quién cuando el rival tiene la pelota. Defensivo: todos (menos el que presiona) marcan
+// a los rivales más adelantados (primero los delanteros). Equilibrado: solo los defensores, a los delanteros
+// rivales. Ofensivo: nadie marca.
+function assignMarks(m: SoccerMatch) {
+  m.marks = {};
+  const c = carrier(m);
+  for (const T of [0, 1] as const) {
+    if (!c || c.team === T) continue;
+    const style = m.teams[T].style; if (style === 'off') continue;
+    const gx = ownGoalX(m, T), humanId = isHuman(m, T) ? m.teams[T].active : -1;
+    const mine = m.players.filter(q => q.team === T && q.role !== 'gk' && alive(q) && q.id !== humanId);
+    const presser = mine.slice().sort((a, q) => hyp(a.x - c.x, a.z - c.z) - hyp(q.x - c.x, q.z - c.z))[0];
+    const markers = mine.filter(q => q !== presser && (style === 'def' || q.role === 'def'));
+    const rivals = m.players.filter(q => q.team !== T && q.role !== 'gk' && alive(q) && q !== c)
+      .sort((a, q) => (style === 'bal' ? (a.role === 'fwd' ? 0 : 100) - (q.role === 'fwd' ? 0 : 100) : 0) + Math.abs(a.x - gx) - Math.abs(q.x - gx));
+    const free = new Set(markers);
+    for (const o of rivals) {
+      if (!free.size) break;
+      if (style === 'bal' && o.role !== 'fwd' && [...free].length < markers.length) break; // (equilibrado: solo a los delanteros)
+      let best: Player | null = null, bd = 1e9;
+      for (const q of free) { const d = hyp(q.x - o.x, q.z - o.z); if (d < bd) { bd = d; best = q; } }
+      if (best) { m.marks[best.id] = o.id; free.delete(best); }
+    }
+  }
 }
 // ¿hay un rival (que no sea el arquero) tapando el tiro?
 function shotLaneBlocked(m: SoccerMatch, p: Player, gx: number) {
@@ -1061,16 +1136,16 @@ function carrierAI(m: SoccerMatch, p: Player, lv: number, cpu: boolean) {
   }
   if (p.aiT <= 0) {
     p.aiT = 0.18;
-    const range = 14 + STATS[p.char].strength / 100 * 6, lane = shotLaneBlocked(m, p, gx);
-    if (dg < range && Math.abs(p.z - ZC) < 9 && p.hold > 0.3 && (!lane || dg < 7 || m.rand() < 0.25)) {
-      const full = m.rand() < (cpu ? 0.35 + 0.3 * lv : 0.45); // (muchas veces carga la barra entera: gol seguro)
-      const ch = full ? 1 : clamp(0.3 + (dg - 5) / 22 + m.rand() * 0.15, 0.3, 0.9), side = m.rand() < 0.45 ? 0 : (m.rand() < 0.5 ? -1 : 1);
+    const range = 22 + STATS[p.char].strength / 100 * 6, lane = shotLaneBlocked(m, p, gx); // (la cancha es larga: patea de lejos)
+    if (dg < range && Math.abs(p.z - ZC) < 10 && p.hold > 0.25 && (!lane || dg < 9 || m.rand() < 0.5)) {
+      const full = m.rand() < (cpu ? 0.05 + 0.6 * lv : 0.45); // (carga la barra entera: gol seguro; en Fácil casi nunca)
+      const ch = full ? 1 : clamp(0.3 + (dg - 5) / 26 + m.rand() * 0.15, 0.3, 0.9), side = m.rand() < 0.45 ? 0 : (m.rand() < 0.5 ? -1 : 1);
       shoot(m, p, ch, side as -1 | 0 | 1, cpu ? 1.35 - lv * 0.55 : 1); return;
     }
-    if (nd < 2.6 && front && p.hold > 0.25 && m.rand() < (cpu ? 0.35 + 0.35 * lv : 0.6)) { pass(m, p, null); return; }
-    if (p.hold > 0.8 && m.rand() < 0.3) { // (la cancha es larga: busca al compañero que está más adelante)
-      const ahead = m.players.some(q => q.team === p.team && q !== p && q.role !== 'gk' && alive(q) && (q.x - p.x) * dir > 6 && laneRisk(m, p, q) < 0.4);
-      if (ahead) { pass(m, p, null); return; }
+    if (nd < 2.6 && front && p.hold > 0.25 && (dg > range || m.rand() < 0.3) && m.rand() < (cpu ? 0.18 + 0.2 * lv : 0.35)) { pass(m, p, null); return; }
+    if (p.hold > 0.8 && dg > range + 4 && m.rand() < 0.3) { // (la cancha es larga: se la pasa al compañero que está más adelante y libre)
+      const ahead = m.players.filter(q => q.team === p.team && q !== p && q.role !== 'gk' && alive(q) && (q.x - p.x) * dir > 6 && laneRisk(m, p, q) < 0.4).sort((a, q) => (q.x - a.x) * dir)[0];
+      if (ahead) { const ex = ahead.x - p.x, ez = ahead.z - p.z, e = hyp(ex, ez) || 1; pass(m, p, [ex / e, ez / e]); return; }
     }
   }
   let tz = ZC + (p.z - ZC) * 0.5;

@@ -2322,3 +2322,13 @@ body:has(.land) .mobile-nav{display:none}
 .kv-players p{margin:auto 0;text-align:center;color:#cbd5e1;font-size:.9rem;line-height:1.35}
 .kv-players>small{text-align:center;margin-top:auto}
 .kv-seed--you{background:#fbbf24;color:#1c1917}
+/* Kombat Football: la pantalla de la táctica (formación, modo y dificultad) */
+.kf-tactics{display:flex;flex-wrap:wrap;justify-content:center;gap:.8rem;margin-top:.6rem}
+.kf-tactics-team{background:#0b0b0fcc;border:1px solid #7f1d1d;border-radius:.6rem;padding:.6rem;display:flex;flex-direction:column;gap:.5rem;align-items:center;max-width:31rem;flex:1 1 20rem}
+.kf-tactics-diff{margin:.7rem auto 0;max-width:40rem}
+.kf-tactics-name{font-family:Impact,"Arial Black",system-ui,sans-serif;letter-spacing:.06em;font-size:1.1rem;color:#fde047}
+.kf-formation-mini{width:100%;max-width:22rem;height:auto;border-radius:.35rem;box-shadow:0 0 0 2px #000,0 6px 18px #0008}
+.kf-tactics-row{display:flex;flex-wrap:wrap;justify-content:center;gap:.35rem;width:100%}
+.kf .kf-tactics-row button{flex:1 1 6rem;display:flex;flex-direction:column;align-items:center;gap:.1rem;background:#27272a!important;box-shadow:none!important;padding:.4rem .5rem!important;font-size:.9rem!important;line-height:1.15}
+.kf .kf-tactics-row button small{font-size:.68rem;font-weight:500;opacity:.85;text-transform:none;letter-spacing:0}
+.kf .kf-tactics-row button.kf-chosen{background:#b91c1c!important;box-shadow:0 0 0 2px #fde047!important}
