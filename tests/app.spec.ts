@@ -1179,13 +1179,14 @@ test('Kombat Football: se abre desde Juegos, se eligen los luchadores como en un
   await page.getByRole('button', { name: 'Siguiente ▶' }).click();
   await expect(page.getByRole('heading', { name: 'CONTROLES' })).toBeVisible();
   await expect(page.getByText('Tiburones voladores:')).toBeVisible(); // (sin ataques: los peligros vienen de la cancha)
+  await expect(page.getByText('autopase:')).toBeVisible(); // (Z: se la toca larga y sale detrás)
   await page.getByRole('button', { name: '¡A jugar!' }).click();
   await expect(page.getByTestId('kf-score')).toHaveText('0 - 0');
   await expect(page.getByTestId('kf-side-0')).toContainText('FROST');
   await expect(page.getByTestId('kf-side-1')).toContainText('THUNDER');
   await expect(page.getByTestId('kf-clock')).toContainText('1T');
   await expect(page.getByTestId('kf-clock')).not.toHaveText('1T01:30', { timeout: 8000 });
-  await page.keyboard.down('ArrowRight'); await page.waitForTimeout(600); await page.keyboard.press('x'); await page.keyboard.press(' '); await page.keyboard.up('ArrowRight');
+  await page.keyboard.down('ArrowRight'); await page.waitForTimeout(600); await page.keyboard.press('z'); await page.keyboard.press('x'); await page.keyboard.press(' '); await page.keyboard.up('ArrowRight');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
   const paused = await page.getByTestId('kf-clock').textContent();

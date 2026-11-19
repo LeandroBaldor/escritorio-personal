@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACID_DEATH, ACID_T, BOMB_FIRST, BOMB_FUSE, BR, SOCCER_HALF, footballScore, FORMATIONS, TEAM_N, paceOf, D, GH, GW, L, METEOR_T, SHARK_LEN, UFO_T, ZC, attackDir, carrier, newSoccer, noSInput, pass, shoot, spawnHazard, stepSoccer, takeSoccerEvents, type SInput, type SoccerMatch, type SEvent } from './kombatSoccer';
+import { ACID_DEATH, ACID_T, BOMB_FIRST, BOMB_FUSE, BR, SOCCER_HALF, footballScore, FORMATIONS, TEAM_N, paceOf, D, GH, GW, L, METEOR_T, SHARK_LEN, UFO_T, ZC, attackDir, carrier, newSoccer, noSInput, pass, autoPass, spaceSpot, CARRY_PACE, shoot, spawnHazard, stepSoccer, takeSoccerEvents, type SInput, type SoccerMatch, type SEvent } from './kombatSoccer';
 import { CHAR_IDS, seeded } from './kombat';
 
 const run = (m: SoccerMatch, s: number, ev: SEvent[] = []) => { for (let t = 0; t < s; t += 1 / 60) { stepSoccer(m, [noSInput(), noSInput()], 1 / 60); ev.push(...takeSoccerEvents(m)); } return ev; };
@@ -142,6 +142,40 @@ describe('Kombat Football 5 contra 5', () => {
     expect(got?.team).toBe(c.team);
     expect(got).not.toBe(c);
   });
+  it('autopase: la toca larga hacia adelante, sale detrás y la vuelve a agarrar más adelante', () => {
+    for (const seed of [41, 42, 43]) {
+      const m = newSoccer('industrial', ['frost', 'thunder'], [null, 0.5], seeded(seed)); toPlay(m);
+      for (const q of m.players) if (q.team === 1) { q.stun = 9; q.x = L - 3; q.z = 0.5; }
+      const me = m.players[3]; m.ball.owner = me.id; me.x = 30; me.z = ZC; stepSoccer(m, [noSInput(), noSInput()], 1 / 60);
+      m.ball.owner = me.id; me.x = 30; me.z = ZC; m.teams[0].active = me.id;
+      for (const q of m.players) if (q.team === 0 && q !== me && q.role !== 'gk') { q.x = 10; q.z = 1; }
+      const dir = attackDir(m, 0), x0 = me.x;
+      expect(autoPass(m, me, null)).toBe(true);
+      expect(m.ball.owner).toBeNull();
+      let got = null as ReturnType<typeof carrier>;
+      for (let t = 0; t < 4 && !got; t += 1 / 60) { stepSoccer(m, [noSInput(), noSInput()], 1 / 60); got = carrier(m); }
+      expect(got?.id).toBe(me.id);
+      expect((me.x - x0) * dir).toBeGreaterThan(7);
+    }
+  });
+  it('pase al espacio: la pelota va adelante del compañero que pica (no a sus pies) y él llega', () => {
+    for (const seed of [51, 52, 53, 54]) {
+      const m = newSoccer('industrial', ['frost', 'thunder'], [0.5, 0.5], seeded(seed)); toPlay(m);
+      for (const q of m.players) if (q.team === 1) { q.stun = 9; q.x = L / 2; q.z = 0.5; }
+      const me = m.players[3], mate = m.players[4], dir = attackDir(m, 0);
+      for (const q of m.players) if (q.team === 0 && q !== me && q !== mate && q.role !== 'gk') { q.x = L / 2 - dir * 40; q.z = 1; }
+      m.ball.owner = me.id; me.x = L / 2 - dir * 20; me.z = 8; mate.x = me.x + dir * 8; mate.z = 14;
+      expect(spaceSpot(m, mate)).not.toBeNull();
+      pass(m, me, null, { space: true, to: mate });
+      expect(m.ball.spaceTo).toBeTruthy();
+      expect((m.ball.spaceTo![0] - mate.x) * dir).toBeGreaterThan(4);
+      let got = null as ReturnType<typeof carrier>;
+      for (let t = 0; t < 4 && !got; t += 1 / 60) { stepSoccer(m, [noSInput(), noSInput()], 1 / 60); got = carrier(m); }
+      expect(got?.id).toBe(mate.id);
+      expect((mate.x - (me.x + dir * 0)) * dir).toBeGreaterThan(10);
+    }
+  });
+  it('con la pelota pegada se corre más lento que sin ella (conviene soltarla)', () => { expect(CARRY_PACE).toBeLessThan(0.9); });
   it('el pase hacia un compañero le llega a los pies (aunque esté quieto o se esté moviendo)', () => {
     for (const seed of [31, 32, 33, 34, 35, 36]) {
       const m = newSoccer('industrial', ['frost', 'thunder'], [null, 0.5], seeded(seed)); toPlay(m);
@@ -167,7 +201,7 @@ describe('Kombat Football 5 contra 5', () => {
   });
   it('la pelota nunca sale de la cancha ni se queda trabada, y casi no hay goles en contra', () => {
     let goals = 0, own = 0, maxStill = 0;
-    for (const seed of [11, 12, 13, 14]) {
+    for (const seed of [11, 12, 13, 14, 15, 16]) {
       const caps = [CHAR_IDS[seed % 16], CHAR_IDS[(seed * 5 + 3) % 16]] as const;
       const m = newSoccer('volcano', [caps[0], caps[1] === caps[0] ? 'bruto' : caps[1]], [0.6, 0.6], seeded(seed));
       for (let t = 0; t < 180; t += 1 / 60) {
@@ -182,7 +216,7 @@ describe('Kombat Football 5 contra 5', () => {
     expect(maxStill).toBeLessThan(4);
     expect(goals).toBeGreaterThan(3); // se hacen goles
     expect(own).toBeLessThanOrEqual(1);
-  }, 15000); // Cuatro partidos simulados: dar margen a los equipos de CI.
+  }, 20000); // Seis partidos simulados: dar margen a los equipos de CI.
   it('el arquero de la máquina con la pelota no se queda quieto: la pasa o la tira para arriba', () => {
     for (const seed of [41, 42, 43, 44]) {
       const m = newSoccer('industrial', ['frost', 'thunder'], [null, 0.5], seeded(seed)); toPlay(m);
@@ -206,7 +240,7 @@ describe('Kombat Football 5 contra 5', () => {
   });
   it('aparecen peligros solos durante el partido (de los cuatro tipos), de a uno por vez', () => {
     const kinds = new Set<string>();
-    for (const seed of [21, 22]) {
+    for (const seed of [21, 22, 23]) {
       const m = newSoccer('volcano', ['frost', 'thunder'], [0.6, 0.6], seeded(seed)); toPlay(m, true);
       let maxAtOnce = 0;
       const ev: SEvent[] = [];

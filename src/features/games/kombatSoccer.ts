@@ -29,9 +29,12 @@ const G = 24; // gravedad de la pelota (pesada: arcade)
 const CORNER = 1.6; // las esquinas están cortadas en diagonal (la pelota no se queda trabada ahí)
 
 export type Role = 'gk' | 'def' | 'fwd';
-// kick: V (tiro, se carga) · pass: X (pase; sin la pelota, cambia al más cercano) · steal: C (sacar la pelota)
-export interface SInput { left: boolean; right: boolean; up: boolean; down: boolean; kick: boolean; pass: boolean; steal: boolean }
-export const noSInput = (): SInput => ({ left: false, right: false, up: false, down: false, kick: false, pass: false, steal: false });
+// kick: V (tiro, se carga) · pass: X (pase; al espacio si el compañero tiene lugar adelante; sin la pelota, cambia al
+// más cercano) · steal: C (sacar la pelota) · auto: Z (autopase: un toque largo hacia adelante para correr detrás)
+export interface SInput { left: boolean; right: boolean; up: boolean; down: boolean; kick: boolean; pass: boolean; steal: boolean; auto: boolean }
+export const noSInput = (): SInput => ({ left: false, right: false, up: false, down: false, kick: false, pass: false, steal: false, auto: false });
+export const CARRY_PACE = 0.82; // con la pelota pegada al pie se corre más lento: conviene soltarla (autopase o pase al espacio)
+export const AUTO_SPEED = 10.5; // el autopase: la pelota rueda unos 12 m adelante
 
 export interface Player extends Fighter {
   id: number; team: 0 | 1; role: Role; z: number; vz: number;
@@ -45,7 +48,7 @@ export interface Player extends Fighter {
   gone: boolean; // se lo comió un tiburón, explotó o se derritió: vuelve a entrar en unos segundos (p.stun cuenta el tiempo)
 }
 export type BallFx = 'none' | Element;
-export interface SBall { x: number; y: number; z: number; vx: number; vy: number; vz: number; spin: number; roll: number; owner: number | null; last: 0 | 1 | null; lastId: number | null; fx: BallFx; comet?: boolean; full?: boolean; receiver: number | null; shot: number; shooter: 0 | 1 | null } // full: el tiro con la barra llena (el arquero no llega)
+export interface SBall { x: number; y: number; z: number; vx: number; vy: number; vz: number; spin: number; roll: number; owner: number | null; last: 0 | 1 | null; lastId: number | null; fx: BallFx; comet?: boolean; full?: boolean; receiver: number | null; shot: number; shooter: 0 | 1 | null; spaceTo?: [number, number] | null } // spaceTo: el pase al espacio (o el autopase): adónde va la pelota // full: el tiro con la barra llena (el arquero no llega)
 export interface SFx { kind: 'bolt' | 'boom' | 'ring' | 'beam' | 'nova'; x: number; y: number; z: number; x2: number; y2: number; z2: number; t: number; life: number; color: string }
 export interface SParticle { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; size: number; color: string; kind: 'spark' | 'smoke' | 'shard' }
 export interface Team { captain: CharId; goals: number; level: number | null; active: number; switchT: number; formation: FormationId; style: Style }
@@ -119,7 +122,7 @@ const BOMB_GAP: [number, number] = [26, 38]; // entre una bomba y la siguiente
 
 export type SEvent =
   | { type: 'bomb' } | { type: 'bombTick'; n: number } | { type: 'bombBoom'; side: 0 | 1 | null }
-  | { type: 'kick'; power: number; full?: boolean } | { type: 'pass' } | { type: 'tackle'; ok: boolean } | { type: 'steal'; side: 0 | 1 } | { type: 'switch' } | { type: 'goal'; side: 0 | 1; scorer: CharId; own: boolean; bomb?: boolean }
+  | { type: 'kick'; power: number; full?: boolean } | { type: 'pass'; space?: boolean; side?: 0 | 1 } | { type: 'autopass'; side: 0 | 1 } | { type: 'tackle'; ok: boolean } | { type: 'steal'; side: 0 | 1 } | { type: 'switch' } | { type: 'goal'; side: 0 | 1; scorer: CharId; own: boolean; bomb?: boolean }
   | { type: 'bounce'; power: number } | { type: 'post' } | { type: 'save'; side: 0 | 1 }
   | { type: 'whistle'; kind: 'kickoff' | 'half' | 'end'; start?: 1 | 2 } | { type: 'halftime' } | { type: 'penalties' } | { type: 'header'; side: 0 | 1 } | { type: 'control' }
   | { type: 'explode'; side: 0 | 1; char: CharId; keeper: boolean } | { type: 'hazard'; kind: HazardKind } | { type: 'dive' } | { type: 'eaten'; side: 0 | 1; char: CharId }
@@ -356,7 +359,7 @@ function control(m: SoccerMatch, p: Player, i: SInput, dt: number) {
   let dx = (i.right ? 1 : 0) - (i.left ? 1 : 0), dz = (i.down ? 1 : 0) - (i.up ? 1 : 0);
   const n = hyp(dx, dz); if (n > 0) { dx /= n; dz /= n; }
   p.tx = p.x + dx * 3; p.tz = p.z + dz * 3; p.run = n > 0 ? 1 : 0;
-  if (n === 0 && m.ball.receiver === p.id) { p.tx = m.ball.x; p.tz = m.ball.z; p.run = hyp(m.ball.x - p.x, m.ball.z - p.z) < 6 ? 0.55 : 0.8; } // sin flechas: va a recibir el pase
+  if (n === 0 && m.ball.receiver === p.id) { [p.tx, p.tz] = receiveSpot(m, p); p.run = m.ball.spaceTo ? 1 : hyp(m.ball.x - p.x, m.ball.z - p.z) < 6 ? 0.55 : 0.8; } // (al espacio: pica a fondo) // sin flechas: va a recibir el pase
   if (p.role === 'gk') { // el arquero con la pelota: pase con X, para arriba bien lejos con V
     if (has) {
       const fwd = attackDir(m, p.team), gx = ownGoalX(m, p.team); p.tx = clamp(p.tx, Math.min(gx, gx + fwd * AREA_X), Math.max(gx, gx + fwd * AREA_X)); p.tz = clamp(p.tz, ZC - AREA_W / 2, ZC + AREA_W / 2);
@@ -378,6 +381,8 @@ function control(m: SoccerMatch, p: Player, i: SInput, dt: number) {
     if (pressed(p, i, 'pass')) { if (has) { p.chargeOn = false; p.charge = 0; pass(m, p, n > 0 ? [dx, dz] : null); } else switchPlayer(m, p.team); }
     // C: sacarle la pelota al rival (sale volando y explota)
     if (pressed(p, i, 'steal') && !has) steal(m, p, dx, dz);
+    // Z: autopase (la toca larga hacia donde corre y sale detrás)
+    if (pressed(p, i, 'auto') && has) { p.chargeOn = false; p.charge = 0; autoPass(m, p, n > 0 ? [dx, dz] : null); }
   }
   p.prevIn = { ...i };
 }
@@ -436,7 +441,7 @@ function moveP(m: SoccerMatch, p: Player, dt: number) {
     let tvx = 0, tvz = 0;
     if (!stunned(p) && p.run > 0) {
       const dx = p.tx - p.x, dz = p.tz - p.z, d = hyp(dx, dz);
-      let v = speedOf(p.char) * paceOf(m, p.team) * p.run * (m.ball.owner === p.id ? 0.9 : 1) * (p.chargeOn ? 0.55 : 1);
+      let v = speedOf(p.char) * paceOf(m, p.team) * p.run * (m.ball.owner === p.id ? CARRY_PACE : 1) * (p.chargeOn ? 0.55 : 1);
       if (d < 1.2) v *= d / 1.2; // llega frenando
       if (d > 0.05) { tvx = dx / d * v; tvz = dz / d * v; }
     }
@@ -475,7 +480,7 @@ function bump(m: SoccerMatch) {
 function release(m: SoccerMatch, p: Player) {
   const b = m.ball; b.owner = null; b.last = p.team; b.lastId = p.id; b.receiver = null; b.fx = 'none'; b.comet = false;
   p.noTouch = 0.3; p.kickT = 0.3; p.hold = 0; p.chargeOn = false; p.charge = 0;
-  b.x = p.x + p.bdx * 0.7; b.z = p.z + p.bdz * 0.7; b.y = BR; b.full = false;
+  b.x = p.x + p.bdx * 0.7; b.z = p.z + p.bdz * 0.7; b.y = BR; b.full = false; b.spaceTo = null;
 }
 // La pelota sale desde adelante del que patea, hacia donde va (así no le pega en el cuerpo).
 function launchFrom(m: SoccerMatch, p: Player) {
@@ -511,21 +516,52 @@ export function punt(m: SoccerMatch, p: Player, dir: [number, number] | null) {
   b.vx = dx / n * 19; b.vz = dz / n * 19; b.vy = 11.5; b.y = 1.2; launchFrom(m, p); p.protect = 0;
   emit(m, { type: 'kick', power: 0.8 });
 }
-// Pase: al compañero hacia donde apuntan las flechas (o al mejor ubicado) y a los pies: la pelota va por el piso
-// derecho a él (se acomoda si se mueve) y él va a buscarla.
-export function pass(m: SoccerMatch, p: Player, dir: [number, number] | null) {
-  const mates = m.players.filter(q => q.team === p.team && q !== p && !stunned(q) && !q.gone);
-  let best: Player | null = null, bs = -1e9;
-  for (const q of mates) {
+// La velocidad con la que hay que tocar la pelota por el piso para que ruede d metros (y llegue todavía con un
+// poco de velocidad): la pelota se frena con dv/dt = -(2,4 + 0,3 v).
+export function rollSpeed(d: number) {
+  const A = 2.4 / 0.3, dist = (v0: number) => { const ts = Math.log((v0 + A) / A) / 0.3; return (v0 + A) * (1 - Math.exp(-0.3 * ts)) / 0.3 - A * ts; };
+  let lo = 0, hi = 40;
+  for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (dist(mid) < d) lo = mid; else hi = mid; }
+  return hi;
+}
+// El lugar libre adelante de un compañero (hacia el arco contrario): adónde mandarle un pase al espacio. null si
+// no tiene lugar (un rival de campo cerca de ese lugar, o ya está en el fondo).
+export function spaceSpot(m: SoccerMatch, q: Player): [number, number] | null {
+  const dir = attackDir(m, q.team), lead = 7;
+  const x = clamp(q.x + dir * lead + q.vx * 0.4, 4, L - 4), z = clamp(q.z + (ZC - q.z) * 0.15 + q.vz * 0.4, 2, D - 2);
+  if (Math.abs(x - q.x) < 3) return null;
+  if (m.players.some(o => o.team !== q.team && o.role !== 'gk' && alive(o) && hyp(o.x - x, o.z - z) < 3.5)) return null;
+  return [x, z];
+}
+// Pase: al compañero hacia donde apuntan las flechas (o al mejor ubicado). Si el compañero está más adelante y
+// tiene lugar libre delante (hacia el arco), es un PASE AL ESPACIO: la pelota va a ese lugar y él pica a buscarla;
+// si no, a los pies (la pelota se acomoda si él se mueve). space: true lo fuerza (si se puede), false lo evita.
+export function pass(m: SoccerMatch, p: Player, dir: [number, number] | null, opts: { space?: boolean; to?: Player } = {}) {
+  const mates = m.players.filter(q => q.team === p.team && q !== p && !stunned(q) && alive(q));
+  let best: Player | null = opts.to ?? null, bs = -1e9;
+  if (!best) for (const q of mates) {
     const dx = q.x - p.x, dz = q.z - p.z, d = hyp(dx, dz); if (d < 1.5) continue;
     let s: number;
     if (dir) { const c = (dx * dir[0] + dz * dir[1]) / d; if (c < 0.3) continue; s = c * 4 - d / 30 - laneRisk(m, p, q) * 0.6 - pressure(m, q) * 0.2; }
-    else { const c = (dx * p.bdx + dz * p.bdz) / d; s = (rel(m, p.team, q.x) - rel(m, p.team, p.x)) / 4 - d / 30 - (q.role === 'gk' ? 2.5 : 0) + c * 1.2 - laneRisk(m, p, q) * 1.1 - pressure(m, q) * 0.25; }
+    else { const c = (dx * p.bdx + dz * p.bdz) / d; s = (rel(m, p.team, q.x) - rel(m, p.team, p.x)) / 4 - d / 30 - (q.role === 'gk' ? 2.5 : 0) + c * 1.2 - laneRisk(m, p, q) * 1.1 - pressure(m, q) * 0.25 + (spaceSpot(m, q) ? 0.6 : 0); }
     if (s > bs) { bs = s; best = q; }
   }
   const b = m.ball;
   if (!best) { // nadie hacia allá: la toca para adelante en esa dirección
-    release(m, p); const [dx, dz] = dir ?? [attackDir(m, p.team), 0]; b.vx = dx * 13; b.vz = dz * 13; b.vy = 0; launchFrom(m, p); emit(m, { type: 'pass' }); return;
+    release(m, p); const [dx, dz] = dir ?? [attackDir(m, p.team), 0]; b.vx = dx * 13; b.vz = dz * 13; b.vy = 0; launchFrom(m, p); emit(m, { type: 'pass', side: p.team }); return;
+  }
+  const ahead = (best.x - p.x) * attackDir(m, p.team) > 3 && best.role !== 'gk';
+  const spot = opts.space === false || !ahead ? null : spaceSpot(m, best);
+  if (spot && opts.space !== false) { // pase al espacio
+    release(m, p);
+    const dx = spot[0] - b.x, dz = spot[1] - b.z, d = Math.max(1, hyp(dx, dz));
+    const lob = laneRisk(m, p, best) > 0.75 && d > 10; // muy tapado: por arriba
+    const S = lob ? clamp(d * 1.1, 10, 22) : clamp(rollSpeed(d + 1.2), 8, 26);
+    b.vx = dx / d * S; b.vz = dz / d * S; b.vy = lob ? 0.5 * G * (d / S) * 0.95 : 0;
+    b.receiver = best.id; b.spaceTo = spot; best.tx = spot[0]; best.tz = spot[1];
+    launchFrom(m, p);
+    emit(m, { type: 'pass', space: true, side: p.team });
+    return;
   }
   const d0 = hyp(best.x - p.x, best.z - p.z), S = clamp(9 + d0 * 0.95, 12, 26), T = d0 / S;
   const lead = isHuman(m, best.team) ? 0.25 : 0.6; // (el de la persona frena y la espera)
@@ -537,11 +573,32 @@ export function pass(m: SoccerMatch, p: Player, dir: [number, number] | null) {
   b.vx = dx / d * s2; b.vz = dz / d * s2; b.vy = lob ? 0.5 * G * (d / s2) * 0.92 : 0;
   b.receiver = best.id; best.tx = tx; best.tz = tz;
   launchFrom(m, p);
-  emit(m, { type: 'pass' });
+  emit(m, { type: 'pass', side: p.team });
+}
+// Autopase: se la toca larga (unos 12 m) hacia adelante o hacia donde corre, y sale detrás a buscarla corriendo sin
+// la pelota (más rápido que llevándola pegada). Un rival puede llegar antes.
+export function autoPass(m: SoccerMatch, p: Player, dir: [number, number] | null) {
+  if (m.ball.owner !== p.id || p.role === 'gk') return false;
+  const fwd = attackDir(m, p.team);
+  let [dx, dz] = dir ?? (hyp(p.vx, p.vz) > 1 ? [p.vx, p.vz] : [fwd, 0]);
+  const n = hyp(dx, dz) || 1; dx /= n; dz /= n;
+  const b = m.ball; release(m, p);
+  b.vx = dx * AUTO_SPEED; b.vz = dz * AUTO_SPEED; b.vy = 0;
+  launchFrom(m, p);
+  p.noTouch = 0.38; // (que la pelota se adelante)
+  b.receiver = p.id; b.spaceTo = [clamp(b.x + dx * 11, 1, L - 1), clamp(b.z + dz * 11, 1, D - 1)];
+  emit(m, { type: 'autopass', side: p.team });
+  return true;
+}
+// Adónde va el que recibe: al lugar del pase al espacio mientras la pelota viene lejos; cerca, a la pelota.
+function receiveSpot(m: SoccerMatch, p: Player): [number, number] {
+  const b = m.ball, st = b.spaceTo;
+  if (st && hyp(b.x - p.x, b.z - p.z) > 3) { const k = Math.min(1, hyp(b.vx, b.vz) / 10); return [b.x + (st[0] - b.x) * (0.5 + 0.5 * k), b.z + (st[1] - b.z) * (0.5 + 0.5 * k)]; }
+  return [b.x + b.vx * 0.12, b.z + b.vz * 0.12];
 }
 // La pelota de un pase se acomoda hacia los pies del compañero (aunque él se mueva) y no se frena antes de llegar.
 function passAssist(m: SoccerMatch, dt: number) {
-  const b = m.ball; if (b.receiver === null || b.owner !== null) return;
+  const b = m.ball; if (b.receiver === null || b.owner !== null || b.spaceTo) return; // (al espacio: va al lugar, no a los pies)
   const r = m.players[b.receiver];
   if (r.gone || r.stun > 0) { b.receiver = null; return; }
   if (b.y > 1.3 && b.vy > -2) return; // (un globo: recién cuando baja)
@@ -880,7 +937,9 @@ function moveBall(m: SoccerMatch, dt: number) {
   b.spin *= Math.max(0, 1 - dt * (air ? 0.25 : 2));
   b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt; b.roll += sp * dt / BR;
   if (b.y < BR) { b.y = BR; if (b.vy < -2.6) { emit(m, { type: 'bounce', power: Math.min(1, -b.vy / 14) }); b.vy = -b.vy * 0.5; b.vx *= 0.92; b.vz *= 0.92; } else b.vy = 0; }
-  if (b.receiver !== null && sp < 1) b.receiver = null;
+  if (b.receiver !== null && sp < 1 && !b.spaceTo) b.receiver = null;
+  if (b.spaceTo && sp < 0.3 && b.receiver !== null && hyp(m.players[b.receiver].x - b.x, m.players[b.receiver].z - b.z) > 6) { b.receiver = null; b.spaceTo = null; }
+  if (b.receiver === null) b.spaceTo = null;
   passAssist(m, dt);
   if (b.comet && sp < 9) { b.comet = false; b.fx = 'none'; }
   if (b.full && sp < 9) b.full = false;
@@ -973,7 +1032,7 @@ function touches(m: SoccerMatch) {
   const mine = b.receiver === p.id; // (el pase era para él: la recibe siempre)
   if (by < 1.05 || relv < 7 || mine) { // la controla
     if (relv < 17 || mine || m.rand() < 0.4) {
-      b.owner = p.id; b.receiver = null; b.spin = 0; b.fx = 'none'; b.comet = false; b.full = false; b.last = p.team; b.lastId = p.id; p.hold = 0; p.protect = 0.25;
+      b.owner = p.id; b.receiver = null; b.spaceTo = null; b.spin = 0; b.fx = 'none'; b.comet = false; b.full = false; b.last = p.team; b.lastId = p.id; p.hold = 0; p.protect = 0.25;
       const dx = b.x - p.x, dz = b.z - p.z, d = hyp(dx, dz); if (d > 0.1) { p.bdx = dx / d; p.bdz = dz / d; }
       if (relv > 8) emit(m, { type: 'control' });
     } else { b.vx = b.vx * -0.25 + p.vx; b.vz = b.vz * -0.25 + p.vz; b.vy = 2; p.noTouch = 0.3; b.last = p.team; b.lastId = p.id; emit(m, { type: 'bounce', power: 0.5 }); }
@@ -1063,7 +1122,7 @@ function brain(m: SoccerMatch, p: Player, dt: number) {
     else if (p.role === 'fwd') space(); // equilibrado: los delanteros buscan espacio y los defensores acompañan
     else [tx, tz] = home(5);
     if (hyp(tx! - c.x, tz! - c.z) < 5) tz = tz! + (tz! > c.z ? 3 : -3);
-    if (b.receiver === p.id) { tx = b.x; tz = b.z; } // va a buscar el pase
+    if (b.receiver === p.id) [tx, tz] = receiveSpot(m, p); // va a buscar el pase (al espacio: pica al lugar)
     run = 0.85;
   } else if (c) { // defendemos
     const mates = m.players.filter(q => q.team === p.team && q.role !== 'gk' && alive(q)).sort((a, q) => hyp(a.x - c.x, a.z - c.z) - hyp(q.x - c.x, q.z - c.z));
@@ -1089,7 +1148,8 @@ function brain(m: SoccerMatch, p: Player, dt: number) {
     const humanActive = isHuman(m, p.team) ? m.teams[p.team].active : -1;
     const first = mates.filter(q => q.id !== humanActive).sort((a, q) => eta(a) - eta(q))[0];
     const chase = b.receiver === p.id || (first === p && (humanActive < 0 || eta(p) < eta(m.players[humanActive]) * 0.7));
-    if (chase) { const t = Math.min(1.1, eta(p)); tx = clamp(b.x + b.vx * t * 0.7, 0.5, L - 0.5); tz = clamp(b.z + b.vz * t * 0.7, 0.5, D - 0.5); }
+    if (b.receiver === p.id) [tx, tz] = receiveSpot(m, p); // (su pase al espacio, o su autopase)
+    else if (chase) { const t = Math.min(1.1, eta(p)); tx = clamp(b.x + b.vx * t * 0.7, 0.5, L - 0.5); tz = clamp(b.z + b.vz * t * 0.7, 0.5, D - 0.5); }
     else { [tx, tz] = home(b.last === p.team ? (style === 'off' ? 6 : 3) : (style === 'def' ? -4 : -1)); run = 0.8; }
   }
   p.tx = tx!; p.tz = tz!; p.run = hyp(tx! - p.x, tz! - p.z) > 0.4 ? run : 0;
@@ -1144,6 +1204,17 @@ function carrierAI(m: SoccerMatch, p: Player, lv: number, cpu: boolean) {
       const full = m.rand() < (cpu ? 0.05 + 0.6 * lv : 0.45); // (carga la barra entera: gol seguro; en Fácil casi nunca)
       const ch = full ? 1 : clamp(0.3 + (dg - 5) / 26 + m.rand() * 0.15, 0.3, 0.9), side = m.rand() < 0.45 ? 0 : (m.rand() < 0.5 ? -1 : 1);
       shoot(m, p, ch, side as -1 | 0 | 1, cpu ? 1.35 - lv * 0.55 : 1); return;
+    }
+    // pase al espacio: a un compañero que va más adelante y tiene lugar libre delante
+    if (p.hold > 0.45 && dg > 12 && m.rand() < 0.28) {
+      const runner = m.players.filter(q => q.team === p.team && q !== p && q.role !== 'gk' && alive(q) && (q.x - p.x) * dir > 4 && spaceSpot(m, q) && laneRisk(m, p, q) < 0.6).sort((a, q) => (q.x - a.x) * dir)[0];
+      if (runner) { pass(m, p, null, { space: true, to: runner }); return; }
+    }
+    // autopase: si adelante hay lugar (ningún rival cerca en el camino), la toca larga y sale corriendo
+    if (p.hold > 0.4 && dg > range - 2 && m.rand() < 0.25) {
+      const gz = (ZC - p.z) * 0.25, ax = dir, az = clamp(gz / 6, -0.5, 0.5), an = hyp(ax, az);
+      const clear = !m.players.some(o => o.team !== p.team && alive(o) && o.role !== 'gk' && (o.x - p.x) * dir > -0.5 && (o.x - p.x) * dir < 12 && Math.abs(o.z - (p.z + (o.x - p.x) * dir * az / an)) < 3.5);
+      if (clear && autoPass(m, p, [ax / an, az / an])) return;
     }
     if (nd < 2.6 && front && p.hold > 0.25 && (dg > range || m.rand() < 0.3) && m.rand() < (cpu ? 0.18 + 0.2 * lv : 0.35)) { pass(m, p, null); return; }
     if (p.hold > 0.8 && dg > range + 4 && m.rand() < 0.3) { // (la cancha es larga: se la pasa al compañero que está más adelante y libre)
