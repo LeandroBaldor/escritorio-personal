@@ -55,7 +55,8 @@ import invPersonasUrl from './assets/sonidos/invasion-personas.mp3';
 import invAmetralladoraUrl from './assets/sonidos/invasion-ametralladora.mp3';
 import invBazookaVueloUrl from './assets/sonidos/invasion-bazooka-vuelo.mp3';
 import invBazookaBoomUrl from './assets/sonidos/invasion-bazooka-explosion.mp3';
-import invAlienHablaUrl from './assets/sonidos/invasion-alien-habla.mp3';
+import invAlienHablaUrl from './assets/sonidos/invasion-alien-voz.mp3'; // la voz alienígena que pasó el usuario (alien_voz.mp3)
+import invMusicaUrl from './assets/sonidos/invasion-musica.mp3';
 import invLluviaUrl from './assets/sonidos/invasion-lluvia.mp3';
 import propulsorUrl from './assets/sonidos/propulsor.mp3';
 import trepaCiudadUrl from './assets/sonidos/trepa-ciudad.mp3';
@@ -927,7 +928,7 @@ export function setCrowd(level: number) {
 
 // ---------- Invasión ----------
 let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
-export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invAlienHablaUrl, invLluviaUrl]) loadSample(url); }
+export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invAlienHablaUrl, invMusicaUrl, invLluviaUrl]) loadSample(url); }
 // Voces en un idioma inventado: una voz (tono que sube y baja) que pasa por dos "formantes" que cambian todo
 // el tiempo (las vocales) y se corta en sílabas.
 function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
@@ -942,6 +943,8 @@ function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
 function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel> {
   const channel = (max: number, make: (out: GainNode) => void) => ambientChannel(c, max, make);
   return {
+    // La música del juego (musica.mp3 del usuario), en loop.
+    music: channel(0.3, out => recorded(c, invMusicaUrl, 1, out, () => undefined, 0.01, 0.01)),
     // La ciudad: la grabación de los autos (mientras carga, el rumor del tránsito y alguna bocina lejana).
     city: channel(0.55, out => recorded(c, invAutosUrl, 1, out, out => {
       const traffic = noiseSource(c), low = filter(c, 'lowpass', 380), level = c.createGain();
@@ -1097,7 +1100,7 @@ export function playBlast(volume: number) {
   burst(c, 'lowpass', 1500, t, 0.8, 0.9 * volume);
 }
 // Un alien que habla (en su idioma): si se escucha esta voz cerca de la mira, ahí hay un alien.
-export function playAlienTalk(volume: number) { if (volume >= 0.05) playSample(invAlienHablaUrl, volume, 0, 0.9 + Math.random() * 0.25); }
+export function playAlienTalk(volume: number) { if (volume >= 0.05) playSample(invAlienHablaUrl, volume * 1.4, 0, 0.92 + Math.random() * 0.16); }
 // El intercomunicador de los aliens: pitidos que suben y bajan y una voz metálica que tartamudea.
 export function playAlienComm(volume: number) {
   const c = running(); if (!c || volume < 0.05) return;

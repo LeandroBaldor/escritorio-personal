@@ -2,6 +2,7 @@
 // cabeza redonda con nariz, ojo y oreja, remera de colores, pantalón y zapatillas), pero con muchas más
 // posturas (sentados, acostados, agachados, estirando el brazo, con los brazos arriba, gateando), con lo que
 // tienen en la mano según lo que hacen, los aliens grises y todas las anomalías.
+import { drawGraySprite } from './invasionGray';
 import { anomalyOf, poseOf, revealed, roomOf, type Invasion, type Person, type Pose } from './invasion';
 import type { AnomalyFx, PropKind } from './invasionAnomalies';
 
@@ -478,6 +479,12 @@ function drawGrayHead(ctx: CanvasRenderingContext2D, base: string, x: number, y:
 }
 
 function drawGray(ctx: CanvasRenderingContext2D, o: Outfit, kind: Pose['kind'], H: number, k: number, t: number, opts: BodyOpts, sk: Skel, dead: boolean) {
+  // Primero, el gris armado con la imagen de referencia (si ya cargó); si no, el dibujado a mano de abajo.
+  const sprite = drawGraySprite(ctx, H, k, t, { kind: dead ? 'stand' : kind, firing: opts.prop === 'raygun', flat: o.skin === '#000', eyes: opts.head?.eyes, lean: opts.lean });
+  if (sprite) {
+    if (opts.prop && opts.prop !== 'raygun') drawProp(ctx, opts.prop, sprite.hand[0], sprite.hand[1], H * 0.6, t, opts.propUpside); // (más chico: el gris es grande)
+    return { head: sprite.head, handF: sprite.ray, r: sprite.r };
+  }
   const flat = o.skin === '#000' ? '#000' : null; // la sombra en la pared: todo negro
   const base = o.skin, far = mixColor(base, '#000000', 0.3), ol = H > 26 && !flat ? Math.max(0.6, H * 0.0085) : 0;
   const s = Math.sin(k), c = Math.cos(k);

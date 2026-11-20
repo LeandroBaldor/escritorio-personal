@@ -1,3 +1,4 @@
+import { preloadGray } from './invasionGray';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { TouchGrips } from './TouchGrips';
 import { fitScale, pixelRatio, useFitScreen } from './fitScreen';
@@ -245,7 +246,7 @@ export function Invasion() {
   }, []);
 
   const start = useCallback(() => {
-    playStart(); preloadInvasionSounds();
+    playStart(); preloadInvasionSounds(); preloadGray();
     gameRef.current = newInvasion();
     const g = gameRef.current;
     cam.current.x = g.width * (0.3 + Math.random() * 0.4);
@@ -329,12 +330,15 @@ export function Invasion() {
         if (e.type === 'rain') setToast({ text: '🌧️ Se largó una tormenta: llueve y hay relámpagos', id: now, big: true });
       }
       if (now - soundAt > 100) { soundAt = now; setInvasionAmbient(invasionLevels(g, p.x, p.y, a.zoom)); }
-      // Cada tanto habla (en su idioma) el alien más cercano a la mira: si escuchás esa voz, hay uno cerca.
+      // Al hacer zoom se escucha hablar (con la voz alienígena) al alien que está en la mira o más cerca del
+      // centro: cuanto más zoom, más fuerte y más seguido. Sin zoom no se los escucha.
       if (now > talkAt) {
-        const radius = Math.max(3, Math.min(12, 420 / a.zoom));
+        const zoomK = Math.max(0, Math.min(1, (a.zoom - 50) / 120));
+        const view = stage ? Math.min(stage.clientWidth, stage.clientHeight) * 0.5 / a.zoom : 6;
+        const radius = Math.max(2, Math.min(14, view));
         let best: { d: number; who: Game['people'][number] } | null = null;
-        for (const o of g.people) { if (!o.alien || o.dead || o.gone) continue; const d = Math.hypot(o.x - p.x, (o.y + 0.8 - p.y) * 1.3); if (d < radius && (!best || d < best.d)) best = { d, who: o }; }
-        if (best) { playAlienTalk(1 - best.d / radius); best.who.talk = 1.6; talkAt = now + 2500 + Math.random() * 3500; } else talkAt = now + 800;
+        if (zoomK > 0.1) for (const o of g.people) { if (!o.alien || o.dead || o.gone) continue; const d = Math.hypot(o.x - p.x, (o.y + 0.9 - p.y) * 1.2); if (d < radius && (!best || d < best.d)) best = { d, who: o }; }
+        if (best) { playAlienTalk(zoomK * (0.45 + 0.55 * (1 - best.d / radius))); best.who.talk = 2.2; talkAt = now + (zoomK > 0.5 ? 1300 + Math.random() * 1500 : 2600 + Math.random() * 2500); } else talkAt = now + 500;
       }
       paint();
       const shown = { time: Math.ceil(GAME_SECONDS - g.time), kills: g.kills, humans: aliveHumans(g), aliens: aliveAliens(g), mag: G.mag, reloading: G.reload > 0 };

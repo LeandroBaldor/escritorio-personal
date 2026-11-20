@@ -9,6 +9,7 @@ export const HUMAN_TOTAL = 300;
 export const ALIEN_TOTAL = 300;
 export const REVEAL_EVERY = 30, REVEAL_TIME = 5;
 export const PERSON_H = 1, PERSON_W = 0.42;
+export const ALIEN_SIZE = 1.3; // los grises miden 1,3 veces una persona
 export const SIDEWALK_Y = 0, ROAD_Y = -1.6;
 // El ovni (la imagen de Kombat Penales) va de 4 m arriba del centro (la cúpula) a 3,7 m abajo (el emisor).
 const UFO_DY = 0.15, UFO_HALF_H = 3.85;
@@ -250,6 +251,7 @@ function spawnAlien(g: Invasion, index: number) {
   const p = addPerson(g, room?.id ?? -1, x, room?.y ?? SIDEWALK_Y, room ? 'resident' : 'walker');
   p.alien = true;
   p.dog = false;
+  p.look = { ...p.look, size: ALIEN_SIZE * (0.96 + (p.id % 5) * 0.02), kid: false }; // los grises son más grandes que la gente
   p.revealPhase = g.rand() * REVEAL_EVERY;
   p.nextAnomaly = g.time + between(g.rand, 10, 24);
   p.nextSabotage = g.time + between(g.rand, 2, 11);
@@ -704,7 +706,7 @@ export function poseOf(g: Invasion, p: Person): Pose {
 
 // El rectángulo de una persona (y dónde empieza la cabeza), según cómo está.
 export function hitbox(g: Invasion, p: Person) {
-  const s = poseOf(g, p), w = PERSON_W * (s.kind === 'reach' ? 1.3 : 1) * s.sx;
+  const s = poseOf(g, p), w = PERSON_W * (s.kind === 'reach' ? 1.3 : 1) * s.sx * (p.alien ? 1.35 : 1);
   if (s.wall) { // caminando por la pared o por el techo
     if (Math.abs(Math.abs(s.wall) - Math.PI) < 0.01) return { x1: s.x - w / 2, x2: s.x + w / 2, y1: s.y - s.h, y2: s.y, headX: s.x, headY: s.y - s.h * 0.82 };
     const d = s.wall < 0 ? -1 : 1;
