@@ -38,37 +38,12 @@ export class FactorySound {
     this.loading = Promise.all([...FACTORY_FART_SOUNDS, explosion, splat, ambience, eatSound, deathSound, bloodSound, countdownThree, countdownTwo, countdownOne, countdownGo].map(async url => {
       const response = await fetch(url); if (!response.ok) throw new Error('No se pudo cargar un sonido.');
       return context.decodeAudioData(await response.arrayBuffer());
-    })).then(async buffers => {
-      // Bake both simultaneous robotic voices into one buffer so stop/mute also stops the clone.
-      const robot = await Promise.all(buffers.slice(16).map(buffer => this.robotVoice(buffer)));
-      this.buffers = [...buffers.slice(0, 16), ...robot];
+    })).then(buffers => {
+      // La cuenta regresiva (tres, dos, uno, go) es la voz de mujer con el mismo efecto que los nombres de
+      // Kombat Football, ya grabado en los mp3: un poco robótica y doblada con una copia más grave.
+      this.buffers = buffers;
     });
     return this.loading;
-  }
-  private async robotVoice(recording: AudioBuffer) {
-    // The supplied clips include long silences. Trim them before layering, so the voice
-    // begins with the displayed digit and the low clone finishes before the next one.
-    const channels = Array.from({ length: recording.numberOfChannels }, (_, i) => recording.getChannelData(i));
-    let peak = 0;
-    for (const channel of channels) for (const sample of channel) peak = Math.max(peak, Math.abs(sample));
-    let first = recording.length - 1, last = 0;
-    for (const channel of channels) for (let i = 0; i < channel.length; i++) if (Math.abs(channel[i]) > Math.max(0.001, peak * 0.025)) { first = Math.min(first, i); last = Math.max(last, i); }
-    if (first > last) { first = 0; last = recording.length - 1; }
-    const padding = Math.round(recording.sampleRate * 0.02);
-    first = Math.max(0, first - padding); last = Math.min(recording.length - 1, last + padding);
-    const buffer = new AudioBuffer({ numberOfChannels: recording.numberOfChannels, length: last - first + 1, sampleRate: recording.sampleRate });
-    for (let i = 0; i < channels.length; i++) buffer.copyToChannel(channels[i].subarray(first, last + 1), i);
-    const offline = new OfflineAudioContext(2, Math.ceil(buffer.duration / 0.76 * buffer.sampleRate), buffer.sampleRate);
-    const compressor = offline.createDynamicsCompressor(); compressor.threshold.value = -12; compressor.ratio.value = 5; compressor.connect(offline.destination);
-    for (const [rate, frequency, volume] of [[1, 76, 0.48], [0.76, 49, 0.42]]) {
-      const source = offline.createBufferSource(), filter = offline.createBiquadFilter(), ring = offline.createGain(), modulator = offline.createOscillator(), depth = offline.createGain(), gain = offline.createGain();
-      source.buffer = buffer; source.playbackRate.value = rate;
-      filter.type = 'bandpass'; filter.frequency.value = rate === 1 ? 1450 : 950; filter.Q.value = 0.65;
-      ring.gain.value = 0.55; modulator.type = 'sine'; modulator.frequency.value = frequency; depth.gain.value = 0.45; gain.gain.value = volume;
-      modulator.connect(depth); depth.connect(ring.gain); source.connect(filter); filter.connect(ring); ring.connect(gain); gain.connect(compressor);
-      source.start(0); modulator.start(0); modulator.stop(offline.length / offline.sampleRate);
-    }
-    return offline.startRendering();
   }
   countdown(beat: number) { this.play(16 + (beat === 0 ? 3 : 3 - beat)); }
   unlock() {
