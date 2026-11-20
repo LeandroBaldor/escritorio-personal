@@ -7,7 +7,7 @@ import { ANOMALIES } from './invasionAnomalies';
 import { drawMinimap, paintCity, type View } from './invasionArt';
 import { invasionLevels } from './invasionSound';
 import {
-  playAlienComm, playAlienDeath, playAlienTalk, playBlast, playBolt, playCivilianHit, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playRayGun, playReload,
+  playAlienComm, playAlienDeath, playAlienTalk, playBazookaShot, playBlast, playBolt, playCivilianHit, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playMachineShot, playRayGun, playReload,
   playRicochet, playRifleShot, playScream, playStart, playThunder, playUfoArrive, playWinFanfare, preloadInvasionSounds, setInvasionAmbient,
 } from './sounds';
 import { EndBanner } from './EndBanner';
@@ -222,7 +222,7 @@ export function Invasion() {
     const p = target(stage.clientWidth, stage.clientHeight);
     G.mag--;
     aim.current.kick = current === 'machine' ? 0.33 : 1;
-    if (current !== 'bazooka') playRifleShot();
+    if (current === 'bazooka') playBazookaShot(); else if (current === 'machine') playMachineShot(); else playRifleShot();
     const hit = shoot(g, p.x, p.y, current);
     if (hit === 'alien' || hit === 'ufoDestroyed' || hit === 'blast') { aim.current.shake = 1; aim.current.flash = 1; }
     if (hit === 'ufoDestroyed') setToast({ text: 'OVNI derribado', id: performance.now() });
@@ -309,7 +309,7 @@ export function Invasion() {
         if (e.type === 'glass') playGlass(0.8);
         if (e.type === 'ufoPing') playRicochet();
         if (e.type === 'defused') playDefuse();
-        if (e.type === 'explosion') { const k = near(e.x, e.y); playBlast(Math.max(0.15, k)); a.shake = Math.max(a.shake, 0.3 + k * 1.2); }
+        if (e.type === 'explosion') { const k = near(e.x, e.y); if (!e.bazooka) playBlast(Math.max(0.15, k)); a.shake = Math.max(a.shake, 0.3 + k * 1.2); }
         if (e.type === 'bomb' && near(e.x, e.y) > 0.3) setToast({ text: 'Explosivo cercano. Buscá la caja con la luz roja.', id: now, bad: true });
         if (e.type === 'laser') playLaser(Math.max(0.2, near(e.x, e.y)));
         if (e.type === 'lighter') playLighter(near(e.x, e.y));

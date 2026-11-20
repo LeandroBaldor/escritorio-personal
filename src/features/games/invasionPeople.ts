@@ -114,7 +114,7 @@ export function outfitOf(p: Person, skinOverride?: string): Outfit {
   };
 }
 const ALIEN: Outfit = {
-  skin: '#a8adb5', hair: '#a8adb5', hat: 'bald', hatColor: '#a8adb5', shirt: ['#9ca3af', '#9ca3af', '#9ca3af'], pants: '#8b9099', shoes: '#6b7280', vest: false, alien: true,
+  skin: '#a3a6ab', hair: '#a3a6ab', hat: 'bald', hatColor: '#a3a6ab', shirt: ['#9a9da2', '#9a9da2', '#9a9da2'], pants: '#8b8e93', shoes: '#6b6e73', vest: false, alien: true,
   top: 'tee', glasses: false, beard: 0, bag: 0, watch: false, earring: false, tie: false, inner: '#9ca3af', belt: '#8b9099',
 };
 
@@ -261,6 +261,11 @@ export function drawBody(ctx: CanvasRenderingContext2D, o: Outfit, kind: Pose['k
   if (lie) { ctx.translate(-H * 0.45, 0); ctx.rotate(-Math.PI / 2); ctx.translate(0, H * 0.12); }
   const sk = skeleton(lie ? 'stand' : kind, H, k, opts, o.alien);
   if (kind === 'dead') { sk.handF = [H * 0.3, -H * 0.62]; sk.handB = [-H * 0.25, -H * 0.5]; sk.footF = [H * 0.18, 0]; sk.footB = [-H * 0.12, -H * 0.02]; sk.kneeF = [H * 0.1, -H * 0.16]; }
+  if (o.alien && !o.alienHead) { // el gris tiene su propio dibujo
+    const gray = drawGray(ctx, o, lie ? 'stand' : kind, H, k, t, opts, sk, kind === 'dead');
+    ctx.restore();
+    return { head: [gray.head[0] * f * (opts.sx ?? 1), gray.head[1]] as Pt, handF: [gray.handF[0] * f, gray.handF[1]] as Pt, r: gray.r };
+  }
   const limb = Math.max(1.5, H * (o.alien ? 0.06 : 0.066));
   const sleeve = o.alien ? o.skin : o.top === 'jacket' ? mixColor(o.shirt[0], '#000000', 0.15) : o.shirt[0];
   const detail = H > 40 && !o.alien;
@@ -355,6 +360,226 @@ export function drawBody(ctx: CanvasRenderingContext2D, o: Outfit, kind: Pose['k
   }
   ctx.restore();
   return { head: [head[0] * f * (opts.sx ?? 1), head[1]] as Pt, handF: [sk.handF[0] * f, sk.handF[1]] as Pt, r: sk.r };
+}
+
+// ---------- El gris (alien) ----------
+// Al estilo de la referencia del usuario (alien_2.png): cráneo enorme hacia atrás con manchas, ojo negro
+// almendrado, boca abierta con colmillos, cuerpo flaco y musculoso, encorvado, patas con garras y el rifle
+// alienígena (bronce con tubos verdes que brillan). Las piernas tienen cadera, rodilla, tobillo y dedos, así
+// se animan al caminar (`k` es la fase del paso). Todo mirando a la derecha, con los pies en 0,0.
+const GRAY_OUTLINE = '#15171b';
+// mode: 'stroke' dibuja solo el contorno (más grueso), 'fill' solo el relleno: primero se pasa el contorno de
+// todo un grupo y después los rellenos, así no quedan costuras entre los huesos.
+type GrayMode = 'stroke' | 'fill';
+function graySeg(ctx: CanvasRenderingContext2D, a: Pt, b: Pt, w0: number, w1: number, fill: string, ol: number, mode: GrayMode = 'fill') {
+  // El contorno es la misma forma, un poco más gruesa y oscura (se dibuja antes que los rellenos del grupo).
+  if (mode === 'stroke') { if (ol <= 0) return; w0 += ol * 2; w1 += ol * 2; fill = GRAY_OUTLINE; }
+  const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.moveTo(a[0] + nx * w0 / 2, a[1] + ny * w0 / 2); ctx.lineTo(b[0] + nx * w1 / 2, b[1] + ny * w1 / 2);
+  ctx.lineTo(b[0] - nx * w1 / 2, b[1] - ny * w1 / 2); ctx.lineTo(a[0] - nx * w0 / 2, a[1] - ny * w0 / 2); ctx.closePath();
+  ctx.moveTo(a[0] + w0 / 2, a[1]); ctx.arc(a[0], a[1], w0 / 2, 0, Math.PI * 2);
+  ctx.moveTo(b[0] + w1 / 2, b[1]); ctx.arc(b[0], b[1], w1 / 2, 0, Math.PI * 2);
+  ctx.fill('nonzero');
+}
+// El codo (o la rodilla) para que el brazo llegue a la mano con los dos huesos del mismo largo.
+function grayJoint(a: Pt, b: Pt, len: number, bend: 1 | -1): Pt {
+  const dx = b[0] - a[0], dy = b[1] - a[1], d = Math.min(Math.hypot(dx, dy), len * 1.98) || 1;
+  const ang = Math.atan2(dy, dx) + bend * Math.acos(Math.min(1, d / (2 * len)));
+  return [a[0] + Math.cos(ang) * len, a[1] + Math.sin(ang) * len];
+}
+
+function drawAlienRifle(ctx: CanvasRenderingContext2D, grip: Pt, front: Pt, H: number, t: number, firing: boolean, flat: string | null): Pt {
+  const u = H * 0.1, ang = Math.atan2(front[1] - grip[1], front[0] - grip[0]), d = Math.hypot(front[0] - grip[0], front[1] - grip[1]);
+  const end = d + 2 * u, ol = Math.max(0.6, H * 0.008);
+  ctx.save(); ctx.translate(grip[0], grip[1]); ctx.rotate(ang);
+  const bronze = (y0: number, y1: number) => { if (flat) return flat; const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, '#8a7357'); g.addColorStop(0.45, '#5b4a37'); g.addColorStop(1, '#2a221a'); return g; };
+  const shape = (draw: () => void, fill: string | CanvasGradient) => { ctx.beginPath(); draw(); ctx.strokeStyle = GRAY_OUTLINE; ctx.lineWidth = ol * 2; ctx.lineJoin = 'round'; ctx.stroke(); ctx.fillStyle = fill; ctx.fill(); };
+  // Culata, cuerpo, caño y las púas de arriba que van hacia atrás.
+  shape(() => { ctx.moveTo(-1.5 * u, -0.05 * u); ctx.lineTo(-0.1 * u, -0.38 * u); ctx.lineTo(0, 0.3 * u); ctx.lineTo(-1.3 * u, 0.62 * u); ctx.closePath(); }, bronze(-0.4 * u, 0.6 * u));
+  shape(() => { ctx.roundRect(-0.35 * u, -0.45 * u, d + 1.25 * u, 0.72 * u, 0.25 * u); }, bronze(-0.45 * u, 0.3 * u));
+  shape(() => { ctx.roundRect(d + 0.7 * u, -0.27 * u, end - d - 0.7 * u, 0.4 * u, 0.12 * u); }, bronze(-0.27 * u, 0.13 * u));
+  for (const [x, h] of [[d * 0.5, 0.45], [d + 0.35 * u, 0.6], [d + 1.2 * u, 0.5]] as [number, number][]) {
+    shape(() => { ctx.moveTo(x - 0.45 * u, -0.4 * u); ctx.quadraticCurveTo(x + 0.1 * u, -0.45 * u, x + 0.35 * u, -(0.4 + h) * u); ctx.quadraticCurveTo(x + 0.12 * u, -0.5 * u, x + 0.25 * u, -0.38 * u); ctx.closePath(); }, bronze(-1 * u, -0.4 * u));
+  }
+  shape(() => { ctx.moveTo(0.1 * u, 0.25 * u); ctx.quadraticCurveTo(0.2 * u, 0.75 * u, 0.6 * u, 0.7 * u); ctx.lineTo(0.55 * u, 0.25 * u); }, flat ?? '#3a3026'); // guardamonte
+  // Los tubos verdes que brillan (y laten).
+  const pulse = 0.75 + Math.sin(t * 6) * 0.25 + (firing ? 0.3 : 0);
+  const green = flat ?? '#7dff3c';
+  if (!flat) {
+    const glowAt = (x: number, y: number, r: number) => { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(160,255,90,${0.55 * Math.min(1, pulse)})`); g.addColorStop(1, 'rgba(120,255,60,0)'); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2); };
+    glowAt(d * 0.45, -0.1 * u, 1.3 * u); glowAt(end, -0.07 * u, (firing ? 1.4 : 0.8) * u);
+  }
+  ctx.fillStyle = green; ctx.beginPath(); ctx.roundRect(d * 0.45 - 0.55 * u, -0.28 * u, 1.1 * u, 0.36 * u, 0.15 * u); ctx.fill();
+  if (!flat) { ctx.fillStyle = 'rgba(240,255,220,0.8)'; ctx.fillRect(d * 0.45 - 0.4 * u, -0.22 * u, 0.8 * u, 0.06 * u); }
+  for (let i = 0; i < 3; i++) { ctx.fillStyle = green; ctx.beginPath(); ctx.roundRect(d * 0.45 + (0.8 + i * 0.35) * u, -0.25 * u, 0.2 * u, 0.25 * u, 0.06 * u); ctx.fill(); }
+  ctx.beginPath(); ctx.ellipse(end, -0.07 * u, 0.1 * u, 0.2 * u, 0, 0, Math.PI * 2); ctx.fillStyle = flat ?? (firing ? '#eaffd0' : green); ctx.fill();
+  ctx.restore();
+  const ca = Math.cos(ang), sa = Math.sin(ang);
+  return [grip[0] + ca * end - sa * (-0.07 * u), grip[1] + sa * end + ca * (-0.07 * u)];
+}
+
+function drawGrayHead(ctx: CanvasRenderingContext2D, base: string, x: number, y: number, R: number, h: HeadOpts, mouth: number, ol: number, flat: boolean) {
+  ctx.save(); ctx.translate(x, y);
+  if (h.upside) ctx.rotate(Math.PI);
+  const front = h.face === 'front';
+  const light = mixColor(base, '#ffffff', 0.35), dark = mixColor(base, '#000000', 0.38);
+  const skull = () => {
+    ctx.beginPath();
+    if (front) {
+      ctx.ellipse(0, -0.42 * R, 1.08 * R, 1.08 * R, 0, 0, Math.PI * 2);
+      ctx.moveTo(-0.95 * R, -0.1 * R); ctx.quadraticCurveTo(-0.7 * R, 0.75 * R, 0, 1.0 * R); ctx.quadraticCurveTo(0.7 * R, 0.75 * R, 0.95 * R, -0.1 * R); ctx.closePath();
+    } else {
+      ctx.ellipse(-0.38 * R, -0.58 * R, 1.28 * R, 0.98 * R, -0.42, 0, Math.PI * 2);
+      ctx.moveTo(0.5 * R, -1.05 * R); ctx.quadraticCurveTo(1.0 * R, -0.75 * R, 1.0 * R, -0.3 * R); ctx.quadraticCurveTo(1.14 * R, 0.0, 1.04 * R, 0.3 * R);
+      ctx.lineTo(1.0 * R, 0.62 * R); ctx.quadraticCurveTo(0.9 * R, 0.95 * R, 0.62 * R, 0.95 * R); ctx.quadraticCurveTo(0.15 * R, 0.85 * R, -0.45 * R, 0.15 * R); ctx.closePath();
+    }
+  };
+  skull();
+  if (ol > 0) { ctx.strokeStyle = GRAY_OUTLINE; ctx.lineWidth = ol * 2.4; ctx.lineJoin = 'round'; ctx.stroke(); }
+  if (flat) { ctx.fillStyle = base; ctx.fill(); ctx.restore(); return; }
+  const g = ctx.createRadialGradient(front ? -0.3 * R : 0.1 * R, -1.0 * R, 0.1 * R, 0, -0.3 * R, 1.6 * R);
+  g.addColorStop(0, light); g.addColorStop(0.55, base); g.addColorStop(1, dark);
+  ctx.fillStyle = g; ctx.fill();
+  // Manchas en el cráneo.
+  ctx.fillStyle = mixColor(base, '#000000', 0.32);
+  const spots: [number, number, number][] = front ? [[-0.55, -0.95, 0.11], [0.5, -1.05, 0.09], [-0.2, -1.25, 0.07], [0.75, -0.6, 0.08]] : [[-0.55, -1.08, 0.13], [-1.0, -0.62, 0.11], [-0.22, -1.25, 0.08], [-0.8, -0.18, 0.09], [-1.25, -0.95, 0.07]];
+  for (const [sx, sy, r] of spots) { ctx.beginPath(); ctx.ellipse(sx * R, sy * R, r * R * 1.2, r * R, 0.3, 0, Math.PI * 2); ctx.fill(); }
+  const eyeColor = h.eyes ?? '#06070a';
+  const eye = (ex: number, ey: number, rot: number) => {
+    ctx.fillStyle = eyeColor; if (h.eyes) { ctx.shadowColor = h.eyes; ctx.shadowBlur = R * 0.8; }
+    ctx.beginPath(); ctx.ellipse(ex * R, ey * R, 0.46 * R, 0.24 * R, rot, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+    if (!h.eyes) { dot(ctx, 'rgba(255,255,255,0.9)', (ex - 0.14) * R, (ey - 0.09) * R, 0.075 * R); dot(ctx, 'rgba(255,255,255,0.35)', (ex + 0.12) * R, (ey + 0.06) * R, 0.04 * R); }
+  };
+  const lineC = mixColor(base, '#000000', 0.5), lw = Math.max(0.7, R * 0.06);
+  if (front) {
+    for (const s of [-1, 1]) { line(ctx, lineC, lw, [s * 0.12 * R, -0.62 * R], [s * 0.85 * R, -0.5 * R]); eye(s * 0.45, -0.22, s * 0.5); }
+    // Boca abierta con colmillos.
+    const mw = 0.32 * R, mt = 0.48 * R, mh = (0.15 + 0.3 * mouth) * R;
+    ctx.fillStyle = '#3b0b10'; ctx.beginPath(); ctx.ellipse(0, mt + mh / 2, mw, mh / 2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f2f0e6';
+    for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo((i * 0.12 - 0.05) * R, mt + 0.03 * R); ctx.lineTo((i * 0.12 + 0.05) * R, mt + 0.03 * R); ctx.lineTo(i * 0.12 * R, mt + (0.13 + (i % 2 ? 0 : 0.04)) * R); ctx.fill(); }
+    for (const i of [-1, 1]) { ctx.beginPath(); ctx.moveTo((i * 0.16 - 0.05) * R, mt + mh); ctx.lineTo((i * 0.16 + 0.05) * R, mt + mh); ctx.lineTo(i * 0.16 * R, mt + mh - 0.12 * R); ctx.fill(); }
+  } else {
+    line(ctx, lineC, lw * 1.3, [0.05 * R, -0.62 * R], [0.6 * R, -0.55 * R], [0.98 * R, -0.38 * R]); // ceño
+    eye(0.5, -0.24, 0.5);
+    line(ctx, mixColor(base, '#000000', 0.25), Math.max(0.6, R * 0.045), [0.15 * R, 0.1 * R], [0.5 * R, 0.32 * R]); // pómulo
+    dot(ctx, lineC, 1.04 * R, 0.0, 0.04 * R); // la nariz (un agujerito)
+    // Boca abierta de perfil, con colmillos arriba y abajo.
+    const top = 0.26 * R, open = (0.2 + 0.32 * mouth) * R;
+    ctx.fillStyle = '#3b0b10'; ctx.beginPath(); ctx.moveTo(0.42 * R, top + 0.06 * R); ctx.lineTo(1.04 * R, top); ctx.lineTo(0.96 * R, top + open); ctx.lineTo(0.5 * R, top + open * 0.7); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#9b2c35'; ctx.beginPath(); ctx.ellipse(0.66 * R, top + open * 0.62, 0.2 * R, 0.07 * R, 0.2, 0, Math.PI * 2); ctx.fill(); // lengua
+    ctx.fillStyle = '#f2f0e6';
+    for (const [x, l] of [[0.56, 0.1], [0.7, 0.17], [0.83, 0.12], [0.96, 0.17]] as [number, number][]) { ctx.beginPath(); ctx.moveTo((x - 0.05) * R, top + 0.02 * R); ctx.lineTo((x + 0.05) * R, top + 0.01 * R); ctx.lineTo((x + 0.01) * R, top + l * R); ctx.fill(); }
+    for (const [x, l] of [[0.66, 0.12], [0.84, 0.16]] as [number, number][]) { const by = top + open * (0.72 + (x - 0.5) * 0.5); ctx.beginPath(); ctx.moveTo((x - 0.05) * R, by); ctx.lineTo((x + 0.05) * R, by + 0.01 * R); ctx.lineTo(x * R, by - l * R); ctx.fill(); }
+  }
+  ctx.restore();
+}
+
+function drawGray(ctx: CanvasRenderingContext2D, o: Outfit, kind: Pose['kind'], H: number, k: number, t: number, opts: BodyOpts, sk: Skel, dead: boolean) {
+  const flat = o.skin === '#000' ? '#000' : null; // la sombra en la pared: todo negro
+  const base = o.skin, far = mixColor(base, '#000000', 0.3), ol = H > 26 && !flat ? Math.max(0.6, H * 0.0085) : 0;
+  const s = Math.sin(k), c = Math.cos(k);
+  const P = (x: number, y: number): Pt => [x * H, y * H];
+  const low = kind === 'squat' || kind === 'sit' || kind === 'crawl';
+  const run = kind === 'run', moving = kind === 'walk' || run;
+  // Tronco encorvado (más agachado al correr y al acurrucarse), como la referencia.
+  const bob = moving ? -Math.abs(c) * (run ? 0.025 : 0.014) : Math.sin(k * 0.3) * 0.004;
+  let hip = P(-0.02, (low ? -0.3 : -0.4) + bob), neck = P(run ? 0.13 : 0.08, (low ? -0.56 : -0.67) + bob), head = P(run ? 0.22 : 0.16, (low ? -0.71 : -0.82) + bob);
+  if (opts.lean) { neck = [neck[0] + opts.lean * H, neck[1]]; head = [head[0] + opts.lean * H * 1.3, head[1]]; }
+  if (dead) { hip = P(-0.03, -0.42); neck = P(0.03, -0.72); head = P(0.06, -0.87); }
+  // Piernas abiertas y dobladas: el pie va y viene con el paso; la rodilla dobla hacia adelante, el tobillo
+  // queda levantado (camina sobre los dedos, con garras).
+  const legAt = (side: 1 | -1) => {
+    const stride = run ? 0.2 : 0.14, ph = moving ? side * s : side, lift = moving ? Math.max(0, side * c) * (run ? 0.1 : 0.05) : 0;
+    const fx = (low ? 0.02 : -0.01) + ph * (moving ? stride : 0.11);
+    const toe = P(fx + 0.075, -lift * 0.5), ankle = P(fx - 0.02, -0.085 - lift);
+    const knee = grayJoint(hip, ankle, H * (low ? 0.2 : 0.19), -1);
+    return { knee, ankle, toe };
+  };
+  const legF = legAt(1), legB = legAt(-1);
+  // Brazos y arma: el rifle con las dos manos (apuntando si dispara), o lo que tenga en la mano.
+  const shoulder: Pt = [neck[0] - H * 0.015, neck[1] + H * 0.045];
+  const rifle = !dead && (!opts.prop || opts.prop === 'raygun');
+  const firing = opts.prop === 'raygun';
+  const sway = moving ? Math.sin(k * 2) * H * 0.008 : 0;
+  let handF: Pt, handB: Pt;
+  if (rifle) { handB = [shoulder[0] + H * 0.07, shoulder[1] + H * (firing ? 0.14 : 0.2) + sway]; handF = [shoulder[0] + H * 0.27, shoulder[1] + H * (firing ? 0.12 : 0.15) + sway]; }
+  else { handF = opts.handF ?? [sk.handF[0] + H * 0.04, sk.handF[1] + H * 0.06]; handB = opts.handB ?? [sk.handB[0] + H * 0.02, sk.handB[1] + H * 0.06]; }
+  const arm = H * 0.15, elbowF = grayJoint(shoulder, handF, arm, 1), elbowB = grayJoint(shoulder, handB, arm, 1);
+  const legW = H * 0.1, armW = H * 0.072;
+  const leg = (L: { knee: Pt; ankle: Pt; toe: Pt }, col: string, m: GrayMode) => {
+    graySeg(ctx, hip, L.knee, legW, legW * 0.66, col, ol, m);
+    graySeg(ctx, L.knee, L.ankle, legW * 0.62, legW * 0.36, col, ol, m);
+    graySeg(ctx, L.ankle, L.toe, legW * 0.42, legW * 0.26, col, ol, m);
+    if (m === 'stroke' || flat) return;
+    // Músculos de la pierna (muslo y pantorrilla) y las garras.
+    const mid = (a: Pt, b: Pt, q: number): Pt => [a[0] + (b[0] - a[0]) * q, a[1] + (b[1] - a[1]) * q];
+    const hi = mixColor(col, '#ffffff', 0.2), sh = mixColor(col, '#000000', 0.22);
+    const th = mid(hip, L.knee, 0.45), cf = mid(L.knee, L.ankle, 0.3);
+    ctx.fillStyle = hi; ctx.beginPath(); ctx.ellipse(th[0] + legW * 0.12, th[1] - legW * 0.05, legW * 0.28, legW * 0.16, Math.atan2(L.knee[1] - hip[1], L.knee[0] - hip[0]), 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = sh; ctx.beginPath(); ctx.ellipse(cf[0] - legW * 0.12, cf[1], legW * 0.2, legW * 0.11, Math.atan2(L.ankle[1] - L.knee[1], L.ankle[0] - L.knee[0]), 0, Math.PI * 2); ctx.fill();
+    for (const dy of [-0.014, 0, 0.012]) {
+      const tx = L.toe[0], ty = L.toe[1] + dy * H;
+      ctx.fillStyle = '#e1e2e6'; ctx.beginPath(); ctx.moveTo(tx - H * 0.006, ty - H * 0.01); ctx.quadraticCurveTo(tx + H * 0.035, ty - H * 0.01, tx + H * 0.045, ty + H * 0.01); ctx.lineTo(tx, ty + H * 0.007); ctx.fill();
+    }
+  };
+  const armDraw = (el: Pt, hand: Pt, col: string, grip: boolean, m: GrayMode) => {
+    graySeg(ctx, shoulder, el, armW, armW * 0.7, col, ol, m);
+    graySeg(ctx, el, hand, armW * 0.72, armW * 0.45, col, ol, m);
+    const fl = H * (grip ? 0.035 : 0.065), fw = Math.max(0.7, armW * 0.2);
+    for (let i = -1; i <= 1; i++) {
+      const tip: Pt = grip ? [hand[0] + fl * 0.6, hand[1] + fl * (0.6 + i * 0.25)] : [hand[0] + fl, hand[1] + i * fl * 0.4];
+      if (m === 'stroke') { if (ol) line(ctx, GRAY_OUTLINE, fw + ol * 2, hand, tip); } else line(ctx, col, fw, hand, tip);
+    }
+    if (m === 'fill' && !flat && H > 40) { // bíceps y antebrazo
+      const b: Pt = [(shoulder[0] + el[0]) / 2, (shoulder[1] + el[1]) / 2], f: Pt = [el[0] * 0.7 + hand[0] * 0.3, el[1] * 0.7 + hand[1] * 0.3];
+      ctx.fillStyle = mixColor(col, '#ffffff', 0.2); ctx.beginPath(); ctx.ellipse(b[0], b[1] - armW * 0.12, armW * 0.34, armW * 0.2, Math.atan2(el[1] - shoulder[1], el[0] - shoulder[0]), 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = mixColor(col, '#ffffff', 0.12); ctx.beginPath(); ctx.ellipse(f[0], f[1] - armW * 0.08, armW * 0.24, armW * 0.14, Math.atan2(hand[1] - el[1], hand[0] - el[0]), 0, Math.PI * 2); ctx.fill();
+    }
+  };
+  const torso = (m: GrayMode) => {
+    const ang = Math.atan2(neck[1] - hip[1], neck[0] - hip[0]), L = Math.hypot(neck[0] - hip[0], neck[1] - hip[1]);
+    ctx.save(); ctx.translate(hip[0], hip[1]); ctx.rotate(ang + Math.PI / 2); // eje del tronco: -y hacia el cuello, +x adelante
+    const w = H * 0.01;
+    ctx.beginPath();
+    ctx.moveTo(-5 * w, 1 * w); ctx.quadraticCurveTo(-6 * w, -L * 0.45, -9.5 * w, -L * 0.8); ctx.quadraticCurveTo(-7 * w, -L * 1.08, -2 * w, -L * 1.06);
+    ctx.lineTo(4 * w, -L * 1.03); ctx.quadraticCurveTo(11 * w, -L * 0.85, 9 * w, -L * 0.58); ctx.quadraticCurveTo(5.5 * w, -L * 0.35, 5 * w, 1 * w); ctx.closePath();
+    if (m === 'stroke') { if (ol) { ctx.strokeStyle = GRAY_OUTLINE; ctx.lineWidth = ol * 2; ctx.lineJoin = 'round'; ctx.stroke(); } ctx.restore(); return; }
+    if (flat) ctx.fillStyle = flat; else { const g = ctx.createLinearGradient(-9 * w, 0, 10 * w, 0); g.addColorStop(0, mixColor(base, '#000000', 0.3)); g.addColorStop(0.6, mixColor(base, '#ffffff', 0.2)); g.addColorStop(1, base); ctx.fillStyle = g; }
+    ctx.fill();
+    if (!flat && H > 40) {
+      const lc = mixColor(base, '#000000', 0.28), lw = Math.max(0.6, H * 0.005);
+      line(ctx, lc, lw, [1 * w, -L * 0.8], [6 * w, -L * 0.6], [9 * w, -L * 0.64]); // pectoral
+      for (let i = 0; i < 3; i++) line(ctx, lc, lw, [-3 * w, -L * (0.55 - i * 0.1)], [3 * w, -L * (0.5 - i * 0.1)]); // costillas
+      line(ctx, lc, lw, [3.5 * w, -L * 0.32], [4 * w, -L * 0.06]); // abdomen
+      ctx.fillStyle = mixColor(base, '#ffffff', 0.25); ctx.beginPath(); ctx.ellipse(-6 * w, -L * 0.88, 3 * w, 2 * w, 0.3, 0, Math.PI * 2); ctx.fill(); // hombro
+    }
+    ctx.restore();
+  };
+  const R = H * 0.135;
+  const h = opts.head ?? {};
+  const headPt: Pt = [head[0], head[1] - (h.neck ?? 0) * H];
+  const neckSeg = (m: GrayMode) => graySeg(ctx, neck, [headPt[0] - R * 0.15, headPt[1] + R * 0.55], H * 0.05, H * 0.04, flat ?? mixColor(base, '#000000', 0.12), ol, m);
+  const pelvis = (m: GrayMode) => graySeg(ctx, [hip[0] - H * 0.015, hip[1]], [hip[0] + H * 0.03, hip[1] + H * 0.02], H * 0.1, H * 0.08, flat ?? mixColor(base, '#000000', 0.1), ol, m);
+  // De atrás para adelante (cada grupo: primero los contornos, después los rellenos):
+  // brazo y pierna lejanos; tronco, pierna cercana, cuello y cabeza; el arma; el brazo cercano.
+  for (const m of ['stroke', 'fill'] as const) { armDraw(elbowF, handF, flat ?? far, rifle, m); leg(legB, flat ?? far, m); }
+  for (const m of ['stroke', 'fill'] as const) { leg(legF, flat ?? base, m); pelvis(m); torso(m); neckSeg(m); }
+  const mouth = firing ? 0.75 + Math.sin(t * 18) * 0.25 : 0.5 + Math.sin(t * 2.3 + k * 0.1) * 0.15;
+  drawGrayHead(ctx, base, headPt[0], headPt[1], R * (h.big ?? 1), h, mouth, ol, !!flat);
+  let ray: Pt = handF;
+  if (rifle) { const muzzle = drawAlienRifle(ctx, handB, handF, H, t, firing, flat); ray = [muzzle[0] - H * 0.15, muzzle[1]]; }
+  for (const m of ['stroke', 'fill'] as const) armDraw(elbowB, handB, flat ?? base, rifle, m);
+  if (opts.prop && !rifle) {
+    const at = opts.propAt ?? 'front';
+    if (at === 'front' || at === 'up') drawProp(ctx, opts.prop, handF[0], handF[1], H, t, opts.propUpside);
+    if (at === 'back') drawProp(ctx, opts.prop, handB[0], handB[1], H, t, opts.propUpside);
+    if (at === 'head') drawProp(ctx, opts.prop, headPt[0], headPt[1] - R * 1.5, H, t, opts.propUpside);
+    if (at === 'mouth' || at === 'ear') drawProp(ctx, opts.prop, headPt[0] + R, headPt[1] + R * 0.5, H, t, opts.propUpside);
+  }
+  return { head: headPt, handF: ray, r: R };
 }
 
 // Lo que tienen en la mano (dibujado chiquito, centrado en la mano).
@@ -643,7 +868,13 @@ function drawTiny(ctx: CanvasRenderingContext2D, p: Person, pose: Pose, sx: numb
   const swing = p.moving ? Math.sin(t * 9 + p.id) * H * 0.08 : 0;
   ctx.fillStyle = o.pants; ctx.fillRect(sx - w / 2 + swing * 0.3, y - h * 0.35, w * 0.45, h * 0.35); ctx.fillRect(sx - swing * 0.3, y - h * 0.35, w * 0.45, h * 0.35);
   ctx.fillStyle = o.shirt[1]; ctx.fillRect(sx - w / 2, y - h * 0.72, w, h * 0.4);
-  dot(ctx, o.skin, sx, y - h * 0.89, H * (alien ? 0.102 : 0.083));
+  if (alien) { // de lejos: el cráneo grande hacia atrás y el arma con su luz verde
+    ctx.fillStyle = o.skin; ctx.beginPath(); ctx.ellipse(sx - pose.dir * H * 0.03, y - h * 0.9, H * 0.14, H * 0.11, -0.3 * pose.dir, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#5b4a37'; ctx.fillRect(sx + (pose.dir > 0 ? 0 : -H * 0.4), y - h * 0.55, H * 0.4, Math.max(1, H * 0.06));
+    ctx.fillStyle = '#7dff3c'; ctx.fillRect(sx + pose.dir * H * 0.2 - H * 0.04, y - h * 0.56, H * 0.08, Math.max(1, H * 0.05));
+    return;
+  }
+  dot(ctx, o.skin, sx, y - h * 0.89, H * 0.083);
   if (!alien && o.hat !== 'bald') { ctx.fillStyle = o.hat === 'helmet' ? o.hatColor : o.hair; ctx.fillRect(sx - H * 0.07, y - h * 0.96, H * 0.14, H * 0.05); }
 }
 

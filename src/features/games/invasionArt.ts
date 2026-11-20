@@ -6,6 +6,7 @@
 //
 // Lo que no se mueve de cada habitación se dibuja una sola vez en una imagen aparte (para cada zoom) y
 // después se copia: así se puede dibujar con mucho detalle sin que se trabe.
+import { drawUfoCraftAt } from './kombatPenUfo';
 import {
   CITY_TOP, GAME_SECONDS, rainAt, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
 } from './invasion';
@@ -739,19 +740,26 @@ function drawTrees(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
 }
 
 // ---------- Ovnis ----------
+const UFO_SPRITE_W = 14.5; // ancho de la imagen en metros (el platillo visible mide unos 12,6)
+const UFO_NOZZLE = (870 - 512) / 1536 * UFO_SPRITE_W; // el emisor de abajo, en metros debajo del centro
 function drawUfo(ctx: CanvasRenderingContext2D, u: Invasion['ufos'][number], v: View, t: number) {
   const s = v.s, x = X(v, u.x), y = Y(v, u.y);
+  // El ovni es el mismo de Kombat Penales (imagen ovni.png): el rayo celeste sale del emisor de abajo.
+  const nozzleY = y + UFO_NOZZLE * s;
   if (u.beam) {
     const tx = X(v, u.beam.x), ty = Y(v, u.beam.y), k = Math.min(1, (t - u.beam.t0) * 3);
-    const beam = ctx.createLinearGradient(x, y, tx, ty); beam.addColorStop(0, 'rgba(165,243,252,0.9)'); beam.addColorStop(1, 'rgba(74,222,128,0.7)');
-    ctx.fillStyle = beam; ctx.globalAlpha = 0.55 + Math.sin(t * 50) * 0.2;
-    ctx.beginPath(); ctx.moveTo(x - 1.2 * s, y + 0.9 * s); ctx.lineTo(x + 1.2 * s, y + 0.9 * s); ctx.lineTo(x + (tx - x) * k + 0.25 * s, y + (ty - y) * k); ctx.lineTo(x + (tx - x) * k - 0.25 * s, y + (ty - y) * k); ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = '#ecfeff'; ctx.lineWidth = Math.max(1.5, s * 0.06); ctx.beginPath(); ctx.moveTo(x, y + 0.9 * s); ctx.lineTo(x + (tx - x) * k, y + (ty - y) * k); ctx.stroke();
-    const hit = ctx.createRadialGradient(tx, ty, 0, tx, ty, s * 1.5); hit.addColorStop(0, 'rgba(236,254,255,0.95)'); hit.addColorStop(1, 'rgba(74,222,128,0)');
-    if (k >= 1) { ctx.fillStyle = hit; ctx.fillRect(tx - s * 1.5, ty - s * 1.5, s * 3, s * 3); }
+    const ex = x + (tx - x) * k, ey = nozzleY + (ty - nozzleY) * k;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const beam = ctx.createLinearGradient(x, nozzleY, ex, ey); beam.addColorStop(0, 'rgba(135,255,255,0.95)'); beam.addColorStop(0.5, 'rgba(30,221,255,0.5)'); beam.addColorStop(1, 'rgba(37,222,255,0.12)');
+    ctx.fillStyle = beam; ctx.beginPath(); ctx.moveTo(x - 0.25 * s, nozzleY); ctx.lineTo(ex - 0.9 * s, ey); ctx.lineTo(ex + 0.9 * s, ey); ctx.lineTo(x + 0.25 * s, nozzleY); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(39,221,255,0.35)'; ctx.lineWidth = Math.max(3, s * 0.55); ctx.beginPath(); ctx.moveTo(x, nozzleY); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.strokeStyle = '#caffff'; ctx.lineWidth = Math.max(1.5, s * (0.1 + Math.sin(t * 65) * 0.03)); ctx.stroke();
+    if (k >= 1) { const hit = ctx.createRadialGradient(tx, ty, 0, tx, ty, s * 1.6); hit.addColorStop(0, 'rgba(200,255,255,0.95)'); hit.addColorStop(1, 'rgba(0,220,255,0)'); ctx.fillStyle = hit; ctx.fillRect(tx - s * 1.6, ty - s * 1.6, s * 3.2, s * 3.2); }
+    ctx.restore();
   }
   if (x < -s * 9 || x > v.w + s * 9 || y < -s * 5 || y > v.h + s * 5) return;
+  if (drawUfoCraftAt(ctx, t + u.id * 1.7, x, y, UFO_SPRITE_W * s) !== null) return;
+  // (Mientras carga la imagen: el platillo dibujado de antes.)
   // Un platillo grande: luz que sale de abajo, la parte de abajo con sus ojos de buey, el disco con paneles,
   // un anillo de luces que gira alrededor, la cúpula con el piloto y la antena.
   const R = 6.2 * s, spin = t * 1.6 + u.id;

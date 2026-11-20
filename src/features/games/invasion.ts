@@ -10,6 +10,8 @@ export const ALIEN_TOTAL = 300;
 export const REVEAL_EVERY = 30, REVEAL_TIME = 5;
 export const PERSON_H = 1, PERSON_W = 0.42;
 export const SIDEWALK_Y = 0, ROAD_Y = -1.6;
+// El ovni (la imagen de Kombat Penales) va de 4 m arriba del centro (la cúpula) a 3,7 m abajo (el emisor).
+const UFO_DY = 0.15, UFO_HALF_H = 3.85;
 export const UFO_FROM = 300; // a los 5 minutos llegan los ovnis
 export const RAIN_FROM = 180; // a los 3 minutos empieza a llover
 export const MAG = 5, BOLT_TIME = 0.75, RELOAD_TIME = 2.2;
@@ -62,7 +64,7 @@ export interface Blast { x: number; y: number; t: number; size: number; green?: 
 export type InvasionEvent =
   | { type: 'shot'; x: number; y: number } | { type: 'kill'; x: number; y: number; head: boolean; anomaly: number | null }
   | { type: 'civilian'; x: number; y: number } | { type: 'bomb'; x: number; y: number } | { type: 'defused'; x: number; y: number } | { type: 'boxHit'; x: number; y: number }
-  | { type: 'ufoPing'; x: number; y: number } | { type: 'explosion'; x: number; y: number } | { type: 'fire'; x: number; y: number }
+  | { type: 'ufoPing'; x: number; y: number } | { type: 'explosion'; x: number; y: number; bazooka?: boolean } | { type: 'fire'; x: number; y: number }
   | { type: 'laser'; x: number; y: number } | { type: 'ufoArrive' } | { type: 'moreAliens'; count: number } | { type: 'scream'; x: number; y: number }
   | { type: 'lighter'; x: number; y: number } | { type: 'ray'; x: number; y: number } | { type: 'glass'; x: number; y: number } | { type: 'miss'; x: number; y: number }
   | { type: 'comm'; x: number; y: number } | { type: 'thunder'; x: number } | { type: 'rain' } | { type: 'end' };
@@ -762,11 +764,11 @@ export function shoot(g: Invasion, x: number, y: number, weapon: Weapon = 'rifle
   if (weapon === 'bazooka') {
     const radius = BAZOOKA_RADIUS;
     const targets = g.people.filter(p => !p.dead && !p.gone && Math.hypot(p.x - x, p.y + 0.5 - y) <= radius);
-    const ships = g.ufos.filter(u => Math.hypot(Math.max(0, Math.abs(u.x - x) - 5), Math.max(0, Math.abs(u.y - y) - 1.6)) <= radius);
+    const ships = g.ufos.filter(u => Math.hypot(Math.max(0, Math.abs(u.x - x) - 5), Math.max(0, Math.abs(u.y + UFO_DY - y) - UFO_HALF_H)) <= radius);
     const impact = (px: number, py: number, size: number) => {
       g.blasts.push({ x: px, y: py, t: 0, size, big: true });
       burst(g, px, py, 44, '#f59e0b', 'spark', 8, 0.09);
-      emit(g, { type: 'explosion', x: px, y: py });
+      emit(g, { type: 'explosion', x: px, y: py, bazooka: true }); // su sonido ya viene en la grabación de la bazooka
     };
     impact(x, y, 5);
     for (const u of ships) impact(u.x, u.y, 7);
@@ -775,7 +777,7 @@ export function shoot(g: Invasion, x: number, y: number, weapon: Weapon = 'rifle
     if (ships.length || targets.length) g.hits++;
     return ships.length ? 'ufoDestroyed' : targets.some(p => p.alien) ? 'alien' : targets.length ? 'civilian' : 'blast';
   }
-  for (const u of g.ufos) if (Math.abs(x - u.x) < 6.4 && Math.abs(y - u.y) < 2.2) {
+  for (const u of g.ufos) if (Math.abs(x - u.x) < 6.4 && Math.abs(y - (u.y + UFO_DY)) < UFO_HALF_H) {
     burst(g, x, y, 12, '#a5f3fc', 'spark', 4, 0.05);
     emit(g, { type: 'ufoPing', x, y });
     return 'ufo' as const;

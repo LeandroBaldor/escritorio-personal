@@ -52,8 +52,8 @@ import invBombaUrl from './assets/sonidos/invasion-bomba.mp3';
 import invAutosUrl from './assets/sonidos/invasion-autos.mp3';
 import invPajarosUrl from './assets/sonidos/invasion-pajaros.mp3';
 import invPersonasUrl from './assets/sonidos/invasion-personas.mp3';
-import invOvniUrl from './assets/sonidos/invasion-ovni.mp3';
-import invOvniDisparoUrl from './assets/sonidos/invasion-ovni-disparo.mp3';
+import invAmetralladoraUrl from './assets/sonidos/invasion-ametralladora.mp3';
+import invBazookaUrl from './assets/sonidos/invasion-bazooka.mp3';
 import invAlienHablaUrl from './assets/sonidos/invasion-alien-habla.mp3';
 import invLluviaUrl from './assets/sonidos/invasion-lluvia.mp3';
 import propulsorUrl from './assets/sonidos/propulsor.mp3';
@@ -590,14 +590,14 @@ let lavaAmbient: Record<LavaChannel, Channel> | null = null;
 export function preloadLavaSounds() { for (const url of [lavaUrl, helicopteroUrl, lavaElectricidadUrl, fuegoUrl, personaQuemaUrl, lavaAscensorUrl, lavaPersonaFuegoUrl, lavaSirenaUrl, pasosUrl]) loadSample(url); }
 // Un sonido de ambiente grabado que se repite sin corte (el mp3 deja un silencito en las puntas, se saltea).
 // Mientras carga suena el sintetizado (`synth`) y, apenas está, se pasa a la grabación.
-function recorded(c: AudioContext, url: string, volume: number, out: GainNode, synth: (out: GainNode) => void) {
+function recorded(c: AudioContext, url: string, volume: number, out: GainNode, synth: (out: GainNode) => void, loopFrom = 0.03, loopTo = 0.03) {
   const fallback = c.createGain(); fallback.connect(out);
   synth(fallback);
   whenLoaded(url, buffer => {
     const loop = c.createBufferSource(), level = c.createGain();
-    loop.buffer = buffer; loop.loop = true; loop.loopStart = 0.03; loop.loopEnd = buffer.duration - 0.03;
+    loop.buffer = buffer; loop.loop = true; loop.loopStart = loopFrom; loop.loopEnd = buffer.duration - loopTo;
     level.gain.value = volume;
-    loop.connect(level).connect(out); loop.start(0, 0.03);
+    loop.connect(level).connect(out); loop.start(0, loopFrom);
     fallback.gain.setTargetAtTime(0, c.currentTime, 0.3);
   });
 }
@@ -926,7 +926,7 @@ export function setCrowd(level: number) {
 
 // ---------- Invasión ----------
 let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
-export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, invOvniUrl, invOvniDisparoUrl, invAlienHablaUrl, invLluviaUrl]) loadSample(url); }
+export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaUrl, invAlienHablaUrl, invLluviaUrl]) loadSample(url); }
 // Voces en un idioma inventado: una voz (tono que sube y baja) que pasa por dos "formantes" que cambian todo
 // el tiempo (las vocales) y se corta en sílabas.
 function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
@@ -989,14 +989,14 @@ function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel>
       level.gain.value = 0.85; wobble(c, level.gain, 2.3, 0.15);
       roar.connect(body).connect(level).connect(out); roar.start();
     })),
-    // Ovnis: un zumbido grave que vibra y un silbido agudo.
-    ufo: channel(1, out => recorded(c, invOvniUrl, 1.2, out, out => {
+    // Ovnis: el mismo zumbido del ovni de Kombat Penales (la parte pareja de la grabación, en loop; mientras carga, un zumbido grave).
+    ufo: channel(1, out => recorded(c, penUfoUrl, 5, out, out => {
       const hum = osc(c, 'sawtooth', 48), low = filter(c, 'lowpass', 260), level = c.createGain();
       level.gain.value = 0.8; wobble(c, hum.frequency, 0.6, 6); wobble(c, level.gain, 7, 0.25);
       hum.connect(low).connect(level).connect(out); hum.start();
       const whine = osc(c, 'sine', 1900), wl = c.createGain(); wl.gain.value = 0.05; wobble(c, whine.frequency, 0.9, 220);
       whine.connect(wl).connect(out); whine.start();
-    })),
+    }, 2, 0.3)),
     // La lluvia: la grabación (mientras carga, un ruido suave y agudo).
     rain: channel(0.7, out => recorded(c, invLluviaUrl, 1, out, out => {
       const drops = noiseSource(c), hi = filter(c, 'highpass', 1800), level = c.createGain();
@@ -1021,6 +1021,16 @@ export function setInvasionAmbient(levels: Record<InvasionChannel, number> | nul
   }
 }
 // El disparo del rifle: un estampido seco con un eco que se va por la calle.
+// La ametralladora: un solo disparo de la grabación que pasó el usuario (se toca uno por bala).
+export function playMachineShot() {
+  if (playSample(invAmetralladoraUrl, 0.75, 0, 0.96 + Math.random() * 0.08)) return;
+  playRifleShot();
+}
+// La bazooka: el disparo y la explosión de la grabación que pasó el usuario.
+export function playBazookaShot() {
+  if (playSample(invBazookaUrl, 1)) return;
+  playBlast(1);
+}
 export function playRifleShot() {
   if (playSample(invTiroUrl, 0.9)) return;
   const c = running(); if (!c) return;
@@ -1096,7 +1106,7 @@ export function playAlienComm(volume: number) {
 // El rayo de un ovni: un "zap" que baja.
 export function playLaser(volume: number) {
   if (volume < 0.03) return;
-  if (playSample(invOvniDisparoUrl, volume)) return;
+  if (playSample(penUfoShotUrl, volume)) return;
   const c = running(); if (!c) return;
   const t = c.currentTime;
   tone(c, 'sawtooth', 2200, 120, t, 0.9, 0.3 * volume);
@@ -1104,6 +1114,7 @@ export function playLaser(volume: number) {
 }
 // Llega un ovni: una bocina grave que retumba.
 export function playUfoArrive() {
+  if (playSample(penUfoUrl, 1.6)) return; // la llegada del ovni de Kombat Penales
   const c = running(); if (!c) return;
   const t = c.currentTime;
   for (const f of [55, 82.5]) tone(c, 'sawtooth', f, f * 0.98, t, 2.2, 0.35);
