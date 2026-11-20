@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aliensAt, aliveAliens, aliveHumans, ALIEN_TOTAL, HUMAN_TOTAL, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt,
+  aliensAt, aliveAliens, aliveHumans, ALIEN_TOTAL, HUMAN_TOTAL, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt, ROCKET_TIME, WALL_BREAK,
   type Invasion, type Person,
 } from './invasion';
 import { ANOMALIES, fitsPlace, shuffledAnomalies } from './invasionAnomalies';
@@ -268,11 +268,30 @@ describe('Invasión: el disparo', () => {
     expect(shoot(g, u.x, u.y, 'rifle')).toBe('ufo');
     expect(shoot(g, u.x, u.y, 'machine')).toBe('ufo');
     expect(g.ufos).toHaveLength(1);
-    expect(shoot(g, u.x, u.y, 'bazooka')).toBe('ufoDestroyed');
-    expect(g.ufos).toHaveLength(0);
+    expect(shoot(g, u.x, u.y, 'bazooka')).toBe('launched');
+    takeEvents(g);
+    run(g, ROCKET_TIME - 0.2);
+    expect(g.ufos).toHaveLength(1); // el cohete todavía no llegó
+    run(g, 0.4);
+    expect(g.ufos.some(o => o.id === u.id)).toBe(false); // el cohete siguió al ovni y lo derribó
     expect(g.blasts.some(b => b.big && b.x === u.x)).toBe(true);
-    step(g, 0.05);
-    expect(g.ufos).toHaveLength(0);
+    expect(takeEvents(g).some(e => e.type === 'rocketHit' && e.hit === 'ufoDestroyed')).toBe(true);
+  });
+
+  it('la ametralladora destroza el departamento: con WALL_BREAK balas se derrumba', () => {
+    const g = newInvasion(12);
+    const room = g.rooms.find(o => o.floor > 0)!;
+    g.people = g.people.filter(p => p.room !== room.id);
+    const x = (room.x1 + room.x2) / 2, y = room.y + 0.4;
+    for (let i = 0; i < WALL_BREAK - 1; i++) expect(shoot(g, x, y, 'machine')).toBe('miss');
+    expect(room.destroyed).toBe(0);
+    expect(g.decals.filter(d => d.room === room.id && d.crater).length).toBeGreaterThan(WALL_BREAK);
+    shoot(g, x, y, 'machine');
+    expect(room.destroyed).toBe(1);
+    // El rifle solo deja un agujerito.
+    const other = g.rooms.find(o => o.floor > 0 && o.id !== room.id && !o.destroyed)!;
+    for (let i = 0; i < WALL_BREAK; i++) shoot(g, (other.x1 + other.x2) / 2, other.y + 0.4, 'rifle');
+    expect(other.destroyed).toBe(0);
   });
 
   it('un tiro a una caja con explosivos la desactiva; a una caja común no le pasa nada', () => {

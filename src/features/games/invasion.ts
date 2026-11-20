@@ -24,6 +24,9 @@ export const WEAPONS = {
 export type Weapon = keyof typeof WEAPONS;
 export const ALIEN_POINTS = 100;
 export const BAZOOKA_RADIUS = 4.2;
+export const ROCKET_TIME = 3; // la bazooka tarda 3 s en llegar (lo que dura el sonido del cohete)
+export const WALL_BREAK = 14; // balas de ametralladora que aguanta un departamento antes de derrumbarse
+export interface Rocket { x: number; y: number; t0: number; ufo?: number } // si apuntaste a un ovni, el cohete lo sigue
 
 export type Style = 'brick' | 'stucco' | 'glass' | 'office' | 'construction' | 'old' | 'hotel';
 export type Theme = 'living' | 'kitchen' | 'bedroom' | 'bath' | 'office' | 'gym' | 'kids' | 'dining' | 'studio' | 'laundry' | 'shop' | 'site' | 'lobby';
@@ -42,6 +45,7 @@ export interface Spot { x: number; act: Activity; facing: 1 | -1 }
 export interface Room {
   id: number; b: number; floor: number; x1: number; x2: number; y: number; h: number; theme: Theme; shop?: Shop; seed: number;
   furniture: Furniture[]; spots: Spot[]; fire: number; fireAt: number; burnt: number; destroyed: number; lights: boolean;
+  wear?: number; // balas de ametralladora que recibió (con `WALL_BREAK` se derrumba)
 }
 export interface Building { id: number; x: number; w: number; floors: number; fh: number; ground: number; style: Style; hue: number; tone: number; top: number; roof: 'flat' | 'tank' | 'antenna' | 'garden' | 'sign'; rooms: number[]; sign?: string }
 export interface Look { skin: number; hair: number; hat: number; shirt: number; shirt2: number; pattern: number; pants: number; shoes: number; size: number; kid: boolean }
@@ -59,7 +63,7 @@ export interface Box { id: number; room: number; x: number; y: number; explosive
 export interface Ufo { id: number; x: number; y: number; vx: number; t0: number; beam: { room: number; t0: number; until: number; x: number; y: number } | null; nextBeam: number; wobble: number }
 export interface Car { id: number; x: number; dir: 1 | -1; speed: number; hue: number; kind: 'car' | 'taxi' | 'bus' | 'van' | 'police'; lane: number }
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; kind: 'blood' | 'spark' | 'glass' | 'smoke' | 'debris' | 'ember' | 'goo' }
-export interface Decal { room: number; x: number; y: number; glass: boolean; t: number; goo?: boolean; blood?: boolean; size?: number }
+export interface Decal { room: number; x: number; y: number; glass: boolean; t: number; goo?: boolean; blood?: boolean; size?: number; crater?: number }
 export interface Blast { x: number; y: number; t: number; size: number; green?: boolean; big?: boolean }
 export type InvasionEvent =
   | { type: 'shot'; x: number; y: number } | { type: 'kill'; x: number; y: number; head: boolean; anomaly: number | null }
@@ -67,10 +71,11 @@ export type InvasionEvent =
   | { type: 'ufoPing'; x: number; y: number } | { type: 'explosion'; x: number; y: number; bazooka?: boolean } | { type: 'fire'; x: number; y: number }
   | { type: 'laser'; x: number; y: number } | { type: 'ufoArrive' } | { type: 'moreAliens'; count: number } | { type: 'scream'; x: number; y: number }
   | { type: 'lighter'; x: number; y: number } | { type: 'ray'; x: number; y: number } | { type: 'glass'; x: number; y: number } | { type: 'miss'; x: number; y: number }
-  | { type: 'comm'; x: number; y: number } | { type: 'thunder'; x: number } | { type: 'rain' } | { type: 'end' };
+  | { type: 'comm'; x: number; y: number } | { type: 'thunder'; x: number } | { type: 'rain' } | { type: 'end' }
+  | { type: 'rocketHit'; x: number; y: number; hit: 'ufoDestroyed' | 'alien' | 'civilian' | 'blast' } | { type: 'collapse'; x: number; y: number };
 export interface Invasion {
   width: number; buildings: Building[]; rooms: Room[]; people: Person[]; boxes: Box[]; ufos: Ufo[]; cars: Car[];
-  particles: Particle[]; decals: Decal[]; blasts: Blast[];
+  particles: Particle[]; decals: Decal[]; blasts: Blast[]; rockets: Rocket[];
   time: number; kills: number; civilians: number; headshots: number; defused: number; shots: number; hits: number; over: boolean; outcome: Outcome | null;
   events: InvasionEvent[]; deck: number[]; deckPos: number; rand: () => number; nextId: number; seen: number[]; killedAnomalies: number[];
   aliensWanted: number; ufosLaunched: number; told: { ufo: boolean; rain: boolean };
@@ -211,7 +216,7 @@ export function newInvasion(seed?: number): Invasion {
   const city = buildCity();
   const rand = rng(s + 7);
   const g: Invasion = {
-    ...city, people: [], boxes: [], ufos: [], cars: [], particles: [], decals: [], blasts: [],
+    ...city, people: [], boxes: [], ufos: [], cars: [], particles: [], decals: [], blasts: [], rockets: [],
     time: 0, kills: 0, civilians: 0, headshots: 0, defused: 0, shots: 0, hits: 0, over: false, outcome: null, events: [],
     deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), ufosLaunched: 0, told: { ufo: false, rain: false },
     aim: { x: city.width / 2, y: 10 }, lightning: null,
@@ -267,7 +272,7 @@ export const ruinAt = (t: number) => t < UFO_FROM ? 0 : Math.min(1, ((t - UFO_FR
 const emit = (g: Invasion, e: InvasionEvent) => g.events.push(e);
 export const takeEvents = (g: Invasion) => g.events.splice(0);
 
-function addDecal(g: Invasion, d: Decal) { g.decals.push(d); if (g.decals.length > 220) g.decals.shift(); }
+function addDecal(g: Invasion, d: Decal) { g.decals.push(d); if (g.decals.length > 480) g.decals.shift(); }
 function burst(g: Invasion, x: number, y: number, n: number, color: string, kind: Particle['kind'], power = 3, size = 0.08) {
   for (let i = 0; i < n; i++) {
     const a = g.rand() * Math.PI * 2, v = power * (0.3 + g.rand() * 0.9), max = 0.5 + g.rand() * 0.8;
@@ -326,6 +331,9 @@ export function step(g: Invasion, dt: number) {
   stepFires(g, dt);
   stepBoxes(g);
   stepUfos(g, dt);
+  for (const rk of g.rockets) { const ship = g.ufos.find(u => u.id === rk.ufo); if (ship) { rk.x = ship.x; rk.y = ship.y + UFO_DY; } } // sigue al ovni
+  for (const rk of g.rockets.filter(o => g.time - o.t0 >= ROCKET_TIME)) explodeRocket(g, rk.x, rk.y);
+  g.rockets = g.rockets.filter(o => g.time - o.t0 < ROCKET_TIME);
   for (const c of g.cars) {
     const scared = ruinAt(t) > 0.3 ? 1.6 : 1;
     c.x += c.dir * c.speed * scared * dt;
@@ -757,25 +765,57 @@ function defeatPerson(g: Invasion, p: Person, head: boolean, byPlayer: boolean) 
   for (const o of g.people) if (o !== p && !o.dead && !o.gone && o.room === p.room && Math.abs(o.x - p.x) < 8 && !o.alien) { o.panic = 5; o.talk = 1; }
 }
 
+// Daño a un departamento (balas de ametralladora o un cohete): a la mitad se revientan todos los vidrios y
+// los muebles se caen a pedazos; con `WALL_BREAK` se derrumba (y se lleva a los que estaban adentro).
+function wearRoom(g: Invasion, room: Room, x: number, y: number, amount: number) {
+  const before = room.wear ?? 0, after = before + amount;
+  room.wear = after;
+  if (before < WALL_BREAK / 2 && after >= WALL_BREAK / 2) {
+    for (let i = 0; i < 6; i++) {
+      const wx = room.x1 + (i + 0.5) * (room.x2 - room.x1) / 6, wy = room.y + room.h * (0.45 + g.rand() * 0.3);
+      addDecal(g, { room: room.id, x: wx, y: wy, glass: room.floor > 0, t: g.time, crater: 0.6 + g.rand() * 0.5 });
+      if (room.floor > 0) burst(g, wx, wy, 10, '#e0f2fe', 'glass', 3, 0.05);
+    }
+    emit(g, { type: 'glass', x, y });
+    for (const p of g.people) if (p.room === room.id && !p.dead && !p.gone && !p.alien) { p.panic = Math.max(p.panic, 6); p.talk = 1; }
+  }
+  if (after >= WALL_BREAK) {
+    for (const p of g.people) if (p.room === room.id && !p.dead && !p.gone) defeatPerson(g, p, false, true);
+    destroyRoom(g, room);
+    emit(g, { type: 'collapse', x: (room.x1 + room.x2) / 2, y: room.y + room.h / 2 });
+  }
+}
+
+// El cohete de la bazooka llega: explota donde apuntaste al disparar (lo que esté ahí en ese momento).
+function explodeRocket(g: Invasion, x: number, y: number) {
+  const radius = BAZOOKA_RADIUS;
+  const targets = g.people.filter(p => !p.dead && !p.gone && Math.hypot(p.x - x, p.y + 0.5 - y) <= radius);
+  const ships = g.ufos.filter(u => Math.hypot(Math.max(0, Math.abs(u.x - x) - 5), Math.max(0, Math.abs(u.y + UFO_DY - y) - UFO_HALF_H)) <= radius);
+  const impact = (px: number, py: number, size: number) => {
+    g.blasts.push({ x: px, y: py, t: 0, size, big: true });
+    burst(g, px, py, 44, '#f59e0b', 'spark', 8, 0.09);
+    emit(g, { type: 'explosion', x: px, y: py, bazooka: true }); // suena la explosión de la bazooka (no la de las bombas)
+  };
+  impact(x, y, 5);
+  for (const u of ships) impact(u.x, u.y, 7);
+  g.ufos = g.ufos.filter(u => !ships.includes(u));
+  for (const p of targets) defeatPerson(g, p, false, true);
+  if (ships.length || targets.length) g.hits++;
+  const hit = ships.length ? 'ufoDestroyed' as const : targets.some(p => p.alien) ? 'alien' as const : targets.length ? 'civilian' as const : 'blast' as const;
+  const room = g.rooms.find(o => x >= o.x1 && x <= o.x2 && y >= o.y && y <= o.y + o.h);
+  if (room && !room.destroyed) wearRoom(g, room, x, y, WALL_BREAK * 0.6);
+  emit(g, { type: 'rocketHit', x, y, hit });
+  return hit;
+}
+
 export function shoot(g: Invasion, x: number, y: number, weapon: Weapon = 'rifle') {
   if (g.over) return 'none' as const;
   g.shots++;
   emit(g, { type: 'shot', x, y });
-  if (weapon === 'bazooka') {
-    const radius = BAZOOKA_RADIUS;
-    const targets = g.people.filter(p => !p.dead && !p.gone && Math.hypot(p.x - x, p.y + 0.5 - y) <= radius);
-    const ships = g.ufos.filter(u => Math.hypot(Math.max(0, Math.abs(u.x - x) - 5), Math.max(0, Math.abs(u.y + UFO_DY - y) - UFO_HALF_H)) <= radius);
-    const impact = (px: number, py: number, size: number) => {
-      g.blasts.push({ x: px, y: py, t: 0, size, big: true });
-      burst(g, px, py, 44, '#f59e0b', 'spark', 8, 0.09);
-      emit(g, { type: 'explosion', x: px, y: py, bazooka: true }); // su sonido ya viene en la grabación de la bazooka
-    };
-    impact(x, y, 5);
-    for (const u of ships) impact(u.x, u.y, 7);
-    g.ufos = g.ufos.filter(u => !ships.includes(u));
-    for (const p of targets) defeatPerson(g, p, false, true);
-    if (ships.length || targets.length) g.hits++;
-    return ships.length ? 'ufoDestroyed' : targets.some(p => p.alien) ? 'alien' : targets.length ? 'civilian' : 'blast';
+  if (weapon === 'bazooka') { // sale el cohete: explota recién cuando llega (`ROCKET_TIME`)
+    const ship = g.ufos.find(u => Math.abs(x - u.x) < 6.4 && Math.abs(y - (u.y + UFO_DY)) < UFO_HALF_H);
+    g.rockets.push({ x, y, t0: g.time, ufo: ship?.id });
+    return 'launched' as const;
   }
   for (const u of g.ufos) if (Math.abs(x - u.x) < 6.4 && Math.abs(y - (u.y + UFO_DY)) < UFO_HALF_H) {
     burst(g, x, y, 12, '#a5f3fc', 'spark', 4, 0.05);
@@ -802,6 +842,15 @@ export function shoot(g: Invasion, x: number, y: number, weapon: Weapon = 'rifle
   }
   const room = g.rooms.find(o => x >= o.x1 - 0.25 && x <= o.x2 + 0.25 && y >= o.y && y <= o.y + o.h);
   const glass = !!room && room.floor > 0 && (y - room.y) > 0.9 && (y - room.y) < room.h - 0.5 && !room.destroyed;
+  if (weapon === 'machine') { // la ametralladora rompe todo: arranca pedazos de pared, revienta vidrios y termina derrumbando el departamento
+    addDecal(g, { room: room?.id ?? -1, x, y, glass, t: g.time, crater: 0.7 + g.rand() * 0.6 });
+    burst(g, x, y, 18, '#a8a29e', 'debris', 4.5, 0.09);
+    burst(g, x, y, 6, '#57534e', 'debris', 3, 0.16);
+    if (glass) burst(g, x, y, 16, '#e0f2fe', 'glass', 3.5, 0.05);
+    if (room && !room.destroyed) wearRoom(g, room, x, y, 1);
+    emit(g, { type: glass ? 'glass' : 'miss', x, y });
+    return 'miss' as const;
+  }
   addDecal(g, { room: room?.id ?? -1, x, y, glass, t: g.time });
   burst(g, x, y, glass ? 14 : 8, glass ? '#e0f2fe' : '#a8a29e', glass ? 'glass' : 'debris', 2.5, 0.04);
   emit(g, { type: glass ? 'glass' : 'miss', x, y });

@@ -53,7 +53,8 @@ import invAutosUrl from './assets/sonidos/invasion-autos.mp3';
 import invPajarosUrl from './assets/sonidos/invasion-pajaros.mp3';
 import invPersonasUrl from './assets/sonidos/invasion-personas.mp3';
 import invAmetralladoraUrl from './assets/sonidos/invasion-ametralladora.mp3';
-import invBazookaUrl from './assets/sonidos/invasion-bazooka.mp3';
+import invBazookaVueloUrl from './assets/sonidos/invasion-bazooka-vuelo.mp3';
+import invBazookaBoomUrl from './assets/sonidos/invasion-bazooka-explosion.mp3';
 import invAlienHablaUrl from './assets/sonidos/invasion-alien-habla.mp3';
 import invLluviaUrl from './assets/sonidos/invasion-lluvia.mp3';
 import propulsorUrl from './assets/sonidos/propulsor.mp3';
@@ -926,7 +927,7 @@ export function setCrowd(level: number) {
 
 // ---------- Invasión ----------
 let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
-export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaUrl, invAlienHablaUrl, invLluviaUrl]) loadSample(url); }
+export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invAlienHablaUrl, invLluviaUrl]) loadSample(url); }
 // Voces en un idioma inventado: una voz (tono que sube y baja) que pasa por dos "formantes" que cambian todo
 // el tiempo (las vocales) y se corta en sílabas.
 function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
@@ -1023,16 +1024,18 @@ export function setInvasionAmbient(levels: Record<InvasionChannel, number> | nul
 // El disparo del rifle: un estampido seco con un eco que se va por la calle.
 // La ametralladora: un solo disparo de la grabación que pasó el usuario (se toca uno por bala).
 export function playMachineShot() {
-  if (playSample(invAmetralladoraUrl, 0.75, 0, 0.96 + Math.random() * 0.08)) return;
+  if (playSample(invAmetralladoraUrl, 1.6, 0, 0.96 + Math.random() * 0.08)) return;
   playRifleShot();
 }
-// La bazooka: el disparo y la explosión de la grabación que pasó el usuario.
-export function playBazookaShot() {
-  if (playSample(invBazookaUrl, 1)) return;
+// La bazooka: sale el cohete (bazooka_2 del usuario, dura lo que tarda en llegar)…
+export function playBazookaShot() { playSample(invBazookaVueloUrl, 1.8); }
+// …y explota (bazooka_1 del usuario).
+export function playBazookaBoom() {
+  if (playSample(invBazookaBoomUrl, 1.8)) return;
   playBlast(1);
 }
 export function playRifleShot() {
-  if (playSample(invTiroUrl, 0.9)) return;
+  if (playSample(invTiroUrl, 1.7)) return;
   const c = running(); if (!c) return;
   const t = c.currentTime;
   burst(c, 'lowpass', 5000, t, 0.12, 1.2);

@@ -8,7 +8,7 @@
 // después se copia: así se puede dibujar con mucho detalle sin que se trabe.
 import { drawUfoCraftAt } from './kombatPenUfo';
 import {
-  CITY_TOP, GAME_SECONDS, rainAt, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
+  CITY_TOP, GAME_SECONDS, rainAt, ROCKET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
 } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import { drawPerson, drawProp, font, hash, hsl, mixColor } from './invasionPeople';
@@ -800,6 +800,36 @@ function drawUfo(ctx: CanvasRenderingContext2D, u: Invasion['ufos'][number], v: 
   ctx.globalAlpha = 1;
 }
 
+// ---------- El cohete de la bazooka ----------
+// Sale de donde estás (abajo, de tu lado) y se va achicando mientras vuela hacia el objetivo, con fuego atrás y
+// una estela de humo; sobre el objetivo titila una mira roja hasta que llega.
+function drawRocket(ctx: CanvasRenderingContext2D, rk: Rocket, v: View, t: number) {
+  const k = Math.min(1, (t - rk.t0) / ROCKET_TIME), e = k * k * (3 - 2 * k) * 0.55 + k * 0.45;
+  const tx = X(v, rk.x), ty = Y(v, rk.y), sx = v.w * 0.62, sy = v.h * 1.25;
+  const pos = (q: number): [number, number] => [sx + (tx - sx) * q, sy + (ty - sy) * q - Math.sin(q * Math.PI) * v.h * 0.12];
+  // Mira roja sobre el objetivo.
+  const blink = 0.5 + Math.sin(t * 14) * 0.5, R = v.s * 0.9;
+  ctx.strokeStyle = `rgba(239,68,68,${0.45 + blink * 0.5})`; ctx.lineWidth = Math.max(1.5, v.s * 0.05);
+  ctx.beginPath(); ctx.arc(tx, ty, R * (1.15 - k * 0.3), 0, Math.PI * 2); ctx.stroke();
+  for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; ctx.beginPath(); ctx.moveTo(tx + Math.cos(a) * R * 0.5, ty + Math.sin(a) * R * 0.5); ctx.lineTo(tx + Math.cos(a) * R * 1.5, ty + Math.sin(a) * R * 1.5); ctx.stroke(); }
+  // Estela de humo.
+  for (let i = 12; i >= 1; i--) {
+    const q = e - i * 0.03; if (q <= 0) continue;
+    const [hx, hy] = pos(q), size = (1 - q * 0.75) * v.h * 0.03 * (1 + i * 0.15);
+    ctx.fillStyle = `rgba(214,211,209,${0.35 * (1 - i / 13)})`; ctx.beginPath(); ctx.arc(hx + Math.sin(i * 2.3 + rk.t0) * size * 0.3, hy, size, 0, Math.PI * 2); ctx.fill();
+  }
+  // El cohete: cuerpo verde oliva con punta roja y el fuego atrás, cada vez más chico.
+  const [x, y] = pos(e), [px, py] = pos(Math.max(0, e - 0.02)), ang = Math.atan2(y - py, x - px), L = Math.max(4, (1 - e * 0.8) * v.h * 0.07);
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  const fl = 0.8 + Math.sin(t * 50) * 0.2;
+  const fire = ctx.createRadialGradient(-L * 0.7, 0, 0, -L * 0.7, 0, L * 0.9 * fl); fire.addColorStop(0, 'rgba(255,251,235,1)'); fire.addColorStop(0.4, 'rgba(251,146,60,0.9)'); fire.addColorStop(1, 'rgba(220,38,38,0)');
+  ctx.fillStyle = fire; ctx.beginPath(); ctx.arc(-L * 0.7, 0, L * 0.9 * fl, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#4d5a32'; ctx.beginPath(); ctx.roundRect(-L * 0.5, -L * 0.13, L, L * 0.26, L * 0.1); ctx.fill();
+  ctx.fillStyle = '#b91c1c'; ctx.beginPath(); ctx.moveTo(L * 0.5, -L * 0.13); ctx.lineTo(L * 0.85, 0); ctx.lineTo(L * 0.5, L * 0.13); ctx.fill();
+  ctx.fillStyle = '#2f3720'; for (const sgn of [-1, 1]) { ctx.beginPath(); ctx.moveTo(-L * 0.5, sgn * L * 0.1); ctx.lineTo(-L * 0.62, sgn * L * 0.3); ctx.lineTo(-L * 0.3, sgn * L * 0.1); ctx.fill(); }
+  ctx.restore();
+}
+
 // ---------- Todo junto ----------
 export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, newImages = 6) {
   budget = newImages;
@@ -839,6 +869,17 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
       continue;
     }
     if (d.glass) { ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1; for (let i = 0; i < 7; i++) { const a = i * 0.9 + d.x; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + Math.cos(a) * v.s * (0.25 + hash(i + d.y) * 0.35), py + Math.sin(a) * v.s * (0.25 + hash(i * 3 + d.x) * 0.35)); ctx.stroke(); } }
+    if (d.crater) { // ametralladora: un pedazo de pared arrancado (revoque roto, ladrillo a la vista y grietas)
+      const r = v.s * 0.16 * d.crater;
+      ctx.fillStyle = 'rgba(120,113,108,0.9)'; ctx.beginPath();
+      for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2, rr = r * (0.65 + hash(i + d.x * 13) * 0.6); if (i) ctx.lineTo(px + Math.cos(a) * rr, py + Math.sin(a) * rr * 0.85); else ctx.moveTo(px + Math.cos(a) * rr, py + Math.sin(a) * rr * 0.85); }
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(146,64,14,0.75)'; ctx.fillRect(px - r * 0.45, py - r * 0.25, r * 0.4, r * 0.2); ctx.fillRect(px + r * 0.05, py + r * 0.05, r * 0.4, r * 0.2); // ladrillos
+      ctx.strokeStyle = 'rgba(28,25,23,0.75)'; ctx.lineWidth = Math.max(1, v.s * 0.012);
+      for (let i = 0; i < 5; i++) { const a = i * 1.3 + d.y, l = r * (1.2 + hash(i + d.y * 7) * 1.4); ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + Math.cos(a) * l * 0.5, py + Math.sin(a) * l * 0.5 + r * 0.1); ctx.lineTo(px + Math.cos(a + 0.3) * l, py + Math.sin(a + 0.3) * l); ctx.stroke(); }
+      ctx.fillStyle = '#0c0a09'; ctx.beginPath(); ctx.arc(px, py, Math.max(1.5, r * 0.32), 0, Math.PI * 2); ctx.fill();
+      continue;
+    }
     ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(px, py, Math.max(1.2, v.s * 0.035), 0, Math.PI * 2); ctx.fill();
   }
   // La gente de los departamentos y las cajas.
@@ -880,6 +921,7 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
     ctx.lineWidth = Math.max(1, v.s * 0.018);
     ctx.stroke();
   }
+  for (const rk of g.rockets) drawRocket(ctx, rk, v, g.time);
   // Explosiones y partículas.
   for (const bl of g.blasts) {
     if (bl.t < 0) continue;
