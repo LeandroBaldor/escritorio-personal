@@ -379,7 +379,14 @@ export function Invasion() {
       trigger.current = true; fire();
     };
     const up = () => { trigger.current = false; };
-    const lockChange = () => { if (document.pointerLockElement !== stage && statusRef.current === 'playing') setStatus('paused'); };
+    // Si se suelta el mouse jugando (Escape), pausa. Solo si estuvo atrapado un rato: si el navegador lo suelta
+    // enseguida de atraparlo (pasa en algunos navegadores de prueba), no.
+    let lockedAt = 0;
+    const lockChange = () => {
+      if (document.pointerLockElement === stage) { lockedAt = performance.now(); return; }
+      if (statusRef.current === 'playing' && lockedAt && performance.now() - lockedAt > 500) setStatus('paused');
+      lockedAt = 0;
+    };
     window.addEventListener('mouseup', up);
     window.addEventListener('blur', up);
     const wheel = (e: WheelEvent) => { if (statusRef.current !== 'playing') return; e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.18 : 1 / 1.18); };
