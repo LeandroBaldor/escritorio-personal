@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  alienKind, ALIEN_KINDS, BULLET_TIME, fireRifle, aliensAt, aliveAliens, aliveHumans, ALIEN_TOTAL, HUMAN_TOTAL, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt, ROCKET_TIME, WALL_BREAK,
+  alienKind, ALIEN_KINDS, BULLET_TIME, DAMAGE, fireRifle, aliensAt, aliveAliens, aliveHumans, ALIEN_TOTAL, HUMAN_TOTAL, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt, ROCKET_TIME, WALL_BREAK,
   type Invasion, type Person,
 } from './invasion';
 import { ANOMALIES, fitsPlace, shuffledAnomalies } from './invasionAnomalies';
@@ -297,24 +297,17 @@ describe('Invasión: el disparo', () => {
     expect(g.killsBy[ALIEN_KINDS.findIndex(k => k.name === 'brutox')]).toBe(1);
   });
 
-  it('el francotirador saca 5 puntos de vida: el Brutox cae al segundo tiro y la Mantis al primero', () => {
+  it('el francotirador saca 10 puntos de vida: hasta el Brutox cae de un tiro', () => {
     const want = { gris: 10, anfibio: 50, brutox: 60, esporal: 20, mantis: 40, reptiliano: 30 } as const;
     for (const k of ALIEN_KINDS) expect(k.points).toBe(want[k.name]);
+    expect(DAMAGE.rifle).toBe(10);
     const g = newInvasion(8);
     const brutox = g.people.find(p => p.alien && alienKind(p).name === 'brutox')!;
     g.people = g.people.filter(p => p === brutox || (!p.alien && p.room >= 0));
     brutox.room = -1; brutox.y = 0; brutox.anomaly = null; brutox.sabotage = null; brutox.moving = false; brutox.speed = 0; brutox.x = 30;
-    let [x, y] = aimAt(g, brutox);
-    expect(shoot(g, x, y, 'rifle')).toBe('hurt');
-    expect(brutox.hp).toBe(5);
-    [x, y] = aimAt(g, brutox);
+    const [x, y] = aimAt(g, brutox);
     expect(shoot(g, x, y, 'rifle')).toBe('alien');
-    const g2 = newInvasion(8), mantis = g2.people.find(p => p.alien && alienKind(p).name === 'mantis')!;
-    g2.people = g2.people.filter(p => p === mantis || (!p.alien && p.room >= 0));
-    mantis.room = -1; mantis.y = 0; mantis.anomaly = null; mantis.sabotage = null; mantis.moving = false; mantis.speed = 0; mantis.x = 30;
-    [x, y] = aimAt(g2, mantis);
-    expect(shoot(g2, x, y, 'rifle')).toBe('alien');
-    expect(g2.points).toBe(40);
+    expect(g.points).toBe(60);
   });
 
   it('la bala del francotirador tarda 2 segundos en llegar (y sigue a quien le apuntaste)', () => {

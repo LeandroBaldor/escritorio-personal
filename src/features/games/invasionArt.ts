@@ -805,9 +805,10 @@ function drawUfo(ctx: CanvasRenderingContext2D, u: Invasion['ufos'][number], v: 
 // una estela de humo; sobre el objetivo titila una mira roja hasta que llega.
 function drawRocket(ctx: CanvasRenderingContext2D, rk: Rocket, v: View, t: number) {
   const k = Math.min(1, (t - rk.t0) / ROCKET_TIME), e = k * k * (3 - 2 * k) * 0.55 + k * 0.45;
-  // Sale de la boca de la bazooka (`from`, guardada al disparar) y va hacia el objetivo con una curva suave.
+  // Sale de la boca de la bazooka (`from`, guardada al disparar) y va hacia el objetivo con una curva de abajo hacia
+  // arriba: primero cae un poco y avanza bajo, y después sube hacia el objetivo.
   const tx = X(v, rk.x), ty = Y(v, rk.y), sx = rk.from ? X(v, rk.from.x) : v.w * 0.62, sy = rk.from ? Y(v, rk.from.y) : v.h * 1.25;
-  const pos = (q: number): [number, number] => [sx + (tx - sx) * q, sy + (ty - sy) * q - Math.sin(q * Math.PI) * v.h * 0.06];
+  const pos = (q: number): [number, number] => [sx + (tx - sx) * q, sy + (ty - sy) * q * q + Math.sin(q * Math.PI) * v.h * 0.05];
   // Mira roja sobre el objetivo.
   const blink = 0.5 + Math.sin(t * 14) * 0.5, R = v.s * 0.9;
   ctx.strokeStyle = `rgba(239,68,68,${0.45 + blink * 0.5})`; ctx.lineWidth = Math.max(1.5, v.s * 0.05);

@@ -51,23 +51,23 @@ export function drawHeldWeapon(ctx: CanvasRenderingContext2D, weapon: Weapon, w:
   else {
     // Al recargar: entra desde abajo, se mueve un poco mientras carga y vuelve a bajar.
     x = w - wide + Math.max(0, swayX * 0.3);
-    const inOut = Math.min(1, reload / 0.12, (1 - reload) / 0.12);
+    const inOut = Math.min(1, reload / 0.05, (1 - reload) / 0.06); // entra y sale rápido
     y += (1 - Math.max(0, inOut)) * tall * 0.5 + Math.sin(reload * Math.PI * 3) * h * 0.012;
   }
   if (reload === null && d.aim) {
     // Apuntando al medio: la línea del caño pasa por el centro de la pantalla.
     const A = d.aim, k = tall / im.naturalHeight;
     const ax = A.front[0] - A.back[0], ay = A.front[1] - A.back[1], L = Math.hypot(ax, ay);
-    // Retroceso de la bazooka: el tubo se viene para atrás (hacia uno, se agranda un poco) y la boca se levanta.
-    const r = kick, back = r * h * 0.07, up = r * h * 0.09, grow = 1 + r * 0.07;
-    const rot = A.tilt + r * 0.16, ca = Math.cos(rot), sa = Math.sin(rot);
+    // Retroceso de la bazooka, fuerte: el tubo se viene bien para atrás (hacia uno, se agranda), sube y la boca se levanta.
+    const r = kick, back = r * h * 0.15, up = r * h * 0.2, grow = 1 + r * 0.12;
+    const rot = A.tilt + r * 0.34, ca = Math.cos(rot), sa = Math.sin(rot);
     const ux = (ax * ca - ay * sa) / L, uy = (ax * sa + ay * ca) / L; // hacia adonde apunta, ya girado
     const mxs = w / 2 - ux * (A.gap * h + back) + swayX, mys = h / 2 - uy * (A.gap * h + back) + swayY - up + dip;
     ctx.save(); ctx.translate(mxs, mys); ctx.rotate(rot); ctx.scale(grow, grow);
     ctx.drawImage(im, -A.front[0] * k, -A.front[1] * k, im.naturalWidth * k, tall);
     ctx.restore();
     const fx = mxs + ux * h * 0.02, fy = mys + uy * h * 0.02;
-    if (flash > 0) drawMuzzleFlash(ctx, fx, fy, d.flash * h, flash, Math.atan2(uy, ux), t, 'held');
+    if (flash > 0) drawMuzzleFlash(ctx, fx, fy, d.flash * h, flash, Math.atan2(uy, ux), t, 'held', true); // con mucho humo
     drawSmoke(ctx, 'held', t);
     return { x: fx, y: fy };
   }
@@ -92,16 +92,17 @@ const flashSeed: Record<string, number> = { held: 1, scope: 1 };
 let seq = 1;
 const hash = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
-export function drawMuzzleFlash(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, f: number, dir: number, t: number, slot = 'held') {
+// `heavy` (la bazooka): mucho más humo, más grande, más denso y que dura más.
+export function drawMuzzleFlash(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, f: number, dir: number, t: number, slot = 'held', heavy = false) {
   if (f > (lastFlash[slot] ?? 0) + 0.25) { // disparo nuevo: sorteo la forma y suelto el humo
     flashSeed[slot] = seq++;
-    const list = smoke[slot] ?? (smoke[slot] = []), n = 5 + Math.round(size / 18);
+    const list = smoke[slot] ?? (smoke[slot] = []), n = Math.round((5 + size / 18) * (heavy ? 2.6 : 1)), big = heavy ? 1.5 : 1;
     for (let i = 0; i < n; i++) {
       const q = hash(seq * 9 + i), sp = size * (0.6 + q * 1.4), a = dir + (hash(seq * 5 + i * 3) - 0.5) * 0.9;
       list.push({ x: x + Math.cos(dir) * size * 0.3 * (i / n), y: y + Math.sin(dir) * size * 0.3 * (i / n), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - size * 0.25,
-        t0: t + 0.04 + i * 0.03, life: 1.6 + q * 1.2, r: size * (0.22 + q * 0.14), grow: size * (0.8 + q * 0.6), a: 0.42 + q * 0.18 });
+        t0: t + 0.04 + i * (heavy ? 0.02 : 0.03), life: (1.6 + q * 1.2) * (heavy ? 1.7 : 1), r: size * (0.22 + q * 0.14) * big, grow: size * (0.8 + q * 0.6) * big, a: Math.min(0.75, (0.42 + q * 0.18) * (heavy ? 1.3 : 1)) });
     }
-    if (list.length > 70) list.splice(0, list.length - 70);
+    if (list.length > 110) list.splice(0, list.length - 110);
   }
   lastFlash[slot] = f;
   const sd = flashSeed[slot] ?? 1, rnd = (i: number) => hash(sd * 31 + i);

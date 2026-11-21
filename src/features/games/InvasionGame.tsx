@@ -42,6 +42,7 @@ function createArsenal() {
 }
 const BREATH = 4; // segundos que se puede contener la respiración (Shift)
 const PAN = 26; // lo que se mueve la vista con las flechas (unidades por segundo)
+const EDGE = 0.07; // franja de cada costado (fracción del ancho) donde el mouse suelto corre el escenario
 const TOUCH_SPEED = 1.35; // en el celular el escenario se corre un poco más que el dedo (se llega a todos lados sin soltar)
 // Lo que entra de alto en el fondo: de la calle a lo más alto de los edificios (la ciudad ocupa casi toda la pantalla).
 const FLOOR_Y = -3.4, TOP_Y = CITY_TOP;
@@ -62,6 +63,7 @@ export function Invasion() {
   // `cam`: dónde está la vista (se mueve con las flechas). `mouse`: dónde está la mira en la pantalla.
   const cam = useRef({ x: 60, y: (CITY_TOP + -3.4) / 2, lagX: 0, lagY: 0 }); // lag: cuánto se movió hace poco (el arma se atrasa un poco)
   const mouse = useRef({ x: -1, y: -1 });
+  const mouseIn = useRef(false); // el cursor está adentro de la ventana
   const muzzleAt = useRef<{ x: number; y: number } | null>(null); // la boca del arma en la pantalla (de ahí sale el cohete)
   const aim = useRef({ zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0, scoped: false, muzzle: 0 }); // muzzle: el fogonazo del último disparo (1 → 0)
   const arsenal = useRef(createArsenal());
@@ -282,7 +284,7 @@ export function Invasion() {
   useEffect(() => {
     if (status !== 'playing') { setInvasionAmbient(null); return; }
     let frame = 0, last = performance.now(), soundAt = 0, talkAt = 0, rayAt = 0;
-    const tick = (now: number) => {
+    const run = (now: number): boolean => {
       const g = gameRef.current, a = aim.current, G = arsenal.current[selected.current], stage = stageRef.current;
       // El reloj del juego va a tiempo real aunque la compu dibuje pocos cuadros por segundo (hasta 4 por segundo):
       // la lógica avanza en pasos de 50 ms como mucho.
@@ -290,7 +292,7 @@ export function Invasion() {
       last = now;
       for (let left = dt; left > 1e-6 && !g.over; left -= 0.05) step(g, Math.min(0.05, left));
       a.swayT += dt;
-      a.kick = Math.max(0, a.kick - dt * (selected.current === 'bazooka' ? 2.2 : 4)); // la bazooka vuelve más despacio del retroceso
+      a.kick = Math.max(0, a.kick - dt * (selected.current === 'bazooka' ? 1.6 : 4)); // la bazooka vuelve más despacio del retroceso
       a.muzzle = Math.max(0, a.muzzle - dt * (selected.current === 'bazooka' ? 5 : 10)); // el fogonazo dura un instante (el de la bazooka, un poco más)
       a.shake = Math.max(0, a.shake - dt * 2.2);
       a.flash = a.flash > 0 ? Math.max(0, a.flash - dt * 3) : Math.min(0, a.flash + dt * 2);
@@ -299,6 +301,13 @@ export function Invasion() {
       a.breath = a.holding ? Math.max(0, a.breath - dt) : Math.min(BREATH, a.breath + dt * 0.6);
       // Flechas (o W A S D): el escenario se mueve (el "+" queda en el medio).
       const dir = (keys.current.has('ArrowRight') || keys.current.has('d') || keys.current.has('pad-right') ? 1 : 0) - (keys.current.has('ArrowLeft') || keys.current.has('a') || keys.current.has('pad-left') ? 1 : 0);
+      // Mouse suelto (sin bloqueo del puntero) en los bordes de la pantalla: corre el escenario como las flechas,
+      // más rápido cuanto más al borde (así no se traba cuando el cursor llega al costado).
+      const m = mouse.current, edge = stage && mouseIn.current && document.pointerLockElement !== stage && m.y >= 0 && m.y <= stage.clientHeight ? (() => {
+        const W = stage.clientWidth, z = W * EDGE;
+        return m.x < z ? -Math.min(1, 1 - m.x / z) : m.x <= W && m.x > W - z ? 1 - (W - m.x) / z : 0; // (a la izquierda del juego cuenta como el borde)
+      })() : 0;
+      if (edge) { const z = a.scoped && hasScope(selected.current) ? Math.max(1, a.zoom / (stage ? stage.clientHeight / (TOP_Y - FLOOR_Y) : 20)) : 1; cam.current.x += Math.sign(edge) * (0.45 + Math.abs(edge) * 0.75) * PAN * dt / z; }
       const vdir = (keys.current.has('ArrowUp') || keys.current.has('w') ? 1 : 0) - (keys.current.has('ArrowDown') || keys.current.has('s') ? 1 : 0);
       if (dir || vdir) { const z = a.scoped && hasScope(selected.current) ? Math.max(1, a.zoom / (stage ? stage.clientHeight / (TOP_Y - FLOOR_Y) : 20)) : 1; cam.current.x += dir * PAN * dt / z; cam.current.y += vdir * PAN * 0.7 * dt / z; }
       const decay = Math.exp(-dt * 7); cam.current.lagX *= decay; cam.current.lagY *= decay;
@@ -361,9 +370,16 @@ export function Invasion() {
         setInvasionAmbient(null);
         if (won) playWinFanfare(); else playGameOver();
         setStatus('over');
-        return;
+        return false;
       }
-      frame = requestAnimationFrame(tick);
+      return true;
+    };
+    // Si un cuadro falla por algo raro, el juego sigue con el siguiente (antes el bucle se cortaba y todo, el "+"
+    // incluido, quedaba congelado).
+    const tick = (now: number) => {
+      let go = true;
+      try { go = run(now); } catch (err) { console.error('Invasión: falló un cuadro', err); }
+      if (go) frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     const hide = () => { if (document.hidden) setStatus('paused'); };
@@ -383,6 +399,7 @@ export function Invasion() {
     const stage = stageRef.current;
     if (!stage) return;
     const move = (e: MouseEvent) => {
+      mouseIn.current = true;
       const r = stage.getBoundingClientRect(), k = fitScale();
       mouse.current = { x: (e.clientX - r.left) / k, y: (e.clientY - r.top) / k };
       if (statusRef.current !== 'playing') { paint(); return; }
@@ -407,10 +424,12 @@ export function Invasion() {
     window.addEventListener('blur', up);
     const wheel = (e: WheelEvent) => { if (statusRef.current !== 'playing') return; e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.18 : 1 / 1.18); };
     document.addEventListener('mousemove', move);
+    const out = (e: MouseEvent) => { if (!e.relatedTarget) mouseIn.current = false; }; // el cursor salió de la ventana
+    document.addEventListener('mouseout', out);
     stage.addEventListener('mousedown', down);
     stage.addEventListener('wheel', wheel, { passive: false });
     document.addEventListener('pointerlockchange', lockChange);
-    return () => { window.removeEventListener('mouseup', up); window.removeEventListener('blur', up); up(); document.removeEventListener('mousemove', move); stage.removeEventListener('mousedown', down); stage.removeEventListener('wheel', wheel); document.removeEventListener('pointerlockchange', lockChange); };
+    return () => { window.removeEventListener('mouseup', up); window.removeEventListener('blur', up); up(); document.removeEventListener('mousemove', move); document.removeEventListener('mouseout', out); stage.removeEventListener('mousedown', down); stage.removeEventListener('wheel', wheel); document.removeEventListener('pointerlockchange', lockChange); };
   }, [fire, zoomBy, paint, look, lockMouse]);
   // Fuera de la partida (pausa, arsenal, fin) se suelta el mouse.
   useEffect(() => { if (status !== 'playing' && document.pointerLockElement) document.exitPointerLock?.(); }, [status]);

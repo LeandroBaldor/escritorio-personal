@@ -15,11 +15,11 @@ export const SIDEWALK_Y = 0, ROAD_Y = -1.6;
 const UFO_DY = 0.15, UFO_HALF_H = 3.85;
 export const UFO_FROM = 300; // a los 5 minutos llegan los ovnis
 export const RAIN_FROM = 180; // a los 3 minutos empieza a llover
-export const MAG = 10, BOLT_TIME = 0.75, RELOAD_TIME = 2.2; // (10 balas: el doble desde las correcciones 6)
+export const MAG = 10, BOLT_TIME = 0.75, RELOAD_TIME = 1.5; // (10 balas: el doble desde las correcciones 6; recarga en 1,5 s, lo que dura el sonido)
 export type Outcome = 'won' | 'time';
 export const WEAPONS = {
   rifle: { name: 'Rifle de francotirador', mag: MAG, cycle: BOLT_TIME, reload: RELOAD_TIME, zoom: 520, start: 58 },
-  machine: { name: 'Ametralladora', mag: 48, cycle: 0.115, reload: 1.9, zoom: 120, start: 43 },
+  machine: { name: 'Ametralladora', mag: 48, cycle: 0.115, reload: 1.5, zoom: 120, start: 43 },
   bazooka: { name: 'Bazooka', mag: 2, cycle: 0.5, reload: 3.1, zoom: 85, start: 36 },
 } as const;
 export type Weapon = keyof typeof WEAPONS;
@@ -34,8 +34,8 @@ export const ALIEN_KINDS = [
   { name: 'brutox', label: 'Brutox', size: 1.5, hp: 10, points: 60 }, { name: 'esporal', label: 'Esporal', size: 1.1, hp: 2, points: 20 },
   { name: 'mantis', label: 'Mantis', size: 1.25, hp: 5, points: 40 }, { name: 'reptiliano', label: 'Reptiliano', size: 1.1, hp: 2, points: 30 },
 ] as const;
-// Daño de cada tiro: el francotirador saca 5 puntos de vida, la ametralladora 1 (la explosión de la bazooka mata siempre).
-export const DAMAGE: Record<Weapon, number> = { rifle: 5, machine: 1, bazooka: 99 };
+// Daño de cada tiro: el francotirador saca 10 puntos de vida, la ametralladora 1 (la explosión de la bazooka mata siempre).
+export const DAMAGE: Record<Weapon, number> = { rifle: 10, machine: 1, bazooka: 99 };
 export const alienKind = (p: { id: number }) => ALIEN_KINDS[p.id % ALIEN_KINDS.length];
 export interface Bullet { x: number; y: number; t0: number; who?: number; dx: number; dy: number } // si apuntaste a alguien, la bala lo sigue
 export const WALL_BREAK = 14; // balas de ametralladora que aguanta un departamento antes de derrumbarse
