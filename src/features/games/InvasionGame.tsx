@@ -38,8 +38,7 @@ function createArsenal() {
 }
 const BREATH = 4; // segundos que se puede contener la respiración (Shift)
 const PAN = 26; // lo que se mueve la vista con las flechas (unidades por segundo)
-const TOUCH_SPEED = 1.35; // en el celular la mira se mueve un poco más que el dedo (se llega a todos lados sin soltar)
-const EDGE = 0.1; // con la mira en el último 10 % de cada costado, la vista se corre sola
+const TOUCH_SPEED = 1.35; // en el celular el escenario se corre un poco más que el dedo (se llega a todos lados sin soltar)
 // Lo que entra de alto en el fondo: de la calle a lo más alto de los edificios (la ciudad ocupa casi toda la pantalla).
 const FLOOR_Y = -3.4, TOP_Y = CITY_TOP;
 
@@ -53,11 +52,11 @@ export function Invasion() {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mapRef = useRef<HTMLCanvasElement>(null);
-  const bgRef = useRef({ canvas: typeof document === 'undefined' ? null as unknown as HTMLCanvasElement : document.createElement('canvas'), x: NaN, s: 0, at: 0 });
+  const bgRef = useRef({ canvas: typeof document === 'undefined' ? null as unknown as HTMLCanvasElement : document.createElement('canvas'), x: NaN, y: NaN, s: 0, at: 0 });
   const [firstGame] = useState(() => newInvasion());
   const gameRef = useRef<Game>(firstGame);
   // `cam`: dónde está la vista (se mueve con las flechas). `mouse`: dónde está la mira en la pantalla.
-  const cam = useRef({ x: 60 });
+  const cam = useRef({ x: 60, y: (CITY_TOP + -3.4) / 2, lagX: 0, lagY: 0 }); // lag: cuánto se movió hace poco (el arma se atrasa un poco)
   const mouse = useRef({ x: -1, y: -1 });
   const aim = useRef({ zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0, scoped: false });
   const arsenal = useRef(createArsenal());
@@ -84,23 +83,34 @@ export function Invasion() {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  // La vista de fondo: entra toda la altura de la ciudad y con las flechas se recorre la cuadra.
+  // La vista, como en el Counter-Strike pero en 2D: el "+" queda fijo en el medio de la pantalla y lo que se
+  // mueve es el escenario (con el mouse, el dedo o las flechas). Entra toda la altura de la ciudad; el centro
+  // puede ir desde la calle hasta lo más alto y de punta a punta de la cuadra. El temblor del pulso (menos si
+  // contenés la respiración) y el retroceso mueven el escenario, así el "+" siempre marca adónde va el tiro.
   const baseView = useCallback((w: number, h: number): Omit<View, 't' | 'dpr'> => {
-    const g = gameRef.current, s = h / (TOP_Y - FLOOR_Y), half = w / 2 / s;
-    cam.current.x = g.width < half * 2 ? g.width / 2 : Math.max(half, Math.min(g.width - half, cam.current.x));
-    return { w, h, s, cx: cam.current.x, cy: (TOP_Y + FLOOR_Y) / 2 };
-  }, []);
-  // Dónde apunta la mira (en la ciudad), con el temblor del pulso (menos si contenés la respiración) y el retroceso.
-  const target = useCallback((w: number, h: number) => {
-    const b = baseView(w, h), a = aim.current, m = mouse.current;
-    const mx = m.x < 0 ? w / 2 : m.x, my = m.y < 0 ? h * 0.55 : m.y;
+    const g = gameRef.current, s = h / (TOP_Y - FLOOR_Y), a = aim.current, c = cam.current;
+    c.x = Math.max(0, Math.min(g.width, c.x));
+    c.y = Math.max(FLOOR_Y + 2.4, Math.min(TOP_Y, c.y));
     const k = a.holding && a.breath > 0 ? 0.15 : 1, amp = 7 / a.zoom * k, t = a.swayT;
     return {
-      mx, my,
-      x: b.cx + (mx - w / 2) / b.s + Math.sin(t * 0.9) * amp + Math.sin(t * 2.3) * amp * 0.4,
-      y: b.cy + (h / 2 - my) / b.s + Math.sin(t * 1.3 + 1) * amp * 0.8 + a.kick * 1.2 * (30 / a.zoom),
+      w, h, s,
+      cx: c.x + Math.sin(t * 0.9) * amp + Math.sin(t * 2.3) * amp * 0.4,
+      cy: c.y + Math.sin(t * 1.3 + 1) * amp * 0.8 + a.kick * 1.2 * (30 / a.zoom),
     };
+  }, []);
+  // Adónde apunta el "+" (el medio de la pantalla) en la ciudad.
+  const target = useCallback((w: number, h: number) => {
+    const b = baseView(w, h);
+    return { mx: w / 2, my: h / 2, x: b.cx, y: b.cy };
   }, [baseView]);
+  // Mover el escenario: `dx`, `dy` en píxeles de pantalla (con la mira, más fino cuanto más zoom).
+  const look = useCallback((dx: number, dy: number) => {
+    const stage = stageRef.current, a = aim.current, c = cam.current;
+    if (!stage) return;
+    const scale = a.scoped && hasScope(selected.current) ? a.zoom : stage.clientHeight / (TOP_Y - FLOOR_Y);
+    c.x += dx / scale; c.y -= dy / scale;
+    c.lagX = Math.max(-220, Math.min(220, c.lagX + dx)); c.lagY = Math.max(-160, Math.min(160, c.lagY + dy));
+  }, []);
   const scopeRadius = (w: number, h: number) => Math.min(w, h) * (w < 700 ? 0.36 : 0.3);
 
   const paint = useCallback(() => {
@@ -123,17 +133,17 @@ export function Invasion() {
     const aiming = !!drag.current || fingers.current.size > 0; // con el dedo apuntando no se rearma el fondo (salvo que haga falta): la mira no pega tirones
     const shake = a.shake > 0 ? [Math.sin(g.time * 90) * a.shake * 14, Math.cos(g.time * 77) * a.shake * 10] : [0, 0]; // cuando explota un alien (o una bomba cerca) tiembla todo
     {
-      const bg = bgRef.current, now = performance.now(), M = 0.3, W = w * (1 + 2 * M);
-      const bs = touch ? 0.55 : 1, bw = Math.round(W * dpr * bs), bh = Math.round(h * dpr * bs);
+      const bg = bgRef.current, now = performance.now(), M = 0.3, MV = 0.25, W = w * (1 + 2 * M), HH = h * (1 + 2 * MV);
+      const bs = touch ? 0.55 : 1, bw = Math.round(W * dpr * bs), bh = Math.round(HH * dpr * bs);
       const every = !scoped && playing ? (touch ? (aiming ? 260 : 150) : 60) : !touch ? 120 : aiming ? 3000 : 450; // sin mira la ciudad es lo que se mira: se rearma seguido (el arma y el + se mueven en cada cuadro)
-      if (bg.canvas.width !== bw || bg.canvas.height !== bh || bg.s !== b.s || Math.abs(bg.x - b.cx) * b.s > M * w * 0.85 || now - bg.at > every) {
+      if (bg.canvas.width !== bw || bg.canvas.height !== bh || bg.s !== b.s || Math.abs(bg.x - b.cx) * b.s > M * w * 0.85 || Math.abs(bg.y - b.cy) * b.s > MV * h * 0.85 || now - bg.at > every) {
         if (bg.canvas.width !== bw || bg.canvas.height !== bh) { bg.canvas.width = bw; bg.canvas.height = bh; }
         const bctx = bg.canvas.getContext('2d');
-        if (bctx) { bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, bw, bh); bctx.setTransform(dpr * bs, 0, 0, dpr * bs, 0, 0); paintCity(bctx, g, { ...b, w: W, t: g.time, dpr }, 10); }
-        bg.x = b.cx; bg.s = b.s; bg.at = now;
+        if (bctx) { bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, bw, bh); bctx.setTransform(dpr * bs, 0, 0, dpr * bs, 0, 0); paintCity(bctx, g, { ...b, w: W, h: HH, t: g.time, dpr }, 10); }
+        bg.x = b.cx; bg.y = b.cy; bg.s = b.s; bg.at = now;
       }
-      const off = ((bg.x - b.cx) * b.s - M * w) * dpr; // dónde cae la imagen según cuánto se movió la vista
-      ctx.setTransform(1, 0, 0, 1, shake[0] * dpr, shake[1] * dpr); ctx.drawImage(bg.canvas, off, 0, W * dpr, canvas.height); ctx.setTransform(dpr, 0, 0, dpr, shake[0] * dpr, shake[1] * dpr);
+      const off = ((bg.x - b.cx) * b.s - M * w) * dpr, offY = ((b.cy - bg.y) * b.s - MV * h) * dpr; // dónde cae la imagen según cuánto se movió la vista
+      ctx.setTransform(1, 0, 0, 1, shake[0] * dpr, shake[1] * dpr); ctx.drawImage(bg.canvas, off, offY, W * dpr, HH * dpr); ctx.setTransform(dpr, 0, 0, dpr, shake[0] * dpr, shake[1] * dpr);
       if (scoped || !playing) { ctx.fillStyle = scoped ? 'rgba(2,8,4,0.45)' : 'rgba(2,8,4,0.3)'; ctx.fillRect(-20, -20, w + 40, h + 40); }
     }
     // El arma solo se ve jugando: con el cartel abierto (inicio, pausa o fin) se usa la flecha del mouse normal.
@@ -147,7 +157,7 @@ export function Invasion() {
         });
       } else {
         // Sin mira: el arma en la mano (o recargando) y el "+" para apuntar.
-        drawHeldWeapon(ctx, wpn, w, h, p.mx, p.my, g.time, a.kick, reloading ? 1 - G.reload / WEAPONS[wpn].reload : null);
+        drawHeldWeapon(ctx, wpn, w, h, p.mx - cam.current.lagX * 1.6, p.my - cam.current.lagY * 1.6, g.time, a.kick, reloading ? 1 - G.reload / WEAPONS[wpn].reload : null);
         if (!reloading) drawCross(ctx, p.mx, p.my, wpn, g.time);
       }
     }
@@ -160,7 +170,7 @@ export function Invasion() {
       if (mw && mh) {
         if (map.width !== Math.round(mw * dpr)) { map.width = Math.round(mw * dpr); map.height = Math.round(mh * dpr); }
         const m = map.getContext('2d');
-        if (m) { m.setTransform(dpr, 0, 0, dpr, 0, 0); drawMinimap(m, g, mw, mh, { x1: b.cx - w / 2 / b.s, x2: b.cx + w / 2 / b.s, y1: FLOOR_Y, y2: TOP_Y }); }
+        if (m) { m.setTransform(dpr, 0, 0, dpr, 0, 0); drawMinimap(m, g, mw, mh, { x1: b.cx - w / 2 / b.s, x2: b.cx + w / 2 / b.s, y1: b.cy - h / 2 / b.s, y2: b.cy + h / 2 / b.s }); }
       }
     }
   }, [baseView, target]);
@@ -231,7 +241,7 @@ export function Invasion() {
     playStart(); preloadInvasionSounds(); preloadGray(); preloadWeapons();
     gameRef.current = newInvasion();
     const g = gameRef.current;
-    cam.current.x = g.width * (0.3 + Math.random() * 0.4);
+    cam.current.x = g.width * (0.3 + Math.random() * 0.4); cam.current.y = (TOP_Y + FLOOR_Y) / 2;
     Object.assign(aim.current, { zoom: minZoom(), target: minZoom(), kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0, scoped: false });
     arsenal.current = createArsenal();
     selected.current = 'rifle';
@@ -271,13 +281,11 @@ export function Invasion() {
       a.zoom += (a.target - a.zoom) * Math.min(1, dt * 10);
       a.holding = keys.current.has('Shift');
       a.breath = a.holding ? Math.max(0, a.breath - dt) : Math.min(BREATH, a.breath + dt * 0.6);
-      // Flechas (o A y D): la vista se mueve para los costados.
+      // Flechas (o W A S D): el escenario se mueve (el "+" queda en el medio).
       const dir = (keys.current.has('ArrowRight') || keys.current.has('d') || keys.current.has('pad-right') ? 1 : 0) - (keys.current.has('ArrowLeft') || keys.current.has('a') || keys.current.has('pad-left') ? 1 : 0);
-      cam.current.x += dir * PAN * dt;
-      if (drag.current && stage) { // celular: la mira contra un costado corre la vista para ese lado (más rápido cuanto más al borde)
-        const w = stage.clientWidth, mx = mouse.current.x / w;
-        if (mx < EDGE) cam.current.x -= PAN * 1.4 * (1 - mx / EDGE) * dt; else if (mx > 1 - EDGE) cam.current.x += PAN * 1.4 * (1 - (1 - mx) / EDGE) * dt;
-      }
+      const vdir = (keys.current.has('ArrowUp') || keys.current.has('w') ? 1 : 0) - (keys.current.has('ArrowDown') || keys.current.has('s') ? 1 : 0);
+      if (dir || vdir) { const z = a.scoped && hasScope(selected.current) ? Math.max(1, a.zoom / (stage ? stage.clientHeight / (TOP_Y - FLOOR_Y) : 20)) : 1; cam.current.x += dir * PAN * dt / z; cam.current.y += vdir * PAN * 0.7 * dt / z; }
+      const decay = Math.exp(-dt * 7); cam.current.lagX *= decay; cam.current.lagY *= decay;
       for (const id of weaponKeys) {
         const state = arsenal.current[id];
         state.cycle = Math.max(0, state.cycle - dt);
@@ -345,21 +353,42 @@ export function Invasion() {
     return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); };
   }, [status, paint, target, fire, reactToHit]);
 
-  // Mouse: la mira va adonde está el mouse, clic dispara y la ruedita hace zoom.
+  // Mouse, como en el Counter-Strike: jugando, el mouse queda "atrapado" en el juego (bloqueo del puntero) y
+  // moverlo corre el escenario; el "+" queda en el medio. Clic dispara (el primer clic, si el mouse no estaba
+  // atrapado, solo lo atrapa) y la ruedita hace zoom. Escape suelta el mouse y pone pausa.
+  const lockMouse = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage || window.matchMedia?.('(pointer: coarse)').matches || document.pointerLockElement === stage) return;
+    try { const r = stage.requestPointerLock?.() as unknown; if (r && typeof (r as Promise<void>).catch === 'function') (r as Promise<void>).catch(() => undefined); } catch { /* sin bloqueo del puntero: se usa el mouse suelto */ }
+  }, []);
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    const move = (e: MouseEvent) => { const r = stage.getBoundingClientRect(); const k = fitScale(); mouse.current = { x: (e.clientX - r.left) / k, y: (e.clientY - r.top) / k }; if (statusRef.current !== 'playing') paint(); };
-    const down = (e: MouseEvent) => { if (e.button === 0 && e.target === canvasRef.current) { trigger.current = true; fire(); } };
+    const move = (e: MouseEvent) => {
+      const r = stage.getBoundingClientRect(), k = fitScale();
+      mouse.current = { x: (e.clientX - r.left) / k, y: (e.clientY - r.top) / k };
+      if (statusRef.current !== 'playing') { paint(); return; }
+      look(e.movementX / k, e.movementY / k);
+    };
+    const down = (e: MouseEvent) => {
+      if (e.button !== 0 || statusRef.current !== 'playing') return;
+      if (e.target !== canvasRef.current && e.target !== stage) return;
+      if (document.pointerLockElement !== stage && !window.matchMedia?.('(pointer: coarse)').matches && 'requestPointerLock' in stage) { lockMouse(); return; }
+      trigger.current = true; fire();
+    };
     const up = () => { trigger.current = false; };
+    const lockChange = () => { if (document.pointerLockElement !== stage && statusRef.current === 'playing') setStatus('paused'); };
     window.addEventListener('mouseup', up);
     window.addEventListener('blur', up);
     const wheel = (e: WheelEvent) => { if (statusRef.current !== 'playing') return; e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.18 : 1 / 1.18); };
-    stage.addEventListener('mousemove', move);
+    document.addEventListener('mousemove', move);
     stage.addEventListener('mousedown', down);
     stage.addEventListener('wheel', wheel, { passive: false });
-    return () => { window.removeEventListener('mouseup', up); window.removeEventListener('blur', up); up(); stage.removeEventListener('mousemove', move); stage.removeEventListener('mousedown', down); stage.removeEventListener('wheel', wheel); };
-  }, [fire, zoomBy, paint]);
+    document.addEventListener('pointerlockchange', lockChange);
+    return () => { window.removeEventListener('mouseup', up); window.removeEventListener('blur', up); up(); document.removeEventListener('mousemove', move); stage.removeEventListener('mousedown', down); stage.removeEventListener('wheel', wheel); document.removeEventListener('pointerlockchange', lockChange); };
+  }, [fire, zoomBy, paint, look, lockMouse]);
+  // Fuera de la partida (pausa, arsenal, fin) se suelta el mouse.
+  useEffect(() => { if (status !== 'playing' && document.pointerLockElement) document.exitPointerLock?.(); }, [status]);
 
   // Teclado: ← → (o A y D) mueven la vista, Shift contiene la respiración, R recarga, + y − zoom, P pausa.
   useEffect(() => {
@@ -371,7 +400,8 @@ export function Invasion() {
         return;
       }
       if (e.key === 'Escape' && current === 'armory') { setStatus('playing'); return; }
-      if ((e.key === 'p' || e.key === 'P' || e.key === 'Escape') && (current === 'playing' || current === 'paused')) { setStatus(s => s === 'playing' ? 'paused' : 'playing'); return; }
+      if (e.key === 'Escape' && current === 'playing') { setStatus('paused'); return; } // (Escape solo pausa: también suelta el mouse)
+      if ((e.key === 'p' || e.key === 'P') && (current === 'playing' || current === 'paused')) { if (current === 'paused') lockMouse(); setStatus(s => s === 'playing' ? 'paused' : 'playing'); return; }
       if ((current === 'playing' || current === 'armory') && /^[123]$/.test(e.key)) {
         selectWeapon(weaponKeys[Number(e.key) - 1]);
         return;
@@ -390,7 +420,7 @@ export function Invasion() {
     window.addEventListener('keyup', up);
     window.addEventListener('blur', blur);
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', blur); };
-  }, [fire, reload, selectWeapon, zoomBy]);
+  }, [fire, reload, selectWeapon, zoomBy, lockMouse]);
 
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -398,8 +428,7 @@ export function Invasion() {
     return () => { document.body.style.overflow = previous; setInvasionAmbient(null); };
   }, []);
 
-  // En el celular: arrastrando con el dedo se mueve la mira (si llega al borde, la vista se corre sola para ese
-  // lado), un toque cortito dispara y con dos dedos se hace zoom: estirando se acerca, cerrando se aleja.
+  // En el celular: arrastrando con el dedo se corre el escenario (el "+" queda en el medio), un toque cortito dispara y con dos dedos se hace zoom: estirando se acerca, cerrando se aleja.
   const spread = () => { const [p1, p2] = [...fingers.current.values()]; return Math.hypot(p1.x - p2.x, p1.y - p2.y) || 1; };
   const touch = {
     onPointerDown: (e: React.PointerEvent) => {
@@ -415,8 +444,8 @@ export function Invasion() {
       const pz = pinch.current;
       if (pz && fingers.current.size >= 2) { setZoom(pz.zoom * spread() / pz.d); aim.current.zoom = aim.current.target; return; } // sigue a los dedos sin demora
       const d = drag.current, stage = stageRef.current; if (!d || d.id !== e.pointerId || !stage) return;
-      const m = mouse.current, w = stage.clientWidth, h = stage.clientHeight, k = fitScale() / TOUCH_SPEED;
-      mouse.current = { x: Math.max(0, Math.min(w, (m.x < 0 ? w / 2 : m.x) + (e.clientX - d.x) / k)), y: Math.max(0, Math.min(h, (m.y < 0 ? h * 0.55 : m.y) + (e.clientY - d.y) / k)) };
+      const k = fitScale() / TOUCH_SPEED;
+      look((e.clientX - d.x) / k, (e.clientY - d.y) / k); // como el mouse: deslizar a la derecha mira a la derecha, hacia arriba mira arriba (el "+" queda en el medio)
       d.moved += Math.hypot(e.clientX - d.x, e.clientY - d.y); d.x = e.clientX; d.y = e.clientY;
     },
     onPointerUp: (e: React.PointerEvent) => {
@@ -459,12 +488,12 @@ export function Invasion() {
               <dl className="inv-controls">
                 <div><dt><kbd>Espacio</kbd></dt><dd>Abrir arsenal</dd></div>
                 <div><dt><kbd>Clic</kbd> <kbd>Enter</kbd></dt><dd>Disparar</dd></div>
-                <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Mover la vista</dd></div>
+                <div><dt><kbd>Mouse</kbd> <kbd>←↑↓→</kbd></dt><dd>Mover la vista</dd></div>
                 <div><dt><kbd>Ruedita</kbd></dt><dd>Zoom</dd></div>
                 <div><dt><kbd>R</kbd></dt><dd>Recargar</dd></div>
-                <div><dt><kbd>P</kbd></dt><dd>Pausa</dd></div>
+                <div><dt><kbd>P</kbd> <kbd>Esc</kbd></dt><dd>Pausa</dd></div>
               </dl>
-              <button type="button" onClick={start} autoFocus>Jugar</button>
+              <button type="button" onClick={() => { start(); lockMouse(); }} autoFocus>Jugar</button>
             </>}
             {status === 'armory' && <>
               <h2 id="inv-message">Seleccioná un arma</h2>
@@ -476,11 +505,11 @@ export function Invasion() {
                   <span>{weaponArt[id].role}</span>
                 </button>)}
               </div>
-              <button type="button" className="inv-armory-back" onClick={() => setStatus('playing')}>Volver a la partida</button>
+              <button type="button" className="inv-armory-back" onClick={() => { setStatus('playing'); lockMouse(); }}>Volver a la partida</button>
             </>}
             {status === 'paused' && <>
               <h2 id="inv-message">Pausa</h2>
-              <button type="button" onClick={() => setStatus('playing')} autoFocus>Seguir</button>
+              <button type="button" onClick={() => { setStatus('playing'); lockMouse(); }} autoFocus>Seguir</button>
             </>}
             {status === 'over' && <>
               <EndBanner win={result.outcome === 'won'} id="inv-message" />
@@ -488,7 +517,7 @@ export function Invasion() {
               <p><strong data-testid="inv-final">{result.kills * ALIEN_POINTS} puntos</strong> ? {result.kills} aliens eliminados ? {hud.humans} humanos y {hud.aliens} aliens en pie.{result.newRecord && ' Nuevo récord.'}</p>
               <p>{result.headshots} tiros a la cabeza · {result.defused} bombas desactivadas · {accuracy}% de puntería</p>
               {result.clues.length > 0 && <div className="inv-clues"><p><strong>Lo raro que hacían los aliens que eliminaste:</strong></p><ul>{result.clues.map(c => <li key={c}>{c}</li>)}</ul></div>}
-              <button type="button" onClick={start} autoFocus>Jugar de nuevo</button>
+              <button type="button" onClick={() => { start(); lockMouse(); }} autoFocus>Jugar de nuevo</button>
             </>}
           </div>
         </div>}

@@ -657,6 +657,8 @@ test('Invasión: se abre desde Juegos, corre el tiempo, se dispara, se recarga y
   await expect(page.getByTestId('inv-time')).toHaveText(paused ?? '');
   await page.getByRole('button', { name: 'Seguir' }).first().click();
   await expect(page.getByRole('heading', { name: 'Pausa' })).toHaveCount(0);
+  await page.keyboard.press('Escape'); // jugando, el mouse queda atrapado en el juego: Escape lo suelta (y pausa)
+  await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
   await page.getByRole('link', { name: '‹ Juegos' }).click();
   await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
 });
