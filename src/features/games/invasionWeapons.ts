@@ -22,10 +22,13 @@ function img(url: string) {
 export function preloadWeapons() { for (const u of [rifleHand, rifleReload, rifleScope, machineHand, machineReload, machineScope, bazookaHand, bazookaReload]) img(u); }
 
 // Cómo va cada arma en la mano: alto (en fracción del alto de la pantalla) y cuánto se mete en el borde derecho.
-const HELD: Record<Weapon, { hand: string; reload: string; tall: number; reloadTall: number; out: number; reloadX: number }> = {
+// `aim` (opcional): el caño de la imagen (boca de adelante y de atrás, en px de la imagen); el arma se ubica para
+// que esa línea pase justo por el "+" del medio, con la boca a `gap` (fracción del alto) del centro y girada `tilt`.
+interface Aim { front: [number, number]; back: [number, number]; tilt: number; gap: number }
+const HELD: Record<Weapon, { hand: string; reload: string; tall: number; reloadTall: number; out: number; reloadX: number; aim?: Aim }> = {
   rifle: { hand: rifleHand, reload: rifleReload, tall: 0.6, reloadTall: 0.68, out: 0.06, reloadX: 0.6 },
   machine: { hand: machineHand, reload: machineReload, tall: 0.56, reloadTall: 0.58, out: 0.04, reloadX: 0.66 },
-  bazooka: { hand: bazookaHand, reload: bazookaReload, tall: 0.5, reloadTall: 0.56, out: 0.06, reloadX: 0.6 },
+  bazooka: { hand: bazookaHand, reload: bazookaReload, tall: 0.8, reloadTall: 0.56, out: 0.06, reloadX: 0.6, aim: { front: [125, 210], back: [870, 330], tilt: 0.2, gap: 0.11 } },
 };
 
 // El arma en la mano. `reload` va de 0 a 1 mientras se recarga (null si no); `kick` es el retroceso.
@@ -42,6 +45,18 @@ export function drawHeldWeapon(ctx: CanvasRenderingContext2D, weapon: Weapon, w:
     x = w * d.reloadX - wide / 2 + swayX * 0.5;
     const inOut = Math.min(1, reload / 0.12, (1 - reload) / 0.12);
     y += (1 - Math.max(0, inOut)) * tall * 0.5 + Math.sin(reload * Math.PI * 3) * h * 0.012;
+  }
+  if (reload === null && d.aim) {
+    // Apuntando al medio: la línea del caño pasa por el centro de la pantalla.
+    const A = d.aim, k = tall / im.naturalHeight;
+    const ax = A.front[0] - A.back[0], ay = A.front[1] - A.back[1], L = Math.hypot(ax, ay);
+    const rot = A.tilt + kick * 0.04, ca = Math.cos(rot), sa = Math.sin(rot);
+    const ux = (ax * ca - ay * sa) / L, uy = (ax * sa + ay * ca) / L; // hacia adonde apunta, ya girado
+    const mxs = w / 2 - ux * A.gap * h + swayX + kick * w * 0.01, mys = h / 2 - uy * A.gap * h + swayY + kick * h * 0.03;
+    ctx.save(); ctx.translate(mxs, mys); ctx.rotate(rot);
+    ctx.drawImage(im, -A.front[0] * k, -A.front[1] * k, im.naturalWidth * k, tall);
+    ctx.restore();
+    return;
   }
   ctx.save();
   ctx.translate(x + wide * 0.5, y + tall * 0.5); ctx.rotate(kick * 0.03); ctx.translate(-(x + wide * 0.5), -(y + tall * 0.5));
