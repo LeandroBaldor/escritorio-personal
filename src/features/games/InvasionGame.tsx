@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { TouchGrips } from './TouchGrips';
 import { fitScale, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
-import { ALIEN_POINTS, ALIEN_TOTAL, aliveAliens, aliveHumans, BAZOOKA_RADIUS, CITY_TOP, GAME_SECONDS, HUMAN_TOTAL, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
+import { ALIEN_POINTS, ALIEN_TOTAL, aliveAliens, aliveHumans, CITY_TOP, GAME_SECONDS, HUMAN_TOTAL, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import { drawMinimap, paintCity, type View } from './invasionArt';
 import { invasionLevels } from './invasionSound';
@@ -12,9 +12,10 @@ import {
   playRicochet, playRifleShot, playScream, playStart, playThunder, playUfoArrive, playWinFanfare, preloadInvasionSounds, setInvasionAmbient,
 } from './sounds';
 import { EndBanner } from './EndBanner';
-import rifleArt from './assets/invasion-rifle.png';
-import machineArt from './assets/invasion-ametralladora.png';
-import bazookaArt from './assets/invasion-bazooka.png';
+import rifleArt from './assets/invasion/armas/menu-rifle.webp';
+import machineArt from './assets/invasion/armas/menu-ametralladora.webp';
+import bazookaArt from './assets/invasion/armas/menu-bazooka.webp';
+import { drawCross, drawHeldWeapon, drawScopeView, hasScope, preloadWeapons } from './invasionWeapons';
 
 const RECORD_KEY = 'escritorio-personal-juegos:invasion-record';
 // El récord se sigue guardando por cantidad de bajas para conservar los datos de partidas anteriores.
@@ -47,50 +48,6 @@ const OUTCOME_TEXT: Record<Outcome, string> = {
   time: 'La invasión ganó. Los humanos perdieron la mayoría.',
 };
 
-// La mira: el círculo que agranda lo que hay abajo, con su aro, la sombra del borde, un brillo, la retícula
-// (líneas finas en el medio y gruesas afuera, con puntos para medir) y el punto rojo del centro.
-function drawScope(ctx: CanvasRenderingContext2D, cx: number, cy: number, R: number, zoom: number, t: number, kick: number, weapon: Weapon) {
-  ctx.save();
-  const edge = ctx.createRadialGradient(cx, cy, R * 0.72, cx, cy, R);
-  edge.addColorStop(0, 'rgba(0,0,0,0)'); edge.addColorStop(0.85, 'rgba(0,0,0,0.4)'); edge.addColorStop(1, 'rgba(0,0,0,0.92)');
-  ctx.fillStyle = edge; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(56,189,248,0.3)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, R - 2, 0, Math.PI * 2); ctx.stroke();
-  const ring = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R); ring.addColorStop(0, '#374151'); ring.addColorStop(0.5, '#0b0f14'); ring.addColorStop(1, '#1f2937');
-  ctx.strokeStyle = ring; ctx.lineWidth = Math.max(8, R * 0.06); ctx.beginPath(); ctx.arc(cx, cy, R + Math.max(4, R * 0.03), 0, Math.PI * 2); ctx.stroke();
-  const glare = ctx.createRadialGradient(cx - R * 0.45, cy - R * 0.5, 0, cx - R * 0.45, cy - R * 0.5, R * 0.6);
-  glare.addColorStop(0, 'rgba(255,255,255,0.08)'); glare.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = glare; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
-  // Retícula.
-  const thin = Math.max(1, R * 0.004), thick = Math.max(3, R * 0.016), gap = R * 0.32;
-  if (weapon === 'rifle') {
-    ctx.fillStyle = 'rgba(5,5,5,0.92)';
-    ctx.fillRect(cx - R, cy - thick / 2, R - gap, thick); ctx.fillRect(cx + gap, cy - thick / 2, R - gap, thick);
-    ctx.fillRect(cx - thick / 2, cy + gap, thick, R - gap); ctx.fillRect(cx - thick / 2, cy - R, thick, R - gap);
-    ctx.fillRect(cx - gap, cy - thin / 2, gap * 2, thin); ctx.fillRect(cx - thin / 2, cy - gap, thin, gap * 2);
-    for (let i = 1; i <= 4; i++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { ctx.beginPath(); ctx.arc(cx + dx * i * gap / 5, cy + dy * i * gap / 5, Math.max(1.4, R * 0.008), 0, Math.PI * 2); ctx.fill(); }
-    for (let i = 1; i <= 3; i++) ctx.fillRect(cx - R * 0.02 * (4 - i), cy + gap * (0.25 + i * 0.18), R * 0.04 * (4 - i), thin);
-  } else {
-    const radius = weapon === 'bazooka' ? BAZOOKA_RADIUS * zoom : R * 0.16;
-    ctx.strokeStyle = weapon === 'bazooka' ? '#fed18c' : '#e1f0ed';
-    ctx.lineWidth = 1.5;
-    if (radius < R * 0.92) {
-      if (weapon === 'bazooka') ctx.setLineDash([5, 5]);
-      ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.stroke();
-      ctx.setLineDash([]);
-    }
-    for (const d of [-1, 1]) {
-      ctx.beginPath(); ctx.moveTo(cx + d * 8, cy); ctx.lineTo(cx + d * 18, cy); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx, cy + d * 8); ctx.lineTo(cx, cy + d * 18); ctx.stroke();
-    }
-  }
-  ctx.fillStyle = `rgba(239,68,68,${0.85 + Math.sin(t * 3) * 0.1})`; ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 6;
-  ctx.beginPath(); ctx.arc(cx, cy, Math.max(1.8, R * 0.01), 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
-  ctx.fillStyle = 'rgba(134,239,172,0.9)'; ctx.font = `800 ${Math.max(11, R * 0.06)}px ui-monospace, monospace`; ctx.textAlign = 'center';
-  ctx.fillText(`×${(zoom / 10).toFixed(1)}`, cx + R * 0.7, cy - R * 0.72);
-  if (kick > 0.6) { ctx.fillStyle = `rgba(255,220,150,${(kick - 0.6) * 0.5})`; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill(); }
-  ctx.restore();
-}
-
 export function Invasion() {
   const fit = useFitScreen(); // celulares y tablets en horizontal: igual que en la computadora, más chico
   const stageRef = useRef<HTMLDivElement>(null);
@@ -102,7 +59,7 @@ export function Invasion() {
   // `cam`: dónde está la vista (se mueve con las flechas). `mouse`: dónde está la mira en la pantalla.
   const cam = useRef({ x: 60 });
   const mouse = useRef({ x: -1, y: -1 });
-  const aim = useRef({ zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0 });
+  const aim = useRef({ zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0, scoped: false });
   const arsenal = useRef(createArsenal());
   const selected = useRef<Weapon>('rifle');
   const trigger = useRef(false);
@@ -158,32 +115,41 @@ export function Invasion() {
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const a = aim.current, b = baseView(w, h), p = target(w, h), R = scopeRadius(w, h);
-    // Toda la cuadra de fondo, más oscura. Se arma en una imagen más ancha que la pantalla (un margen a cada lado):
-    // al mover la vista solo se corre la imagen, y se vuelve a armar cuando se acaba el margen o cada tanto (la
-    // gente de fondo se mueve). En celulares, a menos resolución y menos seguido: es lo que más tarda y está
-    // oscuro detrás de la mira, así la mira anda fluida.
+    const playing = statusRef.current === 'playing', wpn = selected.current, G = arsenal.current[wpn];
+    const reloading = G.reload > 0, scoped = playing && a.scoped && hasScope(wpn) && !reloading;
+    // Toda la cuadra: sin mira es lo que se ve (se rearma unas 16 veces por segundo en la compu); con la mira queda de
+    // fondo, más oscura. Se arma en una imagen más ancha que la pantalla (un margen a cada lado): al mover la
+    // vista solo se corre la imagen. En celulares, a menos resolución y de a ratos (así la mira anda fluida).
     const aiming = !!drag.current || fingers.current.size > 0; // con el dedo apuntando no se rearma el fondo (salvo que haga falta): la mira no pega tirones
-    const bg = bgRef.current, now = performance.now(), M = 0.3, W = w * (1 + 2 * M);
-    const bs = touch ? 0.55 : 1, bw = Math.round(W * dpr * bs), bh = Math.round(h * dpr * bs);
-    if (bg.canvas.width !== bw || bg.canvas.height !== bh || bg.s !== b.s || Math.abs(bg.x - b.cx) * b.s > M * w * 0.85 || now - bg.at > (!touch ? 120 : aiming ? 3000 : 450)) {
-      if (bg.canvas.width !== bw || bg.canvas.height !== bh) { bg.canvas.width = bw; bg.canvas.height = bh; }
-      const bctx = bg.canvas.getContext('2d');
-      if (bctx) { bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, bw, bh); bctx.setTransform(dpr * bs, 0, 0, dpr * bs, 0, 0); paintCity(bctx, g, { ...b, w: W, t: g.time, dpr }, 10); bctx.fillStyle = 'rgba(2,8,4,0.3)'; bctx.fillRect(0, 0, W, h); }
-      bg.x = b.cx; bg.s = b.s; bg.at = now;
+    const shake = a.shake > 0 ? [Math.sin(g.time * 90) * a.shake * 14, Math.cos(g.time * 77) * a.shake * 10] : [0, 0]; // cuando explota un alien (o una bomba cerca) tiembla todo
+    {
+      const bg = bgRef.current, now = performance.now(), M = 0.3, W = w * (1 + 2 * M);
+      const bs = touch ? 0.55 : 1, bw = Math.round(W * dpr * bs), bh = Math.round(h * dpr * bs);
+      const every = !scoped && playing ? (touch ? (aiming ? 260 : 150) : 60) : !touch ? 120 : aiming ? 3000 : 450; // sin mira la ciudad es lo que se mira: se rearma seguido (el arma y el + se mueven en cada cuadro)
+      if (bg.canvas.width !== bw || bg.canvas.height !== bh || bg.s !== b.s || Math.abs(bg.x - b.cx) * b.s > M * w * 0.85 || now - bg.at > every) {
+        if (bg.canvas.width !== bw || bg.canvas.height !== bh) { bg.canvas.width = bw; bg.canvas.height = bh; }
+        const bctx = bg.canvas.getContext('2d');
+        if (bctx) { bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, bw, bh); bctx.setTransform(dpr * bs, 0, 0, dpr * bs, 0, 0); paintCity(bctx, g, { ...b, w: W, t: g.time, dpr }, 10); }
+        bg.x = b.cx; bg.s = b.s; bg.at = now;
+      }
+      const off = ((bg.x - b.cx) * b.s - M * w) * dpr; // dónde cae la imagen según cuánto se movió la vista
+      ctx.setTransform(1, 0, 0, 1, shake[0] * dpr, shake[1] * dpr); ctx.drawImage(bg.canvas, off, 0, W * dpr, canvas.height); ctx.setTransform(dpr, 0, 0, dpr, shake[0] * dpr, shake[1] * dpr);
+      if (scoped || !playing) { ctx.fillStyle = scoped ? 'rgba(2,8,4,0.45)' : 'rgba(2,8,4,0.3)'; ctx.fillRect(-20, -20, w + 40, h + 40); }
     }
-    const off = ((bg.x - b.cx) * b.s - M * w) * dpr; // dónde cae la imagen según cuánto se movió la vista
-    // Cuando explota un alien (o una bomba cerca) tiembla todo.
-    const shake = a.shake > 0 ? [Math.sin(g.time * 90) * a.shake * 14, Math.cos(g.time * 77) * a.shake * 10] : [0, 0];
-    ctx.setTransform(1, 0, 0, 1, shake[0] * dpr, shake[1] * dpr); ctx.drawImage(bg.canvas, off, 0, W * dpr, canvas.height); ctx.setTransform(dpr, 0, 0, dpr, shake[0] * dpr, shake[1] * dpr);
-    // La mira solo se ve jugando: con el cartel abierto (inicio, pausa o fin) se usa la flecha del mouse
-    // normal, que pasa por delante del cartel y deja ver bien el botón.
-    if (statusRef.current === 'playing') {
-      ctx.save();
-      ctx.beginPath(); ctx.arc(p.mx, p.my, R, 0, Math.PI * 2); ctx.clip();
-      ctx.translate(p.mx - R, p.my - R);
-      paintCity(ctx, g, { w: R * 2, h: R * 2, s: a.zoom, cx: p.x, cy: p.y, t: g.time, dpr }, touch ? 2 : 6); // (en celulares arma de a pocas habitaciones nuevas por cuadro)
-      ctx.restore();
-      drawScope(ctx, p.mx, p.my, R, a.zoom, g.time, a.kick, selected.current);
+    // El arma solo se ve jugando: con el cartel abierto (inicio, pausa o fin) se usa la flecha del mouse normal.
+    if (playing) {
+      if (scoped) {
+        // Con la mira: el zoom se ve solo adentro del vidrio (el rifle hace zoom; la ametralladora tiene uno fijo).
+        drawScopeView(ctx, wpn, p.mx, p.my, R, a.zoom, a.kick, clip => {
+          clip();
+          ctx.translate(p.mx - R * 1.4, p.my - R * 1.4);
+          paintCity(ctx, g, { w: R * 2.8, h: R * 2.8, s: a.zoom, cx: p.x, cy: p.y, t: g.time, dpr }, touch ? 2 : 6); // (en celulares arma de a pocas habitaciones nuevas por cuadro)
+        });
+      } else {
+        // Sin mira: el arma en la mano (o recargando) y el "+" para apuntar.
+        drawHeldWeapon(ctx, wpn, w, h, p.mx, p.my, g.time, a.kick, reloading ? 1 - G.reload / WEAPONS[wpn].reload : null);
+        if (!reloading) drawCross(ctx, p.mx, p.my, wpn, g.time);
+      }
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // Destello de la pantalla: verde si explotó un alien, rojo si le diste a una persona.
@@ -199,21 +165,37 @@ export function Invasion() {
     }
   }, [baseView, target]);
 
+  // El zoom (la regla de cada arma):
+  // - Rifle: con la ruedita (o abriendo los dedos) aparece la mira y se acerca igual que siempre; alejando del
+  //   todo se sale de la mira y se ve el arma en la mano.
+  // - Ametralladora: la mira tiene un solo zoom, el más lejano; acercar la muestra y alejar la saca.
+  // - Bazooka: no tiene mira ni zoom.
+  const minZoom = useCallback(() => { const stage = stageRef.current; return stage ? stage.clientHeight / (TOP_Y - FLOOR_Y) * 2 : 20; }, []);
   const setZoom = useCallback((z: number) => {
-    const a = aim.current, stage = stageRef.current, min = stage ? stage.clientHeight / (TOP_Y - FLOOR_Y) * 2 : 20;
-    a.target = Math.min(WEAPONS[selected.current].zoom, Math.max(min, z));
-  }, []);
-  const zoomBy = useCallback((factor: number) => setZoom(aim.current.target * factor), [setZoom]);
+    const a = aim.current, w = selected.current, min = minZoom();
+    if (w === 'bazooka') { a.scoped = false; a.target = min; return; }
+    if (w === 'machine') { if (z > min * 1.12) a.scoped = true; else if (z < min * 0.9) a.scoped = false; a.target = min; return; }
+    if (z < min * 0.92) { a.scoped = false; a.target = min; return; }
+    if (!a.scoped) { a.scoped = true; a.zoom = Math.max(min, Math.min(WEAPONS.rifle.zoom, Math.max(z, WEAPONS.rifle.start))); }
+    a.target = Math.max(min, Math.min(WEAPONS.rifle.zoom, z));
+  }, [minZoom]);
+  // La ruedita y los botones: desde la mano, acercar entra a la mira con el zoom de siempre del rifle.
+  const zoomBy = useCallback((factor: number) => {
+    const a = aim.current, min = minZoom();
+    if (!a.scoped) { if (factor > 1) setZoom(selected.current === 'rifle' ? Math.max(min, WEAPONS.rifle.start) : min * 1.2); return; }
+    if (factor < 1 && a.target <= min * 1.001) { setZoom(min * 0.5); return; }
+    setZoom(Math.max(min, a.target * factor));
+  }, [minZoom, setZoom]);
   const selectWeapon = useCallback((next: Weapon) => {
     const current = statusRef.current;
     if (current !== 'playing' && current !== 'armory') return;
     if (next !== selected.current) {
       selected.current = next;
       setWeapon(next);
-      setZoom(WEAPONS[next].start);
+      aim.current.scoped = false; aim.current.target = minZoom();
     }
     if (current === 'armory') setStatus('playing');
-  }, [setZoom]);
+  }, [minZoom]);
 
   // Qué pasa en la pantalla según a qué le pegó (el cohete de la bazooka avisa recién cuando explota).
   const reactToHit = useCallback((hit: ReturnType<typeof shoot> | 'ufoDestroyed' | 'blast') => {
@@ -246,11 +228,11 @@ export function Invasion() {
   }, []);
 
   const start = useCallback(() => {
-    playStart(); preloadInvasionSounds(); preloadGray();
+    playStart(); preloadInvasionSounds(); preloadGray(); preloadWeapons();
     gameRef.current = newInvasion();
     const g = gameRef.current;
     cam.current.x = g.width * (0.3 + Math.random() * 0.4);
-    Object.assign(aim.current, { zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0 });
+    Object.assign(aim.current, { zoom: minZoom(), target: minZoom(), kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0, scoped: false });
     arsenal.current = createArsenal();
     selected.current = 'rifle';
     trigger.current = false;
@@ -258,7 +240,7 @@ export function Invasion() {
     setHud({ time: GAME_SECONDS, kills: 0, humans: aliveHumans(g), aliens: aliveAliens(g), mag: WEAPONS.rifle.mag, reloading: false });
     setToast({ text: 'Protegé a la población durante diez minutos.', id: performance.now(), big: true });
     setStatus('playing');
-  }, []);
+  }, [minZoom]);
 
   // Primera pantalla: la ciudad de fondo.
   useLayoutEffect(() => {
@@ -361,7 +343,7 @@ export function Invasion() {
     const hide = () => { if (document.hidden) setStatus('paused'); };
     document.addEventListener('visibilitychange', hide);
     return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', hide); };
-  }, [status, paint, target, fire]);
+  }, [status, paint, target, fire, reactToHit]);
 
   // Mouse: la mira va adonde está el mouse, clic dispara y la ruedita hace zoom.
   useEffect(() => {
@@ -424,7 +406,7 @@ export function Invasion() {
       if (e.pointerType === 'mouse' || e.target !== canvasRef.current) return;
       e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); // sin el clic de mouse que el navegador simula
       fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (fingers.current.size >= 2) { drag.current = null; pinch.current = { d: spread(), zoom: aim.current.target }; return; } // dos dedos: zoom (y ese toque ya no dispara)
+      if (fingers.current.size >= 2) { drag.current = null; pinch.current = { d: spread(), zoom: aim.current.scoped ? aim.current.target : minZoom() * 0.95 }; return; } // dos dedos: zoom (y ese toque ya no dispara)
       if (!pinch.current) drag.current = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: 0, t: performance.now() };
     },
     onPointerMove: (e: React.PointerEvent) => {
