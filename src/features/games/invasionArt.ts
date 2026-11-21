@@ -8,7 +8,7 @@
 // después se copia: así se puede dibujar con mucho detalle sin que se trabe.
 import { drawUfoCraftAt } from './kombatPenUfo';
 import {
-  CITY_TOP, GAME_SECONDS, rainAt, ROCKET_TIME, BULLET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
+  alienKind, CITY_TOP, GAME_SECONDS, hitbox, rainAt, ROCKET_TIME, BULLET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
 } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import { drawPerson, drawProp, font, hash, hsl, mixColor } from './invasionPeople';
@@ -832,6 +832,28 @@ function drawRocket(ctx: CanvasRenderingContext2D, rk: Rocket, v: View, t: numbe
 }
 
 // ---------- Todo junto ----------
+// Arriba de cada alien: su barra de vida y cuántos puntos le quedan (baja con cada tiro). Solo si se ve
+// suficientemente grande (de lejos serían puntitos que tapan la ciudad).
+function drawLifeBars(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
+  for (const p of g.people) {
+    if (!p.alien || p.dead || p.gone) continue;
+    const b = hitbox(g, p), tall = (b.y2 - b.y1) * v.s;
+    if (tall < 22 || !visible(v, b.x1, b.x2, b.y1, b.y2 + 1)) continue;
+    const max = alienKind(p).hp, hp = Math.max(0, Math.min(max, p.hp ?? max)), k = hp / max;
+    const w = Math.max(26, Math.min(90, tall * 0.55)), h = Math.max(3, Math.min(7, tall * 0.045));
+    const cx = X(v, (b.x1 + b.x2) / 2), y = Y(v, b.y2) - h - Math.max(5, tall * 0.16), x = cx - w / 2; // (un poco arriba de la cabeza)
+    const hurt = p.hurt !== undefined && g.time - p.hurt < 0.25; // titila blanco al recibir el tiro
+    ctx.save();
+    ctx.fillStyle = 'rgba(5,10,12,0.78)'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+    ctx.fillStyle = hurt ? '#ffffff' : k > 0.6 ? '#4ade80' : k > 0.3 ? '#facc15' : '#ef4444';
+    ctx.fillRect(x, y, w * k, h);
+    ctx.font = font(800, Math.max(9, Math.min(15, h * 2.1))); ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(5,10,12,0.85)'; ctx.fillStyle = '#f8fafc';
+    const label = String(hp); ctx.strokeText(label, x - 4, y + h / 2); ctx.fillText(label, x - 4, y + h / 2);
+    ctx.restore();
+  }
+}
+
 export function drawRockets(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   for (const rk of g.rockets) drawRocket(ctx, rk, v, g.time);
   // La bala del francotirador en camino: un anillo fino que se cierra sobre el punto hasta que impacta (2 s).
@@ -919,6 +941,7 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
   drawTrees(ctx, g, v);
   for (const c of g.cars) drawCar(ctx, c, v, g.time);
   for (const u of g.ufos) drawUfo(ctx, u, v, g.time);
+  drawLifeBars(ctx, g, v);
   for (const p of g.people) {
     const shot = p.sabotage?.shot;
     if (!shot || g.time - shot.time >= 0.16) continue;

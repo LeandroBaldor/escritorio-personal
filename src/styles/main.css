@@ -1308,6 +1308,14 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .inv-kills meter::-webkit-meter-optimum-value{background:#c9a486}
 .inv-population meter::-moz-meter-bar{background:#64d6c9}
 .inv-kills meter::-moz-meter-bar{background:#c9a486}
+.inv-species{width:100%;table-layout:fixed;border-collapse:collapse;font:600 .7rem/1.2 system-ui,sans-serif;color:#d2e1e2;font-variant-numeric:tabular-nums}
+.inv-species th,.inv-species td{padding:.22rem .15rem;border-bottom:1px solid #56757740;text-align:right;overflow:hidden;text-overflow:ellipsis}
+.inv-species thead th{color:#9fbcbc;font-weight:600;font-size:.52rem;letter-spacing:0;text-transform:uppercase;text-overflow:clip}
+.inv-species thead th:first-child{width:46%}
+.inv-species tbody th{text-align:left;color:#eef9f6;font-weight:700;white-space:nowrap}
+.inv-species tbody th small{color:#9fbcbc;font-weight:500;font-size:.85em}
+.inv-species tbody td{font:700 .78rem/1 ui-monospace,monospace;color:#eef9f6}
+.inv-species thead th:first-child{text-align:left}
 .inv-armory-toggle,.inv-fire{border:1px solid #54645f;border-radius:5px;padding:.42rem .35rem;background:#172825;color:#e3eae6;font:700 .76rem/1.25 system-ui,sans-serif;cursor:pointer;touch-action:none}
 .inv-armory-toggle{display:grid;gap:.2rem;text-align:left}
 .inv-armory-toggle span{color:#bad0c7;font-weight:500}

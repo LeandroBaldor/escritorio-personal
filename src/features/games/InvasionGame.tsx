@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { TouchGrips } from './TouchGrips';
 import { fitScale, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
-import { ALIEN_POINTS, ALIEN_TOTAL, aliveAliens, aliveHumans, CITY_TOP, fireRifle, GAME_SECONDS, HUMAN_TOTAL, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
+import { ALIEN_KINDS, ALIEN_POINTS, ALIEN_TOTAL, aliveAliens, aliveHumans, CITY_TOP, fireRifle, GAME_SECONDS, HUMAN_TOTAL, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import { drawMinimap, drawRockets, paintCity, type View } from './invasionArt';
 import { invasionLevels } from './invasionSound';
@@ -19,11 +19,15 @@ import { drawCross, drawHeldWeapon, drawScopeView, hasScope, preloadWeapons } fr
 
 const RECORD_KEY = 'escritorio-personal-juegos:invasion-record';
 // El récord se sigue guardando por cantidad de bajas para conservar los datos de partidas anteriores.
-export interface InvasionRecord { kills: number; time?: number | null }
+export interface InvasionRecord { kills: number; points?: number; time?: number | null }
+// Puntos del récord (los récords viejos, sin `points`, valían 100 por alien).
+export const invasionRecordPoints = (r: InvasionRecord) => r.points ?? r.kills * ALIEN_POINTS;
 export const readInvasionRecord = (): InvasionRecord => { try { const v = JSON.parse(localStorage.getItem(RECORD_KEY) ?? 'null'); return v && typeof v.kills === 'number' ? v : { kills: 0, time: null }; } catch { return { kills: 0, time: null }; } };
 const saveRecord = (value: InvasionRecord) => { try { localStorage.setItem(RECORD_KEY, JSON.stringify(value)); } catch { /* sin almacenamiento */ } };
 export const formatInvasionTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
+// En el panel, las especies de la que más vale a la que menos.
+const SPECIES_ORDER = ALIEN_KINDS.map((_, i) => i).sort((a, b) => ALIEN_KINDS[b].points - ALIEN_KINDS[a].points);
 type Status = 'ready' | 'playing' | 'armory' | 'paused' | 'over';
 const START_ZOOM: number = WEAPONS.rifle.start;
 const weaponKeys: readonly Weapon[] = ['rifle', 'machine', 'bazooka'];
@@ -69,9 +73,9 @@ export function Invasion() {
   const pinch = useRef<{ d: number; zoom: number } | null>(null);
   const keys = useRef(new Set<string>());
   const [status, setStatus] = useState<Status>('ready');
-  const [hud, setHud] = useState(() => ({ time: GAME_SECONDS, kills: 0, humans: aliveHumans(firstGame), aliens: aliveAliens(firstGame), mag: Number(WEAPONS.rifle.mag), reloading: false }));
+  const [hud, setHud] = useState(() => ({ time: GAME_SECONDS, kills: 0, points: 0, killsBy: ALIEN_KINDS.map(() => 0), humans: aliveHumans(firstGame), aliens: aliveAliens(firstGame), mag: Number(WEAPONS.rifle.mag), reloading: false }));
   const [record, setRecord] = useState(readInvasionRecord);
-  const [result, setResult] = useState({ outcome: 'time' as Outcome, kills: 0, time: 0, headshots: 0, shots: 0, hits: 0, defused: 0, newRecord: false, clues: [] as string[] });
+  const [result, setResult] = useState({ outcome: 'time' as Outcome, kills: 0, points: 0, time: 0, headshots: 0, shots: 0, hits: 0, defused: 0, newRecord: false, clues: [] as string[] });
   const [toast, setToast] = useState<{ text: string; id: number; big?: boolean; bad?: boolean } | null>(null);
   const statusRef = useRef(status);
   useEffect(() => {
@@ -256,7 +260,7 @@ export function Invasion() {
     selected.current = 'rifle';
     trigger.current = false;
     setWeapon('rifle');
-    setHud({ time: GAME_SECONDS, kills: 0, humans: aliveHumans(g), aliens: aliveAliens(g), mag: WEAPONS.rifle.mag, reloading: false });
+    setHud({ time: GAME_SECONDS, kills: 0, points: 0, killsBy: ALIEN_KINDS.map(() => 0), humans: aliveHumans(g), aliens: aliveAliens(g), mag: WEAPONS.rifle.mag, reloading: false });
     setToast({ text: 'Protegé a la población durante diez minutos.', id: performance.now(), big: true });
     setStatus('playing');
   }, [minZoom]);
@@ -318,7 +322,7 @@ export function Invasion() {
         if (e.type === 'defused') playDefuse();
         if (e.type === 'rocketHit') reactToHit(e.hit);
         if (e.type === 'bulletHit') reactToHit(e.hit); // llegó la bala del francotirador
-        if (e.type === 'hurt') { playGooBlast(); a.shake = Math.max(a.shake, 0.35); setToast({ text: e.left > 1 ? `Alien herido · aguanta ${e.left} disparos más` : 'Alien herido · un disparo más', id: now }); }
+        if (e.type === 'hurt') { playGooBlast(); a.shake = Math.max(a.shake, 0.35); setToast({ text: e.left > 1 ? `Alien herido · le quedan ${e.left} puntos de vida` : 'Alien herido · le queda 1 punto de vida', id: now }); }
         if (e.type === 'explosion') { const k = near(e.x, e.y); if (e.bazooka) playBazookaBoom(); else playBlast(Math.max(0.15, k)); a.shake = Math.max(a.shake, 0.3 + k * 1.2); }
         if (e.type === 'bomb' && near(e.x, e.y) > 0.3) setToast({ text: 'Explosivo cercano. Buscá la caja con la luz roja.', id: now, bad: true });
         if (e.type === 'laser') playLaser(Math.max(0.2, near(e.x, e.y)));
@@ -345,15 +349,15 @@ export function Invasion() {
         if (best) { playAlienTalk(zoomK * (0.45 + 0.55 * (1 - best.d / radius))); best.who.talk = 2.2; talkAt = now + (zoomK > 0.5 ? 1300 + Math.random() * 1500 : 2600 + Math.random() * 2500); } else talkAt = now + 500;
       }
       paint();
-      const shown = { time: Math.ceil(GAME_SECONDS - g.time), kills: g.kills, humans: aliveHumans(g), aliens: aliveAliens(g), mag: G.mag, reloading: G.reload > 0 };
+      const shown = { time: Math.ceil(GAME_SECONDS - g.time), kills: g.kills, points: g.points, killsBy: [...g.killsBy], humans: aliveHumans(g), aliens: aliveAliens(g), mag: G.mag, reloading: G.reload > 0 };
       setHud(prev => JSON.stringify(prev) === JSON.stringify(shown) ? prev : shown);
       if (g.over) {
         const outcome = g.outcome ?? 'time', rec = readInvasionRecord(), won = outcome === 'won';
-        const isNew = g.kills > rec.kills;
-        const next: InvasionRecord = { kills: Math.max(rec.kills, g.kills) };
+        const isNew = g.points > invasionRecordPoints(rec);
+        const next: InvasionRecord = isNew ? { kills: g.kills, points: g.points } : rec;
         saveRecord(next); setRecord(next);
         const clues = [...new Set(g.killedAnomalies)].slice(-8).map(id => ANOMALIES[id].text);
-        setResult({ outcome, kills: g.kills, time: g.time, headshots: g.headshots, shots: g.shots, hits: g.hits, defused: g.defused, newRecord: isNew, clues });
+        setResult({ outcome, kills: g.kills, points: g.points, time: g.time, headshots: g.headshots, shots: g.shots, hits: g.hits, defused: g.defused, newRecord: isNew, clues });
         setInvasionAmbient(null);
         if (won) playWinFanfare(); else playGameOver();
         setStatus('over');
@@ -479,7 +483,7 @@ export function Invasion() {
   // Botones ◀ ▶ del celular: mientras se mantienen apretados, la vista se mueve.
   const press = useCallback((key: string, on: boolean) => { if (on) keys.current.add(key); else keys.current.delete(key); }, []);
   const accuracy = result.shots ? Math.round((result.hits / result.shots) * 100) : 0;
-  const recordText = `${record.kills * ALIEN_POINTS} pts`;
+  const recordText = `${invasionRecordPoints(record)} pts`;
 
   return <section className="runner trepa invasion" style={fit} aria-label="Invasión">
     <TouchGrips actionLabel={'Disparar'} />
@@ -535,7 +539,7 @@ export function Invasion() {
             {status === 'over' && <>
               <EndBanner win={result.outcome === 'won'} id="inv-message" />
               <p className="end-reason" data-testid="inv-outcome">{OUTCOME_TEXT[result.outcome]}</p>
-              <p><strong data-testid="inv-final">{result.kills * ALIEN_POINTS} puntos</strong> ? {result.kills} aliens eliminados ? {hud.humans} humanos y {hud.aliens} aliens en pie.{result.newRecord && ' Nuevo récord.'}</p>
+              <p><strong data-testid="inv-final">{result.points} puntos</strong> ? {result.kills} aliens eliminados ? {hud.humans} humanos y {hud.aliens} aliens en pie.{result.newRecord && ' Nuevo récord.'}</p>
               <p>{result.headshots} tiros a la cabeza · {result.defused} bombas desactivadas · {accuracy}% de puntería</p>
               {result.clues.length > 0 && <div className="inv-clues"><p><strong>Lo raro que hacían los aliens que eliminaste:</strong></p><ul>{result.clues.map(c => <li key={c}>{c}</li>)}</ul></div>}
               <button type="button" onClick={() => { start(); lockMouse(); }} autoFocus>Jugar de nuevo</button>
@@ -548,7 +552,12 @@ export function Invasion() {
         <div className="trepa-stat"><span>Tiempo restante</span><strong data-testid="inv-time">{formatInvasionTime(hud.time)}</strong></div>
         <div className="trepa-stat inv-population"><span>Humanos</span><strong><b data-testid="inv-humans">{hud.humans}</b><small> / {HUMAN_TOTAL}</small></strong><meter aria-label="Humanos vivos" min={0} max={HUMAN_TOTAL} value={hud.humans} /></div>
         <div className="trepa-stat inv-population inv-kills"><span>Aliens</span><strong><b data-testid="inv-aliens">{hud.aliens}</b><small> / {ALIEN_TOTAL}</small></strong><meter aria-label="Aliens vivos" min={0} max={ALIEN_TOTAL} value={hud.aliens} /></div>
-        <div className="trepa-stat"><span>Puntos</span><strong data-testid="inv-score">{hud.kills * ALIEN_POINTS}</strong></div>
+        <div className="trepa-stat"><span>Puntos</span><strong data-testid="inv-score">{hud.points}</strong></div>
+        <h2 className="inv-panel-heading">Extraterrestres</h2>
+        <table className="inv-species" data-testid="inv-species">
+          <thead><tr><th scope="col">Especie</th><th scope="col">Matados</th><th scope="col">Puntos</th></tr></thead>
+          <tbody>{SPECIES_ORDER.map(i => <tr key={ALIEN_KINDS[i].name}><th scope="row">{ALIEN_KINDS[i].label} <small>{ALIEN_KINDS[i].points}</small></th><td>{hud.killsBy[i]}</td><td>{hud.killsBy[i] * ALIEN_KINDS[i].points}</td></tr>)}</tbody>
+        </table>
         <h2 className="inv-panel-heading">Armamento</h2>
         <button type="button" className="inv-armory-toggle" aria-haspopup="dialog" disabled={status !== 'playing'} onClick={() => setStatus('armory')}>Arsenal <span>{WEAPONS[weapon].name}</span></button>
         <div className="trepa-stat"><span>{hud.reloading ? 'Recargando' : 'Munición'}</span><strong data-testid="inv-ammo">{hud.mag} / {WEAPONS[weapon].mag}</strong></div>

@@ -20,8 +20,7 @@ import { formatTime, readTrepaRecord } from './TrepalunaGame';
 import { formatLavaTime, readLavaRecord } from './LavaFloor';
 import { readPaperRecord } from './PaperBallGame';
 import { formatSharkTime, readSharkRecord } from './SharkCity';
-import { readInvasionRecord } from './InvasionGame';
-import { ALIEN_POINTS } from './invasion';
+import { invasionRecordPoints, readInvasionRecord } from './InvasionGame';
 import { formatGravityTime, readGravityRecord } from './GravitySwapGame';
 import { readKombatRecord } from './KombatFootballGame';
 import { readVoleyRecord } from './KombatVoleyGame';
@@ -138,7 +137,7 @@ export function Games() {
             <span className="game-card-win"><b>Objetivo</b> Al cabo de diez minutos tienen que quedar más humanos que aliens.</span>
           </span>
           <span className="game-card-foot">
-            {invasion.kills > 0 && <small><b>Récord</b>{invasion.kills * ALIEN_POINTS} pts</small>}
+            {invasion.kills > 0 && <small><b>Récord</b>{invasionRecordPoints(invasion)} pts</small>}
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
           </span>
         </Link>

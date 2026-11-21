@@ -293,6 +293,28 @@ describe('Invasión: el disparo', () => {
     const [x, y] = aimAt(g, brutox);
     expect(shoot(g, x, y, 'machine')).toBe('alien'); // el décimo lo mata
     expect(g.kills).toBe(1);
+    expect(g.points).toBe(60); // el Brutox vale 60
+    expect(g.killsBy[ALIEN_KINDS.findIndex(k => k.name === 'brutox')]).toBe(1);
+  });
+
+  it('el francotirador saca 5 puntos de vida: el Brutox cae al segundo tiro y la Mantis al primero', () => {
+    const want = { gris: 10, anfibio: 50, brutox: 60, esporal: 20, mantis: 40, reptiliano: 30 } as const;
+    for (const k of ALIEN_KINDS) expect(k.points).toBe(want[k.name]);
+    const g = newInvasion(8);
+    const brutox = g.people.find(p => p.alien && alienKind(p).name === 'brutox')!;
+    g.people = g.people.filter(p => p === brutox || (!p.alien && p.room >= 0));
+    brutox.room = -1; brutox.y = 0; brutox.anomaly = null; brutox.sabotage = null; brutox.moving = false; brutox.speed = 0; brutox.x = 30;
+    let [x, y] = aimAt(g, brutox);
+    expect(shoot(g, x, y, 'rifle')).toBe('hurt');
+    expect(brutox.hp).toBe(5);
+    [x, y] = aimAt(g, brutox);
+    expect(shoot(g, x, y, 'rifle')).toBe('alien');
+    const g2 = newInvasion(8), mantis = g2.people.find(p => p.alien && alienKind(p).name === 'mantis')!;
+    g2.people = g2.people.filter(p => p === mantis || (!p.alien && p.room >= 0));
+    mantis.room = -1; mantis.y = 0; mantis.anomaly = null; mantis.sabotage = null; mantis.moving = false; mantis.speed = 0; mantis.x = 30;
+    [x, y] = aimAt(g2, mantis);
+    expect(shoot(g2, x, y, 'rifle')).toBe('alien');
+    expect(g2.points).toBe(40);
   });
 
   it('la bala del francotirador tarda 2 segundos en llegar (y sigue a quien le apuntaste)', () => {

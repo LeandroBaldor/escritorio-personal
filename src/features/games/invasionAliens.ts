@@ -1,9 +1,10 @@
-// Los aliens de Invasión, cuadro a cuadro (stop motion) con las hojas de personaje que pasó el usuario (segunda
-// versión, en alta calidad: Gris, Anfibio, Brutox, Esporal, Mantis y Reptiliano). De cada hoja se usa el perfil
-// mirando a la derecha (quieto) y los 4 cuadros de caminar (los 2 que miran a la izquierda, espejados). Todos a la
-// misma escala (el perfil quieto mide 260 px), alineados por el torso y los pies. Para la izquierda se espeja (lo
-// hace quien llama). Cada cuadro: x, y, ancho, alto en el atlas, el centro del torso (x), la mano de adelante (x, y)
-// la cabeza (x, y) y el ojo (x, y), en px del cuadro. `walkH`: el alto promedio caminando (ese alto es el que mide H × tall).
+// Los aliens de Invasión, con las imágenes que pasó el usuario (Gris, Anfibio, Brutox, Esporal, Mantis y Reptiliano).
+// Quieto: el perfil mirando a la derecha de las hojas de personaje. Caminando: los 2 pasos de las imágenes
+// "<especie>_derecha" (las de "_izquierda" son las mismas espejadas, así que para la izquierda se espeja, lo hace
+// quien llama). Un paso con cada pie: se alternan dos veces por ciclo, con un fundido cortito entre uno y otro y el
+// cuerpo que sube entre apoyo y apoyo. Cada cuadro: x, y, ancho, alto en el atlas, el centro del torso (x), la mano
+// de adelante (x, y), la cabeza (x, y) y el ojo (x, y), en px del cuadro. `walkH`: el alto promedio caminando (ese
+// alto es el que mide H × tall). El perfil quieto mide 340 px; los pasos, a la misma escala que antes.
 import anfibioUrl from './assets/invasion/aliens/anfibio.webp';
 import brutoxUrl from './assets/invasion/aliens/brutox.webp';
 import esporalUrl from './assets/invasion/aliens/esporal.webp';
@@ -15,12 +16,12 @@ type Frame = [number, number, number, number, number, number, number, number, nu
 export type AlienSpecies = 'gris' | 'anfibio' | 'brutox' | 'esporal' | 'mantis' | 'reptiliano';
 export const ALIEN_SPECIES: AlienSpecies[] = ['gris', 'anfibio', 'brutox', 'esporal', 'mantis', 'reptiliano'];
 const SPECIES: Record<AlienSpecies, { url: string; tall: number; walkH: number; glow: string; stand: Frame; walk: Frame[] }> = {
-  gris: { url: grisUrl, tall: 1.0, walkH: 250, glow: 'rgba(140,255,170,0.95)', stand: [0,0,104,260,35.7,77,185,64.9,26.0,90.9,41.6], walk: [[106,0,186,245,104.8,175,156,147.6,24.5,173.8,39.2],[294,0,255,256,120.5,221,141,155.1,25.6,181.7,41.0],[551,0,256,258,132.0,207,151,161.2,25.8,187.7,41.3],[809,0,172,242,91.3,160,145,133.6,24.2,159.1,38.7]] },
-  anfibio: { url: anfibioUrl, tall: 1.0, walkH: 234, glow: 'rgba(80,230,255,0.95)', stand: [0,0,128,260,62.4,107,165,70.1,26.0,101.4,31.2], walk: [[130,0,204,234,110.9,172,129,130.3,23.4,160.4,28.1],[336,0,210,235,98.2,200,119,117.2,23.5,146.8,28.2],[548,0,195,234,97.1,180,136,123.6,23.4,153.0,28.1],[745,0,193,233,111.0,178,134,129.0,23.3,158.7,28.0]] },
-  brutox: { url: brutoxUrl, tall: 1.15, walkH: 214, glow: 'rgba(255,90,50,0.95)', stand: [0,0,188,260,88.1,167,168,98.2,26.0,162.1,61.1], walk: [[190,0,200,214,112.4,174,131,127.5,21.4,179.0,50.3],[392,0,234,214,146.9,233,105,151.9,21.4,200.9,50.3],[628,0,198,214,109.7,175,129,125.5,21.4,177.0,50.3],[828,0,220,214,133.6,219,113,139.6,21.4,188.8,50.3]] },
-  esporal: { url: esporalUrl, tall: 1.05, walkH: 203, glow: 'rgba(170,255,60,0.95)', stand: [0,0,123,260,50.3,103,175,69.2,26.0,97.7,31.2], walk: [[125,0,192,202,103.2,182,131,133.9,20.2,164.7,24.2],[319,0,200,204,109.9,188,103,131.6,20.4,161.0,24.5],[521,0,173,202,88.8,168,122,118.7,20.2,146.9,24.2],[696,0,203,204,110.5,189,115,146.3,20.4,175.3,24.5]] },
-  mantis: { url: mantisUrl, tall: 1.15, walkH: 225, glow: 'rgba(210,255,90,0.95)', stand: [0,0,125,260,60.8,124,165,75.8,26.0,96.8,31.2], walk: [[127,0,193,225,117.3,183,130,156.8,22.5,175.1,27.0],[322,0,236,224,117.2,216,127,144.4,22.4,164.5,26.9],[560,0,201,226,110.0,199,135,134.9,22.6,155.3,27.1],[763,0,222,225,127.5,217,128,158.2,22.5,177.9,27.0]] },
-  reptiliano: { url: reptilianoUrl, tall: 1.0, walkH: 234, glow: 'rgba(255,170,60,0.95)', stand: [0,0,132,260,88.2,131,158,97.6,26.0,114.3,31.2], walk: [[134,0,215,234,122.1,178,155,153.1,23.4,167.9,28.1],[351,0,217,236,114.7,197,101,147.2,23.6,162.0,28.3],[570,0,213,233,116.9,181,122,142.4,23.3,157.6,28.0],[785,0,229,233,139.7,215,103,158.5,23.3,173.6,28.0]] },
+  gris: { url: grisUrl, tall: 1.0, walkH: 327, glow: 'rgba(140,255,170,0.95)', stand: [0,0,137,340,47.2,102,242,85.6,34.0,120.4,54.4], walk: [[139,0,304,328,161.9,303,168,213.0,32.8,251.9,52.5],[445,0,283,326,150.5,258,179,197.8,32.6,236.8,52.2]] },
+  anfibio: { url: anfibioUrl, tall: 1.0, walkH: 306, glow: 'rgba(80,230,255,0.95)', stand: [0,0,168,340,82.0,141,218,92.2,34.0,133.3,40.8], walk: [[170,0,261,306,134.7,217,175,155.4,30.6,198.1,36.7],[433,0,284,306,129.4,270,160,148.8,30.6,190.2,36.7]] },
+  brutox: { url: brutoxUrl, tall: 1.15, walkH: 280, glow: 'rgba(255,90,50,0.95)', stand: [0,0,246,340,115.3,219,220,128.5,34.0,212.4,79.9], walk: [[248,0,280,280,167.6,279,141,174.5,28.0,235.3,65.8],[530,0,309,280,157.7,308,136,185.6,28.0,248.5,65.8]] },
+  esporal: { url: esporalUrl, tall: 1.05, walkH: 266, glow: 'rgba(170,255,60,0.95)', stand: [0,0,161,340,66.0,135,230,90.6,34.0,128.2,40.8], walk: [[163,0,249,265,141.3,239,136,178.0,26.5,215.9,31.8],[414,0,267,266,130.8,260,116,173.4,26.6,210.6,31.9]] },
+  mantis: { url: mantisUrl, tall: 1.15, walkH: 294, glow: 'rgba(210,255,90,0.95)', stand: [0,0,163,340,79.4,162,216,99.2,34.0,127.1,40.8], walk: [[165,0,287,292,146.7,240,177,192.8,29.2,229.8,35.0],[454,0,268,296,155.1,267,178,178.7,29.6,209.7,35.5]] },
+  reptiliano: { url: reptilianoUrl, tall: 1.0, walkH: 306, glow: 'rgba(255,170,60,0.95)', stand: [0,0,173,340,115.8,172,207,128.2,34.0,150.6,40.8], walk: [[175,0,312,306,176.7,311,124,214.6,30.6,237.9,36.7],[489,0,256,306,139.2,221,175,171.6,30.6,193.3,36.7]] },
 };
 
 // Además de la imagen entera guarda copias a la mitad y a un cuarto (y sus copias negras, para la sombra en la
@@ -64,17 +65,29 @@ export function drawAlienSpecies(ctx: CanvasRenderingContext2D, species: AlienSp
   if (!a) return null;
   const moving = o.kind === 'walk' || o.kind === 'run';
   const phase = ((k / (Math.PI * 2)) % 1 + 1) % 1;
-  const f: Frame = moving ? S.walk[Math.floor(phase * 4) % 4] : S.stand;
+  // Caminando: medio ciclo con cada paso. Al final de cada medio ciclo se funde con el paso siguiente, y el cuerpo
+  // sube en el medio (cuando la pierna de atrás pasa) y baja al apoyar.
+  const half = phase * 2, step = Math.floor(half) % 2, q = half - Math.floor(half);
+  const f: Frame = moving ? S.walk[step] : S.stand;
+  const next: Frame | null = moving && q > 0.82 ? S.walk[(step + 1) % 2] : null;
   const [fx, fy, fw, fh, ax, hx, hy, hdx, hdy, ex, ey] = f;
   const sc = H * S.tall / S.walkH;
   const low = o.kind === 'squat' || o.kind === 'sit' || o.kind === 'crawl';
   const squash = low ? 0.8 : 1;
-  const bob = moving ? 0 : Math.sin(t * 1.6 + k) * H * 0.006; // quieto, respira un poquito
+  const bob = moving ? -Math.sin(q * Math.PI) * H * (o.kind === 'run' ? 0.035 : 0.022) : Math.sin(t * 1.6 + k) * H * 0.006; // quieto, respira un poquito
+  const lean = moving ? Math.sin(q * Math.PI) * 0.025 : 0; // y se inclina apenas hacia adelante al impulsarse
   ctx.save();
   const L = a.levels.find(l => sc >= l.k * 0.7) ?? a.levels[a.levels.length - 1]; // la copia justa para el tamaño
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = L.k < 1 || sc > 0.5 ? 'medium' : 'high';
-  ctx.translate(0, bob); ctx.scale(sc, sc * squash);
-  ctx.drawImage(o.flat && L.black ? L.black : L.img, fx * L.k, fy * L.k, fw * L.k, fh * L.k, -ax, -fh, fw, fh);
+  const src = o.flat && L.black ? L.black : L.img;
+  ctx.translate(0, bob); ctx.rotate(lean); ctx.scale(sc, sc * squash);
+  ctx.drawImage(src, fx * L.k, fy * L.k, fw * L.k, fh * L.k, -ax, -fh, fw, fh);
+  if (next) { // fundido con el paso que viene
+    const [nx, ny, nw, nh, nax] = next;
+    ctx.globalAlpha = (q - 0.82) / 0.18;
+    ctx.drawImage(src, nx * L.k, ny * L.k, nw * L.k, nh * L.k, -nax, -nh, nw, nh);
+    ctx.globalAlpha = 1;
+  }
   const hand: Pt = [(hx - ax) * sc, (hy - fh) * sc * squash + bob];
   if (o.eyes && !o.flat) { // mirándote fijo: le brillan los ojos
     ctx.save(); ctx.globalCompositeOperation = 'lighter';

@@ -28,11 +28,14 @@ export const BAZOOKA_RADIUS = 4.2;
 export const ROCKET_TIME = 3; // la bazooka tarda 3 s en llegar (lo que dura el sonido del cohete)
 export const BULLET_TIME = 2; // la bala del francotirador tarda 2 s en impactar
 // Especies de aliens (mismo orden que `ALIEN_SPECIES` en invasionAliens: la especie es `id % 6`).
-// `size`: cuánto más grande que el gris; `hp`: cuántos disparos aguanta.
+// `size`: cuánto más grande que el gris; `hp`: puntos de vida; `points`: lo que suma matarlo; `label`: el nombre en pantalla.
 export const ALIEN_KINDS = [
-  { name: 'gris', size: 1, hp: 1 }, { name: 'anfibio', size: 1.3, hp: 3 }, { name: 'brutox', size: 1.5, hp: 10 },
-  { name: 'esporal', size: 1.1, hp: 2 }, { name: 'mantis', size: 1.25, hp: 5 }, { name: 'reptiliano', size: 1.1, hp: 2 },
+  { name: 'gris', label: 'Gris', size: 1, hp: 1, points: 10 }, { name: 'anfibio', label: 'Anfibio', size: 1.3, hp: 3, points: 50 },
+  { name: 'brutox', label: 'Brutox', size: 1.5, hp: 10, points: 60 }, { name: 'esporal', label: 'Esporal', size: 1.1, hp: 2, points: 20 },
+  { name: 'mantis', label: 'Mantis', size: 1.25, hp: 5, points: 40 }, { name: 'reptiliano', label: 'Reptiliano', size: 1.1, hp: 2, points: 30 },
 ] as const;
+// Daño de cada tiro: el francotirador saca 5 puntos de vida, la ametralladora 1 (la explosión de la bazooka mata siempre).
+export const DAMAGE: Record<Weapon, number> = { rifle: 5, machine: 1, bazooka: 99 };
 export const alienKind = (p: { id: number }) => ALIEN_KINDS[p.id % ALIEN_KINDS.length];
 export interface Bullet { x: number; y: number; t0: number; who?: number; dx: number; dy: number } // si apuntaste a alguien, la bala lo sigue
 export const WALL_BREAK = 14; // balas de ametralladora que aguanta un departamento antes de derrumbarse
@@ -88,7 +91,7 @@ export type InvasionEvent =
 export interface Invasion {
   width: number; buildings: Building[]; rooms: Room[]; people: Person[]; boxes: Box[]; ufos: Ufo[]; cars: Car[];
   particles: Particle[]; decals: Decal[]; blasts: Blast[]; rockets: Rocket[]; bullets: Bullet[];
-  time: number; kills: number; civilians: number; headshots: number; defused: number; shots: number; hits: number; over: boolean; outcome: Outcome | null;
+  time: number; kills: number; points: number; killsBy: number[]; civilians: number; headshots: number; defused: number; shots: number; hits: number; over: boolean; outcome: Outcome | null;
   events: InvasionEvent[]; deck: number[]; deckPos: number; rand: () => number; nextId: number; seen: number[]; killedAnomalies: number[];
   aliensWanted: number; ufosLaunched: number; told: { ufo: boolean; rain: boolean };
   aim: { x: number; y: number }; // dónde está apuntando la mira (los aliens se dan cuenta)
@@ -229,7 +232,7 @@ export function newInvasion(seed?: number): Invasion {
   const rand = rng(s + 7);
   const g: Invasion = {
     ...city, people: [], boxes: [], ufos: [], cars: [], particles: [], decals: [], blasts: [], rockets: [], bullets: [],
-    time: 0, kills: 0, civilians: 0, headshots: 0, defused: 0, shots: 0, hits: 0, over: false, outcome: null, events: [],
+    time: 0, kills: 0, points: 0, killsBy: ALIEN_KINDS.map(() => 0), civilians: 0, headshots: 0, defused: 0, shots: 0, hits: 0, over: false, outcome: null, events: [],
     deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), ufosLaunched: 0, told: { ufo: false, rain: false },
     aim: { x: city.width / 2, y: 10 }, lightning: null,
   };
@@ -761,6 +764,7 @@ function defeatPerson(g: Invasion, p: Person, head: boolean, byPlayer: boolean) 
       addDecal(g, { room: p.room, x: sx, y: sy, glass: false, t: g.time, goo: true, size: between(g.rand, 0.5, 1.2) });
     }
     g.kills++; if (head) g.headshots++;
+    const kind = p.id % ALIEN_KINDS.length; g.killsBy[kind]++; g.points += ALIEN_KINDS[kind].points;
     if (p.anomaly) g.killedAnomalies.push(p.anomaly.id);
     emit(g, { type: 'kill', x: cx, y: cy, head, anomaly: p.anomaly?.id ?? null });
   } else {
@@ -848,8 +852,8 @@ export function shoot(g: Invasion, x: number, y: number, weapon: Weapon = 'rifle
     if (x < box.x1 || x > box.x2 || y < box.y1 || y > box.y2) continue;
     const head = Math.hypot(x - box.headX, y - box.headY) < PERSON_H * p.look.size * 0.17;
     g.hits++;
-    if (p.alien && (p.hp ?? 1) > 1) { // los aliens grandes aguantan varios disparos
-      p.hp = (p.hp ?? 1) - 1; p.hurt = g.time;
+    if (p.alien && (p.hp ?? 1) > DAMAGE[weapon]) { // si el tiro no le alcanza para matarlo, lo lastima
+      p.hp = (p.hp ?? 1) - DAMAGE[weapon]; p.hurt = g.time;
       burst(g, x, y, 26, '#4ade80', 'goo', 5, 0.06);
       burst(g, x, y, 8, '#bef264', 'spark', 5, 0.04);
       addDecal(g, { room: p.room, x: x + between(g.rand, -0.6, 0.6), y, glass: false, t: g.time, goo: true, size: 0.5 });

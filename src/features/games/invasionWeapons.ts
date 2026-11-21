@@ -27,8 +27,8 @@ interface Aim { front: [number, number]; back: [number, number]; tilt: number; g
 // `muzzle`: la boca del arma en la imagen de la mano (px de la imagen), para el fogonazo. `reload` null: no tiene imagen
 // de carga (la bazooka: al recargar solo baja un poco y vuelve).
 const HELD: Record<Weapon, { hand: string; reload: string | null; tall: number; reloadTall: number; out: number; reloadX: number; aim?: Aim; muzzle: [number, number]; flash: number }> = {
-  rifle: { hand: rifleHand, reload: rifleReload, tall: 0.6, reloadTall: 0.68, out: 0.06, reloadX: 0.6, muzzle: [392, 214], flash: 0.1 },
-  machine: { hand: machineHand, reload: machineReload, tall: 0.56, reloadTall: 0.58, out: 0.04, reloadX: 0.66, muzzle: [58, 175], flash: 0.08 },
+  rifle: { hand: rifleHand, reload: rifleReload, tall: 0.6, reloadTall: 0.86, out: 0.06, reloadX: 0.6, muzzle: [392, 214], flash: 0.1 },
+  machine: { hand: machineHand, reload: machineReload, tall: 0.56, reloadTall: 0.8, out: 0.04, reloadX: 0.66, muzzle: [58, 175], flash: 0.08 },
   bazooka: { hand: bazookaHand, reload: null, tall: 0.86, reloadTall: 0.86, out: 0.06, reloadX: 0.6, aim: { front: [100, 250], back: [880, 330], tilt: 0.2, gap: 0.11 }, muzzle: [100, 250], flash: 0.17 },
 };
 
@@ -41,14 +41,16 @@ export function drawHeldWeapon(ctx: CanvasRenderingContext2D, weapon: Weapon, w:
   if (reload !== null && !d.reload) reload = null;
   const im = img(reload === null ? d.hand : d.reload ?? d.hand);
   if (!im) { drawSmoke(ctx, 'held', t); return null; }
-  const tall = h * (reload === null ? d.tall : d.reloadTall), wide = tall * im.naturalWidth / im.naturalHeight;
+  // La foto de carga es la escena completa (arma, manos y brazos que salen de los bordes): ocupa por lo menos todo
+  // el ancho, apoyada abajo a la derecha, así los brazos siguen fuera de la pantalla.
+  const tall = reload === null ? h * d.tall : Math.max(h * d.reloadTall, w * im.naturalHeight / im.naturalWidth), wide = tall * im.naturalWidth / im.naturalHeight;
   // Se mueve un poco con la mira y con la respiración; el retroceso la tira para abajo y a la derecha.
   const swayX = (mx - w / 2) * 0.05, swayY = (my - h / 2) * 0.04 + Math.sin(t * 1.7) * h * 0.004;
   let x: number, y = h - tall + h * 0.03 + swayY + kick * h * 0.035 + dip;
   if (reload === null) x = w - wide * (1 - d.out) + swayX + kick * w * 0.012;
   else {
     // Al recargar: entra desde abajo, se mueve un poco mientras carga y vuelve a bajar.
-    x = w * d.reloadX - wide / 2 + swayX * 0.5;
+    x = w - wide + Math.max(0, swayX * 0.3);
     const inOut = Math.min(1, reload / 0.12, (1 - reload) / 0.12);
     y += (1 - Math.max(0, inOut)) * tall * 0.5 + Math.sin(reload * Math.PI * 3) * h * 0.012;
   }
