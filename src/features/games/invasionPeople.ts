@@ -484,9 +484,9 @@ function drawGrayHead(ctx: CanvasRenderingContext2D, base: string, x: number, y:
 }
 
 function drawGray(ctx: CanvasRenderingContext2D, o: Outfit, kind: Pose['kind'], H: number, k: number, t: number, opts: BodyOpts, sk: Skel, dead: boolean) {
-  // Los aliens nuevos (Anfibio, Brutox, Esporal, Mantis, Reptiliano): cuadro a cuadro con sus imágenes.
-  if (o.species && o.species !== 'gris') {
-    const al = drawAlienSpecies(ctx, o.species, H, k, t, { kind: dead ? 'stand' : kind, firing: opts.prop === 'raygun', flat: o.skin === '#000' });
+  // Los aliens (Gris, Anfibio, Brutox, Esporal, Mantis, Reptiliano): cuadro a cuadro con sus imágenes.
+  if (o.species) {
+    const al = drawAlienSpecies(ctx, o.species, H, k, t, { kind: dead ? 'stand' : kind, firing: opts.prop === 'raygun', flat: o.skin === '#000', eyes: opts.head?.eyes });
     if (al) {
       if (opts.prop && opts.prop !== 'raygun') drawProp(ctx, opts.prop, al.hand[0], al.hand[1], H * 0.6, t, opts.propUpside);
       return { head: al.head, handF: al.ray, r: al.r };
