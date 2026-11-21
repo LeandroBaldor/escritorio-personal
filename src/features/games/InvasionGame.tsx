@@ -280,9 +280,11 @@ export function Invasion() {
     let frame = 0, last = performance.now(), soundAt = 0, talkAt = 0, rayAt = 0;
     const tick = (now: number) => {
       const g = gameRef.current, a = aim.current, G = arsenal.current[selected.current], stage = stageRef.current;
-      const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
+      // El reloj del juego va a tiempo real aunque la compu dibuje pocos cuadros por segundo (hasta 4 por segundo):
+      // la lógica avanza en pasos de 50 ms como mucho.
+      const dt = Math.max(0, Math.min(0.25, (now - last) / 1000));
       last = now;
-      step(g, dt);
+      for (let left = dt; left > 1e-6 && !g.over; left -= 0.05) step(g, Math.min(0.05, left));
       a.swayT += dt;
       a.kick = Math.max(0, a.kick - dt * (selected.current === 'bazooka' ? 2.2 : 4)); // la bazooka vuelve más despacio del retroceso
       a.muzzle = Math.max(0, a.muzzle - dt * (selected.current === 'bazooka' ? 5 : 10)); // el fogonazo dura un instante (el de la bazooka, un poco más)

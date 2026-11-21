@@ -23,16 +23,32 @@ const SPECIES: Record<AlienSpecies, { url: string; tall: number; walkH: number; 
   reptiliano: { url: reptilianoUrl, tall: 1.0, walkH: 234, glow: 'rgba(255,170,60,0.95)', stand: [0,0,132,260,88.2,131,158,97.6,26.0,114.3,31.2], walk: [[134,0,215,234,122.1,178,155,153.1,23.4,167.9,28.1],[351,0,217,236,114.7,197,101,147.2,23.6,162.0,28.3],[570,0,213,233,116.9,181,122,142.4,23.3,157.6,28.0],[785,0,229,233,139.7,215,103,158.5,23.3,173.6,28.0]] },
 };
 
-const loaded = new Map<string, { img: HTMLImageElement; black: HTMLCanvasElement | null; ok: boolean }>();
+// Además de la imagen entera guarda copias a la mitad y a un cuarto (y sus copias negras, para la sombra en la
+// pared): los aliens lejanos, que se ven chicos, se dibujan desde la copia chica, que es mucho más liviano.
+interface Level { img: CanvasImageSource; black: HTMLCanvasElement | null; k: number }
+const loaded = new Map<string, { levels: Level[]; ok: boolean }>();
+function blackCopy(src: CanvasImageSource, w: number, h: number) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d'); if (!x) return null;
+  x.drawImage(src, 0, 0, w, h); x.globalCompositeOperation = 'source-in'; x.fillStyle = '#000'; x.fillRect(0, 0, w, h);
+  return c;
+}
 function atlas(url: string) {
   let a = loaded.get(url);
   if (!a && typeof Image !== 'undefined') {
-    const img = new Image(); a = { img, black: null, ok: false }; loaded.set(url, a);
+    const img = new Image(); a = { levels: [], ok: false }; loaded.set(url, a);
     const entry = a;
     img.onload = () => {
-      entry.ok = true;
-      const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; // copia negra (la sombra en la pared)
-      const x = c.getContext('2d'); if (x) { x.drawImage(img, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height); entry.black = c; }
+      const levels: Level[] = [{ img, black: blackCopy(img, img.width, img.height), k: 1 }];
+      let prev: CanvasImageSource = img;
+      for (const k of [0.5, 0.25]) {
+        const w = Math.max(1, Math.round(img.width * k)), h = Math.max(1, Math.round(img.height * k));
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const x = c.getContext('2d'); if (!x) break;
+        x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high'; x.drawImage(prev, 0, 0, w, h);
+        levels.push({ img: c, black: blackCopy(c, w, h), k }); prev = c;
+      }
+      entry.levels = levels; entry.ok = true;
     };
     img.src = url;
   }
@@ -55,9 +71,10 @@ export function drawAlienSpecies(ctx: CanvasRenderingContext2D, species: AlienSp
   const squash = low ? 0.8 : 1;
   const bob = moving ? 0 : Math.sin(t * 1.6 + k) * H * 0.006; // quieto, respira un poquito
   ctx.save();
-  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  const L = a.levels.find(l => sc >= l.k * 0.7) ?? a.levels[a.levels.length - 1]; // la copia justa para el tamaño
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = L.k < 1 || sc > 0.5 ? 'medium' : 'high';
   ctx.translate(0, bob); ctx.scale(sc, sc * squash);
-  ctx.drawImage(o.flat && a.black ? a.black : a.img, fx, fy, fw, fh, -ax, -fh, fw, fh);
+  ctx.drawImage(o.flat && L.black ? L.black : L.img, fx * L.k, fy * L.k, fw * L.k, fh * L.k, -ax, -fh, fw, fh);
   const hand: Pt = [(hx - ax) * sc, (hy - fh) * sc * squash + bob];
   if (o.eyes && !o.flat) { // mirándote fijo: le brillan los ojos
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
