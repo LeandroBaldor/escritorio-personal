@@ -3,6 +3,7 @@
 // Las piezas giran en la cadera, la rodilla y el tobillo, así el gris camina y corre con las piernas.
 // Todo se mide en píxeles de la imagen original (1536 × 1024), mirando a la derecha; el atlas está a la mitad.
 import grisUrl from './assets/invasion/gris.webp';
+import { preloadAliens } from './invasionAliens';
 
 type Pt = [number, number];
 interface Piece { x: number; y: number; w: number; h: number; ox: number; oy: number }
@@ -40,7 +41,7 @@ function load() {
   };
   atlas.src = grisUrl;
 }
-export function preloadGray() { load(); }
+export function preloadGray() { load(); preloadAliens(); }
 
 const ang = (a: Pt, b: Pt) => Math.atan2(b[1] - a[1], b[0] - a[0]);
 const dist = (a: Pt, b: Pt) => Math.hypot(b[0] - a[0], b[1] - a[1]);

@@ -58,7 +58,7 @@ export function Invasion() {
   // `cam`: dónde está la vista (se mueve con las flechas). `mouse`: dónde está la mira en la pantalla.
   const cam = useRef({ x: 60, y: (CITY_TOP + -3.4) / 2, lagX: 0, lagY: 0 }); // lag: cuánto se movió hace poco (el arma se atrasa un poco)
   const mouse = useRef({ x: -1, y: -1 });
-  const aim = useRef({ zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0, scoped: false });
+  const aim = useRef({ zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0, scoped: false, muzzle: 0 }); // muzzle: el fogonazo del último disparo (1 → 0)
   const arsenal = useRef(createArsenal());
   const selected = useRef<Weapon>('rifle');
   const trigger = useRef(false);
@@ -154,11 +154,11 @@ export function Invasion() {
           clip();
           ctx.translate(p.mx - R * 1.4, p.my - R * 1.4);
           paintCity(ctx, g, { w: R * 2.8, h: R * 2.8, s: a.zoom, cx: p.x, cy: p.y, t: g.time, dpr }, touch ? 2 : 6); // (en celulares arma de a pocas habitaciones nuevas por cuadro)
-        });
+        }, a.muzzle);
       } else {
         // Sin mira: el arma en la mano (o recargando) y el "+" para apuntar.
-        drawHeldWeapon(ctx, wpn, w, h, p.mx - cam.current.lagX * 1.6, p.my - cam.current.lagY * 1.6, g.time, a.kick, reloading ? 1 - G.reload / WEAPONS[wpn].reload : null);
-        if (!reloading) drawCross(ctx, p.mx, p.my, wpn, g.time);
+        drawHeldWeapon(ctx, wpn, w, h, p.mx - cam.current.lagX * 1.6, p.my - cam.current.lagY * 1.6, g.time, a.kick, reloading ? 1 - G.reload / WEAPONS[wpn].reload : null, a.muzzle);
+        if (!reloading || wpn === 'bazooka') drawCross(ctx, p.mx, p.my, wpn, g.time);
       }
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -224,6 +224,7 @@ export function Invasion() {
     const p = target(stage.clientWidth, stage.clientHeight);
     G.mag--;
     aim.current.kick = current === 'machine' ? 0.33 : 1;
+    aim.current.muzzle = 1;
     if (current === 'bazooka') playBazookaShot(); else if (current === 'machine') playMachineShot(); else playRifleShot();
     reactToHit(shoot(g, p.x, p.y, current));
     if (G.mag > 0) { G.cycle = config.cycle; if (current === 'rifle') playBolt(); }
@@ -242,7 +243,7 @@ export function Invasion() {
     gameRef.current = newInvasion();
     const g = gameRef.current;
     cam.current.x = g.width * (0.3 + Math.random() * 0.4); cam.current.y = (TOP_Y + FLOOR_Y) / 2;
-    Object.assign(aim.current, { zoom: minZoom(), target: minZoom(), kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0, scoped: false });
+    Object.assign(aim.current, { zoom: minZoom(), target: minZoom(), kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0, scoped: false, muzzle: 0 });
     arsenal.current = createArsenal();
     selected.current = 'rifle';
     trigger.current = false;
@@ -276,6 +277,7 @@ export function Invasion() {
       step(g, dt);
       a.swayT += dt;
       a.kick = Math.max(0, a.kick - dt * 4);
+      a.muzzle = Math.max(0, a.muzzle - dt * (selected.current === 'bazooka' ? 5 : 10)); // el fogonazo dura un instante (el de la bazooka, un poco más)
       a.shake = Math.max(0, a.shake - dt * 2.2);
       a.flash = a.flash > 0 ? Math.max(0, a.flash - dt * 3) : Math.min(0, a.flash + dt * 2);
       a.zoom += (a.target - a.zoom) * Math.min(1, dt * 10);

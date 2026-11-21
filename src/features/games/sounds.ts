@@ -57,6 +57,7 @@ import invBazookaVueloUrl from './assets/sonidos/invasion-bazooka-vuelo.mp3';
 import invBazookaBoomUrl from './assets/sonidos/invasion-bazooka-explosion.mp3';
 import invAlienHablaUrl from './assets/sonidos/invasion-alien-voz.mp3'; // la voz alienígena que pasó el usuario (alien_voz.mp3)
 import invMusicaUrl from './assets/sonidos/invasion-musica.mp3';
+import invRecargaUrl from './assets/sonidos/invasion-recarga.mp3';
 import invLluviaUrl from './assets/sonidos/invasion-lluvia.mp3';
 import propulsorUrl from './assets/sonidos/propulsor.mp3';
 import trepaCiudadUrl from './assets/sonidos/trepa-ciudad.mp3';
@@ -928,7 +929,7 @@ export function setCrowd(level: number) {
 
 // ---------- Invasión ----------
 let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
-export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invAlienHablaUrl, invMusicaUrl, invLluviaUrl]) loadSample(url); }
+export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invAlienHablaUrl, invMusicaUrl, invRecargaUrl, invLluviaUrl]) loadSample(url); }
 // Voces en un idioma inventado: una voz (tono que sube y baja) que pasa por dos "formantes" que cambian todo
 // el tiempo (las vocales) y se corta en sílabas.
 function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
@@ -1053,7 +1054,9 @@ export function playBolt() {
   burst(c, 'highpass', 2500, t + 0.38, 0.06, 0.4); tone(c, 'square', 600, 500, t + 0.38, 0.06, 0.1);
 }
 // Recarga: el cargador que sale, el nuevo que entra y el cerrojo.
+// Recargar: la grabación que pasó el usuario (recarga.mp3); si no cargó, los clics sintetizados de antes.
 export function playReload() {
+  if (playSample(invRecargaUrl, 1.3)) return;
   const c = running(); if (!c) return;
   const t = c.currentTime;
   for (const d of [0.1, 0.9, 1.6, 1.85]) { burst(c, 'bandpass', 1800, t + d, 0.07, 0.35); tone(c, 'square', 500, 380, t + d, 0.06, 0.06); }

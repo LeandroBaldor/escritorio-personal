@@ -3,6 +3,7 @@
 // posturas (sentados, acostados, agachados, estirando el brazo, con los brazos arriba, gateando), con lo que
 // tienen en la mano según lo que hacen, los aliens grises y todas las anomalías.
 import { drawGraySprite } from './invasionGray';
+import { ALIEN_SPECIES, drawAlienSpecies, type AlienSpecies } from './invasionAliens';
 import { anomalyOf, poseOf, revealed, roomOf, type Invasion, type Person, type Pose } from './invasion';
 import type { AnomalyFx, PropKind } from './invasionAnomalies';
 
@@ -95,6 +96,7 @@ export interface Outfit {
   // Los detalles de cada uno: qué tiene puesto arriba, anteojos, barba o bigote, mochila o cartera, reloj, aros, corbata.
   top: Top; glasses: boolean; beard: 0 | 1 | 2; bag: 0 | 1 | 2; watch: boolean; earring: boolean; tie: boolean; inner: string; belt: string;
   alienHead?: boolean; // el disfraz se le cae: la ropa es la de siempre pero la cara es la de un alien gris
+  species?: AlienSpecies; // de qué especie es el alien
 }
 const TOPS: Top[] = ['tee', 'shirt', 'hoodie', 'jacket', 'sweater', 'tee', 'shirt'];
 export function outfitOf(p: Person, skinOverride?: string): Outfit {
@@ -114,10 +116,13 @@ export function outfitOf(p: Person, skinOverride?: string): Outfit {
     tie: top === 'shirt' && ex(6) < 0.4 && !L.kid, inner: hsl(L.shirt2, 30, 88), belt: ex(7) < 0.5 ? '#1c1917' : '#78350f',
   };
 }
+// Cada alien es de una especie (por su número): el gris o uno de los 5 nuevos.
 const ALIEN: Outfit = {
   skin: '#a3a6ab', hair: '#a3a6ab', hat: 'bald', hatColor: '#a3a6ab', shirt: ['#9a9da2', '#9a9da2', '#9a9da2'], pants: '#8b8e93', shoes: '#6b6e73', vest: false, alien: true,
   top: 'tee', glasses: false, beard: 0, bag: 0, watch: false, earring: false, tie: false, inner: '#9ca3af', belt: '#8b9099',
 };
+const ALIENS: Outfit[] = ALIEN_SPECIES.map(species => ({ ...ALIEN, species }));
+const alienOutfit = (p: Person) => ALIENS[p.id % ALIENS.length];
 
 const line = (ctx: CanvasRenderingContext2D, color: string, width: number, ...pts: Pt[]) => {
   ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -479,6 +484,14 @@ function drawGrayHead(ctx: CanvasRenderingContext2D, base: string, x: number, y:
 }
 
 function drawGray(ctx: CanvasRenderingContext2D, o: Outfit, kind: Pose['kind'], H: number, k: number, t: number, opts: BodyOpts, sk: Skel, dead: boolean) {
+  // Los aliens nuevos (Anfibio, Brutox, Esporal, Mantis, Reptiliano): cuadro a cuadro con sus imágenes.
+  if (o.species && o.species !== 'gris') {
+    const al = drawAlienSpecies(ctx, o.species, H, k, t, { kind: dead ? 'stand' : kind, firing: opts.prop === 'raygun', flat: o.skin === '#000' });
+    if (al) {
+      if (opts.prop && opts.prop !== 'raygun') drawProp(ctx, opts.prop, al.hand[0], al.hand[1], H * 0.6, t, opts.propUpside);
+      return { head: al.head, handF: al.ray, r: al.r };
+    }
+  }
   // Primero, el gris armado con la imagen de referencia (si ya cargó); si no, el dibujado a mano de abajo.
   const sprite = drawGraySprite(ctx, H, k, t, { kind: dead ? 'stand' : kind, firing: opts.prop === 'raygun', flat: o.skin === '#000', eyes: opts.head?.eyes, lean: opts.lean });
   if (sprite) {
@@ -780,7 +793,7 @@ export function drawPerson(ctx: CanvasRenderingContext2D, g: Invasion, p: Person
   if (p.dog && !p.dead) drawDog(ctx, sx + p.dir * H * 0.55, sy, H * 0.45, p.dir, p.moving ? t * 12 : 0, false);
   if (body.handF) body.handF = [body.handF[0] * H, body.handF[1] * H];
   if (body.handB) body.handB = [body.handB[0] * H, body.handB[1] * H];
-  const outfit = isAlien ? ALIEN : outfitOf(p, skin);
+  const outfit = isAlien ? alienOutfit(p) : outfitOf(p, skin);
   body.vest = !isAlien && p.job === 'worker';
   body.sx = pose.sx;
   if (isAlien && body.head) body.head = { ...body.head, face: front ? 'front' : undefined };
@@ -868,7 +881,7 @@ export function drawPerson(ctx: CanvasRenderingContext2D, g: Invasion, p: Person
 
 // Visto de muy lejos (el fondo de la mira): solo la silueta con los colores de la ropa.
 function drawTiny(ctx: CanvasRenderingContext2D, p: Person, pose: Pose, sx: number, sy: number, H: number, alien: boolean, t: number) {
-  const o = alien ? ALIEN : outfitOf(p), lie = pose.kind === 'lie' || pose.kind === 'dead';
+  const o = alien ? alienOutfit(p) : outfitOf(p), lie = pose.kind === 'lie' || pose.kind === 'dead';
   const y = sy - pose.lift * H;
   if (lie) { ctx.fillStyle = o.shirt[1]; ctx.fillRect(sx - H * 0.4, y - H * 0.18, H * 0.8, H * 0.16); dot(ctx, o.skin, sx + pose.dir * H * 0.45, y - H * 0.12, H * 0.12); return; }
   const h = pose.kind === 'sit' || pose.kind === 'squat' ? H * 0.75 : H, w = Math.max(1.5, H * 0.26);
