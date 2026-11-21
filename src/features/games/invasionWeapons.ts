@@ -33,13 +33,14 @@ const HELD: Record<Weapon, { hand: string; reload: string | null; tall: number; 
 };
 
 // El arma en la mano. `reload` va de 0 a 1 mientras se recarga (null si no); `kick` es el retroceso.
-export function drawHeldWeapon(ctx: CanvasRenderingContext2D, weapon: Weapon, w: number, h: number, mx: number, my: number, t: number, kick: number, reload: number | null, flash = 0) {
+// Devuelve dónde está la boca del arma en la pantalla (de ahí sale el cohete de la bazooka), o null si no se dibujó.
+export function drawHeldWeapon(ctx: CanvasRenderingContext2D, weapon: Weapon, w: number, h: number, mx: number, my: number, t: number, kick: number, reload: number | null, flash = 0): { x: number; y: number } | null {
   const d = HELD[weapon];
   // Sin imagen de carga (la bazooka): al recargar se ve la misma arma, que baja un poco y vuelve.
   const dip = reload !== null && !d.reload ? Math.sin(Math.min(1, reload) * Math.PI) * h * 0.22 : 0;
   if (reload !== null && !d.reload) reload = null;
   const im = img(reload === null ? d.hand : d.reload ?? d.hand);
-  if (!im) return;
+  if (!im) { drawSmoke(ctx, 'held', t); return null; }
   const tall = h * (reload === null ? d.tall : d.reloadTall), wide = tall * im.naturalWidth / im.naturalHeight;
   // Se mueve un poco con la mira y con la respiración; el retroceso la tira para abajo y a la derecha.
   const swayX = (mx - w / 2) * 0.05, swayY = (my - h / 2) * 0.04 + Math.sin(t * 1.7) * h * 0.004;
@@ -55,44 +56,104 @@ export function drawHeldWeapon(ctx: CanvasRenderingContext2D, weapon: Weapon, w:
     // Apuntando al medio: la línea del caño pasa por el centro de la pantalla.
     const A = d.aim, k = tall / im.naturalHeight;
     const ax = A.front[0] - A.back[0], ay = A.front[1] - A.back[1], L = Math.hypot(ax, ay);
-    const rot = A.tilt + kick * 0.04, ca = Math.cos(rot), sa = Math.sin(rot);
+    // Retroceso de la bazooka: el tubo se viene para atrás (hacia uno, se agranda un poco) y la boca se levanta.
+    const r = kick, back = r * h * 0.07, up = r * h * 0.09, grow = 1 + r * 0.07;
+    const rot = A.tilt + r * 0.16, ca = Math.cos(rot), sa = Math.sin(rot);
     const ux = (ax * ca - ay * sa) / L, uy = (ax * sa + ay * ca) / L; // hacia adonde apunta, ya girado
-    const mxs = w / 2 - ux * A.gap * h + swayX + kick * w * 0.01, mys = h / 2 - uy * A.gap * h + swayY + kick * h * 0.03 + dip;
-    ctx.save(); ctx.translate(mxs, mys); ctx.rotate(rot);
+    const mxs = w / 2 - ux * (A.gap * h + back) + swayX, mys = h / 2 - uy * (A.gap * h + back) + swayY - up + dip;
+    ctx.save(); ctx.translate(mxs, mys); ctx.rotate(rot); ctx.scale(grow, grow);
     ctx.drawImage(im, -A.front[0] * k, -A.front[1] * k, im.naturalWidth * k, tall);
     ctx.restore();
-    if (flash > 0) drawMuzzleFlash(ctx, mxs + ux * h * 0.02, mys + uy * h * 0.02, d.flash * h, flash, Math.atan2(uy, ux), t);
-    return;
+    const fx = mxs + ux * h * 0.02, fy = mys + uy * h * 0.02;
+    if (flash > 0) drawMuzzleFlash(ctx, fx, fy, d.flash * h, flash, Math.atan2(uy, ux), t, 'held');
+    drawSmoke(ctx, 'held', t);
+    return { x: fx, y: fy };
   }
   ctx.save();
   ctx.translate(x + wide * 0.5, y + tall * 0.5); ctx.rotate(kick * 0.03); ctx.translate(-(x + wide * 0.5), -(y + tall * 0.5));
   ctx.drawImage(im, x, y, wide, tall);
   ctx.restore();
-  if (flash > 0 && reload === null) { const k = tall / im.naturalHeight; drawMuzzleFlash(ctx, x + d.muzzle[0] * k, y + d.muzzle[1] * k, d.flash * h, flash, Math.atan2(h / 2 - (y + d.muzzle[1] * k), w / 2 - (x + d.muzzle[0] * k)), t); }
+  const k = tall / im.naturalHeight, fx = x + d.muzzle[0] * k, fy = y + d.muzzle[1] * k;
+  if (flash > 0 && reload === null) drawMuzzleFlash(ctx, fx, fy, d.flash * h, flash, Math.atan2(h / 2 - fy, w / 2 - fx), t, 'held');
+  drawSmoke(ctx, 'held', t);
+  return { x: fx, y: fy };
 }
 
-// El fogonazo del disparo: un núcleo blanco, una llamarada en estrella hacia adelante (gira al azar en cada tiro) y
-// un brillo que ilumina un poco toda la pantalla. `f` va de 1 (recién disparado) a 0.
-export function drawMuzzleFlash(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, f: number, dir: number, t: number) {
-  const r = size * (0.6 + f * 0.6);
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const halo = ctx.createRadialGradient(x, y, 0, x, y, r * 2.4);
-  halo.addColorStop(0, `rgba(255,236,170,${0.55 * f})`); halo.addColorStop(0.35, `rgba(255,170,60,${0.3 * f})`); halo.addColorStop(1, 'rgba(255,120,30,0)');
-  ctx.fillStyle = halo; ctx.fillRect(x - r * 2.4, y - r * 2.4, r * 4.8, r * 4.8);
-  ctx.translate(x, y); ctx.rotate(dir + Math.sin(t * 97) * 0.25);
-  const spikes = 7, seed = Math.floor(t * 60);
-  ctx.beginPath();
-  for (let i = 0; i <= spikes * 2; i++) {
-    const a = i / (spikes * 2) * Math.PI * 2, long = i % 2 === 0, fwd = Math.max(0, Math.cos(a));
-    const len = long ? r * (0.55 + fwd * 1.3) * (0.75 + ((seed * 7 + i * 13) % 10) / 20) : r * 0.25;
-    const px = Math.cos(a) * len, py = Math.sin(a) * len * 0.7;
-    if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+// El fogonazo del disparo, más real: una llamarada alargada hacia adelante (cono de gases encendidos), dos lenguas
+// laterales cortas (como sale por el freno de boca), chispas incandescentes y un brillo que ilumina alrededor.
+// Cada disparo tiene su forma (se sortea al disparar, no titila cuadro a cuadro). `f` va de 1 (recién disparado) a 0.
+// Al disparar suelta humo (`slot` dice en qué lista de humo va: el arma en la mano o el vidrio de la mira).
+interface Puff { x: number; y: number; vx: number; vy: number; t0: number; life: number; r: number; grow: number; a: number }
+const smoke: Record<string, Puff[]> = { held: [], scope: [] };
+const lastFlash: Record<string, number> = { held: 0, scope: 0 };
+const flashSeed: Record<string, number> = { held: 1, scope: 1 };
+let seq = 1;
+const hash = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+
+export function drawMuzzleFlash(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, f: number, dir: number, t: number, slot = 'held') {
+  if (f > (lastFlash[slot] ?? 0) + 0.25) { // disparo nuevo: sorteo la forma y suelto el humo
+    flashSeed[slot] = seq++;
+    const list = smoke[slot] ?? (smoke[slot] = []), n = 5 + Math.round(size / 18);
+    for (let i = 0; i < n; i++) {
+      const q = hash(seq * 9 + i), sp = size * (0.6 + q * 1.4), a = dir + (hash(seq * 5 + i * 3) - 0.5) * 0.9;
+      list.push({ x: x + Math.cos(dir) * size * 0.3 * (i / n), y: y + Math.sin(dir) * size * 0.3 * (i / n), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - size * 0.25,
+        t0: t + 0.04 + i * 0.03, life: 1.6 + q * 1.2, r: size * (0.22 + q * 0.14), grow: size * (0.8 + q * 0.6), a: 0.42 + q * 0.18 });
+    }
+    if (list.length > 70) list.splice(0, list.length - 70);
   }
-  ctx.closePath();
-  const fire = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 1.6);
-  fire.addColorStop(0, `rgba(255,255,240,${f})`); fire.addColorStop(0.3, `rgba(255,214,110,${0.95 * f})`); fire.addColorStop(1, `rgba(255,110,20,${0.15 * f})`);
-  ctx.fillStyle = fire; ctx.fill();
-  ctx.fillStyle = `rgba(255,255,255,${f})`; ctx.beginPath(); ctx.ellipse(0, 0, r * 0.32, r * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+  lastFlash[slot] = f;
+  const sd = flashSeed[slot] ?? 1, rnd = (i: number) => hash(sd * 31 + i);
+  const r = size * (0.75 + f * 0.45), e = Math.pow(f, 0.6); // la llama se achica rápido; el brillo dura un poco más
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  // Brillo general (ilumina un poco la pantalla alrededor de la boca).
+  const halo = ctx.createRadialGradient(x, y, 0, x, y, r * 3.2);
+  halo.addColorStop(0, `rgba(255,226,160,${0.5 * f})`); halo.addColorStop(0.3, `rgba(255,160,60,${0.22 * f})`); halo.addColorStop(1, 'rgba(255,110,30,0)');
+  ctx.fillStyle = halo; ctx.fillRect(x - r * 3.2, y - r * 3.2, r * 6.4, r * 6.4);
+  ctx.translate(x, y); ctx.rotate(dir + (rnd(1) - 0.5) * 0.12);
+  // Una "lengua" de fuego: forma de gota alargada, con borde irregular.
+  const tongue = (ang: number, len: number, wid: number, alpha: number) => {
+    ctx.save(); ctx.rotate(ang);
+    const g = ctx.createLinearGradient(0, 0, len, 0);
+    g.addColorStop(0, `rgba(255,255,235,${alpha})`); g.addColorStop(0.25, `rgba(255,222,120,${0.95 * alpha})`);
+    g.addColorStop(0.65, `rgba(255,138,40,${0.6 * alpha})`); g.addColorStop(1, 'rgba(200,60,10,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, -wid * 0.35);
+    const steps = 6;
+    for (let i = 1; i <= steps; i++) { const q = i / steps, wob = 1 + (rnd(i + ang * 10) - 0.5) * 0.5; ctx.lineTo(len * q, -wid * Math.sin(Math.PI * Math.min(1, q * 1.15)) * wob * (1 - q * 0.6)); }
+    for (let i = steps; i >= 1; i--) { const q = i / steps, wob = 1 + (rnd(i + 20 + ang * 10) - 0.5) * 0.5; ctx.lineTo(len * q, wid * Math.sin(Math.PI * Math.min(1, q * 1.15)) * wob * (1 - q * 0.6)); }
+    ctx.lineTo(0, wid * 0.35); ctx.closePath(); ctx.fill(); ctx.restore();
+  };
+  tongue(0, r * (2.1 + rnd(2) * 0.9) * e, r * 0.42, f);                         // la llamarada principal, hacia adelante
+  tongue((rnd(3) - 0.5) * 0.25, r * (1.3 + rnd(4) * 0.5) * e, r * 0.62, 0.8 * f); // el cuerpo, más ancho y corto
+  for (const side of [-1, 1]) tongue(side * (1.25 + rnd(5 + side) * 0.35), r * (0.55 + rnd(7 + side) * 0.35) * e, r * 0.22, 0.75 * f); // lenguas laterales
+  // Chispas: rayitas incandescentes que salen disparadas hacia adelante.
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 9; i++) {
+    const a = (rnd(10 + i) - 0.5) * 1.1, d0 = r * (0.5 + (1 - f) * 1.1) * (0.6 + rnd(30 + i) * 0.6), d1 = d0 + r * 0.22;
+    ctx.strokeStyle = `rgba(255,${200 + Math.floor(rnd(50 + i) * 55)},140,${0.9 * f})`; ctx.lineWidth = Math.max(1, r * 0.035);
+    ctx.beginPath(); ctx.moveTo(Math.cos(a) * d0, Math.sin(a) * d0); ctx.lineTo(Math.cos(a) * d1, Math.sin(a) * d1); ctx.stroke();
+  }
+  // Núcleo blanco en la boca.
+  const core = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.45);
+  core.addColorStop(0, `rgba(255,255,255,${f})`); core.addColorStop(1, 'rgba(255,240,200,0)');
+  ctx.fillStyle = core; ctx.beginPath(); ctx.ellipse(r * 0.08, 0, r * 0.45, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+// El humo que queda después del disparo: bocanadas grises que se agrandan, suben y se desvanecen.
+export function drawSmoke(ctx: CanvasRenderingContext2D, slot: string, t: number) {
+  const list = smoke[slot];
+  if (!list?.length) return;
+  for (let i = list.length - 1; i >= 0; i--) if (t - list[i].t0 > list[i].life || t < list[i].t0 - 1) list.splice(i, 1);
+  ctx.save();
+  for (const p of list) {
+    const age = t - p.t0; if (age < 0) continue;
+    const q = age / p.life, slow = 1 - Math.exp(-age * 2.2); // sale rápido y se frena
+    const px = p.x + p.vx * slow / 2.2 + Math.sin(age * 1.7 + p.r) * p.r * 0.4, py = p.y + p.vy * slow / 2.2 - age * p.grow * 0.35;
+    const rad = p.r + p.grow * Math.sqrt(q), alpha = p.a * (1 - q) * Math.min(1, age * 8);
+    const g = ctx.createRadialGradient(px, py, 0, px, py, rad);
+    g.addColorStop(0, `rgba(176,172,166,${alpha})`); g.addColorStop(0.55, `rgba(138,134,128,${alpha * 0.6})`); g.addColorStop(1, 'rgba(120,116,110,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, rad, 0, Math.PI * 2); ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -119,7 +180,7 @@ const SCOPES = {
 export const hasScope = (weapon: Weapon) => weapon !== 'bazooka';
 
 // El vidrio de la mira centrado en (x, y), de "radio" R. `lens` dibuja la ciudad con zoom adentro (ya recortada).
-export function drawScopeView(ctx: CanvasRenderingContext2D, weapon: Weapon, x: number, y: number, R: number, zoom: number, kick: number, lens: (clip: () => void) => void, flash = 0) {
+export function drawScopeView(ctx: CanvasRenderingContext2D, weapon: Weapon, x: number, y: number, R: number, zoom: number, kick: number, lens: (clip: () => void) => void, flash = 0, t = 0) {
   if (weapon === 'bazooka') return;
   const S = SCOPES[weapon], im = img(S.url);
   const k = weapon === 'rifle' ? R / SCOPES.rifle.r : (R * 1.08) / SCOPES.machine.hw;
@@ -140,7 +201,8 @@ export function drawScopeView(ctx: CanvasRenderingContext2D, weapon: Weapon, x: 
     ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 14 * k; ctx.strokeRect(x - SCOPES.machine.hw * k, y - SCOPES.machine.hh * k, SCOPES.machine.hw * 2 * k, SCOPES.machine.hh * 2 * k);
     ctx.fillStyle = 'rgba(40,255,120,0.04)'; ctx.fillRect(x - SCOPES.machine.hw * k, y - SCOPES.machine.hh * k, SCOPES.machine.hw * 2 * k, SCOPES.machine.hh * 2 * k); // un poco de tinte de pantalla
   }
-  if (flash > 0) { ctx.fillStyle = `rgba(255,220,150,${flash * 0.28})`; ctx.fillRect(x - R * 2, y - R * 2, R * 4, R * 4); drawMuzzleFlash(ctx, x, y + R * 0.95, R * 0.35, flash, -Math.PI / 2, kick); } // el fogonazo asoma por abajo del vidrio
+  if (flash > 0) { ctx.fillStyle = `rgba(255,220,150,${flash * 0.28})`; ctx.fillRect(x - R * 2, y - R * 2, R * 4, R * 4); drawMuzzleFlash(ctx, x, y + R * 0.95, R * 0.35, flash, -Math.PI / 2, t, 'scope'); } // el fogonazo asoma por abajo del vidrio
+  drawSmoke(ctx, 'scope', t); // y después queda humo que sube por el vidrio
   ctx.restore();
   if (im) ctx.drawImage(im, x - S.cx * k, y - S.cy * k, im.naturalWidth * k, im.naturalHeight * k);
   // El aumento, arriba a la derecha del vidrio.

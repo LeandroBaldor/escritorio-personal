@@ -8,7 +8,7 @@
 // después se copia: así se puede dibujar con mucho detalle sin que se trabe.
 import { drawUfoCraftAt } from './kombatPenUfo';
 import {
-  CITY_TOP, GAME_SECONDS, rainAt, ROCKET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
+  CITY_TOP, GAME_SECONDS, rainAt, ROCKET_TIME, BULLET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
 } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import { drawPerson, drawProp, font, hash, hsl, mixColor } from './invasionPeople';
@@ -805,8 +805,9 @@ function drawUfo(ctx: CanvasRenderingContext2D, u: Invasion['ufos'][number], v: 
 // una estela de humo; sobre el objetivo titila una mira roja hasta que llega.
 function drawRocket(ctx: CanvasRenderingContext2D, rk: Rocket, v: View, t: number) {
   const k = Math.min(1, (t - rk.t0) / ROCKET_TIME), e = k * k * (3 - 2 * k) * 0.55 + k * 0.45;
-  const tx = X(v, rk.x), ty = Y(v, rk.y), sx = v.w * 0.62, sy = v.h * 1.25;
-  const pos = (q: number): [number, number] => [sx + (tx - sx) * q, sy + (ty - sy) * q - Math.sin(q * Math.PI) * v.h * 0.12];
+  // Sale de la boca de la bazooka (`from`, guardada al disparar) y va hacia el objetivo con una curva suave.
+  const tx = X(v, rk.x), ty = Y(v, rk.y), sx = rk.from ? X(v, rk.from.x) : v.w * 0.62, sy = rk.from ? Y(v, rk.from.y) : v.h * 1.25;
+  const pos = (q: number): [number, number] => [sx + (tx - sx) * q, sy + (ty - sy) * q - Math.sin(q * Math.PI) * v.h * 0.06];
   // Mira roja sobre el objetivo.
   const blink = 0.5 + Math.sin(t * 14) * 0.5, R = v.s * 0.9;
   ctx.strokeStyle = `rgba(239,68,68,${0.45 + blink * 0.5})`; ctx.lineWidth = Math.max(1.5, v.s * 0.05);
@@ -831,7 +832,18 @@ function drawRocket(ctx: CanvasRenderingContext2D, rk: Rocket, v: View, t: numbe
 }
 
 // ---------- Todo junto ----------
-export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, newImages = 6) {
+export function drawRockets(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
+  for (const rk of g.rockets) drawRocket(ctx, rk, v, g.time);
+  // La bala del francotirador en camino: un anillo fino que se cierra sobre el punto hasta que impacta (2 s).
+  for (const b of g.bullets) {
+    const k = Math.min(1, (g.time - b.t0) / BULLET_TIME), x = X(v, b.x), y = Y(v, b.y), r = Math.max(6, v.s * 0.5) * (1.8 - k * 1.5);
+    ctx.save(); ctx.strokeStyle = `rgba(255,255,255,${0.35 + k * 0.5})`; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - k)); ctx.stroke(); ctx.restore();
+  }
+}
+
+// `rockets` false: los cohetes se dibujan aparte (arriba de todo, cada cuadro).
+export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, newImages = 6, rockets = true) {
   budget = newImages;
   drawSky(ctx, g, v);
   const level = levelFor(v.s);
@@ -921,7 +933,7 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
     ctx.lineWidth = Math.max(1, v.s * 0.018);
     ctx.stroke();
   }
-  for (const rk of g.rockets) drawRocket(ctx, rk, v, g.time);
+  if (rockets) drawRockets(ctx, g, v);
   // Explosiones y partículas.
   for (const bl of g.blasts) {
     if (bl.t < 0) continue;

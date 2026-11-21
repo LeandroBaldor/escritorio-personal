@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aliensAt, aliveAliens, aliveHumans, ALIEN_TOTAL, HUMAN_TOTAL, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt, ROCKET_TIME, WALL_BREAK,
+  alienKind, ALIEN_KINDS, BULLET_TIME, fireRifle, aliensAt, aliveAliens, aliveHumans, ALIEN_TOTAL, HUMAN_TOTAL, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt, ROCKET_TIME, WALL_BREAK,
   type Invasion, type Person,
 } from './invasion';
 import { ANOMALIES, fitsPlace, shuffledAnomalies } from './invasionAnomalies';
@@ -173,7 +173,7 @@ describe('Invasión: lo que hacen los aliens', () => {
     const top = wallPath(room, start, (room.x2 - 0.3 - start) + H + W / 2);
     expect(top.wall).toBeCloseTo(Math.PI);
     expect(top.y).toBeCloseTo(room.y + H);
-    const alien = g.people.find(p => p.alien)!;
+    const alien = g.people.find(p => p.alien && alienKind(p).hp === 1)!; // un gris (cae de un tiro)
     alien.room = room.id; alien.x = start; alien.y = room.y; alien.sabotage = null; alien.comm = null; alien.stareUntil = 0;
     const WALL = ANOMALIES.find(a => a.fx.t === 'move' && a.fx.mode === 'wallwalk')!;
     alien.anomaly = { id: WALL.id, t0: g.time - ((room.x2 - 0.3 - start) + H + W / 2) / 1.3, until: g.time + 30, seed: 0 };
@@ -188,7 +188,7 @@ describe('Invasión: lo que hacen los aliens', () => {
 
 describe('Invasión: el disparo', () => {
   it('matar a un alien suma uno y el alien explota en una nube verde (no queda el cuerpo, queda la mancha)', () => {
-    const g = newInvasion(8), alien = g.people.find(p => p.alien && p.room >= 0)!;
+    const g = newInvasion(8), alien = g.people.find(p => p.alien && p.room >= 0 && alienKind(p).hp === 1)!;
     const [x, y] = aimAt(g, alien, true);
     expect(shoot(g, x, y)).toBe('alien');
     expect(g.kills).toBe(1);
@@ -276,6 +276,35 @@ describe('Invasión: el disparo', () => {
     expect(g.ufos.some(o => o.id === u.id)).toBe(false); // el cohete siguió al ovni y lo derribó
     expect(g.blasts.some(b => b.big && b.x === u.x)).toBe(true);
     expect(takeEvents(g).some(e => e.type === 'rocketHit' && e.hit === 'ufoDestroyed')).toBe(true);
+  });
+
+  it('los aliens grandes aguantan varios disparos y son más grandes según la especie', () => {
+    const g = newInvasion(8);
+    const want = { gris: [1, 1], anfibio: [1.3, 3], brutox: [1.5, 10], esporal: [1.1, 2], mantis: [1.25, 5], reptiliano: [1.1, 2] } as const;
+    for (const k of ALIEN_KINDS) expect([k.size, k.hp]).toEqual(want[k.name]);
+    const brutox = g.people.find(p => p.alien && alienKind(p).name === 'brutox')!;
+    const gray = g.people.find(p => p.alien && alienKind(p).name === 'gris' && p.id % 5 === brutox.id % 5);
+    if (gray) expect(brutox.look.size / gray.look.size).toBeCloseTo(1.5);
+    g.people = g.people.filter(p => p === brutox || !p.alien);
+    brutox.room = -1; brutox.y = 0; brutox.anomaly = null; brutox.sabotage = null; brutox.moving = false; brutox.speed = 0; brutox.x = 30;
+    g.people = g.people.filter(p => p === brutox || p.room >= 0);
+    for (let i = 0; i < 9; i++) { const [x, y] = aimAt(g, brutox); expect(shoot(g, x, y, 'machine')).toBe('hurt'); }
+    expect(brutox.hp).toBe(1);
+    const [x, y] = aimAt(g, brutox);
+    expect(shoot(g, x, y, 'machine')).toBe('alien'); // el décimo lo mata
+    expect(g.kills).toBe(1);
+  });
+
+  it('la bala del francotirador tarda 2 segundos en llegar (y sigue a quien le apuntaste)', () => {
+    const g = newInvasion(8), alien = g.people.find(p => p.alien && p.room >= 0 && alienKind(p).hp === 1)!;
+    const [x, y] = aimAt(g, alien);
+    fireRifle(g, x, y);
+    takeEvents(g);
+    run(g, BULLET_TIME - 0.2);
+    expect(alien.dead).toBeNull(); // todavía no llegó
+    run(g, 0.4);
+    expect(alien.dead?.alien).toBe(true);
+    expect(takeEvents(g).some(e => e.type === 'bulletHit' && e.hit === 'alien')).toBe(true);
   });
 
   it('la ametralladora destroza el departamento: con WALL_BREAK balas se derrumba', () => {

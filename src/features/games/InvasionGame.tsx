@@ -3,9 +3,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { TouchGrips } from './TouchGrips';
 import { fitScale, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
-import { ALIEN_POINTS, ALIEN_TOTAL, aliveAliens, aliveHumans, CITY_TOP, GAME_SECONDS, HUMAN_TOTAL, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
+import { ALIEN_POINTS, ALIEN_TOTAL, aliveAliens, aliveHumans, CITY_TOP, fireRifle, GAME_SECONDS, HUMAN_TOTAL, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
-import { drawMinimap, paintCity, type View } from './invasionArt';
+import { drawMinimap, drawRockets, paintCity, type View } from './invasionArt';
 import { invasionLevels } from './invasionSound';
 import {
   playAlienComm, playAlienDeath, playAlienTalk, playBazookaBoom, playBazookaShot, playBlast, playBolt, playCivilianHit, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playMachineShot, playRayGun, playReload,
@@ -58,6 +58,7 @@ export function Invasion() {
   // `cam`: dónde está la vista (se mueve con las flechas). `mouse`: dónde está la mira en la pantalla.
   const cam = useRef({ x: 60, y: (CITY_TOP + -3.4) / 2, lagX: 0, lagY: 0 }); // lag: cuánto se movió hace poco (el arma se atrasa un poco)
   const mouse = useRef({ x: -1, y: -1 });
+  const muzzleAt = useRef<{ x: number; y: number } | null>(null); // la boca del arma en la pantalla (de ahí sale el cohete)
   const aim = useRef({ zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0, scoped: false, muzzle: 0 }); // muzzle: el fogonazo del último disparo (1 → 0)
   const arsenal = useRef(createArsenal());
   const selected = useRef<Weapon>('rifle');
@@ -139,11 +140,12 @@ export function Invasion() {
       if (bg.canvas.width !== bw || bg.canvas.height !== bh || bg.s !== b.s || Math.abs(bg.x - b.cx) * b.s > M * w * 0.85 || Math.abs(bg.y - b.cy) * b.s > MV * h * 0.85 || now - bg.at > every) {
         if (bg.canvas.width !== bw || bg.canvas.height !== bh) { bg.canvas.width = bw; bg.canvas.height = bh; }
         const bctx = bg.canvas.getContext('2d');
-        if (bctx) { bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, bw, bh); bctx.setTransform(dpr * bs, 0, 0, dpr * bs, 0, 0); paintCity(bctx, g, { ...b, w: W, h: HH, t: g.time, dpr }, 10); }
+        if (bctx) { bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, bw, bh); bctx.setTransform(dpr * bs, 0, 0, dpr * bs, 0, 0); paintCity(bctx, g, { ...b, w: W, h: HH, t: g.time, dpr }, 10, false); } // (los cohetes van aparte, en cada cuadro)
         bg.x = b.cx; bg.y = b.cy; bg.s = b.s; bg.at = now;
       }
       const off = ((bg.x - b.cx) * b.s - M * w) * dpr, offY = ((b.cy - bg.y) * b.s - MV * h) * dpr; // dónde cae la imagen según cuánto se movió la vista
       ctx.setTransform(1, 0, 0, 1, shake[0] * dpr, shake[1] * dpr); ctx.drawImage(bg.canvas, off, offY, W * dpr, HH * dpr); ctx.setTransform(dpr, 0, 0, dpr, shake[0] * dpr, shake[1] * dpr);
+      if (g.rockets.length || g.bullets.length) drawRockets(ctx, g, { ...b, w, h, t: g.time, dpr }); // el cohete de la bazooka, fluido
       if (scoped || !playing) { ctx.fillStyle = scoped ? 'rgba(2,8,4,0.45)' : 'rgba(2,8,4,0.3)'; ctx.fillRect(-20, -20, w + 40, h + 40); }
     }
     // El arma solo se ve jugando: con el cartel abierto (inicio, pausa o fin) se usa la flecha del mouse normal.
@@ -154,10 +156,10 @@ export function Invasion() {
           clip();
           ctx.translate(p.mx - R * 1.4, p.my - R * 1.4);
           paintCity(ctx, g, { w: R * 2.8, h: R * 2.8, s: a.zoom, cx: p.x, cy: p.y, t: g.time, dpr }, touch ? 2 : 6); // (en celulares arma de a pocas habitaciones nuevas por cuadro)
-        }, a.muzzle);
+        }, a.muzzle, g.time);
       } else {
         // Sin mira: el arma en la mano (o recargando) y el "+" para apuntar.
-        drawHeldWeapon(ctx, wpn, w, h, p.mx - cam.current.lagX * 1.6, p.my - cam.current.lagY * 1.6, g.time, a.kick, reloading ? 1 - G.reload / WEAPONS[wpn].reload : null, a.muzzle);
+        muzzleAt.current = drawHeldWeapon(ctx, wpn, w, h, p.mx - cam.current.lagX * 1.6, p.my - cam.current.lagY * 1.6, g.time, a.kick, reloading ? 1 - G.reload / WEAPONS[wpn].reload : null, a.muzzle);
         if (!reloading || wpn === 'bazooka') drawCross(ctx, p.mx, p.my, wpn, g.time);
       }
     }
@@ -226,10 +228,16 @@ export function Invasion() {
     aim.current.kick = current === 'machine' ? 0.33 : 1;
     aim.current.muzzle = 1;
     if (current === 'bazooka') playBazookaShot(); else if (current === 'machine') playMachineShot(); else playRifleShot();
-    reactToHit(shoot(g, p.x, p.y, current));
+    if (current === 'rifle') fireRifle(g, p.x, p.y); // la bala tarda 2 s en llegar (se resuelve en el paso del juego)
+    else {
+      // El cohete sale de la boca de la bazooka: paso ese punto de la pantalla a metros de la ciudad.
+      const m = muzzleAt.current, b = baseView(stage.clientWidth, stage.clientHeight);
+      const from = current === 'bazooka' && m ? { x: b.cx + (m.x - stage.clientWidth / 2) / b.s, y: b.cy - (m.y - stage.clientHeight / 2) / b.s } : undefined;
+      reactToHit(shoot(g, p.x, p.y, current, from));
+    }
     if (G.mag > 0) { G.cycle = config.cycle; if (current === 'rifle') playBolt(); }
     else { G.reload = config.reload; playReload(); }
-  }, [target, reactToHit]);
+  }, [target, reactToHit, baseView]);
 
   const reload = useCallback(() => {
     const G = arsenal.current[selected.current], config = WEAPONS[selected.current];
@@ -276,7 +284,7 @@ export function Invasion() {
       last = now;
       step(g, dt);
       a.swayT += dt;
-      a.kick = Math.max(0, a.kick - dt * 4);
+      a.kick = Math.max(0, a.kick - dt * (selected.current === 'bazooka' ? 2.2 : 4)); // la bazooka vuelve más despacio del retroceso
       a.muzzle = Math.max(0, a.muzzle - dt * (selected.current === 'bazooka' ? 5 : 10)); // el fogonazo dura un instante (el de la bazooka, un poco más)
       a.shake = Math.max(0, a.shake - dt * 2.2);
       a.flash = a.flash > 0 ? Math.max(0, a.flash - dt * 3) : Math.min(0, a.flash + dt * 2);
@@ -307,6 +315,8 @@ export function Invasion() {
         if (e.type === 'ufoPing') playRicochet();
         if (e.type === 'defused') playDefuse();
         if (e.type === 'rocketHit') reactToHit(e.hit);
+        if (e.type === 'bulletHit') reactToHit(e.hit); // llegó la bala del francotirador
+        if (e.type === 'hurt') { playGooBlast(); a.shake = Math.max(a.shake, 0.35); setToast({ text: e.left > 1 ? `Alien herido · aguanta ${e.left} disparos más` : 'Alien herido · un disparo más', id: now }); }
         if (e.type === 'explosion') { const k = near(e.x, e.y); if (e.bazooka) playBazookaBoom(); else playBlast(Math.max(0.15, k)); a.shake = Math.max(a.shake, 0.3 + k * 1.2); }
         if (e.type === 'bomb' && near(e.x, e.y) > 0.3) setToast({ text: 'Explosivo cercano. Buscá la caja con la luz roja.', id: now, bad: true });
         if (e.type === 'laser') playLaser(Math.max(0.2, near(e.x, e.y)));
