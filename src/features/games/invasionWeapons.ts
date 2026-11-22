@@ -30,7 +30,7 @@ export function preloadWeapons() { for (const u of [rifleHand, rifleReload, rifl
 // destello (1 a 3) y del resto (4 a 10). `scale`: ancho del cuadro respecto del tamaño del fogonazo.
 const SHOT_FX: Partial<Record<Weapon, { url: string; flash: number; rest: number; scale: number }>> = {
   rifle: { url: rifleFx, flash: 0.036, rest: 0.036, scale: 4.4 },   // 0,36 s en total
-  machine: { url: machineFx, flash: 0.032, rest: 0.045, scale: 3.6 }, // destello 0,1 s; humo 0,32 s más
+  machine: { url: machineFx, flash: 0.032, rest: 0.045, scale: 5.6 }, // (la ráfaga, grande) // destello 0,1 s; humo 0,32 s más
 };
 interface ShotAnim { t0: number; weapon: Weapon; cut: boolean }
 const shotAnims: ShotAnim[] = [];

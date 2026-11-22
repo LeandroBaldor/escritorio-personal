@@ -25,7 +25,7 @@ export const WEAPONS = {
 export type Weapon = keyof typeof WEAPONS;
 export const ALIEN_POINTS = 100;
 export const BAZOOKA_RADIUS = 4.2;
-export const ROCKET_TIME = 3; // la bazooka tarda 3 s en llegar (lo que dura el sonido del cohete)
+export const ROCKET_TIME = 5; // el misil de la bazooka tarda 5 s en llegar
 // Especies de aliens (mismo orden que `ALIEN_SPECIES` en invasionAliens: la especie es `id % 6`).
 // `size`: cuánto más grande que el gris; `hp`: puntos de vida; `points`: lo que suma matarlo; `label`: el nombre en pantalla.
 export const ALIEN_KINDS = [
@@ -78,7 +78,7 @@ export interface Ufo { id: number; x: number; y: number; vx: number; t0: number;
 export interface Car { id: number; x: number; dir: 1 | -1; speed: number; hue: number; kind: 'car' | 'taxi' | 'bus' | 'van' | 'police'; lane: number }
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; kind: 'blood' | 'spark' | 'glass' | 'smoke' | 'debris' | 'ember' | 'goo' }
 export interface Decal { room: number; x: number; y: number; glass: boolean; t: number; goo?: boolean; blood?: boolean; size?: number; crater?: number }
-export interface Blast { x: number; y: number; t: number; size: number; green?: boolean; big?: boolean; bazooka?: boolean }
+export interface Blast { x: number; y: number; t: number; size: number; green?: boolean; big?: boolean; bazooka?: boolean; ufo?: boolean }
 export type InvasionEvent =
   | { type: 'shot'; x: number; y: number } | { type: 'kill'; x: number; y: number; head: boolean; anomaly: number | null }
   | { type: 'civilian'; x: number; y: number } | { type: 'bomb'; x: number; y: number } | { type: 'defused'; x: number; y: number } | { type: 'boxHit'; x: number; y: number }
@@ -810,13 +810,13 @@ function explodeRocket(g: Invasion, x: number, y: number) {
   const radius = BAZOOKA_RADIUS;
   const targets = g.people.filter(p => !p.dead && !p.gone && Math.hypot(p.x - x, p.y + 0.5 - y) <= radius);
   const ships = g.ufos.filter(u => Math.hypot(Math.max(0, Math.abs(u.x - x) - 5), Math.max(0, Math.abs(u.y + UFO_DY - y) - UFO_HALF_H)) <= radius);
-  const impact = (px: number, py: number, size: number) => {
-    g.blasts.push({ x: px, y: py, t: 0, size, big: true, bazooka: true });
+  const impact = (px: number, py: number, size: number, ufo = false) => {
+    g.blasts.push({ x: px, y: py, t: 0, size, big: true, bazooka: true, ufo }); // `ufo`: la explosión del ovni (otra secuencia)
     burst(g, px, py, 44, '#f59e0b', 'spark', 8, 0.09);
     emit(g, { type: 'explosion', x: px, y: py, bazooka: true }); // suena la explosión de la bazooka (no la de las bombas)
   };
-  impact(x, y, 5);
-  for (const u of ships) impact(u.x, u.y, 7);
+  if (!ships.length) impact(x, y, 5);
+  for (const u of ships) impact(u.x, u.y, 7, true);
   g.ufos = g.ufos.filter(u => !ships.includes(u));
   for (const p of targets) defeatPerson(g, p, false, true);
   if (ships.length || targets.length) g.hits++;
