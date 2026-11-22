@@ -10,6 +10,8 @@ import machineHand from './assets/invasion/armas/ametralladora-mano.webp';
 import machineReload from './assets/invasion/armas/ametralladora-carga.webp';
 import machineScope from './assets/invasion/armas/mira-ametralladora.webp';
 import bazookaHand from './assets/invasion/armas/bazooka-mano.webp';
+import rifleFx from './assets/invasion/efectos/rifle.webp';
+import machineFx from './assets/invasion/efectos/ametralladora.webp';
 import type { Weapon } from './invasion';
 
 const images = new Map<string, HTMLImageElement>();
@@ -18,7 +20,27 @@ function img(url: string) {
   if (!im && typeof Image !== 'undefined') { im = new Image(); im.decoding = 'async'; im.src = url; images.set(url, im); }
   return im && im.complete && im.naturalWidth ? im : null;
 }
-export function preloadWeapons() { for (const u of [rifleHand, rifleReload, rifleScope, machineHand, machineReload, machineScope, bazookaHand]) img(u); }
+export function preloadWeapons() { for (const u of [rifleHand, rifleReload, rifleScope, machineHand, machineReload, machineScope, bazookaHand, rifleFx, machineFx]) img(u); }
+
+// Animación del disparo (secuencias que pasó el usuario, sin los números): 10 cuadros de 200 px en fila, del
+// destello al humo. Cada tiro arranca la suya y pasa rápido (`dur` segundos); varias pueden verse a la vez (la
+// ametralladora). `scale`: ancho del cuadro respecto del tamaño del fogonazo.
+const SHOT_FX: Partial<Record<Weapon, { url: string; dur: number; scale: number }>> = {
+  rifle: { url: rifleFx, dur: 0.36, scale: 4.4 },
+  machine: { url: machineFx, dur: 0.2, scale: 3.6 },
+};
+interface ShotAnim { t0: number; url: string; dur: number; scale: number }
+const shotAnims: Record<string, ShotAnim[]> = { held: [], scope: [] };
+function drawShotAnims(ctx: CanvasRenderingContext2D, slot: string, t: number, x: number, y: number, size: number) {
+  const list = shotAnims[slot]; if (!list?.length) return;
+  for (let i = list.length - 1; i >= 0; i--) {
+    const a = list[i], frame = Math.floor((t - a.t0) / a.dur * 10);
+    if (frame >= 10 || frame < -1) { list.splice(i, 1); continue; }
+    const im = img(a.url); if (!im || frame < 0) continue;
+    const s = size * a.scale;
+    ctx.drawImage(im, frame * 200, 0, 200, 200, x - s / 2, y - s / 2, s, s);
+  }
+}
 
 // Cómo va cada arma en la mano: alto (en fracción del alto de la pantalla) y cuánto se mete en el borde derecho.
 // `front` (opcional, la bazooka): el arma se ve de atrás, centrada, apuntando al frente. `cx` es el centro del tubo y
@@ -76,7 +98,8 @@ export function drawHeldWeapon(ctx: CanvasRenderingContext2D, weapon: Weapon, w:
   ctx.drawImage(im, x, y, wide, tall);
   ctx.restore();
   const k = tall / im.naturalHeight, fx = x + d.muzzle[0] * k, fy = y + d.muzzle[1] * k;
-  if (flash > 0 && reload === null) drawMuzzleFlash(ctx, fx, fy, d.flash * h, flash, Math.atan2(h / 2 - fy, w / 2 - fx), t, 'held');
+  if (flash > 0 && reload === null) drawMuzzleFlash(ctx, fx, fy, d.flash * h, flash, Math.atan2(h / 2 - fy, w / 2 - fx), t, 'held', false, weapon);
+  drawShotAnims(ctx, 'held', t, fx, fy, d.flash * h);
   drawSmoke(ctx, 'held', t);
   return { x: fx, y: fy };
 }
@@ -93,10 +116,13 @@ let seq = 1;
 const hash = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
 // `heavy` (la bazooka): mucho más humo, más grande, más denso y que dura más.
-export function drawMuzzleFlash(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, f: number, dir: number, t: number, slot = 'held', heavy = false) {
+// `weapon`: si tiene animación de disparo (rifle, ametralladora), cada tiro la arranca y reemplaza al fuego dibujado.
+export function drawMuzzleFlash(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, f: number, dir: number, t: number, slot = 'held', heavy = false, weapon?: Weapon) {
+  const fx = weapon ? SHOT_FX[weapon] : undefined, sprite = fx ? img(fx.url) : null;
   if (f > (lastFlash[slot] ?? 0) + 0.25) { // disparo nuevo: sorteo la forma y suelto el humo
     flashSeed[slot] = seq++;
-    const list = smoke[slot] ?? (smoke[slot] = []), n = Math.round((5 + size / 18) * (heavy ? 2.6 : 1)), big = heavy ? 1.5 : 1;
+    if (fx) { const l = shotAnims[slot] ?? (shotAnims[slot] = []); l.push({ t0: t, url: fx.url, dur: fx.dur, scale: fx.scale }); if (l.length > 8) l.shift(); }
+    const list = smoke[slot] ?? (smoke[slot] = []), n = Math.round((5 + size / 18) * (heavy ? 2.6 : fx ? 0.5 : 1)), big = heavy ? 1.5 : 1;
     for (let i = 0; i < n; i++) {
       const q = hash(seq * 9 + i), sp = size * (0.6 + q * 1.4), a = dir + (hash(seq * 5 + i * 3) - 0.5) * 0.9;
       list.push({ x: x + Math.cos(dir) * size * 0.3 * (i / n), y: y + Math.sin(dir) * size * 0.3 * (i / n), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - size * 0.25,
@@ -112,6 +138,7 @@ export function drawMuzzleFlash(ctx: CanvasRenderingContext2D, x: number, y: num
   const halo = ctx.createRadialGradient(x, y, 0, x, y, r * 3.2);
   halo.addColorStop(0, `rgba(255,226,160,${0.5 * f})`); halo.addColorStop(0.3, `rgba(255,160,60,${0.22 * f})`); halo.addColorStop(1, 'rgba(255,110,30,0)');
   ctx.fillStyle = halo; ctx.fillRect(x - r * 3.2, y - r * 3.2, r * 6.4, r * 6.4);
+  if (sprite) { ctx.restore(); return; } // el fuego lo pone la animación del disparo
   ctx.translate(x, y); ctx.rotate(dir + (rnd(1) - 0.5) * 0.12);
   // Una "lengua" de fuego: forma de gota alargada, con borde irregular.
   const tongue = (ang: number, len: number, wid: number, alpha: number) => {
@@ -204,7 +231,8 @@ export function drawScopeView(ctx: CanvasRenderingContext2D, weapon: Weapon, x: 
     ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 14 * k; ctx.strokeRect(x - SCOPES.machine.hw * k, y - SCOPES.machine.hh * k, SCOPES.machine.hw * 2 * k, SCOPES.machine.hh * 2 * k);
     ctx.fillStyle = 'rgba(40,255,120,0.04)'; ctx.fillRect(x - SCOPES.machine.hw * k, y - SCOPES.machine.hh * k, SCOPES.machine.hw * 2 * k, SCOPES.machine.hh * 2 * k); // un poco de tinte de pantalla
   }
-  if (flash > 0) { ctx.fillStyle = `rgba(255,220,150,${flash * 0.28})`; ctx.fillRect(x - R * 2, y - R * 2, R * 4, R * 4); drawMuzzleFlash(ctx, x, y + R * 0.95, R * 0.35, flash, -Math.PI / 2, t, 'scope'); } // el fogonazo asoma por abajo del vidrio
+  if (flash > 0) { ctx.fillStyle = `rgba(255,220,150,${flash * 0.28})`; ctx.fillRect(x - R * 2, y - R * 2, R * 4, R * 4); drawMuzzleFlash(ctx, x, y + R * 0.95, R * 0.35, flash, -Math.PI / 2, t, 'scope', false, weapon); } // el fogonazo asoma por abajo del vidrio
+  drawShotAnims(ctx, 'scope', t, x, y + R * 0.95, R * 0.35);
   drawSmoke(ctx, 'scope', t); // y después queda humo que sube por el vidrio
   ctx.restore();
   if (im) ctx.drawImage(im, x - S.cx * k, y - S.cy * k, im.naturalWidth * k, im.naturalHeight * k);

@@ -11,6 +11,7 @@ import {
   alienKind, CITY_TOP, GAME_SECONDS, hitbox, rainAt, ROCKET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
 } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
+import bazookaFxUrl from './assets/invasion/efectos/bazooka.webp';
 import { drawPerson, drawProp, font, hash, hsl, mixColor } from './invasionPeople';
 
 export interface View { w: number; h: number; s: number; cx: number; cy: number; t: number; dpr: number }
@@ -855,6 +856,18 @@ function drawLifeBars(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   }
 }
 
+// La explosión de la bazooka: la secuencia que pasó el usuario (10 cuadros de 200 px, del destello al humo, sin
+// los números), rápida. Devuelve false si la imagen todavía no cargó (entonces se dibuja la explosión de siempre).
+const BAZOOKA_FX_DUR = 0.85;
+let bazookaFx: HTMLImageElement | null = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: bazookaFxUrl }) : null; // se carga de entrada
+function drawBazookaFx(ctx: CanvasRenderingContext2D, bl: { x: number; y: number; t: number; size: number }, v: View) {
+  if (!bazookaFx && typeof Image !== 'undefined') { bazookaFx = new Image(); bazookaFx.src = bazookaFxUrl; }
+  if (!bazookaFx || !bazookaFx.complete || !bazookaFx.naturalWidth) return false;
+  const frame = Math.min(9, Math.floor(bl.t / BAZOOKA_FX_DUR * 10)), s = bl.size * v.s * 4.2;
+  ctx.drawImage(bazookaFx, frame * 200, 0, 200, 200, X(v, bl.x) - s / 2, Y(v, bl.y) - s / 2, s, s);
+  return true;
+}
+
 export function drawRockets(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   for (const rk of g.rockets) drawRocket(ctx, rk, v, g.time);
 }
@@ -955,6 +968,7 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
   // Explosiones y partículas.
   for (const bl of g.blasts) {
     if (bl.t < 0) continue;
+    if (bl.bazooka && bl.t < BAZOOKA_FX_DUR && drawBazookaFx(ctx, bl, v)) continue; // la explosión de la bazooka, con la secuencia
     if (bl.big) { drawBigBlast(ctx, bl, v); continue; }
     const k = bl.t / 1.2, r = (0.6 + k * 1.8) * bl.size * v.s, px = X(v, bl.x), py = Y(v, bl.y);
     const gl = ctx.createRadialGradient(px, py, 0, px, py, r);
