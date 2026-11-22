@@ -8,7 +8,7 @@
 // después se copia: así se puede dibujar con mucho detalle sin que se trabe.
 import { drawUfoCraftAt } from './kombatPenUfo';
 import {
-  alienKind, CITY_TOP, GAME_SECONDS, hitbox, rainAt, ROCKET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
+  alienKind, CITY_TOP, SIDE_W, GAME_SECONDS, hitbox, rainAt, ROCKET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
 } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import bazookaFxUrl from './assets/invasion/efectos/bazooka.webp';
@@ -36,7 +36,8 @@ function skyColors(t: number) {
 // ---------- Los edificios de los costados ----------
 // Más allá de la cuadra (antes de x = 0 y después del ancho) el escenario sigue con edificios cerrados (no se ve
 // adentro): torres, oficinas, locales con su cartel, una fábrica y obras en construcción con grúa. Son decorado:
-// no tienen gente ni se rompen. Se arman siempre iguales (`sideBlocks`), 110 m para cada lado.
+// no se rompen. Hay gente en las ventanas (siluetas que se mueven) y la vereda de adelante es parte de la calle,
+// así que caminan personas y aliens. Se arman siempre iguales (`sideBlocks`), hasta el final del escenario.
 type SideKind = 'tower' | 'office' | 'shops' | 'factory' | 'works';
 interface SideBlock { x: number; w: number; h: number; kind: SideKind; hue: number; seed: number }
 const SIDE_KINDS: SideKind[] = ['tower', 'shops', 'works', 'office', 'factory', 'tower', 'shops', 'office', 'works', 'tower', 'factory', 'shops'];
@@ -47,7 +48,7 @@ function sideBlocks(width: number) {
   const blocks: SideBlock[] = [];
   for (const dir of [-1, 1]) {
     let edge = dir < 0 ? -1.4 : width + 1.4;
-    for (let i = 0; Math.abs(edge - (dir < 0 ? 0 : width)) < 110; i++) {
+    for (let i = 0; Math.abs(edge - (dir < 0 ? 0 : width)) < SIDE_W + 25; i++) {
       const seed = (dir < 0 ? 100 : 200) + i, kind = SIDE_KINDS[(i + (dir < 0 ? 0 : 5)) % SIDE_KINDS.length], q = hash(seed * 7.1);
       const w = kind === 'factory' ? 18 + q * 7 : kind === 'shops' ? 10 + q * 5 : 10 + q * 5;
       const h = kind === 'tower' ? 30 + q * 18 : kind === 'office' ? 24 + q * 14 : kind === 'works' ? 20 + q * 16 : kind === 'factory' ? 9 + q * 3 : 8.6 + q * 3;
@@ -81,6 +82,13 @@ function drawSideBlocks(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
         ctx.fillStyle = b.kind === 'office' ? (lit ? '#fde68a' : '#1e3a5f') : lit ? '#fcd34d' : '#1f2a37';
         const wx = b.x + c * cw + cw * (b.kind === 'office' ? 0.08 : 0.22), ww = cw * (b.kind === 'office' ? 0.84 : 0.56);
         ctx.fillRect(X(v, wx), Y(v, fy + fh * 0.72), ww * s, fh * 0.52 * s);
+        const who = hash(b.seed * 5 + c * 11 + fy * 7);
+        if (lit && who < 0.55 && ww * s > 6) { // alguien en la ventana: silueta que va y viene
+          const px = wx + ww * (0.3 + 0.4 * (0.5 + 0.5 * Math.sin(g.time * (0.3 + who) + who * 20))), ph = fh * 0.4, hr = ph * 0.2;
+          ctx.fillStyle = 'rgba(30,20,10,0.78)';
+          ctx.beginPath(); ctx.arc(X(v, px), Y(v, fy + fh * 0.2 + ph - hr), hr * s, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.ellipse(X(v, px), Y(v, fy + fh * 0.2), hr * 1.9 * s, ph * 0.6 * s, 0, Math.PI, 0); ctx.fill();
+        }
         if (b.kind !== 'office') { ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(X(v, wx), Y(v, fy + fh * 0.72), ww * s * 0.35, fh * 0.52 * s); }
       }
     }
@@ -152,35 +160,23 @@ function drawSideWorks(ctx: CanvasRenderingContext2D, b: SideBlock, v: View) {
   if (s * 6 > 40) { ctx.fillStyle = '#fde047'; ctx.fillRect(X(v, b.x + 0.5), Y(v, 3.4), 5 * s, 1 * s); ctx.fillStyle = '#111'; ctx.font = font(900, Math.max(6, s * 0.45)); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('OBRA EN CONSTRUCCIÓN', X(v, b.x + 3), Y(v, 2.9), 4.8 * s); }
 }
 
-// El fondo de todo (la última capa, detrás de los edificios): la imagen WALLPAPER del usuario. Cubre siempre toda la
-// vista, un poco más grande que la pantalla, y se corre despacio con la cámara (de punta a punta de la cuadra recorre
-// la imagen entera, como un paisaje lejano). Con mucho zoom se agranda apenas. Mientras carga, el cielo de antes.
+// El fondo de todo (la última capa, detrás de los edificios): la imagen del usuario (Invasion_Cielo_Portales). Queda
+// fija: cubre la pantalla entera y no se mueve con la vista. Se pinta aparte, en cada cuadro (`drawWallpaper`), así
+// la cuadra de fondo que se rearma cada tanto no la corre. Mientras carga, el cielo de antes.
 const wallpaper = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: wallpaperUrl }) : null;
-function drawSky(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
-  const c = skyColors(g.time);
+export function drawWallpaper(ctx: CanvasRenderingContext2D, w: number, h: number, g: Invasion) {
   if (wallpaper?.complete && wallpaper.naturalWidth) {
-    const zoom = Math.pow(Math.max(1, v.s / 18), 0.18);
-    const k = Math.max(v.w / wallpaper.naturalWidth, (v.h * 1.25) / wallpaper.naturalHeight) * zoom;
-    const W = wallpaper.naturalWidth * k, H = wallpaper.naturalHeight * k;
-    const qx = Math.max(0, Math.min(1, v.cx / Math.max(1, g.width))), qy = Math.max(0, Math.min(1, (v.cy + 3.4) / (CITY_TOP + 3.4)));
-    ctx.drawImage(wallpaper, -(W - v.w) * qx, -(H - v.h) * (1 - qy), W, H);
-  } else {
-    const sky = ctx.createLinearGradient(0, Y(v, SKY_TOP), 0, Y(v, -3));
-    sky.addColorStop(0, c.top); sky.addColorStop(0.55, c.mid); sky.addColorStop(1, c.low);
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, v.w, v.h);
+    const k = Math.max(w / wallpaper.naturalWidth, h / wallpaper.naturalHeight), W = wallpaper.naturalWidth * k, H = wallpaper.naturalHeight * k;
+    ctx.drawImage(wallpaper, (w - W) / 2, (h - H) / 2, W, H);
+    return;
   }
-  const rain = rainAt(g.time);
-  // Tormenta: muchas nubes de lluvia, grandes y oscuras, que tapan el cielo.
-  if (rain > 0) {
-    for (let i = 0; i < 34; i++) {
-      const cx = ((hash(i + 50) * g.width * 1.5 + g.time * (1.2 + hash(i + 51))) % (g.width * 1.5)) - g.width * 0.25;
-      const x = v.w / 2 + (cx - v.cx) * v.s * 0.6, y = Y(v, CITY_TOP * (0.72 + hash(i + 52) * 0.4)) + (v.cy - CITY_TOP * 0.45) * v.s * 0.4;
-      const w = v.s * (10 + hash(i + 53) * 14);
-      const lit = g.lightning && g.time - g.lightning.t < 0.3 ? 0.25 : 0;
-      ctx.fillStyle = `rgba(${Math.round(55 + hash(i + 54) * 30 + lit * 300)},${Math.round(60 + hash(i + 54) * 30 + lit * 300)},${Math.round(72 + hash(i + 54) * 30 + lit * 300)},${Math.min(1, rain * (0.75 + hash(i + 55) * 0.25))})`;
-      for (let j = 0; j < 6; j++) { ctx.beginPath(); ctx.ellipse(x + (j - 2.5) * w * 0.16, y + Math.sin(j * 1.7 + i) * w * 0.05, w * 0.2, w * 0.12, 0, 0, Math.PI * 2); ctx.fill(); }
-    }
-  }
+  const c = skyColors(g.time), sky = ctx.createLinearGradient(0, 0, 0, h);
+  sky.addColorStop(0, c.top); sky.addColorStop(0.55, c.mid); sky.addColorStop(1, c.low);
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+}
+// `wall`: si pinta también el fondo (con la mira sí; la cuadra de fondo no, porque el fondo va aparte).
+function drawSky(ctx: CanvasRenderingContext2D, g: Invasion, v: View, wall: boolean) {
+  if (wall) drawWallpaper(ctx, v.w, v.h, g);
   // La nave nodriza aparece de a poco en el fondo.
   if (g.time > UFO_FROM + 60) {
     const k = Math.min(1, (g.time - UFO_FROM - 60) / 120), mx = v.w / 2 + (g.width * 0.5 - v.cx) * v.s * 0.15, my = Y(v, CITY_TOP * 0.62 + v.cy * 0.45);
@@ -995,9 +991,9 @@ export function drawRockets(ctx: CanvasRenderingContext2D, g: Invasion, v: View)
 }
 
 // `rockets` false: los cohetes se dibujan aparte (arriba de todo, cada cuadro).
-export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, newImages = 6, rockets = true) {
+export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, newImages = 6, rockets = true, wall = true) {
   budget = newImages;
-  drawSky(ctx, g, v);
+  drawSky(ctx, g, v, wall);
   const level = levelFor(v.s);
   for (let i = 0; i + 1 < g.buildings.length; i++) { const a = g.buildings[i], b = g.buildings[i + 1]; if (visible(v, a.x + a.w, b.x, 0, 30)) drawAlley(ctx, a, b, v); }
   // Personas que hacen anomalías "de ambiente" en cada habitación (titilan las luces).
@@ -1113,6 +1109,15 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
     ctx.fillStyle = pt.color;
     const r = pt.kind === 'smoke' ? pt.size * v.s * (1.6 - a) : pt.size * v.s;
     if (pt.kind === 'smoke') { const px = X(v, pt.x), py = Y(v, pt.y), rr = Math.max(2, r * 1.4), puff = ctx.createRadialGradient(px, py, 0, px, py, rr); puff.addColorStop(0, 'rgba(41,37,36,0.55)'); puff.addColorStop(1, 'rgba(41,37,36,0)'); ctx.fillStyle = puff; ctx.fillRect(px - rr, py - rr, rr * 2, rr * 2); }
+    else if (pt.kind === 'wreck') { // pedazo del ovni incendiado, girando
+      const px = X(v, pt.x), py = Y(v, pt.y), R = Math.max(2, pt.size * v.s), ang = (pt.spin ?? 0) * (pt.max - pt.life);
+      const fire = ctx.createRadialGradient(px, py, 0, px, py, R * 2.2); fire.addColorStop(0, `rgba(255,214,120,${0.8 * a})`); fire.addColorStop(0.45, `rgba(249,115,22,${0.5 * a})`); fire.addColorStop(1, 'rgba(127,29,29,0)');
+      ctx.globalAlpha = 1; ctx.fillStyle = fire; ctx.beginPath(); ctx.arc(px, py, R * 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.translate(px, py); ctx.rotate(ang); ctx.globalAlpha = Math.min(1, a * 1.5);
+      ctx.fillStyle = '#374151'; ctx.beginPath(); ctx.moveTo(-R, -R * 0.35); ctx.lineTo(R * 0.6, -R * 0.55); ctx.lineTo(R, R * 0.2); ctx.lineTo(-R * 0.2, R * 0.5); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#4ade80'; ctx.lineWidth = Math.max(1, R * 0.12); ctx.beginPath(); ctx.moveTo(-R, -R * 0.35); ctx.lineTo(R * 0.6, -R * 0.55); ctx.stroke(); // borde con luz verde del ovni
+      ctx.restore();
+    }
     else if (pt.kind === 'blood' || pt.kind === 'goo') { ctx.beginPath(); ctx.arc(X(v, pt.x), Y(v, pt.y), Math.max(0.8, r), 0, Math.PI * 2); ctx.fill(); }
     else ctx.fillRect(X(v, pt.x) - r / 2, Y(v, pt.y) - r / 2, Math.max(1, r), Math.max(1, r));
   }

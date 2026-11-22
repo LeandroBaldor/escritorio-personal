@@ -58,6 +58,8 @@ import invBazookaBoomUrl from './assets/sonidos/invasion-bazooka-explosion.mp3';
 import invAlienHablaUrl from './assets/sonidos/invasion-alien-voz.mp3'; // la voz alienígena que pasó el usuario (alien_voz.mp3)
 import invMusicaUrl from './assets/sonidos/invasion-musica.mp3';
 import invRecargaUrl from './assets/sonidos/invasion-recarga.mp3';
+import invGritoHombreUrl from './assets/sonidos/invasion-grito-hombre.mp3';
+import invGritoMujerUrl from './assets/sonidos/invasion-grito-mujer.mp3';
 import invLluviaUrl from './assets/sonidos/invasion-lluvia.mp3';
 import propulsorUrl from './assets/sonidos/propulsor.mp3';
 import trepaCiudadUrl from './assets/sonidos/trepa-ciudad.mp3';
@@ -929,7 +931,7 @@ export function setCrowd(level: number) {
 
 // ---------- Invasión ----------
 let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
-export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invAlienHablaUrl, invMusicaUrl, invRecargaUrl, invLluviaUrl]) loadSample(url); }
+export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invAlienHablaUrl, invMusicaUrl, invRecargaUrl, invLluviaUrl, invGritoHombreUrl, invGritoMujerUrl]) loadSample(url); }
 // Voces en un idioma inventado: una voz (tono que sube y baja) que pasa por dos "formantes" que cambian todo
 // el tiempo (las vocales) y se corta en sílabas.
 function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
@@ -1055,6 +1057,14 @@ export function playBolt() {
 }
 // Recarga: el cargador que sale, el nuevo que entra y el cerrojo.
 // Recargar: la grabación que pasó el usuario (recarga.mp3); si no cargó, los clics sintetizados de antes.
+// Cuando matan a un humano: grita, de hombre o de mujer (grito_hombre / grito_mujer del usuario). `volume` según lo
+// cerca que pasó; un poco de variación de tono para que no suenen todos iguales.
+export function playHumanScream(woman: boolean, volume: number) {
+  if (volume < 0.05) return;
+  if (playSample(woman ? invGritoMujerUrl : invGritoHombreUrl, 1.3 * volume, 0, 0.94 + Math.random() * 0.12)) return;
+  playScream(volume, woman ? 1.3 : 0.9);
+}
+
 export function playReload() {
   if (playSample(invRecargaUrl, 1.3)) return;
   const c = running(); if (!c) return;

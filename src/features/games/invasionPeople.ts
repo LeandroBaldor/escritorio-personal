@@ -99,6 +99,8 @@ export interface Outfit {
   species?: AlienSpecies; // de qué especie es el alien
 }
 const TOPS: Top[] = ['tee', 'shirt', 'hoodie', 'jacket', 'sweater', 'tee', 'shirt'];
+// Mujer: pelo largo o rodete (lo mismo que decide los aros y que no tenga barba). Para el grito al morir.
+export const isWoman = (p: Person) => { const h = outfitOf(p).hat; return h === 'long' || h === 'bun'; };
 export function outfitOf(p: Person, skinOverride?: string): Outfit {
   const L = p.look, worker = p.job === 'worker';
   const a = hsl(L.shirt, 62, 46), b = hsl(L.shirt2, 55, 70);
