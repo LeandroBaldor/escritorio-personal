@@ -1069,8 +1069,7 @@ export function playBolt() {
 // cerca que pasó; un poco de variación de tono para que no suenen todos iguales.
 export function playHumanScream(woman: boolean, volume: number) {
   if (volume < 0.05) return;
-  if (playSample(woman ? invGritoMujerUrl : invGritoHombreUrl, 1.3 * volume, 0, 0.94 + Math.random() * 0.12)) return;
-  playScream(volume, woman ? 1.3 : 0.9);
+  playSample(woman ? invGritoMujerUrl : invGritoHombreUrl, 1.3 * volume, 0, 0.94 + Math.random() * 0.12); // solo estos dos gritos
 }
 
 export function playReload() {

@@ -5,7 +5,8 @@
 import { ANOMALIES, fitsPlace, shuffledAnomalies, type Anomaly } from './invasionAnomalies';
 
 export const GAME_SECONDS = 600;
-export const HUMAN_TOTAL = 300;
+export const HUMAN_TOTAL = 600; // (desde las correcciones 17: alcanza para que no quede ningún departamento vacío)
+const STREET_PEOPLE = 50; // los que andan por la vereda
 export const ALIEN_TOTAL = 300;
 export const REVEAL_EVERY = 30, REVEAL_TIME = 5;
 export const PERSON_H = 1, PERSON_W = 0.42;
@@ -100,7 +101,7 @@ export type InvasionEvent =
   | { type: 'shot'; x: number; y: number } | { type: 'kill'; x: number; y: number; head: boolean; anomaly: number | null }
   | { type: 'civilian'; x: number; y: number } | { type: 'bomb'; x: number; y: number } | { type: 'defused'; x: number; y: number } | { type: 'boxHit'; x: number; y: number }
   | { type: 'ufoPing'; x: number; y: number } | { type: 'explosion'; x: number; y: number; bazooka?: boolean } | { type: 'fire'; x: number; y: number }
-  | { type: 'laser'; x: number; y: number } | { type: 'ufoArrive' } | { type: 'moreAliens'; count: number } | { type: 'scream'; x: number; y: number } | { type: 'died'; x: number; y: number; id: number; byPlayer: boolean }
+  | { type: 'laser'; x: number; y: number } | { type: 'ufoArrive' } | { type: 'moreAliens'; count: number } | { type: 'scream'; x: number; y: number; id: number } | { type: 'died'; x: number; y: number; id: number; byPlayer: boolean }
   | { type: 'lighter'; x: number; y: number } | { type: 'ray'; x: number; y: number } | { type: 'glass'; x: number; y: number } | { type: 'miss'; x: number; y: number }
   | { type: 'comm'; x: number; y: number } | { type: 'thunder'; x: number } | { type: 'rain' } | { type: 'end' }
   | { type: 'rocketHit'; x: number; y: number; hit: 'ufoDestroyed' | 'alien' | 'civilian' | 'blast' }
@@ -253,15 +254,16 @@ export function newInvasion(seed?: number): Invasion {
     deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), ufosLaunched: 0, told: { ufo: false, rain: false },
     aim: { x: city.width / 2, y: 10 }, lightning: null,
   };
-  // Gente en cada habitación (en las obras, albañiles; en los locales, el que atiende y algún cliente).
-  for (const room of g.rooms) {
-    const n = room.theme === 'shop' ? 2 + (rand() < 0.5 ? 1 : 0) : room.theme === 'site' ? (rand() < 0.7 ? 1 : 0) : room.theme === 'office' ? (rand() < 0.75 ? 1 : 0) + (rand() < 0.35 ? 1 : 0) : rand() < 0.5 ? 1 + (rand() < 0.25 ? 1 : 0) : 0;
-    for (let i = 0; i < n && g.people.length < HUMAN_TOTAL - 34; i++) {
-      const spot = room.spots[i % room.spots.length];
-      const p = addPerson(g, room.id, spot.x, room.y, room.theme === 'site' ? 'worker' : 'resident', room.theme === 'kids' && i === 0);
-      p.act = spot.act; p.dir = spot.facing; p.actUntil = between(rand, 3, 14);
-    }
-  }
+  // Gente en cada habitación (en las obras, albañiles; en los locales, el que atiende y algún cliente). Ningún lugar
+  // queda vacío: primero una persona en cada habitación, después los que sobran (otro cliente, la familia…).
+  const extra = g.rooms.map(room => room.theme === 'shop' ? 1 + (rand() < 0.5 ? 1 : 0) : room.theme === 'site' ? (rand() < 0.4 ? 1 : 0) : room.theme === 'office' ? (rand() < 0.45 ? 1 : 0) : rand() < 0.5 ? 1 + (rand() < 0.3 ? 1 : 0) : 0);
+  const place = (room: Room, i: number) => {
+    const spot = room.spots[i % room.spots.length];
+    const p = addPerson(g, room.id, spot.x, room.y, room.theme === 'site' ? 'worker' : 'resident', room.theme === 'kids' && i === 0);
+    p.act = spot.act; p.dir = spot.facing; p.actUntil = between(rand, 3, 14);
+  };
+  for (const room of g.rooms) place(room, 0);
+  for (let k = 1; k <= 2; k++) for (const room of g.rooms) if (extra[room.id] >= k && g.people.length < HUMAN_TOTAL - STREET_PEOPLE) place(room, k);
   // Gente en la vereda: paseando (algunos con perro), corriendo, hablando por teléfono.
   while (g.people.length < HUMAN_TOTAL) {
     addPerson(g, -1, between(rand, streetLo(), streetHi(g)), SIDEWALK_Y, g.people.length % 6 === 0 ? 'jogger' : 'walker');
@@ -441,7 +443,7 @@ function stepPerson(g: Invasion, p: Person, dt: number) {
     move(p, 3.6, dt);
     // El fuego de pisos altos puede alcanzar a quienes no tienen salida por la calle.
     if (room && room.fire > 0.7 && r() < dt * 0.2) p.gone = true;
-    if (r() < dt * 0.15) { p.talk = 0.8; if (r() < 0.3) emit(g, { type: 'scream', x: p.x, y: p.y + 0.8 }); }
+    if (r() < dt * 0.15) { p.talk = 0.8; if (r() < 0.3) emit(g, { type: 'scream', x: p.x, y: p.y + 0.8, id: p.id }); }
     return;
   }
   // Aliens: anomalías y sabotajes.

@@ -48,7 +48,7 @@ function sideBlocks(width: number) {
   const blocks: SideBlock[] = [];
   for (const dir of [-1, 1]) {
     let edge = dir < 0 ? -1.4 : width + 1.4;
-    for (let i = 0; Math.abs(edge - (dir < 0 ? 0 : width)) < SIDE_W + 25; i++) {
+    for (let i = 0; Math.abs(edge - (dir < 0 ? 0 : width)) < SIDE_W + 120; i++) {
       const seed = (dir < 0 ? 100 : 200) + i, kind = SIDE_KINDS[(i + (dir < 0 ? 0 : 5)) % SIDE_KINDS.length], q = hash(seed * 7.1);
       const w = kind === 'factory' ? 18 + q * 7 : kind === 'shops' ? 10 + q * 5 : 10 + q * 5;
       const h = kind === 'tower' ? 30 + q * 18 : kind === 'office' ? 24 + q * 14 : kind === 'works' ? 20 + q * 16 : kind === 'factory' ? 9 + q * 3 : 8.6 + q * 3;
@@ -65,13 +65,13 @@ function drawSideBlocks(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   for (const b of sideBlocks(g.width)) {
     if (!visible(v, b.x - 6, b.x + b.w + 6, 0, b.h + 12)) continue;
     const x = X(v, b.x), w = b.w * s, base = Y(v, 0), top = Y(v, b.h);
-    if (b.kind === 'works') { drawSideWorks(ctx, b, v); continue; }
+    if (b.kind === 'works') { drawSideWorks(ctx, b, v, g.time); continue; }
     // Fachada.
     const wall = b.kind === 'factory' ? `hsl(${8 + (b.hue % 18)},38%,34%)` : b.kind === 'office' ? `hsl(${200 + (b.hue % 30)},16%,40%)` : `hsl(${b.hue},${12 + (b.seed % 10)}%,${46 + (b.seed % 12)}%)`;
     const shade = ctx.createLinearGradient(x, 0, x + w, 0); shade.addColorStop(0, 'rgba(0,0,0,0.18)'); shade.addColorStop(0.15, 'rgba(0,0,0,0)'); shade.addColorStop(0.85, 'rgba(0,0,0,0)'); shade.addColorStop(1, 'rgba(0,0,0,0.25)');
     ctx.fillStyle = wall; ctx.fillRect(x, top, w, base - top); ctx.fillStyle = shade; ctx.fillRect(x, top, w, base - top);
     ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(x - s * 0.1, top - s * 0.25, w + s * 0.2, s * 0.3); // cornisa
-    if (b.kind === 'factory') { drawSideFactory(ctx, b, v); continue; }
+    if (b.kind === 'factory') { drawSideFactory(ctx, b, v, g.time); continue; }
     // Ventanas (de lejos, solo franjas).
     const shopH = 3.1, fh = b.kind === 'office' ? 2.6 : 2.8, cols = Math.max(2, Math.round(b.w / (b.kind === 'office' ? 1.4 : 1.8)));
     const cw = b.w / cols, small = cw * s < 5;
@@ -83,9 +83,9 @@ function drawSideBlocks(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
         const wx = b.x + c * cw + cw * (b.kind === 'office' ? 0.08 : 0.22), ww = cw * (b.kind === 'office' ? 0.84 : 0.56);
         ctx.fillRect(X(v, wx), Y(v, fy + fh * 0.72), ww * s, fh * 0.52 * s);
         const who = hash(b.seed * 5 + c * 11 + fy * 7);
-        if (lit && who < 0.55 && ww * s > 6) { // alguien en la ventana: silueta que va y viene
+        if (ww * s > 6) { // en cada ventana hay alguien: silueta que va y viene (a contraluz si está prendida)
           const px = wx + ww * (0.3 + 0.4 * (0.5 + 0.5 * Math.sin(g.time * (0.3 + who) + who * 20))), ph = fh * 0.4, hr = ph * 0.2;
-          ctx.fillStyle = 'rgba(30,20,10,0.78)';
+          ctx.fillStyle = lit ? 'rgba(30,20,10,0.78)' : 'rgba(148,163,184,0.5)';
           ctx.beginPath(); ctx.arc(X(v, px), Y(v, fy + fh * 0.2 + ph - hr), hr * s, 0, Math.PI * 2); ctx.fill();
           ctx.beginPath(); ctx.ellipse(X(v, px), Y(v, fy + fh * 0.2), hr * 1.9 * s, ph * 0.6 * s, 0, Math.PI, 0); ctx.fill();
         }
@@ -100,6 +100,7 @@ function drawSideBlocks(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
         ctx.fillStyle = '#0f172a'; ctx.fillRect(X(v, lx + 0.3), Y(v, 2.3), (lw - 0.6) * s, 2.3 * s); // vidriera
         ctx.fillStyle = 'rgba(253,224,71,0.18)'; ctx.fillRect(X(v, lx + 0.3), Y(v, 2.3), (lw - 0.6) * s, 2.3 * s);
         ctx.fillStyle = '#334155'; ctx.fillRect(X(v, lx + lw * 0.5 - 0.45), Y(v, 2.1), 0.9 * s, 2.1 * s); // puerta
+        for (let q = 0; q < 2; q++) { const hq = hash(b.seed * 9 + i * 4 + q); sidePerson(ctx, v, lx + 0.8 + (lw - 1.6) * ((hq + Math.sin(g.time * (0.2 + hq * 0.3) + hq * 9) * 0.15 + 1) % 1), 0, 1.65, (b.hue + q * 120 + i * 60) % 360); } // el que atiende y un cliente
         for (let k = 0; k < 6; k++) { ctx.fillStyle = k % 2 ? '#f8fafc' : color; ctx.fillRect(X(v, lx + 0.2 + k * (lw - 0.4) / 6), Y(v, 2.85), (lw - 0.4) / 6 * s + 0.5, 0.5 * s); } // toldo
         if (s * lw > 40) { // cartel
           ctx.fillStyle = color; ctx.fillRect(X(v, lx + 0.4), Y(v, 3.6), (lw - 0.8) * s, 0.65 * s);
@@ -107,13 +108,21 @@ function drawSideBlocks(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
           ctx.fillText(SIDE_SIGNS[(b.seed + i) % SIDE_SIGNS.length], X(v, lx + lw / 2), Y(v, 3.28), (lw - 1) * s);
         }
       }
-    } else { ctx.fillStyle = '#0f172a'; ctx.fillRect(X(v, b.x + b.w * 0.3), Y(v, 2.8), b.w * 0.4 * s, 2.8 * s); ctx.fillStyle = 'rgba(147,197,253,0.25)'; ctx.fillRect(X(v, b.x + b.w * 0.3), Y(v, 2.8), b.w * 0.4 * s, 2.8 * s); }
+    } else { ctx.fillStyle = '#0f172a'; ctx.fillRect(X(v, b.x + b.w * 0.3), Y(v, 2.8), b.w * 0.4 * s, 2.8 * s); ctx.fillStyle = 'rgba(147,197,253,0.25)'; ctx.fillRect(X(v, b.x + b.w * 0.3), Y(v, 2.8), b.w * 0.4 * s, 2.8 * s); sidePerson(ctx, v, b.x + b.w * (0.4 + 0.2 * (0.5 + 0.5 * Math.sin(g.time * 0.3 + b.seed))), 0, 1.7, b.hue); } // el portero
     // Techo: tanque de agua o antena.
     if (b.seed % 3 === 0) { ctx.fillStyle = '#57534e'; ctx.fillRect(X(v, b.x + b.w * 0.65), Y(v, b.h + 2.2), 1.8 * s, 1.6 * s); ctx.fillRect(X(v, b.x + b.w * 0.67), Y(v, b.h + 0.6), 0.15 * s, 0.6 * s); ctx.fillRect(X(v, b.x + b.w * 0.65 + 1.5), Y(v, b.h + 0.6), 0.15 * s, 0.6 * s); }
     else if (b.seed % 3 === 1) { ctx.strokeStyle = '#334155'; ctx.lineWidth = Math.max(1, s * 0.08); ctx.beginPath(); ctx.moveTo(X(v, b.x + b.w * 0.3), Y(v, b.h)); ctx.lineTo(X(v, b.x + b.w * 0.3), Y(v, b.h + 5)); ctx.stroke(); ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(X(v, b.x + b.w * 0.3), Y(v, b.h + 5), Math.max(1.5, s * 0.15), 0, Math.PI * 2); ctx.fill(); }
   }
 }
-function drawSideFactory(ctx: CanvasRenderingContext2D, b: SideBlock, v: View) {
+// Una persona de lejos (cabeza, cuerpo, piernas), parada en `y`, de `h` metros; con casco si es obrero.
+function sidePerson(ctx: CanvasRenderingContext2D, v: View, x: number, y: number, h: number, hue: number, helmet = false) {
+  const s = v.s; if (h * s < 6) return;
+  ctx.fillStyle = '#1f2937'; ctx.fillRect(X(v, x - h * 0.09), Y(v, y + h * 0.45), h * 0.07 * s, h * 0.45 * s); ctx.fillRect(X(v, x + h * 0.02), Y(v, y + h * 0.45), h * 0.07 * s, h * 0.45 * s);
+  ctx.fillStyle = helmet ? '#f97316' : `hsl(${hue},55%,45%)`; ctx.fillRect(X(v, x - h * 0.13), Y(v, y + h * 0.8), h * 0.26 * s, h * 0.37 * s);
+  ctx.fillStyle = '#e0b48a'; ctx.beginPath(); ctx.arc(X(v, x), Y(v, y + h * 0.9), h * 0.1 * s, 0, Math.PI * 2); ctx.fill();
+  if (helmet) { ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(X(v, x), Y(v, y + h * 0.93), h * 0.11 * s, Math.PI, 0); ctx.fill(); }
+}
+function drawSideFactory(ctx: CanvasRenderingContext2D, b: SideBlock, v: View, t: number) {
   const s = v.s, teeth = Math.max(3, Math.round(b.w / 4)), tw = b.w / teeth;
   ctx.fillStyle = '#44403c';
   for (let i = 0; i < teeth; i++) { const x0 = b.x + i * tw; ctx.beginPath(); ctx.moveTo(X(v, x0), Y(v, b.h)); ctx.lineTo(X(v, x0), Y(v, b.h + 2.2)); ctx.lineTo(X(v, x0 + tw), Y(v, b.h)); ctx.fill(); ctx.fillStyle = 'rgba(147,197,253,0.35)'; ctx.fillRect(X(v, x0) + 1, Y(v, b.h + 2), Math.max(1, s * 0.3), 1.8 * s); ctx.fillStyle = '#44403c'; } // techo en serrucho
@@ -124,13 +133,14 @@ function drawSideFactory(ctx: CanvasRenderingContext2D, b: SideBlock, v: View) {
   ctx.fillStyle = 'rgba(15,23,42,0.75)';
   for (let x0 = b.x + 1; x0 < b.x + b.w - 1.5; x0 += 2.2) ctx.fillRect(X(v, x0), Y(v, b.h - 1.2), 1.4 * s, 1.6 * s); // ventanas altas
   ctx.fillStyle = '#6b7280'; ctx.fillRect(X(v, b.x + b.w * 0.55), Y(v, 4.2), 4.5 * s, 4.2 * s); // portón
+  for (let q = 0; q < 3; q++) sidePerson(ctx, v, b.x + 1.5 + ((q * 0.31 + t * 0.02 * (q + 1)) % 1) * (b.w * 0.5 - 2), 0, 1.7, 30, true); // operarios
   ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1;
   for (let yy = 0.4; yy < 4.2; yy += 0.4) { ctx.beginPath(); ctx.moveTo(X(v, b.x + b.w * 0.55), Y(v, yy)); ctx.lineTo(X(v, b.x + b.w * 0.55 + 4.5), Y(v, yy)); ctx.stroke(); }
   if (s * 8 > 40) { ctx.fillStyle = '#fef3c7'; ctx.font = font(900, Math.max(7, s * 0.7)); ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('FÁBRICA', X(v, b.x + 1), Y(v, b.h - 2.6)); }
 }
 // Obra en construcción: losas de hormigón con columnas, los pisos de arriba solo esqueleto, andamio con media
 // sombra naranja y una grúa torre.
-function drawSideWorks(ctx: CanvasRenderingContext2D, b: SideBlock, v: View) {
+function drawSideWorks(ctx: CanvasRenderingContext2D, b: SideBlock, v: View, t: number) {
   const s = v.s, fh = 2.9, built = Math.floor(b.h / fh * (0.45 + hash(b.seed) * 0.25));
   const floors = Math.floor(b.h / fh), cols = Math.max(3, Math.round(b.w / 3.4));
   for (let k = 0; k < floors; k++) {
@@ -139,6 +149,7 @@ function drawSideWorks(ctx: CanvasRenderingContext2D, b: SideBlock, v: View) {
     ctx.fillStyle = '#a8a29e'; ctx.fillRect(X(v, b.x - 0.3), Y(v, y + fh), (b.w + 0.6) * s, 0.35 * s); // losa
     ctx.fillStyle = '#78716c';
     for (let c = 0; c <= cols; c++) ctx.fillRect(X(v, b.x + c * b.w / cols - 0.2), Y(v, y + fh), 0.4 * s, fh * s); // columnas
+    for (let q = 0; q < 2; q++) { const hq = hash(b.seed * 3 + k * 5 + q); sidePerson(ctx, v, b.x + 0.8 + (b.w - 1.6) * ((hq + t * 0.015 * (0.5 + hq)) % 1), y + (k ? 0.35 : 0), 1.7, 30, true); } // albañiles en cada piso
   }
   // Andamio con media sombra.
   ctx.strokeStyle = 'rgba(234,88,12,0.9)'; ctx.lineWidth = Math.max(1, s * 0.06);
@@ -160,23 +171,33 @@ function drawSideWorks(ctx: CanvasRenderingContext2D, b: SideBlock, v: View) {
   if (s * 6 > 40) { ctx.fillStyle = '#fde047'; ctx.fillRect(X(v, b.x + 0.5), Y(v, 3.4), 5 * s, 1 * s); ctx.fillStyle = '#111'; ctx.font = font(900, Math.max(6, s * 0.45)); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('OBRA EN CONSTRUCCIÓN', X(v, b.x + 3), Y(v, 2.9), 4.8 * s); }
 }
 
-// El fondo de todo (la última capa, detrás de los edificios): la imagen del usuario (Invasion_Cielo_Portales). Queda
-// fija: cubre la pantalla entera y no se mueve con la vista. Se pinta aparte, en cada cuadro (`drawWallpaper`), así
-// la cuadra de fondo que se rearma cada tanto no la corre. Mientras carga, el cielo de antes.
+// El fondo de todo (la última capa, detrás de los edificios): la imagen del usuario (Invasion_Cielo_Portales), pegada
+// a la ciudad: se mueve con ella (como si estuviera pintada detrás de los edificios). Va de la calle hasta arriba de
+// todo lo que se puede ver, y a lo ancho se repite espejada (una al derecho, la siguiente al revés) para que no se
+// note la unión, a lo largo de todo el mapa. Arriba de la imagen, el color oscuro de sus nubes. Mientras carga, el
+// cielo de antes.
 const wallpaper = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: wallpaperUrl }) : null;
-export function drawWallpaper(ctx: CanvasRenderingContext2D, w: number, h: number, g: Invasion) {
-  if (wallpaper?.complete && wallpaper.naturalWidth) {
-    const k = Math.max(w / wallpaper.naturalWidth, h / wallpaper.naturalHeight), W = wallpaper.naturalWidth * k, H = wallpaper.naturalHeight * k;
-    ctx.drawImage(wallpaper, (w - W) / 2, (h - H) / 2, W, H);
+const WALL_Y0 = -4.5, WALL_Y1 = CITY_TOP + (CITY_TOP + 3.4) * 0.5 + 4; // de dónde a dónde va (en metros)
+export function drawWallpaper(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
+  if (!wallpaper?.complete || !wallpaper.naturalWidth) {
+    const c = skyColors(g.time), sky = ctx.createLinearGradient(0, 0, 0, v.h);
+    sky.addColorStop(0, c.top); sky.addColorStop(0.55, c.mid); sky.addColorStop(1, c.low);
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, v.w, v.h);
     return;
   }
-  const c = skyColors(g.time), sky = ctx.createLinearGradient(0, 0, 0, h);
-  sky.addColorStop(0, c.top); sky.addColorStop(0.55, c.mid); sky.addColorStop(1, c.low);
-  ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+  const H = WALL_Y1 - WALL_Y0, W = H * wallpaper.naturalWidth / wallpaper.naturalHeight, top = Y(v, WALL_Y1);
+  ctx.fillStyle = '#040b07'; ctx.fillRect(0, 0, v.w, v.h);
+  const first = Math.floor((v.cx - v.w / 2 / v.s + SIDE_W + 200) / W), last = Math.ceil((v.cx + v.w / 2 / v.s + SIDE_W + 200) / W);
+  for (let i = first; i <= last; i++) {
+    const x0 = -SIDE_W - 200 + i * W, px = X(v, x0), pw = W * v.s;
+    if (px > v.w || px + pw < 0) continue;
+    if (i % 2 === 0) ctx.drawImage(wallpaper, px, top, pw + 0.5, H * v.s);
+    else { ctx.save(); ctx.translate(px + pw, top); ctx.scale(-1, 1); ctx.drawImage(wallpaper, 0, 0, pw + 0.5, H * v.s); ctx.restore(); }
+  }
 }
-// `wall`: si pinta también el fondo (con la mira sí; la cuadra de fondo no, porque el fondo va aparte).
+// `wall`: si pinta también el fondo.
 function drawSky(ctx: CanvasRenderingContext2D, g: Invasion, v: View, wall: boolean) {
-  if (wall) drawWallpaper(ctx, v.w, v.h, g);
+  if (wall) drawWallpaper(ctx, g, v);
   // La nave nodriza aparece de a poco en el fondo.
   if (g.time > UFO_FROM + 60) {
     const k = Math.min(1, (g.time - UFO_FROM - 60) / 120), mx = v.w / 2 + (g.width * 0.5 - v.cx) * v.s * 0.15, my = Y(v, CITY_TOP * 0.62 + v.cy * 0.45);
@@ -1087,6 +1108,8 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
   for (const bl of g.blasts) {
     if (bl.t < 0) continue;
     if (bl.bazooka && bl.t < BAZOOKA_FX_DUR && drawBazookaFx(ctx, bl, v)) continue; // la explosión de la bazooka, con la secuencia
+    // Las explosiones de los departamentos (bombas, rayos de los ovnis) usan la secuencia de la explosión del ovni.
+    if (bl.big && !bl.bazooka && bl.t < BAZOOKA_FX_DUR && drawBazookaFx(ctx, { ...bl, ufo: true }, v)) continue;
     if (bl.big) { drawBigBlast(ctx, bl, v); continue; }
     const k = bl.t / 1.2, r = (0.6 + k * 1.8) * bl.size * v.s, px = X(v, bl.x), py = Y(v, bl.y);
     const gl = ctx.createRadialGradient(px, py, 0, px, py, r);

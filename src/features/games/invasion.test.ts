@@ -41,13 +41,14 @@ describe('Invasión: la ciudad', () => {
 });
 
 describe('Invasión: la gente y los aliens', () => {
-  it('hay mucha gente haciendo cosas distintas y arrancan 50 aliens y 300 humanos', () => {
+  it('hay mucha gente haciendo cosas distintas y arrancan 50 aliens y 600 humanos, sin ningún lugar vacío', () => {
     const g = newInvasion(1);
     expect(g.people.length).toBeGreaterThan(80);
     expect(new Set(g.people.map(p => p.act)).size).toBeGreaterThan(12);
     expect(aliveAliens(g)).toBe(50);
     expect(aliveHumans(g)).toBe(HUMAN_TOTAL);
     expect(g.people.filter(p => p.room < 0).length).toBeGreaterThan(20); // en la vereda
+    for (const r of g.rooms) expect(g.people.some(p => p.room === r.id && !p.alien)).toBe(true); // nadie solo: gente en todos lados
   });
 
   it('a cada alien se le ve la cara de alien 5 segundos cada 30, cada uno con su propio ritmo', () => {

@@ -6,11 +6,11 @@ import { Link } from 'react-router-dom';
 import { ALIEN_KINDS, ALIEN_POINTS, HUMAN_PENALTY, ALIEN_TOTAL, aliveAliens, aliveHumans, CITY_TOP, GAME_SECONDS, HUMAN_TOTAL, SIDE_W, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import { isWoman } from './invasionPeople';
-import { drawMinimap, drawRockets, drawWallpaper, paintCity, type View } from './invasionArt';
+import { drawMinimap, drawRockets, paintCity, type View } from './invasionArt';
 import { invasionLevels } from './invasionSound';
 import {
-  playAlienComm, playAlienDeath, playAlienVoice, ALIEN_VOICE_SECONDS, playBazookaBoom, playBazookaShot, playBlast, playBolt, playCivilianHit, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playMachineShot, playRayGun, playReload,
-  playHumanScream, playRicochet, playRifleShot, playScream, playStart, playThunder, playUfoArrive, playWinFanfare, preloadInvasionSounds, setInvasionAmbient,
+  playAlienComm, playAlienDeath, playAlienVoice, ALIEN_VOICE_SECONDS, playBazookaBoom, playBazookaShot, playBlast, playBolt, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playMachineShot, playRayGun, playReload,
+  playHumanScream, playRicochet, playRifleShot, playStart, playThunder, playUfoArrive, playWinFanfare, preloadInvasionSounds, setInvasionAmbient,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 import rifleArt from './assets/invasion/armas/menu-rifle.webp';
@@ -97,10 +97,9 @@ export function Invasion() {
   // contenés la respiración) y el retroceso mueven el escenario, así el "+" siempre marca adónde va el tiro.
   const baseView = useCallback((w: number, h: number): Omit<View, 't' | 'dpr'> => {
     const g = gameRef.current, s = h / (TOP_Y - FLOOR_Y), a = aim.current, c = cam.current;
-    // Hasta el final del escenario (los edificios de los costados): en el extremo, el borde de la pantalla coincide
-    // con el borde del escenario.
-    const half = w / 2 / s, lo = -SIDE_W + half, hi = g.width + SIDE_W - half;
-    c.x = lo < hi ? Math.max(lo, Math.min(hi, c.x)) : g.width / 2;
+    // La mira llega hasta el final del mapa de cada lado (hasta donde camina la gente de los costados); más allá
+    // siguen edificios de relleno para que la pantalla nunca quede vacía.
+    c.x = Math.max(-SIDE_W, Math.min(g.width + SIDE_W, c.x));
     c.y = Math.max(FLOOR_Y + 2.4, Math.min(TOP_Y, c.y));
     const k = a.holding && a.breath > 0 ? 0.15 : 1, amp = 7 / a.zoom * k, t = a.swayT;
     return {
@@ -150,11 +149,10 @@ export function Invasion() {
       if (bg.canvas.width !== bw || bg.canvas.height !== bh || bg.s !== b.s || Math.abs(bg.x - b.cx) * b.s > M * w * 0.85 || Math.abs(bg.y - b.cy) * b.s > MV * h * 0.85 || now - bg.at > every) {
         if (bg.canvas.width !== bw || bg.canvas.height !== bh) { bg.canvas.width = bw; bg.canvas.height = bh; }
         const bctx = bg.canvas.getContext('2d');
-        if (bctx) { bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, bw, bh); bctx.setTransform(dpr * bs, 0, 0, dpr * bs, 0, 0); paintCity(bctx, g, { ...b, w: W, h: HH, t: g.time, dpr }, 10, false, false); } // (los cohetes van aparte, en cada cuadro)
+        if (bctx) { bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, bw, bh); bctx.setTransform(dpr * bs, 0, 0, dpr * bs, 0, 0); paintCity(bctx, g, { ...b, w: W, h: HH, t: g.time, dpr }, 10, false); } // (los cohetes van aparte, en cada cuadro)
         bg.x = b.cx; bg.y = b.cy; bg.s = b.s; bg.at = now;
       }
       const off = ((bg.x - b.cx) * b.s - M * w) * dpr, offY = ((b.cy - bg.y) * b.s - MV * h) * dpr; // dónde cae la imagen según cuánto se movió la vista
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); drawWallpaper(ctx, w, h, g); // el fondo, fijo
       ctx.setTransform(1, 0, 0, 1, shake[0] * dpr, shake[1] * dpr); ctx.drawImage(bg.canvas, off, offY, W * dpr, HH * dpr); ctx.setTransform(dpr, 0, 0, dpr, shake[0] * dpr, shake[1] * dpr);
       if (g.rockets.length) drawRockets(ctx, g, { ...b, w, h, t: g.time, dpr }); // el cohete de la bazooka, fluido
       if (scoped || !playing) { ctx.fillStyle = scoped ? 'rgba(2,8,4,0.45)' : 'rgba(2,8,4,0.3)'; ctx.fillRect(-20, -20, w + 40, h + 40); }
@@ -328,7 +326,6 @@ export function Invasion() {
       const near = (x: number, y: number) => Math.max(0, 1 - Math.hypot(x - p.x, y - p.y) / (600 / a.zoom));
       for (const e of takeEvents(g)) {
         if (e.type === 'kill') { playGooBlast(); playAlienDeath(0.45); }
-        if (e.type === 'civilian') playCivilianHit();
         if (e.type === 'glass') playGlass(0.8);
         if (e.type === 'ufoPing') playRicochet();
         if (e.type === 'defused') playDefuse();
@@ -343,7 +340,7 @@ export function Invasion() {
           if (level > 0.1) { playRayGun(level); rayAt = now + 100; }
         }
         if (e.type === 'died') { const who = g.people.find(o => o.id === e.id); playHumanScream(!!who && isWoman(who), e.byPlayer ? 1 : near(e.x, e.y)); }
-        if (e.type === 'scream') playScream(near(e.x, e.y), 0.8 + Math.random() * 0.6);
+        if (e.type === 'scream') { const who = g.people.find(o => o.id === e.id); playHumanScream(!!who && isWoman(who), near(e.x, e.y) * 0.7); } // los gritos son solo los dos del usuario
         if (e.type === 'ufoArrive') { playUfoArrive(); setToast({ text: g.ufos.length === 1 ? 'Entraron los OVNIs. Usá la bazooka.' : `¡Otro ovni! Ya son ${g.ufos.length} 🛸`, id: now, big: g.ufos.length === 1 }); }
         if (e.type === 'comm') playAlienComm(near(e.x, e.y) * 0.6);
         if (e.type === 'thunder') { playThunder(Math.max(0.35, 1 - Math.abs(e.x - p.x) / 120)); a.shake = Math.max(a.shake, 0.25); }
