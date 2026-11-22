@@ -8,7 +8,7 @@
 // después se copia: así se puede dibujar con mucho detalle sin que se trabe.
 import { drawUfoCraftAt } from './kombatPenUfo';
 import {
-  alienKind, CITY_TOP, SIDE_W, GAME_SECONDS, hitbox, rainAt, ROCKET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
+  alienKind, BLOOD, CITY_TOP, SIDE_W, GAME_SECONDS, hitbox, rainAt, ROCKET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
 } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import bazookaFxUrl from './assets/invasion/efectos/bazooka.webp';
@@ -1019,7 +1019,7 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
     if (!visible(v, d.x - 1, d.x + 1, d.y - 1, d.y + 1)) continue;
     const px = X(v, d.x), py = Y(v, d.y);
     if (d.goo || d.blood) { // salpicadura (verde del alien que explotó, o sangre) que chorrea por la pared
-      const k = d.size ?? 1, light = d.goo ? 'rgba(74,222,128,0.8)' : 'rgba(185,28,28,0.85)', dark = d.goo ? 'rgba(22,101,52,0.85)' : 'rgba(69,10,10,0.9)';
+      const T = BLOOD[d.tint ?? 0], k = d.size ?? 1, light = d.goo ? `rgba(${T.main},0.8)` : 'rgba(185,28,28,0.85)', dark = d.goo ? `rgba(${T.dark},0.85)` : 'rgba(69,10,10,0.9)'; // la baba, del color de la especie
       const drip = Math.min(1, (g.time - d.t) / 4);
       ctx.fillStyle = light;
       for (let i = 0; i < 11; i++) { const a = i * 0.7 + d.x, r = v.s * k * (0.06 + hash(i + d.x * 3) * 0.12), dd = v.s * k * 0.45 * hash(i * 2 + d.t); ctx.beginPath(); ctx.ellipse(px + Math.cos(a) * dd, py - Math.sin(a) * dd * 0.8, r, r * 0.7, a, 0, Math.PI * 2); ctx.fill(); }
@@ -1091,13 +1091,14 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
     const k = bl.t / 1.2, r = (0.6 + k * 1.8) * bl.size * v.s, px = X(v, bl.x), py = Y(v, bl.y);
     const gl = ctx.createRadialGradient(px, py, 0, px, py, r);
     if (bl.green) { // el alien explota en verde: bola de luz, anillo y destello
-      gl.addColorStop(0, `rgba(240,255,220,${1 - k})`); gl.addColorStop(0.35, `rgba(132,204,22,${0.9 * (1 - k)})`); gl.addColorStop(0.7, `rgba(22,163,74,${0.6 * (1 - k)})`); gl.addColorStop(1, 'rgba(20,83,45,0)');
+      const T = BLOOD[bl.tint ?? 0]; // del color de la sangre de la especie
+      gl.addColorStop(0, `rgba(255,255,240,${1 - k})`); gl.addColorStop(0.35, `rgba(${T.pale},${0.9 * (1 - k)})`); gl.addColorStop(0.7, `rgba(${T.main},${0.6 * (1 - k)})`); gl.addColorStop(1, `rgba(${T.dark},0)`);
       ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = `rgba(190,242,100,${0.9 * (1 - k)})`; ctx.lineWidth = Math.max(2, v.s * 0.08 * (1 - k)); ctx.beginPath(); ctx.arc(px, py, r * 1.25, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = `rgba(${T.pale},${0.9 * (1 - k)})`; ctx.lineWidth = Math.max(2, v.s * 0.08 * (1 - k)); ctx.beginPath(); ctx.arc(px, py, r * 1.25, 0, Math.PI * 2); ctx.stroke();
       // Chorros de baba que salen para todos lados.
-      ctx.fillStyle = `rgba(74,222,128,${0.85 * (1 - k)})`;
+      ctx.fillStyle = `rgba(${T.main},${0.85 * (1 - k)})`;
       for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2 + bl.x, l = r * (1.1 + hash(i + bl.x) * 0.9), wdt = r * 0.12; ctx.beginPath(); ctx.moveTo(px + Math.cos(a + 0.12) * wdt, py + Math.sin(a + 0.12) * wdt); ctx.lineTo(px + Math.cos(a) * l, py + Math.sin(a) * l); ctx.lineTo(px + Math.cos(a - 0.12) * wdt, py + Math.sin(a - 0.12) * wdt); ctx.fill(); ctx.beginPath(); ctx.arc(px + Math.cos(a) * l, py + Math.sin(a) * l, wdt * 0.8, 0, Math.PI * 2); ctx.fill(); }
-      if (k < 0.15) { ctx.fillStyle = `rgba(190,242,100,${0.25 * (1 - k / 0.15)})`; ctx.fillRect(0, 0, v.w, v.h); }
+      if (k < 0.15) { ctx.fillStyle = `rgba(${T.pale},${0.25 * (1 - k / 0.15)})`; ctx.fillRect(0, 0, v.w, v.h); }
       continue;
     }
     gl.addColorStop(0, `rgba(255,250,220,${1 - k})`); gl.addColorStop(0.4, `rgba(251,146,60,${0.85 * (1 - k)})`); gl.addColorStop(1, 'rgba(127,29,29,0)');

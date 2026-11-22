@@ -9,7 +9,7 @@ import { isWoman } from './invasionPeople';
 import { drawMinimap, drawRockets, drawWallpaper, paintCity, type View } from './invasionArt';
 import { invasionLevels } from './invasionSound';
 import {
-  playAlienComm, playAlienDeath, playAlienTalk, playBazookaBoom, playBazookaShot, playBlast, playBolt, playCivilianHit, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playMachineShot, playRayGun, playReload,
+  playAlienComm, playAlienDeath, playAlienVoice, ALIEN_VOICE_SECONDS, playBazookaBoom, playBazookaShot, playBlast, playBolt, playCivilianHit, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playMachineShot, playRayGun, playReload,
   playHumanScream, playRicochet, playRifleShot, playScream, playStart, playThunder, playUfoArrive, playWinFanfare, preloadInvasionSounds, setInvasionAmbient,
 } from './sounds';
 import { EndBanner } from './EndBanner';
@@ -345,20 +345,20 @@ export function Invasion() {
         if (e.type === 'died') { const who = g.people.find(o => o.id === e.id); playHumanScream(!!who && isWoman(who), e.byPlayer ? 1 : near(e.x, e.y)); }
         if (e.type === 'scream') playScream(near(e.x, e.y), 0.8 + Math.random() * 0.6);
         if (e.type === 'ufoArrive') { playUfoArrive(); setToast({ text: g.ufos.length === 1 ? 'Entraron los OVNIs. Usá la bazooka.' : `¡Otro ovni! Ya son ${g.ufos.length} 🛸`, id: now, big: g.ufos.length === 1 }); }
-        if (e.type === 'comm') { playAlienComm(near(e.x, e.y) * 0.6); playAlienTalk(near(e.x, e.y)); }
+        if (e.type === 'comm') playAlienComm(near(e.x, e.y) * 0.6);
         if (e.type === 'thunder') { playThunder(Math.max(0.35, 1 - Math.abs(e.x - p.x) / 120)); a.shake = Math.max(a.shake, 0.25); }
         if (e.type === 'rain') setToast({ text: '🌧️ Se largó una tormenta: llueve y hay relámpagos', id: now, big: true });
       }
       if (now - soundAt > 100) { soundAt = now; setInvasionAmbient(invasionLevels(g, p.x, p.y, a.zoom)); }
-      // Al hacer zoom se escucha hablar (con la voz alienígena) al alien que está en la mira o más cerca del
-      // centro: cuanto más zoom, más fuerte y más seguido. Sin zoom no se los escucha.
+      // Solo con la mira (rifle o ametralladora) se escucha hablar al alien que está adentro del vidrio, el más
+      // cerca del centro, con la voz de su especie. Sin mira, o de lejos, no se escuchan.
       if (now > talkAt) {
-        const zoomK = Math.max(0, Math.min(1, (a.zoom - 50) / 120));
+        const zoomK = a.scoped && hasScope(selected.current) ? Math.max(0.6, Math.min(1, (a.zoom - 50) / 120)) : 0;
         const view = stage ? Math.min(stage.clientWidth, stage.clientHeight) * 0.5 / a.zoom : 6;
         const radius = Math.max(2, Math.min(14, view));
         let best: { d: number; who: Game['people'][number] } | null = null;
         if (zoomK > 0.1) for (const o of g.people) { if (!o.alien || o.dead || o.gone) continue; const d = Math.hypot(o.x - p.x, (o.y + 0.9 - p.y) * 1.2); if (d < radius && (!best || d < best.d)) best = { d, who: o }; }
-        if (best) { playAlienTalk(zoomK * (0.45 + 0.55 * (1 - best.d / radius))); best.who.talk = 2.2; talkAt = now + (zoomK > 0.5 ? 1300 + Math.random() * 1500 : 2600 + Math.random() * 2500); } else talkAt = now + 500;
+        if (best) { const kind = best.who.id % ALIEN_VOICE_SECONDS.length; playAlienVoice(kind, zoomK * (0.5 + 0.5 * (1 - best.d / radius))); best.who.talk = ALIEN_VOICE_SECONDS[kind]; talkAt = now + ALIEN_VOICE_SECONDS[kind] * 1000 + 500 + Math.random() * 1200; } else talkAt = now + 400; // (espera que termine de hablar)
       }
       paint();
       const shown = { time: Math.ceil(GAME_SECONDS - g.time), kills: g.kills, points: g.points, civilians: g.civilians, killsBy: [...g.killsBy], humans: aliveHumans(g), aliens: aliveAliens(g), mag: G.mag, reloading: G.reload > 0 };

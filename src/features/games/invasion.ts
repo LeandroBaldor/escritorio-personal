@@ -37,6 +37,19 @@ export const ALIEN_KINDS = [
   { name: 'brutox', label: 'Brutox', size: 1.5, hp: 10, points: 60 }, { name: 'esporal', label: 'Esporal', size: 1.1, hp: 2, points: 20 },
   { name: 'mantis', label: 'Mantis', size: 1.25, hp: 5, points: 40 }, { name: 'reptiliano', label: 'Reptiliano', size: 1.1, hp: 2, points: 30 },
 ] as const;
+// La sangre de cada especie (mismo orden que `ALIEN_KINDS`): color principal, claro y oscuro (r, g, b).
+// Gris verde, Anfibio celeste, Brutox violeta, Esporal amarillo, Mantis rosa, Reptiliano azul.
+export type RGB = [number, number, number];
+export const BLOOD: { main: RGB; pale: RGB; dark: RGB }[] = [
+  { main: [74, 222, 128], pale: [190, 242, 100], dark: [20, 83, 45] },
+  { main: [103, 232, 249], pale: [207, 250, 254], dark: [21, 94, 117] },
+  { main: [168, 85, 247], pale: [233, 213, 255], dark: [76, 29, 149] },
+  { main: [250, 204, 21], pale: [254, 240, 138], dark: [113, 63, 18] },
+  { main: [244, 114, 182], pale: [251, 207, 232], dark: [131, 24, 67] },
+  { main: [59, 130, 246], pale: [191, 219, 254], dark: [30, 58, 138] },
+];
+export const bloodOf = (p: { id: number }) => BLOOD[p.id % BLOOD.length];
+const hex = (c: RGB) => '#' + c.map(n => n.toString(16).padStart(2, '0')).join('');
 // Daño de cada tiro: el francotirador saca 10 puntos de vida, la ametralladora 1 (la explosión de la bazooka mata siempre).
 // Cada humano que matás vos resta estos puntos.
 export const HUMAN_PENALTY = 50;
@@ -81,8 +94,8 @@ export interface Box { id: number; room: number; x: number; y: number; explosive
 export interface Ufo { id: number; x: number; y: number; vx: number; t0: number; beam: { room: number; t0: number; until: number; x: number; y: number } | null; nextBeam: number; wobble: number }
 export interface Car { id: number; x: number; dir: 1 | -1; speed: number; hue: number; kind: 'car' | 'taxi' | 'bus' | 'van' | 'police'; lane: number }
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; kind: 'blood' | 'spark' | 'glass' | 'smoke' | 'debris' | 'ember' | 'goo' | 'wreck'; spin?: number }
-export interface Decal { room: number; x: number; y: number; glass: boolean; t: number; goo?: boolean; blood?: boolean; size?: number; crater?: number }
-export interface Blast { x: number; y: number; t: number; size: number; green?: boolean; big?: boolean; bazooka?: boolean; ufo?: boolean }
+export interface Decal { room: number; x: number; y: number; glass: boolean; t: number; goo?: boolean; blood?: boolean; size?: number; crater?: number; tint?: number } // `tint`: especie (color de la baba)
+export interface Blast { x: number; y: number; t: number; size: number; green?: boolean; tint?: number; big?: boolean; bazooka?: boolean; ufo?: boolean }
 export type InvasionEvent =
   | { type: 'shot'; x: number; y: number } | { type: 'kill'; x: number; y: number; head: boolean; anomaly: number | null }
   | { type: 'civilian'; x: number; y: number } | { type: 'bomb'; x: number; y: number } | { type: 'defused'; x: number; y: number } | { type: 'boxHit'; x: number; y: number }
@@ -761,17 +774,18 @@ function defeatPerson(g: Invasion, p: Person, head: boolean, byPlayer: boolean) 
     p.gone = true;
     // Exagerada: una bola verde enorme, otra que llega un instante después, chorros de baba para todos
     // lados y la pared salpicada.
-    g.blasts.push({ x: cx, y: cy, t: 0, size: 2.4, green: true }, { x: cx, y: cy + 0.3, t: -0.12, size: 1.6, green: true });
-    burst(g, cx, cy, 140, '#4ade80', 'goo', 8, 0.08);
-    burst(g, cx, cy, 60, '#a3e635', 'goo', 11, 0.05);
-    burst(g, cx, cy, 40, '#bef264', 'spark', 9, 0.05);
-    burst(g, cx, cy, 30, '#14532d', 'goo', 4, 0.13);
+    const tint = p.id % BLOOD.length, B = BLOOD[tint]; // cada especie con su color de sangre
+    g.blasts.push({ x: cx, y: cy, t: 0, size: 2.4, green: true, tint }, { x: cx, y: cy + 0.3, t: -0.12, size: 1.6, green: true, tint });
+    burst(g, cx, cy, 140, hex(B.main), 'goo', 8, 0.08);
+    burst(g, cx, cy, 60, hex(B.main.map((n, i) => Math.round((n + B.pale[i]) / 2)) as RGB), 'goo', 11, 0.05);
+    burst(g, cx, cy, 40, hex(B.pale), 'spark', 9, 0.05);
+    burst(g, cx, cy, 30, hex(B.dark), 'goo', 4, 0.13);
     const room = roomOf(g, p);
-    addDecal(g, { room: p.room, x: cx, y: p.y + 0.02, glass: false, t: g.time, goo: true, size: 1.6 });
+    addDecal(g, { room: p.room, x: cx, y: p.y + 0.02, glass: false, t: g.time, goo: true, size: 1.6, tint });
     for (let i = 0; i < 9; i++) {
       let sx = cx + between(g.rand, -2.4, 2.4), sy = cy + between(g.rand, -0.5, 1.6);
       if (room) { sx = Math.max(room.x1 + 0.15, Math.min(room.x2 - 0.15, sx)); sy = Math.max(room.y + 0.2, Math.min(room.y + room.h - 0.15, sy)); }
-      addDecal(g, { room: p.room, x: sx, y: sy, glass: false, t: g.time, goo: true, size: between(g.rand, 0.5, 1.2) });
+      addDecal(g, { room: p.room, x: sx, y: sy, glass: false, t: g.time, goo: true, size: between(g.rand, 0.5, 1.2), tint });
     }
     g.kills++; if (head) g.headshots++;
     const kind = p.id % ALIEN_KINDS.length; g.killsBy[kind]++; g.points += ALIEN_KINDS[kind].points;
@@ -871,9 +885,10 @@ export function shoot(g: Invasion, x: number, y: number, weapon: Weapon = 'rifle
     g.hits++;
     if (p.alien && (p.hp ?? 1) > DAMAGE[weapon]) { // si el tiro no le alcanza para matarlo, lo lastima
       p.hp = (p.hp ?? 1) - DAMAGE[weapon]; p.hurt = g.time;
-      burst(g, x, y, 26, '#4ade80', 'goo', 5, 0.06);
-      burst(g, x, y, 8, '#bef264', 'spark', 5, 0.04);
-      addDecal(g, { room: p.room, x: x + between(g.rand, -0.6, 0.6), y, glass: false, t: g.time, goo: true, size: 0.5 });
+      const B = bloodOf(p);
+      burst(g, x, y, 26, hex(B.main), 'goo', 5, 0.06);
+      burst(g, x, y, 8, hex(B.pale), 'spark', 5, 0.04);
+      addDecal(g, { room: p.room, x: x + between(g.rand, -0.6, 0.6), y, glass: false, t: g.time, goo: true, size: 0.5, tint: p.id % BLOOD.length });
       emit(g, { type: 'hurt', x, y, left: p.hp });
       return 'hurt' as const;
     }
