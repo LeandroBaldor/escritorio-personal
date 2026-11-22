@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  alienKind, ALIEN_KINDS, BULLET_TIME, DAMAGE, fireRifle, aliensAt, aliveAliens, aliveHumans, ALIEN_TOTAL, HUMAN_TOTAL, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt, ROCKET_TIME, WALL_BREAK,
+  alienKind, ALIEN_KINDS, DAMAGE, aliensAt, aliveAliens, aliveHumans, ALIEN_TOTAL, HUMAN_TOTAL, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt, ROCKET_TIME, WALL_BREAK,
   type Invasion, type Person,
 } from './invasion';
 import { ANOMALIES, fitsPlace, shuffledAnomalies } from './invasionAnomalies';
@@ -310,16 +310,11 @@ describe('Invasión: el disparo', () => {
     expect(g.points).toBe(60);
   });
 
-  it('la bala del francotirador tarda 2 segundos en llegar (y sigue a quien le apuntaste)', () => {
+  it('el tiro del francotirador impacta en el instante', () => {
     const g = newInvasion(8), alien = g.people.find(p => p.alien && p.room >= 0 && alienKind(p).hp === 1)!;
     const [x, y] = aimAt(g, alien);
-    fireRifle(g, x, y);
-    takeEvents(g);
-    run(g, BULLET_TIME - 0.2);
-    expect(alien.dead).toBeNull(); // todavía no llegó
-    run(g, 0.4);
+    expect(shoot(g, x, y, 'rifle')).toBe('alien');
     expect(alien.dead?.alien).toBe(true);
-    expect(takeEvents(g).some(e => e.type === 'bulletHit' && e.hit === 'alien')).toBe(true);
   });
 
   it('la ametralladora destroza el departamento: con WALL_BREAK balas se derrumba', () => {

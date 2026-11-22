@@ -26,7 +26,6 @@ export type Weapon = keyof typeof WEAPONS;
 export const ALIEN_POINTS = 100;
 export const BAZOOKA_RADIUS = 4.2;
 export const ROCKET_TIME = 3; // la bazooka tarda 3 s en llegar (lo que dura el sonido del cohete)
-export const BULLET_TIME = 2; // la bala del francotirador tarda 2 s en impactar
 // Especies de aliens (mismo orden que `ALIEN_SPECIES` en invasionAliens: la especie es `id % 6`).
 // `size`: cuánto más grande que el gris; `hp`: puntos de vida; `points`: lo que suma matarlo; `label`: el nombre en pantalla.
 export const ALIEN_KINDS = [
@@ -37,7 +36,6 @@ export const ALIEN_KINDS = [
 // Daño de cada tiro: el francotirador saca 10 puntos de vida, la ametralladora 1 (la explosión de la bazooka mata siempre).
 export const DAMAGE: Record<Weapon, number> = { rifle: 10, machine: 1, bazooka: 99 };
 export const alienKind = (p: { id: number }) => ALIEN_KINDS[p.id % ALIEN_KINDS.length];
-export interface Bullet { x: number; y: number; t0: number; who?: number; dx: number; dy: number } // si apuntaste a alguien, la bala lo sigue
 export const WALL_BREAK = 14; // balas de ametralladora que aguanta un departamento antes de derrumbarse
 export interface Rocket { x: number; y: number; t0: number; ufo?: number; from?: { x: number; y: number } } // `from`: la boca de la bazooka al disparar (en metros) // si apuntaste a un ovni, el cohete lo sigue
 
@@ -87,10 +85,10 @@ export type InvasionEvent =
   | { type: 'lighter'; x: number; y: number } | { type: 'ray'; x: number; y: number } | { type: 'glass'; x: number; y: number } | { type: 'miss'; x: number; y: number }
   | { type: 'comm'; x: number; y: number } | { type: 'thunder'; x: number } | { type: 'rain' } | { type: 'end' }
   | { type: 'rocketHit'; x: number; y: number; hit: 'ufoDestroyed' | 'alien' | 'civilian' | 'blast' }
-  | { type: 'bulletHit'; x: number; y: number; hit: ReturnType<typeof shoot> } | { type: 'hurt'; x: number; y: number; left: number } | { type: 'collapse'; x: number; y: number };
+  | { type: 'hurt'; x: number; y: number; left: number } | { type: 'collapse'; x: number; y: number };
 export interface Invasion {
   width: number; buildings: Building[]; rooms: Room[]; people: Person[]; boxes: Box[]; ufos: Ufo[]; cars: Car[];
-  particles: Particle[]; decals: Decal[]; blasts: Blast[]; rockets: Rocket[]; bullets: Bullet[];
+  particles: Particle[]; decals: Decal[]; blasts: Blast[]; rockets: Rocket[];
   time: number; kills: number; points: number; killsBy: number[]; civilians: number; headshots: number; defused: number; shots: number; hits: number; over: boolean; outcome: Outcome | null;
   events: InvasionEvent[]; deck: number[]; deckPos: number; rand: () => number; nextId: number; seen: number[]; killedAnomalies: number[];
   aliensWanted: number; ufosLaunched: number; told: { ufo: boolean; rain: boolean };
@@ -231,7 +229,7 @@ export function newInvasion(seed?: number): Invasion {
   const city = buildCity();
   const rand = rng(s + 7);
   const g: Invasion = {
-    ...city, people: [], boxes: [], ufos: [], cars: [], particles: [], decals: [], blasts: [], rockets: [], bullets: [],
+    ...city, people: [], boxes: [], ufos: [], cars: [], particles: [], decals: [], blasts: [], rockets: [],
     time: 0, kills: 0, points: 0, killsBy: ALIEN_KINDS.map(() => 0), civilians: 0, headshots: 0, defused: 0, shots: 0, hits: 0, over: false, outcome: null, events: [],
     deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), ufosLaunched: 0, told: { ufo: false, rain: false },
     aim: { x: city.width / 2, y: 10 }, lightning: null,
@@ -352,10 +350,6 @@ export function step(g: Invasion, dt: number) {
   for (const rk of g.rockets) { const ship = g.ufos.find(u => u.id === rk.ufo); if (ship) { rk.x = ship.x; rk.y = ship.y + UFO_DY; } } // sigue al ovni
   for (const rk of g.rockets.filter(o => g.time - o.t0 >= ROCKET_TIME)) explodeRocket(g, rk.x, rk.y);
   g.rockets = g.rockets.filter(o => g.time - o.t0 < ROCKET_TIME);
-  for (const b of g.bullets) { const p = g.people.find(o => o.id === b.who && !o.dead && !o.gone); if (p) { b.x = p.x + b.dx; b.y = p.y + b.dy; } } // sigue a quien apuntaste
-  const landed = g.bullets.filter(b => g.time - b.t0 >= BULLET_TIME);
-  g.bullets = g.bullets.filter(b => g.time - b.t0 < BULLET_TIME);
-  for (const b of landed) { const hit = shoot(g, b.x, b.y, 'rifle'); emit(g, { type: 'bulletHit', x: b.x, y: b.y, hit }); if (g.over) return; }
   for (const c of g.cars) {
     const scared = ruinAt(t) > 0.3 ? 1.6 : 1;
     c.x += c.dir * c.speed * scared * dt;
@@ -886,15 +880,6 @@ export function shoot(g: Invasion, x: number, y: number, weapon: Weapon = 'rifle
   burst(g, x, y, glass ? 14 : 8, glass ? '#e0f2fe' : '#a8a29e', glass ? 'glass' : 'debris', 2.5, 0.04);
   emit(g, { type: glass ? 'glass' : 'miss', x, y });
   return 'miss' as const;
-}
-
-// El francotirador: la bala tarda `BULLET_TIME` en llegar. Si apuntaste a alguien, lo sigue (como el cohete al ovni).
-export function fireRifle(g: Invasion, x: number, y: number) {
-  if (g.over) return;
-  const alive = g.people.filter(p => !p.dead && !p.gone);
-  const order = [...alive.filter(p => p.room < 0), ...alive.filter(p => p.room >= 0)];
-  const who = g.ufos.some(u => Math.abs(x - u.x) < 6.4 && Math.abs(y - (u.y + UFO_DY)) < UFO_HALF_H) ? undefined : order.find(p => { const b = hitbox(g, p); return x >= b.x1 && x <= b.x2 && y >= b.y1 && y <= b.y2; });
-  g.bullets.push({ x, y, t0: g.time, who: who?.id, dx: who ? x - who.x : 0, dy: who ? y - who.y : 0 });
 }
 
 // Para los sonidos: qué se escucha cerca de donde apunta la mira (gente hablando, la tele, la cocina…).

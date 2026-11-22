@@ -8,7 +8,7 @@
 // después se copia: así se puede dibujar con mucho detalle sin que se trabe.
 import { drawUfoCraftAt } from './kombatPenUfo';
 import {
-  alienKind, CITY_TOP, GAME_SECONDS, hitbox, rainAt, ROCKET_TIME, BULLET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
+  alienKind, CITY_TOP, GAME_SECONDS, hitbox, rainAt, ROCKET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
 } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import { drawPerson, drawProp, font, hash, hsl, mixColor } from './invasionPeople';
@@ -857,12 +857,6 @@ function drawLifeBars(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
 
 export function drawRockets(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   for (const rk of g.rockets) drawRocket(ctx, rk, v, g.time);
-  // La bala del francotirador en camino: un anillo fino que se cierra sobre el punto hasta que impacta (2 s).
-  for (const b of g.bullets) {
-    const k = Math.min(1, (g.time - b.t0) / BULLET_TIME), x = X(v, b.x), y = Y(v, b.y), r = Math.max(6, v.s * 0.5) * (1.8 - k * 1.5);
-    ctx.save(); ctx.strokeStyle = `rgba(255,255,255,${0.35 + k * 0.5})`; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - k)); ctx.stroke(); ctx.restore();
-  }
 }
 
 // `rockets` false: los cohetes se dibujan aparte (arriba de todo, cada cuadro).

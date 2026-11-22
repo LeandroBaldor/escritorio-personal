@@ -1031,7 +1031,7 @@ export function playMachineShot() {
   if (playSample(invAmetralladoraUrl, 1.6, 0, 0.96 + Math.random() * 0.08)) return;
   playRifleShot();
 }
-// La bazooka: sale el cohete (bazooka_2 del usuario, dura lo que tarda en llegar)…
+// La bazooka: sale el misil (bazooka_misil_sale del usuario, 4 s: suena mientras vuela)…
 export function playBazookaShot() { playSample(invBazookaVueloUrl, 1.8); }
 // …y explota (bazooka_1 del usuario).
 export function playBazookaBoom() {

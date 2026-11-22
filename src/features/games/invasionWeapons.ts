@@ -21,15 +21,16 @@ function img(url: string) {
 export function preloadWeapons() { for (const u of [rifleHand, rifleReload, rifleScope, machineHand, machineReload, machineScope, bazookaHand]) img(u); }
 
 // Cómo va cada arma en la mano: alto (en fracción del alto de la pantalla) y cuánto se mete en el borde derecho.
-// `aim` (opcional): el caño de la imagen (boca de adelante y de atrás, en px de la imagen); el arma se ubica para
-// que esa línea pase justo por el "+" del medio, con la boca a `gap` (fracción del alto) del centro y girada `tilt`.
-interface Aim { front: [number, number]; back: [number, number]; tilt: number; gap: number }
+// `front` (opcional, la bazooka): el arma se ve de atrás, centrada, apuntando al frente. `cx` es el centro del tubo y
+// `sight` la punta de la mira de adelante (px de la imagen); se ubica para que la mira quede justo debajo del "+"
+// (a `gap`, fracción del alto, del centro). La parte de abajo de la foto queda fuera de la pantalla.
+interface Front { cx: number; sight: number; gap: number }
 // `muzzle`: la boca del arma en la imagen de la mano (px de la imagen), para el fogonazo. `reload` null: no tiene imagen
 // de carga (la bazooka: al recargar solo baja un poco y vuelve).
-const HELD: Record<Weapon, { hand: string; reload: string | null; tall: number; reloadTall: number; out: number; reloadX: number; aim?: Aim; muzzle: [number, number]; flash: number }> = {
+const HELD: Record<Weapon, { hand: string; reload: string | null; tall: number; reloadTall: number; out: number; reloadX: number; front?: Front; muzzle: [number, number]; flash: number }> = {
   rifle: { hand: rifleHand, reload: rifleReload, tall: 0.6, reloadTall: 0.86, out: 0.06, reloadX: 0.6, muzzle: [392, 214], flash: 0.1 },
   machine: { hand: machineHand, reload: machineReload, tall: 0.56, reloadTall: 0.8, out: 0.04, reloadX: 0.66, muzzle: [58, 175], flash: 0.08 },
-  bazooka: { hand: bazookaHand, reload: null, tall: 0.86, reloadTall: 0.86, out: 0.06, reloadX: 0.6, aim: { front: [100, 250], back: [880, 330], tilt: 0.2, gap: 0.11 }, muzzle: [100, 250], flash: 0.17 },
+  bazooka: { hand: bazookaHand, reload: null, tall: 0.74, reloadTall: 0.74, out: 0, reloadX: 0.5, front: { cx: 476, sight: 4, gap: 0.035 }, muzzle: [476, 91], flash: 0.15 },
 };
 
 // El arma en la mano. `reload` va de 0 a 1 mientras se recarga (null si no); `kick` es el retroceso.
@@ -54,20 +55,19 @@ export function drawHeldWeapon(ctx: CanvasRenderingContext2D, weapon: Weapon, w:
     const inOut = Math.min(1, reload / 0.05, (1 - reload) / 0.06); // entra y sale rápido
     y += (1 - Math.max(0, inOut)) * tall * 0.5 + Math.sin(reload * Math.PI * 3) * h * 0.012;
   }
-  if (reload === null && d.aim) {
-    // Apuntando al medio: la línea del caño pasa por el centro de la pantalla.
-    const A = d.aim, k = tall / im.naturalHeight;
-    const ax = A.front[0] - A.back[0], ay = A.front[1] - A.back[1], L = Math.hypot(ax, ay);
-    // Retroceso de la bazooka, fuerte: el tubo se viene bien para atrás (hacia uno, se agranda), sube y la boca se levanta.
-    const r = kick, back = r * h * 0.15, up = r * h * 0.2, grow = 1 + r * 0.12;
-    const rot = A.tilt + r * 0.34, ca = Math.cos(rot), sa = Math.sin(rot);
-    const ux = (ax * ca - ay * sa) / L, uy = (ax * sa + ay * ca) / L; // hacia adonde apunta, ya girado
-    const mxs = w / 2 - ux * (A.gap * h + back) + swayX, mys = h / 2 - uy * (A.gap * h + back) + swayY - up + dip;
-    ctx.save(); ctx.translate(mxs, mys); ctx.rotate(rot); ctx.scale(grow, grow);
-    ctx.drawImage(im, -A.front[0] * k, -A.front[1] * k, im.naturalWidth * k, tall);
+  if (reload === null && d.front) {
+    // De atrás, centrada: la mira de adelante apunta al "+".
+    const F = d.front, k = tall / im.naturalHeight;
+    const x0 = w / 2 - F.cx * k + swayX, y0 = h / 2 + F.gap * h - F.sight * k + swayY + dip;
+    // Retroceso fuerte: se viene para atrás (hacia uno: se agranda), sube y se ladea un poco, desde abajo al medio.
+    const r = kick, grow = 1 + r * 0.2, up = r * h * 0.13, rot = -r * 0.06, ca = Math.cos(rot) * grow, sa = Math.sin(rot) * grow;
+    const px = w / 2, py = h;
+    ctx.save(); ctx.translate(px, py - up); ctx.rotate(rot); ctx.scale(grow, grow); ctx.translate(-px, -py);
+    ctx.drawImage(im, x0, y0, im.naturalWidth * k, tall);
     ctx.restore();
-    const fx = mxs + ux * h * 0.02, fy = mys + uy * h * 0.02;
-    if (flash > 0) drawMuzzleFlash(ctx, fx, fy, d.flash * h, flash, Math.atan2(uy, ux), t, 'held', true); // con mucho humo
+    const mx0 = x0 + d.muzzle[0] * k - px, my0 = y0 + d.muzzle[1] * k - py; // la boca, con el mismo movimiento
+    const fx = px + mx0 * ca - my0 * sa, fy = py - up + mx0 * sa + my0 * ca;
+    if (flash > 0) drawMuzzleFlash(ctx, fx, fy, d.flash * h, flash, -Math.PI / 2 + rot, t, 'held', true); // con mucho humo
     drawSmoke(ctx, 'held', t);
     return { x: fx, y: fy };
   }
