@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { TouchGrips } from './TouchGrips';
 import { fitScale, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
-import { ALIEN_KINDS, ALIEN_POINTS, ALIEN_TOTAL, aliveAliens, aliveHumans, CITY_TOP, GAME_SECONDS, HUMAN_TOTAL, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
+import { ALIEN_KINDS, ALIEN_POINTS, HUMAN_PENALTY, ALIEN_TOTAL, aliveAliens, aliveHumans, CITY_TOP, GAME_SECONDS, HUMAN_TOTAL, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import { drawMinimap, drawRockets, paintCity, type View } from './invasionArt';
 import { invasionLevels } from './invasionSound';
@@ -15,7 +15,7 @@ import { EndBanner } from './EndBanner';
 import rifleArt from './assets/invasion/armas/menu-rifle.webp';
 import machineArt from './assets/invasion/armas/menu-ametralladora.webp';
 import bazookaArt from './assets/invasion/armas/menu-bazooka.webp';
-import { drawCross, drawHeldWeapon, drawScopeView, hasScope, preloadWeapons } from './invasionWeapons';
+import { drawCross, drawHeldWeapon, drawScopeView, hasScope, preloadWeapons, shotFx } from './invasionWeapons';
 
 const RECORD_KEY = 'escritorio-personal-juegos:invasion-record';
 // El récord se sigue guardando por cantidad de bajas para conservar los datos de partidas anteriores.
@@ -75,7 +75,7 @@ export function Invasion() {
   const pinch = useRef<{ d: number; zoom: number } | null>(null);
   const keys = useRef(new Set<string>());
   const [status, setStatus] = useState<Status>('ready');
-  const [hud, setHud] = useState(() => ({ time: GAME_SECONDS, kills: 0, points: 0, killsBy: ALIEN_KINDS.map(() => 0), humans: aliveHumans(firstGame), aliens: aliveAliens(firstGame), mag: Number(WEAPONS.rifle.mag), reloading: false }));
+  const [hud, setHud] = useState(() => ({ time: GAME_SECONDS, kills: 0, points: 0, civilians: 0, killsBy: ALIEN_KINDS.map(() => 0), humans: aliveHumans(firstGame), aliens: aliveAliens(firstGame), mag: Number(WEAPONS.rifle.mag), reloading: false }));
   const [record, setRecord] = useState(readInvasionRecord);
   const [result, setResult] = useState({ outcome: 'time' as Outcome, kills: 0, points: 0, time: 0, headshots: 0, shots: 0, hits: 0, defused: 0, newRecord: false, clues: [] as string[] });
   const [toast, setToast] = useState<{ text: string; id: number; big?: boolean; bad?: boolean } | null>(null);
@@ -234,6 +234,7 @@ export function Invasion() {
     aim.current.kick = current === 'machine' ? 0.33 : 1;
     aim.current.muzzle = 1;
     if (current === 'bazooka') playBazookaShot(); else if (current === 'machine') playMachineShot(); else playRifleShot();
+    shotFx(current, g.time); // la animación del disparo, en cada tiro
     // El cohete sale de la boca de la bazooka: paso ese punto de la pantalla a metros de la ciudad.
     const m = muzzleAt.current, b = baseView(stage.clientWidth, stage.clientHeight);
     const from = current === 'bazooka' && m ? { x: b.cx + (m.x - stage.clientWidth / 2) / b.s, y: b.cy - (m.y - stage.clientHeight / 2) / b.s } : undefined;
@@ -259,7 +260,7 @@ export function Invasion() {
     selected.current = 'rifle';
     trigger.current = false;
     setWeapon('rifle');
-    setHud({ time: GAME_SECONDS, kills: 0, points: 0, killsBy: ALIEN_KINDS.map(() => 0), humans: aliveHumans(g), aliens: aliveAliens(g), mag: WEAPONS.rifle.mag, reloading: false });
+    setHud({ time: GAME_SECONDS, kills: 0, points: 0, civilians: 0, killsBy: ALIEN_KINDS.map(() => 0), humans: aliveHumans(g), aliens: aliveAliens(g), mag: WEAPONS.rifle.mag, reloading: false });
     setToast({ text: 'Protegé a la población durante diez minutos.', id: performance.now(), big: true });
     setStatus('playing');
   }, [minZoom]);
@@ -354,7 +355,7 @@ export function Invasion() {
         if (best) { playAlienTalk(zoomK * (0.45 + 0.55 * (1 - best.d / radius))); best.who.talk = 2.2; talkAt = now + (zoomK > 0.5 ? 1300 + Math.random() * 1500 : 2600 + Math.random() * 2500); } else talkAt = now + 500;
       }
       paint();
-      const shown = { time: Math.ceil(GAME_SECONDS - g.time), kills: g.kills, points: g.points, killsBy: [...g.killsBy], humans: aliveHumans(g), aliens: aliveAliens(g), mag: G.mag, reloading: G.reload > 0 };
+      const shown = { time: Math.ceil(GAME_SECONDS - g.time), kills: g.kills, points: g.points, civilians: g.civilians, killsBy: [...g.killsBy], humans: aliveHumans(g), aliens: aliveAliens(g), mag: G.mag, reloading: G.reload > 0 };
       setHud(prev => JSON.stringify(prev) === JSON.stringify(shown) ? prev : shown);
       if (g.over) {
         const outcome = g.outcome ?? 'time', rec = readInvasionRecord(), won = outcome === 'won';
@@ -571,7 +572,7 @@ export function Invasion() {
         <h2 className="inv-panel-heading">Extraterrestres</h2>
         <table className="inv-species" data-testid="inv-species">
           <thead><tr><th scope="col">Especie</th><th scope="col">Matados</th><th scope="col">Puntos</th></tr></thead>
-          <tbody>{SPECIES_ORDER.map(i => <tr key={ALIEN_KINDS[i].name}><th scope="row">{ALIEN_KINDS[i].label} <small>{ALIEN_KINDS[i].points}</small></th><td>{hud.killsBy[i]}</td><td>{hud.killsBy[i] * ALIEN_KINDS[i].points}</td></tr>)}</tbody>
+          <tbody>{SPECIES_ORDER.map(i => <tr key={ALIEN_KINDS[i].name}><th scope="row">{ALIEN_KINDS[i].label} <small>{ALIEN_KINDS[i].points}</small></th><td>{hud.killsBy[i]}</td><td>{hud.killsBy[i] * ALIEN_KINDS[i].points}</td></tr>)}<tr className="inv-humans"><th scope="row">Humanos <small>−{HUMAN_PENALTY}</small></th><td>{hud.civilians}</td><td>{hud.civilians ? `−${hud.civilians * HUMAN_PENALTY}` : 0}</td></tr></tbody>
         </table>
         <h2 className="inv-panel-heading">Armamento</h2>
         <button type="button" className="inv-armory-toggle" aria-haspopup="dialog" disabled={status !== 'playing'} onClick={() => setStatus('armory')}>Arsenal <span>{WEAPONS[weapon].name}</span></button>

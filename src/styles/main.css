@@ -1316,6 +1316,8 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .inv-species tbody th small{color:#9fbcbc;font-weight:500;font-size:.85em}
 .inv-species tbody td{font:700 .78rem/1 ui-monospace,monospace;color:#eef9f6}
 .inv-species thead th:first-child{text-align:left}
+.inv-species tr.inv-humans th,.inv-species tr.inv-humans td{color:#fca5a5}
+.inv-species tr.inv-humans th small{color:#f8717199}
 .inv-armory-toggle,.inv-fire{border:1px solid #54645f;border-radius:5px;padding:.42rem .35rem;background:#172825;color:#e3eae6;font:700 .76rem/1.25 system-ui,sans-serif;cursor:pointer;touch-action:none}
 .inv-armory-toggle{display:grid;gap:.2rem;text-align:left}
 .inv-armory-toggle span{color:#bad0c7;font-weight:500}

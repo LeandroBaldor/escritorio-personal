@@ -34,6 +34,8 @@ export const ALIEN_KINDS = [
   { name: 'mantis', label: 'Mantis', size: 1.25, hp: 5, points: 40 }, { name: 'reptiliano', label: 'Reptiliano', size: 1.1, hp: 2, points: 30 },
 ] as const;
 // Daño de cada tiro: el francotirador saca 10 puntos de vida, la ametralladora 1 (la explosión de la bazooka mata siempre).
+// Cada humano que matás vos resta estos puntos.
+export const HUMAN_PENALTY = 50;
 export const DAMAGE: Record<Weapon, number> = { rifle: 10, machine: 1, bazooka: 99 };
 export const alienKind = (p: { id: number }) => ALIEN_KINDS[p.id % ALIEN_KINDS.length];
 export const WALL_BREAK = 14; // balas de ametralladora que aguanta un departamento antes de derrumbarse
@@ -774,7 +776,7 @@ function defeatPerson(g: Invasion, p: Person, head: boolean, byPlayer: boolean) 
     }
     addDecal(g, { room: p.room, x: p.x, y: p.y + 0.02, glass: false, t: g.time, blood: true, size: 1.4 });
     p.gone = true;
-    if (byPlayer) g.civilians++;
+    if (byPlayer) { g.civilians++; g.points -= HUMAN_PENALTY; } // matar a un humano resta puntos
     emit(g, { type: 'civilian', x: cx, y: cy });
   }
   p.anomaly = null;

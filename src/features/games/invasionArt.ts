@@ -12,6 +12,7 @@ import {
 } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import bazookaFxUrl from './assets/invasion/efectos/bazooka.webp';
+import missileUrl from './assets/invasion/efectos/misil.webp';
 import { drawPerson, drawProp, font, hash, hsl, mixColor } from './invasionPeople';
 
 export interface View { w: number; h: number; s: number; cx: number; cy: number; t: number; dpr: number }
@@ -804,6 +805,7 @@ function drawUfo(ctx: CanvasRenderingContext2D, u: Invasion['ufos'][number], v: 
 // ---------- El cohete de la bazooka ----------
 // Sale de donde estás (abajo, de tu lado) y se va achicando mientras vuela hacia el objetivo, con fuego atrás y
 // una estela de humo; sobre el objetivo titila una mira roja hasta que llega.
+const missile: HTMLImageElement | null = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: missileUrl }) : null; // se carga de entrada
 function drawRocket(ctx: CanvasRenderingContext2D, rk: Rocket, v: View, t: number) {
   const k = Math.min(1, (t - rk.t0) / ROCKET_TIME), e = k * k * (3 - 2 * k) * 0.55 + k * 0.45;
   // Sale de la boca de la bazooka (`from`, guardada al disparar) y va hacia el objetivo con una curva de abajo hacia
@@ -821,8 +823,20 @@ function drawRocket(ctx: CanvasRenderingContext2D, rk: Rocket, v: View, t: numbe
     const [hx, hy] = pos(q), size = (1 - q * 0.75) * v.h * 0.03 * (1 + i * 0.15);
     ctx.fillStyle = `rgba(214,211,209,${0.35 * (1 - i / 13)})`; ctx.beginPath(); ctx.arc(hx + Math.sin(i * 2.3 + rk.t0) * size * 0.3, hy, size, 0, Math.PI * 2); ctx.fill();
   }
-  // El cohete: cuerpo verde oliva con punta roja y el fuego atrás, cada vez más chico.
   const [x, y] = pos(e), [px, py] = pos(Math.max(0, e - 0.02)), ang = Math.atan2(y - py, x - px), L = Math.max(4, (1 - e * 0.8) * v.h * 0.07);
+  // El misil de la foto del usuario: visto de atrás (se aleja), con el fuego del motor, la punta hacia donde va y
+  // cada vez más chico. El brillo del fuego titila un poco.
+  if (missile?.complete && missile.naturalWidth) {
+    const H = Math.max(10, (1 - e * 0.86) * v.h * 0.24), W = H * missile.naturalWidth / missile.naturalHeight, fl = 0.85 + Math.sin(t * 47) * 0.15;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(ang + Math.PI / 2);
+    const glow = ctx.createRadialGradient(0, H * 0.3, 0, 0, H * 0.3, H * 0.55 * fl);
+    glow.addColorStop(0, 'rgba(255,214,140,0.55)'); glow.addColorStop(1, 'rgba(255,140,40,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, H * 0.3, H * 0.55 * fl, 0, Math.PI * 2); ctx.fill();
+    ctx.drawImage(missile, -W / 2, -H / 2, W, H);
+    ctx.restore();
+    return;
+  }
+  // Mientras no carga la foto: cuerpo verde oliva con punta roja y el fuego atrás, cada vez más chico.
   ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
   const fl = 0.8 + Math.sin(t * 50) * 0.2;
   const fire = ctx.createRadialGradient(-L * 0.7, 0, 0, -L * 0.7, 0, L * 0.9 * fl); fire.addColorStop(0, 'rgba(255,251,235,1)'); fire.addColorStop(0.4, 'rgba(251,146,60,0.9)'); fire.addColorStop(1, 'rgba(220,38,38,0)');
