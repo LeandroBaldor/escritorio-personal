@@ -8,7 +8,7 @@
 // después se copia: así se puede dibujar con mucho detalle sin que se trabe.
 import { drawUfoCraftAt } from './kombatPenUfo';
 import {
-  alienKind, BLOOD, CITY_TOP, SIDE_W, GAME_SECONDS, hitbox, rainAt, ROCKET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
+  alienKind, BLOOD, CITY_TOP, GAME_SECONDS, hitbox, rainAt, ROCKET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, UFO_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
 } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import bazookaFxUrl from './assets/invasion/efectos/bazooka.webp';
@@ -34,148 +34,6 @@ function skyColors(t: number) {
   const low = mixColor(mixColor(mixColor('#e0f2fe', '#fcd34d', dusk * 0.8), '#4b5563', rain * 0.8), '#ea580c', k * 0.8);
   return { top, mid, low };
 }
-// ---------- Los edificios de los costados ----------
-// Más allá de la cuadra (antes de x = 0 y después del ancho) el escenario sigue con edificios cerrados (no se ve
-// adentro): torres, oficinas, locales con su cartel, una fábrica y obras en construcción con grúa. Son decorado:
-// no se rompen. Hay gente en las ventanas (siluetas que se mueven) y la vereda de adelante es parte de la calle,
-// así que caminan personas y aliens. Se arman siempre iguales (`sideBlocks`), hasta el final del mapa (`SIDE_W`).
-type SideKind = 'tower' | 'office' | 'shops' | 'factory' | 'works';
-interface SideBlock { x: number; w: number; h: number; kind: SideKind; hue: number; seed: number }
-const SIDE_KINDS: SideKind[] = ['tower', 'shops', 'works', 'office', 'factory', 'tower', 'shops', 'office', 'works', 'tower', 'factory', 'shops'];
-const SIDE_SIGNS = ['KIOSCO', 'FARMACIA', 'PANADERÍA', 'FERRETERÍA', 'BAR', 'PIZZERÍA', 'LAVADERO', 'CERRAJERÍA', 'ÓPTICA', 'ALMACÉN'];
-let sideCache: { width: number; blocks: SideBlock[] } | null = null;
-function sideBlocks(width: number) {
-  if (sideCache?.width === width) return sideCache.blocks;
-  const blocks: SideBlock[] = [];
-  // Hasta el final del mapa justo (`SIDE_W`): el último edificio se estira o se achica para terminar ahí.
-  for (const dir of [-1, 1]) {
-    let edge = dir < 0 ? -1.4 : width + 1.4;
-    const end = dir < 0 ? -SIDE_W : width + SIDE_W;
-    for (let i = 0; Math.abs(end - edge) > 0.5; i++) {
-      const seed = (dir < 0 ? 100 : 200) + i, kind = SIDE_KINDS[(i + (dir < 0 ? 0 : 5)) % SIDE_KINDS.length], q = hash(seed * 7.1);
-      let w = kind === 'factory' ? 18 + q * 7 : kind === 'shops' ? 10 + q * 5 : 10 + q * 5;
-      const left = Math.abs(end - edge);
-      if (left - w < 9) w = left; // el último llega hasta el borde
-      const h = kind === 'tower' ? 30 + q * 18 : kind === 'office' ? 24 + q * 14 : kind === 'works' ? 20 + q * 16 : kind === 'factory' ? 9 + q * 3 : 8.6 + q * 3;
-      const x = dir < 0 ? edge - w : edge;
-      blocks.push({ x, w, h, kind, hue: Math.floor(hash(seed * 3.3) * 360), seed });
-      if (w === left) break;
-      edge = dir < 0 ? x - (1.2 + hash(seed) * 1.6) : x + w + 1.2 + hash(seed) * 1.6;
-    }
-  }
-  sideCache = { width, blocks };
-  return blocks;
-}
-function drawSideBlocks(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
-  const s = v.s;
-  for (const b of sideBlocks(g.width)) {
-    if (!visible(v, b.x - 6, b.x + b.w + 6, 0, b.h + 12)) continue;
-    const x = X(v, b.x), w = b.w * s, base = Y(v, 0), top = Y(v, b.h);
-    if (b.kind === 'works') { drawSideWorks(ctx, b, v, g.time); continue; }
-    // Fachada.
-    const wall = b.kind === 'factory' ? `hsl(${8 + (b.hue % 18)},38%,34%)` : b.kind === 'office' ? `hsl(${200 + (b.hue % 30)},16%,40%)` : `hsl(${b.hue},${12 + (b.seed % 10)}%,${46 + (b.seed % 12)}%)`;
-    const shade = ctx.createLinearGradient(x, 0, x + w, 0); shade.addColorStop(0, 'rgba(0,0,0,0.18)'); shade.addColorStop(0.15, 'rgba(0,0,0,0)'); shade.addColorStop(0.85, 'rgba(0,0,0,0)'); shade.addColorStop(1, 'rgba(0,0,0,0.25)');
-    ctx.fillStyle = wall; ctx.fillRect(x, top, w, base - top); ctx.fillStyle = shade; ctx.fillRect(x, top, w, base - top);
-    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(x - s * 0.1, top - s * 0.25, w + s * 0.2, s * 0.3); // cornisa
-    if (b.kind === 'factory') { drawSideFactory(ctx, b, v, g.time); continue; }
-    // Ventanas (de lejos, solo franjas).
-    const shopH = 3.1, fh = b.kind === 'office' ? 2.6 : 2.8, cols = Math.max(2, Math.round(b.w / (b.kind === 'office' ? 1.4 : 1.8)));
-    const cw = b.w / cols, small = cw * s < 5;
-    for (let fy = shopH + 0.5; fy + fh * 0.6 < b.h - 0.4; fy += fh) {
-      if (small) { ctx.fillStyle = 'rgba(15,23,42,0.45)'; ctx.fillRect(x + s * 0.4, Y(v, fy + fh * 0.65), w - s * 0.8, fh * 0.45 * s); continue; }
-      for (let c = 0; c < cols; c++) {
-        const lit = hash(b.seed * 13 + c * 7 + fy * 3) < 0.28;
-        ctx.fillStyle = b.kind === 'office' ? (lit ? '#fde68a' : '#1e3a5f') : lit ? '#fcd34d' : '#1f2a37';
-        const wx = b.x + c * cw + cw * (b.kind === 'office' ? 0.08 : 0.22), ww = cw * (b.kind === 'office' ? 0.84 : 0.56);
-        ctx.fillRect(X(v, wx), Y(v, fy + fh * 0.72), ww * s, fh * 0.52 * s);
-        const who = hash(b.seed * 5 + c * 11 + fy * 7);
-        if (ww * s > 6) { // en cada ventana hay alguien: silueta que va y viene (a contraluz si está prendida)
-          const px = wx + ww * (0.3 + 0.4 * (0.5 + 0.5 * Math.sin(g.time * (0.3 + who) + who * 20))), ph = fh * 0.4, hr = ph * 0.2;
-          ctx.fillStyle = lit ? 'rgba(30,20,10,0.78)' : 'rgba(148,163,184,0.5)';
-          ctx.beginPath(); ctx.arc(X(v, px), Y(v, fy + fh * 0.2 + ph - hr), hr * s, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.ellipse(X(v, px), Y(v, fy + fh * 0.2), hr * 1.9 * s, ph * 0.6 * s, 0, Math.PI, 0); ctx.fill();
-        }
-        if (b.kind !== 'office') { ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(X(v, wx), Y(v, fy + fh * 0.72), ww * s * 0.35, fh * 0.52 * s); }
-      }
-    }
-    // Planta baja: locales con vidriera, toldo y cartel (las torres y las oficinas tienen hall de entrada).
-    if (b.kind === 'shops' || b.kind === 'tower') {
-      const n = b.kind === 'shops' ? Math.max(1, Math.round(b.w / 5)) : 1, lw = b.w / n;
-      for (let i = 0; i < n; i++) {
-        const lx = b.x + i * lw, color = `hsl(${(b.hue + i * 97) % 360},62%,44%)`;
-        ctx.fillStyle = '#0f172a'; ctx.fillRect(X(v, lx + 0.3), Y(v, 2.3), (lw - 0.6) * s, 2.3 * s); // vidriera
-        ctx.fillStyle = 'rgba(253,224,71,0.18)'; ctx.fillRect(X(v, lx + 0.3), Y(v, 2.3), (lw - 0.6) * s, 2.3 * s);
-        ctx.fillStyle = '#334155'; ctx.fillRect(X(v, lx + lw * 0.5 - 0.45), Y(v, 2.1), 0.9 * s, 2.1 * s); // puerta
-        for (let q = 0; q < 2; q++) { const hq = hash(b.seed * 9 + i * 4 + q); sidePerson(ctx, v, lx + 0.8 + (lw - 1.6) * ((hq + Math.sin(g.time * (0.2 + hq * 0.3) + hq * 9) * 0.15 + 1) % 1), 0, 1.65, (b.hue + q * 120 + i * 60) % 360); } // el que atiende y un cliente
-        for (let k = 0; k < 6; k++) { ctx.fillStyle = k % 2 ? '#f8fafc' : color; ctx.fillRect(X(v, lx + 0.2 + k * (lw - 0.4) / 6), Y(v, 2.85), (lw - 0.4) / 6 * s + 0.5, 0.5 * s); } // toldo
-        if (s * lw > 40) { // cartel
-          ctx.fillStyle = color; ctx.fillRect(X(v, lx + 0.4), Y(v, 3.6), (lw - 0.8) * s, 0.65 * s);
-          ctx.fillStyle = '#fff'; ctx.font = font(800, Math.max(7, s * 0.42)); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText(SIDE_SIGNS[(b.seed + i) % SIDE_SIGNS.length], X(v, lx + lw / 2), Y(v, 3.28), (lw - 1) * s);
-        }
-      }
-    } else { ctx.fillStyle = '#0f172a'; ctx.fillRect(X(v, b.x + b.w * 0.3), Y(v, 2.8), b.w * 0.4 * s, 2.8 * s); ctx.fillStyle = 'rgba(147,197,253,0.25)'; ctx.fillRect(X(v, b.x + b.w * 0.3), Y(v, 2.8), b.w * 0.4 * s, 2.8 * s); sidePerson(ctx, v, b.x + b.w * (0.4 + 0.2 * (0.5 + 0.5 * Math.sin(g.time * 0.3 + b.seed))), 0, 1.7, b.hue); } // el portero
-    // Techo: tanque de agua o antena.
-    if (b.seed % 3 === 0) { ctx.fillStyle = '#57534e'; ctx.fillRect(X(v, b.x + b.w * 0.65), Y(v, b.h + 2.2), 1.8 * s, 1.6 * s); ctx.fillRect(X(v, b.x + b.w * 0.67), Y(v, b.h + 0.6), 0.15 * s, 0.6 * s); ctx.fillRect(X(v, b.x + b.w * 0.65 + 1.5), Y(v, b.h + 0.6), 0.15 * s, 0.6 * s); }
-    else if (b.seed % 3 === 1) { ctx.strokeStyle = '#334155'; ctx.lineWidth = Math.max(1, s * 0.08); ctx.beginPath(); ctx.moveTo(X(v, b.x + b.w * 0.3), Y(v, b.h)); ctx.lineTo(X(v, b.x + b.w * 0.3), Y(v, b.h + 5)); ctx.stroke(); ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(X(v, b.x + b.w * 0.3), Y(v, b.h + 5), Math.max(1.5, s * 0.15), 0, Math.PI * 2); ctx.fill(); }
-  }
-}
-// Una persona de lejos (cabeza, cuerpo, piernas), parada en `y`, de `h` metros; con casco si es obrero.
-function sidePerson(ctx: CanvasRenderingContext2D, v: View, x: number, y: number, h: number, hue: number, helmet = false) {
-  const s = v.s; if (h * s < 6) return;
-  ctx.fillStyle = '#1f2937'; ctx.fillRect(X(v, x - h * 0.09), Y(v, y + h * 0.45), h * 0.07 * s, h * 0.45 * s); ctx.fillRect(X(v, x + h * 0.02), Y(v, y + h * 0.45), h * 0.07 * s, h * 0.45 * s);
-  ctx.fillStyle = helmet ? '#f97316' : `hsl(${hue},55%,45%)`; ctx.fillRect(X(v, x - h * 0.13), Y(v, y + h * 0.8), h * 0.26 * s, h * 0.37 * s);
-  ctx.fillStyle = '#e0b48a'; ctx.beginPath(); ctx.arc(X(v, x), Y(v, y + h * 0.9), h * 0.1 * s, 0, Math.PI * 2); ctx.fill();
-  if (helmet) { ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(X(v, x), Y(v, y + h * 0.93), h * 0.11 * s, Math.PI, 0); ctx.fill(); }
-}
-function drawSideFactory(ctx: CanvasRenderingContext2D, b: SideBlock, v: View, t: number) {
-  const s = v.s, teeth = Math.max(3, Math.round(b.w / 4)), tw = b.w / teeth;
-  ctx.fillStyle = '#44403c';
-  for (let i = 0; i < teeth; i++) { const x0 = b.x + i * tw; ctx.beginPath(); ctx.moveTo(X(v, x0), Y(v, b.h)); ctx.lineTo(X(v, x0), Y(v, b.h + 2.2)); ctx.lineTo(X(v, x0 + tw), Y(v, b.h)); ctx.fill(); ctx.fillStyle = 'rgba(147,197,253,0.35)'; ctx.fillRect(X(v, x0) + 1, Y(v, b.h + 2), Math.max(1, s * 0.3), 1.8 * s); ctx.fillStyle = '#44403c'; } // techo en serrucho
-  for (const cx of [0.18, 0.32]) { // chimeneas
-    ctx.fillStyle = '#7c2d12'; ctx.fillRect(X(v, b.x + b.w * cx), Y(v, b.h + 9), 1.1 * s, 9 * s);
-    ctx.fillStyle = '#e7e5e4'; ctx.fillRect(X(v, b.x + b.w * cx), Y(v, b.h + 7.6), 1.1 * s, 0.5 * s); ctx.fillRect(X(v, b.x + b.w * cx), Y(v, b.h + 5.6), 1.1 * s, 0.5 * s);
-  }
-  ctx.fillStyle = 'rgba(15,23,42,0.75)';
-  for (let x0 = b.x + 1; x0 < b.x + b.w - 1.5; x0 += 2.2) ctx.fillRect(X(v, x0), Y(v, b.h - 1.2), 1.4 * s, 1.6 * s); // ventanas altas
-  ctx.fillStyle = '#6b7280'; ctx.fillRect(X(v, b.x + b.w * 0.55), Y(v, 4.2), 4.5 * s, 4.2 * s); // portón
-  for (let q = 0; q < 3; q++) sidePerson(ctx, v, b.x + 1.5 + ((q * 0.31 + t * 0.02 * (q + 1)) % 1) * (b.w * 0.5 - 2), 0, 1.7, 30, true); // operarios
-  ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1;
-  for (let yy = 0.4; yy < 4.2; yy += 0.4) { ctx.beginPath(); ctx.moveTo(X(v, b.x + b.w * 0.55), Y(v, yy)); ctx.lineTo(X(v, b.x + b.w * 0.55 + 4.5), Y(v, yy)); ctx.stroke(); }
-  if (s * 8 > 40) { ctx.fillStyle = '#fef3c7'; ctx.font = font(900, Math.max(7, s * 0.7)); ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('FÁBRICA', X(v, b.x + 1), Y(v, b.h - 2.6)); }
-}
-// Obra en construcción: losas de hormigón con columnas, los pisos de arriba solo esqueleto, andamio con media
-// sombra naranja y una grúa torre.
-function drawSideWorks(ctx: CanvasRenderingContext2D, b: SideBlock, v: View, t: number) {
-  const s = v.s, fh = 2.9, built = Math.floor(b.h / fh * (0.45 + hash(b.seed) * 0.25));
-  const floors = Math.floor(b.h / fh), cols = Math.max(3, Math.round(b.w / 3.4));
-  for (let k = 0; k < floors; k++) {
-    const y = k * fh;
-    if (k < built) { ctx.fillStyle = 'rgba(120,113,108,0.55)'; ctx.fillRect(X(v, b.x), Y(v, y + fh), b.w * s, fh * s); } // paredes a medio hacer
-    ctx.fillStyle = '#a8a29e'; ctx.fillRect(X(v, b.x - 0.3), Y(v, y + fh), (b.w + 0.6) * s, 0.35 * s); // losa
-    ctx.fillStyle = '#78716c';
-    for (let c = 0; c <= cols; c++) ctx.fillRect(X(v, b.x + c * b.w / cols - 0.2), Y(v, y + fh), 0.4 * s, fh * s); // columnas
-    for (let q = 0; q < 2; q++) { const hq = hash(b.seed * 3 + k * 5 + q); sidePerson(ctx, v, b.x + 0.8 + (b.w - 1.6) * ((hq + t * 0.015 * (0.5 + hq)) % 1), y + (k ? 0.35 : 0), 1.7, 30, true); } // albañiles en cada piso
-  }
-  // Andamio con media sombra.
-  ctx.strokeStyle = 'rgba(234,88,12,0.9)'; ctx.lineWidth = Math.max(1, s * 0.06);
-  const ax = b.x + b.w + 0.4;
-  for (let k = 0; k < built + 1; k++) { ctx.beginPath(); ctx.moveTo(X(v, ax), Y(v, k * fh)); ctx.lineTo(X(v, ax + 1.2), Y(v, (k + 1) * fh)); ctx.moveTo(X(v, ax), Y(v, (k + 1) * fh)); ctx.lineTo(X(v, ax + 1.2), Y(v, (k + 1) * fh)); ctx.stroke(); }
-  ctx.fillStyle = 'rgba(249,115,22,0.35)'; ctx.fillRect(X(v, b.x), Y(v, built * fh), b.w * s * 0.5, built * fh * 0.6 * s);
-  // Grúa torre.
-  const mx = b.x + b.w * 0.7, mh = b.h + 10, jib = b.w * 1.5;
-  ctx.strokeStyle = '#facc15'; ctx.lineWidth = Math.max(1, s * 0.1);
-  ctx.beginPath(); ctx.moveTo(X(v, mx), Y(v, 0)); ctx.lineTo(X(v, mx), Y(v, mh)); ctx.moveTo(X(v, mx + 0.9), Y(v, 0)); ctx.lineTo(X(v, mx + 0.9), Y(v, mh)); ctx.stroke();
-  ctx.lineWidth = Math.max(0.6, s * 0.04);
-  for (let yy = 0; yy < mh; yy += 1.2) { ctx.beginPath(); ctx.moveTo(X(v, mx), Y(v, yy)); ctx.lineTo(X(v, mx + 0.9), Y(v, yy + 1.2)); ctx.stroke(); }
-  ctx.lineWidth = Math.max(1, s * 0.1);
-  ctx.beginPath(); ctx.moveTo(X(v, mx - jib * 0.3), Y(v, mh)); ctx.lineTo(X(v, mx + jib), Y(v, mh)); ctx.moveTo(X(v, mx - jib * 0.3), Y(v, mh + 0.8)); ctx.lineTo(X(v, mx + jib), Y(v, mh + 0.8)); ctx.stroke();
-  ctx.fillStyle = '#57534e'; ctx.fillRect(X(v, mx - jib * 0.3), Y(v, mh + 0.2), 2 * s, 1.6 * s); // contrapeso
-  const hook = mx + jib * (0.5 + hash(b.seed + 1) * 0.4), drop = mh - 6 - hash(b.seed + 2) * 8;
-  ctx.strokeStyle = '#1f2937'; ctx.lineWidth = Math.max(0.6, s * 0.03); ctx.beginPath(); ctx.moveTo(X(v, hook), Y(v, mh)); ctx.lineTo(X(v, hook), Y(v, drop)); ctx.stroke();
-  ctx.fillStyle = '#92400e'; ctx.fillRect(X(v, hook - 1), Y(v, drop), 2 * s, 0.5 * s); // vigas colgando
-  if (s * 6 > 40) { ctx.fillStyle = '#fde047'; ctx.fillRect(X(v, b.x + 0.5), Y(v, 3.4), 5 * s, 1 * s); ctx.fillStyle = '#111'; ctx.font = font(900, Math.max(6, s * 0.45)); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('OBRA EN CONSTRUCCIÓN', X(v, b.x + 3), Y(v, 2.9), 4.8 * s); }
-}
 
 // El fondo de todo (la última capa, detrás de los edificios): la imagen del usuario (Invasion_Cielo_Portales), pegada
 // a la ciudad: se mueve con ella (como si estuviera pintada detrás de los edificios). Va de la calle hasta arriba de
@@ -183,9 +41,10 @@ function drawSideWorks(ctx: CanvasRenderingContext2D, b: SideBlock, v: View, t: 
 // note la unión, a lo largo de todo el mapa. Arriba de la imagen, el color oscuro de sus nubes. Mientras carga, el
 // cielo de antes.
 const wallpaper = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: wallpaperUrl }) : null;
-// Una sola imagen, pegada a la ciudad, que cubre todo lo que se puede llegar a ver: de punta a punta del mapa más
-// media pantalla a cada lado, y de la vereda a lo más alto más media pantalla. Se agranda parejo (sin deformarla)
-// hasta cubrir eso y se centra.
+// Una sola imagen, pegada a la ciudad (se mueve con ella), que cubre lo que se puede ver: la cuadra más media
+// pantalla a cada lado y de la calle a lo más alto más media pantalla. Se agranda parejo hasta cubrir eso; a esa
+// escala la imagen (3840 × 1080) se ve casi a su tamaño, sin pixelarse. Con la mira (mucho zoom) no se agranda con
+// el zoom: se corre un poco con la vista, como algo lejano.
 export function drawWallpaper(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   if (!wallpaper?.complete || !wallpaper.naturalWidth) {
     const c = skyColors(g.time), sky = ctx.createLinearGradient(0, 0, 0, v.h);
@@ -194,11 +53,14 @@ export function drawWallpaper(ctx: CanvasRenderingContext2D, g: Invasion, v: Vie
     return;
   }
   const halfH = (CITY_TOP + 3.4) / 2, halfW = halfH * 2.2;
-  const x0 = -SIDE_W - halfW, x1 = g.width + SIDE_W + halfW, y0 = 0.3 - halfH, y1 = CITY_TOP + halfH;
+  const x0 = -halfW, x1 = g.width + halfW, y0 = -4.5, y1 = CITY_TOP + halfH;
   const k = Math.max((x1 - x0) / wallpaper.naturalWidth, (y1 - y0) / wallpaper.naturalHeight), W = wallpaper.naturalWidth * k, H = wallpaper.naturalHeight * k;
   const left = (x0 + x1) / 2 - W / 2, top = (y0 + y1) / 2 + H / 2;
+  const s = Math.min(v.s, 26); // escala del fondo (con la mira, no sigue al zoom)
+  const px = v.w / 2 + (left - v.cx) * s, py = v.h / 2 - (top - v.cy) * s;
   ctx.fillStyle = '#040b07'; ctx.fillRect(0, 0, v.w, v.h);
-  ctx.drawImage(wallpaper, X(v, left), Y(v, top), W * v.s, H * v.s);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(wallpaper, px, py, W * s, H * s);
 }
 // `wall`: si pinta también el fondo.
 function drawSky(ctx: CanvasRenderingContext2D, g: Invasion, v: View, wall: boolean) {
@@ -213,7 +75,7 @@ function drawSky(ctx: CanvasRenderingContext2D, g: Invasion, v: View, wall: bool
     for (let i = 0; i < 40; i++) { const lx = mx + (i / 39 - 0.5) * v.s * 110, on = Math.floor(g.time * 2 + i) % 3; ctx.fillStyle = on ? '#22d3ee' : '#0e7490'; ctx.beginPath(); ctx.arc(lx, my + v.s * 2.6 * Math.sqrt(Math.max(0, 1 - ((lx - mx) / (v.s * 60)) ** 2)), v.s * 0.25, 0, Math.PI * 2); ctx.fill(); }
     ctx.globalAlpha = 1;
   }
-  drawSideBlocks(ctx, g, v); // los edificios de los costados (más allá de la cuadra)
+
 }
 
 // ---------- Habitaciones (lo que no se mueve, en una imagen) ----------
@@ -784,7 +646,7 @@ function drawStreetBack(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   // Vereda de enfrente (de donde mira el francotirador) y lo de abajo.
   ctx.fillStyle = '#57534e'; ctx.fillRect(0, Y(v, -3.72), v.w, 0.1 * s);
   const near = ctx.createLinearGradient(0, Y(v, -3.8), 0, Y(v, -6)); near.addColorStop(0, '#78716c'); near.addColorStop(1, '#292524');
-  ctx.fillStyle = near; ctx.fillRect(0, Y(v, -3.8), v.w, 2.4 * s); // (más abajo, el fondo)
+  ctx.fillStyle = near; ctx.fillRect(0, Y(v, -3.8), v.w, Math.max(0, v.h - Y(v, -3.8)));
   ctx.fillStyle = '#fde047'; for (let xx = Math.floor((v.cx - v.w / s) / 3) * 3; xx < v.cx + v.w / s; xx += 3) ctx.fillRect(X(v, xx), Y(v, ROAD_Y - 0.25), 1.6 * s, 0.07 * s);
   for (let i = 0; i < g.buildings.length - 1; i += 3) {
     const b = g.buildings[i], next = g.buildings[i + 1];
@@ -1098,8 +960,6 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
     }
     if (box.defused) { ctx.fillStyle = 'rgba(34,197,94,0.95)'; ctx.font = font(900, v.s * 0.3); ctx.textAlign = 'center'; ctx.fillText('✓', px, py - v.s * 0.6); }
   }
-  // La calle, la vereda, la gente de la vereda, los árboles y los autos solo dentro del mapa: afuera se ve el fondo.
-  ctx.save(); ctx.beginPath(); ctx.rect(X(v, -SIDE_W - 1), -10, (g.width + 2 * SIDE_W + 2) * v.s, v.h + 20); ctx.clip();
   drawStreetBack(ctx, g, v);
   for (const p of g.people) {
     if (p.gone || p.room >= 0) continue;
@@ -1108,7 +968,6 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
   }
   drawTrees(ctx, g, v);
   for (const c of g.cars) drawCar(ctx, c, v, g.time);
-  ctx.restore();
   for (const u of g.ufos) drawUfo(ctx, u, v, g.time);
   drawLifeBars(ctx, g, v);
   for (const p of g.people) {

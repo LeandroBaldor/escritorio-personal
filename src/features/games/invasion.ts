@@ -28,7 +28,7 @@ export const ALIEN_POINTS = 100;
 export const BAZOOKA_RADIUS = 4.2;
 // La calle sigue `SIDE_W` metros a cada lado de la cuadra (con edificios de decorado): la gente y los aliens de la
 // vereda caminan también por ahí y la vista llega hasta el final.
-export const SIDE_W = 70;
+export const SIDE_W = 0; // (el mapa es solo la cuadra, como al principio)
 export const streetLo = () => -SIDE_W + 0.5, streetHi = (g: { width: number }) => g.width + SIDE_W - 0.5;
 export const ROCKET_TIME = 5; // el misil de la bazooka tarda 5 s en llegar
 // Especies de aliens (mismo orden que `ALIEN_SPECIES` en invasionAliens: la especie es `id % 6`).

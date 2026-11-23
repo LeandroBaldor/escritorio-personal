@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { TouchGrips } from './TouchGrips';
 import { fitScale, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
-import { ALIEN_KINDS, ALIEN_POINTS, HUMAN_PENALTY, ALIEN_TOTAL, aliveAliens, aliveHumans, CITY_TOP, GAME_SECONDS, HUMAN_TOTAL, SIDE_W, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
+import { ALIEN_KINDS, ALIEN_POINTS, HUMAN_PENALTY, ALIEN_TOTAL, aliveAliens, aliveHumans, CITY_TOP, GAME_SECONDS, HUMAN_TOTAL, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import { isWoman } from './invasionPeople';
 import { drawMinimap, drawRockets, paintCity, type View } from './invasionArt';
@@ -43,7 +43,6 @@ function createArsenal() {
 }
 const BREATH = 4; // segundos que se puede contener la respiración (Shift)
 const PAN = 26; // lo que se mueve la vista con las flechas (unidades por segundo)
-const AIM_LOW = 0.3; // lo más bajo que llega el "+": la vereda (donde camina la gente)
 const EDGE = 0.07; // franja de cada costado (fracción del ancho) donde el mouse suelto corre el escenario
 const TOUCH_SPEED = 1.35; // en el celular el escenario se corre un poco más que el dedo (se llega a todos lados sin soltar)
 // Lo que entra de alto en el fondo: de la calle a lo más alto de los edificios (la ciudad ocupa casi toda la pantalla).
@@ -98,12 +97,9 @@ export function Invasion() {
   // contenés la respiración) y el retroceso mueven el escenario, así el "+" siempre marca adónde va el tiro.
   const baseView = useCallback((w: number, h: number): Omit<View, 't' | 'dpr'> => {
     const g = gameRef.current, s = h / (TOP_Y - FLOOR_Y), a = aim.current, c = cam.current;
-    // El "+" queda siempre en el medio (como en el Counter-Strike) y llega justo hasta donde hay edificios con gente:
-    // de punta a punta del mapa (−SIDE_W a ancho + SIDE_W) y de la vereda (`AIM_LOW`) a lo más alto. Lo que se ve
-    // más allá es solo el fondo.
-    c.x = Math.max(-SIDE_W, Math.min(g.width + SIDE_W, c.x));
+    c.x = Math.max(0, Math.min(g.width, c.x));
     const vx = c.x;
-    c.y = Math.max(AIM_LOW, Math.min(TOP_Y, c.y));
+    c.y = Math.max(FLOOR_Y + 2.4, Math.min(TOP_Y, c.y));
     const k = a.holding && a.breath > 0 ? 0.15 : 1, amp = 7 / a.zoom * k, t = a.swayT;
     return {
       w, h, s,
