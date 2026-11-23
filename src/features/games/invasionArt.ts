@@ -15,6 +15,7 @@ import bazookaFxUrl from './assets/invasion/efectos/bazooka.webp';
 import missileUrl from './assets/invasion/efectos/misil.webp';
 import ufoFxUrl from './assets/invasion/efectos/explosion-ovni.webp';
 import wallpaperUrl from './assets/invasion/fondo.webp';
+import wallpaperHdUrl from './assets/invasion/fondo-hd.webp';
 import vehiclesUrl from './assets/invasion/vehiculos.webp';
 import { drawPerson, drawProp, font, hash, hsl, mixColor } from './invasionPeople';
 
@@ -40,7 +41,10 @@ function skyColors(t: number) {
 // todo lo que se puede ver, y a lo ancho se repite espejada (una al derecho, la siguiente al revés) para que no se
 // note la unión, a lo largo de todo el mapa. Arriba de la imagen, el color oscuro de sus nubes. Mientras carga, el
 // cielo de antes.
-const wallpaper = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: wallpaperUrl }) : null;
+// En la compu, la versión grande (9600 × 2700: a pantalla completa y con la mira se ve a su tamaño, sin agrandar); en
+// el celular, una de 4800 × 1350 (la pantalla es chica y la grande ocupa mucha memoria).
+const coarse = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
+const wallpaper = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: coarse ? wallpaperUrl : wallpaperHdUrl }) : null;
 // Una sola imagen, pegada a la ciudad (se mueve con ella), que cubre lo que se puede ver: la cuadra más media
 // pantalla a cada lado y de la calle a lo más alto más media pantalla. Se agranda parejo hasta cubrir eso; a esa
 // escala la imagen (3840 × 1080) se ve casi a su tamaño, sin pixelarse. Con la mira (mucho zoom) no se agranda con
