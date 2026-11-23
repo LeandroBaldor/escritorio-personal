@@ -397,7 +397,13 @@ export function Invasion() {
   const lockMouse = useCallback(() => {
     const stage = stageRef.current;
     if (!stage || window.matchMedia?.('(pointer: coarse)').matches || document.pointerLockElement === stage) return;
-    try { const r = stage.requestPointerLock?.() as unknown; if (r && typeof (r as Promise<void>).catch === 'function') (r as Promise<void>).catch(() => undefined); } catch { /* sin bloqueo del puntero: se usa el mouse suelto */ }
+    // Si el navegador no lo deja (por ejemplo, justo después de soltarlo con Escape no se puede volver a atrapar
+    // enseguida), se reintenta una vez al segundo.
+    const ask = (retry: boolean) => {
+      const again = () => { if (retry) window.setTimeout(() => { if (statusRef.current === 'playing' && document.pointerLockElement !== stage) ask(false); }, 1100); };
+      try { const r = stage.requestPointerLock?.() as unknown; if (r && typeof (r as Promise<void>).catch === 'function') (r as Promise<void>).catch(again); } catch { again(); }
+    };
+    ask(true);
   }, []);
   useEffect(() => {
     const stage = stageRef.current;
@@ -416,14 +422,20 @@ export function Invasion() {
       trigger.current = true; fire();
     };
     const up = () => { trigger.current = false; };
-    // Si se suelta el mouse jugando (Escape), pausa. Solo si estuvo atrapado un rato: si el navegador lo suelta
-    // enseguida de atraparlo (pasa en algunos navegadores de prueba), no.
+    // Jugando, el mouse es siempre la mira: no puede quedar suelto. Si se suelta (Escape, cambiar de ventana…), el
+    // juego se pone en pausa y recién ahí aparece la flecha. (En el navegador de las pruebas automáticas, que suelta
+    // el mouse enseguida de atraparlo, solo si estuvo atrapado un rato.)
+    const robot = typeof navigator !== 'undefined' && navigator.webdriver;
+    const canLock = 'requestPointerLock' in stage && !window.matchMedia?.('(pointer: coarse)').matches;
     let lockedAt = 0;
     const lockChange = () => {
       if (document.pointerLockElement === stage) { lockedAt = performance.now(); return; }
-      if (statusRef.current === 'playing' && lockedAt && performance.now() - lockedAt > 500) setStatus('paused');
+      if (statusRef.current === 'playing' && lockedAt && (!robot || performance.now() - lockedAt > 500)) setStatus('paused');
       lockedAt = 0;
     };
+    // Si el navegador no llegó a atrapar el mouse y la flecha se va del cuadro del juego: pausa.
+    const leave = () => { if (canLock && !robot && statusRef.current === 'playing' && document.pointerLockElement !== stage) setStatus('paused'); };
+    stage.addEventListener('mouseleave', leave);
     window.addEventListener('mouseup', up);
     window.addEventListener('blur', up);
     const wheel = (e: WheelEvent) => { if (statusRef.current !== 'playing') return; e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.18 : 1 / 1.18); };
@@ -433,7 +445,7 @@ export function Invasion() {
     stage.addEventListener('mousedown', down);
     stage.addEventListener('wheel', wheel, { passive: false });
     document.addEventListener('pointerlockchange', lockChange);
-    return () => { window.removeEventListener('mouseup', up); window.removeEventListener('blur', up); up(); document.removeEventListener('mousemove', move); document.removeEventListener('mouseout', out); stage.removeEventListener('mousedown', down); stage.removeEventListener('wheel', wheel); document.removeEventListener('pointerlockchange', lockChange); };
+    return () => { window.removeEventListener('mouseup', up); window.removeEventListener('blur', up); up(); document.removeEventListener('mousemove', move); document.removeEventListener('mouseout', out); stage.removeEventListener('mousedown', down); stage.removeEventListener('wheel', wheel); stage.removeEventListener('mouseleave', leave); document.removeEventListener('pointerlockchange', lockChange); };
   }, [fire, zoomBy, paint, look, lockMouse]);
   // Fuera de la partida (pausa, arsenal, fin) se suelta el mouse.
   useEffect(() => { if (status !== 'playing' && document.pointerLockElement) document.exitPointerLock?.(); }, [status]);
