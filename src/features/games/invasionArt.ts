@@ -626,10 +626,8 @@ function drawCrane(ctx: CanvasRenderingContext2D, g: Invasion, b: Building, v: V
 // Pasajes entre edificios: pared de ladrillo del fondo, tacho de basura, ropa colgada y algún gato.
 function drawAlley(ctx: CanvasRenderingContext2D, a: Building, b: Building, v: View) {
   const s = v.s, x1 = a.x + a.w, x2 = b.x, h = Math.max(Math.min(a.top, b.top), 6);
-  const bg = ctx.createLinearGradient(0, Y(v, h), 0, Y(v, 0)); bg.addColorStop(0, '#44403c'); bg.addColorStop(1, '#1c1917');
-  ctx.fillStyle = bg; ctx.fillRect(X(v, x1), Y(v, h), (x2 - x1) * s, h * s);
-  ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1;
-  for (let yy = 0; yy < h; yy += 0.25) { ctx.beginPath(); ctx.moveTo(X(v, x1), Y(v, yy)); ctx.lineTo(X(v, x2), Y(v, yy)); ctx.stroke(); }
+  // (sin muro de fondo: entre los edificios se ve el fondo; quedan las sogas con ropa y el contenedor)
+  ctx.lineWidth = 1;
   for (let k = 0; k < 3; k++) { const ly = 4 + k * 4; if (ly > h - 1) break; ctx.strokeStyle = '#d6d3d1'; ctx.beginPath(); ctx.moveTo(X(v, x1), Y(v, ly)); ctx.quadraticCurveTo(X(v, (x1 + x2) / 2), Y(v, ly - 0.4), X(v, x2), Y(v, ly)); ctx.stroke(); for (let i = 0; i < 3; i++) { const cx = x1 + (i + 0.5) * (x2 - x1) / 3; ctx.fillStyle = hsl((a.id * 50 + k * 70 + i * 40) % 360, 60, 55); ctx.fillRect(X(v, cx - 0.15), Y(v, ly - 0.2), 0.3 * s, 0.4 * s); } }
   if (x2 - x1 > 2) { ctx.fillStyle = '#166534'; ctx.fillRect(X(v, x1 + 0.3), Y(v, 0.9), 1.2 * s, 0.9 * s); ctx.fillStyle = '#14532d'; ctx.fillRect(X(v, x1 + 0.25), Y(v, 0.95), 1.3 * s, 0.1 * s); }
 }
@@ -880,14 +878,15 @@ function drawLifeBars(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
 
 // La explosión de la bazooka: la secuencia que pasó el usuario (10 cuadros de 200 px, del destello al humo, sin
 // los números), rápida. Devuelve false si la imagen todavía no cargó (entonces se dibuja la explosión de siempre).
-const BAZOOKA_FX_DUR = 0.85;
+const BAZOOKA_FX_DUR = 0.85, UFO_FX_DUR = 1.25;
 // Si el misil le pega a un ovni, la secuencia es otra (explosion_ovni del usuario), más grande.
 const loadImg = (src: string) => typeof Image !== 'undefined' ? Object.assign(new Image(), { src }) : null; // se cargan de entrada
 const bazookaFx = loadImg(bazookaFxUrl), ufoFx = loadImg(ufoFxUrl);
-function drawBazookaFx(ctx: CanvasRenderingContext2D, bl: { x: number; y: number; t: number; size: number; ufo?: boolean }, v: View) {
+function drawBazookaFx(ctx: CanvasRenderingContext2D, bl: { x: number; y: number; t: number; size: number; ufo?: boolean; bazooka?: boolean }, v: View) {
   const im = bl.ufo ? ufoFx : bazookaFx;
   if (!im || !im.complete || !im.naturalWidth) return false;
-  const frame = Math.min(9, Math.floor(bl.t / BAZOOKA_FX_DUR * 10)), s = bl.size * v.s * (bl.ufo ? 3.4 : 4.2);
+  const hitUfo = bl.ufo && bl.bazooka, dur = hitUfo ? UFO_FX_DUR : BAZOOKA_FX_DUR; // el ovni derribado: el doble de grande y más lenta
+  const frame = Math.min(9, Math.floor(bl.t / dur * 10)), s = bl.size * v.s * (hitUfo ? 7 : bl.ufo ? 3.4 : 4.2);
   ctx.drawImage(im, frame * 200, 0, 200, 200, X(v, bl.x) - s / 2, Y(v, bl.y) - s / 2, s, s);
   return true;
 }
@@ -992,9 +991,9 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
   // Explosiones y partículas.
   for (const bl of g.blasts) {
     if (bl.t < 0) continue;
-    if (bl.bazooka && bl.t < BAZOOKA_FX_DUR && drawBazookaFx(ctx, bl, v)) continue; // la explosión de la bazooka, con la secuencia
+    if (bl.bazooka && bl.t < (bl.ufo ? UFO_FX_DUR : BAZOOKA_FX_DUR) && drawBazookaFx(ctx, bl, v)) continue; // la explosión de la bazooka, con la secuencia
     // Las explosiones de los departamentos (bombas, rayos de los ovnis) usan la secuencia de la explosión del ovni.
-    if (bl.big && !bl.bazooka && bl.t < BAZOOKA_FX_DUR && drawBazookaFx(ctx, { ...bl, ufo: true }, v)) continue;
+    if (bl.big && !bl.bazooka && bl.t < BAZOOKA_FX_DUR && drawBazookaFx(ctx, { ...bl, ufo: true, bazooka: false }, v)) continue;
     if (bl.big) { drawBigBlast(ctx, bl, v); continue; }
     const k = bl.t / 1.2, r = (0.6 + k * 1.8) * bl.size * v.s, px = X(v, bl.x), py = Y(v, bl.y);
     const gl = ctx.createRadialGradient(px, py, 0, px, py, r);

@@ -205,7 +205,7 @@ export function drawSmoke(ctx: CanvasRenderingContext2D, slot: string, t: number
 
 // El "+" para apuntar (sin mira).
 export function drawCross(ctx: CanvasRenderingContext2D, x: number, y: number, weapon: Weapon, t: number) {
-  const L = weapon === 'bazooka' ? 16 : 12, gap = weapon === 'bazooka' ? 5 : 4;
+  const L = weapon === 'bazooka' ? 16 : 12, gap = weapon === 'bazooka' ? 16 : 15; // las cuatro líneas bien separadas: sin la mira el tiro va a cualquier lado adentro
   const color = weapon === 'bazooka' ? '#fed18c' : '#ffffff';
   ctx.save(); ctx.lineCap = 'round';
   for (const [lw, c] of [[4.5, 'rgba(0,0,0,0.75)'], [2, color]] as [number, string][]) {

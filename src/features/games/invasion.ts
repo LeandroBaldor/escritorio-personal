@@ -28,6 +28,9 @@ export const ALIEN_POINTS = 100;
 export const BAZOOKA_RADIUS = 4.2;
 // La calle sigue `SIDE_W` metros a cada lado de la cuadra (con edificios de decorado): la gente y los aliens de la
 // vereda caminan también por ahí y la vista llega hasta el final.
+// Los autos andan por toda la calle que se ve (la cuadra más media pantalla de cada lado) y recién dan la vuelta
+// afuera de la pantalla, así no aparecen ni desaparecen en el medio de la calle.
+const CAR_OUT = 85;
 export const SIDE_W = 0; // (el mapa es solo la cuadra, como al principio)
 export const streetLo = () => -SIDE_W + 0.5, streetHi = (g: { width: number }) => g.width + SIDE_W - 0.5;
 export const ROCKET_TIME = 5; // el misil de la bazooka tarda 5 s en llegar
@@ -271,7 +274,7 @@ export function newInvasion(seed?: number): Invasion {
   while (g.people.length < HUMAN_TOTAL) {
     addPerson(g, -1, between(rand, streetLo(), streetHi(g)), SIDEWALK_Y, g.people.length % 6 === 0 ? 'jogger' : 'walker');
   }
-  for (let i = 0; i < 10; i++) g.cars.push({ id: g.nextId++, x: between(rand, -SIDE_W, g.width + SIDE_W), dir: i % 2 ? 1 : -1, speed: between(rand, 5, 9), hue: Math.floor(rand() * 360), kind: 'car', lane: i % 2, sprite: MOVING_VEHICLES[Math.floor(rand() * MOVING_VEHICLES.length)] });
+  for (let i = 0; i < 10; i++) g.cars.push({ id: g.nextId++, x: between(rand, -CAR_OUT, g.width + CAR_OUT), dir: i % 2 ? 1 : -1, speed: between(rand, 5, 9), hue: Math.floor(rand() * 360), kind: 'car', lane: i % 2, sprite: MOVING_VEHICLES[Math.floor(rand() * MOVING_VEHICLES.length)] });
   // Autos chocados y quemados, quietos a un costado de la calle.
   for (let i = 0; i < WRECKS.length; i++) g.cars.push({ id: g.nextId++, x: -SIDE_W + (g.width + 2 * SIDE_W) * (i + 0.5) / WRECKS.length + between(rand, -8, 8), dir: rand() < 0.5 ? 1 : -1, speed: 0, hue: 0, kind: 'car', lane: 1, sprite: WRECKS[i] });
   for (const p of g.people) { p.nextAnomaly = between(rand, 3, 14); p.nextSabotage = between(rand, 45, 90); }
@@ -379,7 +382,7 @@ export function step(g: Invasion, dt: number) {
   for (const c of g.cars) {
     const scared = ruinAt(t) > 0.3 ? 1.6 : 1;
     c.x += c.dir * c.speed * scared * dt;
-    if (c.x > g.width + SIDE_W + 12) c.x = -SIDE_W - 12; else if (c.x < -SIDE_W - 12) c.x = g.width + SIDE_W + 12; // (fuera del mapa no se ven)
+    if (c.x > g.width + CAR_OUT) c.x = -CAR_OUT; else if (c.x < -CAR_OUT) c.x = g.width + CAR_OUT; // cruzan toda la calle, hasta afuera de la pantalla
   }
   const trail: Particle[] = [];
   for (const s of g.particles) {

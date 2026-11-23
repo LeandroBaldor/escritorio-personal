@@ -47,6 +47,7 @@ const EDGE = 0.07; // franja de cada costado (fracción del ancho) donde el mous
 const TOUCH_SPEED = 1.35; // en el celular el escenario se corre un poco más que el dedo (se llega a todos lados sin soltar)
 // Lo que entra de alto en el fondo: de la calle a lo más alto de los edificios (la ciudad ocupa casi toda la pantalla).
 const FLOOR_Y = -3.4, TOP_Y = CITY_TOP;
+const HIP_SPREAD = { rifle: 2.6, machine: 3.2 }; // radio (m) en que cae el tiro sin la mira
 
 const OUTCOME_TEXT: Record<Outcome, string> = {
   won: 'La ciudad resistió. Quedan más humanos que aliens.',
@@ -240,7 +241,10 @@ export function Invasion() {
     // El cohete sale de la boca de la bazooka: paso ese punto de la pantalla a metros de la ciudad.
     const m = muzzleAt.current, b = baseView(stage.clientWidth, stage.clientHeight);
     const from = current === 'bazooka' && m ? { x: b.cx + (m.x - stage.clientWidth / 2) / b.s, y: b.cy - (m.y - stage.clientHeight / 2) / b.s } : undefined;
-    reactToHit(shoot(g, p.x, p.y, current, from));
+    // Sin la mira el tiro es muy impreciso (cae en cualquier lado de un círculo de `HIP_SPREAD` m): obliga a usar la mira.
+    let { x: hx, y: hy } = p;
+    if (current !== 'bazooka' && !aim.current.scoped) { const r = HIP_SPREAD[current] * Math.sqrt(Math.random()), a = Math.random() * Math.PI * 2; hx += Math.cos(a) * r; hy += Math.sin(a) * r; }
+    reactToHit(shoot(g, hx, hy, current, from));
     if (G.mag > 0) { G.cycle = config.cycle; if (current === 'rifle') playBolt(); }
     else { G.reload = config.reload; playReload(); }
   }, [target, reactToHit, baseView]);
