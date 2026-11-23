@@ -93,7 +93,10 @@ export interface Person {
 }
 export interface Box { id: number; room: number; x: number; y: number; explosive: boolean; t0: number; explodeAt: number; defused: boolean; exploded: boolean; hit: boolean; kind: number }
 export interface Ufo { id: number; x: number; y: number; vx: number; t0: number; beam: { room: number; t0: number; until: number; x: number; y: number } | null; nextBeam: number; wobble: number }
-export interface Car { id: number; x: number; dir: 1 | -1; speed: number; hue: number; kind: 'car' | 'taxi' | 'bus' | 'van' | 'police'; lane: number }
+export interface Car { id: number; x: number; dir: 1 | -1; speed: number; hue: number; kind: 'car' | 'taxi' | 'bus' | 'van' | 'police'; lane: number; sprite?: string } // `sprite`: el vehículo de la hoja del usuario (`VEHICLES` en invasionArt)
+// Los vehículos que andan y los chocados que quedaron tirados (nombres de la hoja de sprites del usuario).
+export const MOVING_VEHICLES = ["blanco", "taxi", "azul", "rojo", "plata", "negro", "policia", "nypd", "ambulancia", "tv", "blindado", "militar", "pickup_roja", "pickup_gris", "suv_azul", "suv_negra", "jeep", "furgon", "bus_azul", "bus_rojo", "escolar", "dos_pisos", "articulado", "micro"];
+export const WRECKS = ["choc1", "choc2", "choc3", "choc4", "volcado", "choc5"];
 export interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; kind: 'blood' | 'spark' | 'glass' | 'smoke' | 'debris' | 'ember' | 'goo' | 'wreck'; spin?: number }
 export interface Decal { room: number; x: number; y: number; glass: boolean; t: number; goo?: boolean; blood?: boolean; size?: number; crater?: number; tint?: number } // `tint`: especie (color de la baba)
 export interface Blast { x: number; y: number; t: number; size: number; green?: boolean; tint?: number; big?: boolean; bazooka?: boolean; ufo?: boolean }
@@ -268,7 +271,9 @@ export function newInvasion(seed?: number): Invasion {
   while (g.people.length < HUMAN_TOTAL) {
     addPerson(g, -1, between(rand, streetLo(), streetHi(g)), SIDEWALK_Y, g.people.length % 6 === 0 ? 'jogger' : 'walker');
   }
-  for (let i = 0; i < 9; i++) g.cars.push({ id: g.nextId++, x: between(rand, -SIDE_W, g.width + SIDE_W), dir: i % 2 ? 1 : -1, speed: between(rand, 5, 9), hue: Math.floor(rand() * 360), kind: pick(rand, ['car', 'car', 'taxi', 'bus', 'van', 'car'] as const), lane: i % 2 });
+  for (let i = 0; i < 10; i++) g.cars.push({ id: g.nextId++, x: between(rand, -SIDE_W, g.width + SIDE_W), dir: i % 2 ? 1 : -1, speed: between(rand, 5, 9), hue: Math.floor(rand() * 360), kind: 'car', lane: i % 2, sprite: MOVING_VEHICLES[Math.floor(rand() * MOVING_VEHICLES.length)] });
+  // Autos chocados y quemados, quietos a un costado de la calle.
+  for (let i = 0; i < WRECKS.length; i++) g.cars.push({ id: g.nextId++, x: -SIDE_W + (g.width + 2 * SIDE_W) * (i + 0.5) / WRECKS.length + between(rand, -8, 8), dir: rand() < 0.5 ? 1 : -1, speed: 0, hue: 0, kind: 'car', lane: 1, sprite: WRECKS[i] });
   for (const p of g.people) { p.nextAnomaly = between(rand, 3, 14); p.nextSabotage = between(rand, 45, 90); }
   for (let i = 0; i < g.aliensWanted; i++) spawnAlien(g, i);
   return g;
@@ -374,7 +379,7 @@ export function step(g: Invasion, dt: number) {
   for (const c of g.cars) {
     const scared = ruinAt(t) > 0.3 ? 1.6 : 1;
     c.x += c.dir * c.speed * scared * dt;
-    if (c.x > g.width + SIDE_W + 8) c.x = -SIDE_W - 8; else if (c.x < -SIDE_W - 8) c.x = g.width + SIDE_W + 8;
+    if (c.x > g.width + SIDE_W + 12) c.x = -SIDE_W - 12; else if (c.x < -SIDE_W - 12) c.x = g.width + SIDE_W + 12; // (fuera del mapa no se ven)
   }
   const trail: Particle[] = [];
   for (const s of g.particles) {

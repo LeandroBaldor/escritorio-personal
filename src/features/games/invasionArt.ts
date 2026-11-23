@@ -15,6 +15,7 @@ import bazookaFxUrl from './assets/invasion/efectos/bazooka.webp';
 import missileUrl from './assets/invasion/efectos/misil.webp';
 import ufoFxUrl from './assets/invasion/efectos/explosion-ovni.webp';
 import wallpaperUrl from './assets/invasion/fondo.webp';
+import vehiclesUrl from './assets/invasion/vehiculos.webp';
 import { drawPerson, drawProp, font, hash, hsl, mixColor } from './invasionPeople';
 
 export interface View { w: number; h: number; s: number; cx: number; cy: number; t: number; dpr: number }
@@ -182,7 +183,9 @@ function drawSideWorks(ctx: CanvasRenderingContext2D, b: SideBlock, v: View, t: 
 // note la unión, a lo largo de todo el mapa. Arriba de la imagen, el color oscuro de sus nubes. Mientras carga, el
 // cielo de antes.
 const wallpaper = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: wallpaperUrl }) : null;
-const WALL_Y0 = -4.5, WALL_Y1 = CITY_TOP + (CITY_TOP + 3.4) * 0.5 + 4; // de dónde a dónde va (en metros)
+// Una sola imagen, pegada a la ciudad, que cubre todo lo que se puede llegar a ver: de punta a punta del mapa más
+// media pantalla a cada lado, y de la vereda a lo más alto más media pantalla. Se agranda parejo (sin deformarla)
+// hasta cubrir eso y se centra.
 export function drawWallpaper(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   if (!wallpaper?.complete || !wallpaper.naturalWidth) {
     const c = skyColors(g.time), sky = ctx.createLinearGradient(0, 0, 0, v.h);
@@ -190,15 +193,12 @@ export function drawWallpaper(ctx: CanvasRenderingContext2D, g: Invasion, v: Vie
     ctx.fillStyle = sky; ctx.fillRect(0, 0, v.w, v.h);
     return;
   }
-  const H = WALL_Y1 - WALL_Y0, W = H * wallpaper.naturalWidth / wallpaper.naturalHeight, top = Y(v, WALL_Y1);
+  const halfH = (CITY_TOP + 3.4) / 2, halfW = halfH * 2.2;
+  const x0 = -SIDE_W - halfW, x1 = g.width + SIDE_W + halfW, y0 = 0.3 - halfH, y1 = CITY_TOP + halfH;
+  const k = Math.max((x1 - x0) / wallpaper.naturalWidth, (y1 - y0) / wallpaper.naturalHeight), W = wallpaper.naturalWidth * k, H = wallpaper.naturalHeight * k;
+  const left = (x0 + x1) / 2 - W / 2, top = (y0 + y1) / 2 + H / 2;
   ctx.fillStyle = '#040b07'; ctx.fillRect(0, 0, v.w, v.h);
-  const first = Math.floor((v.cx - v.w / 2 / v.s + SIDE_W + 200) / W), last = Math.ceil((v.cx + v.w / 2 / v.s + SIDE_W + 200) / W);
-  for (let i = first; i <= last; i++) {
-    const x0 = -SIDE_W - 200 + i * W, px = X(v, x0), pw = W * v.s;
-    if (px > v.w || px + pw < 0) continue;
-    if (i % 2 === 0) ctx.drawImage(wallpaper, px, top, pw + 0.5, H * v.s);
-    else { ctx.save(); ctx.translate(px + pw, top); ctx.scale(-1, 1); ctx.drawImage(wallpaper, 0, 0, pw + 0.5, H * v.s); ctx.restore(); }
-  }
+  ctx.drawImage(wallpaper, X(v, left), Y(v, top), W * v.s, H * v.s);
 }
 // `wall`: si pinta también el fondo.
 function drawSky(ctx: CanvasRenderingContext2D, g: Invasion, v: View, wall: boolean) {
@@ -784,7 +784,7 @@ function drawStreetBack(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   // Vereda de enfrente (de donde mira el francotirador) y lo de abajo.
   ctx.fillStyle = '#57534e'; ctx.fillRect(0, Y(v, -3.72), v.w, 0.1 * s);
   const near = ctx.createLinearGradient(0, Y(v, -3.8), 0, Y(v, -6)); near.addColorStop(0, '#78716c'); near.addColorStop(1, '#292524');
-  ctx.fillStyle = near; ctx.fillRect(0, Y(v, -3.8), v.w, Math.max(0, v.h - Y(v, -3.8)));
+  ctx.fillStyle = near; ctx.fillRect(0, Y(v, -3.8), v.w, 2.4 * s); // (más abajo, el fondo)
   ctx.fillStyle = '#fde047'; for (let xx = Math.floor((v.cx - v.w / s) / 3) * 3; xx < v.cx + v.w / s; xx += 3) ctx.fillRect(X(v, xx), Y(v, ROAD_Y - 0.25), 1.6 * s, 0.07 * s);
   for (let i = 0; i < g.buildings.length - 1; i += 3) {
     const b = g.buildings[i], next = g.buildings[i + 1];
@@ -824,7 +824,21 @@ function drawStreetBack(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
     ctx.fillStyle = '#78350f'; ctx.fillRect(X(v, xx - 1), Y(v, 0.45), 2 * s, 0.08 * s);
   }
 }
+// Los vehículos de la hoja del usuario (mirando a la derecha; para la izquierda se espejan): x, y, ancho, alto en el
+// atlas y el largo real en metros.
+const VEHICLES: Record<string, [number, number, number, number, number]> = {"blanco":[0,0,170,59,4.6],"taxi":[172,0,172,70,4.7],"azul":[346,0,158,64,4.0],"rojo":[506,0,167,65,4.0],"plata":[675,0,188,63,4.8],"negro":[865,0,170,59,4.7],"policia":[1037,0,199,72,4.9],"nypd":[1238,0,183,70,4.9],"ambulancia":[0,74,173,82,5.6],"tv":[175,74,151,85,5.6],"blindado":[328,74,161,77,6.2],"militar":[491,74,154,77,4.9],"pickup_roja":[647,74,194,70,5.6],"pickup_gris":[843,74,191,70,5.6],"suv_azul":[1036,74,173,72,5.0],"suv_negra":[1211,74,173,68,5.0],"jeep":[0,161,160,73,4.3],"furgon":[162,161,141,73,5.0],"choc1":[305,161,180,64,4.6],"choc2":[487,161,165,62,4.5],"choc3":[654,161,175,61,4.6],"choc4":[831,161,174,64,4.6],"volcado":[1007,161,160,68,4.4],"choc5":[1169,161,161,65,4.4],"bus_azul":[0,236,340,101,12],"bus_rojo":[342,236,362,100,12.5],"escolar":[706,236,343,98,11],"dos_pisos":[1051,236,345,103,13],"articulado":[0,341,373,97,18],"micro":[375,341,334,103,12.5]};
+const vehicles = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: vehiclesUrl }) : null;
 function drawCar(ctx: CanvasRenderingContext2D, c: Invasion['cars'][number], v: View, t: number) {
+  const sp = c.sprite ? VEHICLES[c.sprite] : undefined;
+  if (sp && vehicles?.complete && vehicles.naturalWidth) {
+    const [sx, sy, sw, sh, len] = sp, k = len / sw, W = len * v.s, H = sh * k * v.s, by = c.lane ? -2.5 : -1.1;
+    if (!visible(v, c.x - len, c.x + len, by, by + sh * k)) return;
+    const bump = c.speed ? Math.sin(t * 9 + c.id) * 0.012 * v.s : 0; // traqueteo
+    ctx.save(); ctx.translate(X(v, c.x), Y(v, by) + bump); ctx.scale(c.dir, 1);
+    ctx.drawImage(vehicles, sx, sy, sw, sh, -W / 2, -H, W, H);
+    ctx.restore();
+    return;
+  }
   const s = v.s, len = c.kind === 'bus' ? 7 : c.kind === 'van' ? 3.6 : 3.2, hgt = c.kind === 'bus' ? 2.3 : c.kind === 'van' ? 1.5 : 1.15;
   const by = c.lane ? -2.5 : -1.1;
   if (!visible(v, c.x - len, c.x + len, by, by + hgt)) return;
@@ -1084,6 +1098,8 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
     }
     if (box.defused) { ctx.fillStyle = 'rgba(34,197,94,0.95)'; ctx.font = font(900, v.s * 0.3); ctx.textAlign = 'center'; ctx.fillText('✓', px, py - v.s * 0.6); }
   }
+  // La calle, la vereda, la gente de la vereda, los árboles y los autos solo dentro del mapa: afuera se ve el fondo.
+  ctx.save(); ctx.beginPath(); ctx.rect(X(v, -SIDE_W - 1), -10, (g.width + 2 * SIDE_W + 2) * v.s, v.h + 20); ctx.clip();
   drawStreetBack(ctx, g, v);
   for (const p of g.people) {
     if (p.gone || p.room >= 0) continue;
@@ -1092,6 +1108,7 @@ export function paintCity(ctx: CanvasRenderingContext2D, g: Invasion, v: View, n
   }
   drawTrees(ctx, g, v);
   for (const c of g.cars) drawCar(ctx, c, v, g.time);
+  ctx.restore();
   for (const u of g.ufos) drawUfo(ctx, u, v, g.time);
   drawLifeBars(ctx, g, v);
   for (const p of g.people) {
