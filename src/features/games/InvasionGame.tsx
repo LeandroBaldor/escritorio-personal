@@ -344,6 +344,7 @@ export function Invasion() {
         }
         if (e.type === 'died') { const who = g.people.find(o => o.id === e.id); playHumanScream(!!who && isWoman(who), e.byPlayer ? 1 : near(e.x, e.y)); }
         if (e.type === 'scream') { const who = g.people.find(o => o.id === e.id); playHumanScream(!!who && isWoman(who), near(e.x, e.y) * 0.7); } // los gritos son solo los dos del usuario
+        if (e.type === 'mother') { playUfoArrive(); setToast({ text: '¡Llegó la nave nodriza! 🛸', id: now, big: true }); }
         if (e.type === 'ufoArrive') { playUfoArrive(); setToast({ text: g.ufos.length === 1 ? 'Entraron los OVNIs. Usá la bazooka.' : `¡Otro ovni! Ya son ${g.ufos.length} 🛸`, id: now, big: g.ufos.length === 1 }); }
         if (e.type === 'comm') playAlienComm(near(e.x, e.y) * 0.6);
         if (e.type === 'thunder') { playThunder(Math.max(0.35, 1 - Math.abs(e.x - p.x) / 120)); a.shake = Math.max(a.shake, 0.25); }

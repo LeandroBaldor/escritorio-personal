@@ -13,8 +13,10 @@ export const PERSON_H = 1, PERSON_W = 0.42;
 export const ALIEN_SIZE = 1.3; // los grises miden 1,3 veces una persona
 export const SIDEWALK_Y = 0, ROAD_Y = -1.6;
 // El ovni (la imagen de Kombat Penales) va de 4 m arriba del centro (la cúpula) a 3,7 m abajo (el emisor).
-const UFO_DY = 0.15, UFO_HALF_H = 3.85;
-export const UFO_FROM = 300; // a los 5 minutos llegan los ovnis
+// El ovni (OVNI.png del usuario): `u.y` es el borde del platillo; de la cúpula (3,5 m arriba) a la panza (1,35 m abajo).
+const UFO_DY = 1.08, UFO_HALF_H = 2.45, UFO_HALF_W = 6.2;
+export const MOTHER_FROM = 300; // a los 5 minutos aparece la nave nodriza (arriba de los edificios)
+export const UFO_FROM = 480; // a los 8 minutos llegan los ovnis
 export const RAIN_FROM = 180; // a los 3 minutos empieza a llover
 export const MAG = 10, BOLT_TIME = 0.75, RELOAD_TIME = 1.5; // (10 balas: el doble desde las correcciones 6; recarga en 1,5 s, lo que dura el sonido)
 export type Outcome = 'won' | 'time';
@@ -107,7 +109,7 @@ export type InvasionEvent =
   | { type: 'shot'; x: number; y: number } | { type: 'kill'; x: number; y: number; head: boolean; anomaly: number | null }
   | { type: 'civilian'; x: number; y: number } | { type: 'bomb'; x: number; y: number } | { type: 'defused'; x: number; y: number } | { type: 'boxHit'; x: number; y: number }
   | { type: 'ufoPing'; x: number; y: number } | { type: 'explosion'; x: number; y: number; bazooka?: boolean } | { type: 'fire'; x: number; y: number }
-  | { type: 'laser'; x: number; y: number } | { type: 'ufoArrive' } | { type: 'moreAliens'; count: number } | { type: 'scream'; x: number; y: number; id: number } | { type: 'died'; x: number; y: number; id: number; byPlayer: boolean }
+  | { type: 'laser'; x: number; y: number } | { type: 'ufoArrive' } | { type: 'mother' } | { type: 'moreAliens'; count: number } | { type: 'scream'; x: number; y: number; id: number } | { type: 'died'; x: number; y: number; id: number; byPlayer: boolean }
   | { type: 'lighter'; x: number; y: number } | { type: 'ray'; x: number; y: number } | { type: 'glass'; x: number; y: number } | { type: 'miss'; x: number; y: number }
   | { type: 'comm'; x: number; y: number } | { type: 'thunder'; x: number } | { type: 'rain' } | { type: 'end' }
   | { type: 'rocketHit'; x: number; y: number; hit: 'ufoDestroyed' | 'alien' | 'civilian' | 'blast' }
@@ -117,7 +119,7 @@ export interface Invasion {
   particles: Particle[]; decals: Decal[]; blasts: Blast[]; rockets: Rocket[];
   time: number; kills: number; points: number; killsBy: number[]; civilians: number; headshots: number; defused: number; shots: number; hits: number; over: boolean; outcome: Outcome | null;
   events: InvasionEvent[]; deck: number[]; deckPos: number; rand: () => number; nextId: number; seen: number[]; killedAnomalies: number[];
-  aliensWanted: number; ufosLaunched: number; told: { ufo: boolean; rain: boolean };
+  aliensWanted: number; ufosLaunched: number; told: { ufo: boolean; rain: boolean; mother: boolean };
   aim: { x: number; y: number }; // dónde está apuntando la mira (los aliens se dan cuenta)
   lightning: { t: number; x: number } | null;
 }
@@ -257,7 +259,7 @@ export function newInvasion(seed?: number): Invasion {
   const g: Invasion = {
     ...city, people: [], boxes: [], ufos: [], cars: [], particles: [], decals: [], blasts: [], rockets: [],
     time: 0, kills: 0, points: 0, killsBy: ALIEN_KINDS.map(() => 0), civilians: 0, headshots: 0, defused: 0, shots: 0, hits: 0, over: false, outcome: null, events: [],
-    deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), ufosLaunched: 0, told: { ufo: false, rain: false },
+    deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), ufosLaunched: 0, told: { ufo: false, rain: false, mother: false },
     aim: { x: city.width / 2, y: 10 }, lightning: null,
   };
   // Gente en cada habitación (en las obras, albañiles; en los locales, el que atiende y algún cliente). Ningún lugar
@@ -308,7 +310,7 @@ export const anomalyOf = (p: Person): Anomaly | null => p.anomaly ? ANOMALIES[p.
 // Llegadas acumuladas, incluidas las bajas. La última oleada entra antes de terminar la partida.
 export const aliensAt = (t: number) => Math.min(ALIEN_TOTAL, 50 + 5 * Math.floor(t / 11));
 // Ovnis: desde los 5 minutos, van apareciendo de a uno cada 40 segundos (hasta 5).
-export const ufosAt = (t: number) => t < UFO_FROM ? 0 : Math.min(5, 1 + Math.floor((t - UFO_FROM) / 40));
+export const ufosAt = (t: number) => t < UFO_FROM ? 0 : Math.min(5, 1 + Math.floor((t - UFO_FROM) / 25));
 // Cuánto llueve (0 = nada, 1 = tormenta): empieza a los 3 minutos y en medio minuto ya es una tormenta.
 export const rainAt = (t: number) => Math.max(0, Math.min(1, (t - RAIN_FROM) / 30));
 // Cuánto de la ciudad tiene que estar destruida a cada momento (al final, toda).
@@ -369,6 +371,7 @@ export function step(g: Invasion, dt: number) {
 
   // Lluvia y relámpagos.
   if (t >= RAIN_FROM && !g.told.rain) { g.told.rain = true; emit(g, { type: 'rain' }); }
+  if (t >= MOTHER_FROM && !g.told.mother) { g.told.mother = true; emit(g, { type: 'mother' }); }
   if (g.lightning && t - g.lightning.t > 0.6) g.lightning = null;
   if (!g.lightning && g.rand() < dt * 0.13 * rainAt(t)) { g.lightning = { t, x: between(g.rand, 0, g.width) }; emit(g, { type: 'thunder', x: g.lightning.x }); }
 
@@ -847,7 +850,7 @@ function wearRoom(g: Invasion, room: Room, x: number, y: number, amount: number)
 function explodeRocket(g: Invasion, x: number, y: number) {
   const radius = BAZOOKA_RADIUS;
   const targets = g.people.filter(p => !p.dead && !p.gone && Math.hypot(p.x - x, p.y + 0.5 - y) <= radius);
-  const ships = g.ufos.filter(u => Math.hypot(Math.max(0, Math.abs(u.x - x) - 5), Math.max(0, Math.abs(u.y + UFO_DY - y) - UFO_HALF_H)) <= radius);
+  const ships = g.ufos.filter(u => Math.hypot(Math.max(0, Math.abs(u.x - x) - UFO_HALF_W), Math.max(0, Math.abs(u.y + UFO_DY - y) - UFO_HALF_H)) <= radius);
   const impact = (px: number, py: number, size: number, ufo = false) => {
     g.blasts.push({ x: px, y: py, t: 0, size, big: true, bazooka: true, ufo }); // `ufo`: la explosión del ovni (otra secuencia)
     burst(g, px, py, 44, '#f59e0b', 'spark', 8, 0.09);
@@ -877,11 +880,11 @@ export function shoot(g: Invasion, x: number, y: number, weapon: Weapon = 'rifle
   g.shots++;
   emit(g, { type: 'shot', x, y });
   if (weapon === 'bazooka') { // sale el cohete: explota recién cuando llega (`ROCKET_TIME`)
-    const ship = g.ufos.find(u => Math.abs(x - u.x) < 6.4 && Math.abs(y - (u.y + UFO_DY)) < UFO_HALF_H);
+    const ship = g.ufos.find(u => Math.abs(x - u.x) < UFO_HALF_W && Math.abs(y - (u.y + UFO_DY)) < UFO_HALF_H);
     g.rockets.push({ x, y, t0: g.time, ufo: ship?.id, from });
     return 'launched' as const;
   }
-  for (const u of g.ufos) if (Math.abs(x - u.x) < 6.4 && Math.abs(y - (u.y + UFO_DY)) < UFO_HALF_H) {
+  for (const u of g.ufos) if (Math.abs(x - u.x) < UFO_HALF_W && Math.abs(y - (u.y + UFO_DY)) < UFO_HALF_H) {
     burst(g, x, y, 12, '#a5f3fc', 'spark', 4, 0.05);
     emit(g, { type: 'ufoPing', x, y });
     return 'ufo' as const;

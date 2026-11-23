@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  alienKind, ALIEN_KINDS, DAMAGE, HUMAN_PENALTY, aliensAt, aliveAliens, aliveHumans, ALIEN_TOTAL, HUMAN_TOTAL, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, ufosAt, ROCKET_TIME, WALL_BREAK,
+  alienKind, ALIEN_KINDS, DAMAGE, HUMAN_PENALTY, aliensAt, aliveAliens, aliveHumans, ALIEN_TOTAL, HUMAN_TOTAL, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, MOTHER_FROM, ufosAt, ROCKET_TIME, WALL_BREAK,
   type Invasion, type Person,
 } from './invasion';
 import { ANOMALIES, fitsPlace, shuffledAnomalies } from './invasionAnomalies';
@@ -93,9 +93,10 @@ describe('Invasión: la gente y los aliens', () => {
     expect(harmless).toBeGreaterThan(0);
   });
 
-  it('con el tiempo hay más aliens, a los 3 minutos llueve, a los 5 llegan los ovnis y a los 10 la ciudad queda destruida', () => {
+  it('con el tiempo hay más aliens, a los 3 minutos llueve, a los 5 la nave nodriza, a los 8 los ovnis y a los 10 la ciudad queda destruida', () => {
     expect(RAIN_FROM).toBe(180);
-    expect(UFO_FROM).toBe(300);
+    expect(UFO_FROM).toBe(480);
+    expect(MOTHER_FROM).toBe(300);
     expect(rainAt(RAIN_FROM - 1)).toBe(0);
     expect(rainAt(RAIN_FROM + 60)).toBe(1);
     expect(aliensAt(0)).toBe(50);
@@ -264,7 +265,7 @@ describe('Invasión: el disparo', () => {
 
   it('a los ovnis las balas no les hacen nada', () => {
     const g = newInvasion(10);
-    run(g, UFO_FROM + 30);
+    run(g, UFO_FROM + 10);
     const u = g.ufos[0];
     expect(shoot(g, u.x, u.y, 'rifle')).toBe('ufo');
     expect(shoot(g, u.x, u.y, 'machine')).toBe('ufo');
