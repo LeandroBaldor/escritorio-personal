@@ -96,28 +96,32 @@ describe('Invasión: la gente y los aliens', () => {
   it('con el tiempo hay más aliens, a los 3 minutos llueve, a los 5 la nave nodriza, a los 8 los ovnis y a los 10 la ciudad queda destruida', () => {
     expect(RAIN_FROM).toBe(180);
     expect(UFO_FROM).toBe(480);
-    expect(MOTHER_FROM).toBe(300);
+    expect(MOTHER_FROM).toBe(480);
     expect(rainAt(RAIN_FROM - 1)).toBe(0);
     expect(rainAt(RAIN_FROM + 60)).toBe(1);
     expect(aliensAt(0)).toBe(50);
     expect(aliensAt(400)).toBeGreaterThan(50);
     expect(aliensAt(GAME_SECONDS - 1)).toBe(ALIEN_TOTAL);
-    expect(ufosAt(UFO_FROM - 1)).toBe(0);
-    expect(ufosAt(UFO_FROM + 1)).toBe(1);
+    expect(ufosAt(0)).toBe(0);
+    expect(ufosAt(60)).toBe(1); // los de la nave andan desde el principio
+    expect(ufosAt(UFO_FROM - 1)).toBe(2);
+    expect(ufosAt(UFO_FROM + 1)).toBe(3);
     expect(ufosAt(GAME_SECONDS - 1)).toBeGreaterThan(3);
     expect(ruinAt(GAME_SECONDS)).toBe(1);
     const g = newInvasion(7);
     const motherUfos = () => g.ufos.filter(u => u.kind === 'mother').length;
+    const launched = () => g.ufosLaunched;
     run(g, RAIN_FROM + 30);
-    expect(motherUfos()).toBe(0);
-    expect(g.ufos.some(u => u.kind === 'pen')).toBe(true); // los de Kombat Penales andan desde el principio
+    expect(launched()).toBe(2); // los de la nave nodriza andan desde el principio (2 antes de que llegue la nave)
+    expect(g.penLaunched).toBeGreaterThan(0); // y los de Kombat Penales también
     const events = takeEvents(g);
     expect(events.some(e => e.type === 'rain')).toBe(true);
     run(g, 60);
     expect([...events, ...takeEvents(g)].some(e => e.type === 'thunder')).toBe(true); // relámpagos
-    expect(motherUfos()).toBe(0);
+    expect(launched()).toBe(2);
     run(g, UFO_FROM + 15 - (RAIN_FROM + 90));
-    expect(motherUfos()).toBe(1);
+    expect(launched()).toBe(3); // a los 8 minutos llega la nave y larga más
+    expect(motherUfos()).toBeGreaterThan(0);
     expect(aliveAliens(g)).toBeGreaterThan(0);
     run(g, 540 - g.time);
     const ruined = g.rooms.filter(r => r.destroyed).length / g.rooms.length;

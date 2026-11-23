@@ -18,21 +18,23 @@ export const SIDEWALK_Y = 0, ROAD_Y = -1.6;
 // `u.y` es el borde del platillo, de la cúpula (3,5 m arriba) a la panza (1,35 m abajo).
 const UFO_BOX = { pen: { dy: 0.15, hh: 3.85, hw: 6.4 }, mother: { dy: 1.08, hh: 2.45, hw: 6.2 } };
 const onUfo = (u: Ufo, x: number, y: number) => { const b = UFO_BOX[u.kind]; return Math.abs(x - u.x) < b.hw && Math.abs(y - (u.y + b.dy)) < b.hh; };
+export const DEFUSE_POINTS = 50; // cada bomba desactivada
 export const UFO_KILLS = 5; // cada ovni derribado cuenta como 5 grises muertos
 // Los ovnis de Kombat Penales: el primero a los 15 s y uno más cada 150 s, hasta 3 (los derribados no vuelven).
 export const PEN_UFO_FROM = 15;
 export const penUfosAt = (t: number) => t < PEN_UFO_FROM ? 0 : Math.min(3, 1 + Math.floor((t - PEN_UFO_FROM) / 150));
-// La nave nodriza: va y viene de punta a punta de la cuadra (una vuelta cada 100 s), siempre en movimiento; cada
-// tanto baja mucho (hasta 20 m, detrás de los edificios) y vuelve a subir. Al aparecer baja desde 45 m más arriba.
+// La nave nodriza (a los 8 minutos): recorre todo el mapa detrás de los edificios, siempre en movimiento. Va y viene
+// de punta a punta de la cuadra (ida y vuelta en 60 s) y a la vez sube y baja, de arriba de los edificios a 24 m más
+// abajo (ida y vuelta en 29 s, así no repite siempre el mismo camino). Al aparecer baja desde 45 m más arriba.
 export const MOTHER_W = 70, MOTHER_IN = 25;
 export function motherAt(width: number, t: number) {
   const k = Math.min(1, Math.max(0, (t - MOTHER_FROM) / MOTHER_IN)), ease = 1 - (1 - k) ** 3, u = t - MOTHER_FROM;
-  const x = width / 2 - Math.cos(u * Math.PI * 2 / 100) * (width / 2 + 5);
-  const dip = 20 * Math.max(0, Math.sin(u * Math.PI * 2 / 47 - 1.2)) ** 3;
-  return { x, bottom: CITY_TOP - 8 - dip + (1 - ease) * 45 + Math.sin(t * 0.4) * 0.6, k };
+  const x = width / 2 - Math.cos(u * Math.PI * 2 / 60) * (width / 2 + 5);
+  const low = 24 * (0.5 - 0.5 * Math.cos(u * Math.PI * 2 / 29));
+  return { x, bottom: CITY_TOP - 6 - low + (1 - ease) * 45 + Math.sin(t * 0.4) * 0.6, k };
 }
-export const MOTHER_FROM = 300; // a los 5 minutos aparece la nave nodriza (arriba de los edificios)
-export const UFO_FROM = 480; // a los 8 minutos llegan los ovnis
+export const MOTHER_FROM = 480; // a los 8 minutos aparece la nave nodriza (detrás de los edificios)
+export const UFO_FROM = 480; // a los 8 minutos, con la nave, llega la oleada de ovnis y empieza la destrucción fuerte
 export const RAIN_FROM = 180; // a los 3 minutos empieza a llover
 export const MAG = 10, BOLT_TIME = 0.75, RELOAD_TIME = 1.5; // (10 balas: el doble desde las correcciones 6; recarga en 1,5 s, lo que dura el sonido)
 export type Outcome = 'won' | 'time';
@@ -326,7 +328,10 @@ export const anomalyOf = (p: Person): Anomaly | null => p.anomaly ? ANOMALIES[p.
 // Llegadas acumuladas, incluidas las bajas. La última oleada entra antes de terminar la partida.
 export const aliensAt = (t: number) => Math.min(ALIEN_TOTAL, 50 + 5 * Math.floor(t / 11));
 // Ovnis: desde los 5 minutos, van apareciendo de a uno cada 40 segundos (hasta 5).
-export const ufosAt = (t: number) => t < UFO_FROM ? 0 : Math.min(5, 1 + Math.floor((t - UFO_FROM) / 25));
+// Ovnis de la nave nodriza (OVNI.png): desde el principio, uno a los 45 s y otro a los 200 s (entran por un
+// costado); a los 8 minutos la nave larga uno cada 25 s, hasta 5 más.
+export const MOTHER_UFO_FROM = 45;
+export const ufosAt = (t: number) => t < MOTHER_UFO_FROM ? 0 : t < UFO_FROM ? Math.min(2, 1 + Math.floor((t - MOTHER_UFO_FROM) / 155)) : 2 + Math.min(5, 1 + Math.floor((t - UFO_FROM) / 25));
 // Cuánto llueve (0 = nada, 1 = tormenta): empieza a los 3 minutos y en medio minuto ya es una tormenta.
 export const rainAt = (t: number) => Math.max(0, Math.min(1, (t - RAIN_FROM) / 30));
 // Cuánto de la ciudad tiene que estar destruida a cada momento (al final, toda).
@@ -691,13 +696,15 @@ function stepUfos(g: Invasion, dt: number) {
     g.ufos.push({ id: g.nextId++, kind: 'pen', ty: y, x: r() < 0.5 ? -SIDE_W - 10 : g.width + SIDE_W + 10, y, vx: 0, t0: t, beam: null, nextBeam: t + between(r, 4, 8), wobble: r() * 10 });
     emit(g, { type: 'ufoArrive', kind: 'pen' });
   }
-  if (g.ufosLaunched < ufosAt(t)) { // los de la nave nodriza salen de abajo de la nave y bajan
+  if (g.ufosLaunched < ufosAt(t)) { // los de la nave nodriza: antes de que llegue la nave entran por un costado; después salen de abajo de la nave
     g.ufosLaunched++;
-    const m = motherAt(g.width, t);
-    g.ufos.push({ id: g.nextId++, kind: 'mother', ty: between(r, CITY_TOP - 9, CITY_TOP - 2), x: m.x, y: m.bottom + 3, vx: 0, t0: t, beam: null, nextBeam: t + between(r, 3, 6), wobble: r() * 10 });
+    const ty = between(r, CITY_TOP - 9, CITY_TOP - 2), m = t >= MOTHER_FROM ? motherAt(g.width, t) : null;
+    g.ufos.push({ id: g.nextId++, kind: 'mother', ty, x: m ? m.x : r() < 0.5 ? -SIDE_W - 10 : g.width + SIDE_W + 10, y: m ? m.bottom + 3 : ty, vx: 0, t0: t, beam: null, nextBeam: t + between(r, 3, 6), wobble: r() * 10 });
     emit(g, { type: 'ufoArrive', kind: 'mother' });
   }
   const behind = ruinAt(t) - g.rooms.filter(o => o.destroyed).length / g.rooms.length; // cuánto les falta destruir
+  // Tranquilos (disparan cada 10–18 s): los de Kombat Penales siempre, y los de la nave hasta que llega la nave.
+  const calm = (u: Ufo) => u.kind === 'pen' || t < UFO_FROM;
   for (const u of g.ufos) {
     const goal = (u.id * 37.7 + t * 4) % g.width;
     u.vx += ((goal - u.x) * 0.05 - u.vx) * Math.min(1, dt * 0.6);
@@ -708,7 +715,7 @@ function stepUfos(g: Invasion, dt: number) {
       destroyRoom(g, room);
       // Si les falta destruir mucho, el rayo se lleva también las habitaciones de al lado.
       // (los de Kombat Penales, que andan desde el principio, solo prenden fuego alguna de al lado)
-      for (const o of neighbors(g, room)) if (!o.destroyed) { if (u.kind === 'mother' && behind > 0.03) destroyRoom(g, o); else if (r() < (u.kind === 'pen' ? 0.25 : 0.5)) ignite(g, o, (o.x1 + o.x2) / 2); }
+      for (const o of neighbors(g, room)) if (!o.destroyed) { if (!calm(u) && behind > 0.03) destroyRoom(g, o); else if (r() < (calm(u) ? 0.25 : 0.5)) ignite(g, o, (o.x1 + o.x2) / 2); }
       u.beam = null;
     }
     if (!u.beam && t > u.nextBeam) {
@@ -720,7 +727,7 @@ function stepUfos(g: Invasion, dt: number) {
         ignite(g, target, x);
         emit(g, { type: 'laser', x, y });
       }
-      u.nextBeam = t + (u.kind === 'pen' ? between(r, 10, 18) : behind > 0.02 ? between(r, 0.6, 1.4) : between(r, 3, 7));
+      u.nextBeam = t + (calm(u) ? between(r, 10, 18) : behind > 0.02 ? between(r, 0.6, 1.4) : between(r, 3, 7));
     }
   }
 }
@@ -938,7 +945,7 @@ export function shoot(g: Invasion, x: number, y: number, weapon: Weapon = 'rifle
     if (b.exploded || b.defused || Math.abs(x - b.x) > (b.explosive ? 0.32 : 0.25) || y < b.y || y > b.y + (b.explosive ? 0.48 : 0.4)) continue;
     b.hit = true;
     burst(g, x, y, 10, '#d6a35c', 'debris', 2.5, 0.05);
-    if (b.explosive) { b.defused = true; g.defused++; emit(g, { type: 'defused', x, y }); return 'defused' as const; }
+    if (b.explosive) { b.defused = true; g.defused++; g.points += DEFUSE_POINTS; emit(g, { type: 'defused', x, y }); return 'defused' as const; }
     emit(g, { type: 'boxHit', x, y });
     return 'box' as const;
   }

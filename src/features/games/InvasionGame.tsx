@@ -223,7 +223,7 @@ export function Invasion() {
     if (hit === 'alien' || hit === 'ufoDestroyed' || hit === 'blast') { aim.current.shake = 1; aim.current.flash = 1; }
     if (hit === 'ufoDestroyed') setToast({ text: 'OVNI derribado · cuenta como 5 grises (+50)', id: performance.now() });
     if (hit === 'civilian') { aim.current.flash = -1; setToast({ text: 'Baja civil', id: performance.now(), bad: true }); }
-    if (hit === 'defused') setToast({ text: 'Bomba desactivada', id: performance.now() });
+    if (hit === 'defused') setToast({ text: 'Bomba desactivada · +50 puntos', id: performance.now() });
     if (hit === 'ufo') setToast({ text: 'Usá la bazooka para derribar el OVNI', id: performance.now() });
   }, []);
 
