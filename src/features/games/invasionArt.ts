@@ -37,7 +37,7 @@ function skyColors(t: number) {
 // Más allá de la cuadra (antes de x = 0 y después del ancho) el escenario sigue con edificios cerrados (no se ve
 // adentro): torres, oficinas, locales con su cartel, una fábrica y obras en construcción con grúa. Son decorado:
 // no se rompen. Hay gente en las ventanas (siluetas que se mueven) y la vereda de adelante es parte de la calle,
-// así que caminan personas y aliens. Se arman siempre iguales (`sideBlocks`), hasta el final del escenario.
+// así que caminan personas y aliens. Se arman siempre iguales (`sideBlocks`), hasta el final del mapa (`SIDE_W`).
 type SideKind = 'tower' | 'office' | 'shops' | 'factory' | 'works';
 interface SideBlock { x: number; w: number; h: number; kind: SideKind; hue: number; seed: number }
 const SIDE_KINDS: SideKind[] = ['tower', 'shops', 'works', 'office', 'factory', 'tower', 'shops', 'office', 'works', 'tower', 'factory', 'shops'];
@@ -46,14 +46,19 @@ let sideCache: { width: number; blocks: SideBlock[] } | null = null;
 function sideBlocks(width: number) {
   if (sideCache?.width === width) return sideCache.blocks;
   const blocks: SideBlock[] = [];
+  // Hasta el final del mapa justo (`SIDE_W`): el último edificio se estira o se achica para terminar ahí.
   for (const dir of [-1, 1]) {
     let edge = dir < 0 ? -1.4 : width + 1.4;
-    for (let i = 0; Math.abs(edge - (dir < 0 ? 0 : width)) < SIDE_W + 120; i++) {
+    const end = dir < 0 ? -SIDE_W : width + SIDE_W;
+    for (let i = 0; Math.abs(end - edge) > 0.5; i++) {
       const seed = (dir < 0 ? 100 : 200) + i, kind = SIDE_KINDS[(i + (dir < 0 ? 0 : 5)) % SIDE_KINDS.length], q = hash(seed * 7.1);
-      const w = kind === 'factory' ? 18 + q * 7 : kind === 'shops' ? 10 + q * 5 : 10 + q * 5;
+      let w = kind === 'factory' ? 18 + q * 7 : kind === 'shops' ? 10 + q * 5 : 10 + q * 5;
+      const left = Math.abs(end - edge);
+      if (left - w < 9) w = left; // el último llega hasta el borde
       const h = kind === 'tower' ? 30 + q * 18 : kind === 'office' ? 24 + q * 14 : kind === 'works' ? 20 + q * 16 : kind === 'factory' ? 9 + q * 3 : 8.6 + q * 3;
       const x = dir < 0 ? edge - w : edge;
       blocks.push({ x, w, h, kind, hue: Math.floor(hash(seed * 3.3) * 360), seed });
+      if (w === left) break;
       edge = dir < 0 ? x - (1.2 + hash(seed) * 1.6) : x + w + 1.2 + hash(seed) * 1.6;
     }
   }

@@ -94,10 +94,11 @@ export function drawHeldWeapon(ctx: CanvasRenderingContext2D, weapon: Weapon, w:
   if (reload === null && d.front) {
     // De atrás, centrada: la mira de adelante apunta al "+".
     const F = d.front, k = tall / im.naturalHeight;
-    const x0 = w / 2 - F.cx * k + swayX, y0 = h / 2 + F.gap * h - F.sight * k + swayY + dip;
+    const x0 = mx - F.cx * k, // sigue al "+" (cerca de los bordes del mapa el "+" se corre del medio)
+      y0 = h / 2 + F.gap * h - F.sight * k + swayY + dip;
     // Retroceso fuerte: se viene para atrás (hacia uno: se agranda), sube y se ladea un poco, desde abajo al medio.
     const r = kick, grow = 1 + r * 0.2, up = r * h * 0.13, rot = -r * 0.06, ca = Math.cos(rot) * grow, sa = Math.sin(rot) * grow;
-    const px = w / 2, py = h;
+    const px = mx, py = h;
     const mx0 = x0 + d.muzzle[0] * k - px, my0 = y0 + d.muzzle[1] * k - py; // la boca, con el mismo movimiento
     const fx = px + mx0 * ca - my0 * sa, fy = py - up + mx0 * sa + my0 * ca;
     // El destello y el humo van detrás: el arma es lo que está más cerca de la cámara.

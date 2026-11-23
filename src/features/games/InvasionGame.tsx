@@ -43,6 +43,7 @@ function createArsenal() {
 }
 const BREATH = 4; // segundos que se puede contener la respiración (Shift)
 const PAN = 26; // lo que se mueve la vista con las flechas (unidades por segundo)
+const MAP_MARGIN = 4; // metros vacíos a cada lado del mapa (sin edificios, gente ni aliens)
 const EDGE = 0.07; // franja de cada costado (fracción del ancho) donde el mouse suelto corre el escenario
 const TOUCH_SPEED = 1.35; // en el celular el escenario se corre un poco más que el dedo (se llega a todos lados sin soltar)
 // Lo que entra de alto en el fondo: de la calle a lo más alto de los edificios (la ciudad ocupa casi toda la pantalla).
@@ -64,6 +65,7 @@ export function Invasion() {
   // `cam`: dónde está la vista (se mueve con las flechas). `mouse`: dónde está la mira en la pantalla.
   const cam = useRef({ x: 60, y: (CITY_TOP + -3.4) / 2, lagX: 0, lagY: 0 }); // lag: cuánto se movió hace poco (el arma se atrasa un poco)
   const mouse = useRef({ x: -1, y: -1 });
+  const crossDx = useRef(0); // cuánto se corre el "+" del medio, cerca de los bordes del mapa
   const mouseIn = useRef(false); // el cursor está adentro de la ventana
   const muzzleAt = useRef<{ x: number; y: number } | null>(null); // la boca del arma en la pantalla (de ahí sale el cohete)
   const aim = useRef({ zoom: START_ZOOM, target: START_ZOOM, kick: 0, breath: BREATH, holding: false, swayT: 0, shake: 0, flash: 0, scoped: false, muzzle: 0 }); // muzzle: el fogonazo del último disparo (1 → 0)
@@ -97,21 +99,25 @@ export function Invasion() {
   // contenés la respiración) y el retroceso mueven el escenario, así el "+" siempre marca adónde va el tiro.
   const baseView = useCallback((w: number, h: number): Omit<View, 't' | 'dpr'> => {
     const g = gameRef.current, s = h / (TOP_Y - FLOOR_Y), a = aim.current, c = cam.current;
-    // La mira llega hasta el final del mapa de cada lado (hasta donde camina la gente de los costados); más allá
-    // siguen edificios de relleno para que la pantalla nunca quede vacía.
+    // El mapa es solo donde hay edificios y gente: el "+" llega de punta a punta (de −SIDE_W a ancho + SIDE_W). La
+    // vista se frena antes, dejando apenas `MAP_MARGIN` metros vacíos a cada lado; ahí el "+" deja de estar en el
+    // medio y se corre hacia el borde (`crossDx`, en píxeles).
     c.x = Math.max(-SIDE_W, Math.min(g.width + SIDE_W, c.x));
+    const half = w / 2 / s, lo = -SIDE_W - MAP_MARGIN + half, hi = g.width + SIDE_W + MAP_MARGIN - half;
+    const vx = lo < hi ? Math.max(lo, Math.min(hi, c.x)) : g.width / 2;
+    crossDx.current = (c.x - vx) * s;
     c.y = Math.max(FLOOR_Y + 2.4, Math.min(TOP_Y, c.y));
     const k = a.holding && a.breath > 0 ? 0.15 : 1, amp = 7 / a.zoom * k, t = a.swayT;
     return {
       w, h, s,
-      cx: c.x + Math.sin(t * 0.9) * amp + Math.sin(t * 2.3) * amp * 0.4,
+      cx: vx + Math.sin(t * 0.9) * amp + Math.sin(t * 2.3) * amp * 0.4,
       cy: c.y + Math.sin(t * 1.3 + 1) * amp * 0.8 + a.kick * 1.2 * (30 / a.zoom),
     };
   }, []);
   // Adónde apunta el "+" (el medio de la pantalla) en la ciudad.
   const target = useCallback((w: number, h: number) => {
     const b = baseView(w, h);
-    return { mx: w / 2, my: h / 2, x: b.cx, y: b.cy };
+    return { mx: w / 2 + crossDx.current, my: h / 2, x: b.cx + crossDx.current / b.s, y: b.cy };
   }, [baseView]);
   // Mover el escenario: `dx`, `dy` en píxeles de pantalla (con la mira, más fino cuanto más zoom).
   const look = useCallback((dx: number, dy: number) => {
