@@ -7,9 +7,10 @@
 // Lo que no se mueve de cada habitación se dibuja una sola vez en una imagen aparte (para cada zoom) y
 // después se copia: así se puede dibujar con mucho detalle sin que se trabe.
 import {
-  alienKind, BLOOD, CITY_TOP, GAME_SECONDS, hitbox, rainAt, ROCKET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, MOTHER_FROM, type Building, type Furniture, type Invasion, type Item, type Room,
+  alienKind, BLOOD, CITY_TOP, GAME_SECONDS, hitbox, rainAt, ROCKET_TIME, type Rocket, ROAD_Y, ruinAt, SHOP_NAMES, MOTHER_FROM, MOTHER_W, motherAt, type Building, type Furniture, type Invasion, type Item, type Room,
 } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
+import { drawUfoCraftAt } from './kombatPenUfo';
 import bazookaFxUrl from './assets/invasion/efectos/bazooka.webp';
 import missileUrl from './assets/invasion/efectos/misil.webp';
 import ufoFxUrl from './assets/invasion/efectos/explosion-ovni.webp';
@@ -67,16 +68,14 @@ export function drawWallpaper(ctx: CanvasRenderingContext2D, g: Invasion, v: Vie
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(wallpaper, px, py, W * s, H * s);
 }
-// La nave nodriza (Nave_Nodriza del usuario): a los 5 minutos baja despacio desde arriba y se queda arriba de los
-// edificios, en el cielo (detrás de ellos), del largo de unos 5 edificios. Se mece y se corre apenas de lado a lado.
-const MOTHER_W = 70, MOTHER_IN = 25; // ancho en metros y segundos que tarda en bajar
+// La nave nodriza (Nave_Nodriza del usuario): a los 5 minutos baja desde arriba y anda arriba de los edificios, en el
+// cielo (detrás de ellos), del largo de unos 5 edificios. Cómo se mueve: `motherAt` en invasion.ts.
 const loadPic = (src: string) => typeof Image !== 'undefined' ? Object.assign(new Image(), { src }) : null;
 const motherPic = loadPic(motherUrl), ufoPic = loadPic(ufoUrl);
 function drawMother(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   if (g.time < MOTHER_FROM || !motherPic?.complete || !motherPic.naturalWidth) return;
-  const k = Math.min(1, (g.time - MOTHER_FROM) / MOTHER_IN), ease = 1 - (1 - k) ** 3;
+  const { x: cx, bottom, k } = motherAt(g.width, g.time);
   const H = MOTHER_W * motherPic.naturalHeight / motherPic.naturalWidth;
-  const cx = g.width / 2 + Math.sin(g.time * 0.05) * 18, bottom = CITY_TOP - 8 + (1 - ease) * 45 + Math.sin(g.time * 0.4) * 0.6;
   if (!visible(v, cx - MOTHER_W / 2, cx + MOTHER_W / 2, bottom, bottom + H)) return;
   ctx.save(); ctx.globalAlpha = Math.min(1, k * 2.5);
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
@@ -759,23 +758,28 @@ function drawTrees(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
 // borde del platillo (fila 360 de la imagen); el emisor de abajo, de donde sale el rayo, está en la fila 460.
 const UFO_SPRITE_W = 12.5, UFO_PX = 1216, UFO_RIM = 360;
 const UFO_NOZZLE = (460 - UFO_RIM) / UFO_PX * UFO_SPRITE_W; // el emisor de abajo, en metros debajo del borde
+// El de Kombat Penales (imagen ovni.png, con su animación de luces): 14,5 m de imagen, emisor 2,3 m debajo del centro.
+const PEN_UFO_W = 14.5, PEN_UFO_NOZZLE = (870 - 512) / 1536 * PEN_UFO_W;
 function drawUfo(ctx: CanvasRenderingContext2D, u: Invasion['ufos'][number], v: View, t: number) {
   const s = v.s, x = X(v, u.x), y = Y(v, u.y);
-  // El rayo verde sale del emisor de abajo.
-  const nozzleY = y + UFO_NOZZLE * s;
+  // El rayo sale del emisor de abajo: verde el de la nave nodriza, celeste el de Kombat Penales.
+  const pen = u.kind === 'pen', nozzleY = y + (pen ? PEN_UFO_NOZZLE : UFO_NOZZLE) * s;
+  const C = pen ? ['rgba(135,255,255,0.95)', 'rgba(30,221,255,0.5)', 'rgba(37,222,255,0.12)', 'rgba(39,221,255,0.35)', '#caffff', 'rgba(200,255,255,0.95)', 'rgba(0,220,255,0)']
+    : ['rgba(190,255,140,0.95)', 'rgba(90,240,40,0.5)', 'rgba(90,240,40,0.12)', 'rgba(100,240,50,0.35)', '#e6ffcc', 'rgba(225,255,200,0.95)', 'rgba(80,230,30,0)'];
   if (u.beam) {
     const tx = X(v, u.beam.x), ty = Y(v, u.beam.y), k = Math.min(1, (t - u.beam.t0) * 3);
     const ex = x + (tx - x) * k, ey = nozzleY + (ty - nozzleY) * k;
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    const beam = ctx.createLinearGradient(x, nozzleY, ex, ey); beam.addColorStop(0, 'rgba(190,255,140,0.95)'); beam.addColorStop(0.5, 'rgba(90,240,40,0.5)'); beam.addColorStop(1, 'rgba(90,240,40,0.12)');
+    const beam = ctx.createLinearGradient(x, nozzleY, ex, ey); beam.addColorStop(0, C[0]); beam.addColorStop(0.5, C[1]); beam.addColorStop(1, C[2]);
     ctx.fillStyle = beam; ctx.beginPath(); ctx.moveTo(x - 0.25 * s, nozzleY); ctx.lineTo(ex - 0.9 * s, ey); ctx.lineTo(ex + 0.9 * s, ey); ctx.lineTo(x + 0.25 * s, nozzleY); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = 'rgba(100,240,50,0.35)'; ctx.lineWidth = Math.max(3, s * 0.55); ctx.beginPath(); ctx.moveTo(x, nozzleY); ctx.lineTo(ex, ey); ctx.stroke();
-    ctx.strokeStyle = '#e6ffcc'; ctx.lineWidth = Math.max(1.5, s * (0.1 + Math.sin(t * 65) * 0.03)); ctx.stroke();
-    if (k >= 1) { const hit = ctx.createRadialGradient(tx, ty, 0, tx, ty, s * 1.6); hit.addColorStop(0, 'rgba(225,255,200,0.95)'); hit.addColorStop(1, 'rgba(80,230,30,0)'); ctx.fillStyle = hit; ctx.fillRect(tx - s * 1.6, ty - s * 1.6, s * 3.2, s * 3.2); }
+    ctx.strokeStyle = C[3]; ctx.lineWidth = Math.max(3, s * 0.55); ctx.beginPath(); ctx.moveTo(x, nozzleY); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.strokeStyle = C[4]; ctx.lineWidth = Math.max(1.5, s * (0.1 + Math.sin(t * 65) * 0.03)); ctx.stroke();
+    if (k >= 1) { const hit = ctx.createRadialGradient(tx, ty, 0, tx, ty, s * 1.6); hit.addColorStop(0, C[5]); hit.addColorStop(1, C[6]); ctx.fillStyle = hit; ctx.fillRect(tx - s * 1.6, ty - s * 1.6, s * 3.2, s * 3.2); }
     ctx.restore();
   }
   if (x < -s * 9 || x > v.w + s * 9 || y < -s * 5 || y > v.h + s * 5) return;
-  if (ufoPic?.complete && ufoPic.naturalWidth) {
+  if (pen && drawUfoCraftAt(ctx, t + u.id * 1.7, x, y, PEN_UFO_W * s) !== null) return;
+  if (!pen && ufoPic?.complete && ufoPic.naturalWidth) {
     const k = UFO_SPRITE_W * s / UFO_PX, tilt = Math.sin(t * 0.9 + u.id) * 0.03;
     ctx.save(); ctx.translate(x, y); ctx.rotate(tilt); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(ufoPic, -UFO_PX / 2 * k, -UFO_RIM * k, UFO_PX * k, ufoPic.naturalHeight * k);

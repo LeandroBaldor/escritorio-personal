@@ -107,15 +107,17 @@ describe('Invasión: la gente y los aliens', () => {
     expect(ufosAt(GAME_SECONDS - 1)).toBeGreaterThan(3);
     expect(ruinAt(GAME_SECONDS)).toBe(1);
     const g = newInvasion(7);
+    const motherUfos = () => g.ufos.filter(u => u.kind === 'mother').length;
     run(g, RAIN_FROM + 30);
-    expect(g.ufos.length).toBe(0);
+    expect(motherUfos()).toBe(0);
+    expect(g.ufos.some(u => u.kind === 'pen')).toBe(true); // los de Kombat Penales andan desde el principio
     const events = takeEvents(g);
     expect(events.some(e => e.type === 'rain')).toBe(true);
     run(g, 60);
     expect([...events, ...takeEvents(g)].some(e => e.type === 'thunder')).toBe(true); // relámpagos
-    expect(g.ufos.length).toBe(0);
+    expect(motherUfos()).toBe(0);
     run(g, UFO_FROM + 15 - (RAIN_FROM + 90));
-    expect(g.ufos.length).toBe(1);
+    expect(motherUfos()).toBe(1);
     expect(aliveAliens(g)).toBeGreaterThan(0);
     run(g, 540 - g.time);
     const ruined = g.rooms.filter(r => r.destroyed).length / g.rooms.length;
@@ -266,18 +268,25 @@ describe('Invasión: el disparo', () => {
   it('a los ovnis las balas no les hacen nada', () => {
     const g = newInvasion(10);
     run(g, UFO_FROM + 10);
-    const u = g.ufos[0];
+    const u = g.ufos.find(o => o.kind === 'mother')!, n = g.ufos.length;
+    g.ufos = g.ufos.filter(o => o === u || Math.abs(o.x - u.x) > 30);
+    const left = g.ufos.length;
+    expect(n).toBeGreaterThan(1); // también andan los de Kombat Penales
     expect(shoot(g, u.x, u.y, 'rifle')).toBe('ufo');
     expect(shoot(g, u.x, u.y, 'machine')).toBe('ufo');
-    expect(g.ufos).toHaveLength(1);
+    expect(g.ufos).toHaveLength(left);
+    const kills = g.kills, grays = g.killsBy[0], points = g.points;
     expect(shoot(g, u.x, u.y, 'bazooka')).toBe('launched');
     takeEvents(g);
     run(g, ROCKET_TIME - 0.2);
-    expect(g.ufos).toHaveLength(1); // el cohete todavía no llegó
+    expect(g.ufos.some(o => o.id === u.id)).toBe(true); // el cohete todavía no llegó
     run(g, 0.4);
     expect(g.ufos.some(o => o.id === u.id)).toBe(false); // el cohete siguió al ovni y lo derribó
     expect(g.blasts.some(b => b.big && b.x === u.x)).toBe(true);
     expect(takeEvents(g).some(e => e.type === 'rocketHit' && e.hit === 'ufoDestroyed')).toBe(true);
+    expect(g.killsBy[0] - grays).toBeGreaterThanOrEqual(5); // cuenta como 5 grises muertos
+    expect(g.kills - kills).toBeGreaterThanOrEqual(5);
+    expect(g.points - points).toBeGreaterThanOrEqual(50);
   });
 
   it('los aliens grandes aguantan varios disparos y son más grandes según la especie', () => {

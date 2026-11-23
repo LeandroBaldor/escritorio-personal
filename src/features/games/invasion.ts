@@ -13,8 +13,24 @@ export const PERSON_H = 1, PERSON_W = 0.42;
 export const ALIEN_SIZE = 1.3; // los grises miden 1,3 veces una persona
 export const SIDEWALK_Y = 0, ROAD_Y = -1.6;
 // El ovni (la imagen de Kombat Penales) va de 4 m arriba del centro (la cúpula) a 3,7 m abajo (el emisor).
-// El ovni (OVNI.png del usuario): `u.y` es el borde del platillo; de la cúpula (3,5 m arriba) a la panza (1,35 m abajo).
-const UFO_DY = 1.08, UFO_HALF_H = 2.45, UFO_HALF_W = 6.2;
+// Zona de impacto de cada ovni (centro `dy` arriba de `u.y`, medio alto y medio ancho).
+// 'pen': el de Kombat Penales (desde el principio). 'mother': OVNI.png del usuario, los que larga la nave nodriza;
+// `u.y` es el borde del platillo, de la cúpula (3,5 m arriba) a la panza (1,35 m abajo).
+const UFO_BOX = { pen: { dy: 0.15, hh: 3.85, hw: 6.4 }, mother: { dy: 1.08, hh: 2.45, hw: 6.2 } };
+const onUfo = (u: Ufo, x: number, y: number) => { const b = UFO_BOX[u.kind]; return Math.abs(x - u.x) < b.hw && Math.abs(y - (u.y + b.dy)) < b.hh; };
+export const UFO_KILLS = 5; // cada ovni derribado cuenta como 5 grises muertos
+// Los ovnis de Kombat Penales: el primero a los 15 s y uno más cada 150 s, hasta 3 (los derribados no vuelven).
+export const PEN_UFO_FROM = 15;
+export const penUfosAt = (t: number) => t < PEN_UFO_FROM ? 0 : Math.min(3, 1 + Math.floor((t - PEN_UFO_FROM) / 150));
+// La nave nodriza: va y viene de punta a punta de la cuadra (una vuelta cada 100 s), siempre en movimiento; cada
+// tanto baja mucho (hasta 20 m, detrás de los edificios) y vuelve a subir. Al aparecer baja desde 45 m más arriba.
+export const MOTHER_W = 70, MOTHER_IN = 25;
+export function motherAt(width: number, t: number) {
+  const k = Math.min(1, Math.max(0, (t - MOTHER_FROM) / MOTHER_IN)), ease = 1 - (1 - k) ** 3, u = t - MOTHER_FROM;
+  const x = width / 2 - Math.cos(u * Math.PI * 2 / 100) * (width / 2 + 5);
+  const dip = 20 * Math.max(0, Math.sin(u * Math.PI * 2 / 47 - 1.2)) ** 3;
+  return { x, bottom: CITY_TOP - 8 - dip + (1 - ease) * 45 + Math.sin(t * 0.4) * 0.6, k };
+}
 export const MOTHER_FROM = 300; // a los 5 minutos aparece la nave nodriza (arriba de los edificios)
 export const UFO_FROM = 480; // a los 8 minutos llegan los ovnis
 export const RAIN_FROM = 180; // a los 3 minutos empieza a llover
@@ -97,7 +113,7 @@ export interface Person {
   hp?: number; hurt?: number; // aliens grandes: disparos que les quedan y cuándo los lastimaron por última vez
 }
 export interface Box { id: number; room: number; x: number; y: number; explosive: boolean; t0: number; explodeAt: number; defused: boolean; exploded: boolean; hit: boolean; kind: number }
-export interface Ufo { id: number; x: number; y: number; vx: number; t0: number; beam: { room: number; t0: number; until: number; x: number; y: number } | null; nextBeam: number; wobble: number }
+export interface Ufo { id: number; kind: 'pen' | 'mother'; ty: number; x: number; y: number; vx: number; t0: number; beam: { room: number; t0: number; until: number; x: number; y: number } | null; nextBeam: number; wobble: number }
 export interface Car { id: number; x: number; dir: 1 | -1; speed: number; hue: number; kind: 'car' | 'taxi' | 'bus' | 'van' | 'police'; lane: number; sprite?: string } // `sprite`: el vehículo de la hoja del usuario (`VEHICLES` en invasionArt)
 // Los vehículos que andan y los chocados que quedaron tirados (nombres de la hoja de sprites del usuario).
 export const MOVING_VEHICLES = ["blanco", "taxi", "azul", "rojo", "plata", "negro", "policia", "nypd", "ambulancia", "tv", "blindado", "militar", "pickup_roja", "pickup_gris", "suv_azul", "suv_negra", "jeep", "furgon", "bus_azul", "bus_rojo", "escolar", "dos_pisos", "articulado", "micro"];
@@ -109,7 +125,7 @@ export type InvasionEvent =
   | { type: 'shot'; x: number; y: number } | { type: 'kill'; x: number; y: number; head: boolean; anomaly: number | null }
   | { type: 'civilian'; x: number; y: number } | { type: 'bomb'; x: number; y: number } | { type: 'defused'; x: number; y: number } | { type: 'boxHit'; x: number; y: number }
   | { type: 'ufoPing'; x: number; y: number } | { type: 'explosion'; x: number; y: number; bazooka?: boolean } | { type: 'fire'; x: number; y: number }
-  | { type: 'laser'; x: number; y: number } | { type: 'ufoArrive' } | { type: 'mother' } | { type: 'moreAliens'; count: number } | { type: 'scream'; x: number; y: number; id: number } | { type: 'died'; x: number; y: number; id: number; byPlayer: boolean }
+  | { type: 'laser'; x: number; y: number } | { type: 'ufoArrive'; kind: Ufo['kind'] } | { type: 'mother' } | { type: 'moreAliens'; count: number } | { type: 'scream'; x: number; y: number; id: number } | { type: 'died'; x: number; y: number; id: number; byPlayer: boolean }
   | { type: 'lighter'; x: number; y: number } | { type: 'ray'; x: number; y: number } | { type: 'glass'; x: number; y: number } | { type: 'miss'; x: number; y: number }
   | { type: 'comm'; x: number; y: number } | { type: 'thunder'; x: number } | { type: 'rain' } | { type: 'end' }
   | { type: 'rocketHit'; x: number; y: number; hit: 'ufoDestroyed' | 'alien' | 'civilian' | 'blast' }
@@ -119,7 +135,7 @@ export interface Invasion {
   particles: Particle[]; decals: Decal[]; blasts: Blast[]; rockets: Rocket[];
   time: number; kills: number; points: number; killsBy: number[]; civilians: number; headshots: number; defused: number; shots: number; hits: number; over: boolean; outcome: Outcome | null;
   events: InvasionEvent[]; deck: number[]; deckPos: number; rand: () => number; nextId: number; seen: number[]; killedAnomalies: number[];
-  aliensWanted: number; ufosLaunched: number; told: { ufo: boolean; rain: boolean; mother: boolean };
+  aliensWanted: number; ufosLaunched: number; penLaunched: number; told: { ufo: boolean; rain: boolean; mother: boolean };
   aim: { x: number; y: number }; // dónde está apuntando la mira (los aliens se dan cuenta)
   lightning: { t: number; x: number } | null;
 }
@@ -259,7 +275,7 @@ export function newInvasion(seed?: number): Invasion {
   const g: Invasion = {
     ...city, people: [], boxes: [], ufos: [], cars: [], particles: [], decals: [], blasts: [], rockets: [],
     time: 0, kills: 0, points: 0, killsBy: ALIEN_KINDS.map(() => 0), civilians: 0, headshots: 0, defused: 0, shots: 0, hits: 0, over: false, outcome: null, events: [],
-    deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), ufosLaunched: 0, told: { ufo: false, rain: false, mother: false },
+    deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), ufosLaunched: 0, penLaunched: 0, told: { ufo: false, rain: false, mother: false },
     aim: { x: city.width / 2, y: 10 }, lightning: null,
   };
   // Gente en cada habitación (en las obras, albañiles; en los locales, el que atiende y algún cliente). Ningún lugar
@@ -379,7 +395,7 @@ export function step(g: Invasion, dt: number) {
   stepFires(g, dt);
   stepBoxes(g);
   stepUfos(g, dt);
-  for (const rk of g.rockets) { const ship = g.ufos.find(u => u.id === rk.ufo); if (ship) { rk.x = ship.x; rk.y = ship.y + UFO_DY; } } // sigue al ovni
+  for (const rk of g.rockets) { const ship = g.ufos.find(u => u.id === rk.ufo); if (ship) { rk.x = ship.x; rk.y = ship.y + UFO_BOX[ship.kind].dy; } } // sigue al ovni
   for (const rk of g.rockets.filter(o => g.time - o.t0 >= ROCKET_TIME)) explodeRocket(g, rk.x, rk.y);
   g.rockets = g.rockets.filter(o => g.time - o.t0 < ROCKET_TIME);
   for (const c of g.cars) {
@@ -669,22 +685,30 @@ function stepFires(g: Invasion, dt: number) {
 
 function stepUfos(g: Invasion, dt: number) {
   const r = g.rand, t = g.time;
-  if (g.ufosLaunched < ufosAt(t)) {
+  if (g.penLaunched < penUfosAt(t)) { // los de Kombat Penales entran por un costado
+    g.penLaunched++;
+    const y = between(r, CITY_TOP - 9, CITY_TOP - 2);
+    g.ufos.push({ id: g.nextId++, kind: 'pen', ty: y, x: r() < 0.5 ? -SIDE_W - 10 : g.width + SIDE_W + 10, y, vx: 0, t0: t, beam: null, nextBeam: t + between(r, 4, 8), wobble: r() * 10 });
+    emit(g, { type: 'ufoArrive', kind: 'pen' });
+  }
+  if (g.ufosLaunched < ufosAt(t)) { // los de la nave nodriza salen de abajo de la nave y bajan
     g.ufosLaunched++;
-    g.ufos.push({ id: g.nextId++, x: r() < 0.5 ? -SIDE_W - 10 : g.width + SIDE_W + 10, y: between(r, CITY_TOP - 9, CITY_TOP - 2), vx: 0, t0: t, beam: null, nextBeam: t + between(r, 3, 6), wobble: r() * 10 });
-    emit(g, { type: 'ufoArrive' });
+    const m = motherAt(g.width, t);
+    g.ufos.push({ id: g.nextId++, kind: 'mother', ty: between(r, CITY_TOP - 9, CITY_TOP - 2), x: m.x, y: m.bottom + 3, vx: 0, t0: t, beam: null, nextBeam: t + between(r, 3, 6), wobble: r() * 10 });
+    emit(g, { type: 'ufoArrive', kind: 'mother' });
   }
   const behind = ruinAt(t) - g.rooms.filter(o => o.destroyed).length / g.rooms.length; // cuánto les falta destruir
   for (const u of g.ufos) {
     const goal = (u.id * 37.7 + t * 4) % g.width;
     u.vx += ((goal - u.x) * 0.05 - u.vx) * Math.min(1, dt * 0.6);
     u.x += u.vx * dt;
-    u.y += Math.sin(t * 0.8 + u.wobble) * 0.3 * dt;
+    u.y += (u.ty - u.y) * Math.min(1, dt * 0.7) + Math.sin(t * 0.8 + u.wobble) * 0.3 * dt;
     if (u.beam && t > u.beam.until) {
       const room = g.rooms[u.beam.room];
       destroyRoom(g, room);
       // Si les falta destruir mucho, el rayo se lleva también las habitaciones de al lado.
-      for (const o of neighbors(g, room)) if (!o.destroyed) { if (behind > 0.03) destroyRoom(g, o); else if (r() < 0.5) ignite(g, o, (o.x1 + o.x2) / 2); }
+      // (los de Kombat Penales, que andan desde el principio, solo prenden fuego alguna de al lado)
+      for (const o of neighbors(g, room)) if (!o.destroyed) { if (u.kind === 'mother' && behind > 0.03) destroyRoom(g, o); else if (r() < (u.kind === 'pen' ? 0.25 : 0.5)) ignite(g, o, (o.x1 + o.x2) / 2); }
       u.beam = null;
     }
     if (!u.beam && t > u.nextBeam) {
@@ -696,7 +720,7 @@ function stepUfos(g: Invasion, dt: number) {
         ignite(g, target, x);
         emit(g, { type: 'laser', x, y });
       }
-      u.nextBeam = t + (behind > 0.02 ? between(r, 0.6, 1.4) : between(r, 3, 7));
+      u.nextBeam = t + (u.kind === 'pen' ? between(r, 10, 18) : behind > 0.02 ? between(r, 0.6, 1.4) : between(r, 3, 7));
     }
   }
 }
@@ -850,7 +874,7 @@ function wearRoom(g: Invasion, room: Room, x: number, y: number, amount: number)
 function explodeRocket(g: Invasion, x: number, y: number) {
   const radius = BAZOOKA_RADIUS;
   const targets = g.people.filter(p => !p.dead && !p.gone && Math.hypot(p.x - x, p.y + 0.5 - y) <= radius);
-  const ships = g.ufos.filter(u => Math.hypot(Math.max(0, Math.abs(u.x - x) - UFO_HALF_W), Math.max(0, Math.abs(u.y + UFO_DY - y) - UFO_HALF_H)) <= radius);
+  const ships = g.ufos.filter(u => { const b = UFO_BOX[u.kind]; return Math.hypot(Math.max(0, Math.abs(u.x - x) - b.hw), Math.max(0, Math.abs(u.y + b.dy - y) - b.hh)) <= radius; });
   const impact = (px: number, py: number, size: number, ufo = false) => {
     g.blasts.push({ x: px, y: py, t: 0, size, big: true, bazooka: true, ufo }); // `ufo`: la explosión del ovni (otra secuencia)
     burst(g, px, py, 44, '#f59e0b', 'spark', 8, 0.09);
@@ -866,6 +890,8 @@ function explodeRocket(g: Invasion, x: number, y: number) {
     }
   }
   g.ufos = g.ufos.filter(u => !ships.includes(u));
+  // Cada ovni derribado cuenta como 5 grises muertos (matados y puntos).
+  for (let i = 0; i < ships.length; i++) { g.kills += UFO_KILLS; g.killsBy[0] += UFO_KILLS; g.points += UFO_KILLS * ALIEN_KINDS[0].points; }
   for (const p of targets) defeatPerson(g, p, false, true);
   if (ships.length || targets.length) g.hits++;
   const hit = ships.length ? 'ufoDestroyed' as const : targets.some(p => p.alien) ? 'alien' as const : targets.length ? 'civilian' as const : 'blast' as const;
@@ -880,11 +906,11 @@ export function shoot(g: Invasion, x: number, y: number, weapon: Weapon = 'rifle
   g.shots++;
   emit(g, { type: 'shot', x, y });
   if (weapon === 'bazooka') { // sale el cohete: explota recién cuando llega (`ROCKET_TIME`)
-    const ship = g.ufos.find(u => Math.abs(x - u.x) < UFO_HALF_W && Math.abs(y - (u.y + UFO_DY)) < UFO_HALF_H);
+    const ship = g.ufos.find(u => onUfo(u, x, y));
     g.rockets.push({ x, y, t0: g.time, ufo: ship?.id, from });
     return 'launched' as const;
   }
-  for (const u of g.ufos) if (Math.abs(x - u.x) < UFO_HALF_W && Math.abs(y - (u.y + UFO_DY)) < UFO_HALF_H) {
+  for (const u of g.ufos) if (onUfo(u, x, y)) {
     burst(g, x, y, 12, '#a5f3fc', 'spark', 4, 0.05);
     emit(g, { type: 'ufoPing', x, y });
     return 'ufo' as const;
@@ -936,7 +962,7 @@ export function shoot(g: Invasion, x: number, y: number, weapon: Weapon = 'rifle
 // Para los sonidos: qué se escucha cerca de donde apunta la mira (gente hablando, la tele, la cocina…).
 export function nearby(g: Invasion, x: number, y: number, radius: number) {
   const near = (px: number, py: number) => Math.max(0, 1 - Math.hypot(px - x, (py - y) * 1.3) / radius);
-  const out = { voices: 0, tv: 0, kitchen: 0, work: 0, fire: 0, ufo: 0, street: 0, birds: 0, dog: 0 };
+  const out = { voices: 0, tv: 0, kitchen: 0, work: 0, fire: 0, ufo: 0, ovni: 0, mother: 0, street: 0, birds: 0, dog: 0 };
   for (const p of g.people) {
     if (p.dead || p.gone) continue;
     const k = near(p.x, p.y + 0.6);
@@ -950,7 +976,8 @@ export function nearby(g: Invasion, x: number, y: number, radius: number) {
   }
   for (const room of g.rooms) if (room.fire > 0.05) out.fire = Math.max(out.fire, near(room.fireAt, room.y + 0.6) * Math.min(1, room.fire * 2));
   // Los ovnis se escuchan fuerte y desde lejos (y algo en toda la ciudad mientras haya alguno).
-  for (const u of g.ufos) out.ufo = Math.max(out.ufo, 0.35, 1 - Math.hypot(u.x - x, u.y - y) / (radius * 6));
+  for (const u of g.ufos) { const k = u.kind === 'pen' ? 'ufo' : 'ovni'; out[k] = Math.max(out[k], 0.35, 1 - Math.hypot(u.x - x, u.y - y) / (radius * 6)); }
+  if (g.time >= MOTHER_FROM) { const m = motherAt(g.width, g.time); out.mother = m.k * Math.max(0.35, 1 - Math.abs(m.x - x) / 150); } // la nave es enorme: se escucha en todos lados, más cerca más fuerte
   const calm = 1 - ruinAt(g.time);
   out.street = Math.max(0.15, near(x, 0) * 1.2) * calm + (1 - calm) * 0.3;
   out.birds = Math.max(0.1, near(x, 30)) * calm * calm;

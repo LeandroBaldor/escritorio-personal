@@ -221,7 +221,7 @@ export function Invasion() {
   // Qué pasa en la pantalla según a qué le pegó (el cohete de la bazooka avisa recién cuando explota).
   const reactToHit = useCallback((hit: ReturnType<typeof shoot> | 'ufoDestroyed' | 'blast') => {
     if (hit === 'alien' || hit === 'ufoDestroyed' || hit === 'blast') { aim.current.shake = 1; aim.current.flash = 1; }
-    if (hit === 'ufoDestroyed') setToast({ text: 'OVNI derribado', id: performance.now() });
+    if (hit === 'ufoDestroyed') setToast({ text: 'OVNI derribado · cuenta como 5 grises (+50)', id: performance.now() });
     if (hit === 'civilian') { aim.current.flash = -1; setToast({ text: 'Baja civil', id: performance.now(), bad: true }); }
     if (hit === 'defused') setToast({ text: 'Bomba desactivada', id: performance.now() });
     if (hit === 'ufo') setToast({ text: 'Usá la bazooka para derribar el OVNI', id: performance.now() });
@@ -345,7 +345,7 @@ export function Invasion() {
         if (e.type === 'died') { const who = g.people.find(o => o.id === e.id); playHumanScream(!!who && isWoman(who), e.byPlayer ? 1 : near(e.x, e.y)); }
         if (e.type === 'scream') { const who = g.people.find(o => o.id === e.id); playHumanScream(!!who && isWoman(who), near(e.x, e.y) * 0.7); } // los gritos son solo los dos del usuario
         if (e.type === 'mother') { playUfoArrive(); setToast({ text: '¡Llegó la nave nodriza! 🛸', id: now, big: true }); }
-        if (e.type === 'ufoArrive') { playUfoArrive(); setToast({ text: g.ufos.length === 1 ? 'Entraron los OVNIs. Usá la bazooka.' : `¡Otro ovni! Ya son ${g.ufos.length} 🛸`, id: now, big: g.ufos.length === 1 }); }
+        if (e.type === 'ufoArrive') { playUfoArrive(e.kind); const first = g.ufos.length === 1 && e.kind === 'pen'; setToast({ text: first ? 'Entraron los OVNIs. Usá la bazooka.' : e.kind === 'mother' ? `¡La nave nodriza larga un ovni! Ya son ${g.ufos.length} 🛸` : `¡Otro ovni! Ya son ${g.ufos.length} 🛸`, id: now, big: first }); }
         if (e.type === 'comm') playAlienComm(near(e.x, e.y) * 0.6);
         if (e.type === 'thunder') { playThunder(Math.max(0.35, 1 - Math.abs(e.x - p.x) / 120)); a.shake = Math.max(a.shake, 0.25); }
         if (e.type === 'rain') setToast({ text: '🌧️ Se largó una tormenta: llueve y hay relámpagos', id: now, big: true });

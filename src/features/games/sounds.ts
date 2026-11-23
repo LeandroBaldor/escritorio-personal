@@ -26,6 +26,9 @@ import penAshUrl from './assets/sonidos/pen-cenizas.mp3';
 import penElectricUrl from './assets/sonidos/pen-electricidad.mp3';
 import penFreezeUrl from './assets/sonidos/pen-congelamiento.mp3';
 import penUfoUrl from './assets/sonidos/pen-ovni.mp3';
+import invNodrizaUrl from './assets/sonidos/invasion-nave-nodriza.mp3';
+import invOvniUrl from './assets/sonidos/invasion-ovni-nodriza.mp3';
+import invOvniLlegaUrl from './assets/sonidos/invasion-ovni-nodriza-llega.mp3';
 import penUfoShotUrl from './assets/sonidos/pen-ovni-dispara.mp3';
 import penFireworksUrl from './assets/sonidos/pen-fuegos-artificiales.mp3';
 import penGiantStepUrl from './assets/sonidos/pen-paso-gigante.mp3';
@@ -939,7 +942,7 @@ export function setCrowd(level: number) {
 
 // ---------- Invasión ----------
 let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
-export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invMusicaUrl, invRecargaUrl, invLluviaUrl, invGritoHombreUrl, invGritoMujerUrl, ...ALIEN_VOICES]) loadSample(url); }
+export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invMusicaUrl, invRecargaUrl, invLluviaUrl, invNodrizaUrl, invOvniUrl, invOvniLlegaUrl, invGritoHombreUrl, invGritoMujerUrl, ...ALIEN_VOICES]) loadSample(url); }
 // Voces en un idioma inventado: una voz (tono que sube y baja) que pasa por dos "formantes" que cambian todo
 // el tiempo (las vocales) y se corta en sílabas.
 function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
@@ -1012,6 +1015,10 @@ function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel>
       const whine = osc(c, 'sine', 1900), wl = c.createGain(); wl.gain.value = 0.05; wobble(c, whine.frequency, 0.9, 220);
       whine.connect(wl).connect(out); whine.start();
     }, 2, 0.3)),
+    // Los ovnis de la nave nodriza: alien_ovni del usuario, en loop.
+    ovni: channel(1, out => recorded(c, invOvniUrl, 1.2, out, () => {})),
+    // La nave nodriza: alien_nave_nodriza del usuario, en loop.
+    mother: channel(1, out => recorded(c, invNodrizaUrl, 1.1, out, () => {})),
     // La lluvia: la grabación (mientras carga, un ruido suave y agudo).
     rain: channel(0.7, out => recorded(c, invLluviaUrl, 1, out, out => {
       const drops = noiseSource(c), hi = filter(c, 'highpass', 1800), level = c.createGain();
@@ -1140,8 +1147,8 @@ export function playLaser(volume: number) {
   tone(c, 'square', 1100, 60, t + 0.05, 0.8, 0.12 * volume);
 }
 // Llega un ovni: una bocina grave que retumba.
-export function playUfoArrive() {
-  if (playSample(penUfoUrl, 1.6)) return; // la llegada del ovni de Kombat Penales
+export function playUfoArrive(kind: 'pen' | 'mother' = 'pen') {
+  if (playSample(kind === 'mother' ? invOvniLlegaUrl : penUfoUrl, 1.6)) return; // (el de la nave nodriza: los primeros 4 s de alien_ovni) // la llegada del ovni de Kombat Penales
   const c = running(); if (!c) return;
   const t = c.currentTime;
   for (const f of [55, 82.5]) tone(c, 'sawtooth', f, f * 0.98, t, 2.2, 0.35);
