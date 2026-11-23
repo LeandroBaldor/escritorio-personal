@@ -1335,6 +1335,15 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .inv-controls div{padding:.4rem .55rem;border-left:1px solid #3b777d;background:#1d39484d}
 .inv-controls dd{margin:.2rem 0 0;font-size:.75rem;color:#c3d7dd}
 .inv-controls kbd,.inv-weapon-card kbd{color:#a6fff3;font:700 .75rem ui-monospace,monospace}
+.inv-points-title{margin:0 0 .35rem;color:#a6fff3;font:750 .8rem system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase}
+.inv-points{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.3rem .4rem;margin:0 0 1rem;padding:0;list-style:none}
+.inv-points li{display:flex;justify-content:space-between;align-items:baseline;gap:.4rem;padding:.3rem .55rem;border-left:1px solid #3b777d;background:#1d39484d;font-size:.78rem;color:#c3d7dd}
+.inv-points li b{color:#a6fff3;font:700 .8rem ui-monospace,monospace}
+.inv-points li small{color:#8fb0b8}
+.inv-points li.is-extra b{color:#fde68a}
+.inv-points li.is-bad b{color:#f87171}
+@media (pointer:coarse){.inv-controls{display:none}}
+@media (max-width:560px){.inv-points{gap:.2rem .3rem}.inv-points li{padding:.2rem .4rem;font-size:.7rem}.inv-points li small{display:none}}
 .invasion .inv-command>button,.invasion .inv-armory-back{border:1px solid #70e4d7;border-radius:5px;background:#90f2e4;color:#092a2b;box-shadow:none}
 .invasion .inv-armory h2{color:#dcfffb;font:750 clamp(1.15rem,3vw,2rem) system-ui,sans-serif}
 .inv-weapon-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem;margin:.75rem 0}

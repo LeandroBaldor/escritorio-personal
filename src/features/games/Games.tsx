@@ -133,8 +133,8 @@ export function Games() {
           <Cover src={invasionCover} />
           <span className="game-card-text">
             <strong>Invasión</strong>
-            <span>Defendé la ciudad de los grises con un rifle, una ametralladora y una bazooka.</span>
-            <span className="game-card-win"><b>Objetivo</b> Al cabo de diez minutos tienen que quedar más humanos que aliens.</span>
+            <span>👽 La ciudad está siendo invadida: seis especies de aliens (grises, anfibios, brutox, esporales, mantis y reptilianos) se mezclan con la gente en los departamentos, los ovnis destruyen los edificios con sus rayos y a los 8 minutos llega la nave nodriza. Desde tu puesto tenés un rifle de francotirador, una ametralladora y una bazooka: sin la mira el tiro va a cualquier lado, así que apuntá con la mira, desactivá las bombas y no le dispares a la gente.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Resistí los 10 minutos: al final tienen que quedar más humanos que aliens. Cada alien suma de 10 a 60 puntos según la especie, cada bomba desactivada 50 y cada ovni derribado con la bazooka 50 (cuenta como 5 grises); cada humano que matás resta 50.</span>
           </span>
           <span className="game-card-foot">
             {invasion.kills > 0 && <small><b>Récord</b>{invasionRecordPoints(invasion)} pts</small>}

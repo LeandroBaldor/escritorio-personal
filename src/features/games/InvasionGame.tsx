@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { TouchGrips } from './TouchGrips';
 import { fitScale, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
-import { ALIEN_KINDS, ALIEN_POINTS, HUMAN_PENALTY, ALIEN_TOTAL, aliveAliens, aliveHumans, CITY_TOP, GAME_SECONDS, HUMAN_TOTAL, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
+import { ALIEN_KINDS, ALIEN_POINTS, DEFUSE_POINTS, HUMAN_PENALTY, UFO_KILLS, ALIEN_TOTAL, aliveAliens, aliveHumans, CITY_TOP, GAME_SECONDS, HUMAN_TOTAL, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import { isWoman } from './invasionPeople';
 import { drawMinimap, drawRockets, paintCity, type View } from './invasionArt';
@@ -553,6 +553,13 @@ export function Invasion() {
                 <div><dt><kbd>R</kbd></dt><dd>Recargar</dd></div>
                 <div><dt><kbd>P</kbd> <kbd>Esc</kbd></dt><dd>Pausa</dd></div>
               </dl>
+              <h3 className="inv-points-title">Puntos</h3>
+              <ul className="inv-points" data-testid="inv-points">
+                {SPECIES_ORDER.map(i => <li key={ALIEN_KINDS[i].name}><span>{ALIEN_KINDS[i].label}</span><b>+{ALIEN_KINDS[i].points}</b></li>)}
+                <li className="is-extra"><span>Bomba desactivada</span><b>+{DEFUSE_POINTS}</b></li>
+                <li className="is-extra"><span>OVNI derribado <small>(= {UFO_KILLS} grises)</small></span><b>+{UFO_KILLS * ALIEN_KINDS[0].points}</b></li>
+                <li className="is-bad"><span>Humano muerto</span><b>−{HUMAN_PENALTY}</b></li>
+              </ul>
               <button type="button" onClick={() => { start(); lockMouse(); }} autoFocus>Jugar</button>
             </>}
             {status === 'armory' && <>

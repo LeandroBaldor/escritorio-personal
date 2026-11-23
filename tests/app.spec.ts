@@ -622,7 +622,7 @@ test('Gravity Swap: se abre desde Juegos, el escenario avanza, muestra las vidas
 
 test('Invasión: se abre desde Juegos, corre el tiempo, se dispara, se recarga y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.getByText('Defendé la ciudad de los grises', { exact: false })).toBeVisible();
+  await expect(page.getByText('La ciudad está siendo invadida', { exact: false })).toBeVisible();
   await page.getByRole('link', { name: /Invasión/ }).click();
   await expect(page.getByRole('heading', { name: 'Invasión', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
