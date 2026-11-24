@@ -621,6 +621,7 @@ test('Gravity Swap: se abre desde Juegos, el escenario avanza, muestra las vidas
 });
 
 test('Invasión: se abre desde Juegos, corre el tiempo, se dispara, se recarga y se pausa', async ({ page }) => {
+  test.setTimeout(60000); // (en GitHub la compu es lenta: solo esperar que corra el reloj lleva hasta 15 s)
   await page.goto('/escritorio-personal/#/juegos');
   await expect(page.getByText('La ciudad está siendo invadida', { exact: false })).toBeVisible();
   await page.getByRole('link', { name: /Invasión/ }).click();
