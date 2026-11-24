@@ -29,6 +29,7 @@ import penUfoUrl from './assets/sonidos/pen-ovni.mp3';
 import invNodrizaUrl from './assets/sonidos/invasion-nave-nodriza.mp3';
 import invOvniUrl from './assets/sonidos/invasion-ovni-nodriza.mp3';
 import invOvniLlegaUrl from './assets/sonidos/invasion-ovni-nodriza-llega.mp3';
+import invCorazonUrl from './assets/sonidos/invasion-corazon.mp3';
 import penUfoShotUrl from './assets/sonidos/pen-ovni-dispara.mp3';
 import penFireworksUrl from './assets/sonidos/pen-fuegos-artificiales.mp3';
 import penGiantStepUrl from './assets/sonidos/pen-paso-gigante.mp3';
@@ -942,7 +943,7 @@ export function setCrowd(level: number) {
 
 // ---------- Invasión ----------
 let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
-export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invMusicaUrl, invRecargaUrl, invLluviaUrl, invNodrizaUrl, invOvniUrl, invOvniLlegaUrl, invGritoHombreUrl, invGritoMujerUrl, ...ALIEN_VOICES]) loadSample(url); }
+export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invMusicaUrl, invRecargaUrl, invLluviaUrl, invNodrizaUrl, invOvniUrl, invOvniLlegaUrl, invCorazonUrl, invGritoHombreUrl, invGritoMujerUrl, ...ALIEN_VOICES]) loadSample(url); }
 // Voces en un idioma inventado: una voz (tono que sube y baja) que pasa por dos "formantes" que cambian todo
 // el tiempo (las vocales) y se corta en sílabas.
 function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
@@ -1015,6 +1016,8 @@ function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel>
       const whine = osc(c, 'sine', 1900), wl = c.createGain(); wl.gain.value = 0.05; wobble(c, whine.frequency, 0.9, 220);
       whine.connect(wl).connect(out); whine.start();
     }, 2, 0.3)),
+    // El corazón (corazon.mp3 del usuario, en loop): late cuando los aliens superan por más de 10 a los humanos.
+    heart: channel(1, out => recorded(c, invCorazonUrl, 1.3, out, () => {})),
     // Los ovnis de la nave nodriza: alien_ovni del usuario, en loop.
     ovni: channel(1, out => recorded(c, invOvniUrl, 1.2, out, () => {})),
     // La nave nodriza: alien_nave_nodriza del usuario, en loop.

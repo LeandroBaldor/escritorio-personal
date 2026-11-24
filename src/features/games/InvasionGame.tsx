@@ -7,7 +7,7 @@ import { ALIEN_KINDS, ALIEN_POINTS, DEFUSE_POINTS, HUMAN_PENALTY, UFO_KILLS, ALI
 import { ANOMALIES } from './invasionAnomalies';
 import { isWoman } from './invasionPeople';
 import { drawMinimap, drawRockets, paintCity, type View } from './invasionArt';
-import { invasionLevels } from './invasionSound';
+import { HEART_GAP, invasionLevels } from './invasionSound';
 import {
   playAlienComm, playAlienDeath, playAlienVoice, ALIEN_VOICE_SECONDS, playBazookaBoom, playBazookaShot, playBlast, playBolt, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playMachineShot, playRayGun, playReload,
   playHumanScream, playRicochet, playRifleShot, playStart, playThunder, playUfoArrive, playWinFanfare, preloadInvasionSounds, setInvasionAmbient,
@@ -538,6 +538,10 @@ export function Invasion() {
           <button type="button" aria-label="Alejar la mira" onClick={() => zoomBy(1 / 1.35)}>−</button>
           <button type="button" aria-label="Acercar la mira" onClick={() => zoomBy(1.35)}>+</button>
           <button type="button" aria-label="Recargar el arma" onClick={reload}>⟳</button>
+        </div>}
+        {status !== 'ready' && <div className="inv-count" aria-label="Aliens y humanos vivos" data-testid="inv-count">
+          <span className="inv-count-aliens"><small>Aliens</small><b>{hud.aliens}</b></span>
+          <span className={`inv-count-humans${hud.aliens - hud.humans > HEART_GAP ? ' is-danger' : ''}`}><small>Humanos</small><b>{hud.humans}</b></span>
         </div>}
         {status === 'playing' && toast && <div key={toast.id} className={`trepa-toast inv-toast${toast.bad ? ' is-bad' : ''}${toast.big ? ' is-big' : ''}`} role="status">{toast.text}</div>}
         {status !== 'playing' && <div className="runner-overlay" role="dialog" aria-labelledby="inv-message">

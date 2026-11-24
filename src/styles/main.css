@@ -1342,6 +1342,15 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
 .inv-points li small{color:#8fb0b8}
 .inv-points li.is-extra b{color:#fde68a}
 .inv-points li.is-bad b{color:#f87171}
+.inv-count{position:absolute;top:.6rem;left:.6rem;z-index:3;display:flex;gap:.4rem;pointer-events:none}
+.inv-count>span{display:grid;gap:.05rem;min-width:4.6rem;padding:.3rem .65rem;border-radius:6px;font:700 .68rem/1 system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;box-shadow:0 4px 14px #0008}
+.inv-count b{font:800 1.35rem/1 ui-monospace,monospace;letter-spacing:0}
+.inv-count-aliens{border:1px solid #86efac;background:#15803de6;color:#ecfdf5}
+.inv-count-humans{border:1px solid #93c5fd;background:#1e3a8ae6;color:#eff6ff}
+.inv-count-humans.is-danger{border-color:#fca5a5;background:#991b1be6;animation:inv-beat 1s ease-in-out infinite}
+@media (max-width:1300px){.inv-count{top:62px}}
+@media (max-width:900px){.inv-count{left:.45rem}.inv-count>span{min-width:3.8rem;padding:.22rem .5rem;font-size:.58rem}.inv-count b{font-size:1.05rem}}
+@keyframes inv-beat{0%,100%{transform:scale(1)}15%{transform:scale(1.08)}30%{transform:scale(1)}45%{transform:scale(1.05)}}
 @media (pointer:coarse){.inv-controls{display:none}}
 @media (max-width:560px){.inv-points{gap:.2rem .3rem}.inv-points li{padding:.2rem .4rem;font-size:.7rem}.inv-points li small{display:none}}
 .invasion .inv-command>button,.invasion .inv-armory-back{border:1px solid #70e4d7;border-radius:5px;background:#90f2e4;color:#092a2b;box-shadow:none}
