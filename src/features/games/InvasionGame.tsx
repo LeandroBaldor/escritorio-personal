@@ -428,14 +428,13 @@ export function Invasion() {
     // Jugando, el mouse es siempre la mira. Si el navegador lo suelta (Escape, cambiar de ventana…), el juego se pone
     // en pausa y recién ahí aparece la flecha. Se espera un momento antes de pausar: a veces el navegador lo suelta y
     // lo vuelve a atrapar enseguida (por ejemplo, al reintentar atraparlo), y eso no tiene que pausar.
-    // (En el navegador de las pruebas automáticas, que suelta el mouse enseguida de atraparlo, solo si estuvo
-    // atrapado un rato.) Ya no se pausa cuando la flecha sale del cuadro: pausaba solo sin que se entendiera por qué.
+    // Ya no se pausa cuando la flecha sale del cuadro: pausaba solo sin que se entendiera por qué.
     const robot = typeof navigator !== 'undefined' && navigator.webdriver;
     let lockedAt = 0, lostTimer = 0;
     const lockChange = () => {
       window.clearTimeout(lostTimer);
       if (document.pointerLockElement === stage) { lockedAt = performance.now(); return; }
-      if (statusRef.current === 'playing' && lockedAt && (!robot || performance.now() - lockedAt > 500)) {
+      if (statusRef.current === 'playing' && lockedAt && !robot) { // (en el navegador de las pruebas automáticas no: suelta el mouse cuando quiere)
         lostTimer = window.setTimeout(() => { if (statusRef.current === 'playing' && document.pointerLockElement !== stage) setStatus('paused'); }, 350);
       }
       lockedAt = 0;
