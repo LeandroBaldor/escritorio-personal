@@ -957,7 +957,7 @@ let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
 // The Terminator). Va aparte del ambiente (que se corta en la pausa): sigue sonando en la pausa y en el arsenal, y se
 // corta al terminar la partida o al salir del juego. Se toca con un <audio> (los archivos son largos) y cada canción
 // tiene su volumen para que suenen parejas (Rambo está grabada más fuerte).
-const INVASION_PLAYLIST = [{ url: invMusica1Url, volume: 0.4 }, { url: invMusica2Url, volume: 0.22 }, { url: invMusica3Url, volume: 0.4 }];
+const INVASION_PLAYLIST = [{ url: invMusica1Url, volume: 0.6 }, { url: invMusica2Url, volume: 0.33 }, { url: invMusica3Url, volume: 0.6 }];
 let invMusic: { el: HTMLAudioElement; track: number } | null = null;
 export function startInvasionMusic() {
   if (invMusic || typeof Audio === 'undefined') return; // (si ya está sonando, sigue)
