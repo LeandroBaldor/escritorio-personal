@@ -287,7 +287,9 @@ describe('Invasión: el disparo', () => {
     run(g, 0.4);
     expect(g.ufos.some(o => o.id === u.id)).toBe(false); // el cohete siguió al ovni y lo derribó
     expect(g.blasts.some(b => b.big && b.x === u.x)).toBe(true);
-    expect(takeEvents(g).some(e => e.type === 'rocketHit' && e.hit === 'ufoDestroyed')).toBe(true);
+    const evs = takeEvents(g);
+    expect(evs.some(e => e.type === 'rocketHit' && e.hit === 'ufoDestroyed')).toBe(true);
+    expect(evs.some(e => e.type === 'radio' && e.say === 'ufoDown')).toBe(true); // aviso por radio
     expect(g.killsBy[0] - grays).toBeGreaterThanOrEqual(5); // cuenta como 5 grises muertos
     expect(g.kills - kills).toBeGreaterThanOrEqual(5);
     expect(g.points - points).toBeGreaterThanOrEqual(50);
@@ -401,5 +403,27 @@ describe('Invasión: el disparo', () => {
     const sitting = g.people.find(p => poseOf(g, p).kind === 'sit')!;
     const b = hitbox(g, sitting);
     expect(b.y2 - b.y1).toBeLessThan(sitting.look.size * 0.8);
+  });
+
+  it('los avisos por radio suenan una vez al pasar cada umbral', () => {
+    const g = newInvasion(4);
+    const said = () => takeEvents(g).filter(e => e.type === 'radio').map(e => (e as { say: string }).say);
+    step(g, 0.05); takeEvents(g);
+    // Al empezar los humanos ganan por mucho: no avisa nada.
+    step(g, 0.05); expect(said()).toEqual([]);
+    const humans = g.people.filter(p => !p.alien && !p.dead && !p.gone), aliens = g.people.filter(p => p.alien && !p.dead && !p.gone).length;
+    // Quedan menos humanos que aliens: "más alienígenas".
+    humans.slice(aliens - 1).forEach(p => { p.gone = true; });
+    step(g, 0.05); expect(said()).toContain('aliensAhead');
+    step(g, 0.05); expect(said()).not.toContain('aliensAhead'); // no se repite
+    // Vuelven a ganar por 10, 20 y 30.
+    const back = (n: number) => { let k = 0; for (const p of humans) if (p.gone && k < n) { p.gone = false; k++; } };
+    const lead = () => g.people.filter(p => !p.alien && !p.dead && !p.gone).length - g.people.filter(p => p.alien && !p.dead && !p.gone).length;
+    back(10 - lead()); step(g, 0.05); expect(said()).toContain('h10');
+    back(20 - lead()); step(g, 0.05); expect(said()).toContain('h20');
+    back(30 - lead()); step(g, 0.05); expect(said()).toContain('h30');
+    // 6 bombas activas a la derecha.
+    for (let i = 0; i < 6; i++) g.boxes.push({ id: 9000 + i, room: -1, x: g.width * 0.8, y: 0, explosive: true, t0: g.time, explodeAt: g.time + 99, defused: false, exploded: false, hit: false, kind: 0 });
+    step(g, 0.05); const s1 = said(); expect(s1).toContain('bombsRight'); expect(s1).not.toContain('bombsLeft');
   });
 });

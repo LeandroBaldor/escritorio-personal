@@ -3,14 +3,14 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { TouchGrips } from './TouchGrips';
 import { fitScale, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
-import { ALIEN_KINDS, ALIEN_POINTS, DEFUSE_POINTS, HUMAN_PENALTY, UFO_KILLS, ALIEN_TOTAL, aliveAliens, aliveHumans, CITY_TOP, GAME_SECONDS, HUMAN_TOTAL, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type Outcome, type Weapon } from './invasion';
+import { ALIEN_KINDS, ALIEN_POINTS, DEFUSE_POINTS, HUMAN_PENALTY, UFO_KILLS, ALIEN_TOTAL, aliveAliens, aliveHumans, CITY_TOP, GAME_SECONDS, HUMAN_TOTAL, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type RadioCall, type Outcome, type Weapon } from './invasion';
 import { ANOMALIES } from './invasionAnomalies';
 import { isWoman } from './invasionPeople';
 import { drawMinimap, drawRockets, paintCity, type View } from './invasionArt';
 import { HEART_GAP, invasionLevels } from './invasionSound';
 import {
   playAlienComm, playAlienDeath, playAlienVoice, ALIEN_VOICE_SECONDS, playBazookaBoom, playBazookaShot, playBlast, playBolt, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playMachineShot, playRayGun, playReload,
-  playHumanScream, playRicochet, playRifleShot, playStart, playThunder, playUfoArrive, playWinFanfare, preloadInvasionSounds, setInvasionAmbient,
+  playHumanScream, playRicochet, playRifleShot, playStart, playThunder, playUfoArrive, playRadioCall, RADIO_SECONDS, playWinFanfare, preloadInvasionSounds, setInvasionAmbient,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 import rifleArt from './assets/invasion/armas/menu-rifle.webp';
@@ -288,6 +288,8 @@ export function Invasion() {
   useEffect(() => {
     if (status !== 'playing') { setInvasionAmbient(null); return; }
     let frame = 0, last = performance.now(), soundAt = 0, talkAt = 0, rayAt = 0;
+    // Avisos por radio: de a uno (en fila, hasta 3 esperando; si ya está en la fila no se repite).
+    const radioQueue: RadioCall[] = []; let radioFree = 0;
     const run = (now: number): boolean => {
       const g = gameRef.current, a = aim.current, G = arsenal.current[selected.current], stage = stageRef.current;
       // El reloj del juego va a tiempo real aunque la compu dibuje pocos cuadros por segundo (hasta 4 por segundo):
@@ -346,11 +348,13 @@ export function Invasion() {
         if (e.type === 'scream') { const who = g.people.find(o => o.id === e.id); playHumanScream(!!who && isWoman(who), near(e.x, e.y) * 0.7); } // los gritos son solo los dos del usuario
         if (e.type === 'mother') { playUfoArrive(); setToast({ text: '¡Llegó la nave nodriza! 🛸', id: now, big: true }); }
         if (e.type === 'ufoArrive') { playUfoArrive(e.kind); const first = g.ufos.length === 1 && e.kind === 'pen'; setToast({ text: first ? 'Entraron los OVNIs. Usá la bazooka.' : e.kind === 'mother' ? `¡La nave nodriza larga un ovni! Ya son ${g.ufos.length} 🛸` : `¡Otro ovni! Ya son ${g.ufos.length} 🛸`, id: now, big: first }); }
+        if (e.type === 'radio' && !radioQueue.includes(e.say) && radioQueue.length < 3) radioQueue.push(e.say);
         if (e.type === 'comm') playAlienComm(near(e.x, e.y) * 0.6);
         if (e.type === 'thunder') { playThunder(Math.max(0.35, 1 - Math.abs(e.x - p.x) / 120)); a.shake = Math.max(a.shake, 0.25); }
         if (e.type === 'rain') setToast({ text: '🌧️ Se largó una tormenta: llueve y hay relámpagos', id: now, big: true });
       }
       if (now - soundAt > 100) { soundAt = now; setInvasionAmbient(invasionLevels(g, p.x, p.y, a.zoom)); }
+      if (radioQueue.length && now >= radioFree) { const say = radioQueue[0]; if (playRadioCall(say)) { radioQueue.shift(); radioFree = now + (RADIO_SECONDS[say] + 0.4) * 1000; } else radioFree = now + 300; }
       // Solo con la mira (rifle o ametralladora) se escucha hablar al alien que está adentro del vidrio, el más
       // cerca del centro, con la voz de su especie. Sin mira, o de lejos, no se escuchan.
       if (now > talkAt) {

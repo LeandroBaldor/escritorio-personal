@@ -114,6 +114,11 @@ export interface Person {
   stareUntil: number; nextStare: number; comm: { t0: number; until: number } | null; nextComm: number;
   hp?: number; hurt?: number; // aliens grandes: disparos que les quedan y cuándo los lastimaron por última vez
 }
+// Avisos por radio de un humano (audios del usuario). Cada uno suena una vez al pasar el umbral y se vuelve a
+// "armar" recién cuando la situación se aleja un poco (así no se repite si el número va y viene).
+export type RadioCall = 'h10' | 'h20' | 'h30' | 'bombsRight' | 'bombsLeft' | 'aliensAhead' | 'mother' | 'ufoDown';
+export const RADIO_LEADS = [10, 20, 30] as const; // humanos de ventaja sobre los aliens
+export const RADIO_BOMBS = 5; // más de 5 bombas activas de un lado del mapa
 export interface Box { id: number; room: number; x: number; y: number; explosive: boolean; t0: number; explodeAt: number; defused: boolean; exploded: boolean; hit: boolean; kind: number }
 export interface Ufo { id: number; kind: 'pen' | 'mother'; ty: number; x: number; y: number; vx: number; t0: number; beam: { room: number; t0: number; until: number; x: number; y: number } | null; nextBeam: number; wobble: number }
 export interface Car { id: number; x: number; dir: 1 | -1; speed: number; hue: number; kind: 'car' | 'taxi' | 'bus' | 'van' | 'police'; lane: number; sprite?: string } // `sprite`: el vehículo de la hoja del usuario (`VEHICLES` en invasionArt)
@@ -127,7 +132,7 @@ export type InvasionEvent =
   | { type: 'shot'; x: number; y: number } | { type: 'kill'; x: number; y: number; head: boolean; anomaly: number | null }
   | { type: 'civilian'; x: number; y: number } | { type: 'bomb'; x: number; y: number } | { type: 'defused'; x: number; y: number } | { type: 'boxHit'; x: number; y: number }
   | { type: 'ufoPing'; x: number; y: number } | { type: 'explosion'; x: number; y: number; bazooka?: boolean } | { type: 'fire'; x: number; y: number }
-  | { type: 'laser'; x: number; y: number } | { type: 'ufoArrive'; kind: Ufo['kind'] } | { type: 'mother' } | { type: 'moreAliens'; count: number } | { type: 'scream'; x: number; y: number; id: number } | { type: 'died'; x: number; y: number; id: number; byPlayer: boolean }
+  | { type: 'laser'; x: number; y: number } | { type: 'ufoArrive'; kind: Ufo['kind'] } | { type: 'radio'; say: RadioCall } | { type: 'mother' } | { type: 'moreAliens'; count: number } | { type: 'scream'; x: number; y: number; id: number } | { type: 'died'; x: number; y: number; id: number; byPlayer: boolean }
   | { type: 'lighter'; x: number; y: number } | { type: 'ray'; x: number; y: number } | { type: 'glass'; x: number; y: number } | { type: 'miss'; x: number; y: number }
   | { type: 'comm'; x: number; y: number } | { type: 'thunder'; x: number } | { type: 'rain' } | { type: 'end' }
   | { type: 'rocketHit'; x: number; y: number; hit: 'ufoDestroyed' | 'alien' | 'civilian' | 'blast' }
@@ -137,7 +142,7 @@ export interface Invasion {
   particles: Particle[]; decals: Decal[]; blasts: Blast[]; rockets: Rocket[];
   time: number; kills: number; points: number; killsBy: number[]; civilians: number; headshots: number; defused: number; shots: number; hits: number; over: boolean; outcome: Outcome | null;
   events: InvasionEvent[]; deck: number[]; deckPos: number; rand: () => number; nextId: number; seen: number[]; killedAnomalies: number[];
-  aliensWanted: number; ufosLaunched: number; penLaunched: number; told: { ufo: boolean; rain: boolean; mother: boolean };
+  aliensWanted: number; ufosLaunched: number; penLaunched: number; radio: { lead: boolean[]; ahead: boolean; left: boolean; right: boolean }; told: { ufo: boolean; rain: boolean; mother: boolean };
   aim: { x: number; y: number }; // dónde está apuntando la mira (los aliens se dan cuenta)
   lightning: { t: number; x: number } | null;
 }
@@ -277,7 +282,7 @@ export function newInvasion(seed?: number): Invasion {
   const g: Invasion = {
     ...city, people: [], boxes: [], ufos: [], cars: [], particles: [], decals: [], blasts: [], rockets: [],
     time: 0, kills: 0, points: 0, killsBy: ALIEN_KINDS.map(() => 0), civilians: 0, headshots: 0, defused: 0, shots: 0, hits: 0, over: false, outcome: null, events: [],
-    deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), ufosLaunched: 0, penLaunched: 0, told: { ufo: false, rain: false, mother: false },
+    deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), ufosLaunched: 0, penLaunched: 0, radio: { lead: [false, false, false], ahead: true, left: true, right: true }, told: { ufo: false, rain: false, mother: false },
     aim: { x: city.width / 2, y: 10 }, lightning: null,
   };
   // Gente en cada habitación (en las obras, albañiles; en los locales, el que atiende y algún cliente). Ningún lugar
@@ -304,6 +309,23 @@ export function newInvasion(seed?: number): Invasion {
 
 export const aliveHumans = (g: Invasion) => g.people.filter(p => !p.alien && !p.dead && !p.gone).length;
 export const aliveAliens = (g: Invasion) => g.people.filter(p => p.alien && !p.dead && !p.gone).length;
+// Los avisos por radio que dependen de cómo viene la partida.
+function radioChecks(g: Invasion) {
+  const R = g.radio, lead = aliveHumans(g) - aliveAliens(g);
+  // Ventaja de 10, 20 o 30 humanos: suena al llegar desde abajo (al empezar la ventaja es enorme: no suena).
+  RADIO_LEADS.forEach((n, i) => {
+    if (lead <= n - 3) R.lead[i] = true;
+    else if (R.lead[i] && lead >= n) { R.lead[i] = false; emit(g, { type: 'radio', say: (['h10', 'h20', 'h30'] as const)[i] }); }
+  });
+  // Más aliens que humanos.
+  if (lead >= 3) R.ahead = true;
+  else if (R.ahead && lead < 0) { R.ahead = false; emit(g, { type: 'radio', say: 'aliensAhead' }); }
+  // Más de 5 bombas activas de un lado del mapa (mitad izquierda / derecha de la cuadra).
+  const live = g.boxes.filter(b => b.explosive && !b.defused && !b.exploded);
+  const right = live.filter(b => b.x >= g.width / 2).length, left = live.length - right;
+  if (right <= RADIO_BOMBS - 2) R.right = true; else if (R.right && right > RADIO_BOMBS) { R.right = false; emit(g, { type: 'radio', say: 'bombsRight' }); }
+  if (left <= RADIO_BOMBS - 2) R.left = true; else if (R.left && left > RADIO_BOMBS) { R.left = false; emit(g, { type: 'radio', say: 'bombsLeft' }); }
+}
 function spawnAlien(g: Invasion, index: number) {
   const r = g.rand;
   const rooms = index % 4 === 0 ? [] : g.rooms.filter(o => !o.destroyed && o.fire < 0.35 && o.theme !== 'site');
@@ -392,7 +414,8 @@ export function step(g: Invasion, dt: number) {
 
   // Lluvia y relámpagos.
   if (t >= RAIN_FROM && !g.told.rain) { g.told.rain = true; emit(g, { type: 'rain' }); }
-  if (t >= MOTHER_FROM && !g.told.mother) { g.told.mother = true; emit(g, { type: 'mother' }); }
+  if (t >= MOTHER_FROM && !g.told.mother) { g.told.mother = true; emit(g, { type: 'mother' }); emit(g, { type: 'radio', say: 'mother' }); }
+  radioChecks(g);
   if (g.lightning && t - g.lightning.t > 0.6) g.lightning = null;
   if (!g.lightning && g.rand() < dt * 0.13 * rainAt(t)) { g.lightning = { t, x: between(g.rand, 0, g.width) }; emit(g, { type: 'thunder', x: g.lightning.x }); }
 
@@ -897,6 +920,7 @@ function explodeRocket(g: Invasion, x: number, y: number) {
     }
   }
   g.ufos = g.ufos.filter(u => !ships.includes(u));
+  if (ships.length) emit(g, { type: 'radio', say: 'ufoDown' });
   // Cada ovni derribado cuenta como 5 grises muertos (matados y puntos).
   for (let i = 0; i < ships.length; i++) { g.kills += UFO_KILLS; g.killsBy[0] += UFO_KILLS; g.points += UFO_KILLS * ALIEN_KINDS[0].points; }
   for (const p of targets) defeatPerson(g, p, false, true);

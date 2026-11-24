@@ -30,6 +30,14 @@ import invNodrizaUrl from './assets/sonidos/invasion-nave-nodriza.mp3';
 import invOvniUrl from './assets/sonidos/invasion-ovni-nodriza.mp3';
 import invOvniLlegaUrl from './assets/sonidos/invasion-ovni-nodriza-llega.mp3';
 import invCorazonUrl from './assets/sonidos/invasion-corazon.mp3';
+import radioH10Url from './assets/sonidos/invasion-radio-humanos-10.mp3';
+import radioH20Url from './assets/sonidos/invasion-radio-humanos-20.mp3';
+import radioH30Url from './assets/sonidos/invasion-radio-humanos-30.mp3';
+import radioBombsRightUrl from './assets/sonidos/invasion-radio-bombas-derecha.mp3';
+import radioBombsLeftUrl from './assets/sonidos/invasion-radio-bombas-izquierda.mp3';
+import radioAheadUrl from './assets/sonidos/invasion-radio-mas-alienigenas.mp3';
+import radioMotherUrl from './assets/sonidos/invasion-radio-nave-nodriza.mp3';
+import radioUfoDownUrl from './assets/sonidos/invasion-radio-ovni-derribado.mp3';
 import penUfoShotUrl from './assets/sonidos/pen-ovni-dispara.mp3';
 import penFireworksUrl from './assets/sonidos/pen-fuegos-artificiales.mp3';
 import penGiantStepUrl from './assets/sonidos/pen-paso-gigante.mp3';
@@ -943,7 +951,7 @@ export function setCrowd(level: number) {
 
 // ---------- Invasión ----------
 let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
-export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invMusicaUrl, invRecargaUrl, invLluviaUrl, invNodrizaUrl, invOvniUrl, invOvniLlegaUrl, invCorazonUrl, invGritoHombreUrl, invGritoMujerUrl, ...ALIEN_VOICES]) loadSample(url); }
+export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invMusicaUrl, invRecargaUrl, invLluviaUrl, invNodrizaUrl, invOvniUrl, invOvniLlegaUrl, invCorazonUrl, invGritoHombreUrl, invGritoMujerUrl, ...ALIEN_VOICES, ...Object.values(RADIO)]) loadSample(url); }
 // Voces en un idioma inventado: una voz (tono que sube y baja) que pasa por dos "formantes" que cambian todo
 // el tiempo (las vocales) y se corta en sílabas.
 function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
@@ -1131,6 +1139,10 @@ export function playBlast(volume: number) {
 }
 // Un alien que habla (en su idioma): si se escucha esta voz cerca de la mira, ahí hay un alien.
 // Habla el alien que está en la mira, con la voz de su especie (`kind` = id % 6).
+// Los avisos por radio de un humano (audios del usuario, 2,5–3,3 s). Devuelve si sonó (si no cargó todavía, no).
+const RADIO = { h10: radioH10Url, h20: radioH20Url, h30: radioH30Url, bombsRight: radioBombsRightUrl, bombsLeft: radioBombsLeftUrl, aliensAhead: radioAheadUrl, mother: radioMotherUrl, ufoDown: radioUfoDownUrl };
+export const RADIO_SECONDS = { h10: 3.03, h20: 3.03, h30: 3.34, bombsRight: 2.64, bombsLeft: 2.64, aliensAhead: 2.85, mother: 3.03, ufoDown: 2.53 };
+export function playRadioCall(say: keyof typeof RADIO) { return playSample(RADIO[say], 1.5); }
 export function playAlienVoice(kind: number, volume: number) { if (volume >= 0.05) playSample(ALIEN_VOICES[kind % ALIEN_VOICES.length], volume * 1.4, 0, 0.95 + Math.random() * 0.1); }
 // El intercomunicador de los aliens: pitidos que suben y bajan y una voz metálica que tartamudea.
 export function playAlienComm(volume: number) {
