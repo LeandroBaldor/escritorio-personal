@@ -9,7 +9,7 @@ import { drawMinimap, drawRockets, paintCity, type View } from './invasionArt';
 import { HEART_GAP, invasionLevels } from './invasionSound';
 import {
   playAlienComm, playAlienDeath, playAlienVoice, ALIEN_VOICE_SECONDS, playBazookaBoom, playBazookaShot, playBlast, playBolt, playDefuse, playEmpty, playGameOver, playGlass, playGooBlast, playLaser, playLighter, playMachineShot, playRayGun, playReload,
-  playHumanScream, playRicochet, playRifleShot, playStart, playThunder, playUfoArrive, playRadioCall, RADIO_SECONDS, playWinFanfare, preloadInvasionSounds, setInvasionAmbient,
+  playHumanScream, playRicochet, playRifleShot, playStart, playThunder, playUfoArrive, playRadioCall, startInvasionMusic, stopInvasionMusic, RADIO_SECONDS, playWinFanfare, preloadInvasionSounds, setInvasionAmbient,
 } from './sounds';
 import { EndBanner } from './EndBanner';
 import rifleArt from './assets/invasion/armas/menu-rifle.webp';
@@ -279,6 +279,11 @@ export function Invasion() {
     observer.observe(stage);
     return () => observer.disconnect();
   }, [paint]);
+
+  // La música (las tres canciones en loop): arranca al jugar, sigue en la pausa y en el arsenal, y se corta al
+  // terminar la partida o al salir del juego.
+  useEffect(() => { if (status === 'playing') startInvasionMusic(); else if (status === 'over' || status === 'ready') stopInvasionMusic(); }, [status]);
+  useEffect(() => () => stopInvasionMusic(), []);
 
   // Al abrirse un cartel (pausa o fin) se vuelve a dibujar sin la mira.
   useEffect(() => { if (status !== 'playing') paint(); }, [status, paint]);

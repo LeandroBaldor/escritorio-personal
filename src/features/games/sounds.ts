@@ -76,7 +76,9 @@ import vozMantisUrl from './assets/sonidos/invasion-voz-mantis.mp3';
 import vozReptilianoUrl from './assets/sonidos/invasion-voz-reptiliano.mp3';
 const ALIEN_VOICES = [vozGrisUrl, vozAnfibioUrl, vozBrutoxUrl, vozEsporalUrl, vozMantisUrl, vozReptilianoUrl];
 export const ALIEN_VOICE_SECONDS = [2.14, 5.04, 3.76, 4.26, 0.63, 2.3]; // lo que dura cada voz
-import invMusicaUrl from './assets/sonidos/invasion-musica.mp3';
+import invMusica1Url from './assets/sonidos/invasion-musica-1-predator.mp3';
+import invMusica2Url from './assets/sonidos/invasion-musica-2-rambo.mp3';
+import invMusica3Url from './assets/sonidos/invasion-musica-3-terminator.mp3';
 import invRecargaUrl from './assets/sonidos/invasion-recarga.mp3';
 import invGritoHombreUrl from './assets/sonidos/invasion-grito-hombre.mp3';
 import invGritoMujerUrl from './assets/sonidos/invasion-grito-mujer.mp3';
@@ -951,7 +953,26 @@ export function setCrowd(level: number) {
 
 // ---------- Invasión ----------
 let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
-export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invMusicaUrl, invRecargaUrl, invLluviaUrl, invNodrizaUrl, invOvniUrl, invOvniLlegaUrl, invCorazonUrl, invGritoHombreUrl, invGritoMujerUrl, ...ALIEN_VOICES, ...Object.values(RADIO)]) loadSample(url); }
+// La música de Invasión: las tres canciones del usuario, una atrás de otra y vuelta a empezar (Predator, Rambo,
+// The Terminator). Va aparte del ambiente (que se corta en la pausa): sigue sonando en la pausa y en el arsenal, y se
+// corta al terminar la partida o al salir del juego. Se toca con un <audio> (los archivos son largos) y cada canción
+// tiene su volumen para que suenen parejas (Rambo está grabada más fuerte).
+const INVASION_PLAYLIST = [{ url: invMusica1Url, volume: 0.4 }, { url: invMusica2Url, volume: 0.22 }, { url: invMusica3Url, volume: 0.4 }];
+let invMusic: { el: HTMLAudioElement; track: number } | null = null;
+export function startInvasionMusic() {
+  if (invMusic || typeof Audio === 'undefined') return; // (si ya está sonando, sigue)
+  const el = new Audio(), music = { el, track: 0 };
+  const load = (i: number) => { music.track = i; el.src = INVASION_PLAYLIST[i].url; el.volume = INVASION_PLAYLIST[i].volume; void el.play().catch(() => undefined); };
+  el.addEventListener('ended', () => { if (invMusic === music) load((music.track + 1) % INVASION_PLAYLIST.length); });
+  invMusic = music;
+  load(0);
+}
+export function stopInvasionMusic() {
+  if (!invMusic) return;
+  invMusic.el.pause(); invMusic.el.removeAttribute('src'); invMusic.el.load();
+  invMusic = null;
+}
+export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invRecargaUrl, invLluviaUrl, invNodrizaUrl, invOvniUrl, invOvniLlegaUrl, invCorazonUrl, invGritoHombreUrl, invGritoMujerUrl, ...ALIEN_VOICES, ...Object.values(RADIO)]) loadSample(url); }
 // Voces en un idioma inventado: una voz (tono que sube y baja) que pasa por dos "formantes" que cambian todo
 // el tiempo (las vocales) y se corta en sílabas.
 function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
@@ -966,8 +987,6 @@ function babble(c: AudioContext, out: AudioNode, pitch: number, rate: number) {
 function buildInvasionAmbient(c: AudioContext): Record<InvasionChannel, Channel> {
   const channel = (max: number, make: (out: GainNode) => void) => ambientChannel(c, max, make);
   return {
-    // La música del juego (musica.mp3 del usuario), en loop.
-    music: channel(0.3, out => recorded(c, invMusicaUrl, 1, out, () => undefined, 0.01, 0.01)),
     // La ciudad: la grabación de los autos (mientras carga, el rumor del tránsito y alguna bocina lejana).
     city: channel(0.55, out => recorded(c, invAutosUrl, 1, out, out => {
       const traffic = noiseSource(c), low = filter(c, 'lowpass', 380), level = c.createGain();
