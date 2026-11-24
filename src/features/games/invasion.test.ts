@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  alienKind, ALIEN_KINDS, DAMAGE, HUMAN_PENALTY, aliensAt, aliveAliens, aliveHumans, ALIEN_TOTAL, HUMAN_TOTAL, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, MOTHER_FROM, ufosAt, ROCKET_TIME, WALL_BREAK,
+  alienKind, ALIEN_KINDS, DAMAGE, HUMAN_PENALTY, aliensAt, aliveAliens, aliveHumans, ALIEN_TOTAL, HUMAN_TOTAL, buildCity, CITY_TOP, rainAt, RAIN_FROM, wallPath, GAME_SECONDS, hitbox, newInvasion, poseOf, REVEAL_EVERY, REVEAL_TIME, revealed, ruinAt, shoot, step, takeEvents, UFO_FROM, MOTHER_FROM, motherAt, ufosAt, ROCKET_TIME, WALL_BREAK,
   type Invasion, type Person,
 } from './invasion';
 import { ANOMALIES, fitsPlace, shuffledAnomalies } from './invasionAnomalies';
@@ -425,5 +425,18 @@ describe('Invasión: el disparo', () => {
     // 6 bombas activas a la derecha.
     for (let i = 0; i < 6; i++) g.boxes.push({ id: 9000 + i, room: -1, x: g.width * 0.8, y: 0, explosive: true, t0: g.time, explodeAt: g.time + 99, defused: false, exploded: false, hit: false, kind: 0 });
     step(g, 0.05); const s1 = said(); expect(s1).toContain('bombsRight'); expect(s1).not.toContain('bombsLeft');
+  });
+
+  it('la nave nodriza llega siempre a los 8 minutos, donde está mirando el jugador', () => {
+    const g = newInvasion(6);
+    g.lookX = 40;
+    while (g.time < MOTHER_FROM - 0.2) { step(g, 0.05); takeEvents(g); }
+    expect(g.told.mother).toBe(false);
+    let arrived = -1;
+    while (g.time < MOTHER_FROM + 1) { step(g, 0.05); if (takeEvents(g).some(e => e.type === 'mother')) arrived = g.time; }
+    expect(arrived).toBeGreaterThanOrEqual(MOTHER_FROM);
+    expect(arrived).toBeLessThan(MOTHER_FROM + 0.1);
+    expect(motherAt(g, MOTHER_FROM).x).toBeCloseTo(40, 0); // aparece donde estaba mirando
+    expect(motherAt(g, MOTHER_FROM + 10).bottom).toBeLessThan(CITY_TOP); // a los 10 s ya bajó
   });
 });

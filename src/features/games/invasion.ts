@@ -23,15 +23,20 @@ export const UFO_KILLS = 5; // cada ovni derribado cuenta como 5 grises muertos
 // Los ovnis de Kombat Penales: el primero a los 15 s y uno más cada 150 s, hasta 3 (los derribados no vuelven).
 export const PEN_UFO_FROM = 15;
 export const penUfosAt = (t: number) => t < PEN_UFO_FROM ? 0 : Math.min(3, 1 + Math.floor((t - PEN_UFO_FROM) / 150));
-// La nave nodriza (a los 8 minutos): recorre todo el mapa detrás de los edificios, siempre en movimiento. Va y viene
-// de punta a punta de la cuadra (ida y vuelta en 60 s) y a la vez sube y baja, de arriba de los edificios a 24 m más
-// abajo (ida y vuelta en 29 s, así no repite siempre el mismo camino). Al aparecer baja desde 45 m más arriba.
-export const MOTHER_W = 70, MOTHER_IN = 25;
-export function motherAt(width: number, t: number) {
-  const k = Math.min(1, Math.max(0, (t - MOTHER_FROM) / MOTHER_IN)), ease = 1 - (1 - k) ** 3, u = t - MOTHER_FROM;
-  const x = width / 2 - Math.cos(u * Math.PI * 2 / 60) * (width / 2 + 5);
-  const low = 24 * (0.5 - 0.5 * Math.cos(u * Math.PI * 2 / 29));
-  return { x, bottom: CITY_TOP - 6 - low + (1 - ease) * 45 + Math.sin(t * 0.4) * 0.6, k };
+// La nave nodriza llega siempre a los 8 minutos (`MOTHER_FROM`, con el reloj en 2:00) justo donde está mirando el
+// jugador (`g.lookX` en ese momento → `g.motherX0`): baja desde arriba de la pantalla en `MOTHER_IN` = 10 s hasta
+// quedar con la panza a la altura de los edificios más bajos, y se queda ahí `MOTHER_HOLD` = 6 s más, así se la ve
+// llegar. Después arranca despacio y recorre todo el mapa detrás de los edificios, siempre en movimiento: va y viene
+// de punta a punta de la cuadra (ida y vuelta en 120 s) y a la vez sube y baja (ida y vuelta en 29 s, así no repite
+// siempre el mismo camino).
+export const MOTHER_W = 70, MOTHER_IN = 10, MOTHER_HOLD = 6;
+export function motherAt(g: Pick<Invasion, 'width' | 'motherX0'>, t: number) {
+  const u = Math.max(0, t - MOTHER_FROM), k = Math.min(1, u / MOTHER_IN), ease = 1 - (1 - k) ** 3;
+  const m = Math.max(0, u - MOTHER_IN - MOTHER_HOLD), w = m < 6 ? m * m / 12 : m - 3; // arranca despacio
+  const mid = g.width / 2, A = mid + 5, phase = Math.asin(Math.max(-1, Math.min(1, (g.motherX0 - mid) / A)));
+  const x = mid + Math.sin(phase + w * Math.PI * 2 / 120) * A;
+  const low = 16 * (0.5 - 0.5 * Math.cos(w * Math.PI * 2 / 29)) - 8 * Math.sin(w * Math.PI * 2 / 29);
+  return { x, bottom: CITY_TOP - 22 + low + (1 - ease) * 50 + Math.sin(t * 0.4) * 0.6, k };
 }
 export const MOTHER_FROM = 480; // a los 8 minutos aparece la nave nodriza (detrás de los edificios)
 export const UFO_FROM = 480; // a los 8 minutos, con la nave, llega la oleada de ovnis y empieza la destrucción fuerte
@@ -142,7 +147,7 @@ export interface Invasion {
   particles: Particle[]; decals: Decal[]; blasts: Blast[]; rockets: Rocket[];
   time: number; kills: number; points: number; killsBy: number[]; civilians: number; headshots: number; defused: number; shots: number; hits: number; over: boolean; outcome: Outcome | null;
   events: InvasionEvent[]; deck: number[]; deckPos: number; rand: () => number; nextId: number; seen: number[]; killedAnomalies: number[];
-  aliensWanted: number; ufosLaunched: number; penLaunched: number; radio: { lead: boolean[]; ahead: boolean; left: boolean; right: boolean }; told: { ufo: boolean; rain: boolean; mother: boolean };
+  aliensWanted: number; ufosLaunched: number; penLaunched: number; radio: { lead: boolean[]; ahead: boolean; left: boolean; right: boolean }; lookX: number; motherX0: number; told: { ufo: boolean; rain: boolean; mother: boolean };
   aim: { x: number; y: number }; // dónde está apuntando la mira (los aliens se dan cuenta)
   lightning: { t: number; x: number } | null;
 }
@@ -282,7 +287,7 @@ export function newInvasion(seed?: number): Invasion {
   const g: Invasion = {
     ...city, people: [], boxes: [], ufos: [], cars: [], particles: [], decals: [], blasts: [], rockets: [],
     time: 0, kills: 0, points: 0, killsBy: ALIEN_KINDS.map(() => 0), civilians: 0, headshots: 0, defused: 0, shots: 0, hits: 0, over: false, outcome: null, events: [],
-    deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), ufosLaunched: 0, penLaunched: 0, radio: { lead: [false, false, false], ahead: true, left: true, right: true }, told: { ufo: false, rain: false, mother: false },
+    deck: shuffledAnomalies(rand), deckPos: 0, rand, nextId: 1, seen: [], killedAnomalies: [], aliensWanted: aliensAt(0), ufosLaunched: 0, penLaunched: 0, radio: { lead: [false, false, false], ahead: true, left: true, right: true }, lookX: city.width / 2, motherX0: city.width / 2, told: { ufo: false, rain: false, mother: false },
     aim: { x: city.width / 2, y: 10 }, lightning: null,
   };
   // Gente en cada habitación (en las obras, albañiles; en los locales, el que atiende y algún cliente). Ningún lugar
@@ -414,7 +419,7 @@ export function step(g: Invasion, dt: number) {
 
   // Lluvia y relámpagos.
   if (t >= RAIN_FROM && !g.told.rain) { g.told.rain = true; emit(g, { type: 'rain' }); }
-  if (t >= MOTHER_FROM && !g.told.mother) { g.told.mother = true; emit(g, { type: 'mother' }); emit(g, { type: 'radio', say: 'mother' }); }
+  if (t >= MOTHER_FROM && !g.told.mother) { g.told.mother = true; g.motherX0 = Math.max(0, Math.min(g.width, g.lookX)); emit(g, { type: 'mother' }); emit(g, { type: 'radio', say: 'mother' }); }
   radioChecks(g);
   if (g.lightning && t - g.lightning.t > 0.6) g.lightning = null;
   if (!g.lightning && g.rand() < dt * 0.13 * rainAt(t)) { g.lightning = { t, x: between(g.rand, 0, g.width) }; emit(g, { type: 'thunder', x: g.lightning.x }); }
@@ -721,7 +726,7 @@ function stepUfos(g: Invasion, dt: number) {
   }
   if (g.ufosLaunched < ufosAt(t)) { // los de la nave nodriza: antes de que llegue la nave entran por un costado; después salen de abajo de la nave
     g.ufosLaunched++;
-    const ty = between(r, CITY_TOP - 9, CITY_TOP - 2), m = t >= MOTHER_FROM ? motherAt(g.width, t) : null;
+    const ty = between(r, CITY_TOP - 9, CITY_TOP - 2), m = t >= MOTHER_FROM ? motherAt(g, t) : null;
     g.ufos.push({ id: g.nextId++, kind: 'mother', ty, x: m ? m.x : r() < 0.5 ? -SIDE_W - 10 : g.width + SIDE_W + 10, y: m ? m.bottom + 3 : ty, vx: 0, t0: t, beam: null, nextBeam: t + between(r, 3, 6), wobble: r() * 10 });
     emit(g, { type: 'ufoArrive', kind: 'mother' });
   }
@@ -1008,7 +1013,7 @@ export function nearby(g: Invasion, x: number, y: number, radius: number) {
   for (const room of g.rooms) if (room.fire > 0.05) out.fire = Math.max(out.fire, near(room.fireAt, room.y + 0.6) * Math.min(1, room.fire * 2));
   // Los ovnis se escuchan fuerte y desde lejos (y algo en toda la ciudad mientras haya alguno).
   for (const u of g.ufos) { const k = u.kind === 'pen' ? 'ufo' : 'ovni'; out[k] = Math.max(out[k], 0.35, 1 - Math.hypot(u.x - x, u.y - y) / (radius * 6)); }
-  if (g.time >= MOTHER_FROM) { const m = motherAt(g.width, g.time); out.mother = m.k * Math.max(0.35, 1 - Math.abs(m.x - x) / 150); } // la nave es enorme: se escucha en todos lados, más cerca más fuerte
+  if (g.time >= MOTHER_FROM) { const m = motherAt(g, g.time); out.mother = m.k * Math.max(0.35, 1 - Math.abs(m.x - x) / 150); } // la nave es enorme: se escucha en todos lados, más cerca más fuerte
   const calm = 1 - ruinAt(g.time);
   out.street = Math.max(0.15, near(x, 0) * 1.2) * calm + (1 - calm) * 0.3;
   out.birds = Math.max(0.1, near(x, 30)) * calm * calm;

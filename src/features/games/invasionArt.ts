@@ -74,7 +74,7 @@ const loadPic = (src: string) => typeof Image !== 'undefined' ? Object.assign(ne
 const motherPic = loadPic(motherUrl), ufoPic = loadPic(ufoUrl);
 function drawMother(ctx: CanvasRenderingContext2D, g: Invasion, v: View) {
   if (g.time < MOTHER_FROM || !motherPic?.complete || !motherPic.naturalWidth) return;
-  const { x: cx, bottom, k } = motherAt(g.width, g.time);
+  const { x: cx, bottom, k } = motherAt(g, g.time);
   const H = MOTHER_W * motherPic.naturalHeight / motherPic.naturalWidth;
   if (!visible(v, cx - MOTHER_W / 2, cx + MOTHER_W / 2, bottom, bottom + H)) return;
   ctx.save(); ctx.globalAlpha = Math.min(1, k * 2.5);

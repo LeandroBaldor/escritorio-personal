@@ -296,6 +296,7 @@ export function Invasion() {
       // la lógica avanza en pasos de 50 ms como mucho.
       const dt = Math.max(0, Math.min(0.25, (now - last) / 1000));
       last = now;
+      g.lookX = cam.current.x; // (la nave nodriza llega donde está mirando el jugador)
       for (let left = dt; left > 1e-6 && !g.over; left -= 0.05) step(g, Math.min(0.05, left));
       a.swayT += dt;
       a.kick = Math.max(0, a.kick - dt * (selected.current === 'bazooka' ? 1.6 : 4)); // la bazooka vuelve más despacio del retroceso
