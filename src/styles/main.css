@@ -1377,8 +1377,15 @@ html:has(.journal-page),html:has(.expenses-page),html:has(.cal-page){overflow-x:
   .inv-fire{grid-column:5;grid-row:2}
 }
 .inv-bad strong{color:#f87171}
-.inv-clues{text-align:left;max-height:30vh;overflow:auto}
-.inv-clues ul{margin:.3rem 0 .6rem;padding-left:1.2rem;color:#d1fae5}
+.inv-final-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.35rem .5rem;margin:.6rem 0 1rem;text-align:left}
+.inv-final-stats div{display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;padding:.35rem .6rem;border-left:1px solid #3b777d;background:#1d39484d}
+.inv-final-stats dt{color:#c3d7dd;font-size:.82rem}
+.inv-final-stats dd{margin:0;color:#a6fff3;font:700 .95rem ui-monospace,monospace}
+.inv-final-stats .is-main{grid-column:1/-1;justify-content:center;gap:1rem}
+.inv-final-stats .is-main dt{font-size:1rem;color:#e6fffb}
+.inv-final-stats .is-main dd{font-size:1.5rem;color:#fde68a}
+.inv-record{margin:0 0 .8rem;color:#fde68a;font-weight:750}
+@media (max-width:560px){.inv-final-stats{gap:.2rem .3rem}.inv-final-stats div{padding:.25rem .45rem}.inv-final-stats dt{font-size:.72rem}.inv-final-stats dd{font-size:.82rem}}
 
 /* Calendario en escritorio: la página entera (título, meme, íconos, mes, leyenda, días de la semana y panel del
    día) ocupa exactamente el alto visible y no se mueve; sólo la cuadrícula de días scrollea adentro suyo (el alto

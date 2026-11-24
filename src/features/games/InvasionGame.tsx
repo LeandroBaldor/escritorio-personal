@@ -4,7 +4,6 @@ import { TouchGrips } from './TouchGrips';
 import { fitScale, pixelRatio, useFitScreen } from './fitScreen';
 import { Link } from 'react-router-dom';
 import { ALIEN_KINDS, ALIEN_POINTS, DEFUSE_POINTS, HUMAN_PENALTY, UFO_KILLS, ALIEN_TOTAL, aliveAliens, aliveHumans, CITY_TOP, GAME_SECONDS, HUMAN_TOTAL, newInvasion, shoot, step, takeEvents, WEAPONS, type Invasion as Game, type RadioCall, type Outcome, type Weapon } from './invasion';
-import { ANOMALIES } from './invasionAnomalies';
 import { isWoman } from './invasionPeople';
 import { drawMinimap, drawRockets, paintCity, type View } from './invasionArt';
 import { HEART_GAP, invasionLevels } from './invasionSound';
@@ -79,7 +78,7 @@ export function Invasion() {
   const [status, setStatus] = useState<Status>('ready');
   const [hud, setHud] = useState(() => ({ time: GAME_SECONDS, kills: 0, points: 0, civilians: 0, killsBy: ALIEN_KINDS.map(() => 0), humans: aliveHumans(firstGame), aliens: aliveAliens(firstGame), mag: Number(WEAPONS.rifle.mag), reloading: false }));
   const [record, setRecord] = useState(readInvasionRecord);
-  const [result, setResult] = useState({ outcome: 'time' as Outcome, kills: 0, points: 0, time: 0, headshots: 0, shots: 0, hits: 0, defused: 0, newRecord: false, clues: [] as string[] });
+  const [result, setResult] = useState({ outcome: 'time' as Outcome, kills: 0, points: 0, time: 0, headshots: 0, shots: 0, hits: 0, defused: 0, newRecord: false, humans: 0, aliens: 0 });
   const [toast, setToast] = useState<{ text: string; id: number; big?: boolean; bad?: boolean } | null>(null);
   const statusRef = useRef(status);
   useEffect(() => {
@@ -374,8 +373,7 @@ export function Invasion() {
         const isNew = g.points > invasionRecordPoints(rec);
         const next: InvasionRecord = isNew ? { kills: g.kills, points: g.points } : rec;
         saveRecord(next); setRecord(next);
-        const clues = [...new Set(g.killedAnomalies)].slice(-8).map(id => ANOMALIES[id].text);
-        setResult({ outcome, kills: g.kills, points: g.points, time: g.time, headshots: g.headshots, shots: g.shots, hits: g.hits, defused: g.defused, newRecord: isNew, clues });
+        setResult({ outcome, kills: g.kills, points: g.points, time: g.time, headshots: g.headshots, shots: g.shots, hits: g.hits, defused: g.defused, newRecord: isNew, humans: aliveHumans(g), aliens: aliveAliens(g) });
         setInvasionAmbient(null);
         if (won) playWinFanfare(); else playGameOver();
         setStatus('over');
@@ -523,7 +521,6 @@ export function Invasion() {
   };
   // Botones ◀ ▶ del celular: mientras se mantienen apretados, la vista se mueve.
   const press = useCallback((key: string, on: boolean) => { if (on) keys.current.add(key); else keys.current.delete(key); }, []);
-  const accuracy = result.shots ? Math.round((result.hits / result.shots) * 100) : 0;
   const recordText = `${invasionRecordPoints(record)} pts`;
 
   return <section className="runner trepa invasion" style={fit} aria-label="Invasión">
@@ -545,7 +542,7 @@ export function Invasion() {
           <button type="button" aria-label="Acercar la mira" onClick={() => zoomBy(1.35)}>+</button>
           <button type="button" aria-label="Recargar el arma" onClick={reload}>⟳</button>
         </div>}
-        {status !== 'ready' && <div className="inv-count" aria-label="Aliens y humanos vivos" data-testid="inv-count">
+        {status !== 'ready' && status !== 'over' && <div className="inv-count" aria-label="Aliens y humanos vivos" data-testid="inv-count">
           <span className="inv-count-aliens"><small>Aliens</small><b>{hud.aliens}</b></span>
           <span className={`inv-count-humans${hud.aliens - hud.humans > HEART_GAP ? ' is-danger' : ''}`}><small>Humanos</small><b>{hud.humans}</b></span>
         </div>}
@@ -591,9 +588,16 @@ export function Invasion() {
             {status === 'over' && <>
               <EndBanner win={result.outcome === 'won'} id="inv-message" />
               <p className="end-reason" data-testid="inv-outcome">{OUTCOME_TEXT[result.outcome]}</p>
-              <p><strong data-testid="inv-final">{result.points} puntos</strong> ? {result.kills} aliens eliminados ? {hud.humans} humanos y {hud.aliens} aliens en pie.{result.newRecord && ' Nuevo récord.'}</p>
-              <p>{result.headshots} tiros a la cabeza · {result.defused} bombas desactivadas · {accuracy}% de puntería</p>
-              {result.clues.length > 0 && <div className="inv-clues"><p><strong>Lo raro que hacían los aliens que eliminaste:</strong></p><ul>{result.clues.map(c => <li key={c}>{c}</li>)}</ul></div>}
+              <dl className="inv-final-stats" data-testid="inv-final-stats">
+                <div className="is-main"><dt>Puntos</dt><dd data-testid="inv-final">{result.points}</dd></div>
+                <div><dt>Extraterrestres eliminados</dt><dd>{result.kills}</dd></div>
+                <div><dt>Humanos sobrevivientes</dt><dd>{result.humans}</dd></div>
+                <div><dt>Extraterrestres en pie</dt><dd>{result.aliens}</dd></div>
+                <div><dt>Total de disparos</dt><dd>{result.shots}</dd></div>
+                <div><dt>Disparos en la cabeza</dt><dd>{result.headshots}</dd></div>
+                <div><dt>Bombas desactivadas</dt><dd>{result.defused}</dd></div>
+              </dl>
+              {result.newRecord && <p className="inv-record">¡Nuevo récord!</p>}
               <button type="button" onClick={() => { start(); lockMouse(); }} autoFocus>Jugar de nuevo</button>
             </>}
           </div>
