@@ -426,20 +426,21 @@ export function Invasion() {
       trigger.current = true; fire();
     };
     const up = () => { trigger.current = false; };
-    // Jugando, el mouse es siempre la mira: no puede quedar suelto. Si se suelta (Escape, cambiar de ventana…), el
-    // juego se pone en pausa y recién ahí aparece la flecha. (En el navegador de las pruebas automáticas, que suelta
-    // el mouse enseguida de atraparlo, solo si estuvo atrapado un rato.)
+    // Jugando, el mouse es siempre la mira. Si el navegador lo suelta (Escape, cambiar de ventana…), el juego se pone
+    // en pausa y recién ahí aparece la flecha. Se espera un momento antes de pausar: a veces el navegador lo suelta y
+    // lo vuelve a atrapar enseguida (por ejemplo, al reintentar atraparlo), y eso no tiene que pausar.
+    // (En el navegador de las pruebas automáticas, que suelta el mouse enseguida de atraparlo, solo si estuvo
+    // atrapado un rato.) Ya no se pausa cuando la flecha sale del cuadro: pausaba solo sin que se entendiera por qué.
     const robot = typeof navigator !== 'undefined' && navigator.webdriver;
-    const canLock = 'requestPointerLock' in stage && !window.matchMedia?.('(pointer: coarse)').matches;
-    let lockedAt = 0;
+    let lockedAt = 0, lostTimer = 0;
     const lockChange = () => {
+      window.clearTimeout(lostTimer);
       if (document.pointerLockElement === stage) { lockedAt = performance.now(); return; }
-      if (statusRef.current === 'playing' && lockedAt && (!robot || performance.now() - lockedAt > 500)) setStatus('paused');
+      if (statusRef.current === 'playing' && lockedAt && (!robot || performance.now() - lockedAt > 500)) {
+        lostTimer = window.setTimeout(() => { if (statusRef.current === 'playing' && document.pointerLockElement !== stage) setStatus('paused'); }, 350);
+      }
       lockedAt = 0;
     };
-    // Si el navegador no llegó a atrapar el mouse y la flecha se va del cuadro del juego: pausa.
-    const leave = () => { if (canLock && !robot && statusRef.current === 'playing' && document.pointerLockElement !== stage) setStatus('paused'); };
-    stage.addEventListener('mouseleave', leave);
     window.addEventListener('mouseup', up);
     window.addEventListener('blur', up);
     const wheel = (e: WheelEvent) => { if (statusRef.current !== 'playing') return; e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.18 : 1 / 1.18); };
@@ -449,7 +450,7 @@ export function Invasion() {
     stage.addEventListener('mousedown', down);
     stage.addEventListener('wheel', wheel, { passive: false });
     document.addEventListener('pointerlockchange', lockChange);
-    return () => { window.removeEventListener('mouseup', up); window.removeEventListener('blur', up); up(); document.removeEventListener('mousemove', move); document.removeEventListener('mouseout', out); stage.removeEventListener('mousedown', down); stage.removeEventListener('wheel', wheel); stage.removeEventListener('mouseleave', leave); document.removeEventListener('pointerlockchange', lockChange); };
+    return () => { window.removeEventListener('mouseup', up); window.removeEventListener('blur', up); up(); document.removeEventListener('mousemove', move); document.removeEventListener('mouseout', out); stage.removeEventListener('mousedown', down); stage.removeEventListener('wheel', wheel); window.clearTimeout(lostTimer); document.removeEventListener('pointerlockchange', lockChange); };
   }, [fire, zoomBy, paint, look, lockMouse]);
   // Fuera de la partida (pausa, arsenal, fin) se suelta el mouse.
   useEffect(() => { if (status !== 'playing' && document.pointerLockElement) document.exitPointerLock?.(); }, [status]);

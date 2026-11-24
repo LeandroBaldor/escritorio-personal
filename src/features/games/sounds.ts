@@ -1139,10 +1139,11 @@ export function playBlast(volume: number) {
 }
 // Un alien que habla (en su idioma): si se escucha esta voz cerca de la mira, ahí hay un alien.
 // Habla el alien que está en la mira, con la voz de su especie (`kind` = id % 6).
-// Los avisos por radio de un humano (audios del usuario, 2,5–3,3 s). Devuelve si sonó (si no cargó todavía, no).
+// Los avisos por radio de un humano (audios del usuario). Devuelve si sonó (si no cargó todavía, no).
 const RADIO = { h10: radioH10Url, h20: radioH20Url, h30: radioH30Url, bombsRight: radioBombsRightUrl, bombsLeft: radioBombsLeftUrl, aliensAhead: radioAheadUrl, mother: radioMotherUrl, ufoDown: radioUfoDownUrl };
-export const RADIO_SECONDS = { h10: 3.03, h20: 3.03, h30: 3.34, bombsRight: 2.64, bombsLeft: 2.64, aliensAhead: 2.85, mother: 3.03, ufoDown: 2.53 };
-export function playRadioCall(say: keyof typeof RADIO) { return playSample(RADIO[say], 1.5); }
+// (los audios van tal cual los mandó el usuario, 3,63 s cada uno; se tocan bien fuerte, el limitador general evita que saturen)
+export const RADIO_SECONDS = { h10: 3.63, h20: 3.63, h30: 3.63, bombsRight: 3.63, bombsLeft: 3.63, aliensAhead: 3.63, mother: 3.63, ufoDown: 3.63 };
+export function playRadioCall(say: keyof typeof RADIO) { return playSample(RADIO[say], 3); }
 export function playAlienVoice(kind: number, volume: number) { if (volume >= 0.05) playSample(ALIEN_VOICES[kind % ALIEN_VOICES.length], volume * 1.4, 0, 0.95 + Math.random() * 0.1); }
 // El intercomunicador de los aliens: pitidos que suben y bajan y una voz metálica que tartamudea.
 export function playAlienComm(volume: number) {
