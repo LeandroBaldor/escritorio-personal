@@ -57,20 +57,6 @@ export function Games() {
       <SectionObjects large><DeskLink /><NotebookLink /><CalculatorLink /><CalendarLink /></SectionObjects>
     </div>
     <ul className="games-list">
-      <li>
-        <Link onClick={playStart} className="game-card" to="/juegos/tiro-al-blanco-2050">
-          <Cover src={tiro2050Cover} />
-          <span className="game-card-text">
-            <strong>Tiro al Blanco 2050</strong>
-            <span>Elegí tu soldado y distinguí a los aliens de los rehenes y civiles en cinco escenarios futuristas.</span>
-            <span className="game-card-win">Rondas de 3 minutos para 1 a 4 jugadores locales.</span>
-          </span>
-          <span className="game-card-foot">
-            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
-          </span>
-        </Link>
-      </li>
-
 
       <li>
         <Link onClick={playStart} className="game-card" to="/juegos/bloques">
@@ -245,6 +231,19 @@ export function Games() {
         <Cover src={factoryCover} />
         <span className="game-card-text"><strong>Fábrica de Pedos</strong><span>💨 Caíste al fondo de una fábrica y un piso de pinches sube detrás tuyo sin parar. Tu único motor: ¡tus pedos! Comé pizza, porotos o hamburguesas para cargar gas y elegí rápido el corredor entre engranajes, láseres, lanzallamas y compuertas.</span><span className="game-card-win"><b>Cómo se gana:</b> Escapá de las 10 fábricas, de la Fundición de hierro al Reactor nuclear, hasta salir por arriba de la Fábrica orbital. Si te alcanzan los pinches o tocás una trampa, volvés a empezar.</span></span><span className="game-card-foot"><span className="game-card-play" aria-hidden="true">Jugar ▶</span></span>
       </Link></li>
+      <li>
+        <Link onClick={playStart} className="game-card" to="/juegos/tiro-al-blanco-2050">
+          <Cover src={tiro2050Cover} />
+          <span className="game-card-text">
+            <strong>Tiro al Blanco 2050</strong>
+            <span>Elegí tu soldado y distinguí a los aliens de los rehenes y civiles en cinco escenarios futuristas.</span>
+            <span className="game-card-win">Rondas de 3 minutos para 1 a 4 jugadores locales.</span>
+          </span>
+          <span className="game-card-foot">
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
+        </Link>
+      </li>
     </ul>
   </section>;
 }
