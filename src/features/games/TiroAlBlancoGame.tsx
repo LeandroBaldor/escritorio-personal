@@ -242,16 +242,16 @@ export function TiroAlBlanco() {
       <canvas ref={canvasRef} className={showGame ? '' : 'tiro-canvas--hidden'} role="img" aria-label="Campo de tiro: carteles con malos, rehenes e inocentes"
         onPointerDown={onDown} onPointerMove={toGame} onPointerUp={onUp} onPointerCancel={onUp} onContextMenu={e => e.preventDefault()} />
 
-      {(status === 'playing' || status === 'paused') && hud && <div className="tiro-hud">
-        <div className="tiro-hud-player"><b>{label(players, turn)}</b><span>{me && charOf(me.char).name}</span></div>
-        <div className={`tiro-hud-time${hud.time <= 15 ? ' tiro-hurry' : ''}`}><span>Tiempo</span><strong data-testid="tiro-time">{clock(hud.time)}</strong></div>
-        <div className="tiro-hud-score"><span>Puntos</span><strong data-testid="tiro-score">{hud.score}</strong>{hud.streak >= 2 && <small>Racha ×{hud.streak}</small>}</div>
-        <div className="tiro-hud-ammo">
+      {(status === 'playing' || status === 'paused') && hud && <div className="tab-hud">
+        <div className="tab-hud-player"><b>{label(players, turn)}</b><span>{me && charOf(me.char).name}</span></div>
+        <div className={`tab-hud-time${hud.time <= 15 ? ' tiro-hurry' : ''}`}><span>Tiempo</span><strong data-testid="tiro-time">{clock(hud.time)}</strong></div>
+        <div className="tab-hud-score"><span>Puntos</span><strong data-testid="tiro-score">{hud.score}</strong>{hud.streak >= 2 && <small>Racha ×{hud.streak}</small>}</div>
+        <div className="tab-hud-ammo">
           <span>{WEAPONS[hud.weapon].name} · {WEAPONS[hud.weapon].model}</span>
           <strong data-testid="tiro-ammo">{hud.reloading ? 'RECARGANDO…' : `${hud.mag} / ${hud.reserve === Infinity ? '∞' : hud.reserve}`}</strong>
           <i className="tiro-mag">{Array.from({ length: Math.min(hud.max, 40) }, (_, i) => <b key={i} className={i < hud.mag ? 'on' : ''} />)}</i>
         </div>
-        <div className="tiro-hud-buttons">
+        <div className="tab-hud-buttons">
           <button type="button" onPointerDown={e => e.stopPropagation()} onClick={doReload}>⟳ Recargar <kbd>R</kbd></button>
           {hud.hasSidearm && <button type="button" onPointerDown={e => e.stopPropagation()} onClick={doSwitch}>⇄ Cambiar <kbd>Q</kbd></button>}
         </div>
@@ -351,9 +351,9 @@ export function TiroAlBlanco() {
           : <><button type="button" className="tiro-primary" onClick={rematch} autoFocus>Jugar de nuevo</button><button type="button" className="tiro-link" onClick={() => setStatus('menu')}>Menú</button></>}
       </div>}
 
-      {status === 'results' && <div className="tiro-panel tiro-results" role="dialog" aria-labelledby="tiro-results-title">
+      {status === 'results' && <div className="tiro-panel tab-results" role="dialog" aria-labelledby="tab-results-title">
         <p className="tiro-kicker">{sceneOf(played).name}</p>
-        <h2 id="tiro-results-title">🏆 GANÓ {label(players, ranking[0].i)} 🏆</h2>
+        <h2 id="tab-results-title">🏆 GANÓ {label(players, ranking[0].i)} 🏆</h2>
         <ol>{ranking.map((p, k) => <li key={p.i} className={k === 0 ? 'win' : ''}>
           <Pic draw={(ctx, w, h) => drawPortrait(ctx, charOf(p.char), w, h)} w={56} h={56} />
           <span><b>{label(players, p.i)} · {charOf(p.char).name}</b><small>{WEAPONS[p.primary].name}{p.sidearm ? ` + ${WEAPONS[p.sidearm].name}` : ''} · {p.stats?.heads ?? 0} en la cabeza · {p.stats?.innocents ?? 0} inocentes</small></span>

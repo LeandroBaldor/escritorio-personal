@@ -14,7 +14,6 @@ import kombatCover from './assets/portada-kombat.webp';
 import voleyCover from './assets/portada-voley.webp';
 import penalesCover from './assets/portada-penales.webp';
 import landCover from './assets/portada-land.webp';
-import tiroCover from './assets/portada-tiro.webp';
 import { CalculatorLink, CalendarLink, DeskLink, NotebookLink, SectionObjects } from '../../app/SectionObjects';
 import { readRecord } from './BlockRunnerGame';
 import { formatTime, readTrepaRecord } from './TrepalunaGame';
@@ -27,7 +26,7 @@ import { readKombatRecord } from './KombatFootballGame';
 import { readVoleyRecord } from './KombatVoleyGame';
 import { readPenRecord } from './KombatPenaltiesGame';
 import { readLandRecord } from './LandGame';
-import { readTiroRecord } from './TiroAlBlancoGame';
+import { tiro2050Cover } from './Tiro2050Game';
 import { formatVampTime } from './vampyrium';
 import memeJigsaw from '../../assets/images/meme-jigsaw.jpg';
 
@@ -51,7 +50,6 @@ export function Games() {
   const penales = readPenRecord();
   const vamp2 = readVampyium2Record();
   const landWins = Object.values(readLandRecord()).reduce((a, b) => a + b, 0);
-  const tiro = readTiroRecord();
   return <section className="games-page">
     <div className="section-title games-title">
       <div className="games-heading"><p className="eyebrow">Para cortar un rato</p><h1>MiniJuegos</h1><p className="games-byline">By YEYO</p></div>
@@ -59,6 +57,20 @@ export function Games() {
       <SectionObjects large><DeskLink /><NotebookLink /><CalculatorLink /><CalendarLink /></SectionObjects>
     </div>
     <ul className="games-list">
+      <li>
+        <Link onClick={playStart} className="game-card" to="/juegos/tiro-al-blanco-2050">
+          <Cover src={tiro2050Cover} />
+          <span className="game-card-text">
+            <strong>Tiro al Blanco 2050</strong>
+            <span>Elegí tu soldado y distinguí a los aliens de los rehenes y civiles en cinco escenarios futuristas.</span>
+            <span className="game-card-win">Rondas de 3 minutos para 1 a 4 jugadores locales.</span>
+          </span>
+          <span className="game-card-foot">
+            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
+          </span>
+        </Link>
+      </li>
+
 
       <li>
         <Link onClick={playStart} className="game-card" to="/juegos/bloques">
@@ -225,20 +237,6 @@ export function Games() {
           </span>
           <span className="game-card-foot">
             {landWins > 0 && <small><b>Victorias</b>🏆 {landWins}</small>}
-            <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
-          </span>
-        </Link>
-      </li>
-      <li>
-        <Link onClick={playStart} className="game-card game-card--tiro" to="/juegos/tiro">
-          <Cover src={tiroCover} />
-          <span className="game-card-text">
-            <strong>Tiro al Blanco 2.050</strong>
-            <span>🎯 Entrenamiento de tiro del año 2050 en cinco tomas de rehenes, del banco orbital al puerto espacial. Los carteles saltan desde detrás de las coberturas: bajá a los que tienen pasamontañas y no le dispares a los rehenes ni a los inocentes. 6 personajes, armas futuristas y, sin balas, pistola o revólver. Solo o hasta 4 por turnos.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Hacé más puntos en la ronda de 3 minutos: cada malo suma 100 en el cuerpo y 250 en la cabeza (400 si tiene un rehén); cada inocente herido resta 300. Entre varios, gana el que más puntos hace.</span>
-          </span>
-          <span className="game-card-foot">
-            {tiro.score > 0 && <small><b>Récord</b>{tiro.score} pts</small>}
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
           </span>
         </Link>

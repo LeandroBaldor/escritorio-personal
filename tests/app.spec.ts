@@ -1441,8 +1441,7 @@ test('Land of Warriors: se elige civilización en la imagen, se ve su lámina, s
 
 test('Tiro al Blanco 2.050: dos jugadores eligen personaje y arma, corre la ronda, se dispara, se recarga, se pausa y gana el que más puntos hace', async ({ page }) => {
   test.setTimeout(60000);
-  await page.goto('/escritorio-personal/#/juegos');
-  await page.getByRole('link', { name: /Tiro al Blanco 2\.050/ }).click();
+  await page.goto('/escritorio-personal/#/juegos/tiro'); // ya no está en la lista (lo reemplazó Tiro al Blanco 2050), pero la dirección sigue
   await expect(page.getByRole('heading', { name: /TIRO AL BLANCO/, level: 1 })).toBeVisible();
   await page.getByRole('button', { name: '2 jugadores' }).click();
   await page.getByRole('button', { name: 'Estación Mag-Lev Línea 9' }).click();
@@ -1478,4 +1477,11 @@ test('Tiro al Blanco 2.050: dos jugadores eligen personaje y arma, corre la rond
   await expect(page.getByRole('heading', { name: /GANÓ JUGADOR 2/ })).toBeVisible();
   await page.getByRole('link', { name: '‹ Juegos' }).click();
   await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
+});
+
+test('Tiro al Blanco 2050 (el de Codex) abre desde la lista de juegos', async ({ page }) => {
+  await page.goto('/escritorio-personal/#/juegos');
+  await page.getByRole('link', { name: /Tiro al Blanco 2050/ }).click();
+  await expect(page.getByRole('heading', { name: /Tiro al Blanco/, level: 1 })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Soldados' })).toBeVisible();
 });
