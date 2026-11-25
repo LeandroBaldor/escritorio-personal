@@ -1092,10 +1092,11 @@ export function playBazookaBoom() {
   if (playSample(invBazookaBoomUrl, 1.8)) return;
   playBlast(1);
 }
-export function playRifleShot() {
-  if (playSample(invTiroUrl, 1.7)) return;
+// `delay` en segundos (Tiro al Blanco 2050 lo agenda al ritmo de la ráfaga); `volume`: Invasión usa 1,7, Tiro al Blanco 2050 0,9.
+export function playRifleShot(delay = 0, volume = 1.7) {
+  if (playSample(invTiroUrl, volume, delay)) return;
   const c = running(); if (!c) return;
-  const t = c.currentTime;
+  const t = c.currentTime + delay;
   burst(c, 'lowpass', 5000, t, 0.12, 1.2);
   tone(c, 'sine', 140, 40, t, 0.35, 1.1);
   for (const [d, v] of [[0.18, 0.25], [0.42, 0.12], [0.75, 0.06]]) burst(c, 'lowpass', 1200, t + d, 0.35, v);

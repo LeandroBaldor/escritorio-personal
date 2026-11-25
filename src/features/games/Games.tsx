@@ -236,7 +236,7 @@ export function Games() {
           <Cover src={tiro2050Cover} />
           <span className="game-card-text">
             <strong>Tiro al Blanco 2050</strong>
-            <span>Elegí tu soldado y distinguí a los aliens de los rehenes y civiles en cinco escenarios futuristas.</span>
+            <span>Elegí tu soldado y superá tres niveles de aliens, platos orbitales y tiro de precisión.</span>
             <span className="game-card-win">Rondas de 3 minutos para 1 a 4 jugadores locales.</span>
           </span>
           <span className="game-card-foot">
