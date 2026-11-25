@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import { getCameraView, getPlates, getPrecisionPosition, getWave, launchedPlates, levelNames, plateLauncher, plateWall, PRECISION_DISTANCES, PRECISION_ROUNDS, PRECISION_STEP_MS, primaries, RELOAD_MS, ROUND_MS, scoreImpact, scorePrecision, secondaries, TARGET_RISE_MS, TARGET_VISIBLE_MS, WAVE_MS } from './tiro2050';
 import type { Level } from './tiro2050';
 import { PrecisionBoard, TargetBlast } from './Tiro2050Targets';
-import { playBolt, playReload, playRifleShot } from './sounds';
+import { playBolt } from './sounds';
+import { gunFamily, playTiroReload, playTiroShot, preloadTiroSounds } from './tiro2050Sound';
 import './tiro2050.css';
 import menuSoundUrl from './assets/sonidos/tiro2050-menu.mp3';
 
@@ -189,6 +190,7 @@ export function Tiro2050Game() {
   }, [phase, level]);
 
   function start(player: number, nextLevel: Level = 1, nextPrecisionRound = 1) {
+    preloadTiroSounds();
     const nextArsenal = newArsenal(nextLevel === 3 ? 1 : 0);
     round.current = newRound(nextArsenal, performance.now());
     setArsenal(nextArsenal);
@@ -271,7 +273,8 @@ export function Tiro2050Game() {
     live.lastShot = now;
     const pulse = Math.max(time, live.nextPulse);
     live.nextPulse = pulse + 65;
-    playRifleShot((pulse - time) / 1000, 0.9);
+    const family = gunFamily(slot, slot === 0 ? loadout.primary : loadout.secondary);
+    playTiroShot(family, (pulse - time) / 1000);
     setMuzzlePulses(previous => [...previous.filter(shot => shot.at + 450 > time).slice(-3), { id: shots, at: pulse }]);
     const ejectPort = ejectPortRef.current?.getBoundingClientRect();
     if (ejectPort) {
@@ -282,7 +285,7 @@ export function Tiro2050Game() {
     const used = ++next.shots[slot];
     if (!(level === 3 && shots + 1 === PRECISION_DISTANCES) && used < activeWeapon.ammo && used % activeWeapon.magazine === 0) {
       next.reloadEnds[slot] = time + RELOAD_MS;
-      playReload();
+      playTiroReload(family);
     } else if (activeWeapon.effect === 2 && used < activeWeapon.ammo) playBolt();
     const otherSlot = slot === 0 ? 1 : 0;
     if (level !== 3 && used === activeWeapon.ammo && next.shots[otherSlot] < weapons[otherSlot].ammo) next.slot = otherSlot;
