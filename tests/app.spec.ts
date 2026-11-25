@@ -1057,7 +1057,7 @@ test('la sección Juegos abre ¡Cuidado, bloques! y el juego suma puntos', async
 
 test('Trepaluna: se abre desde Juegos, corre el tiempo, muestra la altura y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li')).toHaveCount(13);
+  await expect(page.locator('.games-list > li')).toHaveCount(14);
   await page.getByRole('link', { name: /Trepaluna/ }).click();
   await expect(page.getByRole('heading', { name: 'Trepaluna', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
@@ -1437,4 +1437,45 @@ test('Land of Warriors: se elige civilización en la imagen, se ve su lámina, s
   await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
   await page.getByRole('dialog').getByRole('button', { name: 'Seguir' }).click();
   await expect(page.getByRole('heading', { name: 'Pausa' })).toHaveCount(0);
+});
+
+test('Tiro al Blanco 2.050: dos jugadores eligen personaje y arma, corre la ronda, se dispara, se recarga, se pausa y gana el que más puntos hace', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.goto('/escritorio-personal/#/juegos');
+  await page.getByRole('link', { name: /Tiro al Blanco 2\.050/ }).click();
+  await expect(page.getByRole('heading', { name: /TIRO AL BLANCO/, level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: '2 jugadores' }).click();
+  await page.getByRole('button', { name: 'Estación Mag-Lev Línea 9' }).click();
+  await page.getByRole('button', { name: 'Siguiente ▶' }).click();
+  await page.getByRole('button', { name: /Kira Vex/ }).click();
+  await page.getByRole('button', { name: /^Rifle/ }).click();
+  await expect(page.getByRole('button', { name: /Kira Vex/ })).toBeDisabled(); // el jugador 2 elige otro personaje
+  await page.getByRole('button', { name: /Nova Kimura/ }).click();
+  await page.getByRole('button', { name: /^Escopeta/ }).click();
+  await expect(page.getByRole('heading', { name: 'TURNO DE JUGADOR 1' })).toBeVisible();
+  await page.getByRole('button', { name: '¡Listo! ▶' }).click();
+  await expect(page.getByTestId('tiro-time')).toHaveText('3:00');
+  await expect(page.getByTestId('tiro-time')).not.toHaveText('3:00', { timeout: 10000 }); // después del 3, 2, 1
+  await expect(page.getByTestId('tiro-ammo')).toHaveText('10 / 30');
+  await page.locator('.tiro-stage canvas').click({ position: { x: 40, y: 40 } });
+  await expect(page.getByTestId('tiro-ammo')).toHaveText('9 / 30');
+  await page.keyboard.press('r');
+  await expect(page.getByTestId('tiro-ammo')).toHaveText('10 / 29', { timeout: 6000 });
+  await page.keyboard.press('p');
+  await expect(page.getByRole('heading', { name: 'Pausa' })).toBeVisible();
+  const paused = await page.getByTestId('tiro-time').textContent();
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId('tiro-time')).toHaveText(paused ?? '');
+  await page.getByRole('button', { name: 'Seguir' }).first().click();
+  // Termina la ronda de cada jugador
+  await page.evaluate(() => { const g = (window as unknown as { __tiro: () => { time: number; score: number } }).__tiro(); g.time = 179.9; g.score = 500; });
+  await expect(page.getByTestId('tiro-final')).toContainText('puntos');
+  await page.getByRole('button', { name: 'Turno de JUGADOR 2 ▶' }).click();
+  await page.getByRole('button', { name: '¡Listo! ▶' }).click();
+  await expect(page.getByTestId('tiro-time')).toBeVisible();
+  await page.evaluate(() => { const g = (window as unknown as { __tiro: () => { time: number; score: number } }).__tiro(); g.time = 179.9; g.score = 900; });
+  await page.getByRole('button', { name: 'Ver resultados ▶' }).click();
+  await expect(page.getByRole('heading', { name: /GANÓ JUGADOR 2/ })).toBeVisible();
+  await page.getByRole('link', { name: '‹ Juegos' }).click();
+  await expect(page.getByRole('heading', { name: 'MiniJuegos', exact: true })).toBeVisible();
 });
