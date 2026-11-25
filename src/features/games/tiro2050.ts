@@ -6,7 +6,8 @@ export const RELOAD_MS = 1_120;
 export const PRECISION_DISTANCES = 10;
 export const PRECISION_ROUNDS = 3;
 export const PRECISION_STEP_MS = 520;
-export const levelNames = ['Aliens y rehenes', 'Platos orbitales', 'Tiro de precisión'] as const;
+export const levelNames = ['Aliens', 'Platos', 'Target'] as const;
+export const levelOrdinals = ['Primera prueba', 'Segunda prueba', 'Tercera prueba'] as const;
 export type Level = 1 | 2 | 3;
 
 export const primaries = [
@@ -111,4 +112,22 @@ export function getCameraView(camera: { x: number; y: number }, zoom: number) {
   const scale = cameraBaseScale * zoom;
   const focus = (position: number) => 50 + (position - 50) * .51;
   return { scale, x: 50 - focus(camera.x) * scale, y: 50 - focus(camera.y) * scale };
+}
+
+// Calificación final (correcciones 13): el rendimiento es el promedio de las tres pruebas, de 0 a 100.
+// Aliens: aciertos menos 2 por cada rehén o civil herido, sobre los disparos. Platos: platos rotos sobre los lanzados.
+// Target: puntos sobre el máximo posible (15 por tiro, 3 rondas de 10 distancias).
+export const ratings = ['Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'] as const;
+type Stats = { score: number; shots: number; hits: number; errors: number };
+export function levelPerformance(level: Level, stats: Stats) {
+  if (level === 1) return stats.shots ? Math.max(0, stats.hits - 2 * stats.errors) / stats.shots : 0;
+  if (level === 2) return Math.min(1, stats.hits / launchedPlates(ROUND_MS));
+  return Math.min(1, stats.score / (15 * PRECISION_DISTANCES * PRECISION_ROUNDS));
+}
+export function campaignRating(levels: (Stats & { level: Level })[]) {
+  const percent = Math.round(([1, 2, 3] as Level[]).reduce((sum, level) => {
+    const entry = levels.find(item => item.level === level);
+    return sum + (entry ? levelPerformance(level, entry) : 0);
+  }, 0) / 3 * 100);
+  return { percent, label: ratings[Math.min(4, Math.floor(percent / 20))] };
 }

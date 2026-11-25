@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { getCameraView, getPlates, getPrecisionPosition, getWave, launchedPlates, levelNames, plateLauncher, plateWall, PRECISION_DISTANCES, PRECISION_ROUNDS, PRECISION_STEP_MS, primaries, RELOAD_MS, ROUND_MS, scoreImpact, scorePrecision, secondaries, TARGET_RISE_MS, TARGET_VISIBLE_MS, WAVE_MS } from './tiro2050';
+import { campaignRating, getCameraView, getPlates, getPrecisionPosition, getWave, launchedPlates, levelNames, levelOrdinals, plateLauncher, plateWall, PRECISION_DISTANCES, PRECISION_ROUNDS, PRECISION_STEP_MS, primaries, RELOAD_MS, ROUND_MS, scoreImpact, scorePrecision, secondaries, TARGET_RISE_MS, TARGET_VISIBLE_MS, WAVE_MS } from './tiro2050';
 import type { Level } from './tiro2050';
 import { PrecisionBoard, TargetBlast } from './Tiro2050Targets';
 import { playBolt } from './sounds';
@@ -41,6 +41,22 @@ const art = (name: string) => assets[`./assets/tiro2050/${name}`];
 export const tiro2050Cover = art('escenario-3.jpg');
 
 const scenes = ['Hangar estelar', 'Fábrica robotizada', 'Puente de mando', 'Reactor orbital', 'Laboratorio de contención'];
+// Escenarios de cada prueba: la primera tiene los 5; Platos y Target por ahora tienen uno (los otros 4, "En proceso").
+const levelScenes: Record<Level, string[]> = {
+  1: scenes,
+  2: ['Campo orbital', 'En proceso', 'En proceso', 'En proceso', 'En proceso'],
+  3: ['Galería de tiro', 'En proceso', 'En proceso', 'En proceso', 'En proceso'],
+};
+const levelBriefs: Record<Level, { text: string; points: string; time: string }> = {
+  1: { text: 'Los aliens asoman detrás de las coberturas entre rehenes y civiles. Bajá solo a los aliens.', points: 'Cabeza +10 · torso +5 · rehén o civil −10', time: '3 minutos' },
+  2: { text: 'La lanzadora tira platos que cruzan el campo hasta la pared. Rompé todos los que puedas antes de que choquen.', points: 'Cada plato roto +1', time: '3 minutos' },
+  3: { text: 'El blanco se aleja en cada tiro. Un solo disparo por distancia, con el arma de reserva.', points: 'Cabeza +15 · anillos del torso +7 a +10', time: '3 rondas de 10 distancias' },
+};
+// Color del plato (segunda prueba): se cambia el tono del plato naranja original.
+const plateColors = [
+  { name: 'Naranja', hue: 0, swatch: '#ef752e' }, { name: 'Rojo', hue: -28, swatch: '#e2383a' }, { name: 'Amarillo', hue: 26, swatch: '#f3c626' },
+  { name: 'Verde', hue: 95, swatch: '#3fc34a' }, { name: 'Azul', hue: 185, swatch: '#2f8ff0' }, { name: 'Violeta', hue: 250, swatch: '#a35cf0' },
+];
 const operators = ['Atlas', 'Nova', 'Diesel', 'Vega'];
 const operatorSuits = ['Blindaje pesado', 'Traje de sigilo', 'Exoesqueleto industrial', 'Armadura de exploración'];
 const colors = ['#ffc261', '#d9a9ff', '#ff9270', '#7bf4e6'];
@@ -102,7 +118,8 @@ export function Tiro2050Game() {
   const [loadouts, setLoadouts] = useState<Loadout[]>(() => operators.map((_, operator) => ({ ...initialLoadout, operator })));
   const [turn, setTurn] = useState(0);
   const [level, setLevel] = useState<Level>(1);
-  const [phase, setPhase] = useState<'setup' | 'round' | 'precision-break' | 'level-report' | 'between' | 'results'>('setup');
+  const [phase, setPhase] = useState<'setup' | 'briefing' | 'stage' | 'round' | 'precision-break' | 'level-report' | 'final' | 'results'>('setup');
+  const [plateColor, setPlateColor] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [result, setResult] = useState<Result>(emptyResult);
   const [results, setResults] = useState<CampaignResult[]>([]);
@@ -149,7 +166,7 @@ export function Tiro2050Game() {
   const targetsHiding = elapsed % WAVE_MS >= TARGET_RISE_MS + TARGET_VISIBLE_MS;
   const clock = Math.ceil((ROUND_MS - elapsed) / 1000);
   const tint = colors[loadout.operator];
-  const stageName = level === 1 ? scenes[scene] : levelNames[level - 1];
+  const stageName = level === 1 ? scenes[scene] : levelScenes[level][0];
   const precisionStep = Math.max(0, Math.min(PRECISION_DISTANCES - 1, result.shots - Number(level === 3 && impact !== null && elapsed - impact.at < PRECISION_STEP_MS)));
   const settledLevel = levelResults.at(-1);
   const accumulatedScore = levelResults.reduce((total, entry) => total + entry.score, 0);
@@ -172,6 +189,11 @@ export function Tiro2050Game() {
     }
     setPhase('level-report');
   });
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    (window as unknown as { __tiro2050Finish?: () => void }).__tiro2050Finish = () => { round.current.start -= ROUND_MS; round.current.finishAt = 0; };
+  }, []);
 
   useEffect(() => {
     if (phase !== 'round') return;
@@ -214,14 +236,30 @@ export function Tiro2050Game() {
     setPhase('round');
   }
 
-  function continueCampaign() {
-    if (level !== 3) {
-      start(turn, level === 1 ? 2 : 3);
-      return;
-    }
-    const total = sumResults(levelResults);
-    setResults(previous => [...previous, { ...total, levels: levelResults }]);
-    setPhase(turn + 1 < players ? 'between' : 'results');
+  function goTo(next: typeof phase) { playMenu(); setPhase(next); }
+  function nextTest() {
+    playMenu();
+    setLevel(level === 1 ? 2 : 3);
+    setPhase('stage');
+  }
+  function showFinal() {
+    playMenu();
+    setResults(previous => [...previous, { ...sumResults(levelResults), levels: levelResults }]);
+    setPhase('final');
+  }
+  function nextPlayer() {
+    playMenu();
+    setTurn(turn + 1);
+    setLevel(1);
+    setLevelResults([]);
+    setPhase('stage');
+  }
+  function newGame() {
+    playMenu();
+    setResults([]);
+    setTurn(0);
+    setLevel(1);
+    setPhase('setup');
   }
 
   function configure(player: number, changes: Partial<Loadout>) {
@@ -460,22 +498,12 @@ export function Tiro2050Game() {
     <div className="tiro-top">
       <Link to="/juegos">MiniJuegos</Link>
       <h1>Tiro al Blanco <em>2050</em></h1>
-      {phase !== 'setup' && <button type="button" onClick={() => setPhase('setup')}>Menú</button>}
+      {phase !== 'setup' && <button type="button" onClick={newGame}>Menú</button>}
     </div>
 
     {phase === 'setup' && <div className="tiro-setup">
-      <figure className="tiro-scene-hero">
-        <img className="tiro-scene-preview" src={art(`escenario-${scene}.jpg`)} alt="" />
-        <figcaption>{scenes[scene]}</figcaption>
-      </figure>
-      <fieldset className="tiro-scenes">
-        <legend>Escenario</legend>
-        {scenes.map((name, i) => <button key={name} type="button" aria-pressed={scene === i} onClick={() => { playMenu(); setScene(i); }}>
-          <img src={art(`escenario-${i}.jpg`)} alt="" />{name}
-        </button>)}
-      </fieldset>
-      <div className="tiro-brief">
-        <p>Tres niveles. Aliens y platos en rondas de 3 minutos, más tres rondas de precisión de 10 distancias cada una.</p>
+      <h2 className="tiro-menu-title">Elegí tu soldado y sus armas</h2>
+      <div className="tiro-brief tiro-brief--players">
         <label>Jugadores locales <select value={players} onChange={event => { playMenu(); setPlayers(Number(event.target.value)); }}>
           {[1, 2, 3, 4].map(value => <option key={value} value={value}>{value}</option>)}
         </select></label>
@@ -491,12 +519,12 @@ export function Tiro2050Game() {
               <small>{operatorSuits[i]}</small>
             </button>)}
           </div>
-          <div className="tiro-selects">
-            <label>Arma principal <select value={selection.primary} onChange={event => configure(index, { primary: Number(event.target.value), variant: 0 })}>
-              {primaries.map((item, i) => <option key={item.name} value={i}>{item.name}</option>)}
-            </select></label>
-          </div>
           <div className="tiro-armory">
+            <div className="tiro-armory-slot">
+              <label>Arma principal <select value={selection.primary} onChange={event => configure(index, { primary: Number(event.target.value), variant: 0 })}>
+                {primaries.map((item, i) => <option key={item.name} value={i}>{item.name}</option>)}
+              </select></label>
+            </div>
             <div className="tiro-armory-slot">
               <label>Diseño <select value={selection.variant} onChange={event => configure(index, { variant: Number(event.target.value) })}>
                 {primaries[selection.primary].models.map((name, i) => <option key={name} value={i}>{name}</option>)}
@@ -512,14 +540,59 @@ export function Tiro2050Game() {
           </div>
         </fieldset>)}
       </div>
-      <button className="tiro-action" type="button" onClick={() => { playMenu(); setResults([]); start(0); }}>Empezar ronda</button>
+      <div className="tiro-menu-actions"><button className="tiro-action" type="button" onClick={() => { setResults([]); setTurn(0); setLevel(1); goTo('briefing'); }}>Continuar</button></div>
+    </div>}
+
+    {phase === 'briefing' && <div className="tiro-setup">
+      <h2 className="tiro-menu-title">La competencia</h2>
+      <p className="tiro-menu-lead">Tres pruebas, una después de la otra. Al final se suman los puntos y se califica cómo jugaste.</p>
+      <ol className="tiro-tests">
+        {([1, 2, 3] as Level[]).map(test => <li key={test}>
+          <img src={art(`escenario-${test === 1 ? scene : test + 3}.jpg`)} alt="" />
+          <span><small>{levelOrdinals[test - 1]}</small><strong>{levelNames[test - 1]}</strong></span>
+          <p>{levelBriefs[test].text}</p>
+        </li>)}
+      </ol>
+      <div className="tiro-menu-actions"><button className="tiro-action" type="button" onClick={() => goTo('stage')}>Continuar</button></div>
+    </div>}
+
+    {phase === 'stage' && <div className="tiro-setup">
+      <h2 className="tiro-menu-title">{levelOrdinals[level - 1]}: {levelNames[level - 1]}{players > 1 && <small> · Jugador {turn + 1}</small>}</h2>
+      <figure className="tiro-scene-hero">
+        <img className="tiro-scene-preview" src={art(`escenario-${level === 1 ? scene : level + 3}.jpg`)} alt="" />
+        <figcaption>{level === 1 ? scenes[scene] : levelScenes[level][0]}</figcaption>
+      </figure>
+      <fieldset className="tiro-scenes">
+        <legend>Escenario</legend>
+        {levelScenes[level].map((name, i) => {
+          const ready = level === 1 || i === 0;
+          return <button key={i} type="button" disabled={!ready} aria-pressed={ready && (level === 1 ? scene === i : true)}
+            onClick={() => { if (level === 1) { playMenu(); setScene(i); } }}>
+            {ready ? <img src={art(`escenario-${level === 1 ? i : level + 3}.jpg`)} alt="" /> : <span className="tiro-scene-soon" aria-hidden="true">🛠</span>}
+            {name}
+          </button>;
+        })}
+      </fieldset>
+      {level === 2 && <fieldset className="tiro-plate-colors">
+        <legend>Color del plato</legend>
+        {plateColors.map((color, i) => <button key={color.name} type="button" aria-pressed={plateColor === i} onClick={() => { playMenu(); setPlateColor(i); }}>
+          <span className="tiro-plate-swatch" style={{ '--tiro-plate-hue': `${color.hue}deg` } as CSSProperties} />{color.name}
+        </button>)}
+      </fieldset>}
+      <dl className="tiro-test-brief">
+        <div className="tiro-test-brief-text"><dt>La prueba</dt><dd>{levelBriefs[level].text}</dd></div>
+        <div><dt>Puntos</dt><dd>{levelBriefs[level].points}</dd></div>
+        <div><dt>Tiempo</dt><dd>{levelBriefs[level].time}</dd></div>
+        <div><dt>Arma</dt><dd>{level === 3 ? (selectedSecondary.effect === 3 ? selectedSecondary.name : secondaries[0].name) : `${primaryName} y ${selectedSecondary.name}`}</dd></div>
+      </dl>
+      <div className="tiro-menu-actions"><button className="tiro-action" type="button" onClick={() => { playMenu(); start(turn, level); }}>Iniciar</button></div>
     </div>}
 
     {phase === 'round' && <>
       <div className="tiro-command">
       <div className="tiro-hud">
         <span className="tiro-hud-player"><img src={art(`operador-${loadout.operator}.jpg`)} alt="" /><span><small>Jugador {turn + 1}</small><b>{operators[loadout.operator]}</b></span></span>
-        <span className="tiro-hud-score"><small>Nivel {level} de 3</small><strong><b>{result.score + (level === 3 ? precisionTotal.score : 0)}</b> pts</strong></span>
+        <span className="tiro-hud-score"><small>Prueba {level} de 3 · {levelNames[level - 1]}</small><strong><b>{result.score + (level === 3 ? precisionTotal.score : 0)}</b> pts</strong></span>
         {level === 3 ? <span className="tiro-hud-score tiro-distance"><small>Ronda {precisionRound}/{PRECISION_ROUNDS}</small><strong aria-label="Distancia del blanco">{precisionStep + 1}/{PRECISION_DISTANCES}</strong></span>
           : <time aria-label="Tiempo restante">{Math.floor(clock / 60)}:{String(clock % 60).padStart(2, '0')}</time>}
       </div>
@@ -537,6 +610,7 @@ export function Tiro2050Game() {
         </div>}
       </div>
       </div>
+      <div className="tiro-stage">
       <div ref={rangeRef} className="tiro-range" aria-label={stageName} onPointerMove={aimAt} onPointerLeave={() => { trigger.current = null; }}
         onClick={event => { if (event.button === 0 && !handledClick.current) fire(); }}
         onPointerDown={beginAim} onPointerUp={endAim} onLostPointerCapture={event => {
@@ -570,7 +644,7 @@ export function Tiro2050Game() {
           {getPlates(elapsed).filter(plate => !targetImpacts[plate.id]).map(plate => plate.crashed
             ? <div key={plate.id} className="tiro-plate-break tiro-wall-crash" style={{ left: `${plate.x}%`, top: `${plate.y}%` }}><TargetBlast /></div>
             : <div key={plate.id} className="tiro-flying-plate" data-plate={plate.id}
-              role="img" aria-label="Plato volador" style={{ left: `${plate.x}%`, top: `${plate.y}%` }} />)}
+              role="img" aria-label="Plato volador" style={{ left: `${plate.x}%`, top: `${plate.y}%`, '--tiro-plate-hue': `${plateColors[plateColor].hue}deg` } as CSSProperties} />)}
           {visibleNotices.flatMap(([id, hit]) => hit.plate && elapsed - hit.at < 870 ? [<div key={id} className="tiro-plate-break"
             style={{ left: `${hit.plate.x}%`, top: `${hit.plate.y}%` }}><TargetBlast /></div>] : [])}
         </>}
@@ -619,6 +693,7 @@ export function Tiro2050Game() {
           fire();
         }} onClick={event => { event.stopPropagation(); if (event.detail === 0) fire(); }}>Disparar</button>
       </div>
+      </div>
       <p className="tiro-hint">{ammo[activeSlot].remaining === 0 ? 'Munición agotada. La ronda termina al vencer el reloj.' : level === 3
         ? 'Un tiro por distancia. Cabeza +15 · anillos del torso +7 a +10.' : <>
           <span className="tiro-hint-mouse">Mové el mouse para mirar, hacé clic para disparar y usá Espacio para cambiar de arma.</span>
@@ -641,45 +716,85 @@ export function Tiro2050Game() {
         <div className="tiro-campaign-total"><span>Total acumulado</span><strong>{accumulatedScore} pts</strong></div>
       </div>
       <div className="tiro-report-details">
-        <p>Nivel {settledLevel.level} completado</p>
+        <p>{levelOrdinals[settledLevel.level - 1]} terminada</p>
         <h2 id="tiro-level-report-title">{levelNames[settledLevel.level - 1]}</h2>
         <dl className="tiro-report-metrics">
-          <div><dt>Puntos del nivel</dt><dd>{settledLevel.score}</dd></div>
-          <div><dt>Tiros</dt><dd>{settledLevel.shots}</dd></div>
-          <div><dt>Aciertos</dt><dd>{settledLevel.hits}</dd></div>
-          <div><dt>Precisión</dt><dd>{settledLevel.shots ? Math.round(settledLevel.hits / settledLevel.shots * 100) : 0}%</dd></div>
+          <div className="tiro-report-score"><dt>Puntos</dt><dd>{settledLevel.score}</dd></div>
           {settledLevel.level === 2 ? <>
-            <div><dt>Platos rotos</dt><dd>{settledLevel.hits}</dd></div>
+            <div><dt>Platos destruidos</dt><dd>{settledLevel.hits}</dd></div>
             <div><dt>Platos lanzados</dt><dd>{launchedPlates(ROUND_MS)}</dd></div>
+            <div><dt>Platos que se escaparon</dt><dd>{Math.max(0, launchedPlates(ROUND_MS) - settledLevel.hits)}</dd></div>
+            <div><dt>Disparos</dt><dd>{settledLevel.shots}</dd></div>
+            <div><dt>Disparos errados</dt><dd>{settledLevel.shots - settledLevel.hits}</dd></div>
+          </> : settledLevel.level === 1 ? <>
+            <div><dt>Balas disparadas</dt><dd>{settledLevel.shots}</dd></div>
+            <div><dt>Aciertos</dt><dd>{settledLevel.hits}</dd></div>
+            <div><dt>Tiros a la cabeza</dt><dd>{settledLevel.headshots}</dd></div>
+            <div><dt>Tiros al torso</dt><dd>{settledLevel.hits - settledLevel.headshots}</dd></div>
+            <div><dt>Rehenes y civiles heridos</dt><dd>{settledLevel.errors}</dd></div>
           </> : <>
-            <div><dt>Aciertos a la cabeza</dt><dd>{settledLevel.headshots}</dd></div>
-            <div><dt>Aciertos al torso</dt><dd>{settledLevel.hits - settledLevel.headshots}</dd></div>
-            {settledLevel.level === 1 ? <div><dt>Impactos a inocentes</dt><dd>{settledLevel.errors}</dd></div>
-              : <div><dt>Distancias completadas</dt><dd>{settledLevel.shots}/{PRECISION_DISTANCES * PRECISION_ROUNDS}</dd></div>}
+            <div><dt>Disparos</dt><dd>{settledLevel.shots}</dd></div>
+            <div><dt>Aciertos</dt><dd>{settledLevel.hits}</dd></div>
+            <div><dt>Tiros a la cabeza</dt><dd>{settledLevel.headshots}</dd></div>
+            <div><dt>Tiros al torso</dt><dd>{settledLevel.hits - settledLevel.headshots}</dd></div>
+            <div><dt>Distancias completadas</dt><dd>{settledLevel.shots}/{PRECISION_DISTANCES * PRECISION_ROUNDS}</dd></div>
           </>}
+          <div><dt>Precisión</dt><dd>{settledLevel.shots ? Math.round(settledLevel.hits / settledLevel.shots * 100) : 0}%</dd></div>
         </dl>
         {settledLevel.rounds && <ul className="tiro-level-scores" aria-label="Puntos por ronda">
           {settledLevel.rounds.map((entry, index) => <li key={index}>Ronda {index + 1} <strong>{entry.score} pts</strong></li>)}
         </ul>}
-        {levelResults.length > 1 && <ul className="tiro-level-scores" aria-label="Puntos por nivel">
-          {levelResults.map(entry => <li key={entry.level}>{levelNames[entry.level - 1]} <strong>{entry.score} pts</strong></li>)}
-        </ul>}
-        <button className="tiro-action" type="button" onClick={continueCampaign}>{level < 3 ? `Ir al nivel ${level + 1}` : 'Ver resultados'}</button>
+      </div>
+      <div className={`tiro-report-actions${level === 3 ? ' tiro-report-actions--center' : ''}`}>
+        {level < 3 ? <button className="tiro-action" type="button" onClick={nextTest}>Siguiente prueba</button>
+          : <button className="tiro-action" type="button" onClick={showFinal}>Resultado Final</button>}
       </div>
     </article>}
 
-    {(phase === 'between' || phase === 'results') && <div className="tiro-results">
-      <h2>{phase === 'between' ? 'Cambio de jugador' : 'Resultados'}</h2>
-      {phase === 'results' && players > 1 && <p>{ranking[0].score === ranking[1].score ? 'Empate en el primer puesto' : `Ganó el jugador ${ranking[0].index + 1}`}</p>}
+    {phase === 'final' && (() => {
+      const total = sumResults(levelResults);
+      const rating = campaignRating(levelResults);
+      const percent = (entry: { hits: number; shots: number }) => entry.shots ? Math.round(entry.hits / entry.shots * 100) : 0;
+      return <article className="tiro-level-report tiro-final" aria-labelledby="tiro-final-title">
+        <div className="tiro-report-profile">
+          <figure className="tiro-report-soldier">
+            <img src={art(`operador-${loadout.operator}.jpg`)} alt={`Retrato de ${operators[loadout.operator]}`} />
+            <figcaption>{operators[loadout.operator]} <small>Jugador {turn + 1}</small></figcaption>
+          </figure>
+        </div>
+        <div className="tiro-report-details">
+          <p>Fin de la competencia</p>
+          <h2 id="tiro-final-title">Resultado Final</h2>
+          <table className="tiro-final-table">
+            <thead><tr><th scope="col">Prueba</th><th scope="col">Puntos</th><th scope="col">Disparos</th><th scope="col">Aciertos</th><th scope="col">Precisión</th></tr></thead>
+            <tbody>
+              {levelResults.map(entry => <tr key={entry.level}><th scope="row">{levelNames[entry.level - 1]}</th><td>{entry.score}</td><td>{entry.shots}</td><td>{entry.hits}</td><td>{percent(entry)}%</td></tr>)}
+            </tbody>
+            <tfoot><tr><th scope="row">Total</th><td>{total.score}</td><td>{total.shots}</td><td>{total.hits}</td><td>{percent(total)}%</td></tr></tfoot>
+          </table>
+          <div className={`tiro-rating tiro-rating--${rating.label === 'Muy malo' ? 0 : ['Malo', 'Regular', 'Bueno', 'Excelente'].indexOf(rating.label) + 1}`} data-testid="tiro2050-rating">
+            <span>Calificación</span><strong>{rating.label}</strong><small>Rendimiento {rating.percent}%</small>
+          </div>
+          <p className="tiro-rating-note">El rendimiento es el promedio de las tres pruebas: en Aliens los aciertos sobre los disparos (cada rehén o civil herido resta dos aciertos), en Platos los platos rotos sobre los lanzados y en Target los puntos sobre el máximo posible. Muy malo: menos de 20% · Malo: 20 a 39% · Regular: 40 a 59% · Bueno: 60 a 79% · Excelente: 80% o más.</p>
+        </div>
+        <div className="tiro-report-actions">
+          {turn + 1 < players ? <button className="tiro-action" type="button" onClick={nextPlayer}>Turno del jugador {turn + 2}</button>
+            : players > 1 ? <button className="tiro-action" type="button" onClick={() => goTo('results')}>Ver ganador</button>
+              : <button className="tiro-action" type="button" onClick={newGame}>Nueva partida</button>}
+        </div>
+      </article>;
+    })()}
+
+    {phase === 'results' && <div className="tiro-results">
+      <h2>Resultados</h2>
+      {players > 1 && ranking.length > 1 && <p>{ranking[0].score === ranking[1].score ? 'Empate en el primer puesto' : `Ganó el jugador ${ranking[0].index + 1}`}</p>}
       <ol>{ranking.map(entry => <li key={entry.index}>
         <strong>Jugador {entry.index + 1} · {operators[loadouts[entry.index].operator]}</strong>
         <b>{entry.score} pts</b>
-        <span>{entry.hits} aciertos · {entry.errors} impactos a inocentes · {entry.shots} tiros</span>
-        <span>{entry.levels.map(entry => `${levelNames[entry.level - 1]} ${entry.score} pts`).join(' · ')}</span>
+        <span>{campaignRating(entry.levels).label} · {entry.hits} aciertos · {entry.errors} rehenes o civiles heridos · {entry.shots} disparos</span>
+        <span>{entry.levels.map(item => `${levelNames[item.level - 1]} ${item.score} pts`).join(' · ')}</span>
       </li>)}</ol>
-      {phase === 'between'
-        ? <button type="button" className="tiro-action" onClick={() => start(turn + 1)}>Jugar turno {turn + 2}</button>
-        : <button type="button" className="tiro-action" onClick={() => setPhase('setup')}>Nueva partida</button>}
+      <div className="tiro-menu-actions"><button type="button" className="tiro-action" onClick={newGame}>Nueva partida</button></div>
     </div>}
   </section>;
 }

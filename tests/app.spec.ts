@@ -1485,3 +1485,43 @@ test('Tiro al Blanco 2050 (el de Codex) abre desde la lista de juegos', async ({
   await expect(page.getByRole('heading', { name: /Tiro al Blanco/, level: 1 })).toBeVisible();
   await expect(page.getByRole('group', { name: 'Soldados' })).toBeVisible();
 });
+
+test('Tiro al Blanco 2050: soldado y armas, instructivo, las tres pruebas con su informe y el resultado final', async ({ page }) => {
+  test.setTimeout(60000);
+  const finish = () => page.evaluate(() => (window as unknown as { __tiro2050Finish: () => void }).__tiro2050Finish());
+  await page.goto('/escritorio-personal/#/juegos/tiro-al-blanco-2050');
+  await expect(page.getByRole('heading', { name: 'Elegí tu soldado y sus armas' })).toBeVisible();
+  await page.getByRole('button', { name: /Nova/ }).click();
+  await page.getByLabel('Arma principal').selectOption({ label: 'Escopeta' });
+  await page.getByRole('button', { name: 'Continuar' }).click();
+  await expect(page.getByRole('heading', { name: 'La competencia' })).toBeVisible();
+  await expect(page.getByText('Primera prueba')).toBeVisible();
+  await page.getByRole('button', { name: 'Continuar' }).click();
+  await expect(page.getByRole('heading', { name: 'Primera prueba: Aliens' })).toBeVisible();
+  await page.getByRole('button', { name: 'Puente de mando' }).click();
+  await page.getByRole('button', { name: 'Iniciar' }).click();
+  await expect(page.getByLabel('Tiempo restante')).toBeVisible();
+  await finish();
+  await expect(page.getByRole('heading', { name: 'Aliens' })).toBeVisible();
+  await expect(page.getByText('Rehenes y civiles heridos')).toBeVisible();
+  await page.getByRole('button', { name: 'Siguiente prueba' }).click();
+  await expect(page.getByRole('heading', { name: 'Segunda prueba: Platos' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'En proceso' })).toHaveCount(4);
+  await page.getByRole('button', { name: 'Azul' }).click();
+  await page.getByRole('button', { name: 'Iniciar' }).click();
+  await finish();
+  await expect(page.getByText('Platos destruidos')).toBeVisible();
+  await page.getByRole('button', { name: 'Siguiente prueba' }).click();
+  await expect(page.getByRole('heading', { name: 'Tercera prueba: Target' })).toBeVisible();
+  await page.getByRole('button', { name: 'Iniciar' }).click();
+  for (const next of ['Empezar ronda 2', 'Empezar ronda 3']) {
+    await finish();
+    await page.getByRole('button', { name: next }).click();
+  }
+  await finish();
+  await page.getByRole('button', { name: 'Resultado Final' }).click();
+  await expect(page.getByRole('heading', { name: 'Resultado Final' })).toBeVisible();
+  await expect(page.getByTestId('tiro2050-rating')).toContainText('Muy malo');
+  await page.getByRole('button', { name: 'Nueva partida' }).click();
+  await expect(page.getByRole('heading', { name: 'Elegí tu soldado y sus armas' })).toBeVisible();
+});
