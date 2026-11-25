@@ -6,8 +6,36 @@ import type { Level } from './tiro2050';
 import { PrecisionBoard, TargetBlast } from './Tiro2050Targets';
 import { playBolt, playReload, playRifleShot } from './sounds';
 import './tiro2050.css';
+import menuSoundUrl from './assets/sonidos/tiro2050-menu.mp3';
 
-const assets = import.meta.glob(['./assets/tiro2050/{escenario,operador,arsenal,alien}-*', './assets/tiro2050/silueta-[2345].png', './assets/tiro2050/cobertura-1[2-7].png', './assets/tiro2050/{mano-recarga,lanzadora,pared-platos}.png'], { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+// Sonido al elegir algo en el menú (menu_boton_2.mp3 del usuario).
+let menuSound: HTMLAudioElement | null = null;
+function playMenu() {
+  try {
+    menuSound ??= new Audio(menuSoundUrl);
+    const copy = menuSound.cloneNode() as HTMLAudioElement;
+    copy.volume = .7;
+    void copy.play().catch(() => undefined);
+  } catch { /* sin audio */ }
+}
+
+// Animación de la ráfaga de cada arma (como en Invasión): atlas de 10 cuadros, por diseño (catalogStart + variante).
+const shotFx = [
+  'ametralladora-fuego', 'ametralladora-fuego', 'ametralladora-azul', 'ametralladora-amarillo', // Minigun XM-9, LMG Titán, LMG Pulsar, LMG Cerberus
+  'ametralladora-azul', 'ametralladora-fuego', 'ametralladora-violeta', 'ametralladora-fuego', // AR Vanguard, AR Inferno, AR Nexus, AR Orion
+  'escopeta-fuego', 'escopeta-azul', 'escopeta-azul', 'escopeta-fuego', // Escopeta R-12, Hércules, de Plasma, Legión
+  'ametralladora-fuego', 'ametralladora-azul', 'ametralladora-violeta', 'ametralladora-verde', // Sniper Specter, Polaris, Void, Mástil
+  'escopeta-azul', 'escopeta-fuego', 'escopeta-violeta', 'escopeta-azul', 'escopeta-fuego', // Pistola Ion, Omega, Alien, Revólver Electro, Pistola Fénix
+];
+// Automáticas (ametralladoras y rifles de asalto): cada tiro pasa el destello (cuadros 1 a 3) y, al dejar de tirar,
+// el último sigue con el humo (4 a 10). Las demás pasan los 10 cuadros en cada tiro.
+const shotFrame = (design: number, age: number) => {
+  if (age < 0) return -1;
+  if (design < 8) return age < 96 ? Math.floor(age / 32) : age < 411 ? 3 + Math.floor((age - 96) / 45) : -1;
+  return age < 360 ? Math.floor(age / 36) : -1;
+};
+
+const assets = import.meta.glob(['./assets/tiro2050/{escenario,operador,arsenal,alien}-*', './assets/tiro2050/silueta-[2345].png', './assets/tiro2050/cobertura-1[2-7].png', './assets/tiro2050/{mano-recarga,lanzadora,pared-platos}.png', './assets/tiro2050/rafaga-*.webp'], { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const art = (name: string) => assets[`./assets/tiro2050/${name}`];
 export const tiro2050Cover = art('escenario-3.jpg');
 
@@ -195,6 +223,7 @@ export function Tiro2050Game() {
   }
 
   function configure(player: number, changes: Partial<Loadout>) {
+    playMenu();
     setLoadouts(previous => previous.map((value, index) => index === player ? { ...value, ...changes } : value));
   }
 
@@ -243,7 +272,7 @@ export function Tiro2050Game() {
     const pulse = Math.max(time, live.nextPulse);
     live.nextPulse = pulse + 65;
     playRifleShot((pulse - time) / 1000, 0.9);
-    setMuzzlePulses(previous => [...previous.filter(shot => shot.at + 45 > time), { id: shots, at: pulse }]);
+    setMuzzlePulses(previous => [...previous.filter(shot => shot.at + 450 > time).slice(-3), { id: shots, at: pulse }]);
     const ejectPort = ejectPortRef.current?.getBoundingClientRect();
     if (ejectPort) {
       const position = point({ clientX: ejectPort.x, clientY: ejectPort.y }, bounds);
@@ -414,6 +443,8 @@ export function Tiro2050Game() {
 
   const ranking = results.map((stats, index) => ({ ...stats, index })).sort((a, b) => b.score - a.score);
   const muzzlePulse = muzzlePulses.find(shot => elapsed >= shot.at && elapsed - shot.at < 45);
+  const lastShot = muzzlePulses.filter(shot => elapsed >= shot.at).at(-1);
+  const shotFxFrame = lastShot ? shotFrame(activeDesign, elapsed - lastShot.at) : -1;
   const visibleNotices = Object.entries(targetImpacts).filter(([, hit]) => elapsed - hit.at < scoreNoticeDuration);
 
   return <section className={`tiro2050${phase === 'round' ? ' tiro2050--round' : ''}`} style={{ '--tiro-accent': tint } as CSSProperties}>
@@ -436,13 +467,13 @@ export function Tiro2050Game() {
       </figure>
       <fieldset className="tiro-scenes">
         <legend>Escenario</legend>
-        {scenes.map((name, i) => <button key={name} type="button" aria-pressed={scene === i} onClick={() => setScene(i)}>
+        {scenes.map((name, i) => <button key={name} type="button" aria-pressed={scene === i} onClick={() => { playMenu(); setScene(i); }}>
           <img src={art(`escenario-${i}.jpg`)} alt="" />{name}
         </button>)}
       </fieldset>
       <div className="tiro-brief">
         <p>Tres niveles. Aliens y platos en rondas de 3 minutos, más tres rondas de precisión de 10 distancias cada una.</p>
-        <label>Jugadores locales <select value={players} onChange={event => setPlayers(Number(event.target.value))}>
+        <label>Jugadores locales <select value={players} onChange={event => { playMenu(); setPlayers(Number(event.target.value)); }}>
           {[1, 2, 3, 4].map(value => <option key={value} value={value}>{value}</option>)}
         </select></label>
       </div>
@@ -461,20 +492,24 @@ export function Tiro2050Game() {
             <label>Arma principal <select value={selection.primary} onChange={event => configure(index, { primary: Number(event.target.value), variant: 0 })}>
               {primaries.map((item, i) => <option key={item.name} value={i}>{item.name}</option>)}
             </select></label>
-            <label>Diseño <select value={selection.variant} onChange={event => configure(index, { variant: Number(event.target.value) })}>
-              {primaries[selection.primary].models.map((name, i) => <option key={name} value={i}>{name}</option>)}
-            </select></label>
-            <label>Arma de reserva <select value={selection.secondary} onChange={event => configure(index, { secondary: Number(event.target.value) })}>
-              {secondaries.map((item, i) => <option key={item.name} value={i}>{item.name}</option>)}
-            </select></label>
           </div>
-          <div className="tiro-armory" aria-hidden="true">
-            <WeaponPreview design={primaries[selection.primary].catalogStart + selection.variant} />
-            <WeaponPreview design={secondaries[selection.secondary].catalogStart} />
+          <div className="tiro-armory">
+            <div className="tiro-armory-slot">
+              <label>Diseño <select value={selection.variant} onChange={event => configure(index, { variant: Number(event.target.value) })}>
+                {primaries[selection.primary].models.map((name, i) => <option key={name} value={i}>{name}</option>)}
+              </select></label>
+              <WeaponPreview design={primaries[selection.primary].catalogStart + selection.variant} />
+            </div>
+            <div className="tiro-armory-slot">
+              <label>Arma de reserva <select value={selection.secondary} onChange={event => configure(index, { secondary: Number(event.target.value) })}>
+                {secondaries.map((item, i) => <option key={item.name} value={i}>{item.name}</option>)}
+              </select></label>
+              <WeaponPreview design={secondaries[selection.secondary].catalogStart} />
+            </div>
           </div>
         </fieldset>)}
       </div>
-      <button className="tiro-action" type="button" onClick={() => { setResults([]); start(0); }}>Empezar ronda</button>
+      <button className="tiro-action" type="button" onClick={() => { playMenu(); setResults([]); start(0); }}>Empezar ronda</button>
     </div>}
 
     {phase === 'round' && <>
@@ -554,6 +589,8 @@ export function Tiro2050Game() {
           '--tiro-reload-duration': `${RELOAD_MS}ms`,
         } as CSSProperties} aria-hidden="true">
           <div className={reloading ? 'tiro-weapon--reloading' : undefined}>
+            {shotFxFrame >= 0 && <span className={`tiro-shot-fx${activeDesign >= 8 && activeDesign < 12 ? ' tiro-shot-fx--wide' : ''}`}
+              style={{ backgroundImage: `url(${art(`rafaga-${shotFx[activeDesign]}.webp`)})`, backgroundPositionX: `${shotFxFrame / 9 * 100}%` }} />}
             <img className="tiro-weapon-art" alt="" draggable={false} src={art(weaponImage)} />
             <span ref={ejectPortRef} className="tiro-eject-port" />
             {muzzlePulse && <span key={muzzlePulse.id} className="tiro-muzzle-flash" />}

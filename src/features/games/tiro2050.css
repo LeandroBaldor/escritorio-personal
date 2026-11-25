@@ -56,6 +56,9 @@ body:has(.tiro2050) { overflow: hidden; }
 .tiro-operators small { color: #ced9dd; line-height: 1.25; }
 .tiro-selects label { display: grid; gap: .2rem; font-size: .88rem; }
 .tiro-armory { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; width: min(100%, 485px); margin: .7rem auto 0; }
+.tiro-armory-slot { display: grid; gap: .35rem; align-content: start; }
+.tiro-armory-slot label { display: grid; gap: .2rem; font-size: .88rem; }
+.tiro-armory-slot select { width: 100%; }
 .tiro-weapon-preview { position: relative; overflow: hidden; aspect-ratio: 1.25; border: 1px solid #38536c; border-radius: 7px; background: radial-gradient(ellipse at 45% 30%, #3b5165, #111c2a 70%); }
 .tiro-weapon-preview img { position: absolute; width: calc(100% / (1 - var(--tiro-gun-right-bleed))); height: calc(91% / (1 - var(--tiro-gun-bottom-bleed))); right: calc(-100% * var(--tiro-gun-right-bleed) / (1 - var(--tiro-gun-right-bleed))); bottom: calc(-91% * var(--tiro-gun-bottom-bleed) / (1 - var(--tiro-gun-bottom-bleed))); object-fit: fill; }
 .tiro-armory img, .tiro-weapon img { filter: url(#tiro-clean-weapon-edge); }
@@ -195,6 +198,8 @@ body:has(.tiro2050) { overflow: hidden; }
 .tiro-weapon > div { position: relative; height: 100%; }
 .tiro-weapon img { display: block; width: 100%; }
 .tiro-weapon-art { height: 100%; object-fit: fill; }
+.tiro-shot-fx { position:absolute; top:var(--tiro-tip-y); left:var(--tiro-tip-x); width:62%; aspect-ratio:1; translate:-50% -50%; background-size:1000% 100%; background-repeat:no-repeat; pointer-events:none; }
+.tiro-shot-fx--wide { width:70%; }
 .tiro-muzzle-flash { position:absolute; top:var(--tiro-tip-y); left:var(--tiro-tip-x); width:40%; aspect-ratio:1; translate:-50% -50%; border-radius:50%; background:radial-gradient(circle,#fffce7 0 8%,#ffdb8ac7 20%,#ff9b4a73 41%,transparent 69%); animation: tiro-muzzle 45ms ease-out both; }
 @keyframes tiro-muzzle { from { opacity: 1; scale: .65; } to { opacity: 0; scale: 1.2; } }
 .tiro-eject-port { position: absolute; top: 42%; left: 60%; }
@@ -284,5 +289,5 @@ body:has(.tiro2050) { overflow: hidden; }
   .tiro-score-notice { animation: none; }
   .tiro2050 .tiro-weapon--long .tiro-weapon-art { animation: none; }
   .tiro-weapon .tiro-reload-hand, .tiro-casing { display: none; }
-  .tiro-muzzle-flash { opacity: .6; }
+  .tiro-muzzle-flash, .tiro-shot-fx { opacity: .6; }
 }
