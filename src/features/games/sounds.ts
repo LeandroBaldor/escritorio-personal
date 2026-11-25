@@ -126,12 +126,19 @@ export function unlockSounds() {
   } catch { /* sin audio: el juego sigue en silencio */ }
 }
 
-// Todo pasa por un limitador, así varios sonidos juntos no saturan.
+// Todo pasa por un limitador, así varios sonidos juntos no saturan. Después del limitador, un volumen general
+// (`setSoundsVolume`: Invasión lo baja un 25% mientras se juega, para que se escuche más la música).
+let soundsVolume = 1, volumeNode: GainNode | null = null;
 function limiter(c: AudioContext) {
   const comp = c.createDynamicsCompressor();
   comp.threshold.value = -10; comp.knee.value = 6; comp.ratio.value = 12; comp.attack.value = 0.003; comp.release.value = 0.2;
-  comp.connect(c.destination);
+  volumeNode = c.createGain(); volumeNode.gain.value = soundsVolume;
+  comp.connect(volumeNode).connect(c.destination);
   return comp;
+}
+export function setSoundsVolume(v: number) {
+  soundsVolume = v;
+  if (volumeNode && ctx) volumeNode.gain.setTargetAtTime(v, ctx.currentTime, 0.05);
 }
 const out = (c: AudioContext) => master ?? c.destination;
 // Si el navegador pausó el audio (por ejemplo, al cambiar de pestaña o bloquear la pantalla), lo reactiva;
@@ -957,7 +964,7 @@ let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
 // The Terminator). Va aparte del ambiente (que se corta en la pausa): sigue sonando en la pausa y en el arsenal, y se
 // corta al terminar la partida o al salir del juego. Se toca con un <audio> (los archivos son largos) y cada canción
 // tiene su volumen para que suenen parejas (Rambo está grabada más fuerte).
-const INVASION_PLAYLIST = [{ url: invMusica1Url, volume: 0.6 }, { url: invMusica2Url, volume: 0.33 }, { url: invMusica3Url, volume: 0.6 }];
+const INVASION_PLAYLIST = [{ url: invMusica1Url, volume: 0.9 }, { url: invMusica2Url, volume: 0.5 }, { url: invMusica3Url, volume: 0.9 }];
 let invMusic: { el: HTMLAudioElement; track: number } | null = null;
 export function startInvasionMusic() {
   if (invMusic || typeof Audio === 'undefined') return; // (si ya está sonando, sigue)
