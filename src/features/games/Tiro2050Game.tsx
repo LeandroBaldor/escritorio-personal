@@ -1,11 +1,11 @@
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { getAmmo, getWave, primaries, primaryVariants, RELOAD_MS, ROUND_MS, scoreImpact, secondaries, TARGET_RISE_MS, TARGET_VISIBLE_MS, WAVE_MS } from './tiro2050';
+import { getAmmo, getWave, getWeaponPose, primaries, RELOAD_MS, ROUND_MS, scoreImpact, secondaries, TARGET_RISE_MS, TARGET_VISIBLE_MS, WAVE_MS } from './tiro2050';
 import { playBolt, playReload, playRifleShot } from './sounds';
 import './tiro2050.css';
 
-const assets = import.meta.glob(['./assets/tiro2050/{escenario,operador,variante,alien}-*', './assets/tiro2050/silueta-[2345].png', './assets/tiro2050/cobertura-1[2-7].png', './assets/tiro2050/primera-persona-[34].png', './assets/tiro2050/mano-recarga.png'], { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const assets = import.meta.glob(['./assets/tiro2050/{escenario,operador,arsenal,alien}-*', './assets/tiro2050/silueta-[2345].png', './assets/tiro2050/cobertura-1[2-7].png', './assets/tiro2050/mano-recarga.png'], { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const art = (name: string) => assets[`./assets/tiro2050/${name}`];
 export const tiro2050Cover = art('escenario-3.jpg');
 
@@ -13,26 +13,20 @@ const scenes = ['Hangar estelar', 'Fábrica robotizada', 'Puente de mando', 'Rea
 const operators = ['Atlas', 'Nova', 'Diesel', 'Vega'];
 const operatorSuits = ['Blindaje pesado', 'Traje de sigilo', 'Exoesqueleto industrial', 'Armadura de exploración'];
 const colors = ['#ffc261', '#d9a9ff', '#ff9270', '#7bf4e6'];
-const weaponGraphics = [
-  { tip: [.18, .16], light: [51, 37], color: '#ffb854' },
-  { tip: [.11, .16], light: [72, 39], color: '#d487ff' },
-  { tip: [.10, .16], light: [58, 49], color: '#55daff' },
-  { tip: [.037, .075], light: [62, 17], color: '#73f4ff' },
-  { tip: [.055, .109], light: [35, 32], color: '#58e4ff' },
+const muzzleTips = [
+  [.097, .211], [.132, .368], [.096, .291], [.095, .322],
+  [.097, .250], [.081, .256], [.068, .260], [.058, .261],
+  [.113, .198], [.081, .214], [.073, .249], [.084, .213],
+  [.066, .216], [.044, .227], [.039, .215], [.050, .211],
+  [.089, .247], [.095, .263], [.043, .318], [.063, .261], [.097, .239],
 ];
-const primaryTips = [
-  [.048, .124], [.048, .165], [.048, .160], [.048, .223], [.044, .309],
-  [.048, .123], [.047, .172], [.047, .153], [.047, .201], [.045, .289],
-  [.048, .135], [.046, .191], [.046, .189], [.046, .218], [.044, .297],
-];
-const initialAim = { x: 50, y: 49, aspect: 2.75 };
+const initialAim = { x: 50, y: 49 };
 const initialZoom = { value: 1, x: 50, y: 50 };
-const initialLoadout = { operator: 0, primary: 2, variant: 0, secondary: 0 };
-const primaryTypes = ['Escopeta', 'Ametralladora', 'Rifle'];
+const initialLoadout = { operator: 0, primary: 3, variant: 0, secondary: 0 };
 type Loadout = typeof initialLoadout;
 type Result = { score: number; shots: number; hits: number; errors: number };
-type Impact = { id: number; value: number | null; x: number; y: number; at: number; art: number };
-type Casing = { id: number; x: number; y: number; at: number };
+type Impact = { id: number; value: number | null; x: number; y: number; at: number; effect: number };
+type Casing = { id: number; x: number; y: number; at: number; direction: number };
 const emptyResult = { score: 0, shots: 0, hits: 0, errors: 0 };
 
 export function Tiro2050Game() {
@@ -48,6 +42,7 @@ export function Tiro2050Game() {
   const [casings, setCasings] = useState<Casing[]>([]);
   const [fallen, setFallen] = useState<number[]>([]);
   const [aim, setAim] = useState(initialAim);
+  const [rangeSize, setRangeSize] = useState({ width: 1280, height: 620 });
   const [zoom, setZoom] = useState(initialZoom);
   const [reloadEnd, setReloadEnd] = useState(0);
   const rangeRef = useRef<HTMLDivElement>(null);
@@ -60,23 +55,31 @@ export function Tiro2050Game() {
   const ammo = getAmmo(primary.ammo, secondary.ammo, result.shots);
   const activeSlot = ammo[0].remaining > 0 ? 0 : 1;
   const weapon = [primary, secondary][activeSlot];
-  const zoomLimit = weapon.art === 2 ? 4 : weapon.art === 1 ? 2.2 : 1;
+  const zoomLimit = weapon.zoom;
   const zoomValue = Math.min(zoomLimit, zoom.value);
-  const primaryName = `${primaryTypes[loadout.primary]} ${primaryVariants[loadout.primary][loadout.variant]}`;
-  const primaryDesign = loadout.primary * 5 + loadout.variant;
-  const weaponImage = activeSlot === 0 ? `variante-${primaryDesign}.png` : `primera-persona-${weapon.art}.png`;
-  const graphics = weaponGraphics[weapon.art];
-  const tip = activeSlot === 0 ? primaryTips[primaryDesign] : graphics.tip;
-  const weaponBottom = activeSlot === 0 ? 2 : -10;
-  const weaponX = 55 + (aim.x - 50) * (activeSlot === 0 ? .49 : .68);
-  const aimAngle = Math.atan2((aim.x - weaponX) * aim.aspect, Math.max(10, 100 - weaponBottom - aim.y));
-  const muzzleAngle = Math.atan2(tip[0] - .5, 1 - tip[1]);
-  const rotation = (aimAngle - muzzleAngle) * 180 / Math.PI;
+  const primaryName = primary.models[loadout.variant];
+  const activeDesign = activeSlot === 0 ? primary.catalogStart + loadout.variant : secondary.catalogStart;
+  const weaponImage = `arsenal-${activeDesign}.png`;
+  const tip = muzzleTips[activeDesign];
+  const weaponPose = getWeaponPose(aim, rangeSize, tip, activeSlot === 0);
   const reloading = elapsed < reloadEnd;
   const wave = Math.floor(elapsed / WAVE_MS);
   const targetsHiding = elapsed % WAVE_MS >= TARGET_RISE_MS + TARGET_VISIBLE_MS;
   const clock = Math.ceil((ROUND_MS - elapsed) / 1000);
   const tint = colors[loadout.operator];
+
+  useLayoutEffect(() => {
+    const range = rangeRef.current;
+    if (phase !== 'round' || !range) return;
+    const measure = () => {
+      const { width, height } = range.getBoundingClientRect();
+      setRangeSize({ width, height });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(range);
+    return () => observer.disconnect();
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== 'round') return;
@@ -117,7 +120,7 @@ export function Tiro2050Game() {
   }
 
   function point({clientX, clientY}: { clientX: number; clientY: number }, bounds: DOMRect) {
-    return { x: (clientX - bounds.left) / bounds.width * 100, y: (clientY - bounds.top) / bounds.height * 100, aspect: bounds.width / bounds.height };
+    return { x: (clientX - bounds.left) / bounds.width * 100, y: (clientY - bounds.top) / bounds.height * 100 };
   }
 
   function fireAt(clientX: number, clientY: number) {
@@ -138,14 +141,14 @@ export function Tiro2050Game() {
     const ejectPort = ejectPortRef.current?.getBoundingClientRect();
     if (ejectPort) {
       const position = point({ clientX: ejectPort.x, clientY: ejectPort.y }, bounds);
-      setCasings(previous => [...previous.filter(casing => time - casing.at < 520), { id: shots, x: position.x, y: position.y, at: time }]);
+      setCasings(previous => [...previous.filter(casing => time - casing.at < 520), { id: shots, ...position, at: time, direction: weaponPose.facing }]);
     }
     const used = (onPrimary ? shots : shots - primary.ammo) + 1;
     if (used < activeWeapon.ammo && used % activeWeapon.magazine === 0) {
       live.reloadUntil = now + RELOAD_MS;
       setReloadEnd(time + RELOAD_MS);
       playReload();
-    } else if (activeWeapon.art === 2 && used < activeWeapon.ammo) playBolt();
+    } else if (activeWeapon.effect === 2 && used < activeWeapon.ammo) playBolt();
     if (onPrimary && used === primary.ammo) setZoom(initialZoom);
 
     const element = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('[data-zone]');
@@ -168,7 +171,7 @@ export function Tiro2050Game() {
       errors: live.result.errors + Number(value === -10),
     };
     setResult(live.result);
-    setImpact({ id: shots, value, ...shot, at: time, art: activeWeapon.art });
+    setImpact({ id: shots, value, ...shot, at: time, effect: activeWeapon.effect });
   }
 
   function aimAt(event: PointerEvent<HTMLDivElement>) {
@@ -188,7 +191,7 @@ export function Tiro2050Game() {
   }
 
   const repeatShot = useEffectEvent(() => {
-    if (weapon.art === 1 && trigger.current) fireAt(trigger.current.clientX, trigger.current.clientY);
+    if (weapon.effect === 1 && trigger.current) fireAt(trigger.current.clientX, trigger.current.clientY);
   });
   const scrollZoom = useEffectEvent((event: WheelEvent, range: HTMLDivElement) => {
     if (zoomLimit <= 1) return;
@@ -218,7 +221,7 @@ export function Tiro2050Game() {
 
   const ranking = results.map((stats, index) => ({ ...stats, index })).sort((a, b) => b.score - a.score);
   const recentShot = impact && elapsed - impact.at < 580 ? impact : null;
-  const recoil = recentShot && elapsed - recentShot.at < (recentShot.art === 2 ? 215 : 83);
+  const recoil = recentShot && elapsed - recentShot.at < (recentShot.effect === 2 ? 215 : 83);
 
   return <section className={`tiro2050${phase === 'round' ? ' tiro2050--round' : ''}`} style={{ '--tiro-accent': tint } as CSSProperties}>
     <div className="tiro-top">
@@ -254,18 +257,18 @@ export function Tiro2050Game() {
           </div>
           <div className="tiro-selects">
             <label>Arma principal <select value={selection.primary} onChange={event => configure(index, { primary: Number(event.target.value), variant: 0 })}>
-              {primaries.map((item, i) => <option key={item.name} value={i}>{primaryTypes[i]} · {item.ammo}</option>)}
+              {primaries.map((item, i) => <option key={item.name} value={i}>{item.name} · {item.ammo}</option>)}
             </select></label>
             <label>Diseño <select value={selection.variant} onChange={event => configure(index, { variant: Number(event.target.value) })}>
-              {primaryVariants[selection.primary].map((name, i) => <option key={name} value={i}>{name}</option>)}
+              {primaries[selection.primary].models.map((name, i) => <option key={name} value={i}>{name}</option>)}
             </select></label>
             <label>Arma de reserva <select value={selection.secondary} onChange={event => configure(index, { secondary: Number(event.target.value) })}>
               {secondaries.map((item, i) => <option key={item.name} value={i}>{item.name} · {item.ammo}</option>)}
             </select></label>
           </div>
           <div className="tiro-armory" aria-hidden="true">
-            <img src={art(`variante-${selection.primary * 5 + selection.variant}.png`)} alt="" />
-            <img src={art(`primera-persona-${secondaries[selection.secondary].art}.png`)} alt="" />
+            <img src={art(`arsenal-${primaries[selection.primary].catalogStart + selection.variant}.png`)} alt="" />
+            <img src={art(`arsenal-${secondaries[selection.secondary].catalogStart}.png`)} alt="" />
           </div>
         </fieldset>)}
       </div>
@@ -293,7 +296,7 @@ export function Tiro2050Game() {
       <div ref={rangeRef} className="tiro-range" aria-label={scenes[scene]} onPointerMove={aimAt} onPointerLeave={() => { trigger.current = null; }}
         onPointerDown={event => {
           if (event.button !== 0) return;
-          if (weapon.art === 1) trigger.current = { clientX: event.clientX, clientY: event.clientY };
+          if (weapon.effect === 1) trigger.current = { clientX: event.clientX, clientY: event.clientY };
           fireAt(event.clientX, event.clientY);
         }}>
         {reloading && <strong className="tiro-reload-label" role="status">Recargando…</strong>}
@@ -313,26 +316,26 @@ export function Tiro2050Game() {
         </div>
         <div className={`tiro-mira${zoomValue > 1 ? ' tiro-mira--zoom' : ''}`} style={{ left: `${aim.x}%`, top: `${aim.y}%` }} aria-hidden="true" />
         <div className={`tiro-weapon${activeSlot === 0 ? ' tiro-weapon--long' : ''}`} style={{
-          left: `${weaponX}%`,
-          '--tiro-weapon-bottom': `${weaponBottom}%`,
-          '--tiro-weapon-angle': `${rotation}deg`,
-          '--tiro-weapon-light': graphics.color,
+          left: `${weaponPose.left}%`,
+          bottom: `${weaponPose.bottom}px`,
+          width: `${weaponPose.size}px`,
+          '--tiro-weapon-angle': `${weaponPose.angle}deg`,
+          '--tiro-weapon-facing': weaponPose.facing,
+          '--tiro-retract-x': `${(.5 - tip[0]) * 100}%`,
+          '--tiro-retract-y': `${(1 - tip[1]) * 100}%`,
           '--tiro-tip-x': `${tip[0] * 100}%`,
           '--tiro-tip-y': `${tip[1] * 100}%`,
-          '--tiro-light-x': `${graphics.light[0]}%`,
-          '--tiro-light-y': `${graphics.light[1]}%`,
           '--tiro-reload-duration': `${RELOAD_MS}ms`,
         } as CSSProperties} aria-hidden="true">
-          <div className={reloading ? 'tiro-weapon--reloading' : recoil ? `tiro-weapon--recoil tiro-recoil-${recentShot.art}` : undefined}>
+          <div className={reloading ? 'tiro-weapon--reloading' : recoil ? `tiro-weapon--recoil tiro-recoil-${recentShot.effect}` : undefined}>
             <img className="tiro-weapon-art" alt="" draggable={false} src={art(weaponImage)} />
             <span ref={ejectPortRef} className="tiro-eject-port" />
-            {activeSlot === 1 && <span className="tiro-weapon-lights" />}
             {recentShot && elapsed - recentShot.at < 110 && <span key={recentShot.id} className="tiro-muzzle-flash" />}
             {reloading && <img className="tiro-reload-hand" src={art('mano-recarga.png')} alt="" draggable={false} />}
           </div>
         </div>
         {casings.filter(casing => elapsed - casing.at < 520).map(casing => <span key={casing.id} className="tiro-casing" aria-hidden="true"
-          style={{ left: `${casing.x}%`, top: `${casing.y}%`, '--tiro-casing-drift': `${(casing.id % 3 + 2) * 17}px` } as CSSProperties} />)}
+          style={{ left: `${casing.x}%`, top: `${casing.y}%`, '--tiro-casing-drift': `${casing.direction * (casing.id % 3 + 2) * 17}px` } as CSSProperties} />)}
         {recentShot && recentShot.value !== null && <span key={`flash-${recentShot.id}`} aria-hidden="true"
           className={`tiro-hit-flash${recentShot.value < 0 ? ' tiro-hit-flash--civil' : ''}`} />}
         {recentShot && <span key={recentShot.id} className="tiro-impact" style={{ left: `${recentShot.x}%`, top: `${recentShot.y}%` }}>

@@ -131,43 +131,28 @@ body:has(.tiro2050) { overflow: hidden; }
   background: radial-gradient(circle, var(--tiro-accent) 0 1.5px, transparent 2.5px);
   box-shadow: 0 0 3px #101216, inset 0 0 3px #101216;
 }
+.tiro-mira::before, .tiro-mira::after { content: ''; position: absolute; top: 50%; left: 50%; translate: -50% -50%; width: 70%; height: 1px; background: var(--tiro-accent); box-shadow: 0 0 2px #080b0d; }
+.tiro-mira::after { rotate: 90deg; }
 .tiro-mira--zoom { width: clamp(45px, 9vw, 108px); height: auto; aspect-ratio: 1; border-color: #b4ffff91; background: radial-gradient(circle, var(--tiro-accent) 0 1.5px, transparent 2.5px); }
-.tiro-mira--zoom::before, .tiro-mira--zoom::after { content:''; position:absolute; top:50%; left:50%; translate:-50% -50%; width:65%; height:1px; background:#b4ffff9c; }
-.tiro-mira--zoom::after { rotate:90deg; }
+.tiro-mira--zoom::before, .tiro-mira--zoom::after { width: 65%; background: #b4ffff9c; }
 .tiro-weapon {
   z-index: 4;
-  bottom: var(--tiro-weapon-bottom);
-  width: max(126px, min(32cqw, 43cqh, 270px));
-  transform: translateX(-50%) rotate(var(--tiro-weapon-angle));
+  transform: translateX(-50%) rotate(var(--tiro-weapon-angle)) scaleX(var(--tiro-weapon-facing));
   transform-origin: bottom center;
   filter: drop-shadow(0 -3px 8px #0009);
 }
 .tiro-weapon > div { position: relative; transition: transform 95ms ease-out; transform-origin: bottom center; }
 .tiro-weapon img { display: block; width: 100%; }
-.tiro-weapon--long { width: max(156px, min(47cqw, 69cqh, 590px)); }
-.tiro-weapon .tiro-weapon--recoil { transform: translateY(8%) scale(1.055); }
-.tiro-weapon .tiro-recoil-1 { transform: translateY(3%) rotate(-1.5deg); }
-.tiro-weapon .tiro-recoil-2 { transform: translateY(11%) rotate(-5deg) scale(1.035); }
+.tiro-weapon .tiro-weapon--recoil { --tiro-kick: .08; transform: translate(calc(var(--tiro-retract-x) * var(--tiro-kick)), calc(var(--tiro-retract-y) * var(--tiro-kick))); }
+.tiro-weapon .tiro-recoil-1 { --tiro-kick: .04; }
+.tiro-weapon .tiro-recoil-2 { --tiro-kick: .13; }
 .tiro-muzzle-flash { position:absolute; top:var(--tiro-tip-y); left:var(--tiro-tip-x); width:40%; aspect-ratio:1; translate:-50% -50%; border-radius:50%; background:radial-gradient(circle,#fffce7 0 8%,#ffdb8ac7 20%,#ff9b4a73 41%,transparent 69%); animation: tiro-muzzle 110ms ease-out both; }
 .tiro-muzzle-flash::after { content:''; position:absolute; inset:6%; background:#fff3bd; clip-path:polygon(48% 0,56% 37%,91% 14%,69% 44%,100% 49%,67% 58%,84% 91%,57% 68%,49% 100%,42% 68%,12% 89%,32% 57%,0 49%,33% 42%,14% 13%,41% 35%); }
 @keyframes tiro-muzzle { from { opacity: 1; scale: .65; } to { opacity: 0; scale: 1.2; } }
 .tiro-hit-flash { position:absolute; pointer-events:none; z-index:5; inset:0; background:radial-gradient(ellipse,transparent 36%,#a3e63574); animation:tiro-hit 230ms ease-out both; }
 .tiro-hit-flash--civil { background:radial-gradient(ellipse,transparent 36%,#b91c1c88); }
 @keyframes tiro-hit { to { opacity: 0; } }
-.tiro-weapon-lights {
-  position: absolute;
-  top: var(--tiro-light-y);
-  left: var(--tiro-light-x);
-  width: 10%;
-  height: 2%;
-  transform: rotate(24deg);
-  border-radius: 20%;
-  background: repeating-linear-gradient(90deg, var(--tiro-weapon-light) 0 25%, #10161c 25% 34%);
-  box-shadow: 0 0 8px var(--tiro-weapon-light);
-  filter: drop-shadow(0 0 4px var(--tiro-weapon-light));
-}
 .tiro-weapon--reloading { animation: tiro-reload var(--tiro-reload-duration) ease-in-out both; }
-.tiro-weapon--reloading .tiro-weapon-lights { animation: tiro-charge var(--tiro-reload-duration) ease-in-out both; }
 .tiro-eject-port { position: absolute; top: 42%; left: 60%; }
 .tiro-weapon--long .tiro-eject-port { top: 37%; left: 46%; }
 .tiro-casing {
@@ -199,11 +184,7 @@ body:has(.tiro2050) { overflow: hidden; }
 }
 @keyframes tiro-reload {
   0%, 100% { transform: none; }
-  30%, 68% { transform: translate(-11%, 13%) rotate(-29deg); }
-}
-@keyframes tiro-charge {
-  0%, 72% { opacity: .25; }
-  87%, 100% { opacity: 1; }
+  30%, 68% { transform: translate(calc(var(--tiro-retract-x) * .14), calc(var(--tiro-retract-y) * .14)); }
 }
 .tiro-impact { z-index: 7; color: var(--tiro-accent); font-weight: 900; text-shadow: 0 1px 4px #000, 0 0 4px #000; animation: tiro-impact 580ms ease-out both; }
 .tiro-hint { margin: 0; padding: .25rem .6rem; background: #10191d; font-size: .82rem; color: #c6d2cf; }
