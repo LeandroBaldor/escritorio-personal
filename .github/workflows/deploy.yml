@@ -42,6 +42,8 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+      - name: Esperar a que GitHub registre el artefacto
+        run: sleep 45 # sin esto, a veces el paso de publicar no lo encuentra ("Fetching artifact metadata failed")
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
