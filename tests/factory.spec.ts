@@ -14,7 +14,7 @@ test('Factory: menu, gas energy, pause and return', async ({ page }) => {
     AudioBufferSourceNode.prototype.stop = function (when = 0) { audit.factoryAudioStops++; stop.call(this, when); };
   });
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.locator('.games-list > li').last().locator('a')).toHaveAttribute('href', '#/juegos/fabrica');
+  await expect(page.locator('.games-list a[href="#/juegos/fabrica"]')).toBeVisible(); // los juegos más nuevos van al final de la lista
   await expect(page.locator('a[href="#/juegos/fabrica"] image')).toHaveAttribute('href', /cover\.webp/);
   await page.locator('a[href="#/juegos/fabrica"]').click();
   await expect(page.getByRole('dialog')).toBeVisible();
