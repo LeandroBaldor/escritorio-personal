@@ -6,6 +6,9 @@ export const RELOAD_MS = 1_120;
 export const PRECISION_DISTANCES = 10;
 export const PRECISION_ROUNDS = 3;
 export const PRECISION_STEP_MS = 520;
+// Correcciones 19: cada ronda de 10 tiros de Target tiene 40 segundos.
+export const PRECISION_ROUND_MS = 40_000;
+export const roundLimit = (level: 1 | 2 | 3) => level === 3 ? PRECISION_ROUND_MS : ROUND_MS;
 export const levelNames = ['Aliens', 'Platos', 'Target'] as const;
 export const levelOrdinals = ['Primera prueba', 'Segunda prueba', 'Tercera prueba'] as const;
 export type Level = 1 | 2 | 3;

@@ -12,6 +12,7 @@ import recargaRifleUrl from './assets/sonidos/tiro2050-recarga-rifle.mp3';
 import musica1Url from './assets/sonidos/tiro2050-musica-1.mp3';
 import musica2Url from './assets/sonidos/tiro2050-musica-2.mp3';
 import musica3Url from './assets/sonidos/tiro2050-musica-3.mp3';
+import cuentaRegresivaUrl from './assets/sonidos/tiro2050-cuenta-regresiva.mp3';
 import alarmaUrl from './assets/sonidos/tiro2050-alarma.mp3';
 
 export type GunFamily = 'ametralladora' | 'escopeta' | 'rifle' | 'pistola' | 'pistolaAlien';
@@ -142,3 +143,22 @@ export function playTiroAlarm() {
   alarm.volume = .8;
   void alarm.play().catch(() => undefined);
 }
+
+// Cuenta regresiva al final de cada prueba (y de cada ronda de Target): 3 pitidos graves y el 4.º justo cuando termina.
+// Los pitidos están en 0, 1, 2 y 3 s del archivo, así que arranca 3 s antes del final.
+export const COUNTDOWN_LEAD_MS = 3000;
+let countdown: HTMLAudioElement | null = null;
+export function preloadTiroCountdown() {
+  if (typeof Audio === 'undefined' || countdown) return;
+  try { countdown = new Audio(cuentaRegresivaUrl); countdown.preload = 'auto'; } catch { /* sin audio */ }
+}
+export function playTiroCountdown(offsetMs = 0) {
+  preloadTiroCountdown();
+  if (!countdown) return;
+  countdown.currentTime = Math.max(0, offsetMs / 1000);
+  countdown.volume = .9;
+  void countdown.play().catch(() => undefined);
+}
+export function pauseTiroCountdown() { countdown?.pause(); }
+export function resumeTiroCountdown() { if (countdown && countdown.currentTime > 0 && !countdown.ended) void countdown.play().catch(() => undefined); }
+export function stopTiroCountdown() { if (countdown) { countdown.pause(); countdown.currentTime = 0; } }

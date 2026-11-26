@@ -1,11 +1,11 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { campaignRating, getCameraView, getPlates, getPrecisionPosition, getWave, launchedPlates, levelNames, levelOrdinals, plateLauncher, plateWall, PRECISION_DISTANCES, PRECISION_ROUNDS, PRECISION_STEP_MS, primaries, ROUND_MS, scoreImpact, scorePrecision, secondaries, TARGET_RISE_MS, TARGET_VISIBLE_MS, WAVE_MS } from './tiro2050';
+import { campaignRating, getCameraView, getPlates, getPrecisionPosition, getWave, launchedPlates, levelNames, levelOrdinals, plateLauncher, plateWall, PRECISION_DISTANCES, PRECISION_ROUNDS, PRECISION_STEP_MS, primaries, ROUND_MS, roundLimit, scoreImpact, scorePrecision, secondaries, TARGET_RISE_MS, TARGET_VISIBLE_MS, WAVE_MS } from './tiro2050';
 import type { Level } from './tiro2050';
 import { PrecisionBoard, TargetBlast } from './Tiro2050Targets';
 import { playBolt } from './sounds';
-import { gunFamily, isTiroMusicMuted, playTiroReload, playTiroShot, preloadTiroSounds, playTiroAlarm, preloadTiroAlarm, RELOAD_DURATION, setTiroMusicMuted, startTiroMusic, stopTiroMusic } from './tiro2050Sound';
+import { gunFamily, isTiroMusicMuted, playTiroReload, playTiroShot, preloadTiroSounds, playTiroAlarm, preloadTiroAlarm, RELOAD_DURATION, setTiroMusicMuted, startTiroMusic, stopTiroMusic, COUNTDOWN_LEAD_MS, pauseTiroCountdown, playTiroCountdown, preloadTiroCountdown, resumeTiroCountdown, stopTiroCountdown } from './tiro2050Sound';
 import './tiro2050.css';
 import menuSoundUrl from './assets/sonidos/tiro2050-menu.mp3';
 
@@ -102,7 +102,7 @@ const sumResults = (results: Result[]) => results.reduce((sum, entry) => ({
 const scoreNoticeDuration = 1750;
 const newArsenal = (slot: WeaponSlot = 0): Arsenal => ({ slot, shots: [0, 0], reloadEnds: [0, 0] });
 const newRound = (arsenal: Arsenal, start = 0) => ({
-  arsenal, start, lastShot: -Infinity, nextPulse: 0, pendingShots: [0, 0], finishAt: Infinity, finished: false, pausedAt: 0, result: emptyResult, fallen: new Set<number>(),
+  arsenal, start, lastShot: -Infinity, nextPulse: 0, pendingShots: [0, 0], finishAt: Infinity, finished: false, pausedAt: 0, countdown: false, result: emptyResult, fallen: new Set<number>(),
 });
 
 function WeaponPreview({ design }: { design: number }) {
@@ -195,7 +195,8 @@ export function Tiro2050Game() {
   const view = getCameraView(camera, zoomValue, leftBand);
   const wave = Math.floor(elapsed / WAVE_MS);
   const targetsHiding = elapsed % WAVE_MS >= TARGET_RISE_MS + TARGET_VISIBLE_MS;
-  const clock = Math.ceil((ROUND_MS - elapsed) / 1000);
+  const limit = roundLimit(level);
+  const clock = Math.max(0, Math.ceil((limit - elapsed) / 1000));
   const tint = colors[loadout.operator];
   const stageName = levelScenes[level][scene];
   const precisionShot = Math.max(0, Math.min(PRECISION_DISTANCES - 1, result.shots - Number(level === 3 && impact !== null && elapsed - impact.at < PRECISION_STEP_MS)));
@@ -209,6 +210,7 @@ export function Tiro2050Game() {
     const live = round.current;
     if (live.finished) return;
     live.finished = true;
+    if (performance.now() - live.start < roundLimit(level) - 120) stopTiroCountdown();
     if (level === 3) {
       const rounds = [...precisionResults, live.result];
       setPrecisionResults(rounds);
@@ -227,6 +229,7 @@ export function Tiro2050Game() {
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     (window as unknown as { __tiro2050Finish?: () => void }).__tiro2050Finish = () => { round.current.start -= ROUND_MS; round.current.finishAt = 0; };
+    (window as unknown as { __tiro2050Skip?: (ms: number) => void }).__tiro2050Skip = ms => { round.current.start -= ms; };
   }, []);
 
   useEffect(() => {
@@ -235,9 +238,15 @@ export function Tiro2050Game() {
     const tick = (now: number) => {
       if (round.current.pausedAt) { frame = requestAnimationFrame(tick); return; }
       const time = Math.max(0, now - round.current.start);
-      if (level !== 3 ? time >= ROUND_MS : now >= round.current.finishAt) {
+      const end = roundLimit(level);
+      if (time >= end || (level === 3 && now >= round.current.finishAt)) {
         finishLevel();
         return;
+      }
+      // Cuenta regresiva: el 4.º pitido suena justo cuando se termina el tiempo y aparecen los resultados.
+      if (!round.current.countdown && time >= end - COUNTDOWN_LEAD_MS) {
+        round.current.countdown = true;
+        playTiroCountdown(time - (end - COUNTDOWN_LEAD_MS));
       }
       setElapsed(time);
       frame = requestAnimationFrame(tick);
@@ -245,10 +254,12 @@ export function Tiro2050Game() {
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [phase, level, roundSerial]);
+  useEffect(() => () => stopTiroCountdown(), []);
 
   function start(player: number, nextLevel: Level = 1, nextPrecisionRound = 1) {
     preloadTiroSounds();
     preloadTiroAlarm();
+    preloadTiroCountdown();
     const nextArsenal = newArsenal(nextLevel === 3 ? 1 : 0);
     round.current = newRound(nextArsenal, performance.now());
     setArsenal(nextArsenal);
@@ -275,7 +286,7 @@ export function Tiro2050Game() {
     setPhase('round');
   }
 
-  function goTo(next: typeof phase) { playMenu(); setPhase(next); }
+  function goTo(next: typeof phase) { playMenu(); if (next === 'setup') stopTiroCountdown(); setPhase(next); }
   function nextTest() {
     playMenu();
     setLevel(level === 1 ? 2 : 3);
@@ -338,7 +349,7 @@ export function Tiro2050Game() {
     const activeWeapon = weapons[slot];
     const time = now - live.start;
     const available = Math.min(activeWeapon.ammo - current.shots[slot], level === 3 ? PRECISION_DISTANCES - shots : Infinity);
-    if (live.finished || (level !== 3 && time >= ROUND_MS) || available <= 0) return;
+    if (live.finished || time >= roundLimit(level) || available <= 0) return;
     const pending = live.pendingShots[slot];
     const waiting = time < current.reloadEnds[slot] || (level === 3 && now - live.lastShot < PRECISION_STEP_MS + 220);
     if (source === 'click' && (waiting || pending > 0)) {
@@ -500,9 +511,11 @@ export function Tiro2050Game() {
       live.finishAt += gap;
       live.lastShot += gap;
       live.pausedAt = 0;
+      resumeTiroCountdown();
       setPaused(false);
     } else {
       live.pausedAt = now;
+      pauseTiroCountdown();
       live.pendingShots = [0, 0];
       trigger.current = null;
       setPaused(true);
@@ -563,7 +576,9 @@ export function Tiro2050Game() {
   // Correcciones 18: todo más exagerado. Al recargar el arma casi sale de la pantalla (la pistola todavía más).
   const pistolPose = activeSlot === 1;
   const backX = pistolPose ? 20 : 14, backY = pistolPose ? 28 : 24, tiltDown = pistolPose ? 30 : 24;
-  const weaponPose = `translate(${(reloadBack * backX + recoil * 4.5).toFixed(2)}%, ${(reloadBack * backY + reloadTilt * (pistolPose ? 22 : 20) + recoil * 5).toFixed(2)}%) rotate(${(recoil * 7 - reloadTilt * tiltDown).toFixed(2)}deg)`;
+  // Correcciones 19: con el arma principal el retroceso la tira más para atrás, así no se ve dónde termina el brazo izquierdo.
+  const kickX = pistolPose ? 4.5 : 9, kickY = pistolPose ? 5 : 13;
+  const weaponPose = `translate(${(reloadBack * backX + recoil * kickX).toFixed(2)}%, ${(reloadBack * backY + reloadTilt * (pistolPose ? 22 : 20) + recoil * kickY).toFixed(2)}%) rotate(${(recoil * 7 - reloadTilt * tiltDown).toFixed(2)}deg)`;
   const visibleNotices = Object.entries(targetImpacts).filter(([, hit]) => elapsed - hit.at < scoreNoticeDuration);
 
   return <section className={`tiro2050${phase === 'round' ? ' tiro2050--round' : ''}`} style={{ '--tiro-accent': tint } as CSSProperties}>
@@ -773,8 +788,8 @@ export function Tiro2050Game() {
       <div className="tiro-hud">
         <span className="tiro-hud-player"><img src={art(`operador-${loadout.operator}.jpg`)} alt="" /><span><small>Jugador {turn + 1}</small><b>{operators[loadout.operator]}</b></span></span>
         <span className="tiro-hud-score"><small>Prueba {level} de 3 · {levelNames[level - 1]}</small><strong><b>{result.score + (level === 3 ? precisionTotal.score : 0)}</b> pts</strong></span>
-        {level === 3 ? <span className="tiro-hud-score tiro-distance"><small>Ronda {precisionRound}/{PRECISION_ROUNDS}</small><strong aria-label="Distancia del blanco">{precisionStep + 1}/{PRECISION_DISTANCES}</strong></span>
-          : <time aria-label="Tiempo restante">{Math.floor(clock / 60)}:{String(clock % 60).padStart(2, '0')}</time>}
+        {level === 3 && <span className="tiro-hud-score tiro-distance"><small>Ronda {precisionRound}/{PRECISION_ROUNDS}</small><strong aria-label="Distancia del blanco">{precisionStep + 1}/{PRECISION_DISTANCES}</strong></span>}
+        <time aria-label="Tiempo restante">{Math.floor(clock / 60)}:{String(clock % 60).padStart(2, '0')}</time>
       </div>
       <div className="tiro-ammo" aria-label="Munición disponible y gastada">
         {[primary, secondary].map((item, index) => level === 3 && index === 0 ? null : <div key={item.name} className={index === activeSlot ? 'tiro-ammo-active' : undefined}>

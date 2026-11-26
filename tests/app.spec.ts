@@ -1523,6 +1523,7 @@ test('Tiro al Blanco 2050: soldado y armas, instructivo, las tres pruebas con su
   await expect(page.getByRole('heading', { name: 'Tercera prueba: Target' })).toBeVisible();
   await page.getByRole('button', { name: 'Iniciar' }).click();
   await expect(page.getByLabel('Distancia del blanco')).toHaveText('1/10');
+  await expect(page.getByLabel('Tiempo restante')).toHaveText(/^0:(40|39)$/);
   // Las rondas siguen solas, sin pantalla en el medio.
   for (const [round, distance] of [['Ronda 2/3', '10/10'], ['Ronda 3/3', '1/10']]) {
     await finish();
