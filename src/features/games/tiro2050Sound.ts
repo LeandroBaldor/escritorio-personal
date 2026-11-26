@@ -77,8 +77,9 @@ export const RELOAD_DURATION: Record<GunFamily, number> = { ametralladora: 1510,
 // Música del juego (correcciones 16): Predator, Rambo y The Terminator, una tras otra y de nuevo desde la primera.
 // Sigue sonando en los menús y en la pausa. Volumen por canción para que suenen parejas (Rambo viene más fuerte).
 
-// Correcciones 17: el doble de fuerte que antes (0,32 / 0,2 / 0,32).
-const SONGS: [string, number][] = [[musica1Url, .64], [musica2Url, .4], [musica3Url, .64]];
+// Correcciones 17: el doble de fuerte que antes; Rambo es la versión nueva (Rambo_2), que viene pareja con las otras.
+// Predator arranca en el segundo 14,5 del original (los primeros 14 s eran casi mudos) para que se escuche apenas se abre el menú.
+const SONGS: [string, number][] = [[musica1Url, .64], [musica2Url, .6], [musica3Url, .64]];
 const MUTE_KEY = 'escritorio-personal-juegos:tiro2050-musica-silenciada';
 let muted = (() => { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch { return false; } })();
 export const isTiroMusicMuted = () => muted;
