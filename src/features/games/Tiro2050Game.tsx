@@ -36,7 +36,7 @@ const shotFrame = (design: number, age: number) => {
   return age < 360 ? Math.floor(age / 36) : -1;
 };
 
-const assets = import.meta.glob(['./assets/tiro2050/{escenario,operador,arsenal,alien}-*', './assets/tiro2050/silueta-[2345].png', './assets/tiro2050/cobertura-1[2-7].png', './assets/tiro2050/{mano-recarga,lanzadora,pared-platos}.png', './assets/tiro2050/rafaga-*.webp', './assets/tiro2050/ejemplo-*.webp'], { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const assets = import.meta.glob(['./assets/tiro2050/{escenario,operador,arsenal,alien}-*', './assets/tiro2050/silueta-[2345].png', './assets/tiro2050/cobertura-1[2-7].png', './assets/tiro2050/{lanzadora,pared-platos}.png', './assets/tiro2050/rafaga-*.webp', './assets/tiro2050/ejemplo-*.webp'], { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const art = (name: string) => assets[`./assets/tiro2050/${name}`];
 export const tiro2050Cover = art('escenario-3.jpg');
 
@@ -135,6 +135,20 @@ export function Tiro2050Game() {
   const [zoom, setZoom] = useState(1);
   const [arsenal, setArsenal] = useState(newArsenal);
   const rangeRef = useRef<HTMLDivElement>(null);
+  const sideRef = useRef<HTMLDivElement>(null);
+  // Ancho de la franja izquierda en % del campo: la cámara no deja ver más allá del borde del mapa en esa franja.
+  const [leftBand, setLeftBand] = useState(0);
+  useEffect(() => {
+    const side = sideRef.current, range = rangeRef.current;
+    if (phase !== 'round' || !side || !range) return;
+    const observer = new ResizeObserver(() => {
+      const width = range.getBoundingClientRect().width;
+      setLeftBand(width ? side.getBoundingClientRect().width / width * 100 : 0);
+    });
+    observer.observe(side);
+    observer.observe(range);
+    return () => observer.disconnect();
+  }, [phase]);
   const ejectPortRef = useRef<HTMLSpanElement>(null);
   const trigger = useRef<number | null>(null);
   const handledClick = useRef(false);
@@ -160,8 +174,7 @@ export function Tiro2050Game() {
   // Extend the sprite's forward axis through its muzzle to the fixed center of the arena.
   const gunAnchor = tipX - (.5 / gunHeight - (1 - tipY - gunBottomBleed)) * (.9 - tipX) / (.84 - tipY);
   const scope = zoomValue > 1 ? rifleScopes[activeDesign] : undefined;
-  const view = getCameraView(camera, zoomValue);
-  const reloading = elapsed < arsenal.reloadEnds[activeSlot];
+  const view = getCameraView(camera, zoomValue, leftBand);
   const wave = Math.floor(elapsed / WAVE_MS);
   const targetsHiding = elapsed % WAVE_MS >= TARGET_RISE_MS + TARGET_VISIBLE_MS;
   const clock = Math.ceil((ROUND_MS - elapsed) / 1000);
@@ -504,10 +517,13 @@ export function Tiro2050Game() {
     {phase === 'setup' && <div className="tiro-setup">
       <div className="tiro-headline">
       <h2 className="tiro-menu-title">Elegí tu soldado y sus armas</h2>
+      <div className="tiro-headline-actions">
       <div className="tiro-brief tiro-brief--players">
         <label>Jugadores locales <select value={players} onChange={event => { playMenu(); setPlayers(Number(event.target.value)); }}>
           {[1, 2, 3, 4].map(value => <option key={value} value={value}>{value}</option>)}
         </select></label>
+      </div>
+      <button className="tiro-action tiro-go" type="button" onClick={() => { setResults([]); setTurn(0); setLevel(1); goTo('briefing'); }}>Continuar</button>
       </div>
       </div>
       <div className="tiro-loadouts">
@@ -542,11 +558,13 @@ export function Tiro2050Game() {
           </div>
         </fieldset>)}
       </div>
-      <div className="tiro-menu-actions"><button className="tiro-action" type="button" onClick={() => { setResults([]); setTurn(0); setLevel(1); goTo('briefing'); }}>Continuar</button></div>
     </div>}
 
     {phase === 'briefing' && <div className="tiro-setup">
-      <h2 className="tiro-menu-title">La competencia</h2>
+      <div className="tiro-headline">
+        <h2 className="tiro-menu-title">La competencia</h2>
+        <button className="tiro-action tiro-go" type="button" onClick={() => goTo('stage')}>Continuar</button>
+      </div>
       <p className="tiro-menu-lead">Tres pruebas, una después de la otra. Al final se suman los puntos y se califica cómo jugaste.</p>
       <ol className="tiro-tests">
         {([1, 2, 3] as Level[]).map(test => <li key={test}>
@@ -555,17 +573,19 @@ export function Tiro2050Game() {
           <p>{levelBriefs[test].text}</p>
         </li>)}
       </ol>
-      <div className="tiro-menu-actions"><button className="tiro-action" type="button" onClick={() => goTo('stage')}>Continuar</button></div>
     </div>}
 
     {phase === 'stage' && <div className="tiro-setup tiro-setup--stage">
-      <h2 className="tiro-menu-title">{levelOrdinals[level - 1]}: {levelNames[level - 1]}{players > 1 && <small> · Jugador {turn + 1}</small>}</h2>
+      <div className="tiro-headline">
+        <h2 className="tiro-menu-title">{levelOrdinals[level - 1]}: {levelNames[level - 1]}{players > 1 && <small> · Jugador {turn + 1}</small>}</h2>
+        <button className="tiro-action tiro-go" type="button" onClick={() => { playMenu(); start(turn, level); }}>Iniciar</button>
+      </div>
       <div className="tiro-stage-menu">
+      <div className="tiro-stage-main">
       <figure className="tiro-scene-hero">
         <img className="tiro-scene-preview" src={art(`escenario-${level === 1 ? scene : level + 3}.jpg`)} alt="" />
         <figcaption>{level === 1 ? scenes[scene] : levelScenes[level][0]}</figcaption>
       </figure>
-      <div className="tiro-stage-side">
       <fieldset className="tiro-scenes">
         <legend>Escenario</legend>
         {levelScenes[level].map((name, i) => {
@@ -577,6 +597,8 @@ export function Tiro2050Game() {
           </button>;
         })}
       </fieldset>
+      </div>
+      <div className="tiro-stage-side">
       {level === 2 && <fieldset className="tiro-plate-colors">
         <legend>Color del plato</legend>
         {plateColors.map((color, i) => <button key={color.name} type="button" aria-pressed={plateColor === i} onClick={() => { playMenu(); setPlateColor(i); }}>
@@ -591,23 +613,17 @@ export function Tiro2050Game() {
       </dl>
       </div>
       </div>
-      <div className="tiro-menu-actions"><button className="tiro-action" type="button" onClick={() => { playMenu(); start(turn, level); }}>Iniciar</button></div>
     </div>}
 
     {phase === 'round' && <>
       <div className="tiro-play-wrap"><div className="tiro-play">
-      <div className="tiro-side" aria-hidden="true">
-        <div className="tiro-side-view"><div className="tiro-side-world" style={{ transform: `translate(${view.x}%, ${view.y}%) scale(${view.scale})` }}>
-          <img className="tiro-backdrop" src={art(`escenario-${level === 1 ? scene : level + 3}.jpg`)} alt="" draggable={false} />
-        </div></div>
-      </div>
+      <div ref={sideRef} className="tiro-side" aria-hidden="true" />
       <div className="tiro-field">
       <div ref={rangeRef} className="tiro-range" aria-label={stageName} onPointerMove={aimAt} onPointerLeave={() => { trigger.current = null; }}
         onClick={event => { if (event.button === 0 && !handledClick.current) fire(); }}
         onPointerDown={beginAim} onPointerUp={endAim} onLostPointerCapture={event => {
           if (touchAim.current?.id === event.pointerId) touchAim.current = null;
         }}>
-        {reloading && <strong className="tiro-reload-label" role="status">Recargando…</strong>}
         <div className="tiro-world" style={{ transform: `translate(${view.x}%, ${view.y}%) scale(${view.scale})` }}>
         <img className="tiro-backdrop" src={art(`escenario-${level === 1 ? scene : level + 3}.jpg`)} alt="" draggable={false} />
         {level === 1 && getWave(scene, wave).map((card, slot) => {
@@ -654,15 +670,13 @@ export function Tiro2050Game() {
           '--tiro-gun-bottom-bleed': gunBottomBleed,
           '--tiro-gun-right-bleed': gunRightBleed,
           '--tiro-gun-height': `${gunHeight * 100}cqh`,
-          '--tiro-reload-duration': `${RELOAD_MS}ms`,
         } as CSSProperties} aria-hidden="true">
-          <div className={reloading ? 'tiro-weapon--reloading' : undefined}>
+          <div>
             {shotFxFrame >= 0 && <span className={`tiro-shot-fx${activeDesign >= 8 && activeDesign < 12 ? ' tiro-shot-fx--wide' : ''}`}
               style={{ backgroundImage: `url(${art(`rafaga-${shotFx[activeDesign]}.webp`)})`, backgroundPositionX: `${shotFxFrame / 9 * 100}%` }} />}
             <img className="tiro-weapon-art" alt="" draggable={false} src={art(weaponImage)} />
             <span ref={ejectPortRef} className="tiro-eject-port" />
             {muzzlePulse && <span key={muzzlePulse.id} className="tiro-muzzle-flash" />}
-            {reloading && <img className="tiro-reload-hand" src={art('mano-recarga.png')} alt="" draggable={false} />}
           </div>
         </div>
         {casings.filter(casing => elapsed - casing.at < 520).map(casing => <span key={casing.id} className="tiro-casing" aria-hidden="true"
@@ -707,11 +721,6 @@ export function Tiro2050Game() {
       </div>
       </div>
       </div></div>
-      <p className="tiro-hint">{ammo[activeSlot].remaining === 0 ? 'Munición agotada. La ronda termina al vencer el reloj.' : level === 3
-        ? 'Un tiro por distancia. Cabeza +15 · anillos del torso +7 a +10.' : <>
-          <span className="tiro-hint-mouse">Mové el mouse para mirar, hacé clic para disparar y usá Espacio para cambiar de arma.</span>
-          <span className="tiro-hint-touch">Arrastrá para mirar y tocá para disparar al centro.</span>
-        </>}</p>
     </>}
 
     {phase === 'precision-break' && <section className="tiro-results" aria-labelledby="tiro-precision-break-title">

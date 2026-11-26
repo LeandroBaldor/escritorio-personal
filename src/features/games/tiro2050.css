@@ -87,7 +87,6 @@ body:has(.tiro2050) .mobile-nav { display: none; }
 .tiro-zoom button { padding: .05rem .45rem; }
 .tiro-zoom button:disabled { opacity: .5; cursor: default; }
 .tiro-zoom output { min-width: 3.2ch; text-align: center; }
-.tiro-reload-label { position: absolute; z-index: 5; bottom: .5rem; left: 50%; translate: -50%; padding: .2rem .55rem; border-radius: 4px; background: #10191ddd; color: var(--tiro-accent); font-size: .875rem; pointer-events: none; }
 /* El campo siempre en 16:9 (como los otros juegos), centrado en el lugar que queda; si sobra, bordes oscuros. */
 .tiro-field { flex: 1; min-height: 0; display: grid; place-items: center; container-type: size; background: #04070c; }
 .tiro-range {
@@ -481,4 +480,34 @@ body:has(.tiro2050) .mobile-nav { display: none; }
   .tiro-play .tiro-ammo strong { font-size: .95rem; }
   .tiro-play .tiro-ammo button.tiro-swap { padding: .3rem .5rem; font-size: .8rem; }
 }
-.tiro-side-view { clip-path: inset(0 0 0 -200vw); }
+
+/* ───── Correcciones 15 ───── */
+/* Franja izquierda: el mapa del campo sigue de largo hacia ese costado (con sus coberturas y blancos), sin cortes. */
+.tiro-play .tiro-range { overflow: visible; clip-path: inset(0 0 0 -100vw); }
+.tiro-play .tiro-side { z-index: 2; background: transparent; overflow: visible; }
+.tiro-play .tiro-side::after { background: linear-gradient(90deg, #04070cc8, #04070c00); }
+/* Botón de seguir: arriba a la derecha, en verde flúor. */
+.tiro-headline { flex-wrap: nowrap; }
+.tiro-headline-actions { display: flex; align-items: center; gap: clamp(.7rem, 1.4vw, 1.4rem); }
+.tiro2050 .tiro-action.tiro-go { flex: none; padding: .85rem 2.2rem; border: 2px solid #b8ff9a; border-radius: 10px; background: #39ff14; color: #06210a; font-size: clamp(1.15rem, 1.4vw, 1.5rem); font-weight: 900; box-shadow: 0 0 18px #39ff1466; }
+.tiro2050 .tiro-action.tiro-go:hover { color: #06210a; filter: brightness(1.08); box-shadow: 0 0 26px #39ff14aa; }
+/* Elección de soldado y armas: el recuadro ocupa todo el alto; armas en cuadrados más grandes sin deformar. */
+.tiro-loadouts { display: grid; align-content: stretch; }
+.tiro-loadout { justify-content: space-around; }
+.tiro2050 .tiro-weapon-preview, .tiro-setup .tiro-weapon-preview { aspect-ratio: 1; width: auto; height: clamp(140px, 28vh, 400px); max-width: 100%; justify-self: center; }
+.tiro-setup .tiro-operators img { height: clamp(130px, 23vh, 360px); }
+.tiro-weapon-preview img { inset: 7%; right: 7%; bottom: 7%; width: 86%; height: 86%; object-fit: contain; }
+.tiro-loadouts:has(.tiro-loadout:nth-child(2)) .tiro-weapon-preview { height: clamp(90px, 15vh, 200px); }
+/* Menú de cada prueba: escenarios grandes abajo de la imagen principal; color y descripción arriba a la derecha. */
+.tiro-stage-menu { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+.tiro-stage-main { display: flex; flex-direction: column; gap: clamp(.6rem, 1.2vh, 1rem); min-width: 0; }
+.tiro-setup--stage .tiro-scene-preview { aspect-ratio: 21 / 9; max-height: 50vh; }
+.tiro-setup--stage .tiro-scenes { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.tiro-setup--stage .tiro-scenes img, .tiro-setup--stage .tiro-scene-soon { aspect-ratio: 16 / 10; }
+.tiro-setup--stage .tiro-scenes button { font-size: 1em; font-weight: 600; }
+.tiro-stage-side { align-self: start; }
+@media (max-width: 760px) {
+  .tiro-headline { flex-wrap: wrap; }
+  .tiro2050 .tiro-action.tiro-go { padding: .6rem 1.4rem; }
+  .tiro2050 .tiro-weapon-preview, .tiro-setup .tiro-weapon-preview { height: auto; width: 100%; }
+}

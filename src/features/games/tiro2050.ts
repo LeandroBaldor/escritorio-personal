@@ -108,10 +108,14 @@ export function scorePrecision(x: number, y: number) {
 
 const cameraBaseScale = 2.1;
 
-export function getCameraView(camera: { x: number; y: number }, zoom: number) {
+// leftBand: ancho (en % del campo) de la franja izquierda donde también se ve el mapa. En el extremo izquierdo,
+// el borde del mapa queda en el borde de esa franja, sin mostrar negro.
+export function getCameraView(camera: { x: number; y: number }, zoom: number, leftBand = 0) {
   const scale = cameraBaseScale * zoom;
-  const focus = (position: number) => 50 + (position - 50) * .51;
-  return { scale, x: 50 - focus(camera.x) * scale, y: 50 - focus(camera.y) * scale };
+  const reachX = Math.max(0, Math.min(.51, (50 - (100 + leftBand) / (2 * cameraBaseScale) - .7) / 50));
+  const focusX = 50 + (camera.x - 50) * reachX;
+  const focusY = 50 + (camera.y - 50) * .51;
+  return { scale, x: (100 - leftBand) / 2 - focusX * scale, y: 50 - focusY * scale };
 }
 
 // Calificación final (correcciones 13): el rendimiento es el promedio de las tres pruebas, de 0 a 100.
