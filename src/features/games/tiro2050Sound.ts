@@ -9,6 +9,10 @@ import recargaAmetralladoraUrl from './assets/sonidos/tiro2050-recarga-ametralla
 import recargaEscopetaUrl from './assets/sonidos/tiro2050-recarga-escopeta.mp3';
 import recargaPistolaUrl from './assets/sonidos/tiro2050-recarga-pistola.mp3';
 import recargaRifleUrl from './assets/sonidos/tiro2050-recarga-rifle.mp3';
+import musica1Url from './assets/sonidos/tiro2050-musica-1.mp3';
+import musica2Url from './assets/sonidos/tiro2050-musica-2.mp3';
+import musica3Url from './assets/sonidos/tiro2050-musica-3.mp3';
+import alarmaUrl from './assets/sonidos/tiro2050-alarma.mp3';
 
 export type GunFamily = 'ametralladora' | 'escopeta' | 'rifle' | 'pistola' | 'pistolaAlien';
 
@@ -67,3 +71,46 @@ function play([url, volume]: [string, number], delay = 0) {
 export function preloadTiroSounds() { for (const [url] of [...Object.values(SHOTS), ...Object.values(RELOADS)]) load(url); }
 export function playTiroShot(family: GunFamily, delay = 0) { play(SHOTS[family], delay); }
 export function playTiroReload(family: GunFamily) { play(RELOADS[family]); }
+
+// Música del juego (correcciones 16): Predator, Rambo y The Terminator, una tras otra y de nuevo desde la primera.
+// Sigue sonando en los menús y en la pausa. Volumen por canción para que suenen parejas (Rambo viene más fuerte).
+
+const SONGS: [string, number][] = [[musica1Url, .32], [musica2Url, .2], [musica3Url, .32]];
+let music: HTMLAudioElement | null = null;
+let song = 0;
+function playSong() {
+  if (!music) return;
+  const [url, volume] = SONGS[song];
+  music.src = url;
+  music.volume = volume;
+  void music.play().catch(() => undefined);
+}
+export function startTiroMusic() {
+  if (typeof Audio === 'undefined') return;
+  try {
+    if (!music) {
+      music = new Audio();
+      music.addEventListener('ended', () => { song = (song + 1) % SONGS.length; playSong(); });
+      playSong();
+    } else if (music.paused) void music.play().catch(() => undefined);
+  } catch { /* sin audio */ }
+}
+export function stopTiroMusic() {
+  music?.pause();
+  music = null;
+  song = 0;
+}
+
+// Un solo pitido de alarma.mp3 al empezar cada ronda de 10 tiros de Target.
+let alarm: HTMLAudioElement | null = null;
+export function preloadTiroAlarm() {
+  if (typeof Audio === 'undefined' || alarm) return;
+  try { alarm = new Audio(alarmaUrl); alarm.preload = 'auto'; } catch { /* sin audio */ }
+}
+export function playTiroAlarm() {
+  preloadTiroAlarm();
+  if (!alarm) return;
+  alarm.currentTime = 0;
+  alarm.volume = .8;
+  void alarm.play().catch(() => undefined);
+}

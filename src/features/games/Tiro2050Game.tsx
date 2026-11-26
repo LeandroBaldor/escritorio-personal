@@ -5,7 +5,7 @@ import { campaignRating, getCameraView, getPlates, getPrecisionPosition, getWave
 import type { Level } from './tiro2050';
 import { PrecisionBoard, TargetBlast } from './Tiro2050Targets';
 import { playBolt } from './sounds';
-import { gunFamily, playTiroReload, playTiroShot, preloadTiroSounds } from './tiro2050Sound';
+import { gunFamily, playTiroReload, playTiroShot, preloadTiroSounds, playTiroAlarm, preloadTiroAlarm, startTiroMusic, stopTiroMusic } from './tiro2050Sound';
 import './tiro2050.css';
 import menuSoundUrl from './assets/sonidos/tiro2050-menu.mp3';
 
@@ -102,7 +102,7 @@ const sumResults = (results: Result[]) => results.reduce((sum, entry) => ({
 const scoreNoticeDuration = 1750;
 const newArsenal = (slot: WeaponSlot = 0): Arsenal => ({ slot, shots: [0, 0], reloadEnds: [0, 0] });
 const newRound = (arsenal: Arsenal, start = 0) => ({
-  arsenal, start, lastShot: -Infinity, nextPulse: 0, pendingShots: [0, 0], finishAt: Infinity, finished: false, result: emptyResult, fallen: new Set<number>(),
+  arsenal, start, lastShot: -Infinity, nextPulse: 0, pendingShots: [0, 0], finishAt: Infinity, finished: false, pausedAt: 0, result: emptyResult, fallen: new Set<number>(),
 });
 
 function WeaponPreview({ design }: { design: number }) {
@@ -127,6 +127,7 @@ export function Tiro2050Game() {
   const [results, setResults] = useState<CampaignResult[]>([]);
   const [levelResults, setLevelResults] = useState<LevelResult[]>([]);
   const [precisionRound, setPrecisionRound] = useState(1);
+  const [paused, setPaused] = useState(false);
   const [precisionResults, setPrecisionResults] = useState<Result[]>([]);
   const [impact, setImpact] = useState<Impact | null>(null);
   const [muzzlePulses, setMuzzlePulses] = useState<Impact[]>([]);
@@ -140,6 +141,18 @@ export function Tiro2050Game() {
   const sideRef = useRef<HTMLDivElement>(null);
   // Ancho de la franja izquierda en % del campo: la cámara no deja ver más allá del borde del mapa en esa franja.
   const [leftBand, setLeftBand] = useState(0);
+  // Música de fondo mientras se está en el juego (si el navegador la frena hasta el primer clic o tecla, arranca ahí).
+  useEffect(() => {
+    startTiroMusic();
+    const kick = () => startTiroMusic();
+    window.addEventListener('pointerdown', kick);
+    window.addEventListener('keydown', kick);
+    return () => {
+      window.removeEventListener('pointerdown', kick);
+      window.removeEventListener('keydown', kick);
+      stopTiroMusic();
+    };
+  }, []);
   useEffect(() => {
     const side = sideRef.current, range = rangeRef.current;
     if (phase !== 'round' || !side || !range) return;
@@ -182,7 +195,9 @@ export function Tiro2050Game() {
   const clock = Math.ceil((ROUND_MS - elapsed) / 1000);
   const tint = colors[loadout.operator];
   const stageName = levelScenes[level][scene];
-  const precisionStep = Math.max(0, Math.min(PRECISION_DISTANCES - 1, result.shots - Number(level === 3 && impact !== null && elapsed - impact.at < PRECISION_STEP_MS)));
+  const precisionShot = Math.max(0, Math.min(PRECISION_DISTANCES - 1, result.shots - Number(level === 3 && impact !== null && elapsed - impact.at < PRECISION_STEP_MS)));
+  // Target: en la ronda 1 el cartel se va 10 veces para atrás, en la 2 vuelve 10 veces hacia adelante y en la 3 se va de nuevo.
+  const precisionStep = precisionRound === 2 ? PRECISION_DISTANCES - 1 - precisionShot : precisionShot;
   const settledLevel = levelResults.at(-1);
   const accumulatedScore = levelResults.reduce((total, entry) => total + entry.score, 0);
   const precisionTotal = sumResults(precisionResults);
@@ -214,6 +229,7 @@ export function Tiro2050Game() {
     if (phase !== 'round') return;
     let frame = 0;
     const tick = (now: number) => {
+      if (round.current.pausedAt) { frame = requestAnimationFrame(tick); return; }
       const time = Math.max(0, now - round.current.start);
       if (level !== 3 ? time >= ROUND_MS : now >= round.current.finishAt) {
         finishLevel();
@@ -228,6 +244,7 @@ export function Tiro2050Game() {
 
   function start(player: number, nextLevel: Level = 1, nextPrecisionRound = 1) {
     preloadTiroSounds();
+    preloadTiroAlarm();
     const nextArsenal = newArsenal(nextLevel === 3 ? 1 : 0);
     round.current = newRound(nextArsenal, performance.now());
     setArsenal(nextArsenal);
@@ -235,6 +252,8 @@ export function Tiro2050Game() {
     setLevel(nextLevel);
     setPrecisionRound(nextPrecisionRound);
     if (nextPrecisionRound === 1) setPrecisionResults([]);
+    setPaused(false);
+    if (nextLevel === 3) playTiroAlarm();
     if (nextLevel === 1) setLevelResults([]);
     setElapsed(0);
     setResult(emptyResult);
@@ -304,7 +323,7 @@ export function Tiro2050Game() {
 
   function fire(source: 'click' | 'queued' | 'automatic' = 'click') {
     const range = rangeRef.current;
-    if (!range || phase !== 'round') return;
+    if (!range || phase !== 'round' || round.current.pausedAt) return;
     const bounds = range.getBoundingClientRect();
     const live = round.current;
     const now = performance.now();
@@ -466,7 +485,32 @@ export function Tiro2050Game() {
     event.preventDefault();
     zoomBy(event.deltaY < 0 ? 1.18 : 1 / 1.18);
   });
+  function togglePause() {
+    const live = round.current;
+    if (phase !== 'round' || live.finished) return;
+    const now = performance.now();
+    if (live.pausedAt) {
+      const gap = now - live.pausedAt;
+      live.start += gap;
+      live.finishAt += gap;
+      live.lastShot += gap;
+      live.pausedAt = 0;
+      setPaused(false);
+    } else {
+      live.pausedAt = now;
+      live.pendingShots = [0, 0];
+      trigger.current = null;
+      setPaused(true);
+    }
+  }
+  const keyPause = useEffectEvent((event: KeyboardEvent) => {
+    if (event.code !== 'KeyP' || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.target instanceof HTMLElement && (event.target.isContentEditable || event.target.closest('input, select, textarea'))) return;
+    event.preventDefault();
+    togglePause();
+  });
   const keySwap = useEffectEvent((event: KeyboardEvent) => {
+    if (round.current.pausedAt) return;
     if (event.code !== 'Space' || event.altKey || event.ctrlKey || event.metaKey || level === 3) return;
     if (event.target instanceof HTMLElement && (event.target.isContentEditable || event.target.closest('input, select, textarea'))) return;
     event.preventDefault();
@@ -477,7 +521,7 @@ export function Tiro2050Game() {
     const range = rangeRef.current;
     if (phase !== 'round' || !range) return;
     const wheel = (event: WheelEvent) => scrollZoom(event);
-    const key = (event: KeyboardEvent) => keySwap(event);
+    const key = (event: KeyboardEvent) => { keyPause(event); keySwap(event); };
     const release = () => { trigger.current = null; };
     const blur = () => { release(); touchAim.current = null; };
     range.addEventListener('wheel', wheel, { passive: false });
@@ -696,6 +740,10 @@ export function Tiro2050Game() {
           trigger.current = weapon.effect === 1 ? performance.now() : null;
           fire();
         }} onClick={event => { event.stopPropagation(); if (event.detail === 0) fire(); }}>Disparar</button>
+        {paused && <div className="tiro-pause" role="status" onPointerDown={event => event.stopPropagation()}>
+          <strong>Pausa</strong>
+          <span>Apretá P para seguir</span>
+        </div>}
       </div>
       </div>
       <div className="tiro-command">
@@ -711,7 +759,8 @@ export function Tiro2050Game() {
           <strong>{ammo[index].remaining}/{ammo[index].used}</strong>
         </div>)}
         <small>Disponibles / gastadas</small>
-        {level !== 3 && <button type="button" className="tiro-swap" aria-keyshortcuts="Space" disabled={!canSwap} onClick={swapWeapon}>Cambiar arma</button>}
+        {level !== 3 && <button type="button" className="tiro-swap" aria-keyshortcuts="Space" disabled={!canSwap || paused} onClick={swapWeapon}>Cambiar arma</button>}
+        <button type="button" className="tiro-swap tiro-pause-button" aria-keyshortcuts="P" aria-pressed={paused} onClick={togglePause}>{paused ? 'Seguir (P)' : 'Pausa (P)'}</button>
         {zoomLimit > 1 && <div className="tiro-zoom" aria-label="Zoom de la mira">
           <button type="button" aria-label="Alejar la mira" disabled={zoomValue <= 1} onClick={() => zoomBy(1 / 1.35)}>−</button>
           <output>{zoomValue.toFixed(1)}×</output>

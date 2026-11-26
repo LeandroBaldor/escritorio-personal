@@ -1501,6 +1501,13 @@ test('Tiro al Blanco 2050: soldado y armas, instructivo, las tres pruebas con su
   await page.getByRole('button', { name: 'Puente de mando' }).click();
   await page.getByRole('button', { name: 'Iniciar' }).click();
   await expect(page.getByLabel('Tiempo restante')).toBeVisible();
+  await page.keyboard.press('p');
+  await expect(page.getByText('Apretá P para seguir')).toBeVisible();
+  const pausedClock = await page.getByLabel('Tiempo restante').textContent();
+  await page.waitForTimeout(1300);
+  await expect(page.getByLabel('Tiempo restante')).toHaveText(pausedClock ?? '');
+  await page.keyboard.press('p');
+  await expect(page.getByText('Apretá P para seguir')).toBeHidden();
   await finish();
   await expect(page.getByRole('heading', { name: 'Aliens' })).toBeVisible();
   await expect(page.getByText('Rehenes y civiles heridos')).toBeVisible();
@@ -1515,9 +1522,11 @@ test('Tiro al Blanco 2050: soldado y armas, instructivo, las tres pruebas con su
   await page.getByRole('button', { name: 'Siguiente prueba' }).click();
   await expect(page.getByRole('heading', { name: 'Tercera prueba: Target' })).toBeVisible();
   await page.getByRole('button', { name: 'Iniciar' }).click();
-  for (const next of ['Empezar ronda 2', 'Empezar ronda 3']) {
+  await expect(page.getByLabel('Distancia del blanco')).toHaveText('1/10');
+  for (const [next, distance] of [['Empezar ronda 2', '10/10'], ['Empezar ronda 3', '1/10']]) {
     await finish();
     await page.getByRole('button', { name: next }).click();
+    await expect(page.getByLabel('Distancia del blanco')).toHaveText(distance);
   }
   await finish();
   await page.getByRole('button', { name: 'Resultado Final' }).click();

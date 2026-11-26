@@ -513,3 +513,8 @@ body:has(.tiro2050) .mobile-nav { display: none; }
 }
 /* La sombra interna del campo no marca una línea en el borde con la franja izquierda: se estira hacia ese costado. */
 .tiro-play .tiro-range::after { left: -100vw; }
+/* ───── Correcciones 16: pausa ───── */
+.tiro-pause { position: absolute; z-index: 30; inset: 0; display: grid; place-content: center; gap: .4rem; text-align: center; background: #04070cb0; color: #fff; cursor: default; }
+.tiro-pause strong { font-size: clamp(2.4rem, 7cqw, 5rem); letter-spacing: .12em; text-transform: uppercase; color: #39ff14; text-shadow: 0 0 22px #39ff1488; }
+.tiro-pause span { font-size: clamp(1rem, 2cqw, 1.5rem); }
+.tiro-pause-button { margin-top: .5rem; }
