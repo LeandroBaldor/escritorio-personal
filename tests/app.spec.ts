@@ -1506,7 +1506,8 @@ test('Tiro al Blanco 2050: soldado y armas, instructivo, las tres pruebas con su
   await expect(page.getByText('Rehenes y civiles heridos')).toBeVisible();
   await page.getByRole('button', { name: 'Siguiente prueba' }).click();
   await expect(page.getByRole('heading', { name: 'Segunda prueba: Platos' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'En proceso' })).toHaveCount(4);
+  await page.getByRole('button', { name: 'Estadio de fútbol' }).click();
+  await expect(page.getByRole('button', { name: 'Estadio de fútbol' })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Azul' }).click();
   await page.getByRole('button', { name: 'Iniciar' }).click();
   await finish();

@@ -41,12 +41,13 @@ const art = (name: string) => assets[`./assets/tiro2050/${name}`];
 export const tiro2050Cover = art('escenario-3.jpg');
 
 const scenes = ['Hangar estelar', 'Fábrica robotizada', 'Puente de mando', 'Reactor orbital', 'Laboratorio de contención'];
-// Escenarios de cada prueba: la primera tiene los 5; Platos y Target por ahora tienen uno (los otros 4, "En proceso").
+// Escenarios de cada prueba (5 cada una). Imágenes: escenario-0…4 Aliens, 5…9 Platos, 10…14 Target.
 const levelScenes: Record<Level, string[]> = {
   1: scenes,
-  2: ['Campo orbital', 'En proceso', 'En proceso', 'En proceso', 'En proceso'],
-  3: ['Galería de tiro', 'En proceso', 'En proceso', 'En proceso', 'En proceso'],
+  2: ['Apocalipsis', 'Estadio de fútbol', 'Metrópolis cyberpunk', 'Campo orbital', 'Fábrica de radiación'],
+  3: ['Galería de tiro', 'Fábrica futurista', 'Inferno', 'Jurásico', 'Nostromo'],
 };
+const sceneArt = (level: Level, index: number) => art(`escenario-${(level - 1) * 5 + index}.jpg`);
 const levelBriefs: Record<Level, { text: string; points: string; time: string }> = {
   1: { text: 'Los aliens asoman detrás de las coberturas entre rehenes y civiles. Bajá solo a los aliens.', points: 'Cabeza +10 · torso +5 · rehén o civil −10', time: '3 minutos' },
   2: { text: 'La lanzadora tira platos que cruzan el campo hasta la pared. Rompé todos los que puedas antes de que choquen.', points: 'Cada plato roto +1', time: '3 minutos' },
@@ -113,11 +114,12 @@ function WeaponPreview({ design }: { design: number }) {
 }
 
 export function Tiro2050Game() {
-  const [scene, setScene] = useState(0);
+  const [scenePicks, setScenePicks] = useState<number[]>([0, 0, 0]);
   const [players, setPlayers] = useState(1);
   const [loadouts, setLoadouts] = useState<Loadout[]>(() => operators.map((_, operator) => ({ ...initialLoadout, operator })));
   const [turn, setTurn] = useState(0);
   const [level, setLevel] = useState<Level>(1);
+  const scene = scenePicks[level - 1];
   const [phase, setPhase] = useState<'setup' | 'briefing' | 'stage' | 'round' | 'precision-break' | 'level-report' | 'final' | 'results'>('setup');
   const [plateColor, setPlateColor] = useState(0);
   const [elapsed, setElapsed] = useState(0);
@@ -179,7 +181,7 @@ export function Tiro2050Game() {
   const targetsHiding = elapsed % WAVE_MS >= TARGET_RISE_MS + TARGET_VISIBLE_MS;
   const clock = Math.ceil((ROUND_MS - elapsed) / 1000);
   const tint = colors[loadout.operator];
-  const stageName = level === 1 ? scenes[scene] : levelScenes[level][0];
+  const stageName = levelScenes[level][scene];
   const precisionStep = Math.max(0, Math.min(PRECISION_DISTANCES - 1, result.shots - Number(level === 3 && impact !== null && elapsed - impact.at < PRECISION_STEP_MS)));
   const settledLevel = levelResults.at(-1);
   const accumulatedScore = levelResults.reduce((total, entry) => total + entry.score, 0);
@@ -583,19 +585,16 @@ export function Tiro2050Game() {
       <div className="tiro-stage-menu">
       <div className="tiro-stage-main">
       <figure className="tiro-scene-hero">
-        <img className="tiro-scene-preview" src={art(`escenario-${level === 1 ? scene : level + 3}.jpg`)} alt="" />
-        <figcaption>{level === 1 ? scenes[scene] : levelScenes[level][0]}</figcaption>
+        <img className="tiro-scene-preview" src={sceneArt(level, scene)} alt="" />
+        <figcaption>{stageName}</figcaption>
       </figure>
       <fieldset className="tiro-scenes">
         <legend>Escenario</legend>
-        {levelScenes[level].map((name, i) => {
-          const ready = level === 1 || i === 0;
-          return <button key={i} type="button" disabled={!ready} aria-pressed={ready && (level === 1 ? scene === i : true)}
-            onClick={() => { if (level === 1) { playMenu(); setScene(i); } }}>
-            {ready ? <img src={art(`escenario-${level === 1 ? i : level + 3}.jpg`)} alt="" /> : <span className="tiro-scene-soon" aria-hidden="true">🛠</span>}
-            {name}
-          </button>;
-        })}
+        {levelScenes[level].map((name, i) => <button key={i} type="button" aria-pressed={scene === i}
+          onClick={() => { playMenu(); setScenePicks(previous => previous.map((pick, index) => index === level - 1 ? i : pick)); }}>
+          <img src={sceneArt(level, i)} alt="" />
+          {name}
+        </button>)}
       </fieldset>
       </div>
       <div className="tiro-stage-side">
@@ -625,7 +624,7 @@ export function Tiro2050Game() {
           if (touchAim.current?.id === event.pointerId) touchAim.current = null;
         }}>
         <div className="tiro-world" style={{ transform: `translate(${view.x}%, ${view.y}%) scale(${view.scale})` }}>
-        <img className="tiro-backdrop" src={art(`escenario-${level === 1 ? scene : level + 3}.jpg`)} alt="" draggable={false} />
+        <img className="tiro-backdrop" src={sceneArt(level, scene)} alt="" draggable={false} />
         {level === 1 && getWave(scene, wave).map((card, slot) => {
           const alien = card.kind === 'alien';
           const hit = targetImpacts[card.id];
