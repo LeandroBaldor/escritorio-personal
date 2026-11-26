@@ -1,11 +1,11 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { campaignRating, getCameraView, getPlates, getPrecisionPosition, getWave, launchedPlates, levelNames, levelOrdinals, plateLauncher, plateWall, PRECISION_DISTANCES, PRECISION_ROUNDS, PRECISION_STEP_MS, primaries, RELOAD_MS, ROUND_MS, scoreImpact, scorePrecision, secondaries, TARGET_RISE_MS, TARGET_VISIBLE_MS, WAVE_MS } from './tiro2050';
+import { campaignRating, getCameraView, getPlates, getPrecisionPosition, getWave, launchedPlates, levelNames, levelOrdinals, plateLauncher, plateWall, PRECISION_DISTANCES, PRECISION_ROUNDS, PRECISION_STEP_MS, primaries, ROUND_MS, scoreImpact, scorePrecision, secondaries, TARGET_RISE_MS, TARGET_VISIBLE_MS, WAVE_MS } from './tiro2050';
 import type { Level } from './tiro2050';
 import { PrecisionBoard, TargetBlast } from './Tiro2050Targets';
 import { playBolt } from './sounds';
-import { gunFamily, playTiroReload, playTiroShot, preloadTiroSounds, playTiroAlarm, preloadTiroAlarm, startTiroMusic, stopTiroMusic } from './tiro2050Sound';
+import { gunFamily, isTiroMusicMuted, playTiroReload, playTiroShot, preloadTiroSounds, playTiroAlarm, preloadTiroAlarm, RELOAD_DURATION, setTiroMusicMuted, startTiroMusic, stopTiroMusic } from './tiro2050Sound';
 import './tiro2050.css';
 import menuSoundUrl from './assets/sonidos/tiro2050-menu.mp3';
 
@@ -128,6 +128,7 @@ export function Tiro2050Game() {
   const [levelResults, setLevelResults] = useState<LevelResult[]>([]);
   const [precisionRound, setPrecisionRound] = useState(1);
   const [paused, setPaused] = useState(false);
+  const [musicMuted, setMusicMuted] = useState(isTiroMusicMuted);
   const [precisionResults, setPrecisionResults] = useState<Result[]>([]);
   const [impact, setImpact] = useState<Impact | null>(null);
   const [muzzlePulses, setMuzzlePulses] = useState<Impact[]>([]);
@@ -356,7 +357,7 @@ export function Tiro2050Game() {
     const next: Arsenal = { slot, shots: [...current.shots], reloadEnds: [...current.reloadEnds] };
     const used = ++next.shots[slot];
     if (!(level === 3 && shots + 1 === PRECISION_DISTANCES) && used < activeWeapon.ammo && used % activeWeapon.magazine === 0) {
-      next.reloadEnds[slot] = time + RELOAD_MS;
+      next.reloadEnds[slot] = time + RELOAD_DURATION[family];
       playTiroReload(family);
     } else if (activeWeapon.effect === 2 && used < activeWeapon.ammo) playBolt();
     const otherSlot = slot === 0 ? 1 : 0;
@@ -545,9 +546,24 @@ export function Tiro2050Game() {
   const muzzlePulse = muzzlePulses.find(shot => elapsed >= shot.at && elapsed - shot.at < 45);
   const lastShot = muzzlePulses.filter(shot => elapsed >= shot.at).at(-1);
   const shotFxFrame = lastShot ? shotFrame(activeDesign, elapsed - lastShot.at) : -1;
+  // Movimiento del arma (correcciones 17). Recarga: se va un poco para atrás y después inclina la punta hacia abajo;
+  // dura lo mismo que el sonido de recarga. Disparo: con cada tiro la punta sube y toda el arma se va un poco para atrás.
+  const reloadLength = RELOAD_DURATION[gunFamily(activeSlot, activeSlot === 0 ? loadout.primary : loadout.secondary)];
+  const reloadLeft = arsenal.reloadEnds[activeSlot] - elapsed;
+  const reloadProgress = reloadLeft > 0 && reloadLeft <= reloadLength ? 1 - reloadLeft / reloadLength : -1;
+  const ease = (value: number) => .5 - Math.cos(Math.PI * Math.min(1, Math.max(0, value))) / 2;
+  const reloadBack = reloadProgress < 0 ? 0 : reloadProgress < .25 ? ease(reloadProgress / .25) : reloadProgress < .8 ? 1 : 1 - ease((reloadProgress - .8) / .2);
+  const reloadTilt = reloadProgress < 0 ? 0 : reloadProgress < .25 ? 0 : reloadProgress < .45 ? ease((reloadProgress - .25) / .2) : reloadProgress < .8 ? 1 : 1 - ease((reloadProgress - .8) / .2);
+  const recoilAge = lastShot ? elapsed - lastShot.at : Infinity;
+  const recoil = recoilAge < 30 ? recoilAge / 30 : recoilAge < 150 ? 1 - ease((recoilAge - 30) / 120) : 0;
+  const weaponPose = `translate(${(reloadBack * 4 + recoil * 1.6).toFixed(2)}%, ${(reloadBack * 7 + recoil * 2.4).toFixed(2)}%) rotate(${(recoil * 2.6 - reloadTilt * 9).toFixed(2)}deg)`;
   const visibleNotices = Object.entries(targetImpacts).filter(([, hit]) => elapsed - hit.at < scoreNoticeDuration);
 
   return <section className={`tiro2050${phase === 'round' ? ' tiro2050--round' : ''}`} style={{ '--tiro-accent': tint } as CSSProperties}>
+    <button type="button" className="tiro-music-toggle" aria-pressed={musicMuted} aria-label={musicMuted ? 'Activar la música' : 'Silenciar la música'}
+      title={musicMuted ? 'Activar la música' : 'Silenciar la música'} onClick={() => { setTiroMusicMuted(!musicMuted); setMusicMuted(!musicMuted); }}>
+      {musicMuted ? '🔇' : '🔊'}
+    </button>
     <svg className="tiro-art-filters" aria-hidden="true" width="0" height="0">
       <filter id="tiro-clean-weapon-edge" colorInterpolationFilters="sRGB">
         <feMorphology in="SourceAlpha" operator="erode" radius="1.25" result="trimmedAlpha" />
@@ -714,7 +730,7 @@ export function Tiro2050Game() {
           '--tiro-gun-right-bleed': gunRightBleed,
           '--tiro-gun-height': `${gunHeight * 100}cqh`,
         } as CSSProperties} aria-hidden="true">
-          <div>
+          <div className="tiro-weapon-pose" style={{ transform: weaponPose }}>
             {shotFxFrame >= 0 && <span className={`tiro-shot-fx${activeDesign >= 8 && activeDesign < 12 ? ' tiro-shot-fx--wide' : ''}`}
               style={{ backgroundImage: `url(${art(`rafaga-${shotFx[activeDesign]}.webp`)})`, backgroundPositionX: `${shotFxFrame / 9 * 100}%` }} />}
             <img className="tiro-weapon-art" alt="" draggable={false} src={art(weaponImage)} />

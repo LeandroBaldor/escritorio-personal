@@ -518,3 +518,10 @@ body:has(.tiro2050) .mobile-nav { display: none; }
 .tiro-pause strong { font-size: clamp(2.4rem, 7cqw, 5rem); letter-spacing: .12em; text-transform: uppercase; color: #39ff14; text-shadow: 0 0 22px #39ff1488; }
 .tiro-pause span { font-size: clamp(1rem, 2cqw, 1.5rem); }
 .tiro-pause-button { margin-top: .5rem; }
+/* ───── Correcciones 17 ───── */
+/* Movimiento del arma (recarga y retroceso): gira desde la empuñadura, abajo a la derecha. */
+.tiro-weapon > .tiro-weapon-pose { transform-origin: 78% 92%; will-change: transform; }
+/* Botón chico para silenciar la música, abajo a la izquierda en todo el juego. */
+.tiro2050 .tiro-music-toggle { position: absolute; z-index: 60; left: 10px; bottom: 10px; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid #38536c; border-radius: 7px; background: #0b1a33d9; font-size: 17px; line-height: 1; cursor: pointer; }
+.tiro2050 .tiro-music-toggle:hover { border-color: #39ff14; }
+.tiro2050 .tiro-music-toggle[aria-pressed='true'] { opacity: .75; }

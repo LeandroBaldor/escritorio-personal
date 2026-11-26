@@ -71,11 +71,22 @@ function play([url, volume]: [string, number], delay = 0) {
 export function preloadTiroSounds() { for (const [url] of [...Object.values(SHOTS), ...Object.values(RELOADS)]) load(url); }
 export function playTiroShot(family: GunFamily, delay = 0) { play(SHOTS[family], delay); }
 export function playTiroReload(family: GunFamily) { play(RELOADS[family]); }
+// Lo que dura cada sonido de recarga (ms): la recarga del arma y su movimiento duran lo mismo.
+export const RELOAD_DURATION: Record<GunFamily, number> = { ametralladora: 1510, escopeta: 860, rifle: 1440, pistola: 840, pistolaAlien: 840 };
 
 // Música del juego (correcciones 16): Predator, Rambo y The Terminator, una tras otra y de nuevo desde la primera.
 // Sigue sonando en los menús y en la pausa. Volumen por canción para que suenen parejas (Rambo viene más fuerte).
 
-const SONGS: [string, number][] = [[musica1Url, .32], [musica2Url, .2], [musica3Url, .32]];
+// Correcciones 17: el doble de fuerte que antes (0,32 / 0,2 / 0,32).
+const SONGS: [string, number][] = [[musica1Url, .64], [musica2Url, .4], [musica3Url, .64]];
+const MUTE_KEY = 'escritorio-personal-juegos:tiro2050-musica-silenciada';
+let muted = (() => { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch { return false; } })();
+export const isTiroMusicMuted = () => muted;
+export function setTiroMusicMuted(next: boolean) {
+  muted = next;
+  if (music) music.muted = next;
+  try { localStorage.setItem(MUTE_KEY, next ? '1' : '0'); } catch { /* sin almacenamiento */ }
+}
 let music: HTMLAudioElement | null = null;
 let song = 0;
 function playSong() {
@@ -90,6 +101,7 @@ export function startTiroMusic() {
   try {
     if (!music) {
       music = new Audio();
+      music.muted = muted;
       music.addEventListener('ended', () => { song = (song + 1) % SONGS.length; playSong(); });
       playSong();
     } else if (music.paused) void music.play().catch(() => undefined);
