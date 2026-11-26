@@ -511,3 +511,5 @@ body:has(.tiro2050) .mobile-nav { display: none; }
   .tiro2050 .tiro-action.tiro-go { padding: .6rem 1.4rem; }
   .tiro2050 .tiro-weapon-preview, .tiro-setup .tiro-weapon-preview { height: auto; width: 100%; }
 }
+/* La sombra interna del campo no marca una línea en el borde con la franja izquierda: se estira hacia ese costado. */
+.tiro-play .tiro-range::after { left: -100vw; }
