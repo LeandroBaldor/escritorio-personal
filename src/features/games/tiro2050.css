@@ -89,7 +89,7 @@ body:has(.tiro2050) .mobile-nav { display: none; }
 .tiro-zoom output { min-width: 3.2ch; text-align: center; }
 .tiro-reload-label { position: absolute; z-index: 5; bottom: .5rem; left: 50%; translate: -50%; padding: .2rem .55rem; border-radius: 4px; background: #10191ddd; color: var(--tiro-accent); font-size: .875rem; pointer-events: none; }
 /* El campo siempre en 16:9 (como los otros juegos), centrado en el lugar que queda; si sobra, bordes oscuros. */
-.tiro-stage { flex: 1; min-height: 0; display: grid; place-items: center; container-type: size; background: #04070c; }
+.tiro-field { flex: 1; min-height: 0; display: grid; place-items: center; container-type: size; background: #04070c; }
 .tiro-range {
   position: relative;
   width: min(100cqw, 100cqh * 16 / 9);
@@ -357,3 +357,127 @@ body:has(.tiro2050) .mobile-nav { display: none; }
 .tiro-setup .tiro-scenes { grid-template-columns: repeat(5, minmax(0, 128px)); }
 .tiro-setup .tiro-scenes button { font-size: .8rem; }
 .tiro-test-brief div { padding: .45rem .65rem; }
+
+/* ───── Correcciones 14 ───── */
+/* Juego: a la derecha la barra de datos vertical (azul oscuro); a la izquierda, el pedazo de fondo de ese costado. */
+.tiro-play-wrap { flex: 1; min-height: 0; container-type: size; }
+.tiro-play {
+  --tiro-panel: 250px;
+  --tiro-rw: min(100cqw - var(--tiro-panel), 100cqh * 16 / 9);
+  display: grid; grid-template-columns: minmax(0, 1fr) var(--tiro-rw) minmax(var(--tiro-panel), 1fr); height: 100%;
+}
+.tiro-play .tiro-field { flex: none; background: #04070c; }
+.tiro-side { position: relative; overflow: hidden; background: #04070c; }
+.tiro-side-view { position: absolute; left: 100%; top: 50%; width: var(--tiro-rw); aspect-ratio: 16 / 9; translate: 0 -50%; filter: brightness(.82); }
+.tiro-side-world { position: absolute; inset: 0; transform-origin: top left; }
+.tiro-side::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, #04070cb0, transparent 45%); }
+.tiro-play .tiro-command { display: flex; flex-direction: column; gap: .9rem; padding: 1rem .9rem; overflow: auto; background: #0b1a33; border: 0; border-left: 1px solid #23406b; }
+.tiro-play .tiro-hud { flex-direction: column; align-items: stretch; gap: .7rem; padding: 0; background: transparent; }
+.tiro-play .tiro-hud > * { padding: .6rem .7rem; border: 1px solid #23406b; border-radius: 8px; background: #0f2342; }
+.tiro-play .tiro-hud-player img { width: 58px; height: 58px; }
+.tiro-play .tiro-hud-player b { font-size: 1.25rem; }
+.tiro-play .tiro-hud-score { text-align: left; }
+.tiro-play .tiro-hud-score small, .tiro-play .tiro-hud-player small { font-size: .78rem; }
+.tiro-play .tiro-hud-score strong { font-size: 1.1rem; }
+.tiro-play .tiro-hud-score b { font-size: 1.9rem; }
+.tiro-play .tiro-hud time { font-size: 2.1rem; text-align: center; }
+.tiro-play .tiro-ammo { flex-direction: column; align-items: stretch; gap: .5rem; padding: 0; }
+.tiro-play .tiro-ammo > div { display: grid; gap: .1rem; padding: .5rem .6rem; border-color: #23406b; background: #0f2342; font-size: .9rem; }
+.tiro-play .tiro-ammo > .tiro-ammo-active { border-color: var(--tiro-accent); background: #183056; }
+.tiro-play .tiro-ammo strong { font-size: 1.35rem; }
+.tiro-play .tiro-ammo button.tiro-swap { padding: .55rem; font-size: .95rem; }
+.tiro-play .tiro-ammo .tiro-zoom { display: flex; align-items: center; justify-content: space-between; margin: 0; padding: .35rem .5rem; }
+@container (max-width: 760px) {
+  .tiro-play { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); --tiro-rw: min(100cqw, 100cqh * 16 / 9); }
+  .tiro-side { display: none; }
+  .tiro-play .tiro-command { order: -1; flex-direction: row; flex-wrap: wrap; gap: .4rem; padding: .4rem; border-left: 0; border-bottom: 1px solid #23406b; }
+  .tiro-play .tiro-hud { flex-direction: row; flex-wrap: wrap; gap: .4rem; }
+  .tiro-play .tiro-hud > * { padding: .25rem .45rem; }
+  .tiro-play .tiro-hud-player img { width: 32px; height: 32px; }
+  .tiro-play .tiro-hud-score b, .tiro-play .tiro-hud time { font-size: 1.1rem; }
+  .tiro-play .tiro-ammo { flex-direction: row; flex-wrap: wrap; gap: .35rem; }
+  .tiro-play .tiro-ammo strong { font-size: 1rem; }
+}
+
+/* Menús más grandes, ocupando casi toda la pantalla */
+.tiro-setup { width: min(100%, 1640px); min-height: calc(100dvh - 4.6rem); display: flex; flex-direction: column; gap: clamp(.6rem, 1.6vh, 1.1rem); padding: clamp(.8rem, 2vh, 1.4rem) clamp(.8rem, 2.5vw, 2.4rem); font-size: clamp(1rem, 1.05vw, 1.2rem); }
+.tiro-headline { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.tiro-menu-title { font-size: clamp(1.4rem, 2.3vw, 2.4rem); }
+.tiro-brief--players { padding: .35rem .8rem; }
+.tiro2050 .tiro-setup select { padding: .5rem .6rem; font-size: 1em; }
+.tiro2050 .tiro-action { padding: .8rem 1.8rem; font-size: clamp(1.05rem, 1.2vw, 1.3rem); }
+.tiro-menu-actions { margin-top: auto; }
+.tiro-loadouts { flex: 1; }
+.tiro-loadout { display: flex; flex-direction: column; gap: clamp(.5rem, 1.4vh, 1rem); }
+.tiro-setup .tiro-operators { width: 100%; max-width: 1400px; gap: clamp(.5rem, 1vw, 1rem); margin: 0 auto; }
+.tiro-setup .tiro-operators img { aspect-ratio: auto; height: clamp(150px, 31vh, 420px); object-fit: cover; object-position: 50% 12%; }
+.tiro-setup .tiro-operators strong { font-size: 1.25em; }
+.tiro-setup .tiro-operators small { font-size: .9em; padding-bottom: .2rem; }
+.tiro-setup .tiro-armory { width: 100%; max-width: 1400px; gap: clamp(.5rem, 1vw, 1rem); margin: 0 auto; }
+.tiro-setup .tiro-armory-slot label { font-size: 1em; gap: .3rem; }
+.tiro-setup .tiro-weapon-preview { aspect-ratio: auto; height: clamp(110px, 21vh, 300px); }
+.tiro-loadouts:has(.tiro-loadout:nth-child(2)) .tiro-operators img { height: clamp(110px, 18vh, 260px); }
+.tiro-loadouts:has(.tiro-loadout:nth-child(2)) .tiro-weapon-preview { height: clamp(90px, 13vh, 180px); }
+.tiro-menu-lead { font-size: 1.1em; margin: 0; }
+.tiro-tests { flex: 1; align-content: start; gap: clamp(.7rem, 1.4vw, 1.4rem); }
+.tiro-tests img { aspect-ratio: 16 / 9; }
+.tiro-tests span { padding: .8rem 1rem 0; }
+.tiro-tests small { font-size: .9em; }
+.tiro-tests strong { font-size: clamp(1.4rem, 2vw, 2.1rem); }
+.tiro-tests p { margin: .4rem 1rem 1rem; font-size: 1em; line-height: 1.45; }
+/* Menú de cada prueba: a la izquierda el escenario grande; a la derecha los escenarios, el color y la descripción. */
+.tiro-stage-menu { flex: 1; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: clamp(.7rem, 1.5vw, 1.5rem); align-items: start; }
+.tiro-setup--stage .tiro-scene-preview { aspect-ratio: 16 / 9; max-height: 64vh; }
+.tiro-setup--stage .tiro-scene-hero figcaption { font-size: clamp(1.3rem, 2.4vw, 2.4rem); padding: 1rem 1.3rem; }
+.tiro-stage-side { display: flex; flex-direction: column; gap: clamp(.6rem, 1.2vh, 1rem); }
+.tiro-setup--stage .tiro-scenes { grid-template-columns: repeat(5, minmax(0, 1fr)); justify-content: stretch; }
+.tiro-setup--stage .tiro-scenes button { font-size: .85em; }
+.tiro-setup--stage .tiro-test-brief { grid-template-columns: 1fr 1fr; }
+.tiro-setup--stage .tiro-test-brief-text { grid-column: 1 / -1; }
+.tiro-setup--stage .tiro-test-brief dt { font-size: .82em; }
+.tiro-setup--stage .tiro-test-brief dd { font-size: 1em; }
+.tiro-plate-colors button { font-size: .95em; }
+/* Informes y resultado final más grandes */
+.tiro-level-report { width: min(calc(100% - 2rem), 1640px); min-height: calc(100dvh - 7rem); margin: 1rem auto; grid-template-columns: minmax(220px, .8fr) minmax(0, 1.7fr); grid-template-rows: 1fr auto; font-size: clamp(1rem, 1.05vw, 1.2rem); }
+.tiro-report-soldier img { min-height: 52vh; }
+.tiro-report-soldier figcaption { font-size: 1.6em; }
+.tiro-report-details > p { font-size: 1.1em; }
+.tiro-report-details h2 { font-size: clamp(1.8rem, 3vw, 3rem); }
+.tiro-report-metrics { gap: .6rem; }
+.tiro-report-metrics div { padding: .75rem .9rem; }
+.tiro-report-metrics dt { font-size: 1em; }
+.tiro-report-metrics dd { font-size: 1.45em; }
+.tiro-report-metrics .tiro-report-score dd { font-size: 1.8em; }
+.tiro-campaign-total span { font-size: .9em; }
+.tiro-campaign-total strong { font-size: 2em; }
+.tiro-level-scores { font-size: .95em; }
+.tiro-final-table { font-size: 1.1em; }
+.tiro-final-table th, .tiro-final-table td { padding: .65rem .7rem; }
+.tiro-rating strong { font-size: clamp(2rem, 4vw, 3.4rem); }
+.tiro-rating-note { font-size: .85em; }
+@media (max-width: 760px) {
+  .tiro-stage-menu { grid-template-columns: 1fr; }
+  .tiro-setup .tiro-operators img { height: auto; aspect-ratio: 1; }
+  .tiro-level-report { min-height: 0; grid-template-columns: minmax(85px, .65fr) minmax(0, 1.35fr); }
+  .tiro-report-soldier img { min-height: 0; }
+}
+.tiro-play { --tiro-panel: 240px; --tiro-left: 160px; --tiro-rw: min(100cqw - var(--tiro-panel) - var(--tiro-left), 100cqh * 16 / 9); grid-template-columns: minmax(var(--tiro-left), 1fr) var(--tiro-rw) minmax(var(--tiro-panel), 1fr); }
+.tiro-brief--players { flex: none; background: none; border: 0; padding: 0; }
+.tiro-setup .tiro-operators img { height: clamp(150px, 27vh, 400px); }
+.tiro-setup .tiro-weapon-preview { height: clamp(100px, 17vh, 250px); }
+.tiro-loadout { padding: clamp(.5rem, 1.2vh, .9rem) clamp(.6rem, 1vw, 1rem); }
+.tiro-report-soldier { align-content: stretch; }
+/* Pantallas angostas (celular): sin franjas; los datos vuelven arriba (tiene que ir al final para ganarle a .tiro-play). */
+@container (max-width: 760px) {
+  .tiro-play { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); --tiro-rw: min(100cqw, 100cqh * 16 / 9); }
+  .tiro-side { display: none; }
+  .tiro-play .tiro-command { order: -1; flex-direction: row; flex-wrap: wrap; gap: .4rem; padding: .4rem; border-left: 0; border-bottom: 1px solid #23406b; }
+  .tiro-play .tiro-hud { flex-direction: row; flex-wrap: wrap; gap: .4rem; }
+  .tiro-play .tiro-hud > * { padding: .25rem .45rem; }
+  .tiro-play .tiro-hud-player img { width: 32px; height: 32px; }
+  .tiro-play .tiro-hud-player b, .tiro-play .tiro-hud-score b, .tiro-play .tiro-hud time { font-size: 1.05rem; }
+  .tiro-play .tiro-ammo { flex-direction: row; flex-wrap: wrap; gap: .35rem; }
+  .tiro-play .tiro-ammo > div { padding: .25rem .4rem; font-size: .75rem; }
+  .tiro-play .tiro-ammo strong { font-size: .95rem; }
+  .tiro-play .tiro-ammo button.tiro-swap { padding: .3rem .5rem; font-size: .8rem; }
+}

@@ -36,7 +36,7 @@ const shotFrame = (design: number, age: number) => {
   return age < 360 ? Math.floor(age / 36) : -1;
 };
 
-const assets = import.meta.glob(['./assets/tiro2050/{escenario,operador,arsenal,alien}-*', './assets/tiro2050/silueta-[2345].png', './assets/tiro2050/cobertura-1[2-7].png', './assets/tiro2050/{mano-recarga,lanzadora,pared-platos}.png', './assets/tiro2050/rafaga-*.webp'], { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const assets = import.meta.glob(['./assets/tiro2050/{escenario,operador,arsenal,alien}-*', './assets/tiro2050/silueta-[2345].png', './assets/tiro2050/cobertura-1[2-7].png', './assets/tiro2050/{mano-recarga,lanzadora,pared-platos}.png', './assets/tiro2050/rafaga-*.webp', './assets/tiro2050/ejemplo-*.webp'], { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const art = (name: string) => assets[`./assets/tiro2050/${name}`];
 export const tiro2050Cover = art('escenario-3.jpg');
 
@@ -502,11 +502,13 @@ export function Tiro2050Game() {
     </div>
 
     {phase === 'setup' && <div className="tiro-setup">
+      <div className="tiro-headline">
       <h2 className="tiro-menu-title">Elegí tu soldado y sus armas</h2>
       <div className="tiro-brief tiro-brief--players">
         <label>Jugadores locales <select value={players} onChange={event => { playMenu(); setPlayers(Number(event.target.value)); }}>
           {[1, 2, 3, 4].map(value => <option key={value} value={value}>{value}</option>)}
         </select></label>
+      </div>
       </div>
       <div className="tiro-loadouts">
         {loadouts.slice(0, players).map((selection, index) => <fieldset className="tiro-loadout" key={index}>
@@ -548,7 +550,7 @@ export function Tiro2050Game() {
       <p className="tiro-menu-lead">Tres pruebas, una después de la otra. Al final se suman los puntos y se califica cómo jugaste.</p>
       <ol className="tiro-tests">
         {([1, 2, 3] as Level[]).map(test => <li key={test}>
-          <img src={art(`escenario-${test === 1 ? scene : test + 3}.jpg`)} alt="" />
+          <img src={art(`ejemplo-${['aliens', 'platos', 'target'][test - 1]}.webp`)} alt={`Ejemplo de una partida de ${levelNames[test - 1]}`} />
           <span><small>{levelOrdinals[test - 1]}</small><strong>{levelNames[test - 1]}</strong></span>
           <p>{levelBriefs[test].text}</p>
         </li>)}
@@ -556,12 +558,14 @@ export function Tiro2050Game() {
       <div className="tiro-menu-actions"><button className="tiro-action" type="button" onClick={() => goTo('stage')}>Continuar</button></div>
     </div>}
 
-    {phase === 'stage' && <div className="tiro-setup">
+    {phase === 'stage' && <div className="tiro-setup tiro-setup--stage">
       <h2 className="tiro-menu-title">{levelOrdinals[level - 1]}: {levelNames[level - 1]}{players > 1 && <small> · Jugador {turn + 1}</small>}</h2>
+      <div className="tiro-stage-menu">
       <figure className="tiro-scene-hero">
         <img className="tiro-scene-preview" src={art(`escenario-${level === 1 ? scene : level + 3}.jpg`)} alt="" />
         <figcaption>{level === 1 ? scenes[scene] : levelScenes[level][0]}</figcaption>
       </figure>
+      <div className="tiro-stage-side">
       <fieldset className="tiro-scenes">
         <legend>Escenario</legend>
         {levelScenes[level].map((name, i) => {
@@ -585,32 +589,19 @@ export function Tiro2050Game() {
         <div><dt>Tiempo</dt><dd>{levelBriefs[level].time}</dd></div>
         <div><dt>Arma</dt><dd>{level === 3 ? (selectedSecondary.effect === 3 ? selectedSecondary.name : secondaries[0].name) : `${primaryName} y ${selectedSecondary.name}`}</dd></div>
       </dl>
+      </div>
+      </div>
       <div className="tiro-menu-actions"><button className="tiro-action" type="button" onClick={() => { playMenu(); start(turn, level); }}>Iniciar</button></div>
     </div>}
 
     {phase === 'round' && <>
-      <div className="tiro-command">
-      <div className="tiro-hud">
-        <span className="tiro-hud-player"><img src={art(`operador-${loadout.operator}.jpg`)} alt="" /><span><small>Jugador {turn + 1}</small><b>{operators[loadout.operator]}</b></span></span>
-        <span className="tiro-hud-score"><small>Prueba {level} de 3 · {levelNames[level - 1]}</small><strong><b>{result.score + (level === 3 ? precisionTotal.score : 0)}</b> pts</strong></span>
-        {level === 3 ? <span className="tiro-hud-score tiro-distance"><small>Ronda {precisionRound}/{PRECISION_ROUNDS}</small><strong aria-label="Distancia del blanco">{precisionStep + 1}/{PRECISION_DISTANCES}</strong></span>
-          : <time aria-label="Tiempo restante">{Math.floor(clock / 60)}:{String(clock % 60).padStart(2, '0')}</time>}
+      <div className="tiro-play-wrap"><div className="tiro-play">
+      <div className="tiro-side" aria-hidden="true">
+        <div className="tiro-side-view"><div className="tiro-side-world" style={{ transform: `translate(${view.x}%, ${view.y}%) scale(${view.scale})` }}>
+          <img className="tiro-backdrop" src={art(`escenario-${level === 1 ? scene : level + 3}.jpg`)} alt="" draggable={false} />
+        </div></div>
       </div>
-      <div className="tiro-ammo" aria-label="Munición disponible y gastada">
-        {[primary, secondary].map((item, index) => level === 3 && index === 0 ? null : <div key={item.name} className={index === activeSlot ? 'tiro-ammo-active' : undefined}>
-          <span>{index === 0 ? `Principal · ${primaryName}` : level === 3 ? item.name : `Reserva · ${item.name}`}</span>
-          <strong>{ammo[index].remaining}/{ammo[index].used}</strong>
-        </div>)}
-        <small>Disponibles / gastadas</small>
-        {level !== 3 && <button type="button" className="tiro-swap" aria-keyshortcuts="Space" disabled={!canSwap} onClick={swapWeapon}>Cambiar arma</button>}
-        {zoomLimit > 1 && <div className="tiro-zoom" aria-label="Zoom de la mira">
-          <button type="button" aria-label="Alejar la mira" disabled={zoomValue <= 1} onClick={() => zoomBy(1 / 1.35)}>−</button>
-          <output>{zoomValue.toFixed(1)}×</output>
-          <button type="button" aria-label="Acercar la mira" disabled={zoomValue >= zoomLimit} onClick={() => zoomBy(1.35)}>+</button>
-        </div>}
-      </div>
-      </div>
-      <div className="tiro-stage">
+      <div className="tiro-field">
       <div ref={rangeRef} className="tiro-range" aria-label={stageName} onPointerMove={aimAt} onPointerLeave={() => { trigger.current = null; }}
         onClick={event => { if (event.button === 0 && !handledClick.current) fire(); }}
         onPointerDown={beginAim} onPointerUp={endAim} onLostPointerCapture={event => {
@@ -694,6 +685,28 @@ export function Tiro2050Game() {
         }} onClick={event => { event.stopPropagation(); if (event.detail === 0) fire(); }}>Disparar</button>
       </div>
       </div>
+      <div className="tiro-command">
+      <div className="tiro-hud">
+        <span className="tiro-hud-player"><img src={art(`operador-${loadout.operator}.jpg`)} alt="" /><span><small>Jugador {turn + 1}</small><b>{operators[loadout.operator]}</b></span></span>
+        <span className="tiro-hud-score"><small>Prueba {level} de 3 · {levelNames[level - 1]}</small><strong><b>{result.score + (level === 3 ? precisionTotal.score : 0)}</b> pts</strong></span>
+        {level === 3 ? <span className="tiro-hud-score tiro-distance"><small>Ronda {precisionRound}/{PRECISION_ROUNDS}</small><strong aria-label="Distancia del blanco">{precisionStep + 1}/{PRECISION_DISTANCES}</strong></span>
+          : <time aria-label="Tiempo restante">{Math.floor(clock / 60)}:{String(clock % 60).padStart(2, '0')}</time>}
+      </div>
+      <div className="tiro-ammo" aria-label="Munición disponible y gastada">
+        {[primary, secondary].map((item, index) => level === 3 && index === 0 ? null : <div key={item.name} className={index === activeSlot ? 'tiro-ammo-active' : undefined}>
+          <span>{index === 0 ? `Principal · ${primaryName}` : level === 3 ? item.name : `Reserva · ${item.name}`}</span>
+          <strong>{ammo[index].remaining}/{ammo[index].used}</strong>
+        </div>)}
+        <small>Disponibles / gastadas</small>
+        {level !== 3 && <button type="button" className="tiro-swap" aria-keyshortcuts="Space" disabled={!canSwap} onClick={swapWeapon}>Cambiar arma</button>}
+        {zoomLimit > 1 && <div className="tiro-zoom" aria-label="Zoom de la mira">
+          <button type="button" aria-label="Alejar la mira" disabled={zoomValue <= 1} onClick={() => zoomBy(1 / 1.35)}>−</button>
+          <output>{zoomValue.toFixed(1)}×</output>
+          <button type="button" aria-label="Acercar la mira" disabled={zoomValue >= zoomLimit} onClick={() => zoomBy(1.35)}>+</button>
+        </div>}
+      </div>
+      </div>
+      </div></div>
       <p className="tiro-hint">{ammo[activeSlot].remaining === 0 ? 'Munición agotada. La ronda termina al vencer el reloj.' : level === 3
         ? 'Un tiro por distancia. Cabeza +15 · anillos del torso +7 a +10.' : <>
           <span className="tiro-hint-mouse">Mové el mouse para mirar, hacé clic para disparar y usá Espacio para cambiar de arma.</span>
