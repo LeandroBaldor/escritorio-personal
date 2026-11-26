@@ -544,3 +544,26 @@ body:has(.tiro2050) .mobile-nav { display: none; }
 }
 .tiro2050 :is(h1, h2, h3) small { -webkit-text-fill-color: currentColor; color: var(--tiro-accent); }
 .tiro2050 .tiro-pause strong { text-shadow: none; }
+/* ───── Correcciones 21: cascillos ───── */
+/* Salen de la parte de atrás del costado derecho del arma (igual en todas). */
+.tiro-weapon .tiro-eject-port, .tiro-weapon--long .tiro-eject-port { top: 36%; left: 62%; }
+.tiro2050 .tiro-casing {
+  position: absolute;
+  z-index: 5;
+  width: clamp(11px, 1.7cqw, 24px);
+  height: auto;
+  aspect-ratio: 4 / 3;
+  border-radius: 0;
+  background: none;
+  pointer-events: none;
+  translate: -50% -50%;
+  /* Más claro que la foto original para que se distinga sobre el arma y los fondos oscuros. */
+  filter: brightness(1.75) contrast(1.15) drop-shadow(0 0 1.5px #fff8) drop-shadow(0 1px 1px #000a);
+  animation: tiro-casing-arc 900ms linear both;
+}
+/* Sube un poco hacia afuera (a la derecha), gira y cae con aceleración hasta pasar el borde de abajo. */
+@keyframes tiro-casing-arc {
+  0% { transform: translate(0, 0) rotate(-30deg) scale(.7); animation-timing-function: cubic-bezier(.2, .6, .4, 1); }
+  28% { transform: translate(calc(3cqw + var(--tiro-casing-drift) * .5cqw), -11cqh) rotate(150deg) scale(1); animation-timing-function: cubic-bezier(.4, 0, .9, .6); }
+  100% { transform: translate(calc(6.5cqw + var(--tiro-casing-drift) * .8cqw), 70cqh) rotate(760deg) scale(1); }
+}

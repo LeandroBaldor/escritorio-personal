@@ -4,11 +4,10 @@ export const TARGET_RISE_MS = 220;
 export const TARGET_VISIBLE_MS = 1_000;
 export const RELOAD_MS = 1_120;
 export const PRECISION_DISTANCES = 10;
-export const PRECISION_ROUNDS = 4; // correcciones 20: 4.ª vuelta
+export const PRECISION_ROUNDS = 5; // correcciones 21: alejamiento, acercamiento, alejamiento, acercamiento, alejamiento
 export const PRECISION_STEP_MS = 520;
-// Correcciones 19: cada ronda de 10 tiros de Target tiene 40 segundos.
-export const PRECISION_ROUND_MS = 40_000;
-export const roundLimit = (level: 1 | 2 | 3) => level === 3 ? PRECISION_ROUND_MS : ROUND_MS;
+// Correcciones 21: Target tiene 40 segundos en total para sus 5 pasadas (antes 40 s por ronda).
+export const PRECISION_TOTAL_MS = 40_000;
 export const levelNames = ['Aliens', 'Platos', 'Target'] as const;
 export const levelOrdinals = ['Primera prueba', 'Segunda prueba', 'Tercera prueba'] as const;
 export type Level = 1 | 2 | 3;
@@ -99,6 +98,7 @@ const PRECISION_LANES = [
   [-1, 0, 1, 1, 0, -1, -1, 1, 0, -1],
   [1, -1, 0, -1, 1, 0, 0, -1, 1, 0],
   [0, -1, 1, 0, -1, -1, 1, 1, 0, -1],
+  [1, 0, -1, -1, 1, 0, 1, -1, 0, 1],
 ];
 export const precisionLane = (round: number, shot: number) => PRECISION_LANES[(round - 1) % PRECISION_LANES.length][shot % PRECISION_DISTANCES];
 export function getPrecisionPosition(distance: number, lane = 0) {

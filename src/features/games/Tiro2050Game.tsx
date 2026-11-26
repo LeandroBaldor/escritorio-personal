@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { campaignRating, getCameraView, getPlates, getPrecisionPosition, getWave, precisionLane, launchedPlates, levelNames, levelOrdinals, plateLauncher, plateWall, PRECISION_DISTANCES, PRECISION_ROUNDS, PRECISION_STEP_MS, primaries, ROUND_MS, roundLimit, scoreImpact, scorePrecision, secondaries, TARGET_RISE_MS, TARGET_VISIBLE_MS, WAVE_MS } from './tiro2050';
+import { campaignRating, getCameraView, getPlates, getPrecisionPosition, getWave, precisionLane, launchedPlates, levelNames, levelOrdinals, plateLauncher, plateWall, PRECISION_DISTANCES, PRECISION_ROUNDS, PRECISION_STEP_MS, primaries, PRECISION_TOTAL_MS, ROUND_MS, scoreImpact, scorePrecision, secondaries, TARGET_RISE_MS, TARGET_VISIBLE_MS, WAVE_MS } from './tiro2050';
 import type { Level } from './tiro2050';
 import { PrecisionBoard, TargetBlast } from './Tiro2050Targets';
 import { playBolt } from './sounds';
@@ -36,7 +36,7 @@ const shotFrame = (design: number, age: number) => {
   return age < 360 ? Math.floor(age / 36) : -1;
 };
 
-const assets = import.meta.glob(['./assets/tiro2050/{escenario,operador,arsenal,alien}-*', './assets/tiro2050/silueta-[2345].png', './assets/tiro2050/cobertura-1[2-7].png', './assets/tiro2050/{lanzadora,pared-platos}.png', './assets/tiro2050/rafaga-*.webp', './assets/tiro2050/ejemplo-*.webp'], { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const assets = import.meta.glob(['./assets/tiro2050/{escenario,operador,arsenal,alien}-*', './assets/tiro2050/silueta-[2345].png', './assets/tiro2050/cobertura-1[2-7].png', './assets/tiro2050/{lanzadora,pared-platos}.png', './assets/tiro2050/rafaga-*.webp', './assets/tiro2050/ejemplo-*.webp', './assets/tiro2050/cascillo.webp'], { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const art = (name: string) => assets[`./assets/tiro2050/${name}`];
 export const tiro2050Cover = art('escenario-3.jpg');
 
@@ -51,7 +51,7 @@ const sceneArt = (level: Level, index: number) => art(`escenario-${(level - 1) *
 const levelBriefs: Record<Level, { text: string; points: string; time: string }> = {
   1: { text: 'Los aliens asoman detrás de las coberturas entre rehenes y civiles. Bajá solo a los aliens.', points: 'Cabeza +10 · torso +5 · rehén o civil −10', time: '3 minutos' },
   2: { text: 'La lanzadora tira platos que cruzan el campo hasta la pared. Rompé todos los que puedas antes de que choquen.', points: 'Cada plato roto +1', time: '3 minutos' },
-  3: { text: 'El blanco se aleja en cada tiro. Un solo disparo por distancia, con el arma de reserva.', points: 'Cabeza +15 · anillos del torso +7 a +10', time: '4 rondas de 10 distancias · 40 s cada una' },
+  3: { text: 'El blanco se aleja en cada tiro. Un solo disparo por distancia, con el arma de reserva.', points: 'Cabeza +15 · anillos del torso +7 a +10', time: '5 pasadas de 10 distancias · 40 s en total' },
 };
 // Color del plato (segunda prueba): se cambia el tono del plato naranja original.
 const plateColors = [
@@ -92,6 +92,8 @@ type CampaignResult = Result & { levels: LevelResult[] };
 type Impact = { id: number; at: number };
 type TargetImpact = { value: number; at: number; x: number; y: number; worldX: number; worldY: number; plate?: { x: number; y: number } };
 type Casing = { id: number; x: number; y: number; at: number };
+// Correcciones 21: cada cascillo sale por el costado derecho del arma, hace una curva hacia afuera y cae hasta salir del mapa.
+const CASING_MS = 900;
 type WeaponSlot = 0 | 1;
 type Arsenal = { slot: WeaponSlot; shots: [number, number]; reloadEnds: [number, number] };
 const emptyResult: Result = { score: 0, shots: 0, hits: 0, headshots: 0, errors: 0 };
@@ -102,7 +104,7 @@ const sumResults = (results: Result[]) => results.reduce((sum, entry) => ({
 const scoreNoticeDuration = 1750;
 const newArsenal = (slot: WeaponSlot = 0): Arsenal => ({ slot, shots: [0, 0], reloadEnds: [0, 0] });
 const newRound = (arsenal: Arsenal, start = 0) => ({
-  arsenal, start, lastShot: -Infinity, nextPulse: 0, pendingShots: [0, 0], finishAt: Infinity, finished: false, pausedAt: 0, countdown: false, result: emptyResult, fallen: new Set<number>(),
+  arsenal, start, lastShot: -Infinity, nextPulse: 0, pendingShots: [0, 0], finishAt: Infinity, finished: false, pausedAt: 0, countdown: false, limit: ROUND_MS, spent: 0, result: emptyResult, fallen: new Set<number>(),
 });
 
 function WeaponPreview({ design }: { design: number }) {
@@ -130,6 +132,8 @@ export function Tiro2050Game() {
   const [paused, setPaused] = useState(false);
   // Cambia en cada start(): así el bucle de la ronda se reinicia aunque la fase siga siendo 'round' (rondas de Target).
   const [roundSerial, setRoundSerial] = useState(0);
+  // Tiempo de la ronda en curso: 3 min en Aliens y Platos; en Target, lo que queda de los 40 s totales.
+  const [limit, setLimit] = useState(ROUND_MS);
   const [musicMuted, setMusicMuted] = useState(isTiroMusicMuted);
   const [precisionResults, setPrecisionResults] = useState<Result[]>([]);
   const [impact, setImpact] = useState<Impact | null>(null);
@@ -196,12 +200,11 @@ export function Tiro2050Game() {
   const view = getCameraView(camera, zoomValue, leftBand);
   const wave = Math.floor(elapsed / WAVE_MS);
   const targetsHiding = elapsed % WAVE_MS >= TARGET_RISE_MS + TARGET_VISIBLE_MS;
-  const limit = roundLimit(level);
   const clock = Math.max(0, Math.ceil((limit - elapsed) / 1000));
   const tint = colors[loadout.operator];
   const stageName = levelScenes[level][scene];
   const precisionShot = Math.max(0, Math.min(PRECISION_DISTANCES - 1, result.shots - Number(level === 3 && impact !== null && elapsed - impact.at < PRECISION_STEP_MS)));
-  // Target: las rondas impares el cartel se va 10 veces para atrás y las pares vuelve 10 veces hacia adelante (4 rondas).
+  // Target: las pasadas impares el cartel se va 10 veces para atrás y las pares vuelve 10 veces hacia adelante (5 pasadas).
   const precisionStep = precisionRound % 2 === 0 ? PRECISION_DISTANCES - 1 - precisionShot : precisionShot;
   const settledLevel = levelResults.at(-1);
   const accumulatedScore = levelResults.reduce((total, entry) => total + entry.score, 0);
@@ -211,13 +214,15 @@ export function Tiro2050Game() {
     const live = round.current;
     if (live.finished) return;
     live.finished = true;
-    if (performance.now() - live.start < roundLimit(level) - 120) stopTiroCountdown();
+    const roundTime = Math.min(performance.now() - live.start, live.limit);
+    if (roundTime < live.limit - 120) stopTiroCountdown();
     if (level === 3) {
       const rounds = [...precisionResults, live.result];
       setPrecisionResults(rounds);
-      // Sin pantalla entre rondas: la siguiente arranca sola y la anuncia la alarma.
-      if (precisionRound < PRECISION_ROUNDS) {
-        start(turn, 3, precisionRound + 1);
+      // Sin pantalla entre rondas: la siguiente arranca sola y la anuncia la alarma, mientras queden pasadas y tiempo.
+      const spent = live.spent + roundTime;
+      if (precisionRound < PRECISION_ROUNDS && spent < PRECISION_TOTAL_MS - 200) {
+        start(turn, 3, precisionRound + 1, spent);
         return;
       }
       setLevelResults(previous => [...previous, { level, ...sumResults(rounds), rounds }]);
@@ -229,7 +234,7 @@ export function Tiro2050Game() {
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
-    (window as unknown as { __tiro2050Finish?: () => void }).__tiro2050Finish = () => { round.current.start -= ROUND_MS; round.current.finishAt = 0; };
+    (window as unknown as { __tiro2050Finish?: () => void }).__tiro2050Finish = () => { if (round.current.limit === ROUND_MS) round.current.start -= ROUND_MS; round.current.finishAt = 0; };
     (window as unknown as { __tiro2050Skip?: (ms: number) => void }).__tiro2050Skip = ms => { round.current.start -= ms; };
   }, []);
 
@@ -239,7 +244,7 @@ export function Tiro2050Game() {
     const tick = (now: number) => {
       if (round.current.pausedAt) { frame = requestAnimationFrame(tick); return; }
       const time = Math.max(0, now - round.current.start);
-      const end = roundLimit(level);
+      const end = round.current.limit;
       if (time >= end || (level === 3 && now >= round.current.finishAt)) {
         finishLevel();
         return;
@@ -257,12 +262,14 @@ export function Tiro2050Game() {
   }, [phase, level, roundSerial]);
   useEffect(() => () => stopTiroCountdown(), []);
 
-  function start(player: number, nextLevel: Level = 1, nextPrecisionRound = 1) {
+  function start(player: number, nextLevel: Level = 1, nextPrecisionRound = 1, precisionSpent = 0) {
     preloadTiroSounds();
     preloadTiroAlarm();
     preloadTiroCountdown();
     const nextArsenal = newArsenal(nextLevel === 3 ? 1 : 0);
-    round.current = newRound(nextArsenal, performance.now());
+    const nextLimit = nextLevel === 3 ? PRECISION_TOTAL_MS - precisionSpent : ROUND_MS;
+    round.current = { ...newRound(nextArsenal, performance.now()), limit: nextLimit, spent: precisionSpent };
+    setLimit(nextLimit);
     setArsenal(nextArsenal);
     setTurn(player);
     setLevel(nextLevel);
@@ -350,7 +357,7 @@ export function Tiro2050Game() {
     const activeWeapon = weapons[slot];
     const time = now - live.start;
     const available = Math.min(activeWeapon.ammo - current.shots[slot], level === 3 ? PRECISION_DISTANCES - shots : Infinity);
-    if (live.finished || time >= roundLimit(level) || available <= 0) return;
+    if (live.finished || time >= live.limit || available <= 0) return;
     const pending = live.pendingShots[slot];
     const waiting = time < current.reloadEnds[slot] || (level === 3 && now - live.lastShot < PRECISION_STEP_MS + 220);
     if (source === 'click' && (waiting || pending > 0)) {
@@ -368,7 +375,7 @@ export function Tiro2050Game() {
     const ejectPort = ejectPortRef.current?.getBoundingClientRect();
     if (ejectPort) {
       const position = point({ clientX: ejectPort.x, clientY: ejectPort.y }, bounds);
-      setCasings(previous => [...previous.filter(casing => time - casing.at < 520), { id: shots, ...position, at: time }]);
+      setCasings(previous => [...previous.filter(casing => time - casing.at < CASING_MS), { id: shots, ...position, at: time }]);
     }
     const next: Arsenal = { slot, shots: [...current.shots], reloadEnds: [...current.reloadEnds] };
     const used = ++next.shots[slot];
@@ -761,8 +768,8 @@ export function Tiro2050Game() {
             {muzzlePulse && <span key={muzzlePulse.id} className="tiro-muzzle-flash" />}
           </div>
         </div>
-        {casings.filter(casing => elapsed - casing.at < 520).map(casing => <span key={casing.id} className="tiro-casing" aria-hidden="true"
-          style={{ left: `${casing.x}%`, top: `${casing.y}%`, '--tiro-casing-drift': `${(casing.id % 3 + 2) * 17}px` } as CSSProperties} />)}
+        {casings.filter(casing => elapsed - casing.at < CASING_MS).map(casing => <img key={casing.id} className="tiro-casing" src={art('cascillo.webp')} alt="" aria-hidden="true" draggable={false}
+          style={{ left: `${casing.x}%`, top: `${casing.y}%`, '--tiro-casing-drift': `${casing.id % 3}` } as CSSProperties} />)}
         <div className="tiro-score-feed" role="status" aria-label="Puntos de los impactos">
           {visibleNotices.map(([id, hit]) => {
             const left = view.x + hit.worldX * view.scale;

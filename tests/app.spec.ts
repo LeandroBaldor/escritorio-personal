@@ -580,7 +580,7 @@ test('¡El piso es de lava!: se abre desde Juegos, corre el tiempo, la lava avis
 
 test('Ciudad Tiburón: se abre desde Juegos, corre el tiempo para atrás, cuenta rescatados y tiburones y se pausa', async ({ page }) => {
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.getByText('las calles se volvieron canales llenos de tiburones', { exact: false })).toBeVisible();
+  await expect(page.getByText('convirtió las calles en canales llenos de tiburones', { exact: false })).toBeVisible();
   await page.getByRole('link', { name: /Ciudad Tiburón/ }).click();
   await expect(page.getByRole('heading', { name: 'Ciudad Tiburón', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
@@ -623,7 +623,7 @@ test('Gravity Swap: se abre desde Juegos, el escenario avanza, muestra las vidas
 test('Invasión: se abre desde Juegos, corre el tiempo, se dispara, se recarga y se pausa', async ({ page }) => {
   test.setTimeout(60000); // (en GitHub la compu es lenta: solo esperar que corra el reloj lleva hasta 15 s)
   await page.goto('/escritorio-personal/#/juegos');
-  await expect(page.getByText('La ciudad está siendo invadida', { exact: false })).toBeVisible();
+  await expect(page.getByText('Los aliens se mezclan con la gente de la ciudad', { exact: false })).toBeVisible();
   await page.getByRole('link', { name: /Invasión/ }).click();
   await expect(page.getByRole('heading', { name: 'Invasión', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Jugar' }).click();
@@ -1525,7 +1525,7 @@ test('Tiro al Blanco 2050: soldado y armas, instructivo, las tres pruebas con su
   await expect(page.getByLabel('Distancia del blanco')).toHaveText('1/10');
   await expect(page.getByLabel('Tiempo restante')).toHaveText(/^0:(40|39)$/);
   // Las rondas siguen solas, sin pantalla en el medio.
-  for (const [round, distance] of [['Ronda 2/4', '10/10'], ['Ronda 3/4', '1/10'], ['Ronda 4/4', '10/10']]) {
+  for (const [round, distance] of [['Ronda 2/5', '10/10'], ['Ronda 3/5', '1/10'], ['Ronda 4/5', '10/10'], ['Ronda 5/5', '1/10']]) {
     await finish();
     await expect(page.getByText(round)).toBeVisible();
     await expect(page.getByLabel('Distancia del blanco')).toHaveText(distance);

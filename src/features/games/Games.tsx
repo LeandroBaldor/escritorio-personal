@@ -63,8 +63,8 @@ export function Games() {
           <Cover src={blocksCover} />
           <span className="game-card-text">
             <strong>¡Cuidado, bloques!</strong>
-            <span>🧱 Quedaste atrapado en el fondo de un Tetris gigante. Las piezas caen sin aviso, entre ellas bombas con la mecha prendida, y cada 30 segundos llueven más rápido. Corré, saltá y trepá por la pila: un segundo de duda y quedás aplastado.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Sobreviví los 10 niveles, de 30 segundos cada uno (5 minutos en total). Si te cae una pieza encima, te explota una bomba o la pila llega hasta arriba, se termina la partida.</span>
+            <span>🧱 Quedaste atrapado en el fondo de un Tetris gigante: esquivá las piezas y las bombas que caen cada vez más rápido y trepá por la pila.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Sobreviví los 10 niveles de 30 segundos. Si te aplasta una pieza, te explota una bomba o la pila llega arriba, perdés.</span>
           </span>
           {/* El récord va siempre en el mismo lugar: abajo, a la izquierda de Jugar. */}
           <span className="game-card-foot">
@@ -78,8 +78,8 @@ export function Games() {
           <Cover src={trepaCover} />
           <span className="game-card-text">
             <strong>Trepaluna</strong>
-            <span>🌙 Te propusiste lo imposible: llegar a la Luna saltando. Arrancás en la calle, entre grúas y andamios, y subís por zepelines, una tormenta de relámpagos, torres de neón y asteroides. Cuanto más alto, más traicioneras las plataformas: se mueven, se apagan y se desarman bajo tus pies.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Trepá los 6.000 metros: la ciudad, el cielo, la tormenta (de 2.000 a 3.000 m), la zona tecnológica y el espacio, hasta pararte en la Luna y clavar el banderín. Tenés 3 vidas: perdés una si te quemás, te electrocutás o caés más de 100 metros.</span>
+            <span>🌙 Llegá a la Luna saltando: arrancás en la calle y subís por zepelines, una tormenta, torres de neón y asteroides, sobre plataformas que se mueven y se desarman.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Trepá los 6.000 metros y clavá el banderín en la Luna. Tenés 3 vidas: perdés una si te quemás, te electrocutás o caés más de 100 metros.</span>
           </span>
           <span className="game-card-foot">
             {trepa.height > 0 && <small><b>Récord</b>{trepa.time !== null ? `Luna en ${formatTime(trepa.time)}` : `${trepa.height.toLocaleString('es-AR')} metros`}</small>}
@@ -92,8 +92,8 @@ export function Games() {
           <Cover src={lavaCover} />
           <span className="game-card-text">
             <strong>¡El piso es de lava!</strong>
-            <span>🌋 La ciudad se inunda de lava y sube cada vez más rápido. La única salida es hacia arriba: escaleras, muebles, sogas, ascensores y grúas para trepar; tablones, tirolesas y camas elásticas para saltar de edificio en edificio. Y ojo con los incendios, los cortocircuitos y la gente prendida fuego que corre desesperada.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Un helicóptero de rescate va aterrizando en distintos helipuertos de la cuadra (hay 6), pero espera solo 5 segundos en cada uno. Seguí la flecha, llegá a tiempo y subite mientras está aterrizado. Si la lava te alcanza o te quemás, se terminó.</span>
+            <span>🌋 La ciudad se inunda de lava y la única salida es hacia arriba: trepá por escaleras, sogas y ascensores y saltá entre edificios esquivando incendios y cortocircuitos.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Subite al helicóptero de rescate: aterriza en uno de los 6 helipuertos y espera solo 5 segundos. Si la lava te alcanza o te quemás, perdés.</span>
           </span>
           <span className="game-card-foot">
             {lava.height > 0 && <small><b>Récord</b>{lava.time !== null ? `🚁 en ${formatLavaTime(lava.time)}` : `${lava.height} metros`}</small>}
@@ -106,8 +106,8 @@ export function Games() {
           <Cover src={terminatorCover} />
           <span className="game-card-text">
             <strong>SkynetBall</strong>
-            <span>🤖 Las máquinas ganaron y en la oficina de Skynet el T-800 se aburre: su pasatiempo es tirar humanos en miniatura al tacho de basura. Estirá con el mouse como una gomera y soltá. Cada tiro es más difícil: el tacho se aleja y un ventilador sopla de costado, cada cuarto más fuerte.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Es un partido de 4 cuartos de 2 minutos y el objetivo es batir tu récord. Cada emboque vale de 1 a 9 puntos según la distancia y el viento, y si embocás muchos en una vuelta, sumás un bonus por velocidad.</span>
+            <span>🤖 En la oficina de Skynet, el T-800 tira humanos en miniatura al tacho de basura: estirá con el mouse como una gomera y soltá, mientras el tacho se aleja y el ventilador sopla cada vez más fuerte.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Hacé la mayor cantidad de puntos en 4 cuartos de 2 minutos y batí tu récord: cada emboque vale de 1 a 9 puntos, con bonus por velocidad.</span>
           </span>
           <span className="game-card-foot">
             {paper > 0 && <small><b>Récord</b>{paper} puntos</small>}
@@ -120,7 +120,7 @@ export function Games() {
           <Cover src={sharkCover} />
           <span className="game-card-text">
             <strong>Ciudad Tiburón</strong>
-            <span>🦈 Una tormenta inundó la ciudad y las calles se volvieron canales llenos de tiburones: blancos que saltan altísimo, martillos y ballenas gigantes. Sos el héroe que salta por techos, balcones, cables y colectivos para salvar a personas, perros y gatos a la deriva. Para rescatarlos hay que bajar cerca del agua… justo donde muerden. Y cada 30 segundos llega otro tiburón.</span>
+            <span>🦈 Una tormenta convirtió las calles en canales llenos de tiburones: saltá por techos, cables y colectivos para rescatar a personas y mascotas sin que te muerdan.</span>
             <span className="game-card-win"><b>Cómo se gana:</b> Rescatá a 20 antes de que pasen los 10 minutos. Un solo mordisco y es GAME OVER.</span>
           </span>
           <span className="game-card-foot">
@@ -134,8 +134,8 @@ export function Games() {
           <Cover src={invasionCover} />
           <span className="game-card-text">
             <strong>Invasión</strong>
-            <span>👽 La ciudad está siendo invadida: seis especies de aliens (grises, anfibios, brutox, esporales, mantis y reptilianos) se mezclan con la gente en los departamentos, los ovnis destruyen los edificios con sus rayos y a los 8 minutos llega la nave nodriza. Desde tu puesto tenés un rifle de francotirador, una ametralladora y una bazooka: sin la mira el tiro va a cualquier lado, así que apuntá con la mira, desactivá las bombas y no le dispares a la gente.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Resistí los 10 minutos: al final tienen que quedar más humanos que aliens. Cada alien suma de 10 a 60 puntos según la especie, cada bomba desactivada 50 y cada ovni derribado con la bazooka 50 (cuenta como 5 grises); cada humano que matás resta 50.</span>
+            <span>👽 Los aliens se mezclan con la gente de la ciudad y los ovnis la destruyen. Con un rifle de francotirador, una ametralladora y una bazooka, apuntá con la mira, desactivá las bombas y no le dispares a la gente.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Resistí los 10 minutos con más humanos que aliens en pie. Cada alien, bomba y ovni suma puntos; cada humano que matás resta 50.</span>
           </span>
           <span className="game-card-foot">
             {invasion.kills > 0 && <small><b>Récord</b>{invasionRecordPoints(invasion)} pts</small>}
@@ -148,8 +148,8 @@ export function Games() {
           <Cover src={gravityCover} />
           <span className="game-card-text">
             <strong>Gravity Swap</strong>
-            <span>🚀 Sos un astronauta perdido en mundos donde la gravedad cambia sola y sin avisar: te puede tirar al piso, al techo, para atrás o en diagonal, y la pantalla gira con ella. Te movés con chorros del oxígeno de tu tanque, esquivando láseres, minas, agujeros negros y un monstruo distinto en cada escenario.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Cruzá el portal del final de los 10 escenarios: de la Ciudad Futurista, pasando por el Planeta Helado, el Volcánico y la Fábrica Robótica, hasta La Luna. Tenés 10 vidas por escenario y, si morís, volvés a la última bandera que pasaste.</span>
+            <span>🚀 Sos un astronauta perdido en mundos donde la gravedad cambia sola: movete con chorros de oxígeno esquivando láseres, minas, agujeros negros y monstruos.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Cruzá el portal final de los 10 escenarios, hasta La Luna. Tenés 10 vidas por escenario y, si morís, volvés a la última bandera.</span>
           </span>
           <span className="game-card-foot">
             {(gravity.unlocked > 1 || gravity.time !== null) && <small><b>Récord</b>{gravity.time !== null ? `🏆 en ${formatGravityTime(gravity.time)}` : `Escenario ${gravity.unlocked}/10`}</small>}
@@ -162,8 +162,8 @@ export function Games() {
           <Cover src={kombatCover} />
           <span className="game-card-text">
             <strong>Kombat Football</strong>
-            <span>☠️ Un torneo de fútbol 5 contra 5 donde vale todo. 16 luchadores al estilo Mortal Kombat se pasan la pelota, patean con efecto y usan cuatro ataques especiales que revientan a los rivales en sangre. Contra la máquina o entre dos.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Cada partido lo gana el que mete más goles en dos tiempos de 1:30 (si empatan, gol de oro); con la barra llena, tirá el FATAL GOAL. Para ganar el juego, completá el torneo: subí la escalera venciendo a los 15 rivales, uno por uno, del más fácil al más difícil.</span>
+            <span>☠️ Fútbol 5 contra 5 donde vale todo: 16 luchadores al estilo Mortal Kombat con ataques especiales que revientan a los rivales. Contra la máquina o entre dos.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Ganá cada partido metiendo más goles en dos tiempos de 1:30 y completá el torneo venciendo a los 15 rivales, del más fácil al más difícil.</span>
           </span>
           <span className="game-card-foot">
             {kombat.wins + kombat.losses > 0 && <small><b>Récord</b>{kombat.cups ? `🏆 ${kombat.cups} · ` : ''}{kombat.wins}G {kombat.losses}P</small>}
@@ -176,8 +176,8 @@ export function Games() {
           <Cover src={voleyCover} />
           <span className="game-card-text">
             <strong>Kombat Voley</strong>
-            <span>🏐 Los luchadores de Kombat cambian los botines por la red, pero no la violencia: vóley uno contra uno, remates saltando en la red y 16 estadios, cada uno con su propia pelota (meteorito, bomba, rayo…).</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Cada partido es un set a 15 con dos puntos de diferencia: sumás si la pelota pica en la cancha rival, si el rival la tira afuera o la toca más de tres veces. Para ganar el juego, levantá la copa del mundial: octavos, cuartos, semifinal y final.</span>
+            <span>🏐 Los luchadores de Kombat juegan vóley uno contra uno, con remates en la red y 16 estadios, cada uno con su propia pelota (meteorito, bomba, rayo…).</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Ganá cada set a 15 con dos puntos de diferencia y levantá la copa del mundial: octavos, cuartos, semifinal y final.</span>
           </span>
           <span className="game-card-foot">
             {voley.wins + voley.losses > 0 && <small><b>Récord</b>{voley.cups ? `🏆 ${voley.cups} · ` : ''}{voley.wins}G {voley.losses}P</small>}
@@ -190,8 +190,8 @@ export function Games() {
           <Cover src={penalesCover} />
           <span className="game-card-text">
             <strong>Kombat Penales</strong>
-            <span>⚽ La tanda de penales más peligrosa del mundo. Un piedra, papel o tijera decide quién patea primero y después cada uno elige uno de los 6 lugares del arco para patear o tirarse. El árbitro no perdona: si el arquero ataja, le dispara al que pateó; si es gol y el arquero se tiró para el otro lado, el que explota es él. Contra la máquina o entre dos.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Cada partido lo gana el que mete más penales en 5 tiros; si empatan, muerte súbita hasta que alguno erre. Para ganar el juego, salí campeón del mundial: octavos, cuartos, semifinal y final contra rivales sorteados.</span>
+            <span>⚽ La tanda de penales más peligrosa del mundo: elegí uno de los 6 lugares del arco para patear o tirarte, y el árbitro le dispara al que pierde cada duelo. Contra la máquina o entre dos.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Ganá cada partido metiendo más penales en 5 tiros (si empatan, muerte súbita) y salí campeón del mundial.</span>
           </span>
           <span className="game-card-foot">
             {penales.wins + penales.losses > 0 && <small><b>Récord</b>{penales.cups ? `🏆 ${penales.cups} · ` : ''}{penales.wins}G {penales.losses}P</small>}
@@ -204,8 +204,8 @@ export function Games() {
           <span className="game-card-cover"><Cover src={vamp2Cover} /></span>
           <span className="game-card-text">
             <strong>Vampyrium</strong>
-            <span>Drácula le arrebató la familia a Demian, y ahora el cazador vuelve con una sola misión: venganza. Cruzá el castillo del conde capítulo a capítulo, del puente de las ánimas al salón del trono, entre ríos de ácido, lava, pinches y guadañas. Tenés 100 de vida, cada capítulo es más rápido y en cada uno se suma un arma: ballesta, bomba de ajo, cruz, espada de fuego, armaduras… doce en total.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Superá los 10 capítulos (cada uno se abre al ganar el anterior): matá 50 vampiros en el puente, juntá 20 estrellas en las cloacas, rompé 6 jaulas, resistí 100 segundos en la catedral, vencé a 8 guerreros, destruí 6 ataúdes, liberá 15 almas, derribá 20 vampiros voladores y sobreviví 5 minutos en el cementerio. Al final te espera Drácula: 200 golpes a él y otros 200 a su forma de dragón.</span>
+            <span>Drácula le arrebató la familia a Demian y el cazador vuelve por venganza: cruzá el castillo capítulo a capítulo, sumando un arma nueva en cada uno.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Superá los 10 capítulos, cada uno con su objetivo, y al final vencé a Drácula y a su forma de dragón.</span>
           </span>
           <span className="game-card-foot">
             {vamp2.kills > 0 && <small><b>Récord</b>{vamp2.time ? `🏆 en ${formatVampTime(vamp2.time)}` : `${vamp2.kills} vampiros`}</small>}
@@ -218,8 +218,8 @@ export function Games() {
           <span className="game-card-cover"><Cover src={landCover} /></span>
           <span className="game-card-text">
             <strong>Land of Warriors</strong>
-            <span>⚔️ Diez civilizaciones y una sola tierra. Elegí la tuya, juntá minerales, levantá tu base y armá un ejército de soldados, máquinas y bestias. Podés enfrentar hasta 9 rivales a la vez, todos contra todos, en cuatro dificultades: cuanto más alta, más rápido crecen y antes atacan.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Destruí las bases de todas las civilizaciones rivales antes de que destruyan la tuya. Solo queda en pie una.</span>
+            <span>⚔️ Diez civilizaciones y una sola tierra: juntá minerales, levantá tu base y armá un ejército para enfrentar hasta 9 rivales a la vez.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Destruí las bases de todas las civilizaciones rivales antes de que destruyan la tuya.</span>
           </span>
           <span className="game-card-foot">
             {landWins > 0 && <small><b>Victorias</b>🏆 {landWins}</small>}
@@ -229,15 +229,15 @@ export function Games() {
       </li>
       <li><Link onClick={playStart} className="game-card" to="/juegos/fabrica">
         <Cover src={factoryCover} />
-        <span className="game-card-text"><strong>Fábrica de Pedos</strong><span>💨 Caíste al fondo de una fábrica y un piso de pinches sube detrás tuyo sin parar. Tu único motor: ¡tus pedos! Comé pizza, porotos o hamburguesas para cargar gas y elegí rápido el corredor entre engranajes, láseres, lanzallamas y compuertas.</span><span className="game-card-win"><b>Cómo se gana:</b> Escapá de las 10 fábricas, de la Fundición de hierro al Reactor nuclear, hasta salir por arriba de la Fábrica orbital. Si te alcanzan los pinches o tocás una trampa, volvés a empezar.</span></span><span className="game-card-foot"><span className="game-card-play" aria-hidden="true">Jugar ▶</span></span>
+        <span className="game-card-text"><strong>Fábrica de Pedos</strong><span>💨 Caíste al fondo de una fábrica y un piso de pinches sube sin parar: comé pizza, porotos o hamburguesas para cargar gas y subí con tus pedos entre engranajes, láseres y lanzallamas.</span><span className="game-card-win"><b>Cómo se gana:</b> Escapá de las 10 fábricas hasta salir por arriba de la Fábrica orbital. Si te alcanzan los pinches o tocás una trampa, volvés a empezar.</span></span><span className="game-card-foot"><span className="game-card-play" aria-hidden="true">Jugar ▶</span></span>
       </Link></li>
       <li>
         <Link onClick={playStart} className="game-card" to="/juegos/tiro-al-blanco-2050">
           <Cover src={tiro2050Cover} />
           <span className="game-card-text">
             <strong>Tiro al Blanco 2050</strong>
-            <span>Elegí tu soldado y superá tres niveles de aliens, platos orbitales y tiro de precisión.</span>
-            <span className="game-card-win">Rondas de 3 minutos para 1 a 4 jugadores locales.</span>
+            <span>🎯 Entrenamiento de tiro del año 2050 para 1 a 4 jugadores: elegí tu soldado y tus armas y pasá tres pruebas: Aliens, Platos y Target.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Sumá la mayor cantidad de puntos en las tres pruebas: Aliens y Platos duran 3 minutos y Target 40 segundos. Al final te dan una calificación, de Muy malo a Excelente.</span>
           </span>
           <span className="game-card-foot">
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
