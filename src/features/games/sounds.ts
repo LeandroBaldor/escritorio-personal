@@ -964,19 +964,35 @@ let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
 // The Terminator). Va aparte del ambiente (que se corta en la pausa): sigue sonando en la pausa y en el arsenal, y se
 // corta al terminar la partida o al salir del juego. Se toca con un <audio> (los archivos son largos) y cada canción
 // tiene su volumen para que suenen parejas (Rambo está grabada más fuerte).
-const INVASION_PLAYLIST = [{ url: invMusica1Url, volume: 0.9 }, { url: invMusica2Url, volume: 0.5 }, { url: invMusica3Url, volume: 0.9 }];
-let invMusic: { el: HTMLAudioElement; track: number } | null = null;
+// Volúmenes por encima de 1 (el <audio> solo llega a 1): la canción pasa por el audio del navegador con su propio
+// volumen y un limitador solo para la música, así no satura y no aplasta los otros sonidos del juego.
+const INVASION_PLAYLIST = [{ url: invMusica1Url, volume: 1.35 }, { url: invMusica2Url, volume: 0.75 }, { url: invMusica3Url, volume: 1.35 }];
+let invMusic: { el: HTMLAudioElement; track: number; gain: GainNode | null } | null = null;
 export function startInvasionMusic() {
   if (invMusic || typeof Audio === 'undefined') return; // (si ya está sonando, sigue)
-  const el = new Audio(), music = { el, track: 0 };
-  const load = (i: number) => { music.track = i; el.src = INVASION_PLAYLIST[i].url; el.volume = INVASION_PLAYLIST[i].volume; void el.play().catch(() => undefined); };
+  unlockSounds();
+  const el = new Audio(), music: { el: HTMLAudioElement; track: number; gain: GainNode | null } = { el, track: 0, gain: null };
+  if (ctx) {
+    try {
+      const comp = ctx.createDynamicsCompressor();
+      comp.threshold.value = -3; comp.knee.value = 3; comp.ratio.value = 20; comp.attack.value = 0.002; comp.release.value = 0.25;
+      music.gain = ctx.createGain();
+      ctx.createMediaElementSource(el).connect(music.gain).connect(comp).connect(ctx.destination);
+    } catch { music.gain = null; }
+  }
+  const load = (i: number) => {
+    music.track = i; el.src = INVASION_PLAYLIST[i].url;
+    if (music.gain) { music.gain.gain.value = INVASION_PLAYLIST[i].volume; el.volume = 1; } else el.volume = Math.min(1, INVASION_PLAYLIST[i].volume);
+    if (ctx && ctx.state !== 'running') void ctx.resume().catch(() => undefined);
+    void el.play().catch(() => undefined);
+  };
   el.addEventListener('ended', () => { if (invMusic === music) load((music.track + 1) % INVASION_PLAYLIST.length); });
   invMusic = music;
   load(0);
 }
 export function stopInvasionMusic() {
   if (!invMusic) return;
-  invMusic.el.pause(); invMusic.el.removeAttribute('src'); invMusic.el.load();
+  invMusic.el.pause(); invMusic.el.removeAttribute('src'); invMusic.el.load(); invMusic.gain?.disconnect();
   invMusic = null;
 }
 export function preloadInvasionSounds() { for (const url of [fuegoUrl, lluviaUrl, ...TRUENOS, invTiroUrl, invSangreAlienUrl, invSangreHumanoUrl, invBombaUrl, invAutosUrl, invPajarosUrl, invPersonasUrl, penUfoUrl, penUfoShotUrl, invAmetralladoraUrl, invBazookaVueloUrl, invBazookaBoomUrl, invRecargaUrl, invLluviaUrl, invNodrizaUrl, invOvniUrl, invOvniLlegaUrl, invCorazonUrl, invGritoHombreUrl, invGritoMujerUrl, ...ALIEN_VOICES, ...Object.values(RADIO)]) loadSample(url); }
