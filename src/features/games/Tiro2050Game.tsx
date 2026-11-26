@@ -128,6 +128,8 @@ export function Tiro2050Game() {
   const [levelResults, setLevelResults] = useState<LevelResult[]>([]);
   const [precisionRound, setPrecisionRound] = useState(1);
   const [paused, setPaused] = useState(false);
+  // Cambia en cada start(): así el bucle de la ronda se reinicia aunque la fase siga siendo 'round' (rondas de Target).
+  const [roundSerial, setRoundSerial] = useState(0);
   const [musicMuted, setMusicMuted] = useState(isTiroMusicMuted);
   const [precisionResults, setPrecisionResults] = useState<Result[]>([]);
   const [impact, setImpact] = useState<Impact | null>(null);
@@ -210,8 +212,9 @@ export function Tiro2050Game() {
     if (level === 3) {
       const rounds = [...precisionResults, live.result];
       setPrecisionResults(rounds);
+      // Sin pantalla entre rondas: la siguiente arranca sola y la anuncia la alarma.
       if (precisionRound < PRECISION_ROUNDS) {
-        setPhase('precision-break');
+        start(turn, 3, precisionRound + 1);
         return;
       }
       setLevelResults(previous => [...previous, { level, ...sumResults(rounds), rounds }]);
@@ -241,7 +244,7 @@ export function Tiro2050Game() {
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [phase, level]);
+  }, [phase, level, roundSerial]);
 
   function start(player: number, nextLevel: Level = 1, nextPrecisionRound = 1) {
     preloadTiroSounds();
@@ -254,6 +257,7 @@ export function Tiro2050Game() {
     setPrecisionRound(nextPrecisionRound);
     if (nextPrecisionRound === 1) setPrecisionResults([]);
     setPaused(false);
+    setRoundSerial(serial => serial + 1);
     if (nextLevel === 3) playTiroAlarm();
     if (nextLevel === 1) setLevelResults([]);
     setElapsed(0);
@@ -555,8 +559,11 @@ export function Tiro2050Game() {
   const reloadBack = reloadProgress < 0 ? 0 : reloadProgress < .25 ? ease(reloadProgress / .25) : reloadProgress < .8 ? 1 : 1 - ease((reloadProgress - .8) / .2);
   const reloadTilt = reloadProgress < 0 ? 0 : reloadProgress < .25 ? 0 : reloadProgress < .45 ? ease((reloadProgress - .25) / .2) : reloadProgress < .8 ? 1 : 1 - ease((reloadProgress - .8) / .2);
   const recoilAge = lastShot ? elapsed - lastShot.at : Infinity;
-  const recoil = recoilAge < 30 ? recoilAge / 30 : recoilAge < 150 ? 1 - ease((recoilAge - 30) / 120) : 0;
-  const weaponPose = `translate(${(reloadBack * 4 + recoil * 1.6).toFixed(2)}%, ${(reloadBack * 7 + recoil * 2.4).toFixed(2)}%) rotate(${(recoil * 2.6 - reloadTilt * 9).toFixed(2)}deg)`;
+  const recoil = recoilAge < 30 ? recoilAge / 30 : recoilAge < 170 ? 1 - ease((recoilAge - 30) / 140) : 0;
+  // Correcciones 18: todo más exagerado. Al recargar el arma casi sale de la pantalla (la pistola todavía más).
+  const pistolPose = activeSlot === 1;
+  const backX = pistolPose ? 20 : 14, backY = pistolPose ? 28 : 24, tiltDown = pistolPose ? 30 : 24;
+  const weaponPose = `translate(${(reloadBack * backX + recoil * 4.5).toFixed(2)}%, ${(reloadBack * backY + reloadTilt * (pistolPose ? 22 : 20) + recoil * 5).toFixed(2)}%) rotate(${(recoil * 7 - reloadTilt * tiltDown).toFixed(2)}deg)`;
   const visibleNotices = Object.entries(targetImpacts).filter(([, hit]) => elapsed - hit.at < scoreNoticeDuration);
 
   return <section className={`tiro2050${phase === 'round' ? ' tiro2050--round' : ''}`} style={{ '--tiro-accent': tint } as CSSProperties}>

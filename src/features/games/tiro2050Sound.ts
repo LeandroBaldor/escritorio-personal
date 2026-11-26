@@ -77,24 +77,27 @@ export const RELOAD_DURATION: Record<GunFamily, number> = { ametralladora: 1510,
 // Música del juego (correcciones 16): Predator, Rambo y The Terminator, una tras otra y de nuevo desde la primera.
 // Sigue sonando en los menús y en la pausa. Volumen por canción para que suenen parejas (Rambo viene más fuerte).
 
-// Correcciones 17: el doble de fuerte que antes; Rambo es la versión nueva (Rambo_2), que viene pareja con las otras.
+// Correcciones 18: el doble de fuerte que en las 17 (pasa de 1, así que va por una ganancia de WebAudio con un limitador
+// para que no sature). Rambo es la versión nueva (Rambo_2), que viene pareja con las otras.
 // Predator arranca en el segundo 14,5 del original (los primeros 14 s eran casi mudos) para que se escuche apenas se abre el menú.
-const SONGS: [string, number][] = [[musica1Url, .64], [musica2Url, .6], [musica3Url, .64]];
+const SONGS: [string, number][] = [[musica1Url, 1.28], [musica2Url, 1.2], [musica3Url, 1.28]];
 const MUTE_KEY = 'escritorio-personal-juegos:tiro2050-musica-silenciada';
 let muted = (() => { try { return localStorage.getItem(MUTE_KEY) === '1'; } catch { return false; } })();
 export const isTiroMusicMuted = () => muted;
 export function setTiroMusicMuted(next: boolean) {
   muted = next;
   if (music) music.muted = next;
+  if (musicGain) musicGain.gain.value = next ? 0 : SONGS[song][1];
   try { localStorage.setItem(MUTE_KEY, next ? '1' : '0'); } catch { /* sin almacenamiento */ }
 }
 let music: HTMLAudioElement | null = null;
+let musicGain: GainNode | null = null;
 let song = 0;
 function playSong() {
   if (!music) return;
   const [url, volume] = SONGS[song];
   music.src = url;
-  music.volume = volume;
+  if (musicGain) { music.volume = 1; musicGain.gain.value = muted ? 0 : volume; } else music.volume = Math.min(1, volume);
   void music.play().catch(() => undefined);
 }
 export function startTiroMusic() {
@@ -103,14 +106,26 @@ export function startTiroMusic() {
     if (!music) {
       music = new Audio();
       music.muted = muted;
+      const c = audio();
+      if (c) {
+        const limiter = c.createDynamicsCompressor();
+        limiter.threshold.value = -3; limiter.knee.value = 3; limiter.ratio.value = 20; limiter.attack.value = .003; limiter.release.value = .2;
+        musicGain = c.createGain();
+        c.createMediaElementSource(music).connect(musicGain).connect(limiter).connect(c.destination);
+      }
       music.addEventListener('ended', () => { song = (song + 1) % SONGS.length; playSong(); });
       playSong();
-    } else if (music.paused) void music.play().catch(() => undefined);
+    } else {
+      audio();
+      if (music.paused) void music.play().catch(() => undefined);
+    }
   } catch { /* sin audio */ }
 }
 export function stopTiroMusic() {
   music?.pause();
   music = null;
+  musicGain?.disconnect();
+  musicGain = null;
   song = 0;
 }
 
