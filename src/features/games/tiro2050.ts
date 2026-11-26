@@ -4,7 +4,7 @@ export const TARGET_RISE_MS = 220;
 export const TARGET_VISIBLE_MS = 1_000;
 export const RELOAD_MS = 1_120;
 export const PRECISION_DISTANCES = 10;
-export const PRECISION_ROUNDS = 3;
+export const PRECISION_ROUNDS = 4; // correcciones 20: 4.ª vuelta
 export const PRECISION_STEP_MS = 520;
 // Correcciones 19: cada ronda de 10 tiros de Target tiene 40 segundos.
 export const PRECISION_ROUND_MS = 40_000;
@@ -92,10 +92,19 @@ export function getPlates(elapsed: number) {
   return flying;
 }
 
-export function getPrecisionPosition(distance: number) {
+// Correcciones 20: tres carriles (izquierda, medio, derecha). El cartel va cambiando de carril en cada tiro;
+// cada vuelta usa un orden distinto. La separación entre carriles se achica con la distancia (perspectiva).
+const PRECISION_LANES = [
+  [0, 1, -1, 0, 1, 1, -1, 0, -1, 1],
+  [-1, 0, 1, 1, 0, -1, -1, 1, 0, -1],
+  [1, -1, 0, -1, 1, 0, 0, -1, 1, 0],
+  [0, -1, 1, 0, -1, -1, 1, 1, 0, -1],
+];
+export const precisionLane = (round: number, shot: number) => PRECISION_LANES[(round - 1) % PRECISION_LANES.length][shot % PRECISION_DISTANCES];
+export function getPrecisionPosition(distance: number, lane = 0) {
   const depth = Math.pow(.84, distance);
   // Anchor the head directly so that shrinkage cannot cancel the movement towards the horizon.
-  return { x: 50, y: 60 - 3.6 * (1 - depth) / .16, width: 8.8 * depth };
+  return { x: 50 + lane * 15 * depth, y: 60 - 3.6 * (1 - depth) / .16, width: 8.8 * depth };
 }
 
 // Coordinates are in the target's 100 × 150 viewBox.

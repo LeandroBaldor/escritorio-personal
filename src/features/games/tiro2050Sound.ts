@@ -71,9 +71,12 @@ function play([url, volume]: [string, number], delay = 0) {
 // Cargar todo al empezar la ronda, así el primer tiro ya suena.
 export function preloadTiroSounds() { for (const [url] of [...Object.values(SHOTS), ...Object.values(RELOADS)]) load(url); }
 export function playTiroShot(family: GunFamily, delay = 0) { play(SHOTS[family], delay); }
-export function playTiroReload(family: GunFamily) { play(RELOADS[family]); }
+// Correcciones 20: el sonido de recarga de la pistola arranca un poco después del último tiro, así el estampido no lo tapa
+// y se escucha completo; la recarga dura ese retraso más el sonido.
+export const RELOAD_DELAY: Record<GunFamily, number> = { ametralladora: 0, escopeta: 0, rifle: 0, pistola: 300, pistolaAlien: 300 };
+export function playTiroReload(family: GunFamily) { play(RELOADS[family], RELOAD_DELAY[family] / 1000); }
 // Lo que dura cada sonido de recarga (ms): la recarga del arma y su movimiento duran lo mismo.
-export const RELOAD_DURATION: Record<GunFamily, number> = { ametralladora: 1510, escopeta: 860, rifle: 1440, pistola: 840, pistolaAlien: 840 };
+export const RELOAD_DURATION: Record<GunFamily, number> = { ametralladora: 1510, escopeta: 860, rifle: 1440, pistola: 300 + 840, pistolaAlien: 300 + 840 };
 
 // Música del juego (correcciones 16): Predator, Rambo y The Terminator, una tras otra y de nuevo desde la primera.
 // Sigue sonando en los menús y en la pausa. Volumen por canción para que suenen parejas (Rambo viene más fuerte).

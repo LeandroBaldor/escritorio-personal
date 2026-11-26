@@ -6,16 +6,16 @@ describe('Tiro al Blanco 2050: calificación final', () => {
     expect(levelPerformance(1, { score: 0, shots: 10, hits: 8, errors: 1 })).toBeCloseTo(.6);
     expect(levelPerformance(1, { score: 0, shots: 0, hits: 0, errors: 0 })).toBe(0);
     expect(levelPerformance(2, { score: 0, shots: 0, hits: launchedPlates(ROUND_MS), errors: 0 })).toBe(1);
-    expect(levelPerformance(3, { score: 225, shots: 30, hits: 30, errors: 0 })).toBeCloseTo(.5);
+    expect(levelPerformance(3, { score: 300, shots: 40, hits: 40, errors: 0 })).toBeCloseTo(.5);
   });
   it('califica de Muy malo a Excelente según el promedio', () => {
     const perfect = [
       { level: 1 as const, score: 0, shots: 10, hits: 10, errors: 0 },
       { level: 2 as const, score: 0, shots: 0, hits: launchedPlates(ROUND_MS), errors: 0 },
-      { level: 3 as const, score: 450, shots: 30, hits: 30, errors: 0 },
+      { level: 3 as const, score: 600, shots: 40, hits: 40, errors: 0 },
     ];
     expect(campaignRating(perfect)).toEqual({ percent: 100, label: 'Excelente' });
     expect(campaignRating([]).label).toBe('Muy malo');
-    expect(campaignRating([perfect[0], { ...perfect[2], score: 225 }])).toEqual({ percent: 50, label: 'Regular' }); // (1 + 0 + 0,5) / 3
+    expect(campaignRating([perfect[0], { ...perfect[2], score: 300 }])).toEqual({ percent: 50, label: 'Regular' }); // (1 + 0 + 0,5) / 3
   });
 });

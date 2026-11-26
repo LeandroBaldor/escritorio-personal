@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { campaignRating, getCameraView, getPlates, getPrecisionPosition, getWave, launchedPlates, levelNames, levelOrdinals, plateLauncher, plateWall, PRECISION_DISTANCES, PRECISION_ROUNDS, PRECISION_STEP_MS, primaries, ROUND_MS, roundLimit, scoreImpact, scorePrecision, secondaries, TARGET_RISE_MS, TARGET_VISIBLE_MS, WAVE_MS } from './tiro2050';
+import { campaignRating, getCameraView, getPlates, getPrecisionPosition, getWave, precisionLane, launchedPlates, levelNames, levelOrdinals, plateLauncher, plateWall, PRECISION_DISTANCES, PRECISION_ROUNDS, PRECISION_STEP_MS, primaries, ROUND_MS, roundLimit, scoreImpact, scorePrecision, secondaries, TARGET_RISE_MS, TARGET_VISIBLE_MS, WAVE_MS } from './tiro2050';
 import type { Level } from './tiro2050';
 import { PrecisionBoard, TargetBlast } from './Tiro2050Targets';
 import { playBolt } from './sounds';
@@ -51,7 +51,7 @@ const sceneArt = (level: Level, index: number) => art(`escenario-${(level - 1) *
 const levelBriefs: Record<Level, { text: string; points: string; time: string }> = {
   1: { text: 'Los aliens asoman detrás de las coberturas entre rehenes y civiles. Bajá solo a los aliens.', points: 'Cabeza +10 · torso +5 · rehén o civil −10', time: '3 minutos' },
   2: { text: 'La lanzadora tira platos que cruzan el campo hasta la pared. Rompé todos los que puedas antes de que choquen.', points: 'Cada plato roto +1', time: '3 minutos' },
-  3: { text: 'El blanco se aleja en cada tiro. Un solo disparo por distancia, con el arma de reserva.', points: 'Cabeza +15 · anillos del torso +7 a +10', time: '3 rondas de 10 distancias' },
+  3: { text: 'El blanco se aleja en cada tiro. Un solo disparo por distancia, con el arma de reserva.', points: 'Cabeza +15 · anillos del torso +7 a +10', time: '4 rondas de 10 distancias · 40 s cada una' },
 };
 // Color del plato (segunda prueba): se cambia el tono del plato naranja original.
 const plateColors = [
@@ -176,7 +176,8 @@ export function Tiro2050Game() {
   const primary = primaries[loadout.primary];
   const selectedSecondary = secondaries[loadout.secondary];
   const secondary = level === 3 && selectedSecondary.effect !== 3 ? secondaries[0] : selectedSecondary;
-  const weapons = [primary, secondary];
+  // Correcciones 20: en Platos, el doble de balas en las dos armas.
+  const weapons = level === 2 ? [primary, secondary].map(item => ({ ...item, ammo: item.ammo * 2 })) : [primary, secondary];
   const ammo = weapons.map((item, slot) => ({ remaining: item.ammo - arsenal.shots[slot], used: arsenal.shots[slot] }));
   const activeSlot = arsenal.slot;
   const weapon = weapons[activeSlot];
@@ -200,8 +201,8 @@ export function Tiro2050Game() {
   const tint = colors[loadout.operator];
   const stageName = levelScenes[level][scene];
   const precisionShot = Math.max(0, Math.min(PRECISION_DISTANCES - 1, result.shots - Number(level === 3 && impact !== null && elapsed - impact.at < PRECISION_STEP_MS)));
-  // Target: en la ronda 1 el cartel se va 10 veces para atrás, en la 2 vuelve 10 veces hacia adelante y en la 3 se va de nuevo.
-  const precisionStep = precisionRound === 2 ? PRECISION_DISTANCES - 1 - precisionShot : precisionShot;
+  // Target: las rondas impares el cartel se va 10 veces para atrás y las pares vuelve 10 veces hacia adelante (4 rondas).
+  const precisionStep = precisionRound % 2 === 0 ? PRECISION_DISTANCES - 1 - precisionShot : precisionShot;
   const settledLevel = levelResults.at(-1);
   const accumulatedScore = levelResults.reduce((total, entry) => total + entry.score, 0);
   const precisionTotal = sumResults(precisionResults);
@@ -736,7 +737,7 @@ export function Tiro2050Game() {
           {visibleNotices.flatMap(([id, hit]) => hit.plate && elapsed - hit.at < 870 ? [<div key={id} className="tiro-plate-break"
             style={{ left: `${hit.plate.x}%`, top: `${hit.plate.y}%` }}><TargetBlast /></div>] : [])}
         </>}
-        {level === 3 && <PrecisionBoard {...getPrecisionPosition(precisionStep)} number={precisionStep + 1} holes={precisionHoles} />}
+        {level === 3 && <PrecisionBoard {...getPrecisionPosition(precisionStep, precisionLane(precisionRound, precisionShot))} number={precisionStep + 1} holes={precisionHoles} />}
         </div>
         {level !== 3 && (scope ? <svg className={`tiro-scope${scope.precision ? ' tiro-scope--precision' : ''}`} viewBox="0 0 100 100" data-model={scope.name}
           style={{ '--tiro-scope-color': scope.color } as CSSProperties} aria-hidden="true">
