@@ -966,7 +966,7 @@ let invasionAmbient: Record<InvasionChannel, Channel> | null = null;
 // tiene su volumen para que suenen parejas (Rambo está grabada más fuerte).
 // Volúmenes por encima de 1 (el <audio> solo llega a 1): la canción pasa por el audio del navegador con su propio
 // volumen y un limitador solo para la música, así no satura y no aplasta los otros sonidos del juego.
-const INVASION_PLAYLIST = [{ url: invMusica1Url, volume: 1.35 }, { url: invMusica2Url, volume: 0.75 }, { url: invMusica3Url, volume: 1.35 }];
+const INVASION_PLAYLIST = [{ url: invMusica1Url, volume: 1.35 }, { url: invMusica2Url, volume: 1.2 }, { url: invMusica3Url, volume: 1.35 }]; // (el Rambo nuevo está grabado apenas más fuerte)
 let invMusic: { el: HTMLAudioElement; track: number; gain: GainNode | null } | null = null;
 export function startInvasionMusic() {
   if (invMusic || typeof Audio === 'undefined') return; // (si ya está sonando, sigue)
