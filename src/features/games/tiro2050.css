@@ -481,3 +481,4 @@ body:has(.tiro2050) .mobile-nav { display: none; }
   .tiro-play .tiro-ammo strong { font-size: .95rem; }
   .tiro-play .tiro-ammo button.tiro-swap { padding: .3rem .5rem; font-size: .8rem; }
 }
+.tiro-side-view { clip-path: inset(0 0 0 -200vw); }
