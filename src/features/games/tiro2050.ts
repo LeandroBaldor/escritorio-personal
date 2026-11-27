@@ -4,10 +4,10 @@ export const TARGET_RISE_MS = 220;
 export const TARGET_VISIBLE_MS = 1_000;
 export const RELOAD_MS = 1_120;
 export const PRECISION_DISTANCES = 10;
-export const PRECISION_ROUNDS = 5; // correcciones 21: alejamiento, acercamiento, alejamiento, acercamiento, alejamiento
 export const PRECISION_STEP_MS = 520;
-// Correcciones 21: Target tiene 40 segundos en total para sus 5 pasadas (antes 40 s por ronda).
-export const PRECISION_TOTAL_MS = 40_000;
+// Correcciones 22: Target dura 3 minutos, como las otras pruebas. El cartel va 10 distancias hacia el fondo, vuelve 10
+// hacia adelante y así sin parar (pasadas sin límite) hasta que se termina el tiempo.
+export const PRECISION_TOTAL_MS = ROUND_MS;
 export const levelNames = ['Aliens', 'Platos', 'Target'] as const;
 export const levelOrdinals = ['Primera prueba', 'Segunda prueba', 'Tercera prueba'] as const;
 export type Level = 1 | 2 | 3;
@@ -138,7 +138,8 @@ type Stats = { score: number; shots: number; hits: number; errors: number };
 export function levelPerformance(level: Level, stats: Stats) {
   if (level === 1) return stats.shots ? Math.max(0, stats.hits - 2 * stats.errors) / stats.shots : 0;
   if (level === 2) return Math.min(1, stats.hits / launchedPlates(ROUND_MS));
-  return Math.min(1, stats.score / (15 * PRECISION_DISTANCES * PRECISION_ROUNDS));
+  // Puntos por tiro sobre el máximo (15), contando al menos 50 tiros (5 pasadas) para que no alcance con tirar poco.
+  return Math.min(1, stats.score / (15 * Math.max(5 * PRECISION_DISTANCES, stats.shots)));
 }
 export function campaignRating(levels: (Stats & { level: Level })[]) {
   const percent = Math.round(([1, 2, 3] as Level[]).reduce((sum, level) => {

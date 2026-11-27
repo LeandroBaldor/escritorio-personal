@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { campaignRating, getCameraView, getPlates, getPrecisionPosition, getWave, precisionLane, launchedPlates, levelNames, levelOrdinals, plateLauncher, plateWall, PRECISION_DISTANCES, PRECISION_ROUNDS, PRECISION_STEP_MS, primaries, PRECISION_TOTAL_MS, ROUND_MS, scoreImpact, scorePrecision, secondaries, TARGET_RISE_MS, TARGET_VISIBLE_MS, WAVE_MS } from './tiro2050';
+import { campaignRating, getCameraView, getPlates, getPrecisionPosition, getWave, precisionLane, launchedPlates, levelNames, levelOrdinals, plateLauncher, plateWall, PRECISION_DISTANCES, PRECISION_STEP_MS, primaries, PRECISION_TOTAL_MS, ROUND_MS, scoreImpact, scorePrecision, secondaries, TARGET_RISE_MS, TARGET_VISIBLE_MS, WAVE_MS } from './tiro2050';
 import type { Level } from './tiro2050';
 import { PrecisionBoard, TargetBlast } from './Tiro2050Targets';
 import { playBolt } from './sounds';
@@ -51,7 +51,7 @@ const sceneArt = (level: Level, index: number) => art(`escenario-${(level - 1) *
 const levelBriefs: Record<Level, { text: string; points: string; time: string }> = {
   1: { text: 'Los aliens asoman detrás de las coberturas entre rehenes y civiles. Bajá solo a los aliens.', points: 'Cabeza +10 · torso +5 · rehén o civil −10', time: '3 minutos' },
   2: { text: 'La lanzadora tira platos que cruzan el campo hasta la pared. Rompé todos los que puedas antes de que choquen.', points: 'Cada plato roto +1', time: '3 minutos' },
-  3: { text: 'El blanco se aleja en cada tiro. Un solo disparo por distancia, con el arma de reserva.', points: 'Cabeza +15 · anillos del torso +7 a +10', time: '5 pasadas de 10 distancias · 40 s en total' },
+  3: { text: 'El blanco se aleja 10 distancias y vuelve, una y otra vez, cambiando de carril. Un solo disparo por distancia, con el arma de reserva.', points: 'Cabeza +15 · anillos del torso +7 a +10', time: '3 min · el cartel va y vuelve 10 distancias sin parar' },
 };
 // Color del plato (segunda prueba): se cambia el tono del plato naranja original.
 const plateColors = [
@@ -221,7 +221,7 @@ export function Tiro2050Game() {
       setPrecisionResults(rounds);
       // Sin pantalla entre rondas: la siguiente arranca sola y la anuncia la alarma, mientras queden pasadas y tiempo.
       const spent = live.spent + roundTime;
-      if (precisionRound < PRECISION_ROUNDS && spent < PRECISION_TOTAL_MS - 200) {
+      if (spent < PRECISION_TOTAL_MS - 200) {
         start(turn, 3, precisionRound + 1, spent);
         return;
       }
@@ -234,7 +234,9 @@ export function Tiro2050Game() {
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
-    (window as unknown as { __tiro2050Finish?: () => void }).__tiro2050Finish = () => { if (round.current.limit === ROUND_MS) round.current.start -= ROUND_MS; round.current.finishAt = 0; };
+    (window as unknown as { __tiro2050Finish?: () => void }).__tiro2050Finish = () => { round.current.start -= ROUND_MS; round.current.finishAt = 0; };
+    // Target: termina la pasada actual (como si se hubieran hecho los 10 tiros) sin gastar el tiempo.
+    (window as unknown as { __tiro2050Pass?: () => void }).__tiro2050Pass = () => { round.current.finishAt = 0; };
     (window as unknown as { __tiro2050Skip?: (ms: number) => void }).__tiro2050Skip = ms => { round.current.start -= ms; };
   }, []);
 
@@ -797,7 +799,7 @@ export function Tiro2050Game() {
       <div className="tiro-hud">
         <span className="tiro-hud-player"><img src={art(`operador-${loadout.operator}.jpg`)} alt="" /><span><small>Jugador {turn + 1}</small><b>{operators[loadout.operator]}</b></span></span>
         <span className="tiro-hud-score"><small>Prueba {level} de 3 · {levelNames[level - 1]}</small><strong><b>{result.score + (level === 3 ? precisionTotal.score : 0)}</b> pts</strong></span>
-        {level === 3 && <span className="tiro-hud-score tiro-distance"><small>Ronda {precisionRound}/{PRECISION_ROUNDS}</small><strong aria-label="Distancia del blanco">{precisionStep + 1}/{PRECISION_DISTANCES}</strong></span>}
+        {level === 3 && <span className="tiro-hud-score tiro-distance"><small>Pasada {precisionRound}</small><strong aria-label="Distancia del blanco">{precisionStep + 1}/{PRECISION_DISTANCES}</strong></span>}
         <time aria-label="Tiempo restante">{Math.floor(clock / 60)}:{String(clock % 60).padStart(2, '0')}</time>
       </div>
       <div className="tiro-ammo" aria-label="Munición disponible y gastada">
@@ -819,7 +821,7 @@ export function Tiro2050Game() {
     </>}
 
     {phase === 'precision-break' && <section className="tiro-results" aria-labelledby="tiro-precision-break-title">
-      <h2 id="tiro-precision-break-title">Ronda {precisionRound} de {PRECISION_ROUNDS} completada</h2>
+      <h2 id="tiro-precision-break-title">Pasada {precisionRound} completada</h2>
       <p>{precisionResults.at(-1)?.score} puntos en esta ronda · {precisionTotal.score} puntos acumulados</p>
       <button className="tiro-action" type="button" onClick={() => start(turn, 3, precisionRound + 1)}>Empezar ronda {precisionRound + 1}</button>
     </section>}
@@ -854,12 +856,12 @@ export function Tiro2050Game() {
             <div><dt>Aciertos</dt><dd>{settledLevel.hits}</dd></div>
             <div><dt>Tiros a la cabeza</dt><dd>{settledLevel.headshots}</dd></div>
             <div><dt>Tiros al torso</dt><dd>{settledLevel.hits - settledLevel.headshots}</dd></div>
-            <div><dt>Distancias completadas</dt><dd>{settledLevel.shots}/{PRECISION_DISTANCES * PRECISION_ROUNDS}</dd></div>
+            <div><dt>Pasadas</dt><dd>{settledLevel.rounds?.length ?? 0}</dd></div>
           </>}
           <div><dt>Precisión</dt><dd>{settledLevel.shots ? Math.round(settledLevel.hits / settledLevel.shots * 100) : 0}%</dd></div>
         </dl>
         {settledLevel.rounds && <ul className="tiro-level-scores" aria-label="Puntos por ronda">
-          {settledLevel.rounds.map((entry, index) => <li key={index}>Ronda {index + 1} <strong>{entry.score} pts</strong></li>)}
+          {settledLevel.rounds.map((entry, index) => <li key={index}>Pasada {index + 1} <strong>{entry.score} pts</strong></li>)}
         </ul>}
       </div>
       <div className={`tiro-report-actions${level === 3 ? ' tiro-report-actions--center' : ''}`}>

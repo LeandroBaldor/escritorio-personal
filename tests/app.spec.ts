@@ -1489,6 +1489,7 @@ test('Tiro al Blanco 2050 (el de Codex) abre desde la lista de juegos', async ({
 test('Tiro al Blanco 2050: soldado y armas, instructivo, las tres pruebas con su informe y el resultado final', async ({ page }) => {
   test.setTimeout(60000);
   const finish = () => page.evaluate(() => (window as unknown as { __tiro2050Finish: () => void }).__tiro2050Finish());
+  const nextPass = () => page.evaluate(() => (window as unknown as { __tiro2050Pass: () => void }).__tiro2050Pass());
   await page.goto('/escritorio-personal/#/juegos/tiro-al-blanco-2050');
   await expect(page.getByRole('heading', { name: 'Elegí tu soldado y sus armas' })).toBeVisible();
   await page.getByRole('button', { name: /Nova/ }).click();
@@ -1523,10 +1524,10 @@ test('Tiro al Blanco 2050: soldado y armas, instructivo, las tres pruebas con su
   await expect(page.getByRole('heading', { name: 'Tercera prueba: Target' })).toBeVisible();
   await page.getByRole('button', { name: 'Iniciar' }).click();
   await expect(page.getByLabel('Distancia del blanco')).toHaveText('1/10');
-  await expect(page.getByLabel('Tiempo restante')).toHaveText(/^0:(40|39)$/);
-  // Las rondas siguen solas, sin pantalla en el medio.
-  for (const [round, distance] of [['Ronda 2/5', '10/10'], ['Ronda 3/5', '1/10'], ['Ronda 4/5', '10/10'], ['Ronda 5/5', '1/10']]) {
-    await finish();
+  await expect(page.getByLabel('Tiempo restante')).toHaveText(/^(3:00|2:59)$/);
+  // Target dura 3 minutos: las pasadas siguen solas (ida y vuelta) hasta que se termina el tiempo.
+  for (const [round, distance] of [['Pasada 2', '10/10'], ['Pasada 3', '1/10'], ['Pasada 4', '10/10'], ['Pasada 5', '1/10'], ['Pasada 6', '10/10']]) {
+    await nextPass();
     await expect(page.getByText(round)).toBeVisible();
     await expect(page.getByLabel('Distancia del blanco')).toHaveText(distance);
   }
