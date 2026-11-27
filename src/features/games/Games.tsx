@@ -237,7 +237,7 @@ export function Games() {
           <span className="game-card-text">
             <strong>Tiro al Blanco 2050</strong>
             <span>🎯 Entrenamiento de tiro del año 2050 para 1 a 4 jugadores: elegí tu soldado y tus armas y pasá tres pruebas: Aliens, Platos y Target.</span>
-            <span className="game-card-win"><b>Cómo se gana:</b> Sumá la mayor cantidad de puntos en las tres pruebas: Aliens y Platos duran 3 minutos y Target 40 segundos. Al final te dan una calificación, de Muy malo a Excelente.</span>
+            <span className="game-card-win"><b>Cómo se gana:</b> Sumá la mayor cantidad de puntos en las tres pruebas: cada una dura 3 minutos. Al final te dan una calificación, de Muy malo a Excelente.</span>
           </span>
           <span className="game-card-foot">
             <span className="game-card-play" aria-hidden="true">Jugar ▶</span>
