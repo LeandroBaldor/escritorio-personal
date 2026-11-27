@@ -5,7 +5,7 @@ import { campaignRating, getCameraView, getPlates, getPrecisionPosition, getWave
 import type { Level } from './tiro2050';
 import { PrecisionBoard, TargetBlast } from './Tiro2050Targets';
 import { playBolt } from './sounds';
-import { gunFamily, isTiroMusicMuted, playTiroReload, playTiroShot, preloadTiroSounds, playTiroAlarm, preloadTiroAlarm, RELOAD_DURATION, setTiroMusicMuted, startTiroMusic, stopTiroMusic, COUNTDOWN_LEAD_MS, pauseTiroCountdown, playTiroCountdown, preloadTiroCountdown, resumeTiroCountdown, stopTiroCountdown } from './tiro2050Sound';
+import { gunFamily, isTiroMusicMuted, playTiroCasing, playTiroReload, playTiroShot, preloadTiroSounds, playTiroAlarm, preloadTiroAlarm, RELOAD_DURATION, setTiroMusicMuted, startTiroMusic, stopTiroMusic, COUNTDOWN_LEAD_MS, pauseTiroCountdown, playTiroCountdown, preloadTiroCountdown, resumeTiroCountdown, stopTiroCountdown } from './tiro2050Sound';
 import './tiro2050.css';
 import menuSoundUrl from './assets/sonidos/tiro2050-menu.mp3';
 
@@ -376,6 +376,7 @@ export function Tiro2050Game() {
     if (ejectPort) {
       const position = point({ clientX: ejectPort.x, clientY: ejectPort.y }, bounds);
       setCasings(previous => [...previous.filter(casing => time - casing.at < CASING_MS), { id: shots, ...position, at: time }]);
+      playTiroCasing();
     }
     const next: Arsenal = { slot, shots: [...current.shots], reloadEnds: [...current.reloadEnds] };
     const used = ++next.shots[slot];

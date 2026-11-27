@@ -9,6 +9,9 @@ import recargaAmetralladoraUrl from './assets/sonidos/tiro2050-recarga-ametralla
 import recargaEscopetaUrl from './assets/sonidos/tiro2050-recarga-escopeta.mp3';
 import recargaPistolaUrl from './assets/sonidos/tiro2050-recarga-pistola.mp3';
 import recargaRifleUrl from './assets/sonidos/tiro2050-recarga-rifle.mp3';
+import cascillo1Url from './assets/sonidos/tiro2050-cascillo-1.mp3';
+import cascillo2Url from './assets/sonidos/tiro2050-cascillo-2.mp3';
+import cascillo3Url from './assets/sonidos/tiro2050-cascillo-3.mp3';
 import musica1Url from './assets/sonidos/tiro2050-musica-1.mp3';
 import musica2Url from './assets/sonidos/tiro2050-musica-2.mp3';
 import musica3Url from './assets/sonidos/tiro2050-musica-3.mp3';
@@ -69,7 +72,22 @@ function play([url, volume]: [string, number], delay = 0) {
 }
 
 // Cargar todo al empezar la ronda, así el primer tiro ya suena.
-export function preloadTiroSounds() { for (const [url] of [...Object.values(SHOTS), ...Object.values(RELOADS)]) load(url); }
+export function preloadTiroSounds() { for (const [url] of [...Object.values(SHOTS), ...Object.values(RELOADS), ...CASINGS]) load(url); }
+
+// Cascillos: tres golpes distintos recortados de casquillos.mp3 del usuario (en 4,5 s, 8,3 s y 11,2 s del archivo).
+// Suenan cuando el cascillo cae al piso, fuera de la pantalla (~0,55 s después del tiro), uno al azar y más bajos
+// que los disparos. Con las automáticas no suenan todos: como mucho uno cada 160 ms, para que no sea un ruido continuo.
+const CASINGS: [string, number][] = [[cascillo1Url, .4], [cascillo2Url, .4], [cascillo3Url, .4]];
+export const CASING_SOUND_DELAY = .55;
+let lastCasing = -Infinity;
+export function playTiroCasing() {
+  const c = audio();
+  if (!c) return;
+  const at = c.currentTime + CASING_SOUND_DELAY;
+  if (at - lastCasing < .16) return;
+  lastCasing = at;
+  play(CASINGS[Math.floor(Math.random() * CASINGS.length)], CASING_SOUND_DELAY);
+}
 export function playTiroShot(family: GunFamily, delay = 0) { play(SHOTS[family], delay); }
 // Correcciones 20: el sonido de recarga de la pistola arranca un poco después del último tiro, así el estampido no lo tapa
 // y se escucha completo; la recarga dura ese retraso más el sonido.
